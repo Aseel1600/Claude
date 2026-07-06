@@ -2107,7 +2107,15 @@ export async function handleChatCore({
   // mode="cliproxyapi": returns the CLIProxyAPI executor instead.
   // mode="fallback": returns a wrapper that tries native first, falls back to CLIProxyAPI on 5xx/network errors.
 
-  const resolveExecutorWithProxy = (prov: string) => resolveExecutorWithProxyFor(prov, log);
+  // #6339: pass the resolved connection's providerSpecificData so a per-connection
+  // cliproxyapiMode="claude-native" override can deep-route this single connection
+  // through CLIProxyAPI regardless of the provider-level upstream_proxy_config mode.
+  const resolveExecutorWithProxy = (prov: string) =>
+    resolveExecutorWithProxyFor(
+      prov,
+      log,
+      (credentials?.providerSpecificData as Record<string, unknown> | null | undefined) ?? null
+    );
 
   // === Quota Share enforcement PRE-hook (B/F7) ===
   // Runs after provider/model/credentials/apiKeyInfo are fully resolved,
