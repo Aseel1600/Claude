@@ -31,6 +31,7 @@
 
 ### 🐛 Bug Fixes
 
+- **fix(dashboard):** adding a second API key connection for the same provider no longer silently overwrites the first — the Add-API-key modal now derives a unique default connection name (`main`, then `main-2`, `main-3`, …) so the backend name-based upsert can't collide (#6499 — thanks @dilneiss).
 - **fix(compression):** the session-dedup engine now also deduplicates a large multi-line block repeated **within a single message** (intra-message dedup), not just across turns; the compression-preview API surfaces a `fallbackReason`, and the fusion panel reports how many models were rate-limited vs failed on total-panel failure (#6501 — thanks @chirag127).
 - **fix(compression):** a stacked-pipeline step naming an unregistered engine now surfaces a `validationErrors` entry instead of silently no-op'ing, so misconfigured pipelines are visible in the preview API (#6506 — thanks @chirag127).
 - **feat(usage):** add a **Codex reset-credit redemption** flow to the Provider Limits UI — a `useCodexResetCreditRedemption` hook + `/api/usage/codex-reset-credit` route + `codexResetCredits` lib let you redeem banked Codex reset credits from the quota card. Regression guard: `tests/unit/codex-reset-credits.test.ts`. (thanks @JxnLexn)
