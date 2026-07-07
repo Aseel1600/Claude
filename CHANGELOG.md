@@ -31,6 +31,7 @@
 
 ### 🐛 Bug Fixes
 
+- **fix(providers):** recoverable Antigravity / Cloudflare `403` responses are now classified as retryable instead of terminal, so a transient WAF block no longer bans the connection. Regression guard: `tests/unit/errorclassifier-antigravity-403.test.ts`. (thanks @developerjillur)
 - **fix(mitm):** `sanitizeHeaders` now redacts `Set-Cookie` response headers so upstream session cookies never leak into logs / diagnostics. Regression guard: `tests/unit/mitm-sanitize-headers.test.ts`. (thanks @developerjillur)
 - **fix(api):** `/api/compression/preview` now accepts `mode: "caveman"` and correctly handles stacked / zero-compression previews ([#6425](https://github.com/diegosouzapw/OmniRoute/issues/6425)). Regression guard: `tests/unit/api/compression-preview-caveman-and-stacked-6425.test.ts`. (thanks @chirag127)
 - **feat(providers):** add **Zed** hosted LLM aggregator as a native-app provider ([#6118](https://github.com/diegosouzapw/OmniRoute/pull/6118)) — OAuth sign-in via the Zed hosted flow, registered through the shared provider registry + executor. Regression guards: `tests/unit/zed-oauth-provider.test.ts`, `zed-import-utils.test.ts`, `zed-docker-detect.test.ts`, `mitm-handler-zed.test.ts`. VPS-validated via live operator login (Hard Rule #18).
