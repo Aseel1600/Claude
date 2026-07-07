@@ -31,6 +31,7 @@
 
 ### 🐛 Bug Fixes
 
+- **fix(api-manager):** the fallback model picker now preserves combos instead of dropping them when a primary model is unavailable. Regression guard: `tests/unit/api-manager-page-static.test.ts`. (thanks @jmengit)
 - **fix(providers):** recoverable Antigravity / Cloudflare `403` responses are now classified as retryable instead of terminal, so a transient WAF block no longer bans the connection. Regression guard: `tests/unit/errorclassifier-antigravity-403.test.ts`. (thanks @developerjillur)
 - **fix(mitm):** `sanitizeHeaders` now redacts `Set-Cookie` response headers so upstream session cookies never leak into logs / diagnostics. Regression guard: `tests/unit/mitm-sanitize-headers.test.ts`. (thanks @developerjillur)
 - **fix(api):** `/api/compression/preview` now accepts `mode: "caveman"` and correctly handles stacked / zero-compression previews ([#6425](https://github.com/diegosouzapw/OmniRoute/issues/6425)). Regression guard: `tests/unit/api/compression-preview-caveman-and-stacked-6425.test.ts`. (thanks @chirag127)
