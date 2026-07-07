@@ -31,6 +31,7 @@
 
 ### 🐛 Bug Fixes
 
+- **feat(glm):** add **team-plan quota settings** for `glm-cn` connections — a dedicated `GlmTeamQuotaFields` form section (team quota id / limits) threaded through the Add/Edit connection modals, persisted via `providerSpecificData`, with the GLM usage service reading the team quota. Regression guards: `tests/unit/glm-team-quota.test.ts`, `provider-specific-data-schema.test.ts`. (thanks @hao3039032)
 - **feat(providers):** add **TinyFish** web-fetch/search support — a `tinyfish-fetch` executor + `/v1/web/fetch` route + MCP web-fetch tool, registered as a specialty-media provider with request-validation and a search-provider catalog entry. Regression guards: `tests/unit/executor-tinyfish-fetch.test.ts`, `web-fetch-handler.test.ts`, `mcp-web-fetch-tool.test.ts`, `provider-validation-tinyfish.test.ts`. (thanks @dtybnrj)
 - **fix(cli):** `omniroute launch-codex` now spawns `codex.cmd` through a shell on Windows (the npm `.cmd` shim is unresolvable by bare `spawn` → ENOENT), mirroring the qodercli Windows fix (#6263). Regression guard: `tests/unit/launch-codex-windows-spawn-6312.test.ts`. (thanks @swingtempo)
 - **fix(codex):** isolate the **Spark** quota from the shared Codex quota and stabilize the quota UI ordering / hydration so per-scope limits render consistently. Regression guards: `tests/unit/codex-quota-selection-hydration.test.ts`, `provider-limits-ui.test.ts` + 3 more. (thanks @xz-dev)
