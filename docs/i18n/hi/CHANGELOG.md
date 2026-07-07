@@ -6,6 +6,12 @@
 
 ## [3.8.31] — 2026-06-20
 
+## [3.8.47] — TBD
+
+_Living section — bullets land here as PRs merge into `release/v3.8.47` (parallel-cycle model; cycle opened at the v3.8.46 release freeze). Finalized at the v3.8.47 release._
+
+---
+
 ## [3.8.46] — TBD
 
 ### ✨ New Features
