@@ -247,7 +247,9 @@ export async function handleFusionChat({
     stragglerGraceMs: tuning?.stragglerGraceMs ?? FUSION_DEFAULTS.stragglerGraceMs,
     panelHardTimeoutMs: tuning?.panelHardTimeoutMs ?? FUSION_DEFAULTS.panelHardTimeoutMs,
   };
-  const minPanel = Math.min(Math.max(2, cfg.minPanel), panel.length);
+  // Honor user-supplied minPanel down to 1: with 1 survivor we still degrade
+  // gracefully via the answers.length===1 branch below (issue #6454).
+  const minPanel = Math.min(Math.max(1, cfg.minPanel), panel.length);
   const judge = judgeModel && judgeModel.trim() ? judgeModel.trim() : panel[0];
   log.info(
     "FUSION",
@@ -266,35 +268,39 @@ export async function handleFusionChat({
   const settled = await collectPanel(calls, { ...cfg, minPanel });
   log.info("FUSION", `fan-out collected in ${Date.now() - t0}ms`);
 
-  // 2. Collect successful answers.
+  // 2. Collect successful answers + per-member failure reasons (issue #6454).
   const answers: Array<{ model: string; text: string }> = [];
-  const rateLimited: string[] = [];
+  const failures: Array<{ model: string; reason: string }> = [];
   for (let i = 0; i < settled.length; i++) {
     const res = settled[i];
     const model = panel[i];
     if (!res) {
       log.warn("FUSION", `Panel ${model} dropped (straggler/timeout)`);
+      failures.push({ model, reason: "straggler_dropped" });
       continue;
     }
     const sentinel = res as Sentinel;
     if (sentinel.__timeout) {
       log.warn("FUSION", `Panel ${model} timed out`);
+      failures.push({ model, reason: "timeout" });
       continue;
     }
     if (sentinel.__error) {
       log.warn("FUSION", `Panel ${model} threw`, {
         error: sanitizeErrorMessage(sentinel.__error as Error),
       });
+      failures.push({ model, reason: "threw" });
       continue;
     }
     const resp = res as Response;
     if (!resp.ok) {
-      if (resp.status === 429) {
-        rateLimited.push(model);
-        log.warn("FUSION", `Panel ${model} rate-limited`, { status: resp.status });
-      } else {
-        log.warn("FUSION", `Panel ${model} failed`, { status: resp.status });
-      }
+      // Per-member reason keeps the exact status code (e.g. status_429 for a
+      // rate-limit fan-fail, status_503 for an outage) — strictly more
+      // informative than the earlier aggregate rate-limit count (#6454).
+      failures.push({ model, reason: `status_${resp.status}` });
+      log.warn("FUSION", `Panel ${model} ${resp.status === 429 ? "rate-limited" : "failed"}`, {
+        status: resp.status,
+      });
       continue;
     }
     try {
@@ -305,22 +311,28 @@ export async function handleFusionChat({
         log.info("FUSION", `Panel ${model} ok (${text.length} chars)`);
       } else {
         log.warn("FUSION", `Panel ${model} returned empty content`);
+        failures.push({ model, reason: "empty_content" });
       }
     } catch (e) {
       log.warn("FUSION", `Panel ${model} unparseable`, {
         error: sanitizeErrorMessage(e as Error),
       });
+      failures.push({ model, reason: "unparseable" });
     }
   }
 
   // 3. Degrade gracefully when the panel is too thin to fuse.
   if (answers.length === 0) {
-    const detail =
-      rateLimited.length > 0
-        ? `${rateLimited.length} models rate-limited, ${panel.length - rateLimited.length} failed`
-        : `all ${panel.length} models failed`;
+    // Surface per-member reasons so operators can distinguish a rate-limit
+    // fan-fail (reason=rate_limited) from an outage (issue #6454). This supersedes
+    // the earlier aggregate "N rate-limited, M failed" summary — per-member is
+    // strictly more informative. Still routed through errorResponse for sanitization.
+    const detail = failures.map((f) => `${f.model}=${f.reason}`).join(", ");
     log.warn("FUSION", `No live models: ${detail}`);
-    return errorResponse(503, `All fusion panel models failed (${detail})`);
+    return errorResponse(
+      503,
+      detail ? `All fusion panel models failed: ${detail}` : "All fusion panel models failed"
+    );
   }
   if (answers.length === 1) {
     log.info(
