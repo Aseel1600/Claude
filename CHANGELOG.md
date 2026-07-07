@@ -31,6 +31,7 @@
 
 ### 🐛 Bug Fixes
 
+- **feat(api):** add a `hidePaidModels` setting that filters paid-only models out of the `/v1/models` catalog. Regression guard: `tests/unit/models-catalog-hide-paid.test.ts`. (thanks @chirag127)
 - **fix(api-manager):** the fallback model picker now preserves combos instead of dropping them when a primary model is unavailable. Regression guard: `tests/unit/api-manager-page-static.test.ts`. (thanks @jmengit)
 - **fix(providers):** recoverable Antigravity / Cloudflare `403` responses are now classified as retryable instead of terminal, so a transient WAF block no longer bans the connection. Regression guard: `tests/unit/errorclassifier-antigravity-403.test.ts`. (thanks @developerjillur)
 - **fix(mitm):** `sanitizeHeaders` now redacts `Set-Cookie` response headers so upstream session cookies never leak into logs / diagnostics. Regression guard: `tests/unit/mitm-sanitize-headers.test.ts`. (thanks @developerjillur)
