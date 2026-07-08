@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
-import { Button, Badge, Input, Modal, Toggle } from "@/shared/components";
+import { Button, Badge, Input, Modal, Toggle, TALL_MODAL_PROPS } from "@/shared/components";
 import {
   providerAllowsOptionalApiKey,
   supportsBulkApiKey,
@@ -445,7 +445,7 @@ export default function AddApiKeyModal({
       title={getAddCredentialModalTitle(t, providerDisplayName, webSessionCredential)}
       onClose={onClose}
       size="lg"
-      bodyClassName="p-6 max-h-[85vh] overflow-y-auto"
+      {...TALL_MODAL_PROPS}
     >
       <div className="flex flex-col gap-4">
         {webProviderHostLink && (
