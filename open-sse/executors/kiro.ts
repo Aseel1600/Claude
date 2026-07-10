@@ -201,8 +201,19 @@ export class KiroExecutor extends BaseExecutor {
       "anthropic-beta": "prompt-caching-2024-07-31",
     };
 
-    if (credentials.accessToken) {
-      headers["Authorization"] = `Bearer ${credentials.accessToken}`;
+    const authMethod =
+      typeof credentials.providerSpecificData?.authMethod === "string"
+        ? credentials.providerSpecificData.authMethod
+        : undefined;
+    const isApiKey = authMethod === "api_key";
+    const token = isApiKey
+      ? credentials.apiKey || credentials.accessToken
+      : credentials.accessToken;
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+      // Long-lived Kiro/CodeWhisperer API keys authenticate with `tokentype: API_KEY`.
+      if (isApiKey) headers["tokentype"] = "API_KEY";
 
       // Enterprise / Microsoft Entra "Your organization" (external_idp) logins send an
       // org-IdP-issued access token. CodeWhisperer only binds it to the Amazon Q Developer
@@ -210,7 +221,7 @@ export class KiroExecutor extends BaseExecutor {
       // returns `ValidationException: Invalid ARN <clientId>` (the service falls back to the
       // token's client id as the resource ARN). AWS SSO (Builder ID / IDC) and social tokens
       // must NOT send this header, so it is gated on the persisted authMethod.
-      if (isExternalIdpAuthMethod(credentials.providerSpecificData?.authMethod)) {
+      if (isExternalIdpAuthMethod(authMethod)) {
         headers[KIRO_EXTERNAL_IDP_TOKEN_TYPE_HEADER] = KIRO_EXTERNAL_IDP_TOKEN_TYPE_VALUE;
       }
     }
@@ -795,6 +806,7 @@ export class KiroExecutor extends BaseExecutor {
   }
 
   async refreshCredentials(credentials: ProviderCredentials, log?: ExecutorLog | null) {
+    if (credentials.providerSpecificData?.authMethod === "api_key") return null;
     if (!credentials.refreshToken) return null;
 
     try {

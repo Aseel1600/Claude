@@ -200,6 +200,11 @@ export const kiroImportSchema = z.object({
   scopes: z.union([z.string(), z.array(z.string())]).optional(),
 });
 
+export const kiroApiKeyImportSchema = z.object({
+  apiKey: z.string().trim().min(1, "API key is required"),
+  region: z.string().trim().default("us-east-1"),
+});
+
 export const zedImportSchema = z.object({
   confirmedAccounts: z.array(confirmedAccountSchema),
 });
