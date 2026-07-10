@@ -155,42 +155,62 @@ export function openaiToClaudeResponse(chunk, state) {
     for (const tc of delta.tool_calls) {
       const idx = tc.index ?? 0;
 
-      if (tc.id) {
+      // Strip the Claude OAuth prefix from an incoming tool name (if any).
+      const incomingName = (() => {
+        let n = tc.function?.name || "";
+        if (n.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) n = n.slice(CLAUDE_OAUTH_TOOL_PREFIX.length);
+        return n;
+      })();
+
+      // A tool call is identified by its id. Some OpenAI-compatible upstreams
+      // (GLM 5.2) stream the id and function.name in SEPARATE SSE chunks. The
+      // Claude protocol cannot patch a content_block_start after it is emitted,
+      // so we register the tool call on the id chunk but DEFER content_block_start
+      // until the name arrives (#2077 / decolua/9router#2077).
+      if (tc.id && !state.toolCalls.has(idx)) {
         stopThinkingBlock(state, results);
         stopTextBlock(state, results);
 
-        const toolBlockIndex = state.nextBlockIndex++;
-
-        // Strip prefix from tool name for response
-        let toolName = tc.function?.name || "";
-        if (toolName.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) {
-          toolName = toolName.slice(CLAUDE_OAUTH_TOOL_PREFIX.length);
-        }
-
         state.toolCalls.set(idx, {
           id: tc.id,
-          name: toolName,
-          blockIndex: toolBlockIndex,
+          name: incomingName,
+          blockIndex: state.nextBlockIndex++,
           // Shimmed tools buffer their raw args and emit a single corrected
           // input_json_delta at content_block_stop time (see finish handler).
-          shimmed: hasToolCallShim(toolName),
+          shimmed: incomingName ? hasToolCallShim(incomingName) : false,
           argBuffer: "",
-        });
-
-        results.push({
-          type: "content_block_start",
-          index: toolBlockIndex,
-          content_block: {
-            type: "tool_use",
-            id: tc.id,
-            name: toolName,
-            input: {},
-          },
+          startEmitted: false,
         });
       }
 
+      const toolInfo = state.toolCalls.get(idx);
+      if (toolInfo) {
+        // Capture a late-arriving id or name (streamed after the initial chunk).
+        if (tc.id && !toolInfo.id) toolInfo.id = tc.id;
+        if (incomingName && !toolInfo.startEmitted && !toolInfo.name) {
+          toolInfo.name = incomingName;
+          toolInfo.shimmed = hasToolCallShim(incomingName);
+        }
+
+        // Emit content_block_start once we have a name. If arguments arrive before
+        // any name was ever seen, start the block anyway with the (empty) name so
+        // the input_json_delta stays well-formed.
+        if (!toolInfo.startEmitted && (toolInfo.name || tc.function?.arguments != null)) {
+          toolInfo.startEmitted = true;
+          results.push({
+            type: "content_block_start",
+            index: toolInfo.blockIndex,
+            content_block: {
+              type: "tool_use",
+              id: toolInfo.id,
+              name: toolInfo.name || "",
+              input: {},
+            },
+          });
+        }
+      }
+
       if (tc.function?.arguments) {
-        const toolInfo = state.toolCalls.get(idx);
         if (toolInfo) {
           // Always buffer the raw stream so shimmed tools can re-emit a
           // corrected JSON at stop time.
@@ -239,6 +259,18 @@ export function openaiToClaudeResponse(chunk, state) {
     stopTextBlock(state, results);
 
     for (const [, toolInfo] of state.toolCalls) {
+      // A tool call whose name/args never arrived (only an id chunk was seen)
+      // still has a reserved block index but no content_block_start. Emit it now
+      // so the terminal content_block_stop is not orphaned (#2077 edge case).
+      if (!toolInfo.startEmitted) {
+        toolInfo.startEmitted = true;
+        results.push({
+          type: "content_block_start",
+          index: toolInfo.blockIndex,
+          content_block: { type: "tool_use", id: toolInfo.id, name: toolInfo.name || "", input: {} },
+        });
+      }
+
       // For shimmed tools, emit one corrective input_json_delta with the
       // fully patched JSON before closing the block.
       if (toolInfo.shimmed) {
