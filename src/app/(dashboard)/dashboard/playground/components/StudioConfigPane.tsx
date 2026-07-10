@@ -20,7 +20,7 @@ import ReasoningControls from "./ReasoningControls";
 import {
   resolveReasoningControls,
   type ReasoningControlSpec,
-} from "./reasoningControls";
+} from "./reasoningControlUtils";
 
 export interface ConfigState {
   endpoint: PlaygroundEndpoint;
