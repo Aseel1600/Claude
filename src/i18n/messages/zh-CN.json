@@ -1532,6 +1532,8 @@
     "chartModel": "模型",
     "chartProvider": "提供商",
     "chartProviderBreakdown": "按提供商拆分",
+    "chartDate": "__MISSING__:Date",
+    "chartRequestsByProviderDate": "__MISSING__:Requests by Provider & Date",
     "filterAllKeys": "全部密钥",
     "filterSearchKeys": "搜索密钥…",
     "filterNoKeysMatch": "没有匹配的密钥",

@@ -1548,6 +1548,8 @@
     "chartModel": "Model",
     "chartProvider": "Provider",
     "chartProviderBreakdown": "Provider Breakdown",
+    "chartDate": "Date",
+    "chartRequestsByProviderDate": "Requests by Provider & Date",
     "filterAllKeys": "All Keys",
     "filterSearchKeys": "Search keys…",
     "filterNoKeysMatch": "No keys match",
