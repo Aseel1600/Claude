@@ -3370,6 +3370,7 @@ And thank you to the OmniRoute community for the bug reports, reproductions, and
 
 ### Fixed
 
+- **usage:** use xAI's exact provider-reported cost when present instead of always estimating from token counts. (thanks @ryanngit)
 - **memory:** the `recent` retrieval strategy no longer drops recent memories whose
   text doesn't overlap the current prompt. It was internally mapped to the `exact`
   path, which relevance-filtered by the forwarded prompt (`score > 0`), so
