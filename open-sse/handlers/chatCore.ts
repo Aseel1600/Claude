@@ -296,6 +296,7 @@ import {
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
 import type { CompressionConfig, CompressionPipelineStep } from "../services/compression/types.ts";
 import { prepareWebSearchFallbackBody } from "../services/webSearchFallback.ts";
+import { resolveInterceptSearch } from "@/lib/db/interceptionRules";
 import {
   resolveExplicitStreamAlias,
   resolveStreamFlag,
@@ -731,12 +732,17 @@ export async function handleChatCore({
   // Initialize rate limit settings from persisted DB (once, lazy)
   await initializeRateLimits();
 
+  // #3384: per-model interception rule (src/lib/db/interceptionRules.ts) overrides the
+  // native-bypass defaults below when the operator explicitly configured it for this
+  // provider/model pair; undefined falls through to the existing bypass logic.
+  const interceptSearchOverride = resolveInterceptSearch(provider, effectiveModel);
   const { body: bodyWithWebSearchFallback, fallback: webSearchFallbackPlan } =
     prepareWebSearchFallbackBody(body as Record<string, unknown>, {
       provider,
       sourceFormat,
       targetFormat,
       nativeCodexPassthrough,
+      interceptSearchOverride,
     });
   if (webSearchFallbackPlan.enabled) {
     body = bodyWithWebSearchFallback as typeof body;
