@@ -45,6 +45,7 @@ import {
   validateCopilotWebProvider,
   validateT3WebProvider,
   validateJulesProvider,
+  validateDevinCloudAgentProvider,
   validateInnerAiProvider,
 } from "./validation/webProvidersB";
 import {
@@ -390,6 +391,10 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
       }
     },
     jules: validateJulesProvider,
+    // "devin" is the Cognition cloud-agent provider (distinct from the "devin-cli"
+    // LLM/ACP provider, which is already registered in providerRegistry). Wired here
+    // for parity with the "jules" cloud-agent entry above — see #6142.
+    devin: validateDevinCloudAgentProvider,
     // auggie is a fully local, credential-less CLI passthrough — there is no API
     // key to check upstream. The only meaningful validation is confirming the
     // `auggie` binary is installed and runnable on this machine.
