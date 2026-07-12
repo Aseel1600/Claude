@@ -230,6 +230,8 @@
       "tests/unit/router-strategies.test.ts",
       "tests/unit/rule12-error-sanitization-sweep.test.ts",
       "tests/unit/serial/combo-health-autopilot.test.ts",
+      "tests/unit/serial/combo-quota-share-cooldown-wait-timing.test.ts",
+      "tests/unit/serial/combo-strategy-fallbacks-half-open-timing.test.ts",
       "tests/unit/serial/provider-health-autopilot.test.ts",
       "tests/unit/service-combo-metrics.test.ts",
       "tests/unit/services-branch-hardening.test.ts",
