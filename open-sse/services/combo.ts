@@ -153,6 +153,7 @@ import {
 } from "./combo/providerWildcard.ts";
 import { resolveShadowTargets, scheduleShadowRouting } from "./combo/shadowRouting.ts";
 import { attemptCompatRejectedFallback } from "./combo/comboCompatFallback.ts";
+import { applyContextRequirements } from "./combo/contextRequirements.ts";
 import {
   filterTargetsByRequestCompatibility,
   resolveComboRuntimeUnits,
@@ -1211,6 +1212,7 @@ export async function handleComboChat({
   orderedTargets = _sticky.targets;
   orderedTargets = orderTargetsByEvalScores(orderedTargets, config.evalRouting, log);
   orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log);
+  orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
 
   // Task-aware reordering: only active for strategies ["smart","task","task-aware","task_aware","auto"].
   // Additive — does not affect any of the other 15 strategies.
