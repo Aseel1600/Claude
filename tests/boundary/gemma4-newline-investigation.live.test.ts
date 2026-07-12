@@ -5,15 +5,17 @@
  * characterize when Gemma4 emits literal \\n (backslash-n) vs actual
  * newlines (0x0A) in tool call JSON arguments.
  *
- * Tests hit the LIVE OmniRoute API at omniroute.vhost2.harre.dynv6.net.
+ * Tests hit the LIVE OmniRoute API at the configured OMNIROUTE_TEST_BASE instance.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const BASE = "https://omniroute.vhost2.harre.dynv6.net/v1";
-const AUTH = "Bearer sk-7b3a9f0879f9bfcf-4f8870-d0e71799";
+const BASE = process.env.OMNIROUTE_TEST_BASE || "http://localhost:20128/v1";
+const AUTH = process.env.OMNIROUTE_TEST_BEARER
+    ? `Bearer ${process.env.OMNIROUTE_TEST_BEARER}`
+    : "";
 const COOKIE =
-  "auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJleHAiOjE3ODYwMDc2Mzl9.YjGPcmh50QvtfnRJPXhsillOlJ3HKiCHRPX7kaWe5Y0";
+  process.env.OMNIROUTE_TEST_COOKIE || "";
 
 const MODEL = "gemini/gemma-4-26b-a4b-it";
 

@@ -6,19 +6,21 @@
  * that tool call arguments (especially multiline content like file writes)
  * survive the round-trip without corruption.
  *
- * These tests call the LIVE OmniRoute API at omniroute.vhost2.harre.dynv6.net.
+ * These tests call the LIVE OmniRoute API at the configured OMNIROUTE_TEST_BASE instance.
  * Prerequisites: valid auth token (from INITIAL_PASSWORD) and access to the
  * remote OmniRoute instance.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const BASE = "https://omniroute.vhost2.harre.dynv6.net/v1";
-const AUTH = "Bearer sk-7b3a9f0879f9bfcf-4f8870-d0e71799";
+const BASE = process.env.OMNIROUTE_TEST_BASE || "http://localhost:20128/v1";
+const AUTH = process.env.OMNIROUTE_TEST_BEARER
+    ? `Bearer ${process.env.OMNIROUTE_TEST_BEARER}`
+    : "";
 
 // Cookie obtained via INITIAL_PASSWORD login
 const COOKIE =
-  "auth_token=eyJhbGciOiJIUzI1NiJ9.eyJhdXRoZW50aWNhdGVkIjp0cnVlLCJleHAiOjE3ODYwMDc2Mzl9.YjGPcmh50QvtfnRJPXhsillOlJ3HKiCHRPX7kaWe5Y0";
+  process.env.OMNIROUTE_TEST_COOKIE || "";
 
 // Only the tests that call the live remote OmniRoute API need this gate — the
 // pure parsing/stopReason-simulation tests at the bottom of the file run locally.
