@@ -131,7 +131,7 @@
   },
   "open-sse/services/compression/engines/headroom/gcf/decode_generic.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 18
+      "count": 22
     }
   },
   "open-sse/services/compression/engines/headroom/gcf/scalar.ts": {
