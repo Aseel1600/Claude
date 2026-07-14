@@ -37,6 +37,34 @@ npm run test:e2e           # optional but recommended
 /capture-release-evidences-cc
 ```
 
+## npm Staged Publishing (default since v3.8.49 — WS1.3/D2)
+
+The npm-publish workflow no longer publishes directly: it boots the packed tarball
+(`check:pack-boot`) and then runs `npm stage publish` — the exact bytes are parked on
+the registry, **not installable** until the owner approves. The human 2FA gate moved
+to AFTER the proof, not before it.
+
+**Owner flow after the workflow goes green:**
+
+1. `npm stage list omniroute` — find the stage id (also printed in the workflow summary).
+2. Verify the staged bytes (recommended): `npm stage download <id>`, then install the
+   downloaded tarball into a temp prefix and boot it (`npm run check:pack-boot` automates
+   the same pack→install→boot verdict in CI).
+3. `npm stage approve <id>` — the 2FA prompt IS the publish. `npm stage reject <id>` discards.
+4. Post-publish net: the post-publish verifier (WS1.4 of the v3.8.49 plan) installs the
+   published version from the public registry in a clean container and boots it.
+
+**Emergency fallback:** `workflow_dispatch` with `publish_mode=direct` restores the
+legacy immediate `npm publish` (use only if staging itself misbehaves; record why).
+
+**One-time hardening (owner, npmjs.com):** configure the Trusted Publisher for
+`omniroute` in stage-only mode so a leaked long-lived token cannot `npm publish`
+directly from anywhere — CI can only stage; only the owner's 2FA releases.
+
+**Broken-artifact playbook (unchanged):** `npm deprecate omniroute@<bad> "<reason> — use <fixed>"`
+as the default reflex (minutes, reversible); `npm unpublish` only inside the 72h/no-dependents
+window and never as the first move. Docker: never rewrite a version tag — rollback is
+repointing `latest` to the last good digest.
 ## Hotfix Fast-Lane (label `hotfix`)
 
 A PR labeled `hotfix` skips the heavy CI matrix (9-shard E2E, coverage ratchet,
