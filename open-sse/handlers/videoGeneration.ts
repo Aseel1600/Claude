@@ -1,24 +1,17 @@
 /**
  * Video Generation Handler
  *
- * Handles POST /v1/videos/generations requests.
- * Proxies to upstream video generation providers.
- *
- * Supported provider formats:
- * - ComfyUI: submit AnimateDiff/SVD workflow → poll → fetch video
- * - SD WebUI: POST to AnimateDiff extension endpoint
- *
- * Response format (OpenAI-like):
- * {
- *   "created": 1234567890,
- *   "data": [{ "b64_json": "...", "format": "mp4" }]
- * }
+ * Handles POST /v1/videos/generations requests. Proxies to upstream video
+ * generation providers (ComfyUI AnimateDiff/SVD, SD WebUI AnimateDiff, and
+ * more — see the per-format handlers below). Response format (OpenAI-like):
+ * { "created": 1234567890, "data": [{ "b64_json": "...", "format": "mp4" }] }
  */
 
 import { getVideoProvider, parseVideoModel } from "../config/videoRegistry.ts";
 import { kieExecutor } from "../executors/kie.ts";
 import { vertexGenerateVideo } from "../executors/vertexMedia.ts";
 import { handleGoogleFlowVideoGeneration } from "./videoGeneration/googleFlowHandler.ts";
+import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandler.ts";
 import { getExecutor } from "../executors/index.ts";
 import { isJsonObject, parseKieResultJson } from "../utils/kieTask.ts";
 import {
@@ -120,6 +113,10 @@ export async function handleVideoGeneration({ body, credentials, log }) {
       credentials,
       log,
     });
+  }
+
+  if (providerConfig.format === "xai-video") {
+    return handleXaiVideoGeneration({ model, provider, providerConfig, body, credentials, log });
   }
 
   return {
