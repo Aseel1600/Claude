@@ -62,6 +62,7 @@ import {
   CHATGPT_WEB_IMAGE_ID_RE,
 } from "./imageGeneration/providers/chatgptWeb.ts";
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
+import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 
 
 interface KieImageOptions {
@@ -526,6 +527,17 @@ export async function handleImageGeneration({
 
   if (providerConfig.format === "nvidia-nim") {
     return handleNvidiaNimImageGeneration({
+      model,
+      provider,
+      providerConfig,
+      body,
+      credentials,
+      log,
+    });
+  }
+
+  if (providerConfig.format === "minimax-image") {
+    return handleMinimaxImageGeneration({
       model,
       provider,
       providerConfig,
