@@ -16,6 +16,7 @@ import { handleLeonardoVideoGeneration } from "./videoGeneration/leonardoHandler
 import { handleDashscopeVideoGeneration } from "./videoGeneration/dashscopeHandler.ts";
 import { handleNovitaVideoGeneration } from "./videoGeneration/novitaHandler.ts";
 import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandler.ts";
+import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { getExecutor } from "../executors/index.ts";
 import { isJsonObject, parseKieResultJson } from "../utils/kieTask.ts";
 import {
@@ -130,6 +131,16 @@ export async function handleVideoGeneration({ body, credentials, log }) {
     });
   }
 
+  if (providerConfig.format === "segmind") {
+    return handleSegmindVideoGeneration({
+      model,
+      provider,
+      providerConfig,
+      body,
+      credentials,
+      log,
+    });
+  }
   if (providerConfig.format === "novita-video") {
     return handleNovitaVideoGeneration({ model, provider, providerConfig, body, credentials, log });
   }

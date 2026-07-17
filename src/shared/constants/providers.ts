@@ -58,6 +58,7 @@ export const IMAGE_ONLY_PROVIDER_IDS = new Set([
   "black-forest-labs",
   "recraft",
   "topaz",
+  "segmind",
   "freepik",
 ]);
 
@@ -107,6 +108,7 @@ export const VIDEO_PROVIDER_IDS = new Set([
   "replicate",
   "haiper",
   "leonardo",
+  "segmind",
   "novita",
 ]);
 
