@@ -42,7 +42,7 @@ test("APIKEY_PROVIDERS merges the 6 family files into 168 entries (no loss / no 
   assert.equal(keys.length, 168);
   assert.equal(new Set(keys).size, 168, "duplicate keys after spread-merge");
   // the merged object's entry-count equals the sum of the 6 semantic family files; families are a
-  // strict partition (every provider in exactly one), so the sum must be exactly 167.
+  // strict partition (every provider in exactly one), so the sum must be exactly 168.
   const families: [string, string][] = [
     ["gateways", "APIKEY_PROVIDERS_GATEWAYS"],
     ["frontier-labs", "APIKEY_PROVIDERS_FRONTIER"],
