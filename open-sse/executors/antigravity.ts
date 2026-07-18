@@ -54,6 +54,10 @@ import {
 // processAntigravitySSEPayload re-exported for external importers (tests).
 export { processAntigravitySSEPayload } from "./antigravity/sseCollect.ts";
 import {
+  handleAntigravityFallbackChainError,
+  handleAntigravityFallback400,
+} from "./antigravity/proFallbackChain.ts";
+import {
   applyAntigravityClientProfileHeaders,
   removeHeaderCaseInsensitive,
 } from "../services/antigravityClientProfile.ts";
@@ -1070,7 +1074,28 @@ export class AntigravityExecutor extends BaseExecutor {
     let firstResult: Awaited<ReturnType<AntigravityExecutor["executeOnce"]>> | null = null;
     for (let i = 0; i < chain.length; i++) {
       const candidate = chain[i];
-      const result = await this.executeOnce(input, candidate);
+      let result: Awaited<ReturnType<AntigravityExecutor["executeOnce"]>>;
+      try {
+        result = await this.executeOnce(input, candidate);
+      } catch (error) {
+        const outcome = handleAntigravityFallbackChainError(
+          input,
+          error,
+          candidate,
+          i,
+          chain,
+          firstResult,
+          resolvedUpstreamId
+        );
+        switch (outcome.action) {
+          case "throw":
+            throw outcome.error;
+          case "return":
+            return outcome.result;
+          default:
+            continue;
+        }
+      }
 
       // Success (or any non-400) on a candidate → return immediately.
       if (result.response.status !== HTTP_STATUS.BAD_REQUEST) {
@@ -1078,23 +1103,18 @@ export class AntigravityExecutor extends BaseExecutor {
       }
 
       // Remember the FIRST 400 so the exhausted-chain case surfaces the original error.
-      if (i === 0) firstResult = result;
+      if (!firstResult) firstResult = result;
 
-      const isLast = i === chain.length - 1;
-      if (!isLast) {
-        input.log?.debug?.(
-          "AG_PRO_FALLBACK",
-          `400 on "${candidate}" — retrying with next Pro candidate "${chain[i + 1]}"`
-        );
-        continue;
-      }
-
-      // Chain exhausted: surface the FIRST candidate's sanitized 400.
-      input.log?.warn?.(
-        "AG_PRO_FALLBACK",
-        `Pro fallback chain exhausted (all ${chain.length} candidates 400'd) for "${resolvedUpstreamId}"`
+      const outcome400 = handleAntigravityFallback400(
+        input,
+        result,
+        firstResult,
+        candidate,
+        i,
+        chain,
+        resolvedUpstreamId
       );
-      return firstResult ?? result;
+      if (outcome400.action === "return") return outcome400.result;
     }
 
     // Unreachable (loop always returns), but keeps the type checker happy.
