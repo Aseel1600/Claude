@@ -212,6 +212,14 @@ type StreamingPeekOutcome = "content" | "error" | null;
  * 1. Body is valid JSON
  * 2. Has at least one choice with non-empty content or tool_calls
  */
+function parseJsonRecord(data: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(data) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export async function validateResponseQuality(
   response: Response,
   isStreaming: boolean,
@@ -267,9 +275,23 @@ export async function validateResponseQuality(
       hasLifecycleEnd: false,
     };
     let anyContentFound = false;
-    let sawAnyBytes = false;
     // #7285: OpenAI-shape lifecycle tracking, parallel to `sse` above.
     const openAi: OpenAiLifecycleFlags = { hasChoicePayload: false, hasTerminalMarker: false };
+    // User log 1784230812441-bf3789: the previous `!sawAnyBytes` gate below let
+    // ANY byte — even unparseable garbage with no SSE framing at all — pass
+    // combo failover through. These two flags are tracked in parallel to
+    // `sse`/`openAi` above and only tighten the GENERIC done-branch gate
+    // further down; the #1382 (`sse.hasRealContent`) and #7285
+    // (`openAi.hasTerminalMarker`) branches are untouched.
+    //   - sawStructuredSSE — a parseable `event:` or `data:` frame was seen,
+    //     even one that carries no recognised content (ping/metadata) — the
+    //     #3399 pass-through contract for those streams is preserved.
+    //   - sawTerminator     — a recognised terminator arrived: `data: [DONE]`,
+    //     an OpenAI `finish_reason` (mirrors `openAi.hasTerminalMarker`), a
+    //     Claude `message_stop`/`message_delta` with `stop_reason` (mirrors
+    //     `sse.hasLifecycleEnd`), or a terminal `usage`-only chunk (new).
+    let sawStructuredSSE = false;
+    let sawTerminator = false;
     const sseLineNormalizer = createSSEDataLineNormalizer();
     let pendingEventType = "";
 
@@ -282,41 +304,67 @@ export async function validateResponseQuality(
      * is detected, or "error" when the upstream reports a failure before content.
      * Otherwise peeking continues.
      */
+    // Some providers send a terminal `usage`-only chunk (no `choices`) as the
+    // final SSE frame instead of a `[DONE]`/`finish_reason` marker. Excludes
+    // Responses API `response.*` events, which have their own dedicated
+    // handling via `isKnownNonClaudeStreamPayload`.
+    function isTerminalUsageOnlyChunk(parsed: Record<string, unknown>, eventType: string): boolean {
+      return Boolean(
+        parsed.usage &&
+          typeof parsed.usage === "object" &&
+          !Array.isArray(parsed.choices) &&
+          !eventType.startsWith("response.")
+      );
+    }
+
+    // Consume one normalized SSE line: track `event:` framing / keepalives /
+    // `[DONE]` terminators in the enclosing state, and return the JSON-parsed
+    // `data:` payload when (and only when) the line carries one.
+    function consumeSseLine(line: string): Record<string, unknown> | null {
+      const trimmed = line.trim();
+
+      if (trimmed.startsWith("event:")) {
+        pendingEventType = trimmed.slice(6).trim();
+        // An `event:` line is structured SSE framing on its own, even
+        // before any `data:` payload arrives (e.g. a bare keepalive ping).
+        sawStructuredSSE = true;
+        return null;
+      }
+
+      if (!trimmed.startsWith("data:")) {
+        if (!trimmed) pendingEventType = "";
+        return null;
+      }
+
+      const data = trimmed.slice(5).trim();
+      if (!data) return null;
+      if (data === "[DONE]") {
+        // #7285: `[DONE]` is itself a terminal marker for OpenAI-shape
+        // streams, even when no earlier chunk carried `finish_reason`.
+        openAi.hasTerminalMarker = true;
+        sawTerminator = true;
+        return null;
+      }
+
+      return parseJsonRecord(data);
+    }
+
     function parseAccumulatedSse(): StreamingPeekOutcome {
       const lines = decodedSoFar.split(/\r?\n/);
       // Retain the potentially-incomplete trailing fragment.
       decodedSoFar = lines[lines.length - 1];
 
       for (const line of sseLineNormalizer.normalize(lines.slice(0, -1))) {
-        const trimmed = line.trim();
+        const parsed = consumeSseLine(line);
+        if (!parsed) continue;
 
-        if (trimmed.startsWith("event:")) {
-          pendingEventType = trimmed.slice(6).trim();
-          continue;
-        }
-
-        if (!trimmed.startsWith("data:")) {
-          if (!trimmed) pendingEventType = "";
-          continue;
-        }
-
-        const data = trimmed.slice(5).trim();
-        if (!data) continue;
-        if (data === "[DONE]") {
-          // #7285: `[DONE]` is itself a terminal marker for OpenAI-shape
-          // streams, even when no earlier chunk carried `finish_reason`.
-          openAi.hasTerminalMarker = true;
-          continue;
-        }
-
-        let parsed: Record<string, unknown>;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
+        // A successfully parsed `data:` payload is structured SSE activity
+        // regardless of shape or content — tracked only for the generic
+        // done-branch gate below; the #1382/#7285 branches are unaffected.
+        sawStructuredSSE = true;
 
         applyOpenAiLifecycleEvent(parsed, openAi);
+        if (openAi.hasTerminalMarker) sawTerminator = true;
 
         const eventType =
           (typeof parsed.type === "string" ? parsed.type : null) || pendingEventType || "";
@@ -326,6 +374,8 @@ export async function validateResponseQuality(
           return "error";
         }
 
+        if (isTerminalUsageOnlyChunk(parsed, eventType)) sawTerminator = true;
+
         if (isKnownNonClaudeStreamPayload(parsed, eventType)) {
           return "content";
         }
@@ -333,6 +383,7 @@ export async function validateResponseQuality(
         if (applySseLifecycleEvent(eventType, parsed, sse)) {
           return "content";
         }
+        if (sse.hasLifecycleEnd) sawTerminator = true;
       }
       return null;
     }
@@ -411,15 +462,23 @@ export async function validateResponseQuality(
           }
 
           // Stream ended with a truly EMPTY body (e.g. Gemini returning HTTP
-          // 200 with zero bytes) — mark as invalid for combo failover so the
-          // sibling model gets tried. Streams that carried ANY SSE activity
-          // (an explicit `data: [DONE]`, ping/metadata events, an incomplete
-          // Claude lifecycle) keep the pass-through contract (#3399/#3685):
-          // those are handled by the stream-readiness timeout, not failover.
-          if (!anyContentFound && !sse.hasContentBlock && !sawAnyBytes) {
+          // 200 with zero bytes), or with bytes that never formed a single
+          // recognizable SSE frame and never signalled termination — mark as
+          // invalid for combo failover so the sibling model gets tried.
+          // Streams that carried ANY structured SSE activity (an explicit
+          // `data: [DONE]`, ping/metadata events, an incomplete Claude
+          // lifecycle) or a recognised terminator keep the pass-through
+          // contract (#3399/#3685): those are handled by the stream-readiness
+          // timeout, not failover.
+          //
+          // Tightened after user log 1784230812441-bf3789: the previous
+          // `!sawAnyBytes` check let ANY byte — even unparseable garbage that
+          // never produced a single structured SSE frame — pass through,
+          // leaving the downstream SSE parser hung on a half-finished stream.
+          if (!anyContentFound && !sse.hasContentBlock && !sawTerminator && !sawStructuredSSE) {
             log.warn?.(
               "COMBO",
-              "Streaming response ended with no recognized content — marking as invalid for combo failover"
+              "Streaming response ended with no recognized content or SSE terminator — marking as invalid for combo failover"
             );
             return { valid: false, reason: "streaming no recognized content" };
           }
@@ -450,7 +509,6 @@ export async function validateResponseQuality(
 
         // Accumulate raw bytes for potential replay.
         bufferedChunks.push(value);
-        if (value && value.length > 0) sawAnyBytes = true;
 
         // Decode incrementally (stream:true keeps multi-byte char state).
         decodedSoFar += decoder.decode(value, { stream: true });
