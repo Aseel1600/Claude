@@ -328,7 +328,7 @@
     "tests/unit/perplexity-web.test.ts": 999,
     "tests/unit/provider-models-route.test.ts": 1752,
     "tests/unit/provider-validation-specialty.test.ts": 2980,
-    "tests/unit/providers-page-utils.test.ts": 1107,
+    "tests/unit/providers-page-utils.test.ts": 1294,
     "tests/unit/reasoning-cache.test.ts": 980,
     "tests/unit/response-sanitizer.test.ts": 1063,
     "tests/unit/route-edge-coverage.test.ts": 1241,
