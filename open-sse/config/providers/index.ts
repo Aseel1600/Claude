@@ -131,6 +131,7 @@ import { vertexProvider } from "./registry/vertex/index.ts";
 import { duckduckgo_webProvider } from "./registry/duckduckgo-web/index.ts";
 import { felo_webProvider } from "./registry/felo-web/index.ts";
 import { xaiProvider } from "./registry/xai/index.ts";
+import { xai_oauthProvider } from "./registry/xai-oauth/index.ts";
 import { morphProvider } from "./registry/morph/index.ts";
 import { siliconflowProvider } from "./registry/siliconflow/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
@@ -328,6 +329,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "duckduckgo-web": duckduckgo_webProvider,
   "felo-web": felo_webProvider,
   xai: xaiProvider,
+  "xai-oauth": xai_oauthProvider,
   morph: morphProvider,
   siliconflow: siliconflowProvider,
   "gitlab-duo": gitlab_duoProvider,
