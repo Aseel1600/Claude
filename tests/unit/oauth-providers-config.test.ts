@@ -310,14 +310,16 @@ test("all provider endpoint URLs use HTTPS when a URL is configured", () => {
   }
 });
 
-test("Qwen OAuth uses qwen.ai (not chat.qwen.ai) for device/token URLs — upstream PR #683 / decolua issue #572", () => {
-  // The legacy host `chat.qwen.ai` started returning errors; the correct authoritative
-  // host for Qwen's device-code OAuth endpoints is `qwen.ai`. Regression guard for the
-  // port of decolua/9router#683 (closes decolua issue #572).
+test("Qwen OAuth uses chat.qwen.ai (not bare qwen.ai) for device/token URLs — #7517 supersedes #683/#572", () => {
+  // Upstream PR #683 / decolua issue #572 originally pointed these at the bare `qwen.ai` host.
+  // #7517 (2026-07-18) live-verified that host 404s on both paths ("ошибка сервера OmniRoute" in
+  // the companion extension) and that the working qwen-code device flow lives at `chat.qwen.ai`
+  // (verified: 200 + a valid device_code/user_code). See tests/unit/oauth-device-code-endpoints.test.ts
+  // for the companion regression guard.
   const deviceUrl = new URL(QWEN_CONFIG.deviceCodeUrl);
   const tokenUrl = new URL(QWEN_CONFIG.tokenUrl);
-  assert.equal(deviceUrl.hostname, "qwen.ai", "deviceCodeUrl must use qwen.ai");
-  assert.equal(tokenUrl.hostname, "qwen.ai", "tokenUrl must use qwen.ai");
+  assert.equal(deviceUrl.hostname, "chat.qwen.ai", "deviceCodeUrl must use chat.qwen.ai");
+  assert.equal(tokenUrl.hostname, "chat.qwen.ai", "tokenUrl must use chat.qwen.ai");
   assert.equal(deviceUrl.pathname, "/api/v1/oauth2/device/code");
   assert.equal(tokenUrl.pathname, "/api/v1/oauth2/token");
 });
