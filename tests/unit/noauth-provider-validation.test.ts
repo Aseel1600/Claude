@@ -1,7 +1,7 @@
 /**
  * Tests for noAuth provider validation:
  * - Bug 1: `theoldllm` and `chipotle` missing from providerAllowsOptionalApiKey
- * - Bug 2: `kimi` API key provider incorrectly routed through KimiWebExecutor
+ * - `kimi` API key provider stays on the dedicated Moonshot executor
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -27,9 +27,9 @@ for (const provider of [
   });
 }
 
-// Bug 2: kimi API key provider should NOT have a specialized web executor
-test("kimi API key provider falls through to DefaultExecutor", () => {
-  assert.equal(hasSpecializedExecutor("kimi"), false);
+// `kimi` is the hidden legacy id for Moonshot API compatibility, not Kimi Web.
+test("kimi API key provider uses the specialized Moonshot executor", () => {
+  assert.equal(hasSpecializedExecutor("kimi"), true);
 });
 
 // no regression: kimi-web and kimi-coding still have their executors

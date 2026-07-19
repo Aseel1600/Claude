@@ -35,6 +35,7 @@ import {
 import { getAllSyncedAvailableModels, type SyncedAvailableModel } from "@/lib/db/models";
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
+import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
 import { getOpenRouterCatalog } from "@/lib/catalog/openrouterCatalog";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import {
@@ -717,6 +718,7 @@ async function buildUnifiedModelsResponseCore(
     }
     const providersWithSyncedModels = new Set(
       Object.keys(syncedModelsByProvider).filter((pid) => {
+        if (providerUsesCuratedModelsOnly(pid)) return false;
         const models = syncedModelsByProvider[pid];
         return Array.isArray(models) && models.length > 0;
       })
@@ -814,6 +816,7 @@ async function buildUnifiedModelsResponseCore(
 
     try {
       for (const [providerId, syncedModels] of Object.entries(syncedModelsByProvider)) {
+        if (providerUsesCuratedModelsOnly(providerId)) continue;
         if (!Array.isArray(syncedModels) || syncedModels.length === 0) continue;
         if (blockedProviders.has(providerId)) continue;
         if (providerId === "reka") continue;
@@ -1189,6 +1192,7 @@ async function buildUnifiedModelsResponseCore(
     try {
       const customModelsMap = (await getAllCustomModels()) as Record<string, unknown>;
       for (const [providerId, rawProviderCustomModels] of Object.entries(customModelsMap)) {
+        if (providerUsesCuratedModelsOnly(providerId)) continue;
         // Skip Gemini — handled by syncedAvailableModels above
         if (providerId === "gemini") continue;
         if (providerId === "reka") continue;
