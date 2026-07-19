@@ -26,6 +26,13 @@ interface ExecCall {
 }
 const execCalls: ExecCall[] = [];
 let execShouldFail = false;
+const fakeCommands = {
+  execFileWithPassword: async (command: string, args: string[], _password: string, stdin = "") => {
+    execCalls.push({ command, args, stdin });
+    if (execShouldFail) throw new Error("fake command failed");
+    return "";
+  },
+};
 
 // We cannot use Node's built-in mock.module in ESM without experimental flags,
 // so we write the hosts file to a temp file and point HOSTS_FILE at it via a
@@ -105,6 +112,12 @@ test("addDNSEntry (legacy) is a function that delegates for Antigravity hosts", 
 
 test("addDNSEntry with agentId resolves agent-specific hosts from ALL_TARGETS", async () => {
   // Cursor target has hosts: ["api2.cursor.sh"]
+  // Verify that calling addDNSEntry with agentId="cursor" passes the right hosts.
+  // We call with [] to skip actual exec — just verifying the function signature accepts agentId.
+  await assert.doesNotReject(
+    addDNSEntry("fake-sudo", "cursor", fakeCommands),
+    "addDNSEntry must accept optional agentId parameter"
+  );
   // Verify host selection without invoking the privileged /etc/hosts writer.
   assert.deepEqual(
     resolveHostsForAgent("cursor"),
@@ -114,6 +127,10 @@ test("addDNSEntry with agentId resolves agent-specific hosts from ALL_TARGETS", 
 });
 
 test("addDNSEntry without agentId falls back to Antigravity hosts (backward compat)", async () => {
+  await assert.doesNotReject(
+    addDNSEntry("fake-sudo", undefined, fakeCommands),
+    "addDNSEntry without agentId must still work for backward compat"
+  );
   assert.deepEqual(
     resolveHostsForAgent(),
     [
@@ -127,6 +144,10 @@ test("addDNSEntry without agentId falls back to Antigravity hosts (backward comp
 });
 
 test("addDNSEntry with unknown agentId falls back to Antigravity hosts", async () => {
+  await assert.doesNotReject(
+    addDNSEntry("fake-sudo", "__nonexistent_agent__", fakeCommands),
+    "addDNSEntry with unknown agentId must fall back to Antigravity hosts"
+  );
   assert.deepEqual(
     resolveHostsForAgent("__nonexistent_agent__"),
     resolveHostsForAgent(),
@@ -232,7 +253,7 @@ test("addDNSEntries: entry passed as stdin data, not shell-interpolated", () => 
   );
   assert.ok(
     src.includes(
-      'execFileWithPassword("sudo", ["-S", "tee", "-a", HOSTS_FILE], sudoPassword, data)'
+      'commands.execFileWithPassword(\n      "sudo",\n      ["-S", "tee", "-a", HOSTS_FILE],\n      sudoPassword,\n      data\n    )'
     ),
     "entry data must be passed as stdin to tee, not interpolated in args"
   );

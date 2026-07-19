@@ -965,6 +965,15 @@ export async function handleChatCore({
       clientRawRequest.headers
     );
   }
+  const reasoningRouteDecision =
+    body && typeof body === "object"
+      ? (body as Record<string, unknown>)._omnirouteReasoningRouteTrace
+      : null;
+  if (reasoningRouteDecision) {
+    reqLogger.logRouteDecision(reasoningRouteDecision);
+    body = { ...(body as Record<string, unknown>) };
+    delete (body as Record<string, unknown>)._omnirouteReasoningRouteTrace;
+  }
 
   log?.debug?.("FORMAT", `${sourceFormat} → ${targetFormat} | stream=${stream}`);
 
