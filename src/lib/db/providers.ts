@@ -16,6 +16,7 @@ import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
 import { normalizeProviderSpecificData } from "@/lib/providers/requestDefaults";
 import { bumpProxyConfigGeneration } from "./settings";
 import { webSessionCredentialKey, parseProviderSpecificData } from "./webSessionDedup";
+import { resolveUsageAccountIdentity } from "@/lib/usage/accountIdentity";
 import {
   withNullableMaxConcurrent,
   withNullableQuotaWindowThresholds,
@@ -39,6 +40,7 @@ interface StatementLike<TRow = unknown> {
 
 interface DbLike {
   prepare: <TRow = unknown>(sql: string) => StatementLike<TRow>;
+  transaction: <T>(fn: () => T) => () => T;
 }
 
 // Real column set for provider_connections (must match the CREATE TABLE in
@@ -244,6 +246,7 @@ export async function createProviderConnection(data: JsonRecord) {
   // For Codex/OpenAI, a single email can have multiple workspaces (Team + Personal)
   // We need to check for workspace uniqueness, not just email
   let existing: JsonRecord | null = null;
+  let legacyCodexWorkspaceMatch = false;
 
   if (data.authType === "oauth" && data.email) {
     // For Codex, check for existing connection with same workspace
@@ -269,6 +272,7 @@ export async function createProviderConnection(data: JsonRecord) {
               "SELECT * FROM provider_connections WHERE provider = ? AND auth_type = 'oauth' AND json_extract(provider_specific_data, '$.workspaceId') = ? AND (email IS NULL OR email = '')"
             )
             .get(data.provider, workspaceId) as JsonRecord | undefined) || null;
+        legacyCodexWorkspaceMatch = existing !== null;
       }
       // For Codex with workspaceId, don't fall back to email-only check
       // This allows creating new connections for different workspaces
@@ -371,7 +375,34 @@ export async function createProviderConnection(data: JsonRecord) {
       toStringOrNull(merged.provider),
       merged.providerSpecificData
     );
-    _updateConnectionRow(db, existingId, merged);
+    db.transaction(() => {
+      if (legacyCodexWorkspaceMatch) {
+        const oldIdentity = resolveUsageAccountIdentity(existing);
+        const newIdentity = resolveUsageAccountIdentity(merged);
+        db.prepare(
+          `UPDATE usage_history
+           SET account_key = @newAccountKey,
+               account_label = CASE
+                 WHEN @newLabelPriority > COALESCE(account_label_priority, 0)
+                 THEN @newLabel
+                 ELSE account_label
+               END,
+               account_label_priority = MAX(
+                 COALESCE(account_label_priority, 0),
+                 @newLabelPriority
+               )
+           WHERE connection_id = @connectionId
+             AND account_key = @oldAccountKey`
+        ).run({
+          connectionId: existingId,
+          oldAccountKey: oldIdentity.accountKey,
+          newAccountKey: newIdentity.accountKey,
+          newLabel: newIdentity.accountLabel,
+          newLabelPriority: newIdentity.accountLabelPriority,
+        });
+      }
+      _updateConnectionRow(db, existingId, merged);
+    })();
     backupDbFile("pre-write");
     return withNullableRateLimitOverrides(
       withNullableQuotaWindowThresholds(
