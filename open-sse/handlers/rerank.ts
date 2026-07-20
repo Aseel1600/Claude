@@ -47,6 +47,25 @@ function buildAuthHeader(providerConfig, token) {
       ),
     };
   }
+  // Voyage AI: uses `top_k` instead of `top_n`, and rejects only exact empty
+  // strings (whitespace-only documents are accepted and ranked upstream). We
+  // filter out exact empty strings and track original indices implicitly via the
+  // response adapter, which reconstructs the map from options.documents (#7809).
+  // `return_documents` is always forced off upstream: Voyage echoes documents as
+  // plain strings (not Cohere's {text}), so we never rely on the echo — document
+  // text is always synthesized locally from the caller's originals (#7811).
+  if (providerConfig.format === "voyage") {
+    const docTexts = (body.documents || [])
+      .map((doc) => (typeof doc === "string" ? doc : doc?.text || ""))
+      .filter((text) => text !== "");
+    return {
+      model: body.model,
+      query: body.query,
+      documents: docTexts,
+      top_k: body.top_n || docTexts.length,
+      return_documents: false,
+    };
+  }
   // Default: Cohere-compatible format (used by Together, Fireworks, Cohere, SiliconFlow)
   return body;
 }
@@ -80,6 +99,41 @@ function buildAuthHeader(providerConfig, token) {
       return {
         index,
         relevance_score: typeof score === "number" ? score : 0,
+        ...(returnDocuments ? { document: { text } } : {}),
+      };
+    });
+    scored.sort((a, b) => b.relevance_score - a.relevance_score);
+    const topN = typeof options.top_n === "number" && options.top_n > 0 ? options.top_n : undefined;
+    return {
+      id: `rerank-${Date.now()}`,
+      results: topN ? scored.slice(0, topN) : scored,
+      meta: {
+        api_version: { version: "2" },
+        billed_units: { search_units: 1 },
+      },
+    };
+  }
+  // Voyage AI returns {data:[{relevance_score,index}], usage:{total_tokens}} — `index` refers
+  // to the filtered document array we sent (empty strings removed). We remap back to the
+  // caller's original positions and sort by score descending, honoring top_n (#7809).
+  if (providerConfig.format === "voyage") {
+    const documents = Array.isArray(options.documents) ? options.documents : [];
+    const returnDocuments = options.return_documents !== false;
+    // Reconstruct the index map: the request adapter filtered out exact empty
+    // strings, so we replicate that filter here to get original → filtered mapping.
+    const indexMap = [];
+    documents.forEach((doc, i) => {
+      const text = typeof doc === "string" ? doc : doc?.text || "";
+      if (text !== "") indexMap.push(i);
+    });
+    const scored = (Array.isArray(data.data) ? data.data : []).map((entry) => {
+      const filteredIdx = entry.index ?? 0;
+      const originalIdx = indexMap[filteredIdx] ?? filteredIdx;
+      const doc = documents[originalIdx];
+      const text = typeof doc === "string" ? doc : doc?.text || "";
+      return {
+        index: originalIdx,
+        relevance_score: typeof entry.relevance_score === "number" ? entry.relevance_score : 0,
         ...(returnDocuments ? { document: { text } } : {}),
       };
     });
