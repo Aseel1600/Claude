@@ -246,6 +246,65 @@ test("OIDC callback rejects subject not in allowed list (subject_not_allowed)", 
   }
 });
 
+test("OIDC callback rejects allowlisted email when email_verified is not asserted", async () => {
+  await localDb.updateSettings({
+    requireLogin: true,
+    password: "",
+    oidcEnabled: true,
+    oidcIssuer: "https://idp.test",
+    oidcClientId: "client-oidc-test",
+    oidcClientSecret: "secret-oidc-test",
+    oidcRedirectPath: "/api/auth/oidc/callback",
+    oidcAllowedSubjects: ["admin@example.com"],
+  });
+
+  // sub is NOT allowlisted; email matches the allowlist but the IdP did not assert
+  // email_verified — the gate must not honor the email claim (security regression guard).
+  const { idToken, jwks } = await createSignedIdToken({
+    iss: "https://idp.test",
+    aud: "client-oidc-test",
+    sub: "attacker-sub",
+    email: "admin@example.com",
+    // email_verified intentionally omitted
+  });
+
+  const testState = "state-for-unverified-email";
+  capturedCookies["oidc_state"] = { value: testState };
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : (input as URL).toString();
+    if (url.includes("/.well-known/openid-configuration")) {
+      return new Response(
+        JSON.stringify({
+          token_endpoint: "https://idp.test/token",
+          jwks_uri: "https://idp.test/jwks",
+        }),
+        { status: 200 }
+      );
+    }
+    if (url.includes("/token")) {
+      return new Response(JSON.stringify({ id_token: idToken }), { status: 200 });
+    }
+    if (url.includes("/jwks")) {
+      return new Response(JSON.stringify(jwks), { status: 200 });
+    }
+    return new Response("not mocked", { status: 404 });
+  }) as unknown as typeof fetch;
+
+  try {
+    const reqUrl = `http://localhost/api/auth/oidc/callback?code=code-unverified&state=${testState}`;
+    const response = await callbackRoute.GET(
+      new Request(reqUrl, { headers: { "x-forwarded-proto": "http" } })
+    );
+    assert.equal(response.status, 307);
+    const loc = response.headers.get("location") || "";
+    assert.ok(loc.includes("subject_not_allowed"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("OIDC callback rejects partial/misconfigured OIDC settings (not_configured)", async () => {
   // Partial config (enabled but missing issuer/clientId/secret) should hit the config guard.
   // We must set a matching oidc_state cookie first, otherwise we hit invalid_state.

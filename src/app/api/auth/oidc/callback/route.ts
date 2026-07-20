@@ -48,14 +48,14 @@ export async function GET(request: Request) {
   const originEarly = `${schemeEarly}://${hostEarly}`;
 
   if (!code || !returnedState) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=missing_code`);
+    return NextResponse.redirect(new URL("/login?oidc_error=missing_code", reqUrlEarly));
   }
 
   // Validate state from cookie (via seam so tests can capture)
   const cookieStore = await oidcCallbackInternals.getCookieStore();
   const storedState = cookieStore.get("oidc_state")?.value;
   if (!storedState || storedState !== returnedState) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=invalid_state`);
+    return NextResponse.redirect(new URL("/login?oidc_error=invalid_state", reqUrlEarly));
   }
 
   // Clear state cookie
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
       : "/api/auth/oidc/callback";
 
   if (!enabled || !issuer || !clientId || !clientSecret) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=not_configured`);
+    return NextResponse.redirect(new URL("/login?oidc_error=not_configured", reqUrlEarly));
   }
 
   // Compute absolute redirect_uri matching what we sent
@@ -131,28 +131,28 @@ export async function GET(request: Request) {
       signal: AbortSignal.timeout(10000),
     });
   } catch {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=token_exchange`);
+    return NextResponse.redirect(new URL("/login?oidc_error=token_exchange", reqUrlEarly));
   }
 
   if (!tokenResp.ok) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=token_exchange`);
+    return NextResponse.redirect(new URL("/login?oidc_error=token_exchange", reqUrlEarly));
   }
 
   let tokenData: unknown;
   try {
     tokenData = await tokenResp.json();
   } catch {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=token_response`);
+    return NextResponse.redirect(new URL("/login?oidc_error=token_response", reqUrlEarly));
   }
 
   if (!tokenData || typeof tokenData !== "object") {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=token_response`);
+    return NextResponse.redirect(new URL("/login?oidc_error=token_response", reqUrlEarly));
   }
 
   const td = tokenData as Record<string, unknown>;
   const idToken = typeof td.id_token === "string" ? td.id_token : undefined;
   if (!idToken) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=no_id_token`);
+    return NextResponse.redirect(new URL("/login?oidc_error=no_id_token", reqUrlEarly));
   }
 
   // Validate ID token
@@ -167,23 +167,24 @@ export async function GET(request: Request) {
     const allowed = Array.isArray(settings.oidcAllowedSubjects) ? settings.oidcAllowedSubjects : [];
     if (allowed.length > 0) {
       const sub = typeof payload.sub === "string" ? payload.sub : "";
+      const emailVerified = (payload as Record<string, unknown>).email_verified === true;
       const email =
-        typeof (payload as Record<string, unknown>).email === "string"
-          ? ((payload as Record<string, unknown>).email as string)
+        emailVerified && typeof (payload as Record<string, unknown>).email === "string"
+          ? ((payload as Record<string, unknown>).email as string).toLowerCase()
           : "";
       const ok = allowed.some((v: unknown) => {
         if (typeof v !== "string") return false;
         if (v === sub) return true;
-        const vLower = v.toLowerCase();
-        const emailLower = email ? email.toLowerCase() : "";
-        return vLower === emailLower;
+        return email !== "" && v.toLowerCase() === email;
       });
       if (!ok) {
-        return NextResponse.redirect(`${originEarly}/login?oidc_error=subject_not_allowed`);
+        return NextResponse.redirect(
+          new URL("/login?oidc_error=subject_not_allowed", reqUrlEarly)
+        );
       }
     }
   } catch {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=id_token_invalid`);
+    return NextResponse.redirect(new URL("/login?oidc_error=id_token_invalid", reqUrlEarly));
   }
   // First successful OIDC login marks setupComplete (like password bootstrap).
   try {
@@ -193,7 +194,9 @@ export async function GET(request: Request) {
   }
   // Mint the exact same dashboard session JWT as password login
   if (!process.env.JWT_SECRET) {
-    return NextResponse.redirect(`${originEarly}/login?oidc_error=server_misconfigured`);
+    return NextResponse.redirect(
+      new URL("/login?oidc_error=server_misconfigured", reqUrlEarly)
+    );
   }
 
   const forceSecureCookie = process.env.AUTH_COOKIE_SECURE === "true";
