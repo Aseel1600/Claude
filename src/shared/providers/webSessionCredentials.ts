@@ -302,6 +302,17 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: false,
     storageKeys: ["token", "jwt", "apiKey", "projectId", "project_id", "cookie"],
   },
+  "adobe-firefly": {
+    // Prefer IMS access_token JWT (Bearer). Cookie from firefly.adobe.com alone
+    // only mints a guest IMS token. Kind stays "cookie" for multi-account UX;
+    // resolveAdobeAccessToken auto-detects JWT vs cookie and rejects guests.
+    kind: "cookie",
+    credentialName: "IMS access_token JWT (recommended) or multi-domain Cookie",
+    placeholder:
+      "Paste eyJ… JWT from Authorization: Bearer on firefly-3p generate request (not page Cookie alone)",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "token", "access_token", "accessToken"],
+  },
 } satisfies Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
 
 export function getWebSessionCredentialRequirement(

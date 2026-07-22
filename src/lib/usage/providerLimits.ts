@@ -82,6 +82,9 @@ const PROVIDER_LIMITS_APIKEY_PROVIDERS = new Set([
   "qoder",
   "promptql", // PromptQL playground JWT → getCreditSummary USD credits
   "pql",
+  // Adobe Firefly: web-cookie / JWT stored as apikey → credits/balance
+  "adobe-firefly",
+  "firefly",
   // HyperAgent session cookie → billing/usage creditBlocks
   "hyperagent",
   "ha",

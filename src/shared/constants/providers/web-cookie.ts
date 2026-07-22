@@ -423,6 +423,19 @@ export const WEB_COOKIE_PROVIDERS = {
       "Paste only the token_v2 cookie VALUE from app.notion.com (DevTools → Application → Cookies → token_v2). " +
       "Do not paste token_v2= or the full Cookie header. Workspace is auto-detected; space_id / notion_user_id are optional.",
   },
+  "adobe-firefly": {
+    id: "adobe-firefly",
+    alias: "firefly",
+    name: "Adobe Firefly (Image/Video)",
+    icon: "auto_awesome",
+    color: "#EB1000",
+    textIcon: "FF",
+    website: "https://firefly.adobe.com",
+    authHint:
+      "RECOMMENDED: firefly.adobe.com signed-in → F12 → Network → click firefly-3p.ff.adobe.io (generate-async or models/discovery) → Request Headers → Authorization → copy the token AFTER 'Bearer ' (starts with eyJ…). Cookie-only from firefly.adobe.com mints a GUEST token → 401/403; only multi-domain IMS cookies (adobelogin.com) or that Bearer JWT work. Unofficial/experimental media + Limits.",
+    subscriptionRisk: true,
+    riskNoticeVariant: "webCookie",
+  },
   hyperagent: {
     id: "hyperagent",
     alias: "ha",

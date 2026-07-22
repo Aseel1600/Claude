@@ -61,6 +61,7 @@ import { getClaudeUsage, getClaudePlanLabel } from "./usage/claude.ts";
 import { getKiroUsage, buildKiroUsageResult, discoverKiroProfileArn } from "./usage/kiro.ts";
 // Re-exported para os testes kiro-* (importam de services/usage).
 export { buildKiroUsageResult, discoverKiroProfileArn } from "./usage/kiro.ts";
+import { getAdobeFireflyUsage } from "./usage/adobeFirefly.ts";
 
 // Quota / usage upstream URLs (overridable for testing or relays).
 const CROF_USAGE_URL = process.env.OMNIROUTE_CROF_USAGE_URL ?? "https://crof.ai/usage_api/";
@@ -637,6 +638,10 @@ export async function getUsageForProvider(
         providerSpecificData,
         projectId
       );
+    case "adobe-firefly":
+    case "firefly":
+      // Cookie or IMS JWT in apiKey/accessToken → GET firefly.adobe.io/v1/credits/balance
+      return await getAdobeFireflyUsage(apiKey, accessToken, providerSpecificData);
     case "hyperagent":
     case "ha":
       return await getHyperAgentUsage(apiKey || accessToken, providerSpecificData);
