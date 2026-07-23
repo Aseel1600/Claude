@@ -10465,6 +10465,7 @@
     "tabPasteApiKey": "Dán API Key",
     "windsurfPasteDescription": "Trong IDE Windsurf / VS Code, hãy chạy lệnh \"Windsurf: Provide Auth Token\" từ command palette (hoặc nhấp vào nút Jupyter \"Get Windsurf Authentication Token\"), sau đó sao chép token được hiển thị và dán vào bên dưới. Mở trực tiếp windsurf.com/show-auth-token chỉ hiển thị trang \"Redirecting\" — IDE phải khởi tạo luồng này.",
     "grokAuthJsonDescription": "Dán TOÀN BỘ nội dung của ~/.grok/auth.json (không chỉ trường \"key\" của JWT). JWT đơn lẻ không có refresh_token nên kết nối sẽ mất sau khi hết hạn (#7610). Nếu có, hãy ưu tiên modal Nhập auth.json chuyên dụng.",
+    "devinDesktopPasteDescription": "Dán khóa API Devin hiện có từ một phiên Devin đã xác thực. Khả năng xuất khóa và các bước thực hiện khác nhau tùy theo phiên bản Devin và tài khoản.",
     "devinPasteDescription": "Cung cấp WINDSURF_API_KEY của bạn (lấy qua `devin auth login` hoặc qua lệnh \"Windsurf: Provide Auth Token\" trong IDE Windsurf).",
     "grokAuthJsonPlaceholder": "{\"https://auth.x.ai::clientId\": {\"key\": \"eyJ...\", \"refresh_token\": \"...\"}}",
     "grokAuthJsonLabel": "Grok Build auth.json",
@@ -13522,4 +13523,3 @@
     "trafficInspectorDescription": "Theo dõi các lệnh gọi LLM và gỡ lỗi lưu lượng HTTPS của mọi ứng dụng"
   }
 }
-
