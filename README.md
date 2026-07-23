@@ -59,7 +59,7 @@
 ![Docker Pulls](https://img.shields.io/docker/pulls/diegosouzapw/omniroute?label=docker%20pulls&logo=docker&color=2496ED)
 ![Electron Downloads](https://img.shields.io/github/downloads/diegosouzapw/omniroute/total?style=flat&label=electron%20downloads&logo=electron&color=47848F)
 
-[**🚀 Quick Start**](#-quick-start) • [**🎯 Combos**](#-combos--the-flagship) • [**🌐 Providers**](#-278-ai-providers--90-free) • [**🔌 CLI & MCP**](#-full-cli--a2a--mcp) • [**🗜️ Compression**](#%EF%B8%8F-save-1595-tokens--automatically) • [**🌍 Website**](https://omniroute.online)
+[**🚀 Quick Start**](#-quick-start) • [**🎯 Combos**](#-combos--the-flagship) • [**🌐 Providers**](#-283-ai-providers--90-free) • [**🔌 CLI & MCP**](#-full-cli--a2a--mcp) • [**🗜️ Compression**](#%EF%B8%8F-save-1595-tokens--automatically) • [**🌍 Website**](https://omniroute.online)
 
 [💥 The Promise](#-the-promise) • [🤔 Why](#-why-omniroute) • [🏆 What Sets Apart](#-what-sets-omniroute-apart) • [🤖 Compatible CLIs](#-compatible-clis--coding-agents) • [🖥️ Where It Runs](#%EF%B8%8F-where-omniroute-runs--anywhere) • [🔒 Private](#-private--local-first) • [🎬 In Action](#-omniroute-in-action) • [📸 Screenshots](#-dashboard-screenshots) • [📧 Support](#-support--community)
 
@@ -352,11 +352,11 @@ All **19** strategies — mix & match per combo step:
 
 <div align="center">
 
-# 🌐 278 AI Providers — 90+ Free
+# 🌐 283 AI Providers — 90+ Free
 
 </div>
 
-> The most complete catalog of any open-source router: **278 providers**, **90+ with a free tier**, **40+ free forever**.
+> The most complete catalog of any open-source router: **283 providers**, **90+ with a free tier**, **40+ free forever**.
 
 <div align="center">
 
