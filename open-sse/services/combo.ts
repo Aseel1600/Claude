@@ -147,7 +147,7 @@ import {
   waitForCooldownAwareRetry,
 } from "../../src/sse/services/cooldownAwareRetry.ts";
 import { handleFusionChat, type FusionTuning } from "./fusion.ts";
-import { dispatchChaosFromCombo } from "./autoCombo/chaosEngine.ts";
+import { dispatchChaosFromCombo, type ChaosTuning } from "./autoCombo/chaosEngine.ts";
 import { handlePipelineChat, type PipelineStep } from "./pipeline.ts";
 import {
   TRANSIENT_FOR_SEMAPHORE,
@@ -918,7 +918,7 @@ export async function handleComboChat({
   });
   if (chaosDispatch) return chaosDispatch;
 
-  // Pipeline strategy: sequential chain — each step's output feeds the next step's
+  // Pipeline strategy: sequential chain
   // input, only the final step's response is returned. Handled in a separate module
   // because it neither iterates targets as fallbacks nor needs the failover/retry
   // machinery below — it runs targets in order, threading output → input. The step
