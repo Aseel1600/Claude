@@ -10,6 +10,14 @@
  * code → on success the account is routable immediately (Dario hot-reloads) and
  * the account list refreshes. Each row has a "Remove" button.
  *
+ * Also offers "Import from OmniRoute": lists any existing OmniRoute `claude`
+ * provider connection (OAuth-based) and imports its access+refresh token pair
+ * directly into Dario's account store, skipping the browser OAuth round trip
+ * entirely — valid because both tools authenticate against the same public
+ * Claude Code OAuth client. See
+ * /api/services/dario/admin/import-from-omniroute/route.ts for why this is
+ * safe (no re-implemented OAuth, just a decrypt()'d token handoff).
+ *
  * Structurally mirrors the shared services components (Card/Button, text-xs
  * muted copy). English literals are used inline rather than i18n keys to avoid
  * a translation-drift gate for this one panel — matches how other service-
@@ -33,6 +41,14 @@ interface PendingLogin {
   alias: string;
   authorizeUrl: string;
   expiresAt: string;
+}
+
+interface OmniConnection {
+  id: string;
+  name: string;
+  email: string | null;
+  organizationType: string | null;
+  organizationRateLimitTier: string | null;
 }
 
 function formatExpiry(acc: DarioAccount): string {
@@ -59,14 +75,19 @@ export function DarioAccountPanel() {
   const [busy, setBusy] = useState<null | "start" | "complete">(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const [omniConnections, setOmniConnections] = useState<OmniConnection[]>([]);
+  const [omniLoading, setOmniLoading] = useState(false);
+  const [importBusyId, setImportBusyId] = useState<string | null>(null);
+
   const refreshAccounts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/services/dario/admin/accounts");
-      const json = (await res.json().catch(() => null)) as
-        | { accounts?: DarioAccount[]; error?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        accounts?: DarioAccount[];
+        error?: string;
+      } | null;
       if (!res.ok) {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
@@ -78,9 +99,55 @@ export function DarioAccountPanel() {
     }
   }, []);
 
+  const refreshOmniConnections = useCallback(async () => {
+    setOmniLoading(true);
+    try {
+      const res = await fetch("/api/services/dario/admin/import-from-omniroute");
+      const json = (await res.json().catch(() => null)) as {
+        connections?: OmniConnection[];
+        error?: string;
+      } | null;
+      if (res.ok) {
+        setOmniConnections(Array.isArray(json?.connections) ? json!.connections : []);
+      }
+    } catch {
+      /* non-fatal — import section just stays empty */
+    } finally {
+      setOmniLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void refreshAccounts();
-  }, [refreshAccounts]);
+    void refreshOmniConnections();
+  }, [refreshAccounts, refreshOmniConnections]);
+
+  async function importFromOmniroute(connectionId: string) {
+    setImportBusyId(connectionId);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/services/dario/admin/import-from-omniroute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connectionId }),
+      });
+      const json = (await res.json().catch(() => null)) as {
+        alias?: string;
+        imported?: boolean;
+        error?: string;
+      } | null;
+      if (!res.ok || !json?.imported) {
+        throw new Error(json?.error || `HTTP ${res.status}`);
+      }
+      setNotice(`Imported as account "${json.alias}" — Dario restarted to pick it up.`);
+      await refreshAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImportBusyId(null);
+    }
+  }
 
   async function startLogin() {
     setBusy("start");
@@ -92,9 +159,12 @@ export function DarioAccountPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(aliasInput.trim() ? { alias: aliasInput.trim() } : {}),
       });
-      const json = (await res.json().catch(() => null)) as
-        | { alias?: string; authorize_url?: string; expires_at?: string; error?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        alias?: string;
+        authorize_url?: string;
+        expires_at?: string;
+        error?: string;
+      } | null;
       if (!res.ok || !json?.authorize_url || !json?.alias) {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
@@ -122,9 +192,11 @@ export function DarioAccountPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ alias: pending.alias, code: codeInput.trim() }),
       });
-      const json = (await res.json().catch(() => null)) as
-        | { alias?: string; status?: string; error?: string }
-        | null;
+      const json = (await res.json().catch(() => null)) as {
+        alias?: string;
+        status?: string;
+        error?: string;
+      } | null;
       if (!res.ok) {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
@@ -144,12 +216,17 @@ export function DarioAccountPanel() {
     setError(null);
     setNotice(null);
     try {
-      const res = await fetch(`/api/services/dario/admin/accounts?alias=${encodeURIComponent(alias)}`, {
-        method: "DELETE",
-      });
-      const json = (await res.json().catch(() => null)) as
-        | { alias?: string; removed?: boolean; error?: string }
-        | null;
+      const res = await fetch(
+        `/api/services/dario/admin/accounts?alias=${encodeURIComponent(alias)}`,
+        {
+          method: "DELETE",
+        }
+      );
+      const json = (await res.json().catch(() => null)) as {
+        alias?: string;
+        removed?: boolean;
+        error?: string;
+      } | null;
       if (!res.ok) {
         throw new Error(json?.error || `HTTP ${res.status}`);
       }
@@ -205,6 +282,43 @@ export function DarioAccountPanel() {
           )}
         </div>
 
+        {/* Import from OmniRoute */}
+        {(omniLoading || omniConnections.length > 0) && (
+          <div className="space-y-2 border-t border-border pt-3">
+            <p className="text-xs font-medium">Import from OmniRoute</p>
+            <p className="text-xs text-text-muted">
+              Reuse an existing OmniRoute Claude connection&apos;s OAuth tokens instead of logging
+              in again — skips the browser approval step entirely.
+            </p>
+            {omniLoading && omniConnections.length === 0 ? (
+              <div className="h-8 animate-pulse bg-bg-subtle rounded" />
+            ) : (
+              omniConnections.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm truncate">{c.name}</p>
+                    <p className="text-xs text-text-muted truncate">
+                      {[c.organizationType, c.organizationRateLimitTier]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    disabled={importBusyId !== null}
+                    onClick={() => void importFromOmniroute(c.id)}
+                  >
+                    {importBusyId === c.id ? "Importing…" : "Import"}
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* Login flow */}
         {!pending ? (
           <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
@@ -218,7 +332,12 @@ export function DarioAccountPanel() {
             <Button size="sm" disabled={busy !== null} onClick={startLogin}>
               {busy === "start" ? "Starting…" : "Start Login"}
             </Button>
-            <Button size="sm" variant="outline" disabled={loading} onClick={() => void refreshAccounts()}>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={loading}
+              onClick={() => void refreshAccounts()}
+            >
               Refresh
             </Button>
           </div>
@@ -250,7 +369,11 @@ export function DarioAccountPanel() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 className="flex-1 min-w-[180px] bg-transparent text-xs border border-border rounded px-2 py-1.5 outline-none placeholder:text-text-muted font-mono"
               />
-              <Button size="sm" disabled={busy !== null || !codeInput.trim()} onClick={completeLogin}>
+              <Button
+                size="sm"
+                disabled={busy !== null || !codeInput.trim()}
+                onClick={completeLogin}
+              >
                 {busy === "complete" ? "Completing…" : "Complete Login"}
               </Button>
               <Button

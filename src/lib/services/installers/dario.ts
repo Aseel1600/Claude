@@ -73,7 +73,7 @@ function getInstalledPkgPath(): string {
  * keeping OAuth account files out of the real OS user's home the way MUX_ROOT
  * scopes Mux and DATA_DIR scopes 9Router. See resolveSpawnArgs() below.
  */
-function getDarioHomeDir(): string {
+export function getDarioHomeDir(): string {
   return path.join(getDarioInstallDir(), "home");
 }
 
