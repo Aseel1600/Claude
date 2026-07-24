@@ -14,6 +14,10 @@ const DEFAULT_LIMITS: Record<string, number> = {
   openai: 128000,
   gemini: 1000000,
   codex: 400000,
+  // HyperAgent Claude-family agents (fable/opus/sonnet) — 1M default; was falling
+  // through to 128k and blocking normal agentic tool loops with huge catalogs.
+  hyperagent: 1_000_000,
+  ha: 1_000_000,
   default: 128000,
 };
 
@@ -78,6 +82,27 @@ function resolveTokenLimit(
   const envOverride = getEnvOverride(provider);
   if (envOverride) return { limit: envOverride, specific: true };
 
+  const p = (provider || "").toLowerCase();
+  const lowerModel = (model || "").toLowerCase();
+
+  // 1b. HyperAgent Claude-family (fable / opus / sonnet): always 1M unless env override.
+  // Must run BEFORE models.dev DB — that catalog often has no HyperAgent rows and the
+  // generic 128k fallback was rejecting normal agentic tool-loop prompts (~137k tokens).
+  if (p === "hyperagent" || p === "ha") {
+    return { limit: DEFAULT_LIMITS.hyperagent ?? 1_000_000, specific: true };
+  }
+  // Bare model ids routed as hyperagent/* or containing fable/opus agent wire names
+  if (
+    lowerModel.includes("fable") ||
+    lowerModel.includes("opus-latest") ||
+    lowerModel.includes("claude-opus-4") ||
+    lowerModel.includes("claude-fable") ||
+    lowerModel.includes("sonnet-latest") ||
+    lowerModel.includes("claude-sonnet-5")
+  ) {
+    return { limit: 1_000_000, specific: true };
+  }
+
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
     const dbLimit = getModelContextLimit(provider, model);
@@ -92,15 +117,14 @@ function resolveTokenLimit(
 
   // 4. Check if model name hints at a known limit
   if (model) {
-    const lower = model.toLowerCase();
-    if (lower.includes("claude")) return { limit: DEFAULT_LIMITS.claude, specific: true };
-    if (lower.includes("gemini")) return { limit: DEFAULT_LIMITS.gemini, specific: true };
+    if (lowerModel.includes("claude")) return { limit: DEFAULT_LIMITS.claude, specific: true };
+    if (lowerModel.includes("gemini")) return { limit: DEFAULT_LIMITS.gemini, specific: true };
     if (
-      lower.includes("gpt") ||
-      lower.includes("o1") ||
-      lower.includes("o3") ||
-      lower.includes("o4") ||
-      lower.includes("codex")
+      lowerModel.includes("gpt") ||
+      lowerModel.includes("o1") ||
+      lowerModel.includes("o3") ||
+      lowerModel.includes("o4") ||
+      lowerModel.includes("codex")
     )
       return { limit: DEFAULT_LIMITS.codex, specific: true };
   }
