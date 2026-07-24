@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createProviderConnection } from "@/lib/db/providers";
 import {
+  classifyModelTestOutput,
+  createModelTestTimeoutError,
   parseRetryAfterHeader,
   detectTestKind,
   extractProviderErrorMessage,
@@ -290,6 +292,20 @@ test("runSingleModelTest preserves slow timeout after chatCore converts AbortErr
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("classifyModelTestOutput never treats partial text from an aborted stream as success", () => {
+  assert.equal(classifyModelTestOutput(true, "partial", false), "timeout");
+  assert.equal(classifyModelTestOutput(false, "complete", false), "ok");
+  assert.equal(classifyModelTestOutput(false, "", false), "empty");
+  assert.equal(classifyModelTestOutput(false, "", true), "ok");
+});
+
+test("createModelTestTimeoutError distinguishes test deadlines from client aborts", () => {
+  const error = createModelTestTimeoutError(60_000);
+
+  assert.equal(error.name, "TimeoutError");
+  assert.equal(error.message, "Model test deadline exceeded after 60000ms");
 });
 
 test("resolveModelTestTimeoutMs defaults ordinary model checks to 30 seconds", () => {
