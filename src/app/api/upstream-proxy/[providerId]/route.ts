@@ -9,8 +9,12 @@ import { z } from "zod";
 import { validateBody, isValidationFailure } from "@/shared/validation/helpers";
 
 const upstreamProxySchema = z.object({
-  mode: z.enum(["native", "cliproxyapi", "fallback"]).default("native"),
+  // "dario" (#dario) is a new direct-passthrough mode alongside "cliproxyapi".
+  mode: z.enum(["native", "cliproxyapi", "dario", "fallback"]).default("native"),
   enabled: z.boolean().optional().default(true),
+  // Retry-leg backend for mode="fallback"; defaults to "cliproxyapi" so any
+  // existing fallback config is unchanged when the field is omitted.
+  fallbackBackend: z.enum(["cliproxyapi", "dario"]).optional(),
 });
 
 export async function GET(
@@ -23,7 +27,7 @@ export async function GET(
   }
   const config = await getUpstreamProxyConfig(providerId);
   if (!config) {
-    return NextResponse.json({ enabled: false, mode: "native" });
+    return NextResponse.json({ enabled: false, mode: "native", fallbackBackend: "cliproxyapi" });
   }
   return NextResponse.json(config);
 }
@@ -43,12 +47,13 @@ export async function PUT(
     return NextResponse.json(validation.error, { status: 400 });
   }
 
-  const { mode, enabled } = validation.data;
+  const { mode, enabled, fallbackBackend } = validation.data;
 
   const config = await upsertUpstreamProxyConfig({
     providerId,
     mode,
     enabled,
+    ...(fallbackBackend !== undefined ? { fallbackBackend } : {}),
   });
 
   return NextResponse.json(config);
