@@ -61,13 +61,7 @@ function getCliPath(): string {
 }
 
 function getInstalledPkgPath(): string {
-  return path.join(
-    getDarioInstallDir(),
-    "node_modules",
-    "@askalf",
-    "dario",
-    "package.json"
-  );
+  return path.join(getDarioInstallDir(), "node_modules", "@askalf", "dario", "package.json");
 }
 
 /**
@@ -230,9 +224,20 @@ export function resolveSpawnArgs(apiKey: string, port: number): SpawnArgs {
       // Headless admin control plane (OAuth login + account management).
       DARIO_ADMIN: "1",
       DARIO_ADMIN_TOKEN: apiKey,
-      // Silence the "Bun not installed → TLS fingerprint diverges" startup
-      // warning; we run under Node 24 by design and don't want it in the log
-      // ring buffer on every boot. Does not affect proxying correctness.
+      // Run as a SINGLE Node process — do NOT let Dario relaunch itself under
+      // Bun. When Bun is present Dario re-execs the proxy as a `bun run` child
+      // (closer TLS fingerprint to Claude Code), but that child becomes the
+      // real port holder while ServiceSupervisor only tracks — and SIGTERMs —
+      // the Node parent. On stop the Bun child orphaned and kept binding the
+      // port, so the next start fast-crashed with EADDRINUSE ("already
+      // running"). Clean, deterministic lifecycle for a supervised embedded
+      // service outweighs the stealth benefit here. Tradeoff: the proxy-mode
+      // TLS ClientHello diverges from Claude Code's; if that ever proves to
+      // matter for a real account, revisit with process-group kill semantics
+      // in ServiceSupervisor rather than re-enabling the orphan.
+      DARIO_NO_BUN: "1",
+      // Silence the companion "Bun not installed → TLS fingerprint diverges"
+      // startup warning so it doesn't spam the log ring buffer every boot.
       DARIO_QUIET_TLS: "1",
     },
     cwd: installDir,
