@@ -30,6 +30,13 @@ export async function getOrInitSupervisor(): Promise<ServiceSupervisor> {
     healthIntervalMs: 5_000,
     stopTimeoutMs: 15_000,
     logsBufferBytes: 5_242_880,
+    // #6205: embedded services bind a fixed port — probe before spawning so
+    // an orphaned prior instance yields adopt/clear-error instead of a raw
+    // EADDRINUSE crash. Mirrors bootstrap.ts's own supervisor construction;
+    // without this, on-demand creation here (e.g. from the admin import
+    // route's forced restart) can't tell "already healthy" apart from
+    // "actually crashed" and misreports both as a crash.
+    probeBeforeSpawn: true,
   });
 
   registerSupervisor(sup);
