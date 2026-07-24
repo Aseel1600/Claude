@@ -143,6 +143,15 @@ type StreamOptions = {
   body?: unknown;
   onComplete?: ((payload: StreamCompletePayload) => void) | null;
   onFailure?: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null;
+  /**
+   * Request-scoped `{namespace, name}` ledger for Responses namespace child
+   * tools that were flattened to a bare leaf on the Chat wire (#7936
+   * round-trip closure). The Responses response translator keys on the leaf
+   * name emitted in `response.function_call_arguments.*` /
+   * `response.output_item.added` / `response.output_item.done` and emits
+   * codex-compatible `namespace` + `name` fields.
+   */
+  requestToolIdentityMap?: Map<string, { namespace: string; name: string }> | null;
 };
 
 type TranslateState = ReturnType<typeof initState> & {
@@ -161,6 +170,7 @@ type TranslateState = ReturnType<typeof initState> & {
   /** #6951 — per-tool JSON Schema (from request `tools[]`), keyed by tool name. */
   toolSchemas?: Map<string, Record<string, unknown>> | null;
   customToolNames?: ReadonlySet<string>;
+  requestToolIdentityMap?: Map<string, { namespace: string; name: string }> | null;
   upstreamError?: {
     status: number;
     type: string;
@@ -180,6 +190,47 @@ type UsageTokenRecord = Record<string, number>;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+// #7936 — restore `{namespace, name}` on Responses passthrough `function_call`
+// items when the request-side Responses→Chat flatten stamped the bare leaf on the
+// Chat wire. Codex's ResponseItem::FunctionCall schema declares an independent
+// `namespace: Option<String>` field (see codex-rs/protocol/src/models.rs and the
+// `function_call_deserializes_optional_namespace` round-trip test); emit it back.
+function restoreResponsesPassthroughFunctionCallIdentity(
+  parsed: JsonRecord,
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null | undefined
+): boolean {
+  if (!(requestToolIdentityMap instanceof Map)) return false;
+
+  const restoreItem = (item: unknown): boolean => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    const functionCall = item as JsonRecord;
+    if (functionCall.type !== "function_call" || typeof functionCall.name !== "string")
+      return false;
+
+    const identity = requestToolIdentityMap.get(functionCall.name);
+    if (!identity) return false;
+
+    const changed =
+      functionCall.namespace !== identity.namespace || functionCall.name !== identity.name;
+    functionCall.namespace = identity.namespace;
+    functionCall.name = identity.name;
+    return changed;
+  };
+
+  if (parsed.type === "response.output_item.added" || parsed.type === "response.output_item.done") {
+    return restoreItem(parsed.item);
+  }
+
+  if (parsed.type === "response.completed" && Array.isArray(parsed.response?.output)) {
+    return (parsed.response as JsonRecord).output.reduce(
+      (changed: boolean, item: unknown) => restoreItem(item) || changed,
+      false
+    );
+  }
+
+  return false;
 }
 
 function parseTextualToolCallFromContent(text: unknown): { name: string; args: unknown } | null {
@@ -590,9 +641,7 @@ function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: un
 // to avoid shared state issues with concurrent streams (TextDecoder with {stream:true}
 // maintains internal buffering state between decode() calls).
 
-/**
- * Stream modes
- */
+// Stream modes
 const STREAM_MODE = {
   TRANSLATE: "translate", // Full translation between formats
   PASSTHROUGH: "passthrough", // No translation, normalize output, extract usage
@@ -634,6 +683,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     onFailure = null,
     dropResponsesCommentary,
     customToolNames = new Set<string>(),
+    requestToolIdentityMap = null,
   } = options;
   const signatureNamespace = connectionId;
   // Request-body-size metric (for monitoring payload size distribution & correlation with TTFT).
@@ -709,6 +759,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           accumulatedReasoning: "",
           toolSchemas: extractToolSchemaMap(body),
           customToolNames,
+          requestToolIdentityMap,
         }
       : null;
 
@@ -760,7 +811,7 @@ export function createSSEStream(options: StreamOptions = {}) {
   let pendingToolFinishTime: number | null = null;
   try {
     pendingToolFinishTime = consumeToolFinishTime(sessionId);
-  } catch {}
+  } catch {} // best-effort read of optional timing state — absence is normal
 
   // Guard against duplicate [DONE] events — ensures exactly one per stream
   let doneSent = false;
@@ -926,7 +977,9 @@ export function createSSEStream(options: StreamOptions = {}) {
     if (onFailure) {
       try {
         failureHandled = onFailure({ status: 502, message: msg, code: "empty_response" }) === true;
-      } catch {}
+      } catch (e) {
+        console.debug(`[STREAM] onFailure callback error (empty_response):`, e);
+      }
     }
     if (decrementPendingRequest && !failureHandled) {
       clearPendingRequestFromStream();
@@ -1109,7 +1162,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                       code: "stream_idle_timeout",
                       type: "timeout_error",
                     }) === true;
-                } catch {}
+                } catch (e) {
+                  console.debug(`[STREAM] onFailure callback error (idle_timeout):`, e);
+                }
               }
               if (!failureHandled) {
                 clearPendingRequestFromStream();
@@ -1481,6 +1536,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                       parsed.response.output
                     );
                   }
+                  // #7936 — restore `namespace` + `name` fields on passthrough
+                  // Responses function_call items for downstream Codex clients.
+                  if (
+                    parsed.type === "response.output_item.added" ||
+                    parsed.type === "response.output_item.done" ||
+                    parsed.type === "response.completed"
+                  ) {
+                    restoreResponsesPassthroughFunctionCallIdentity(
+                      parsed as JsonRecord,
+                      requestToolIdentityMap
+                    );
+                  }
                   if (
                     parsed.type === "response.completed" &&
                     passthroughResponsesPendingFunctionCalls.size > 0
@@ -1667,18 +1734,22 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // clients (e.g. LobeChat) may skip content when reasoning_content
                   // is present, causing the first content token to be lost.
                   if (delta?.reasoning_content && delta?.content) {
-                    // Per-chunk clone on the streaming hot path: a JSON.parse(JSON.stringify())
-                    // round-trip re-serializes and re-parses the entire chunk just to drop two
-                    // fields. structuredClone is a native, much faster deep clone with identical
-                    // semantics for this JSON-derived object (falls back on older runtimes).
-                    const reasoningChunk =
-                      typeof structuredClone === "function"
-                        ? structuredClone(parsed)
-                        : structuredClone(parsed);
-                    const rDelta = reasoningChunk.choices[0].delta;
-                    delete rDelta.content;
-                    reasoningChunk.choices[0].finish_reason = null;
-                    delete reasoningChunk.usage;
+                    // Shallow-clone only the mutated fields instead of a full
+                    // structuredClone — the original `parsed` is a JSON-derived
+                    // object so spreading preserves every field while skipping
+                    // the deep-clone overhead (GC pressure, polyfill fallback).
+                    const reasoningChunk = {
+                      ...parsed,
+                      usage: undefined,
+                      choices: [
+                        {
+                          ...parsed.choices[0],
+                          delta: { ...parsed.choices[0].delta, content: undefined },
+                          finish_reason: null,
+                        },
+                        ...parsed.choices.slice(1),
+                      ],
+                    };
                     const rOutput = `data: ${JSON.stringify(reasoningChunk)}\n\n`;
                     passthroughAccumulatedReasoning = appendBoundedText(
                       passthroughAccumulatedReasoning,
@@ -1757,7 +1828,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                             toolTs ? now - toolTs : null,
                             lastChunkTs ? now - lastChunkTs : null
                           );
-                        } catch {}
+                        } catch {} // best-effort telemetry — must never break the stream
                         pendingToolFinishTime = null;
                       }
                     }
@@ -1794,7 +1865,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     toolFinishTime = now;
                     try {
                       markToolFinish(sessionId);
-                    } catch {}
+                    } catch {} // best-effort bookkeeping write — a miss just skips latency correlation
                   }
 
                   // T18: Normalize finish_reason to 'tool_calls' if tool calls were used
@@ -1870,7 +1941,9 @@ export function createSSEStream(options: StreamOptions = {}) {
               if (onFailure) {
                 try {
                   failureHandled = onFailure(failurePayload) === true;
-                } catch {}
+                } catch (e) {
+                  console.debug(`[STREAM] onFailure callback error:`, e);
+                }
               }
               clearIdleTimer();
               if (!failureHandled) {
@@ -1922,7 +1995,7 @@ export function createSSEStream(options: StreamOptions = {}) {
             toolFinishTime = now;
             try {
               markToolFinish(sessionId);
-            } catch {}
+            } catch {} // best-effort bookkeeping write — a miss just skips latency correlation
           }
 
           // Track content length and accumulate for call log (from raw provider chunk, so content is never missed)
@@ -2036,7 +2109,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   toolTs ? now - toolTs : null,
                   lastChunkTs ? now - lastChunkTs : null
                 );
-              } catch {}
+              } catch {} // best-effort telemetry — must never break the stream
               pendingToolFinishTime = null;
             }
           }
@@ -2444,7 +2517,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                     includeEvents: false,
                   }),
                 });
-              } catch {}
+              } catch (e) {
+                console.debug(`[STREAM] onComplete callback error (${model || "unknown"}):`, e);
+              }
             } else {
               clearPendingRequestFromStream();
             }
@@ -2529,7 +2604,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                     code: err.code,
                     type: err.type,
                   }) === true;
-              } catch {}
+              } catch (e) {
+                console.debug(`[STREAM] onFailure callback error (${model || "unknown"}):`, e);
+              }
             }
 
             const errorBody = buildErrorBody(err.status, err.message);
@@ -2554,7 +2631,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                   }),
                 });
                 failureHandled = true;
-              } catch {}
+              } catch (e) {
+                console.debug(
+                  `[STREAM] onComplete callback error in error path (${model || "unknown"}):`,
+                  e
+                );
+              }
             }
 
             clearIdleTimer();
@@ -2710,7 +2792,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                   includeEvents: false,
                 }),
               });
-            } catch {}
+            } catch (e) {
+              console.debug(
+                `[STREAM] onComplete callback error in flush (${model || "unknown"}):`,
+                e
+              );
+            }
           } else {
             clearPendingRequestFromStream();
           }
@@ -2744,7 +2831,8 @@ export function createSSETransformStreamWithLogger(
   onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
   copilotCompatibleReasoning = false,
   suppressThinkClose = false,
-  customToolNames: ReadonlySet<string> = new Set()
+  customToolNames: ReadonlySet<string> = new Set(),
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null = null
 ) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
@@ -2762,6 +2850,7 @@ export function createSSETransformStreamWithLogger(
     copilotCompatibleReasoning,
     suppressThinkClose,
     customToolNames,
+    requestToolIdentityMap,
   });
 }
 
@@ -2775,7 +2864,8 @@ export function createPassthroughStreamWithLogger(
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
   onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
-  clientResponseFormat: string | null = null
+  clientResponseFormat: string | null = null,
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null = null
 ) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
@@ -2789,6 +2879,7 @@ export function createPassthroughStreamWithLogger(
     onComplete,
     onFailure,
     clientResponseFormat,
+    requestToolIdentityMap,
   });
 }
 
