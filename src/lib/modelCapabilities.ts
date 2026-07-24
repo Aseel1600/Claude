@@ -224,13 +224,29 @@ function heuristicMaxTokens(modelStr: string): boolean {
   return !blocked;
 }
 
+/** Last path segment of a path-shaped model id (`cline-pass/kimi-k3` → `kimi-k3`). */
+function leafModelId(modelId: string | null | undefined): string | null {
+  if (!modelId || !modelId.includes("/")) return null;
+  const leaf = modelId.split("/").filter(Boolean).pop() ?? null;
+  return leaf && leaf !== modelId ? leaf : null;
+}
+
 function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSpec | undefined {
   if (modelId) {
     const byCanonical = getModelSpec(modelId);
     if (byCanonical) return byCanonical;
   }
   if (rawModel && rawModel !== modelId) {
-    return getModelSpec(rawModel);
+    const byRaw = getModelSpec(rawModel);
+    if (byRaw) return byRaw;
+  }
+  // #8032: path-shaped routed ids (e.g. cline-pass/kimi-k3) must fall back to the
+  // leaf static spec (kimi-k3) so native vision/tool metadata is not lost.
+  for (const candidate of [modelId, rawModel]) {
+    const leaf = leafModelId(candidate);
+    if (!leaf) continue;
+    const byLeaf = getModelSpec(leaf);
+    if (byLeaf) return byLeaf;
   }
   return undefined;
 }
@@ -306,6 +322,8 @@ function getSyncedCapabilityForResolved(
           const values = [candidate];
           const stripped = stripLatestAlias(candidate);
           if (stripped) values.push(stripped);
+          const leaf = leafModelId(candidate);
+          if (leaf) values.push(leaf);
           // models.dev often stores OpenAI-family specialty models as qualified
           // ids under another mapped provider, e.g. vercel + "openai/whisper-1".
           if (!candidate.includes("/")) {
@@ -398,6 +416,14 @@ function resolveVisionCapability(
     // can be reconciled to a single vision-capable verdict.
     if (synced.attachment === false && modalitiesDeclareVision(allModalities)) {
       return true;
+    }
+    // #8032: attachment=false without modalities must not beat authoritative
+    // registry/spec vision for path-shaped custom/routed ids (e.g. Cline Pass
+    // `cp/cline-pass/kimi-k3` → MODEL_SPECS["kimi-k3"].supportsVision).
+    if (synced.attachment === false) {
+      if (registryModel?.supportsVision === true) return true;
+      if (spec?.supportsVision === true) return true;
+      return false;
     }
     return synced.attachment;
   }
