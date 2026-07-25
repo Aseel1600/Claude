@@ -1,0 +1,1 @@
+- fix(ci): resync the stale ESLint `no-explicit-any` suppression count for `tests/unit/claude-to-openai-think-close-5123.test.ts` so the lint gate is release-green again (#8007)

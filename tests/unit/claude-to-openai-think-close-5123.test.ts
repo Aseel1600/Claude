@@ -29,6 +29,8 @@ function collectChunks(results: ReturnType<typeof claudeToOpenAIResponse>[]): un
   return results.flatMap((r) => (Array.isArray(r) ? r : r ? [r] : []));
 }
 
+type OpenAIChatChunk = { choices?: Array<{ delta?: { content?: string } }> };
+
 // ─── Case (a): thinking block followed by tool_use ───────────────────────────
 // This is the regression case. Before the fix, </think> appears as a spurious
 // assistant text chunk right before the tool_calls delta, corrupting clients.
@@ -95,7 +97,7 @@ test("thinking block followed by tool_use: </think> must NOT appear in any conte
   const chunks = collectChunks(allResults);
 
   const spuriousThinkClose = chunks.filter(
-    (chunk: any) => chunk?.choices?.[0]?.delta?.content === "</think>"
+    (chunk: OpenAIChatChunk) => chunk?.choices?.[0]?.delta?.content === "</think>"
   );
 
   assert.equal(
@@ -168,7 +170,7 @@ test("thinking block followed by text: </think> emitted when suppressThinkClose=
   const chunks = collectChunks(allResults);
 
   const hasThinkClose = chunks.some(
-    (chunk: any) => chunk?.choices?.[0]?.delta?.content === "</think>"
+    (chunk: OpenAIChatChunk) => chunk?.choices?.[0]?.delta?.content === "</think>"
   );
 
   assert.ok(
@@ -217,9 +219,11 @@ test("thinking block followed by text: </think> suppressed when suppressThinkClo
 
   const chunks = collectChunks(allResults);
   const hasThinkClose = chunks.some(
-    (chunk: any) => chunk?.choices?.[0]?.delta?.content === "</think>"
+    (chunk: OpenAIChatChunk) => chunk?.choices?.[0]?.delta?.content === "</think>"
   );
   assert.equal(hasThinkClose, false, "marker must not leak into content under #8245 default");
-  const hasText = chunks.some((chunk: any) => chunk?.choices?.[0]?.delta?.content === "Hello!");
+  const hasText = chunks.some(
+    (chunk: OpenAIChatChunk) => chunk?.choices?.[0]?.delta?.content === "Hello!"
+  );
   assert.ok(hasText, "assistant text must still be emitted");
 });
