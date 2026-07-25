@@ -1,0 +1,1 @@
+- chore(ci): prune the stale ESLint suppression count that reddened the `No new ESLint warnings` gate on every open PR
