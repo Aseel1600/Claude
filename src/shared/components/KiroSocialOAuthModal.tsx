@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 import Button from "./Button";
 import { copyToClipboard } from "@/shared/utils/clipboard";
+import { getNextKiroSocialPollInterval } from "@/lib/oauth/kiroSocialPoll";
 
 type KiroSocialOAuthModalProps = {
   isOpen: boolean;
@@ -27,6 +28,11 @@ export default function KiroSocialOAuthModal({
   const [userCode, setUserCode] = useState("");
   const [authUrl, setAuthUrl] = useState("");
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onSuccessRef = useRef(onSuccess);
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   useEffect(() => {
     if (!isOpen || !provider) return;
@@ -62,6 +68,7 @@ export default function KiroSocialOAuthModal({
         setStep("polling");
 
         const baseIntervalMs = Math.max(1, Number(data.interval) || 5) * 1000;
+        let currentIntervalMs = baseIntervalMs;
         const expiresAt = Date.now() + Math.max(1, Number(data.expiresIn) || 300) * 1000;
 
         const schedule = (delayMs: number) => {
@@ -89,7 +96,7 @@ export default function KiroSocialOAuthModal({
             if (pollData.success) {
               stopPolling();
               setStep("success");
-              onSuccess?.();
+              onSuccessRef.current?.();
               return;
             }
 
@@ -98,11 +105,10 @@ export default function KiroSocialOAuthModal({
               return;
             }
 
-            const nextDelay =
-              pollData.error === "slow_down" ? baseIntervalMs + 5000 : baseIntervalMs;
-            schedule(nextDelay);
+            currentIntervalMs = getNextKiroSocialPollInterval(currentIntervalMs, pollData.error);
+            schedule(currentIntervalMs);
           } catch {
-            schedule(baseIntervalMs);
+            schedule(currentIntervalMs);
           }
         };
 
@@ -118,7 +124,7 @@ export default function KiroSocialOAuthModal({
       cancelled = true;
       stopPolling();
     };
-  }, [isOpen, provider, targetProvider, onSuccess]);
+  }, [isOpen, provider, targetProvider]);
 
   const handleClose = () => {
     if (pollRef.current) {

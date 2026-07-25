@@ -165,4 +165,52 @@ describe("KiroAuthModal", () => {
       globalThis.fetch = originalFetch;
     }
   });
+
+  it("does not restart an active social login when the wrapper rerenders", async () => {
+    const { default: KiroOAuthWrapper } = await import("@/shared/components/KiroOAuthWrapper");
+    const container = makeContainer();
+    const root = createRoot(container);
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes("/social-authorize")) {
+        return new Response(
+          JSON.stringify({
+            userCode: "ABCD-EFGH",
+            authUrl: "https://example.test/authorize",
+            deviceCode: "device-code",
+            interval: 60,
+            expiresIn: 300,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+    globalThis.fetch = fetchMock as typeof fetch;
+
+    try {
+      await act(async () => {
+        root.render(withIntl(<KiroOAuthWrapper isOpen onClose={vi.fn()} onSuccess={vi.fn()} />));
+      });
+
+      const googleButton = Array.from(container.querySelectorAll("button")).find((button) =>
+        button.textContent?.includes("Google Account")
+      );
+      await act(async () => {
+        googleButton?.click();
+      });
+
+      await act(async () => {
+        root.render(withIntl(<KiroOAuthWrapper isOpen onClose={vi.fn()} onSuccess={vi.fn()} />));
+      });
+
+      expect(
+        fetchMock.mock.calls.filter(([input]) => String(input).includes("/social-authorize"))
+      ).toHaveLength(1);
+    } finally {
+      await act(async () => root.unmount());
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

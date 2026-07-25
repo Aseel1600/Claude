@@ -74,6 +74,7 @@ async function tryKiroCliSqlite(): Promise<{
   clientSecret?: string;
   region?: string;
   profileArn?: string;
+  authMethod?: "builder-id" | "idc";
   source?: string;
 }> {
   // Build list of candidate DB paths to probe in order.
@@ -191,6 +192,7 @@ async function tryKiroCliSqlite(): Promise<{
         clientSecret: regData?.client_secret,
         region,
         profileArn,
+        authMethod: resolveKiroCliAuthMethod(profileArn),
       };
     } finally {
       try {
@@ -416,6 +418,12 @@ export function deriveKiroConnectionName(opts: {
   return `Kiro (${r})`;
 }
 
+export function resolveKiroCliAuthMethod(
+  profileArn: string | null | undefined
+): "builder-id" | "idc" {
+  return profileArn ? "idc" : "builder-id";
+}
+
 type ProviderConnectionLike = {
   id?: unknown;
   providerSpecificData?: unknown;
@@ -538,13 +546,12 @@ async function saveAndRespond(
     let expiresAt = result.expiresAt;
     let profileArn = result.profileArn;
 
-    // Determine authMethod: prefer the value from the SSO cache token (e.g. "idc")
-    // so that kiroService.refreshToken() takes the correct OIDC path for IDC tokens
-    // (#2059). Fall back to "kiro-cli" for the SQLite path and "imported" for plain
-    // social SSO cache tokens (no clientIdHash → no IDC client creds).
+    // `kiro-cli` identifies where credentials came from, not the account type. Persist
+    // the actual auth method so IdC accounts still use their profile ARN and Builder ID
+    // accounts keep the profile-less flow.
     const resolvedAuthMethod =
       result.source === "kiro-cli-sqlite"
-        ? "kiro-cli"
+        ? result.authMethod || resolveKiroCliAuthMethod(profileArn)
         : result.clientId
           ? result.authMethod || "idc"
           : "imported";

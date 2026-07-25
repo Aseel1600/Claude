@@ -131,9 +131,9 @@ test("discoverKiroProfileArn returns undefined for empty profiles or non-ok resp
   }
 });
 
-test("getKiroUsage fetches Builder ID and kiro-cli quotas without a profile ARN", async () => {
+test("getKiroUsage fetches Builder ID quotas without a profile ARN", async () => {
   const originalFetch = globalThis.fetch;
-  const authMethods = ["builder-id", "kiro-cli"];
+  const authMethods = ["builder-id"];
   const requests: Array<{ target: string; body: Record<string, unknown> }> = [];
 
   globalThis.fetch = (async (_url: string, init?: RequestInit) => {

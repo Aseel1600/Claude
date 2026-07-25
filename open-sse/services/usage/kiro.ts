@@ -288,7 +288,7 @@ async function runKiroUsageAttempts(
 }
 
 function supportsProfilelessKiroUsage(authMethod?: string): boolean {
-  return authMethod === "builder-id" || authMethod === "kiro-cli";
+  return authMethod === "builder-id";
 }
 
 /**
@@ -318,9 +318,9 @@ export async function getKiroUsage(accessToken?: string, providerSpecificData?: 
     // exist); its profile lives in eu-central-1 (or us-east-1) and the SSO token works cross-region
     // against it. Without this, the quota card previously showed nothing ("no limits") for such
     // accounts because the single-region lookup at q.{idcRegion} always failed.
-    // Builder ID and kiro-cli sessions can call GetUsageLimits without a profile ARN. Their
+    // Builder ID sessions can call GetUsageLimits without a profile ARN. Their
     // ListAvailableProfiles request may be denied even while profile-less quota requests work, so
-    // skip discovery for those auth methods and continue with the normal usage attempts.
+    // skip discovery only when the stored identity proves this is Builder ID.
     if (!profileArn && accessToken && !supportsProfilelessUsage) {
       profileArn = await discoverKiroProfileArnAcrossRegions(accessToken, storedRegion);
     }

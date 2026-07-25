@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyKiroSocialPoll } from "@/lib/oauth/kiroSocialPoll";
+import { classifyKiroSocialPoll, getNextKiroSocialPollInterval } from "@/lib/oauth/kiroSocialPoll";
+
+test("slow_down permanently increases the polling interval for this authorization flow", () => {
+  const slowed = getNextKiroSocialPollInterval(5_000, "slow_down");
+  assert.equal(slowed, 10_000);
+  assert.equal(getNextKiroSocialPollInterval(slowed, "authorization_pending"), 10_000);
+  assert.equal(getNextKiroSocialPollInterval(slowed, "network_error"), 10_000);
+});
 
 test("classifyKiroSocialPoll keeps only documented pending states retryable", () => {
   assert.deepEqual(classifyKiroSocialPoll(false, 400, { error: "authorization_pending" }), {
