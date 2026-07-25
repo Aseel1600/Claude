@@ -20,9 +20,11 @@ import { looksLikeQuotaExhausted } from "@/shared/utils/classify429";
 import { getTrustedLocalRateLimitError } from "@omniroute/open-sse/services/rateLimitManager/errors";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
-export const DEFAULT_MODEL_TEST_TIMEOUT_MS = 60_000;
+export const DEFAULT_MODEL_TEST_TIMEOUT_MS = 30_000;
 const DOLA_PRO_TEST_TIMEOUT_MS = 90_000;
 const DOUBAO_WEB_PROVIDER_ID = "doubao-web";
+const ZAI_WEB_PROVIDER_ID = "zai-web";
+const ZAI_WEB_TEST_TIMEOUT_MS = 60_000;
 const SLOW_WEB_TEST_MODELS = new Set(["dola-pro"]);
 const STREAMING_CHAT_TEST_MAX_TOKENS = 64;
 
@@ -107,6 +109,10 @@ export function resolveModelTestTimeoutMs(
 
   if (normalizedProviderId === DOUBAO_WEB_PROVIDER_ID && SLOW_WEB_TEST_MODELS.has(modelLeafId)) {
     return Math.max(requestedTimeoutMs, DOLA_PRO_TEST_TIMEOUT_MS);
+  }
+
+  if (normalizedProviderId === ZAI_WEB_PROVIDER_ID) {
+    return Math.max(requestedTimeoutMs, ZAI_WEB_TEST_TIMEOUT_MS);
   }
 
   return requestedTimeoutMs;

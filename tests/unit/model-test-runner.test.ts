@@ -312,6 +312,11 @@ test("resolveModelTestTimeoutMs defaults ordinary model checks to 30 seconds", (
   assert.equal(resolveModelTestTimeoutMs("openai", "gpt-4.1"), 30_000);
 });
 
+test("resolveModelTestTimeoutMs gives zai-web checks up to 60 seconds", () => {
+  assert.equal(resolveModelTestTimeoutMs("zai-web", "glm-5.2", 30_000), 60_000);
+  assert.equal(resolveModelTestTimeoutMs("zai-web", "zai-web/GLM-5V-Turbo", 90_000), 90_000);
+});
+
 // ---------------------------------------------------------------------------
 // classifyTestErrorQuota — #9511 quota classification for Test All auto-hide.
 // Distinguishes three outcomes:
