@@ -171,6 +171,10 @@ export default function RequestTimeline({
       })
       .catch(() => {});
     const id = setInterval(() => {
+      // #8354: skip the poll while the tab is backgrounded (Page Visibility
+      // API), matching the pause-when-hidden pattern in RequestLoggerV2 and
+      // UsageStats so a background tab doesn't keep hammering the API.
+      if (document.visibilityState !== "visible") return;
       fetch("/api/usage/call-logs?limit=200")
         .then((res) => (res.ok ? res.json() : []))
         .then((data) => setLogs(data))

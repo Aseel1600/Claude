@@ -1159,7 +1159,7 @@
     "logsSubtitle": "Логи застосунку",
     "logsProxySubtitle": "Логи трафіку проксі",
     "consoleLogsSubtitle": "Вивід консолі",
-    "logsTimelineSubtitle": "Visual request timeline",
+    "logsTimelineSubtitle": "__MISSING__:Visual request timeline",
     "logsActivitySubtitle": "Журнал дій користувача",
     "healthSubtitle": "Перевірка стану системи",
     "costsPricingSubtitle": "Правила цін для моделей",

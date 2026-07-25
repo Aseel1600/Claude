@@ -1159,7 +1159,7 @@
     "logsSubtitle": "應用日誌",
     "logsProxySubtitle": "代理流量日誌",
     "consoleLogsSubtitle": "控制台輸出",
-    "logsTimelineSubtitle": "Visual request timeline",
+    "logsTimelineSubtitle": "__MISSING__:Visual request timeline",
     "logsActivitySubtitle": "使用者活動日誌",
     "healthSubtitle": "系統健康檢查",
     "costsPricingSubtitle": "按模型定價規則",

@@ -1159,7 +1159,7 @@
     "logsSubtitle": "Logs da aplicação",
     "logsProxySubtitle": "Logs de tráfego do proxy",
     "consoleLogsSubtitle": "Saída do console",
-    "logsTimelineSubtitle": "Visual request timeline",
+    "logsTimelineSubtitle": "__MISSING__:Visual request timeline",
     "logsActivitySubtitle": "Log de atividade do usuário",
     "healthSubtitle": "Verificação de saúde do sistema",
     "costsPricingSubtitle": "Regras de preço por modelo",
