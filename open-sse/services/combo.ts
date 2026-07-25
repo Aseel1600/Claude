@@ -166,7 +166,21 @@ import {
   isTokenLimitBreachErrorBody,
   toRecordedTarget,
   getExhaustedTargetSkipReason,
+  clampPercent,
+  quotaRemainingPercentFromQuota,
+  normalizeConnectionStatus,
+  hasFutureRateLimitUntil,
+  getConnectionStatusQuotaCutoffReason,
+  isContextOverflow400,
+  isParamValidation400,
+  isModelScoped400,
 } from "./combo/comboPredicates.ts";
+export {
+  getConnectionStatusQuotaCutoffReason,
+  isContextOverflow400,
+  isParamValidation400,
+  isModelScoped400,
+};
 import { applyComboTargetExhaustion } from "./combo/targetExhaustion.ts";
 import { executeRuntimeUnitCombo } from "./combo/runtimeUnits.ts";
 import { extractFusionPanelSpec, buildFusionHandleSingleModel } from "./combo/fusionPanel.ts";
@@ -299,64 +313,6 @@ function calculateTargetContextAffinity(
 function getBootstrapLatencyMs(modelId: string): number {
   const normalized = String(modelId || "").toLowerCase();
   return DEFAULT_MODEL_P95_MS[normalized] ?? 1500;
-}
-
-function clampPercent(value: number): number {
-  if (!Number.isFinite(value)) return 100;
-  return Math.max(0, Math.min(100, value));
-}
-
-function quotaRemainingPercentFromQuota(quota: unknown): number {
-  if (!quota || typeof quota !== "object") return 100;
-  const record = quota as Record<string, unknown>;
-  if (record.limitReached === true) return 0;
-
-  const windows = record.windows;
-  if (windows && typeof windows === "object" && !Array.isArray(windows)) {
-    let minRemaining: number | null = null;
-    for (const windowInfo of Object.values(windows as Record<string, unknown>)) {
-      if (!windowInfo || typeof windowInfo !== "object") continue;
-      const percentUsed = Number((windowInfo as Record<string, unknown>).percentUsed);
-      if (!Number.isFinite(percentUsed)) continue;
-      const remaining = clampPercent((1 - percentUsed) * 100);
-      minRemaining = minRemaining === null ? remaining : Math.min(minRemaining, remaining);
-    }
-    if (minRemaining !== null) return minRemaining;
-  }
-
-  const percentUsed = Number(record.percentUsed);
-  if (Number.isFinite(percentUsed)) return clampPercent((1 - percentUsed) * 100);
-  return 100;
-}
-
-const QUOTA_BLOCKING_CONNECTION_STATUSES = new Set([
-  "banned",
-  "credits_exhausted",
-  "deactivated",
-  "expired",
-  "rate_limited",
-]);
-
-function normalizeConnectionStatus(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function hasFutureRateLimitUntil(value: unknown): boolean {
-  if (value == null || value === "") return false;
-  const time = new Date(String(value)).getTime();
-  return Number.isFinite(time) && time > Date.now();
-}
-
-export function getConnectionStatusQuotaCutoffReason(
-  connection: Record<string, unknown> | undefined
-): string | undefined {
-  if (!connection) return undefined;
-  const status = normalizeConnectionStatus(connection.testStatus);
-  if (QUOTA_BLOCKING_CONNECTION_STATUSES.has(status)) return status;
-  if (status === "unavailable" && hasFutureRateLimitUntil(connection.rateLimitedUntil)) {
-    return "rate_limited";
-  }
-  return undefined;
 }
 
 export async function buildAutoCandidates(
@@ -681,48 +637,6 @@ async function isPinnedModelDurablyUnhealthy(pinnedModel: string): Promise<boole
 // output limits, so the request should fall through to the next target instead of
 // being short-circuited. Exported as pure predicates so the guard is unit-testable.
 /** @param {string} errorText */
-export function isContextOverflow400(errorText) {
-  return (
-    /\bcontext.*(?:length_exceeded|too long|overflow|exceeded|window|limit)\b/i.test(errorText) ||
-    /exceeds.*context/i.test(errorText) ||
-    /your input exceeds/i.test(errorText) ||
-    // Reuse accountFallback.ts's CONTEXT_OVERFLOW_PATTERNS (single source of truth)
-    // so wording like Kimi's "exceeded model token limit" — which never says the
-    // literal word "context" — is still recognized as an overflow/fallback-worthy
-    // 400 instead of halting the whole combo (issue #6637).
-    CONTEXT_OVERFLOW_PATTERNS.some((p) => p.test(errorText))
-  );
-}
-/** @param {string} errorText */
-export function isParamValidation400(errorText) {
-  return (
-    /\bmax_tokens\b.*(?:illegal|must|range|invalid)/i.test(errorText) ||
-    /\bparameter is illegal\b/i.test(errorText) ||
-    /\bis illegal.*range\b/i.test(errorText)
-  );
-}
-/**
- * #5249 / #2101: model-scoped 400s must NEVER stop the combo.
- * Upstream often wraps "model X is not supported" in `invalid_request_error` /
- * "Bad Request" envelopes. Those wrapper words match the body-specific stop
- * substrings, so without this exemption the combo hard-stops on the first
- * unavailable model instead of trying the next target. Keep the models in the
- * combo — if one rejects, advance.
- * @param {string} errorText
- */
-export function isModelScoped400(errorText) {
-  const text = String(errorText || "");
-  if (!text) return false;
-  if (MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(text))) return true;
-  // Extra model-rejection shapes that providers emit outside the shared list
-  // (Responses API, Copilot, gateway wrappers).
-  return (
-    /\bmodel\b[\s\S]{0,80}?\b(?:not\s+supported|unsupported|unknown|unavailable)\b/i.test(text) ||
-    /\b(?:not\s+supported|unsupported|unknown)\b[\s\S]{0,80}?\bmodel\b/i.test(text) ||
-    /\bunsupported_api_for_model\b/i.test(text) ||
-    /\bdoes\s+not\s+support\s+(?:the\s+)?responses\s+api\b/i.test(text)
-  );
-}
 
 /** @param {object} options */
 export async function handleComboChat({
