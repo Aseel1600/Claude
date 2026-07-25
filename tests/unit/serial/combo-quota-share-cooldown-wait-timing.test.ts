@@ -139,7 +139,10 @@ test("quota-share: 403 quota_exhausted → NO wait, error propagated immediately
   // that we didn't accidentally wait out a real (multi-second-to-hours)
   // quota_exhausted lock, so a generous bound still catches a real
   // regression while tolerating CI-runner DB/import contention.
-  assert.ok(elapsed < 10000, `quota_exhausted must not wait out a cooldown, but ${elapsed}ms elapsed`);
+  assert.ok(
+    elapsed < 10000,
+    `quota_exhausted must not wait out a cooldown, but ${elapsed}ms elapsed`
+  );
 });
 
 test("non quota-share (priority): short 429 cooldown → waits and re-dispatches (2nd pass 200)", async () => {
@@ -175,21 +178,20 @@ test("non quota-share (priority): short 429 cooldown → waits and re-dispatches
   );
 });
 
-test("non quota-share (priority): a quota_exhausted lock drives the decision with a SHORT wait → NO wait (the reason allow-list is the PRIMARY barrier; the maxWaitMs ceiling does NOT cover this)", async () => {
+test("non quota-share (priority): a quota_exhausted lock drives the decision → NO wait (the reason allow-list is the PRIMARY barrier; the maxWaitMs ceiling does NOT cover this)", async () => {
   // THE regression guard for the two-barrier policy documented in
   // comboCooldownRetry.ts ("SECURITY — quota_exhausted must be excluded" /
   // "The small maxWaitMs ceiling is the second barrier").
   //
   // Barrier 1 = the reason allow-list. Barrier 2 = the maxWaitMs ceiling.
   // This scenario is engineered so ONLY barrier 1 can stop the wait:
-  //   - modelLockout.errorCodes is [403] ONLY, so model-a's 429 crystallizes
-  //     status 429 (the sole status that opens the cooldown-wait branch) WITHOUT
-  //     recording a competing `rate_limit` lock.
-  //   - model-b's 403 records the only lock in play: `quota_exhausted`. It is
-  //     therefore the lock resolveComboCooldownWaitDecision picks, so its reason
-  //     is what drives the decision.
-  //   - The resulting wait is SHORT (well under maxWaitMs=5000), so barrier 2
-  //     lets it through. Only the allow-list can reject it.
+  //   - modelLockout.errorCodes is [403] ONLY, so model-a's 429 does NOT
+  //     record a lockout and falls through to "done retrying" with status 429.
+  //   - model-b's 403 records a lockout (reason: "quota_exhausted") and the
+  //     early-return path overwrites lastStatus to 403, which is NOT eligible
+  //     for the cooldown-wait branch (isRetryAfterEligibleStatus excludes 403).
+  //   - Even if status were 429, the quota_exhausted reason would be rejected
+  //     by the allow-list (barrier 1). The maxWaitMs ceiling is barrier 2.
   //
   // With the reason hardcoded to "rate_limit" (as the non-quota-share path did
   // before), barrier 1 is gone and this exact input waits + redispatches against
@@ -222,7 +224,7 @@ test("non quota-share (priority): a quota_exhausted lock drives the decision wit
     allCombos: null,
   });
 
-  assert.equal(res.status, 429, "the crystallized 429 must be propagated, not retried");
+  assert.equal(res.status, 403, "the quota_exhausted 403 must be propagated, not retried");
   // Deterministic proof (no wall-clock dependency, so it cannot flake under
   // CI-runner contention): each target is dispatched EXACTLY ONCE. Had the wait
   // fired, the whole set loop would re-run — maxAttempts=2 within the 8s budget
