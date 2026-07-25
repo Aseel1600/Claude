@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
  * Tests for the page-level highlighted-card matching/clearing logic
- * extracted into providerPageHighlightUtils.ts.
+ * extracted into providerPageUrlState.ts.
  *
  * These import the real production functions — not copied code.
  */
@@ -10,7 +10,8 @@ import type { ProviderCardHandle } from "@/app/(dashboard)/dashboard/providers/c
 import {
   recordProviderNavigation,
   resolveHighlightedCard,
-} from "@/app/(dashboard)/dashboard/providers/providerPageHighlightUtils";
+  syncSearchToUrl,
+} from "@/app/(dashboard)/dashboard/providers/providerPageUrlState";
 
 function createMockHandle(
   id: string,
@@ -125,5 +126,77 @@ describe("recordProviderNavigation", () => {
     expect(replaceSpy.mock.calls[0][0]).toEqual({ providerId: "openai" });
     expect(replaceSpy.mock.calls[1][0]).toEqual({ providerId: "anthropic" });
     expect(replaceSpy.mock.calls[2][0]).toEqual({ providerId: "kimi-coding" });
+  });
+});
+
+describe("syncSearchToUrl", () => {
+  const originalReplaceState = window.history.replaceState;
+  const originalLocation = window.location;
+
+  afterEach(() => {
+    window.history.replaceState = originalReplaceState;
+    Object.defineProperty(window, "location", { value: originalLocation, writable: true });
+  });
+
+  it("sets search param in URL when query is non-empty", () => {
+    const replaceSpy = vi.fn();
+    window.history.replaceState = replaceSpy;
+    Object.defineProperty(window, "location", {
+      value: { href: "http://localhost:3000/dashboard/providers" },
+      writable: true,
+    });
+
+    syncSearchToUrl("openai");
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    const [, , url] = replaceSpy.mock.calls[0];
+    expect(url).toContain("search=openai");
+  });
+
+  it("removes search param when query is empty", () => {
+    const replaceSpy = vi.fn();
+    window.history.replaceState = replaceSpy;
+    Object.defineProperty(window, "location", {
+      value: { href: "http://localhost:3000/dashboard/providers?search=openai" },
+      writable: true,
+    });
+
+    syncSearchToUrl("");
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    const [, , url] = replaceSpy.mock.calls[0];
+    expect(url).not.toContain("search=");
+  });
+
+  it("preserves existing search params when updating", () => {
+    const replaceSpy = vi.fn();
+    window.history.replaceState = replaceSpy;
+    Object.defineProperty(window, "location", {
+      value: { href: "http://localhost:3000/dashboard/providers?tab=oauth" },
+      writable: true,
+    });
+
+    syncSearchToUrl("anthropic");
+
+    expect(replaceSpy).toHaveBeenCalledTimes(1);
+    const [, , url] = replaceSpy.mock.calls[0];
+    expect(url).toContain("search=anthropic");
+    expect(url).toContain("tab=oauth");
+  });
+
+  it("preserves current history state", () => {
+    const replaceSpy = vi.fn();
+    window.history.replaceState = replaceSpy;
+    Object.defineProperty(window, "location", {
+      value: { href: "http://localhost:3000/dashboard/providers" },
+      writable: true,
+    });
+    const existingState = { providerId: "openai" };
+    window.history.replaceState(existingState, "");
+
+    syncSearchToUrl("anthropic");
+
+    const [state] = replaceSpy.mock.calls[0];
+    expect(state).toBe(existingState);
   });
 });

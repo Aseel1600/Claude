@@ -34,7 +34,11 @@ import {
   loadProviderPageData,
 } from "./providerPageUtils";
 import type { ProviderEntry } from "./providerPageUtils";
-import { recordProviderNavigation, resolveHighlightedCard } from "./providerPageHighlightUtils";
+import {
+  recordProviderNavigation,
+  resolveHighlightedCard,
+  syncSearchToUrl,
+} from "./providerPageUrlState";
 import {
   readProviderDisplayModePreference,
   shouldSyncProviderDisplayMode,
@@ -256,6 +260,10 @@ export default function ProvidersPage() {
       setSearchQuery(searchFromUrl);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    syncSearchToUrl(searchQuery);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchData = async () => {
