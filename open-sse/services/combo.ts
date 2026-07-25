@@ -90,6 +90,7 @@ import {
   expandPromptCacheAffinityTargets,
   expandPromptCacheAffinityTargetsFromConnections,
   resolvePromptCacheAffinityKey,
+  shouldProtectOriginalFirst,
 } from "./combo/promptCacheAffinity.ts";
 import type { CompressionMode } from "./compression/types.ts";
 import { getCachedProviderConnections } from "../../src/lib/db/readCache";
@@ -169,6 +170,7 @@ import {
 import { applyComboTargetExhaustion } from "./combo/targetExhaustion.ts";
 import { executeRuntimeUnitCombo } from "./combo/runtimeUnits.ts";
 import { extractFusionPanelSpec, buildFusionHandleSingleModel } from "./combo/fusionPanel.ts";
+import { isRetryAfterEligibleStatus } from "./combo/unavailableRetryGate.ts";
 import { isRecord } from "./combo/comboData.ts";
 import {
   expandProviderWildcardsInCombo,
@@ -178,6 +180,7 @@ import { resolveShadowTargets, scheduleShadowRouting } from "./combo/shadowRouti
 import { attemptCompatRejectedFallback } from "./combo/comboCompatFallback.ts";
 import { applyContextRequirements } from "./combo/contextRequirements.ts";
 import {
+  computeCompatRejectedTargets,
   filterTargetsByRequestCompatibility,
   resolveComboRuntimeUnits,
   resolveComboTargets,
@@ -1389,10 +1392,7 @@ export async function handleComboChat({
   );
   if (promptCacheAffinity.applied) {
     const protectedOriginal =
-      (_sticky.stuck ||
-        autoUsedExplicitRouter ||
-        strategy === "quota-share" ||
-        strategy === "weighted") &&
+      shouldProtectOriginalFirst(_sticky.stuck, autoUsedExplicitRouter, strategy) &&
       orderedTargets[0];
     const protectedFirst = protectedOriginal
       ? (promptCacheAffinity.targets.find(
@@ -1932,7 +1932,7 @@ export async function handleComboChat({
               // Fix #1707: Set terminal state so the fallback doesn't emit
               // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
               lastError = `Upstream response failed quality validation: ${quality.reason}`;
-              if (!lastStatus) lastStatus = 502;
+              lastStatus = 502;
               if (i > 0) fallbackCount++;
               if (provider && rawModel) {
                 const mlSettings = resolveModelLockoutSettings(settings);
@@ -2295,6 +2295,12 @@ export async function handleComboChat({
             fallbackResult.usedUpstreamRetryHint === true
               ? cooldownMs
               : (fallbackResult.quotaResetHintMs ?? 0);
+          // #6863 vs #7940: lockoutHintMs is only ever nonzero when it traces back to
+          // a genuine upstream signal (usedUpstreamRetryHint or a parsed quotaResetHintMs)
+          // — never a synthetic estimate. Tell recordModelLockoutFailure to honor it
+          // exactly instead of clamping it to maxCooldownMs (#7940's cap still applies
+          // to the exponential-backoff / synthetic-default paths).
+          const lockoutHintVerified = lockoutHintMs > 0;
           const selectedConnectionId =
             result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
             result.headers?.get("x-omniroute-selected-connection-id") ||
@@ -2364,7 +2370,7 @@ export async function handleComboChat({
               status: result.status,
               error: errorText || String(result.status),
             });
-            if (!lastStatus) lastStatus = result.status;
+            lastStatus = result.status;
             if (i > 0) fallbackCount++;
             log.warn("COMBO", `Model ${modelStr} failed with body-specific error, stopping combo`);
             // #4279: surface the 400 via the {ok,response} contract so the OUTER
@@ -2376,12 +2382,11 @@ export async function handleComboChat({
             return { ok: false, response: result };
           }
 
-          // Trigger shared provider circuit breaker for 5xx errors and connection failures.
-          // If the next target in the combo is on the same provider, don't mark the provider
-          // as failed — different models on the same provider may still succeed.
-          // G-02: when fallbackResult.skipProviderBreaker is set (embedded service supervisor
-          // outage signalled via X-Omni-Fallback-Hint: connection_cooldown) apply connection
-          // cooldown only — do NOT trip the whole-provider breaker.
+          // Trigger shared provider circuit breaker for 5xx errors and connection failures. If the
+          // next target is on the same provider, don't mark it failed (a different model may still
+          // succeed) — #8376: EXCEPT a proxy-unreachable failure, which poisons every model alike.
+          // G-02: when fallbackResult.skipProviderBreaker is set (embedded service supervisor outage
+          // signalled via X-Omni-Fallback-Hint: connection_cooldown) apply cooldown only — never trip.
           const nextTarget = orderedTargets[i + 1];
           const sameProviderNext =
             typeof nextTarget?.provider === "string" && nextTarget.provider === provider;
@@ -2393,6 +2398,7 @@ export async function handleComboChat({
               skipProviderBreaker: fallbackResult.skipProviderBreaker,
               requestScopedFailure,
               error: errorText,
+              isProxyUnreachable: structuredError?.code === "proxy_unreachable",
             })
           ) {
             recordProviderFailure(provider, log, targetWithConnection.connectionId, profile);
@@ -2420,7 +2426,7 @@ export async function handleComboChat({
               // decision below, even though a real 429 with a short (~1min) retry-after
               // was just observed. Recording it here mirrors the "done retrying" path.
               lastError = errorText || String(result.status);
-              if (!lastStatus) lastStatus = result.status;
+              lastStatus = result.status;
               if (i > 0) fallbackCount++;
               return null;
             }
@@ -2441,9 +2447,12 @@ export async function handleComboChat({
                   profile,
                   {
                     // #1308/#6863: honor a long upstream reset (e.g. "Resets in 160h") over
-                    // the short base cooldown / exponential backoff when present.
+                    // the short base cooldown / exponential backoff when present. #7940's
+                    // maxCooldownMs cap only applies to synthetic values — a verified
+                    // upstream reset (lockoutHintVerified) bypasses it.
                     exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                     maxCooldownMs: mlSettings.maxCooldownMs,
+                    exactCooldownVerified: lockoutHintVerified,
                   }
                 );
                 lockoutRecorded = true;
@@ -2454,7 +2463,7 @@ export async function handleComboChat({
               // Same fix as the already-locked branch above — this is the
               // first-failure lockout path, so lastStatus needs recording here too.
               lastError = errorText || String(result.status);
-              if (!lastStatus) lastStatus = result.status;
+              lastStatus = result.status;
               if (i > 0) fallbackCount++;
               return null;
             }
@@ -2476,7 +2485,7 @@ export async function handleComboChat({
             status: result.status,
             error: errorText || String(result.status),
           });
-          if (!lastStatus) lastStatus = result.status;
+          lastStatus = result.status;
           if (i > 0) fallbackCount++;
           // Wire combo failures into the resilience dashboard (model-level lockout)
           // alongside the provider-level cooldown below — they govern different scopes.
@@ -2493,8 +2502,11 @@ export async function handleComboChat({
                 profile,
                 {
                   // #1308/#6863: honor a long upstream reset over base/exponential cooldown.
+                  // #7940's maxCooldownMs cap only applies to synthetic values — a verified
+                  // upstream reset (lockoutHintVerified) bypasses it.
                   exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                   maxCooldownMs: mlSettings.maxCooldownMs,
+                  exactCooldownVerified: lockoutHintVerified,
                 }
               );
             }
@@ -2697,7 +2709,7 @@ export async function handleComboChat({
           : "";
       const msg = (lastError || "All combo models unavailable") + comboErrorSummary;
 
-      if (earliestRetryAfter) {
+      if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
         // Cooldown-aware retry: instead of crystallizing the 429/503, wait out
         // a SHORT transient cooldown and re-run the whole set loop. Guarded by
         // the helper (quota_exhausted/auth/not-found excluded, ceiling,
@@ -2912,8 +2924,7 @@ async function handleRoundRobinCombo({
   // BEFORE availability is known; if every compat-kept target then turns out to be
   // runtime-unavailable, we must reconsider these before returning 503, instead of
   // permanently dropping a compat-rejected-but-healthy provider.
-  const compatKeptSet = new Set(filteredTargets);
-  const compatRejectedTargets = evalRankedTargets.filter((target) => !compatKeptSet.has(target));
+  const compatRejectedTargets = computeCompatRejectedTargets(evalRankedTargets, filteredTargets, body);
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
     return comboModelNotFoundResponse("Round-robin combo has no executable targets");
@@ -3247,7 +3258,7 @@ async function handleRoundRobinCombo({
             // Fix #1707: Set terminal state so the fallback doesn't emit
             // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
             lastError = `Upstream response failed quality validation: ${quality.reason}`;
-            if (!lastStatus) lastStatus = 502;
+            lastStatus = 502;
             if (offset > 0) fallbackCount++;
             break; // move to next model
           }
@@ -3505,7 +3516,7 @@ async function handleRoundRobinCombo({
         });
         recordedAttempts++;
         lastError = errorText || String(result.status);
-        if (!lastStatus) lastStatus = result.status;
+        lastStatus = result.status;
         if (offset > 0) fallbackCount++;
         log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
 
@@ -3615,7 +3626,7 @@ async function handleRoundRobinCombo({
   const status = lastStatus;
   const msg = lastError || "All round-robin combo models unavailable";
 
-  if (earliestRetryAfter) {
+  if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
     const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
     log.warn("COMBO-RR", `All models failed | ${msg} (${retryHuman})`);
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);

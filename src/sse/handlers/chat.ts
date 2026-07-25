@@ -75,6 +75,7 @@ import {
 } from "./chatHelpers";
 import {
   isAntigravityMissingProjectError,
+  PROVIDER_BREAKER_FAILURE_STATUSES,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
@@ -137,6 +138,7 @@ import { registerGrokWebQuotaFetcher } from "@omniroute/open-sse/services/grokQu
 import { registerGenericQuotaFetchers } from "@omniroute/open-sse/services/genericQuotaFetcher.ts";
 import "@omniroute/open-sse/services/quotaTrackersBatch.ts";
 import {
+  disableCooldownAwareRetry,
   getCooldownAwareRetryDecision,
   resolveCooldownAwareRetrySettings,
   waitForCooldownAwareRetry,
@@ -1224,18 +1226,13 @@ async function handleSingleModelChat(
   const baseRetrySettings = resolveCooldownAwareRetrySettings(
     runtimeOptions.cachedSettings ?? (await getCachedSettings().catch(() => ({})))
   );
-  const disableCooldownAwareRetry =
-    isCombo || forceLiveComboTest || runtimeOptions.emergencyFallbackTried === true;
-  const retrySettings = disableCooldownAwareRetry
-    ? {
-        ...baseRetrySettings,
-        enabled: false,
-        maxRetries: 0,
-        maxRetryWaitSec: 0,
-        maxRetryWaitMs: 0,
-        budgetMs: 0,
-      }
-    : baseRetrySettings;
+  const retrySettings = disableCooldownAwareRetry(
+    baseRetrySettings,
+    provider === "claude-web" ||
+      isCombo ||
+      forceLiveComboTest ||
+      runtimeOptions.emergencyFallbackTried === true
+  );
   const requestSignal = request?.signal ?? null;
   // Cumulative cap across all waits for this request (#7360 follow-up) — mirrors
   // combo.ts's comboCooldownBudgetLeftMs. Declared outside requestAttemptLoop so
