@@ -2716,14 +2716,12 @@ export async function handleComboChat({
       // strategies when enabled — entry is driven by earliestRetryAfter + the
       // real model-lockout reason, NOT by whichever target last overwrote
       // `status` (a later 403 must not skip the allow-list check for an earlier
-      // 429's retry-after hint).
-      //
-      // SECURITY (see comboCooldownRetry.ts header): the allow-list is the PRIMARY
-      // barrier and `maxWaitMs` only the SECOND one. Hardcoding reason:"rate_limit"
-      // would drop the primary barrier and leave only the ceiling — which does
-      // NOT cover a quota_exhausted lock carrying a SHORT upstream retry-after.
-      // Model lockouts are recorded for all strategies, so the real reason is
-      // always available.
+      // 429's retry-after hint). SECURITY (see comboCooldownRetry.ts header): the
+      // allow-list is the PRIMARY barrier and `maxWaitMs` only the SECOND one.
+      // Hardcoding reason:"rate_limit" would drop the primary barrier and leave
+      // only the ceiling — which does NOT cover a quota_exhausted lock carrying a
+      // SHORT upstream retry-after. Model lockouts are recorded for all strategies,
+      // so the real reason is always available.
       if (comboCooldownWaitEnabled && earliestRetryAfter) {
         const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
           targets: orderedTargets,
