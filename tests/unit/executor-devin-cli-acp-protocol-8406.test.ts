@@ -8,6 +8,11 @@ import { writeFileSync } from "node:fs";
 
 const mod = await import("../../open-sse/executors/devin-cli.ts");
 
+type AcpFrame = {
+  method?: string;
+  params?: Record<string, unknown>;
+};
+
 test("#8406: DevinCliExecutor emits correct ACP wire-format frames and handles agent_message_chunk", async () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "devin-acp-test-"));
   const framesFile = path.join(tmpDir, "received_frames.json");
@@ -77,18 +82,32 @@ rl.on('line', (line) => {
       sseOutput += decoder.decode(value, { stream: true });
     }
 
-    const receivedFrames = JSON.parse(fs.readFileSync(framesFile, "utf-8"));
+    const receivedFrames: AcpFrame[] = JSON.parse(fs.readFileSync(framesFile, "utf-8"));
 
-    const newFrame = receivedFrames.find((f: any) => f.method === "session/new");
+    const newFrame = receivedFrames.find((f) => f.method === "session/new");
     assert.ok(newFrame, "session/new frame must be sent");
-    assert.ok(Array.isArray(newFrame.params.mcpServers), "session/new must include mcpServers array");
+    assert.ok(
+      Array.isArray(newFrame.params.mcpServers),
+      "session/new must include mcpServers array"
+    );
 
-    const promptFrame = receivedFrames.find((f: any) => f.method === "session/prompt");
+    const promptFrame = receivedFrames.find((f) => f.method === "session/prompt");
     assert.ok(promptFrame, "session/prompt frame must be sent");
-    assert.ok(Array.isArray(promptFrame.params.prompt), "session/prompt must name the field prompt");
-    assert.equal(promptFrame.params.content, undefined, "session/prompt must not use content field");
+    assert.ok(
+      Array.isArray(promptFrame.params.prompt),
+      "session/prompt must name the field prompt"
+    );
+    assert.equal(
+      promptFrame.params.content,
+      undefined,
+      "session/prompt must not use content field"
+    );
 
-    assert.match(sseOutput, /Hello ACP 8406/, "SSE output must contain chunk text from agent_message_chunk");
+    assert.match(
+      sseOutput,
+      /Hello ACP 8406/,
+      "SSE output must contain chunk text from agent_message_chunk"
+    );
     assert.match(sseOutput, /data: \[DONE\]/, "SSE output must terminate with [DONE]");
   } finally {
     if (oldBin !== undefined) {
