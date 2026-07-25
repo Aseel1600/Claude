@@ -933,6 +933,7 @@
   "disabled": "Desabilitado",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Encaminhar solicitações com orçamento esgotado para o provedor/modelo de fallback gratuito de emergência.",
   "featureFlagArenaEloSyncEnabledDescription": "Habilitar sincronização periódica de ELO da tabela de classificação do Arena AI para rankings de inteligência de modelos.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Divulgar ids espelho claude/<provider>/<model> em /v1/models para que a descoberta de modelos do gateway Claude Code liste modelos não-Claude. Atenção: duplica as entradas do catálogo para todos os clientes quando ativado globalmente.",
   "sidebar": {
     "home": "Início",
     "dashboard": "Painel",
