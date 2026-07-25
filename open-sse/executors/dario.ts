@@ -28,6 +28,7 @@ import {
   mergeUpstreamExtraHeaders,
   mergeAbortSignals,
   type ProviderCredentials,
+  type ExecutorLog,
 } from "./base.ts";
 import { HTTP_STATUS, FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { getProviderPluginManifestHeader } from "../config/providerPluginManifestUrl.ts";
@@ -216,7 +217,7 @@ export class DarioExecutor extends BaseExecutor {
     stream: boolean;
     credentials: ProviderCredentials;
     signal?: AbortSignal | null;
-    log?: any;
+    log?: ExecutorLog | null;
     upstreamExtraHeaders?: Record<string, string> | null;
   }) {
     // Resolve URL dynamically so settings table dario_url is respected.
