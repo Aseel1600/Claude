@@ -12,9 +12,10 @@ DATA_PATH="${DATA_DIR:-/app/data}"
 if [ -d "$DATA_PATH" ] && [ ! -w "$DATA_PATH" ]; then
   echo "WARNING: $DATA_PATH is not writable by the current user (UID $(id -u))."
   if [ "${CONTAINER_HOST:-}" = "podman" ]; then
-    echo "Rootless Podman maps container UIDs into a subordinate range."
-    echo "Run this on the host to fix (using the host-side bind-mount path):"
-    echo "  podman unshare chown -R $(id -u):$(id -g) <host-data-dir>"
+    echo "Podman bind-mount permissions depend on whether the engine is local or"
+    echo "reached through Podman Machine; this container cannot determine that topology."
+    echo "Use the host-side fix for your topology:"
+    echo "  https://github.com/diegosouzapw/OmniRoute/blob/main/contrib/podman/README.md#data-directory-permissions-by-topology"
   else
     echo "Run this on the Docker host to fix (using the host-side bind-mount path):"
     echo "  sudo chown -R $(id -u):$(id -g) <host-data-dir>"
