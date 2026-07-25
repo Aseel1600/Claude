@@ -17,13 +17,7 @@
 // ── Types ───────────────────────────────────────────────────────────────────
 
 export type TaskType =
-  | "coding"
-  | "creative"
-  | "analysis"
-  | "vision"
-  | "summarization"
-  | "background"
-  | "chat";
+  "coding" | "creative" | "analysis" | "vision" | "summarization" | "background" | "chat";
 
 interface TaskPattern {
   patterns: string[];
@@ -168,33 +162,90 @@ const DEFAULT_TASK_MODEL_MAP: Record<TaskType, string> = {
 
 // ── State ────────────────────────────────────────────────────────────────────
 
-let _config: TaskRoutingConfig = {
-  enabled: false, // User must explicitly enable
-  taskModelMap: { ...DEFAULT_TASK_MODEL_MAP },
-  detectionEnabled: true,
-  stats: { detected: 0, routed: 0 },
-};
+// #8601: the config MUST live on globalThis, NOT in a module-level `let`. A plain
+// module-level binding is DUPLICATED per module graph, so the boot hydration in
+// src/instrumentation-node.ts would land on the instrumentation graph's copy and
+// never reach the copy src/sse/handlers/chat.ts reads — exactly the #5312 fix-A
+// break proven on the VPS. Mirrors thinkingBudget.ts (#5312) and systemPrompt.ts (#2470).
+const GLOBAL_KEY = "__omniroute_taskRouting_config__";
+const _store = globalThis as unknown as Record<string, TaskRoutingConfig | undefined>;
+
+function freshConfig(): TaskRoutingConfig {
+  return {
+    enabled: false, // User must explicitly enable
+    taskModelMap: { ...DEFAULT_TASK_MODEL_MAP },
+    detectionEnabled: true,
+    stats: { detected: 0, routed: 0 },
+  };
+}
+
+function getConfig(): TaskRoutingConfig {
+  if (!_store[GLOBAL_KEY]) {
+    _store[GLOBAL_KEY] = freshConfig();
+  }
+  return _store[GLOBAL_KEY]!;
+}
 
 // ── Config Management ────────────────────────────────────────────────────────
 
 export function setTaskRoutingConfig(config: Partial<TaskRoutingConfig>): void {
-  _config = {
-    ..._config,
+  const current = getConfig();
+  _store[GLOBAL_KEY] = {
+    ...current,
     ...config,
-    stats: _config.stats, // preserve stats across config changes
+    stats: current.stats, // preserve stats across config changes
   };
 }
 
 export function getTaskRoutingConfig(): TaskRoutingConfig {
+  const current = getConfig();
   return {
-    ..._config,
-    taskModelMap: { ..._config.taskModelMap },
-    stats: { ..._config.stats },
+    ...current,
+    taskModelMap: { ...current.taskModelMap },
+    stats: { ...current.stats },
   };
 }
 
 export function resetTaskRoutingStats(): void {
-  _config.stats = { detected: 0, routed: 0 };
+  getConfig().stats = { detected: 0, routed: 0 };
+}
+
+/**
+ * Restore the persisted Task-Aware Routing config at boot (#8601).
+ *
+ * `PUT /api/settings/task-routing` writes the config to `settings.taskRouting` as a
+ * JSON string, but nothing ever read it back — so the feature silently reverted to
+ * `enabled: false` + the default model map on every restart. `applyRuntimeSettings`
+ * does not cover this key, so it needs an explicit hydration step, same as the
+ * Global System Prompt (#2470) and the Thinking-Budget config (#5312).
+ *
+ * Accepts either the JSON string the route persists or an already-parsed object.
+ * Returns true when a config was applied, false for missing/malformed values
+ * (fail-open: the in-memory defaults stay in place).
+ */
+export function hydrateTaskRoutingConfig(settings: unknown): boolean {
+  const raw =
+    settings && typeof settings === "object" && !Array.isArray(settings)
+      ? (settings as Record<string, unknown>).taskRouting
+      : undefined;
+  if (raw === undefined || raw === null) return false;
+
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    if (raw.trim().length === 0) return false;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return false;
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+
+  // `stats` is runtime telemetry, never restored from the persisted blob — the route
+  // already strips it on write, but a hand-edited settings row must not resurrect it.
+  const { stats: _ignoredStats, ...persisted } = parsed as Partial<TaskRoutingConfig>;
+  setTaskRoutingConfig(persisted);
+  return true;
 }
 
 export function getDefaultTaskModelMap(): Record<TaskType, string> {
@@ -299,14 +350,15 @@ export function applyTaskAwareRouting(
   originalModel: string,
   body: any
 ): { model: string; taskType: TaskType; wasRouted: boolean } {
-  if (!_config.enabled || !_config.detectionEnabled) {
+  const config = getConfig();
+  if (!config.enabled || !config.detectionEnabled) {
     return { model: originalModel, taskType: "chat", wasRouted: false };
   }
 
   const taskType = detectTaskType(body);
-  _config.stats.detected++;
+  config.stats.detected++;
 
-  const preferred = _config.taskModelMap[taskType];
+  const preferred = config.taskModelMap[taskType];
 
   // No override configured for this task type
   if (!preferred || preferred === "") {
@@ -321,6 +373,6 @@ export function applyTaskAwareRouting(
     // This is a conservative heuristic — full override can be enabled via settting
   }
 
-  _config.stats.routed++;
+  config.stats.routed++;
   return { model: preferred, taskType, wasRouted: true };
 }
