@@ -2,7 +2,11 @@ import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
 import { resolveMitmDataDir } from "./dataDir.ts";
-import { removeDNSEntry, removeDNSEntries } from "./dns/dnsConfig.ts";
+import {
+  hasDNSConfiguredForAnyAgent,
+  removeDNSEntry,
+  removeDNSEntries,
+} from "./dns/dnsConfig.ts";
 import { provisionDnsEntries } from "./dns/provision.ts";
 import { generateCert } from "./cert/generate.ts";
 import { installCertResult, installCaCert } from "./cert/install.ts";
@@ -387,11 +391,10 @@ export async function getMitmStatus(): Promise<{
     }
   }
 
-  // Check DNS configuration
+  // Check DNS configuration — report true when any agent's hosts are present
   let dnsConfigured = false;
   try {
-    const hostsContent = fs.readFileSync("/etc/hosts", "utf-8");
-    dnsConfigured = /\bdaily-cloudcode-pa\.googleapis\.com\b/.test(hostsContent);
+    dnsConfigured = hasDNSConfiguredForAnyAgent();
   } catch {
     // Ignore
   }

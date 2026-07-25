@@ -244,7 +244,7 @@ export async function removeDNSEntries(
 }
 
 // ---------------------------------------------------------------------------
-// Legacy API — backward compat wrappers for manager.ts callers
+// DNS status helpers
 // ---------------------------------------------------------------------------
 
 /**
@@ -255,6 +255,21 @@ export function checkDNSEntry(): boolean {
   const hostsContent = readHostsFile();
   return ANTIGRAVITY_HOSTS.every((h) => hasHostEntry(hostsContent, h));
 }
+
+/**
+ * Check whether any registered MITM target has at least one host configured
+ * in the hosts file. Used by getMitmStatus() to report accurate DNS status
+ * for all agents, not just Antigravity.
+ */
+export function hasDNSConfiguredForAnyAgent(): boolean {
+  const hostsContent = readHostsFile();
+  if (!hostsContent) return false;
+  return ALL_TARGETS.some((t) => t.hosts.some((h) => hasHostEntry(hostsContent, h)));
+}
+
+// ---------------------------------------------------------------------------
+// Legacy API — backward compat wrappers for manager.ts callers
+// ---------------------------------------------------------------------------
 
 /**
  * Add DNS entries for the Antigravity default hosts, or for a specific agent
