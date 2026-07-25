@@ -44,3 +44,69 @@ test("upstream error passthrough", async (t) => {
     assert.equal(buildPassthroughErrorResponse(500, {}), null);
   });
 });
+
+test("createErrorResult opt-in passthrough (opts.passthrough)", async (t) => {
+  await t.test(
+    "com opts.passthrough e corpo elegível, result.response é o corpo upstream verbatim",
+    async () => {
+      const { createErrorResult } = await import("../../open-sse/utils/error.ts");
+      const upstreamBody = {
+        type: "error",
+        error: {
+          type: "invalid_request_error",
+          message: "thinking.type: adaptive is not supported",
+        },
+      };
+      const result = createErrorResult(400, "msg", null, "code", "type", upstreamBody, {
+        passthrough: true,
+      });
+      assert.deepEqual(await result.response.json(), upstreamBody);
+      assert.equal(result.status, 400);
+      // Internal classification fields must never be affected by passthrough.
+      assert.equal(typeof result.error, "string");
+      assert.notEqual(result.error, JSON.stringify(upstreamBody));
+    }
+  );
+
+  await t.test("sem opts, comportamento atual (corpo sanitizado) é preservado", async () => {
+    const { createErrorResult } = await import("../../open-sse/utils/error.ts");
+    const upstreamBody = {
+      type: "error",
+      error: { type: "invalid_request_error", message: "thinking.type: adaptive is not supported" },
+    };
+    const result = createErrorResult(400, "msg", null, "code", "type", upstreamBody);
+    const body = (await result.response.json()) as { error?: { message?: string } };
+    assert.ok(body.error?.message, "sanitized body keeps the wrapped error.message shape");
+    assert.ok(
+      !JSON.stringify(body).includes("    at /"),
+      "sanitized body never leaks stack-trace-like text"
+    );
+  });
+
+  await t.test("com retryAfterMs e passthrough elegível, header Retry-After é setado", async () => {
+    const { createErrorResult } = await import("../../open-sse/utils/error.ts");
+    const upstreamBody = {
+      type: "error",
+      error: { type: "rate_limit_error", message: "slow down" },
+    };
+    const result = createErrorResult(429, "msg", 5000, "code", "type", upstreamBody, {
+      passthrough: true,
+    });
+    assert.equal(result.response.headers.get("Retry-After"), "5");
+    assert.deepEqual(await result.response.json(), upstreamBody);
+  });
+
+  await t.test(
+    "opts.passthrough true mas corpo inelegível (401) cai no corpo sanitizado atual",
+    async () => {
+      const { createErrorResult } = await import("../../open-sse/utils/error.ts");
+      const upstreamBody = { error: { message: "bad key" } };
+      const result = createErrorResult(401, "unauthorized", null, "code", "type", upstreamBody, {
+        passthrough: true,
+      });
+      const body = (await result.response.json()) as { error?: { message?: string } };
+      assert.notDeepEqual(body, upstreamBody);
+      assert.ok(body.error?.message, "sanitized body keeps the wrapped error.message shape");
+    }
+  );
+});
