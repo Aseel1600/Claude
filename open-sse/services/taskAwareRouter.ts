@@ -1,17 +1,21 @@
 /**
  * Task-Aware Smart Router — T05
  *
- * Detects the semantic type of an incoming chat request and routes
- * to the most appropriate (optimal cost/quality) model for that task type.
+ * Detects the semantic type of an incoming chat request and routes it to a routing
+ * INTENT, letting the auto-combo scorer pick the concrete model from whatever the
+ * operator has connected. Defaults never name a provider/model id (#8602).
  *
- * Task types:
- *   - coding        → fast reasoning models (deepseek, codex, claude-sonnet)
- *   - creative      → expressive models (claude-opus, gpt-5)
- *   - analysis      → long-context + smart models (gemini-2.5-pro, claude-opus)
- *   - vision        → multimodal models (gpt-4o, gemini-2.5-flash, claude-3.5)
- *   - summarization → cheap fast models (gemini-flash, gpt-4o-mini)
- *   - background    → cheap utility models (same as backgroundTaskDetector)
- *   - chat          → default/balanced (no override)
+ * Task types → default intent:
+ *   - coding        → auto/coding
+ *   - analysis      → auto/reasoning
+ *   - vision        → auto/vision
+ *   - summarization → auto/chat:fast
+ *   - background    → auto/chat:cheap
+ *   - creative      → no override (use requested model)
+ *   - chat          → no override (use requested model)
+ *
+ * Operators can still point any task type at a specific model via
+ * PUT /api/settings/task-routing — the defaults just stop shipping stale ones.
  */
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -148,15 +152,33 @@ const TASK_PATTERNS: Record<TaskType, TaskPattern> = {
   },
 };
 
-// ── Default task → model map ─────────────────────────────────────────────────
+// ── Default task → routing-intent map ────────────────────────────────────────
 
+/**
+ * Defaults route by INTENT (`auto/<category>[:<tier>]`), never to a concrete
+ * provider/model id (#8602).
+ *
+ * The previous defaults named literal models (`openai/gpt-4o`,
+ * `gemini/gemini-2.5-flash-lite`, …). That was wrong twice over:
+ *
+ *  - The list rotted. Those ids aged out by a generation or two, and every model
+ *    release made them staler. Naming an intent instead removes the maintenance.
+ *  - It bypassed the router. `applyTaskAwareRouting` overwrites `body.model`, so a
+ *    literal target skipped auto-combo's 13-factor scoring (quota, circuit-breaker
+ *    health, cost, latency, stability), connection cooldown and model lockout — and
+ *    hard-failed for any operator who simply had no connection for that provider.
+ *
+ * `auto/*` ids resolve on demand against the operator's actually-connected backends
+ * (`autoCombo/suffixComposition.ts` → `autoCombo/virtualFactory.ts`) and degrade
+ * gracefully as backends rotate. Keep every entry here an `auto/` id.
+ */
 const DEFAULT_TASK_MODEL_MAP: Record<TaskType, string> = {
-  coding: "deepseek/deepseek-chat", // DeepSeek V3.2 — best coding OSS
+  coding: "auto/coding", // Best-scoring connected coding model
   creative: "", // No override — use requested model
-  analysis: "gemini/gemini-2.5-pro", // Best long-context reasoning
-  vision: "openai/gpt-4o", // Best vision baseline
-  summarization: "gemini/gemini-2.5-flash", // Fast + cheap for summarization
-  background: "gemini/gemini-2.5-flash-lite", // Cheapest for utility tasks
+  analysis: "auto/reasoning", // Reasoning-capable candidates only
+  vision: "auto/vision", // Vision-capable candidates only
+  summarization: "auto/chat:fast", // Latency-weighted pack
+  background: "auto/chat:cheap", // Cost-weighted pack for utility traffic
   chat: "", // No override — use requested model
 };
 
