@@ -1,1 +1,1 @@
-- **chore(resilience):** log limiter state when a local request-queue job expires to distinguish RPM depletion, concurrency pressure, and wedged queues ([#8616](https://github.com/diegosouzapw/OmniRoute/pull/8616)).
+- **fix(resilience):** recover a wedged local request limiter after an idle-capacity queue expiry and log the state needed to distinguish RPM depletion, concurrency pressure, and scheduler wedges ([#8616](https://github.com/diegosouzapw/OmniRoute/pull/8616)).
