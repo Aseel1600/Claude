@@ -15,14 +15,16 @@ import { saveImageErrorResult, saveImageSuccessResult } from "../../imageGenerat
 import {
   AdobeFireflyError,
   adobeFireflyGenerateImage,
-  adobeFireflyImageTimeoutMs,
   resolveAdobeAccessToken,
-  resolveAdobeSourceImageReferences,
+  resolveAdobeArpSessionId,
+  resolveAdobeSourceImageIds,
   resolveAdobeImageModel,
 } from "../../../services/adobeFireflyClient.ts";
-import { getAdobeReferenceUploadLimit } from "../../../services/adobeFireflyModels.ts";
-import { isAdobeFireflyUpscaleModel } from "../../../services/adobeFireflyUpscale.ts";
-import { handleAdobeFireflyImageUpscale } from "../../imageUpscale/adobeFirefly.ts";
+
+function normalizePositiveNumber(value: unknown, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 export async function handleAdobeFireflyImageGeneration({
   model,
@@ -56,19 +58,6 @@ export async function handleAdobeFireflyImageGeneration({
 }) {
   const startTime = Date.now();
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
-
-  // Topaz upscalers share adobe-firefly but use /v2/3p-images/upsample (no prompt).
-  if (isAdobeFireflyUpscaleModel(model)) {
-    return handleAdobeFireflyImageUpscale({
-      model,
-      provider,
-      body: body as Record<string, unknown>,
-      credentials,
-      log,
-      fetchImpl,
-    });
-  }
-
   if (!prompt) {
     return saveImageErrorResult({
       provider,
@@ -81,6 +70,7 @@ export async function handleAdobeFireflyImageGeneration({
 
   try {
     const accessToken = await resolveAdobeAccessToken(credentials, fetchImpl);
+    const timeoutMs = normalizePositiveNumber(body.timeout_ms, 180_000);
     const seed =
       typeof body.seed === "number"
         ? body.seed
@@ -99,33 +89,28 @@ export async function handleAdobeFireflyImageGeneration({
         ? credentials.accessToken
         : undefined);
 
-    const { spec } = resolveAdobeImageModel(model);
-    const references = await resolveAdobeSourceImageReferences({
+    // Cap uploads by model family (matches MediaViewModel GetSourceImageLimit).
+    const { id: resolvedId } = resolveAdobeImageModel(model);
+    const maxRefs = resolvedId.includes("nano-banana") || resolvedId.includes("gpt-image") ? 4 : 2;
+
+    // One ARP for upload+generate (browser reuses sherlockToken / x-arp-session-id).
+    const arpSessionId = resolveAdobeArpSessionId(sessionCookie);
+
+    const sourceImageIds = await resolveAdobeSourceImageIds({
       accessToken,
       body,
-      max: getAdobeReferenceUploadLimit(spec, "image"),
+      max: maxRefs,
       sessionCookie,
+      arpSessionId,
       prompt,
       fetchImpl,
       log,
     });
 
-    const explicitTimeout =
-      typeof body.timeout_ms === "number"
-        ? body.timeout_ms
-        : typeof body.timeout_ms === "string" && body.timeout_ms.trim()
-          ? Number(body.timeout_ms)
-          : undefined;
-    const timeoutMs = adobeFireflyImageTimeoutMs({
-      timeoutMs: explicitTimeout,
-      refCount: references.length,
-    });
-
     log?.info?.(
       "IMAGE",
       `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"` +
-        (references.length ? ` | refs: ${references.length}` : "") +
-        ` | pollTimeoutMs=${timeoutMs}`
+        (sourceImageIds.length ? ` | refs: ${sourceImageIds.length}` : "")
     );
 
     const result = await adobeFireflyGenerateImage({
@@ -137,8 +122,9 @@ export async function handleAdobeFireflyImageGeneration({
       quality: body.quality,
       seed: Number.isFinite(seed as number) ? (seed as number) : undefined,
       negativePrompt: typeof body.negative_prompt === "string" ? body.negative_prompt : undefined,
-      references: references.length ? references : undefined,
+      sourceImageIds: sourceImageIds.length ? sourceImageIds : undefined,
       sessionCookie,
+      arpSessionId,
       timeoutMs,
       fetchImpl,
       log,

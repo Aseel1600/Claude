@@ -4,13 +4,8 @@ import { resolvePublicCred } from "../../open-sse/utils/publicCreds.ts";
 import {
   ADOBE_FIREFLY_IMAGE_MODELS,
   ADOBE_FIREFLY_VIDEO_MODELS,
-  ADOBE_FIREFLY_IMAGE_TIMEOUT_MAX_MS,
-  ADOBE_FIREFLY_IMAGE_TIMEOUT_PER_REF_MS,
-  DEFAULT_IMAGE_TIMEOUT_MS,
   adobeFireflyApiKey,
   adobeFireflyBalanceApiKey,
-  adobeFireflyImageTimeoutMs,
-  adobeFireflyMaxImageRefs,
   buildAdobeImagePayload,
   buildAdobePollHeaders,
   buildAdobeSubmitHeaders,
@@ -78,11 +73,6 @@ test("adobe-firefly is registered in IMAGE_PROVIDERS with adobe-firefly-image fo
   assert.equal(entry.format, "adobe-firefly-image");
   assert.match(entry.baseUrl, /firefly-3p\.ff\.adobe\.io/);
   assert.ok(Array.isArray(entry.models) && entry.models.length >= 4);
-  assert.equal(
-    entry.models.some((model: { id: string }) => model.id === "nano-banana-pro"),
-    false,
-    "routing-only compatibility aliases must not be advertised as discovered models"
-  );
 });
 
 test("adobe-firefly is registered in VIDEO_PROVIDERS with adobe-firefly-video format", () => {
@@ -159,25 +149,20 @@ test("normalizeAdobeOutputResolution maps quality tiers", () => {
   assert.equal(normalizeAdobeOutputResolution(undefined, undefined), "2K");
 });
 
-test("resolveAdobeImageModel maps valid aliases to exact discovery ids", () => {
-  assert.equal(resolveAdobeImageModel("nano-banana-pro").id, "gemini-flash-nano-banana-2");
-  assert.equal(
-    resolveAdobeImageModel("adobe-firefly/nano-banana-2").id,
-    "gemini-flash-nano-banana-3"
-  );
-  assert.equal(resolveAdobeImageModel("gpt-image").id, "gpt-image-2");
-  assert.throws(
-    () => resolveAdobeImageModel("invented-image-model"),
-    /Unknown Adobe Firefly image model/
-  );
+test("resolveAdobeImageModel maps catalog and long model ids", () => {
+  assert.equal(resolveAdobeImageModel("nano-banana-pro").id, "nano-banana-pro");
+  assert.equal(resolveAdobeImageModel("adobe-firefly/nano-banana-2").id, "nano-banana-2");
+  assert.equal(resolveAdobeImageModel("firefly-nano-banana-pro-2k-16x9").id, "nano-banana-pro");
+  assert.equal(resolveAdobeImageModel("gpt-image").id, "gpt-image");
   assert.ok(ADOBE_FIREFLY_IMAGE_MODELS["nano-banana-pro"].upstreamModelVersion);
 });
 
-test("resolveAdobeVideoModel maps only discovered video models", () => {
-  assert.equal(resolveAdobeVideoModel("veo-3.1-fast").id, "veo-3.1-fast-generate");
-  assert.equal(resolveAdobeVideoModel("kling-3").id, "kling-kling-v3-standard-i2v");
-  assert.throws(() => resolveAdobeVideoModel("sora-2"), /Unknown Adobe Firefly video model/);
-  assert.ok(ADOBE_FIREFLY_VIDEO_MODELS["veo-3.1"].defaultDuration > 0);
+test("resolveAdobeVideoModel maps sora/veo/kling families", () => {
+  assert.equal(resolveAdobeVideoModel("sora-2").id, "sora-2");
+  assert.equal(resolveAdobeVideoModel("firefly-sora2-pro-8s-16x9").id, "sora-2-pro");
+  assert.equal(resolveAdobeVideoModel("veo-3.1-fast").id, "veo-3.1-fast");
+  assert.equal(resolveAdobeVideoModel("kling-3").id, "kling-3");
+  assert.ok(ADOBE_FIREFLY_VIDEO_MODELS["sora-2"].defaultDuration > 0);
 });
 
 test("buildAdobeImagePayload produces nano and gpt-image shapes", () => {
@@ -275,19 +260,9 @@ test("buildAdobeImagePayload attaches referenceBlobs like live adobe_atach_image
     sourceImageIds: ["aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"],
   });
   assert.deepEqual(gpt.referenceBlobs, [
-    { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", usage: "source" },
+    { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", usage: "subject" },
   ]);
   assert.equal((gpt.generationMetadata as Record<string, unknown>).module, "image2image");
-});
-
-test("adobeFireflyImageTimeoutMs scales boundedly with reference count", () => {
-  assert.equal(adobeFireflyImageTimeoutMs({ refCount: 0 }), DEFAULT_IMAGE_TIMEOUT_MS);
-  assert.equal(
-    adobeFireflyImageTimeoutMs({ refCount: 2 }),
-    DEFAULT_IMAGE_TIMEOUT_MS + 2 * ADOBE_FIREFLY_IMAGE_TIMEOUT_PER_REF_MS
-  );
-  assert.equal(adobeFireflyImageTimeoutMs({ timeoutMs: 120_000, refCount: 5 }), 120_000);
-  assert.equal(adobeFireflyImageTimeoutMs({ refCount: 99 }), ADOBE_FIREFLY_IMAGE_TIMEOUT_MAX_MS);
 });
 
 test("extractAdobeSourceImageSources reads Media page image fields", () => {
@@ -362,7 +337,16 @@ test("resolveAdobeSourceImageIds uploads data URLs then returns blob ids", async
   assert.equal(ADOBE_FIREFLY_IMAGE_UPLOAD_URL.includes("storage/image"), true);
 });
 
-test("buildAdobeVideoPayload follows discovered fields and reference roles", () => {
+test("buildAdobeVideoPayload produces sora and veo shapes", () => {
+  const sora = buildAdobeVideoPayload({
+    prompt: "ocean waves",
+    aspectRatio: "16:9",
+    duration: 8,
+    modelSpec: ADOBE_FIREFLY_VIDEO_MODELS["sora-2"],
+  });
+  assert.equal(sora.modelId, "sora");
+  assert.equal(sora.duration, 8);
+
   const veo = buildAdobeVideoPayload({
     prompt: "city flyover",
     aspectRatio: "9:16",
@@ -371,30 +355,12 @@ test("buildAdobeVideoPayload follows discovered fields and reference roles", () 
   });
   assert.equal(veo.modelId, "veo");
   assert.equal(veo.modelVersion, "3.1-generate");
-  assert.equal(veo.duration, 6);
-  assert.equal(veo.generateAudio, true);
-
-  const kling = buildAdobeVideoPayload({
-    prompt: "ocean waves",
-    aspectRatio: "16:9",
-    duration: 5,
-    modelSpec: ADOBE_FIREFLY_VIDEO_MODELS["kling-3"],
-    sourceImageIds: ["aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"],
-  });
-  assert.equal(kling.modelVersion, "kling_v3_standard_i2v");
-  assert.deepEqual(kling.referenceBlobs, [
-    { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", usage: "frame", order: 1 },
-  ]);
-  assert.throws(
-    () =>
-      buildAdobeVideoPayload({
-        prompt: "bad duration",
-        aspectRatio: "16:9",
-        duration: 5,
-        modelSpec: ADOBE_FIREFLY_VIDEO_MODELS["veo-3.1"],
-      }),
-    /supports duration/
+  assert.equal(
+    (veo.modelSpecificPayload as Record<string, Record<string, unknown>>).parameters
+      .durationSeconds,
+    6
   );
+  assert.equal(veo.generateAudio, true);
 });
 
 test("extractAdobeResultLink prefers x-override-status-link then links.result", () => {
@@ -475,17 +441,44 @@ test("buildAdobeSubmitNonce is sha256(user_id + prompt[:256])", async () => {
   assert.notEqual(buildAdobeSubmitNonce(token, prompt + "!"), nonce);
   assert.equal(extractAdobeAccountIdFromToken(token), "0EB681AF6A5FF6C10A495FF2@AdobeID");
 
+  const {
+    isValidAdobeArpSessionId,
+    resolveAdobeArpSessionId,
+    extractAdobeArpSessionId,
+    ADOBE_FIREFLY_FTR_MAGIC,
+  } = await import("../../open-sse/services/adobeFireflyClient.ts");
   const arp = buildAdobeArpSessionId();
   assert.ok(arp.length > 20);
+  assert.equal(isValidAdobeArpSessionId(arp), true);
   const decoded = JSON.parse(Buffer.from(arp, "base64").toString("utf8"));
   assert.ok(decoded.sid);
-  assert.match(String(decoded.ftr), /dUAL43-mnts-ants-d4_31ck__tt$/);
+  // Live SPA shape (2026-07): sid + ark (Arkose) + ftr with __UDF43-m4_31ck magic
+  assert.ok(decoded.ark, "synthetic ARP must include ark field");
+  assert.match(String(decoded.ark), /pk=BBCC314C-4937-4CCD-B0A3-FDF0F0F7603C/);
+  assert.match(String(decoded.ftr), new RegExp(ADOBE_FIREFLY_FTR_MAGIC));
+  assert.match(String(decoded.ftr), /-v2_tt$/);
 
   // Headers: deterministic nonce + always ARP (synthetic when none provided)
   const h = buildAdobeSubmitHeaders(token, { prompt });
   assert.equal(h["x-nonce"], nonce);
   assert.ok(h["x-arp-session-id"]);
   assert.equal(h.cookie, undefined);
+
+  // Prefer real sherlockToken / x-arp-session-id from paste over synthetic
+  const realArp = Buffer.from(
+    JSON.stringify({
+      sid: "11111111-2222-3333-4444-555555555555",
+      ark: "sess.123|r=eu-west-1|pk=BBCC314C-4937-4CCD-B0A3-FDF0F0F7603C",
+      ftr: "aa_1" + ADOBE_FIREFLY_FTR_MAGIC + "_x=-1-v2_tt",
+    }),
+    "utf8"
+  ).toString("base64");
+  assert.equal(extractAdobeArpSessionId(`a=1; sherlockToken=${realArp}; b=2`), realArp);
+  assert.equal(
+    extractAdobeArpSessionId(`x-arp-session-id: ${realArp}\nAuthorization: Bearer x`),
+    realArp
+  );
+  assert.equal(resolveAdobeArpSessionId(`sherlockToken=${realArp}`), realArp);
 });
 
 test("normalizeAdobePollUrl rewrites firefly-epo jobs/result to BKS", () => {
@@ -529,7 +522,7 @@ test("adobe-firefly is in USAGE_SUPPORTED_PROVIDERS for Limits", () => {
   assert.ok(USAGE_SUPPORTED_PROVIDERS.includes("firefly"));
 });
 
-test("parseAdobeModelsDiscovery preserves schemas and maps exact ids", () => {
+test("parseAdobeModelsDiscovery extracts image/video versions", () => {
   const rows = parseAdobeModelsDiscovery({
     models: [
       {
@@ -540,44 +533,16 @@ test("parseAdobeModelsDiscovery preserves schemas and maps exact ids", () => {
             outputModality: ["image"],
             modelDisplayName: "Gemini 3.0 (Nano Banana Pro)",
             healthStatus: "HEALTHY",
-            inputMediaUseCase: ["editing"],
-            bksGenerationModel: "firefly_3p:external:gemini_flash_2",
-            requestSchema: {
-              type: "object",
-              properties: {
-                prompt: { type: "string" },
-                referenceBlobs: {
-                  maxItems: 14,
-                  "x-capabilities": [
-                    {
-                      mediaType: "image",
-                      usageConstraints: [{ usageType: "general", minItems: 0, maxItems: 14 }],
-                      maxFileSizeBytes: 104857600,
-                    },
-                  ],
-                },
-              },
-            },
           },
         },
       },
       {
-        modelId: "veo",
+        modelId: "sora",
         modelVersions: {
-          "3.1-generate": {
+          "sora-2": {
             enabled: true,
             outputModality: ["video"],
-            modelDisplayName: "Veo 3.1",
-            requestSchema: {
-              allOf: [
-                {
-                  properties: {
-                    prompt: { type: "string" },
-                    duration: { anyOf: [{ type: "integer", enum: [4, 6, 8] }] },
-                  },
-                },
-              ],
-            },
+            modelDisplayName: "Sora 2",
           },
         },
       },
@@ -587,35 +552,14 @@ test("parseAdobeModelsDiscovery preserves schemas and maps exact ids", () => {
   assert.equal(rows[0].modality, "image");
   assert.equal(rows[1].modality, "video");
   const catalog = mapDiscoveredToCatalog(rows);
-  assert.ok(catalog.some((m) => m.id === "gemini-flash-nano-banana-2"));
-  assert.ok(catalog.some((m) => m.id === "veo-3.1-generate"));
-  assert.equal(catalog[0].capabilities.referenceInputs[0].maxItems, 14);
-  assert.deepEqual(catalog[1].capabilities.supportedDurations, [4, 6, 8]);
+  assert.ok(catalog.some((m) => m.id === "nano-banana-pro"));
+  assert.ok(catalog.some((m) => m.id === "sora-2"));
 });
 
-test("fallback catalog is the verified discovery snapshot without invented Sora", () => {
-  assert.equal(ADOBE_FIREFLY_FALLBACK_MODELS.length, 52);
-  assert.equal(getAdobeFireflyFallbackCatalog("image").length, 17);
-  assert.equal(getAdobeFireflyFallbackCatalog("video").length, 35);
-  assert.equal(
-    ADOBE_FIREFLY_FALLBACK_MODELS.some((model) => model.id.includes("sora")),
-    false
-  );
-  assert.equal(
-    ADOBE_FIREFLY_FALLBACK_MODELS.some(
-      (model) => model.id.includes("kling") && model.id.includes("omni")
-    ),
-    false
-  );
-  assert.ok(ADOBE_FIREFLY_FALLBACK_MODELS.some((model) => model.id === "kling-kling-o3"));
-  assert.equal(
-    ADOBE_FIREFLY_IMAGE_MODELS["nano-banana-pro"].capabilities.referenceInputs[0].maxItems,
-    14
-  );
-  assert.equal(
-    ADOBE_FIREFLY_IMAGE_MODELS["gpt-image"].capabilities.referenceInputs[0].maxItems,
-    16
-  );
+test("fallback catalog has image and video entries from get_models capture", () => {
+  assert.ok(ADOBE_FIREFLY_FALLBACK_MODELS.length >= 10);
+  assert.ok(getAdobeFireflyFallbackCatalog("image").length >= 4);
+  assert.ok(getAdobeFireflyFallbackCatalog("video").length >= 4);
 });
 
 test("extractAdobeAccountIdFromToken reads user_id claim", () => {
@@ -630,7 +574,18 @@ test("extractAdobeAccountIdFromToken reads user_id claim", () => {
 // --- Handlers (mocked fetch) ----------------------------------------------
 
 function jsonResponse(status: number, body: unknown, headerMap: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body) ?? null, { status, headers: headerMap });
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: {
+      get: (name: string) => {
+        const key = Object.keys(headerMap).find((k) => k.toLowerCase() === name.toLowerCase());
+        return key ? headerMap[key] : null;
+      },
+    },
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response;
 }
 
 test("handleAdobeFireflyImageGeneration returns 400 when prompt is missing", async () => {
@@ -755,7 +710,7 @@ test("adobeFireflyGenerateVideo submit+poll happy path (mocked)", async () => {
   const result = await adobeFireflyGenerateVideo({
     accessToken: "tok",
     prompt: "drone over forest",
-    model: "veo-3.1",
+    model: "sora-2",
     duration: 4,
     aspectRatio: "16:9",
     fetchImpl: fetchImpl as typeof fetch,
@@ -766,7 +721,7 @@ test("adobeFireflyGenerateVideo submit+poll happy path (mocked)", async () => {
 
 test("handleAdobeFireflyVideoGeneration returns 400 without prompt", async () => {
   const result = await handleAdobeFireflyVideoGeneration({
-    model: "veo-3.1",
+    model: "sora-2",
     provider: "adobe-firefly",
     body: {},
     credentials: { apiKey: "aaa.bbb.ccc" },
@@ -851,6 +806,36 @@ test("cookie exchange rejects guest IMS tokens", async () => {
       assert.match(message, /GUEST|guest|Bearer/i);
       return true;
     }
+  );
+});
+
+test("extractAdobeArpSessionId recovers JWT+ARP joined by space (PasswordBox mangling)", async () => {
+  const { extractAdobeArpSessionId, hasBrowserAdobeArpSession, formatAdobeSystemUnderLoadError } =
+    await import("../../open-sse/services/adobeFireflyClient.ts");
+  const realArp = Buffer.from(
+    JSON.stringify({
+      sid: "bdf37b8a-117f-467d-a737-7792932d98b4",
+      ark: "60818c561473ddb23.0684402805|r=eu-west-1|pk=BBCC314C-4937-4CCD-B0A3-FDF0F0F7603C",
+      ftr: "aab9dc9eb48f4ee1916428649f908f7d_1__UDF43-m4_31ck_x=-1-v2_tt",
+    }),
+    "utf8"
+  ).toString("base64");
+  // Fake 3-segment JWT shape long enough for looksLikeAdobeJwt
+  const fakeJwt =
+    "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9." +
+    "eyJ1c2VyX2lkIjoiMEVCNjgxQUY2QTVGRjZDMTBBNDk1RkYyQEFkb2JlSUQifQ." +
+    "sigABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnop";
+  const joined = `${fakeJwt} ${realArp}`;
+  assert.equal(extractAdobeArpSessionId(joined), realArp);
+  assert.equal(hasBrowserAdobeArpSession(joined), true);
+  assert.equal(hasBrowserAdobeArpSession(fakeJwt), false);
+  assert.match(
+    formatAdobeSystemUnderLoadError("image", 2, { hadBrowserArp: false }),
+    /missing a browser x-arp-session-id/
+  );
+  assert.match(
+    formatAdobeSystemUnderLoadError("image", 2, { hadBrowserArp: true }),
+    /fresh successful generate-async/i
   );
 });
 

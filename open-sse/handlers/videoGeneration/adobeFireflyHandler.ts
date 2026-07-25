@@ -10,10 +10,10 @@ import {
   AdobeFireflyError,
   adobeFireflyGenerateVideo,
   resolveAdobeAccessToken,
-  resolveAdobeSourceImageReferences,
+  resolveAdobeArpSessionId,
+  resolveAdobeSourceImageIds,
   resolveAdobeVideoModel,
 } from "../../services/adobeFireflyClient.ts";
-import { getAdobeReferenceUploadLimit } from "../../services/adobeFireflyModels.ts";
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -65,12 +65,17 @@ export async function handleAdobeFireflyVideoGeneration({
         ? credentials.accessToken
         : undefined);
 
-    const { spec } = resolveAdobeVideoModel(String(model));
-    const references = await resolveAdobeSourceImageReferences({
+    // Kling i2v / Veo ref / Sora frame: upload reference images first.
+    const { id: videoModelId } = resolveAdobeVideoModel(String(model));
+    const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;
+    // One ARP for frame upload + video submit (matches browser).
+    const arpSessionId = resolveAdobeArpSessionId(sessionCookie);
+    const sourceImageIds = await resolveAdobeSourceImageIds({
       accessToken,
       body,
-      max: getAdobeReferenceUploadLimit(spec, "image"),
+      max: maxFrames,
       sessionCookie,
+      arpSessionId,
       prompt,
       fetchImpl,
       log,
@@ -79,7 +84,7 @@ export async function handleAdobeFireflyVideoGeneration({
     log?.info?.(
       "VIDEO",
       `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"` +
-        (references.length ? ` | refs: ${references.length}` : "")
+        (sourceImageIds.length ? ` | frames: ${sourceImageIds.length}` : "")
     );
 
     const result = await adobeFireflyGenerateVideo({
@@ -99,8 +104,9 @@ export async function handleAdobeFireflyVideoGeneration({
             ? body.negativePrompt
             : undefined,
       generateAudio: body.generate_audio !== false && body.generateAudio !== false,
-      references: references.length ? references : undefined,
+      sourceImageIds: sourceImageIds.length ? sourceImageIds : undefined,
       sessionCookie,
+      arpSessionId,
       timeoutMs,
       fetchImpl,
       log,
