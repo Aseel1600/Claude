@@ -1114,6 +1114,7 @@
     "runtime": "İcra müddəti",
     "consoleLogs": "Konsol qeydləri",
     "logsTimeline": "Timeline",
+    "logsTimelineSubtitle": "Visual request timeline",
     "globalRouting": "Qlobal marşrutlaşdırma",
     "mitmProxy": "MITM Proksi",
     "oneProxy": "1 Proksi",

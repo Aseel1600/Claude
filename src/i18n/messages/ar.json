@@ -1114,6 +1114,7 @@
     "runtime": "وقت التشغيل",
     "consoleLogs": "سجلات وحدة التحكم",
     "logsTimeline": "Timeline",
+    "logsTimelineSubtitle": "Visual request timeline",
     "globalRouting": "التوجيه العام",
     "mitmProxy": "بروكسي MITM",
     "oneProxy": "1Proxy",
