@@ -82,26 +82,7 @@ function resolveTokenLimit(
   const envOverride = getEnvOverride(provider);
   if (envOverride) return { limit: envOverride, specific: true };
 
-  const p = (provider || "").toLowerCase();
   const lowerModel = (model || "").toLowerCase();
-
-  // 1b. HyperAgent Claude-family (fable / opus / sonnet): always 1M unless env override.
-  // Must run BEFORE models.dev DB — that catalog often has no HyperAgent rows and the
-  // generic 128k fallback was rejecting normal agentic tool-loop prompts (~137k tokens).
-  if (p === "hyperagent" || p === "ha") {
-    return { limit: DEFAULT_LIMITS.hyperagent ?? 1_000_000, specific: true };
-  }
-  // Bare model ids routed as hyperagent/* or containing fable/opus agent wire names
-  if (
-    lowerModel.includes("fable") ||
-    lowerModel.includes("opus-latest") ||
-    lowerModel.includes("claude-opus-4") ||
-    lowerModel.includes("claude-fable") ||
-    lowerModel.includes("sonnet-latest") ||
-    lowerModel.includes("claude-sonnet-5")
-  ) {
-    return { limit: 1_000_000, specific: true };
-  }
 
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
