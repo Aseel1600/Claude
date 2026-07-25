@@ -251,6 +251,8 @@ export function filterUsageForFormat(usage, targetFormat) {
       "reasoning_tokens",
       "prompt_tokens_details",
       "completion_tokens_details",
+      "prompt_cache_hit_tokens",
+      "prompt_cache_miss_tokens",
       "estimated",
     ],
   };
