@@ -21,32 +21,24 @@ test("#8497 README limits podman unshare to a local Linux engine", () => {
   assert.match(podmanQuickStart, /macOS or Windows[\s\S]*remote Podman Machine/);
   assert.match(
     podmanQuickStart,
-    /contrib\/podman\/README\.md#data-directory-permissions-by-topology/,
+    /contrib\/podman\/README\.md#data-directory-permissions-by-topology/
   );
 });
 
 test("#8497 Podman guide separates local engines from Podman Machine", () => {
   const guide = read("contrib/podman/README.md");
-  const localStart = guide.indexOf(
-    "### Linux with a local rootless Podman engine",
-  );
+  const localStart = guide.indexOf("### Linux with a local rootless Podman engine");
   const machineStart = guide.indexOf("### macOS or Windows with Podman Machine");
   const machineEnd = guide.indexOf("\n---", machineStart);
   const localGuidance = guide.slice(localStart, machineStart);
   const machineGuidance = guide.slice(machineStart, machineEnd);
 
   assert.ok(localStart >= 0, "local rootless Podman guidance must exist");
-  assert.ok(
-    machineStart > localStart,
-    "Podman Machine guidance must be a distinct section",
-  );
+  assert.ok(machineStart > localStart, "Podman Machine guidance must be a distinct section");
   assert.match(localGuidance, /podman unshare chown 1000:1000 \.\/data/);
   assert.doesNotMatch(machineGuidance, /podman unshare chown/);
   assert.match(machineGuidance, /remote client/);
-  assert.match(
-    machineGuidance,
-    /docker\.io\/diegosouzapw\/omniroute:latest/,
-  );
+  assert.match(machineGuidance, /docker\.io\/diegosouzapw\/omniroute:latest/);
 });
 
 test("#8497 Quadlet is Linux/systemd-only and generated units are not enabled", () => {
@@ -69,7 +61,7 @@ test("#8497 Compose either builds or explicitly reuses the matching local image"
   assert.match(guide, /podman compose --profile base up -d --build/);
   assert.match(
     guide,
-    /podman build --target runner-base -t omniroute:base \.[\s\S]*podman compose --profile base up -d --no-build/,
+    /podman build --target runner-base -t omniroute:base \.[\s\S]*podman compose --profile base up -d --no-build/
   );
   for (const [service, target, image] of [
     ["omniroute-base", "runner-base", "omniroute:base"],
@@ -79,18 +71,12 @@ test("#8497 Compose either builds or explicitly reuses the matching local image"
   ]) {
     const serviceStart = compose.indexOf(`  ${service}:`);
     const serviceEnd = compose.indexOf("\n  # ── Profile:", serviceStart + 1);
-    const serviceConfig = compose.slice(
-      serviceStart,
-      serviceEnd === -1 ? undefined : serviceEnd,
-    );
+    const serviceConfig = compose.slice(serviceStart, serviceEnd === -1 ? undefined : serviceEnd);
     assert.ok(serviceStart >= 0, `${service} must exist`);
     assert.match(serviceConfig, new RegExp(`target: ${target}`));
     assert.match(serviceConfig, new RegExp(`image: ${image}`));
   }
-  assert.match(
-    guide,
-    /podman compose --profile cliproxyapi up -d(?! --build)/,
-  );
+  assert.match(guide, /podman compose --profile cliproxyapi up -d(?! --build)/);
 });
 
 test("#8497 entrypoint emits a topology-neutral Podman hint", () => {
@@ -100,10 +86,7 @@ test("#8497 entrypoint emits a topology-neutral Podman hint", () => {
   assert.doesNotMatch(script, /podman (?:info|machine|system connection)/);
   assert.match(script, /engine is local or[\s\S]*Podman Machine/);
   assert.match(script, /cannot determine that topology/);
-  assert.match(
-    script,
-    /contrib\/podman\/README\.md#data-directory-permissions-by-topology/,
-  );
+  assert.match(script, /contrib\/podman\/README\.md#data-directory-permissions-by-topology/);
 });
 
 test("#8497 pull example and environment hints stay topology-safe", () => {
@@ -142,15 +125,10 @@ test("#8497 localized quick starts do not retain the remote-unsafe recipe", () =
     assert.doesNotMatch(content, /mkdir -p data && podman unshare/);
     assert.match(content, localized.localOnly);
     assert.match(content, /Podman Machine/);
-    assert.match(
-      content,
-      /contrib\/podman\/README\.md#data-directory-permissions-by-topology/,
-    );
+    assert.match(content, /contrib\/podman\/README\.md#data-directory-permissions-by-topology/);
   }
 
-  const zhEnvironment = read(
-    "docs/i18n/zh-CN/docs/reference/ENVIRONMENT.md",
-  );
+  const zhEnvironment = read("docs/i18n/zh-CN/docs/reference/ENVIRONMENT.md");
   assert.doesNotMatch(zhEnvironment, /修复指令使用 `podman unshare chown`/);
   assert.match(zhEnvironment, /任何 Podman 拓扑/);
   assert.match(zhEnvironment, /Podman Machine/);

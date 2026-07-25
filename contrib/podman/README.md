@@ -126,13 +126,13 @@ podman compose --profile base up -d --no-build
 
 Same profiles as `docker compose`:
 
-| Profile                        | First-run command                                            |
-| ------------------------------ | ------------------------------------------------------------ |
-| `base` (no CLIs)               | `podman compose --profile base up -d --build`                |
-| `web` (+Chromium/Playwright)   | `podman compose --profile web up -d --build`                 |
-| `cli` (+CLI tools)             | `podman compose --profile cli up -d --build`                 |
-| `host` (host-mounted binaries) | `podman compose --profile host up -d --build`                |
-| `cliproxyapi` (sidecar)        | `podman compose --profile cliproxyapi up -d`                 |
+| Profile                        | First-run command                             |
+| ------------------------------ | --------------------------------------------- |
+| `base` (no CLIs)               | `podman compose --profile base up -d --build` |
+| `web` (+Chromium/Playwright)   | `podman compose --profile web up -d --build`  |
+| `cli` (+CLI tools)             | `podman compose --profile cli up -d --build`  |
+| `host` (host-mounted binaries) | `podman compose --profile host up -d --build` |
+| `cliproxyapi` (sidecar)        | `podman compose --profile cliproxyapi up -d`  |
 
 ---
 
