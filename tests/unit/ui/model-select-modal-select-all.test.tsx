@@ -47,6 +47,11 @@ beforeEach(() => {
   (
     globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
   ).IS_REACT_ACT_ENVIRONMENT = true;
+  // These tests exercise selection bookkeeping, not the confirm-above-threshold
+  // UX (see modelSelectModalHelpers.ts::shouldConfirmSelectAll) — stub confirm
+  // to always accept so assertions don't depend on how many models the fixture
+  // catalog happens to expose.
+  vi.stubGlobal("confirm", vi.fn(() => true));
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
@@ -195,5 +200,32 @@ describe("ModelSelectModal — Select all / Unselect all visible models", () => 
     const selected = onSelectMany.mock.calls[0][0] as Array<{ value: string }>;
     expect(selected.some((m) => m.value === alreadyAdded[0])).toBe(false);
     expect(selected.length).toBe(allValues.length - 1);
+  });
+
+  it("asks for confirmation before Select all above the threshold, and honors decline", async () => {
+    const confirmSpy = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmSpy);
+
+    const onSelectMany = vi.fn();
+    // openai (20 models) + anthropic (10 models) = 30 candidates, comfortably
+    // above SELECT_ALL_CONFIRM_THRESHOLD (20) — see modelSelectModalHelpers.ts.
+    const { container } = await renderModal({
+      activeProviders: [{ provider: "openai" }, { provider: "anthropic" }],
+      onSelectMany,
+      onDeselectMany: vi.fn(),
+      addedModelValues: [],
+    });
+
+    const toggle = container.querySelector(
+      '[data-testid="model-select-toggle-all-visible"]'
+    ) as HTMLButtonElement;
+
+    await act(async () => {
+      toggle.click();
+    });
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    // Declining the confirmation must abort the batch add entirely.
+    expect(onSelectMany).not.toHaveBeenCalled();
   });
 });

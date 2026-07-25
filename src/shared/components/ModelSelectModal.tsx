@@ -3,7 +3,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import Modal from "./Modal";
-import { buildPassthroughAliasModels, buildNodeAliasModels } from "./modelSelectModalHelpers";
+import {
+  buildPassthroughAliasModels,
+  buildNodeAliasModels,
+  shouldConfirmSelectAll,
+} from "./modelSelectModalHelpers";
 import { getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
 import {
@@ -97,10 +101,10 @@ export default function ModelSelectModal({
 }: ModelSelectModalProps) {
   const t = useTranslations("common");
   const resolvedTitle = title ?? t("selectModel");
-  const labelOrFallback = (key: string, fallback: string) =>
+  const labelOrFallback = (key: string, fallback: string, values?: Record<string, unknown>) =>
     typeof (t as { has?: (k: string) => boolean }).has === "function" &&
     (t as { has: (k: string) => boolean }).has(key)
-      ? t(key)
+      ? (t as unknown as (k: string, v?: Record<string, unknown>) => string)(key, values)
       : fallback;
   const [searchQuery, setSearchQuery] = useState("");
   const [combos, setCombos] = useState<any[]>([]);
@@ -516,7 +520,22 @@ export default function ModelSelectModal({
     const toAdd = visibleModels.filter(
       (model) => typeof model?.value === "string" && !addedModelValueSet.has(model.value)
     );
-    if (toAdd.length > 0) onSelectMany!(toAdd);
+    if (toAdd.length === 0) return;
+    // Guard against a single click adding hundreds of models (e.g. with
+    // "Show configured only" off) — see modelSelectModalHelpers.ts (#8526).
+    if (
+      shouldConfirmSelectAll(toAdd.length) &&
+      !confirm(
+        labelOrFallback(
+          "selectAllConfirm",
+          `Add ${toAdd.length} models to this combo?`,
+          { count: toAdd.length }
+        )
+      )
+    ) {
+      return;
+    }
+    onSelectMany!(toAdd);
   };
 
   const resolvedSelectedModels = multiSelect

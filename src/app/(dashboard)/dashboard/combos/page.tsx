@@ -28,6 +28,8 @@ import {
   buildManualComboModelStep,
   buildPrecisionComboModelStep,
   canAccessComboBuilderStage,
+  computeBatchAddModelSteps,
+  computeBatchDeselectModelSteps,
   findNextSuggestedConnectionId,
   getComboBuilderStageChecks,
   getComboBuilderStages,
@@ -2530,48 +2532,23 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     setBuilderError("");
   };
 
-  // Batch add for ModelSelectModal "Select all" — must apply every candidate
-  // against a growing list in one setState, otherwise N× onSelect would each
-  // close over the same stale `models` snapshot and keep only the last entry.
+  // Batch add for ModelSelectModal "Select all" — delegates to the pure
+  // computeBatchAddModelSteps (src/lib/combos/builderDraft.ts) which applies
+  // every candidate against a growing list in one pass, otherwise N× onSelect
+  // would each close over the same stale `models` snapshot and keep only the
+  // last entry. Extracted so tests exercise this real implementation instead
+  // of a hand-maintained mirror (#8526).
   const handleAddModels = (selected) => {
-    if (!Array.isArray(selected) || selected.length === 0) return;
-    const next = [...models];
-    let addedAny = false;
-    for (const model of selected) {
-      const qualifiedModel = typeof model?.value === "string" ? model.value : "";
-      if (!qualifiedModel) continue;
-      const parsedModel = parseQualifiedModel(qualifiedModel);
-      const resolvedProviderId =
-        resolveComboBuilderProviderId(model?.providerId, builderProviders) ||
-        resolveComboBuilderProviderId(parsedModel?.providerId, builderProviders) ||
-        (typeof model?.providerId === "string" && model.providerId.trim()) ||
-        parsedModel?.providerId ||
-        null;
-      const nextEntry = {
-        model: qualifiedModel,
-        ...(resolvedProviderId ? { providerId: resolvedProviderId } : {}),
-        weight: 0,
-      };
-      if (hasExactModelStepDuplicate(next, nextEntry)) continue;
-      next.push(nextEntry);
-      addedAny = true;
-    }
+    const { next, addedAny } = computeBatchAddModelSteps(models, selected, builderProviders);
     if (!addedAny) return;
     setModels(next);
     setBuilderError("");
   };
 
   const handleDeselectModels = (toRemove) => {
-    if (!Array.isArray(toRemove) || toRemove.length === 0) return;
-    const values = new Set(
-      toRemove
-        .map((model) =>
-          typeof model?.value === "string" ? model.value : typeof model === "string" ? model : ""
-        )
-        .filter(Boolean)
-    );
-    if (values.size === 0) return;
-    setModels(models.filter((m) => !values.has(m.model)));
+    const next = computeBatchDeselectModelSteps(models, toRemove);
+    if (next === models) return;
+    setModels(next);
     setBuilderError("");
   };
 

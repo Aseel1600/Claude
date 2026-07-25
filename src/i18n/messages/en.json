@@ -171,6 +171,7 @@
     "selectAll": "Select all",
     "unselectAll": "Unselect all",
     "visibleModels": "visible",
+    "selectAllConfirm": "Add {count} models to this combo?",
     "errorOccurred": "Error Occurred",
     "comboDeleted": "Combo Deleted",
     "hide": "Hide",
