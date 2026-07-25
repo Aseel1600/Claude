@@ -1,4 +1,5 @@
 import {
+  handleAdobeFireflyImageGeneration,
   handleCodexImageEdit,
   handleImageEdit,
   handleOpenAIImageEdit,
@@ -246,13 +247,22 @@ async function postHandler(request: Request, _context?: unknown) {
   const resolvedModel = await resolveImageRouteModel(fullModel);
   const parsed = parseImageModel(resolvedModel);
   const providerConfig = parsed.provider ? getImageProvider(parsed.provider) : null;
+  // Firefly nano/gpt-image accept multiple reference blobs; other non-Codex stay at 1.
+  const maxRefsForProvider =
+    providerConfig?.format === "adobe-firefly-image"
+      ? 4
+      : providerConfig?.format === "codex-responses"
+        ? Number.POSITIVE_INFINITY
+        : MAX_NON_CODEX_IMAGE_EDIT_REFERENCES;
   if (
     providerConfig?.format !== "codex-responses" &&
-    imageInputCount > MAX_NON_CODEX_IMAGE_EDIT_REFERENCES
+    imageInputCount > maxRefsForProvider
   ) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
-      "This image edit provider currently supports only one reference image"
+      providerConfig?.format === "adobe-firefly-image"
+        ? "Adobe Firefly image edit supports at most 4 reference images"
+        : "This image edit provider currently supports only one reference image"
     );
   }
   // chatgpt-web keeps its conversation-continuation edit flow unchanged.
@@ -395,12 +405,92 @@ async function postHandler(request: Request, _context?: unknown) {
     );
   }
 
-  // Other built-in non-chatgpt-web providers do not expose an OpenAI-compatible edit endpoint.
+  // Adobe Firefly: edit = storage upload + generate-async referenceBlobs (same as i2i generate).
+  if (providerConfig?.format === "adobe-firefly-image") {
+    const credentials = await getProviderCredentialsWithQuotaPreflight(
+      parsed.provider,
+      null,
+      allowedConnections,
+      resolvedModel
+    );
+    if (!credentials) {
+      return errorResponse(
+        HTTP_STATUS.UNAUTHORIZED,
+        `No credentials for provider: ${parsed.provider}`
+      );
+    }
+    if (credentials.allRateLimited) {
+      return unavailableResponse(
+        HTTP_STATUS.RATE_LIMITED,
+        `[${parsed.provider}] All accounts rate limited`,
+        credentials.retryAfter,
+        credentials.retryAfterHuman
+      );
+    }
+
+    // Prefer multi-image list when present; fall back to the primary imageBytes.
+    const dataUrls: string[] = [];
+    const refList = Array.isArray(images) ? images : [];
+    for (const ref of refList) {
+      if (!ref || typeof ref !== "object") continue;
+      const bytes = (ref as { bytes?: Buffer }).bytes;
+      const mime =
+        typeof (ref as { mime?: string }).mime === "string" &&
+        String((ref as { mime?: string }).mime).startsWith("image/")
+          ? String((ref as { mime?: string }).mime)
+          : "image/png";
+      if (Buffer.isBuffer(bytes) && bytes.length > 0) {
+        dataUrls.push(`data:${mime};base64,${bytes.toString("base64")}`);
+      }
+    }
+    if (dataUrls.length === 0 && imageBytes && imageBytes.length > 0) {
+      const mime =
+        typeof imageMime === "string" && imageMime.startsWith("image/")
+          ? imageMime
+          : "image/png";
+      dataUrls.push(`data:${mime};base64,${imageBytes.toString("base64")}`);
+    }
+    if (dataUrls.length === 0) {
+      return errorResponse(HTTP_STATUS.BAD_REQUEST, "Missing required field: image");
+    }
+
+    const result = await handleAdobeFireflyImageGeneration({
+      provider: parsed.provider,
+      model: parsed.model,
+      providerConfig,
+      body: {
+        prompt,
+        size: size ?? undefined,
+        response_format: responseFormat ?? undefined,
+        n: 1,
+        image_url: dataUrls[0],
+        image: dataUrls.length === 1 ? dataUrls[0] : dataUrls,
+        image_urls: dataUrls,
+        images: dataUrls,
+      },
+      credentials,
+      log,
+    });
+
+    if ((result as { success?: boolean }).success) {
+      await clearRecoveredProviderState(credentials);
+      return jsonResponse((result as { data?: unknown }).data);
+    }
+    return jsonResponse(
+      toJsonErrorPayload(
+        (result as { error?: unknown }).error,
+        "Image edit provider error"
+      ),
+      (result as { status?: number }).status ?? HTTP_STATUS.BAD_GATEWAY
+    );
+  }
+
+  // Other built-in providers do not expose an OpenAI-compatible edit endpoint.
   if (providerConfig) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
       `Image edit is not supported for built-in provider "${parsed.provider}". ` +
-        `Use chatgpt-web or a custom OpenAI-compatible image provider.`
+        `Use adobe-firefly, chatgpt-web, codex, or a custom OpenAI-compatible image provider.`
     );
   }
 
