@@ -237,11 +237,25 @@ function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSp
     if (byCanonical) return byCanonical;
   }
   if (rawModel && rawModel !== modelId) {
-    const byRaw = getModelSpec(rawModel);
-    if (byRaw) return byRaw;
+    return getModelSpec(rawModel);
   }
-  // #8032: path-shaped routed ids (e.g. cline-pass/kimi-k3) must fall back to the
-  // leaf static spec (kimi-k3) so native vision/tool metadata is not lost.
+  return undefined;
+}
+
+/**
+ * #8032: vision-only leaf fallback for path-shaped routed ids.
+ *
+ * Must NOT live in getStaticSpec() — that helper also feeds supportsTools /
+ * supportsThinking / contextWindow / maxOutputTokens. A shared leaf lookup
+ * incorrectly promotes e.g. aihorde/deepseek/deepseek-v4-flash to the real
+ * DeepSeek V4 Flash tool-calling spec (#8212 regression).
+ */
+function getVisionStaticSpec(
+  modelId: string | null,
+  rawModel: string | null
+): ModelSpec | undefined {
+  const direct = getStaticSpec(modelId, rawModel);
+  if (direct) return direct;
   for (const candidate of [modelId, rawModel]) {
     const leaf = leafModelId(candidate);
     if (!leaf) continue;
@@ -548,8 +562,12 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
 
   const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
 
+  // Vision consults leaf static metadata for path-shaped ids; other capability
+  // fields keep using the non-leaf `spec` from getStaticSpec() above.
+  const visionSpec = getVisionStaticSpec(resolved.model, resolved.rawModel);
+
   const supportsVision = resolveVisionCapability(
-    spec,
+    visionSpec,
     registryModel,
     synced,
     modalitiesInput,

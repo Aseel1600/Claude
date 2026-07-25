@@ -79,6 +79,22 @@ test("#8032 leaf fallback: cline-pass/kimi-k3 resolves MODEL_SPECS kimi-k3 visio
   assert.equal(caps.supportsVision, true);
 });
 
+test("#8032 leaf fallback is vision-only: aihorde/deepseek/deepseek-v4-flash keeps tools=false", () => {
+  // Regression guard from PR review (#8495 / #8212): shared getStaticSpec leaf
+  // lookup previously promoted this live-discovered AI Horde id to the real
+  // DeepSeek V4 Flash supportsTools:true spec. Leaf lookup must stay vision-only.
+  const caps = modelCapabilities.getResolvedModelCapabilities(
+    "aihorde/deepseek/deepseek-v4-flash"
+  );
+  assert.equal(caps.toolCalling, false);
+  assert.equal(caps.supportsTools, false);
+  assert.equal(
+    caps.contextWindow,
+    null,
+    "leaf MODEL_SPECS context must not leak onto unrelated path-shaped ids"
+  );
+});
+
 test("#8032 #4071 text-only override still wins over path-shaped sync noise", () => {
   modelsDevSync.saveModelsDevCapabilities({
     xiaomi: {
