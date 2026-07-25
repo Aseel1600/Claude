@@ -73,13 +73,9 @@ function getUploadedFileName(file: Blob & { name?: unknown }): string {
 }
 
 /**
- * Assembles a multipart/form-data body for the audio upload endpoints.
- *
- * `body` is typed `Uint8Array<ArrayBuffer>` rather than bare `Uint8Array`: it is
- * allocated with `new Uint8Array(totalLength)`, which is always ArrayBuffer-backed,
- * and only that narrower form satisfies `BodyInit`. Bare `Uint8Array` widens to
- * `Uint8Array<ArrayBufferLike>`, which admits `SharedArrayBuffer` and is therefore
- * rejected by every `fetch` that passes this straight through as the request body.
+ * `body` is `Uint8Array<ArrayBuffer>`, not bare `Uint8Array`: `new Uint8Array(n)`
+ * is always ArrayBuffer-backed, and only that narrower form satisfies `BodyInit`
+ * (the bare type widens to `ArrayBufferLike`, which admits `SharedArrayBuffer`).
  */
 export async function buildMultipartBody(
   file: Blob & { name?: unknown },
