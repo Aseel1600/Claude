@@ -15,6 +15,9 @@ import { extractAliasBackedModels } from "./aliasBackedModels";
 import { appendNoThinkingVariants } from "@omniroute/open-sse/utils/noThinkingAlias";
 import { appendClaudeEffortVariants } from "@omniroute/open-sse/utils/claudeEffortVariants";
 import { appendSyncedEffortVariants } from "@omniroute/open-sse/utils/syncedEffortVariants";
+import { appendCcDiscoveryAliases } from "@omniroute/open-sse/utils/ccDiscoveryAliases";
+import { isCcAliasGlobalEnabled, getCcAliasSettingsBulk } from "@/lib/db/ccDiscoveryAliases";
+import { buildCcAliasPredicate } from "./ccAliasPredicate";
 import { buildSyncedCapabilities, mergeSyncedCapabilities } from "./syncedCapabilities";
 import { getAllEmbeddingModels } from "@omniroute/open-sse/config/embeddingRegistry";
 import {
@@ -1510,6 +1513,26 @@ async function buildUnifiedModelsResponseCore(
       finalModels,
       prefixMode === "canonical" ? aliasToProviderId : undefined
     );
+
+    // Advertise `claude/<id>` discovery-mirror aliases so Claude Code's gateway
+    // model discovery (which only lists `claude`/`anthropic`-prefixed ids) can see
+    // every model this gate allows. Gated 3 levels deep (global > provider > model,
+    // see ccDiscoveryAliases.ts) and default-off. Deliberately NOT filtered by model
+    // `type` here — non-chat entries (embedding/image/etc.) get a mirror too; the
+    // gate itself (default-off + explicit opt-in) is the operator's filter, not a
+    // hardcoded type allowlist.
+    const ccAliasGlobal = isCcAliasGlobalEnabled();
+    const ccAliasSettings = getCcAliasSettingsBulk();
+    if (ccAliasGlobal || ccAliasSettings.providers.size > 0 || ccAliasSettings.models.size > 0) {
+      finalModels = appendCcDiscoveryAliases(
+        finalModels,
+        buildCcAliasPredicate({
+          global: ccAliasGlobal,
+          providers: ccAliasSettings.providers,
+          models: ccAliasSettings.models,
+        })
+      );
+    }
 
     // #7694: advertise `<provider>/<model>-<tier>` variants for synced models that
     // captured `reasoning.supported_efforts` at sync time (capabilities.effort_tiers).
