@@ -13,6 +13,10 @@
 
 import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
+import {
+  getProviderByAlias,
+  getProviderById,
+} from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel } from "../model.ts";
@@ -35,6 +39,22 @@ import type {
   ResolvedComboTarget,
   ResolvedComboUnit,
 } from "./types.ts";
+
+/**
+ * #8488 / #5240: web-cookie (and similar) providers honestly advertise
+ * registry toolCalling:false but still run the prompt-emulated tool shim.
+ * Combo tools filters must keep those targets eligible so fail-closed does
+ * not regress emulation-only combos (e.g. all chatgpt-web).
+ */
+export function providerSupportsEmulatedToolCalling(
+  providerIdOrAlias: string | null | undefined
+): boolean {
+  if (!providerIdOrAlias) return false;
+  const provider =
+    getProviderById(providerIdOrAlias) || getProviderByAlias(providerIdOrAlias) || null;
+  if (!provider || typeof provider !== "object") return false;
+  return (provider as { toolCalling?: unknown }).toolCalling === "emulated";
+}
 
 function toTrimmedString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -542,7 +562,9 @@ function getTargetCompatibilityFailures(
 
   if (
     requirements.requiresTools &&
-    (capabilities.supportsTools === false || !capabilities.toolCalling)
+    (capabilities.supportsTools === false || !capabilities.toolCalling) &&
+    // #5240: prompt-emulated tool providers remain eligible under fail-closed.
+    !providerSupportsEmulatedToolCalling(target.provider)
   ) {
     failures.push("tools");
   }

@@ -17,7 +17,10 @@ import { supportsToolCalling } from "../modelCapabilities.ts";
 import type { ResilienceSettings } from "../../../src/lib/resilience/settings";
 import { parseAutoConfig } from "./autoConfig.ts";
 import { dedupeTargetsByExecutionKey } from "./comboData.ts";
-import { getModelContextLimitForModelString } from "./comboStructure.ts";
+import {
+  getModelContextLimitForModelString,
+  providerSupportsEmulatedToolCalling,
+} from "./comboStructure.ts";
 import {
   calculatePromptCacheAffinityScores,
   promptCacheTargetIdentity,
@@ -111,7 +114,13 @@ export async function resolveAutoStrategyOrder(
       true;
 
   if (requestHasTools) {
-    const filtered = eligibleTargets.filter((target) => supportsToolCalling(target.modelStr));
+    // Keep #5240 prompt-emulation providers (toolCalling:"emulated") even when
+    // registry/capability rows honestly report toolCalling:false.
+    const filtered = eligibleTargets.filter(
+      (target) =>
+        supportsToolCalling(target.modelStr) ||
+        providerSupportsEmulatedToolCalling(target.provider)
+    );
     if (filtered.length > 0) {
       eligibleTargets = filtered;
     } else if (compatFilterFailOpen) {

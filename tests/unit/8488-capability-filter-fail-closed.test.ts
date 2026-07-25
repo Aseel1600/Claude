@@ -15,6 +15,7 @@ const { saveModelsDevCapabilities } = await import("../../src/lib/modelsDevSync.
 const {
   filterTargetsByRequestCompatibility,
   describeCapabilityFilterExhaustion,
+  providerSupportsEmulatedToolCalling,
 } = await import("../../open-sse/services/combo/comboStructure.ts");
 const { resolveAutoStrategyOrder } =
   await import("../../open-sse/services/combo/resolveAutoStrategy.ts");
@@ -117,6 +118,68 @@ test("#8488 filter: zero tool-capable targets → empty (fail closed)", () => {
   assert.match(exhaustion!.message, /supports tool calling/i);
   assert.equal(exhaustion!.terminalReason, "capability_mismatch");
   assert.ok(exhaustion!.excluded.some((e) => e.reason.includes("tools")));
+});
+
+test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#5240)", () => {
+  // Registry honestly tags chatgpt-web models toolCalling:false; the prompt
+  // shim is what makes tools work. Fail-closed must not hard-reject them.
+  assert.equal(providerSupportsEmulatedToolCalling("chatgpt-web"), true);
+  assert.equal(providerSupportsEmulatedToolCalling("cgpt-web"), true);
+  assert.equal(providerSupportsEmulatedToolCalling("claude-web"), false); // toolCalling:"none"
+  assert.equal(providerSupportsEmulatedToolCalling("openai"), false);
+
+  const kept = filterTargetsByRequestCompatibility(
+    [
+      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
+      target("chatgpt-web", "chatgpt-web/o3"),
+    ],
+    {
+      messages: [{ role: "user", content: "Use a tool." }],
+      tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
+    },
+    log
+  );
+  assert.equal(kept.length, 2);
+  assert.deepEqual(
+    kept.map((t) => t.modelStr),
+    ["chatgpt-web/gpt-5.5", "chatgpt-web/o3"]
+  );
+
+  const exhaustion = describeCapabilityFilterExhaustion(
+    [
+      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
+      target("chatgpt-web", "chatgpt-web/o3"),
+    ],
+    {
+      messages: [{ role: "user", content: "Use a tool." }],
+      tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
+    },
+    "web-cookie-tools"
+  );
+  assert.equal(exhaustion, null, "emulation-capable pool must not report capability_mismatch");
+});
+
+test("#8488 auto: chatgpt-web emulation survives tool pre-filter (#5240)", async () => {
+  const result = await resolveAutoStrategyOrder({
+    orderedTargets: [target("chatgpt-web", "chatgpt-web/gpt-5.5")] as never,
+    body: {
+      messages: [{ role: "user", content: "hi" }],
+      tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
+    },
+    combo: { id: "c1", name: "auto-web-cookie", config: {} } as never,
+    settings: null,
+    config: {},
+    relayOptions: null,
+    resilienceSettings: { quotaPreflight: { enabled: false } } as never,
+    log: log as never,
+    buildAutoCandidates: (async () => []) as never,
+  });
+
+  assert.ok(!("earlyResponse" in result), "must not 400 capability_mismatch for emulation providers");
+  if ("orderedTargets" in result) {
+    assert.equal(result.orderedTargets.length, 1);
+    assert.equal(result.orderedTargets[0].modelStr, "chatgpt-web/gpt-5.5");
+  }
 });
 
 test("#8488 filter: opt-in compatFilterFailOpen restores full pool", () => {

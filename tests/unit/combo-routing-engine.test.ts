@@ -1981,7 +1981,7 @@ test("handleComboChat fails closed when context-aware filtering rejects all targ
     },
   });
 
-  const calls: any[] = [];
+  const calls: string[] = [];
   const result = await handleComboChat({
     body: {
       messages: [{ role: "user", content: "Use a tool." }],
@@ -1992,14 +1992,14 @@ test("handleComboChat fails closed when context-aware filtering rejects all targ
       strategy: "priority",
       models: ["openai/no-tools-a", "openai/no-tools-b"],
     },
-    handleSingleModel: async (_body: any, modelStr: any) => {
+    handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
       calls.push(modelStr);
       return okResponse();
     },
     isModelAvailable: async () => true,
     log: createLog(),
     settings: null,
-    relayOptions: null as any,
+    relayOptions: null,
     allCombos: null,
   });
 
@@ -2020,7 +2020,7 @@ test("handleComboChat compatFilterFailOpen restores dispatch when all targets fa
     },
   });
 
-  const calls: any[] = [];
+  const calls: string[] = [];
   const result = await handleComboChat({
     body: {
       messages: [{ role: "user", content: "Use a tool." }],
@@ -2032,14 +2032,14 @@ test("handleComboChat compatFilterFailOpen restores dispatch when all targets fa
       models: ["openai/no-tools-a", "openai/no-tools-b"],
       config: { compatFilterFailOpen: true },
     },
-    handleSingleModel: async (_body: any, modelStr: any) => {
+    handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
       calls.push(modelStr);
       return okResponse();
     },
     isModelAvailable: async () => true,
     log: createLog(),
     settings: null,
-    relayOptions: null as any,
+    relayOptions: null,
     allCombos: null,
   });
 

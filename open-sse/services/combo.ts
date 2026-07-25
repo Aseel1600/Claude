@@ -2941,8 +2941,11 @@ async function handleRoundRobinCombo({
       { code: "context_length_exceeded", type: "invalid_request_error" }
     );
   }
+  // Align with the main/auto paths: combo config OR top-level settings.
   const rrCompatFailOpen =
-    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true;
+    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
+    (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
+      true;
   let filteredTargets = filterTargetsByRequestCompatibility(
     evalRankedTargets,
     body,
