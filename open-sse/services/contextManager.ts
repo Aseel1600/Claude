@@ -7,6 +7,7 @@
 
 import { REGISTRY } from "../config/providerRegistry.ts";
 import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import { jsonLength } from "../utils/jsonSize.ts";
 
 // Default token limits per provider (fallbacks when not in registry)
 const DEFAULT_LIMITS: Record<string, number> = {
@@ -146,7 +147,10 @@ function extractImageTokens(node: unknown, seen: Set<unknown>): { node: unknown;
 
   const record = node as Record<string, unknown>;
   if (isInlineBase64ImageBlock(record)) {
-    return { node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE }, tokens: IMAGE_TOKEN_ESTIMATE };
+    return {
+      node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE },
+      tokens: IMAGE_TOKEN_ESTIMATE,
+    };
   }
 
   let tokens = 0;
@@ -173,8 +177,10 @@ export function estimateTokens(text: string | object | null | undefined): number
     return Math.ceil(text.length / CHARS_PER_TOKEN);
   }
   const { node, tokens: imageTokens } = extractImageTokens(text, new Set());
-  const str = JSON.stringify(node);
-  return Math.ceil(str.length / CHARS_PER_TOKEN) + imageTokens;
+  // #7847: count the serialized length instead of building the string. Only `.length` was ever
+  // used, and on a multi-megabyte agent body that string is a pure transient allocation.
+  // jsonLength is exact (property-tested against JSON.stringify), so the estimate is unchanged.
+  return Math.ceil(jsonLength(node) / CHARS_PER_TOKEN) + imageTokens;
 }
 
 /**
