@@ -1,0 +1,1 @@
+- chore(sse): extract the combo 400-classification predicates (`isContextOverflow400`, `isParamValidation400`, `isModelScoped400`) into `combo/errorClassification.ts` — behavior-preserving move that takes `combo.ts` from 3640 to 3610 lines, restoring headroom under the frozen file-size ratchet so ordinary fixes to that file are no longer blocked by the gate

@@ -680,49 +680,15 @@ async function isPinnedModelDurablyUnhealthy(pinnedModel: string): Promise<boole
 // is NOT body-specific — different combo targets have different context windows /
 // output limits, so the request should fall through to the next target instead of
 // being short-circuited. Exported as pure predicates so the guard is unit-testable.
-/** @param {string} errorText */
-export function isContextOverflow400(errorText) {
-  return (
-    /\bcontext.*(?:length_exceeded|too long|overflow|exceeded|window|limit)\b/i.test(errorText) ||
-    /exceeds.*context/i.test(errorText) ||
-    /your input exceeds/i.test(errorText) ||
-    // Reuse accountFallback.ts's CONTEXT_OVERFLOW_PATTERNS (single source of truth)
-    // so wording like Kimi's "exceeded model token limit" — which never says the
-    // literal word "context" — is still recognized as an overflow/fallback-worthy
-    // 400 instead of halting the whole combo (issue #6637).
-    CONTEXT_OVERFLOW_PATTERNS.some((p) => p.test(errorText))
-  );
-}
-/** @param {string} errorText */
-export function isParamValidation400(errorText) {
-  return (
-    /\bmax_tokens\b.*(?:illegal|must|range|invalid)/i.test(errorText) ||
-    /\bparameter is illegal\b/i.test(errorText) ||
-    /\bis illegal.*range\b/i.test(errorText)
-  );
-}
-/**
- * #5249 / #2101: model-scoped 400s must NEVER stop the combo.
- * Upstream often wraps "model X is not supported" in `invalid_request_error` /
- * "Bad Request" envelopes. Those wrapper words match the body-specific stop
- * substrings, so without this exemption the combo hard-stops on the first
- * unavailable model instead of trying the next target. Keep the models in the
- * combo — if one rejects, advance.
- * @param {string} errorText
- */
-export function isModelScoped400(errorText) {
-  const text = String(errorText || "");
-  if (!text) return false;
-  if (MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(text))) return true;
-  // Extra model-rejection shapes that providers emit outside the shared list
-  // (Responses API, Copilot, gateway wrappers).
-  return (
-    /\bmodel\b[\s\S]{0,80}?\b(?:not\s+supported|unsupported|unknown|unavailable)\b/i.test(text) ||
-    /\b(?:not\s+supported|unsupported|unknown)\b[\s\S]{0,80}?\bmodel\b/i.test(text) ||
-    /\bunsupported_api_for_model\b/i.test(text) ||
-    /\bdoes\s+not\s+support\s+(?:the\s+)?responses\s+api\b/i.test(text)
-  );
-}
+// The 400 classifiers live in ./combo/errorClassification.ts. Imported for local use in the
+// fallback guard below and re-exported for the historical public surface
+// (combo-param-validation-fallback-4519 imports them from combo.ts).
+import {
+  isContextOverflow400,
+  isParamValidation400,
+  isModelScoped400,
+} from "./combo/errorClassification.ts";
+export { isContextOverflow400, isParamValidation400, isModelScoped400 };
 
 /** @param {object} options */
 export async function handleComboChat({
@@ -2924,7 +2890,11 @@ async function handleRoundRobinCombo({
   // BEFORE availability is known; if every compat-kept target then turns out to be
   // runtime-unavailable, we must reconsider these before returning 503, instead of
   // permanently dropping a compat-rejected-but-healthy provider.
-  const compatRejectedTargets = computeCompatRejectedTargets(evalRankedTargets, filteredTargets, body);
+  const compatRejectedTargets = computeCompatRejectedTargets(
+    evalRankedTargets,
+    filteredTargets,
+    body
+  );
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
     return comboModelNotFoundResponse("Round-robin combo has no executable targets");
