@@ -75,8 +75,6 @@ export async function handleAdobeFireflyVideoGeneration({
     // Kling i2v / Veo ref / Sora frame: upload reference images first.
     const { id: videoModelId } = resolveAdobeVideoModel(String(model));
     const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;
-    // One ARP for frame upload + video submit (matches browser).
-    const arpSessionId = resolveAdobeArpSessionId(sessionCookie);
     const sourceImageIds = await resolveAdobeSourceImageIds({
       accessToken,
       body,
