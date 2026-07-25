@@ -1,1 +1,1 @@
-- **fix(resilience):** recover a wedged local request limiter after an idle-capacity queue expiry and log the state needed to distinguish RPM depletion, concurrency pressure, and scheduler wedges ([#8616](https://github.com/diegosouzapw/OmniRoute/pull/8616)).
+- **fix(resilience):** recover a wedged local request limiter after an idle-capacity queue expiry by retrying the request on a fresh limiter ([#8616](https://github.com/diegosouzapw/OmniRoute/pull/8616)).
