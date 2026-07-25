@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"github.com/omniroute/omniroute/internal/config"
+	"github.com/omniroute/omniroute/internal/db"
 	"github.com/omniroute/omniroute/internal/executor"
+	"github.com/omniroute/omniroute/internal/middleware"
 	"github.com/omniroute/omniroute/internal/translator"
 )
 
@@ -133,11 +135,9 @@ func handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 // ─── Provider resolution ────────────────────────────────────────────────────
 
 func resolveProvider(r *http.Request, model string) string {
-	// 1. Explicit X-Provider header
+	// 1. Explicit X-Provider header — trusted even if not in registry (passthrough)
 	if p := r.Header.Get("X-Provider"); p != "" {
-		if config.GetRegistryEntry(p) != nil {
-			return p
-		}
+		return p
 	}
 
 	// 2. Check if model string itself is a known provider ID
@@ -163,11 +163,19 @@ func resolveProvider(r *http.Request, model string) string {
 		}
 	}
 
-	// 4. Passthrough: if provider prefix in model (e.g. "openai/gpt-4")
+	// 4. Provider prefix in model string (e.g. "openai/gpt-4")
 	if i := strings.Index(model, "/"); i > 0 {
 		prefix := model[:i]
 		if config.GetRegistryEntry(prefix) != nil {
 			return prefix
+		}
+	}
+
+	// 5. Passthrough fallback: find first provider with PassthroughModels enabled
+	for _, id := range config.GetRegisteredIDs() {
+		entry := config.GetRegistryEntry(id)
+		if entry != nil && entry.PassthroughModels {
+			return id
 		}
 	}
 
@@ -177,6 +185,7 @@ func resolveProvider(r *http.Request, model string) string {
 // ─── Non-streaming ──────────────────────────────────────────────────────────
 
 func handleNonStreamingChat(w http.ResponseWriter, r *http.Request, req *ChatCompletionRequest, reqID, provider string, exec executor.Executor) {
+	start := time.Now()
 	body := buildUpstreamBody(req)
 
 	// Translate request if provider uses a non-OpenAI format
@@ -249,11 +258,15 @@ func handleNonStreamingChat(w http.ResponseWriter, r *http.Request, req *ChatCom
 	w.Header().Set("X-Request-Id", reqID)
 	w.Header().Set("X-Upstream-Provider", provider)
 	encodeJSON(w, upstreamResp)
+
+	// Record usage asynchronously
+	go recordUsageAsync(r, provider, req.Model, reqID, upstreamResp, time.Since(start), nil)
 }
 
 // ─── Streaming (SSE) ────────────────────────────────────────────────────────
 
 func handleStreamingChat(w http.ResponseWriter, r *http.Request, req *ChatCompletionRequest, reqID, provider string, exec executor.Executor) {
+	start := time.Now()
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	w.Header().Set("Connection", "keep-alive")
@@ -334,11 +347,15 @@ func handleStreamingChat(w http.ResponseWriter, r *http.Request, req *ChatComple
 		err = pipeSSEStream(w, flusher, result.Body, reqID)
 	}
 	if err != nil && ctx.Err() == nil {
-		slog.Error("SSE pipe error", "provider", provider, "error", err)
+		slog.Error("SSE pipe error (upstream drop)", "provider", provider, "model", req.Model, "error", err)
+		sendSSEError(w, flusher, "upstream connection lost: "+err.Error())
 	}
 
 	close(keepaliveDone)
 	keepaliveWg.Wait()
+
+	// Record usage asynchronously (streaming: tokens unknown, latency only)
+	go recordUsageAsync(r, provider, req.Model, reqID, nil, time.Since(start), nil)
 }
 
 // ─── Upstream body builder ──────────────────────────────────────────────────
@@ -550,6 +567,85 @@ func sanitizeUpstreamError(status int, body []byte) string {
 		}
 	}
 	return fmt.Sprintf("upstream provider returned HTTP %d", status)
+}
+
+// sendSSEError sends an SSE error event to the client and a [DONE] sentinel.
+func sendSSEError(w io.Writer, flusher http.Flusher, message string) {
+	errJSON, _ := json.Marshal(map[string]any{
+		"error": map[string]any{
+			"message": message,
+			"type":    "upstream_error",
+		},
+	})
+	fmt.Fprintf(w, "data: %s\n\n", errJSON)
+	fmt.Fprint(w, "data: [DONE]\n\n")
+	flusher.Flush()
+}
+
+// recordUsageAsync inserts a usage record into the DB. Should be called as a goroutine.
+func recordUsageAsync(r *http.Request, provider, model, reqID string, upstreamResp map[string]any, latency time.Duration, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Error("usage recording panic", "error", r)
+		}
+	}()
+
+	data := map[string]interface{}{
+		"provider":  provider,
+		"model":     model,
+		"status":    "success",
+		"success":   true,
+		"latencyMs": int(latency.Milliseconds()),
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Extract API key metadata from context
+	if meta := middleware.APIKeyFromContext(r.Context()); meta != nil {
+		if id, ok := meta["id"].(string); ok {
+			data["apiKeyId"] = id
+		}
+		if name, ok := meta["name"].(string); ok {
+			data["apiKeyName"] = name
+		}
+	}
+
+	// Extract token usage from non-streaming response
+	if upstreamResp != nil {
+		if usage, ok := upstreamResp["usage"].(map[string]any); ok {
+			if v, ok := usage["prompt_tokens"].(float64); ok {
+				data["tokensInput"] = int(v)
+			}
+			if v, ok := usage["completion_tokens"].(float64); ok {
+				data["tokensOutput"] = int(v)
+			}
+			if v, ok := usage["cache_read_input_tokens"].(float64); ok {
+				data["tokensCacheRead"] = int(v)
+			}
+			if v, ok := usage["cache_creation_input_tokens"].(float64); ok {
+				data["tokensCacheCreation"] = int(v)
+			}
+			if v, ok := usage["prompt_tokens_details"].(map[string]any); ok {
+				if r, ok := v["cached_tokens"].(float64); ok {
+					data["tokensCacheRead"] = int(r)
+				}
+			}
+			if v, ok := usage["completion_tokens_details"].(map[string]any); ok {
+				if r, ok := v["reasoning_tokens"].(float64); ok {
+					data["tokensReasoning"] = int(r)
+				}
+			}
+		}
+	}
+
+	if err != nil {
+		data["success"] = false
+		data["status"] = "error"
+		data["errorCode"] = err.Error()
+	}
+
+	if dbErr := db.RecordUsage(data); dbErr != nil {
+		slog.Error("failed to record usage", "error", dbErr)
+	}
 }
 
 // pipeSSEStreamTranslated pipes SSE from upstream to client, translating each

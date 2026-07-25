@@ -14,6 +14,7 @@ import (
 // Server wraps an http.Server with pre-configured routing.
 type Server struct {
 	httpServer *http.Server
+	rateLimiter *middleware.RateLimiter
 }
 
 // New creates a new Server listening on the given port.
@@ -34,9 +35,22 @@ func New(port int) *Server {
 	mux.HandleFunc("POST /v1/audio/transcriptions", handleAudioTranscription)
 	mux.HandleFunc("POST /v1/responses", handleResponses)
 
+	// ── Admin CRUD API ───────────────────────────────────────────────────
+	mux.HandleFunc("/api/keys", handleKeys)
+	mux.HandleFunc("/api/keys/{id}", handleKeyByID)
+	mux.HandleFunc("/api/keys/{id}/revoke", handleRevokeKey)
+	mux.HandleFunc("/api/connections", handleConnections)
+	mux.HandleFunc("/api/connections/{id}", handleConnectionByID)
+	mux.HandleFunc("/api/combos", handleCombos)
+	mux.HandleFunc("/api/combos/{id}", handleComboByID)
+	mux.HandleFunc("/api/settings", handleSettings)
+	mux.HandleFunc("/api/settings/{key}", handleSettingsByKey)
+
 	// ── Middleware stack ──────────────────────────────────────────────────
-	// Outer → Inner: logging → cors → body-limit → auth → handler
+	// Outer → Inner: logging → cors → body-limit → auth → rate-limit → handler
+	rl := middleware.NewRateLimiter()
 	var handler http.Handler = mux
+	handler = middleware.RateLimit(rl)(handler)
 	handler = middleware.Auth(handler)
 	handler = middleware.BodyLimit(10<<20)(handler) // 10 MB
 	handler = middleware.CORS(handler)
@@ -50,6 +64,7 @@ func New(port int) *Server {
 			WriteTimeout: 0, // disabled — SSE streams need unbounded write time
 			IdleTimeout:  120 * time.Second,
 		},
+		rateLimiter: rl,
 	}
 }
 
@@ -60,6 +75,9 @@ func (s *Server) ListenAndServe() error {
 
 // Shutdown gracefully shuts down the server.
 func (s *Server) Shutdown(ctx context.Context) error {
+	if s.rateLimiter != nil {
+		s.rateLimiter.Stop()
+	}
 	return s.httpServer.Shutdown(ctx)
 }
 

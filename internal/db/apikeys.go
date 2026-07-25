@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,6 +64,97 @@ func CreateAPIKey(name, machineID string) (map[string]interface{}, error) {
 		result["key"] = rawKey
 	}
 	return result, nil
+}
+
+// UpdateAPIKey updates mutable fields of an API key by ID.
+func UpdateAPIKey(id string, data map[string]interface{}) (map[string]interface{}, error) {
+	d := DB()
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	existing, err := GetAPIKeyByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return nil, nil
+	}
+
+	var setClauses []string
+	var args []any
+
+	if v, ok := data["name"].(string); ok {
+		setClauses = append(setClauses, "name = ?")
+		args = append(args, v)
+	}
+	if v, ok := data["isActive"].(bool); ok {
+		setClauses = append(setClauses, "is_active = ?")
+		args = append(args, boolToInt(v))
+	}
+	if v, ok := data["noLog"].(bool); ok {
+		setClauses = append(setClauses, "no_log = ?")
+		args = append(args, boolToInt(v))
+	}
+	if v, ok := data["allowedModels"]; ok {
+		setClauses = append(setClauses, "allowed_models = ?")
+		args = append(args, jsonStringOrEmpty(v))
+	}
+	if v, ok := data["blockedModels"]; ok {
+		setClauses = append(setClauses, "blocked_models = ?")
+		args = append(args, jsonStringOrEmpty(v))
+	}
+	if v, ok := data["scopes"]; ok {
+		setClauses = append(setClauses, "scopes = ?")
+		args = append(args, jsonStringOrEmpty(v))
+	}
+	if v, ok := data["maxRequestsPerDay"].(float64); ok {
+		setClauses = append(setClauses, "max_requests_per_day = ?")
+		args = append(args, int(v))
+	}
+	if v, ok := data["maxRequestsPerMinute"].(float64); ok {
+		setClauses = append(setClauses, "max_requests_per_minute = ?")
+		args = append(args, int(v))
+	}
+	if v, ok := data["expiresAt"].(string); ok {
+		setClauses = append(setClauses, "expires_at = ?")
+		args = append(args, v)
+	}
+	if v, ok := data["machineId"].(string); ok {
+		setClauses = append(setClauses, "machine_id = ?")
+		args = append(args, v)
+	}
+	if v, ok := data["dailyUsageLimitUsd"].(float64); ok {
+		setClauses = append(setClauses, "daily_usage_limit_usd = ?")
+		args = append(args, v)
+	}
+	if v, ok := data["weeklyUsageLimitUsd"].(float64); ok {
+		setClauses = append(setClauses, "weekly_usage_limit_usd = ?")
+		args = append(args, v)
+	}
+
+	if len(setClauses) == 0 {
+		return existing, nil
+	}
+
+	setClauses = append(setClauses, "last_used_at = last_used_at") // no-op to avoid trailing comma
+	_ = now
+
+	query := "UPDATE api_keys SET " + strings.Join(setClauses[:len(setClauses)-1], ", ") + " WHERE id = ?"
+	args = append(args, id)
+
+	_, err = d.Exec(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("update api key: %w", err)
+	}
+
+	return GetAPIKeyByID(id)
+}
+
+// RevokeAPIKey marks a key as revoked by setting revoked_at.
+func RevokeAPIKey(id string) error {
+	d := DB()
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := d.Exec("UPDATE api_keys SET revoked_at = ? WHERE id = ?", now, id)
+	return err
 }
 
 // ValidateAPIKey checks whether the given key is valid: active, not revoked,
