@@ -2277,7 +2277,18 @@ export async function handleComboChat({
           // deterministic for the same input — retrying on other accounts of the same
           // model will fail identically. Short-circuit the combo immediately with the
           // original error instead of burning MAX_GLOBAL_ATTEMPTS.
-          const isInputBoundFailure = isInputBoundRequestFailure(structuredError);
+          // Scoped to homogeneous remainders only: a heterogeneous combo (#6637) may
+          // have a later target with a different, larger context window that would
+          // NOT reject the same input — isContextOverflow400 below exists precisely to
+          // let that case fall through, so only short-circuit when every remaining
+          // target is the same model (the "retrying will fail identically" premise
+          // only holds within a homogeneous same-model pool).
+          const remainingTargets = orderedTargets.slice(i + 1);
+          const remainderIsHomogeneous = remainingTargets.every(
+            (nextInPool) => nextInPool.modelStr === modelStr
+          );
+          const isInputBoundFailure =
+            isInputBoundRequestFailure(structuredError) && remainderIsHomogeneous;
           if (isInputBoundFailure) {
             log.warn(
               "COMBO",
