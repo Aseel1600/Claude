@@ -2714,21 +2714,21 @@ export async function handleComboChat({
         // a SHORT transient cooldown and re-run the whole set loop. Guarded by
         // the helper (quota_exhausted/auth/not-found excluded, ceiling,
         // attempts, budget). MAX_GLOBAL_ATTEMPTS still bounds total dispatches.
-        // Available to ALL combo strategies (not just quota-share).
+        // SCOPE (#8541): quota-share and auto ONLY, via isComboCooldownWaitEligible
+        // (comboConfig.ts). This used to claim "ALL combo strategies" — a
+        // generalization never wired into the gate. The narrow scope is
+        // load-bearing: the same predicate raises the per-target timeout floor,
+        // so widening it changes the timeout for every strategy too.
         if (comboCooldownWaitEnabled && status === 429) {
-          // ONE decision path for EVERY strategy. The reason that drives the
-          // wait is always the target's REAL model-lockout reason, resolved
-          // through the helper's allow-list — never a hardcoded literal.
+          // The reason driving the wait is always the target's REAL model-lockout
+          // reason, resolved through the helper's allow-list — never a literal.
           //
           // SECURITY (see comboCooldownRetry.ts header): the allow-list is the
-          // PRIMARY barrier and `maxWaitMs` only the SECOND one. Hardcoding
-          // reason:"rate_limit" for non-quota-share strategies would drop the
-          // primary barrier and leave only the ceiling — which does NOT cover a
-          // quota_exhausted lock carrying a SHORT upstream retry-after (e.g.
-          // 3s < maxWaitMs): the combo would wait, redispatch against a model
-          // locked until midnight, and burn the attempt. Model lockouts are
-          // recorded for all strategies (recordModelLockoutFailure above is not
-          // gated on quota-share), so the real reason is always available.
+          // PRIMARY barrier and `maxWaitMs` only the SECOND. Hardcoding
+          // reason:"rate_limit" would drop the primary barrier and leave only the
+          // ceiling — which does NOT cover a quota_exhausted lock carrying a SHORT
+          // upstream retry-after (e.g. 3s < maxWaitMs): the combo would wait,
+          // redispatch against a model locked until midnight, and burn the attempt.
           const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
             targets: orderedTargets,
             earliestRetryAfter,
