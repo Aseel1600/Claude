@@ -104,6 +104,7 @@ let currentRequestQueueSettings: RequestQueueSettings = DEFAULT_RESILIENCE_SETTI
 // jobs are dispatched). When the reservoir/refresh state desyncs from reality,
 // this catches it and force-resets so traffic isn't stuck forever.
 const lastDispatchAt = new Map<string, number>();
+const limiterCreatedAt = new Map<string, number>();
 let watchdogInterval: ReturnType<typeof setInterval> | null = null;
 const WATCHDOG_INTERVAL_MS = 30_000;
 // Threshold has to exceed any *legitimate* gap between dispatches:
@@ -234,6 +235,7 @@ function watchdogTick() {
       if (counts.QUEUED === 0 && counts.RUNNING === 0 && counts.EXECUTING === 0) {
         limiters.delete(key);
         lastDispatchAt.delete(key);
+        limiterCreatedAt.delete(key);
         limiterLastUsed.delete(key);
         logRateLimit(
           `🧹 [RATE-LIMIT] Evicting idle limiter: ${key} (inactive for ${Math.round((now - lastUsed) / 1000)}s)`
@@ -261,6 +263,7 @@ function watchdogTick() {
     );
     limiters.delete(key);
     lastDispatchAt.delete(key);
+    limiterCreatedAt.delete(key);
     limiterLastUsed.delete(key);
     // Live incident (log id 1784465227489-a2cbc0): disconnect() releases the
     // heartbeat timer but does NOT reject the QUEUED jobs already sitting on
@@ -326,6 +329,7 @@ function shutdownLimiters(): void {
   }
   limiters.clear();
   lastDispatchAt.clear();
+  limiterCreatedAt.clear();
   limiterLastUsed.clear();
 }
 
@@ -435,6 +439,7 @@ export function disableRateLimitProtection(connectionId) {
     if (key.includes(connectionId)) {
       limiters.delete(key);
       lastDispatchAt.delete(key);
+      limiterCreatedAt.delete(key);
       limiterLastUsed.delete(key);
       trackAsyncOperation(limiter.disconnect());
     }
@@ -469,6 +474,7 @@ export function refreshConnectionRateLimits(connectionId, overrides) {
     if (key.includes(connectionId)) {
       limiters.delete(key);
       lastDispatchAt.delete(key);
+      limiterCreatedAt.delete(key);
       limiterLastUsed.delete(key);
       trackAsyncOperation(limiter.disconnect());
     }
@@ -535,6 +541,7 @@ function getLimiter(provider, connectionId, model = null) {
 
     limiters.set(key, limiter);
     lastDispatchAt.set(key, Date.now());
+    limiterCreatedAt.set(key, Date.now());
     limiterLastUsed.set(key, Date.now());
   }
 
@@ -553,6 +560,47 @@ function getLimiter(provider, connectionId, model = null) {
  * @param {AbortSignal} signal - Optional abort signal to cancel waiting
  * @returns {Promise<unknown>} Result of fn()
  */
+async function getQueueStateSnapshot(
+  provider: string,
+  connectionId: string,
+  model: string | null | undefined,
+  key: string,
+  limiter: Bottleneck,
+  enqueuedAt: number
+) {
+  const counts = limiter.counts();
+  let reservoirRemaining: number | null = null;
+  try {
+    reservoirRemaining = await limiter.currentReservoir();
+  } catch {
+    // Snapshot logging must never affect request handling.
+  }
+  const overrides = connectionRateLimitOverrides.get(connectionId);
+  const lastDispatch = lastDispatchAt.get(key);
+  const createdAt = limiterCreatedAt.get(key);
+  return {
+    provider,
+    connectionId,
+    model: model || null,
+    key,
+    queueWaitMs: Date.now() - enqueuedAt,
+    queued: counts.QUEUED,
+    running: counts.RUNNING,
+    executing: counts.EXECUTING,
+    reservoirRemaining,
+    configuredRpm:
+      typeof overrides?.rpm === "number" && overrides.rpm > 0
+        ? overrides.rpm
+        : currentRequestQueueSettings.requestsPerMinute,
+    configuredMaxConcurrent:
+      typeof overrides?.maxConcurrent === "number" && overrides.maxConcurrent > 0
+        ? overrides.maxConcurrent
+        : currentRequestQueueSettings.concurrentRequests,
+    lastDispatchAgeMs: lastDispatch ? Date.now() - lastDispatch : null,
+    limiterAgeMs: createdAt ? Date.now() - createdAt : null,
+  };
+}
+
 export async function withRateLimit(provider, connectionId, model, fn, signal = null) {
   if (!enabledConnections.has(connectionId)) {
     return fn();
@@ -576,6 +624,7 @@ export async function withRateLimit(provider, connectionId, model, fn, signal = 
   );
 
   const limiter = getLimiter(provider, connectionId, model);
+  const enqueuedAt = Date.now();
   const maxWaitMs = currentRequestQueueSettings.maxWaitMs;
   const scheduleOpts = maxWaitMs && maxWaitMs > 0 ? { expiration: maxWaitMs } : {};
 
@@ -640,9 +689,18 @@ export async function withRateLimit(provider, connectionId, model, fn, signal = 
     // Behavior is unchanged — the job is still dropped so combo can fall back.
     if (err?.message?.includes("This job timed out")) {
       const key = getLimiterKey(provider, connectionId, model);
+      const queueState = await getQueueStateSnapshot(
+        provider,
+        connectionId,
+        model,
+        key,
+        limiter,
+        enqueuedAt
+      );
       logRateLimit(
         `⏰ [RATE-LIMIT] ${key} — job expired after ${Math.ceil((maxWaitMs || 0) / 1000)}s in queue, dropping`
       );
+      logRateLimit(`🧭 [RATE-LIMIT] queue-timeout-state ${JSON.stringify(queueState)}`);
       const queueErr = new Error(
         `Request dropped after exceeding the local rate-limit queue budget maxWaitMs (${maxWaitMs}ms) for ` +
           `${model ? `${provider}/${model}` : provider} — this is OmniRoute's request queue ` +
@@ -723,6 +781,7 @@ export function updateFromHeaders(provider, connectionId, headers, status, model
     // the abandoned Bottleneck; under sustained quota pressure that is a real leak.
     limiters.delete(limiterKey);
     lastDispatchAt.delete(limiterKey);
+    limiterCreatedAt.delete(limiterKey);
     limiterLastUsed.delete(limiterKey);
     trackAsyncOperation(limiter.disconnect());
     return;
