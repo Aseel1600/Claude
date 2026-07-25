@@ -111,6 +111,12 @@ emits a code** — the normal "paste the callback URL" fallback has nothing to
 paste. (This is a Google-side constraint: the same hang happens in any proxy
 that uses the bundled Antigravity desktop client, not just OmniRoute.)
 
+The dashboard detects this before you get stuck: opening **Providers → Antigravity →
+Connect** from a non-localhost address replaces the generic "copy the callback URL"
+notice with the two remedies below, each with your host and port already filled in.
+(A LAN address counts — `192.168.x.x` is not localhost as far as this callback is
+concerned.)
+
 There are two supported ways to connect Antigravity to a remote OmniRoute.
 
 ### Option A — local login helper (recommended)
@@ -146,7 +152,7 @@ loopback callback resolves back to the server through the tunnel:
 
 ```bash
 # On your LOCAL machine:
-ssh -L 20128:localhost:20128 user@your-vps
+ssh -L 20128:127.0.0.1:20128 user@your-vps
 # then open http://localhost:20128 in your LOCAL browser and connect Antigravity
 # normally — the 127.0.0.1:20128/callback redirect now reaches the VPS via SSH.
 ```
@@ -154,6 +160,10 @@ ssh -L 20128:localhost:20128 user@your-vps
 Because you reach the dashboard as `localhost:20128`, the Google consent
 completes and the callback is delivered to the server through the same tunnel —
 no blob needed. Keep the tunnel open until the connection shows as active.
+
+Unlike the fixed-loopback providers below, **one forward is enough** here: the
+Antigravity callback rides the dashboard port itself, so there is no second
+provider-specific port to tunnel.
 
 > A fully headless alternative (no helper, no tunnel) is to configure your **own**
 > Google OAuth web credentials + a public base URL; see the provider's OAuth

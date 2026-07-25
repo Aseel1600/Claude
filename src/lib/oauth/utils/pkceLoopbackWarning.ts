@@ -22,6 +22,12 @@
  * ports already filled in — so the modal can render an organized panel instead.
  */
 
+import {
+  buildSshLocalForward,
+  resolveDashboardPort,
+  type LoopbackLocation,
+} from "./loopbackTunnel";
+
 const PKCE_LOOPBACK_REDIRECT_HINT: Record<string, string> = {
   codex: "http://localhost:1455/auth/callback",
   "xai-oauth": "http://127.0.0.1:56121/callback",
@@ -35,14 +41,8 @@ const PKCE_LOOPBACK_CALLBACK_PORT: Record<string, number> = {
   "grok-cli": 56122,
 };
 
-export type PkceLoopbackLocation = {
-  /** `window.location.hostname` — the LAN IP the dashboard was reached at. */
-  hostname: string;
-  /** `window.location.port` — empty string on the protocol's default port. */
-  port: string;
-  /** `window.location.protocol` — used only to resolve an empty port. */
-  protocol?: string;
-};
+/** @deprecated alias kept for callers; the shared shape lives in ./loopbackTunnel. */
+export type PkceLoopbackLocation = LoopbackLocation;
 
 export type PkceLoopbackMismatchHint = {
   provider: string;
@@ -59,11 +59,6 @@ export type PkceLoopbackMismatchHint = {
   /** Where to browse once the tunnel is up. */
   localDashboardUrl: string;
 };
-
-function resolveDashboardPort(location: PkceLoopbackLocation): string {
-  if (location.port) return location.port;
-  return location.protocol === "https:" ? "443" : "80";
-}
 
 /**
  * Structured form of the LAN-IP loopback mismatch, for the dedicated modal panel.
@@ -92,9 +87,7 @@ export function buildPkceLoopbackMismatchHint(
     callbackPort,
     dashboardPort,
     dashboardHost: location.hostname,
-    tunnelCommand: `ssh ${forwards
-      .map((p) => `-L ${p}:127.0.0.1:${p}`)
-      .join(" ")} <user>@${location.hostname}`,
+    tunnelCommand: buildSshLocalForward(forwards, location.hostname),
     localDashboardUrl: `http://localhost:${dashboardPort}`,
   };
 }

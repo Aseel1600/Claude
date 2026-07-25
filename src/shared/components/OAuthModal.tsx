@@ -19,6 +19,7 @@ import {
 } from "@/lib/oauth/utils/codexSessionImport";
 import GheConfigStep from "@/shared/components/oauthModal/GheConfigStep";
 import { parseGrokCliPasteToken } from "@/lib/oauth/utils/grokCliAuthJson";
+import { buildGoogleLoopbackHint } from "@/lib/oauth/utils/googleLoopbackHint";
 import {
   buildPkceLoopbackMismatchHint,
   type PkceLoopbackMismatchHint,
@@ -1060,6 +1061,11 @@ export default function OAuthModal({
                 provider={provider}
                 isGoogleOAuth={GOOGLE_OAUTH_PROVIDERS.has(provider)}
                 isTrueLocalhost={isTrueLocalhost}
+                googleHint={
+                  GOOGLE_OAUTH_PROVIDERS.has(provider)
+                    ? buildGoogleLoopbackHint(provider, loopbackLocation)
+                    : null
+                }
                 authUrl={typeof authData?.authUrl === "string" ? authData.authUrl : ""}
                 callbackUrl={callbackUrl}
                 placeholderUrl={placeholderUrl}
