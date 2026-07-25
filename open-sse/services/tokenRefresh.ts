@@ -5,9 +5,9 @@
 // file keeps the orchestrator (refreshAccessToken, getAccessToken), the
 // in-flight/rotation dedup maps, the CAS guard, and refreshWithRetry — the
 // cross-provider plumbing. The provider-module split was originally proposed
-// by KooshaPari in PR #7338 (base was too old to merge as-is); redone here on
-// the current tip, credit preserved via co-authorship on the extraction
-// commits. All previously-public exports are re-exported below so existing
+// by KooshaPari in PR #7338, whose base was too old to merge as-is; this is an
+// independent implementation of the same idea against the current tip, not a
+// reuse of that diff. All previously-public exports are re-exported below so existing
 // importers (open-sse/index.ts, executors, src/sse/services/tokenRefresh.ts,
 // tests) are unaffected.
 import { AsyncLocalStorage } from "node:async_hooks";
