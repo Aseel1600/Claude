@@ -439,12 +439,13 @@ export function applyTransformPipeline(
 export function applySystemTransformPipeline(
   providerId: string,
   body: RequestBody,
-  config: SystemTransformsConfig = getSystemTransformsConfig()
+  config: SystemTransformsConfig = getSystemTransformsConfig(),
+  modelId?: string
 ): ApplyPipelineResult {
   if (!body || typeof body !== "object") return { body, appliedOpKinds: [] };
   if (!config || !config.providers) return { body, appliedOpKinds: [] };
 
-  const providerConfig = resolveProviderConfig(providerId, config);
+  const providerConfig = resolveProviderConfig(providerId, config, modelId);
   if (!providerConfig || !providerConfig.enabled) {
     return { body, appliedOpKinds: [] };
   }
@@ -454,7 +455,8 @@ export function applySystemTransformPipeline(
 
 function resolveProviderConfig(
   providerId: string,
-  config: SystemTransformsConfig
+  config: SystemTransformsConfig,
+  modelId?: string
 ): ProviderTransformsConfig | undefined {
   if (!providerId) return undefined;
   const exact = config.providers[providerId];
@@ -463,6 +465,17 @@ function resolveProviderConfig(
   // CC bridge providers (anthropic-compatible-cc-*) all share one config.
   if (providerId.startsWith(`${PROVIDER_CC_BRIDGE}-`) || providerId === PROVIDER_CC_BRIDGE) {
     return config.providers[PROVIDER_CC_BRIDGE];
+  }
+
+  // Apply Claude strip pipeline for any model id that starts with "claude".
+  // This ensures Anthropic-family slugs routed through non-`claude` providers
+  // still get the same third-party-agent signal stripping.
+  if (
+    typeof modelId === "string" &&
+    /^claude(?:[/-]|$)/i.test(modelId.trim()) &&
+    config.providers[PROVIDER_CLAUDE]
+  ) {
+    return config.providers[PROVIDER_CLAUDE];
   }
   return undefined;
 }

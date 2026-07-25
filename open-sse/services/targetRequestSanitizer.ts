@@ -9,6 +9,7 @@
 
 import { stripUnsupportedParams } from "../translator/paramSupport.ts";
 import { sanitizeReasoningEffortForProvider } from "../executors/base/reasoningEffort.ts";
+import { applySystemTransformPipeline } from "./systemTransforms.ts";
 
 type JsonRecord = Record<string, unknown>;
 type LoggerLike =
@@ -78,6 +79,7 @@ export function sanitizeRequestForResolvedTarget<T extends JsonRecord>(
   // Apply operator-configured provider/model filters at the common dispatch
   // boundary so custom executors cannot accidentally bypass them.
   stripUnsupportedParams(options.provider, options.model, next);
+  applySystemTransformPipeline(options.provider || "", next, undefined, options.model);
 
   if (stripped.length > 0) {
     options.log?.debug?.(

@@ -62,6 +62,19 @@ describe("systemTransforms", () => {
       const result = mod.applySystemTransformPipeline("claude", null as any);
       assert.equal(result.appliedOpKinds.length, 0);
     });
+
+    it("applies claude strip pipeline when model id starts with claude", () => {
+      mod.resetSystemTransformsConfig();
+      const body = {
+        system: [{ type: "text", text: "You are Hermes Agent.\n\nhttps://hermes-agent.nousresearch.com" }],
+        messages: [{ role: "user", content: "hi" }],
+      };
+      const result = mod.applySystemTransformPipeline("openrouter", body, undefined, "claude-3-5-sonnet");
+      const out = (body.system as Array<{ text: string }>)[0].text;
+      assert.ok(result.appliedOpKinds.length > 0);
+      assert.ok(!out.includes("You are Hermes Agent"));
+      assert.ok(!out.includes("hermes-agent.nousresearch.com"));
+    });
   });
 
   describe("constants", () => {
