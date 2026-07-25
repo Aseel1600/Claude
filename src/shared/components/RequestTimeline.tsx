@@ -459,6 +459,74 @@ export default function RequestTimeline({
     setIsDragging(false);
   }, []);
 
+  // --- Touch handlers (mobile panning + pinch-to-zoom) ---
+  // Track touch start position to distinguish taps from drags.
+  // A tap (< 10px movement) passes through to onClick for bar selection;
+  // a drag triggers pan mode.
+  const touchStartRef = useRef<{
+    x: number;
+    y: number;
+    dist: number;
+    offset: number;
+    moved: boolean;
+  } | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        dist: 0,
+        offset: mode === "pan" ? panOffsetMs : 0,
+        moved: false,
+      };
+    } else if (e.touches.length === 2) {
+      // Pinch-to-zoom: record initial distance between two fingers
+      const [a, b] = [e.touches[0], e.touches[1]];
+      const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+      touchStartRef.current = { x: 0, y: 0, dist, offset: zoom, moved: false };
+      setIsDragging(false);
+    }
+  };
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!touchStartRef.current) return;
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - touchStartRef.current.x;
+        const dy = touch.clientY - touchStartRef.current.y;
+        // Only start panning after a 10px threshold to avoid stealing taps
+        if (!touchStartRef.current.moved && Math.hypot(dx, dy) < 10) return;
+        if (!touchStartRef.current.moved) {
+          touchStartRef.current.moved = true;
+          if (mode !== "pan") {
+            setMode("pan");
+            setPanFrozenMs(nowMs);
+            setLiveBaseMs(nowMs);
+          }
+          setIsDragging(true);
+        }
+        const msPerPx = windowMs / canvasWidth;
+        setPanOffsetMs(touchStartRef.current.offset - dx * msPerPx);
+      } else if (e.touches.length === 2 && touchStartRef.current.dist > 0) {
+        // Pinch-to-zoom
+        e.preventDefault();
+        const [a, b] = [e.touches[0], e.touches[1]];
+        const dist = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+        const scale = dist / touchStartRef.current.dist;
+        setZoom(Math.max(0.001, Math.min(8, touchStartRef.current.offset * scale)));
+      }
+    },
+    [mode, nowMs, windowMs, canvasWidth]
+  );
+
+  const handleTouchEnd = useCallback(() => {
+    setIsDragging(false);
+    touchStartRef.current = null;
+  }, []);
+
   const handleWheel = useCallback((e: React.WheelEvent) => {
     if (e.ctrlKey || e.metaKey) return;
     e.preventDefault();
@@ -533,11 +601,16 @@ export default function RequestTimeline({
         className={`flex-1 min-h-0 overflow-hidden relative bg-surface ${
           isDragging ? "cursor-grabbing" : mode === "pan" ? "cursor-grab" : ""
         }`}
+        style={{ touchAction: "none" }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {/* Scrollable content area */}
         <div className="absolute left-0 right-0" style={{ height: contentHeight }}>
