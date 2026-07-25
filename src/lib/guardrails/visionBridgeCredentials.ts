@@ -54,6 +54,27 @@ export function isProviderConnectionUsable(connection: ProviderConnectionLike): 
   return hasKey;
 }
 
+// Memoize the dynamic import itself (not just call it inline per-invocation).
+// getVisionCapableModels() fans out to this function once per vision-capable
+// catalog entry via Promise.all — tens of concurrent calls on every
+// getBestVisionModel()/getFallbackModels() invocation. Issuing a fresh
+// `await import(...)` per call means dozens of concurrent first-resolution
+// import() calls for the *same* specifier land in the module loader at once;
+// under Vitest/vite-node this observably races (some callers resolve against
+// the mocked module, others against a real one loaded via a different
+// resolution path such as readCache.ts's own relative `./providers` import —
+// see tests/unit/guardrails/visionBridgeRouter.test.tsx). Resolving the
+// import exactly once and reusing the settled module for every subsequent
+// call removes the concurrent-first-load race entirely (and is strictly
+// cheaper at runtime too — one module resolution instead of N).
+let providersModulePromise: Promise<typeof import("@/lib/db/providers")> | null = null;
+function loadProvidersModule(): Promise<typeof import("@/lib/db/providers")> {
+  if (!providersModulePromise) {
+    providersModulePromise = import("@/lib/db/providers");
+  }
+  return providersModulePromise;
+}
+
 /**
  * Resolve whether `provider/model` has at least one usable active connection.
  * Returns `null` when the credential store is unavailable (unit tests / early boot).
@@ -62,7 +83,7 @@ export async function hasUsableCredentialsForModel(model: string): Promise<boole
   const provider = typeof model === "string" ? model.split("/")[0]?.trim() : "";
   if (!provider) return null;
   try {
-    const { getProviderConnections } = await import("@/lib/db/providers");
+    const { getProviderConnections } = await loadProvidersModule();
     const connections = await getProviderConnections({ provider, isActive: true });
     if (!Array.isArray(connections)) return null;
     // Empty active set is a definitive "no" only when the table is readable.

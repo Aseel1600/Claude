@@ -96,6 +96,18 @@ function calculateSuccessRate(modelId: string): number {
 }
 
 /**
+ * Injectable dependencies for the router's credential-usability check.
+ * Defaults to the real `hasUsableCredentialsForModel` (DB-backed). Tests can
+ * inject a pure stub here instead of mocking the `@/lib/db/providers` module
+ * boundary — this project's Node native test runner (`node:test`) has no
+ * supported ESM module-mocking mechanism, so DI is the only way to exercise
+ * the credential-exclusion branch under `npm run test:unit`.
+ */
+export interface VisionBridgeRouterDeps {
+  hasUsableCredentials?: (model: string) => Promise<boolean | null>;
+}
+
+/**
  * Get all vision-capable models from the registry that also have a usable
  * active connection on this instance.
  *
@@ -105,7 +117,10 @@ function calculateSuccessRate(modelId: string): number {
  * the guardrail's describe-failure fallback to forward the raw image to a
  * non-vision backend, which rejects it with an opaque upstream error.
  */
-async function getVisionCapableModels(): Promise<VisionModelCandidate[]> {
+async function getVisionCapableModels(
+  deps: VisionBridgeRouterDeps = {}
+): Promise<VisionModelCandidate[]> {
+  const checkCreds = deps.hasUsableCredentials ?? hasUsableCredentialsForModel;
   const candidates: VisionModelCandidate[] = [];
   const checks: Array<Promise<void>> = [];
 
@@ -120,7 +135,7 @@ async function getVisionCapableModels(): Promise<VisionModelCandidate[]> {
 
       if (caps.supportsVision === true) {
         checks.push(
-          hasUsableCredentialsForModel(fullModelId).then((usable) => {
+          checkCreds(fullModelId).then((usable) => {
             // Only a confirmed `false` excludes a candidate — `null` (indeterminate,
             // e.g. unit tests / early boot) fails open so existing behavior is preserved
             // when the credential store can't be checked.
@@ -197,7 +212,8 @@ function selectBestModel(
  * Respects fixed model override if configured.
  */
 export async function getBestVisionModel(
-  config: Partial<VisionBridgeRouterConfig> = {}
+  config: Partial<VisionBridgeRouterConfig> = {},
+  deps: VisionBridgeRouterDeps = {}
 ): Promise<string> {
   const fullConfig = { ...DEFAULT_ROUTER_CONFIG, ...config };
 
@@ -218,7 +234,7 @@ export async function getBestVisionModel(
   }
 
   // Get all vision-capable candidates
-  const candidates = await getVisionCapableModels();
+  const candidates = await getVisionCapableModels(deps);
 
   // Select best model
   const best = selectBestModel(candidates, fullConfig);
@@ -242,10 +258,11 @@ export async function getBestVisionModel(
  */
 export async function getFallbackModels(
   excludeModel: string,
-  config: Partial<VisionBridgeRouterConfig> = {}
+  config: Partial<VisionBridgeRouterConfig> = {},
+  deps: VisionBridgeRouterDeps = {}
 ): Promise<string[]> {
   const fullConfig = { ...DEFAULT_ROUTER_CONFIG, ...config };
-  const candidates = await getVisionCapableModels();
+  const candidates = await getVisionCapableModels(deps);
 
   const filtered = candidates.filter(
     (c) =>
