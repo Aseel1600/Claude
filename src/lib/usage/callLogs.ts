@@ -574,8 +574,11 @@ export async function saveCallLog(entry: any) {
 
   try {
     const apiKeyContext = getCallLogApiKeyContext();
-    const apiKeyId = entry.apiKeyId ?? apiKeyContext?.apiKeyId ?? null;
-    const apiKeyName = entry.apiKeyName ?? apiKeyContext?.apiKeyName ?? null;
+    // `||` (not `??`): an empty-string apiKeyId/apiKeyName is "unattributed",
+    // same as before this fallback existed — it must not be persisted verbatim
+    // nor block the request-scoped context.
+    const apiKeyId = entry.apiKeyId || apiKeyContext?.apiKeyId || null;
+    const apiKeyName = entry.apiKeyName || apiKeyContext?.apiKeyName || null;
     const noLogEnabled = Boolean(entry.noLog) || (apiKeyId ? isNoLog(apiKeyId) : false);
 
     const protectedRequestBody = noLogEnabled ? null : protectPayloadForLog(entry.requestBody);

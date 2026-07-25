@@ -3,8 +3,6 @@ import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
 import {
   getProviderCredentialsWithQuotaPreflight,
   clearRecoveredProviderState,
-  extractApiKey,
-  isValidApiKey,
 } from "@/sse/services/auth";
 import {
   parseImageModel,
@@ -28,7 +26,7 @@ import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
 import { calculateModalCost } from "@/lib/usage/costCalculator";
 import { generateRequestId } from "@/shared/utils/requestId";
 import { getSpecialtyModelsResponse } from "@/app/api/v1/_shared/specialtyCatalog";
-import { isRequireApiKeyEnabled } from "@/shared/utils/featureFlags";
+import { enforceClientApiRouteAuth } from "@/shared/utils/clientApiRouteAuth";
 import { runWithCallLogApiKeyContext } from "@/lib/usage/callLogApiKeyContext";
 
 export const dynamic = "force-dynamic";
@@ -109,13 +107,8 @@ async function postHandler(request, context) {
 
   // Authenticate before policy enforcement. Policy checks intentionally allow
   // keyless local mode and assume the route has already rejected invalid keys.
-  const apiKeyRaw = extractApiKey(request);
-  if (isRequireApiKeyEnabled() && !apiKeyRaw) {
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Authentication required");
-  }
-  if (apiKeyRaw && !(await isValidApiKey(apiKeyRaw))) {
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authRejection = await enforceClientApiRouteAuth(request);
+  if (authRejection) return authRejection;
 
   // Enforce API key policies (model restrictions + budget limits)
   const policy = await enforceApiKeyPolicy(request, body.model);

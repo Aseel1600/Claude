@@ -4,8 +4,6 @@ import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import {
   getProviderCredentialsWithQuotaPreflight,
   clearRecoveredProviderState,
-  extractApiKey,
-  isValidApiKey,
 } from "@/sse/services/auth";
 import { getImageProvider } from "@omniroute/open-sse/config/imageRegistry.ts";
 import * as log from "@/sse/utils/logger";
@@ -13,7 +11,7 @@ import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
 import { v1ImageGenerationSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
-import { isRequireApiKeyEnabled } from "@/shared/utils/featureFlags";
+import { enforceClientApiRouteAuth } from "@/shared/utils/clientApiRouteAuth";
 import { runWithCallLogApiKeyContext } from "@/lib/usage/callLogApiKeyContext";
 
 /**
@@ -57,13 +55,8 @@ export async function POST(request, { params }) {
     body.model = `${rawProvider}/${body.model}`;
   }
 
-  const apiKeyRaw = extractApiKey(request);
-  if (isRequireApiKeyEnabled() && !apiKeyRaw) {
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Authentication required");
-  }
-  if (apiKeyRaw && !(await isValidApiKey(apiKeyRaw))) {
-    return errorResponse(HTTP_STATUS.UNAUTHORIZED, "Invalid API key");
-  }
+  const authRejection = await enforceClientApiRouteAuth(request);
+  if (authRejection) return authRejection;
 
   // Enforce API key policies (model restrictions + budget limits)
   const policy = await enforceApiKeyPolicy(request, body.model);
