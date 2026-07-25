@@ -44,6 +44,19 @@ function getReserveTokensOverride(): number | null {
   return null;
 }
 
+// How many of the newest inline images to keep when pruning older ones (#8560).
+function getKeepLatestImagesOverride(): number | null {
+  const envValue = process.env.CONTEXT_KEEP_LATEST_IMAGES;
+  if (envValue) {
+    const parsed = parseInt(envValue, 10);
+    if (!isNaN(parsed) && parsed >= 0) return parsed;
+  }
+  return null;
+}
+
+const DEFAULT_KEEP_LATEST_IMAGES = 2;
+const IMAGE_REMOVED_PLACEHOLDER = "[Earlier image removed to fit context window]";
+
 // Rough chars-per-token ratio for quick estimation
 const CHARS_PER_TOKEN = 4;
 
@@ -99,13 +112,78 @@ function matchesGeminiInlineDataShape(node: Record<string, unknown>): boolean {
  * Detect the 5 documented inline-base64 image content-block shapes (see the
  * shape-specific matchers above).
  */
-function isInlineBase64ImageBlock(node: Record<string, unknown>): boolean {
+export function isInlineBase64ImageBlock(node: Record<string, unknown>): boolean {
   return (
     matchesOpenAIImageUrlShape(node) ||
     matchesAiSdkImageShape(node) ||
     matchesClaudeSourceShape(node) ||
     matchesGeminiInlineDataShape(node)
   );
+}
+
+function replaceImageBlockWithPlaceholder(block: Record<string, unknown>): Record<string, unknown> {
+  // Responses API parts use input_text / input_image — keep that family so restore
+  // does not rewrite a chat-completions-shaped part into a Responses input item.
+  if (block.type === "input_image") {
+    return { type: "input_text", text: IMAGE_REMOVED_PLACEHOLDER };
+  }
+  if (block.inlineData || block.inline_data) {
+    return { text: IMAGE_REMOVED_PLACEHOLDER };
+  }
+  return { type: "text", text: IMAGE_REMOVED_PLACEHOLDER };
+}
+
+/**
+ * Replace oldest inline base64 image blocks with short text placeholders while
+ * keeping the newest `keepLatest` images intact. Vision models still receive
+ * recent screenshots; older ones are dropped so multi-turn Codex/Responses
+ * sessions can fit the concrete input cap (#8560).
+ */
+export function pruneOlderInlineImages(
+  messages: Record<string, unknown>[],
+  options: { keepLatest?: number; targetTokens?: number } = {}
+): { messages: Record<string, unknown>[]; pruned: number } {
+  const keepLatest =
+    options.keepLatest ?? getKeepLatestImagesOverride() ?? DEFAULT_KEEP_LATEST_IMAGES;
+  const targetTokens = options.targetTokens;
+
+  const locations: Array<{ messageIndex: number; contentIndex: number }> = [];
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+    const content = messages[messageIndex]?.content;
+    if (!Array.isArray(content)) continue;
+    for (let contentIndex = 0; contentIndex < content.length; contentIndex++) {
+      const part = content[contentIndex];
+      if (
+        part &&
+        typeof part === "object" &&
+        !Array.isArray(part) &&
+        isInlineBase64ImageBlock(part as Record<string, unknown>)
+      ) {
+        locations.push({ messageIndex, contentIndex });
+      }
+    }
+  }
+
+  if (locations.length <= keepLatest) {
+    return { messages, pruned: 0 };
+  }
+
+  const prunable = locations.slice(0, Math.max(0, locations.length - keepLatest));
+  const next = messages.map((message) => {
+    if (!Array.isArray(message.content)) return message;
+    return { ...message, content: [...message.content] };
+  });
+  let pruned = 0;
+
+  for (const location of prunable) {
+    if (targetTokens != null && estimateTokens(next) <= targetTokens) break;
+    const content = next[location.messageIndex].content as unknown[];
+    const block = content[location.contentIndex] as Record<string, unknown>;
+    content[location.contentIndex] = replaceImageBlockWithPlaceholder(block);
+    pruned += 1;
+  }
+
+  return { messages: next, pruned };
 }
 
 /**
@@ -265,19 +343,30 @@ export function resolveComboContextLimit(options: {
 
 /**
  * Apply context compression to request body.
- * Operates in 3 layers of increasing aggressiveness:
+ * Operates in layers of increasing aggressiveness:
  *
  * Layer 1: Trim tool_result messages (truncate long outputs)
+ * Layer 1.5: Prune older inline images (keep latest N — #8560)
  * Layer 2: Compress structured thinking blocks (remove from history, keep last)
  * Layer 3: Aggressive purification (drop old messages until fitting)
  *
+ * Callers with OpenAI Responses `input[]` (Codex) must adapt via
+ * `adaptBodyForCompression` before calling and `restore()` after — this helper
+ * is message-centric by design.
+ *
  * @param {object} body - Request body with messages[]
- * @param {object} options - { provider?, model?, maxTokens?, reserveTokens? }
+ * @param {object} options - { provider?, model?, maxTokens?, reserveTokens?, keepLatestImages? }
  * @returns {{ body: object, compressed: boolean, stats: object }}
  */
 export function compressContext(
-  body: Record<string, unknown>,
-  options: { provider?: string; model?: string; maxTokens?: number; reserveTokens?: number } = {}
+  body: Record<string, unknown> | null | undefined,
+  options: {
+    provider?: string;
+    model?: string;
+    maxTokens?: number;
+    reserveTokens?: number;
+    keepLatestImages?: number;
+  } = {}
 ) {
   if (!body || !body.messages || !Array.isArray(body.messages)) {
     return { body, compressed: false, stats: {} };
@@ -293,8 +382,10 @@ export function compressContext(
   );
   const targetTokens = Math.max(0, maxTokens - reserveTokens);
 
-  let messages = [...body.messages];
-  let currentTokens = estimateTokens(JSON.stringify(messages));
+  let messages = [...(body.messages as Record<string, unknown>[])];
+  // Estimate on the structured messages object so #8368 image-token bounding applies
+  // (JSON.stringify first would reintroduce base64-as-text overcounting).
+  let currentTokens = estimateTokens(messages);
   const stats = { original: currentTokens, layers: [] as { name: string; tokens: number }[] };
 
   // Already fits
@@ -304,7 +395,7 @@ export function compressContext(
 
   // Layer 1: Trim tool_result/tool messages
   messages = trimToolMessages(messages, 2000); // Max 2000 chars per tool result
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "trim_tools", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -315,9 +406,27 @@ export function compressContext(
     };
   }
 
+  // Layer 1.5: Drop oldest inline images while keeping the newest ones (#8560).
+  const imagePrune = pruneOlderInlineImages(messages, {
+    keepLatest: options.keepLatestImages,
+    targetTokens,
+  });
+  if (imagePrune.pruned > 0) {
+    messages = imagePrune.messages;
+    currentTokens = estimateTokens(messages);
+    stats.layers.push({ name: "prune_images", tokens: currentTokens });
+    if (currentTokens <= targetTokens) {
+      return {
+        body: { ...body, messages },
+        compressed: true,
+        stats: { ...stats, final: currentTokens },
+      };
+    }
+  }
+
   // Layer 2: Compress structured thinking blocks (remove from non-last assistant messages)
   messages = compressThinking(messages);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "compress_thinking", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -330,7 +439,7 @@ export function compressContext(
 
   // Layer 3: Aggressive purification — drop oldest messages keeping system + last N pairs
   messages = purifyHistory(messages, targetTokens);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "purify_history", tokens: currentTokens });
 
   return {
@@ -416,7 +525,7 @@ function purifyHistory(messages: Record<string, unknown>[], targetTokens: number
     // orphan tool_results that Claude rejects ("tool_result without preceding tool_use").
     candidate = fixToolPairs(candidate);
     candidate = stripTrailingAssistantOrphanToolUse(candidate);
-    const tokens = estimateTokens(JSON.stringify(candidate));
+    const tokens = estimateTokens(candidate);
     if (tokens <= targetTokens) break;
     keep = Math.max(2, Math.floor(keep * 0.7)); // Drop 30% each iteration
   }
