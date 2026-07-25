@@ -74,13 +74,14 @@ import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmin
 import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
 import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 import { handleAdobeFireflyImageGeneration } from "./imageGeneration/providers/adobeFirefly.ts";
-// Re-export so /v1/images/edits can dispatch Firefly reference-image edits.
-export { handleAdobeFireflyImageGeneration };
 import { handleAlibabaImageGeneration } from "./imageGeneration/providers/alibabaImage.ts";
 import {
   applyPollinationsAnonymousFallback,
   reportPollinationsAnonOutcome,
 } from "./imageGeneration/pollinationsAnonAuth.ts";
+
+// Re-export so /v1/images/edits can dispatch Firefly reference-image edits.
+export { handleAdobeFireflyImageGeneration };
 
 interface KieImageOptions {
   model: string;

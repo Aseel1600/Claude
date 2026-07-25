@@ -1245,7 +1245,7 @@ export async function uploadAdobeFireflyImage(opts: {
       cookie: cookieHeader || undefined,
       prompt: opts.prompt || "upload",
     }),
-    body: buffer,
+    body: buffer as unknown as BodyInit,
   });
 
   const text = await resp.text().catch(() => "");
