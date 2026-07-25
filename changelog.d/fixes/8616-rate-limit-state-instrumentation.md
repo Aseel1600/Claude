@@ -1,0 +1,1 @@
+- **chore(resilience):** log limiter state when a local request-queue job expires to distinguish RPM depletion, concurrency pressure, and wedged queues ([#8616](https://github.com/diegosouzapw/OmniRoute/pull/8616)).
