@@ -1,0 +1,1 @@
+- **fix(sse):** add regression guard that `PROVIDER_BREAKER_FAILURE_STATUSES` stays exported from `chatPredicates` and imported by `chat.ts` — production fix already landed via #8390; this keeps the credential-exhaustion path from regressing to a ReferenceError ([#8424](https://github.com/diegosouzapw/OmniRoute/pull/8424)) — thanks @MumuTW
