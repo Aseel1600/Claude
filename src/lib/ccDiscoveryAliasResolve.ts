@@ -92,7 +92,10 @@ export async function resolveCcDiscoveryAliasStripWith(
       })
     : deps.gateGlobal();
 
-  const result = stripCcDiscoveryAlias(modelStr, {
+  // NOTE: no DB side effects here — this injectable core stays pure so its unit
+  // tests open no SQLite handle. The usage metric is recorded by the production
+  // wrapper `resolveCcDiscoveryAliasStrip` below, which already touches the DB.
+  return stripCcDiscoveryAlias(modelStr, {
     isClaudeProviderModel: (r) => deps.claudeModelIds.has(r),
     // Gap 1: recognize both built-in registry providers AND operator-defined
     // compatible nodes, matching exactly the prefixes the catalog can mirror.
@@ -101,14 +104,6 @@ export async function resolveCcDiscoveryAliasStripWith(
     hasCombo: () => comboExists,
     aliasEnabledFor: () => gateEnabled,
   });
-
-  // Best-effort usage metric — never blocks/slows the request, never throws
-  // (incrementCcAliasRequestCount already swallows its own errors).
-  if (result.stripped) {
-    incrementCcAliasRequestCount(result.model);
-  }
-
-  return result;
 }
 
 /**
@@ -142,7 +137,7 @@ export async function resolveCcDiscoveryAliasStrip(
 
   const { enabled: globalEnabled } = getCcAliasGlobalState();
 
-  return resolveCcDiscoveryAliasStripWith(modelStr, {
+  const result = await resolveCcDiscoveryAliasStripWith(modelStr, {
     claudeModelIds,
     isRegistryProvider: (prefix) => getRegistryEntry(prefix) !== null,
     customProviderPrefixes,
@@ -151,4 +146,14 @@ export async function resolveCcDiscoveryAliasStrip(
     gateProvider: (providerId) => getCcAliasProviderSetting(providerId),
     gateModel: (providerId, modelId) => getCcAliasModelSetting(providerId, modelId),
   });
+
+  // Best-effort usage metric — never blocks/slows the request, never throws
+  // (incrementCcAliasRequestCount already swallows its own errors). Lives in the
+  // production wrapper (not the injectable core) so the core's unit tests stay
+  // DB-free.
+  if (result.stripped) {
+    incrementCcAliasRequestCount(result.model);
+  }
+
+  return result;
 }

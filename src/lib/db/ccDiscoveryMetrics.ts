@@ -35,22 +35,18 @@ function modelKey(realModelId: string): string {
   return `${MODEL_KEY_PREFIX}${realModelId}`;
 }
 
-function readCounter(key: string): number {
-  const row = getDbInstance()
-    .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
-    .get(NAMESPACE, key) as { value?: unknown } | undefined;
-  const parsed = typeof row?.value === "string" ? parseInt(row.value, 10) : Number(row?.value);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-}
-
 function incrementCounter(key: string): void {
-  const db = getDbInstance();
-  const next = readCounter(key) + 1;
-  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
-    NAMESPACE,
-    key,
-    String(next)
-  );
+  // Atomic upsert increment — a single statement so two concurrent requests
+  // never lose a count the way a read-then-write pair would. `value` is TEXT, so
+  // CAST it to INTEGER for the arithmetic; an absent row starts at '1' via the
+  // INSERT branch, and a non-numeric prior value CASTs to 0 → 1 on update.
+  getDbInstance()
+    .prepare(
+      `INSERT INTO key_value (namespace, key, value) VALUES (?, ?, '1')
+       ON CONFLICT(namespace, key)
+       DO UPDATE SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT)`
+    )
+    .run(NAMESPACE, key);
 }
 
 /**
