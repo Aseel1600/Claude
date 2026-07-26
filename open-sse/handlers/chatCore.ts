@@ -315,6 +315,7 @@ import {
   compressContext,
   estimateTokens,
   getTokenLimit,
+  getComboTargetTokenLimit,
   resolveComboContextLimit,
 } from "../services/contextManager.ts";
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
@@ -1691,7 +1692,6 @@ export async function handleChatCore({
       log?.info?.("CONTEXT", `Attempting to resolve combo limits for comboName=${comboName}`);
       try {
         const { getComboByName } = await import("../../src/lib/localDb");
-        const { parseModel } = await import("../services/model.ts");
         const { resolveComboTargets } = await import("../services/combo.ts");
         let comboConfig = await getComboByName(comboName);
         if (!comboConfig && comboName.startsWith("combo/")) {
@@ -1704,10 +1704,14 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
-          comboTargetLimits = targets.map((t: { modelStr?: string }) => {
-            const parsed = parseModel(t.modelStr);
-            return getTokenLimit(parsed.provider, parsed.model);
-          });
+          comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) =>
+            // Fall back to ResolvedComboTarget.provider when modelStr lacks a
+            // provider/ prefix — parseModel alone returns provider:null (#8716).
+            getComboTargetTokenLimit({
+              modelStr: t.modelStr,
+              provider: t.provider,
+            })
+          );
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
