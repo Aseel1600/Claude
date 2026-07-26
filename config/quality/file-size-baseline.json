@@ -320,7 +320,7 @@
     "src/sse/handlers/chat.ts": 1866,
     "_rebaseline_2026_07_20_7779_routingcombo_thread": "PR #7779 own growth: chatHelpers.ts 876->877 (+1, thread routingComboId into executeChatWithBreaker for compression-combo assignment). Frozen so it can only shrink.",
     "src/sse/handlers/chatHelpers.ts": 878,
-    "src/sse/services/auth.ts": 2486,
+    "src/sse/services/auth.ts": 2492,
     "open-sse/executors/default.ts": 890,
     "open-sse/translator/request/openai-responses.ts": 902,
     "open-sse/executors/kiro.ts": 944,
