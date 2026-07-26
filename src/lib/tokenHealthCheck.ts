@@ -512,7 +512,7 @@ export async function checkConnection(conn) {
     // badge (which derives expiry from tokenExpiresAt||expiresAt) showed a confusing
     // cosmetic "Token Expired". Surface reality as a terminal "expired" status instead.
     // Guard tightly so we do NOT clobber:
-    //   - providers that simply don't use refresh tokens (supportsTokenRefresh=false)
+    //   - providers without refresh tokens (supportsTokenRefresh=false; #8407 devin-cli)
     //   - connections already in a terminal/specific state (expired/banned/credits_exhausted)
     //   - transient cooldown state (unavailable) owned by the request path
     const refreshCapableNeedsReauth =
