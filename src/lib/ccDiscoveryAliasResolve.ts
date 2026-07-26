@@ -29,6 +29,7 @@ import {
   getCcAliasModelSetting,
   type CcAliasSetting,
 } from "@/lib/db/ccDiscoveryAliases";
+import { incrementCcAliasRequestCount } from "@/lib/db/ccDiscoveryMetrics";
 
 // Virtual provider key combos are gated under (mirrors
 // src/app/api/v1/models/ccAliasPredicate.ts — combos have no real provider id,
@@ -91,7 +92,7 @@ export async function resolveCcDiscoveryAliasStripWith(
       })
     : deps.gateGlobal();
 
-  return stripCcDiscoveryAlias(modelStr, {
+  const result = stripCcDiscoveryAlias(modelStr, {
     isClaudeProviderModel: (r) => deps.claudeModelIds.has(r),
     // Gap 1: recognize both built-in registry providers AND operator-defined
     // compatible nodes, matching exactly the prefixes the catalog can mirror.
@@ -100,6 +101,14 @@ export async function resolveCcDiscoveryAliasStripWith(
     hasCombo: () => comboExists,
     aliasEnabledFor: () => gateEnabled,
   });
+
+  // Best-effort usage metric — never blocks/slows the request, never throws
+  // (incrementCcAliasRequestCount already swallows its own errors).
+  if (result.stripped) {
+    incrementCcAliasRequestCount(result.model);
+  }
+
+  return result;
 }
 
 /**

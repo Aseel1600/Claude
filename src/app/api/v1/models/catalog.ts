@@ -95,7 +95,12 @@ import {
   getProviderPrefixes as getProviderPrefixesFromMaps,
   getComboTargetModelId as getComboTargetModelIdFromMaps,
 } from "./catalogProviderMaps";
-import { getModelCatalogAuthRejection, isCodexModelCatalogClient } from "./catalogRequest";
+import {
+  getModelCatalogAuthRejection,
+  isCodexModelCatalogClient,
+  isCcDiscoveryModelCatalogClient,
+} from "./catalogRequest";
+import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 
@@ -213,6 +218,13 @@ export async function getUnifiedModelsResponse(
     if (authRejection) return authRejection;
   } catch {
     // Fall through to full builder on auth-check failure; core handles errors.
+  }
+
+  // Best-effort cc-discovery usage metric — count every authorized GET /v1/models
+  // hit from a Claude Code client, cache hit or not. Never blocks/slows the
+  // request (incrementCcDiscoveryHitCount already swallows its own errors).
+  if (isCcDiscoveryModelCatalogClient(request)) {
+    incrementCcDiscoveryHitCount();
   }
 
   dropCatalogCacheIfStateChanged();
