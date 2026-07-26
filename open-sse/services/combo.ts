@@ -159,6 +159,7 @@ import {
   shouldSkipForPredictedTtft,
   shouldRecordProviderBreakerFailure,
   isRequestScopedUpstreamFailure,
+  isInputBoundRequestFailure,
   shouldSkipConnDisable,
   resolveDelayMs,
   comboModelNotFoundResponse,
@@ -2183,6 +2184,39 @@ export async function handleComboChat({
                 }
               : undefined;
           const requestScopedFailure = isRequestScopedUpstreamFailure(structuredError);
+
+          // #8375: input-bound request-scoped failures (context_length_exceeded) are
+          // deterministic for the same input — retrying on other accounts of the same
+          // model will fail identically. Short-circuit the combo immediately with the
+          // original error instead of burning MAX_GLOBAL_ATTEMPTS.
+          // Scoped to homogeneous remainders only: a heterogeneous combo (#6637) may
+          // have a later target with a different, larger context window that would
+          // NOT reject the same input — isContextOverflow400 below exists precisely to
+          // let that case fall through, so only short-circuit when every remaining
+          // target is the same model (the "retrying will fail identically" premise
+          // only holds within a homogeneous same-model pool).
+          const remainingTargets = orderedTargets.slice(i + 1);
+          const remainderIsHomogeneous = remainingTargets.every(
+            (nextInPool) => nextInPool.modelStr === modelStr
+          );
+          const isInputBoundFailure =
+            isInputBoundRequestFailure(structuredError) && remainderIsHomogeneous;
+          if (isInputBoundFailure) {
+            log.warn(
+              "COMBO",
+              `Input-bound request failure from ${modelStr} — aborting combo (same input will fail identically on every account)`
+            );
+            recordComboRequest(combo.name, modelStr, {
+              success: false,
+              latencyMs: Date.now() - startTime,
+              fallbackCount,
+              strategy,
+              target: toRecordedTarget(target),
+            });
+            recordedAttempts++;
+            if (i > 0) fallbackCount++;
+            return { ok: false, response: result };
+          }
           const fallbackResult = checkFallbackError(
             result.status,
             errorText,
