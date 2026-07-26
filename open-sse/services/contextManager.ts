@@ -7,6 +7,7 @@
 
 import { REGISTRY } from "../config/providerRegistry.ts";
 import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import { jsonLength } from "../utils/jsonSize.ts";
 
 // Default token limits per provider (fallbacks when not in registry)
 const DEFAULT_LIMITS: Record<string, number> = {
@@ -14,6 +15,10 @@ const DEFAULT_LIMITS: Record<string, number> = {
   openai: 128000,
   gemini: 1000000,
   codex: 400000,
+  // HyperAgent Claude-family agents (fable/opus/sonnet) — 1M default; was falling
+  // through to 128k and blocking normal agentic tool loops with huge catalogs.
+  hyperagent: 1_000_000,
+  ha: 1_000_000,
   default: 128000,
 };
 
@@ -146,7 +151,10 @@ function extractImageTokens(node: unknown, seen: Set<unknown>): { node: unknown;
 
   const record = node as Record<string, unknown>;
   if (isInlineBase64ImageBlock(record)) {
-    return { node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE }, tokens: IMAGE_TOKEN_ESTIMATE };
+    return {
+      node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE },
+      tokens: IMAGE_TOKEN_ESTIMATE,
+    };
   }
 
   let tokens = 0;
@@ -173,8 +181,10 @@ export function estimateTokens(text: string | object | null | undefined): number
     return Math.ceil(text.length / CHARS_PER_TOKEN);
   }
   const { node, tokens: imageTokens } = extractImageTokens(text, new Set());
-  const str = JSON.stringify(node);
-  return Math.ceil(str.length / CHARS_PER_TOKEN) + imageTokens;
+  // #7847: count the serialized length instead of building the string. Only `.length` was ever
+  // used, and on a multi-megabyte agent body that string is a pure transient allocation.
+  // jsonLength is exact (property-tested against JSON.stringify), so the estimate is unchanged.
+  return Math.ceil(jsonLength(node) / CHARS_PER_TOKEN) + imageTokens;
 }
 
 /**
@@ -199,6 +209,8 @@ function resolveTokenLimit(
   const envOverride = getEnvOverride(provider);
   if (envOverride) return { limit: envOverride, specific: true };
 
+  const lowerModel = (model || "").toLowerCase();
+
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
     const dbLimit = getModelContextLimit(provider, model);
@@ -213,15 +225,14 @@ function resolveTokenLimit(
 
   // 4. Check if model name hints at a known limit
   if (model) {
-    const lower = model.toLowerCase();
-    if (lower.includes("claude")) return { limit: DEFAULT_LIMITS.claude, specific: true };
-    if (lower.includes("gemini")) return { limit: DEFAULT_LIMITS.gemini, specific: true };
+    if (lowerModel.includes("claude")) return { limit: DEFAULT_LIMITS.claude, specific: true };
+    if (lowerModel.includes("gemini")) return { limit: DEFAULT_LIMITS.gemini, specific: true };
     if (
-      lower.includes("gpt") ||
-      lower.includes("o1") ||
-      lower.includes("o3") ||
-      lower.includes("o4") ||
-      lower.includes("codex")
+      lowerModel.includes("gpt") ||
+      lowerModel.includes("o1") ||
+      lowerModel.includes("o3") ||
+      lowerModel.includes("o4") ||
+      lowerModel.includes("codex")
     )
       return { limit: DEFAULT_LIMITS.codex, specific: true };
   }
