@@ -937,6 +937,7 @@
   "disabled": "Đã tắt",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
   "featureFlagArenaEloSyncEnabledDescription": "Bật đồng bộ ELO định kỳ từ bảng xếp hạng Arena AI để xếp hạng năng lực của mô hình.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Công bố các id phản chiếu claude/<provider>/<model> trên /v1/models để tính năng khám phá mô hình qua gateway của Claude Code liệt kê được các mô hình không phải Claude. Cảnh báo: khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
   "sidebar": {
     "home": "Trang chủ",
     "dashboard": "Trang tổng quan",
@@ -2966,7 +2967,10 @@
     "copilotPasteInto": "Dán vào:",
     "copilotReloadInstruction": "Sau đó tải lại VS Code và nhập khóa API khi được yêu cầu.",
     "wireApiChatCompletions": "Chat Completions (/chat/completions)",
-    "wireApiResponses": "Responses API (/responses)"
+    "wireApiResponses": "Responses API (/responses)",
+    "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
+    "ccDiscoveryInfoTooltip": "Công bố các mô hình không phải Claude dưới dạng id phản chiếu claude/<provider>/<model> để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+    "ccDiscoveryInfoLink": "Mở Feature Flags"
   },
   "combos": {
     "title": "Combo",
@@ -5989,7 +5993,19 @@
     "lmarenaWebCookieHint": "Mở arena.ai, đăng nhập, sau đó sao chép toàn bộ header Cookie từ một yêu cầu mạng. Bao gồm arena-auth-prod-v1.0 và arena-auth-prod-v1.1 (và các phần tiếp theo nếu có), ưu tiên kèm theo cf_clearance. Không chỉ dán cookie arena-auth-prod-v1 trống. Tùy chọn: providerSpecificData.recaptchaV3Token nếu create-evaluation vẫn trả về 403.",
     "kimiOfficialSupporterBadge": "Người Bạn Sáng Lập",
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) là người bạn mã nguồn mở sáng lập của OmniRoute",
-    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you"
+    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "ccAliasSectionTitle": "Hiển thị trong Claude Code (claude/…)",
+    "ccAliasSectionHint": "Công bố các mô hình của nhà cung cấp này dưới dạng id phản chiếu claude/<provider>/<model> để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Mặc định tắt — bật lên sẽ nhân đôi số mục trong danh mục với mọi client.",
+    "ccAliasProviderLevelLabel": "Mặc định của nhà cung cấp",
+    "ccAliasModelOverridesLabel": "Ghi đè theo từng mô hình",
+    "ccAliasModelOverrideAriaLabel": "Ghi đè cho {modelId}",
+    "ccAliasStateInherit": "Kế thừa",
+    "ccAliasStateOn": "Bật",
+    "ccAliasStateOff": "Tắt",
+    "ccAliasAddModelPlaceholder": "Id mô hình (ví dụ: gpt-4o)",
+    "ccAliasAddModelButton": "Thêm ghi đè",
+    "ccAliasLoadError": "Không tải được cài đặt bí danh khám phá: {error}",
+    "ccAliasSaveError": "Không lưu được cài đặt bí danh khám phá: {error}"
   },
   "settings": {
     "title": "Cài đặt",
@@ -11827,7 +11843,8 @@
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Cho phép môi trường sandbox của kỹ năng truy cập mạng."
       }
-    }
+    },
+    "ccDiscoveryAliasesEnvWarning": "Đang bật qua biến môi trường (EXPOSE_CC_DISCOVERY_ALIASES) — giá trị này ghi đè mọi công tắc trong bảng điều khiển bên dưới."
   },
   "comboControl": {
     "title": "Trung tâm điều khiển combo",

@@ -5,6 +5,7 @@ import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/comp
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import CliStatusBadge from "./CliStatusBadge";
 import ClaudeClassifierCompatToggle from "./ClaudeClassifierCompatToggle";
+import ClaudeCcDiscoveryInfoButton from "./ClaudeCcDiscoveryInfoButton";
 import { useTranslations } from "next-intl";
 import {
   getStoredClaudeAuthValue,
@@ -343,14 +344,8 @@ export default function ClaudeToolCard({
                     deployments where the CLI lives on the user's machine,
                     not on the server. Upstream report: #589.
                   */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowManualConfigModal(true)}
-                  >
-                    <span className="material-symbols-outlined text-[18px] mr-1">
-                      content_copy
-                    </span>
+                  <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)}>
+                    <span className="material-symbols-outlined text-[18px] mr-1">content_copy</span>
                     {t("manualConfig")}
                   </Button>
                   <Button
@@ -495,6 +490,9 @@ export default function ClaudeToolCard({
 
               {/* Opt-in (default off): Claude Code auto-permission classifier compat mode. */}
               <ClaudeClassifierCompatToggle />
+
+              {/* Info link to the discovery-alias gate (claude/<provider>/<model> mirror ids) */}
+              <ClaudeCcDiscoveryInfoButton />
 
               {message && (
                 <div
