@@ -294,6 +294,7 @@
       "tests/unit/tproxy-route.test.ts",
       "tests/unit/trae-publiccred.test.ts",
       "tests/unit/types-barrel-model-cooldown.test.ts",
+      "tests/unit/upstream-error-passthrough.test.ts",
       "tests/unit/upstream-retry-hints-toggle.test.ts",
       "tests/unit/upstream-timeout-model-override.test.ts",
       "tests/unit/usage-service-hardening.test.ts",
