@@ -1706,7 +1706,7 @@ export async function handleChatCore({
           );
           comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) => {
             const parsed = parseModel(t.modelStr);
-            const provider = t.provider || parsed.provider || parsed.providerAlias;
+            const provider = t.provider || parsed.provider || parsed.providerAlias || "unknown";
             return getTokenLimit(provider, parsed.model);
           });
         }
