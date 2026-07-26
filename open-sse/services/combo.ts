@@ -2425,7 +2425,10 @@ export async function handleComboChat({
                     // upstream reset (lockoutHintVerified) bypasses it.
                     exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                     maxCooldownMs: mlSettings.maxCooldownMs,
-                    exactCooldownVerified: lockoutHintVerified,
+                    // #6863: a parsed upstream quota reset is authoritative — the upstream
+                    // told us exactly when it resets, so honor it in full instead of
+                    // clamping to maxCooldownMs (which only bounds computed backoff).
+                    exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
                   }
                 );
                 lockoutRecorded = true;
@@ -2479,7 +2482,9 @@ export async function handleComboChat({
                   // upstream reset (lockoutHintVerified) bypasses it.
                   exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                   maxCooldownMs: mlSettings.maxCooldownMs,
-                  exactCooldownVerified: lockoutHintVerified,
+                  // #6863: an authoritative parsed upstream reset must be honored in full,
+                  // never clamped to maxCooldownMs (which only bounds computed backoff).
+                  exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
                 }
               );
             }
