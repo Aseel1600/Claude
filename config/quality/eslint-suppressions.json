@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "open-sse/executors/claudeIdentity.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
   "open-sse/executors/cliproxyapi.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -411,11 +406,6 @@
     }
   },
   "src/shared/components/CursorAuthModal.tsx": {
-    "react-hooks/exhaustive-deps": {
-      "count": 1
-    }
-  },
-  "src/shared/components/KiroSocialOAuthModal.tsx": {
     "react-hooks/exhaustive-deps": {
       "count": 1
     }
@@ -888,11 +878,6 @@
   "tests/unit/claude-to-openai-image-toolresult.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 8
-    }
-  },
-  "tests/unit/claude-to-openai-think-close-5123.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
     }
   },
   "tests/unit/cli-a2a-invoke-commands.test.ts": {
@@ -1947,7 +1932,7 @@
   },
   "tests/unit/proxy-registry.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 55
+      "count": 54
     }
   },
   "tests/unit/proxy-resolution-status-filter.test.ts": {
