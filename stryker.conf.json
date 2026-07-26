@@ -39,9 +39,7 @@
   "incremental": true,
   "incrementalFile": "reports/mutation/stryker-incremental.json",
   "testRunner": "tap",
-  "plugins": [
-    "@stryker-mutator/tap-runner"
-  ],
+  "plugins": ["@stryker-mutator/tap-runner"],
   "tap": {
     "testFiles": [
       "tests/unit/7993-noauth-proxy-routing.test.ts",
@@ -136,6 +134,7 @@
       "tests/unit/collect-metrics-module-coverage.test.ts",
       "tests/unit/combo-499-abort.test.ts",
       "tests/unit/combo-account-allowlist-3266.test.ts",
+      "tests/unit/combo-attempt-body-isolation-7847.test.ts",
       "tests/unit/combo-auto-candidate-expansion.test.ts",
       "tests/unit/combo-breaker-429.test.ts",
       "tests/unit/combo-cache-invalidation.test.ts",
@@ -406,11 +405,7 @@
     ".worktrees",
     ".stryker-tmp"
   ],
-  "reporters": [
-    "progress",
-    "html",
-    "json"
-  ],
+  "reporters": ["progress", "html", "json"],
   "htmlReporter": {
     "fileName": "reports/mutation/mutation.html"
   },

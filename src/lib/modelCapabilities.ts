@@ -224,6 +224,13 @@ function heuristicMaxTokens(modelStr: string): boolean {
   return !blocked;
 }
 
+/** Last path segment of a path-shaped model id (`cline-pass/kimi-k3` → `kimi-k3`). */
+function leafModelId(modelId: string | null | undefined): string | null {
+  if (!modelId || !modelId.includes("/")) return null;
+  const leaf = modelId.split("/").filter(Boolean).pop() ?? null;
+  return leaf && leaf !== modelId ? leaf : null;
+}
+
 function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSpec | undefined {
   if (modelId) {
     const byCanonical = getModelSpec(modelId);
@@ -231,6 +238,29 @@ function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSp
   }
   if (rawModel && rawModel !== modelId) {
     return getModelSpec(rawModel);
+  }
+  return undefined;
+}
+
+/**
+ * #8032: vision-only leaf fallback for path-shaped routed ids.
+ *
+ * Must NOT live in getStaticSpec() — that helper also feeds supportsTools /
+ * supportsThinking / contextWindow / maxOutputTokens. A shared leaf lookup
+ * incorrectly promotes e.g. aihorde/deepseek/deepseek-v4-flash to the real
+ * DeepSeek V4 Flash tool-calling spec (#8212 regression).
+ */
+function getVisionStaticSpec(
+  modelId: string | null,
+  rawModel: string | null
+): ModelSpec | undefined {
+  const direct = getStaticSpec(modelId, rawModel);
+  if (direct) return direct;
+  for (const candidate of [modelId, rawModel]) {
+    const leaf = leafModelId(candidate);
+    if (!leaf) continue;
+    const byLeaf = getModelSpec(leaf);
+    if (byLeaf) return byLeaf;
   }
   return undefined;
 }
@@ -318,6 +348,8 @@ function getSyncedCapabilityForResolved(
           const values = [candidate];
           const stripped = stripLatestAlias(candidate);
           if (stripped) values.push(stripped);
+          const leaf = leafModelId(candidate);
+          if (leaf) values.push(leaf);
           // models.dev often stores OpenAI-family specialty models as qualified
           // ids under another mapped provider, e.g. vercel + "openai/whisper-1".
           if (!candidate.includes("/")) {
@@ -410,6 +442,14 @@ function resolveVisionCapability(
     // can be reconciled to a single vision-capable verdict.
     if (synced.attachment === false && modalitiesDeclareVision(allModalities)) {
       return true;
+    }
+    // #8032: attachment=false without modalities must not beat authoritative
+    // registry/spec vision for path-shaped custom/routed ids (e.g. Cline Pass
+    // `cp/cline-pass/kimi-k3` → MODEL_SPECS["kimi-k3"].supportsVision).
+    if (synced.attachment === false) {
+      if (registryModel?.supportsVision === true) return true;
+      if (spec?.supportsVision === true) return true;
+      return false;
     }
     return synced.attachment;
   }
@@ -534,8 +574,12 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
 
   const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
 
+  // Vision consults leaf static metadata for path-shaped ids; other capability
+  // fields keep using the non-leaf `spec` from getStaticSpec() above.
+  const visionSpec = getVisionStaticSpec(resolved.model, resolved.rawModel);
+
   const supportsVision = resolveVisionCapability(
-    spec,
+    visionSpec,
     registryModel,
     synced,
     modalitiesInput,

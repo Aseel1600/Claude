@@ -683,7 +683,7 @@ export {
   listApiKeyContextSources,
 } from "./db/apiKeyContextSources";
 export type { ApiKeyContextSource } from "./db/apiKeyContextSources";
-
+export * from "./db/localCorpus";
 export { sumUsageTokensThisMonth } from "./db/usageSummary";
 
 export {

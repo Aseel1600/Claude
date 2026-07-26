@@ -103,16 +103,25 @@ export function sanitizeUpstreamDetails(value: unknown, depth = 0): unknown {
   return null;
 }
 
+/** Optional caller classification; when set, wins over status-derived defaults. */
+export type ErrorBodyClassification = {
+  type?: string;
+  code?: string;
+};
+
 /**
  * Build OpenAI-compatible error response body. Message is always sanitized
  * so callers do not need to remember to strip stack traces themselves.
  * Optional third argument `upstreamDetails` (raw parsed provider body) is
  * sanitized by sanitizeUpstreamDetails before inclusion as `upstream_details`.
+ * Optional fourth argument `classification` preserves an explicit type/code
+ * instead of re-deriving both from the status-code table.
  */
 export function buildErrorBody(
   statusCode: number,
   message: string,
-  upstreamDetails?: unknown
+  upstreamDetails?: unknown,
+  classification?: ErrorBodyClassification
 ): ErrorResponseBody {
   const errorInfo = getErrorInfo(statusCode);
   const safeMessage = sanitizeErrorMessage(message) || getDefaultErrorMessage(statusCode);
@@ -120,8 +129,8 @@ export function buildErrorBody(
   const body: ErrorResponseBody = {
     error: {
       message: safeMessage,
-      type: errorInfo.type,
-      code: errorInfo.code,
+      type: classification?.type ?? errorInfo.type,
+      code: classification?.code ?? errorInfo.code,
     },
   };
 
