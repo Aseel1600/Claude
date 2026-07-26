@@ -92,6 +92,21 @@ test("skips disabled entries and returns the same array reference when nothing i
   assert.equal(out, models);
 });
 
+test("does NOT mirror built-in auto/* combos (request path can't resolve them)", () => {
+  // Built-in auto combos are synthesized by createBuiltinAutoCombo, not stored in
+  // the DB combos table, so getComboByName() misses them at request time — mirroring
+  // them would advertise an id the request path rejects. See ccDiscoveryAliasResolve.
+  const models: CatalogEntry[] = [
+    { id: "auto", owned_by: "combo", name: "Auto" },
+    { id: "auto/glm", owned_by: "combo", name: "Auto GLM" },
+    { id: "auto/pro:pro", owned_by: "combo", name: "Auto Pro" },
+    { id: "real-combo", owned_by: "combo", name: "Real Combo" },
+  ];
+  const out = appendCcDiscoveryAliases(models, alwaysEnabled);
+  const aliasIds = out.filter((m) => String(m.id).startsWith("claude/")).map((m) => m.id);
+  assert.deepEqual(aliasIds, ["claude/combo/real-combo"]);
+});
+
 test("returns the same array reference when the input is empty", () => {
   const models: CatalogEntry[] = [];
   const out = appendCcDiscoveryAliases(models, alwaysEnabled);
