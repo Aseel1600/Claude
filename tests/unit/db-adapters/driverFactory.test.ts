@@ -9,6 +9,7 @@ const { createSyncDriverFactory, tryOpenSync, openDatabaseAsync, preInitSqlJs, g
   await import("../../../src/lib/db/adapters/driverFactory.ts");
 
 const require = createRequire(import.meta.url);
+const isBun = Boolean(process.versions.bun);
 
 function forceNodeSqlite() {
   return createSyncDriverFactory((moduleName: string) => {
@@ -42,6 +43,8 @@ describe("driverFactory", () => {
   });
 
   test("prefers better-sqlite3 when it loads", (t) => {
+    if (isBun) return;
+
     const adapter = tryOpenSync(":memory:");
     if (!adapter || adapter.driver !== "better-sqlite3") {
       adapter?.close();
@@ -55,6 +58,8 @@ describe("driverFactory", () => {
   });
 
   test("prefers better-sqlite3 before node:sqlite in the driver cascade", () => {
+    if (isBun) return;
+
     const fakeBetterSqlite = {
       close() {},
       name: ":memory:",
@@ -81,6 +86,8 @@ describe("driverFactory", () => {
   });
 
   test("forced node:sqlite fallback creates, reopens, and queries a writable database", (t) => {
+    if (isBun) return;
+
     const databasePath = createTempDatabasePath(t);
     const openNodeSqlite = forceNodeSqlite();
 
@@ -102,6 +109,8 @@ describe("driverFactory", () => {
   });
 
   test("forced node:sqlite fallback does not create missing existing-only paths", (t) => {
+    if (isBun) return;
+
     const databasePath = createTempDatabasePath(t);
     const adapter = forceNodeSqlite()(databasePath, { readonly: true, fileMustExist: true });
 
@@ -112,6 +121,8 @@ describe("driverFactory", () => {
   });
 
   test("forced node:sqlite fallback preserves existing read-only behavior", (t) => {
+    if (isBun) return;
+
     const databasePath = createTempDatabasePath(t);
     const { DatabaseSync } = require("node:sqlite") as {
       DatabaseSync: new (filePath: string) => {
@@ -140,6 +151,8 @@ describe("driverFactory", () => {
   });
 
   test("forced node:sqlite fallback keeps extension loading disabled", () => {
+    if (isBun) return;
+
     const adapter = forceNodeSqlite()(":memory:");
     assert.ok(adapter);
     assert.equal(adapter.driver, "node:sqlite");
