@@ -158,12 +158,13 @@ export function __expireCatalogCacheForTest(msAgo = 1): void {
   }
 }
 
-// Test hook — direct read/write access to the private catalogCache map, so
-// tests can seed exact status/staleness combinations (e.g. a cached non-200
+// Test hook — seeds the private catalogCache entry a given request would read,
+// so tests can set up exact status/staleness combinations (e.g. a cached non-200
 // entry) that are impractical to provoke through the real, intentionally
-// exception-resistant builder core. Not part of the public API.
-export function __setCatalogCacheEntryForTest(cacheKey: string, entry: CachedCatalog): void {
-  catalogCache.set(cacheKey, entry);
+// exception-resistant builder core. Takes the Request rather than a raw key so
+// the cache-key format stays private to this module. Not part of the public API.
+export function __setCatalogCacheEntryForTest(request: Request, entry: CachedCatalog): void {
+  catalogCache.set(buildCatalogCacheKey(request), entry);
 }
 
 // Test hook — lets a test await completion of any background
@@ -188,13 +189,13 @@ export async function __flushCatalogBackgroundRefreshForTest(): Promise<void> {
 // instead of the intended synthetic failure. Left in catalogInFlight until the
 // next test's __resetCatalogBuilderRunsForTest() clears it. Not part of the
 // public API.
-export function __forceCatalogInFlightRejectionForTest(cacheKey: string, error: unknown): void {
+export function __forceCatalogInFlightRejectionForTest(request: Request, error: unknown): void {
   const rejected: Promise<CachedCatalog> = Promise.reject(error);
   rejected.catch(() => {}); // mark as handled — avoids an unhandledRejection warning
-  catalogInFlight.set(cacheKey, rejected);
+  catalogInFlight.set(buildCatalogCacheKey(request), rejected);
 }
 
-export function buildCatalogCacheKey(request: Request): string {
+function buildCatalogCacheKey(request: Request): string {
   const url = new URL(request.url);
   const prefix = url.searchParams.get("prefix") || "";
   const apiKey = extractApiKey(request) || "";
@@ -292,7 +293,7 @@ export async function getUnifiedModelsResponse(
     cached.status === 200 &&
     now - cached.expiresAt <= CATALOG_STALE_WHILE_REVALIDATE_MS
   ) {
-    scheduleBackgroundCatalogRefresh(cacheKey, request, cached);
+    scheduleBackgroundCatalogRefresh(cacheKey, request);
     return new Response(cached.body, {
       status: cached.status,
       headers: mergeCatalogHeaders(corsHeaders, cached.headers, diagnosticHeaders),
@@ -343,26 +344,26 @@ export async function getUnifiedModelsResponse(
  * catalogInFlight — no second coalescing mechanism — so a concurrent cold/stale
  * request for the same key joins this same refresh instead of starting another.
  *
- * The builder invocation is deferred to a macrotask (setTimeout 0) so the
- * stale response that triggered this call is always constructed and returned
- * to the caller before the builder actually runs — see the "counter has not
- * risen yet" assertions in tests/unit/v1-models-discovery-conformance.test.ts.
- * This adds at most one event-loop turn of latency to the background refresh,
- * not a real wait.
+ * The builder invocation is deferred one macrotask so the stale response that
+ * triggered this call is handed back before the builder's synchronous prologue
+ * runs — the whole point of this path is that the caller does not pay for the
+ * rebuild. It costs the refresh one event-loop turn, not a real wait.
  *
- * Never throws, and the returned/tracked promise never rejects: a failing
- * refresh must leave the existing stale entry in catalogCache untouched (it is
- * simply never overwritten), not surface anywhere or crash the process via an
- * unhandled rejection.
+ * The tracked promise **rejects** when the rebuild fails. That matters because
+ * catalogInFlight is shared with the cold path: a caller whose entry has aged
+ * past CATALOG_STALE_WHILE_REVALIDATE_MS skips the stale branch and awaits
+ * whatever promise it finds here. Resolving with the stale entry would hand
+ * that caller a stale 200 it was explicitly no longer entitled to and disguise
+ * a build failure as success. Rejecting routes it to the sanitized 500 instead.
+ * The rejection is pre-handled here so the background path itself can never
+ * raise an unhandledRejection; a failed refresh simply never overwrites the
+ * cached entry, leaving the stale body in place for callers still inside the
+ * window.
  */
-function scheduleBackgroundCatalogRefresh(
-  cacheKey: string,
-  request: Request,
-  staleEntry: CachedCatalog
-): void {
+function scheduleBackgroundCatalogRefresh(cacheKey: string, request: Request): void {
   if (catalogInFlight.has(cacheKey)) return; // a refresh for this key is already running
 
-  const refreshPromise: Promise<CachedCatalog> = new Promise((resolve) => {
+  const refreshPromise: Promise<CachedCatalog> = new Promise((resolve, reject) => {
     setTimeout(() => {
       buildCatalogPayload(request)
         .then((payload) => {
@@ -376,21 +377,26 @@ function scheduleBackgroundCatalogRefresh(
           resolve(entry);
         })
         .catch((err) => {
-          console.log(
+          console.error(
             `[catalog] Background stale-while-revalidate refresh failed for key "${cacheKey}":`,
             err
           );
-          // Leave the stale entry exactly as-is — the next request either hits it
-          // again (still within the window) or falls back to the cold-path wait.
-          resolve(staleEntry);
+          reject(err);
         });
     }, 0);
   });
 
+  // Nobody on the stale path awaits this promise, so pre-handle the rejection.
+  // A cold-path caller that joins it via catalogInFlight attaches its own
+  // handler and still observes the failure.
+  refreshPromise.catch(() => {});
+
   catalogInFlight.set(cacheKey, refreshPromise);
-  refreshPromise.finally(() => {
-    if (catalogInFlight.get(cacheKey) === refreshPromise) catalogInFlight.delete(cacheKey);
-  });
+  refreshPromise
+    .catch(() => {})
+    .finally(() => {
+      if (catalogInFlight.get(cacheKey) === refreshPromise) catalogInFlight.delete(cacheKey);
+    });
 }
 
 async function buildCatalogPayload(
@@ -1718,14 +1724,14 @@ async function buildUnifiedModelsResponseCore(
     });
   } catch (error) {
     console.log("Error fetching models:", error);
+    // Hard rule #12 — this is the realistically reachable 500 for the endpoint
+    // (the wrapper's catch only fires on an in-flight rejection), so it must go
+    // through the shared sanitizer too. Same status/type/code as before.
     return Response.json(
-      {
-        error: {
-          message: error instanceof Error ? error.message : String(error),
-          type: "server_error",
-          code: INTERNAL_PROXY_ERROR,
-        },
-      },
+      buildErrorBody(500, error instanceof Error ? error.message : String(error), undefined, {
+        type: "server_error",
+        code: INTERNAL_PROXY_ERROR,
+      }),
       {
         status: 500,
         headers: {

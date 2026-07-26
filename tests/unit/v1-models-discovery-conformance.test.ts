@@ -133,9 +133,7 @@ test("4. beyond the staleness window, the response waits for a fresh build again
 
 test("5. a cached non-200 entry is never served as stale", async () => {
   const request = new Request("http://localhost/v1/models");
-  const cacheKey = v1ModelsCatalog.buildCatalogCacheKey(request);
-
-  v1ModelsCatalog.__setCatalogCacheEntryForTest(cacheKey, {
+  v1ModelsCatalog.__setCatalogCacheEntryForTest(request, {
     body: JSON.stringify({ error: { message: "boom", type: "server_error", code: "X" } }),
     headers: {},
     status: 500,
@@ -182,12 +180,10 @@ test("6. a DB-state change drops the cache outright — the next response is a f
 
 test("7. the 500 error path is sanitized — no stack trace or absolute source path leaks into the body", async () => {
   const request = new Request("http://localhost/v1/models?prefix=alias&__d1_err_test=1");
-  const cacheKey = v1ModelsCatalog.buildCatalogCacheKey(request);
-
   const rawMessage =
     "Query failed at /home/diegosouzapw/dev/proxys/OmniRoute-Enterprise/secret/catalog.ts:42:1";
   const err = new Error(rawMessage);
-  v1ModelsCatalog.__forceCatalogInFlightRejectionForTest(cacheKey, err);
+  v1ModelsCatalog.__forceCatalogInFlightRejectionForTest(request, err);
 
   const res = await v1ModelsCatalog.getUnifiedModelsResponse(request);
   assert.equal(res.status, 500);
