@@ -906,6 +906,15 @@ function buildWsUrl(authorization: string, requestId: string): string {
 
 type GraphqlResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * Narrows the failure arm. Under this workspace's `strictNullChecks: false`, a
+ * boolean-literal discriminant narrows the positive branch but not the negative one, so
+ * `!result.ok` leaves the full union and `.error` is unreachable to the checker.
+ */
+function isGraphqlFailure(result: GraphqlResult): result is Extract<GraphqlResult, { ok: false }> {
+  return !result.ok;
+}
+
 async function graphqlPost(
   docId: string,
   variables: Record<string, unknown>,
@@ -942,7 +951,9 @@ async function graphqlPost(
   } catch (err) {
     return {
       ok: false,
-      error: `${label} fetch failed: ${err instanceof Error ? err.message : String(err)}`,
+      error: `${label} fetch failed: ${sanitizeErrorMessage(
+        err instanceof Error ? err.message : String(err)
+      )}`,
     };
   }
 }
@@ -1313,7 +1324,7 @@ export class MuseSparkWebExecutor extends BaseExecutor {
       "Warmup",
       signal
     );
-    if (!warmupResult.ok) {
+    if (isGraphqlFailure(warmupResult)) {
       evictContinuationIfNeeded(cached, continuationCacheKey);
       log?.error?.("MUSE-SPARK-WEB", `Warmup failed: ${warmupResult.error}`);
       return errorResult(502, warmupResult.error, "meta_ai_warmup_failed", {}, body);
@@ -1327,7 +1338,7 @@ export class MuseSparkWebExecutor extends BaseExecutor {
       "Mode switch",
       signal
     );
-    if (!modeResult.ok) {
+    if (isGraphqlFailure(modeResult)) {
       evictContinuationIfNeeded(cached, continuationCacheKey);
       log?.error?.("MUSE-SPARK-WEB", `Mode switch failed: ${modeResult.error}`);
       return errorResult(502, modeResult.error, "meta_ai_mode_switch_failed", {}, body);

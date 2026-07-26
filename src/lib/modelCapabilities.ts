@@ -224,6 +224,13 @@ function heuristicMaxTokens(modelStr: string): boolean {
   return !blocked;
 }
 
+/** Last path segment of a path-shaped model id (`cline-pass/kimi-k3` → `kimi-k3`). */
+function leafModelId(modelId: string | null | undefined): string | null {
+  if (!modelId || !modelId.includes("/")) return null;
+  const leaf = modelId.split("/").filter(Boolean).pop() ?? null;
+  return leaf && leaf !== modelId ? leaf : null;
+}
+
 function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSpec | undefined {
   if (modelId) {
     const byCanonical = getModelSpec(modelId);
@@ -231,6 +238,29 @@ function getStaticSpec(modelId: string | null, rawModel: string | null): ModelSp
   }
   if (rawModel && rawModel !== modelId) {
     return getModelSpec(rawModel);
+  }
+  return undefined;
+}
+
+/**
+ * #8032: vision-only leaf fallback for path-shaped routed ids.
+ *
+ * Must NOT live in getStaticSpec() — that helper also feeds supportsTools /
+ * supportsThinking / contextWindow / maxOutputTokens. A shared leaf lookup
+ * incorrectly promotes e.g. aihorde/deepseek/deepseek-v4-flash to the real
+ * DeepSeek V4 Flash tool-calling spec (#8212 regression).
+ */
+function getVisionStaticSpec(
+  modelId: string | null,
+  rawModel: string | null
+): ModelSpec | undefined {
+  const direct = getStaticSpec(modelId, rawModel);
+  if (direct) return direct;
+  for (const candidate of [modelId, rawModel]) {
+    const leaf = leafModelId(candidate);
+    if (!leaf) continue;
+    const byLeaf = getModelSpec(leaf);
+    if (byLeaf) return byLeaf;
   }
   return undefined;
 }
@@ -281,9 +311,21 @@ function reverseModelsDevProviders(provider: string): string[] {
   // models.dev may store capabilities under a different OmniRoute provider id
   // that also maps from the same upstream models.dev provider. Build reverse
   // candidates from MODELS_DEV_PROVIDER_MAP (e.g. openai ↔ cx).
+  //
+  // MODELS_DEV_PROVIDER_MAP's RHS is inconsistent: most providers list their
+  // canonical id directly, but the OAuth CLI providers (codex/claude) only
+  // list their alias (cx/cc), never the canonical id. Also probe the
+  // provider's alias so a canonical id like "codex"/"claude" still matches
+  // the map entries keyed only by "cx"/"cc" (#8429).
   const out = new Set<string>();
+  const providerAlias = PROVIDER_ID_TO_ALIAS[provider] || provider;
   for (const [modelsDevId, omniIds] of Object.entries(MODELS_DEV_PROVIDER_MAP)) {
-    if (omniIds.includes(provider) || modelsDevId === provider) {
+    if (
+      omniIds.includes(provider) ||
+      omniIds.includes(providerAlias) ||
+      modelsDevId === provider ||
+      modelsDevId === providerAlias
+    ) {
       out.add(modelsDevId);
       for (const id of omniIds) out.add(id);
     }
@@ -306,6 +348,8 @@ function getSyncedCapabilityForResolved(
           const values = [candidate];
           const stripped = stripLatestAlias(candidate);
           if (stripped) values.push(stripped);
+          const leaf = leafModelId(candidate);
+          if (leaf) values.push(leaf);
           // models.dev often stores OpenAI-family specialty models as qualified
           // ids under another mapped provider, e.g. vercel + "openai/whisper-1".
           if (!candidate.includes("/")) {
@@ -366,6 +410,14 @@ function isKnownTextOnlyDespiteSync(modelId: string | null | undefined): boolean
   return KNOWN_TEXT_ONLY_DESPITE_SYNC.some((pattern) => pattern.test(id));
 }
 
+/** True when a modality list declares image and/or video input/output. */
+function modalitiesDeclareVision(modalities: readonly string[]): boolean {
+  return modalities.some((entry) => {
+    const lower = String(entry).toLowerCase();
+    return lower.includes("image") || lower.includes("video");
+  });
+}
+
 function resolveVisionCapability(
   spec: ModelSpec | undefined,
   registryModel: { supportsVision?: boolean } | null,
@@ -384,6 +436,21 @@ function resolveVisionCapability(
   if (isKnownTextOnlyDespiteSync(modelId)) return false;
 
   if (typeof synced?.attachment === "boolean") {
+    // #8250: models.dev sometimes ships attachment=false alongside image/video
+    // modalities (observed for Kimi K3). Prefer the richer modality signal over
+    // the contradictory false flag so supportsVision / attachment / modalities
+    // can be reconciled to a single vision-capable verdict.
+    if (synced.attachment === false && modalitiesDeclareVision(allModalities)) {
+      return true;
+    }
+    // #8032: attachment=false without modalities must not beat authoritative
+    // registry/spec vision for path-shaped custom/routed ids (e.g. Cline Pass
+    // `cp/cline-pass/kimi-k3` → MODEL_SPECS["kimi-k3"].supportsVision).
+    if (synced.attachment === false) {
+      if (registryModel?.supportsVision === true) return true;
+      if (spec?.supportsVision === true) return true;
+      return false;
+    }
     return synced.attachment;
   }
 
@@ -507,6 +574,26 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
 
   const maxTokenOverride = getMaxTokenCapabilityOverride(resolved);
 
+  // Vision consults leaf static metadata for path-shaped ids; other capability
+  // fields keep using the non-leaf `spec` from getStaticSpec() above.
+  const visionSpec = getVisionStaticSpec(resolved.model, resolved.rawModel);
+
+  const supportsVision = resolveVisionCapability(
+    visionSpec,
+    registryModel,
+    synced,
+    modalitiesInput,
+    modalitiesOutput,
+    lookupKey
+  );
+
+  // #8250: when resolve promoted vision over a contradictory attachment=false,
+  // expose attachment=true so catalog / Vision Bridge / clients see one verdict.
+  let attachment = synced?.attachment ?? null;
+  if (supportsVision === true && attachment === false) {
+    attachment = true;
+  }
+
   return {
     provider: resolved.provider,
     model: resolved.model,
@@ -515,16 +602,9 @@ export function getResolvedModelCapabilities(input: CapabilityInput): ResolvedMo
     reasoning: supportsThinking ?? heuristicReasoning(lookupKey),
     supportsThinking,
     supportsTools,
-    supportsVision: resolveVisionCapability(
-      spec,
-      registryModel,
-      synced,
-      modalitiesInput,
-      modalitiesOutput,
-      lookupKey
-    ),
+    supportsVision,
     supportsMaxTokens: heuristicMaxTokens(lookupKey),
-    attachment: synced?.attachment ?? null,
+    attachment,
     structuredOutput: synced?.structured_output ?? null,
     temperature: synced?.temperature ?? null,
     contextWindow,
