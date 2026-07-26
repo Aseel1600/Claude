@@ -2709,63 +2709,63 @@ export async function handleComboChat({
           : "";
       const msg = (lastError || "All combo models unavailable") + comboErrorSummary;
 
-      if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
-        // Cooldown-aware retry: instead of crystallizing the 429/503, wait out
-        // a SHORT transient cooldown and re-run the whole set loop. Guarded by
-        // the helper (quota_exhausted/auth/not-found excluded, ceiling,
-        // attempts, budget). MAX_GLOBAL_ATTEMPTS still bounds total dispatches.
-        // Available to ALL combo strategies (not just quota-share).
-        if (comboCooldownWaitEnabled && status === 429) {
-          // ONE decision path for EVERY strategy. The reason that drives the
-          // wait is always the target's REAL model-lockout reason, resolved
-          // through the helper's allow-list — never a hardcoded literal.
-          //
-          // SECURITY (see comboCooldownRetry.ts header): the allow-list is the
-          // PRIMARY barrier and `maxWaitMs` only the SECOND one. Hardcoding
-          // reason:"rate_limit" for non-quota-share strategies would drop the
-          // primary barrier and leave only the ceiling — which does NOT cover a
-          // quota_exhausted lock carrying a SHORT upstream retry-after (e.g.
-          // 3s < maxWaitMs): the combo would wait, redispatch against a model
-          // locked until midnight, and burn the attempt. Model lockouts are
-          // recorded for all strategies (recordModelLockoutFailure above is not
-          // gated on quota-share), so the real reason is always available.
-          const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
-            targets: orderedTargets,
-            earliestRetryAfter,
-            attempt: comboCooldownAttempt,
-            budgetLeftMs: comboCooldownBudgetLeftMs,
-            settings: resilienceSettings.comboCooldownWait,
-            // Key each lookup on the TARGET's own model: quota-share combos are
-            // single-model/multi-account (so this is identical to the previous
-            // orderedTargets[0] behavior), but heterogeneous combos carry a
-            // different model per target.
-            lookupLock: (provider, connectionId, target) => {
-              const rawModel = parseModel(target?.modelStr ?? "").model || "";
-              if (!rawModel) return null;
-              return getModelLockoutInfo(provider, connectionId, rawModel);
-            },
-            computeWaitMs: (retryAfter) => computeClosestRetryAfter(retryAfter).waitMs,
-          });
+      // Cooldown-aware retry: instead of crystallizing a transient failure, wait
+      // out a SHORT cooldown and re-run the whole set loop. Guarded by the helper
+      // (quota_exhausted/auth/not-found excluded, ceiling, attempts, budget).
+      // MAX_GLOBAL_ATTEMPTS still bounds total dispatches. Available to ALL combo
+      // strategies when enabled — entry is driven by earliestRetryAfter + the
+      // real model-lockout reason, NOT by whichever target last overwrote
+      // `status` (a later 403 must not skip the allow-list check for an earlier
+      // 429's retry-after hint). SECURITY (see comboCooldownRetry.ts header): the
+      // allow-list is the PRIMARY barrier and `maxWaitMs` only the SECOND one.
+      // Hardcoding reason:"rate_limit" would drop the primary barrier and leave
+      // only the ceiling — which does NOT cover a quota_exhausted lock carrying a
+      // SHORT upstream retry-after. Model lockouts are recorded for all strategies,
+      // so the real reason is always available.
+      if (comboCooldownWaitEnabled && earliestRetryAfter) {
+        const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
+          targets: orderedTargets,
+          earliestRetryAfter,
+          attempt: comboCooldownAttempt,
+          budgetLeftMs: comboCooldownBudgetLeftMs,
+          settings: resilienceSettings.comboCooldownWait,
+          // Key each lookup on the TARGET's own model: quota-share combos are
+          // single-model/multi-account (so this is identical to the previous
+          // orderedTargets[0] behavior), but heterogeneous combos carry a
+          // different model per target.
+          lookupLock: (provider, connectionId, target) => {
+            const rawModel = parseModel(target?.modelStr ?? "").model || "";
+            if (!rawModel) return null;
+            return getModelLockoutInfo(provider, connectionId, rawModel);
+          },
+          computeWaitMs: (retryAfter) => computeClosestRetryAfter(retryAfter).waitMs,
+        });
 
-          if (decision.wait) {
-            log.info(
-              "COMBO",
-              `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
-                decision.waitMs / 1000
-              )}s (reason=${decision.reason ?? "?"}) then retrying (attempt ${
-                comboCooldownAttempt + 1
-              }/${resilienceSettings.comboCooldownWait.maxAttempts})`
-            );
-            const completed = await waitForCooldownAwareRetry(decision.waitMs, signal);
-            if (!completed) {
-              log.info("COMBO", `${strategy} cooldown wait aborted by client disconnect`);
-              return errorResponse(499, "Request aborted");
-            }
-            comboCooldownAttempt += 1;
-            comboCooldownBudgetLeftMs = Math.max(0, comboCooldownBudgetLeftMs - decision.waitMs);
-            return dispatchWithCooldownRetry();
+        if (decision.wait) {
+          log.info(
+            "COMBO",
+            `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
+              decision.waitMs / 1000
+            )}s (reason=${decision.reason ?? "?"}) then retrying (attempt ${
+              comboCooldownAttempt + 1
+            }/${resilienceSettings.comboCooldownWait.maxAttempts})`
+          );
+          const completed = await waitForCooldownAwareRetry(decision.waitMs, signal);
+          if (!completed) {
+            log.info("COMBO", `${strategy} cooldown wait aborted by client disconnect`);
+            return errorResponse(499, "Request aborted");
           }
+          comboCooldownAttempt += 1;
+          comboCooldownBudgetLeftMs = Math.max(0, comboCooldownBudgetLeftMs - decision.waitMs);
+          return dispatchWithCooldownRetry();
         }
+      }
+
+      // Retry-after decoration is separate from the wait decision above: only
+      // rate-limit-class final statuses may carry a `(reset after ...)` suffix
+      // (see unavailableRetryGate.ts — do not stitch a peer target's window onto
+      // a config-class status like 403/422).
+      if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
         const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
         log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
         return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
