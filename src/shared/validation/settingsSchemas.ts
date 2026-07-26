@@ -68,6 +68,7 @@ const transformInjectBillingHeaderSchema = z.object({
   versionFormat: z.enum(["ex-machina", "omniroute-daystamp"]),
   cchAlgo: z.enum(["sha256-first-user", "xxhash64-body", "static-zero"]),
   version: z.string().max(50).optional(),
+  buildRevision: z.string().min(1).max(20).optional(),
 });
 
 const commonSystemTransformOperationSchemas = [
@@ -404,6 +405,7 @@ export const databaseSettingsSchema = z
       promptCacheEnabled: z.boolean(),
       promptCacheStrategy: z.literal("auto").or(z.literal("system-only")).or(z.literal("manual")),
       alwaysPreserveClientCache: z.literal("auto").or(z.literal("always")).or(z.literal("never")),
+      modelCatalogCacheTtlMs: z.number().int().min(500).max(60000),
     }),
 
     // Retention settings

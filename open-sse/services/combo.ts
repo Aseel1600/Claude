@@ -15,6 +15,7 @@ import {
   getRuntimeProviderProfile,
   hasPerModelQuota,
   isModelLocked,
+  MODEL_ACCESS_DENIED_PATTERNS,
   recordModelLockoutFailure,
   recordProviderFailure,
   selectLockoutCooldownMs,
@@ -37,6 +38,7 @@ import {
   resolveComboConfig,
   getDefaultComboConfig,
   resolveComboQueueDepth,
+  isComboCooldownWaitEligible,
 } from "./comboConfig.ts";
 import {
   maybeGenerateHandoff,
@@ -88,6 +90,7 @@ import {
   expandPromptCacheAffinityTargets,
   expandPromptCacheAffinityTargetsFromConnections,
   resolvePromptCacheAffinityKey,
+  shouldProtectOriginalFirst,
 } from "./combo/promptCacheAffinity.ts";
 import type { CompressionMode } from "./compression/types.ts";
 import { getCachedProviderConnections } from "../../src/lib/db/readCache";
@@ -145,7 +148,7 @@ import {
   waitForCooldownAwareRetry,
 } from "../../src/sse/services/cooldownAwareRetry.ts";
 import { handleFusionChat, type FusionTuning } from "./fusion.ts";
-import { dispatchChaosFromCombo } from "./autoCombo/chaosEngine.ts";
+import { dispatchChaosFromCombo, type ChaosTuning } from "./autoCombo/chaosEngine.ts";
 import { handlePipelineChat, type PipelineStep } from "./pipeline.ts";
 import {
   TRANSIENT_FOR_SEMAPHORE,
@@ -156,6 +159,7 @@ import {
   shouldSkipForPredictedTtft,
   shouldRecordProviderBreakerFailure,
   isRequestScopedUpstreamFailure,
+  isInputBoundRequestFailure,
   shouldSkipConnDisable,
   resolveDelayMs,
   comboModelNotFoundResponse,
@@ -163,10 +167,25 @@ import {
   isTokenLimitBreachErrorBody,
   toRecordedTarget,
   getExhaustedTargetSkipReason,
+  clampPercent,
+  quotaRemainingPercentFromQuota,
+  normalizeConnectionStatus,
+  hasFutureRateLimitUntil,
+  getConnectionStatusQuotaCutoffReason,
+  isContextOverflow400,
+  isParamValidation400,
+  isModelScoped400,
 } from "./combo/comboPredicates.ts";
+export {
+  getConnectionStatusQuotaCutoffReason,
+  isContextOverflow400,
+  isParamValidation400,
+  isModelScoped400,
+};
 import { applyComboTargetExhaustion } from "./combo/targetExhaustion.ts";
 import { executeRuntimeUnitCombo } from "./combo/runtimeUnits.ts";
 import { extractFusionPanelSpec, buildFusionHandleSingleModel } from "./combo/fusionPanel.ts";
+import { isRetryAfterEligibleStatus } from "./combo/unavailableRetryGate.ts";
 import { isRecord } from "./combo/comboData.ts";
 import {
   expandProviderWildcardsInCombo,
@@ -176,6 +195,8 @@ import { resolveShadowTargets, scheduleShadowRouting } from "./combo/shadowRouti
 import { attemptCompatRejectedFallback } from "./combo/comboCompatFallback.ts";
 import { applyContextRequirements } from "./combo/contextRequirements.ts";
 import {
+  computeCompatRejectedTargets,
+  describeCapabilityFilterExhaustion,
   filterTargetsByRequestCompatibility,
   resolveComboRuntimeUnits,
   resolveComboTargets,
@@ -294,64 +315,6 @@ function calculateTargetContextAffinity(
 function getBootstrapLatencyMs(modelId: string): number {
   const normalized = String(modelId || "").toLowerCase();
   return DEFAULT_MODEL_P95_MS[normalized] ?? 1500;
-}
-
-function clampPercent(value: number): number {
-  if (!Number.isFinite(value)) return 100;
-  return Math.max(0, Math.min(100, value));
-}
-
-function quotaRemainingPercentFromQuota(quota: unknown): number {
-  if (!quota || typeof quota !== "object") return 100;
-  const record = quota as Record<string, unknown>;
-  if (record.limitReached === true) return 0;
-
-  const windows = record.windows;
-  if (windows && typeof windows === "object" && !Array.isArray(windows)) {
-    let minRemaining: number | null = null;
-    for (const windowInfo of Object.values(windows as Record<string, unknown>)) {
-      if (!windowInfo || typeof windowInfo !== "object") continue;
-      const percentUsed = Number((windowInfo as Record<string, unknown>).percentUsed);
-      if (!Number.isFinite(percentUsed)) continue;
-      const remaining = clampPercent((1 - percentUsed) * 100);
-      minRemaining = minRemaining === null ? remaining : Math.min(minRemaining, remaining);
-    }
-    if (minRemaining !== null) return minRemaining;
-  }
-
-  const percentUsed = Number(record.percentUsed);
-  if (Number.isFinite(percentUsed)) return clampPercent((1 - percentUsed) * 100);
-  return 100;
-}
-
-const QUOTA_BLOCKING_CONNECTION_STATUSES = new Set([
-  "banned",
-  "credits_exhausted",
-  "deactivated",
-  "expired",
-  "rate_limited",
-]);
-
-function normalizeConnectionStatus(value: unknown): string {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function hasFutureRateLimitUntil(value: unknown): boolean {
-  if (value == null || value === "") return false;
-  const time = new Date(String(value)).getTime();
-  return Number.isFinite(time) && time > Date.now();
-}
-
-export function getConnectionStatusQuotaCutoffReason(
-  connection: Record<string, unknown> | undefined
-): string | undefined {
-  if (!connection) return undefined;
-  const status = normalizeConnectionStatus(connection.testStatus);
-  if (QUOTA_BLOCKING_CONNECTION_STATUSES.has(status)) return status;
-  if (status === "unavailable" && hasFutureRateLimitUntil(connection.rateLimitedUntil)) {
-    return "rate_limited";
-  }
-  return undefined;
 }
 
 export async function buildAutoCandidates(
@@ -676,26 +639,6 @@ async function isPinnedModelDurablyUnhealthy(pinnedModel: string): Promise<boole
 // output limits, so the request should fall through to the next target instead of
 // being short-circuited. Exported as pure predicates so the guard is unit-testable.
 /** @param {string} errorText */
-export function isContextOverflow400(errorText) {
-  return (
-    /\bcontext.*(?:length_exceeded|too long|overflow|exceeded|window|limit)\b/i.test(errorText) ||
-    /exceeds.*context/i.test(errorText) ||
-    /your input exceeds/i.test(errorText) ||
-    // Reuse accountFallback.ts's CONTEXT_OVERFLOW_PATTERNS (single source of truth)
-    // so wording like Kimi's "exceeded model token limit" — which never says the
-    // literal word "context" — is still recognized as an overflow/fallback-worthy
-    // 400 instead of halting the whole combo (issue #6637).
-    CONTEXT_OVERFLOW_PATTERNS.some((p) => p.test(errorText))
-  );
-}
-/** @param {string} errorText */
-export function isParamValidation400(errorText) {
-  return (
-    /\bmax_tokens\b.*(?:illegal|must|range|invalid)/i.test(errorText) ||
-    /\bparameter is illegal\b/i.test(errorText) ||
-    /\bis illegal.*range\b/i.test(errorText)
-  );
-}
 
 /** @param {object} options */
 export async function handleComboChat({
@@ -894,7 +837,7 @@ export async function handleComboChat({
   });
   if (chaosDispatch) return chaosDispatch;
 
-  // Pipeline strategy: sequential chain — each step's output feeds the next step's
+  // Pipeline strategy: sequential chain
   // input, only the final step's response is returned. Handled in a separate module
   // because it neither iterates targets as fallbacks nor needs the failover/retry
   // machinery below — it runs targets in order, threading output → input. The step
@@ -1304,7 +1247,33 @@ export async function handleComboChat({
   if (!cacheStrategyAffinityApplied) {
     orderedTargets = orderTargetsByEvalScores(orderedTargets, config.evalRouting, log);
   }
-  orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log);
+  const compatFilterFailOpen =
+    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
+    (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
+      true;
+  const preCompatTargets = orderedTargets;
+  orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log, undefined, {
+    failOpen: compatFilterFailOpen,
+  });
+  if (orderedTargets.length === 0 && preCompatTargets.length > 0) {
+    const exhaustion = describeCapabilityFilterExhaustion(preCompatTargets, body, combo.name);
+    if (exhaustion) {
+      recordComboFailure(effectiveSessionId, combo.name);
+      return errorResponseWithComboDiagnostics(
+        400,
+        exhaustion.message,
+        {
+          poolSize: preCompatTargets.length,
+          attempted: 0,
+          excluded: exhaustion.excluded,
+          attemptOrder: [],
+          terminalReason: exhaustion.terminalReason,
+          recovery: buildRecoveryHint("no_executable_targets"),
+        },
+        { code: "capability_mismatch", type: "invalid_request_error" }
+      );
+    }
+  }
   orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
 
   // Task-aware reordering: only active for strategies ["smart","task","task-aware","task_aware","auto"].
@@ -1365,10 +1334,7 @@ export async function handleComboChat({
   );
   if (promptCacheAffinity.applied) {
     const protectedOriginal =
-      (_sticky.stuck ||
-        autoUsedExplicitRouter ||
-        strategy === "quota-share" ||
-        strategy === "weighted") &&
+      shouldProtectOriginalFirst(_sticky.stuck, autoUsedExplicitRouter, strategy) &&
       orderedTargets[0];
     const protectedFirst = protectedOriginal
       ? (promptCacheAffinity.targets.find(
@@ -1448,12 +1414,15 @@ export async function handleComboChat({
 
   let globalAttempts = 0;
 
-  // Quota-share cooldown-aware retry (Variante A). Only quota-share (qtSd/)
-  // combos opt in: when the set loop would crystallize a 429 model_cooldown
-  // because the target hit a SHORT transient cooldown, we wait it out and
-  // re-run the whole set loop instead of propagating the 429. `globalAttempts`
-  // persists across these waits so MAX_GLOBAL_ATTEMPTS still bounds total work.
-  // The wait happens at the crystallization point. The only semaphore slot the
+  // Cooldown-aware retry (Variante A). Originally quota-share (qtSd/) only;
+  // extended to "auto" combos too (#7360 — a 2-model "default" auto combo
+  // hitting Gemini TPM/RPM on both targets was crystallizing a 503 "all
+  // targets exhausted" after ~6s instead of waiting out the ~60s TPM window):
+  // when the set loop would crystallize a 429 model_cooldown because the
+  // target hit a SHORT transient cooldown, we wait it out and re-run the
+  // whole set loop instead of propagating the 429. `globalAttempts` persists
+  // across these waits so MAX_GLOBAL_ATTEMPTS still bounds total work. The
+  // wait happens at the crystallization point. The only semaphore slot the
   // quota-share path may hold is the FASE 2.1 per-connection concurrency slot
   // (acquired once around dispatchWithCooldownRetry below); it is intentionally
   // kept across the wait so the account stays "busy", and is released by the
@@ -1465,7 +1434,10 @@ export async function handleComboChat({
   // re-runs ONLY the set loop (selection / shadow routing / setup above stay
   // untouched), preserving the pre-existing `continue`-to-top-of-set-loop
   // semantics exactly.
-  const comboCooldownWaitEnabled = resilienceSettings.comboCooldownWait.enabled;
+  const comboCooldownWaitEnabled = isComboCooldownWaitEligible(
+    strategy,
+    resilienceSettings.comboCooldownWait
+  );
   let comboCooldownAttempt = 0;
   let comboCooldownBudgetLeftMs = resilienceSettings.comboCooldownWait.budgetMs;
 
@@ -1489,6 +1461,21 @@ export async function handleComboChat({
     strategy === "quota-share" && resilienceSettings.quotaShareConcurrencyLimit.enabled;
 
   const dispatchWithCooldownRetry = async (): Promise<Response> => {
+    // #7360: hoisted OUTSIDE the setTry loop (not reset each iteration) so they
+    // persist across set retries. Without this, a combo whose targets all get
+    // locked out on setTry 0 would have every SUBSEQUENT setTry pre-skip both
+    // targets via the isModelLocked check (no real dispatch, so these are never
+    // touched) — and the wait/crystallize decision below only runs on the FINAL
+    // setTry, which would see lastStatus/earliestRetryAfter reset to null and
+    // wrongly fall into the generic "all accounts inactive" 503 instead of ever
+    // reaching the cooldown-aware wait, even though a real 429 with a known
+    // retry-after WAS observed earlier in the same dispatch (live incident,
+    // #7360 follow-up: log id 1784416706646-51 — 6.9s to a 503 despite both
+    // targets reporting a clean 40s rate_limit lockout on the first attempt).
+    let lastError: string | null = null;
+    let earliestRetryAfter: ComboRetryAfter | null = null;
+    let lastStatus: number | null = null;
+
     for (let setTry = 0; setTry <= maxSetRetries; setTry++) {
       // #1731: Per-set-iteration set of providers whose quota is fully exhausted.
       // Reset each retry so providers excluded in a previous attempt get another chance.
@@ -1514,9 +1501,6 @@ export async function handleComboChat({
         }
       }
 
-      let lastError: string | null = null;
-      let earliestRetryAfter: ComboRetryAfter | null = null;
-      let lastStatus: number | null = null;
       const startTime = Date.now();
       let fallbackCount = 0;
       let recordedAttempts = 0;
@@ -1762,12 +1746,9 @@ export async function handleComboChat({
           // QA P0 diagnostics: capture the attempt order (provider/model ids only).
           comboAttemptOrder.push({ provider: provider ?? "unknown", model: modelStr });
 
-          // Deep clone the body to ensure context preservation and prevent mutations
-          // from affecting other targets in the combo. structuredClone avoids the
-          // full intermediate JSON string that JSON.parse(JSON.stringify(...)) builds
-          // (a second multi-hundred-KB allocation per target on large agent payloads),
-          // halving the per-target transient heap on the hot path (#5152).
-          let attemptBody = structuredClone(body);
+          // Copy-on-write, not a deep clone (#7847 — 9.53 MiB at 3 targets). Writes here are
+          // top-level scalars. Invariant: tests/unit/combo-attempt-body-isolation-7847.test.ts.
+          let attemptBody = { ...(body as Record<string, unknown>) } as typeof body;
 
           // Proactive Context Compression for fallbacks (Zero-Latency optimization)
           if (
@@ -1777,7 +1758,8 @@ export async function handleComboChat({
             config.fallbackCompressionMode !== "off"
           ) {
             const { estimateTokens } = await import("./contextManager.ts");
-            const estimatedTokens = estimateTokens(JSON.stringify(attemptBody));
+            // #7847: object, not JSON.stringify — the string branch mis-counts inline images.
+            const estimatedTokens = estimateTokens(attemptBody);
             if (estimatedTokens > (config.fallbackCompressionThreshold ?? 1000)) {
               const { applyCompression } = await import("./compression/strategySelector.ts");
               const compressionResult = applyCompression(
@@ -1890,7 +1872,7 @@ export async function handleComboChat({
               // Fix #1707: Set terminal state so the fallback doesn't emit
               // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
               lastError = `Upstream response failed quality validation: ${quality.reason}`;
-              if (!lastStatus) lastStatus = 502;
+              lastStatus = 502;
               if (i > 0) fallbackCount++;
               if (provider && rawModel) {
                 const mlSettings = resolveModelLockoutSettings(settings);
@@ -2134,7 +2116,26 @@ export async function handleComboChat({
                   (typeof parsedError === "string" ? parsedError : null) ||
                   errorBody?.message ||
                   errorText;
-                retryAfter = errorBody?.retryAfter || null;
+                // Live incident (log id 1784457764961-73 follow-up): the pre-dispatch
+                // "all credentials cooling down" rejection (buildModelCooldownBody /
+                // handleNoCredentials in src/sse/handlers/chatHelpers.ts) nests its
+                // retry hint as error.retry_after (ISO string) / error.reset_seconds
+                // (seconds), not the top-level `retryAfter` every other 429 shape
+                // uses. Without this fallback, lastStatus gets recorded (fixed above)
+                // but earliestRetryAfter stays null, so the final check falls through
+                // to the generic "all combo models unavailable" error instead of ever
+                // reaching the cooldown-wait decision — same class of bug, different
+                // response shape.
+                const nestedRetryAfter =
+                  typeof parsedError === "object" ? (parsedError?.retry_after ?? null) : null;
+                const nestedResetSeconds =
+                  typeof parsedError === "object" ? (parsedError?.reset_seconds ?? null) : null;
+                retryAfter =
+                  errorBody?.retryAfter ||
+                  nestedRetryAfter ||
+                  (typeof nestedResetSeconds === "number" && nestedResetSeconds > 0
+                    ? new Date(Date.now() + nestedResetSeconds * 1000).toISOString()
+                    : null);
               }
             } catch {
               /* Clone parse failed */
@@ -2210,6 +2211,39 @@ export async function handleComboChat({
                 }
               : undefined;
           const requestScopedFailure = isRequestScopedUpstreamFailure(structuredError);
+
+          // #8375: input-bound request-scoped failures (context_length_exceeded) are
+          // deterministic for the same input — retrying on other accounts of the same
+          // model will fail identically. Short-circuit the combo immediately with the
+          // original error instead of burning MAX_GLOBAL_ATTEMPTS.
+          // Scoped to homogeneous remainders only: a heterogeneous combo (#6637) may
+          // have a later target with a different, larger context window that would
+          // NOT reject the same input — isContextOverflow400 below exists precisely to
+          // let that case fall through, so only short-circuit when every remaining
+          // target is the same model (the "retrying will fail identically" premise
+          // only holds within a homogeneous same-model pool).
+          const remainingTargets = orderedTargets.slice(i + 1);
+          const remainderIsHomogeneous = remainingTargets.every(
+            (nextInPool) => nextInPool.modelStr === modelStr
+          );
+          const isInputBoundFailure =
+            isInputBoundRequestFailure(structuredError) && remainderIsHomogeneous;
+          if (isInputBoundFailure) {
+            log.warn(
+              "COMBO",
+              `Input-bound request failure from ${modelStr} — aborting combo (same input will fail identically on every account)`
+            );
+            recordComboRequest(combo.name, modelStr, {
+              success: false,
+              latencyMs: Date.now() - startTime,
+              fallbackCount,
+              strategy,
+              target: toRecordedTarget(target),
+            });
+            recordedAttempts++;
+            if (i > 0) fallbackCount++;
+            return { ok: false, response: result };
+          }
           const fallbackResult = checkFallbackError(
             result.status,
             errorText,
@@ -2234,6 +2268,12 @@ export async function handleComboChat({
             fallbackResult.usedUpstreamRetryHint === true
               ? cooldownMs
               : (fallbackResult.quotaResetHintMs ?? 0);
+          // #6863 vs #7940: lockoutHintMs is only ever nonzero when it traces back to
+          // a genuine upstream signal (usedUpstreamRetryHint or a parsed quotaResetHintMs)
+          // — never a synthetic estimate. Tell recordModelLockoutFailure to honor it
+          // exactly instead of clamping it to maxCooldownMs (#7940's cap still applies
+          // to the exponential-backoff / synthetic-default paths).
+          const lockoutHintVerified = lockoutHintMs > 0;
           const selectedConnectionId =
             result.headers?.get("X-OmniRoute-Selected-Connection-Id") ||
             result.headers?.get("x-omniroute-selected-connection-id") ||
@@ -2264,16 +2304,19 @@ export async function handleComboChat({
 
           // #2101: Prevent infinite fallback loops with 400 Bad Request errors that are genuinely
           // body-specific (malformed JSON, bad format, missing required fields).
-          // Context overflow and parameter validation errors are NOT body-specific:
+          // These should NOT stop the combo:
           // - Context overflow: different models have different context windows
           // - Max_tokens / param errors: different models have different output limits
-          // - Model access denied: different providers serve different model sets
-          // These should fall through so the next combo target can try.
+          // - Model access denied / "not supported": different providers serve different
+          //   model sets — keep the model in the combo and try the next target (#5249).
+          // Wrapper words like "invalid" / "bad request" still stop only when the text is
+          // NOT model-scoped (e.g. "invalid message format").
           if (
             result.status === 400 &&
             fallbackResult.shouldFallback &&
             !isContextOverflow400(errorText) &&
             !isParamValidation400(errorText) &&
+            !isModelScoped400(errorText) &&
             (errorText.toLowerCase().includes("context") ||
               errorText.toLowerCase().includes("prompt") ||
               errorText.toLowerCase().includes("token") ||
@@ -2300,7 +2343,7 @@ export async function handleComboChat({
               status: result.status,
               error: errorText || String(result.status),
             });
-            if (!lastStatus) lastStatus = result.status;
+            lastStatus = result.status;
             if (i > 0) fallbackCount++;
             log.warn("COMBO", `Model ${modelStr} failed with body-specific error, stopping combo`);
             // #4279: surface the 400 via the {ok,response} contract so the OUTER
@@ -2312,12 +2355,11 @@ export async function handleComboChat({
             return { ok: false, response: result };
           }
 
-          // Trigger shared provider circuit breaker for 5xx errors and connection failures.
-          // If the next target in the combo is on the same provider, don't mark the provider
-          // as failed — different models on the same provider may still succeed.
-          // G-02: when fallbackResult.skipProviderBreaker is set (embedded service supervisor
-          // outage signalled via X-Omni-Fallback-Hint: connection_cooldown) apply connection
-          // cooldown only — do NOT trip the whole-provider breaker.
+          // Trigger shared provider circuit breaker for 5xx errors and connection failures. If the
+          // next target is on the same provider, don't mark it failed (a different model may still
+          // succeed) — #8376: EXCEPT a proxy-unreachable failure, which poisons every model alike.
+          // G-02: when fallbackResult.skipProviderBreaker is set (embedded service supervisor outage
+          // signalled via X-Omni-Fallback-Hint: connection_cooldown) apply cooldown only — never trip.
           const nextTarget = orderedTargets[i + 1];
           const sameProviderNext =
             typeof nextTarget?.provider === "string" && nextTarget.provider === provider;
@@ -2329,6 +2371,7 @@ export async function handleComboChat({
               skipProviderBreaker: fallbackResult.skipProviderBreaker,
               requestScopedFailure,
               error: errorText,
+              isProxyUnreachable: structuredError?.code === "proxy_unreachable",
             })
           ) {
             recordProviderFailure(provider, log, targetWithConnection.connectionId, profile);
@@ -2347,6 +2390,16 @@ export async function handleComboChat({
               isModelLocked(provider, targetWithConnection.connectionId || "", rawModel)
             ) {
               log.info("COMBO", `Skipping retry for ${modelStr} — model lockout active`);
+              // Live incident (log id 1784457764961-73): earliestRetryAfter is already
+              // captured above from THIS dispatch's own response, but lastStatus was
+              // never recorded on this bail-out path — so once every target in the set
+              // hit an existing lockout, lastStatus stayed null and the final `if
+              // (!lastStatus)` check crystallized an immediate ALL_ACCOUNTS_INACTIVE 503
+              // instead of ever reaching the `if (earliestRetryAfter)` cooldown-wait
+              // decision below, even though a real 429 with a short (~1min) retry-after
+              // was just observed. Recording it here mirrors the "done retrying" path.
+              lastError = errorText || String(result.status);
+              lastStatus = result.status;
               if (i > 0) fallbackCount++;
               return null;
             }
@@ -2367,9 +2420,15 @@ export async function handleComboChat({
                   profile,
                   {
                     // #1308/#6863: honor a long upstream reset (e.g. "Resets in 160h") over
-                    // the short base cooldown / exponential backoff when present.
+                    // the short base cooldown / exponential backoff when present. #7940's
+                    // maxCooldownMs cap only applies to synthetic values — a verified
+                    // upstream reset (lockoutHintVerified) bypasses it.
                     exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                     maxCooldownMs: mlSettings.maxCooldownMs,
+                    // #6863: a parsed upstream quota reset is authoritative — the upstream
+                    // told us exactly when it resets, so honor it in full instead of
+                    // clamping to maxCooldownMs (which only bounds computed backoff).
+                    exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
                   }
                 );
                 lockoutRecorded = true;
@@ -2377,6 +2436,10 @@ export async function handleComboChat({
             }
             if (lockoutRecorded) {
               log.info("COMBO", `Skipping retry for ${modelStr} — model lockout active`);
+              // Same fix as the already-locked branch above — this is the
+              // first-failure lockout path, so lastStatus needs recording here too.
+              lastError = errorText || String(result.status);
+              lastStatus = result.status;
               if (i > 0) fallbackCount++;
               return null;
             }
@@ -2398,7 +2461,7 @@ export async function handleComboChat({
             status: result.status,
             error: errorText || String(result.status),
           });
-          if (!lastStatus) lastStatus = result.status;
+          lastStatus = result.status;
           if (i > 0) fallbackCount++;
           // Wire combo failures into the resilience dashboard (model-level lockout)
           // alongside the provider-level cooldown below — they govern different scopes.
@@ -2415,8 +2478,13 @@ export async function handleComboChat({
                 profile,
                 {
                   // #1308/#6863: honor a long upstream reset over base/exponential cooldown.
+                  // #7940's maxCooldownMs cap only applies to synthetic values — a verified
+                  // upstream reset (lockoutHintVerified) bypasses it.
                   exactCooldownMs: selectLockoutCooldownMs(lockoutHintMs, mlSettings),
                   maxCooldownMs: mlSettings.maxCooldownMs,
+                  // #6863: an authoritative parsed upstream reset must be honored in full,
+                  // never clamped to maxCooldownMs (which only bounds computed backoff).
+                  exactCooldownIsUpstreamReset: lockoutHintMs > mlSettings.baseCooldownMs,
                 }
               );
             }
@@ -2424,15 +2492,18 @@ export async function handleComboChat({
           log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
 
           // #5976: per-model-quota providers (Gemini, GitHub, etc.) multiplex models
-          // behind one connection. A model-level 500 must NOT cool down the entire
-          // provider — sibling models may still succeed. Skip cooldown recording for
-          // these providers on 500 errors so the next target can try.
+          // behind one connection. A model-level 500 or 429 (RPM) must NOT cool down
+          // the entire provider — sibling models may still succeed. Skip cooldown
+          // recording for these providers on 500/429 errors so the next target can try.
           if (
             resilienceSettings.providerCooldown.enabled &&
             provider &&
             provider !== "unknown" &&
             !requestScopedFailure &&
-            !(result.status === 500 && hasPerModelQuota(provider, rawModel))
+            !(
+              (result.status === 500 || result.status === 429) &&
+              hasPerModelQuota(provider, rawModel)
+            )
           ) {
             recordProviderCooldown(
               provider,
@@ -2616,63 +2687,63 @@ export async function handleComboChat({
           : "";
       const msg = (lastError || "All combo models unavailable") + comboErrorSummary;
 
-      if (earliestRetryAfter) {
-        // Cooldown-aware retry: instead of crystallizing the 429/503, wait out
-        // a SHORT transient cooldown and re-run the whole set loop. Guarded by
-        // the helper (quota_exhausted/auth/not-found excluded, ceiling,
-        // attempts, budget). MAX_GLOBAL_ATTEMPTS still bounds total dispatches.
-        // Available to ALL combo strategies (not just quota-share).
-        if (comboCooldownWaitEnabled && status === 429) {
-          // ONE decision path for EVERY strategy. The reason that drives the
-          // wait is always the target's REAL model-lockout reason, resolved
-          // through the helper's allow-list — never a hardcoded literal.
-          //
-          // SECURITY (see comboCooldownRetry.ts header): the allow-list is the
-          // PRIMARY barrier and `maxWaitMs` only the SECOND one. Hardcoding
-          // reason:"rate_limit" for non-quota-share strategies would drop the
-          // primary barrier and leave only the ceiling — which does NOT cover a
-          // quota_exhausted lock carrying a SHORT upstream retry-after (e.g.
-          // 3s < maxWaitMs): the combo would wait, redispatch against a model
-          // locked until midnight, and burn the attempt. Model lockouts are
-          // recorded for all strategies (recordModelLockoutFailure above is not
-          // gated on quota-share), so the real reason is always available.
-          const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
-            targets: orderedTargets,
-            earliestRetryAfter,
-            attempt: comboCooldownAttempt,
-            budgetLeftMs: comboCooldownBudgetLeftMs,
-            settings: resilienceSettings.comboCooldownWait,
-            // Key each lookup on the TARGET's own model: quota-share combos are
-            // single-model/multi-account (so this is identical to the previous
-            // orderedTargets[0] behavior), but heterogeneous combos carry a
-            // different model per target.
-            lookupLock: (provider, connectionId, target) => {
-              const rawModel = parseModel(target?.modelStr ?? "").model || "";
-              if (!rawModel) return null;
-              return getModelLockoutInfo(provider, connectionId, rawModel);
-            },
-            computeWaitMs: (retryAfter) => computeClosestRetryAfter(retryAfter).waitMs,
-          });
+      // Cooldown-aware retry: instead of crystallizing a transient failure, wait
+      // out a SHORT cooldown and re-run the whole set loop. Guarded by the helper
+      // (quota_exhausted/auth/not-found excluded, ceiling, attempts, budget).
+      // MAX_GLOBAL_ATTEMPTS still bounds total dispatches. Available to ALL combo
+      // strategies when enabled — entry is driven by earliestRetryAfter + the
+      // real model-lockout reason, NOT by whichever target last overwrote
+      // `status` (a later 403 must not skip the allow-list check for an earlier
+      // 429's retry-after hint). SECURITY (see comboCooldownRetry.ts header): the
+      // allow-list is the PRIMARY barrier and `maxWaitMs` only the SECOND one.
+      // Hardcoding reason:"rate_limit" would drop the primary barrier and leave
+      // only the ceiling — which does NOT cover a quota_exhausted lock carrying a
+      // SHORT upstream retry-after. Model lockouts are recorded for all strategies,
+      // so the real reason is always available.
+      if (comboCooldownWaitEnabled && earliestRetryAfter) {
+        const decision: ResolveComboCooldownDecisionResult = resolveComboCooldownWaitDecision({
+          targets: orderedTargets,
+          earliestRetryAfter,
+          attempt: comboCooldownAttempt,
+          budgetLeftMs: comboCooldownBudgetLeftMs,
+          settings: resilienceSettings.comboCooldownWait,
+          // Key each lookup on the TARGET's own model: quota-share combos are
+          // single-model/multi-account (so this is identical to the previous
+          // orderedTargets[0] behavior), but heterogeneous combos carry a
+          // different model per target.
+          lookupLock: (provider, connectionId, target) => {
+            const rawModel = parseModel(target?.modelStr ?? "").model || "";
+            if (!rawModel) return null;
+            return getModelLockoutInfo(provider, connectionId, rawModel);
+          },
+          computeWaitMs: (retryAfter) => computeClosestRetryAfter(retryAfter).waitMs,
+        });
 
-          if (decision.wait) {
-            log.info(
-              "COMBO",
-              `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
-                decision.waitMs / 1000
-              )}s (reason=${decision.reason ?? "?"}) then retrying (attempt ${
-                comboCooldownAttempt + 1
-              }/${resilienceSettings.comboCooldownWait.maxAttempts})`
-            );
-            const completed = await waitForCooldownAwareRetry(decision.waitMs, signal);
-            if (!completed) {
-              log.info("COMBO", `${strategy} cooldown wait aborted by client disconnect`);
-              return errorResponse(499, "Request aborted");
-            }
-            comboCooldownAttempt += 1;
-            comboCooldownBudgetLeftMs = Math.max(0, comboCooldownBudgetLeftMs - decision.waitMs);
-            return dispatchWithCooldownRetry();
+        if (decision.wait) {
+          log.info(
+            "COMBO",
+            `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
+              decision.waitMs / 1000
+            )}s (reason=${decision.reason ?? "?"}) then retrying (attempt ${
+              comboCooldownAttempt + 1
+            }/${resilienceSettings.comboCooldownWait.maxAttempts})`
+          );
+          const completed = await waitForCooldownAwareRetry(decision.waitMs, signal);
+          if (!completed) {
+            log.info("COMBO", `${strategy} cooldown wait aborted by client disconnect`);
+            return errorResponse(499, "Request aborted");
           }
+          comboCooldownAttempt += 1;
+          comboCooldownBudgetLeftMs = Math.max(0, comboCooldownBudgetLeftMs - decision.waitMs);
+          return dispatchWithCooldownRetry();
         }
+      }
+
+      // Retry-after decoration is separate from the wait decision above: only
+      // rate-limit-class final statuses may carry a `(reset after ...)` suffix
+      // (see unavailableRetryGate.ts — do not stitch a peer target's window onto
+      // a config-class status like 403/422).
+      if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
         const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
         log.warn("COMBO", `All models failed | ${msg} (${retryHuman})`);
         return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);
@@ -2820,21 +2891,49 @@ async function handleRoundRobinCombo({
       { code: "context_length_exceeded", type: "invalid_request_error" }
     );
   }
+  // Align with the main/auto paths: combo config OR top-level settings.
+  const rrCompatFailOpen =
+    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
+    (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
+      true;
   let filteredTargets = filterTargetsByRequestCompatibility(
     evalRankedTargets,
     body,
     log,
-    "Context-aware round-robin fallback"
+    "Context-aware round-robin fallback",
+    { failOpen: rrCompatFailOpen }
   );
   // #6238: keep the targets the compat pre-filter rejected so they can serve as a
   // last-resort fallback tier. The pre-filter drops request-incompatible targets
   // BEFORE availability is known; if every compat-kept target then turns out to be
   // runtime-unavailable, we must reconsider these before returning 503, instead of
   // permanently dropping a compat-rejected-but-healthy provider.
-  const compatKeptSet = new Set(filteredTargets);
-  const compatRejectedTargets = evalRankedTargets.filter((target) => !compatKeptSet.has(target));
+  const compatRejectedTargets = computeCompatRejectedTargets(
+    evalRankedTargets,
+    filteredTargets,
+    body
+  );
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
+    const exhaustion = describeCapabilityFilterExhaustion(
+      evalRankedTargets,
+      body,
+      rrExpandedCombo?.name || combo?.name
+    );
+    if (exhaustion) {
+      return errorResponseWithComboDiagnostics(
+        400,
+        exhaustion.message,
+        {
+          poolSize: evalRankedTargets.length,
+          attempted: 0,
+          excluded: exhaustion.excluded,
+          attemptOrder: [],
+          terminalReason: exhaustion.terminalReason,
+        },
+        { code: "capability_mismatch", type: "invalid_request_error" }
+      );
+    }
     return comboModelNotFoundResponse("Round-robin combo has no executable targets");
   }
 
@@ -3090,9 +3189,11 @@ async function handleRoundRobinCombo({
         // Issue #3587: Reasoning models can spend the whole output budget on
         // reasoning. Apply any safe buffer to a per-attempt copy so round-robin
         // retries never compound across models.
-        let attemptBody = body;
+        // #7847: UNCONDITIONAL — copying only when the buffer changed max_tokens left every
+        // other attempt sharing the caller's object, leaking chatCore's `body.model` forward.
+        let attemptBody = { ...(body as Record<string, unknown>) } as typeof body;
         {
-          const bodyRecord = body as Record<string, unknown>;
+          const bodyRecord = attemptBody as Record<string, unknown>;
           const currentMaxTokens = toPositiveInteger(bodyRecord.max_tokens);
           const bufferedMaxTokens = resolveReasoningBufferedMaxTokens(
             modelStr,
@@ -3104,10 +3205,8 @@ async function handleRoundRobinCombo({
             bufferedMaxTokens !== null &&
             bufferedMaxTokens !== currentMaxTokens
           ) {
-            attemptBody = {
-              ...bodyRecord,
-              max_tokens: bufferedMaxTokens,
-            } as typeof body;
+            // Safe to write in place: bodyRecord is the per-attempt copy above, not the caller's.
+            bodyRecord.max_tokens = bufferedMaxTokens;
             log.info(
               "COMBO-RR",
               `Reasoning model ${modelStr}: adjusted max_tokens ${currentMaxTokens} -> ${bufferedMaxTokens}`
@@ -3166,7 +3265,7 @@ async function handleRoundRobinCombo({
             // Fix #1707: Set terminal state so the fallback doesn't emit
             // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
             lastError = `Upstream response failed quality validation: ${quality.reason}`;
-            if (!lastStatus) lastStatus = 502;
+            lastStatus = 502;
             if (offset > 0) fallbackCount++;
             break; // move to next model
           }
@@ -3424,7 +3523,7 @@ async function handleRoundRobinCombo({
         });
         recordedAttempts++;
         lastError = errorText || String(result.status);
-        if (!lastStatus) lastStatus = result.status;
+        lastStatus = result.status;
         if (offset > 0) fallbackCount++;
         log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
 
@@ -3434,7 +3533,7 @@ async function handleRoundRobinCombo({
           provider !== "unknown" &&
           !requestScopedFailure &&
           !(
-            result.status === 500 &&
+            (result.status === 500 || result.status === 429) &&
             hasPerModelQuota(provider, parseModel(modelStr).model || modelStr)
           )
         ) {
@@ -3534,7 +3633,7 @@ async function handleRoundRobinCombo({
   const status = lastStatus;
   const msg = lastError || "All round-robin combo models unavailable";
 
-  if (earliestRetryAfter) {
+  if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
     const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
     log.warn("COMBO-RR", `All models failed | ${msg} (${retryHuman})`);
     return unavailableResponse(status, msg, earliestRetryAfter, retryHuman);

@@ -105,6 +105,32 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
   }
 
   if (!chunk.choices?.length) {
+    // Mid-stream aggregator error: OpenRouter (and similar OpenAI-compatible
+    // aggregators) can send an HTTP 200 SSE stream whose body carries a chunk with
+    // empty `choices` and a top-level `error` object instead of any delta — e.g. the
+    // underlying provider hitting its own capacity limit mid-request. Without this
+    // branch the chunk has no choices, so it falls into the awaitingTrailingUsage/
+    // no-op path below and the stream silently ends with a false "completed, empty
+    // output" response, masking the failure and skipping combo fallback. Surface it
+    // as state.upstreamError so stream.ts errors the stream out (mirrors the
+    // Gemini-to-OpenAI translator's #4177 fix).
+    if (chunk.error && typeof chunk.error === "object") {
+      const rawCode = chunk.error.code;
+      const status =
+        typeof rawCode === "number" && rawCode >= 400 && rawCode <= 599 ? rawCode : 502;
+      state.upstreamError = {
+        status,
+        type: status === 429 ? "rate_limit_error" : "server_error",
+        code:
+          typeof chunk.error.metadata?.error_type === "string"
+            ? chunk.error.metadata.error_type
+            : status === 429
+              ? "rate_limit_exceeded"
+              : "bad_gateway",
+        message: typeof chunk.error.message === "string" ? chunk.error.message : "Upstream failure",
+      };
+      return [];
+    }
     // #6906: a deferred finish_reason (awaitingTrailingUsage, see below) completes here —
     // the trailing usage-only chunk (choices: [], usage: {...}) is what real
     // stream_options.include_usage=true upstreams send after finish_reason (see the
@@ -610,6 +636,17 @@ function closeToolCall(state, emit, idx, recordAsCompleted = true) {
     // superseded-call eviction where a new call replaced this one at the same index).
     if (recordAsCompleted) {
       recordCompletedItem(state, normalizedIndex, funcItem);
+      // Mirror into the shared state.toolCalls map (populated by the other response
+      // translators) so stream.ts's completion-log summary reports finish_reason
+      // "tool_calls" and message.tool_calls instead of "stop" with no tool calls.
+      if (state.toolCalls instanceof Map) {
+        state.toolCalls.set(idx, {
+          id: callId,
+          index: normalizedIndex,
+          type: isCustomTool ? "custom_tool_call" : "function",
+          function: { name: funcItem.name, arguments: args },
+        });
+      }
     }
 
     state.funcItemDone[idx] = true;

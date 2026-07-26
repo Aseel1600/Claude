@@ -8,7 +8,12 @@ import { isOpenAIResponsesStoreEnabled } from "@/lib/providers/requestDefaults";
 import { FORMATS } from "../formats.ts";
 import { register } from "../registry.ts";
 import { normalizeResponsesInputForChat } from "../../utils/responsesInputNormalization.ts";
+import {
+  getRegisteredProviders,
+  requiresPlainStringContent,
+} from "../../config/providerRegistry.ts";
 import { collectResponsesTools } from "./openai-responses/additionalTools.ts";
+import { flattenNamespaceToolName } from "./openai-responses/namespaceFlatten.ts";
 import { openaiToOpenAIResponsesRequest } from "./openai-responses/toResponses.ts";
 import {
   JsonRecord,
@@ -30,6 +35,44 @@ import {
 export { openaiToOpenAIResponsesRequest } from "./openai-responses/toResponses.ts";
 
 /**
+ * #8459: Convert a tool output content-part array to a safe string for Chat Completions
+ * tool content. Responses API tool outputs can contain `input_image` parts which have no
+ * equivalent in Chat Completions `tool` messages — JSON.stringify would embed the raw
+ * base64 as inert text. Instead, extract text parts and replace images with a placeholder.
+ *
+ * @param output - The tool output value (string, array of content parts, or other JSON)
+ * @returns A plain string safe for Chat Completions `tool` message content.
+ */
+function toolOutputContentToString(output: unknown): string {
+  if (typeof output === "string") return output;
+  if (!Array.isArray(output)) return JSON.stringify(output);
+
+  const parts: string[] = [];
+  for (const item of output) {
+    if (typeof item !== "object" || item === null) {
+      parts.push(String(item));
+      continue;
+    }
+    const rec = item as Record<string, unknown>;
+    const type = typeof rec.type === "string" ? rec.type : "";
+    if (type === "input_text" || type === "output_text") {
+      const text = typeof rec.text === "string" ? rec.text : "";
+      if (text) parts.push(text);
+    } else if (type === "input_image") {
+      parts.push("[Image omitted: not supported on Chat Completions tool results]");
+    } else {
+      // Unknown part type — stringify as fallback
+      try {
+        parts.push(JSON.stringify(item));
+      } catch {
+        parts.push(String(item));
+      }
+    }
+  }
+  return parts.join("\n");
+}
+
+/**
  * Convert OpenAI Responses API request to OpenAI Chat Completions format
  */
 export function openaiResponsesToOpenAIRequest(
@@ -38,9 +81,9 @@ export function openaiResponsesToOpenAIRequest(
   stream: unknown,
   credentials: unknown
 ): unknown {
-  void model;
   void stream;
   void credentials;
+  const collapseToPlainString = requiresPlainStringContent(extractProviderHint(model));
 
   const root = toRecord(body);
   if (root.input === undefined) return body;
@@ -83,10 +126,11 @@ export function openaiResponsesToOpenAIRequest(
   const result: JsonRecord = { ...root };
 
   // Request-scoped response-side identity for Responses namespace child tools.
-  // The Chat wire `tool.function.name` is the bare leaf (per #7905 #7936), and
-  // the original `{namespace, name}` pair is retained in this side-band map so
-  // the response translator can emit codex-compatible `namespace` + `name`
-  // fields without reparsing the wire name.
+  // The Chat wire `tool.function.name` is the namespace-qualified name (#8295:
+  // folding the namespace in makes cross-namespace leaf collisions structurally
+  // impossible), and the original `{namespace, name}` pair is retained in this
+  // side-band map so the response translator can emit codex-compatible
+  // `namespace` + `name` fields without reparsing the wire name.
   const namespaceToolIdentityMap = new Map<string, { namespace: string; name: string }>();
 
   // #7533: `verbosity` and `prompt_cache_key` are GPT-5/OpenAI-only Chat Completions
@@ -287,7 +331,7 @@ export function openaiResponsesToOpenAIRequest(
       messages.push({
         role: "tool",
         tool_call_id: toString(item.call_id),
-        content: typeof item.output === "string" ? item.output : JSON.stringify(item.output),
+        content: toolOutputContentToString(item.output),
       });
       continue;
     }
@@ -336,7 +380,9 @@ export function openaiResponsesToOpenAIRequest(
         pendingToolResults = [];
       }
       // Unwrap JSON-wrapped output {"output":"...","metadata":{...}} → plain string.
-      const rawOut = typeof item.output === "string" ? item.output : JSON.stringify(item.output);
+      // #8459: handle content-part arrays that may contain input_image without
+      // stringifying raw base64 as text.
+      const rawOut = toolOutputContentToString(item.output);
       let toolContent = rawOut;
       try {
         const parsed = JSON.parse(rawOut);
@@ -419,28 +465,20 @@ export function openaiResponsesToOpenAIRequest(
             .filter((sub) => toString(sub.name))
             .map((sub) => {
               const leaf = toString(sub.name);
-              // Stamp the identity for the response-side seam. The wire name
-              // remains the bare leaf (matching #7905), so `namespaceToolIdentityMap`
-              // keys on the leaf. A later child that shares the same leaf name
-              // with a different namespace is ambiguous: drop the conflicting
-              // entry rather than silently overwriting.
+              // #8295: fold the namespace into the wire name so two namespaces
+              // sharing a leaf (e.g. two MCP servers both exposing `_search`)
+              // never collide into duplicate Chat tool names. Stamp the
+              // identity for the response-side seam keyed on that qualified
+              // wire name — qualified names cannot collide across namespaces,
+              // so there is no ambiguity to detect/drop here anymore.
+              const wireName = flattenNamespaceToolName(nsName, leaf);
               if (nsName && leaf) {
-                const identity = { namespace: nsName, name: leaf };
-                const existingIdentity = namespaceToolIdentityMap.get(leaf);
-                if (
-                  !existingIdentity ||
-                  (existingIdentity.namespace === identity.namespace &&
-                    existingIdentity.name === identity.name)
-                ) {
-                  namespaceToolIdentityMap.set(leaf, identity);
-                } else {
-                  namespaceToolIdentityMap.delete(leaf);
-                }
+                namespaceToolIdentityMap.set(wireName, { namespace: nsName, name: leaf });
               }
               return {
                 type: "function",
                 function: {
-                  name: leaf,
+                  name: wireName,
                   description: toString(sub.description),
                   parameters:
                     toString(sub.type) === "custom"
@@ -635,10 +673,13 @@ export function openaiResponsesToOpenAIRequest(
         );
       }
 
-      result.tools = chatTools.filter((toolValue) =>
+      // Keep the filtered array in a local: `result` is a Record<string, unknown>, so
+      // reading `result.tools` back gives `unknown` and `.length` does not type-check.
+      const allowedTools = chatTools.filter((toolValue) =>
         allowedNames.has(toString(toRecord(toRecord(toolValue).function).name))
       );
-      if (result.tools.length === 0) {
+      result.tools = allowedTools;
+      if (allowedTools.length === 0) {
         throw unsupportedFeature(
           "Unsupported Responses API feature: allowed_tools resolved to zero Chat Completions function tools"
         );
@@ -716,7 +757,52 @@ export function openaiResponsesToOpenAIRequest(
     });
   }
 
+  // Every Responses-API input — even a plain string — gets wrapped upstream as a
+  // single-element content array (`[{ type: "input_text", text }]` via
+  // normalizeResponsesInputForChat), which this function maps straight through to
+  // `content: [{ type: "text", text }]`. That's spec-valid (OpenAI's own API
+  // accepts both shapes) but several strict/naive OpenAI-compatible backends only
+  // implement the plain-string form and reject the array form with a 500 — hit
+  // live via AI Horde's Aphrodite facade rejecting every /v1/responses request,
+  // including the simplest single-string input. A single-text-part array and a
+  // plain string are semantically identical, so collapsing is safe there; real
+  // multi-part messages (text+image, text+file) are left untouched. Scoped to
+  // providers that declare `requiresPlainStringContent` — most OpenAI-compatible
+  // backends (and several existing tests) expect the standard array shape to
+  // survive translation unchanged.
+  if (collapseToPlainString) {
+    for (const message of messages) {
+      const content = (message as JsonRecord).content;
+      if (Array.isArray(content) && content.length === 1) {
+        const part = content[0];
+        if (
+          part &&
+          typeof part === "object" &&
+          !Array.isArray(part) &&
+          (part as JsonRecord).type === "text" &&
+          typeof (part as JsonRecord).text === "string"
+        ) {
+          (message as JsonRecord).content = (part as JsonRecord).text;
+        }
+      }
+    }
+  }
+
   return result;
+}
+
+/**
+ * `model` is sometimes a bare provider id (e.g. "aihorde"), sometimes a
+ * provider-prefixed model string (e.g. "aihorde/aphrodite/..."), and often
+ * null/a bare model id with no provider info at all (the generic translator
+ * dispatcher passes model id alone; provider is tracked separately there).
+ * Only the first two carry a usable provider hint.
+ */
+function extractProviderHint(model: unknown): string {
+  if (typeof model !== "string" || model.length === 0) return "";
+  if (getRegisteredProviders().includes(model)) return model;
+  const prefix = model.split("/")[0];
+  return getRegisteredProviders().includes(prefix) ? prefix : "";
 }
 
 // Register both directions

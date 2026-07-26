@@ -17,6 +17,7 @@ import {
 } from "@omniroute/open-sse/config/agyModels.ts";
 import { normalizeAntigravityClientProfile } from "@/shared/constants/antigravityClientProfile";
 import { ensureAntigravityProjectAssigned } from "@omniroute/open-sse/services/antigravityProjectBootstrap.ts";
+import { persistDiscoveredAntigravityProjectId } from "@omniroute/open-sse/services/antigravityProjectPersist.ts";
 import { asRecord, toNonEmptyString } from "./helpers";
 
 const antigravityDiscoveryInflight = new Map<
@@ -115,7 +116,16 @@ export async function fetchAntigravityDiscoveryModelsCached(
 
   const promise = (async () => {
     await resolveAntigravityClientVersion(profile);
-    await ensureAntigravityProjectAssigned(accessToken, fetch, profile);
+    const discovered = await ensureAntigravityProjectAssigned(accessToken, fetch, profile);
+    if (discovered) {
+      // #8491: persist the recovered id so it survives the next token refresh
+      // or process restart instead of being silently rediscovered every time.
+      await persistDiscoveredAntigravityProjectId(
+        connectionId,
+        discovered,
+        asRecord(providerSpecificData)
+      );
+    }
 
     for (const discoveryUrl of [
       ...getAntigravityFetchAvailableModelsUrls(),
@@ -228,6 +238,45 @@ export function normalizeSapModelsResponse(
         toNonEmptyString(item.name) ||
         id;
       const ownedBy = toNonEmptyString(item.provider) || "sap";
+      return { id, name, owned_by: ownedBy };
+    })
+    .filter((value): value is { id: string; name: string; owned_by: string } => Boolean(value));
+}
+
+export function normalizeAzureModelsResponse(
+  data: unknown,
+  fallbackOwner = "azure-ai"
+): Array<{ id: string; name: string; owned_by: string }> {
+  const payload = asRecord(data);
+  const items = Array.isArray(data)
+    ? data
+    : Array.isArray(payload.data)
+      ? (payload.data as unknown[])
+      : Array.isArray(payload.models)
+        ? (payload.models as unknown[])
+        : Array.isArray(payload.value)
+          ? (payload.value as unknown[])
+          : Array.isArray(payload.deployments)
+            ? (payload.deployments as unknown[])
+            : [];
+
+  return items
+    .map((value) => {
+      const item = asRecord(value);
+      const id =
+        toNonEmptyString(item.id) ||
+        toNonEmptyString(item.deployment_name) ||
+        toNonEmptyString(item.deploymentName) ||
+        toNonEmptyString(item.name) ||
+        toNonEmptyString(item.model);
+      if (!id) return null;
+      const name =
+        toNonEmptyString(item.display_name) ||
+        toNonEmptyString(item.displayName) ||
+        toNonEmptyString(item.name) ||
+        id;
+      const ownedBy =
+        toNonEmptyString(item.owned_by) || toNonEmptyString(item.provider) || fallbackOwner;
       return { id, name, owned_by: ownedBy };
     })
     .filter((value): value is { id: string; name: string; owned_by: string } => Boolean(value));
