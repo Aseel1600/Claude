@@ -77,6 +77,7 @@ export {
   parseNotionInferenceStream,
   resolveNotionThreadBinding,
   notionThreadMarkCreateAttempted,
+  notionThreadMarkConfirmed,
   sanitizeNotionAssistantText,
 };
 
@@ -583,11 +584,12 @@ export class NotionWebExecutor extends BaseExecutor {
     const clientFacing = clientFacingModelId(model);
     const modelId = clientFacing || notionCodename || "notion-ai";
 
-    // Thread continuity (sticky):
+    // Thread continuity (sticky) — see resolveNotionThreadBinding:
     // - Prefer X-Notion-Thread-Id / body pin from the client
-    // - Else sticky root key from first user message (UREW-normalized, durable on disk)
-    // - Bind threadId *before* the upstream call so error retries never mint a new chat
-    // - createThread:true only for brand-new roots; never again for that root
+    // - Else exact conversation-prefix hash (multi-turn OpenAI history)
+    // - Else sticky root (first user text) for UREW + failed-first-request retries
+    // - First-turn + confirmed sticky (new Claude Code session with same “hi”) → mint fresh
+    // - Bind threadId *before* the upstream call so error retries never mint a second chat
     const inboundHeaders =
       (input.clientHeaders as Record<string, string> | null | undefined) ??
       ((input as { headers?: Record<string, string> }).headers as
