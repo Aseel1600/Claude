@@ -649,4 +649,11 @@ describe("Task Fitness DB Resolution Chain", () => {
     const lowerScore = getTaskFitness("claude-sonnet", "coding");
     expect(upperScore).toBe(lowerScore);
   });
+
+  it("normalizes -free model suffix when looking up fitness table and wildcard boosts", () => {
+    const baseResult = getTaskFitnessWithSource("claude-sonnet", "coding");
+    const freeResult = getTaskFitnessWithSource("claude-sonnet-free", "coding");
+    expect(freeResult.source).toBe(baseResult.source);
+    expect(freeResult.score).toBe(baseResult.score);
+  });
 });
