@@ -23,6 +23,14 @@ import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { getImageModelEntry } from "@omniroute/open-sse/config/imageRegistry.ts";
 import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.ts";
 import { applyNoThinkingAlias } from "@omniroute/open-sse/utils/noThinkingAlias.ts";
+import { stripCcDiscoveryAlias } from "@omniroute/open-sse/handlers/chatCore/ccDiscoveryAliasStrip.ts";
+import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
+import {
+  resolveCcAliasEnabled,
+  getCcAliasGlobalState,
+  getCcAliasProviderSetting,
+  getCcAliasModelSetting,
+} from "@/lib/db/ccDiscoveryAliases";
 import { handleComboChat, shouldSkipConnDisable } from "@omniroute/open-sse/services/combo.ts";
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
@@ -229,6 +237,71 @@ const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
 
 export { shouldTripProviderBreakerForResult } from "./chatPredicates";
 
+// Synthetic provider key used to address combos in the cc-discovery alias gate
+// (mirrors src/app/api/v1/models/ccAliasPredicate.ts::COMBO_PROVIDER_KEY — combos
+// have no real provider id, so overrides address them via this synthetic key).
+const CC_DISCOVERY_COMBO_PROVIDER_KEY = "combo";
+
+/**
+ * Request-path counterpart of the /v1/models catalog's `claude/…` discovery-alias
+ * mirror (open-sse/utils/ccDiscoveryAliases.ts synthesizes it; db/ccDiscoveryAliases.ts
+ * gates it). Resolves a `claude/<provider>/<model>` or `claude/combo/<name>` id sent
+ * back by a client (most likely Claude Code, since its gateway model discovery only
+ * lists `claude`/`anthropic`-prefixed ids) to the real underlying model — BEFORE any
+ * combo lookup or resolveModelOrError() resolves provider/credentials, both of which
+ * run on the raw `modelStr` earlier than chatCore.ts ever sees it. A legitimate
+ * `claude/<real-claude-model>` id (the actual Claude OAuth provider's own namespace)
+ * is always left untouched — see stripCcDiscoveryAlias.
+ *
+ * Gate precedence mirrors the catalog's ccAliasPredicate.ts (model > provider >
+ * global), reading the same `db/ccDiscoveryAliases.ts` storage so a model/provider
+ * toggled off for catalog visibility is equally blocked from being dispatched via
+ * the alias.
+ */
+async function resolveCcDiscoveryAliasStrip(
+  modelStr: string | null | undefined
+): Promise<{ model: string; stripped: boolean }> {
+  if (typeof modelStr !== "string" || !modelStr.startsWith("claude/")) {
+    return { model: modelStr ?? "", stripped: false };
+  }
+
+  const rest = modelStr.slice("claude/".length);
+  const claudeModels = getModelsByProviderId("claude");
+  if (claudeModels.some((m) => m.id === rest)) {
+    // Legitimate Claude OAuth provider model — never touch it.
+    return { model: modelStr, stripped: false };
+  }
+
+  const isComboAlias = rest.startsWith("combo/");
+  const comboName = isComboAlias ? rest.slice("combo/".length) : null;
+  const { getComboByName } = await import("@/lib/localDb");
+  const combo = comboName ? await getComboByName(comboName) : null;
+  const comboExists = combo !== null && Array.isArray(combo?.models) && combo.models.length > 0;
+
+  const slashIndex = isComboAlias ? -1 : rest.indexOf("/");
+  const providerPrefix = !isComboAlias && slashIndex > 0 ? rest.slice(0, slashIndex) : null;
+  const modelPart = !isComboAlias && slashIndex > 0 ? rest.slice(slashIndex + 1) : null;
+
+  const { enabled: globalEnabled } = getCcAliasGlobalState();
+  const gateProviderId = isComboAlias ? CC_DISCOVERY_COMBO_PROVIDER_KEY : providerPrefix;
+  const gateEnabled = gateProviderId
+    ? resolveCcAliasEnabled({
+        model: isComboAlias
+          ? getCcAliasModelSetting(CC_DISCOVERY_COMBO_PROVIDER_KEY, comboName as string)
+          : getCcAliasModelSetting(gateProviderId, modelPart as string),
+        provider: getCcAliasProviderSetting(gateProviderId),
+        global: globalEnabled,
+      })
+    : globalEnabled;
+
+  return stripCcDiscoveryAlias(modelStr, {
+    isClaudeProviderModel: (r) => claudeModels.some((m) => m.id === r),
+    isKnownProviderPrefix: (prefix) => getRegistryEntry(prefix) !== null,
+    hasCombo: () => comboExists,
+    aliasEnabledFor: () => gateEnabled,
+  });
+}
+
 /**
  * Handle chat completion request
  * Supports: OpenAI, Claude, Gemini, OpenAI Responses API formats
@@ -392,6 +465,17 @@ export async function handleChat(
   // resolveRoutingModel). The resolved model still passes through
   // enforceApiKeyPolicy below, so it cannot bypass per-key allowlists.
   let modelStr = resolveRoutingModel(request, body);
+
+  // cc discovery alias (`claude/<provider>/<model>`, `claude/combo/<name>`):
+  // resolve back to the real id before any combo lookup / resolveModelOrError()
+  // sees it — see resolveCcDiscoveryAliasStrip. A genuine claude/ model id (the
+  // real Claude OAuth provider namespace) is always left untouched.
+  const ccAliasStrip = await resolveCcDiscoveryAliasStrip(modelStr);
+  if (ccAliasStrip.stripped) {
+    log.debug("CC_DISCOVERY", `Resolved cc discovery alias: ${modelStr} → ${ccAliasStrip.model}`);
+    modelStr = ccAliasStrip.model;
+  }
+
   // Freeze the client-facing model and reasoning intent before automatic routers
   // mutate the working request. Reasoning policies always match this stable input.
   const reasoningIntent = extractReasoningIntent(modelStr, body);
