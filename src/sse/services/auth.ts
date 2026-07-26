@@ -138,7 +138,6 @@ function toNullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-
 function toBooleanOrDefault(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -376,7 +375,10 @@ function isTerminalConnectionStatus(connection: ProviderConnectionView): boolean
 
 // #8200: cookie-auth providers (perplexity-web, grok-web, ...) use a rotating browser
 // session, not a static API key — a 401 means "session needs a refresh", not "dead".
-function isRecoverableCookieAuth401(provider: string | null, providerErrorType: string | null): boolean {
+function isRecoverableCookieAuth401(
+  provider: string | null,
+  providerErrorType: string | null
+): boolean {
   return (
     providerErrorType !== PROVIDER_ERROR_TYPES.ACCOUNT_DEACTIVATED &&
     provider != null &&
@@ -624,7 +626,11 @@ function getP2CConnectionScore(
     quotaExhausted = isQuotaExhaustedForRequest(connection.id, provider, requestedModel);
   }
 
-  const quotaHeadroomPercent = getConnectionQuotaHeadroomPercent(provider, connection, requestedModel);
+  const quotaHeadroomPercent = getConnectionQuotaHeadroomPercent(
+    provider,
+    connection,
+    requestedModel
+  );
 
   let quotaPenalty = 0;
   if (quotaHeadroomPercent !== null) {
@@ -730,7 +736,10 @@ function buildSyntheticNoAuthCredentials(providerSpecificData: JsonRecord = {}):
 }
 
 /** Merge one connection's fingerprints/accountProxies into `hydrated`, first-wins. */
-function mergeNoAuthProviderSpecificData(hydrated: JsonRecord, conn: { providerSpecificData?: unknown }): void {
+function mergeNoAuthProviderSpecificData(
+  hydrated: JsonRecord,
+  conn: { providerSpecificData?: unknown }
+): void {
   const psd = conn.providerSpecificData;
   if (!psd || typeof psd !== "object") return;
   const record = psd as JsonRecord;
@@ -1610,7 +1619,8 @@ export async function getProviderCredentials(
         if (j >= i) j++;
         const a = candidatePool[i];
         const b = candidatePool[j];
-        connection = compareP2CConnections(provider, a, b, requestedModel, quotaResults) <= 0 ? a : b;
+        connection =
+          compareP2CConnections(provider, a, b, requestedModel, quotaResults) <= 0 ? a : b;
       }
     } else if (strategy === "random") {
       // Random: Fisher-Yates-inspired random pick
@@ -2446,13 +2456,20 @@ export function extractApiKey(request: AuthRequestLike, opts?: { allowUrl?: bool
   }
 
   // Issue #2225: Anthropic Messages API clients authenticate via x-api-key.
-  // Gate the fallback on the anthropic-version header so we don't trip up
-  // local-mode requests from non-Anthropic clients that send placeholder
+  // Gate the fallback on anthropic-version OR user-agent matching claude-code / anthropic
+  // so we don't trip up local-mode requests from non-Anthropic clients that send placeholder
   // x-api-key values (which would otherwise be rejected as Invalid API key).
-  const anthropicVersion =
-    readHeaderValue(request?.headers, "anthropic-version") ||
-    readHeaderValue(request?.headers, "Anthropic-Version");
-  if (anthropicVersion) {
+  const userAgent =
+    readHeaderValue(request?.headers, "user-agent") ||
+    readHeaderValue(request?.headers, "User-Agent") ||
+    "";
+  const isClaudeClient =
+    Boolean(
+      readHeaderValue(request?.headers, "anthropic-version") ||
+      readHeaderValue(request?.headers, "Anthropic-Version")
+    ) || /claude-code|claude-cli|anthropic/i.test(userAgent);
+
+  if (isClaudeClient) {
     const xApiKey =
       readHeaderValue(request?.headers, "x-api-key") ||
       readHeaderValue(request?.headers, "X-Api-Key");
