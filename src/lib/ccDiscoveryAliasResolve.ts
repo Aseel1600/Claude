@@ -53,6 +53,51 @@ export interface CcDiscoveryResolveDeps {
   gateModel(providerId: string, modelId: string): CcAliasSetting;
 }
 
+type CcAliasTarget = {
+  /** `claude/combo/<name>` rather than `claude/<provider>/<model>`. */
+  isComboAlias: boolean;
+  comboName: string | null;
+  providerPrefix: string | null;
+  modelPart: string | null;
+};
+
+/** Split the part after `claude/` into either a combo name or a provider/model pair. */
+function parseCcAliasTarget(rest: string): CcAliasTarget {
+  if (rest.startsWith("combo/")) {
+    return {
+      isComboAlias: true,
+      comboName: rest.slice("combo/".length),
+      providerPrefix: null,
+      modelPart: null,
+    };
+  }
+  const slashIndex = rest.indexOf("/");
+  if (slashIndex <= 0) {
+    return { isComboAlias: false, comboName: null, providerPrefix: null, modelPart: null };
+  }
+  return {
+    isComboAlias: false,
+    comboName: null,
+    providerPrefix: rest.slice(0, slashIndex),
+    modelPart: rest.slice(slashIndex + 1),
+  };
+}
+
+/** Resolve the three-level gate (model > provider > global) for a parsed alias target. */
+function resolveGateFor(target: CcAliasTarget, deps: CcDiscoveryResolveDeps): boolean {
+  const gateProviderId = target.isComboAlias
+    ? CC_DISCOVERY_COMBO_PROVIDER_KEY
+    : target.providerPrefix;
+  if (!gateProviderId) return deps.gateGlobal();
+
+  const modelKey = target.isComboAlias ? target.comboName : target.modelPart;
+  return resolveCcAliasEnabled({
+    model: deps.gateModel(gateProviderId, modelKey as string),
+    provider: deps.gateProvider(gateProviderId),
+    global: deps.gateGlobal(),
+  });
+}
+
 /**
  * Testable core: resolve a `claude/…` alias to its real id using injected
  * lookups (no DB/registry access here — that lives in the production wrapper).
@@ -72,25 +117,10 @@ export async function resolveCcDiscoveryAliasStripWith(
     return { model: modelStr, stripped: false };
   }
 
-  const isComboAlias = rest.startsWith("combo/");
-  const comboName = isComboAlias ? rest.slice("combo/".length) : null;
-  const combo = comboName ? await deps.getCombo(comboName) : null;
+  const target = parseCcAliasTarget(rest);
+  const combo = target.comboName ? await deps.getCombo(target.comboName) : null;
   const comboExists = combo !== null && Array.isArray(combo?.models) && combo.models.length > 0;
-
-  const slashIndex = isComboAlias ? -1 : rest.indexOf("/");
-  const providerPrefix = !isComboAlias && slashIndex > 0 ? rest.slice(0, slashIndex) : null;
-  const modelPart = !isComboAlias && slashIndex > 0 ? rest.slice(slashIndex + 1) : null;
-
-  const gateProviderId = isComboAlias ? CC_DISCOVERY_COMBO_PROVIDER_KEY : providerPrefix;
-  const gateEnabled = gateProviderId
-    ? resolveCcAliasEnabled({
-        model: isComboAlias
-          ? deps.gateModel(CC_DISCOVERY_COMBO_PROVIDER_KEY, comboName as string)
-          : deps.gateModel(gateProviderId, modelPart as string),
-        provider: deps.gateProvider(gateProviderId),
-        global: deps.gateGlobal(),
-      })
-    : deps.gateGlobal();
+  const gateEnabled = resolveGateFor(target, deps);
 
   // NOTE: no DB side effects here — this injectable core stays pure so its unit
   // tests open no SQLite handle. The usage metric is recorded by the production

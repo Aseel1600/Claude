@@ -77,13 +77,11 @@ function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-function useProviderCcAliasState(providerId: string, t: ProviderMessageTranslator) {
+/** Loads the provider's alias settings once and reports a load failure to the operator. */
+function useCcAliasData(providerId: string, t: ProviderMessageTranslator) {
   const notify = useNotificationStore();
   const [state, setState] = useState<CcAliasState>(DEFAULT_STATE);
   const [loading, setLoading] = useState(true);
-  const [savingProvider, setSavingProvider] = useState(false);
-  const [savingModelId, setSavingModelId] = useState<string | null>(null);
-  const [newModelId, setNewModelId] = useState("");
 
   const loadState = useCallback(async () => {
     setLoading(true);
@@ -104,6 +102,16 @@ function useProviderCcAliasState(providerId: string, t: ProviderMessageTranslato
     loadState();
   }, [loadState]);
 
+  return { state, setState, loading };
+}
+
+function useProviderCcAliasState(providerId: string, t: ProviderMessageTranslator) {
+  const notify = useNotificationStore();
+  const { state, setState, loading } = useCcAliasData(providerId, t);
+  const [savingProvider, setSavingProvider] = useState(false);
+  const [savingModelId, setSavingModelId] = useState<string | null>(null);
+  const [newModelId, setNewModelId] = useState("");
+
   const handleProviderChange = useCallback(
     async (value: CcAliasSettingValue) => {
       setSavingProvider(true);
@@ -120,7 +128,7 @@ function useProviderCcAliasState(providerId: string, t: ProviderMessageTranslato
         setSavingProvider(false);
       }
     },
-    [providerId, notify, t]
+    [providerId, notify, t, setState]
   );
 
   const handleModelChange = useCallback(
@@ -144,7 +152,7 @@ function useProviderCcAliasState(providerId: string, t: ProviderMessageTranslato
         setSavingModelId(null);
       }
     },
-    [providerId, notify, t]
+    [providerId, notify, t, setState]
   );
 
   const handleAddModelOverride = useCallback(async () => {
@@ -259,58 +267,96 @@ export default function ProviderCcAliasSection({ providerId }: ProviderCcAliasSe
         />
       </div>
 
-      {modelEntries.length > 0 && (
-        <div className="mb-3 flex flex-col gap-2">
-          <span className="text-xs font-medium text-text-muted">
-            {providerText(t, "ccAliasModelOverridesLabel", "Per-model overrides")}
-          </span>
-          {modelEntries.map(([modelId, value]) => (
-            <div key={modelId} className="flex items-center justify-between gap-3">
-              <code className="rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted truncate">
-                {modelId}
-              </code>
-              <TriStateSelect
-                t={t}
-                value={value}
-                disabled={savingModelId === modelId}
-                onChange={(v) => handleModelChange(modelId, v)}
-                ariaLabel={providerText(
-                  t,
-                  "ccAliasModelOverrideAriaLabel",
-                  "Override for {modelId}",
-                  {
-                    modelId,
-                  }
-                )}
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <ModelOverrideList
+        t={t}
+        entries={modelEntries}
+        savingModelId={savingModelId}
+        onChange={handleModelChange}
+      />
 
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={newModelId}
-          onChange={(e) => setNewModelId(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              handleAddModelOverride();
-            }
-          }}
-          placeholder={providerText(t, "ccAliasAddModelPlaceholder", "Model id (e.g. gpt-4o)")}
-          className="flex-1 rounded-lg border border-border bg-sidebar/50 px-3 py-1.5 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        <button
-          type="button"
-          onClick={handleAddModelOverride}
-          disabled={!newModelId.trim() || savingModelId !== null}
-          className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-main hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {providerText(t, "ccAliasAddModelButton", "Add override")}
-        </button>
-      </div>
+      <AddOverrideRow
+        t={t}
+        value={newModelId}
+        onValueChange={setNewModelId}
+        onSubmit={handleAddModelOverride}
+        disabled={savingModelId !== null}
+      />
+    </div>
+  );
+}
+
+function ModelOverrideList({
+  t,
+  entries,
+  savingModelId,
+  onChange,
+}: {
+  t: ProviderMessageTranslator;
+  entries: Array<[string, CcAliasSettingValue]>;
+  savingModelId: string | null;
+  onChange: (modelId: string, value: CcAliasSettingValue) => void;
+}) {
+  if (entries.length === 0) return null;
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      <span className="text-xs font-medium text-text-muted">
+        {providerText(t, "ccAliasModelOverridesLabel", "Per-model overrides")}
+      </span>
+      {entries.map(([modelId, value]) => (
+        <div key={modelId} className="flex items-center justify-between gap-3">
+          <code className="rounded bg-sidebar px-1.5 py-0.5 font-mono text-xs text-text-muted truncate">
+            {modelId}
+          </code>
+          <TriStateSelect
+            t={t}
+            value={value}
+            disabled={savingModelId === modelId}
+            onChange={(v) => onChange(modelId, v)}
+            ariaLabel={providerText(t, "ccAliasModelOverrideAriaLabel", "Override for {modelId}", {
+              modelId,
+            })}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AddOverrideRow({
+  t,
+  value,
+  onValueChange,
+  onSubmit,
+  disabled,
+}: {
+  t: ProviderMessageTranslator;
+  value: string;
+  onValueChange: (next: string) => void;
+  onSubmit: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          onSubmit();
+        }}
+        placeholder={providerText(t, "ccAliasAddModelPlaceholder", "Model id (e.g. gpt-4o)")}
+        className="flex-1 rounded-lg border border-border bg-sidebar/50 px-3 py-1.5 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={!value.trim() || disabled}
+        className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-text-main hover:border-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {providerText(t, "ccAliasAddModelButton", "Add override")}
+      </button>
     </div>
   );
 }

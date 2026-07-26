@@ -57,6 +57,18 @@ interface CcDiscoveryCatalogEntry {
  * `isEnabled` is caller-supplied so this module stays free of feature-flag /
  * gate lookups — it only knows how to synthesize the mirror shape.
  */
+/**
+ * Ids the mirror must never cover: already claude/anthropic (would double-prefix
+ * or shadow the base id), `no-think/…` aliases, and reasoning-effort variants —
+ * v1 mirrors base ids only.
+ */
+function isMirrorableId(id: string): boolean {
+  if (id.length === 0) return false;
+  if (ALREADY_CLAUDE_RE.test(id)) return false;
+  if (id.startsWith(NO_THINKING_PREFIX)) return false;
+  return !EFFORT_SUFFIX_RE.test(id);
+}
+
 export function appendCcDiscoveryAliases<T extends CcDiscoveryCatalogEntry>(
   models: T[],
   isEnabled: (entry: T) => boolean
@@ -66,10 +78,7 @@ export function appendCcDiscoveryAliases<T extends CcDiscoveryCatalogEntry>(
   const aliases: T[] = [];
   for (const model of models) {
     const id = model.id;
-    if (typeof id !== "string" || id.length === 0) continue;
-    if (ALREADY_CLAUDE_RE.test(id)) continue;
-    if (id.startsWith(NO_THINKING_PREFIX)) continue;
-    if (EFFORT_SUFFIX_RE.test(id)) continue;
+    if (typeof id !== "string" || !isMirrorableId(id)) continue;
     if (!isEnabled(model)) continue;
 
     const isCombo = model.owned_by === "combo";
