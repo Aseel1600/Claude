@@ -1718,12 +1718,9 @@ export async function handleComboChat({
           // QA P0 diagnostics: capture the attempt order (provider/model ids only).
           comboAttemptOrder.push({ provider: provider ?? "unknown", model: modelStr });
 
-          // Deep clone the body to ensure context preservation and prevent mutations
-          // from affecting other targets in the combo. structuredClone avoids the
-          // full intermediate JSON string that JSON.parse(JSON.stringify(...)) builds
-          // (a second multi-hundred-KB allocation per target on large agent payloads),
-          // halving the per-target transient heap on the hot path (#5152).
-          let attemptBody = structuredClone(body);
+          // Copy-on-write, not a deep clone (#7847 — 9.53 MiB at 3 targets). Writes here are
+          // top-level scalars. Invariant: tests/unit/combo-attempt-body-isolation-7847.test.ts.
+          let attemptBody = { ...(body as Record<string, unknown>) } as typeof body;
 
           // Proactive Context Compression for fallbacks (Zero-Latency optimization)
           if (
@@ -2838,7 +2835,11 @@ async function handleRoundRobinCombo({
   // BEFORE availability is known; if every compat-kept target then turns out to be
   // runtime-unavailable, we must reconsider these before returning 503, instead of
   // permanently dropping a compat-rejected-but-healthy provider.
-  const compatRejectedTargets = computeCompatRejectedTargets(evalRankedTargets, filteredTargets, body);
+  const compatRejectedTargets = computeCompatRejectedTargets(
+    evalRankedTargets,
+    filteredTargets,
+    body
+  );
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
     return comboModelNotFoundResponse("Round-robin combo has no executable targets");
@@ -3096,9 +3097,11 @@ async function handleRoundRobinCombo({
         // Issue #3587: Reasoning models can spend the whole output budget on
         // reasoning. Apply any safe buffer to a per-attempt copy so round-robin
         // retries never compound across models.
-        let attemptBody = body;
+        // #7847: UNCONDITIONAL — copying only when the buffer changed max_tokens left every
+        // other attempt sharing the caller's object, leaking chatCore's `body.model` forward.
+        let attemptBody = { ...(body as Record<string, unknown>) } as typeof body;
         {
-          const bodyRecord = body as Record<string, unknown>;
+          const bodyRecord = attemptBody as Record<string, unknown>;
           const currentMaxTokens = toPositiveInteger(bodyRecord.max_tokens);
           const bufferedMaxTokens = resolveReasoningBufferedMaxTokens(
             modelStr,
@@ -3110,10 +3113,8 @@ async function handleRoundRobinCombo({
             bufferedMaxTokens !== null &&
             bufferedMaxTokens !== currentMaxTokens
           ) {
-            attemptBody = {
-              ...bodyRecord,
-              max_tokens: bufferedMaxTokens,
-            } as typeof body;
+            // Safe to write in place: bodyRecord is the per-attempt copy above, not the caller's.
+            bodyRecord.max_tokens = bufferedMaxTokens;
             log.info(
               "COMBO-RR",
               `Reasoning model ${modelStr}: adjusted max_tokens ${currentMaxTokens} -> ${bufferedMaxTokens}`
