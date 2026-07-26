@@ -18,6 +18,7 @@ import {
   parseCodexSessionJson,
 } from "@/lib/oauth/utils/codexSessionImport";
 import GheConfigStep from "@/shared/components/oauthModal/GheConfigStep";
+import GitlabDuoSetupStep from "@/shared/components/oauthModal/GitlabDuoSetupStep";
 import { parseGrokCliPasteToken } from "@/lib/oauth/utils/grokCliAuthJson";
 import { buildGoogleLoopbackHint } from "@/lib/oauth/utils/googleLoopbackHint";
 import {
@@ -667,6 +668,9 @@ export default function OAuthModal({
     if (!isOpen || !provider || flowStartedRef.current) return;
     flowStartedRef.current = true;
     const startsInPasteMode = IMPORT_TOKEN_ONLY_PROVIDERS.has(provider);
+    // #8688: GitLab Duo needs env-side OAuth app registration — show setup
+    // instructions before hitting authorize (which would only surface them as an error).
+    const startsInGitlabDuoSetup = provider === "gitlab-duo";
     setShowPasteToken(startsInPasteMode);
     setGrokBrowserMode(false);
     setAuthData(null);
@@ -675,6 +679,10 @@ export default function OAuthModal({
     setIsDeviceCode(false);
     setDeviceData(null);
     setPolling(false);
+    if (startsInGitlabDuoSetup) {
+      setStep("gitlab-duo-setup");
+      return;
+    }
     if (!startsInPasteMode) startOAuthFlow();
   }, [isOpen, provider, startOAuthFlow]);
 
@@ -1028,6 +1036,16 @@ export default function OAuthModal({
               />
             )}
 
+            {/* #8688: GitLab Duo — show OAuth app / env setup before authorize */}
+            {provider === "gitlab-duo" && step === "gitlab-duo-setup" && (
+              <GitlabDuoSetupStep
+                onContinue={() => {
+                  void startOAuthFlow();
+                }}
+                onClose={handleClose}
+              />
+            )}
+
             {/* Waiting Step (Localhost - popup mode) */}
             {step === "waiting" && !isDeviceCode && (
               <div className="text-center py-6">
@@ -1118,7 +1136,20 @@ export default function OAuthModal({
               <LinkifiedText text={error} />
             </p>
             <div className="flex gap-2">
-              <Button onClick={() => startOAuthFlow()} variant="secondary" fullWidth>
+              <Button
+                onClick={() => {
+                  // #8688: return to the setup recipe when still unconfigured,
+                  // instead of immediately re-hitting authorize → same red error.
+                  if (provider === "gitlab-duo") {
+                    setError(null);
+                    setStep("gitlab-duo-setup");
+                    return;
+                  }
+                  void startOAuthFlow();
+                }}
+                variant="secondary"
+                fullWidth
+              >
                 {t("tryAgain")}
               </Button>
               <Button onClick={handleClose} variant="ghost" fullWidth>
