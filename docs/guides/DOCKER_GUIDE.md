@@ -181,7 +181,8 @@ Beyond the defaults documented in [ENVIRONMENT.md](../reference/ENVIRONMENT.md),
 ## Reverse Proxy on a Subpath (Traefik / nginx)
 
 Next.js `basePath` is compiled into the standalone bundle. OmniRoute records the baked
-value in `BUILD_OMNIROUTE_BASE_PATH` during `npm run build` and compares it with
+value in a sentinel file at the app root (written during `npm run build`; read by
+`scripts/docker/ensure-docker-base-path.mjs`) and compares it with
 `OMNIROUTE_BASE_PATH` when the container starts. When they differ and the image was
 built for the domain root, the entrypoint rewrites the standalone manifests and embedded
 `basePath` literals before `node dev/run-standalone.mjs` runs.
@@ -190,7 +191,8 @@ built for the domain root, the entrypoint rewrites the standalone manifests and 
 
 Set both variables in `.env`, then rebuild so the image and runtime agree:
 
-```env
+```bash
+# .env
 OMNIROUTE_BASE_PATH=/omniroute
 NEXT_PUBLIC_BASE_URL=https://myhostname.example.com/omniroute
 ```
