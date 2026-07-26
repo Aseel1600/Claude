@@ -274,7 +274,9 @@ async function resolveCcDiscoveryAliasStrip(
 
   const isComboAlias = rest.startsWith("combo/");
   const comboName = isComboAlias ? rest.slice("combo/".length) : null;
-  const { getComboByName } = await import("@/lib/localDb");
+  // Import the specific db/ module directly (not the @/lib/localDb barrel —
+  // CLAUDE.md: "Never barrel-import from localDb.ts").
+  const { getComboByName } = await import("@/lib/db/combos");
   const combo = comboName ? await getComboByName(comboName) : null;
   const comboExists = combo !== null && Array.isArray(combo?.models) && combo.models.length > 0;
 
