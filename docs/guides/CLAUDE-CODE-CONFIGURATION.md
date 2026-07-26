@@ -74,8 +74,8 @@ back to the real id before routing — a genuine `claude/<real-claude-model>` id
 wins), so a plain OmniRoute never doubles its catalog for clients that don't use
 Claude Code:
 
-| Level    | Where                                                                 |
-| -------- | --------------------------------------------------------------------- |
+| Level    | Where                                                                  |
+| -------- | ---------------------------------------------------------------------- |
 | Model    | Provider detail page → per-model "Expose in Claude Code" toggle        |
 | Provider | Provider detail page → provider-level toggle (covers all its models)   |
 | Global   | Settings → Feature Flags → `EXPOSE_CC_DISCOVERY_ALIASES` (default off) |
@@ -92,6 +92,36 @@ only Kimi's models.
 > `CLAUDE_CODE_AUTO_COMPACT_WINDOW` to a value below the model's real window so
 > auto-compaction doesn't fire prematurely. The generated profiles above already
 > do this per model.
+
+---
+
+## Onboarding block on the dashboard
+
+The Claude tool card (**Dashboard → CLI Code**) renders the exact `settings.json` fragment
+for this instance, next to the discovery-alias info button, with a copy button:
+
+```jsonc
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://<your OmniRoute>:20128",
+    "ANTHROPIC_AUTH_TOKEN": "<your OmniRoute API key>",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
+  },
+}
+```
+
+The base URL is the one resolved by the card (including a custom override you typed), already
+normalized — no `/v1` suffix, no trailing slash. **The key is never rendered**: the block ships a
+placeholder, so a screenshot or a pasted snippet cannot leak one. Paste your key over it.
+
+Add `CLAUDE_CODE_AUTO_COMPACT_WINDOW` under the same `env` block for any model whose real
+context window is not 200K — Claude Code assumes 200K for every id it does not recognize, so
+auto-compaction otherwise fires at the wrong point (see the warning in the previous section).
+The snippet builder accepts that value too, so a caller that knows the target model's window
+can emit it directly.
+
+Source: `src/shared/services/claudeCliConfig.ts::buildClaudeDiscoverySettingsSnippet` (pure
+builder, unit-tested) rendered by `ClaudeGatewayOnboardingBlock`.
 
 ---
 

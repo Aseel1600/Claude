@@ -2948,7 +2948,12 @@
     "wireApiResponses": "واجهة برمجة تطبيقات الاستجابات (/ الاستجابات)",
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
     "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
-    "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags"
+    "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
+    "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
+    "ccOnboardingCopy": "__MISSING__:Copy",
+    "ccOnboardingCopied": "__MISSING__:Copied",
+    "ccOnboardingKeyPlaceholder": "__MISSING__:<your OmniRoute API key>",
+    "ccOnboardingWindowNote": "__MISSING__:Claude Code assumes a 200K context window for any model id it does not recognize. For a model with a different real window, add CLAUDE_CODE_AUTO_COMPACT_WINDOW just under it so auto-compaction does not fire too early."
   },
   "combos": {
     "title": "المجموعات",
