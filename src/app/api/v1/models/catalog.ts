@@ -95,6 +95,7 @@ import {
 import { getModelCatalogAuthRejection, isCodexModelCatalogClient } from "./catalogRequest";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
+import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 
 // Public API of this module is preserved after the catalog helper extraction:
 // `isVisionModelId` (vision-detection-consistency.test.ts) and
@@ -120,6 +121,14 @@ type CachedCatalog = {
   expiresAt: number;
 };
 const CATALOG_CACHE_TTL_MS_DEFAULT = 1500; // fallback; overridden by settings
+// Task D1 — a client with a short discovery timeout (Claude Code allows 3s) must
+// never wait on a full rebuild (290 providers + SQLite). Once a cached 200 entry
+// expires, it is still served immediately for up to this long while a background
+// refresh repopulates it, so a burst of requests right after the TTL window never
+// blocks on the ~1.2s builder. Bounded so a refresh that keeps failing cannot pin
+// an old catalog forever — past this window callers fall back to waiting for a
+// fresh build, same as a cold cache.
+export const CATALOG_STALE_WHILE_REVALIDATE_MS = 30_000;
 const catalogCache = new Map<string, CachedCatalog>();
 const catalogInFlight = new Map<string, Promise<CachedCatalog>>();
 
@@ -137,7 +146,55 @@ export function __getCatalogBuilderRunsForTest(): number {
   return _catalogBuilderRuns;
 }
 
-function buildCatalogCacheKey(request: Request): string {
+// Test hook — marks every cached entry as expired `msAgo` milliseconds ago
+// (default: just-expired, i.e. well inside CATALOG_STALE_WHILE_REVALIDATE_MS)
+// without sleeping out the real TTL. Pass a value larger than
+// CATALOG_STALE_WHILE_REVALIDATE_MS to simulate an entry that has aged past the
+// stale-serving window. Not part of the public API.
+export function __expireCatalogCacheForTest(msAgo = 1): void {
+  const expiresAt = Date.now() - msAgo;
+  for (const [key, entry] of catalogCache.entries()) {
+    catalogCache.set(key, { ...entry, expiresAt });
+  }
+}
+
+// Test hook — direct read/write access to the private catalogCache map, so
+// tests can seed exact status/staleness combinations (e.g. a cached non-200
+// entry) that are impractical to provoke through the real, intentionally
+// exception-resistant builder core. Not part of the public API.
+export function __setCatalogCacheEntryForTest(cacheKey: string, entry: CachedCatalog): void {
+  catalogCache.set(cacheKey, entry);
+}
+
+// Test hook — lets a test await completion of any background
+// stale-while-revalidate refresh(es) currently tracked in catalogInFlight,
+// instead of guessing at a real-time sleep. Not part of the public API.
+export async function __flushCatalogBackgroundRefreshForTest(): Promise<void> {
+  await Promise.all([...catalogInFlight.values()].map((p) => p.catch(() => {})));
+}
+
+// Test hook — injects a synthetic in-flight rejection under `cacheKey`, so the
+// getUnifiedModelsResponse catch branch (sanitized error body) can be exercised
+// deterministically without forcing a genuine failure through
+// buildUnifiedModelsResponseCore, which is deliberately defensive (every
+// registry/DB read there is individually try/caught) and therefore not a
+// practical black-box error-injection point. Deliberately does NOT self-clean
+// like the production catalogInFlight entries do: a real in-flight build stays
+// pending for the ~1.2s the builder takes, giving ample time for a concurrent
+// reader to observe it; this promise is already-rejected at creation, so any
+// self-cleanup callback would fire (and delete the map entry) within a
+// microtask or two — before getUnifiedModelsResponse's own several-await auth
+// check even finishes running, silently swapping in a fresh cold-path build
+// instead of the intended synthetic failure. Left in catalogInFlight until the
+// next test's __resetCatalogBuilderRunsForTest() clears it. Not part of the
+// public API.
+export function __forceCatalogInFlightRejectionForTest(cacheKey: string, error: unknown): void {
+  const rejected: Promise<CachedCatalog> = Promise.reject(error);
+  rejected.catch(() => {}); // mark as handled — avoids an unhandledRejection warning
+  catalogInFlight.set(cacheKey, rejected);
+}
+
+export function buildCatalogCacheKey(request: Request): string {
   const url = new URL(request.url);
   const prefix = url.searchParams.get("prefix") || "";
   const apiKey = extractApiKey(request) || "";
@@ -214,13 +271,34 @@ export async function getUnifiedModelsResponse(
 
   dropCatalogCacheIfStateChanged();
   const cacheKey = buildCatalogCacheKey(request);
+  const now = Date.now();
   const cached = catalogCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
+  if (cached && cached.expiresAt > now) {
     return new Response(cached.body, {
       status: cached.status,
       headers: mergeCatalogHeaders(corsHeaders, cached.headers, diagnosticHeaders),
     });
   }
+
+  // Stale-while-revalidate (Task D1): an expired entry is still served
+  // immediately, unblocking a client with a short discovery timeout, as long as
+  // (a) it was a successful build — a cached error is never eligible, since
+  // serving it as "stale" would mask an intermittent failure behind a fake
+  // success forever — and (b) it is within CATALOG_STALE_WHILE_REVALIDATE_MS of
+  // expiring, so a refresh that keeps failing eventually falls back to the
+  // cold-path wait below instead of pinning ancient data indefinitely.
+  if (
+    cached &&
+    cached.status === 200 &&
+    now - cached.expiresAt <= CATALOG_STALE_WHILE_REVALIDATE_MS
+  ) {
+    scheduleBackgroundCatalogRefresh(cacheKey, request, cached);
+    return new Response(cached.body, {
+      status: cached.status,
+      headers: mergeCatalogHeaders(corsHeaders, cached.headers, diagnosticHeaders),
+    });
+  }
+
   let inflight = catalogInFlight.get(cacheKey);
   if (!inflight) {
     inflight = buildCatalogPayload(request).then((payload) => {
@@ -245,17 +323,74 @@ export async function getUnifiedModelsResponse(
       headers: mergeCatalogHeaders(corsHeaders, payload.headers, diagnosticHeaders),
     });
   } catch (err) {
+    // Hard rule #12: never put a raw err.message/err.stack in a response body.
+    // Route it through the shared sanitizer instead — same status/type/code as
+    // before, minus the stack-trace/path leak.
+    const message = err instanceof Error ? err.message : String(err);
     return Response.json(
-      {
-        error: {
-          message: err instanceof Error ? err.message : String(err),
-          type: "server_error",
-          code: INTERNAL_PROXY_ERROR,
-        },
-      },
+      buildErrorBody(500, message, undefined, {
+        type: "server_error",
+        code: INTERNAL_PROXY_ERROR,
+      }),
       { status: 500, headers: { ...corsHeaders, ...diagnosticHeaders } }
     );
   }
+}
+
+/**
+ * Kick off a background rebuild for `cacheKey` so an expired-but-stale-eligible
+ * entry can be refreshed without the current request waiting on it. Reuses
+ * catalogInFlight — no second coalescing mechanism — so a concurrent cold/stale
+ * request for the same key joins this same refresh instead of starting another.
+ *
+ * The builder invocation is deferred to a macrotask (setTimeout 0) so the
+ * stale response that triggered this call is always constructed and returned
+ * to the caller before the builder actually runs — see the "counter has not
+ * risen yet" assertions in tests/unit/v1-models-discovery-conformance.test.ts.
+ * This adds at most one event-loop turn of latency to the background refresh,
+ * not a real wait.
+ *
+ * Never throws, and the returned/tracked promise never rejects: a failing
+ * refresh must leave the existing stale entry in catalogCache untouched (it is
+ * simply never overwritten), not surface anywhere or crash the process via an
+ * unhandled rejection.
+ */
+function scheduleBackgroundCatalogRefresh(
+  cacheKey: string,
+  request: Request,
+  staleEntry: CachedCatalog
+): void {
+  if (catalogInFlight.has(cacheKey)) return; // a refresh for this key is already running
+
+  const refreshPromise: Promise<CachedCatalog> = new Promise((resolve) => {
+    setTimeout(() => {
+      buildCatalogPayload(request)
+        .then((payload) => {
+          const entry: CachedCatalog = {
+            body: payload.body,
+            headers: payload.headers,
+            status: payload.status,
+            expiresAt: Date.now() + payload.cacheTTL,
+          };
+          catalogCache.set(cacheKey, entry);
+          resolve(entry);
+        })
+        .catch((err) => {
+          console.log(
+            `[catalog] Background stale-while-revalidate refresh failed for key "${cacheKey}":`,
+            err
+          );
+          // Leave the stale entry exactly as-is — the next request either hits it
+          // again (still within the window) or falls back to the cold-path wait.
+          resolve(staleEntry);
+        });
+    }, 0);
+  });
+
+  catalogInFlight.set(cacheKey, refreshPromise);
+  refreshPromise.finally(() => {
+    if (catalogInFlight.get(cacheKey) === refreshPromise) catalogInFlight.delete(cacheKey);
+  });
 }
 
 async function buildCatalogPayload(
