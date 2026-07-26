@@ -276,18 +276,29 @@ export function getModelsDevTierFitness(model: string, taskType: string): number
 
   const dbScore = queryModelIntelligence(normalizedModel, normalizedTask, "models_dev_tier");
   if (dbScore !== null) return dbScore;
+  const dbScoreBase = lookupFreeAliasIntelligence(
+    normalizedModel,
+    normalizedTask,
+    "models_dev_tier"
+  );
+  if (dbScoreBase !== null) return dbScoreBase;
 
   const caps = loadModelCapabilities();
-  if (!caps) return null;
+  if (caps) {
+    const baseId = normalizedModel.endsWith(FREE_SUFFIX)
+      ? normalizedModel.slice(0, -FREE_SUFFIX.length)
+      : "";
+    const capRow = caps[normalizedModel] ?? (baseId ? caps[baseId] : undefined);
+    if (capRow) {
+      const tier = deriveTierFromCapabilities(capRow);
+      const tierScores = TIER_TASK_FITNESS[tier];
+      if (tierScores) {
+        return tierScores[normalizedTask] ?? tierScores.default ?? null;
+      }
+    }
+  }
 
-  const capRow = caps[normalizedModel];
-  if (!capRow) return null;
-
-  const tier = deriveTierFromCapabilities(capRow);
-  const tierScores = TIER_TASK_FITNESS[tier];
-  if (!tierScores) return null;
-
-  return tierScores[normalizedTask] ?? tierScores.default ?? null;
+  return null;
 }
 
 // ─── Resolution chain ───────────────────────────────────────────────────
@@ -337,7 +348,7 @@ export function getTaskFitnessWithSource(
   if (arenaElo !== null) {
     return { score: arenaElo, source: "arena_elo" };
   }
-  const arenaEloBase = lookupFreeAliasArenaElo(normalizedModel, normalizedTask);
+  const arenaEloBase = lookupFreeAliasIntelligence(normalizedModel, normalizedTask, "arena_elo");
   if (arenaEloBase !== null) {
     return { score: arenaEloBase, source: "arena_elo_free_alias" };
   }
@@ -368,11 +379,15 @@ const FREE_SUFFIX = "-free";
  *   "deepseek-v4-flash-free" → look up "deepseek-v4-flash"
  *   "big-pickle"       → no "-free" suffix → return null (skip)
  */
-function lookupFreeAliasArenaElo(normalizedModel: string, normalizedTask: string): number | null {
+function lookupFreeAliasIntelligence(
+  normalizedModel: string,
+  normalizedTask: string,
+  source: string
+): number | null {
   if (!normalizedModel.endsWith(FREE_SUFFIX)) return null;
   const baseId = normalizedModel.slice(0, -FREE_SUFFIX.length);
   if (baseId.length === 0 || baseId === normalizedModel) return null;
-  return queryModelIntelligence(baseId, normalizedTask, "arena_elo");
+  return queryModelIntelligence(baseId, normalizedTask, source);
 }
 
 export function setUserFitnessOverride(model: string, category: string, score: number): void {
