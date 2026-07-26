@@ -95,9 +95,13 @@ export function enforceOutputTokenBudget(
     };
   }
 
+  // Floor before the positivity test: a fractional cap below 1 would otherwise
+  // survive the `> 0` guard and floor to an effective cap of 0, clamping every
+  // field to zero. Sub-token caps are meaningless — treat them as absent.
+  const normalizedOutputCap = maxOutputTokenCap == null ? null : Math.floor(maxOutputTokenCap);
   const effectiveCap =
-    maxOutputTokenCap != null && maxOutputTokenCap > 0
-      ? Math.min(availableOutputTokens, Math.floor(maxOutputTokenCap))
+    normalizedOutputCap !== null && normalizedOutputCap > 0
+      ? Math.min(availableOutputTokens, normalizedOutputCap)
       : availableOutputTokens;
 
   if (!body) {

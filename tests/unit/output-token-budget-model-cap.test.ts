@@ -106,3 +106,15 @@ test("adjustedFields reflects exactly the fields the model output cap changed", 
   assert.equal(result.body.max_completion_tokens, 64_000);
   assert.deepEqual(result.adjustedFields, ["max_completion_tokens"]);
 });
+
+test("a sub-token cap is treated as absent, never as a cap of zero", () => {
+  // A fractional cap below 1 must not survive the positivity guard and floor to
+  // an effective cap of 0 — that would clamp every field to zero and either send
+  // `max_tokens: 0` upstream or bounce back through the translator default.
+  const result = enforceOutputTokenBudget({ max_tokens: 8_000 }, 1_000, 200_000, 0, 0.4);
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.body.max_tokens, 8_000, "sub-token cap must leave the request untouched");
+  assert.deepEqual(result.adjustedFields, []);
+});

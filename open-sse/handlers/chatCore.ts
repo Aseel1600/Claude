@@ -1847,14 +1847,17 @@ export async function handleChatCore({
     );
   }
   if (outputBudget.adjustedFields.length > 0) {
-    const cappedByModel =
+    // A field can also be adjusted by *removal* (invalid/non-positive value), which
+    // the cap did not cause — so state the ceiling in effect rather than claiming
+    // the cap drove this particular adjustment.
+    const modelCapIsBinding =
       modelOutputCap != null && modelOutputCap < outputBudget.availableOutputTokens;
     log?.info?.(
       "CONTEXT",
       `Adjusted invalid or oversized output token fields (${outputBudget.adjustedFields.join(", ")}); ` +
         `${outputBudget.availableOutputTokens} tokens remain for output` +
-        (cappedByModel
-          ? ` (clamped to ${provider}/${effectiveModel}'s output cap of ${modelOutputCap})`
+        (modelCapIsBinding
+          ? ` (output ceiling in effect: ${modelOutputCap}, ${provider}/${effectiveModel}'s own cap)`
           : "")
     );
   }
