@@ -27,6 +27,11 @@ test("classifyProviderError: 400 + billing signal => QUOTA_EXHAUSTED", () => {
     error: { message: "insufficient_quota: exceeded your current quota" },
   });
   assert.equal(result, PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED);
+
+  const resultExhausted = classifyProviderError(400, {
+    error: { message: "The free tier of the model has been exhausted." },
+  });
+  assert.equal(resultExhausted, PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED);
 });
 
 test("classifyProviderError: 429 without billing signal => RATE_LIMITED", () => {
@@ -132,10 +137,6 @@ test("classifyProviderError: 404 => MODEL_NOT_FOUND", () => {
 });
 
 test("classifyProviderError: 404 with provider => MODEL_NOT_FOUND", () => {
-  const result = classifyProviderError(
-    404,
-    { error: { message: "Not Found" } },
-    "v0-vercel"
-  );
+  const result = classifyProviderError(404, { error: { message: "Not Found" } }, "v0-vercel");
   assert.equal(result, PROVIDER_ERROR_TYPES.MODEL_NOT_FOUND);
 });
