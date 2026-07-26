@@ -1816,7 +1816,14 @@ export async function handleChatCore({
     estimateTokens(body?.system) +
     estimateTokens(body?.instructions);
   const finalContextLimit = contextLimit;
-  const modelOutputCap = toPositiveInteger(getExplicitModelOutputCap(effectiveModel));
+  // Key the lookup by { provider, model } — the bare-string form resolves to
+  // `provider: null`, which skips both the registry cap and the operator's
+  // `max_token` capability override (#6524), the documented escape hatch for a
+  // wrong synced `limit_output`. Clamping against a stale spec while the operator
+  // raised the ceiling would silently truncate output.
+  const modelOutputCap = toPositiveInteger(
+    getExplicitModelOutputCap({ provider, model: effectiveModel })
+  );
   const outputBudget = enforceOutputTokenBudget(
     body as Record<string, unknown>,
     finalEstimatedInputTokens,
