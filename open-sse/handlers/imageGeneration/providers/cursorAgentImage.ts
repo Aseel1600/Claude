@@ -25,6 +25,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { sanitizeErrorMessage } from "../../../utils/error.ts";
 import { saveImageErrorResult, saveImageSuccessResult } from "../../imageGeneration.ts";
+import { IMAGE_PROVIDERS } from "../../../config/imageRegistry.ts";
 
 export const CURSOR_AGENT_IMAGE_FORMAT = "cursor-agent-image";
 
@@ -32,6 +33,26 @@ const DEFAULT_TIMEOUT_MS = 210_000;
 const DEFAULT_MAX_CONCURRENT = 2;
 const DEFAULT_MODEL = "auto";
 const MAX_N = 4;
+
+// Upper bound on a caller-supplied `timeout_ms`. The Cursor seat is shared and
+// CURSOR_IMG_MAX_CONCURRENT defaults to only 2 slots, so a huge per-request
+// timeout must not hog a slot and starve every other caller.
+const MAX_TIMEOUT_MS = 300_000;
+
+// Models the Agent CLI `--model` argv may receive — kept in sync with the
+// registry entry (auto | composer-2 | composer-2.5). The request `model` is
+// untrusted input forwarded straight into a spawned CLI, so we mirror the
+// auggie executor: anything outside this set (unknown model, or a flag-shaped
+// value like "--foo" / "-x") is clamped to DEFAULT_MODEL and never reaches argv.
+const CURSOR_IMAGE_MODEL_ALLOWLIST: ReadonlySet<string> = new Set(
+  (IMAGE_PROVIDERS.cursor?.models ?? []).map((m) => m.id)
+);
+
+/** Clamp a model candidate to the allowlist; unknown/flag-shaped → "auto". */
+export function resolveCursorImageModel(candidate: unknown): string {
+  const requested = typeof candidate === "string" ? candidate.trim() : "";
+  return CURSOR_IMAGE_MODEL_ALLOWLIST.has(requested) ? requested : DEFAULT_MODEL;
+}
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
@@ -111,6 +132,20 @@ function normalizePositiveInt(value: unknown, fallback: number, max?: number): n
   return typeof max === "number" ? Math.min(i, max) : i;
 }
 
+/**
+ * Effective per-image wall clock: a caller-supplied `timeout_ms` clamped to
+ * MAX_TIMEOUT_MS. When the request omits it, fall back to the operator default
+ * (CURSOR_IMG_TIMEOUT_MS) / DEFAULT_TIMEOUT_MS uncapped — operator config is
+ * trusted; only the untrusted request value is clamped.
+ */
+export function resolveCursorImageTimeoutMs(rawTimeout: unknown): number {
+  return normalizePositiveInt(
+    rawTimeout,
+    normalizePositiveInt(process.env.CURSOR_IMG_TIMEOUT_MS, DEFAULT_TIMEOUT_MS),
+    MAX_TIMEOUT_MS
+  );
+}
+
 type CursorAgentImageCredentials = {
   apiKey?: string;
   accessToken?: string;
@@ -136,8 +171,13 @@ function extractAgentModel(credentials: CursorAgentImageCredentials, requestMode
     if (typeof fromPsd === "string" && fromPsd.trim()) return fromPsd.trim();
   }
   if (process.env.CURSOR_IMG_MODEL?.trim()) return process.env.CURSOR_IMG_MODEL.trim();
-  // IMAGE_PROVIDERS model id is usually "auto" — pass through to the CLI.
-  return requestModel && requestModel !== "cursor" ? requestModel : DEFAULT_MODEL;
+  // The request's `model=cursor/<…>` field is untrusted and flows into the CLI
+  // `--model` argv — clamp it to the registry allowlist (unknown/flag-shaped →
+  // "auto"). The operator overrides above (connection psd / CURSOR_IMG_MODEL)
+  // are trusted deployment config and pass through unchanged.
+  return resolveCursorImageModel(
+    requestModel && requestModel !== "cursor" ? requestModel : DEFAULT_MODEL
+  );
 }
 
 // ─── process-wide concurrency gate (one shared Cursor seat) ─────────────────
@@ -344,10 +384,7 @@ export async function handleCursorAgentImageGeneration({
     }
   }
 
-  const timeoutMs = normalizePositiveInt(
-    body.timeout_ms,
-    normalizePositiveInt(process.env.CURSOR_IMG_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
-  );
+  const timeoutMs = resolveCursorImageTimeoutMs(body.timeout_ms);
   const count = normalizePositiveInt(body.n, 1, MAX_N);
   const agentModel = extractAgentModel(credentials, model);
   const authEnv = buildCursorAgentAuthEnv(token);
