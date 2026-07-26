@@ -2970,7 +2970,12 @@
     "wireApiResponses": "Responses API (/responses)",
     "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
     "ccDiscoveryInfoTooltip": "Công bố các mô hình không phải Claude dưới dạng id phản chiếu claude/<provider>/<model> để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
-    "ccDiscoveryInfoLink": "Mở Feature Flags"
+    "ccDiscoveryInfoLink": "Mở Feature Flags",
+    "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
+    "ccOnboardingCopy": "Sao chép",
+    "ccOnboardingCopied": "Đã sao chép",
+    "ccOnboardingKeyPlaceholder": "<khóa API OmniRoute của bạn>",
+    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm."
   },
   "combos": {
     "title": "Combo",
