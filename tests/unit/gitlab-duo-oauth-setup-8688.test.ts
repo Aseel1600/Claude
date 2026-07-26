@@ -76,5 +76,14 @@ test("#8688 OAuthModal skips auto-start and renders GitlabDuoSetupStep (#8688)",
 
 test("#8688 error Try Again returns gitlab-duo to the setup step", () => {
   const modal = read("../../src/shared/components/OAuthModal.tsx");
-  assert.match(modal, /provider === "gitlab-duo"[\s\S]{0,120}?setStep\("gitlab-duo-setup"\)/);
+  assert.match(modal, /returnToGitlabDuoSetup=\{provider === "gitlab-duo"\}/);
+  assert.match(modal, /setStep\("gitlab-duo-setup"\)/);
+
+  const errorStep = read("../../src/shared/components/oauthModal/OAuthErrorStep.tsx");
+  assert.match(errorStep, /returnToGitlabDuoSetup/);
+  assert.match(errorStep, /onReturnToGitlabDuoSetup/);
+  assert.match(
+    errorStep,
+    /if \(returnToGitlabDuoSetup\)[\s\S]{0,80}?onReturnToGitlabDuoSetup\(\)/
+  );
 });
