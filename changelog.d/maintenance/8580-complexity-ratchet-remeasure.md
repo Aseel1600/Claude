@@ -1,0 +1,1 @@
+- **chore(quality):** remeasure complexity ratchets on `release/v3.8.49` tip and bank shrink (cyclomatic 2183→2178, cognitive 968→965) so Fast Quality Gates stop failing every PR on inherited tip drift ([#8580](https://github.com/diegosouzapw/OmniRoute/pull/8580)) — thanks @MumuTW
