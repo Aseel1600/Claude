@@ -128,7 +128,12 @@ import {
 import { getUnsupportedParams, REGISTRY } from "../config/providerRegistry.ts";
 import { stripUnsupportedParams } from "./chatCore/unsupportedParamsStrip.ts";
 import { checkToolCallingRequiredButUnsupported } from "./chatCore/toolCallingRequiredCheck.ts";
-import { supportsMaxTokens, getResolvedModelCapabilities } from "@/lib/modelCapabilities.ts";
+import {
+  supportsMaxTokens,
+  getResolvedModelCapabilities,
+  getExplicitModelOutputCap,
+} from "@/lib/modelCapabilities.ts";
+import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
 import {
   buildErrorBody,
@@ -1811,11 +1816,13 @@ export async function handleChatCore({
     estimateTokens(body?.system) +
     estimateTokens(body?.instructions);
   const finalContextLimit = contextLimit;
+  const modelOutputCap = toPositiveInteger(getExplicitModelOutputCap(effectiveModel));
   const outputBudget = enforceOutputTokenBudget(
     body as Record<string, unknown>,
     finalEstimatedInputTokens,
     finalContextLimit,
-    targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0
+    targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0,
+    modelOutputCap
   );
   if (!outputBudget.ok) {
     const message =
@@ -1833,10 +1840,15 @@ export async function handleChatCore({
     );
   }
   if (outputBudget.adjustedFields.length > 0) {
+    const cappedByModel =
+      modelOutputCap != null && modelOutputCap < outputBudget.availableOutputTokens;
     log?.info?.(
       "CONTEXT",
       `Adjusted invalid or oversized output token fields (${outputBudget.adjustedFields.join(", ")}); ` +
-        `${outputBudget.availableOutputTokens} tokens remain for output`
+        `${outputBudget.availableOutputTokens} tokens remain for output` +
+        (cappedByModel
+          ? ` (clamped to ${provider}/${effectiveModel}'s output cap of ${modelOutputCap})`
+          : "")
     );
   }
   body = outputBudget.body;
