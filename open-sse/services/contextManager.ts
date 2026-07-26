@@ -146,7 +146,10 @@ function extractImageTokens(node: unknown, seen: Set<unknown>): { node: unknown;
 
   const record = node as Record<string, unknown>;
   if (isInlineBase64ImageBlock(record)) {
-    return { node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE }, tokens: IMAGE_TOKEN_ESTIMATE };
+    return {
+      node: { __image_token_estimate__: IMAGE_TOKEN_ESTIMATE },
+      tokens: IMAGE_TOKEN_ESTIMATE,
+    };
   }
 
   let tokens = 0;
@@ -294,7 +297,7 @@ export function compressContext(
   const targetTokens = Math.max(0, maxTokens - reserveTokens);
 
   let messages = [...body.messages];
-  let currentTokens = estimateTokens(JSON.stringify(messages));
+  let currentTokens = estimateTokens(messages);
   const stats = { original: currentTokens, layers: [] as { name: string; tokens: number }[] };
 
   // Already fits
@@ -304,7 +307,7 @@ export function compressContext(
 
   // Layer 1: Trim tool_result/tool messages
   messages = trimToolMessages(messages, 2000); // Max 2000 chars per tool result
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "trim_tools", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -317,7 +320,7 @@ export function compressContext(
 
   // Layer 2: Compress structured thinking blocks (remove from non-last assistant messages)
   messages = compressThinking(messages);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "compress_thinking", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -330,7 +333,7 @@ export function compressContext(
 
   // Layer 3: Aggressive purification — drop oldest messages keeping system + last N pairs
   messages = purifyHistory(messages, targetTokens);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages);
   stats.layers.push({ name: "purify_history", tokens: currentTokens });
 
   return {
@@ -416,7 +419,7 @@ function purifyHistory(messages: Record<string, unknown>[], targetTokens: number
     // orphan tool_results that Claude rejects ("tool_result without preceding tool_use").
     candidate = fixToolPairs(candidate);
     candidate = stripTrailingAssistantOrphanToolUse(candidate);
-    const tokens = estimateTokens(JSON.stringify(candidate));
+    const tokens = estimateTokens(candidate);
     if (tokens <= targetTokens) break;
     keep = Math.max(2, Math.floor(keep * 0.7)); // Drop 30% each iteration
   }

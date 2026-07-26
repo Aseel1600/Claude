@@ -284,3 +284,26 @@ test("Layer 3: preserves intact tool_use/tool_result pairs after compression", (
   );
   assert.ok(toolMsg, "tool_result for call_1 should survive compression");
 });
+
+test("compressContext: image_url in messages correctly uses image tokens in compressContext", () => {
+  // A long base64 string (~4000 base64 chars) simulating an image payload (~1000 tokens as raw text)
+  const base64Data =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==".repeat(
+      40
+    );
+  const imageMsg = {
+    role: "user",
+    content: [
+      { type: "text", text: "Look at this image" },
+      { type: "image_url", image_url: { url: `data:image/png;base64,${base64Data}` } },
+    ],
+  };
+  const body = { model: "test", messages: [imageMsg] };
+  // Without the image token extraction fix (if stringified raw), 4000+ chars would be ~1200+ tokens.
+  // With image token extraction, the base64 is replaced by a placeholder and imageTokens added (~1000 tokens for image), but the base64 text length is stripped out.
+  const result = compressContext(body, { maxTokens: 10000, reserveTokens: 100 });
+  assert.ok(
+    result.stats.original < 1500,
+    `Original token count should be bounded, got ${result.stats.original}`
+  );
+});
