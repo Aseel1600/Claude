@@ -42,127 +42,117 @@ describe("driverFactory", () => {
     }
   });
 
-  test("prefers better-sqlite3 when it loads", (t) => {
-    if (isBun) return;
-
-    const adapter = tryOpenSync(":memory:");
-    if (!adapter || adapter.driver !== "better-sqlite3") {
-      adapter?.close();
-      t.skip("better-sqlite3 is not available in this environment");
-      return;
-    }
-
-    assert.ok(adapter);
-    assert.equal(adapter.driver, "better-sqlite3");
-    adapter.close();
-  });
-
-  test("prefers better-sqlite3 before node:sqlite in the driver cascade", () => {
-    if (isBun) return;
-
-    const fakeBetterSqlite = {
-      close() {},
-      name: ":memory:",
-      open: true,
-    };
-    let nodeSqliteRequested = false;
-    const openWithPreferredDriver = createSyncDriverFactory((moduleName: string) => {
-      if (moduleName === "better-sqlite3") {
-        return function FakeBetterSqlite() {
-          return fakeBetterSqlite;
-        };
+  if (!isBun) {
+    test("prefers better-sqlite3 when it loads", (t) => {
+      const adapter = tryOpenSync(":memory:");
+      if (!adapter || adapter.driver !== "better-sqlite3") {
+        adapter?.close();
+        t.skip("better-sqlite3 is not available in this environment");
+        return;
       }
-      if (moduleName === "node:sqlite") {
-        nodeSqliteRequested = true;
-      }
-      throw new Error(`unexpected driver load: ${moduleName}`);
+
+      assert.ok(adapter);
+      assert.equal(adapter.driver, "better-sqlite3");
+      adapter.close();
     });
 
-    const adapter = openWithPreferredDriver(":memory:");
-    assert.ok(adapter);
-    assert.equal(adapter.driver, "better-sqlite3");
-    assert.equal(nodeSqliteRequested, false);
-    adapter.close();
-  });
-
-  test("forced node:sqlite fallback creates, reopens, and queries a writable database", (t) => {
-    if (isBun) return;
-
-    const databasePath = createTempDatabasePath(t);
-    const openNodeSqlite = forceNodeSqlite();
-
-    const writer = openNodeSqlite(databasePath);
-    assert.ok(writer);
-    assert.equal(writer.driver, "node:sqlite");
-    writer.exec("CREATE TABLE items (value TEXT)");
-    writer.prepare("INSERT INTO items VALUES (?)").run("native");
-    writer.close();
-
-    const reader = openNodeSqlite(databasePath);
-    assert.ok(reader);
-    assert.equal(reader.driver, "node:sqlite");
-    assert.equal(
-      (reader.prepare("SELECT value FROM items").get() as { value: string }).value,
-      "native"
-    );
-    reader.close();
-  });
-
-  test("forced node:sqlite fallback does not create missing existing-only paths", (t) => {
-    if (isBun) return;
-
-    const databasePath = createTempDatabasePath(t);
-    const adapter = forceNodeSqlite()(databasePath, { readonly: true, fileMustExist: true });
-
-    assert.equal(adapter, null);
-    assert.equal(fs.existsSync(databasePath), false);
-    assert.equal(fs.existsSync(`${databasePath}-wal`), false);
-    assert.equal(fs.existsSync(`${databasePath}-shm`), false);
-  });
-
-  test("forced node:sqlite fallback preserves existing read-only behavior", (t) => {
-    if (isBun) return;
-
-    const databasePath = createTempDatabasePath(t);
-    const { DatabaseSync } = require("node:sqlite") as {
-      DatabaseSync: new (filePath: string) => {
-        close(): void;
-        exec(sql: string): void;
+    test("prefers better-sqlite3 before node:sqlite in the driver cascade", () => {
+      const fakeBetterSqlite = {
+        close() {},
+        name: ":memory:",
+        open: true,
       };
-    };
-    const seed = new DatabaseSync(databasePath);
-    seed.exec("CREATE TABLE items (value TEXT); INSERT INTO items VALUES ('seed');");
-    seed.close();
+      let nodeSqliteRequested = false;
+      const openWithPreferredDriver = createSyncDriverFactory((moduleName: string) => {
+        if (moduleName === "better-sqlite3") {
+          return function FakeBetterSqlite() {
+            return fakeBetterSqlite;
+          };
+        }
+        if (moduleName === "node:sqlite") {
+          nodeSqliteRequested = true;
+        }
+        throw new Error(`unexpected driver load: ${moduleName}`);
+      });
 
-    const adapter = forceNodeSqlite()(databasePath, { readonly: true, fileMustExist: true });
-    assert.ok(adapter);
-    assert.equal(adapter.driver, "node:sqlite");
-    assert.equal(
-      (adapter.prepare("SELECT value FROM items").get() as { value: string }).value,
-      "seed"
-    );
-    assert.throws(() => adapter.exec("INSERT INTO items VALUES ('write')"));
-    adapter.close();
-
-    const check = new DatabaseSync(databasePath);
-    const row = check.prepare("SELECT value FROM items").get() as { value: string };
-    check.close();
-    assert.equal(row.value, "seed");
-  });
-
-  test("forced node:sqlite fallback keeps extension loading disabled", () => {
-    if (isBun) return;
-
-    const adapter = forceNodeSqlite()(":memory:");
-    assert.ok(adapter);
-    assert.equal(adapter.driver, "node:sqlite");
-
-    const raw = adapter.raw as { loadExtension(path: string): void };
-    assert.throws(() => raw.loadExtension("not-a-trusted-extension"), {
-      code: "ERR_INVALID_STATE",
+      const adapter = openWithPreferredDriver(":memory:");
+      assert.ok(adapter);
+      assert.equal(adapter.driver, "better-sqlite3");
+      assert.equal(nodeSqliteRequested, false);
+      adapter.close();
     });
-    adapter.close();
-  });
+
+    test("forced node:sqlite fallback creates, reopens, and queries a writable database", (t) => {
+      const databasePath = createTempDatabasePath(t);
+      const openNodeSqlite = forceNodeSqlite();
+
+      const writer = openNodeSqlite(databasePath);
+      assert.ok(writer);
+      assert.equal(writer.driver, "node:sqlite");
+      writer.exec("CREATE TABLE items (value TEXT)");
+      writer.prepare("INSERT INTO items VALUES (?)").run("native");
+      writer.close();
+
+      const reader = openNodeSqlite(databasePath);
+      assert.ok(reader);
+      assert.equal(reader.driver, "node:sqlite");
+      assert.equal(
+        (reader.prepare("SELECT value FROM items").get() as { value: string }).value,
+        "native"
+      );
+      reader.close();
+    });
+
+    test("forced node:sqlite fallback does not create missing existing-only paths", (t) => {
+      const databasePath = createTempDatabasePath(t);
+      const adapter = forceNodeSqlite()(databasePath, { readonly: true, fileMustExist: true });
+
+      assert.equal(adapter, null);
+      assert.equal(fs.existsSync(databasePath), false);
+      assert.equal(fs.existsSync(`${databasePath}-wal`), false);
+      assert.equal(fs.existsSync(`${databasePath}-shm`), false);
+    });
+
+    test("forced node:sqlite fallback preserves existing read-only behavior", (t) => {
+      const databasePath = createTempDatabasePath(t);
+      const { DatabaseSync } = require("node:sqlite") as {
+        DatabaseSync: new (filePath: string) => {
+          close(): void;
+          exec(sql: string): void;
+        };
+      };
+      const seed = new DatabaseSync(databasePath);
+      seed.exec("CREATE TABLE items (value TEXT); INSERT INTO items VALUES ('seed');");
+      seed.close();
+
+      const adapter = forceNodeSqlite()(databasePath, { readonly: true, fileMustExist: true });
+      assert.ok(adapter);
+      assert.equal(adapter.driver, "node:sqlite");
+      assert.equal(
+        (adapter.prepare("SELECT value FROM items").get() as { value: string }).value,
+        "seed"
+      );
+      assert.throws(() => adapter.exec("INSERT INTO items VALUES ('write')"));
+      adapter.close();
+
+      const check = new DatabaseSync(databasePath);
+      const row = check.prepare("SELECT value FROM items").get() as { value: string };
+      check.close();
+      assert.equal(row.value, "seed");
+    });
+
+    test("forced node:sqlite fallback keeps extension loading disabled", () => {
+      const adapter = forceNodeSqlite()(":memory:");
+      assert.ok(adapter);
+      assert.equal(adapter.driver, "node:sqlite");
+
+      const raw = adapter.raw as { loadExtension(path: string): void };
+      assert.throws(() => raw.loadExtension("not-a-trusted-extension"), {
+        code: "ERR_INVALID_STATE",
+      });
+      adapter.close();
+    });
+  }
 
   test("retains the existing cascade when native drivers are unavailable", () => {
     const openWithoutNativeDrivers = createSyncDriverFactory(() => {
