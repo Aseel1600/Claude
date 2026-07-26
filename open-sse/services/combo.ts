@@ -1730,7 +1730,8 @@ export async function handleComboChat({
             config.fallbackCompressionMode !== "off"
           ) {
             const { estimateTokens } = await import("./contextManager.ts");
-            const estimatedTokens = estimateTokens(JSON.stringify(attemptBody));
+            // #7847: object, not JSON.stringify — the string branch mis-counts inline images.
+            const estimatedTokens = estimateTokens(attemptBody);
             if (estimatedTokens > (config.fallbackCompressionThreshold ?? 1000)) {
               const { applyCompression } = await import("./compression/strategySelector.ts");
               const compressionResult = applyCompression(
