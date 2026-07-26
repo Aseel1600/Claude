@@ -1085,6 +1085,11 @@ export async function handleChatCore({
   // settings read below, then threaded to executor.execute() further down. Lives at
   // function scope because the read happens inside the per-message compression block.
   let contextEditingEnabled = false;
+  // Hoisted to function scope (not just the compression-block scope below) so the
+  // combo-resolved override survives to the final enforceOutputTokenBudget() call
+  // further down — see #8378 (context limit resolved by the combo was silently
+  // discarded because it only existed inside this `if` block).
+  let contextLimit = getTokenLimit(provider, effectiveModel);
   if (body && Array.isArray(allMessages) && allMessages.length > 0) {
     let estimatedTokens = estimateTokens(allMessages);
     const compressionSettingsResult = await resolveCompressionSettings(log);
@@ -1677,8 +1682,6 @@ export async function handleChatCore({
         "Skipping proactive context compression: Prompt Compression disabled"
       );
     }
-    let contextLimit = getTokenLimit(provider, effectiveModel);
-
     if (isCombo && comboName) {
       log?.info?.("CONTEXT", `Attempting to resolve combo limits for comboName=${comboName}`);
       try {
@@ -1807,7 +1810,7 @@ export async function handleChatCore({
     (Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0) +
     estimateTokens(body?.system) +
     estimateTokens(body?.instructions);
-  const finalContextLimit = getTokenLimit(provider, effectiveModel);
+  const finalContextLimit = contextLimit;
   const outputBudget = enforceOutputTokenBudget(
     body as Record<string, unknown>,
     finalEstimatedInputTokens,
