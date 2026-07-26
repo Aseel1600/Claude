@@ -75,6 +75,7 @@ import {
 } from "./chatHelpers";
 import {
   isAntigravityMissingProjectError,
+  PROVIDER_BREAKER_FAILURE_STATUSES,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
@@ -101,7 +102,7 @@ import { generateRequestId } from "../../shared/utils/requestId";
 import { logAuditEvent } from "../../lib/compliance/index";
 import { enforceApiKeyPolicy } from "../../shared/utils/apiKeyPolicy";
 import { hasProviderQuotaBypassScope } from "../../shared/constants/apiKeyPolicyScopes";
-import { cloneLogPayload } from "@/lib/logPayloads";
+import { cloneBoundedForLog } from "@omniroute/open-sse/utils/requestLogger.ts";
 import { handleInternalUsageCommand } from "@/lib/usage/internalUsageCommand";
 import {
   applyTaskAwareRouting,
@@ -137,6 +138,7 @@ import { registerGrokWebQuotaFetcher } from "@omniroute/open-sse/services/grokQu
 import { registerGenericQuotaFetchers } from "@omniroute/open-sse/services/genericQuotaFetcher.ts";
 import "@omniroute/open-sse/services/quotaTrackersBatch.ts";
 import {
+  disableCooldownAwareRetry,
   getCooldownAwareRetryDecision,
   resolveCooldownAwareRetrySettings,
   waitForCooldownAwareRetry,
@@ -956,42 +958,10 @@ export async function handleChat(
   return withCorrelationId(withSessionHeader(response, sessionId), reqId);
 }
 
-export function buildClientRawRequest(request: Request, body: unknown) {
-  const url = new URL(request.url);
-  return {
-    endpoint: url.pathname,
-    body: cloneLogPayload(body),
-    headers: Object.fromEntries(request.headers.entries()),
-    signal: request.signal ?? null,
-  };
-}
-
-/**
- * #7360 follow-up: chatCore.ts's createStreamController (and, downstream,
- * withRateLimit/acquireAccountSemaphore) only ever watches
- * clientRawRequest.signal — the ORIGINAL client's request signal, which stays
- * open for as long as the overall combo keeps retrying elsewhere. A target
- * abandoned by comboTargetTimeoutMs (open-sse/services/combo/targetTimeoutRunner.ts)
- * never learns it was abandoned, and hangs forever (leaking a permanent
- * "pending" dashboard entry — trackPendingRequest(false) never runs; live
- * incident, log id 1784418258231-14961a). Merges the per-target
- * modelAbortSignal (when present) into clientRawRequest.signal so an
- * abandoned dispatch can actually observe its own abort and reach its
- * cleanup path — returns clientRawRequest unchanged when there's no
- * modelAbortSignal to merge in (the non-combo / non-timed-out common case).
- */
-export function resolveDispatchClientRawRequest(
-  clientRawRequest: { signal?: AbortSignal | null } | null | undefined,
-  modelAbortSignal: AbortSignal | null | undefined
-): typeof clientRawRequest {
-  if (!modelAbortSignal) return clientRawRequest;
-  return {
-    ...clientRawRequest,
-    signal: clientRawRequest?.signal
-      ? mergeAbortSignals(clientRawRequest.signal, modelAbortSignal)
-      : modelAbortSignal,
-  };
-}
+// The clientRawRequest envelope lives in ./chat/clientRawRequest.ts. Imported for local use
+// below and re-exported for the historical public surface.
+import { buildClientRawRequest, resolveDispatchClientRawRequest } from "./chat/clientRawRequest.ts";
+export { buildClientRawRequest, resolveDispatchClientRawRequest };
 
 /**
  * Handle single model chat request
@@ -1224,18 +1194,13 @@ async function handleSingleModelChat(
   const baseRetrySettings = resolveCooldownAwareRetrySettings(
     runtimeOptions.cachedSettings ?? (await getCachedSettings().catch(() => ({})))
   );
-  const disableCooldownAwareRetry =
-    isCombo || forceLiveComboTest || runtimeOptions.emergencyFallbackTried === true;
-  const retrySettings = disableCooldownAwareRetry
-    ? {
-        ...baseRetrySettings,
-        enabled: false,
-        maxRetries: 0,
-        maxRetryWaitSec: 0,
-        maxRetryWaitMs: 0,
-        budgetMs: 0,
-      }
-    : baseRetrySettings;
+  const retrySettings = disableCooldownAwareRetry(
+    baseRetrySettings,
+    provider === "claude-web" ||
+      isCombo ||
+      forceLiveComboTest ||
+      runtimeOptions.emergencyFallbackTried === true
+  );
   const requestSignal = request?.signal ?? null;
   // Cumulative cap across all waits for this request (#7360 follow-up) — mirrors
   // combo.ts's comboCooldownBudgetLeftMs. Declared outside requestAttemptLoop so

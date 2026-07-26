@@ -15,11 +15,11 @@ const {
   capThinkingBudget,
 } = await import("../../src/shared/constants/modelSpecs.ts");
 
-test("T31: antigravity static catalog exposes client-visible Gemini preview IDs", () => {
-  // Antigravity exposes preview aliases to clients even though the upstream
-  // still accepts its internal model identifiers.
+test("T31: antigravity static catalog exposes client-visible Gemini model IDs", () => {
+  // Antigravity's static catalog surfaces the live, client-visible model IDs returned by
+  // the model selector (#8013 refactor: gemini-3.6-flash-high is the current defaultAgentModelId).
   const staticIds = (getStaticModelsForProvider("antigravity") || []).map((m) => m.id);
-  assert.ok(staticIds.includes("gemini-3-pro-preview"));
+  assert.ok(staticIds.includes("gemini-3.6-flash-high"));
   // #3303 (agy parity, discussion #3184): the Gemini + Claude budget tiers ARE
   // client-visible on the Antigravity OAuth backend (Claude was never removed).
   assert.ok(staticIds.includes("gemini-3.1-pro-low"));
@@ -52,6 +52,7 @@ test("T34: max output tokens are capped by model spec", () => {
   assert.equal(capMaxOutputTokens("gemini-3-flash", 131072), 65536);
   assert.equal(capMaxOutputTokens("gemini-3-flash"), 65536);
   assert.equal(capMaxOutputTokens("gemini-3.1-pro-high", 131072), 65535);
+  assert.equal(capMaxOutputTokens("claude-opus-5", 200000), 128000);
   assert.equal(capMaxOutputTokens("claude-opus-4-8", 200000), 128000);
   assert.equal(capMaxOutputTokens("claude-opus-4-7", 200000), 128000);
   assert.equal(capMaxOutputTokens("anthropic.claude-sonnet-4-6", 200000), 64000);
@@ -67,6 +68,8 @@ test("T38: modelSpecs exposes centralized helpers with alias and prefix lookup",
   assert.equal(getModelSpec("gemini-3-flash-preview").maxOutputTokens, 65536);
   assert.equal(getModelSpec("gemini-3.1-pro-preview").maxOutputTokens, 65535);
   assert.equal(getModelSpec("gemini-3.1-pro-preview-customtools").maxOutputTokens, 65535);
+  assert.equal(getModelSpec("claude-opus-5").contextWindow, 1000000);
+  assert.equal(getModelSpec("anthropic.claude-opus-5").maxOutputTokens, 128000);
   assert.equal(getModelSpec("claude-opus-4-7").contextWindow, 1000000);
   assert.equal(getModelSpec("claude-opus-4.8").maxOutputTokens, 128000);
   assert.equal(getModelSpec("claude-opus-4.7").maxOutputTokens, 128000);
