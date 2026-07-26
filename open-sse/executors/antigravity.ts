@@ -22,6 +22,7 @@ import {
   antigravityUserAgent,
 } from "../services/antigravityHeaders.ts";
 import { classify429, decide429, type Decision } from "../services/antigravity429Engine.ts";
+import { lockExactModel } from "../services/accountFallback.ts";
 import {
   injectCreditsField,
   shouldRetryWithCredits,
@@ -1324,7 +1325,8 @@ export class AntigravityExecutor extends BaseExecutor {
               // 3. Decide final retry time BEFORE the credits retry so that
               //    full_quota_exhausted can skip the credits attempt entirely
               //    (avoids ~41s hold on an already-exhausted account) and
-              //    persist the cooldown to DB for post-restart routing.
+              //    lock only this exact model so a Claude quota exhaustion does
+              //    not disable Gemini or another Claude model on this account.
               const decision: Decision = decide429(category, parsedRetryMs);
               retryMs = decision.retryAfterMs;
               log?.debug?.(
@@ -1333,7 +1335,7 @@ export class AntigravityExecutor extends BaseExecutor {
               );
 
               if (decision.kind === "full_quota_exhausted" && retryMs) {
-                markConnectionQuotaExhausted(accountId, retryMs);
+                lockExactModel(this.provider, accountId, model, "quota_exhausted", retryMs);
               }
 
               const creditsAlreadyInjected =

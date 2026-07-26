@@ -1686,7 +1686,10 @@ async function handleSingleModelChat(
             result.status,
             0,
             providerProfile,
-            { maxCooldownMs: mlSettings.maxCooldownMs }
+            {
+              maxCooldownMs: mlSettings.maxCooldownMs,
+              scope: provider === "antigravity" ? "exact" : undefined,
+            }
           );
 
           log.info(
