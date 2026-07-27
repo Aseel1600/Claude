@@ -7,6 +7,7 @@
 
 import { REGISTRY } from "../config/providerRegistry.ts";
 import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import { parseModel } from "./model.ts";
 import { jsonLength } from "../utils/jsonSize.ts";
 
 // Default token limits per provider (fallbacks when not in registry)
@@ -193,6 +194,34 @@ export function estimateTokens(text: string | object | null | undefined): number
  */
 export function getTokenLimit(provider: string, model: string | null = null): number {
   return resolveTokenLimit(provider, model).limit;
+}
+
+/**
+ * Resolve a combo target's token limit without crashing when `parseModel(modelStr)`
+ * returns `provider: null` (model id with no `provider/` prefix).
+ *
+ * `ResolvedComboTarget.provider` is populated independently of `modelStr`, so fall
+ * back to it before calling `getTokenLimit` (#8716).
+ */
+export function getComboTargetTokenLimit(options: {
+  modelStr?: string | null;
+  provider?: string | null;
+  parsedProvider?: string | null;
+  parsedModel?: string | null;
+  targetProvider?: string | null;
+}): number {
+  let parsedProvider = options.parsedProvider;
+  let parsedModel = options.parsedModel;
+  if (
+    (parsedProvider === undefined || parsedModel === undefined) &&
+    Object.prototype.hasOwnProperty.call(options, "modelStr")
+  ) {
+    const parsed = parseModel(options.modelStr);
+    if (parsedProvider === undefined) parsedProvider = parsed.provider;
+    if (parsedModel === undefined) parsedModel = parsed.model;
+  }
+  const provider = parsedProvider ?? options.targetProvider ?? options.provider ?? "unknown";
+  return getTokenLimit(provider, parsedModel ?? null);
 }
 
 /**
