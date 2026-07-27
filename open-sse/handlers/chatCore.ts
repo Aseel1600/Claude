@@ -2512,6 +2512,16 @@ export async function handleChatCore({
           "QUOTA_SHARE",
           `[quotaShare] blocked apiKeyId=${apiKeyInfo.id} provider=${provider ?? "unknown"}: ${decision.reason}`
         );
+        // Finalize the pending-request slot registered at handler entry — this
+        // return path never reaches the upstream, and without the decrement the
+        // pending detail lingers as an orphaned status-0 call-log row until the
+        // reaper sweeps it (mirrors the other pre-upstream error returns).
+        trackPendingRequest(
+          model,
+          provider,
+          connectionId || credentials?.connectionId || null,
+          false
+        );
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (decision.retryAfterSeconds) {
           headers["Retry-After"] = String(decision.retryAfterSeconds);
