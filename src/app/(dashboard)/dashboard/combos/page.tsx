@@ -32,6 +32,8 @@ import {
   buildManualComboModelStep,
   buildPrecisionComboModelStep,
   canAccessComboBuilderStage,
+  computeBatchAddModelSteps,
+  computeBatchDeselectModelSteps,
   filterGlobalModelList,
   findNextSuggestedConnectionId,
   getComboBuilderStageChecks,
@@ -2554,6 +2556,26 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     setBuilderError("");
   };
 
+  // Batch add for ModelSelectModal "Select all" — delegates to the pure
+  // computeBatchAddModelSteps (src/lib/combos/builderDraft.ts) which applies
+  // every candidate against a growing list in one pass, otherwise N× onSelect
+  // would each close over the same stale `models` snapshot and keep only the
+  // last entry. Extracted so tests exercise this real implementation instead
+  // of a hand-maintained mirror (#8526).
+  const handleAddModels = (selected) => {
+    const { next, addedAny } = computeBatchAddModelSteps(models, selected, builderProviders);
+    if (!addedAny) return;
+    setModels(next);
+    setBuilderError("");
+  };
+
+  const handleDeselectModels = (toRemove) => {
+    const next = computeBatchDeselectModelSteps(models, toRemove);
+    if (next === models) return;
+    setModels(next);
+    setBuilderError("");
+  };
+
   const handleWeightChange = (index, weight) => {
     const newModels = [...models];
     newModels[index] = {
@@ -4605,6 +4627,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
         onClose={() => setShowModelSelect(false)}
         onSelect={handleAddModel}
         onDeselect={handleDeselectModel}
+        onSelectMany={handleAddModels}
+        onDeselectMany={handleDeselectModels}
         activeProviders={activeProviders}
         modelAliases={modelAliases}
         title={t("addModelToCombo")}
