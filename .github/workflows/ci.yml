@@ -35,7 +35,7 @@ jobs:
       workflow: ${{ steps.classify.outputs.workflow }}
       testsOnly: ${{ steps.classify.outputs.testsOnly }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -477,6 +477,7 @@ jobs:
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - run: node scripts/i18n/check-glossary-consistency.mjs --locale=zh-CN
+      - run: node scripts/i18n/check-glossary-consistency.mjs --locale=zh-TW
 
   # D4 (plano mestre testes+CI): a matrix de ~40 jobs de <1min por idioma saturava sozinha
   # a concorrência de jobs da conta (Free = 20 slots, compartilhados entre TODOS os repos)

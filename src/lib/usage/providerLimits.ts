@@ -36,7 +36,6 @@ import {
   sanitizeUsageQuotasForProvider,
 } from "./providerLimits/quotaNormalize";
 import { syncInChunksWithSpacing } from "./providerLimits/chunkedSpacingSync";
-
 type JsonRecord = Record<string, unknown>;
 type SyncSource = "manual" | "scheduled";
 
@@ -88,6 +87,7 @@ const PROVIDER_LIMITS_APIKEY_PROVIDERS = new Set([
   // HyperAgent session cookie → billing/usage creditBlocks
   "hyperagent",
   "ha",
+  "firecrawl",
 ]);
 const DEFAULT_PROVIDER_LIMITS_SYNC_INTERVAL_MINUTES = 70;
 const PROVIDER_LIMITS_AUTO_SYNC_SETTING_KEY = "provider_limits_auto_sync_last_run";

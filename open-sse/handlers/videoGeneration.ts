@@ -19,7 +19,7 @@ import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandle
 import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { handleAdobeFireflyVideoGeneration } from "./videoGeneration/adobeFireflyHandler.ts";
 import { getExecutor } from "../executors/index.ts";
-import { isJsonObject, parseKieResultJson } from "../utils/kieTask.ts";
+import { getKieTaskId, isJsonObject, parseKieResultJson } from "../utils/kieTask.ts";
 import {
   buildRunwayApiUrl,
   buildRunwayHeaders,
@@ -540,7 +540,7 @@ async function handleKieVideoGeneration({
 
   try {
     const createData = await kieExecutor.createTask({ baseUrl, token, payload });
-    const taskId = createData?.data?.taskId || createData?.taskId;
+    const taskId = getKieTaskId(createData);
     if (!taskId) {
       const errorMessage =
         createData?.msg ||
