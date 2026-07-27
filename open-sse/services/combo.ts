@@ -188,6 +188,7 @@ import { resolveShadowTargets, scheduleShadowRouting } from "./combo/shadowRouti
 import { attemptCompatRejectedFallback } from "./combo/comboCompatFallback.ts";
 import {
   computeCompatRejectedTargets,
+  describeCapabilityFilterExhaustion,
   filterTargetsByRequestCompatibility,
   resolveComboRuntimeUnits,
   resolveComboTargets,
@@ -2232,11 +2233,17 @@ async function handleRoundRobinCombo({
       { code: "context_length_exceeded", type: "invalid_request_error" }
     );
   }
+  // Align with the main/auto paths: combo config OR top-level settings (#8488 / #8494).
+  const rrCompatFailOpen =
+    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
+    (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
+      true;
   let filteredTargets = filterTargetsByRequestCompatibility(
     evalRankedTargets,
     body,
     log,
-    "Context-aware round-robin fallback"
+    "Context-aware round-robin fallback",
+    { failOpen: rrCompatFailOpen }
   );
   // #6238: keep the targets the compat pre-filter rejected so they can serve as a
   // last-resort fallback tier. The pre-filter drops request-incompatible targets
@@ -2250,6 +2257,25 @@ async function handleRoundRobinCombo({
   );
   let modelCount = filteredTargets.length;
   if (modelCount === 0) {
+    const exhaustion = describeCapabilityFilterExhaustion(
+      evalRankedTargets,
+      body,
+      rrExpandedCombo?.name || combo?.name
+    );
+    if (exhaustion) {
+      return errorResponseWithComboDiagnostics(
+        400,
+        exhaustion.message,
+        {
+          poolSize: evalRankedTargets.length,
+          attempted: 0,
+          excluded: exhaustion.excluded,
+          attemptOrder: [],
+          terminalReason: exhaustion.terminalReason,
+        },
+        { code: "capability_mismatch", type: "invalid_request_error" }
+      );
+    }
     return comboModelNotFoundResponse("Round-robin combo has no executable targets");
   }
 

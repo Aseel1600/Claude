@@ -45,13 +45,16 @@ import type { ResilienceSettings } from "../../../src/lib/resilience/settings";
 import { applyStrategyOrdering } from "./applyStrategyOrdering.ts";
 import { clampComboDepth } from "./comboPredicates.ts";
 import {
+  describeCapabilityFilterExhaustion,
   filterTargetsByRequestCompatibility,
   resolveComboTargets,
   resolveWeightedStepGroups,
   resolveWeightedTargets,
 } from "./comboStructure.ts";
 import { applyContextRequirements } from "./contextRequirements.ts";
+import { recordComboFailure } from "./failureTracker.ts";
 import { getKnownContextOverflow } from "./knownContextOverflow.ts";
+import { buildRecoveryHint } from "./pinRecovery.ts";
 import {
   applyPromptCacheAffinity,
   expandPromptCacheAffinityTargets,
@@ -440,12 +443,19 @@ async function orderByStrategy(
 /**
  * Continuity + eligibility filters: cache-strategy affinity, session stickiness,
  * eval-score ordering, request compatibility and per-combo context requirements.
+ *
+ * May return `{ earlyResponse }` when hard capability filters (#8488 / #8494) empty
+ * the pool — tools / vision / structured_output fail closed as 400 capability_mismatch
+ * unless `compatFilterFailOpen` is set on the combo config or settings.
  */
 async function applyContinuityFilters(
   deps: ResolveComboTargetPipelineDeps,
   initialOrderedTargets: ResolvedComboTarget[]
-): Promise<{ orderedTargets: ResolvedComboTarget[]; sticky: ApplyStickinessResult }> {
-  const { strategy, body, config, settings, log } = deps;
+): Promise<
+  | { orderedTargets: ResolvedComboTarget[]; sticky: ApplyStickinessResult }
+  | { earlyResponse: Response }
+> {
+  const { strategy, body, combo, config, settings, log, relayOptions } = deps;
   // An explicit cache-optimized combo outranks the global cache-affinity default,
   // but only protects its ordering when this request actually produced a reusable
   // cache key. Cache misses retain the normal session/eval routing behavior.
@@ -473,7 +483,41 @@ async function applyContinuityFilters(
   if (!cacheStrategyAffinityApplied) {
     orderedTargets = orderTargetsByEvalScores(orderedTargets, config.evalRouting, log);
   }
-  orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log);
+  // #8488 / #8494: fail closed when hard capability filters empty the pool.
+  // Opt-in escape hatch: combo.config.compatFilterFailOpen OR settings.compatFilterFailOpen.
+  const compatFilterFailOpen =
+    (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
+    (settings as { compatFilterFailOpen?: unknown } | null | undefined)?.compatFilterFailOpen ===
+      true;
+  const preCompatTargets = orderedTargets;
+  orderedTargets = filterTargetsByRequestCompatibility(orderedTargets, body, log, undefined, {
+    failOpen: compatFilterFailOpen,
+  });
+  if (orderedTargets.length === 0 && preCompatTargets.length > 0) {
+    const exhaustion = describeCapabilityFilterExhaustion(preCompatTargets, body, combo.name);
+    if (exhaustion) {
+      // Match handleComboChat: only track failures under context-cache protection pins.
+      const effectiveSessionId: string | null = combo.context_cache_protection
+        ? (relayOptions?.sessionId ?? null)
+        : null;
+      recordComboFailure(effectiveSessionId, combo.name);
+      return {
+        earlyResponse: errorResponseWithComboDiagnostics(
+          400,
+          exhaustion.message,
+          {
+            poolSize: preCompatTargets.length,
+            attempted: 0,
+            excluded: exhaustion.excluded,
+            attemptOrder: [],
+            terminalReason: exhaustion.terminalReason,
+            recovery: buildRecoveryHint("no_executable_targets"),
+          },
+          { code: "capability_mismatch", type: "invalid_request_error" }
+        ),
+      };
+    }
+  }
   orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
   return { orderedTargets, sticky };
 }
@@ -642,6 +686,7 @@ export async function resolveComboTargetPipeline(
   const { autoUsedExplicitRouter } = ordering;
 
   const continuity = await applyContinuityFilters(deps, ordering.orderedTargets);
+  if ("earlyResponse" in continuity) return continuity;
   orderedTargets = applyTaskAwareOrdering(deps, continuity.orderedTargets, autoUsedExplicitRouter);
   orderedTargets = await applyPromptCacheStage(
     deps,
