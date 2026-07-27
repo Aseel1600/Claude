@@ -441,6 +441,13 @@ export async function maybeClearRecoveredQuotaState(
 ): Promise<ProviderConnectionLike> {
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
+  if (
+    connection.lastErrorType === "quota_exhausted" &&
+    connection.rateLimitedUntil &&
+    new Date(connection.rateLimitedUntil).getTime() > Date.now()
+  ) {
+    return connection;
+  }
 
   const hasTransientState =
     connection.testStatus === "unavailable" ||
