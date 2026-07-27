@@ -569,6 +569,17 @@ export async function registerNodejs(): Promise<void> {
           console.warn("[STARTUP] memory decay sweep failed to start (non-fatal):", msg);
         }),
 
+      // Backup schedule (#8513): execute `backup-schedule.json` cron server-side.
+      // Reads the schedule written by `omniroute backup auto enable` and fires
+      // `runBackupCommand` when the cron expression matches. Self-gated: no-op
+      // when no schedule file exists or the schedule is disabled. Never fatal.
+      import("@/lib/jobs/backupScheduleJob")
+        .then((m) => m.startBackupScheduleJob())
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] backup schedule job failed to start (non-fatal):", msg);
+        }),
+
       // Real-time dashboard WebSocket daemon (port 20132): powers Combo Studio Live,
       // the Home live-pulse, and Live Compression. Side-effect import triggers the
       // flag-gated auto-start (OMNIROUTE_ENABLE_LIVE_WS, default ON).

@@ -276,36 +276,35 @@ export function getModelsDevTierFitness(model: string, taskType: string): number
 
   const dbScore = queryModelIntelligence(normalizedModel, normalizedTask, "models_dev_tier");
   if (dbScore !== null) return dbScore;
-  const dbScoreBase = lookupFreeAliasIntelligence(
-    normalizedModel,
-    normalizedTask,
-    "models_dev_tier"
-  );
-  if (dbScoreBase !== null) return dbScoreBase;
 
-  const caps = loadModelCapabilities();
-  if (caps) {
-    const baseId = normalizedModel.endsWith(FREE_SUFFIX)
-      ? normalizedModel.slice(0, -FREE_SUFFIX.length)
-      : "";
-    const capRow = caps[normalizedModel] ?? (baseId ? caps[baseId] : undefined);
-    if (capRow) {
-      const tier = deriveTierFromCapabilities(capRow);
-      const tierScores = TIER_TASK_FITNESS[tier];
-      if (tierScores) {
-        return tierScores[normalizedTask] ?? tierScores.default ?? null;
-      }
-    }
+  const baseModel = normalizedModel.endsWith(FREE_SUFFIX)
+    ? normalizedModel.slice(0, -FREE_SUFFIX.length)
+    : normalizedModel;
+
+  if (baseModel !== normalizedModel) {
+    const baseDbScore = queryModelIntelligence(baseModel, normalizedTask, "models_dev_tier");
+    if (baseDbScore !== null) return baseDbScore;
   }
 
-  return null;
+  const caps = loadModelCapabilities();
+  if (!caps) return null;
+
+  const capRow = caps[normalizedModel] || caps[baseModel];
+  if (!capRow) return null;
+
+  const tier = deriveTierFromCapabilities(capRow);
+  const tierScores = TIER_TASK_FITNESS[tier];
+  if (!tierScores) return null;
+
+  return tierScores[normalizedTask] ?? tierScores.default ?? null;
 }
 
 // ─── Resolution chain ───────────────────────────────────────────────────
 
 function lookupStaticFitnessTable(normalizedModel: string, normalizedTask: string): number | null {
   const table = FITNESS_TABLE[normalizedTask] || FITNESS_TABLE.default;
-  for (const [pattern, score] of Object.entries(table)) {
+  const entries = Object.entries(table).sort((a, b) => b[0].length - a[0].length);
+  for (const [pattern, score] of entries) {
     if (normalizedModel.includes(pattern)) return score;
   }
   return null;
@@ -348,7 +347,7 @@ export function getTaskFitnessWithSource(
   if (arenaElo !== null) {
     return { score: arenaElo, source: "arena_elo" };
   }
-  const arenaEloBase = lookupFreeAliasIntelligence(normalizedModel, normalizedTask, "arena_elo");
+  const arenaEloBase = lookupFreeAliasArenaElo(normalizedModel, normalizedTask);
   if (arenaEloBase !== null) {
     return { score: arenaEloBase, source: "arena_elo_free_alias" };
   }
@@ -358,12 +357,16 @@ export function getTaskFitnessWithSource(
     return { score: tierScore, source: "models_dev_tier" };
   }
 
-  const staticScore = lookupStaticFitnessTable(normalizedModel, normalizedTask);
+  const baseModel = normalizedModel.endsWith(FREE_SUFFIX)
+    ? normalizedModel.slice(0, -FREE_SUFFIX.length)
+    : normalizedModel;
+
+  const staticScore = lookupStaticFitnessTable(baseModel, normalizedTask);
   if (staticScore !== null) {
     return { score: staticScore, source: "fitness_table" };
   }
 
-  return { score: lookupWildcardBoosts(normalizedModel, normalizedTask), source: "wildcard_boost" };
+  return { score: lookupWildcardBoosts(baseModel, normalizedTask), source: "wildcard_boost" };
 }
 
 /** Suffix used to mark free-tier model variants (e.g. "mimo-v2.5-free"). */
@@ -379,15 +382,11 @@ const FREE_SUFFIX = "-free";
  *   "deepseek-v4-flash-free" → look up "deepseek-v4-flash"
  *   "big-pickle"       → no "-free" suffix → return null (skip)
  */
-function lookupFreeAliasIntelligence(
-  normalizedModel: string,
-  normalizedTask: string,
-  source: string
-): number | null {
+function lookupFreeAliasArenaElo(normalizedModel: string, normalizedTask: string): number | null {
   if (!normalizedModel.endsWith(FREE_SUFFIX)) return null;
   const baseId = normalizedModel.slice(0, -FREE_SUFFIX.length);
   if (baseId.length === 0 || baseId === normalizedModel) return null;
-  return queryModelIntelligence(baseId, normalizedTask, source);
+  return queryModelIntelligence(baseId, normalizedTask, "arena_elo");
 }
 
 export function setUserFitnessOverride(model: string, category: string, score: number): void {
