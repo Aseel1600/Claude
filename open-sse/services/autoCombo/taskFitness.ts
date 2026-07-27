@@ -239,6 +239,11 @@ function loadModelCapabilities(): Record<string, ModelCapRow> | null {
 
   try {
     const db = getDbInstance();
+    const tableExists = db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='model_capabilities'")
+      .get();
+    if (!tableExists) return null;
+
     const rows = db.prepare("SELECT * FROM model_capabilities").all() as Record<string, unknown>[];
     const cache: Record<string, ModelCapRow> = {};
 
