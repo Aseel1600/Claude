@@ -86,6 +86,101 @@ function extractXmlInvokeBlocks(
   return { cleaned, toolCalls };
 }
 
+/**
+ * Detect Mistral / other OpenAI-compatible upstreams that emit serialized
+ * Anthropic content blocks as raw text in delta.content (e.g.
+ * `[{"type":"thinking","thinking":"..."},{"type":"text","text":"Hello"}]`).
+ *
+ * Parse the array and emit proper structured content_block_* SSE events
+ * instead of a raw text_delta containing JSON.
+ */
+function parseAnthropicContentBlockArray(
+  raw: string
+): Array<Record<string, unknown>> | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("[{")) return null;
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const validTypes = new Set([
+      "text",
+      "thinking",
+      "tool_use",
+      "image",
+      "tool_result",
+    ]);
+    for (const block of parsed) {
+      if (!block || typeof block !== "object") return null;
+      if (!validTypes.has(block.type)) return null;
+    }
+    // For thinking blocks, flatten nested content arrays into a string.
+    for (const block of parsed) {
+      if (block.type === "thinking") {
+        const thinking = block.thinking;
+        if (typeof thinking === "string") continue; // already flat
+        if (Array.isArray(thinking)) {
+          block.thinking = thinking
+            .map((item: Record<string, unknown>) => {
+              if (item && item.type === "text" && typeof item.text === "string")
+                return item.text;
+              return "";
+            })
+            .filter(Boolean)
+            .join("");
+        }
+      }
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+/** Emit a thinking block for a single chunk of reasoning text. */
+function emitThinkingDelta(
+  state: Record<string, unknown>,
+  results: Array<Record<string, unknown>>,
+  thinkingText: string
+) {
+  if (!state.thinkingBlockStarted) {
+    state.thinkingBlockIndex = state.nextBlockIndex++;
+    state.thinkingBlockStarted = true;
+    results.push({
+      type: "content_block_start",
+      index: state.thinkingBlockIndex,
+      content_block: { type: "thinking", thinking: "" },
+    });
+  }
+  results.push({
+    type: "content_block_delta",
+    index: state.thinkingBlockIndex,
+    delta: { type: "thinking_delta", thinking: thinkingText },
+  });
+}
+
+/** Emit a text block for a single chunk of text. */
+function emitTextDelta(
+  state: Record<string, unknown>,
+  results: Array<Record<string, unknown>>,
+  text: string
+) {
+  if (!state.textBlockStarted) {
+    state.textBlockIndex = state.nextBlockIndex++;
+    state.textBlockStarted = true;
+    state.textBlockClosed = false;
+    results.push({
+      type: "content_block_start",
+      index: state.textBlockIndex,
+      content_block: { type: "text", text: "" },
+    });
+  }
+  results.push({
+    type: "content_block_delta",
+    index: state.textBlockIndex,
+    delta: { type: "text_delta", text },
+  });
+}
+
 // Helper: stop thinking block if started
 function stopThinkingBlock(state, results) {
   if (!state.thinkingBlockStarted) return;
@@ -238,7 +333,30 @@ export function openaiToClaudeResponse(chunk, state) {
     const rawContent = typeof delta.content === "string"
       ? delta.content
       : JSON.stringify(delta.content);
-    const strippedContent = stripInternalReasoningPlaceholder(rawContent);
+
+    // Detect Mistral/other models emitting serialized Anthropic content
+    // block arrays as raw text in delta.content. Parse them and emit
+    // proper structured content_block_* events instead of raw JSON.
+    const parsedBlocks = parseAnthropicContentBlockArray(rawContent);
+    if (parsedBlocks) {
+      stopThinkingBlock(state, results);
+      for (const block of parsedBlocks) {
+        if (block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
+          emitThinkingDelta(state, results, block.thinking);
+        } else if (block.type === "text" && typeof block.text === "string" && block.text) {
+          stopThinkingBlock(state, results);
+          emitTextDelta(state, results, block.text);
+        }
+        // tool_use blocks from this path are rare — skip them safely;
+        // proper tool calls arrive via delta.tool_calls and finish_reason.
+      }
+      // If the chunk also carries tool_calls or finish_reason, process
+      // them below (do not return early).
+    }
+
+    const strippedContent = parsedBlocks
+      ? "" // already handled above, skip text emission
+      : stripInternalReasoningPlaceholder(rawContent);
     if (strippedContent) {
       stopThinkingBlock(state, results);
 
