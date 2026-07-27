@@ -1578,7 +1578,8 @@ export function checkFallbackError(
       const subResult = buildSubscriptionQuotaFallback(
         errorStr,
         getUpstreamRetryHintMs,
-        parseRetryFromErrorText
+        parseRetryFromErrorText,
+        provider
       );
       if (subResult) return subResult;
     }

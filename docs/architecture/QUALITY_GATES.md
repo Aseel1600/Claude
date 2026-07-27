@@ -116,9 +116,53 @@ Runs on every PR to `main`. Blocks merge on failure.
 
 ### Job: `i18n-ui-coverage`
 
-| Script                            | Validates                     | Blocking |
-| --------------------------------- | ----------------------------- | -------- |
-| `check-ui-keys-coverage` (inline) | UI i18n key coverage is ≥ 65% | Yes      |
+| Script                            | Validates                                                        | Blocking |
+| --------------------------------- | ---------------------------------------------------------------- | -------- |
+| `check-ui-keys-coverage` (inline) | UI i18n key coverage is ≥ 65%                                    | Yes      |
+| `check-ui-value-drift` (inline)   | A rewritten English **value** leaves no stale translation behind | Yes      |
+
+Needs `fetch-depth: 0` — the value-drift gate diffs `en.json` against the merge base.
+
+#### `check-ui-value-drift` — stale-translation gate
+
+Catches the one i18n regression the other gates structurally cannot see: an English value
+is rewritten and the translations derived from the _previous_ English stay behind, so
+non-English users keep reading confidently-worded, now-wrong copy.
+
+This shipped for real. `oauthModal.googleOAuthWarning` was rewritten when the Antigravity
+login helper landed (#5203); **39 of 43 locales** kept text telling operators to "copy the
+full URL and paste it below" — a flow that cannot complete for that provider. It went
+unnoticed until #8463 because:
+
+- `sync-ui-keys` only backfills keys that are **absent**, never ones that are **stale**;
+- `check-ui-keys-coverage` counts key _presence_, so a stale translation scores as covered;
+- `check-translation-drift` tracks the `docs/i18n/<locale>/**.md` documentation mirrors —
+  it never reads `src/i18n/messages/*.json`.
+
+**Diff-aware, not baseline-backed.** It compares `en.json` at the merge base against the
+working tree; for every key whose English value changed, any locale still holding an
+untouched translation is stale. This deliberately **freezes pre-existing debt** — a diff
+cannot reveal which old English a long-standing translation came from, so the gate judges
+only what the current change touches. The alternative (a per-key hash baseline) would cost
+a ~600 KB generated file, 3× the largest existing baseline, churning on every i18n PR.
+
+Two ways to satisfy it:
+
+1. update the affected translations, or
+2. set them to `__MISSING__:<new english>` — the runtime then serves the corrected English
+   (`src/i18n/request.ts::deepMergeFallback`, #7258) and the key queues for translation.
+
+If the string's **meaning** changed, prefer **renaming the key**: a new key cannot inherit
+a stale translation. That is the pattern #8463 used.
+
+```bash
+npm run i18n:check-value-drift          # strict (what CI runs)
+npm run i18n:check-value-drift:warn     # report only
+BASE_REF=origin/release/vX.Y.Z npm run i18n:check-value-drift
+```
+
+Exits 0 with `SKIP reason=base-unresolved` when the base catalog cannot be read (shallow
+clone without the base ref), mirroring `check-openapi-breaking`.
 
 ### Job: `i18n`
 
@@ -214,6 +258,53 @@ release branch**: prefer extraction/refactor; rebaseline only with the documente
 justification entry. Never push combination drift onto a contributor PR, and never
 rebaseline per-PR (that hides real regressions). Discriminate first: reproduce the
 red against the pure tip in a probe worktree before assuming your PR caused it.
+
+## Banking Ratchet Shrinks — the downward direction (#8584)
+
+The ratchet is only half automatic, and it is the wrong half. **Raising** a cap is a
+manual JSON edit that takes ten seconds and is the fastest way to unblock a red PR.
+**Lowering** one requires someone to run `--update` and commit the result — and until
+the `bank-ratchet-shrinks` job landed, no workflow ran it. The measured consequence
+(2026-07-25): 18 frozen files already at or under the 800-line new-file cap, the worst
+at 132× (`src/shared/validation/schemas.ts`, 19 lines carrying a 2,523 cap); the
+complexity ceiling walked `1794 → 2169` across ~37 rebaseline notes with exactly one
+decrease (−1); and "tighten via `--update` next cycle" written 31 times and honoured
+once. A cap that outlives the code that earned it silently converts every completed
+decomposition into a growth allowance for whoever edits the file next.
+
+`nightly-release-green.yml` → job **`bank-ratchet-shrinks`** closes that loop:
+
+|          |                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------ |
+| Runs on  | `schedule` (3×/day) + `workflow_dispatch` — deliberately **not** `push`                                |
+| Measures | the highest `release/vX.Y.Z`, same resolution + injection guard as `release-green`                     |
+| Writes   | `check:file-size --update` and `check:complexity-ratchets --update` (both shrink-only by construction) |
+| Verifies | `npm run check:ratchet-bank` (`scripts/quality/verify-ratchet-bank.mjs`)                               |
+| Ships    | one always-current PR against the release branch — force-updated, never spammed                        |
+
+Banking is batched rather than per-push because it has no latency requirement (a shrink
+banked within 8h is fine) while a per-merge run would rebuild the PR branch repeatedly
+during merge campaigns and pay for a full ESLint walk each time. Detection stays on
+push (`release-green`); only banking is batched.
+
+### The safety verifier
+
+The job writes to the baselines unattended, so `verify-ratchet-bank.mjs` is what makes
+that acceptable. It diffs the post-`--update` tree against `HEAD` and **aborts the job
+before any commit exists** — opening no PR — unless every change is one of:
+
+- a `frozen` / `testFrozen` numeric entry **lowered** or **removed**
+- `complexity-baseline.json` → `count` **lowered**
+- `quality-baseline.json` → `metrics.cognitiveComplexity.value` **lowered**
+
+Anything else fails: raising a number, adding an entry, changing `cap`/`testCap`, or
+deleting/rewriting a `_rebaseline_*` note (those notes are the audit trail for why each
+ceiling exists and are stored inside the same `frozen` object as the file entries).
+A bot that could raise a cap would be strictly worse than the status quo. Regression
+guard: `tests/unit/verify-ratchet-bank.test.ts`.
+
+The job never pushes to `release/*` — a human merges the PR, so a bad measurement
+cannot land unreviewed.
 
 ## Allowlist Policy
 

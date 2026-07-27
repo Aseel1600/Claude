@@ -3273,21 +3273,23 @@ export async function handleChatCore({
     // can't tell apart from a per-model 5xx).
     const isProxyUnreachableFailure =
       !isRequestAborted && (error as { errorCode?: unknown })?.errorCode === "proxy_unreachable";
+    const errorCode = getUpstreamErrorIdentifier(error);
+    const isLocalQueueTimeout = errorCode === "RATE_LIMIT_QUEUE_TIMEOUT";
     const failureStatus = isRequestAborted
       ? 499
       : isProxyUnreachableFailure
         ? HTTP_STATUS.BAD_GATEWAY
-        : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
-          ? HTTP_STATUS.GATEWAY_TIMEOUT
-          : error.status && typeof error.status === "number"
-            ? error.status
-            : HTTP_STATUS.BAD_GATEWAY;
+        : isLocalQueueTimeout
+          ? HTTP_STATUS.SERVICE_UNAVAILABLE
+          : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
+            ? HTTP_STATUS.GATEWAY_TIMEOUT
+            : error.status && typeof error.status === "number"
+              ? error.status
+              : HTTP_STATUS.BAD_GATEWAY;
     const failureMessage = isRequestAborted
       ? "Request aborted"
       : formatProviderError(error, provider, model, failureStatus);
-    const upstreamErrorCode = isProxyUnreachableFailure
-      ? "proxy_unreachable"
-      : getUpstreamErrorIdentifier(error);
+    const upstreamErrorCode = isProxyUnreachableFailure ? "proxy_unreachable" : errorCode;
     // Tag our own deadline timeouts (fetch-start TimeoutError / body BodyTimeoutError,
     // both surfaced as a 504) as "upstream_timeout" so the cooldown layer can tell a
     // slow-but-not-failed request apart from a real provider 5xx. (Antigravity already
