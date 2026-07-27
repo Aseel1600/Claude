@@ -39,7 +39,9 @@
   "incremental": true,
   "incrementalFile": "reports/mutation/stryker-incremental.json",
   "testRunner": "tap",
-  "plugins": ["@stryker-mutator/tap-runner"],
+  "plugins": [
+    "@stryker-mutator/tap-runner"
+  ],
   "tap": {
     "testFiles": [
       "tests/unit/7993-noauth-proxy-routing.test.ts",
@@ -205,10 +207,12 @@
       "tests/unit/headroom-codex-quota-snapshot-6379.test.ts",
       "tests/unit/headroom-proxy-lifecycle.test.ts",
       "tests/unit/idempotency-fusion-collision.test.ts",
+      "tests/unit/isLocalStreamLifecycleError-abort-shape.test.ts",
       "tests/unit/issue-6343-v0-web-alias-collision.test.ts",
       "tests/unit/issue-6638-ollama-quota.test.ts",
       "tests/unit/issue-6686-quota-preflight-coverage.test.ts",
       "tests/unit/issue-7071-ollama-session-quota.test.ts",
+      "tests/unit/kimi-quota-reset-recovery.test.ts",
       "tests/unit/livews-forward-backoff-4604.test.ts",
       "tests/unit/management-auth-hardening.test.ts",
       "tests/unit/mark-account-unavailable-numeric-epoch-guard.test.ts",
@@ -225,6 +229,7 @@
       "tests/unit/model-lockout-exact-cooldown-cap.test.ts",
       "tests/unit/model-lockout-max-cooldown.test.ts",
       "tests/unit/no-memory-header.test.ts",
+      "tests/unit/noauth-autocombo-lockout-7623.test.ts",
       "tests/unit/non-streaming-sse-terminal-typescan-4459.test.ts",
       "tests/unit/nvidia-passthrough-models-6773.test.ts",
       "tests/unit/nvidia-quota-phase1.test.ts",
@@ -408,7 +413,11 @@
     ".worktrees",
     ".stryker-tmp"
   ],
-  "reporters": ["progress", "html", "json"],
+  "reporters": [
+    "progress",
+    "html",
+    "json"
+  ],
   "htmlReporter": {
     "fileName": "reports/mutation/mutation.html"
   },
