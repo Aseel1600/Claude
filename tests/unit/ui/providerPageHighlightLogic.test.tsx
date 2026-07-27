@@ -131,11 +131,15 @@ describe("recordProviderNavigation", () => {
 
 describe("syncSearchToUrl", () => {
   const originalReplaceState = window.history.replaceState;
-  const originalLocation = window.location;
+  const originalLocationDesc = Object.getOwnPropertyDescriptor(window, "location");
 
   afterEach(() => {
     window.history.replaceState = originalReplaceState;
-    Object.defineProperty(window, "location", { value: originalLocation, writable: true });
+    if (originalLocationDesc) {
+      Object.defineProperty(window, "location", originalLocationDesc);
+    } else {
+      Reflect.deleteProperty(window, "location");
+    }
   });
 
   it("sets search param in URL when query is non-empty", () => {
