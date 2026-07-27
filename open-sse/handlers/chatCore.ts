@@ -1705,14 +1705,19 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
-          comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) =>
-            // Fall back to ResolvedComboTarget.provider when modelStr lacks a
-            // provider/ prefix — parseModel alone returns provider:null (#8716).
-            getComboTargetTokenLimit({
-              modelStr: t.modelStr,
-              provider: t.provider,
-            })
-          );
+          comboTargetLimits = targets
+            .map((t: { modelStr?: string; provider?: string }) =>
+              // Fall back to ResolvedComboTarget.provider when modelStr lacks a
+              // provider/ prefix — parseModel alone returns provider:null (#8716).
+              getComboTargetTokenLimit({
+                modelStr: t.modelStr,
+                provider: t.provider,
+              })
+            )
+            .filter(
+              (limit): limit is number =>
+                typeof limit === "number" && Number.isFinite(limit) && limit > 0
+            );
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
