@@ -257,6 +257,7 @@ export function AgentCard({
           serverState={serverState}
           onClose={() => setWizardOpen(false)}
           onDnsToggle={onDnsToggle}
+          onMappingsSave={onMappingsSave}
         />
       )}
 

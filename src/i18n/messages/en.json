@@ -10765,6 +10765,8 @@
     "sourceModel": "Source model (agent native)",
     "targetModel": "Target model (OmniRoute)",
     "noMappings": "No model mappings configured. Run setup wizard to auto-detect models.",
+    "noMappingsDesc": "No model mappings configured yet. Add mappings to route agent requests through OmniRoute.",
+    "addMapping": "Add mapping",
     "selectModel": "Select…",
     "saveMappings": "Save mappings",
     "setupWizard": "Setup wizard",
