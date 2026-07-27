@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { AgentStateEntry } from "../AgentBridgePageClient";
+import type { AgentStateEntry, AgentBridgeServerState } from "../AgentBridgePageClient";
 import type { MitmTargetView } from "@/mitm/types";
 
 interface SetupWizardProps {
   target: MitmTargetView;
   agentState: AgentStateEntry | undefined;
   serverRunning: boolean;
+  serverState: AgentBridgeServerState;
   onClose: () => void;
   onDnsToggle: (agentId: string, enabled: boolean) => Promise<void>;
 }
@@ -25,6 +26,7 @@ export function SetupWizard({
   target,
   agentState,
   serverRunning,
+  serverState,
   onClose,
   onDnsToggle,
 }: SetupWizardProps) {
@@ -41,7 +43,8 @@ export function SetupWizard({
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  const certTrusted = agentState?.cert_trusted ?? false;
+  // Fix #8656 Issue A: Use server-level cert trust as fallback
+  const certTrusted = agentState?.cert_trusted ?? serverState.certTrusted ?? false;
   const dnsEnabled = agentState?.dns_enabled ?? false;
 
   const handleEnableDns = async () => {
