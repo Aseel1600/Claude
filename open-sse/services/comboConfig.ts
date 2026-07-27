@@ -171,6 +171,7 @@ const DEFAULT_COMBO_CONFIG = {
   contextRequirements: undefined as
     | {
         minContextWindow?: number;
+        maxContextWindow?: number;
         preferLargeContext?: boolean;
         contextFilterMode?: "strict" | "lenient";
       }
