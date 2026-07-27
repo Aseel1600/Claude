@@ -1,0 +1,489 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  password      String?    // Null for OAuth users
+  role          UserRole   @default(MERCHANT)
+  
+  // Relations
+  business      Business?
+  account       Account[]
+  session       Session[]
+  
+  // Metadata
+  emailVerified DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  lastLogin     DateTime?
+
+  @@map("users")
+}
+
+model Account {
+  id                  String  @id @default(cuid())
+  userId              String
+  type                String
+  provider            String
+  providerAccountId   String
+  refresh_token       String? @db.Text
+  access_token        String? @db.Text
+  expires_at          Int?
+  token_type          String?
+  scope               String?
+  id_token            String? @db.Text
+  session_state       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model Business {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  businessName    String
+  businessType    String   // e.g., "retail", "service", "digital"
+  registrationNum String?  // Company registration number
+  taxId           String?  // Tax identification number
+  
+  // KYC Status
+  kycStatus       KYCStatus @default(PENDING)
+  kycApprovedAt   DateTime?
+  idDocument      String?   // Path to stored ID document
+  bankStatement   String?   // Path to bank statement
+  
+  // Contact
+  phone           String?
+  website         String?
+  description     String?   @db.Text
+  
+  // Address
+  country         String    @default("ZA")
+  state           String?
+  city            String?
+  address         String?
+  postalCode      String?
+  
+  // Bank Account (for payouts)
+  bankAccountName String?
+  bankAccountNum  String?   @db.VarChar(34) // IBAN length
+  bankCode        String?   // Swift/Bank code
+  bankVerified    Boolean   @default(false)
+  
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stores          Store[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("businesses")
+}
+
+model Store {
+  id              String   @id @default(cuid())
+  businessId      String
+  name            String
+  slug            String   @unique
+  description     String?  @db.Text
+  
+  // Branding
+  logoUrl         String?
+  bannerUrl       String?
+  theme           Json?    // Store theme customization
+  
+  // Status
+  status          StoreStatus @default(DRAFT)
+  publishedAt     DateTime?
+  
+  // Metadata
+  domain          String?  @unique
+  
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  products        Product[]
+  orders          Order[]
+  settings        StoreSettings?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([slug])
+  @@map("stores")
+}
+
+model StoreSettings {
+  id              String   @id @default(cuid())
+  storeId         String   @unique
+  
+  // Payment
+  enabledPaymentMethods String[]  @default([])
+  
+  // Notifications
+  notifyEmail     String?
+  notifySms       Boolean  @default(false)
+  
+  // Tax
+  taxRate         Float?   @default(0)
+  
+  // Shipping
+  shippingRates   Json?
+  
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("store_settings")
+}
+
+model Product {
+  id              String   @id @default(cuid())
+  storeId         String
+  name            String
+  slug            String
+  description     String?  @db.Text
+  price           Float
+  costPrice       Float?   // Cost for margin calculation
+  
+  // Images
+  images          String[] @default([]) // URLs
+  
+  // Inventory
+  quantity        Int      @default(0)
+  sku             String?
+  
+  // Status
+  status          ProductStatus @default(DRAFT)
+  
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderItems      OrderItem[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+  @@map("products")
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  storeId         String
+  
+  // Customer
+  customerEmail   String
+  customerName    String
+  customerPhone   String?
+  
+  // Order Details
+  items           OrderItem[]
+  subtotal        Float
+  tax             Float    @default(0)
+  shippingFee     Float    @default(0)
+  total           Float
+  
+  // Status
+  status          OrderStatus @default(PENDING)
+  
+  // Payment
+  payment         Payment?
+  
+  // Fulfillment
+  fulfillmentStatus FulfillmentStatus @default(UNFULFILLED)
+  trackingNumber  String?
+  notes           String?  @db.Text
+  
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([storeId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  productId       String
+  quantity        Int
+  price           Float    // Price at time of purchase
+  total           Float
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product  @relation(fields: [productId], references: [id])
+  
+  @@map("order_items")
+}
+
+model Payment {
+  id              String   @id @default(cuid())
+  orderId         String   @unique
+  
+  // Provider
+  provider        PaymentProvider // OZOW, PAYSTACK, etc.
+  transactionId   String   @unique
+  
+  // Amount
+  amount          Float
+  currency        String   @default("ZAR")
+  
+  // Status
+  status          PaymentStatus @default(PENDING)
+  
+  // References
+  reference       String?
+  metadata        Json?
+  
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  webhook         Webhook? @relation("PaymentWebhook")
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([provider])
+  @@index([status])
+  @@map("payments")
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  invoiceNumber   String   @unique
+  orderId         String?
+  
+  businessId      String
+  
+  // Invoice Details
+  issueDate       DateTime @default(now())
+  dueDate         DateTime
+  paidAt          DateTime?
+  
+  amount          Float
+  currency        String   @default("ZAR")
+  
+  // Status
+  status          InvoiceStatus @default(DRAFT)
+  
+  // Content
+  items           Json     // Line items
+  notes           String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("invoices")
+}
+
+model Transaction {
+  id              String   @id @default(cuid())
+  businessId      String
+  
+  // Details
+  type            TransactionType // DEPOSIT, WITHDRAWAL, REFUND, ADJUSTMENT
+  amount          Float
+  currency        String   @default("ZAR")
+  
+  // Reference
+  paymentId       String?
+  orderId         String?
+  description     String?
+  
+  status          TransactionStatus @default(PENDING)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@index([type])
+  @@map("transactions")
+}
+
+model Webhook {
+  id              String   @id @default(cuid())
+  businessId      String
+  
+  // Configuration
+  url             String
+  active          Boolean  @default(true)
+  secret          String   // For HMAC signature
+  
+  // Events
+  events          String[] @default([]) // e.g., ["order.created", "payment.completed"]
+  
+  // Delivery
+  lastDeliveryAt  DateTime?
+  deliveryStatus  String?  // SUCCESS, FAILED, RETRYING
+  
+  // Relations
+  paymentId       String?  @unique
+  payment         Payment? @relation("PaymentWebhook", fields: [paymentId], references: [id])
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("webhooks")
+}
+
+model ApiKey {
+  id              String   @id @default(cuid())
+  businessId      String
+  
+  // Key
+  key             String   @unique @db.VarChar(255)
+  secret          String   // Hashed
+  
+  // Metadata
+  name            String
+  description     String?
+  
+  // Permissions
+  scopes          String[] @default([])
+  
+  // Status
+  active          Boolean  @default(true)
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("api_keys")
+}
+
+model AuditLog {
+  id              String   @id @default(cuid())
+  userId          String?
+  businessId      String?
+  
+  // Action
+  action          String   // e.g., "order.created", "payment.completed"
+  entity          String   // e.g., "Order", "Payment"
+  entityId        String?
+  
+  // Changes
+  oldValues       Json?
+  newValues       Json?
+  
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime @default(now())
+
+  @@index([businessId])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MERCHANT
+  CUSTOMER
+}
+
+enum KYCStatus {
+  PENDING
+  VERIFYING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum StoreStatus {
+  DRAFT
+  PUBLISHED
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum FulfillmentStatus {
+  UNFULFILLED
+  PARTIALLY_FULFILLED
+  FULFILLED
+  RETURNED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentProvider {
+  OZOW
+  PAYSTACK
+  PEACH
+  STRIPE
+  MANUAL
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  REFUND
+  ADJUSTMENT
+  PAYOUT
+}

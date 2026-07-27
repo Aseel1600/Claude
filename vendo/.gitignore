@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+.build/
+dist/
+
+# Production
+/build
+.next/
+
+# Misc
+.DS_Store
+*.pem
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Prisma
+prisma/.env*
+!prisma/.env.example
+
+# Local development
+.env.local
+.env.*.local
+.vercel
+.turbo
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
