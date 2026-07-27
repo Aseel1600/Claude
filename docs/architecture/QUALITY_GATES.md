@@ -116,9 +116,53 @@ Runs on every PR to `main`. Blocks merge on failure.
 
 ### Job: `i18n-ui-coverage`
 
-| Script                            | Validates                     | Blocking |
-| --------------------------------- | ----------------------------- | -------- |
-| `check-ui-keys-coverage` (inline) | UI i18n key coverage is ≥ 65% | Yes      |
+| Script                            | Validates                                                        | Blocking |
+| --------------------------------- | ---------------------------------------------------------------- | -------- |
+| `check-ui-keys-coverage` (inline) | UI i18n key coverage is ≥ 65%                                    | Yes      |
+| `check-ui-value-drift` (inline)   | A rewritten English **value** leaves no stale translation behind | Yes      |
+
+Needs `fetch-depth: 0` — the value-drift gate diffs `en.json` against the merge base.
+
+#### `check-ui-value-drift` — stale-translation gate
+
+Catches the one i18n regression the other gates structurally cannot see: an English value
+is rewritten and the translations derived from the _previous_ English stay behind, so
+non-English users keep reading confidently-worded, now-wrong copy.
+
+This shipped for real. `oauthModal.googleOAuthWarning` was rewritten when the Antigravity
+login helper landed (#5203); **39 of 43 locales** kept text telling operators to "copy the
+full URL and paste it below" — a flow that cannot complete for that provider. It went
+unnoticed until #8463 because:
+
+- `sync-ui-keys` only backfills keys that are **absent**, never ones that are **stale**;
+- `check-ui-keys-coverage` counts key _presence_, so a stale translation scores as covered;
+- `check-translation-drift` tracks the `docs/i18n/<locale>/**.md` documentation mirrors —
+  it never reads `src/i18n/messages/*.json`.
+
+**Diff-aware, not baseline-backed.** It compares `en.json` at the merge base against the
+working tree; for every key whose English value changed, any locale still holding an
+untouched translation is stale. This deliberately **freezes pre-existing debt** — a diff
+cannot reveal which old English a long-standing translation came from, so the gate judges
+only what the current change touches. The alternative (a per-key hash baseline) would cost
+a ~600 KB generated file, 3× the largest existing baseline, churning on every i18n PR.
+
+Two ways to satisfy it:
+
+1. update the affected translations, or
+2. set them to `__MISSING__:<new english>` — the runtime then serves the corrected English
+   (`src/i18n/request.ts::deepMergeFallback`, #7258) and the key queues for translation.
+
+If the string's **meaning** changed, prefer **renaming the key**: a new key cannot inherit
+a stale translation. That is the pattern #8463 used.
+
+```bash
+npm run i18n:check-value-drift          # strict (what CI runs)
+npm run i18n:check-value-drift:warn     # report only
+BASE_REF=origin/release/vX.Y.Z npm run i18n:check-value-drift
+```
+
+Exits 0 with `SKIP reason=base-unresolved` when the base catalog cannot be read (shallow
+clone without the base ref), mirroring `check-openapi-breaking`.
 
 ### Job: `i18n`
 
