@@ -13,7 +13,7 @@ import {
 } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { providerHasServiceKind } from "@/lib/providers/serviceKindIndex";
-import { compareTr, matchesSearch } from "@/shared/utils/turkishText";
+import { compareTr, matchesAnyToken, matchesSearch } from "@/shared/utils/turkishText";
 import { fetchWithTimeout } from "@/shared/utils/fetchTimeout";
 import type { ProviderDisplayMode } from "./providerPageStorage";
 import { isFeaturedProviderId } from "./featuredProviders";
@@ -342,8 +342,8 @@ export function filterConfiguredProviderEntries<TProvider>(
     filtered = filtered.filter((entry) => {
       const provider = entry.provider as Record<string, unknown>;
       return (
-        matchesSearch(String(provider.name || ""), searchQuery) ||
-        matchesSearch(entry.providerId, searchQuery)
+        matchesAnyToken(String(provider.name || ""), searchQuery) ||
+        matchesAnyToken(entry.providerId, searchQuery)
       );
     });
   }
