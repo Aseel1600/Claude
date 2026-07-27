@@ -159,3 +159,75 @@ test("#6459 no-regression: a plain text-only turn still translates normally", ()
   assert.equal(textDeltas.length, 1);
   assert.equal((textDeltas[0].delta as Record<string, unknown>).text, "Hello, world!");
 });
+
+// Additional regression for #6459 / Haiku-Mistral: delta.content
+// delivered as a non-string object (e.g. already-parsed JSON).
+// `openaiToClaudeResponse` must convert it to a string fragment so
+// the downstream chain never coerces it into literal `[object Object]`.
+test("non-string delta.content is JSON.stringify'ed, never rendered as [object Object]", () => {
+  const state = createState();
+  const chunk = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-6459-obj-content",
+      model: "auto/claude-haiku",
+      choices: [
+        {
+          index: 0,
+          delta: { content: { text: "hello world" } },
+          finish_reason: null,
+        },
+      ],
+    },
+    state
+  );
+  const events = flatten([chunk]) as Array<Record<string, unknown>>;
+  const textDeltas = events.filter(
+    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "text_delta"
+  );
+  assert.equal(textDeltas.length, 1, "expected one text_delta for non-string content");
+  const emitted = (textDeltas[0].delta as Record<string, unknown>).text as string;
+  assert.ok(
+    !emitted.includes("[object Object]"),
+    `emitted text must not contain literal [object Object], got: ${emitted}`
+  );
+  assert.ok(
+    emitted.includes("hello world"),
+    `emitted text must contain the JSON.stringify'd content, got: ${emitted}`
+  );
+});
+
+// Additional regression for #6459 / Haiku-Mistral: delta.reasoning_content
+// delivered as a non-string object — the guard must skip it (or stringify it),
+// never emit a thinking_delta containing literal `[object Object]`.
+test("non-string delta.reasoning_content never produces [object Object] in thinking_delta", () => {
+  const state = createState();
+  const chunk = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-6459-obj-thinking",
+      model: "auto/claude-haiku",
+      choices: [
+        {
+          index: 0,
+          delta: { reasoning_content: { reasoning: "the-model-output" } },
+          finish_reason: null,
+        },
+      ],
+    },
+    state
+  );
+  const events = flatten([chunk]) as Array<Record<string, unknown>>;
+  const thinkingDeltas = events.filter(
+    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "thinking_delta"
+  );
+  if (thinkingDeltas.length > 0) {
+    for (const td of thinkingDeltas) {
+      const text = (td.delta as Record<string, unknown>).thinking as string;
+      assert.ok(
+        !text.toLowerCase().includes("[object object]"),
+        `thinking_delta must not contain literal [object Object], got: ${text}`
+      );
+    }
+  }
+  // If no thinking_delta emitted (because guard skipped non-string reasoning),
+  // that is also fine — absence is not a regression.
+});

@@ -180,7 +180,16 @@ export function openaiToClaudeResponse(chunk, state) {
 
   // Handle reasoning_content (thinking) - GLM, DeepSeek, etc.
   // Also supports 'reasoning' field alias and reasoning_details[] (StepFun/OpenRouter)
-  let reasoningContent = delta?.reasoning_content || delta?.reasoning;
+  // #6459 / Haiku-Mistral: some OpenAI-compatible upstreams stream
+  // reasoning_content as an already-parsed object rather than a string.
+  // Only accept string-shaped reasoning values; fall back to
+  // reasoning_details when the direct field is non-string.
+  let reasoningContent = "";
+  if (typeof delta?.reasoning_content === "string") {
+    reasoningContent = delta.reasoning_content;
+  } else if (typeof delta?.reasoning === "string") {
+    reasoningContent = delta.reasoning;
+  }
   if (!reasoningContent && Array.isArray(delta?.reasoning_details)) {
     const parts: string[] = [];
     for (const detail of delta.reasoning_details) {
@@ -220,7 +229,16 @@ export function openaiToClaudeResponse(chunk, state) {
   // block emission is skipped when nothing meaningful remains; the chunk
   // may still carry tool_calls / finish_reason below, which must still run.
   if (delta?.content) {
-    const strippedContent = stripInternalReasoningPlaceholder(delta.content);
+    // #6459 / Haiku-Mistral: some OpenAI-compatible upstreams stream
+    // delta.content as an already-parsed JSON object/array (invalid per
+    // OpenAI contract, but seen in the wild). Convert it to a string
+    // fragment before any string-only operation so the downstream
+    // `stripInternalReasoningPlaceholder` / `extractXmlInvokeBlocks`
+    // chain never coerces an object into literal `[object Object]` text.
+    const rawContent = typeof delta.content === "string"
+      ? delta.content
+      : JSON.stringify(delta.content);
+    const strippedContent = stripInternalReasoningPlaceholder(rawContent);
     if (strippedContent) {
       stopThinkingBlock(state, results);
 
