@@ -7320,6 +7320,10 @@
         "label": "Mniej kodu",
         "description": "Drabina YAGNI: najmniejsza działająca zmiana, brak nieproszonych abstrakcji."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "Zwięzłe CJK (文言)",
         "description": "Klasyczny chiński styl ultra-zwięzły (dostępny tylko dla języka chińskiego)."

@@ -7298,6 +7298,10 @@
         "label": "كود أقل",
         "description": "سلم YAGNI: أصغر تغيير فعال، بدون تجريدات غير مطلوبة."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK مقتضب (文言)",
         "description": "أسلوب صيني كلاسيكي فائق الاقتضاب (متاح للغة الصينية فقط)."

@@ -7298,6 +7298,10 @@
         "label": "কম কোড",
         "description": "YAGNI ল্যাডার: ক্ষুদ্রতম কার্যকরী পরিবর্তন, কোনো অনুরোধহীন অ্যাবস্ট্রাকশন নয়।"
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "সংক্ষিপ্ত CJK (文言)",
         "description": "ক্লাসিক্যাল-চাইনিজ অতি-সংক্ষিপ্ত শৈলী (শুধুমাত্র চাইনিজ ভাষার জন্য উপলব্ধ)।"

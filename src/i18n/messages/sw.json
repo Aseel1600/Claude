@@ -7298,6 +7298,10 @@
         "label": "Msimbo mchache",
         "description": "Ngazi ya YAGNI: mabadiliko madogo zaidi yanayofanya kazi, bila dhahania zisizoombwa."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK Fupi (文言)",
         "description": "Mtindo mfupi zaidi wa Kichina cha Kale (inapatikana kwa Kichina pekee)."

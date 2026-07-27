@@ -7298,6 +7298,10 @@
         "label": "Lebih sedikit kode",
         "description": "Tangga YAGNI: perubahan kerja terkecil, tanpa abstraksi yang tidak diminta."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK Ringkas (文言)",
         "description": "Gaya ultra-ringkas Tionghoa Klasik (hanya tersedia untuk bahasa Tionghoa)."

@@ -7298,6 +7298,10 @@
         "label": "コード削減",
         "description": "YAGNIラダー: 動作する最小限の変更、要求されていない抽象化の排除。"
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "簡潔なCJK (文言)",
         "description": "漢文の超簡潔スタイル (中国語でのみ利用可能)。"

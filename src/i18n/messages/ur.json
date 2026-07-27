@@ -7298,6 +7298,10 @@
         "label": "کم کوڈ",
         "description": "YAGNI سیڑھی: سب سے چھوٹی کام کرنے والی تبدیلی، کوئی غیر مطلوبہ خلاصہ نہیں۔"
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "مختصر CJK (文言)",
         "description": "کلاسیکی چینی انتہائی مختصر انداز (صرف چینی زبان کے لیے دستیاب ہے)۔"

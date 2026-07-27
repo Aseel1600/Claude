@@ -7298,6 +7298,10 @@
         "label": "Vähemmän koodia",
         "description": "YAGNI-portaat: pienin toimiva muutos, ei pyytämättömiä abstraktioita."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "Tiivis CJK (文言)",
         "description": "Klassisen kiinan ultra-tiivis tyyli (saatavilla vain kiinaksi)."

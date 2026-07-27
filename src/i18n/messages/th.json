@@ -7298,6 +7298,10 @@
         "label": "โค้ดน้อยลง",
         "description": "บันได YAGNI: การเปลี่ยนแปลงที่เล็กที่สุดที่ใช้งานได้จริง โดยไม่มีการสร้าง Abstraction ที่ไม่ได้ร้องขอ"
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK แบบกระชับ (文言)",
         "description": "สไตล์ภาษาจีนคลาสสิกแบบกระชับอย่างยิ่ง (ใช้ได้เฉพาะภาษาจีนเท่านั้น)"

@@ -7298,6 +7298,10 @@
         "label": "更少代码",
         "description": "YAGNI 阶梯：最小可行改动，无未要求的抽象。"
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "精简 CJK (文言)",
         "description": "文言文极简风格 (仅适用于中文)。"
