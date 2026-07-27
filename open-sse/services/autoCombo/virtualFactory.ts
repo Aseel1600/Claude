@@ -28,6 +28,7 @@ import {
   SYNTHETIC_NOAUTH_CONNECTION_ID as RESILIENCE_NOAUTH_CONNECTION_ID,
   type ConnectionResilienceView,
 } from "./resilienceCandidateFilter";
+import type { ChaosTuning } from "./chaosEngine";
 
 /** #4235 Phase B: optional category/tier overlay for `auto/<category>:<tier>` combos.
  * #6453: optional `family` overlay for `auto/<family>` combos (e.g. `auto/glm`) —
@@ -95,6 +96,12 @@ type VirtualAutoCombo = AutoComboConfig & {
       weights: ScoringWeights;
       explorationRate: number;
       routerStrategy: string;
+    };
+    chaos?: {
+      enabled: true;
+      panelSize: number;
+      judgeModel?: string;
+      tuning: ChaosTuning;
     };
   };
 };
