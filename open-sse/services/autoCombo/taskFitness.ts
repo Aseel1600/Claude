@@ -277,19 +277,10 @@ export function getModelsDevTierFitness(model: string, taskType: string): number
   const dbScore = queryModelIntelligence(normalizedModel, normalizedTask, "models_dev_tier");
   if (dbScore !== null) return dbScore;
 
-  const baseModel = normalizedModel.endsWith(FREE_SUFFIX)
-    ? normalizedModel.slice(0, -FREE_SUFFIX.length)
-    : normalizedModel;
-
-  if (baseModel !== normalizedModel) {
-    const baseDbScore = queryModelIntelligence(baseModel, normalizedTask, "models_dev_tier");
-    if (baseDbScore !== null) return baseDbScore;
-  }
-
   const caps = loadModelCapabilities();
   if (!caps) return null;
 
-  const capRow = caps[normalizedModel] || caps[baseModel];
+  const capRow = caps[normalizedModel];
   if (!capRow) return null;
 
   const tier = deriveTierFromCapabilities(capRow);
@@ -303,8 +294,8 @@ export function getModelsDevTierFitness(model: string, taskType: string): number
 
 function lookupStaticFitnessTable(normalizedModel: string, normalizedTask: string): number | null {
   const table = FITNESS_TABLE[normalizedTask] || FITNESS_TABLE.default;
-  const entries = Object.entries(table).sort((a, b) => b[0].length - a[0].length);
-  for (const [pattern, score] of entries) {
+  const sortedEntries = Object.entries(table).sort((a, b) => b[0].length - a[0].length);
+  for (const [pattern, score] of sortedEntries) {
     if (normalizedModel.includes(pattern)) return score;
   }
   return null;
@@ -357,16 +348,12 @@ export function getTaskFitnessWithSource(
     return { score: tierScore, source: "models_dev_tier" };
   }
 
-  const baseModel = normalizedModel.endsWith(FREE_SUFFIX)
-    ? normalizedModel.slice(0, -FREE_SUFFIX.length)
-    : normalizedModel;
-
-  const staticScore = lookupStaticFitnessTable(baseModel, normalizedTask);
+  const staticScore = lookupStaticFitnessTable(normalizedModel, normalizedTask);
   if (staticScore !== null) {
     return { score: staticScore, source: "fitness_table" };
   }
 
-  return { score: lookupWildcardBoosts(baseModel, normalizedTask), source: "wildcard_boost" };
+  return { score: lookupWildcardBoosts(normalizedModel, normalizedTask), source: "wildcard_boost" };
 }
 
 /** Suffix used to mark free-tier model variants (e.g. "mimo-v2.5-free"). */
