@@ -1,7 +1,7 @@
 import { getComboForModel, getModelInfo } from "../services/model";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
-import { validateApiKeyRoutingTarget } from "@/shared/utils/apiKeyPolicy";
+import { validateApiKeyRoutingTarget, type ApiKeyMetadata } from "@/shared/utils/apiKeyPolicy";
 import { resolveRequestRoutingTags } from "@/domain/tagRouter";
 import * as log from "../utils/logger";
 import {
@@ -14,15 +14,10 @@ import {
   type ReasoningRuleDecision,
 } from "@/lib/reasoningRouting/policy";
 
-type ApiKeyInfo = {
-  id?: string | null;
-  scopes?: string[];
-  [key: string]: unknown;
-};
 
 type RoutingPolicy = {
   apiKey?: string | null;
-  apiKeyInfo?: ApiKeyInfo | null;
+  apiKeyInfo?: ApiKeyMetadata | null;
 };
 
 type ReasoningRoutingResult = {
@@ -64,7 +59,7 @@ function applyDecision(
   request: Request,
   body: any,
   policy: RoutingPolicy,
-  apiKeyInfo: ApiKeyInfo | null,
+  apiKeyInfo: ApiKeyMetadata | null,
   decision: ReasoningRuleDecision
 ): AppliedDecision | Promise<AppliedDecision> {
   if (decision.capability === "unsupported" && !decision.targetCombo) {
@@ -111,7 +106,7 @@ export async function applyReasoningRouting({
   body: any;
   modelStr: string;
   policy: RoutingPolicy;
-  apiKeyInfo: ApiKeyInfo | null;
+  apiKeyInfo: ApiKeyMetadata | null;
   reasoningIntent?: ExtractedReasoningIntent | null;
 }): Promise<ReasoningRoutingResult> {
   const stableReasoningIntent = reasoningIntent || extractReasoningIntent(modelStr, body);
@@ -213,7 +208,7 @@ export async function applyConnectionReasoningRule({
   provider: string;
   effectiveModel: string;
   credentials: any;
-  apiKeyInfo: ApiKeyInfo | null;
+  apiKeyInfo: ApiKeyMetadata | null;
   reasoningIntent?: ExtractedReasoningIntent | null;
   reasoningDecision?: ReasoningRuleDecision | null;
   requestRoutingTags?: string[];
