@@ -7,6 +7,7 @@
 
 import { REGISTRY } from "../config/providerRegistry.ts";
 import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import { parseModel } from "./model.ts";
 import { jsonLength } from "../utils/jsonSize.ts";
 
 // Default token limits per provider (fallbacks when not in registry)
@@ -196,6 +197,34 @@ export function getTokenLimit(provider: string, model: string | null = null): nu
 }
 
 /**
+ * Resolve a combo target's token limit without crashing when `parseModel(modelStr)`
+ * returns `provider: null` (model id with no `provider/` prefix).
+ *
+ * `ResolvedComboTarget.provider` is populated independently of `modelStr`, so fall
+ * back to it before calling `getTokenLimit` (#8716).
+ */
+export function getComboTargetTokenLimit(options: {
+  modelStr?: string | null;
+  provider?: string | null;
+  parsedProvider?: string | null;
+  parsedModel?: string | null;
+  targetProvider?: string | null;
+}): number {
+  let parsedProvider = options.parsedProvider;
+  let parsedModel = options.parsedModel;
+  if (
+    (parsedProvider === undefined || parsedModel === undefined) &&
+    Object.prototype.hasOwnProperty.call(options, "modelStr")
+  ) {
+    const parsed = parseModel(options.modelStr);
+    if (parsedProvider === undefined) parsedProvider = parsed.provider;
+    if (parsedModel === undefined) parsedModel = parsed.model;
+  }
+  const provider = parsedProvider ?? options.targetProvider ?? options.provider ?? "unknown";
+  return getTokenLimit(provider, parsedModel ?? null);
+}
+
+/**
  * Same chain as getTokenLimit, but also reports whether the limit came from
  * a provider/model-specific source (env override, synced DB, registry,
  * name heuristic, curated per-provider default) or only from the generic
@@ -305,7 +334,11 @@ export function compressContext(
   const targetTokens = Math.max(0, maxTokens - reserveTokens);
 
   let messages = [...body.messages];
-  let currentTokens = estimateTokens(JSON.stringify(messages));
+  // #8594: pass the structured messages array directly — estimateTokens walks it for
+  // inline base64 image blocks (#8368) and substitutes a bounded per-image estimate.
+  // JSON.stringify()-ing first forces the char/4 text path and mis-measures a ~500KB
+  // image as ~125k tokens, triggering needless compression / context loss.
+  let currentTokens = estimateTokens(messages);
   const stats = { original: currentTokens, layers: [] as { name: string; tokens: number }[] };
 
   // Already fits
@@ -315,7 +348,7 @@ export function compressContext(
 
   // Layer 1: Trim tool_result/tool messages
   messages = trimToolMessages(messages, 2000); // Max 2000 chars per tool result
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages); // #8594: object-path keeps the #8368 image estimate
   stats.layers.push({ name: "trim_tools", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -328,7 +361,7 @@ export function compressContext(
 
   // Layer 2: Compress structured thinking blocks (remove from non-last assistant messages)
   messages = compressThinking(messages);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages); // #8594: object-path keeps the #8368 image estimate
   stats.layers.push({ name: "compress_thinking", tokens: currentTokens });
 
   if (currentTokens <= targetTokens) {
@@ -341,7 +374,7 @@ export function compressContext(
 
   // Layer 3: Aggressive purification — drop oldest messages keeping system + last N pairs
   messages = purifyHistory(messages, targetTokens);
-  currentTokens = estimateTokens(JSON.stringify(messages));
+  currentTokens = estimateTokens(messages); // #8594: object-path keeps the #8368 image estimate
   stats.layers.push({ name: "purify_history", tokens: currentTokens });
 
   return {
@@ -427,7 +460,9 @@ function purifyHistory(messages: Record<string, unknown>[], targetTokens: number
     // orphan tool_results that Claude rejects ("tool_result without preceding tool_use").
     candidate = fixToolPairs(candidate);
     candidate = stripTrailingAssistantOrphanToolUse(candidate);
-    const tokens = estimateTokens(JSON.stringify(candidate));
+    // #8594: measure the candidate structure directly so image-bearing turns are not
+    // over-counted and pruned during the binary search.
+    const tokens = estimateTokens(candidate);
     if (tokens <= targetTokens) break;
     keep = Math.max(2, Math.floor(keep * 0.7)); // Drop 30% each iteration
   }

@@ -294,7 +294,8 @@ export function getModelsDevTierFitness(model: string, taskType: string): number
 
 function lookupStaticFitnessTable(normalizedModel: string, normalizedTask: string): number | null {
   const table = FITNESS_TABLE[normalizedTask] || FITNESS_TABLE.default;
-  for (const [pattern, score] of Object.entries(table)) {
+  const sortedEntries = Object.entries(table).sort((a, b) => b[0].length - a[0].length);
+  for (const [pattern, score] of sortedEntries) {
     if (normalizedModel.includes(pattern)) return score;
   }
   return null;
