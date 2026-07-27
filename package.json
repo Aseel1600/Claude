@@ -178,6 +178,7 @@
     "check:cognitive-complexity": "node scripts/check/check-cognitive-complexity.mjs",
     "check:complexity-ratchets": "node scripts/check/check-complexity-ratchets.mjs",
     "check:release-green": "node scripts/quality/validate-release-green.mjs",
+    "check:ratchet-bank": "node scripts/quality/verify-ratchet-bank.mjs",
     "check:type-coverage": "node scripts/check/check-type-coverage.mjs",
     "check:lockfile": "node scripts/check/check-lockfile.mjs",
     "check:bundle-size": "node scripts/check/check-bundle-size.mjs",

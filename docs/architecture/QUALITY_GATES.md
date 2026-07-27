@@ -259,6 +259,53 @@ justification entry. Never push combination drift onto a contributor PR, and nev
 rebaseline per-PR (that hides real regressions). Discriminate first: reproduce the
 red against the pure tip in a probe worktree before assuming your PR caused it.
 
+## Banking Ratchet Shrinks — the downward direction (#8584)
+
+The ratchet is only half automatic, and it is the wrong half. **Raising** a cap is a
+manual JSON edit that takes ten seconds and is the fastest way to unblock a red PR.
+**Lowering** one requires someone to run `--update` and commit the result — and until
+the `bank-ratchet-shrinks` job landed, no workflow ran it. The measured consequence
+(2026-07-25): 18 frozen files already at or under the 800-line new-file cap, the worst
+at 132× (`src/shared/validation/schemas.ts`, 19 lines carrying a 2,523 cap); the
+complexity ceiling walked `1794 → 2169` across ~37 rebaseline notes with exactly one
+decrease (−1); and "tighten via `--update` next cycle" written 31 times and honoured
+once. A cap that outlives the code that earned it silently converts every completed
+decomposition into a growth allowance for whoever edits the file next.
+
+`nightly-release-green.yml` → job **`bank-ratchet-shrinks`** closes that loop:
+
+|          |                                                                                                        |
+| -------- | ------------------------------------------------------------------------------------------------------ |
+| Runs on  | `schedule` (3×/day) + `workflow_dispatch` — deliberately **not** `push`                                |
+| Measures | the highest `release/vX.Y.Z`, same resolution + injection guard as `release-green`                     |
+| Writes   | `check:file-size --update` and `check:complexity-ratchets --update` (both shrink-only by construction) |
+| Verifies | `npm run check:ratchet-bank` (`scripts/quality/verify-ratchet-bank.mjs`)                               |
+| Ships    | one always-current PR against the release branch — force-updated, never spammed                        |
+
+Banking is batched rather than per-push because it has no latency requirement (a shrink
+banked within 8h is fine) while a per-merge run would rebuild the PR branch repeatedly
+during merge campaigns and pay for a full ESLint walk each time. Detection stays on
+push (`release-green`); only banking is batched.
+
+### The safety verifier
+
+The job writes to the baselines unattended, so `verify-ratchet-bank.mjs` is what makes
+that acceptable. It diffs the post-`--update` tree against `HEAD` and **aborts the job
+before any commit exists** — opening no PR — unless every change is one of:
+
+- a `frozen` / `testFrozen` numeric entry **lowered** or **removed**
+- `complexity-baseline.json` → `count` **lowered**
+- `quality-baseline.json` → `metrics.cognitiveComplexity.value` **lowered**
+
+Anything else fails: raising a number, adding an entry, changing `cap`/`testCap`, or
+deleting/rewriting a `_rebaseline_*` note (those notes are the audit trail for why each
+ceiling exists and are stored inside the same `frozen` object as the file entries).
+A bot that could raise a cap would be strictly worse than the status quo. Regression
+guard: `tests/unit/verify-ratchet-bank.test.ts`.
+
+The job never pushes to `release/*` — a human merges the PR, so a bad measurement
+cannot land unreviewed.
+
 ## Allowlist Policy
 
 Every gate that cannot fail on pre-existing violations uses a frozen allowlist
