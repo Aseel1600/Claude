@@ -315,6 +315,7 @@ import {
   compressContext,
   estimateTokens,
   getTokenLimit,
+  getComboTargetTokenLimit,
   resolveComboContextLimit,
 } from "../services/contextManager.ts";
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
@@ -1691,7 +1692,6 @@ export async function handleChatCore({
       log?.info?.("CONTEXT", `Attempting to resolve combo limits for comboName=${comboName}`);
       try {
         const { getComboByName } = await import("../../src/lib/localDb");
-        const { parseModel } = await import("../services/model.ts");
         const { resolveComboTargets } = await import("../services/combo.ts");
         let comboConfig = await getComboByName(comboName);
         if (!comboConfig && comboName.startsWith("combo/")) {
@@ -1704,10 +1704,14 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
-          comboTargetLimits = targets.map((t: { modelStr?: string }) => {
-            const parsed = parseModel(t.modelStr);
-            return getTokenLimit(parsed.provider, parsed.model);
-          });
+          comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) =>
+            // Fall back to ResolvedComboTarget.provider when modelStr lacks a
+            // provider/ prefix — parseModel alone returns provider:null (#8716).
+            getComboTargetTokenLimit({
+              modelStr: t.modelStr,
+              provider: t.provider,
+            })
+          );
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
@@ -2512,6 +2516,16 @@ export async function handleChatCore({
           "QUOTA_SHARE",
           `[quotaShare] blocked apiKeyId=${apiKeyInfo.id} provider=${provider ?? "unknown"}: ${decision.reason}`
         );
+        // Finalize the pending-request slot registered at handler entry — this
+        // return path never reaches the upstream, and without the decrement the
+        // pending detail lingers as an orphaned status-0 call-log row until the
+        // reaper sweeps it (mirrors the other pre-upstream error returns).
+        trackPendingRequest(
+          model,
+          provider,
+          connectionId || credentials?.connectionId || null,
+          false
+        );
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (decision.retryAfterSeconds) {
           headers["Retry-After"] = String(decision.retryAfterSeconds);
@@ -3259,21 +3273,23 @@ export async function handleChatCore({
     // can't tell apart from a per-model 5xx).
     const isProxyUnreachableFailure =
       !isRequestAborted && (error as { errorCode?: unknown })?.errorCode === "proxy_unreachable";
+    const errorCode = getUpstreamErrorIdentifier(error);
+    const isLocalQueueTimeout = errorCode === "RATE_LIMIT_QUEUE_TIMEOUT";
     const failureStatus = isRequestAborted
       ? 499
       : isProxyUnreachableFailure
         ? HTTP_STATUS.BAD_GATEWAY
-        : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
-          ? HTTP_STATUS.GATEWAY_TIMEOUT
-          : error.status && typeof error.status === "number"
-            ? error.status
-            : HTTP_STATUS.BAD_GATEWAY;
+        : isLocalQueueTimeout
+          ? HTTP_STATUS.SERVICE_UNAVAILABLE
+          : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
+            ? HTTP_STATUS.GATEWAY_TIMEOUT
+            : error.status && typeof error.status === "number"
+              ? error.status
+              : HTTP_STATUS.BAD_GATEWAY;
     const failureMessage = isRequestAborted
       ? "Request aborted"
       : formatProviderError(error, provider, model, failureStatus);
-    const upstreamErrorCode = isProxyUnreachableFailure
-      ? "proxy_unreachable"
-      : getUpstreamErrorIdentifier(error);
+    const upstreamErrorCode = isProxyUnreachableFailure ? "proxy_unreachable" : errorCode;
     // Tag our own deadline timeouts (fetch-start TimeoutError / body BodyTimeoutError,
     // both surfaced as a 504) as "upstream_timeout" so the cooldown layer can tell a
     // slow-but-not-failed request apart from a real provider 5xx. (Antigravity already

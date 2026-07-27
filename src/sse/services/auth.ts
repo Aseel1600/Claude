@@ -493,6 +493,12 @@ function getEarliestFutureDate(candidates: Array<string | null>): string | null 
   );
 }
 
+function getCachedQuotaResetAt(connectionId: string): string | null {
+  const entry = getQuotaCache(connectionId);
+  if (!entry?.quotas) return null;
+  return getEarliestFutureDate(Object.values(entry.quotas).map((quota) => quota.resetAt));
+}
+
 function isRetryableModelLockoutReason(reason: unknown): boolean {
   return typeof reason === "string" && reason.length > 0
     ? !NON_RETRYABLE_MODEL_LOCKOUT_REASONS.has(reason)
@@ -2131,7 +2137,17 @@ export async function markAccountUnavailable(
       providerErrorType,
       provider
     );
-    const cooldownMs = terminalStatus ? 0 : rawCooldownMs;
+    const cachedQuotaResetAt =
+      providerErrorType === PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED ||
+      reason === RateLimitReason.QUOTA_EXHAUSTED
+        ? getCachedQuotaResetAt(connectionId)
+        : null;
+    const cachedQuotaResetMs = parseFutureDateMs(cachedQuotaResetAt);
+    const cooldownMs = terminalStatus
+      ? 0
+      : cachedQuotaResetMs
+        ? cachedQuotaResetMs - Date.now()
+        : rawCooldownMs;
 
     // ── #3027: per-model subscription/permission 403 → model-only lockout ──
     if (isPerModelQuotaProvider && status === 403 && provider && model && !terminalStatus) {
