@@ -29,6 +29,20 @@ test("classifyProviderError: 400 + billing signal => QUOTA_EXHAUSTED", () => {
   assert.equal(result, PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED);
 });
 
+test("classifyProviderError: Kimi billing-cycle 403 => QUOTA_EXHAUSTED", () => {
+  const result = classifyProviderError(
+    403,
+    {
+      error: {
+        message:
+          "You've reached your usage limit for this billing cycle. Your quota will be refreshed in the next cycle.",
+      },
+    },
+    "kimi-coding"
+  );
+  assert.equal(result, PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED);
+});
+
 test("classifyProviderError: 429 without billing signal => RATE_LIMITED", () => {
   const result = classifyProviderError(429, { error: { message: "too many requests" } });
   assert.equal(result, PROVIDER_ERROR_TYPES.RATE_LIMITED);
