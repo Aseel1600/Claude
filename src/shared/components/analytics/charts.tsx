@@ -619,9 +619,12 @@ export function ModelTable({ byModel, summary }) {
     arr.sort((a, b) => {
       const va = a[sortBy] ?? 0;
       const vb = b[sortBy] ?? 0;
-      if (typeof va === "string")
-        return sortOrder === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-      return sortOrder === "asc" ? va - vb : vb - va;
+      if (sortBy === "model" || typeof va === "string" || typeof vb === "string") {
+        return sortOrder === "asc"
+          ? String(va).localeCompare(String(vb))
+          : String(vb).localeCompare(String(va));
+      }
+      return sortOrder === "asc" ? Number(va) - Number(vb) : Number(vb) - Number(va);
     });
     return arr;
   }, [byModel, sortBy, sortOrder]);
