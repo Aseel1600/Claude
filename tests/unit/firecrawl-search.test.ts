@@ -36,6 +36,15 @@ test("firecrawl is registered and selects cleanly", () => {
   assert.equal(selectedNews?.id, "firecrawl");
 });
 
+test("dashboard resolves firecrawl under search category", async () => {
+  const providerPageUtils =
+    await import("../../src/app/(dashboard)/dashboard/providers/providerPageUtils.ts");
+  const providers = await import("../../src/shared/constants/providers.ts");
+  const info = providerPageUtils.resolveDashboardProviderInfo("firecrawl");
+  assert.equal(info?.category, "search");
+  assert.equal(info?.name, providers.SEARCH_PROVIDERS.firecrawl.name);
+});
+
 test("v1SearchSchema accepts firecrawl for search (unified id)", () => {
   const ok = v1SearchSchema.safeParse({ query: "q", provider: "firecrawl" });
   assert.equal(ok.success, true);

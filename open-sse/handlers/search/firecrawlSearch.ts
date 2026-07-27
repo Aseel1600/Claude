@@ -132,11 +132,11 @@ export function collectFirecrawlSearchHits(
 export function normalizeFirecrawlSearchResponse<T>(
   data: FirecrawlSearchEnvelope,
   searchType: string,
-  mapHit: (item: FirecrawlNormalizedHit, idx: number, now: string) => T
+  makeResult: (providerId: string, item: FirecrawlNormalizedHit, idx: number, now: string) => T
 ): { results: T[]; totalResults: number | null } {
   const now = new Date().toISOString();
   const results = collectFirecrawlSearchHits(data, searchType).map((item, idx) =>
-    mapHit(item, idx, now)
+    makeResult("firecrawl", item, idx, now)
   );
   return { results, totalResults: results.length };
 }
