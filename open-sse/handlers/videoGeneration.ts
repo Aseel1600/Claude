@@ -253,9 +253,34 @@ async function handleVeoAiFreeVideoGeneration({ model, provider, body, credentia
     };
   }
 
+  const payload = await upstreamResponse.json().catch(() => null);
+  const item = Array.isArray(payload?.data) ? payload.data[0] : null;
+  if (
+    !payload ||
+    !Array.isArray(payload.data) ||
+    payload.data.length !== 1 ||
+    !item ||
+    typeof item.b64_json !== "string" ||
+    item.b64_json.trim().length === 0 ||
+    item.format !== "mp4" ||
+    typeof item.url === "string"
+  ) {
+    return {
+      success: false,
+      status: 502,
+      error: {
+        error: {
+          message: "Veo AI Free did not return a valid MP4 artifact",
+          type: "upstream_error",
+          code: "VIDEO_ARTIFACT_UNAVAILABLE",
+        },
+      },
+    };
+  }
+
   return {
     success: true,
-    data: await upstreamResponse.json(),
+    data: payload,
   };
 }
 
