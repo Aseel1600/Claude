@@ -492,6 +492,7 @@ async function main(): Promise<void> {
     // #3501: the fusion/pipeline dispatch branches moved here with the prelude
     // extraction; the `strategy === "..."` checks are unchanged, just relocated.
     "open-sse/services/combo/dispatchPrelude.ts",
+    "open-sse/services/combo/targetResolution.ts",
   ];
   const comboSource = comboDispatchFiles
     .map((rel) => readFileSync(resolvePath(REPO_ROOT, rel), "utf8"))
