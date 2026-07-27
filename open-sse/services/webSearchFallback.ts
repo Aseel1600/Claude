@@ -139,7 +139,7 @@ function buildFallbackTool(tool: JsonRecord, targetFormat?: string | null): Json
 // (MiniMax returns `invalid params, function name or parameters is empty (2013)`), so the
 // built-in web-search tool has to be converted to the omniroute_web_search function
 // fallback — which these models accept as a normal function tool (#4481).
-const CLAUDE_FORMAT_PROVIDERS_WITHOUT_SERVER_TOOLS = new Set(["minimax"]);
+const CLAUDE_FORMAT_PROVIDERS_WITHOUT_SERVER_TOOLS = new Set(["minimax", "mistral"]);
 
 export function supportsNativeWebSearchFallbackBypass({
   provider,
