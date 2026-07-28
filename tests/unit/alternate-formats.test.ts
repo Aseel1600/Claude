@@ -150,16 +150,20 @@ test("alternativa carrega headers extras do protocolo", () => {
   assert.equal(alt?.headers?.["Anthropic-Version"], "2023-06-01");
 });
 
-// Regression via producao real: sem alternateFormats declarados no registry
-// (xiaomi-mimo ainda nao os tem — Task 5), buildHeaders continua usando o
-// authHeader "bearer" da entry mesmo com um targetFormat na conexao, provando
-// que a nova chamada a resolveAlternateFormat nao regrediu o caminho default.
-test("DefaultExecutor.buildHeaders: sem alternativa declarada, mantem o authHeader padrao", () => {
+// Regression via producao real: com um targetFormat que NAO casa com nenhuma
+// alternativa declarada, buildHeaders cai no authHeader "bearer" padrao da
+// entry, provando que a nova chamada a resolveAlternateFormat nao regrediu o
+// caminho default. (Ate a Task 5, xiaomi-mimo nao declarava alternateFormats
+// nenhuma — agora declara a variante "claude", ver
+// tests/unit/xiaomi-providers-registry.test.ts para a cobertura end-to-end
+// do caminho COM alternativa, incluindo o caso "claude" que este teste
+// cobria antes.)
+test("DefaultExecutor.buildHeaders: targetFormat que nao casa mantem o authHeader padrao", () => {
   const executor = new DefaultExecutor("xiaomi-mimo");
   const headers = executor.buildHeaders(
     {
       apiKey: "sk-test",
-      providerSpecificData: { targetFormat: "claude" },
+      providerSpecificData: { targetFormat: "gemini" },
     } as never,
     true
   ) as Record<string, string>;
