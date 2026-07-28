@@ -76,6 +76,7 @@ import {
 import { isNoAuthProviderBlockedBySettings } from "./noAuthProviderSettings";
 import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
+import { getResource404Bypass } from "./requestResourceHealth";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
 
@@ -1897,15 +1898,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
   }
 }
 
-/**
- * Mark account as unavailable — reads backoffLevel from DB, calculates cooldown with exponential backoff, saves new level
- * @param {string} connectionId
- * @param {number} status - HTTP status code
- * @param {string} errorText - Error message
- * @param {string|null} provider
- * @param {string|null} model - Model name for per-model lockout
- * @returns {{ shouldFallback: boolean, cooldownMs: number }}
- */
+/** Persist exponential-backoff state for an unavailable provider connection. */
 export async function markAccountUnavailable(
   connectionId: string,
   status: number,
@@ -1930,6 +1923,9 @@ export async function markAccountUnavailable(
 
   try {
     await currentMutex;
+
+    const resourceBypass = getResource404Bypass(status, errorText, connectionId, log);
+    if (resourceBypass) return resourceBypass;
 
     // Read current connection to get backoffLevel
     const connectionsRaw = await getProviderConnections({ provider });
