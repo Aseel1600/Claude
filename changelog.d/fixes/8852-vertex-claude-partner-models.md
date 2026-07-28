@@ -1,0 +1,1 @@
+- **fix(executors):** Vertex AI now routes current-generation Claude models (`claude-sonnet-4-6`, `claude-haiku-4-5`, etc.) through the partner endpoint instead of misrouting them as Google-publisher models ([#8852](https://github.com/diegosouzapw/OmniRoute/pull/8852)) — thanks @wgordon17
