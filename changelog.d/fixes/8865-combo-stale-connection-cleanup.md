@@ -1,1 +1,0 @@
-- **Combos**: deleting a provider connection now clears the combo steps that referenced it — `connectionId` and `allowedConnectionIds` entries pointing at the removed connection were left behind, so combo routing kept trying a connection that no longer existed

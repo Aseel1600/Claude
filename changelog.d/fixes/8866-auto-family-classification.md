@@ -1,1 +1,0 @@
-- **Auto routing**: `auto/<family>` combos (`auto/glm`, `auto/gemini`, `auto/llama`, …) are recognized as built-in auto models again — the family suffix failed the category/tier parser and fell through as an unknown model instead of routing to that family

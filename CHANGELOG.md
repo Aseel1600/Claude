@@ -284,6 +284,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
   visibility setting is available on each account in the provider detail view and does not affect
   routing or account activation.
 - docs(i18n): rewrite Russian README as a full native manual (structure aligned with modern EN/zh-CN, fixed relative asset links).
+- **Providers**: adds the Xiaomi MiMo Token Plan provider and a per-connection API-protocol selector — some providers publish the same models over more than one protocol, and a connection can now pick the alternative instead of being locked to the OpenAI-compatible default ([#8861](https://github.com/diegosouzapw/OmniRoute/pull/8861))
 ### ⚡ Performance
 
 - **perf(db):** project columns + composite index in getProviderConnections ([#6918](https://github.com/diegosouzapw/OmniRoute/pull/6918)) — thanks @oyi77
@@ -1004,6 +1005,11 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - fix(auth): restore the TICK_MS constant dropped by #7719, which made initTokenHealthCheck() throw a ReferenceError at startup
 - fix(guardrails/chat): do not whole-request-reroute Vision Bridge away from credentialed models (e.g. combo target zai/glm-5.2 or grok-cli → opencode-zen noauth 401); align body.model with X-Route-Model so post-guardrail cannot undo the routing header
 - **Providers**: yuanbao-web no longer forwards a foreign single cookie pair upstream — `buildYuanbaoCookie` only trusts `hy_user`/`hy_token` extractions the input explicitly names, so a missing session token now fails fast with the local 401 guidance instead of a live Tencent round-trip
+- **Antigravity**: the shared token-refresh service now recovers a missing `projectId` too — #8842 fixed the executor path, but the Dashboard and the health check refresh through `open-sse/services/tokenRefresh.ts`, which kept returning credentials with an empty project and left those accounts on 422 ([#8860](https://github.com/diegosouzapw/OmniRoute/pull/8860)) — thanks @HouMinXi
+- **Adobe Firefly**: `gpt-image` requests now default `detailLevel` to maximal (5) instead of leaving the upstream default, so generations come back at the quality the model is capable of ([#8863](https://github.com/diegosouzapw/OmniRoute/pull/8863)) — thanks @artickc
+- **Combos**: deleting a provider connection now clears the combo steps that referenced it — `connectionId` and `allowedConnectionIds` entries pointing at the removed connection were left behind, so combo routing kept trying a connection that no longer existed ([#8865](https://github.com/diegosouzapw/OmniRoute/pull/8865)) — thanks @HouMinXi
+- **Auto routing**: `auto/<family>` combos (`auto/glm`, `auto/gemini`, `auto/llama`, …) are recognized as built-in auto models again — the family suffix failed the category/tier parser and fell through as an unknown model instead of routing to that family ([#8866](https://github.com/diegosouzapw/OmniRoute/pull/8866)) — thanks @rafaeldrincon
+- **fix(oauth):** wire Test Connection for xAI OAuth (`xai-oauth` / `xao`) so dashboard no longer returns "Provider test not supported" ([#8862](https://github.com/diegosouzapw/OmniRoute/pull/8862)) — thanks @allanvb
 ### 📚 Docs
 
 - **docs(quality):** codify retry policy per runner + release-level drift rule (WS5.4/WS5.5) ([#7107](https://github.com/diegosouzapw/OmniRoute/pull/7107))
@@ -1218,6 +1224,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 
 
 
+
 ### 🙌 Contributors
 
 Thanks to everyone whose work landed in v3.8.49:
@@ -1228,7 +1235,7 @@ Thanks to everyone whose work landed in v3.8.49:
 | [@adrianaryaputra](https://github.com/adrianaryaputra) | #7928 |
 | [@advane204f](https://github.com/advane204f) | direct commit / report |
 | [@Ajeesh25353646](https://github.com/Ajeesh25353646) | #7528 |
-| [@allanvb](https://github.com/allanvb) | #8471, #8759, #8814 |
+| [@allanvb](https://github.com/allanvb) | #8471, #8759, #8814, #8862 |
 | [@alltomatos](https://github.com/alltomatos) | #6703, #6715, #6756, #6757, #6759, #6813, #6819, #6821, #7041, #7042, #7164, #7277, #7490, #7492, #7644 |
 | [@alvaretto](https://github.com/alvaretto) | #8077, #8161, #8170 |
 | [@andrea-kingautomation](https://github.com/andrea-kingautomation) | #7678 |
@@ -1238,7 +1245,7 @@ Thanks to everyone whose work landed in v3.8.49:
 | [@anndev-69](https://github.com/anndev-69) | direct commit / report |
 | [@apoapostolov](https://github.com/apoapostolov) | #8127 |
 | [@arpit-jaiswal-dev](https://github.com/arpit-jaiswal-dev) | #7881 |
-| [@artickc](https://github.com/artickc) | #6763, #6955, #7204, #7696, #7768, #7896, #7900, #7911, #7930, #7994, #8006 |
+| [@artickc](https://github.com/artickc) | #6763, #6955, #7204, #7696, #7768, #7896, #7900, #7911, #7930, #7994, #8006, #8863 |
 | [@Arul-](https://github.com/Arul-) | #7878 |
 | [@asynx6](https://github.com/asynx6) | direct commit / report |
 | [@attid](https://github.com/attid) | #6984 |
@@ -1282,7 +1289,7 @@ Thanks to everyone whose work landed in v3.8.49:
 | [@HassiyYT](https://github.com/HassiyYT) | #7864 |
 | [@heishen6](https://github.com/heishen6) | direct commit / report |
 | [@herjarsa](https://github.com/herjarsa) | #7612, #7625, #7633, #7869, #7871 |
-| [@HouMinXi](https://github.com/HouMinXi) | #7035, #7129, #7290, #7398, #7408, #7973, #8842, #8845 |
+| [@HouMinXi](https://github.com/HouMinXi) | #7035, #7129, #7290, #7398, #7408, #7973, #8842, #8845, #8860, #8865 |
 | [@hppsc1215](https://github.com/hppsc1215) | #7546, #8835 |
 | [@huohua-dev](https://github.com/huohua-dev) | #6794 |
 | [@hydraxman](https://github.com/hydraxman) | #7909 |
@@ -1330,6 +1337,7 @@ Thanks to everyone whose work landed in v3.8.49:
 | [@Prudhvivuda](https://github.com/Prudhvivuda) | #8032, #8220, #8250, #8467, #8488 |
 | [@QRcode1337](https://github.com/QRcode1337) | #7034 |
 | [@quanturbo](https://github.com/quanturbo) | #6780 |
+| [@rafaeldrincon](https://github.com/rafaeldrincon) | #8866 |
 | [@rafaumeu](https://github.com/rafaumeu) | #6813, #6979, #6982, #6983, #6987, #6988, #7001, #7808, #7815, #8071, #8113, #8179, #8184, #8185, #8190, #8195, #8196, #8203 |
 | [@RaviTharuma](https://github.com/RaviTharuma) | #7852, #7853, #7855, #7862, #7885, #7972, #7978, #8021, #8022, #8023, #8025, #8027, #8030, #8102, #8124 |
 | [@RCrushMe](https://github.com/RCrushMe) | #8151 |

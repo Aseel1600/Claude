@@ -1,1 +1,0 @@
-- **fix(oauth):** wire Test Connection for xAI OAuth (`xai-oauth` / `xao`) so dashboard no longer returns "Provider test not supported" ([#8862](https://github.com/diegosouzapw/OmniRoute/pull/8862)) — thanks @allanvb
