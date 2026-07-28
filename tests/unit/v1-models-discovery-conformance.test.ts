@@ -38,6 +38,11 @@ async function resetStorage() {
 
 test.beforeEach(async () => {
   await resetStorage();
+  // SWR assertions below need the production (unbounded) window; node:test
+  // defaults the live bound to 0 so other suites stay isolated.
+  v1ModelsCatalog.__setCatalogStaleWhileRevalidateMsForTest(
+    v1ModelsCatalog.CATALOG_STALE_WHILE_REVALIDATE_MS
+  );
 });
 
 test.after(async () => {

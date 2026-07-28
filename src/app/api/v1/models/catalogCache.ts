@@ -38,25 +38,51 @@ export type CatalogPayload = {
  * invalidation still serves that snapshot immediately while a single-flight
  * background refresh repopulates it (#8697).
  *
- * Historically this was a 30s bound so a failing refresh could not pin an old
- * catalog forever — that bound re-introduced 15s cold waits on every key once
- * a minute. Catalog listings prefer a briefly-stale 200 over blocking; a
- * subsequent successful refresh replaces the body, and a non-200 is never
- * served as stale.
+ * Production default is unbounded so TTL / invalidation only control refresh
+ * cadence — never whether the client blocks on a cold rebuild. Non-200 entries
+ * are never served as stale.
  *
- * Exported for tests that previously added to the bound; treated as unbounded.
+ * Under node:test / vitest the live bound defaults to `0` so suites that toggle
+ * settings between cases (hidePaidModels, prefix mode, provider blocks, …) do
+ * not freeze on the first `/v1/models` snapshot. Tests that assert SWR itself
+ * opt back into the unbounded window via
+ * `__setCatalogStaleWhileRevalidateMsForTest`.
+ *
+ * `CATALOG_STALE_WHILE_REVALIDATE_MS` stays the documented production bound;
+ * prefer `getCatalogStaleWhileRevalidateMs()` for the live value.
  */
 export const CATALOG_STALE_WHILE_REVALIDATE_MS = Number.POSITIVE_INFINITY;
+
+function resolveDefaultCatalogStaleWhileRevalidateMs(): number {
+  const raw = process.env.OMNIROUTE_CATALOG_SWR_MS;
+  if (raw !== undefined && raw !== "") {
+    if (raw === "Infinity" || raw === "+Infinity") return Number.POSITIVE_INFINITY;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  // node:test sets NODE_TEST_CONTEXT (e.g. "child-v8"); vitest sets VITEST.
+  if (process.env.NODE_TEST_CONTEXT || process.env.VITEST || process.env.NODE_ENV === "test") {
+    return 0;
+  }
+  return Number.POSITIVE_INFINITY;
+}
+
+let catalogStaleWhileRevalidateMs = resolveDefaultCatalogStaleWhileRevalidateMs();
+
+/** Live SWR bound (Infinity in production; 0 under test runners unless overridden). */
+export function getCatalogStaleWhileRevalidateMs(): number {
+  return catalogStaleWhileRevalidateMs;
+}
 
 /**
  * Fallback memoization window; overridden by `settings.cache.modelCatalogCacheTtlMs`.
  *
- * This does NOT govern post-write freshness — `invalidateDbCache()` bumps
- * `modelCatalogCacheVersion` on every settings/connections/combos/pricing write and
- * `dropCatalogCacheIfStateChanged()` drops the whole cache the moment it moves, so a
- * write is reflected on the very next read regardless of this value. What it governs is
- * the "nothing was written" case, where replaying a body built seconds ago is precisely
- * the point of the cache.
+ * Post-write freshness (#8697): `invalidateDbCache()` bumps
+ * `modelCatalogCacheVersion` and `dropCatalogCacheIfStateChanged()` marks
+ * successful entries expired so stale-while-revalidate can return the last
+ * snapshot immediately and kick a background rebuild. What this TTL governs is
+ * the "nothing was written" case, where replaying a body built seconds ago is
+ * precisely the point of the cache.
  *
  * It was 1500 ms, which was shorter than a single build: measured 2026-07-28 on the
  * production VPS, the builder takes ~49 s for a 1.3 MB / 2645-model catalog. Any two
@@ -228,13 +254,12 @@ export async function resolveCachedCatalogResponse(
   }
 
   // Stale-while-revalidate (#8697): an expired successful entry is served
-  // immediately. CATALOG_STALE_WHILE_REVALIDATE_MS is unbounded so TTL / DB
-  // invalidation only control refresh cadence — never whether the client blocks
-  // on a cold rebuild. Non-200 entries are never replayed as "stale".
+  // immediately while the live SWR bound allows it (unbounded in production).
+  // Non-200 entries are never replayed as "stale".
   if (
     cached &&
     cached.status === 200 &&
-    now - cached.expiresAt <= CATALOG_STALE_WHILE_REVALIDATE_MS
+    now - cached.expiresAt <= catalogStaleWhileRevalidateMs
   ) {
     scheduleBackgroundRefresh(cacheKey, request, buildPayload);
     return new Response(cached.body, {
@@ -268,6 +293,16 @@ export function __resetCatalogBuilderRunsForTest(): void {
   catalogCache.clear();
   catalogInFlight.clear();
   lastSeenCatalogCacheVersion = getModelCatalogCacheVersion();
+  catalogStaleWhileRevalidateMs = resolveDefaultCatalogStaleWhileRevalidateMs();
+}
+
+/**
+ * Overrides the live SWR bound for suites that assert stale-while-revalidate
+ * itself (#8697 / discovery conformance). Call from `beforeEach` after reset;
+ * `__resetCatalogBuilderRunsForTest` restores the environment default.
+ */
+export function __setCatalogStaleWhileRevalidateMsForTest(ms: number): void {
+  catalogStaleWhileRevalidateMs = ms;
 }
 
 /** Counts full builder executions — proves concurrent requests share one run (#6408). */

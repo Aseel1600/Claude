@@ -32,6 +32,11 @@ async function resetStorage() {
 
 test.beforeEach(async () => {
   await resetStorage();
+  // Opt into the production (unbounded) SWR window — under node:test the
+  // module defaults to 0 so unrelated suites do not freeze between cases.
+  v1ModelsCatalog.__setCatalogStaleWhileRevalidateMsForTest(
+    v1ModelsCatalog.CATALOG_STALE_WHILE_REVALIDATE_MS
+  );
 });
 
 test.after(async () => {
