@@ -1,6 +1,9 @@
 import { HTTP_STATUS, FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { getRegistryEntry } from "../config/providerRegistry.ts";
-import { resolveAlternateFormat } from "../config/providers/alternateFormats.ts";
+import {
+  resolveAlternateFormat,
+  type AlternateFormat,
+} from "../config/providers/alternateFormats.ts";
 import {
   CLAUDE_CLI_BILLING_VERSION,
   CLAUDE_CLI_STAINLESS_RUNTIME_VERSION,
@@ -421,14 +424,25 @@ export class BaseExecutor {
    * providerSpecificData.baseUrl over the static provider config baseUrl.
    */
   protected resolveBaseUrl(credentials: ProviderCredentials | null, fallback?: string): string {
-    const psd = credentials?.providerSpecificData;
-    const psdBaseUrl = psd?.baseUrl;
-    // Override manual do operador vence sempre (#6147).
+    const psdBaseUrl = credentials?.providerSpecificData?.baseUrl;
+    // Operator's manual override always wins (#6147).
     if (typeof psdBaseUrl === "string" && psdBaseUrl) return psdBaseUrl;
-    // Protocolo alternativo escolhido na conexao traz a propria URL.
-    const alternate = resolveAlternateFormat(getRegistryEntry(this.provider), psd);
+    // An alternate protocol selected on the connection carries its own URL.
+    const alternate = this.resolveAlternate(credentials);
     if (alternate?.baseUrl) return alternate.baseUrl;
     return fallback || this.config.baseUrl || "";
+  }
+
+  /**
+   * Alternate protocol selected on this connection, if the provider declares one
+   * that matches. Centralizes the registry lookup so every call-site resolves the
+   * same way.
+   */
+  protected resolveAlternate(credentials: ProviderCredentials | null): AlternateFormat | null {
+    return resolveAlternateFormat(
+      getRegistryEntry(this.provider),
+      credentials?.providerSpecificData
+    );
   }
 
   /**
@@ -469,10 +483,7 @@ export class BaseExecutor {
     credentials: ProviderCredentials,
     stream: boolean
   ): { headers: Record<string, string>; effectiveKey: string | undefined } {
-    const alternate = resolveAlternateFormat(
-      getRegistryEntry(this.provider),
-      credentials?.providerSpecificData
-    );
+    const alternate = this.resolveAlternate(credentials);
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...this.config.headers,

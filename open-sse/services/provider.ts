@@ -439,8 +439,8 @@ export function getTargetFormat(provider, providerSpecificData = null) {
   // Registry-driven format lookup
   const entry = getRegistryEntry(provider);
   if (entry) {
-    // Override por conexao (providerSpecificData.targetFormat), valido apenas
-    // quando casa com uma alternativa declarada pelo provedor.
+    // Per-connection override (providerSpecificData.targetFormat), only valid
+    // when it matches an alternate declared by the provider.
     const alternate = resolveAlternateFormat(entry, providerSpecificData);
     if (alternate) return alternate.format;
     return entry.format || "openai";
