@@ -4605,7 +4605,14 @@ export async function handleChatCore({
     // #8395: the streaming branch below already calls this; the non-streaming
     // (stream:false) branch returned without it, so onResponse never fired for
     // non-streaming requests at all.
-    await runPluginOnResponseHook({ requestId: traceId, body, model, provider, apiKeyInfo });
+    await runPluginOnResponseHook({
+      requestId: traceId,
+      body,
+      model,
+      provider,
+      apiKeyInfo,
+      response: { status: 200, data: translatedResponse },
+    });
 
     return {
       success: true,
@@ -4988,7 +4995,14 @@ export async function handleChatCore({
   await emitRequestGamificationEvent({ apiKeyId: apiKeyInfo?.id, model, provider });
 
   // ── Plugin onResponse hook (fire-and-forget) ──
-  await runPluginOnResponseHook({ requestId: traceId, body, model, provider, apiKeyInfo });
+  await runPluginOnResponseHook({
+    requestId: traceId,
+    body,
+    model,
+    provider,
+    apiKeyInfo,
+    response: { status: 200, streamed: true },
+  });
 
   return {
     success: true,
