@@ -908,13 +908,16 @@ export async function handleChat(
     // (success:false) so gate/breaker-rejected traffic is counted per key — support-mesh 2026-07-08.
     if (!response.ok) {
       try {
-        const { recordRejectedRequestUsage, summarizeComboAttemptedModels } =
+        const { recordRejectedRequestUsage } =
           await import("./rejectedRequestUsage");
         await recordRejectedRequestUsage({
           status: response.status,
           model: body?.model || resolvedModelStr,
           requestedModel: body?.model || resolvedModelStr,
-          provider: summarizeComboAttemptedModels(combo?.models),
+          provider:
+            (body?.model || resolvedModelStr)?.startsWith("auto/")
+              ? "auto"
+              : combo.name || "combo",
           endpoint: clientRawRequest?.endpoint,
           error: await getComboFailureLogError(response, combo.name),
           comboName: combo.name,
