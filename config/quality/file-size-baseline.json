@@ -197,7 +197,7 @@
     "tests/unit/search-handler-extended.test.ts": 1071,
     "tests/unit/sse-auth.test.ts": 1600,
     "tests/unit/stream-utils.test.ts": 2445,
-    "tests/unit/token-refresh-service.test.ts": 1311,
+    "tests/unit/token-refresh-service.test.ts": 1378,
     "tests/unit/translator-openai-responses-req.test.ts": 1194,
     "tests/unit/translator-openai-to-gemini.test.ts": 1616,
     "tests/unit/translator-openai-to-kiro.test.ts": 1250,
@@ -409,5 +409,6 @@
   "_rebaseline_2026_07_27_v3849_train2": "Merge-train 2 (7 PRs) — owner-approved 2026-07-27. Single entry: chatCore.ts 4955->5006 (#8595, Responses multi-turn image compaction before the context hard-reject). Genuine irreducible growth at the existing compaction chokepoint in handleChatCore — the PR adds a last-resort retry against the concrete budget plus the estimateFinalInputTokens helper, both wired at the pre-existing call site rather than a new branch. Covered by tests/unit/8560-responses-image-compaction.test.ts (4 tests).",
   "_rebaseline_2026_07_27_v3849_train3": "Merge-train 3 (13 PRs) — owner-approved 2026-07-27. Both entries are genuine irreducible growth at existing chokepoints, not new branches: src/lib/db/apiKeys.ts 1518->1529 (#8805 cx/* ≡ codex/* API-key model permissions); open-sse/handlers/chatCore.ts 5006->5020 (#8806 real response payload into plugin onResponse hooks). Covered by tests/unit/db-apiKeys-crud.test.ts (4 new cases) and the two plugin-hook test files updated in #8806 respectively.",
   "_rebaseline_2026_07_28_8842_antigravity_projectid_refresh": "PR #8842 (fix/antigravity-projectid-refresh) own growth: open-sse/executors/antigravity.ts 1493->1528 (+35 = projectId discovery in refreshCredentials: import ensureAntigravityProjectAssigned + trim projectId + call ensureAntigravityProjectAssigned with 8s timeout + persistDiscoveredAntigravityProjectId + log success/failure). Irreducible wiring at the existing credential-refresh chokepoint. Covered by tests/unit/executor-antigravity.test.ts (4 new test cases).",
-  "_rebaseline_2026_07_28_8842_antigravity_test": "PR #8842 test growth: tests/unit/executor-antigravity.test.ts new testFrozen 1098 (4 new test cases for projectId discovery during refresh: discovers when empty, skips when set, handles failure, skips when access_token not a string). All above cap 1000 on day one."
+  "_rebaseline_2026_07_28_8842_antigravity_test": "PR #8842 test growth: tests/unit/executor-antigravity.test.ts new testFrozen 1098 (4 new test cases for projectId discovery during refresh: discovers when empty, skips when set, handles failure, skips when access_token not a string). All above cap 1000 on day one.",
+  "_rebaseline_2026_07_28_8860_tokenrefresh_projectid": "PR #8860 (fix/antigravity-projectid-centralized) own test growth: tests/unit/token-refresh-service.test.ts 1311->1378 (+67 = 4 cases covering projectId discovery on the tokenRefresh.ts path — the Dashboard/health-check refresh route, which #8842 did not reach since that fixed the executor path). Covered by the same file."
 }
