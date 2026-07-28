@@ -176,6 +176,12 @@ export interface RegistryEntry {
    * standard OpenAI array-shaped content untouched (see openai-responses.ts).
    */
   requiresPlainStringContent?: boolean;
+  /**
+   * Protocolos alternativos que este provedor aceita (ex.: um endpoint
+   * Anthropic-compatible alem do OpenAI-compatible padrao). A conexao escolhe
+   * via providerSpecificData.targetFormat; ver config/providers/alternateFormats.ts.
+   */
+  alternateFormats?: import("./alternateFormats.ts").AlternateFormat[];
 }
 
 /**
@@ -400,6 +406,10 @@ export const CHAT_OPENAI_COMPAT_MODELS: Record<string, RegistryModel[]> = {
   upstage: buildModels(["solar-pro3", "solar-mini"]),
   maritalk: buildModels(["sabia-4", "sabia-4-thinking", "sabiazinho-4"]),
   "xiaomi-mimo": [
+    { id: "mimo-v2.5-pro", name: "MiMo-V2.5-Pro", contextLength: 1048576, maxOutputTokens: 131072 },
+    { id: "mimo-v2.5", name: "MiMo-V2.5", contextLength: 1048576, maxOutputTokens: 131072 },
+  ],
+  "xiaomi-mimo-token-plan": [
     { id: "mimo-v2.5-pro", name: "MiMo-V2.5-Pro", contextLength: 1048576, maxOutputTokens: 131072 },
     { id: "mimo-v2.5", name: "MiMo-V2.5", contextLength: 1048576, maxOutputTokens: 131072 },
   ],
