@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Hapus grup ini? Pool di dalamnya harus dialihkan atau dihapus terlebih dahulu.",
     "deleteGroupHasPools": "Grup ini masih memiliki pool — alihkan atau hapus terlebih dahulu.",
     "ungroupedTitle": "Tanpa Grup",
-    "ungroupedHint": "Pool ini tidak ditetapkan ke grup yang dikenal. Edit pool untuk memindahkannya ke grup yang sebenarnya."
+    "ungroupedHint": "Pool ini tidak ditetapkan ke grup yang dikenal. Edit pool untuk memindahkannya ke grup yang sebenarnya.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

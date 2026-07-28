@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Ta bort denna grupp? Dess pooler måste tilldelas på nytt eller tas bort först.",
     "deleteGroupHasPools": "Denna grupp har fortfarande pooler — tilldela dem på nytt eller ta bort dem först.",
     "ungroupedTitle": "Ogrupperade",
-    "ungroupedHint": "Dessa pooler är inte tilldelade till en känd grupp. Redigera en pool för att flytta den till en riktig grupp."
+    "ungroupedHint": "Dessa pooler är inte tilldelade till en känd grupp. Redigera en pool för att flytta den till en riktig grupp.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

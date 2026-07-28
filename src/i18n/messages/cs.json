@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Smazat tuto skupinu? Její pooly musí být nejprve znovu přiřazeny nebo odstraněny.",
     "deleteGroupHasPools": "Tato skupina stále obsahuje pooly — nejprve je znovu přiřaďte nebo smažte.",
     "ungroupedTitle": "Bez skupiny",
-    "ungroupedHint": "Tyto pooly nejsou přiřazeny k žádné známé skupině. Upravte pool a přesuňte jej do skutečné skupiny."
+    "ungroupedHint": "Tyto pooly nejsou přiřazeny k žádné známé skupině. Upravte pool a přesuňte jej do skutečné skupiny.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

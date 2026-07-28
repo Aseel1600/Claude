@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Eliminar este grupo? As suas pools têm de ser reatribuídas ou removidas primeiro.",
     "deleteGroupHasPools": "Este grupo ainda tem pools — reatribua-as ou elimine-as primeiro.",
     "ungroupedTitle": "Sem grupo",
-    "ungroupedHint": "Estas pools não estão atribuídas a um grupo conhecido. Edite uma pool para a mover para um grupo real."
+    "ungroupedHint": "Estas pools não estão atribuídas a um grupo conhecido. Edite uma pool para a mover para um grupo real.",
+    "removeFailed": "Não foi possível remover este pool.",
+    "dismiss": "Dispensar"
   },
   "plugins": {
     "title": "Plugins",

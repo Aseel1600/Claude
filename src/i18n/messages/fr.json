@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Supprimer ce groupe ? Ses pools doivent d'abord être réassignés ou supprimés.",
     "deleteGroupHasPools": "Ce groupe contient encore des pools — réassignez-les ou supprimez-les d'abord.",
     "ungroupedTitle": "Sans groupe",
-    "ungroupedHint": "Ces pools ne sont pas assignés à un groupe connu. Modifiez un pool pour le déplacer dans un vrai groupe."
+    "ungroupedHint": "Ces pools ne sont pas assignés à un groupe connu. Modifiez un pool pour le déplacer dans un vrai groupe.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

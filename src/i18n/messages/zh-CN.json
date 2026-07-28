@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "要删除此组吗？必须先重新分配或移除其池。",
     "deleteGroupHasPools": "该组仍然有池 — 请先重新分配或删除它们。",
     "ungroupedTitle": "未分组",
-    "ungroupedHint": "这些池未分配给已知组。编辑一个池以将其移动到真实组中。"
+    "ungroupedHint": "这些池未分配给已知组。编辑一个池以将其移动到真实组中。",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "插件",

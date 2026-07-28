@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "このグループを削除しますか？先にプールを再割り当てするか削除する必要があります。",
     "deleteGroupHasPools": "このグループにはまだプールがあります — 先に再割り当てするか削除してください。",
     "ungroupedTitle": "未グループ化",
-    "ungroupedHint": "これらのプールは既知のグループに割り当てられていません。プールを編集して実際のグループに移動してください。"
+    "ungroupedHint": "これらのプールは既知のグループに割り当てられていません。プールを編集して実際のグループに移動してください。",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

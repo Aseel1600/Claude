@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Futa kikundi hiki? Madimbwi yake lazima yagawiwe upya au yaondolewe kwanza.",
     "deleteGroupHasPools": "Kikundi hiki bado kina madimbwi — yagawie upya au uyafute kwanza.",
     "ungroupedTitle": "Bila kikundi",
-    "ungroupedHint": "Madimbwi haya hayajagawiwa kwa kikundi kinachojulikana. Hariri dimbwi ili kulihamishia kwenye kikundi halisi."
+    "ungroupedHint": "Madimbwi haya hayajagawiwa kwa kikundi kinachojulikana. Hariri dimbwi ili kulihamishia kwenye kikundi halisi.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

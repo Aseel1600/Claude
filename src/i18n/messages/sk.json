@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Vymazať túto skupinu? Jej fondy musia byť najskôr priradené inam alebo odstránené.",
     "deleteGroupHasPools": "Táto skupina stále obsahuje fondy — najskôr ich priraďte inam alebo vymažte.",
     "ungroupedTitle": "Nezoskupené",
-    "ungroupedHint": "Tieto fondy nie sú priradené k žiadnej známej skupine. Upravte fond a presuňte ho do skutočnej skupiny."
+    "ungroupedHint": "Tieto fondy nie sú priradené k žiadnej známej skupine. Upravte fond a presuňte ho do skutočnej skupiny.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

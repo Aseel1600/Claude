@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Ștergeți acest grup? Pool-urile sale trebuie mai întâi reatribuite sau eliminate.",
     "deleteGroupHasPools": "Acest grup are încă pool-uri — reatribuiți-le sau ștergeți-le mai întâi.",
     "ungroupedTitle": "Negrupate",
-    "ungroupedHint": "Aceste pool-uri nu sunt atribuite unui grup cunoscut. Editați un pool pentru a-l muta într-un grup real."
+    "ungroupedHint": "Aceste pool-uri nu sunt atribuite unui grup cunoscut. Editați un pool pentru a-l muta într-un grup real.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

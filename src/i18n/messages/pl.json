@@ -10544,7 +10544,9 @@
     "deleteGroupConfirm": "Usunąć tę grupę? Jej pule muszą najpierw zostać ponownie przypisane lub usunięte.",
     "deleteGroupHasPools": "Ta grupa nadal zawiera pule — najpierw przypisz je ponownie lub usuń.",
     "ungroupedTitle": "Niezgrupowane",
-    "ungroupedHint": "Te pule nie są przypisane do żadnej znanej grupy. Edytuj pulę, aby przenieść ją do rzeczywistej grupy."
+    "ungroupedHint": "Te pule nie są przypisane do żadnej znanej grupy. Edytuj pulę, aby przenieść ją do rzeczywistej grupy.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Wtyczki",

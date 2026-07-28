@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Bu grup silinsin mi? Önce havuzları yeniden atanmalı veya kaldırılmalıdır.",
     "deleteGroupHasPools": "Bu grupta hâlâ havuzlar var — önce bunları yeniden atayın veya silin.",
     "ungroupedTitle": "Gruplanmamış",
-    "ungroupedHint": "Bu havuzlar bilinen bir gruba atanmamış. Gerçek bir gruba taşımak için bir havuzu düzenleyin."
+    "ungroupedHint": "Bu havuzlar bilinen bir gruba atanmamış. Gerçek bir gruba taşımak için bir havuzu düzenleyin.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

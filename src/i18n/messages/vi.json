@@ -10544,7 +10544,9 @@
     "deleteGroupConfirm": "Xóa nhóm này? Các pool của nhóm phải được gán lại hoặc loại bỏ trước.",
     "deleteGroupHasPools": "Nhóm này vẫn còn các pool — hãy gán lại hoặc xóa chúng trước.",
     "ungroupedTitle": "Chưa phân nhóm",
-    "ungroupedHint": "Các pool này chưa được gán cho một nhóm mà hệ thống nhận diện. Hãy chỉnh sửa một pool để chuyển pool đó vào một nhóm hợp lệ."
+    "ungroupedHint": "Các pool này chưa được gán cho một nhóm mà hệ thống nhận diện. Hãy chỉnh sửa một pool để chuyển pool đó vào một nhóm hợp lệ.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugin",

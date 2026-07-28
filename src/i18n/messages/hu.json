@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Törlöd ezt a csoportot? A pooljait előbb át kell rendelni vagy el kell távolítani.",
     "deleteGroupHasPools": "Ez a csoport még tartalmaz poolokat — előbb rendeld át vagy töröld őket.",
     "ungroupedTitle": "Csoportosítatlan",
-    "ungroupedHint": "Ezek a poolok nincsenek ismert csoporthoz rendelve. Szerkessz egy poolt, hogy áthelyezd egy valódi csoportba."
+    "ungroupedHint": "Ezek a poolok nincsenek ismert csoporthoz rendelve. Szerkessz egy poolt, hogy áthelyezd egy valódi csoportba.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

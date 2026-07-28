@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "I-delete ang grupong ito? Ang mga pool nito ay dapat munang muling i-assign o alisin.",
     "deleteGroupHasPools": "May mga pool pa ang grupong ito — i-reassign o i-delete muna ang mga ito.",
     "ungroupedTitle": "Hindi nakagrupo",
-    "ungroupedHint": "Ang mga pool na ito ay hindi nakatalaga sa isang kilalang grupo. I-edit ang isang pool upang ilipat ito sa isang totoong grupo."
+    "ungroupedHint": "Ang mga pool na ito ay hindi nakatalaga sa isang kilalang grupo. I-edit ang isang pool upang ilipat ito sa isang totoong grupo.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",

@@ -10522,7 +10522,9 @@
     "deleteGroupConfirm": "Eliminare questo gruppo? I suoi pool devono prima essere riassegnati o rimossi.",
     "deleteGroupHasPools": "Questo gruppo ha ancora dei pool — riassegnali o eliminali prima.",
     "ungroupedTitle": "Non raggruppati",
-    "ungroupedHint": "Questi pool non sono assegnati a un gruppo noto. Modifica un pool per spostarlo in un gruppo reale."
+    "ungroupedHint": "Questi pool non sono assegnati a un gruppo noto. Modifica un pool per spostarlo in un gruppo reale.",
+    "removeFailed": "Could not remove this pool.",
+    "dismiss": "Dismiss"
   },
   "plugins": {
     "title": "Plugins",
