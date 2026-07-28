@@ -4,6 +4,7 @@ import { resolveAlternateFormat } from "../../open-sse/config/providers/alternat
 import type { RegistryEntry } from "../../open-sse/config/providers/shared.ts";
 import { getTargetFormat } from "../../open-sse/services/provider.ts";
 import { DefaultExecutor } from "../../open-sse/executors/default.ts";
+import { getAlternateFormats } from "../../src/app/(dashboard)/dashboard/providers/[id]/providerPageHelpers.ts";
 
 const ENTRY: RegistryEntry = {
   id: "demo",
@@ -169,4 +170,16 @@ test("DefaultExecutor.buildHeaders: targetFormat que nao casa mantem o authHeade
   ) as Record<string, string>;
   assert.equal(headers["Authorization"], "Bearer sk-test");
   assert.equal(headers["x-api-key"], undefined);
+});
+
+test("getAlternateFormats: provedor com alternativas retorna a lista", () => {
+  const list = getAlternateFormats("xiaomi-mimo");
+  assert.equal(list.length, 1);
+  assert.equal(list[0].format, "claude");
+});
+
+test("getAlternateFormats: provedor sem alternativas retorna lista vazia", () => {
+  assert.deepEqual(getAlternateFormats("deepseek"), []);
+  assert.deepEqual(getAlternateFormats(null), []);
+  assert.deepEqual(getAlternateFormats(undefined), []);
 });
