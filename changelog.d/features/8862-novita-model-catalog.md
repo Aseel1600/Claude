@@ -1,0 +1,1 @@
+- **Providers**: expands the Novita AI catalog from a single Llama 3.1 8B entry to 19 curated serving models (DeepSeek V4, Kimi K3, GLM 5.2, MiniMax M3, Qwen3.7 Max, Qwen3 Coder 480B, MiMo V2.5 Pro, gpt-oss-120b, Gemma 4 31B and more), each seeded from the live `/openai/v1/models` listing with its real context window, output cap, reasoning and vision flags

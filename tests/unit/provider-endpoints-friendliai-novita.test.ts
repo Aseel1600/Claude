@@ -36,3 +36,55 @@ test("#5455 Novita targets the /openai/v1 endpoint with a valid model id", () =>
     "Novita must list the valid meta-llama/llama-3.1-8b-instruct id"
   );
 });
+
+test("#5455 Novita catalog lists only live `status: 1` model ids from /openai/v1/models", () => {
+  const ids = novitaProvider.models.map((m) => m.id);
+
+  // Net-new ids seeded from the live public listing — each was MISSING from the
+  // single-model registry entry before this catalog expansion (failing-before assertion).
+  const expectedNewIds = [
+    "deepseek/deepseek-v4-pro",
+    "deepseek/deepseek-v4-flash",
+    "deepseek/deepseek-v3.2",
+    "moonshotai/kimi-k3",
+    "moonshotai/kimi-k2.6",
+    "zai-org/glm-5.2",
+    "zai-org/glm-4.7",
+    "minimax/minimax-m3",
+    "qwen/qwen3.7-max",
+    "qwen/qwen3-coder-480b-a35b-instruct",
+    "xiaomimimo/mimo-v2.5-pro",
+    "openai/gpt-oss-120b",
+    "google/gemma-4-31b-it",
+  ];
+  for (const id of expectedNewIds) {
+    assert.ok(ids.includes(id), `expected model id "${id}" to be present`);
+  }
+
+  // Retired generations (`status: 4` in the live listing) and the unnamespaced staging
+  // ids it also returns must never reach the catalog.
+  const mustNotBeListed = [
+    "meta-llama/llama-3-8b-instruct",
+    "zai-org/glm-4.5",
+    "qwen/qwen2.5-7b-instruct",
+    "bunny",
+    "elephant",
+    "dev/glm46",
+    "ai_infer_test_2",
+  ];
+  for (const id of mustNotBeListed) {
+    assert.ok(!ids.includes(id), `retired/staging model id "${id}" must not be listed`);
+  }
+});
+
+test("Novita catalog has no duplicate model ids and every entry carries a context window", () => {
+  const ids = novitaProvider.models.map((m) => m.id);
+  assert.equal(new Set(ids).size, ids.length, `duplicate Novita model ids: ${ids.join(", ")}`);
+
+  for (const m of novitaProvider.models) {
+    assert.ok(
+      typeof m.contextLength === "number" && m.contextLength > 0,
+      `model "${m.id}" must declare a positive contextLength`
+    );
+  }
+});
