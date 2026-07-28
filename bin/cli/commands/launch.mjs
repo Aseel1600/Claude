@@ -91,6 +91,60 @@ export function resolveLaunchTarget(opts = {}) {
 }
 
 /**
+ * #8246: on Windows, npm installs claude as a `.cmd` shim — spawn() without a
+ * shell cannot resolve PATHEXT shims (and Node refuses to exec `.cmd` directly
+ * since CVE-2024-27980), so the Windows path must go through cmd.exe.
+ *
+ * @param {NodeJS.Platform|string} platform
+ * @returns {{ command: string, shell: true|undefined }}
+ */
+export function resolveClaudeSpawn(platform) {
+  return platform === "win32"
+    ? { command: "claude.cmd", shell: true }
+    : { command: "claude", shell: undefined };
+}
+
+/** cmd.exe metacharacters that stay live inside a quoted argument. */
+const WIN_META_CHARS = /([()\][%!^"`<>&|;, *?])/g;
+
+/**
+ * Escape one argument for a cmd.exe command line built by `shell: true`.
+ *
+ * Two layers, in order:
+ *  1. the CRT argv rules the target binary parses (double the backslashes that
+ *     precede a quote, escape embedded quotes, wrap in quotes);
+ *  2. cmd.exe's metacharacters, caret-escaped — applied TWICE because the
+ *     target is an npm `.cmd` shim that forwards `%*` to node, so the line is
+ *     parsed by cmd a second time. Single-escaping truncated any argument at
+ *     the first `&` or `|`. (Same rule as cross-spawn's doubleEscapeMetaChars.)
+ *
+ * @param {unknown} arg
+ * @returns {string}
+ */
+function escapeWindowsShellArg(arg) {
+  const s = String(arg);
+  if (s === "") return '""';
+  let out = s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, "$1$1");
+  out = `"${out}"`;
+  return out.replace(WIN_META_CHARS, "^$1").replace(WIN_META_CHARS, "^$1");
+}
+
+/**
+ * `shell: true` makes Node join argv with plain spaces and no escaping (the
+ * DEP0190 warning), so `-p "two words"` used to reach claude as `-p two` plus
+ * three stray positional arguments. Quote the args ourselves on that path.
+ * Off Windows there is no shell, so argv is passed through untouched.
+ *
+ * @param {string[]} args
+ * @param {NodeJS.Platform|string} platform
+ * @returns {string[]}
+ */
+export function quoteClaudeArgs(args, platform) {
+  const list = [...(args ?? [])];
+  return platform === "win32" ? list.map(escapeWindowsShellArg) : list;
+}
+
+/**
  * @param {{port?:string, remote?:string, token?:string, apiKey?:string, profile?:string, claudeHome?:string}} opts
  * @param {string[]} claudeArgs  pass-through args for the claude binary
  * @returns {Promise<number>} exit code
@@ -120,13 +174,12 @@ export async function runLaunchCommand(opts = {}, claudeArgs = []) {
   const env = buildClaudeEnv(process.env, baseUrl, authToken, { configDir });
 
   return await new Promise((resolve) => {
-    // #8246: on Windows, npm installs claude as a .cmd shim — spawn() without
-    // shell:true cannot resolve PATHEXT shims and fails with ENOENT.
-    const claudeCommand = process.platform === "win32" ? "claude.cmd" : "claude";
-    const child = spawn(claudeCommand, claudeArgs, {
+    const { command, shell } = resolveClaudeSpawn(process.platform);
+    const child = spawn(command, quoteClaudeArgs(claudeArgs, process.platform), {
       env,
       stdio: "inherit",
-      ...(process.platform === "win32" ? { shell: true, windowsHide: true } : {}),
+      shell,
+      ...(process.platform === "win32" ? { windowsHide: true } : {}),
     });
     child.on("error", (err) => {
       if (err && err.code === "ENOENT") {
@@ -159,7 +212,10 @@ export function registerLaunch(program) {
     .allowExcessArguments(true)
     .argument("[claudeArgs...]", "arguments passed through to the claude binary")
     .action(async (claudeArgs, opts) => {
-      const exitCode = await runLaunchCommand(opts, claudeArgs ?? []);
-      if (exitCode !== 0) process.exit(exitCode);
+      // process.exit() here aborted the process with a libuv assertion on
+      // Windows (`!(handle->flags & UV_HANDLE_CLOSING)`, async.c:94): it tears
+      // the loop down while the inherited stdio handles of the just-exited
+      // child are still closing. Setting exitCode lets the loop drain first.
+      process.exitCode = await runLaunchCommand(opts, claudeArgs ?? []);
     });
 }
