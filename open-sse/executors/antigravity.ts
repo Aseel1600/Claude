@@ -774,13 +774,13 @@ export class AntigravityExecutor extends BaseExecutor {
               discovered,
               credentials.providerSpecificData
             );
-            log?.info?.("TOKEN", "Antigravity projectId discovered during refresh", {
-              projectId: discovered,
-            });
+            const okMsg = `Antigravity projectId discovered during refresh: ${discovered}`;
+            log?.info?.("TOKEN", okMsg);
           }
         } catch (discoveryError) {
           // Best-effort: if discovery fails, the runtime path will retry on next request.
-          const msg = discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
+          const msg =
+            discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
           log?.warn?.("TOKEN", `Antigravity projectId discovery during refresh failed: ${msg}`);
         }
       }
