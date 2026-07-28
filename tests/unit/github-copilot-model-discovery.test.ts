@@ -130,6 +130,7 @@ test("curated Copilot allowlist contains the final approved model ids only", () 
     [...GITHUB_COPILOT_MODEL_ALLOWLIST],
     [
       "claude-fable-5",
+      "claude-opus-5",
       "claude-opus-4.8-fast",
       "claude-opus-4.8",
       "claude-opus-4.7",

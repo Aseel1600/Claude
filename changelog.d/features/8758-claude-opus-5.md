@@ -1,0 +1,1 @@
+- **feat(providers):** Add Claude Opus 5 support across Anthropic API key, Claude Code OAuth, Claude Web, and GitHub Copilot, including native 1M context, adaptive thinking, Fast Mode, pricing, fallback behavior, summarized-thinking streaming, and the matching Claude Code 2.1.219 client identity ([#8758](https://github.com/diegosouzapw/OmniRoute/issues/8758)).

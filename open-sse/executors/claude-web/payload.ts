@@ -182,6 +182,20 @@ export function wantsExtendedThinking(body: Record<string, unknown>): boolean {
   return false;
 }
 
+const CLAUDE_WEB_OPUS_5_MODEL = "claude-opus-5";
+const CLAUDE_WEB_REASONING_EFFORTS = new Set(["low", "medium", "high", "xhigh", "max"]);
+
+function resolveClaudeWebReasoningEffort(body: Record<string, unknown>): string | null {
+  const reasoning =
+    body.reasoning && typeof body.reasoning === "object" && !Array.isArray(body.reasoning)
+      ? (body.reasoning as Record<string, unknown>)
+      : null;
+  const effort = body.reasoning_effort ?? reasoning?.effort;
+  if (typeof effort !== "string") return null;
+  const normalized = effort.trim().toLowerCase();
+  return CLAUDE_WEB_REASONING_EFFORTS.has(normalized) ? normalized : null;
+}
+
 /**
  * Transform OpenAI format to Claude Web format
  */
@@ -206,6 +220,9 @@ export function transformToClaude(
     throw new Error("No user message found in request");
   }
 
+  const isOpus5 = model.trim().toLowerCase() === CLAUDE_WEB_OPUS_5_MODEL;
+  const reasoningEffort = resolveClaudeWebReasoningEffort(body);
+
   return {
     prompt,
     model: model || DEFAULT_CLAUDE_MODEL,
@@ -215,11 +232,11 @@ export function transformToClaude(
     tools: getDefaultTools(),
     turn_message_uuids: generateMessageUUIDs(),
     attachments: [],
-    effort: "low",
+    effort: isOpus5 ? (reasoningEffort ?? "high") : "low",
     files: [],
     sync_sources: [],
     rendering_mode: "messages",
-    thinking_mode: wantsExtendedThinking(body) ? "on" : "off",
+    thinking_mode: isOpus5 ? "auto" : wantsExtendedThinking(body) ? "on" : "off",
     create_conversation_params: {
       name: "",
       model: model || DEFAULT_CLAUDE_MODEL,

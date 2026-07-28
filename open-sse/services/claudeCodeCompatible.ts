@@ -1,6 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import { getStainlessTimeoutSeconds } from "@/shared/utils/runtimeTimeouts";
+import {
+  CLAUDE_CODE_CLIENT_VERSION,
+  CLAUDE_CODE_RUNTIME_VERSION,
+  CLAUDE_CODE_SDK_PACKAGE_VERSION,
+  getClaudeCodeUserAgent,
+} from "@/shared/constants/claudeCodeClient";
 import { ANTHROPIC_VERSION_HEADER } from "../config/anthropicHeaders.ts";
 import { supportsClaudeMaxEffort, supportsXHighEffort } from "../config/providerModels.ts";
 import { prepareClaudeRequest } from "../translator/helpers/claudeHelper.ts";
@@ -42,10 +48,10 @@ export {
   CLAUDE_CODE_COMPATIBLE_REDACT_THINKING_BETA,
   resolveClaudeCodeCompatibleAnthropicBeta,
 } from "./claudeCodeCompatibleBeta.ts";
-export const CLAUDE_CODE_COMPATIBLE_VERSION = "2.1.207";
-export const CLAUDE_CODE_COMPATIBLE_USER_AGENT = "claude-cli/2.1.207 (external, sdk-cli)";
-export const CLAUDE_CODE_COMPATIBLE_STAINLESS_PACKAGE_VERSION = "0.94.0";
-export const CLAUDE_CODE_COMPATIBLE_STAINLESS_RUNTIME_VERSION = "v24.3.0";
+export const CLAUDE_CODE_COMPATIBLE_VERSION = CLAUDE_CODE_CLIENT_VERSION;
+export const CLAUDE_CODE_COMPATIBLE_USER_AGENT = getClaudeCodeUserAgent("sdk-cli");
+export const CLAUDE_CODE_COMPATIBLE_STAINLESS_PACKAGE_VERSION = CLAUDE_CODE_SDK_PACKAGE_VERSION;
+export const CLAUDE_CODE_COMPATIBLE_STAINLESS_RUNTIME_VERSION = CLAUDE_CODE_RUNTIME_VERSION;
 export const CONTEXT_1M_BETA_HEADER = "context-1m-2025-08-07";
 const CLAUDE_CODE_COMPATIBLE_DEFAULT_SYSTEM_BLOCKS = [
   {
@@ -60,6 +66,7 @@ const CONTEXT_1M_SUPPORTED_MODELS = [
   "claude-opus-4-7",
   "claude-opus-4-6",
 ];
+const CONTEXT_1M_NATIVE_MODELS = ["claude-opus-5"];
 export const CLAUDE_CODE_COMPATIBLE_STAINLESS_TIMEOUT_SECONDS = getStainlessTimeoutSeconds(
   process.env
 );
@@ -172,6 +179,17 @@ export function modelSupportsContext1mBeta(model: string | null | undefined): bo
     .replace(/-\d{8}$/, "");
 
   return CONTEXT_1M_SUPPORTED_MODELS.some(
+    (supported) => normalizedModel === supported || normalizedModel.startsWith(`${supported}-`)
+  );
+}
+
+export function modelHasNativeContext1m(model: string | null | undefined): boolean {
+  const normalizedModel = String(model || "")
+    .trim()
+    .toLowerCase()
+    .replace(/-\d{8}$/, "");
+
+  return CONTEXT_1M_NATIVE_MODELS.some(
     (supported) => normalizedModel === supported || normalizedModel.startsWith(`${supported}-`)
   );
 }

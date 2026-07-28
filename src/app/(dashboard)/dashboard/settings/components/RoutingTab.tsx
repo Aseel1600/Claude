@@ -166,6 +166,7 @@ const DEFAULT_SYSTEM_TRANSFORMS_CLIENT = {
           entrypoint: "sdk-cli",
           versionFormat: "ex-machina",
           cchAlgo: "sha256-first-user",
+          buildRevision: "250",
         },
       ],
     },
@@ -270,6 +271,7 @@ function makeDefaultOp(kind: TransformOpKind): any {
         entrypoint: "sdk-cli",
         versionFormat: "ex-machina",
         cchAlgo: "sha256-first-user",
+        buildRevision: "250",
       };
     case "obfuscate_words":
       return { kind, words: [""], targets: ["system", "messages", "tools"] };

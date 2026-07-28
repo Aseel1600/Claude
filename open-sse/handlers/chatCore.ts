@@ -107,7 +107,10 @@ import {
 } from "../services/modelStrip.ts";
 import { resolveModelAlias } from "../services/modelDeprecation.ts";
 import { normalizeMimoThinking } from "../services/mimoThinking.ts";
-import { normalizeClaudeAdaptiveThinking } from "../services/claudeAdaptiveThinking.ts";
+import {
+  normalizeClaudeAdaptiveThinking,
+  normalizeClaudeDisabledThinkingEffort,
+} from "../services/claudeAdaptiveThinking.ts";
 import { normalizeClaudeHaikuConstraints } from "../services/claudeHaikuConstraints.ts";
 import { echoModelInObject } from "../services/responseModelEcho.ts";
 import { stripGpt5SamplingWhenReasoning } from "../services/gpt5SamplingGuard.ts";
@@ -2017,6 +2020,14 @@ export async function handleChatCore({
     // defaults) to `{type:"adaptive"}` — effort stays on `output_config.effort`. Keyed on
     // the resolved upstream model, so it covers every routing mode. See claudeAdaptiveThinking.ts.
     translatedBody = normalizeClaudeAdaptiveThinking(translatedBody, finalModelToUpstream);
+    // Opus 5 allows disabled thinking only through high effort on Anthropic's direct
+    // Messages API. The helper scopes this constraint to `anthropic` and `claude`;
+    // GitHub Copilot and Claude Web use separate upstream contracts.
+    translatedBody = normalizeClaudeDisabledThinkingEffort(
+      translatedBody,
+      finalModelToUpstream,
+      provider
+    );
     // Claude Haiku rejects `thinking.type:"adaptive"` and `output_config.effort`
     // (both Sonnet 4.6 / Opus 4.5+ only). Several paths can still emit those
     // shapes on a Haiku target — native passthrough, reasoning_effort buckets,

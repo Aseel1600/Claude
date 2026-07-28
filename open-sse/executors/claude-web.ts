@@ -292,6 +292,19 @@ async function buildClaudeStreamingResponse(
 
   let finished = false;
 
+  function readThinkingDelta(delta: Record<string, unknown> | undefined): string | undefined {
+    if (!delta) return undefined;
+    if (typeof delta.thinking === "string") return delta.thinking;
+    if (typeof delta.summary === "string") return delta.summary;
+    if (delta.summary && typeof delta.summary === "object" && !Array.isArray(delta.summary)) {
+      const summary = delta.summary as Record<string, unknown>;
+      for (const key of ["summary", "text", "thinking"]) {
+        if (typeof summary[key] === "string") return summary[key] as string;
+      }
+    }
+    return undefined;
+  }
+
   const transformed = new ReadableStream<Uint8Array>({
     async start(controller) {
       const reader = src!.getReader();
@@ -340,7 +353,7 @@ async function buildClaudeStreamingResponse(
               else if (parsed.type === "content_block_delta") {
                 const delta = parsed.delta as Record<string, unknown> | undefined;
                 const text = delta?.text as string | undefined;
-                const thinking = delta?.thinking as string | undefined;
+                const thinking = readThinkingDelta(delta);
                 if (text) {
                   const chunk = transformFromClaude(text, model);
                   const out = `data: ${JSON.stringify(chunk)}\n\n`;
@@ -384,7 +397,7 @@ async function buildClaudeStreamingResponse(
               if (parsed.type === "content_block_delta") {
                 const delta = parsed.delta as Record<string, unknown> | undefined;
                 const text = delta?.text as string | undefined;
-                const thinking = delta?.thinking as string | undefined;
+                const thinking = readThinkingDelta(delta);
                 if (text) {
                   const chunk = transformFromClaude(text, model);
                   controller.enqueue(

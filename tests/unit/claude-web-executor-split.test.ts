@@ -36,3 +36,20 @@ test("transformToClaude builds a Claude-web payload with model + tools", async (
   assert.equal(typeof payload, "object");
   assert.ok(Array.isArray(payload.tools));
 });
+
+test("transformToClaude uses Opus 5 auto-thinking defaults and preserves explicit effort", async () => {
+  const { transformToClaude } = await import("../../open-sse/executors/claude-web/payload.ts");
+  const defaults = transformToClaude(
+    { messages: [{ role: "user", content: "hi" }] },
+    "claude-opus-5"
+  );
+  assert.equal(defaults.effort, "high");
+  assert.equal(defaults.thinking_mode, "auto");
+
+  const explicit = transformToClaude(
+    { messages: [{ role: "user", content: "hi" }], reasoning_effort: "max" },
+    "claude-opus-5"
+  );
+  assert.equal(explicit.effort, "max");
+  assert.equal(explicit.thinking_mode, "auto");
+});

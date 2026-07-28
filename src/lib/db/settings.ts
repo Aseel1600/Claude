@@ -130,7 +130,13 @@ export async function getSettings() {
     codexServiceTier: { enabled: false },
     claudeFastMode: {
       enabled: false,
-      supportedModels: ["claude-fable-5", "claude-opus-4-8", "claude-opus-4-7", "claude-opus-4-6"],
+      supportedModels: [
+        "claude-fable-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+      ],
     },
     codexSessionAffinityTtlMs: 0,
     responsesPreviousResponseIdMode: DEFAULT_RESPONSES_PREVIOUS_RESPONSE_ID_MODE,

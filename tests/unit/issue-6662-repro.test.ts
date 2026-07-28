@@ -22,9 +22,8 @@ import assert from "node:assert/strict";
 
 const mod = await import("../../open-sse/executors/v0-vercel-web.ts");
 const { ClaudeWebExecutor } = await import("../../open-sse/executors/claude-web.ts");
-const { __setTlsFetchOverrideForTesting } = await import(
-  "../../open-sse/services/claudeTlsClient.ts"
-);
+const { __setTlsFetchOverrideForTesting } =
+  await import("../../open-sse/services/claudeTlsClient.ts");
 
 function sseUpstream(events: string[]): Response {
   const encoder = new TextEncoder();
@@ -148,5 +147,43 @@ describe("#6662 repro — claude-web drops thinking_delta reasoning_content", ()
       text.includes("Let me think about 17*23"),
       `expected the thinking text to be forwarded, got:\n${text}`
     );
+  });
+
+  it("forwards Opus 5 thinking summary objects as reasoning_content", async () => {
+    const upstreamEvents = [
+      { type: "message_start", message: { id: "msg_1", model: "claude-opus-5" } },
+      { type: "content_block_start", index: 0, content_block: { type: "thinking" } },
+      {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "thinking_summary_delta", summary: { summary: "Plan the answer" } },
+      },
+      { type: "content_block_stop", index: 0 },
+      { type: "message_stop" },
+    ];
+
+    __setTlsFetchOverrideForTesting(async () => ({
+      status: 200,
+      headers: new Headers({ "Content-Type": "text/event-stream" }),
+      text: null,
+      body: claudeSseStream(upstreamEvents),
+    }));
+
+    const executor = new ClaudeWebExecutor();
+    const result = await executor.execute({
+      model: "claude-opus-5",
+      body: { messages: [{ role: "user", content: "Solve it" }] },
+      stream: true,
+      credentials: {
+        apiKey: "sessionKey=fake-session; cf_clearance=fake-clearance",
+        orgId: "org-test",
+        conversationId: "conv-test",
+      },
+      signal: null,
+    });
+
+    const text = await result.response.text();
+    assert.match(text, /reasoning_content/);
+    assert.match(text, /Plan the answer/);
   });
 });

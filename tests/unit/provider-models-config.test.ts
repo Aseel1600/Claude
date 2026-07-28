@@ -88,6 +88,7 @@ test("GitHub Copilot registry reflects the current supported model lineup", () =
   const ids = githubModels.map((model) => model.id);
 
   assert.deepEqual(ids, [...GITHUB_COPILOT_MODEL_ALLOWLIST]);
+  assert.equal(getModelTargetFormat("gh", "claude-opus-5"), "claude");
   assert.equal(getModelTargetFormat("gh", "gpt-5.3-codex"), "openai-responses");
   assert.equal(getModelTargetFormat("gh", "claude-opus-4.6"), null);
   assert.equal(getModelTargetFormat("gh", "claude-opus-4.8-fast"), null);
@@ -136,6 +137,8 @@ test("Claude max effort support excludes Haiku family and non-Claude IDs", () =>
 test("xhigh effort support defaults to pass-through and opts out explicit false models", () => {
   const claudeModels = new Set(getModelsByProviderId("claude").map((model) => model.id));
 
+  assert.ok(claudeModels.has("claude-opus-5"));
+  assert.equal(supportsXHighEffort("claude", "claude-opus-5"), true);
   assert.ok(claudeModels.has("claude-opus-4-8"));
   assert.equal(supportsXHighEffort("claude", "claude-opus-4-8"), true);
   assert.equal(supportsXHighEffort("claude", "claude-opus-4-7"), true);

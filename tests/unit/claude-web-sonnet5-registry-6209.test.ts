@@ -8,6 +8,7 @@ import { getModelsByProviderId } from "../../open-sse/config/providerModels.ts";
 test("claude-web registry exposes claude-sonnet-5 (Claude 5 Sonnet web)", () => {
   const models = getModelsByProviderId("claude-web");
   const ids = new Set(models.map((m) => m.id));
+  assert.ok(ids.has("claude-opus-5"), "claude-web must expose claude-opus-5");
   assert.ok(ids.has("claude-sonnet-5"), "claude-web must expose claude-sonnet-5");
   // the prior web lineup must survive
   assert.ok(ids.has("claude-sonnet-4-6"), "claude-web must keep claude-sonnet-4-6");
