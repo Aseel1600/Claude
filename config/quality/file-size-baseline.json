@@ -348,7 +348,7 @@
     "open-sse/executors/deepseek-web.ts": 1148,
     "open-sse/executors/grok-web.ts": 1044,
     "open-sse/executors/muse-spark-web.ts": 1405,
-    "open-sse/handlers/chatCore.ts": 4955,
+    "open-sse/handlers/chatCore.ts": 5006,
     "open-sse/handlers/imageGeneration.ts": 3101,
     "open-sse/handlers/responseSanitizer.ts": 1115,
     "open-sse/handlers/search.ts": 1536,
@@ -404,5 +404,6 @@
     "tests/unit/account-fallback-service.test.ts": 1572,
     "tests/unit/provider-validation-specialty.test.ts": 2980,
     "open-sse/executors/hyperagent.ts": 1026
-  }
+  },
+  "_rebaseline_2026_07_27_v3849_train2": "Merge-train 2 (7 PRs) — owner-approved 2026-07-27. Single entry: chatCore.ts 4955->5006 (#8595, Responses multi-turn image compaction before the context hard-reject). Genuine irreducible growth at the existing compaction chokepoint in handleChatCore — the PR adds a last-resort retry against the concrete budget plus the estimateFinalInputTokens helper, both wired at the pre-existing call site rather than a new branch. Covered by tests/unit/8560-responses-image-compaction.test.ts (4 tests)."
 }
