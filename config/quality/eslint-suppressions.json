@@ -1347,11 +1347,6 @@
       "count": 5
     }
   },
-  "tests/unit/executor-claude-identity.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "tests/unit/executor-cloudflare-ai.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4

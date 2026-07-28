@@ -1,15 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { Buffer } from "node:buffer";
 
 const { ClaudeWebExecutor } = await import("../../open-sse/executors/claude-web.ts");
 const { getExecutor, hasSpecializedExecutor } = await import("../../open-sse/executors/index.ts");
 const { __setTlsFetchOverrideForTesting } =
   await import("../../open-sse/services/claudeTlsClient.ts");
+const { __resetHttpBackedChatOverrideForTesting, __setHttpBackedChatOverrideForTesting } =
+  await import("../../open-sse/services/browserBackedChat.ts");
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 function reset() {
   __setTlsFetchOverrideForTesting(null);
+  __resetHttpBackedChatOverrideForTesting();
+  delete process.env.WEB_COOKIE_USE_BROWSER;
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
@@ -192,6 +197,80 @@ test("M: ClaudeWebExecutor includes required fields in execute result", async ()
     // Verify result object structure
     assert.ok(result.hasOwnProperty("response"));
     assert.ok(result.hasOwnProperty("url") || result.hasOwnProperty("headers"));
+  } finally {
+    reset();
+  }
+});
+
+test("N: ClaudeWebExecutor validates a live session through the organizations endpoint", async () => {
+  reset();
+  __setTlsFetchOverrideForTesting(async () => ({
+    status: 200,
+    headers: new Headers({ "Content-Type": "application/json" }),
+    text: "[]",
+    body: null,
+  }));
+
+  try {
+    const executor = new ClaudeWebExecutor();
+    const connected = await executor.testConnection({
+      apiKey: "sessionKey=test-token; cf_clearance=test-clearance",
+      deviceId: "device-test",
+    });
+
+    assert.equal(connected, true);
+  } finally {
+    reset();
+  }
+});
+
+test("O: ClaudeWebExecutor browser path extracts the last user prompt", async () => {
+  reset();
+  process.env.WEB_COOKIE_USE_BROWSER = "1";
+
+  let capturedPrompt = "";
+  __setHttpBackedChatOverrideForTesting(async (request) => {
+    capturedPrompt = request.userMessage;
+    return {
+      status: 200,
+      contentType: "text/event-stream",
+      body: Buffer.from(
+        'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"OK"}}\n\n' +
+          'data: {"type":"message_stop"}\n\n'
+      ),
+      isStealth: true,
+      timing: {
+        acquireContextMs: 0,
+        navigateMs: 0,
+        submitMs: 0,
+        captureResponseMs: 0,
+        totalMs: 0,
+      },
+    };
+  });
+
+  try {
+    const executor = new ClaudeWebExecutor();
+    const result = await executor.execute({
+      model: "claude-opus-5",
+      body: {
+        messages: [
+          { role: "user", content: "first prompt" },
+          { role: "assistant", content: "response" },
+          { role: "user", content: [{ type: "text", text: "last prompt" }] },
+        ],
+      },
+      stream: true,
+      credentials: {
+        apiKey: "sessionKey=test-token; cf_clearance=test-clearance",
+        orgId: "org-test",
+      },
+      signal: null,
+      log: null,
+    });
+
+    assert.equal(capturedPrompt, "last prompt");
+    assert.match(await result.response.text(), /"content":"OK"/);
   } finally {
     reset();
   }

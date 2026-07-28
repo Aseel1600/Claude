@@ -186,6 +186,7 @@ describe("claudeIdentity — selectBetaFlags", () => {
     const flags = mod.selectBetaFlags(body, "claude-opus-5");
     assert.ok(!flags.includes("context-1m-2025-08-07"));
     assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+    assert.ok(flags.includes("effort-2025-11-24"));
   });
 
   it("does not include context-1m for sonnet", () => {
@@ -202,14 +203,14 @@ describe("claudeIdentity — stripProxyToolPrefix", () => {
   it("strips proxy_ prefix from tools", () => {
     const body = { tools: [{ name: "proxy_search" }, { name: "native_tool" }] };
     mod.stripProxyToolPrefix(body);
-    assert.equal((body.tools as any[])[0].name, "search");
-    assert.equal((body.tools as any[])[1].name, "native_tool");
+    assert.equal(body.tools[0].name, "search");
+    assert.equal(body.tools[1].name, "native_tool");
   });
 
   it("strips proxy_ from tool_choice", () => {
     const body = { tool_choice: { name: "proxy_search" } };
     mod.stripProxyToolPrefix(body);
-    assert.equal((body.tool_choice as any).name, "search");
+    assert.equal(body.tool_choice.name, "search");
   });
 
   it("handles body without tools", () => {
