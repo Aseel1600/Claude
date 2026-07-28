@@ -449,6 +449,11 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "firefly",
   "hyperagent",
   "ha",
+  // xAI OAuth (Grok) weekly quota (id + public alias, same pattern as ha/agy)
+  "xai-oauth",
+  "xao",
+  // Firecrawl team credits (GET /v2/team/credit-usage)
+  "firecrawl",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──
