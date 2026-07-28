@@ -1,6 +1,6 @@
-import { describe, it } from "node:test";
+import { describe, it, mock } from "node:test";
 import assert from "node:assert";
-import { readFileSync } from "node:fs";
+import fs, { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import * as generator from "../../../src/lib/cli-helper/config-generator/index.ts";
 
@@ -515,6 +515,106 @@ describe("config-generator", () => {
         );
       } finally {
         stub.restore();
+      }
+    });
+
+    it("#8849 emits a complete limit for catalog metadata without fabricating one", async () => {
+      const catalog = [
+        { id: "context-only", context_length: 131072 },
+        { id: "context-input", context_length: 131072, max_input_tokens: 100000 },
+        {
+          id: "context-input-output",
+          context_length: 131072,
+          max_input_tokens: 100000,
+          max_output_tokens: 32768,
+        },
+        { id: "no-metadata" },
+      ];
+      const stub = stubFetchOnce(makeCatalogResponse(catalog));
+      try {
+        const { generateOpencodeConfig } = await import(
+          "../../../src/lib/cli-helper/config-generator/opencode.ts"
+        );
+        const out = await generateOpencodeConfig({
+          baseUrl: "http://localhost:20128",
+          apiKey: "sk-test",
+          providerId: "issue8849",
+        });
+        const models = JSON.parse(out).provider.issue8849.models;
+
+        assert.deepStrictEqual(models["context-only"].limit, {
+          context: 131072,
+          output: 8192,
+        });
+        assert.deepStrictEqual(models["context-input"].limit, {
+          context: 131072,
+          input: 100000,
+          output: 8192,
+        });
+        assert.deepStrictEqual(models["context-input-output"].limit, {
+          context: 131072,
+          input: 100000,
+          output: 32768,
+        });
+        assert.strictEqual(models["no-metadata"].limit, undefined);
+
+        for (const model of Object.values(models) as Array<{ limit?: { output?: number } }>) {
+          assert.ok(
+            model.limit === undefined ||
+              (typeof model.limit.output === "number" && model.limit.output > 0),
+            "every emitted limit must contain a positive output"
+          );
+        }
+      } finally {
+        stub.restore();
+      }
+    });
+
+    it("#8849 preserves manual output precedence over catalog and fallback values", async () => {
+      const existingConfig = {
+        provider: {
+          issue8849: {
+            models: {
+              "manual-vs-catalog": { limit: { output: 16384 } },
+              "manual-vs-fallback": { limit: { output: 4096 } },
+            },
+          },
+        },
+      };
+      mock.method(fs, "existsSync", () => true);
+      mock.method(fs, "readFileSync", () => JSON.stringify(existingConfig));
+      const stub = stubFetchOnce(
+        makeCatalogResponse([
+          {
+            id: "manual-vs-catalog",
+            context_length: 131072,
+            max_output_tokens: 32768,
+          },
+          { id: "manual-vs-fallback", context_length: 131072 },
+        ])
+      );
+      try {
+        const { generateOpencodeConfig } = await import(
+          "../../../src/lib/cli-helper/config-generator/opencode.ts"
+        );
+        const out = await generateOpencodeConfig({
+          baseUrl: "http://localhost:20128",
+          apiKey: "sk-test",
+          providerId: "issue8849",
+        });
+        const models = JSON.parse(out).provider.issue8849.models;
+
+        assert.deepStrictEqual(models["manual-vs-catalog"].limit, {
+          context: 131072,
+          output: 16384,
+        });
+        assert.deepStrictEqual(models["manual-vs-fallback"].limit, {
+          context: 131072,
+          output: 4096,
+        });
+      } finally {
+        stub.restore();
+        mock.restoreAll();
       }
     });
   });
