@@ -53,6 +53,7 @@
       "tests/unit/8396-cooldown-429-cap.test.ts",
       "tests/unit/8488-capability-filter-fail-closed.test.ts",
       "tests/unit/account-fallback-anthropic-quota.test.ts",
+      "tests/unit/account-fallback-cf1010-no-retry-8775.test.ts",
       "tests/unit/account-fallback-lockout-eviction.test.ts",
       "tests/unit/account-fallback-retry-after-json.test.ts",
       "tests/unit/account-fallback-route-restriction-403.test.ts",

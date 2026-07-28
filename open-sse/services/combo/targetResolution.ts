@@ -54,7 +54,7 @@ import {
 import { applyContextRequirements } from "./contextRequirements.ts";
 import { recordComboFailure } from "./failureTracker.ts";
 import { getKnownContextOverflow } from "./knownContextOverflow.ts";
-import { buildRecoveryHint } from "./pinRecovery.ts";
+import { buildEmptyComboTargetsPayload, buildRecoveryHint } from "./pinRecovery.ts";
 import {
   applyPromptCacheAffinity,
   expandPromptCacheAffinityTargets,
@@ -447,6 +447,8 @@ async function orderByStrategy(
  * May return `{ earlyResponse }` when hard capability filters (#8488 / #8494) empty
  * the pool — tools / vision / structured_output fail closed as 400 capability_mismatch
  * unless `compatFilterFailOpen` is set on the combo config or settings.
+ * Also returns `{ earlyResponse }` for #8786 when context requirements leave no
+ * survivors (`context_requirements_exhausted`).
  */
 async function applyContinuityFilters(
   deps: ResolveComboTargetPipelineDeps,
@@ -518,7 +520,26 @@ async function applyContinuityFilters(
       };
     }
   }
+  // #8786: capture pre-filter pool so a strict/minContextWindow wipe can
+  // surface context_requirements_exhausted instead of a generic 404.
+  const preContextTargets = orderedTargets;
   orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
+  if (orderedTargets.length === 0 && preContextTargets.length > 0) {
+    const effectiveSessionId: string | null = combo.context_cache_protection
+      ? (relayOptions?.sessionId ?? null)
+      : null;
+    recordComboFailure(effectiveSessionId, combo.name);
+    const { message, diagnostics } = buildEmptyComboTargetsPayload(
+      preContextTargets,
+      config.contextRequirements?.minContextWindow
+    );
+    return {
+      earlyResponse: errorResponseWithComboDiagnostics(404, message, diagnostics, {
+        code: "model_not_found",
+        type: "invalid_request_error",
+      }),
+    };
+  }
   return { orderedTargets, sticky };
 }
 

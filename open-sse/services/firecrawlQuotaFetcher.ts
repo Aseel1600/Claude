@@ -1,7 +1,7 @@
 /**
  * firecrawlQuotaFetcher.ts — Firecrawl team credit quota
  *
- * Live credit pool for the `firecrawl` connection (web fetch + firecrawl-search).
+ * Live credit pool for the `firecrawl` connection (web fetch + search).
  *
  * Endpoint:
  *   GET https://api.firecrawl.dev/v2/team/credit-usage
