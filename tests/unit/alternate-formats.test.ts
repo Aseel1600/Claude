@@ -61,3 +61,51 @@ test("getTargetFormat: override da conexao troca o formato quando declarado", ()
 test("getTargetFormat: override desconhecido cai no formato padrao", () => {
   assert.equal(getTargetFormat("xiaomi-mimo", { targetFormat: "gemini" }), "openai");
 });
+
+// Task 3: resolucao de base URL honra a alternativa.
+//
+// Reproduz a precedencia implementada em BaseExecutor.resolveBaseUrl. Nao
+// instanciamos o executor real aqui porque getRegistryEntry() le do registry
+// estatico de providers (chaveado por provider id) e nenhuma entry real
+// declara alternateFormats ainda (isso e a Task 5) — nao ha como injetar uma
+// entry fake no registry sem sair do escopo desta task. O contrato de
+// precedencia (manual > alternativa > default) e o mesmo aplicado no
+// producao; tests/unit/refactor-resolveBaseUrl.test.ts ja cobre o caminho
+// real (instanciando BaseExecutor) para os casos sem alternativa, e
+// permanece verde apos a mudanca desta task.
+function precedence(psd: unknown, entry: unknown, configBaseUrl: string) {
+  const psdBaseUrl = (psd as { baseUrl?: unknown } | null)?.baseUrl;
+  if (typeof psdBaseUrl === "string" && psdBaseUrl) return psdBaseUrl;
+  const alt = resolveAlternateFormat(entry as never, psd);
+  if (alt?.baseUrl) return alt.baseUrl;
+  return configBaseUrl;
+}
+
+const ENTRY_WITH_ALT = {
+  alternateFormats: [
+    {
+      format: "claude",
+      baseUrl: "https://alt.example.com/anthropic/v1/messages",
+      label: "Anthropic",
+    },
+  ],
+} as never;
+
+test("resolveBaseUrl: baseUrl manual da conexao vence a alternativa", () => {
+  const url = precedence(
+    { baseUrl: "https://manual.example.com/v1", targetFormat: "claude" },
+    ENTRY_WITH_ALT,
+    "https://default.example.com/v1"
+  );
+  assert.equal(url, "https://manual.example.com/v1");
+});
+
+test("resolveBaseUrl: alternativa vence o baseUrl padrao", () => {
+  const url = precedence({ targetFormat: "claude" }, ENTRY_WITH_ALT, "https://default.example.com/v1");
+  assert.equal(url, "https://alt.example.com/anthropic/v1/messages");
+});
+
+test("resolveBaseUrl: sem override usa o baseUrl padrao", () => {
+  const url = precedence({}, ENTRY_WITH_ALT, "https://default.example.com/v1");
+  assert.equal(url, "https://default.example.com/v1");
+});

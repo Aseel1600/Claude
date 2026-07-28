@@ -1,4 +1,6 @@
 import { HTTP_STATUS, FETCH_TIMEOUT_MS } from "../config/constants.ts";
+import { getRegistryEntry } from "../config/providerRegistry.ts";
+import { resolveAlternateFormat } from "../config/providers/alternateFormats.ts";
 import {
   CLAUDE_CLI_BILLING_VERSION,
   CLAUDE_CLI_STAINLESS_RUNTIME_VERSION,
@@ -419,10 +421,14 @@ export class BaseExecutor {
    * providerSpecificData.baseUrl over the static provider config baseUrl.
    */
   protected resolveBaseUrl(credentials: ProviderCredentials | null, fallback?: string): string {
-    const psdBaseUrl = credentials?.providerSpecificData?.baseUrl;
-    return (
-      (typeof psdBaseUrl === "string" ? psdBaseUrl : "") || fallback || this.config.baseUrl || ""
-    );
+    const psd = credentials?.providerSpecificData;
+    const psdBaseUrl = psd?.baseUrl;
+    // Override manual do operador vence sempre (#6147).
+    if (typeof psdBaseUrl === "string" && psdBaseUrl) return psdBaseUrl;
+    // Protocolo alternativo escolhido na conexao traz a propria URL.
+    const alternate = resolveAlternateFormat(getRegistryEntry(this.provider), psd);
+    if (alternate?.baseUrl) return alternate.baseUrl;
+    return fallback || this.config.baseUrl || "";
   }
 
   /**
