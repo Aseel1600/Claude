@@ -16,6 +16,10 @@ import {
   type SyncedAvailableModelInput,
 } from "./models/synced";
 import {
+  finishSyncedAvailableModelsWrite,
+  persistCanonicalSyncedAvailableModels,
+} from "./models/syncedAvailableModelPersistence";
+import {
   readCompatList,
   writeCompatList,
   deepMergeCompatByProtocol,
@@ -485,7 +489,6 @@ export async function replaceSyncedAvailableModelsForConnection(
   connectionId: string,
   models: SyncedAvailableModelInput[]
 ): Promise<SyncedAvailableModel[]> {
-  const db = getDbInstance();
   const key = `${providerId}:${connectionId}`;
   // #3199: drop ids the operator DELETED (trash) so a re-fetch does not re-import
   // a model that was explicitly removed.
@@ -497,16 +500,7 @@ export async function replaceSyncedAvailableModelsForConnection(
   const normalizedModels = normalizeSyncedAvailableModels(models, providerId).filter(
     (m) => !getModelIsDeleted(providerId, m.id)
   );
-  if (normalizedModels.length === 0) {
-    db.prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?").run(
-      key
-    );
-  } else {
-    db.prepare(
-      "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('syncedAvailableModels', ?, ?)"
-    ).run(key, JSON.stringify(normalizedModels));
-  }
-  backupDbFile("pre-write");
+  persistCanonicalSyncedAvailableModels(key, normalizedModels, normalizeSyncedAvailableModels);
   // Return the full unioned list for the provider
   return getSyncedAvailableModels(providerId);
 }
@@ -556,11 +550,10 @@ export async function removeSyncedAvailableModel(
         }
       }
     }
-
-    if (removedAny) backupDbFile("pre-write");
   });
 
   removeModel();
+  if (removedAny) finishSyncedAvailableModelsWrite();
   return removedAny;
 }
 
@@ -574,10 +567,10 @@ export async function deleteSyncedAvailableModelsForConnection(
 ): Promise<SyncedAvailableModel[]> {
   const db = getDbInstance();
   const key = `${providerId}:${connectionId}`;
-  db.prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?").run(
-    key
-  );
-  backupDbFile("pre-write");
+  const result = db
+    .prepare("DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key = ?")
+    .run(key);
+  if (result.changes > 0) finishSyncedAvailableModelsWrite();
   return getSyncedAvailableModels(providerId);
 }
 
@@ -616,8 +609,9 @@ export async function deleteSyncedAvailableModelsForProvider(providerId: string)
       "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND substr(key, 1, ?) = ?"
     )
     .run(keyPrefix.length, keyPrefix);
-  backupDbFile("pre-write");
-  return Number(result.changes || 0);
+  const changes = Number(result.changes || 0);
+  if (changes > 0) finishSyncedAvailableModelsWrite();
+  return changes;
 }
 
 /**
@@ -640,8 +634,9 @@ export async function pruneStaleSyncedAvailableModelsForProvider(
       `DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND key LIKE ? AND key NOT IN (${placeholders})`
     )
     .run(`${keyPrefix}%`, ...allowedKeys);
-  backupDbFile("pre-write");
-  return Number(result.changes || 0);
+  const changes = Number(result.changes || 0);
+  if (changes > 0) finishSyncedAvailableModelsWrite();
+  return changes;
 }
 
 /**
