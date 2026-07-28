@@ -32,6 +32,7 @@ import {
   OMIT_STREAMING_CHUNK_MARKER,
   sanitizeStreamingChunk,
 } from "../handlers/responseSanitizer.ts";
+import { shouldParseTextualReasoningTags } from "../handlers/responseSanitizer/reasoning.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import {
   shouldDropResponsesCommentaryEvent,
@@ -61,6 +62,7 @@ import {
   getUnsupportedReasoningValue,
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
+import { flushThinkBuffer, processStreamingThinkDelta } from "./thinkTagParser.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -88,6 +90,13 @@ export { backfillResponsesCompletedOutput, stripResponsesLifecycleEcho };
 type JsonRecord = Record<string, unknown>;
 
 export const PENDING_REQUEST_CLEARED_MARKER = "__omniroutePendingRequestCleared";
+
+function containsOrMayEndWithThinkOpenTag(value: string): boolean {
+  return (
+    value.includes("<think>") ||
+    ["<", "<t", "<th", "<thi", "<thin"].some((suffix) => value.endsWith(suffix))
+  );
+}
 
 function markPendingRequestCleared(error: Error): Error {
   (error as Error & Record<string, unknown>)[PENDING_REQUEST_CLEARED_MARKER] = true;
@@ -744,6 +753,9 @@ export function createSSEStream(options: StreamOptions = {}) {
   let passthroughToolCallSeq = 0;
   const allowedToolNames = extractAllowedToolNames(body);
   let skipPassthroughEvent = false;
+  const parseTextualReasoningTags =
+    mode === STREAM_MODE.PASSTHROUGH && shouldParseTextualReasoningTags(provider, model);
+  const textualReasoningTagState = { insideThink: false, buffer: "", active: false };
 
   // State for translate mode (accumulatedContent for call log response body)
   const state: TranslateState | null =
@@ -1728,6 +1740,23 @@ export function createSSEStream(options: StreamOptions = {}) {
                   let textualToolCallConverted = false;
                   let toolCallIdCoerced = false;
                   let splitMixedReasoningContent = false;
+                  let textualReasoningTagsParsed = false;
+
+                  if (
+                    parseTextualReasoningTags &&
+                    typeof delta?.content === "string" &&
+                    (textualReasoningTagState.active ||
+                      containsOrMayEndWithThinkOpenTag(delta.content))
+                  ) {
+                    textualReasoningTagState.active = true;
+                    const { reasoningDelta, contentDelta } = processStreamingThinkDelta(
+                      delta.content,
+                      textualReasoningTagState
+                    );
+                    delta.content = contentDelta || "";
+                    if (reasoningDelta) delta.reasoning_content = reasoningDelta;
+                    textualReasoningTagsParsed = true;
+                  }
 
                   // Split combined reasoning+content deltas into separate SSE events.
                   // Standard OpenAI streaming never mixes both fields in one delta;
@@ -1767,6 +1796,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // to avoid blocking subsequent finish_reason / usage mutations)
                   const needsReserialization =
                     splitMixedReasoningContent ||
+                    textualReasoningTagsParsed ||
                     hadReasoningAlias ||
                     (delta?.content === "" && delta?.reasoning_content);
 
@@ -2384,6 +2414,40 @@ export function createSSEStream(options: StreamOptions = {}) {
                 passthroughBufferedTextualToolCallContent
               );
               passthroughBufferedTextualToolCallContent = "";
+            }
+
+            if (parseTextualReasoningTags && textualReasoningTagState.active) {
+              const { reasoningDelta, contentDelta } = flushThinkBuffer(textualReasoningTagState);
+              if (reasoningDelta || contentDelta) {
+                const delta: Record<string, string> = {};
+                if (reasoningDelta) {
+                  delta.reasoning_content = reasoningDelta;
+                  passthroughAccumulatedReasoning = appendBoundedText(
+                    passthroughAccumulatedReasoning,
+                    reasoningDelta
+                  );
+                  totalContentLength += reasoningDelta.length;
+                }
+                if (contentDelta) {
+                  delta.content = contentDelta;
+                  passthroughAccumulatedContent = appendBoundedText(
+                    passthroughAccumulatedContent,
+                    contentDelta
+                  );
+                  totalContentLength += contentDelta.length;
+                }
+                const syntheticChunk = {
+                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
+                  object: "chat.completion.chunk",
+                  created: Math.floor(Date.now() / 1000),
+                  model: model || "unknown",
+                  choices: [{ index: 0, delta, finish_reason: null }],
+                };
+                const flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
+                clientPayloadCollector.push(syntheticChunk);
+                reqLogger?.appendConvertedChunk?.(flushOutput);
+                controller.enqueue(encoder.encode(flushOutput));
+              }
             }
 
             // Estimate usage if provider didn't return valid usage
