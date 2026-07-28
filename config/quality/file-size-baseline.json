@@ -400,11 +400,12 @@
     "src/shared/components/analytics/charts.tsx": 1035,
     "src/shared/services/cliRuntime.ts": 1122,
     "src/sse/handlers/chat.ts": 1845,
-    "src/sse/services/auth.ts": 2508,
+    "src/sse/services/auth.ts": 2516,
     "tests/unit/account-fallback-service.test.ts": 1572,
     "tests/unit/provider-validation-specialty.test.ts": 2980,
     "open-sse/executors/hyperagent.ts": 1026
   },
   "_rebaseline_2026_07_27_v3849_train2": "Merge-train 2 (7 PRs) — owner-approved 2026-07-27. Single entry: chatCore.ts 4955->5006 (#8595, Responses multi-turn image compaction before the context hard-reject). Genuine irreducible growth at the existing compaction chokepoint in handleChatCore — the PR adds a last-resort retry against the concrete budget plus the estimateFinalInputTokens helper, both wired at the pre-existing call site rather than a new branch. Covered by tests/unit/8560-responses-image-compaction.test.ts (4 tests).",
-  "_rebaseline_2026_07_27_v3849_train3": "Merge-train 3 (13 PRs) — owner-approved 2026-07-27. Both entries are genuine irreducible growth at existing chokepoints, not new branches: src/lib/db/apiKeys.ts 1518->1529 (#8805 cx/* ≡ codex/* API-key model permissions); open-sse/handlers/chatCore.ts 5006->5020 (#8806 real response payload into plugin onResponse hooks). Covered by tests/unit/db-apiKeys-crud.test.ts (4 new cases) and the two plugin-hook test files updated in #8806 respectively."
+  "_rebaseline_2026_07_27_v3849_train3": "Merge-train 3 (13 PRs) — owner-approved 2026-07-27. Both entries are genuine irreducible growth at existing chokepoints, not new branches: src/lib/db/apiKeys.ts 1518->1529 (#8805 cx/* ≡ codex/* API-key model permissions); open-sse/handlers/chatCore.ts 5006->5020 (#8806 real response payload into plugin onResponse hooks). Covered by tests/unit/db-apiKeys-crud.test.ts (4 new cases) and the two plugin-hook test files updated in #8806 respectively.",
+  "_rebaseline_2026_07_27_8779_agy_alias_credential_fallback": "PR #8779 (fix/agy-credential-lookup) own growth: src/sse/services/auth.ts 2508->2516 (+8 = import getAliasToProviderMap + 5-line reverse-alias scan loop in getProviderSearchPool so connections registered under an alias (e.g. 'agy') are found when searching by canonical provider ('antigravity'). Irreducible wiring at the existing credential-search chokepoint; the alias map getter itself lives in open-sse/services/model.ts (not frozen). Covered by tests/unit/combo-alias-credential-fallback.test.ts (3/3 passing)."
 }
