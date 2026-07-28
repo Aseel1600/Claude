@@ -1,0 +1,1 @@
+- **Logs**: a failed `auto/<family>` request no longer writes every attempted model into `call_logs.provider` — the logs page builds its quick-filter pills from that column, so one failure produced a giant chip that flooded the filter row. Rejected combo requests are now labelled `auto` (for `auto/*`) or by the combo's own name
