@@ -176,6 +176,12 @@ export interface RegistryEntry {
    * standard OpenAI array-shaped content untouched (see openai-responses.ts).
    */
   requiresPlainStringContent?: boolean;
+  /**
+   * Protocolos alternativos que este provedor aceita (ex.: um endpoint
+   * Anthropic-compatible alem do OpenAI-compatible padrao). A conexao escolhe
+   * via providerSpecificData.targetFormat; ver config/providers/alternateFormats.ts.
+   */
+  alternateFormats?: import("./alternateFormats.ts").AlternateFormat[];
 }
 
 /**
