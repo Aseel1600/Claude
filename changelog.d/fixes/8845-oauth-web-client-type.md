@@ -1,0 +1,1 @@
+- **OAuth**: `ANTIGRAVITY_OAUTH_CLIENT_TYPE=web` lets a remote deployment use a Google Web application OAuth client, upgrading the loopback redirect to `OMNIROUTE_PUBLIC_BASE_URL` instead of leaving the operator to hand-edit the callback URL. Opt-in and requires custom credentials — unset or `desktop` keeps the existing loopback behaviour untouched
