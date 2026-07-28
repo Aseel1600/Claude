@@ -10,6 +10,12 @@ Thank you for your interest in contributing! This guide covers everything you ne
 
 - **Node.js** `>=22.22.3 <23`, or `>=24.0.0 <27` (recommended: 24 LTS)
 - **npm** 10+
+
+> **npm v11+ users (Node 24+):** After `npm install`, verify native modules were installed:
+> `node -e "require('better-sqlite3')"`. If it fails with `MODULE_NOT_FOUND`,
+> run `npm approve-scripts better-sqlite3 && npm install`. See
+> [Troubleshooting](docs/guides/TROUBLESHOOTING.md#npm-v11-better-sqlite3-not-installed-cannot-find-module).
+
 - **Git**
 
 ### Clone & Install

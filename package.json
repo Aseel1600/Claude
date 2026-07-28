@@ -394,6 +394,15 @@
       "sharp"
     ]
   },
+  "allowScripts": {
+    "better-sqlite3": true,
+    "esbuild": true,
+    "@swc/core": true,
+    "@parcel/watcher": true,
+    "keytar": true,
+    "protobufjs": true,
+    "unrs-resolver": true
+  },
   "overrides": {
     "dompurify": "^3.4.12",
     "fast-xml-parser": "^5.10.1",
