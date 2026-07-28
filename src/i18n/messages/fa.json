@@ -7298,6 +7298,10 @@
         "label": "کد کمتر",
         "description": "نردبان YAGNI: کوچک‌ترین تغییر کارآمد، بدون انتزاع‌های ناخواسته."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK موجز (文言)",
         "description": "سبک فوق‌موجز چینی کلاسیک (فقط برای زبان چینی در دسترس است)."

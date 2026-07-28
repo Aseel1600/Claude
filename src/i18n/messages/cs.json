@@ -7298,6 +7298,10 @@
         "label": "Méně kódu",
         "description": "Žebříček YAGNI: nejmenší funkční změna, žádné nevyžádané abstrakce."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "Stručné CJK (文言)",
         "description": "Klasický čínský ultra stručný styl (k dispozici pouze pro čínštinu)."

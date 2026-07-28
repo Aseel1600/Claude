@@ -7298,6 +7298,10 @@
         "label": "코드 최소화",
         "description": "YAGNI 사다리: 작동하는 최소한의 변경, 요청되지 않은 추상화 배제."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "간결한 CJK (文言)",
         "description": "한문 초간결 스타일 (중국어만 지원)."

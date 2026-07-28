@@ -7298,6 +7298,10 @@
         "label": "తక్కువ కోడ్",
         "description": "YAGNI లాడర్: చిన్న పని మార్పు, అభ్యర్థించని అబ్‌స్ట్రాక్షన్‌లు లేవు."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "సంక్షిప్త CJK (文言)",
         "description": "క్లాసికల్-చైనీస్ అల్ట్రా-సంక్షిప్త శైలి (చైనీస్ కోసం మాత్రమే అందుబాటులో ఉంది)."

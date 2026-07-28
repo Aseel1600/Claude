@@ -7298,6 +7298,10 @@
         "label": "פחות קוד",
         "description": "סולם YAGNI: השינוי העובד הקטן ביותר, ללא הפשטות שלא נדרשו."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "CJK תמציתי (文言)",
         "description": "סגנון סיני קלאסי אולטרה-תמציתי (זמין עבור סינית בלבד)."

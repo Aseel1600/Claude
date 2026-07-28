@@ -7298,6 +7298,10 @@
         "label": "Daha az kod",
         "description": "YAGNI pilləkəni: ən kiçik işlək dəyişiklik, tələb olunmayan mücərrədliklər olmadan."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "Yığcam CJK (文言)",
         "description": "Klassik Çin ultra-yığcam üslubu (yalnız Çin dili üçün əlçatandır)."

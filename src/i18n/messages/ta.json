@@ -7298,6 +7298,10 @@
         "label": "குறைந்த குறியீடு",
         "description": "YAGNI ஏணி: மிகச்சிறிய வேலை செய்யும் மாற்றம், கோரப்படாத சுருக்கங்கள் இல்லை."
       },
+      "ponytail": {
+        "label": "Ponytail (lazy senior dev)",
+        "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
+      },
       "terse-cjk": {
         "label": "சுருக்கமான CJK (文言)",
         "description": "செம்மொழி-சீன மிகச் சுருக்கமான நடை (சீன மொழிக்கு மட்டுமே கிடைக்கும்)."
