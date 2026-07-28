@@ -247,7 +247,7 @@ export const GPT_5_6_API_CAPABILITIES = {
   maxOutputTokens: 128000,
 } as const;
 
-// Codex's live catalog reports a 372K context window for GPT-5.6.
+// Codex's live catalog reports a 272K input context window for GPT-5.6.
 // Keep the input and output limits explicit for catalog consumers that expose them separately.
 export const GPT_5_6_CODEX_CAPABILITIES = {
   targetFormat: "openai-responses",
@@ -255,8 +255,8 @@ export const GPT_5_6_CODEX_CAPABILITIES = {
   supportsReasoning: true,
   supportsVision: true,
   supportsXHighEffort: true,
-  contextLength: 372000,
-  maxInputTokens: 372000,
+  contextLength: 272000,
+  maxInputTokens: 272000,
   maxOutputTokens: 128000,
 } as const;
 
