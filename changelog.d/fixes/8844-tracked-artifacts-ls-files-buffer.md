@@ -1,0 +1,1 @@
+- **CI**: `check:tracked-artifacts` raises the `git ls-files` stdout ceiling to 64 MiB — the default 1 MiB `execFileSync` buffer had only ~6 KB of headroom against the tracked tree, and overflowing it throws ENOBUFS in the pre-commit hook, breaking `git commit` for everyone working the repo
