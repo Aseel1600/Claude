@@ -11,8 +11,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { claudeToOpenAIResponse } =
-  await import("../../open-sse/translator/response/claude-to-openai.ts");
+const { claudeToOpenAIResponse } = await import(
+  "../../open-sse/translator/response/claude-to-openai.ts"
+);
 
 function newState() {
   return {
@@ -43,10 +44,7 @@ test("thinking block followed by tool_use: </think> must NOT appear in any conte
 
   // message_start
   allResults.push(
-    claudeToOpenAIResponse(
-      { type: "message_start", message: { id: "msg_1", model: "claude-3-7-sonnet" } },
-      state
-    )
+    claudeToOpenAIResponse({ type: "message_start", message: { id: "msg_1", model: "claude-3-7-sonnet" } }, state)
   );
 
   // thinking block open
@@ -60,11 +58,7 @@ test("thinking block followed by tool_use: </think> must NOT appear in any conte
   // thinking delta
   allResults.push(
     claudeToOpenAIResponse(
-      {
-        type: "content_block_delta",
-        index: 0,
-        delta: { type: "thinking_delta", thinking: "Let me think..." },
-      },
+      { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "Let me think..." } },
       state
     )
   );
@@ -87,11 +81,7 @@ test("thinking block followed by tool_use: </think> must NOT appear in any conte
   // tool arguments delta
   allResults.push(
     claudeToOpenAIResponse(
-      {
-        type: "content_block_delta",
-        index: 1,
-        delta: { type: "input_json_delta", partial_json: '{"city":"Paris"}' },
-      },
+      { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: '{"city":"Paris"}' } },
       state
     )
   );
@@ -131,10 +121,7 @@ test("thinking block followed by text: </think> emitted when suppressThinkClose=
 
   // message_start
   allResults.push(
-    claudeToOpenAIResponse(
-      { type: "message_start", message: { id: "msg_2", model: "claude-3-7-sonnet" } },
-      state
-    )
+    claudeToOpenAIResponse({ type: "message_start", message: { id: "msg_2", model: "claude-3-7-sonnet" } }, state)
   );
 
   // thinking block open
@@ -148,11 +135,7 @@ test("thinking block followed by text: </think> emitted when suppressThinkClose=
   // thinking delta
   allResults.push(
     claudeToOpenAIResponse(
-      {
-        type: "content_block_delta",
-        index: 0,
-        delta: { type: "thinking_delta", thinking: "Plan..." },
-      },
+      { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "Plan..." } },
       state
     )
   );
@@ -189,7 +172,9 @@ test("thinking block followed by text: </think> emitted when suppressThinkClose=
 
   const chunks = collectChunks(allResults);
 
-  const hasThinkClose = chunks.some((chunk) => chunk?.choices?.[0]?.delta?.content === "</think>");
+  const hasThinkClose = chunks.some(
+    (chunk) => chunk?.choices?.[0]?.delta?.content === "</think>"
+  );
 
   assert.ok(
     hasThinkClose,
@@ -203,10 +188,7 @@ test("thinking block followed by text: </think> suppressed when suppressThinkClo
   const allResults: ReturnType<typeof claudeToOpenAIResponse>[] = [];
 
   allResults.push(
-    claudeToOpenAIResponse(
-      { type: "message_start", message: { id: "msg_3", model: "claude-3-7-sonnet" } },
-      state
-    )
+    claudeToOpenAIResponse({ type: "message_start", message: { id: "msg_3", model: "claude-3-7-sonnet" } }, state)
   );
   allResults.push(
     claudeToOpenAIResponse(
@@ -239,7 +221,9 @@ test("thinking block followed by text: </think> suppressed when suppressThinkClo
   );
 
   const chunks = collectChunks(allResults);
-  const hasThinkClose = chunks.some((chunk) => chunk?.choices?.[0]?.delta?.content === "</think>");
+  const hasThinkClose = chunks.some(
+    (chunk) => chunk?.choices?.[0]?.delta?.content === "</think>"
+  );
   assert.equal(hasThinkClose, false, "marker must not leak into content under #8245 default");
   const hasText = chunks.some((chunk) => chunk?.choices?.[0]?.delta?.content === "Hello!");
   assert.ok(hasText, "assistant text must still be emitted");

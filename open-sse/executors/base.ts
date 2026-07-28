@@ -244,10 +244,7 @@ function collectThinkingConfigs(body: unknown): Array<Record<string, unknown>> {
   if (!body || typeof body !== "object") return [];
   const root = body as Record<string, unknown>;
   const configs: Array<Record<string, unknown>> = [];
-  const envelopes: unknown[] = [
-    root.generationConfig,
-    (root.request as Record<string, unknown> | undefined)?.generationConfig,
-  ];
+  const envelopes: unknown[] = [root.generationConfig, (root.request as Record<string, unknown> | undefined)?.generationConfig];
   for (const env of envelopes) {
     if (!env || typeof env !== "object") continue;
     const tc = (env as Record<string, unknown>).thinkingConfig;

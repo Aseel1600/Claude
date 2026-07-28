@@ -24,13 +24,10 @@ import {
   estimateUsage as defaultEstimateUsage,
 } from "../../utils/usageTracking.ts";
 
-type ResponseLike =
-  | {
-      usage?: unknown;
-      choices?: Array<{ message?: { content?: unknown } }>;
-    }
-  | null
-  | undefined;
+type ResponseLike = {
+  usage?: unknown;
+  choices?: Array<{ message?: { content?: unknown } }>;
+} | null | undefined;
 
 export interface ClientUsageBufferDeps {
   addBufferToUsage: typeof defaultAddBuffer;

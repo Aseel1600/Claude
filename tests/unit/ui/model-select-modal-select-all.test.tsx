@@ -51,10 +51,7 @@ beforeEach(() => {
   // UX (see modelSelectModalHelpers.ts::shouldConfirmSelectAll) — stub confirm
   // to always accept so assertions don't depend on how many models the fixture
   // catalog happens to expose.
-  vi.stubGlobal(
-    "confirm",
-    vi.fn(() => true)
-  );
+  vi.stubGlobal("confirm", vi.fn(() => true));
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {

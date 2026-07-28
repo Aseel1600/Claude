@@ -77,13 +77,11 @@ vi.mock(
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
-vi.stubGlobal(
-  "confirm",
-  vi.fn(() => true)
-);
+vi.stubGlobal("confirm", vi.fn(() => true));
 
-const { default: QuotaSharePageClient } =
-  await import("../../../src/app/(dashboard)/dashboard/costs/quota-share/QuotaSharePageClient");
+const { default: QuotaSharePageClient } = await import(
+  "../../../src/app/(dashboard)/dashboard/costs/quota-share/QuotaSharePageClient"
+);
 
 let container: HTMLDivElement | null = null;
 let root: ReturnType<typeof createRoot> | null = null;
@@ -161,11 +159,7 @@ describe("quota-share — deleting a pool", { timeout: 15000 }, () => {
   });
 
   it("shows nothing and still refreshes when the DELETE succeeds", async () => {
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 204,
-      json: () => Promise.resolve({}),
-    } as unknown as Response);
+    fetchMock.mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve({}) } as unknown as Response);
 
     await renderComponent();
     await clickDelete();
@@ -199,11 +193,7 @@ describe("quota-share — deleting a pool", { timeout: 15000 }, () => {
     await clickDelete();
     expect(document.body.innerHTML).toContain("removeFailed");
 
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 204,
-      json: () => Promise.resolve({}),
-    } as unknown as Response);
+    fetchMock.mockResolvedValue({ ok: true, status: 204, json: () => Promise.resolve({}) } as unknown as Response);
     await clickDelete();
     expect(document.body.innerHTML).not.toContain("removeFailed");
   });

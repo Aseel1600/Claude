@@ -13,7 +13,10 @@
 
 import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
-import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
+import {
+  getProviderByAlias,
+  getProviderById,
+} from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel } from "../model.ts";

@@ -23,7 +23,10 @@ test("entrypoint runs the docker basePath guard before the server starts", () =>
 });
 
 test("Hard Rule #13: shell basePath helpers never interpolate into sed/awk", () => {
-  const shellFiles = ["scripts/check-permissions.sh", "scripts/docker/patch-basepath.sh"];
+  const shellFiles = [
+    "scripts/check-permissions.sh",
+    "scripts/docker/patch-basepath.sh",
+  ];
   for (const rel of shellFiles) {
     const source = fs.readFileSync(path.join(REPO_ROOT, rel), "utf8");
     assert.doesNotMatch(
@@ -38,7 +41,10 @@ test("Hard Rule #13: shell basePath helpers never interpolate into sed/awk", () 
     );
   }
 
-  const patcher = fs.readFileSync(path.join(REPO_ROOT, "scripts/docker/patch-basepath.sh"), "utf8");
+  const patcher = fs.readFileSync(
+    path.join(REPO_ROOT, "scripts/docker/patch-basepath.sh"),
+    "utf8"
+  );
   assert.match(patcher, /exec node .*ensure-docker-base-path\.mjs/);
   assert.match(patcher, /Hard Rule #13/);
 

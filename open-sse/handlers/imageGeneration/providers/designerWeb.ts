@@ -278,12 +278,7 @@ export async function handleDesignerWebImageGeneration({
   }
 
   try {
-    const outcome = await runDesignerWebPollLoop(
-      providerConfig.baseUrl,
-      resolved.config,
-      fetchImpl,
-      log
-    );
+    const outcome = await runDesignerWebPollLoop(providerConfig.baseUrl, resolved.config, fetchImpl, log);
     if (outcome.state === "ready") {
       return saveImageSuccessResult({
         provider,
@@ -295,13 +290,7 @@ export async function handleDesignerWebImageGeneration({
     if (log?.error) {
       log.error("IMAGE", `${provider} designer-web error ${outcome.status}: ${outcome.error}`);
     }
-    return saveImageErrorResult({
-      provider,
-      model,
-      status: outcome.status,
-      startTime,
-      error: outcome.error,
-    });
+    return saveImageErrorResult({ provider, model, status: outcome.status, startTime, error: outcome.error });
   } catch (err) {
     const errorText = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
     if (log?.error) {

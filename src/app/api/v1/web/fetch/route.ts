@@ -198,13 +198,7 @@ async function resolveAutoSelectTarget(): Promise<ResolvedWebFetchTarget> {
       continue;
     }
     if (creds) {
-      return {
-        ok: true,
-        provider: pid,
-        credentials: creds,
-        tried: new Set([pid]),
-        isExplicit: false,
-      };
+      return { ok: true, provider: pid, credentials: creds, tried: new Set([pid]), isExplicit: false };
     }
   }
 
@@ -273,11 +267,7 @@ export async function POST(request: Request) {
 
   log.info("WEB_FETCH", `${target.provider} | ${body.url} | format=${body.format}`);
 
-  const {
-    result,
-    provider: finalProvider,
-    poolExhausted,
-  } = await executeWithFallback(
+  const { result, provider: finalProvider, poolExhausted } = await executeWithFallback(
     {
       url: body.url,
       format: body.format,

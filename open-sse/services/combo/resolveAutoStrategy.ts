@@ -1,8 +1,4 @@
-import {
-  errorResponse,
-  unavailableResponse,
-  errorResponseWithComboDiagnostics,
-} from "../../utils/error.ts";
+import { errorResponse, unavailableResponse, errorResponseWithComboDiagnostics } from "../../utils/error.ts";
 import { BudgetExceededError, selectProvider as selectAutoProvider } from "../autoCombo/engine.ts";
 import {
   resolveRequestModePack,
@@ -122,7 +118,8 @@ export async function resolveAutoStrategyOrder(
     // registry/capability rows honestly report toolCalling:false.
     const filtered = eligibleTargets.filter(
       (target) =>
-        supportsToolCalling(target.modelStr) || providerSupportsEmulatedToolCalling(target.provider)
+        supportsToolCalling(target.modelStr) ||
+        providerSupportsEmulatedToolCalling(target.provider)
     );
     if (filtered.length > 0) {
       eligibleTargets = filtered;

@@ -151,17 +151,17 @@ export async function PUT(request, { params }) {
     const normalizedUpdate = { ...validation.data };
     if (normalizedUpdate.compressionOverride !== undefined) {
       const legacyCompressionOverride = normalizedUpdate.compressionOverride;
-      const nextConfig: Record<string, unknown> =
-        currentCombo.config &&
-        typeof currentCombo.config === "object" &&
-        !Array.isArray(currentCombo.config)
-          ? { ...(currentCombo.config as Record<string, unknown>) }
-          : {};
-      if (legacyCompressionOverride) {
-        nextConfig.compressionMode = legacyCompressionOverride;
-      } else {
-        delete nextConfig.compressionMode;
-      }
+    const nextConfig: Record<string, unknown> =
+      currentCombo.config &&
+      typeof currentCombo.config === "object" &&
+      !Array.isArray(currentCombo.config)
+        ? { ...(currentCombo.config as Record<string, unknown>) }
+        : {};
+    if (legacyCompressionOverride) {
+      nextConfig.compressionMode = legacyCompressionOverride;
+    } else {
+      delete nextConfig.compressionMode;
+    }
       normalizedUpdate.config = nextConfig;
       delete normalizedUpdate.compressionOverride;
     }
@@ -235,7 +235,12 @@ export async function PUT(request, { params }) {
               : dagError instanceof Error && /depth/i.test(dagError.message)
                 ? "max-depth-exceeded"
                 : "invalid-graph";
-          return comboErrorResponse("COMBO_005", 400, { comboName, reason }, request);
+          return comboErrorResponse(
+            "COMBO_005",
+            400,
+            { comboName, reason },
+            request
+          );
         }
       }
     }
@@ -248,7 +253,9 @@ export async function PUT(request, { params }) {
     // #8530: a combo renamed to a real model id is a supported pattern
     // (#6940 — bare-model-id provider fallback), so it is never rejected.
     // Surface it as a non-blocking warning instead of silently shadowing it.
-    const warning = comboName ? buildComboNameCollisionWarning(String(comboName)) : null;
+    const warning = comboName
+      ? buildComboNameCollisionWarning(String(comboName))
+      : null;
     return NextResponse.json(warning ? { ...combo, warning } : combo);
   } catch (error) {
     if (error instanceof ComboInvariantError) {

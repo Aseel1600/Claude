@@ -149,10 +149,7 @@ describe("#7784 settings optimistic concurrency", () => {
       () => settingsDb.updateSettings({ debugMode: false }, { expectedRevision: revision }),
       (err: unknown) => {
         assert.ok(err instanceof settingsDb.SettingsRevisionConflictError);
-        assert.equal(
-          (err as settingsDb.SettingsRevisionConflictError).currentRevision,
-          revision + 1
-        );
+        assert.equal((err as settingsDb.SettingsRevisionConflictError).currentRevision, revision + 1);
         return true;
       }
     );

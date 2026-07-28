@@ -2,10 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 
-const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } =
-  await import("../../open-sse/executors/chatgpt-web.ts");
-const { __setTlsFetchOverrideForTesting } =
-  await import("../../open-sse/services/chatgptTlsClient.ts");
+const { ChatGptWebExecutor, __resetChatGptWebCachesForTesting } = await import(
+  "../../open-sse/executors/chatgpt-web.ts"
+);
+const { __setTlsFetchOverrideForTesting } = await import(
+  "../../open-sse/services/chatgptTlsClient.ts"
+);
 
 function makeHeaders(map: Record<string, string> = {}) {
   const h = new Headers();

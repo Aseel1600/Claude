@@ -60,7 +60,10 @@ import {
   messagesForNotionTranscript,
   type NotionAgentOptions,
 } from "../services/notionTranscriptBuilder.ts";
-import { tlsFetchNotion, TlsClientUnavailableError } from "../services/notionTlsClient.ts";
+import {
+  tlsFetchNotion,
+  TlsClientUnavailableError,
+} from "../services/notionTlsClient.ts";
 
 // Re-exported for unit tests that destructure `mod.<name>` on this module.
 export {
@@ -222,6 +225,7 @@ function extractUserIdFromCookie(cookie: string): string {
   return extractNotionUserIdFromCookie(cookie);
 }
 
+
 /**
  * Notion's undocumented inference API does not return token usage.
  * Emit a cheap char-based estimate so clients don't see a constant
@@ -232,7 +236,9 @@ export function estimateNotionUsage(
   messages: NotionMessage[] | undefined,
   content: string
 ): { prompt_tokens: number; completion_tokens: number; total_tokens: number; estimated: true } {
-  const promptText = (messages || []).map((m) => extractNotionMessageText(m?.content)).join("\n");
+  const promptText = (messages || [])
+    .map((m) => extractNotionMessageText(m?.content))
+    .join("\n");
   // ~4 chars/token (English-ish); at least 1 when there is any text.
   const prompt_tokens = promptText ? Math.max(1, Math.ceil(promptText.length / 4)) : 0;
   const completion_tokens = content ? Math.max(1, Math.ceil(content.length / 4)) : 0;
@@ -387,8 +393,9 @@ function buildNotionExecuteHeaders(opts: {
   const isCustom = Boolean(opts.agent?.workflowId);
   // Browser uses /agent/<workflowId without dashes>?wfv=chat for custom agents.
   const agentPathId = (opts.agent?.workflowId || "").replace(/-/g, "");
-  const referer =
-    isCustom && agentPathId ? `${BASE_URL}/agent/${agentPathId}?wfv=chat` : `${BASE_URL}/ai`;
+  const referer = isCustom && agentPathId
+    ? `${BASE_URL}/agent/${agentPathId}?wfv=chat`
+    : `${BASE_URL}/ai`;
   const reqHeaders: Record<string, string> = {
     "Content-Type": "application/json",
     "User-Agent": USER_AGENT,
@@ -446,8 +453,11 @@ export function resolveNotionAgentOptions(
       "agent_id",
     ]) || "";
   const pageFromPs =
-    readProviderSpecificString(ps, ["contextPageId", "context_page_id", "notionContextPageId"]) ||
-    "";
+    readProviderSpecificString(ps, [
+      "contextPageId",
+      "context_page_id",
+      "notionContextPageId",
+    ]) || "";
 
   const readCookie = (name: string): string => {
     const m = cookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`, "i"));
@@ -467,7 +477,10 @@ export function resolveNotionAgentOptions(
       readCookie("agent_id")
   );
   const contextPageId =
-    pageFromPs || readCookie("context_page_id") || readCookie("notion_context_page_id") || "";
+    pageFromPs ||
+    readCookie("context_page_id") ||
+    readCookie("notion_context_page_id") ||
+    "";
 
   return {
     workflowId: workflowId || undefined,
@@ -497,7 +510,8 @@ async function sendNotionInferenceRequest(opts: {
       body: JSON.stringify(reqBody),
       signal: signal ?? undefined,
       // Inference can take a while (tool-autoload + LLM first token).
-      timeoutMs: Number.parseInt(process.env.OMNIROUTE_NOTION_TLS_TIMEOUT_MS || "", 10) || 180_000,
+      timeoutMs:
+        Number.parseInt(process.env.OMNIROUTE_NOTION_TLS_TIMEOUT_MS || "", 10) || 180_000,
     });
     status = tlsRes.status;
     rawText = tlsRes.text ?? "";
@@ -620,7 +634,8 @@ export class NotionWebExecutor extends BaseExecutor {
     const inboundHeaders =
       (input.clientHeaders as Record<string, string> | null | undefined) ??
       ((input as { headers?: Record<string, string> }).headers as
-        Record<string, string> | undefined);
+        | Record<string, string>
+        | undefined);
     const clientThreadId = readClientThreadId(requestBody, inboundHeaders ?? undefined);
     // Namespace the thread cache PER CALLER (hash of the caller's cookie) AND by custom
     // agent, so (a) two users of the same Notion space never share a cached thread
@@ -723,10 +738,7 @@ export class NotionWebExecutor extends BaseExecutor {
 
     // One automatic retry for transient Notion faults — same threadId, never create again
     if (isFailedAttempt(attempt) && attempt.retryable) {
-      const delayMs =
-        process.env.NODE_ENV === "test" || process.env.VITEST
-          ? 20
-          : 700 + Math.floor(Math.random() * 400);
+      const delayMs = process.env.NODE_ENV === "test" || process.env.VITEST ? 20 : 700 + Math.floor(Math.random() * 400);
       await new Promise((r) => setTimeout(r, delayMs));
       attempt = await runOnce({ createThread: false, threadId });
     }

@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { joinBasePath, normalizeBasePath } from "../../scripts/build/normalizeBasePath.mjs";
+import {
+  joinBasePath,
+  normalizeBasePath,
+} from "../../scripts/build/normalizeBasePath.mjs";
 
 test("normalizeBasePath returns empty for root and blank values", () => {
   assert.equal(normalizeBasePath(undefined), "");

@@ -107,7 +107,9 @@ export function parseExtraMigrationDirs(raw?: string | null): ExtraMigrationDir[
       );
     }
     if (!fs.statSync(dir).isDirectory()) {
-      throw new Error(`[Migration] Path for namespace "${namespace}" is not a directory: ${dir}.`);
+      throw new Error(
+        `[Migration] Path for namespace "${namespace}" is not a directory: ${dir}.`
+      );
     }
 
     seen.add(namespace);
@@ -126,7 +128,9 @@ export function parseExtraMigrationDirs(raw?: string | null): ExtraMigrationDir[
  * the namespace only separates this directory from upstream, not a directory from
  * itself — so that throws, mirroring the runner's own collision guard.
  */
-export function readNamespacedMigrationFiles(entry: ExtraMigrationDir): NamespacedMigrationFile[] {
+export function readNamespacedMigrationFiles(
+  entry: ExtraMigrationDir
+): NamespacedMigrationFile[] {
   const parsed = fs
     .readdirSync(entry.dir)
     .filter((f) => f.endsWith(".sql"))

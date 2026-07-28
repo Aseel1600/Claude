@@ -60,7 +60,9 @@ test("Log Tool Sources toggle is mounted in Advanced settings next to Debug mode
 
   assertInOrder(advancedPage, ["<DebugModeCard", "<LogToolSourcesCard", "<PayloadRulesTab"]);
 
-  const card = readSrc("src/app/(dashboard)/dashboard/settings/components/LogToolSourcesCard.tsx");
+  const card = readSrc(
+    "src/app/(dashboard)/dashboard/settings/components/LogToolSourcesCard.tsx"
+  );
   assert.match(card, /t\("logToolSourcesToggle"\)/);
   assert.match(card, /t\("logToolSourcesDescription"\)/);
   assert.match(card, /logToolSources: value/);
