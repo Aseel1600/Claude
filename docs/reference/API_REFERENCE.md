@@ -61,23 +61,24 @@ Content-Type: application/json
 
 ### Custom Headers
 
-| Header                   | Direction | Description                                                                                                                                                                       |
-| ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                                                                                                                                                     |
-| `x-omniroute-no-memory`  | Request   | Set to `true` to skip memory + skills injection for this request (mirrors no-cache; avoids the per-call token/cost overhead)                                                      |
-| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                                                                                                                                                 |
-| `X-Session-Id`           | Request   | Sticky session key for external session affinity                                                                                                                                  |
-| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)                                                                                                                                    |
-| `Idempotency-Key`        | Request   | Dedup key (5s window)                                                                                                                                                             |
-| `X-Request-Id`           | Request   | Alternative dedup key                                                                                                                                                             |
-| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                                                                                                                                                   |
-| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                                                                                                                                                            |
-| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                                                                                                                                                 |
-| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute                                                                                                                                            |
-| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)                                                                                                                                               |
-| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)                                                                                                                                          |
-| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only)                                                                                                                                  |
-| `X-OmniRoute-Decision`   | Response  | Routing trace: `strategy=<name>; provider=<alias>; latency_ms=<n>` (`<name>` is the combo strategy, or `single` for a non-combo request) — always present on completion responses |
+| Header                   | Direction | Description                                                                                                                                                                                        |
+| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                                                                                                                                                                      |
+| `x-omniroute-no-memory`  | Request   | Set to `true` to skip memory + skills injection for this request (mirrors no-cache; avoids the per-call token/cost overhead)                                                                       |
+| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                                                                                                                                                                  |
+| `X-Session-Id`           | Request   | Sticky session key for external session affinity                                                                                                                                                   |
+| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)                                                                                                                                                     |
+| `X-OmniRoute-Session-Id` | Request   | Caller-supplied session/conversation tag (also feeds memory). When present, persisted verbatim to `call_logs.session_tag` for per-session cost attribution (#8249) — never synthesized when absent |
+| `Idempotency-Key`        | Request   | Dedup key (5s window)                                                                                                                                                                              |
+| `X-Request-Id`           | Request   | Alternative dedup key                                                                                                                                                                              |
+| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                                                                                                                                                                    |
+| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                                                                                                                                                                             |
+| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                                                                                                                                                                  |
+| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute                                                                                                                                                             |
+| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)                                                                                                                                                                |
+| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)                                                                                                                                                           |
+| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only)                                                                                                                                                   |
+| `X-OmniRoute-Decision`   | Response  | Routing trace: `strategy=<name>; provider=<alias>; latency_ms=<n>` (`<name>` is the combo strategy, or `single` for a non-combo request) — always present on completion responses                  |
 
 > Nginx note: if you rely on underscore headers (for example `x_session_id`), enable `underscores_in_headers on;`.
 
@@ -340,6 +341,32 @@ Web/search provider abstraction (Tavily, Brave, Exa, Serper, etc.).
 | GET    | `/v1/search/analytics` | Per-provider hit/latency/cache stats                                                 |
 
 **Auth:** Bearer API key (`extractApiKey` + `isValidApiKey`). Search policy enforced via `enforceApiKeyPolicy`.
+
+---
+
+## Web Fetch API
+
+Extract content from a URL via a configured web-fetch provider (Firecrawl, Jina
+Reader, Tavily Extract, TinyFish Fetch).
+
+| Method | Path            | Description                                               |
+| ------ | --------------- | --------------------------------------------------------- |
+| POST   | `/v1/web/fetch` | Fetch/scrape a URL — body validated by `v1WebFetchSchema` |
+
+**Auth:** Bearer API key (`extractApiKey` + `isValidApiKey`). Policy enforced via `enforceApiKeyPolicy`.
+
+**Quota-aware fallback (#8297):** when no explicit `provider` is given, the pool
+(`firecrawl` → `jina-reader` → `tavily-search` → `tinyfish`) is walked in fixed
+priority order (fill-first) — a rate-limited-but-configured provider is skipped
+instead of short-circuiting the request, and a retryable/quota upstream failure
+(HTTP 429 always; 402/403 for Firecrawl/Tavily/TinyFish quota-style free tiers —
+not for Jina Reader, and never for a plain 400 bad request) falls through to the
+next untried credentialed provider at request time. When every provider in the
+pool is exhausted, the endpoint returns a single `429` (with a `Retry-After`
+header) instead of the previous generic `400`. When an explicit `provider` is
+requested, there is **no** silent fallback — a rate-limited or failing explicit
+provider surfaces its own error (`429` if rate-limited, otherwise the upstream
+status).
 
 ---
 

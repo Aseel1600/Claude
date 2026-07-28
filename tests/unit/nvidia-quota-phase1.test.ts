@@ -218,8 +218,8 @@ test("semaphore.getStats reflects nvidia's per-connection gate key", async () =>
 // ── Failure-mode separation regression guard ────────────────────────────────
 
 test("nvidia 429 does not trip the provider circuit breaker (unchanged 408/500/502/503/504-only classification)", () => {
-  // This PR does not touch src/sse/handlers/chat.ts or the circuit breaker — this
-  // is a documentation-alignment guard proving Phase 1 didn't accidentally widen
+  // This PR does not touch the circuit breaker classification — this is a
+  // documentation-alignment guard proving Phase 1 didn't accidentally widen
   // PROVIDER_BREAKER_FAILURE_STATUSES to include 429 (which would collapse the
   // per-model lockout this PR adds into a whole-connection/provider outage).
   // The PROVIDER_BREAKER_FAILURE_STATUSES declaration was extracted from chat.ts into

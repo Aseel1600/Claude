@@ -10,6 +10,8 @@ import {
   AdobeFireflyError,
   adobeFireflyGenerateVideo,
   resolveAdobeAccessToken,
+  resolveAdobeSourceImageIds,
+  resolveAdobeVideoModel,
 } from "../../services/adobeFireflyClient.ts";
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {
@@ -53,7 +55,8 @@ export async function handleAdobeFireflyVideoGeneration({
           ? Number(body.seed)
           : undefined;
     // Keep raw paste for Cookie + sherlockToken (x-arp-session-id).
-    const psd = (credentials as { providerSpecificData?: { cookie?: string } })?.providerSpecificData;
+    const psd = (credentials as { providerSpecificData?: { cookie?: string } })
+      ?.providerSpecificData;
     const sessionCookie =
       (typeof psd?.cookie === "string" && psd.cookie.trim()) ||
       (typeof credentials?.apiKey === "string" && credentials.apiKey.trim()) ||
@@ -61,9 +64,23 @@ export async function handleAdobeFireflyVideoGeneration({
         ? credentials.accessToken
         : undefined);
 
+    // Kling i2v / Veo ref / Sora frame: upload reference images first.
+    const { id: videoModelId } = resolveAdobeVideoModel(String(model));
+    const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;
+    const sourceImageIds = await resolveAdobeSourceImageIds({
+      accessToken,
+      body,
+      max: maxFrames,
+      sessionCookie,
+      prompt,
+      fetchImpl,
+      log,
+    });
+
     log?.info?.(
       "VIDEO",
-      `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"`
+      `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"` +
+        (sourceImageIds.length ? ` | frames: ${sourceImageIds.length}` : "")
     );
 
     const result = await adobeFireflyGenerateVideo({
@@ -83,6 +100,7 @@ export async function handleAdobeFireflyVideoGeneration({
             ? body.negativePrompt
             : undefined,
       generateAudio: body.generate_audio !== false && body.generateAudio !== false,
+      sourceImageIds: sourceImageIds.length ? sourceImageIds : undefined,
       sessionCookie,
       timeoutMs,
       fetchImpl,

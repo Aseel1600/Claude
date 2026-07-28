@@ -83,6 +83,7 @@ import {
   isAutoFetchModelsEnabled,
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
+import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
 import {
   parseGeminiModelsList,
   type GeminiDiscoveryModel,
@@ -802,8 +803,16 @@ export async function GET(
         `${baseUrl.replace(/\/$/, "")}/models`, // Original fallback
       ];
 
+      // #8347: opt-in `client_version` query param on the model-LIST request only (never on
+      // any inference URL, and never on this path by default) — see discoveryClientVersion.ts.
+      const discoveryClientVersionOptions = getDiscoveryClientVersionOptions(
+        connection.providerSpecificData
+      );
+
       // Remove duplicates
-      const uniqueEndpoints = [...new Set(endpoints)];
+      const uniqueEndpoints = [...new Set(endpoints)].map((endpoint) =>
+        buildProviderModelsUrl(endpoint, discoveryClientVersionOptions)
+      );
       let models = null;
       let lastErrorStatus = null;
       const token = apiKey || accessToken;

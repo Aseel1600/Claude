@@ -114,7 +114,10 @@ import {
   isOpencodeGoProvider,
   stripBooleanReasoning,
 } from "../services/opencodeReasoningSanitizer.ts";
-import { normalizeClaudeAdaptiveThinking } from "../services/claudeAdaptiveThinking.ts";
+import {
+  normalizeClaudeAdaptiveThinking,
+  normalizeClaudeDisabledThinkingEffort,
+} from "../services/claudeAdaptiveThinking.ts";
 import { normalizeClaudeHaikuConstraints } from "../services/claudeHaikuConstraints.ts";
 import { applyDefaultReasoningEffort } from "../services/defaultReasoningEffort.ts";
 import { echoModelInObject } from "../services/responseModelEcho.ts";
@@ -125,7 +128,12 @@ import {
 import { getUnsupportedParams, REGISTRY } from "../config/providerRegistry.ts";
 import { stripUnsupportedParams } from "./chatCore/unsupportedParamsStrip.ts";
 import { checkToolCallingRequiredButUnsupported } from "./chatCore/toolCallingRequiredCheck.ts";
-import { supportsMaxTokens, getResolvedModelCapabilities } from "@/lib/modelCapabilities.ts";
+import {
+  supportsMaxTokens,
+  getResolvedModelCapabilities,
+  getExplicitModelOutputCap,
+} from "@/lib/modelCapabilities.ts";
+import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
 import {
   buildErrorBody,
@@ -307,6 +315,7 @@ import {
   compressContext,
   estimateTokens,
   getTokenLimit,
+  getComboTargetTokenLimit,
   resolveComboContextLimit,
 } from "../services/contextManager.ts";
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
@@ -549,8 +558,9 @@ export async function handleChatCore({
   // and delegate so the existing call sites stay byte-identical.
   const recordKeyHealthStatus = (
     status: number,
-    creds: Record<string, unknown> | null | undefined
-  ): void => recordKeyHealthStatusFor(status, creds, log);
+    creds: Record<string, unknown> | null | undefined,
+    transport?: string
+  ): void => recordKeyHealthStatusFor(status, creds, log, transport);
 
   const persistCodexQuotaState = async (headers: Record<string, string> | null, status = 0) => {
     const currentConnectionId = getCurrentConnectionId();
@@ -856,13 +866,17 @@ export async function handleChatCore({
       pendingWrite: compressionAnalyticsWritePromise,
       skillRequestId,
     });
-  const pipelineSessionId =
+  // #8249: raw header value, kept separate from `pipelineSessionId`'s skillRequestId fallback
+  // below so call_logs.session_tag is only ever set when the caller explicitly supplied the
+  // header — never synthesized from the internal per-request skillRequestId.
+  const explicitSessionIdHeader =
     (clientRawRequest?.headers && typeof clientRawRequest.headers.get === "function"
       ? clientRawRequest.headers.get("x-omniroute-session-id")
       : getHeaderValueCaseInsensitive(
           clientRawRequest?.headers ?? null,
           "x-omniroute-session-id"
-        )) || skillRequestId;
+        )) || null;
+  const pipelineSessionId = explicitSessionIdHeader || skillRequestId;
   // persistAttemptLogs extracted to chatCore/attemptLogging.ts (#3501); bind the per-request context
   // once so the 16 call sites keep passing only the per-attempt args (byte-identical).
   const persistAttemptLogs = (args: PersistAttemptLogsArgs) =>
@@ -890,6 +904,7 @@ export async function handleChatCore({
       noLogEnabled,
       correlationId,
       modelPinned,
+      sessionTag: explicitSessionIdHeader,
     });
 
   // Primary path: merge client model id + alias target so config on either key applies; resolved
@@ -1076,6 +1091,11 @@ export async function handleChatCore({
   // settings read below, then threaded to executor.execute() further down. Lives at
   // function scope because the read happens inside the per-message compression block.
   let contextEditingEnabled = false;
+  // Hoisted to function scope (not just the compression-block scope below) so the
+  // combo-resolved override survives to the final enforceOutputTokenBudget() call
+  // further down — see #8378 (context limit resolved by the combo was silently
+  // discarded because it only existed inside this `if` block).
+  let contextLimit = getTokenLimit(provider, effectiveModel);
   if (body && Array.isArray(allMessages) && allMessages.length > 0) {
     let estimatedTokens = estimateTokens(allMessages);
     const compressionSettingsResult = await resolveCompressionSettings(log);
@@ -1665,16 +1685,13 @@ export async function handleChatCore({
     if (!promptCompressionEnabled) {
       log?.debug?.(
         "CONTEXT",
-        "Skipping proactive context compression: Prompt Compression disabled"
+        "Prompt Compression engines disabled; reactive context compaction still applies when over threshold"
       );
     }
-    let contextLimit = getTokenLimit(provider, effectiveModel);
-
     if (isCombo && comboName) {
       log?.info?.("CONTEXT", `Attempting to resolve combo limits for comboName=${comboName}`);
       try {
         const { getComboByName } = await import("../../src/lib/localDb");
-        const { parseModel } = await import("../services/model.ts");
         const { resolveComboTargets } = await import("../services/combo.ts");
         let comboConfig = await getComboByName(comboName);
         if (!comboConfig && comboName.startsWith("combo/")) {
@@ -1687,10 +1704,14 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
-          comboTargetLimits = targets.map((t: { modelStr?: string }) => {
-            const parsed = parseModel(t.modelStr);
-            return getTokenLimit(parsed.provider, parsed.model);
-          });
+          comboTargetLimits = targets.map((t: { modelStr?: string; provider?: string }) =>
+            // Fall back to ResolvedComboTarget.provider when modelStr lacks a
+            // provider/ prefix — parseModel alone returns provider:null (#8716).
+            getComboTargetTokenLimit({
+              modelStr: t.modelStr,
+              provider: t.provider,
+            })
+          );
         }
         // chatCore executes per concrete target (handleSingleModel resolves
         // provider/effectiveModel before delegating). Compress against THIS
@@ -1731,21 +1752,31 @@ export async function handleChatCore({
     // content even after compression alters it (e.g. stable Kiro conversationId).
     preCompressionBody = body;
 
-    if (promptCompressionEnabled && estimatedTokens > threshold) {
+    // Reactive context compaction is independent of optional prompt-compression
+    // engines (Caveman/RTK). Codex Desktop / Responses clients need this path even
+    // when those engines are off, otherwise multi-turn image sessions hard-reject
+    // at the budget check below (#8560).
+    if (estimatedTokens > threshold) {
       log?.info?.(
         "CONTEXT",
         `Proactive compression triggered: ${estimatedTokens} tokens > ${threshold} threshold (${contextLimit} limit)`
       );
 
-      const compressionResult = compressContext(body, {
+      // Adapt Responses `input[]` → messages so compressContext can run, then restore.
+      const ctxAdapter = adaptBodyForCompression(body as Record<string, unknown>);
+      const compressionResult = compressContext(ctxAdapter.body, {
         provider,
         model: effectiveModel,
         maxTokens: threshold,
         reserveTokens: 0,
       });
 
-      if (compressionResult.compressed) {
-        body = compressionResult.body;
+      if (compressionResult.compressed && compressionResult.body) {
+        body = ctxAdapter.adapted
+          ? ctxAdapter.restore(compressionResult.body as Record<string, unknown>, {
+              dropMissingMappedItems: true,
+            })
+          : compressionResult.body;
         const stats = compressionResult.stats;
         tokensCompressed = Math.max(0, (stats?.original ?? 0) - (stats?.final ?? 0));
         const layersInfo =
@@ -1785,25 +1816,75 @@ export async function handleChatCore({
   // filtering is advisory and may preserve an all-incompatible pool; this is the
   // hard boundary that prevents a too-large prompt (or a negative token budget)
   // from reaching an OpenAI-compatible upstream such as NVIDIA NIM.
-  const finalCompressionBody = body
-    ? adaptBodyForCompression(body as Record<string, unknown>).body
-    : null;
-  const finalMessages =
-    finalCompressionBody?.messages ||
-    body?.contents ||
-    body?.request?.contents ||
-    (body?.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : []);
-  const finalEstimatedInputTokens =
-    estimateTokens(finalMessages) +
-    (Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0) +
-    estimateTokens(body?.system) +
-    estimateTokens(body?.instructions);
-  const finalContextLimit = getTokenLimit(provider, effectiveModel);
+  const estimateFinalInputTokens = (requestBody: Record<string, unknown> | null | undefined) => {
+    const adapted = requestBody
+      ? adaptBodyForCompression(requestBody as Record<string, unknown>).body
+      : null;
+    const messages =
+      adapted?.messages ||
+      requestBody?.contents ||
+      requestBody?.request?.contents ||
+      (Array.isArray(requestBody?.input)
+        ? requestBody.input
+        : requestBody?.input && typeof requestBody.input === "object"
+          ? requestBody.input
+          : []);
+    return (
+      estimateTokens(messages) +
+      (Array.isArray(requestBody?.tools) ? estimateTokens(requestBody.tools) : 0) +
+      estimateTokens(requestBody?.system) +
+      estimateTokens(requestBody?.instructions)
+    );
+  };
+
+  let finalEstimatedInputTokens = estimateFinalInputTokens(body as Record<string, unknown>);
+  // Reuse the already-resolved `contextLimit` (may have been narrowed to the
+  // per-target combo window above, resolveComboContextLimit) instead of a bare
+  // getTokenLimit(provider, effectiveModel) re-fetch, which would silently
+  // discard that combo-aware override and re-widen the last-resort budget.
+  const finalContextLimit = contextLimit;
+  const toolsReserve = Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0;
+
+  // Last-resort compaction against the concrete input budget (not the 70% threshold).
+  // Covers cases where the proactive pass was skipped or still left the request oversized (#8560).
+  if (finalEstimatedInputTokens >= finalContextLimit && body) {
+    const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
+    const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
+    const lastResortResult = compressContext(lastResortAdapter.body, {
+      provider,
+      model: effectiveModel,
+      maxTokens: lastResortTarget,
+      reserveTokens: 0,
+    });
+    if (lastResortResult.compressed && lastResortResult.body) {
+      body = lastResortAdapter.adapted
+        ? lastResortAdapter.restore(lastResortResult.body as Record<string, unknown>, {
+            dropMissingMappedItems: true,
+          })
+        : lastResortResult.body;
+      finalEstimatedInputTokens = estimateFinalInputTokens(body as Record<string, unknown>);
+      log?.info?.(
+        "CONTEXT",
+        `Last-resort context compaction: ${lastResortResult.stats?.original} → ${lastResortResult.stats?.final} tokens ` +
+          `(re-estimated input ${finalEstimatedInputTokens}, limit ${finalContextLimit})`
+      );
+    }
+  }
+
+  // Key the lookup by { provider, model } — the bare-string form resolves to
+  // `provider: null`, which skips both the registry cap and the operator's
+  // `max_token` capability override (#6524), the documented escape hatch for a
+  // wrong synced `limit_output`. Clamping against a stale spec while the operator
+  // raised the ceiling would silently truncate output.
+  const modelOutputCap = toPositiveInteger(
+    getExplicitModelOutputCap({ provider, model: effectiveModel })
+  );
   const outputBudget = enforceOutputTokenBudget(
     body as Record<string, unknown>,
     finalEstimatedInputTokens,
     finalContextLimit,
-    targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0
+    targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0,
+    modelOutputCap
   );
   if (!outputBudget.ok) {
     const message =
@@ -1821,10 +1902,18 @@ export async function handleChatCore({
     );
   }
   if (outputBudget.adjustedFields.length > 0) {
+    // A field can also be adjusted by *removal* (invalid/non-positive value), which
+    // the cap did not cause — so state the ceiling in effect rather than claiming
+    // the cap drove this particular adjustment.
+    const modelCapIsBinding =
+      modelOutputCap != null && modelOutputCap < outputBudget.availableOutputTokens;
     log?.info?.(
       "CONTEXT",
       `Adjusted invalid or oversized output token fields (${outputBudget.adjustedFields.join(", ")}); ` +
-        `${outputBudget.availableOutputTokens} tokens remain for output`
+        `${outputBudget.availableOutputTokens} tokens remain for output` +
+        (modelCapIsBinding
+          ? ` (output ceiling in effect: ${modelOutputCap}, ${provider}/${effectiveModel}'s own cap)`
+          : "")
     );
   }
   body = outputBudget.body;
@@ -2243,6 +2332,14 @@ export async function handleChatCore({
     // defaults) to `{type:"adaptive"}` — effort stays on `output_config.effort`. Keyed on
     // the resolved upstream model, so it covers every routing mode. See claudeAdaptiveThinking.ts.
     translatedBody = normalizeClaudeAdaptiveThinking(translatedBody, finalModelToUpstream);
+    // Opus 5 allows disabled thinking only through high effort on Anthropic's direct
+    // Messages API. The helper scopes this constraint to `anthropic` and `claude`;
+    // GitHub Copilot and Claude Web use separate upstream contracts.
+    translatedBody = normalizeClaudeDisabledThinkingEffort(
+      translatedBody,
+      finalModelToUpstream,
+      provider
+    );
     // Claude Haiku rejects `thinking.type:"adaptive"` and `output_config.effort`
     // (both Sonnet 4.6 / Opus 4.5+ only). Several paths can still emit those
     // shapes on a Haiku target — native passthrough, reasoning_effort buckets,
@@ -2469,6 +2566,16 @@ export async function handleChatCore({
         log?.warn?.(
           "QUOTA_SHARE",
           `[quotaShare] blocked apiKeyId=${apiKeyInfo.id} provider=${provider ?? "unknown"}: ${decision.reason}`
+        );
+        // Finalize the pending-request slot registered at handler entry — this
+        // return path never reaches the upstream, and without the decrement the
+        // pending detail lingers as an orphaned status-0 call-log row until the
+        // reaper sweeps it (mirrors the other pre-upstream error returns).
+        trackPendingRequest(
+          model,
+          provider,
+          connectionId || credentials?.connectionId || null,
+          false
         );
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (decision.retryAfterSeconds) {
@@ -2988,7 +3095,7 @@ export async function handleChatCore({
           rawResult._executionCredentials?.connectionId &&
           rawResult._executionCredentials?.apiKey
         ) {
-          recordKeyHealthStatus(status, rawResult._executionCredentials);
+          recordKeyHealthStatus(status, rawResult._executionCredentials, rawResult.transport);
         }
         releaseRawResultAccountSemaphore =
           typeof rawResult._accountSemaphoreRelease === "function"
@@ -3209,17 +3316,31 @@ export async function handleChatCore({
     // via isLocalStreamLifecycleError so those map to 499 instead of falling
     // through to the 502 provider-failure default.
     const isRequestAborted = isLocalStreamLifecycleError(error);
+    // #8376: an unreachable upstream proxy (ECONNREFUSED/ECONNRESET/...) is tagged by
+    // proxyFetch.ts (tagProxyUnreachable) with `.errorCode = "proxy_unreachable"` before
+    // it reaches this catch. Classify it explicitly to 502 instead of falling through
+    // the generic `error.status` branch (a raw connect-refused error has no `.status` at
+    // all, so it used to collapse into an ordinary 502/504 the provider-breaker predicate
+    // can't tell apart from a per-model 5xx).
+    const isProxyUnreachableFailure =
+      !isRequestAborted && (error as { errorCode?: unknown })?.errorCode === "proxy_unreachable";
+    const errorCode = getUpstreamErrorIdentifier(error);
+    const isLocalQueueTimeout = errorCode === "RATE_LIMIT_QUEUE_TIMEOUT";
     const failureStatus = isRequestAborted
       ? 499
-      : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
-        ? HTTP_STATUS.GATEWAY_TIMEOUT
-        : error.status && typeof error.status === "number"
-          ? error.status
-          : HTTP_STATUS.BAD_GATEWAY;
+      : isProxyUnreachableFailure
+        ? HTTP_STATUS.BAD_GATEWAY
+        : isLocalQueueTimeout
+          ? HTTP_STATUS.SERVICE_UNAVAILABLE
+          : error.name === "TimeoutError" || error.name === "BodyTimeoutError"
+            ? HTTP_STATUS.GATEWAY_TIMEOUT
+            : error.status && typeof error.status === "number"
+              ? error.status
+              : HTTP_STATUS.BAD_GATEWAY;
     const failureMessage = isRequestAborted
       ? "Request aborted"
       : formatProviderError(error, provider, model, failureStatus);
-    const upstreamErrorCode = getUpstreamErrorIdentifier(error);
+    const upstreamErrorCode = isProxyUnreachableFailure ? "proxy_unreachable" : errorCode;
     // Tag our own deadline timeouts (fetch-start TimeoutError / body BodyTimeoutError,
     // both surfaced as a 504) as "upstream_timeout" so the cooldown layer can tell a
     // slow-but-not-failed request apart from a real provider 5xx. (Antigravity already
@@ -3737,7 +3858,8 @@ export async function handleChatCore({
               retryAfterMs,
               upstreamErrorCode,
               upstreamErrorType,
-              upstreamErrorBody
+              upstreamErrorBody,
+              { passthrough: sourceFormat === FORMATS.CLAUDE }
             );
           }
         } catch {
@@ -3756,7 +3878,8 @@ export async function handleChatCore({
             retryAfterMs,
             upstreamErrorCode,
             upstreamErrorType,
-            upstreamErrorBody
+            upstreamErrorBody,
+            { passthrough: sourceFormat === FORMATS.CLAUDE }
           );
         }
       } else {
@@ -3775,7 +3898,8 @@ export async function handleChatCore({
           retryAfterMs,
           upstreamErrorCode,
           upstreamErrorType,
-          upstreamErrorBody
+          upstreamErrorBody,
+          { passthrough: sourceFormat === FORMATS.CLAUDE }
         );
       }
     } else if (isContextOverflowError(statusCode, message)) {
@@ -3823,7 +3947,8 @@ export async function handleChatCore({
               retryAfterMs,
               upstreamErrorCode,
               upstreamErrorType,
-              upstreamErrorBody
+              upstreamErrorBody,
+              { passthrough: sourceFormat === FORMATS.CLAUDE }
             );
           }
         } catch {
@@ -3842,7 +3967,8 @@ export async function handleChatCore({
             retryAfterMs,
             upstreamErrorCode,
             upstreamErrorType,
-            upstreamErrorBody
+            upstreamErrorBody,
+            { passthrough: sourceFormat === FORMATS.CLAUDE }
           );
         }
       } else {
@@ -3861,7 +3987,8 @@ export async function handleChatCore({
           retryAfterMs,
           upstreamErrorCode,
           upstreamErrorType,
-          upstreamErrorBody
+          upstreamErrorBody,
+          { passthrough: sourceFormat === FORMATS.CLAUDE }
         );
       }
     } else {
@@ -3887,7 +4014,8 @@ export async function handleChatCore({
         retryAfterMs,
         upstreamErrorCode,
         upstreamErrorType,
-        upstreamErrorBody
+        upstreamErrorBody,
+        { passthrough: sourceFormat === FORMATS.CLAUDE }
       );
     }
     // ── End T5 ───────────────────────────────────────────────────────────────
@@ -4233,7 +4361,12 @@ export async function handleChatCore({
       });
     }
 
-    applyClientUsageBuffer(translatedResponse, body, clientResponseFormat);
+    // #8331: keep the client-visible metering fields real everywhere except Claude-Code-compatible
+    // providers, where Claude Code's own context accounting relies on the buffered number — see
+    // clientUsageBuffer.ts module docstring.
+    applyClientUsageBuffer(translatedResponse, body, clientResponseFormat, {
+      preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
+    });
 
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
       const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
@@ -4467,6 +4600,20 @@ export async function handleChatCore({
     if (typeof model === "string" && model) echoModelInObject(translatedResponse, model);
     // #1311: echo the requested alias/combo name in the non-streaming response model.
     if (echoModel) echoModelInObject(translatedResponse, echoModel);
+
+    // ── Plugin onResponse hook (fire-and-forget) ──
+    // #8395: the streaming branch below already calls this; the non-streaming
+    // (stream:false) branch returned without it, so onResponse never fired for
+    // non-streaming requests at all.
+    await runPluginOnResponseHook({
+      requestId: traceId,
+      body,
+      model,
+      provider,
+      apiKeyInfo,
+      response: { status: 200, data: translatedResponse },
+    });
+
     return {
       success: true,
       response: buildNonStreamingJsonResponse(translatedResponse, responseHeaders),
@@ -4848,7 +4995,14 @@ export async function handleChatCore({
   await emitRequestGamificationEvent({ apiKeyId: apiKeyInfo?.id, model, provider });
 
   // ── Plugin onResponse hook (fire-and-forget) ──
-  await runPluginOnResponseHook({ requestId: traceId, body, model, provider, apiKeyInfo });
+  await runPluginOnResponseHook({
+    requestId: traceId,
+    body,
+    model,
+    provider,
+    apiKeyInfo,
+    response: { status: 200, streamed: true },
+  });
 
   return {
     success: true,

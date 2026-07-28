@@ -96,7 +96,8 @@ export const DEFAULT_RESILIENCE_SETTINGS: ResilienceSettings = {
   // Wait at most 90s for a single short transient cooldown (covers Gemini-class
   // TPM/RPM windows, which report ~60s retry-after live — #7360), at most 5
   // redispatch cycles, never more than 300s (5 min) total. Active for every
-  // combo strategy, and only for transient (non quota_exhausted) reasons.
+  // combo strategy when enabled, and only for transient (non quota_exhausted)
+  // reasons.
   comboCooldownWait: {
     enabled: true,
     maxWaitMs: 90000,

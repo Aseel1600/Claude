@@ -129,7 +129,7 @@ test("connection model exclusions narrow only that model's account allowlist", a
     candidate.model.startsWith("antigravity/gemini-3.6-")
   );
 
-  assert.ok(geminiCandidates.length >= 3, "Gemini 3.5 candidates should remain available");
+  assert.ok(geminiCandidates.length >= 3, "Gemini 3.6 candidates should remain available");
   for (const candidate of geminiCandidates) {
     assert.deepEqual(candidate.allowedConnectionIds, [second.id]);
   }

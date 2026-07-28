@@ -52,7 +52,7 @@ export function createInjectionGuard(options: PromptInjectionGuardrailOptions = 
 export function withInjectionGuard(handler: any, options: any = {}) {
   const guard = createInjectionGuard(options);
 
-  return async function guardedHandler(request: any, context: any) {
+  return async function guardedHandler(request: any, context?: any) {
     // Only apply to POST/PUT/PATCH
     if (!["POST", "PUT", "PATCH"].includes(request.method)) {
       return handler(request, context);
@@ -89,10 +89,7 @@ export function withInjectionGuard(handler: any, options: any = {}) {
         if (result.flagged) {
           try {
             request.headers.set("X-Injection-Flagged", "true");
-            request.headers.set(
-              "X-Injection-Detections",
-              String(result.detections.length)
-            );
+            request.headers.set("X-Injection-Detections", String(result.detections.length));
           } catch {
             // immutable headers: detection still applied; metadata is best-effort
           }

@@ -128,6 +128,37 @@ Auto-scoring selects best provider/model per request
 | `src/sse/handlers/chat.ts`                                | Integration: auto prefix short-circuit    |
 | `src/shared/constants/providers.ts`                       | `SYSTEM_PROVIDERS.auto` system entry      |
 
+## Combo Names That Match a Real Model Id
+
+A combo whose `name` is identical to a bare model id (e.g. a combo named
+`gpt-5.5`) is an **intentional, supported pattern**, not a bug: it is the
+mechanism for per-model-id provider fallback documented in
+[#6940](https://github.com/diegosouzapw/OmniRoute/issues/6940). Because combo
+resolution is checked before bare-model-id resolution
+(`getComboForModel()` in `src/sse/services/model.ts`), a request for the bare
+id `gpt-5.5` is routed through the combo's targets (e.g.
+`acme-responses/gpt-5.5`, `backup-responses/gpt-5.5`) instead of straight to
+a single provider — this reuses the combo-before-rewrite precedence built for
+[#3227/#3233](https://github.com/diegosouzapw/OmniRoute/issues/3227) and is
+regression-tested by `tests/unit/responses-combo-resolution-3227.test.ts` and
+`tests/unit/combo-name-codex-responses-rewrite.test.ts`.
+
+Creating or renaming a combo to a name that shadows a real model id is
+**never rejected** — doing so would break this documented workflow. Instead
+(#8530), `POST /api/combos` and `PUT /api/combos/[id]` attach a non-blocking
+`warning` field to the response when the (new) name collides with a real
+model id:
+
+```json
+{ "warning": { "code": "COMBO_NAME_SHADOWS_MODEL", "modelId": "gpt-5.5", "providerId": "openai" } }
+```
+
+At boot, `scanComboModelNameCollisionsAtBoot()`
+(`src/instrumentation-node.ts`) also logs a one-line `[STARTUP]` warning
+enumerating every existing combo that shadows a model id, so operators who
+hit this by accident (rather than intentionally, per #6940) have a signal.
+The detection helper lives in `src/lib/combos/modelNameCollision.ts`.
+
 ## How It Works (Persisted Auto-Combos)
 
 The Auto-Combo Engine dynamically selects the best provider/model for each request using a **12-factor scoring function** (defined in `open-sse/services/autoCombo/scoring.ts` → `DEFAULT_WEIGHTS`). All weights sum to **1.0**.
@@ -183,11 +214,11 @@ combo's stored config. These apply only to the `auto` strategy and only for the 
 that carries them; the combo's saved `modePack`/`budgetCap`/`budgetFallback` are used
 when the header is absent.
 
-| Header                        | Accepts                                                                                                                                                                                 | Effect                                                                                                                                                                                              |
-| :----------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `X-OmniRoute-Mode`            | a preset alias (`fast`, `balanced`, `quality`, `cheap`, `reliable`, `offline`) or a raw pack name (`ship-fast`, `cost-saver`, `quality-first`, `offline-friendly`, `reliability-first`) | Overrides the scoring weights for this request. `balanced`/`default` force the default weights (no pack). Unknown values are ignored (config preserved).                                            |
-| `X-OmniRoute-Budget`          | a positive number (max USD per request)                                                                                                                                                 | Hard cost ceiling: candidates whose estimated cost exceeds it are filtered before selection. What happens when **every** candidate exceeds it is controlled by `X-OmniRoute-Budget-Fallback` below. |
-| `X-OmniRoute-Budget-Fallback` | `cheapest` (default, aliases: `cheapest-viable`, `soft`) or `strict` (aliases: `block`, `hard`)                                                                                        | `cheapest`: falls back to the globally cheapest candidate even though it still exceeds the cap (legacy behavior). `strict`: refuses to select — the request fails fast with `HTTP 402` instead of silently overspending. Unknown values are ignored. |
+| Header                        | Accepts                                                                                                                                                                                 | Effect                                                                                                                                                                                                                                               |
+| :---------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `X-OmniRoute-Mode`            | a preset alias (`fast`, `balanced`, `quality`, `cheap`, `reliable`, `offline`) or a raw pack name (`ship-fast`, `cost-saver`, `quality-first`, `offline-friendly`, `reliability-first`) | Overrides the scoring weights for this request. `balanced`/`default` force the default weights (no pack). Unknown values are ignored (config preserved).                                                                                             |
+| `X-OmniRoute-Budget`          | a positive number (max USD per request)                                                                                                                                                 | Hard cost ceiling: candidates whose estimated cost exceeds it are filtered before selection. What happens when **every** candidate exceeds it is controlled by `X-OmniRoute-Budget-Fallback` below.                                                  |
+| `X-OmniRoute-Budget-Fallback` | `cheapest` (default, aliases: `cheapest-viable`, `soft`) or `strict` (aliases: `block`, `hard`)                                                                                         | `cheapest`: falls back to the globally cheapest candidate even though it still exceeds the cap (legacy behavior). `strict`: refuses to select — the request fails fast with `HTTP 402` instead of silently overspending. Unknown values are ignored. |
 
 ```bash
 # Force the fastest profile, cap this request at $0.05, and hard-block instead of overspending

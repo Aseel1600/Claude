@@ -400,18 +400,27 @@ export async function checkConnection(conn) {
   if (intervalMin <= 0) return;
   if (!conn.isActive) return;
 
-  // #8182: terminal connections do not self-heal. The exception is a stale
-  // no_refresh_token state on a usable GitHub access-token-only connection.
-  const terminalStatuses = new Set(["credits_exhausted", "banned", "expired"]);
-  const recoverableGitHubNoRefreshTokenState =
-    isGitHubAccessTokenOnlyConnection(conn) &&
-    !conn.refreshToken &&
+  // #8182: skip terminal connections (credits_exhausted / banned / expired).
+  // These can never self-heal via a token refresh — probing them wastes
+  // CPU and network on every sweep cycle. Mirrors isTerminalConnectionStatus
+  // in src/sse/services/auth.ts and TERMINAL_CONNECTION_STATUSES in
+  // src/lib/quota/connectionRecovery.ts.
+  //
+  // #5326 exception: a GitHub Copilot access-token-only connection parked in
+  // "expired" with errorCode "no_refresh_token" is NOT actually terminal — it's
+  // the exact target of the self-heal below (canClearGitHubNoRefreshTokenState),
+  // which clears that stale status back to "active" once the Copilot sub-token
+  // proves usable. Treating it as terminal here made that self-heal unreachable,
+  // leaving healthy Copilot connections stuck at "expired" forever.
+  const isRecoverableGithubCopilotNoRefresh =
     conn.testStatus === "expired" &&
-    conn.errorCode === "no_refresh_token";
+    conn.errorCode === "no_refresh_token" &&
+    isGitHubAccessTokenOnlyConnection(conn);
+  const terminalStatuses = new Set(["credits_exhausted", "banned", "expired"]);
   if (
     typeof conn.testStatus === "string" &&
     terminalStatuses.has(conn.testStatus.toLowerCase()) &&
-    !recoverableGitHubNoRefreshTokenState
+    !isRecoverableGithubCopilotNoRefresh
   ) {
     return;
   }
@@ -503,7 +512,7 @@ export async function checkConnection(conn) {
     // badge (which derives expiry from tokenExpiresAt||expiresAt) showed a confusing
     // cosmetic "Token Expired". Surface reality as a terminal "expired" status instead.
     // Guard tightly so we do NOT clobber:
-    //   - providers that simply don't use refresh tokens (supportsTokenRefresh=false)
+    //   - providers without refresh tokens (supportsTokenRefresh=false; #8407 devin-cli)
     //   - connections already in a terminal/specific state (expired/banned/credits_exhausted)
     //   - transient cooldown state (unavailable) owned by the request path
     const refreshCapableNeedsReauth =

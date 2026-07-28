@@ -189,15 +189,6 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
       icon: "grain",
     },
     {
-      id: "compression-exclusions",
-      href: "/dashboard/compression/exclusions",
-      i18nKey: "compressionExclusions",
-      labelFallback: "Exclusions",
-      subtitleKey: "compressionExclusionsSubtitle",
-      subtitleFallback: "Per-model/endpoint bypass",
-      icon: "block",
-    },
-    {
       id: "compression-studio",
       href: "/dashboard/compression/studio",
       i18nKey: "compressionStudio",
@@ -205,6 +196,15 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
       subtitleKey: "compressionStudioSubtitle",
       subtitleFallback: "Live engine cascade",
       icon: "monitoring",
+    },
+    {
+      id: "compression-exclusions",
+      href: "/dashboard/compression/exclusions",
+      i18nKey: "compressionExclusions",
+      labelFallback: "Exclusions",
+      subtitleKey: "compressionExclusionsSubtitle",
+      subtitleFallback: "Per-model/endpoint bypass",
+      icon: "block",
     },
   ],
 };
@@ -393,6 +393,13 @@ const LOGS_GROUP: SidebarItemGroup = {
       i18nKey: "consoleLogs",
       subtitleKey: "consoleLogsSubtitle",
       icon: "terminal",
+    },
+    {
+      id: "logs-timeline",
+      href: "/dashboard/logs/timeline",
+      i18nKey: "logsTimeline",
+      subtitleKey: "logsTimelineSubtitle",
+      icon: "view_timeline",
     },
   ],
 };

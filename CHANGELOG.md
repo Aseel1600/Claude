@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **executors**: fix internal timeout misclassified as client disconnect (499) for 7 niche executors — pass TimeoutError reason to controller.abort() (#8197 side-finding)
+
 ---
 
 ## [3.8.49] — TBD
@@ -154,6 +158,8 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **feat(github-models):** refresh catalog and compatibility ([#8225](https://github.com/diegosouzapw/OmniRoute/pull/8225)) — thanks @backryun
 - **feat(github):** refresh Copilot model catalog ([#8226](https://github.com/diegosouzapw/OmniRoute/pull/8226)) — thanks @backryun
 - **feat:** classify grok-web Cloudflare anti-bot blocks + gated browser-backed cf_clearance path (#8019) ([#8241](https://github.com/diegosouzapw/OmniRoute/pull/8241))
+- **feat(providers):** weekly quota for xAI OAuth (Grok) (`xai-oauth` / `xao`) via shared cli-chat-proxy billing (`creditUsagePercent`), with fail-open self-tracked fallback ([#8471](https://github.com/diegosouzapw/OmniRoute/pull/8471)) — thanks @allanvb
+
 ### ⚡ Performance
 
 - **perf(db):** project columns + composite index in getProviderConnections ([#6918](https://github.com/diegosouzapw/OmniRoute/pull/6918)) — thanks @oyi77
@@ -167,6 +173,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **perf(memory):** mitigate event-loop starvation under 3000+ provider connections ([#7719](https://github.com/diegosouzapw/OmniRoute/pull/7719)) — thanks @oyi77
 - **perf:** reduce long-context request copies ([#7862](https://github.com/diegosouzapw/OmniRoute/pull/7862)) — thanks @RaviTharuma
 - **perf:** lazy provider init, P2C quota cache, structuredClone elimination, getSettings→getCachedSettings (batch 2) ([#7893](https://github.com/diegosouzapw/OmniRoute/pull/7893)) — thanks @oyi77
+
 ### 🐛 Bug Fixes
 
 - **fix:** add re-entrancy guard to token health check sweep ([#6917](https://github.com/diegosouzapw/OmniRoute/pull/6917)) — thanks @oyi77
@@ -501,6 +508,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **fix(gemini):** drop HARM_CATEGORY_CIVIC_INTEGRITY from the default Gemini safety settings (#8231) ([#8238](https://github.com/diegosouzapw/OmniRoute/pull/8238))
 - **fix(backend):** word-boundary-safe tool-result truncation in lite compression mode (#8169) ([#8239](https://github.com/diegosouzapw/OmniRoute/pull/8239))
 - **fix(providers):** filter unsupported family-fallback candidates against the provider catalog (#8134) ([#8240](https://github.com/diegosouzapw/OmniRoute/pull/8240))
+
 ### 📚 Docs
 
 - **docs(quality):** codify retry policy per runner + release-level drift rule (WS5.4/WS5.5) ([#7107](https://github.com/diegosouzapw/OmniRoute/pull/7107))
@@ -532,6 +540,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **docs(ops):** publish public branching and release model (#7627) ([#8129](https://github.com/diegosouzapw/OmniRoute/pull/8129)) — thanks @c4usal
 - **docs(i18n):** full Russian README rewrite ([#8217](https://github.com/diegosouzapw/OmniRoute/pull/8217)) — thanks @MonteNegroX
 - **docs(readme):** re-audit numbers, fix table scroll, refresh contributors ([#8243](https://github.com/diegosouzapw/OmniRoute/pull/8243))
+
 ### 🧪 Tests & Quality
 
 - **test(build):** derive pack-artifact closures for all npm-shipped entrypoints (#7065 class) ([#7081](https://github.com/diegosouzapw/OmniRoute/pull/7081))
@@ -544,6 +553,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **test(codex):** cover image tool output replay (#7698) ([#7704](https://github.com/diegosouzapw/OmniRoute/pull/7704)) — thanks @dongwook-chan
 - **test(security):** exact SAN-entry match in mitm leaf-cert test (CodeQL #746) ([#7824](https://github.com/diegosouzapw/OmniRoute/pull/7824))
 - **test(#8140):** verify keepalive interval cleanup on disconnect, resolve, and reject ([#8190](https://github.com/diegosouzapw/OmniRoute/pull/8190)) — thanks @rafaumeu
+
 ### 🔧 Chores / CI
 
 - **chore(release):** gate the sync-back push on release-green --quick (WS0.3) ([#7083](https://github.com/diegosouzapw/OmniRoute/pull/7083))
@@ -582,6 +592,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **chore(dashboard):** reframe Kimi partnership as "Open Source Friends" ([#8117](https://github.com/diegosouzapw/OmniRoute/pull/8117))
 - **chore(quality):** fix 2 pre-existing lint/suppression drift issues ([#8209](https://github.com/diegosouzapw/OmniRoute/pull/8209)) — thanks @hartmark
 - **chore:** add K3banner-1.png banner asset ([#8242](https://github.com/diegosouzapw/OmniRoute/pull/8242))
+
 ### 🔀 Other
 
 - [needs-vps] fix(electron): materialize Turbopack hashed-module symlinks during packaging (#6724, #6594) ([#6794](https://github.com/diegosouzapw/OmniRoute/pull/6794)) — thanks @huohua-dev
@@ -611,6 +622,7 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 - **refactor(antigravity):** align official clients and callable catalog ([#8013](https://github.com/diegosouzapw/OmniRoute/pull/8013)) — thanks @backryun
 - **refactor(compression):** extract resolveHeadroomDetail to keep dispatchCompression under the complexity gate ([#8058](https://github.com/diegosouzapw/OmniRoute/pull/8058))
 - **deps:** bump next from 16.2.10 to 16.2.11 ([#8235](https://github.com/diegosouzapw/OmniRoute/pull/8235)) — thanks @dependabot[bot]
+
 ### 🩹 Direct release-branch fixes (no PR — authorized base-red sweep, 2026-07-18)
 
 - **fix(base-red):** full-suite realignment after the 102-PR merge campaign: two real production fixes (legacy `refresh_token` column healed before its index is created; `shouldSkipCloudSyncInitialization` no longer swaps its `(env, argv)` arguments) plus 13 test files, goldens, provider counts, and env docs realigned to the live-validated behavior of the merged PRs.
@@ -619,92 +631,92 @@ _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62
 
 Thanks to everyone whose work landed in v3.8.49:
 
-| Contributor | PRs / Issues |
-| --- | --- |
-| [@adevwithpurpose](https://github.com/adevwithpurpose) | #8123 |
-| [@adrianaryaputra](https://github.com/adrianaryaputra) | #7928 |
-| [@Ajeesh25353646](https://github.com/Ajeesh25353646) | #7528 |
-| [@alltomatos](https://github.com/alltomatos) | #7041, #7042, #7164, #7277, #7490, #7492, #7644 |
-| [@alvaretto](https://github.com/alvaretto) | #8077, #8161, #8170 |
-| [@AndrianBalanescu](https://github.com/AndrianBalanescu) | #7794, #7804, #7810, #7813, #7816, #7891, #8050 |
-| [@apoapostolov](https://github.com/apoapostolov) | #8127 |
-| [@arpit-jaiswal-dev](https://github.com/arpit-jaiswal-dev) | #7881 |
-| [@artickc](https://github.com/artickc) | #6955, #7204, #7696, #7768, #7896, #7900, #7911, #7930, #7994, #8006 |
-| [@Arul-](https://github.com/Arul-) | #7878 |
-| [@backryun](https://github.com/backryun) | #7296, #7314, #7358, #7531, #7687, #7772, #7812, #7866, #7874, #7882, #7914, #8013, #8225, #8226, #8227, #8230 |
-| [@c4usal](https://github.com/c4usal) | #8129 |
-| [@Capslockb](https://github.com/Capslockb) | #7892 |
-| [@Chewji9875](https://github.com/Chewji9875) | #7545 |
-| [@chirag127](https://github.com/chirag127) | #7520, #8143 |
-| [@CitrusIce](https://github.com/CitrusIce) | #6937, #6938 |
-| [@Dan-ex-hub](https://github.com/Dan-ex-hub) | #7743 |
-| [@danscMax](https://github.com/danscMax) | #7359, #7511, #7517, #7648, #7656, #7672, #7689 |
-| [@dependabot](https://github.com/dependabot) | #7897, #7898, #8235 |
-| [@Dingding-leo](https://github.com/Dingding-leo) | #7988, #7989, #8162, #8165, #8167 |
-| [@DKotsyuba](https://github.com/DKotsyuba) | #7500 |
-| [@dongwook-chan](https://github.com/dongwook-chan) | #7574, #7582, #7704 |
-| [@ekinnee](https://github.com/ekinnee) | #7613, #7614, #7662, #7779, #7927, #7932, #7980 |
-| [@enjoyer-hub](https://github.com/enjoyer-hub) | #7863 |
-| [@fenix007](https://github.com/fenix007) | #7171, #7399 |
-| [@FenjuFu](https://github.com/FenjuFu) | #7942 |
-| [@floze-the-genius](https://github.com/floze-the-genius) | #7707 |
-| [@growab](https://github.com/growab) | #7062 |
-| [@guanbear](https://github.com/guanbear) | #7028 |
-| [@hartmark](https://github.com/hartmark) | #8208, #8209, #8210, #8211, #8212, #8213 |
-| [@HassiyYT](https://github.com/HassiyYT) | #7864 |
-| [@herjarsa](https://github.com/herjarsa) | #7612, #7625, #7633, #7869, #7871 |
-| [@HouMinXi](https://github.com/HouMinXi) | #7035, #7129, #7290, #7398, #7408, #7973 |
-| [@hppsc1215](https://github.com/hppsc1215) | #7546 |
-| [@huohua-dev](https://github.com/huohua-dev) | #6794 |
-| [@hydraxman](https://github.com/hydraxman) | #7909 |
-| [@insoln](https://github.com/insoln) | #7906, #7908, #8041, #8054, #8062 |
-| [@irvandikky](https://github.com/irvandikky) | #7695 |
-| [@isiahw1](https://github.com/isiahw1) | #7555 |
-| [@JxnLexn](https://github.com/JxnLexn) | #6993, #7154, #7177, #7269, #7273, #7280, #7281, #7282, #7323, #7360, #7377, #7378, #7379, #7380, #7381, #7419, #7607, #7894, #7905, #7912, #8008, #8009, #8010 |
-| [@KooshaPari](https://github.com/KooshaPari) | #7008, #7087, #7093, #7128, #7130, #7136, #7315, #7318, #7334, #7336 |
-| [@leninejunior](https://github.com/leninejunior) | #8049 |
-| [@leszek3737](https://github.com/leszek3737) | #7782, #7807 |
-| [@Long-Feeds](https://github.com/Long-Feeds) | #8011 |
-| [@loulanyue](https://github.com/loulanyue) | #7540 |
-| [@lunkerchen](https://github.com/lunkerchen) | #8024 |
-| [@makcimbx](https://github.com/makcimbx) | #7692, #8171 |
-| [@megamen32](https://github.com/megamen32) | #7313 |
-| [@MichaelYcJo](https://github.com/MichaelYcJo) | #8224 |
-| [@mikolaj92](https://github.com/mikolaj92) | #6973 |
-| [@MonteNegroX](https://github.com/MonteNegroX) | #8217 |
-| [@Moseyuh333](https://github.com/Moseyuh333) | #7781 |
-| [@MrFadiAi](https://github.com/MrFadiAi) | #7073 |
-| [@mustafa-phd](https://github.com/mustafa-phd) | #7686 |
-| [@nguyenha935](https://github.com/nguyenha935) | #7493, #7547, #7552, #7553, #7629, #7935, #8031, #8233 |
-| [@not-knope](https://github.com/not-knope) | #8206 |
-| [@nramabad](https://github.com/nramabad) | #7926 |
-| [@oyi77](https://github.com/oyi77) | #6917, #6918, #6919, #6920, #6921, #6923, #7032, #7045, #7046, #7066, #7070, #7178, #7719, #7744, #7787, #7893, #8219 |
-| [@professional-ALFIE](https://github.com/professional-ALFIE) | #6877 |
-| [@Prudhvivuda](https://github.com/Prudhvivuda) | #8220 |
-| [@rafaumeu](https://github.com/rafaumeu) | #6979, #6982, #6983, #6987, #6988, #7001, #7808, #7815, #8071, #8113, #8179, #8184, #8185, #8190, #8195, #8196, #8203 |
-| [@RaviTharuma](https://github.com/RaviTharuma) | #7852, #7853, #7855, #7862, #7885, #7972, #7978, #8021, #8022, #8023, #8025, #8027, #8030, #8102, #8124 |
-| [@RCrushMe](https://github.com/RCrushMe) | #8151 |
-| [@rushsinging](https://github.com/rushsinging) | #7256 |
-| [@seanford](https://github.com/seanford) | #8218, #8232 |
-| [@SeaXen](https://github.com/SeaXen) | #7063, #7264, #7294 |
-| [@Securiteru](https://github.com/Securiteru) | #7683 |
-| [@skutanjir](https://github.com/skutanjir) | #7865, #7939 |
-| [@swingtempo](https://github.com/swingtempo) | #7790 |
-| [@Tasogarre](https://github.com/Tasogarre) | #7861, #8207 |
-| [@thepigdestroyer](https://github.com/thepigdestroyer) | #7497 |
-| [@tianrking](https://github.com/tianrking) | #7353 |
-| [@tientien17](https://github.com/tientien17) | #7841, #7844, #7925 |
-| [@tmone](https://github.com/tmone) | #7806, #7933 |
-| [@TrackCrewGalore](https://github.com/TrackCrewGalore) | #8128 |
-| [@ViFigueiredo](https://github.com/ViFigueiredo) | #7301 |
-| [@vzts](https://github.com/vzts) | #7390 |
-| [@webmasterarbez](https://github.com/webmasterarbez) | #7504 |
-| [@Wibias](https://github.com/Wibias) | #7125 |
-| [@Witroch4](https://github.com/Witroch4) | #7901, #7902 |
-| [@xiaoyaner0201](https://github.com/xiaoyaner0201) | #8122 |
-| [@xier2012](https://github.com/xier2012) | #7036, #7050, #7052, #7053, #7056, #7059, #7060, #7061, #7166, #7299 |
-| [@xz-dev](https://github.com/xz-dev) | #7004, #7012, #7027, #7673, #7700, #7747, #7776, #7843 |
-| [@diegosouzapw](https://github.com/diegosouzapw) | maintainer |
+| Contributor                                                  | PRs / Issues                                                                                                                                                    |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [@adevwithpurpose](https://github.com/adevwithpurpose)       | #8123                                                                                                                                                           |
+| [@adrianaryaputra](https://github.com/adrianaryaputra)       | #7928                                                                                                                                                           |
+| [@Ajeesh25353646](https://github.com/Ajeesh25353646)         | #7528                                                                                                                                                           |
+| [@alltomatos](https://github.com/alltomatos)                 | #7041, #7042, #7164, #7277, #7490, #7492, #7644                                                                                                                 |
+| [@alvaretto](https://github.com/alvaretto)                   | #8077, #8161, #8170                                                                                                                                             |
+| [@AndrianBalanescu](https://github.com/AndrianBalanescu)     | #7794, #7804, #7810, #7813, #7816, #7891, #8050                                                                                                                 |
+| [@apoapostolov](https://github.com/apoapostolov)             | #8127                                                                                                                                                           |
+| [@arpit-jaiswal-dev](https://github.com/arpit-jaiswal-dev)   | #7881                                                                                                                                                           |
+| [@artickc](https://github.com/artickc)                       | #6955, #7204, #7696, #7768, #7896, #7900, #7911, #7930, #7994, #8006                                                                                            |
+| [@Arul-](https://github.com/Arul-)                           | #7878                                                                                                                                                           |
+| [@backryun](https://github.com/backryun)                     | #7296, #7314, #7358, #7531, #7687, #7772, #7812, #7866, #7874, #7882, #7914, #8013, #8225, #8226, #8227, #8230                                                  |
+| [@c4usal](https://github.com/c4usal)                         | #8129                                                                                                                                                           |
+| [@Capslockb](https://github.com/Capslockb)                   | #7892                                                                                                                                                           |
+| [@Chewji9875](https://github.com/Chewji9875)                 | #7545                                                                                                                                                           |
+| [@chirag127](https://github.com/chirag127)                   | #7520, #8143                                                                                                                                                    |
+| [@CitrusIce](https://github.com/CitrusIce)                   | #6937, #6938                                                                                                                                                    |
+| [@Dan-ex-hub](https://github.com/Dan-ex-hub)                 | #7743                                                                                                                                                           |
+| [@danscMax](https://github.com/danscMax)                     | #7359, #7511, #7517, #7648, #7656, #7672, #7689                                                                                                                 |
+| [@dependabot](https://github.com/dependabot)                 | #7897, #7898, #8235                                                                                                                                             |
+| [@Dingding-leo](https://github.com/Dingding-leo)             | #7988, #7989, #8162, #8165, #8167                                                                                                                               |
+| [@DKotsyuba](https://github.com/DKotsyuba)                   | #7500                                                                                                                                                           |
+| [@dongwook-chan](https://github.com/dongwook-chan)           | #7574, #7582, #7704                                                                                                                                             |
+| [@ekinnee](https://github.com/ekinnee)                       | #7613, #7614, #7662, #7779, #7927, #7932, #7980                                                                                                                 |
+| [@enjoyer-hub](https://github.com/enjoyer-hub)               | #7863                                                                                                                                                           |
+| [@fenix007](https://github.com/fenix007)                     | #7171, #7399                                                                                                                                                    |
+| [@FenjuFu](https://github.com/FenjuFu)                       | #7942                                                                                                                                                           |
+| [@floze-the-genius](https://github.com/floze-the-genius)     | #7707                                                                                                                                                           |
+| [@growab](https://github.com/growab)                         | #7062                                                                                                                                                           |
+| [@guanbear](https://github.com/guanbear)                     | #7028                                                                                                                                                           |
+| [@hartmark](https://github.com/hartmark)                     | #8208, #8209, #8210, #8211, #8212, #8213                                                                                                                        |
+| [@HassiyYT](https://github.com/HassiyYT)                     | #7864                                                                                                                                                           |
+| [@herjarsa](https://github.com/herjarsa)                     | #7612, #7625, #7633, #7869, #7871                                                                                                                               |
+| [@HouMinXi](https://github.com/HouMinXi)                     | #7035, #7129, #7290, #7398, #7408, #7973                                                                                                                        |
+| [@hppsc1215](https://github.com/hppsc1215)                   | #7546                                                                                                                                                           |
+| [@huohua-dev](https://github.com/huohua-dev)                 | #6794                                                                                                                                                           |
+| [@hydraxman](https://github.com/hydraxman)                   | #7909                                                                                                                                                           |
+| [@insoln](https://github.com/insoln)                         | #7906, #7908, #8041, #8054, #8062                                                                                                                               |
+| [@irvandikky](https://github.com/irvandikky)                 | #7695                                                                                                                                                           |
+| [@isiahw1](https://github.com/isiahw1)                       | #7555                                                                                                                                                           |
+| [@JxnLexn](https://github.com/JxnLexn)                       | #6993, #7154, #7177, #7269, #7273, #7280, #7281, #7282, #7323, #7360, #7377, #7378, #7379, #7380, #7381, #7419, #7607, #7894, #7905, #7912, #8008, #8009, #8010 |
+| [@KooshaPari](https://github.com/KooshaPari)                 | #7008, #7087, #7093, #7128, #7130, #7136, #7315, #7318, #7334, #7336                                                                                            |
+| [@leninejunior](https://github.com/leninejunior)             | #8049                                                                                                                                                           |
+| [@leszek3737](https://github.com/leszek3737)                 | #7782, #7807                                                                                                                                                    |
+| [@Long-Feeds](https://github.com/Long-Feeds)                 | #8011                                                                                                                                                           |
+| [@loulanyue](https://github.com/loulanyue)                   | #7540                                                                                                                                                           |
+| [@lunkerchen](https://github.com/lunkerchen)                 | #8024                                                                                                                                                           |
+| [@makcimbx](https://github.com/makcimbx)                     | #7692, #8171                                                                                                                                                    |
+| [@megamen32](https://github.com/megamen32)                   | #7313                                                                                                                                                           |
+| [@MichaelYcJo](https://github.com/MichaelYcJo)               | #8224                                                                                                                                                           |
+| [@mikolaj92](https://github.com/mikolaj92)                   | #6973                                                                                                                                                           |
+| [@MonteNegroX](https://github.com/MonteNegroX)               | #8217                                                                                                                                                           |
+| [@Moseyuh333](https://github.com/Moseyuh333)                 | #7781                                                                                                                                                           |
+| [@MrFadiAi](https://github.com/MrFadiAi)                     | #7073                                                                                                                                                           |
+| [@mustafa-phd](https://github.com/mustafa-phd)               | #7686                                                                                                                                                           |
+| [@nguyenha935](https://github.com/nguyenha935)               | #7493, #7547, #7552, #7553, #7629, #7935, #8031, #8233                                                                                                          |
+| [@not-knope](https://github.com/not-knope)                   | #8206                                                                                                                                                           |
+| [@nramabad](https://github.com/nramabad)                     | #7926                                                                                                                                                           |
+| [@oyi77](https://github.com/oyi77)                           | #6917, #6918, #6919, #6920, #6921, #6923, #7032, #7045, #7046, #7066, #7070, #7178, #7719, #7744, #7787, #7893, #8219                                           |
+| [@professional-ALFIE](https://github.com/professional-ALFIE) | #6877                                                                                                                                                           |
+| [@Prudhvivuda](https://github.com/Prudhvivuda)               | #8220                                                                                                                                                           |
+| [@rafaumeu](https://github.com/rafaumeu)                     | #6979, #6982, #6983, #6987, #6988, #7001, #7808, #7815, #8071, #8113, #8179, #8184, #8185, #8190, #8195, #8196, #8203                                           |
+| [@RaviTharuma](https://github.com/RaviTharuma)               | #7852, #7853, #7855, #7862, #7885, #7972, #7978, #8021, #8022, #8023, #8025, #8027, #8030, #8102, #8124                                                         |
+| [@RCrushMe](https://github.com/RCrushMe)                     | #8151                                                                                                                                                           |
+| [@rushsinging](https://github.com/rushsinging)               | #7256                                                                                                                                                           |
+| [@seanford](https://github.com/seanford)                     | #8218, #8232                                                                                                                                                    |
+| [@SeaXen](https://github.com/SeaXen)                         | #7063, #7264, #7294                                                                                                                                             |
+| [@Securiteru](https://github.com/Securiteru)                 | #7683                                                                                                                                                           |
+| [@skutanjir](https://github.com/skutanjir)                   | #7865, #7939                                                                                                                                                    |
+| [@swingtempo](https://github.com/swingtempo)                 | #7790                                                                                                                                                           |
+| [@Tasogarre](https://github.com/Tasogarre)                   | #7861, #8207                                                                                                                                                    |
+| [@thepigdestroyer](https://github.com/thepigdestroyer)       | #7497                                                                                                                                                           |
+| [@tianrking](https://github.com/tianrking)                   | #7353                                                                                                                                                           |
+| [@tientien17](https://github.com/tientien17)                 | #7841, #7844, #7925                                                                                                                                             |
+| [@tmone](https://github.com/tmone)                           | #7806, #7933                                                                                                                                                    |
+| [@TrackCrewGalore](https://github.com/TrackCrewGalore)       | #8128                                                                                                                                                           |
+| [@ViFigueiredo](https://github.com/ViFigueiredo)             | #7301                                                                                                                                                           |
+| [@vzts](https://github.com/vzts)                             | #7390                                                                                                                                                           |
+| [@webmasterarbez](https://github.com/webmasterarbez)         | #7504                                                                                                                                                           |
+| [@Wibias](https://github.com/Wibias)                         | #7125                                                                                                                                                           |
+| [@Witroch4](https://github.com/Witroch4)                     | #7901, #7902                                                                                                                                                    |
+| [@xiaoyaner0201](https://github.com/xiaoyaner0201)           | #8122                                                                                                                                                           |
+| [@xier2012](https://github.com/xier2012)                     | #7036, #7050, #7052, #7053, #7056, #7059, #7060, #7061, #7166, #7299                                                                                            |
+| [@xz-dev](https://github.com/xz-dev)                         | #7004, #7012, #7027, #7673, #7700, #7747, #7776, #7843                                                                                                          |
+| [@diegosouzapw](https://github.com/diegosouzapw)             | maintainer                                                                                                                                                      |
 
 ---
 
