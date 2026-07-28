@@ -569,6 +569,7 @@ export async function handleComboChat({
   signal,
   apiKeyAllowedConnections = null,
   nesting = null,
+  hiddenModelsByProvider = getHiddenModelsByProvider(),
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
@@ -606,6 +607,7 @@ export async function handleComboChat({
       clientRequestedStream,
       handleSingleModelWithTimeout,
       log,
+      hiddenModelsByProvider,
     });
     if (pinnedDispatch) return pinnedDispatch;
   }
@@ -627,6 +629,7 @@ export async function handleComboChat({
     relayOptions,
     signal,
     apiKeyAllowedConnections,
+    hiddenModelsByProvider,
     runCombo: handleComboChat,
   });
   if (fusionDispatch) return fusionDispatch;
@@ -635,7 +638,12 @@ export async function handleComboChat({
   // chaosEngine.ts (dispatchChaosFromCombo), returning null when not chaos-enabled.
   const chaosDispatch = dispatchChaosFromCombo({
     cfg,
-    comboModels: combo.models || [],
+    comboModels: resolveComboTargets(
+      combo,
+      allCombos,
+      clampComboDepth(config.maxComboDepth),
+      hiddenModelsByProvider
+    ).map((target) => target.modelStr),
     comboName: combo.name,
     body,
     handleSingleModel: handleSingleModelWithTimeout,
@@ -648,8 +656,10 @@ export async function handleComboChat({
     combo,
     config,
     strategy,
+    allCombos,
     handleSingleModelWithTimeout,
     log,
+    hiddenModelsByProvider,
   });
   if (pipelineDispatch) return pipelineDispatch;
 
@@ -668,6 +678,7 @@ export async function handleComboChat({
     relayOptions,
     signal,
     apiKeyAllowedConnections,
+    hiddenModelsByProvider,
     runCombo: handleComboChat,
   });
   if (runtimeUnitDispatch) return runtimeUnitDispatch;
@@ -683,6 +694,7 @@ export async function handleComboChat({
       settings,
       allCombos,
       signal,
+      hiddenModelsByProvider,
     });
   }
 
@@ -707,6 +719,7 @@ export async function handleComboChat({
     isModelAvailable,
     handleSingleModelWithTimeout,
     buildAutoCandidates,
+    hiddenModelsByProvider,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -748,7 +761,7 @@ export async function handleComboChat({
     combo,
     config,
     body,
-    resolveShadowTargets(combo, config, allCombos),
+    resolveShadowTargets(combo, config, allCombos, hiddenModelsByProvider),
     handleSingleModel,
     isModelAvailable,
     strategy,
@@ -2177,6 +2190,7 @@ async function handleRoundRobinCombo({
   settings,
   allCombos,
   signal,
+  hiddenModelsByProvider = getHiddenModelsByProvider(),
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
@@ -2215,7 +2229,8 @@ async function handleRoundRobinCombo({
   const orderedTargets = resolveComboTargets(
     rrExpandedCombo,
     rrExpandedAllCombos,
-    clampComboDepth(config.maxComboDepth)
+    clampComboDepth(config.maxComboDepth),
+    hiddenModelsByProvider
   );
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
@@ -2288,7 +2303,7 @@ async function handleRoundRobinCombo({
     combo,
     config,
     body,
-    resolveShadowTargets(combo, config, allCombos),
+    resolveShadowTargets(combo, config, allCombos, hiddenModelsByProvider),
     handleSingleModel,
     isModelAvailable,
     "round-robin",
