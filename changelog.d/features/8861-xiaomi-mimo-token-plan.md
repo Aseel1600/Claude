@@ -1,1 +1,0 @@
-- **Providers**: adds the Xiaomi MiMo Token Plan provider and a per-connection API-protocol selector — some providers publish the same models over more than one protocol, and a connection can now pick the alternative instead of being locked to the OpenAI-compatible default
