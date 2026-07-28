@@ -348,7 +348,7 @@
     "open-sse/executors/deepseek-web.ts": 1148,
     "open-sse/executors/grok-web.ts": 1044,
     "open-sse/executors/muse-spark-web.ts": 1405,
-    "open-sse/handlers/chatCore.ts": 5006,
+    "open-sse/handlers/chatCore.ts": 5020,
     "open-sse/handlers/imageGeneration.ts": 3101,
     "open-sse/handlers/responseSanitizer.ts": 1115,
     "open-sse/handlers/search.ts": 1536,
@@ -387,7 +387,7 @@
     "src/app/(dashboard)/dashboard/usage/components/ProviderLimits/index.tsx": 1109,
     "src/app/api/providers/[id]/models/route.ts": 2250,
     "src/app/api/v1/models/catalog.ts": 1549,
-    "src/lib/db/apiKeys.ts": 1518,
+    "src/lib/db/apiKeys.ts": 1529,
     "src/lib/db/core.ts": 1637,
     "src/lib/db/migrationRunner.ts": 1077,
     "src/lib/db/models.ts": 1097,
@@ -405,5 +405,6 @@
     "tests/unit/provider-validation-specialty.test.ts": 2980,
     "open-sse/executors/hyperagent.ts": 1026
   },
-  "_rebaseline_2026_07_27_v3849_train2": "Merge-train 2 (7 PRs) — owner-approved 2026-07-27. Single entry: chatCore.ts 4955->5006 (#8595, Responses multi-turn image compaction before the context hard-reject). Genuine irreducible growth at the existing compaction chokepoint in handleChatCore — the PR adds a last-resort retry against the concrete budget plus the estimateFinalInputTokens helper, both wired at the pre-existing call site rather than a new branch. Covered by tests/unit/8560-responses-image-compaction.test.ts (4 tests)."
+  "_rebaseline_2026_07_27_v3849_train2": "Merge-train 2 (7 PRs) — owner-approved 2026-07-27. Single entry: chatCore.ts 4955->5006 (#8595, Responses multi-turn image compaction before the context hard-reject). Genuine irreducible growth at the existing compaction chokepoint in handleChatCore — the PR adds a last-resort retry against the concrete budget plus the estimateFinalInputTokens helper, both wired at the pre-existing call site rather than a new branch. Covered by tests/unit/8560-responses-image-compaction.test.ts (4 tests).",
+  "_rebaseline_2026_07_27_v3849_train3": "Merge-train 3 (13 PRs) — owner-approved 2026-07-27. Both entries are genuine irreducible growth at existing chokepoints, not new branches: src/lib/db/apiKeys.ts 1518->1529 (#8805 cx/* ≡ codex/* API-key model permissions); open-sse/handlers/chatCore.ts 5006->5020 (#8806 real response payload into plugin onResponse hooks). Covered by tests/unit/db-apiKeys-crud.test.ts (4 new cases) and the two plugin-hook test files updated in #8806 respectively."
 }
