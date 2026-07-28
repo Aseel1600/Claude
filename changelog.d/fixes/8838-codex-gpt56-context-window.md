@@ -1,1 +1,0 @@
-- **Providers**: Codex GPT-5.6 Sol/Terra/Luna report the current upstream context window of 272000 instead of a stale 372000, so catalog consumers stop compacting past the Codex backend real input limit. Public OpenAI API GPT-5.6 metadata is unchanged

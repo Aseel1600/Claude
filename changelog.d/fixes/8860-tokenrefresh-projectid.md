@@ -1,0 +1,1 @@
+- **Antigravity**: the shared token-refresh service now recovers a missing `projectId` too — #8842 fixed the executor path, but the Dashboard and the health check refresh through `open-sse/services/tokenRefresh.ts`, which kept returning credentials with an empty project and left those accounts on 422
