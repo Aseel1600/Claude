@@ -1685,7 +1685,7 @@ export async function handleChatCore({
     if (!promptCompressionEnabled) {
       log?.debug?.(
         "CONTEXT",
-        "Skipping proactive context compression: Prompt Compression disabled"
+        "Prompt Compression engines disabled; reactive context compaction still applies when over threshold"
       );
     }
     if (isCombo && comboName) {
@@ -1752,21 +1752,31 @@ export async function handleChatCore({
     // content even after compression alters it (e.g. stable Kiro conversationId).
     preCompressionBody = body;
 
-    if (promptCompressionEnabled && estimatedTokens > threshold) {
+    // Reactive context compaction is independent of optional prompt-compression
+    // engines (Caveman/RTK). Codex Desktop / Responses clients need this path even
+    // when those engines are off, otherwise multi-turn image sessions hard-reject
+    // at the budget check below (#8560).
+    if (estimatedTokens > threshold) {
       log?.info?.(
         "CONTEXT",
         `Proactive compression triggered: ${estimatedTokens} tokens > ${threshold} threshold (${contextLimit} limit)`
       );
 
-      const compressionResult = compressContext(body, {
+      // Adapt Responses `input[]` → messages so compressContext can run, then restore.
+      const ctxAdapter = adaptBodyForCompression(body as Record<string, unknown>);
+      const compressionResult = compressContext(ctxAdapter.body, {
         provider,
         model: effectiveModel,
         maxTokens: threshold,
         reserveTokens: 0,
       });
 
-      if (compressionResult.compressed) {
-        body = compressionResult.body;
+      if (compressionResult.compressed && compressionResult.body) {
+        body = ctxAdapter.adapted
+          ? ctxAdapter.restore(compressionResult.body as Record<string, unknown>, {
+              dropMissingMappedItems: true,
+            })
+          : compressionResult.body;
         const stats = compressionResult.stats;
         tokensCompressed = Math.max(0, (stats?.original ?? 0) - (stats?.final ?? 0));
         const layersInfo =
@@ -1806,20 +1816,61 @@ export async function handleChatCore({
   // filtering is advisory and may preserve an all-incompatible pool; this is the
   // hard boundary that prevents a too-large prompt (or a negative token budget)
   // from reaching an OpenAI-compatible upstream such as NVIDIA NIM.
-  const finalCompressionBody = body
-    ? adaptBodyForCompression(body as Record<string, unknown>).body
-    : null;
-  const finalMessages =
-    finalCompressionBody?.messages ||
-    body?.contents ||
-    body?.request?.contents ||
-    (body?.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : []);
-  const finalEstimatedInputTokens =
-    estimateTokens(finalMessages) +
-    (Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0) +
-    estimateTokens(body?.system) +
-    estimateTokens(body?.instructions);
+  const estimateFinalInputTokens = (requestBody: Record<string, unknown> | null | undefined) => {
+    const adapted = requestBody
+      ? adaptBodyForCompression(requestBody as Record<string, unknown>).body
+      : null;
+    const messages =
+      adapted?.messages ||
+      requestBody?.contents ||
+      requestBody?.request?.contents ||
+      (Array.isArray(requestBody?.input)
+        ? requestBody.input
+        : requestBody?.input && typeof requestBody.input === "object"
+          ? requestBody.input
+          : []);
+    return (
+      estimateTokens(messages) +
+      (Array.isArray(requestBody?.tools) ? estimateTokens(requestBody.tools) : 0) +
+      estimateTokens(requestBody?.system) +
+      estimateTokens(requestBody?.instructions)
+    );
+  };
+
+  let finalEstimatedInputTokens = estimateFinalInputTokens(body as Record<string, unknown>);
+  // Reuse the already-resolved `contextLimit` (may have been narrowed to the
+  // per-target combo window above, resolveComboContextLimit) instead of a bare
+  // getTokenLimit(provider, effectiveModel) re-fetch, which would silently
+  // discard that combo-aware override and re-widen the last-resort budget.
   const finalContextLimit = contextLimit;
+  const toolsReserve = Array.isArray(body?.tools) ? estimateTokens(body.tools) : 0;
+
+  // Last-resort compaction against the concrete input budget (not the 70% threshold).
+  // Covers cases where the proactive pass was skipped or still left the request oversized (#8560).
+  if (finalEstimatedInputTokens >= finalContextLimit && body) {
+    const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
+    const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
+    const lastResortResult = compressContext(lastResortAdapter.body, {
+      provider,
+      model: effectiveModel,
+      maxTokens: lastResortTarget,
+      reserveTokens: 0,
+    });
+    if (lastResortResult.compressed && lastResortResult.body) {
+      body = lastResortAdapter.adapted
+        ? lastResortAdapter.restore(lastResortResult.body as Record<string, unknown>, {
+            dropMissingMappedItems: true,
+          })
+        : lastResortResult.body;
+      finalEstimatedInputTokens = estimateFinalInputTokens(body as Record<string, unknown>);
+      log?.info?.(
+        "CONTEXT",
+        `Last-resort context compaction: ${lastResortResult.stats?.original} → ${lastResortResult.stats?.final} tokens ` +
+          `(re-estimated input ${finalEstimatedInputTokens}, limit ${finalContextLimit})`
+      );
+    }
+  }
+
   // Key the lookup by { provider, model } — the bare-string form resolves to
   // `provider: null`, which skips both the registry cap and the operator's
   // `max_token` capability override (#6524), the documented escape hatch for a
