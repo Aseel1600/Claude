@@ -10,6 +10,7 @@ import {
 } from "../services/claudeCodeCompatible.ts";
 import { getGigachatAccessToken } from "../services/gigachatAuth.ts";
 import { getRegistryEntry } from "../config/providerRegistry.ts";
+import { resolveAlternateFormat } from "../config/providers/alternateFormats.ts";
 import { getModelTargetFormat } from "../config/providerModels.ts";
 import {
   mergeClientAnthropicBeta,
@@ -443,9 +444,12 @@ export class DefaultExecutor extends BaseExecutor {
             headers["anthropic-version"] = "2023-06-01";
           }
         } else {
-          // Use registry authHeader if available, otherwise default to bearer
+          // Use registry authHeader if available, otherwise default to bearer.
+          // Um protocolo alternativo escolhido na conexao traz o proprio esquema
+          // de auth (ex.: claude usa x-api-key onde openai usa bearer).
           const entry = getRegistryEntry(this.provider);
-          const authHeader = entry?.authHeader || "bearer";
+          const alternate = resolveAlternateFormat(entry, credentials.providerSpecificData);
+          const authHeader = alternate?.authHeader || entry?.authHeader || "bearer";
           const token = effectiveKey || credentials.accessToken || entry?.anonymousApiKey;
           if (token) {
             if (authHeader === "x-api-key") {

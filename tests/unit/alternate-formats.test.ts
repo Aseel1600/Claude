@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resolveAlternateFormat } from "../../open-sse/config/providers/alternateFormats.ts";
 import type { RegistryEntry } from "../../open-sse/config/providers/shared.ts";
 import { getTargetFormat } from "../../open-sse/services/provider.ts";
+import { DefaultExecutor } from "../../open-sse/executors/default.ts";
 
 const ENTRY: RegistryEntry = {
   id: "demo",
@@ -108,4 +109,60 @@ test("resolveBaseUrl: alternativa vence o baseUrl padrao", () => {
 test("resolveBaseUrl: sem override usa o baseUrl padrao", () => {
   const url = precedence({}, ENTRY_WITH_ALT, "https://default.example.com/v1");
   assert.equal(url, "https://default.example.com/v1");
+});
+
+// Task 4: auth header e headers extras honram a alternativa.
+//
+// Mesma limitacao da Task 3: nenhuma entry real do registry declara
+// alternateFormats ainda, entao reproduzimos a escolha de authHeader
+// implementada em DefaultExecutor.buildHeaders (default.ts) sem instanciar o
+// executor inteiro. O teste de regressao abaixo (via DefaultExecutor real)
+// cobre o caminho sem alternativa para garantir que a nova chamada a
+// resolveAlternateFormat nao alterou o comportamento por-default existente.
+function pickAuthHeader(entry: unknown, psd: unknown) {
+  const alt = resolveAlternateFormat(entry as never, psd);
+  return alt?.authHeader || (entry as { authHeader?: string } | null)?.authHeader || "bearer";
+}
+
+const ENTRY_AUTH = {
+  authHeader: "bearer",
+  alternateFormats: [
+    {
+      format: "claude",
+      baseUrl: "https://alt.example.com/anthropic/v1/messages",
+      authHeader: "x-api-key",
+      headers: { "Anthropic-Version": "2023-06-01" },
+      label: "Anthropic",
+    },
+  ],
+} as never;
+
+test("authHeader: formato alternativo troca bearer por x-api-key", () => {
+  assert.equal(pickAuthHeader(ENTRY_AUTH, { targetFormat: "claude" }), "x-api-key");
+});
+
+test("authHeader: sem override mantem o header da entry", () => {
+  assert.equal(pickAuthHeader(ENTRY_AUTH, {}), "bearer");
+});
+
+test("alternativa carrega headers extras do protocolo", () => {
+  const alt = resolveAlternateFormat(ENTRY_AUTH, { targetFormat: "claude" });
+  assert.equal(alt?.headers?.["Anthropic-Version"], "2023-06-01");
+});
+
+// Regression via producao real: sem alternateFormats declarados no registry
+// (xiaomi-mimo ainda nao os tem — Task 5), buildHeaders continua usando o
+// authHeader "bearer" da entry mesmo com um targetFormat na conexao, provando
+// que a nova chamada a resolveAlternateFormat nao regrediu o caminho default.
+test("DefaultExecutor.buildHeaders: sem alternativa declarada, mantem o authHeader padrao", () => {
+  const executor = new DefaultExecutor("xiaomi-mimo");
+  const headers = executor.buildHeaders(
+    {
+      apiKey: "sk-test",
+      providerSpecificData: { targetFormat: "claude" },
+    } as never,
+    true
+  ) as Record<string, string>;
+  assert.equal(headers["Authorization"], "Bearer sk-test");
+  assert.equal(headers["x-api-key"], undefined);
 });

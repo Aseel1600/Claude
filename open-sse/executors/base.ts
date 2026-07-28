@@ -469,9 +469,14 @@ export class BaseExecutor {
     credentials: ProviderCredentials,
     stream: boolean
   ): { headers: Record<string, string>; effectiveKey: string | undefined } {
+    const alternate = resolveAlternateFormat(
+      getRegistryEntry(this.provider),
+      credentials?.providerSpecificData
+    );
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       ...this.config.headers,
+      ...(alternate?.headers || {}),
     };
 
     // Allow per-provider User-Agent override via environment variable.
