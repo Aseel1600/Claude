@@ -370,7 +370,7 @@ export async function cleanupComboConnectionRefs(connectionId: string) {
   for (const combo of combos) {
     if (!Array.isArray(combo.models)) continue;
     let changed = false;
-    const models = (combo.models as Record<string, unknown>[]).map((step) => {
+    const models = (combo.models as unknown as Record<string, unknown>[]).map((step) => {
       let out = step;
       if (out.connectionId === connectionId) {
         const { connectionId: _, ...rest } = out;
