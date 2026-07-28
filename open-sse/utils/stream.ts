@@ -19,6 +19,7 @@ import {
   formatSSE,
   unwrapGeminiChunk,
   appendBoundedText,
+  buildSyntheticChatChunk,
   hasActiveDeltaValue,
 } from "./streamHelpers.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
@@ -32,7 +33,6 @@ import {
   OMIT_STREAMING_CHUNK_MARKER,
   sanitizeStreamingChunk,
 } from "../handlers/responseSanitizer.ts";
-import { shouldParseTextualReasoningTags } from "../handlers/responseSanitizer/reasoning.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import {
   shouldDropResponsesCommentaryEvent,
@@ -62,7 +62,7 @@ import {
   getUnsupportedReasoningValue,
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
-import { flushThinkBuffer, processStreamingThinkDelta } from "./thinkTagParser.ts";
+import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -90,13 +90,6 @@ export { backfillResponsesCompletedOutput, stripResponsesLifecycleEcho };
 type JsonRecord = Record<string, unknown>;
 
 export const PENDING_REQUEST_CLEARED_MARKER = "__omniroutePendingRequestCleared";
-
-function containsOrMayEndWithThinkOpenTag(value: string): boolean {
-  return (
-    value.includes("<think>") ||
-    ["<", "<t", "<th", "<thi", "<thin"].some((suffix) => value.endsWith(suffix))
-  );
-}
 
 function markPendingRequestCleared(error: Error): Error {
   (error as Error & Record<string, unknown>)[PENDING_REQUEST_CLEARED_MARKER] = true;
@@ -753,9 +746,7 @@ export function createSSEStream(options: StreamOptions = {}) {
   let passthroughToolCallSeq = 0;
   const allowedToolNames = extractAllowedToolNames(body);
   let skipPassthroughEvent = false;
-  const parseTextualReasoningTags =
-    mode === STREAM_MODE.PASSTHROUGH && shouldParseTextualReasoningTags(provider, model);
-  const textualReasoningTagState = { insideThink: false, buffer: "", active: false };
+  const thinkState = initThinkState(mode === STREAM_MODE.PASSTHROUGH, provider, model);
 
   // State for translate mode (accumulatedContent for call log response body)
   const state: TranslateState | null =
@@ -1740,23 +1731,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   let textualToolCallConverted = false;
                   let toolCallIdCoerced = false;
                   let splitMixedReasoningContent = false;
-                  let textualReasoningTagsParsed = false;
-
-                  if (
-                    parseTextualReasoningTags &&
-                    typeof delta?.content === "string" &&
-                    (textualReasoningTagState.active ||
-                      containsOrMayEndWithThinkOpenTag(delta.content))
-                  ) {
-                    textualReasoningTagState.active = true;
-                    const { reasoningDelta, contentDelta } = processStreamingThinkDelta(
-                      delta.content,
-                      textualReasoningTagState
-                    );
-                    delta.content = contentDelta || "";
-                    if (reasoningDelta) delta.reasoning_content = reasoningDelta;
-                    textualReasoningTagsParsed = true;
-                  }
+                  const thinkParsed = applyThinkTag(thinkState, delta);
 
                   // Split combined reasoning+content deltas into separate SSE events.
                   // Standard OpenAI streaming never mixes both fields in one delta;
@@ -1796,7 +1771,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // to avoid blocking subsequent finish_reason / usage mutations)
                   const needsReserialization =
                     splitMixedReasoningContent ||
-                    textualReasoningTagsParsed ||
+                    thinkParsed ||
                     hadReasoningAlias ||
                     (delta?.content === "" && delta?.reasoning_content);
 
@@ -2390,21 +2365,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                 };
                 flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
               } else {
-                const syntheticChunk = {
-                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
-                  object: "chat.completion.chunk",
-                  created: Math.floor(Date.now() / 1000),
-                  model: model || "unknown",
-                  choices: [
-                    {
-                      index: 0,
-                      delta: {
-                        content: passthroughBufferedTextualToolCallContent,
-                      },
-                      finish_reason: null,
-                    },
-                  ],
-                };
+                const syntheticChunk = buildSyntheticChatChunk(passthroughResponsesId, model, {
+                  content: passthroughBufferedTextualToolCallContent,
+                });
                 flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
               }
               reqLogger?.appendConvertedChunk?.(flushOutput);
@@ -2416,38 +2379,16 @@ export function createSSEStream(options: StreamOptions = {}) {
               passthroughBufferedTextualToolCallContent = "";
             }
 
-            if (parseTextualReasoningTags && textualReasoningTagState.active) {
-              const { reasoningDelta, contentDelta } = flushThinkBuffer(textualReasoningTagState);
-              if (reasoningDelta || contentDelta) {
-                const delta: Record<string, string> = {};
-                if (reasoningDelta) {
-                  delta.reasoning_content = reasoningDelta;
-                  passthroughAccumulatedReasoning = appendBoundedText(
-                    passthroughAccumulatedReasoning,
-                    reasoningDelta
-                  );
-                  totalContentLength += reasoningDelta.length;
-                }
-                if (contentDelta) {
-                  delta.content = contentDelta;
-                  passthroughAccumulatedContent = appendBoundedText(
-                    passthroughAccumulatedContent,
-                    contentDelta
-                  );
-                  totalContentLength += contentDelta.length;
-                }
-                const syntheticChunk = {
-                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
-                  object: "chat.completion.chunk",
-                  created: Math.floor(Date.now() / 1000),
-                  model: model || "unknown",
-                  choices: [{ index: 0, delta, finish_reason: null }],
-                };
-                const flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
-                clientPayloadCollector.push(syntheticChunk);
-                reqLogger?.appendConvertedChunk?.(flushOutput);
-                controller.enqueue(encoder.encode(flushOutput));
-              }
+            const accR = passthroughAccumulatedReasoning;
+            const accC = passthroughAccumulatedContent;
+            const thinkFlush = flushThink(thinkState, passthroughResponsesId, accR, accC);
+            if (thinkFlush) {
+              passthroughAccumulatedReasoning = thinkFlush.reasoning;
+              passthroughAccumulatedContent = thinkFlush.content;
+              totalContentLength += thinkFlush.addedLength;
+              clientPayloadCollector.push(thinkFlush.syntheticChunk);
+              reqLogger?.appendConvertedChunk?.(thinkFlush.flushOutput);
+              controller.enqueue(encoder.encode(thinkFlush.flushOutput));
             }
 
             // Estimate usage if provider didn't return valid usage
@@ -2473,19 +2414,12 @@ export function createSSEStream(options: StreamOptions = {}) {
               // (pi CLI) reject the stream with "Stream ended without finish_reason".
               // Synthesize a terminal chunk when the upstream omitted one.
               if (shouldEmitDoneTerminator && !passthroughSawFinishReason) {
-                const syntheticFinishChunk = {
-                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
-                  object: "chat.completion.chunk",
-                  created: Math.floor(Date.now() / 1000),
-                  model: model || "unknown",
-                  choices: [
-                    {
-                      index: 0,
-                      delta: {},
-                      finish_reason: passthroughHasToolCalls ? "tool_calls" : "stop",
-                    },
-                  ],
-                };
+                const syntheticFinishChunk = buildSyntheticChatChunk(
+                  passthroughResponsesId,
+                  model,
+                  {},
+                  passthroughHasToolCalls ? "tool_calls" : "stop"
+                );
                 const finishOutput = `data: ${JSON.stringify(syntheticFinishChunk)}\n\n`;
                 reqLogger?.appendConvertedChunk?.(finishOutput);
                 controller.enqueue(encoder.encode(finishOutput));
