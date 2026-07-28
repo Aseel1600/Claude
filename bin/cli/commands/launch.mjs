@@ -3,6 +3,7 @@ import { join } from "node:path";
 import os from "node:os";
 import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
+import { quoteShellArgs } from "../utils/winShellArgs.mjs";
 
 function stripTrailingSlash(value) {
   let s = String(value);
@@ -104,31 +105,6 @@ export function resolveClaudeSpawn(platform) {
     : { command: "claude", shell: undefined };
 }
 
-/** cmd.exe metacharacters that stay live inside a quoted argument. */
-const WIN_META_CHARS = /([()\][%!^"`<>&|;, *?])/g;
-
-/**
- * Escape one argument for a cmd.exe command line built by `shell: true`.
- *
- * Two layers, in order:
- *  1. the CRT argv rules the target binary parses (double the backslashes that
- *     precede a quote, escape embedded quotes, wrap in quotes);
- *  2. cmd.exe's metacharacters, caret-escaped — applied TWICE because the
- *     target is an npm `.cmd` shim that forwards `%*` to node, so the line is
- *     parsed by cmd a second time. Single-escaping truncated any argument at
- *     the first `&` or `|`. (Same rule as cross-spawn's doubleEscapeMetaChars.)
- *
- * @param {unknown} arg
- * @returns {string}
- */
-function escapeWindowsShellArg(arg) {
-  const s = String(arg);
-  if (s === "") return '""';
-  let out = s.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, "$1$1");
-  out = `"${out}"`;
-  return out.replace(WIN_META_CHARS, "^$1").replace(WIN_META_CHARS, "^$1");
-}
-
 /**
  * `shell: true` makes Node join argv with plain spaces and no escaping (the
  * DEP0190 warning), so `-p "two words"` used to reach claude as `-p two` plus
@@ -140,8 +116,7 @@ function escapeWindowsShellArg(arg) {
  * @returns {string[]}
  */
 export function quoteClaudeArgs(args, platform) {
-  const list = [...(args ?? [])];
-  return platform === "win32" ? list.map(escapeWindowsShellArg) : list;
+  return quoteShellArgs(args, platform);
 }
 
 /**
