@@ -1,0 +1,1 @@
+- **Adobe Firefly**: `gpt-image` requests now default `detailLevel` to maximal (5) instead of leaving the upstream default, so generations come back at the quality the model is capable of
