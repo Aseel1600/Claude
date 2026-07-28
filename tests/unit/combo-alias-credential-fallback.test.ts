@@ -40,7 +40,7 @@ test("buildAutoCandidates falls back to alias connections when canonical provide
     authType: "oauth",
     name: "test-agy-account",
     accessToken: "test-token",
-    defaultModel: "gemini-3.5-flash",
+    defaultModel: "gemini-3.6-flash",
   });
 
   // Verify the connection was created under "agy"
@@ -57,14 +57,14 @@ test("buildAutoCandidates falls back to alias connections when canonical provide
 
   // Now test that buildAutoCandidates can find the agy connection
   // when resolving a target that uses the canonical provider "antigravity".
-  // The combo targets use "agy/gemini-3.5-flash" which resolves to
+  // The combo targets use "agy/gemini-3.6-flash" which resolves to
   // provider="antigravity" via ALIAS_TO_PROVIDER_ID.
   const targets = [
     {
       kind: "model" as const,
-      stepId: "agy/gemini-3.5-flash",
-      executionKey: "agy/gemini-3.5-flash",
-      modelStr: "agy/gemini-3.5-flash",
+      stepId: "agy/gemini-3.6-flash",
+      executionKey: "agy/gemini-3.6-flash",
+      modelStr: "agy/gemini-3.6-flash",
       provider: "antigravity", // resolved from agy alias
       providerId: "antigravity",
       connectionId: null,
@@ -95,15 +95,15 @@ test("buildAutoCandidates uses canonical connections when available (no fallback
     authType: "oauth",
     name: "test-antigravity-account",
     accessToken: "test-token",
-    defaultModel: "gemini-3.5-flash",
+    defaultModel: "gemini-3.6-flash",
   });
 
   const targets = [
     {
       kind: "model" as const,
-      stepId: "antigravity/gemini-3.5-flash",
-      executionKey: "antigravity/gemini-3.5-flash",
-      modelStr: "antigravity/gemini-3.5-flash",
+      stepId: "antigravity/gemini-3.6-flash",
+      executionKey: "antigravity/gemini-3.6-flash",
+      modelStr: "antigravity/gemini-3.6-flash",
       provider: "antigravity",
       providerId: "antigravity",
       connectionId: null,
@@ -131,22 +131,22 @@ test("buildAutoCandidates prefers canonical connections over alias fallback", as
     authType: "oauth",
     name: "canonical-account",
     accessToken: "test-token-canonical",
-    defaultModel: "gemini-3.5-flash",
+    defaultModel: "gemini-3.6-flash",
   });
   await providersDb.createProviderConnection({
     provider: "agy",
     authType: "oauth",
     name: "alias-account",
     accessToken: "test-token-alias",
-    defaultModel: "gemini-3.5-flash",
+    defaultModel: "gemini-3.6-flash",
   });
 
   const targets = [
     {
       kind: "model" as const,
-      stepId: "antigravity/gemini-3.5-flash",
-      executionKey: "antigravity/gemini-3.5-flash",
-      modelStr: "antigravity/gemini-3.5-flash",
+      stepId: "antigravity/gemini-3.6-flash",
+      executionKey: "antigravity/gemini-3.6-flash",
+      modelStr: "antigravity/gemini-3.6-flash",
       provider: "antigravity",
       providerId: "antigravity",
       connectionId: null,
