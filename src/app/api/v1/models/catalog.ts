@@ -476,14 +476,13 @@ async function buildUnifiedModelsResponseCore(
 
     const buildComboCatalogMetadata = (
       combo: Parameters<typeof resolveNestedComboTargets>[0],
-      allCombos: Parameters<typeof resolveNestedComboTargets>[1]
+      targets: ComboCatalogTarget[]
     ) => {
       const explicitContextLength = isPositiveFiniteNumber(combo.context_length)
         ? combo.context_length
         : undefined;
 
       const baseMetadata = explicitContextLength ? { context_length: explicitContextLength } : {};
-      const targets = resolveNestedComboTargets(combo, allCombos) as ComboCatalogTarget[];
       if (targets.length === 0) return baseMetadata;
 
       const targetMetadata = targets.map((target) => getComboTargetCatalogMetadata(target));
@@ -628,16 +627,13 @@ async function buildUnifiedModelsResponseCore(
         combo as Parameters<typeof resolveNestedComboTargets>[0],
         combos as Parameters<typeof resolveNestedComboTargets>[1]
       ) as ComboCatalogTarget[];
-      if (
-        comboTargets.some((target) => {
-          const resolved = getComboTargetModelId(target);
-          return resolved ? getModelIsHidden(resolved.providerId, resolved.modelId) : false;
-        })
-      ) {
-        continue;
-      }
+      const visibleTargets = comboTargets.filter((target) => {
+        const resolved = getComboTargetModelId(target);
+        return resolved ? !getModelIsHidden(resolved.providerId, resolved.modelId) : true;
+      });
+      if (visibleTargets.length === 0) continue;
 
-      const comboMetadata = buildComboCatalogMetadata(combo, combos);
+      const comboMetadata = buildComboCatalogMetadata(combo, visibleTargets);
 
       listedIds.add(combo.name);
       models.push({
