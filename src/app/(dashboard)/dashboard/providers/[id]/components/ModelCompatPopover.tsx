@@ -47,6 +47,17 @@ interface ParamFilterConfigLike {
   autoLearn?: boolean;
 }
 
+// An unsaved param-filter draft, bound to the provider/model it was typed for. The save path
+// writes through THIS target instead of the props the callback happens to close over, so a draft
+// can never be persisted under a provider/model the user never edited (#8910).
+interface ParamFilterDraft {
+  key: string;
+  providerId: string;
+  modelId: string;
+  block: string;
+  allow: string;
+}
+
 // Builds the PUT body for the model-level block/allow save. Extracted so the
 // caller's async handler stays simple — this is pure payload-shaping logic.
 function buildModelParamFilterPayload(
@@ -132,30 +143,40 @@ export default function ModelCompatPopover({
   const headerRowsRef = useRef<HeaderDraftRow[]>([]);
   headerRowsRef.current = headerRows;
 
-  // Param-filter drafts are mirrored into refs so the close/unmount save path reads the
+  // Param-filter drafts are mirrored into a ref so the close/unmount save path reads the
   // latest typed values instead of the values captured when the handler was created (#8910).
-  const paramDirtyRef = useRef(false);
   const paramSavingRef = useRef(false);
-  // Monotonic draft revision — bumped on every edit so an in-flight save can tell whether the
-  // draft it snapshotted is still the newest one (#8910 lost update).
-  const paramRevRef = useRef(0);
-  // Provider/model the currently displayed draft belongs to. Recorded when the draft is marked
-  // dirty — never derived from a completed load — so an unsaved draft is protected even when no
-  // load ever succeeded for that target (slow or failing initial GET, #8910).
-  const paramDirtyKeyRef = useRef<string | null>(null);
+  // The single unsaved draft, together with the provider/model it was typed for. Non-null means
+  // "dirty". Recorded when the draft is edited — never derived from a completed load — so an
+  // unsaved draft is protected even when no load ever succeeded for that target, and every write
+  // lands on the draft's own target rather than whatever the popover currently points at (#8910).
+  const paramDraftRef = useRef<ParamFilterDraft | null>(null);
+
+  const paramTargetKey = `${providerId}\u0000${modelId}`;
+  const paramTargetRef = useRef<{ key: string; providerId: string; modelId: string }>({
+    key: paramTargetKey,
+    providerId,
+    modelId,
+  });
+  paramTargetRef.current = { key: paramTargetKey, providerId, modelId };
+
+  // Mirrors of the displayed text, so an edit can snapshot both fields synchronously.
   const blockTextRef = useRef("");
   const allowTextRef = useRef("");
   blockTextRef.current = blockText;
   allowTextRef.current = allowText;
 
-  const paramTargetKey = `${providerId}\u0000${modelId}`;
-  const paramTargetKeyRef = useRef(paramTargetKey);
-  paramTargetKeyRef.current = paramTargetKey;
-
+  // Every edit replaces the draft with a fresh object bound to the CURRENT target. Object
+  // identity doubles as the draft revision an in-flight save compares against (#8910).
   const markParamDraftDirty = useCallback(() => {
-    paramDirtyRef.current = true;
-    paramDirtyKeyRef.current = paramTargetKeyRef.current;
-    paramRevRef.current += 1;
+    const target = paramTargetRef.current;
+    paramDraftRef.current = {
+      key: target.key,
+      providerId: target.providerId,
+      modelId: target.modelId,
+      block: blockTextRef.current,
+      allow: allowTextRef.current,
+    };
   }, []);
   const mountedRef = useRef(true);
   useEffect(() => {
@@ -211,8 +232,7 @@ export default function ModelCompatPopover({
     // A draft that is still dirty for this exact provider/model was never persisted (failed or
     // exhausted save). Reloading server state here would silently revert it — the very complaint
     // behind #8910 — so keep the draft on screen and let the user retry instead.
-    const draftIsDirtyForThisTarget = () =>
-      paramDirtyRef.current && paramDirtyKeyRef.current === draftKey;
+    const draftIsDirtyForThisTarget = () => paramDraftRef.current?.key === draftKey;
     if (draftIsDirtyForThisTarget()) return;
     let cancelled = false;
     (async () => {
@@ -227,11 +247,10 @@ export default function ModelCompatPopover({
         const modelCfg = data?.models?.[modelId];
         setBlockText(modelCfg ? (modelCfg.block ?? []).join(", ") : "");
         setAllowText(modelCfg ? (modelCfg.allow ?? []).join(", ") : "");
-        // Only the freshly loaded server state is clean — a failed load must not
-        // discard drafts the user already typed (#8910).
-        paramDirtyRef.current = false;
-        paramDirtyKeyRef.current = null;
-        setParamSaveFailed(false);
+        // A load never clears the draft: any draft still pending here belongs to a DIFFERENT
+        // target and is still owed a write to that target (#8910). The failure indicator is
+        // only cleared once nothing is left unsaved anywhere.
+        if (!paramDraftRef.current) setParamSaveFailed(false);
       } catch {
         // Keep whatever the user has in the fields (and its dirty flag) on load failure.
       }
@@ -242,8 +261,12 @@ export default function ModelCompatPopover({
     // Reload only when opening or when the popover targets a different provider/model.
   }, [open, providerId, modelId]);
 
+  // The save always writes through the draft's OWN provider/model — never the props this
+  // callback happens to be bound to — so a draft typed for target A can never be persisted under
+  // a target B the user never edited (#8910). The draft is re-read after every await for the same
+  // reason the load effect re-checks its guard: the target can change while the save is in flight.
   const saveModelParamFilters = useCallback(async () => {
-    if (!paramDirtyRef.current || paramSavingRef.current) return;
+    if (!paramDraftRef.current || paramSavingRef.current) return;
     paramSavingRef.current = true;
     if (mountedRef.current) setParamSaving(true);
     try {
@@ -251,26 +274,29 @@ export default function ModelCompatPopover({
       // before the PUT resolves, so a keystroke landing in that window would otherwise be
       // acknowledged (dirty cleared) but never persisted — the #8910 lost update.
       for (let attempt = 0; attempt < PARAM_SAVE_MAX_ATTEMPTS; attempt += 1) {
-        const rev = paramRevRef.current;
-        const res = await fetch(`/api/providers/${providerId}/param-filters`);
+        const draft = paramDraftRef.current;
+        if (!draft) return;
+        const res = await fetch(`/api/providers/${draft.providerId}/param-filters`);
         if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
         const current = await res.json();
+        // The fetched config belongs to draft.providerId; if the draft was replaced by one for
+        // another provider/model while the GET was in flight, restart with a matching GET.
+        if (paramDraftRef.current?.key !== draft.key) continue;
         const payload = buildModelParamFilterPayload(
           current,
-          modelId,
-          blockTextRef.current,
-          allowTextRef.current
+          draft.modelId,
+          draft.block,
+          draft.allow
         );
-        const putRes = await fetch(`/api/providers/${providerId}/param-filters`, {
+        const putRes = await fetch(`/api/providers/${draft.providerId}/param-filters`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
-        // Only the revision that was actually written may clear the dirty flag.
-        if (paramRevRef.current === rev) {
-          paramDirtyRef.current = false;
-          paramDirtyKeyRef.current = null;
+        // Only the exact draft that was written may clear the dirty flag.
+        if (paramDraftRef.current === draft) {
+          paramDraftRef.current = null;
           if (mountedRef.current) setParamSaveFailed(false);
           return;
         }
@@ -279,22 +305,25 @@ export default function ModelCompatPopover({
       // kept on reopen and the next blur/close retries it.
       if (mountedRef.current) setParamSaveFailed(true);
     } catch {
-      // Save failed — drafts and dirty state are intentionally preserved, and the failure is
-      // surfaced in the panel instead of being silently swallowed.
+      // Save failed — the draft (and the target it belongs to) is intentionally preserved, and
+      // the failure is surfaced in the panel instead of being silently swallowed. An orphaned
+      // draft whose target is no longer displayed is neither dropped nor redirected: it keeps its
+      // own provider/model and is retried by the next blur/close/unmount save.
       if (mountedRef.current) setParamSaveFailed(true);
     } finally {
       paramSavingRef.current = false;
       if (mountedRef.current) setParamSaving(false);
     }
-  }, [providerId, modelId]);
+  }, []);
 
-  // Persist pending param-filter drafts when the popover closes or unmounts (#8910).
+  // Persist pending param-filter drafts when the popover closes, unmounts, or is re-pointed at a
+  // different provider/model (#8910).
   useEffect(() => {
     if (!open) return;
     return () => {
       void saveModelParamFilters();
     };
-  }, [open, saveModelParamFilters]);
+  }, [open, paramTargetKey, saveModelParamFilters]);
 
   useEffect(() => {
     setValuePeekRowId(null);
