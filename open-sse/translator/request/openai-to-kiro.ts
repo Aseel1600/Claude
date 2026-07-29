@@ -181,6 +181,38 @@ function convertMessages(messages, tools, model) {
     }
 
     // If role changes, flush pending
+    //
+    // Exception: a text-only assistant message must not split a batch of tool
+    // results that answers a single assistant turn. `tool` is normalized to
+    // `user` above, so `tool -> assistant -> tool` looks like two role changes
+    // and the interleaved flush would emit the first tool result and drop the
+    // rest, leaving advertised `toolUses` without matching `toolResults`.
+    // Bedrock rejects that transcript with 400 "Expected toolResult blocks"
+    // (issue #8903). Buffer the assistant text instead and let the tool batch
+    // stay contiguous; the text is emitted with the assistant turn that
+    // follows the completed batch.
+    const isTextOnlyAssistant =
+      msg.role === "assistant" &&
+      (!msg.tool_calls || msg.tool_calls.length === 0) &&
+      !(Array.isArray(msg.content) && msg.content.some((c) => c.type === "tool_use"));
+    const interruptsOpenToolBatch =
+      isTextOnlyAssistant && currentRole === "user" && pendingToolResults.length > 0;
+
+    if (interruptsOpenToolBatch) {
+      const deferredText =
+        typeof msg.content === "string"
+          ? msg.content.trim()
+          : Array.isArray(msg.content)
+            ? msg.content
+                .filter((c) => c.type === "text" || c.text)
+                .map((c) => c.text || "")
+                .join("\n")
+                .trim()
+            : "";
+      if (deferredText) pendingAssistantContent.push(deferredText);
+      continue;
+    }
+
     if (role !== currentRole && currentRole !== null) {
       flushPending();
     }
