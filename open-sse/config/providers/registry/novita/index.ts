@@ -11,12 +11,22 @@ export const novitaProvider: RegistryEntry = {
   modelsUrl: "https://api.novita.ai/openai/v1/models",
   authType: "apikey",
   authHeader: "bearer",
-  // Catalog seeded from a live GET https://api.novita.ai/openai/v1/models — the public
-  // unauthenticated listing that `modelsUrl` already points at. Every id below reports
-  // `status: 1` (serving) there, and the metadata mirrors that response's `context_size`,
-  // `max_output_tokens`, `features` and `input_modalities` fields.
+  // Catalog seeded from a live GET https://api.novita.ai/openai/v1/models, the listing
+  // `modelsUrl` already points at. Every id below reports `status: 1` (serving) there, and
+  // `contextLength` / `maxOutputTokens` / `supportsReasoning` mirror that response's
+  // `context_size`, `max_output_tokens` and `features` fields.
   //
-  // Curated rather than exhaustive: the live listing carries 143 entries, including retired
+  // `supportsVision` is the exception: it is set from an actual image request per id, not
+  // from the listing's `input_modalities`. Those two disagree — `openai/gpt-oss-120b`
+  // advertises `input_modalities: ["text","image"]`, accepts an image part with HTTP 200,
+  // and then answers that it cannot see the image, so it is listed here without the flag.
+  // Models that genuinely lack vision instead fail closed with
+  // `400 "model features vision not support"`, so a 200 alone does not confirm the
+  // capability — the reply has to be checked. Each flag below was verified by sending a
+  // two-colour test image and requiring both colours back.
+  //
+  // Curated rather than exhaustive: the listing carries 143 entries unauthenticated and 304
+  // with an API key (the former is a subset of the latter), including retired
   // generations (`status: 4`, e.g. `meta-llama/llama-3-8b-instruct`) and unnamespaced staging
   // ids (`bunny`, `ai_infer_test_2`, `dev/glm46`) that no caller should be offered. This keeps
   // one entry per serving family/generation, matching the granularity of the other
@@ -147,10 +157,12 @@ export const novitaProvider: RegistryEntry = {
       maxOutputTokens: 131072,
     },
     {
+      // No `supportsVision`: the listing claims `image` input, but a live image request
+      // returns 200 and "I cannot see the image" (retried 4x, data-URI and remote URL).
+      // Matches how groq / fireworks / nvidia / siliconflow / cerebras list this id here.
       id: "openai/gpt-oss-120b",
       name: "OpenAI gpt-oss-120b",
       supportsReasoning: true,
-      supportsVision: true,
       contextLength: 131072,
       maxOutputTokens: 32768,
     },

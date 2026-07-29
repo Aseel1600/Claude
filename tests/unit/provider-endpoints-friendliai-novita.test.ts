@@ -77,6 +77,33 @@ test("#5455 Novita catalog lists only live `status: 1` model ids from /openai/v1
   }
 });
 
+test("Novita `supportsVision` reflects a live image request, not the listing's modalities", () => {
+  // `openai/gpt-oss-120b` advertises `input_modalities: ["text","image"]` on
+  // /openai/v1/models but answers "I cannot see the image" when actually sent one, so the
+  // listing cannot be trusted as the source for this flag. Pinned so a future catalog
+  // refresh that re-copies `input_modalities` wholesale fails here instead of shipping a
+  // capability the model does not have.
+  const byId = new Map(novitaProvider.models.map((m) => [m.id, m]));
+  assert.equal(
+    byId.get("openai/gpt-oss-120b")?.supportsVision,
+    undefined,
+    "gpt-oss-120b reports image input but cannot read images; it must not claim vision"
+  );
+
+  // Verified to return a correct description of a two-colour test image.
+  for (const id of [
+    "moonshotai/kimi-k3",
+    "moonshotai/kimi-k2.7-code",
+    "moonshotai/kimi-k2.6",
+    "minimax/minimax-m3",
+    "qwen/qwen3.6-plus",
+    "qwen/qwen3.5-397b-a17b",
+    "google/gemma-4-31b-it",
+  ]) {
+    assert.equal(byId.get(id)?.supportsVision, true, `${id} was verified to read images`);
+  }
+});
+
 test("Novita catalog has no duplicate model ids and every entry carries a context window", () => {
   const ids = novitaProvider.models.map((m) => m.id);
   assert.equal(new Set(ids).size, ids.length, `duplicate Novita model ids: ${ids.join(", ")}`);
