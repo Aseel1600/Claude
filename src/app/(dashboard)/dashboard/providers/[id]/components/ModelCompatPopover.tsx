@@ -26,6 +26,11 @@ function recordToHeaderRows(rec: Record<string, string>, genId: () => string): H
   return entries.map(([name, value]) => ({ id: genId(), name, value }));
 }
 
+// Bounded re-run budget for the model param-filter save: if the draft changed while the PUT was
+// in flight, the save repeats with the newer draft instead of clearing the dirty flag on a
+// payload that no longer matches what the user typed (#8910).
+const PARAM_SAVE_MAX_ATTEMPTS = 3;
+
 function parseCommaList(text: string): string[] {
   return text
     ? text
@@ -112,6 +117,7 @@ export default function ModelCompatPopover({
   const [blockText, setBlockText] = useState("");
   const [allowText, setAllowText] = useState("");
   const [paramSaving, setParamSaving] = useState(false);
+  const [paramSaveFailed, setParamSaveFailed] = useState(false);
   const [valuePeekRowId, setValuePeekRowId] = useState<string | null>(null);
   const [valueFocusRowId, setValueFocusRowId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -130,10 +136,21 @@ export default function ModelCompatPopover({
   // latest typed values instead of the values captured when the handler was created (#8910).
   const paramDirtyRef = useRef(false);
   const paramSavingRef = useRef(false);
+  // Monotonic draft revision — bumped on every edit so an in-flight save can tell whether the
+  // draft it snapshotted is still the newest one (#8910 lost update).
+  const paramRevRef = useRef(0);
+  // Provider/model the currently displayed draft was loaded for, so a reopen of the same target
+  // does not clobber a draft that is still pending a (previously failed) save.
+  const paramLoadedKeyRef = useRef<string | null>(null);
   const blockTextRef = useRef("");
   const allowTextRef = useRef("");
   blockTextRef.current = blockText;
   allowTextRef.current = allowText;
+
+  const markParamDraftDirty = useCallback(() => {
+    paramDirtyRef.current = true;
+    paramRevRef.current += 1;
+  }, []);
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
@@ -184,6 +201,11 @@ export default function ModelCompatPopover({
   // Load model-level block/allow from param-filters API
   useEffect(() => {
     if (!open) return;
+    const draftKey = `${providerId}\u0000${modelId}`;
+    // A draft that is still dirty for this exact provider/model was never persisted (failed or
+    // exhausted save). Reloading server state here would silently revert it — the very complaint
+    // behind #8910 — so keep the draft on screen and let the user retry instead.
+    if (paramDirtyRef.current && paramLoadedKeyRef.current === draftKey) return;
     let cancelled = false;
     (async () => {
       try {
@@ -197,6 +219,8 @@ export default function ModelCompatPopover({
         // Only the freshly loaded server state is clean — a failed load must not
         // discard drafts the user already typed (#8910).
         paramDirtyRef.current = false;
+        paramLoadedKeyRef.current = draftKey;
+        setParamSaveFailed(false);
       } catch {
         // Keep whatever the user has in the fields (and its dirty flag) on load failure.
       }
@@ -212,25 +236,40 @@ export default function ModelCompatPopover({
     paramSavingRef.current = true;
     if (mountedRef.current) setParamSaving(true);
     try {
-      const res = await fetch(`/api/providers/${providerId}/param-filters`);
-      if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
-      const current = await res.json();
-      const payload = buildModelParamFilterPayload(
-        current,
-        modelId,
-        blockTextRef.current,
-        allowTextRef.current
-      );
-      const putRes = await fetch(`/api/providers/${providerId}/param-filters`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
-      // Stay dirty unless the write actually succeeded, so a later close can retry.
-      paramDirtyRef.current = false;
+      // Re-run while the draft changed under the in-flight write: the payload is snapshotted
+      // before the PUT resolves, so a keystroke landing in that window would otherwise be
+      // acknowledged (dirty cleared) but never persisted — the #8910 lost update.
+      for (let attempt = 0; attempt < PARAM_SAVE_MAX_ATTEMPTS; attempt += 1) {
+        const rev = paramRevRef.current;
+        const res = await fetch(`/api/providers/${providerId}/param-filters`);
+        if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
+        const current = await res.json();
+        const payload = buildModelParamFilterPayload(
+          current,
+          modelId,
+          blockTextRef.current,
+          allowTextRef.current
+        );
+        const putRes = await fetch(`/api/providers/${providerId}/param-filters`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
+        // Only the revision that was actually written may clear the dirty flag.
+        if (paramRevRef.current === rev) {
+          paramDirtyRef.current = false;
+          if (mountedRef.current) setParamSaveFailed(false);
+          return;
+        }
+      }
+      // Budget exhausted (the user is still typing): stay dirty and flag it, so the draft is
+      // kept on reopen and the next blur/close retries it.
+      if (mountedRef.current) setParamSaveFailed(true);
     } catch {
-      // Save failed — drafts and dirty state are intentionally preserved.
+      // Save failed — drafts and dirty state are intentionally preserved, and the failure is
+      // surfaced in the panel instead of being silently swallowed.
+      if (mountedRef.current) setParamSaveFailed(true);
     } finally {
       paramSavingRef.current = false;
       if (mountedRef.current) setParamSaving(false);
@@ -405,7 +444,7 @@ export default function ModelCompatPopover({
                     onChange={(e) => {
                       setBlockText(e.target.value);
                       blockTextRef.current = e.target.value;
-                      paramDirtyRef.current = true;
+                      markParamDraftDirty();
                     }}
                     onBlur={() => saveModelParamFilters()}
                     placeholder={t("compatBlockedParamsPlaceholder")}
@@ -415,6 +454,15 @@ export default function ModelCompatPopover({
                   <p className="text-[10px] text-text-muted">
                     {t("compatBlockedParamsHint") ?? "Blocked params (stripped from requests)"}
                     {paramSaving && ` ● ${t("compatSaving")}`}
+                    {paramSaveFailed && !paramSaving && (
+                      <span
+                        role="alert"
+                        className="ml-1 font-medium text-red-600 dark:text-red-400"
+                        title={t("failedSaveConnectionRetry")}
+                      >
+                        ● {t("failed")}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div>
@@ -424,7 +472,7 @@ export default function ModelCompatPopover({
                     onChange={(e) => {
                       setAllowText(e.target.value);
                       allowTextRef.current = e.target.value;
-                      paramDirtyRef.current = true;
+                      markParamDraftDirty();
                     }}
                     onBlur={() => saveModelParamFilters()}
                     placeholder={t("compatAllowedParamsPlaceholder")}
