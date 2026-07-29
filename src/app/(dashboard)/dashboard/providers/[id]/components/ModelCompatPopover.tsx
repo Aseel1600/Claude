@@ -96,6 +96,8 @@ export interface ModelCompatPopoverProps {
 
 export default function ModelCompatPopover({
   t,
+  providerId,
+  modelId,
   effectiveModelNormalize,
   effectiveModelPreserveDeveloper,
   getUpstreamHeadersRecord,
@@ -109,7 +111,6 @@ export default function ModelCompatPopover({
   const [headerRows, setHeaderRows] = useState<HeaderDraftRow[]>([]);
   const [blockText, setBlockText] = useState("");
   const [allowText, setAllowText] = useState("");
-  const [paramDirty, setParamDirty] = useState(false);
   const [paramSaving, setParamSaving] = useState(false);
   const [valuePeekRowId, setValuePeekRowId] = useState<string | null>(null);
   const [valueFocusRowId, setValueFocusRowId] = useState<string | null>(null);
@@ -124,6 +125,22 @@ export default function ModelCompatPopover({
   const headerRowIdRef = useRef(0);
   const headerRowsRef = useRef<HeaderDraftRow[]>([]);
   headerRowsRef.current = headerRows;
+
+  // Param-filter drafts are mirrored into refs so the close/unmount save path reads the
+  // latest typed values instead of the values captured when the handler was created (#8910).
+  const paramDirtyRef = useRef(false);
+  const paramSavingRef = useRef(false);
+  const blockTextRef = useRef("");
+  const allowTextRef = useRef("");
+  blockTextRef.current = blockText;
+  allowTextRef.current = allowText;
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const genHeaderRowId = () => {
     headerRowIdRef.current += 1;
@@ -167,40 +184,66 @@ export default function ModelCompatPopover({
   // Load model-level block/allow from param-filters API
   useEffect(() => {
     if (!open) return;
+    let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/providers/${providerId}/param-filters`);
+        if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
         const data = await res.json();
+        if (cancelled || !mountedRef.current) return;
         const modelCfg = data?.models?.[modelId];
         setBlockText(modelCfg ? (modelCfg.block ?? []).join(", ") : "");
         setAllowText(modelCfg ? (modelCfg.allow ?? []).join(", ") : "");
+        // Only the freshly loaded server state is clean — a failed load must not
+        // discard drafts the user already typed (#8910).
+        paramDirtyRef.current = false;
       } catch {
-        setBlockText("");
-        setAllowText("");
+        // Keep whatever the user has in the fields (and its dirty flag) on load failure.
       }
-      setParamDirty(false);
     })();
-  }, [open]);
+    return () => {
+      cancelled = true;
+    };
+    // Reload only when opening or when the popover targets a different provider/model.
+  }, [open, providerId, modelId]);
 
   const saveModelParamFilters = useCallback(async () => {
-    if (!paramDirty) return;
-    setParamSaving(true);
+    if (!paramDirtyRef.current || paramSavingRef.current) return;
+    paramSavingRef.current = true;
+    if (mountedRef.current) setParamSaving(true);
     try {
       const res = await fetch(`/api/providers/${providerId}/param-filters`);
+      if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
       const current = await res.json();
-      const payload = buildModelParamFilterPayload(current, modelId, blockText, allowText);
-      await fetch(`/api/providers/${providerId}/param-filters`, {
+      const payload = buildModelParamFilterPayload(
+        current,
+        modelId,
+        blockTextRef.current,
+        allowTextRef.current
+      );
+      const putRes = await fetch(`/api/providers/${providerId}/param-filters`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      setParamDirty(false);
+      if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
+      // Stay dirty unless the write actually succeeded, so a later close can retry.
+      paramDirtyRef.current = false;
     } catch {
-      // Silently ignore save error
+      // Save failed — drafts and dirty state are intentionally preserved.
     } finally {
-      setParamSaving(false);
+      paramSavingRef.current = false;
+      if (mountedRef.current) setParamSaving(false);
     }
-  }, [paramDirty, blockText, allowText]);
+  }, [providerId, modelId]);
+
+  // Persist pending param-filter drafts when the popover closes or unmounts (#8910).
+  useEffect(() => {
+    if (!open) return;
+    return () => {
+      void saveModelParamFilters();
+    };
+  }, [open, saveModelParamFilters]);
 
   useEffect(() => {
     setValuePeekRowId(null);
@@ -361,7 +404,8 @@ export default function ModelCompatPopover({
                     value={blockText}
                     onChange={(e) => {
                       setBlockText(e.target.value);
-                      setParamDirty(true);
+                      blockTextRef.current = e.target.value;
+                      paramDirtyRef.current = true;
                     }}
                     onBlur={() => saveModelParamFilters()}
                     placeholder={t("compatBlockedParamsPlaceholder")}
@@ -379,7 +423,8 @@ export default function ModelCompatPopover({
                     value={allowText}
                     onChange={(e) => {
                       setAllowText(e.target.value);
-                      setParamDirty(true);
+                      allowTextRef.current = e.target.value;
+                      paramDirtyRef.current = true;
                     }}
                     onBlur={() => saveModelParamFilters()}
                     placeholder={t("compatAllowedParamsPlaceholder")}
