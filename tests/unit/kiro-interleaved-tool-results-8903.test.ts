@@ -61,6 +61,49 @@ function collectToolIds(payload) {
   return { advertised, answered };
 }
 
+/**
+ * Flatten history + currentMessage into an ordered, easy-to-assert turn list.
+ *
+ * Tool-id assertions alone are not enough: a translator can keep every
+ * toolUseId paired and still silently delete assistant prose or reorder turns.
+ * These tests assert content and order too.
+ */
+function collectTurns(payload) {
+  const history = payload?.conversationState?.history ?? [];
+  const turns = history.map((entry) => {
+    if (entry?.userInputMessage) {
+      return {
+        role: "user",
+        content: String(entry.userInputMessage.content ?? ""),
+        toolResults: (entry.userInputMessage.userInputMessageContext?.toolResults ?? []).map(
+          (r) => r.toolUseId
+        ),
+      };
+    }
+    return {
+      role: "assistant",
+      content: String(entry?.assistantResponseMessage?.content ?? ""),
+      toolUses: (entry?.assistantResponseMessage?.toolUses ?? []).map((u) => u.toolUseId ?? u.id),
+    };
+  });
+
+  const current = payload?.conversationState?.currentMessage?.userInputMessage;
+  if (current) {
+    turns.push({
+      role: "user",
+      current: true,
+      content: String(current.content ?? ""),
+      toolResults: (current.userInputMessageContext?.toolResults ?? []).map((r) => r.toolUseId),
+    });
+  }
+
+  return turns;
+}
+
+function assistantContents(turns) {
+  return turns.filter((t) => t.role === "assistant").map((t) => t.content);
+}
+
 // --- Characterization: shapes that already work must keep working ----------
 
 test("kiro #8903: consecutive tool messages answer every parallel tool call", () => {
@@ -166,4 +209,112 @@ test("kiro #8903: assistant text between tool results does not drop a tool resul
     ["call_A", "call_B"],
     "every advertised toolUse must have a matching toolResult; Bedrock rejects the transcript otherwise"
   );
+});
+
+// --- Content + order: grouping must not be paid for with lost assistant text -
+
+test("kiro #8903 probe A: a final text-only assistant reply survives a tool result", () => {
+  const payload = build([
+    { role: "user", content: "what is the weather" },
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [{ id: "call_A", type: "function", function: { name: "wx", arguments: "{}" } }],
+    },
+    { role: "tool", tool_call_id: "call_A", content: "sunny" },
+    { role: "assistant", content: "It is sunny. THIS_TEXT_MUST_SURVIVE" },
+  ]);
+
+  const turns = collectTurns(payload);
+  assert.ok(
+    assistantContents(turns).some((c) => c.includes("THIS_TEXT_MUST_SURVIVE")),
+    `the final assistant reply must not be dropped; got ${JSON.stringify(turns)}`
+  );
+
+  // Order: the reply belongs after the turn carrying call_A's result.
+  const resultIdx = turns.findIndex((t) => (t.toolResults ?? []).includes("call_A"));
+  const replyIdx = turns.findIndex((t) => t.content.includes("THIS_TEXT_MUST_SURVIVE"));
+  assert.ok(resultIdx >= 0, "call_A's toolResult must be present");
+  assert.ok(replyIdx > resultIdx, "the assistant reply must come after the tool result turn");
+});
+
+test("kiro #8903 probe C: a mid-conversation assistant answer survives a later user turn", () => {
+  const payload = build([
+    { role: "user", content: "q1" },
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [{ id: "call_A", type: "function", function: { name: "a", arguments: "{}" } }],
+    },
+    { role: "tool", tool_call_id: "call_A", content: "res A" },
+    { role: "assistant", content: "ANSWER_TURN_1" },
+    { role: "user", content: "q2" },
+  ]);
+
+  const turns = collectTurns(payload);
+  assert.ok(
+    assistantContents(turns).some((c) => c.includes("ANSWER_TURN_1")),
+    `the previous turn's assistant answer must not be erased; got ${JSON.stringify(turns)}`
+  );
+
+  const answerIdx = turns.findIndex((t) => t.content.includes("ANSWER_TURN_1"));
+  const q2Idx = turns.findIndex((t) => t.current);
+  assert.ok(q2Idx > answerIdx, "the new user question must come after the previous answer");
+  assert.ok(
+    turns[q2Idx].content.includes("q2"),
+    "the new user question must be the current message"
+  );
+});
+
+test("kiro #8903 probe B: deferred assistant text survives AND the tool batch stays grouped", () => {
+  const payload = build([
+    { role: "user", content: "check two things" },
+    PARALLEL_TOOL_CALLS,
+    { role: "tool", tool_call_id: "call_A", content: "res A" },
+    { role: "assistant", content: "DEFERRED_TEXT_HERE" },
+    { role: "tool", tool_call_id: "call_B", content: "res B" },
+    { role: "user", content: "thanks" },
+  ]);
+
+  const turns = collectTurns(payload);
+
+  // 1. grouping: both results answered from a single turn
+  const batchTurn = turns.find((t) => (t.toolResults ?? []).length > 0);
+  assert.ok(batchTurn, "a turn carrying toolResults must exist");
+  assert.deepEqual(
+    [...batchTurn.toolResults].sort(),
+    ["call_A", "call_B"],
+    "call_A and call_B must stay in one toolResults batch"
+  );
+
+  // 2. no data loss: the interleaved text is still in the transcript
+  assert.ok(
+    assistantContents(turns).some((c) => c.includes("DEFERRED_TEXT_HERE")),
+    `interleaved assistant text must not be dropped; got ${JSON.stringify(turns)}`
+  );
+
+  // 3. order: text after the batch, final user question last
+  const batchIdx = turns.indexOf(batchTurn);
+  const textIdx = turns.findIndex((t) => t.content.includes("DEFERRED_TEXT_HERE"));
+  const currentIdx = turns.findIndex((t) => t.current);
+  assert.ok(textIdx > batchIdx, "the deferred text must be emitted after the tool batch");
+  assert.ok(currentIdx > textIdx, "the final user turn must come last");
+  assert.ok(turns[currentIdx].content.includes("thanks"));
+
+  // 4. the tool results must not have leaked into user prose
+  assert.ok(
+    !turns[currentIdx].content.includes("res B"),
+    "call_B's result must be a toolResult, not stuffed into user text"
+  );
+});
+
+test("kiro #8903: assistant text is preserved on an ordinary non-tool transcript", () => {
+  const payload = build([
+    { role: "user", content: "hi" },
+    { role: "assistant", content: "PLAIN_REPLY" },
+    { role: "user", content: "again" },
+  ]);
+
+  const turns = collectTurns(payload);
+  assert.deepEqual(assistantContents(turns), ["PLAIN_REPLY"]);
 });
