@@ -33,8 +33,8 @@ const t = ((key: string) => translations[key] ?? key) as ProviderMessageTranslat
 t.has = () => false;
 
 function getButton(container: HTMLElement, label: string): HTMLButtonElement | undefined {
-  return Array.from(container.querySelectorAll("button")).find(
-    (button) => button.textContent?.includes(label)
+  return Array.from(container.querySelectorAll("button")).find((button) =>
+    button.textContent?.includes(label)
   );
 }
 
