@@ -139,16 +139,22 @@ export default function ModelCompatPopover({
   // Monotonic draft revision — bumped on every edit so an in-flight save can tell whether the
   // draft it snapshotted is still the newest one (#8910 lost update).
   const paramRevRef = useRef(0);
-  // Provider/model the currently displayed draft was loaded for, so a reopen of the same target
-  // does not clobber a draft that is still pending a (previously failed) save.
-  const paramLoadedKeyRef = useRef<string | null>(null);
+  // Provider/model the currently displayed draft belongs to. Recorded when the draft is marked
+  // dirty — never derived from a completed load — so an unsaved draft is protected even when no
+  // load ever succeeded for that target (slow or failing initial GET, #8910).
+  const paramDirtyKeyRef = useRef<string | null>(null);
   const blockTextRef = useRef("");
   const allowTextRef = useRef("");
   blockTextRef.current = blockText;
   allowTextRef.current = allowText;
 
+  const paramTargetKey = `${providerId}\u0000${modelId}`;
+  const paramTargetKeyRef = useRef(paramTargetKey);
+  paramTargetKeyRef.current = paramTargetKey;
+
   const markParamDraftDirty = useCallback(() => {
     paramDirtyRef.current = true;
+    paramDirtyKeyRef.current = paramTargetKeyRef.current;
     paramRevRef.current += 1;
   }, []);
   const mountedRef = useRef(true);
@@ -205,7 +211,9 @@ export default function ModelCompatPopover({
     // A draft that is still dirty for this exact provider/model was never persisted (failed or
     // exhausted save). Reloading server state here would silently revert it — the very complaint
     // behind #8910 — so keep the draft on screen and let the user retry instead.
-    if (paramDirtyRef.current && paramLoadedKeyRef.current === draftKey) return;
+    const draftIsDirtyForThisTarget = () =>
+      paramDirtyRef.current && paramDirtyKeyRef.current === draftKey;
+    if (draftIsDirtyForThisTarget()) return;
     let cancelled = false;
     (async () => {
       try {
@@ -213,13 +221,16 @@ export default function ModelCompatPopover({
         if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
         const data = await res.json();
         if (cancelled || !mountedRef.current) return;
+        // Re-check after the await: the user may have typed while the GET was in flight, and a
+        // load result must never overwrite (or acknowledge) a draft that is not on the server.
+        if (draftIsDirtyForThisTarget()) return;
         const modelCfg = data?.models?.[modelId];
         setBlockText(modelCfg ? (modelCfg.block ?? []).join(", ") : "");
         setAllowText(modelCfg ? (modelCfg.allow ?? []).join(", ") : "");
         // Only the freshly loaded server state is clean — a failed load must not
         // discard drafts the user already typed (#8910).
         paramDirtyRef.current = false;
-        paramLoadedKeyRef.current = draftKey;
+        paramDirtyKeyRef.current = null;
         setParamSaveFailed(false);
       } catch {
         // Keep whatever the user has in the fields (and its dirty flag) on load failure.
@@ -259,6 +270,7 @@ export default function ModelCompatPopover({
         // Only the revision that was actually written may clear the dirty flag.
         if (paramRevRef.current === rev) {
           paramDirtyRef.current = false;
+          paramDirtyKeyRef.current = null;
           if (mountedRef.current) setParamSaveFailed(false);
           return;
         }
