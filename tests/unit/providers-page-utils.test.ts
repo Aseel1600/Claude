@@ -1074,6 +1074,15 @@ test("connectionMatchesProviderCard counts a dual-auth provider's PAT (apikey) c
     connectionMatchesProviderCard({ provider: "kiro", authType: "api_key" }, "kiro", "oauth"),
     true
   );
+  for (const providerId of ["codebuddy-cn", "clinepass"]) {
+    for (const authType of ["apikey", "api_key"]) {
+      assert.equal(
+        connectionMatchesProviderCard({ provider: providerId, authType }, providerId, "oauth"),
+        true,
+        `${providerId} ${authType} connection should count on its OAuth card`
+      );
+    }
+  }
   assert.equal(
     connectionMatchesProviderCard({ provider: "qoder", authType: "oauth" }, "qoder", "oauth"),
     true
