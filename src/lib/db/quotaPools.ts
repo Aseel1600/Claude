@@ -11,8 +11,9 @@
 import { getDbInstance } from "./core";
 // Phase B2: auto-mint/prune quotaShared-* combos when pool allocations change.
 // Imported lazily (dynamic import in the hook) to avoid circular-dependency
-// risk between db/ and quota/ modules. The import is fire-and-forget; combo
-// failures never break pool CRUD.
+// risk between db/ and quota/ modules. Sync hooks are fire-and-forget; deletion
+// awaits its guarded cleanup while metadata is available. Combo failures never
+// break pool CRUD.
 async function syncQuotaCombosGuarded(poolId: string): Promise<void> {
   try {
     const { syncQuotaCombos } = await import("@/lib/quota/quotaCombos");
@@ -485,10 +486,10 @@ export function updatePool(id: string, input: PoolUpdate): QuotaPool | null {
  * Also removes join rows in quota_pool_connections.
  * Returns true if a row was deleted, false if not found.
  */
-export function deletePool(id: string): boolean {
+export async function deletePool(id: string): Promise<boolean> {
   // Phase B2: remove quota combos BEFORE deleting the pool row so that
   // removeQuotaCombosForPool can still resolve the pool name → slug.
-  void removeQuotaCombosGuarded(id);
+  await removeQuotaCombosGuarded(id);
 
   const database = getDb();
   const doDelete = database.transaction(() => {
