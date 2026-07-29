@@ -666,7 +666,7 @@ async function startMitmServer() {
     // to see traffic to create mappings.
     //
     // Capture happens BEFORE checking for mappings, so requests appear in Traffic
-    // Inspector even when no mappings exist yet. Status is set to "passthrough"
+    // Inspector even when no mappings exist yet. Status is set to "in-flight"
     // initially; will be updated to the actual status code if intercepted.
     const startedAt = Date.now();
     captureToInspector({
@@ -675,7 +675,7 @@ async function startMitmServer() {
       agentId,
       sourceModel: model,
       mappedModel: model, // Will be overridden if intercepted
-      status: "passthrough", // Will be overridden if intercepted
+      status: "in-flight", // Valid schema value (not "passthrough")
       respHeaders: {},
       respBody: null,
       respSize: 0,

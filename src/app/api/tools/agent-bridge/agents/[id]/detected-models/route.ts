@@ -25,10 +25,10 @@ const VALID_IDS = new Set<AgentId>([
   "jules",
 ]);
 
-type Params = { params: { id: string } };
+type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, { params }: Params): Promise<Response> {
-  const { id } = params;
+  const { id } = await params;
 
   if (!VALID_IDS.has(id as AgentId)) {
     return createErrorResponse({ status: 404, message: `Unknown agent id: ${id}` });
