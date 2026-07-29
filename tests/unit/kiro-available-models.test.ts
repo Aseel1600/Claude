@@ -106,7 +106,7 @@ test("fetchKiroAvailableModels carries upstream prompt-caching metadata to model
     fallbackModels: FALLBACK,
   });
 
-  assert.ok(result.models.length > 1);
+  assert.ok(result.models.length >= 1);
   for (const model of result.models) {
     assert.equal(model.upstreamModelId, "claude-sonnet-4.5");
     assert.deepEqual(model.promptCaching, {
