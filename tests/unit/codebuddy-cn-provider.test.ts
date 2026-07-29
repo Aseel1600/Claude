@@ -8,6 +8,7 @@ import {
   supportsDualAuthProvider,
 } from "../../src/shared/constants/providers.ts";
 import { isManagedProviderConnectionId } from "../../src/lib/providers/catalog.ts";
+import { connectionMatchesProviderCard } from "../../src/app/(dashboard)/dashboard/providers/providerPageUtils.ts";
 import { REGISTRY } from "../../open-sse/config/providerRegistry.ts";
 import { getExecutor } from "../../open-sse/executors/index.ts";
 import { CodeBuddyCnExecutor } from "../../open-sse/executors/codebuddy-cn.ts";
@@ -275,4 +276,14 @@ test("codebuddy-cn stays OAuth-primary while the managed gate accepts its API-ke
   );
   assert.equal(supportsDualAuthProvider("codebuddy-cn"), true);
   assert.equal(isManagedProviderConnectionId("codebuddy-cn"), true);
+  for (const authType of ["apikey", "api_key"]) {
+    assert.equal(
+      connectionMatchesProviderCard(
+        { provider: "codebuddy-cn", authType },
+        "codebuddy-cn",
+        "oauth"
+      ),
+      true
+    );
+  }
 });

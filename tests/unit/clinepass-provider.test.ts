@@ -8,6 +8,8 @@ const {
   supportsDualAuthProvider,
 } = await import("../../src/shared/constants/providers.ts");
 const { isManagedProviderConnectionId } = await import("../../src/lib/providers/catalog.ts");
+const { connectionMatchesProviderCard } =
+  await import("../../src/app/(dashboard)/dashboard/providers/providerPageUtils.ts");
 const { PROVIDERS: oauthFlows } = await import("../../src/lib/oauth/providers/index.ts");
 const { REGISTRY: providerRegistry } = await import("../../open-sse/config/providerRegistry.ts");
 const { unwrapClinepassEnvelope } = await import("../../open-sse/utils/clinepassEnvelope.ts");
@@ -314,6 +316,12 @@ test("ClinePass API-key connections pass the managed gate while staying OAuth-pr
     "clinepass must NOT be in FREE_APIKEY_PROVIDER_IDS — that would flip isOAuth false"
   );
   assert.equal(supportsDualAuthProvider("clinepass"), true);
+  for (const authType of ["apikey", "api_key"]) {
+    assert.equal(
+      connectionMatchesProviderCard({ provider: "clinepass", authType }, "clinepass", "oauth"),
+      true
+    );
+  }
 });
 
 // ── Catalog ↔ registry alias consistency (routing prefix) ───────────────────
