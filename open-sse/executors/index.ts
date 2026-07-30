@@ -22,6 +22,7 @@ import { GrokWebExecutor } from "./grok-web.ts";
 import { GeminiWebExecutor } from "./gemini-web.ts";
 import { GeminiBusinessExecutor } from "./gemini-business.ts";
 import { ChatGptWebExecutor } from "./chatgpt-web.ts";
+import { ChatGptWebCodexExecutor } from "./chatgpt-web-codex.ts";
 import { BlackboxWebExecutor } from "./blackbox-web.ts";
 import { MuseSparkWebExecutor } from "./muse-spark-web.ts";
 import { AzureOpenAIExecutor } from "./azure-openai.ts";
@@ -85,6 +86,8 @@ const executors = {
   "amazon-q": new KiroExecutor("amazon-q"),
   bedrock: new BedrockExecutor(),
   codex: new CodexExecutor(),
+  "chatgpt-web-codex": new ChatGptWebCodexExecutor(),
+  "cgpt-codex": new ChatGptWebCodexExecutor(),
   cursor: new CursorExecutor(),
   trae: new TraeExecutor(),
   glm: new GlmExecutor("glm"),
