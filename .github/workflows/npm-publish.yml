@@ -223,6 +223,18 @@ jobs:
         if: steps.resolve.outputs.skip != 'true'
         run: npm run check:pack-boot
 
+      # The boot-smoke above proves a CLEAN install boots. It does not prove the path that
+      # actually broke us: installing over an existing version, where ~110 SQLite migrations
+      # run against a populated database. v3.8.48 shipped as a hotfix because the published
+      # 3.8.47 crashed on boot, and the v3.8.49 upgrade path was first exercised end-to-end
+      # by hand on a real 3.8.48 box (VPS .16) — after publishing, which is exactly backwards.
+      # Runs BEFORE `npm stage publish` so a broken upgrade never reaches the registry at all;
+      # a staged package that is never approved simply expires, with no `npm deprecate` needed.
+      - name: Prove clean-install AND upgrade-over-previous both boot
+        if: steps.resolve.outputs.skip != 'true'
+        timeout-minutes: 30
+        run: npm run check:install-upgrade
+
       # WS1.3 (D2, v3.8.49 plan): STAGED publishing by default — `npm stage publish`
       # parks the exact bytes on the registry WITHOUT making them installable; the
       # owner then verifies and approves with 2FA (`npm stage approve`), moving the
