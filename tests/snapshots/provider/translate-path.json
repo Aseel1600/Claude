@@ -773,6 +773,29 @@
       "stream": "https://chatgpt.com/backend-api/conversation"
     }
   },
+  "chatgpt-web-codex": {
+    "format": "openai-responses",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://chatgpt.com",
+      "stream": "https://chatgpt.com"
+    }
+  },
   "chenzk": {
     "format": "openai",
     "headers": {
@@ -5175,6 +5198,29 @@
     "url": {
       "nonStream": "https://api.xiaomimimo.com/v1",
       "stream": "https://api.xiaomimimo.com/v1"
+    }
+  },
+  "xiaomi-mimo-token-plan": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://token-plan-sgp.xiaomimimo.com/v1",
+      "stream": "https://token-plan-sgp.xiaomimimo.com/v1"
     }
   },
   "yi": {
