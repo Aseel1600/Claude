@@ -54,6 +54,7 @@ export function supportsDualAuthProvider(providerId: unknown): boolean {
 
 // Web / Cookie Providers
 
+
 // API Key Providers
 
 // Sub-categories within APIKEY_PROVIDERS (used by dashboard and catalog views).
@@ -466,6 +467,8 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "firecrawl",
   // Command Code credits + 5h/weekly rolling windows
   "command-code",
+  "conol-web",
+  "cnl",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

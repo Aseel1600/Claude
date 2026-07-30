@@ -127,6 +127,7 @@ import {
   fetchCodexDiscoveryModels,
   fetchCodexGithubCatalogModels,
 } from "./discovery/codex";
+import { maybeHandleConolModelDiscovery } from "./conolDiscovery";
 
 function toLiveModel(item: Record<string, unknown>): { id: string; name: string } | null {
   const itemId = typeof item.id === "string" ? item.id.trim() : "";
@@ -667,6 +668,20 @@ export async function GET(
         });
       }
     }
+    const conolResponse = await maybeHandleConolModelDiscovery({
+      provider,
+      connectionId,
+      apiKey,
+      accessToken,
+      providerSpecificData: connection.providerSpecificData,
+      proxy,
+      maybeReturnCachedDiscovery,
+      maybeReturnAutoFetchDisabled,
+      buildDiscoveryFallbackResponse,
+      buildResponse,
+      buildApiDiscoveryResponse,
+    });
+    if (conolResponse) return conolResponse;
 
     if (provider === "bedrock") {
       const cachedResponse = maybeReturnCachedDiscovery();
