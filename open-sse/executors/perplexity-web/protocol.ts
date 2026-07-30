@@ -64,7 +64,9 @@ export const MODEL_MAP: Record<string, [string, string]> = {
   "pplx-gpt-5.6-sol": ["search", "gpt56_sol"],
   "pplx-gemini": ["search", "gemini31pro_high"],
   "pplx-sonnet": ["search", "claude50sonnet"],
-  "pplx-opus": ["search", "claude48opus"],
+  // Perplexity's catalog moved Opus to 5.0; claude48opus is still accepted but
+  // answers from the older model.
+  "pplx-opus": ["search", "claude50opus"],
   "pplx-glm": ["search", "glm_5_2"],
   "pplx-kimi": ["search", "kimik26instant"],
   "pplx-grok-4.5": ["search", "grok45low"],
@@ -75,7 +77,7 @@ export const THINKING_MAP: Record<string, string> = {
   "pplx-gpt-5.6-terra": "gpt56_terra_thinking",
   "pplx-gpt-5.6-sol": "gpt56_sol_thinking",
   "pplx-sonnet": "claude50sonnetthinking",
-  "pplx-opus": "claude48opusthinking",
+  "pplx-opus": "claude50opusthinking",
   "pplx-kimi": "kimik26thinking",
   "pplx-grok-4.5": "grok45medium",
 };
@@ -329,15 +331,29 @@ export function buildPplxRequestBody(
   };
 }
 
+const SEARCH_HINT = "You have built-in web search. Answer questions directly using search results.";
+
+/**
+ * Whether to append {@link SEARCH_HINT} to the caller's system message.
+ *
+ * It used to be unconditional. Perplexity's answer engine is search-first anyway, and
+ * for coding clients the sentence leaks into replies as meta-commentary ("I need to
+ * search before responding per my instructions"), so it is now opt-in via
+ * `OMNIROUTE_PPLX_SEARCH_HINT`. Read per call rather than at module load so the flag
+ * can be flipped without restarting the server (and so tests can toggle it).
+ */
+function searchHintEnabled(): boolean {
+  return /^(1|true|yes|on)$/i.test(process.env.OMNIROUTE_PPLX_SEARCH_HINT ?? "");
+}
+
 export function buildQuery(parsed: ParsedMessages, followUpUuid: string | null): string {
   if (followUpUuid) return parsed.currentMsg;
 
   const obj: Record<string, unknown> = {};
   if (parsed.systemMsg.trim()) {
-    obj.instructions = [
-      parsed.systemMsg.trim(),
-      "You have built-in web search. Answer questions directly using search results.",
-    ];
+    obj.instructions = searchHintEnabled()
+      ? [parsed.systemMsg.trim(), SEARCH_HINT]
+      : [parsed.systemMsg.trim()];
   }
   if (parsed.history.length > 0) {
     obj.history = parsed.history;
