@@ -30,33 +30,44 @@ import { fileURLToPath } from "node:url";
 const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 const homePageClientSrc = read("../../src/app/(dashboard)/dashboard/HomePageClient.tsx");
+// The topology-node derivation was extracted out of HomePageClient (size-frozen) into this
+// hook, which now owns the enabled-connection and health-status rules below.
+const providerStatsSrc = read("../../src/app/(dashboard)/dashboard/useHomeProviderStats.ts");
 const providerTopologySrc = read("../../src/app/(dashboard)/home/ProviderTopology.tsx");
 const sectionSrc = read("../../src/app/(dashboard)/dashboard/HomeProviderTopologySection.tsx");
 
-test("HomePageClient draws a node only for providers with an enabled connection", () => {
+test("useHomeProviderStats draws a node only for providers with an enabled connection", () => {
   // `connected` + `errors` counts only enabled connections (isActive !== false), so a
   // provider whose connections are all disabled must be skipped entirely. This is what
   // keeps untested / disabled / removed providers from lingering as ghost nodes.
   assert.match(
-    homePageClientSrc,
+    providerStatsSrc,
     /const enabled = stat\.connected \+ stat\.errors;/,
     "enabled-connection count must drive node inclusion"
   );
-  assert.match(homePageClientSrc, /if \(enabled <= 0\) continue;/, "no enabled connection → no node");
-  // Nodes must NOT be seeded from all-time call_logs aggregates, which have no time
-  // window and no connection check (the ghost-node source before this change).
-  assert.doesNotMatch(
-    homePageClientSrc,
-    /Object\.keys\(providerMetrics\)\.forEach\(\(provider\) => addProvider\(provider\)\)/,
-    "providerMetrics must not resurrect providers that no longer have a connection"
+  assert.match(
+    providerStatsSrc,
+    /if \(enabled <= 0\) continue;/,
+    "no enabled connection → no node"
   );
+  // Nodes must NOT be seeded from all-time call_logs aggregates, which have no time
+  // window and no connection check (the ghost-node source before this change). Guarded on
+  // both files: the derivation moved, but the metrics state still lives in the client, so
+  // either side could reintroduce the seeding.
+  for (const src of [providerStatsSrc, homePageClientSrc]) {
+    assert.doesNotMatch(
+      src,
+      /Object\.keys\(providerMetrics\)\.forEach\(\(provider\) => addProvider\(provider\)\)/,
+      "providerMetrics must not resurrect providers that no longer have a connection"
+    );
+  }
 });
 
-test("HomePageClient still resolves a per-provider health status for each node", () => {
+test("useHomeProviderStats still resolves a per-provider health status for each node", () => {
   // Health is no longer painted as a green rest colour, but the status is still computed
   // and carried so the section/graph (and any future health affordance) can use it.
   assert.match(
-    homePageClientSrc,
+    providerStatsSrc,
     /status:\s*stat\.connected > 0 \? "active" : "error"/,
     "each topology entry must still carry a resolved health status"
   );

@@ -19,6 +19,10 @@ const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.met
 const topologySrc = read("../../src/app/(dashboard)/home/ProviderTopology.tsx");
 const metricsRouteSrc = read("../../src/app/api/provider-metrics/route.ts");
 const homePageClientSrc = read("../../src/app/(dashboard)/dashboard/HomePageClient.tsx");
+// The provider-stat and topology-node derivation was extracted out of HomePageClient (which
+// is size-frozen) into this hook. It is the owner of the priority/enabled/health rules, so
+// those assertions must read it — pinning them to HomePageClient would pass on an empty file.
+const providerStatsSrc = read("../../src/app/(dashboard)/dashboard/useHomeProviderStats.ts");
 
 describe("router core is a landscape rectangle with the counter inline", () => {
   test("the core box is wider than it is tall", () => {
@@ -250,28 +254,28 @@ describe("provider nodes are legible without being bulky", () => {
 });
 
 describe("priority reaches the ring from the connection data", () => {
-  test("HomePageClient derives one priority per provider from enabled connections", () => {
+  test("useHomeProviderStats derives one priority per provider from enabled connections", () => {
     // A provider owns one node but many connections, so the tiers must collapse to one
     // value. Lowest wins; disabled connections cannot route, so they must not rank it.
     assert.match(
-      homePageClientSrc,
+      providerStatsSrc,
       /if \(connection\.isActive === false\) continue;/,
       "disabled connections must not contribute a priority"
     );
     assert.match(
-      homePageClientSrc,
+      providerStatsSrc,
       /const candidate = toNumber\(connection\.globalPriority\);/,
       "global_priority is the cross-provider comparable column"
     );
     assert.match(
-      homePageClientSrc,
+      providerStatsSrc,
       /if \(priority === undefined \|\| candidate < priority\) priority = candidate;/,
       "the provider is ranked by its best-placed connection"
     );
   });
 
   test("priority is threaded all the way to the topology entry", () => {
-    assert.match(homePageClientSrc, /priority: stat\.priority,/);
+    assert.match(providerStatsSrc, /priority: stat\.priority,/);
     assert.match(topologySrc, /priority\?: number;/);
   });
 
