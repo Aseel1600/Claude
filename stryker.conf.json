@@ -340,7 +340,8 @@
       "tests/unit/usage-service-hardening.test.ts",
       "tests/unit/validate-response-quality.test.ts",
       "tests/unit/xai-agent-tools-passthrough.test.ts",
-      "tests/unit/capability-filter.test.ts"
+      "tests/unit/capability-filter.test.ts",
+      "tests/unit/vertex-passthrough-model-lockout.test.ts"
     ],
     "nodeArgs": [
       "--import",
