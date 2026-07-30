@@ -92,7 +92,7 @@
   <tr>
     <td align="center"><a href="#-omniroute-in-action">🎬 In Action</a></td>
     <td align="center"><a href="#-dashboard-screenshots">📸 Screenshots</a></td>
-    <td align="center"><a href="#-support--community">📧 Support</a></td>
+    <td align="center"><a href="#-community--help">💬 Community</a></td>
   </tr>
 </table>
 
@@ -390,13 +390,38 @@ All **19** strategies — mix & match per combo step:
 
 <br/>
 
-## ❤️ Support
+## 💚 Support OmniRoute
 
-OmniRoute is free and open source, built and maintained in the open. If it saves you time or money, consider supporting development:
+OmniRoute is MIT-licensed and maintained in the open. If it saves you time or money, here's how to keep it independent — pick whatever fits you. Sponsorship never affects routing priority; it buys visibility, not ranking.
 
-- ⭐ **Star the repo** — it genuinely helps visibility
-- 💖 **[GitHub Sponsors](https://github.com/sponsors/diegosouzapw)** — fund ongoing maintenance and new providers
-- 🐛 **Report bugs and share feedback** in [Discussions](https://github.com/diegosouzapw/OmniRoute/discussions)
+<table>
+  <tr><td nowrap>⭐ <b>Star the repo</b></td><td>Free — genuinely helps visibility</td><td><a href="https://github.com/diegosouzapw/OmniRoute">Star OmniRoute</a></td></tr>
+  <tr><td nowrap>🐙 <b>GitHub Sponsors</b></td><td>One-off or monthly · zero platform fee</td><td><a href="https://github.com/sponsors/diegosouzapw">github.com/sponsors/diegosouzapw</a></td></tr>
+  <tr><td nowrap>🏢 <b>Open Collective</b></td><td><b>Companies</b> — issues an invoice/receipt · transparent books</td><td>⏳ setting up</td></tr>
+  <tr><td nowrap>☕ <b>Ko-fi</b></td><td>Quick one-off tip, no signup for the donor</td><td>⏳ setting up</td></tr>
+  <tr><td nowrap>🧋 <b>Buy Me a Coffee</b></td><td>Small, informal gesture</td><td>⏳ setting up</td></tr>
+  <tr><td nowrap>🖐 <b>Liberapay</b></td><td>Recurring · non-profit · open source</td><td>⏳ setting up</td></tr>
+  <tr><td nowrap>🇧🇷 <b>PIX</b> (Brazil)</td><td>Instant, no fees</td><td>key &amp; QR below</td></tr>
+  <tr><td nowrap>₿ <b>Crypto</b></td><td>BTC · ETH · USDT-TRC20 · XMR</td><td>addresses below</td></tr>
+</table>
+
+**🇧🇷 PIX** — instant, no fees (Brazil)
+
+<img src="docs/assets/pix-qr.png" width="140" align="right" alt="OmniRoute PIX QR code"/>
+
+Key (random): `5d865059-bc44-483a-962d-43ceb80126eb`
+
+Pix copia-e-cola:
+
+```
+00020101021126580014br.gov.bcb.pix01365d865059-bc44-483a-962d-43ceb80126eb5204000053039865802BR5922OMNIROUTE CONTRIBUICAO6006BRASIL62070503***630475DD
+```
+
+<br clear="right"/>
+
+**₿ Crypto** — ⏳ _wallet addresses being generated (BTC · ETH · USDT-TRC20 · XMR)._
+
+🐛 Found a bug or have feedback? Open a [Discussion](https://github.com/diegosouzapw/OmniRoute/discussions).
 
 <br/>
 
@@ -905,7 +930,7 @@ same process on one port, so there is no separate CLI-only package today.
 
 <div align="center">
 
-# 📧 Support & Community
+# 📧 Community & Help
 
 > Everything in one place — follow the maintainer, chat with the community, or open an issue.
 
@@ -921,7 +946,7 @@ same process on one port, so there is no separate CLI-only package today.
 | 📦 **Source code**                         | [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)                                            |
 | 🐛 **Report a bug**                        | [open an issue](https://github.com/diegosouzapw/OmniRoute/issues) — attach `npm run system-info` output                   |
 | 🤝 **Contribute**                          | [CONTRIBUTING.md](CONTRIBUTING.md) · [Branching & Release Model](docs/ops/BRANCHING_MODEL.md) · pick a `good first issue` |
-| ⭐ **Support the project**                 | [Star the repo](https://github.com/diegosouzapw/OmniRoute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)  |
+| 💚 **Support the project**                 | [Ways to support ↑](#-support-omniroute) · [GitHub Sponsors](https://github.com/sponsors/diegosouzapw)                    |
 
 </div>
 
