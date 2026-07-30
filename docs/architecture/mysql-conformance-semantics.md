@@ -163,6 +163,26 @@ settings only to the first connection is insufficient.
 
 ## 5. Normative semantic matrix
 
+### 5.0 Observable SQLite/MySQL difference summary
+
+This table is the review index for the detailed rules below. It distinguishes current or common
+backend behavior from the portable result the repository must expose. The MySQL column describes
+InnoDB under the verified session profile; it must not be read as permission to inherit an
+unverified server default.
+
+| Concern                | SQLite-shaped behavior                                                                                                                   | MySQL/InnoDB behavior                                                                                                                      | Required repository contract                                                                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Text identity          | Binary comparison by default; current code opts into ASCII-oriented `NOCASE` for selected reads and sorts                                | Equality, uniqueness, and sort order follow the selected column/expression collation                                                       | Declare byte-exact identity separately from named insensitive lookup and display order                                             |
+| Nullable unique key    | Multiple SQL `NULL` values can pass a plain unique constraint                                                                            | Multiple SQL `NULL` values can pass a plain unique index                                                                                   | Enforce any "one logical null" invariant atomically outside a plain unique key                                                     |
+| Unordered/tied results | No total order without a complete `ORDER BY`                                                                                             | No total order without a complete `ORDER BY`                                                                                               | Define `NULL` position and a unique final tie-breaker for every portable list                                                      |
+| No-op update           | Driver change count reflects SQLite's statement behavior                                                                                 | Changed-row count differs from matched-row mode for identical assignments                                                                  | Return domain outcomes independently of raw affected-row counts                                                                    |
+| Conflict write         | `INSERT OR REPLACE` can delete then insert                                                                                               | Duplicate-key upsert updates one selected conflict                                                                                         | Classify every operation as insert-only, identity-preserving upsert, or replacement                                                |
+| Generated identity     | SQLite row IDs and driver-local last-insert state are connection-bound                                                                   | Generated IDs and last-insert state are connection-bound                                                                                   | Retrieve identity in the insert operation/lease and use stable idempotency identity on retry                                       |
+| JSON                   | Existing combo payloads are text and malformed legacy text can be observed                                                               | Native `JSON` validates and normalizes its representation                                                                                  | Choose text or typed JSON deliberately and compare the declared domain representation                                              |
+| Exact values/time      | Current modules commonly serialize JavaScript values and ISO UTC text                                                                    | Driver conversion can lose large integers/decimals; temporal types depend on type and session zone                                         | Fix exact representations, UTC policy, and precision across backends                                                               |
+| Concurrency/isolation  | Deferred transactions and a database-wide single-writer model shape conflicts; read visibility depends on transaction mode and WAL state | InnoDB defaults to `REPEATABLE READ`, uses MVCC snapshots for consistent reads, and permits concurrent writers on different locked records | Select and verify isolation, then test domain-visible reads, conflicts, and retry boundaries rather than relying on either default |
+| DDL/migrations         | SQLite migration sequences can be wrapped according to SQLite transaction rules                                                          | DDL commonly commits implicitly; one atomic DDL statement does not make a multi-step migration atomic                                      | Use distributed ownership, durable phase checkpoints, postcondition inspection, and readiness gating                               |
+
 ### 5.1 Text identity, collation, and uniqueness
 
 MySQL equality and unique indexes use the effective collation of the indexed expression. A `_ci`
@@ -306,16 +326,21 @@ Every write method MUST be classified as exactly one of:
 
 A generic helper MUST NOT choose among these behaviors based on SQL convenience.
 
-Minimum difference probe:
+Minimum difference probe. This uses ordinary InnoDB tables because MySQL temporary tables cannot
+serve as the parent/child foreign-key fixture. Run it in an isolated conformance schema; cleanup is
+included so the probe is repeatable:
 
 ```sql
-CREATE TEMPORARY TABLE conformance_parent (
+DROP TABLE IF EXISTS conformance_child;
+DROP TABLE IF EXISTS conformance_parent;
+
+CREATE TABLE conformance_parent (
   id VARCHAR(64) PRIMARY KEY,
   immutable_value VARCHAR(64) NOT NULL,
   mutable_value VARCHAR(64) NOT NULL
 ) ENGINE=InnoDB;
 
-CREATE TEMPORARY TABLE conformance_child (
+CREATE TABLE conformance_child (
   id VARCHAR(64) PRIMARY KEY,
   parent_id VARCHAR(64) NOT NULL,
   CONSTRAINT fk_conformance_child_parent
@@ -325,13 +350,21 @@ CREATE TEMPORARY TABLE conformance_child (
 INSERT INTO conformance_parent VALUES ('p', 'keep', 'old');
 INSERT INTO conformance_child VALUES ('c', 'p');
 INSERT INTO conformance_parent (id, immutable_value, mutable_value)
-VALUES ('p', 'replacement', 'new') AS incoming
-ON DUPLICATE KEY UPDATE mutable_value = incoming.mutable_value;
+VALUES ('p', 'replacement', 'new')
+ON DUPLICATE KEY UPDATE mutable_value = VALUES(mutable_value);
 
 SELECT immutable_value, mutable_value FROM conformance_parent WHERE id = 'p';
 SELECT COUNT(*) AS child_count FROM conformance_child WHERE parent_id = 'p';
 -- Expected: immutable_value='keep', mutable_value='new', child_count=1.
+
+DROP TABLE conformance_child;
+DROP TABLE conformance_parent;
 ```
+
+The `VALUES(mutable_value)` form is used here because the target remains MySQL 8.0 as a family and
+no minimum 8.0 patch release has been approved. It is deprecated in later MySQL 8.0 releases, so an
+adapter that establishes a newer minimum MAY use the supported row-alias form instead. The harness
+asserts identity-preserving behavior, not either SQL spelling.
 
 Tables with multiple unique indexes require special care because a duplicate can select an
 unexpected conflicting row. Portable upsert schema SHOULD have one unambiguous conflict identity.
@@ -420,6 +453,53 @@ SELECT payload FROM conformance_json WHERE id = 'j';
 
 Combo and mapping timestamps are currently application-generated ISO strings. The first slice SHOULD
 preserve their exact domain format rather than introducing server-generated local time.
+
+### 5.10 Transaction isolation and observable concurrency
+
+MySQL InnoDB uses `REPEATABLE READ` as its default isolation level. Within an explicit transaction,
+its consistent non-locking reads normally establish and reuse an MVCC snapshot, while locking reads
+and writes inspect and lock current index records or ranges. SQLite instead combines snapshot/read
+transaction behavior with a database-wide single-writer model; transaction mode and WAL state affect
+when a writer is admitted and when a read transaction can be upgraded. These mechanisms are not
+interchangeable even when a simple CRUD fixture produces the same final row.
+
+The backend profile MUST select and verify an isolation level rather than silently accept either
+backend's default. The repository contract MUST then define observable results for each atomic
+operation. It MUST NOT promise the implementation mechanism itself, such as gap locks or a
+SQLite-wide writer lock.
+
+| Scenario                          | SQLite-shaped risk                                                                      | InnoDB `REPEATABLE READ` risk                                                                              | Required conformance decision                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Two reads in one transaction      | Snapshot timing depends on when the read transaction begins and the active journal mode | Consistent reads normally reuse the transaction's first established read view                              | State whether the operation requires one stable snapshot or deliberately performs a current read           |
+| Range read plus concurrent insert | A concurrent writer may be serialized by SQLite's writer admission rules                | A plain consistent read can retain its snapshot; a locking range read can lock index gaps                  | Define whether a later read sees the insert and whether the operation requires a locking predicate         |
+| Read-modify-write                 | Single-writer serialization can mask an unsafe application sequence                     | Concurrent transactions can read the same value and later contend or overwrite without a version predicate | Require compare/update, a locking read, or another explicit invariant; never rely on backend serialization |
+| Writers touching different rows   | SQLite still admits only one writer at a time                                           | InnoDB can execute both until their record/range locks conflict                                            | Do not infer portable throughput or lock order; assert only atomic effects and classified conflicts        |
+| Pagination across transactions    | Separate page reads can observe different committed states                              | Separate autocommit reads get separate views; one transaction may retain one view                          | Declare snapshot pagination or documented live pagination and test that policy                             |
+| Retry after conflict              | Busy/locked outcomes and transaction upgrade failures are SQLite-shaped                 | Deadlocks and lock timeouts have different rollback scopes                                                 | Normalize the error, discard the failed context, and retry the complete idempotent operation only          |
+
+Minimum two-connection visibility probe for the selected MySQL profile:
+
+```text
+Connection A                                      Connection B
+SET TRANSACTION ISOLATION LEVEL REPEATABLE READ;
+START TRANSACTION;
+SELECT value_no FROM conformance_isolation
+  WHERE id = 1;  -- establishes read view: 0
+                                                  START TRANSACTION;
+                                                  UPDATE conformance_isolation
+                                                    SET value_no = 1 WHERE id = 1;
+                                                  COMMIT;
+SELECT value_no FROM conformance_isolation
+  WHERE id = 1;  -- same consistent-read view: 0
+COMMIT;
+SELECT value_no FROM conformance_isolation
+  WHERE id = 1;  -- new transaction/view: 1
+```
+
+The shared harness MUST NOT assert that every backend reproduces this internal sequence. It must use
+it to prove that the chosen repository operation either requests a stable snapshot explicitly or
+avoids depending on repeat-read visibility. If an operation uses a current/locking read, that choice
+and its conflict behavior need a separate test.
 
 ## 6. Transactions, failures, and retry policy
 
@@ -661,18 +741,22 @@ state.
 | `upsert_preserves_identity_and_children`    | Upsert parent with a child row             | ID, immutable fields, and child survive            |
 | `insert_only_never_silently_updates`        | Repeat insert-only identity                | Second call is `unique_violation`                  |
 
-### 9.5 Transactions and failure injection
+### 9.5 Transactions, isolation, and failure injection
 
-| Test name                                       | Fixture/action                                  | Required assertion                           |
-| ----------------------------------------------- | ----------------------------------------------- | -------------------------------------------- |
-| `related_changes_commit_atomically`             | Update parent and children                      | All postconditions commit together           |
-| `related_changes_roll_back_atomically`          | Inject a child constraint failure               | All tables equal pre-operation state         |
-| `deadlock_retries_whole_operation`              | Two physical connections lock in opposite order | One victim; final logical effect occurs once |
-| `lock_timeout_discards_context`                 | Hold a row lock past timeout                    | Explicit rollback; old context rejects work  |
-| `duplicate_and_foreign_key_errors_are_distinct` | Trigger each constraint                         | Stable distinct classes                      |
-| `disconnect_before_send_is_unavailable`         | Fail connection before dispatch                 | Safe bounded retry is permitted              |
-| `disconnect_during_commit_is_outcome_unknown`   | Drop connection at commit boundary              | No blind retry; reconciliation is required   |
-| `retry_uses_stable_operation_identity`          | Fail first attempt after durable write          | At most one logical effect exists            |
+| Test name                                       | Fixture/action                                                    | Required assertion                                                     |
+| ----------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `related_changes_commit_atomically`             | Update parent and children                                        | All postconditions commit together                                     |
+| `related_changes_roll_back_atomically`          | Inject a child constraint failure                                 | All tables equal pre-operation state                                   |
+| `stable_snapshot_behavior_is_declared`          | Read, commit a concurrent update, then read in the same operation | Result follows the operation's declared snapshot/current-read policy   |
+| `range_insert_visibility_is_declared`           | Read a range while another transaction inserts a matching row     | Later visibility matches the declared snapshot/live policy             |
+| `read_modify_write_prevents_lost_update`        | Two transactions read one version and attempt distinct updates    | One declared winner; loser conflicts/retries without overwriting       |
+| `independent_writers_preserve_atomic_effects`   | Two transactions update different identities concurrently         | Both logical effects commit; no contract depends on backend lock order |
+| `deadlock_retries_whole_operation`              | Two physical connections lock in opposite order                   | One victim; final logical effect occurs once                           |
+| `lock_timeout_discards_context`                 | Hold a row lock past timeout                                      | Explicit rollback; old context rejects work                            |
+| `duplicate_and_foreign_key_errors_are_distinct` | Trigger each constraint                                           | Stable distinct classes                                                |
+| `disconnect_before_send_is_unavailable`         | Fail connection before dispatch                                   | Safe bounded retry is permitted                                        |
+| `disconnect_during_commit_is_outcome_unknown`   | Drop connection at commit boundary                                | No blind retry; reconciliation is required                             |
+| `retry_uses_stable_operation_identity`          | Fail first attempt after durable write                            | At most one logical effect exists                                      |
 
 ### 9.6 Migration and readiness
 
