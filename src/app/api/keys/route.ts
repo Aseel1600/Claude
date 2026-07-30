@@ -126,6 +126,7 @@ export async function POST(request) {
         chaosModeEnabled: chaosModeEnabled === true,
         streamDefaultMode: "legacy",
         compressionEnabled: true,
+        cacheDefaultMode: "legacy",
       },
       { status: 201 }
     );
