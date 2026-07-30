@@ -318,6 +318,14 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "token", "access_token", "accessToken"],
   },
+  "conol-web": {
+    kind: "cookie",
+    credentialName: "__Secure-better-auth.session_token",
+    placeholder:
+      "__Secure-better-auth.session_token=... or full Cookie header from conol.ai",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "__Secure-better-auth.session_token"],
+  },
 } satisfies Record<string, WebSessionCredentialRequirement> &
   Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
 
