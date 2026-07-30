@@ -10,6 +10,7 @@ interface SetupWizardProps {
   agentState: AgentStateEntry | undefined;
   serverRunning: boolean;
   serverState: AgentBridgeServerState;
+  currentMappings: { source: string; target: string }[]; // Current mappings for this agent
   onClose: () => void;
   onDnsToggle: (agentId: string, enabled: boolean) => Promise<void>;
   onMappingsSave: (agentId: string, mappings: { source: string; target: string }[]) => Promise<void>;
@@ -34,6 +35,7 @@ export function SetupWizard({
   agentState,
   serverRunning,
   serverState,
+  currentMappings,
   onClose,
   onDnsToggle,
   onMappingsSave,
@@ -101,14 +103,21 @@ export function SetupWizard({
   const handleAddSelectedModels = async () => {
     if (selectedModels.size === 0) return;
 
-    // Create mappings with empty target (user will fill in the target model)
-    const newMappings = Array.from(selectedModels).map((source) => ({
-      source,
-      target: "", // Will be selected later in the main card
-    }));
+    // Merge detected models with existing mappings instead of replacing
+    // Filter out models that already exist in current mappings
+    const existingSources = new Set(currentMappings.map((m) => m.source));
+    const newMappings = Array.from(selectedModels)
+      .filter((source) => !existingSources.has(source)) // Only add new ones
+      .map((source) => ({
+        source,
+        target: "", // Will be selected later in the main card
+      }));
+
+    // Combine existing + new mappings
+    const allMappings = [...currentMappings, ...newMappings];
 
     try {
-      await onMappingsSave(target.id, newMappings);
+      await onMappingsSave(target.id, allMappings);
       onClose();
     } catch {
       // Error handling in parent component

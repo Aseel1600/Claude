@@ -255,6 +255,7 @@ export function AgentCard({
           agentState={agentState}
           serverRunning={serverRunning}
           serverState={serverState}
+          currentMappings={mappings}
           onClose={() => setWizardOpen(false)}
           onDnsToggle={onDnsToggle}
           onMappingsSave={onMappingsSave}
