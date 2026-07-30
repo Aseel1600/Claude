@@ -260,7 +260,13 @@ jobs:
     needs: changes
     if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || startsWith(github.head_ref, 'mergify/merge-queue/')) && needs.changes.outputs.code == 'true') }}
     # Dynamic runner — see fast-gates (own-origin + flag; fork/unset → ubuntu-latest).
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-release"]') || 'ubuntu-latest' }}
+    # PINNED to hosted, deliberately not on the USE_VPS_RUNNER switch (gap 19). One variable
+    # governed the build and the test jobs, which want OPPOSITE machines: the build needs the
+    # .113's RAM, the tests need the hosted runner's link. Measured on 2026-07-29 —
+    # actions/setup-node took 20m06s on .113 with 4 concurrent runners versus 16s hosted (npm
+    # cache restore saturating the link), while the tests themselves tied, 2m54 vs 2m31. So
+    # self-hosted is strictly worse here and there is nothing to configure.
+    runs-on: ubuntu-latest
     env:
       JWT_SECRET: ci-lint-secret-with-sufficient-length-for-validation
       API_KEY_SECRET: ci-lint-api-key-secret-long
@@ -296,7 +302,13 @@ jobs:
     # critical path again (~8.5min → ~4.5min on ubuntu-latest; ~2min on the 8-slot
     # runner box). Node's native --test-shard=N/total takes any denominator — only
     # this matrix and the TEST_SHARD env below encode the shard count.
-    runs-on: ${{ (vars.USE_VPS_RUNNER == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","omni-release"]') || 'ubuntu-latest' }}
+    # PINNED to hosted, deliberately not on the USE_VPS_RUNNER switch (gap 19). One variable
+    # governed the build and the test jobs, which want OPPOSITE machines: the build needs the
+    # .113's RAM, the tests need the hosted runner's link. Measured on 2026-07-29 —
+    # actions/setup-node took 20m06s on .113 with 4 concurrent runners versus 16s hosted (npm
+    # cache restore saturating the link), while the tests themselves tied, 2m54 vs 2m31. So
+    # self-hosted is strictly worse here and there is nothing to configure.
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
