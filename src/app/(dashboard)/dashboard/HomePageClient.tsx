@@ -16,7 +16,9 @@ import {
 import { useNotificationStore } from "@/store/notificationStore";
 import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
 import { copyToClipboard } from "@/shared/utils/clipboard";
+import { toNumber } from "@/shared/utils/numeric";
 import { getProviderDisplayLabel } from "@/shared/utils/providerDisplayLabel";
+import { resolveCompatibleProviderCatalogEntry } from "@/lib/providers/catalog";
 import { useIsElectron, useOpenExternal } from "@/shared/hooks/useElectron";
 import { HomeProviderTopologySection } from "./HomeProviderTopologySection";
 import { shouldShowProviderTopologyOnHome } from "./homeAppearance";
@@ -122,9 +124,30 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   const [baseUrl, setBaseUrl] = useState("/v1");
   const [selectedProvider, setSelectedProvider] = useState(null);
   const [providerMetrics, setProviderMetrics] = useState<Record<string, ProviderMetricSummary>>({});
-  const [providerTopology, setProviderTopology] = useState({ lastProvider: "", errorProvider: "" });
+  const [providerTopology, setProviderTopology] = useState<{
+    lastProvider: string;
+    errorProviders: string[];
+  }>({ lastProvider: "", errorProviders: [] });
+  // `type` and `iconUrl` are what `resolveCompatibleProviderCatalogEntry` needs to pick the
+  // right logo/badge/colour. /api/provider-nodes already returns both; this state type used
+  // to drop them, so the topology could never render an operator's icon no matter what was
+  // configured — the data was fetched and then discarded one type annotation later.
   const [providerNodes, setProviderNodes] = useState<
-    Array<{ id?: string; prefix?: string; name?: string }>
+    Array<{
+      id: string;
+      prefix?: string;
+      name?: string;
+      type?: string | null;
+      apiType?: string | null;
+      baseUrl?: string | null;
+      iconUrl?: string | null;
+      /**
+       * `provider_nodes.created_at`, already present in the API response (the query is
+       * `SELECT *` and every column is camel-cased through). Declared here so the topology
+       * can order nodes by age — a newly added provider must append, not displace.
+       */
+      createdAt?: string | null;
+    }>
   >([]);
 
   // The live in-flight request feed for the Provider Topology pulse animation is owned by
@@ -315,9 +338,20 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           const data = await metricsRes.json();
           if (!cancelled) {
             setProviderMetrics(data.metrics || {});
+            // `errorProviders` (plural) carries EVERY failing provider. Reading the legacy
+            // singular field showed only the most recent one, so a second failure appeared
+            // to clear the first. Fall back to the singular field so an older/cached API
+            // response still lights one edge rather than none.
+            const reportedErrors = Array.isArray(data.topology?.errorProviders)
+              ? data.topology.errorProviders
+              : [data.topology?.errorProvider];
             setProviderTopology({
               lastProvider: normalizeProviderId(data.topology?.lastProvider),
-              errorProvider: normalizeProviderId(data.topology?.errorProvider),
+              errorProviders: reportedErrors
+                .map((provider: unknown) =>
+                  normalizeProviderId(typeof provider === "string" ? provider : "")
+                )
+                .filter(Boolean),
             });
           }
         }
@@ -431,7 +465,19 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   }, [providerConnections, t, tp, router]);
 
   const providerStats = useMemo(() => {
-    return Object.entries(AI_PROVIDERS).map(([providerId, providerInfo]) => {
+    const statFor = (
+      providerId: string,
+      providerInfo: {
+        name?: string;
+        alias?: string;
+        color?: string;
+        textIcon?: string;
+        iconUrl?: string;
+        apiType?: string;
+        createdAt?: string;
+      },
+      extraModelKeys: readonly string[] = []
+    ) => {
       const connections = providerConnections.filter((conn) => conn.provider === providerId);
       const connected = connections.filter((connection) =>
         isProviderConnectionConnected(connection)
@@ -440,7 +486,9 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         isProviderConnectionErrored(connection)
       ).length;
 
-      const providerKeys = new Set([providerId, providerInfo.alias].filter(Boolean));
+      const providerKeys = new Set(
+        [providerId, providerInfo.alias, ...extraModelKeys].filter(Boolean) as string[]
+      );
       const providerModels = models.filter((m) => providerKeys.has(m.provider));
 
       const authType = NOAUTH_PROVIDERS[providerId]
@@ -448,6 +496,28 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         : OAUTH_PROVIDERS[providerId]
           ? "oauth"
           : "apikey";
+
+      // Best (lowest) global priority among this provider's ENABLED connections, or
+      // undefined when none of them carries one.
+      //
+      // `global_priority` is the only priority that means anything ACROSS providers:
+      // `priority` is assigned per provider as MAX(priority)+1 within that provider, so
+      // codex#1, gemini#1 and kiro#1 all exist and comparing them is meaningless. It is also
+      // sparse in practice — most connections have no global priority at all, and
+      // `cleanNulls` (src/lib/db/caseMapping.ts) strips the key entirely rather than
+      // returning null, so this is `number | undefined`, never `number | null`.
+      //
+      // A provider owns one topology node but may own many connections, so the tiers have to
+      // collapse to one value: lowest wins, i.e. a provider is ranked by its best-placed
+      // connection. Disabled connections are skipped because a disabled connection cannot
+      // route, so its priority should not pull the provider forward.
+      let priority: number | undefined;
+      for (const connection of connections) {
+        if (connection.isActive === false) continue;
+        const candidate = toNumber(connection.globalPriority);
+        if (!Number.isFinite(candidate) || candidate <= 0) continue;
+        if (priority === undefined || candidate < priority) priority = candidate;
+      }
 
       return {
         id: providerId,
@@ -457,9 +527,62 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         errors,
         modelCount: providerModels.length,
         authType,
+        priority,
       };
-    });
-  }, [providerConnections, models]);
+    };
+
+    const builtIn = Object.entries(AI_PROVIDERS).map(([providerId, providerInfo]) =>
+      statFor(providerId, providerInfo)
+    );
+
+    // Custom compatible providers are `provider_nodes` ROWS, not entries in the static
+    // `AI_PROVIDERS` registry — their id is generated (`openai-compatible-chat-<uuid>`,
+    // `anthropic-compatible-<uuid>`, …). Iterating AI_PROVIDERS alone therefore matched
+    // none of their connections (measured: one active compatible connection, 0 of 298
+    // static providers matched it), so an operator's own gateway never appeared as a
+    // topology node at rest no matter how healthy it was.
+    //
+    // Their models are published under the node PREFIX, so that name is accepted as a
+    // model key alongside the raw node id — the same accept-wide contract the catalog
+    // surfaces use.
+    //
+    // Display metadata comes from `resolveCompatibleProviderCatalogEntry`, the SAME
+    // resolver the provider pages use — not a second inline copy. Hand-rolling it here
+    // (which is what this did) produced a node whose name/colour/badge/icon disagreed with
+    // the very same node's card on the providers page: no icon_url was threaded, so the
+    // topology fell through to the generic glyph while the card showed the real logo.
+    // Anything display-related for a compatible node must come from this one function.
+    const compatible = providerNodes
+      .filter((node) => (node.id || "").trim() && !AI_PROVIDERS[(node.id || "").trim()])
+      .map((node) => {
+        const entry = resolveCompatibleProviderCatalogEntry(node, {
+          ccCompatibleName: tp("ccCompatibleLabel"),
+          anthropicCompatibleName: tp("anthropicCompatibleName"),
+          openAiCompatibleName: tp("openaiCompatibleName"),
+        });
+        const prefix = (node.prefix || "").trim();
+        return statFor(
+          entry.id,
+          {
+            // `name` is the human caption; `alias` carries the PREFIX, which is what the
+            // models are published under and what may appear in a model path. The two are
+            // deliberately separate fields — a caption may contain spaces, a prefix may not.
+            name: entry.name,
+            alias: prefix || undefined,
+            color: entry.color,
+            textIcon: entry.textIcon,
+            iconUrl: entry.iconUrl,
+            // `apiType` picks the right OpenAI-compatible logo when the node has no
+            // icon_url; `createdAt` is what puts a newly added node last in the ring.
+            apiType: entry.apiType,
+            createdAt: node.createdAt || undefined,
+          },
+          prefix ? [prefix] : []
+        );
+      });
+
+    return [...builtIn, ...compatible];
+  }, [providerConnections, models, providerNodes, tp]);
 
   const selectedProviderModels = useMemo(() => {
     if (!selectedProvider) return [];
@@ -473,54 +596,66 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     type ProviderHealth = "active" | "error" | "idle";
     const byProvider = new Map<
       string,
-      { id: string; provider: string; name?: string; status: ProviderHealth }
+      {
+        id: string;
+        provider: string;
+        name?: string;
+        iconUrl?: string;
+        textIcon?: string;
+        apiType?: string | null;
+        createdAt?: string | null;
+        /** Best global priority across this provider's enabled connections; see providerStats. */
+        priority?: number;
+        status: ProviderHealth;
+      }
     >();
     const providerConfig = AI_PROVIDERS as Record<string, { name?: string }>;
 
-    // Connection-health per provider, so the topology node reflects "what is connected"
-    // at rest (green healthy / red error) instead of going blank between requests. A
-    // provider with ≥1 healthy connection is "active"; if none are healthy but some are
-    // errored it is "error"; otherwise "idle". Live/recent traffic still overrides this.
-    const healthByProvider = new Map<string, ProviderHealth>();
+    // A topology node is drawn ONLY for a provider that has at least one *enabled*
+    // connection (`isActive !== false`), deduplicated to one node per provider — this
+    // mirrors 9Router (`UsageStats.js` provider filter) and is the source of truth for
+    // "what is connected". We deliberately do NOT seed nodes from `providerMetrics`:
+    // that aggregates all-time `call_logs` with no time window and no connection check,
+    // so a provider that was ever called once — or merely connection-tested — used to
+    // linger as a ghost node forever after its connection was disabled or removed.
+    // Connection health only affects the node's rest colour (green connected / red
+    // errored); live + recent traffic still overrides it downstream via active/last/error.
     for (const stat of providerStats) {
+      // `connected` counts enabled connections whose test status is healthy/unknown;
+      // `errors` counts enabled connections that failed their test. Their sum is the
+      // number of enabled connections — disabled ones (isActive === false) are in
+      // neither, so a provider with only disabled connections is skipped here.
+      const enabled = stat.connected + stat.errors;
+      if (enabled <= 0) continue;
+
       const canonical = normalizeProviderId(stat.id);
-      if (!canonical) continue;
-      healthByProvider.set(
-        canonical,
-        stat.connected > 0 ? "active" : stat.errors > 0 ? "error" : "idle"
-      );
-    }
-
-    const addProvider = (providerId?: string | null, name?: string) => {
-      const rawProviderId = typeof providerId === "string" ? providerId.trim() : "";
-      if (!rawProviderId) return;
-
-      const canonicalProviderId = normalizeProviderId(rawProviderId);
-      if (!canonicalProviderId || byProvider.has(canonicalProviderId)) return;
+      if (!canonical || byProvider.has(canonical)) continue;
 
       const resolvedName =
-        getProviderDisplayLabel(rawProviderId, providerNodes) ||
-        name ||
-        providerConfig[canonicalProviderId]?.name ||
-        rawProviderId;
+        getProviderDisplayLabel(stat.id, providerNodes) ||
+        stat.provider?.name ||
+        providerConfig[canonical]?.name ||
+        stat.id;
 
-      byProvider.set(canonicalProviderId, {
-        id: canonicalProviderId,
-        provider: canonicalProviderId,
+      byProvider.set(canonical, {
+        id: canonical,
+        provider: canonical,
         name: resolvedName,
-        status: healthByProvider.get(canonicalProviderId) ?? "idle",
+        // Threaded from `resolveCompatibleProviderCatalogEntry` (see providerStats) so the
+        // topology renders the SAME logo/badge the providers page renders for this node.
+        iconUrl: stat.provider?.iconUrl,
+        textIcon: stat.provider?.textIcon,
+        apiType: stat.provider?.apiType,
+        createdAt: stat.provider?.createdAt,
+        priority: stat.priority,
+        status: stat.connected > 0 ? "active" : "error",
       });
-    };
-
-    providerStats
-      .filter((provider) => provider.total > 0)
-      .forEach((provider) => addProvider(provider.id, provider.provider.name));
-    Object.keys(providerMetrics).forEach((provider) => addProvider(provider));
+    }
 
     return Array.from(byProvider.values());
-  }, [providerStats, providerMetrics, providerNodes]);
+  }, [providerStats, providerNodes]);
 
-  const { lastProvider, errorProvider } = providerTopology;
+  const { lastProvider, errorProviders } = providerTopology;
 
   const pollBackgroundUpdate = useCallback(
     async ({
@@ -1181,7 +1316,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         <HomeProviderTopologySection
           providers={topologyProviders}
           lastProvider={lastProvider}
-          errorProvider={errorProvider}
+          errorProviders={errorProviders}
           enabled={showProviderTopologyOnHome}
         />
       )}
