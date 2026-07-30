@@ -358,13 +358,25 @@ export default function ModelCompatPopover({
     };
 
     try {
-      const failures: string[] = [];
-      for (const key of Array.from(paramDraftsRef.current.keys())) {
-        if (!(await saveDraftForTarget(key))) failures.push(key);
+      // Do not snapshot the keys once: a second target can become dirty while an earlier target's
+      // PUT is in flight. Keep selecting live drafts until only revisions that already failed in
+      // this drain remain. Remember the failed object (not just its key), so a newer edit for that
+      // target that lands while another request is pending still gets one save attempt.
+      const failedDrafts = new Map<string, ParamFilterDraft>();
+      while (true) {
+        const next = Array.from(paramDraftsRef.current.entries()).find(
+          ([key, draft]) => failedDrafts.get(key) !== draft
+        );
+        if (!next) break;
+        const [key] = next;
+        if (!(await saveDraftForTarget(key))) {
+          const failedDraft = paramDraftsRef.current.get(key);
+          if (failedDraft) failedDrafts.set(key, failedDraft);
+        }
       }
       // The indicator tracks unsaved work across ALL targets: a successful write for the target
       // now on screen must not signal "saved" while another target's draft is still owed a write.
-      if (mountedRef.current) setParamSaveFailed(failures.length > 0);
+      if (mountedRef.current) setParamSaveFailed(paramDraftsRef.current.size > 0);
     } finally {
       paramSavingRef.current = false;
       if (mountedRef.current) setParamSaving(false);
