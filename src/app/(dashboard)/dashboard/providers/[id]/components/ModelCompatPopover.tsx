@@ -31,6 +31,29 @@ function recordToHeaderRows(rec: Record<string, string>, genId: () => string): H
 // payload that no longer matches what the user typed (#8910).
 const PARAM_SAVE_MAX_ATTEMPTS = 3;
 
+// Param filters are stored as one document per provider. Model rows render independent popover
+// instances, so their GET -> whole-document PUT transactions must share a provider-level queue;
+// instance-local saving refs cannot prevent sibling rows from overwriting each other's updates.
+const paramFilterSaveQueues = new Map<string, Promise<void>>();
+
+async function serializeProviderParamFilterSave<T>(
+  providerId: string,
+  save: () => Promise<T>
+): Promise<T> {
+  const previous = paramFilterSaveQueues.get(providerId) ?? Promise.resolve();
+  const result = previous.then(save);
+  const tail = result.then(
+    () => undefined,
+    () => undefined
+  );
+  paramFilterSaveQueues.set(providerId, tail);
+  try {
+    return await result;
+  } finally {
+    if (paramFilterSaveQueues.get(providerId) === tail) paramFilterSaveQueues.delete(providerId);
+  }
+}
+
 function parseCommaList(text: string): string[] {
   return text
     ? text
@@ -324,24 +347,28 @@ export default function ModelCompatPopover({
         const draft = paramDraftsRef.current.get(key);
         if (!draft) return true;
         try {
-          const res = await fetch(`/api/providers/${draft.providerId}/param-filters`);
-          if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
-          const current = await res.json();
-          // The fetched config belongs to draft.providerId; if the draft was replaced by a newer
-          // one for the same target while the GET was in flight, restart with a fresh read.
-          if (paramDraftsRef.current.get(key) !== draft) continue;
-          const payload = buildModelParamFilterPayload(
-            current,
-            draft.modelId,
-            draft.block,
-            draft.allow
-          );
-          const putRes = await fetch(`/api/providers/${draft.providerId}/param-filters`, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+          const wroteDraft = await serializeProviderParamFilterSave(draft.providerId, async () => {
+            const res = await fetch(`/api/providers/${draft.providerId}/param-filters`);
+            if (!res.ok) throw new Error(`param-filters GET failed: ${res.status}`);
+            const current = await res.json();
+            // The fetched config belongs to draft.providerId; if the draft was replaced by a newer
+            // one while the GET (or this instance's queue wait) was in flight, restart fresh.
+            if (paramDraftsRef.current.get(key) !== draft) return false;
+            const payload = buildModelParamFilterPayload(
+              current,
+              draft.modelId,
+              draft.block,
+              draft.allow
+            );
+            const putRes = await fetch(`/api/providers/${draft.providerId}/param-filters`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
+            return true;
           });
-          if (!putRes.ok) throw new Error(`param-filters PUT failed: ${putRes.status}`);
+          if (!wroteDraft) continue;
           // Only the exact draft that was written may be discarded.
           if (paramDraftsRef.current.get(key) === draft) {
             paramDraftsRef.current.delete(key);
