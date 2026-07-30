@@ -1,4 +1,5 @@
 import { FORMATS } from "../../translator/formats.ts";
+import { isVerifiedNativeCodexRequest } from "../../config/codexIdentity.ts";
 import { isClaudeCodeCompatibleProvider } from "../../services/claudeCodeCompatible.ts";
 import { isResponsesEndpointPath } from "../../utils/responsesEndpoint.ts";
 import { getHeaderValueCaseInsensitive } from "./headers.ts";
@@ -11,12 +12,16 @@ export function shouldUseNativeCodexPassthrough({
   provider,
   sourceFormat,
   endpointPath,
+  body,
+  headers,
 }: {
   provider?: string | null;
   sourceFormat?: string | null;
   endpointPath?: string | null;
+  body?: unknown;
+  headers?: Headers | Record<string, unknown> | null;
 }): boolean {
-  if (provider !== "codex") return false;
+  if (provider !== "codex" && provider !== "chatgpt-web-codex") return false;
   if (sourceFormat !== FORMATS.OPENAI_RESPONSES) return false;
   return isResponsesEndpointPath(endpointPath);
 }

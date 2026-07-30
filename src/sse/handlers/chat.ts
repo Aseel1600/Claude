@@ -31,6 +31,7 @@ import { resolveCcDiscoveryAliasStrip } from "@/lib/ccDiscoveryAliasResolve";
 import { handleComboChat, shouldSkipConnDisable } from "@omniroute/open-sse/services/combo.ts";
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
+import { isVerifiedNativeCodexRequest } from "@omniroute/open-sse/config/codexIdentity.ts";
 import { resolveComboConfig } from "@omniroute/open-sse/services/comboConfig.ts";
 import { injectHandoffIntoBody } from "@omniroute/open-sse/services/contextHandoff.ts";
 import {
@@ -822,7 +823,8 @@ async function handleChatImplementation(
       combo,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
-        new URL(request.url).pathname.split("/").includes("responses"),
+        new URL(request.url).pathname.split("/").includes("responses") &&
+        isVerifiedNativeCodexRequest(body, request.headers),
       handleSingleModel: (
         b: any,
         m: string,
@@ -1094,7 +1096,8 @@ async function handleSingleModelChat(
         detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "") === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
           .split("/")
-          .includes("responses"),
+          .includes("responses") &&
+        isVerifiedNativeCodexRequest(body, clientRawRequest?.headers),
       handleSingleModel: (
         b: any,
         m: string,
