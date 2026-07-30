@@ -12,6 +12,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
+import { isCodexTransientAccountFailure } from "../../open-sse/handlers/chatCore/codexFailover.ts";
 
 // ── Helpers imported directly (no SQLite dependency) ────────────────────────
 const authModule = await import("../../src/sse/services/auth.ts");
@@ -153,17 +154,23 @@ test("codex failover: Object.assign patches credentials with new account", () =>
   );
 });
 
-// ── Test 6: failover only triggers on 429, not other errors ──────────────────
-test("codex failover: only 429 triggers account rotation", () => {
+// ── Test 6: failover only triggers on bounded transient statuses ─────────────
+test("codex failover: rotates on 429/502/503/504, not arbitrary errors", () => {
   const shouldTriggerFailover = (
     provider: string,
     status: number,
     attempt: number,
     maxAttempts: number
-  ) => provider === "codex" && status === 429 && attempt < maxAttempts - 1;
+  ) =>
+    provider === "codex" &&
+    isCodexTransientAccountFailure(status) &&
+    attempt < maxAttempts - 1;
 
   assert.equal(shouldTriggerFailover("codex", 429, 0, 3), true, "Codex 429 attempt 0 → rotate");
   assert.equal(shouldTriggerFailover("codex", 429, 1, 3), true, "Codex 429 attempt 1 → rotate");
+  assert.equal(shouldTriggerFailover("codex", 502, 0, 3), true, "Codex 502 attempt 0 → rotate");
+  assert.equal(shouldTriggerFailover("codex", 503, 0, 3), true, "Codex 503 attempt 0 → rotate");
+  assert.equal(shouldTriggerFailover("codex", 504, 0, 3), true, "Codex 504 attempt 0 → rotate");
   assert.equal(
     shouldTriggerFailover("codex", 429, 2, 3),
     false,

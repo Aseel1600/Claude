@@ -26,7 +26,10 @@ import {
   resolveCompressionHeader,
   isStripReasoningRequested,
 } from "./chatCore/headers.ts";
-import { markCodexScopeRateLimited } from "./chatCore/codexFailover.ts";
+import {
+  isCodexTransientAccountFailure,
+  markCodexScopeRateLimited,
+} from "./chatCore/codexFailover.ts";
 import { isCodexOriginatedHeaders } from "../config/codexIdentity.ts";
 import { trackDevice, extractIpFromHeaders } from "../services/deviceTracker.ts";
 import { getCombosCached } from "./chatCore/comboContextCache.ts";
@@ -2694,7 +2697,7 @@ export async function handleChatCore({
           const isModelScopeForRequest = isModelScope();
           const maxAttempts = isModelScopeForRequest ? 3 : provider === "codex" ? 3 : 1;
 
-          // ── Codex 429 account-rotation state ─────────────────────────────────
+          // ── Codex transient account-rotation state ─────────────────────────────
           // Track excluded connection IDs for codex failover across attempts.
           const codexExcludedIds: string[] = [];
           // Derive session affinity key once for codex failover (used to clear affinity on 429).
@@ -2817,33 +2820,44 @@ export async function handleChatCore({
                 }
               }
 
-              // Codex 429 account-rotation failover (disabled for context-relay so combo.ts can inject handoff)
+              // Codex transient account-rotation failover (disabled for context-relay so
+              // combo.ts can inject handoff).  In v3.8.49 this branch only handled 429,
+              // leaving direct Codex overload responses (HTTP 502/503/504) to return to
+              // the client without trying another account.  The Codex upstream uses 502
+              // for "Our servers are currently overloaded"; keep rotation bounded to the
+              // existing three-attempt Codex budget.
               if (
                 provider === "codex" &&
                 comboStrategy !== "context-relay" &&
-                res.response.status === 429 &&
+                isCodexTransientAccountFailure(res.response.status) &&
                 attempts < maxAttempts - 1
               ) {
                 const failedConnectionId =
                   execCreds?.connectionId || credentials?.connectionId || connectionId;
                 const normalizedHeaders = normalizeHeaders(res.response.headers);
                 const retryAfterHeader = normalizedHeaders["retry-after"] ?? null;
-                const retryAfterMs = retryAfterHeader
-                  ? Number.parseFloat(retryAfterHeader) * 1000
+                const retryAfterSeconds = retryAfterHeader
+                  ? Number.parseFloat(retryAfterHeader)
+                  : Number.NaN;
+                const retryAfterMs = Number.isFinite(retryAfterSeconds)
+                  ? Math.max(retryAfterSeconds * 1000, 0)
                   : null;
+                const failureStatus = res.response.status;
+                const failureLabel = failureStatus === 429 ? "429" : `${failureStatus} transient`;
 
                 log?.warn?.(
                   "CODEX_FAILOVER",
-                  `429 on connection ${String(failedConnectionId).slice(0, 8)} (attempt ${attempts + 1}/${maxAttempts}), rotating account`
+                  `${failureLabel} on connection ${String(failedConnectionId).slice(0, 8)} (attempt ${attempts + 1}/${maxAttempts}), rotating account`
                 );
 
-                // Mark only the current Codex model scope as rate-limited.
+                // Mark only the current Codex model scope as temporarily unavailable.
                 if (failedConnectionId) {
                   await markCodexScopeRateLimited({
                     failedConnectionId: String(failedConnectionId),
                     model: modelToCall || model || requestedModel || null,
                     rateLimitedUntil: new Date(Date.now() + (retryAfterMs || 60_000)).toISOString(),
                     credentials,
+                    status: failureStatus,
                   });
                   // Fix B: also persist the cooldown to
                   // `provider_connections.rate_limited_until`. Without this,
@@ -2886,7 +2900,10 @@ export async function handleChatCore({
                 ).catch(() => null);
 
                 if (!nextCreds || nextCreds.allRateLimited) {
-                  log?.warn?.("CODEX_FAILOVER", "No more codex accounts available — returning 429");
+                  log?.warn?.(
+                    "CODEX_FAILOVER",
+                    `No more codex accounts available — returning ${failureStatus}`
+                  );
                   if (stream) {
                     releaseAccountSemaphore();
                     return {
