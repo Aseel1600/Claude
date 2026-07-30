@@ -109,8 +109,6 @@ export const REFRESH_LEAD_MS: Record<string, number> = {
   "gitlab-duo": 5 * 60 * 1000, // GitLab token family revocation on misuse
   kiro: 5 * 60 * 1000, // AWS SSO OIDC issues one-time-use refresh tokens
   "kimi-coding": 5 * 60 * 1000, // Moonshot rotates per-refresh
-  // Non-rotating providers — longer lead is safe.
-  iflow: 24 * 60 * 60 * 1000, // 24 hours
   // Google OAuth refresh_tokens are permanent (non-rotating) — longer lead
   // is safe and reduces unnecessary upstream chatter.
   antigravity: 15 * 60 * 1000,
