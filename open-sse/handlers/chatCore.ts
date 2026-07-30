@@ -1122,10 +1122,9 @@ export async function handleChatCore({
     const compressionSettings: CompressionConfig | null = compressionSettingsResult.settings;
     // #8034 — operator-named model/endpoint exclusions bypass the whole pipeline, exactly
     // like compression being globally disabled, so the body is provably byte-identical.
-    const compressionExcluded = isCompressionExcluded(
-      { provider, model: effectiveModel },
-      compressionSettings?.exclusions
-    );
+    const compressionExcluded =
+      nativeCodexPassthrough ||
+      isCompressionExcluded({ provider, model: effectiveModel }, compressionSettings?.exclusions);
     let promptCompressionEnabled = compressionSettingsResult.enabled && !compressionExcluded;
     reactiveContextCompactionEnabled = compressionSettingsResult.enabled && !compressionExcluded;
     contextEditingEnabled = compressionSettingsResult.contextEditingEnabled;
