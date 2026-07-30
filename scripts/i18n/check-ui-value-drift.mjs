@@ -78,6 +78,33 @@ export function flattenLeaves(node, prefix = "", out = {}) {
  * @param {Record<string, object>} args.headLocales  locale -> catalog in the working tree
  * @returns {Array<{ key: string, locale: string }>} sorted, stable
  */
+/**
+ * Whether an English rewrite is COSMETIC — the same sentence, differently cased, spaced, or
+ * terminally punctuated. A translation of the old string is still a correct translation of the
+ * new one, so it must not be marked stale.
+ *
+ * Why this exists: `"Reset Defaults"` → `"Reset defaults"` marked the key stale in 41 locales
+ * during the v3.8.49 cycle. Every one of those translations was still correct, and in locales
+ * with no letter case the "fix" is not even expressible. Worse, the documented escape hatch
+ * (a `__MISSING__:` placeholder) is BANNED in `vi` by tests/unit/i18n-vi-completeness.test.ts,
+ * so `vi` had no legitimate way out of a purely cosmetic English edit.
+ *
+ * Deliberately narrow. Only case, whitespace runs, and trailing terminal punctuation are
+ * folded. Any change to the words themselves — including added or removed words, and any
+ * change inside an interpolation like `{count}` — is a real rewrite and still flags.
+ */
+export function isCosmeticRewrite(before, after) {
+  if (typeof before !== "string" || typeof after !== "string") return false;
+  if (before === after) return true;
+  const norm = (s) =>
+    s
+      .replace(/\s+/g, " ")
+      .replace(/[.:!?;,]+$/u, "")
+      .trim()
+      .toLowerCase();
+  return norm(before) === norm(after);
+}
+
 export function findStaleTranslations({ baseEn, headEn, baseLocales, headLocales }) {
   const baseFlat = flattenLeaves(baseEn);
   const headFlat = flattenLeaves(headEn);
@@ -85,8 +112,14 @@ export function findStaleTranslations({ baseEn, headEn, baseLocales, headLocales
   // Keys whose English copy was REWRITTEN by this change. A key absent from either side
   // is an add or a delete: nothing can be stale against text that did not exist, and a
   // renamed key (delete + add) is exactly the safe fix pattern.
+  //
+  // Cosmetic rewrites (case, spacing, trailing punctuation) are excluded — see
+  // isCosmeticRewrite. They used to invalidate correct translations in 41 locales at once.
   const rewritten = Object.keys(headFlat).filter(
-    (key) => key in baseFlat && baseFlat[key] !== headFlat[key]
+    (key) =>
+      key in baseFlat &&
+      baseFlat[key] !== headFlat[key] &&
+      !isCosmeticRewrite(baseFlat[key], headFlat[key])
   );
   if (rewritten.length === 0) return [];
 
