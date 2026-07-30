@@ -119,6 +119,7 @@ import {
   normalizeClaudeAdaptiveThinking,
   normalizeClaudeDisabledThinkingEffort,
 } from "../services/claudeAdaptiveThinking.ts";
+import { shouldUseMidConversationSystem } from "../executors/claudeIdentity.ts";
 import { normalizeClaudeHaikuConstraints } from "../services/claudeHaikuConstraints.ts";
 import { applyDefaultReasoningEffort } from "../services/defaultReasoningEffort.ts";
 import { echoModelInObject } from "../services/responseModelEcho.ts";
@@ -2073,15 +2074,15 @@ export async function handleChatCore({
         }
       }
 
-      // Fix #2468: always extract role:"system" → top-level system.
-      // The semantic passthrough correctly skips the Claude→OpenAI→Claude
-      // round-trip, but even pure Claude bodies may carry system content as
-      // role:"system" messages rather than the top-level system field, which
-      // Anthropic's Messages API now rejects with a 400.
+      // Legacy models reject role:"system" messages. Opus accepts them behind
+      // its beta, and hoisting them breaks the prompt cache prefix.
       if (isClaudeCodeSemanticPassthrough) {
-        // Only lift system/developer messages — preserves Claude Code's
-        // native payload structure (documents, tool chains, thinking, etc.)
-        extractSystemRoleMessages(translatedBody);
+        if (
+          provider !== "claude" ||
+          !shouldUseMidConversationSystem(translatedBody, effectiveModel)
+        ) {
+          extractSystemRoleMessages(translatedBody);
+        }
         if (Array.isArray(translatedBody.messages)) {
           translatedBody.messages = splitMisplacedToolResults(
             translatedBody.messages as ClaudeMessage[]

@@ -759,6 +759,60 @@ test("chatCore normalizes native Claude Code messages for native Claude OAuth pa
   assert.equal(call.body.messages[2].content[0].type, "tool_result");
 });
 
+test("chatCore preserves Opus 5 mid-conversation system cache breakpoints", async () => {
+  await settingsDb.updateSettings({ alwaysPreserveClientCache: "auto" });
+  invalidateCacheControlSettingsCache();
+
+  const { call, result } = await invokeChatCore({
+    provider: "claude",
+    model: "claude-opus-5",
+    endpoint: "/v1/messages",
+    credentials: { apiKey: "claude-key", providerSpecificData: {} },
+    body: {
+      model: "claude-opus-5",
+      max_tokens: 64,
+      system: [
+        {
+          type: "text",
+          text: "stable system prompt",
+          cache_control: { type: "ephemeral", ttl: "5m" },
+        },
+      ],
+      messages: [
+        { role: "user", content: [{ type: "text", text: "first turn" }] },
+        { role: "assistant", content: [{ type: "text", text: "first response" }] },
+        {
+          role: "system",
+          content: [
+            {
+              type: "text",
+              text: "compact continuation",
+              cache_control: { type: "ephemeral" },
+            },
+          ],
+        },
+        { role: "user", content: [{ type: "text", text: "latest turn" }] },
+      ],
+      tools: [{ name: "Bash", input_schema: { type: "object", properties: {} } }],
+    },
+    userAgent: "Claude-Code/2.1.220",
+    requestHeaders: { "x-app": "cli", "x-claude-code-session-id": "session-123" },
+    responseFormat: "claude",
+  });
+
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    call.body.messages.map((message: { role: string }) => message.role),
+    ["user", "assistant", "system", "user"]
+  );
+  assert.deepEqual(call.body.messages[2].content[0].cache_control, { type: "ephemeral" });
+  assert.equal(
+    call.body.system.some((block: { text?: string }) => block.text === "compact continuation"),
+    false
+  );
+  assert.equal(call.body.messages[3].content[0].cache_control, undefined);
+});
+
 test("chatCore keeps Claude normalization for non-Claude-Code Claude passthrough", async () => {
   const { call, result } = await invokeChatCore({
     provider: "claude",
