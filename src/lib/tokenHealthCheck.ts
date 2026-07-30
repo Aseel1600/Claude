@@ -627,9 +627,18 @@ export async function checkConnection(conn) {
         });
       }
 
-      log(
-        `${LOG_PREFIX} ${conn.provider}/${getConnectionLogLabel(conn)} has no refresh token but has a GitHub access token; keeping connection active`
-      );
+      // Steady-state ticks stay silent: this path runs once per TICK_MS (60s) for
+      // EVERY github/ghe-copilot connection, so an unconditional line here emits
+      // ~1440 entries/day per connection all saying the same nothing-changed thing.
+      // Only report when the sweep actually did work — a Copilot sub-token refresh
+      // attempt — so a genuine refresh failure still surfaces in the log.
+      if (copilotAboutToExpire) {
+        log(
+          `${LOG_PREFIX} ${conn.provider}/${getConnectionLogLabel(conn)} Copilot token ${
+            refreshedProviderSpecificData ? "refreshed" : "refresh FAILED"
+          } (no refresh token; connection stays active)`
+        );
+      }
       return;
     }
 
