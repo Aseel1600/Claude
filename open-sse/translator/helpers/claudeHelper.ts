@@ -2,6 +2,9 @@
 import { DEFAULT_THINKING_CLAUDE_SIGNATURE } from "../../config/defaultThinkingSignature.ts";
 import { lookupReasoning, recordReplay } from "../../services/reasoningCache.ts";
 import { getModelTargetFormat } from "../../config/providerModels.ts";
+import { NON_ANTHROPIC_THINKING_PLACEHOLDER } from "../../utils/reasoningPlaceholder.ts";
+
+export { NON_ANTHROPIC_THINKING_PLACEHOLDER } from "../../utils/reasoningPlaceholder.ts";
 
 // MiniMax exposes a Claude-compatible endpoint but rejects Anthropic's extended
 // `output_config` parameter (used to steer reasoning effort and structured output)
@@ -9,10 +12,7 @@ import { getModelTargetFormat } from "../../config/providerModels.ts";
 // dispatching Claude-shape requests to these providers. Anthropic Claude and
 // other Claude-compatible upstreams that do accept it are unaffected.
 // Ported from upstream decolua/9router#820 by @hiepau1231.
-const CLAUDE_FORMAT_PROVIDERS_WITHOUT_OUTPUT_CONFIG = new Set<string>([
-  "minimax",
-  "minimax-cn",
-]);
+const CLAUDE_FORMAT_PROVIDERS_WITHOUT_OUTPUT_CONFIG = new Set<string>(["minimax", "minimax-cn"]);
 
 // Placeholder thinking text used as last-resort fallback when:
 //   - Target upstream is a non-Anthropic Claude-shape provider
@@ -21,8 +21,6 @@ const CLAUDE_FORMAT_PROVIDERS_WITHOUT_OUTPUT_CONFIG = new Set<string>([
 //   - reasoningCache has no entry for the corresponding tool_use.id
 // Must be non-empty: kimi-coding treats empty `thinking.thinking` as
 // `reasoning_content missing` and 400s.
-export const NON_ANTHROPIC_THINKING_PLACEHOLDER = "(prior reasoning summary unavailable)";
-
 type ClaudeContentBlock = {
   type?: string;
   text?: string;
@@ -87,7 +85,11 @@ export function hasValidContent(msg: ClaudeMessage): boolean {
       (block) =>
         (block.type === "text" && block.text?.trim()) ||
         block.type === "tool_use" ||
-        block.type === "tool_result"
+        block.type === "tool_result" ||
+        // #7777: media-only user turns are real content — dropping them
+        // silently deletes vision input on the CC bridge / Claude paths.
+        block.type === "image" ||
+        block.type === "document"
     );
   }
   return false;
@@ -237,6 +239,32 @@ function markMessageCacheControl(msg: ClaudeMessage, ttl?: string): boolean {
   return true;
 }
 
+/** True when the body carries at least one cache_control marker anywhere
+ * (system blocks, message content blocks, or tools). Used to decide whether
+ * preserve-mode has anything to preserve. */
+function bodyHasAnyCacheControl(body: ClaudeRequestBody): boolean {
+  if (Array.isArray(body.system)) {
+    for (const block of body.system) {
+      if (block && typeof block === "object" && block.cache_control) return true;
+    }
+  }
+  if (Array.isArray(body.messages)) {
+    for (const msg of body.messages) {
+      if (!Array.isArray(msg?.content)) continue;
+      for (const block of msg.content) {
+        if (block && typeof block === "object" && block.cache_control) return true;
+      }
+    }
+  }
+  if (Array.isArray(body.tools)) {
+    for (const tool of body.tools) {
+      if (tool && typeof tool === "object" && (tool as { cache_control?: unknown }).cache_control)
+        return true;
+    }
+  }
+  return false;
+}
+
 // Prepare request for Claude format endpoints
 // - Cleanup cache_control (unless preserveCacheControl=true for passthrough)
 // - Filter empty messages
@@ -246,13 +274,29 @@ export function prepareClaudeRequest(
   body: ClaudeRequestBody,
   provider: string | null = null,
   preserveCacheControl = false,
-  model: string | null = null
+  model: string | null = null,
+  opts: { fallbackToHeuristicWhenNoMarkers?: boolean } = {}
 ): ClaudeRequestBody {
   // 0. Strip Anthropic `output_config` for providers that reject it on their
   // Claude-compatible endpoints (MiniMax). Must run before any downstream
   // processing so the field never reaches translateRequest/the executor.
   if (provider && CLAUDE_FORMAT_PROVIDERS_WITHOUT_OUTPUT_CONFIG.has(provider)) {
     delete body.output_config;
+  }
+
+  // preserveCacheControl means "the client manages its own cache markers".
+  // A body with NO cache_control anywhere has nothing to preserve — shipping
+  // it untouched would mean zero prompt-cache breakpoints (every token billed
+  // uncached on every turn). The translator path opts into falling back to the
+  // standard heuristic in that case; the claude-code-compatible relay path
+  // keeps its long-standing "never supplement missing markers" contract
+  // (cc-compatible-provider.test.ts) and does not pass the flag.
+  if (
+    preserveCacheControl &&
+    opts.fallbackToHeuristicWhenNoMarkers === true &&
+    !bodyHasAnyCacheControl(body)
+  ) {
+    preserveCacheControl = false;
   }
 
   // 1. System: remove all cache_control, add only to last block with ttl 1h
@@ -464,7 +508,11 @@ export function prepareClaudeRequest(
               ? typeof b.data === "string" && (b.data as string).length > 0
               : typeof b.signature === "string" && b.signature.length > 0
         );
-        if (latestHasExistingThinking && supportsRedactedThinking && latestHasGenuineThinkingSignature) {
+        if (
+          latestHasExistingThinking &&
+          supportsRedactedThinking &&
+          latestHasGenuineThinkingSignature
+        ) {
           // Anthropic: skip all thinking-block rewrites entirely — the
           // blocks must remain verbatim (type, thinking, signature, data).
           continue;

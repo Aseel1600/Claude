@@ -6,7 +6,7 @@
  * is auto-generated from this registry.
  */
 
-import { ANTIGRAVITY_BASE_URLS } from "../antigravityUpstream.ts";
+import { ANTIGRAVITY_RUNTIME_BASE_URLS } from "../antigravityUpstream.ts";
 import { ANTIGRAVITY_PUBLIC_MODELS } from "../antigravityModelAliases.ts";
 import { AGY_PUBLIC_MODELS } from "../agyModels.ts";
 import {
@@ -33,7 +33,6 @@ import {
   getGitHubCopilotChatHeaders,
   getKiroServiceHeaders,
   getQoderDefaultHeaders,
-  getQwenOauthHeaders,
   getRuntimePlatform,
   getRuntimeArch,
 } from "../providerHeaderProfiles.ts";
@@ -109,6 +108,8 @@ export interface RegistryEntry {
   baseUrls?: string[];
   /** Override base URL used only for API key validation (e.g., opencode-go validates on zen/v1) */
   testKeyBaseUrl?: string;
+  /** Override models URL used only for API key validation, not catalog discovery. */
+  testKeyModelsUrl?: string;
   responsesBaseUrl?: string;
   /** Anthropic-native /v1/messages endpoint (e.g. GitHub Copilot's shim) used
    *  for models tagged `targetFormat: "claude"` on an otherwise openai-format
@@ -156,6 +157,31 @@ export interface RegistryEntry {
    * so the authenticated path is never affected.
    */
   anonymousApiKey?: string;
+  /**
+   * Provider-wide fallback for `RegistryModel.unsupportedParams`, applied when a
+   * model has no per-model override AND (for `passthroughModels: true`
+   * providers) isn't one of the few models statically listed here at all —
+   * e.g. AI Horde's live-discovered models change as workers come and go, and
+   * every one of them shares the same hard limitation ("the workers run raw
+   * text-completion backends" — no tool calling on any model, not just the
+   * 3 statically catalogued ones). Checked by `getUnsupportedParams()` after
+   * the per-model lookup misses.
+   */
+  unsupportedParams?: readonly string[];
+  /**
+   * True for strict/naive OpenAI-compatible backends that reject a single-text-part
+   * content array (`[{ type: "text", text }]`) and only accept the equivalent plain
+   * string. Used by the Responses→Chat translator to collapse single-part text
+   * content down to a string for this provider only, leaving every other provider's
+   * standard OpenAI array-shaped content untouched (see openai-responses.ts).
+   */
+  requiresPlainStringContent?: boolean;
+  /**
+   * Protocolos alternativos que este provedor aceita (ex.: um endpoint
+   * Anthropic-compatible alem do OpenAI-compatible padrao). A conexao escolhe
+   * via providerSpecificData.targetFormat; ver config/providers/alternateFormats.ts.
+   */
+  alternateFormats?: import("./alternateFormats.ts").AlternateFormat[];
 }
 
 /**
@@ -197,21 +223,6 @@ export interface LegacyProvider {
 export const buildModels = (ids: readonly string[]): RegistryModel[] =>
   ids.map((id) => ({ id, name: id }));
 
-export const ALIBABA_DASHSCOPE_MODELS: RegistryModel[] = [
-  { id: "qwen-max", name: "Qwen Max" },
-  { id: "qwen-max-2025-01-25", name: "Qwen Max (2025-01-25)" },
-  { id: "qwen-plus", name: "Qwen Plus" },
-  { id: "qwen-plus-2025-07-14", name: "Qwen Plus (2025-07-14)" },
-  { id: "qwen-turbo", name: "Qwen Turbo" },
-  { id: "qwen-turbo-2025-11-01", name: "Qwen Turbo (2025-11-01)" },
-  { id: "qwen3-coder-plus", name: "Qwen3 Coder Plus" },
-  { id: "qwen3-coder-flash", name: "Qwen3 Coder Flash" },
-  { id: "qwq-plus", name: "QwQ Plus (Reasoning)" },
-  { id: "qwq-32b", name: "QwQ 32B" },
-  { id: "qwen3-32b", name: "Qwen3 32B" },
-  { id: "qwen3-235b-a22b", name: "Qwen3 235B A22B" },
-];
-
 export const GPT_5_5_CONTEXT_LENGTH = 1050000;
 export const GPT_5_5_CODEX_CAPABILITIES = {
   targetFormat: "openai-responses",
@@ -242,7 +253,7 @@ export const GPT_5_6_API_CAPABILITIES = {
   maxOutputTokens: 128000,
 } as const;
 
-// Codex's live catalog reports a 372K context window for GPT-5.6.
+// Codex's live catalog reports a 272K input context window for GPT-5.6.
 // Keep the input and output limits explicit for catalog consumers that expose them separately.
 export const GPT_5_6_CODEX_CAPABILITIES = {
   targetFormat: "openai-responses",
@@ -250,8 +261,8 @@ export const GPT_5_6_CODEX_CAPABILITIES = {
   supportsReasoning: true,
   supportsVision: true,
   supportsXHighEffort: true,
-  contextLength: 372000,
-  maxInputTokens: 372000,
+  contextLength: 272000,
+  maxInputTokens: 272000,
   maxOutputTokens: 128000,
 } as const;
 
@@ -393,8 +404,12 @@ export const CHAT_OPENAI_COMPAT_MODELS: Record<string, RegistryModel[]> = {
   // from the menu; old refs auto-forward via the codestral-2405 deprecation alias.
   codestral: buildModels(["codestral-2508", "codestral-latest"]),
   upstage: buildModels(["solar-pro3", "solar-mini"]),
-  maritalk: buildModels(["sabia-4", "sabia-3.1", "sabiazinho-4", "sabiazinho-3"]),
+  maritalk: buildModels(["sabia-4", "sabia-4-thinking", "sabiazinho-4"]),
   "xiaomi-mimo": [
+    { id: "mimo-v2.5-pro", name: "MiMo-V2.5-Pro", contextLength: 1048576, maxOutputTokens: 131072 },
+    { id: "mimo-v2.5", name: "MiMo-V2.5", contextLength: 1048576, maxOutputTokens: 131072 },
+  ],
+  "xiaomi-mimo-token-plan": [
     { id: "mimo-v2.5-pro", name: "MiMo-V2.5-Pro", contextLength: 1048576, maxOutputTokens: 131072 },
     { id: "mimo-v2.5", name: "MiMo-V2.5", contextLength: 1048576, maxOutputTokens: 131072 },
   ],
@@ -667,7 +682,7 @@ export function mapStainlessArch() {
 // ── Registry ──────────────────────────────────────────────────────────────
 
 export {
-  ANTIGRAVITY_BASE_URLS,
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
   ANTIGRAVITY_PUBLIC_MODELS,
   AGY_PUBLIC_MODELS,
   ANTHROPIC_BETA_API_KEY,
@@ -689,7 +704,6 @@ export {
   getGitHubCopilotChatHeaders,
   getKiroServiceHeaders,
   getQoderDefaultHeaders,
-  getQwenOauthHeaders,
   getRuntimePlatform,
   getRuntimeArch,
   resolvePublicCred,

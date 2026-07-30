@@ -15,9 +15,9 @@ import { codex } from "./codex";
 import { antigravity } from "./antigravity";
 import { agy } from "./agy";
 import { qoder } from "./qoder";
-import { qwen } from "./qwen";
 import { kimiCoding } from "./kimi-coding";
 import { github } from "./github";
+import { gheCopilot } from "./ghe-copilot";
 import { gitlabDuo } from "./gitlab-duo";
 import { kiro } from "./kiro";
 import { cursor } from "./cursor";
@@ -37,9 +37,9 @@ export const PROVIDERS = {
   antigravity,
   agy,
   qoder,
-  qwen,
   "kimi-coding": kimiCoding,
   github,
+  "ghe-copilot": gheCopilot,
   "gitlab-duo": gitlabDuo,
   kiro,
   "amazon-q": kiro,
@@ -54,6 +54,8 @@ export const PROVIDERS = {
   windsurf,
   // devin-cli shares the same token format as windsurf (WINDSURF_API_KEY / devin auth login)
   "devin-cli": windsurf,
+  // grok-cli carries BOTH the browser PKCE flow and the paste-token import flow
+  // under this one entry (#7013) — see grok-cli.ts's mapTokens for the dispatch.
   "grok-cli": grokCli,
   "xai-oauth": xaiOauth,
   "codebuddy-cn": codebuddyCn,

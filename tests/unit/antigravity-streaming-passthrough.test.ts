@@ -1,7 +1,6 @@
-// Antigravity streaming-passthrough behavior (#7408): the non-streaming drain
-// path (raw SSE + chatCore-side parse) and the credits-extraction pass-through
-// TransformStream. Moved verbatim from tests/unit/executor-antigravity.test.ts
-// (frozen file-size cap) — same tests, same asserts.
+// Antigravity streaming-passthrough behavior (#7408): the buffered non-streaming
+// response path and the credits-extraction pass-through TransformStream. Kept
+// separate from executor-antigravity.test.ts to respect its frozen file-size cap.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -9,10 +8,10 @@ import {
   AntigravityExecutor,
   createCreditsExtractionTransform,
 } from "../../open-sse/executors/antigravity.ts";
-import { parseSSEToGeminiResponse } from "../../open-sse/handlers/sseParser/geminiResponse.ts";
 import {
-  clearAntigravityVersionCache,
-  seedAntigravityVersionCache,
+  clearAntigravityVersionCaches,
+  seedAntigravityIdeVersionCache,
+  seedAntigravityCliVersionCache,
 } from "../../open-sse/services/antigravityVersion.ts";
 
 type ChatCompletionPayload = {
@@ -29,7 +28,7 @@ type ChatCompletionPayload = {
 };
 
 test.afterEach(() => {
-  clearAntigravityVersionCache();
+  clearAntigravityVersionCaches();
 });
 
 test("AntigravityExecutor.execute auto-retries short 429 responses and collects SSE for non-stream clients", async () => {
@@ -37,7 +36,8 @@ test("AntigravityExecutor.execute auto-retries short 429 responses and collects 
   const originalFetch = globalThis.fetch;
   const originalSetTimeout = globalThis.setTimeout;
   const calls = [];
-  seedAntigravityVersionCache("2026.04.17-test");
+  seedAntigravityIdeVersionCache("2026.04.17-test");
+  seedAntigravityCliVersionCache("2026.04.17-test");
 
   globalThis.fetch = async (url) => {
     calls.push(String(url));
@@ -73,11 +73,10 @@ test("AntigravityExecutor.execute auto-retries short 429 responses and collects 
       credentials: { accessToken: "token", projectId: "project-1" },
       log: { debug() {}, warn() {} },
     });
-    // Non-streaming now returns raw SSE; parse it the way chatCore would.
-    const rawSSE = await result.response.text();
-    const parsed = parseSSEToGeminiResponse(rawSSE, "antigravity/gemini-2.5-flash");
-    assert.ok(parsed, "parseSSEToGeminiResponse should parse the SSE");
-    const payload = parsed as ChatCompletionPayload;
+    // Non-streaming collects the upstream SSE and returns the already-converted
+    // OpenAI chat.completion payload — no further SSE parsing on the caller side.
+    const payload = JSON.parse(await result.response.text()) as ChatCompletionPayload;
+    assert.equal(payload.object, "chat.completion");
 
     assert.equal(calls.length, 2);
     assert.equal(result.response.status, 200);

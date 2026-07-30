@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/usageAnalytics";
 import { getFallbackStats } from "@/lib/db/callLogStats";
 import { buildByProviderRows } from "@/lib/usage/providerDisplayNames";
+import { toNumber } from "@/shared/utils/numeric";
 
 function getRangeStartIso(range: string): string | null {
   const end = new Date();
@@ -73,15 +74,6 @@ type GetCodexFastCostMultiplier = (
   model: string | null | undefined,
   serviceTier: string | null | undefined
 ) => number;
-
-function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
 
 function toStringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
@@ -355,10 +347,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Compute the raw-data cutoff: rows older than this may have been rolled up to
-    // daily_usage_summary and deleted from usage_history.
+    // Raw-data cutoff: must match cleanupUsageHistory's rollup/delete boundary —
+    // retention.usageHistory (src/lib/db/cleanup.ts), NOT aggregation.rawDataRetentionDays.
     const dbSettings = getUserDatabaseSettings();
-    const rawRetentionDays = dbSettings.aggregation?.rawDataRetentionDays ?? 30;
+    const rawRetentionDays = dbSettings.retention?.usageHistory ?? 30;
     const rawCutoff = new Date();
     rawCutoff.setDate(rawCutoff.getDate() - rawRetentionDays);
     const rawCutoffIso = rawCutoff.toISOString();
@@ -598,7 +590,10 @@ export async function GET(request: Request) {
         normalizeModelName,
         computeCostFromPricing
       );
-      const key = `${provider}::${short}`;
+      // Keyed by model name alone (not provider) — the table renders one row per
+      // model, so the same model served via multiple provider connections/accounts
+      // must be merged here rather than producing duplicate `key={m.model}` rows.
+      const key = short;
       const existing = modelMap.get(key) || {
         model: short,
         provider,
@@ -673,7 +668,7 @@ export async function GET(request: Request) {
 
     const accountCostByAccount = new Map<string, number>();
     for (const row of accountCostRows) {
-      const account = toStringValue(row.account, "unknown");
+      const accountKey = toStringValue(row.accountKey, "unknown");
       const cost = computeUsageRowCost(
         row,
         pricingByProvider,
@@ -681,7 +676,7 @@ export async function GET(request: Request) {
         normalizeModelName,
         computeCostFromPricing
       );
-      accountCostByAccount.set(account, (accountCostByAccount.get(account) || 0) + cost);
+      accountCostByAccount.set(accountKey, (accountCostByAccount.get(accountKey) || 0) + cost);
     }
 
     const byAccount = accountRows.map((row) => ({
@@ -692,7 +687,7 @@ export async function GET(request: Request) {
       totalTokens: Number(row.totalTokens),
       avgLatencyMs: Math.round(Number(row.avgLatencyMs)),
       lastUsed: row.lastUsed,
-      cost: roundCost(accountCostByAccount.get(toStringValue(row.account, "unknown")) || 0),
+      cost: roundCost(accountCostByAccount.get(toStringValue(row.accountKey, "unknown")) || 0),
     }));
 
     const apiKeyMap = new Map<

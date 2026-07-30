@@ -13,7 +13,6 @@ const {
   refreshKimiCodingToken,
   refreshClaudeOAuthToken,
   refreshGoogleToken,
-  refreshQwenToken,
   refreshCodexToken,
   refreshKiroToken,
   refreshQoderToken,
@@ -376,44 +375,6 @@ test("refreshGoogleToken exchanges refresh tokens against the shared google endp
   assert.equal(
     bodyToString(calls[0].options.body),
     "grant_type=refresh_token&refresh_token=google-refresh&client_id=gid&client_secret=gsecret"
-  );
-});
-
-test("refreshQwenToken maps resource_url into providerSpecificData", async () => {
-  const log = createLog();
-
-  await withMockedFetch(
-    async () =>
-      jsonResponse({
-        access_token: "qwen-access",
-        refresh_token: "qwen-refresh-next",
-        expires_in: 1500,
-        resource_url: "https://chat.qwen.ai/workspace/resource",
-      }),
-    async () => {
-      const result = await refreshQwenToken("qwen-refresh", log);
-      assert.deepEqual(result, {
-        accessToken: "qwen-access",
-        refreshToken: "qwen-refresh-next",
-        expiresIn: 1500,
-        providerSpecificData: {
-          resourceUrl: "https://chat.qwen.ai/workspace/resource",
-        },
-      });
-    }
-  );
-});
-
-test("refreshQwenToken surfaces invalid_request as unrecoverable", async () => {
-  const log = createLog();
-
-  await withMockedFetch(
-    async () => textResponse(JSON.stringify({ error: "invalid_request" }), 400),
-    async () => {
-      const result = await refreshQwenToken("qwen-refresh", log);
-      // Normalized to unrecoverable_refresh_error sentinel (Fix 4)
-      assert.deepEqual(result, { error: "unrecoverable_refresh_error", code: "invalid_request" });
-    }
   );
 });
 
@@ -833,6 +794,73 @@ test("supportsTokenRefresh, isUnrecoverableRefreshError and formatProviderCreden
 
   assert.equal(formatProviderCredentials("missing-provider", {}, log), null);
 });
+
+test("getAccessToken discovers projectId for antigravity when stored value is empty", async () => {
+  const log = createLog();
+  const { clearAntigravityProjectCache } = await import("../../open-sse/services/antigravityProjectBootstrap.ts");
+  clearAntigravityProjectCache();
+
+  let fetchCalls: string[] = [];
+  await withMockedFetch(async (url, init) => {
+    const urlStr = String(url);
+    fetchCalls.push(urlStr);
+    if (urlStr.includes("oauth2.googleapis.com/token")) {
+      return jsonResponse({
+        access_token: "new-token-1",
+        refresh_token: "new-refresh",
+        expires_in: 3600,
+      });
+    }
+    if (urlStr.includes("loadCodeAssist")) {
+      return jsonResponse({ cloudaicompanionProject: "discovered-project" });
+    }
+    return new Response("not found", { status: 404 });
+  }, async () => {
+    const result = await getAccessToken("antigravity", {
+      refreshToken: "refresh",
+      projectId: "",
+      connectionId: "conn-1",
+      providerSpecificData: {},
+    });
+    assert.equal(result.projectId, "discovered-project");
+    assert.ok(fetchCalls.some((u) => u.includes("loadCodeAssist")), "should call loadCodeAssist");
+  });
+  clearAntigravityProjectCache();
+});
+
+
+test("getAccessToken handles projectId discovery failure gracefully for antigravity", async () => {
+  const log = createLog();
+  const { clearAntigravityProjectCache } = await import("../../open-sse/services/antigravityProjectBootstrap.ts");
+  clearAntigravityProjectCache();
+  tokenRefresh._clearTokenRotationMap();
+
+  await withMockedFetch(async (url) => {
+    const urlStr = String(url);
+    if (urlStr.includes("oauth2.googleapis.com/token")) {
+      return jsonResponse({
+        access_token: "new-token-3",
+        refresh_token: "new-refresh",
+        expires_in: 3600,
+      });
+    }
+    if (urlStr.includes("loadCodeAssist")) {
+      return new Response("server error", { status: 500 });
+    }
+    return new Response("not found", { status: 404 });
+  }, async () => {
+    const result = await getAccessToken("antigravity", {
+      refreshToken: "refresh",
+      projectId: "",
+      connectionId: "conn-1",
+      providerSpecificData: {},
+    });
+    assert.equal(result.accessToken, "new-token-3");
+    assert.ok(result, "should return a result without throwing");
+  });
+  clearAntigravityProjectCache();
+});
+
 
 test("getAccessToken deduplicates concurrent refreshes for the same provider and token", async () => {
   const log = createLog();

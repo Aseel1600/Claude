@@ -54,15 +54,23 @@ export interface WaitForCooldownSettings {
   maxRetries: number;
   maxRetryWaitSec: number;
   maxRetryWaitMs: number;
+  /**
+   * Cumulative cap (ms) across all retry waits for one request — mirrors
+   * ComboCooldownWaitSettings.budgetMs (#7360 follow-up). Without this a
+   * request could re-wait maxRetries times at up to maxRetryWaitMs each,
+   * with no overall ceiling; budgetMs bounds the total regardless of how
+   * many individual waits fire.
+   */
+  budgetMs: number;
 }
 
 /**
- * Quota-share combo cooldown-aware retry (Variante A). A quota-share (`qtSd/…`)
- * combo that would crystallize a 429 `model_cooldown` for a SHORT transient
- * cooldown waits it out and re-dispatches instead. Guards (gating + the
- * `quota_exhausted`/auth/not-found exclusions) live in
- * open-sse/services/combo/comboCooldownRetry.ts; `maxWaitMs`/`maxAttempts`/
- * `budgetMs` bound a single wait, the retry cycles, and the total wait time.
+ * Combo cooldown-aware retry. When enabled, any combo strategy that would
+ * crystallize a 429 `model_cooldown` for a SHORT transient cooldown waits it
+ * out and re-dispatches instead. Guards (gating + the `quota_exhausted`/auth/
+ * not-found exclusions) live in open-sse/services/combo/comboCooldownRetry.ts;
+ * `maxWaitMs`/`maxAttempts`/`budgetMs` bound a single wait, the retry cycles,
+ * and the total wait time.
  */
 export interface ComboCooldownWaitSettings {
   enabled: boolean;
@@ -143,6 +151,22 @@ export interface QuotaPreflightSettings {
   providerWindowDefaults: Record<string, Record<string, number>>;
 }
 
+/**
+ * #6846 Phase 1: per-provider operator overrides for the header-less "provider
+ * default" static budget (`open-sse/services/providerDefaultRateLimit.ts`) and its
+ * companion per-connection concurrency cap (`rateLimitSemaphore.ts`). Keyed by
+ * provider id (e.g. `"nvidia"`). A missing/0 field falls back to that provider's
+ * static default — this is a ceiling override, not a new rate-limit mechanism.
+ * Empty by default; only providers with a registered static default (currently
+ * only `nvidia`) read from this map.
+ */
+export interface ProviderQuotaOverrideSettings {
+  /** Overrides the static sliding-window requests-per-minute budget. */
+  rpm?: number;
+  /** Overrides the static per-connection concurrency cap. */
+  concurrency?: number;
+}
+
 export interface StreamRecoverySettings {
   /**
    * Opt-in transparent recovery of truncated upstream streams (free-claude-code port).
@@ -174,6 +198,7 @@ export interface ResilienceSettings {
   providerCooldown: ProviderCooldownSettings;
   quotaPreflight: QuotaPreflightSettings;
   streamRecovery: StreamRecoverySettings;
+  providerQuotaOverrides: Record<string, ProviderQuotaOverrideSettings>;
 }
 
 export interface ResilienceSettingsPatch {
@@ -186,4 +211,5 @@ export interface ResilienceSettingsPatch {
   providerCooldown?: Partial<ProviderCooldownSettings>;
   quotaPreflight?: Partial<QuotaPreflightSettings>;
   streamRecovery?: Partial<StreamRecoverySettings>;
+  providerQuotaOverrides?: Record<string, Partial<ProviderQuotaOverrideSettings>>;
 }

@@ -54,11 +54,52 @@ function validateCacheBlock(data: Record<string, unknown>, ctx: z.RefinementCtx)
   }
 }
 
+/**
+ * gheUrl must parse and use HTTPS. Shared by the Zod refinement above and by the
+ * OAuth route's raw entry points (searchParams / device-flow extraData), so a
+ * malformed or non-HTTPS enterprise URL is rejected before any upstream fetch.
+ */
+export function isValidGheUrl(raw: string): boolean {
+  try {
+    return new URL(raw).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function validateProviderSpecificData(
   data: Record<string, unknown> | undefined,
   ctx: z.RefinementCtx
 ): void {
   if (!data) return;
+
+  const gheUrl = data.gheUrl;
+  if (gheUrl !== undefined) {
+    if (typeof gheUrl !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "providerSpecificData.gheUrl must be a string",
+        path: ["gheUrl"],
+      });
+    } else {
+      try {
+        const parsed = new URL(gheUrl);
+        if (parsed.protocol !== "https:") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "providerSpecificData.gheUrl must use HTTPS",
+            path: ["gheUrl"],
+          });
+        }
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "providerSpecificData.gheUrl must be a valid HTTPS URL",
+          path: ["gheUrl"],
+        });
+      }
+    }
+  }
 
   const baseUrl = data.baseUrl;
   if (baseUrl !== undefined && (typeof baseUrl !== "string" || !isHttpUrl(baseUrl))) {
@@ -395,14 +436,10 @@ export function validateProviderSpecificData(
   const clientProfile = data.clientProfile;
   if (clientProfile !== undefined && clientProfile !== null) {
     const normalized = typeof clientProfile === "string" ? clientProfile.trim().toLowerCase() : "";
-    if (
-      typeof clientProfile !== "string" ||
-      !["ide", "harness", "cli", "sdk"].includes(normalized)
-    ) {
+    if (typeof clientProfile !== "string" || !["ide", "cli"].includes(normalized)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message:
-          "providerSpecificData.clientProfile must be ide, harness, cli, or sdk (cli/sdk map to harness)",
+        message: "providerSpecificData.clientProfile must be ide or cli",
         path: ["clientProfile"],
       });
     }

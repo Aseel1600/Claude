@@ -10,13 +10,17 @@ import {
   type AutoCategory,
   type AutoTier,
 } from "@omniroute/open-sse/services/autoCombo/suffixComposition.ts";
+import {
+  isValidModelFamily,
+  type ModelFamily,
+} from "@omniroute/open-sse/services/autoCombo/modelFamily.ts";
 import { getCachedSettings } from "@/lib/localDb";
 import * as log from "../utils/logger";
 
 export type AutoRoutingState = {
   model: string;
   variant?: AutoVariant;
-  spec?: { category?: AutoCategory; tier?: AutoTier };
+  spec?: { category?: AutoCategory; tier?: AutoTier; family?: ModelFamily };
   isAutoRouting: boolean;
   recognizedBuiltInAuto: boolean;
   response: Response | null;
@@ -37,12 +41,19 @@ function classifyAutoModel(
     return { recognizedBuiltInAuto: true };
   }
   const parsedSuffix = parseAutoSuffix(suffix);
-  return parsedSuffix.valid
-    ? {
-        recognizedBuiltInAuto: true,
-        spec: { category: parsedSuffix.category, tier: parsedSuffix.tier },
-      }
-    : { recognizedBuiltInAuto };
+  if (parsedSuffix.valid) {
+    return {
+      recognizedBuiltInAuto: true,
+      spec: { category: parsedSuffix.category, tier: parsedSuffix.tier },
+    };
+  }
+  if (isValidModelFamily(suffix)) {
+    return {
+      recognizedBuiltInAuto: true,
+      spec: { family: suffix as ModelFamily },
+    };
+  }
+  return { recognizedBuiltInAuto };
 }
 
 async function applyAutoPrefix(
@@ -105,7 +116,8 @@ export async function resolveAutoRoutingState(model: string): Promise<AutoRoutin
 
 export async function createVirtualAutoCombo(
   state: AutoRoutingState,
-  combo: any
+  combo: any,
+  apiKeyId?: string
 ): Promise<any | Response> {
   if (!state.isAutoRouting || combo !== null) return combo;
   if (!state.recognizedBuiltInAuto) {
@@ -118,7 +130,10 @@ export async function createVirtualAutoCombo(
   try {
     const { createVirtualAutoCombo: createVirtual } =
       await import("@omniroute/open-sse/services/autoCombo/virtualFactory.ts");
-    const virtualCombo = await createVirtual(state.variant, state.spec);
+    // #7819 (Level 2): scope candidate exclusions to this API key + the
+    // requested auto channel (e.g. "auto/best-coding"). Omitted for any
+    // caller that doesn't pass apiKeyId — routing stays unfiltered.
+    const virtualCombo = await createVirtual(state.variant, state.spec, apiKeyId, state.model);
     virtualCombo.name = state.model;
     virtualCombo.id = state.model;
     log.info(

@@ -13,6 +13,9 @@ function getDatabaseClass() {
     return null;
   }
 }
+const Database = process.versions.bun
+  ? (_require("bun:sqlite").Database as typeof import("better-sqlite3"))
+  : (_require("better-sqlite3") as typeof import("better-sqlite3"));
 
 function databaseOptions(readonly = false) {
   return readonly ? { readonly: true } : { readwrite: true, create: true };

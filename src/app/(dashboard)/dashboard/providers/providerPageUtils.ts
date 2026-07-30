@@ -13,9 +13,10 @@ import {
 } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import { providerHasServiceKind } from "@/lib/providers/serviceKindIndex";
-import { compareTr, matchesSearch } from "@/shared/utils/turkishText";
+import { compareTr, matchesAnyToken, matchesSearch } from "@/shared/utils/turkishText";
 import { fetchWithTimeout } from "@/shared/utils/fetchTimeout";
 import type { ProviderDisplayMode } from "./providerPageStorage";
+import { isFeaturedProviderId } from "./featuredProviders";
 
 export interface ProviderStatsSnapshot {
   total?: number;
@@ -69,6 +70,23 @@ export function shouldShowFirstProviderHint(
   return connectionCount === 0 && !searchQuery?.trim();
 }
 
+export function syncSearchToUrl(searchQuery: string): void {
+  if (typeof window === "undefined") return;
+
+  const url = new URL(window.location.href);
+  const currentSearch = url.searchParams.get("search") || "";
+
+  if (searchQuery.trim()) {
+    if (currentSearch !== searchQuery) {
+      url.searchParams.set("search", searchQuery);
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+  } else if (url.searchParams.has("search")) {
+    url.searchParams.delete("search");
+    window.history.replaceState(window.history.state, "", url.toString());
+  }
+}
+
 export function shouldShowProviderSection(
   category: string,
   activeCategory: string | null,
@@ -88,6 +106,7 @@ type ProviderRecord<TProvider = Record<string, unknown>> = Record<string, TProvi
 const OAUTH_CARD_API_KEY_CONNECTION_PROVIDER_IDS = new Set(["kiro", "amazon-q", "kimi-coding"]);
 
 const PROVIDER_CONNECTION_ALIASES: Record<string, readonly string[]> = {
+  alibaba: ["alibaba-cn"],
   "kimi-coding": ["kimi-coding-apikey"],
 };
 
@@ -142,6 +161,26 @@ export function sortProviderEntriesByName<TProvider>(
     if (nameCompare !== 0) return nameCompare;
     return a.providerId.localeCompare(b.providerId); // teknik sıralama: ASCII kasıtlı
   });
+}
+
+/**
+ * Sort provider entries alphabetically (via `sortProviderEntriesByName`), then
+ * stable-pin any `FEATURED_PROVIDER_IDS` member first — featured entries keep
+ * their alphabetical order among themselves, followed by the rest in
+ * alphabetical order. Presentation-only (see `featuredProviders.ts`): this must
+ * never influence routing/fallback order, only how the dashboard's provider
+ * category grids are sorted.
+ */
+export function sortProviderEntriesFeaturedFirst<TProvider>(
+  entries: ProviderEntry<TProvider>[]
+): ProviderEntry<TProvider>[] {
+  const sorted = sortProviderEntriesByName(entries);
+  const featured: ProviderEntry<TProvider>[] = [];
+  const rest: ProviderEntry<TProvider>[] = [];
+  for (const entry of sorted) {
+    (isFeaturedProviderId(entry.providerId) ? featured : rest).push(entry);
+  }
+  return [...featured, ...rest];
 }
 
 export function buildProviderEntries<TProvider = Record<string, unknown>>(
@@ -303,8 +342,8 @@ export function filterConfiguredProviderEntries<TProvider>(
     filtered = filtered.filter((entry) => {
       const provider = entry.provider as Record<string, unknown>;
       return (
-        matchesSearch(String(provider.name || ""), searchQuery) ||
-        matchesSearch(entry.providerId, searchQuery)
+        matchesAnyToken(String(provider.name || ""), searchQuery) ||
+        matchesAnyToken(entry.providerId, searchQuery)
       );
     });
   }
@@ -317,7 +356,7 @@ export function filterConfiguredProviderEntries<TProvider>(
     });
   }
 
-  return sortProviderEntriesByName(filtered);
+  return sortProviderEntriesFeaturedFirst(filtered);
 }
 
 function pushUniqueProviderEntry<TProvider>(

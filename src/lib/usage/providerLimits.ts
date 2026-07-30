@@ -36,7 +36,6 @@ import {
   sanitizeUsageQuotasForProvider,
 } from "./providerLimits/quotaNormalize";
 import { syncInChunksWithSpacing } from "./providerLimits/chunkedSpacingSync";
-
 type JsonRecord = Record<string, unknown>;
 type SyncSource = "manual" | "scheduled";
 
@@ -80,6 +79,15 @@ const PROVIDER_LIMITS_APIKEY_PROVIDERS = new Set([
   // Qoder connections are PAT-based (authType "apikey"); the usage fetcher
   // exchanges the PAT for a job token and reads openapi.qoder.sh/user/status.
   "qoder",
+  "promptql", // PromptQL playground JWT → getCreditSummary USD credits
+  "pql",
+  // Adobe Firefly: web-cookie / JWT stored as apikey → credits/balance
+  "adobe-firefly",
+  "firefly",
+  // HyperAgent session cookie → billing/usage creditBlocks
+  "hyperagent",
+  "ha",
+  "firecrawl",
 ]);
 const DEFAULT_PROVIDER_LIMITS_SYNC_INTERVAL_MINUTES = 70;
 const PROVIDER_LIMITS_AUTO_SYNC_SETTING_KEY = "provider_limits_auto_sync_last_run";
@@ -433,6 +441,13 @@ export async function maybeClearRecoveredQuotaState(
 ): Promise<ProviderConnectionLike> {
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
+  if (
+    connection.lastErrorType === "quota_exhausted" &&
+    connection.rateLimitedUntil &&
+    new Date(connection.rateLimitedUntil).getTime() > Date.now()
+  ) {
+    return connection;
+  }
 
   const hasTransientState =
     connection.testStatus === "unavailable" ||

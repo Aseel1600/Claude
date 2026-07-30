@@ -2,13 +2,14 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages, getLocale } from "next-intl/server";
+import { getMessages, getLocale, getTranslations } from "next-intl/server";
 import { RTL_LOCALES } from "@/i18n/config";
 import { normalizeComplianceEventTypes } from "@/i18n/request";
 import { getSettings } from "@/lib/db/settings";
 import type { Viewport } from "next";
 import { PwaRegister } from "@/shared/components/PwaRegister";
 import { LocaleAutoDetect } from "@/shared/components/LocaleAutoDetect";
+import { BasePathNetworkProvider } from "@/shared/components/BasePathNetworkProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,6 +55,7 @@ export async function generateMetadata() {
 
 export default async function RootLayout({ children }) {
   const locale = await getLocale();
+  const t = await getTranslations("sidebar");
   const messages = normalizeComplianceEventTypes((await getMessages()) as Record<string, unknown>);
   const isRtl = RTL_LOCALES.includes(locale as (typeof RTL_LOCALES)[number]);
 
@@ -138,12 +140,14 @@ export default async function RootLayout({ children }) {
           href="#main-content"
           className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:bg-[#6366f1] focus:text-white focus:rounded-lg focus:text-sm focus:font-semibold focus:shadow-lg"
         >
-          Skip to content
+          {t("skipToContent")}
         </a>
         <NextIntlClientProvider locale={locale} messages={messages}>
-          <PwaRegister />
-          <LocaleAutoDetect />
-          <ThemeProvider>{children}</ThemeProvider>
+          <BasePathNetworkProvider>
+            <PwaRegister />
+            <LocaleAutoDetect />
+            <ThemeProvider>{children}</ThemeProvider>
+          </BasePathNetworkProvider>
         </NextIntlClientProvider>
       </body>
     </html>

@@ -34,6 +34,8 @@ export const NOAUTH_PROVIDERS = {
     serviceKinds: ["llm"],
     freeNote: "Free — anonymous access to multiple AI models via DuckDuckGo.",
     authHint: "No credentials required — DuckDuckGo AI Chat is anonymous and free.",
+    // #7286: tools[] is prompt-emulated via webTools.ts (parseToolCallsFromText).
+    toolCalling: "emulated",
   },
   "felo-web": {
     id: "felo-web",
@@ -135,6 +137,26 @@ export const NOAUTH_PROVIDERS = {
       "No API key stored by OmniRoute. Install the Auggie CLI and run `auggie login` on this machine, then OmniRoute spawns it locally for each request.",
     notice: {
       text: "Augment (Auggie CLI) requires the `auggie` binary installed and authenticated locally (`auggie login`). OmniRoute spawns it as a subprocess and never sees or stores your Augment credentials.",
+    },
+  },
+  aihorde: {
+    id: "aihorde",
+    alias: "horde",
+    name: "AI Horde",
+    icon: "diversity_3",
+    color: "#8B5CF6",
+    textIcon: "AH",
+    website: "https://aihorde.net",
+    noAuth: true,
+    hasFree: true,
+    passthroughModels: true,
+    serviceKinds: ["llm"],
+    authHint:
+      "No API key required — uses AI Horde's documented anonymous key. Adding a free aihorde.net key is optional and only buys higher queue priority (kudos).",
+    freeNote:
+      "Crowdsourced inference from volunteer GPUs. Throughput is a shared queue, not a quota: there is no RPM/RPD cap, but waits grow when the network is busy.",
+    notice: {
+      text: "AI Horde routes to volunteer-run workers, so responses can take minutes and tool calling is unavailable. Model availability changes as workers come and go.",
     },
   },
 };

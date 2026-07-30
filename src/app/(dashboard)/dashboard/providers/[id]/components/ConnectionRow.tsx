@@ -83,6 +83,7 @@ export interface ConnectionRowProps {
   hasProxy?: boolean;
   proxySource?: string;
   proxyHost?: string;
+  proxyName?: string | null;
   proxyEnabled?: boolean;
   perKeyProxyEnabled?: boolean;
   onToggleProxyEnabled?: (enabled: boolean) => void;
@@ -365,6 +366,7 @@ export default function ConnectionRow({
   hasProxy,
   proxySource,
   proxyHost,
+  proxyName,
   onRefreshToken,
   isRefreshing,
   onApplyCodexAuthLocal,
@@ -783,7 +785,7 @@ export default function ConnectionRow({
                       })}
                     >
                       <span className="material-symbols-outlined text-[13px]">vpn_lock</span>
-                      {proxyHost || t("proxy")}
+                      {proxyName || proxyHost || t("proxy")}
                     </span>
                   </>
                 );
@@ -881,7 +883,7 @@ export default function ConnectionRow({
           onChange={onToggleActive}
           title={(connection.isActive ?? true) ? t("disableConnection") : t("enableConnection")}
         />
-        <div className="flex gap-1 ml-1 transition-opacity">
+        <div className="flex gap-1 ms-1 transition-opacity">
           {onReauth && (
             <button
               onClick={onReauth}

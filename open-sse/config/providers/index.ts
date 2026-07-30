@@ -26,6 +26,7 @@ import { lmarenaProvider } from "./registry/lmarena/index.ts";
 import { kilocodeProvider } from "./registry/kilocode/index.ts";
 import { github_modelsProvider } from "./registry/github/models/index.ts";
 import { githubProvider } from "./registry/github/index.ts";
+import { gheCopilotProvider } from "./registry/ghe-copilot/index.ts";
 import { difyProvider } from "./registry/dify/index.ts";
 import { ovhcloudProvider } from "./registry/ovhcloud/index.ts";
 import { claudeProvider } from "./registry/claude/index.ts";
@@ -34,6 +35,7 @@ import { bedrockProvider } from "./registry/bedrock/index.ts";
 import { inner_aiProvider } from "./registry/inner-ai/index.ts";
 import { qoderProvider } from "./registry/qoder/index.ts";
 import { xiaomi_mimoProvider } from "./registry/xiaomi-mimo/index.ts";
+import { xiaomi_mimo_token_planProvider } from "./registry/xiaomi-mimo-token-plan/index.ts";
 import { codestralProvider } from "./registry/codestral/index.ts";
 import { wandbProvider } from "./registry/wandb/index.ts";
 import { predibaseProvider } from "./registry/predibase/index.ts";
@@ -82,8 +84,9 @@ import { snowflakeProvider } from "./registry/snowflake/index.ts";
 import { huggingfaceProvider } from "./registry/huggingface/index.ts";
 import { chipotleProvider } from "./registry/chipotle/index.ts";
 import { freeaiapikeyProvider } from "./registry/freeaiapikey/index.ts";
-import { qwenProvider } from "./registry/qwen/index.ts";
 import { qwen_webProvider } from "./registry/qwen/web/index.ts";
+import { qwen_cloudProvider } from "./registry/qwen-cloud/index.ts";
+import { qwen_cloud_token_planProvider } from "./registry/qwen-cloud-token-plan/index.ts";
 import { zai_webProvider } from "./registry/zai-web/index.ts";
 import { modalProvider } from "./registry/modal/index.ts";
 import { zenmuxProvider } from "./registry/zenmux/index.ts";
@@ -99,11 +102,13 @@ import { t3_webProvider } from "./registry/t3-web/index.ts";
 import { iflytekProvider } from "./registry/iflytek/index.ts";
 import { crofProvider } from "./registry/crof/index.ts";
 import { moonshotProvider } from "./registry/moonshot/index.ts";
+import { poeProvider } from "./registry/poe/index.ts";
 import { bazaarlinkProvider } from "./registry/bazaarlink/index.ts";
 import { perplexityProvider } from "./registry/perplexity/index.ts";
 import { perplexity_webProvider } from "./registry/perplexity/web/index.ts";
 import { minimaxProvider } from "./registry/minimax/index.ts";
 import { minimax_cnProvider } from "./registry/minimax/cn/index.ts";
+import { hailuo_webProvider } from "./registry/minimax/web/index.ts";
 import { haiperProvider } from "./registry/haiper/index.ts";
 import { bytezProvider } from "./registry/bytez/index.ts";
 import { blackboxProvider } from "./registry/blackbox/index.ts";
@@ -124,6 +129,9 @@ import { liquidProvider } from "./registry/liquid/index.ts";
 import { deepinfraProvider } from "./registry/deepinfra/index.ts";
 import { agyProvider } from "./registry/agy/index.ts";
 import { agnesProvider } from "./registry/agnes/index.ts";
+import { aihordeProvider } from "./registry/aihorde/index.ts";
+import { ainativeProvider } from "./registry/ainative/index.ts";
+import { aionProvider } from "./registry/aion/index.ts";
 import { udioProvider } from "./registry/udio/index.ts";
 import { longcatProvider } from "./registry/longcat/index.ts";
 import { vertex_partnerProvider } from "./registry/vertex/partner/index.ts";
@@ -165,6 +173,14 @@ import { chenzkProvider } from "./registry/chenzk/index.ts";
 import { factoryProvider } from "./registry/factory/index.ts";
 import { databricksProvider } from "./registry/databricks/index.ts";
 import { rekaProvider } from "./registry/reka/index.ts";
+import { typhoonProvider } from "./registry/typhoon/index.ts";
+import { inceptionProvider } from "./registry/inception/index.ts";
+import { sarvamProvider } from "./registry/sarvam/index.ts";
+import { writerProvider } from "./registry/writer/index.ts";
+import { plamoProvider } from "./registry/plamo/index.ts";
+import { clova_studioProvider } from "./registry/clova-studio/index.ts";
+import { internlmProvider } from "./registry/internlm/index.ts";
+import { ant_lingProvider } from "./registry/ant-ling/index.ts";
 import { vercel_ai_gatewayProvider } from "./registry/vercel-ai-gateway/index.ts";
 import { v0_vercelProvider } from "./registry/v0-vercel/index.ts";
 import { opencode_zenProvider } from "./registry/opencode/zen/index.ts";
@@ -195,9 +211,15 @@ import { zenmux_freeProvider } from "./registry/zenmux-free/index.ts";
 import { sumopodProvider } from "./registry/sumopod/index.ts";
 import { x5labProvider } from "./registry/x5lab/index.ts";
 import { kenariProvider } from "./registry/kenari/index.ts";
+import { navyProvider } from "./registry/navy/index.ts";
+import { naraProvider } from "./registry/nara/index.ts";
 import { requestyProvider } from "./registry/requesty/index.ts";
+import { sealionProvider } from "./registry/sealion/index.ts";
+import { routewayProvider } from "./registry/routeway/index.ts";
 import { digitaloceanProvider } from "./registry/digitalocean/index.ts";
 import { hcnsecProvider } from "./registry/hcnsec/index.ts";
+import { promptqlProvider } from "./registry/promptql/index.ts";
+import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -224,6 +246,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   kilocode: kilocodeProvider,
   "github-models": github_modelsProvider,
   github: githubProvider,
+  "ghe-copilot": gheCopilotProvider,
   dify: difyProvider,
   ovhcloud: ovhcloudProvider,
   claude: claudeProvider,
@@ -232,6 +255,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "inner-ai": inner_aiProvider,
   qoder: qoderProvider,
   "xiaomi-mimo": xiaomi_mimoProvider,
+  "xiaomi-mimo-token-plan": xiaomi_mimo_token_planProvider,
   codestral: codestralProvider,
   wandb: wandbProvider,
   predibase: predibaseProvider,
@@ -280,8 +304,9 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   huggingface: huggingfaceProvider,
   chipotle: chipotleProvider,
   freeaiapikey: freeaiapikeyProvider,
-  qwen: qwenProvider,
   "qwen-web": qwen_webProvider,
+  "qwen-cloud": qwen_cloudProvider,
+  "qwen-cloud-token-plan": qwen_cloud_token_planProvider,
   "zai-web": zai_webProvider,
   modal: modalProvider,
   zenmux: zenmuxProvider,
@@ -297,11 +322,13 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   iflytek: iflytekProvider,
   crof: crofProvider,
   moonshot: moonshotProvider,
+  poe: poeProvider,
   bazaarlink: bazaarlinkProvider,
   perplexity: perplexityProvider,
   "perplexity-web": perplexity_webProvider,
   minimax: minimaxProvider,
   "minimax-cn": minimax_cnProvider,
+  "hailuo-web": hailuo_webProvider,
   haiper: haiperProvider,
   bytez: bytezProvider,
   blackbox: blackboxProvider,
@@ -322,6 +349,9 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   deepinfra: deepinfraProvider,
   agy: agyProvider,
   agnes: agnesProvider,
+  aihorde: aihordeProvider,
+  ainative: ainativeProvider,
+  aion: aionProvider,
   udio: udioProvider,
   longcat: longcatProvider,
   "vertex-partner": vertex_partnerProvider,
@@ -362,6 +392,14 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   factory: factoryProvider,
   databricks: databricksProvider,
   reka: rekaProvider,
+  typhoon: typhoonProvider,
+  inception: inceptionProvider,
+  sarvam: sarvamProvider,
+  writer: writerProvider,
+  plamo: plamoProvider,
+  "clova-studio": clova_studioProvider,
+  internlm: internlmProvider,
+  "ant-ling": ant_lingProvider,
   "vercel-ai-gateway": vercel_ai_gatewayProvider,
   "v0-vercel": v0_vercelProvider,
   "opencode-zen": opencode_zenProvider,
@@ -395,7 +433,13 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   sumopod: sumopodProvider,
   x5lab: x5labProvider,
   kenari: kenariProvider,
+  navy: navyProvider,
+  nara: naraProvider,
   requesty: requestyProvider,
+  sealion: sealionProvider,
+  routeway: routewayProvider,
   digitalocean: digitaloceanProvider,
   hcnsec: hcnsecProvider,
+  promptql: promptqlProvider,
+  hyperagent: hyperagentProvider,
 };
