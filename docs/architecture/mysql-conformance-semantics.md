@@ -1,378 +1,832 @@
 ---
-title: "MySQL 一致性语义与故障模式矩阵"
+title: "MySQL conformance semantics and failure-mode matrix"
 status: proposed-test-specification
 lastUpdated: 2026-07-30
 ---
 
-# MySQL 一致性语义与故障模式矩阵
-
-- **跟踪 Issue：** [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075)
-- **前置设计：** [可插拔持久化边界](persistence-backend-boundary.md)
-- **现状依据：** [SQLite 耦合盘点](sqlite-coupling-inventory.md)
-- **范围：** MySQL 8.0+ 与 InnoDB 的可观察语义、失败分类及未来一致性测试规格
-- **运行时影响：** 无；本文不添加数据库驱动、配置、schema、migration 或生产支持声明
-
-## 目的
-
-持久化边界 ADR 要求跨后端测试验证行为，而不只是验证 Repository 方法签名。本文把
-MySQL/InnoDB 可能与当前 SQLite 行为产生差异的部分转成显式契约问题和建议测试规格，供未来
-MySQL adapter 及其一致性测试使用。
-
-本文不把某个驱动的返回字段或某种 SQL 写法提升为领域契约。Repository 应定义调用者能够观察到的
-结果；SQLite 和 MySQL 实现可以使用不同机制，只要满足同一结果、原子性与错误分类要求。
-
-## 设计原则
-
-1. **先固定行为，再选择 SQL。** SQL 方言相似不代表替换、更新、排序或失败结果等价。
-2. **显式配置影响语义。** 字符集、collation、SQL mode、连接 flags、事务隔离级别和时区必须由
-   backend 初始化确定或验证，不能继承服务器偶然默认值。
-3. **领域结果不暴露驱动计数。** Repository 应返回领域定义的结果，不能让 `affectedRows`、
-   `changes` 或 `lastInsertRowid` 成为跨后端 API。
-4. **只重试完整原子操作。** 死锁或序列化冲突后的重试必须重新执行整个 Repository 操作，并遵守
-   幂等约束。
-5. **无显式顺序就没有顺序契约。** 任何列表或分页 API 都必须给出完整 `ORDER BY` 和唯一
-   tie-breaker。
-6. **DDL 与 DML 分开协调。** 迁移所有权、schema 历史和失败恢复属于 backend 运维契约，不属于
-   普通 Repository 事务。
-
-## 语义矩阵
-
-### 1. Collation、大小写与唯一约束
-
-| 主题         | MySQL/InnoDB 行为                                                                                                         | 与 SQLite 的风险                                                                 | 跨后端契约要求                                                                     |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 文本相等     | MySQL 文本比较由列或表达式的 collation 决定；带 `_ci` 的 collation 通常忽略大小写，带 `_ai` 的 collation 还会忽略重音差异 | SQLite 默认文本比较与显式 `COLLATE NOCASE` 并不等同于 MySQL 的 Unicode collation | 每个可移植文本键必须声明是字节精确、大小写不敏感还是面向用户的语言比较             |
-| 唯一键       | 唯一索引按索引列的 collation 判定冲突                                                                                     | 同一组字符串可能在一个后端可共存、另一个后端冲突                                 | schema 必须为身份键选择显式 collation；错误统一分类为唯一约束冲突                  |
-| 大小写规范化 | 应用层规范化与数据库 collation 可以叠加                                                                                   | 只在一个 adapter 中做 lowercase 会造成数据和查找结果漂移                         | 若领域采用规范化，必须在 Repository 契约中定义，并在所有后端写入和查询路径一致执行 |
-
-MySQL 参考：
-[Character Sets, Collations, Unicode](https://dev.mysql.com/doc/refman/8.0/en/charset.html)、
-[Unicode Character Sets](https://dev.mysql.com/doc/refman/8.0/en/charset-unicode-sets.html)。
-
-### 2. `NULL`、唯一键与排序
-
-| 主题                | MySQL/InnoDB 行为                                              | 与 SQLite 的风险                                                     | 跨后端契约要求                                                                   |
-| ------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| 唯一索引中的 `NULL` | 唯一索引允许多个包含 `NULL` 的键值，因为这些值不被视为彼此相等 | SQLite 的唯一列也允许多个 `NULL`，但复合键和领域“缺失值”仍可能被误解 | 测试单列和复合唯一键；若业务要求“最多一个缺失值”，必须使用额外约束或原子操作表达 |
-| 排序位置            | MySQL 的升序通常把 `NULL` 排在非 `NULL` 之前，降序相反         | 不应把任一后端的隐式 `NULL` 位置当成 API 语义                        | 列表契约必须显式表达 `NULL` 的目标位置；adapter 可用布尔排序键加实际列实现       |
-| 缺失记录            | SQL 未命中和字段值为 `NULL` 是两种结果                         | 宽松返回类型可能把二者都映射为 `null`                                | Repository 结果必须区分“记录不存在”和“记录存在但可空字段为空”                    |
-
-SQLite 的 `NULL` 行为依据见
-[NULL Handling in SQLite Versus Other Database Engines](https://sqlite.org/nulls.html)。MySQL 唯一索引
-规则见
-[CREATE TABLE Statement](https://dev.mysql.com/doc/refman/8.0/en/create-table.html)。
-
-### 3. 确定性排序与分页
-
-| 主题           | MySQL/InnoDB 行为                                  | 故障模式                                        | 跨后端契约要求                                                           |
-| -------------- | -------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
-| 无 `ORDER BY`  | 查询结果顺序未定义，可能随执行计划、索引或版本变化 | 在本地看似稳定，但部署到 MySQL 后翻页重复或漏项 | 所有对外列表必须有显式排序                                               |
-| 排序值相同     | 只按非唯一列排序时，同值记录的相对顺序未定义       | offset 或 cursor 页边界不稳定                   | 排序末尾必须追加稳定且唯一的 ID tie-breaker                              |
-| Cursor 分页    | 比较谓词必须与排序方向和所有 tie-breaker 一致      | 混合升降序或遗漏 ID 会跳过/重复记录             | 一致性测试必须跨多页插入相同主排序值，并验证精确并集与无重复             |
-| Collation 排序 | 文本顺序随 collation 改变                          | SQLite 与 MySQL 返回顺序不同                    | 若 API 暴露文本顺序，契约必须固定 collation 语义；否则使用后端无关排序键 |
-
-项目中已经存在显式唯一 tie-breaker 的 SQLite 查询，例如
-`src/lib/db/batches.ts` 使用时间列和 ID 共同分页。该模式是契约候选，而不是可直接复制到每个领域的
-通用实现。
-
-MySQL 参考：
-[ORDER BY Optimization](https://dev.mysql.com/doc/refman/8.0/en/order-by-optimization.html)。
-
-### 4. 更新、no-op 与受影响行数
-
-MySQL 的 DML 返回计数受语句类型和客户端连接行为影响。普通 `UPDATE` 默认报告实际改变的行数；启用
-MySQL C API 的“found rows”连接选项后可报告匹配行数。Repository 不能把这个连接级差异直接暴露为领域结果。
-
-| 操作                        | 可观察问题                        | 契约要求                                                   |
-| --------------------------- | --------------------------------- | ---------------------------------------------------------- |
-| 更新现有记录并改变值        | 是否成功更新目标                  | 返回领域成功或更新后的记录，不直接返回驱动计数             |
-| 更新现有记录但值相同        | 是成功 no-op，还是“记录不存在”    | 契约必须选择一种；建议视为成功 no-op，并与缺失记录分开     |
-| 带版本条件的 compare/update | 0 行可能表示缺失或版本冲突        | 通过读取、版本条件或专用结果区分 `not_found` 和 `conflict` |
-| 删除                        | 重复删除是成功 no-op 还是缺失错误 | 每个 Repository 方法显式定义，所有后端保持一致             |
-| 批量修改                    | 返回匹配数还是实际改变数          | 只暴露契约定义的计数，并用相同数据集跨后端校验             |
-
-MySQL 参考：
-[UPDATE Statement](https://dev.mysql.com/doc/refman/8.0/en/update.html)。
-
-### 5. Upsert 与替换
-
-SQLite 的 `INSERT OR REPLACE` 在唯一键冲突时会先删除冲突行，再继续插入；它不是普通 UPDATE。
-SQLite 耦合盘点在记录的快照中发现了大量该语法，因此未来 adapter 不能机械替换成 MySQL
-`INSERT ... ON DUPLICATE KEY UPDATE`。
-
-两者可能在以下方面产生可观察差异：
-
-- 外键和级联删除；
-- delete/insert/update trigger；
-- 未在新行中提供的列值；
-- 自动生成 ID；
-- 创建时间与更新时间；
-- 驱动报告的受影响行数。
-
-跨后端 Repository 必须先为每个 upsert 定义下列行为之一：
-
-1. **保持身份的更新：** 冲突时保留同一逻辑记录和不可变字段，仅更新允许字段；
-2. **显式替换：** 删除旧记录并创建新记录，且把级联副作用列入契约；
-3. **仅插入：** 冲突统一返回约束错误，不执行更新。
-
-不得把三种行为都实现成一个无说明的通用 upsert。
-
-参考：
-[SQLite ON CONFLICT](https://sqlite.org/lang_conflict.html)、
-[MySQL INSERT ... ON DUPLICATE KEY UPDATE](https://dev.mysql.com/doc/refman/8.0/en/insert-on-duplicate.html)。
-
-### 6. `utf8mb4` 与索引长度
-
-MySQL 的字符索引占用按编码后的字节计算；`utf8mb4` 中一个字符最多可占四字节。InnoDB 可接受的
-索引键长度还受 row format 和 page size 等条件影响。因而在 SQLite 中可建索引的长文本，迁移为
-MySQL 唯一索引时可能失败或被迫使用前缀索引。
-
-契约和 schema 要求：
-
-- 身份键必须设置经过验证的最大字符长度；
-- 不得用前缀唯一索引冒充完整字符串唯一性；
-- migration dry run 必须使用最长 Unicode 样本验证索引；
-- schema 检查必须拒绝会截断身份语义的定义；
-- 错误应分类为 schema/migration 不兼容，而不是运行时唯一冲突。
-
-MySQL 参考：
-[The utf8mb4 Character Set](https://dev.mysql.com/doc/refman/8.0/en/charset-unicode-utf8mb4.html)、
-[InnoDB Limits](https://dev.mysql.com/doc/refman/8.0/en/innodb-limits.html)。
-
-### 7. ID 与 `LAST_INSERT_ID()`
-
-持久化边界 ADR 已禁止把 `lastInsertRowid` 作为跨后端领域契约。MySQL 的
-`LAST_INSERT_ID()` 与当前连接和自动递增列相关；upsert 还可能影响其含义。连接池中若把“执行写入”
-与“读取 ID”拆成两次租用，结果可能来自错误连接。
-
-契约要求：
-
-- 优先由应用生成稳定 ID，并把 ID 作为插入输入；
-- 若必须使用数据库生成 ID，插入和取回 ID 必须由同一驱动操作原子完成；
-- 不允许 Repository 调用者另行查询连接级“最后 ID”；
-- upsert 必须明确返回原记录 ID 还是新 ID；
-- 重试不能无意创建第二个逻辑记录。
-
-MySQL 参考：
-[Information Functions](https://dev.mysql.com/doc/refman/8.0/en/information-functions.html)。
-
-### 8. 事务隔离、死锁与锁等待
-
-InnoDB 默认隔离级别是 `REPEATABLE READ`，并允许多个并发写事务。SQLite 通常只允许一个并发写
-事务，且当前 adapter 还区分 deferred 和 immediate transaction。直接复制事务调用形状不能保证相同
-的并发结果。
-
-| 失败/并发现象              | 领域风险                               | 分类和处理要求                                                 |
-| -------------------------- | -------------------------------------- | -------------------------------------------------------------- |
-| Deadlock victim            | 一个事务被 InnoDB 回滚                 | 标记为可重试冲突；从 Repository 原子操作起点重新执行           |
-| Lock wait timeout          | 语句因等待超时失败；事务状态不能靠猜测 | adapter 必须规范化状态并显式回滚，之后才允许重试               |
-| Duplicate key race         | 两个事务同时创建相同身份               | 返回统一唯一冲突，或由契约定义的幂等成功                       |
-| Snapshot read              | 同一事务中可能持续看到旧快照           | Repository 不能假定读取会自动观察其他事务刚提交的数据          |
-| Lost update                | read-modify-write 覆盖并发修改         | 使用版本条件、锁定读或单语句原子更新，并测试冲突结果           |
-| Retry after unknown commit | 客户端断连时不知道提交是否完成         | 写操作需要稳定幂等键或可查询的操作身份，不得盲目重复非幂等写入 |
-
-MySQL 参考：
-[InnoDB Transaction Isolation Levels](https://dev.mysql.com/doc/refman/8.0/en/innodb-transaction-isolation-levels.html)、
-[Deadlocks in InnoDB](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks.html)、
-[How to Minimize and Handle Deadlocks](https://dev.mysql.com/doc/refman/8.0/en/innodb-deadlocks-handling.html)。
-SQLite 对照：
-[Transactions](https://sqlite.org/lang_transaction.html)。
-
-### 9. DDL、隐式提交与迁移锁
-
-MySQL 中多类 DDL 和管理语句会隐式提交，不能假定“把 migration SQL 放入普通事务”就能获得 SQLite
-式整体回滚。即使 MySQL 支持 atomic DDL，也不等于包含多条 migration 语句和数据回填的整个步骤可
-回滚。
-
-迁移契约必须定义：
-
-- 全局唯一 migration owner；
-- 获取锁后的 schema-history 检查；
-- 每个物理 migration 的前置条件和完成标记；
-- DDL 与数据回填的可恢复检查点；
-- 进程终止或连接断开后的锁释放与接管；
-- 部分完成时是安全重试、补偿还是阻止启动；
-- readiness 只有在所需逻辑里程碑完成后才成功。
-
-进程内 mutex 不能满足多副本迁移所有权。未来 MySQL 实现必须使用数据库可见的租约、命名锁或等价
-机制，并用两个独立连接和两个模拟副本测试互斥及接管。
-
-MySQL 参考：
-[Statements That Cause an Implicit Commit](https://dev.mysql.com/doc/refman/8.0/en/implicit-commit.html)、
-[Atomic Data Definition Statement Support](https://dev.mysql.com/doc/refman/8.0/en/atomic-ddl.html)。
-
-### 10. JSON、精确数值与时间
-
-| 类型        | MySQL/InnoDB 风险                                                                    | 跨后端契约要求                                                                     |
-| ----------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| JSON        | MySQL 原生 JSON 会验证并采用内部表示；文本空白、键顺序或重复键不适合作为业务相等依据 | 明确是结构化值还是不透明文本；结构化值按解析后的领域对象比较，序列化输出应规范化   |
-| 整数        | JavaScript 安全整数范围可能小于数据库整数范围                                        | 对超过安全范围的值使用字符串或经过验证的专用类型，不经过浮点数往返                 |
-| `DECIMAL`   | 驱动可能返回字符串，也可能配置为数值                                                 | 金额和额度使用固定 precision/scale；领域边界使用精确十进制表示，不用二进制浮点比较 |
-| `TIMESTAMP` | MySQL 会受 session time zone 和列精度影响                                            | backend 初始化固定 session time zone；契约固定 UTC、精度和序列化格式               |
-| `DATETIME`  | 不自动代表时区                                                                       | 只有契约明确为无时区本地时间时才使用；持久事件时间优先使用明确 UTC 规则            |
-
-MySQL 参考：
-[The JSON Data Type](https://dev.mysql.com/doc/refman/8.0/en/json.html)、
-[Precision Math](https://dev.mysql.com/doc/refman/8.0/en/precision-math.html)、
-[Date and Time Types](https://dev.mysql.com/doc/refman/8.0/en/date-and-time-types.html)。
-
-### 11. 原子关联修改与外键
-
-涉及父记录和关联记录的 Repository 操作必须在同一 transaction context 内完成。典型操作包括：
-
-- 删除定义及其 mappings；
-- 替换一组有序成员；
-- 创建主体及其唯一关联；
-- 更新版本字段并写入审计信息。
-
-MySQL adapter 必须验证：
-
-- 任意中间语句失败会回滚全部关联修改；
-- 外键冲突和唯一冲突得到不同的 backend-neutral 分类；
-- cascade 行为若属于 schema，必须与领域契约一致；
-- 重试使用新的 transaction context，不能复用已经失败的事务；
-- 调用者取消或连接关闭不会留下部分修改。
-
-## 建议的一致性测试规格
-
-以下是测试规格，不是当前已存在的测试函数。命名采用行为描述，未来 harness 可按项目测试约定转换为
-实际名称。除特别说明外，每个场景都应使用同一 fixture 分别运行 SQLite 和 MySQL 实现。
-
-### CRUD 与缺失记录
-
-1. **创建后按 ID 读取保持领域值**
-   - 场景：写入包含 Unicode、可空字段、JSON 和时间字段的记录。
-   - 断言：读取结果与规范化后的输入相等；不比较数据库专属序列化细节。
-2. **读取不存在的 ID 返回统一缺失结果**
-   - 场景：查询从未创建或已删除的 ID。
-   - 断言：两个后端返回同一 `not found` 领域结果，不与“可空字段为空”混淆。
-3. **删除行为保持幂等约定**
-   - 场景：连续删除同一 ID 两次。
-   - 断言：第一次和第二次结果严格符合该 Repository 已声明的成功/no-op 或缺失契约。
-
-### 唯一性、collation 与 `NULL`
-
-4. **身份键大小写行为与契约一致**
-   - 场景：依次创建仅大小写不同的两个键。
-   - 断言：若契约为大小写敏感，两条都成功；否则第二条返回统一唯一冲突。
-5. **身份键重音行为与契约一致**
-   - 场景：创建只在重音上不同的 Unicode 键。
-   - 断言：结果不依赖服务器默认 collation，而与 schema 声明一致。
-6. **唯一可空键允许或拒绝多个缺失值的规则明确**
-   - 场景：创建两个唯一键字段均为 `NULL` 的记录。
-   - 断言：结果符合领域规则；若领域只允许一个缺失值，由 Repository 原子保证。
-7. **唯一冲突得到 backend-neutral 分类**
-   - 场景：并发创建相同身份键。
-   - 断言：至多一个创建成功，其余结果分类一致，且没有泄漏 SQL 文本或驱动错误码。
-
-### 排序与分页
-
-8. **完整排序键产生确定性结果**
-   - 场景：插入多条主排序值相同但 ID 不同的记录。
-   - 断言：重复查询顺序相同，且与声明的 ID tie-breaker 一致。
-9. **跨页遍历无重复无遗漏**
-   - 场景：使用小 page size 遍历包含大量同排序值的 fixture。
-   - 断言：所有页的 ID 并集等于完整集合，交集为空。
-10. **可空排序字段的位置固定**
-    - 场景：混合 `NULL` 和非 `NULL` 排序值。
-    - 断言：`NULL` 位于契约指定的一端，SQLite 与 MySQL 顺序一致。
-
-### 更新与 affected-row 语义
-
-11. **相同值更新与缺失记录可区分**
-    - 场景：先用相同值更新现有记录，再更新不存在的 ID。
-    - 断言：前者是已声明的成功 no-op，后者是 `not found`；结果不随 MySQL 的“found rows”连接选项改变。
-12. **实际修改返回领域成功**
-    - 场景：修改一个可变字段。
-    - 断言：返回值和再次读取均反映新值，不暴露 driver affected-row 计数。
-13. **比较更新能识别版本冲突**
-    - 场景：两个调用使用相同旧版本依次更新。
-    - 断言：一个成功，另一个返回统一 conflict；最终版本只增加一次。
-14. **批量计数采用契约定义**
-    - 场景：批量命中若干记录，其中部分值未变化。
-    - 断言：返回计数按“匹配”或“实际改变”的既定定义计算，且不受连接 flag 影响。
-
-### Upsert、ID 与关联原子性
-
-15. **保持身份的 upsert 不触发替换副作用**
-    - 场景：创建带关联记录的主体，再以同一身份 upsert 可变字段。
-    - 断言：主体 ID、不变字段和关联记录保留，只更新允许字段。
-16. **数据库生成 ID 在同一操作中返回**
-    - 场景：并发连接分别创建记录。
-    - 断言：每个调用返回自己的 ID，且读取到对应内容；不使用后续连接级查询关联 ID。
-17. **关联修改全部提交或全部回滚**
-    - 场景：在父记录修改后故意让关联写入触发约束错误。
-    - 断言：父记录和所有关联均保持操作前状态。
-18. **外键与唯一错误分类不同**
-    - 场景：分别触发缺失父记录和重复唯一键。
-    - 断言：返回两种稳定分类，响应不包含后端消息。
-
-### 并发、重试和迁移
-
-19. **死锁重试重新执行完整原子操作**
-    - 场景：用相反锁顺序制造两个事务死锁，并为操作提供稳定幂等身份。
-    - 断言：victim 被分类为可重试；重试后不出现部分状态或重复业务效果。
-20. **锁等待超时清理事务上下文**
-    - 场景：一个连接持锁，另一个连接超时。
-    - 断言：失败连接显式回滚；旧 context 被拒绝，后续工作使用新事务。
-21. **未知提交结果可以安全重放或查询**
-    - 场景：在提交边界模拟连接丢失。
-    - 断言：幂等身份保证最多一个业务效果，调用者可确定最终结果。
-22. **只有一个 migration owner**
-    - 场景：两个独立 backend 实例同时尝试相同 migration。
-    - 断言：只有一个实例执行，另一个等待或返回可分类状态；历史记录只写一次。
-23. **部分 migration 阻止 readiness**
-    - 场景：在 DDL 完成、数据回填完成前注入故障。
-    - 断言：backend 不报告 ready；恢复路径从可验证检查点继续或明确阻止启动。
-
-### 数据表示
-
-24. **JSON 按领域结构往返**
-    - 场景：写入键顺序和空白不同但结构等价的 JSON。
-    - 断言：领域读取结果结构等价；不把原始文本字节相等作为契约。
-25. **精确十进制无舍入漂移**
-    - 场景：写入 precision/scale 边界值和常见二进制浮点非精确值。
-    - 断言：读取的精确十进制表示与输入一致，越界输入在写入前或写入时得到统一分类。
-26. **时间统一为 UTC 和固定精度**
-    - 场景：在不同 session time zone 下写入和读取同一 instant。
-    - 断言：领域序列化相同，精度符合契约且不受服务器本地时区影响。
-
-## Adapter 开始前必须冻结的决策
-
-在添加 MySQL 驱动或 schema 前，首个领域切片必须明确回答：
-
-1. 哪些文本键大小写敏感、重音敏感，以及使用哪类显式 collation；
-2. 所有列表的完整排序键、`NULL` 位置和 pagination tie-breaker；
-3. no-op update、重复 delete 和批量计数的领域结果；
-4. 每个写入是 insert、保持身份的 upsert，还是显式 replacement；
-5. ID 由应用还是数据库生成，以及重试时的幂等身份；
-6. 哪些冲突可重试，最大重试范围由谁控制；
-7. migration ownership、失败检查点和 readiness 条件；
-8. JSON、整数、十进制与时间的领域表示。
-
-未冻结这些语义时，实现 MySQL adapter 只会把数据库默认行为意外变成 API，之后难以在不破坏兼容性的
-前提下修正。
-
-## 非目标
-
-本文不：
-
-- 批准或宣称 PostgreSQL/MySQL 已受支持；
-- 添加 MySQL driver、连接池、环境变量或配置 UI；
-- 定义具体 Repository TypeScript 接口；
-- 添加或修改 schema 与 migration；
-- 把 MySQL SQL 写法用于 SQLite；
-- 要求 SQLite 模拟 InnoDB 的内部隔离或锁实现；
-- 实现本文列出的测试；
-- 取代每个领域切片自己的行为和并发验收标准。
-
-## 后续使用方式
-
-未来 MySQL 工作应按以下顺序使用本文：
-
-1. 选择一个已经通过 SQLite 一致性测试的领域切片；
-2. 从本文中提取该领域涉及的语义并冻结契约决策；
-3. 将建议规格实现为同一 backend-neutral harness；
-4. 先让 SQLite fixture 保持绿色，再接入 MySQL fixture；
-5. 增加 MySQL 专属 migration、锁和故障注入测试；
-6. 只有在相同契约对两个后端都通过后，才讨论用户可见配置和支持声明。
+# MySQL conformance semantics and failure-mode matrix
+
+- **Tracking issue:** [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075)
+- **Governing proposal:** [Pluggable persistence boundary](persistence-backend-boundary.md)
+- **Measured baseline:** [SQLite coupling inventory](sqlite-coupling-inventory.md)
+- **Target:** MySQL 8.0 with InnoDB
+- **Runtime impact:** None. This document adds no driver, dependency, configuration, schema,
+  migration, or support claim.
+
+## 1. Purpose and normative language
+
+The persistence-boundary ADR requires conformance tests to compare observable behavior, not only
+repository method signatures. This document turns the MySQL/InnoDB differences that can change
+OmniRoute behavior into an implementation-ready specification. It provides:
+
+- a required server and session profile;
+- evidence from the current SQLite implementation;
+- minimal SQL probes that reviewers can reproduce independently;
+- a backend-neutral error and retry taxonomy;
+- normative decisions that a repository contract must make;
+- executable acceptance specifications for a future shared conformance harness;
+- a focused acceptance profile for combo definitions and model-to-combo mappings.
+
+The terms **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative. A proposed MySQL adapter is
+not conformant merely because its SQL succeeds. It is conformant only when the same repository
+fixture produces the same domain result, durable state, atomicity, ordering, and classified failure
+as the SQLite implementation.
+
+## 2. Scope and non-goals
+
+### 2.1 In scope
+
+This specification covers portable durable-state behavior for:
+
+- create, read, update, delete, and missing-row results;
+- uniqueness, collation, case and accent sensitivity, and `NULL`;
+- stable ordering and pagination;
+- no-op writes and affected-row reporting;
+- insert, identity-preserving upsert, and replacement;
+- IDs, JSON, exact numerics, and timestamps;
+- transactions, deadlocks, lock waits, disconnects, and retry boundaries;
+- foreign keys and atomic related-record changes;
+- migration ownership, implicit DDL commits, recovery, and readiness.
+
+### 2.2 Out of scope
+
+This specification does not:
+
+- approve PostgreSQL or MySQL runtime support;
+- select a Node.js MySQL driver or pool;
+- define a public environment variable or configuration UI;
+- define final TypeScript repository interfaces;
+- add physical MySQL schema or migration files;
+- make SQLite maintenance, FTS5, `sqlite-vec`, backup files, or WAL portable;
+- replace domain-specific acceptance criteria;
+- permit runtime work while the governing ADR remains unapproved.
+
+## 3. Evidence from the current repository
+
+The current implementation establishes behavior that a portable contract must either preserve or
+explicitly revise. These are source-backed observations, not proposed MySQL schema.
+
+### 3.1 Combo identity and lookup
+
+`src/lib/db/migrations/001_initial_schema.sql` defines `combos.id` as the primary key and
+`combos.name` as unique. `src/lib/db/combos.ts` currently:
+
+- generates UUIDs in the application;
+- generates timestamps with `new Date().toISOString()`;
+- performs exact name lookup first;
+- provides a separate `COLLATE NOCASE` fallback lookup;
+- lists by `sort_order ASC, name COLLATE NOCASE ASC`;
+- treats an update of a missing ID as `null`;
+- treats deletion of a missing ID as `false`;
+- updates the JSON payload and deduplicated columns together;
+- reorders all selected rows in one SQLite transaction.
+
+Those choices imply that a future MySQL slice does not need database-generated numeric IDs for
+combos, but it must still define Unicode collation, complete tie-breakers, update/delete results, and
+reorder concurrency.
+
+### 3.2 Model-to-combo mapping behavior
+
+`src/lib/db/migrations/010_model_combo_mappings.sql` defines a foreign key from
+`model_combo_mappings.combo_id` to `combos.id` with `ON DELETE CASCADE`.
+`src/lib/db/modelComboMappings.ts` currently:
+
+- generates mapping UUIDs and ISO timestamps in the application;
+- lists by `priority DESC, created_at ASC`;
+- returns a separate total count for paginated results;
+- maps integer `0`/`1` values to booleans;
+- treats a missing update as `null` and a missing delete as `false`;
+- resolves the first enabled matching pattern;
+- skips malformed combo JSON rather than failing resolution.
+
+The current list and resolution order lacks a unique final tie-breaker. The MySQL implementation
+MUST NOT preserve that accidental nondeterminism. Before portability is claimed, the contract must
+add `id ASC` (or another unique stable key) after `created_at ASC` and the SQLite implementation
+must adopt the same order.
+
+### 3.3 Existing SQLite-specific signals
+
+The measured SQLite coupling inventory records widespread use of synchronous prepared statements,
+`INSERT OR REPLACE`, `lastInsertRowid`, SQLite transactions, and SQLite lifecycle operations. A
+future adapter must not translate those tokens mechanically. In particular:
+
+- `INSERT OR REPLACE` is delete-then-insert conflict handling, not an update;
+- `changes` is a driver result, not a portable domain result;
+- `COLLATE NOCASE` is not equivalent to a modern MySQL Unicode collation;
+- SQLite numbered migration SQL is not reusable as MySQL migration SQL.
+
+## 4. Required MySQL deployment and session profile
+
+A conformance run MUST fail during backend initialization if the effective profile is outside the
+supported envelope. Silently inheriting server defaults would make behavior depend on an operator's
+installation history.
+
+| Property                 | Required profile                                                                   | Verification                                                                         | Failure class         |
+| ------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------- |
+| Server family            | Oracle MySQL 8.0.x until another family passes the same suite                      | `SELECT VERSION()` and server metadata                                               | `unsupported`         |
+| Storage engine           | `InnoDB` for every portable table                                                  | `information_schema.tables`                                                          | `schema_incompatible` |
+| Character set            | `utf8mb4` for schema, tables, and portable text columns                            | `information_schema.schemata`, `tables`, and `columns`                               | `schema_incompatible` |
+| Identity collation       | Explicit per identity column; never inherited                                      | `information_schema.columns.collation_name`                                          | `schema_incompatible` |
+| SQL mode                 | Strict mode and the engine-substitution guard; adapter records the effective value | `SELECT @@SESSION.sql_mode`                                                          | `unsupported`         |
+| Transaction isolation    | Explicitly selected and verified by the backend                                    | `SELECT @@SESSION.transaction_isolation`                                             | `unsupported`         |
+| Session time zone        | UTC                                                                                | `SELECT @@SESSION.time_zone`                                                         | `unsupported`         |
+| Autocommit               | Known pool default; repository transactions set boundaries explicitly              | `SELECT @@SESSION.autocommit`                                                        | `unsupported`         |
+| Connection character set | `utf8mb4`                                                                          | `SELECT @@character_set_client, @@character_set_connection, @@character_set_results` | `unsupported`         |
+| Found-rows behavior      | One fixed pool setting, but repository results remain independent of it            | Driver/pool configuration plus conformance probe                                     | `unsupported`         |
+| Foreign-key checks       | Enabled for normal runtime and conformance tests                                   | `SELECT @@SESSION.foreign_key_checks`                                                | `unsupported`         |
+| InnoDB page size         | Recorded before validating indexed key lengths                                     | `SELECT @@innodb_page_size`                                                          | `schema_incompatible` |
+
+The backend readiness report SHOULD expose the verified profile without credentials. It MUST NOT
+log connection strings or secrets.
+
+### 4.1 Initialization probe
+
+The adapter acceptance suite should run an equivalent of the following read-only probe on a newly
+leased connection:
+
+```sql
+SELECT
+  VERSION() AS server_version,
+  @@SESSION.sql_mode AS sql_mode,
+  @@SESSION.transaction_isolation AS transaction_isolation,
+  @@SESSION.time_zone AS time_zone,
+  @@SESSION.autocommit AS autocommit,
+  @@SESSION.foreign_key_checks AS foreign_key_checks,
+  @@character_set_client AS character_set_client,
+  @@character_set_connection AS character_set_connection,
+  @@character_set_results AS character_set_results,
+  @@innodb_page_size AS innodb_page_size;
+```
+
+A pool MUST apply and verify session settings on every newly created physical connection. Applying
+settings only to the first connection is insufficient.
+
+## 5. Normative semantic matrix
+
+### 5.1 Text identity, collation, and uniqueness
+
+MySQL equality and unique indexes use the effective collation of the indexed expression. A `_ci`
+collation is case-insensitive; an `_ai` collation is also accent-insensitive. SQLite's default text
+comparison and `COLLATE NOCASE` do not provide an equivalent Unicode contract.
+
+| Concern          | SQLite-shaped risk                                       | Required portable decision                                                  | MySQL implementation rule                                                           |
+| ---------------- | -------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| IDs              | Text IDs can inherit an unintended collation             | IDs are byte-exact and case-sensitive                                       | Use an explicit binary collation or binary representation                           |
+| Combo names      | Exact lookup and insensitive fallback are separate today | Exact lookup remains exact; insensitive lookup is a named operation         | Exact and insensitive queries use explicit, different collations or normalized keys |
+| Unique names     | A server default can collapse case or accents            | The domain declares whether case/accent variants conflict                   | Unique index uses the declared collation, never the database default                |
+| Pattern text     | Pattern matching occurs in application code              | Stored pattern bytes round-trip unchanged                                   | Store with an explicit case-sensitive collation                                     |
+| User-facing sort | SQLite `NOCASE` order is not portable Unicode order      | List order is defined by a normalized sort key or explicit collation policy | Schema and query use the selected policy and a unique tie-breaker                   |
+
+Minimum probe:
+
+```sql
+CREATE TEMPORARY TABLE conformance_text (
+  id VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin PRIMARY KEY,
+  name VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci UNIQUE
+) ENGINE=InnoDB;
+
+INSERT INTO conformance_text (id, name) VALUES ('A', 'Résumé');
+-- The next statement conflicts under utf8mb4_0900_ai_ci.
+INSERT INTO conformance_text (id, name) VALUES ('a', 'resume');
+```
+
+The harness MUST repeat the probe for the exact collation selected by the eventual schema; the
+example collation above is evidence, not an approval for combo names.
+
+### 5.2 `NULL`, missing rows, and nullable unique keys
+
+MySQL unique indexes permit multiple `NULL` values. SQLite does likewise for unique columns.
+However, neither behavior implements a domain invariant such as "only one active row may have no
+owner."
+
+Repository contracts MUST distinguish:
+
+- no row found;
+- a row found with a nullable field set to SQL `NULL`;
+- a JSON document containing JSON `null`;
+- a missing JSON member.
+
+Minimum probe:
+
+```sql
+CREATE TEMPORARY TABLE conformance_null (
+  id VARCHAR(64) PRIMARY KEY,
+  optional_key VARCHAR(64) NULL,
+  UNIQUE KEY uq_optional_key (optional_key)
+) ENGINE=InnoDB;
+
+INSERT INTO conformance_null VALUES ('one', NULL), ('two', NULL);
+SELECT COUNT(*) AS row_count FROM conformance_null;
+-- Expected: 2.
+```
+
+If a domain allows at most one logical `NULL`, it MUST use an explicit atomic invariant rather than
+rely on a plain unique index.
+
+### 5.3 Ordering, ties, and pagination
+
+Without `ORDER BY`, result order is undefined. With a non-unique `ORDER BY`, tied rows still have an
+undefined relative order. Offset pagination can therefore duplicate or omit records if the complete
+order is not stable.
+
+Every portable list MUST specify:
+
+1. every user-visible sort expression;
+2. the position of `NULL` values;
+3. a unique final tie-breaker;
+4. the cursor comparison tuple, if cursor pagination is used;
+5. the snapshot/concurrency expectation across pages.
+
+For the proposed combo/mapping slice:
+
+```sql
+-- Combo list contract candidate.
+ORDER BY sort_order ASC, normalized_name ASC, id ASC
+
+-- Mapping list and resolution contract candidate.
+ORDER BY priority DESC, created_at ASC, id ASC
+```
+
+The exact `normalized_name` representation remains a contract decision. It MUST NOT be implemented
+by relying on an unspecified database default.
+
+For nullable values, use an explicit sort key rather than a backend default:
+
+```sql
+ORDER BY nullable_column IS NULL ASC, nullable_column ASC, id ASC
+```
+
+### 5.4 Update, no-op, delete, and affected rows
+
+MySQL `UPDATE` reports rows actually changed by default. With the C API found-rows connection flag,
+it reports rows matched. `INSERT ... ON DUPLICATE KEY UPDATE` reports 1 for insert, 2 for an actual
+update, and 0 for an update to identical values; the found-rows flag changes the last value to 1.
+These numbers MUST NOT become repository semantics.
+
+| Repository outcome | Required meaning                                       | Forbidden implementation shortcut             |
+| ------------------ | ------------------------------------------------------ | --------------------------------------------- |
+| `updated`          | Target existed and the operation's postcondition holds | `affectedRows > 0` alone                      |
+| `unchanged`        | Target existed and already satisfied the postcondition | Treating 0 changed rows as missing            |
+| `not_found`        | Target identity did not exist                          | Treating every 0 count as unchanged           |
+| `conflict`         | Compare/update version or invariant failed             | Returning generic `false`                     |
+| delete `true`      | A row existed and was deleted                          | Assuming a successful statement deleted a row |
+| delete `false`     | No row existed                                         | Throwing a backend-specific error             |
+
+Minimum probe, run once with each supported connection mode:
+
+```sql
+CREATE TEMPORARY TABLE conformance_update (
+  id VARCHAR(64) PRIMARY KEY,
+  value_text VARCHAR(64) NOT NULL,
+  version_no BIGINT NOT NULL
+) ENGINE=InnoDB;
+
+INSERT INTO conformance_update VALUES ('row', 'same', 1);
+UPDATE conformance_update SET value_text = 'same' WHERE id = 'row';
+UPDATE conformance_update SET value_text = 'changed' WHERE id = 'row';
+UPDATE conformance_update SET value_text = 'missing' WHERE id = 'missing';
+```
+
+The harness asserts repository results and final rows, not raw driver counts. A versioned
+compare/update SHOULD use a predicate such as `WHERE id = ? AND version_no = ?`, then distinguish a
+missing identity from a stale version according to the domain contract.
+
+### 5.5 Insert, upsert, and replacement
+
+SQLite `INSERT OR REPLACE` deletes rows that conflict with a unique or primary key before inserting
+the new row. MySQL `INSERT ... ON DUPLICATE KEY UPDATE` updates one conflicting row. The two forms
+differ in foreign-key cascades, triggers, omitted columns, IDs, timestamps, and affected-row counts.
+
+Every write method MUST be classified as exactly one of:
+
+1. **insert-only:** duplicate identity returns `unique_violation`;
+2. **identity-preserving upsert:** duplicate identity updates an explicit allowlist of mutable fields;
+3. **replacement:** old identity is deleted and a new row is inserted, with cascade effects included
+   in the contract.
+
+A generic helper MUST NOT choose among these behaviors based on SQL convenience.
+
+Minimum difference probe:
+
+```sql
+CREATE TEMPORARY TABLE conformance_parent (
+  id VARCHAR(64) PRIMARY KEY,
+  immutable_value VARCHAR(64) NOT NULL,
+  mutable_value VARCHAR(64) NOT NULL
+) ENGINE=InnoDB;
+
+CREATE TEMPORARY TABLE conformance_child (
+  id VARCHAR(64) PRIMARY KEY,
+  parent_id VARCHAR(64) NOT NULL,
+  CONSTRAINT fk_conformance_child_parent
+    FOREIGN KEY (parent_id) REFERENCES conformance_parent(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+INSERT INTO conformance_parent VALUES ('p', 'keep', 'old');
+INSERT INTO conformance_child VALUES ('c', 'p');
+INSERT INTO conformance_parent (id, immutable_value, mutable_value)
+VALUES ('p', 'replacement', 'new') AS incoming
+ON DUPLICATE KEY UPDATE mutable_value = incoming.mutable_value;
+
+SELECT immutable_value, mutable_value FROM conformance_parent WHERE id = 'p';
+SELECT COUNT(*) AS child_count FROM conformance_child WHERE parent_id = 'p';
+-- Expected: immutable_value='keep', mutable_value='new', child_count=1.
+```
+
+Tables with multiple unique indexes require special care because a duplicate can select an
+unexpected conflicting row. Portable upsert schema SHOULD have one unambiguous conflict identity.
+
+### 5.6 Unicode and index-size constraints
+
+`utf8mb4` uses up to four bytes per character. InnoDB's maximum index key is 3072 bytes for common
+`DYNAMIC` or `COMPRESSED` row formats with a 16 KiB page, and is lower for smaller page sizes or
+legacy row formats. A prefix unique index is not equivalent to full-value uniqueness.
+
+Schema acceptance MUST:
+
+- set bounded lengths for all indexed identity strings;
+- calculate the worst-case byte length of every composite index;
+- verify the actual page size and row format;
+- reject a prefix unique index for a full-identity contract;
+- test maximum-length non-ASCII values before migration is accepted;
+- classify an incompatible definition as `schema_incompatible`, not `unique_violation`.
+
+Example boundary probe for a 16 KiB/DYNAMIC profile:
+
+```sql
+CREATE TEMPORARY TABLE conformance_index (
+  value_text VARCHAR(768) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  UNIQUE KEY uq_value_text (value_text)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
+```
+
+The exact accepted length MUST be derived from all key parts and the verified deployment profile;
+this example is deliberately near a physical boundary and is not a proposed production column.
+
+### 5.7 IDs and connection-local state
+
+The current combo and mapping modules generate UUIDs in the application. A MySQL implementation
+SHOULD preserve this strategy for those domains.
+
+If another domain uses a database-generated incrementing ID, the adapter MUST observe these rules:
+
+- ID retrieval is part of the same driver operation and physical connection as the insert;
+- callers never issue a later connection-level `LAST_INSERT_ID()` query;
+- multi-row inserts define whether one ID or all IDs are returned;
+- an error or rollback makes a previously observed `LAST_INSERT_ID()` unsuitable as proof of commit;
+- retries use a stable domain idempotency key;
+- upsert defines whether it returns an existing or newly generated identity.
+
+MySQL documents `LAST_INSERT_ID()` as per-connection state and leaves it undefined after some errors
+or error-driven rollbacks. Pool leases are therefore part of correctness, not merely performance.
+
+### 5.8 JSON representation
+
+Current combo data is JSON text, and malformed JSON is observable: combo reads can skip malformed
+rows and mapping resolution skips malformed combo payloads. Switching the MySQL column directly to
+native `JSON` would reject malformed rows at write/import time and normalize duplicate keys,
+whitespace, and key order.
+
+Before choosing `LONGTEXT` or `JSON`, the combo contract MUST decide:
+
+- whether malformed stored payloads remain representable for compatibility tests;
+- whether equality is structural or byte-for-byte;
+- whether duplicate object keys are rejected before persistence;
+- whether serialization order is stable and application-owned;
+- which fields are duplicated into typed columns and which representation is authoritative.
+
+For the first slice, an identity-preserving migration SHOULD keep application serialization as the
+domain boundary. If native `JSON` is selected, imports MUST parse and validate before writing, and
+tests MUST compare parsed domain values rather than raw JSON text.
+
+Minimum normalization probe:
+
+```sql
+CREATE TEMPORARY TABLE conformance_json (id VARCHAR(64) PRIMARY KEY, payload JSON) ENGINE=InnoDB;
+INSERT INTO conformance_json VALUES ('j', '{"b": 2, "a": 1, "a": 3}');
+SELECT payload FROM conformance_json WHERE id = 'j';
+-- The value is normalized; original whitespace/key duplication is not preserved.
+```
+
+### 5.9 Exact numerics and timestamps
+
+| Type        | Risk                                                  | Required contract                                                       |
+| ----------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `BIGINT`    | Values can exceed JavaScript's safe integer range     | Return a string or validated bigint representation across every backend |
+| `DECIMAL`   | Driver options may return strings or lossy numbers    | Fix precision/scale and use an exact domain representation              |
+| `TIMESTAMP` | Session time zone conversion and fractional precision | Force UTC session time zone and specify fractional precision            |
+| `DATETIME`  | No intrinsic time zone                                | Use only for explicitly zone-free civil time                            |
+| ISO text    | Lexical ordering depends on one canonical format      | Validate UTC suffix and exact precision before persistence              |
+
+Combo and mapping timestamps are currently application-generated ISO strings. The first slice SHOULD
+preserve their exact domain format rather than introducing server-generated local time.
+
+## 6. Transactions, failures, and retry policy
+
+### 6.1 Transaction states
+
+The backend contract should expose only opaque transaction contexts, but its implementation must
+maintain the following lifecycle:
+
+```text
+idle
+  -> active
+      -> committed
+      -> rolled_back
+      -> failed_statement -> rolled_back
+      -> failed_transaction -> rolled_back
+      -> outcome_unknown -> reconciled | escalated
+```
+
+A context in `committed`, `rolled_back`, `failed_transaction`, or `outcome_unknown` MUST reject new
+repository work. A context with a failed statement SHOULD be explicitly rolled back before its
+connection returns to the pool, even when MySQL would technically permit more statements.
+
+### 6.2 Error classification matrix
+
+Numeric codes and SQLSTATE values below are MySQL 8.0 server signals. A Node.js driver can also
+produce transport-specific codes; those MUST be normalized without leaking raw messages to callers.
+
+| Condition                      | MySQL signal                           | Rollback scope                                    | Portable class           | Retry policy                                                   |
+| ------------------------------ | -------------------------------------- | ------------------------------------------------- | ------------------------ | -------------------------------------------------------------- |
+| Duplicate key                  | `1062`, SQLSTATE `23000`               | Statement                                         | `unique_violation`       | No, unless contract defines idempotent create                  |
+| Missing referenced parent      | `1452`, SQLSTATE `23000`               | Statement                                         | `foreign_key_violation`  | No                                                             |
+| Parent still referenced        | `1451`, SQLSTATE `23000`               | Statement                                         | `foreign_key_violation`  | No                                                             |
+| Deadlock victim                | `1213`, SQLSTATE `40001`               | Entire transaction                                | `transaction_conflict`   | Retry whole atomic operation                                   |
+| Lock wait timeout              | `1205`, SQLSTATE `HY000`               | Statement by default; server option can change it | `lock_timeout`           | Roll back explicitly, then retry whole operation if idempotent |
+| Invalid JSON text              | `3140`, SQLSTATE `22032`               | Statement                                         | `invalid_data`           | No                                                             |
+| Data too long                  | `1406`, SQLSTATE `22001`               | Statement                                         | `invalid_data`           | No                                                             |
+| Check constraint               | `3819`, SQLSTATE `HY000`               | Statement                                         | `constraint_violation`   | No                                                             |
+| Server gone before request     | Driver/server transport signal         | No operation or unknown                           | `unavailable`            | Retry only if operation definitely was not sent                |
+| Connection lost during request | Driver transport signal                | Unknown                                           | `outcome_unknown`        | Reconcile by idempotency key; do not blind retry               |
+| Pool acquisition timeout       | Driver/pool signal                     | None                                              | `unavailable`            | Bounded retry outside transaction                              |
+| Unsupported profile            | Initialization probe mismatch          | None                                              | `unsupported`            | No; fail readiness                                             |
+| Migration lock timeout         | Named-lock acquisition returns timeout | None                                              | `migration_lock_timeout` | Wait/back off according to startup policy                      |
+| Migration lock error           | Named-lock acquisition returns error   | None                                              | `migration_lock_failed`  | No blind retry; inspect connection state                       |
+
+The adapter MUST classify by structured code and SQLSTATE where available, never by localized message
+text. Public HTTP/SSE/MCP responses must still pass through the repository's existing sanitized error
+helpers.
+
+### 6.3 Retry rules
+
+A retryable classification does not automatically make an operation safe to retry.
+
+A retry loop MUST:
+
+1. own the entire repository atomic operation;
+2. discard the failed transaction context;
+3. acquire a valid connection and begin a new transaction;
+4. preserve a stable operation or entity identity;
+5. use bounded attempts with jitter;
+6. stop on non-retryable classifications;
+7. reconcile `outcome_unknown` before issuing another write;
+8. emit structured diagnostics without credentials or raw SQL values.
+
+MySQL explicitly recommends retrying the entire transaction after a deadlock. A lock wait timeout
+rolls back only the current statement by default, so explicit rollback is required to make the retry
+boundary independent of server configuration.
+
+### 6.4 Reproducible two-connection deadlock probe
+
+Use two physical connections, not two logical operations that might share one pool connection:
+
+```sql
+CREATE TABLE conformance_deadlock (
+  id INT PRIMARY KEY,
+  value_no INT NOT NULL
+) ENGINE=InnoDB;
+INSERT INTO conformance_deadlock VALUES (1, 0), (2, 0);
+```
+
+```text
+Connection A                         Connection B
+START TRANSACTION;                   START TRANSACTION;
+UPDATE ... WHERE id = 1;             UPDATE ... WHERE id = 2;
+UPDATE ... WHERE id = 2;             UPDATE ... WHERE id = 1;
+```
+
+Exactly one transaction should become the deadlock victim. The harness asserts that the victim is
+classified as retryable, its whole transaction is retried with a new context, both logical updates
+occur once, and no partial result remains.
+
+## 7. Migration ownership and DDL recovery
+
+### 7.1 Why a normal transaction is insufficient
+
+MySQL DDL statements commonly commit the current transaction implicitly before execution and often
+afterward. Atomic DDL protects one supported DDL statement; it does not make a sequence of DDL,
+data backfill, and schema-history updates one user transaction.
+
+A MySQL migration runner therefore MUST model a migration as recoverable phases:
+
+```text
+lock acquired
+  -> current schema inspected
+  -> intent/checkpoint recorded
+  -> DDL phase applied and verified
+  -> data phase applied in bounded transactions
+  -> postconditions verified
+  -> logical milestone recorded
+  -> readiness allowed
+  -> lock released
+```
+
+A process crash at any arrow must have a deterministic resume or stop condition.
+
+### 7.2 Ownership alternatives
+
+| Option                          | Strengths                                                                | Failure modes                                                                             | Decision                                                               |
+| ------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Process-local mutex             | Simple and useful for one process                                        | Does not coordinate replicas                                                              | Rejected for external-backend migration ownership                      |
+| Row lock held in a transaction  | Uses normal InnoDB locking                                               | DDL implicit commit releases transaction ownership                                        | Rejected as the sole DDL migration lock                                |
+| Lease row with owner and expiry | Survives pooled connections and can support takeover                     | Requires clock/expiry/fencing design; stale owner may continue                            | Candidate for scheduled jobs, not first migration mechanism            |
+| MySQL named lock                | Server-wide, exclusive, tied to physical session, released on disconnect | Must pin one connection; not transaction-scoped; one-server scope; undefined waiter order | Recommended first MySQL migration mutex, combined with durable history |
+| External coordinator            | Can coordinate across database topologies                                | Adds an operational dependency outside the database contract                              | Deferred unless deployment topology requires it                        |
+
+### 7.3 Recommended first mechanism
+
+For a single writable MySQL primary, the migration runner SHOULD:
+
+1. lease and pin one physical connection;
+2. acquire one application-and-database-specific named lock of at most 64 characters;
+3. distinguish acquired (`1`), timeout (`0`), and error (`NULL`);
+4. inspect a durable migration-history table after acquiring the lock;
+5. execute idempotent physical phases with explicit postcondition checks;
+6. record completion only after all postconditions pass;
+7. release the named lock explicitly in `finally`;
+8. close/discard the pinned connection if release cannot be confirmed.
+
+Named locks are released when the session ends, not on commit or rollback. They are server-wide on one
+`mysqld`; topology and failover behavior must be validated before active-active support is advertised.
+A durable history/checkpoint table remains necessary because lock ownership alone says nothing about
+partially completed DDL.
+
+### 7.4 Migration failure matrix
+
+| Injection point                 | Required durable evidence                     | Restart behavior                    | Readiness                                     |
+| ------------------------------- | --------------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| Before lock                     | No intent                                     | Retry lock acquisition              | Not ready while required migration is pending |
+| After lock, before intent       | No schema change                              | Reinspect and restart               | Not ready                                     |
+| After DDL, before checkpoint    | Schema postcondition reveals DDL applied      | Mark/continue only after validation | Not ready                                     |
+| During data backfill            | Bounded checkpoint identifies completed range | Resume from verified checkpoint     | Not ready                                     |
+| After data, before milestone    | Postconditions prove completion               | Record milestone idempotently       | Not ready until recorded                      |
+| After milestone, before release | History proves complete                       | New owner verifies and proceeds     | Ready if all required milestones pass         |
+
+## 8. SQLite-to-MySQL migration validation
+
+An offline migration tool is required before database switching can be advertised. For each migrated
+domain it MUST provide a dry run and a post-import report.
+
+### 8.1 Preflight
+
+- verify supported SQLite and MySQL schema milestones;
+- validate every source JSON payload according to the chosen target representation;
+- detect names that collide under the target collation;
+- validate UTF-8 and maximum indexed byte lengths;
+- detect orphaned foreign keys even if the source connection had checks disabled;
+- validate timestamps and numeric ranges;
+- count source rows by table and logical domain;
+- refuse to mutate either database during dry run.
+
+### 8.2 Import
+
+- preserve application-generated IDs;
+- use deterministic batches and checkpoints;
+- import parents before children;
+- do not use replacement semantics to hide conflicts;
+- classify every rejected row with a stable reason;
+- keep encrypted credential ciphertext opaque and never log it;
+- stop on an unclassified difference.
+
+### 8.3 Postconditions
+
+- row counts match for every migrated table;
+- identity sets match exactly;
+- foreign-key orphan counts are zero;
+- canonical domain digests match for JSON-backed records;
+- list ordering and mapping resolution produce the same results;
+- a second dry run reports no pending changes;
+- SQLite remains unchanged and available for operator rollback until cutover is accepted.
+
+## 9. Backend-neutral conformance catalog
+
+Each test below runs the same repository fixture against SQLite and MySQL. MySQL-specific probes may
+assert error metadata internally, but the shared assertion compares only domain results and durable
+state.
+
+### 9.1 Core CRUD and representation
+
+| Test name                                     | Fixture/action                                                    | Required assertion                                     |
+| --------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------ |
+| `create_round_trips_domain_values`            | Create Unicode, nullable, JSON, and timestamp fields              | Parsed domain object equals normalized input           |
+| `find_missing_distinguishes_absent_from_null` | Read an absent ID and a present nullable row                      | Results are distinct                                   |
+| `update_missing_returns_not_found`            | Update an absent ID                                               | Stable `not_found` result                              |
+| `delete_is_idempotent_as_declared`            | Delete the same ID twice                                          | First and second results match the repository contract |
+| `json_round_trips_structurally`               | Write equivalent JSON with different whitespace/order             | Parsed values are equal; raw text is not asserted      |
+| `timestamp_round_trips_in_utc`                | Change MySQL session default before leasing a verified connection | Domain serialization remains canonical UTC             |
+| `decimal_round_trips_without_float_loss`      | Write precision/scale boundaries                                  | Exact representation is unchanged                      |
+| `large_integer_does_not_cross_number_lossily` | Write beyond JavaScript safe integer range                        | String/bigint domain representation is exact           |
+
+### 9.2 Identity and collation
+
+| Test name                                      | Fixture/action                                             | Required assertion                                         |
+| ---------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------- |
+| `id_is_byte_exact`                             | Create IDs differing only by case                          | Both remain distinct if the ID contract is binary          |
+| `exact_name_lookup_is_case_sensitive`          | Store `MASTER-LIGHT`, query exact lowercase                | Exact lookup misses                                        |
+| `insensitive_name_lookup_uses_declared_policy` | Query the same row through the named insensitive operation | One deterministic row is returned                          |
+| `unique_name_case_policy_is_explicit`          | Insert case variants                                       | Result matches the selected name policy on both backends   |
+| `unique_name_accent_policy_is_explicit`        | Insert accent variants                                     | Result matches the selected policy                         |
+| `unique_violation_is_classified`               | Concurrently create one identity                           | One wins; loser is `unique_violation` without backend text |
+| `nullable_unique_policy_is_explicit`           | Insert two `NULL` logical keys                             | Result matches domain rule, not accidental index behavior  |
+
+### 9.3 Ordering and pagination
+
+| Test name                                           | Fixture/action                                 | Required assertion                                     |
+| --------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------ |
+| `list_uses_unique_final_tiebreaker`                 | Insert rows with identical primary sort values | Repeated list order is identical and ID-ordered        |
+| `pagination_has_no_gaps_or_duplicates`              | Traverse small pages across tied rows          | Union equals full ID set; page intersections are empty |
+| `nullable_sort_position_is_fixed`                   | Mix `NULL` and non-`NULL` values               | `NULL` appears at the contract-defined end             |
+| `cursor_predicate_matches_sort_tuple`               | Page forward through mixed sort keys           | Every row appears exactly once in declared order       |
+| `concurrent_insert_pagination_behavior_is_declared` | Insert between page reads                      | Result matches snapshot or documented live-page policy |
+
+### 9.4 Writes and affected rows
+
+| Test name                                   | Fixture/action                             | Required assertion                                 |
+| ------------------------------------------- | ------------------------------------------ | -------------------------------------------------- |
+| `same_value_update_is_not_missing`          | Update an existing row to identical values | `unchanged` or declared success, never `not_found` |
+| `same_value_result_ignores_found_rows_mode` | Run fixture with both connection modes     | Domain result is identical                         |
+| `compare_update_detects_stale_version`      | Two writers use one old version            | One succeeds; one returns `conflict`               |
+| `batch_count_uses_contract_definition`      | Mix changed and unchanged matches          | Count means the same thing on both backends        |
+| `upsert_preserves_identity_and_children`    | Upsert parent with a child row             | ID, immutable fields, and child survive            |
+| `insert_only_never_silently_updates`        | Repeat insert-only identity                | Second call is `unique_violation`                  |
+
+### 9.5 Transactions and failure injection
+
+| Test name                                       | Fixture/action                                  | Required assertion                           |
+| ----------------------------------------------- | ----------------------------------------------- | -------------------------------------------- |
+| `related_changes_commit_atomically`             | Update parent and children                      | All postconditions commit together           |
+| `related_changes_roll_back_atomically`          | Inject a child constraint failure               | All tables equal pre-operation state         |
+| `deadlock_retries_whole_operation`              | Two physical connections lock in opposite order | One victim; final logical effect occurs once |
+| `lock_timeout_discards_context`                 | Hold a row lock past timeout                    | Explicit rollback; old context rejects work  |
+| `duplicate_and_foreign_key_errors_are_distinct` | Trigger each constraint                         | Stable distinct classes                      |
+| `disconnect_before_send_is_unavailable`         | Fail connection before dispatch                 | Safe bounded retry is permitted              |
+| `disconnect_during_commit_is_outcome_unknown`   | Drop connection at commit boundary              | No blind retry; reconciliation is required   |
+| `retry_uses_stable_operation_identity`          | Fail first attempt after durable write          | At most one logical effect exists            |
+
+### 9.6 Migration and readiness
+
+| Test name                               | Fixture/action                              | Required assertion                                 |
+| --------------------------------------- | ------------------------------------------- | -------------------------------------------------- |
+| `only_one_instance_owns_migration`      | Two backend instances acquire one name      | Exactly one executes migration phases              |
+| `lock_timeout_is_not_reported_as_ready` | Hold migration lock from another connection | Startup waits/fails with classified state          |
+| `disconnect_releases_named_lock`        | Terminate owner connection                  | Another instance can acquire and reinspect         |
+| `ddl_checkpoint_recovers_after_crash`   | Stop after DDL before history update        | Restart detects postcondition and continues safely |
+| `backfill_resumes_without_duplication`  | Stop between deterministic batches          | Completed rows are neither skipped nor duplicated  |
+| `partial_migration_blocks_readiness`    | Leave required milestone incomplete         | Health may be alive; readiness is false            |
+| `completed_history_is_idempotent`       | Start against fully migrated schema         | No DDL/data mutation occurs                        |
+
+## 10. First-slice acceptance profile: combos and model mappings
+
+This section specializes the general catalog for the candidate first slice discussed in #8075 and
+implemented experimentally in Draft PR #8757. It does not approve that runtime PR.
+
+### 10.1 Contract decisions required before adapter code
+
+| Decision              | Current evidence                                       | Required resolution                                                                         |
+| --------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
+| Combo ID              | Application UUID                                       | Preserve as byte-exact text/binary identity                                                 |
+| Combo name uniqueness | SQLite unique name; exact and insensitive reads differ | Select explicit uniqueness collation independently from insensitive fallback                |
+| Combo list            | `sort_order`, then `name NOCASE`                       | Add `id` as final tie-breaker and define Unicode name order                                 |
+| Next sort order       | `MAX(sort_order) + 1`                                  | Replace race-prone read-then-insert with an atomic allocation or retryable unique invariant |
+| Reorder               | One SQLite transaction updates all parseable rows      | Define concurrent reorder serialization and all-or-nothing behavior                         |
+| Corrupt combo JSON    | Reads/resolution skip malformed payloads               | Decide whether MySQL schema can represent malformed legacy rows during migration            |
+| Mapping order         | `priority DESC, created_at ASC`                        | Add `id ASC` final tie-breaker                                                              |
+| Mapping delete        | Boolean from affected rows                             | Preserve `true` then `false` behavior independent of found-rows mode                        |
+| Combo delete          | Foreign key cascade removes mappings                   | Preserve one-operation atomic cascade                                                       |
+| Timestamps            | Application ISO strings                                | Preserve canonical UTC text or define an exact typed conversion                             |
+
+### 10.2 Required combo fixtures
+
+The shared fixture MUST include:
+
+- combo names `Alpha`, `alpha`, `Résumé`, and `resume` to exercise selected collation policy;
+- three combos with the same requested `sortOrder` to exercise the unique final order;
+- one missing ID for update and delete results;
+- one payload with explicit JSON `null` and one with a missing member;
+- one intentionally malformed legacy payload if compatibility requires it;
+- mappings with identical `priority` and `createdAt` but different IDs;
+- enabled, disabled, inactive-target, and corrupt-target mappings;
+- one combo with at least two dependent mappings for cascade verification.
+
+### 10.3 Required combo assertions
+
+A MySQL implementation cannot claim the first slice complete until the shared harness proves:
+
+1. application UUIDs and ISO timestamps round-trip unchanged;
+2. exact and insensitive combo-name lookups remain distinct operations;
+3. uniqueness follows the approved name policy, not server defaults;
+4. combo and mapping lists have a total deterministic order;
+5. every offset page is a contiguous slice of that order;
+6. update of a missing combo/mapping returns `null`;
+7. first delete returns `true`, repeated delete returns `false`;
+8. reorder filters unknown/duplicate requested IDs exactly as the accepted contract specifies;
+9. reorder either commits every intended row or none;
+10. mapping resolution uses the deterministic order and skips disabled, inactive, and malformed targets;
+11. deleting a combo atomically removes all dependent mappings;
+12. errors are classified without raw MySQL messages;
+13. SQLite starts without loading a MySQL dependency;
+14. no external-backend support is advertised by the presence of this slice alone.
+
+### 10.4 Concurrency probes specific to the slice
+
+#### Concurrent combo creation
+
+Two connections create different UUIDs with the same contract-equivalent name. Exactly one succeeds;
+the other receives `unique_violation`. If case/accent variants are allowed by the approved policy,
+both succeed and exact lookup returns the correct identity.
+
+#### Concurrent sort allocation
+
+Two connections create combos without an explicit sort order. The final values MUST follow the
+contract without duplicates caused by both transactions reading the same `MAX(sort_order)`. The
+implementation may serialize allocation, use a separate sequence, or retry a protected invariant;
+the contract must not require one specific SQL mechanism.
+
+#### Concurrent reorder
+
+Two connections reorder the same set in opposite orders. The accepted outcome MUST be one complete
+order or the other, never a mixed sequence or mismatched JSON/column `sortOrder`. The loser may wait,
+return conflict, or retry according to the approved contract.
+
+#### Delete versus mapping creation
+
+One connection deletes a combo while another creates a mapping to it. The final state MUST be either
+an existing combo with a valid mapping or no combo and no mapping. An orphan mapping is forbidden.
+
+## 11. Implementation gate checklist
+
+A MySQL adapter PR for any domain MUST NOT start until reviewers can answer all applicable items:
+
+- [ ] Identity, case, accent, and collation semantics are explicit.
+- [ ] Every list has a complete order, `NULL` position, and unique tie-breaker.
+- [ ] Missing, unchanged, conflict, and delete results are distinguishable.
+- [ ] Every write is classified as insert-only, identity-preserving upsert, or replacement.
+- [ ] ID generation and idempotency ownership are explicit.
+- [ ] JSON and temporal representations are selected with migration compatibility in mind.
+- [ ] Error codes map to the backend-neutral taxonomy.
+- [ ] Retry ownership and maximum scope are explicit.
+- [ ] Migration mutex, durable checkpoints, and readiness rules are approved.
+- [ ] SQLite and MySQL fixtures run through one behavior harness.
+- [ ] Offline migration preflight and postconditions exist before cutover is advertised.
+- [ ] SQLite remains the zero-configuration default and clean startup path.
+
+## 12. Reference sources
+
+### 12.1 OmniRoute sources
+
+- `docs/architecture/persistence-backend-boundary.md`
+- `docs/architecture/sqlite-coupling-inventory.md`
+- `src/lib/db/combos.ts`
+- `src/lib/db/modelComboMappings.ts`
+- `src/lib/db/migrations/001_initial_schema.sql`
+- `src/lib/db/migrations/010_model_combo_mappings.sql`
+- `src/lib/db/migrations/020_combo_sort_order.sql`
+
+### 12.2 MySQL 8.0 reference manual
+
+- [Character sets and collations](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/charset.html)
+- [CREATE TABLE](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/create-table.html)
+- [UPDATE](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/update.html)
+- [INSERT ... ON DUPLICATE KEY UPDATE](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/insert-on-duplicate.html)
+- [Information functions](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/information-functions.html)
+- [The JSON data type](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/json.html)
+- [InnoDB transaction isolation](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-transaction-isolation-levels.html)
+- [InnoDB error handling](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-error-handling.html)
+- [Handling deadlocks](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-deadlocks-handling.html)
+- [Statements that cause an implicit commit](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/implicit-commit.html)
+- [Locking functions](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/locking-functions.html)
+- [InnoDB limits](https://docs.oracle.com/cd/E17952_01/mysql-8.0-en/innodb-limits.html)
+
+### 12.3 SQLite references
+
+- [ON CONFLICT](https://sqlite.org/lang_conflict.html)
+- [`NULL` handling](https://sqlite.org/nulls.html)
+- [Transactions](https://sqlite.org/lang_transaction.html)
+- [SELECT and ordering](https://sqlite.org/lang_select.html#orderby)
+
+## 13. Open decisions
+
+This specification deliberately leaves the following decisions to the accepted first-slice design:
+
+1. the exact collation and normalization policy for combo names;
+2. the typed or text representation of combo JSON in MySQL;
+3. the repository result type for an existing same-value update;
+4. the isolation level selected by the backend profile;
+5. the concurrency mechanism for sort-order allocation and reorder;
+6. the physical MySQL migration schema and durable checkpoint format;
+7. the exact retry budget and backoff policy;
+8. the topology boundary within which a MySQL named migration lock is sufficient.
+
+These are not adapter implementation details. Each changes observable behavior or operational
+correctness and therefore requires explicit review before runtime support proceeds.
