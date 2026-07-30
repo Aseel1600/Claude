@@ -89,19 +89,25 @@ export function flattenLeaves(node, prefix = "", out = {}) {
  * (a `__MISSING__:` placeholder) is BANNED in `vi` by tests/unit/i18n-vi-completeness.test.ts,
  * so `vi` had no legitimate way out of a purely cosmetic English edit.
  *
- * Deliberately narrow. Only case, whitespace runs, and trailing terminal punctuation are
- * folded. Any change to the words themselves — including added or removed words, and any
- * change inside an interpolation like `{count}` — is a real rewrite and still flags.
+ * Deliberately narrow: ONLY letter case and trailing terminal punctuation.
+ *
+ * **Whitespace is NOT folded, on purpose.** A first version of this folded whitespace runs and
+ * trimmed, and it collided with a pre-existing, deliberately conservative decision —
+ * tests/unit/i18n-ui-value-drift.test.ts, "a value that only changes whitespace still counts as
+ * an edit", whose comment reads: *"trailing-space churn is rare, and treating it as a no-op would
+ * let a real reword slip through behind an innocuous-looking diff."* That call belongs to whoever
+ * made it; the problem actually reported here was CASE
+ * (`"Reset Defaults"` → `"Reset defaults"`, 41 locales invalidated), and quietly reversing
+ * someone else's documented decision to fix something they never reported is not this change's
+ * job. Narrowed to the reported scope instead.
+ *
+ * Any change to the words themselves — added or removed words, and any change inside an
+ * interpolation like `{count}` — is a real rewrite and still flags.
  */
 export function isCosmeticRewrite(before, after) {
   if (typeof before !== "string" || typeof after !== "string") return false;
   if (before === after) return true;
-  const norm = (s) =>
-    s
-      .replace(/\s+/g, " ")
-      .replace(/[.:!?;,]+$/u, "")
-      .trim()
-      .toLowerCase();
+  const norm = (s) => s.replace(/[.:!?;,]+$/u, "").toLowerCase();
   return norm(before) === norm(after);
 }
 

@@ -24,11 +24,21 @@ test("case-only changes are cosmetic — the reported case", () => {
   assert.equal(isCosmeticRewrite("api key", "API Key"), true);
 });
 
-test("whitespace runs and trailing punctuation are cosmetic", () => {
-  assert.equal(isCosmeticRewrite("Reset  defaults", "Reset defaults"), true);
+test("trailing terminal punctuation is cosmetic", () => {
   assert.equal(isCosmeticRewrite("Reset defaults", "Reset defaults."), true);
   assert.equal(isCosmeticRewrite("Are you sure", "Are you sure?"), true);
-  assert.equal(isCosmeticRewrite(" Save ", "Save"), true);
+  assert.equal(isCosmeticRewrite("Done!", "Done"), true);
+});
+
+test("WHITESPACE is deliberately NOT cosmetic — it is someone else's call", () => {
+  // tests/unit/i18n-ui-value-drift.test.ts pins "a value that only changes whitespace still
+  // counts as an edit", with a stated reason: trailing-space churn is rare, and treating it as a
+  // no-op would let a real reword hide behind an innocuous-looking diff. The problem reported
+  // here was CASE. Narrowing to the reported scope rather than reversing a documented decision
+  // for free — asserted so a later "tidy-up" cannot fold whitespace back in by accident.
+  assert.equal(isCosmeticRewrite("hello", "hello "), false);
+  assert.equal(isCosmeticRewrite("Reset  defaults", "Reset defaults"), false);
+  assert.equal(isCosmeticRewrite(" Save ", "Save"), false);
 });
 
 test("a changed WORD is never cosmetic", () => {
