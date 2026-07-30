@@ -34,6 +34,9 @@ type FormData = QuotaScrapingFieldValues &
     routingTags: string;
     tag?: string;
     validationModelId?: string;
+    tunnelId: string;
+    connectorName: string;
+    runtimeKey?: string;
   };
 type ProviderSpecificData = Record<string, unknown>;
 
