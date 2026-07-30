@@ -97,6 +97,11 @@ import { getResource404Bypass } from "./requestResourceHealth";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
 import { readHeaderValue, type AuthRequestHeaders } from "./headerReader.ts";
+import {
+  getOAuthSessionAvailability,
+  reserveOAuthSession,
+} from "@omniroute/open-sse/services/oauthSessionOccupancy.ts";
+
 type JsonRecord = Record<string, unknown>;
 interface RecoverableConnectionState {
   connectionId: string;
@@ -115,6 +120,7 @@ interface CredentialSelectionOptions {
   excludeConnectionIds?: string[] | null;
   sessionKey?: string | null;
   sessionAffinityTtlMs?: number | null;
+  reserveOAuthSession?: boolean;
 }
 interface CooldownInspectionState {
   connection: ProviderConnectionView;
@@ -1505,7 +1511,15 @@ export async function getProviderCredentials(
       };
     }
 
-    const orderedConnections = withQuota;
+    const orderedConnections = [...withQuota].sort((a, b) => {
+      if (a.authType !== "oauth" || b.authType !== "oauth") return 0;
+      const priorityDelta = (a.priority || 999) - (b.priority || 999);
+      if (priorityDelta !== 0) return priorityDelta;
+      return (
+        getOAuthSessionAvailability(b.id, options.sessionKey) -
+        getOAuthSessionAvailability(a.id, options.sessionKey)
+      );
+    });
 
     const providerStrategyOverrides = (settings.providerStrategies || {}) as Record<
       string,
@@ -1686,6 +1700,26 @@ export async function getProviderCredentials(
       connection = orderedConnections[0];
     }
 
+    if (options.reserveOAuthSession === true && connection?.authType === "oauth") {
+      const selectedPriority = connection.priority || 999;
+      const selectedAvailability = getOAuthSessionAvailability(connection.id, options.sessionKey);
+      const moreAvailablePeer = [...orderedConnections]
+        .filter(
+          (candidate) =>
+            candidate.authType === "oauth" && (candidate.priority || 999) <= selectedPriority + 1
+        )
+        .sort(
+          (a, b) =>
+            getOAuthSessionAvailability(b.id, options.sessionKey) -
+            getOAuthSessionAvailability(a.id, options.sessionKey)
+        )
+        .find(
+          (candidate) =>
+            getOAuthSessionAvailability(candidate.id, options.sessionKey) > selectedAvailability
+        );
+      if (moreAvailablePeer) connection = moreAvailablePeer;
+    }
+
     if (provider === "antigravity" && connection) {
       log.info(
         "AUTH",
@@ -1698,6 +1732,11 @@ export async function getProviderCredentials(
     if (apiKeyHealth) {
       syncHealthFromDB(connection.id, apiKeyHealth);
     }
+
+    const releaseOAuthSession =
+      options.reserveOAuthSession === true && connection.authType === "oauth" && options.sessionKey
+        ? reserveOAuthSession(connection.id, options.sessionKey)
+        : undefined;
 
     return {
       apiKey: connection.apiKey,
@@ -1720,6 +1759,7 @@ export async function getProviderCredentials(
       // connectionId name.
       id: connection.id,
       provider: connection.provider,
+      authType: connection.authType,
       email: connection.email,
       connectionId: connection.id,
       // Include current status for optimization check
@@ -1734,6 +1774,7 @@ export async function getProviderCredentials(
       // getProviderCredentialsWithQuotaPreflight can see them. Without this,
       // user-set cutoffs would silently never enforce.
       quotaWindowThresholds: connection.quotaWindowThresholds ?? null,
+      ...(releaseOAuthSession ? { releaseOAuthSession } : {}),
     };
   } finally {
     selectionLock.release();
@@ -1821,7 +1862,11 @@ export async function getProviderCredentialsWithQuotaPreflight(
       return credentials;
     }
 
-    const connectionId = credentials.connectionId;
+    const selectedCredentials = credentials as typeof credentials & {
+      connectionId?: string;
+      releaseOAuthSession?: () => void;
+    };
+    const connectionId = selectedCredentials.connectionId;
     if (!connectionId) {
       return credentials;
     }
@@ -1891,13 +1936,21 @@ export async function getProviderCredentialsWithQuotaPreflight(
     const modelAwarePreflight = provider === "codex" || provider === "openrouter";
     const preflightCredentials =
       requestedModel && modelAwarePreflight ? { ...credentials, requestedModel } : credentials;
-    const preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
-      resolveMinRemainingPercent,
-      resolveWarnRemainingPercent: () => warnThresholdPercent,
-    });
+    let preflight;
+    try {
+      preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
+        resolveMinRemainingPercent,
+        resolveWarnRemainingPercent: () => warnThresholdPercent,
+      });
+    } catch (error) {
+      selectedCredentials.releaseOAuthSession?.();
+      throw error;
+    }
     if (preflight.proceed) {
       return credentials;
     }
+
+    selectedCredentials.releaseOAuthSession?.();
 
     const unavailableUntil = await markQuotaPreflightAccountUnavailable(
       provider,
