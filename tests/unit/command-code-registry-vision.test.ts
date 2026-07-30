@@ -29,7 +29,6 @@ const CC_VISION: [string, string][] = [
   ["GPT-5.4 Mini (CC)", "command-code/gpt-5.4-mini"],
   ["Kimi K2.6 (CC)", "command-code/moonshotai/Kimi-K2.6"],
   ["Kimi K2.5 (CC)", "command-code/moonshotai/Kimi-K2.5"],
-  ["Qwen 3.6 Max (CC)", "command-code/Qwen/Qwen3.6-Max-Preview"],
   ["Qwen 3.6 Plus (CC)", "command-code/Qwen/Qwen3.6-Plus"],
 ];
 
@@ -42,6 +41,7 @@ const CC_TEXT_ONLY: [string, string][] = [
   ["GLM-5 (CC)", "command-code/zai-org/GLM-5"],
   ["MiniMax M2.7 (CC)", "command-code/MiniMaxAI/MiniMax-M2.7"],
   ["MiniMax M2.5 (CC)", "command-code/MiniMaxAI/MiniMax-M2.5"],
+  ["Qwen 3.6 Max Preview (CC)", "command-code/Qwen/Qwen3.6-Max-Preview"],
 ];
 
 for (const [name, modelId] of CC_VISION) {

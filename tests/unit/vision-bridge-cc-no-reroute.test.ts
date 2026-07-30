@@ -97,7 +97,6 @@ test("CC-VB-SANITY: getResolvedModelCapabilities reports vision for CC models", 
     "command-code/claude-haiku-4-5-20251001",
     "command-code/moonshotai/Kimi-K2.6",
     "command-code/moonshotai/Kimi-K2.5",
-    "command-code/Qwen/Qwen3.6-Max-Preview",
     "command-code/Qwen/Qwen3.6-Plus",
   ]) {
     const caps = getResolvedModelCapabilities(modelId);
@@ -180,7 +179,6 @@ test("CC-VB-06: all CC vision models pass through unmodified (loop)", async () =
     "command-code/claude-haiku-4-5-20251001",
     "command-code/moonshotai/Kimi-K2.6",
     "command-code/moonshotai/Kimi-K2.5",
-    "command-code/Qwen/Qwen3.6-Max-Preview",
     "command-code/Qwen/Qwen3.6-Plus",
   ];
 

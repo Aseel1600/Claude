@@ -139,7 +139,6 @@ export const command_codeProvider: RegistryEntry = {
       id: "Qwen/Qwen3.6-Max-Preview",
       name: "Qwen 3.6 Max (CC)",
       supportsReasoning: true,
-      supportsVision: true,
       contextLength: 1000000,
       maxOutputTokens: 32768,
     },
