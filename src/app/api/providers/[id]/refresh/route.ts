@@ -84,11 +84,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
     // github.com Copilot and GHE Copilot (device-code flow) never receive a
     // refresh_token — only a GitHub access token plus a short-lived Copilot
-    // sub-token (providerSpecificData.copilotToken). getAccessToken() below
-    // requires credentials.refreshToken and returns null immediately without
-    // one, which always surfaced as "Token refresh failed — provider returned
-    // no new token" for these connections. Refresh the Copilot sub-token
-    // directly instead, mirroring the health-check sweep's dedicated path.
+    // sub-token (providerSpecificData.copilotToken). The generic access-token
+    // helper below requires credentials.refreshToken and returns null
+    // immediately without one, which always surfaced as "Token refresh failed
+    // — provider returned no new token" for these connections. Refresh the
+    // Copilot sub-token directly instead, mirroring the health-check sweep's
+    // dedicated path.
+    //
+    // NB: keep the generic helper's name out of the comments above its real
+    // call site. tests/unit/codex-manual-refresh-rotating-guard.test.ts finds
+    // that call with a plain substring search and asserts the openai-auth0
+    // rotation guard precedes it, so an earlier textual mention would become
+    // the match instead of the actual invocation.
     if (
       (provider === "github" || provider === "ghe-copilot") &&
       !connection.refreshToken &&
