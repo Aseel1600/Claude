@@ -173,7 +173,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: |
-            ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-${{ matrix.arch }},mode=max
@@ -190,7 +189,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           outputs: type=image,push-by-digest=true,name-canonical=true,push=true
           tags: |
-            ${{ env.IMAGE_NAME }}
             ${{ env.GHCR_IMAGE_NAME }}
           cache-from: type=gha,scope=docker-web-${{ matrix.arch }}
           cache-to: type=gha,scope=docker-web-${{ matrix.arch }},mode=max
@@ -326,7 +324,7 @@ jobs:
       - name: Inspect image
         if: needs.prepare.outputs.version != 'main'
         run: |
-          docker buildx imagetools inspect "${IMAGE_NAME}:${VERSION}"
+          docker buildx imagetools inspect "${GHCR_IMAGE_NAME}:${VERSION}"
 
       - name: Generate CycloneDX SBOM (image, advisory)
         if: needs.prepare.outputs.version != 'main'
