@@ -27,8 +27,15 @@ function getSortOrder(value: unknown): number | null {
   return typeof row.sort_order === "number" ? row.sort_order : null;
 }
 
-function withSortOrder(payload: string, sortOrder: number | null): JsonRecord {
-  const parsed = JSON.parse(payload) as JsonRecord;
+function withSortOrder(payload: string, sortOrder: number | null): JsonRecord | null {
+  let parsed: JsonRecord;
+  try {
+    parsed = JSON.parse(payload) as JsonRecord;
+  } catch {
+    // Malformed stored combo JSON (e.g. from a manual/agent SQLite edit) must
+    // not crash the WebUI combo list. Return null so callers skip the row.
+    return null;
+  }
   if (typeof sortOrder === "number") {
     parsed.sortOrder = sortOrder;
   }
@@ -72,6 +79,7 @@ function parseComboRow(row: unknown): JsonRecord | null {
   const payload = getSerializedData(row);
   if (!payload) return null;
   const parsed = withSortOrder(payload, getSortOrder(row));
+  if (!parsed) return null;
   // Merge deduplicated column values back into the record
   const record = asRecord(row);
   if (record.context_cache_protection !== undefined && record.context_cache_protection !== null) {
