@@ -21,11 +21,11 @@ describe("memory retrieval toFts5MatchQuery", () => {
     );
   });
 
-  it("keeps punctuation-only input as a single quoted term", () => {
-    assert.strictEqual(toFts5MatchQuery("???! ..."), '"..."');
+  it("keeps punctuation-only input as a non-matching quoted phrase", () => {
+    assert.strictEqual(toFts5MatchQuery("???! ..."), '""');
   });
 
-  it("returns empty string for empty input", () => {
-    assert.strictEqual(toFts5MatchQuery(""), "");
+  it("returns non-matching quoted phrase for empty input", () => {
+    assert.strictEqual(toFts5MatchQuery(""), '""');
   });
 });
