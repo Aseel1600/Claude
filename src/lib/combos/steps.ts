@@ -202,6 +202,23 @@ export function getComboModelProvider(value: unknown): string | null {
   );
 }
 
+/**
+ * Extract the model/target string from a combo step record, tolerating the
+ * field-name variants seen in hand-written or agent-edited combo data:
+ *   - `model`        (canonical)
+ *   - `target`       (legacy flat builder format)
+ *   - `name`         (agent-written {name, provider} shape)
+ *   - `modelName`    (occasional API payloads)
+ * Returns null when none of them carry a usable value.
+ */
+function extractModelField(value: JsonRecord): string | null {
+  for (const key of ["model", "target", "name", "modelName"]) {
+    const candidate = toTrimmedString(value[key]);
+    if (candidate) return candidate;
+  }
+  return null;
+}
+
 export function getComboStepTarget(
   value: unknown,
   options: NormalizeComboStepOptions = {}
@@ -220,7 +237,7 @@ export function getComboStepTarget(
     return providerId ? `${providerId}/${modelPattern}` : null;
   }
 
-  const rawModel = toTrimmedString(value.model);
+  const rawModel = extractModelField(value);
   if (!rawModel) return null;
   const isExplicitModel = value.kind === "model";
   const providerId =
@@ -300,6 +317,7 @@ export function normalizeComboStep(
     };
   }
 
+<<<<<<< HEAD
   if (value.kind === "provider-wildcard") {
     const providerId =
       toTrimmedString(value.providerId) ||
@@ -336,6 +354,9 @@ export function normalizeComboStep(
   }
 
   const rawModel = toTrimmedString(value.model);
+=======
+  const rawModel = extractModelField(value);
+>>>>>>> 0be4243d2e (fix(combos): normalize hand-written model shapes + survive malformed JSON)
   if (!rawModel) return null;
   const isExplicitModel = value.kind === "model";
 
