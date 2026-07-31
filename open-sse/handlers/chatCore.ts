@@ -2735,7 +2735,7 @@ if (!nativeCodexPassthrough && reactiveContextCompactionEnabled && finalEstimate
         const rawResult = await (async () => {
           let attempts = 0;
           const isModelScopeForRequest = isModelScope();
-          const maxAttempts = isModelScopeForRequest ? 3 : provider === "codex" ? 3 : 1;
+          const maxAttempts = isModelScopeForRequest ? 3 : provider === "codex" ? 3 : 2;
 
           // ── Codex 429 account-rotation state ─────────────────────────────────
           // Track excluded connection IDs for codex failover across attempts.
