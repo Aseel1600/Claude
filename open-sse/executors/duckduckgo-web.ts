@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import vm from "node:vm";
 import { solveDuckDuckGoChallenge, makeDuckDuckGoFeSignals } from "./duckduckgo-web/challenge.ts";
@@ -499,7 +500,7 @@ export class DuckDuckGoWebExecutor extends BaseExecutor {
         // Wrap the captured body as a Response so processResponse
         // (already a streaming/non-streaming transformer) can be
         // reused unchanged.
-        const upstreamResp = new Response(result.body, {
+        const upstreamResp = new Response(Buffer.from(result.body), {
           status: result.status,
           headers: {
             "Content-Type": result.contentType || "text/event-stream",
