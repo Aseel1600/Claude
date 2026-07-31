@@ -114,6 +114,42 @@ test("logLevel debug preserves startup and config-shim diagnostics", async () =>
   );
 });
 
+test("debug instance retains config diagnostics after an error instance is created", async () => {
+  const lines = rendered(
+    await captureConsole(async () => {
+      const debugHooks = await OmniRoutePlugin(fakeInput, {
+        autoSyncIntervalMs: 0,
+        features: { logLevel: "debug" },
+      });
+      await OmniRoutePlugin(fakeInput, {
+        autoSyncIntervalMs: 0,
+        features: { logLevel: "error" },
+      });
+      await debugHooks.config!({} as Config);
+    })
+  );
+
+  assert.equal(lines.filter((line) => line.includes("config shim skipped")).length, 1);
+});
+
+test("error instance keeps config diagnostics suppressed after a debug instance is created", async () => {
+  const lines = rendered(
+    await captureConsole(async () => {
+      const errorHooks = await OmniRoutePlugin(fakeInput, {
+        autoSyncIntervalMs: 0,
+        features: { logLevel: "error" },
+      });
+      await OmniRoutePlugin(fakeInput, {
+        autoSyncIntervalMs: 0,
+        features: { logLevel: "debug" },
+      });
+      await errorHooks.config!({} as Config);
+    })
+  );
+
+  assert.equal(lines.filter((line) => line.includes("config shim skipped")).length, 0);
+});
+
 test("error-level config fetch failures remain visible as concise injected-logger messages", async () => {
   const entries: unknown[][] = [];
   const hook = createOmniRouteConfigHook(

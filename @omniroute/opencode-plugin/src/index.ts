@@ -57,7 +57,12 @@ import type { AuthHook, Config, Plugin, PluginOptions, ProviderHook } from "@ope
 import { tool } from "@opencode-ai/plugin";
 import type { Model as ModelV2 } from "@opencode-ai/sdk/v2";
 import { z } from "zod";
-import { logger as _logger, setLogLevel, type LogLevel as _LogLevel } from "./logger.js";
+import {
+  createLogger,
+  logger as _logger,
+  type Logger as _Logger,
+  type LogLevel as _LogLevel,
+} from "./logger.js";
 import {
   PROVIDER_TAG_SEPARATOR as _PROVIDER_TAG_SEPARATOR,
   shortProviderLabel as _shortProviderLabel,
@@ -710,6 +715,7 @@ export async function forceSyncOmniRouteModels(args: {
   compressionMetaFetcher?: OmniRouteCompressionMetaFetcher;
   providersFetcher?: OmniRouteProvidersFetcher;
   now?: () => number;
+  logger?: _Logger;
 }): Promise<{
   ok: boolean;
   count: number;
@@ -730,6 +736,11 @@ export async function forceSyncOmniRouteModels(args: {
   const compressionMetaFetcher =
     args.compressionMetaFetcher ?? defaultOmniRouteCompressionMetaFetcher;
   const providersFetcher = args.providersFetcher ?? defaultOmniRouteProvidersFetcher;
+  const logger =
+    args.logger ??
+    createLogger(
+      resolved.features?.startupDebug ? "debug" : (resolved.features?.logLevel ?? "warn")
+    );
   const features = resolved.features ?? {};
   const wantCombos = features.combos !== false;
   const wantAutoCombos = features.autoCombos !== false;
@@ -840,8 +851,8 @@ export async function forceSyncOmniRouteModels(args: {
       }
     }
 
-    console.warn(
-      `[omniroute-plugin] force sync ok providerId=${resolved.providerId} ` +
+    logger.info(
+      `force sync ok providerId=${resolved.providerId} ` +
         `models=${rawModels.length} combos=${rawCombos.length} ` +
         `clearedMemory=${clearedMemory + clearedAll} disk=${clearedDisk}`
     );
@@ -873,6 +884,7 @@ export async function forceSyncOmniRouteModels(args: {
 export function createOmniRouteSyncModelsTool(args: {
   resolved: ResolvedOmniRoutePluginOptions;
   cache: OmniRouteFetchCache;
+  logger?: _Logger;
 }): ReturnType<typeof tool> {
   const { resolved, cache } = args;
   return tool({
@@ -886,7 +898,7 @@ export function createOmniRouteSyncModelsTool(args: {
         .describe("Optional reason for the sync (logging only)"),
     },
     async execute(toolArgs) {
-      const result = await forceSyncOmniRouteModels({ resolved, cache });
+      const result = await forceSyncOmniRouteModels({ resolved, cache, logger: args.logger });
       const reason = toolArgs.reason ? ` reason=${toolArgs.reason}` : "";
       if (!result.ok) {
         return {
@@ -925,10 +937,16 @@ export function startOmniRouteAutoSync(args: {
   resolved: ResolvedOmniRoutePluginOptions;
   cache: OmniRouteFetchCache;
   intervalMs?: number;
+  logger?: _Logger;
 }): () => void {
   const resolved = args.resolved;
   const cache = args.cache;
   const intervalMs = args.intervalMs ?? resolved.autoSyncIntervalMs;
+  const logger =
+    args.logger ??
+    createLogger(
+      resolved.features?.startupDebug ? "debug" : (resolved.features?.logLevel ?? "warn")
+    );
   if (!intervalMs || intervalMs <= 0) {
     return () => {};
   }
@@ -941,9 +959,9 @@ export function startOmniRouteAutoSync(args: {
     if (stopped) return;
     if (inFlight) return;
     inFlight = (async () => {
-      const result = await forceSyncOmniRouteModels({ resolved, cache });
+      const result = await forceSyncOmniRouteModels({ resolved, cache, logger });
       if (!result.ok) {
-        _logger.error(`auto-sync failed providerId=${resolved.providerId}: ${result.error}`);
+        logger.error(`auto-sync failed providerId=${resolved.providerId}: ${result.error}`);
         return;
       }
       if (lastCount === undefined) {
@@ -951,7 +969,7 @@ export function startOmniRouteAutoSync(args: {
         return;
       }
       if (result.count !== lastCount) {
-        _logger.info(
+        logger.info(
           `auto-sync catalog size changed ${lastCount} → ${result.count} ` +
             `(providerId=${resolved.providerId})`
         );
@@ -959,7 +977,7 @@ export function startOmniRouteAutoSync(args: {
       }
     })()
       .catch((err) => {
-        _logger.error(`auto-sync tick error: ${err instanceof Error ? err.message : String(err)}`);
+        logger.error(`auto-sync tick error: ${err instanceof Error ? err.message : String(err)}`);
       })
       .finally(() => {
         inFlight = null;
@@ -973,7 +991,7 @@ export function startOmniRouteAutoSync(args: {
     timer.unref();
   }
 
-  _logger.info(`auto-sync enabled intervalMs=${intervalMs} providerId=${resolved.providerId}`);
+  logger.info(`auto-sync enabled intervalMs=${intervalMs} providerId=${resolved.providerId}`);
 
   return () => {
     stopped = true;
@@ -983,9 +1001,9 @@ export function startOmniRouteAutoSync(args: {
 
 export const OmniRoutePlugin: Plugin = async (_input, options) => {
   const resolved = resolveOmniRoutePluginOptions(coercePluginOptions(options));
-  // Wire log level before any startup output: startupDebug:true → "debug",
-  // otherwise the explicit logLevel wins over the default "warn".
-  setLogLevel(resolved.features?.startupDebug ? "debug" : (resolved.features?.logLevel ?? "warn"));
+  const logger = createLogger(
+    resolved.features?.startupDebug ? "debug" : (resolved.features?.logLevel ?? "warn")
+  );
   // T-07: a single per-plugin-instance cache shared between the provider
   // hook (T-03/T-05) and the config-shim hook (T-07). On OC ≥1.14.49 both
   // hooks fire within the same Plugin invocation, so a shared cache keeps
@@ -1002,7 +1020,7 @@ export const OmniRoutePlugin: Plugin = async (_input, options) => {
   const _hash: string =
     ((globalThis as Record<string, unknown>).__PLUGIN_GIT_HASH__ as string) ?? "unknown";
   const _prefixes = resolved.features?.apiFormat?.anthropicPrefixes ?? DEFAULT_ANTHROPIC_PREFIXES;
-  _logger.info(
+  logger.info(
     `v${_ver} (${_hash}) initialized` +
       ` providerId=${resolved.providerId}` +
       ` baseURL=${resolved.baseURL ?? "(from auth.json)"}` +
@@ -1014,15 +1032,15 @@ export const OmniRoutePlugin: Plugin = async (_input, options) => {
 
   // Background auto-discovery while the harness is running (Pi parity).
   // Interval 0 disables. TTL on-demand discovery still works via modelCacheTtl.
-  startOmniRouteAutoSync({ resolved, cache: sharedCache });
+  startOmniRouteAutoSync({ resolved, cache: sharedCache, logger });
 
-  const syncTool = createOmniRouteSyncModelsTool({ resolved, cache: sharedCache });
+  const syncTool = createOmniRouteSyncModelsTool({ resolved, cache: sharedCache, logger });
   const bareProviderId = resolved.omnirouteProviderId;
 
   // Config hook: keep existing catalog shim, and register slash command
   // templates that ask the agent to call the force-sync tool (OpenCode has no
   // Pi-style registerCommand API; tools + command templates are the native path).
-  const baseConfigHook = createOmniRouteConfigHook(resolved, { cache: sharedCache });
+  const baseConfigHook = createOmniRouteConfigHook(resolved, { cache: sharedCache, logger });
   const configWithSyncCommand = async (input: Config) => {
     await baseConfigHook(input);
     const cfg = input as Config & {
@@ -5021,9 +5039,9 @@ export function createOmniRouteConfigHook(
     now?: () => number;
     cache?: OmniRouteFetchCache;
     logger?: {
-      error?: (...args: unknown[]) => void;
-      warn: (...args: unknown[]) => void;
-      debug?: (...args: unknown[]) => void;
+      error?: (message: string, ...args: unknown[]) => void;
+      warn: (message: string, ...args: unknown[]) => void;
+      debug?: (message: string, ...args: unknown[]) => void;
     };
   } = {}
 ): (input: Config) => Promise<void> {
