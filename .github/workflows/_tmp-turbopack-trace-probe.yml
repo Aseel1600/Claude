@@ -20,6 +20,7 @@ name: TEMP Turbopack Memory Trace Probe
 on:
   pull_request:
     branches: [release/v3.8.50]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
