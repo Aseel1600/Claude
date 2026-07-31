@@ -105,6 +105,12 @@ export type StoreCcrBlockResult =
       reason: "block_too_large" | "principal_budget_exceeded" | "global_budget_exceeded";
     };
 
+export function isCcrStoreRejection(
+  result: StoreCcrBlockResult
+): result is Extract<StoreCcrBlockResult, { stored: false }> {
+  return result.stored === false;
+}
+
 export interface CcrStoreStats {
   storage: "memory";
   entries: number;
@@ -330,7 +336,9 @@ export function storeBlock(
   options: StoreCcrBlockOptions = {}
 ): string {
   const result = tryStoreBlock(text, principalId, options);
-  if (!result.stored) throw new RangeError(`CCR store rejected block: ${result.reason}`);
+  if (isCcrStoreRejection(result)) {
+    throw new RangeError(`CCR store rejected block: ${result.reason}`);
+  }
   return result.hash;
 }
 
