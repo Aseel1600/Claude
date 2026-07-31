@@ -347,6 +347,7 @@ export const updateSettingsSchema = z.object({
   modalityBridgeCacheEnabled: z.boolean().optional(),
   modalityBridgeCacheTtlMinutes: z.number().int().min(1).max(1440).optional(),
   modalityBridgeCacheMaxEntries: z.number().int().min(10).max(5000).optional(),
+  visionBridgeRerouteTextOnly: z.boolean().optional(),
   // Missing settings
   lkgpEnabled: z.boolean().optional(),
   // #1311: echo the requested alias/combo name in the response model field (opt-in)
