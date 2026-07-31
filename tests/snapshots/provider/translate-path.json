@@ -773,6 +773,29 @@
       "stream": "https://chatgpt.com/backend-api/conversation"
     }
   },
+  "chatgpt-web-codex": {
+    "format": "openai-responses",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://chatgpt.com",
+      "stream": "https://chatgpt.com"
+    }
+  },
   "chenzk": {
     "format": "openai",
     "headers": {
