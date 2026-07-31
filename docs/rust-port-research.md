@@ -140,6 +140,19 @@ No OmniRoute imports anywhere in `compression-core`. Consumers: OmniRoute, OpenC
 
 **Total to full compression replacement: ~2-3 weeks.** First measurable win (tiktoken): 2-3 days.
 
+## 6a. Definition of Done (added per review)
+
+| Phase | DoD |
+|---|---|
+| Tokenizer (tiktoken) | Full match with JS on golden tests (0% divergence, byte-in-byte); benchmark < 5 ms per 57K tokens |
+| Ionizer | Output matches JS; no perf regression (or ≥ 10x speedup) |
+| Headroom | Identical compression result (same % savings, same columnar blocks) |
+| RTK | Byte-in-byte equivalence on full dialogue set (500 fixtures); unit tests on rule patterns |
+| Integration (N-API) | JS↔Rust switch via one setting/env; JS fallback when unavailable; zero risk to current deployment |
+| Translation primitives (wave 2) | Byte-in-byte SSE chunk equivalence before/after; no TTFB increase |
+
+Progress is measurable per phase and each phase is independently verifiable.
+
 ## 7. Golden Testing (mandatory)
 
 ```
