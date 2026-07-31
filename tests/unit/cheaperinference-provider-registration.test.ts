@@ -39,3 +39,45 @@ test("cheaperinference is NOT wired into any quota/usage surface", () => {
     "cheaperinference must not be in USAGE_SUPPORTED_PROVIDERS (no balance API upstream)"
   );
 });
+
+test("cheaperinference registry entry points at the measured API surface", async () => {
+  const { REGISTRY } = await import("@omniroute/open-sse/config/providers/index.ts");
+  const entry = REGISTRY.cheaperinference as unknown as Record<string, unknown>;
+  assert.ok(entry, "cheaperinference missing from REGISTRY");
+  assert.equal(entry.format, "openai");
+  assert.equal(entry.authType, "apikey");
+  assert.equal(entry.authHeader, "bearer");
+  assert.equal(entry.executor, "cheaperinference");
+  assert.equal(entry.baseUrl, "https://api.cheaperinference.com/v1/chat/completions");
+  assert.equal(entry.responsesBaseUrl, "https://api.cheaperinference.com/v1/responses");
+});
+
+test("cheaperinference catalog matches the measured GET /v1/models text set", async () => {
+  const { REGISTRY } = await import("@omniroute/open-sse/config/providers/index.ts");
+  const models = (REGISTRY.cheaperinference as unknown as { models: Array<{ id: string }> })
+    .models;
+  // 39 text models measured on 2026-07-31; the 3 image models live in
+  // imageRegistry.ts, never here (chat requests for them 400 upstream).
+  assert.equal(models.length, 39);
+  const ids = new Set(models.map((m) => m.id));
+  for (const expected of ["claude-opus-5", "gpt-5.4", "kimi-k3", "deepseek-v4-flash", "grok-4.5"]) {
+    assert.ok(ids.has(expected), `missing model ${expected}`);
+  }
+  for (const imageOnly of ["nano-banana-2", "nano-banana-pro", "grok-imagine"]) {
+    assert.ok(!ids.has(imageOnly), `${imageOnly} is image-only and must not be a chat model`);
+  }
+});
+
+test("cheaperinference tags its Responses-capable models", async () => {
+  const { REGISTRY } = await import("@omniroute/open-sse/config/providers/index.ts");
+  const models = (
+    REGISTRY.cheaperinference as unknown as {
+      models: Array<{ id: string; targetFormat?: string }>;
+    }
+  ).models;
+  const responsesModels = models.filter((m) => m.targetFormat === "openai-responses");
+  assert.ok(responsesModels.length > 0, "no model routed to the native /v1/responses endpoint");
+  for (const m of responsesModels) {
+    assert.match(m.id, /^gpt-5\./, "only the GPT-5.x family is tagged for native Responses");
+  }
+});
