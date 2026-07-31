@@ -1,6 +1,7 @@
 import { injectMemoryAndSkills } from "./chatCore/memorySkillsInjection.ts";
 import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
+import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
 import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
@@ -1809,27 +1810,6 @@ export async function handleChatCore({
   // filtering is advisory and may preserve an all-incompatible pool; this is the
   // hard boundary that prevents a too-large prompt (or a negative token budget)
   // from reaching an OpenAI-compatible upstream such as NVIDIA NIM.
-  const estimateFinalInputTokens = (requestBody: Record<string, unknown> | null | undefined) => {
-    const adapted = requestBody
-      ? adaptBodyForCompression(requestBody as Record<string, unknown>).body
-      : null;
-    const messages =
-      adapted?.messages ||
-      requestBody?.contents ||
-      requestBody?.request?.contents ||
-      (Array.isArray(requestBody?.input)
-        ? requestBody.input
-        : requestBody?.input && typeof requestBody.input === "object"
-          ? requestBody.input
-          : []);
-    return (
-      estimateTokens(messages) +
-      (Array.isArray(requestBody?.tools) ? estimateTokens(requestBody.tools) : 0) +
-      estimateTokens(requestBody?.system) +
-      estimateTokens(requestBody?.instructions)
-    );
-  };
-
   let finalEstimatedInputTokens = estimateFinalInputTokens(body as Record<string, unknown>);
   // Reuse the already-resolved `contextLimit` (may have been narrowed to the
   // per-target combo window above, resolveComboContextLimit) instead of a bare
