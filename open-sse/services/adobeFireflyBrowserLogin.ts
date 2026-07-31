@@ -3,7 +3,7 @@
  *
  * Firefly needs an Adobe IMS access_token JWT (Bearer) issued for
  * client_id `clio-playground-web`. That JWT is NEVER present in
- * cookies/localStorage — the SPA only holds it in memory and attaches it
+ * cookies/localStorage тАФ the SPA only holds it in memory and attaches it
  * as `Authorization: Bearer <jwt>` on XHRs to firefly-3p.ff.adobe.io.
  *
  * IMPORTANT: The standalone executable is a pkg-packaged Node binary.
