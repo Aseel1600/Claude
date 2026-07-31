@@ -118,6 +118,8 @@ export function SetupWizard({
 
     try {
       await onMappingsSave(target.id, allMappings);
+      // Wait a bit for the parent to refresh state before closing
+      await new Promise((resolve) => setTimeout(resolve, 300));
       onClose();
     } catch {
       // Error handling in parent component
