@@ -1,5 +1,6 @@
 import type { CircuitBreakerStore, CircuitBreakerState } from "./circuitBreakerStore";
 import { getWarmupBackoffUntil } from "./backoff";
+import { markForbidden as sqliteMarkForbidden } from "@/lib/db/connectionRuntimeState";
 import type { WarmupResult } from "./core";
 
 type RedisLike = {
@@ -44,6 +45,13 @@ export class RedisCircuitBreakerStore implements CircuitBreakerStore {
         lastFailAt: new Date().toISOString(),
       });
       await this.redis.persist(`${KEY_PREFIX}${connectionId}`);
+      // Best-effort SQLite backup so a forbidden flag survives Redis eviction;
+      // Redis is the source of truth, so a backup write failure is non-fatal.
+      try {
+        await sqliteMarkForbidden(connectionId, new Date().toISOString());
+      } catch {
+        /* non-fatal; Redis already holds the authoritative state */
+      }
       return;
     }
     const state = await this.get(connectionId);

@@ -108,6 +108,17 @@ export function stopWarmupScheduler(): void {
     STATE.timer = null;
   }
   STATE.executing = false;
+  STATE.lastFireMinute = -1;
+}
+
+/** Test-only: reset the globalThis singleton so each test starts fresh. */
+export function __resetWarmupState(): void {
+  if (STATE.timer) {
+    clearInterval(STATE.timer);
+  }
+  STATE.timer = null;
+  STATE.executing = false;
+  STATE.lastFireMinute = -1;
 }
 
 async function tick(): Promise<void> {
