@@ -10,6 +10,13 @@ import {
   resolveModelTestTimeoutMs,
   classifyTestErrorQuota,
 } from "@/lib/api/modelTestRunner.ts";
+import Bottleneck from "bottleneck";
+import * as rateLimitManager from "@omniroute/open-sse/services/rateLimitManager.ts";
+import {
+  markLocalRateLimitError,
+  RATE_LIMIT_EXECUTION_TIMEOUT_CODE,
+  RATE_LIMIT_QUEUE_WEDGED_CODE,
+} from "@omniroute/open-sse/services/rateLimitManager/errors.ts";
 
 // ---------------------------------------------------------------------------
 // parseRetryAfterHeader — Retry-After is either delta-seconds or an HTTP-date.
@@ -374,4 +381,47 @@ test("classifyTestErrorQuota: daily-quota wins over credits-exhausted (isTransie
   const result = classifyTestErrorQuota("daily quota exhausted, insufficient balance");
   assert.equal(result.isQuota, true);
   assert.equal(result.isTransient, true);
+});
+test("runSingleModelTest preserves trusted local limiter HTTP statuses", async () => {
+  const connection = await createProviderConnection({
+    provider: "openai",
+    authType: "apikey",
+    name: "model-test-local-limiter-errors",
+    apiKey: "sk-model-test-local-limiter-errors",
+    isActive: true,
+    testStatus: "active",
+  });
+
+  try {
+    for (const [code, status] of [
+      [RATE_LIMIT_QUEUE_WEDGED_CODE, 503],
+      [RATE_LIMIT_EXECUTION_TIMEOUT_CODE, 504],
+    ] as const) {
+      await rateLimitManager.__resetRateLimitManagerForTests();
+      rateLimitManager.enableRateLimitProtection(connection.id);
+      rateLimitManager.__setLimiterFactoryForTests((options) => {
+        const limiter = new Bottleneck(options);
+        Object.defineProperty(limiter, "schedule", {
+          configurable: true,
+          value: async () => {
+            throw markLocalRateLimitError(new Error(`trusted ${code}`), code);
+          },
+        });
+        return limiter;
+      });
+
+      const result = await runSingleModelTest({
+        providerId: "openai",
+        modelId: "gpt-4o",
+        connectionId: connection.id,
+        timeoutMs: 5_000,
+      });
+
+      assert.equal(result.status, "error");
+      assert.equal(result.httpStatus, status);
+      assert.equal(result.error, `Error: trusted ${code}`);
+    }
+  } finally {
+    await rateLimitManager.__resetRateLimitManagerForTests();
+  }
 });
