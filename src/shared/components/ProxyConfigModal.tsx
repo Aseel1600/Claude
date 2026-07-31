@@ -23,7 +23,9 @@ const BUILD_TIME_SOCKS5 = !["false", "0", "no", "off"].includes(
   (process.env.NEXT_PUBLIC_ENABLE_SOCKS5_PROXY ?? "").trim().toLowerCase()
 );
 export function buildProxyTypes(socks5Enabled: boolean) {
-  return socks5Enabled ? ALL_PROXY_TYPES : ALL_PROXY_TYPES.filter((type) => type.value !== "socks5");
+  return socks5Enabled
+    ? ALL_PROXY_TYPES
+    : ALL_PROXY_TYPES.filter((type) => type.value !== "socks5");
 }
 
 type ProxyConfigLevel = "global" | "provider" | "combo" | "key";
@@ -146,6 +148,16 @@ export default function ProxyConfigModal({
   const [hasOwnProxy, setHasOwnProxy] = useState(false);
   const [formError, setFormError] = useState(null);
 
+  const resetFields = () => {
+    setProxyType(proxyTypes[0]?.value || "http");
+    setHost("");
+    setPort("");
+    setUsername("");
+    setPassword("");
+    setShowAuth(false);
+    setFormError(null);
+  };
+
   const getDefaultPort = (type) => {
     if (type === "socks5") return "1080";
     if (type === "https") return "443";
@@ -196,7 +208,9 @@ export default function ProxyConfigModal({
             const assignedProxy = registryItems.find((item) => item.id === target.proxyId);
             if (assignedProxy?.source === DASHBOARD_CUSTOM_PROXY_SOURCE) {
               const normalizedType = String(assignedProxy.type || "http").toLowerCase();
-              const hasTypeOption = runtimeProxyTypes.some((entry) => entry.value === normalizedType);
+              const hasTypeOption = runtimeProxyTypes.some(
+                (entry) => entry.value === normalizedType
+              );
               setMode("custom");
               setProxyType(hasTypeOption ? normalizedType : runtimeProxyTypes[0]?.value || "http");
               setHost(assignedProxy.host || "");
@@ -283,16 +297,6 @@ export default function ProxyConfigModal({
 
     loadProxy();
   }, [isOpen, level, levelId]);
-
-  const resetFields = () => {
-    setProxyType(proxyTypes[0]?.value || "http");
-    setHost("");
-    setPort("");
-    setUsername("");
-    setPassword("");
-    setShowAuth(false);
-    setFormError(null);
-  };
 
   const handleSave = async () => {
     if (mode === "saved" && !selectedProxyId) {

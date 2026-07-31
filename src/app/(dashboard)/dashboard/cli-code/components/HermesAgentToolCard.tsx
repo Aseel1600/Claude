@@ -112,9 +112,11 @@ export default function HermesAgentToolCard({
   // Track whether we have already seeded from batchStatus on this expand
   const seededFromBatchRef = useRef(false);
 
+  const [now, setNow] = useState(() => Date.now());
+
   function formatTimeSince(iso: string): string {
     const then = new Date(iso).getTime();
-    const diff = Date.now() - then;
+    const diff = now - then;
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     if (days > 0) return t("daysAgoShort", { count: days });
@@ -142,6 +144,16 @@ export default function HermesAgentToolCard({
       setIsLoading(false);
     }
   }, []);
+
+  const fetchModelAliases = async () => {
+    try {
+      const res = await fetch("/api/models/alias");
+      const data = await res.json();
+      if (res.ok) setModelAliases(data.aliases || {});
+    } catch (error) {
+      console.warn("Error fetching model aliases:", error);
+    }
+  };
 
   useEffect(() => {
     if (!isExpanded) {
@@ -172,16 +184,6 @@ export default function HermesAgentToolCard({
     loadCurrentConfig();
     fetchModelAliases();
   }, [isExpanded, batchStatus, loadCurrentConfig]);
-
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.warn("Error fetching model aliases:", error);
-    }
-  };
 
   const setRoleSelection = (roleId: string, model: string, provider = "OmniRoute") => {
     setSelections((prev) => ({ ...prev, [roleId]: { model, provider } }));

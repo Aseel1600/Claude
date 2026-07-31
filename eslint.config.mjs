@@ -29,6 +29,10 @@ const eslintConfig = [
     files: ["src/**/*.{ts,tsx,js,jsx}"],
     rules: {
       "react-hooks/exhaustive-deps": "error",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/static-components": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
       "@next/next/no-img-element": "error",
       "import/no-anonymous-default-export": "error",
     },

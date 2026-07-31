@@ -24,10 +24,6 @@ export default function IPFilterSection() {
   const [listTarget, setListTarget] = useState("blacklist");
   const t = useTranslations("settings");
 
-  useEffect(() => {
-    loadConfig();
-  }, []);
-
   const loadConfig = async () => {
     try {
       const res = await fetch("/api/settings/ip-filter");
@@ -37,6 +33,10 @@ export default function IPFilterSection() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
 
   const updateConfig = async (updates) => {
     try {

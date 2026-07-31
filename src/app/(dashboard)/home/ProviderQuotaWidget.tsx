@@ -90,8 +90,8 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
   const [refreshingAll, setRefreshingAll] = useState(false);
 
   const refreshingAllRef = useRef(false);
-  const lastRefreshAllAtRef = useRef(Date.now());
-  const [lastRefreshAllAt, setLastRefreshAllAt] = useState(() => lastRefreshAllAtRef.current);
+  const [lastRefreshAllAt, setLastRefreshAllAt] = useState(() => Date.now());
+  const lastRefreshAllAtRef = useRef(lastRefreshAllAt);
   const autoRefreshIntervalMs = autoRefreshInterval > 0 ? autoRefreshInterval * 1000 : 0;
 
   const fetchConnections = useCallback(async () => {

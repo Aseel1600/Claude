@@ -64,14 +64,6 @@ export default function OpenClawToolCard({
     }
   }, [apiKeys, selectedApiKeyId]);
 
-  useEffect(() => {
-    if (isExpanded && !openclawStatus) {
-      checkOpenclawStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, openclawStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -207,6 +199,14 @@ export default function OpenClawToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !openclawStatus) {
+      checkOpenclawStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }
+  }, [isExpanded, openclawStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);

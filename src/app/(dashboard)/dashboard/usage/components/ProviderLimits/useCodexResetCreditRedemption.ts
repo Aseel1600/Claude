@@ -106,17 +106,27 @@ function useOpenCodexResetCredits(
   );
 }
 
-function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
+function useRedeemCodexResetCredit(
+  idempotencyKeysRef: React.MutableRefObject<Record<string, string>>,
+  redeemingResetCreditId: string | null,
+  resetCreditPicker: ResetCreditPickerState | null,
+  setErrors: SetErrors,
+  setLastRefreshedAt: SetLastRefreshedAt,
+  setQuotaData: SetQuotaData,
+  setRedeemingResetCreditId: React.Dispatch<React.SetStateAction<string | null>>,
+  setResetCreditPicker: React.Dispatch<React.SetStateAction<ResetCreditPickerState | null>>,
+  tr: TranslateUsage
+) {
   const notify = useNotificationStore();
   return useCallback(
     async (selectionToken: string) => {
-      const picker = state.resetCreditPicker;
-      if (!picker || state.redeemingResetCreditId || !selectionToken) return;
+      const picker = resetCreditPicker;
+      if (!picker || redeemingResetCreditId || !selectionToken) return;
       const idempotencyKey =
-        state.idempotencyKeysRef.current[selectionToken] ??
-        (state.idempotencyKeysRef.current[selectionToken] = createIdempotencyKey());
-      state.setRedeemingResetCreditId(picker.connectionId);
-      state.setErrors((prev) => ({ ...prev, [picker.connectionId]: null }));
+        idempotencyKeysRef.current[selectionToken] ??
+        (idempotencyKeysRef.current[selectionToken] = createIdempotencyKey());
+      setRedeemingResetCreditId(picker.connectionId);
+      setErrors((prev) => ({ ...prev, [picker.connectionId]: null }));
       try {
         const response = await fetch("/api/usage/codex-reset-credit", {
           method: "POST",
@@ -130,7 +140,7 @@ function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || response.statusText);
         const usage = data.usage || {};
-        state.setQuotaData((prev) => ({
+        setQuotaData((prev) => ({
           ...prev,
           [picker.connectionId]: {
             quotas: parseQuotaData(picker.provider, usage),
@@ -140,25 +150,36 @@ function useRedeemCodexResetCredit(state: ResetCreditRequestState) {
             stale: usage._stale ? { since: usage._staleSince, reason: usage._staleReason } : null,
           },
         }));
-        state.setLastRefreshedAt((prev) => ({
+        setLastRefreshedAt((prev) => ({
           ...prev,
           [picker.connectionId]: new Date().toISOString(),
         }));
-        state.setResetCreditPicker(null);
-        state.idempotencyKeysRef.current = {};
-        notify.success(state.tr("resetCreditRedeemed", "Reset redeemed"));
+        setResetCreditPicker(null);
+        idempotencyKeysRef.current = {};
+        notify.success(tr("resetCreditRedeemed", "Reset redeemed"));
       } catch (error) {
         const message = getRequestErrorMessage(
           error,
-          state.tr("resetCreditRedeemFailed", "Failed to redeem reset credit")
+          tr("resetCreditRedeemFailed", "Failed to redeem reset credit")
         );
-        state.setErrors((prev) => ({ ...prev, [picker.connectionId]: message }));
+        setErrors((prev) => ({ ...prev, [picker.connectionId]: message }));
         notify.error(message);
       } finally {
-        state.setRedeemingResetCreditId(null);
+        setRedeemingResetCreditId(null);
       }
     },
-    [notify, state]
+    [
+      idempotencyKeysRef,
+      notify,
+      redeemingResetCreditId,
+      resetCreditPicker,
+      setErrors,
+      setLastRefreshedAt,
+      setQuotaData,
+      setRedeemingResetCreditId,
+      setResetCreditPicker,
+      tr,
+    ]
   );
 }
 
@@ -182,7 +203,7 @@ export function useCodexResetCreditRedemption(
     idempotencyKeysRef,
     tr
   );
-  const redeemCodexResetCredit = useRedeemCodexResetCredit({
+  const redeemCodexResetCredit = useRedeemCodexResetCredit(
     idempotencyKeysRef,
     redeemingResetCreditId,
     resetCreditPicker,
@@ -191,8 +212,8 @@ export function useCodexResetCreditRedemption(
     setQuotaData,
     setRedeemingResetCreditId,
     setResetCreditPicker,
-    tr,
-  });
+    tr
+  );
 
   return {
     closeResetCreditPicker: () => setResetCreditPicker(null),

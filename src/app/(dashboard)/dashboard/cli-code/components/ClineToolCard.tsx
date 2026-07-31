@@ -64,14 +64,6 @@ export default function ClineToolCard({
   }, [apiKeys, selectedApiKeyId]);
 
   useEffect(() => {
-    if (isExpanded && !clineStatus) {
-      checkClineStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, clineStatus]);
-
-  useEffect(() => {
     if (clineStatus?.settings && !hasInitializedModel.current) {
       const currentModel = clineStatus.settings.openAiModelId;
       if (currentModel) {
@@ -145,6 +137,14 @@ export default function ClineToolCard({
       setCheckingCline(false);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !clineStatus) {
+      checkClineStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }
+  }, [isExpanded, clineStatus]);
 
   const getEffectiveBaseUrl = () => {
     if (customBaseUrl) return customBaseUrl;

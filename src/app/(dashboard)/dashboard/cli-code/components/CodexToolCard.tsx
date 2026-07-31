@@ -57,15 +57,6 @@ export default function CodexToolCard({
     }
   }, [apiKeys, selectedApiKey]);
 
-  useEffect(() => {
-    if (isExpanded && !codexStatus) {
-      checkCodexStatus();
-      fetchModelAliases();
-      fetchProfiles();
-      fetchBackups();
-    }
-  }, [isExpanded, codexStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -311,6 +302,15 @@ export default function CodexToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !codexStatus) {
+      checkCodexStatus();
+      fetchModelAliases();
+      fetchProfiles();
+      fetchBackups();
+    }
+  }, [isExpanded, codexStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);

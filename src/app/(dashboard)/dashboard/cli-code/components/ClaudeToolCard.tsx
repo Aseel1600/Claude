@@ -72,14 +72,6 @@ export default function ClaudeToolCard({
     }
   }, [apiKeys, selectedApiKey]);
 
-  useEffect(() => {
-    if (isExpanded && !claudeStatus) {
-      checkClaudeStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, claudeStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -254,6 +246,14 @@ export default function ClaudeToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !claudeStatus) {
+      checkClaudeStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }
+  }, [isExpanded, claudeStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);

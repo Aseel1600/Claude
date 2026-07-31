@@ -303,6 +303,95 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
     [translateOrFallback]
   );
 
+  const fetchModels = async () => {
+    setModelsLoading(true);
+    try {
+      const res = await fetch("/v1/models");
+      if (res.ok) {
+        const data = await res.json();
+        setAllModels(data.data || []);
+      }
+    } catch (e) {
+      console.log("Error fetching models:", e);
+    } finally {
+      setModelsLoading(false);
+    }
+  };
+
+  const fetchProtocolStatus = async () => {
+    try {
+      const [mcpRes, a2aRes] = await Promise.allSettled([
+        fetch("/api/mcp/status"),
+        fetch("/api/a2a/status"),
+      ]);
+
+      if (mcpRes.status === "fulfilled" && mcpRes.value.ok) {
+        setMcpStatus(await mcpRes.value.json());
+      }
+      if (a2aRes.status === "fulfilled" && a2aRes.value.ok) {
+        setA2aStatus(await a2aRes.value.json());
+      }
+    } catch {
+      // Ignore status failures; protocols panel has fallback text.
+    }
+  };
+
+  const loadCloudSettings = async (
+    shouldApplyState: () => boolean = () => true
+  ): Promise<EndpointTunnelVisibility> => {
+    try {
+      const res = await fetch("/api/settings");
+      if (res.ok) {
+        const data = await res.json();
+        const tunnelVisibility = {
+          showCloudflaredTunnel: data.hideEndpointCloudflaredTunnel !== true,
+          showTailscaleFunnel: data.hideEndpointTailscaleFunnel !== true,
+          showNgrokTunnel: data.hideEndpointNgrokTunnel !== true,
+        };
+
+        if (!shouldApplyState()) {
+          return tunnelVisibility;
+        }
+
+        setCloudEnabled(data.cloudEnabled || false);
+        if (typeof data.cloudConfigured === "boolean") {
+          setCloudConfigured(data.cloudConfigured);
+        }
+        if (data.cloudUrl) {
+          setCloudBaseUrl(data.cloudUrl);
+        }
+        if (data.machineId) {
+          setResolvedMachineId(data.machineId);
+        }
+        setShowCloudflaredTunnel(tunnelVisibility.showCloudflaredTunnel);
+        setShowTailscaleFunnel(tunnelVisibility.showTailscaleFunnel);
+        setShowNgrokTunnel(tunnelVisibility.showNgrokTunnel);
+        if (data.ngrokAuthToken) setNgrokToken(data.ngrokAuthToken);
+        setCustomSystemPromptEnabled(!!data.customSystemPromptEnabled);
+        setCustomSystemPrompt(data.customSystemPrompt || "");
+
+        if (!tunnelVisibility.showCloudflaredTunnel) {
+          setCloudflaredStatus(null);
+          setCloudflaredNotice(null);
+        }
+        if (!tunnelVisibility.showTailscaleFunnel) {
+          setTailscaleStatus(null);
+          setTailscaleNotice(null);
+        }
+        if (!tunnelVisibility.showNgrokTunnel) {
+          setNgrokStatus(null);
+          setNgrokNotice(null);
+        }
+
+        return tunnelVisibility;
+      }
+    } catch (error) {
+      console.log("Error loading cloud settings:", error);
+    }
+
+    return DEFAULT_TUNNEL_VISIBILITY;
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -348,39 +437,6 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
       mounted = false;
     };
   }, [fetchCloudflaredStatus, fetchTailscaleStatus, fetchNgrokStatus]);
-
-  const fetchModels = async () => {
-    setModelsLoading(true);
-    try {
-      const res = await fetch("/v1/models");
-      if (res.ok) {
-        const data = await res.json();
-        setAllModels(data.data || []);
-      }
-    } catch (e) {
-      console.log("Error fetching models:", e);
-    } finally {
-      setModelsLoading(false);
-    }
-  };
-
-  const fetchProtocolStatus = async () => {
-    try {
-      const [mcpRes, a2aRes] = await Promise.allSettled([
-        fetch("/api/mcp/status"),
-        fetch("/api/a2a/status"),
-      ]);
-
-      if (mcpRes.status === "fulfilled" && mcpRes.value.ok) {
-        setMcpStatus(await mcpRes.value.json());
-      }
-      if (a2aRes.status === "fulfilled" && a2aRes.value.ok) {
-        setA2aStatus(await a2aRes.value.json());
-      }
-    } catch {
-      // Ignore status failures; protocols panel has fallback text.
-    }
-  };
 
   // Categorize models by endpoint type
   // Filter out parent models (models with parent field set) to avoid showing duplicates
@@ -453,62 +509,6 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
     } finally {
       clearTimeout(timeoutId);
     }
-  };
-
-  const loadCloudSettings = async (
-    shouldApplyState: () => boolean = () => true
-  ): Promise<EndpointTunnelVisibility> => {
-    try {
-      const res = await fetch("/api/settings");
-      if (res.ok) {
-        const data = await res.json();
-        const tunnelVisibility = {
-          showCloudflaredTunnel: data.hideEndpointCloudflaredTunnel !== true,
-          showTailscaleFunnel: data.hideEndpointTailscaleFunnel !== true,
-          showNgrokTunnel: data.hideEndpointNgrokTunnel !== true,
-        };
-
-        if (!shouldApplyState()) {
-          return tunnelVisibility;
-        }
-
-        setCloudEnabled(data.cloudEnabled || false);
-        if (typeof data.cloudConfigured === "boolean") {
-          setCloudConfigured(data.cloudConfigured);
-        }
-        if (data.cloudUrl) {
-          setCloudBaseUrl(data.cloudUrl);
-        }
-        if (data.machineId) {
-          setResolvedMachineId(data.machineId);
-        }
-        setShowCloudflaredTunnel(tunnelVisibility.showCloudflaredTunnel);
-        setShowTailscaleFunnel(tunnelVisibility.showTailscaleFunnel);
-        setShowNgrokTunnel(tunnelVisibility.showNgrokTunnel);
-        if (data.ngrokAuthToken) setNgrokToken(data.ngrokAuthToken);
-        setCustomSystemPromptEnabled(!!data.customSystemPromptEnabled);
-        setCustomSystemPrompt(data.customSystemPrompt || "");
-
-        if (!tunnelVisibility.showCloudflaredTunnel) {
-          setCloudflaredStatus(null);
-          setCloudflaredNotice(null);
-        }
-        if (!tunnelVisibility.showTailscaleFunnel) {
-          setTailscaleStatus(null);
-          setTailscaleNotice(null);
-        }
-        if (!tunnelVisibility.showNgrokTunnel) {
-          setNgrokStatus(null);
-          setNgrokNotice(null);
-        }
-
-        return tunnelVisibility;
-      }
-    } catch (error) {
-      console.log("Error loading cloud settings:", error);
-    }
-
-    return DEFAULT_TUNNEL_VISIBILITY;
   };
 
   const handleCustomSystemPromptEnabledChange = (value: boolean) => {

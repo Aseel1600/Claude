@@ -737,7 +737,6 @@ export default function CombosPage() {
   }, [intelligentCombos, selectedIntelligentComboId]);
 
   useEffect(() => {
-    fetchData();
     fetch("/api/settings")
       .then((r) => (r.ok ? r.json() : null))
       .then((settings) => setComboConfigMode(normalizeComboConfigMode(settings?.comboConfigMode)))
@@ -788,6 +787,10 @@ export default function CombosPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);  
 
   const handleCreate = async (data) => {
     try {

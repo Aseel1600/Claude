@@ -14,7 +14,7 @@ export default function ActivityFeedClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [category, setCategory] = useState<EventCategory>("all");
-  const referenceNowMs = useRef<number>(Date.now());
+  const [referenceNowMs, setReferenceNowMs] = useState<number>(() => Date.now());
 
   const fetchEntries = useCallback(async () => {
     setLoading(true);
@@ -30,7 +30,7 @@ export default function ActivityFeedClient() {
       }
       const data = (await res.json()) as AuditLogEntry[];
       // Reset reference time on fresh load so relative timestamps are stable
-      referenceNowMs.current = Date.now();
+      setReferenceNowMs(Date.now());
       setAllEntries(Array.isArray(data) ? data : []);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : t("fetchFailed");

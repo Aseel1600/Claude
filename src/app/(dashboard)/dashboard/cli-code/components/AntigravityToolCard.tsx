@@ -56,14 +56,6 @@ export default function AntigravityToolCard({
     }
   }, [apiKeys, selectedApiKeyId]);
 
-  useEffect(() => {
-    if (isExpanded && !status) {
-      fetchStatus();
-      loadSavedMappings();
-      fetchModelAliases();
-    }
-  }, [isExpanded, status]);
-
   const loadSavedMappings = async () => {
     try {
       const res = await fetch(`/api/cli-tools/antigravity-mitm/alias?tool=${tool.id}`);
@@ -102,6 +94,14 @@ export default function AntigravityToolCard({
       console.log("Error fetching model aliases:", error);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !status) {
+      fetchStatus();
+      loadSavedMappings();
+      fetchModelAliases();
+    }
+  }, [isExpanded, status]);
 
   // MITM elevation is decided by the *server* OS, not by this browser's user
   // agent. The server reports `isWin` and `needsSudoPassword` in GET status —

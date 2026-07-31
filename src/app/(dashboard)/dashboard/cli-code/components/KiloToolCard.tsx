@@ -59,14 +59,6 @@ export default function KiloToolCard({
     }
   }, [apiKeys, selectedApiKeyId]);
 
-  useEffect(() => {
-    if (isExpanded && !kiloStatus) {
-      checkKiloStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, kiloStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -131,6 +123,14 @@ export default function KiloToolCard({
       setCheckingKilo(false);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !kiloStatus) {
+      checkKiloStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }
+  }, [isExpanded, kiloStatus]);
 
   const getEffectiveBaseUrl = () => {
     if (customBaseUrl) return customBaseUrl;

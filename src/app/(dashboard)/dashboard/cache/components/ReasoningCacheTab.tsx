@@ -131,8 +131,10 @@ export default function ReasoningCacheTab() {
   const [clearing, setClearing] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
+  const [now, setNow] = useState(() => Date.now());
+
   const timeAgo = (dateStr: string): string => {
-    const diff = Date.now() - new Date(dateStr).getTime();
+    const diff = now - new Date(dateStr).getTime();
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return t("justNow");
     if (minutes < 60) return t("minutesAgo", { minutes });

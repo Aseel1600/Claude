@@ -255,13 +255,6 @@ export default function ApiManagerPageClient() {
   }, [newKeyNameInputId]);
 
   useEffect(() => {
-    fetchData();
-    fetchModels();
-    fetchCombos();
-    fetchConnections();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
-
-  useEffect(() => {
     if (!showAddModal || !nameError) return;
     requestAnimationFrame(() => {
       createKeyNameFieldRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
@@ -415,25 +408,6 @@ export default function ApiManagerPageClient() {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      const res = await fetch("/api/keys");
-      if (res.ok) {
-        const data = await res.json();
-        setKeys(data.keys || []);
-        setAllowKeyReveal(data.allowKeyReveal === true);
-        // Fetch usage stats after keys are loaded
-        fetchUsageStats(data.keys || []);
-        fetchSessionCounts(data.keys || []);
-        fetchDeviceCounts(data.keys || []);
-      }
-    } catch (error) {
-      console.log("Error fetching keys:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const fetchUsageStats = async (apiKeys: ApiKey[]) => {
     if (apiKeys.length === 0) return;
     try {
@@ -535,6 +509,32 @@ export default function ApiManagerPageClient() {
       console.log("Error fetching device counts:", error);
     }
   };
+
+  const fetchData = async () => {
+    try {
+      const res = await fetch("/api/keys");
+      if (res.ok) {
+        const data = await res.json();
+        setKeys(data.keys || []);
+        setAllowKeyReveal(data.allowKeyReveal === true);
+        // Fetch usage stats after keys are loaded
+        fetchUsageStats(data.keys || []);
+        fetchSessionCounts(data.keys || []);
+        fetchDeviceCounts(data.keys || []);
+      }
+    } catch (error) {
+      console.log("Error fetching keys:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    fetchModels();
+    fetchCombos();
+    fetchConnections();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
 
   const clearPageError = useCallback(() => setPageError(null), []);
 

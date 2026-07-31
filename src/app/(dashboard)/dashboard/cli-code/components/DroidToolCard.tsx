@@ -72,14 +72,6 @@ export default function DroidToolCard({
     }
   }, [apiKeys, selectedApiKeyId]);
 
-  useEffect(() => {
-    if (isExpanded && !droidStatus) {
-      checkDroidStatus();
-      fetchModelAliases();
-      fetchBackups();
-    }
-  }, [isExpanded, droidStatus]);
-
   const fetchModelAliases = async () => {
     try {
       const res = await fetch("/api/models/alias");
@@ -235,6 +227,14 @@ export default function DroidToolCard({
       console.log("Error fetching backups:", error);
     }
   };
+
+  useEffect(() => {
+    if (isExpanded && !droidStatus) {
+      checkDroidStatus();
+      fetchModelAliases();
+      fetchBackups();
+    }
+  }, [isExpanded, droidStatus]);
 
   const handleRestoreBackup = async (backupId) => {
     setRestoringBackup(backupId);
