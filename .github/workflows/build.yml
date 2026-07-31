@@ -13,6 +13,11 @@ jobs:
     name: Fast Production Build
     runs-on: ubuntu-latest
     steps:
+      - name: Expand Virtual Memory (Add 10GB Swap)
+        uses: pierotofy/set-swap-space@v1
+        with:
+          swap-size-gb: 10
+
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
