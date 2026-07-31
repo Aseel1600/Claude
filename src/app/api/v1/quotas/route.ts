@@ -47,7 +47,11 @@ export async function GET(request: Request) {
             ? conn.providerId
             : "";
       const connectionId =
-        typeof conn.connectionId === "string" ? conn.connectionId : "";
+        typeof conn.id === "string"
+          ? conn.id
+          : typeof conn.connectionId === "string"
+            ? conn.connectionId
+            : "";
       if (!provider || !connectionId) continue;
 
       let saturation = 0;
@@ -69,7 +73,6 @@ export async function GET(request: Request) {
           : typeof conn.name === "string" && conn.name.trim()
             ? conn.name
             : connectionId;
-
       connections.push({
         provider,
         connectionId,
