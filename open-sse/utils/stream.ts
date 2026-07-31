@@ -226,8 +226,8 @@ function restoreResponsesPassthroughFunctionCallIdentity(
     return restoreItem(parsed.item);
   }
 
-  if (parsed.type === "response.completed" && Array.isArray(parsed.response?.output)) {
-    return (parsed.response as JsonRecord).output.reduce(
+  if (parsed.type === "response.completed" && Array.isArray(asRecord(parsed.response).output)) {
+    return (asRecord(parsed.response).output as unknown[]).reduce<boolean>(
       (changed: boolean, item: unknown) => restoreItem(item) || changed,
       false
     );
