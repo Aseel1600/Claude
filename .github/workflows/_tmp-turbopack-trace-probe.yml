@@ -3,9 +3,16 @@ name: TEMP Turbopack Memory Trace Probe
 # Throwaway diagnostic — NOT meant to be merged. Investigates the "Build (advisory)"
 # job's Turbopack compile-pass OOM (see PR #9060 for the prior, now-concluded
 # fs-cache/minify probe). Runs the production build directly with
-# NEXT_TURBOPACK_TRACING=1 and --experimental-debug-memory-usage to capture
-# continuous heap/GC stats and a trace file, so the actual top memory-consuming
-# module(s) can be identified instead of guessing at blanket mitigations.
+# --experimental-debug-memory-usage to capture continuous RSS/heap stats (plus an
+# automatic heap snapshot near the memory ceiling, if the OOM is heap-driven) on
+# the real ubuntu-latest runner. A local run on a 32GB/10-core Mac with the same
+# native-module-blocked conditions as CI completed successfully at ~7.7GB peak
+# RSS -- well under CI's documented 16GB/4-core budget -- so this run exists to
+# get the equivalent number from the actual failing environment for comparison.
+# NEXT_TURBOPACK_TRACING was tried locally and dropped: the trace file was 3.5GB
+# and only viewable via a WebSocket-based browser UI, not practical to analyze
+# here, and running both instruments together adds overhead that could itself
+# distort the memory profile being measured.
 # Bypasses build-next-isolated.mjs deliberately to avoid touching tested build
 # tooling for a one-off diagnostic. Scoped to this branch only — never present on
 # release/v3.8.50, so it never runs on any other contributor's PR.
@@ -37,22 +44,19 @@ jobs:
           node-version: 24
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
-      - name: Run diagnostic build with tracing + memory profiling
+      - name: Run diagnostic build with memory profiling
         continue-on-error: true
         env:
-          NEXT_TURBOPACK_TRACING: "1"
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
           node node_modules/next/dist/bin/next build --turbopack --experimental-debug-memory-usage 2>&1 | tee build-trace-output.log
-      - name: Upload trace + memory diagnostic artifacts
+      - name: Upload memory diagnostic artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: turbopack-trace-probe
           path: |
             build-trace-output.log
-            .next/trace
-            .build/next/trace
             *.heapsnapshot
           if-no-files-found: warn
           retention-days: 3
