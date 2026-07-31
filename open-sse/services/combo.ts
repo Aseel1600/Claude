@@ -1937,14 +1937,26 @@ export async function handleComboChat({
             if (res && !anySuccess) {
               if (res.ok) {
                 anySuccess = true;
-                globalResolve!(res.response!);
+                const responseWithAttempt = new Response(res.response!.body, {
+                  status: res.response!.status,
+                  statusText: res.response!.statusText,
+                  headers: new Headers(res.response!.headers),
+                });
+                responseWithAttempt.headers.set("x-omniroute-attempt", String(globalAttempts));
+                globalResolve!(responseWithAttempt);
                 for (const [idx, ac] of abortControllers.entries()) {
                   if (idx !== i) ac.abort();
                 }
               } else if (res.response) {
                 // Fatal error, abort combo
                 anySuccess = true;
-                globalResolve!(res.response);
+                const responseWithAttempt = new Response(res.response.body, {
+                  status: res.response.status,
+                  statusText: res.response.statusText,
+                  headers: new Headers(res.response.headers),
+                });
+                responseWithAttempt.headers.set("x-omniroute-attempt", String(globalAttempts));
+                globalResolve!(responseWithAttempt);
               }
             }
           } finally {
