@@ -31,7 +31,9 @@ jobs:
         run: |
           npm run build:release
         env:
-          OMNIROUTE_USE_TURBOPACK: "1"
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          OMNIROUTE_BUILD_MEMORY_MB: "4096"
+          OMNIROUTE_USE_TURBOPACK: "0"
 
       - name: Archive build outputs
         run: |
