@@ -730,11 +730,22 @@ export function createSSEStream(options: StreamOptions = {}) {
       ? clientResponseFormat === FORMATS.CLAUDE
       : sourceFormat === FORMATS.CLAUDE) === true;
 
+  // Antigravity/cloudcode streams terminate naturally on their last
+  // `data: {"response":{...}}` event, not on a `[DONE]` marker. Emitting
+  // `[DONE]` to the Antigravity IDE causes a protobuf parse failure
+  // (proto: syntax error (line 1:1): unexpected token [) because the
+  // Go binary's protobuf deserializer receives `[DONE]` as input.
+  const clientExpectsAntigravityStream =
+    (mode === STREAM_MODE.PASSTHROUGH
+      ? clientResponseFormat === FORMATS.ANTIGRAVITY
+      : sourceFormat === FORMATS.ANTIGRAVITY) === true;
+
   // Single source of truth for the [DONE] decision, used at both emission
   // sites below. Only OpenAI Chat Completions clients expect [DONE];
-  // Responses API and Anthropic SSE terminate on their own protocol events
-  // (response.completed / message_stop respectively).
-  const shouldEmitDoneTerminator = !clientExpectsResponsesStream && !clientExpectsClaudeStream;
+  // Responses API, Anthropic SSE, and Antigravity/cloudcode terminate on
+  // their own protocol events (response.completed / message_stop / last
+  // response candidate respectively).
+  const shouldEmitDoneTerminator = !clientExpectsResponsesStream && !clientExpectsClaudeStream && !clientExpectsAntigravityStream;
 
   let buffer = "";
   let usage: UsageTokenRecord | null = null;
