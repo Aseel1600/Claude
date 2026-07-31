@@ -81,3 +81,30 @@ test("cheaperinference tags its Responses-capable models", async () => {
     assert.match(m.id, /^gpt-5\./, "only the GPT-5.x family is tagged for native Responses");
   }
 });
+
+test("cheaperinference resale pricing covers every catalog model", async () => {
+  const { DEFAULT_PRICING } = await import("@/shared/constants/pricing/default-pricing");
+  const { REGISTRY } = await import("@omniroute/open-sse/config/providers/index.ts");
+  const pricing = (DEFAULT_PRICING as Record<string, Record<string, unknown>>).cheaperinference;
+  assert.ok(pricing, "no pricing block for cheaperinference");
+  const models = (REGISTRY.cheaperinference as unknown as { models: Array<{ id: string }> })
+    .models;
+  for (const model of models) {
+    assert.ok(pricing[model.id], `missing pricing for ${model.id}`);
+  }
+});
+
+test("cheaperinference pricing uses the gateway's discounted rates, not list price", async () => {
+  const { DEFAULT_PRICING } = (await import("@/shared/constants/pricing/default-pricing")) as {
+    DEFAULT_PRICING: Record<string, Record<string, Record<string, number>>>;
+  };
+  // Measured 2026-07-31: the gateway resells claude-opus-5 at $3.50/$17.50 per 1M
+  // (30% off Anthropic list). A drift here means the table was copied from the
+  // model maker instead of GET /v1/models.
+  const opus = DEFAULT_PRICING.cheaperinference["claude-opus-5"];
+  assert.equal(opus.input, 3.5);
+  assert.equal(opus.output, 17.5);
+  const flash = DEFAULT_PRICING.cheaperinference["deepseek-v4-flash"];
+  assert.equal(flash.input, 0.098);
+  assert.equal(flash.output, 0.196);
+});
