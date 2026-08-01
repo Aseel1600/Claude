@@ -37,6 +37,13 @@
  */
 
 import crypto from "node:crypto";
+import {
+  deleteAllCcrBlocks,
+  deleteCcrBlockRow,
+  loadCcrBlock,
+  persistCcrBlock,
+  touchCcrBlock,
+} from "../../../../../src/lib/db/ccrBlocks.ts";
 import { createCompressionStats } from "../../stats.ts";
 import { queryBlock, type CcrQuery } from "./ccrQuery.ts";
 import { injectCcrProtocolInstruction } from "./protocolInstruction.ts";
@@ -145,6 +152,109 @@ function buildStoreKey(hash: string, principalId?: string): string {
   return `${principalId ?? ANON} ${hash}`;
 }
 
+// ─── durable second tier (#9061) ──────────────────────────────────────────────
+
+/**
+ * The map above is the hot cache. It loses entries to cross-principal LRU eviction, to
+ * the TTL, to restarts, and to a retrieve landing on another instance, while
+ * `fidelityGateStep` waives fidelity checks for sampling engines on the grounds that
+ * their drop is "CCR-recoverable", and the protocol instruction promises the model a
+ * verbatim block. These helpers put the block on disk so that promise survives.
+ *
+ * Every one of them is best-effort: a store without a usable database (compression
+ * preview, unit tests, a read-only volume) degrades to today's in-memory behaviour
+ * rather than failing the request.
+ */
+const loggedDurableErrors = new Set<string>();
+
+function warnDurableError(operation: string, error: unknown): void {
+  if (process.env.NODE_ENV === "test") return;
+  if (loggedDurableErrors.has(operation)) return;
+  if (loggedDurableErrors.size >= 20) {
+    const first = loggedDurableErrors.values().next().value;
+    if (first !== undefined) loggedDurableErrors.delete(first);
+  }
+  loggedDurableErrors.add(operation);
+  const message = error instanceof Error ? error.message : String(error);
+  console.warn(`[ccr] durable ${operation} failed: ${message}`);
+}
+
+/**
+ * Writes are deferred off the request path. Measured on this repo, a synchronous
+ * `persistCcrBlock` costs 0.032 ms at the 600-char minimum block but 1.77 ms at 500 KB,
+ * past the 1 ms this engine declares in its metadata, and roughly 7x the sha256 it
+ * already pays over the same bytes. The block is in the map before the defer runs, so an
+ * in-process retrieve never waits for the disk; only a crash inside that tick loses the
+ * durable copy, and the client's next request re-stores it under the same hash.
+ *
+ * Persist and delete share this queue so they cannot reorder: `setImmediate` is FIFO, and
+ * a delete that overtook its own persist would resurrect the block it just removed.
+ */
+function deferDurable(operation: string, work: () => void): void {
+  setImmediate(() => {
+    try {
+      work();
+    } catch (error) {
+      warnDurableError(operation, error);
+    }
+  });
+}
+
+function persistEntry(entry: CcrEntry): void {
+  const snapshot = { ...entry };
+  deferDurable("persist", () => persistCcrBlock(snapshot));
+}
+
+function forgetEntry(hash: string, principalId: string): void {
+  deferDurable("delete", () => deleteCcrBlockRow(principalId, hash));
+}
+
+/**
+ * Read a block the map no longer holds and put it back in the map, so the LRU/byte
+ * accounting keeps working from there. Returns null when there is no durable row, which
+ * is also what a missing database looks like.
+ */
+function rehydrateEntry(hash: string, principalId: string, now: number): CcrEntry | null {
+  let row: ReturnType<typeof loadCcrBlock>;
+  try {
+    row = loadCcrBlock(principalId, hash, now);
+  } catch (error) {
+    warnDurableError("load", error);
+    return null;
+  }
+  if (!row) return null;
+
+  const entry: CcrEntry = {
+    hash: row.hash,
+    principalId: row.principalId,
+    content: row.content,
+    bytes: row.bytes,
+    chars: row.chars,
+    lines: row.lines,
+    contentType: row.contentType,
+    source: row.source as CcrEntrySource,
+    createdAt: row.createdAt,
+    lastAccessedAt: now,
+    expiresAt: row.expiresAt,
+  };
+
+  // Re-admit through the same budgets a fresh store would face. If the block no longer
+  // fits, it stays on disk and is served straight from the row instead of being cached.
+  if (enforcePrincipalBudget(entry.principalId, entry.bytes) && enforceGlobalBudget(entry.bytes)) {
+    const key = buildStoreKey(hash, principalId === ANON ? undefined : principalId);
+    ccrStore.set(key, entry);
+    ccrTotalBytes += entry.bytes;
+    principalBytesMap.set(entry.principalId, principalBytes(entry.principalId) + entry.bytes);
+  }
+
+  try {
+    touchCcrBlock(entry.principalId, hash, now);
+  } catch (error) {
+    warnDurableError("touch", error);
+  }
+  return entry;
+}
+
 function readLifecycleCounters(principalId: string): CcrLifecycleCounters {
   return (
     lifecycleByPrincipal.get(principalId) ?? {
@@ -192,7 +302,12 @@ function removeEntry(key: string, reason?: "expired" | "capacity"): boolean {
   if (remainingPrincipalBytes === 0) principalBytesMap.delete(entry.principalId);
   else principalBytesMap.set(entry.principalId, remainingPrincipalBytes);
   const counters = mutableLifecycleCounters(entry.principalId);
-  if (reason === "expired") counters.expiredEvictions++;
+  if (reason === "expired") {
+    counters.expiredEvictions++;
+    // Expiry is the one eviction that means the block is finished. Capacity eviction is
+    // not: that block stays on disk, which is the point of the durable tier (#9061).
+    forgetEntry(entry.hash, entry.principalId);
+  }
   if (reason === "capacity") counters.capacityEvictions++;
   return true;
 }
@@ -321,6 +436,7 @@ export function tryStoreBlock(
   ccrStore.set(key, entry);
   ccrTotalBytes += bytes;
   principalBytesMap.set(owner, principalBytes(owner) + bytes);
+  persistEntry(entry);
   return { stored: true, hash, metadata: publicMetadata(entry) };
 }
 
@@ -341,7 +457,12 @@ export function storeBlock(
 export function retrieveBlock(hash: string, principalId?: string, now = Date.now()): string | null {
   const key = buildStoreKey(hash, principalId);
   const entry = getActiveEntry(key, now);
-  if (!entry) return null;
+  if (!entry) {
+    // Miss in the hot cache is not proof the block is gone (#9061): LRU eviction, the TTL
+    // sweep, a restart, or another instance all land here while the row is still on disk.
+    const restored = rehydrateEntry(hash, principalId ?? ANON, now);
+    return restored ? restored.content : null;
+  }
   entry.lastAccessedAt = now;
   ccrStore.delete(key);
   ccrStore.set(key, entry);
@@ -404,6 +525,14 @@ export function resetCcrStore(): void {
   principalBytesMap.clear();
   ccrTotalBytes = 0;
   lifecycleByPrincipal.clear();
+  // Through the same queue as persist/delete, so a reset cannot overtake a write it was
+  // meant to clear.
+  deferDurable("reset", deleteAllCcrBlocks);
+}
+
+/** Resolves once the deferred durable writes queued so far have run. */
+export function flushCcrDurableWrites(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
 }
 
 export function inspectCcrBlock(
@@ -438,7 +567,11 @@ export function listCcrBlocks(
 }
 
 export function deleteCcrBlock(hash: string, principalId?: string, _now = Date.now()): boolean {
-  return removeEntry(buildStoreKey(hash, principalId));
+  const removedFromCache = removeEntry(buildStoreKey(hash, principalId));
+  // An explicit delete must reach the durable tier too, otherwise the next retrieve
+  // rehydrates the block the caller just deleted.
+  forgetEntry(hash, principalId ?? ANON);
+  return removedFromCache;
 }
 
 export function getCcrStoreStats(principalId?: string, now = Date.now()): CcrStoreStats {
