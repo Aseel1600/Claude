@@ -16,7 +16,10 @@ const notify = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 const roots: Array<{ root: ReturnType<typeof createRoot>; el: HTMLDivElement }> = [];
 
 function renderHandler(initial: ConnectionRowConnection[]) {
-  let latest: { handler: (id: string, enabled: boolean) => Promise<void> } | null = null;
+  let latest: {
+    handler: (id: string, enabled: boolean) => Promise<void>;
+    connections: ConnectionRowConnection[];
+  } | null = null;
   function Wrapper() {
     const [connections, setConnections] = React.useState(initial);
     const handler = useConnectionAutoSync(
@@ -26,7 +29,7 @@ function renderHandler(initial: ConnectionRowConnection[]) {
       t
     );
     React.useEffect(() => {
-      latest = { handler };
+      latest = { handler, connections };
     });
     return null;
   }
@@ -102,6 +105,9 @@ describe("useConnectionAutoSync", () => {
     expect(body).toEqual({
       providerSpecificData: { someOtherFlag: 42, autoSync: true },
     });
+    expect(h.get().connections).toEqual([
+      { id: "conn-1", providerSpecificData: { someOtherFlag: 42, autoSync: true } },
+    ]);
   });
 
   it("notifies error when the PUT fails", async () => {
@@ -117,6 +123,22 @@ describe("useConnectionAutoSync", () => {
     });
 
     expect(notify.error).toHaveBeenCalled();
+    expect(notify.success).not.toHaveBeenCalled();
+  });
+
+  it("notifies autoSyncDisabled (info) when disabling autoSync", async () => {
+    const conns: ConnectionRowConnection[] = [
+      { id: "conn-1", providerSpecificData: { autoSync: true } },
+    ];
+    const h = renderHandler(conns);
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce({ ok: true } as Response);
+
+    await act(async () => {
+      await h.get().handler("conn-1", false);
+    });
+
+    expect(notify.info).toHaveBeenCalledWith("autoSyncDisabled");
     expect(notify.success).not.toHaveBeenCalled();
   });
 });

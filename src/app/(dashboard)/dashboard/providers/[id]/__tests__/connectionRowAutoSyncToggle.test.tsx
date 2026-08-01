@@ -71,6 +71,10 @@ describe("ConnectionRow autoSync toggle", () => {
       })
     );
     expect(document.body.textContent).toContain("Sync");
+    const button = [...document.querySelectorAll("button")].find((b) =>
+      (b.textContent || "").includes("Sync")
+    );
+    expect((button as HTMLButtonElement).className).toContain("bg-emerald-500/15");
   });
 
   it("invokes onToggleAutoSync with the inverse value on click", () => {

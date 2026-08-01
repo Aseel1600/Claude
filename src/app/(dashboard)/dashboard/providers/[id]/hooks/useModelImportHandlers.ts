@@ -396,7 +396,7 @@ export function useModelImportHandlers({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               providerSpecificData: {
-                ...((conn.providerSpecificData as Record<string, unknown>) || {}),
+                ...(conn.providerSpecificData || {}),
                 autoSync: newValue,
               },
             }),

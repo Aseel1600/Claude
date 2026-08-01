@@ -43,7 +43,9 @@ export function useConnectionAutoSync(
               : connection
           )
         );
-        notify[enabled ? "success" : "info"](t("autoSyncEnabled"));
+        notify[enabled ? "success" : "info"](
+          enabled ? t("autoSyncEnabled") : t("autoSyncDisabled")
+        );
       } catch (error) {
         console.error("Error toggling connection auto-sync:", error);
         notify.error(t("autoSyncToggleFailed"));

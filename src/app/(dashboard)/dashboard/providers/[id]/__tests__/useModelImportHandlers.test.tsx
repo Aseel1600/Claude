@@ -210,6 +210,25 @@ describe("useModelImportHandlers — master autoSync", () => {
 
     expect(fetchConnections).toHaveBeenCalled();
     expect(notify.success).not.toHaveBeenCalled();
+    expect(notify.warning).toHaveBeenCalledWith("autoSyncPartialFailure");
+  });
+
+  it("notifies error when every fan-out PUT fails", async () => {
+    const hook = renderHook(
+      buildParams({
+        connections: [conn("conn-a", true, false), conn("conn-b", true, false)],
+      })
+    );
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue({ ok: false, status: 500 } as Response);
+
+    await act(async () => {
+      await hook.get().handleToggleAutoSync();
+    });
+
+    expect(notify.error).toHaveBeenCalledWith("autoSyncToggleFailed");
+    expect(notify.success).not.toHaveBeenCalled();
+    expect(notify.warning).not.toHaveBeenCalled();
   });
 
   it("no-ops without a PUT or notification when there are no active connections", async () => {
