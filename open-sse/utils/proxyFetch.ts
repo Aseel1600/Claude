@@ -25,14 +25,27 @@ import {
 // Every relay request opened a fresh TCP+TLS handshake and a throttled edge
 // relay serialized concurrent requests behind ~30s stalls. This module-level
 // singleton Agent gives the relay path the same pooling the HTTP-proxy path
-// gets from createProxyDispatcher: ONE reused TCP connection per relay host,
-// keep-alive 30s, pipelining 4 (SSE multiplexing), 16 connections.
-const RELAY_POOL_AGENT = new Agent({
+// gets from createProxyDispatcher: ONE reused TCP connection per relay host.
+//
+// `connections: 1` is the load-bearing setting: undici h1 pipelining does NOT
+// limit concurrent connections (5 concurrent requests with pipelining 4 still
+// fan out to 5 sockets), only `connections` caps sockets per origin. With a
+// single connection, 5 concurrent requests queue on the one pooled socket.
+// `allowH2: true` then restores real parallelism on that socket: Vercel / Deno /
+// Cloudflare all negotiate HTTP/2 (ALPN), so concurrent requests multiplex as
+// independent h2 streams instead of serializing — measured 5 concurrent h2
+// requests over 1 TCP connection in ~52ms (local h2 server), h1-only hosts
+// fall back to pipelined h1 on the same single connection (~10ms), and
+// sequential requests add 0 new connections. Empirically verified against
+// undici 8.8 (2026-08-02).
+const RELAY_POOL_AGENT_OPTIONS = {
   keepAliveTimeout: 30_000,
   keepAliveMaxTimeout: 60_000,
   pipelining: 4,
-  connections: 16,
-});
+  connections: 1,
+  allowH2: true,
+} as const;
+const RELAY_POOL_AGENT = new Agent(RELAY_POOL_AGENT_OPTIONS);
 
 // A hung relay must fail BEFORE the client/agent timeout (typically 30s) so the
 // caller sees a relay-specific failure instead of a generic upstream timeout.
@@ -762,7 +775,11 @@ async function patchedFetch(
           msg.includes("UND_ERR");
         if (attempt === 0 && maxRelayAttempts > 1 && isTransportFailure) {
           lastRelayError = relayError;
-          await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+          // #9100: fixed 10ms instead of the old 25-75ms random jitter — the
+          // retry reuses the pooled agent (fresh socket after undici tears down
+          // the broken one), so the jitter was pure latency on every recovered
+          // request with no herd risk on a per-host singleton.
+          await new Promise((r) => setTimeout(r, 10));
           continue;
         }
         throw relayError;
@@ -802,7 +819,10 @@ async function patchedFetch(
         msg.includes("UND_ERR");
       if (attempt === 0 && maxProxyAttempts > 1 && isTransportFailure) {
         lastProxyError = error;
-        await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+        // #9100: fixed 10ms instead of the old 25-75ms random jitter — the
+        // retry uses a fresh no-keep-alive dispatcher, so the jitter was pure
+        // latency on every recovered request with no herd risk (per-host pool).
+        await new Promise((r) => setTimeout(r, 10));
         continue;
       }
       // A caller abort/timeout must propagate unchanged and without a noisy
@@ -858,6 +878,11 @@ export function isTlsFingerprintActive() {
  */
 export function getOriginalFetch(): typeof globalThis.fetch {
   return originalFetch;
+}
+
+/** Test-only: exposes the relay Agent options for config assertions (#9100). */
+export function __getRelayPoolAgentOptionsForTest() {
+  return RELAY_POOL_AGENT_OPTIONS;
 }
 
 export default isCloud ? originalFetch : patchedFetch;

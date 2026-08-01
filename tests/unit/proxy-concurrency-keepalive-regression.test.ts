@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
 
-import proxyFetch, { runWithProxyContext } from "../../open-sse/utils/proxyFetch.ts";
+import proxyFetch, {
+  runWithProxyContext,
+  __getRelayPoolAgentOptionsForTest,
+} from "../../open-sse/utils/proxyFetch.ts";
 import { clearDispatcherCache } from "../../open-sse/utils/proxyDispatcher.ts";
 import { invalidateProxyHealth, isProxyReachable } from "../../src/lib/proxyHealth.ts";
 
@@ -183,5 +186,21 @@ test("#9100: 5 concurrent requests through a mocked Vercel-relay proxy all resol
     dispatchers.size,
     1,
     "all 5 relay requests must share the SAME pooled dispatcher (one TCP connection per relay host)"
+  );
+  // #9100: the relay Agent must keep ONE connection per host AND multiplex
+  // concurrent requests over it (h2). `connections: 1` is what actually caps
+  // sockets per origin (pipelining alone does not limit concurrency in undici);
+  // `allowH2: true` makes the 5 queued requests run in parallel as h2 streams
+  // instead of serializing on the single h1 connection.
+  const relayAgentOptions = __getRelayPoolAgentOptionsForTest();
+  assert.equal(
+    relayAgentOptions.connections,
+    1,
+    "relay agent must hold one pooled connection per host"
+  );
+  assert.equal(
+    relayAgentOptions.allowH2,
+    true,
+    "relay agent must multiplex concurrent requests over h2"
   );
 });
