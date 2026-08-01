@@ -13,7 +13,6 @@ import { resolveDynamicAudioProviders } from "@/app/api/v1/_shared/audioProvider
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
-import { getCachedProviderNodes } from "@/lib/localDb";
 import {
   isAllRateLimitedCredentials,
   rateLimitedProviderResponse,
