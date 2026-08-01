@@ -84,6 +84,7 @@ function fetchMemoriesByIds(ids: string[]): Memory[] {
  * each whitespace-separated term so natural-language queries with punctuation
  * don't raise "fts5: syntax error".
  */
+import { toFts5MatchQuery } from "./ftsQuery";
 export { toFts5MatchQuery } from "./ftsQuery";
 
 interface FtsColConfig {  apiKeyCol: string;

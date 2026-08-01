@@ -337,6 +337,7 @@ import { generateRequestId } from "@/shared/utils/requestId";
 import { isLocalStreamLifecycleError } from "@/shared/utils/circuitBreaker";
 import { extractFacts } from "@/lib/memory/extraction";
 import { handleToolCallExecution } from "@/lib/skills/interception";
+import { MEMORY_BUILTIN_TOOL_NAMES } from "@/lib/skills/memoryBuiltins";
 import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
 import { getClaudeCodeCompatibleRequestDefaults } from "@/lib/providers/requestDefaults";
 import {
@@ -4384,9 +4385,11 @@ export async function handleChatCore({
 
     const customSkillExecutionEnabled =
       Boolean(memoryOwnerId) && memorySettings?.skillsEnabled === true;
-    const builtinToolNames = [webSearchFallbackPlan.toolName, webFetchFallbackPlan.toolName].filter(
-      (name): name is string => Boolean(name)
-    );
+    const builtinToolNames = [
+      webSearchFallbackPlan.toolName,
+      webFetchFallbackPlan.toolName,
+      ...(memoryOwnerId && memorySettings?.enabled ? MEMORY_BUILTIN_TOOL_NAMES : []),
+    ].filter((name): name is string => Boolean(name));
     if (customSkillExecutionEnabled || builtinToolNames.length > 0) {
       const skillSessionId = pipelineSessionId;
 
