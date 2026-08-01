@@ -9,6 +9,7 @@
  */
 
 import Bottleneck from "bottleneck";
+import { applyBottleneckDoExpirePatch } from "./bottleneckPatch.ts";
 import { parseRetryAfterFromBody } from "./accountFallback.ts";
 import { getAntigravityQuotaFamily } from "./antigravityQuotaFamily.ts";
 import { getProviderCategory } from "../config/providerRegistry.ts";
@@ -365,6 +366,9 @@ export async function initializeRateLimits() {
   if (initialized) return;
   initialized = true;
 
+  // Fix Bottleneck v2.19.5 doExpire bug before any limiter is created.
+  applyBottleneckDoExpirePatch();
+
   try {
     const { getCachedProviderConnections, getSettings } = await import("@/lib/localDb");
     const [connections, settings] = await Promise.all([
@@ -686,6 +690,26 @@ export async function withRateLimit(
         queueState.lastDispatchAgeMs >= Math.max(1, maxWaitMs || 0);
       if (limiterIsWedged) {
         logRateLimit(`🔄 [RATE-LIMIT] ${key} — recovering idle limiter after queue expiry`);
+        evictWedgeLimiter(key, limiter);
+        return withRateLimit(provider, connectionId, model, fn, signal, false);
+      }
+      // Diagnostic: detect Bottleneck doExpire bug (capacity leak).
+      // When the bug triggers, jobs get stuck in RUNNING state (States.running > 0)
+      // but nothing is actually executing. This is a different failure mode from
+      // the idle wedge above (which has running=0).
+      if (
+        retryAfterWedge &&
+        queueState.running > 0 &&
+        queueState.executing === 0 &&
+        (queueState.reservoirRemaining === null || queueState.reservoirRemaining > 0) &&
+        typeof queueState.lastDispatchAgeMs === "number" &&
+        queueState.lastDispatchAgeMs >= Math.max(1, maxWaitMs || 0)
+      ) {
+        logRateLimit(
+          `🐛 [RATE-LIMIT] ${key} — probable Bottleneck doExpire capacity leak: ` +
+            `running=${queueState.running}, executing=0, reservoir=${queueState.reservoirRemaining}. ` +
+            `Evicting limiter to recover.`
+        );
         evictWedgeLimiter(key, limiter);
         return withRateLimit(provider, connectionId, model, fn, signal, false);
       }
