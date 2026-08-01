@@ -127,6 +127,31 @@ describe("CCR engine survives losing its in-memory map (#9061)", () => {
     assert.equal(restarted.retrieveBlock(stored.hash, "principal-b"), null);
   });
 
+  it("keeps an oversized block memory-only", async () => {
+    // 512KB is the ceiling call artifacts already use (#1647). Above it the block still
+    // works from the map, it just never reaches disk.
+    const text = "b".repeat(600 * 1024);
+    const stored = ccr.tryStoreBlock(text, "principal-a");
+    assert.equal(stored.stored, true);
+    await ccr.flushCcrDurableWrites();
+
+    assert.equal(ccr.retrieveBlock(stored.hash, "principal-a"), text, "map still serves it");
+    assert.equal(loadCcrBlock("principal-a", stored.hash, Date.now()), null, "but disk has no row");
+  });
+
+  it("writes nothing when COMPRESSION_CCR_DURABLE_STORE is false", async () => {
+    const previous = process.env.COMPRESSION_CCR_DURABLE_STORE;
+    process.env.COMPRESSION_CCR_DURABLE_STORE = "false";
+    try {
+      const stored = ccr.tryStoreBlock("c".repeat(2_000), "principal-a");
+      await ccr.flushCcrDurableWrites();
+      assert.equal(loadCcrBlock("principal-a", stored.hash, Date.now()), null);
+    } finally {
+      if (previous === undefined) delete process.env.COMPRESSION_CCR_DURABLE_STORE;
+      else process.env.COMPRESSION_CCR_DURABLE_STORE = previous;
+    }
+  });
+
   it("does not resurrect a block that was explicitly deleted", async () => {
     const text = "z".repeat(2_000);
     const stored = ccr.tryStoreBlock(text, "principal-a");

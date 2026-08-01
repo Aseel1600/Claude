@@ -164,7 +164,30 @@ function buildStoreKey(hash: string, principalId?: string): string {
  * Every one of them is best-effort: a store without a usable database (compression
  * preview, unit tests, a read-only volume) degrades to today's in-memory behaviour
  * rather than failing the request.
+ *
+ * Three guards keep this from changing what the deployment stores at rest more than it
+ * has to. They follow the call-log artifact path, which faced the same question:
+ *
+ *   1. Blocks over `MAX_DURABLE_BLOCK_BYTES` stay memory-only. `MAX_CCR_BLOCK_BYTES` is
+ *      2 MB, and 5,000 of those would be 10 GB of prompt text in SQLite. 512 KB is the
+ *      ceiling #1647 already set on call artifacts for this exact reason.
+ *   2. No durable tier on a cloud runtime, which has no local disk to write to.
+ *   3. `COMPRESSION_CCR_DURABLE_STORE=false` turns it off. The content is prompt text, and an
+ *      operator who does not want that on disk needs a switch that is not a rebuild.
+ *
+ * The switch defaults to on because the model is already told, by the CCR protocol
+ * instruction, that it can retrieve the block verbatim. Leaving it off by default would
+ * keep that promise hollow for everyone who never reads this file.
  */
+const MAX_DURABLE_BLOCK_BYTES = 512 * 1024;
+
+/** Matches the detection call-log artifacts use (`callLogArtifacts.ts`). */
+const isCloudRuntime = typeof globalThis.caches === "object" && globalThis.caches !== null;
+
+function durableTierEnabled(): boolean {
+  return !isCloudRuntime && process.env.COMPRESSION_CCR_DURABLE_STORE !== "false";
+}
+
 const loggedDurableErrors = new Set<string>();
 
 function warnDurableError(operation: string, error: unknown): void {
@@ -190,8 +213,22 @@ function warnDurableError(operation: string, error: unknown): void {
  * Persist and delete share this queue so they cannot reorder: `setImmediate` is FIFO, and
  * a delete that overtook its own persist would resurrect the block it just removed.
  */
-function deferDurable(operation: string, work: () => void): void {
+const MAX_PENDING_DURABLE_WRITES = 1_000;
+let pendingDurableWrites = 0;
+let droppedDurableWrites = 0;
+
+function deferDurable(operation: string, work: () => void, droppable = false): void {
+  // Backpressure. A burst faster than SQLite drains would otherwise queue without bound
+  // and hold every block's content live in the closure. Dropping a persist is safe: the
+  // block is still in the map, and the client re-stores it under the same hash on its
+  // next request. Deletes are never dropped, or a deleted block would come back.
+  if (droppable && pendingDurableWrites >= MAX_PENDING_DURABLE_WRITES) {
+    droppedDurableWrites++;
+    return;
+  }
+  pendingDurableWrites++;
   setImmediate(() => {
+    pendingDurableWrites--;
     try {
       work();
     } catch (error) {
@@ -201,11 +238,14 @@ function deferDurable(operation: string, work: () => void): void {
 }
 
 function persistEntry(entry: CcrEntry): void {
+  if (!durableTierEnabled()) return;
+  if (entry.bytes > MAX_DURABLE_BLOCK_BYTES) return;
   const snapshot = { ...entry };
-  deferDurable("persist", () => persistCcrBlock(snapshot));
+  deferDurable("persist", () => persistCcrBlock(snapshot), true);
 }
 
 function forgetEntry(hash: string, principalId: string): void {
+  if (!durableTierEnabled()) return;
   deferDurable("delete", () => deleteCcrBlockRow(principalId, hash));
 }
 
@@ -215,6 +255,7 @@ function forgetEntry(hash: string, principalId: string): void {
  * is also what a missing database looks like.
  */
 function rehydrateEntry(hash: string, principalId: string, now: number): CcrEntry | null {
+  if (!durableTierEnabled()) return null;
   let row: ReturnType<typeof loadCcrBlock>;
   try {
     row = loadCcrBlock(principalId, hash, now);
