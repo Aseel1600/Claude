@@ -15,6 +15,7 @@ import {
   intersectStringArrays,
   minKnownNumber,
   maybeOmitCatalogModelName,
+  getThinkingCapabilityFields,
 } from "../../src/app/api/v1/models/catalogHelpers.ts";
 import {
   qualifyOpenRouterModelId,
@@ -71,6 +72,16 @@ test("catalogHelpers: intersectStringArrays (dedup + common)", () => {
   );
   assert.deepEqual(intersectStringArrays([]), []);
   assert.deepEqual(intersectStringArrays([["a"], []]), []);
+});
+
+test("catalogHelpers: Kiro GPT-5.6 models expose the native Max tier", () => {
+  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]) {
+    assert.deepEqual(getThinkingCapabilityFields("kr", model, true), {
+      thinking: true,
+      supportsThinking: true,
+      effort_tiers: ["none", "low", "medium", "high", "xhigh", "max"],
+    });
+  }
 });
 
 test("catalogHelpers: minKnownNumber ignores non-positive/unknown", () => {

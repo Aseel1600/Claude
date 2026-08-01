@@ -14,6 +14,7 @@ import {
 import {
   resolveKiroModelAlias,
   supportsKiroAdaptiveThinking,
+  supportsKiroNativeReasoning,
 } from "./openai-to-kiro/adaptiveThinking.ts";
 
 /**
@@ -763,6 +764,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
       topP?: number;
     };
     additionalModelRequestFields?: {
+      reasoning?: { effort: string };
       thinking?: { type: string; display?: string };
       output_config?: { effort: string };
       max_tokens?: number;
@@ -847,29 +849,43 @@ export function buildKiroPayload(model, body, stream, credentials) {
   //      thinking:{type:"adaptive"} + a clamped max_tokens), forwarded to AWS by
   //      the Kiro executor's transformRequest allowlist — the graded effort lever,
   //      gated on Kiro's adaptive-thinking allowlist (#6576), not supportsReasoning().
+  // GPT-5.6 models use the native `reasoning:{effort}` field instead. They must
+  // not receive the Claude `output_config`/`thinking` envelope: Kiro rejects it
+  // as an unknown field for the GPT-5.6 family.
   const requestedEffort = resolveKiroEffort(body) || (modelRequestsThinking ? "high" : "");
-  const kiroEffort = supportsKiroAdaptiveThinking(normalizedModel) ? requestedEffort : "";
+  const usesNativeReasoning = supportsKiroNativeReasoning(normalizedModel);
+  const usesAdaptiveThinking = supportsKiroAdaptiveThinking(normalizedModel);
+  const kiroEffort = usesNativeReasoning || usesAdaptiveThinking ? requestedEffort : "";
   if (kiroEffort) {
-    // `<thinking_mode>` / `<max_thinking_length>` are Kiro/CodeWhisperer prompt
-    // conventions (NOT Anthropic API params); the length is a soft hint (the hard
-    // enable signal is `<thinking_mode>`), clamped to the model's thinking cap.
-    const thinkingLength = capThinkingBudget(normalizedModel, thinkingLengthForEffort(kiroEffort));
-    const directive =
-      `<thinking_mode>enabled</thinking_mode>` +
-      `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
-    payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
-
     const fields: {
-      output_config: { effort: string };
-      thinking: { type: string; display: string };
+      reasoning?: { effort: string };
+      output_config?: { effort: string };
+      thinking?: { type: string; display: string };
       max_tokens?: number;
-    } = {
-      output_config: { effort: kiroEffort },
-      thinking: { type: "adaptive", display: "summarized" },
-    };
+    } = usesNativeReasoning
+      ? { reasoning: { effort: kiroEffort } }
+      : {
+          output_config: { effort: kiroEffort },
+          thinking: { type: "adaptive", display: "summarized" },
+        };
+
+    if (usesAdaptiveThinking) {
+      // `<thinking_mode>` / `<max_thinking_length>` are Kiro/CodeWhisperer prompt
+      // conventions (NOT Anthropic API params); the length is a soft hint (the hard
+      // enable signal is `<thinking_mode>`), clamped to the model's thinking cap.
+      const thinkingLength = capThinkingBudget(
+        normalizedModel,
+        thinkingLengthForEffort(kiroEffort)
+      );
+      const directive =
+        `<thinking_mode>enabled</thinking_mode>` +
+        `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
+      payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
+    }
+
     // Forward max_tokens only when the client set one, clamped to the model's
     // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
-    if (maxTokens > 0) {
+    if (usesAdaptiveThinking && maxTokens > 0) {
       const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
       fields.max_tokens = Math.max(Math.floor(capped), 1024);
     }
