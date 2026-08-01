@@ -961,14 +961,21 @@ export function getProviderBreakerState(provider: string | null | undefined) {
  * recording the failure to prevent resetting the cooldown timer.
  * This matches the original behavior where failures during cooldown
  * were ignored to avoid indefinite lockout.
+ *
+ * Network-layer errors (isNetworkError) and OmniRoute's own rate-limit
+ * queue timeouts must NOT trip the provider breaker - they are not
+ * provider failures.
  */
 export function recordProviderFailure(
   provider: string | null | undefined,
   log?: { warn?: (...args: unknown[]) => void },
   connectionId?: string | null,
-  profile?: ProviderBreakerProfile | null
+  profile?: ProviderBreakerProfile | null,
+  opts?: { isNetworkError?: boolean; isQueueTimeout?: boolean }
 ): void {
   if (!provider) return;
+  // Network errors and queue timeouts are not provider failures.
+  if (opts?.isNetworkError || opts?.isQueueTimeout) return;
 
   // Deduplicate rapid-fire failures from the same connection
   if (connectionId) {

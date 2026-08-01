@@ -1721,7 +1721,14 @@ export async function handleComboChat({
               isProxyUnreachable: structuredError?.code === "proxy_unreachable",
             })
           ) {
-            recordProviderFailure(provider, log, targetWithConnection.connectionId, profile);
+            const isNetworkError = structuredError?.code === "proxy_unreachable";
+            const isQueueTimeout =
+              errorText.includes("RATE_LIMIT_QUEUE_TIMEOUT") ||
+              errorText.includes("RATE_LIMIT_QUEUE_WEDGED");
+            recordProviderFailure(provider, log, targetWithConnection.connectionId, profile, {
+              isNetworkError,
+              isQueueTimeout,
+            });
           }
 
           // Check if this is a transient error worth retrying on same model.
