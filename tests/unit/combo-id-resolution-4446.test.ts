@@ -34,6 +34,60 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
+test("getCombo preserves exact, prefixed, id, and case-insensitive lookup paths", async () => {
+  const created = await combosDb.createCombo({
+    name: "MASTER-LIGHT",
+    models: [{ provider: "groq", model: "llama-3.1-8b-instant" }],
+  });
+
+  const resolvedCombos = await Promise.all([
+    sseModelService.getCombo("MASTER-LIGHT"),
+    sseModelService.getCombo("combo/MASTER-LIGHT"),
+    sseModelService.getCombo(String(created.id)),
+    sseModelService.getCombo("master-light"),
+  ]);
+
+  for (const combo of resolvedCombos) {
+    assert.ok(combo, "expected each getCombo lookup path to resolve");
+    assert.equal(combo.models.length, 1);
+  }
+});
+
+test("combo producers normalize malformed stored model collections to arrays", async () => {
+  const db = core.getDbInstance();
+  const now = new Date().toISOString();
+
+  db.prepare(
+    "INSERT INTO combos (id, name, data, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+  ).run(
+    "malformed-models",
+    "BROKEN-MODELS",
+    JSON.stringify({
+      id: "malformed-models",
+      name: "BROKEN-MODELS",
+      models: { unexpected: true },
+      strategy: "priority",
+    }),
+    1,
+    now,
+    now
+  );
+
+  const producers = [
+    ["name", () => combosDb.getComboByName("BROKEN-MODELS")],
+    ["id", () => combosDb.getComboById("malformed-models")],
+    ["insensitive name", () => combosDb.getComboByNameInsensitive("broken-models")],
+  ] as const;
+
+  for (const [label, loadCombo] of producers) {
+    const combo = await loadCombo();
+    assert.ok(combo, `${label} lookup should return the stored combo`);
+    assert.deepEqual(combo.models, [], `${label} lookup should normalize malformed models`);
+  }
+
+  assert.equal(await sseModelService.getCombo("BROKEN-MODELS"), null);
+});
+
 test("#4446 getComboForModel resolves a combo by a case-insensitive name (lowercased slug)", async () => {
   await combosDb.createCombo({
     name: "MASTER-LIGHT",

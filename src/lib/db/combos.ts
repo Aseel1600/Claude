@@ -7,11 +7,12 @@ import { getDbInstance } from "./core";
 import { backupDbFile } from "./backup";
 import { invalidateDbCache } from "./readCache";
 import { invalidateReasoningRoutingRuleCache } from "./reasoningRoutingRules";
-import { normalizeComboRecord } from "@/lib/combos/steps";
+import { normalizeComboRecord, type ComboStep } from "@/lib/combos/steps";
 import { clearSessionModelHistoryForCombo } from "./contextHandoffs";
 import { validateComboInvariant } from "@/lib/combos/invariants";
 
 type JsonRecord = Record<string, unknown>;
+type NormalizedCombo = JsonRecord & { models: ComboStep[] };
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -62,10 +63,10 @@ function normalizeStoredCombo(
   combo: JsonRecord,
   db: ReturnType<typeof getDbInstance>,
   extraNames: string[] = []
-): JsonRecord {
+): NormalizedCombo {
   return normalizeComboRecord(combo, {
     allCombos: getComboNameSet(db, extraNames),
-  }) as JsonRecord;
+  });
 }
 
 function parseComboRow(row: unknown): JsonRecord | null {
@@ -125,7 +126,7 @@ export function getCombosCount(): number {
   return row.cnt;
 }
 
-export async function getComboById(id: string) {
+export async function getComboById(id: string): Promise<NormalizedCombo | null> {
   const db = getDbInstance();
   const row = db
     .prepare("SELECT data, sort_order, context_cache_protection FROM combos WHERE id = ?")
@@ -135,7 +136,7 @@ export async function getComboById(id: string) {
   return normalizeStoredCombo(combo, db, typeof combo.name === "string" ? [combo.name] : []);
 }
 
-export async function getComboByName(name: string) {
+export async function getComboByName(name: string): Promise<NormalizedCombo | null> {
   const db = getDbInstance();
   const row = db
     .prepare("SELECT data, sort_order, context_cache_protection FROM combos WHERE name = ?")
@@ -150,7 +151,7 @@ export async function getComboByName(name: string) {
 // "MASTER-LIGHT"; the default BINARY collation of getComboByName misses it.
 // Used only as a fallback after the exact match fails, so it cannot change the
 // resolution of any combo that already resolves today.
-export async function getComboByNameInsensitive(name: string) {
+export async function getComboByNameInsensitive(name: string): Promise<NormalizedCombo | null> {
   const db = getDbInstance();
   const row = db
     .prepare(
@@ -378,9 +379,7 @@ export async function cleanupComboConnectionRefs(connectionId: string) {
         changed = true;
       }
       if (Array.isArray(out.allowedConnectionIds)) {
-        const filtered = out.allowedConnectionIds.filter(
-          (id: string) => id !== connectionId
-        );
+        const filtered = out.allowedConnectionIds.filter((id: string) => id !== connectionId);
         if (filtered.length !== out.allowedConnectionIds.length) {
           out = { ...out, allowedConnectionIds: filtered };
           changed = true;

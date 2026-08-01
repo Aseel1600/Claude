@@ -1,0 +1,1 @@
+- **fix(types):** combo lookup producers now expose normalized model collections as arrays, preserving exact, prefixed, id, and case-insensitive resolution paths ([#9116](https://github.com/diegosouzapw/OmniRoute/pull/9116))
