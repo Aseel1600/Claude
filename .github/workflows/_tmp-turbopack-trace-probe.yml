@@ -35,7 +35,14 @@ jobs:
     if: ${{ github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     continue-on-error: true
-    timeout-minutes: 30
+    # Job-level backstop only -- the real cap is on the build step below. A
+    # job-level timeout kills the whole job (including the if: always() upload
+    # step) immediately; the first run of this probe hit exactly that: the
+    # build step alone ran ~29 min before a 30-minute JOB timeout force-killed
+    # everything, so no log/artifact was ever captured. Scoping the timeout to
+    # the step instead lets the job continue to the upload step no matter how
+    # the build step ends (finishes, times out, or crashes).
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -47,6 +54,7 @@ jobs:
       - uses: ./.github/actions/npm-ci-retry
       - name: Run diagnostic build with memory profiling
         continue-on-error: true
+        timeout-minutes: 60
         env:
           NODE_OPTIONS: "--max-old-space-size=8192"
         run: |
