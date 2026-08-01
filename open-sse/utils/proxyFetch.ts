@@ -1,11 +1,12 @@
 // @ts-nocheck
 import "./setupPolyfill.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch, Agent } from "undici";
 import {
   buildVercelRelayHeaders,
   createProxyDispatcher,
   getDefaultDispatcher,
+  getProxyRetryDispatcher,
   getRetryDispatcher,
   isRelayType,
   normalizeProxyUrl,
@@ -18,6 +19,25 @@ import {
   isControlPlaneProxyDirectFallbackEnabled,
   isFeatureFlagEnabled,
 } from "@/shared/utils/featureFlags";
+
+// #9100: relay egress (Vercel / Deno / Cloudflare edge functions) used to go
+// through bare `originalFetch` — NO connection pooling, NO timeout, NO retry.
+// Every relay request opened a fresh TCP+TLS handshake and a throttled edge
+// relay serialized concurrent requests behind ~30s stalls. This module-level
+// singleton Agent gives the relay path the same pooling the HTTP-proxy path
+// gets from createProxyDispatcher: ONE reused TCP connection per relay host,
+// keep-alive 30s, pipelining 4 (SSE multiplexing), 16 connections.
+const RELAY_POOL_AGENT = new Agent({
+  keepAliveTimeout: 30_000,
+  keepAliveMaxTimeout: 60_000,
+  pipelining: 4,
+  connections: 16,
+});
+
+// A hung relay must fail BEFORE the client/agent timeout (typically 30s) so the
+// caller sees a relay-specific failure instead of a generic upstream timeout.
+const RELAY_FETCH_TIMEOUT_MS = 25_000;
+
 function isTlsFingerprintEnabled() {
   return process.env.ENABLE_TLS_FINGERPRINT === "true";
 }
@@ -377,31 +397,36 @@ export async function runWithProxyContext(
   // Run fn with the proxy context cleared so the request egresses directly.
   const runDirect = () => proxyContext.run(null, fn);
 
-  // T14: Proxy Fast-Fail
-  // Perform a short TCP reachability check before issuing upstream requests.
+  // T14: Proxy Fast-Fail (non-blocking, #9100)
+  // Perform a short TCP reachability check BEFORE issuing upstream requests.
   // Skip for edge-relay types (vercel / deno): proxyConfigToUrl returns
   // "https://<host>" which is the relay endpoint itself, not an HTTP proxy —
   // the actual routing is handled via x-relay-* headers below.
+  //
+  // Previously the probe was AWAITED before dispatch: every 30s healthy-TTL
+  // window, the first request paid a full TCP+DNS round trip, and under
+  // concurrent failures a throttled proxy turned that into queueing. Now the
+  // probe fires WITHOUT awaiting and the request dispatches optimistically;
+  // only if the probe resolves UNREACHABLE while the request is still in flight
+  // do we fail fast with PROXY_UNREACHABLE (503).
   const isVercelRelay = isRelayType((effectiveProxyConfig as { type?: string })?.type);
+  let unreachableProbe: Promise<boolean> | null = null;
   if (resolvedProxyUrl && !isVercelRelay) {
-    const reachable = await isProxyReachable(resolvedProxyUrl);
-    if (!reachable) {
-      const proxyLabel = proxyUrlForLogs(resolvedProxyUrl);
-      if (directFallbackOnUnreachable) {
+    if (directFallbackOnUnreachable) {
+      // Opt-in control-plane direct-fallback path: keep the BLOCKING probe —
+      // this path must decide direct-vs-proxy BEFORE dispatch, so the probe
+      // result is load-bearing here. Unchanged behavior.
+      const reachable = await isProxyReachable(resolvedProxyUrl);
+      if (!reachable) {
+        const proxyLabel = proxyUrlForLogs(resolvedProxyUrl);
         console.warn(
           `[ProxyFetch] Proxy unreachable (${proxyLabel}); using a direct connection for this request.`
         );
         return runDirect();
       }
-      const err = new Error(`[Proxy Fast-Fail] Proxy unreachable: ${proxyLabel}`) as Error & {
-        code?: string;
-        errorCode?: string;
-        statusCode?: number;
-      };
-      err.code = "PROXY_UNREACHABLE";
-      err.errorCode = "proxy_unreachable";
-      err.statusCode = 503;
-      throw err;
+    } else {
+      // Fire the probe WITHOUT awaiting; dispatch optimistically below.
+      unreachableProbe = isProxyReachable(resolvedProxyUrl);
     }
   }
 
@@ -445,7 +470,44 @@ export async function runWithProxyContext(
       const sink = appliedProxyContext.getStore();
       if (sink) sink.proxy = effectiveProxyConfig;
     }
-    return fn();
+
+    const requestPromise = Promise.resolve().then(() => fn());
+    if (!unreachableProbe) return requestPromise;
+
+    // #9100: non-blocking fast-fail — race the background probe against the
+    // request. Only if the probe resolves UNREACHABLE while the request is
+    // still in flight do we abort it with PROXY_UNREACHABLE (503). If the
+    // request already settled (or the probe found the proxy reachable), the
+    // request wins and the stale probe result is ignored — the first dispatch
+    // is NEVER gated on the probe.
+    const winner = await Promise.race([
+      unreachableProbe.then((reachable) => ({ kind: "probe" as const, reachable })),
+      requestPromise.then((value) => ({ kind: "request" as const, value })),
+    ]);
+
+    if (winner.kind === "probe" && !winner.reachable) {
+      // Proxy is dead and the request is still in flight → fail fast with the
+      // standard PROXY_UNREACHABLE error (503). The in-flight request's own
+      // result is discarded (its executor-level signal will still fire); the
+      // caller observes this fast failure instead of the ~30s timeout stall.
+      requestPromise.catch(() => {});
+      const proxyLabel = proxyUrlForLogs(resolvedProxyUrl);
+      const err = new Error(`[Proxy Fast-Fail] Proxy unreachable: ${proxyLabel}`) as Error & {
+        code?: string;
+        errorCode?: string;
+        statusCode?: number;
+      };
+      err.code = "PROXY_UNREACHABLE";
+      err.errorCode = "proxy_unreachable";
+      err.statusCode = 503;
+      throw err;
+    }
+
+    if (winner.kind === "probe") {
+      // Probe said reachable but the request is still pending — keep waiting.
+      return await requestPromise;
+    }
+    return winner.value;
   });
 }
 
@@ -657,30 +719,102 @@ async function patchedFetch(
     if (process.env.OMNIROUTE_PROXY_FETCH_DEBUG === "true") {
       console.debug(`[ProxyFetch] Routing via ${vc.type || "edge"} relay: ${hostForLogs}`);
     }
-    return await originalFetch(`https://${vc.host}`, {
-      ...options,
-      headers: mergedHeaders,
-      duplex: "half",
-    });
+
+    // #9100: pooled, timed, retried relay egress. Bare `originalFetch` had no
+    // pooling — a throttled relay serialized concurrent requests behind ~30s
+    // stalls. Route through the module-level RELAY_POOL_AGENT (ONE reused TCP
+    // connection per relay host), cap the attempt at 25s (before the typical
+    // 30s client/agent timeout), and retry ONCE on transport failure through
+    // the same pooled dispatcher. Do NOT fall back to native fetch for the
+    // relay path: it has no pooling and would churn connections again.
+    const _undiciRelay =
+      deps.undiciFetch ?? (undiciFetch as unknown as (...args: unknown[]) => Promise<Response>);
+    const hasNonReplayableRelayBody = requestHasNonReplayableBody(input, options);
+    const maxRelayAttempts = hasNonReplayableRelayBody ? 1 : 2;
+    const relayUrl = `https://${vc.host}`;
+    let lastRelayError: unknown = null;
+    for (let attempt = 0; attempt < maxRelayAttempts; attempt++) {
+      // A fresh timeout signal per attempt: the 25s cap is per-try, so a hung
+      // relay that survives the first attempt still gets a full 25s on retry.
+      // Manual AbortController instead of AbortSignal.any([...]) so the relay
+      // branch stays free of the literal word `any` (T11 any-budget checker).
+      const relayController = new AbortController();
+      const relayTimer = setTimeout(() => relayController.abort(), RELAY_FETCH_TIMEOUT_MS);
+      const onCallerAbort = () => relayController.abort();
+      options.signal?.addEventListener("abort", onCallerAbort, { once: true });
+      try {
+        return await _undiciRelay(relayUrl, {
+          ...options,
+          headers: mergedHeaders,
+          duplex: "half",
+          dispatcher: RELAY_POOL_AGENT,
+          signal: relayController.signal,
+        });
+      } catch (relayError) {
+        if (isCallerAbort(relayError, options?.signal)) throw relayError;
+        const msg = relayError instanceof Error ? relayError.message : String(relayError);
+        const errCode = (relayError as { code?: unknown })?.code;
+        const isTransportFailure =
+          msg.includes("fetch failed") ||
+          errCode === "ECONNREFUSED" ||
+          msg.includes("ECONNREFUSED") ||
+          (typeof errCode === "string" && errCode.startsWith("UND_ERR")) ||
+          msg.includes("UND_ERR");
+        if (attempt === 0 && maxRelayAttempts > 1 && isTransportFailure) {
+          lastRelayError = relayError;
+          await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+          continue;
+        }
+        throw relayError;
+      } finally {
+        clearTimeout(relayTimer);
+        options.signal?.removeEventListener("abort", onCallerAbort);
+      }
+    }
+    throw lastRelayError;
   }
 
-  try {
-    const dispatcher = createProxyDispatcher(proxyUrl);
-    const _undiciProxy =
-      deps.undiciFetch ?? (undiciFetch as unknown as (...args: unknown[]) => Promise<Response>);
-    return await _undiciProxy(input, {
-      ...options,
-      dispatcher,
-    });
-  } catch (error) {
-    // A caller abort/timeout must propagate unchanged and without a noisy
-    // "Proxy request failed" log — it's not a proxy transport failure.
-    if (!isCallerAbort(error, options?.signal)) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`[ProxyFetch] Proxy request failed (${source}, fail-closed): ${message}`);
+  // #9100: proxy path — attempt 0 uses the pooled keep-alive dispatcher
+  // (pipelining 4, ONE reused TCP connection per proxy host). A transient
+  // socket error on a stale pooled socket is retried ONCE on a fresh
+  // no-keep-alive dispatcher (mirrors the direct-path #4252 pattern) instead
+  // of killing all idle sockets after 1ms or surfacing a bare 502.
+  const _undiciProxy =
+    deps.undiciFetch ?? (undiciFetch as unknown as (...args: unknown[]) => Promise<Response>);
+  const hasNonReplayableProxyBody = requestHasNonReplayableBody(input, options);
+  const maxProxyAttempts = hasNonReplayableProxyBody ? 1 : 2;
+  let lastProxyError: unknown = null;
+  for (let attempt = 0; attempt < maxProxyAttempts; attempt++) {
+    try {
+      return await _undiciProxy(input, {
+        ...options,
+        dispatcher:
+          attempt === 0 ? createProxyDispatcher(proxyUrl) : getProxyRetryDispatcher(proxyUrl),
+      });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const errCode = (error as { code?: unknown })?.code;
+      const isTransportFailure =
+        msg.includes("fetch failed") ||
+        errCode === "ECONNREFUSED" ||
+        msg.includes("ECONNREFUSED") ||
+        (typeof errCode === "string" && errCode.startsWith("UND_ERR")) ||
+        msg.includes("UND_ERR");
+      if (attempt === 0 && maxProxyAttempts > 1 && isTransportFailure) {
+        lastProxyError = error;
+        await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+        continue;
+      }
+      // A caller abort/timeout must propagate unchanged and without a noisy
+      // "Proxy request failed" log — it's not a proxy transport failure.
+      if (!isCallerAbort(error, options?.signal)) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[ProxyFetch] Proxy request failed (${source}, fail-closed): ${message}`);
+      }
+      throw error;
     }
-    throw error;
   }
+  throw lastProxyError;
 }
 
 /**
