@@ -39,6 +39,7 @@ import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableMod
 import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
 import { getOpenRouterCatalog } from "@/lib/catalog/openrouterCatalog";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
+import { shouldSkipStaticForSynced } from "./syncedStaticEligibility";
 import {
   INTERNAL_PROXY_ERROR,
   getCanonicalModelMetadata,
@@ -662,6 +663,23 @@ async function buildUnifiedModelsResponseCore(
         return Array.isArray(models) && models.length > 0;
       })
     );
+    // #9167: index synced model ids by the SAME canonical provider id the static
+    // loop reads (`canonicalProviderId`), so a static entry is skipped only when a
+    // synced row genuinely replaces it — not merely because the provider synced
+    // something. Registry-only models (opus-5/sonnet-5) then survive.
+    const syncedIdsByCanonicalProvider = new Map<string, Set<string>>();
+    for (const [pid, syncedModels] of Object.entries(syncedModelsByProvider)) {
+      if (providerUsesCuratedModelsOnly(pid)) continue;
+      if (!Array.isArray(syncedModels) || syncedModels.length === 0) continue;
+      const syncedAlias = providerIdToPrefix[pid] || providerIdToAlias[pid] || pid;
+      const syncedCanonical = resolveCanonicalProviderId(syncedAlias, pid);
+      let idSet = syncedIdsByCanonicalProvider.get(syncedCanonical);
+      if (!idSet) {
+        idSet = new Set<string>();
+        syncedIdsByCanonicalProvider.set(syncedCanonical, idSet);
+      }
+      for (const sm of syncedModels) idSet.add(sm.id);
+    }
     const isRegisteredEffortVariant = (
       providerModels: Array<{ id: string }>,
       modelId: string
@@ -694,10 +712,16 @@ async function buildUnifiedModelsResponseCore(
 
       for (const model of providerModels) {
         // Synced models replace static base entries, but they do not carry aliases
-        // registered for provider-specific reasoning variants.
+        // registered for provider-specific reasoning variants. #9167: replace only
+        // when the synced set actually carries this id, so registry-only models survive.
         if (
-          providersWithSyncedModels.has(canonicalProviderId) &&
-          !isRegisteredEffortVariant(providerModels, model.id)
+          shouldSkipStaticForSynced(
+            providerModels,
+            model.id,
+            providersWithSyncedModels.has(canonicalProviderId),
+            syncedIdsByCanonicalProvider.get(canonicalProviderId),
+            isRegisteredEffortVariant
+          )
         )
           continue;
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
