@@ -65,17 +65,29 @@ export function selectAudioProviderNodes(
     allowRemote,
   }: { audioPath: string; nodeApiType: string; allowRemote: boolean }
 ): AudioProvider[] {
-  return nodes
-    .filter((node) => {
-      // A node qualifies on its own audio type, or as a general chat/responses
-      // gateway that also serves audio on the same base URL.
-      if (node.apiType !== nodeApiType && node.apiType !== "chat" && node.apiType !== "responses") {
-        return false;
-      }
-      if (!node.baseUrl) return false;
-      return isLocalAudioNodeHost(node.baseUrl) || allowRemote;
-    })
-    .map((node) => buildDynamicAudioProvider(node, audioPath));
+  const eligible = nodes.filter((node) => {
+    // A node qualifies on its own audio type, or as a general chat/responses
+    // gateway that also serves audio on the same base URL.
+    if (node.apiType !== nodeApiType && node.apiType !== "chat" && node.apiType !== "responses") {
+      return false;
+    }
+    if (!node.baseUrl) return false;
+    return isLocalAudioNodeHost(node.baseUrl) || allowRemote;
+  });
+
+  const providers: AudioProvider[] = [];
+  for (const node of eligible) {
+    const byPrefix = buildDynamicAudioProvider(node, audioPath);
+    providers.push(byPrefix);
+    // A node is addressable two ways: by its `prefix` (what a human types) and by
+    // its row id (what combos and /v1/models store). Registering only the prefix
+    // made the id form — which the catalog itself advertises, and which combo
+    // expansion produces — parse as an unknown provider and 400.
+    if (node.id && node.id !== node.prefix) {
+      providers.push({ ...byPrefix, id: node.id });
+    }
+  }
+  return providers;
 }
 
 /**

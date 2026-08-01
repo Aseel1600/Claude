@@ -59,17 +59,21 @@ function select(nodes: ProviderNodeRow[], allowRemote = false) {
   });
 }
 
+// Each eligible node is registered twice — once under its prefix, once under its row
+// id — so both addressing forms parse. Assert on the id set rather than the count.
+function idsOf(providers: ReturnType<typeof select>) {
+  return providers.map((p) => p.id).sort();
+}
+
 test("audio node types are eligible on the audio route (the bug)", () => {
   const selected = select([LOCAL_AUDIO_NODE]);
-  assert.equal(selected.length, 1, "an audio-transcriptions node must not be filtered out");
-  assert.equal(selected[0].id, "localstt");
+  assert.ok(selected.length > 0, "an audio-transcriptions node must not be filtered out");
+  assert.ok(idsOf(selected).includes("localstt"));
   assert.equal(selected[0].baseUrl, "http://localhost:9000/v1/audio/transcriptions");
 });
 
 test("chat/responses gateways stay eligible (no regression)", () => {
-  const selected = select([LOCAL_CHAT_NODE]);
-  assert.equal(selected.length, 1);
-  assert.equal(selected[0].id, "localchat");
+  assert.ok(idsOf(select([LOCAL_CHAT_NODE])).includes("localchat"));
 });
 
 test("unrelated node types are never eligible", () => {
@@ -79,24 +83,23 @@ test("unrelated node types are never eligible", () => {
 test("remote nodes are excluded by default (fail-closed egress)", () => {
   assert.equal(select([REMOTE_AUDIO_NODE], false).length, 0);
   // ...and a loopback node alongside it is still selected.
-  const mixed = select([REMOTE_AUDIO_NODE, LOCAL_AUDIO_NODE], false);
-  assert.deepEqual(
-    mixed.map((p) => p.id),
-    ["localstt"]
-  );
+  const mixed = idsOf(select([REMOTE_AUDIO_NODE, LOCAL_AUDIO_NODE], false));
+  assert.ok(mixed.includes("localstt"));
+  assert.ok(!mixed.includes("remotestt"), "remote must stay out while the flag is off");
+  assert.ok(!mixed.includes(REMOTE_AUDIO_NODE.id!), "not even under its id form");
 });
 
 test("remote nodes become eligible when explicitly allowed, and carry real credentials", () => {
   const selected = select([REMOTE_AUDIO_NODE], true);
-  assert.equal(selected.length, 1);
-  const provider = selected[0];
-  // Addressed by prefix (what the caller types in `provider/model`)...
-  assert.equal(provider.id, "remotestt");
-  // ...but credentials resolve under the node id, where connections are stored.
-  assert.equal(provider.credentialProviderId, REMOTE_AUDIO_NODE.id);
-  // A remote node must present its key — "none" would send an unauthenticated request.
-  assert.equal(provider.authType, "apikey");
-  assert.equal(provider.authHeader, "bearer");
+  // Addressed by prefix (what the caller types) and by id (what combos store).
+  assert.deepEqual(idsOf(selected), [REMOTE_AUDIO_NODE.id, "remotestt"].sort());
+  for (const provider of selected) {
+    // Credentials always resolve under the node id, where connections are stored.
+    assert.equal(provider.credentialProviderId, REMOTE_AUDIO_NODE.id);
+    // A remote node must present its key — "none" would send an unauthenticated request.
+    assert.equal(provider.authType, "apikey");
+    assert.equal(provider.authHeader, "bearer");
+  }
 });
 
 test("loopback nodes keep authType none so local engines need no key", () => {
@@ -114,6 +117,25 @@ test("isLocalAudioNodeHost matches loopback and the Docker private range only", 
   // ::1 stays excluded, matching the previous SSRF hardening.
   assert.equal(isLocalAudioNodeHost("http://[::1]:1234"), false);
   assert.equal(isLocalAudioNodeHost("not-a-url"), false);
+});
+
+test("a node is addressable by prefix AND by its row id", () => {
+  // Combos store targets as `<node-id>/<model>`, and /v1/models advertises that form
+  // too. Registering only the prefix made the advertised id parse as an unknown
+  // provider and 400 — including right after a combo was expanded.
+  const selected = select([LOCAL_AUDIO_NODE]);
+  const ids = selected.map((p) => p.id).sort();
+  assert.deepEqual(ids, [LOCAL_AUDIO_NODE.id, "localstt"].sort());
+  // Both entries must reach the same endpoint and share credential resolution.
+  for (const p of selected) {
+    assert.equal(p.baseUrl, "http://localhost:9000/v1/audio/transcriptions");
+    assert.equal(p.credentialProviderId, LOCAL_AUDIO_NODE.id);
+  }
+});
+
+test("no duplicate entry when the prefix already equals the node id", () => {
+  const same: ProviderNodeRow = { ...LOCAL_AUDIO_NODE, id: "localstt", prefix: "localstt" };
+  assert.equal(select([same]).length, 1);
 });
 
 test("nodes without a baseUrl are skipped instead of throwing", () => {
