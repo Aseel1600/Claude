@@ -130,6 +130,12 @@ test("catalogVision: re-exports isVisionModelId and derives capability fields", 
   // id-based heuristic
   const visionFields = getVisionCapabilityFields("gpt-4o");
   assert.ok(visionFields, "gpt-4o must be detected as vision-capable");
+  const typedVisionFields: {
+    capabilities: { vision: true };
+    input_modalities: string[];
+    output_modalities: string[];
+  } | null = visionFields;
+  assert.equal(typedVisionFields?.capabilities.vision, true);
   assert.equal(visionFields?.capabilities.vision, true);
   assert.equal(getVisionCapabilityFields("kimi-k2"), null);
 });
