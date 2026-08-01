@@ -19,8 +19,7 @@ export default function PluginsPage() {
   const { addNotification } = useNotificationStore();
   const t = useTranslations("plugins");
   const [plugins, setPlugins] = useState<PluginInfo[]>([]);
-  const [activeTab, setActiveTab] = useState<"installed" | "marketplace">("installed");
-  const [marketplacePlugins, setMarketplacePlugins] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<"installed">("installed");
   const [marketplaceUrl, setMarketplaceUrl] = useState("");
   const [savingUrl, setSavingUrl] = useState(false);
   const [loading, setLoading] = useState(true);
