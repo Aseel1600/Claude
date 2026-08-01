@@ -210,6 +210,7 @@ describe("useModelImportHandlers — master autoSync", () => {
 
     expect(fetchConnections).toHaveBeenCalled();
     expect(notify.success).not.toHaveBeenCalled();
+    expect(notify.error).not.toHaveBeenCalled();
     expect(notify.warning).toHaveBeenCalledWith("autoSyncPartialFailure");
   });
 

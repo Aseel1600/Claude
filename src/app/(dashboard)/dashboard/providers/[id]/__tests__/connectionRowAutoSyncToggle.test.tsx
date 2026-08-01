@@ -61,6 +61,10 @@ describe("ConnectionRow autoSync toggle", () => {
   it("renders the toggle when onToggleAutoSync is present", () => {
     render(buildProps({ onToggleAutoSync: vi.fn() }));
     expect(document.body.textContent).toContain("Sync");
+    const button = [...document.querySelectorAll("button")].find((b) =>
+      (b.textContent || "").includes("Sync")
+    );
+    expect((button as HTMLButtonElement).className).not.toContain("bg-emerald-500/15");
   });
 
   it("renders the toggle in the on state when autoSync is true", () => {
