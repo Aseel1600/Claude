@@ -136,11 +136,6 @@ interface DuckDuckGoModelCapabilities {
   reasoningEffort: string | null;
 }
 
-type DuckDuckGoChallengeResult = {
-  client_hashes?: unknown;
-  [key: string]: unknown;
-};
-
 let durablePublicKey: JsonWebKey | null = null;
 
 function extractDuckDuckGoContent(data: unknown): string {
