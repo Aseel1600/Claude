@@ -197,6 +197,10 @@ const REQUEST_SCOPED_UPSTREAM_ERROR_CODES: Record<string, true> = {
   upstream_response_failed: true,
   // Local combo per-target timer (targetTimeoutRunner) — not a connection health signal.
   combo_target_timeout: true,
+  // Local limiter queue-capacity codes — not a provider/connection health signal.
+  rate_limit_queue_timeout: true,
+  rate_limit_queue_full: true,
+  rate_limit_queue_wedged: true,
 };
 
 /** Request/model-specific failures must not poison provider-wide resilience state. */
@@ -206,7 +210,11 @@ export function isRequestScopedUpstreamFailure(error?: {
 }): boolean {
   const code = typeof error?.code === "string" ? error.code.toLowerCase() : "";
   const type = typeof error?.type === "string" ? error.type.toLowerCase() : "";
-  return REQUEST_SCOPED_UPSTREAM_ERROR_CODES[code] === true || type === "context_length_exceeded";
+  return (
+    REQUEST_SCOPED_UPSTREAM_ERROR_CODES[code] === true ||
+    type === "context_length_exceeded" ||
+    type === "local_queue_capacity"
+  );
 }
 
 /** Request-scoped classification that also has access to the HTTP body. */
@@ -356,6 +364,21 @@ export function isTokenLimitBreachErrorBody(errorBody: unknown): boolean {
   const error = (errorBody as Record<string, unknown>).error;
   if (!error || typeof error !== "object") return false;
   return (error as Record<string, unknown>).code === "TOKEN_LIMIT_EXCEEDED";
+}
+
+/** Local limiter capacity is not an upstream/provider failure and must not cascade. */
+export function isLocalQueueCapacityErrorBody(errorBody: unknown): boolean {
+  if (!errorBody || typeof errorBody !== "object") return false;
+  const error = (errorBody as Record<string, unknown>).error;
+  if (!error || typeof error !== "object") return false;
+  const code = String((error as Record<string, unknown>).code || "").toUpperCase();
+  const type = String((error as Record<string, unknown>).type || "").toLowerCase();
+  return (
+    code === "RATE_LIMIT_QUEUE_TIMEOUT" ||
+    code === "RATE_LIMIT_QUEUE_FULL" ||
+    code === "RATE_LIMIT_QUEUE_WEDGED" ||
+    type === "local_queue_capacity"
+  );
 }
 
 export function toRecordedTarget(target: ResolvedComboTarget) {
