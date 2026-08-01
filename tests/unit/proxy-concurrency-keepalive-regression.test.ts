@@ -187,17 +187,13 @@ test("#9100: 5 concurrent requests through a mocked Vercel-relay proxy all resol
     1,
     "all 5 relay requests must share the SAME pooled dispatcher (one TCP connection per relay host)"
   );
-  // #9100: the relay Agent must keep ONE connection per host AND multiplex
-  // concurrent requests over it (h2). `connections: 1` is what actually caps
-  // sockets per origin (pipelining alone does not limit concurrency in undici);
-  // `allowH2: true` makes the 5 queued requests run in parallel as h2 streams
-  // instead of serializing on the single h1 connection.
+  // #9158: the relay Agent pools FOUR connections per host and multiplexes
+  // concurrent requests over them (h2). Pooling 4 sockets removes the
+  // head-of-line blocking a single connection caused for parallel SSE streams,
+  // while `allowH2: true` keeps queued requests running in parallel as h2
+  // streams across the pool.
   const relayAgentOptions = __getRelayPoolAgentOptionsForTest();
-  assert.equal(
-    relayAgentOptions.connections,
-    1,
-    "relay agent must hold one pooled connection per host"
-  );
+  assert.equal(relayAgentOptions.connections, 4, "relay agent must pool four connections per host");
   assert.equal(
     relayAgentOptions.allowH2,
     true,

@@ -11,6 +11,7 @@ import {
   getDispatcherCache,
   getRetryCachedDispatcher,
   setDefaultCachedDispatcher,
+  setDispatcherCacheEntry,
   setRetryCachedDispatcher,
 } from "./proxyDispatcherCache.ts";
 
@@ -101,9 +102,9 @@ function getProxyDispatcherOptions(env: Record<string, string | undefined> = pro
   // response, forcing a fresh TCP+TLS+CONNECT handshake per request. Proxies
   // that throttle connection churn then serialized concurrent requests behind
   // ~30s stalls (5 concurrent → 1 fast + 4× ~29.5s). The socket now stays
-  // alive for the configured fetchKeepAliveTimeoutMs (default 30s in prod
-  // configs), and keepAliveMaxTimeout is raised so an upstream Keep-Alive
-  // header cannot clamp it back down to a sub-second value.
+  // alive for at least 30s (the default fetchKeepAliveTimeoutMs is 4s), and
+  // keepAliveMaxTimeout is raised so an upstream Keep-Alive header cannot
+  // clamp it back down to a sub-second value.
   //
   // Stale pooled sockets (a proxy that silently drops idle ones) are recovered
   // by the retry-once-with-fresh-socket path in proxyFetch.ts (mirrors the
@@ -114,6 +115,7 @@ function getProxyDispatcherOptions(env: Record<string, string | undefined> = pro
   return {
     ...options,
     connections: getProxyDispatcherConnectionLimit(env),
+    keepAliveTimeout: Math.max(options.keepAliveTimeout, 30_000),
     keepAliveMaxTimeout: Math.max(options.keepAliveMaxTimeout, 60_000),
     pipelining: 4,
   };
@@ -501,7 +503,14 @@ export function createProxyDispatcher(proxyUrl: string): Dispatcher {
 
   dispatcher = buildProxyDispatcher(normalizedUrl, getProxyDispatcherOptions());
 
-  dispatcherCache.set(normalizedUrl, dispatcher);
+  // A concurrent caller may have built + cached the same URL while we were
+  // building. If so, drop our duplicate (avoid leaking sockets) and reuse theirs.
+  const winner = dispatcherCache.get(normalizedUrl);
+  if (winner) {
+    void dispatcher.close().catch(() => {});
+    return winner;
+  }
+  setDispatcherCacheEntry(normalizedUrl, dispatcher);
   return dispatcher;
 }
 
@@ -522,12 +531,19 @@ export function getProxyRetryDispatcher(proxyUrl: string): Dispatcher {
 
   dispatcher = buildProxyDispatcher(normalizedUrl, {
     ...getProxyDispatcherOptions(),
+    // Retry needs exactly one fresh socket (not the inherited connection pool).
+    connections: 1,
     keepAliveTimeout: 1,
     keepAliveMaxTimeout: 1,
     pipelining: 0,
   });
 
-  dispatcherCache.set(retryKey, dispatcher);
+  const winner = dispatcherCache.get(retryKey);
+  if (winner) {
+    void dispatcher.close().catch(() => {});
+    return winner;
+  }
+  setDispatcherCacheEntry(retryKey, dispatcher);
   return dispatcher;
 }
 

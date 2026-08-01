@@ -74,7 +74,7 @@ describe("proxyDispatcher connection pool", () => {
     // retry-once-with-fresh-socket path in proxyFetch, not by killing idle
     // sockets after 1ms.
     assert.equal(options.pipelining, 4);
-    assert.equal(options.keepAliveTimeout, 4000);
+    assert.equal(options.keepAliveTimeout, 30000);
     assert.equal(options.keepAliveMaxTimeout, 60000);
   });
 

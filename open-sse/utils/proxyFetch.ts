@@ -25,31 +25,55 @@ import {
 // Every relay request opened a fresh TCP+TLS handshake and a throttled edge
 // relay serialized concurrent requests behind ~30s stalls. This module-level
 // singleton Agent gives the relay path the same pooling the HTTP-proxy path
-// gets from createProxyDispatcher: ONE reused TCP connection per relay host.
+// gets from createProxyDispatcher: reused TCP connections per relay host.
 //
-// `connections: 1` is the load-bearing setting: undici h1 pipelining does NOT
-// limit concurrent connections (5 concurrent requests with pipelining 4 still
-// fan out to 5 sockets), only `connections` caps sockets per origin. With a
-// single connection, 5 concurrent requests queue on the one pooled socket.
-// `allowH2: true` then restores real parallelism on that socket: Vercel / Deno /
-// Cloudflare all negotiate HTTP/2 (ALPN), so concurrent requests multiplex as
-// independent h2 streams instead of serializing — measured 5 concurrent h2
-// requests over 1 TCP connection in ~52ms (local h2 server), h1-only hosts
-// fall back to pipelined h1 on the same single connection (~10ms), and
-// sequential requests add 0 new connections. Empirically verified against
-// undici 8.8 (2026-08-02).
+// `connections: 4` removes head-of-line blocking on h1-only relays: undici never
+// pipelines POST (SSE is POST), so a single socket would serialize every
+// concurrent stream; 4 sockets give 4 parallel streams. h2 relays are
+// unaffected — streams multiplex over one socket, so the pool stays at a single
+// connection while streams drain. `allowH2: true` keeps that h2 fast path for
+// Vercel / Deno / Cloudflare.
 const RELAY_POOL_AGENT_OPTIONS = {
   keepAliveTimeout: 30_000,
   keepAliveMaxTimeout: 60_000,
   pipelining: 4,
-  connections: 1,
+  connections: 4,
   allowH2: true,
 } as const;
 const RELAY_POOL_AGENT = new Agent(RELAY_POOL_AGENT_OPTIONS);
 
+// Retry path for a relay that just failed with a transient socket error: a
+// FRESH socket (keep-alive disabled) so a stale pooled connection is recovered
+// instead of re-hitting the dead one (mirrors the proxy/direct retry paths).
+const RELAY_RETRY_AGENT = new Agent({
+  keepAliveTimeout: 1,
+  keepAliveMaxTimeout: 1,
+  pipelining: 0,
+  connections: 1,
+  allowH2: true,
+});
+
 // A hung relay must fail BEFORE the client/agent timeout (typically 30s) so the
 // caller sees a relay-specific failure instead of a generic upstream timeout.
-const RELAY_FETCH_TIMEOUT_MS = 25_000;
+// Overridable via OMNIROUTE_RELAY_FETCH_TIMEOUT_MS (capped at 29s so the
+// relay-specific timeout always fires first).
+function readRelayFetchTimeoutMs(): number {
+  const raw = process.env.OMNIROUTE_RELAY_FETCH_TIMEOUT_MS;
+  if (raw == null || raw.trim() === "") return 25_000;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    console.warn(
+      `[ProxyFetch] Invalid OMNIROUTE_RELAY_FETCH_TIMEOUT_MS="${raw}". Using default 25000.`
+    );
+    return 25_000;
+  }
+  return Math.min(Math.floor(parsed), 29_000);
+}
+const RELAY_FETCH_TIMEOUT_MS = readRelayFetchTimeoutMs();
+
+// Shared retry backoff for the direct / relay / proxy retry-once paths.
+// Overridable via OMNIROUTE_RETRY_BACKOFF_MS (0 = retry immediately).
+const RETRY_BACKOFF_MS = Math.max(Number(process.env.OMNIROUTE_RETRY_BACKOFF_MS) || 10, 0);
 
 function isTlsFingerprintEnabled() {
   return process.env.ENABLE_TLS_FINGERPRINT === "true";
@@ -424,7 +448,10 @@ export async function runWithProxyContext(
   // do we fail fast with PROXY_UNREACHABLE (503).
   const isVercelRelay = isRelayType((effectiveProxyConfig as { type?: string })?.type);
   let unreachableProbe: Promise<boolean> | null = null;
-  if (resolvedProxyUrl && !isVercelRelay) {
+  // Nested same-context call (the active proxyContext already IS this config):
+  // skip the reachability probe and family pre-check — the outer scope already
+  // ran them for this exact proxy, so re-probing only adds latency per layer.
+  if (resolvedProxyUrl && !isVercelRelay && effectiveProxyConfig !== currentContext) {
     if (directFallbackOnUnreachable) {
       // Opt-in control-plane direct-fallback path: keep the BLOCKING probe —
       // this path must decide direct-vs-proxy BEFORE dispatch, so the probe
@@ -447,7 +474,9 @@ export async function runWithProxyContext(
   // (set for HOSTNAME proxies by proxyConfigToUrl), verify the hostname actually has a
   // record in that family before egressing. Refuse early rather than silently fall back
   // to the other family. No-op for IP literals (their family is intrinsic).
-  if (resolvedProxyUrl && !isVercelRelay) {
+  // Nested same-context call: skip the family pre-check too — the outer scope
+  // already verified this exact proxy (mirrors the probe gate above).
+  if (resolvedProxyUrl && !isVercelRelay && effectiveProxyConfig !== currentContext) {
     try {
       const u = new URL(resolvedProxyUrl);
       const fam = u.searchParams.get("family");
@@ -471,9 +500,14 @@ export async function runWithProxyContext(
 
   return proxyContext.run(effectiveProxyConfig, async () => {
     if (resolvedProxyUrl && effectiveProxyConfig !== currentContext) {
-      console.log(
-        `[ProxyFetch] Applied request proxy context: ${proxyUrlForLogs(resolvedProxyUrl)}`
-      );
+      // #9158: this fires on EVERY proxied request (innermost context wins).
+      // Gate it behind the same env flag as the relay routing log so request
+      // traffic doesn't spam stdout at production log levels.
+      if (process.env.OMNIROUTE_PROXY_FETCH_DEBUG === "true") {
+        console.log(
+          `[ProxyFetch] Applied request proxy context: ${proxyUrlForLogs(resolvedProxyUrl)}`
+        );
+      }
     }
     // #5217: record the proxy actually applied so a post-execution egress logger
     // reflects the real egress (executors that pin a per-account proxy internally
@@ -637,9 +671,12 @@ async function patchedFetch(
           msg.includes("UND_ERR")
         ) {
           if (attempt === 0 && maxAttempts > 1) {
-            // First failure — retry once with a short jittered delay before giving up.
+            // First failure — retry once after a short backoff before giving up.
+            // Delay is OMNIROUTE_RETRY_BACKOFF_MS (default 10ms): a fixed backoff
+            // beats random jitter here because the retry opens a fresh socket, so
+            // jitter was pure added latency with no herd benefit.
             lastDispatcherError = dispatcherError;
-            await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+            await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
             continue;
           }
           if (hasNonReplayableBody) {
@@ -733,13 +770,17 @@ async function patchedFetch(
       console.debug(`[ProxyFetch] Routing via ${vc.type || "edge"} relay: ${hostForLogs}`);
     }
 
-    // #9100: pooled, timed, retried relay egress. Bare `originalFetch` had no
-    // pooling — a throttled relay serialized concurrent requests behind ~30s
-    // stalls. Route through the module-level RELAY_POOL_AGENT (ONE reused TCP
-    // connection per relay host), cap the attempt at 25s (before the typical
-    // 30s client/agent timeout), and retry ONCE on transport failure through
-    // the same pooled dispatcher. Do NOT fall back to native fetch for the
-    // relay path: it has no pooling and would churn connections again.
+    // #9100/#9158: pooled, timed, retried relay egress. Bare `originalFetch` had
+    // no pooling — a throttled relay serialized concurrent requests behind ~30s
+    // stalls. Route through the module-level RELAY_POOL_AGENT (FOUR reused TCP
+    // connections per relay host, pipelining 4 — a single connection let one
+    // long SSE stream monopolize the pool, HOL-blocking every other request),
+    // cap EACH attempt at RELAY_FETCH_TIMEOUT_MS (default 25s, before the typical
+    // 30s client/agent timeout), and retry ONCE on transport failure through a
+    // FRESH no-keep-alive RELAY_RETRY_AGENT. An internal per-attempt timeout is
+    // NOT retried — it fails fast as RELAY_TIMEOUT (504). Do NOT fall back to
+    // native fetch for the relay path: it has no pooling and would churn
+    // connections again.
     const _undiciRelay =
       deps.undiciFetch ?? (undiciFetch as unknown as (...args: unknown[]) => Promise<Response>);
     const hasNonReplayableRelayBody = requestHasNonReplayableBody(input, options);
@@ -747,10 +788,11 @@ async function patchedFetch(
     const relayUrl = `https://${vc.host}`;
     let lastRelayError: unknown = null;
     for (let attempt = 0; attempt < maxRelayAttempts; attempt++) {
-      // A fresh timeout signal per attempt: the 25s cap is per-try, so a hung
-      // relay that survives the first attempt still gets a full 25s on retry.
-      // Manual AbortController instead of AbortSignal.any([...]) so the relay
-      // branch stays free of the literal word `any` (T11 any-budget checker).
+      // A fresh timeout signal per attempt: RELAY_FETCH_TIMEOUT_MS is per-try,
+      // so a hung relay that survives the first attempt still gets a full
+      // window on retry. Manual AbortController instead of
+      // AbortSignal.any([...]) so the relay branch stays free of the literal
+      // word `any` (T11 any-budget checker).
       const relayController = new AbortController();
       const relayTimer = setTimeout(() => relayController.abort(), RELAY_FETCH_TIMEOUT_MS);
       const onCallerAbort = () => relayController.abort();
@@ -760,10 +802,26 @@ async function patchedFetch(
           ...options,
           headers: mergedHeaders,
           duplex: "half",
-          dispatcher: RELAY_POOL_AGENT,
+          dispatcher: attempt === 0 ? RELAY_POOL_AGENT : RELAY_RETRY_AGENT,
           signal: relayController.signal,
         });
       } catch (relayError) {
+        // #9158: classify an internal per-attempt timeout FIRST — a relay that
+        // hangs past RELAY_FETCH_TIMEOUT_MS must fail fast as RELAY_TIMEOUT (504)
+        // and NOT be retried, instead of surviving into the caller's ~30s stall.
+        // The manual relayController fires only on this branch's own timer, so
+        // `relayController.signal.aborted` alone cannot be a caller abort; when
+        // BOTH fire, the caller abort wins (guarded by the check below).
+        const isRelayTimeout = relayController.signal.aborted && options?.signal?.aborted !== true;
+        if (isRelayTimeout) {
+          const timeoutErr = new Error(
+            `[ProxyFetch] Relay timed out after ${RELAY_FETCH_TIMEOUT_MS}ms (${proxyUrlForLogs(relayUrl)})`
+          ) as Error & { code?: string; errorCode?: string; statusCode?: number };
+          timeoutErr.code = "RELAY_TIMEOUT";
+          timeoutErr.errorCode = "relay_timeout";
+          timeoutErr.statusCode = 504;
+          throw timeoutErr;
+        }
         if (isCallerAbort(relayError, options?.signal)) throw relayError;
         const msg = relayError instanceof Error ? relayError.message : String(relayError);
         const errCode = (relayError as { code?: unknown })?.code;
@@ -775,11 +833,12 @@ async function patchedFetch(
           msg.includes("UND_ERR");
         if (attempt === 0 && maxRelayAttempts > 1 && isTransportFailure) {
           lastRelayError = relayError;
-          // #9100: fixed 10ms instead of the old 25-75ms random jitter — the
-          // retry reuses the pooled agent (fresh socket after undici tears down
-          // the broken one), so the jitter was pure latency on every recovered
-          // request with no herd risk on a per-host singleton.
-          await new Promise((r) => setTimeout(r, 10));
+          // #9158: fixed OMNIROUTE_RETRY_BACKOFF_MS backoff — the retry uses a
+          // FRESH no-keep-alive RELAY_RETRY_AGENT (connections: 1, keepAliveTimeout:
+          // 1ms) instead of reusing the pooled agent, so a stale pooled socket
+          // that the relay half-closed is guaranteed a clean TCP handshake.
+          // Jitter is unnecessary: there is no herd on a per-host singleton.
+          await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
           continue;
         }
         throw relayError;
@@ -819,10 +878,11 @@ async function patchedFetch(
         msg.includes("UND_ERR");
       if (attempt === 0 && maxProxyAttempts > 1 && isTransportFailure) {
         lastProxyError = error;
-        // #9100: fixed 10ms instead of the old 25-75ms random jitter — the
-        // retry uses a fresh no-keep-alive dispatcher, so the jitter was pure
-        // latency on every recovered request with no herd risk (per-host pool).
-        await new Promise((r) => setTimeout(r, 10));
+        // #9158: fixed OMNIROUTE_RETRY_BACKOFF_MS backoff — the retry uses a
+        // fresh no-keep-alive dispatcher (getProxyRetryDispatcher), so the old
+        // random jitter was pure latency on every recovered request with no
+        // herd risk (per-host pool).
+        await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS));
         continue;
       }
       // A caller abort/timeout must propagate unchanged and without a noisy
