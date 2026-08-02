@@ -182,10 +182,7 @@ export async function POST(
       return await loginAdobeFirefly(id, body);
     } catch (err) {
       const msg = sanitizeErrorMessage(err instanceof Error ? err.message : err);
-      return NextResponse.json(
-        { success: false, error: `Adobe Firefly sign-in error: ${msg}` },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: msg }, { status: 400 });
     }
   }
 
