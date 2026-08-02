@@ -190,6 +190,14 @@ function splitCodexReasoningSuffix(model: unknown): {
   effort: EffortLevel | null;
 } {
   const modelId = typeof model === "string" ? model : "";
+  const gpt56ParenthesizedMatch = /^(gpt-5\.6-(?:sol|terra|luna))\((max|ultra)\)$/.exec(modelId);
+  if (gpt56ParenthesizedMatch) {
+    const [, baseModel, effort] = gpt56ParenthesizedMatch;
+    if (GPT_5_6_MAX_ALIAS_MODELS.has(baseModel)) {
+      return { baseModel, effort: effort as EffortLevel };
+    }
+  }
+
   const gpt56AliasMatch = /^(gpt-5\.6-(?:sol|terra|luna))-(max|ultra)$/.exec(modelId);
   if (gpt56AliasMatch) {
     const [, baseModel, alias] = gpt56AliasMatch;
