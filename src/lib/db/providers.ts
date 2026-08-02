@@ -119,7 +119,7 @@ export async function getProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
   const useCache = !columns?.length && limit === undefined && offset === undefined;
   const raw = useCache
@@ -145,7 +145,7 @@ export async function getRawProviderConnections(
   filter: JsonRecord = {},
   limit?: number,
   offset?: number,
-  columns?: string[],
+  columns?: string[]
 ) {
   const db = getDbInstance() as unknown as DbLike;
   let selectCols = "*";
@@ -176,8 +176,6 @@ export async function getRawProviderConnections(
     conditions.push("auth_type = @authType");
     params.authType = filter.authType;
   }
-
-
 
   if (conditions.length > 0) {
     sql += " WHERE " + conditions.join(" AND ");
@@ -898,13 +896,24 @@ export async function resetConnectionBackoff(id: string): Promise<void> {
   bumpProxyConfigGeneration();
 }
 
+function _deleteAccountProxyAssignments(db: DbLike, ids: string[]) {
+  if (ids.length === 0) return;
+  const placeholders = ids.map(() => "?").join(",");
+  db.prepare(
+    `DELETE FROM proxy_assignments WHERE scope = 'account' AND scope_id IN (${placeholders})`
+  ).run(...ids);
+}
+
 export async function deleteProviderConnection(id: string) {
   const db = getDbInstance() as unknown as DbLike;
   const existing = db.prepare("SELECT provider FROM provider_connections WHERE id = ?").get(id);
   if (!existing) return false;
 
-  db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?").run(id);
-  db.prepare("DELETE FROM provider_connections WHERE id = ?").run(id);
+  db.transaction(() => {
+    _deleteAccountProxyAssignments(db, [id]);
+    db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM provider_connections WHERE id = ?").run(id);
+  })();
   removeConnectionHealth(id);
   removeConnectionIndex(id);
   bumpProxyConfigGeneration();
@@ -922,11 +931,12 @@ export async function deleteProviderConnection(id: string) {
 
 export async function deleteProviderConnections(ids: string[]): Promise<number> {
   if (ids.length === 0) return 0;
-  const db = getDbInstance();
+  const db = getDbInstance() as unknown as DbLike;
 
   const deletedCount = db.transaction(() => {
     const placeholders = ids.map(() => "?").join(",");
     db.prepare(`DELETE FROM quota_snapshots WHERE connection_id IN (${placeholders})`).run(...ids);
+    _deleteAccountProxyAssignments(db, ids);
     const result = db
       .prepare(`DELETE FROM provider_connections WHERE id IN (${placeholders})`)
       .run(...ids);
@@ -954,14 +964,16 @@ export async function deleteProviderConnectionsByProvider(providerId: string) {
     })
     .filter((id): id is string => id !== null);
 
-  if (connectionIds.length > 0) {
-    const deleteSnapshots = db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?");
-    for (const connectionId of connectionIds) {
-      deleteSnapshots.run(connectionId);
+  const result = db.transaction(() => {
+    if (connectionIds.length > 0) {
+      const deleteSnapshots = db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?");
+      for (const connectionId of connectionIds) {
+        deleteSnapshots.run(connectionId);
+      }
+      _deleteAccountProxyAssignments(db, connectionIds);
     }
-  }
-
-  const result = db.prepare("DELETE FROM provider_connections WHERE provider = ?").run(providerId);
+    return db.prepare("DELETE FROM provider_connections WHERE provider = ?").run(providerId);
+  })();
   for (const connectionId of connectionIds) {
     removeConnectionHealth(connectionId);
     removeConnectionIndex(connectionId);
@@ -1005,10 +1017,7 @@ export async function getDistinctGroups(): Promise<string[]> {
   return rows.map((r) => String(r.group ?? "")).filter(Boolean);
 }
 
-export {
-  autoMigrateLegacyEncryptedConnections,
-  getGheCopilotHosts,
-} from "./providers/migrations";
+export { autoMigrateLegacyEncryptedConnections, getGheCopilotHosts } from "./providers/migrations";
 
 // ──────────────── Re-exports from leaf modules ────────────────
 
