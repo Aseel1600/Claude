@@ -229,6 +229,13 @@ import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 import { muse_codeProvider } from "./registry/muse-code/index.ts";
+import { zyloApiProvider } from "./registry/zylo-api/index.ts";
+import { poolsideProvider } from "./registry/poolside/index.ts";
+import { fastrouterProvider } from "./registry/fastrouter/index.ts";
+import { anyapiProvider } from "./registry/anyapi/index.ts";
+import { electronhubProvider } from "./registry/electronhub/index.ts";
+import { llmgatewayProvider } from "./registry/llmgateway/index.ts";
+import { llmKiwiProvider } from "./registry/llm-kiwi/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -459,5 +466,12 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   promptql: promptqlProvider,
   hyperagent: hyperagentProvider,
   "muse-code": muse_codeProvider,
+  "zylo-api": zyloApiProvider,
+  poolside: poolsideProvider,
+  fastrouter: fastrouterProvider,
+  anyapi: anyapiProvider,
+  electronhub: electronhubProvider,
+  llmgateway: llmgatewayProvider,
+  "llm-kiwi": llmKiwiProvider,
   unorouter: unorouterProvider,
 };
