@@ -51,7 +51,7 @@ const sampleSchema = [
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
@@ -81,10 +81,14 @@ function renderScorecard(data) {
   const score = data.score ?? data.overallScore ?? null;
   const passed = data.passed ?? data.summary?.passed ?? null;
   const total = data.total ?? data.summary?.total ?? null;
-  process.stdout.write("\n=== Scorecard ===\n");
-  if (score != null) process.stdout.write(`Overall score: ${(score * 100).toFixed(1)}%\n`);
+  process.stdout.write(t("common.cli.messages.scorecard"));
+  if (score != null) {
+    process.stdout.write(
+      `${t("common.cli.messages.overallScore", { score: (score * 100).toFixed(1) })}\n`
+    );
+  }
   if (passed != null && total != null) {
-    process.stdout.write(`Passed: ${passed}/${total}\n`);
+    process.stdout.write(`${t("common.cli.messages.passedCount", { passed, total })}\n`);
     const bar = "█".repeat(Math.round((passed / total) * 20)).padEnd(20, "░");
     process.stdout.write(`[${bar}] ${((passed / total) * 100).toFixed(0)}%\n`);
   }
@@ -98,7 +102,7 @@ function renderScorecard(data) {
 export async function runEvalSuitesList(opts, cmd) {
   const res = await apiFetch("/api/evals/suites");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -108,7 +112,7 @@ export async function runEvalSuitesList(opts, cmd) {
 export async function runEvalSuitesGet(id, opts, cmd) {
   const res = await apiFetch(`/api/evals/suites/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
@@ -116,13 +120,13 @@ export async function runEvalSuitesGet(id, opts, cmd) {
 
 export async function runEvalSuitesCreate(opts, cmd) {
   if (!opts.file) {
-    process.stderr.write("--file required\n");
+    process.stderr.write(`${t("common.cli.messages.requiredOption", { option: "--file" })}\n`);
     process.exit(2);
   }
   const body = JSON.parse(readFileSync(opts.file, "utf8"));
   const res = await apiFetch("/api/evals/suites", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
@@ -139,7 +143,7 @@ export async function runEvalRun(suiteId, opts, cmd) {
   };
   const res = await apiFetch("/api/evals", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const run = await res.json();
@@ -154,7 +158,7 @@ export async function runEvalRun(suiteId, opts, cmd) {
         apiKey: globalOpts.apiKey ?? process.env.OMNIROUTE_API_KEY,
       });
     } else {
-      process.stderr.write("\nWatching run... (Ctrl+C to detach)\n");
+      process.stderr.write(t("common.cli.messages.watchingRun"));
       await watchRun(run.id, globalOpts);
     }
   }
@@ -167,7 +171,7 @@ export async function runEvalList(opts, cmd) {
   if (opts.since) params.set("since", opts.since);
   const res = await apiFetch(`/api/evals?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -177,7 +181,7 @@ export async function runEvalList(opts, cmd) {
 export async function runEvalGet(id, opts, cmd) {
   const res = await apiFetch(`/api/evals/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
@@ -188,7 +192,7 @@ export async function runEvalResults(id, opts, cmd) {
   if (opts.failed) params.set("filter", "failed");
   const res = await apiFetch(`/api/evals/${id}?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -197,21 +201,21 @@ export async function runEvalResults(id, opts, cmd) {
 
 export async function runEvalCancel(id, opts, cmd) {
   if (!opts.yes) {
-    const ok = await confirm(`Cancel run ${id}?`);
+    const ok = await confirm(t("common.cli.messages.cancelRun", { id }));
     if (!ok) return;
   }
   const res = await apiFetch(`/api/evals/${id}`, { method: "POST", body: { op: "cancel" } });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write("Cancelled\n");
+  process.stdout.write(`${t("common.cli.messages.cancelledLine")}\n`);
 }
 
 export async function runEvalScorecard(id, opts, cmd) {
   const res = await apiFetch(`/api/evals/${id}?scorecard=true`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   const data = await res.json();

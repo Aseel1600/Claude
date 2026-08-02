@@ -20,7 +20,7 @@ function fmtTs(v) {
 
 async function confirm(question) {
   return new Promise((resolve) => {
-    process.stdout.write(`${question} (yes/no) `);
+    process.stdout.write(`${question}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (chunk) => {
       resolve(chunk.toString().trim().toLowerCase().startsWith("y"));
@@ -65,7 +65,7 @@ export async function runSkillsList(opts, cmd) {
   if (opts.apiKey) params.set("apiKey", opts.apiKey);
   const res = await apiFetch(`/api/skills?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -76,7 +76,7 @@ export async function runSkillsGet(id, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch(`/api/skills/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -91,14 +91,16 @@ export async function runSkillsInstall(opts, cmd) {
   } else if (opts.fromUrl) {
     body = { url: opts.fromUrl };
   } else {
-    process.stderr.write("--from-file or --from-url required\n");
+    process.stderr.write(
+      `${t("common.cli.messages.requiredPair", { first: "--from-file", second: "--from-url" })}\n`
+    );
     process.exit(2);
   }
   if (opts.type) body.type = opts.type;
   if (opts.enable) body.enabled = true;
   const res = await apiFetch("/api/skills/install", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -111,15 +113,15 @@ export async function runSkillsEnable(id, opts, cmd) {
     body: { name: "omniroute_skills_enable", arguments: { skillId: id, enabled: true } },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Enabled: ${id}\n`);
+  process.stdout.write(`${t("common.cli.messages.enabledLine", { id })}\n`);
 }
 
 export async function runSkillsDisable(id, opts, cmd) {
   if (!opts.yes) {
-    const ok = await confirm(`Disable ${id}?`);
+    const ok = await confirm(t("common.cli.messages.disablePrompt", { id }));
     if (!ok) return;
   }
   const res = await apiFetch("/api/mcp/tools/call", {
@@ -127,23 +129,23 @@ export async function runSkillsDisable(id, opts, cmd) {
     body: { name: "omniroute_skills_enable", arguments: { skillId: id, enabled: false } },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Disabled: ${id}\n`);
+  process.stdout.write(`${t("common.cli.messages.disabledLine", { id })}\n`);
 }
 
 export async function runSkillsDelete(id, opts, cmd) {
   if (!opts.yes) {
-    const ok = await confirm(`Delete skill ${id}?`);
+    const ok = await confirm(t("common.cli.messages.deletePrompt", { resource: "skill", id }));
     if (!ok) return;
   }
   const res = await apiFetch(`/api/skills/${id}`, { method: "DELETE" });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Deleted: ${id}\n`);
+  process.stdout.write(`${t("common.cli.messages.deletedWithId", { id })}\n`);
 }
 
 export async function runSkillsExecute(id, opts, cmd) {
@@ -159,7 +161,7 @@ export async function runSkillsExecute(id, opts, cmd) {
     timeout: opts.timeout ?? 30000,
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -173,7 +175,7 @@ export async function runSkillsExecutions(opts, cmd) {
   if (opts.status) params.set("status", opts.status);
   const res = await apiFetch(`/api/skills/executions?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -184,7 +186,7 @@ export async function runSkillsshList(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch("/api/skills/skillssh");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -197,11 +199,11 @@ export async function runSkillsshInstall(url, opts, cmd) {
     body: { url },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
-  process.stdout.write(`Installed: ${data.skillId ?? url}\n`);
+  process.stdout.write(`${t("common.cli.messages.installedLine", { id: data.skillId ?? url })}\n`);
 }
 
 export async function runMarketplaceSearch(query, opts, cmd) {
@@ -213,7 +215,7 @@ export async function runMarketplaceSearch(query, opts, cmd) {
   if (opts.sort) params.set("sort", opts.sort);
   const res = await apiFetch(`/api/skills/marketplace?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -224,14 +226,14 @@ export async function runMarketplaceInfo(packageId, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch(`/api/skills/marketplace?id=${packageId}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${packageId}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id: packageId })}\n`);
     process.exit(1);
   }
   const data = await res.json();
   emit(data, globalOpts, marketplaceSchema);
   if (globalOpts.output !== "json" && globalOpts.output !== "jsonl") {
-    process.stdout.write("\nReadme:\n");
-    process.stdout.write(data.readme ?? "(no readme)");
+    process.stdout.write(t("common.cli.messages.readmeLabel"));
+    process.stdout.write(data.readme ?? t("common.cli.messages.noReadme"));
     process.stdout.write("\n");
   }
 }
@@ -241,10 +243,19 @@ export async function runMarketplaceInstall(packageId, opts, cmd) {
     const infoRes = await apiFetch(`/api/skills/marketplace?id=${packageId}`);
     if (infoRes.ok) {
       const info = await infoRes.json();
-      process.stdout.write(`Installing: ${info.name ?? packageId} v${info.version ?? "?"}\n`);
-      process.stdout.write(`Permissions: ${(info.permissions ?? []).join(", ") || "(none)"}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.installing", {
+          name: info.name ?? packageId,
+          version: info.version ?? "?",
+        })}\n`
+      );
+      process.stdout.write(
+        `${t("common.cli.messages.permissions", {
+          permissions: (info.permissions ?? []).join(", ") || t("common.cli.messages.noneSet"),
+        })}\n`
+      );
     }
-    const ok = await confirm("Continue?");
+    const ok = await confirm(t("common.cli.messages.continuePrompt"));
     if (!ok) process.exit(0);
   }
   const res = await apiFetch("/api/skills/marketplace/install", {
@@ -252,18 +263,20 @@ export async function runMarketplaceInstall(packageId, opts, cmd) {
     body: { packageId, version: opts.version ?? "latest", enable: !!opts.enable },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
-  process.stdout.write(`Installed: ${data.skillId ?? packageId}\n`);
+  process.stdout.write(
+    `${t("common.cli.messages.installedLine", { id: data.skillId ?? packageId })}\n`
+  );
 }
 
 export async function runMarketplaceCategories(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch("/api/skills/marketplace?facets=categories");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -274,7 +287,7 @@ export async function runMarketplaceFeatured(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch("/api/skills/marketplace?featured=true");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();

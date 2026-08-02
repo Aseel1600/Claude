@@ -108,8 +108,12 @@ export async function runTunnelListCommand(opts = {}) {
     }
 
     for (const tunnel of tunnels) {
-      const status = tunnel.active ? "\x1b[32m● active\x1b[0m" : "\x1b[2m○ inactive\x1b[0m";
-      console.log(`  ${(tunnel.type || "unknown").padEnd(12)} ${tunnel.url || "N/A"} ${status}`);
+      const status = tunnel.active
+        ? `\x1b[32m● ${t("common.cli.messages.activeStatus")}\x1b[0m`
+        : `\x1b[2m○ ${t("common.cli.messages.inactiveStatus")}\x1b[0m`;
+      console.log(
+        `  ${(tunnel.type || t("common.cli.messages.unknownValue")).padEnd(12)} ${tunnel.url || t("common.cli.messages.notApplicable")} ${status}`
+      );
     }
     return 0;
   } catch (err) {
@@ -156,7 +160,10 @@ export async function runTunnelStopCommand(type, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(t("tunnel.confirmStop", { id: type }) + " [y/N] ", resolve)
+      rl.question(
+        t("tunnel.confirmStop", { id: type }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        resolve
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
@@ -215,13 +222,23 @@ export async function runTunnelStatusCommand(type, opts = {}) {
       console.log(JSON.stringify(data, null, 2));
       return 0;
     }
-    const uptime = data.uptime ? `${Math.floor(data.uptime / 60)}m` : "N/A";
-    const statusLabel = data.active ? "\x1b[32m● active\x1b[0m" : "\x1b[31m○ inactive\x1b[0m";
+    const uptime = data.uptime
+      ? `${Math.floor(data.uptime / 60)}m`
+      : t("common.cli.messages.notApplicable");
+    const statusLabel = data.active
+      ? `\x1b[32m● ${t("common.cli.messages.activeStatus")}\x1b[0m`
+      : `\x1b[31m○ ${t("common.cli.messages.inactiveStatus")}\x1b[0m`;
     console.log(`\n\x1b[1m${type}\x1b[0m ${statusLabel}`);
-    console.log(`  URL:      ${data.url || "N/A"}`);
-    console.log(`  Uptime:   ${uptime}`);
-    console.log(`  Requests: ${data.requests ?? data.totalRequests ?? "N/A"}`);
-    console.log(`  Latency:  ${data.avgLatencyMs != null ? `${data.avgLatencyMs}ms` : "N/A"}`);
+    console.log(
+      `  ${t("common.cli.messages.urlLabel").padEnd(9)} ${data.url || t("common.cli.messages.notApplicable")}`
+    );
+    console.log(`  ${t("common.cli.messages.uptimeLabel").padEnd(9)} ${uptime}`);
+    console.log(
+      `  ${t("common.cli.messages.requestsLabel").padEnd(9)} ${data.requests ?? data.totalRequests ?? t("common.cli.messages.notApplicable")}`
+    );
+    console.log(
+      `  ${t("common.cli.messages.latencyLabel").padEnd(9)} ${data.avgLatencyMs != null ? `${data.avgLatencyMs}ms` : t("common.cli.messages.notApplicable")}`
+    );
     return 0;
   } catch (err) {
     console.error(t("common.error", { message: err instanceof Error ? err.message : String(err) }));
@@ -313,7 +330,10 @@ export async function runTunnelRotateCommand(type, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(t("tunnel.confirmRotate", { type }) + " [y/N] ", resolve)
+      rl.question(
+        t("tunnel.confirmRotate", { type }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        resolve
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {

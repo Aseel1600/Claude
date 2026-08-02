@@ -3,6 +3,7 @@ import { render, Box, Text, useInput } from "ink";
 import Spinner from "ink-spinner";
 import { StatusBadge } from "../tui-components/StatusBadge.jsx";
 import { ConfirmDialog } from "../tui-components/ConfirmDialog.jsx";
+import { t } from "../i18n.mjs";
 
 const PHASE = {
   WAITING: "waiting",
@@ -66,7 +67,7 @@ function OAuthFlowApp({ provider, url, deviceCode, onCancel, onDone, onFail }) {
     return (
       <Box flexDirection="column" padding={1}>
         <ConfirmDialog
-          message="Cancel OAuth authorization?"
+          message={t("common.cli.tui.cancelOAuth")}
           onConfirm={handleCancelConfirm}
           defaultNo
         />
@@ -84,7 +85,7 @@ function OAuthFlowApp({ provider, url, deviceCode, onCancel, onDone, onFail }) {
 
       {url && (
         <Box flexDirection="column" marginBottom={1}>
-          <Text>Open this URL in your browser to authorize:</Text>
+          <Text>{t("common.cli.tui.openAuthUrl")}</Text>
           <Box marginTop={0}>
             <Text bold color="yellow">
               {url}
@@ -96,7 +97,7 @@ function OAuthFlowApp({ provider, url, deviceCode, onCancel, onDone, onFail }) {
       {deviceCode && (
         <Box flexDirection="column" marginBottom={1}>
           <Text>
-            Device code:{" "}
+            {t("common.cli.tui.deviceCode")}{" "}
             <Text bold color="yellow">
               {deviceCode}
             </Text>
@@ -110,30 +111,37 @@ function OAuthFlowApp({ provider, url, deviceCode, onCancel, onDone, onFail }) {
             <Text color="green">
               <Spinner type="dots" />
             </Text>
-            <Text> Waiting for authorization... </Text>
+            <Text> {t("common.cli.tui.waitingAuthorization")} </Text>
             <Text dimColor>({elapsed_str})</Text>
           </Box>
         ) : phase === PHASE.DONE ? (
           <Box>
             <StatusBadge status="ok" />
-            <Text> Authorized: {result?.email ?? result?.account ?? "connected"}</Text>
+            <Text>
+              {" "}
+              {t("common.cli.tui.authorized")}{" "}
+              {result?.email ?? result?.account ?? t("common.cli.tui.connected")}
+            </Text>
           </Box>
         ) : phase === PHASE.FAILED ? (
           <Box>
             <StatusBadge status="error" />
-            <Text> Failed: {error}</Text>
+            <Text>
+              {" "}
+              {t("common.cli.tui.failed")} {error}
+            </Text>
           </Box>
         ) : (
           <Box>
             <StatusBadge status="warn" />
-            <Text> Cancelled.</Text>
+            <Text> {t("common.cli.tui.cancelled")}</Text>
           </Box>
         )}
       </Box>
 
       {(phase === PHASE.POLLING || phase === PHASE.WAITING) && (
         <Box marginTop={1}>
-          <Text dimColor>[q] cancel</Text>
+          <Text dimColor>{t("common.cli.tui.cancelFooter")}</Text>
         </Box>
       )}
     </Box>

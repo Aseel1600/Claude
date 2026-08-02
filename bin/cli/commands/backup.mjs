@@ -93,8 +93,8 @@ export function registerRestore(program) {
   program
     .command("restore [backupId]")
     .description(t("backup.restoreDescription"))
-    .option("--list", "List available backups")
-    .option("--yes", "Skip confirmation")
+    .option("--list", t("common.cli.options.listBackups"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (backupId, opts) => {
       const exitCode = await runRestoreCommand(backupId, opts);
       if (exitCode !== 0) process.exit(exitCode);
@@ -370,12 +370,26 @@ export async function runBackupAutoStatusCommand() {
     return 0;
   }
   const schedule = JSON.parse(readFileSync(schedulePath, "utf8"));
-  const statusLabel = schedule.enabled ? "\x1b[32m● enabled\x1b[0m" : "\x1b[31m○ disabled\x1b[0m";
+  const statusLabel = schedule.enabled
+    ? `\x1b[32m● ${t("common.cli.messages.enabledStatus")}\x1b[0m`
+    : `\x1b[31m○ ${t("common.cli.messages.disabledStatus")}\x1b[0m`;
   console.log(`${t("backup.auto.title")}: ${statusLabel}`);
-  console.log(`  cron:      ${schedule.cron}`);
-  console.log(`  cloud:     ${schedule.cloud ? "yes" : "no"}`);
-  console.log(`  encrypt:   ${schedule.encrypt ? "yes" : "no"}`);
-  console.log(`  retention: ${schedule.retention ?? "unlimited"}`);
+  console.log(`${t("common.cli.messages.cronLabel")}      ${schedule.cron}`);
+  console.log(
+    t("common.cli.messages.backupCloud", {
+      value: schedule.cloud ? t("common.cli.messages.yes") : t("common.cli.messages.no"),
+    })
+  );
+  console.log(
+    t("common.cli.messages.backupEncrypt", {
+      value: schedule.encrypt ? t("common.cli.messages.yes") : t("common.cli.messages.no"),
+    })
+  );
+  console.log(
+    t("common.cli.messages.backupRetention", {
+      value: schedule.retention ?? t("common.cli.messages.unlimited"),
+    })
+  );
   return 0;
 }
 
@@ -407,7 +421,9 @@ export async function runRestoreCommand(backupId, opts = {}) {
           const id = dir.replace("omniroute-backup-", "");
           const dateStr = new Date(info.timestamp).toLocaleString();
           console.log(`  ${id}`);
-          console.log(`\x1b[2m    ${dateStr} — ${info.files?.length || 0} files\x1b[0m`);
+          console.log(
+            `\x1b[2m    ${dateStr} — ${t("common.cli.messages.filesCount", { count: info.files?.length || 0 })}\x1b[0m`
+          );
         } else {
           console.log(`\x1b[2m  ${dir.replace("omniroute-backup-", "")}\x1b[0m`);
         }
@@ -419,7 +435,7 @@ export async function runRestoreCommand(backupId, opts = {}) {
       return 1;
     }
 
-    if (!backupId) console.log("\nUsage: omniroute restore <backup-id>");
+    if (!backupId) console.log(t("common.cli.messages.restoreUsage"));
     return 0;
   }
 
@@ -437,7 +453,10 @@ export async function runRestoreCommand(backupId, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(t("backup.confirmRestore", { ts }) + " [y/N] ", resolve)
+      rl.question(
+        t("backup.confirmRestore", { ts }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        resolve
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {

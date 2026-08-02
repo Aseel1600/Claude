@@ -2,9 +2,7 @@ import { t } from "../i18n.mjs";
 import { emit } from "../output.mjs";
 
 export function registerAutostart(program) {
-  const cmd = program
-    .command("autostart")
-    .description(t("autostart.description") || "Manage OmniRoute autostart at login");
+  const cmd = program.command("autostart").description(t("common.cli.descriptions.autostart"));
 
   // #3331 — autostart could previously only be toggled from the tray
   // (`serve --tray`) or the Electron Appearance tab; a plain `omniroute serve`
@@ -13,7 +11,7 @@ export function registerAutostart(program) {
   cmd
     .command("enable")
     .aliases(["on", "true"])
-    .description(t("autostart.enable") || "Enable autostart at login")
+    .description(t("common.cli.descriptions.autostartEnable"))
     .action(async (opts, c) => {
       const globalOpts = c.optsWithGlobals();
       const { enable } = await import("../tray/autostart.mjs");
@@ -25,7 +23,7 @@ export function registerAutostart(program) {
   cmd
     .command("disable")
     .aliases(["off", "false"])
-    .description(t("autostart.disable") || "Disable autostart at login")
+    .description(t("common.cli.descriptions.autostartDisable"))
     .action(async (opts, c) => {
       const globalOpts = c.optsWithGlobals();
       const { disable } = await import("../tray/autostart.mjs");
@@ -36,7 +34,7 @@ export function registerAutostart(program) {
 
   cmd
     .command("toggle")
-    .description(t("autostart.toggle") || "Toggle autostart at login")
+    .description(t("common.cli.descriptions.autostartToggle"))
     .action(async (opts, c) => {
       const globalOpts = c.optsWithGlobals();
       const { enable, disable, isAutostartEnabled } = await import("../tray/autostart.mjs");
@@ -48,7 +46,7 @@ export function registerAutostart(program) {
 
   cmd
     .command("status", { isDefault: true })
-    .description(t("autostart.status") || "Show autostart status")
+    .description(t("common.cli.descriptions.autostartStatus"))
     .action(async (opts, c) => {
       const globalOpts = c.optsWithGlobals();
       const { getAutostartStatus } = await import("../tray/autostart.mjs");

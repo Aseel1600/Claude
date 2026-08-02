@@ -153,12 +153,7 @@ export async function runLaunchCodexCommand(opts = {}, codexArgs = []) {
   const { baseUrl, authToken } = resolveCodexTarget(opts);
 
   if (!(await healthCheck(baseUrl))) {
-    console.error(
-      (
-        t("launch.notRunning") ||
-        "OmniRoute is not reachable at {port}. Start it with 'omniroute serve'."
-      ).replace("{port}", baseUrl)
-    );
+    console.error(t("common.cli.messages.launchNotRunning").replace("{port}", baseUrl));
     return 1;
   }
 
@@ -178,9 +173,7 @@ export async function runLaunchCodexCommand(opts = {}, codexArgs = []) {
     });
     child.on("error", (err) => {
       if (err?.code === "ENOENT") {
-        console.error(
-          "The 'codex' CLI was not found in PATH. Install with:\n  npm install -g @openai/codex"
-        );
+        console.error(t("common.cli.messages.codexNotFound"));
         resolve(127);
       } else {
         console.error(String(err?.message || err));
@@ -194,23 +187,15 @@ export async function runLaunchCodexCommand(opts = {}, codexArgs = []) {
 export function registerLaunchCodex(program) {
   program
     .command("launch-codex")
-    .description(
-      t("launchCodex.description") || "Launch Codex CLI pointed at OmniRoute (local or remote VPS)"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option(
-      "--remote <url>",
-      "Remote OmniRoute base URL, e.g. http://192.168.0.15:20128 (overrides --port + context)"
-    )
-    .option("--profile <name>", "Codex profile to activate (passed as --profile <name>)")
-    .option("-p, --p <name>", "Alias for --profile")
-    .option(
-      "--api-key <key>",
-      "OmniRoute API key (overrides OMNIROUTE_API_KEY env var for this invocation)"
-    )
+    .description(t("common.cli.descriptions.launchCodex"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--profile <name>", t("common.cli.options.profile"))
+    .option("-p, --p <name>", t("common.cli.options.profileAlias"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
     .allowUnknownOption(true)
     .allowExcessArguments(true)
-    .argument("[codexArgs...]", "arguments passed through to the codex binary")
+    .argument("[codexArgs...]", t("common.cli.messages.passThroughCodexArgs"))
     .action(async (codexArgs, opts) => {
       const merged = { ...opts, profile: opts.profile ?? opts.p };
       // process.exit() here aborted the process with a libuv assertion on

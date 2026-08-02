@@ -68,7 +68,7 @@ export async function runAuditTail(opts, cmd) {
   emit(entries.slice(0, opts.limit ?? 100), globalOpts, auditSchema);
 
   if (opts.follow) {
-    process.stderr.write("\n[following — Ctrl+C to exit]\n");
+    process.stderr.write(t("common.cli.messages.followingAudit"));
     let lastTs = entries[0]?.timestamp ?? new Date().toISOString();
     const loop = async () => {
       while (true) {
@@ -137,7 +137,7 @@ export async function runAuditStats(opts, cmd) {
   const endpoint = source === "mcp" ? "/api/mcp/audit/stats" : "/api/compliance/audit-log/stats";
   const res = await apiFetch(`${endpoint}?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -150,7 +150,7 @@ export async function runAuditGet(id, opts, cmd) {
   const endpoint = endpointFor(source);
   const res = await apiFetch(`${endpoint}/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   const data = await res.json();

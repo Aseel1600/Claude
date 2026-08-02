@@ -19,6 +19,7 @@ import {
 } from "../../../src/shared/services/qwenCodeConfig.ts";
 import { resolveActiveContext } from "../contexts.mjs";
 import { createPrompt, printError, printHeading, printInfo, printSuccess } from "../io.mjs";
+import { t } from "../i18n.mjs";
 
 /** Resolve base URL and key from flags, active context, then local defaults. */
 export function resolveQwenTarget(opts = {}) {
@@ -54,7 +55,7 @@ const readSettings = (filePath) => {
   if (!existsSync(filePath)) return {};
   const parsed = JSON.parse(readFileSync(filePath, "utf8"));
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Qwen Code settings.json must contain a JSON object");
+    throw new Error(t("common.cli.messages.qwenSettingsObjectRequired"));
   }
   return parsed;
 };
@@ -99,25 +100,29 @@ export async function runSetupQwenCommand(opts = {}) {
     opts.configPath ?? opts["config-path"] ?? path.join(os.homedir(), ".qwen", "settings.json");
   const envPath = opts.envPath ?? opts["env-path"] ?? path.join(path.dirname(settingsPath), ".env");
 
-  printHeading("OmniRoute → Qwen Code (OpenAI-compatible)");
-  printInfo(`baseUrl: ${baseUrl}`);
+  printHeading(t("common.cli.messages.qwenTitle"));
+  printInfo(t("common.cli.messages.qwenBaseUrlInfo", { baseUrl }));
 
   let model = String(opts.model || "").trim();
   if (!model && !opts.yes) {
     const modelIds = await fetchModelIds(baseUrl, apiKey);
     if (modelIds.length > 0) {
-      printInfo(`Examples: ${modelIds.slice(0, 20).join(", ")}${modelIds.length > 20 ? " …" : ""}`);
+      printInfo(
+        t("common.cli.messages.examples", {
+          models: `${modelIds.slice(0, 20).join(", ")}${modelIds.length > 20 ? " …" : ""}`,
+        })
+      );
     }
     const prompt = createPrompt();
     try {
-      model = String(await prompt.ask("Model id for Qwen Code")).trim();
+      model = String(await prompt.ask(t("common.cli.messages.qwenModelPrompt"))).trim();
     } finally {
       prompt.close();
     }
   }
 
   if (!model) {
-    printError("A model is required. Pass --model <id>.");
+    printError(t("common.cli.messages.modelRequired"));
     return 2;
   }
 
@@ -128,8 +133,8 @@ export async function runSetupQwenCommand(opts = {}) {
 
     if (dryRun) {
       console.log(`\n${settingsText}`);
-      printInfo(`[dry-run] settings → ${settingsPath}`);
-      printInfo(`[dry-run] credential → ${envPath} (OMNIROUTE_API_KEY)`);
+      printInfo(t("common.cli.messages.qwenDrySettings", { path: settingsPath }));
+      printInfo(t("common.cli.messages.qwenDryCredential", { path: envPath }));
       return 0;
     }
 
@@ -137,12 +142,12 @@ export async function runSetupQwenCommand(opts = {}) {
     mkdirSync(path.dirname(envPath), { recursive: true, mode: 0o700 });
     writeAtomic(settingsPath, settingsText);
     writeAtomic(envPath, envText, 0o600);
-    printSuccess(`Wrote ${settingsPath}`);
-    printSuccess(`Updated ${envPath} (OMNIROUTE_API_KEY only)`);
-    printInfo('Run: qwen   (or headless: qwen -p "reply OK")');
+    printSuccess(t("common.cli.messages.wrote", { path: settingsPath }));
+    printSuccess(t("common.cli.messages.qwenUpdated", { path: envPath }));
+    printInfo(t("common.cli.messages.runQwen"));
     return 0;
   } catch (error) {
-    printError(`Failed to configure Qwen Code: ${error?.message || error}`);
+    printError(t("common.cli.messages.qwenFailed", { error: error?.message || error }));
     return 1;
   }
 }
@@ -150,15 +155,15 @@ export async function runSetupQwenCommand(opts = {}) {
 export function registerSetupQwen(program) {
   program
     .command("setup-qwen")
-    .description("Configure Qwen Code's upstream V4 modelProviders format for OmniRoute")
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL")
-    .option("--api-key <key>", "OmniRoute API key")
-    .option("--model <id>", "Model id for Qwen Code")
-    .option("--config-path <path>", "Qwen Code settings.json path")
-    .option("--env-path <path>", "Qwen Code .env path")
-    .option("--yes", "Non-interactive; requires --model")
-    .option("--dry-run", "Print settings without writing files or secrets")
+    .description(t("common.cli.descriptions.setupQwen"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.qwenRemote"))
+    .option("--api-key <key>", t("common.cli.options.qwenApiKey"))
+    .option("--model <id>", t("common.cli.options.qwenModel"))
+    .option("--config-path <path>", t("common.cli.options.qwenConfigPath"))
+    .option("--env-path <path>", t("common.cli.options.qwenEnvPath"))
+    .option("--yes", t("common.cli.options.qwenYes"))
+    .option("--dry-run", t("common.cli.options.qwenDryRun"))
     .action(async (opts) => {
       const code = await runSetupQwenCommand(opts);
       if (code !== 0) process.exitCode = code;

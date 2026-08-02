@@ -7,15 +7,16 @@ import Keys from "./tabs/Keys.jsx";
 import Logs from "./tabs/Logs.jsx";
 import Health from "./tabs/Health.jsx";
 import Cost from "./tabs/Cost.jsx";
+import { t } from "../i18n.mjs";
 
 const TABS = [
-  { id: "overview", label: "Overview", Component: Overview },
-  { id: "combos", label: "Combos", Component: Combos },
-  { id: "providers", label: "Providers", Component: Providers },
-  { id: "keys", label: "Keys", Component: Keys },
-  { id: "logs", label: "Logs", Component: Logs },
-  { id: "health", label: "Health", Component: Health },
-  { id: "cost", label: "Cost $", Component: Cost },
+  { id: "overview", label: t("common.cli.tui.overview"), Component: Overview },
+  { id: "combos", label: t("common.cli.tui.combos"), Component: Combos },
+  { id: "providers", label: t("common.cli.tui.providers"), Component: Providers },
+  { id: "keys", label: t("common.cli.tui.keys"), Component: Keys },
+  { id: "logs", label: t("common.cli.tui.logs"), Component: Logs },
+  { id: "health", label: t("common.cli.tui.health"), Component: Health },
+  { id: "cost", label: t("common.cli.tui.cost"), Component: Cost },
 ];
 
 function DashboardApp({ port, baseUrl, apiKey, onExit }) {
@@ -53,7 +54,7 @@ function DashboardApp({ port, baseUrl, apiKey, onExit }) {
         {ActiveComponent && <ActiveComponent port={port} baseUrl={baseUrl} apiKey={apiKey} />}
       </Box>
       <Box borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text dimColor>[q]uit [Tab] next [1-7] jump [r]efresh [/]filter</Text>
+        <Text dimColor>{t("common.cli.tui.dashboardFooter")}</Text>
       </Box>
     </Box>
   );

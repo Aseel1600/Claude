@@ -15,6 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 
 function ensureV1(url) {
@@ -89,7 +90,7 @@ async function fetchModelIds(baseUrl, apiKey) {
     });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -99,29 +100,36 @@ async function fetchModelIds(baseUrl, apiKey) {
 export async function runSetupRooCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveRooTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const importPath = opts.importPath ?? opts["import-path"] ?? join(os.homedir(), ".omniroute", "roo-settings.json");
+  const importPath =
+    opts.importPath ?? opts["import-path"] ?? join(os.homedir(), ".omniroute", "roo-settings.json");
   const vscodePath =
-    opts.vscodeSettings ?? opts["vscode-settings"] ?? join(os.homedir(), ".config", "Code", "User", "settings.json");
+    opts.vscodeSettings ??
+    opts["vscode-settings"] ??
+    join(os.homedir(), ".config", "Code", "User", "settings.json");
 
-  printHeading("OmniRoute → Roo Code (OpenAI-compatible)");
-  printInfo(`Server: ${baseUrl}`);
+  printHeading(t("common.cli.messages.rooTitle"));
+  printInfo(`${t("common.cli.messages.serverLabel")} ${baseUrl}`);
 
   let model = opts.model;
   if (!model) {
     const ids = await fetchModelIds(baseUrl, apiKey);
     if (ids.length && !opts.yes) {
-      printInfo(`Examples: ${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`);
+      printInfo(
+        t("common.cli.messages.examples", {
+          models: `${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`,
+        })
+      );
       const { createPrompt } = await import("../io.mjs");
       const prompt = createPrompt();
       try {
-        model = await prompt.ask("Model id for Roo");
+        model = await prompt.ask(t("common.cli.messages.rooModelPrompt"));
       } finally {
         prompt.close();
       }
     }
   }
   if (!model) {
-    printError("A model is required. Pass --model <id> (Roo has no model auto-discovery).");
+    printError(t("common.cli.messages.rooModelRequired"));
     return 2;
   }
 
@@ -129,42 +137,59 @@ export async function runSetupRooCommand(opts = {}) {
   const vscodeExists = existsSync(vscodePath);
 
   if (dryRun) {
-    console.log(`\n── [dry-run] ${importPath} ──`);
-    console.log(JSON.stringify({ ...importDoc, providerProfiles: { ...importDoc.providerProfiles, apiConfigs: { OmniRoute: { ...importDoc.providerProfiles.apiConfigs.OmniRoute, openAiApiKey: apiKey ? "set" : "sk_omniroute" } } } }, null, 2));
-    console.log(`\n── [dry-run] ${vscodePath} ── ${vscodeExists ? "(would set roo-cline.autoImportSettingsPath)" : "(skipped — file absent)"}`);
+    console.log(t("common.cli.messages.dryRunHeader", { path: importPath }));
+    console.log(
+      JSON.stringify(
+        {
+          ...importDoc,
+          providerProfiles: {
+            ...importDoc.providerProfiles,
+            apiConfigs: {
+              OmniRoute: {
+                ...importDoc.providerProfiles.apiConfigs.OmniRoute,
+                openAiApiKey: apiKey ? "set" : "sk_omniroute",
+              },
+            },
+          },
+        },
+        null,
+        2
+      )
+    );
+    console.log(
+      `\n── [dry-run] ${vscodePath} ── ${vscodeExists ? "(would set roo-cline.autoImportSettingsPath)" : "(skipped — file absent)"}`
+    );
   } else {
     mkdirSync(join(importPath, ".."), { recursive: true });
     writeFileSync(importPath, JSON.stringify(importDoc, null, 2) + "\n", "utf8");
-    printSuccess(`Wrote ${importPath}`);
+    printSuccess(t("common.cli.messages.wrote", { path: importPath }));
     if (vscodeExists) {
       const merged = buildRooVscodeAutoImport(readJson(vscodePath), importPath);
       writeFileSync(vscodePath, JSON.stringify(merged, null, 2) + "\n", "utf8");
-      printSuccess(`Set roo-cline.autoImportSettingsPath in ${vscodePath}`);
+      printSuccess(t("common.cli.messages.rooAutoImportSet", { path: vscodePath }));
     }
   }
 
-  printInfo("\nIn the Roo Code panel: Settings → Providers → OpenAI Compatible (guaranteed path):");
-  printInfo(`  Base URL:  ${baseUrl}        (Roo expects /v1)`);
-  printInfo(`  API Key:   <your OMNIROUTE_API_KEY>`);
-  printInfo(`  Model:     ${model}`);
-  printInfo(`Or use Roo: “Import Settings” → select ${importPath}`);
+  printInfo(t("common.cli.messages.rooInstructions"));
+  printInfo(`  ${t("common.cli.messages.rooBaseUrlValue", { value: baseUrl })}`);
+  printInfo(`  ${t("common.cli.messages.apiKeyValue", { value: "<your OMNIROUTE_API_KEY>" })}`);
+  printInfo(`  ${t("common.cli.messages.modelValue", { value: model })}`);
+  printInfo(t("common.cli.messages.rooImportInstructions", { path: importPath }));
   return 0;
 }
 
 export function registerSetupRoo(program) {
   program
     .command("setup-roo")
-    .description(
-      "Configure Roo Code for OmniRoute: write a Roo import JSON + autoImport pointer + print UI steps"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--model <id>", "Model id for Roo (required unless picked interactively)")
-    .option("--import-path <path>", "Roo import JSON path (default: ~/.omniroute/roo-settings.json)")
-    .option("--vscode-settings <path>", "VS Code settings.json (default: ~/.config/Code/User/settings.json)")
-    .option("--yes", "Non-interactive: do not prompt (requires --model)")
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupRoo"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--model <id>", t("common.cli.options.rooModel"))
+    .option("--import-path <path>", t("common.cli.options.rooImportPath"))
+    .option("--vscode-settings <path>", t("common.cli.options.vscodeSettings"))
+    .option("--yes", t("common.cli.options.nonInteractiveModel"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const code = await runSetupRooCommand(opts);
       if (code !== 0) process.exit(code);

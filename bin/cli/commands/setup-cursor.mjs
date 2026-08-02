@@ -9,6 +9,7 @@
  */
 
 import { printHeading, printInfo, printSuccess } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 
 function ensureV1(url) {
@@ -44,20 +45,20 @@ export function resolveCursorTarget(opts = {}) {
 /** The step-by-step Cursor UI instructions (pure → testable). */
 export function buildCursorInstructions({ apiBase, models }) {
   const lines = [
-    "Cursor stores this config in an opaque database, so configure it in the app:",
+    t("common.cli.messages.cursorIntro"),
     "",
-    "  1. Cursor → Settings (Cmd/Ctrl + ,) → Models",
-    "  2. Enable “Override OpenAI Base URL” and set it to:",
-    `       ${apiBase}        (the /v1 suffix is required)`,
-    "  3. Set the OpenAI API Key to your OmniRoute key (OMNIROUTE_API_KEY)",
-    "  4. Add the model name(s) you want under “Models” (Cursor has no auto-discovery):",
+    t("common.cli.messages.cursorStep1"),
+    t("common.cli.messages.cursorStep2"),
+    t("common.cli.messages.cursorApiBase", { apiBase }),
+    t("common.cli.messages.cursorApiKey"),
+    t("common.cli.messages.cursorModels"),
   ];
   const sample = (models && models.length ? models : ["glm/glm-5.2", "kmc/kimi-k2.7"]).slice(0, 8);
-  lines.push(`       e.g. ${sample.join(", ")}`);
-  lines.push("  5. Use the Chat panel (Cmd/Ctrl + L) to verify.");
+  lines.push(t("common.cli.messages.cursorExamples", { models: sample.join(", ") }));
+  lines.push(t("common.cli.messages.cursorStep5"));
   lines.push("");
-  lines.push("⚠  The custom base URL powers the CHAT panel only — Composer, inline edit");
-  lines.push("   (Cmd/Ctrl+K) and autocomplete keep using Cursor's own backend.");
+  lines.push(t("common.cli.messages.cursorWarning1"));
+  lines.push(t("common.cli.messages.cursorWarning2"));
   return lines.join("\n");
 }
 
@@ -71,7 +72,7 @@ async function fetchModelIds(apiBase, apiKey) {
     });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -80,27 +81,32 @@ async function fetchModelIds(apiBase, apiKey) {
 
 export async function runSetupCursorCommand(opts = {}) {
   const { apiBase, apiKey } = resolveCursorTarget(opts);
-  printHeading("OmniRoute → Cursor");
-  printInfo(`Server: ${apiBase}`);
+  printHeading(t("common.cli.messages.cursorTitle"));
+  printInfo(`${t("common.cli.messages.serverLabel")} ${apiBase}`);
 
   let models = [];
-  const only = opts.only ? opts.only.split(",").map((s) => s.trim()).filter(Boolean) : null;
+  const only = opts.only
+    ? opts.only
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
   const ids = await fetchModelIds(apiBase, apiKey);
   models = only ? ids.filter((id) => only.some((f) => id.includes(f))) : ids;
 
   console.log("\n" + buildCursorInstructions({ apiBase, models }));
-  printSuccess("\nCursor is configured manually (no file written — Cursor's storage is opaque).");
+  printSuccess(`\n${t("common.cli.messages.cursorConfigured")}`);
   return 0;
 }
 
 export function registerSetupCursor(program) {
   program
     .command("setup-cursor")
-    .description("Print the steps to point Cursor at OmniRoute (chat panel; Cursor config is not file-writable)")
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--only <patterns>", "Comma-separated substrings — suggest only matching model IDs")
+    .description(t("common.cli.descriptions.setupCursor"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--only <patterns>", t("common.cli.options.onlyModelPatterns"))
     .action(async (opts) => {
       const code = await runSetupCursorCommand(opts);
       if (code !== 0) process.exit(code);

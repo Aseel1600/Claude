@@ -8,6 +8,7 @@ import { TokenCounter } from "../tui-components/TokenCounter.jsx";
 import { MarkdownView } from "../tui-components/MarkdownView.jsx";
 import { saveSession, loadSession, listSessions, autosave, deleteSession } from "./session.mjs";
 import { writeFileSync } from "node:fs";
+import { t } from "../i18n.mjs";
 
 marked.use(markedTerminal({ width: 80 }));
 
@@ -33,27 +34,6 @@ const SLASH_COMMANDS = [
   "quit",
 ];
 
-const HELP_TEXT = `Available commands:
-  /model <id>        Change active model
-  /combo <name>      Change active combo
-  /system <prompt>   Set system prompt
-  /clear             Clear conversation history
-  /save <name>       Save current session
-  /load <name>       Load a saved session
-  /list              List saved sessions
-  /history [N]       Show last N messages (default 10)
-  /export <file>     Export conversation (md/json/txt)
-  /tokens            Show token usage + cost
-  /file <path>       Attach file content to next message
-  /temperature <t>   Adjust temperature (0-2)
-  /max-tokens <n>    Adjust max tokens
-  /reasoning <level> Adjust reasoning level
-  /skill execute <id> '<args>'  Run a skill
-  /memory search <q> Search memory
-  /memory add <text> Add to memory
-  /help              Show this help
-  /exit, /quit       Exit REPL`;
-
 function Message({ message }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
@@ -64,11 +44,15 @@ function Message({ message }) {
           {">"}{" "}
         </Text>
       )}
-      {isSystem && <Text color="yellow">[system] </Text>}
+      {isSystem && <Text color="yellow">[{t("common.cli.tui.systemLabel")}] </Text>}
       <MarkdownView content={message.content} />
       {message.latencyMs != null && (
         <Text dimColor>
-          [{message.model} · {message.latencyMs}ms · {message.usage?.total_tokens ?? "?"} tok]
+          {t("common.cli.tui.messageMeta", {
+            model: message.model,
+            latency: message.latencyMs,
+            tokens: message.usage?.total_tokens ?? "?",
+          })}
         </Text>
       )}
     </Box>
@@ -79,13 +63,19 @@ function SidePanel({ session }) {
   return (
     <Box flexDirection="column" width={20} borderStyle="single" borderColor="gray" paddingX={1}>
       <Text bold underline>
-        Session
+        {t("common.cli.tui.session")}
       </Text>
       <Text>
-        Model: <Text color="yellow">{session.model}</Text>
+        {t("common.cli.tui.model")}: <Text color="yellow">{session.model}</Text>
       </Text>
-      {session.combo && <Text>Combo: {session.combo}</Text>}
-      <Text>Msgs: {session.messages.length}</Text>
+      {session.combo && (
+        <Text>
+          {t("common.cli.tui.combo")}: {session.combo}
+        </Text>
+      )}
+      <Text>
+        {t("common.cli.tui.messages")}: {session.messages.length}
+      </Text>
       <Box marginTop={1}>
         <TokenCounter
           tokensIn={session.totalUsage.in}
@@ -95,7 +85,7 @@ function SidePanel({ session }) {
       </Box>
       <Box marginTop={1} flexDirection="column">
         <Text dimColor bold>
-          Commands
+          {t("common.cli.tui.commands")}
         </Text>
         {["/model", "/combo", "/system", "/clear", "/save", "/load", "/tokens", "/exit"].map(
           (c) => (
@@ -222,7 +212,10 @@ function ReplApp({ initialOptions, onExit }) {
     } catch (err) {
       setSession((s) => ({
         ...s,
-        messages: [...s.messages, { role: "system", content: `[error] ${err.message}` }],
+        messages: [
+          ...s.messages,
+          { role: "system", content: t("common.cli.tui.errorMessage", { message: err.message }) },
+        ],
       }));
     } finally {
       setPending(false);
@@ -242,20 +235,22 @@ function ReplApp({ initialOptions, onExit }) {
       case "model":
         if (args[0]) {
           setSession((s) => ({ ...s, model: args[0] }));
-          setStatusMsg(`✓ Model changed to ${args[0]}`);
+          setStatusMsg(t("common.cli.tui.modelChanged", { model: args[0] }));
         }
         break;
       case "combo":
         setSession((s) => ({ ...s, combo: args[0] || null }));
-        setStatusMsg(`✓ Combo changed to ${args[0] || "none"}`);
+        setStatusMsg(
+          t("common.cli.tui.comboChanged", { combo: args[0] || t("common.cli.tui.none") })
+        );
         break;
       case "system":
         setSession((s) => ({ ...s, system: args.join(" ") || null }));
-        setStatusMsg("✓ System prompt updated");
+        setStatusMsg(t("common.cli.tui.systemPromptUpdated"));
         break;
       case "clear":
         setSession((s) => ({ ...s, messages: [] }));
-        setStatusMsg("✓ History cleared");
+        setStatusMsg(t("common.cli.tui.historyCleared"));
         break;
       case "tokens":
         setSession((s) => ({
@@ -264,7 +259,11 @@ function ReplApp({ initialOptions, onExit }) {
             ...s.messages,
             {
               role: "system",
-              content: `In: ${s.totalUsage.in} · Out: ${s.totalUsage.out} · Cost: $${s.totalCost.toFixed(4)}`,
+              content: t("common.cli.tui.tokenSummary", {
+                in: s.totalUsage.in,
+                out: s.totalUsage.out,
+                cost: s.totalCost.toFixed(4),
+              }),
             },
           ],
         }));
@@ -272,9 +271,9 @@ function ReplApp({ initialOptions, onExit }) {
       case "save":
         if (args[0]) {
           saveSession(args[0], session);
-          setStatusMsg(`✓ Session saved as '${args[0]}'`);
+          setStatusMsg(t("common.cli.tui.sessionSaved", { name: args[0] }));
         } else {
-          setStatusMsg("Usage: /save <name>");
+          setStatusMsg(t("common.cli.tui.saveUsage"));
         }
         break;
       case "load":
@@ -282,9 +281,9 @@ function ReplApp({ initialOptions, onExit }) {
           try {
             const loaded = loadSession(args[0]);
             setSession(loaded);
-            setStatusMsg(`✓ Session '${args[0]}' loaded`);
+            setStatusMsg(t("common.cli.tui.sessionLoaded", { name: args[0] }));
           } catch {
-            setStatusMsg(`✗ Session '${args[0]}' not found`);
+            setStatusMsg(t("common.cli.tui.sessionNotFound", { name: args[0] }));
           }
         }
         break;
@@ -297,7 +296,7 @@ function ReplApp({ initialOptions, onExit }) {
                   (s) => `• ${s.name}  ${s.updatedAt ? new Date(s.updatedAt).toLocaleString() : ""}`
                 )
                 .join("\n")
-            : "No saved sessions";
+            : t("common.cli.tui.noSavedSessions");
         setSession((s) => ({
           ...s,
           messages: [...s.messages, { role: "system", content }],
@@ -312,14 +311,17 @@ function ReplApp({ initialOptions, onExit }) {
           .join("\n");
         setSession((s) => ({
           ...s,
-          messages: [...s.messages, { role: "system", content: msgs || "No history" }],
+          messages: [
+            ...s.messages,
+            { role: "system", content: msgs || t("common.cli.tui.noHistory") },
+          ],
         }));
         break;
       }
       case "export": {
         const filename = args[0];
         if (!filename) {
-          setStatusMsg("Usage: /export <file.md|json|txt>");
+          setStatusMsg(t("common.cli.tui.exportUsage"));
           break;
         }
         try {
@@ -335,16 +337,16 @@ function ReplApp({ initialOptions, onExit }) {
             content = session.messages.map((m) => `[${m.role}]: ${m.content}`).join("\n\n");
           }
           writeFileSync(filename, content);
-          setStatusMsg(`✓ Exported to ${filename}`);
+          setStatusMsg(t("common.cli.tui.exported", { path: filename }));
         } catch (err) {
-          setStatusMsg(`✗ Export failed: ${err.message}`);
+          setStatusMsg(t("common.cli.tui.exportFailed", { error: err.message }));
         }
         break;
       }
       case "temperature":
       case "max-tokens":
       case "reasoning":
-        setStatusMsg(`✓ ${cmd} set to ${args[0]} (applied to next request)`);
+        setStatusMsg(t("common.cli.tui.settingChanged", { setting: cmd, value: args[0] }));
         break;
       case "skill":
       case "memory":
@@ -353,11 +355,11 @@ function ReplApp({ initialOptions, onExit }) {
       case "help":
         setSession((s) => ({
           ...s,
-          messages: [...s.messages, { role: "system", content: HELP_TEXT }],
+          messages: [...s.messages, { role: "system", content: t("common.cli.tui.helpText") }],
         }));
         break;
       default:
-        setStatusMsg(`Unknown command: /${cmd} — type /help`);
+        setStatusMsg(t("common.cli.tui.unknownCommand", { command: cmd }));
     }
   }
 
@@ -368,14 +370,14 @@ function ReplApp({ initialOptions, onExit }) {
           {session.messages.map((m, i) => (
             <Message key={i} message={m} />
           ))}
-          {pending && <Text color="cyan">⠋ generating…</Text>}
+          {pending && <Text color="cyan">{t("common.cli.tui.generating")}</Text>}
           {statusMsg && <Text color="green">{statusMsg}</Text>}
         </Box>
         <Box borderStyle="round" borderColor={pending ? "gray" : "cyan"}>
           <Text color="green">{"> "}</Text>
           <TextInput value={input} onChange={setInput} onSubmit={submit} />
         </Box>
-        <Text dimColor>↑↓ history · Tab autocomplete · /help · /exit</Text>
+        <Text dimColor>{t("common.cli.tui.replFooter")}</Text>
       </Box>
       <SidePanel session={session} />
     </Box>

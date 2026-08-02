@@ -17,7 +17,9 @@ function readCache() {
     if (raw && typeof raw.ts === "number" && Date.now() - raw.ts < CACHE_TTL_MS) return raw;
   } catch (err) {
     if (process.env.OMNIROUTE_DEBUG_COMPLETION) {
-      console.error("[omniroute completion] readCache failed:", err?.message ?? err);
+      console.error(
+        t("common.cli.messages.completionReadCacheFailed", { error: err?.message ?? err })
+      );
     }
   }
   return null;
@@ -47,7 +49,9 @@ async function refreshCache(opts = {}) {
     }
   } catch (err) {
     if (process.env.OMNIROUTE_DEBUG_COMPLETION) {
-      console.error("[omniroute completion] refreshCache failed:", err?.message ?? err);
+      console.error(
+        t("common.cli.messages.completionRefreshCacheFailed", { error: err?.message ?? err })
+      );
     }
   }
   const data = { combos, providers, models, ts: Date.now() };
@@ -56,7 +60,9 @@ async function refreshCache(opts = {}) {
     writeFileSync(cachePath(), JSON.stringify(data));
   } catch (err) {
     if (process.env.OMNIROUTE_DEBUG_COMPLETION) {
-      console.error("[omniroute completion] writeCache failed:", err?.message ?? err);
+      console.error(
+        t("common.cli.messages.completionWriteCacheFailed", { error: err?.message ?? err })
+      );
     }
   }
   return data;
@@ -99,36 +105,36 @@ _omniroute_get_cache() {
 _omniroute() {
   local -a commands
   commands=(
-    'serve:Start the OmniRoute server'
-    'stop:Stop the server'
-    'restart:Restart the server'
-    'setup:Configure OmniRoute'
-    'doctor:Run health diagnostics'
-    'status:Show server status'
-    'logs:View application logs'
-    'providers:Manage providers'
-    'config:Manage config and contexts'
-    'keys:Manage API keys'
-    'models:Browse available models'
-    'combo:Manage routing combos'
-    'chat:Send chat completion'
-    'stream:Stream chat completion'
-    'dashboard:Open dashboard'
-    'open:Open UI resource in browser'
-    'backup:Create a backup'
-    'restore:Restore from backup'
-    'health:Show server health'
-    'quota:Show provider quotas'
-    'cache:Manage response cache'
-    'mcp:MCP server management'
-    'a2a:A2A server management'
-    'tunnel:Tunnel management'
-    'env:Environment variables'
-    'test:Test provider connection'
-    'update:Check for updates'
-    'completion:Shell completion'
-    'memory:Manage memory store'
-    'skills:Manage skills'
+    'serve:${t("common.cli.messages.completionServe")}'
+    'stop:${t("common.cli.messages.completionStop")}'
+    'restart:${t("common.cli.messages.completionRestart")}'
+    'setup:${t("common.cli.messages.completionSetup")}'
+    'doctor:${t("common.cli.messages.completionDoctor")}'
+    'status:${t("common.cli.messages.completionStatus")}'
+    'logs:${t("common.cli.messages.completionLogs")}'
+    'providers:${t("common.cli.messages.completionProviders")}'
+    'config:${t("common.cli.messages.completionConfig")}'
+    'keys:${t("common.cli.messages.completionKeys")}'
+    'models:${t("common.cli.messages.completionModels")}'
+    'combo:${t("common.cli.messages.completionCombo")}'
+    'chat:${t("common.cli.messages.completionChat")}'
+    'stream:${t("common.cli.messages.completionStream")}'
+    'dashboard:${t("common.cli.messages.completionDashboard")}'
+    'open:${t("common.cli.messages.completionOpen")}'
+    'backup:${t("common.cli.messages.completionBackup")}'
+    'restore:${t("common.cli.messages.completionRestore")}'
+    'health:${t("common.cli.messages.completionHealth")}'
+    'quota:${t("common.cli.messages.completionQuota")}'
+    'cache:${t("common.cli.messages.completionCache")}'
+    'mcp:${t("common.cli.messages.completionMcp")}'
+    'a2a:${t("common.cli.messages.completionA2a")}'
+    'tunnel:${t("common.cli.messages.completionTunnel")}'
+    'env:${t("common.cli.messages.completionEnv")}'
+    'test:${t("common.cli.messages.completionTest")}'
+    'update:${t("common.cli.messages.completionUpdate")}'
+    'completion:${t("common.cli.messages.completionCommand")}'
+    'memory:${t("common.cli.messages.completionMemory")}'
+    'skills:${t("common.cli.messages.completionSkills")}'
   )
 
   _arguments -C \\
@@ -157,10 +163,10 @@ _omniroute() {
           esac ;;
         chat|stream)
           _arguments \\
-            '--model[Model ID]:model:->models' \\
-            '--combo[Combo name]:combo:->combos' \\
-            '--system[System prompt]:' \\
-            '--max-tokens[Max tokens]:' ;;
+            '--model[${t("common.cli.messages.completionModelId")}]:model:->models' \\
+            '--combo[${t("common.cli.messages.completionComboName")}]:combo:->combos' \\
+            '--system[${t("common.cli.messages.completionSystemPrompt")}]:' \\
+            '--max-tokens[${t("common.cli.messages.completionMaxTokens")}]:' ;;
         open)
           _arguments '1:resource:(combos providers api-manager cli-tools agents settings logs memory skills evals audit cost resilience)' ;;
         completion) _arguments '1:subcommand:(zsh bash fish install refresh)' ;;
@@ -280,53 +286,55 @@ complete -c omniroute -l combo -a '(__omniroute_cache_get combos)'
 const generators = { zsh: generateZshScript, bash: generateBashScript, fish: generateFishScript };
 
 export function registerCompletion(program) {
-  const comp = program
-    .command("completion")
-    .description(t("completion.description") || "Generate or install shell completion scripts");
+  const comp = program.command("completion").description(t("completion.description"));
 
   comp
     .command("zsh")
-    .description(t("completion.zsh") || "Print zsh completion script")
+    .description(t("common.cli.descriptions.completionZsh"))
     .action(async () => process.stdout.write(generateZshScript()));
 
   comp
     .command("bash")
-    .description(t("completion.bash") || "Print bash completion script")
+    .description(t("common.cli.descriptions.completionBash"))
     .action(async () => process.stdout.write(generateBashScript()));
 
   comp
     .command("fish")
-    .description(t("completion.fish") || "Print fish completion script")
+    .description(t("common.cli.descriptions.completionFish"))
     .action(async () => process.stdout.write(generateFishScript()));
 
   comp
     .command("install [shell]")
-    .description(t("completion.install") || "Install completion script globally for detected shell")
+    .description(t("common.cli.descriptions.completionInstall"))
     .action(async (shell, opts, cmd) => {
       const target = shell || detectShell();
       const gen = generators[target];
       if (!gen) {
-        process.stderr.write(`Unknown shell: ${target}. Valid: bash, zsh, fish\n`);
+        process.stderr.write(`${t("common.cli.messages.unknownShell", { shell: target })}\n`);
         process.exit(2);
       }
       const dest = installPath(target);
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, gen());
       process.stdout.write(
-        `Installed ${target} completion at ${dest}\nRestart your shell or source the file.\n`
+        t("common.cli.messages.completionInstalled", { shell: target, path: dest }) + "\n"
       );
     });
 
   comp
     .command("refresh")
-    .description(t("completion.refresh") || "Refresh cache of combos/providers/models")
-    .option("--quiet", "Suppress output")
+    .description(t("common.cli.descriptions.completionRefresh"))
+    .option("--quiet", t("common.cli.options.quiet"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const data = await refreshCache(globalOpts);
       if (!opts.quiet && !globalOpts.quiet) {
         process.stdout.write(
-          `Cached: ${data.combos.length} combos, ${data.providers.length} providers, ${data.models.length} models\n`
+          t("common.cli.messages.completionCached", {
+            combos: data.combos.length,
+            providers: data.providers.length,
+            models: data.models.length,
+          }) + "\n"
         );
       }
     });
@@ -334,12 +342,12 @@ export function registerCompletion(program) {
   // Backward-compat: `omniroute completion <shell>` (positional arg form)
   comp
     .command("<shell>")
-    .description("Print completion script for shell (bash, zsh, fish)")
+    .description(t("common.cli.descriptions.completion"))
     .allowUnknownOption(false)
     .action(async (shell) => {
       const gen = generators[shell];
       if (!gen) {
-        process.stderr.write(`Unknown shell: ${shell}. Valid: bash, zsh, fish\n`);
+        process.stderr.write(`${t("common.cli.messages.unknownShell", { shell })}\n`);
         process.exit(1);
       }
       process.stdout.write(gen());
@@ -350,7 +358,7 @@ export function registerCompletion(program) {
 export async function runCompletionCommand(shell) {
   const gen = generators[shell];
   if (!gen) {
-    process.stderr.write(`Unknown shell: ${shell}. Valid: bash, zsh, fish\n`);
+    process.stderr.write(`${t("common.cli.messages.unknownShell", { shell })}\n`);
     return 1;
   }
   process.stdout.write(gen());

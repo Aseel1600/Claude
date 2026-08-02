@@ -17,7 +17,7 @@ function truncate(v, max = 30) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -50,7 +50,7 @@ export function registerSessions(program) {
       if (opts.active) params.set("active", "true");
       const res = await apiFetch(`/api/sessions?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -60,7 +60,7 @@ export function registerSessions(program) {
   s.command("show <sessionId>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/sessions?id=${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -70,15 +70,15 @@ export function registerSessions(program) {
     .option("--yes", t("sessions.expire.yes"))
     .action(async (id, opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Expire session ${id}?`);
+        const ok = await confirm(t("common.cli.messages.expirePrompt", { id }));
         if (!ok) return;
       }
       const res = await apiFetch(`/api/sessions?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Expired\n");
+      process.stdout.write(`${t("common.cli.messages.expired")}\n`);
     });
 
   s.command("expire-all")
@@ -86,21 +86,21 @@ export function registerSessions(program) {
     .option("--yes", t("sessions.expireAll.yes"))
     .action(async (opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Expire ALL sessions for ${opts.user}?`);
+        const ok = await confirm(t("common.cli.messages.expireAllPrompt", { user: opts.user }));
         if (!ok) return;
       }
       const res = await apiFetch(`/api/sessions?user=${opts.user}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Expired all\n");
+      process.stdout.write(`${t("common.cli.messages.expiredAll")}\n`);
     });
 
   s.command("current").action(async (opts, cmd) => {
     const res = await apiFetch("/api/sessions?current=true");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { render, Box, Text, useInput } from "ink";
 import { MenuSelect } from "../tui-components/MenuSelect.jsx";
+import { t } from "../i18n.mjs";
 
 function InterfaceMenuApp({ version, baseUrl, hasUpdate, latestVersion, onChoice }) {
   return (
@@ -14,24 +15,28 @@ function InterfaceMenuApp({ version, baseUrl, hasUpdate, latestVersion, onChoice
       {hasUpdate && (
         <Box marginTop={1}>
           <Text color="yellow">
-            ↑ Update available: v{latestVersion} (run `omniroute update --apply`)
+            {t("common.cli.tui.updateAvailable", { version: latestVersion })}
           </Text>
         </Box>
       )}
       <Box marginTop={1}>
         <MenuSelect
           items={[
-            { label: "🌐 Open Web UI in Browser", hint: "(default)" },
-            { label: "💻 Interactive TUI Dashboard" },
-            { label: "🔔 Start in Background (daemon)" },
-            { label: "📊 Show Live Logs" },
-            { label: "🚪 Exit" },
+            {
+              value: "web",
+              label: t("common.cli.tui.openWebUi"),
+              hint: t("common.cli.tui.default"),
+            },
+            { value: "tui", label: t("common.cli.tui.interactiveDashboard") },
+            { value: "daemon", label: t("common.cli.tui.background") },
+            { value: "logs", label: t("common.cli.tui.liveLogs") },
+            { value: "exit", label: t("common.cli.tui.exit") },
           ]}
-          onSelect={(item) => onChoice(item.label)}
+          onSelect={(item) => onChoice(item.value)}
         />
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>[↑↓] navigate [Enter] select [1-5] shortcut [q] exit</Text>
+        <Text dimColor>{t("common.cli.tui.menuFooter")}</Text>
       </Box>
     </Box>
   );

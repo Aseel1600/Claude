@@ -22,16 +22,16 @@ async function runConfigListCommand(opts = {}) {
   if (opts.json) {
     console.log(JSON.stringify(tools, null, 2));
   } else {
-    printHeading("CLI Tool Configuration Status");
-    for (const t of tools) {
-      const status = t.configured
-        ? "✓ Configured"
-        : t.installed
-          ? "✗ Not configured"
-          : "✗ Not installed";
-      console.log(`  ${t.name.padEnd(14)} ${status}`);
-      if (t.version) console.log(`    version: ${t.version}`);
-      console.log(`    config:  ${t.configPath}`);
+    printHeading(t("common.cli.messages.configStatusTitle"));
+    for (const tool of tools) {
+      const status = tool.configured
+        ? `✓ ${t("common.cli.messages.configured")}`
+        : tool.installed
+          ? `✗ ${t("common.cli.messages.notConfigured")}`
+          : `✗ ${t("common.cli.messages.notInstalled")}`;
+      console.log(`  ${tool.name.padEnd(14)} ${status}`);
+      if (tool.version) console.log(`    ${t("common.cli.messages.versionLabel")} ${tool.version}`);
+      console.log(`    ${t("common.cli.messages.configLabel")}  ${tool.configPath}`);
     }
   }
   return 0;
@@ -39,25 +39,29 @@ async function runConfigListCommand(opts = {}) {
 
 async function runConfigGetCommand(toolId, opts = {}) {
   if (!toolId) {
-    printError("Tool ID required. Usage: omniroute config get <tool>");
+    printError(t("common.cli.messages.toolIdRequired", { usage: "omniroute config get <tool>" }));
     return 1;
   }
   const { detectTool } = await import("../../../src/lib/cli-helper/tool-detector.ts");
   const tool = await detectTool(toolId);
   if (!tool) {
-    printError(`Unknown tool: ${toolId}`);
+    printError(t("common.cli.messages.unknownTool", { tool: toolId }));
     return 1;
   }
   if (opts.json) {
     console.log(JSON.stringify(tool, null, 2));
   } else {
-    printHeading(`${tool.name} Configuration`);
-    console.log(`  Installed:  ${tool.installed ? "Yes" : "No"}`);
-    console.log(`  Configured: ${tool.configured ? "Yes" : "No"}`);
-    console.log(`  Config:     ${tool.configPath}`);
-    if (tool.version) console.log(`  Version:    ${tool.version}`);
+    printHeading(t("common.cli.messages.configurationTitle", { name: tool.name }));
+    console.log(
+      `  ${t("common.cli.messages.installedLabel")}  ${tool.installed ? t("common.yes") : t("common.no")}`
+    );
+    console.log(
+      `  ${t("common.cli.messages.configuredLabel")} ${tool.configured ? t("common.yes") : t("common.no")}`
+    );
+    console.log(`  ${t("common.cli.messages.configLabel")}     ${tool.configPath}`);
+    if (tool.version) console.log(`  ${t("common.cli.messages.versionLabel")}    ${tool.version}`);
     if (tool.configContents) {
-      console.log(`\n  Contents:`);
+      console.log(`\n  ${t("common.cli.messages.contentsLabel")}`);
       console.log(tool.configContents);
     }
   }
@@ -66,7 +70,9 @@ async function runConfigGetCommand(toolId, opts = {}) {
 
 async function runConfigSetCommand(toolId, opts = {}) {
   if (!toolId) {
-    printError("Tool ID required. Usage: omniroute config set <tool> [options]");
+    printError(
+      t("common.cli.messages.toolIdRequired", { usage: "omniroute config set <tool> [options]" })
+    );
     return 1;
   }
 
@@ -75,7 +81,7 @@ async function runConfigSetCommand(toolId, opts = {}) {
   const model = opts.model;
 
   if (!apiKey) {
-    printError("API key required. Use --api-key or set OMNIROUTE_API_KEY.");
+    printError(t("common.cli.messages.apiKeyRequired"));
     return 1;
   }
 
@@ -83,25 +89,27 @@ async function runConfigSetCommand(toolId, opts = {}) {
   const result = await generateConfig(toolId, { baseUrl, apiKey, model });
 
   if (!result.success) {
-    printError(result.error || "Failed to generate config");
+    printError(result.error || t("common.cli.messages.generateConfigFailed"));
     return 1;
   }
 
   const nonInteractive = opts.nonInteractive || opts.yes;
 
   if (!nonInteractive) {
-    console.log(`\n  About to write config to: ${result.configPath}`);
-    console.log(`  Content preview:\n`);
+    console.log(`\n  ${t("common.cli.messages.aboutToWriteConfig", { path: result.configPath })}`);
+    console.log(`  ${t("common.cli.messages.contentPreview")}\n`);
     console.log(result.content);
     console.log("");
 
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-    const answer = await new Promise((resolve) => rl.question("Proceed? [y/N] ", resolve));
+    const answer = await new Promise((resolve) =>
+      rl.question(t("common.cli.messages.proceed"), resolve)
+    );
     rl.close();
 
     if (!/^y(es)?$/i.test(answer)) {
-      console.log("Aborted.");
+      console.log(t("common.cli.messages.aborted"));
       return 0;
     }
   }
@@ -110,16 +118,18 @@ async function runConfigSetCommand(toolId, opts = {}) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
   const backupPath = ensureBackup(result.configPath);
-  if (backupPath) printInfo(`Backup saved to: ${backupPath}`);
+  if (backupPath) printInfo(t("common.cli.messages.backupSaved", { path: backupPath }));
 
   fs.writeFileSync(result.configPath, result.content, "utf-8");
-  printSuccess(`Config written to ${result.configPath}`);
+  printSuccess(t("common.cli.messages.configWritten", { path: result.configPath }));
   return 0;
 }
 
 async function runConfigValidateCommand(toolId, opts = {}) {
   if (!toolId) {
-    printError("Tool ID required. Usage: omniroute config validate <tool>");
+    printError(
+      t("common.cli.messages.toolIdRequired", { usage: "omniroute config validate <tool>" })
+    );
     return 1;
   }
 
@@ -131,11 +141,11 @@ async function runConfigValidateCommand(toolId, opts = {}) {
   const result = await generateConfig(toolId, { baseUrl, apiKey, model });
 
   if (!result.success) {
-    printError(`Validation failed: ${result.error}`);
+    printError(t("common.cli.messages.validationFailed", { error: result.error }));
     return 1;
   }
 
-  printSuccess(`Config for ${toolId} is valid`);
+  printSuccess(t("common.cli.messages.configValid", { tool: toolId }));
   if (opts.json) {
     console.log(JSON.stringify({ valid: true, content: result.content }, null, 2));
   }
@@ -243,12 +253,12 @@ export async function runConfigLangListCommand(opts = {}) {
 }
 
 export function registerConfig(program) {
-  const config = program.command("config").description("Show or update CLI tool configuration");
+  const config = program.command("config").description(t("common.cli.descriptions.config"));
 
   config
     .command("list")
-    .description("List all CLI tools and config status")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.configList"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runConfigListCommand({ ...opts, output: globalOpts.output });
@@ -257,8 +267,8 @@ export function registerConfig(program) {
 
   config
     .command("get <tool>")
-    .description("Show current config for a tool")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.configGet"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (tool, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runConfigGetCommand(tool, { ...opts, output: globalOpts.output });
@@ -267,10 +277,10 @@ export function registerConfig(program) {
 
   config
     .command("set <tool>")
-    .description("Write config for a tool")
-    .option("--model <model>", "Model identifier (where applicable)")
-    .option("--non-interactive", "Do not prompt for confirmation")
-    .option("--yes", "Skip confirmation prompt")
+    .description(t("common.cli.descriptions.configSet"))
+    .option("--model <model>", t("common.cli.options.modelWhereApplicable"))
+    .option("--non-interactive", t("common.cli.options.nonInteractive"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (tool, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runConfigSetCommand(tool, {
@@ -284,9 +294,9 @@ export function registerConfig(program) {
 
   config
     .command("validate <tool>")
-    .description("Validate config format without writing")
-    .option("--model <model>", "Model identifier (where applicable)")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.configValidate"))
+    .option("--model <model>", t("common.cli.options.modelWhereApplicable"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (tool, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runConfigValidateCommand(tool, {
@@ -302,10 +312,10 @@ export function registerConfig(program) {
   // Matches the documented CLI usage in docs/frameworks/OPENCODE.md.
   config
     .command("opencode")
-    .description("Generate OpenCode config (alias for 'config set opencode')")
-    .option("--model <model>", "Model identifier")
-    .option("--non-interactive", "Do not prompt for confirmation")
-    .option("--yes", "Skip confirmation prompt")
+    .description(t("common.cli.descriptions.configOpenCode"))
+    .option("--model <model>", t("common.cli.options.modelIdentifier"))
+    .option("--non-interactive", t("common.cli.options.nonInteractive"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runConfigSetCommand("opencode", {
@@ -331,7 +341,7 @@ export function registerConfig(program) {
   lang
     .command("set <code>")
     .description(t("config.lang.setDescription"))
-    .option("--force", "Set even if already active")
+    .option("--force", t("common.cli.options.forceActive"))
     .action(async (code, opts, cmd) => {
       const exitCode = await runConfigLangSetCommand(code, opts);
       if (exitCode !== 0) process.exit(exitCode);

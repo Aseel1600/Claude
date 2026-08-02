@@ -11,7 +11,7 @@ function fmtTs(v) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -51,7 +51,7 @@ export function registerNodes(program) {
       if (opts.enabled) params.set("enabled", "true");
       const res = await apiFetch(`/api/provider-nodes?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -61,7 +61,7 @@ export function registerNodes(program) {
   nodes.command("get <nodeId>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/provider-nodes/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -92,7 +92,7 @@ export function registerNodes(program) {
       };
       const res = await apiFetch("/api/provider-nodes", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -112,7 +112,7 @@ export function registerNodes(program) {
       }
       const res = await apiFetch(`/api/provider-nodes/${id}`, { method: "PUT", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -128,10 +128,10 @@ export function registerNodes(program) {
       }
       const res = await apiFetch(`/api/provider-nodes/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Removed\n");
+      process.stdout.write(`${t("common.cli.messages.removedLine")}\n`);
     });
 
   nodes
@@ -144,7 +144,7 @@ export function registerNodes(program) {
         body: { baseUrl: opts.baseUrl, provider: opts.provider },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -156,7 +156,7 @@ export function registerNodes(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/api/provider-nodes/${id}?test=true`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -169,7 +169,7 @@ export function registerNodes(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/api/provider-nodes/${id}?metrics=true&period=${opts.period}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());

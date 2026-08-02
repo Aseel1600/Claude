@@ -279,7 +279,7 @@ export async function syncCodexProfilesFromModels(models, opts = {}) {
     const content = buildProfileToml(id, cfg);
 
     if (dryRun) {
-      console.log(`\n── [dry-run] ${filePath} ──`);
+      console.log(t("common.cli.messages.dryRunHeader", { path: filePath }));
       console.log(content);
     } else {
       writeFileSync(filePath, content, "utf8");
@@ -305,8 +305,8 @@ export async function runSetupCodexCommand(opts = {}) {
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
   const onlyFilter = opts.only ? opts.only.split(",").map((s) => s.trim()) : null;
 
-  printHeading(`OmniRoute → Codex CLI profile generator`);
-  printInfo(`Connecting to ${baseUrl} …`);
+  printHeading(t("common.cli.messages.codexTitle"));
+  printInfo(t("common.cli.messages.connectingTo", { baseUrl }));
 
   // ── Fetch model catalog ───────────────────────────────────────────────────
   let models;
@@ -318,19 +318,17 @@ export async function runSetupCodexCommand(opts = {}) {
       headers,
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.ok)
+      throw new Error(`${t("common.cli.messages.http", { status: res.status })} ${res.statusText}`);
     const body = await res.json();
     models = body.data ?? body.models ?? [];
   } catch (err) {
-    printError(`Failed to fetch models: ${err.message}`);
-    printInfo(
-      "Make sure OmniRoute is running and the --remote URL is correct.\n" +
-        "You may also need --api-key if OmniRoute requires authentication."
-    );
+    printError(t("common.cli.messages.fetchModelsFailed", { error: err.message }));
+    printInfo(t("common.cli.messages.setupFetchAuthHint"));
     return 1;
   }
 
-  printInfo(`Received ${models.length} models from ${baseUrl}`);
+  printInfo(t("common.cli.messages.receivedModels", { count: models.length, baseUrl }));
 
   // ── Generate profiles ─────────────────────────────────────────────────────
   const { written, skipped, profiles } = await syncCodexProfilesFromModels(models, {
@@ -341,18 +339,22 @@ export async function runSetupCodexCommand(opts = {}) {
 
   if (!dryRun) {
     for (const profile of profiles) {
-      printSuccess(`  ✓ ${profile.name}.config.toml  (${profile.model})`);
+      printSuccess(
+        t("common.cli.messages.codexProfileWritten", { name: profile.name, model: profile.model })
+      );
     }
     console.log("");
-    printSuccess(`${written} profiles written to ${codexHome}`);
+    printSuccess(
+      t("common.cli.messages.codexProfilesWritten", { count: written, path: codexHome })
+    );
     if (skipped > 0) {
-      printInfo(`${skipped} models skipped (no matching profile pattern)`);
+      printInfo(t("common.cli.messages.skippedModels", { count: skipped }));
     }
-    console.log("\nTo use a profile:");
-    console.log("  codex --profile <name>    # e.g. codex --profile glm52");
-    console.log("  codex -p <name>           # short form");
+    console.log(t("common.cli.messages.useProfile"));
+    console.log(t("common.cli.messages.codexProfileCommand"));
+    console.log(t("common.cli.messages.codexShortProfileCommand"));
   } else {
-    console.log(`\n[dry-run] ${written} profiles would be written (${skipped} skipped)`);
+    console.log(t("common.cli.messages.codexDryRun", { written, skipped }));
   }
 
   return 0;
@@ -361,25 +363,13 @@ export async function runSetupCodexCommand(opts = {}) {
 export function registerSetupCodex(program) {
   program
     .command("setup-codex")
-    .description(
-      "Fetch the live model catalog from OmniRoute (local or remote VPS) and generate " +
-        "~/.codex/<name>.config.toml profiles for each supported model"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option(
-      "--remote <url>",
-      "Remote OmniRoute URL, e.g. http://100.67.86.91:20128 — fetches models from there"
-    )
-    .option(
-      "--api-key <key>",
-      "OmniRoute API key for the remote instance (defaults to OMNIROUTE_API_KEY env var)"
-    )
-    .option("--codex-home <dir>", "Directory where profile files are written (default: ~/.codex)")
-    .option(
-      "--only <patterns>",
-      "Comma-separated substrings — only generate profiles for matching model IDs (e.g. glm,kimi)"
-    )
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupCodex"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--codex-home <dir>", t("common.cli.options.setupCodexHome"))
+    .option("--only <patterns>", t("common.cli.options.setupCodexOnly"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const exitCode = await runSetupCodexCommand(opts);
       if (exitCode !== 0) process.exit(exitCode);

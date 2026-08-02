@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { StatusBadge } from "../../tui-components/StatusBadge.jsx";
+import { t } from "../../i18n.mjs";
 
 export default function Health({ baseUrl, apiKey }) {
   const fetcher = React.useCallback(async () => {
@@ -21,7 +22,7 @@ export default function Health({ baseUrl, apiKey }) {
         return (
           <Box flexDirection="column" gap={1}>
             <Box flexDirection="column">
-              <Text bold>Components</Text>
+              <Text bold>{t("common.cli.tui.healthComponents")}</Text>
               {Object.entries(components).map(([name, status]) => (
                 <Box key={name} gap={2}>
                   <Box width={20}>

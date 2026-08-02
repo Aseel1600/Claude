@@ -227,7 +227,11 @@ function _printResult(result, showLatency) {
   if (result.success) {
     const runs = result.runs > 1 ? ` (${result.passed}/${result.runs} passed)` : "";
     console.log(`\x1b[32m✔ ${t("test.passed")}\x1b[0m${runs}`);
-    if (result.response) console.log(`\x1b[2m  Response: ${result.response}\x1b[0m`);
+    if (result.response) {
+      console.log(
+        `\x1b[2m  ${t("common.cli.messages.responseLabel", { response: result.response })}\x1b[0m`
+      );
+    }
   } else {
     const runs = result.runs > 1 ? ` (${result.passed}/${result.runs} passed)` : "";
     console.error(

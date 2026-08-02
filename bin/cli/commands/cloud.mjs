@@ -43,7 +43,7 @@ const taskSchema = [
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
@@ -65,7 +65,9 @@ function registerTaskCommands(parent, agent) {
       const prompt =
         opts.prompt ?? (opts.promptFile ? readFileSync(opts.promptFile, "utf8") : null);
       if (!prompt) {
-        process.stderr.write("--prompt or --prompt-file required\n");
+        process.stderr.write(
+          `${t("common.cli.messages.requiredPair", { first: "--prompt", second: "--prompt-file" })}\n`
+        );
         process.exit(2);
       }
       const body = {
@@ -78,7 +80,7 @@ function registerTaskCommands(parent, agent) {
       };
       const res = await apiFetch("/api/v1/agents/tasks", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -94,7 +96,7 @@ function registerTaskCommands(parent, agent) {
       if (opts.status) params.set("status", opts.status);
       const res = await apiFetch(`/api/v1/agents/tasks?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -107,7 +109,7 @@ function registerTaskCommands(parent, agent) {
     .action(async (taskId, opts, cmd) => {
       const res = await apiFetch(`/api/v1/agents/tasks/${taskId}`);
       if (!res.ok) {
-        process.stderr.write(`Not found: ${taskId}\n`);
+        process.stderr.write(`${t("common.cli.messages.notFound", { id: taskId })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -119,7 +121,7 @@ function registerTaskCommands(parent, agent) {
     .action(async (taskId, opts, cmd) => {
       const res = await apiFetch(`/api/v1/agents/tasks/${taskId}`);
       if (!res.ok) {
-        process.stderr.write(`Not found: ${taskId}\n`);
+        process.stderr.write(`${t("common.cli.messages.notFound", { id: taskId })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -137,7 +139,7 @@ function registerTaskCommands(parent, agent) {
     .option("--yes", t("cloud.task.cancel.yes"))
     .action(async (taskId, opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Cancel task ${taskId}?`);
+        const ok = await confirm(t("common.cli.messages.cancelTask", { id: taskId }));
         if (!ok) return;
       }
       const res = await apiFetch(`/api/v1/agents/tasks/${taskId}`, {
@@ -145,10 +147,10 @@ function registerTaskCommands(parent, agent) {
         body: { op: "cancel" },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Cancelled\n");
+      process.stdout.write(`${t("common.cli.messages.cancelledLine")}\n`);
     });
 
   task
@@ -160,10 +162,10 @@ function registerTaskCommands(parent, agent) {
         body: { op: "approve_plan" },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Plan approved\n");
+      process.stdout.write(`${t("common.cli.messages.planApproved")}\n`);
     });
 
   task
@@ -175,10 +177,10 @@ function registerTaskCommands(parent, agent) {
         body: { op: "message", message: msg },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Message sent\n");
+      process.stdout.write(`${t("common.cli.messages.messageSent")}\n`);
     });
 
   parent
@@ -187,7 +189,7 @@ function registerTaskCommands(parent, agent) {
     .action(async (taskId, opts, cmd) => {
       const res = await apiFetch(`/api/v1/agents/tasks/${taskId}?op=sources`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -223,8 +225,8 @@ export function registerCloud(program) {
     agentCmd
       .command("auth")
       .description(t("cloud.agent.auth.description"))
-      .option("--no-browser", "Skip browser open")
-      .option("--timeout <ms>", "Auth timeout ms", parseInt, 300000)
+      .option("--no-browser", t("common.cli.options.noBrowser"))
+      .option("--timeout <ms>", t("common.cli.options.authTimeout"), parseInt, 300000)
       .action(async (opts, cmd) => {
         const { runOAuthStart } = await import("./oauth.mjs");
         await runOAuthStart({ provider: agent, ...opts }, cmd);

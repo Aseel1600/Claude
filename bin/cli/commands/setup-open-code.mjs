@@ -244,12 +244,10 @@ export function runOpenCodeAuth(providerId) {
   if (res.error) {
     // ENOENT = opencode is not on PATH
     if (res.error.code === "ENOENT") {
-      printInfo(
-        `opencode CLI not found on PATH. Run \`opencode auth login --provider ${providerId}\` manually after installing OpenCode.`
-      );
+      printInfo(t("common.cli.messages.opencodeCliNotFound", { provider: providerId }));
       return 1;
     }
-    printError(`opencode auth login failed: ${res.error.message}`);
+    printError(t("common.cli.messages.opencodeAuthFailed", { error: res.error.message }));
     return 1;
   }
   return typeof res.status === "number" ? res.status : 1;
@@ -286,13 +284,13 @@ export async function runSetupOpenCodeCommand(opts = {}) {
   const wantsAuth = Boolean(opts.auth);
   const nonInteractive = Boolean(opts.nonInteractive);
 
-  printHeading("OmniRoute → OpenCode Plugin Setup");
+  printHeading(t("common.cli.messages.openCodePluginTitle"));
 
   const resolvedDirs = resolveOpenCodeDirs();
   const opencodeConfigDir = opts.configDir || resolvedDirs.configDir;
   const opencodeDataDir = resolvedDirs.dataDir;
-  printInfo(`OpenCode config dir: ${opencodeConfigDir}`);
-  printInfo(`OpenCode data dir:   ${opencodeDataDir}`);
+  printInfo(t("common.cli.messages.openCodeConfigDir", { path: opencodeConfigDir }));
+  printInfo(t("common.cli.messages.openCodeDataDir", { path: opencodeDataDir }));
 
   // 1. Resolve bundled plugin
   let pluginInfo;
@@ -302,23 +300,23 @@ export async function runSetupOpenCodeCommand(opts = {}) {
     printError(err.message);
     return { exitCode: 1 };
   }
-  printInfo(`Bundled plugin:      ${pluginInfo.distEntry}`);
+  printInfo(t("common.cli.messages.bundledPlugin", { path: pluginInfo.distEntry }));
 
   // 2. Ensure OpenCode config dir exists (opencode will create it on
   //    first run, but creating it now means we can write opencode.json
   //    even if OC has never been launched).
   if (!existsSync(opencodeConfigDir)) {
     mkdirSync(opencodeConfigDir, { recursive: true });
-    printInfo(`Created OpenCode config dir (didn't exist yet).`);
+    printInfo(t("common.cli.messages.createdOpenCodeConfigDir"));
   }
 
   // 3. Copy plugin into OpenCode's plugin dir
   let pluginTargetDir;
   try {
     pluginTargetDir = installPluginToOpenCode(pluginInfo, opencodeConfigDir);
-    printSuccess(`Plugin installed at ${pluginTargetDir}`);
+    printSuccess(t("common.cli.messages.pluginInstalledAt", { path: pluginTargetDir }));
   } catch (err) {
-    printError(`Failed to install plugin: ${err.message}`);
+    printError(t("common.cli.messages.pluginInstallFailed", { error: err.message }));
     return { exitCode: 1 };
   }
 
@@ -333,32 +331,30 @@ export async function runSetupOpenCodeCommand(opts = {}) {
       displayName,
     });
     configPath = reg.configPath;
-    printSuccess(`opencode.json updated at ${configPath}`);
+    printSuccess(t("common.cli.messages.opencodeConfigUpdated", { path: configPath }));
   } catch (err) {
-    printError(`Failed to update opencode.json: ${err.message}`);
+    printError(t("common.cli.messages.opencodeConfigUpdateFailed", { error: err.message }));
     return { exitCode: 1, pluginTargetDir };
   }
 
   // 5. Optionally run auth login
   if (wantsAuth) {
     if (nonInteractive) {
-      printInfo(`Skipping \`opencode auth login\` (non-interactive mode).`);
-      printInfo(`Run manually: opencode auth login --provider ${providerId}`);
+      printInfo(t("common.cli.messages.opencodeAuthSkipped"));
+      printInfo(t("common.cli.messages.opencodeAuthManual", { provider: providerId }));
     } else {
-      printHeading("Authenticating with OpenCode");
+      printHeading(t("common.cli.messages.authenticatingOpenCode"));
       const authExit = runOpenCodeAuth(providerId);
       if (authExit !== 0) {
         return { exitCode: authExit, configPath, pluginTargetDir };
       }
     }
   } else {
-    printInfo(
-      `Next step: opencode auth login --provider ${providerId}   (pass --auth to do this automatically)`
-    );
+    printInfo(t("common.cli.messages.opencodeAuthNextStep", { provider: providerId }));
   }
 
-  printSuccess("OpenCode plugin setup complete");
-  printInfo(`Restart OpenCode to pick up the new plugin entry.`);
+  printSuccess(t("common.cli.messages.openCodePluginComplete"));
+  printInfo(t("common.cli.messages.restartOpenCode"));
   return { exitCode: 0, configPath, pluginTargetDir };
 }
 
@@ -372,30 +368,13 @@ export async function runSetupOpenCodeCommand(opts = {}) {
 export function registerSetupOpenCode(setupCommand) {
   setupCommand
     .command("opencode")
-    .description(
-      t("setup.opencode") ||
-        "Install and register the bundled @omniroute/opencode-plugin with a local OpenCode install"
-    )
-    .option(
-      "--provider-id <id>",
-      "OpenCode provider id to register (default: omniroute)",
-      "omniroute"
-    )
-    .option(
-      "--base-url <url>",
-      "OmniRoute base URL the plugin should talk to (default: active context or http://localhost:20128)"
-    )
-    .option(
-      "--remote <url>",
-      "Remote OmniRoute URL, e.g. http://192.168.0.15:20128 (overrides --base-url and the context)"
-    )
-    .option("--display-name <name>", "Display name in the OpenCode UI (optional)")
-    .option(
-      "--auth",
-      "Run `opencode auth login --provider <providerId>` after wiring (interactive)",
-      false
-    )
-    .option("--non-interactive", "Do not prompt; skip the auth login step", false)
+    .description(t("common.cli.descriptions.setupOpenCode"))
+    .option("--provider-id <id>", t("common.cli.options.setupOpenCodeProviderId"), "omniroute")
+    .option("--base-url <url>", t("common.cli.options.setupOpenCodeBaseUrl"))
+    .option("--remote <url>", t("common.cli.options.setupOpenCodeRemote"))
+    .option("--display-name <name>", t("common.cli.options.displayName"))
+    .option("--auth", t("common.cli.options.setupOpenCodeAuth"), false)
+    .option("--non-interactive", t("common.cli.options.skipAuth"), false)
     .action(async (opts, cmd) => {
       // The parent `setup` command uses cmd.optsWithGlobals(); we mirror
       // that here so global flags (--json, --base-url, --api-key) still

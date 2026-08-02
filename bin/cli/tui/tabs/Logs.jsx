@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
+import { t } from "../../i18n.mjs";
 
 const MAX_LINES = 40;
 
@@ -47,13 +48,16 @@ export default function Logs({ baseUrl, apiKey }) {
   return (
     <Box flexDirection="column">
       <Box flexDirection="column" flexGrow={1}>
-        {lines.length === 0 && <Text dimColor>Waiting for log events…</Text>}
+        {lines.length === 0 && <Text dimColor>{t("common.cli.tui.waitingLogs")}</Text>}
         {lines.map((line, i) => (
           <Text key={i}>{line}</Text>
         ))}
       </Box>
       <Box marginTop={1}>
-        <Text dimColor>{paused ? "[PAUSED]" : "[LIVE]"} [p] pause/resume [c] clear</Text>
+        <Text dimColor>
+          {paused ? t("common.cli.tui.paused") : t("common.cli.tui.live")}{" "}
+          {t("common.cli.tui.logsFooter")}
+        </Text>
       </Box>
     </Box>
   );

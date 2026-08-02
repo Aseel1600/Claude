@@ -66,7 +66,7 @@ export function registerOpenapi(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/openapi/spec");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -74,7 +74,7 @@ export function registerOpenapi(program) {
         opts.format === "yaml" ? toYaml(data) + "\n" : JSON.stringify(data, null, 2);
       if (opts.out) {
         writeFileSync(opts.out, serialized);
-        process.stdout.write(`Saved to ${opts.out}\n`);
+        process.stdout.write(`${t("common.cli.messages.savedTo", { path: opts.out })}\n`);
       } else {
         process.stdout.write(serialized);
       }
@@ -86,15 +86,17 @@ export function registerOpenapi(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/openapi/spec");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const spec = await res.json();
       try {
         validateBasic(spec);
-        process.stdout.write("Spec is valid\n");
+        process.stdout.write(`${t("common.cli.messages.specValid")}\n`);
       } catch (err) {
-        process.stderr.write(`Invalid: ${err.message}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.invalidMessage", { message: err.message })}\n`
+        );
         process.exit(1);
       }
     });
@@ -115,7 +117,7 @@ export function registerOpenapi(program) {
         body: { path, method: opts.method, body, query, headers },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -128,7 +130,7 @@ export function registerOpenapi(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/openapi/spec");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const spec = await res.json();
@@ -155,7 +157,7 @@ export function registerOpenapi(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/openapi/spec");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const spec = await res.json();

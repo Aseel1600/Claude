@@ -24,14 +24,26 @@ const VALID_STRATEGIES = [
 
 const suggestSchema = [
   { key: "rank", header: "#" },
-  { key: "name", header: "Combo", width: 24 },
-  { key: "strategy", header: "Strategy", width: 16 },
-  { key: "score", header: "Score", formatter: (v) => (v != null ? v.toFixed(3) : "-") },
-  { key: "latencyP50Ms", header: "Latency P50", formatter: (v) => (v != null ? `${v}ms` : "-") },
-  { key: "costPer1k", header: "Cost/1k", formatter: (v) => (v != null ? `$${v.toFixed(5)}` : "-") },
+  { key: "name", header: t("common.cli.messages.comboHeader"), width: 24 },
+  { key: "strategy", header: t("common.cli.messages.strategyHeader"), width: 16 },
+  {
+    key: "score",
+    header: t("common.cli.messages.scoreHeader"),
+    formatter: (v) => (v != null ? v.toFixed(3) : "-"),
+  },
+  {
+    key: "latencyP50Ms",
+    header: t("common.cli.messages.latencyP50Header"),
+    formatter: (v) => (v != null ? `${v}ms` : "-"),
+  },
+  {
+    key: "costPer1k",
+    header: t("common.cli.messages.costPer1kHeader"),
+    formatter: (v) => (v != null ? `$${v.toFixed(5)}` : "-"),
+  },
   {
     key: "rationale",
-    header: "Rationale",
+    header: t("common.cli.messages.rationale"),
     width: 40,
     formatter: (v) => {
       if (!v) return "-";
@@ -67,7 +79,7 @@ export function extendComboSuggest(combo) {
         body: { name: "omniroute_best_combo_for_task", arguments: body },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -78,7 +90,9 @@ export function extendComboSuggest(combo) {
       }));
       emit(rows, cmd.optsWithGlobals(), suggestSchema);
       if (opts.explain && !cmd.optsWithGlobals().quiet) {
-        process.stderr.write(`\nRationale:\n${data.rationale ?? "(no rationale)"}\n`);
+        process.stderr.write(
+          `\n${t("common.cli.messages.rationale")}\n${data.rationale ?? t("common.cli.messages.noRationale")}\n`
+        );
       }
       if (opts.switch && rows[0]) {
         const best = rows[0].name;
@@ -87,10 +101,12 @@ export function extendComboSuggest(combo) {
           body: { name: best },
         });
         if (!switchRes.ok) {
-          process.stderr.write(`Switch failed: ${switchRes.status}\n`);
+          process.stderr.write(
+            `${t("common.cli.messages.switchFailed", { status: switchRes.status })}\n`
+          );
           process.exit(1);
         }
-        process.stderr.write(`\nSwitched to: ${best}\n`);
+        process.stderr.write(`\n${t("common.cli.messages.switchedTo", { name: best })}\n`);
       }
     });
 }
@@ -100,8 +116,8 @@ export function registerCombo(program) {
 
   combo
     .command("list")
-    .description("List configured routing combos")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.comboList"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runComboListCommand({ ...opts, output: globalOpts.output });
@@ -110,7 +126,7 @@ export function registerCombo(program) {
 
   combo
     .command("switch <name>")
-    .description("Activate a routing combo")
+    .description(t("common.cli.descriptions.comboActivate"))
     .action(async (name, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runComboSwitchCommand(name, { ...opts, output: globalOpts.output });
@@ -119,9 +135,9 @@ export function registerCombo(program) {
 
   combo
     .command("create <name>")
-    .description("Create a new routing combo")
+    .description(t("common.cli.descriptions.comboCreate"))
     .addOption(
-      new Option("--strategy <strategy>", "Routing strategy")
+      new Option("--strategy <strategy>", t("common.cli.options.comboStrategy"))
         .choices(VALID_STRATEGIES)
         .default("priority")
     )
@@ -136,8 +152,8 @@ export function registerCombo(program) {
 
   combo
     .command("delete <name>")
-    .description("Delete a routing combo")
-    .option("--yes", "Skip confirmation")
+    .description(t("common.cli.descriptions.comboDelete"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (name, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runComboDeleteCommand(name, { ...opts, output: globalOpts.output });
@@ -201,7 +217,7 @@ export async function runComboListCommand(opts = {}) {
 
 export async function runComboSwitchCommand(name, opts = {}) {
   if (!name) {
-    console.error("Combo name is required.");
+    console.error(t("common.cli.messages.comboRequired"));
     return 1;
   }
 
@@ -214,14 +230,14 @@ export async function runComboSwitchCommand(name, opts = {}) {
           acceptNotOk: true,
         });
         if (!listRes.ok) {
-          console.error(`Failed to fetch combo list (HTTP ${listRes.status}).`);
+          console.error(t("common.cli.messages.comboListFailed", { status: listRes.status }));
           return 1;
         }
         const data = await listRes.json();
         const combos = Array.isArray(data) ? data : (data.combos ?? []);
         const found = combos.find((c) => c.name === name || c.id === name);
         if (!found) {
-          console.error(`Combo '${name}' not found.`);
+          console.error(t("common.cli.messages.comboNotFound", { name }));
           return 1;
         }
         const patchRes = await api("/api/settings", {
@@ -231,13 +247,13 @@ export async function runComboSwitchCommand(name, opts = {}) {
           acceptNotOk: true,
         });
         if (!patchRes.ok) {
-          console.error(`Failed to switch combo (HTTP ${patchRes.status}).`);
+          console.error(t("common.cli.messages.comboSwitchFailed", { status: patchRes.status }));
           return 1;
         }
       } else {
         const combo = await db.combos.getComboByName(name);
         if (!combo) {
-          console.error(`Combo '${name}' not found.`);
+          console.error(t("common.cli.messages.comboNotFound", { name }));
           return 1;
         }
         db.combos.setActiveCombo(name);
@@ -254,12 +270,17 @@ export async function runComboSwitchCommand(name, opts = {}) {
 
 export async function runComboCreateCommand(name, strategy = "priority", opts = {}) {
   if (!name) {
-    console.error("Combo name is required.");
+    console.error(t("common.cli.messages.comboRequired"));
     return 1;
   }
 
   if (!VALID_STRATEGIES.includes(strategy)) {
-    console.error(`Invalid strategy '${strategy}'. Valid: ${VALID_STRATEGIES.join(", ")}`);
+    console.error(
+      t("common.cli.messages.invalidStrategy", {
+        strategy,
+        valid: VALID_STRATEGIES.join(", "),
+      })
+    );
     return 1;
   }
 
@@ -275,13 +296,15 @@ export async function runComboCreateCommand(name, strategy = "priority", opts = 
         if (!res.ok) {
           const body = await res.text().catch(() => "");
           const msg = body ? ` — ${body}` : "";
-          console.error(`Failed to create combo (HTTP ${res.status})${msg}`);
+          console.error(
+            t("common.cli.messages.comboCreateFailed", { status: res.status, message: msg })
+          );
           return 1;
         }
       } else {
         const existing = await db.combos.getComboByName(name);
         if (existing) {
-          console.error(`Combo '${name}' already exists. Delete it first.`);
+          console.error(t("common.cli.messages.comboExists", { name }));
           return 1;
         }
         await db.combos.createCombo({ name, strategy, enabled: true, models: [], config: {} });
@@ -298,7 +321,7 @@ export async function runComboCreateCommand(name, strategy = "priority", opts = 
 
 export async function runComboDeleteCommand(name, opts = {}) {
   if (!name) {
-    console.error("Combo name is required.");
+    console.error(t("common.cli.messages.comboRequired"));
     return 1;
   }
 
@@ -306,7 +329,10 @@ export async function runComboDeleteCommand(name, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(t("combo.confirmDelete", { name }) + " [y/N] ", resolve)
+      rl.question(
+        t("combo.confirmDelete", { name }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        resolve
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
@@ -324,14 +350,14 @@ export async function runComboDeleteCommand(name, opts = {}) {
           acceptNotOk: true,
         });
         if (!listRes.ok) {
-          console.error(`Failed to fetch combo list (HTTP ${listRes.status}).`);
+          console.error(t("common.cli.messages.comboListFailed", { status: listRes.status }));
           return 1;
         }
         const data = await listRes.json();
         const combos = Array.isArray(data) ? data : (data.combos ?? []);
         const found = combos.find((c) => c.name === name || c.id === name);
         if (!found) {
-          console.error(`Combo '${name}' not found.`);
+          console.error(t("common.cli.messages.comboNotFound", { name }));
           return 1;
         }
         const delRes = await api(`/api/combos/${encodeURIComponent(found.id)}`, {
@@ -340,13 +366,13 @@ export async function runComboDeleteCommand(name, opts = {}) {
           acceptNotOk: true,
         });
         if (!delRes.ok) {
-          console.error(`Failed to delete combo (HTTP ${delRes.status}).`);
+          console.error(t("common.cli.messages.comboDeleteFailed", { status: delRes.status }));
           return 1;
         }
       } else {
         const deleted = await db.combos.deleteComboByName(name);
         if (!deleted) {
-          console.error(`Combo '${name}' not found.`);
+          console.error(t("common.cli.messages.comboNotFound", { name }));
           return 1;
         }
       }

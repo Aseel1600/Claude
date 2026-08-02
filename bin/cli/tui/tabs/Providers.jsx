@@ -3,12 +3,13 @@ import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { DataTable } from "../../tui-components/DataTable.jsx";
 import { StatusBadge } from "../../tui-components/StatusBadge.jsx";
+import { t } from "../../i18n.mjs";
 
 const SCHEMA = [
-  { key: "name", header: "Provider", width: 16 },
-  { key: "status", header: "Status", width: 12, formatter: (v) => v },
-  { key: "accounts", header: "Accounts", width: 10 },
-  { key: "models", header: "Models", width: 8 },
+  { key: "name", header: t("common.cli.tui.provider"), width: 16 },
+  { key: "status", header: t("common.cli.tui.evalStatus"), width: 12, formatter: (v) => v },
+  { key: "accounts", header: t("common.cli.tui.accounts"), width: 10 },
+  { key: "models", header: t("common.cli.tui.models"), width: 8 },
 ];
 
 export default function Providers({ baseUrl, apiKey }) {
@@ -41,7 +42,7 @@ export default function Providers({ baseUrl, apiKey }) {
         }}
       />
       <Box marginTop={1}>
-        <Text dimColor>[↑↓] select [Enter] details [t] test [r] refresh</Text>
+        <Text dimColor>{t("common.cli.tui.providersFooter")}</Text>
       </Box>
     </Box>
   );

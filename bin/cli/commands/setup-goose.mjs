@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError, createPrompt } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 
 function stripToRoot(url) {
@@ -26,7 +27,9 @@ export function resolveGooseTarget(opts = {}) {
   if (opts.remote) root = stripToRoot(opts.remote);
   else {
     try {
-      root = stripToRoot(resolveActiveContext(opts.context ?? process.env.OMNIROUTE_CONTEXT)?.baseUrl);
+      root = stripToRoot(
+        resolveActiveContext(opts.context ?? process.env.OMNIROUTE_CONTEXT)?.baseUrl
+      );
     } catch {
       /* none */
     }
@@ -80,7 +83,7 @@ async function fetchModelIds(host, apiKey) {
     const res = await fetch(`${host}/v1/models`, { headers, signal: AbortSignal.timeout(8000) });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -90,26 +93,31 @@ async function fetchModelIds(host, apiKey) {
 export async function runSetupGooseCommand(opts = {}) {
   const { host, apiKey } = resolveGooseTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const configPath = opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "goose", "config.yaml");
+  const configPath =
+    opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "goose", "config.yaml");
 
-  printHeading("OmniRoute → Goose (openai-compatible)");
-  printInfo(`OPENAI_HOST: ${host}   (no /v1 — Goose appends it)`);
+  printHeading(t("common.cli.messages.gooseTitle"));
+  printInfo(t("common.cli.messages.gooseHostInfo", { host }));
 
   let model = opts.model;
   if (!model) {
     const ids = await fetchModelIds(host, apiKey);
     if (ids.length && !opts.yes) {
-      printInfo(`Examples: ${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`);
+      printInfo(
+        t("common.cli.messages.examples", {
+          models: `${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`,
+        })
+      );
       const prompt = createPrompt();
       try {
-        model = await prompt.ask("Model id for Goose");
+        model = await prompt.ask(t("common.cli.messages.gooseModelPrompt"));
       } finally {
         prompt.close();
       }
     }
   }
   if (!model) {
-    printError("A model is required. Pass --model <id>.");
+    printError(t("common.cli.messages.modelRequired"));
     return 2;
   }
 
@@ -119,30 +127,30 @@ export async function runSetupGooseCommand(opts = {}) {
 
   if (dryRun) {
     console.log("\n" + out);
-    printInfo(`[dry-run] → ${configPath}`);
+    printInfo(t("common.cli.messages.dryRunPath", { path: configPath }));
   } else {
     mkdirSync(join(configPath, ".."), { recursive: true });
     writeFileSync(configPath, out, "utf8");
-    printSuccess(`Wrote ${configPath}`);
+    printSuccess(t("common.cli.messages.wrote", { path: configPath }));
   }
 
-  printInfo("\nProvide the key (Goose reads it from the env / OS keyring):");
+  printInfo(`\n${t("common.cli.messages.provideEnvKey")}`);
   console.log(buildGooseEnvRecipe({ host, model }));
-  printInfo("Then run:  goose session   (or: goose run -t \"reply OK\")");
+  printInfo(t("common.cli.messages.runGoose"));
   return 0;
 }
 
 export function registerSetupGoose(program) {
   program
     .command("setup-goose")
-    .description("Configure Goose for OmniRoute: write ~/.config/goose/config.yaml + print the env recipe")
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--model <id>", "Model id for Goose (required unless picked interactively)")
-    .option("--config-path <path>", "config.yaml path (default: ~/.config/goose/config.yaml)")
-    .option("--yes", "Non-interactive: do not prompt (requires --model)")
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupGoose"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--model <id>", t("common.cli.options.setupModelRequired"))
+    .option("--config-path <path>", t("common.cli.options.setupConfigPath"))
+    .option("--yes", t("common.cli.options.nonInteractiveModel"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const code = await runSetupGooseCommand(opts);
       if (code !== 0) process.exit(code);

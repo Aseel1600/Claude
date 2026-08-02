@@ -20,6 +20,7 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import {
   categoriseModel,
   isCodexCompatibleTextModel,
@@ -144,8 +145,8 @@ export async function runSetupClaudeCommand(opts = {}) {
   const profilesRoot = join(claudeHome, "profiles");
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
 
-  printHeading("OmniRoute → Claude Code profile generator");
-  printInfo(`Connecting to ${baseUrl} …`);
+  printHeading(t("common.cli.messages.claudeTitle"));
+  printInfo(t("common.cli.messages.connectingTo", { baseUrl }));
 
   // ── Fetch model catalog ───────────────────────────────────────────────────
   let models;
@@ -156,19 +157,17 @@ export async function runSetupClaudeCommand(opts = {}) {
       headers,
       signal: AbortSignal.timeout(10000),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    if (!res.ok)
+      throw new Error(`${t("common.cli.messages.http", { status: res.status })} ${res.statusText}`);
     const body = await res.json();
     models = body.data ?? body.models ?? [];
   } catch (err) {
-    printError(`Failed to fetch models: ${err.message}`);
-    printInfo(
-      "Make sure OmniRoute is running and the --remote URL is correct.\n" +
-        "You may also need --api-key if OmniRoute requires authentication."
-    );
+    printError(t("common.cli.messages.fetchModelsFailed", { error: err.message }));
+    printInfo(t("common.cli.messages.setupFetchAuthHint"));
     return 1;
   }
 
-  printInfo(`Received ${models.length} models from ${baseUrl}`);
+  printInfo(t("common.cli.messages.receivedModels", { count: models.length, baseUrl }));
 
   const { written, skipped, profiles } = await syncClaudeProfilesFromModels(models, {
     claudeHome,
@@ -179,18 +178,20 @@ export async function runSetupClaudeCommand(opts = {}) {
 
   if (!dryRun) {
     for (const profile of profiles) {
-      printSuccess(`  ✓ profiles/${profile.name}/settings.json  (${profile.model})`);
+      printSuccess(
+        t("common.cli.messages.claudeProfileWritten", { name: profile.name, model: profile.model })
+      );
     }
     console.log("");
-    printSuccess(`${written} Claude Code profiles written to ${profilesRoot}`);
-    if (skipped > 0) printInfo(`${skipped} models skipped (no matching profile pattern)`);
-    console.log("\nTo use a profile:");
-    console.log("  omniroute launch --profile <name>     # e.g. omniroute launch --profile glm52");
-    console.log(
-      "  # or: CLAUDE_CONFIG_DIR=~/.claude/profiles/<name> claude  (export ANTHROPIC_AUTH_TOKEN first)"
+    printSuccess(
+      t("common.cli.messages.claudeProfilesWritten", { count: written, path: profilesRoot })
     );
+    if (skipped > 0) printInfo(t("common.cli.messages.skippedModels", { count: skipped }));
+    console.log(t("common.cli.messages.useProfile"));
+    console.log(t("common.cli.messages.claudeLaunchCommand"));
+    console.log(t("common.cli.messages.claudeConfigDirCommand"));
   } else {
-    console.log(`\n[dry-run] ${written} profiles would be written (${skipped} skipped)`);
+    console.log(t("common.cli.messages.claudeDryRun", { written, skipped }));
   }
 
   return 0;
@@ -199,19 +200,13 @@ export async function runSetupClaudeCommand(opts = {}) {
 export function registerSetupClaude(program) {
   program
     .command("setup-claude")
-    .description(
-      "Fetch the live model catalog from OmniRoute (local or remote VPS) and generate " +
-        "~/.claude/profiles/<name>/ Claude Code profiles (CLAUDE_CONFIG_DIR) for each model"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--claude-home <dir>", "Claude home dir (default: ~/.claude)")
-    .option(
-      "--only <patterns>",
-      "Comma-separated substrings — only matching model IDs (e.g. glm,kimi)"
-    )
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupClaude"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--claude-home <dir>", t("common.cli.options.claudeHome"))
+    .option("--only <patterns>", t("common.cli.options.setupClaudeOnly"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const exitCode = await runSetupClaudeCommand(opts);
       if (exitCode !== 0) process.exit(exitCode);

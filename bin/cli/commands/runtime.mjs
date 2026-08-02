@@ -12,7 +12,9 @@ import {
 async function confirm(msg) {
   const readline = await import("node:readline");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise((r) => rl.question(`${msg} [y/N] `, r));
+  const answer = await new Promise((r) =>
+    rl.question(`${msg}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, r)
+  );
   rl.close();
   return /^y(es)?$/i.test(answer);
 }
@@ -26,27 +28,25 @@ async function confirm(msg) {
 async function runRepairAction(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   await withSpinner(
-    "Repairing native deps",
+    t("common.cli.messages.repairingNativeDeps"),
     async () => ensureBetterSqliteRuntime({ silent: true, force: opts.force }),
     globalOpts
   );
   const ok = hasModule("better-sqlite3") && isBetterSqliteBinaryValid();
   if (ok) {
-    process.stdout.write("✓ better-sqlite3 repaired OK\n");
+    process.stdout.write(`${t("common.cli.messages.repairOk")}\n`);
   } else {
-    process.stderr.write("✗ Repair failed — check npm availability\n");
+    process.stderr.write(`${t("common.cli.messages.repairFailed")}\n`);
     process.exit(1);
   }
 }
 
 export function registerRuntime(program) {
-  const runtime = program
-    .command("runtime")
-    .description(t("runtime.description") || "Manage native runtime dependencies");
+  const runtime = program.command("runtime").description(t("common.cli.descriptions.runtime"));
 
   runtime
     .command("check")
-    .description("Check status of native deps in runtime directory")
+    .description(t("common.cli.descriptions.runtimeCheck"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const status = {
@@ -61,8 +61,8 @@ export function registerRuntime(program) {
 
   runtime
     .command("repair")
-    .description("Reinstall native deps in runtime directory")
-    .option("--force", "Force reinstall even if valid")
+    .description(t("common.cli.descriptions.runtimeRepair"))
+    .option("--force", t("common.cli.options.forceActive"))
     .action(runRepairAction);
 
   // Top-level discoverability alias: `omniroute repair` invokes the SAME action
@@ -71,27 +71,31 @@ export function registerRuntime(program) {
   // have a single self-heal command that works without a C++ toolchain.
   program
     .command("repair")
-    .description("Repair native deps (alias for `runtime repair`)")
-    .option("--force", "Force reinstall even if valid")
+    .description(t("common.cli.descriptions.runtimeRepairAlias"))
+    .option("--force", t("common.cli.options.forceActive"))
     .action(runRepairAction);
 
   runtime
     .command("clean")
-    .description("Remove runtime directory (frees disk space)")
-    .option("--yes", "Skip confirmation")
+    .description(t("common.cli.descriptions.runtimeClean"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (opts) => {
       if (!opts.yes) {
-        const ok = await confirm(`Remove ${getRuntimeNodeModules()}?`);
+        const ok = await confirm(
+          t("common.cli.messages.removeRuntimePrompt", { path: getRuntimeNodeModules() })
+        );
         if (!ok) {
-          process.stdout.write("Cancelled.\n");
+          process.stdout.write(`${t("common.cancelled")}\n`);
           return;
         }
       }
       try {
         rmSync(getRuntimeNodeModules(), { recursive: true, force: true });
-        process.stdout.write("Cleaned runtime directory.\n");
+        process.stdout.write(`${t("common.cli.messages.runtimeCleaned")}\n`);
       } catch (e) {
-        process.stderr.write(`Failed: ${e instanceof Error ? e.message : String(e)}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.runtimeFailed", { error: e instanceof Error ? e.message : String(e) })}\n`
+        );
         process.exit(1);
       }
     });

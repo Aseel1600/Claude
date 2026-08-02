@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
+import { t } from "../i18n.mjs";
 
 /**
  * `omniroute login antigravity` — local OAuth helper for remote installs.
@@ -54,9 +55,9 @@ function defaultStartServer(preferredPort) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end(
         "<!doctype html><meta charset=utf-8><title>OmniRoute</title>" +
-          "<body style=\"font-family:system-ui;padding:2rem\">" +
-          "<h2>✅ Authorization received</h2>" +
-          "<p>Return to your terminal — you can close this tab.</p></body>"
+          '<body style="font-family:system-ui;padding:2rem">' +
+          `<h2>✅ ${t("common.cli.messages.authReceived")}</h2>` +
+          `<p>${t("common.cli.messages.returnTerminal")}</p></body>`
       );
       resolveCallback(params);
     });
@@ -116,9 +117,9 @@ export async function runAntigravityLogin(opts = {}, deps = {}) {
   const server = await startServer(opts.port);
   const { redirectUri, state, authUrl } = await buildAntigravityAuthRequest(server.port, makeState);
 
-  log(`\nOpen this URL to authorize Antigravity (it will open automatically):\n\n  ${authUrl}\n\n`);
+  log(`\n${t("common.cli.messages.loginUrl")}\n\n  ${authUrl}\n\n`);
   if (opts.browser !== false) await openBrowser(authUrl);
-  log("Waiting for Google to redirect back to the local loopback...\n");
+  log(`${t("common.cli.messages.loginWait")}\n`);
 
   const timeoutMs = opts.timeout ?? 300000;
   let timer;
@@ -128,7 +129,7 @@ export async function runAntigravityLogin(opts = {}, deps = {}) {
       server.waitForCallback(),
       new Promise((_, reject) => {
         timer = setTimeout(
-          () => reject(new Error("Timed out waiting for the OAuth callback")),
+          () => reject(new Error(t("common.cli.messages.oauthCallbackTimeout"))),
           timeoutMs
         );
         // Don't keep the event loop alive solely for this timer.
@@ -141,26 +142,23 @@ export async function runAntigravityLogin(opts = {}, deps = {}) {
   }
 
   if (params.error) {
-    throw new Error(`Authorization failed: ${params.error_description || params.error}`);
+    throw new Error(
+      t("common.cli.messages.authorizationFailed", {
+        error: params.error_description || params.error,
+      })
+    );
   }
   if (params.state !== state) {
-    throw new Error("State mismatch — aborting (possible CSRF). Please retry the login.");
+    throw new Error(t("common.cli.messages.stateMismatch"));
   }
   if (!params.code) {
-    throw new Error("No authorization code returned by Google.");
+    throw new Error(t("common.cli.messages.noAuthCode"));
   }
 
   const tokens = await exchange(params.code, redirectUri);
   const blob = encodeCredentialBlob({ provider: PROVIDER, tokens });
 
-  print(
-    "\n" +
-      "Antigravity authorized. Copy the line below and paste it into your remote\n" +
-      "OmniRoute dashboard: Providers → Antigravity → Connect → \"Paste credentials\".\n" +
-      "(This contains a refresh token — treat it like a password.)\n\n" +
-      blob +
-      "\n\n"
-  );
+  print("\n" + t("common.cli.messages.loginCredential") + "\n\n" + blob + "\n\n");
   return blob;
 }
 
@@ -172,21 +170,21 @@ async function runLoginAntigravity(opts) {
       port: opts.port,
     });
   } catch (err) {
-    process.stderr.write(`\nLogin failed: ${err?.message || err}\n`);
+    process.stderr.write(
+      `\n${t("common.cli.messages.loginFailed", { error: err?.message || err })}\n`
+    );
     process.exit(1);
   }
 }
 
 export function registerLogin(program) {
-  const login = program
-    .command("login")
-    .description("Local OAuth helpers for remote OmniRoute installs (run on your own machine)");
+  const login = program.command("login").description(t("common.cli.descriptions.login"));
 
   login
     .command("antigravity")
-    .description("Authorize Antigravity locally and print a credential blob to paste remotely")
-    .option("--no-browser", "Do not auto-open the browser; print the URL instead")
-    .option("--port <n>", "Fixed loopback port (default: OS-assigned)", (v) => parseInt(v, 10))
-    .option("--timeout <ms>", "How long to wait for the callback", (v) => parseInt(v, 10), 300000)
+    .description(t("common.cli.descriptions.loginAntigravity"))
+    .option("--no-browser", t("common.cli.options.noBrowser"))
+    .option("--port <n>", t("common.cli.options.loginPort"), (v) => parseInt(v, 10))
+    .option("--timeout <ms>", t("common.cli.options.loginTimeout"), (v) => parseInt(v, 10), 300000)
     .action(runLoginAntigravity);
 }

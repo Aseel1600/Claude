@@ -23,8 +23,8 @@ function formatBytes(bytes) {
 export function registerStatus(program) {
   program
     .command("status")
-    .description("Show OmniRoute status dashboard")
-    .option("-v, --verbose", "Show additional details")
+    .description(t("common.cli.descriptions.status"))
+    .option("-v, --verbose", t("common.cli.options.statusVerbose"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const exitCode = await runStatusCommand({ ...opts, output: globalOpts.output });
@@ -73,20 +73,22 @@ export async function runStatusCommand(opts = {}) {
     return 0;
   }
 
-  printHeading("OmniRoute Status");
-  console.log(`  Version:     ${status.version}`);
-  console.log(`  Data Dir:    ${status.dataDir}`);
+  printHeading(t("common.cli.messages.statusTitle"));
+  console.log(`  ${t("common.cli.messages.statusVersion")}     ${status.version}`);
+  console.log(`  ${t("common.cli.messages.dataDir")}    ${status.dataDir}`);
   console.log(
-    `  Database:    ${status.database.exists ? "Found" : "Not found"} (${status.database.size || "N/A"})`
+    `  ${t("common.cli.messages.database")}    ${status.database.exists ? t("common.cli.messages.found") : t("common.cli.messages.notFoundShort")} (${status.database.size || t("common.cli.messages.notApplicable")})`
   );
-  console.log(`  Config Dir:  ${status.configExists ? "Exists" : "Not found"}`);
+  console.log(
+    `  ${t("common.cli.messages.configDir")}  ${status.configExists ? t("common.cli.messages.found") : t("common.cli.messages.notFoundShort")}`
+  );
 
   if (status.tools) {
-    console.log("\n  CLI Tools:");
+    console.log(`\n  ${t("common.cli.messages.cliTools")}`);
     for (const tool of status.tools) {
       const icon = tool.configured ? "✓" : tool.installed ? "~" : "✗";
       console.log(
-        `    ${icon} ${tool.name.padEnd(14)} ${tool.installed ? "installed" : "not installed"}${tool.version ? ` (${tool.version})` : ""}`
+        `    ${icon} ${tool.name.padEnd(14)} ${tool.installed ? t("common.cli.messages.installed") : t("common.cli.messages.notInstalled")}${tool.version ? ` (${tool.version})` : ""}`
       );
     }
   }

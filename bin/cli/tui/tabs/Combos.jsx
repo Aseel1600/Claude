@@ -2,12 +2,18 @@ import React from "react";
 import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { DataTable } from "../../tui-components/DataTable.jsx";
+import { t } from "../../i18n.mjs";
 
 const SCHEMA = [
-  { key: "name", header: "Name", width: 20 },
-  { key: "strategy", header: "Strategy", width: 14 },
-  { key: "targets", header: "Targets", width: 8 },
-  { key: "enabled", header: "Enabled", width: 8, formatter: (v) => (v ? "✓" : "✗") },
+  { key: "name", header: t("common.cli.tui.name"), width: 20 },
+  { key: "strategy", header: t("common.cli.tui.strategy"), width: 14 },
+  { key: "targets", header: t("common.cli.tui.targets"), width: 8 },
+  {
+    key: "enabled",
+    header: t("common.cli.tui.enabled"),
+    width: 8,
+    formatter: (v) => (v ? "✓" : "✗"),
+  },
 ];
 
 export default function Combos({ baseUrl, apiKey }) {
@@ -40,7 +46,7 @@ export default function Combos({ baseUrl, apiKey }) {
         }}
       />
       <Box marginTop={1}>
-        <Text dimColor>[↑↓] select [Enter] details [r] refresh</Text>
+        <Text dimColor>{t("common.cli.tui.tabFooter")}</Text>
       </Box>
     </Box>
   );

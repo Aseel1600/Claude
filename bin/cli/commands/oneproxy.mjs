@@ -81,7 +81,7 @@ export function registerOneProxy(program) {
   config.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/settings/oneproxy");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -100,7 +100,7 @@ export function registerOneProxy(program) {
       }
       const res = await apiFetch("/api/settings/oneproxy", { method: "PUT", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -111,7 +111,7 @@ export function registerOneProxy(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/settings/oneproxy?include=pool");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();

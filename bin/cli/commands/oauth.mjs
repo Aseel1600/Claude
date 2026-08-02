@@ -47,18 +47,22 @@ async function pollStatus(endpoint, timeoutMs) {
     const data = await res.json();
     if (data.status === "complete" || data.status === "completed") return data;
     if (data.status === "error" || data.status === "failed") {
-      process.stderr.write(`OAuth failed: ${data.error ?? data.message ?? "unknown"}\n`);
+      process.stderr.write(
+        `${t("common.cli.messages.oauthFailed", { error: data.error ?? data.message ?? t("common.cli.messages.unknownError") })}\n`
+      );
       process.exit(1);
     }
   }
-  process.stderr.write("Timeout waiting for OAuth callback\n");
+  process.stderr.write(`${t("common.cli.messages.oauthCallbackTimeout")}\n`);
   process.exit(124);
 }
 
 async function runBrowserFlow(def, opts) {
   const startRes = await apiFetch(`/api/oauth/${def.id}/start`, { method: "POST" });
   if (!startRes.ok) {
-    process.stderr.write(`Failed to start OAuth for ${def.id}: ${startRes.status}\n`);
+    process.stderr.write(
+      `${t("common.cli.messages.oauthStartFailed", { provider: def.id, status: startRes.status })}\n`
+    );
     process.exit(1);
   }
   const start = await startRes.json();
@@ -70,9 +74,9 @@ async function runBrowserFlow(def, opts) {
     const tuiResult = await startOAuthTui({ provider: def.name ?? def.id, url });
     if (tuiResult.status === "cancelled") return;
   } else {
-    process.stdout.write(`\nOpen this URL to authorize:\n  ${url}\n\n`);
+    process.stdout.write(t("common.cli.messages.openAuthorizeUrl", { url }));
     if (opts.browser !== false) await openBrowser(url);
-    process.stderr.write("Waiting for authorization... (Ctrl+C to cancel)\n");
+    process.stderr.write(`${t("common.cli.messages.waitingAuthorization")}\n`);
   }
 
   const result = await pollStatus(
@@ -80,7 +84,9 @@ async function runBrowserFlow(def, opts) {
     opts.timeout ?? 300000
   );
   process.stdout.write(
-    `Authorized: ${result.email ?? result.userId ?? result.account ?? "connected"}\n`
+    `${t("common.cli.messages.authorized", {
+      account: result.email ?? result.userId ?? result.account ?? "connected",
+    })}\n`
   );
 }
 
@@ -90,17 +96,19 @@ async function runImportFlow(def, opts) {
     : `/api/oauth/${def.id}/import`;
   const res = await apiFetch(endpoint, { method: "POST" });
   if (!res.ok) {
-    process.stderr.write(`Import failed: ${res.status}\n`);
+    process.stderr.write(`${t("common.cli.messages.importFailed", { status: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
-  process.stdout.write(`Imported ${data.count ?? 0} connection(s) from ${def.name}\n`);
+  process.stdout.write(
+    `${t("common.cli.messages.importedConnections", { count: data.count ?? 0, provider: def.name })}\n`
+  );
 }
 
 async function runSocialFlow(def, opts) {
   let social = opts.social;
   if (!social) {
-    process.stderr.write("--social <google|github> required for kiro\n");
+    process.stderr.write(`${t("common.cli.messages.socialRequired")}\n`);
     process.exit(2);
   }
   const startRes = await apiFetch(`/api/oauth/${def.id}/social-authorize`, {
@@ -108,35 +116,46 @@ async function runSocialFlow(def, opts) {
     body: { social },
   });
   if (!startRes.ok) {
-    process.stderr.write(`Failed: ${startRes.status}\n`);
+    process.stderr.write(
+      `${t("common.cli.messages.socialStartFailed", { status: startRes.status })}\n`
+    );
     process.exit(1);
   }
   const start = await startRes.json();
   const url = start.authorizeUrl ?? start.url;
-  process.stdout.write(`\nOpen this URL:\n  ${url}\n\n`);
+  process.stdout.write(t("common.cli.messages.openSocialUrl", { url }));
   if (opts.browser !== false) await openBrowser(url);
-  process.stderr.write("Waiting for social authorization...\n");
+  process.stderr.write(`${t("common.cli.messages.waitingSocial")}\n`);
   const result = await pollStatus(
     `/api/oauth/${def.id}/social-exchange?state=${encodeURIComponent(start.state ?? "")}`,
     opts.timeout ?? 300000
   );
-  process.stdout.write(`Authorized: ${result.email ?? result.userId ?? "connected"}\n`);
+  process.stdout.write(
+    `${t("common.cli.messages.authorized", {
+      account: result.email ?? result.userId ?? "connected",
+    })}\n`
+  );
 }
 
 async function runDeviceFlow(def, opts) {
   const providerKey = def.id === "claude-code" ? "command-code" : def.id;
   const startRes = await apiFetch(`/api/providers/${providerKey}/auth/start`, { method: "POST" });
   if (!startRes.ok) {
-    process.stderr.write(`Failed to start device flow: ${startRes.status}\n`);
+    process.stderr.write(
+      `${t("common.cli.messages.oauthStartFailed", { provider: def.id, status: startRes.status })}\n`
+    );
     process.exit(1);
   }
   const start = await startRes.json();
   process.stdout.write(
-    `\nDevice code: ${start.userCode ?? start.user_code ?? ""}\nVisit: ${start.verificationUri ?? start.verification_uri}\n\n`
+    t("common.cli.messages.deviceCode", {
+      code: start.userCode ?? start.user_code ?? "",
+      url: start.verificationUri ?? start.verification_uri,
+    })
   );
   if (opts.browser !== false)
     await openBrowser(start.verificationUri ?? start.verification_uri ?? "");
-  process.stderr.write("Waiting for device authorization...\n");
+  process.stderr.write(`${t("common.cli.messages.waitingDevice")}\n`);
   const deadline = Date.now() + (opts.timeout ?? 300000);
   const intervalMs = (start.intervalMs ?? start.interval ?? 5) * 1000;
   while (Date.now() < deadline) {
@@ -151,15 +170,21 @@ async function runDeviceFlow(def, opts) {
         method: "POST",
         body: { state: start.state },
       });
-      process.stdout.write(`Authorized: ${status.account ?? status.email ?? "connected"}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.authorized", {
+          account: status.account ?? status.email ?? "connected",
+        })}\n`
+      );
       return;
     }
     if (status.status === "error") {
-      process.stderr.write(`Device auth failed: ${status.error}\n`);
+      process.stderr.write(
+        `${t("common.cli.messages.deviceAuthFailed", { error: status.error })}\n`
+      );
       process.exit(1);
     }
   }
-  process.stderr.write("Timeout\n");
+  process.stderr.write(`${t("common.cli.messages.oauthCallbackTimeout")}\n`);
   process.exit(124);
 }
 
@@ -167,7 +192,7 @@ export async function runOAuthStart(opts, cmd) {
   const def = PROVIDERS_WITH_OAUTH.find((p) => p.id === opts.provider);
   if (!def) {
     process.stderr.write(
-      `Unknown OAuth provider: ${opts.provider}\nRun: omniroute oauth providers\n`
+      `${t("common.cli.messages.unknownOAuthProvider", { provider: opts.provider })}\n`
     );
     process.exit(2);
   }
@@ -189,7 +214,7 @@ export async function runOAuthStatus(opts, cmd) {
   if (opts.provider) params.set("provider", opts.provider);
   const res = await apiFetch(`/api/providers?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -202,7 +227,7 @@ export async function runOAuthStatus(opts, cmd) {
 export async function runOAuthRevoke(opts, cmd) {
   if (!opts.yes) {
     process.stdout.write(
-      `Revoke OAuth for ${opts.provider}${opts.connectionId ? ` (${opts.connectionId})` : ""}? (yes/no) `
+      `${t("common.cli.messages.revokeOAuthPrompt", { provider: opts.provider, id: opts.connectionId ? ` (${opts.connectionId})` : "" })}${t("common.cli.messages.confirmYesNoSuffix")}`
     );
     const answer = await new Promise((resolve) => {
       process.stdin.setEncoding("utf8");
@@ -215,10 +240,10 @@ export async function runOAuthRevoke(opts, cmd) {
     ? await apiFetch(`/api/providers/${id}`, { method: "DELETE" })
     : await apiFetch(`/api/oauth/${opts.provider}/revoke`, { method: "POST" });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Revoked\n`);
+  process.stdout.write(`${t("common.cli.messages.revokedLine")}\n`);
 }
 
 export function registerOAuth(program) {

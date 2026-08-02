@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
+import { t } from "../i18n.mjs";
 
 export function ConfirmDialog({ message, onConfirm, onCancel }) {
   const [selected, setSelected] = useState(1); // 0=yes, 1=no (default no)
@@ -25,14 +26,14 @@ export function ConfirmDialog({ message, onConfirm, onCancel }) {
           color={selected === 0 ? "green" : undefined}
           inverse={selected === 0}
         >
-          Yes
+          {t("common.yes")}
         </Text>
         <Text
           bold={selected === 1}
           color={selected === 1 ? "red" : undefined}
           inverse={selected === 1}
         >
-          No
+          {t("common.no")}
         </Text>
       </Box>
     </Box>

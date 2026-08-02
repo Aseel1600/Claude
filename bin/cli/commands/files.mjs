@@ -21,7 +21,7 @@ function fmtBytes(n) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -55,7 +55,7 @@ export function registerFiles(program) {
       if (opts.purpose) params.set("purpose", opts.purpose);
       const res = await apiFetch(`/v1/files?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -68,7 +68,7 @@ export function registerFiles(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/v1/files/${id}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -82,7 +82,10 @@ export function registerFiles(program) {
       const stat = statSync(filePath);
       if (stat.size > 100 * 1024 * 1024) {
         process.stderr.write(
-          `Warning: file is ${fmtBytes(stat.size)} (${stat.size > 500e6 ? "very " : ""}large)\n`
+          `${t("common.cli.messages.warningFileLarge", {
+            size: fmtBytes(stat.size),
+            qualifier: stat.size > 500e6 ? "very " : "",
+          })}\n`
         );
       }
       const globalOpts = cmd.optsWithGlobals();
@@ -96,7 +99,7 @@ export function registerFiles(program) {
         body: form,
       });
       if (!res.ok) {
-        process.stderr.write(`Upload failed: ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.uploadFailed", { status: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), globalOpts);
@@ -112,13 +115,15 @@ export function registerFiles(program) {
         headers: authHeaders(globalOpts),
       });
       if (!res.ok) {
-        process.stderr.write(`HTTP ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
         process.exit(1);
       }
       if (opts.out) {
         const buf = Buffer.from(await res.arrayBuffer());
         writeFileSync(opts.out, buf);
-        process.stdout.write(`Saved ${buf.length} bytes to ${opts.out}\n`);
+        process.stdout.write(
+          `${t("common.cli.messages.savedBytes", { bytes: buf.length, path: opts.out })}\n`
+        );
       } else {
         process.stdout.write(await res.text());
       }
@@ -129,15 +134,15 @@ export function registerFiles(program) {
     .option("--yes", t("files.delete.yes"))
     .action(async (id, opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Delete file ${id}?`);
+        const ok = await confirm(t("common.cli.messages.deletePrompt", { resource: "file", id }));
         if (!ok) return;
       }
       const res = await apiFetch(`/v1/files/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Deleted\n");
+      process.stdout.write(`${t("common.cli.messages.deletedLine")}\n`);
     });
 }
 

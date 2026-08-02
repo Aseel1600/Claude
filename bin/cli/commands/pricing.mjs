@@ -29,7 +29,7 @@ export async function runPricingSync(opts, cmd) {
     body: { provider: opts.provider, force: !!opts.force },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
@@ -41,7 +41,7 @@ export async function runPricingList(opts, cmd) {
   if (opts.model) params.set("model", opts.model);
   const res = await apiFetch(`/api/pricing?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -68,7 +68,7 @@ export function registerPricing(program) {
   pricing.command("get <model>").action(async (model, opts, cmd) => {
     const res = await apiFetch(`/api/pricing?model=${encodeURIComponent(model)}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -79,7 +79,7 @@ export function registerPricing(program) {
   defaults.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/pricing/defaults");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -99,7 +99,7 @@ export function registerPricing(program) {
       if (opts.cacheWrite != null) body.cacheWritePer1M = opts.cacheWrite;
       const res = await apiFetch("/api/pricing/defaults", { method: "PUT", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -114,7 +114,7 @@ export function registerPricing(program) {
       if (opts.model) params.set("model", opts.model);
       const res = await apiFetch(`/api/pricing?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();

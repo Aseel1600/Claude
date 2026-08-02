@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError, createPrompt } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 
 /** Ensure the URL ends with /v1 (Kilo appends /chat/completions to it). */
@@ -61,7 +62,11 @@ export function buildKiloAuth(existing, { apiKey, baseUrl, model }) {
 /** Merge the kilocode.* keys into VS Code settings.json (extension surface). */
 export function buildKiloVscodeSettings(existing, { apiKey, baseUrl, model }) {
   const s = { ...(existing || {}) };
-  s["kilocode.customProvider"] = { name: "OmniRoute", baseURL: baseUrl, apiKey: apiKey || "sk_omniroute" };
+  s["kilocode.customProvider"] = {
+    name: "OmniRoute",
+    baseURL: baseUrl,
+    apiKey: apiKey || "sk_omniroute",
+  };
   s["kilocode.defaultModel"] = model;
   return s;
 }
@@ -85,7 +90,7 @@ async function fetchModelIds(root, apiKey) {
     });
     if (!res.ok) return [];
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch {
     return [];
@@ -95,28 +100,37 @@ async function fetchModelIds(root, apiKey) {
 export async function runSetupKiloCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveKiloTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const authPath = opts.authPath ?? opts["auth-path"] ?? join(os.homedir(), ".local", "share", "kilo", "auth.json");
+  const authPath =
+    opts.authPath ??
+    opts["auth-path"] ??
+    join(os.homedir(), ".local", "share", "kilo", "auth.json");
   const vscodePath =
-    opts.vscodeSettings ?? opts["vscode-settings"] ?? join(os.homedir(), ".config", "Code", "User", "settings.json");
+    opts.vscodeSettings ??
+    opts["vscode-settings"] ??
+    join(os.homedir(), ".config", "Code", "User", "settings.json");
 
-  printHeading("OmniRoute → Kilo Code (OpenAI-compatible)");
-  printInfo(`Server: ${baseUrl}`);
+  printHeading(t("common.cli.messages.kiloTitle"));
+  printInfo(`${t("common.cli.messages.serverLabel")} ${baseUrl}`);
 
   let model = opts.model;
   if (!model) {
     const ids = await fetchModelIds(baseUrl, apiKey);
     if (ids.length && !opts.yes) {
-      printInfo(`Examples: ${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`);
+      printInfo(
+        t("common.cli.messages.examples", {
+          models: `${ids.slice(0, 20).join(", ")}${ids.length > 20 ? " …" : ""}`,
+        })
+      );
       const prompt = createPrompt();
       try {
-        model = await prompt.ask("Model id for Kilo");
+        model = await prompt.ask(t("common.cli.messages.kiloModelPrompt"));
       } finally {
         prompt.close();
       }
     }
   }
   if (!model) {
-    printError("A model is required. Pass --model <id> (Kilo's extension has no model auto-discovery).");
+    printError(t("common.cli.messages.kiloModelRequired"));
     return 2;
   }
 
@@ -129,48 +143,53 @@ export async function runSetupKiloCommand(opts = {}) {
     : null;
 
   if (dryRun) {
-    console.log(`\n── [dry-run] ${authPath} ──`);
+    console.log(t("common.cli.messages.dryRunHeader", { path: authPath }));
     console.log(
       JSON.stringify(
-        { "openai-compatible": { ...auth["openai-compatible"], apiKey: apiKey ? "set" : "sk_omniroute" } },
+        {
+          "openai-compatible": {
+            ...auth["openai-compatible"],
+            apiKey: apiKey ? "set" : "sk_omniroute",
+          },
+        },
         null,
         2
       )
     );
-    console.log(`\n── [dry-run] ${vscodePath} ── ${vscodeExists ? "(would merge kilocode.* keys)" : "(skipped — file absent)"}`);
+    console.log(
+      `${t("common.cli.messages.dryRunHeader", { path: vscodePath })} ${vscodeExists ? t("common.cli.messages.kiloWouldMerge") : t("common.cli.messages.fileAbsentSkipped")}`
+    );
   } else {
     mkdirSync(join(authPath, ".."), { recursive: true });
     writeFileSync(authPath, JSON.stringify(auth, null, 2) + "\n", "utf8");
-    printSuccess(`Wrote ${authPath}`);
+    printSuccess(t("common.cli.messages.wrote", { path: authPath }));
     if (vscodeSettings) {
       writeFileSync(vscodePath, JSON.stringify(vscodeSettings, null, 2) + "\n", "utf8");
-      printSuccess(`Updated ${vscodePath} (kilocode.customProvider + defaultModel)`);
+      printSuccess(t("common.cli.messages.kiloSettingsUpdated", { path: vscodePath }));
     } else {
-      printInfo(`Skipped VS Code settings (${vscodePath} not found).`);
+      printInfo(t("common.cli.messages.vscodeSettingsSkipped", { path: vscodePath }));
     }
   }
 
-  printInfo("\nFor the Kilo Code VS Code extension, set Settings → Providers → OpenAI Compatible:");
-  printInfo(`  Base URL:  ${baseUrl}        (Kilo expects /v1)`);
-  printInfo(`  API Key:   <your OMNIROUTE_API_KEY>`);
-  printInfo(`  Model:     ${model}`);
+  printInfo(t("common.cli.messages.kiloExtensionInstructions"));
+  printInfo(`  ${t("common.cli.messages.kiloBaseUrlValue", { value: baseUrl })}`);
+  printInfo(`  ${t("common.cli.messages.apiKeyValue", { value: "<your OMNIROUTE_API_KEY>" })}`);
+  printInfo(`  ${t("common.cli.messages.modelValue", { value: model })}`);
   return 0;
 }
 
 export function registerSetupKilo(program) {
   program
     .command("setup-kilo")
-    .description(
-      "Configure Kilo Code for OmniRoute: write ~/.local/share/kilo/auth.json (CLI) + VS Code kilocode.* settings"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--model <id>", "Model id for Kilo (required unless picked interactively)")
-    .option("--auth-path <path>", "Kilo CLI auth.json path (default: ~/.local/share/kilo/auth.json)")
-    .option("--vscode-settings <path>", "VS Code settings.json (default: ~/.config/Code/User/settings.json)")
-    .option("--yes", "Non-interactive: do not prompt (requires --model)")
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupKilo"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--model <id>", t("common.cli.options.kiloModel"))
+    .option("--auth-path <path>", t("common.cli.options.kiloAuthPath"))
+    .option("--vscode-settings <path>", t("common.cli.options.vscodeSettings"))
+    .option("--yes", t("common.cli.options.nonInteractiveModel"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const code = await runSetupKiloCommand(opts);
       if (code !== 0) process.exit(code);

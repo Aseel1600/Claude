@@ -24,7 +24,7 @@ export function registerTranslator(program) {
       const body = JSON.parse(readFileSync(opts.file, "utf8"));
       const res = await apiFetch("/api/translator/detect", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -38,11 +38,23 @@ export function registerTranslator(program) {
     .option("--out <path>", t("translator.out"))
     .action(async (opts, cmd) => {
       if (!FORMATS.includes(opts.from)) {
-        process.stderr.write(`Invalid --from: ${opts.from}. Valid: ${FORMATS.join(", ")}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.invalidFormat", {
+            option: "--from",
+            value: opts.from,
+            valid: FORMATS.join(", "),
+          })}\n`
+        );
         process.exit(2);
       }
       if (!FORMATS.includes(opts.to)) {
-        process.stderr.write(`Invalid --to: ${opts.to}. Valid: ${FORMATS.join(", ")}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.invalidFormat", {
+            option: "--to",
+            value: opts.to,
+            valid: FORMATS.join(", "),
+          })}\n`
+        );
         process.exit(2);
       }
       const body = JSON.parse(readFileSync(opts.file, "utf8"));
@@ -51,13 +63,13 @@ export function registerTranslator(program) {
         body: { from: opts.from, to: opts.to, payload: body },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
       if (opts.out) {
         writeFileSync(opts.out, JSON.stringify(data.translated ?? data, null, 2));
-        process.stdout.write(`Saved to ${opts.out}\n`);
+        process.stdout.write(`${t("common.cli.messages.savedTo", { path: opts.out })}\n`);
       } else {
         emit(data.translated ?? data, cmd.optsWithGlobals());
       }
@@ -76,7 +88,7 @@ export function registerTranslator(program) {
         body: { from: opts.from, to: opts.to, model: opts.model, payload: body },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -96,7 +108,7 @@ export function registerTranslator(program) {
         body: JSON.stringify({ from: opts.from, to: opts.to, payload: body }),
       });
       if (!res.ok) {
-        process.stderr.write(`HTTP ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
         process.exit(1);
       }
       const reader = res.body.getReader();
@@ -122,7 +134,7 @@ export function registerTranslator(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch(`/api/translator/history?limit=${opts.limit}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();

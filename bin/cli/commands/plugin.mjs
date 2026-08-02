@@ -38,13 +38,11 @@ export function register(program, ctx) {
 `;
 
 export function registerPlugin(program) {
-  const plugin = program
-    .command("plugin")
-    .description(t("plugin.description") || "Manage CLI plugins (omniroute-cmd-*)");
+  const plugin = program.command("plugin").description(t("common.cli.descriptions.plugin"));
 
   plugin
     .command("list")
-    .description(t("plugin.list") || "List installed plugins")
+    .description(t("common.cli.descriptions.pluginList"))
     .action(async (opts, cmd) => {
       const plugins = await discoverPlugins();
       emit(
@@ -52,38 +50,37 @@ export function registerPlugin(program) {
         cmd.optsWithGlobals()
       );
       if (plugins.length === 0) {
-        process.stdout.write("No plugins installed.\n");
-        process.stdout.write(`Install: omniroute plugin install <name>\n`);
+        process.stdout.write(`${t("common.cli.messages.noPluginsInstalled")}\n`);
+        process.stdout.write(t("common.cli.messages.pluginInstallHint"));
       }
     });
 
   plugin
     .command("install <name>")
-    .description(t("plugin.install") || "Install a plugin")
-    .option("-y, --yes", "Skip confirmation prompt")
+    .description(t("common.cli.descriptions.pluginInstall"))
+    .option("-y, --yes", t("common.yesOpt"))
     .action(async (name, opts) => {
       const isLocal = name.startsWith("./") || name.startsWith("/") || name.startsWith("../");
       const pkgName = isLocal ? name : `omniroute-cmd-${name}`;
 
       if (!opts.yes) {
-        process.stderr.write(
-          `⚠ WARNING: Plugins run with the same privileges as omniroute CLI.\n` +
-            `  Only install plugins from sources you trust.\n` +
-            `  Installing: ${pkgName}\n` +
-            `  Pass --yes to skip this prompt.\n`
-        );
+        process.stderr.write(t("common.cli.messages.pluginTrustWarning", { package: pkgName }));
         // In non-interactive mode, require explicit --yes
         if (!process.stdin.isTTY) {
-          process.stderr.write("Non-interactive mode: use --yes to confirm.\n");
+          process.stderr.write(`${t("common.cli.messages.pluginConfirmRequired")}\n`);
           process.exit(1);
         }
       }
 
       try {
         runNpm(["install", "-g", pkgName]);
-        process.stdout.write(`\n✓ Installed: ${pkgName}\n`);
+        process.stdout.write(
+          `\n${t("common.cli.messages.pluginInstalled", { package: pkgName })}\n`
+        );
       } catch {
-        process.stderr.write(`✗ Failed to install ${pkgName}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.pluginInstallFailed", { package: pkgName })}\n`
+        );
         process.exit(1);
       }
     });
@@ -91,33 +88,35 @@ export function registerPlugin(program) {
   plugin
     .command("remove <name>")
     .alias("uninstall")
-    .description(t("plugin.remove") || "Remove a plugin")
-    .option("-y, --yes", "Skip confirmation")
+    .description(t("common.cli.descriptions.pluginRemove"))
+    .option("-y, --yes", t("common.yesOpt"))
     .action(async (name, opts) => {
       const pkgName = name.startsWith("omniroute-cmd-") ? name : `omniroute-cmd-${name}`;
       if (!opts.yes) {
-        process.stderr.write(`Removing: ${pkgName} — pass --yes to confirm.\n`);
+        process.stderr.write(`${t("common.cli.messages.pluginRemoving", { package: pkgName })}\n`);
         if (!process.stdin.isTTY) {
           process.exit(1);
         }
       }
       try {
         runNpm(["uninstall", "-g", pkgName]);
-        process.stdout.write(`✓ Removed: ${pkgName}\n`);
+        process.stdout.write(`${t("common.cli.messages.pluginRemoved", { package: pkgName })}\n`);
       } catch {
-        process.stderr.write(`✗ Failed to remove ${pkgName}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.pluginRemoveFailed", { package: pkgName })}\n`
+        );
         process.exit(1);
       }
     });
 
   plugin
     .command("info <name>")
-    .description(t("plugin.info") || "Show plugin details")
+    .description(t("common.cli.descriptions.pluginInfo"))
     .action(async (name, opts, cmd) => {
       const plugins = await discoverPlugins();
       const p = plugins.find((x) => x.name === name || x.name === `omniroute-cmd-${name}`);
       if (!p) {
-        process.stderr.write(`Plugin '${name}' not found.\n`);
+        process.stderr.write(`${t("common.cli.messages.pluginNotFound", { name })}\n`);
         process.exit(1);
       }
       emit(p.pkg, cmd.optsWithGlobals());
@@ -125,7 +124,7 @@ export function registerPlugin(program) {
 
   plugin
     .command("search [query]")
-    .description(t("plugin.search") || "Search npm for available plugins")
+    .description(t("common.cli.descriptions.pluginSearch"))
     .action(async (query) => {
       const q = query ? `omniroute-cmd-${query}` : "omniroute-cmd";
       const url = `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(q)}&size=50`;
@@ -139,27 +138,31 @@ export function registerPlugin(program) {
           description: o.package.description,
         }));
         if (rows.length === 0) {
-          process.stdout.write(`No plugins found for '${query || "omniroute-cmd"}'.\n`);
+          process.stdout.write(
+            `${t("common.cli.messages.pluginsNoSearchResults", { query: query || "omniroute-cmd" })}\n`
+          );
         } else {
           rows.forEach((r) =>
             process.stdout.write(`  ${r.name}@${r.version}  ${r.description || ""}\n`)
           );
         }
       } catch (err) {
-        process.stderr.write(`Search failed: ${err.message}\n`);
+        process.stderr.write(
+          `${t("common.cli.messages.pluginSearchFailed", { error: err.message })}\n`
+        );
         process.exit(1);
       }
     });
 
   plugin
     .command("update [name]")
-    .description(t("plugin.update") || "Update installed plugin(s)")
+    .description(t("common.cli.descriptions.pluginUpdate"))
     .action(async (name) => {
       try {
         if (name) {
           const pkg = `omniroute-cmd-${name}`;
           runNpm(["update", "-g", pkg]);
-          process.stdout.write(`✓ Updated: ${pkg}\n`);
+          process.stdout.write(`${t("common.cli.messages.pluginUpdated", { packages: pkg })}\n`);
           return;
         }
         // No name → update every installed plugin. Enumerate them explicitly
@@ -170,25 +173,27 @@ export function registerPlugin(program) {
           .map((p) => p.name)
           .filter((n) => typeof n === "string" && n.startsWith("omniroute-cmd-"));
         if (names.length === 0) {
-          process.stdout.write("No plugins installed to update.\n");
+          process.stdout.write(`${t("common.cli.messages.pluginsNoneToUpdate")}\n`);
           return;
         }
         runNpm(["update", "-g", ...names]);
-        process.stdout.write(`✓ Updated: ${names.join(", ")}\n`);
+        process.stdout.write(
+          `${t("common.cli.messages.pluginUpdated", { packages: names.join(", ") })}\n`
+        );
       } catch {
-        process.stderr.write(`✗ Update failed\n`);
+        process.stderr.write(`${t("common.cli.messages.pluginUpdateFailed")}\n`);
         process.exit(1);
       }
     });
 
   plugin
     .command("scaffold <name>")
-    .description(t("plugin.scaffold") || "Scaffold a new plugin boilerplate")
+    .description(t("common.cli.descriptions.pluginScaffold"))
     .action(async (name) => {
       const safeName = name.replace(/[^a-z0-9-]/g, "-");
       const dir = join(process.cwd(), `omniroute-cmd-${safeName}`);
       if (existsSync(dir)) {
-        process.stderr.write(`Directory already exists: ${dir}\n`);
+        process.stderr.write(`${t("common.cli.messages.directoryExists", { path: dir })}\n`);
         process.exit(1);
       }
       mkdirSync(dir, { recursive: true });
@@ -213,7 +218,7 @@ export function registerPlugin(program) {
         join(dir, "README.md"),
         `# omniroute-cmd-${safeName}\n\nAn OmniRoute CLI plugin.\n\n## Install\n\n\`\`\`bash\nomniroute plugin install ${safeName}\n\`\`\`\n`
       );
-      process.stdout.write(`✓ Scaffolded: ${dir}\n`);
-      process.stdout.write(`  Run: cd ${dir} && omniroute plugin install .\n`);
+      process.stdout.write(`${t("common.cli.messages.pluginScaffolded", { path: dir })}\n`);
+      process.stdout.write(`${t("common.cli.messages.pluginRun", { path: dir })}\n`);
     });
 }

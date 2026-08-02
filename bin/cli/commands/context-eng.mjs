@@ -7,7 +7,7 @@ import { t } from "../i18n.mjs";
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -23,7 +23,7 @@ export function registerContextEng(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch(`/api/context/analytics?period=${opts.period}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -35,7 +35,7 @@ export function registerContextEng(program) {
   cmCfg.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/context/caveman/config");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -53,7 +53,7 @@ export function registerContextEng(program) {
       if (opts.preserveTags) body.preserveTags = opts.preserveTags;
       const res = await apiFetch("/api/context/caveman/config", { method: "PUT", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -65,7 +65,7 @@ export function registerContextEng(program) {
   rtkCfg.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/context/rtk/config");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -81,7 +81,7 @@ export function registerContextEng(program) {
       if (opts.reservePct) body.reservePct = opts.reservePct;
       const res = await apiFetch("/api/context/rtk/config", { method: "PUT", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -92,7 +92,7 @@ export function registerContextEng(program) {
   filters.command("list").action(async (opts, cmd) => {
     const res = await apiFetch("/api/context/rtk/filters");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -107,7 +107,7 @@ export function registerContextEng(program) {
       const body = { pattern: opts.pattern, priority: opts.priority, action: opts.action };
       const res = await apiFetch("/api/context/rtk/filters", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -123,10 +123,10 @@ export function registerContextEng(program) {
       }
       const res = await apiFetch(`/api/context/rtk/filters/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Removed\n");
+      process.stdout.write(`${t("common.cli.messages.removedLine")}\n`);
     });
 
   rtk
@@ -136,7 +136,7 @@ export function registerContextEng(program) {
       const body = JSON.parse(readFileSync(opts.file, "utf8"));
       const res = await apiFetch("/api/context/rtk/test", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -145,7 +145,7 @@ export function registerContextEng(program) {
   rtk.command("raw-output <id>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/context/rtk/raw-output/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -156,7 +156,7 @@ export function registerContextEng(program) {
   combos.command("list").action(async (opts, cmd) => {
     const res = await apiFetch("/api/context/combos");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -165,7 +165,7 @@ export function registerContextEng(program) {
   combos.command("get <id>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/context/combos/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -174,7 +174,7 @@ export function registerContextEng(program) {
   combos.command("assignments <id>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/context/combos/${id}/assignments`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());

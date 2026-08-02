@@ -50,18 +50,10 @@ export function registerServe(program) {
     .option("--log", t("serve.log"))
     .option("--no-recovery", t("serve.no_recovery"))
     .option("--max-restarts <n>", t("serve.max_restarts"), parseInt, 2)
-    .option("--tray", t("serve.tray") || "Show system tray icon (desktop only)")
-    .option("--no-tray", t("serve.no_tray") || "Disable system tray icon")
-    .option(
-      "--tls-cert <path>",
-      t("serve.tls_cert") ||
-        "Path to a TLS certificate (PEM) to serve HTTPS (also OMNIROUTE_TLS_CERT)"
-    )
-    .option(
-      "--tls-key <path>",
-      t("serve.tls_key") ||
-        "Path to the TLS private key (PEM) to serve HTTPS (also OMNIROUTE_TLS_KEY)"
-    )
+    .option("--tray", t("common.cli.options.serveTray"))
+    .option("--no-tray", t("common.cli.options.serveNoTray"))
+    .option("--tls-cert <path>", t("common.cli.options.tlsCert"))
+    .option("--tls-key <path>", t("common.cli.options.tlsKey"))
     .action(async (opts) => {
       await runServe(opts);
     });
@@ -120,41 +112,38 @@ export async function runServe(opts = {}) {
 
   const nodeSupport = getNodeRuntimeSupport();
   if (!nodeSupport.nodeCompatible) {
-    const runtimeWarning = getNodeRuntimeWarning() || "Unsupported Node.js runtime detected.";
-    console.warn(`\x1b[33m  ⚠  Warning: You are running Node.js ${process.versions.node}.
-     ${runtimeWarning}
-
-     Supported secure runtimes: ${nodeSupport.supportedDisplay}
-     Recommended: use Node.js ${nodeSupport.recommendedVersion} or newer on the 22.x LTS line.
-     Workaround:  npm rebuild better-sqlite3
-     Or run:      omniroute runtime repair  (rebuilds into a user-writable runtime; works without a C++ toolchain)\x1b[0m
-`);
+    const runtimeWarning =
+      getNodeRuntimeWarning() || t("common.cli.messages.unsupportedNodeRuntime");
+    console.warn(
+      `\x1b[33m${t("common.cli.messages.nodeRuntimeWarning", {
+        version: process.versions.node,
+        runtime: runtimeWarning,
+        supported: nodeSupport.supportedDisplay,
+        recommended: nodeSupport.recommendedVersion,
+      })}\x1b[0m\n`
+    );
   }
 
   const serverWsJs = join(APP_DIR, "server-ws.mjs");
   const serverJs = existsSync(serverWsJs) ? serverWsJs : join(APP_DIR, "server.js");
 
   if (!existsSync(serverJs)) {
-    console.error("\x1b[31m✖ Server not found at:\x1b[0m", serverJs);
-    console.error("  The package may not have been built correctly.");
+    console.error(`\x1b[31m${t("common.cli.messages.serverNotFoundAt")}\x1b[0m`, serverJs);
+    console.error(t("common.cli.messages.packageBuildIncorrect"));
     console.error("");
     const nodeExec = process.execPath || "";
     const isMise = nodeExec.includes("mise") || nodeExec.includes(".local/share/mise");
     const isNvm = nodeExec.includes(".nvm") || nodeExec.includes("nvm");
     if (isMise) {
-      console.error(
-        "  \x1b[33m⚠ mise detected:\x1b[0m If you installed via `npm install -g omniroute`,"
-      );
-      console.error("    try: \x1b[36mnpx omniroute@latest\x1b[0m  (downloads a fresh copy)");
-      console.error("    or:  \x1b[36mmise exec -- npx omniroute\x1b[0m");
+      console.error(`\x1b[33m${t("common.cli.messages.miseDetected")}\x1b[0m`);
+      console.error(`    \x1b[36m${t("common.cli.messages.miseTry")}\x1b[0m`);
+      console.error(`    \x1b[36m${t("common.cli.messages.miseOr")}\x1b[0m`);
     } else if (isNvm) {
-      console.error(
-        "  \x1b[33m⚠ nvm detected:\x1b[0m Try reinstalling after loading the correct Node version:"
-      );
-      console.error("    \x1b[36mnvm use --lts && npm install -g omniroute\x1b[0m");
+      console.error(`\x1b[33m${t("common.cli.messages.nvmDetected")}\x1b[0m`);
+      console.error(`    \x1b[36m${t("common.cli.messages.nvmTry")}\x1b[0m`);
     } else {
-      console.error("  Try: \x1b[36mnpm install -g omniroute\x1b[0m  (reinstall)");
-      console.error("  Or:  \x1b[36mnpx omniroute@latest\x1b[0m");
+      console.error(`\x1b[36m${t("common.cli.messages.reinstallHint")}\x1b[0m`);
+      console.error(`\x1b[36m${t("common.cli.messages.npxHint")}\x1b[0m`);
     }
     process.exit(1);
   }
@@ -172,21 +161,16 @@ export async function runServe(opts = {}) {
     existsSync(sqliteBinary) &&
     !isNativeBinaryCompatible(sqliteBinary)
   ) {
-    console.error(
-      "\x1b[31m✖ better-sqlite3 native module is incompatible with this platform.\x1b[0m"
-    );
-    console.error(`  Run: cd ${APP_DIR} && npm rebuild better-sqlite3`);
-    console.error(
-      "  Or run: \x1b[36momniroute runtime repair\x1b[0m" +
-        "  (rebuilds into a user-writable runtime; works without a C++ toolchain)"
-    );
+    console.error(`\x1b[31m${t("common.cli.messages.sqliteIncompatible")}\x1b[0m`);
+    console.error(t("common.cli.messages.sqliteRebuild", { path: APP_DIR }));
+    console.error(`\x1b[36m${t("common.cli.messages.sqliteRepair")}\x1b[0m`);
     if (platform() === "darwin") {
-      console.error("  If build tools are missing: xcode-select --install");
+      console.error(t("common.cli.messages.missingBuildTools"));
     }
     process.exit(1);
   }
 
-  console.log(`  \x1b[2m⏳ Starting server...\x1b[0m\n`);
+  console.log(`\x1b[2m${t("common.cli.messages.startingServer")}\x1b[0m\n`);
 
   // #5172/#5160/#5152: default the V8 heap to ~35% of physical RAM (clamped
   // [512, 4096]) instead of a fixed 512MB, which OOM-crashed boxes with plenty
@@ -279,9 +263,13 @@ function runDaemon(serverJs, env, memoryLimit, dashboardPort, apiPort) {
   );
   writePidFile("server", server.pid);
   server.unref();
-  console.log(`\x1b[32m✔ OmniRoute started in background (PID: ${server.pid})\x1b[0m`);
-  console.log(`  \x1b[1mDashboard:\x1b[0m  ${urlScheme}://localhost:${dashboardPort}`);
-  console.log(`  \x1b[1mAPI Base:\x1b[0m   ${urlScheme}://localhost:${apiPort}/v1`);
+  console.log(`\x1b[32m${t("common.cli.messages.startedBackground", { pid: server.pid })}\x1b[0m`);
+  console.log(
+    `\x1b[1m${t("common.cli.messages.dashboardUrlLabel")}\x1b[0m  ${urlScheme}://localhost:${dashboardPort}`
+  );
+  console.log(
+    `\x1b[1m${t("common.cli.messages.apiBaseUrlLabel")}\x1b[0m   ${urlScheme}://localhost:${apiPort}/v1`
+  );
 }
 
 function runWithoutRecovery(serverJs, env, memoryLimit, dashboardPort, apiPort, noOpen, startedAt) {
@@ -321,19 +309,19 @@ function runWithoutRecovery(serverJs, env, memoryLimit, dashboardPort, apiPort, 
   });
 
   server.on("error", (err) => {
-    console.error("\x1b[31m✖ Failed to start server:\x1b[0m", err.message);
+    console.error(`\x1b[31m${t("common.cli.messages.failedStartServer")}\x1b[0m`, err.message);
     process.exit(1);
   });
 
   server.on("exit", (code) => {
     if (code !== 0 && code !== null) {
-      console.error(`\x1b[31m✖ Server exited with code ${code}\x1b[0m`);
+      console.error(`\x1b[31m${t("common.cli.messages.serverExited", { code })}\x1b[0m`);
     }
     process.exit(code ?? 0);
   });
 
   const shutdown = () => {
-    console.log("\n\x1b[33m⏹ Shutting down OmniRoute...\x1b[0m");
+    console.log(`\n\x1b[33m${t("common.cli.messages.shuttingDown")}\x1b[0m`);
     cleanupPidFile("server");
     server.kill("SIGTERM");
     setTimeout(() => {
@@ -415,18 +403,15 @@ async function runWithSupervisor(
 // reachable directly while the CLI still looks hung). Surface a clear diagnostic
 // plus whatever stdout/stderr the child buffered instead of going silent.
 export function reportReadinessTimeout(dashboardPort, supervisor) {
-  console.error(
-    `\n\x1b[33m⚠ Server did not respond within 60s.\x1b[0m It may still be starting, or may` +
-      ` have failed silently.`
-  );
-  console.error(`  Try:  curl -I http://localhost:${dashboardPort}/api/monitoring/health`);
-  console.error(`  Or:   rerun with \x1b[36m--log\x1b[0m to see live server output.\n`);
+  console.error(`\n\x1b[33m${t("common.cli.messages.readinessTimeout")}\x1b[0m`);
+  console.error(t("common.cli.messages.readinessHealthHint", { port: dashboardPort }));
+  console.error(`\x1b[36m${t("common.cli.messages.readinessLogHint")}\x1b[0m\n`);
 
   const recentLog = supervisor?.getRecentLog?.() ?? [];
   if (recentLog.length) {
-    console.error("--- Recent server output ---");
+    console.error(t("common.cli.messages.recentServerOutput"));
     recentLog.forEach((l) => console.error(l));
-    console.error("--- End recent output ---\n");
+    console.error(`${t("common.cli.messages.endRecentServerOutput")}\n`);
     // If the buffered log already shows the Android instrumentation failure,
     // print the actionable hint even when --log was off (default).
     maybeReportInstrumentationHookFailure(recentLog.join("\n"));
@@ -458,7 +443,7 @@ async function maybeStartTray(port, apiPort, supervisor) {
       onOpenDashboard: () => open?.(dashboardUrl),
       onShowLogs: () => {
         // In-place: open logs stream (best-effort)
-        process.stdout.write(`[omniroute][tray] Logs at: ${dashboardUrl}/logs\n`);
+        process.stdout.write(`${t("common.cli.messages.trayLogs", { url: dashboardUrl })}\n`);
       },
     });
     if (tray) {
@@ -468,7 +453,9 @@ async function maybeStartTray(port, apiPort, supervisor) {
   } catch (err) {
     // tray is optional — do not fail the server, but surface why it failed so
     // "--tray shows nothing" is diagnosable instead of silent (#4605).
-    process.stderr.write(`[omniroute][tray] failed to start: ${err?.message ?? String(err)}\n`);
+    process.stderr.write(
+      `${t("common.cli.messages.trayStartFailed", { error: err?.message ?? String(err) })}\n`
+    );
   }
 }
 
@@ -481,15 +468,15 @@ async function onReady(dashboardPort, apiPort, noOpen, startedAt) {
       : "0.0";
 
   console.log(`
-  \x1b[32m✔ OmniRoute is running!\x1b[0m \x1b[2m(started in ${elapsed}s)\x1b[0m
+  \x1b[32m${t("common.cli.messages.serverRunning")}\x1b[0m \x1b[2m${t("common.cli.messages.startedIn", { seconds: elapsed })}\x1b[0m
 
-  \x1b[1m  Dashboard:\x1b[0m  ${dashboardUrl}
-  \x1b[1m  API Base:\x1b[0m   ${apiUrl}/v1
+  \x1b[1m${t("common.cli.messages.dashboardUrlLabel")}\x1b[0m  ${dashboardUrl}
+  \x1b[1m${t("common.cli.messages.apiBaseUrlLabel")}\x1b[0m   ${apiUrl}/v1
 
-  \x1b[2m  Point your CLI tool (Cursor, Cline, Codex) to:\x1b[0m
+  \x1b[2m${t("common.cli.messages.pointCliTool")}\x1b[0m
   \x1b[33m  ${apiUrl}/v1\x1b[0m
 
-  \x1b[2m  Press Ctrl+C to stop\x1b[0m
+  \x1b[2m${t("common.cli.messages.pressCtrlC")}\x1b[0m
   `);
 
   if (!noOpen && !isTermux()) {

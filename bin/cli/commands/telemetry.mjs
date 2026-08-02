@@ -41,7 +41,7 @@ export function registerTelemetry(program) {
       if (opts.compareTo) params.set("compareTo", opts.compareTo);
       const res = await apiFetch(`/api/telemetry/summary?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -62,13 +62,15 @@ export function registerTelemetry(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch(`/api/telemetry/summary?format=jsonl&period=${opts.period}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
       const items = data.events ?? data.items ?? [];
       const lines = items.map((e) => JSON.stringify(e)).join("\n");
       writeFileSync(opts.out, lines);
-      process.stdout.write(`Exported ${items.length} events to ${opts.out}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.exportedEvents", { count: items.length, path: opts.out })}\n`
+      );
     });
 }

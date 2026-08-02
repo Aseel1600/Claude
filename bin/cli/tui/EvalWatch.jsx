@@ -5,16 +5,37 @@ import { ProgressBar } from "../tui-components/ProgressBar.jsx";
 import { StatusBadge } from "../tui-components/StatusBadge.jsx";
 import { DataTable } from "../tui-components/DataTable.jsx";
 import { HeaderSwr } from "../tui-components/HeaderSwr.jsx";
+import { t } from "../i18n.mjs";
 
 const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 const RESULT_SCHEMA = [
   { key: "idx", header: "#", width: 5 },
-  { key: "status", header: "Status", width: 10, formatter: (v) => (v === "pass" ? "✔" : "✖") },
-  { key: "model", header: "Model", width: 22 },
-  { key: "score", header: "Score", width: 8, formatter: (v) => (v != null ? String(v) : "-") },
+  {
+    key: "status",
+    header: t("common.cli.tui.evalStatus"),
+    width: 10,
+    formatter: (v) => (v === "pass" ? "✔" : "✖"),
+  },
+  { key: "model", header: t("common.cli.tui.evalModel"), width: 22 },
+  {
+    key: "score",
+    header: t("common.cli.tui.evalScore"),
+    width: 8,
+    formatter: (v) => (v != null ? String(v) : "-"),
+  },
   { key: "latencyMs", header: "ms", width: 8, formatter: (v) => (v != null ? String(v) : "-") },
 ];
+
+function displayRunStatus(status) {
+  const keys = {
+    running: "evalRunningState",
+    completed: "evalCompletedState",
+    failed: "evalFailedState",
+    cancelled: "evalCancelledState",
+  };
+  return t(`common.cli.tui.${keys[status] ?? "evalUnknownState"}`);
+}
 
 function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
   const [run, setRun] = useState(null);
@@ -70,12 +91,11 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
     <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} paddingY={1}>
       <Box marginBottom={1} justifyContent="space-between">
         <Text bold color="cyan">
-          Eval Watch — Run {runId}
-          {suiteId ? ` (suite: ${suiteId})` : ""}
+          {t("common.cli.tui.evalHeading", { runId, suite: suiteId ?? "-" })}
         </Text>
         <Text dimColor>
           {Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}
-          {paused ? " [PAUSED]" : ""}
+          {paused ? ` ${t("common.cli.tui.paused")}` : ""}
         </Text>
       </Box>
 
@@ -97,9 +117,9 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
                 run.status === "running" ? "running" : run.status === "completed" ? "ok" : "error"
               }
             />
-            <Text> {run.status} </Text>
+            <Text> {displayRunStatus(run.status)} </Text>
             <Text dimColor>
-              {completed}/{total || "?"} samples
+              {completed}/{total || "?"} {t("common.cli.tui.samples")}
             </Text>
           </Box>
 
@@ -107,9 +127,13 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
             <Box marginBottom={1} flexDirection="column">
               <ProgressBar value={pct} total={100} color="cyan" />
               <Box marginTop={0}>
-                <Text color="green">✔ {passed} passed</Text>
+                <Text color="green">
+                  ✔ {passed} {t("common.cli.tui.passed")}
+                </Text>
                 <Text> </Text>
-                <Text color="red">✖ {failed} failed</Text>
+                <Text color="red">
+                  ✖ {failed} {t("common.cli.tui.failedCount")}
+                </Text>
               </Box>
             </Box>
           )}
@@ -117,7 +141,7 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
           {results.length > 0 && (
             <Box flexDirection="column" marginTop={1}>
               <Text bold dimColor>
-                Recent results
+                {t("common.cli.tui.recentResults")}
               </Text>
               <DataTable rows={results.slice(-10)} schema={RESULT_SCHEMA} />
             </Box>
@@ -127,8 +151,8 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
             <Box marginTop={1}>
               <Text bold color={run.status === "completed" ? "green" : "red"}>
                 {run.status === "completed"
-                  ? `✔ Eval completed — ${passed}/${total} passed`
-                  : `✖ Eval ${run.status}`}
+                  ? `✔ ${t("common.cli.tui.evalCompleted", { passed: `${passed}/${total}` })}`
+                  : `✖ ${t("common.cli.tui.evalFailed", { status: displayRunStatus(run.status) })}`}
               </Text>
             </Box>
           )}
@@ -138,12 +162,16 @@ function EvalWatchApp({ runId, suiteId, baseUrl, apiKey, onExit }) {
           <Text color="green">
             <Spinner type="dots" />
           </Text>
-          <Text> Loading...</Text>
+          <Text> {t("common.cli.tui.loading")}</Text>
         </Box>
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>[q] quit [p] {paused ? "resume" : "pause"}</Text>
+        <Text dimColor>
+          {t("common.cli.tui.evalFooter", {
+            action: paused ? t("common.cli.tui.resume") : t("common.cli.tui.pause"),
+          })}
+        </Text>
       </Box>
     </Box>
   );

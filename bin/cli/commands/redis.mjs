@@ -27,7 +27,14 @@ async function detectRuntime() {
 
 async function containerExists(runtime, name) {
   try {
-    const { stdout } = await execFile(runtime, ["ps", "-a", "--filter", `name=^${name}$`, "--format", "{{.Names}}"]);
+    const { stdout } = await execFile(runtime, [
+      "ps",
+      "-a",
+      "--filter",
+      `name=^${name}$`,
+      "--format",
+      "{{.Names}}",
+    ]);
     return stdout.trim() === name;
   } catch {
     return false;
@@ -36,7 +43,13 @@ async function containerExists(runtime, name) {
 
 async function containerRunning(runtime, name) {
   try {
-    const { stdout } = await execFile(runtime, ["ps", "--filter", `name=^${name}$`, "--format", "{{.Names}}"]);
+    const { stdout } = await execFile(runtime, [
+      "ps",
+      "--filter",
+      `name=^${name}$`,
+      "--format",
+      "{{.Names}}",
+    ]);
     return stdout.trim() === name;
   } catch {
     return false;
@@ -89,22 +102,17 @@ function fail(msg) {
 }
 
 export function registerRedis(program) {
-  const redis = program
-    .command("redis")
-    .description(
-      t("redis.description") ||
-        "Launch a 1-click local Redis container (Podman or Docker) for OmniRoute caching and quota tracking"
-    );
+  const redis = program.command("redis").description(t("redis.description"));
 
   redis
     .command("up")
-    .description("Start the local Redis container")
-    .option("-p, --port <port>", "Host port to expose", DEFAULT_PORT)
-    .option("-n, --name <name>", "Container name", DEFAULT_NAME)
-    .option("-i, --image <image>", "Container image", DEFAULT_IMAGE)
-    .option("--no-pull", "Skip pulling the image if it is missing")
-    .option("--runtime <runtime>", "Force a specific runtime (podman|docker)")
-    .option("--password <password>", "Set a Redis password (AUTH)")
+    .description(t("common.cli.descriptions.redisStart"))
+    .option("-p, --port <port>", t("common.cli.options.redisPortExpose"), DEFAULT_PORT)
+    .option("-n, --name <name>", t("common.cli.options.containerName"), DEFAULT_NAME)
+    .option("-i, --image <image>", t("common.cli.options.containerImage"), DEFAULT_IMAGE)
+    .option("--no-pull", t("common.cli.options.redisNoPull"))
+    .option("--runtime <runtime>", t("common.cli.options.redisRuntime"))
+    .option("--password <password>", t("common.cli.options.redisPassword"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runRedisUpCommand({ ...opts, output: globalOpts.output });
@@ -113,10 +121,10 @@ export function registerRedis(program) {
 
   redis
     .command("down")
-    .description("Stop and remove the local Redis container")
-    .option("-n, --name <name>", "Container name", DEFAULT_NAME)
-    .option("--keep-data", "Keep the named volume for next start")
-    .option("--runtime <runtime>", "Force a specific runtime (podman|docker)")
+    .description(t("common.cli.descriptions.redisStop"))
+    .option("-n, --name <name>", t("common.cli.options.containerName"), DEFAULT_NAME)
+    .option("--keep-data", t("common.cli.options.redisKeepData"))
+    .option("--runtime <runtime>", t("common.cli.options.redisRuntime"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runRedisDownCommand({ ...opts, output: globalOpts.output });
@@ -125,10 +133,10 @@ export function registerRedis(program) {
 
   redis
     .command("status")
-    .description("Show status of the local Redis container")
-    .option("-n, --name <name>", "Container name", DEFAULT_NAME)
-    .option("-p, --port <port>", "Host port", DEFAULT_PORT)
-    .option("--runtime <runtime>", "Force a specific runtime (podman|docker)")
+    .description(t("common.cli.descriptions.redisStatus"))
+    .option("-n, --name <name>", t("common.cli.options.containerName"), DEFAULT_NAME)
+    .option("-p, --port <port>", t("common.cli.options.hostPort"), DEFAULT_PORT)
+    .option("--runtime <runtime>", t("common.cli.options.redisRuntime"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runRedisStatusCommand({ ...opts, output: globalOpts.output });
@@ -142,13 +150,15 @@ async function pickRuntime(forced) {
       await execFile(forced, ["--version"], { timeout: 3000 });
       return forced;
     } catch (err) {
-      fail(`Forced runtime '${forced}' not available: ${err.message}`);
+      fail(
+        t("common.cli.messages.forcedRuntimeUnavailable", { runtime: forced, error: err.message })
+      );
       return null;
     }
   }
   const detected = await detectRuntime();
   if (!detected) {
-    fail("Neither podman nor docker found on PATH. Install one or pass --runtime.");
+    fail(t("common.cli.messages.runtimesMissing"));
     return null;
   }
   return detected;
@@ -166,37 +176,41 @@ export async function runRedisUpCommand(opts = {}) {
   const running = exists && (await containerRunning(runtime, name));
 
   if (running) {
-    success(`Container '${name}' is already running on port ${port}.`);
+    success(t("common.cli.messages.containerAlreadyRunning", { name, port }));
     return 0;
   }
 
   if (exists && !opts.pull) {
-    info(`Starting existing container '${name}'…`);
+    info(t("common.cli.messages.startingContainer", { name }));
     try {
       await execFile(runtime, ["start", name]);
-      success(`Container '${name}' started on port ${port}.`);
+      success(t("common.cli.messages.containerStarted", { name, port }));
       return 0;
     } catch (err) {
-      fail(`Failed to start existing container: ${err.message}`);
+      fail(t("common.cli.messages.startContainerFailed", { error: err.message }));
       return 1;
     }
   }
 
   if (!opts.pull) {
-    info(`Checking if image '${image}' is present locally…`);
+    info(t("common.cli.messages.checkingImage", { image }));
     let present = false;
     try {
-      const { stdout } = await execFile(runtime, ["images", "--format", "{{.Repository}}:{{.Tag}}"]);
+      const { stdout } = await execFile(runtime, [
+        "images",
+        "--format",
+        "{{.Repository}}:{{.Tag}}",
+      ]);
       present = stdout.split("\n").some((line) => line.trim() === image);
     } catch {
       // ignore — fall through to pull
     }
     if (!present) {
-      info(`Image not found locally — pulling '${image}'…`);
+      info(t("common.cli.messages.pullingImage", { image }));
       try {
         await execFile(runtime, ["pull", image]);
       } catch (err) {
-        fail(`Failed to pull image: ${err.message}`);
+        fail(t("common.cli.messages.pullImageFailed", { error: err.message }));
         return 1;
       }
     }
@@ -205,10 +219,14 @@ export async function runRedisUpCommand(opts = {}) {
   const args = [
     "run",
     "-d",
-    "--name", name,
-    "--restart", "unless-stopped",
-    "-p", `${port}:6379`,
-    "-v", `${DEFAULT_VOLUME}:/data`,
+    "--name",
+    name,
+    "--restart",
+    "unless-stopped",
+    "-p",
+    `${port}:6379`,
+    "-v",
+    `${DEFAULT_VOLUME}:/data`,
   ];
   if (opts.password) {
     args.push("-e", `REDIS_PASSWORD=${opts.password}`);
@@ -216,14 +234,16 @@ export async function runRedisUpCommand(opts = {}) {
   args.push(image, "redis-server", "--appendonly", "yes");
   if (opts.password) args.push("--requirepass", opts.password);
 
-  info(`Launching ${runtime} run ${args.join(" ")}`);
+  info(
+    t("common.cli.messages.launchingContainer", { command: `${runtime} run ${args.join(" ")}` })
+  );
   try {
     await execFile(runtime, args);
-    success(`Container '${name}' is now running on redis://127.0.0.1:${port}`);
-    info(`Set OMNIROUTE_REDIS_URL=redis://127.0.0.1:${port} in your .env to wire OmniRoute to it.`);
+    success(t("common.cli.messages.containerRunning", { name, port }));
+    info(t("common.cli.messages.redisEnvHint", { port }));
     return 0;
   } catch (err) {
-    fail(`Failed to launch container: ${err.message}`);
+    fail(t("common.cli.messages.launchContainerFailed", { error: err.message }));
     return 1;
   }
 }
@@ -235,24 +255,26 @@ export async function runRedisDownCommand(opts = {}) {
   const name = opts.name || DEFAULT_NAME;
 
   if (!(await containerExists(runtime, name))) {
-    info(`Container '${name}' does not exist — nothing to do.`);
+    info(t("common.cli.messages.containerMissing", { name }));
     return 0;
   }
 
   try {
     await execFile(runtime, ["rm", "-f", name]);
-    success(`Removed container '${name}'.`);
+    success(t("common.cli.messages.containerRemoved", { name }));
   } catch (err) {
-    fail(`Failed to remove container: ${err.message}`);
+    fail(t("common.cli.messages.removeContainerFailed", { error: err.message }));
     return 1;
   }
 
   if (!opts.keepData) {
     try {
       await execFile(runtime, ["volume", "rm", DEFAULT_VOLUME]);
-      success(`Removed volume '${DEFAULT_VOLUME}'.`);
+      success(t("common.cli.messages.volumeRemoved", { volume: DEFAULT_VOLUME }));
     } catch (err) {
-      warn(`Could not remove volume '${DEFAULT_VOLUME}': ${err.message}`);
+      warn(
+        t("common.cli.messages.volumeRemoveFailed", { volume: DEFAULT_VOLUME, error: err.message })
+      );
     }
   }
   return 0;
@@ -267,7 +289,13 @@ export async function runRedisStatusCommand(opts = {}) {
 
   const exists = await containerExists(runtime, name);
   if (!exists) {
-    console.log(JSON.stringify({ runtime, name, port, exists: false, running: false, reachable: false }, null, 2));
+    console.log(
+      JSON.stringify(
+        { runtime, name, port, exists: false, running: false, reachable: false },
+        null,
+        2
+      )
+    );
     return 0;
   }
 
@@ -279,16 +307,22 @@ export async function runRedisStatusCommand(opts = {}) {
     return 0;
   }
 
-  console.log(`\n\x1b[1m\x1b[36mRedis (${runtime})\x1b[0m\n`);
-  console.log(`  Container:   ${name}`);
-  console.log(`  Exists:      ${exists ? "yes" : "no"}`);
-  console.log(`  Running:     ${running ? "yes" : "no"}`);
-  console.log(`  Reachable:   ${reachable ? "yes" : "no"} (port ${port})`);
+  console.log(`\n\x1b[1m\x1b[36m${t("common.cli.messages.redisTitle", { runtime })}\x1b[0m\n`);
+  console.log(`  ${t("common.cli.messages.redisContainerLabel")}   ${name}`);
+  console.log(
+    `  ${t("common.cli.messages.redisExistsLabel")}      ${exists ? t("common.cli.messages.yes") : t("common.cli.messages.no")}`
+  );
+  console.log(
+    `  ${t("common.cli.messages.redisRunningLabel")}     ${running ? t("common.cli.messages.yes") : t("common.cli.messages.no")}`
+  );
+  console.log(
+    `  ${t("common.cli.messages.redisReachableLabel")}   ${reachable ? t("common.cli.messages.yes") : t("common.cli.messages.no")} (port ${port})`
+  );
   if (running && !reachable) {
-    warn("Container is running but the port is not reachable. Is REDIS_PASSWORD set or another process bound?");
+    warn(t("common.cli.messages.redisUnreachable"));
   }
   if (!running) {
-    info(`Run 'omniroute redis up' to launch it.`);
+    info(t("common.cli.messages.redisRunHint"));
   }
   return 0;
 }

@@ -10,6 +10,7 @@ import {
 } from "./supervisorPolicy.mjs";
 import { buildNodeHeapArgs } from "../../../scripts/build/runtime-env.mjs";
 import { stopProcessGracefully } from "../../../src/shared/platform/windowsProcess.ts";
+import { t } from "../i18n.mjs";
 import {
   isFatalInstrumentationHookFailure,
   formatAndroidInstrumentationFailureHint,
@@ -139,7 +140,7 @@ export class ServerSupervisor {
       if (this.onCrashCallback) {
         const action = this.onCrashCallback(this.crashLog);
         if (action === "disable-mitm-and-retry") {
-          console.error("⚠ Disabling MITM and retrying...\n");
+          console.error(t("common.cli.messages.disablingMitm"));
           this.restartCount = 0;
           this.start();
           return;
@@ -172,9 +173,9 @@ export class ServerSupervisor {
   }
 
   dumpCrashLog() {
-    console.error("\n--- Server crash log ---");
+    console.error(t("common.cli.messages.serverCrashLog"));
     this.crashLog.forEach((l) => console.error(l));
-    console.error("--- End crash log ---\n");
+    console.error(t("common.cli.messages.endServerCrashLog"));
   }
 
   stop() {

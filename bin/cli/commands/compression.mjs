@@ -39,7 +39,7 @@ async function restCompressionConfigure(config) {
   }
   const res = await apiFetch("/api/settings/compression", { method: "PUT", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   return res.json();
@@ -52,7 +52,7 @@ async function restSetEngine(name) {
     body: { defaultMode: normalized === "caveman" ? "standard" : normalized },
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   return res.json();
@@ -61,7 +61,7 @@ async function restSetEngine(name) {
 async function restListCombos() {
   const res = await apiFetch("/api/context/combos");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const body = await res.json();
@@ -71,7 +71,7 @@ async function restListCombos() {
 async function restComboStats(period) {
   const res = await apiFetch(`/api/context/analytics?period=${encodeURIComponent(period ?? "7d")}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   return res.json();
@@ -88,13 +88,13 @@ async function mcpCall(name, args, restFallback) {
   if ((res.status === 404 || res.status === 501) && typeof restFallback === "function") {
     return restFallback();
   }
-  process.stderr.write(`Error: ${res.status}\n`);
+  process.stderr.write(`${t("common.error", { message: res.status })}\n`);
   process.exit(1);
 }
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
@@ -125,20 +125,22 @@ export async function runCompressionConfigure(opts, cmd) {
 export async function runCompressionEngineSet(name, opts, cmd) {
   const normalized = normalizeEngine(name);
   if (!VALID_ENGINES.includes(normalized)) {
-    process.stderr.write(`Unknown engine: ${name}. Valid: ${VALID_ENGINES.join(", ")}\n`);
+    process.stderr.write(
+      `${t("common.cli.messages.unknownEngine", { name, valid: VALID_ENGINES.join(", ") })}\n`
+    );
     process.exit(2);
   }
   await mcpCall("omniroute_set_compression_engine", { engine: normalized }, () =>
     restSetEngine(normalized)
   );
-  process.stdout.write(`Engine: ${normalized}\n`);
+  process.stdout.write(`${t("common.cli.messages.engineLabel", { engine: normalized })}\n`);
 }
 
 export async function runCompressionPreview(opts, cmd) {
   const body = JSON.parse(readFileSync(opts.file, "utf8"));
   const res = await apiFetch("/api/compression/preview", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -171,7 +173,7 @@ export function registerCompression(program) {
   engine.command("set <name>").action(runCompressionEngineSet);
   engine.command("get").action(async (opts, cmd) => {
     const data = await mcpCall("omniroute_compression_status", {}, restCompressionStatus);
-    process.stdout.write(`${data.strategy ?? "(default)"}\n`);
+    process.stdout.write(`${data.strategy ?? t("common.cli.messages.defaultValue")}\n`);
   });
 
   const combos = cmp.command("combos").description(t("compression.combos.description"));
@@ -197,7 +199,7 @@ export function registerCompression(program) {
   rules.command("list").action(async (opts, cmd) => {
     const res = await apiFetch("/api/compression/rules");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -212,7 +214,7 @@ export function registerCompression(program) {
       if (opts.replacement) body.replacement = opts.replacement;
       const res = await apiFetch("/api/compression/rules", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -229,10 +231,10 @@ export function registerCompression(program) {
         method: "DELETE",
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Removed\n");
+      process.stdout.write(`${t("common.cli.messages.removedLine")}\n`);
     });
 
   cmp
@@ -241,7 +243,7 @@ export function registerCompression(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/compression/language-packs");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());

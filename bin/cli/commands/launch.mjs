@@ -134,12 +134,7 @@ export async function runLaunchCommand(opts = {}, claudeArgs = []) {
     });
     if (!res.ok) throw new Error(`status ${res.status}`);
   } catch {
-    console.error(
-      (
-        t("launch.notRunning") ||
-        "OmniRoute is not reachable at {port}. Start it with 'omniroute serve'."
-      ).replace("{port}", baseUrl)
-    );
+    console.error(t("common.cli.messages.launchNotRunning").replace("{port}", baseUrl));
     return 1;
   }
 
@@ -158,7 +153,7 @@ export async function runLaunchCommand(opts = {}, claudeArgs = []) {
     });
     child.on("error", (err) => {
       if (err && err.code === "ENOENT") {
-        console.error(t("launch.notFound") || "The 'claude' CLI was not found in PATH.");
+        console.error(t("common.cli.messages.claudeNotFound"));
         resolve(127);
       } else {
         console.error(String(err?.message || err));
@@ -172,20 +167,15 @@ export async function runLaunchCommand(opts = {}, claudeArgs = []) {
 export function registerLaunch(program) {
   program
     .command("launch")
-    .description(
-      t("launch.description") || "Launch Claude Code pointed at OmniRoute (local or remote)"
-    )
-    .option("--port <port>", t("serve.port") || "Proxy port", "20128")
-    .option("--remote <url>", "Remote OmniRoute base URL (overrides --port and the active context)")
-    .option(
-      "--profile <name>",
-      "Claude Code profile to use (CLAUDE_CONFIG_DIR ~/.claude/profiles/<name>)"
-    )
-    .option("--token <token>", t("launch.token") || "Token Claude sends (ANTHROPIC_AUTH_TOKEN)")
-    .option("--api-key <key>", "Alias for --token (OmniRoute access token / API key)")
+    .description(t("common.cli.descriptions.launch"))
+    .option("--port <port>", t("common.cli.options.proxyPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.launchRemote"))
+    .option("--profile <name>", t("common.cli.options.profile"))
+    .option("--token <token>", t("common.cli.options.launchToken"))
+    .option("--api-key <key>", t("common.cli.options.launchApiKey"))
     .allowUnknownOption(true)
     .allowExcessArguments(true)
-    .argument("[claudeArgs...]", "arguments passed through to the claude binary")
+    .argument("[claudeArgs...]", t("common.cli.messages.passThroughClaudeArgs"))
     .action(async (claudeArgs, opts) => {
       // process.exit() here aborted the process with a libuv assertion on
       // Windows (`!(handle->flags & UV_HANDLE_CLOSING)`, async.c:94): it tears

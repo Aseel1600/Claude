@@ -3,6 +3,7 @@ import { render, Box, Text, useInput } from "ink";
 import Spinner from "ink-spinner";
 import { DataTable } from "../tui-components/DataTable.jsx";
 import { ProgressBar } from "../tui-components/ProgressBar.jsx";
+import { t } from "../i18n.mjs";
 
 const STATUS = {
   PENDING: "pending",
@@ -13,11 +14,11 @@ const STATUS = {
 };
 
 const TABLE_SCHEMA = [
-  { key: "provider", header: "Provider", width: 28 },
-  { key: "model", header: "Model", width: 32 },
+  { key: "provider", header: t("common.cli.tui.provider"), width: 28 },
+  { key: "model", header: t("common.cli.tui.models"), width: 32 },
   {
     key: "status",
-    header: "Status",
+    header: t("common.cli.tui.statusHeader"),
     width: 10,
     formatter: (v) => {
       if (v === STATUS.RUNNING) return "…";
@@ -28,7 +29,12 @@ const TABLE_SCHEMA = [
     },
   },
   { key: "latencyMs", header: "ms", width: 8, formatter: (v) => (v != null ? String(v) : "-") },
-  { key: "error", header: "Error", width: 28, formatter: (v) => (v ? v.slice(0, 26) : "") },
+  {
+    key: "error",
+    header: t("common.cli.tui.errorHeader"),
+    width: 28,
+    formatter: (v) => (v ? v.slice(0, 26) : ""),
+  },
 ];
 
 async function testOne(provider, model, baseUrl, apiKey) {
@@ -121,17 +127,17 @@ function ProvidersTestAllApp({ providers, baseUrl, apiKey, concurrency = 4, onEx
     <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} paddingY={1}>
       <Box marginBottom={1} justifyContent="space-between">
         <Text bold color="cyan">
-          Providers Test All
+          {t("common.cli.tui.providersTestHeading")}
         </Text>
         <Text dimColor>
           {running > 0 ? (
             <>
-              <Spinner type="dots" /> {running} running
+              <Spinner type="dots" /> {t("common.cli.tui.runningCount", { count: running })}
             </>
           ) : done ? (
-            "done"
+            t("common.cli.tui.done")
           ) : (
-            "queued"
+            t("common.cli.tui.queued")
           )}
         </Text>
       </Box>
@@ -155,14 +161,14 @@ function ProvidersTestAllApp({ providers, baseUrl, apiKey, concurrency = 4, onEx
         <Box marginTop={1}>
           <Text bold color={failed === 0 ? "green" : "yellow"}>
             {failed === 0
-              ? `All ${passed} providers passed!`
-              : `${passed} passed, ${failed} failed`}
+              ? t("common.cli.tui.allProvidersPassed", { count: passed })
+              : t("common.cli.tui.providersPassedFailed", { passed, failed })}
           </Text>
         </Box>
       )}
 
       <Box marginTop={1}>
-        <Text dimColor>[q] quit</Text>
+        <Text dimColor>{t("common.cli.tui.quitFooter")}</Text>
       </Box>
     </Box>
   );

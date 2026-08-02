@@ -20,23 +20,21 @@ async function readErrorMessage(res) {
 }
 
 export function registerTokens(program) {
-  const tokens = program
-    .command("tokens")
-    .description(t("tokens.description") || "Manage scoped CLI access tokens (remote mode)");
+  const tokens = program.command("tokens").description(t("common.cli.descriptions.tokens"));
 
   tokens
     .command("create")
-    .description("Create a new access token (requires admin scope)")
-    .requiredOption("--name <name>", "Human-readable token name")
-    .option("--scope <scope>", "Scope: read | write | admin", "read")
-    .option("--expires <days>", "Expire after N days (default: never)")
+    .description(t("common.cli.descriptions.tokensCreate"))
+    .requiredOption("--name <name>", t("common.cli.options.tokenName"))
+    .option("--scope <scope>", t("common.cli.options.tokenScope"), "read")
+    .option("--expires <days>", t("common.cli.options.tokenExpires"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const body = { name: opts.name, scope: opts.scope };
       if (opts.expires) {
         const days = Number(opts.expires);
         if (!Number.isFinite(days) || days <= 0) {
-          printError("--expires must be a positive number of days.");
+          printError(t("common.cli.messages.tokenExpiresPositive"));
           process.exit(2);
         }
         body.expiresInDays = days;
@@ -48,23 +46,31 @@ export function registerTokens(program) {
         acceptNotOk: true,
       });
       if (!res.ok) {
-        printError(`Could not create token: ${await readErrorMessage(res)}`);
+        printError(
+          t("common.cli.messages.couldNotCreateToken", {
+            error: await readErrorMessage(res),
+          })
+        );
         process.exit(res.exitCode || 1);
       }
       const b = await res.json();
-      printSuccess(`Token '${b.name}' created (scope: ${b.scope}).`);
-      printInfo("Copy it now — it will NOT be shown again:");
+      printSuccess(t("common.cli.messages.tokenCreated", { name: b.name, scope: b.scope }));
+      printInfo(t("common.cli.messages.copyToken"));
       process.stdout.write(`${b.token}\n`);
     });
 
   tokens
     .command("list")
-    .description("List access tokens (masked)")
+    .description(t("common.cli.descriptions.tokensList"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const res = await apiFetch("/api/cli/tokens", { ...globalOpts, acceptNotOk: true });
       if (!res.ok) {
-        printError(`Could not list tokens: ${await readErrorMessage(res)}`);
+        printError(
+          t("common.cli.messages.couldNotListTokens", {
+            error: await readErrorMessage(res),
+          })
+        );
         process.exit(res.exitCode || 1);
       }
       const b = await res.json();
@@ -76,22 +82,24 @@ export function registerTokens(program) {
         created: tk.createdAt,
         lastUsed: tk.lastUsedAt || "",
         expires: tk.expiresAt || "",
-        status: tk.revokedAt ? "revoked" : "active",
+        status: tk.revokedAt
+          ? t("common.cli.messages.tokenRevokedStatus")
+          : t("common.cli.messages.tokenActiveStatus"),
       }));
       emit(rows, globalOpts, [
-        { key: "id", header: "ID" },
-        { key: "name", header: "Name" },
-        { key: "scope", header: "Scope" },
-        { key: "prefix", header: "Prefix" },
-        { key: "status", header: "Status" },
-        { key: "lastUsed", header: "Last Used" },
-        { key: "expires", header: "Expires" },
+        { key: "id", header: t("common.cli.messages.tokenHeaderId") },
+        { key: "name", header: t("common.cli.messages.tokenHeaderName") },
+        { key: "scope", header: t("common.cli.messages.tokenHeaderScope") },
+        { key: "prefix", header: t("common.cli.messages.tokenHeaderPrefix") },
+        { key: "status", header: t("common.cli.messages.tokenHeaderStatus") },
+        { key: "lastUsed", header: t("common.cli.messages.tokenHeaderLastUsed") },
+        { key: "expires", header: t("common.cli.messages.tokenHeaderExpires") },
       ]);
     });
 
   tokens
     .command("revoke <idOrPrefix>")
-    .description("Revoke an access token by id or display prefix")
+    .description(t("common.cli.descriptions.tokensRevoke"))
     .action(async (idOrPrefix, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const res = await apiFetch(`/api/cli/tokens/${encodeURIComponent(idOrPrefix)}`, {
@@ -100,19 +108,23 @@ export function registerTokens(program) {
         acceptNotOk: true,
       });
       if (!res.ok) {
-        printError(`Could not revoke token: ${await readErrorMessage(res)}`);
+        printError(
+          t("common.cli.messages.couldNotRevokeToken", {
+            error: await readErrorMessage(res),
+          })
+        );
         process.exit(res.exitCode || 1);
       }
-      printSuccess(`Revoked ${idOrPrefix}.`);
+      printSuccess(t("common.cli.messages.tokenRevoked", { id: idOrPrefix }));
     });
 
   tokens
     .command("scopes")
-    .description("Explain the three access-token scopes")
+    .description(t("common.cli.descriptions.tokensExplain"))
     .action(() => {
-      printInfo("Access-token scopes (admin ⊃ write ⊃ read):");
-      process.stdout.write("  read   list/inspect only (models, status, logs, usage)\n");
-      process.stdout.write("  write  read + configure/apply (setup-codex, keys add, config set)\n");
-      process.stdout.write("  admin  write + manage (tokens, providers add, services, policy)\n");
+      printInfo(t("common.cli.messages.tokenScopes"));
+      process.stdout.write(`${t("common.cli.messages.readScope")}\n`);
+      process.stdout.write(`${t("common.cli.messages.writeScope")}\n`);
+      process.stdout.write(`${t("common.cli.messages.adminScope")}\n`);
     });
 }

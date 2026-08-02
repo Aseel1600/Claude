@@ -284,7 +284,11 @@ export async function runKeysRemoveCommand(provider, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(t("keys.confirmRemove", { id: providerLower }) + " [y/N] ", resolve)
+      rl.question(
+        t("keys.confirmRemove", { id: providerLower }) +
+          t("common.cli.messages.confirmYesNoPromptSuffix"),
+        resolve
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
@@ -336,7 +340,10 @@ export async function runKeysRegenerateCommand(id, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((r) =>
-      rl.question(t("keys.confirmRegenerate", { id }) + " [y/N] ", r)
+      rl.question(
+        t("keys.confirmRegenerate", { id }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        r
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
@@ -371,7 +378,10 @@ export async function runKeysRevokeCommand(id, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((r) =>
-      rl.question(t("keys.confirmRevoke", { id }) + " [y/N] ", r)
+      rl.question(
+        t("keys.confirmRevoke", { id }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        r
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
@@ -415,7 +425,7 @@ export async function runKeysRevealCommand(id, opts = {}) {
       return 1;
     }
     const data = await res.json();
-    console.log(data.key || data.apiKey || "(not available)");
+    console.log(data.key || data.apiKey || t("common.cli.messages.notAvailableValue"));
     return 0;
   } catch (err) {
     console.error(t("common.error", { message: err instanceof Error ? err.message : String(err) }));
@@ -477,8 +487,12 @@ export async function runKeysPolicyShowCommand(id, opts = {}) {
       return 0;
     }
     console.log(t("keys.policy.title") + ` (${id}):`);
-    console.log(`  rate_limit:      ${data.rateLimit ?? data.rate_limit ?? "(unset)"}`);
-    console.log(`  max_cost:        ${data.maxCost ?? data.max_cost ?? "(unset)"}`);
+    console.log(
+      `  rate_limit:      ${data.rateLimit ?? data.rate_limit ?? t("common.cli.messages.unsetValue")}`
+    );
+    console.log(
+      `  max_cost:        ${data.maxCost ?? data.max_cost ?? t("common.cli.messages.unsetValue")}`
+    );
     console.log(
       `  allowed_models:  ${(data.allowedModels ?? data.allowed_models ?? []).join(", ") || "(all)"}`
     );
@@ -550,7 +564,9 @@ export async function runKeysExpirationListCommand(opts = {}) {
     console.log(t("keys.expiration.listTitle", { days }));
     for (const k of rows) {
       const exp = k.expiresAt || k.expires_at || "(unknown)";
-      console.log(`  ${(k.id || "").padEnd(24)} ${(k.name || "").padEnd(20)} expires: ${exp}`);
+      console.log(
+        `  ${(k.id || "").padEnd(24)} ${(k.name || "").padEnd(20)} ${t("common.cli.messages.expiresLabel")} ${exp}`
+      );
     }
     return 0;
   } catch (err) {
@@ -564,7 +580,10 @@ export async function runKeysRotateCommand(id, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((r) =>
-      rl.question(t("keys.confirmRotate", { id }) + " [y/N] ", r)
+      rl.question(
+        t("keys.confirmRotate", { id }) + t("common.cli.messages.confirmYesNoPromptSuffix"),
+        r
+      )
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {

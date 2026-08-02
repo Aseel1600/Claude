@@ -18,7 +18,7 @@ function fmtBreaker(v) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -61,7 +61,7 @@ export function registerResilience(program) {
       if (opts.provider) params.set("provider", opts.provider);
       const res = await apiFetch(`/api/resilience?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -72,7 +72,7 @@ export function registerResilience(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/resilience?include=breakers");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -87,7 +87,7 @@ export function registerResilience(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/resilience?include=cooldowns");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -103,7 +103,7 @@ export function registerResilience(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/resilience/model-cooldowns");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -138,7 +138,7 @@ export function registerResilience(program) {
       };
       const res = await apiFetch("/api/resilience/reset", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -149,7 +149,7 @@ export function registerResilience(program) {
   profile.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/resilience?include=profile");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -171,7 +171,7 @@ export function registerResilience(program) {
         body: { name: "omniroute_set_resilience_profile", arguments: { profile: name } },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       process.stdout.write(`Profile: ${name}\n`);
@@ -182,7 +182,7 @@ export function registerResilience(program) {
   config.command("show").action(async (opts, cmd) => {
     const res = await apiFetch("/api/resilience?include=config");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -200,7 +200,7 @@ export function registerResilience(program) {
       if (opts.baseCooldown != null) body.baseCooldownMs = opts.baseCooldown;
       const res = await apiFetch("/api/resilience", { method: "PATCH", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());

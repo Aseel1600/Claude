@@ -15,12 +15,16 @@ export async function confirm(msg) {
   // "unsettled top-level await" at exit. Decline cleanly instead and point at the
   // non-interactive escape hatch so scripted callers fail safe rather than hang.
   if (!process.stdin.isTTY) {
-    process.stderr.write(`${msg} [y/N] (non-interactive stdin — declined; pass --yes to confirm)\n`);
+    process.stderr.write(
+      `${msg}${t("common.cli.messages.confirmYesNoPromptSuffix")}(${t("common.cli.messages.nonInteractiveDeclined")})\n`
+    );
     return false;
   }
   const readline = await import("node:readline");
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await new Promise((r) => rl.question(`${msg} [y/N] `, r));
+  const answer = await new Promise((r) =>
+    rl.question(`${msg}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, r)
+  );
   rl.close();
   return /^y(es)?$/i.test(answer);
 }
@@ -35,11 +39,11 @@ export function registerContexts(program) {
   const ctx = program
     .command("contexts")
     .alias("context") // singular alias — docs/connect output historically said `context current`
-    .description(t("config.contexts.description") || "Manage server contexts/profiles");
+    .description(t("common.cli.descriptions.contexts"));
 
   ctx
     .command("list")
-    .description("List all contexts")
+    .description(t("common.cli.descriptions.contextsList"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cfg = loadContexts();
@@ -53,28 +57,28 @@ export function registerContexts(program) {
       }));
       emit(rows, globalOpts, [
         { key: "active", header: "" },
-        { key: "name", header: "Name" },
-        { key: "baseUrl", header: "Base URL" },
-        { key: "auth", header: "Auth" },
-        { key: "scope", header: "Scope" },
-        { key: "description", header: "Description" },
+        { key: "name", header: t("common.cli.messages.nameHeader") },
+        { key: "baseUrl", header: t("common.cli.messages.baseUrlHeader") },
+        { key: "auth", header: t("common.cli.messages.authHeader") },
+        { key: "scope", header: t("common.cli.messages.scopeHeader") },
+        { key: "description", header: t("common.cli.messages.descriptionHeader") },
       ]);
     });
 
   ctx
     .command("add <name>")
-    .description("Add a new context")
-    .requiredOption("--url <u>", "Base URL")
-    .option("--api-key <k>", "Legacy inference API key")
-    .option("--api-key-stdin", "Read API key from stdin")
-    .option("--access-token <t>", "Scoped CLI access token (preferred over --api-key)")
-    .option("--access-token-stdin", "Read access token from stdin")
-    .option("--scope <s>", "Token scope hint for display (read|write|admin)")
-    .option("--description <d>", "Context description")
+    .description(t("common.cli.descriptions.contextsAdd"))
+    .requiredOption("--url <u>", t("common.cli.options.baseUrl"))
+    .option("--api-key <k>", t("common.cli.options.legacyApiKey"))
+    .option("--api-key-stdin", t("common.cli.options.readApiKeyStdin"))
+    .option("--access-token <t>", t("common.cli.options.accessToken"))
+    .option("--access-token-stdin", t("common.cli.options.readAccessTokenStdin"))
+    .option("--scope <s>", t("common.cli.options.scopeHint"))
+    .option("--description <d>", t("common.cli.options.contextDescription"))
     .action(async (name, opts) => {
       const cfg = loadContexts();
       if (cfg.contexts?.[name]) {
-        process.stderr.write(`Context '${name}' already exists. Remove or rename first.\n`);
+        process.stderr.write(`${t("common.cli.messages.contextExists", { name })}\n`);
         process.exit(2);
       }
       let apiKey = opts.apiKey || null;
@@ -95,27 +99,27 @@ export function registerContexts(program) {
         description: opts.description || undefined,
       };
       saveContexts(cfg);
-      process.stdout.write(`Added context '${name}'\n`);
+      process.stdout.write(`${t("common.cli.messages.contextAdded", { name })}\n`);
     });
 
   ctx
     .command("use <name>")
-    .description("Switch active context")
+    .description(t("common.cli.descriptions.contextsSwitch"))
     .action((name) => {
       const cfg = loadContexts();
       if (!cfg.contexts?.[name]) {
-        process.stderr.write(`No such context: ${name}\n`);
+        process.stderr.write(`${t("common.cli.messages.contextMissing", { name })}\n`);
         process.exit(2);
       }
       cfg.currentContext = name;
       saveContexts(cfg);
-      process.stdout.write(`Active context: ${name}\n`);
+      process.stdout.write(`${t("common.cli.messages.activeContext", { name })}\n`);
     });
 
   ctx
     .command("current")
-    .description("Show the active context (server, auth, scope)")
-    .option("--name-only", "Print just the context name (legacy behavior)")
+    .description(t("common.cli.descriptions.contextsActive"))
+    .option("--name-only", t("common.cli.options.nameOnly"))
     .action((opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cfg = loadContexts();
@@ -139,13 +143,13 @@ export function registerContexts(program) {
 
   ctx
     .command("show <name>")
-    .description("Show context details")
+    .description(t("common.cli.descriptions.contextsShow"))
     .action((name, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const cfg = loadContexts();
       const c = cfg.contexts?.[name];
       if (!c) {
-        process.stderr.write(`No such context: ${name}\n`);
+        process.stderr.write(`${t("common.cli.messages.contextMissing", { name })}\n`);
         process.exit(2);
       }
       const display = {
@@ -161,56 +165,56 @@ export function registerContexts(program) {
 
   ctx
     .command("remove <name>")
-    .description("Remove a context")
-    .option("--yes", "Skip confirmation")
+    .description(t("common.cli.descriptions.contextsRemove"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (name, opts) => {
       if (!opts.yes) {
         const ok = await confirm(`Remove context '${name}'?`);
         if (!ok) {
-          process.stdout.write("Cancelled.\n");
+          process.stdout.write(`${t("common.cancelled")}\n`);
           return;
         }
       }
       const cfg = loadContexts();
       if (!cfg.contexts?.[name]) {
-        process.stderr.write(`No such context: ${name}\n`);
+        process.stderr.write(`${t("common.cli.messages.contextMissing", { name })}\n`);
         process.exit(2);
       }
       if (name === "default") {
-        process.stderr.write("Cannot remove default context.\n");
+        process.stderr.write(`${t("common.cli.messages.defaultContextCannotRemove")}\n`);
         process.exit(2);
       }
       delete cfg.contexts[name];
       if (cfg.currentContext === name) cfg.currentContext = "default";
       saveContexts(cfg);
-      process.stdout.write(`Removed context '${name}'\n`);
+      process.stdout.write(`${t("common.cli.messages.contextRemoved", { name })}\n`);
     });
 
   ctx
     .command("rename <old> <new>")
-    .description("Rename a context")
+    .description(t("common.cli.descriptions.contextsRename"))
     .action((oldName, newName) => {
       const cfg = loadContexts();
       if (!cfg.contexts?.[oldName]) {
-        process.stderr.write(`No such context: ${oldName}\n`);
+        process.stderr.write(`${t("common.cli.messages.contextMissing", { name: oldName })}\n`);
         process.exit(2);
       }
       if (cfg.contexts[newName]) {
-        process.stderr.write(`Context '${newName}' already exists.\n`);
+        process.stderr.write(`${t("common.cli.messages.contextNameExists", { name: newName })}\n`);
         process.exit(2);
       }
       cfg.contexts[newName] = cfg.contexts[oldName];
       delete cfg.contexts[oldName];
       if (cfg.currentContext === oldName) cfg.currentContext = newName;
       saveContexts(cfg);
-      process.stdout.write(`Renamed '${oldName}' → '${newName}'\n`);
+      process.stdout.write(`${t("common.cli.messages.contextRenamed", { oldName, newName })}\n`);
     });
 
   ctx
     .command("export")
-    .description("Export contexts to JSON")
-    .option("--out <path>", "Output file path (default: stdout)")
-    .option("--no-secrets", "Omit API keys from export")
+    .description(t("common.cli.descriptions.contextsExport"))
+    .option("--out <path>", t("common.cli.options.outputPath"))
+    .option("--no-secrets", t("common.cli.options.noSecrets"))
     .action(async (opts, cmd) => {
       const cfg = loadContexts();
       const out = JSON.parse(JSON.stringify(cfg));
@@ -224,7 +228,7 @@ export function registerContexts(program) {
       if (opts.out) {
         const { writeFileSync } = await import("node:fs");
         writeFileSync(opts.out, json);
-        process.stdout.write(`Exported to ${opts.out}\n`);
+        process.stdout.write(`${t("common.cli.messages.exportedTo", { path: opts.out })}\n`);
       } else {
         process.stdout.write(json + "\n");
       }
@@ -232,8 +236,8 @@ export function registerContexts(program) {
 
   ctx
     .command("import <file>")
-    .description("Import contexts from a JSON file")
-    .option("--merge", "Merge with existing contexts (default: overwrite)")
+    .description(t("common.cli.descriptions.contextsImport"))
+    .option("--merge", t("common.cli.options.mergeContexts"))
     .action(async (file, opts) => {
       const { readFileSync } = await import("node:fs");
       let imported;
@@ -241,7 +245,7 @@ export function registerContexts(program) {
         imported = JSON.parse(readFileSync(file, "utf8"));
       } catch (e) {
         process.stderr.write(
-          `Cannot read ${file}: ${e instanceof Error ? e.message : String(e)}\n`
+          `${t("common.cli.messages.cannotReadFile", { path: file, error: e instanceof Error ? e.message : String(e) })}\n`
         );
         process.exit(1);
       }
@@ -266,6 +270,6 @@ export function registerContexts(program) {
         cfg.currentContext = imported.currentContext;
       }
       saveContexts(cfg);
-      process.stdout.write(`Imported ${count} context(s)\n`);
+      process.stdout.write(`${t("common.cli.messages.contextsImported", { count })}\n`);
     });
 }

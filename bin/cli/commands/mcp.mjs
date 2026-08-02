@@ -10,15 +10,15 @@ function truncate(v, len = 60) {
 }
 
 const mcpToolSchema = [
-  { key: "name", header: "Tool", width: 36 },
+  { key: "name", header: t("common.cli.messages.toolHeader"), width: 36 },
   {
     key: "scopes",
-    header: "Scopes",
+    header: t("common.cli.messages.scopesHeader"),
     formatter: (v) => (Array.isArray(v) ? v.join(",") : (v ?? "-")),
   },
-  { key: "auditLevel", header: "Audit", width: 10 },
-  { key: "phase", header: "Phase", width: 6 },
-  { key: "description", header: "Description", formatter: truncate },
+  { key: "auditLevel", header: t("common.cli.messages.auditHeader"), width: 10 },
+  { key: "phase", header: t("common.cli.messages.phaseHeader"), width: 6 },
+  { key: "description", header: t("common.cli.messages.descriptionHeader"), formatter: truncate },
 ];
 
 export function registerMcp(program) {
@@ -26,8 +26,8 @@ export function registerMcp(program) {
 
   mcp
     .command("status")
-    .description("Show MCP server status")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.mcpStatus"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runMcpStatusCommand({ ...opts, output: globalOpts.output });
@@ -36,7 +36,7 @@ export function registerMcp(program) {
 
   mcp
     .command("restart")
-    .description("Restart the MCP server")
+    .description(t("common.cli.descriptions.mcpRestart"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runMcpRestartCommand({ ...opts, output: globalOpts.output });
@@ -73,11 +73,11 @@ export function registerMcp(program) {
         headers: extraHeaders,
       });
       if (res.status === 403) {
-        process.stderr.write("Scope denied\n");
+        process.stderr.write(`${t("common.cli.messages.scopeDenied")}\n`);
         process.exit(4);
       }
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -93,7 +93,7 @@ export function registerMcp(program) {
       if (opts.tool) params.set("tool", opts.tool);
       const res = await apiFetch(`/api/mcp/tools?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -112,7 +112,7 @@ export function registerMcp(program) {
       if (opts.scope) params.set("scope", opts.scope);
       const res = await apiFetch(`/api/mcp/tools?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -125,7 +125,7 @@ export function registerMcp(program) {
     .action(async (name, opts, cmd) => {
       const res = await apiFetch(`/api/mcp/tools?name=${encodeURIComponent(name)}`);
       if (!res.ok) {
-        process.stderr.write(`Not found: ${name}\n`);
+        process.stderr.write(`${t("common.cli.messages.notFound", { id: name })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -138,7 +138,7 @@ export function registerMcp(program) {
     .action(async (name, opts, cmd) => {
       const res = await apiFetch(`/api/mcp/tools?name=${encodeURIComponent(name)}&io=${opts.io}`);
       if (!res.ok) {
-        process.stderr.write(`Not found: ${name}\n`);
+        process.stderr.write(`${t("common.cli.messages.notFound", { id: name })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -167,7 +167,7 @@ export function registerMcp(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch(`/api/mcp/audit/stats?period=${opts.period}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -186,7 +186,7 @@ async function runMcpStream(tool, args, globalOpts) {
     body: JSON.stringify({ name: tool, arguments: args }),
   });
   if (!res.ok) {
-    process.stderr.write(`HTTP ${res.status}\n`);
+    process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
     process.exit(1);
   }
   const reader = res.body.getReader();
@@ -234,9 +234,10 @@ export async function runMcpStatusCommand(opts = {}) {
 
     const transport = status.transport || "stdio";
     console.log(status.running ? t("mcp.running", { transport }) : t("mcp.stopped"));
-    if (status.toolsCount !== undefined) console.log(`  Tools: ${status.toolsCount}`);
+    if (status.toolsCount !== undefined)
+      console.log(`  ${t("common.cli.messages.toolsLabel")} ${status.toolsCount}`);
     if (status.scopes?.length) {
-      console.log("  Scopes:");
+      console.log(`  ${t("common.cli.messages.scopesLabel")}`);
       for (const scope of status.scopes) console.log(`    - ${scope}`);
     }
     return 0;

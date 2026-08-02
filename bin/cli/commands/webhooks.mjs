@@ -60,7 +60,7 @@ function parseHeader(kv) {
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
@@ -69,7 +69,7 @@ async function confirm(q) {
 export async function runWebhooksList(opts, cmd) {
   const res = await apiFetch("/api/webhooks");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -79,7 +79,7 @@ export async function runWebhooksList(opts, cmd) {
 export async function runWebhooksGet(id, opts, cmd) {
   const res = await apiFetch(`/api/webhooks/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals(), webhookSchema);
@@ -95,7 +95,7 @@ export async function runWebhooksAdd(opts, cmd) {
   };
   const res = await apiFetch("/api/webhooks", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals(), webhookSchema);
@@ -110,7 +110,7 @@ export async function runWebhooksUpdate(id, opts, cmd) {
   if (opts.header?.length) body.headers = opts.header.map(parseHeader);
   const res = await apiFetch(`/api/webhooks/${id}`, { method: "PUT", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals(), webhookSchema);
@@ -123,17 +123,17 @@ export async function runWebhooksRemove(id, opts, cmd) {
   }
   const res = await apiFetch(`/api/webhooks/${id}`, { method: "DELETE" });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write("Removed\n");
+  process.stdout.write(`${t("common.cli.messages.removedLine")}\n`);
 }
 
 export async function runWebhooksTest(id, opts, cmd) {
   const body = { event: opts.event ?? "request.completed" };
   const res = await apiFetch(`/api/webhooks/${id}/test`, { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();

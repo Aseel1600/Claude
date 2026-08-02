@@ -65,7 +65,7 @@ export async function runStreamCommand(promptArg, opts, cmd) {
 
   const sigintHandler = () => {
     reader.cancel();
-    process.stderr.write("\n[cancelled]\n");
+    process.stderr.write(t("common.cli.messages.cancelledBracket"));
     process.exit(0);
   };
   process.on("SIGINT", sigintHandler);

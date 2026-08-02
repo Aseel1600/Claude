@@ -8,7 +8,7 @@ export function registerModels(program) {
     .command("models [provider]")
     .description(t("models.description"))
     .option("--search <query>", t("models.search"))
-    .option("--json", "Output as JSON")
+    .option("--json", t("common.jsonOpt"))
     .action(async (provider, opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const exitCode = await runModelsCommand(provider, { ...opts, output: globalOpts.output });

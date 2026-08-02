@@ -3,8 +3,10 @@
  * Validates that:
  *   1. All t("key") calls in bin/cli/commands/ resolve to existing keys in en.json.
  *   2. pt-BR.json has the same top-level shape as en.json (no missing top-level sections).
- *   3. No raw string literals are passed to .description() in commands without going
- *      through t() — only warns, does not fail hard (many descriptions use || fallback).
+ *   3. Maintained commands do not pass raw user-facing strings to
+ *      .description(), .option(), .requiredOption(), or .argument().
+ *      OpenAPI-generated commands are excluded from this check because their
+ *      descriptions are generated from the API contract.
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -13,6 +15,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..", "..");
 const COMMANDS_DIR = join(ROOT, "bin", "cli", "commands");
+const TUI_DIRS = [join(ROOT, "bin", "cli", "tui"), join(ROOT, "bin", "cli", "tui-components")];
 const LOCALES_DIR = join(ROOT, "bin", "cli", "locales");
 
 // Paths that look like t() keys but are actually import paths — skip them.
@@ -25,7 +28,7 @@ function walk(dir) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       results.push(...walk(full));
-    } else if (entry.endsWith(".mjs") || entry.endsWith(".js")) {
+    } else if (entry.endsWith(".mjs") || entry.endsWith(".js") || entry.endsWith(".jsx")) {
       results.push(full);
     }
   }
@@ -61,12 +64,80 @@ function collectTKeys(files) {
   return used;
 }
 
+function splitCallArguments(source, start) {
+  const args = [];
+  let segmentStart = start + 1;
+  let depth = 1;
+  let quote = null;
+  let escaped = false;
+
+  for (let i = start + 1; i < source.length; i++) {
+    const char = source[i];
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'" || char === "`") {
+      quote = char;
+    } else if (char === "(") {
+      depth += 1;
+    } else if (char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        args.push(source.slice(segmentStart, i));
+        return { args, end: i };
+      }
+    } else if (char === "," && depth === 1) {
+      args.push(source.slice(segmentStart, i));
+      segmentStart = i + 1;
+    }
+  }
+  return null;
+}
+
+function collectLiteralContractViolations(files) {
+  const violations = [];
+  const methods = ["description", "option", "requiredOption", "argument"];
+  for (const file of files) {
+    const source = readFileSync(file, "utf8");
+    for (const method of methods) {
+      const callRe = new RegExp(`\\.${method}\\(`, "g");
+      let match;
+      while ((match = callRe.exec(source)) !== null) {
+        const openParen = source.indexOf("(", match.index);
+        const parsed = splitCallArguments(source, openParen);
+        if (!parsed) continue;
+        const first = parsed.args[0]?.trim() ?? "";
+        const second = parsed.args[1]?.trim() ?? "";
+        const line = source.slice(0, match.index).split("\n").length;
+        const argument = method === "description" ? first : second;
+        const isRawLiteral = /^["'`]/.test(argument);
+        const isFallbackLiteral = method === "description" && /\|\|\s*["'`]/.test(first);
+        if (isRawLiteral || isFallbackLiteral) {
+          violations.push(`${file}:${line} .${method}() must use t()`);
+        }
+        callRe.lastIndex = parsed.end + 1;
+      }
+    }
+  }
+  return violations;
+}
+
 function loadJson(file) {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
 const files = walk(COMMANDS_DIR);
-const usedKeys = collectTKeys(files);
+const maintainedCommandFiles = files.filter(
+  (file) => !file.includes(`${join("bin", "cli", "commands", "api-commands")}`)
+);
+const usedKeys = collectTKeys([...files, ...TUI_DIRS.flatMap((dir) => walk(dir))]);
 const en = loadJson(join(LOCALES_DIR, "en.json"));
 const ptBR = loadJson(join(LOCALES_DIR, "pt-BR.json"));
 const enKeys = flattenKeys(en);
@@ -93,6 +164,19 @@ if (missingTopLevel.length > 0) {
   errors += missingTopLevel.length;
 } else {
   console.log(`[cli-i18n] ✓ pt-BR.json has all ${enTopLevel.length} top-level sections`);
+}
+
+// Check 3: maintained command contracts must be localized. Generated API
+// command files are intentionally excluded above.
+const literalContractViolations = collectLiteralContractViolations(maintainedCommandFiles);
+if (literalContractViolations.length > 0) {
+  console.error("[cli-i18n] User-facing command contracts contain raw literals:");
+  for (const violation of literalContractViolations) console.error(`  ✗ ${violation}`);
+  errors += literalContractViolations.length;
+} else {
+  console.log(
+    `[cli-i18n] ✓ Maintained command descriptions/options/arguments use t() (${maintainedCommandFiles.length} files)`
+  );
 }
 
 if (errors > 0) {

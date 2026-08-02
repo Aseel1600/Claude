@@ -12,7 +12,7 @@ function truncate(v, max = 40) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -33,7 +33,7 @@ export function registerTags(program) {
   tags.command("list").action(async (opts, cmd) => {
     const res = await apiFetch("/api/tags");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     const data = await res.json();
@@ -48,7 +48,7 @@ export function registerTags(program) {
       const body = { name, color: opts.color, description: opts.description };
       const res = await apiFetch("/api/tags", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -59,15 +59,15 @@ export function registerTags(program) {
     .option("--yes", t("tags.remove.yes"))
     .action(async (id, opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Delete tag ${id}?`);
+        const ok = await confirm(t("common.cli.messages.deletePrompt", { resource: "tag", id }));
         if (!ok) return;
       }
       const res = await apiFetch(`/api/tags?id=${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Removed\n");
+      process.stdout.write(`${t("common.cli.messages.removedLine")}\n`);
     });
 
   tags
@@ -81,10 +81,12 @@ export function registerTags(program) {
         body: { tag: opts.tag, resourceType, resourceId },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write(`Tag '${opts.tag}' → ${opts.to}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.tagAssigned", { tag: opts.tag, resource: opts.to })}\n`
+      );
     });
 
   tags
@@ -98,16 +100,18 @@ export function registerTags(program) {
         body: { tag: opts.tag, resourceType, resourceId },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write(`Removed tag '${opts.tag}' from ${opts.from}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.tagUnassigned", { tag: opts.tag, resource: opts.from })}\n`
+      );
     });
 
   tags.command("resources <tagName>").action(async (tagName, opts, cmd) => {
     const res = await apiFetch(`/api/tags?name=${encodeURIComponent(tagName)}&resources=true`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     const data = await res.json();

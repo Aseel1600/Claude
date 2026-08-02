@@ -11,8 +11,8 @@ export function registerDashboard(program) {
     .command("dashboard")
     .description(t("dashboard.description"))
     .option("--url", t("dashboard.urlOnly"))
-    .option("--port <port>", "Port the server is running on")
-    .option("--tui", t("dashboard.tui") || "Open interactive TUI dashboard (terminal UI)")
+    .option("--port <port>", t("common.cli.options.dashboardPort"))
+    .option("--tui", t("dashboard.tui"))
     .action(async (opts, cmd) => {
       if (opts.tui) {
         const globalOpts = cmd.optsWithGlobals();

@@ -36,7 +36,7 @@ function statusColor(status) {
 
 function printProviderTable(connections) {
   if (connections.length === 0) {
-    console.log("No providers configured.");
+    console.log(t("common.cli.messages.noProviders"));
     return;
   }
 
@@ -63,10 +63,10 @@ function normalizeCategoryFilter(category) {
 
 function availableProviderNotes(provider) {
   const notes = [];
-  if (provider.alias) notes.push(`alias:${provider.alias}`);
-  if (provider.hasFree) notes.push("free");
-  if (provider.passthroughModels) notes.push("passthrough");
-  if (provider.deprecated) notes.push("deprecated");
+  if (provider.alias) notes.push(t("common.cli.messages.providerAlias", { alias: provider.alias }));
+  if (provider.hasFree) notes.push(t("common.cli.messages.providerFree"));
+  if (provider.passthroughModels) notes.push(t("common.cli.messages.providerPassthrough"));
+  if (provider.deprecated) notes.push(t("common.cli.messages.providerDeprecated"));
   return notes.join(", ");
 }
 
@@ -101,14 +101,14 @@ function filterAvailableProviders(providers, opts) {
 
 function printAvailableProviderTable(providers, categories) {
   if (providers.length === 0) {
-    console.log("No available providers matched the filters.");
+    console.log(t("common.cli.messages.noProvidersMatched"));
     return;
   }
 
-  console.log(`${providers.length} providers available.`);
-  console.log(`Categories: ${categories.join(", ")}`);
-  console.log("Use --search <text> or --category <category> to filter.\n");
-  console.log(`${"ID".padEnd(24)} ${"Category".padEnd(14)} ${"Name".padEnd(28)} Notes`);
+  console.log(t("common.cli.messages.providersAvailable", { count: providers.length }));
+  console.log(t("common.cli.messages.categories", { categories: categories.join(", ") }));
+  console.log(`${t("common.cli.messages.providerFilterHint")}\n`);
+  console.log(t("common.cli.messages.providerHeaders"));
 
   for (const provider of providers) {
     console.log(
@@ -155,9 +155,9 @@ function validateConnection(connection) {
   const issues = [];
   const warnings = [];
 
-  if (!connection.id) issues.push("Missing id");
-  if (!connection.provider) issues.push("Missing provider");
-  if (!connection.authType) warnings.push("Missing auth type");
+  if (!connection.id) issues.push(t("common.cli.messages.missingConnectionId"));
+  if (!connection.provider) issues.push(t("common.cli.messages.missingProvider"));
+  if (!connection.authType) warnings.push(t("common.cli.messages.missingAuthType"));
 
   if (connection.authType === "apikey") {
     try {
@@ -166,11 +166,11 @@ function validateConnection(connection) {
       issues.push(error instanceof Error ? error.message : String(error));
     }
   } else if (!connection.accessToken && !connection.refreshToken) {
-    warnings.push("OAuth connection has no access or refresh token visible locally");
+    warnings.push(t("common.cli.messages.oauthTokenNotVisible"));
   }
 
   if (connection.providerSpecificData === null && connection.providerSpecificData !== undefined) {
-    warnings.push("provider_specific_data is absent or not an object");
+    warnings.push(t("common.cli.messages.providerSpecificDataInvalid"));
   }
 
   return {
@@ -189,7 +189,7 @@ export async function runAvailableCommand(opts = {}) {
   if (opts.json) {
     console.log(JSON.stringify({ count: providers.length, categories, providers }, null, 2));
   } else {
-    printHeading("OmniRoute Available Providers");
+    printHeading(t("common.cli.messages.availableProvidersTitle"));
     printAvailableProviderTable(providers, categories);
   }
 
@@ -203,7 +203,7 @@ export async function runListCommand(opts = {}) {
     if (opts.json) {
       console.log(JSON.stringify({ providers: connections }, null, 2));
     } else {
-      printHeading("OmniRoute Providers");
+      printHeading(t("common.cli.descriptions.providersList"));
       printProviderTable(connections);
     }
     return 0;
@@ -214,7 +214,7 @@ export async function runListCommand(opts = {}) {
 
 export async function runTestCommand(selector, opts = {}) {
   if (!selector) {
-    console.error("Provider id or name is required.");
+    console.error(t("common.cli.messages.providerRequired"));
     return 1;
   }
 
@@ -222,7 +222,7 @@ export async function runTestCommand(selector, opts = {}) {
   try {
     const connection = findProviderConnection(db, selector);
     if (!connection) {
-      console.error(`Provider connection not found: ${selector}`);
+      console.error(t("common.cli.messages.providerNotFound", { selector }));
       return 1;
     }
 
@@ -230,9 +230,13 @@ export async function runTestCommand(selector, opts = {}) {
     if (opts.json) {
       console.log(JSON.stringify(result, null, 2));
     } else if (result.valid) {
-      console.log(`\x1b[32mOK\x1b[0m ${connection.name}: provider test passed`);
+      console.log(
+        `\x1b[32m${t("common.cli.messages.okShort")}\x1b[0m ${connection.name}: ${t("common.cli.messages.providerTestPassedText")}`
+      );
     } else {
-      console.log(`\x1b[31mFAIL\x1b[0m ${connection.name}: ${result.error}`);
+      console.log(
+        `\x1b[31m${t("common.cli.messages.failShort")}\x1b[0m ${connection.name}: ${result.error}`
+      );
     }
     return result.valid ? 0 : 1;
   } finally {
@@ -251,7 +255,7 @@ export async function runTestAllCommand(opts = {}) {
           connection: publicConnection(connection),
           valid: false,
           skipped: true,
-          error: "Connection is inactive",
+          error: t("common.cli.messages.connectionInactive"),
         });
         continue;
       }
@@ -261,15 +265,15 @@ export async function runTestAllCommand(opts = {}) {
     if (opts.json) {
       console.log(JSON.stringify({ results }, null, 2));
     } else {
-      printHeading("OmniRoute Provider Tests");
+      printHeading(t("common.cli.messages.providerTestsTitle"));
       for (const result of results) {
         const label = result.valid
-          ? "\x1b[32mOK\x1b[0m"
+          ? `\x1b[32m${t("common.cli.messages.okShort")}\x1b[0m`
           : result.skipped
-            ? "\x1b[33mSKIP\x1b[0m"
-            : "\x1b[31mFAIL\x1b[0m";
+            ? `\x1b[33m${t("common.cli.messages.skipShort")}\x1b[0m`
+            : `\x1b[31m${t("common.cli.messages.failShort")}\x1b[0m`;
         console.log(
-          `${label} ${result.connection.name}: ${result.valid ? "provider test passed" : result.error}`
+          `${label} ${result.connection.name}: ${result.valid ? t("common.cli.messages.providerTestPassedText") : result.error}`
         );
       }
     }
@@ -287,12 +291,14 @@ export async function runValidateCommand(opts = {}) {
     if (opts.json) {
       console.log(JSON.stringify({ results }, null, 2));
     } else {
-      printHeading("OmniRoute Provider Validation");
+      printHeading(t("common.cli.messages.providerValidationTitle"));
       if (results.length === 0) {
-        console.log("No providers configured.");
+        console.log(t("common.cli.messages.noProviders"));
       }
       for (const result of results) {
-        const label = result.valid ? "\x1b[32mOK\x1b[0m" : "\x1b[31mFAIL\x1b[0m";
+        const label = result.valid
+          ? `\x1b[32m${t("common.cli.messages.okShort")}\x1b[0m`
+          : `\x1b[31m${t("common.cli.messages.failShort")}\x1b[0m`;
         const messages = [...result.issues, ...result.warnings].join("; ");
         console.log(`${label} ${result.connection.name}${messages ? `: ${messages}` : ""}`);
       }
@@ -305,7 +311,7 @@ export async function runValidateCommand(opts = {}) {
 
 export async function runProvidersRotateCommand(selector, opts = {}) {
   if (!selector) {
-    console.error("Provider connection id or name is required.");
+    console.error(t("common.cli.messages.providerConnectionRequired"));
     return 2;
   }
 
@@ -319,7 +325,7 @@ export async function runProvidersRotateCommand(selector, opts = {}) {
   }
 
   if (!connection) {
-    console.error(`Provider connection not found: ${selector}`);
+    console.error(t("common.cli.messages.providerNotFound", { selector }));
     return 2;
   }
 
@@ -344,13 +350,13 @@ export async function runProvidersRotateCommand(selector, opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     newKey = await new Promise((resolve) =>
-      rl.question(`New API key for ${connection.name}: `, (a) => {
+      rl.question(t("common.cli.messages.newApiKeyPrompt", { name: connection.name }), (a) => {
         rl.close();
         resolve(a.trim());
       })
     );
     if (!newKey) {
-      console.error("No key provided.");
+      console.error(t("common.cli.messages.noKeyProvided"));
       return 2;
     }
   }
@@ -500,11 +506,11 @@ export function registerProviders(program) {
 
   providers
     .command("available")
-    .description("Show available providers in the OmniRoute catalog")
-    .option("--json", "Print machine-readable JSON")
-    .option("--search <query>", "Filter by id, name, alias, or category")
-    .option("-q, --q <query>", "Alias for --search")
-    .option("--category <category>", "Filter by category (api-key, oauth, free)")
+    .description(t("common.cli.descriptions.providersAvailable"))
+    .option("--json", t("common.jsonOpt"))
+    .option("--search <query>", t("common.cli.options.providerCatalogSearch"))
+    .option("-q, --q <query>", t("common.cli.options.providerSearchAlias"))
+    .option("--category <category>", t("common.cli.options.providerCategory"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runAvailableCommand({ ...opts, output: globalOpts.output });
@@ -513,8 +519,8 @@ export function registerProviders(program) {
 
   providers
     .command("list")
-    .description("List configured provider connections")
-    .option("--json", "Print machine-readable JSON")
+    .description(t("common.cli.descriptions.providersList"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runListCommand({ ...opts, output: globalOpts.output });
@@ -523,8 +529,8 @@ export function registerProviders(program) {
 
   providers
     .command("test <idOrName>")
-    .description("Test a configured provider connection")
-    .option("--json", "Print machine-readable JSON")
+    .description(t("common.cli.descriptions.providersTest"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (idOrName, opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runTestCommand(idOrName, { ...opts, output: globalOpts.output });
@@ -533,8 +539,8 @@ export function registerProviders(program) {
 
   providers
     .command("test-all")
-    .description("Test all active provider connections")
-    .option("--json", "Print machine-readable JSON")
+    .description(t("common.cli.descriptions.providersTestAll"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runTestAllCommand({ ...opts, output: globalOpts.output });
@@ -543,8 +549,8 @@ export function registerProviders(program) {
 
   providers
     .command("validate")
-    .description("Validate local provider configuration without calling upstream")
-    .option("--json", "Print machine-readable JSON")
+    .description(t("common.cli.descriptions.providersValidate"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runValidateCommand({ ...opts, output: globalOpts.output });
@@ -573,7 +579,7 @@ export function registerProviders(program) {
     .command("status")
     .description(t("providers.status.description"))
     .option("--provider <name>", t("providers.status.providerOpt"))
-    .option("--json", "Print machine-readable JSON")
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runProvidersStatusCommand({ ...opts, output: globalOpts.output });
@@ -584,26 +590,38 @@ export function registerProviders(program) {
 }
 
 const providerMetricsSchema = [
-  { key: "provider", header: "Provider", width: 20 },
-  { key: "requests", header: "Reqs", formatter: (v) => (v != null ? v.toLocaleString() : "0") },
+  { key: "provider", header: t("common.cli.messages.providerHeader"), width: 20 },
+  {
+    key: "requests",
+    header: t("common.cli.messages.requestsHeader"),
+    formatter: (v) => (v != null ? v.toLocaleString() : "0"),
+  },
   {
     key: "successRate",
-    header: "Success %",
+    header: t("common.cli.messages.successHeader"),
     formatter: (v) => (v != null ? `${(v * 100).toFixed(1)}%` : "-"),
   },
   {
     key: "avgLatencyMs",
-    header: "Avg Latency",
+    header: t("common.cli.messages.avgLatencyHeader"),
     formatter: (v) => (v ? `${Math.round(v)}ms` : "-"),
   },
-  { key: "latencyP95Ms", header: "P95", formatter: (v) => (v ? `${v}ms` : "-") },
+  {
+    key: "latencyP95Ms",
+    header: t("common.cli.messages.p95Header"),
+    formatter: (v) => (v ? `${v}ms` : "-"),
+  },
   {
     key: "costUsd",
-    header: "Cost (USD)",
+    header: t("common.cli.messages.costUsdHeader"),
     formatter: (v) => (v != null ? `$${Number(v).toFixed(4)}` : "-"),
   },
-  { key: "errors", header: "Errors", formatter: (v) => (v != null ? String(v) : "0") },
-  { key: "breakerState", header: "Breaker" },
+  {
+    key: "errors",
+    header: t("common.cli.messages.errorsHeader"),
+    formatter: (v) => (v != null ? String(v) : "0"),
+  },
+  { key: "breakerState", header: t("common.cli.messages.breakerHeader") },
 ];
 
 function sortRows(rows, sortBy) {
@@ -644,7 +662,7 @@ export async function runProvidersMetrics(opts, cmd) {
   };
 
   if (opts.watch) {
-    process.stderr.write("[watching — Ctrl+C to exit]\n");
+    process.stderr.write(`${t("common.cli.messages.watching")}\n`);
     await renderOnce();
     const interval = setInterval(async () => {
       process.stdout.write("\x1b[2J\x1b[H");

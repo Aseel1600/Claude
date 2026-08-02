@@ -3,6 +3,7 @@ import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { Sparkline } from "../../tui-components/Sparkline.jsx";
 import { StatusBadge } from "../../tui-components/StatusBadge.jsx";
+import { t } from "../../i18n.mjs";
 
 function formatUptime(seconds) {
   const d = Math.floor(seconds / 86400);
@@ -23,29 +24,29 @@ function OverviewContent({ data }) {
     <Box flexDirection="column" gap={1}>
       <Box gap={4}>
         <Box flexDirection="column">
-          <Text bold>Server</Text>
+          <Text bold>{t("common.cli.tui.server")}</Text>
           <StatusBadge status={data?.status ?? "unknown"} />
         </Box>
         <Box flexDirection="column">
-          <Text bold>Uptime</Text>
+          <Text bold>{t("common.cli.tui.uptime")}</Text>
           <Text>{formatUptime(uptimeSecs)}</Text>
         </Box>
         <Box flexDirection="column">
-          <Text bold>Requests/24h</Text>
+          <Text bold>{t("common.cli.tui.requests24h")}</Text>
           <Box>
             <Text>{reqs.toLocaleString()} </Text>
             <Sparkline data={sparkData} width={12} />
           </Box>
         </Box>
         <Box flexDirection="column">
-          <Text bold>Cost/24h</Text>
+          <Text bold>{t("common.cli.tui.cost24h")}</Text>
           <Text color="yellow">${cost}</Text>
         </Box>
       </Box>
       {data?.recentActivity?.length > 0 && (
         <Box flexDirection="column" marginTop={1}>
           <Text bold dimColor>
-            Recent Activity
+            {t("common.cli.tui.recentActivity")}
           </Text>
           {data.recentActivity.slice(0, 5).map((r, i) => (
             <Box key={i} gap={2}>

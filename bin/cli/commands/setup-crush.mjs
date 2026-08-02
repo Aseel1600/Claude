@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 import { categoriseModel } from "./setup-codex.mjs";
 
@@ -85,34 +86,40 @@ async function fetchModelIds(baseUrl, apiKey) {
     headers,
     signal: AbortSignal.timeout(10000),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new Error(t("common.cli.messages.http", { status: res.status }));
   const body = await res.json();
-  const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+  const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
   return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
 }
 
 export async function runSetupCrushCommand(opts = {}) {
   const { baseUrl, apiKey } = resolveCrushTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const only = opts.only ? opts.only.split(",").map((s) => s.trim()).filter(Boolean) : null;
-  const configPath = opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "crush", "crush.json");
+  const only = opts.only
+    ? opts.only
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+  const configPath =
+    opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".config", "crush", "crush.json");
 
-  printHeading("OmniRoute → Crush (openai-compat)");
-  printInfo(`base_url: ${baseUrl}`);
+  printHeading(t("common.cli.messages.crushTitle"));
+  printInfo(`${t("common.cli.messages.baseUrlLabel")} ${baseUrl}`);
 
   let ids;
   try {
     ids = await fetchModelIds(baseUrl, apiKey);
   } catch (e) {
-    printError(`Could not fetch models: ${e.message}`);
-    printInfo("Make sure OmniRoute is running and --remote/--api-key are correct.");
+    printError(t("common.cli.messages.fetchModelsFailed", { error: e.message }));
+    printInfo(t("common.cli.messages.checkRemote"));
     return 1;
   }
   if (only) ids = ids.filter((id) => only.some((f) => id.includes(f)));
 
   const provider = buildCrushProvider(ids, baseUrl);
   if (!provider.models.length) {
-    printError("No matching curated models (try --only or check the server).");
+    printError(t("common.cli.messages.noMatchingModels"));
     return 1;
   }
   const merged = mergeCrushConfig(readJson(configPath), provider);
@@ -120,27 +127,31 @@ export async function runSetupCrushCommand(opts = {}) {
 
   if (dryRun) {
     console.log("\n" + (out.length > 3500 ? out.slice(0, 3500) + "\n… (truncated)" : out));
-    printInfo(`[dry-run] ${provider.models.length} model(s) under providers.omniroute → ${configPath}`);
+    printInfo(
+      `${t("common.cli.messages.dryRunPath", { path: configPath })} (${provider.models.length} model(s) under providers.omniroute)`
+    );
     return 0;
   }
   mkdirSync(join(configPath, ".."), { recursive: true });
   writeFileSync(configPath, out, "utf8");
-  printSuccess(`Wrote ${configPath} (${provider.models.length} models under providers.omniroute)`);
-  printInfo("Provide the key (config references $OMNIROUTE_API_KEY):  export OMNIROUTE_API_KEY=...");
-  printInfo("Then run:  crush");
+  printSuccess(
+    `${t("common.cli.messages.wrote", { path: configPath })} (${provider.models.length} models under providers.omniroute)`
+  );
+  printInfo(t("common.cli.messages.provideKey"));
+  printInfo(t("common.cli.messages.runCrush"));
   return 0;
 }
 
 export function registerSetupCrush(program) {
   program
     .command("setup-crush")
-    .description("Generate the OmniRoute openai-compat provider in ~/.config/crush/crush.json")
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--only <patterns>", "Comma-separated substrings — keep only matching model IDs")
-    .option("--config-path <path>", "crush.json path (default: ~/.config/crush/crush.json)")
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupCrush"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--only <patterns>", t("common.cli.options.onlyPatterns"))
+    .option("--config-path <path>", t("common.cli.options.setupConfigPath"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const code = await runSetupCrushCommand(opts);
       if (code !== 0) process.exit(code);

@@ -5,8 +5,8 @@ export function registerQuota(program) {
   program
     .command("quota")
     .description(t("quota.description"))
-    .option("--provider <id>", "Filter by provider")
-    .option("--json", "Output as JSON")
+    .option("--provider <id>", t("common.cli.options.providerFilter"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const exitCode = await runQuotaCommand({ ...opts, output: globalOpts.output });
@@ -50,7 +50,7 @@ export async function runQuotaCommand(opts = {}) {
   }
 
   if (opts.json || opts.output === "json") {
-    console.log(JSON.stringify(quotaData || { error: "No quota data" }, null, 2));
+    console.log(JSON.stringify(quotaData || { error: t("quota.noData") }, null, 2));
     return 0;
   }
 
@@ -65,13 +65,13 @@ export async function runQuotaCommand(opts = {}) {
     providers = providers.filter((p) => p.provider.toLowerCase().includes(filter));
   }
 
-  console.log(`\n\x1b[1m\x1b[36mProvider Quota Usage\x1b[0m\n`);
+  console.log(`\n\x1b[1m\x1b[36m${t("common.cli.messages.providerQuotaUsage")}\x1b[0m\n`);
   console.log(
     "\x1b[36m" +
-      "  Provider".padEnd(25) +
-      "Used".padEnd(15) +
-      "Remaining".padEnd(20) +
-      "Reset\x1b[0m"
+      `  ${t("common.cli.messages.providerHeader")}`.padEnd(25) +
+      t("common.cli.messages.usedHeader").padEnd(15) +
+      t("common.cli.messages.remainingHeader").padEnd(20) +
+      `${t("common.cli.messages.resetHeader")}\x1b[0m`
   );
   console.log(
     "\x1b[2m  " +
@@ -95,6 +95,8 @@ export async function runQuotaCommand(opts = {}) {
     console.log(`  ${provider}${used}${remaining}${reset}`);
   }
 
-  console.log(`\n  \x1b[32mTotal: ${providers.length} providers\x1b[0m`);
+  console.log(
+    `\n  \x1b[32m${t("common.cli.messages.totalProviders", { count: providers.length })}\x1b[0m`
+  );
   return 0;
 }

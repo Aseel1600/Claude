@@ -44,14 +44,14 @@ function contextWindowOf(entry) {
 async function fetchModels(globalOpts) {
   const res = await apiFetch("/v1/models", { ...globalOpts, acceptNotOk: true });
   if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
+    let msg = t("common.cli.messages.http", { status: res.status });
     try {
       const b = await res.json();
       msg = b?.error?.message || b?.error || msg;
     } catch {
       /* ignore */
     }
-    throw new Error(`Could not fetch models: ${msg}`);
+    throw new Error(t("common.cli.messages.fetchModelsFailed", { error: msg }));
   }
   const body = await res.json();
   const list = Array.isArray(body) ? body : body.data || body.models || [];
@@ -82,16 +82,16 @@ async function configureCodex(modelId, ctxWindow, opts) {
     copyFileSync(filePath, `${filePath}.bak`);
   }
   writeFileSync(filePath, buildCodexProfile(modelId, ctxWindow), "utf8");
-  printSuccess(`Wrote ${filePath}`);
-  printInfo(`Use it:  codex --profile ${profile}`);
-  printInfo("Prereq: ~/.codex/config.toml must define the [model_providers.omniroute] block");
-  printInfo("        (run the Codex setup once — see docs/guides/CODEX-CLI-CONFIGURATION.md).");
+  printSuccess(t("common.cli.messages.wrote", { path: filePath }));
+  printInfo(t("common.cli.messages.useCodexProfile", { profile }));
+  printInfo(t("common.cli.messages.codexPrerequisite"));
+  printInfo(t("common.cli.messages.codexPrerequisiteDocs"));
 }
 
 export async function runConfigureCommand(cli, opts = {}, cmd) {
   const target = String(cli || "").toLowerCase();
   if (!SUPPORTED.includes(target)) {
-    printError(`Unsupported CLI '${cli}'. Supported: ${SUPPORTED.join(", ")}.`);
+    printError(t("common.cli.messages.unsupportedCli", { cli, supported: SUPPORTED.join(", ") }));
     return 2;
   }
   const globalOpts = cmd ? cmd.optsWithGlobals() : {};
@@ -104,7 +104,7 @@ export async function runConfigureCommand(cli, opts = {}, cmd) {
     return 1;
   }
   if (!models.length) {
-    printError("The server returned no models.");
+    printError(t("common.cli.messages.serverReturnedNoModels"));
     return 1;
   }
 
@@ -119,31 +119,35 @@ export async function runConfigureCommand(cli, opts = {}, cmd) {
     const providers = [...new Set(models.map(providerOf))].sort();
     const prompt = createPrompt();
     try {
-      printHeading("Configure Codex CLI");
+      printHeading(t("common.cli.messages.configureCodexTitle"));
       let providerList = providers;
       if (opts.provider) {
         providerList = providers.filter((p) => p === opts.provider);
       } else {
-        printInfo(`Providers: ${providers.join(", ")}`);
-        const p = await prompt.ask("Provider");
+        printInfo(t("common.cli.messages.providersLine", { providers: providers.join(", ") }));
+        const p = await prompt.ask(t("common.cli.messages.providerPrompt"));
         if (p) providerList = providers.filter((x) => x === p);
       }
       const inProvider = ids.filter((id) => providerList.includes(providerOf(byId(models, id))));
       const candidates = inProvider.length ? inProvider : ids;
-      printInfo(`Models: ${candidates.slice(0, 40).join(", ")}${candidates.length > 40 ? " …" : ""}`);
-      chosenId = await prompt.ask("Model id");
+      printInfo(
+        t("common.cli.messages.modelsLine", {
+          models: `${candidates.slice(0, 40).join(", ")}${candidates.length > 40 ? " …" : ""}`,
+        })
+      );
+      chosenId = await prompt.ask(t("common.cli.messages.modelIdPrompt"));
     } finally {
       prompt.close();
     }
   }
 
   if (!chosenId) {
-    printError("No model selected.");
+    printError(t("common.cli.messages.noModelSelected"));
     return 2;
   }
   const entry = byId(models, chosenId);
   if (!entry) {
-    printError(`Model '${chosenId}' is not in the catalog.`);
+    printError(t("common.cli.messages.modelNotInCatalog", { model: chosenId }));
     return 2;
   }
   const ctxWindow = contextWindowOf(entry);
@@ -165,14 +169,11 @@ function byId(models, id) {
 export function registerConfigure(program) {
   program
     .command("configure <cli>")
-    .description(
-      t("configure.description") ||
-        "Pick a provider+model from the active server and write a local CLI config (v1: codex)"
-    )
-    .option("--provider <id>", "Provider id (skips the interactive provider prompt)")
-    .option("--model <id>", "Model id (skips the interactive model prompt)")
-    .option("--name <name>", "Profile name to write (default: derived from model)")
-    .option("--codex-home <dir>", "Codex home dir (default: ~/.codex)")
+    .description(t("common.cli.descriptions.configure"))
+    .option("--provider <id>", t("common.cli.options.providerId"))
+    .option("--model <id>", t("common.cli.options.modelId"))
+    .option("--name <name>", t("common.cli.options.profileName"))
+    .option("--codex-home <dir>", t("common.cli.options.codexHome"))
     .action(async (cli, opts, cmd) => {
       const code = await runConfigureCommand(cli, opts, cmd);
       if (code !== 0) process.exit(code);

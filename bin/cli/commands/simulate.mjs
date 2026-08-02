@@ -94,7 +94,9 @@ export async function runSimulateCommand(promptArg, opts, cmd) {
     const fallbacks = simulatedPath.slice(1).map((s) => s.provider);
     process.stderr.write(`\nPrimary: ${primary?.provider} / ${primary?.model}\n`);
     if (fallbacks.length > 0) {
-      process.stderr.write(`Fallbacks: ${fallbacks.join(" → ")}\n`);
+      process.stderr.write(
+        `${t("common.cli.messages.fallbacks", { fallbacks: fallbacks.join(" → ") })}\n`
+      );
     }
     const costs = simulatedPath.map((s) => s.estimatedCost);
     process.stderr.write(

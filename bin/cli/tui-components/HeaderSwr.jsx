@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Text } from "ink";
+import { t } from "../i18n.mjs";
 
 export function HeaderSwr({ fetcher, interval = 5000, render, initial = null }) {
   const [data, setData] = useState(initial);
@@ -20,6 +21,6 @@ export function HeaderSwr({ fetcher, interval = 5000, render, initial = null }) 
     };
   }, [fetcher, interval]);
 
-  if (!data) return <Text dimColor>Loading…</Text>;
+  if (!data) return <Text dimColor>{t("common.cli.tui.loadingShort")}</Text>;
   return render(data);
 }

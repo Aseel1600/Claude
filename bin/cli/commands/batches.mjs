@@ -13,7 +13,7 @@ function fmtTs(v) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -74,7 +74,7 @@ async function waitBatch(id, opts, timeout = 3600000) {
   while (Date.now() < deadline) {
     const res = await apiFetch(`/v1/batches/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     const b = await res.json();
@@ -87,7 +87,7 @@ async function waitBatch(id, opts, timeout = 3600000) {
     }
     await sleep(5000);
   }
-  process.stderr.write("Timeout\n");
+  process.stderr.write(`${t("common.cli.messages.timeoutLine")}\n`);
   process.exit(124);
 }
 
@@ -103,7 +103,7 @@ export function registerBatches(program) {
       if (opts.status) params.set("status", opts.status);
       const res = await apiFetch(`/v1/batches?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -113,7 +113,7 @@ export function registerBatches(program) {
   batches.command("get <batchId>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/v1/batches/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -146,7 +146,7 @@ export function registerBatches(program) {
       };
       const res = await apiFetch("/v1/batches", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -166,7 +166,7 @@ export function registerBatches(program) {
         body: { input_file_id: upload.id, endpoint: opts.endpoint, completion_window: "24h" },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const batch = await res.json();
@@ -184,10 +184,10 @@ export function registerBatches(program) {
       }
       const res = await apiFetch(`/v1/batches/${id}/cancel`, { method: "POST" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Cancelled\n");
+      process.stdout.write(`${t("common.cli.messages.cancelledLine")}\n`);
     });
 
   batches
@@ -201,12 +201,12 @@ export function registerBatches(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/v1/batches/${id}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const batch = await res.json();
       if (!batch.output_file_id) {
-        process.stderr.write("Not yet completed\n");
+        process.stderr.write(`${t("common.cli.messages.notYetCompleted")}\n`);
         process.exit(1);
       }
       const content = await fetchFile(batch.output_file_id, cmd.optsWithGlobals());
@@ -220,12 +220,12 @@ export function registerBatches(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/v1/batches/${id}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const batch = await res.json();
       if (!batch.error_file_id) {
-        process.stdout.write("No errors\n");
+        process.stdout.write(`${t("common.cli.messages.noErrors")}\n`);
         return;
       }
       const content = await fetchFile(batch.error_file_id, cmd.optsWithGlobals());

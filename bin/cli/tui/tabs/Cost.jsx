@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { Sparkline } from "../../tui-components/Sparkline.jsx";
+import { t } from "../../i18n.mjs";
 
 export default function Cost({ baseUrl, apiKey }) {
   const fetcher = React.useCallback(async () => {
@@ -23,17 +24,17 @@ export default function Cost({ baseUrl, apiKey }) {
           <Box flexDirection="column" gap={1}>
             <Box gap={4}>
               <Box flexDirection="column">
-                <Text bold>Total (7d)</Text>
+                <Text bold>{t("common.cli.tui.totalSevenDays")}</Text>
                 <Text color="yellow">${totalCost.toFixed(4)}</Text>
               </Box>
               <Box flexDirection="column">
-                <Text bold>Daily Trend</Text>
+                <Text bold>{t("common.cli.tui.dailyTrend")}</Text>
                 <Sparkline data={dailyCosts} width={14} color="yellow" />
               </Box>
             </Box>
             {Object.keys(byProvider).length > 0 && (
               <Box flexDirection="column">
-                <Text bold>By Provider</Text>
+                <Text bold>{t("common.cli.tui.byProvider")}</Text>
                 {Object.entries(byProvider).map(([provider, cost]) => (
                   <Box key={provider} gap={2}>
                     <Box width={16}>

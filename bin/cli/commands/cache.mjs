@@ -7,8 +7,8 @@ export function registerCache(program) {
   cache
     .command("status")
     .alias("stats")
-    .description("Show cache statistics")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.cacheStatus"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runCacheStatusCommand({ ...opts, output: globalOpts.output });
@@ -17,8 +17,8 @@ export function registerCache(program) {
 
   cache
     .command("clear")
-    .description("Clear all cached responses")
-    .option("--yes", "Skip confirmation")
+    .description(t("common.cli.descriptions.cacheClear"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runCacheClearCommand({ ...opts, output: globalOpts.output });
@@ -40,7 +40,7 @@ export async function runCacheStatusCommand(opts = {}) {
       acceptNotOk: true,
     });
     if (!res.ok) {
-      console.log("Cache stats not available.");
+      console.log(t("common.cli.messages.cacheUnavailable"));
       return 0;
     }
 
@@ -51,10 +51,11 @@ export async function runCacheStatusCommand(opts = {}) {
       return 0;
     }
 
-    console.log(`\n\x1b[1m\x1b[36mCache Status\x1b[0m\n`);
-    console.log(`  Semantic hits:   ${stats.semanticHits || 0}`);
-    console.log(`  Signature hits:  ${stats.signatureHits || 0}`);
-    if (stats.size !== undefined) console.log(`  Size:            ${stats.size}`);
+    console.log(`\n\x1b[1m\x1b[36m${t("common.cli.messages.cacheTitle")}\x1b[0m\n`);
+    console.log(`  ${t("common.cli.messages.semanticHits")}   ${stats.semanticHits || 0}`);
+    console.log(`  ${t("common.cli.messages.signatureHits")}  ${stats.signatureHits || 0}`);
+    if (stats.size !== undefined)
+      console.log(`  ${t("common.cli.messages.size")}            ${stats.size}`);
     return 0;
   } catch (err) {
     console.error(t("common.error", { message: err instanceof Error ? err.message : String(err) }));
@@ -73,7 +74,7 @@ export async function runCacheClearCommand(opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question("Clear all cached responses? [y/N] ", resolve)
+      rl.question(t("common.cli.messages.cacheClearPrompt"), resolve)
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {

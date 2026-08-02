@@ -184,7 +184,9 @@ export async function runBudgetReset(scope, opts, cmd) {
     process.stderr.write(`[error] HTTP ${res.status}: ${txt.slice(0, 200)}\n`);
     process.exit(res.exitCode ?? 1);
   }
-  if (!globalOpts.quiet) process.stdout.write(`Budget reset: ${scope ?? "global"}\n`);
+  if (!globalOpts.quiet) {
+    process.stdout.write(`${t("common.cli.messages.budgetReset", { scope: scope ?? "global" })}\n`);
+  }
 }
 
 export async function runUsageQuota(opts, cmd) {
@@ -252,7 +254,7 @@ export async function runUsageProxyLogs(opts, cmd) {
 
 async function followLogs(opts, globalOpts) {
   let lastId = null;
-  process.stderr.write("[following logs — press Ctrl+C to stop]\n");
+  process.stderr.write(`${t("common.cli.messages.followingLogs")}\n`);
   const sigint = () => process.exit(0);
   process.on("SIGINT", sigint);
   try {

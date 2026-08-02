@@ -22,15 +22,11 @@ function applyLegacyTypeMap(type) {
   if (!type) return type;
   if (Object.prototype.hasOwnProperty.call(LEGACY_TYPE_MAP, type)) {
     const mapped = LEGACY_TYPE_MAP[type];
-    process.stderr.write(
-      `Warning: legacy type '${type}' is deprecated; using '${mapped}'. Use --type factual|episodic|procedural|semantic.\n`
-    );
+    process.stderr.write(`${t("common.cli.messages.legacyTypeWarning", { type, mapped })}\n`);
     return mapped;
   }
   if (!VALID_TYPES.includes(type)) {
-    process.stderr.write(
-      `Warning: unknown type '${type}'. Valid types: factual, episodic, procedural, semantic.\n`
-    );
+    process.stderr.write(`${t("common.cli.messages.unknownTypeWarning", { type })}\n`);
   }
   return type;
 }
@@ -72,7 +68,7 @@ function parseDuration(s) {
 
 async function confirm(question) {
   return new Promise((resolve) => {
-    process.stdout.write(`${question} (yes/no) `);
+    process.stdout.write(`${question}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (chunk) => {
       resolve(chunk.toString().trim().toLowerCase().startsWith("y"));
@@ -89,7 +85,7 @@ export async function runMemorySearch(query, opts, cmd) {
   if (opts.tokenBudget) params.set("tokenBudget", String(opts.tokenBudget));
   const res = await apiFetch(`/api/memory?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -100,7 +96,9 @@ export async function runMemoryAdd(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const content = opts.content ?? (opts.file ? readFileSync(opts.file, "utf8") : null);
   if (!content) {
-    process.stderr.write("--content or --file required\n");
+    process.stderr.write(
+      `${t("common.cli.messages.requiredPair", { first: "--content", second: "--file" })}\n`
+    );
     process.exit(2);
   }
   const resolvedType = opts.type ? applyLegacyTypeMap(opts.type) : "factual";
@@ -112,7 +110,7 @@ export async function runMemoryAdd(opts, cmd) {
   };
   const res = await apiFetch("/api/memory", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const created = await res.json();
@@ -122,7 +120,7 @@ export async function runMemoryAdd(opts, cmd) {
 export async function runMemoryClear(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   if (!opts.yes) {
-    const ok = await confirm("This will delete memories. Continue?");
+    const ok = await confirm(t("common.cli.messages.clearMemoriesPrompt"));
     if (!ok) process.exit(0);
   }
   const params = new URLSearchParams();
@@ -131,7 +129,9 @@ export async function runMemoryClear(opts, cmd) {
   if (opts.olderThan) {
     const iso = parseDuration(opts.olderThan);
     if (!iso) {
-      process.stderr.write(`Invalid --older-than value: ${opts.olderThan}\n`);
+      process.stderr.write(
+        `${t("common.cli.messages.invalidOptionValue", { option: "--older-than", value: opts.olderThan })}\n`
+      );
       process.exit(2);
     }
     params.set("olderThan", iso);
@@ -150,7 +150,7 @@ export async function runMemoryList(opts, cmd) {
   if (opts.apiKey) params.set("apiKey", opts.apiKey);
   const res = await apiFetch(`/api/memory?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -161,7 +161,7 @@ export async function runMemoryGet(id, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch(`/api/memory/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -171,22 +171,22 @@ export async function runMemoryGet(id, opts, cmd) {
 export async function runMemoryDelete(id, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   if (!opts.yes) {
-    const ok = await confirm(`Delete memory ${id}?`);
+    const ok = await confirm(t("common.cli.messages.deletePrompt", { resource: "memory", id }));
     if (!ok) process.exit(0);
   }
   const res = await apiFetch(`/api/memory/${id}`, { method: "DELETE" });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Deleted: ${id}\n`);
+  process.stdout.write(`${t("common.cli.messages.deletedWithId", { id })}\n`);
 }
 
 export async function runMemoryHealth(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   const res = await apiFetch("/api/memory/health");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();

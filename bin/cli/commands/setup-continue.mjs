@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import os from "node:os";
 import { printHeading, printInfo, printSuccess, printError } from "../io.mjs";
+import { t } from "../i18n.mjs";
 import { resolveActiveContext } from "../contexts.mjs";
 import { categoriseModel } from "./setup-codex.mjs";
 
@@ -92,7 +93,7 @@ async function fetchModelIds(apiBase, apiKey) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = await res.json();
-    const list = Array.isArray(body) ? body : body.data ?? body.models ?? [];
+    const list = Array.isArray(body) ? body : (body.data ?? body.models ?? []);
     return list.map((m) => (typeof m === "string" ? m : m?.id)).filter(Boolean);
   } catch (e) {
     throw new Error(`Could not fetch models: ${e.message}`);
@@ -102,25 +103,31 @@ async function fetchModelIds(apiBase, apiKey) {
 export async function runSetupContinueCommand(opts = {}) {
   const { apiBase, apiKey } = resolveContinueTarget(opts);
   const dryRun = Boolean(opts.dryRun ?? opts["dry-run"]);
-  const only = opts.only ? opts.only.split(",").map((s) => s.trim()).filter(Boolean) : null;
-  const configPath = opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".continue", "config.yaml");
+  const only = opts.only
+    ? opts.only
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : null;
+  const configPath =
+    opts.configPath ?? opts["config-path"] ?? join(os.homedir(), ".continue", "config.yaml");
 
-  printHeading("OmniRoute → Continue (config.yaml)");
-  printInfo(`apiBase: ${apiBase}`);
+  printHeading(t("common.cli.messages.continueTitle"));
+  printInfo(t("common.cli.messages.apiBaseLine", { apiBase }));
 
   let ids;
   try {
     ids = await fetchModelIds(apiBase, apiKey);
   } catch (e) {
     printError(e.message);
-    printInfo("Make sure OmniRoute is running and --remote/--api-key are correct.");
+    printInfo(t("common.cli.messages.checkRemote"));
     return 1;
   }
   if (only) ids = ids.filter((id) => only.some((f) => id.includes(f)));
 
   const models = buildContinueModels(ids, apiBase);
   if (!models.length) {
-    printError("No matching curated models in the catalog (try --only or check the server).");
+    printError(t("common.cli.messages.noMatchingCuratedModels"));
     return 1;
   }
 
@@ -130,7 +137,7 @@ export async function runSetupContinueCommand(opts = {}) {
     try {
       existing = yaml.load(readFileSync(configPath, "utf8")) || {};
     } catch {
-      printInfo("Existing config.yaml unparseable — starting fresh (a .bak is kept).");
+      printInfo(t("common.cli.messages.configUnparseable"));
       if (!dryRun) writeFileSync(`${configPath}.bak`, readFileSync(configPath));
       existing = {};
     }
@@ -140,32 +147,32 @@ export async function runSetupContinueCommand(opts = {}) {
 
   if (dryRun) {
     console.log("\n" + (out.length > 3500 ? out.slice(0, 3500) + "\n… (truncated)" : out));
-    printInfo(`[dry-run] ${models.length} OmniRoute model(s) → ${configPath}`);
+    printInfo(t("common.cli.messages.continueDryRun", { count: models.length, path: configPath }));
     return 0;
   }
 
   mkdirSync(join(configPath, ".."), { recursive: true });
   writeFileSync(configPath, out, "utf8");
-  printSuccess(`Wrote ${configPath} (${models.length} OmniRoute models)`);
-  printInfo("\nProvide the key (config.yaml references it, not stores it):");
-  printInfo("  cn CLI:  export OMNIROUTE_API_KEY=...   (read from your shell)");
-  printInfo("  IDE:     echo 'OMNIROUTE_API_KEY=...' >> ~/.continue/.env");
-  printInfo("Run:  cn -p \"reply OK\"");
+  printSuccess(
+    t("common.cli.messages.continueWritten", { path: configPath, count: models.length })
+  );
+  printInfo(t("common.cli.messages.continueProvideKey"));
+  printInfo(t("common.cli.messages.continueCnCommand"));
+  printInfo(t("common.cli.messages.continueIdeCommand"));
+  printInfo(t("common.cli.messages.continueRunCommand"));
   return 0;
 }
 
 export function registerSetupContinue(program) {
   program
     .command("setup-continue")
-    .description(
-      "Generate ~/.continue/config.yaml (Continue / cn CLI) from the OmniRoute model catalog"
-    )
-    .option("--port <port>", "Local OmniRoute port (ignored when --remote is set)", "20128")
-    .option("--remote <url>", "Remote OmniRoute URL, e.g. http://192.168.0.15:20128")
-    .option("--api-key <key>", "OmniRoute API key (defaults to OMNIROUTE_API_KEY env var)")
-    .option("--only <patterns>", "Comma-separated substrings — keep only matching model IDs")
-    .option("--config-path <path>", "config.yaml path (default: ~/.continue/config.yaml)")
-    .option("--dry-run", "Print what would be written without touching the filesystem")
+    .description(t("common.cli.descriptions.setupContinue"))
+    .option("--port <port>", t("common.cli.options.localPort"), "20128")
+    .option("--remote <url>", t("common.cli.options.remoteUrl"))
+    .option("--api-key <key>", t("common.cli.options.apiKeyEnv"))
+    .option("--only <patterns>", t("common.cli.options.onlyPatterns"))
+    .option("--config-path <path>", t("common.cli.options.setupConfigPath"))
+    .option("--dry-run", t("common.cli.options.dryRun"))
     .action(async (opts) => {
       const code = await runSetupContinueCommand(opts);
       if (code !== 0) process.exit(code);

@@ -3,12 +3,18 @@ import { Box, Text } from "ink";
 import { HeaderSwr } from "../../tui-components/HeaderSwr.jsx";
 import { DataTable } from "../../tui-components/DataTable.jsx";
 import { KeyMaskedDisplay } from "../../tui-components/KeyMaskedDisplay.jsx";
+import { t } from "../../i18n.mjs";
 
 const SCHEMA = [
-  { key: "label", header: "Label", width: 20 },
-  { key: "key", header: "Key", width: 24 },
-  { key: "scope", header: "Scope", width: 12 },
-  { key: "active", header: "Active", width: 8, formatter: (v) => (v ? "✓" : "✗") },
+  { key: "label", header: t("common.cli.tui.keyLabel"), width: 20 },
+  { key: "key", header: t("common.cli.tui.key"), width: 24 },
+  { key: "scope", header: t("common.cli.tui.scope"), width: 12 },
+  {
+    key: "active",
+    header: t("common.cli.tui.active"),
+    width: 8,
+    formatter: (v) => (v ? "✓" : "✗"),
+  },
 ];
 
 export default function Keys({ baseUrl, apiKey }) {
@@ -41,7 +47,7 @@ export default function Keys({ baseUrl, apiKey }) {
         }}
       />
       <Box marginTop={1}>
-        <Text dimColor>[↑↓] select [a] add [r] revoke [R] reveal [c] copy</Text>
+        <Text dimColor>{t("common.cli.tui.keysFooter")}</Text>
       </Box>
     </Box>
   );

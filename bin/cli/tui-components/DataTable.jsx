@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import { theme } from "./theme.jsx";
+import { t } from "../i18n.mjs";
 
 function formatCell(v, col) {
   if (v == null) return "-";
@@ -19,7 +20,7 @@ export function DataTable({ rows = [], schema = [], selectable = false, onSelect
   });
 
   if (rows.length === 0) {
-    return <Text dimColor>No data.</Text>;
+    return <Text dimColor>{t("common.cli.tui.noData")}</Text>;
   }
 
   return (

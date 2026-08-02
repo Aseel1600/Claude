@@ -31,7 +31,9 @@ export function normalizeBaseUrl(host, port) {
 
 /** Derive a clean context name from a host (strip scheme/port). */
 export function hostLabel(host) {
-  let value = String(host || "").trim().replace(/^https?:\/\//i, "");
+  let value = String(host || "")
+    .trim()
+    .replace(/^https?:\/\//i, "");
   value = value.split("/")[0].split(":")[0];
   return value || "remote";
 }
@@ -39,16 +41,18 @@ export function hostLabel(host) {
 async function readErrorMessage(res) {
   try {
     const body = await res.json();
-    return body?.error?.message || body?.error || `HTTP ${res.status}`;
+    return (
+      body?.error?.message || body?.error || t("common.cli.messages.http", { status: res.status })
+    );
   } catch {
-    return `HTTP ${res.status}`;
+    return t("common.cli.messages.http", { status: res.status });
   }
 }
 
 export async function runConnectCommand(host, opts = {}) {
   const baseUrl = normalizeBaseUrl(host, opts.port || "20128");
   if (!baseUrl) {
-    printError("A host is required, e.g. omniroute connect 192.168.0.15");
+    printError(t("common.cli.messages.hostRequired"));
     return 2;
   }
   const name = opts.name || hostLabel(host);
@@ -64,7 +68,9 @@ export async function runConnectCommand(host, opts = {}) {
       acceptNotOk: true,
     });
     if (!res.ok) {
-      printError(`Token rejected by ${baseUrl}: ${await readErrorMessage(res)}`);
+      printError(
+        t("common.cli.messages.tokenRejected", { baseUrl, error: await readErrorMessage(res) })
+      );
       return res.exitCode || 1;
     }
     const body = await res.json();
@@ -74,12 +80,14 @@ export async function runConnectCommand(host, opts = {}) {
     const prompt = createPrompt();
     let password;
     try {
-      password = await prompt.askSecret(`Management password for ${baseUrl}`);
+      password = await prompt.askSecret(
+        t("common.cli.messages.managementPasswordPrompt", { baseUrl })
+      );
     } finally {
       prompt.close();
     }
     if (!password) {
-      printError("Password is required (or use --key <token>).");
+      printError(t("common.cli.messages.managementPasswordRequired"));
       return 2;
     }
     const res = await apiFetch("/api/cli/connect", {
@@ -90,7 +98,12 @@ export async function runConnectCommand(host, opts = {}) {
       retry: false,
     });
     if (!res.ok) {
-      printError(`Connect failed (${res.status}): ${await readErrorMessage(res)}`);
+      printError(
+        t("common.cli.messages.connectFailed", {
+          status: res.status,
+          error: await readErrorMessage(res),
+        })
+      );
       return res.exitCode || 1;
     }
     const body = await res.json();
@@ -109,22 +122,20 @@ export async function runConnectCommand(host, opts = {}) {
   cfg.currentContext = name;
   saveContexts(cfg);
 
-  printSuccess(`Connected to ${baseUrl} — context '${name}' (scope: ${scope})`);
-  printInfo("All commands now target this server.");
-  printInfo("Switch back to local with: omniroute contexts use default");
+  printSuccess(t("common.cli.messages.connectedContext", { baseUrl, name, scope }));
+  printInfo(t("common.cli.messages.remoteModeActive"));
+  printInfo(t("common.cli.messages.switchToLocal"));
   return 0;
 }
 
 export function registerConnect(program) {
   program
     .command("connect <host>")
-    .description(
-      t("connect.description") || "Connect to a remote OmniRoute server and enter remote mode"
-    )
-    .option("--port <port>", "Server port when the host has none", "20128")
-    .option("--key <token>", "Use a pre-generated scoped access token (skips the password prompt)")
-    .option("--name <name>", "Context name to save (default: derived from host)")
-    .option("--scope <scope>", "Requested scope for the password flow (read|write|admin)")
+    .description(t("common.cli.descriptions.connect"))
+    .option("--port <port>", t("common.cli.options.serverPort"), "20128")
+    .option("--key <token>", t("common.cli.options.scopedToken"))
+    .option("--name <name>", t("common.cli.options.contextName"))
+    .option("--scope <scope>", t("common.cli.options.requestedScope"))
     .action(async (host, opts) => {
       const code = await runConnectCommand(host, opts);
       if (code !== 0) process.exit(code);

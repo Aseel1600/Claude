@@ -78,12 +78,12 @@ export function registerUpdate(program) {
   program
     .command("update")
     .description(t("update.checking"))
-    .option("--check", "Check for available update — exit 0 if up-to-date, exit 1 if outdated")
-    .option("--apply", "Install latest version automatically (npm install -g)")
-    .option("--changelog", "Show changelog for the latest release")
-    .option("--dry-run", "Show what would be updated without applying")
-    .option("--no-backup", "Skip backup creation")
-    .option("--yes", "Skip confirmation prompt")
+    .option("--check", t("common.cli.options.updateCheck"))
+    .option("--apply", t("common.cli.options.updateApply"))
+    .option("--changelog", t("common.cli.options.updateChangelog"))
+    .option("--dry-run", t("common.cli.options.updateDryRun"))
+    .option("--no-backup", t("common.cli.options.updateNoBackup"))
+    .option("--yes", t("common.yesOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.optsWithGlobals();
       const exitCode = await runUpdateCommand({ ...opts, output: globalOpts.output });
@@ -103,12 +103,12 @@ export async function runUpdateCommand(opts = {}) {
   const latest = await getLatestVersion();
 
   if (!current) {
-    printError("Could not determine current version");
+    printError(t("common.cli.messages.currentVersionUnavailable"));
     return 1;
   }
 
   if (!latest) {
-    printError("Could not check latest version. Is npm available?");
+    printError(t("common.cli.messages.latestVersionUnavailable"));
     return 1;
   }
 
@@ -120,44 +120,44 @@ export async function runUpdateCommand(opts = {}) {
       if (stdout.trim()) {
         console.log(stdout.trim());
       } else {
-        console.log(`Changelog: https://github.com/your-org/omniroute/releases/tag/v${latest}`);
+        console.log(t("common.cli.messages.changelogLink", { version: latest }));
       }
     } catch {
-      console.log(`Changelog: https://github.com/your-org/omniroute/releases/tag/v${latest}`);
+      console.log(t("common.cli.messages.changelogLink", { version: latest }));
     }
     return 0;
   }
 
-  printHeading("OmniRoute Update");
-  console.log(`  Current version: ${current}`);
-  console.log(`  Latest version:  ${latest}`);
+  printHeading(t("common.cli.messages.updateTitle"));
+  console.log(t("common.cli.messages.currentVersion", { version: current }));
+  console.log(t("common.cli.messages.latestVersion", { version: latest }));
 
   const cmp = compareVersions(current, latest);
   if (cmp >= 0) {
-    printSuccess("You are running the latest version!");
+    printSuccess(t("common.cli.messages.alreadyLatest"));
     return 0;
   }
 
-  console.log(`\n  Update available: ${current} → ${latest}`);
+  console.log(t("common.cli.messages.updateAvailableLine", { current, latest }));
 
   if (checkOnly) {
-    console.log("\n  Run `omniroute update --apply` to install automatically.");
+    console.log(t("common.cli.messages.updateApplyHint"));
     return 1; // exit 1 = outdated (useful for scripts)
   }
 
   if (dryRun) {
-    console.log("\n  [DRY RUN] Would run: npm install -g omniroute@latest --include=optional");
-    if (!skipBackup) console.log("  [DRY RUN] Would create backup in ~/.omniroute/backups/");
+    console.log(t("common.cli.messages.updateDryRunCommand"));
+    if (!skipBackup) console.log(t("common.cli.messages.updateDryRunBackup"));
     return 0;
   }
 
   if (!skipBackup) {
-    printInfo("Creating backup...");
+    printInfo(t("common.cli.messages.creatingBackup"));
     const backupPath = await createBackup();
     if (backupPath) {
-      printSuccess(`Backup created: ${backupPath}`);
+      printSuccess(t("common.cli.messages.backupCreated", { path: backupPath }));
     } else {
-      printError("Failed to create backup. Aborting update.");
+      printError(t("common.cli.messages.backupCreationFailed"));
       return 1;
     }
   }
@@ -166,27 +166,27 @@ export async function runUpdateCommand(opts = {}) {
     const readline = await import("node:readline");
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     const answer = await new Promise((resolve) =>
-      rl.question(`Proceed with update to ${latest}? [y/N] `, resolve)
+      rl.question(t("common.cli.messages.updateConfirmPrompt", { version: latest }), resolve)
     );
     rl.close();
     if (!/^y(es)?$/i.test(answer)) {
-      printInfo("Update aborted.");
+      printInfo(t("common.cli.messages.updateAborted"));
       return 0;
     }
   }
 
-  printInfo("Updating OmniRoute...");
+  printInfo(t("common.cli.messages.updatingOmniRoute"));
   try {
     const { execSync } = await import("child_process");
     // --include=optional keeps the optionalDependencies (better-sqlite3, keytar,
     // tls-client, llmlingua SLM stack) on update so an omit=optional config can't drop them.
     execSync("npm install -g omniroute@latest --include=optional", { stdio: "inherit" });
-    printSuccess(`Updated to version ${latest}`);
-    printInfo("Run `omniroute --version` to verify.");
+    printSuccess(t("common.cli.messages.updatedToVersion", { version: latest }));
+    printInfo(t("common.cli.messages.verifyVersion"));
     return 0;
   } catch (err) {
-    printError(`Update failed: ${err.message}`);
-    printInfo("Restore from backup:");
+    printError(t("common.cli.messages.updateFailed", { error: err.message }));
+    printInfo(t("common.cli.messages.restoreFromBackup"));
     const backupDir = path.join(homedir(), ".omniroute", "backups");
     printInfo(`  ls ${backupDir}`);
     return 1;

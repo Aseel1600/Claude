@@ -5,11 +5,11 @@ import { emit } from "../output.mjs";
 import { t } from "../i18n.mjs";
 
 const A2A_SKILLS = [
-  { id: "smart-routing", name: "Smart Request Routing" },
-  { id: "quota-management", name: "Quota & Cost Management" },
-  { id: "provider-discovery", name: "Provider Discovery" },
-  { id: "cost-analysis", name: "Cost Analysis" },
-  { id: "health-report", name: "Health Report" },
+  { id: "smart-routing", name: t("common.cli.messages.smartRoutingSkill") },
+  { id: "quota-management", name: t("common.cli.messages.quotaManagementSkill") },
+  { id: "provider-discovery", name: t("common.cli.messages.providerDiscoverySkill") },
+  { id: "cost-analysis", name: t("common.cli.messages.costAnalysisSkill") },
+  { id: "health-report", name: t("common.cli.messages.healthReportSkill") },
 ];
 
 function fmtTs(v) {
@@ -27,28 +27,32 @@ function randomId() {
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
 }
 
 const taskSchema = [
-  { key: "id", header: "Task ID", width: 22 },
-  { key: "skill", header: "Skill", width: 22 },
-  { key: "status", header: "Status", width: 12 },
-  { key: "createdAt", header: "Created", formatter: fmtTs },
-  { key: "updatedAt", header: "Updated", formatter: fmtTs },
-  { key: "duration", header: "Duration", formatter: (v) => (v != null ? `${v}ms` : "-") },
+  { key: "id", header: t("common.cli.messages.taskIdHeader"), width: 22 },
+  { key: "skill", header: t("common.cli.messages.skillHeader"), width: 22 },
+  { key: "status", header: t("common.cli.tui.evalStatus"), width: 12 },
+  { key: "createdAt", header: t("common.cli.messages.createdHeader"), formatter: fmtTs },
+  { key: "updatedAt", header: t("common.cli.messages.updatedHeader"), formatter: fmtTs },
+  {
+    key: "duration",
+    header: t("common.cli.messages.durationHeader"),
+    formatter: (v) => (v != null ? `${v}ms` : "-"),
+  },
 ];
 
 export function registerA2a(program) {
-  const a2a = program.command("a2a").description("Agent-to-Agent (A2A) server");
+  const a2a = program.command("a2a").description(t("common.cli.descriptions.a2a"));
 
   a2a
     .command("status")
-    .description("Show A2A server status")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.a2aStatus"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runA2aStatusCommand({ ...opts, output: globalOpts.output });
@@ -57,7 +61,7 @@ export function registerA2a(program) {
 
   a2a
     .command("card")
-    .description("Print the Agent Card JSON")
+    .description(t("common.cli.descriptions.a2aCard"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       const exitCode = await runA2aCardCommand({ ...opts, output: globalOpts.output });
@@ -106,7 +110,7 @@ export function registerA2a(program) {
 
       const res = await apiFetch("/api/a2a/tasks", { method: "POST", body: rpcBody });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const created = await res.json();
@@ -129,7 +133,7 @@ export function registerA2a(program) {
           return;
         }
       }
-      process.stderr.write("Timeout waiting for task completion\n");
+      process.stderr.write(`${t("common.cli.messages.taskTimeout")}\n`);
       process.exit(124);
     });
 
@@ -140,8 +144,8 @@ export function registerA2a(program) {
     .command("list")
     .option("--status <s>", t("a2a.tasks.list.status"))
     .option("--skill <s>", t("a2a.tasks.list.skill"))
-    .option("--limit <n>", parseInt, 50)
-    .option("--since <ts>")
+    .option("--limit <n>", t("common.cli.options.modelIdentifier"), parseInt, 50)
+    .option("--since <ts>", t("common.cli.options.outputPath"))
     .action(async (opts, cmd) => {
       const params = new URLSearchParams({ limit: String(opts.limit ?? 50) });
       if (opts.status) params.set("status", opts.status);
@@ -149,7 +153,7 @@ export function registerA2a(program) {
       if (opts.since) params.set("since", opts.since);
       const res = await apiFetch(`/api/a2a/tasks?${params}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -159,7 +163,7 @@ export function registerA2a(program) {
   tasks.command("get <id>").action(async (id, opts, cmd) => {
     const res = await apiFetch(`/api/a2a/tasks/${id}`);
     if (!res.ok) {
-      process.stderr.write(`Not found: ${id}\n`);
+      process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -167,18 +171,18 @@ export function registerA2a(program) {
 
   tasks
     .command("cancel <id>")
-    .option("--yes")
+    .option("--yes", t("common.yesOpt"))
     .action(async (id, opts, cmd) => {
       if (!opts.yes) {
-        const ok = await confirm(`Cancel task ${id}?`);
+        const ok = await confirm(t("common.cli.messages.cancelTask", { id }));
         if (!ok) return;
       }
       const res = await apiFetch(`/api/a2a/tasks/${id}/cancel`, { method: "POST" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Cancelled\n");
+      process.stdout.write(`${t("common.cli.messages.cancelledLine")}\n`);
     });
 
   tasks
@@ -218,7 +222,7 @@ export function registerA2a(program) {
         },
       });
       if (!res.ok) {
-        process.stderr.write(`HTTP ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
         process.exit(1);
       }
       const reader = res.body.getReader();
@@ -245,7 +249,7 @@ export function registerA2a(program) {
     .action(async (id, opts, cmd) => {
       const res = await apiFetch(`/api/a2a/tasks/${id}?include=messages,artifacts`);
       if (!res.ok) {
-        process.stderr.write(`Not found: ${id}\n`);
+        process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
         process.exit(1);
       }
       const data = await res.json();
@@ -267,7 +271,7 @@ export async function runA2aStatusCommand(opts = {}) {
       acceptNotOk: true,
     });
     if (!res.ok) {
-      console.log("A2A status not available.");
+      console.log(t("common.cli.messages.statusUnavailable"));
       return 0;
     }
 
@@ -279,14 +283,20 @@ export async function runA2aStatusCommand(opts = {}) {
     }
 
     const running = status.running ? "\x1b[32mrunning\x1b[0m" : "\x1b[31mstopped\x1b[0m";
-    console.log(`  Status:    ${running}`);
-    console.log(`  Protocol:  ${status.protocol || "JSON-RPC 2.0"}`);
-    console.log(`  Tasks:     ${status.activeTasks || 0} active`);
+    console.log(`  ${t("common.cli.messages.statusLabel")}    ${running}`);
+    console.log(
+      `  ${t("common.cli.messages.protocolLabel")}  ${status.protocol || "JSON-RPC 2.0"}`
+    );
+    console.log(
+      `  ${t("common.cli.messages.tasksLabel")}     ${status.activeTasks || 0} ${t("common.cli.messages.activeSuffix")}`
+    );
 
     if (status.skills?.length) {
-      console.log("\n  Skills:");
+      console.log(`\n  ${t("common.cli.messages.skillsLabel")}`);
       for (const skill of status.skills) {
-        console.log(`\x1b[2m    - ${skill.name}: ${skill.description || "N/A"}\x1b[0m`);
+        console.log(
+          `\x1b[2m    - ${skill.name}: ${skill.description || t("common.cli.messages.notApplicable")}\x1b[0m`
+        );
       }
     }
     return 0;
@@ -314,7 +324,7 @@ export async function runA2aCardCommand(opts = {}) {
       console.log(JSON.stringify(card, null, 2));
       return 0;
     }
-    console.log("Agent card not available.");
+    console.log(t("common.cli.messages.agentCardUnavailable"));
     return 0;
   } catch (err) {
     console.error(t("common.error", { message: err instanceof Error ? err.message : String(err) }));

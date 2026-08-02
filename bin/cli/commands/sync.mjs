@@ -12,7 +12,7 @@ function fmtTs(v) {
 async function confirm(q) {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((resolve) => {
-    rl.question(`${q} [y/N] `, (a) => {
+    rl.question(`${q}${t("common.cli.messages.confirmYesNoPromptSuffix")}`, (a) => {
       rl.close();
       resolve(a.trim().toLowerCase() === "y");
     });
@@ -51,7 +51,7 @@ export function registerSync(program) {
         body: { parts: opts.bundle, dryRun: !!opts.dryRun, target: opts.target },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -66,7 +66,9 @@ export function registerSync(program) {
     .option("--dry-run", t("sync.pull.dryRun"))
     .action(async (opts, cmd) => {
       if (opts.merge && opts.replace) {
-        process.stderr.write("--merge and --replace are mutually exclusive\n");
+        process.stderr.write(
+          `${t("common.cli.messages.mutuallyExclusive", { first: "--merge", second: "--replace" })}\n`
+        );
         process.exit(2);
       }
       const res = await apiFetch("/api/db-backups/exportAll", {
@@ -78,7 +80,7 @@ export function registerSync(program) {
         },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -93,7 +95,7 @@ export function registerSync(program) {
       const tgt = opts.target ?? "cloud";
       const res = await apiFetch(`/api/sync/cloud?op=diff&source=${src}&target=${tgt}`);
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -110,12 +112,14 @@ export function registerSync(program) {
         { headers: authHeaders(globalOpts) }
       );
       if (!res.ok) {
-        process.stderr.write(`HTTP ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
         process.exit(1);
       }
       const buf = Buffer.from(await res.arrayBuffer());
       writeFileSync(outPath, buf);
-      process.stdout.write(`Saved ${buf.length} bytes to ${outPath}\n`);
+      process.stdout.write(
+        `${t("common.cli.messages.savedBytes", { bytes: buf.length, path: outPath })}\n`
+      );
     });
 
   sync
@@ -137,7 +141,7 @@ export function registerSync(program) {
         }
       );
       if (!res.ok) {
-        process.stderr.write(`HTTP ${res.status}\n`);
+        process.stderr.write(`${t("common.cli.messages.http", { status: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), globalOpts);
@@ -152,7 +156,7 @@ export function registerSync(program) {
         body: { fromCloud: !!opts.fromCloud },
       });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -163,7 +167,7 @@ export function registerSync(program) {
   tokens.command("list").action(async (opts, cmd) => {
     const res = await apiFetch("/api/sync/tokens");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals(), syncTokenSchema);
@@ -178,7 +182,7 @@ export function registerSync(program) {
       const body = { name: opts.name, scope: opts.scope, ttl: opts.ttl };
       const res = await apiFetch("/api/sync/tokens", { method: "POST", body });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       emit(await res.json(), cmd.optsWithGlobals());
@@ -194,16 +198,16 @@ export function registerSync(program) {
       }
       const res = await apiFetch(`/api/sync/tokens/${id}`, { method: "DELETE" });
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
-      process.stdout.write("Revoked\n");
+      process.stdout.write(`${t("common.cli.messages.revokedLine")}\n`);
     });
 
   sync.command("status").action(async (opts, cmd) => {
     const res = await apiFetch("/api/sync/cloud?op=status");
     if (!res.ok) {
-      process.stderr.write(`Error: ${res.status}\n`);
+      process.stderr.write(`${t("common.error", { message: res.status })}\n`);
       process.exit(1);
     }
     emit(await res.json(), cmd.optsWithGlobals());
@@ -215,7 +219,7 @@ export function registerSync(program) {
     .action(async (opts, cmd) => {
       const res = await apiFetch("/api/sync/cloud?op=conflicts");
       if (!res.ok) {
-        process.stderr.write(`Error: ${res.status}\n`);
+        process.stderr.write(`${t("common.error", { message: res.status })}\n`);
         process.exit(1);
       }
       const conflicts = await res.json();

@@ -23,13 +23,13 @@ const ENV_DEFAULTS = {
 };
 
 export function registerEnv(program) {
-  const env = program.command("env").description("Show and manage environment variables");
+  const env = program.command("env").description(t("common.cli.descriptions.env"));
 
   env
     .command("show")
     .alias("list")
-    .description("Show current environment variables")
-    .option("--json", "Output as JSON")
+    .description(t("common.cli.descriptions.envList"))
+    .option("--json", t("common.jsonOpt"))
     .action(async (opts, cmd) => {
       const globalOpts = cmd.parent.optsWithGlobals();
       await runEnvShowCommand({ ...opts, output: globalOpts.output });
@@ -37,14 +37,14 @@ export function registerEnv(program) {
 
   env
     .command("get <key>")
-    .description("Get a single environment variable")
+    .description(t("common.cli.descriptions.envGet"))
     .action(async (key) => {
       await runEnvGetCommand(key);
     });
 
   env
     .command("set <key> <value>")
-    .description("Set an environment variable (current session only)")
+    .description(t("common.cli.descriptions.envSet"))
     .action(async (key, value) => {
       await runEnvSetCommand(key, value);
     });
@@ -61,10 +61,10 @@ export async function runEnvShowCommand(opts = {}) {
     return 0;
   }
 
-  console.log("\n\x1b[1m\x1b[36mEnvironment Variables\x1b[0m\n");
-  console.log("  Current:");
+  console.log(`\n\x1b[1m\x1b[36m${t("common.cli.messages.environmentTitle")}\x1b[0m\n`);
+  console.log(`  ${t("common.cli.messages.currentLabel")}`);
   if (Object.keys(current).length === 0) {
-    console.log("\x1b[2m  (none set)\x1b[0m");
+    console.log(`\x1b[2m  ${t("common.cli.messages.noneSet")}\x1b[0m`);
   } else {
     for (const [key, value] of Object.entries(current)) {
       const display = key.includes("KEY") || key.includes("SECRET") ? "***" : value;
@@ -72,7 +72,7 @@ export async function runEnvShowCommand(opts = {}) {
     }
   }
 
-  console.log("\n  Defaults:");
+  console.log(`\n  ${t("common.cli.messages.defaultsLabel")}`);
   for (const [key, value] of Object.entries(ENV_DEFAULTS)) {
     console.log(`    ${key.padEnd(28)} ${value}`);
   }
@@ -82,7 +82,7 @@ export async function runEnvShowCommand(opts = {}) {
 
 export async function runEnvGetCommand(key) {
   if (!key) {
-    console.error("Key is required. Usage: omniroute env get <key>");
+    console.error(t("common.cli.messages.keyRequired"));
     return 1;
   }
   console.log(process.env[key] || "");
@@ -91,10 +91,10 @@ export async function runEnvGetCommand(key) {
 
 export async function runEnvSetCommand(key, value) {
   if (!key || value === undefined) {
-    console.error("Usage: omniroute env set <key> <value>");
+    console.error(t("common.cli.messages.envSetUsage"));
     return 1;
   }
   process.env[key] = String(value);
-  console.log(`\x1b[33m  ${key}=${value} (temporary — current session only)\x1b[0m`);
+  console.log(`\x1b[33m  ${key}=${value} (${t("common.cli.messages.temporary")})\x1b[0m`);
   return 0;
 }

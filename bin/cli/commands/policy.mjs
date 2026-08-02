@@ -14,14 +14,17 @@ function parseJsonInput(value, label, schema) {
     parsed = JSON.parse(value);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Invalid JSON for ${label}: ${message}\n`);
+    process.stderr.write(`${t("common.cli.messages.invalidJsonFor", { label, message })}\n`);
     process.exit(2);
   }
 
   const result = schema.safeParse(parsed);
   if (!result.success) {
     process.stderr.write(
-      `Invalid ${label}: ${result.error.issues[0]?.message || "schema error"}\n`
+      `${t("common.cli.messages.invalidOptionValue", {
+        option: label,
+        value: result.error.issues[0]?.message || "schema error",
+      })}\n`
     );
     process.exit(2);
   }
@@ -34,7 +37,7 @@ function readJsonFile(file, schema) {
     raw = readFileSync(file, "utf8");
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`Unable to read ${file}: ${message}\n`);
+    process.stderr.write(`${t("common.cli.messages.unableToRead", { file, message })}\n`);
     process.exit(2);
   }
   return parseJsonInput(raw, file, schema);
@@ -51,7 +54,7 @@ function fmtTs(v) {
 
 async function confirm(q) {
   return new Promise((resolve) => {
-    process.stdout.write(`${q} (yes/no) `);
+    process.stdout.write(`${q}${t("common.cli.messages.confirmYesNoSuffix")}`);
     process.stdin.setEncoding("utf8");
     process.stdin.once("data", (c) => resolve(c.toString().trim().toLowerCase().startsWith("y")));
   });
@@ -73,7 +76,7 @@ export async function runPolicyList(opts, cmd) {
   if (opts.scope) params.set("scope", opts.scope);
   const res = await apiFetch(`/api/policies?${params}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -83,7 +86,7 @@ export async function runPolicyList(opts, cmd) {
 export async function runPolicyGet(id, opts, cmd) {
   const res = await apiFetch(`/api/policies/${id}`);
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`${t("common.cli.messages.notFound", { id })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
@@ -93,7 +96,7 @@ export async function runPolicyCreate(opts, cmd) {
   const body = readJsonFile(opts.file, policyBodySchema);
   const res = await apiFetch("/api/policies", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals(), policySchema);
@@ -103,7 +106,7 @@ export async function runPolicyUpdate(id, opts, cmd) {
   const body = readJsonFile(opts.file, policyBodySchema);
   const res = await apiFetch(`/api/policies/${id}`, { method: "PUT", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals(), policySchema);
@@ -111,15 +114,15 @@ export async function runPolicyUpdate(id, opts, cmd) {
 
 export async function runPolicyDelete(id, opts, cmd) {
   if (!opts.yes) {
-    const ok = await confirm(`Delete policy ${id}?`);
+    const ok = await confirm(t("common.cli.messages.deletePrompt", { resource: "policy", id }));
     if (!ok) return;
   }
   const res = await apiFetch(`/api/policies/${id}`, { method: "DELETE" });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
-  process.stdout.write("Deleted\n");
+  process.stdout.write(`${t("common.cli.messages.deletedLine")}\n`);
 }
 
 export async function runPolicyEvaluate(opts, cmd) {
@@ -131,7 +134,7 @@ export async function runPolicyEvaluate(opts, cmd) {
   };
   const res = await apiFetch("/api/policies/evaluate", { method: "POST", body });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
@@ -142,12 +145,14 @@ export async function runPolicyEvaluate(opts, cmd) {
 export async function runPolicyExport(file, opts, cmd) {
   const res = await apiFetch("/api/policies?export=true");
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   const data = await res.json();
   writeFileSync(file, JSON.stringify(data, null, 2));
-  process.stdout.write(`Exported ${data.items?.length ?? 0} policies to ${file}\n`);
+  process.stdout.write(
+    `${t("common.cli.messages.exportedPolicies", { count: data.items?.length ?? 0, file })}\n`
+  );
 }
 
 export async function runPolicyImport(file, opts, cmd) {
@@ -158,7 +163,7 @@ export async function runPolicyImport(file, opts, cmd) {
     body,
   });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`${t("common.error", { message: res.status })}\n`);
     process.exit(1);
   }
   emit(await res.json(), cmd.optsWithGlobals());
