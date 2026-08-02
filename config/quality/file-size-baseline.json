@@ -400,7 +400,7 @@
     "src/shared/components/analytics/charts.tsx": 1035,
     "src/shared/services/cliRuntime.ts": 1122,
     "src/sse/handlers/chat.ts": 1845,
-    "src/sse/services/auth.ts": 2516,
+    "src/sse/services/auth.ts": 2526,
     "tests/unit/account-fallback-service.test.ts": 1572,
     "tests/unit/provider-validation-specialty.test.ts": 2980,
     "open-sse/executors/hyperagent.ts": 1026
