@@ -253,6 +253,8 @@ import { aurikoProvider } from "./registry/auriko/index.ts";
 import { poixeAiProvider } from "./registry/poixe-ai/index.ts";
 import { nagaAiProvider } from "./registry/naga-ai/index.ts";
 import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
+import { freeinferenceProvider } from "./registry/freeinference/index.ts";
+import { freeAiProvider } from "./registry/free-ai/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -508,4 +510,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "poixe-ai": poixeAiProvider,
   "naga-ai": nagaAiProvider,
   "chat-oripe": chatOripeProvider,
+  freeinference: freeinferenceProvider,
+  "free-ai": freeAiProvider,
 };

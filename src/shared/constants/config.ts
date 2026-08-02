@@ -32,6 +32,8 @@ export const PROVIDER_ENDPOINTS = {
   "poixe-ai": "https://api.poixe.com/v1/chat/completions",
   "naga-ai": "https://api.naga.ac/v1/chat/completions",
   "chat-oripe": "https://api.oriper.com/v1/chat/completions",
+  freeinference: "https://freeinference.org/v1/chat/completions",
+  "free-ai": "https://api.free.ai/v1/chat/",
   glm: "https://api.z.ai/api/anthropic/v1/messages",
   glmt: "https://api.z.ai/api/anthropic/v1/messages",
   "bailian-coding-plan": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1/messages",
