@@ -751,6 +751,7 @@ export async function handleChatCore({
     provider,
     resolvedModel,
     apiFormat,
+    sourceFormat,
     customModelTargetFormat,
     providerSpecificData: credentials?.providerSpecificData,
   });
@@ -1925,10 +1926,12 @@ export async function handleChatCore({
   // The bridge must follow the resolved target format, otherwise OpenAI Responses
   // requests are rewritten to Claude Messages and upstream rejects the missing input.
   const configuredTargetFormat = credentials?.providerSpecificData?.targetFormat;
+  const claudeCodeCompatibleTargetFormat =
+    provider === "agentrouter" ? targetFormat : configuredTargetFormat;
   const isClaudeCodeCompatible =
     isClaudeCodeCompatibleProvider(provider) &&
-    configuredTargetFormat !== FORMATS.OPENAI &&
-    configuredTargetFormat !== FORMATS.OPENAI_RESPONSES;
+    claudeCodeCompatibleTargetFormat !== FORMATS.OPENAI &&
+    claudeCodeCompatibleTargetFormat !== FORMATS.OPENAI_RESPONSES;
   const isClaudeCodeSemanticPassthrough = isClaudeCodeSemanticPassthroughRequest({
     provider,
     sourceFormat,
@@ -2504,8 +2507,14 @@ export async function handleChatCore({
     log?.debug?.("PARAMS", `Renamed max_completion_tokens to max_tokens for ${model}`);
   }
 
-  // OpenAI's `store` parameter is not supported by most compatible providers and breaks them
-  if (provider !== "openai" && "store" in translatedBody) {
+  // OpenAI's `store` parameter is not supported by most compatible providers and breaks them.
+  // AgentRouter's native Responses endpoint is the exception: Codex sends store=false and the
+  // upstream protocol expects the native field to survive unchanged.
+  if (
+    provider !== "openai" &&
+    !(provider === "agentrouter" && targetFormat === FORMATS.OPENAI_RESPONSES) &&
+    "store" in translatedBody
+  ) {
     delete translatedBody.store;
   }
 
