@@ -1,0 +1,1 @@
+- **fix(cli):** Complete the French CLI catalog and localize maintained command, runtime, and TUI copy ([#9254](https://github.com/diegosouzapw/OmniRoute/pull/9254)) — thanks @alex-jordan547
