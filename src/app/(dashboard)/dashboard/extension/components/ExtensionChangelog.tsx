@@ -6,7 +6,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 
 /** Raw CHANGELOG.md of the extension repository. */
 const EXTENSION_CHANGELOG_URL =
-  "https://raw.githubusercontent.com/JohnnyZ93/oai-compatible-copilot/main/CHANGELOG.md";
+  "https://raw.githubusercontent.com/dealenx/oai-compatible-copilot-mod/main/CHANGELOG.md";
 
 /** Trim the changelog to the latest N versions. */
 function getLatestChangelogMarkdown(markdown: string, limit = 10): string {
