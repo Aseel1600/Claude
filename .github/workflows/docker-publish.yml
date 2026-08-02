@@ -58,13 +58,14 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           INPUT_VERSION: ${{ inputs.version }}
           PROMOTE_INPUT: ${{ inputs.promote_latest }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
 
-          # 1) Resolve version/channel from the trigger. Release-branch pushes
-          # publish the mutable `next` pre-release channel; main keeps `main`.
+          # 1) Resolve version/channel from the trigger. Only the current default
+          # release branch publishes the mutable `next` channel; main keeps `main`.
           VERSION=$(bash scripts/ci/resolve-docker-publish-version.sh \
-            "$EVENT_NAME" "$REF_TYPE" "$REF_NAME" "$INPUT_VERSION")
+            "$EVENT_NAME" "$REF_TYPE" "$REF_NAME" "$INPUT_VERSION" "$DEFAULT_BRANCH")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           # 2) Decide whether to promote :latest. Floating channels are never
