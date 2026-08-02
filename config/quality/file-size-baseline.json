@@ -400,7 +400,7 @@
     "src/shared/components/RequestLoggerV2.tsx": 1629,
     "src/shared/components/analytics/charts.tsx": 1035,
     "src/shared/services/cliRuntime.ts": 1122,
-    "src/sse/handlers/chat.ts": 1855,
+    "src/sse/handlers/chat.ts": 1856,
     "src/sse/services/auth.ts": 2508,
     "tests/unit/account-fallback-service.test.ts": 1572,
     "tests/unit/provider-validation-specialty.test.ts": 2980,
