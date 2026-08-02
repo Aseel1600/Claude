@@ -88,7 +88,10 @@ test("getExecutor(adobe-firefly) rejects chat completions", async () => {
   assert.ok(executor);
   const result = await executor.execute({
     model: "adobe-firefly/nano-banana-pro",
-    body: { model: "adobe-firefly/nano-banana-pro", messages: [{ role: "user", content: "hi" }] },
+    body: {
+      model: "adobe-firefly/nano-banana-pro",
+      messages: [{ role: "user", content: "hi" }],
+    },
     stream: false,
     credentials: { apiKey: "tok" },
   });
@@ -208,10 +211,7 @@ test("buildAdobeImagePayload attaches referenceBlobs like live adobe_atach_image
     { id: "2a4f1025-e0dc-4671-a11a-7dfd3c07bd94", usage: "general" },
     { id: "84c11d1a-e798-4300-a63e-c06504ca2068", usage: "general" },
   ]);
-  assert.equal(
-    (nano.generationMetadata as Record<string, unknown>).module,
-    "text2image"
-  );
+  assert.equal((nano.generationMetadata as Record<string, unknown>).module, "text2image");
 
   const gpt = buildAdobeImagePayload({
     prompt: "edit me",
@@ -260,7 +260,9 @@ test("parseAdobeImageSourceBytes + parseAdobeStorageUploadResponse", () => {
 });
 
 test("buildAdobeUploadHeaders uses image content-type not json", () => {
-  const h = buildAdobeUploadHeaders("tok", "image/png", { arpSessionId: "arp" });
+  const h = buildAdobeUploadHeaders("tok", "image/png", {
+    arpSessionId: "arp",
+  });
   assert.equal(h["content-type"], "image/png");
   assert.equal(h.Authorization, "Bearer tok");
   assert.equal(h["x-api-key"], "clio-playground-web");
@@ -280,10 +282,10 @@ test("resolveAdobeSourceImageIds uploads data URLs then returns blob ids", async
       const headers = init?.headers as Record<string, string>;
       assert.match(String(headers["content-type"] || headers["Content-Type"] || ""), /image\//);
       assert.ok(init?.body);
-      return new Response(
-        JSON.stringify({ images: [{ id: `blob-${uploadCalls}` }] }),
-        { status: 200, headers: { "content-type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ images: [{ id: `blob-${uploadCalls}` }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
     }
     throw new Error(`unexpected fetch ${u}`);
   };
@@ -328,12 +330,16 @@ test("buildAdobeVideoPayload produces sora and veo shapes", () => {
 });
 
 test("extractAdobeResultLink prefers x-override-status-link then links.result", () => {
-  const headers = new Headers({ "x-override-status-link": "https://poll.example/job/1" });
+  const headers = new Headers({
+    "x-override-status-link": "https://poll.example/job/1",
+  });
   assert.equal(extractAdobeResultLink(headers, {}), "https://poll.example/job/1");
 
   const headers2 = new Headers();
   assert.equal(
-    extractAdobeResultLink(headers2, { links: { result: { href: "https://poll.example/job/2" } } }),
+    extractAdobeResultLink(headers2, {
+      links: { result: { href: "https://poll.example/job/2" } },
+    }),
     "https://poll.example/job/2"
   );
 });
@@ -387,8 +393,7 @@ test("buildAdobeSubmitNonce is sha256(user_id + prompt[:256])", async () => {
       type: "access_token",
       client_id: "clio-playground-web",
     })
-  )
-    .toString("base64url");
+  ).toString("base64url");
   const header = Buffer.from(JSON.stringify({ alg: "none" })).toString("base64url");
   const token = `${header}.${payload}.${"x".repeat(40)}`;
   // Pad token length for looksLikeAdobeJwt (>=80)
@@ -449,8 +454,7 @@ test("buildAdobeSubmitNonce is sha256(user_id + prompt[:256])", async () => {
 });
 
 test("normalizeAdobePollUrl rewrites firefly-epo jobs/result to BKS", () => {
-  const raw =
-    "https://firefly-epo855232.adobe.io/jobs/result/4ae9fd2a-0864-46dd-9834-cfc16e91faa6";
+  const raw = "https://firefly-epo855232.adobe.io/jobs/result/4ae9fd2a-0864-46dd-9834-cfc16e91faa6";
   const out = normalizeAdobePollUrl(raw);
   assert.match(out, /^https:\/\/bks-epo8552\.adobe\.io\/v2\/jobs\/result\/4ae9fd2a/);
   assert.match(out, /host=firefly-epo855232\.adobe\.io/);
@@ -464,7 +468,9 @@ test("parseAdobeCreditsBalance maps total + free/plan buckets", () => {
     },
     credits: {
       firefly_free_credit: { quota: { total: 10, used: 0, available: 10 } },
-      firefly_plan_credit: { quota: { total: 10000, used: 10, available: 9990 } },
+      firefly_plan_credit: {
+        quota: { total: 10000, used: 10, available: 9990 },
+      },
     },
   });
   assert.equal(bal.total, 10010);
@@ -532,9 +538,9 @@ test("fallback catalog has image and video entries from get_models capture", () 
 
 test("extractAdobeAccountIdFromToken reads user_id claim", () => {
   // {"user_id":"0EB@AdobeID"} base64url
-  const payload = Buffer.from(JSON.stringify({ user_id: "0EB@AdobeID", type: "access_token" })).toString(
-    "base64url"
-  );
+  const payload = Buffer.from(
+    JSON.stringify({ user_id: "0EB@AdobeID", type: "access_token" })
+  ).toString("base64url");
   const jwt = `eyJhbGciOiJub25lIn0.${payload}.sig`;
   assert.equal(extractAdobeAccountIdFromToken(jwt), "0EB@AdobeID");
 });
@@ -571,7 +577,11 @@ function userImsJwt(userId = "0EB@AdobeID"): string {
   return (
     `eyJhbGciOiJSUzI1NiJ9.` +
     Buffer.from(
-      JSON.stringify({ user_id: userId, type: "access_token", client_id: "clio-playground-web" })
+      JSON.stringify({
+        user_id: userId,
+        type: "access_token",
+        client_id: "clio-playground-web",
+      })
     ).toString("base64url") +
     `.` +
     "sig".padEnd(40, "x")
@@ -652,7 +662,10 @@ test("handleAdobeFireflyImageGeneration uploads refs and submits referenceBlobs"
   assert.equal(result.success, true);
   assert.equal(uploadCalls, 1);
   assert.ok(sawGenerateBody);
-  const refs = sawGenerateBody!.referenceBlobs as Array<{ id: string; usage: string }>;
+  const refs = sawGenerateBody!.referenceBlobs as Array<{
+    id: string;
+    usage: string;
+  }>;
   assert.deepEqual(refs, [{ id: "ref-blob-1", usage: "general" }]);
 });
 
@@ -719,13 +732,19 @@ test("guest JWT without AdobeID is detected", () => {
   const emptyPayload = Buffer.from("{}").toString("base64url");
   const guestJwt = `eyJhbGciOiJub25lIn0.${emptyPayload}.sig`;
   // Pad to lookLikeAdobeJwt length if needed
-  const longGuest = `eyJhbGciOiJSUzI1NiJ9.${Buffer.from(JSON.stringify({ client_id: "clio-playground-web" })).toString("base64url")}.` + "x".repeat(40);
+  const longGuest =
+    `eyJhbGciOiJSUzI1NiJ9.${Buffer.from(JSON.stringify({ client_id: "clio-playground-web" })).toString("base64url")}.` +
+    "x".repeat(40);
   assert.equal(isAdobeGuestAccessToken(longGuest), true);
   const userJwt =
     `eyJhbGciOiJSUzI1NiJ9.` +
-    Buffer.from(JSON.stringify({ user_id: "0EB@AdobeID", type: "access_token", client_id: "clio-playground-web" })).toString(
-      "base64url"
-    ) +
+    Buffer.from(
+      JSON.stringify({
+        user_id: "0EB@AdobeID",
+        type: "access_token",
+        client_id: "clio-playground-web",
+      })
+    ).toString("base64url") +
     `.` +
     "y".repeat(40);
   assert.equal(isAdobeGuestAccessToken(userJwt), false);
@@ -802,9 +821,8 @@ test("extractAdobeArpSessionId recovers JWT+ARP joined by space (PasswordBox man
 });
 
 test("extractAdobeArpSessionId does not pick aux_sid over sherlockToken", async () => {
-  const { extractAdobeArpSessionId, isValidAdobeArpSessionId } = await import(
-    "../../open-sse/services/adobeFireflyClient.ts"
-  );
+  const { extractAdobeArpSessionId, isValidAdobeArpSessionId } =
+    await import("../../open-sse/services/adobeFireflyClient.ts");
   const { ADOBE_FIREFLY_FTR_MAGIC } = await import("../../open-sse/services/adobeFireflyClient.ts");
   const realArp = Buffer.from(
     JSON.stringify({
@@ -879,7 +897,13 @@ test("rebuild ARP from cookie components (forter+arkose+sid)", async () => {
 });
 
 test("isAdobeTransientSubmitError detects 408 system under load", () => {
-  assert.equal(isAdobeTransientSubmitError(408, '{"error_code":"timeout_error","message":"system under load"}'), true);
+  assert.equal(
+    isAdobeTransientSubmitError(
+      408,
+      '{"error_code":"timeout_error","message":"system under load"}'
+    ),
+    true
+  );
   assert.equal(isAdobeTransientSubmitError(429, "rate"), true);
   assert.equal(isAdobeTransientSubmitError(400, "bad request"), false);
   assert.ok(generateAdobeNonce().length === 64);
@@ -918,9 +942,8 @@ test("resolveAdobeImageModel maps gpt-image-2 alias", async () => {
 });
 
 test("image submit retries on 408 then succeeds", async () => {
-  const { __resetAdobeFireflySessionCacheForTests } = await import(
-    "../../open-sse/services/adobeFireflySession.ts"
-  );
+  const { __resetAdobeFireflySessionCacheForTests } =
+    await import("../../open-sse/services/adobeFireflySession.ts");
   __resetAdobeFireflySessionCacheForTests();
 
   let submits = 0;
@@ -930,13 +953,12 @@ test("image submit retries on 408 then succeeds", async () => {
     if (u.includes("generate-async")) {
       submits += 1;
       if (submits < 3) {
-        return jsonResponse(408, { error_code: "timeout_error", message: "system under load" });
+        return jsonResponse(408, {
+          error_code: "timeout_error",
+          message: "system under load",
+        });
       }
-      return jsonResponse(
-        200,
-        { links: { result: { href: "https://poll.example/job/r1" } } },
-        {}
-      );
+      return jsonResponse(200, { links: { result: { href: "https://poll.example/job/r1" } } }, {});
     }
     if (u.includes("poll.example")) {
       return jsonResponse(200, {
@@ -1005,8 +1027,7 @@ test("rotateAdobeFireflySessionOnError: attempt1-2 reuse sticky; attempt3 keeps 
   __resetAdobeFireflySessionCacheForTests();
 
   const ftr = `aa_${Date.now()}${ADOBE_FIREFLY_FTR_MAGIC}_x=-1-v2_tt`;
-  const cookie =
-    `ff_session_guid=sid-1; arkose=ark-1; forterToken=${encodeURIComponent(ftr)}`;
+  const cookie = `ff_session_guid=sid-1; arkose=ark-1; forterToken=${encodeURIComponent(ftr)}`;
   const rebuilt = buildAdobeArpSessionIdFromCookies(cookie);
   assert.ok(rebuilt);
 
@@ -1039,19 +1060,33 @@ test("rotateAdobeFireflySessionOnError: attempt1-2 reuse sticky; attempt3 keeps 
   );
   // attempt 3 without browser: cookie rebuild (identical forter → same ARP)
   assert.ok(a3.arpSessionId, "attempt 3 still yields an ARP");
-  assert.equal(a3.arpSessionId, rebuilt, "identical cookie rebuild keeps ARP (no synthetic thrash)");
+  assert.equal(
+    a3.arpSessionId,
+    rebuilt,
+    "identical cookie rebuild keeps ARP (no synthetic thrash)"
+  );
+
+  const auth = await rotateAdobeFireflySessionOnError(
+    { ...base, arpSessionId: rebuilt!, tokenExpiresAt: 0 },
+    { attempt: 1, authFailure: true, tryBrowser: false }
+  );
+  assert.equal(auth.source, "rebuild", "auth failures must bypass quiet sticky reuse");
+  assert.ok(auth.tokenExpiresAt > Date.now(), "retry must repair a missing token expiry");
 });
 
 test("adobeFireflyGenerateImage cookie path exchanges IMS token first", async () => {
-  const { __resetAdobeFireflySessionCacheForTests } = await import(
-    "../../open-sse/services/adobeFireflySession.ts"
-  );
+  const { __resetAdobeFireflySessionCacheForTests } =
+    await import("../../open-sse/services/adobeFireflySession.ts");
   __resetAdobeFireflySessionCacheForTests();
 
   const userTok =
     `eyJhbGciOiJSUzI1NiJ9.` +
     Buffer.from(
-      JSON.stringify({ user_id: "0EB@AdobeID", type: "access_token", client_id: "clio-playground-web" })
+      JSON.stringify({
+        user_id: "0EB@AdobeID",
+        type: "access_token",
+        client_id: "clio-playground-web",
+      })
     ).toString("base64url") +
     `.` +
     "s".repeat(40);
@@ -1061,7 +1096,10 @@ test("adobeFireflyGenerateImage cookie path exchanges IMS token first", async ()
     if (String(url).includes("ims/check")) {
       assert.equal(init?.method, "POST");
       // Authenticated exchange (guest_allowed=false)
-      return jsonResponse(200, { access_token: userTok, account_type: "type1" });
+      return jsonResponse(200, {
+        access_token: userTok,
+        account_type: "type1",
+      });
     }
     if (String(url).includes("generate-async")) {
       const auth =
@@ -1073,11 +1111,7 @@ test("adobeFireflyGenerateImage cookie path exchanges IMS token first", async ()
           ? (init.headers as Record<string, string>).Authorization
           : auth;
       assert.equal(headerAuth, `Bearer ${userTok}`);
-      return jsonResponse(
-        200,
-        {},
-        { "x-override-status-link": "https://poll.example/job/c1" }
-      );
+      return jsonResponse(200, {}, { "x-override-status-link": "https://poll.example/job/c1" });
     }
     if (String(url).includes("poll.example")) {
       return jsonResponse(200, {
