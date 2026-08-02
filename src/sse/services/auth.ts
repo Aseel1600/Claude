@@ -966,12 +966,22 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
   // Include aliases that map TO this provider. E.g. "agy" is an alias for
   // "antigravity" — if the user registered connections under "agy", the
   // canonical search for "antigravity" would miss them without this.
-  const { getAliasToProviderMap } = await import(
-    "@omniroute/open-sse/services/model.ts"
-  );
-  for (const [alias, canonical] of Object.entries(getAliasToProviderMap())) {
-    if (canonical === canonicalProvider && alias !== canonicalProvider) {
-      searchPool.add(alias);
+  //
+  // #7993: skip alias expansion for anonymousFallback providers (e.g.
+  // opencode-zen). These share a public endpoint with a no-auth sibling
+  // (opencode) whose connection row carries the configured proxy. Expanding
+  // via the alias map finds the sibling's real connection and silently drops
+  // the proxy — the noauth fallback path (which hydrates sibling data) never
+  // runs because real connections are tried first.
+  const providerDef = getProviderById(canonicalProvider);
+  const isAnonymousFallback = !!(providerDef as { anonymousFallback?: boolean } | undefined)
+    ?.anonymousFallback;
+  if (!isAnonymousFallback) {
+    const { getAliasToProviderMap } = await import("@omniroute/open-sse/services/model.ts");
+    for (const [alias, canonical] of Object.entries(getAliasToProviderMap())) {
+      if (canonical === canonicalProvider && alias !== canonicalProvider) {
+        searchPool.add(alias);
+      }
     }
   }
 
