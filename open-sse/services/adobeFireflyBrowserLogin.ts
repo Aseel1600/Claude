@@ -454,6 +454,23 @@ function cookieValue(cookies: CdpCookie[], name: string): string {
   return cookies.find((cookie) => cookie.name.toLowerCase() === name.toLowerCase())?.value || "";
 }
 
+function parseCookieHeader(cookieHeader: string): Array<{ name: string; value: string }> {
+  const cookies: Array<{ name: string; value: string }> = [];
+  for (const part of String(cookieHeader || "").split(";")) {
+    const idx = part.indexOf("=");
+    if (idx <= 0) continue;
+    const name = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    if (!name || !value || /[\r\n\0]/.test(name + value)) continue;
+    cookies.push({ name, value });
+  }
+  return cookies;
+}
+
+function cookieValue(cookies: CdpCookie[], name: string): string {
+  return cookies.find((cookie) => cookie.name.toLowerCase() === name.toLowerCase())?.value || "";
+}
+
 class CdpSocket {
   private ws: WebSocket;
   private nextId = 1;
