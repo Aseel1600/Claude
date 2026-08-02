@@ -1,0 +1,1 @@
+- **fix(resilience):** Enforce RPM limits with rolling leases and atomic global/provider/account admission ([#9259](https://github.com/diegosouzapw/OmniRoute/pull/9259))
