@@ -26,10 +26,18 @@ function resolveVersion(
   refType: string,
   refName: string,
   inputVersion = "",
+  defaultBranch = "release/v3.8.50",
 ): string {
   return execFileSync(
     "bash",
-    [RESOLVE_VERSION, eventName, refType, refName, inputVersion],
+    [
+      RESOLVE_VERSION,
+      eventName,
+      refType,
+      refName,
+      inputVersion,
+      defaultBranch,
+    ],
     { encoding: "utf8" },
   ).trim();
 }
@@ -41,9 +49,41 @@ function shouldPromote(version: string, tags: string[] = []): string {
   }).trim();
 }
 
-test("release branch pushes resolve to the floating next channel", () => {
-  assert.equal(resolveVersion("push", "branch", "release/v3.8.50"), "next");
-  assert.equal(resolveVersion("push", "branch", "release/v4.0.0"), "next");
+test("the current default release branch resolves to next", () => {
+  assert.equal(
+    resolveVersion(
+      "push",
+      "branch",
+      "release/v3.8.50",
+      "",
+      "release/v3.8.50",
+    ),
+    "next",
+  );
+  assert.equal(
+    resolveVersion(
+      "push",
+      "branch",
+      "release/v4.0.0",
+      "",
+      "release/v4.0.0",
+    ),
+    "next",
+  );
+});
+
+test("a stale release branch cannot overwrite next", () => {
+  assert.throws(
+    () =>
+      resolveVersion(
+        "push",
+        "branch",
+        "release/v3.8.49",
+        "",
+        "release/v3.8.50",
+      ),
+    /Refusing to publish next from non-default release branch/,
+  );
 });
 
 test("existing main, tag, dispatch, and release behavior is preserved", () => {
@@ -71,6 +111,7 @@ test("next and other non-semver channels can never promote latest", () => {
 
 test("workflow triggers release branches and keeps next mutable", () => {
   assert.match(WORKFLOW, /- ["']?release\/v\*["']?/);
+  assert.match(WORKFLOW, /DEFAULT_BRANCH:.*repository\.default_branch/);
   assert.match(
     WORKFLOW,
     /\[ "\$VERSION" != "main" \] && \[ "\$VERSION" != "next" \]/,
