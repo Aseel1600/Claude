@@ -41,14 +41,20 @@ queue_rules:
     # is intentionally NOT a condition here: the owner-applied `queue` label IS the
     # approval in this repo's single-maintainer model (see governance header).
     merge_conditions:
-      # "Zero failures" — EXCEPT the advisory dast-smoke: it is continue-on-error by
-      # design and its GH-hosted CLI build hangs recurrently (drafts #7184/#7221 were
-      # dequeued solely by it). Any OTHER failure still blocks (anti-fail-open kept).
+      # "Zero failures" — EXCEPT the advisory "Build (advisory)" job (quality.yml):
+      # continue-on-error by design, and its GH-hosted Turbopack build hangs
+      # recurrently mid-"Creating an optimized production build" (100% failure rate
+      # across every sampled PR since the job was added 2026-07-27, always killed by
+      # a runner timeout/shutdown signal, never a real compile error). Any OTHER
+      # failure still blocks (anti-fail-open kept). The prior dast-smoke exception
+      # (#7225) was dropped here: dast-smoke's hang (#7226) has been dormant for
+      # weeks (0 failures in the last 30 runs; 2 all-time, none since 2026-07-13) —
+      # carrying its tolerance forward would mask problems it no longer causes.
       - or:
           - "#check-failure=0"
           - and:
               - "#check-failure=1"
-              - check-failure=dast-smoke
+              - check-failure=Build (advisory)
       - "#check-pending=0"
       - "#check-success>=1"
       - check-success=Merge integrity (changelog + generated skills)
