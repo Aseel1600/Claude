@@ -1060,6 +1060,24 @@ function killProcessTree(child: ChildProcess | null): void {
   }
 }
 
+export function buildAdobeFireflyBrowserArgs(opts: {
+  port: number;
+  userDataDir: string;
+  interactive: boolean;
+  freshSession?: boolean;
+}): string[] {
+  return [
+    `--remote-debugging-port=${opts.port}`,
+    `--user-data-dir=${opts.userDataDir}`,
+    "--no-first-run",
+    "--no-default-browser-check",
+    ...(opts.interactive && opts.freshSession !== false ? ["--incognito"] : []),
+    ...(opts.interactive ? [] : ["--window-position=-32000,-32000"]),
+    "--window-size=1280,800",
+    opts.interactive ? FIREFLY_HOME_URL : "about:blank",
+  ];
+}
+
 /**
  * Background cookie/JWT refresh visibility.
  *
