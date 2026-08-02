@@ -1,5 +1,6 @@
 import { translateResponse, initState } from "../translator/index.ts";
 import { FORMATS } from "../translator/formats.ts";
+import { getRegistryEntry } from "../config/providerRegistry.ts";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb";
 import {
   extractUsage,
@@ -713,6 +714,8 @@ export function createSSEStream(options: StreamOptions = {}) {
   // once per stream — never on the hot per-chunk path.
   const shouldDropResponsesCommentary =
     dropResponsesCommentary ?? isFeatureFlagEnabled("RESPONSES_PASSTHROUGH_DROP_COMMENTARY");
+  const ensureThinkingSignature =
+    provider !== null && getRegistryEntry(provider)?.ensureThinkingSignature === true;
 
   const clientExpectsResponsesStream =
     (mode === STREAM_MODE.PASSTHROUGH
@@ -1595,6 +1598,19 @@ export function createSSEStream(options: StreamOptions = {}) {
                   }
                 } else if (isClaudeSSE) {
                   // Claude SSE: extract usage, track content, forward as-is
+                  let thinkingSignatureInjected = false;
+                  if (
+                    ensureThinkingSignature &&
+                    parsed.type === "content_block_start" &&
+                    parsed.content_block?.type === "thinking" &&
+                    parsed.content_block.signature === undefined
+                  ) {
+                    // Strict Anthropic Messages clients deserialize this field before a
+                    // later signature_delta arrives. Add only the empty envelope
+                    // placeholder; never synthesize or replace a provider signature.
+                    parsed.content_block.signature = "";
+                    thinkingSignatureInjected = true;
+                  }
                   const extracted = extractUsage(parsed);
                   if (extracted) {
                     // Non-destructive merge: never overwrite a positive value with 0
@@ -1636,7 +1652,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                       parsed.delta.thinking
                     );
                   }
-                  if (restoredToolName) {
+                  if (restoredToolName || thinkingSignatureInjected) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
                   }

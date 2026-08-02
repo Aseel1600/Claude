@@ -177,6 +177,12 @@ export interface RegistryEntry {
    */
   requiresPlainStringContent?: boolean;
   /**
+   * Anthropic-compatible providers that omit the required `signature` field
+   * from streamed thinking block starts. The passthrough stream adds only an
+   * empty placeholder; later provider `signature_delta` events remain intact.
+   */
+  ensureThinkingSignature?: boolean;
+  /**
    * Protocolos alternativos que este provedor aceita (ex.: um endpoint
    * Anthropic-compatible alem do OpenAI-compatible padrao). A conexao escolhe
    * via providerSpecificData.targetFormat; ver config/providers/alternateFormats.ts.
