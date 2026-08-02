@@ -12097,6 +12097,17 @@
     "installStep3": "Choose the downloaded file and reload VS Code.",
     "configTitle": "Configuration",
     "configDescription": "Point the extension to your OmniRoute instance by setting the base URL:",
+    "requirementsTitle": "Requirements",
+    "requirementsDescription": "To use this extension, you need:",
+    "requirementVscode": "VS Code 1.104+ or a compatible IDE (VS Code Insiders, Cursor, Windsurf).",
+    "requirementCopilotChat": "GitHub Copilot Chat installed (required dependency).",
+    "requirementOmniroute": "A running OmniRoute instance (or any OpenAI-compatible endpoint).",
+    "compatibleIdeTitle": "Compatible IDEs",
+    "ideVscode": "VS Code (stable)",
+    "ideInsiders": "VS Code Insiders",
+    "ideCursor": "Cursor",
+    "ideWindsurf": "Windsurf",
+    "ideNote": "Note: the extension uses the proposed chatProvider API. VS Code and Insiders are the most reliable; Cursor/Windsurf support may vary.",
     "changelogLoadFailed": "Could not load the extension changelog. Please try again later."
   },
   "reasoningRouting": {

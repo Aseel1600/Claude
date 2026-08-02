@@ -44,6 +44,30 @@ export default function ExtensionDownload() {
           {"oaicopilot.baseUrl = http://localhost:20128/v1"}
         </code>
       </div>
+
+      <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+        <h3 className="text-sm font-semibold uppercase text-text-main/80">
+          {t("requirementsTitle")}
+        </h3>
+        <p className="text-sm leading-relaxed text-text-muted">{t("requirementsDescription")}</p>
+        <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed text-text-muted">
+          <li>{t("requirementVscode")}</li>
+          <li>{t("requirementCopilotChat")}</li>
+          <li>{t("requirementOmniroute")}</li>
+        </ul>
+        <div className="mt-2 flex flex-col gap-2 rounded-md bg-bg-subtle p-3">
+          <p className="text-xs font-semibold uppercase text-text-main/70">
+            {t("compatibleIdeTitle")}
+          </p>
+          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm leading-relaxed text-text-muted">
+            <li>{t("ideVscode")}</li>
+            <li>{t("ideInsiders")}</li>
+            <li>{t("ideCursor")}</li>
+            <li>{t("ideWindsurf")}</li>
+          </ul>
+          <p className="mt-1 text-xs leading-relaxed text-text-muted/70">{t("ideNote")}</p>
+        </div>
+      </div>
     </div>
   );
 }
