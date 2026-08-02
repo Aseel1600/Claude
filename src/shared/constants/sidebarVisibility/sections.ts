@@ -743,6 +743,13 @@ const HELP_ITEMS: readonly SidebarItemDefinition[] = [
     subtitleKey: "changelogSubtitle",
     icon: "campaign",
   },
+  {
+    id: "extension",
+    href: "/dashboard/extension",
+    i18nKey: "extension",
+    subtitleKey: "extensionSubtitle",
+    icon: "extension",
+  },
 ];
 
 // ─── Sections ────────────────────────────────────────────────────────────────

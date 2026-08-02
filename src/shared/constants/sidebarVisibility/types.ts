@@ -104,6 +104,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "docs",
   "issues",
   "changelog",
+  "extension",
 ] as const;
 
 export type HideableSidebarItemId = (typeof HIDEABLE_SIDEBAR_ITEM_IDS)[number];

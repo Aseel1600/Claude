@@ -1201,6 +1201,8 @@
     "docsSubtitle": "Documentation",
     "issuesSubtitle": "Report a bug",
     "changelogSubtitle": "Release notes",
+    "extension": "Extension",
+    "extensionSubtitle": "VS Code extension",
     "costsQuotaPlans": "Plans & Quotas",
     "costsQuotaPlansSubtitle": "Configure plans by provider",
     "activity": "Activity",
@@ -12080,6 +12082,22 @@
     "changelogLoadFailed": "Could not load the changelog. Please try again later.",
     "retry": "Retry",
     "viewFullHistory": "View full history on GitHub"
+  },
+  "extensionPage": {
+    "downloadTab": "Download",
+    "changelogTab": "Patch Notes",
+    "loading": "Loading...",
+    "downloadTitle": "VS Code Extension",
+    "downloadDescription": "Download the OAI Compatible Copilot extension and connect it to OmniRoute for a unified AI coding experience.",
+    "downloadButton": "Download Extension",
+    "viewRepoButton": "View Repository",
+    "installTitle": "Installation",
+    "installStep1": "Download the extension VSIX using the button above.",
+    "installStep2": "In VS Code, open the Extensions panel and select 'Install from VSIX...'.",
+    "installStep3": "Choose the downloaded file and reload VS Code.",
+    "configTitle": "Configuration",
+    "configDescription": "Point the extension to your OmniRoute instance by setting the base URL:",
+    "changelogLoadFailed": "Could not load the extension changelog. Please try again later."
   },
   "reasoningRouting": {
     "title": "Reasoning routing policies",
