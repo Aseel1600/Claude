@@ -100,6 +100,15 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "electronhub",
   "llmgateway",
   "llm-kiwi",
+  "literouter",
+  "mnn-ai",
+  "meganova-ai",
+  "mixlayer",
+  "speka",
+  "tokenreply",
+  "yolo-auto",
+  "dxnt",
+  "cloudcode-one",
 ]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
