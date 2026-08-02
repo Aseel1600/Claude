@@ -200,6 +200,140 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Create a free LLM.Kiwi key, then use https://api.llm.kiwi/v1 as the OpenAI-compatible base URL.",
   },
+  literouter: {
+    id: "literouter",
+    alias: "literouter",
+    name: "LiteRouter",
+    icon: "router",
+    color: "#2563EB",
+    textIcon: "LR",
+    passthroughModels: true,
+    website: "https://literouter.com",
+    hasFree: true,
+    freeNote:
+      "Free model variants use the :free suffix; daily credit limits vary by model and free input is capped at 5,000 tokens.",
+    apiHint:
+      "Create a LiteRouter API key, then use https://api.literouter.com/v1 as the OpenAI-compatible base URL.",
+  },
+  "mnn-ai": {
+    id: "mnn-ai",
+    alias: "mnn-ai",
+    name: "MNN AI",
+    icon: "hub",
+    color: "#0F766E",
+    textIcon: "MNN",
+    passthroughModels: true,
+    website: "https://mnnai.ru",
+    hasFree: true,
+    freeNote: "Free plan: $1 monthly credits, 10 RPM and access only to models marked Free.",
+    apiHint:
+      "Create an MNN AI API key, then use the primary https://api.mnnai.ru/v1 OpenAI-compatible endpoint. Review jurisdiction, privacy and regional data-transfer requirements before use.",
+  },
+  "meganova-ai": {
+    id: "meganova-ai",
+    alias: "meganova-ai",
+    name: "MegaNova AI",
+    icon: "router",
+    color: "#7C3AED",
+    textIcon: "MN",
+    passthroughModels: true,
+    website: "https://meganova.ai",
+    hasFree: true,
+    freeNote:
+      "Free signup without a card. Published Tier 1 per-model quotas total 550 requests/day; they are not a shared global pool, and paid overage can apply if enabled.",
+    apiHint:
+      "Create a MegaNova API key, then use https://api.meganova.ai/v1 as the OpenAI-compatible base URL.",
+  },
+  mixlayer: {
+    id: "mixlayer",
+    alias: "mixlayer",
+    name: "Mixlayer",
+    icon: "router",
+    color: "#0EA5E9",
+    textIcon: "MX",
+    passthroughModels: true,
+    website: "https://www.mixlayer.com",
+    hasFree: true,
+    freeNote:
+      "The qwen/qwen3.5-4b-free model is free for prototyping and rate-limited; no fixed public RPM or daily quota is confirmed.",
+    apiHint:
+      "Create a Mixlayer API key, then use https://models.mixlayer.ai/v1 as the OpenAI-compatible base URL.",
+  },
+  speka: {
+    id: "speka",
+    alias: "speka",
+    name: "Speka AI",
+    icon: "router",
+    color: "#DB2777",
+    textIcon: "SP",
+    passthroughModels: true,
+    website: "https://speka.me",
+    hasFree: true,
+    freeNote:
+      "Free plan: $1 monthly usage, 10 RPM, one API key and access to open models and the playground; no card required.",
+    apiHint:
+      "Create a Speka API key, then use https://speka.me/v1 as the OpenAI-compatible base URL. Confirm current model availability and overage settings before use.",
+  },
+  tokenreply: {
+    id: "tokenreply",
+    alias: "tokenreply",
+    name: "TokenReply",
+    icon: "router",
+    color: "#3B82F6",
+    textIcon: "TR",
+    passthroughModels: true,
+    website: "https://www.tokenreply.com",
+    hasFree: true,
+    freeNote:
+      "Free-tagged models have model- and campaign-specific daily limits; no fixed global free quota is published.",
+    apiHint:
+      "Create a TokenReply token, then use https://api.tokenreply.com/v1 as the OpenAI-compatible base URL and confirm the selected model's current limit.",
+  },
+  "yolo-auto": {
+    id: "yolo-auto",
+    alias: "yolo-auto",
+    name: "Yolo-Auto",
+    icon: "auto_awesome",
+    color: "#F59E0B",
+    textIcon: "YA",
+    passthroughModels: true,
+    website: "https://yolo-auto.com",
+    hasFree: true,
+    freeNote:
+      "Free API access is request-limited and intended for testing; no numeric daily quota is published and free access is not promised indefinitely.",
+    apiHint:
+      "Create a yolo_ API key, then use https://yolo-auto.com/v1 as the OpenAI-compatible base URL.",
+  },
+  dxnt: {
+    id: "dxnt",
+    alias: "dxnt",
+    name: "DXNT / DX Token",
+    icon: "hub",
+    color: "#111827",
+    textIcon: "DX",
+    passthroughModels: true,
+    website: "https://www.dxnt.com",
+    hasFree: true,
+    freeNote:
+      "Free accounts are documented at 100 calls/day; the quota may increase through invitations and can vary by account.",
+    apiHint:
+      "Create a DXNT API key, then use https://www.dxnt.com/v1 as the OpenAI-compatible base URL.",
+  },
+  "cloudcode-one": {
+    id: "cloudcode-one",
+    alias: "cloudcode-one",
+    name: "CloudCode.ONE",
+    icon: "router",
+    color: "#6366F1",
+    textIcon: "CC",
+    passthroughModels: true,
+    website: "https://cloudcode.one",
+    hasFree: true,
+    freeNote:
+      "Published free models include glm-4.7-flash and glm-4.6v-flash; no numeric quota is published, and key creation may require credit or a coupon.",
+    apiHint:
+      "Create a CloudCode.ONE key, then use https://api.cloudcode.one/v1 as the OpenAI-compatible base URL. Key issuance may require credit or a coupon.",
+  },
   dgrid: {
     id: "dgrid",
     alias: "dgrid",
