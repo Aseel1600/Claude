@@ -238,6 +238,14 @@ import { tokenreplyProvider } from "./registry/tokenreply/index.ts";
 import { yoloAutoProvider } from "./registry/yolo-auto/index.ts";
 import { dxntProvider } from "./registry/dxnt/index.ts";
 import { cloudcodeOneProvider } from "./registry/cloudcode-one/index.ts";
+import { ofoxaiProvider } from "./registry/ofoxai/index.ts";
+import { zerolimitaiProvider } from "./registry/zerolimitai/index.ts";
+import { chatanywhereProvider } from "./registry/chatanywhere/index.ts";
+import { helyxaiProvider } from "./registry/helyxai/index.ts";
+import { aurikoProvider } from "./registry/auriko/index.ts";
+import { poixeAiProvider } from "./registry/poixe-ai/index.ts";
+import { nagaAiProvider } from "./registry/naga-ai/index.ts";
+import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -478,4 +486,12 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "yolo-auto": yoloAutoProvider,
   dxnt: dxntProvider,
   "cloudcode-one": cloudcodeOneProvider,
+  ofoxai: ofoxaiProvider,
+  zerolimitai: zerolimitaiProvider,
+  chatanywhere: chatanywhereProvider,
+  helyxai: helyxaiProvider,
+  auriko: aurikoProvider,
+  "poixe-ai": poixeAiProvider,
+  "naga-ai": nagaAiProvider,
+  "chat-oripe": chatOripeProvider,
 };

@@ -103,6 +103,14 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "yolo-auto",
   "dxnt",
   "cloudcode-one",
+  "ofoxai",
+  "zerolimitai",
+  "chatanywhere",
+  "helyxai",
+  "auriko",
+  "poixe-ai",
+  "naga-ai",
+  "chat-oripe",
 ]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([

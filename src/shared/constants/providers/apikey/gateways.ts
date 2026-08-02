@@ -323,6 +323,126 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Create a CloudCode.ONE key, then use https://api.cloudcode.one/v1 as the OpenAI-compatible base URL. Key issuance may require credit or a coupon.",
   },
+  ofoxai: {
+    id: "ofoxai",
+    alias: "ofoxai",
+    name: "OfoxAI",
+    icon: "router",
+    color: "#0F766E",
+    textIcon: "OF",
+    passthroughModels: true,
+    website: "https://ofox.ai",
+    hasFree: true,
+    freeNote:
+      "The current catalog advertises 10+ free models without a public numeric quota; review upstream provenance, retention and training terms before production use.",
+    apiHint:
+      "Create an OfoxAI Bearer key, then use https://api.ofox.ai/v1 as the OpenAI-compatible base URL. This integration covers the OpenAI surface only.",
+  },
+  zerolimitai: {
+    id: "zerolimitai",
+    alias: "zerolimitai",
+    name: "ZeroLimitAI",
+    icon: "router",
+    color: "#475569",
+    textIcon: "ZL",
+    passthroughModels: true,
+    website: "https://www.zerolimitai.com",
+    hasFree: true,
+    freeNote:
+      "Temporary free trial is advertised, but official pages conflict between 3 and 7 days; a 100-calls/day claim is not treated as permanent.",
+    apiHint:
+      "Create a ZeroLimitAI Bearer token, then use https://www.zerolimitai.com/api/v1 as the OpenAI-compatible base URL.",
+  },
+  chatanywhere: {
+    id: "chatanywhere",
+    alias: "chatanywhere",
+    name: "ChatAnywhere",
+    icon: "router",
+    color: "#2563EB",
+    textIcon: "CA",
+    passthroughModels: true,
+    website: "https://chatanywhere.tech",
+    hasFree: true,
+    freeNote:
+      "Personal, educational or research use only: public documentation cites 10,000 points/day and 200 requests/day per IP/key; do not use for commercial traffic.",
+    apiHint:
+      "Create a ChatAnywhere key linked to GitHub, then use https://api.chatanywhere.org/v1 outside China. Review the non-commercial terms before enabling it.",
+  },
+  helyxai: {
+    id: "helyxai",
+    alias: "helyxai",
+    name: "Helyx AI",
+    icon: "hub",
+    color: "#7C3AED",
+    textIcon: "HX",
+    passthroughModels: true,
+    website: "https://helyxai.space",
+    hasFree: true,
+    freeNote:
+      "Operational Free plan documents 100,000 tokens/day; the site's separate 2M+ marketing claim conflicts and is not treated as a quota guarantee.",
+    apiHint:
+      "Create a Helyx AI Bearer key, then use https://helyxai.space/v1 as the OpenAI-compatible base URL. Review terms and data retention first.",
+  },
+  auriko: {
+    id: "auriko",
+    alias: "auriko",
+    name: "Auriko",
+    icon: "hub",
+    color: "#0891B2",
+    textIcon: "AU",
+    passthroughModels: true,
+    website: "https://www.auriko.ai",
+    hasFree: true,
+    freeNote:
+      "Free plan publishes 1,000 Platform RPM and 10,000 BYOK RPM. Platform inference still passes through provider cost; this is not a free-token pool or unlimited free inference.",
+    apiHint:
+      "Create an Auriko key with the ak_ prefix, then use https://api.auriko.ai/v1 as the OpenAI-compatible base URL. BYOK and platform credits have different cost semantics.",
+  },
+  "poixe-ai": {
+    id: "poixe-ai",
+    alias: "poixe-ai",
+    name: "Poixe AI",
+    icon: "router",
+    color: "#EA580C",
+    textIcon: "PX",
+    passthroughModels: true,
+    website: "https://poixe.com",
+    hasFree: true,
+    freeNote:
+      "Current public free limits are small and model-group specific: 2 RPM/5 RPD for large-cup models and 20 RPM/50 RPD for small-cup models.",
+    apiHint:
+      "Create a Poixe Bearer key, then use https://api.poixe.com/v1 as the OpenAI-compatible base URL. Treat free model provenance and regional availability as experimental.",
+  },
+  "naga-ai": {
+    id: "naga-ai",
+    alias: "naga-ai",
+    name: "Naga AI",
+    icon: "router",
+    color: "#059669",
+    textIcon: "NA",
+    passthroughModels: true,
+    website: "https://naga.ac",
+    hasFree: true,
+    freeNote:
+      "Models marked :free are publicly listed, but no numeric quota is confirmed. Naga's policy warns that free-tier prompts and outputs may be collected or used for training.",
+    apiHint:
+      "Create a Naga AI Bearer key, then use https://api.naga.ac/v1 as the OpenAI-compatible base URL. Never send sensitive data to the free tier without accepting its training policy.",
+  },
+  "chat-oripe": {
+    id: "chat-oripe",
+    alias: "chat-oripe",
+    name: "Chat Oripe",
+    icon: "router",
+    color: "#64748B",
+    textIcon: "CO",
+    passthroughModels: true,
+    website: "https://api.oriper.com",
+    hasFree: true,
+    freeNote:
+      "Official metadata advertises 2M tokens/month, but the public site and documentation were blocked during audit; treat the quota and brand mapping as unconfirmed.",
+    apiHint:
+      "Use https://api.oriper.com/v1 only after confirming the provider's current documentation, terms and key issuance. No quota is guaranteed by this catalog.",
+  },
   dgrid: {
     id: "dgrid",
     alias: "dgrid",
