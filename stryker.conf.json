@@ -244,6 +244,7 @@
       "tests/unit/microsoft-designer-web-6672.test.ts",
       "tests/unit/middleware-header-strip-5849.test.ts",
       "tests/unit/middleware-hooks-error-sanitization.test.ts",
+      "tests/unit/model-catalog-runtime-invalidation.test.ts",
       "tests/unit/model-cooldowns-route-auth.test.ts",
       "tests/unit/model-cooldowns-route.test.ts",
       "tests/unit/model-lockout-decay.test.ts",
