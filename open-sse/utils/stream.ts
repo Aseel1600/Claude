@@ -50,6 +50,7 @@ import {
 import {
   backfillResponsesCompletedOutput,
   normalizeResponsesSseIds,
+  normalizeResponsesCompletedUsage,
   pushUniqueResponsesOutputItems,
   stringifyIdValue,
   stripResponsesLifecycleEcho,
@@ -1576,6 +1577,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                       ...passthroughToolCalls.values(),
                     ]) as typeof parsed;
                   }
+                  const usageNormalized = normalizeResponsesCompletedUsage(parsed);
                   const stripped = stripResponsesLifecycleEcho(parsed);
                   const backfilled = backfillResponsesCompletedOutput(
                     parsed,
@@ -1585,7 +1587,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                     stripped ||
                     backfilled ||
                     textualToolCallBackfilled ||
-                    responsesIdsNormalized
+                    responsesIdsNormalized ||
+                    usageNormalized
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
@@ -2281,7 +2284,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   const isResponses = flushedType.startsWith("response.");
                   const isClaude = isClaudeEventPayload(flushedParsed);
                   if (isResponses) {
-                    if (normalizeResponsesSseIds(flushedParsed)) {
+                    const usageNormalized = normalizeResponsesCompletedUsage(flushedParsed);
+                    if (normalizeResponsesSseIds(flushedParsed) || usageNormalized) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }
                   } else if (!isClaude) {
