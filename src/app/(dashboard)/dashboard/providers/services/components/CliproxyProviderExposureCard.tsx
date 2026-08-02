@@ -47,7 +47,6 @@ export function CliproxyProviderExposureCard() {
       mutate();
     } catch {
       setMsg({ ok: false, text: t("networkError") });
-    } finally {
       setPending(false);
     }
   }

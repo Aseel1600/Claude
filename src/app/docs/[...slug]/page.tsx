@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, LOCALE_COOKIE } from "@/i18n/config";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveSafeI18nSectionDir } from "@/lib/docsI18nPath";
+import { getTranslations } from "next-intl/server";
 
 // ── Locale detection ────────────────────────────────────────────────────────
 
@@ -118,9 +119,10 @@ export async function generateMetadata(props: {
   const { source } = await import("../../../lib/source");
   const page = source.getPage(params.slug);
   if (!page) return {};
+  const t = await getTranslations("docs");
 
   return {
-    title: `${page.data.title} — OmniRoute Docs`,
-    description: page.data.description ?? `OmniRoute documentation: ${page.data.title}`,
+    title: t("pageMetadataTitle", { title: page.data.title }),
+    description: page.data.description ?? t("pageMetadataDescription", { title: page.data.title }),
   };
 }

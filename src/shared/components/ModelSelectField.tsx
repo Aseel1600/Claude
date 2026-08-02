@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Select from "./Select";
 import Input from "./Input";
 
@@ -85,6 +86,7 @@ export default function ModelSelectField({
   modelSource = "available",
   className,
 }: ModelSelectFieldProps) {
+  const t = useTranslations("common");
   const [state, setState] = useState<FetchState>({ status: "loading", options: [] });
 
   useEffect(() => {
@@ -132,7 +134,7 @@ export default function ModelSelectField({
   const hasKnownValue = value === "" || state.options.some((o) => o.value === value);
   const options =
     !hasKnownValue && allowCustom
-      ? [{ value, label: `${value} (custom)` }, ...state.options]
+      ? [{ value, label: `${value} (${t("custom")})` }, ...state.options]
       : state.options;
 
   return (
@@ -141,7 +143,9 @@ export default function ModelSelectField({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       options={options}
-      placeholder={state.status === "loading" ? "Loading models…" : placeholder || "Select a model"}
+      placeholder={
+        state.status === "loading" ? t("loadingModels") : placeholder || t("selectAModel")
+      }
       placeholderDisabled={!allowEmpty}
       disabled={disabled || state.status === "loading"}
       aria-label={ariaLabel}
