@@ -1319,7 +1319,8 @@ async function handleSingleModelChat(
           (lastError.includes("proxy_unreachable") || lastError.includes("PROXY_UNREACHABLE"));
         const isQueueTimeout =
           typeof lastError === "string" &&
-          (lastError.includes("RATE_LIMIT_QUEUE_TIMEOUT") || lastError.includes("RATE_LIMIT_QUEUE_WEDGED"));
+          (lastError.includes("RATE_LIMIT_QUEUE_TIMEOUT") ||
+            lastError.includes("RATE_LIMIT_QUEUE_WEDGED"));
         if (
           !forceLiveComboTest &&
           credentials?.allRateLimited &&
