@@ -49,8 +49,8 @@ import {
 } from "../services/sessionManager.ts";
 import {
   backfillResponsesCompletedOutput,
-  normalizeResponsesSseIds,
   normalizeResponsesCompletedUsage,
+  normalizeResponsesSseIds,
   pushUniqueResponsesOutputItems,
   stringifyIdValue,
   stripResponsesLifecycleEcho,
@@ -1577,7 +1577,6 @@ export function createSSEStream(options: StreamOptions = {}) {
                       ...passthroughToolCalls.values(),
                     ]) as typeof parsed;
                   }
-                  const usageNormalized = normalizeResponsesCompletedUsage(parsed);
                   const stripped = stripResponsesLifecycleEcho(parsed);
                   const backfilled = backfillResponsesCompletedOutput(
                     parsed,
@@ -1588,7 +1587,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     backfilled ||
                     textualToolCallBackfilled ||
                     responsesIdsNormalized ||
-                    usageNormalized
+                    normalizeResponsesCompletedUsage(parsed)
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
@@ -2284,8 +2283,10 @@ export function createSSEStream(options: StreamOptions = {}) {
                   const isResponses = flushedType.startsWith("response.");
                   const isClaude = isClaudeEventPayload(flushedParsed);
                   if (isResponses) {
-                    const usageNormalized = normalizeResponsesCompletedUsage(flushedParsed);
-                    if (normalizeResponsesSseIds(flushedParsed) || usageNormalized) {
+                    if (
+                      normalizeResponsesSseIds(flushedParsed) ||
+                      normalizeResponsesCompletedUsage(flushedParsed)
+                    ) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }
                   } else if (!isClaude) {
