@@ -101,6 +101,31 @@ import { buildErrorBody } from "@omniroute/open-sse/utils/error";
 export { isVisionModelId } from "@/shared/constants/visionModels";
 export { getCustomVisionCapabilityFields };
 
+/**
+ * Decide whether a static registry model should be suppressed because a provider's
+ * synced model list covers it.
+ *
+ * The synced discovery list (from a provider's `modelsUrl`) REPLACES the static
+ * registry models in the catalog (see #7694 reasoning). But it must only replace
+ * models the synced list actually covers. Before this helper, any provider with
+ * ANY synced model dropped ALL its static models — so static models the upstream
+ * discovery does not list (e.g. command-code's `deepseek/deepseek-v4-flash`) were
+ * silently removed from the catalog even though the gateway routes them (200 OK).
+ *
+ * `syncedModelIds` are the display-model ids already normalized by the synced loop
+ * (`displayModelId`), i.e. without the provider alias prefix. Match the static
+ * model id exactly.
+ */
+export function shouldSuppressStaticModelBySyncedCoverage(opts: {
+  providerHasSynced: boolean;
+  staticModelId: string;
+  syncedModelIds: string[];
+}): boolean {
+  if (!opts.providerHasSynced) return false;
+  if (opts.syncedModelIds.length === 0) return false;
+  return opts.syncedModelIds.includes(opts.staticModelId);
+}
+
 // The response cache (coalescing, short-TTL memoization and stale-while-revalidate)
 // lives in ./catalogCache. Re-exported here because the existing tests import the
 // hooks from this module, and CATALOG_STALE_WHILE_REVALIDATE_MS is part of the
@@ -675,6 +700,23 @@ async function buildUnifiedModelsResponseCore(
       return false;
     };
 
+    // Map canonical provider id -> set of synced display-model ids, so the static
+    // loop below can decide which static models a provider's synced discovery list
+    // actually covers (and which static models it must preserve — see
+    // shouldSuppressStaticModelBySyncedCoverage). Keyed by canonical provider id
+    // because the static loop addresses providers that way.
+    const syncedModelIdsByCanonicalProvider = new Map<string, Set<string>>();
+    for (const [providerId, syncedModels] of Object.entries(syncedModelsByProvider)) {
+      if (!Array.isArray(syncedModels)) continue;
+      const alias = providerIdToPrefix[providerId] || providerIdToAlias[providerId] || providerId;
+      const canonicalId = resolveCanonicalProviderId(alias, providerId);
+      const set = syncedModelIdsByCanonicalProvider.get(canonicalId) || new Set<string>();
+      for (const sm of syncedModels) {
+        if (typeof sm?.id === "string" && sm.id.length > 0) set.add(sm.id);
+      }
+      syncedModelIdsByCanonicalProvider.set(canonicalId, set);
+    }
+
     // Add provider models (chat)
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
       const providerId = aliasToProviderId[alias] || alias;
@@ -693,10 +735,20 @@ async function buildUnifiedModelsResponseCore(
       }
 
       for (const model of providerModels) {
-        // Synced models replace static base entries, but they do not carry aliases
-        // registered for provider-specific reasoning variants.
+        // Synced models replace static base entries they COVER, but they do not
+        // carry aliases registered for provider-specific reasoning variants, and
+        // static models the synced list does NOT cover must be preserved (the
+        // gateway still routes them — e.g. command-code's static
+        // `deepseek/deepseek-v4-flash` which its discovery never lists). Before
+        // the fix, a provider with any synced model silently dropped ALL its
+        // static models.
+        const syncedForProvider = syncedModelIdsByCanonicalProvider.get(canonicalProviderId);
         if (
-          providersWithSyncedModels.has(canonicalProviderId) &&
+          shouldSuppressStaticModelBySyncedCoverage({
+            providerHasSynced: syncedForProvider !== undefined && syncedForProvider.size > 0,
+            staticModelId: model.id,
+            syncedModelIds: syncedForProvider ? [...syncedForProvider] : [],
+          }) &&
           !isRegisteredEffortVariant(providerModels, model.id)
         )
           continue;
