@@ -4,7 +4,7 @@ import path from "node:path";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 
 /** Filename of the extension VSIX served by this endpoint. */
-const EXTENSION_FILENAME = "oai-compatible-copilot-mod.vsix";
+const EXTENSION_FILENAME = "ia-one.vsix";
 
 /**
  * GET /api/extension/download
