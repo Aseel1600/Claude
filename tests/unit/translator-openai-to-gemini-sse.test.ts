@@ -292,6 +292,57 @@ test("convertOpenAIResponseToGemini: preserves genuine thoughtSignature in non-s
   assert.equal(fcPart.thoughtSignature, "sig_nonstream_456");
 });
 
+test("transformOpenAISSEToGeminiSSE: restores original tool name via toolNameMap", async () => {
+  const map = new Map([["read_file", "default_api:read_file"]]);
+  const upstream = makeOpenAISSEResponse([
+    'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"read_file","arguments":"{}"}}]},"finish_reason":null}]}',
+    'data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":5,"completion_tokens":2,"total_tokens":7},"model":"gemini-pro"}',
+    "data: [DONE]",
+  ]);
+
+  const out = transformOpenAISSEToGeminiSSE(upstream, "fallback", map);
+  const events = await readGeminiSSE(out);
+  const call = events[0].candidates[0].content.parts.find((p) => p.functionCall);
+  assert.equal(call.functionCall.name, "default_api:read_file");
+});
+
+test("convertOpenAIResponseToGemini: restores original tool name via toolNameMap", async () => {
+  const upstream = new Response(
+    JSON.stringify({
+      id: "chatcmpl-1",
+      model: "gpt-4.1",
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: null,
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "read_file", arguments: "{}" },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    }),
+    {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+  const map = new Map([["read_file", "default_api:read_file"]]);
+  const out = await convertOpenAIResponseToGemini(upstream, "fallback", map);
+  const body = (await out.json()) as {
+    candidates: [{ content: { parts: Array<Record<string, unknown>> } }];
+  };
+  const call = body.candidates[0].content.parts.find((p) => p.functionCall);
+  assert.equal((call.functionCall as { name: string }).name, "default_api:read_file");
+});
+
 test("convertOpenAIResponseToGemini: omits thoughtSignature when none was provided by upstream", async () => {
   const upstream = Response.json({
     choices: [

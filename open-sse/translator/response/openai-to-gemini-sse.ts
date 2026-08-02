@@ -107,6 +107,8 @@ export interface GeminiToolCallState {
     number,
     { id: string; name: string; arguments: string; thoughtSignature?: string }
   >;
+  /** Sanitized → original Gemini tool-name map threaded from the request stage. */
+  toolNameMap?: Map<string, string> | null;
 }
 
 interface GeminiCandidate {
@@ -190,7 +192,13 @@ export function openAIChunkToGeminiChunk(
       }
       parts.push({
         ...(entry.thoughtSignature ? { thoughtSignature: entry.thoughtSignature } : {}),
-        functionCall: { name: entry.name, args },
+        functionCall: {
+          name:
+            state?.toolNameMap instanceof Map
+              ? state.toolNameMap.get(entry.name) || entry.name
+              : entry.name,
+          args,
+        },
       });
     }
   }
@@ -238,7 +246,11 @@ export function openAIChunkToGeminiChunk(
  * Non-OK / no-body responses are passed through unchanged so that callers
  * upstream of the route can surface the error to the client untouched.
  */
-export function transformOpenAISSEToGeminiSSE(upstreamResponse: Response, model: string): Response {
+export function transformOpenAISSEToGeminiSSE(
+  upstreamResponse: Response,
+  model: string,
+  toolNameMap?: Map<string, string> | null
+): Response {
   if (!upstreamResponse.ok || !upstreamResponse.body) {
     return upstreamResponse;
   }
@@ -252,7 +264,7 @@ export function transformOpenAISSEToGeminiSSE(upstreamResponse: Response, model:
   let buffer = "";
 
   // Per-stream tool-call accumulator (shared across transform + flush).
-  const toolCallState: GeminiToolCallState = {};
+  const toolCallState: GeminiToolCallState = { toolNameMap };
 
   const transform = new TransformStream<Uint8Array, Uint8Array>({
     transform(chunk, controller) {
@@ -364,7 +376,8 @@ interface GeminiNonStreamResponse {
  */
 export async function convertOpenAIResponseToGemini(
   response: Response,
-  model: string
+  model: string,
+  toolNameMap?: Map<string, string> | null
 ): Promise<Response> {
   if (!response.ok) return response;
 
@@ -430,9 +443,13 @@ export async function convertOpenAIResponseToGemini(
       tc.thought_signature ??
       tc.function?.thoughtSignature ??
       tc.function?.thought_signature;
+    const rawName = tc.function?.name || "";
     parts.push({
       ...(typeof sig === "string" && sig.length > 0 ? { thoughtSignature: sig } : {}),
-      functionCall: { name: tc.function?.name || "", args },
+      functionCall: {
+        name: toolNameMap instanceof Map ? toolNameMap.get(rawName) || rawName : rawName,
+        args,
+      },
     });
   }
 

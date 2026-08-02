@@ -81,7 +81,10 @@ export function openaiToAntigravityResponse(chunk, state) {
       }
       parts.push({
         functionCall: {
-          name: accum.name,
+          name:
+            state?.toolNameMap instanceof Map
+              ? state.toolNameMap.get(accum.name) || accum.name
+              : accum.name,
           args,
         },
       });

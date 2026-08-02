@@ -31,6 +31,44 @@ test("OpenAI -> Antigravity: reasoning and text become Gemini-style parts", () =
   ]);
 });
 
+test("OpenAI -> Antigravity: restores original tool name via toolNameMap on flush", () => {
+  const state = { toolNameMap: new Map([["read_file", "default_api:read_file"]]) };
+  openaiToAntigravityResponse(
+    {
+      id: "chatcmpl-tn",
+      model: "gpt-4.1",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              { index: 0, id: "call_1", type: "function", function: { name: "read_file" } },
+            ],
+          },
+          finish_reason: null,
+        },
+      ],
+    },
+    state
+  );
+  const final = openaiToAntigravityResponse(
+    {
+      id: "chatcmpl-tn",
+      model: "gpt-4.1",
+      choices: [
+        {
+          index: 0,
+          delta: { tool_calls: [{ index: 0, function: { arguments: "{}" } }] },
+          finish_reason: "tool_calls",
+        },
+      ],
+    },
+    state
+  );
+  const call = final.response.candidates[0].content.parts.find((p) => p.functionCall);
+  assert.equal(call.functionCall.name, "default_api:read_file");
+});
+
 test("OpenAI -> Antigravity: tool call arguments accumulate and emit once on finish", () => {
   const state = {};
   const first = openaiToAntigravityResponse(
