@@ -64,6 +64,7 @@ import {
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
 import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
+import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -1724,6 +1725,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     continue;
                   }
 
+                  const restoredOpenAIToolName = restoreOpenAIToolNames(parsed, toolNameMap);
                   const idFixed = hadNonStringTopLevelId ? false : fixInvalidId(parsed);
 
                   if (!hasValuableContent(parsed, FORMATS.OPENAI)) {
@@ -1912,7 +1914,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                     needsReserialization ||
                     toolCallIdCoerced ||
                     hadNonStringToolCallId ||
-                    hadNonStringTopLevelId
+                    hadNonStringTopLevelId ||
+                    restoredOpenAIToolName
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
@@ -2242,6 +2245,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                 toResponsesCompletedWithToolCalls(parsed, [
                   ...passthroughToolCalls.values(),
                 ]) as JsonRecord,
+              restoreOpenAIToolNames: (parsed: JsonRecord) =>
+                restoreOpenAIToolNames(parsed, toolNameMap),
             };
 
             for (const line of normalizedTailLines) {
@@ -2309,6 +2314,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                           }
                         }
                       }
+                    }
+                    if (restoreOpenAIToolNames(flushedParsed, toolNameMap)) {
+                      flushChanged = true;
                     }
                     // #7800: track finish_reason in the flush path too, so a
                     // final chunk without trailing newline still suppresses the

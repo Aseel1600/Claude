@@ -140,6 +140,8 @@ export interface RegistryEntry {
   passthroughModels?: boolean;
   /** Default context window for all models in this provider (can be overridden per-model) */
   defaultContextLength?: number;
+  /** Maximum OpenAI-compatible function name length accepted by this provider. */
+  toolNameMaxLength?: number;
   /** Optional session pool config for rate limit management */
   poolConfig?: Record<string, unknown>;
   /**

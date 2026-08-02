@@ -78,6 +78,7 @@ import { FORMATS } from "../translator/formats.ts";
 import { collectCustomToolNamesForSourceFormat } from "../translator/request/openai-responses/additionalTools.ts";
 import { sanitizeKiroTools } from "../utils/kiroSanitizer.ts";
 import { splitMisplacedToolResults } from "../translator/helpers/claudeHelper.ts";
+import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 import {
   createSSETransformStreamWithLogger,
   createPassthroughStreamWithLogger,
@@ -4217,6 +4218,7 @@ export async function handleChatCore({
     if (sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE) {
       responseBody = restoreClaudePassthroughToolNames(responseBody, responseToolNameMap);
     }
+    restoreOpenAIToolNames(responseBody, responseToolNameMap);
     reqLogger.logProviderResponse(
       providerResponse.status,
       providerResponse.statusText,

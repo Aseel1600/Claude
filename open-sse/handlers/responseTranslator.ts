@@ -6,6 +6,7 @@ import {
 import { normalizeOpenAICompatibleFinishReasonString } from "../utils/finishReason.ts";
 import { containsTextualToolCallMarker } from "../utils/textualToolCall.ts";
 import { getAnyReasoningValue } from "../utils/reasoningFields.ts";
+import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -137,10 +138,17 @@ export function translateNonStreamingResponse(
 ): unknown {
   // If already in source format, return as-is
   if (targetFormat === sourceFormat) {
+    if (targetFormat === FORMATS.OPENAI) {
+      restoreOpenAIToolNames(responseBody, toolNameMap);
+    }
     return responseBody;
   }
 
   let intermediateOpenAI = responseBody;
+
+  if (targetFormat === FORMATS.OPENAI) {
+    restoreOpenAIToolNames(intermediateOpenAI, toolNameMap);
+  }
 
   // Handle OpenAI Responses API format
   if (targetFormat === FORMATS.OPENAI_RESPONSES) {
