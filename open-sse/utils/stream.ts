@@ -65,6 +65,7 @@ import {
 } from "./reasoningFields.ts";
 import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
 import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
+import { normalizeFinalOpenAIStreamChunk } from "./openAIStreamChunk.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -2294,39 +2295,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }
                   } else if (!isClaude) {
-                    let flushChanged = false;
-                    const flushedHadNonStringTopLevelId =
-                      flushedParsed?.id != null && typeof flushedParsed.id !== "string";
-                    if (flushedHadNonStringTopLevelId) {
-                      flushedParsed.id = String(flushedParsed.id);
-                      flushChanged = true;
-                    }
-                    if (Array.isArray(flushedParsed.choices)) {
-                      for (const choice of flushedParsed.choices as JsonRecord[]) {
-                        const tcs = (choice as JsonRecord | undefined)?.delta as
-                          JsonRecord | undefined;
-                        if (Array.isArray(tcs?.tool_calls)) {
-                          for (const tc of tcs.tool_calls as JsonRecord[]) {
-                            if (tc?.id != null && typeof tc.id !== "string") {
-                              tc.id = String(tc.id);
-                              flushChanged = true;
-                            }
-                          }
-                        }
-                      }
-                    }
-                    if (restoreOpenAIToolNames(flushedParsed, toolNameMap)) {
-                      flushChanged = true;
-                    }
+                    const { changed: flushChanged, hasFinishReason } =
+                      normalizeFinalOpenAIStreamChunk(flushedParsed, toolNameMap);
                     // #7800: track finish_reason in the flush path too, so a
                     // final chunk without trailing newline still suppresses the
                     // synthetic finish_reason synthesis.
-                    if (
-                      Array.isArray(flushedParsed.choices) &&
-                      (flushedParsed.choices[0] as JsonRecord | undefined)?.finish_reason
-                    ) {
-                      passthroughSawFinishReason = true;
-                    }
+                    if (hasFinishReason) passthroughSawFinishReason = true;
                     if (flushChanged) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }

@@ -78,7 +78,6 @@ import { FORMATS } from "../translator/formats.ts";
 import { collectCustomToolNamesForSourceFormat } from "../translator/request/openai-responses/additionalTools.ts";
 import { sanitizeKiroTools } from "../utils/kiroSanitizer.ts";
 import { splitMisplacedToolResults } from "../translator/helpers/claudeHelper.ts";
-import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 import {
   createSSETransformStreamWithLogger,
   createPassthroughStreamWithLogger,
@@ -216,8 +215,8 @@ import { recordCost } from "@/domain/costRules";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import {
   buildClaudePassthroughToolNameMap,
-  restoreClaudePassthroughToolNames,
-  mergeResponseToolNameMap,
+  normalizeOpenAIToolFinishReasons,
+  restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
 import { resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
@@ -4210,15 +4209,14 @@ export async function handleChatCore({
       }
     }
 
-    const responseToolNameMap = mergeResponseToolNameMap(
+    const restoreClaudeNames = sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE;
+    let responseToolNameMap: Map<string, string> | null;
+    [responseBody, responseToolNameMap] = restoreNonStreamingToolNames(
+      responseBody,
       toolNameMap,
-      (finalBody as Record<string, unknown> | null | undefined) ?? null
+      finalBody,
+      restoreClaudeNames
     );
-
-    if (sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE) {
-      responseBody = restoreClaudePassthroughToolNames(responseBody, responseToolNameMap);
-    }
-    restoreOpenAIToolNames(responseBody, responseToolNameMap);
     reqLogger.logProviderResponse(
       providerResponse.status,
       providerResponse.statusText,
@@ -4314,17 +4312,7 @@ export async function handleChatCore({
     }
 
     // T18: Normalize finish_reason to 'tool_calls' if tool calls are present
-    if (translatedResponse?.choices) {
-      for (const choice of translatedResponse.choices) {
-        if (
-          choice.message?.tool_calls &&
-          choice.message.tool_calls.length > 0 &&
-          choice.finish_reason !== "tool_calls"
-        ) {
-          choice.finish_reason = "tool_calls";
-        }
-      }
-    }
+    normalizeOpenAIToolFinishReasons(translatedResponse);
 
     // Reasoning Replay Cache (#1628): Capture reasoning_content from non-streaming responses
     // with tool_calls so it can be replayed on subsequent turns (DeepSeek V4, Kimi K2, etc.)
