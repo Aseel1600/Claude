@@ -180,6 +180,27 @@ test("extractUsageFromResponse totals Claude prompt tokens with cache read and c
   });
 });
 
+test("extractUsageFromResponse surfaces Claude thinking tokens without inflating completion", () => {
+  const usage = extractUsageFromResponse(
+    {
+      usage: {
+        input_tokens: 22,
+        output_tokens: 267,
+        output_tokens_details: { thinking_tokens: 85 },
+      },
+    },
+    "claude"
+  );
+
+  assert.deepEqual(usage, {
+    prompt_tokens: 22,
+    completion_tokens: 267,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    reasoning_tokens: 85,
+  });
+});
+
 test("extractUsageFromResponse reads Gemini usageMetadata and thinking tokens", () => {
   const usage = extractUsageFromResponse(
     {
@@ -240,6 +261,20 @@ test("extractUsage reads response.completed with prompt_tokens_details.cached_to
   assert.equal(usage.completion_tokens, 50);
   assert.equal(usage.cached_tokens, 30);
   assert.equal(usage.reasoning_tokens, 10);
+});
+
+test("extractUsage surfaces Claude message_delta thinking tokens", () => {
+  const usage = extractUsage({
+    type: "message_delta",
+    usage: {
+      input_tokens: 22,
+      output_tokens: 267,
+      output_tokens_details: { thinking_tokens: 85 },
+    },
+  });
+
+  assert.equal(usage.reasoning_tokens, 85);
+  assert.equal(usage.completion_tokens, 267);
 });
 
 test("extractUsage reads response.done with input_tokens_details and output_tokens_details", () => {

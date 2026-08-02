@@ -217,6 +217,7 @@ export function filterUsageForFormat(usage, targetFormat) {
     [FORMATS.CLAUDE]: [
       "input_tokens",
       "output_tokens",
+      "output_tokens_details",
       "cache_read_input_tokens",
       "cache_creation_input_tokens",
       "estimated",
@@ -371,6 +372,7 @@ export function extractUsage(chunk) {
       output_tokens: chunk.usage.output_tokens || 0,
       cache_read_input_tokens: chunk.usage.cache_read_input_tokens,
       cache_creation_input_tokens: chunk.usage.cache_creation_input_tokens,
+      reasoning_tokens: chunk.usage.output_tokens_details?.thinking_tokens,
     });
   }
 

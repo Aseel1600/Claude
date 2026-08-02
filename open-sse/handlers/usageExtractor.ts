@@ -63,6 +63,9 @@ export function extractUsageFromResponse(responseBody, provider) {
       completion_tokens: responseBody.usage.output_tokens || 0,
       cache_read_input_tokens: cacheRead,
       cache_creation_input_tokens: cacheCreation,
+      ...(typeof responseBody.usage.output_tokens_details?.thinking_tokens === "number"
+        ? { reasoning_tokens: responseBody.usage.output_tokens_details.thinking_tokens }
+        : {}),
     };
   }
 
