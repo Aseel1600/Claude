@@ -293,25 +293,32 @@ test("aborting one queued request does not drop queued peers", async () => {
   });
 
   await firstExecuting;
+  const limiter = rateLimitManager.__getLimiterForTests("test-provider", connectionId);
   const controller = new AbortController();
+  let abortedCalls = 0;
   const aborted = rateLimitManager.withRateLimit(
     "test-provider",
     connectionId,
     null,
     async () => {
-      throw new Error("aborted request must not dispatch");
+      abortedCalls++;
     },
     controller.signal
   );
-  controller.abort();
-  await assert.rejects(aborted, (error: { name?: string }) => error.name === "AbortError");
-
   let peerCalls = 0;
   const peer = rateLimitManager.withRateLimit("test-provider", connectionId, null, async () => {
     peerCalls++;
   });
+  for (let attempt = 0; attempt < 200 && limiter.counts().QUEUED < 2; attempt++) {
+    await wait(5);
+  }
+  assert.ok(limiter.counts().QUEUED >= 2, "both queued requests must be present before abort");
+  controller.abort();
+  await assert.rejects(aborted, (error: { name?: string }) => error.name === "AbortError");
+
   releaseFirst();
   await Promise.all([first, peer]);
+  assert.equal(abortedCalls, 0, "aborted queued work must not invoke the provider");
   assert.equal(peerCalls, 1);
 });
 

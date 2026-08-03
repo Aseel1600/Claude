@@ -352,6 +352,10 @@ export function __runRateLimitWatchdogForTests(): void {
   watchdogTick();
 }
 
+export function __getLimiterForTests(provider: string, connectionId: string, model = null) {
+  return getLimiter(provider, connectionId, model);
+}
+
 export function __setLastDispatchAtForTests(
   provider: string,
   connectionId: string,
