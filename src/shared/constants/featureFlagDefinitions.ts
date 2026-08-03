@@ -198,7 +198,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     warningLevel: "info",
   },
 
-  // ──────────────── Policies (3) ────────────────
+  // ──────────────── Policies (4) ────────────────
   {
     key: "TOOL_POLICY_MODE",
     label: "Tool Policy Mode",
@@ -231,6 +231,18 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     defaultValue: "false",
     type: "boolean",
     requiresRestart: true,
+    warningLevel: "info",
+  },
+  {
+    key: "RADAR_ENABLED",
+    label: "Radar",
+    description:
+      "Enable the OmniRoute Radar module (catalog feed screens and sync). Off by default; enabling only unlocks the UI — data sync remains a separate opt-in.",
+    descriptionI18nKey: "featureFlagRadarEnabledDescription",
+    category: "policies",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
     warningLevel: "info",
   },
 
