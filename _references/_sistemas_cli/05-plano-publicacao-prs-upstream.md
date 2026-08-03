@@ -640,3 +640,4 @@ Resultado P2.11:
 - `CLI-075` LionClaw: `patch-required`/`issue-first`. O runtime Codex confinado não recebe `config.toml`/provider secret; preparar proposta genérica alinhada à [#157](https://github.com/moshthepitt/lionclaw/issues/157), sem PR até revisão do mantenedor.
 
 Estado final P2.11: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Discussions `0`. Pesquisa acumulada: `76/104` (`73,1%`); pendentes: `28/104` (`26,9%`).
+Resultado P3.3: OMK `viable-mcp`; kodo `config-only` indireto; ORCH `needs-wrapper`. Pesquisa acumulada `85/104` (`81,7%`), pendentes `19/104` (`18,3%`). Nenhuma publicação externa.

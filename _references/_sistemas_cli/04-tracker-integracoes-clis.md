@@ -111,9 +111,9 @@ Os campos externos (`branch`, `commit`, `PR`, `issue`) ficam como `—` ate have
 | CLI-079 | P3 | Bernstein | `chernistry/bernstein` | concluida | `config-only` | `not-applicable` | `feat/omniroute-bernstein-integration` | — | — | — | not-in-catalog | Canonical `sipyourdrink-ltd/bernstein`; openai_agents `/api/v1`, auto, api_key_env allowlisted; testes bloqueados por openai ausente; sem publicação |
 | CLI-080 | P3 | Traycer | `traycerai/traycer` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-traycer-integration` | — | — | — | not-in-catalog | Harness OpenCode + provider `@ai-sdk/openai-compatible`, `/api/v1`, `omniroute/auto`; host central fechado; sem publicação |
 | CLI-081 | P3 | h5i | `h5i-dev/h5i` | concluida | `patch-required` | `awaiting-maintainer` | `feat/omniroute-h5i-integration` | — | — | — | not-in-catalog | Auth proxy/egress Codex fixos em OpenAI anulam base custom; patch seguro/policy-pinned necessário; CI externa verde; sem publicação |
-| CLI-082 | P3 | OMK | `dmae97/open-multi-agent-kit` | not-started | viable-mcp | — | — | — | — | — | not-in-catalog | control plane |
-| CLI-083 | P3 | kodo | `ikamensh/kodo` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | orchestrator |
-| CLI-084 | P3 | ORCH | `oxgeneral/ORCH` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | queue |
+| CLI-082 | P3 | OMK | `dmae97/open-multi-agent-kit` | concluida | `viable-mcp` | `not-applicable` | `feat/omniroute-omk-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; controle multiagente, MCP é caminho primário; sem provider nominal |
+| CLI-083 | P3 | kodo | `ikamensh/kodo` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-kodo-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; orquestrador/agent child, propagar env/base/model ao agente filho |
+| CLI-084 | P3 | ORCH | `oxgeneral/ORCH` | concluida | `needs-wrapper` | `awaiting-maintainer` | `feat/omniroute-orch-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; fila/controle sem provider LLM direto, wrapper/adaptador necessário |
 | CLI-085 | P3 | LoopTroop | `LoopTroop-ai/LoopTroop` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | OpenCode |
 | CLI-086 | P3 | Galley | `shinpr/galley` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | PR handoff |
 | CLI-087 | P3 | Relay | `jcast90/relay` | not-started | viable-mcp | — | — | — | — | — | not-in-catalog | MCP |
