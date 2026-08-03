@@ -1,5 +1,7 @@
 # Tracker de integracoes de CLIs com OmniRoute
 
+**Status final da pesquisa:** `104/104` concluídos (`100%`), `0` casos `not-started`. Este é o registro individual autoritativo. O relatório executivo está em `06-relatorio-final-104-clis-e-estrategia-prs.md`.
+
 **Snapshot inicial:** 2026-08-01
 **Legenda de status:** `not-started`, `researching`, `research-more`, `viable-direct`, `viable-upstream`, `viable-acp`, `viable-mcp`, `needs-wrapper`, `needs-mitm`, `blocked`, `implementing`, `validating`, `published-pr`, `published-issue`, `awaiting-maintainer`, `accepted`, `rejected`, `integrated`.
 

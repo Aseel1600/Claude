@@ -1,5 +1,7 @@
 # Plano de publicacao de integracoes OmniRoute nos repositorios upstream
 
+> **Status da campanha de pesquisa:** `104/104` casos concluídos. Este plano continua sendo o procedimento de execução e publicação. A matriz final, inclusive os casos em que PR é inadequada ou impossível, está em `06-relatorio-final-104-clis-e-estrategia-prs.md`.
+
 **Data:** 2026-08-01
 **Escopo:** transformar a fila `CLI-000` a `CLI-103` em contribuicoes upstream verificadas,
 publicando PR, issue, guia de configuracao, adaptador ou conclusao de bloqueio conforme o mecanismo
