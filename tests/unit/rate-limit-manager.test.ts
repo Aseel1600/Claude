@@ -617,6 +617,11 @@ test("rate limit manager uses model-scoped limiter keys for GitHub Copilot (#162
 });
 
 test("rate limit manager parses retry hints from response bodies and locks models", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
+    maxWaitMs: 100,
+    requestsPerMinute: 0,
+  });
   rateLimitManager.enableRateLimitProtection("conn-body");
   rateLimitManager.updateFromResponseBody(
     "openai",
@@ -639,6 +644,20 @@ test("rate limit manager parses retry hints from response bodies and locks model
   );
   assert.equal(limiterState?.key, "openai:conn-body");
   assert.equal(rateLimitManager.getRateLimitStatus("openai", "conn-body").active, true);
+
+  let providerCalls = 0;
+  await assert.rejects(
+    rateLimitManager.withRateLimit("openai", "conn-body", "gpt-4o", async () => {
+      providerCalls++;
+    }),
+    (error: unknown) => {
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      assert.equal(code, "RATE_LIMIT_QUEUE_TIMEOUT");
+      assert.match(String((error as Error).message), /upstream rate-limit cooldown/);
+      return true;
+    }
+  );
+  assert.equal(providerCalls, 0);
 
   rateLimitManager.updateFromResponseBody(
     "openai",

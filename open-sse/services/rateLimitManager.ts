@@ -92,29 +92,6 @@ function errorRateLimit(...args: unknown[]): void {
   if (!isNodeTestRunnerChild()) console.error(...args);
 }
 
-function shouldTraceLimiter(key: string): boolean {
-  if (process.env.OMNIROUTE_RATE_LIMIT_TRACE !== "1") return false;
-  const selector = process.env.OMNIROUTE_RATE_LIMIT_TRACE_KEY?.trim();
-  return !selector || key.includes(selector);
-}
-
-function traceLimiterState(key: string, limiter: Bottleneck, event: string, detail = ""): void {
-  if (!shouldTraceLimiter(key)) return;
-  const traceId = limiterTraceIds.get(limiter) ?? 0;
-  const counts = limiter.counts();
-  const lastDispatch = lastDispatchAt.get(key);
-  const suffix = detail ? ` ${detail}` : "";
-  void limiter.currentReservoir().then(
-    (reservoir) =>
-      logRateLimit(
-        `[RATE-LIMIT-TRACE] ${event} key=${key} limiter=${traceId} received=${counts.RECEIVED} ` +
-          `queued=${counts.QUEUED} running=${counts.RUNNING} executing=${counts.EXECUTING} ` +
-          `reservoir=${reservoir ?? "null"} lastDispatchAgeMs=${lastDispatch ? Date.now() - lastDispatch : "null"}${suffix}`
-      ),
-    () => undefined
-  );
-}
-
 // Store limiters keyed by "provider:connectionId" (and optionally ":model")
 const limiters = new Map<string, Bottleneck>();
 
@@ -143,9 +120,7 @@ let currentRequestQueueSettings: RequestQueueSettings = DEFAULT_RESILIENCE_SETTI
 // jobs are dispatched). RPM admission happens before Bottleneck, so a queued
 // Bottleneck job with no active work is a concurrency scheduler failure.
 const lastDispatchAt = new Map<string, number>();
-let nextLimiterTraceId = 1;
 let nextJobTraceId = 1;
-const limiterTraceIds = new WeakMap<object, number>();
 let watchdogInterval: ReturnType<typeof setInterval> | null = null;
 const WATCHDOG_INTERVAL_MS = 30_000;
 // Threshold has to exceed any legitimate gap caused by adaptive minTime while
@@ -266,7 +241,6 @@ function watchdogTick() {
         limiters.delete(key);
         lastDispatchAt.delete(key);
         limiterLastUsed.delete(key);
-        traceLimiterState(key, limiter, "evict-idle");
         logRateLimit(
           `🧹 [RATE-LIMIT] Evicting idle limiter: ${key} (inactive for ${Math.round((now - lastUsed) / 1000)}s)`
         );
@@ -374,7 +348,6 @@ export function __setLastDispatchAtForTests(
 
 function evictWedgeLimiter(key: string, limiter: Bottleneck): void {
   if (limiters.get(key) !== limiter) return;
-  traceLimiterState(key, limiter, "evict-wedge");
   evictLimiterAndDropQueued(key, limiter, "rate-limit-watchdog-wedge-reset");
 }
 
@@ -495,7 +468,6 @@ export function disableRateLimitProtection(connectionId) {
   // callers waiting on an instance that is no longer reachable from the cache.
   for (const [key, limiter] of Array.from(limiters)) {
     if (keyContainsConnection(key, connectionId)) {
-      traceLimiterState(key, limiter, "evict-disabled");
       evictLimiterAndDropQueued(key, limiter, "rate-limit-connection-disabled");
     }
   }
@@ -528,7 +500,6 @@ export function refreshConnectionRateLimits(connectionId, overrides) {
   // Evict limiters referencing this connection so they get recreated on next use
   for (const [key, limiter] of Array.from(limiters)) {
     if (keyContainsConnection(key, connectionId)) {
-      traceLimiterState(key, limiter, "evict-settings-refresh");
       evictLimiterAndDropQueued(key, limiter, "rate-limit-settings-refresh");
     }
   }
@@ -586,46 +557,16 @@ function getLimiter(provider, connectionId, model = null) {
       ...defaults,
       id: key,
     });
-    limiterTraceIds.set(limiter, nextLimiterTraceId++);
-    limiter.on("received", (info) =>
-      traceLimiterState(key, limiter, "received", `job=${info.options.id}`)
-    );
-    limiter.on("queued", (info) =>
-      traceLimiterState(key, limiter, "queued", `job=${info.options.id}`)
-    );
-    limiter.on("scheduled", (info) =>
-      traceLimiterState(key, limiter, "scheduled", `job=${info.options.id}`)
-    );
-    limiter.on("done", (info) => traceLimiterState(key, limiter, "done", `job=${info.options.id}`));
-    limiter.on("failed", (error, info) =>
-      traceLimiterState(
-        key,
-        limiter,
-        "failed",
-        `job=${info.options.id} error=${error?.message ?? error}`
-      )
-    );
-    limiter.on("dropped", (info) =>
-      traceLimiterState(key, limiter, "dropped", `job=${info.options.id}`)
-    );
-    limiter.on("depleted", (empty) =>
-      traceLimiterState(key, limiter, "depleted", `empty=${empty}`)
-    );
-    limiter.on("error", (error) =>
-      traceLimiterState(key, limiter, "error", `error=${error?.message ?? error}`)
-    );
     // Heartbeat: timestamp every dispatch so the watchdog can tell a healthy
     // queue (just dispatched a job) from a wedged one (queue has work but
     // nothing has been dispatched in a while).
-    limiter.on("executing", (info) => {
+    limiter.on("executing", () => {
       lastDispatchAt.set(key, Date.now());
-      traceLimiterState(key, limiter, "executing", `job=${info.options.id}`);
     });
 
     limiters.set(key, limiter);
     lastDispatchAt.set(key, Date.now());
     limiterLastUsed.set(key, Date.now());
-    traceLimiterState(key, limiter, "created");
   }
 
   limiterLastUsed.set(key, Date.now());
@@ -739,7 +680,6 @@ export async function withRateLimit(provider, connectionId, model, fn, signal = 
       let abortListener: (() => void) | undefined;
       const abortPromise = new Promise<never>((_, reject) => {
         const onAbort = () => {
-          traceLimiterState(key, limiter, "aborted", `job=${jobId}`);
           const reason = signal.reason;
           // Reject before evicting the queued job so the caller observes its
           // abort reason instead of Bottleneck's internal drop error.
@@ -853,7 +793,6 @@ export function updateFromHeaders(provider, connectionId, headers, status, model
     const retryAfterMs = parseResetTime(retryAfterStr) || 60000; // Default 60s
     const counts = limiter.counts();
     const limiterKey = getLimiterKey(provider, connectionId, model);
-    traceLimiterState(limiterKey, limiter, "evict-429");
     logRateLimit(
       `🚫 [RATE-LIMIT] ${provider}:${connectionId.slice(0, 8)} — 429 received, pausing for ${Math.ceil(retryAfterMs / 1000)}s, dropping ${counts.QUEUED} queued request(s)`
     );
