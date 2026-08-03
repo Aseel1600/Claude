@@ -17,6 +17,7 @@ import { buildClaudeExtraUsageConnectionUpdate } from "@/lib/providers/claudeExt
 import { clearRecoveredProviderState } from "@/sse/services/auth";
 import { getMachineId } from "@/shared/utils/machine";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
+import { supportsCustomQuotaConnection } from "@/shared/utils/customQuotaProviders";
 import { getExecutor } from "@omniroute/open-sse/executors/index.ts";
 import { getUsageForProvider } from "@omniroute/open-sse/services/usage.ts";
 import {
@@ -187,18 +188,22 @@ function shouldRefreshProviderLimitsCache(
 }
 
 export function isSupportedUsageConnection(connection: ProviderConnectionLike | null): boolean {
-  if (
-    !connection ||
-    !connection.provider ||
-    !USAGE_SUPPORTED_PROVIDERS.includes(connection.provider)
-  ) {
+  if (!connection || !connection.provider) {
+    return false;
+  }
+
+  const isSupportedProvider =
+    USAGE_SUPPORTED_PROVIDERS.includes(connection.provider) ||
+    supportsCustomQuotaConnection(connection);
+  if (!isSupportedProvider) {
     return false;
   }
 
   if (connection.authType === "oauth") return true;
   return (
     (connection.authType === "apikey" || connection.authType === "api_key") &&
-    PROVIDER_LIMITS_APIKEY_PROVIDERS.has(connection.provider)
+    (PROVIDER_LIMITS_APIKEY_PROVIDERS.has(connection.provider) ||
+      supportsCustomQuotaConnection(connection))
   );
 }
 

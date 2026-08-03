@@ -374,7 +374,9 @@ export default function ConnectionsListPanel({
                 connection={conn}
                 isOAuth={conn.authType === "oauth"}
                 isClaude={providerId === "claude"}
-                codexGlobalServiceMode={codexGlobalServiceMode}
+                codexGlobalServiceMode={
+                  codexGlobalServiceMode as CodexGlobalServiceMode | undefined
+                }
                 isFirst={index === 0}
                 isLast={index === pageConnections.length - 1}
                 isSelected={selectedIds.has(conn.id)}
@@ -567,7 +569,9 @@ export default function ConnectionsListPanel({
                     connection={conn}
                     isOAuth={conn.authType === "oauth"}
                     isClaude={providerId === "claude"}
-                    codexGlobalServiceMode={codexGlobalServiceMode}
+                    codexGlobalServiceMode={
+                      codexGlobalServiceMode as CodexGlobalServiceMode | undefined
+                    }
                     isFirst={gi === 0 && index === 0}
                     isLast={gi === visibleGroupKeys.length - 1 && index === groupConns.length - 1}
                     isSelected={selectedIds.has(conn.id)}

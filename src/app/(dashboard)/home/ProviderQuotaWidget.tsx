@@ -4,9 +4,12 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import Card from "@/shared/components/Card";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { translateUsageOrFallback } from "../dashboard/usage/components/ProviderLimits/i18nFallback";
-import { isProviderQuotaVisible } from "@/shared/utils/providerQuotaVisibility";
+import {
+  getProviderQuotaDisplayLabel,
+  isProviderQuotaVisible,
+  supportsProviderQuotaConnection,
+} from "@/shared/utils/providerQuotaVisibility";
 
 type Connection = {
   id: string;
@@ -14,6 +17,7 @@ type Connection = {
   authType?: string;
   email?: string;
   name?: string;
+  providerSpecificData?: Record<string, unknown>;
   quotaVisible?: boolean;
 };
 
@@ -90,8 +94,8 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
   const [refreshingAll, setRefreshingAll] = useState(false);
 
   const refreshingAllRef = useRef(false);
+  const lastRefreshAllAtRef = useRef(0);
   const [lastRefreshAllAt, setLastRefreshAllAt] = useState(() => Date.now());
-  const lastRefreshAllAtRef = useRef(lastRefreshAllAt);
   const autoRefreshIntervalMs = autoRefreshInterval > 0 ? autoRefreshInterval * 1000 : 0;
 
   const fetchConnections = useCallback(async () => {
@@ -124,7 +128,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
     const relevant = conns.filter(
       (c) =>
         isProviderQuotaVisible(c) &&
-        USAGE_SUPPORTED_PROVIDERS.includes(c.provider) &&
+        supportsProviderQuotaConnection(c) &&
         (c.authType === "oauth" || c.authType === "apikey")
     );
 
@@ -134,7 +138,9 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
   }, [fetchConnections, fetchCached]);
 
   useEffect(() => {
-    loadData();
+    queueMicrotask(() => {
+      void loadData();
+    });
   }, [loadData]);
 
   const refreshAll = useCallback(async () => {
@@ -257,6 +263,10 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
               const firstConn = conns[0];
               const cache = quotaData[firstConn?.id];
               const hasQuota = cache?.quotas && Object.keys(cache.quotas).length > 0;
+              const providerLabel = getProviderQuotaDisplayLabel(
+                provider,
+                firstConn?.providerSpecificData
+              );
 
               return (
                 <div
@@ -265,9 +275,7 @@ export default function ProviderQuotaWidget({ autoRefreshInterval = 0 }: Provide
                 >
                   <div className="flex items-center gap-2">
                     <ProviderIcon providerId={provider} size={18} />
-                    <span className="font-medium text-sm truncate">
-                      {provider.charAt(0).toUpperCase() + provider.slice(1)}
-                    </span>
+                    <span className="font-medium text-sm truncate">{providerLabel}</span>
                     <span className="text-[10px] text-text-muted ml-auto tabular-nums">
                       {conns.length}
                     </span>

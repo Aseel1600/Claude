@@ -67,6 +67,7 @@ import { getXiaomiMimoUsage } from "./usage/xiaomi-mimo.ts";
 import { getXaiUsage } from "./usage/xai.ts";
 import { getXaiOauthUsage } from "./usage/xaiOauth.ts";
 import { getFirecrawlUsage } from "./usage/firecrawl.ts";
+import { getOpenAiCompatibleQuotaUsage } from "./usage/openaiCompatibleQuota.ts";
 
 type JsonRecord = Record<string, unknown>;
 type UsageProviderConnection = JsonRecord & {
@@ -142,6 +143,15 @@ export async function getUsageForProvider(
   options: { forceRefresh?: boolean } = {}
 ) {
   const { id, provider, accessToken, apiKey, providerSpecificData, projectId, email } = connection;
+
+  const compatibleQuotaUsage = await getOpenAiCompatibleQuotaUsage(
+    provider,
+    apiKey,
+    providerSpecificData
+  );
+  if (compatibleQuotaUsage) {
+    return compatibleQuotaUsage;
+  }
 
   switch (provider) {
     case "github":

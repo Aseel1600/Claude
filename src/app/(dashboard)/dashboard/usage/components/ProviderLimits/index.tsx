@@ -15,7 +15,6 @@ import {
 } from "./utils";
 import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components/Loading";
-import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
 import { pickDisplayValue } from "@/shared/utils/maskEmail";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
@@ -31,7 +30,12 @@ import { formatAutoRefreshCountdown } from "./formatters";
 import { translateUsageOrFallback, type UsageTranslationValues } from "./i18nFallback";
 import { compareTr } from "@/shared/utils/turkishText";
 import { fetchWithTimeout } from "@/shared/utils/fetchTimeout";
-import { isProviderQuotaVisible } from "@/shared/utils/providerQuotaVisibility";
+import {
+  getProviderQuotaDisplayLabel,
+  isProviderQuotaVisible,
+  supportsProviderQuotaConnection,
+} from "@/shared/utils/providerQuotaVisibility";
+import { supportsCustomQuotaConnection } from "@/shared/utils/customQuotaProviders";
 
 // Bound the two first-paint requests so a stalled connection cannot wedge
 // `initialLoading` on `true` and freeze the quota page on its skeleton forever
@@ -367,8 +371,16 @@ export default function ProviderLimits({
   }, []);
 
   const fetchQuota = useCallback(
-    async (connectionId: string, provider: string, options: { force?: boolean } = {}) => {
+    async (
+      connectionId: string,
+      provider: string,
+      connection?: any,
+      options: { force?: boolean } = {}
+    ) => {
+      const resolvedConnection =
+        connection || connections.find((item) => item?.id === connectionId) || null;
       const force = options?.force === true;
+      const isCustomQuotaProvider = supportsCustomQuotaConnection(resolvedConnection);
       const now = Date.now();
       const lastFetch = lastFetchTimeRef.current[connectionId] || 0;
       if (!force && now - lastFetch < MIN_FETCH_INTERVAL_MS) {
@@ -383,6 +395,18 @@ export default function ProviderLimits({
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           const errorMsg = errorData.error || response.statusText;
+          if (isCustomQuotaProvider) {
+            setQuotaData((prev) => ({
+              ...prev,
+              [connectionId]: { quotas: [], plan: null, message: null, raw: errorData || null },
+            }));
+            setLastRefreshedAt((prev) => ({
+              ...prev,
+              [connectionId]: new Date().toISOString(),
+            }));
+            setErrors((prev) => ({ ...prev, [connectionId]: null }));
+            return;
+          }
           if (response.status === 404) return;
           if (response.status === 401) {
             // The on-demand path already attempts a forced, serialized re-mint
@@ -419,7 +443,8 @@ export default function ProviderLimits({
           [connectionId]: {
             quotas: parsedQuotas,
             plan: data.plan || null,
-            message: data.message || null,
+            message:
+              isCustomQuotaProvider && parsedQuotas.length === 0 ? null : data.message || null,
             raw: data,
             stale: data._stale ? { since: data._staleSince, reason: data._staleReason } : null,
           },
@@ -429,6 +454,18 @@ export default function ProviderLimits({
           [connectionId]: new Date().toISOString(),
         }));
       } catch (error: any) {
+        if (isCustomQuotaProvider) {
+          setQuotaData((prev) => ({
+            ...prev,
+            [connectionId]: { quotas: [], plan: null, message: null, raw: null },
+          }));
+          setLastRefreshedAt((prev) => ({
+            ...prev,
+            [connectionId]: new Date().toISOString(),
+          }));
+          setErrors((prev) => ({ ...prev, [connectionId]: null }));
+          return;
+        }
         setErrors((prev) => ({
           ...prev,
           [connectionId]: error.message || "Failed to fetch quota",
@@ -437,12 +474,12 @@ export default function ProviderLimits({
         setLoading((prev) => ({ ...prev, [connectionId]: false }));
       }
     },
-    []
+    [connections]
   );
 
   const refreshProvider = useCallback(
     async (connectionId: string, provider: string) => {
-      await fetchQuota(connectionId, provider, { force: true });
+      await fetchQuota(connectionId, provider, undefined, { force: true });
     },
     [fetchQuota]
   );
@@ -522,7 +559,7 @@ export default function ProviderLimits({
       connections.filter(
         (conn) =>
           isProviderQuotaVisible(conn) &&
-          USAGE_SUPPORTED_PROVIDERS.includes(conn.provider) &&
+          supportsProviderQuotaConnection(conn) &&
           (conn.authType === "oauth" || conn.authType === "apikey")
       ),
     [connections]
@@ -691,6 +728,15 @@ export default function ProviderLimits({
     () => buildProviderOptions(sortedConnections, compareTr),
     [sortedConnections]
   );
+  const providerLabels = useMemo(() => {
+    const labels: Record<string, string> = { ...PROVIDER_LABEL };
+    for (const conn of connections) {
+      labels[conn.provider] =
+        labels[conn.provider] ||
+        getProviderQuotaDisplayLabel(conn.provider, conn.providerSpecificData);
+    }
+    return labels;
+  }, [connections]);
 
   // Auto-fetch LIVE quota on open for visible connections that have no cached
   // quota yet (e.g. a Codex account whose access_token expired — its per-connection
@@ -705,7 +751,7 @@ export default function ProviderLimits({
     for (const conn of visibleConnections) {
       const cached = quotaData[conn.id];
       if (shouldAutoRefreshQuota(conn.provider, cached)) {
-        void fetchQuota(conn.id, conn.provider, { force: true }).catch(() => {});
+        void fetchQuota(conn.id, conn.provider, conn, { force: true }).catch(() => {});
       }
     }
   }, [initialLoading, visibleConnections, quotaData, fetchQuota]);
@@ -890,90 +936,92 @@ export default function ProviderLimits({
             })}
           </div>
 
-          {/* Purchase Type filter */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1">
-              {tr("filterPurchaseTypeLabel", "Type")}
-            </span>
-            {PURCHASE_TYPES.map((type) => {
-              const count = purchaseTypeCounts[type.key] || 0;
-              if (type.key !== "all" && count === 0) return null;
-              const active = purchaseTypeFilter === type.key;
-              return (
-                <button
-                  key={type.key}
-                  onClick={() => handleSetPurchaseFilter(type.key)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer"
-                  style={{
-                    border: active
-                      ? "1px solid var(--color-primary, #E54D5E)"
-                      : "1px solid var(--color-border)",
-                    background: active ? "rgba(229,77,94,0.1)" : "transparent",
-                    color: active ? "var(--color-primary, #E54D5E)" : "var(--color-text-muted)",
-                  }}
-                >
-                  <span>{tr(type.labelKey, type.fallback)}</span>
-                  <span className="opacity-85">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Tier filter */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1">
-              {tr("filterTierLabel", "Tier")}
-            </span>
-            {TIER_FILTERS.map((tier) => {
-              if (tier.key !== "all" && !tierCounts[tier.key]) return null;
-              const active = tierFilter === tier.key;
-              return (
-                <button
-                  key={tier.key}
-                  onClick={() => setTierFilter(tier.key)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer"
-                  style={{
-                    border: active
-                      ? "1px solid var(--color-primary, #E54D5E)"
-                      : "1px solid var(--color-border)",
-                    background: active ? "rgba(229,77,94,0.1)" : "transparent",
-                    color: active ? "var(--color-primary, #E54D5E)" : "var(--color-text-muted)",
-                  }}
-                >
-                  <span>{tier.label || t(tier.labelKey!)}</span>
-                  <span className="opacity-85">{tierCounts[tier.key] || 0}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Provider filter — single-select dropdown of providers actually
-              present in the current account set. Auto-falls back to "all" if
-              the persisted choice no longer exists in this session. */}
-          {providerOptions.length > 1 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1">
-                {tr("filterProviderLabel", "Provider")}
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-start lg:gap-x-6">
+            {/* Purchase Type filter */}
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1 shrink-0">
+                {tr("filterPurchaseTypeLabel", "Type")}
               </span>
-              <select
-                value={
-                  providerFilter === "all" || providerOptions.includes(providerFilter)
-                    ? providerFilter
-                    : "all"
-                }
-                onChange={(event) => handleSetProviderFilter(event.target.value)}
-                aria-label={tr("filterProviderAriaLabel", "Filter quota providers")}
-                className="h-8 rounded-full border border-border bg-transparent px-3 text-xs font-semibold text-text-muted cursor-pointer"
-              >
-                <option value="all">{tr("filterProviderAll", "All providers")}</option>
-                {providerOptions.map((provider) => (
-                  <option key={provider} value={provider}>
-                    {PROVIDER_LABEL[provider] || provider}
-                  </option>
-                ))}
-              </select>
+              {PURCHASE_TYPES.map((type) => {
+                const count = purchaseTypeCounts[type.key] || 0;
+                if (type.key !== "all" && count === 0) return null;
+                const active = purchaseTypeFilter === type.key;
+                return (
+                  <button
+                    key={type.key}
+                    onClick={() => handleSetPurchaseFilter(type.key)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer"
+                    style={{
+                      border: active
+                        ? "1px solid var(--color-primary, #E54D5E)"
+                        : "1px solid var(--color-border)",
+                      background: active ? "rgba(229,77,94,0.1)" : "transparent",
+                      color: active ? "var(--color-primary, #E54D5E)" : "var(--color-text-muted)",
+                    }}
+                  >
+                    <span>{tr(type.labelKey, type.fallback)}</span>
+                    <span className="opacity-85">{count}</span>
+                  </button>
+                );
+              })}
             </div>
-          )}
+
+            {/* Tier filter */}
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1 shrink-0">
+                {tr("filterTierLabel", "Tier")}
+              </span>
+              {TIER_FILTERS.map((tier) => {
+                if (tier.key !== "all" && !tierCounts[tier.key]) return null;
+                const active = tierFilter === tier.key;
+                return (
+                  <button
+                    key={tier.key}
+                    onClick={() => setTierFilter(tier.key)}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold cursor-pointer"
+                    style={{
+                      border: active
+                        ? "1px solid var(--color-primary, #E54D5E)"
+                        : "1px solid var(--color-border)",
+                      background: active ? "rgba(229,77,94,0.1)" : "transparent",
+                      color: active ? "var(--color-primary, #E54D5E)" : "var(--color-text-muted)",
+                    }}
+                  >
+                    <span>{tier.label || t(tier.labelKey!)}</span>
+                    <span className="opacity-85">{tierCounts[tier.key] || 0}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Provider filter — single-select dropdown of providers actually
+                present in the current account set. Auto-falls back to "all" if
+                the persisted choice no longer exists in this session. */}
+            {providerOptions.length > 1 && (
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <span className="text-[11px] uppercase tracking-wider text-text-muted font-semibold mr-1 shrink-0">
+                  {tr("filterProviderLabel", "Provider")}
+                </span>
+                <select
+                  value={
+                    providerFilter === "all" || providerOptions.includes(providerFilter)
+                      ? providerFilter
+                      : "all"
+                  }
+                  onChange={(event) => handleSetProviderFilter(event.target.value)}
+                  aria-label={tr("filterProviderAriaLabel", "Filter quota providers")}
+                  className="h-8 min-w-[180px] rounded-full border border-border bg-transparent px-3 text-xs font-semibold text-text-muted cursor-pointer"
+                >
+                  <option value="all">{tr("filterProviderAll", "All providers")}</option>
+                  {providerOptions.map((provider) => (
+                    <option key={provider} value={provider}>
+                      {providerLabels[provider] || provider}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
 
           {/* Env filter — only renders when at least one connection has a tag */}
           {envTags.length > 0 && (
@@ -1030,7 +1078,7 @@ export default function ProviderLimits({
           errors={errors}
           lastRefreshedAt={lastRefreshedAt}
           emailsVisible={emailsVisible}
-          providerLabels={PROVIDER_LABEL}
+          providerLabels={providerLabels}
           renderInlineQuotaSummary={(quota) => renderInlineQuotaSummary(quota.quotas)}
           onRefresh={refreshProvider}
           onOpenCutoff={(conn) => {

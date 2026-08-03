@@ -26,6 +26,14 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 const DEFAULT_VISIBLE_ROWS = 3;
 
+export function getQuotaFallbackPlaceholders(providerLabel: string | undefined): string[] {
+  const label = String(providerLabel || "").toLowerCase();
+  if (label.includes("claw") || label.includes("verboo")) {
+    return ["5 Hours Quota", "Weekly Quota"];
+  }
+  return [];
+}
+
 /** Pure helper — sorts quotas by remaining percentage, highest first. */
 export function sortQuotasByRemaining(quotas: any[]): any[] {
   return [...quotas].sort(
@@ -70,6 +78,7 @@ export function shouldShowLoadingPlaceholder(
 interface Props {
   quotas: any[];
   providerId?: string;
+  providerLabel?: string;
   loading: boolean;
   error: string | null;
   message?: string | null;
@@ -234,9 +243,29 @@ function QuotaDetailRow({
   );
 }
 
+function QuotaPlaceholderRow({ label }: { label: string }) {
+  const t = useTranslations("usage");
+  return (
+    <div className="flex flex-col gap-1 py-1 opacity-80">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12px] font-medium text-text-main truncate">
+          {formatQuotaLabel(label)}
+        </span>
+        <span className="text-[12px] font-bold tabular-nums shrink-0 text-text-muted">—</span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden bg-black/[0.06] dark:bg-white/[0.06]" />
+      <div className="flex items-center justify-between gap-2 text-[10px] text-text-muted tabular-nums">
+        <span>—</span>
+        <span>{translateUsageOrFallback(t, "noQuotaData", "No quota data")}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function QuotaCardExpanded({
   quotas,
   providerId,
+  providerLabel,
   loading,
   error,
   message,
@@ -268,6 +297,10 @@ export default function QuotaCardExpanded({
     () => getVisibleQuotas(sortedQuotas, expanded),
     [sortedQuotas, expanded]
   );
+  const fallbackPlaceholders = useMemo(
+    () => getQuotaFallbackPlaceholders(providerLabel),
+    [providerLabel]
+  );
   const hiddenCount = sortedQuotas.length - visibleQuotas.length;
 
   const refreshedLabel = refreshedAt
@@ -296,6 +329,12 @@ export default function QuotaCardExpanded({
       ) : quotas.length === 0 && message ? (
         <div className="text-[11px] text-text-muted italic" title={message}>
           {message}
+        </div>
+      ) : quotas.length === 0 && fallbackPlaceholders.length > 0 ? (
+        <div className="flex flex-col divide-y divide-border/40">
+          {fallbackPlaceholders.map((label) => (
+            <QuotaPlaceholderRow key={label} label={label} />
+          ))}
         </div>
       ) : quotas.length === 0 ? (
         <div className="text-[11px] text-text-muted italic">{t("noQuotaData")}</div>
