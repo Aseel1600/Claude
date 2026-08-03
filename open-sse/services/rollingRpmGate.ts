@@ -56,6 +56,11 @@ function sleepOrAbort(ms: number, signal: AbortSignal | null): Promise<void> {
  * Process-local trailing-window RPM admission. Distributed deployments need a
  * shared coordination store before this scope can be treated as cluster-wide.
  */
+export function keyContainsConnection(key: string, connectionId: string): boolean {
+  const marker = `:${connectionId}`;
+  return key.endsWith(marker) || key.includes(`${marker}:`);
+}
+
 export class RollingRpmGate {
   private readonly limiter = new SlidingWindowLimiter();
   private readonly blockedUntil = new Map<string, number>();
@@ -72,17 +77,29 @@ export class RollingRpmGate {
     maxWaitMs: number,
     startedAt: number
   ): Promise<SlidingWindowLease | null> {
-    const scopes = this.getScopes(provider, connectionId);
-    if (scopes.length === 0) return null;
-
     const blockKey = this.options.getLimiterKey(provider, connectionId, model);
+    let scopes = this.getScopes(provider, connectionId, model);
+    if (scopes.length === 0 && (this.blockedUntil.get(blockKey) ?? 0) <= Date.now()) {
+      return null;
+    }
     for (;;) {
       if (signal?.aborted) throw createAbortError(signal);
+
+      scopes = this.getScopes(provider, connectionId, model);
+      if (scopes.length === 0 && (this.blockedUntil.get(blockKey) ?? 0) <= Date.now()) {
+        return null;
+      }
 
       const now = Date.now();
       const blockedUntil = this.blockedUntil.get(blockKey) ?? 0;
       if (blockedUntil <= now) this.blockedUntil.delete(blockKey);
-      const forcedWaitMs = Math.max(0, blockedUntil - now);
+      let scopeBlockedUntil = 0;
+      for (const scope of scopes) {
+        const scopeBlocked = this.blockedUntil.get(scope.key) ?? 0;
+        if (scopeBlocked > now) scopeBlockedUntil = Math.max(scopeBlockedUntil, scopeBlocked);
+        else if (scopeBlocked > 0) this.blockedUntil.delete(scope.key);
+      }
+      const forcedWaitMs = Math.max(0, blockedUntil - now, scopeBlockedUntil - now);
 
       if (forcedWaitMs === 0) {
         const result = this.limiter.tryAcquireMany(scopes);
@@ -120,28 +137,36 @@ export class RollingRpmGate {
   learnHeaderWindow(
     provider: string,
     connectionId: string,
+    model: string | null,
     requests: number,
     windowMs: number,
     expiresAt: number
   ): void {
-    const key = `header:${this.options.getLimiterKey(provider, connectionId)}`;
+    const key = `header:${this.options.getLimiterKey(provider, connectionId, model)}`;
+    if (requests <= 0) {
+      this.learnedHeaderWindows.delete(key);
+      this.blockedUntil.set(key, expiresAt);
+      return;
+    }
+    this.blockedUntil.delete(key);
     this.learnedHeaderWindows.set(key, {
-      window: { requests: Math.max(1, requests), windowMs },
+      window: { requests, windowMs },
       expiresAt,
     });
   }
 
-  clearLearnedHeaderWindow(provider: string, connectionId: string): void {
-    const key = `header:${this.options.getLimiterKey(provider, connectionId)}`;
+  clearLearnedHeaderWindow(provider: string, connectionId: string, model: string | null): void {
+    const key = `header:${this.options.getLimiterKey(provider, connectionId, model)}`;
     this.learnedHeaderWindows.delete(key);
+    this.blockedUntil.delete(key);
   }
 
   clearConnection(connectionId: string): void {
     for (const key of this.blockedUntil.keys()) {
-      if (key.includes(connectionId)) this.blockedUntil.delete(key);
+      if (keyContainsConnection(key, connectionId)) this.blockedUntil.delete(key);
     }
     for (const key of this.learnedHeaderWindows.keys()) {
-      if (key.includes(connectionId)) this.learnedHeaderWindows.delete(key);
+      if (keyContainsConnection(key, connectionId)) this.learnedHeaderWindows.delete(key);
     }
   }
 
@@ -151,7 +176,20 @@ export class RollingRpmGate {
     this.learnedHeaderWindows.clear();
   }
 
-  private getScopes(provider: string, connectionId: string): RateLimitScope[] {
+  cleanupExpired(now = Date.now()): void {
+    for (const [key, expiresAt] of this.blockedUntil) {
+      if (expiresAt <= now) this.blockedUntil.delete(key);
+    }
+    for (const [key, window] of this.learnedHeaderWindows) {
+      if (window.expiresAt <= now) this.learnedHeaderWindows.delete(key);
+    }
+  }
+
+  private getScopes(
+    provider: string,
+    connectionId: string,
+    model: string | null
+  ): RateLimitScope[] {
     const scopes: RateLimitScope[] = [];
     const globalRpm = this.options.getGlobalRpm();
     if (typeof globalRpm === "number" && globalRpm > 0) {
@@ -172,7 +210,17 @@ export class RollingRpmGate {
       });
     }
 
-    const headerKey = `header:${this.options.getLimiterKey(provider, connectionId)}`;
+    const headerKey = `header:${this.options.getLimiterKey(provider, connectionId, model)}`;
+    const headerBlockedUntil = this.blockedUntil.get(headerKey) ?? 0;
+    const headerRemainingMs = headerBlockedUntil - Date.now();
+    if (headerRemainingMs > 0) {
+      scopes.push({
+        key: headerKey,
+        window: { requests: 1, windowMs: headerRemainingMs },
+      });
+      return scopes;
+    }
+    if (headerBlockedUntil > 0) this.blockedUntil.delete(headerKey);
     const headerWindow = this.learnedHeaderWindows.get(headerKey);
     if (headerWindow) {
       if (headerWindow.expiresAt > Date.now()) {

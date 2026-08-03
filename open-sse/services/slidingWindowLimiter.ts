@@ -128,6 +128,10 @@ export class SlidingWindowLimiter {
   }
 
   private set(key: string, live: Hit[]): void {
+    if (live.length === 0) {
+      this.hits.delete(key);
+      return;
+    }
     if (!this.hits.has(key) && this.hits.size >= MAX_KEYS) {
       // Evict the least-recently-inserted key (Map preserves insertion order).
       const oldest = this.hits.keys().next().value;

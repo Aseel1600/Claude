@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import Bottleneck from "bottleneck";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -101,6 +102,54 @@ test("queue expiry does not invoke the provider after a late dispatch", async ()
   assert.equal(secondCalls, 0, "a queue-expired job must not invoke the provider later");
 });
 
+test("queue expiry does not drop other queued jobs", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
+    autoEnableApiKeyProviders: false,
+    maxWaitMs: 500,
+    requestsPerMinute: 0,
+    concurrentRequests: 1,
+    minTimeBetweenRequestsMs: 0,
+    maxQueueDepth: 0,
+  });
+
+  rateLimitManager.enableRateLimitProtection("queue-peer-conn");
+  let resolveFirstExecuting: () => void = () => undefined;
+  const firstExecuting = new Promise<void>((resolve) => {
+    resolveFirstExecuting = resolve;
+  });
+  let releaseFirst: () => void = () => undefined;
+  const first = rateLimitManager.withRateLimit("openai", "queue-peer-conn", null, async () => {
+    resolveFirstExecuting();
+    await new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    return "first";
+  });
+  await firstExecuting;
+
+  const second = rateLimitManager.withRateLimit(
+    "openai",
+    "queue-peer-conn",
+    null,
+    async () => "expired"
+  );
+  await wait(400);
+
+  let thirdCalls = 0;
+  const third = rateLimitManager.withRateLimit("openai", "queue-peer-conn", null, async () => {
+    thirdCalls++;
+    return "third";
+  });
+  await assert.rejects(
+    second,
+    (error: { code?: string }) => error.code === "RATE_LIMIT_QUEUE_TIMEOUT"
+  );
+  releaseFirst();
+  await Promise.all([first, third]);
+  assert.equal(thirdCalls, 1, "a peer queued job must survive another job's expiry");
+});
+
 test("global RPM lease is shared across enabled provider connections", async () => {
   await rateLimitManager.applyRequestQueueSettings({
     ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
@@ -193,11 +242,15 @@ test("aborted queued work releases its pre-dispatch RPM lease", async () => {
   await firstExecuting;
 
   const controller = new AbortController();
+  let abortedCalls = 0;
   const queued = rateLimitManager.withRateLimit(
     "openai",
     "abort-lease-conn",
     null,
-    async () => "should-not-dispatch",
+    async () => {
+      abortedCalls++;
+      return "should-not-dispatch";
+    },
     controller.signal
   );
   await wait(20);
@@ -210,6 +263,7 @@ test("aborted queued work releases its pre-dispatch RPM lease", async () => {
   });
   releaseFirst();
   await first;
+  assert.equal(abortedCalls, 0, "aborted queued work must not invoke the provider");
   assert.equal(thirdCalls, 1, "aborted work must return its unused global lease");
 });
 
@@ -351,6 +405,128 @@ test("rate limit manager handles 429 limiter teardown and disable cleanup", asyn
   rateLimitManager.disableRateLimitProtection("conn-disable");
   assert.equal(rateLimitManager.isRateLimitEnabled("conn-disable"), false);
   assert.equal(rateLimitManager.getRateLimitStatus("gemini", "conn-disable").active, false);
+});
+
+test("rate limit manager blocks admission after an upstream 429 retry hint", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    concurrentRequests: 1,
+    requestsPerMinute: 0,
+    maxWaitMs: 100,
+  });
+  rateLimitManager.enableRateLimitProtection("conn-429-block");
+  rateLimitManager.updateFromHeaders(
+    "openai",
+    "conn-429-block",
+    { "retry-after": "1s" },
+    429,
+    "gpt-4o"
+  );
+
+  let providerCalls = 0;
+  await assert.rejects(
+    rateLimitManager.withRateLimit("openai", "conn-429-block", "gpt-4o", async () => {
+      providerCalls++;
+    }),
+    (error: unknown) => {
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      assert.equal(code, "RATE_LIMIT_QUEUE_TIMEOUT");
+      return true;
+    }
+  );
+  assert.equal(providerCalls, 0);
+});
+
+test("rate limit manager blocks a zero-remaining header window until reset", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    concurrentRequests: 1,
+    requestsPerMinute: 0,
+    maxWaitMs: 100,
+  });
+  rateLimitManager.enableRateLimitProtection("conn-zero-remaining");
+  rateLimitManager.updateFromHeaders(
+    "openai",
+    "conn-zero-remaining",
+    {
+      "x-ratelimit-limit-requests": "10",
+      "x-ratelimit-remaining-requests": "0",
+      "x-ratelimit-reset-requests": "1s",
+    },
+    200
+  );
+
+  let providerCalls = 0;
+  await assert.rejects(
+    rateLimitManager.withRateLimit("openai", "conn-zero-remaining", null, async () => {
+      providerCalls++;
+    }),
+    (error: unknown) => {
+      const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+      assert.equal(code, "RATE_LIMIT_QUEUE_TIMEOUT");
+      return true;
+    }
+  );
+  assert.equal(providerCalls, 0);
+});
+
+test("rate limit manager keeps learned header windows model-scoped where limiters are model-scoped", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    concurrentRequests: 1,
+    requestsPerMinute: 0,
+    maxWaitMs: 100,
+  });
+  rateLimitManager.enableRateLimitProtection("conn-model-header");
+  rateLimitManager.updateFromHeaders(
+    "github",
+    "conn-model-header",
+    {
+      "x-ratelimit-limit-requests": "10",
+      "x-ratelimit-remaining-requests": "0",
+      "x-ratelimit-reset-requests": "1s",
+    },
+    200,
+    "model-a"
+  );
+
+  let providerCalls = 0;
+  await rateLimitManager.withRateLimit("github", "conn-model-header", "model-b", async () => {
+    providerCalls++;
+  });
+  assert.equal(providerCalls, 1);
+});
+
+test("rate limit watchdog resets a queued limiter with received work", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    concurrentRequests: 1,
+    requestsPerMinute: 0,
+    maxWaitMs: 5_000,
+  });
+  rateLimitManager.enableRateLimitProtection("conn-wedge");
+  const limiter = new Bottleneck({ reservoir: 0, id: "test-provider:conn-wedge" });
+  rateLimitManager.__installLimiterForTests("test-provider", "conn-wedge", limiter);
+
+  let providerCalls = 0;
+  const pending = rateLimitManager.withRateLimit("test-provider", "conn-wedge", null, async () => {
+    providerCalls++;
+  });
+  await wait(100);
+  const counts = limiter.counts();
+  assert.equal(counts.RECEIVED, 0);
+  assert.ok(counts.QUEUED > 0);
+
+  rateLimitManager.__setLastDispatchAtForTests(
+    "test-provider",
+    "conn-wedge",
+    null,
+    Date.now() - 120_001
+  );
+  rateLimitManager.__runRateLimitWatchdogForTests();
+
+  await assert.rejects(pending, (error: unknown) => {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+    assert.equal(code, "RATE_LIMIT_QUEUE_WEDGED");
+    return true;
+  });
+  assert.equal(providerCalls, 0);
 });
 
 test("rate limit manager uses model-scoped limiter keys for GitHub Copilot (#1624)", async () => {
