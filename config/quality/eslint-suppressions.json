@@ -315,11 +315,6 @@
       "count": 1
     }
   },
-  "src/app/api/v1/vscode/[token]/models/route.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "src/domain/costRules.ts": {
     "no-restricted-syntax": {
       "count": 1
