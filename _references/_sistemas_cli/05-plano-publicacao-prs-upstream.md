@@ -631,6 +631,8 @@ Resultado P3.1:
 
 Estado final P3.1: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Discussions `0`. Pesquisa acumulada: `79/104` (`76,0%`); pendentes: `25/104` (`24,0%`).
 
+Resultado P3.2: Bernstein `config-only` por openai_agents; Traycer `config-only` indireto pelo harness OpenCode; h5i `patch-required` porque auth proxy/egress são fixados em OpenAI. Nenhuma publicação externa. Pesquisa acumulada `82/104` (`78,8%`), pendentes `22/104` (`21,2%`).
+
 Resultado P2.11:
 
 - `CLI-073` Moltis: `config-only`, provider `custom-omniroute`, `/api/v1`, `auto`, Chat/SSE/tools e capacidades multimodais. 401 testes e fmt passaram. Sem publicação.
