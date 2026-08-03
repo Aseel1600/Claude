@@ -126,9 +126,9 @@ Os campos externos (`branch`, `commit`, `PR`, `issue`) ficam como `—` ate have
 | CLI-094 | P3 | agent-browser | `vercel-labs/agent-browser` | concluida | `config-only` | `not-applicable` | `feat/omniroute-agent-browser-integration` | — | — | — | not-in-catalog | HEAD `01c1147d`; chat usa gateway Chat/SSE/tools com env key/model; base precisa validar sufixo `/v1` para não duplicar path; cargo test exit 0; sem publicação |
 | CLI-095 | P3 | OpenWork | `different-ai/openwork` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-openwork-integration` | — | — | — | not-in-catalog | HEAD `ecb7a5f0`; OpenCode custom provider `/api/v1`, auth gerenciada; sem testes/deps; sem publicação |
 | CLI-096 | P3 | Agent Deck review | `asheshgoplani/agent-deck` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-agent-deck-review` | — | — | — | integrated | HEAD `46300807`; env/model propagados a Codex/OpenCode; Go ausente; sem publicação |
-| CLI-097 | P4 | Pool | `poolsideai/pool` | not-started | config-only | — | — | — | — | — | not-in-catalog | EULA; sem PR presumido |
-| CLI-098 | P4 | Junie CLI | `junie.jetbrains.com` | not-started | research-more | — | — | — | — | — | not-in-catalog | fechado/EAP |
-| CLI-099 | P4 | Cursor desktop | Anysphere | not-started | needs-mitm | — | — | — | — | — | integrated | cloud endpoint |
+| CLI-097 | P4 | Pool | `poolsideai/pool` | concluida | `config-only` | `not-applicable` | `feat/omniroute-pool-integration` | — | — | — | not-in-catalog | HEAD `a6fe0ca1`; `pool exec --api-url` OpenAI-compatible, sandbox required, MCP/ACP separado; EULA; sem publicação |
+| CLI-098 | P4 | Junie CLI | `junie.jetbrains.com` | concluida | `config-only` | `not-applicable` | `feat/omniroute-junie-integration` | — | — | — | not-in-catalog | HEAD `d2701be6`; custom profile OpenAICompletion/Responses com baseUrl full e env ref; runtime proprietário/EAP; sem publicação |
+| CLI-099 | P4 | Cursor desktop | Anysphere | concluida | `config-only` limitado | `awaiting-maintainer` | `feat/omniroute-cursor-desktop-integration` | — | — | — | integrated | disclosure-only; BYO key/chat panel; Composer/Tab nativos; privado/MITM proibido; sem publicação |
 | CLI-100 | P4 | Windsurf | Codeium | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | MITM |
 | CLI-101 | P4 | Amp | Sourcegraph | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | fechado |
 | CLI-102 | P4 | Amazon Q/Kiro CLI | AWS | not-started | needs-mitm | — | — | — | — | — | integrated | SSO |

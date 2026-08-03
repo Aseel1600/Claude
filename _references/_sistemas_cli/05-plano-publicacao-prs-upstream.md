@@ -649,3 +649,5 @@ Resultado P3.5: SageCLI `config-only` indireto via Codex, com caveat de env plai
 Resultado P3.6: claude-code-router, cc-router e OneCLI são config-only; os dois primeiros oferecem endpoints custom OpenAI-compatible e OneCLI injeta credenciais por proxy MITM. Pesquisa acumulada `94/104` (`90,4%`), pendentes `10/104` (`9,6%`). Nenhuma publicação externa.
 
 Resultado P3.7: agent-browser `config-only` direto por Chat Completions; OpenWork `config-only` via OpenCode custom; Agent Deck `config-only` via CLIs filhos. Pesquisa acumulada `97/104` (`93,3%`), pendentes `7/104` (`6,7%`). Nenhuma publicação externa.
+
+Resultado P4.1: Pool e Junie são `config-only` OpenAI-compatible; Cursor é `config-only` limitado ao BYO chat panel, sem MITM/protocolo privado. Pesquisa acumulada `100/104` (`96,2%`), pendentes `4/104` (`3,8%`). Nenhuma publicação externa.
