@@ -643,3 +643,5 @@ Estado final P2.11: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Dis
 Resultado P3.3: OMK `viable-mcp`; kodo `config-only` indireto; ORCH `needs-wrapper`. Pesquisa acumulada `85/104` (`81,7%`), pendentes `19/104` (`18,3%`). Nenhuma publicação externa.
 
 Resultado P3.4: LoopTroop `config-only` indireto via provider OpenCode; Galley `patch-required` por não possuir transport OpenAI-compatible configurável; Relay `config-only` via provider profile/Codex, condicionado a smoke da Responses API e controles sobre ferramentas nativas. Nenhuma publicação externa. Pesquisa acumulada `88/104` (`84,6%`), pendentes `16/104` (`15,4%`).
+
+Resultado P3.5: SageCLI `config-only` indireto via Codex, com caveat de env plaintext; 5dive `patch-required` por mapas fechados de provider/base; agx `config-only` indireto via Codex e com gates de Responses/sandbox. Pesquisa acumulada `91/104` (`87,5%`), pendentes `13/104` (`12,5%`). Nenhuma publicação externa.
