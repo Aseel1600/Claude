@@ -5,7 +5,7 @@ import {
   type ExecutorLog,
   type ProviderCredentials,
 } from "./base.ts";
-import { PROVIDERS } from "../config/constants.ts";
+import { PROVIDERS, STREAM_READINESS_TIMEOUT_MS } from "../config/constants.ts";
 import { v4 as uuidv4 } from "uuid";
 import { refreshKiroToken } from "../services/tokenRefresh.ts";
 import {
@@ -20,8 +20,25 @@ import {
 } from "./kiroThinking.ts";
 import { ByteQueue, TEXT_ENCODER, parseEventFrame } from "./kiro/eventstream.ts";
 import { kiroRuntimeHost, resolveKiroRuntimeRegion } from "../services/kiroRegion.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 
 type JsonRecord = Record<string, unknown>;
+
+type KiroRepairGateOptions = {
+  thinkingExpected?: boolean;
+  signal?: AbortSignal;
+  maxBufferBytes: number;
+  ttftTimeoutMs: number;
+  stallTimeoutMs: number;
+  suppressInvalidToolCallError: boolean;
+  invalidToolCallErrorCode?: string;
+};
+
+type KiroRepairGateResult =
+  | { kind: "stream"; firstChunk: Uint8Array; reader: ReadableStreamDefaultReader<Uint8Array> }
+  | { kind: "complete"; bytes: Uint8Array }
+  | { kind: "invalid"; invalidToolCall: string }
+  | { kind: "buffer_exceeded" };
 
 type UsageSummary = {
   prompt_tokens: number;
@@ -56,6 +73,16 @@ type KiroStreamState = {
 };
 
 const KIRO_TOOL_CALL_WRAPPER = "tool_call";
+const KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES = 8 * 1024 * 1024;
+const KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES_ENV = "KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES";
+const KIRO_TOOL_CALL_REPAIR_TIMEOUT_MS_ENV = "KIRO_TOOL_CALL_REPAIR_TIMEOUT_MS";
+const KIRO_TOOL_CALL_REPAIR_TTFT_TIMEOUT_MS_ENV = "KIRO_TOOL_CALL_REPAIR_TTFT_TIMEOUT_MS";
+const KIRO_TOOL_CALL_REPAIR_STALL_TIMEOUT_MS_ENV = "KIRO_TOOL_CALL_REPAIR_STALL_TIMEOUT_MS";
+const KIRO_TOOL_CALL_REPAIR_INSTRUCTION = [
+  "Retry the previous response because its Kiro tool_call wrapper was malformed.",
+  "If you use the wrapper tool named tool_call, its input must be a JSON object with a non-empty string name and an arguments field.",
+  "Do not emit a tool_call wrapper without input.name and input.arguments.",
+].join(" ");
 
 type PendingKiroWrapperToolCall = {
   toolCallId: string;
@@ -137,6 +164,170 @@ function getBufferedKiroToolInput(toolCall: PendingKiroWrapperToolCall): unknown
 
 function encodeSse(value: string): Uint8Array {
   return TEXT_ENCODER.encode(value);
+}
+
+function readPositiveEnvInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw == null || raw.trim() === "") return fallback;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function makeKiroAbortError(reason: unknown): Error {
+  const error = new Error(typeof reason === "string" ? reason : "Request aborted");
+  error.name = "AbortError";
+  return error;
+}
+
+function combineKiroAbortSignals(signals: Array<AbortSignal | null | undefined>): {
+  signal?: AbortSignal;
+  cleanup: () => void;
+} {
+  const activeSignals = signals.filter((signal): signal is AbortSignal => Boolean(signal));
+  if (activeSignals.length === 0) return { cleanup: () => {} };
+  if (activeSignals.length === 1) return { signal: activeSignals[0], cleanup: () => {} };
+
+  const controller = new AbortController();
+  const listeners: Array<[AbortSignal, () => void]> = [];
+  const abortFrom = (source: AbortSignal) => {
+    if (!controller.signal.aborted) controller.abort(source.reason);
+  };
+
+  for (const signal of activeSignals) {
+    if (signal.aborted) {
+      abortFrom(signal);
+      break;
+    }
+    const listener = () => abortFrom(signal);
+    signal.addEventListener("abort", listener, { once: true });
+    listeners.push([signal, listener]);
+  }
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      for (const [signal, listener] of listeners) signal.removeEventListener("abort", listener);
+    },
+  };
+}
+
+function throwIfKiroAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw makeKiroAbortError(signal.reason);
+}
+
+async function readKiroWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  throwIfKiroAborted(signal);
+  let abortListener: (() => void) | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const abortPromise = new Promise<never>((_, reject) => {
+    abortListener = () => reject(makeKiroAbortError(signal?.reason));
+    signal?.addEventListener("abort", abortListener, { once: true });
+  });
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  try {
+    return await Promise.race([reader.read(), abortPromise, timeoutPromise]);
+  } finally {
+    if (abortListener) signal?.removeEventListener("abort", abortListener);
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+}
+
+function concatKiroChunks(chunks: Uint8Array[]): Uint8Array {
+  const totalBytes = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
+  const output = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    output.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return output;
+}
+
+function isMeaningfulKiroSseChunk(chunk: Uint8Array): boolean {
+  const text = new TextDecoder().decode(chunk);
+  return text.split("\n").some((line) => {
+    if (!line.startsWith("data: ")) return false;
+    const data = line.slice(6).trim();
+    if (!data || data === "[DONE]") return false;
+    try {
+      const parsed = JSON.parse(data) as JsonRecord;
+      const choices = Array.isArray(parsed.choices) ? parsed.choices : [];
+      const delta = (choices[0] as JsonRecord | undefined)?.delta;
+      if (delta && typeof delta === "object") {
+        const keys = Object.keys(delta as JsonRecord);
+        if (keys.length === 1 && keys[0] === "role") return false;
+      }
+    } catch {
+      // Non-JSON data is still visible output and therefore meaningful.
+    }
+    return true;
+  });
+}
+
+function buildKiroToolCallRepairBody(body: unknown, invalidMessage: string): unknown {
+  const repaired = JSON.parse(JSON.stringify(body ?? {})) as JsonRecord;
+  const reason = String(invalidMessage || "invalid tool_call payload").slice(0, 300);
+  const instruction = `${KIRO_TOOL_CALL_REPAIR_INSTRUCTION} Previous validation error: ${reason}`;
+  if (typeof repaired.systemPrompt === "string" && repaired.systemPrompt.trim()) {
+    repaired.systemPrompt = `${repaired.systemPrompt}\n\n${instruction}`;
+  } else {
+    repaired.systemPrompt = instruction;
+  }
+
+  const conversationState = repaired.conversationState as JsonRecord | undefined;
+  const currentMessage = conversationState?.currentMessage as JsonRecord | undefined;
+  const userInputMessage = currentMessage?.userInputMessage as JsonRecord | undefined;
+  if (userInputMessage && typeof userInputMessage.content === "string") {
+    userInputMessage.content = `${userInputMessage.content}\n\n${instruction}`;
+  }
+  return repaired;
+}
+
+function prependKiroChunkToReader(
+  firstChunk: Uint8Array,
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  options: { onCancel?: (reason: unknown) => void; onDone?: () => void } = {}
+): ReadableStream<Uint8Array> {
+  let cancelled = false;
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    options.onDone?.();
+  };
+  return new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        if (firstChunk.byteLength > 0) controller.enqueue(firstChunk);
+        while (!cancelled) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!cancelled) controller.enqueue(value);
+        }
+        if (!cancelled) controller.close();
+      } catch (error) {
+        if (!cancelled) controller.error(error);
+      } finally {
+        finish();
+      }
+    },
+    async cancel(reason) {
+      cancelled = true;
+      options.onCancel?.(reason);
+      try {
+        await reader.cancel(reason);
+      } finally {
+        finish();
+      }
+    },
+  });
 }
 
 /**
@@ -370,31 +561,288 @@ export class KiroExecutor extends BaseExecutor {
       return { response, url, headers, transformedBody };
     }
 
-    // For Kiro, we need to transform the binary EventStream to SSE.
-    // Create a TransformStream to convert binary to SSE text.
-    //
-    // When the user enabled thinking, Claude on Kiro streams its reasoning
-    // **inline** as `<thinking>…</thinking>` blocks inside
-    // `assistantResponseEvent.content` rather than as separate
-    // `reasoningContentEvent` frames. We pass a hint so the transform stream
-    // can split that inline reasoning into the OpenAI `delta.reasoning_content`
-    // channel.
-    const tb = transformedBody as Record<string, unknown>;
-    const userContent =
-      ((
-        (
-          (tb?.conversationState as Record<string, unknown>)?.currentMessage as Record<
-            string,
-            unknown
-          >
-        )?.userInputMessage as Record<string, unknown>
-      )?.content as string) || "";
-    const thinkingExpected = userContent.includes("<thinking_mode>enabled</thinking_mode>");
-    const transformedResponse = this.transformEventStreamToSSE(response, model, {
-      thinkingExpected,
-    });
+    if (stream === false) {
+      return {
+        response: this.transformEventStreamToSSE(response, model),
+        url,
+        headers,
+        transformedBody,
+      };
+    }
 
-    return { response: transformedResponse, url, headers, transformedBody };
+    return this.createToolCallRepairResult(
+      { response, url, headers, transformedBody },
+      {
+        model,
+        body,
+        stream,
+        credentials,
+        signal,
+        log,
+        upstreamExtraHeaders,
+        url,
+        headers,
+        transformedBody,
+      }
+    );
+  }
+
+  private async executeKiroAttempt(args: {
+    model: string;
+    body: unknown;
+    stream: boolean;
+    credentials: ProviderCredentials;
+    signal?: AbortSignal | null;
+    upstreamExtraHeaders?: Record<string, string> | null;
+  }) {
+    const region = resolveKiroRegion(args.credentials);
+    const url = `${kiroRuntimeHost(region)}/generateAssistantResponse`;
+    const headers = this.buildHeaders(args.credentials, args.stream);
+    mergeUpstreamExtraHeaders(headers, args.upstreamExtraHeaders);
+    const transformedBody = await this.transformRequest(
+      args.model,
+      args.body,
+      args.stream,
+      args.credentials
+    );
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(transformedBody),
+      signal: args.signal,
+    });
+    if (!response.ok) return { response, url, headers, transformedBody };
+
+    return {
+      response,
+      url,
+      headers,
+      transformedBody,
+    };
+  }
+
+  private async createToolCallRepairResult(
+    firstResult: {
+      response: Response;
+      url: string;
+      headers: Record<string, string>;
+      transformedBody: unknown;
+    },
+    args: {
+      model: string;
+      body: unknown;
+      stream: boolean;
+      credentials: ProviderCredentials;
+      signal?: AbortSignal | null;
+      log?: ExecutorLog | null;
+      upstreamExtraHeaders?: Record<string, string> | null;
+      url: string;
+      headers: Record<string, string>;
+      transformedBody: unknown;
+    }
+  ) {
+    const repairController = new AbortController();
+    const combined = combineKiroAbortSignals([args.signal, repairController.signal]);
+    let keepCleanup = false;
+    const legacyTimeoutMs = readPositiveEnvInt(
+      KIRO_TOOL_CALL_REPAIR_TIMEOUT_MS_ENV,
+      STREAM_READINESS_TIMEOUT_MS
+    );
+    const options: KiroRepairGateOptions = {
+      signal: combined.signal,
+      thinkingExpected: this.isKiroThinkingExpected(firstResult.transformedBody),
+      maxBufferBytes: readPositiveEnvInt(
+        KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES_ENV,
+        KIRO_TOOL_CALL_REPAIR_BUFFER_MAX_BYTES
+      ),
+      ttftTimeoutMs: readPositiveEnvInt(KIRO_TOOL_CALL_REPAIR_TTFT_TIMEOUT_MS_ENV, legacyTimeoutMs),
+      stallTimeoutMs: readPositiveEnvInt(
+        KIRO_TOOL_CALL_REPAIR_STALL_TIMEOUT_MS_ENV,
+        legacyTimeoutMs
+      ),
+      suppressInvalidToolCallError: true,
+    };
+
+    try {
+      const firstAttempt = await this.openToolCallRepairGate(firstResult.response, args, options);
+      if (firstAttempt.kind === "stream") {
+        keepCleanup = true;
+        firstResult.response = new Response(
+          prependKiroChunkToReader(firstAttempt.firstChunk, firstAttempt.reader, {
+            onCancel: (reason) => repairController.abort(reason),
+            onDone: combined.cleanup,
+          }),
+          {
+            status: firstResult.response.status,
+            statusText: firstResult.response.statusText,
+            headers: firstResult.response.headers,
+          }
+        );
+        return firstResult;
+      }
+      if (firstAttempt.kind === "complete") {
+        firstResult.response = new Response(firstAttempt.bytes, {
+          status: firstResult.response.status,
+          statusText: firstResult.response.statusText,
+          headers: firstResult.response.headers,
+        });
+        return firstResult;
+      }
+      if (firstAttempt.kind === "buffer_exceeded") {
+        firstResult.response = this.createKiroRepairErrorResponse(
+          firstResult.response,
+          `Kiro tool_call repair buffer exceeded ${options.maxBufferBytes} bytes`,
+          "kiro_tool_call_repair_buffer_exceeded"
+        );
+        return firstResult;
+      }
+
+      const retryBody = buildKiroToolCallRepairBody(args.body, firstAttempt.invalidToolCall);
+      const retryResult = await this.executeKiroAttempt({
+        ...args,
+        body: retryBody,
+        signal: combined.signal,
+      });
+      if (!retryResult.response.ok) return retryResult;
+
+      const retryAttempt = await this.openToolCallRepairGate(retryResult.response, args, {
+        ...options,
+        thinkingExpected: this.isKiroThinkingExpected(retryResult.transformedBody),
+        suppressInvalidToolCallError: false,
+        invalidToolCallErrorCode: "kiro_tool_call_repair_retry_failed",
+      });
+      if (retryAttempt.kind === "stream") {
+        keepCleanup = true;
+        retryResult.response = new Response(
+          prependKiroChunkToReader(retryAttempt.firstChunk, retryAttempt.reader, {
+            onCancel: (reason) => repairController.abort(reason),
+            onDone: combined.cleanup,
+          }),
+          {
+            status: retryResult.response.status,
+            statusText: retryResult.response.statusText,
+            headers: retryResult.response.headers,
+          }
+        );
+        return retryResult;
+      }
+      if (retryAttempt.kind === "complete") {
+        retryResult.response = new Response(retryAttempt.bytes, {
+          status: retryResult.response.status,
+          statusText: retryResult.response.statusText,
+          headers: retryResult.response.headers,
+        });
+        return retryResult;
+      }
+
+      retryResult.response = this.createKiroRepairErrorResponse(
+        retryResult.response,
+        retryAttempt.kind === "buffer_exceeded"
+          ? `Kiro tool_call repair buffer exceeded ${options.maxBufferBytes} bytes`
+          : retryAttempt.invalidToolCall || "Kiro tool_call repair retry failed",
+        retryAttempt.kind === "buffer_exceeded"
+          ? "kiro_tool_call_repair_buffer_exceeded"
+          : "kiro_tool_call_repair_retry_failed"
+      );
+      return retryResult;
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") throw error;
+      firstResult.response = this.createKiroRepairErrorResponse(
+        firstResult.response,
+        error instanceof Error ? error.message : String(error),
+        "kiro_tool_call_repair_failed"
+      );
+      return firstResult;
+    } finally {
+      if (!keepCleanup) combined.cleanup();
+    }
+  }
+
+  private createKiroRepairErrorResponse(
+    response: Response,
+    message: string,
+    code: string
+  ): Response {
+    const safeMessage = sanitizeErrorMessage(message);
+    return new Response(
+      encodeSse(
+        `data: ${JSON.stringify({ error: { message: safeMessage, type: "invalid_request_error", code } })}\n\ndata: [DONE]\n\n`
+      ),
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      }
+    );
+  }
+
+  private isKiroThinkingExpected(transformedBody: unknown): boolean {
+    const body = transformedBody as Record<string, unknown>;
+    const currentMessage = (body?.conversationState as Record<string, unknown> | undefined)
+      ?.currentMessage as Record<string, unknown> | undefined;
+    const userInputMessage = currentMessage?.userInputMessage as
+      Record<string, unknown> | undefined;
+    return (
+      typeof userInputMessage?.content === "string" &&
+      userInputMessage.content.includes("<thinking_mode>enabled</thinking_mode>")
+    );
+  }
+
+  async openToolCallRepairGate(
+    rawResponse: Response,
+    args: { model: string },
+    options: KiroRepairGateOptions
+  ): Promise<KiroRepairGateResult> {
+    let invalidToolCall: string | undefined;
+    const transformed = this.transformEventStreamToSSE(rawResponse, args.model, {
+      thinkingExpected: options.thinkingExpected,
+      onInvalidToolCall: (message) => {
+        invalidToolCall = message;
+      },
+      suppressInvalidToolCallError: options.suppressInvalidToolCallError,
+      invalidToolCallErrorCode: options.invalidToolCallErrorCode,
+    });
+    if (!transformed.body) return { kind: "complete", bytes: new Uint8Array() };
+    const reader = transformed.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+    let sawChunk = false;
+
+    try {
+      while (true) {
+        const timeoutMs = sawChunk ? options.stallTimeoutMs : options.ttftTimeoutMs;
+        const timeoutKind = sawChunk ? "stalled" : "timed out before first chunk";
+        const result = await readKiroWithTimeout(
+          reader,
+          options.signal,
+          timeoutMs,
+          `Kiro tool_call repair ${timeoutKind}`
+        );
+        if (result.done) {
+          if (invalidToolCall) return { kind: "invalid", invalidToolCall };
+          return { kind: "complete", bytes: concatKiroChunks(chunks) };
+        }
+        sawChunk = true;
+        if (invalidToolCall) {
+          // The transform terminates its readable side and cancels the raw upstream
+          // body when validation fails. Calling reader.cancel() again here can race
+          // Node's TransformStream termination and mask the validation error.
+          return { kind: "invalid", invalidToolCall };
+        }
+        totalBytes += result.value.byteLength;
+        if (totalBytes > options.maxBufferBytes) {
+          await reader.cancel("kiro_tool_call_repair_buffer_exceeded").catch(() => {});
+          return { kind: "buffer_exceeded" };
+        }
+        if (isMeaningfulKiroSseChunk(result.value)) {
+          return { kind: "stream", firstChunk: result.value, reader };
+        }
+        chunks.push(result.value);
+      }
+    } catch (error) {
+      await reader.cancel(error instanceof Error ? error.message : String(error)).catch(() => {});
+      throw error;
+    }
   }
 
   /**
@@ -414,7 +862,12 @@ export class KiroExecutor extends BaseExecutor {
   transformEventStreamToSSE(
     response: Response,
     model: string,
-    opts: { thinkingExpected?: boolean } = {}
+    opts: {
+      thinkingExpected?: boolean;
+      onInvalidToolCall?: (message: string) => void;
+      suppressInvalidToolCallError?: boolean;
+      invalidToolCallErrorCode?: string;
+    } = {}
   ) {
     const thinkingExpected = !!opts.thinkingExpected;
     const buffer = new ByteQueue();
@@ -508,13 +961,16 @@ export class KiroExecutor extends BaseExecutor {
         error: {
           message,
           type: "invalid_request_error",
-          code: "invalid_kiro_tool_call",
+          code: opts.invalidToolCallErrorCode || "invalid_kiro_tool_call",
         },
       };
       state.invalidToolCall = true;
       state.finishEmitted = true;
-      controller.enqueue(encodeSse(`data: ${JSON.stringify(error)}\n\n`));
-      controller.enqueue(encodeSse("data: [DONE]\n\n"));
+      opts.onInvalidToolCall?.(message);
+      if (!opts.suppressInvalidToolCallError) {
+        controller.enqueue(encodeSse(`data: ${JSON.stringify(error)}\n\n`));
+        controller.enqueue(encodeSse("data: [DONE]\n\n"));
+      }
       controller.terminate();
     };
 
