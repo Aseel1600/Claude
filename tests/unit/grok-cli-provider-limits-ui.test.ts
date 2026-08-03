@@ -41,7 +41,7 @@ test("Grok Build product aliases normalize to one stable row and preserve collis
         total: 100,
         remaining: 62.75,
         remainingPercentage: 62.75,
-        resetAt: "2026-08-03T00:00:00.000Z",
+        resetAt: "2099-08-03T00:00:00.000Z",
         isPercentageOnly: true,
       },
       product_grok_build: {
@@ -50,7 +50,7 @@ test("Grok Build product aliases normalize to one stable row and preserve collis
         total: 100,
         remaining: 87.5,
         remainingPercentage: 87.5,
-        resetAt: "2026-08-03T00:00:00.000Z",
+        resetAt: "2099-08-03T00:00:00.000Z",
         isPercentageOnly: true,
       },
       product_grok_build_2: {
@@ -59,7 +59,7 @@ test("Grok Build product aliases normalize to one stable row and preserve collis
         total: 100,
         remaining: 75,
         remainingPercentage: 75,
-        resetAt: "2026-08-03T00:00:00.000Z",
+        resetAt: "2099-08-03T00:00:00.000Z",
         isPercentageOnly: true,
       },
     },
