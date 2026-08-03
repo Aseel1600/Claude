@@ -267,6 +267,54 @@ test("aborted queued work releases its pre-dispatch RPM lease", async () => {
   assert.equal(thirdCalls, 1, "aborted work must return its unused global lease");
 });
 
+test("aborting one queued request does not drop queued peers", async () => {
+  await rateLimitManager.applyRequestQueueSettings({
+    ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
+    autoEnableApiKeyProviders: false,
+    maxWaitMs: 1000,
+    requestsPerMinute: 0,
+    concurrentRequests: 1,
+    minTimeBetweenRequestsMs: 0,
+    maxQueueDepth: 0,
+  });
+
+  const connectionId = "abort-peer-conn";
+  rateLimitManager.enableRateLimitProtection(connectionId);
+  let resolveFirstExecuting: () => void = () => undefined;
+  const firstExecuting = new Promise<void>((resolve) => {
+    resolveFirstExecuting = resolve;
+  });
+  let releaseFirst: () => void = () => undefined;
+  const first = rateLimitManager.withRateLimit("test-provider", connectionId, null, async () => {
+    resolveFirstExecuting();
+    await new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+  });
+
+  await firstExecuting;
+  const controller = new AbortController();
+  const aborted = rateLimitManager.withRateLimit(
+    "test-provider",
+    connectionId,
+    null,
+    async () => {
+      throw new Error("aborted request must not dispatch");
+    },
+    controller.signal
+  );
+  controller.abort();
+  await assert.rejects(aborted, (error: { name?: string }) => error.name === "AbortError");
+
+  let peerCalls = 0;
+  const peer = rateLimitManager.withRateLimit("test-provider", connectionId, null, async () => {
+    peerCalls++;
+  });
+  releaseFirst();
+  await Promise.all([first, peer]);
+  assert.equal(peerCalls, 1);
+});
+
 test("dispatched provider failures retain their RPM lease", async () => {
   await rateLimitManager.applyRequestQueueSettings({
     ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,

@@ -747,7 +747,8 @@ export async function withRateLimit(provider, connectionId, model, fn, signal = 
           if (!dispatched) {
             dispatchCancelled = true;
             if (queueTimer) clearTimeout(queueTimer);
-            evictLimiterAndDropQueued(key, limiter, "rate-limit-request-aborted");
+            // Leave the cancelled job in Bottleneck so queued peers are not dropped.
+            // Its scheduled callback will consume one queue turn and exit before fn().
           }
         };
         if (signal.aborted) {
