@@ -465,8 +465,13 @@ function openaiToGeminiBase(
             // Gemini expects the signature on the functionCall part itself.
             // If we are in a mode where missing signatures cause 400s (and we couldn't find one),
             // safely default to the bypass string to protect against 400s.
+            // `embeddedThoughtSignature` is only injected once per message (the first
+            // functionCall of a batch). Every later functionCall must still carry its own
+            // cached signature, otherwise a multi-tool-call turn emits a bare functionCall
+            // at position 2+ and Gemini rejects it with 400 "missing a thought_signature".
             const finalSignature =
               embeddedThoughtSignature ||
+              signatureForToolCall ||
               (toolNameOptions.supportsSignatureBypass && signaturelessToolCallMode !== "text"
                 ? "skip_thought_signature_validator"
                 : undefined);

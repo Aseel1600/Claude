@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 const { geminiToClaudeResponse } =
   await import("../../open-sse/translator/response/gemini-to-claude.ts");
+const { buildGeminiThoughtSignatureKey, getGeminiThoughtSignature } =
+  await import("../../open-sse/services/geminiThoughtSignatureStore.ts");
 
 function flatten(items) {
   return items.flatMap((item) => item || []);
@@ -157,4 +159,80 @@ test("Gemini -> Claude stream: response wrapper is supported and promptFeedback-
   assert.equal(wrapped[0].type, "message_start");
   assert.equal(wrapped[2].delta.text, "wrapped");
   assert.equal(geminiToClaudeResponse({ promptFeedback: { blockReason: "SAFETY" } }, {}), null);
+});
+
+test("Gemini -> Claude stream: persists the thought_signature keyed by the emitted tool_use id", () => {
+  const state = { signatureNamespace: "conn-sig" };
+  const result = geminiToClaudeResponse(
+    {
+      responseId: "resp-sig",
+      modelVersion: "gemini-2.5-pro",
+      candidates: [
+        {
+          content: {
+            parts: [
+              {
+                thoughtSignature: "SIG_ABC",
+                functionCall: { id: "fc-sig-1", name: "Bash", args: { cmd: "ls" } },
+              },
+            ],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    },
+    state
+  );
+
+  assert.equal(result[1].content_block.type, "tool_use");
+  assert.equal(result[1].content_block.id, "fc-sig-1");
+  // The signature must be cached (namespaced like the request side) so claude-to-gemini can
+  // re-attach it to the functionCall on the next turn — without this the direct Gemini path
+  // 400s every relayed tool call with "missing a thought_signature".
+  assert.equal(
+    getGeminiThoughtSignature(buildGeminiThoughtSignatureKey("conn-sig", "fc-sig-1")),
+    "SIG_ABC"
+  );
+});
+
+test("Gemini -> Claude stream: preserves the client's exact tool casing and strips default_api: prefix", () => {
+  // TitleCase Claude Code client: tool_use must come back as "Bash", not force-lowercased
+  // "bash" (REVERSE_MAP applies only to Anthropic-target lowercase clients, never Gemini).
+  const state = { toolNameMap: new Map([["Bash", "Bash"]]) };
+  const result = geminiToClaudeResponse(
+    {
+      responseId: "resp-case",
+      modelVersion: "gemini-2.5-pro",
+      candidates: [
+        {
+          content: {
+            parts: [{ functionCall: { id: "fc-1", name: "default_api:Bash", args: {} } }],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    },
+    state
+  );
+  assert.equal(result[1].content_block.type, "tool_use");
+  assert.equal(result[1].content_block.name, "Bash");
+
+  // Unknown tool not in the map: keep the (prefix-stripped) Gemini name as-is.
+  const emptyMapState = { toolNameMap: new Map() };
+  const fallback = geminiToClaudeResponse(
+    {
+      responseId: "resp-case-2",
+      modelVersion: "gemini-2.5-pro",
+      candidates: [
+        {
+          content: {
+            parts: [{ functionCall: { id: "fc-2", name: "default_api:WebSearch", args: {} } }],
+          },
+          finishReason: "STOP",
+        },
+      ],
+    },
+    emptyMapState
+  );
+  assert.equal(fallback[1].content_block.name, "WebSearch");
 });

@@ -11,12 +11,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiToGeminiRequest } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
-const { claudeToGeminiRequest } = await import(
-  "../../open-sse/translator/request/claude-to-gemini.ts"
-);
+const { openaiToGeminiRequest } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
+const { claudeToGeminiRequest } =
+  await import("../../open-sse/translator/request/claude-to-gemini.ts");
+const { storeGeminiThoughtSignature } =
+  await import("../../open-sse/services/geminiThoughtSignatureStore.ts");
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -129,7 +129,11 @@ test("#3440 Claude->Gemini: vertex provider omits id from functionCall and funct
   const result = claudeToGeminiRequest("gemini-2.5-pro", CLAUDE_TOOL_BODY, false, {
     _provider: "vertex",
   });
-  assert.equal(findFunctionCall(result)?.id, undefined, "functionCall.id must be omitted for Vertex");
+  assert.equal(
+    findFunctionCall(result)?.id,
+    undefined,
+    "functionCall.id must be omitted for Vertex"
+  );
   assert.equal(
     findFunctionResponse(result)?.id,
     undefined,
@@ -138,6 +142,10 @@ test("#3440 Claude->Gemini: vertex provider omits id from functionCall and funct
 });
 
 test("#3440 Claude->Gemini: no provider hint PRESERVES id (default, non-vertex)", () => {
+  // The historical tool_use is only emitted when its thought_signature is cached (a bare
+  // functionCall would 400 on thinking models); the id-preservation assertion needs the call
+  // to survive translation, so seed the store like gemini-to-claude would on the prior turn.
+  storeGeminiThoughtSignature("tu_weather_1", "SIG_3440");
   const result = claudeToGeminiRequest("gemini-2.5-pro", CLAUDE_TOOL_BODY, false);
   assert.equal(findFunctionCall(result)?.id, "tu_weather_1");
 });

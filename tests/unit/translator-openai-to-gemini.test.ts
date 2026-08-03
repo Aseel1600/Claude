@@ -1142,6 +1142,48 @@ test("openaiToGeminiRequest re-attaches cached thoughtSignature for FORMATS.GEMI
     "cached thoughtSignature must be re-attached to the functionCall"
   );
 });
+
+// Regression: every historical tool call in a turn must carry its own thoughtSignature.
+// The pre-fix code embedded the cached signature only once per message, so the 2nd+
+// functionCall in a batch was emitted bare and Gemini rejected it with
+// HTTP 400 "Function call is missing a thought_signature ... position 2".
+test("openaiToGeminiRequest attaches a thoughtSignature to EVERY historical tool call in a turn", async () => {
+  const { buildGeminiThoughtSignatureKey, storeGeminiThoughtSignature } =
+    await import("../../open-sse/services/geminiThoughtSignatureStore.ts");
+  const ns = "conn-multi";
+  const idA = "call_multi_a";
+  const idB = "call_multi_b";
+  storeGeminiThoughtSignature(buildGeminiThoughtSignatureKey(ns, idA), "SIG_MULTI_A");
+  storeGeminiThoughtSignature(buildGeminiThoughtSignatureKey(ns, idB), "SIG_MULTI_B");
+
+  const result = openaiToGeminiRequest(
+    "gemini-2.5-pro-preview",
+    {
+      messages: [
+        { role: "user", content: "run two tools" },
+        {
+          role: "assistant",
+          tool_calls: [
+            { id: idA, type: "function", function: { name: "Bash", arguments: '{"cmd":"ls"}' } },
+            { id: idB, type: "function", function: { name: "Read", arguments: '{"path":"a"}' } },
+          ],
+        },
+        { role: "tool", tool_call_id: idA, content: "ok" },
+        { role: "tool", tool_call_id: idB, content: "ok" },
+      ],
+    },
+    false,
+    { _signatureNamespace: ns }
+  ) as { contents?: Array<{ parts?: Array<Record<string, unknown>> }> };
+
+  const functionCalls = (result.contents ?? [])
+    .flatMap((content) => content.parts ?? [])
+    .filter((part) => part.functionCall);
+  assert.equal(functionCalls.length, 2, "both historical tool calls must be emitted");
+  assert.equal(functionCalls[0].thoughtSignature, "SIG_MULTI_A");
+  assert.equal(functionCalls[1].thoughtSignature, "SIG_MULTI_B");
+});
+
 test("OpenAI -> Gemini request maps reasoning_effort to thinkingConfig", () => {
   const result = openaiToGeminiRequest(
     "gemini-2.0-flash-thinking",

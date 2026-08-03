@@ -9,6 +9,10 @@ import { DEFAULT_THINKING_GEMINI_SIGNATURE } from "../../config/defaultThinkingS
 import { buildGeminiTools, sanitizeGeminiToolName } from "../helpers/geminiToolsSanitizer.ts";
 import { capMaxOutputTokens, capThinkingBudget } from "../../../src/lib/modelCapabilities.ts";
 import { getModelSpec } from "../../../src/shared/constants/modelSpecs.ts";
+import {
+  buildGeminiThoughtSignatureKey,
+  resolveGeminiThoughtSignature,
+} from "../../services/geminiThoughtSignatureStore.ts";
 
 /**
  * Direct Claude → Gemini request translator.
@@ -16,7 +20,19 @@ import { getModelSpec } from "../../../src/shared/constants/modelSpecs.ts";
  * skipping the OpenAI hub intermediate step.
  */
 export function claudeToGeminiRequest(model, body, stream, credentials = null) {
-  const toolNameMap = new Map<string, string>();
+  // Seed with any remapper-recorded original names so the response side can restore the
+  // client's exact tool casing. The sanitizer below then records EVERY tool (not just
+  // renamed/hashed ones) so a TitleCase client's "Bash" round-trips as "Bash".
+  const existingToolNameMap = (body as { _toolNameMap?: Map<string, string> })._toolNameMap;
+  const toolNameMap = new Map<string, string>(
+    existingToolNameMap instanceof Map ? [...existingToolNameMap] : []
+  );
+  const signatureNamespace =
+    credentials &&
+    typeof credentials === "object" &&
+    typeof credentials["_signatureNamespace"] === "string"
+      ? credentials["_signatureNamespace"]
+      : null;
   const sanitizeToolName = (name: string) =>
     sanitizeGeminiToolName(name, {
       toolNameMap,
@@ -83,6 +99,10 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
 
   // ── Build tool_use name lookup (for tool_result matching) ──────
   const toolUseNames = {};
+  // Historical tool_use blocks whose thought_signature is unavailable. Their functionCall
+  // is omitted (a bare one would 400 on thinking models); the paired tool_result is
+  // downgraded to plain text so Gemini never sees an orphan functionResponse.
+  const droppedToolIds = new Set<string>();
   if (body.messages && Array.isArray(body.messages)) {
     for (const msg of body.messages) {
       if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -114,8 +134,22 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
               }
               break;
 
-            case "tool_use":
+            case "tool_use": {
+              // Gemini thinking models 400 any functionCall part that lacks a
+              // thought_signature. Re-attach the signature cached from the model's own
+              // response (keyed by the tool call id); when it is unavailable (TTL expiry,
+              // restart, non-signature model) do NOT emit a bare functionCall — drop it and
+              // let its paired tool_result become plain context text below.
+              const signature = resolveGeminiThoughtSignature(
+                buildGeminiThoughtSignatureKey(signatureNamespace, block.id),
+                undefined
+              );
+              if (!signature) {
+                droppedToolIds.add(block.id);
+                break;
+              }
               parts.push({
+                thoughtSignature: signature,
                 functionCall: {
                   ...(stripFunctionCallId ? {} : { id: block.id }),
                   name: sanitizeToolName(block.name),
@@ -123,8 +157,20 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
                 },
               });
               break;
+            }
 
             case "tool_result": {
+              if (droppedToolIds.has(block.tool_use_id)) {
+                // Paired tool_use was omitted (missing thought_signature); represent the
+                // result as plain text context so Gemini never sees an orphan functionResponse.
+                const text = Array.isArray(block.content)
+                  ? block.content
+                      .map((c) => (c.type === "text" ? c.text : JSON.stringify(c)))
+                      .join("\n")
+                  : String(block.content ?? "");
+                if (text) parts.push({ text });
+                break;
+              }
               let content = block.content;
               if (Array.isArray(content)) {
                 content = content
@@ -246,13 +292,12 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
     }
   }
 
-  const changedToolNameMap = new Map(
-    [...toolNameMap.entries()].filter(
-      ([sanitizedName, originalName]) => sanitizedName !== originalName
-    )
-  );
-  if (changedToolNameMap.size > 0) {
-    result._toolNameMap = changedToolNameMap;
+  // Record every sanitized→original mapping (identity entries included) so the response
+  // translator can restore the client's exact tool name case-sensitively. Filtering out
+  // identity entries before left the response side unable to recover "Bash" and it
+  // force-lowercased the name to "bash", which Claude Code no longer recognizes.
+  if (toolNameMap.size > 0) {
+    result._toolNameMap = toolNameMap;
   }
 
   return result;

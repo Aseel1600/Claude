@@ -1,11 +1,10 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { isAbortFinishReason } from "../../utils/finishReason.ts";
-import { REVERSE_MAP } from "../../services/claudeCodeToolRemapper.ts";
-
-function normalizeToolName(name: string): string {
-  return REVERSE_MAP[name] ?? name;
-}
+import {
+  buildGeminiThoughtSignatureKey,
+  storeGeminiThoughtSignature,
+} from "../../services/geminiThoughtSignatureStore.ts";
 
 /**
  * Direct Gemini → Claude response translator.
@@ -86,10 +85,29 @@ export function geminiToClaudeResponse(chunk, state) {
           state.openTextBlockIdx = null;
         }
         const fc = part.functionCall;
-        const rawToolName = fc.name;
-        const restoredToolName = normalizeToolName(state.toolNameMap?.get(rawToolName) || rawToolName);
+        // Gemini surfaces some tool calls with a `default_api:` namespace prefix
+        // (e.g. `default_api:websearch`); strip it before matching the declared tool.
+        const rawToolName = String(fc.name || "").replace(/^default_api:/, "");
+        // Restore the client's exact declared tool name (case-sensitive). REVERSE_MAP's
+        // TitleCase→lowercase remap only targets Anthropic-path lowercase clients and never
+        // runs on the Gemini path, so applying it here would mangle Bash→bash and make
+        // Claude Code treat the tool_use as unknown. Prefer the request translator's
+        // recorded original name; fall back to the (prefix-stripped) Gemini name.
+        const restoredToolName =
+          (state.toolNameMap?.get(rawToolName) as string | undefined) ?? rawToolName;
         const idx = state.contentBlockIndex++;
         const toolId = fc.id || `toolu_${Date.now()}_${idx}`;
+
+        // Persist the thought signature so claude-to-gemini can re-attach it to the
+        // functionCall on the next turn. Without this the signature store stays empty on the
+        // direct Claude→Gemini path and every relayed tool call 400s "missing thought_signature".
+        const partSig = part.thoughtSignature || part.thought_signature;
+        if (partSig) {
+          storeGeminiThoughtSignature(
+            buildGeminiThoughtSignatureKey(state?.signatureNamespace, toolId),
+            partSig
+          );
+        }
 
         results.push({
           type: "content_block_start",
