@@ -129,9 +129,9 @@ Os campos externos (`branch`, `commit`, `PR`, `issue`) ficam como `—` ate have
 | CLI-097 | P4 | Pool | `poolsideai/pool` | concluida | `config-only` | `not-applicable` | `feat/omniroute-pool-integration` | — | — | — | not-in-catalog | HEAD `a6fe0ca1`; `pool exec --api-url` OpenAI-compatible, sandbox required, MCP/ACP separado; EULA; sem publicação |
 | CLI-098 | P4 | Junie CLI | `junie.jetbrains.com` | concluida | `config-only` | `not-applicable` | `feat/omniroute-junie-integration` | — | — | — | not-in-catalog | HEAD `d2701be6`; custom profile OpenAICompletion/Responses com baseUrl full e env ref; runtime proprietário/EAP; sem publicação |
 | CLI-099 | P4 | Cursor desktop | Anysphere | concluida | `config-only` limitado | `awaiting-maintainer` | `feat/omniroute-cursor-desktop-integration` | — | — | — | integrated | disclosure-only; BYO key/chat panel; Composer/Tab nativos; privado/MITM proibido; sem publicação |
-| CLI-100 | P4 | Windsurf | Codeium | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | MITM |
-| CLI-101 | P4 | Amp | Sourcegraph | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | fechado |
-| CLI-102 | P4 | Amazon Q/Kiro CLI | AWS | not-started | needs-mitm | — | — | — | — | — | integrated | SSO |
+| CLI-100 | P4 | Windsurf | Codeium | concluida | `blocked-closed` / MCP-only | `awaiting-maintainer` | `feat/omniroute-windsurf-integration` | — | — | — | not-in-catalog | sem upstream/base custom; BYOK Anthropic específico; MCP separado; MITM proibido; sem publicação |
+| CLI-101 | P4 | Amp | Sourcegraph | concluida | `config-only` parcial / Enterprise-gated | `awaiting-maintainer` | `feat/omniroute-amp-integration` | — | — | — | not-in-catalog | CLI fechada/Amp Server; confirmar provider custom com suporte; MCP viável; sem publicação |
+| CLI-102 | P4 | Amazon Q/Kiro CLI | AWS | concluida | `patch-required` legado / `blocked-closed` Kiro | `awaiting-maintainer` | `feat/omniroute-amazon-q-integration` | — | — | — | integrated | Q usa AWS EventStream/SigV4; Kiro fechado sem base custom; MCP-only seguro; sem publicação |
 | CLI-103 | P4 | Cowork | Anthropic | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | endpoint opaco |
 
 ## Como atualizar
