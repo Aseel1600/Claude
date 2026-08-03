@@ -623,6 +623,14 @@ Resultado P2.10:
 Estado final P2.10: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Discussions `0`.
 Pesquisa acumulada: `73/104` (`70,2%`); pendentes: `31/104` (`29,8%`). Próxima fila: P2.11 (`CLI-073` Moltis, `CLI-074` GitClaw, `CLI-075` LionClaw).
 
+Resultado P3.1:
+
+- `CLI-076` VibePod: `config-only` pelo agente Claude Code com raiz Anthropic `/api`; wrapper injeta env no container. Codex sem chave automática permanece não comprovado.
+- `CLI-077` zeroshot: `config-only` pelo gateway OpenAI `/api/v1`; 22 testes focados verdes; limitações de streaming JSON, reasoning e MCP registradas.
+- `CLI-078` Fractal: `config-only` por Codex Responses em `CODEX_HOME` por node; servidores tmux quentes podem perder `OMNIROUTE_API_KEY`, recomendando fix genérico upstream.
+
+Estado final P3.1: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Discussions `0`. Pesquisa acumulada: `79/104` (`76,0%`); pendentes: `25/104` (`24,0%`).
+
 Resultado P2.11:
 
 - `CLI-073` Moltis: `config-only`, provider `custom-omniroute`, `/api/v1`, `auto`, Chat/SSE/tools e capacidades multimodais. 401 testes e fmt passaram. Sem publicação.
