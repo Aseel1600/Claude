@@ -53,9 +53,60 @@ async function triggerQueueTimeout() {
   });
 }
 
+async function triggerQueuedTimeout() {
+  await rateLimitManager.applyRequestQueueSettings({
+    ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
+    autoEnableApiKeyProviders: false,
+    concurrentRequests: 1,
+    requestsPerMinute: 0,
+    minTimeBetweenRequestsMs: 0,
+    maxWaitMs: 40,
+  });
+  const connectionId = "conn-queued-timeout";
+  rateLimitManager.enableRateLimitProtection(connectionId);
+
+  let resolveFirstExecuting: () => void = () => undefined;
+  const firstExecuting = new Promise<void>((resolve) => {
+    resolveFirstExecuting = resolve;
+  });
+  let releaseFirst: () => void = () => undefined;
+  const first = rateLimitManager.withRateLimit("test-provider", connectionId, null, async () => {
+    resolveFirstExecuting();
+    await new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+  });
+  await firstExecuting;
+
+  let caught: unknown;
+  try {
+    await rateLimitManager.withRateLimit(
+      "test-provider",
+      connectionId,
+      null,
+      async () => "should-not-dispatch"
+    );
+    assert.fail("expected the queued job to expire");
+  } catch (error) {
+    caught = error;
+  } finally {
+    releaseFirst();
+    await first;
+  }
+  return caught;
+}
+
 test("#4165 a dispatched provider call is not killed by the queue budget", async () => {
   const result = await triggerQueueTimeout();
   assert.equal(result, "should-not-reach");
+});
+
+test("#4165 queue expiry surfaces a clear local error", async () => {
+  const caught = (await triggerQueuedTimeout()) as Error & { code?: string };
+  assert.equal(caught.code, "RATE_LIMIT_QUEUE_TIMEOUT");
+  assert.match(caught.message, /maxWaitMs/);
+  assert.match(caught.message, /not an upstream/i);
+  assert.doesNotMatch(caught.message, /This job timed out/);
 });
 
 test("#4165 a job that completes within maxWaitMs is unaffected", async () => {

@@ -485,6 +485,7 @@ test("rate limit manager blocks admission after an upstream 429 retry hint", asy
     (error: unknown) => {
       const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
       assert.equal(code, "RATE_LIMIT_QUEUE_TIMEOUT");
+      assert.match(String((error as Error).message), /upstream rate-limit cooldown/);
       return true;
     }
   );
@@ -517,6 +518,7 @@ test("rate limit manager blocks a zero-remaining header window until reset", asy
     (error: unknown) => {
       const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
       assert.equal(code, "RATE_LIMIT_QUEUE_TIMEOUT");
+      assert.match(String((error as Error).message), /upstream rate-limit cooldown/);
       return true;
     }
   );

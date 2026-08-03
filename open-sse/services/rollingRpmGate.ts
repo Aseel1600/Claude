@@ -6,10 +6,12 @@ import {
 } from "./slidingWindowLimiter.ts";
 
 type GetLimiterKey = (provider: string, connectionId: string, model?: string | null) => string;
+type QueueTimeoutReason = "local-queue" | "upstream-cooldown";
 type QueueTimeoutErrorFactory = (
   provider: string,
   model: string | null,
-  maxWaitMs: number
+  maxWaitMs: number,
+  reason?: QueueTimeoutReason
 ) => Error;
 
 export interface RollingRpmGateOptions {
@@ -118,7 +120,7 @@ export class RollingRpmGate {
 
       const remainingMs = maxWaitMs > 0 ? maxWaitMs - (now - startedAt) : forcedWaitMs;
       if (maxWaitMs > 0 && remainingMs <= 0) {
-        throw this.options.createQueueTimeoutError(provider, model, maxWaitMs);
+        throw this.options.createQueueTimeoutError(provider, model, maxWaitMs, "upstream-cooldown");
       }
       await sleepOrAbort(
         Math.min(forcedWaitMs, maxWaitMs > 0 ? remainingMs : forcedWaitMs),

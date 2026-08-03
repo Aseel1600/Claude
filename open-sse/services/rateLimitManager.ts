@@ -47,6 +47,7 @@ interface LimiterUpdateSettings {
 }
 
 type JsonRecord = Record<string, unknown>;
+type QueueTimeoutReason = "local-queue" | "upstream-cooldown";
 
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -56,15 +57,21 @@ function createQueueTimeoutError(
   provider: string,
   model: string | null,
   maxWaitMs: number,
+  reason: QueueTimeoutReason = "local-queue",
   cause?: unknown
 ) {
-  const queueErr = new Error(
-    `Request dropped after exceeding the local rate-limit queue budget maxWaitMs (${maxWaitMs}ms) for ` +
-      `${model ? `${provider}/${model}` : provider} — this is OmniRoute's request queue ` +
-      `(resilienceSettings.requestQueue.maxWaitMs), not an upstream timeout. Raise it in ` +
-      `Settings → Resilience if this is queue saturation rather than a slow provider.`,
-    cause === undefined ? undefined : { cause }
-  ) as Error & { code?: string };
+  const target = model ? `${provider}/${model}` : provider;
+  const message =
+    reason === "upstream-cooldown"
+      ? `Request dropped after waiting ${maxWaitMs}ms for an upstream rate-limit cooldown for ${target}. ` +
+        `The provider cooldown outlasted OmniRoute's local wait budget; this is not local queue saturation.`
+      : `Request dropped after exceeding the local rate-limit queue budget maxWaitMs (${maxWaitMs}ms) for ` +
+        `${target} — this is OmniRoute's request queue ` +
+        `(resilienceSettings.requestQueue.maxWaitMs), not an upstream timeout. Raise it in ` +
+        `Settings → Resilience if this is queue saturation rather than a slow provider.`;
+  const queueErr = new Error(message, cause === undefined ? undefined : { cause }) as Error & {
+    code?: string;
+  };
   queueErr.code = "RATE_LIMIT_QUEUE_TIMEOUT";
   return queueErr;
 }
@@ -553,8 +560,8 @@ const rpmGate = new RollingRpmGate({
   getProviderWindow: getProviderDefaultRateLimit,
   getConnectionRpm: (connectionId) => connectionRateLimitOverrides.get(connectionId)?.rpm,
   getLimiterKey,
-  createQueueTimeoutError: (provider, model, maxWaitMs) =>
-    createQueueTimeoutError(provider, model, maxWaitMs),
+  createQueueTimeoutError: (provider, model, maxWaitMs, reason) =>
+    createQueueTimeoutError(provider, model, maxWaitMs, reason),
 });
 
 function getLimiter(provider, connectionId, model = null) {
