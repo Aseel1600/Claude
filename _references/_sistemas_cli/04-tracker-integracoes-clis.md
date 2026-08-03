@@ -132,7 +132,7 @@ Os campos externos (`branch`, `commit`, `PR`, `issue`) ficam como `—` ate have
 | CLI-100 | P4 | Windsurf | Codeium | concluida | `blocked-closed` / MCP-only | `awaiting-maintainer` | `feat/omniroute-windsurf-integration` | — | — | — | not-in-catalog | sem upstream/base custom; BYOK Anthropic específico; MCP separado; MITM proibido; sem publicação |
 | CLI-101 | P4 | Amp | Sourcegraph | concluida | `config-only` parcial / Enterprise-gated | `awaiting-maintainer` | `feat/omniroute-amp-integration` | — | — | — | not-in-catalog | CLI fechada/Amp Server; confirmar provider custom com suporte; MCP viável; sem publicação |
 | CLI-102 | P4 | Amazon Q/Kiro CLI | AWS | concluida | `patch-required` legado / `blocked-closed` Kiro | `awaiting-maintainer` | `feat/omniroute-amazon-q-integration` | — | — | — | integrated | Q usa AWS EventStream/SigV4; Kiro fechado sem base custom; MCP-only seguro; sem publicação |
-| CLI-103 | P4 | Cowork | Anthropic | not-started | needs-mitm | — | — | — | — | — | not-in-catalog | endpoint opaco |
+| CLI-103 | P4 | Cowork | Anthropic | concluida | `blocked-closed` / MCP-only | `not-applicable` | — | — | — | — | not-in-catalog | inferência gerida pela Anthropic sem BYOK/base custom; Custom Connector MCP remoto; MITM proibido; sem publicação |
 
 ## Como atualizar
 

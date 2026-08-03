@@ -653,3 +653,5 @@ Resultado P3.7: agent-browser `config-only` direto por Chat Completions; OpenWor
 Resultado P4.1: Pool e Junie são `config-only` OpenAI-compatible; Cursor é `config-only` limitado ao BYO chat panel, sem MITM/protocolo privado. Pesquisa acumulada `100/104` (`96,2%`), pendentes `4/104` (`3,8%`). Nenhuma publicação externa.
 
 Resultado P4.2: Windsurf está bloqueado para inferência e permite apenas MCP; Amp depende de confirmação Enterprise; Amazon Q legado requer patch substancial e Kiro atual é MCP-only seguro. Pesquisa acumulada `103/104` (`99,0%`), pendente `1/104` (`1,0%`). Nenhuma publicação externa.
+
+Resultado P4.3: Cowork não permite substituir oficialmente a inferência; Custom Connector MCP remoto é o único caminho suportado e permanece separado do modelo. Pesquisa concluída `104/104` (`100%`), pendentes `0/104` (`0%`). Nenhuma publicação externa nesta fase de pesquisa.
