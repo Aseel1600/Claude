@@ -647,3 +647,5 @@ Resultado P3.4: LoopTroop `config-only` indireto via provider OpenCode; Galley `
 Resultado P3.5: SageCLI `config-only` indireto via Codex, com caveat de env plaintext; 5dive `patch-required` por mapas fechados de provider/base; agx `config-only` indireto via Codex e com gates de Responses/sandbox. Pesquisa acumulada `91/104` (`87,5%`), pendentes `13/104` (`12,5%`). Nenhuma publicação externa.
 
 Resultado P3.6: claude-code-router, cc-router e OneCLI são config-only; os dois primeiros oferecem endpoints custom OpenAI-compatible e OneCLI injeta credenciais por proxy MITM. Pesquisa acumulada `94/104` (`90,4%`), pendentes `10/104` (`9,6%`). Nenhuma publicação externa.
+
+Resultado P3.7: agent-browser `config-only` direto por Chat Completions; OpenWork `config-only` via OpenCode custom; Agent Deck `config-only` via CLIs filhos. Pesquisa acumulada `97/104` (`93,3%`), pendentes `7/104` (`6,7%`). Nenhuma publicação externa.
