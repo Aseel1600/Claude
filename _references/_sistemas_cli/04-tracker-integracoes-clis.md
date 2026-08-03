@@ -114,9 +114,9 @@ Os campos externos (`branch`, `commit`, `PR`, `issue`) ficam como `—` ate have
 | CLI-082 | P3 | OMK | `dmae97/open-multi-agent-kit` | concluida | `viable-mcp` | `not-applicable` | `feat/omniroute-omk-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; controle multiagente, MCP é caminho primário; sem provider nominal |
 | CLI-083 | P3 | kodo | `ikamensh/kodo` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-kodo-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; orquestrador/agent child, propagar env/base/model ao agente filho |
 | CLI-084 | P3 | ORCH | `oxgeneral/ORCH` | concluida | `needs-wrapper` | `awaiting-maintainer` | `feat/omniroute-orch-integration` | — | — | — | not-in-catalog | pesquisa concluída neste lote; fila/controle sem provider LLM direto, wrapper/adaptador necessário |
-| CLI-085 | P3 | LoopTroop | `LoopTroop-ai/LoopTroop` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | OpenCode |
-| CLI-086 | P3 | Galley | `shinpr/galley` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | PR handoff |
-| CLI-087 | P3 | Relay | `jcast90/relay` | not-started | viable-mcp | — | — | — | — | — | not-in-catalog | MCP |
+| CLI-085 | P3 | LoopTroop | `LoopTroop-ai/LoopTroop` | concluida | `config-only` indireto | `not-applicable` | `feat/omniroute-looptroop-integration` | — | — | — | not-in-catalog | HEAD `cbfc81c5`; OpenCode recebe provider `@ai-sdk/openai-compatible`, `/api/v1`, `omniroute/auto`; 16 testes verdes; sem publicação |
+| CLI-086 | P3 | Galley | `shinpr/galley` | concluida | `patch-required` | `awaiting-maintainer` | `feat/omniroute-galley-integration` | — | — | — | not-in-catalog | HEAD `6bcc593d`; registry/transports fechados, requer transport OpenAI-compatible para executor e supervisor; Go ausente; sem publicação |
+| CLI-087 | P3 | Relay | `jcast90/relay` | concluida | `config-only` | `not-applicable` | `feat/omniroute-relay-integration` | — | — | — | not-in-catalog | HEAD `7bd5a2f6`; provider profile Codex com `OPENAI_BASE_URL`, key ref e modelo; smoke Responses obrigatório; MCP separado; sem publicação |
 | CLI-088 | P3 | SageCLI | `youwangd/SageCLI` | not-started | viable-acp | — | — | — | — | — | not-in-catalog | ACP |
 | CLI-089 | P3 | 5dive | `5dive-ai/5dive` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | server |
 | CLI-090 | P3 | agx | `ramarlina/agx` | not-started | needs-wrapper | — | — | — | — | — | not-in-catalog | checkpoints |

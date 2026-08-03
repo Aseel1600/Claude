@@ -641,3 +641,5 @@ Resultado P2.11:
 
 Estado final P2.11: commits `0`, pushes `0`, forks `0`, PRs `0`, issues `0`, Discussions `0`. Pesquisa acumulada: `76/104` (`73,1%`); pendentes: `28/104` (`26,9%`).
 Resultado P3.3: OMK `viable-mcp`; kodo `config-only` indireto; ORCH `needs-wrapper`. Pesquisa acumulada `85/104` (`81,7%`), pendentes `19/104` (`18,3%`). Nenhuma publicação externa.
+
+Resultado P3.4: LoopTroop `config-only` indireto via provider OpenCode; Galley `patch-required` por não possuir transport OpenAI-compatible configurável; Relay `config-only` via provider profile/Codex, condicionado a smoke da Responses API e controles sobre ferramentas nativas. Nenhuma publicação externa. Pesquisa acumulada `88/104` (`84,6%`), pendentes `16/104` (`15,4%`).
