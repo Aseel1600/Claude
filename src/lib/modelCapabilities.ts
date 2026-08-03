@@ -16,6 +16,10 @@ import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import { getDbInstance } from "@/lib/db/core";
 import { getKeyValue } from "@/lib/db/models/shared";
+import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+
+export type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+export { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { getUnsupportedParams } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {
@@ -371,7 +375,8 @@ function reverseModelsDevProviders(provider: string): readonly string[] {
 function getSyncedCapabilityForResolved(
   provider: string | null,
   model: string | null,
-  rawModel: string | null
+  rawModel: string | null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
 ): SyncedCapabilities {
   if (!provider || !model) return null;
 
@@ -401,9 +406,10 @@ function getSyncedCapabilityForResolved(
     new Set([provider, ...reverseModelsDevProviders(provider), "vercel"])
   );
 
+  const bulk = snapshot?.synced ?? null;
   for (const prov of providerCandidates) {
     for (const mid of modelCandidates) {
-      const found = getSyncedCapability(prov, mid);
+      const found = getSyncedCapability(prov, mid, bulk);
       if (found) return found;
     }
   }
@@ -627,15 +633,43 @@ function getOutputTokenCapabilityOverride(resolved: {
   return getCapabilityOverride(resolved, "max_output_tokens");
 }
 
-export function getExplicitModelOutputCap(input: CapabilityInput): number | null {
+/**
+ * Bulk-load friendly max_token override lookup (#9199). When a snapshot is
+ * supplied its preloaded map is used; otherwise falls back to the on-demand
+ * read (same precedence as getOutputTokenCapabilityOverride).
+ */
+function getMaxTokenCapabilityOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
+  const bulk = snapshot?.maxTokenOverrides ?? null;
+  return (
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_token", bulk) ??
+    (resolved.rawModel && resolved.rawModel !== resolved.model
+      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_token", bulk)
+      : null)
+  );
+}
+
+export function getExplicitModelOutputCap(
+  input: CapabilityInput,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
   const resolved = resolveCapabilityInput(input);
-  const maxTokenOverride = getOutputTokenCapabilityOverride(resolved);
+  const maxTokenOverride = snapshot
+    ? getMaxTokenCapabilityOverride(resolved, snapshot)
+    : getOutputTokenCapabilityOverride(resolved);
   if (maxTokenOverride !== null) return maxTokenOverride;
 
   const synced = getSyncedCapabilityForResolved(
     resolved.provider,
     resolved.model,
-    resolved.rawModel
+    resolved.rawModel,
+    snapshot
   );
   if (synced && typeof synced.limit_output === "number") return synced.limit_output;
 
@@ -648,7 +682,8 @@ export function getExplicitModelOutputCap(input: CapabilityInput): number | null
 
 export function getResolvedModelCapabilities(
   input: CapabilityInput,
-  options?: ResolveModelCapabilitiesOptions
+  options?: ResolveModelCapabilitiesOptions,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
 ): ResolvedModelCapabilities {
   // Reconciliation / auto-discovery needs the override-free catalog view so a
   // persisted override never feeds back into the comparison that (re)writes it.
@@ -659,7 +694,8 @@ export function getResolvedModelCapabilities(
   const synced = getSyncedCapabilityForResolved(
     resolved.provider,
     resolved.model,
-    resolved.rawModel
+    resolved.rawModel,
+    snapshot
   );
 
   const modalitiesInput = parseModalities(synced?.modalities_input);
@@ -717,9 +753,11 @@ export function getResolvedModelCapabilities(
     null;
 
   const maxInputOverride = usePersistedOverrides ? getInputTokenCapabilityOverride(resolved) : null;
-  const maxTokenOverride = usePersistedOverrides
-    ? getOutputTokenCapabilityOverride(resolved)
-    : null;
+  const maxTokenOverride = snapshot
+    ? getMaxTokenCapabilityOverride(resolved, snapshot)
+    : usePersistedOverrides
+      ? getOutputTokenCapabilityOverride(resolved)
+      : null;
 
   // Vision consults leaf static metadata for path-shaped ids; other capability
   // fields keep using the non-leaf `spec` from getStaticSpec() above.
@@ -919,11 +957,20 @@ export function capThinkingBudget(input: CapabilityInput, budget: number): numbe
 
 export function getModelContextLimit(
   providerOrInput: CapabilityInput,
-  modelId?: string
+  modelId?: string,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
 ): number | null {
   const resolved =
     typeof providerOrInput === "string" && modelId !== undefined
-      ? getResolvedModelCapabilities({ provider: providerOrInput, model: modelId })
-      : getResolvedModelCapabilities(providerOrInput);
-  return resolved.contextWindow;
+      ? getResolvedModelCapabilities({ provider: providerOrInput, model: modelId }, undefined, snapshot)
+      : getResolvedModelCapabilities(providerOrInput, undefined, snapshot);
+  // Feature 5004: a persisted override (operator-set or auto-discovered) wins over the
+  // static catalog / models.dev sync. `getResolvedModelCapabilities` stays override-free
+  // so the reconciler can compare the catalog value against provider-declared windows.
+  const override = getModelContextOverride(
+    resolved.provider,
+    resolved.model,
+    snapshot?.contextOverrides ?? null
+  );
+  return override ?? resolved.contextWindow;
 }
