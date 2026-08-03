@@ -12,6 +12,7 @@ import {
 } from "./encryption";
 import { createLazyRowProxy } from "./providers/lazyConnectionView";
 import { invalidateDbCache, getCachedRawProviderConnections } from "./readCache";
+import { reorderConnections } from "./providers/deletion";
 import {
   removeConnectionHealth,
   removeConnectionIndex,
@@ -542,7 +543,7 @@ export async function createProviderConnection(data: JsonRecord) {
   _insertConnectionRow(db, encryptConnectionFields({ ...connection }));
   const providerId = toStringOrNull(data.provider);
   if (providerId) {
-    _reorderConnections(db, providerId);
+    reorderConnections(db, providerId);
   }
   backupDbFile("pre-write");
   invalidateDbCache("connections"); // Bust connections read cache
@@ -769,7 +770,7 @@ export async function updateProviderConnection(id: string, data: JsonRecord) {
       typeof existingRecord.provider === "string"
         ? existingRecord.provider
         : String(existingRecord.provider || "");
-    _reorderConnections(db, providerId);
+    reorderConnections(db, providerId);
   }
 
   return withNullableRateLimitOverrides(
@@ -896,113 +897,6 @@ export async function resetConnectionBackoff(id: string): Promise<void> {
   bumpProxyConfigGeneration();
 }
 
-function _deleteAccountProxyAssignments(db: DbLike, ids: string[]) {
-  if (ids.length === 0) return;
-  const placeholders = ids.map(() => "?").join(",");
-  db.prepare(
-    `DELETE FROM proxy_assignments WHERE scope = 'account' AND scope_id IN (${placeholders})`
-  ).run(...ids);
-}
-
-export async function deleteProviderConnection(id: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  const existing = db.prepare("SELECT provider FROM provider_connections WHERE id = ?").get(id);
-  if (!existing) return false;
-
-  db.transaction(() => {
-    _deleteAccountProxyAssignments(db, [id]);
-    db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM provider_connections WHERE id = ?").run(id);
-  })();
-  removeConnectionHealth(id);
-  removeConnectionIndex(id);
-  bumpProxyConfigGeneration();
-  const existingRecord = toRecord(existing);
-  const providerId =
-    typeof existingRecord.provider === "string"
-      ? existingRecord.provider
-      : String(existingRecord.provider || "");
-  _reorderConnections(db, providerId);
-  backupDbFile("pre-write");
-  invalidateDbCache("connections"); // Bust connections read cache
-  invalidateReasoningRoutingRuleCache();
-  return true;
-}
-
-export async function deleteProviderConnections(ids: string[]): Promise<number> {
-  if (ids.length === 0) return 0;
-  const db = getDbInstance() as unknown as DbLike;
-
-  const deletedCount = db.transaction(() => {
-    const placeholders = ids.map(() => "?").join(",");
-    db.prepare(`DELETE FROM quota_snapshots WHERE connection_id IN (${placeholders})`).run(...ids);
-    _deleteAccountProxyAssignments(db, ids);
-    const result = db
-      .prepare(`DELETE FROM provider_connections WHERE id IN (${placeholders})`)
-      .run(...ids);
-    return result.changes ?? 0;
-  })();
-
-  for (const id of ids) {
-    removeConnectionHealth(id);
-    removeConnectionIndex(id);
-  }
-  backupDbFile("pre-write");
-  invalidateDbCache("connections");
-  invalidateReasoningRoutingRuleCache();
-  return deletedCount;
-}
-
-export async function deleteProviderConnectionsByProvider(providerId: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  const connectionIds = db
-    .prepare("SELECT id FROM provider_connections WHERE provider = ?")
-    .all(providerId)
-    .map((row) => {
-      const record = toRecord(row);
-      return typeof record.id === "string" ? record.id : null;
-    })
-    .filter((id): id is string => id !== null);
-
-  const result = db.transaction(() => {
-    if (connectionIds.length > 0) {
-      const deleteSnapshots = db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?");
-      for (const connectionId of connectionIds) {
-        deleteSnapshots.run(connectionId);
-      }
-      _deleteAccountProxyAssignments(db, connectionIds);
-    }
-    return db.prepare("DELETE FROM provider_connections WHERE provider = ?").run(providerId);
-  })();
-  for (const connectionId of connectionIds) {
-    removeConnectionHealth(connectionId);
-    removeConnectionIndex(connectionId);
-  }
-  backupDbFile("pre-write");
-  invalidateDbCache("connections");
-  invalidateReasoningRoutingRuleCache();
-  return result.changes;
-}
-
-export async function reorderProviderConnections(providerId: string) {
-  const db = getDbInstance() as unknown as DbLike;
-  _reorderConnections(db, providerId);
-}
-
-function _reorderConnections(db: DbLike, providerId: string) {
-  const rows = db
-    .prepare(
-      "SELECT id, priority, updated_at FROM provider_connections WHERE provider = ? ORDER BY priority ASC, updated_at DESC"
-    )
-    .all(providerId);
-
-  const update = db.prepare("UPDATE provider_connections SET priority = ? WHERE id = ?");
-  rows.forEach((row, index) => {
-    const current = toRecord(row);
-    update.run(index + 1, current.id);
-  });
-}
-
 export async function cleanupProviderConnections() {
   return 0;
 }
@@ -1018,6 +912,12 @@ export async function getDistinctGroups(): Promise<string[]> {
 }
 
 export { autoMigrateLegacyEncryptedConnections, getGheCopilotHosts } from "./providers/migrations";
+export {
+  deleteProviderConnection,
+  deleteProviderConnections,
+  deleteProviderConnectionsByProvider,
+  reorderProviderConnections,
+} from "./providers/deletion";
 
 // ──────────────── Re-exports from leaf modules ────────────────
 
