@@ -458,6 +458,42 @@ function normalizeStreamFailurePayload(payload: unknown): StreamFailurePayload |
   };
 }
 
+function formatTranslatedStreamError(payload: unknown, sourceFormat?: string): string {
+  const failure = normalizeStreamFailurePayload(payload) ?? {
+    status: 502,
+    message: "Upstream stream error",
+    code: "stream_error",
+    type: "server_error",
+  };
+  const errorBody = buildErrorBody(failure.status, failure.message, undefined, {
+    type: failure.type ?? "server_error",
+    code: failure.code ?? "stream_error",
+  });
+
+  if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
+    const failed = {
+      type: "response.failed",
+      response: {
+        id: `resp_error_${Date.now()}`,
+        object: "response",
+        created_at: Math.floor(Date.now() / 1000),
+        status: "failed",
+        background: false,
+        error: errorBody.error,
+        output: [],
+      },
+      sequence_number: 0,
+    };
+    return `event: response.failed\ndata: ${JSON.stringify(failed)}\n\n`;
+  }
+
+  if (sourceFormat === FORMATS.CLAUDE) {
+    return `event: error\ndata: ${JSON.stringify({ type: "error", error: errorBody.error })}\n\n`;
+  }
+
+  return `data: ${JSON.stringify(errorBody)}\n\ndata: [DONE]\n\n`;
+}
+
 type ClaudeEmptyResponseLifecycle = {
   hasMessageStart: boolean;
   hasContentBlock: boolean;
@@ -819,6 +855,7 @@ export function createSSEStream(options: StreamOptions = {}) {
 
   // Guard against duplicate [DONE] events — ensures exactly one per stream
   let doneSent = false;
+  let upstreamErrorForwarded = false;
   const providerPayloadCollector = createStructuredSSECollector({
     stage: "provider_response",
   });
@@ -1978,6 +2015,17 @@ export function createSSEStream(options: StreamOptions = {}) {
           const parsed = parseSSELine(trimmed);
           if (!parsed) continue;
 
+          if (upstreamErrorForwarded) continue;
+
+          if (parsed.error) {
+            const output = formatTranslatedStreamError(parsed, sourceFormat);
+            reqLogger?.appendConvertedChunk?.(output);
+            controller.enqueue(encoder.encode(output));
+            upstreamErrorForwarded = true;
+            doneSent = true;
+            continue;
+          }
+
           // #5786 — drop replayed Responses-API events (identical/lower sequence_number
           // re-sent on an upstream reconnect) so their deltas are not glued twice into
           // the translated client stream.
@@ -2167,6 +2215,10 @@ export function createSSEStream(options: StreamOptions = {}) {
           clearIdleTimer();
         }
         if (streamTimedOut) {
+          return;
+        }
+        if (upstreamErrorForwarded) {
+          clearPendingRequestFromStream();
           return;
         }
         try {
