@@ -28,6 +28,7 @@ const THINKING_MODEL_PATTERNS: RegExp[] = [
   /\bk2\b/i, // moonshot kimi k2 family alias
   /\bminimax\b/i,
   /\bmimo\b/i, // xiaomi-tokenplan mimo family (e.g. xiaomi-tokenplan/mimo-v2.5-pro)
+  /\bbig-pickle\b/i,
 ];
 
 const AUTHENTIC_REASONING_MODEL_PATTERN = /(?:^|\/)kimi-k(?:3|2\.7-code)(?:$|-)/i;

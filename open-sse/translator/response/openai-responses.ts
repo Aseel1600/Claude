@@ -145,132 +145,139 @@ export function openaiToOpenAIResponsesResponse(chunk, state) {
 
   const { events, emit } = createEventEmitter(state);
 
-  const choice = chunk.choices[0];
-  const idx = choice.index || 0;
-  const delta = choice.delta || {};
-  if (state.parseTextualReasoningTags !== true && typeof chunk.model === "string") {
-    state.parseTextualReasoningTags = shouldParseTextualReasoningTags(undefined, chunk.model);
-  }
-  const parseTextualReasoningTags = state.parseTextualReasoningTags === true;
-  // #3697: remember the upstream-resolved model so response.created/in_progress/completed
-  // can carry a `model` field (the Responses API spec has one; this translator previously
-  // omitted it). Codex CLI compatibility shim (chatCore's echoModel pipeline) rewrites this
-  // field to the client-requested effort-suffixed id for codex-originated requests.
-  if (!state.model && typeof chunk.model === "string" && chunk.model.trim()) {
-    state.model = chunk.model.trim();
-  }
+  for (const choice of chunk.choices) {
+    const idx = choice.index || 0;
+    const delta = choice.delta || {};
+    if (state.parseTextualReasoningTags !== true && typeof chunk.model === "string") {
+      state.parseTextualReasoningTags = shouldParseTextualReasoningTags(undefined, chunk.model);
+    }
+    const parseTextualReasoningTags = state.parseTextualReasoningTags === true;
+    // #3697: remember the upstream-resolved model so response.created/in_progress/completed
+    // can carry a `model` field (the Responses API spec has one; this translator previously
+    // omitted it). Codex CLI compatibility shim (chatCore's echoModel pipeline) rewrites this
+    // field to the client-requested effort-suffixed id for codex-originated requests.
+    if (!state.model && typeof chunk.model === "string" && chunk.model.trim()) {
+      state.model = chunk.model.trim();
+    }
 
-  // Emit initial events
-  if (!state.started) {
-    state.started = true;
-    state.responseId = chunk.id ? `resp_${chunk.id}` : state.responseId;
+    // Emit initial events
+    if (!state.started) {
+      state.started = true;
+      state.responseId = chunk.id ? `resp_${chunk.id}` : state.responseId;
 
-    const createdResponse: Record<string, unknown> = {
-      id: state.responseId,
-      object: "response",
-      created_at: state.created,
-      status: "in_progress",
-      background: false,
-      error: null,
-      output: [],
-    };
-    if (state.model) createdResponse.model = state.model;
-    emit("response.created", {
-      type: "response.created",
-      response: createdResponse,
-    });
+      const createdResponse: Record<string, unknown> = {
+        id: state.responseId,
+        object: "response",
+        created_at: state.created,
+        status: "in_progress",
+        background: false,
+        error: null,
+        output: [],
+      };
+      if (state.model) createdResponse.model = state.model;
+      emit("response.created", {
+        type: "response.created",
+        response: createdResponse,
+      });
 
-    const inProgressResponse: Record<string, unknown> = {
-      id: state.responseId,
-      object: "response",
-      created_at: state.created,
-      status: "in_progress",
-    };
-    if (state.model) inProgressResponse.model = state.model;
-    emit("response.in_progress", {
-      type: "response.in_progress",
-      response: inProgressResponse,
-    });
-  }
+      const inProgressResponse: Record<string, unknown> = {
+        id: state.responseId,
+        object: "response",
+        created_at: state.created,
+        status: "in_progress",
+      };
+      if (state.model) inProgressResponse.model = state.model;
+      emit("response.in_progress", {
+        type: "response.in_progress",
+        response: inProgressResponse,
+      });
+    }
 
-  if (delta.reasoning_content && !isInternalReasoningPlaceholder(delta.reasoning_content)) {
-    startReasoning(state, emit, idx);
-    emitReasoningDelta(state, emit, delta.reasoning_content);
-  }
-  // Strip the internal reasoning placeholder if the model echoed it
-  // through ordinary content (#8081). Only the text-content emission is
-  // skipped when nothing meaningful remains; tool_calls / finish_reason
-  // handling below must still run for this same chunk.
-  if (delta.content) {
-    const strippedContent = stripInternalReasoningPlaceholder(delta.content);
-    if (strippedContent) {
-      if (
-        state.reasoningId &&
-        !state.reasoningDone &&
-        (!parseTextualReasoningTags || !state.inThinking)
-      ) {
+    if (delta.reasoning_content && !isInternalReasoningPlaceholder(delta.reasoning_content)) {
+      startReasoning(state, emit, idx);
+      emitReasoningDelta(state, emit, delta.reasoning_content);
+    }
+    // Strip the internal reasoning placeholder if the model echoed it
+    // through ordinary content (#8081). Only the text-content emission is
+    // skipped when nothing meaningful remains; tool_calls / finish_reason
+    // handling below must still run for this same chunk.
+    if (delta.content) {
+      const strippedContent = stripInternalReasoningPlaceholder(delta.content);
+      if (strippedContent) {
+        if (
+          state.reasoningId &&
+          !state.reasoningDone &&
+          (!parseTextualReasoningTags || !state.inThinking)
+        ) {
+          closeReasoning(state, emit);
+        }
+
+        let content = strippedContent;
+
+        if (parseTextualReasoningTags) {
+          if (content.includes("<think>")) {
+            state.inThinking = true;
+            content = content.replaceAll("<think>", "");
+            startReasoning(state, emit, idx);
+          }
+
+          if (content.includes("</think>")) {
+            const parts = content.split("</think>");
+            const thinkPart = parts[0];
+            const textPart = parts.slice(1).join("</think>");
+            if (thinkPart) emitReasoningDelta(state, emit, thinkPart);
+            closeReasoning(state, emit);
+            state.inThinking = false;
+            content = textPart;
+          }
+
+          if (state.inThinking && content) {
+            emitReasoningDelta(state, emit, content);
+            // #8081: a still-open textual <think> block ends this chunk's
+            // text handling, but must NOT skip tool_calls / finish_reason.
+            content = "";
+          }
+        }
+
+        if (content) {
+          const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
+          emitTextContent(state, emit, msgIdx, content);
+        }
+      }
+    }
+
+    // Handle tool_calls
+    if (delta.tool_calls) {
+      // Close reasoning first so tool calls do not collide with an open
+      // reasoning item, then close the message at its real index.
+      if (state.reasoningId && !state.reasoningDone) {
         closeReasoning(state, emit);
       }
+      const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
+      closeMessage(state, emit, msgIdx);
 
-      let content = strippedContent;
+      const reasoningOffset = state.reasoningId ? 1 : 0;
+      const messageOffset = state.msgItemAdded[msgIdx] ? 1 : 0;
 
-      if (parseTextualReasoningTags) {
-        if (content.includes("<think>")) {
-          state.inThinking = true;
-          content = content.replaceAll("<think>", "");
-          startReasoning(state, emit, idx);
-        }
-
-        if (content.includes("</think>")) {
-          const parts = content.split("</think>");
-          const thinkPart = parts[0];
-          const textPart = parts.slice(1).join("</think>");
-          if (thinkPart) emitReasoningDelta(state, emit, thinkPart);
-          closeReasoning(state, emit);
-          state.inThinking = false;
-          content = textPart;
-        }
-
-        if (state.inThinking && content) {
-          emitReasoningDelta(state, emit, content);
-          // Pre-existing behaviour (unrelated to #8081): a still-open
-          // textual <think> block ends this chunk's handling early.
-          return events;
-        }
-      }
-
-      if (content) {
-        const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
-        emitTextContent(state, emit, msgIdx, content);
+      for (const tc of delta.tool_calls) {
+        const tcIdx = tc.index ?? 0;
+        const outputIndex = reasoningOffset + messageOffset + normalizeOutputIndex(tcIdx);
+        emitToolCall(state, emit, tc, outputIndex);
       }
     }
-  }
 
-  // Handle tool_calls
-  if (delta.tool_calls) {
-    // Close reasoning first so tool calls do not collide with an open
-    // reasoning item, then close the message at its real index.
-    if (state.reasoningId && !state.reasoningDone) {
+    // Handle finish_reason
+    if (choice.finish_reason) {
+      for (const i in state.msgItemAdded) closeMessage(state, emit, i);
       closeReasoning(state, emit);
-    }
-    const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
-    closeMessage(state, emit, msgIdx);
-    for (const tc of delta.tool_calls) {
-      emitToolCall(state, emit, tc);
-    }
-  }
-
-  // Handle finish_reason
-  if (choice.finish_reason) {
-    for (const i in state.msgItemAdded) closeMessage(state, emit, i);
-    closeReasoning(state, emit);
-    for (const i in state.funcCallIds) closeToolCall(state, emit, i);
-    // #6906: usage already captured (same chunk or earlier) completes now; otherwise
-    // defer for a trailing usage-only chunk, handled above and in flushEvents().
-    if (state.usage) {
-      sendCompleted(state, emit);
-    } else {
-      state.awaitingTrailingUsage = true;
+      for (const i in state.funcCallIds) closeToolCall(state, emit, i);
+      // #6906: usage already captured (same chunk or earlier) completes now; otherwise
+      // defer for a trailing usage-only chunk, handled above and in flushEvents().
+      if (state.usage) {
+        sendCompleted(state, emit);
+      } else {
+        state.awaitingTrailingUsage = true;
+      }
     }
   }
 
@@ -451,11 +458,8 @@ function closeMessage(state, emit, idx) {
   }
 }
 
-function emitToolCall(state, emit, tc) {
+function emitToolCall(state, emit, tc, outputIndex) {
   const tcIdx = tc.index ?? 0;
-  const outputIndex = state.reasoningId
-    ? normalizeOutputIndex(state.reasoningIndex) + 1 + normalizeOutputIndex(tcIdx)
-    : normalizeOutputIndex(tcIdx);
   const newCallId = tc.id;
   const funcName = tc.function?.name;
 
@@ -536,9 +540,11 @@ function emitToolCall(state, emit, tc) {
 function closeToolCall(state, emit, idx, recordAsCompleted = true) {
   const callId = state.funcCallIds[idx];
   if (callId && !state.funcItemDone[idx]) {
-    const normalizedIndex = state.reasoningId
-      ? normalizeOutputIndex(state.reasoningIndex) + 1 + normalizeOutputIndex(idx)
-      : normalizeOutputIndex(idx);
+    const reasoningOffset = state.reasoningId ? 1 : 0;
+    const msgIdx = reasoningOffset + 0; // Assume choice index 0 for tool calls
+    const messageOffset = state.msgItemAdded[msgIdx] ? 1 : 0;
+    const normalizedIndex = reasoningOffset + messageOffset + normalizeOutputIndex(idx);
+
     const args = state.funcArgsBuf[idx] || "{}";
     const toolName = state.funcNames[idx] || "";
     const isCustomTool =

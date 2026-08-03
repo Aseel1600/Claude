@@ -104,7 +104,7 @@ export function createResponsesApiTransformStream(
     reasoningPartAdded: false,
     reasoningDone: false,
     inThinking: false,
-    parseTextualReasoningTags: false,
+    parseTextualReasoningTags: options.parseTextualReasoningTags ?? false,
     funcArgsBuf: {},
     funcNames: {},
     funcCallIds: {},
@@ -283,7 +283,7 @@ export function createResponsesApiTransformStream(
     }
   };
 
-  const emitToolCallAdded = (controller, idx) => {
+  const emitToolCallAdded = (controller, idx, outputIndex) => {
     if (state.funcItemAdded[idx] || !state.funcCallIds[idx]) return false;
 
     const customTool = customToolNames.has(state.funcNames[idx] || "");
@@ -293,7 +293,7 @@ export function createResponsesApiTransformStream(
 
     emit(controller, "response.output_item.added", {
       type: "response.output_item.added",
-      output_index: idx,
+      output_index: outputIndex,
       item: {
         id: `fc_${state.funcCallIds[idx]}`,
         type: itemType,
@@ -309,10 +309,14 @@ export function createResponsesApiTransformStream(
   const closeToolCall = (controller, idx, recordAsCompleted = true) => {
     const callId = state.funcCallIds[idx];
     if (callId && !state.funcItemDone[idx]) {
-      const normalizedIndex = normalizeOutputIndex(idx);
+      const reasoningOffset = state.reasoningId ? 1 : 0;
+      const msgIdx = reasoningOffset + 0; // Assume choice index 0 for tool calls
+      const messageOffset = state.msgItemAdded[msgIdx] ? 1 : 0;
+      const normalizedIndex = reasoningOffset + messageOffset + normalizeOutputIndex(idx);
+
       let args = state.funcArgsBuf[idx] || "{}";
       const toolName = state.funcNames[idx] || "";
-      emitToolCallAdded(controller, idx);
+      emitToolCallAdded(controller, idx, normalizedIndex);
       const isCustomTool = state.funcItemTypes[idx] === "custom_tool_call";
 
       // Fix #1674 & #1852: Final cleanup of empty string and empty array placeholders.
@@ -488,266 +492,279 @@ export function createResponsesApiTransformStream(
             continue;
           }
 
-          const choice = parsed.choices[0];
-          const idx = choice.index || 0;
-          const delta = choice.delta || {};
-          if (state.parseTextualReasoningTags !== true && typeof parsed.model === "string") {
-            state.parseTextualReasoningTags = shouldParseTextualReasoningTags(
-              undefined,
-              parsed.model
-            );
-          }
-          const parseTextualReasoningTags = state.parseTextualReasoningTags === true;
+          for (const choice of parsed.choices) {
+            const idx = choice.index || 0;
+            const delta = choice.delta || {};
+            if (state.parseTextualReasoningTags !== true && typeof parsed.model === "string") {
+              state.parseTextualReasoningTags = shouldParseTextualReasoningTags(
+                undefined,
+                parsed.model
+              );
+            }
+            const parseTextualReasoningTags = state.parseTextualReasoningTags === true;
 
-          // Emit initial events
-          if (!state.started) {
-            state.started = true;
-            state.responseId = parsed.id ? `resp_${parsed.id}` : state.responseId;
+            // Emit initial events
+            if (!state.started) {
+              state.started = true;
+              state.responseId = parsed.id ? `resp_${parsed.id}` : state.responseId;
 
-            emit(controller, "response.created", {
-              type: "response.created",
-              response: {
-                id: state.responseId,
-                object: "response",
-                created_at: state.created,
-                status: "in_progress",
-                background: false,
-                error: null,
-                output: [],
-              },
-            });
+              emit(controller, "response.created", {
+                type: "response.created",
+                response: {
+                  id: state.responseId,
+                  object: "response",
+                  created_at: state.created,
+                  status: "in_progress",
+                  background: false,
+                  error: null,
+                  output: [],
+                },
+              });
 
-            emit(controller, "response.in_progress", {
-              type: "response.in_progress",
-              response: {
-                id: state.responseId,
-                object: "response",
-                created_at: state.created,
-                status: "in_progress",
-              },
-            });
-          }
+              emit(controller, "response.in_progress", {
+                type: "response.in_progress",
+                response: {
+                  id: state.responseId,
+                  object: "response",
+                  created_at: state.created,
+                  status: "in_progress",
+                },
+              });
+            }
 
-          // Handle reasoning_content (OpenAI native format)
-          if (delta.reasoning_content && !isInternalReasoningPlaceholder(delta.reasoning_content)) {
-            startReasoning(controller, idx);
-            emitReasoningDelta(controller, delta.reasoning_content);
-          }
+            // Handle reasoning_content (OpenAI native format)
+            if (
+              delta.reasoning_content &&
+              !isInternalReasoningPlaceholder(delta.reasoning_content)
+            ) {
+              startReasoning(controller, idx);
+              emitReasoningDelta(controller, delta.reasoning_content);
+            }
 
-          // Handle text content. Generic prompt-format tags are visible text;
-          // only tag-native models opt into textual reasoning extraction.
-          // Strip the internal reasoning placeholder if the model echoed it
-          // through ordinary content (#8081). Only the text-content emission
-          // is skipped when nothing meaningful remains — this must NOT skip
-          // this message's tool_calls / finish_reason handling below, so we
-          // gate the whole block on strippedContent instead of returning /
-          // continuing out of the msg loop early.
-          if (delta.content) {
-            const strippedContent = stripInternalReasoningPlaceholder(delta.content);
-            if (strippedContent) {
-              // Close reasoning if it was opened via native reasoning_content
-              // and is still open, before emitting message content. Without this
-              // the reasoning item is never closed and the message reuses the
-              // reasoning output_index, producing a protocol-invalid stream.
-              if (
-                state.reasoningId &&
-                !state.reasoningDone &&
-                (!parseTextualReasoningTags || !state.inThinking)
-              ) {
+            // Handle text content. Generic prompt-format tags are visible text;
+            // only tag-native models opt into textual reasoning extraction.
+            // Strip the internal reasoning placeholder if the model echoed it
+            // through ordinary content (#8081). Only the text-content emission
+            // is skipped when nothing meaningful remains — this must NOT skip
+            // this message's tool_calls / finish_reason handling below, so we
+            // gate the whole block on strippedContent instead of returning /
+            // continuing out of the msg loop early.
+            if (delta.content) {
+              const strippedContent = stripInternalReasoningPlaceholder(delta.content);
+              if (strippedContent) {
+                // Close reasoning if it was opened via native reasoning_content
+                // and is still open, before emitting message content. Without this
+                // the reasoning item is never closed and the message reuses the
+                // reasoning output_index, producing a protocol-invalid stream.
+                if (
+                  state.reasoningId &&
+                  !state.reasoningDone &&
+                  (!parseTextualReasoningTags || !state.inThinking)
+                ) {
+                  closeReasoning(controller);
+                }
+
+                let content = strippedContent;
+
+                if (parseTextualReasoningTags) {
+                  if (content.includes("<think>")) {
+                    state.inThinking = true;
+                    content = content.replaceAll("<think>", "");
+                    startReasoning(controller, idx);
+                  }
+
+                  if (content.includes("</think>")) {
+                    const parts = content.split("</think>");
+                    const thinkPart = parts[0];
+                    const textPart = parts.slice(1).join("</think>");
+
+                    if (thinkPart) emitReasoningDelta(controller, thinkPart);
+                    closeReasoning(controller);
+                    state.inThinking = false;
+                    content = textPart;
+                  }
+
+                  if (state.inThinking && content) {
+                    emitReasoningDelta(controller, content);
+                    // #8081: a still-open textual <think> block ends this message's
+                    // text handling, but must NOT skip tool_calls / finish_reason.
+                    content = "";
+                  }
+                }
+
+                // Regular text content
+                if (content) {
+                  // Use a distinct output_index for the message when reasoning was
+                  // emitted, so the message item does not collide with the
+                  // reasoning item's output_index.
+                  const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
+
+                  // Fix for #1211: Strip leading double-newlines / blank spaces from the very first text chunk
+                  if (!state.msgTextBuf[msgIdx]) {
+                    content = content.trimStart();
+                  }
+
+                  if (content) {
+                    if (!state.msgItemAdded[msgIdx]) {
+                      state.msgItemAdded[msgIdx] = true;
+                      const msgId = `msg_${state.responseId}_${msgIdx}`;
+
+                      emit(controller, "response.output_item.added", {
+                        type: "response.output_item.added",
+                        output_index: msgIdx,
+                        item: { id: msgId, type: "message", content: [], role: "assistant" },
+                      });
+                    }
+
+                    if (!state.msgContentAdded[msgIdx]) {
+                      state.msgContentAdded[msgIdx] = true;
+
+                      emit(controller, "response.content_part.added", {
+                        type: "response.content_part.added",
+                        item_id: `msg_${state.responseId}_${msgIdx}`,
+                        output_index: msgIdx,
+                        content_index: 0,
+                        part: { type: "output_text", annotations: [], logprobs: [], text: "" },
+                      });
+                    }
+
+                    emit(controller, "response.output_text.delta", {
+                      type: "response.output_text.delta",
+                      item_id: `msg_${state.responseId}_${msgIdx}`,
+                      output_index: msgIdx,
+                      content_index: 0,
+                      delta: content,
+                      logprobs: [],
+                    });
+
+                    if (!state.msgTextBuf[msgIdx]) state.msgTextBuf[msgIdx] = "";
+                    state.msgTextBuf[msgIdx] += content;
+                  }
+                }
+              }
+            }
+
+            // Handle tool_calls
+            if (delta.tool_calls) {
+              // Close reasoning first so tool calls do not collide with an
+              // open reasoning item, then close the message at its real index.
+              if (state.reasoningId && !state.reasoningDone) {
                 closeReasoning(controller);
               }
+              const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
+              closeMessage(controller, msgIdx);
 
-              let content = strippedContent;
+              const reasoningOffset = state.reasoningId ? 1 : 0;
+              const currentMsgIdx = reasoningOffset + idx;
+              const messageOffset = state.msgItemAdded[currentMsgIdx] ? 1 : 0;
 
-              if (parseTextualReasoningTags) {
-                if (content.includes("<think>")) {
-                  state.inThinking = true;
-                  content = content.replaceAll("<think>", "");
-                  startReasoning(controller, idx);
+              for (const tc of delta.tool_calls) {
+                const tcIdx = tc.index ?? 0;
+                const newCallId = tc.id;
+                const funcName = tc.function?.name;
+                const outputIndex = reasoningOffset + messageOffset + tcIdx;
+
+                // T37: Prevent merging if a new tool_call uses the same index
+                if (
+                  state.funcCallIds[tcIdx] &&
+                  newCallId &&
+                  state.funcCallIds[tcIdx] !== newCallId
+                ) {
+                  // Superseded call: close and emit output_item.done but do NOT record as final output
+                  // since this call was replaced by a new one at the same index.
+                  closeToolCall(controller, tcIdx, false);
+                  delete state.funcCallIds[tcIdx];
+                  delete state.funcNames[tcIdx];
+                  delete state.funcArgsBuf[tcIdx];
+                  delete state.funcItemAdded[tcIdx];
+                  delete state.funcItemTypes[tcIdx];
+                  delete state.funcArgsDone[tcIdx];
+                  delete state.funcItemDone[tcIdx];
                 }
 
-                if (content.includes("</think>")) {
-                  const parts = content.split("</think>");
-                  const thinkPart = parts[0];
-                  const textPart = parts.slice(1).join("</think>");
+                if (funcName) state.funcNames[tcIdx] = funcName;
 
-                  if (thinkPart) emitReasoningDelta(controller, thinkPart);
-                  closeReasoning(controller);
-                  state.inThinking = false;
-                  content = textPart;
+                if (!state.funcCallIds[tcIdx] && newCallId) {
+                  state.funcCallIds[tcIdx] = newCallId;
                 }
 
-                if (state.inThinking && content) {
-                  emitReasoningDelta(controller, content);
-                  // Pre-existing behaviour (unrelated to #8081): a still-open
-                  // textual <think> block ends this message's handling early.
-                  continue;
-                }
-              }
-
-              // Regular text content
-              if (content) {
-                // Use a distinct output_index for the message when reasoning was
-                // emitted, so the message item does not collide with the
-                // reasoning item's output_index.
-                const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
-
-                // Fix for #1211: Strip leading double-newlines / blank spaces from the very first text chunk
-                if (!state.msgTextBuf[msgIdx]) {
-                  content = content.trimStart();
-                }
-
-                if (!content) continue;
-
-                if (!state.msgItemAdded[msgIdx]) {
-                  state.msgItemAdded[msgIdx] = true;
-                  const msgId = `msg_${state.responseId}_${msgIdx}`;
-
-                  emit(controller, "response.output_item.added", {
-                    type: "response.output_item.added",
-                    output_index: msgIdx,
-                    item: { id: msgId, type: "message", content: [], role: "assistant" },
-                  });
+                // The provider may send the call id before the function name. Defer the
+                // lifecycle item until the name is available so custom calls are not first
+                // announced as function calls.
+                if (state.funcCallIds[tcIdx] && state.funcNames[tcIdx]) {
+                  const itemAdded = emitToolCallAdded(controller, tcIdx, outputIndex);
+                  if (
+                    itemAdded &&
+                    state.funcItemTypes[tcIdx] !== "custom_tool_call" &&
+                    state.funcArgsBuf[tcIdx]
+                  ) {
+                    emit(controller, "response.function_call_arguments.delta", {
+                      type: "response.function_call_arguments.delta",
+                      item_id: `fc_${state.funcCallIds[tcIdx]}`,
+                      output_index: outputIndex,
+                      delta: state.funcArgsBuf[tcIdx],
+                    });
+                  }
                 }
 
-                if (!state.msgContentAdded[msgIdx]) {
-                  state.msgContentAdded[msgIdx] = true;
+                if (!state.funcArgsBuf[tcIdx]) state.funcArgsBuf[tcIdx] = "";
 
-                  emit(controller, "response.content_part.added", {
-                    type: "response.content_part.added",
-                    item_id: `msg_${state.responseId}_${msgIdx}`,
-                    output_index: msgIdx,
-                    content_index: 0,
-                    part: { type: "output_text", annotations: [], logprobs: [], text: "" },
-                  });
+                if (tc.function?.arguments) {
+                  const refCallId = state.funcCallIds[tcIdx] || newCallId;
+                  let deltaStr = tc.function.arguments;
+
+                  // Fix #1674 & #1852: Strip empty strings and empty arrays from streaming deltas
+                  if (
+                    deltaStr.includes('""') ||
+                    deltaStr.includes("[]") ||
+                    deltaStr.includes("[ ]")
+                  ) {
+                    deltaStr = deltaStr
+                      .replace(/,"[a-zA-Z0-9_]+":""/g, "")
+                      .replace(/"[a-zA-Z0-9_]+":"",/g, "")
+                      .replace(/,"[a-zA-Z0-9_]+":\s*\[\s*\]/g, "")
+                      .replace(/"[a-zA-Z0-9_]+":\s*\[\s*\],?/g, "");
+                  }
+
+                  const existingArgs = state.funcArgsBuf[tcIdx] || "";
+                  const nextArgs = appendToolCallArgumentDelta(existingArgs, deltaStr);
+                  const emittedDelta = nextArgs.slice(existingArgs.length);
+                  state.funcArgsBuf[tcIdx] = nextArgs;
+
+                  if (
+                    refCallId &&
+                    emittedDelta &&
+                    state.funcItemAdded[tcIdx] &&
+                    state.funcItemTypes[tcIdx] !== "custom_tool_call"
+                  ) {
+                    emit(controller, "response.function_call_arguments.delta", {
+                      type: "response.function_call_arguments.delta",
+                      item_id: `fc_${refCallId}`,
+                      output_index: outputIndex,
+                      delta: emittedDelta,
+                    });
+                  }
                 }
-
-                emit(controller, "response.output_text.delta", {
-                  type: "response.output_text.delta",
-                  item_id: `msg_${state.responseId}_${msgIdx}`,
-                  output_index: msgIdx,
-                  content_index: 0,
-                  delta: content,
-                  logprobs: [],
-                });
-
-                if (!state.msgTextBuf[msgIdx]) state.msgTextBuf[msgIdx] = "";
-                state.msgTextBuf[msgIdx] += content;
               }
             }
-          }
 
-          // Handle tool_calls
-          if (delta.tool_calls) {
-            // Close reasoning first so tool calls do not collide with an
-            // open reasoning item, then close the message at its real index.
-            if (state.reasoningId && !state.reasoningDone) {
+            // Handle finish_reason
+            if (choice.finish_reason) {
+              for (const i in state.msgItemAdded) closeMessage(controller, i);
               closeReasoning(controller);
-            }
-            const msgIdx = state.reasoningId ? state.reasoningIndex + 1 : idx;
-            closeMessage(controller, msgIdx);
-
-            for (const tc of delta.tool_calls) {
-              const tcIdx = tc.index ?? 0;
-              const newCallId = tc.id;
-              const funcName = tc.function?.name;
-
-              // T37: Prevent merging if a new tool_call uses the same index
-              if (state.funcCallIds[tcIdx] && newCallId && state.funcCallIds[tcIdx] !== newCallId) {
-                // Superseded call: close and emit output_item.done but do NOT record as final output
-                // since this call was replaced by a new one at the same index.
-                closeToolCall(controller, tcIdx, false);
-                delete state.funcCallIds[tcIdx];
-                delete state.funcNames[tcIdx];
-                delete state.funcArgsBuf[tcIdx];
-                delete state.funcItemAdded[tcIdx];
-                delete state.funcItemTypes[tcIdx];
-                delete state.funcArgsDone[tcIdx];
-                delete state.funcItemDone[tcIdx];
+              for (const i in state.funcCallIds) closeToolCall(controller, i);
+              if (state.usage) {
+                // Usage already captured — either it arrived in this same chunk, or an
+                // earlier usage-bearing chunk already populated state.usage. Either way
+                // there is nothing left to wait for, so complete right away.
+                sendCompleted(controller);
+              } else {
+                // #6906: defer response.completed — a trailing usage-only chunk may
+                // still arrive (stream_options.include_usage=true). The empty-choices
+                // branch above (or flush() at stream end, as a fallback) actually
+                // calls sendCompleted().
+                state.awaitingTrailingUsage = true;
               }
-
-              if (funcName) state.funcNames[tcIdx] = funcName;
-
-              if (!state.funcCallIds[tcIdx] && newCallId) {
-                state.funcCallIds[tcIdx] = newCallId;
-              }
-
-              // The provider may send the call id before the function name. Defer the
-              // lifecycle item until the name is available so custom calls are not first
-              // announced as function calls.
-              if (state.funcCallIds[tcIdx] && state.funcNames[tcIdx]) {
-                const itemAdded = emitToolCallAdded(controller, tcIdx);
-                if (
-                  itemAdded &&
-                  state.funcItemTypes[tcIdx] !== "custom_tool_call" &&
-                  state.funcArgsBuf[tcIdx]
-                ) {
-                  emit(controller, "response.function_call_arguments.delta", {
-                    type: "response.function_call_arguments.delta",
-                    item_id: `fc_${state.funcCallIds[tcIdx]}`,
-                    output_index: tcIdx,
-                    delta: state.funcArgsBuf[tcIdx],
-                  });
-                }
-              }
-
-              if (!state.funcArgsBuf[tcIdx]) state.funcArgsBuf[tcIdx] = "";
-
-              if (tc.function?.arguments) {
-                const refCallId = state.funcCallIds[tcIdx] || newCallId;
-                let deltaStr = tc.function.arguments;
-
-                // Fix #1674 & #1852: Strip empty strings and empty arrays from streaming deltas
-                if (
-                  deltaStr.includes('""') ||
-                  deltaStr.includes("[]") ||
-                  deltaStr.includes("[ ]")
-                ) {
-                  deltaStr = deltaStr
-                    .replace(/,"[a-zA-Z0-9_]+":""/g, "")
-                    .replace(/"[a-zA-Z0-9_]+":"",/g, "")
-                    .replace(/,"[a-zA-Z0-9_]+":\s*\[\s*\]/g, "")
-                    .replace(/"[a-zA-Z0-9_]+":\s*\[\s*\],?/g, "");
-                }
-
-                const existingArgs = state.funcArgsBuf[tcIdx] || "";
-                const nextArgs = appendToolCallArgumentDelta(existingArgs, deltaStr);
-                const emittedDelta = nextArgs.slice(existingArgs.length);
-                state.funcArgsBuf[tcIdx] = nextArgs;
-
-                if (
-                  refCallId &&
-                  emittedDelta &&
-                  state.funcItemAdded[tcIdx] &&
-                  state.funcItemTypes[tcIdx] !== "custom_tool_call"
-                ) {
-                  emit(controller, "response.function_call_arguments.delta", {
-                    type: "response.function_call_arguments.delta",
-                    item_id: `fc_${refCallId}`,
-                    output_index: tcIdx,
-                    delta: emittedDelta,
-                  });
-                }
-              }
-            }
-          }
-
-          // Handle finish_reason
-          if (choice.finish_reason) {
-            for (const i in state.msgItemAdded) closeMessage(controller, i);
-            closeReasoning(controller);
-            for (const i in state.funcCallIds) closeToolCall(controller, i);
-            if (state.usage) {
-              // Usage already captured — either it arrived in this same chunk, or an
-              // earlier usage-bearing chunk already populated state.usage. Either way
-              // there is nothing left to wait for, so complete right away.
-              sendCompleted(controller);
-            } else {
-              // #6906: defer response.completed — a trailing usage-only chunk may
-              // still arrive (stream_options.include_usage=true). The empty-choices
-              // branch above (or flush() at stream end, as a fallback) actually
-              // calls sendCompleted().
-              state.awaitingTrailingUsage = true;
             }
           }
         }

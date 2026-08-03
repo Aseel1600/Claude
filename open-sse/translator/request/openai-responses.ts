@@ -23,9 +23,11 @@ import {
   TOOL_SEARCH_TOOL_TYPES,
   IMAGE_GENERATION_TOOL_TYPES,
   toRecord,
+  toArray,
   toString,
   normalizeVerbosity,
   normalizeResponsesReasoningEffort,
+  getVisibleResponsesReasoningSummaryText,
   shouldRequestClaudeSummarizedThinking,
   unsupportedFeature,
 } from "./openai-responses/helpers.ts";
@@ -203,6 +205,22 @@ export function openaiResponsesToOpenAIRequest(
   let currentAssistantMsg: JsonRecord | null = null;
   let pendingToolResults: JsonRecord[] = [];
 
+  // Chat Completions upstreams (e.g. opencode-zen/big-pickle) reject an assistant
+  // message carrying `tool_calls: []` — the field must be omitted entirely when a
+  // turn has no function calls. Every assistant turn here is seeded with `tool_calls: []`
+  // so later branches can push onto it; strip it back out at flush time if nothing landed.
+  const flushAssistantMsg = () => {
+    if (!currentAssistantMsg) return;
+    if (
+      Array.isArray(currentAssistantMsg.tool_calls) &&
+      currentAssistantMsg.tool_calls.length === 0
+    ) {
+      delete currentAssistantMsg.tool_calls;
+    }
+    messages.push(currentAssistantMsg);
+    currentAssistantMsg = null;
+  };
+
   // Upstream providers reject messages:[] with "400: at least one message is required".
   // When the client sends input:[] (empty), inject a placeholder user message — mirrors
   // upstream 9router#419 (and the existing empty-string handling elsewhere in this file).
@@ -218,21 +236,7 @@ export function openaiResponsesToOpenAIRequest(
     const itemType = toString(item.type) || (item.role ? "message" : "");
 
     if (itemType === "message") {
-      // Flush pending assistant message with tool calls
-      if (currentAssistantMsg) {
-        messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
-      }
-
-      // Flush pending tool results
-      if (pendingToolResults.length > 0) {
-        for (const toolResult of pendingToolResults) {
-          messages.push(toolResult);
-        }
-        pendingToolResults = [];
-      }
-
-      // Convert content: input_text -> text, output_text -> text
+      const role = toString(item.role);
       const content = Array.isArray(item.content)
         ? item.content.map((contentValue) => {
             const contentItem = toRecord(contentValue);
@@ -267,7 +271,33 @@ export function openaiResponsesToOpenAIRequest(
           })
         : item.content;
 
-      messages.push({ role: toString(item.role), content });
+      // Group contiguous assistant components (reasoning, content, tool_calls)
+      // into a single turn for the Chat API downgrade.
+      if (role === "assistant") {
+        if (!currentAssistantMsg) {
+          currentAssistantMsg = { role: "assistant", content, tool_calls: [] };
+        } else if (currentAssistantMsg.content === null) {
+          currentAssistantMsg.content = content;
+        } else {
+          // Turn changed or multiple content messages: flush and start new
+          flushAssistantMsg();
+          currentAssistantMsg = { role: "assistant", content, tool_calls: [] };
+        }
+        continue;
+      }
+
+      // Flush pending assistant turn
+      flushAssistantMsg();
+
+      // Flush pending tool results
+      if (pendingToolResults.length > 0) {
+        for (const toolResult of pendingToolResults) {
+          messages.push(toolResult);
+        }
+        pendingToolResults = [];
+      }
+
+      messages.push({ role, content });
       continue;
     }
 
@@ -314,10 +344,7 @@ export function openaiResponsesToOpenAIRequest(
 
     if (itemType === "function_call_output") {
       // Flush assistant message first if present
-      if (currentAssistantMsg) {
-        messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
-      }
+      flushAssistantMsg();
 
       // Flush pending tool results first
       if (pendingToolResults.length > 0) {
@@ -369,10 +396,7 @@ export function openaiResponsesToOpenAIRequest(
 
     if (itemType === "custom_tool_call_output") {
       // Result of a custom tool call — translate the same way as function_call_output.
-      if (currentAssistantMsg) {
-        messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
-      }
+      flushAssistantMsg();
       if (pendingToolResults.length > 0) {
         for (const toolResult of pendingToolResults) {
           messages.push(toolResult);
@@ -399,7 +423,29 @@ export function openaiResponsesToOpenAIRequest(
     }
 
     if (itemType === "reasoning") {
-      // Skip reasoning items - they are display-only metadata
+      // #fix: Convert reasoning items to reasoning_content on the assistant turn
+      // they belong to, ensuring DeepSeek-family upstreams receive their mandatory
+      // multi-turn thought context. Without this, replaying a Responses-API
+      // conversation history onto a strict OpenAI target (like DeepSeek V4 via
+      // OpenCode) results in a 400 or degraded/stuck model behavior.
+      const reasoningText = getVisibleResponsesReasoningSummaryText(item);
+      if (reasoningText) {
+        if (currentAssistantMsg) {
+          currentAssistantMsg.reasoning_content =
+            (toString(currentAssistantMsg.reasoning_content) || "") + reasoningText;
+        } else if (messages.length > 0 && messages[messages.length - 1].role === "assistant") {
+          const lastMsg = messages[messages.length - 1] as JsonRecord;
+          lastMsg.reasoning_content = (toString(lastMsg.reasoning_content) || "") + reasoningText;
+        } else {
+          // Orphan reasoning item (precedes any assistant content)
+          currentAssistantMsg = {
+            role: "assistant",
+            content: null,
+            reasoning_content: reasoningText,
+            tool_calls: [],
+          };
+        }
+      }
       continue;
     }
 
@@ -425,9 +471,7 @@ export function openaiResponsesToOpenAIRequest(
   }
 
   // Flush remainder
-  if (currentAssistantMsg) {
-    messages.push(currentAssistantMsg);
-  }
+  flushAssistantMsg();
   if (pendingToolResults.length > 0) {
     for (const toolResult of pendingToolResults) {
       messages.push(toolResult);

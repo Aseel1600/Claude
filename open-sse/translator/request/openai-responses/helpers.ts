@@ -49,6 +49,43 @@ export function imageUrlToText(value: unknown): string {
   return toString(record.url);
 }
 
+export function extractResponsesReasoningSummaryText(item: unknown): string {
+  const record = toRecord(item);
+  const summary = toArray(record.summary);
+  if (summary.length === 0) return "";
+  return summary
+    .map((part) => {
+      const p = toRecord(part);
+      return typeof p.text === "string" ? p.text : "";
+    })
+    .join("");
+}
+
+// #7095/#7176 — when Codex exposes a reasoning item only as encrypted private
+// reasoning (no plaintext summary), chat clients would otherwise see nothing in
+// their thinking panel. Reconciles two goals that used to be in tension:
+//   - #7095 wants a visible placeholder in the chat client.
+//   - #7176 wants the upstream response item left untouched, so `encrypted_content`
+//     (needed by Codex for subsequent requests) is never overwritten by a
+//     fabricated `summary`.
+// This function computes the placeholder text WITHOUT mutating `item` — callers
+// use the returned text for synthetic client-facing events only.
+const ENCRYPTED_REASONING_PLACEHOLDER =
+  "Codex is reasoning, but the upstream Responses API exposed this reasoning block only as encrypted private reasoning. OmniRoute cannot recover the plaintext.";
+
+export function getVisibleResponsesReasoningSummaryText(item: unknown): string {
+  const existingSummary = extractResponsesReasoningSummaryText(item);
+  if (existingSummary) return existingSummary;
+
+  const record = toRecord(item);
+  const hasEncryptedReasoning =
+    record.type === "reasoning" &&
+    typeof record.encrypted_content === "string" &&
+    record.encrypted_content.length > 0;
+
+  return hasEncryptedReasoning ? ENCRYPTED_REASONING_PLACEHOLDER : "";
+}
+
 const CODEX_GPT_5_6_MODEL_PATTERN =
   /^gpt-5\.6-(?:sol|terra|luna)(?:-(?:none|low|medium|high|xhigh|max|ultra))?$/;
 

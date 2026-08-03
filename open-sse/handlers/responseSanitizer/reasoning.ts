@@ -136,7 +136,8 @@ export function isTextualReasoningTagNativeRoute(providerId: string, modelId: st
     // opencode, cline, opencode-zen, codebuddy-cn). The direct minimax/minimax-cn
     // tiers stay on Anthropic's Messages format (targetFormat: "claude") and
     // already surface reasoning natively, so they are excluded here.
-    (providerId !== "minimax" && providerId !== "minimax-cn" && /minimax[-_]?m3\b/.test(routeId))
+    (providerId !== "minimax" && providerId !== "minimax-cn" && /minimax[-_]?m3\b/.test(routeId)) ||
+    /big-pickle/.test(routeId)
   );
 }
 

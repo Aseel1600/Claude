@@ -60,6 +60,7 @@ const REASONING_REPLAY_MODEL_PATTERNS = [
   // MiMo (Xiaomi) thinking models — defensive match if a wildcard route
   // assigns a non-`xiaomi-mimo` provider ID to a mimo-* model alias.
   /^mimo[-.]?v\d/i,
+  /\bbig-pickle\b/i,
 ];
 
 const DEEPSEEK_V4_MODEL_PATTERN = /deepseek[-/]v4[-.](flash|pro)/i;
