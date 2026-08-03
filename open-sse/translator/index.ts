@@ -224,8 +224,12 @@ export function translateRequest(
   // Fix missing tool responses (insert empty tool_result if needed)
   fixMissingToolResponses(result);
 
-  // Strip orphaned tool results (tool_result/role:tool with no matching tool_call)
-  stripOrphanedToolResults(result);
+  // Claude reconciliation preserves orphaned tool output as labelled user text.
+  // Keep the raw result carriers until the target translator can perform that
+  // lossless conversion; other target formats retain the strict orphan filter.
+  if (targetFormat !== FORMATS.CLAUDE) {
+    stripOrphanedToolResults(result);
+  }
 
   // Normalize roles: developer→system unless preserved, system→user for incompatible models.
   // This handles (1) sourceFormat openai with messages containing developer → non-openai target

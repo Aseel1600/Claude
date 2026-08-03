@@ -59,8 +59,11 @@ export function ensureToolCallIds(body, options?: { use9CharId?: boolean }) {
       }
     }
 
-    // Tool responses (role "tool") follow in same order as tool_calls; set tool_call_id by index.
-    // Stop when we hit another assistant so we only link tool messages that immediately follow this one.
+    // Tool responses (role "tool") follow in the same order as tool_calls. Rewrite
+    // every id only when the provider requires generated 9-char ids; otherwise keep
+    // explicit client ids and fill only missing ones. Overwriting a compacted orphan's
+    // explicit id by position can make it impersonate a different parallel call.
+    // Stop at the next assistant so we only link responses belonging to this turn.
     if (newIdsInOrder.length > 0) {
       let idx = 0;
       for (let j = i + 1; j < body.messages.length; j++) {
@@ -68,7 +71,13 @@ export function ensureToolCallIds(body, options?: { use9CharId?: boolean }) {
         if (later.role === "assistant") break;
         if (later.role !== "tool") continue;
         if (idx < newIdsInOrder.length) {
-          later.tool_call_id = newIdsInOrder[idx];
+          if (
+            use9CharId ||
+            later.tool_call_id == null ||
+            String(later.tool_call_id).trim() === ""
+          ) {
+            later.tool_call_id = newIdsInOrder[idx];
+          }
           idx++;
         }
       }
