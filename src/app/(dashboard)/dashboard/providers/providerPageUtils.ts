@@ -445,6 +445,28 @@ export interface ProviderPageData {
   expirations: any | null;
   blockedProviders: string[] | null;
   settings: any | null;
+  /** OpenRouter-sourced popularity/identity enrichment, keyed by provider slug. Empty if the sync hasn't run yet or the fetch failed. */
+  openRouterProviderStats: OpenRouterProviderStatsEntry[];
+}
+
+/** Mirrors ProviderPopularityEntry from src/lib/catalog/openrouterProviderStats.ts (kept local to avoid a server-only import from a client component). */
+export interface OpenRouterProviderStatsEntry {
+  slug: string;
+  displayName: string;
+  headquarters?: string;
+  statusPageUrl?: string | null;
+  byokEnabled?: boolean;
+  dataPolicy?: {
+    training?: boolean;
+    retainsPrompts?: boolean;
+    termsOfServiceURL?: string;
+    privacyPolicyURL?: string;
+  };
+  iconUrl?: string;
+  modelCount: number;
+  totalTokens: number;
+  totalRequests: number;
+  popularityRank: number;
 }
 
 // Bound each first-paint request so a single stalled connection cannot freeze
@@ -482,12 +504,14 @@ export async function loadProviderPageData(
     }
   };
 
-  const [connectionsData, nodesData, expirationsData, settingsData] = await Promise.all([
-    safeJson("/api/providers"),
-    safeJson("/api/provider-nodes"),
-    safeJson("/api/providers/expiration"),
-    safeJson("/api/settings", { cache: "no-store" }),
-  ]);
+  const [connectionsData, nodesData, expirationsData, settingsData, openRouterStatsData] =
+    await Promise.all([
+      safeJson("/api/providers"),
+      safeJson("/api/provider-nodes"),
+      safeJson("/api/providers/expiration"),
+      safeJson("/api/settings", { cache: "no-store" }),
+      safeJson("/api/providers/openrouter-stats"),
+    ]);
 
   return {
     connections: Array.isArray(connectionsData?.connections) ? connectionsData.connections : [],
@@ -498,5 +522,6 @@ export async function loadProviderPageData(
       ? settingsData.blockedProviders
       : null,
     settings: settingsData ?? null,
+    openRouterProviderStats: Array.isArray(openRouterStatsData?.data) ? openRouterStatsData.data : [],
   };
 }
