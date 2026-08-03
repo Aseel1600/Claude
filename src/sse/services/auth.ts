@@ -950,6 +950,7 @@ export { fisherYatesShuffle, getNextFromDeckSync as getNextFromDeck };
 const PROVIDER_SEARCH_PAIRS: string[][] = [
   ["nvidia", "nvidia_nim"],
   ["kimi-coding", "kimi-coding-apikey"],
+  ["antigravity", "agy"],
 ];
 /**
  * Resolve provider aliases (e.g., nvidia -> nvidia_nim) for DB lookup
