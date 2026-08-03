@@ -15,7 +15,10 @@ import { getModelsByProviderId } from "@/shared/constants/models";
 import { providerHasServiceKind } from "@/lib/providers/serviceKindIndex";
 import { compareTr, matchesAnyToken, matchesSearch } from "@/shared/utils/turkishText";
 import { fetchWithTimeout } from "@/shared/utils/fetchTimeout";
-import type { ProviderDisplayMode } from "./providerPageStorage";
+import {
+  parseProviderDisplayModePreference,
+  type ProviderDisplayMode,
+} from "./providerPageStorage";
 import { getFeaturedProviderRank } from "./featuredProviders";
 
 export interface ProviderStatsSnapshot {
@@ -71,20 +74,115 @@ export function shouldShowFirstProviderHint(
 }
 
 export function syncSearchToUrl(searchQuery: string): void {
+  syncProviderFiltersToUrl({ searchQuery });
+}
+
+/** All dashboard summary-chip category keys that are valid in `?cat=`. */
+const PROVIDER_CATEGORY_URL_VALUES = new Set([
+  "oauth",
+  "ide",
+  "free",
+  "no-auth",
+  "upstream-proxy",
+  "apikey",
+  "compatible",
+  "webcookie",
+  "search",
+  "webfetch",
+  "audio",
+  "local",
+  "cloudagent",
+]);
+
+/** Media/service-kind chip keys that are valid in `?media=`. */
+const PROVIDER_SERVICE_KIND_URL_VALUES = new Set([
+  "image",
+  "video",
+  "music",
+  "tts",
+  "stt",
+  "embedding",
+]);
+
+export interface ProviderFilterUrlState {
+  searchQuery?: string;
+  modelSearchQuery?: string;
+  displayMode?: ProviderDisplayMode;
+  category?: string | null;
+  showFreeOnly?: boolean;
+  mediaKind?: string | null;
+}
+
+/**
+ * Reflect the providers dashboard filters in the URL query string via
+ * history.replaceState so a filtered view can be bookmarked/shared:
+ *
+ *   ?search=<name>  provider-name / id search (#8624)
+ *   ?model=<name>   model-name search
+ *   ?mode=all|configured|compact  display mode (All / Configured / Compact)
+ *   ?cat=<key>      active summary category (oauth, ide, free, no-auth, …)
+ *   ?media=<key>    media/service-kind filter (image, video, music, …)
+ *
+ * "Free Tier" is encoded as `?cat=free` (showFreeOnly). Params carrying no
+ * filter are removed so the URL stays canonical and shareable.
+ */
+export function syncProviderFiltersToUrl(state: ProviderFilterUrlState): void {
   if (typeof window === "undefined") return;
 
   const url = new URL(window.location.href);
-  const currentSearch = url.searchParams.get("search") || "";
+  const params = url.searchParams;
+  let changed = false;
 
-  if (searchQuery.trim()) {
-    if (currentSearch !== searchQuery) {
-      url.searchParams.set("search", searchQuery);
-      window.history.replaceState(window.history.state, "", url.toString());
-    }
-  } else if (url.searchParams.has("search")) {
-    url.searchParams.delete("search");
+  const setOrRemove = (key: string, value: string | null | undefined) => {
+    const next = value != null && value.length > 0 ? value : null;
+    const current = params.get(key);
+    if (next === current) return;
+    if (next === null) params.delete(key);
+    else params.set(key, next);
+    changed = true;
+  };
+
+  setOrRemove("search", state.searchQuery?.trim());
+  setOrRemove("model", state.modelSearchQuery?.trim());
+  setOrRemove("mode", state.displayMode && state.displayMode !== "all" ? state.displayMode : null);
+  setOrRemove("cat", state.showFreeOnly ? "free" : state.category || null);
+  setOrRemove("media", state.mediaKind || null);
+
+  if (changed) {
     window.history.replaceState(window.history.state, "", url.toString());
   }
+}
+
+/** Parse the provider dashboard filters back out of URL query params. */
+export function readProviderFiltersFromUrl(params: URLSearchParams): ProviderFilterUrlState {
+  const state: ProviderFilterUrlState = {};
+
+  const search = params.get("search");
+  if (search) state.searchQuery = search;
+
+  const model = params.get("model");
+  if (model) state.modelSearchQuery = model;
+
+  const mode = parseProviderDisplayModePreference(params.get("mode"));
+  if (mode) state.displayMode = mode;
+
+  const category = params.get("cat");
+  if (category && PROVIDER_CATEGORY_URL_VALUES.has(category)) {
+    if (category === "free") {
+      state.showFreeOnly = true;
+      state.category = null;
+    } else {
+      state.showFreeOnly = false;
+      state.category = category;
+    }
+  }
+
+  const media = params.get("media");
+  if (media && PROVIDER_SERVICE_KIND_URL_VALUES.has(media)) {
+    state.mediaKind = media;
+  }
+
+  return state;
 }
 
 export function shouldShowProviderSection(

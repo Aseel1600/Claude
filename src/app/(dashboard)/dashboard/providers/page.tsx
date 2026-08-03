@@ -27,10 +27,11 @@ import {
   buildCompatibleProviderGroups,
   connectionMatchesProviderCard,
   filterConfiguredProviderEntries,
+  readProviderFiltersFromUrl,
   shouldFilterProviderEntriesForDisplayMode,
   shouldShowFirstProviderHint,
   shouldShowProviderSection,
-  syncSearchToUrl,
+  syncProviderFiltersToUrl,
   upsertProviderNodeById,
   loadProviderPageData,
 } from "./providerPageUtils";
@@ -206,6 +207,10 @@ export default function ProvidersPage() {
   // #4240: media-category (serviceKind) filter — composes with activeCategory,
   // search and configured-only. null = no serviceKind filter.
   const [activeServiceKind, setActiveServiceKind] = useState<string | null>(null);
+  // URL hydration guard: the filter→URL sync effect must not write the URL
+  // before the initial URL→state read has applied, or a bookmarked view would
+  // be transiently clobbered by the default state on the first paint.
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const notify = useNotificationStore();
   const sectionCategoryAliases: Record<string, string> = {
     cloud: "cloudagent",
@@ -229,20 +234,41 @@ export default function ProvidersPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    setProviderDisplayMode(readProviderDisplayModePreference());
+    const urlMode = readProviderFiltersFromUrl(searchParams).displayMode;
+    setProviderDisplayMode(urlMode ?? readProviderDisplayModePreference());
     setDisplayModePreferenceReady(true);
-  }, []);
-
-  useEffect(() => {
-    const searchFromUrl = searchParams.get("search");
-    if (searchFromUrl) {
-      setSearchQuery(searchFromUrl);
-    }
   }, [searchParams]);
 
   useEffect(() => {
-    syncSearchToUrl(searchQuery);
-  }, [searchQuery]);
+    const urlFilters = readProviderFiltersFromUrl(searchParams);
+    setSearchQuery(urlFilters.searchQuery ?? "");
+    setModelSearchQuery(urlFilters.modelSearchQuery ?? "");
+    setActiveCategory(urlFilters.category ?? null);
+    setShowFreeOnly(urlFilters.showFreeOnly ?? false);
+    setActiveServiceKind(urlFilters.mediaKind ?? null);
+    setFiltersHydrated(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!filtersHydrated || !displayModePreferenceReady) return;
+    syncProviderFiltersToUrl({
+      searchQuery,
+      modelSearchQuery,
+      displayMode: providerDisplayMode,
+      category: activeCategory,
+      showFreeOnly,
+      mediaKind: activeServiceKind,
+    });
+  }, [
+    filtersHydrated,
+    displayModePreferenceReady,
+    searchQuery,
+    modelSearchQuery,
+    providerDisplayMode,
+    activeCategory,
+    showFreeOnly,
+    activeServiceKind,
+  ]);
 
   useEffect(() => {
     const fetchData = async () => {
