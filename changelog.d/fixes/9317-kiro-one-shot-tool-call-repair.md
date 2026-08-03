@@ -1,0 +1,1 @@
+- **fix(kiro):** retry malformed tool-call wrappers once during streaming. (thanks @SemonCat)
