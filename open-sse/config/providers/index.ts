@@ -146,6 +146,7 @@ import { siliconflowProvider } from "./registry/siliconflow/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
+import { regoloProvider } from "./registry/regolo/index.ts";
 import { windsurfProvider } from "./registry/windsurf/index.ts";
 import { zed_hostedProvider } from "./registry/zed-hosted/index.ts";
 import { nanogptProvider } from "./registry/nanogpt/index.ts";
@@ -367,6 +368,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "gitlab-duo": gitlab_duoProvider,
   "command-code": command_codeProvider,
   novita: novitaProvider,
+  regolo: regoloProvider,
   windsurf: windsurfProvider,
   "zed-hosted": zed_hostedProvider,
   nanogpt: nanogptProvider,
