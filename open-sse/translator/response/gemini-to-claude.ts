@@ -87,7 +87,8 @@ export function geminiToClaudeResponse(chunk, state) {
         }
         const fc = part.functionCall;
         const rawToolName = fc.name;
-        const restoredToolName = normalizeToolName(state.toolNameMap?.get(rawToolName) || rawToolName);
+        const mappedName = state.toolNameMap?.get(rawToolName);
+        const restoredToolName = mappedName ?? normalizeToolName(rawToolName);
         const idx = state.contentBlockIndex++;
         const toolId = fc.id || `toolu_${Date.now()}_${idx}`;
 
