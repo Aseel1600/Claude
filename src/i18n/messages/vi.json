@@ -1094,8 +1094,6 @@
     "costsFreeTiersSubtitle": "Hạn mức token miễn phí hàng tháng",
     "freeProviderRankings": "Xếp hạng nhà cung cấp miễn phí",
     "freeProviderRankingsSubtitle": "Các nhà cung cấp miễn phí tốt nhất được xếp hạng theo điểm ELO của mô hình",
-    "radar": "Danh mục Radar",
-    "radarSubtitle": "Danh mục mô hình miễn phí được làm phong phú bởi cộng đồng",
     "costsQuotaShare": "Chia sẻ hạn mức",
     "costsPricing": "Định giá",
     "logsProxy": "Nhật ký proxy",
@@ -1121,7 +1119,6 @@
     "runtime": "Thời gian chạy",
     "consoleLogs": "Nhật ký bảng điều khiển",
     "logsTimeline": "Timeline",
-    "logsTimelineSubtitle": "Dòng thời gian yêu cầu trực quan",
     "globalRouting": "Định tuyến toàn cục",
     "mitmProxy": "MITM Proxy",
     "oneProxy": "1Proxy",
@@ -1167,6 +1164,7 @@
     "logsSubtitle": "Nhật ký ứng dụng",
     "logsProxySubtitle": "Nhật ký lưu lượng proxy",
     "consoleLogsSubtitle": "Đầu ra bảng điều khiển",
+    "logsTimelineSubtitle": "Dòng thời gian yêu cầu trực quan",
     "logsActivitySubtitle": "Nhật ký hoạt động người dùng",
     "healthSubtitle": "Kiểm tra tình trạng hệ thống",
     "costsPricingSubtitle": "Quy tắc định giá theo từng mô hình",
@@ -1233,10 +1231,14 @@
     "groupSeparatorLabel": "Dấu phân cách",
     "discovery": "Khám phá",
     "discoverySubtitle": "Quét các nhà cung cấp để tìm quyền truy cập miễn phí",
+    "radar": "Danh mục Radar",
+    "radarSubtitle": "Danh mục mô hình miễn phí được làm phong phú bởi cộng đồng",
     "resilienceConnections": "Khả Năng Phục Hồi Kết Nối",
     "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa",
     "settingsModalityBridge": "Cầu Kết Nối Modality",
-    "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản"
+    "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản",
+    "conversationsSubtitle": "__MISSING__:Multi-turn agentic conversations",
+    "conversations": "__MISSING__:Conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -1476,7 +1478,79 @@
       "settings.update": "Đã cập nhật cài đặt",
       "settings.update_failed": "Cập nhật cài đặt thất bại",
       "sync.token.created": "Đã tạo token đồng bộ",
-      "sync.token.revoked": "Đã thu hồi token đồng bộ"
+      "sync.token.revoked": "Đã thu hồi token đồng bộ",
+      "apiKey": {
+        "activate": "Khóa API đã được kích hoạt",
+        "ban": "Khóa API đã bị cấm",
+        "deactivate": "Khóa API đã bị vô hiệu hóa",
+        "regenerate": "Khóa API đã được tạo lại",
+        "scopes": {
+          "grant": "Đã cấp phạm vi khóa API",
+          "revoke": "Đã thu hồi phạm vi khóa API",
+          "update": "Đã cập nhật phạm vi khóa API"
+        },
+        "unban": "Khóa API đã được gỡ cấm"
+      },
+      "auth": {
+        "login": {
+          "error": "Lỗi đăng nhập",
+          "failed": "Đăng nhập thất bại",
+          "locked": "Đăng nhập bị khóa",
+          "misconfigured": "Đăng nhập được cấu hình sai",
+          "setup_required": "Cần thiết lập đăng nhập",
+          "success": "Đăng nhập thành công"
+        },
+        "logout": {
+          "success": "Đăng xuất thành công"
+        }
+      },
+      "compliance": {
+        "cleanup": "Dọn dẹp tuân thủ"
+      },
+      "provider": {
+        "credentials": {
+          "applied": "Đã áp dụng thông tin xác thực nhà cung cấp",
+          "batch_revoked": "Đã thu hồi hàng loạt thông tin xác thực nhà cung cấp",
+          "bulk_created": "Đã tạo hàng loạt thông tin xác thực nhà cung cấp",
+          "bulk_imported": "Đã nhập hàng loạt thông tin xác thực nhà cung cấp",
+          "created": "Đã tạo thông tin xác thực nhà cung cấp",
+          "imported": "Đã nhập thông tin xác thực nhà cung cấp",
+          "revoked": "Đã thu hồi thông tin xác thực nhà cung cấp",
+          "updated": "Đã cập nhật thông tin xác thực nhà cung cấp"
+        },
+        "validation": {
+          "ssrf_blocked": "Đã chặn SSRF của nhà cung cấp"
+        }
+      },
+      "quota": {
+        "plan": {
+          "updated": "Đã cập nhật gói hạn mức"
+        },
+        "pool": {
+          "created": "Đã tạo nhóm hạn mức",
+          "deleted": "Đã xóa nhóm hạn mức",
+          "updated": "Đã cập nhật nhóm hạn mức"
+        },
+        "store": {
+          "driver_changed": "Đã thay đổi trình điều khiển kho lưu trữ hạn mức"
+        }
+      },
+      "server": {
+        "start": "Khởi động máy chủ"
+      },
+      "service": {
+        "reveal_api_key": "Đã hiển thị khóa API của dịch vụ"
+      },
+      "settings": {
+        "update": "Đã cập nhật cài đặt",
+        "update_failed": "Cập nhật cài đặt thất bại"
+      },
+      "sync": {
+        "token": {
+          "created": "Đã tạo token đồng bộ",
+          "revoked": "Đã thu hồi token đồng bộ"
+        }
+      }
     }
   },
   "themesPage": {
@@ -2520,14 +2594,6 @@
       "auto": "Tự động",
       "always": "Luôn bật"
     },
-    "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
-    "ccDiscoveryInfoTooltip": "Quảng bá các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
-    "ccDiscoveryInfoLink": "Mở Feature Flags",
-    "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
-    "ccOnboardingCopy": "Sao chép",
-    "ccOnboardingCopied": "Đã sao chép",
-    "ccOnboardingKeyPlaceholder": "<khóa API OmniRoute của bạn>",
-    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm.",
     "failedSave": "Không thể lưu",
     "profileSyncTitle": "Tự động đồng bộ hồ sơ CLI",
     "profileSyncDescription": "Sau khi đồng bộ mô hình của nhà cung cấp, tự động tạo lại hồ sơ công cụ CLI từ danh mục trực tiếp. Mặc định tắt — chỉ ghi các file hồ sơ, tuyệt đối không thay đổi cấu hình đang dùng hoặc cấu hình mặc định.",
@@ -2984,7 +3050,15 @@
     "copilotPasteInto": "Dán vào:",
     "copilotReloadInstruction": "Sau đó tải lại VS Code và nhập khóa API khi được yêu cầu.",
     "wireApiChatCompletions": "Chat Completions (/chat/completions)",
-    "wireApiResponses": "Responses API (/responses)"
+    "wireApiResponses": "Responses API (/responses)",
+    "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
+    "ccDiscoveryInfoTooltip": "Quảng bá các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+    "ccDiscoveryInfoLink": "Mở Feature Flags",
+    "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
+    "ccOnboardingCopy": "Sao chép",
+    "ccOnboardingCopied": "Đã sao chép",
+    "ccOnboardingKeyPlaceholder": "<khóa API OmniRoute của bạn>",
+    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm."
   },
   "combos": {
     "title": "Combo",
@@ -5788,7 +5862,6 @@
     "onboardingProviderDescriptions": {
       "360ai": "Lấy khóa API tại ai.360.cn",
       "agentrouter": "Nhận 200 USD tín dụng miễn phí tại https://agentrouter.org/register — không cần thẻ tín dụng.",
-      "unorouter": "Tạo khóa API tại https://unorouter.ai, sau đó dán vào đây dưới dạng Bearer token.",
       "agnes": "Lấy khóa API tại agnes-ai.com",
       "aimlapi": "Gói miễn phí đã tạm dừng (2026) — AI/ML API hiện chỉ tính phí theo mức sử dụng (nạp tối thiểu 20 USD); không còn tín dụng miễn phí định kỳ.",
       "ai21": "10 USD tín dụng dùng thử khi đăng ký (có hiệu lực 3 tháng), không cần thẻ tín dụng",
@@ -5985,7 +6058,8 @@
       "kimi-coding": "Kết nối Kimi Coding bằng luồng OAuth hiện có.",
       "kiro": "Gói miễn phí: 50 tín dụng/tháng (khoảng 25–100 nghìn token). ⚠️ Điều khoản Kiro cấm sử dụng proxy/harness của bên thứ ba.",
       "codex": "Kết nối OpenAI Codex bằng luồng OAuth hiện có.",
-      "qwen": "Kết nối Qwen Code bằng luồng OAuth hiện có."
+      "qwen": "Kết nối Qwen Code bằng luồng OAuth hiện có.",
+      "unorouter": "Tạo khóa API tại https://unorouter.ai, sau đó dán vào đây dưới dạng Bearer token."
     },
     "passthroughModelsDescription": "{provider} chấp nhận ID mô hình gốc của nhà cung cấp. Nhập từ /models hoặc thêm ID tùy chỉnh để định tuyến.",
     "bedrockModelsDescription": "Các mô hình Amazon Bedrock được giới hạn theo vùng AWS. Nhập từ /models hoặc thêm ID mô hình Bedrock được bật trong vùng đã chọn.",
@@ -6006,9 +6080,7 @@
     "webTokenRequiredCredential": "Token bắt buộc: {credential}",
     "webSessionGuideStep1": "Đăng nhập vào {provider} trong trình duyệt của bạn.",
     "webSessionGuideStep2": "Mở công cụ dành cho nhà phát triển của trình duyệt và kiểm tra một yêu cầu do ứng dụng web gửi.",
-    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
     "webSessionGuideStep3": "Sao chép thông tin xác thực được yêu cầu từ tên miền riêng của nhà cung cấp. Đối với cookie, chỉ sao chép giá trị tiêu đề Cookie và bỏ qua Cookie:.",
-    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:.",
     "webSessionGuideStep4": "Dán vào đây và kiểm tra kết nối. Nếu nó ngừng hoạt động, hãy đăng nhập lại và thay thế bằng một giá trị mới.",
     "webSessionSecurityHint": "Hãy coi đây như mật khẩu: nó có thể truy cập vào tài khoản web đã đăng nhập của bạn cho đến khi hết hạn hoặc bị thu hồi.",
     "webNoAuthGuideTitle": "Không yêu cầu thông tin xác thực",
@@ -6040,6 +6112,8 @@
     "cheaperInferenceSupporterBadge": "Người bạn mã nguồn mở",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference hỗ trợ OmniRoute với tư cách là người bạn mã nguồn mở",
     "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
+    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:.",
     "anonymousFallbackTitle": "Dự phòng ẩn danh",
     "anonymousFallbackDesc": "Khi tất cả kết nối đã cấu hình đều cạn kiệt (hạn ngạch, tín dụng hoặc hết hạn), hãy tạm thời sử dụng tầng không cần khóa của nhà cung cấp này. Tắt tùy chọn này để bỏ qua nhà cung cấp thay vì gửi yêu cầu ẩn danh — khuyến nghị khi tầng không cần khóa từ chối các yêu cầu đó (401).",
     "anonymousFallbackEnabled": "Đã bật dự phòng ẩn danh cho {provider}",
@@ -10251,8 +10325,6 @@
     "copied": "Đã sao chép!",
     "run": "Chạy",
     "running": "Đang chạy...",
-    "loading": "Đang tải...",
-    "retry": "Thử lại",
     "response": "Phản hồi",
     "tunnel": "Đường hầm",
     "send": "Gửi",
@@ -10306,7 +10378,9 @@
     "assistant": "Trợ lý",
     "errorLabel": "Lỗi",
     "requestFailed": "Yêu cầu thất bại",
-    "stop": "Dừng"
+    "stop": "Dừng",
+    "loading": "Đang tải...",
+    "retry": "Thử lại"
   },
   "requestLogger": {
     "recording": "Đang ghi",
@@ -10368,7 +10442,8 @@
       "compressed": "Nén",
       "tps": "TPS",
       "duration": "Thời lượng",
-      "time": "Thời gian"
+      "time": "Thời gian",
+      "conversation": "__MISSING__:Conversation"
     },
     "loadingLogs": "Đang tải nhật ký...",
     "noLogs": "Chưa có nhật ký nào. Hãy thực hiện một số cuộc gọi API để xem chúng ở đây.",
@@ -10852,8 +10927,6 @@
     "sourceModel": "Mô hình nguồn (agent gốc)",
     "targetModel": "Mô hình mục tiêu (OmniRoute)",
     "noMappings": "Chưa cấu hình ánh xạ mô hình. Hãy chạy trình hướng dẫn thiết lập để tự động phát hiện mô hình.",
-    "noMappingsDesc": "Chưa cấu hình ánh xạ mô hình nào. Hãy thêm ánh xạ để định tuyến yêu cầu của agent qua OmniRoute.",
-    "addMapping": "Thêm ánh xạ",
     "selectModel": "Chọn…",
     "saveMappings": "Lưu ánh xạ",
     "setupWizard": "Trình hướng dẫn thiết lập",
@@ -10925,7 +10998,9 @@
       "goNow": "Đi ngay",
       "message": "MITM Proxy hiện nằm trong AgentBridge.",
       "title": "Trang này đã được di chuyển"
-    }
+    },
+    "noMappingsDesc": "Chưa cấu hình ánh xạ mô hình nào. Hãy thêm ánh xạ để định tuyến yêu cầu của agent qua OmniRoute.",
+    "addMapping": "Thêm ánh xạ"
   },
   "providerStats": {
     "unknownError": "Lỗi không xác định",
@@ -11795,7 +11870,6 @@
     "danger": "Nguy hiểm",
     "requiresRestart": "Cần khởi động lại",
     "source": "Nguồn",
-    "ccDiscoveryAliasesEnvWarning": "Đang bật qua biến môi trường (EXPOSE_CC_DISCOVERY_ALIASES) — giá trị này ghi đè mọi công tắc trong bảng điều khiển bên dưới.",
     "resetFlag": "Đặt lại {label} về mặc định",
     "reset": "Đặt lại",
     "loadFailed": "Không thể tải cờ tính năng",
@@ -11952,7 +12026,8 @@
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Cho phép môi trường sandbox của kỹ năng truy cập mạng."
       }
-    }
+    },
+    "ccDiscoveryAliasesEnvWarning": "Đang bật qua biến môi trường (EXPOSE_CC_DISCOVERY_ALIASES) — giá trị này ghi đè mọi công tắc trong bảng điều khiển bên dưới."
   },
   "comboControl": {
     "title": "Trung tâm điều khiển combo",

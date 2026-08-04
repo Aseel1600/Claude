@@ -1094,8 +1094,6 @@
     "costsFreeTiersSubtitle": "Monthly free-token allowances",
     "freeProviderRankings": "Free Provider Rankings",
     "freeProviderRankingsSubtitle": "Best free providers ranked by model ELO scores",
-    "radar": "Catálogo de Radar",
-    "radarSubtitle": "Catálogo de modelos gratuito enriquecido por la comunidad",
     "costsQuotaShare": "Quota Sharing",
     "costsPricing": "Pricing",
     "logsProxy": "Proxy Logs",
@@ -1233,10 +1231,14 @@
     "groupSeparatorLabel": "Separator",
     "discovery": "Discovery",
     "discoverySubtitle": "Scan providers for free access",
+    "radar": "Catálogo de Radar",
+    "radarSubtitle": "Catálogo de modelos gratuito enriquecido por la comunidad",
     "resilienceConnections": "Resiliencia de Conexión",
     "resilienceConnectionsSubtitle": "Cooldown, disyuntor, estado de bloqueo",
     "settingsModalityBridge": "Puente de Modalidad",
-    "settingsModalityBridgeSubtitle": "Fallback de imagen/audio → texto para modelos solo de texto"
+    "settingsModalityBridgeSubtitle": "Fallback de imagen/audio → texto para modelos solo de texto",
+    "conversations": "__MISSING__:Conversations",
+    "conversationsSubtitle": "__MISSING__:Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Ganchos web",
@@ -1476,7 +1478,79 @@
       "settings.update": "Configuración actualizada",
       "settings.update_failed": "Error al actualizar la configuración",
       "sync.token.created": "Token de sincronización creado",
-      "sync.token.revoked": "Token de sincronización revocado"
+      "sync.token.revoked": "Token de sincronización revocado",
+      "apiKey": {
+        "activate": "Clave de API activada",
+        "ban": "Clave de API bloqueada",
+        "deactivate": "Clave de API desactivada",
+        "regenerate": "Clave de API regenerada",
+        "scopes": {
+          "grant": "Ámbitos de clave de API concedidos",
+          "revoke": "Ámbitos de clave de API revocados",
+          "update": "Ámbitos de clave de API actualizados"
+        },
+        "unban": "Clave de API desbloqueada"
+      },
+      "auth": {
+        "login": {
+          "error": "Error de inicio de sesión",
+          "failed": "Inicio de sesión fallido",
+          "locked": "Inicio de sesión bloqueado",
+          "misconfigured": "Inicio de sesión mal configurado",
+          "setup_required": "Configuración de inicio de sesión requerida",
+          "success": "Inicio de sesión exitoso"
+        },
+        "logout": {
+          "success": "Cierre de sesión exitoso"
+        }
+      },
+      "compliance": {
+        "cleanup": "Limpieza de cumplimiento"
+      },
+      "provider": {
+        "credentials": {
+          "applied": "Credenciales de proveedor aplicadas",
+          "batch_revoked": "Credenciales de proveedor revocadas por lotes",
+          "bulk_created": "Credenciales de proveedor creadas de forma masiva",
+          "bulk_imported": "Credenciales de proveedor importadas de forma masiva",
+          "created": "Credenciales de proveedor creadas",
+          "imported": "Credenciales de proveedor importadas",
+          "revoked": "Credenciales de proveedor revocadas",
+          "updated": "Credenciales de proveedor actualizadas"
+        },
+        "validation": {
+          "ssrf_blocked": "SSRF de proveedor bloqueado"
+        }
+      },
+      "quota": {
+        "plan": {
+          "updated": "Plan de cuota actualizado"
+        },
+        "pool": {
+          "created": "Grupo de cuotas creado",
+          "deleted": "Grupo de cuotas eliminado",
+          "updated": "Grupo de cuotas actualizado"
+        },
+        "store": {
+          "driver_changed": "Controlador de almacenamiento de cuotas cambiado"
+        }
+      },
+      "server": {
+        "start": "Inicio del servidor"
+      },
+      "service": {
+        "reveal_api_key": "Clave de API del servicio revelada"
+      },
+      "settings": {
+        "update": "Ajustes actualizados",
+        "update_failed": "Error al actualizar los ajustes"
+      },
+      "sync": {
+        "token": {
+          "created": "Token de sincronización creado",
+          "revoked": "Token de sincronización revocado"
+        }
+      }
     }
   },
   "themesPage": {
@@ -2520,14 +2594,6 @@
       "auto": "Auto",
       "always": "Always"
     },
-    "ccDiscoveryInfoButton": "Cómo habilitar el descubrimiento en Claude Code",
-    "ccDiscoveryInfoTooltip": "Anunciar modelos no Claude bajo claude/&lt;provider&gt;/&lt;model&gt; IDs de espejo para que el descubrimiento de modelos de la puerta de enlace de Claude Code pueda listarlos. Duplica las entradas del catálogo para todos los clientes cuando está habilitado globalmente.",
-    "ccDiscoveryInfoLink": "Abrir Banderas de Características",
-    "ccOnboardingTitle": "settings.json para el descubrimiento del modelo de gateway",
-    "ccOnboardingCopy": "Copiar",
-    "ccOnboardingCopied": "Copiado",
-    "ccOnboardingKeyPlaceholder": "<tu clave API de OmniRoute>",
-    "ccOnboardingWindowNote": "Claude Code asume una ventana de contexto de 200K para cualquier ID de modelo que no reconozca. Para un modelo con una ventana real diferente, añade CLAUDE_CODE_AUTO_COMPACT_WINDOW justo debajo para que la auto-compresión no se active demasiado pronto.",
     "failedSave": "Failed to save",
     "profileSyncTitle": "CLI profile auto-sync",
     "profileSyncDescription": "After provider models are synchronized, automatically regenerate CLI tool profiles from the live catalog. Off by default — only profile files are written; the active/default configuration is never changed.",
@@ -2929,28 +2995,6 @@
     "hermesRoleSkillsHubDesc": "Skills and tool-use reasoning",
     "hermesRoleApproval": "Approval",
     "hermesRoleApprovalDesc": "Safety and approval decisions",
-    "hermesRoleMcp": "MCP",
-    "hermesRoleMcpDesc": "Llamadas a la herramienta del servidor MCP",
-    "hermesRoleTitleGeneration": "Generación de Títulos",
-    "hermesRoleTitleGenerationDesc": "Generación de título de sesión",
-    "hermesRoleMemoryQueryRewrite": "Reescritura de Consulta de Memoria",
-    "hermesRoleMemoryQueryRewriteDesc": "Reescritura de consulta de búsqueda en memoria",
-    "hermesRoleTtsAudioTags": "Etiquetas de Audio TTS",
-    "hermesRoleTtsAudioTagsDesc": "Generación de etiquetas de audio TTS",
-    "hermesRoleTriageSpecifier": "Especificador de Triage",
-    "hermesRoleTriageSpecifierDesc": "Especificación de triage de problemas y PR",
-    "hermesRoleKanbanDecomposer": "Descomponedor Kanban",
-    "hermesRoleKanbanDecomposerDesc": "Descomposición de tareas Kanban",
-    "hermesRoleProfileDescriber": "Describidor de Perfil",
-    "hermesRoleProfileDescriberDesc": "Descripción del perfil del usuario",
-    "hermesRoleGoalJudge": "Juez de Objetivos",
-    "hermesRoleGoalJudgeDesc": "Evaluación de la finalización de objetivos",
-    "hermesRoleCurator": "Curador",
-    "hermesRoleCuratorDesc": "Curación de habilidades y memoria",
-    "hermesRoleMonitor": "Monitor",
-    "hermesRoleMonitorDesc": "Monitoreo en segundo plano",
-    "hermesRoleBackgroundReview": "Revisión de Antecedentes",
-    "hermesRoleBackgroundReviewDesc": "Revisión de código en segundo plano",
     "hermesSelectBeforePreview": "Select models for roles, or ensure the roles are loaded, before previewing.",
     "hermesPreviewFailed": "Failed to generate preview",
     "hermesSavedTo": "Saved to {path}",
@@ -2984,7 +3028,37 @@
     "copilotPasteInto": "Pegar en:",
     "copilotReloadInstruction": "Then reload VS Code and set the API key in the input prompt.",
     "wireApiChatCompletions": "Finalizaciones de chat (/chat/completions)",
-    "wireApiResponses": "API de respuestas (/respuestas)"
+    "wireApiResponses": "API de respuestas (/respuestas)",
+    "ccDiscoveryInfoButton": "Cómo habilitar el descubrimiento en Claude Code",
+    "ccDiscoveryInfoTooltip": "Anunciar modelos no Claude bajo claude/&lt;provider&gt;/&lt;model&gt; IDs de espejo para que el descubrimiento de modelos de la puerta de enlace de Claude Code pueda listarlos. Duplica las entradas del catálogo para todos los clientes cuando está habilitado globalmente.",
+    "ccDiscoveryInfoLink": "Abrir Banderas de Características",
+    "ccOnboardingTitle": "settings.json para el descubrimiento del modelo de gateway",
+    "ccOnboardingCopy": "Copiar",
+    "ccOnboardingCopied": "Copiado",
+    "ccOnboardingKeyPlaceholder": "<tu clave API de OmniRoute>",
+    "ccOnboardingWindowNote": "Claude Code asume una ventana de contexto de 200K para cualquier ID de modelo que no reconozca. Para un modelo con una ventana real diferente, añade CLAUDE_CODE_AUTO_COMPACT_WINDOW justo debajo para que la auto-compresión no se active demasiado pronto.",
+    "hermesRoleMcp": "MCP",
+    "hermesRoleMcpDesc": "Llamadas a la herramienta del servidor MCP",
+    "hermesRoleTitleGeneration": "Generación de Títulos",
+    "hermesRoleTitleGenerationDesc": "Generación de título de sesión",
+    "hermesRoleMemoryQueryRewrite": "Reescritura de Consulta de Memoria",
+    "hermesRoleMemoryQueryRewriteDesc": "Reescritura de consulta de búsqueda en memoria",
+    "hermesRoleTtsAudioTags": "Etiquetas de Audio TTS",
+    "hermesRoleTtsAudioTagsDesc": "Generación de etiquetas de audio TTS",
+    "hermesRoleTriageSpecifier": "Especificador de Triage",
+    "hermesRoleTriageSpecifierDesc": "Especificación de triage de problemas y PR",
+    "hermesRoleKanbanDecomposer": "Descomponedor Kanban",
+    "hermesRoleKanbanDecomposerDesc": "Descomposición de tareas Kanban",
+    "hermesRoleProfileDescriber": "Describidor de Perfil",
+    "hermesRoleProfileDescriberDesc": "Descripción del perfil del usuario",
+    "hermesRoleGoalJudge": "Juez de Objetivos",
+    "hermesRoleGoalJudgeDesc": "Evaluación de la finalización de objetivos",
+    "hermesRoleCurator": "Curador",
+    "hermesRoleCuratorDesc": "Curación de habilidades y memoria",
+    "hermesRoleMonitor": "Monitor",
+    "hermesRoleMonitorDesc": "Monitoreo en segundo plano",
+    "hermesRoleBackgroundReview": "Revisión de Antecedentes",
+    "hermesRoleBackgroundReviewDesc": "Revisión de código en segundo plano"
   },
   "combos": {
     "title": "combos",
@@ -5078,8 +5152,6 @@
     "noNewModelsAddedExisting": "No se agregaron nuevos modelos (todos ya existen).",
     "importDoneCount": "✓ ¡Listo! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ocurrió un error inesperado",
-    "getApiKey": "Obtener clave API",
-    "getApiKeyDescription": "Regístrate o crea una cuenta para obtener una clave API",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mensajes",
     "responsesPath": "respuestas",
@@ -5210,18 +5282,6 @@
     "interceptFetchHint": "Rewrite native web_fetch tool calls to OmniRoute's /v1/web/fetch.",
     "interceptionLoadError": "Failed to load interception settings: {error}",
     "interceptionSaveError": "Failed to save interception settings: {error}",
-    "ccAliasSectionTitle": "Exponer en Claude Code (claude/…)",
-    "ccAliasSectionHint": "Anunciar los modelos de este proveedor bajo claude/&lt;provider&gt;/&lt;model&gt; IDs de espejo para que el descubrimiento de modelos de la puerta de enlace de Claude Code pueda listarlos. Desactivado por defecto; habilitar esto duplica las entradas del catálogo para todos los clientes.",
-    "ccAliasProviderLevelLabel": "Proveedor predeterminado",
-    "ccAliasModelOverridesLabel": "Sobrescrituras por modelo",
-    "ccAliasModelOverrideAriaLabel": "Sobrescribir para {modelId}",
-    "ccAliasStateInherit": "Heredar",
-    "ccAliasStateOn": "Encendido",
-    "ccAliasStateOff": "Apagar",
-    "ccAliasAddModelPlaceholder": "ID del modelo (p. ej. gpt-4o)",
-    "ccAliasAddModelButton": "Agregar anulación",
-    "ccAliasLoadError": "Error al cargar la configuración de discovery-alias: {error}",
-    "ccAliasSaveError": "Error al guardar la configuración de alias de descubrimiento: {error}",
     "compatUpstreamHeadersLabel": "Extra upstream headers",
     "compatUpstreamHeadersHint": "High-privilege setting — same trust level as editing provider API credentials; only trusted admins should use it. Merged after OmniRoute adds auth from the provider API key. If a custom header uses the same name as an existing one (e.g. Authorization), your value fully replaces the auto-generated header (including the Bearer token) — the upstream only sees what you typed, not the key from settings. Misconfiguration can cause 401 or broken upstream auth. One row per header (e.g. extra Authentication for some gateways). Hover or focus the value to preview. Saves on blur, outside click, or closing this panel.",
     "compatUpstreamHeaderName": "Header name",
@@ -5496,13 +5556,6 @@
     "newApiUserIdLabel": "ID de usuario New-API",
     "newApiUserIdPlaceholder": "p. ej. 12345",
     "newApiUserIdHint": "Valor del encabezado New-Api-User de AgentRouter, usado junto con la clave de API de la consola para consultar el saldo de cuota.",
-    "newApiAggregatorToggleLabel": "Puerta de Enlace del Agregador",
-    "newApiAggregatorToggleHint": "Habilitar la detección de saldo para nodos agregadores New-API / One-API / Sub2API. El panel mostrará la insignia de saldo y el enrutamiento de pre-vuelo de cuota omitirá las cuentas agotadas.",
-    "newApiAggregatorConsoleApiKeyHint": "Token de acceso del sistema para el endpoint /api/user/self del agregador. No es la clave API de enrutamiento.",
-    "newApiAggregatorUserIdHint": "Valor del encabezado New-Api-User utilizado para obtener el saldo de cuota del usuario agregador.",
-    "newApiAggregatorQuotaPerUnitLabel": "Cuota Por Unidad",
-    "newApiAggregatorQuotaPerUnitHint": "Nuevas unidades de crédito de API por $1 (predeterminado: 500000). Sobrescriba si su agregador utiliza una tasa diferente.",
-    "featureFlagNewApiAggregatorBalanceDescription": "Habilitar la detección de balance para nodos compatibles con New-API / One-API / Sub2API agregador",
     "cpaModeDisabledTitle": "Cpa Mode Disabled Title",
     "cpaModeEnabledTitle": "Cpa Mode Enabled Title",
     "customUserAgentHint": "Custom User Agent Hint",
@@ -5618,7 +5671,6 @@
     "tagGroupPlaceholder": "Tag Group Placeholder",
     "testModel": "Test Model",
     "testingModel": "Testing Model",
-    "modelTestQuotaTooltip": "Cuota agotada — se restablece mañana o necesita una recarga",
     "toggleOffShort": "Toggle Off Short",
     "toggleOnShort": "Toggle On Short",
     "tokenExpiredBadge": "Token Expired Badge",
@@ -5788,7 +5840,6 @@
     "onboardingProviderDescriptions": {
       "360ai": "Get API key at ai.360.cn",
       "agentrouter": "Get $200 free credits at https://agentrouter.org/register — no credit card required.",
-      "unorouter": "Crea una clave API en https://unorouter.ai, luego pégala aquí como un token Bearer.",
       "agnes": "Get API key at agnes-ai.com",
       "aimlapi": "Free tier paused (2026) — AI/ML API is now pay-as-you-go only (min $20 top-up); no recurring free credits.",
       "ai21": "$10 trial credits on signup (valid 3 months), no credit card required",
@@ -5985,7 +6036,8 @@
       "kimi-coding": "Connect Kimi Coding with the existing OAuth flow.",
       "kiro": "Free tier: 50 credits/month (~25K–100K tokens). ⚠️ Kiro ToS prohibits third-party proxy/harness use.",
       "codex": "Connect OpenAI Codex with the existing OAuth flow.",
-      "qwen": "Connect Qwen Code with the existing OAuth flow."
+      "qwen": "Connect Qwen Code with the existing OAuth flow.",
+      "unorouter": "Crea una clave API en https://unorouter.ai, luego pégala aquí como un token Bearer."
     },
     "passthroughModelsDescription": "{provider} acepta ID de modelo nativo del proveedor. Importe desde /models o agregue ID personalizados para enrutamiento.",
     "bedrockModelsDescription": "Los modelos de Amazon Bedrock tienen como alcance la región de AWS. Importe desde /models o agregue ID de modelo Bedrock habilitados en la región seleccionada.",
@@ -6006,9 +6058,7 @@
     "webTokenRequiredCredential": "Token requerido: {credential}",
     "webSessionGuideStep1": "Inicie sesión en {provider} en su navegador.",
     "webSessionGuideStep2": "Abra las herramientas de desarrollo del navegador e inspeccione una solicitud realizada por la aplicación web.",
-    "webSessionGuideStep2Fast": "Ruta rápida: instala la extensión Cookie Editor (chromewebstore.google.com → Cookie Editor), ábrela en la pestaña {provider}, encuentra {credential} (selecciona todos los fragmentos numerados si están divididos), y haz clic en Exportar → Copiar con el formato de exportación configurado en “Cookie header”.",
     "webSessionGuideStep3": "Copie la credencial requerida del propio dominio del proveedor. Para las cookies, copie solo el valor del encabezado Cookie y omita Cookie:.",
-    "webSessionGuideStep3Manual": "Ruta manual: abre las herramientas de desarrollo del navegador (F12 → Red), actualiza la página, abre una solicitud autenticada y copia el valor del encabezado Cookie de los Encabezados de Solicitud — omite el prefijo Cookie:.",
     "webSessionGuideStep4": "Pégalo aquí y comprueba la conexión. Si deja de funcionar, inicie sesión nuevamente y reemplácelo con un valor nuevo.",
     "webSessionSecurityHint": "Trate esto como una contraseña: puede acceder a su cuenta web iniciada hasta que caduque o sea revocada.",
     "webNoAuthGuideTitle": "No se requiere credencial",
@@ -6030,9 +6080,6 @@
     "doubaoWebDesc": "ByteDance AI chat via dola.com",
     "overrideBaseUrlAdvanced": "Advanced: override base URL",
     "overrideBaseUrlHint": "Advanced: point this built-in provider at a custom endpoint. Leave blank to use the default.",
-    "apiProtocolLabel": "Protocolo API",
-    "apiProtocolDefault": "Compatible con OpenAI (predeterminado)",
-    "apiProtocolHint": "Algunos proveedores publican los mismos modelos a través de más de un protocolo. Deja el predeterminado a menos que necesites la alternativa.",
     "bulkAddFormatHintCloudflare": "One key per line. Format: name|accountId|apiKey (Cloudflare account ID + API token).",
     "lmarenaWebCookieHint": "Open arena.ai, sign in, then copy the full Cookie header from a Network request. Include arena-auth-prod-v1.0 and arena-auth-prod-v1.1 (and further chunks if present), preferably with cf_clearance. Do not paste only the empty arena-auth-prod-v1 cookie. Optional: providerSpecificData.recaptchaV3Token if create-evaluation still returns 403.",
     "kimiOfficialSupporterBadge": "Official Supporter",
@@ -6040,6 +6087,33 @@
     "cheaperInferenceSupporterBadge": "Amigo del código abierto",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference apoya a OmniRoute como amigo del código abierto",
     "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "ccAliasSectionTitle": "Exponer en Claude Code (claude/…)",
+    "ccAliasSectionHint": "Anunciar los modelos de este proveedor bajo claude/&lt;provider&gt;/&lt;model&gt; IDs de espejo para que el descubrimiento de modelos de la puerta de enlace de Claude Code pueda listarlos. Desactivado por defecto; habilitar esto duplica las entradas del catálogo para todos los clientes.",
+    "ccAliasProviderLevelLabel": "Proveedor predeterminado",
+    "ccAliasModelOverridesLabel": "Sobrescrituras por modelo",
+    "ccAliasModelOverrideAriaLabel": "Sobrescribir para {modelId}",
+    "ccAliasStateInherit": "Heredar",
+    "ccAliasStateOn": "Encendido",
+    "ccAliasStateOff": "Apagar",
+    "ccAliasAddModelPlaceholder": "ID del modelo (p. ej. gpt-4o)",
+    "ccAliasAddModelButton": "Agregar anulación",
+    "ccAliasLoadError": "Error al cargar la configuración de discovery-alias: {error}",
+    "ccAliasSaveError": "Error al guardar la configuración de alias de descubrimiento: {error}",
+    "getApiKey": "Obtener clave API",
+    "getApiKeyDescription": "Regístrate o crea una cuenta para obtener una clave API",
+    "newApiAggregatorToggleLabel": "Puerta de Enlace del Agregador",
+    "newApiAggregatorToggleHint": "Habilitar la detección de saldo para nodos agregadores New-API / One-API / Sub2API. El panel mostrará la insignia de saldo y el enrutamiento de pre-vuelo de cuota omitirá las cuentas agotadas.",
+    "newApiAggregatorConsoleApiKeyHint": "Token de acceso del sistema para el endpoint /api/user/self del agregador. No es la clave API de enrutamiento.",
+    "newApiAggregatorUserIdHint": "Valor del encabezado New-Api-User utilizado para obtener el saldo de cuota del usuario agregador.",
+    "newApiAggregatorQuotaPerUnitLabel": "Cuota Por Unidad",
+    "newApiAggregatorQuotaPerUnitHint": "Nuevas unidades de crédito de API por $1 (predeterminado: 500000). Sobrescriba si su agregador utiliza una tasa diferente.",
+    "featureFlagNewApiAggregatorBalanceDescription": "Habilitar la detección de balance para nodos compatibles con New-API / One-API / Sub2API agregador",
+    "modelTestQuotaTooltip": "Cuota agotada — se restablece mañana o necesita una recarga",
+    "webSessionGuideStep2Fast": "Ruta rápida: instala la extensión Cookie Editor (chromewebstore.google.com → Cookie Editor), ábrela en la pestaña {provider}, encuentra {credential} (selecciona todos los fragmentos numerados si están divididos), y haz clic en Exportar → Copiar con el formato de exportación configurado en “Cookie header”.",
+    "webSessionGuideStep3Manual": "Ruta manual: abre las herramientas de desarrollo del navegador (F12 → Red), actualiza la página, abre una solicitud autenticada y copia el valor del encabezado Cookie de los Encabezados de Solicitud — omite el prefijo Cookie:.",
+    "apiProtocolLabel": "Protocolo API",
+    "apiProtocolDefault": "Compatible con OpenAI (predeterminado)",
+    "apiProtocolHint": "Algunos proveedores publican los mismos modelos a través de más de un protocolo. Deja el predeterminado a menos que necesites la alternativa.",
     "anonymousFallbackTitle": "Recaudación anónima",
     "anonymousFallbackDesc": "Cuando todas las conexiones configuradas están agotadas (cuota, créditos o expiración), utiliza temporalmente el nivel sin clave de este proveedor. Desactiva para omitir este proveedor en lugar de enviar solicitudes anónimas — recomendado cuando el nivel sin clave las rechaza (401).",
     "anonymousFallbackEnabled": "Fallback anónimo habilitado para {provider}",
@@ -8538,16 +8612,6 @@
   },
   "usage": {
     "title": "Uso",
-    "grokExtraUsageCredits": "Créditos Adicionales de Uso",
-    "grokAutoTopUp": "Recarga Automática",
-    "grokAutoTopUpUnavailable": "No disponible",
-    "grokAutoTopUpEnabled": "Habilitado",
-    "grokAutoTopUpDisabled": "Deshabilitado",
-    "grokAutoTopUpAt": "en",
-    "grokAutoTopUpAdd": "agregar",
-    "grokAutoTopUpMax": "máx",
-    "grokAutoTopUpMonth": "mes",
-    "grokAdditionalCredits": "Créditos Adicionales",
     "loggerTab": "registrador",
     "proxyTab": "apoderado",
     "budgetManagement": "Gestión Presupuestaria",
@@ -8962,7 +9026,17 @@
     "updatedShort": "Updated",
     "lastRefreshed": "Last refreshed",
     "providerQuota": "Provider Quota",
-    "providerQuotaHomeHint": "Live status across connected accounts"
+    "providerQuotaHomeHint": "Live status across connected accounts",
+    "grokExtraUsageCredits": "Créditos Adicionales de Uso",
+    "grokAutoTopUp": "Recarga Automática",
+    "grokAutoTopUpUnavailable": "No disponible",
+    "grokAutoTopUpEnabled": "Habilitado",
+    "grokAutoTopUpDisabled": "Deshabilitado",
+    "grokAutoTopUpAt": "en",
+    "grokAutoTopUpAdd": "agregar",
+    "grokAutoTopUpMax": "máx",
+    "grokAutoTopUpMonth": "mes",
+    "grokAdditionalCredits": "Créditos Adicionales"
   },
   "modals": {
     "waitingAuth": "Esperando autorización",
@@ -10251,8 +10325,6 @@
     "copied": "Copied!",
     "run": "Run",
     "running": "Running...",
-    "loading": "Cargando...",
-    "retry": "Reintentar",
     "response": "Response",
     "tunnel": "Tunnel",
     "send": "Send",
@@ -10306,7 +10378,9 @@
     "assistant": "Assistant",
     "errorLabel": "Error",
     "requestFailed": "Request failed",
-    "stop": "Stop"
+    "stop": "Stop",
+    "loading": "Cargando...",
+    "retry": "Reintentar"
   },
   "requestLogger": {
     "recording": "Recording",
@@ -10368,7 +10442,8 @@
       "compressed": "Compresión",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "__MISSING__:Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",
@@ -10852,8 +10927,6 @@
     "sourceModel": "Source model (agent native)",
     "targetModel": "Target model (OmniRoute)",
     "noMappings": "No model mappings configured. Run setup wizard to auto-detect models.",
-    "noMappingsDesc": "No se han configurado mapeos de modelo aún. Agrega mapeos para enrutar las solicitudes del agente a través de OmniRoute.",
-    "addMapping": "Agregar mapeo",
     "selectModel": "Select…",
     "saveMappings": "Save mappings",
     "setupWizard": "Setup wizard",
@@ -10925,7 +10998,9 @@
       "goNow": "Go now",
       "message": "The MITM Proxy now lives under AgentBridge.",
       "title": "This page has moved"
-    }
+    },
+    "noMappingsDesc": "No se han configurado mapeos de modelo aún. Agrega mapeos para enrutar las solicitudes del agente a través de OmniRoute.",
+    "addMapping": "Agregar mapeo"
   },
   "providerStats": {
     "unknownError": "Unknown error",
@@ -11795,7 +11870,6 @@
     "danger": "Danger",
     "requiresRestart": "Requires restart",
     "source": "Source",
-    "ccDiscoveryAliasesEnvWarning": "Activo a través de la variable de entorno (EXPOSE_CC_DISCOVERY_ALIASES) — esto anula cualquier interruptor de panel a continuación.",
     "resetFlag": "Reset {label} to default",
     "reset": "Reset",
     "loadFailed": "Failed to load feature flags",
@@ -11952,7 +12026,8 @@
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Enable network access in the skills sandbox."
       }
-    }
+    },
+    "ccDiscoveryAliasesEnvWarning": "Activo a través de la variable de entorno (EXPOSE_CC_DISCOVERY_ALIASES) — esto anula cualquier interruptor de panel a continuación."
   },
   "comboControl": {
     "title": "Combo Control Center",

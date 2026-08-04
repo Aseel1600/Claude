@@ -1094,8 +1094,6 @@
     "costsFreeTiersSubtitle": "每月免費權杖配額",
     "freeProviderRankings": "免費提供者排名",
     "freeProviderRankingsSubtitle": "根據模型 ELO 分數排名的最佳免費提供者",
-    "radar": "雷達目錄",
-    "radarSubtitle": "由社群增強的免費模型目錄",
     "costsQuotaShare": "配額共享",
     "costsPricing": "定價",
     "logsProxy": "代理日誌",
@@ -1121,7 +1119,6 @@
     "runtime": "執行時",
     "consoleLogs": "控制台日誌",
     "logsTimeline": "Timeline",
-    "logsTimelineSubtitle": "視覺請求時間線",
     "globalRouting": "全域性路由",
     "mitmProxy": "MITM 代理",
     "oneProxy": "1Proxy",
@@ -1167,6 +1164,7 @@
     "logsSubtitle": "應用日誌",
     "logsProxySubtitle": "代理流量日誌",
     "consoleLogsSubtitle": "控制台輸出",
+    "logsTimelineSubtitle": "視覺請求時間線",
     "logsActivitySubtitle": "使用者活動日誌",
     "healthSubtitle": "系統健康檢查",
     "costsPricingSubtitle": "按模型定價規則",
@@ -1233,10 +1231,14 @@
     "groupSeparatorLabel": "隔斷",
     "discovery": "探索",
     "discoverySubtitle": "掃描提供者以尋找免費存取",
+    "radar": "雷達目錄",
+    "radarSubtitle": "由社群增強的免費模型目錄",
     "resilienceConnections": "連線韌性",
     "resilienceConnectionsSubtitle": "冷卻、斷路器、鎖定狀態",
     "settingsModalityBridge": "模態橋接",
-    "settingsModalityBridgeSubtitle": "圖像/音頻 → 僅限文本模型的文本回退"
+    "settingsModalityBridgeSubtitle": "圖像/音頻 → 僅限文本模型的文本回退",
+    "conversations": "__MISSING__:Conversations",
+    "conversationsSubtitle": "__MISSING__:Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -1476,7 +1478,79 @@
       "settings.update": "設定已更新",
       "settings.update_failed": "設定更新失敗",
       "sync.token.created": "同步權杖已建立",
-      "sync.token.revoked": "同步權杖已撤銷"
+      "sync.token.revoked": "同步權杖已撤銷",
+      "apiKey": {
+        "activate": "API Key已激活",
+        "ban": "API Key已已禁止",
+        "deactivate": "API Key已停用",
+        "regenerate": "API Key已重新生成",
+        "scopes": {
+          "grant": "API Key範圍已授予",
+          "revoke": "API Key範圍已已撤銷",
+          "update": "API Key範圍已更新"
+        },
+        "unban": "API Key已解禁"
+      },
+      "auth": {
+        "login": {
+          "error": "登入錯誤",
+          "failed": "登入失敗",
+          "locked": "登入已鎖定",
+          "misconfigured": "登入設定錯誤",
+          "setup_required": "需要登入設定",
+          "success": "登入成功"
+        },
+        "logout": {
+          "success": "登出成功"
+        }
+      },
+      "compliance": {
+        "cleanup": "合規清理"
+      },
+      "provider": {
+        "credentials": {
+          "applied": "提供者憑據已應用",
+          "batch_revoked": "提供者憑據批次已撤銷",
+          "bulk_created": "提供者憑據批次創建",
+          "bulk_imported": "提供者憑據已批次導入",
+          "created": "提供者憑據已創建",
+          "imported": "提供者憑據已導入",
+          "revoked": "提供者憑據已已撤銷",
+          "updated": "提供者憑據已更新"
+        },
+        "validation": {
+          "ssrf_blocked": "提供者SSRF已阻止"
+        }
+      },
+      "quota": {
+        "plan": {
+          "updated": "配額計劃已更新"
+        },
+        "pool": {
+          "created": "配額池已創建",
+          "deleted": "配額池已刪除",
+          "updated": "配額池已更新"
+        },
+        "store": {
+          "driver_changed": "配額存儲驅動程式已更改"
+        }
+      },
+      "server": {
+        "start": "伺服器啟動"
+      },
+      "service": {
+        "reveal_api_key": "服務API Key已洩露"
+      },
+      "settings": {
+        "update": "設定已更新",
+        "update_failed": "設定更新失敗"
+      },
+      "sync": {
+        "token": {
+          "created": "同步令牌已創建",
+          "revoked": "同步令牌已撤銷"
+        }
+      }
     }
   },
   "themesPage": {
@@ -2520,14 +2594,6 @@
       "auto": "自動",
       "always": "始終"
     },
-    "ccDiscoveryInfoButton": "如何在 Claude Code 中啟用發現功能",
-    "ccDiscoveryInfoTooltip": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告非 Claude 模型，以便 Claude Code 的網關模型發現可以列出它們。當全域啟用時，為所有客戶雙重目錄條目。",
-    "ccDiscoveryInfoLink": "開啟功能標誌",
-    "ccOnboardingTitle": "gateway 模型發現的 settings.json",
-    "ccOnboardingCopy": "複製",
-    "ccOnboardingCopied": "已複製",
-    "ccOnboardingKeyPlaceholder": "<您的 OmniRoute API 金鑰>",
-    "ccOnboardingWindowNote": "Claude Code 假設對於任何它不認識的模型 ID，使用 200K 的上下文窗口。對於具有不同實際窗口的模型，請在其下方添加 CLAUDE_CODE_AUTO_COMPACT_WINDOW，以便自動壓縮不會過早觸發。",
     "failedSave": "無法儲存",
     "profileSyncTitle": "CLI 設定檔自動同步",
     "profileSyncDescription": "提供者模型同步後，自動從即時目錄重新產生 CLI 工具設定檔。預設為關閉——僅寫入設定檔；使用中的/預設設定絕不會被變更。",
@@ -2929,28 +2995,6 @@
     "hermesRoleSkillsHubDesc": "技能與工具使用推理",
     "hermesRoleApproval": "核准",
     "hermesRoleApprovalDesc": "安全與核准決策",
-    "hermesRoleMcp": "MCP",
-    "hermesRoleMcpDesc": "MCP 伺服器工具呼叫",
-    "hermesRoleTitleGeneration": "標題生成",
-    "hermesRoleTitleGenerationDesc": "會議標題生成",
-    "hermesRoleMemoryQueryRewrite": "記憶體查詢重寫",
-    "hermesRoleMemoryQueryRewriteDesc": "記憶體搜尋查詢重寫",
-    "hermesRoleTtsAudioTags": "TTS 音頻標籤",
-    "hermesRoleTtsAudioTagsDesc": "TTS 音頻標籤生成",
-    "hermesRoleTriageSpecifier": "分類指定器",
-    "hermesRoleTriageSpecifierDesc": "問題和 PR 分類規範",
-    "hermesRoleKanbanDecomposer": "看板分解器",
-    "hermesRoleKanbanDecomposerDesc": "看板任務分解",
-    "hermesRoleProfileDescriber": "個人檔案描述器",
-    "hermesRoleProfileDescriberDesc": "用戶檔案描述",
-    "hermesRoleGoalJudge": "目標評估器",
-    "hermesRoleGoalJudgeDesc": "目標完成評估",
-    "hermesRoleCurator": "策展人",
-    "hermesRoleCuratorDesc": "技能與記憶策劃",
-    "hermesRoleMonitor": "監視器",
-    "hermesRoleMonitorDesc": "背景監控",
-    "hermesRoleBackgroundReview": "背景審查",
-    "hermesRoleBackgroundReviewDesc": "背景代碼審查",
     "hermesSelectBeforePreview": "在預覽前，請先為角色選取模型，或確認角色已載入。",
     "hermesPreviewFailed": "無法產生預覽",
     "hermesSavedTo": "已儲存至 {path}",
@@ -2984,7 +3028,37 @@
     "copilotPasteInto": "貼上到：",
     "copilotReloadInstruction": "然後重新載入 VS Code 並在輸入提示中設定 API 金鑰。",
     "wireApiChatCompletions": "聊天完成 (/chat/completions)",
-    "wireApiResponses": "回應 API (/responses)"
+    "wireApiResponses": "回應 API (/responses)",
+    "ccDiscoveryInfoButton": "如何在 Claude Code 中啟用發現功能",
+    "ccDiscoveryInfoTooltip": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告非 Claude 模型，以便 Claude Code 的網關模型發現可以列出它們。當全域啟用時，為所有客戶雙重目錄條目。",
+    "ccDiscoveryInfoLink": "開啟功能標誌",
+    "ccOnboardingTitle": "gateway 模型發現的 settings.json",
+    "ccOnboardingCopy": "複製",
+    "ccOnboardingCopied": "已複製",
+    "ccOnboardingKeyPlaceholder": "<您的 OmniRoute API 金鑰>",
+    "ccOnboardingWindowNote": "Claude Code 假設對於任何它不認識的模型 ID，使用 200K 的上下文窗口。對於具有不同實際窗口的模型，請在其下方添加 CLAUDE_CODE_AUTO_COMPACT_WINDOW，以便自動壓縮不會過早觸發。",
+    "hermesRoleMcp": "MCP",
+    "hermesRoleMcpDesc": "MCP 伺服器工具呼叫",
+    "hermesRoleTitleGeneration": "標題生成",
+    "hermesRoleTitleGenerationDesc": "會議標題生成",
+    "hermesRoleMemoryQueryRewrite": "記憶體查詢重寫",
+    "hermesRoleMemoryQueryRewriteDesc": "記憶體搜尋查詢重寫",
+    "hermesRoleTtsAudioTags": "TTS 音頻標籤",
+    "hermesRoleTtsAudioTagsDesc": "TTS 音頻標籤生成",
+    "hermesRoleTriageSpecifier": "分類指定器",
+    "hermesRoleTriageSpecifierDesc": "問題和 PR 分類規範",
+    "hermesRoleKanbanDecomposer": "看板分解器",
+    "hermesRoleKanbanDecomposerDesc": "看板任務分解",
+    "hermesRoleProfileDescriber": "個人檔案描述器",
+    "hermesRoleProfileDescriberDesc": "用戶檔案描述",
+    "hermesRoleGoalJudge": "目標評估器",
+    "hermesRoleGoalJudgeDesc": "目標完成評估",
+    "hermesRoleCurator": "策展人",
+    "hermesRoleCuratorDesc": "技能與記憶策劃",
+    "hermesRoleMonitor": "監視器",
+    "hermesRoleMonitorDesc": "背景監控",
+    "hermesRoleBackgroundReview": "背景審查",
+    "hermesRoleBackgroundReviewDesc": "背景代碼審查"
   },
   "combos": {
     "title": "組合",
@@ -4948,7 +5022,6 @@
     "baseUrlHint": "必填。 提供者 API 基本 URL。",
     "iconUrlLabel": "圖示網址",
     "iconUrlHint": "選用。顯示為此提供者圖示的圖片網址。",
-    "iconUrlInvalid": "無效的圖示網址。請使用 http(s):// 或 data:image/*;base64 URL。",
     "anthropicPrefixPlaceholder": "ac-prod",
     "openaiPrefixPlaceholder": "oc-prod",
     "anthropicBaseUrlPlaceholder": "https://api.anthropic.com/v1",
@@ -5079,8 +5152,6 @@
     "noNewModelsAddedExisting": "沒有新增新模型（全部已存在）。",
     "importDoneCount": "✓ 完成！{count, plural, one {已匯入 # 個模型。} other {已匯入 # 個模型。}}",
     "unexpectedErrorOccurred": "發生意外錯誤",
-    "getApiKey": "獲取 API 金鑰",
-    "getApiKeyDescription": "註冊或申請 API 金鑰",
     "connectionCountLabel": "{count, plural, one {# 個連線} other {# 個連線}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5211,18 +5282,6 @@
     "interceptFetchHint": "將原生的 web_fetch 工具呼叫重新導向至 OmniRoute 的 /v1/web/fetch。",
     "interceptionLoadError": "載入攔截設定失敗：{error}",
     "interceptionSaveError": "儲存攔截設定失敗：{error}",
-    "ccAliasSectionTitle": "在 Claude Code (claude/…) 中公開",
-    "ccAliasSectionHint": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告此提供者的模型，以便 Claude Code 的網關模型發現可以列出它們。預設為關閉 — 啟用此功能會使所有客戶的目錄條目加倍。",
-    "ccAliasProviderLevelLabel": "提供者預設",
-    "ccAliasModelOverridesLabel": "每個模型的覆蓋設定",
-    "ccAliasModelOverrideAriaLabel": "{modelId} 的覆蓋設定",
-    "ccAliasStateInherit": "繼承",
-    "ccAliasStateOn": "開啟",
-    "ccAliasStateOff": "關閉",
-    "ccAliasAddModelPlaceholder": "模型 ID（例如：gpt-4o）",
-    "ccAliasAddModelButton": "新增覆蓋",
-    "ccAliasLoadError": "無法加載 discovery-alias 設定：{error}",
-    "ccAliasSaveError": "無法保存 discovery-alias 設定：{error}",
     "compatUpstreamHeadersLabel": "上游額外請求頭",
     "compatUpstreamHeadersHint": "與修改廠商連線/API 設定同屬高許可權能力，僅可信管理員應使用。這些頭會在 OmniRoute 按廠商 API Key 自動加好鑑權頭之後再合併。若「名稱」與系統已加的頭相同（例如都叫 Authorization），則以你填的值為準，會整段替換自動那條（含 Bearer 權杖），上游請求裡不再使用面板裡儲存的金鑰來生成 Authorization。填錯可能導致 401，請謹慎。每個請求頭單獨一行；部分閘道器需要額外 Authentication 等可在此加。滑鼠移入或聚焦「值」可暫時看明文。點空白處、關閉本面板或切走焦點即儲存。",
     "compatUpstreamHeaderName": "請求頭名稱",
@@ -5497,13 +5556,6 @@
     "newApiUserIdLabel": "New-API 使用者 ID",
     "newApiUserIdPlaceholder": "例如 12345",
     "newApiUserIdHint": "AgentRouter 的 New-Api-User 標頭值，與控制台 API key 一起用於取得配額餘額。",
-    "newApiAggregatorToggleLabel": "聚合閘道",
-    "newApiAggregatorToggleHint": "為 New-API / One-API / Sub2API 聚合器節點啟用餘額檢測。儀表板將顯示餘額徽章，配額預檢路由將跳過已耗盡的帳戶。",
-    "newApiAggregatorConsoleApiKeyHint": "聚合器的 /api/user/self 端點的系統訪問令牌。不是路由 API 金鑰。",
-    "newApiAggregatorUserIdHint": "用於獲取聚合器用戶配額餘額的 New-Api-User 標頭值。",
-    "newApiAggregatorQuotaPerUnitLabel": "每單位配額",
-    "newApiAggregatorQuotaPerUnitHint": "每 $1 的新 API 信用單位（預設：500000）。如果您的聚合器使用不同的匯率，請覆蓋。",
-    "featureFlagNewApiAggregatorBalanceDescription": "啟用新API / 一體化API / Sub2API 聚合器相容節點的餘額檢測",
     "cpaModeDisabledTitle": "CLIProxyAPI 相容模式已關閉",
     "cpaModeEnabledTitle": "CLIProxyAPI 相容模式已開啟",
     "customUserAgentHint": "傳送給上游 Provider 的自定義 User-Agent。",
@@ -5619,7 +5671,6 @@
     "tagGroupPlaceholder": "標籤分組佔位符",
     "testModel": "測試模型",
     "testingModel": "正在測試模型",
-    "modelTestQuotaTooltip": "配額已用盡 — 明天重置或需要充值",
     "toggleOffShort": "關",
     "toggleOnShort": "開",
     "tokenExpiredBadge": "Token 已過期",
@@ -5789,7 +5840,6 @@
     "onboardingProviderDescriptions": {
       "360ai": "在 ai.360.cn 取得 API 金鑰",
       "agentrouter": "在 https://agentrouter.org/register 取得 $200 美元免費額度 — 無需信用卡。",
-      "unorouter": "在 https://unorouter.ai 創建一個 API 金鑰，然後將其作為 Bearer 令牌粘貼在這裡。",
       "agnes": "在 agnes-ai.com 取得 API 金鑰",
       "aimlapi": "免費方案已暫停（2026 年）— AI/ML API 現僅提供隨用隨付方案（最低儲值 $20 美元）；無定期免費額度。",
       "ai21": "註冊即贈 $10 美元試用額度（有效期 3 個月），無需信用卡",
@@ -5986,7 +6036,8 @@
       "kimi-coding": "使用現有的 OAuth 流程連線 Kimi Coding。",
       "kiro": "免費方案：每月 50 額度（約 2.5 萬至 10 萬 tokens）。⚠️ Kiro 服務條款禁止第三方代理/轉接使用。",
       "codex": "使用現有的 OAuth 流程連線 OpenAI Codex。",
-      "qwen": "使用現有的 OAuth 流程連線 Qwen Code。"
+      "qwen": "使用現有的 OAuth 流程連線 Qwen Code。",
+      "unorouter": "在 https://unorouter.ai 創建一個 API 金鑰，然後將其作為 Bearer 令牌粘貼在這裡。"
     },
     "passthroughModelsDescription": "{provider} 接受提供者本機模型 ID。從 /models 匯入或新增用於路由的自定義 ID。",
     "bedrockModelsDescription": "Amazon Bedrock 模型的範圍按 AWS 區域劃分。從 /models 匯入或新增在所選區域中啟用的基岩模型 ID。",
@@ -6007,9 +6058,7 @@
     "webTokenRequiredCredential": "所需權杖：{credential}",
     "webSessionGuideStep1": "在瀏覽器中登入 {provider}。",
     "webSessionGuideStep2": "開啟瀏覽器開發人員工具並檢查 Web 應用程式發出的請求。",
-    "webSessionGuideStep2Fast": "快速路徑：安裝 Cookie Editor 擴展（chromewebstore.google.com → Cookie Editor），在 {provider} 標籤上打開它，找到 {credential}（如果分割，選擇所有編號的部分），然後點擊匯出 → 複製，匯出格式設置為「Cookie 標頭」。",
     "webSessionGuideStep3": "從提供者自己的域複製所需的憑據。對於 cookie，僅複製 Cookie 標頭值並省略 Cookie:。",
-    "webSessionGuideStep3Manual": "手動路徑：打開瀏覽器開發者工具 (F12 → 網路)，刷新頁面，打開一個經過身份驗證的請求，並從請求標頭中複製 Cookie 標頭值 — 省略 Cookie: 前綴。",
     "webSessionGuideStep4": "將其貼上到此處並檢查連線。如果它停止工作，請重新登入並將其替換為新值。",
     "webSessionSecurityHint": "將其視為密碼：它可以訪問您登入的網路帳戶，直到其過期或被撤銷。",
     "webNoAuthGuideTitle": "無需任何憑證",
@@ -6031,9 +6080,6 @@
     "doubaoWebDesc": "通過 dola.com 訪問字節跳動 AI 聊天",
     "overrideBaseUrlAdvanced": "進階：覆寫基礎 URL",
     "overrideBaseUrlHint": "進階：將此內建提供者指向自訂端點。留空以使用預設值。",
-    "apiProtocolLabel": "API 協議",
-    "apiProtocolDefault": "OpenAI 相容（預設）",
-    "apiProtocolHint": "某些提供者在多個協議上發布相同的模型。除非您需要替代方案，否則請保留預設設置。",
     "bulkAddFormatHintCloudflare": "每行一個金鑰。格式：name|accountId|apiKey（Cloudflare 帳戶 ID + API 令牌）。",
     "lmarenaWebCookieHint": "開啟 arena.ai，登入後從網路請求中複製完整的 Cookie 標頭。請包含 arena-auth-prod-v1.0 和 arena-auth-prod-v1.1（以及後續區塊，如有），最好附帶 cf_clearance。請勿僅貼上空白的 arena-auth-prod-v1 cookie。可選：若 create-evaluation 仍然回傳 403，可提供 providerSpecificData.recaptchaV3Token。",
     "kimiOfficialSupporterBadge": "創始好友",
@@ -6041,6 +6087,34 @@
     "cheaperInferenceSupporterBadge": "開源好友",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference 作為開源好友支持 OmniRoute",
     "kimiPartnerLinkNote": "合作夥伴連結 — 支援 OmniRoute，您無需額外付費",
+    "ccAliasSectionTitle": "在 Claude Code (claude/…) 中公開",
+    "ccAliasSectionHint": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告此提供者的模型，以便 Claude Code 的網關模型發現可以列出它們。預設為關閉 — 啟用此功能會使所有客戶的目錄條目加倍。",
+    "ccAliasProviderLevelLabel": "提供者預設",
+    "ccAliasModelOverridesLabel": "每個模型的覆蓋設定",
+    "ccAliasModelOverrideAriaLabel": "{modelId} 的覆蓋設定",
+    "ccAliasStateInherit": "繼承",
+    "ccAliasStateOn": "開啟",
+    "ccAliasStateOff": "關閉",
+    "ccAliasAddModelPlaceholder": "模型 ID（例如：gpt-4o）",
+    "ccAliasAddModelButton": "新增覆蓋",
+    "ccAliasLoadError": "無法加載 discovery-alias 設定：{error}",
+    "ccAliasSaveError": "無法保存 discovery-alias 設定：{error}",
+    "iconUrlInvalid": "無效的圖示網址。請使用 http(s):// 或 data:image/*;base64 URL。",
+    "getApiKey": "獲取 API 金鑰",
+    "getApiKeyDescription": "註冊或申請 API 金鑰",
+    "newApiAggregatorToggleLabel": "聚合閘道",
+    "newApiAggregatorToggleHint": "為 New-API / One-API / Sub2API 聚合器節點啟用餘額檢測。儀表板將顯示餘額徽章，配額預檢路由將跳過已耗盡的帳戶。",
+    "newApiAggregatorConsoleApiKeyHint": "聚合器的 /api/user/self 端點的系統訪問令牌。不是路由 API 金鑰。",
+    "newApiAggregatorUserIdHint": "用於獲取聚合器用戶配額餘額的 New-Api-User 標頭值。",
+    "newApiAggregatorQuotaPerUnitLabel": "每單位配額",
+    "newApiAggregatorQuotaPerUnitHint": "每 $1 的新 API 信用單位（預設：500000）。如果您的聚合器使用不同的匯率，請覆蓋。",
+    "featureFlagNewApiAggregatorBalanceDescription": "啟用新API / 一體化API / Sub2API 聚合器相容節點的餘額檢測",
+    "modelTestQuotaTooltip": "配額已用盡 — 明天重置或需要充值",
+    "webSessionGuideStep2Fast": "快速路徑：安裝 Cookie Editor 擴展（chromewebstore.google.com → Cookie Editor），在 {provider} 標籤上打開它，找到 {credential}（如果分割，選擇所有編號的部分），然後點擊匯出 → 複製，匯出格式設置為「Cookie 標頭」。",
+    "webSessionGuideStep3Manual": "手動路徑：打開瀏覽器開發者工具 (F12 → 網路)，刷新頁面，打開一個經過身份驗證的請求，並從請求標頭中複製 Cookie 標頭值 — 省略 Cookie: 前綴。",
+    "apiProtocolLabel": "API 協議",
+    "apiProtocolDefault": "OpenAI 相容（預設）",
+    "apiProtocolHint": "某些提供者在多個協議上發布相同的模型。除非您需要替代方案，否則請保留預設設置。",
     "anonymousFallbackTitle": "匿名後備",
     "anonymousFallbackDesc": "當所有配置的連接耗盡（配額、積分或到期）時，暫時使用此提供者的無密鑰層級。關閉以跳過此提供者，而不是發送匿名請求 — 當無密鑰層級拒絕它們（401）時建議這樣做。",
     "anonymousFallbackEnabled": "為 {provider} 啟用匿名後備",
@@ -8539,16 +8613,6 @@
   },
   "usage": {
     "title": "用量",
-    "grokExtraUsageCredits": "額外使用積分",
-    "grokAutoTopUp": "自動加值",
-    "grokAutoTopUpUnavailable": "不可用",
-    "grokAutoTopUpEnabled": "已啟用",
-    "grokAutoTopUpDisabled": "已禁用",
-    "grokAutoTopUpAt": "在",
-    "grokAutoTopUpAdd": "新增",
-    "grokAutoTopUpMax": "最大",
-    "grokAutoTopUpMonth": "月份",
-    "grokAdditionalCredits": "額外的致謝",
     "loggerTab": "記錄器",
     "proxyTab": "代理",
     "budgetManagement": "預算管理",
@@ -8963,7 +9027,17 @@
     "updatedShort": "更新於",
     "lastRefreshed": "上次重新整理",
     "providerQuota": "提供者配額",
-    "providerQuotaHomeHint": "已連線帳戶的即時狀態"
+    "providerQuotaHomeHint": "已連線帳戶的即時狀態",
+    "grokExtraUsageCredits": "額外使用積分",
+    "grokAutoTopUp": "自動加值",
+    "grokAutoTopUpUnavailable": "不可用",
+    "grokAutoTopUpEnabled": "已啟用",
+    "grokAutoTopUpDisabled": "已禁用",
+    "grokAutoTopUpAt": "在",
+    "grokAutoTopUpAdd": "新增",
+    "grokAutoTopUpMax": "最大",
+    "grokAutoTopUpMonth": "月份",
+    "grokAdditionalCredits": "額外的致謝"
   },
   "modals": {
     "waitingAuth": "等待授權",
@@ -10252,8 +10326,6 @@
     "copied": "已複製!",
     "run": "執行",
     "running": "執行中...",
-    "loading": "載入中...",
-    "retry": "重試",
     "response": "回應",
     "tunnel": "隧道",
     "send": "傳送",
@@ -10307,7 +10379,9 @@
     "assistant": "助理",
     "errorLabel": "錯誤",
     "requestFailed": "請求失敗",
-    "stop": "停止"
+    "stop": "停止",
+    "loading": "載入中...",
+    "retry": "重試"
   },
   "requestLogger": {
     "recording": "正在錄製",
@@ -10369,7 +10443,8 @@
       "compressed": "壓縮",
       "tps": "TPS",
       "duration": "時長",
-      "time": "時間"
+      "time": "時間",
+      "conversation": "__MISSING__:Conversation"
     },
     "loadingLogs": "正在載入日誌...",
     "noLogs": "暫無日誌記錄。進行一些API呼叫以在此處檢視它們。",
@@ -10853,8 +10928,6 @@
     "sourceModel": "源模型（代理原生）",
     "targetModel": "目標模型 (OmniRoute)",
     "noMappings": "未設定模型對映。執行設定嚮導以自動檢測模型。",
-    "noMappingsDesc": "尚未配置模型映射。添加映射以通過 OmniRoute 路由代理請求。",
-    "addMapping": "新增映射",
     "selectModel": "選擇…",
     "saveMappings": "儲存對映",
     "setupWizard": "設定嚮導",
@@ -10926,7 +10999,9 @@
       "goNow": "現在去",
       "message": "MITM Proxy 現在歸 AgentBridge 所有。",
       "title": "此頁面已移動"
-    }
+    },
+    "noMappingsDesc": "尚未配置模型映射。添加映射以通過 OmniRoute 路由代理請求。",
+    "addMapping": "新增映射"
   },
   "providerStats": {
     "unknownError": "未知錯誤",
@@ -11796,7 +11871,6 @@
     "danger": "危險",
     "requiresRestart": "需要重新啟動",
     "source": "來源",
-    "ccDiscoveryAliasesEnvWarning": "透過環境變數 (EXPOSE_CC_DISCOVERY_ALIASES) 啟用 — 這會覆蓋下面的任何儀表板切換。",
     "resetFlag": "將 {label} 重設為預設值",
     "reset": "重設",
     "loadFailed": "無法載入功能旗標",
@@ -11953,7 +12027,8 @@
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "在技能沙盒中啟用網路存取。"
       }
-    }
+    },
+    "ccDiscoveryAliasesEnvWarning": "透過環境變數 (EXPOSE_CC_DISCOVERY_ALIASES) 啟用 — 這會覆蓋下面的任何儀表板切換。"
   },
   "comboControl": {
     "title": "Combo Control Center",
