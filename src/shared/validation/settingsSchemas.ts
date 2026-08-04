@@ -68,6 +68,7 @@ const transformInjectBillingHeaderSchema = z.object({
   versionFormat: z.enum(["ex-machina", "omniroute-daystamp"]),
   cchAlgo: z.enum(["sha256-first-user", "xxhash64-body", "static-zero"]),
   version: z.string().max(50).optional(),
+  buildRevision: z.string().min(1).max(20).optional(),
 });
 
 const commonSystemTransformOperationSchemas = [
@@ -91,6 +92,8 @@ const transformObfuscateWordsSchema = z.object({
 });
 
 export const updateSettingsSchema = z.object({
+  /** #7784: opt-in optimistic concurrency — must match GET settingsRevision / ETag. */
+  expectedRevision: z.number().int().nonnegative().optional(),
   newPassword: z.string().min(1).max(200).optional(),
   currentPassword: z.string().max(200).optional(),
   credentialRedactionEnabled: z.boolean().optional(),
