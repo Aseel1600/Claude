@@ -25,6 +25,7 @@ import { bootstrapTranslatorRegistry } from "./bootstrap.ts";
 import { hasThinkingConfig, normalizeThinkingConfig } from "../services/provider.ts";
 import { applyThinkingBudget } from "../services/thinkingBudget.ts";
 import { applyReasoningRuleDirective } from "@/lib/reasoningRouting/policy";
+import { getModelPreserveVideoUrl } from "@/lib/db/models/modelPreserveVideoUrl";
 import { getResolvedModelCapabilities, supportsReasoning } from "../services/modelCapabilities.ts";
 import { normalizeRoles } from "../services/roleNormalizer.ts";
 import { hoistLeadingSystemMessage } from "./helpers/strictSystemHoist.ts";
@@ -359,8 +360,9 @@ export function translateRequest(
         providerHonorsOpenAIFormatCacheControl(provider, connectionCacheOverride),
       // #4849 regression guard: keep client reasoning_content for replay providers.
       preserveReasoningContent: isReasoner,
-      // Moonshot's Chat API accepts its own OpenAI-compatible `video_url` block.
-      preserveVideoUrl: normalizedProvider === "moonshot" || normalizedProvider === "kimi",
+      // Per-provider/model preserveVideoUrl flag from compat overrides.
+      // Falls back to true for moonshot/kimi when unset (legacy behavior).
+      preserveVideoUrl: getModelPreserveVideoUrl(normalizedProvider, options?.model ?? "") ?? (normalizedProvider === "moonshot" || normalizedProvider === "kimi"),
     });
   }
 
