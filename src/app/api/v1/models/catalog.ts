@@ -959,6 +959,9 @@ async function buildUnifiedModelsResponseCore(
           const modelType = getOpenRouterModelType(inputModalities, outputModalities);
           const isFree = isOpenRouterFreeModel(openRouterModel);
           if (hidePaid && !isFree) continue;
+          // #9293: respect per-model hidden flags (e.g. operator hid google/chirp-3
+          // from the OpenRouter provider, so it should not appear in the live catalog).
+          if (getModelIsHidden("openrouter", openRouterModel.id)) continue;
           const supportedParameters = Array.isArray(openRouterModel.supported_parameters)
             ? openRouterModel.supported_parameters
             : [];
@@ -1041,12 +1044,20 @@ async function buildUnifiedModelsResponseCore(
         return existingRoot === rawModelId;
       });
 
+    // Helper: strip the provider prefix from a specialty model ID to get the
+    // provider-relative path (e.g. "openrouter/google/chirp-3" -> "google/chirp-3").
+    // This is the correct key used by getModelIsHidden() — using .split("/").pop()
+    // here would discard all but the last segment and miss stored flags for
+    // providers whose model IDs carry a sub-path (e.g. OpenRouter scoped models).
+    const getSpecialtyModelRelativeId = (modelId: string, provider: string): string =>
+      modelId.startsWith(`${provider}/`)
+        ? modelId.slice(provider.length + 1)
+        : modelId;
+
     // Add embedding models (filtered by active providers)
     for (const embModel of getAllEmbeddingModels()) {
       if (!isProviderActive(embModel.provider)) continue;
-      const rawModelId = embModel.id.startsWith(`${embModel.provider}/`)
-        ? embModel.id.slice(embModel.provider.length + 1)
-        : embModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(embModel.id, embModel.provider);
       if (!providerSupportsModel(embModel.provider, rawModelId)) continue;
       if (getModelIsHidden(embModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(embModel.provider, rawModelId, "embedding", embModel.id)) {
@@ -1066,7 +1077,7 @@ async function buildUnifiedModelsResponseCore(
     // Add image models (filtered by active providers)
     for (const imgModel of getAllImageModels()) {
       if (!isProviderActive(imgModel.provider)) continue;
-      const rawModelId = imgModel.id.split("/").pop() || imgModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(imgModel.id, imgModel.provider);
       if (!providerSupportsModel(imgModel.provider, rawModelId)) continue;
       if (getModelIsHidden(imgModel.provider, rawModelId)) continue;
       models.push({
@@ -1085,7 +1096,7 @@ async function buildUnifiedModelsResponseCore(
     // Add rerank models (filtered by active providers)
     for (const rerankModel of getAllRerankModels()) {
       if (!isProviderActive(rerankModel.provider)) continue;
-      const rawModelId = rerankModel.id.split("/").pop() || rerankModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(rerankModel.id, rerankModel.provider);
       if (!providerSupportsModel(rerankModel.provider, rawModelId)) continue;
       if (getModelIsHidden(rerankModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(rerankModel.provider, rawModelId, "rerank", rerankModel.id)) {
@@ -1104,7 +1115,7 @@ async function buildUnifiedModelsResponseCore(
     // Add audio models (filtered by active providers)
     for (const audioModel of getAllAudioModels()) {
       if (!isProviderActive(audioModel.provider)) continue;
-      const rawModelId = audioModel.id.split("/").pop() || audioModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(audioModel.id, audioModel.provider);
       if (!providerSupportsModel(audioModel.provider, rawModelId)) continue;
       if (getModelIsHidden(audioModel.provider, rawModelId)) continue;
       models.push({
@@ -1120,7 +1131,7 @@ async function buildUnifiedModelsResponseCore(
     // Add moderation models (filtered by active providers)
     for (const modModel of getAllModerationModels()) {
       if (!isProviderActive(modModel.provider)) continue;
-      const rawModelId = modModel.id.split("/").pop() || modModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(modModel.id, modModel.provider);
       if (!providerSupportsModel(modModel.provider, rawModelId)) continue;
       if (getModelIsHidden(modModel.provider, rawModelId)) continue;
       models.push({
@@ -1135,7 +1146,7 @@ async function buildUnifiedModelsResponseCore(
     // Add video models (filtered by active providers)
     for (const videoModel of getAllVideoModels()) {
       if (!isProviderActive(videoModel.provider)) continue;
-      const rawModelId = videoModel.id.split("/").pop() || videoModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(videoModel.id, videoModel.provider);
       if (!providerSupportsModel(videoModel.provider, rawModelId)) continue;
       if (getModelIsHidden(videoModel.provider, rawModelId)) continue;
       models.push({
@@ -1150,7 +1161,7 @@ async function buildUnifiedModelsResponseCore(
     // Add music models (filtered by active providers)
     for (const musicModel of getAllMusicModels()) {
       if (!isProviderActive(musicModel.provider)) continue;
-      const rawModelId = musicModel.id.split("/").pop() || musicModel.id;
+      const rawModelId = getSpecialtyModelRelativeId(musicModel.id, musicModel.provider);
       if (!providerSupportsModel(musicModel.provider, rawModelId)) continue;
       if (getModelIsHidden(musicModel.provider, rawModelId)) continue;
       models.push({
