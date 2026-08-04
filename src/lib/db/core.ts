@@ -1335,7 +1335,17 @@ export function getDbInstance(): SqliteDatabase {
   db.pragma("journal_mode = WAL");
   db.pragma("busy_timeout = 5000");
   db.pragma("synchronous = NORMAL");
-  db.pragma("cache_size = -2048");
+  // 128MB page cache + 256MB mmap (values match the release/v3.8.50 default) so the
+  // working set stays memory-resident instead of round-tripping through disk I/O on
+  // every read — the 2MB/no-mmap prior defaults were needlessly conservative on hosts
+  // with RAM to spare.
+  db.pragma("cache_size = -131072");
+  try {
+    db.pragma("mmap_size = 268435456");
+  } catch {
+    // mmap_size is best-effort; not available in all runtimes (e.g. web)
+  }
+  db.pragma("temp_store = MEMORY");
   db.exec(SCHEMA_SQL);
   ensureProviderConnectionsColumns(db);
   ensureUsageHistoryColumns(db);
