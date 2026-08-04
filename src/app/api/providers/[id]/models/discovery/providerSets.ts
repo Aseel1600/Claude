@@ -88,6 +88,11 @@ export const NAMED_OPENAI_STYLE_PROVIDERS = new Set([
   "clova-studio",
   "internlm",
   "ant-ling",
+  // NanoGPT (nano-gpt.com) is an OpenAI-compatible aggregator with 650+ models
+  // behind a single API key. The registry seed (3 models) was the only catalog;
+  // live /v1/models discovery keeps the full catalog fresh. Seed stays as
+  // offline fallback.
+  "nanogpt",
 ]);
 
 export function isNamedOpenAIStyleProvider(provider: string): boolean {
