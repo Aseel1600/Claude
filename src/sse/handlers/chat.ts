@@ -23,6 +23,7 @@ import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { getImageModelEntry } from "@omniroute/open-sse/config/imageRegistry.ts";
 import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.ts";
 import { applyNoThinkingAlias } from "@omniroute/open-sse/utils/noThinkingAlias.ts";
+import { resolveCcDiscoveryAliasStrip } from "@/lib/ccDiscoveryAliasResolve";
 import { handleComboChat, shouldSkipConnDisable } from "@omniroute/open-sse/services/combo.ts";
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
@@ -76,6 +77,7 @@ import {
 import {
   isAntigravityMissingProjectError,
   PROVIDER_BREAKER_FAILURE_STATUSES,
+  resolveStreamReadinessClassificationError,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
@@ -94,6 +96,7 @@ import { getComboFailureLogError } from "./comboFailureLogging";
 
 // Pipeline integration — wired modules
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
+import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextCooldowns.ts";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
@@ -392,6 +395,17 @@ export async function handleChat(
   // resolveRoutingModel). The resolved model still passes through
   // enforceApiKeyPolicy below, so it cannot bypass per-key allowlists.
   let modelStr = resolveRoutingModel(request, body);
+
+  // cc discovery alias (`claude/<provider>/<model>`, `claude/combo/<name>`):
+  // resolve back to the real id before any combo lookup / resolveModelOrError()
+  // sees it — see resolveCcDiscoveryAliasStrip. A genuine claude/ model id (the
+  // real Claude OAuth provider namespace) is always left untouched.
+  const ccAliasStrip = await resolveCcDiscoveryAliasStrip(modelStr);
+  if (ccAliasStrip.stripped) {
+    log.debug("CC_DISCOVERY", `Resolved cc discovery alias: ${modelStr} → ${ccAliasStrip.model}`);
+    modelStr = ccAliasStrip.model;
+  }
+
   // Freeze the client-facing model and reasoning intent before automatic routers
   // mutate the working request. Reasoning policies always match this stable input.
   const reasoningIntent = extractReasoningIntent(modelStr, body);
@@ -895,13 +909,13 @@ export async function handleChat(
     // (success:false) so gate/breaker-rejected traffic is counted per key — support-mesh 2026-07-08.
     if (!response.ok) {
       try {
-        const { recordRejectedRequestUsage, summarizeComboAttemptedModels } =
+        const { recordRejectedRequestUsage, resolveRejectedComboProvider } =
           await import("./rejectedRequestUsage");
         await recordRejectedRequestUsage({
           status: response.status,
           model: body?.model || resolvedModelStr,
           requestedModel: body?.model || resolvedModelStr,
-          provider: summarizeComboAttemptedModels(combo?.models),
+          provider: resolveRejectedComboProvider(body?.model || resolvedModelStr, combo.name),
           endpoint: clientRawRequest?.endpoint,
           error: await getComboFailureLogError(response, combo.name),
           comboName: combo.name,
@@ -1313,7 +1327,8 @@ async function handleSingleModelChat(
           provider,
           model,
           lastError,
-          lastStatus
+          lastStatus,
+          resolved.candidateAliases
         );
         const lastFailedConnectionId =
           excludedConnectionIds.size > 0
@@ -1477,10 +1492,9 @@ async function handleSingleModelChat(
         return result.response;
       }
 
-      // Missing Cloud Code project assignment is an account configuration error, not a
-      // transient upstream/account failure. Preserve the executor's typed fail-closed 422;
-      // marking the connection unavailable here would trigger cooldown redispatch and repeat
-      // bootstrap within the same logical request.
+      // Missing Cloud Code project assignment is configuration, not a transient failure.
+      // Preserve the typed fail-closed 422; marking it unavailable would trigger cooldown
+      // redispatch and repeat bootstrap within the same logical request.
       if (isAntigravityMissingProjectError(provider, result)) {
         return withSelectedConnectionHeader(result.response, credentials.connectionId);
       }
@@ -1523,10 +1537,11 @@ async function handleSingleModelChat(
       }
 
       if (isAntigravityStreamReadinessFailure) {
+        const classificationError = resolveStreamReadinessClassificationError(result);
         const { shouldFallback, cooldownMs } = await markAccountUnavailable(
           credentials.connectionId,
           result.status || HTTP_STATUS.BAD_GATEWAY,
-          result.error || result.errorCode || "Antigravity stream ended before useful content",
+          classificationError,
           provider,
           model,
           providerProfile,
@@ -1556,13 +1571,12 @@ async function handleSingleModelChat(
             }
           }
           excludedConnectionIds.add(credentials.connectionId);
-          lastError = result.error;
+          lastError = classificationError;
           lastStatus = result.status;
-          requestRetryLastError = result.error;
+          requestRetryLastError = classificationError;
           requestRetryLastStatus = result.status;
           continue;
         }
-
         return withSelectedConnectionHeader(result.response, credentials?.connectionId);
       }
 
@@ -1713,7 +1727,9 @@ async function handleSingleModelChat(
       const errorStr = String(result.rawMessage ?? result.error ?? "");
       const failureKind =
         result.status === 429
-          ? classify429FromError({ status: result.status, message: errorStr })
+          ? isSubscriptionQuotaText(errorStr.toLowerCase(), provider)
+            ? "quota_exhausted"
+            : classify429FromError({ status: result.status, message: errorStr })
           : undefined;
       if (result.status === 429 && isDailyQuotaExhausted(errorStr)) {
         // Parse which model is quota-limited
