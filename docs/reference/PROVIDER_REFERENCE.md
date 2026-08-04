@@ -1,16 +1,16 @@
 ---
 title: "Provider Reference"
 version: 3.8.50
-lastUpdated: 2026-07-30
+lastUpdated: 2026-08-04
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-07-30
+> **Last generated:** 2026-08-04
 
-Total providers: **290**. See category breakdown below.
+Total providers: **292**. See category breakdown below.
 
 ## Categories
 
@@ -61,7 +61,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zed` | `zd` | Zed IDE | OAuth | [link](https://zed.dev) | Zed stores LLM provider credentials (OpenAI, Anthropic, Google, Mistral, xAI) in the OS keychain. Use the Import button below to discover and import them automatically. |
 | `zed-hosted` | — | Zed Hosted Models | OAuth | [link](https://zed.dev) | Sign in with your Zed account (native-app sign-in). OmniRoute generates a one-time RSA keypair and opens zed.dev to authorize it — on a remote/headless install, copy the resulting 127.0.0.1 callback URL from your browser's address bar and paste it back here. Distinct from the 'Zed IDE' credential-import entry above: this proxies chat completions through Zed's own hosted model aggregator (cloud.zed.dev), fronting Anthropic/OpenAI/Google/xAI models under your Zed plan. |
 
-## Web Cookie Providers (31)
+## Web Cookie Providers (32)
 
 | ID | Alias | Name | Tags | Website | Notes | Tool calling |
 |----|-------|------|------|---------|-------|--------------|
@@ -91,13 +91,14 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `promptql` | `pql` | PromptQL (Unofficial/Experimental) | Web cookie | [link](https://prompt.ql.app) | Paste the Bearer JWT from prompt.ql.app DevTools → Network → graphql → Authorization (token only). Optional projectId + session Cookie for refresh. | — |
 | `qwen-web` | `qwen-web` | Qwen Web (Free) | Web cookie | [link](https://chat.qwen.ai) | Open chat.qwen.ai, log in, then open DevTools → Application → Local Storage → copy the "token" value (or use tongyi_sso_ticket cookie as Bearer token). | emulated |
 | `t3-web` | `t3chat` | t3.chat (Pro/Free) | Web cookie | [link](https://t3.chat) | Open t3.chat in your browser, log in, then open DevTools → Application → Local Storage → https://t3.chat. Copy the value of 'convex-session-id'. Also open DevTools → Network, copy the Cookie header from any request. Paste both values here. See provider setup docs for a step-by-step guide. | emulated |
+| `tinycms-web` | `tcw` | TinyCMS Web (Free/Sub) | Web cookie | [link](https://site.tinycms.xyz) | Go to site.tinycms.xyz, open DevTools → Application → Local Storage, copy the value of 'app-config-uuid' (starts with 'R'), and paste it here. | — |
 | `v0-vercel-web` | `v0-vercel-web` | v0 Vercel Web (Code Gen) | Web cookie | [link](https://v0.dev) | Paste your session cookie from v0.dev (DevTools → Application → Cookies) | — |
 | `venice-web` | `ven` | Venice Web (Privacy) | Web cookie | [link](https://venice.ai) | Paste your session cookie from venice.ai (DevTools → Application → Cookies) | — |
 | `yuanbao-web` | `ybw` | Tencent Yuanbao (Free) | Web cookie | [link](https://yuanbao.tencent.com) | Log in to yuanbao.tencent.com, then paste the full Cookie header (DevTools → Network → any /api request → Request Headers → Cookie). It must contain hy_user and hy_token. | — |
 | `zai-web` | `zw` | Z.ai Web (Free) | Web cookie | [link](https://chat.z.ai) | Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie) | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (195)
+## API Key Providers (paid / paid-with-free-credits) (196)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -130,6 +131,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `bytez` | `bytez` | Bytez | API key | [link](https://bytez.com) | $1 free credits, refreshes every 4 weeks |
 | `cerebras` | `cerebras` | Cerebras | API key | [link](https://inference.cerebras.ai) | Free Trial: 1M tokens/day, 30K TPM, 5 RPM — no credit card. |
 | `charm-hyper` | `charm-hyper` | Charm Hyper | API key | [link](https://hyper.charm.land) | 100 free monthly Hypercredits on signup |
+| `cheaperinference` | `cinf` | Cheaper Inference | API key | [link](https://cheaperinference.com/?utm_source=omniroute) | — |
 | `chenzk` | `chenzk` | Chenzk API | API key | [link](https://chenzk.top) | — |
 | `chutes` | `chutes` | Chutes.ai | API key, aggregator | [link](https://chutes.ai) | Bearer API key for the Chutes OpenAI-compatible gateway. |
 | `clarifai` | `clarifai` | Clarifai | API key, enterprise | [link](https://docs.clarifai.com) | Use your Clarifai PAT or app-specific API key. OmniRoute targets the OpenAI-compatible endpoint at https://api.clarifai.com/v2/ext/openai/v1 and authenticates with Authorization: Key <token>. |
