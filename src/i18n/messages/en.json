@@ -5067,6 +5067,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "Get API key",
+    "getApiKeyDescription": "Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",

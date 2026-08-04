@@ -26,6 +26,15 @@ export type StaticProviderCatalogCategory =
   | "apikey"
   | "cloud-agent";
 
+export interface ProviderNotice {
+  /** Direct link to the API key management page for this provider. */
+  apiKeyUrl?: string;
+  /** Link to the signup/registration page for this provider. */
+  signupUrl?: string;
+  /** Optional short label (e.g. "Get API key", "Sign up"). */
+  text?: string;
+}
+
 export interface ProviderCatalogMetadata {
   id: string;
   name: string;
@@ -44,6 +53,8 @@ export interface ProviderCatalogMetadata {
   hiddenFromDashboard?: boolean;
   /** Optional operator-supplied remote icon URL (#2166) for compatible provider nodes. */
   iconUrl?: string;
+  /** Optional registration/API-key URL hints rendered as links on the provider detail page (#9270). */
+  notice?: ProviderNotice;
   [key: string]: unknown;
 }
 
