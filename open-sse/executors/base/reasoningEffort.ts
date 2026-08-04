@@ -153,7 +153,8 @@ export function supportsMaxEffortForProvider(provider: string, model: string): b
     provider === "opencode-go" && model.toLowerCase().includes("deepseek");
   const isOllamaCloud = provider === "ollama-cloud";
   const isMoonshotK3 =
-    (provider === "moonshot" || provider === "kimi") && /^kimi-k3(?:$|-)/i.test(model);
+    (provider === "moonshot" || provider === "kimi" || provider === "trk") &&
+    /kimi-k3(?:$|-)/i.test(model);
   return isClaude || isOpencodeGoDeepSeek || isOllamaCloud || isMoonshotK3;
 }
 
@@ -216,10 +217,7 @@ function writeEffortValue(
 }
 
 /** Strip the effort field from every carrier that was present. */
-function stripEffortValue(
-  b: Record<string, unknown>,
-  c: EffortCarriers
-): Record<string, unknown> {
+function stripEffortValue(b: Record<string, unknown>, c: EffortCarriers): Record<string, unknown> {
   const next: Record<string, unknown> = { ...b };
   if (c.hasTopLevelReasoningEffort) delete next.reasoning_effort;
   if (c.hasReasoningEffort && c.reasoning) {
@@ -290,23 +288,48 @@ export function sanitizeReasoningEffortForProvider(
 
   const supportsXHigh = supportsXHighEffort(provider, modelStr);
   const shouldDowngradeXHigh = effortStr === "xhigh" && !supportsXHigh;
-  const supportsXHighForMax = supportsXHigh;
   const supportsMax = supportsMaxEffortForProvider(provider, modelStr);
-  const shouldNormalizeMaxToXHigh = effortStr === "max" && !supportsMax && supportsXHighForMax;
-  const shouldDowngradeMax = effortStr === "max" && !supportsMax && !supportsXHighForMax;
 
-  if (shouldNormalizeMaxToXHigh) {
+  // Max effort handling (#8057): providers with explicit max support pass through unchanged.
+  // For providers known to have a strict, limited enum (e.g. OpenAI low/medium/high only),
+  // downgrade to the best available tier. For all other providers — including unknown
+  // proxies and generic gateways like trk/* — pass max through and let the upstream
+  if (effortStr === "max" && !supportsMax) {
+    const strictProviders = new Set([
+      "openai",
+      "azure",
+      "azure-ai",
+      "azure-openai",
+      "openrouter",
+      "opencode-go",
+      // Add more as discovered via community issue reports
+    ]);
+    if (strictProviders.has(provider)) {
+      if (supportsXHigh) {
+        log?.info?.(
+          "REASONING_SANITIZE",
+          `${provider}/${modelStr}: normalized reasoning_effort max -> xhigh`
+        );
+        return writeEffortValue(b, "xhigh", c);
+      }
+      log?.info?.(
+        "REASONING_SANITIZE",
+        `${provider}/${modelStr}: downgraded reasoning_effort max -> high`
+      );
+      return writeEffortValue(b, "high", c);
+    }
+    // Unknown / generic provider (e.g. trk/*, custom proxies): passthrough
     log?.info?.(
       "REASONING_SANITIZE",
-      `${provider}/${modelStr}: normalized reasoning_effort max → xhigh`
+      `${provider}/${modelStr}: passing through reasoning_effort max (unmapped provider)`
     );
-    return writeEffortValue(b, "xhigh", c);
+    return body;
   }
 
-  if (shouldDowngradeXHigh || shouldDowngradeMax) {
+  if (shouldDowngradeXHigh) {
     log?.info?.(
       "REASONING_SANITIZE",
-      `${provider}/${modelStr}: downgraded reasoning_effort ${effortStr} → high`
+      `${provider}/${modelStr}: downgraded reasoning_effort xhigh → high`
     );
     return writeEffortValue(b, "high", c);
   }

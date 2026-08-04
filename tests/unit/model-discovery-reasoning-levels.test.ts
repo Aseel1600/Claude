@@ -36,12 +36,12 @@ test("thinking.levels is parsed into supportedThinkingEfforts", () => {
   assert.deepEqual(detectSupportedThinkingEfforts(record), ["medium", "high"]);
 });
 
-test("duplicates are deduped, max canonicalizes to xhigh, unknown native tier retained", () => {
+test("duplicates are deduped, max is retained as canonical value, unknown native tier retained", () => {
   const record = {
     id: "model-d",
     supported_reasoning_levels: [{ effort: "max" }, { effort: "max" }, { effort: "ultra" }],
   };
-  assert.deepEqual(detectSupportedThinkingEfforts(record), ["xhigh", "ultra"]);
+  assert.deepEqual(detectSupportedThinkingEfforts(record), ["max", "ultra"]);
 });
 
 test("a malformed entry inside an otherwise-valid array is dropped, the rest survive, no throw", () => {
