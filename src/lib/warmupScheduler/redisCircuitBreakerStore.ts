@@ -1,6 +1,9 @@
 import type { CircuitBreakerStore, CircuitBreakerState } from "./circuitBreakerStore";
 import { getWarmupBackoffUntil } from "./backoff";
-import { markForbidden as sqliteMarkForbidden } from "@/lib/db/connectionRuntimeState";
+import {
+  markForbidden as sqliteMarkForbidden,
+  upsertWarmupState as sqliteUpsertWarmupState,
+} from "@/lib/db/connectionRuntimeState";
 import type { WarmupResult } from "./core";
 
 type RedisLike = {
@@ -37,6 +40,19 @@ export class RedisCircuitBreakerStore implements CircuitBreakerStore {
         lastResult: "success",
         lastWarmupAt: new Date().toISOString(),
       });
+      // Clear any stale forbidden flag in SQLite backup so a Redis eviction
+      // does not permanently trap the connection in forbidden state.
+      // upsertWarmupState updates last_warmup_result (unlike clearWarmupCircuit
+      // which only clears streak/until/lastFailAt columns).
+      try {
+        await sqliteUpsertWarmupState(connectionId, {
+          lastWarmupAt: new Date().toISOString(),
+          lastResult: "success",
+          tokensUsed: result.tokensUsed,
+        });
+      } catch {
+        /* non-fatal; Redis is source of truth */
+      }
       return;
     }
     if (result.failureKind === "forbidden") {
