@@ -66,7 +66,7 @@ async function postHandler(request, context) {
     const nodes = await getCachedProviderNodes();
     dynamicProviders = (Array.isArray(nodes) ? (nodes as unknown as ProviderNodeRow[]) : [])
       .filter((n: ProviderNodeRow) => {
-        if (n.apiType !== "chat" && n.apiType !== "responses") return false;
+        if (n.apiType !== "chat" && n.apiType !== "responses" && n.apiType !== "audio-speech") return false;
         try {
           const hostname = new URL(n.baseUrl).hostname;
           // Strictly matching 172.16.0.0/12 (Docker/local) and explicitly blocking ::1 per SSRF hardening
