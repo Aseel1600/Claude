@@ -106,8 +106,15 @@ const VALID_CHANNELS = {
     "login:start",
     "login:cancel",
     "login:status",
+    "remote-server-prompt:get-initial-url",
   ],
-  send: ["window-minimize", "window-maximize", "window-close"],
+  send: [
+    "window-minimize",
+    "window-maximize",
+    "window-close",
+    "remote-server-prompt:submit",
+    "remote-server-prompt:cancel",
+  ],
   receive: ["server-status", "port-changed", "update-status", "login:status"],
 };
 

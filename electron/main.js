@@ -37,7 +37,7 @@ const { loginManager } = require("./loginManager");
 const { killProcessTree } = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
 const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
-const { resolveRemoteServerUrl } = require("./lib/resolveRemoteServerUrl");
+const { resolveRemoteServerUrl, isValidHttpUrl } = require("./lib/resolveRemoteServerUrl");
 const { writeRemoteServerUrl } = require("./lib/remoteServerPreferences");
 
 // ── Single Instance Lock ───────────────────────────────────
@@ -584,6 +584,12 @@ function showRemoteServerPrompt() {
 async function setRemoteServerUrl(nextUrl) {
   const normalized = (nextUrl || "").trim() || null;
   if (normalized === remoteServerUrl) return;
+
+  // Reject invalid URLs — only http:// and https:// are accepted.
+  if (normalized !== null && !isValidHttpUrl(normalized)) {
+    console.warn("[Electron] Rejected invalid remote server URL:", normalized);
+    return;
+  }
 
   sendToRenderer("server-status", { status: "restarting", port: serverPort });
 

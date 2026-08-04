@@ -55,14 +55,21 @@ function writeRemoteServerUrl(
     mkdirSync = fs.mkdirSync,
   } = {}
 ) {
-  const dir = path.dirname(prefsPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  try {
+    const dir = path.dirname(prefsPath);
+    if (!existsSync(dir)) {
+      mkdirSync(dir, { recursive: true });
+    }
 
-  const current = readPreferences(prefsPath, existsSync, readFileSync);
-  const next = { ...current, remoteServerUrl: remoteServerUrl || null };
-  writeFileSync(prefsPath, JSON.stringify(next, null, 2) + "\n", "utf8");
+    const current = readPreferences(prefsPath, existsSync, readFileSync);
+    const next = { ...current, remoteServerUrl: remoteServerUrl || null };
+    writeFileSync(prefsPath, JSON.stringify(next, null, 2) + "\n", "utf8");
+  } catch (err) {
+    console.error(
+      `[remoteServerPreferences] Failed to write preferences to ${prefsPath}:`,
+      err instanceof Error ? err.message : String(err)
+    );
+  }
 }
 
 module.exports = { readPreferences, writeRemoteServerUrl };
