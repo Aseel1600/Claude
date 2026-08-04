@@ -1,1 +1,1 @@
-- **fix(claude):** normalize nested Claude server tool model ids ( and  prefixes) on native passthrough, covering non-versioned server tools (Task/subagent). (thanks @AlanSyue)
+- **fix(claude):** normalize nested Claude server tool model ids (`cc/` and `claude/` prefixes) on native passthrough, covering non-versioned server tools (Task/subagent). (thanks @AlanSyue)
