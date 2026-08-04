@@ -32,12 +32,11 @@ export const MAX_BODY_BYTES_FILE = 500 * 1024 * 1024;
 export const MAX_BODY_BYTES_LLM_API = 50 * 1024 * 1024;
 
 /**
- * Media (image generate / edit / upscale / video): JSON + base64 inflates ~33%, so a
- * 7.5 MB PNG is already past the global 10 MB default. Prefer provider-side limits;
- * safety ceiling matches file uploads (and Next proxyClientMaxBodySize of 512 MB).
- * Supersedes the narrower 30 MB IMAGE_EDIT floor.
+ * Media (image generate / edit / upscale / video) is not capped by OmniRoute.
+ * JSON + base64 inflates payloads by roughly 33%, and provider limits vary by model,
+ * so the provider should decide whether a media request is too large.
  */
-export const MAX_BODY_BYTES_MEDIA = MAX_BODY_BYTES_FILE;
+export const MAX_BODY_BYTES_MEDIA = Number.POSITIVE_INFINITY;
 
 /** @deprecated Use MAX_BODY_BYTES_MEDIA — kept as alias for any external imports. */
 export const MAX_BODY_BYTES_IMAGE_EDIT = MAX_BODY_BYTES_MEDIA;
@@ -57,6 +56,8 @@ const ROUTE_LIMITS: BodySizeRule[] = [
   { prefix: "/api/v1/files", limit: MAX_BODY_BYTES_FILE },
 ];
 
+const PROVIDER_IMAGE_GENERATION_ROUTE = /^\/api\/v1\/providers\/[^/]+\/images\/generations(?:\/|$)/;
+
 export function getConfiguredBodySizeLimitBytes(settings?: Record<string, unknown>): number {
   const configuredMb = normalizeRequestBodyLimitMb(settings?.maxBodySizeMb);
   return configuredMb === null ? MAX_BODY_BYTES : requestBodyLimitMbToBytes(configuredMb);
@@ -67,6 +68,7 @@ export function getConfiguredBodySizeLimitBytes(settings?: Record<string, unknow
  */
 export function getBodySizeLimit(pathname: string, settings?: Record<string, unknown>): number {
   const configuredLimit = getConfiguredBodySizeLimitBytes(settings);
+  if (PROVIDER_IMAGE_GENERATION_ROUTE.test(pathname)) return MAX_BODY_BYTES_MEDIA;
   const customRule = ROUTE_LIMITS.find((rule) => pathname.startsWith(rule.prefix));
   return customRule ? Math.max(customRule.limit, configuredLimit) : configuredLimit;
 }
