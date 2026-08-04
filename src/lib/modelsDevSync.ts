@@ -88,6 +88,10 @@ let activeSyncIntervalMs = SYNC_INTERVAL_MS;
 let cachedData: ModelsDevData | null = null;
 let cacheTime = 0;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+let cachedPricing: PricingByProvider | null = null;
+let cachedPricingTime = 0;
+const PRICING_CACHE_TTL_MS = 60_000; // 60 seconds — pricing is read-only during catalog builds
+
 let cachedCapabilities: CapabilitiesByProvider | null = null;
 let cachedCapabilitiesLoadedAll = false;
 const MODELS_DEV_ABORT_ERROR = "AbortError";
@@ -195,8 +199,14 @@ function mapCapabilityRecord(record: Record<string, unknown>): ModelCapabilityEn
 
 /**
  * Read synced pricing from `models_dev_pricing` namespace.
+ * Cached for 60s — pricing data is read-only during catalog builds
+ * and only changes on explicit models.dev sync.
  */
 export function getModelsDevPricing(): PricingByProvider {
+  if (cachedPricing && Date.now() - cachedPricingTime < PRICING_CACHE_TTL_MS) {
+    return cachedPricing;
+  }
+
   const db = getDbInstance();
   const rows = db
     .prepare("SELECT key, value FROM key_value WHERE namespace = 'models_dev_pricing'")
@@ -213,6 +223,8 @@ export function getModelsDevPricing(): PricingByProvider {
       console.warn(`[MODELS_DEV] Corrupted pricing data for provider "${key}", skipping`);
     }
   }
+  cachedPricing = synced;
+  cachedPricingTime = Date.now();
   return synced;
 }
 
@@ -220,6 +232,10 @@ export function getModelsDevPricing(): PricingByProvider {
  * Save synced pricing to `models_dev_pricing` namespace (full replace).
  */
 export function saveModelsDevPricing(data: PricingByProvider): void {
+  // Invalidate in-memory cache before write — the data is being replaced.
+  cachedPricing = null;
+  cachedPricingTime = 0;
+
   const db = getDbInstance();
   const del = db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
   const insert = db.prepare(
@@ -240,6 +256,8 @@ export function saveModelsDevPricing(data: PricingByProvider): void {
  * Clear all models.dev synced pricing data.
  */
 export function clearModelsDevPricing(): void {
+  cachedPricing = null;
+  cachedPricingTime = 0;
   const db = getDbInstance();
   db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
   backupDbFile("pre-write");
