@@ -144,8 +144,8 @@ export async function POST(request) {
 
         const structuralAdmission = admitChatStructure(parsedBody, admission.lease);
         if (structuralAdmission.admit === false) {
-          admission.lease?.release?.();
-          return finishAdmission(responseCallback(structuralAdmission.response));
+          admission.lease?.release();
+          return finishAdmission(structuralAdmission.response);
         }
 
         // Resolve model alias before forwarding to handleChat
