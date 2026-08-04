@@ -933,7 +933,16 @@
     "batchActionCancelError": "取消批处理失败。请重试。",
     "batchActionRetryError": "重试失败请求失败。请重试。",
     "batchConceptRetentionNote": "结果和错误文件保留 30 天（Anthropic：29 天）",
-    "recommendedActions": "推荐操作"
+    "recommendedActions": "推荐操作",
+    "selectTimeRangeAria": "选择时间范围",
+    "closeAria": "关闭",
+    "previousAria": "上一个",
+    "nextAria": "下一个",
+    "errorDetailsAria": "错误详情",
+    "retryLoadingAria": "重试加载",
+    "openSystemStatusAria": "打开系统状态",
+    "copyCodeAria": "复制代码到剪贴板",
+    "clearSearchAria": "清除搜索"
   },
   "disabled": "已禁用",
   "featureFlagOmnirouteEmergencyFallbackDescription": "将预算耗尽的请求路由到紧急免费备用提供者/模型。",
@@ -1232,7 +1241,11 @@
     "groupSeparatorLabel": "隔断",
     "discovery": "发现",
     "discoverySubtitle": "扫描提供者以获取免费访问",
-    "commandPaletteSearchPlaceholder": "搜索页面、设置、工具…"
+    "commandPaletteSearchPlaceholder": "搜索页面、设置、工具…",
+    "toggleSidebarAria": "切换侧边栏",
+    "breadcrumbAria": "面包屑导航",
+    "commandPaletteAria": "命令面板",
+    "clearSearchAria": "清除搜索"
   },
   "webhooks": {
     "title": "Webhook",
@@ -4674,7 +4687,13 @@
     },
     "compressionLogTitle": "压缩日志",
     "compressionLogEmpty": "尚未有压缩请求。启用压缩处理请求时，压缩统计信息将出现在此处。",
-    "tokens": "令牌"
+    "tokens": "令牌",
+    "proxyLogDetailAria": "代理日志详情",
+    "closeProxyDetailAria": "关闭代理详情",
+    "requestLogDetailAria": "请求日志详情",
+    "previousRequestAria": "上一个请求",
+    "nextRequestAria": "下一个请求",
+    "closeDetailModalAria": "关闭详情弹窗"
   },
   "onboarding": {
     "welcome": "欢迎",
@@ -8969,7 +8988,10 @@
     "unableToLoad": "无法加载系统指标",
     "product": "产品",
     "resources": "资源",
-    "company": "公司"
+    "company": "公司",
+    "toggleAutoRefreshAria": "切换自动刷新",
+    "systemMetricsAria": "系统指标",
+    "systemMonitoringAria": "系统监控"
   },
   "auth": {
     "welcome": "欢迎",
@@ -12298,5 +12320,11 @@
     "sending": "发送中...",
     "sendRequest": "发送请求",
     "responseLabel": "响应"
+  },
+  "globalError": {
+    "somethingWentWrong": "出现错误",
+    "unexpectedErrorDesc": "发生了意外错误。我们已记录并将进行调查。",
+    "tryAgain": "重试",
+    "errorId": "错误 ID: {digest}"
   }
 }

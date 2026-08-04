@@ -113,7 +113,7 @@ export default function SystemMonitor({ compact = false }) {
       <div
         className="flex items-center gap-4 text-xs text-text-muted"
         role="status"
-        aria-label="System metrics"
+        aria-label={t("systemMetricsAria")}
       >
         <span title={`Memory: ${memPercent}%`}>
           <span className={`font-mono font-medium ${memColor}`}>{memPercent}%</span> mem
@@ -126,7 +126,7 @@ export default function SystemMonitor({ compact = false }) {
   }
 
   return (
-    <Card className="p-4" role="region" aria-label="System monitoring">
+    <Card className="p-4" role="region" aria-label={t("systemMonitoringAria")}>
       <h3 className="text-sm font-semibold text-text-main mb-3 flex items-center gap-2">
         <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">
           monitoring

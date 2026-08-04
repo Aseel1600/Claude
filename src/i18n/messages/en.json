@@ -933,7 +933,16 @@
     "batchActionCancelError": "Failed to cancel batch. Try again.",
     "batchActionRetryError": "Failed to retry failed requests. Try again.",
     "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)",
-    "recommendedActions": "Recommended actions"
+    "recommendedActions": "Recommended actions",
+    "selectTimeRangeAria": "Select time range",
+    "closeAria": "Close",
+    "previousAria": "Previous",
+    "nextAria": "Next",
+    "errorDetailsAria": "Error details",
+    "retryLoadingAria": "Retry loading",
+    "openSystemStatusAria": "Open system status",
+    "copyCodeAria": "Copy code to clipboard",
+    "clearSearchAria": "Clear search"
   },
   "disabled": "Disabled",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
@@ -1232,7 +1241,11 @@
     "groupSeparatorLabel": "Separator",
     "discovery": "Discovery",
     "discoverySubtitle": "Scan providers for free access",
-    "commandPaletteSearchPlaceholder": "Search pages, settings, tools..."
+    "commandPaletteSearchPlaceholder": "Search pages, settings, tools...",
+    "toggleSidebarAria": "Toggle Sidebar",
+    "breadcrumbAria": "Breadcrumb",
+    "commandPaletteAria": "Command palette",
+    "clearSearchAria": "Clear search"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -4674,7 +4687,13 @@
     },
     "compressionLogTitle": "Compression Log",
     "compressionLogEmpty": "No compressed requests yet. Compression stats will appear here when requests are processed with compression enabled.",
-    "tokens": "tokens"
+    "tokens": "tokens",
+    "proxyLogDetailAria": "Proxy log detail",
+    "closeProxyDetailAria": "Close proxy detail",
+    "requestLogDetailAria": "Request log detail",
+    "previousRequestAria": "Previous request",
+    "nextRequestAria": "Next request",
+    "closeDetailModalAria": "Close detail modal"
   },
   "onboarding": {
     "welcome": "Welcome",
@@ -8969,7 +8988,10 @@
     "unableToLoad": "Unable to load system metrics",
     "product": "Product",
     "resources": "Resources",
-    "company": "Company"
+    "company": "Company",
+    "toggleAutoRefreshAria": "Toggle auto refresh",
+    "systemMetricsAria": "System metrics",
+    "systemMonitoringAria": "System monitoring"
   },
   "auth": {
     "welcome": "Welcome",
@@ -12298,5 +12320,11 @@
     "sending": "发送中...",
     "sendRequest": "发送请求",
     "responseLabel": "响应"
+  },
+  "globalError": {
+    "somethingWentWrong": "Something went wrong",
+    "unexpectedErrorDesc": "An unexpected error occurred. This has been logged and our team will investigate.",
+    "tryAgain": "Try Again",
+    "errorId": "Error ID: {digest}"
   }
 }

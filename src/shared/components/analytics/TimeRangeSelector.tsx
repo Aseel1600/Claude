@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 import type { UtilizationTimeRange } from "@/shared/types/utilization";
 
@@ -16,10 +17,11 @@ const OPTIONS: Array<{ value: UtilizationTimeRange; label: string }> = [
 ];
 
 export default function TimeRangeSelector({ value, onChange }: TimeRangeSelectorProps) {
+  const t = useTranslations("common");
   return (
     <div
       role="tablist"
-      aria-label="Select time range"
+      aria-label={t("selectTimeRangeAria")}
       className="inline-flex items-center gap-1 rounded-lg bg-black/5 p-1 dark:bg-white/5"
     >
       {OPTIONS.map((option) => {

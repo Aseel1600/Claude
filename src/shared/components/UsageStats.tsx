@@ -252,7 +252,7 @@ export default function UsageStats() {
               onClick={() => setAutoRefresh(!autoRefresh)}
               role="switch"
               aria-checked={autoRefresh}
-              aria-label="Toggle auto refresh"
+              aria-label={t("toggleAutoRefreshAria")}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 ${
                 autoRefresh ? "bg-primary" : "bg-bg-subtle border border-border"
               }`}

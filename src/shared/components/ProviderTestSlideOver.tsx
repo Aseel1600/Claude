@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 
 import {
@@ -145,6 +146,7 @@ function SlideOverHeader({
   color: string;
   onClose: () => void;
 }) {
+  const t = useTranslations("common");
   return (
     <div className="flex items-center gap-3 px-4 py-3 border-b border-black/5 dark:border-white/5 shrink-0">
       <div
@@ -186,7 +188,7 @@ function SlideOverHeader({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Close"
+        aria-label={t("closeAria")}
         className="p-1.5 rounded-lg text-text-muted hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
       >
         <span className="material-symbols-outlined text-[20px]">close</span>

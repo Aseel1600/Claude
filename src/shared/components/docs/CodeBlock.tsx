@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 
 interface CodeBlockProps {
@@ -18,6 +19,7 @@ export default function CodeBlock({
   children,
   className,
 }: CodeBlockProps) {
+  const t = useTranslations("common");
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(code);
   };
@@ -35,7 +37,7 @@ export default function CodeBlock({
           <button
             onClick={copyToClipboard}
             className="opacity-0 group-hover:opacity-100 transition-opacity hover:text-text-main"
-            aria-label="Copy code to clipboard"
+            aria-label={t("copyCodeAria")}
           >
             Copy
           </button>

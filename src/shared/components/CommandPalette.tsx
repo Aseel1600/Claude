@@ -235,7 +235,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
         className="relative w-full max-w-3xl bg-surface border border-black/10 dark:border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
-        aria-label="Command palette"
+        aria-label={t("commandPaletteAria")}
       >
         <div className="flex items-center gap-3 px-6 py-4 border-b border-black/5 dark:border-white/5">
           <span className="material-symbols-outlined text-[20px] text-text-muted shrink-0">
@@ -262,7 +262,7 @@ function CommandPaletteDialog({ onClose }: { onClose: () => void }) {
                 setSelectedIndex(0);
               }}
               tabIndex={-1}
-              aria-label="Clear search"
+              aria-label={t("clearSearchAria")}
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>

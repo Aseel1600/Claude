@@ -3,6 +3,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 
 interface DocsBreadcrumbsProps {
@@ -11,6 +12,7 @@ interface DocsBreadcrumbsProps {
 }
 
 export default function DocsBreadcrumbs({ labels, className }: DocsBreadcrumbsProps) {
+  const t = useTranslations("sidebar");
   const pathname = usePathname();
   if (!pathname || pathname === "/") return null;
 
@@ -23,7 +25,7 @@ export default function DocsBreadcrumbs({ labels, className }: DocsBreadcrumbsPr
 
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={t("breadcrumbAria")}
       className={cn("flex items-center gap-2 text-sm text-text-muted mb-6", className)}
     >
       <Link href="/" className="hover:text-text-main transition-colors">

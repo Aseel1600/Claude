@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 import { DOCS_TOKENS } from "./tokens";
 
@@ -19,6 +20,7 @@ interface DocsSidebarProps {
 }
 
 export default function DocsSidebar({ sections, currentPath, className }: DocsSidebarProps) {
+  const t = useTranslations("sidebar");
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -37,7 +39,7 @@ export default function DocsSidebar({ sections, currentPath, className }: DocsSi
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 hover:bg-bg-subtle rounded transition-colors"
-          aria-label="Toggle Sidebar"
+          aria-label={t("toggleSidebarAria")}
         >
           <span className="block w-4 h-0.5 bg-text-main mb-1"></span>
           <span className="block w-4 h-0.5 bg-text-main mb-1"></span>

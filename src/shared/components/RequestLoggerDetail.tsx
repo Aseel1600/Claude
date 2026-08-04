@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   PROVIDER_COLORS,
   getHttpStatusStyle as getStatusStyle,
@@ -205,6 +206,8 @@ export default function RequestLoggerDetail({
     return () => globalThis.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  const t = useTranslations("logs");
+
   const statusStyle = getStatusStyle(log.status);
   const protocolKey = log.sourceFormat || log.provider;
   const protocol = getProtocolColor(protocolKey, log.provider);
@@ -352,7 +355,7 @@ export default function RequestLoggerDetail({
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Request log detail"
+      aria-label={t("requestLogDetailAria")}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
@@ -413,7 +416,7 @@ export default function RequestLoggerDetail({
               onClick={onPrevious}
               disabled={!onPrevious}
               className="p-1.5 rounded-lg hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="Previous request"
+              aria-label={t("previousRequestAria")}
             >
               <span className="material-symbols-outlined text-[18px]">chevron_left</span>
             </button>
@@ -421,14 +424,14 @@ export default function RequestLoggerDetail({
               onClick={onNext}
               disabled={!onNext}
               className="p-1.5 rounded-lg hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              aria-label="Next request"
+              aria-label={t("nextRequestAria")}
             >
               <span className="material-symbols-outlined text-[18px]">chevron_right</span>
             </button>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors"
-              aria-label="Close detail modal"
+              aria-label={t("closeDetailModalAria")}
             >
               <span className="material-symbols-outlined">close</span>
             </button>

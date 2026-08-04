@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import {
   TYPE_COLORS,
   LEVEL_COLORS,
@@ -14,6 +15,7 @@ import { formatDuration as formatLatency } from "@/shared/utils/formatting";
  * Extracted from ProxyLogger.js for maintainability.
  */
 export default function ProxyLogDetail({ log, onClose }) {
+  const t = useTranslations("logs");
   useEffect(() => {
     const handler = (e) => {
       if (e.key === "Escape") onClose();
@@ -52,7 +54,7 @@ export default function ProxyLogDetail({ log, onClose }) {
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Proxy log detail"
+      aria-label={t("proxyLogDetailAria")}
     >
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
@@ -73,7 +75,7 @@ export default function ProxyLogDetail({ log, onClose }) {
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors"
-            aria-label="Close proxy detail modal"
+            aria-label={t("closeProxyDetailAria")}
           >
             <span className="material-symbols-outlined">close</span>
           </button>
