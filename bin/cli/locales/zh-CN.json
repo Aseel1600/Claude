@@ -1258,5 +1258,43 @@
     "search": "搜索 npm 注册表中的可用插件",
     "update": "更新已安装的插件",
     "scaffold": "搭建新的插件模板"
+  },
+  "authExport": {
+    "description": "导出解密后的提供者凭据(仅本地,明文输出)",
+    "idOpt": "仅导出匹配此 id/名称/提供者的连接",
+    "formatOpt": "输出格式:json 或 env",
+    "outOpt": "将输出写入文件而非 stdout(以 0600 权限写入)",
+    "forceOpt": "确认你理解此操作会打印/写入明文密钥",
+    "warning": "⚠ 此操作会打印/写入解密的明文 API 密钥和 OAuth 令牌。请确保你的屏幕、shell 历史及任何输出文件保持私密。",
+    "confirmHeading": "⚠ 警告:此操作会以明文导出已解密的提供者凭据",
+    "confirmBody": "此命令会解密并打印/写入选中连接的 apiKey、accessToken、refreshToken 和 idToken。请将输出视为密钥。",
+    "confirmFooter": "确认请执行:\n  omniroute auth export --force",
+    "missingKey": "导出凭据需要 STORAGE_ENCRYPTION_KEY。",
+    "notFound": "未找到连接:{id}",
+    "invalidFormat": "无效格式:{format}。请使用 json 或 env。"
+  },
+  "launch": {
+    "description": "启动 Claude Code 并指向 OmniRoute(本地或远程,可指定 --profile)",
+    "token": "Claude 客户端应发送的令牌(ANTHROPIC_AUTH_TOKEN)",
+    "notRunning": "OmniRoute 在端口 {port} 不可访问。请用 \"omniroute serve\" 启动。",
+    "notFound": "在 PATH 中未找到 \"claude\" CLI。"
+  },
+  "setupClaude": {
+    "description": "从 OmniRoute 模型目录生成 ~/.claude/profiles Claude Code 配置文件"
+  },
+  "connect": {
+    "description": "连接到远程 OmniRoute 服务器并进入远程模式"
+  },
+  "tokens": {
+    "description": "管理限定范围的 CLI 访问令牌(远程模式)"
+  },
+  "configure": {
+    "description": "从当前服务器选取提供者+模型并写入本地 CLI 配置"
+  },
+  "launchCodex": {
+    "description": "启动 Codex CLI 并指向 OmniRoute(本地或远程 VPS)"
+  },
+  "setupCodex": {
+    "description": "从 OmniRoute 实时模型目录生成 ~/.codex 配置文件"
   }
 }
