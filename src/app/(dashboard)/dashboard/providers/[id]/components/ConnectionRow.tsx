@@ -65,6 +65,7 @@ export interface ConnectionRowProps {
   onToggleRateLimit: (enabled?: boolean) => void;
   onToggleQuotaVisibility?: (visible: boolean) => void;
   onToggleClaudeExtraUsage?: (enabled?: boolean) => void;
+  onToggleAutoSync?: (enabled: boolean) => void;
   onToggleCodex5h?: (enabled?: boolean) => void;
   onToggleCodexWeekly?: (enabled?: boolean) => void;
   isCcCompatible?: boolean;
@@ -360,6 +361,7 @@ export default function ConnectionRow({
   onToggleRateLimit,
   onToggleQuotaVisibility,
   onToggleClaudeExtraUsage,
+  onToggleAutoSync,
   onToggleCodex5h,
   onToggleCodexWeekly,
   onToggleCliproxyapiMode,
@@ -524,6 +526,8 @@ export default function ConnectionRow({
   // onToggleCliproxyapiMode are kept on the props interface for any other
   // consumer but are no longer read here.
   const effectiveUpstreamProxyMode = upstreamProxyMode ?? "native";
+  const autoSyncEnabled = !!(connection.providerSpecificData as Record<string, unknown> | undefined)
+    ?.autoSync;
 
   return (
     <div
@@ -646,6 +650,24 @@ export default function ConnectionRow({
                 visible={quotaVisible}
                 onToggle={onToggleQuotaVisibility}
               />
+            )}
+            {onToggleAutoSync && (
+              <>
+                <span className="text-text-muted/30 select-none">|</span>
+                <button
+                  onClick={() => onToggleAutoSync?.(!autoSyncEnabled)}
+                  disabled={connection.isActive === false}
+                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                    autoSyncEnabled
+                      ? "bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
+                      : "bg-black/[0.03] dark:bg-white/[0.03] text-text-muted/50 hover:text-text-muted hover:bg-black/[0.06] dark:hover:bg-white/[0.06]"
+                  }`}
+                  title={t("autoSyncTooltip")}
+                >
+                  <span className="material-symbols-outlined text-[13px]">sync</span>
+                  {t("autoSyncShort")}
+                </button>
+              </>
             )}
             {isClaude && (
               <>

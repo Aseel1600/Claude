@@ -50,6 +50,8 @@ type ConnectionsListPanelProps = {
   handleToggleRateLimit: (id: string, enabled: boolean) => void;
   handleToggleQuotaVisibility: (id: string, visible: boolean) => void;
   handleToggleClaudeExtraUsage: (id: string, enabled: boolean) => void;
+  canAutoSync?: boolean;
+  handleToggleConnectionAutoSync?: (connectionId: string, enabled: boolean) => void;
   handleToggleCliproxyapiMode: (id: string, enabled: boolean) => void;
   handleSetUpstreamProxyMode: (
     mode: "native" | "cliproxyapi" | "dario" | "fallback",
@@ -134,6 +136,7 @@ export default function ConnectionsListPanel({
   handleToggleRateLimit,
   handleToggleQuotaVisibility,
   handleToggleClaudeExtraUsage,
+  handleToggleConnectionAutoSync,
   handleToggleCliproxyapiMode,
   handleSetUpstreamProxyMode,
   upstreamProxyMode,
@@ -151,6 +154,7 @@ export default function ConnectionsListPanel({
   handleToggleSelectAll,
   handleDistributeProxies,
   cpaProviderEnabled,
+  canAutoSync,
   onOpenEditModal,
   onOpenOAuth,
   onSetProxyTarget,
@@ -400,6 +404,11 @@ export default function ConnectionsListPanel({
                 onToggleClaudeExtraUsage={(enabled) =>
                   handleToggleClaudeExtraUsage(conn.id, enabled)
                 }
+                onToggleAutoSync={
+                  canAutoSync && handleToggleConnectionAutoSync
+                    ? (enabled) => handleToggleConnectionAutoSync(conn.id, enabled)
+                    : undefined
+                }
                 isCodex={providerId === "codex"}
                 isCcCompatible={isCcCompatible}
                 cliproxyapiEnabled={cpaProviderEnabled}
@@ -595,6 +604,11 @@ export default function ConnectionsListPanel({
                     )}
                     onToggleClaudeExtraUsage={(enabled) =>
                       handleToggleClaudeExtraUsage(conn.id, enabled)
+                    }
+                    onToggleAutoSync={
+                      canAutoSync && handleToggleConnectionAutoSync
+                        ? (enabled) => handleToggleConnectionAutoSync(conn.id, enabled)
+                        : undefined
                     }
                     isCodex={providerId === "codex"}
                     isCcCompatible={isCcCompatible}
