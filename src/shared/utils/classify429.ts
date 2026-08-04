@@ -66,6 +66,14 @@ const QUOTA_PATTERNS: ReadonlyArray<RegExp> = [
   // the 429 is misclassified as transient rate_limit and retried every
   // ~60s against a budget that only resets at UTC midnight.
   /daily free allocation/i,
+
+  // OmniRoute auth-layer synthetic 429 (Issue #9269).
+  // Body: "All antigravity accounts have exhausted their quota (reset after 5m)"
+  // Produced by auth.ts line 1477 when every account for a provider has
+  // exhausted its quota. Without this pattern, the message is classified as
+  // a transient rate-limit and the combo loop burns retries against the
+  // same provider instead of falling back to a healthy one.
+  /have exhausted their quota/i,
 ];
 
 /**
