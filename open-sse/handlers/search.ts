@@ -96,6 +96,10 @@ interface SearchHandlerOptions {
   alternateProvider?: string;
   alternateCredentials?: Record<string, any> | null;
   log?: any;
+  /** Connection ID from the resolved credentials, used for proxy resolution and call-log attribution. */
+  connectionId?: string;
+  /** API key ID from the request policy, used for per-key proxy resolution. */
+  apiKeyId?: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -1195,6 +1199,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     alternateProvider,
     alternateCredentials,
     log,
+    connectionId,
+    apiKeyId,
   } = options;
   const startTime = Date.now();
 
@@ -1238,7 +1244,15 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 4. Try primary provider
-  const result = await tryProvider(primaryConfig, requestParams, credentials, startTime, log);
+  const result = await tryProvider(
+    primaryConfig,
+    requestParams,
+    credentials,
+    startTime,
+    log,
+    connectionId,
+    apiKeyId
+  );
 
   if (result.success) return result;
 
@@ -1261,7 +1275,10 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       requestParams,
       alternateCredentials,
       startTime,
-      log
+      log,
+      // Resolve alternate connection proxy independently so primary context never leaks
+      alternateCredentials?.connectionId,
+      apiKeyId
     );
 
     if (fallbackResult.success) return fallbackResult;
@@ -1374,7 +1391,9 @@ async function tryProvider(
   params: Omit<SearchRequestParams, "token">,
   credentials: Record<string, any>,
   globalStartTime: number,
-  log?: any
+  log?: any,
+  connectionId?: string,
+  apiKeyId?: string
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
   const providerSpecificData =
@@ -1421,6 +1440,23 @@ async function tryProvider(
     };
   }
 
+  // Resolve proxy for the selected connection. Uses the existing
+  // resolveProxyForConnection(connectionId, apiKeyId, providerId) precedence
+  // chain so per-key, account, provider, combo, and global proxy rules apply
+  // consistently with other data-plane routes.
+  let proxy: unknown = null;
+  let proxyLevel = "direct";
+  if (connectionId) {
+    try {
+      const { resolveProxyForConnection } = await import("@/lib/db/settings");
+      const proxyInfo = await resolveProxyForConnection(connectionId, apiKeyId, config.id);
+      proxy = proxyInfo.proxy;
+      proxyLevel = proxyInfo.level || "direct";
+    } catch {
+      // Proxy resolution failure must not block the search — fall through to direct
+    }
+  }
+
   // Timeout: min of provider timeout and remaining global timeout
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
   const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
@@ -1432,7 +1468,16 @@ async function tryProvider(
   }
 
   try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
+    // Wrap the upstream fetch in the proxy context so the patched globalThis.fetch
+    // routes through the configured proxy instead of egressing directly.
+    const response = proxy
+      ? await (async () => {
+          const { runWithProxyContext } = await import("../utils/proxyFetch.ts");
+          return runWithProxyContext(proxy, () =>
+            fetch(url, { ...init, signal: controller.signal })
+          );
+        })()
+      : await fetch(url, { ...init, signal: controller.signal });
     clearTimeout(timer);
 
     if (!response.ok) {
@@ -1447,6 +1492,7 @@ async function tryProvider(
         status: response.status,
         model: config.id,
         provider: config.id,
+        connectionId: connectionId || null,
         duration: Date.now() - startTime,
         requestType: "search",
         error: errorText.slice(0, 500),
@@ -1458,6 +1504,9 @@ async function tryProvider(
       }).catch(() => {
         /* non-critical — logging must not block search response */
       });
+
+      // Emit sanitized proxy event for the failed attempt
+      await emitSearchProxyEvent(config.id, connectionId, proxy, proxyLevel, url, startTime, "error");
 
       return {
         success: false,
@@ -1479,6 +1528,7 @@ async function tryProvider(
       status: 200,
       model: config.id,
       provider: config.id,
+      connectionId: connectionId || null,
       duration,
       requestType: "search",
       tokens: { prompt_tokens: 0, completion_tokens: 0 },
@@ -1487,6 +1537,9 @@ async function tryProvider(
     }).catch(() => {
       /* non-critical — logging must not block search response */
     });
+
+    // Emit sanitized proxy event for the successful attempt
+    await emitSearchProxyEvent(config.id, connectionId, proxy, proxyLevel, url, startTime, "success");
 
     return {
       success: true,
@@ -1518,6 +1571,7 @@ async function tryProvider(
       status: isTimeout ? 504 : 502,
       model: config.id,
       provider: config.id,
+      connectionId: connectionId || null,
       duration: Date.now() - startTime,
       requestType: "search",
       error: err.message,
@@ -1526,10 +1580,65 @@ async function tryProvider(
       /* non-critical — logging must not block search response */
     });
 
+    // Emit sanitized proxy event for the fetch failure
+    await emitSearchProxyEvent(
+      config.id,
+      connectionId,
+      proxy,
+      proxyLevel,
+      url,
+      startTime,
+      isTimeout ? "timeout" : "error"
+    );
+
     return {
       success: false,
       status: isTimeout ? 504 : 502,
       error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
     };
+  }
+}
+
+/**
+ * Emit a sanitized proxy event for a search provider attempt.
+ * Never includes query, API key, proxy username, or proxy password.
+ */
+async function emitSearchProxyEvent(
+  provider: string,
+  connectionId: string | undefined,
+  proxy: unknown,
+  proxyLevel: string,
+  targetUrl: string,
+  startTime: number,
+  status: string
+) {
+  try {
+    const { logProxyEvent } = await import("@/lib/proxyLogger");
+    let targetOrigin = "";
+    let targetPath = "";
+    try {
+      const u = new URL(targetUrl);
+      targetOrigin = u.origin;
+      targetPath = u.pathname;
+    } catch {
+      targetOrigin = targetUrl.slice(0, 80);
+    }
+    const proxyInfo =
+      proxy && typeof proxy === "object"
+        ? { type: String((proxy as any).type || "http"), host: String((proxy as any).host || ""), port: Number((proxy as any).port || 0) }
+        : null;
+    logProxyEvent({
+      status,
+      proxy: proxyInfo,
+      level: proxyLevel,
+      levelId: connectionId || null,
+      provider: provider || null,
+      targetUrl: `${targetOrigin}${targetPath}`,
+      latencyMs: Date.now() - startTime,
+      connectionId: connectionId || null,
+      account: connectionId ? connectionId.slice(0, 8) : null,
+    });
+  } catch {
+    // Non-critical — proxy logging must not block search response
   }
 }
