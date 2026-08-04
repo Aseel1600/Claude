@@ -250,7 +250,7 @@ export default function ModelRoutingSection({ combos: externalCombos }: { combos
               <input
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Route Opus models to frontier combo"
+                placeholder={t("routeOpusModelsPlaceholder")}
                 className="w-full mt-0.5 px-2.5 py-1.5 text-xs rounded-lg border border-black/10 dark:border-white/10
                            bg-white dark:bg-black/20 focus:outline-none focus:ring-1 focus:ring-primary"
               />

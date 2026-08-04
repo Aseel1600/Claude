@@ -932,7 +932,8 @@
     "batchDetailCancelConfirm": "取消此批处理？进行中的请求将停止。",
     "batchActionCancelError": "取消批处理失败。请重试。",
     "batchActionRetryError": "重试失败请求失败。请重试。",
-    "batchConceptRetentionNote": "结果和错误文件保留 30 天（Anthropic：29 天）"
+    "batchConceptRetentionNote": "结果和错误文件保留 30 天（Anthropic：29 天）",
+    "recommendedActions": "推荐操作"
   },
   "disabled": "已禁用",
   "featureFlagOmnirouteEmergencyFallbackDescription": "将预算耗尽的请求路由到紧急免费备用提供者/模型。",
@@ -1230,7 +1231,8 @@
     "alwaysVisible": "始终可见",
     "groupSeparatorLabel": "隔断",
     "discovery": "发现",
-    "discoverySubtitle": "扫描提供者以获取免费访问"
+    "discoverySubtitle": "扫描提供者以获取免费访问",
+    "commandPaletteSearchPlaceholder": "搜索页面、设置、工具…"
   },
   "webhooks": {
     "title": "Webhook",
@@ -1730,7 +1732,8 @@
     "updateAvailableDesc": "有新版本可用。点击更新。",
     "updateStarted": "更新已开始...",
     "reloadingPageAutomatically": "自动重新加载页面...",
-    "providerTopology": "提供者拓扑"
+    "providerTopology": "提供者拓扑",
+    "noResponseStream": "未收到响应流"
   },
   "analytics": {
     "title": "分析",
@@ -6015,7 +6018,28 @@
     "ccAliasSaveError": "__MISSING__:Failed to save discovery-alias setting: {error}",
     "apiProtocolLabel": "API 协议",
     "apiProtocolDefault": "OpenAI 兼容(默认)",
-    "apiProtocolHint": "某些提供商会通过多个协议发布相同的模型。除非需要替代方案,请保留默认。"
+    "apiProtocolHint": "某些提供商会通过多个协议发布相同的模型。除非需要替代方案,请保留默认。",
+    "codexServiceModeUpdated": "Codex 服务模式已更新",
+    "failedUpdateCodexServiceMode": "更新 Codex 服务模式失败",
+    "networkErrorSettingAlias": "设置别名时网络错误",
+    "networkErrorDeletingAlias": "删除别名时网络错误",
+    "failedUpdateClaudeExtraUsagePolicy": "更新 Claude 额外使用策略失败",
+    "codexLimitPolicyUpdated": "Codex 限额策略已更新",
+    "failedUpdateCodexLimitPolicy": "更新 Codex 限额策略失败",
+    "failedUpdateCliProxyApiRouting": "更新 CLIProxyAPI 路由失败",
+    "networkErrorDuringBatchDelete": "批量删除时网络错误",
+    "noSavedProxies": "未找到已保存的代理。请先在 设置 → 代理 中添加代理。",
+    "failedDistributeProxies": "分配代理失败",
+    "networkErrorTestingModel": "测试模型时网络错误",
+    "connectionDeleted": "连接已删除",
+    "failedDeleteConnection": "删除连接失败",
+    "commandCodeConnectionAdded": "Command Code 连接已添加",
+    "failedApplyCommandCodeAuth": "应用 Command Code 认证失败",
+    "commandCodePopupBlocked": "弹窗被拦截。请允许弹窗后重试 Command Code Connect。",
+    "commandCodeAuthExpired": "Command Code 认证已过期",
+    "failedStartCommandCodeAuth": "启动 Command Code 认证失败",
+    "savedModelEndpointSettings": "已保存模型端点设置",
+    "selectAtLeastOneSupportedEndpoint": "请至少选择一个支持的端点"
   },
   "settings": {
     "title": "设置",
@@ -7613,7 +7637,9 @@
     "enableCredentialRedaction": "启用凭据脱敏",
     "enableCredentialRedactionDesc": "清除消息、工具调用和响应中的 API 密钥、令牌、私钥和 JWT。",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
-    "pricingAutoSyncEnabled": "Automatic Sync Enabled"
+    "pricingAutoSyncEnabled": "Automatic Sync Enabled",
+    "routeOpusModelsPlaceholder": "将 Opus 模型路由到前沿组合",
+    "instanceNamePlaceholder": "实例名称"
   },
   "contextRtk": {
     "title": "RTK 引擎",
@@ -10288,7 +10314,8 @@
     "noMatchingLogs": "没有匹配当前筛选器的日志。",
     "callLogsInfo": "调用日志也保存为JSON文件到{dataDir}，并根据{retentionDays}和{maxEntries}进行轮换。",
     "loadMore": "加载更多",
-    "loadingMore": "正在加载更多..."
+    "loadingMore": "正在加载更多...",
+    "correlationIdPlaceholder": "关联 ID"
   },
   "proxyLogger": {
     "filterAll": "全部",
@@ -12010,7 +12037,10 @@
       "avoid": "受 ToS 限制 — 请查看条款",
       "caution": "注意 — 个人使用 / 代理条款",
       "ok": "总体宽松"
-    }
+    },
+    "searchModelProvider": "搜索模型、服务商…",
+    "searchFreeModelsAria": "搜索免费模型",
+    "filterByProviderAria": "按服务商筛选"
   },
   "providerHealthAutopilot": {
     "title": "提供者健康自动巡航",
@@ -12208,5 +12238,65 @@
     "partnerLinkNote": "合作伙伴链接",
     "dismissAriaLabel": "关闭"
   },
-  "featureFlagExposeFunctionalGatewayMirrorsDescription": "__MISSING__:Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally."
+  "featureFlagExposeFunctionalGatewayMirrorsDescription": "__MISSING__:Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally.",
+  "error": {
+    "pageNotFoundTitle": "页面未找到",
+    "pageNotFoundDesc": "您查找的页面不存在或已被移动。",
+    "goToDashboard": "前往仪表盘",
+    "returnToDashboardAria": "返回仪表盘",
+    "openSystemStatusPage": "打开系统状态页面",
+    "systemStatus": "系统状态",
+    "internalServerError": "服务器内部错误",
+    "internalServerErrorDesc": "处理您的请求时发生错误。我们已收到通知并正在修复。",
+    "errorId": "错误 ID：{digest}",
+    "retryLoadingAria": "重试加载页面",
+    "openSystemStatusAria": "打开系统状态",
+    "tryAgain": "重试",
+    "errorDetailsAria": "错误详情"
+  },
+  "statusPage": {
+    "systemStatus": "系统状态",
+    "liveOperationalSnapshot": "OmniRoute 核心服务的实时运行快照。",
+    "refresh": "刷新",
+    "failedLoadHealth": "加载系统健康状态失败。",
+    "unreachableHealthEndpoint": "无法连接到健康检查端点。请检查网络连接后重试。",
+    "loadingHealthMetrics": "正在加载健康指标...",
+    "healthCheckFailed": "健康检查失败",
+    "openConnectivityHelp": "打开连接帮助",
+    "maintenanceInfo": "维护信息",
+    "service": "服务",
+    "version": "版本",
+    "uptime": "运行时长",
+    "providersTracked": "已跟踪服务商",
+    "providerCircuitBreakerState": "服务商熔断器状态",
+    "openCount": "开启: {count}",
+    "halfOpenCount": "半开启: {count}",
+    "closedCount": "关闭: {count}",
+    "lastUpdate": "最后更新:",
+    "unknown": "未知"
+  },
+  "offlinePage": {
+    "connectivityIssue": "连接异常",
+    "cannotReachNetwork": "OmniRoute 当前无法访问网络。请检查您的互联网、VPN 或代理设置。",
+    "connectionRestored": "连接已恢复",
+    "offlineModeDetected": "检测到离线模式",
+    "retryConnection": "重试连接",
+    "openStatusPage": "打开状态页面"
+  },
+  "maintenancePage": {
+    "scheduledMaintenance": "计划维护",
+    "maintenanceDesc": "维护期间部分服务暂时不可用。核心路由通常保持在线,但管理功能可能受限。",
+    "retryAfterMinutes": "几分钟后重试。",
+    "checkHealthIndicators": "重试前请检查当前健康指标和服务商状态。",
+    "viewSystemStatus": "查看系统状态",
+    "openHealthDashboard": "打开健康仪表盘"
+  },
+  "apiExplorer": {
+    "baseUrlLabel": "基础 URL",
+    "apiKeyLabel": "API 密钥",
+    "requestBodyLabel": "请求体",
+    "sending": "发送中...",
+    "sendRequest": "发送请求",
+    "responseLabel": "响应"
+  }
 }

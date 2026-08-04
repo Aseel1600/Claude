@@ -932,7 +932,8 @@
     "batchDetailCancelConfirm": "Cancel this batch? In-progress requests will stop.",
     "batchActionCancelError": "Failed to cancel batch. Try again.",
     "batchActionRetryError": "Failed to retry failed requests. Try again.",
-    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)"
+    "batchConceptRetentionNote": "Results and error files are retained for 30 days (Anthropic: 29 days)",
+    "recommendedActions": "Recommended actions"
   },
   "disabled": "Disabled",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
@@ -1230,7 +1231,8 @@
     "alwaysVisible": "Always visible",
     "groupSeparatorLabel": "Separator",
     "discovery": "Discovery",
-    "discoverySubtitle": "Scan providers for free access"
+    "discoverySubtitle": "Scan providers for free access",
+    "commandPaletteSearchPlaceholder": "Search pages, settings, tools..."
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1730,7 +1732,8 @@
     "updateAvailableDesc": "A new version is available. Click to update.",
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "Reloading page automatically...",
-    "providerTopology": "Provider Topology"
+    "providerTopology": "Provider Topology",
+    "noResponseStream": "No response stream received."
   },
   "analytics": {
     "title": "Analytics",
@@ -6015,7 +6018,28 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is OmniRoute's founding Open Source Friend",
     "cheaperInferenceSupporterBadge": "Open Source Friend",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference backs OmniRoute as an Open Source Friend",
-    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you"
+    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "codexServiceModeUpdated": "Codex service mode updated",
+    "failedUpdateCodexServiceMode": "Failed to update Codex service mode",
+    "networkErrorSettingAlias": "Network error setting alias",
+    "networkErrorDeletingAlias": "Network error deleting alias",
+    "failedUpdateClaudeExtraUsagePolicy": "Failed to update Claude extra-usage policy",
+    "codexLimitPolicyUpdated": "Codex limit policy updated",
+    "failedUpdateCodexLimitPolicy": "Failed to update Codex limit policy",
+    "failedUpdateCliProxyApiRouting": "Failed to update CLIProxyAPI routing",
+    "networkErrorDuringBatchDelete": "Network error during batch delete",
+    "noSavedProxies": "No saved proxies found. Add proxies in Settings → Proxy first.",
+    "failedDistributeProxies": "Failed to distribute proxies.",
+    "networkErrorTestingModel": "Network error testing model",
+    "connectionDeleted": "Connection deleted",
+    "failedDeleteConnection": "Failed to delete connection",
+    "commandCodeConnectionAdded": "Command Code connection added",
+    "failedApplyCommandCodeAuth": "Failed to apply Command Code auth",
+    "commandCodePopupBlocked": "Popup blocked. Please allow popups and try Command Code Connect again.",
+    "commandCodeAuthExpired": "Command Code auth expired",
+    "failedStartCommandCodeAuth": "Failed to start Command Code auth",
+    "savedModelEndpointSettings": "Saved model endpoint settings",
+    "selectAtLeastOneSupportedEndpoint": "Select at least one supported endpoint"
   },
   "settings": {
     "title": "Settings",
@@ -7613,7 +7637,9 @@
     "enableCredentialRedaction": "Enable credential redaction",
     "enableCredentialRedactionDesc": "Scrubs API keys, tokens, private keys, and JWTs from messages, tool calls, and responses.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
-    "pricingAutoSyncEnabled": "Automatic Sync Enabled"
+    "pricingAutoSyncEnabled": "Automatic Sync Enabled",
+    "routeOpusModelsPlaceholder": "Route Opus models to frontier combo",
+    "instanceNamePlaceholder": "Instance name"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -10288,7 +10314,8 @@
     "noMatchingLogs": "No logs matching current filters.",
     "callLogsInfo": "Call logs are also saved as JSON files to {dataDir} and rotated based on {retentionDays} and {maxEntries}.",
     "loadMore": "Load More",
-    "loadingMore": "Loading more..."
+    "loadingMore": "Loading more...",
+    "correlationIdPlaceholder": "Correlation ID"
   },
   "proxyLogger": {
     "filterAll": "All",
@@ -12010,7 +12037,10 @@
       "avoid": "ToS-restricted — review terms",
       "caution": "Caution — personal-use / proxy clauses",
       "ok": "Generally permissive"
-    }
+    },
+    "searchModelProvider": "Search model, provider…",
+    "searchFreeModelsAria": "Search free models",
+    "filterByProviderAria": "Filter by provider"
   },
   "providerHealthAutopilot": {
     "title": "Provider Health Autopilot",
@@ -12208,5 +12238,65 @@
     "partnerLinkNote": "Partner link",
     "dismissAriaLabel": "Dismiss"
   },
-  "featureFlagExposeFunctionalGatewayMirrorsDescription": "Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally."
+  "featureFlagExposeFunctionalGatewayMirrorsDescription": "Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally.",
+  "error": {
+    "pageNotFoundTitle": "Page not found",
+    "pageNotFoundDesc": "The page you’re looking for doesn’t exist or has been moved.",
+    "goToDashboard": "Go to Dashboard",
+    "returnToDashboardAria": "Return to dashboard",
+    "openSystemStatusPage": "Open system status page",
+    "systemStatus": "System Status",
+    "internalServerError": "Internal Server Error",
+    "internalServerErrorDesc": "Something went wrong while processing your request. Our team has been notified and is working on a fix.",
+    "errorId": "Error ID: {digest}",
+    "retryLoadingAria": "Retry loading the page",
+    "openSystemStatusAria": "Open system status",
+    "tryAgain": "Try Again",
+    "errorDetailsAria": "Error details"
+  },
+  "statusPage": {
+    "systemStatus": "系统状态",
+    "liveOperationalSnapshot": "OmniRoute 核心服务的实时运行快照。",
+    "refresh": "刷新",
+    "failedLoadHealth": "加载系统健康状态失败。",
+    "unreachableHealthEndpoint": "无法连接到健康检查端点。请检查网络连接后重试。",
+    "loadingHealthMetrics": "正在加载健康指标...",
+    "healthCheckFailed": "健康检查失败",
+    "openConnectivityHelp": "打开连接帮助",
+    "maintenanceInfo": "维护信息",
+    "service": "服务",
+    "version": "版本",
+    "uptime": "运行时长",
+    "providersTracked": "已跟踪服务商",
+    "providerCircuitBreakerState": "服务商熔断器状态",
+    "openCount": "开启: {count}",
+    "halfOpenCount": "半开启: {count}",
+    "closedCount": "关闭: {count}",
+    "lastUpdate": "最后更新:",
+    "unknown": "未知"
+  },
+  "offlinePage": {
+    "connectivityIssue": "连接异常",
+    "cannotReachNetwork": "OmniRoute 当前无法访问网络。请检查您的互联网、VPN 或代理设置。",
+    "connectionRestored": "连接已恢复",
+    "offlineModeDetected": "检测到离线模式",
+    "retryConnection": "重试连接",
+    "openStatusPage": "打开状态页面"
+  },
+  "maintenancePage": {
+    "scheduledMaintenance": "计划维护",
+    "maintenanceDesc": "维护期间部分服务暂时不可用。核心路由通常保持在线,但管理功能可能受限。",
+    "retryAfterMinutes": "几分钟后重试。",
+    "checkHealthIndicators": "重试前请检查当前健康指标和服务商状态。",
+    "viewSystemStatus": "查看系统状态",
+    "openHealthDashboard": "打开健康仪表盘"
+  },
+  "apiExplorer": {
+    "baseUrlLabel": "基础 URL",
+    "apiKeyLabel": "API 密钥",
+    "requestBodyLabel": "请求体",
+    "sending": "发送中...",
+    "sendRequest": "发送请求",
+    "responseLabel": "响应"
+  }
 }

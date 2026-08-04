@@ -320,7 +320,7 @@ export function useModelVisibilityHandlers({
         setModelTestStatus((prev) => ({ ...prev, [modelId]: "error" }));
       }
     } catch (err) {
-      notify.error("Network error testing model");
+      notify.error(t("networkErrorTestingModel"));
       setModelTestStatus((prev) => ({ ...prev, [modelId]: "error" }));
     } finally {
       setTestingModelId(null);

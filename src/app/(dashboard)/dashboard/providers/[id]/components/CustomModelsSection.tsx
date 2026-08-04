@@ -290,7 +290,7 @@ export default function CustomModelsSection({
 
       await fetchCustomModels();
       onModelsChanged?.();
-      notify.success("Saved model endpoint settings");
+      notify.success(t("savedModelEndpointSettings"));
       cancelEdit();
     } catch (e) {
       console.error("Failed to save custom model:", e);
@@ -305,7 +305,7 @@ export default function CustomModelsSection({
   const saveEdit = async (modelId: string) => {
     if (!editingModelId || editingModelId !== modelId) return;
     if (!editingEndpoints.length) {
-      notify.error("Select at least one supported endpoint");
+      notify.error(t("selectAtLeastOneSupportedEndpoint"));
       return;
     }
 

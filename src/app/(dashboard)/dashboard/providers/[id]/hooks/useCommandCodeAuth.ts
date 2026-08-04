@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { type CommandCodeAuthFlowState } from "../providerPageHelpers";
 
 export type UseCommandCodeAuthParams = {
@@ -15,6 +16,7 @@ export function useCommandCodeAuth({
   setShowAddApiKeyModal,
   notify,
 }: UseCommandCodeAuthParams) {
+  const t = useTranslations("providers");
   const [commandCodeAuthState, setCommandCodeAuthState] = useState<CommandCodeAuthFlowState>({
     phase: "idle",
     state: "",
@@ -93,7 +95,7 @@ export function useCommandCodeAuth({
         commandCodeAuthWindowRef.current = null;
         await fetchConnections();
         handleCloseAddApiKeyModal();
-        notify.success("Command Code connection added");
+        notify.success(t("commandCodeConnectionAdded"));
         return true;
       } catch (error) {
         console.error("Error applying Command Code auth:", error);
@@ -102,11 +104,11 @@ export function useCommandCodeAuth({
           phase: "error",
           message: "Failed to apply Command Code auth",
         }));
-        notify.error("Failed to apply Command Code auth");
+        notify.error(t("failedApplyCommandCodeAuth"));
         return false;
       }
     },
-    [fetchConnections, handleCloseAddApiKeyModal, notify]
+    [fetchConnections, handleCloseAddApiKeyModal, notify, t]
   );
 
   const handleStartCommandCodeAuth = useCallback(async () => {
@@ -171,7 +173,7 @@ export function useCommandCodeAuth({
             phase: "error",
             message: "Popup blocked. Please allow popups and try Command Code Connect again.",
           }));
-          notify.error("Popup blocked. Please allow popups and try Command Code Connect again.");
+          notify.error(t("commandCodePopupBlocked"));
           return;
         }
         commandCodeAuthWindowRef.current = fallbackPopup;
@@ -187,7 +189,7 @@ export function useCommandCodeAuth({
           }));
           commandCodeAuthWindowRef.current?.close?.();
           commandCodeAuthWindowRef.current = null;
-          notify.error("Command Code auth expired");
+          notify.error(t("commandCodeAuthExpired"));
           clearCommandCodeAuthTimer();
           return;
         }
@@ -210,7 +212,7 @@ export function useCommandCodeAuth({
             }));
             commandCodeAuthWindowRef.current?.close?.();
             commandCodeAuthWindowRef.current = null;
-            notify.error("Command Code auth expired");
+            notify.error(t("commandCodeAuthExpired"));
             clearCommandCodeAuthTimer();
             return;
           }
@@ -225,7 +227,7 @@ export function useCommandCodeAuth({
             commandCodeAuthWindowRef.current = null;
             await fetchConnections();
             handleCloseAddApiKeyModal();
-            notify.success("Command Code connection added");
+            notify.success(t("commandCodeConnectionAdded"));
             clearCommandCodeAuthTimer();
             return;
           }
@@ -260,7 +262,7 @@ export function useCommandCodeAuth({
         phase: "error",
         message: "Failed to start Command Code auth",
       }));
-      notify.error("Failed to start Command Code auth");
+      notify.error(t("failedStartCommandCodeAuth"));
       popup?.close?.();
       commandCodeAuthWindowRef.current = null;
       clearCommandCodeAuthTimer();
@@ -272,6 +274,7 @@ export function useCommandCodeAuth({
     fetchConnections,
     handleCommandCodeAuthApply,
     notify,
+    t,
   ]);
 
   const handleOpenCommandCodeConnect = useCallback(() => {

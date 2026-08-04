@@ -55,7 +55,7 @@ export default function ErrorPageScaffold({
         {suggestions.length > 0 && (
           <ul
             className="mt-8 rounded-xl border border-border bg-bg-alt p-5 space-y-2 text-sm text-text-muted"
-            aria-label="Recommended actions"
+            aria-label={t("recommendedActions")}
           >
             {suggestions.map((item) => (
               <li key={item} className="flex items-start gap-2">

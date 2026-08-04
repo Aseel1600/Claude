@@ -705,7 +705,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
 
       // SSE stream — read progress events
       if (!res.body) {
-        notify.error("No response stream received.");
+        notify.error(t("noResponseStream"));
         setUpdating(false);
         setUpdatePhase("idle");
         return;

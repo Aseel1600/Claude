@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   OPENAPI_ENDPOINTS,
   OPENAPI_TAGS,
@@ -88,6 +89,7 @@ const EXAMPLE_BODIES: Record<string, string> = {
 };
 
 export function ApiExplorerClient() {
+  const t = useTranslations("apiExplorer");
   const [selected, setSelected] = useState<OpenApiEndpoint | null>(null);
   const [baseUrl, setBaseUrl] = useState("http://localhost:20128");
   const [apiKey, setApiKey] = useState("");
@@ -222,7 +224,7 @@ export function ApiExplorerClient() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-text-muted block mb-1">Base URL</label>
+                <label className="text-xs text-text-muted block mb-1">{t("baseUrlLabel")}</label>
                 <input
                   type="text"
                   value={baseUrl}
@@ -231,7 +233,7 @@ export function ApiExplorerClient() {
                 />
               </div>
               <div>
-                <label className="text-xs text-text-muted block mb-1">API Key</label>
+                <label className="text-xs text-text-muted block mb-1">{t("apiKeyLabel")}</label>
                 <input
                   type="password"
                   value={apiKey}
@@ -244,7 +246,9 @@ export function ApiExplorerClient() {
 
             {selected.method !== "GET" && selected.hasRequestBody && (
               <div>
-                <label className="text-xs text-text-muted block mb-1">Request Body</label>
+                <label className="text-xs text-text-muted block mb-1">
+                  {t("requestBodyLabel")}
+                </label>
                 <textarea
                   value={requestBody}
                   onChange={(e) => setRequestBody(e.target.value)}
@@ -259,12 +263,12 @@ export function ApiExplorerClient() {
               disabled={loading}
               className="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
-              {loading ? "Sending..." : "Send Request"}
+              {loading ? t("sending") : t("sendRequest")}
             </button>
 
             {response !== null && (
               <div>
-                <label className="text-xs text-text-muted block mb-1">Response</label>
+                <label className="text-xs text-text-muted block mb-1">{t("responseLabel")}</label>
                 <pre className="bg-bg-subtle p-4 rounded-lg overflow-x-auto text-xs font-mono text-text-main max-h-80">
                   {response}
                 </pre>

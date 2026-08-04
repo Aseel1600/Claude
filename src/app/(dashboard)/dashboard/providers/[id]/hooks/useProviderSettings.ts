@@ -115,9 +115,7 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
     } catch (error) {
       if (!isCurrentRequest()) return;
       setCodexSettingsLoaded(false);
-      setCodexSettingsLoadError(
-        error instanceof Error ? error.message : "Failed to load settings"
-      );
+      setCodexSettingsLoadError(error instanceof Error ? error.message : "Failed to load settings");
     }
   }, [providerId]);
 
@@ -184,15 +182,15 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setCodexGlobalServiceMode(previousMode);
-        notify.error(data.error || "Failed to update Codex service mode");
+        notify.error(data.error || t("failedUpdateCodexServiceMode"));
         return;
       }
 
-      notify.success("Codex service mode updated");
+      notify.success(t("codexServiceModeUpdated"));
     } catch (error) {
       setCodexGlobalServiceMode(previousMode);
       console.error("Error updating Codex service mode:", error);
-      notify.error("Failed to update Codex service mode");
+      notify.error(t("failedUpdateCodexServiceMode"));
     } finally {
       setSavingCodexGlobalServiceMode(false);
     }
@@ -234,7 +232,11 @@ export function useProviderSettings(providerId: string): UseProviderSettingsRetu
       setPreferClaudeCodeForUnprefixedClaudeModels(previous);
       console.error("Error updating Claude Code routing preference:", error);
       notify.error(
-        providerText(t, "failedUpdateClaudeRoutingPreference", "Failed to update Claude Code routing preference")
+        providerText(
+          t,
+          "failedUpdateClaudeRoutingPreference",
+          "Failed to update Claude Code routing preference"
+        )
       );
     } finally {
       setSavingClaudeRoutingPreference(false);

@@ -548,7 +548,7 @@ export default function AppearanceTab() {
                 type="text"
                 value={settings.instanceName || "OmniRoute"}
                 onChange={(e) => updateSetting("instanceName", e.target.value)}
-                placeholder="OmniRoute"
+                placeholder={t("instanceNamePlaceholder")}
                 maxLength={100}
                 className="h-10 px-3 rounded-lg bg-surface border border-border text-sm text-text-main focus:outline-none focus:border-primary w-48"
               />

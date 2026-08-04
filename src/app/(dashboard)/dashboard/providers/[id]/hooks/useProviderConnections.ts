@@ -413,7 +413,7 @@ export function useProviderConnections(
       );
     } catch (error) {
       console.error("Error toggling Claude extra-usage policy:", error);
-      notify.error("Failed to update Claude extra-usage policy");
+      notify.error(t("failedUpdateClaudeExtraUsagePolicy"));
     }
   };
 
@@ -464,10 +464,10 @@ export function useProviderConnections(
             : connection
         )
       );
-      notify.success("Codex limit policy updated");
+      notify.success(t("codexLimitPolicyUpdated"));
     } catch (error) {
       console.error("Error toggling Codex quota policy:", error);
-      notify.error("Failed to update Codex limit policy");
+      notify.error(t("failedUpdateCodexLimitPolicy"));
     }
   };
 
@@ -492,7 +492,7 @@ export function useProviderConnections(
           : "Requests now use native OmniRoute (direct)"
       );
     } catch {
-      notify.error("Failed to update CLIProxyAPI routing");
+      notify.error(t("failedUpdateCliProxyApiRouting"));
     }
   };
 
@@ -667,7 +667,7 @@ export function useProviderConnections(
         notify.error(data.error || "Batch delete failed");
       }
     } catch {
-      notify.error("Network error during batch delete");
+      notify.error(t("networkErrorDuringBatchDelete"));
     } finally {
       setBatchDeleting(false);
     }
@@ -805,7 +805,7 @@ export function useProviderConnections(
       const proxiesData = await proxiesRes.json();
       const savedProxies = (proxiesData?.items || []).filter((p: any) => p.status === "active");
       if (savedProxies.length === 0) {
-        notify.error("No saved proxies found. Add proxies in Settings → Proxy first.");
+        notify.error(t("noSavedProxies"));
         return;
       }
 
@@ -860,7 +860,7 @@ export function useProviderConnections(
       );
     } catch (err) {
       console.error("Error distributing proxies:", err);
-      notify.error("Failed to distribute proxies.");
+      notify.error(t("failedDistributeProxies"));
     } finally {
       setDistributingProxies(false);
     }

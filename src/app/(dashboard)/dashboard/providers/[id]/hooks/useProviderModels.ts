@@ -83,7 +83,7 @@ export function useProviderModels(
         }
       } catch (error) {
         console.log("Error setting alias:", error);
-        notify.error("Network error setting alias");
+        notify.error(t("networkErrorSettingAlias"));
       }
     },
     [fetchAliases, t, notify]
@@ -104,7 +104,7 @@ export function useProviderModels(
         }
       } catch (error) {
         console.log("Error deleting alias:", error);
-        notify.error("Network error deleting alias");
+        notify.error(t("networkErrorDeletingAlias"));
       }
     },
     [fetchAliases, t, notify]
@@ -113,10 +113,9 @@ export function useProviderModels(
   const fetchProviderModelMeta = useCallback(async () => {
     if (isSearchProvider) return;
     try {
-      const res = await fetch(
-        `/api/provider-models?provider=${encodeURIComponent(providerId)}`,
-        { cache: "no-store" }
-      );
+      const res = await fetch(`/api/provider-models?provider=${encodeURIComponent(providerId)}`, {
+        cache: "no-store",
+      });
       if (!res.ok) return;
       const data = await res.json();
       setModelMeta({

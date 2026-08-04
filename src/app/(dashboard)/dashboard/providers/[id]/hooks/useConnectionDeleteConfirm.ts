@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useState } from "react";
+import { useTranslations } from "next-intl";
 
 export interface ConnectionDeleteConfirmTarget {
   id: string;
@@ -34,6 +35,7 @@ export function useConnectionDeleteConfirm(
   fetchConnections: () => Promise<void>,
   notify: NotifyLike
 ): ConnectionDeleteConfirmState {
+  const t = useTranslations("providers");
   const [connection, setConnection] = useState<ConnectionDeleteConfirmTarget | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -56,7 +58,7 @@ export function useConnectionDeleteConfirm(
     try {
       const res = await fetch(`/api/providers/${connectionId}`, { method: "DELETE" });
       if (res.ok) {
-        notify.success("Connection deleted");
+        notify.success(t("connectionDeleted"));
         await fetchConnections();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -68,12 +70,12 @@ export function useConnectionDeleteConfirm(
       }
     } catch (error) {
       console.error("Error deleting connection:", error);
-      notify.error("Failed to delete connection");
+      notify.error(t("failedDeleteConnection"));
     } finally {
       setDeleting(false);
       setConnection(null);
     }
-  }, [connection, fetchConnections, notify]);
+  }, [connection, fetchConnections, notify, t]);
 
   return { connection, deleting, request, confirm, cancel };
 }
