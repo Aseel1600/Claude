@@ -54,11 +54,10 @@ import { promoteSuccessfulComboModel } from "@/lib/combos/autoPromote";
 import {
   deleteSessionAccountAffinity,
   evictSessionAccountAffinityForConnection,
-  getCachedSettings,
-  getCombos,
-  getCombosCacheVersion,
   getSessionAccountAffinity,
-} from "@/lib/localDb";
+} from "@/lib/db/sessionAccountAffinity";
+import { getCachedSettings, getCombosCacheVersion } from "@/lib/db/readCache";
+import { getCombos } from "@/lib/db/combos";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
 import {
   ensureOpenAIStoreSessionFallback,
@@ -952,7 +951,7 @@ async function handleChatImplementation(
     const providerPrefix = resolvedModelStr.split("/")[0];
     if (providerPrefix) {
       try {
-        const { getComboByName } = await import("@/lib/localDb");
+        const { getComboByName } = await import("@/lib/db/combos");
         const routingCombo = await getComboByName(providerPrefix);
         if (routingCombo?.id) {
           routingComboId = routingCombo.id;
