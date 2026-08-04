@@ -166,8 +166,10 @@ test("#7678 zai-web discovery failure falls back to the hardcoded local catalog"
     );
     const ids = body.models.map((m) => m.id);
     assert.ok(ids.length > 0, "local_catalog fallback must not be empty");
+    // glm-4.6 was retired upstream (HTTP 500) and the static catalog now
+    // mirrors the live ids verified on 2026-08-04.
     assert.ok(
-      ids.includes("glm-4.6"),
+      ids.includes("glm-4.7"),
       `expected the registry's static zai-web catalog, got: ${ids.join(",")}`
     );
   } finally {
@@ -221,7 +223,11 @@ test("#7678 zai-web second call without ?refresh uses the cache, not a new live 
     );
     assert.equal(second.status, 200);
     const secondBody = (await second.json()) as ModelsBody;
-    assert.equal(secondBody.source, "cache", "second call without ?refresh must be served from cache");
+    assert.equal(
+      secondBody.source,
+      "cache",
+      "second call without ?refresh must be served from cache"
+    );
     assert.equal(liveFetchCount, 1, "the cache must short-circuit the live fetch entirely");
     assert.ok(secondBody.models.map((m) => m.id).includes("glm-4.6"));
   } finally {

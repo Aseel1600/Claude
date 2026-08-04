@@ -377,17 +377,16 @@ export const PROVIDER_MODELS_CONFIG: Record<string, ProviderModelsConfigEntry> =
   },
   "qwen-cloud": QWEN_CLOUD_TEXT_MODELS_CONFIG,
   // #7678: zai-web (chat.z.ai) had no PROVIDER_MODELS_CONFIG entry so its
-  // hardcoded 3-model registry catalog (glm-4.6/glm-4.5/glm-4.5v — one or more
-  // now 404 upstream) was the only source; wire live discovery against the
+  // hardcoded 3-model registry catalog (glm-4.6/glm-4.5/glm-4.5v — all three
+  // now retired upstream) was the only source; wire live discovery against the
   // undocumented chat.z.ai/api/models endpoint. Same category + shape as
   // qwen-web above: undocumented consumer web-chat endpoint,
   // { data: { data: [...] } } envelope with a flatter { data: [...] } fallback.
   // Bearer token reuses the executor's own extractZaiToken() so discovery and
   // chat parse the stored cookie identically.
-  // UNVERIFIED (per /triage-features): no live z.ai session available during
-  // research — the exact response shape and whether bare Bearer auth (vs the
-  // full Cookie header chat-completions requires) is accepted must be
-  // confirmed against a real account before merge (see plan-file Step 4).
+  // VERIFIED live 2026-08-04: bare `Authorization: Bearer <token>` is accepted
+  // (no Cookie header needed, unlike chat completions), the envelope is
+  // { data: { data: [...] } }, and the endpoint returns 14 model ids.
   "zai-web": {
     url: "https://chat.z.ai/api/models",
     method: "GET",

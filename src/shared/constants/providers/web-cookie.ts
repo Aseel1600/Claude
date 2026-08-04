@@ -386,12 +386,13 @@ export const WEB_COOKIE_PROVIDERS = {
     website: "https://chat.z.ai",
     hasFree: true,
     freeNote:
-      "Free consumer web session — GLM chat models via chat.z.ai. Distinct from the API-key zai/glm providers. No subscription required.",
+      "Free consumer web session — GLM chat models via chat.z.ai. Distinct from the API-key zai/glm providers. No subscription required. Note: chat.z.ai gates every message behind an Aliyun captcha, so each request needs a fresh single-use token in providerSpecificData.captchaVerifyParam (string, or an array to pool several). Model discovery works without one.",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
-    authHint: "Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie)",
+    authHint:
+      "Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie). Chat also requires a per-message Aliyun captcha token — see providerSpecificData.captchaVerifyParam.",
   },
-  "promptql": {
+  promptql: {
     id: "promptql",
     alias: "pql",
     name: "PromptQL (Unofficial/Experimental)",

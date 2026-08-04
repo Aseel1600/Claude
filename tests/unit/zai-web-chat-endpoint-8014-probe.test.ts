@@ -26,8 +26,11 @@ test("#8014 RED: ZaiWebExecutor must POST to the current chat.z.ai v2 chat-compl
       signal: null,
     });
 
+    // The URL now also carries the SPA fingerprint + signature_timestamp query
+    // (required to clear the 426 client-version gate), so compare the path only.
+    const parsed = new URL(capturedUrl);
     assert.equal(
-      capturedUrl,
+      parsed.origin + parsed.pathname,
       "https://chat.z.ai/api/v2/chat/completions",
       `zai-web executor POSTed to a stale endpoint (${capturedUrl}) — matches #8014's model-independent 404 "Not Found"`
     );

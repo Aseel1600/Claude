@@ -207,6 +207,16 @@ const EMBEDDED_DEFAULTS = {
   // Firefly credits balance endpoint public x-api-key (`SunbreakWebUI1`) from
   // GET firefly.adobe.io/v1/credits/balance browser traffic.
   adobe_firefly_balance_api_key: [60, 24, 0, 11, 0, 10, 20, 31, 50, 72, 18, 32, 43, 93],
+  // chat.z.ai SPA — public HMAC key used to derive the `X-Signature` request
+  // header. Shipped verbatim in the public frontend bundle
+  // (assets/index-*.js, function `_re`), identical for every anonymous and
+  // signed-in browser session, and rotated only when Z.ai ships a new bundle.
+  // Not a per-user secret — purely an anti-abuse constant, same category as
+  // `edgetts_token` above.
+  zai_web_signature_key: [
+    4, 8, 23, 68, 50, 47, 53, 52, 76, 4, 89, 93, 75, 68, 65, 90, 4, 95, 28, 23, 21, 22, 17, 84, 73,
+    83, 81, 64, 8, 85, 80,
+  ],
 } as const;
 
 export type EmbeddedDefaultKey = keyof typeof EMBEDDED_DEFAULTS;

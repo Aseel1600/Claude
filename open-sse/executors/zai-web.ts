@@ -9,19 +9,25 @@
  * modeled on the `chatglm-web` credential entry (#4056) and the `doubao-web` /
  * `venice-web` cookie executors.
  *
- * Endpoint: POST https://chat.z.ai/api/v2/chat/completions
+ * Endpoint: POST https://chat.z.ai/api/v2/chat/completions?<fingerprint>&signature_timestamp=<ms>
  *           (the older unversioned `/api/chat/completions` path is stale and
  *           404s model-independently as of 2026-07 — see #8014)
  * Auth:     full Cookie header from chat.z.ai (must contain the `token` JWT).
  *           Sent both as `Cookie` and as `Authorization: Bearer <token>` —
  *           the SPA's own fetch client sets both, and stripping either one
  *           has been reported (upstream repos) to 401 the request.
+ * Gates:    three, all reproduced here — `X-FE-Version` (clears the in-SSE
+ *           426 "client version outdated" envelope), `X-Signature`
+ *           (double-HMAC; not yet enforced upstream but fully wired), and a
+ *           per-message Aliyun captcha token. See `./zai-web/signature.ts`
+ *           and `./zai-web/captcha.ts`.
  * Response: SSE. Frames are z.ai's internal envelope
  *           `{"type":"chat:completion","data":{"delta_content":"...","phase":"answer","done":false}}`
  *           — mirrored from the shared Zhipu chatglm.cn/chat.z.ai frontend
  *           protocol. Some deployments/models pass through an already
  *           OpenAI-shaped `{"choices":[{"delta":{"content":"..."}}]}` frame
  *           instead, so the parser accepts both shapes defensively.
+ *           Failures also arrive inside a 200 stream — see `./zai-web/errors.ts`.
  */
 import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import {
@@ -29,11 +35,38 @@ import {
   normalizeCookie,
   sanitizeErrorMessage,
 } from "../utils/error.ts";
+import { readZaiCaptchaTokens, takeZaiCaptchaToken } from "./zai-web/captcha.ts";
+import { detectZaiSignatureError, detectZaiUpstreamError } from "./zai-web/errors.ts";
+import { peekZaiStream } from "./zai-web/peek.ts";
+import {
+  buildZaiFingerprint,
+  extractZaiUserId,
+  resolveSignaturePrompt,
+  signZaiRequest,
+  ZAI_FE_VERSION,
+} from "./zai-web/signature.ts";
 
 const BASE_URL = "https://chat.z.ai";
 const CHAT_URL = `${BASE_URL}/api/v2/chat/completions`;
+/** Live default (2026-08): `glm-4.6` was retired upstream and now 500s. */
+const DEFAULT_MODEL = "glm-4.7";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
+
+export {
+  readZaiCaptchaTokens,
+  takeZaiCaptchaToken,
+  clearZaiCaptchaTokens,
+  countZaiCaptchaTokens,
+} from "./zai-web/captcha.ts";
+export { detectZaiUpstreamError, detectZaiSignatureError } from "./zai-web/errors.ts";
+export {
+  buildZaiFingerprint,
+  extractZaiUserId,
+  resolveSignaturePrompt,
+  signZaiRequest,
+  ZAI_FE_VERSION,
+} from "./zai-web/signature.ts";
 
 /** Extract the `token` cookie value (JWT) from a full Cookie header string. */
 export function extractZaiToken(rawCookie: string): string {
@@ -198,13 +231,21 @@ export class ZaiWebExecutor extends BaseExecutor {
     super("zai-web", { id: "zai-web", baseUrl: BASE_URL });
   }
 
-  private buildZaiHeaders(rawCookie: string, token: string): Record<string, string> {
+  private buildZaiHeaders(
+    rawCookie: string,
+    token: string,
+    signature: string
+  ): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Accept: "text/event-stream",
+      "Accept-Language": "en-US",
       "User-Agent": USER_AGENT,
       Origin: BASE_URL,
       Referer: `${BASE_URL}/`,
+      // Presence of X-FE-Version is what clears the in-SSE 426 gate.
+      "X-FE-Version": ZAI_FE_VERSION,
+      "X-Signature": signature,
     };
     if (rawCookie) headers.Cookie = rawCookie;
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -213,12 +254,17 @@ export class ZaiWebExecutor extends BaseExecutor {
 
   private buildRequestBody(
     messages: Array<{ role: string; content: unknown }>,
-    modelId: string
+    modelId: string,
+    signaturePrompt: string,
+    captchaToken: string | null
   ): Record<string, unknown> {
-    return {
+    const body: Record<string, unknown> = {
       stream: true,
       model: modelId,
       messages: foldMessages(messages),
+      // Must match the string fed to signZaiRequest — the server cross-checks
+      // the two once signature enforcement is switched on.
+      signature_prompt: signaturePrompt,
       params: {},
       features: {
         image_generation: false,
@@ -226,6 +272,8 @@ export class ZaiWebExecutor extends BaseExecutor {
         auto_web_search: false,
       },
     };
+    if (captchaToken) body.captcha_verify_param = captchaToken;
+    return body;
   }
 
   /** Drain the streaming response body into an OpenAI-shaped SSE ReadableStream. */
@@ -280,6 +328,7 @@ export class ZaiWebExecutor extends BaseExecutor {
 
   /** POST the chat request upstream. Returns either the upstream Response or an error result. */
   private async fetchUpstream(
+    url: string,
     reqHeaders: Record<string, string>,
     reqBody: Record<string, unknown>,
     body: unknown,
@@ -287,7 +336,7 @@ export class ZaiWebExecutor extends BaseExecutor {
   ): Promise<{ upstream: Response } | { errorResult: ReturnType<typeof makeErrorResult> }> {
     let upstream: Response;
     try {
-      upstream = await fetch(CHAT_URL, {
+      upstream = await fetch(url, {
         method: "POST",
         headers: reqHeaders,
         body: JSON.stringify(reqBody),
@@ -306,12 +355,19 @@ export class ZaiWebExecutor extends BaseExecutor {
 
     if (!upstream.ok) {
       const errText = await upstream.text().catch(() => "");
+      // Signature rejections come back as a plain 4xx body, not an SSE frame.
+      const signatureError = detectZaiSignatureError(errText);
+      if (signatureError) {
+        return {
+          errorResult: makeErrorResult(signatureError.status, signatureError.message, body, url),
+        };
+      }
       return {
         errorResult: makeErrorResult(
           upstream.status,
           `Z.ai error: ${sanitizeErrorMessage(errText)}`,
           body,
-          CHAT_URL
+          url
         ),
       };
     }
@@ -332,7 +388,7 @@ export class ZaiWebExecutor extends BaseExecutor {
   }
 
   async execute(input: ExecuteInput) {
-    const { body, credentials, signal, stream: wantStream } = input;
+    const { body, credentials, signal, stream: wantStream, clientHeaders, log } = input;
     const bodyObj = (body || {}) as Record<string, unknown>;
 
     const rawCookie = normalizeCookie(String(credentials?.apiKey ?? "").trim());
@@ -347,18 +403,52 @@ export class ZaiWebExecutor extends BaseExecutor {
     }
 
     const messages = (bodyObj.messages as Array<{ role: string; content: unknown }>) || [];
-    const modelId = (bodyObj.model as string) || "glm-4.6";
-    const reqBody = this.buildRequestBody(messages, modelId);
-    const reqHeaders = this.buildZaiHeaders(rawCookie, token);
+    const modelId = (bodyObj.model as string) || DEFAULT_MODEL;
 
-    const fetched = await this.fetchUpstream(reqHeaders, reqBody, body, signal);
+    const fingerprint = buildZaiFingerprint(extractZaiUserId(token));
+    const signaturePrompt = resolveSignaturePrompt(messages);
+    const signature = signZaiRequest(
+      fingerprint.sortedPayload,
+      signaturePrompt,
+      fingerprint.timestamp
+    );
+    const captchaToken = takeZaiCaptchaToken(
+      credentials?.connectionId || "default",
+      readZaiCaptchaTokens(credentials, body, clientHeaders)
+    );
+    if (!captchaToken) {
+      log?.debug?.(
+        "ZaiWebExecutor",
+        "No captcha token available — upstream will likely answer FRONTEND_CAPTCHA_REQUIRED"
+      );
+    }
+
+    const url = `${CHAT_URL}?${fingerprint.urlParams}&signature_timestamp=${fingerprint.timestamp}`;
+    const reqBody = this.buildRequestBody(messages, modelId, signaturePrompt, captchaToken);
+    const reqHeaders = this.buildZaiHeaders(rawCookie, token, signature);
+
+    const fetched = await this.fetchUpstream(url, reqHeaders, reqBody, body, signal);
     if ("errorResult" in fetched) return fetched.errorResult;
     const { upstream } = fetched;
 
     const id = `chatcmpl-zai-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
-    const sourceBody = upstream.body ?? new ReadableStream({ start: (c) => c.close() });
     const emitChunk = this.makeChunkEmitter(id, created, modelId);
+
+    // Failures arrive inside a 200 SSE body, so the first frames must be
+    // inspected before committing to a streaming response — otherwise an
+    // error surfaces as an empty completion.
+    const peeked = await peekZaiStream(
+      upstream.body ?? new ReadableStream({ start: (c) => c.close() })
+    );
+    if ("error" in peeked) {
+      log?.warn?.("ZaiWebExecutor", `Upstream rejected the request: ${peeked.error.code}`);
+      return {
+        ...makeErrorResult(peeked.error.status, peeked.error.message, body, url),
+        headers: reqHeaders,
+      };
+    }
+    const sourceBody = peeked.body;
 
     if (wantStream) {
       const outStream = this.buildStreamingBody(sourceBody, modelId, emitChunk, signal);
@@ -370,7 +460,7 @@ export class ZaiWebExecutor extends BaseExecutor {
             Connection: "keep-alive",
           },
         }),
-        url: CHAT_URL,
+        url,
         headers: reqHeaders,
         transformedBody: reqBody,
       };
@@ -390,7 +480,7 @@ export class ZaiWebExecutor extends BaseExecutor {
       response: new Response(JSON.stringify(completion), {
         headers: { "Content-Type": "application/json" },
       }),
-      url: CHAT_URL,
+      url,
       headers: reqHeaders,
       transformedBody: reqBody,
     };
