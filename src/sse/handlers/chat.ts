@@ -983,8 +983,10 @@ async function handleSingleModelChat(
             );
       preselectedCredentials = null;
 
-      if (!credentials || "allRateLimited" in credentials) {
-        if (credentials?.allRateLimited) {
+      const isAllRateLimited = Boolean(credentials && (credentials as any).allRateLimited);
+      const isAllExpired = Boolean(credentials && (credentials as any).allExpired);
+      if (!credentials || isAllRateLimited || isAllExpired) {
+        if (isAllRateLimited) {
           const retryDecision = getCooldownAwareRetryDecision({
             retryAfter: credentials.retryAfter,
             settings: retrySettings,
@@ -1010,7 +1012,7 @@ async function handleSingleModelChat(
             requestRetryAttempt += 1;
             log.info(
               "COOLDOWN_RETRY",
-              `${provider}/${model} cooldown elapsed — restarting request attempt ${requestRetryAttempt}/${retrySettings.maxRetries}`
+              `${provider}/${model} cooldown elapsed — restarting request attempt ${requestRetryAttempt + 1}/${retrySettings.maxRetries}`
             );
             continue requestAttemptLoop;
           }
@@ -1019,7 +1021,7 @@ async function handleSingleModelChat(
         const breakerFailureStatus = Number(lastStatus ?? credentials?.lastErrorCode);
         if (
           !forceLiveComboTest &&
-          credentials?.allRateLimited &&
+          isAllRateLimited &&
           PROVIDER_BREAKER_FAILURE_STATUSES.has(breakerFailureStatus)
         ) {
           breaker._onFailure();
