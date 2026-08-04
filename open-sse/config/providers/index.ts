@@ -229,6 +229,8 @@ import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 import { muse_codeProvider } from "./registry/muse-code/index.ts";
+import { naga_acProvider } from "./registry/naga-ac/index.ts";
+import { chatanywhereProvider } from "./registry/chatanywhere/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -460,4 +462,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   hyperagent: hyperagentProvider,
   "muse-code": muse_codeProvider,
   unorouter: unorouterProvider,
+  "naga-ac": naga_acProvider,
+  chatanywhere: chatanywhereProvider,
 };

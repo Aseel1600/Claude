@@ -832,5 +832,35 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     authHint: "Get your Regolo API key from regolo.ai, then paste it here as a Bearer token.",
     apiHint:
       "OpenAI-compatible endpoint at https://api.regolo.ai/v1 with dynamic model discovery (19 models).",
+  "naga-ac": {
+    id: "naga-ac",
+    alias: "naga",
+    name: "Naga.ac",
+    icon: "bolt",
+    color: "#7C3AED",
+    textIcon: "NA",
+    website: "https://naga.ac",
+    docsUrl: "https://docs.naga.ac",
+    hasFree: true,
+    freeNote:
+      "Free models include Nemotron 3 Ultra (free) and Llama 3.3 70B Instruct (Free). Paid models require credits. Google/GitHub/Discord signup.",
+    passthroughModels: true,
+    authHint:
+      "Get API key at naga.ac — Google/GitHub/Discord signup available.",
+  },
+  chatanywhere: {
+    id: "chatanywhere",
+    alias: "chtany",
+    name: "ChatAnywhere",
+    icon: "chat",
+    color: "#10B981",
+    textIcon: "CA",
+    website: "https://api.chatanywhere.tech",
+    hasFree: true,
+    freeNote:
+      "Free tier: 5 req/day for GPT-5/4o/4.1, 30/day DeepSeek, 200/day gpt-4o-mini. Personal non-commercial use only — see chatanywhere/GPT_API_free. Requires GitHub-account-gated API key.",
+    passthroughModels: true,
+    authHint:
+      "Get free API key at api.chatanywhere.tech — requires GitHub account signup.",
   },
 };
