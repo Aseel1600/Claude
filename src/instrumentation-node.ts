@@ -402,6 +402,17 @@ export async function registerNodejs(): Promise<void> {
       console.log("[STARTUP] Thinking-Budget config restored from settings");
     }
 
+    // Restore the Task-Aware Smart Routing config (#8601). It lives in
+    // `settings.taskRouting` (written as a JSON string by PUT /api/settings/task-routing)
+    // and is NOT covered by applyRuntimeSettings, so without this the feature silently
+    // reverts to disabled + the default model map on every restart. Same shape as the
+    // Thinking-Budget restore above; must live here, not in the unused server-init.ts.
+    const { hydrateTaskRoutingConfig } =
+      await import("@omniroute/open-sse/services/taskAwareRouter.ts");
+    if (hydrateTaskRoutingConfig(settings)) {
+      console.log("[STARTUP] Task-Aware Routing config restored from settings");
+    }
+
     const seededModelAliases = await seedDefaultModelAliases();
     console.log(
       `[STARTUP] Model alias seed: applied=${seededModelAliases.applied.length}, skipped=${seededModelAliases.skipped.length}, removed=${seededModelAliases.removed.length}, failed=${seededModelAliases.failed.length}`
@@ -567,6 +578,17 @@ export async function registerNodejs(): Promise<void> {
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.warn("[STARTUP] memory decay sweep failed to start (non-fatal):", msg);
+        }),
+
+      // Backup schedule (#8513): execute `backup-schedule.json` cron server-side.
+      // Reads the schedule written by `omniroute backup auto enable` and fires
+      // `runBackupCommand` when the cron expression matches. Self-gated: no-op
+      // when no schedule file exists or the schedule is disabled. Never fatal.
+      import("@/lib/jobs/backupScheduleJob")
+        .then((m) => m.startBackupScheduleJob())
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] backup schedule job failed to start (non-fatal):", msg);
         }),
 
       // Real-time dashboard WebSocket daemon (port 20132): powers Combo Studio Live,
