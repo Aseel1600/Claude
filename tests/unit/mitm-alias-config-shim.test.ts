@@ -14,9 +14,9 @@ const {
   applyAntigravityOverride,
 } = require("../../src/mitm/_internal/aliasConfig.cjs");
 
-test("normalizeReasoningEffort canonicalizes case, retains max, maps extra UI synonym", () => {
+test("normalizeReasoningEffort canonicalizes case and the max/extra UI synonyms", () => {
   assert.equal(normalizeReasoningEffort(" HIGH "), "high");
-  assert.equal(normalizeReasoningEffort("max"), "max");
+  assert.equal(normalizeReasoningEffort("max"), "xhigh");
   assert.equal(normalizeReasoningEffort("extra"), "xhigh");
   assert.equal(normalizeReasoningEffort("extreme"), undefined);
   assert.equal(normalizeReasoningEffort(42), undefined);

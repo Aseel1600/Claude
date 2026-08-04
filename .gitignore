@@ -201,8 +201,7 @@ scripts/i18n/_pending-keys.json
 .codegraph/
 
 # Fumadocs generated source
-.source/*
-!.source/dynamic.ts
+.source/
 
 # AI agent local settings and configs
 .agents/

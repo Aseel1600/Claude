@@ -11,10 +11,10 @@ import { z } from "zod";
  * provider-agnostic pair of request fields and folds them onto the fields the existing
  * mappers already read.
  *
- * The provider-agnostic vocabulary remains six values. Provider-native additions such as
+ * The provider-agnostic vocabulary remains five values. Provider-native additions such as
  * Codex GPT-5.6 Max and Ultra are exposed separately without widening this request contract.
  */
-export const CANONICAL_EFFORT_VALUES = ["none", "low", "medium", "high", "xhigh", "max"] as const;
+export const CANONICAL_EFFORT_VALUES = ["none", "low", "medium", "high", "xhigh"] as const;
 
 export type CanonicalEffort = (typeof CANONICAL_EFFORT_VALUES)[number];
 
@@ -45,17 +45,16 @@ export function extendCodexGpt56EffortValues(
 
 /**
  * UI-facing tier synonyms mapped onto the canonical set. The issue (#6241) requested a
- * 6-tier UI vocabulary (Low / Medium / High / Extra / Max); that request collapses onto
- * the existing 6-value canonical set. "extra" is a synonym for the top reasoning tier
- * and maps to canonical `xhigh`. "max" is now a first-class canonical value (#8057).
- * The per-provider mappers already down-shift
+ * 5-tier UI vocabulary (Low / Medium / High / Extra / Max); that request collapses onto
+ * the existing 5-value canonical set. "extra" and "max" are both synonyms for the top
+ * reasoning tier and map to canonical `xhigh`. The per-provider mappers already down-shift
  * `xhigh` to `high` for models that do not support it (see
  * `open-sse/translator/request/openai-to-claude.ts`), so a caller can always request the
  * highest tier without knowing which models support `xhigh`.
  */
 const EFFORT_TIER_ALIASES: Record<string, CanonicalEffort> = {
   extra: "xhigh",
-  // max is now a first-class canonical value (#8057)
+  max: "xhigh",
 };
 
 /**

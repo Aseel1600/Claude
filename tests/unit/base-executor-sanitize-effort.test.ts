@@ -74,7 +74,7 @@ test("sanitizeReasoningEffortForProvider: Anthropic-compatible dynamic provider 
   assert.equal((result as any).reasoning_effort, "high");
 });
 
-test("sanitizeReasoningEffortForProvider: xiaomi-mimo passes max through for unmapped providers", () => {
+test("sanitizeReasoningEffortForProvider: xiaomi-mimo normalizes max → xhigh by default", () => {
   const log = makeLog();
   const body = {
     model: "mimo-v2.5-pro",
@@ -82,12 +82,10 @@ test("sanitizeReasoningEffortForProvider: xiaomi-mimo passes max through for unm
     messages: [{ role: "user", content: "hi" }],
   };
   const result = sanitizeReasoningEffortForProvider(body, "xiaomi-mimo", "mimo-v2.5-pro", log);
-  assert.equal((result as any).reasoning_effort, "max");
+  assert.equal((result as any).reasoning_effort, "xhigh");
   assert.ok(
-    log.messages.some(
-      ([tag, m]) => tag === "REASONING_SANITIZE" && /passing through reasoning_effort max/.test(m)
-    ),
-    "logs the max passthrough for unmapped provider"
+    log.messages.some(([tag, m]) => tag === "REASONING_SANITIZE" && /max → xhigh/.test(m)),
+    "logs the normalization"
   );
 });
 
