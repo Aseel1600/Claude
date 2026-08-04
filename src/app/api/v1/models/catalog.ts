@@ -1217,9 +1217,30 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
 
-          // Skip if already added as built-in
+          // Skip if already added as built-in. When the custom entry has an explicit
+          // supportsVision flag, merge vision fields into the existing synced entry
+          // instead of skipping (#9195).
           const aliasId = `${alias}/${modelId}`;
-          if (models.some((m) => m.id === aliasId)) continue;
+          const existingIndex = models.findIndex((m) => m.id === aliasId);
+          if (existingIndex !== -1) {
+            if (typeof model.supportsVision === "boolean") {
+              const mergeVisionFields = getCustomVisionCapabilityFields(model, aliasId, modelId);
+              if (mergeVisionFields) {
+                const existing = models[existingIndex] as Record<string, unknown>;
+                existing.capabilities = {
+                  ...((existing.capabilities as Record<string, unknown>) || {}),
+                  ...mergeVisionFields.capabilities,
+                };
+                if (mergeVisionFields.input_modalities) {
+                  existing.input_modalities = mergeVisionFields.input_modalities;
+                }
+                if (mergeVisionFields.output_modalities) {
+                  existing.output_modalities = mergeVisionFields.output_modalities;
+                }
+              }
+            }
+            continue;
+          }
 
           // Determine type from supportedEndpoints
           const endpoints = Array.isArray(model.supportedEndpoints)
@@ -1239,7 +1260,9 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
           const visionFields =
-            modelType === "chat" ? getCustomVisionCapabilityFields(model, aliasId, modelId) : null;
+            !modelType || modelType === "chat"
+              ? getCustomVisionCapabilityFields(model, aliasId, modelId)
+              : null;
 
           if (includeAlias) {
             models.push({
@@ -1270,7 +1293,7 @@ async function buildUnifiedModelsResponseCore(
             const providerPrefixedId = `${canonicalProviderId}/${modelId}`;
             if (models.some((m) => m.id === providerPrefixedId)) continue;
             const providerVisionFields =
-              modelType === "chat"
+              !modelType || modelType === "chat"
                 ? getCustomVisionCapabilityFields(model, providerPrefixedId, modelId)
                 : null;
             models.push({
