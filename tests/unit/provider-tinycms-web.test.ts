@@ -11,12 +11,32 @@
  * - Error sanitization (Hard Rule #12: no stack traces)
  * - Configurable userid from providerSpecificData
  */
-import test from "node:test";
+import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 
 import { WEB_COOKIE_PROVIDERS } from "../../src/shared/constants/providers/web-cookie.ts";
 import { REGISTRY } from "../../open-sse/config/providers/index.ts";
 import { getExecutor, TinyCmsExecutor } from "../../open-sse/executors/index.ts";
+import {
+  setupDomMocks,
+  type DomMockRestore,
+} from "../../open-sse/executors/tinycmsSigner.ts";
+
+// tinycmsSigner.ts intentionally does NOT install its window/document/canvas
+// shims as a module-load side effect (see setupDomMocks() there) — doing so
+// would leak those globals into every other test file that transitively
+// imports it (e.g. through the provider registry). Install them explicitly
+// for this file only, and restore whatever was there before once this file's
+// tests are done.
+let restoreDomMocks: DomMockRestore;
+
+before(() => {
+  restoreDomMocks = setupDomMocks();
+});
+
+after(() => {
+  restoreDomMocks();
+});
 
 // ── Catalog / WEB_COOKIE_PROVIDERS ────────────────────────────────────────────
 

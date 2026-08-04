@@ -6,13 +6,35 @@
 // don't exist, so we provide minimal stubs that satisfy the wasm-bindgen
 // constructor shape checks. The stubs are never called for actual rendering --
 // the WASM signer only uses the canvas to compute a hashed fingerprint value.
-if (typeof global !== 'undefined') {
-  if (!global.window) global.window = global as any;
-  if (!global.Window) global.Window = function() {} as any;
-  if (!global.HTMLCanvasElement) global.HTMLCanvasElement = function() {} as any;
-  if (!global.CanvasRenderingContext2D) global.CanvasRenderingContext2D = function() {} as any;
-  if (!global.document) {
-    global.document = {
+//
+// Deliberately NOT a module-load side effect: installing these globals just by
+// importing this file would leak `global.window`/`global.document` stubs into
+// every other test file that transitively imports it (e.g. through the provider
+// registry), even when that test never touches TinyCMS. `initTinyCmsWasm()`
+// below calls `setupDomMocks()` once, right before instantiating the WASM
+// module, on the production path. Tests call it explicitly in a before/
+// beforeEach hook and restore the previous globals via the returned callback in
+// after/afterEach.
+export type DomMockRestore = () => void;
+
+export function setupDomMocks(): DomMockRestore {
+  if (typeof global === 'undefined') return () => {};
+  // Single typed handle to `global` so the rest of this function reads/writes
+  // window/document/HTMLCanvasElement/CanvasRenderingContext2D — none of which
+  // exist on Node's `global` type — through one cast instead of one per site.
+  const g = global as Record<string, any>;
+  const hadWindow = 'window' in g;
+  const hadWindowCtor = 'Window' in g;
+  const hadCanvasElement = 'HTMLCanvasElement' in g;
+  const hadCanvasContext = 'CanvasRenderingContext2D' in g;
+  const hadDocument = 'document' in g;
+
+  if (!g.window) g.window = g;
+  if (!g.Window) g.Window = function () {};
+  if (!g.HTMLCanvasElement) g.HTMLCanvasElement = function () {};
+  if (!g.CanvasRenderingContext2D) g.CanvasRenderingContext2D = function () {};
+  if (!g.document) {
+    g.document = {
       createElement(tag: string) {
         if (tag === 'canvas') {
           const canvas = {
@@ -27,21 +49,29 @@ if (typeof global !== 'undefined') {
                   fillText() {},
                   toDataURL() { return 'data:image/png;base64,MOCK_DATA'; }
                 };
-                Object.setPrototypeOf(ctx, global.CanvasRenderingContext2D.prototype);
+                Object.setPrototypeOf(ctx, g.CanvasRenderingContext2D.prototype);
                 return ctx;
               }
               return null;
             },
             toDataURL() { return 'data:image/png;base64,MOCK_DATA'; }
           };
-          Object.setPrototypeOf(canvas, global.HTMLCanvasElement.prototype);
+          Object.setPrototypeOf(canvas, g.HTMLCanvasElement.prototype);
           return canvas;
         }
         return null;
       }
-    } as any;
+    };
   }
-  Object.setPrototypeOf(global.window, global.Window.prototype);
+  Object.setPrototypeOf(g.window, g.Window.prototype);
+
+  return () => {
+    if (!hadWindow) delete g.window;
+    if (!hadWindowCtor) delete g.Window;
+    if (!hadCanvasElement) delete g.HTMLCanvasElement;
+    if (!hadCanvasContext) delete g.CanvasRenderingContext2D;
+    if (!hadDocument) delete g.document;
+  };
 }
 
 // WASM binary compiled from the TinyCMS signer wasm-bindgen source
@@ -440,6 +470,11 @@ async function __wbg_init(module_or_path) {
 let wasmInitialized = false;
 export async function initTinyCmsWasm() {
   if (wasmInitialized) return;
+  // Install the DOM shims the wasm-bindgen glue expects before instantiating
+  // the module (see setupDomMocks() above). Left installed for the process
+  // lifetime — generateSecurePayload() keeps calling into the same canvas
+  // shims on every invocation, not just at init.
+  setupDomMocks();
   const wasmBuffer = Buffer.from(WASM_BASE64, 'base64');
   await __wbg_init(wasmBuffer);
   wasmInitialized = true;

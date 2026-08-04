@@ -51,7 +51,7 @@
   },
   "open-sse/executors/tinycmsSigner.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 1
     }
   },
   "open-sse/executors/vertex.ts": {
