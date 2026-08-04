@@ -504,4 +504,88 @@ describe("GenericMemoryBackend", () => {
       expect(b.id).toBe("fac");
     });
   });
+
+  // ─── SSRF guard ──────────────────────────────────────────
+
+  describe("SSRF prevention", () => {
+    test("blocks requests to loopback IPv4 (127.0.0.1)", async () => {
+      const b = createBackend({ baseUrl: "http://127.0.0.1:20128" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("blocks requests to private IPv4 (10.x.x.x)", async () => {
+      const b = createBackend({ baseUrl: "http://10.0.0.5/api" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("blocks requests to private IPv4 (192.168.x.x)", async () => {
+      const b = createBackend({ baseUrl: "http://192.168.1.100" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("blocks requests to cloud metadata IP (169.254.169.254)", async () => {
+      const b = createBackend({ baseUrl: "http://169.254.169.254/latest/meta-data/" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("blocks requests to loopback IPv6 (::1)", async () => {
+      const b = createBackend({ baseUrl: "http://[::1]:20128" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("blocks non-http schemes (file://)", async () => {
+      const b = createBackend({ baseUrl: "file:///etc/passwd" });
+      const result = await b.health();
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("SSRF guard");
+    });
+
+    test("allows public IP addresses", async () => {
+      const b = createBackend({ baseUrl: "http://93.184.216.34:8080" });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ status: "ok" }), { status: 200 })
+      );
+      // Should pass SSRF guard and proceed to the actual fetch (which will
+      // hit the mock, not the real host)
+      await expect(b.health()).resolves.toHaveProperty("ok", true);
+    });
+
+    test("allows hostnames (passes structural check)", async () => {
+      const b = createBackend({ baseUrl: "https://api.example.com" });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ status: "ok" }), { status: 200 })
+      );
+      await expect(b.health()).resolves.toHaveProperty("ok", true);
+    });
+
+    test("SSRF guard fires during create() via request()", async () => {
+      const b = createBackend({ baseUrl: "http://127.0.0.1:20128" });
+      // Mock the fetch so health fails (SSRF guard) — but the CRUD method
+      // calls initialize() first, which calls health(), which should throw
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        new Response(JSON.stringify({ status: "ok" }), { status: 200 })
+      );
+      await expect(
+        b.create({
+          apiKeyId: "k1",
+          sessionId: "s1",
+          type: MemoryType.FACTUAL,
+          key: "k",
+          content: "c",
+          metadata: {},
+          expiresAt: null,
+        })
+      ).rejects.toThrow("SSRF guard");
+    });
+  });
 });

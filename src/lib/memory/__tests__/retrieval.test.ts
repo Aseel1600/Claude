@@ -150,7 +150,7 @@ function insertMemory(
   );
 }
 
-describe.skip("Memory Retrieval — FTS5 integration (pre-existing broken test infrastructure)", () => {
+describe("Memory Retrieval — FTS5 integration (pre-existing broken test infrastructure)", () => {
   let db: InstanceType<typeof Database>;
   let savedDb: unknown;
 

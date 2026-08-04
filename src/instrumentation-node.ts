@@ -580,6 +580,18 @@ export async function registerNodejs(): Promise<void> {
           console.warn("[STARTUP] memory decay sweep failed to start (non-fatal):", msg);
         }),
 
+      // MemoryBackend provider pattern (PR #8752): initialize configured memory
+      // backends from settings (sqlite, obsidian, notion, custom HTTP, etc.).
+      // Reads the DB settings synchronously (non-blocking, never fatal). Must
+      // run after the DB is ready AND after getSettings/applyRuntimeSettings so
+      // memory backend config is hydrated.
+      import("@/lib/memory/index")
+        .then((m) => m.initMemoryBackends())
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] memory backend initialization failed (non-fatal):", msg);
+        }),
+
       // Backup schedule (#8513): execute `backup-schedule.json` cron server-side.
       // Reads the schedule written by `omniroute backup auto enable` and fires
       // `runBackupCommand` when the cron expression matches. Self-gated: no-op

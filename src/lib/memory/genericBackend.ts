@@ -14,6 +14,63 @@ import type {
   Memory,
 } from "./backend";
 import { MemoryType } from "./types";
+
+// ─── SSRF guard helpers (no DNS resolution) ────────────────────────────
+// Reused from fetchGuard.ts pattern: block requests to internal/reserved
+// IP ranges when the host is an IP literal. Hostnames pass the structural
+// check since they require DNS resolution.
+
+const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
+
+const BLOCKED_IPV4: ReadonlyArray<readonly [number, number]> = [
+  [0x00000000, 0xff000000], // 0.0.0.0/8      unspecified
+  [0x7f000000, 0xff000000], // 127.0.0.0/8    loopback
+  [0x0a000000, 0xff000000], // 10.0.0.0/8     private
+  [0xac100000, 0xfff00000], // 172.16.0.0/12  private
+  [0xc0a80000, 0xffff0000], // 192.168.0.0/16 private
+  [0xa9fe0000, 0xffff0000], // 169.254.0.0/16 link-local (cloud metadata)
+];
+
+function ipv4ToLong(host: string): number | null {
+  const parts = host.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) return null;
+  return (parts[0] * 16777216 + parts[1] * 65536 + parts[2] * 256 + parts[3]) >>> 0;
+}
+
+function isIpv4Blocked(ip: string): boolean {
+  const n = ipv4ToLong(ip);
+  if (n === null) return false;
+  return BLOCKED_IPV4.some(([base, mask]) => ((n & mask) >>> 0) === (base >>> 0));
+}
+
+function isIpv6Blocked(ip: string): boolean {
+  const h = ip.toLowerCase();
+  return h === "::1" || h === "::" || h.startsWith("fe80") || h.startsWith("fc") || h.startsWith("fd");
+}
+
+function isIpLiteral(host: string): boolean {
+  const IPV4_RE = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+  if (IPV4_RE.test(host)) return true;
+  return host.includes(":") && /^([0-9a-fA-F:]+)$/.test(host);
+}
+
+/**
+ * Validate that a URL is safe to fetch from the server.
+ * Blocks requests to internal/reserved IP ranges when the host is an IP literal.
+ * Hostnames pass the structural check (SSRF prevention at fetch-time requires DNS).
+ */
+function isValidHttpUrl(url: URL): boolean {
+  if (!ALLOWED_SCHEMES.has(url.protocol)) return false;
+  const rawHost = url.hostname.toLowerCase();
+  const host = rawHost.startsWith("[") && rawHost.endsWith("]") ? rawHost.slice(1, -1) : rawHost;
+  if (host === "") return false;
+  if (isIpLiteral(host)) {
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)) return !isIpv4Blocked(host);
+    return !isIpv6Blocked(host);
+  }
+  return true; // hostname: passes structural check
+}
+
 const log = logger("GENERIC_MEMORY_BACKEND");
 
 export interface GenericBackendConfig {
@@ -180,6 +237,13 @@ export class GenericMemoryBackend implements MemoryBackend {
     queryParams?: Record<string, string>
   ): Promise<T> {
     const url = new URL(path, this.config.baseUrl);
+
+    // SSRF guard: reject requests to internal/reserved IP ranges
+    if (!isValidHttpUrl(url)) {
+      throw new Error(
+        `SSRF guard blocked request to ${url.host} — internal/reserved addresses are not allowed`
+      );
+    }
     if (queryParams) {
       Object.entries(queryParams).forEach(([key, value]) => {
         url.searchParams.append(key, value);
