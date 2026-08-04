@@ -12182,5 +12182,6 @@
     "cta": "קבל את Kimi Code",
     "partnerLinkNote": "קישור שותף",
     "dismissAriaLabel": "התעלם"
-  }
+  },
+  "featureFlagExposeFunctionalGatewayMirrorsDescription": "__MISSING__:Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally."
 }

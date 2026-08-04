@@ -12182,5 +12182,6 @@
     "cta": "Kimi Code 가져오기",
     "partnerLinkNote": "파트너 링크",
     "dismissAriaLabel": "닫기"
-  }
+  },
+  "featureFlagExposeFunctionalGatewayMirrorsDescription": "__MISSING__:Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally."
 }
