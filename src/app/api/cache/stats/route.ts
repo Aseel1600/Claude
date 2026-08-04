@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPromptCache } from "@/lib/cacheLayer";
+import { getMemoryLayerStats, clearCache } from "@/lib/semanticCache";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 
@@ -9,9 +9,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const cache = getPromptCache();
-    const stats = cache.getStats();
-    return NextResponse.json(stats);
+    return NextResponse.json(getMemoryLayerStats());
   } catch (error) {
     return NextResponse.json({ error: sanitizeErrorMessage(error) }, { status: 500 });
   }
@@ -23,8 +21,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   try {
-    const cache = getPromptCache();
-    cache.clear();
+    clearCache();
     return NextResponse.json({ success: true, message: "Cache cleared" });
   } catch (error) {
     return NextResponse.json({ error: sanitizeErrorMessage(error) }, { status: 500 });

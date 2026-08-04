@@ -374,6 +374,32 @@ export function clearCache(): number {
   return removed;
 }
 
+/**
+ * Memory-tier LRU stats (size/bytes/evictions) merged with the persisted
+ * hits/misses/hitRate from `cache_metrics` — same field names/types as the
+ * old `cacheLayer.LRUCache.getStats()` contract that `/api/cache/stats`
+ * historically exposed, so its existing consumers (health + usage dashboards)
+ * don't need to change. Unlike that dead singleton, this reads the semantic
+ * cache instance that `chatCore.ts` actually calls on every request.
+ */
+export function getMemoryLayerStats() {
+  const memStats = getMemoryCache().getStats();
+  const hits = getMetricValue("hits");
+  const misses = getMetricValue("misses");
+  const total = hits + misses;
+
+  return {
+    size: memStats.size,
+    maxSize: memStats.maxSize,
+    bytes: memStats.bytes,
+    maxBytes: memStats.maxBytes,
+    hits,
+    misses,
+    evictions: memStats.evictions,
+    hitRate: total > 0 ? (hits / total) * 100 : 0,
+  };
+}
+
 export function getCacheStats() {
   const memStats = getMemoryCache().getStats();
   let dbSize = 0;

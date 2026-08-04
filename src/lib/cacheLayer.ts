@@ -195,26 +195,3 @@ export class LRUCache {
     };
   }
 }
-
-// ─── Prompt Cache Singleton ─────────────────
-
-let promptCache: LRUCache | null = null;
-
-/**
- * Get the global prompt cache instance.
- * @param {Object} [options]
- * @returns {LRUCache}
- */
-export function getPromptCache(
-  options?: { maxSize?: number; maxBytes?: number; defaultTTL?: number } & Record<string, unknown>
-) {
-  if (!promptCache) {
-    promptCache = new LRUCache({
-      maxSize: parseInt(process.env.PROMPT_CACHE_MAX_SIZE || "50", 10),
-      maxBytes: parseInt(process.env.PROMPT_CACHE_MAX_BYTES || String(2 * 1024 * 1024), 10),
-      defaultTTL: parseInt(process.env.PROMPT_CACHE_TTL_MS || "300000", 10),
-      ...options,
-    });
-  }
-  return promptCache;
-}

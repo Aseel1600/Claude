@@ -4,6 +4,8 @@ import {
   generateSignature,
   isCacheableForRead,
   isCacheableForWrite,
+  getCachedResponse,
+  getMemoryLayerStats,
 } from "../../src/lib/semanticCache.ts";
 
 describe("Semantic Cache", () => {
@@ -140,6 +142,36 @@ describe("Semantic Cache", () => {
     it("returns false when no-cache header is set", () => {
       const headers = new Headers({ "x-omniroute-no-cache": "true" });
       assert.equal(isCacheableForWrite({ temperature: 0 }, headers), false);
+    });
+  });
+
+  // #cache-stats-route-drift: /api/cache/stats (consumed directly by the health and
+  // usage dashboards) must reflect this module's real, wired-in cache — not the
+  // unrelated cacheLayer.getPromptCache() singleton that nothing ever populates.
+  describe("getMemoryLayerStats", () => {
+    it("returns the LRU-shaped contract the health/usage dashboards depend on", () => {
+      const stats = getMemoryLayerStats();
+      assert.equal(typeof stats.size, "number");
+      assert.equal(typeof stats.maxSize, "number");
+      assert.equal(typeof stats.bytes, "number");
+      assert.equal(typeof stats.maxBytes, "number");
+      assert.equal(typeof stats.hits, "number");
+      assert.equal(typeof stats.misses, "number");
+      assert.equal(typeof stats.evictions, "number");
+      assert.equal(typeof stats.hitRate, "number");
+    });
+
+    it("misses increment from real getCachedResponse lookups, not a disconnected cache", () => {
+      const before = getMemoryLayerStats();
+      const signature = generateSignature(
+        "test-model-getMemoryLayerStats",
+        [{ role: "user", content: `unique-probe-${Date.now()}` }],
+        0,
+        1
+      );
+      getCachedResponse(signature); // never set -> guaranteed miss
+      const after = getMemoryLayerStats();
+      assert.equal(after.misses, before.misses + 1);
     });
   });
 });
