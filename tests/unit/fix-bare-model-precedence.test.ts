@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { CODEX_NATIVE_UNPREFIXED_MODELS, getModelInfoCore } from "../../open-sse/services/model.ts";
+import {
+  CODEX_NATIVE_UNPREFIXED_MODELS,
+  CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE,
+  getModelInfoCore,
+} from "../../open-sse/services/model.ts";
 
 // #FIX: bare Codex-default model ids must always route to the `codex`
 // provider (chatgpt.com OAuth) when no provider prefix is supplied, even
@@ -32,15 +36,22 @@ test("CODEX_NATIVE_UNPREFIXED_MODELS includes gpt-5.6-sol tier set", () => {
   }
 });
 
-// #5887-openai-precedence-regression: gpt-5.5 (+ effort variants) must NOT be
-// in this unconditional set. Unlike gpt-5.6-sol, it has no `agentrouter`
-// static-catalog entry, so it was never exposed to the inference-race bug
-// this set exists to prevent — but resolveModelByProviderInference() has a
-// dedicated, tested codex-vs-openai precedence rule for it (issue #5887) that
-// this set would silently short-circuit. See
-// tests/unit/codex-gpt55-routing-5887.test.ts for the precedence behavior.
-test("CODEX_NATIVE_UNPREFIXED_MODELS excludes gpt-5.5 (preserves #5887 openai precedence)", () => {
+// #5887-openai-precedence-regression: gpt-5.5 (+ effort variants) must be in
+// CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE, and NOT unconditionally forced
+// to codex by CODEX_NATIVE_UNPREFIXED_MODELS. Unlike gpt-5.6-sol, it has no
+// `agentrouter` static-catalog entry, so it was never exposed to the
+// inference-race bug the unconditional set exists to prevent — but
+// resolveModelByProviderInference() has a dedicated, tested codex-vs-openai
+// precedence rule for it (issue #5887) that the unconditional set would
+// silently short-circuit. See tests/unit/codex-gpt55-routing-5887.test.ts for
+// the precedence behavior.
+test("gpt-5.5 is in the explicit openai-precedence exception, not the unconditional codex set", () => {
   for (const id of ["gpt-5.5", "gpt-5.5-xhigh", "gpt-5.5-high", "gpt-5.5-medium", "gpt-5.5-low"]) {
+    assert.equal(
+      CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE.has(id),
+      true,
+      `expected CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE to include ${id}`
+    );
     assert.equal(
       CODEX_NATIVE_UNPREFIXED_MODELS.has(id),
       false,

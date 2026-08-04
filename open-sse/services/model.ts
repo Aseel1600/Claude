@@ -129,17 +129,6 @@ const KNOWN_MODEL_IDS = new Set(MODEL_TO_PROVIDERS.keys());
 // ChatGPT subscription stopped working. Override per-request by prefixing the
 // model id (e.g. `agentrouter/gpt-5.6-sol`, `openai/gpt-5.6-sol`) — the prefix
 // path always wins.
-//
-// gpt-5.5 (+ effort variants) is deliberately NOT in this set (#9323 added it,
-// #5887-openai-precedence-regression removed it). It has no `agentrouter`
-// static-catalog entry, so it was never exposed to the inference-race bug
-// this set exists to prevent — but it IS cataloged by `openai`, and
-// resolveModelByProviderInference() below already has a dedicated, tested
-// codex-vs-openai precedence rule for it (issue #5887: codex-only installs
-// route to codex; when openai is ALSO active, the historical openai default
-// wins). Putting gpt-5.5 in this unconditional set short-circuits that rule
-// before it ever runs, silently reverting #5887 for any user who has both
-// providers configured (tests/unit/codex-gpt55-routing-5887.test.ts).
 export const CODEX_NATIVE_UNPREFIXED_MODELS = new Set([
   "codex-auto-review",
   "gpt-5.6-sol",
@@ -163,6 +152,28 @@ export const CODEX_NATIVE_UNPREFIXED_MODELS = new Set([
   "gpt-5.6-luna-medium",
   "gpt-5.6-luna-low",
   "gpt-5.3-codex-spark",
+]);
+
+// EXCEPTION to CODEX_NATIVE_UNPREFIXED_MODELS, enforced explicitly at its call
+// site below rather than by omission — a future edit that "helpfully" adds
+// gpt-5.5 back to that set (as #9323/#9275 did) must touch this comment and
+// this check, not just silently forget an entry exists. gpt-5.5 (+ effort
+// variants) has no `agentrouter` static-catalog entry (verified in
+// open-sse/config/providers/registry/agentrouter/index.ts), so the
+// inference-race bug CODEX_NATIVE_UNPREFIXED_MODELS exists to prevent cannot
+// occur for it — but it IS cataloged by `openai`, and
+// resolveModelByProviderInference() below has its own dedicated, tested
+// codex-vs-openai precedence rule for exactly this model (issue #5887:
+// codex-only installs route to codex; when openai is ALSO active, the
+// historical openai default wins). Unconditionally forcing codex here would
+// skip that rule before it ever runs, reverting #5887 for any user who has
+// both providers configured (tests/unit/codex-gpt55-routing-5887.test.ts).
+export const CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE = new Set([
+  "gpt-5.5",
+  "gpt-5.5-xhigh",
+  "gpt-5.5-high",
+  "gpt-5.5-medium",
+  "gpt-5.5-low",
 ]);
 
 interface ProviderConnectionLike {
@@ -563,7 +574,13 @@ function parseAliasTarget(target: string): ResolvedModelTarget | null {
 }
 
 async function resolveModelByProviderInference(modelId: string, extendedContext: boolean) {
-  if (CODEX_NATIVE_UNPREFIXED_MODELS.has(modelId)) {
+  // See CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE above: gpt-5.5 stays out of
+  // this unconditional codex override on purpose, so its own
+  // codex-vs-openai precedence rule (issue #5887, below) still runs.
+  if (
+    CODEX_NATIVE_UNPREFIXED_MODELS.has(modelId) &&
+    !CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE.has(modelId)
+  ) {
     return {
       provider: "codex",
       model: modelId,
