@@ -494,6 +494,46 @@ describe("config-generator", () => {
       }
     });
 
+    it("propagates vision capability from the live catalog for issue #8960", async () => {
+      const modelId = "cx/gpt-5.6-sol-medium-issue-8960";
+      const stub = stubFetchOnce(
+        makeCatalogResponse([
+          {
+            id: modelId,
+            owned_by: "codex",
+            context_length: 272000,
+            max_output_tokens: 128000,
+            capabilities: {
+              vision: true,
+              reasoning: true,
+              tool_calling: true,
+            },
+            input_modalities: ["text", "image"],
+            output_modalities: ["text"],
+          },
+        ])
+      );
+      try {
+        const { generateOpencodeConfig } = await import(
+          "../../../src/lib/cli-helper/config-generator/opencode.ts"
+        );
+        const out = await generateOpencodeConfig({
+          baseUrl: "http://localhost:20128",
+          apiKey: "sk-test",
+        });
+        const cfg = JSON.parse(out);
+        const model = cfg.provider.omniroute.models[modelId];
+
+        assert.strictEqual(
+          model.attachment,
+          true,
+          "a catalog model with vision/image input must remain attachment-capable in opencode.json"
+        );
+      } finally {
+        stub.restore();
+      }
+    });
+
     it("auto-pulls the Opencode FREE Omni combo context (the user-reported case)", async () => {
       // Regression guard: the catalog's min-of-targets for combos must be
       // reflected verbatim. No hardcoded 128K, no fallback that overrides
