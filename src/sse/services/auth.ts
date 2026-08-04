@@ -927,6 +927,8 @@ export { readHeaderValue, type AuthRequestHeaders } from "./headerReader.ts";
 const PROVIDER_SEARCH_PAIRS: string[][] = [
   ["nvidia", "nvidia_nim"],
   ["kimi-coding", "kimi-coding-apikey"],
+  // The model layer canonicalizes `agy/` to `antigravity`, but the Antigravity
+  // CLI card stores its connection under `agy`. Same account, either id serves.
   ["antigravity", "agy"],
 ];
 /**
