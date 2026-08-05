@@ -48,6 +48,20 @@ export function requiresAuthenticReasoningContent(provider: unknown, model: unkn
   );
 }
 
+export function shouldPreserveResponsesReasoningContent(
+  provider: unknown,
+  model: unknown
+): boolean {
+  const normalizedProvider = String(provider ?? "")
+    .trim()
+    .toLowerCase();
+  return (
+    normalizedProvider === "kimi-coding" ||
+    normalizedProvider === "kimi-coding-apikey" ||
+    requiresAuthenticReasoningContent(normalizedProvider, model)
+  );
+}
+
 export function isThinkingMessageModel(model: string | undefined | null): boolean {
   if (!model || typeof model !== "string") return false;
   return THINKING_MODEL_PATTERNS.some((re) => re.test(model));

@@ -1,0 +1,1 @@
+- fix(translator): preserve Kimi K3 Responses reasoning through Kimi Coding Claude-format and native Moonshot requests, keeping it on the matching assistant tool call or completed turn instead of dropping it or carrying it across a user boundary (#9496)
