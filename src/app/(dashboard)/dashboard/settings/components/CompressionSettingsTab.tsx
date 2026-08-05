@@ -158,8 +158,9 @@ export default function CompressionSettingsTab() {
   const t = useTranslations("settings");
   const [config, setConfig] = useState<CompressionConfig>({
     enabled: false,
-    defaultMode: "off",
-    autoTriggerTokens: 0,
+    defaultMode: "lite",
+    autoTriggerMode: "stacked",
+    autoTriggerTokens: 32000,
     cacheMinutes: 5,
     preserveSystemPrompt: true,
     comboOverrides: {},

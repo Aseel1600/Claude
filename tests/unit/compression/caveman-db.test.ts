@@ -36,9 +36,10 @@ describe("compression DB module", () => {
 
   it("should return default config", async () => {
     const config = await getCompressionSettings();
-    assert.equal(config.defaultMode, "off");
+    assert.equal(config.defaultMode, "lite");
+    assert.equal(config.autoTriggerMode, "stacked");
     assert.equal(config.enabled, false);
-    assert.equal(config.autoTriggerTokens, 0);
+    assert.equal(config.autoTriggerTokens, 32000);
     assert.equal(config.cacheMinutes, 5);
     assert.equal(config.preserveSystemPrompt, true);
     assert.ok(config.cavemanConfig);

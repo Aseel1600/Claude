@@ -377,9 +377,9 @@ export const DEFAULT_CODEX_RESPONSES_CONFIG: CodexResponsesConfig = {
 
 export const DEFAULT_COMPRESSION_CONFIG: CompressionConfig = {
   enabled: false,
-  defaultMode: "off",
-  autoTriggerMode: "lite",
-  autoTriggerTokens: 0,
+  defaultMode: "lite",
+  autoTriggerMode: "stacked",
+  autoTriggerTokens: 32000,
   cacheMinutes: 5,
   preserveSystemPrompt: true,
   preserveSystemPromptMode: "always",

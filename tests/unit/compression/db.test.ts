@@ -47,8 +47,9 @@ describe("getCompressionSettings", () => {
   it("has correct default values", async () => {
     const settings = await getCompressionSettings();
     assert.equal(settings.enabled, false);
-    assert.equal(settings.defaultMode, "off");
-    assert.equal(settings.autoTriggerTokens, 0);
+    assert.equal(settings.defaultMode, "lite");
+    assert.equal(settings.autoTriggerMode, "stacked");
+    assert.equal(settings.autoTriggerTokens, 32000);
     assert.equal(settings.cacheMinutes, 5);
     assert.equal(settings.preserveSystemPrompt, true);
     assert.equal(settings.preserveSystemPromptMode, "always");
