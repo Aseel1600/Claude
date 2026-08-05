@@ -1705,14 +1705,11 @@ export async function handleChatCore({
             comboConfig as unknown as { name: string; models: unknown[] },
             allCombosData as unknown as { name: string; models: unknown[] }[]
           );
+          // Fall back to ResolvedComboTarget.provider when modelStr lacks a
+          // provider/ prefix — parseModel alone returns provider:null (#8716).
           comboTargetLimits = targets
             .map((t: { modelStr?: string; provider?: string }) =>
-              // Fall back to ResolvedComboTarget.provider when modelStr lacks a
-              // provider/ prefix — parseModel alone returns provider:null (#8716).
-              getComboTargetTokenLimit({
-                modelStr: t.modelStr,
-                provider: t.provider,
-              })
+              getComboTargetTokenLimit({ modelStr: t.modelStr, provider: t.provider })
             )
             .filter(
               (limit): limit is number =>
