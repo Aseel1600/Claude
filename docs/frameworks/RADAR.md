@@ -51,7 +51,7 @@ routing or model selection — see the separate opt-in below.
 
 Turning `RADAR_ENABLED` on only unlocks the UI. Syncing the feed requires a second,
 independent opt-in stored in `radar_settings.opt_in` (`src/lib/db/radar.ts`,
-migration `134_radar_cache_settings.sql`). `syncRadar()` checks the flag *and* the
+migration `135_radar_cache_settings.sql`). `syncRadar()` checks the flag *and* the
 opt-in before making any network call:
 
 ```
