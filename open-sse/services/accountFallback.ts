@@ -183,7 +183,12 @@ export const CREDITS_EXHAUSTED_SIGNALS = [
   "out of credits",
   "payment required",
   "free tier of the model has been exhausted",
-  "has been exhausted",
+  // #8631: narrower than a bare "has been exhausted" — that generic phrase also
+  // appears in Gemini's transient RPM/TPM 429 body ("Resource has been exhausted
+  // (e.g. check quota)."), which must stay RATE_LIMIT_EXCEEDED, not terminal.
+  // Anchoring on "tier" keeps free-tier depletion wording matched while excluding
+  // Gemini's "resource has been exhausted" rate-limit phrasing.
+  "tier has been exhausted",
   // #5239: providers (e.g. DeepSeek/GLM-style) return "Insufficient account balance"
   // on a depleted key. 402 is already terminalized by status, but catch non-402
   // out-of-credit bodies here too.
