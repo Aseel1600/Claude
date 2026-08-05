@@ -2,8 +2,10 @@ packages:
   - "open-sse"
 allowBuilds:
   "@parcel/watcher": true
+  "@playwright/browser-chromium": true
   "@swc/core": true
   better-sqlite3: true
+  bun: true
   core-js: true
   esbuild: true
   keytar: true
