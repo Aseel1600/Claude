@@ -47,7 +47,7 @@ describe("GeminiWebExecutor — testConnection", () => {
       "@omniroute/open-sse/executors/gemini-web.ts"
     );
     const executor = new GeminiWebExecutor();
-    assert.equal(typeof (executor as any).testConnection, "function");
+    assert.equal(typeof executor.testConnection, "function");
   });
 
   it("returns false for empty credentials", async () => {
