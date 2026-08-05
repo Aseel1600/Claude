@@ -46,8 +46,7 @@ on:
         required: true
 
 # Least-privilege default: read-only at the top level; each publish job grants the
-# id-token (npm provenance) / packages (GitHub Packages) writes it needs (Scorecard
-# TokenPermissions).
+# packages (GitHub Packages) writes it needs (Scorecard TokenPermissions).
 permissions:
   contents: read
 
@@ -66,7 +65,6 @@ jobs:
     permissions:
       actions: read # find + download the CI run's next-build artifact for this SHA
       contents: write # gh release upload (attach SBOM to the GitHub Release)
-      id-token: write # npm provenance
       packages: write # publish to npm.pkg.github.com
     steps:
       - name: Checkout
@@ -292,12 +290,12 @@ jobs:
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
           TAG: ${{ steps.resolve.outputs.tag }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || vars.NPM_TOKEN }}
         run: |
           set -euo pipefail
           # Always pass --tag explicitly. Defense in depth: even if VERSION is
           # accidentally an older release, the historic tag will NOT claim `@latest`.
-          npm stage publish --provenance --access public --tag "$TAG"
+          npm stage publish --access public --tag "$TAG"
           {
             echo "## 📦 omniroute@$VERSION STAGED (not yet installable)"
             echo ""
@@ -317,10 +315,10 @@ jobs:
         env:
           VERSION: ${{ steps.resolve.outputs.version }}
           TAG: ${{ steps.resolve.outputs.tag }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || vars.NPM_TOKEN }}
         run: |
           set -euo pipefail
-          npm publish --provenance --access public --tag "$TAG"
+          npm publish --access public --tag "$TAG"
           echo "✅ Published omniroute@$VERSION (dist-tag=$TAG) [DIRECT mode]"
 
       - name: Publish to GitHub Packages
@@ -342,7 +340,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # npm provenance
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -413,7 +410,7 @@ jobs:
       - name: Publish @omniroute/opencode-plugin to npm
         working-directory: "@omniroute/opencode-plugin"
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN || vars.NPM_TOKEN }}
         run: |
           set -euo pipefail
           PKG_VERSION=$(node -p "require('./package.json').version")
@@ -424,5 +421,5 @@ jobs:
             echo "⚠️ ${PKG_NAME}@${PKG_VERSION} is already published on npm — skipping."
             exit 0
           fi
-          npm publish --provenance --access public --ignore-scripts
+          npm publish --access public --ignore-scripts
           echo "✅ Published ${PKG_NAME}@${PKG_VERSION}"
