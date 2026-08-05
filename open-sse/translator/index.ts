@@ -13,10 +13,7 @@ import {
   providerHonorsOpenAIFormatCacheControl,
   resolveConnectionCacheOverride,
 } from "../utils/cacheControlPolicy.ts";
-import {
-  requiresAuthenticReasoningContent,
-  shouldPreserveResponsesReasoningContent,
-} from "../utils/reasoningContentInjector.ts";
+import { requiresAuthenticReasoningContent } from "../utils/reasoningContentInjector.ts";
 import { isInternalReasoningPlaceholder } from "../utils/reasoningPlaceholder.ts";
 import {
   coerceToolSchemas,
@@ -245,8 +242,7 @@ export function translateRequest(
     normalizedModel
   );
   const preserveResponsesReasoning =
-    sourceFormat === FORMATS.OPENAI_RESPONSES &&
-    shouldPreserveResponsesReasoningContent(normalizedProvider, normalizedModel);
+    sourceFormat === FORMATS.OPENAI_RESPONSES && requiresAuthenticReasoning;
 
   // Phase 2: Apply thinking budget control before normalization
   result = applyThinkingBudget(result);
