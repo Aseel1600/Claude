@@ -4711,7 +4711,15 @@
     "typeLabel": "Type",
     "direct": "Direct",
     "proxyEventTitle": "Proxy Event",
-    "timeLabel": "Time"
+    "timeLabel": "Time",
+    "latencyLabel": "Latency",
+    "clientIpLabel": "Client IP",
+    "providerLabel": "Provider",
+    "tlsFingerprintLabel": "TLS Fingerprint",
+    "targetUrlLabel": "Target URL",
+    "errorLabel": "Error",
+    "proxyConfigurationLabel": "Proxy Configuration",
+    "directNative": "Direct (native)"
   },
   "onboarding": {
     "welcome": "Welcome",

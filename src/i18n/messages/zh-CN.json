@@ -4711,7 +4711,15 @@
     "typeLabel": "类型",
     "direct": "直连",
     "proxyEventTitle": "代理事件",
-    "timeLabel": "时间"
+    "timeLabel": "时间",
+    "latencyLabel": "延迟",
+    "clientIpLabel": "客户端 IP",
+    "providerLabel": "提供者",
+    "tlsFingerprintLabel": "TLS 指纹",
+    "targetUrlLabel": "目标 URL",
+    "errorLabel": "错误",
+    "proxyConfigurationLabel": "代理配置",
+    "directNative": "直连(原生)"
   },
   "onboarding": {
     "welcome": "欢迎",
