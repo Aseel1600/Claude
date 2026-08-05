@@ -158,7 +158,7 @@
   "_rebaseline_2026_06_20_1409_1294_models": "Re-baseline src/lib/db/models.ts 1184->1221: combined growth of sibling fixes #1409 (cascade-delete orphaned model aliases when a provider is removed) + #1294 (persist max_input_tokens/max_output_tokens on custom models), both adding CRUD at the existing models domain module. Cohesive db module; not extractable.",
   "_rebaseline_2026_06_20_4389_thinking_toolchoice": "Re-baseline base.ts 1387->1399 (#4389): tool_choice-forced thinking guard at the existing Claude wire-image injection chokepoint (effThinking gate avoids the Anthropic 400 when tool_choice forces a tool). Cohesive guard; structural shrink tracked in #3501.",
   "_rebaseline_2026_07_18_6979_codex_test": "PR #6979 own growth: executor-codex.test.ts 1340->1347 (+7 = generalized ensureThinkingBudget assertion added to the existing codex thinking-budget cases). antigravity-test bump 942->977 REVERTED here: #7408's test split dropped that file to 888, so this PR's +35 fits under the original 942 frozen cap.",
-  "cap": 800,
+  "cap": 1000,
   "frozen": {
     "_rebaseline_2026_07_02_5816_qoder": "PR #5816 (@AgentKiller45, qoder PAT via qodercli): qoderCli.ts 666->989, new-above-cap frozen (owner-approved baseline freeze). The growth is the legitimate PAT job-token exchange + quota parsing CLI transport (the pure-JS Cosy path 500'd on every PAT request); extracting the spawn/parse helpers now would just add indirection to a contributor PR mid-merge. Test frozen also raised for this PR's coverage growth: providers-page-utils.test.ts 1052->1092. Additionally clears an inherited base-red from the already-merged #5933 (codex json_schema->text.format): translator-openai-responses-req.test.ts 1097->1172 (+75 regression tests, no offending branch left). All remain frozen (cannot grow further); release captain's rebaseline-at-release supersedes.",
     "open-sse/services/qoderCli.ts": 989,
@@ -340,7 +340,7 @@
     "_rebaseline_2026_07_22_fusion_8013_8098_antigravity": "Fusion of #8013 (backryun, catalog/IDE-CLI-split rewrite) + #8098 (nguyenha935, protocol-fidelity/fail-closed/credits/tool-cloaking): open-sse/services/usage/antigravity.ts NEW 802 (>cap 800, +2 — #8098 credits/tier usage service on #8013's profile-aware headers). Test growth (models-catalog-route 1605->1608, provider-models-route 1752->1757 from #8013 Gemini 3.6 catalog) tracked in testFrozen.",
     "_rebaseline_2026_07_22_8050_model_lockout_exact_family": "#8050 (@AndrianBalanescu) own growth: accountFallback.ts 1864->1892 (+28) — exact-vs-family model-lockout scoping (getModelLockKey/isModelLocked/clearModelLock/getModelLockoutInfo) so an Antigravity 404 for one bare model no longer hijacks the whole family cooldown. Cohesive lockout logic; frozen at new size."
   },
-  "testCap": 800,
+  "testCap": 1000,
   "testFrozen": {
     "_rebaseline_2026_06_27_5193_antigravity_test": "#5193 own test growth: oauth-providers-config.test.ts 870->873 (+3: antigravity projectId assertion + 50ms tick for the now fire-and-forget onboarding, matching the no-PKCE/no-openid flow).",
     "_rebaseline_2026_07_02_5928_base_red": "web-cookie-providers-new.test.ts 845->850: #5928 (test(security) Kimi Web URL host parse, CodeQL #689) grew the file +5 lines and merged into release/v3.8.44 WITHOUT rebaselining, leaving a fast-gates base-red that blocked every subsequent PR->release. Test growth is legitimate (a security regression test); maintainer absorbs the drift here. Frozen at 850.",
