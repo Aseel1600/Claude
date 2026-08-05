@@ -254,7 +254,11 @@ function ConversationTranscriptSection({
         <div className="flex items-center gap-2">
           <button
             onClick={toggleAutoFollow}
-            title={autoFollow ? "Auto-follow: on (jumps to the next turn as soon as it lands)" : "Auto-follow: off"}
+            title={
+              autoFollow
+                ? "Auto-follow: on (jumps to the next turn as soon as it lands)"
+                : "Auto-follow: off"
+            }
             className={`p-1 rounded hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors ${autoFollow ? "text-primary" : ""}`}
             aria-pressed={autoFollow}
             aria-label="Toggle auto-follow to next turn"
