@@ -7,9 +7,10 @@ import { allow, reject } from "../context";
 import { extractApiKey, isValidApiKey } from "../../../sse/services/auth";
 import { getApiKeyMetadata } from "../../../lib/db/apiKeys";
 import { hasManageScope } from "../../../lib/api/requireManagementAuth";
+import { hasMcpConnectOrManageScope, MCP_CONNECT_SCOPE } from "../../../shared/constants/managementScopes";
 import { evaluateAccessTokenAuth } from "../accessTokenAuth";
-import { CLI_TOKEN_HEADER, PEER_IP_HEADER } from "../headers";
-import { resolveStampedPeer } from "../peerStamp";
+import { CLI_TOKEN_HEADER, PEER_IP_HEADER, VIA_PROXY_HEADER } from "../headers";
+import { resolveStampedPeer, resolveStampedViaProxy } from "../peerStamp";
 import {
   isAlwaysProtectedPath,
   isLocalOnlyBypassableByManageScope,
@@ -35,15 +36,34 @@ function requestPeerAddress(ctx: PolicyContext): string | null {
   return ctx.request.ip ?? ctx.request.socket?.remoteAddress ?? null;
 }
 
+/**
+ * True when the inbound TCP request carried forwarding headers
+ * (`x-forwarded-for` / `x-real-ip`), as stamped by the custom Node server. When
+ * set, the socket peer is the reverse-proxy hop, not the end-user — so a
+ * loopback / private-LAN socket must NOT be trusted as local (Hard Rules #15 +
+ * #17, port of decolua/9router da667836). Token-validated; an attacker who
+ * knows the header name but not the per-process token cannot influence it.
+ */
+function isViaProxyRequest(ctx: PolicyContext): boolean {
+  return resolveStampedViaProxy(
+    ctx.request.headers?.get?.(VIA_PROXY_HEADER) ?? null,
+    process.env.OMNIROUTE_PEER_STAMP_TOKEN
+  );
+}
+
 function isLoopbackRequest(ctx: PolicyContext): boolean {
+  if (isViaProxyRequest(ctx)) return false;
   const peerAddress = requestPeerAddress(ctx);
   return peerAddress ? isLoopbackHost(peerAddress) : false;
 }
 
 // Owner-authorized (2026-05-30): allow LOCAL_ONLY *paths* from a trusted private
 // LAN, based on the real socket peer IP (not spoofable). Does NOT relax the
-// CLI-token gate, which stays strictly loopback.
+// CLI-token gate, which stays strictly loopback. Also falls back to "not LAN"
+// when a reverse-proxy hop is detected (the apparent LAN IP would be the proxy,
+// not the end-user — see isViaProxyRequest above).
 function isPrivateLanRequest(ctx: PolicyContext): boolean {
+  if (isViaProxyRequest(ctx)) return false;
   const peerAddress = requestPeerAddress(ctx);
   return peerAddress ? isPrivateLanHost(peerAddress) : false;
 }
@@ -125,7 +145,7 @@ export const managementPolicy: RoutePolicy = {
     //
     // Anonymous (no Bearer / invalid key / wrong scope / no session) requests
     // still hit the same 403 LOCAL_ONLY they did before.
-    if (isLocalOnlyPath(path) && !isLoopbackRequest(ctx) && !isPrivateLanRequest(ctx)) {
+    if (isLocalOnlyPath(path, ctx.request?.method) && !isLoopbackRequest(ctx) && !isPrivateLanRequest(ctx)) {
       if (isLocalOnlyBypassableByManageScope(path)) {
         // Management auth is header-only — a URL-borne token must never satisfy a
         // manage-scope bypass of a LOCAL_ONLY route. See #3300 follow-up.
@@ -134,10 +154,26 @@ export const managementPolicy: RoutePolicy = {
           try {
             if (await isValidApiKey(apiKey)) {
               const meta = await getApiKeyMetadata(apiKey);
-              if (meta && hasManageScope(meta.scopes)) {
-                // Distinguish admin vs manage in the audit label so log review
-                // can tell which privilege actually granted the bypass.
-                const grantedBy = meta.scopes.includes("admin") ? "admin" : "manage";
+              // #7895: the `/api/mcp/` carve-out ALSO accepts the narrow
+              // `mcp:connect` scope, so remote MCP-only callers don't need
+              // broad `manage`/`admin` just to reach the transport routes.
+              // Scoped to `/api/mcp/` ONLY — every other LOCAL_ONLY bypass
+              // prefix still requires full `hasManageScope` (below).
+              const scopeGranted =
+                path.startsWith("/api/mcp/") && meta
+                  ? hasMcpConnectOrManageScope(meta.scopes)
+                  : Boolean(meta && hasManageScope(meta.scopes));
+              if (meta && scopeGranted) {
+                // Distinguish admin vs manage vs the narrow mcp:connect scope in
+                // the audit label so log review can tell which privilege
+                // actually granted the bypass.
+                const grantedBy = meta.scopes.includes("admin")
+                  ? "admin"
+                  : meta.scopes.includes("manage")
+                    ? "manage"
+                    : meta.scopes.includes(MCP_CONNECT_SCOPE)
+                      ? "mcp-connect"
+                      : "manage";
                 return allow({
                   kind: "management_key",
                   id: meta.id,

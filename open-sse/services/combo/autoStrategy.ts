@@ -21,7 +21,12 @@
  */
 
 import { isRecord } from "./comboData.ts";
-import type { AutoProviderCandidate, ComboLike, ResolvedComboTarget } from "./types.ts";
+import type {
+  AutoProviderCandidate,
+  ComboLike,
+  HistoricalLatencyStatsEntry,
+  ResolvedComboTarget,
+} from "./types.ts";
 import { extractSessionAffinityKey } from "@/sse/services/auth";
 import { DEFAULT_INTENT_CONFIG, type IntentClassifierConfig } from "../intentClassifier.ts";
 import { getTaskFitness } from "../autoCombo/taskFitness.ts";
@@ -32,7 +37,7 @@ import {
   type ScoringWeights,
 } from "../autoCombo/scoring.ts";
 import type { RoutingHint } from "../manifestAdapter";
-import { getProviderConnections } from "../../../src/lib/db/providers";
+import { getCachedProviderConnections } from "../../../src/lib/db/readCache";
 import { getProviderModels } from "../../config/providerModels.ts";
 import {
   getConnectionRoutingTags,
@@ -47,6 +52,17 @@ import {
 // Override via QUOTA_SOFT_DEPRIORITIZE_FACTOR env var (range 0..1, default 0.7).
 export const QUOTA_SOFT_DEPRIORITIZE_FACTOR = Number(
   process.env.QUOTA_SOFT_DEPRIORITIZE_FACTOR ?? "0.7"
+);
+
+// #4540: Status soft-deprioritization factor.
+// When the quota-preflight HARD cutoff is OFF (default), a candidate whose connection
+// is in a terminal/transient unavailable status (credits_exhausted / rate_limited /
+// banned / expired / future-dated unavailable) is NOT hard-blocked — instead its
+// auto-combo score is multiplied by this factor so an exhausted provider ranks strictly
+// below an otherwise-identical healthy one, without surfacing a misleading 429.
+// Override via STATUS_SOFT_DEPRIORITIZE_FACTOR env var (range 0..1, default 0.5).
+export const STATUS_SOFT_DEPRIORITIZE_FACTOR = Number(
+  process.env.STATUS_SOFT_DEPRIORITIZE_FACTOR ?? "0.5"
 );
 
 // G2: Module-level registry of active combo execution candidates.
@@ -232,7 +248,10 @@ export async function applyRequestTagRouting(
   await Promise.all(
     providerIds.map(async (providerId) => {
       try {
-        const connections = await getProviderConnections({ provider: providerId, isActive: true });
+        const connections = await getCachedProviderConnections({
+          provider: providerId,
+          isActive: true,
+        });
         providerConnections.set(
           providerId,
           Array.isArray(connections) ? (connections as Array<Record<string, unknown>>) : []
@@ -330,19 +349,31 @@ export function scoreAutoTargets(
   weights: ScoringWeights,
   manifestHint?: RoutingHint | null
 ) {
-  const candidateByExecutionKey = new Map(
-    candidates.map((candidate: ProviderCandidate & { executionKey: string }) => [
-      candidate.executionKey,
-      candidate,
-    ])
-  );
-  return targets
-    .map((target) => {
-      const candidate = candidateByExecutionKey.get(target.executionKey);
-      if (!candidate) return null;
+  const targetByExecutionKey = new Map(targets.map((target) => [target.executionKey, target]));
+  const activeCandidates = candidates.filter((candidate) => candidate.quotaCutoffBlocked !== true);
+
+  return activeCandidates
+    .map((candidate) => {
+      const baseTarget =
+        targetByExecutionKey.get(candidate.executionKey) ||
+        targets.find(
+          (target) =>
+            target.stepId === candidate.stepId ||
+            (target.provider === candidate.provider && target.modelStr === candidate.modelStr)
+        );
+      if (!baseTarget) return null;
+
+      const target: ResolvedComboTarget = {
+        ...baseTarget,
+        stepId: candidate.stepId,
+        executionKey: candidate.executionKey,
+        modelStr: candidate.modelStr,
+        provider: candidate.provider,
+        connectionId: candidate.connectionId ?? baseTarget.connectionId,
+      };
       const factors = calculateFactors(
         candidate as ProviderCandidate,
-        candidates,
+        activeCandidates,
         taskType ?? "general",
         getTaskFitness,
         manifestHint ?? undefined
@@ -351,6 +382,12 @@ export function scoreAutoTargets(
       // B17: Quota Share soft-policy deprioritization
       if ("quotaSoftPenalty" in candidate && candidate.quotaSoftPenalty === true) {
         score *= QUOTA_SOFT_DEPRIORITIZE_FACTOR;
+      }
+      // #4540: terminal/transient connection status soft penalty (no hard block).
+      // A no-fetcher exhausted provider keeps quotaRemaining=100, so without this its
+      // score would tie a healthy provider's. The penalty pushes it strictly below.
+      if ("statusPenalty" in candidate && candidate.statusPenalty === true) {
+        score *= STATUS_SOFT_DEPRIORITIZE_FACTOR;
       }
       return {
         target,
@@ -385,8 +422,24 @@ export async function expandAutoComboCandidatePool(
   if (Array.isArray(localAutoConfig?.candidatePool) && localAutoConfig.candidatePool.length > 0)
     return eligibleTargets;
 
+  // #COMBO-REF: if the combo references other combos via kind:"combo-ref" entries,
+  // the resolved eligibleTargets already represent the operator's intended pool.
+  // Expanding to ALL providers would defeat the purpose of the combo-ref constraint
+  // (e.g. an "auto" combo delegating to a "priority" sub-combo should not pull in
+  // every model from every active provider).
+  // When the operator has populated the combo's models[] (the common
+  // case for combos created through the dashboard multi-model editor
+  // with strategy=auto), the explicit list IS the candidate pool.
+  // Expansion to every active provider's catalog would silently
+  // override the operator's intent and inject models the operator
+  // never approved. Only fall through to the full-catalog expansion
+  // when the operator has not pre-populated a models[] (pure-auto
+  // combos that want to score every model).
+  const explicitModels = (combo as Record<string, unknown> | null | undefined)?.models;
+  if (Array.isArray(explicitModels) && explicitModels.length > 0) return eligibleTargets;
+
   try {
-    const allConnections = await getProviderConnections({ isActive: true });
+    const allConnections = await getCachedProviderConnections({ isActive: true });
     const providerIds = [
       ...new Set(
         (allConnections as Array<{ provider?: unknown }>)
@@ -443,4 +496,24 @@ export function deriveComboSessionKey(body: Record<string, unknown>): string | n
   } catch {
     return null;
   }
+}
+
+/**
+ * Surface TTFT/E2E-latency/tokens-per-second from a historical latency-stats
+ * entry onto an AutoProviderCandidate's speed-telemetry fields (#6875). Pure
+ * projection — only positive, finite numbers pass through; anything else is
+ * omitted so the existing speed-ranking factor (speedRanking.ts, #6011) falls
+ * back to its own pool-median default instead of scoring on a bad 0/NaN.
+ */
+export function deriveSpeedTelemetry(
+  metric: HistoricalLatencyStatsEntry | null
+): Pick<AutoProviderCandidate, "avgTtftMs" | "avgE2ELatencyMs" | "avgTokensPerSecond"> {
+  const positive = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+
+  return {
+    avgTtftMs: positive(metric?.avgTtftMs),
+    avgE2ELatencyMs: positive(metric?.avgE2ELatencyMs),
+    avgTokensPerSecond: positive(metric?.avgTokensPerSecond),
+  };
 }

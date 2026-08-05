@@ -5,8 +5,15 @@ const {
   buildOpenAIStoreSessionId,
   ensureOpenAIStoreSessionFallback,
   getClaudeCodeCompatibleRequestDefaults,
+  normalizeCodexReasoningEffort,
   normalizeProviderSpecificData,
+  sanitizeProviderSpecificDataForResponse,
 } = await import("../../src/lib/providers/requestDefaults.ts");
+
+test("Codex request defaults accept max but leave ultra to the Codex client", () => {
+  assert.equal(normalizeCodexReasoningEffort("max"), "max");
+  assert.equal(normalizeCodexReasoningEffort("ultra"), undefined);
+});
 
 test("buildOpenAIStoreSessionId normalizes external and generated session ids", () => {
   assert.equal(
@@ -49,6 +56,7 @@ test("normalizeProviderSpecificData keeps only boolean CC-compatible request def
     requestDefaults: {
       context1m: true,
       redactThinking: true,
+      summarizeThinking: true,
       customFlag: "keep-me",
     },
   });
@@ -56,10 +64,12 @@ test("normalizeProviderSpecificData keeps only boolean CC-compatible request def
   assert.deepEqual(getClaudeCodeCompatibleRequestDefaults(normalized), {
     context1m: true,
     redactThinking: true,
+    summarizeThinking: true,
   });
   assert.deepEqual(normalized?.requestDefaults, {
     context1m: true,
     redactThinking: true,
+    summarizeThinking: true,
     customFlag: "keep-me",
   });
 
@@ -67,6 +77,7 @@ test("normalizeProviderSpecificData keeps only boolean CC-compatible request def
     requestDefaults: {
       context1m: "yes",
       redactThinking: "yes",
+      summarizeThinking: "yes",
       customFlag: "keep-me",
     },
   });
@@ -107,4 +118,20 @@ test("normalizeProviderSpecificData trims OpenRouter preset and clears empty val
 
   assert.equal(ignored?.preset, undefined);
   assert.equal(ignored?.tag, "primary");
+});
+
+test("sanitizeProviderSpecificDataForResponse removes quota scraping cookies", () => {
+  const sanitized = sanitizeProviderSpecificDataForResponse({
+    opencodeGoWorkspaceId: "workspace-123",
+    opencodeGoAuthCookie: "auth-cookie",
+    ollamaCloudUsageCookie: "ollama-cookie",
+    usageCookie: "fallback-cookie",
+    consoleApiKey: "console-key",
+    tag: "primary",
+  });
+
+  assert.deepEqual(sanitized, {
+    opencodeGoWorkspaceId: "workspace-123",
+    tag: "primary",
+  });
 });

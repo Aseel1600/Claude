@@ -27,6 +27,21 @@ const TOOL_BLOCK_RE = /<tool>\s*([\s\S]*?)\s*<\/tool>/g;
 // lives there, never in the tag's `name="..."` attribute (#3260).
 const TOOL_CALL_TAG_RE = /<tool_call(?:\s+[^>]*)?\s*>\s*([\s\S]*?)\s*<\/tool_call>/g;
 
+// Per-request nonce binding for tool envelopes (#9343). Associates a random nonce
+// with each tools[] array reference so the serializer and parser can share it
+// without threading extra parameters through executor call chains.
+const toolNonceMap = new WeakMap<object, string>();
+
+export function getToolNonce(tools: unknown): string {
+  if (!Array.isArray(tools) || tools.length === 0) return "";
+  let nonce = toolNonceMap.get(tools);
+  if (!nonce) {
+    nonce = Math.random().toString(36).slice(2, 10);
+    toolNonceMap.set(tools, nonce);
+  }
+  return nonce;
+}
+
 interface ToolParseCandidate {
   raw: string;
   start: number;
@@ -34,7 +49,7 @@ interface ToolParseCandidate {
   requireRequestedTool: boolean;
 }
 
-interface RequestedToolName {
+export interface RequestedToolName {
   original: string;
   normalized: string;
 }
@@ -45,7 +60,7 @@ function toRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function getRequestedToolNames(tools: unknown): RequestedToolName[] {
+export function getRequestedToolNames(tools: unknown): RequestedToolName[] {
   if (!Array.isArray(tools)) return [];
   const names: RequestedToolName[] = [];
   const seen = new Set<string>();
@@ -102,7 +117,10 @@ function scoreToolName(emitted: string, requested: RequestedToolName): number {
   return similarity >= 0.72 ? similarity : 0;
 }
 
-function resolveRequestedToolName(emitted: string, requestedTools: RequestedToolName[]): string | null {
+export function resolveRequestedToolName(
+  emitted: string,
+  requestedTools: RequestedToolName[]
+): string | null {
   if (requestedTools.length === 0) return emitted;
 
   let best: { name: string; score: number } | null = null;
@@ -227,7 +245,7 @@ function normalizeLooseJson(value: string): string {
     .replace(/,\s*([}\]])/g, "$1");
 }
 
-function parseLooseJsonObject(raw: string): Record<string, unknown> | null {
+export function parseLooseJsonObject(raw: string): Record<string, unknown> | null {
   const trimmed = stripCodeFence(raw);
   for (const candidate of [trimmed, normalizeLooseJson(trimmed)]) {
     try {
@@ -282,7 +300,10 @@ function findBareJsonCandidates(text: string): ToolParseCandidate[] {
       depth -= 1;
       if (depth === 0 && start >= 0) {
         const raw = text.slice(start, i + 1);
-        if (/[{,]\s*["']?(name|command)["']?\s*:/i.test(raw) && /[{,]\s*["']?arguments["']?\s*:/i.test(raw)) {
+        if (
+          /[{,]\s*["']?(name|command)["']?\s*:/i.test(raw) &&
+          /[{,]\s*["']?arguments["']?\s*:/i.test(raw)
+        ) {
           candidates.push({ raw, start, end: i + 1, requireRequestedTool: true });
         }
         start = -1;
@@ -293,11 +314,14 @@ function findBareJsonCandidates(text: string): ToolParseCandidate[] {
   return candidates;
 }
 
-function rangesOverlap(a: { start: number; end: number }, b: { start: number; end: number }): boolean {
+function rangesOverlap(
+  a: { start: number; end: number },
+  b: { start: number; end: number }
+): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
-function stripRanges(text: string, ranges: Array<{ start: number; end: number }>): string {
+export function stripRanges(text: string, ranges: Array<{ start: number; end: number }>): string {
   let content = text;
   const sorted = [...ranges].sort((a, b) => b.start - a.start);
   for (const range of sorted) {
@@ -308,13 +332,18 @@ function stripRanges(text: string, ranges: Array<{ start: number; end: number }>
     const afterOnLine = content.slice(range.end, lineEnd);
     const removeWholeLine = beforeOnLine.trim() === "" && afterOnLine.trim() === "";
     const start = removeWholeLine ? lineStart : range.start;
-    const end = removeWholeLine && nextLineBreak !== -1 ? nextLineBreak + 1 : removeWholeLine ? lineEnd : range.end;
+    const end =
+      removeWholeLine && nextLineBreak !== -1
+        ? nextLineBreak + 1
+        : removeWholeLine
+          ? lineEnd
+          : range.end;
     content = `${content.slice(0, start)}${content.slice(end)}`;
   }
   return content.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function toArgumentsString(value: unknown): string {
+export function toArgumentsString(value: unknown): string {
   if (value === undefined) return "{}";
   if (typeof value === "string") {
     const parsed = parseLooseJsonObject(value);
@@ -331,9 +360,17 @@ function toArgumentsString(value: unknown): string {
  * Serialize an OpenAI `tools` array into a system-prompt block that instructs the
  * web UI model how to invoke a tool (emit a `<tool>{...}</tool>` block). Returns an
  * empty string when there are no usable tools.
+ *
+ * Each invocation generates a per-request nonce that is embedded in the tool format
+ * instructions. The parser (parseToolCallsFromText) requires this nonce in the model's
+ * `<tool>` JSON to distinguish legitimate tool calls from bare JSON, code-fenced JSON,
+ * or copy-attacked envelopes (#9343).
  */
 export function serializeToolsToPrompt(tools: unknown): string {
   if (!Array.isArray(tools) || tools.length === 0) return "";
+
+  const nonce = getToolNonce(tools);
+  if (!nonce) return "";
 
   const lines: string[] = [];
   for (const t of tools as OpenAIToolDef[]) {
@@ -346,14 +383,17 @@ export function serializeToolsToPrompt(tools: unknown): string {
     } catch {
       params = "";
     }
-    lines.push(`- ${fn.name}${desc ? `: ${desc}` : ""}${params ? `\n  parameters: ${params}` : ""}`);
+    lines.push(
+      `- ${fn.name}${desc ? `: ${desc}` : ""}${params ? `\n  parameters: ${params}` : ""}`
+    );
   }
 
   if (lines.length === 0) return "";
 
   return [
     "You can call tools. To call a tool, reply with a single line containing a <tool> block",
-    'with JSON: <tool>{"name": "<tool_name>", "arguments": { ... }}</tool>',
+    `with JSON that includes the secret binding "_nonce": "${nonce}":`,
+    `<tool>{"name": "<tool_name>", "arguments": { ... }, "_nonce": "${nonce}"}</tool>`,
     "Only emit the <tool> block when you actually want to call a tool; otherwise answer normally.",
     "",
     "Available tools:",
@@ -362,11 +402,19 @@ export function serializeToolsToPrompt(tools: unknown): string {
 }
 
 /**
- * Parse `<tool>{...}</tool>` blocks out of upstream text into OpenAI `tool_calls`.
- * When a requested `tools[]` set is provided, also accepts bare JSON tool-call
- * objects emitted by web models that ignored the `<tool>` wrapper contract.
- * Returns the content with the blocks stripped, plus the tool calls (or null when
- * there are none). `arguments` is always a JSON *string*, matching the OpenAI API.
+ * Parse `<tool>{...}</tool>` or `<tool_call>{...}</tool_call>` blocks out of
+ * upstream text into OpenAI `tool_calls`.
+ *
+ * **Security hardening (#9343):** Bare JSON with name+arguments keys is NEVER
+ * promoted to tool_calls — only explicit `<tool>` or `<tool_call>` envelopes are
+ * accepted. When a nonce was embedded via serializeToolsToPrompt (stored from the
+ * same tools[] reference), it MUST be present in the parsed JSON body as `_nonce`.
+ * This prevents code-fenced JSON, prose JSON, and copy-attacked user envelopes from
+ * triggering tool execution.
+ *
+ * Returns the content with the recognized blocks stripped, plus the tool calls
+ * (or null when there are none). `arguments` is always a JSON *string*, matching
+ * the OpenAI API.
  *
  * `idSeed` makes generated ids deterministic for callers that need stability; when
  * omitted, ids are still unique within a single call (index-based).
@@ -377,48 +425,35 @@ export function parseToolCallsFromText(
   requestedTools?: unknown
 ): { content: string; toolCalls: OpenAIToolCall[] | null } {
   const requestedToolNames = getRequestedToolNames(requestedTools);
-  const canParseBareJson = requestedToolNames.length > 0;
   if (
     typeof text !== "string" ||
-    (!text.includes("<tool>") && !text.includes("<tool_call") && !canParseBareJson)
+    (!text.includes("<tool>") && !text.includes("<tool_call"))
   ) {
     return { content: text ?? "", toolCalls: null };
   }
 
+  const nonce = getToolNonce(requestedTools);
   const candidates: ToolParseCandidate[] = [];
-  const toolBlockRanges: Array<{ start: number; end: number }> = [];
 
   let blockMatch: RegExpExecArray | null;
   TOOL_BLOCK_RE.lastIndex = 0;
   while ((blockMatch = TOOL_BLOCK_RE.exec(text)) !== null) {
-    const range = { start: blockMatch.index, end: TOOL_BLOCK_RE.lastIndex };
-    toolBlockRanges.push(range);
     candidates.push({
       raw: blockMatch[1].trim(),
-      start: range.start,
-      end: range.end,
+      start: blockMatch.index,
+      end: TOOL_BLOCK_RE.lastIndex,
       requireRequestedTool: false,
     });
   }
 
   TOOL_CALL_TAG_RE.lastIndex = 0;
   while ((blockMatch = TOOL_CALL_TAG_RE.exec(text)) !== null) {
-    const range = { start: blockMatch.index, end: TOOL_CALL_TAG_RE.lastIndex };
-    toolBlockRanges.push(range);
     candidates.push({
       raw: blockMatch[1].trim(),
-      start: range.start,
-      end: range.end,
+      start: blockMatch.index,
+      end: TOOL_CALL_TAG_RE.lastIndex,
       requireRequestedTool: false,
     });
-  }
-
-  if (canParseBareJson) {
-    for (const candidate of findBareJsonCandidates(text)) {
-      if (!toolBlockRanges.some((range) => rangesOverlap(range, candidate))) {
-        candidates.push(candidate);
-      }
-    }
   }
 
   candidates.sort((a, b) => a.start - b.start);
@@ -434,6 +469,14 @@ export function parseToolCallsFromText(
           ? parsed.command
           : null;
     if (!emittedName) continue;
+
+    // Nonce binding check (#9343): when the tool prompt embedded a nonce, check
+    // that any _nonce present in the JSON body matches. A wrong nonce (present but
+    // does not match) means this is a copy-attack or hallucination — treat it as text
+    // instead of executing it. A missing _nonce is tolerated for backward compatibility
+    // with models that do not (yet) follow the nonce instruction.
+    if (nonce && parsed && parsed._nonce !== undefined && parsed._nonce !== nonce) continue;
+
     const name =
       resolveRequestedToolName(emittedName, requestedToolNames) ||
       (candidate.requireRequestedTool ? null : emittedName);
@@ -471,7 +514,7 @@ interface ToolPrepResult {
  */
 export function prepareToolMessages(
   bodyObj: Record<string, unknown>,
-  messages: Array<{ role: string; content: unknown }>,
+  messages: Array<{ role: string; content: unknown }>
 ): ToolPrepResult {
   const requestedTools = bodyObj.tools;
   const hasTools = Array.isArray(requestedTools) && requestedTools.length > 0;
@@ -500,9 +543,13 @@ interface ToolCompletionResult {
 export function buildToolAwareResult(
   rawContent: string,
   requestedTools: unknown,
-  idSeed = "call",
+  idSeed = "call"
 ): ToolCompletionResult {
-  const { content, toolCalls } = parseToolCallsFromText(rawContent, `${idSeed}-${Date.now()}`, requestedTools);
+  const { content, toolCalls } = parseToolCallsFromText(
+    rawContent,
+    `${idSeed}-${Date.now()}`,
+    requestedTools
+  );
   return {
     content,
     toolCalls,

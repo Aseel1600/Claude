@@ -39,6 +39,17 @@ test("routeFileToApiPath resolves dynamic [param] segments to a concrete placeho
   );
 });
 
+test("routeFileToApiPath normalizes Windows backslash separators before stripping prefixes", () => {
+  // On Windows, node:path join() yields backslash-separated paths; without the
+  // leading `.replace(/\\/g, "/")` the `^src\/app` strip never matches and the
+  // route-guard gate produces wrong API paths (false negatives that miss
+  // RCE-capable spawn routes). See PR #5613.
+  assert.equal(
+    routeFileToApiPath("src\\app\\api\\services\\9router\\install\\route.ts"),
+    "/api/services/9router/install"
+  );
+});
+
 test("no unclassified routes when every spawn-capable route is local-only", () => {
   const routes = [
     "/api/mcp/tools",
@@ -132,6 +143,14 @@ test("6A.8 P1 RESOLVED: spawn-capable system/db-backups routes are classified lo
   );
   assert.equal(isLocalOnlyPath("/api/system/version"), true);
   assert.equal(isLocalOnlyPath("/api/db-backups/exportAll"), true);
+});
+
+test("#7948: /api/acp/agents (transitive execFileSync via registry) is classified local-only", () => {
+  // /api/acp/agents is spawn-capable only transitively (route.ts imports
+  // src/lib/acp/registry.ts, which calls execFileSync) — the source-scan
+  // subcheck above only greps the route file itself, so it cannot catch this
+  // class of gap. This assertion is the direct regression guard for #7948.
+  assert.equal(isLocalOnlyPath("/api/acp/agents"), true);
 });
 
 test("6A.8: spawn-capable routes in SPAWN_CAPABLE_ROUTE_ROOTS are still all classified local-only", async () => {

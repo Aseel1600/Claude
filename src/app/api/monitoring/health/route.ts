@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProviderConnections, getSettings } from "@/lib/localDb";
+import { getProviderConnections, getCachedSettings } from "@/lib/localDb";
 import { buildHealthPayload } from "@/lib/monitoring/observability";
 import { APP_CONFIG } from "@/shared/constants/config";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
@@ -11,7 +11,20 @@ import { isAuthenticated } from "@/shared/utils/apiAuth";
  * Returns system info, provider health (circuit breakers),
  * rate limit status, and database stats.
  */
+// §8.2 optimization: short-TTL cache for the health payload. Health is a
+// frequently-polled endpoint and rebuilding it every request (DB reads +
+// status aggregation across 8 subsystems) is wasteful under rapid polling. 1s
+// stays near-real-time for monitoring; the cache is invalidated on DELETE
+// (circuit-breaker reset) so a manual reset is reflected immediately.
+let healthPayloadCache: { payload: unknown; expiresAt: number } | null = null;
+const HEALTH_PAYLOAD_TTL_MS = 1000;
+
 export async function GET() {
+  const cachedNow = Date.now();
+  if (healthPayloadCache && cachedNow <= healthPayloadCache.expiresAt) {
+    return NextResponse.json(healthPayloadCache.payload);
+  }
+
   const readHealthValue = <T>(label: string, reader: () => T, fallback: T): T => {
     try {
       return reader();
@@ -43,6 +56,7 @@ export async function GET() {
       sessionManagerModule,
       credentialHealthModule,
       localHealthModule,
+      adaptiveAdmissionModule,
       settingsResult,
       connectionsResult,
     ] = await Promise.allSettled([
@@ -54,7 +68,8 @@ export async function GET() {
       import("@omniroute/open-sse/services/sessionManager.ts"),
       import("@/lib/credentialHealth/cache"),
       import("@/lib/localHealthCheck"),
-      getSettings(),
+      import("@omniroute/open-sse/services/admission/runtime.ts"),
+      getCachedSettings(),
       getProviderConnections(),
     ]);
 
@@ -132,6 +147,14 @@ export async function GET() {
         : {};
     const settings = settingsResult.status === "fulfilled" ? settingsResult.value : {};
     const connections = connectionsResult.status === "fulfilled" ? connectionsResult.value : [];
+    const adaptiveAdmission =
+      adaptiveAdmissionModule.status === "fulfilled"
+        ? readHealthValue(
+            "adaptive admission",
+            () => adaptiveAdmissionModule.value.getAdaptiveAdmissionRuntime().snapshot(),
+            null
+          )
+        : null;
 
     const payload = buildHealthPayload({
       appVersion: APP_CONFIG.version,
@@ -156,8 +179,10 @@ export async function GET() {
       activeSessions,
       activeSessionsByKey,
       credentialHealth,
+      adaptiveAdmission,
     });
 
+    healthPayloadCache = { payload, expiresAt: Date.now() + HEALTH_PAYLOAD_TTL_MS };
     return NextResponse.json(payload);
   } catch (error) {
     console.error("[API] GET /api/monitoring/health error:", error);
@@ -172,6 +197,7 @@ export async function GET() {
       lockouts: [],
       quotaMonitor: { ...fallbackQuotaMonitorSummary, monitors: [] },
       sessions: { activeCount: 0, stickyBoundCount: 0, byApiKey: {}, top: [] },
+      adaptiveAdmission: null,
       dedup: { inflightRequests: 0 },
     });
   }
@@ -196,6 +222,7 @@ export async function DELETE(request: Request) {
     const resetCount = before.length;
 
     resetAllCircuitBreakers();
+    healthPayloadCache = null; // a reset just happened — don't serve a stale GET snapshot
 
     console.log(`[API] DELETE /api/monitoring/health — Reset ${resetCount} circuit breakers`);
 

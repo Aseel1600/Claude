@@ -23,6 +23,11 @@ async function resetStorage() {
   apiKeysDb.resetApiKeyState();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  // #6408 added a 1.5s TTL response cache to getUnifiedModelsResponse keyed only by
+  // (prefix, isCodex client, apiKey) — NOT by DB/settings state. Without clearing it
+  // between test cases, a test running within the TTL window of a previous one gets
+  // served the previous test's stale serialized catalog instead of a fresh build.
+  v1ModelsCatalog.__resetCatalogBuilderRunsForTest();
 }
 
 async function seedConnection(provider: string, overrides: Record<string, unknown> = {}) {
@@ -674,32 +679,35 @@ test("v1 models catalog exposes bare Codex-preferred IDs for native Codex client
   assert.equal(providerModel.parent, aliasModel.id);
 });
 
-test("v1 models catalog exposes Antigravity client-visible preview aliases instead of upstream internal IDs", async () => {
+test("v1 models catalog exposes current Antigravity aliases without retired model IDs", async () => {
   await seedConnection("antigravity", {
     authType: "oauth",
     name: "antigravity-preview",
     apiKey: null,
     accessToken: "antigravity-access",
   });
-
   const response = await v1ModelsCatalog.getUnifiedModelsResponse(
     new Request("http://localhost/api/v1/models")
   );
   const body = (await response.json()) as any;
   const ids = new Set(body.data.map((item) => item.id));
-
   assert.equal(response.status, 200);
-  assert.ok(ids.has("antigravity/gemini-3-pro-preview"));
+  assert.equal(ids.has("antigravity/gemini-3-pro-preview"), false);
+  assert.equal(ids.has("antigravity/gemini-3.1-pro"), false);
+  assert.equal(ids.has("antigravity/gemini-2.5-computer-use-preview-10-2025"), false);
+  assert.equal(ids.has("antigravity/rev19-uic3-1p"), false);
+  assert.ok(ids.has("antigravity/gemini-3.6-flash-high"));
+  assert.ok(ids.has("antigravity/gemini-3.6-flash-medium"));
+  assert.ok(ids.has("antigravity/gemini-3.6-flash-low"));
+  assert.ok(ids.has("antigravity/gemini-3.5-flash-extra-low"));
   assert.ok(ids.has("antigravity/gemini-3.5-flash-low"));
-  assert.ok(ids.has("antigravity/gemini-3.5-flash-medium"));
-  assert.ok(ids.has("antigravity/gemini-3.5-flash-high"));
+  assert.ok(ids.has("antigravity/gemini-3-flash-agent"));
+  assert.equal(ids.has("antigravity/gemini-3.5-flash-medium"), false);
+  assert.equal(ids.has("antigravity/gemini-3.5-flash-high"), false);
+  assert.equal(ids.has("antigravity/gemini-3.5-flash-preview"), false);
   assert.equal(ids.has("antigravity/gemini-3-flash-preview"), false);
-  assert.equal(ids.has("antigravity/gemini-3-flash-agent"), false);
-  // Gemini 3.1 Pro budget tiers remain client-visible aliases for the plain
-  // `gemini-3.1-pro` upstream id — see ANTIGRAVITY_MODEL_ALIASES.
-  assert.ok(ids.has("antigravity/gemini-3.1-pro-high"));
-  // The legacy `gemini-claude-*` ids are alias KEYS (remapped to live upstream
-  // ids), not public catalog entries, so they stay unexposed.
+  assert.equal(ids.has("antigravity/gemini-3.1-pro-high"), false);
+  assert.ok(ids.has("antigravity/gemini-pro-agent"));
   assert.equal(ids.has("antigravity/gemini-claude-sonnet-4-5"), false);
   assert.equal(ids.has("antigravity/gemini-claude-sonnet-4-5-thinking"), false);
   assert.equal(ids.has("antigravity/gemini-claude-opus-4-5-thinking"), false);
@@ -841,6 +849,127 @@ test("v1 models catalog includes synced non-Gemini provider models from discover
   assert.ok(syncedModel);
   assert.equal(syncedModel.owned_by, "opencode-go");
   assert.equal(syncedModel.context_length, 262144);
+});
+
+test("v1 models catalog retains registered effort aliases beside synced OpenCode Go bases", async () => {
+  const connection = await seedConnection("opencode-go", {
+    name: "opencode-go-effort-aliases",
+    apiKey: "go-key",
+  });
+
+  await modelsDb.replaceSyncedAvailableModelsForConnection("opencode-go", connection.id, [
+    {
+      id: "hy3",
+      name: "Hunyuan3",
+      source: "imported",
+      supportedEndpoints: ["chat"],
+    },
+  ]);
+
+  const response = await v1ModelsCatalog.getUnifiedModelsResponse(
+    new Request("http://localhost/api/v1/models")
+  );
+  const body = (await response.json()) as { data: Array<{ id: string }> };
+  const ids = body.data.map((item: { id: string }) => item.id);
+
+  assert.equal(response.status, 200);
+  assert.ok(ids.includes("opencode-go/hy3"));
+  assert.ok(ids.includes("opencode-go/hy3-none"));
+  assert.ok(ids.includes("opencode-go/hy3-low"));
+  assert.ok(ids.includes("opencode-go/hy3-high"));
+});
+
+test("v1 models catalog advertises GLM-5.2 provider aliases with hosted context limits", async () => {
+  const hfConnection = await seedConnection("huggingface", {
+    name: "huggingface-glm52",
+    apiKey: "hf-key",
+  });
+  const cfConnection = await seedConnection("cloudflare-ai", {
+    name: "cloudflare-glm52",
+    apiKey: "cf-key",
+  });
+  const zenmuxConnection = await seedConnection("zenmux", {
+    name: "zenmux-glm52",
+    apiKey: "zen-key",
+  });
+  await seedConnection("opencode-go", {
+    name: "opencode-go-glm52",
+    apiKey: "go-key",
+  });
+
+  await modelsDb.replaceSyncedAvailableModelsForConnection(
+    "huggingface",
+    (hfConnection as any).id,
+    [
+      {
+        id: "zai-org/GLM-5.2",
+        name: "GLM 5.2",
+        source: "imported",
+        supportedEndpoints: ["chat"],
+        inputTokenLimit: 128000,
+        outputTokenLimit: 128000,
+      },
+    ]
+  );
+  await modelsDb.replaceSyncedAvailableModelsForConnection(
+    "cloudflare-ai",
+    (cfConnection as any).id,
+    [
+      {
+        id: "@cf/zai-org/glm-5.2",
+        name: "GLM 5.2",
+        source: "imported",
+        supportedEndpoints: ["chat"],
+        inputTokenLimit: 128000,
+        outputTokenLimit: 128000,
+      },
+    ]
+  );
+  await modelsDb.replaceSyncedAvailableModelsForConnection("zenmux", (zenmuxConnection as any).id, [
+    {
+      id: "z-ai/glm-5.2",
+      name: "GLM 5.2",
+      source: "imported",
+      supportedEndpoints: ["chat"],
+      inputTokenLimit: 128000,
+      outputTokenLimit: 128000,
+    },
+  ]);
+
+  try {
+    modelsDevSync.saveModelsDevCapabilities({
+      huggingface: {
+        "zai-org/GLM-5.2": capability({ limit_context: 128000, limit_input: 128000 }),
+      },
+      "cloudflare-ai": {
+        "@cf/zai-org/glm-5.2": capability({ limit_context: 128000, limit_input: 128000 }),
+      },
+      zenmux: {
+        "z-ai/glm-5.2": capability({ limit_context: 128000, limit_input: 128000 }),
+      },
+    });
+
+    const response = await v1ModelsCatalog.getUnifiedModelsResponse(
+      new Request("http://localhost/api/v1/models")
+    );
+    const body = (await response.json()) as any;
+    const byId = new Map(body.data.map((item) => [item.id, item]));
+
+    for (const [id, expectedContext] of [
+      ["huggingface/zai-org/GLM-5.2", 262144],
+      ["cloudflare-ai/@cf/zai-org/glm-5.2", 262144],
+      ["opencode-go/glm-5.2", 1000000],
+      ["zenmux/z-ai/glm-5.2", 1000000],
+    ] as const) {
+      const model = byId.get(id) as any;
+      assert.ok(model, `expected ${id} in catalog`);
+      assert.equal(model.context_length, expectedContext, id);
+      assert.equal(model.max_input_tokens, expectedContext, id);
+      assert.notEqual(model.context_length, 128000, id);
+    }
+  } finally {
+    modelsDevSync.saveModelsDevCapabilities({});
+  }
 });
 
 test("v1 models catalog includes media, moderation, rerank, video, and music models for active providers", async () => {
@@ -1321,7 +1450,7 @@ test("v1 models catalog auto-calculates combo context_length from targets when n
   });
 
   // Create a combo with targets having different context limits.
-  // openai/gpt-4o context = 128000, claude/claude-sonnet-4-6 = 200000.
+  // openai/gpt-4o context = 128000, claude/claude-sonnet-4-6 = 1000000 (#7129: 1M GA).
   // The combo should expose context_length = min = 128000.
   const combo = await combosDb.createCombo({
     name: "auto-context-combo",

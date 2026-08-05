@@ -1,7 +1,7 @@
 ---
 title: "API Reference"
-version: 3.8.2
-lastUpdated: 2026-05-13
+version: 3.8.40
+lastUpdated: 2026-06-28
 ---
 
 # API Reference
@@ -18,6 +18,7 @@ Complete reference for all OmniRoute API endpoints.
 - [Embeddings](#embeddings)
 - [Image Generation](#image-generation)
 - [List Models](#list-models)
+- [Provider Plugin Manifest](#provider-plugin-manifest)
 - [Compatibility Endpoints](#compatibility-endpoints)
 - [Files API](#files-api)
 - [Batches API](#batches-api)
@@ -60,27 +61,57 @@ Content-Type: application/json
 
 ### Custom Headers
 
-| Header                   | Direction | Description                                      |
-| ------------------------ | --------- | ------------------------------------------------ |
-| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                    |
-| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                |
-| `X-Session-Id`           | Request   | Sticky session key for external session affinity |
-| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)   |
-| `Idempotency-Key`        | Request   | Dedup key (5s window)                            |
-| `X-Request-Id`           | Request   | Alternative dedup key                            |
-| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                  |
-| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                           |
-| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                |
-| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute           |
-| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)              |
-| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)         |
-| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only) |
+| Header                   | Direction | Description                                                                                                                                                                       |
+| ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                                                                                                                                                     |
+| `x-omniroute-no-memory`  | Request   | Set to `true` to skip memory + skills injection for this request (mirrors no-cache; avoids the per-call token/cost overhead)                                                      |
+| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                                                                                                                                                 |
+| `X-Session-Id`           | Request   | Sticky session key for external session affinity                                                                                                                                  |
+| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)                                                                                                                                    |
+| `X-OmniRoute-Session-Id` | Request   | Caller-supplied session/conversation tag (also feeds memory). When present, persisted verbatim to `call_logs.session_tag` for per-session cost attribution (#8249) — never synthesized when absent |
+| `Idempotency-Key`        | Request   | Dedup key (5s window)                                                                                                                                                             |
+| `X-Request-Id`           | Request   | Alternative dedup key                                                                                                                                                             |
+| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                                                                                                                                                   |
+| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                                                                                                                                                            |
+| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                                                                                                                                                 |
+| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute                                                                                                                                            |
+| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)                                                                                                                                               |
+| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)                                                                                                                                          |
+| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only)                                                                                                                                  |
+| `X-OmniRoute-Decision`   | Response  | Routing trace: `strategy=<name>; provider=<alias>; latency_ms=<n>` (`<name>` is the combo strategy, or `single` for a non-combo request) — always present on completion responses |
 
 > Nginx note: if you rely on underscore headers (for example `x_session_id`), enable `underscores_in_headers on;`.
 
 > **Cost telemetry headers:** non-streaming success responses also carry the `X-OmniRoute-*` cost-telemetry set — `X-OmniRoute-Response-Cost` (USD, fixed 10 decimals; `0.0000000000` for free/unpriced), `X-OmniRoute-Tokens-In` / `X-OmniRoute-Tokens-Out`, `X-OmniRoute-Model`, `X-OmniRoute-Provider`, `X-OmniRoute-Latency-Ms`, `X-OmniRoute-Cache-Hit`, and `X-OmniRoute-Fallback-Attempts` (only when > 0), plus `X-OmniRoute-Request-Id` and `X-OmniRoute-Version`. These are emitted by chat completions, `/v1/responses`, `/v1/messages`, **and the media endpoints** — `/v1/embeddings`, `/v1/images/generations`, `/v1/audio/speech`, `/v1/audio/transcriptions`, `/v1/rerank`, `/v1/videos/generations`, `/v1/music/generations`, and `/v1/moderations` (always cost `0`). Media cost is computed per modality (per-image, per-second, per-character, per search-unit) when pricing is available, otherwise `0` (fail-open).
 
 > **Cache-hit cost semantics:** on a semantic-cache HIT (`X-OmniRoute-Cache-Hit: true`) no upstream call is made, so `X-OmniRoute-Response-Cost` is `0.0000000000` (the **incremental** cost of serving the hit). The original/would-have-been cost is reported separately in `X-OmniRoute-Cost-Saved`. Billing consumers should sum `X-OmniRoute-Response-Cost` (hits cost nothing); cache analytics can aggregate `X-OmniRoute-Cost-Saved`.
+
+### `x-omniroute-compression`
+
+Per-request override of the compression plan. Highest precedence — beats the routing-combo
+override, the active profile, auto-trigger, and the panel Default. Values:
+
+| Value         | Effect                                                               |
+| ------------- | -------------------------------------------------------------------- |
+| `off`         | No compression for this request.                                     |
+| `default`     | The panel-derived Default profile (ignores the active profile).      |
+| `engine:<id>` | A single engine when enabled, e.g. `engine:rtk`.                     |
+| `<combo>`     | A named combo, matched by name (case-insensitive) first, then by id. |
+
+Notes:
+
+- Unknown values are ignored (the request is never rejected); resolution falls through to the normal operator precedence.
+- If multiple combos share a name, pass the combo **id** for a deterministic match.
+- A combo whose name is `off` or `default` cannot be selected by name (those keywords are interpreted first); reference such a combo by its id.
+- The master compression switch is a hard gate: when compression is disabled globally, this header cannot enable it.
+
+The applied plan is echoed back in the response header:
+
+```
+X-OmniRoute-Compression: <mode>; source=<source>
+```
+
+where `<source>` is one of `request-header`, `routing-override`, `active-profile`, `auto-trigger`, `default`, or `off`.
 
 ---
 
@@ -98,6 +129,45 @@ Content-Type: application/json
 ```
 
 Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, **GitHub Models**.
+
+Registry models that advertise multimodal support also accept up to 32 provider-neutral structured
+items. Media item types are `text`, `image`, `audio`, `video`, and `document`. Their media `source`
+is either `{"type":"url","url":"https://..."}` or
+`{"type":"base64","data":"...","media_type":"..."}`.
+
+Security and transport bounds:
+
+- Remote media URLs must be public HTTPS. OmniRoute fetches them server-side with redirect
+  revalidation, timeout, decoded size limits, public DNS checks, and connection pinning to a
+  validated answer before the provider call. Providers never receive the original remote URL.
+- Inline base64 media is limited to 8 MiB decoded per item and 16 MiB decoded across the request.
+
+Provider translation (canonical items are never forwarded unchanged):
+
+- Jina multimodal models: each top-level item becomes one modality-keyed object
+  (`text` / `image` / `audio` / `video` / `pdf`) using data URIs for inline media; one vector per
+  top-level item.
+- Gemini Embedding 2 family: one top-level array becomes a single native
+  `models/{model}:embedContent` request with `content.parts` (`text` or `inline_data`).
+- Unknown/dynamic models without explicit modality metadata reject structured input with HTTP 400.
+
+```json
+{
+  "model": "jina-ai/jina-embeddings-v5-omni-small",
+  "input": [
+    { "type": "text", "text": "A red bicycle" },
+    {
+      "type": "image",
+      "source": { "type": "url", "url": "https://example.com/bicycle.png" }
+    }
+  ],
+  "dimensions": 512,
+  "encoding_format": "float"
+}
+```
+
+Unsupported model/modality combinations return HTTP 400 rather than coercing the item. Non-input
+extension fields on legacy string/token requests continue to pass through unchanged.
 
 ```bash
 # List all embedding models
@@ -150,33 +220,49 @@ Selecting this id (e.g. in a Claude Code config that always attaches a `thinking
 
 ---
 
+## Provider Plugin Manifest
+
+```bash
+GET /api/v1/provider-plugin-manifest
+```
+
+Returns the JSON-safe provider plugin manifest used by Bifrost, CLIProxyAPI, and
+future sidecar routers. The response is generated from the TypeScript provider
+registry and intentionally excludes OAuth client secrets, runtime environment
+resolution, executor functions, request headers, and account data.
+
+Use this endpoint when a sidecar runs out-of-process and cannot import
+`open-sse/config/providerPluginManifestRegistry.ts` directly.
+
+---
+
 ## Compatibility Endpoints
 
-| Method | Path                        | Format                          |
-| ------ | --------------------------- | ------------------------------- |
-| POST   | `/v1/chat/completions`      | OpenAI                          |
-| POST   | `/v1/messages`              | Anthropic                       |
-| POST   | `/v1/responses`             | OpenAI Responses                |
-| POST   | `/v1/embeddings`            | OpenAI                          |
-| POST   | `/v1/images/generations`    | OpenAI Images                   |
-| POST   | `/v1/images/edits`          | OpenAI Images (edit/inpaint)    |
-| POST   | `/v1/videos/generations`    | OpenAI-style video generation   |
-| POST   | `/v1/music/generations`     | OpenAI-style music generation   |
-| POST   | `/v1/audio/transcriptions`  | OpenAI Audio (STT)              |
-| POST   | `/v1/audio/speech`          | OpenAI TTS (returns audio body) |
-| POST   | `/v1/rerank`                | Cohere/Voyage-style rerank      |
-| POST   | `/v1/moderations`           | OpenAI Moderations              |
-| GET    | `/v1/models`                | OpenAI                          |
-| POST   | `/v1/messages/count_tokens` | Anthropic                       |
-| GET    | `/v1beta/models`            | Gemini                          |
-| POST   | `/v1beta/models/{...path}`  | Gemini generateContent          |
-| POST   | `/v1/api/chat`              | Ollama                          |
-| GET    | `/api/v1/vscode/{token}/`          | OpenAI catalog alias            |
-| GET    | `/api/v1/vscode/{token}/models`    | OpenAI models alias             |
-| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias   |
-| POST   | `/api/v1/vscode/{token}/responses` | OpenAI Responses tokenized alias |
-| POST   | `/api/v1/vscode/{token}/api/chat`  | Ollama tokenized alias          |
-| GET    | `/api/v1/vscode/{token}/api/tags`  | Ollama tags tokenized alias     |
+| Method | Path                                      | Format                           |
+| ------ | ----------------------------------------- | -------------------------------- |
+| POST   | `/v1/chat/completions`                    | OpenAI                           |
+| POST   | `/v1/messages`                            | Anthropic                        |
+| POST   | `/v1/responses`                           | OpenAI Responses                 |
+| POST   | `/v1/embeddings`                          | OpenAI                           |
+| POST   | `/v1/images/generations`                  | OpenAI Images                    |
+| POST   | `/v1/images/edits`                        | OpenAI Images (edit/inpaint)     |
+| POST   | `/v1/videos/generations`                  | OpenAI-style video generation    |
+| POST   | `/v1/music/generations`                   | OpenAI-style music generation    |
+| POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)               |
+| POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)  |
+| POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank       |
+| POST   | `/v1/moderations`                         | OpenAI Moderations               |
+| GET    | `/v1/models`                              | OpenAI                           |
+| POST   | `/v1/messages/count_tokens`               | Anthropic                        |
+| GET    | `/v1beta/models`                          | Gemini                           |
+| POST   | `/v1beta/models/{...path}`                | Gemini generateContent           |
+| POST   | `/v1/api/chat`                            | Ollama                           |
+| GET    | `/api/v1/vscode/{token}/`                 | OpenAI catalog alias             |
+| GET    | `/api/v1/vscode/{token}/models`           | OpenAI models alias              |
+| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias           |
+| POST   | `/api/v1/vscode/{token}/responses`        | OpenAI Responses tokenized alias |
+| POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias           |
+| GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias      |
 
 All POST routes follow the same shape: `Bearer your-api-key` + Zod-validated JSON body (`v1RerankSchema`, `v1ModerationSchema`, `v1AudioSpeechSchema`, etc., see `src/shared/validation/schemas.ts`). 4xx is returned on schema failure.
 
@@ -255,6 +341,32 @@ Web/search provider abstraction (Tavily, Brave, Exa, Serper, etc.).
 | GET    | `/v1/search/analytics` | Per-provider hit/latency/cache stats                                                 |
 
 **Auth:** Bearer API key (`extractApiKey` + `isValidApiKey`). Search policy enforced via `enforceApiKeyPolicy`.
+
+---
+
+## Web Fetch API
+
+Extract content from a URL via a configured web-fetch provider (Firecrawl, Jina
+Reader, Tavily Extract, TinyFish Fetch).
+
+| Method | Path           | Description                                                              |
+| ------ | -------------- | ------------------------------------------------------------------------- |
+| POST   | `/v1/web/fetch` | Fetch/scrape a URL — body validated by `v1WebFetchSchema`               |
+
+**Auth:** Bearer API key (`extractApiKey` + `isValidApiKey`). Policy enforced via `enforceApiKeyPolicy`.
+
+**Quota-aware fallback (#8297):** when no explicit `provider` is given, the pool
+(`firecrawl` → `jina-reader` → `tavily-search` → `tinyfish`) is walked in fixed
+priority order (fill-first) — a rate-limited-but-configured provider is skipped
+instead of short-circuiting the request, and a retryable/quota upstream failure
+(HTTP 429 always; 402/403 for Firecrawl/Tavily/TinyFish quota-style free tiers —
+not for Jina Reader, and never for a plain 400 bad request) falls through to the
+next untried credentialed provider at request time. When every provider in the
+pool is exhausted, the endpoint returns a single `429` (with a `Retry-After`
+header) instead of the previous generic `400`. When an explicit `provider` is
+requested, there is **no** silent fallback — a rate-limited or failing explicit
+provider surfaces its own error (`429` if rate-limited, otherwise the upstream
+status).
 
 ---
 
@@ -383,15 +495,17 @@ Response example:
 
 ### Provider Management
 
-| Endpoint                     | Method                | Description                                    |
-| ---------------------------- | --------------------- | ---------------------------------------------- |
-| `/api/providers`             | GET/POST              | List / create providers                        |
-| `/api/providers/[id]`        | GET/PUT/DELETE        | Manage a provider                              |
-| `/api/providers/[id]/test`   | POST                  | Test provider connection                       |
-| `/api/providers/[id]/models` | GET                   | List provider models                           |
-| `/api/providers/validate`    | POST                  | Validate provider config                       |
-| `/api/provider-nodes*`       | Various               | Provider node management                       |
-| `/api/provider-models`       | GET/POST/PATCH/DELETE | Custom models (add, update, hide/show, delete) |
+| Endpoint                     | Method                | Description                                                                                               |
+| ---------------------------- | --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `/api/providers`             | GET/POST              | List / create providers                                                                                   |
+| `/api/providers/[id]`        | GET/PUT/DELETE        | Manage a provider                                                                                         |
+| `/api/providers/[id]/test`   | POST                  | Test provider connection                                                                                  |
+| `/api/providers/[id]/models` | GET                   | List provider models                                                                                      |
+| `/api/providers/validate`    | POST                  | Validate provider config                                                                                  |
+| `/api/providers/bulk`        | POST                  | Bulk-add API keys for ONE provider                                                                        |
+| `/api/providers/import`      | POST                  | Import a heterogeneous provider LIST from a parsed CSV/JSON file (#6836); per-row partial-failure results |
+| `/api/provider-nodes*`       | Various               | Provider node management                                                                                  |
+| `/api/provider-models`       | GET/POST/PATCH/DELETE | Custom models (add, update, hide/show, delete)                                                            |
 
 ### OAuth Flows
 
@@ -411,13 +525,15 @@ Response example:
 
 ### Usage & Analytics
 
-| Endpoint                    | Method            | Description                       |
-| --------------------------- | ----------------- | --------------------------------- |
-| `/api/usage/history`        | GET               | Usage history                     |
-| `/api/usage/logs`           | GET               | Usage logs                        |
-| `/api/usage/request-logs`   | GET               | Request-level logs                |
-| `/api/usage/[connectionId]` | GET               | Per-connection usage              |
-| `/api/usage/token-limits`   | GET/POST/DELETE   | Per-API-key token-limit budgets   |
+| Endpoint                    | Method          | Description                     |
+| --------------------------- | --------------- | ------------------------------- |
+| `/api/usage/history`        | GET             | Usage history                   |
+| `/api/usage/logs`           | GET             | Usage logs                      |
+| `/api/usage/request-logs`   | GET             | Request-level logs              |
+| `/api/usage/[connectionId]` | GET             | Per-connection usage            |
+| `/api/usage/token-limits`   | GET/POST/DELETE | Per-API-key token-limit budgets |
+| `/api/usage/model-latency-stats` | GET        | Rolling per-provider/model latency aggregate (avg/p50/p95/p99, success rate); filters: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873) |
+| `/api/usage/cache-health`   | GET             | Prompt-cache health summary over `call_logs` — write/read ratio, p50/p90/p99 write-size distribution, heavy-write concentration, per-model split, and a `healthy`/`degraded`/`thrash`/`no-data` verdict; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, default `24h`) and optional `model` (#8827) |
 
 ### Settings
 
@@ -919,17 +1035,17 @@ Persistent conversational/factual memory store, scoped per API key / session.
 
 OmniRoute ships an embedded Model Context Protocol server with 3 transports (stdio, SSE, streamable-http) and scoped tools. The dashboard endpoints below read status/audit data and proxy the HTTP transports.
 
-| Method | Path                   | Description                                                                                      |
+| Method | Path | Description |
 | ------ | ---------------------- | ------------------------------------------------------------------------------------------------ | -------------------- |
-| GET    | `/api/mcp/status`      | Heartbeat, transport, online state, last call, top tools, 24h success rate                       |
-| GET    | `/api/mcp/tools`       | List of MCP tools with `name`, `description`, `scopes`, `phase`, `auditLevel`, `sourceEndpoints` |
-| GET    | `/api/mcp/sse`         | Open SSE stream for the SSE transport (returns `503` if MCP disabled or transport mismatch)      |
-| POST   | `/api/mcp/sse`         | Send JSON-RPC frame on the SSE transport                                                         |
-| GET    | `/api/mcp/stream`      | Open SSE side of the Streamable HTTP transport (server-initiated messages)                       |
-| POST   | `/api/mcp/stream`      | Send JSON-RPC frame on the Streamable HTTP transport                                             |
-| DELETE | `/api/mcp/stream`      | End a Streamable HTTP session                                                                    |
-| GET    | `/api/mcp/audit`       | Query audit log — `?limit=`, `?offset=`, `?tool=`, `?success=true                                | false`, `?apiKeyId=` |
-| GET    | `/api/mcp/audit/stats` | Aggregate audit stats (totals, success rate, avg duration, top tools)                            |
+| GET | `/api/mcp/status` | Heartbeat, transport, online state, last call, top tools, 24h success rate |
+| GET | `/api/mcp/tools` | List of MCP tools with `name`, `description`, `scopes`, `phase`, `auditLevel`, `sourceEndpoints` |
+| GET | `/api/mcp/sse` | Open SSE stream for the SSE transport (returns `503` if MCP disabled or transport mismatch) |
+| POST | `/api/mcp/sse` | Send JSON-RPC frame on the SSE transport |
+| GET | `/api/mcp/stream` | Open SSE side of the Streamable HTTP transport (server-initiated messages) |
+| POST | `/api/mcp/stream` | Send JSON-RPC frame on the Streamable HTTP transport |
+| DELETE | `/api/mcp/stream` | End a Streamable HTTP session |
+| GET | `/api/mcp/audit` | Query audit log — `?limit=`, `?offset=`, `?tool=`, `?success=true                                | false`, `?apiKeyId=` |
+| GET | `/api/mcp/audit/stats` | Aggregate audit stats (totals, success rate, avg duration, top tools) |
 
 **Auth:** the `sse`/`stream` transports honor the MCP-specific auth surface (Bearer API key with `mcp` scope); the `status`/`tools`/`audit*` routes are readable from the dashboard (no extra auth required beyond reaching the dashboard host).
 
@@ -994,18 +1110,18 @@ Returns the public A2A agent card (name, description, capabilities, skill catalo
 
 ## Cloud, Evals & Assess
 
-| Method | Path                            | Description                                                                                       |
+| Method | Path | Description |
 | ------ | ------------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------- | ----------------------------------- |
-| POST   | `/api/cloud/auth`               | Verify a Bearer key and return masked provider connections + model aliases for cloud sync clients |
-| POST   | `/api/cloud/credentials/update` | Update encrypted credentials for a cloud-synced provider                                          |
-| POST   | `/api/cloud/model/resolve`      | Resolve a logical model id to a concrete provider/model using the local routing table             |
-| GET    | `/api/cloud/models/alias`       | List model aliases as exposed to cloud sync                                                       |
-| GET    | `/api/assess`                   | Read latest assessment categorizations (per-provider/model)                                       |
-| POST   | `/api/assess`                   | Run an assessment — body: `{scope: {type:"all"}                                                   | {type:"provider", providerId} | {type:"model", modelId}, trigger?}` |
-| GET    | `/api/evals`                    | List built-in eval suites + most recent runs                                                      |
-| POST   | `/api/evals`                    | Trigger an eval run                                                                               |
-| POST   | `/api/evals/suites`             | Create a custom eval suite — body validated by `evalSuiteSaveSchema`                              |
-| GET    | `/api/evals/suites/[id]`        | Retrieve a custom eval suite                                                                      |
+| POST | `/api/cloud/auth` | Verify a Bearer key and return masked provider connections + model aliases for cloud sync clients |
+| POST | `/api/cloud/credentials/update` | Update encrypted credentials for a cloud-synced provider |
+| POST | `/api/cloud/model/resolve` | Resolve a logical model id to a concrete provider/model using the local routing table |
+| GET | `/api/cloud/models/alias` | List model aliases as exposed to cloud sync |
+| GET | `/api/assess` | Read latest assessment categorizations (per-provider/model) |
+| POST | `/api/assess` | Run an assessment — body: `{scope: {type:"all"}                                                   | {type:"provider", providerId} | {type:"model", modelId}, trigger?}` |
+| GET | `/api/evals` | List built-in eval suites + most recent runs |
+| POST | `/api/evals` | Trigger an eval run |
+| POST | `/api/evals/suites` | Create a custom eval suite — body validated by `evalSuiteSaveSchema` |
+| GET | `/api/evals/suites/[id]` | Retrieve a custom eval suite |
 
 **Auth:** `/api/cloud/auth` validates a Bearer key directly; the other `/api/cloud/*`, `/api/evals/*`, and `/api/assess` routes require management session/API key. `/api/assess` POST uses `validateBody` with a discriminated-union scope schema.
 
@@ -1013,15 +1129,14 @@ Returns the public A2A agent card (name, description, capabilities, skill catalo
 
 ## ACP (Agent Client Protocol) Management
 
-The ACP framework lets you spawn CLI agents (Claude Code, Codex, Gemini CLI, etc.)
 as child processes. These endpoints manage ACP agent detection and custom agent
 registration.
 
-| Method | Path                    | Description                                                                              |
-| ------ | ----------------------- | ---------------------------------------------------------------------------------------- |
-| GET    | `/api/acp/agents`       | List all known CLI agents (built-in + custom) with installation status, version, binary |
-| POST   | `/api/acp/agents`       | Register a custom ACP agent or refresh cache — body: `{id, name, binary, versionCommand, providerAlias, spawnArgs, protocol}` or `{action: "refresh"}` |
-| DELETE | `/api/acp/agents`       | Remove a custom ACP agent — query param: `?id=<agentId>`                                 |
+| Method | Path              | Description                                                                                                                                            |
+| ------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/api/acp/agents` | List all known CLI agents (built-in + custom) with installation status, version, binary                                                                |
+| POST   | `/api/acp/agents` | Register a custom ACP agent or refresh cache — body: `{id, name, binary, versionCommand, providerAlias, spawnArgs, protocol}` or `{action: "refresh"}` |
+| DELETE | `/api/acp/agents` | Remove a custom ACP agent — query param: `?id=<agentId>`                                                                                               |
 
 **Response example** (`GET /api/acp/agents`):
 
@@ -1066,10 +1181,10 @@ diversity. These power the `/dashboard/analytics/*` pages.
 
 ### Auto-routing analytics
 
-| Method | Path                                | Description                                                                                  |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/analytics/auto-routing`       | Aggregate auto-routing stats: total calls, strategy distribution, tier distribution, top providers |
-| GET    | `/api/analytics/auto-routing?days=7` | Time-windowed stats (default 24h)                                                           |
+| Method | Path                                 | Description                                                                                        |
+| ------ | ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| GET    | `/api/analytics/auto-routing`        | Aggregate auto-routing stats: total calls, strategy distribution, tier distribution, top providers |
+| GET    | `/api/analytics/auto-routing?days=7` | Time-windowed stats (default 24h)                                                                  |
 
 **Response example**:
 
@@ -1099,9 +1214,9 @@ diversity. These power the `/dashboard/analytics/*` pages.
 
 ### Compression analytics
 
-| Method | Path                              | Description                                                                          |
-| ------ | --------------------------------- | ------------------------------------------------------------------------------------ |
-| GET    | `/api/analytics/compression`      | Aggregate compression stats: tokens saved, savings %, mode distribution, engine usage |
+| Method | Path                         | Description                                                                           |
+| ------ | ---------------------------- | ------------------------------------------------------------------------------------- |
+| GET    | `/api/analytics/compression` | Aggregate compression stats: tokens saved, savings %, mode distribution, engine usage |
 
 **Response example**:
 
@@ -1128,9 +1243,9 @@ diversity. These power the `/dashboard/analytics/*` pages.
 
 ### Provider diversity tracking
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/analytics/diversity`        | Shannon entropy-based diversity tracking: prevents single points of failure by measuring provider spread |
+| Method | Path                       | Description                                                                                              |
+| ------ | -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/analytics/diversity` | Shannon entropy-based diversity tracking: prevents single points of failure by measuring provider spread |
 
 **Response example**:
 
@@ -1141,14 +1256,12 @@ diversity. These power the `/dashboard/analytics/*` pages.
   "maxEntropy": 3.17,
   "diversityRatio": 0.77,
   "providerUsage": {
-    "openai": 0.40,
+    "openai": 0.4,
     "anthropic": 0.25,
-    "google": 0.20,
+    "google": 0.2,
     "kiro": 0.15
   },
-  "warnings": [
-    "OpenAI accounts for 40% of traffic — consider diversifying"
-  ]
+  "warnings": ["OpenAI accounts for 40% of traffic — consider diversifying"]
 }
 ```
 
@@ -1160,10 +1273,10 @@ diversity. These power the `/dashboard/analytics/*` pages.
 
 Admin-only endpoints for operational management.
 
-| Method | Path                            | Description                                                                                    |
-| ------ | ------------------------------- | ---------------------------------------------------------------------------------------------- |
-| GET    | `/api/admin/concurrency`         | Read current concurrency limits (global + per-provider)                                        |
-| POST   | `/api/admin/concurrency`         | Update concurrency limits — body: `{global?: number, perProvider?: Record<string, number>}`     |
+| Method | Path                     | Description                                                                                 |
+| ------ | ------------------------ | ------------------------------------------------------------------------------------------- |
+| GET    | `/api/admin/concurrency` | Read current concurrency limits (global + per-provider)                                     |
+| POST   | `/api/admin/concurrency` | Update concurrency limits — body: `{global?: number, perProvider?: Record<string, number>}` |
 
 **Auth:** Requires management session with admin scope.
 
@@ -1174,16 +1287,16 @@ Admin-only endpoints for operational management.
 Manage CLI tools that integrate with OmniRoute (antigravity, chipotle, commandCode,
 devin-cli, etc.). See [Provider Reference](./PROVIDER_REFERENCE.md) for the full list.
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/cli-tools/all-statuses`       | Status of all CLI tools (installed, version, last seen)                                       |
-| GET    | `/api/cli-tools/[id]/status`       | Status of a specific CLI tool (id can be: antigravity, chipotle, commandCode, devin-cli, etc.) |
-| POST   | `/api/cli-tools/apply`             | Apply a CLI tool configuration to a provider connection                                     |
-| GET    | `/api/cli-tools/backups`           | List CLI tool configuration backups                                                          |
-| POST   | `/api/cli-tools/backups`           | Create a backup of all CLI tool configurations                                                |
-| POST   | `/api/cli-tools/[id]/restore`      | Restore a CLI tool from a backup                                                             |
-| GET    | `/api/cli-tools/antigravity-mitm`   | Antigravity MITM proxy status (the "antigravity-mitm" CLI tool)                             |
-| POST   | `/api/cli-tools/antigravity-mitm/alias` | Configure antigravity-mitm aliases                                                          |
+| Method | Path                                    | Description                                                                                    |
+| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| GET    | `/api/cli-tools/all-statuses`           | Status of all CLI tools (installed, version, last seen)                                        |
+| GET    | `/api/cli-tools/[id]/status`            | Status of a specific CLI tool (id can be: antigravity, chipotle, commandCode, devin-cli, etc.) |
+| POST   | `/api/cli-tools/apply`                  | Apply a CLI tool configuration to a provider connection                                        |
+| GET    | `/api/cli-tools/backups`                | List CLI tool configuration backups                                                            |
+| POST   | `/api/cli-tools/backups`                | Create a backup of all CLI tool configurations                                                 |
+| POST   | `/api/cli-tools/[id]/restore`           | Restore a CLI tool from a backup                                                               |
+| GET    | `/api/cli-tools/antigravity-mitm`       | Antigravity MITM proxy status (the "antigravity-mitm" CLI tool)                                |
+| POST   | `/api/cli-tools/antigravity-mitm/alias` | Configure antigravity-mitm aliases                                                             |
 
 **Auth:** Requires management session.
 
@@ -1193,15 +1306,15 @@ devin-cli, etc.). See [Provider Reference](./PROVIDER_REFERENCE.md) for the full
 
 Manage AI agent skills (similar to OpenAI's custom GPTs but for agents).
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/agent-skills`                | List all agent skills (built-in + custom)                                                    |
-| GET    | `/api/agent-skills/[id]`           | Get a specific agent skill                                                                   |
-| POST   | `/api/agent-skills`                | Create a custom agent skill — body: `{name, description, prompt, model?, temperature?}`    |
-| PUT    | `/api/agent-skills/[id]`           | Update a custom agent skill                                                                  |
-| DELETE | `/api/agent-skills/[id]`           | Delete a custom agent skill                                                                  |
-| GET    | `/api/agent-skills/[id]/raw`       | Get raw prompt + metadata (no execution)                                                    |
-| POST   | `/api/agent-skills/generate`       | AI-generate a new skill from a natural language description                                   |
+| Method | Path                         | Description                                                                             |
+| ------ | ---------------------------- | --------------------------------------------------------------------------------------- |
+| GET    | `/api/agent-skills`          | List all agent skills (built-in + custom)                                               |
+| GET    | `/api/agent-skills/[id]`     | Get a specific agent skill                                                              |
+| POST   | `/api/agent-skills`          | Create a custom agent skill — body: `{name, description, prompt, model?, temperature?}` |
+| PUT    | `/api/agent-skills/[id]`     | Update a custom agent skill                                                             |
+| DELETE | `/api/agent-skills/[id]`     | Delete a custom agent skill                                                             |
+| GET    | `/api/agent-skills/[id]/raw` | Get raw prompt + metadata (no execution)                                                |
+| POST   | `/api/agent-skills/generate` | AI-generate a new skill from a natural language description                             |
 
 **Auth:** Requires management session or management-scoped API key.
 
@@ -1211,14 +1324,14 @@ Manage AI agent skills (similar to OpenAI's custom GPTs but for agents).
 
 Manage the semantic cache and reasoning cache.
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/cache`                       | Cache overview: total entries, hit rate, size on disk                                        |
-| GET    | `/api/cache/entries`               | List cached entries (with pagination)                                                        |
-| DELETE | `/api/cache/entries`               | Delete cache entries (filter by query parameters)                                             |
-| GET    | `/api/cache/stats`                 | Detailed cache statistics (per-provider, per-model)                                           |
-| GET    | `/api/cache/reasoning`             | Reasoning cache status (for reasoning replay)                                                |
-| DELETE | `/api/cache/reasoning`             | Clear reasoning cache — query params: `?toolCallId=<id>` (single) or `?provider=<p>` or no params (all) |
+| Method | Path                   | Description                                                                                             |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/cache`           | Cache overview: total entries, hit rate, size on disk                                                   |
+| GET    | `/api/cache/entries`   | List cached entries (with pagination)                                                                   |
+| DELETE | `/api/cache/entries`   | Delete cache entries (filter by query parameters)                                                       |
+| GET    | `/api/cache/stats`     | Detailed cache statistics (per-provider, per-model)                                                     |
+| GET    | `/api/cache/reasoning` | Reasoning cache status (for reasoning replay)                                                           |
+| DELETE | `/api/cache/reasoning` | Clear reasoning cache — query params: `?toolCallId=<id>` (single) or `?provider=<p>` or no params (all) |
 
 **Auth:** Requires management session.
 
@@ -1228,16 +1341,16 @@ Manage the semantic cache and reasoning cache.
 
 Manage persistent memory (FTS5 + vector embeddings).
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/memory`                      | List memory entries (filter by scope, type, search query)                                   |
-| POST   | `/api/memory`                      | Create a new memory entry — body: `{scope, type, content, metadata?}`                        |
-| GET    | `/api/memory/[id]`                 | Get a specific memory entry                                                                   |
-| PUT    | `/api/memory/[id]`                 | Update a memory entry                                                                         |
-| DELETE | `/api/memory/[id]`                 | Delete a memory entry                                                                         |
-| GET    | `/api/memory/search`               | Search memory (FTS5 + vector)                                                                |
-| POST   | `/api/memory/clear`                | Clear memory entries (with filters)                                                          |
-| GET    | `/api/memory/stats`                | Memory statistics (total entries, embedding coverage, etc.)                                    |
+| Method | Path                 | Description                                                           |
+| ------ | -------------------- | --------------------------------------------------------------------- |
+| GET    | `/api/memory`        | List memory entries (filter by scope, type, search query)             |
+| POST   | `/api/memory`        | Create a new memory entry — body: `{scope, type, content, metadata?}` |
+| GET    | `/api/memory/[id]`   | Get a specific memory entry                                           |
+| PUT    | `/api/memory/[id]`   | Update a memory entry                                                 |
+| DELETE | `/api/memory/[id]`   | Delete a memory entry                                                 |
+| GET    | `/api/memory/search` | Search memory (FTS5 + vector)                                         |
+| POST   | `/api/memory/clear`  | Clear memory entries (with filters)                                   |
+| GET    | `/api/memory/stats`  | Memory statistics (total entries, embedding coverage, etc.)           |
 
 **Auth:** Requires management session or management-scoped API key.
 
@@ -1247,16 +1360,16 @@ Manage persistent memory (FTS5 + vector embeddings).
 
 Manage webhook subscriptions for events.
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/webhooks`                    | List all webhook subscriptions                                                               |
-| POST   | `/api/webhooks`                    | Create a webhook subscription — body: `{url, events[], secret?, active?}`                    |
-| GET    | `/api/webhooks/[id]`               | Get a specific webhook subscription                                                          |
-| PUT    | `/api/webhooks/[id]`               | Update a webhook subscription                                                                 |
-| DELETE | `/api/webhooks/[id]`               | Delete a webhook subscription                                                                 |
-| GET    | `/api/webhooks/events`             | List all available webhook event types                                                        |
-| GET    | `/api/webhooks/[id]/deliveries`    | List delivery history for a webhook (success/failure log)                                    |
-| POST   | `/api/webhooks/[id]/test`          | Send a test event to a webhook                                                               |
+| Method | Path                            | Description                                                               |
+| ------ | ------------------------------- | ------------------------------------------------------------------------- |
+| GET    | `/api/webhooks`                 | List all webhook subscriptions                                            |
+| POST   | `/api/webhooks`                 | Create a webhook subscription — body: `{url, events[], secret?, active?}` |
+| GET    | `/api/webhooks/[id]`            | Get a specific webhook subscription                                       |
+| PUT    | `/api/webhooks/[id]`            | Update a webhook subscription                                             |
+| DELETE | `/api/webhooks/[id]`            | Delete a webhook subscription                                             |
+| GET    | `/api/webhooks/events`          | List all available webhook event types                                    |
+| GET    | `/api/webhooks/[id]/deliveries` | List delivery history for a webhook (success/failure log)                 |
+| POST   | `/api/webhooks/[id]/test`       | Send a test event to a webhook                                            |
 
 **Auth:** Requires management session.
 
@@ -1268,14 +1381,14 @@ See [Webhooks Framework](../frameworks/WEBHOOKS.md) for full event types.
 
 Manage Skills (the agentic extensions framework).
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/skills`                      | List all installed skills (built-in + custom)                                                 |
-| POST   | `/api/skills/install`              | Install a skill from a local path or URL                                                      |
-| DELETE | `/api/skills/[id]`                 | Uninstall a skill                                                                             |
-| PUT    | `/api/skills/[id]`                 | Enable or disable a skill — body: `{enabled?: boolean, mode?: "on" \| "off" \| "auto"}`      |
-| POST   | `/api/skills/executions`           | Execute a skill — body: `{skillName, apiKeyId, input?, sessionId?}`                          |
-| GET    | `/api/skills/executions`           | List execution history for all skills (filter by `?apiKeyId=`)                               |
+| Method | Path                     | Description                                                                             |
+| ------ | ------------------------ | --------------------------------------------------------------------------------------- |
+| GET    | `/api/skills`            | List all installed skills (built-in + custom)                                           |
+| POST   | `/api/skills/install`    | Install a skill from a local path or URL                                                |
+| DELETE | `/api/skills/[id]`       | Uninstall a skill                                                                       |
+| PUT    | `/api/skills/[id]`       | Enable or disable a skill — body: `{enabled?: boolean, mode?: "on" \| "off" \| "auto"}` |
+| POST   | `/api/skills/executions` | Execute a skill — body: `{skillName, apiKeyId, input?, sessionId?}`                     |
+| GET    | `/api/skills/executions` | List execution history for all skills (filter by `?apiKeyId=`)                          |
 
 **Auth:** Requires management session or management-scoped API key.
 
@@ -1287,19 +1400,19 @@ See [Skills Framework](../frameworks/SKILLS.md) for full details.
 
 Manage OmniRoute plugins (third-party extensions).
 
-| Method | Path                              | Description                                                                                  |
-| ------ | --------------------------------- | -------------------------------------------------------------------------------------------- |
-| GET    | `/api/plugins`                     | List installed plugins                                                                        |
-| POST   | `/api/plugins/install`             | Install a plugin from a local path or URL                                                     |
-| DELETE | `/api/plugins/[name]`              | Uninstall a plugin                                                                            |
-| POST   | `/api/plugins/[name]/activate`     | Activate a plugin                                                                             |
-| POST   | `/api/plugins/[name]/deactivate`   | Deactivate a plugin                                                                           |
-| GET    | `/api/plugins/[name]/config`       | Get plugin configuration                                                                      |
-| PUT    | `/api/plugins/[name]/config`       | Update plugin configuration                                                                  |
+| Method | Path                             | Description                               |
+| ------ | -------------------------------- | ----------------------------------------- |
+| GET    | `/api/plugins`                   | List installed plugins                    |
+| POST   | `/api/plugins/install`           | Install a plugin from a local path or URL |
+| DELETE | `/api/plugins/[name]`            | Uninstall a plugin                        |
+| POST   | `/api/plugins/[name]/activate`   | Activate a plugin                         |
+| POST   | `/api/plugins/[name]/deactivate` | Deactivate a plugin                       |
+| GET    | `/api/plugins/[name]/config`     | Get plugin configuration                  |
+| PUT    | `/api/plugins/[name]/config`     | Update plugin configuration               |
 
 **Auth:** Requires management session.
 
-See [Plugins Framework](../plugins/PLUGIN_SDK.md) for full details.
+See [Plugins Framework](../frameworks/PLUGIN_SDK.md) for full details.
 
 ---
 

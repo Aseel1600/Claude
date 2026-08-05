@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, Card, Collapsible, Input, Select, Toggle } from "@/shared/components";
+import ModelSelectField from "@/shared/components/ModelSelectField";
 import { useTranslations } from "next-intl";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
@@ -11,6 +12,7 @@ import {
 } from "@/shared/constants/cliCompatProviders";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { compareTr } from "@/shared/utils/turkishText";
+import { HERMES } from "./systemTransformsHermesDefaults";
 
 // Provider keys (mirror of open-sse/services/systemTransforms.ts).
 const PROVIDER_CLAUDE = "claude";
@@ -79,6 +81,8 @@ const DEFAULT_OBFUSCATE_WORDS = [
   "codecompanion",
   "openwebui",
   "open-webui",
+  "hermes-agent",
+  "hermes",
 ];
 
 // Mirror of DEFAULT_SYSTEM_TRANSFORMS_CONFIG from open-sse/services/systemTransforms.ts.
@@ -95,11 +99,12 @@ const DEFAULT_SYSTEM_TRANSFORMS_CLIENT = {
             ...DEFAULT_PARAGRAPH_REMOVAL_ANCHORS,
             ...OPENWEBUI_PARAGRAPH_ANCHORS,
             ...PI_PARAGRAPH_ANCHORS,
+            ...HERMES.anchors,
           ],
         },
         {
           kind: "drop_paragraph_if_starts_with",
-          prefixes: [...DEFAULT_IDENTITY_PREFIXES, "You are Open WebUI"],
+          prefixes: [...DEFAULT_IDENTITY_PREFIXES, "You are Open WebUI", ...HERMES.prefixes],
         },
         ...DEFAULT_TEXT_REPLACEMENTS.map((r) => ({
           kind: "replace_text" as const,
@@ -166,6 +171,7 @@ const DEFAULT_SYSTEM_TRANSFORMS_CLIENT = {
           entrypoint: "sdk-cli",
           versionFormat: "ex-machina",
           cchAlgo: "sha256-first-user",
+          buildRevision: "1f2",
         },
       ],
     },
@@ -1453,6 +1459,64 @@ export default function RoutingTab() {
               <p className="text-xs text-text-muted ml-7">{option.desc}</p>
             </button>
           ))}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex gap-3">
+            <div className="p-2 rounded-lg bg-sky-500/10 text-sky-500 h-fit">
+              <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+                badge
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">
+                {t("echoRequestedModelTitle") || "Echo requested model name in responses"}
+              </h3>
+              <p className="text-sm text-text-muted mt-1">
+                {t("echoRequestedModelDesc") ||
+                  "When enabled, the response model field echoes the alias or combo name the client requested instead of the upstream model name."}
+              </p>
+            </div>
+          </div>
+          <div className="pt-1">
+            <Toggle
+              checked={settings.echoRequestedModelName === true}
+              onChange={(checked) => updateSetting({ echoRequestedModelName: checked })}
+              disabled={loading}
+              ariaLabel={t("echoRequestedModelTitle")}
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* #4481 layer 2 — Web-Search Routing (CCR-style Router.webSearch) */}
+      <Card>
+        <div className="flex gap-3">
+          <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500 h-fit">
+            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
+              travel_explore
+            </span>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold">
+              {t("webSearchRouteTitle") || "Web search routing"}
+            </h3>
+            <p className="text-sm text-text-muted mt-1">
+              {t("webSearchRouteDesc") ||
+                "When a request includes a native web_search tool, route the whole request to this model instead of the default — useful for providers that don't implement Anthropic's web_search server tool. Leave blank to disable."}
+            </p>
+            <div className="mt-3">
+              <ModelSelectField
+                value={String(settings.webSearchRouteModel ?? "")}
+                onChange={(v) => updateSetting({ webSearchRouteModel: v })}
+                placeholder={t("webSearchRoutePlaceholder") || "Search or select a model…"}
+                disabled={loading}
+                ariaLabel={t("webSearchRouteTitle") || "Web search routing model"}
+              />
+            </div>
+          </div>
         </div>
       </Card>
 

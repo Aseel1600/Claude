@@ -1,5 +1,5 @@
 import { execFile, spawn } from "node:child_process";
-import { closeSync, mkdirSync, openSync, existsSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, existsSync, readFileSync } from "node:fs";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -7,15 +7,36 @@ import { homedir } from "node:os";
 
 const execFileAsync = promisify(execFile);
 
+/**
+ * Check whether a directory's package.json is a valid project-root marker by
+ * requiring a non-empty `name` field.  The Next.js standalone build writes a
+ * synthetic `.build/next/package.json` = `{"type":"commonjs"}` that should not
+ * be mistaken for the real project root.
+ *
+ * Swallows read / parse errors (missing file, invalid JSON) and returns false
+ * so the walk-up continues.
+ *
+ * @internal — exported for testability.
+ */
+export function isValidPackageMarker(dir: string): boolean {
+  try {
+    const content = readFileSync(path.join(dir, "package.json"), "utf-8");
+    const pkg = JSON.parse(content);
+    return typeof pkg.name === "string" && pkg.name.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 /** @internal — exported for testability. */
 export function resolveProjectRoot(
   fallback: string,
   startDir: string = typeof __dirname !== "undefined" ? __dirname : process.cwd()
 ): string {
-  const markers = ["package.json", ".git"] as const;
   let dir = path.resolve(startDir);
   while (true) {
-    if (markers.some((m) => existsSync(path.join(dir, m)))) return dir;
+    if (existsSync(path.join(dir, ".git"))) return dir;
+    if (existsSync(path.join(dir, "package.json")) && isValidPackageMarker(dir)) return dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -64,6 +85,41 @@ function normalizeMode(raw: string | undefined): AutoUpdateMode {
   return "npm";
 }
 
+/**
+ * Match `node_modules` as a real path **segment**, not a substring — a folder literally named
+ * "my-node_modules-backup" must NOT count as an installed-package location. Operates on a local
+ * filesystem path (`__dirname`), never untrusted input; the pattern is linear (ReDoS-safe).
+ *
+ * @internal — exported for testability.
+ */
+export function isUnderNodeModules(dir: string): boolean {
+  return /(^|[/\\])node_modules([/\\]|$)/.test(dir);
+}
+
+/**
+ * Decide the effective auto-update channel when the operator left it at the default ("npm").
+ *
+ * - A source checkout (`.git` present) always self-updates via git, even if it also lives under a
+ *   `node_modules` path.
+ * - Otherwise "npm" mode only makes sense when the running module sits under a real
+ *   `node_modules/` path segment (a global or local package install). Anything else — a downloaded
+ *   build/zip with no `.git` — is treated as source.
+ *
+ * Behavior matches the previous inline heuristic for every realistic path; it only tightens the
+ * pathological case where "node_modules" appeared as a substring but not a path segment (Bug 1,
+ * security-report v3.8.15). Pure + injectable so the branch logic is unit-testable.
+ *
+ * @internal — exported for testability.
+ */
+export function resolveAutoUpdateMode(
+  rawMode: AutoUpdateMode,
+  detection: { isGitRepo: boolean; currentDir: string }
+): AutoUpdateMode {
+  if (rawMode !== "npm") return rawMode;
+  if (detection.isGitRepo) return "source";
+  return isUnderNodeModules(detection.currentDir) ? "npm" : "source";
+}
+
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
     await access(targetPath);
@@ -92,13 +148,7 @@ export function getAutoUpdateConfig(env: NodeJS.ProcessEnv = process.env): AutoU
   if (mode === "npm") {
     const isGitRepo = existsSync(path.join(PROJECT_ROOT, ".git"));
     const currentDir = typeof __dirname !== "undefined" ? __dirname : PROJECT_ROOT;
-    const isGlobalNodeModules = currentDir.includes("node_modules");
-
-    // If we are not in a global node_modules directory, we are likely a local source install/build.
-    // Even if .git is missing (downloaded zip), we should treat it as source.
-    if (isGitRepo || !isGlobalNodeModules) {
-      mode = "source";
-    }
+    mode = resolveAutoUpdateMode(mode, { isGitRepo, currentDir });
   }
 
   return {

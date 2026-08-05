@@ -1,5 +1,9 @@
 import { getUnifiedModelsResponse } from "@/app/api/v1/models/catalog";
+import { getServiceModels } from "@/lib/db/serviceModels";
+import { isServiceBackendPluginId } from "@/lib/services/serviceBackends";
 import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
+import { getProviderById, getProviderByAlias } from "@/shared/constants/providers";
+import { isCompatibleProviderConnectionId } from "@/shared/utils/compatibleProviderId";
 
 /**
  * Handle CORS preflight
@@ -19,6 +23,20 @@ export async function OPTIONS() {
  */
 export async function GET(request: Request, { params }: { params: Promise<{ provider: string }> }) {
   const { provider: rawProvider } = await params;
+  if (isServiceBackendPluginId(rawProvider)) {
+    const models = getServiceModels(rawProvider).filter((model) => model.available !== false);
+    return Response.json({
+      object: "list",
+      data: models.map((model) => ({
+        object: model.object || "model",
+        owned_by: rawProvider,
+        ...model,
+        id: model.id,
+        parent: null,
+      })),
+    });
+  }
+
   const providerEntry = getRegistryEntry(rawProvider);
   let providerId = rawProvider;
   let providerAlias = rawProvider;
@@ -27,19 +45,26 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     providerId = providerEntry.id;
     providerAlias = providerEntry.alias || providerId;
   } else {
-    // Allow fetching models by connection ID for compatible providers
-    const isCompatibleConnectionId = /^(openai|anthropic)-compatible-chat-[a-f0-9-]+$/.test(rawProvider);
-    if (!isCompatibleConnectionId) {
-      return Response.json(
-        {
-          error: {
-            message: `Unknown provider: ${rawProvider}`,
-            type: "invalid_request_error",
-            code: "invalid_provider",
+    // Fall back to the dashboard-facing provider catalog (covers LOCAL_PROVIDERS, SEARCH_PROVIDERS, etc.)
+    const catalogEntry = getProviderById(rawProvider) ?? getProviderByAlias(rawProvider);
+    if (catalogEntry) {
+      providerId = catalogEntry.id;
+      providerAlias = catalogEntry.alias || providerId;
+    } else {
+      // Allow fetching models by connection ID for compatible providers
+      const isCompatibleConnectionId = isCompatibleProviderConnectionId(rawProvider);
+      if (!isCompatibleConnectionId) {
+        return Response.json(
+          {
+            error: {
+              message: `Unknown provider: ${rawProvider}`,
+              type: "invalid_request_error",
+              code: "invalid_provider",
+            },
           },
-        },
-        { status: 400 }
-      );
+          { status: 400 }
+        );
+      }
     }
   }
 

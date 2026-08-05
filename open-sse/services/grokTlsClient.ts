@@ -21,11 +21,12 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { mkdtemp, open, unlink, rmdir, stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
+import { buildNativeTlsClientOptions } from "./tlsClientDownloadDir.ts";
 
 let clientPromise: Promise<unknown> | null = null;
 let exitHookInstalled = false;
 
-const GROK_PROFILE = "chrome_146"; // closest Chrome profile to the UA we send
+const GROK_PROFILE = "chrome_146"; // closest supported wreq-js profile (chrome_149 absent in 2.3.1, #5591)
 const DEFAULT_TIMEOUT_MS =
   Number.parseInt(process.env.OMNIROUTE_GROK_TLS_TIMEOUT_MS || "", 10) || 60_000;
 // Grace period added to the binding's wire-level timeout before our JS-level
@@ -133,7 +134,7 @@ async function getClient(): Promise<{
         // Native mode loads the shared library directly via koffi, avoiding the
         // managed sidecar's localhost HTTP calls that OmniRoute's global fetch
         // proxy patch interferes with.
-        const client = new TLSClient({ runtimeMode: "native" }) as {
+        const client = new TLSClient(buildNativeTlsClientOptions()) as {
           start: () => Promise<void>;
           request: (url: string, opts: Record<string, unknown>) => Promise<TlsResponseLike>;
         };

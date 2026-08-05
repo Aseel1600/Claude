@@ -1,3 +1,5 @@
+import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
+
 export interface ModelLockoutSettings {
   enabled: boolean;
   errorCodes: number[];
@@ -30,11 +32,7 @@ function toInteger(
   const min = options.min ?? 0;
   const max = options.max ?? Number.MAX_SAFE_INTEGER;
   const parsed =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : fallback;
+    typeof value === "number" ? value : typeof value === "string" ? Number(value) : fallback;
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, Math.trunc(parsed))) : fallback;
 }
 
@@ -60,15 +58,16 @@ export function resolveModelLockoutSettings(
 ): ModelLockoutSettings {
   const record = asRecord(settings);
   const raw = asRecord(record.modelLockout);
-  const isTest =
-    process.env.NODE_ENV === "test" ||
-    process.execArgv.includes("--test") ||
-    process.argv.some((arg) => typeof arg === "string" && arg.includes("test"));
+  const isTest = isAutomatedTestProcess();
 
-  const baseCooldownMs = toInteger(raw.baseCooldownMs, DEFAULT_MODEL_LOCKOUT_SETTINGS.baseCooldownMs, {
-    min: isTest ? 0 : 5_000,
-    max: 600_000,
-  });
+  const baseCooldownMs = toInteger(
+    raw.baseCooldownMs,
+    DEFAULT_MODEL_LOCKOUT_SETTINGS.baseCooldownMs,
+    {
+      min: isTest ? 0 : 5_000,
+      max: 600_000,
+    }
+  );
   const maxCooldownMs = Math.max(
     toInteger(raw.maxCooldownMs, DEFAULT_MODEL_LOCKOUT_SETTINGS.maxCooldownMs, {
       min: isTest ? 0 : 5_000,

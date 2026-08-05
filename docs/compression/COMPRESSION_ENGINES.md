@@ -1,7 +1,7 @@
 ---
 title: "Compression Engines"
-version: 3.8.2
-lastUpdated: 2026-06-17
+version: 3.8.40
+lastUpdated: 2026-06-28
 ---
 
 # Compression Engines
@@ -44,6 +44,32 @@ runtime compression, stacked mode, tests, and future engines use the same execut
 A separate registry compresses MCP tool description metadata at registry-level — see
 `open-sse/mcp-server/descriptionCompressor.ts` and [MCP-SERVER.md](../frameworks/MCP-SERVER.md). It reuses
 Caveman rules but operates on tool metadata, not request payloads.
+
+### Additional built-in engines
+
+Beyond Caveman, RTK, and LLMLingua-2, the registry ships several specialized lossless /
+structural engines (used by stacked pipelines, the playground, and tests):
+
+| Engine        | Id              | What it does                                                                                                                                                               |
+| ------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CCR           | `ccr`           | Content-Compress-Retrieve (H4): replaces large contiguous text blocks with content-addressed references, so repeated/large blocks are sent once and referenced thereafter. |
+| headroom      | `headroom`      | SmartCrusher (H3 + N5): lossless tabular compaction of homogeneous JSON-array payloads into a columnar `[N rows]` form.                                                    |
+| ionizer       | `ionizer`       | Head/middle/tail row sampling for very large homogeneous blocks, storing the elided middle as a CCR content-addressed reference.                                           |
+| session-dedup | `session-dedup` | Content-addressed cross-turn deduplication (TokenMizer-inspired): elides text already seen in earlier turns of the same session.                                           |
+
+**CCR retrieve-protocol instruction (#8033):** the first time CCR replaces ≥1 block in a
+request, the engine prepends a single, idempotent `system` message (leading with the
+`[CCR protocol]` sentinel) teaching the caller the marker → tool contract: what a
+`[CCR retrieve hash=<24hex> chars=N]` marker means, that the hash must be copied verbatim
+(all 24 hex characters — mis-copied hashes are the likely cause of "block not found"
+misses), and that a `[dedup:ref sha=...]` marker means "look back in history", not "call the
+tool". The note is injected **only when the caller's advertised `tools[]` proves it can
+actually reach `omniroute_ccr_retrieve`** (`callerSupportsCcrRetrieve()` in
+`open-sse/services/compression/engines/ccr/protocolInstruction.ts`) — a plain
+OpenAI-compatible caller without that tool never receives an instruction to call something
+it cannot reach. Idempotency is enforced by scanning the message history for the sentinel
+before injecting, so multi-turn requests (which replay prior messages) do not stack the
+note once per turn.
 
 ## Caveman
 
@@ -116,7 +142,7 @@ override points it at a local copy instead (offline / air-gapped installs).
 
 ### Optional dependencies & on-demand install
 
-The LLMLingua runtime stack is **optional**. Three packages are declared as
+The prunable LLMLingua runtime peer stack is **optional**. Three packages are declared as
 `optionalDependencies` in `package.json` and kept **external** by the production build
 (`scripts/build/prepublish.ts` does not bundle them):
 
@@ -126,9 +152,12 @@ The LLMLingua runtime stack is **optional**. Three packages are declared as
 | `@tensorflow/tfjs`   | `4.22.0`      | Heaviest dep — dominates the ~800 MB footprint |
 | `js-tiktoken`        | `^1.0.20`     | Tokenizer                                      |
 
-`@huggingface/transformers` is pinned at `3.5.2` as a **regular** dependency (shared with
-the local embeddings path), so it always ships — only the three packages above are
-prunable. A standard `npm install` (dev) installs them automatically.
+`@huggingface/transformers` is pinned at `3.5.2` as an **optional** dependency (shared with
+the local embeddings path and also traced into the standalone bundle). Keeping it optional prevents
+`onnxruntime-node` CUDA provider postinstall failures on CUDA 11 hosts from aborting the whole
+OmniRoute install; when the optional stack is absent, LLMLingua still fail-opens. Only the three
+packages above are prunable SLM peers. A standard `npm install` (dev) installs the optional stack
+automatically unless optional dependencies are omitted.
 
 **Why on-demand:** the npm-published package, the standalone bundle, and the Docker image
 ship **without** these deps to stay slim. When they are absent, the worker's dependency
@@ -288,6 +317,38 @@ Compression exposes five MCP tools:
 | `omniroute_set_compression_engine`  | `write:compression` | Set mode and optional pipeline   |
 | `omniroute_list_compression_combos` | `read:compression`  | List compression combos          |
 | `omniroute_compression_combo_stats` | `read:compression`  | Read combo/engine analytics      |
+
+## Scope & exclusions
+
+**Embeddings are never compressed.** `open-sse/handlers/embeddings.ts` never calls any
+compression engine — the request/response bodies pass straight to the executor untouched.
+This is structural today (embeddings and chat completions are disjoint handlers), not a
+runtime check, but it means the vector-distortion concern in #8034 has no exposure surface
+in the embeddings path.
+
+**Per-model/endpoint exclusion filter (#8034).** For chat completions, an operator can name
+model ids / `provider/model` targets that must never be compressed — a guardrail useful if
+compression is ever wired closer to an embeddings-adjacent path later, and generally useful
+for any model whose exact byte-for-byte prompt matters (deterministic evals, cache-sensitive
+prefixes, etc.).
+
+- Settings field: `exclusions?: string[]` on the global compression config
+  (`GET`/`PUT /api/settings/compression`), persisted via the existing `key_value` compression
+  namespace (`src/lib/db/compression.ts`) — no new table.
+- Dashboard tab: **Dashboard → Compression → Exclusions**
+  (`/dashboard/compression/exclusions`).
+- Pattern syntax: `*` is the only wildcard. Every other regex metacharacter in a pattern is
+  escaped before matching, so `gpt-5.6` matches the literal string only, never `gpt-5x6`
+  (ReDoS-safe, bounded, no nested quantifiers). Patterns match case-insensitively against
+  both the bare model id and the `provider/model` composite — `gpt-5-6`, `openai/gpt-5-6`,
+  and `openai/*` all work, and `*` alone excludes every model.
+- Matching: `isCompressionExcluded()` / `normalizeCompressionExclusions()` in
+  `open-sse/services/compression/exclusions.ts`. `chatCore.ts` checks the excluded target
+  right after resolving compression settings, **before any engine runs**, and treats a match
+  exactly like compression being globally disabled — the request body is provably
+  byte-identical. The skip is recorded via `writeCompressionSkip(..., "excluded")` for
+  analytics visibility.
+- Default (empty/absent list): identical to pre-#8034 behavior — nothing is excluded.
 
 ## Known limitations
 

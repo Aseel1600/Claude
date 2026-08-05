@@ -1,12 +1,8 @@
 import {
-  ANTIGRAVITY_BASE_URLS,
+  ANTIGRAVITY_BOOTSTRAP_BASE_URLS,
+  ANTIGRAVITY_RUNTIME_BASE_URLS,
   getAntigravityFetchAvailableModelsUrls,
 } from "@omniroute/open-sse/config/antigravityUpstream.ts";
-import {
-  ANTIGRAVITY_LOAD_CODE_ASSIST_API_CLIENT,
-  ANTIGRAVITY_LOAD_CODE_ASSIST_USER_AGENT,
-  getAntigravityLoadCodeAssistClientMetadata,
-} from "@omniroute/open-sse/services/antigravityHeaders.ts";
 import {
   GITHUB_COPILOT_API_VERSION,
   GITHUB_COPILOT_CHAT_PLUGIN_VERSION,
@@ -14,9 +10,12 @@ import {
   GITHUB_COPILOT_EDITOR_VERSION,
 } from "@omniroute/open-sse/config/providerHeaderProfiles.ts";
 import {
-  resolvePublicCred,
-  resolvePublicCredMulti,
-} from "@omniroute/open-sse/utils/publicCreds.ts";
+  GROK_BUILD_DEVICE_CODE_URL,
+  GROK_BUILD_OAUTH_ISSUER,
+  GROK_BUILD_OAUTH_SCOPES,
+  GROK_BUILD_TOKEN_URL,
+} from "@omniroute/open-sse/config/grokBuild.ts";
+import { resolvePublicCred } from "@omniroute/open-sse/utils/publicCreds.ts";
 import { buildGitLabOAuthEndpoints, GITLAB_DUO_DEFAULT_BASE_URL } from "../gitlab";
 
 /**
@@ -74,37 +73,6 @@ export const CODEX_CONFIG = {
   },
 };
 
-// Gemini (Google) OAuth Configuration (Standard OAuth2)
-// clientId/clientSecret are public values shipped in the Gemini CLI binary;
-// resolved through resolvePublicCred so they don't appear as literals here.
-export const GEMINI_CONFIG = {
-  clientId: resolvePublicCredMulti("gemini_id", [
-    "GEMINI_CLI_OAUTH_CLIENT_ID",
-    "GEMINI_OAUTH_CLIENT_ID",
-  ]),
-  clientSecret: resolvePublicCredMulti("gemini_alt", [
-    "GEMINI_CLI_OAUTH_CLIENT_SECRET",
-    "GEMINI_OAUTH_CLIENT_SECRET",
-  ]),
-  authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
-  tokenUrl: "https://oauth2.googleapis.com/token",
-  userInfoUrl: "https://www.googleapis.com/oauth2/v1/userinfo",
-  scopes: [
-    "https://www.googleapis.com/auth/cloud-platform",
-    "https://www.googleapis.com/auth/userinfo.email",
-    "https://www.googleapis.com/auth/userinfo.profile",
-  ],
-};
-
-// Qwen OAuth Configuration (Device Code Flow with PKCE)
-export const QWEN_CONFIG = {
-  clientId: resolvePublicCred("qwen_id", "QWEN_OAUTH_CLIENT_ID"),
-  deviceCodeUrl: "https://chat.qwen.ai/api/v1/oauth2/device/code",
-  tokenUrl: "https://chat.qwen.ai/api/v1/oauth2/token",
-  scope: "openid profile email model.completion",
-  codeChallengeMethod: "S256",
-};
-
 // Qoder OAuth Configuration (Authorization Code)
 const QODER_OAUTH_AUTHORIZE_URL = process.env.QODER_OAUTH_AUTHORIZE_URL || "";
 const QODER_OAUTH_TOKEN_URL = process.env.QODER_OAUTH_TOKEN_URL || "";
@@ -129,6 +97,59 @@ export const QODER_CONFIG = {
     loginMethod: "phone",
     type: "phone",
   },
+};
+
+// CodeBuddy CN (Tencent — copilot.tencent.com) OAuth Configuration
+// (Custom Device-Auth Flow: POST stateUrl → open authUrl → GET pollUrl?state=).
+// No client_id/secret — the upstream CLI ships none.
+export const CODEBUDDY_CN_CONFIG = {
+  baseUrl: "https://copilot.tencent.com",
+  stateUrl: "https://copilot.tencent.com/v2/plugin/auth/state",
+  tokenUrl: "https://copilot.tencent.com/v2/plugin/auth/token",
+  refreshUrl: "https://copilot.tencent.com/v2/plugin/auth/token/refresh",
+  userAgent: "CLI/2.63.2 CodeBuddy/2.63.2",
+  platform: "CLI",
+  pollInterval: 5000,
+};
+
+// Grok Build (xAI) OAuth Configuration (Device Code + import-token fallback)
+// Public client_id resolved through resolvePublicCred so it is never a literal.
+export const GROK_CLI_CONFIG = {
+  clientId: resolvePublicCred("grok_id", "GROK_OAUTH_CLIENT_ID"),
+  issuer: GROK_BUILD_OAUTH_ISSUER,
+  deviceCodeUrl: GROK_BUILD_DEVICE_CODE_URL,
+  tokenUrl: GROK_BUILD_TOKEN_URL,
+  scope: GROK_BUILD_OAUTH_SCOPES.join(" "),
+};
+
+// Grok Build (xAI) OAuth Configuration (Browser PKCE Flow — added #7013)
+// Same auth.x.ai authorize/token endpoints and public client_id as XAI_OAUTH_CONFIG,
+// but scoped to the Grok Build (cli-chat-proxy.grok.com) entitlement and kept as a
+// separate config so grok-cli's own baseUrl/model registry stay untouched.
+export const GROK_BUILD_OAUTH_CONFIG = {
+  clientId: resolvePublicCred("grok_id", "GROK_OAUTH_CLIENT_ID"),
+  authorizeUrl: "https://auth.x.ai/oauth2/authorize",
+  tokenUrl: "https://auth.x.ai/oauth2/token",
+  scope: "openid profile email offline_access grok-cli:access",
+  codeChallengeMethod: "S256",
+  loopbackPort: 56122, // distinct from xai-oauth's 56121 — both can run concurrently
+  callbackPath: "/callback",
+  callbackHost: "127.0.0.1",
+};
+
+// xAI API OAuth Configuration (Authorization Code Flow with PKCE)
+// This intentionally uses a separate provider from Grok Build: both use the
+// public Grok CLI OAuth client, but their inference endpoints and model
+// entitlements differ (`api.x.ai` vs `cli-chat-proxy.grok.com`).
+export const XAI_OAUTH_CONFIG = {
+  clientId: resolvePublicCred("grok_id", "GROK_OAUTH_CLIENT_ID"),
+  authorizeUrl: "https://auth.x.ai/oauth2/authorize",
+  tokenUrl: "https://auth.x.ai/oauth2/token",
+  scope: "openid profile email offline_access grok-cli:access api:access",
+  codeChallengeMethod: "S256",
+  loopbackPort: 56121,
+  callbackPath: "/callback",
+  callbackHost: "127.0.0.1",
 };
 
 // Kimi Coding OAuth Configuration (Device Code Flow)
@@ -163,8 +184,10 @@ export const ANTIGRAVITY_CONFIG = {
   authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
   tokenUrl: "https://oauth2.googleapis.com/token",
   userInfoUrl: "https://www.googleapis.com/oauth2/v1/userinfo",
+  // No "openid" scope — the working 9router flow requests only the Cloud Code /
+  // userinfo scopes below. "openid" (with PKCE) routed Google into the hanging
+  // `firstparty/nativeapp` consent. Match 9router exactly (antigravity login fix).
   scopes: [
-    "openid",
     "https://www.googleapis.com/auth/cloud-platform",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile",
@@ -172,19 +195,18 @@ export const ANTIGRAVITY_CONFIG = {
     "https://www.googleapis.com/auth/experimentsandconfigs",
   ],
   // Antigravity specific
-  apiEndpoint: ANTIGRAVITY_BASE_URLS[0],
+  apiEndpoint: ANTIGRAVITY_RUNTIME_BASE_URLS[0],
   apiVersion: "v1internal",
-  loadCodeAssistEndpoints: ANTIGRAVITY_BASE_URLS.map(
+  loadCodeAssistEndpoints: ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map(
     (baseUrl) => `${baseUrl}/v1internal:loadCodeAssist`
   ),
-  onboardUserEndpoints: ANTIGRAVITY_BASE_URLS.map((baseUrl) => `${baseUrl}/v1internal:onboardUser`),
+  onboardUserEndpoints: ANTIGRAVITY_BOOTSTRAP_BASE_URLS.map(
+    (baseUrl) => `${baseUrl}/v1internal:onboardUser`
+  ),
   fetchAvailableModelsEndpoints: getAntigravityFetchAvailableModelsUrls(),
-  loadCodeAssistEndpoint: `${ANTIGRAVITY_BASE_URLS[0]}/v1internal:loadCodeAssist`,
-  onboardUserEndpoint: `${ANTIGRAVITY_BASE_URLS[0]}/v1internal:onboardUser`,
+  loadCodeAssistEndpoint: `${ANTIGRAVITY_BOOTSTRAP_BASE_URLS[0]}/v1internal:loadCodeAssist`,
+  onboardUserEndpoint: `${ANTIGRAVITY_BOOTSTRAP_BASE_URLS[0]}/v1internal:onboardUser`,
   fetchAvailableModelsEndpoint: getAntigravityFetchAvailableModelsUrls()[0],
-  loadCodeAssistUserAgent: ANTIGRAVITY_LOAD_CODE_ASSIST_USER_AGENT,
-  loadCodeAssistApiClient: ANTIGRAVITY_LOAD_CODE_ASSIST_API_CLIENT,
-  loadCodeAssistClientMetadata: getAntigravityLoadCodeAssistClientMetadata(),
 };
 
 // Antigravity CLI (`agy`) OAuth Configuration.
@@ -210,9 +232,6 @@ export const AGY_CONFIG = {
   loadCodeAssistEndpoint: ANTIGRAVITY_CONFIG.loadCodeAssistEndpoint,
   onboardUserEndpoint: ANTIGRAVITY_CONFIG.onboardUserEndpoint,
   fetchAvailableModelsEndpoint: ANTIGRAVITY_CONFIG.fetchAvailableModelsEndpoint,
-  loadCodeAssistUserAgent: ANTIGRAVITY_CONFIG.loadCodeAssistUserAgent,
-  loadCodeAssistApiClient: ANTIGRAVITY_CONFIG.loadCodeAssistApiClient,
-  loadCodeAssistClientMetadata: ANTIGRAVITY_CONFIG.loadCodeAssistClientMetadata,
 };
 
 // OpenAI OAuth Configuration (Authorization Code Flow with PKCE)
@@ -247,6 +266,22 @@ export const GITHUB_CONFIG = {
   editorPluginVersion: GITHUB_COPILOT_CHAT_PLUGIN_VERSION,
 };
 
+// GitHub Enterprise (GHE) Copilot OAuth Configuration (Device Code Flow)
+export const GHE_COPILOT_CONFIG = {
+  clientId:
+    process.env.GHE_COPILOT_OAUTH_CLIENT_ID ||
+    resolvePublicCred("github_copilot_id", "GITHUB_OAUTH_CLIENT_ID"),
+  deviceCodeUrl: "", // Derived dynamically in provider flow
+  tokenUrl: "", // Derived dynamically in provider flow
+  userInfoUrl: "", // Derived dynamically in provider flow
+  scopes: "read:user",
+  apiVersion: GITHUB_COPILOT_API_VERSION,
+  copilotTokenUrl: "", // Derived dynamically in provider flow
+  userAgent: GITHUB_COPILOT_CHAT_USER_AGENT,
+  editorVersion: GITHUB_COPILOT_EDITOR_VERSION,
+  editorPluginVersion: GITHUB_COPILOT_CHAT_PLUGIN_VERSION,
+};
+
 const GITLAB_DUO_ENDPOINTS = buildGitLabOAuthEndpoints(GITLAB_DUO_DEFAULT_BASE_URL);
 
 export const GITLAB_DUO_CONFIG = {
@@ -261,6 +296,22 @@ export const GITLAB_DUO_CONFIG = {
   scope: "ai_features read_user",
   codeChallengeMethod: "S256",
 };
+
+// AWS region allowlist — prevents SSRF via region injection into upstream URLs
+// (GHSA-6mwv-4mrm-5p3m). Region values flow user-supplied through the kiro OAuth
+// import surfaces (request body, providerSpecificData) and are interpolated into
+// URLs like `https://oidc.${region}.amazonaws.com/...`. Without this guard, a
+// region like "127.0.0.1" or "evil.com" would redirect the proxy's outbound
+// fetch to an attacker-controlled host. Canonical AWS region shape only:
+// two letters, dash, one-or-more letters, dash, one-or-two digits.
+export const AWS_REGION_PATTERN = /^[a-z]{2}-[a-z]+-\d{1,2}$/;
+
+export function assertValidAwsRegion(region: string): string {
+  if (typeof region !== "string" || !AWS_REGION_PATTERN.test(region)) {
+    throw new Error("Invalid region");
+  }
+  return region;
+}
 
 // Kiro OAuth Configuration
 // Supports multiple auth methods:
@@ -374,7 +425,7 @@ export const TRAE_CONFIG = {
 //
 //   Phase 2 will reintroduce browser login via Firebase OAuth + RegisterUser
 //   (ported from fendoushaonian/WindSurf-gRPC-API).
-//   Spec: docs/superpowers/specs/2026-05-29-windsurf-login-fix-design.md.
+//   Spec: _tasks/superpowers/specs/2026-05-29-windsurf-login-fix-design.md.
 //
 // Active fields:
 //   - inferenceUrl       → used by WindsurfExecutor (open-sse/executors/windsurf.ts)
@@ -416,6 +467,40 @@ export const WINDSURF_CONFIG = {
   extensionVersion: "3.14.0",
 };
 
+// Zed IDE credential import — no standard OAuth flow.
+// Credentials are extracted from the OS keychain via POST /api/providers/zed/import.
+// Docker environments fall back to manual token paste via POST /api/providers/zed/manual-import.
+// This config is a placeholder so that getProvider("zed") doesn't throw
+// "Unknown provider: zed" when the UI probes the OAuth capability endpoint.
+export const ZED_CONFIG = {
+  importUrl: "/api/providers/zed/import",
+  discoverUrl: "/api/providers/zed/discover",
+  manualImportUrl: "/api/providers/zed/manual-import",
+};
+
+// Zed Hosted Models Configuration (native-app RSA-keypair sign-in)
+//
+// Zed's cloud aggregator (cloud.zed.dev) does not use a registered OAuth
+// client_id/secret. The client generates a fresh RSA keypair per login
+// attempt and sends the public key to zed.dev/native_app_signin; Zed
+// encrypts the resulting access token against that public key and redirects
+// the browser to a local "native app" callback
+// (http://127.0.0.1:<port>/?user_id=...&access_token=...). OmniRoute decrypts
+// the token with the matching private key — see open-sse/shared/zedAuth.ts.
+// No client_id/secret/Firebase key is embedded here (Hard Rule #11 does not
+// apply — there is no upstream secret to embed).
+export const ZED_HOSTED_CONFIG = {
+  webBaseUrl: "https://zed.dev",
+  cloudBaseUrl: "https://cloud.zed.dev",
+  llmBaseUrl: "https://cloud.zed.dev",
+  nativeSignInPath: "/native_app_signin",
+  userInfoUrl: "https://cloud.zed.dev/client/users/me",
+  llmTokenUrl: "https://cloud.zed.dev/client/llm_tokens",
+  modelsUrl: "https://cloud.zed.dev/models",
+  completionsUrl: "https://cloud.zed.dev/completions",
+  defaultNativeAppPort: 58443,
+};
+
 // OAuth timeout (5 minutes)
 export const OAUTH_TIMEOUT = 300000;
 
@@ -423,21 +508,27 @@ export const OAUTH_TIMEOUT = 300000;
 export const PROVIDERS = {
   CLAUDE: "claude",
   CODEX: "codex",
-  GEMINI: "gemini-cli",
-  QWEN: "qwen",
+  GEMINI: "gemini",
   QODER: "qoder",
   ANTIGRAVITY: "antigravity",
   AGY: "agy",
   KIMI_CODING: "kimi-coding",
   OPENAI: "openai",
   GITHUB: "github",
+  GHE_COPILOT: "ghe-copilot",
   GITLAB_DUO: "gitlab-duo",
   KIRO: "kiro",
   AMAZON_Q: "amazon-q",
   CURSOR: "cursor",
   KILOCODE: "kilocode",
   CLINE: "cline",
+  CLINEPASS: "clinepass",
   WINDSURF: "windsurf",
   DEVIN_CLI: "devin-cli",
   TRAE: "trae",
+  CODEBUDDY_CN: "codebuddy-cn",
+  GROK_CLI: "grok-cli",
+  XAI_OAUTH: "xai-oauth",
+  ZED: "zed",
+  ZED_HOSTED: "zed-hosted",
 };

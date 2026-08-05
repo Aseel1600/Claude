@@ -16,12 +16,18 @@ import {
   computeApiKeyCounts,
   formatUsdCost,
   toLocalDateTimeInputValue,
+  toggleKeyVisibility,
 } from "./apiManagerPageUtils";
 import type { KeyStatus, KeyType } from "./apiManagerPageUtils";
 import { readActiveOnlyPreference, writeActiveOnlyPreference } from "./apiManagerPageStorage";
 import { buildApiKeyCreateScopes, mergeApiKeyPermissionScopes } from "./apiManagerScopes";
 import { SELF_ACCOUNT_QUOTA_SCOPE, SELF_USAGE_SCOPE } from "@/shared/constants/selfServiceScopes";
+import { extractApiErrorMessage } from "@/shared/http/apiErrorMessage";
+import { hasProviderQuotaBypassScope } from "@/shared/constants/apiKeyPolicyScopes";
 import { UsageLimitSettings } from "./components/UsageLimitSettings";
+import { ChaosModeAccessToggle } from "./components/ChaosModeAccessToggle";
+import { BypassProviderQuotaToggle } from "./components/BypassProviderQuotaToggle";
+import ReasoningRoutingRules from "@/shared/components/ReasoningRoutingRules";
 
 // Constants for validation
 const MAX_KEY_NAME_LENGTH = 200;
@@ -122,6 +128,7 @@ interface ApiKey {
   streamDefaultMode?: StreamDefaultMode;
   disableNonPublicModels?: boolean;
   allowUsageCommand?: boolean;
+  chaosModeEnabled?: boolean;
   usageLimitEnabled?: boolean;
   dailyUsageLimitUsd?: number | null;
   weeklyUsageLimitUsd?: number | null;
@@ -200,6 +207,7 @@ export default function ApiManagerPageClient() {
   const createKeyFormRef = useRef<HTMLDivElement | null>(null);
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [allModels, setAllModels] = useState<Model[]>([]);
+  const [modelsLoaded, setModelsLoaded] = useState(false);
   const [allCombos, setAllCombos] = useState<ComboOption[]>([]);
   const [allConnections, setAllConnections] = useState<ProviderConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -219,7 +227,12 @@ export default function ApiManagerPageClient() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [usageStats, setUsageStats] = useState<Record<string, KeyUsageStats>>({});
   const [sessionCounts, setSessionCounts] = useState<Record<string, number>>({});
+  const [deviceCounts, setDeviceCounts] = useState<Record<string, number>>({});
   const [allowKeyReveal, setAllowKeyReveal] = useState(false);
+  // Per-row API key visibility toggle (eye / eye-off). Keys default to masked.
+  // Map id -> fully revealed key string fetched on demand from /api/keys/{id}/reveal.
+  const [revealedKeys, setRevealedKeys] = useState<Map<string, string>>(new Map());
+  const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const createKeyNameFieldRef = useRef<HTMLDivElement | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -246,7 +259,7 @@ export default function ApiManagerPageClient() {
     fetchModels();
     fetchCombos();
     fetchConnections();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- initial dashboard load only
 
   useEffect(() => {
     if (!showAddModal || !nameError) return;
@@ -312,14 +325,66 @@ export default function ApiManagerPageClient() {
   }, [showAddModal, nameError, scrollCreateKeyFormToTop]);
 
   const fetchModels = async () => {
+    setModelsLoaded(false);
     try {
       const res = await fetch("/v1/models");
       if (res.ok) {
         const data = await res.json();
-        setAllModels(data.data || []);
+        setAllModels(Array.isArray(data.data) ? data.data : []);
+        return;
+      }
+
+      // Fallback for dashboard API-key editing: /v1/models can be protected by
+      // API-key catalog auth, but the dashboard still needs a stable catalog so
+      // users can edit allowedModels. Preserve combo pseudo-models too: /v1/models
+      // lists active combos as owned_by="combo", while /api/models?all=true only
+      // returns the static provider model inventory.
+      const [fallbackRes, combosRes] = await Promise.all([
+        fetch("/api/models?all=true"),
+        fetch("/api/combos"),
+      ]);
+      if (fallbackRes.ok) {
+        const [fallbackData, combosData] = await Promise.all([
+          fallbackRes.json(),
+          combosRes.ok ? combosRes.json() : Promise.resolve({ combos: [] }),
+        ]);
+        const fallbackModels = Array.isArray(fallbackData.models) ? fallbackData.models : [];
+        const comboModels = (Array.isArray(combosData.combos) ? combosData.combos : [])
+          .filter(
+            (combo: any) =>
+              combo?.isActive !== false &&
+              combo?.isHidden !== true &&
+              typeof combo?.name === "string" &&
+              combo.name.trim().length > 0
+          )
+          .map((combo: any) => ({
+            id: combo.name,
+            owned_by: "combo",
+            name: combo.name,
+          }));
+        const modelEntries = fallbackModels
+          .map((m: any) => ({
+            id: typeof m.fullModel === "string" ? m.fullModel : `${m.provider}/${m.model}`,
+            owned_by: typeof m.provider === "string" ? m.provider : "unknown",
+            name: typeof m.alias === "string" ? m.alias : m.model || m.fullModel,
+          }))
+          .filter((m: Model) => typeof m.id === "string" && m.id.length > 0);
+        const seen = new Set<string>();
+        setAllModels(
+          [...comboModels, ...modelEntries].filter((m: Model) => {
+            if (seen.has(m.id)) return false;
+            seen.add(m.id);
+            return true;
+          })
+        );
+      } else {
+        setAllModels([]);
       }
     } catch (error) {
       console.log("Error fetching models:", error);
+      setAllModels([]);
+    } finally {
+      setModelsLoaded(true);
     }
   };
 
@@ -360,6 +425,7 @@ export default function ApiManagerPageClient() {
         // Fetch usage stats after keys are loaded
         fetchUsageStats(data.keys || []);
         fetchSessionCounts(data.keys || []);
+        fetchDeviceCounts(data.keys || []);
       }
     } catch (error) {
       console.log("Error fetching keys:", error);
@@ -440,6 +506,36 @@ export default function ApiManagerPageClient() {
     }
   };
 
+  // Per-key device/connection counts (port of upstream 9router#931, thanks
+  // @mugnimaestra). One lightweight GET per key against
+  // /api/keys/[id]/devices — device counts are in-memory + TTL-evicted, so
+  // this is a much smaller payload than session data.
+  const fetchDeviceCounts = async (apiKeys: ApiKey[]) => {
+    if (apiKeys.length === 0) {
+      setDeviceCounts({});
+      return;
+    }
+    try {
+      const results = await Promise.all(
+        apiKeys.map(async (key) => {
+          try {
+            const res = await fetch(`/api/keys/${encodeURIComponent(key.id)}/devices`);
+            if (!res.ok) return [key.id, 0] as const;
+            const data = await res.json();
+            const count =
+              typeof data?.count === "number" && Number.isFinite(data.count) ? data.count : 0;
+            return [key.id, count] as const;
+          } catch {
+            return [key.id, 0] as const;
+          }
+        })
+      );
+      setDeviceCounts(Object.fromEntries(results));
+    } catch (error) {
+      console.log("Error fetching device counts:", error);
+    }
+  };
+
   const clearPageError = useCallback(() => setPageError(null), []);
 
   const keyCounts = useMemo(() => computeApiKeyCounts(keys), [keys]);
@@ -466,9 +562,8 @@ export default function ApiManagerPageClient() {
 
     // 4. search query (case-insensitive substring on name and key)
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
       list = list.filter(
-        (k) => k.name.toLowerCase().includes(q) || k.key.toLowerCase().includes(q)
+        (k) => matchesSearch(k.name, searchQuery) || matchesSearch(k.key, searchQuery)
       );
     }
 
@@ -545,7 +640,7 @@ export default function ApiManagerPageClient() {
         setNewKeyAllowUsageCommand(false);
         setShowAddModal(false);
       } else {
-        setCreateError(data.error || t("failedCreateKey"));
+        setCreateError(extractApiErrorMessage(data, t("failedCreateKey")));
       }
     } catch (error) {
       console.error("Error creating key:", error);
@@ -570,9 +665,17 @@ export default function ApiManagerPageClient() {
       const res = await fetch(`/api/keys/${encodeURIComponent(id)}`, { method: "DELETE" });
       if (res.ok) {
         setKeys((prev) => prev.filter((k) => k.id !== id));
+        // Clean up any cached reveal/visibility state for this key.
+        setRevealedKeys((prev) => {
+          if (!prev.has(id)) return prev;
+          const next = new Map(prev);
+          next.delete(id);
+          return next;
+        });
+        setVisibleKeys((prev) => (prev.has(id) ? toggleKeyVisibility(prev, id) : prev));
       } else {
         const data = await res.json();
-        setPageError(data.error || t("failedDeleteKey"));
+        setPageError(extractApiErrorMessage(data, t("failedDeleteKey")));
       }
     } catch (error) {
       console.error("Error deleting key:", error);
@@ -596,7 +699,7 @@ export default function ApiManagerPageClient() {
         setCreatedKey(data.key);
         await fetchData();
       } else {
-        setPageError(data.error || t("failedRegenerateKey"));
+        setPageError(extractApiErrorMessage(data, t("failedRegenerateKey")));
       }
     } catch (error) {
       console.error("Error regenerating key:", error);
@@ -624,11 +727,50 @@ export default function ApiManagerPageClient() {
 
       const data = await res.json();
       if (typeof data?.key === "string") {
+        // Cache the revealed value so a subsequent show-toggle does not refetch.
+        setRevealedKeys((prev) => {
+          const next = new Map(prev);
+          next.set(keyId, data.key);
+          return next;
+        });
         await copy(data.key, `existing_key_${keyId}`);
       }
     } catch (error) {
       console.log("Error copying existing key:", error);
     }
+  };
+
+  /**
+   * Toggle the visibility of one key inline (eye / eye-off button).
+   * Lazy-fetches the full key from /api/keys/{id}/reveal on the FIRST show,
+   * then caches it in `revealedKeys` so re-toggling is instant. Hiding only
+   * flips the visibility set — the cached reveal stays so a re-show is free.
+   */
+  const handleToggleKeyVisibility = async (keyId: string) => {
+    if (!keyId) return;
+    const isCurrentlyVisible = visibleKeys.has(keyId);
+
+    if (!isCurrentlyVisible && !revealedKeys.has(keyId)) {
+      try {
+        const res = await fetch(`/api/keys/${encodeURIComponent(keyId)}/reveal`);
+        if (!res.ok) {
+          console.log("Error revealing key:", await res.text());
+          return;
+        }
+        const data = await res.json();
+        if (typeof data?.key !== "string") return;
+        setRevealedKeys((prev) => {
+          const next = new Map(prev);
+          next.set(keyId, data.key);
+          return next;
+        });
+      } catch (error) {
+        console.log("Error revealing key:", error);
+        return;
+      }
+    }
+
+    setVisibleKeys((prev) => toggleKeyVisibility(prev, keyId));
   };
 
   const handleUpdatePermissions = async (
@@ -653,7 +795,8 @@ export default function ApiManagerPageClient() {
     usageLimitEnabled: boolean,
     dailyUsageLimitUsd: number | null,
     weeklyUsageLimitUsd: number | null,
-    blockedModels: string[]
+    blockedModels: string[],
+    chaosModeEnabled: boolean
   ) => {
     if (!editingKey || !editingKey.id) return;
 
@@ -724,6 +867,7 @@ export default function ApiManagerPageClient() {
           usageLimitEnabled,
           dailyUsageLimitUsd,
           weeklyUsageLimitUsd,
+          chaosModeEnabled,
         }),
       });
 
@@ -733,7 +877,7 @@ export default function ApiManagerPageClient() {
         setEditingKey(null);
       } else {
         const data = await res.json();
-        setPageError(data.error || t("failedUpdatePermissions"));
+        setPageError(extractApiErrorMessage(data, t("failedUpdatePermissions")));
       }
     } catch (error) {
       console.error("Error updating permissions:", error);
@@ -765,17 +909,15 @@ export default function ApiManagerPageClient() {
     if (!debouncedSearchModel.trim()) return modelsByProvider;
 
     return modelsByProvider
-      .map(
-        ([provider, models]): ProviderGroup => [
-          provider,
-          models.filter(
-            (m) =>
-              matchesSearch(m.id, debouncedSearchModel) ||
-              matchesSearch(m.name || "", debouncedSearchModel) ||
-              matchesSearch(provider, debouncedSearchModel)
-          ),
-        ]
-      )
+      .map(([provider, models]): ProviderGroup => [
+        provider,
+        models.filter(
+          (m) =>
+            matchesSearch(m.id, debouncedSearchModel) ||
+            matchesSearch(m.name || "", debouncedSearchModel) ||
+            matchesSearch(provider, debouncedSearchModel)
+        ),
+      ])
       .filter(([, models]) => models.length > 0);
   }, [modelsByProvider, debouncedSearchModel]);
 
@@ -905,11 +1047,13 @@ export default function ApiManagerPageClient() {
                   : 0;
               const hasThrottle = throttleDelayMs > 0;
               const hasManageScope = Array.isArray(key.scopes) && key.scopes.includes("manage");
+              const hasProviderQuotaBypass = hasProviderQuotaBypassScope(key.scopes);
               const hasJsonStreamDefault = key.streamDefaultMode === "json";
               const hasLocalUsageCommand = key.allowUsageCommand === true;
               const maxSessions = typeof key.maxSessions === "number" ? key.maxSessions : 0;
               const hasSessionLimit = maxSessions > 0;
               const activeSessions = sessionCounts[key.id] || 0;
+              const deviceCount = deviceCounts[key.id] || 0;
               const hasSchedule = key.accessSchedule?.enabled === true;
               const keyIsQuota = isQuotaKey(key);
               const groups = quotaGroupsForKey(key);
@@ -918,7 +1062,7 @@ export default function ApiManagerPageClient() {
               return (
                 <div
                   key={key.id}
-                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-surface/30 transition-colors group"
+                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-surface/30 transition-colors group min-w-[760px]"
                 >
                   <div className="col-span-2 flex items-center gap-2">
                     <span
@@ -931,21 +1075,36 @@ export default function ApiManagerPageClient() {
                     </span>
                   </div>
                   <div className="col-span-3 flex items-center gap-1.5">
-                    <code className="text-sm text-text-muted font-mono truncate">{key.key}</code>
+                    <code className="text-sm text-text-muted font-mono truncate">
+                      {visibleKeys.has(key.id) ? (revealedKeys.get(key.id) ?? key.key) : key.key}
+                    </code>
                     {allowKeyReveal ? (
-                      <button
-                        onClick={() => handleCopyExistingKey(key.id)}
-                        className="p-1 text-text-muted/60 hover:text-primary transition-colors shrink-0"
-                        title={tc("copy")}
-                        aria-label={tc("copy")}
-                      >
-                        <span className="material-symbols-outlined text-[14px]">
-                          {copied === `existing_key_${key.id}` ? "check" : "content_copy"}
-                        </span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => handleToggleKeyVisibility(key.id)}
+                          className="p-1 text-text-muted/60 hover:text-primary transition-colors shrink-0"
+                          title={visibleKeys.has(key.id) ? t("hideKey") : t("showKey")}
+                          aria-label={visibleKeys.has(key.id) ? t("hideKey") : t("showKey")}
+                          aria-pressed={visibleKeys.has(key.id)}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            {visibleKeys.has(key.id) ? "visibility_off" : "visibility"}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleCopyExistingKey(key.id)}
+                          className="p-1 text-text-muted/60 hover:text-primary transition-colors shrink-0"
+                          title={tc("copy")}
+                          aria-label={tc("copy")}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">
+                            {copied === `existing_key_${key.id}` ? "check" : "content_copy"}
+                          </span>
+                        </button>
+                      </>
                     ) : (
                       <span
-                        className="p-1 text-text-muted/40 opacity-0 group-hover:opacity-100 transition-all shrink-0 cursor-help"
+                        className="p-1 text-text-muted/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all shrink-0 cursor-help"
                         title={t("keyOnlyAvailableAtCreation")}
                       >
                         <span className="material-symbols-outlined text-[14px]">lock</span>
@@ -1044,10 +1203,25 @@ export default function ApiManagerPageClient() {
                           USD quota
                         </span>
                       )}
+                      {hasProviderQuotaBypass && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-medium">
+                          <span className="material-symbols-outlined text-[12px]">alt_route</span>
+                          Bypass quota policy
+                        </span>
+                      )}
                       {hasSessionLimit && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[11px] font-medium">
                           <span className="material-symbols-outlined text-[12px]">group</span>
                           Sessions: {activeSessions}/{maxSessions}
+                        </span>
+                      )}
+                      {deviceCount > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 text-[11px] font-medium"
+                          title={t("devicesTooltip", { count: deviceCount })}
+                        >
+                          <span className="material-symbols-outlined text-[12px]">devices</span>
+                          {t("devicesCount", { count: deviceCount })}
                         </span>
                       )}
                       {hasThrottle && (
@@ -1114,7 +1288,7 @@ export default function ApiManagerPageClient() {
                   <div className="col-span-2 flex items-center justify-end gap-1">
                     <a
                       href={`/dashboard/costs?range=all&apiKeyIds=${encodeURIComponent(key.id)}&groupBy=model`}
-                      className="p-2 hover:bg-emerald-500/10 rounded text-text-muted hover:text-emerald-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-2 hover:bg-emerald-500/10 rounded text-text-muted hover:text-emerald-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={`View costs for ${key.name}`}
                       aria-label={`View costs for ${key.name}`}
                     >
@@ -1122,21 +1296,21 @@ export default function ApiManagerPageClient() {
                     </a>
                     <button
                       onClick={() => handleRegenerateKey(key.id)}
-                      className="p-2 hover:bg-amber-500/10 rounded text-text-muted hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-2 hover:bg-amber-500/10 rounded text-text-muted hover:text-amber-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={t("regenerateKey")}
                     >
                       <span className="material-symbols-outlined text-[18px]">refresh</span>
                     </button>
                     <button
                       onClick={() => handleOpenPermissions(key)}
-                      className="p-2 hover:bg-primary/10 rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-2 hover:bg-primary/10 rounded text-text-muted hover:text-primary opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={t("editPermissions")}
                     >
                       <span className="material-symbols-outlined text-[18px]">tune</span>
                     </button>
                     <button
                       onClick={() => handleDeleteKey(key.id)}
-                      className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      className="p-2 hover:bg-red-500/10 rounded text-red-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all"
                       title={t("deleteKey")}
                     >
                       <span className="material-symbols-outlined text-[18px]">delete</span>
@@ -1147,7 +1321,7 @@ export default function ApiManagerPageClient() {
             };
 
             const tableHeader = (
-              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-surface/50 border-b border-border text-xs font-semibold text-text-muted uppercase tracking-wider">
+              <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-surface/50 border-b border-border text-xs font-semibold text-text-muted uppercase tracking-wider min-w-[760px]">
                 <div className="col-span-2">{t("name")}</div>
                 <div className="col-span-3">{t("key")}</div>
                 <div className="col-span-2">{t("permissions")}</div>
@@ -1173,9 +1347,11 @@ export default function ApiManagerPageClient() {
                         {normalKeys.length}
                       </span>
                     </div>
-                    <div className="flex flex-col border border-border rounded-lg overflow-hidden">
-                      {tableHeader}
-                      {normalKeys.map(renderKeyRow)}
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        {tableHeader}
+                        {normalKeys.map(renderKeyRow)}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1196,9 +1372,11 @@ export default function ApiManagerPageClient() {
                         {t("quotaPill")}
                       </span>
                     </div>
-                    <div className="flex flex-col border border-border rounded-lg overflow-hidden">
-                      {tableHeader}
-                      {quotaKeys.map(renderKeyRow)}
+                    <div className="border border-border rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        {tableHeader}
+                        {quotaKeys.map(renderKeyRow)}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1414,6 +1592,7 @@ export default function ApiManagerPageClient() {
           apiKey={editingKey}
           modelsByProvider={filteredModelsByProvider}
           allModels={permissionModels}
+          modelsLoaded={modelsLoaded}
           allCombos={allCombos}
           allConnections={allConnections}
           searchModel={searchModel}
@@ -1433,6 +1612,7 @@ const PermissionsModal = memo(function PermissionsModal({
   apiKey,
   modelsByProvider,
   allModels,
+  modelsLoaded,
   allCombos,
   allConnections,
   searchModel,
@@ -1444,6 +1624,7 @@ const PermissionsModal = memo(function PermissionsModal({
   apiKey: ApiKey;
   modelsByProvider: ProviderGroup[];
   allModels: Model[];
+  modelsLoaded: boolean;
   allCombos: ComboOption[];
   allConnections: ProviderConnection[];
   searchModel: string;
@@ -1470,7 +1651,8 @@ const PermissionsModal = memo(function PermissionsModal({
     usageLimitEnabled: boolean,
     dailyUsageLimitUsd: number | null,
     weeklyUsageLimitUsd: number | null,
-    blockedModels: string[]
+    blockedModels: string[],
+    chaosModeEnabled: boolean
   ) => void;
 }) {
   const t = useTranslations("apiManager");
@@ -1514,6 +1696,9 @@ const PermissionsModal = memo(function PermissionsModal({
   const [selfAccountQuotaEnabled, setSelfAccountQuotaEnabled] = useState(
     Array.isArray(apiKey?.scopes) && apiKey.scopes.includes(SELF_ACCOUNT_QUOTA_SCOPE)
   );
+  const [bypassProviderQuotaPolicyEnabled, setBypassProviderQuotaPolicyEnabled] = useState(
+    hasProviderQuotaBypassScope(apiKey?.scopes)
+  );
   const [maxSessions, setMaxSessions] = useState(
     typeof apiKey?.maxSessions === "number" && apiKey.maxSessions > 0 ? apiKey.maxSessions : 0
   );
@@ -1553,6 +1738,7 @@ const PermissionsModal = memo(function PermissionsModal({
   const [usageCommandEnabled, setUsageCommandEnabled] = useState(
     apiKey?.allowUsageCommand === true
   );
+  const [chaosModeEnabled, setChaosModeEnabled] = useState(apiKey?.chaosModeEnabled === true);
   const [usageLimitEnabled, setUsageLimitEnabled] = useState(apiKey?.usageLimitEnabled === true);
   const [dailyUsageLimitUsd, setDailyUsageLimitUsd] = useState(
     typeof apiKey?.dailyUsageLimitUsd === "number" && apiKey.dailyUsageLimitUsd > 0
@@ -1748,6 +1934,7 @@ const PermissionsModal = memo(function PermissionsModal({
         manageEnabled,
         selfUsageEnabled,
         selfAccountQuotaEnabled,
+        bypassProviderQuotaPolicyEnabled,
       }),
       allowAllEndpoints ? [] : selectedEndpoints,
       streamDefaultMode,
@@ -1756,7 +1943,8 @@ const PermissionsModal = memo(function PermissionsModal({
       usageLimitEnabled,
       parseUsdLimitInput(dailyUsageLimitUsd),
       parseUsdLimitInput(weeklyUsageLimitUsd),
-      blockedModels
+      blockedModels,
+      chaosModeEnabled
     );
   }, [
     onSave,
@@ -1777,6 +1965,7 @@ const PermissionsModal = memo(function PermissionsModal({
     manageEnabled,
     selfUsageEnabled,
     selfAccountQuotaEnabled,
+    bypassProviderQuotaPolicyEnabled,
     scheduleEnabled,
     scheduleFrom,
     scheduleUntil,
@@ -1794,6 +1983,7 @@ const PermissionsModal = memo(function PermissionsModal({
     parseUsdLimitInput,
     blockedClaudeCodeFamilies,
     initialBlockedModels,
+    chaosModeEnabled,
     apiKey?.scopes,
     t,
   ]);
@@ -1854,6 +2044,8 @@ const PermissionsModal = memo(function PermissionsModal({
           </div>
         )}
 
+        {apiKey?.id && <ReasoningRoutingRules apiKeyId={apiKey.id} />}
+
         {/* Access Mode Toggle */}
         <div className="flex gap-2 p-1 bg-surface rounded-lg">
           <button
@@ -1900,7 +2092,13 @@ const PermissionsModal = memo(function PermissionsModal({
               allowAll ? "text-green-700 dark:text-green-300" : "text-amber-700 dark:text-amber-300"
             }`}
           >
-            {allowAll ? t("allowAllDesc") : t("restrictDesc", { selectedCount, totalModels })}
+            {allowAll
+              ? t("allowAllDesc")
+              : !modelsLoaded
+                ? t("restrictLoading")
+                : totalModels === 0
+                  ? t("restrictCatalogUnavailable", { selectedCount })
+                  : t("restrictDesc", { selectedCount, totalModels })}
           </p>
         </div>
 
@@ -1932,9 +2130,7 @@ const PermissionsModal = memo(function PermissionsModal({
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
           <div className="flex flex-col gap-1">
             <p className="text-sm font-medium text-text-main">{t("maxActiveSessions")}</p>
-            <p className="text-xs text-text-muted">
-              0 = unlimited. Return 429 when this key exceeds concurrent sticky sessions.
-            </p>
+            <p className="text-xs text-text-muted">{t("maxActiveSessionsDescription")}</p>
           </div>
           <div className="w-32">
             <Input
@@ -1953,10 +2149,8 @@ const PermissionsModal = memo(function PermissionsModal({
         {/* Soft Throttle */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-text-main">Throttle Delay</p>
-            <p className="text-xs text-text-muted">
-              Add a fixed delay before requests for this key are routed. 0 = no slowdown.
-            </p>
+            <p className="text-sm font-medium text-text-main">{t("throttleDelay")}</p>
+            <p className="text-xs text-text-muted">{t("throttleDelayDescription")}</p>
           </div>
           <div className="w-36">
             <Input
@@ -2377,6 +2571,18 @@ const PermissionsModal = memo(function PermissionsModal({
           />
         </div>
 
+        {/* Chaos Mode Access Toggle */}
+        <ChaosModeAccessToggle
+          enabled={chaosModeEnabled}
+          onToggle={() => setChaosModeEnabled((prev) => !prev)}
+        />
+
+        {/* Advanced Provider Quota Policy Override */}
+        <BypassProviderQuotaToggle
+          enabled={bypassProviderQuotaPolicyEnabled}
+          onToggle={() => setBypassProviderQuotaPolicyEnabled((prev) => !prev)}
+        />
+
         {/* Disable Non-Public Models Toggle */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-border bg-surface/40">
           <div className="flex flex-col gap-1">
@@ -2433,7 +2639,7 @@ const PermissionsModal = memo(function PermissionsModal({
                           type="button"
                           onClick={() => setClaudeCodeFamiliesExpanded((prev) => !prev)}
                           className="inline-flex items-center gap-1 font-mono text-text-main"
-                          title="Expand Claude Code families"
+                          title={t("expandClaudeCodeFamilies")}
                           aria-expanded={claudeCodeFamiliesExpanded}
                         >
                           <span className="truncate max-w-[140px]" title={modelId}>
@@ -2447,7 +2653,7 @@ const PermissionsModal = memo(function PermissionsModal({
                           type="button"
                           onClick={() => handleToggleModel(modelId)}
                           className="text-text-muted hover:text-red-500 transition-colors"
-                          title="Remove Claude Code default"
+                          title={t("removeClaudeCodeDefault")}
                         >
                           <span className="material-symbols-outlined text-[12px]">close</span>
                         </button>
@@ -2728,7 +2934,9 @@ const PermissionsModal = memo(function PermissionsModal({
                               {conn.name || conn.id.slice(0, 8)}
                             </span>
                             {!conn.isActive && (
-                              <span className="text-[9px] text-red-400 shrink-0">inactive</span>
+                              <span className="text-[9px] text-red-400 shrink-0">
+                                {tc("inactive")}
+                              </span>
                             )}
                           </button>
                         );
@@ -2744,7 +2952,7 @@ const PermissionsModal = memo(function PermissionsModal({
         {allCombos.length > 0 && (
           <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface/40">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-text-main">Allowed Combos</p>
+              <p className="text-sm font-medium text-text-main">{t("allowedCombos")}</p>
               <div className="flex gap-1 p-0.5 bg-surface rounded-md">
                 <button
                   onClick={() => {
@@ -2757,7 +2965,7 @@ const PermissionsModal = memo(function PermissionsModal({
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  All
+                  {tc("all")}
                 </button>
                 <button
                   onClick={() => setAllowAllCombos(false)}
@@ -2767,14 +2975,14 @@ const PermissionsModal = memo(function PermissionsModal({
                       : "text-text-muted hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  Restrict
+                  {t("restrict")}
                 </button>
               </div>
             </div>
             <p className="text-xs text-text-muted">
               {allowAllCombos
-                ? "This key can use any combo."
-                : `Restricted to ${selectedCombos.length} combo${selectedCombos.length !== 1 ? "s" : ""}.`}
+                ? t("allCombosAllowed")
+                : t("restrictedComboCount", { count: selectedCombos.length })}
             </p>
             {!allowAllCombos && (
               <div className="flex flex-col gap-1 max-h-40 overflow-y-auto">

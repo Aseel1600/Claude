@@ -3,10 +3,12 @@ import { parseSSEDataPayload } from "./streamHelpers.ts";
 import {
   backfillResponsesCompletedOutput,
   normalizeResponsesSseIds,
+  normalizeResponsesCompletedUsage,
   pushUniqueResponsesOutputItems,
   stringifyIdValue,
   stripResponsesLifecycleEcho,
 } from "./responsesStreamHelpers.ts";
+import { getAnyReasoningValue } from "./reasoningFields.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -36,7 +38,6 @@ export type PassthroughTailProcessorContext = {
   appendPassthroughReasoning: (value: string) => void;
   getResponsesReasoningKey: (payload: Record<string, unknown>) => string | null;
   markResponsesReasoningSummarySeen: (key: string) => void;
-  ensureVisibleResponsesReasoningSummary: (payload: Record<string, unknown>) => boolean;
   emitSyntheticResponsesReasoningSummary: (payload: Record<string, unknown>) => void;
   passthroughResponsesOutputItems: unknown[];
   passthroughResponsesPendingFunctionCalls: Map<string, JsonRecord>;
@@ -135,12 +136,8 @@ function handleResponsesTailPayload(
     }
   }
   if (parsed.type === "response.output_item.done" && parsed.item) {
-    const reasoningSummaryInjected = context.ensureVisibleResponsesReasoningSummary(parsed);
     context.emitSyntheticResponsesReasoningSummary(parsed);
     pushUniqueResponsesOutputItems(context.passthroughResponsesOutputItems, [parsed.item]);
-    if (reasoningSummaryInjected) {
-      output = `data: ${JSON.stringify(parsed)}\n\n`;
-    }
     const item = asRecord(parsed.item);
     if (item.type === "function_call") {
       const pendingKey = getFunctionCallPendingKey(item);
@@ -178,13 +175,20 @@ function handleResponsesTailPayload(
   const outputPayload = textualToolCallBackfilled
     ? context.toResponsesCompletedWithToolCalls(parsed)
     : parsed;
+  const usageNormalized = normalizeResponsesCompletedUsage(outputPayload);
   const stripped = stripResponsesLifecycleEcho(outputPayload);
   const backfilled = backfillResponsesCompletedOutput(
     outputPayload,
     context.passthroughResponsesOutputItems
   );
 
-  if (stripped || backfilled || textualToolCallBackfilled || responsesIdsNormalized) {
+  if (
+    stripped ||
+    backfilled ||
+    textualToolCallBackfilled ||
+    responsesIdsNormalized ||
+    usageNormalized
+  ) {
     output = `data: ${JSON.stringify(outputPayload)}\n\n`;
   }
 
@@ -200,12 +204,7 @@ function handleOpenAiTailPayload(parsed: JsonRecord, context: PassthroughTailPro
     context.appendPassthroughContent(delta.content);
     context.addTotalContentLength(delta.content.length);
   }
-  const reasoningDelta =
-    typeof delta.reasoning_content === "string"
-      ? delta.reasoning_content
-      : typeof delta.reasoning === "string"
-        ? delta.reasoning
-        : "";
+  const reasoningDelta = getAnyReasoningValue(delta);
   if (reasoningDelta) {
     context.appendPassthroughReasoning(reasoningDelta);
   }

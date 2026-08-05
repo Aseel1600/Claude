@@ -12,6 +12,7 @@
  */
 
 import { FORMATS } from "../translator/formats.ts";
+import { hasAnyReasoningSignal } from "./reasoningFields.ts";
 
 type SSEPayloadOptions = {
   eventType?: string;
@@ -29,6 +30,12 @@ type SSEJsonPayload = Record<string, unknown> & {
   choices?: SSEChoicePayload[];
 };
 
+type GeminiStreamPart = Record<string, unknown> & {
+  executableCode?: unknown;
+  functionCall?: unknown;
+  text?: unknown;
+};
+
 type SSEDataLineNormalizer = {
   hasPending: () => boolean;
   normalize: (lines: string[]) => string[];
@@ -44,6 +51,31 @@ type SSEEventPrefixBuffer = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Matches ANSI/VT100 terminal control sequences plus non-whitespace C0 control
+ * codes, while preserving `\t` (0x09), `\n` (0x0a), and `\r` (0x0d).
+ *
+ * Some upstream CLIs (notably gemini-cli via the `gc/` bridge) prefix SSE frames
+ * with cursor-movement escapes such as `\x1b[2K\x1b[1A` to redraw the terminal.
+ * Those bytes are not whitespace, so `line.trimStart().startsWith("data:")` fails
+ * and the frame is silently dropped, stalling the client SSE parser (issue #2273).
+ *
+ * The pattern is strictly bounded (no unbounded quantifiers over overlapping
+ * alternatives) so it runs in linear time on untrusted input — ReDoS-safe.
+ */
+
+const ANSI_ESCAPE_RE =
+  /\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[A-Z\[\]\\^_`])|[\x00-\x08\x0b\x0c\x0e-\x1f]/g;
+
+/**
+ * Strip ANSI/VT100 escape sequences (and stray C0 controls) from a string.
+ * Non-string inputs (null/undefined) are returned unchanged. Preserves \t \n \r.
+ */
+export function stripAnsiCodes<T>(str: T): T {
+  if (typeof str !== "string") return str;
+  return str.replace(ANSI_ESCAPE_RE, "") as T;
 }
 
 export function parseSSEDataPayload(
@@ -81,15 +113,18 @@ export function parseSSEDataLines(
 export function parseSSELine(line: string): SSEJsonPayload | null {
   if (!line) return null;
 
-  // Trim leading whitespace before checking field name.
+  // Trim leading whitespace before checking field name. Also strip ANSI/VT100
+  // escape codes so terminal-redraw-prefixed frames (e.g. gemini-cli `\x1b[2K\x1b[1A`)
+  // still resolve to a `data:` line instead of being silently dropped (#2273).
   const trimmed = line.trimStart();
-  if (!trimmed.startsWith("data:")) return null;
+  const clean = stripAnsiCodes(trimmed);
+  if (!clean.startsWith("data:")) return null;
 
-  return parseSSEDataPayload(trimmed.slice(5));
+  return parseSSEDataPayload(clean.slice(5));
 }
 
 function extractSseDataLine(line: string): string | null {
-  const trimmed = line.trimStart().replace(/\r$/, "");
+  const trimmed = stripAnsiCodes(line.trimStart().replace(/\r$/, ""));
   if (!trimmed.startsWith("data:")) return null;
   return trimmed.slice(5).trimStart();
 }
@@ -282,6 +317,22 @@ function hasGeminiCandidateStreamValue(parsed: Record<string, unknown>): boolean
   });
 }
 
+// Issue #7285: an OpenAI-shape SSE stream that closes without ever emitting a
+// chunk carrying `finish_reason` (and without a `data: [DONE]` sentinel) is a
+// truncated response — combo failover needs to detect that shape independently
+// of `hasOpenAICompatibleStreamValue()` (which only looks for *content*, not
+// the terminal marker). Kept alongside the other shape-detection helpers so
+// callers can distinguish "OpenAI-shape chunk seen" from "OpenAI-shape stream
+// reached its terminal marker".
+export function isOpenAIChoicesPayload(parsed: Record<string, unknown>): boolean {
+  return Array.isArray(parsed.choices);
+}
+
+export function hasOpenAIFinishReason(parsed: Record<string, unknown>): boolean {
+  if (!Array.isArray(parsed.choices)) return false;
+  return parsed.choices.some((choice) => isRecord(choice) && choice.finish_reason != null);
+}
+
 export function isKnownNonClaudeStreamPayload(
   parsed: Record<string, unknown>,
   eventType = ""
@@ -310,17 +361,17 @@ export function isKnownNonClaudeStreamPayload(
 }
 
 // Check if chunk has valuable content (not empty)
-export function hasValuableContent(chunk, format) {
+export function hasValuableContent(chunk: Record<string, unknown>, format: string): boolean {
   // OpenAI format
   if (format === FORMATS.OPENAI) {
-    if (!chunk.choices?.[0]?.delta) return false;
-    const delta = chunk.choices[0].delta;
+    const choices = Array.isArray(chunk.choices) ? chunk.choices : [];
+    const firstChoice = isRecord(choices[0]) ? choices[0] : null;
+    const delta = isRecord(firstChoice?.delta) ? firstChoice.delta : null;
+    if (!firstChoice || !delta) return false;
     if (typeof delta.content === "string" && delta.content.length > 0) return true;
-    if (typeof delta.reasoning_content === "string" && delta.reasoning_content.length > 0)
-      return true;
-    if (typeof delta.reasoning_text === "string" && delta.reasoning_text.length > 0) return true;
+    if (hasAnyReasoningSignal(delta)) return true;
     if (Array.isArray(delta.tool_calls) && delta.tool_calls.length > 0) return true;
-    if (chunk.choices[0].finish_reason) return true;
+    if (firstChoice.finish_reason) return true;
     if (typeof delta.role === "string" && delta.role.length > 0) return true;
     return false;
   }
@@ -329,28 +380,37 @@ export function hasValuableContent(chunk, format) {
   if (format === FORMATS.CLAUDE) {
     const isContentBlockDelta = chunk.type === "content_block_delta";
     if (isContentBlockDelta) {
-      const hasText = typeof chunk.delta?.text === "string" && chunk.delta.text.length > 0;
-      const hasThinking =
-        typeof chunk.delta?.thinking === "string" && chunk.delta.thinking.length > 0;
-      const hasInputJson =
-        typeof chunk.delta?.partial_json === "string" && chunk.delta.partial_json.length > 0;
+      const delta = isRecord(chunk.delta) ? chunk.delta : {};
+      const hasText = typeof delta.text === "string" && delta.text.length > 0;
+      const hasThinking = typeof delta.thinking === "string" && delta.thinking.length > 0;
+      const hasInputJson = typeof delta.partial_json === "string" && delta.partial_json.length > 0;
       if (!hasText && !hasThinking && !hasInputJson) return false;
     }
     return true;
   }
 
   // Gemini / Antigravity format: filter chunks with no actual content parts
-  if ((format === FORMATS.GEMINI || format === FORMATS.ANTIGRAVITY) && chunk.candidates?.[0]) {
-    const candidate = chunk.candidates[0];
+  if (
+    (format === FORMATS.GEMINI || format === FORMATS.ANTIGRAVITY) &&
+    Array.isArray(chunk.candidates) &&
+    chunk.candidates[0]
+  ) {
+    const candidate = isRecord(chunk.candidates[0]) ? chunk.candidates[0] : {};
     // Keep chunks with finish reason or safety ratings (they signal completion)
     if (candidate.finishReason) return true;
     // Filter out chunks where parts array is empty or missing
-    const parts = candidate.content?.parts;
+    const content = isRecord(candidate.content) ? candidate.content : null;
+    const parts = Array.isArray(content?.parts) ? content.parts : null;
     if (!parts || parts.length === 0) return false;
     // Filter out chunks where all parts have empty text
-    const hasContent = parts.some(
-      (p) => (typeof p.text === "string" && p.text.length > 0) || p.functionCall || p.executableCode
-    );
+    const hasContent = parts.some((p: unknown) => {
+      const part: GeminiStreamPart = isRecord(p) ? p : {};
+      return (
+        (typeof part.text === "string" && part.text.length > 0) ||
+        part.functionCall ||
+        part.executableCode
+      );
+    });
     return hasContent;
   }
 
@@ -362,18 +422,23 @@ export function hasValuableContent(chunk, format) {
  * The Cloud Code API wraps responses in { response: { candidates: [...] } }
  * while standard Gemini returns { candidates: [...] } directly.
  */
-export function unwrapGeminiChunk(parsed) {
-  if (!parsed.candidates && parsed.response) {
+export function unwrapGeminiChunk<T extends Record<string, unknown>>(
+  parsed: T
+): T | Record<string, unknown> {
+  if (!parsed.candidates && isRecord(parsed.response)) {
     return parsed.response;
   }
   return parsed;
 }
 
 // Fix invalid id (generic or too short)
-export function fixInvalidId(parsed) {
-  if (parsed.id && (parsed.id === "chat" || parsed.id === "completion" || parsed.id.length < 8)) {
-    const fallbackId =
-      parsed.extend_fields?.requestId || parsed.extend_fields?.traceId || Date.now().toString(36);
+export function fixInvalidId(parsed: Record<string, unknown>): boolean {
+  if (
+    typeof parsed.id === "string" &&
+    (parsed.id === "chat" || parsed.id === "completion" || parsed.id.length < 8)
+  ) {
+    const extendFields = isRecord(parsed.extend_fields) ? parsed.extend_fields : {};
+    const fallbackId = extendFields.requestId || extendFields.traceId || Date.now().toString(36);
     parsed.id = `chatcmpl-${fallbackId}`;
     return true;
   }
@@ -381,21 +446,21 @@ export function fixInvalidId(parsed) {
 }
 
 // Remove null perf_metrics from usage (common across formats)
-function cleanPerfMetrics(data) {
-  if (data?.usage && typeof data.usage === "object" && data.usage.perf_metrics === null) {
-    const { perf_metrics, ...usageWithoutPerf } = data.usage;
-    return { ...data, usage: usageWithoutPerf };
+function cleanPerfMetrics(data: unknown): unknown {
+  if (isRecord(data) && isRecord(data.usage) && data.usage.perf_metrics === null) {
+    // Mutate in-place to avoid spread copy per chunk — data is ephemeral, used only for serialization.
+    delete data.usage.perf_metrics;
   }
   return data;
 }
 
 // Format output as SSE
-export function formatSSE(data, sourceFormat) {
+export function formatSSE(data: unknown, sourceFormat: string): string {
   if (data === null || data === undefined) return ""; // Skip null/undefined — never send `data: null` (#483)
-  if (data && data.done) return "data: [DONE]\n\n";
+  if (isRecord(data) && data.done) return "data: [DONE]\n\n";
 
   // OpenAI Responses API format
-  if (data && data.event && data.data) {
+  if (isRecord(data) && data.event && data.data) {
     return `event: ${data.event}\ndata: ${JSON.stringify(data.data)}\n\n`;
   }
 
@@ -403,9 +468,58 @@ export function formatSSE(data, sourceFormat) {
   data = cleanPerfMetrics(data);
 
   // Claude format
-  if (sourceFormat === FORMATS.CLAUDE && data && data.type) {
+  if (sourceFormat === FORMATS.CLAUDE && isRecord(data) && data.type) {
     return `event: ${data.type}\ndata: ${JSON.stringify(data)}\n\n`;
   }
 
   return `data: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * Build a synthetic OpenAI-shaped chat completion chunk for a manually
+ * assembled SSE delta (end-of-stream flushes, textual tool-call fallback,
+ * think-tag reasoning flush, terminal finish_reason synthesis, etc). Reuses
+ * the same `id`/`created` fallback and `choices[0]` shape every passthrough
+ * flush site needs.
+ */
+export function buildSyntheticChatChunk(
+  responsesId: string | null | undefined,
+  model: string | null | undefined,
+  delta: Record<string, unknown>,
+  finishReason: string | null = null
+): Record<string, unknown> {
+  return {
+    id: responsesId || `chatcmpl-${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: model || "unknown",
+    choices: [{ index: 0, delta, finish_reason: finishReason }],
+  };
+}
+
+const STREAM_SUMMARY_TEXT_LIMIT = 64 * 1024;
+
+// Bounded accumulator for streamed content/reasoning text — caps memory on long streams
+// by keeping only the tail once the limit is reached, instead of growing unbounded.
+export function appendBoundedText(current: string, next: string): string {
+  if (!next) return current;
+  // Avoid allocating `current + next` when already at/above limit — slide the window instead.
+  if (current.length >= STREAM_SUMMARY_TEXT_LIMIT) {
+    const keep = STREAM_SUMMARY_TEXT_LIMIT - next.length;
+    if (keep <= 0) return next.slice(-STREAM_SUMMARY_TEXT_LIMIT);
+    return current.slice(-keep) + next;
+  }
+  const combined = current + next;
+  if (combined.length <= STREAM_SUMMARY_TEXT_LIMIT) return combined;
+  return combined.slice(-STREAM_SUMMARY_TEXT_LIMIT);
+}
+
+/** Per-chunk recursive check for meaningful delta content. Hoisted to avoid closure re-allocation in hot-path. */
+export function hasActiveDeltaValue(value: unknown): boolean {
+  if (typeof value === "string") return value.length > 0;
+  if (Array.isArray(value)) return value.some((entry) => hasActiveDeltaValue(entry));
+  if (value && typeof value === "object") {
+    return Object.values(value).some((entry) => hasActiveDeltaValue(entry));
+  }
+  return value !== null && value !== undefined;
 }

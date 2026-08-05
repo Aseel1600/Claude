@@ -36,6 +36,7 @@ const { hasEncryptedCredentials } = require("./sqlite-inspection");
 const { loginManager } = require("./loginManager");
 const { killProcessTree } = require("./processTree");
 const { resolveServerEntry } = require("./lib/resolveServerEntry");
+const { resolveDarwinHelperExecutable } = require("./lib/resolveNodeHelper");
 
 // ── Single Instance Lock ───────────────────────────────────
 const gotTheLock = app.requestSingleInstanceLock();
@@ -79,23 +80,16 @@ function resolveNodeExecutable(env = process.env) {
   // flash a shell window. Use the Helper binary instead — macOS treats
   // Helper processes as background tasks with no visible UI artifacts.
   if (process.platform === "darwin" && !isDev) {
-    const helperPath = path.join(path.dirname(process.execPath), `${app.getName()} Helper`);
-    if (fs.existsSync(helperPath)) {
-      return helperPath;
-    }
-    // Electron \u003e= 20 may use "(Renderer)" / "(GPU)" / "(Plugin)" suffixed helpers.
-    // The unsuffixed Helper is the one suitable for ELECTRON_RUN_AS_NODE.
-    const frameworkHelper = path.join(
-      path.dirname(process.execPath),
-      "..",
-      "Frameworks",
-      `${app.getName()} Helper.app`,
-      "Contents",
-      "MacOS",
-      `${app.getName()} Helper`
-    );
-    if (fs.existsSync(frameworkHelper)) {
-      return frameworkHelper;
+    // #7941: derive the Helper name from the packaged binary name
+    // (path.basename(process.execPath)) rather than app.getName(). electron-builder
+    // generates BOTH the main binary and the Helper.app bundles from build.productName
+    // ("OmniRoute"), whereas app.getName() reads package.json `name` ("omniroute-desktop")
+    // — the two diverged, so app.getName() never matched a real Helper path and this fell
+    // through to process.execPath, spawning the main Electron binary and producing a
+    // second, inert macOS Dock icon.
+    const helper = resolveDarwinHelperExecutable({ execPath: process.execPath });
+    if (helper) {
+      return helper;
     }
   }
   return process.execPath;
@@ -614,8 +608,32 @@ function startNextServer() {
 
   const nodeExecutable = resolveNodeExecutable(serverEnv);
 
+  // #5172/#5160/#5152: the Electron-spawned server inherited the runtime's low
+  // default V8 heap (~512MB) and OOM-crashed on RAM-rich boxes under load
+  // (65 providers / 2600 models → "Ineffective mark-compacts near heap limit").
+  // Default the heap to ~35% of physical RAM (clamped [512, 4096]); an explicit
+  // OMNIROUTE_MEMORY_MB or a pre-set --max-old-space-size still wins. Mirrors
+  // scripts/build/runtime-env.mjs (CJS can't import the ESM helper).
+  const serverNodeOptions = (() => {
+    const existing = serverEnv.NODE_OPTIONS || "";
+    if (existing.includes("--max-old-space-size")) return existing;
+    const explicit = parseInt(serverEnv.OMNIROUTE_MEMORY_MB, 10);
+    let heapMb;
+    if (Number.isFinite(explicit) && explicit >= 64 && explicit <= 16384) {
+      heapMb = explicit;
+    } else {
+      const totalMb = require("os").totalmem() / (1024 * 1024);
+      heapMb =
+        Number.isFinite(totalMb) && totalMb > 0
+          ? Math.min(4096, Math.max(512, Math.floor(totalMb * 0.35)))
+          : 512;
+    }
+    return `${existing} --max-old-space-size=${heapMb}`.trim();
+  })();
+
   console.log("[Electron] Starting Next.js server on port", serverPort);
   console.log("[Electron] Using Node executable:", nodeExecutable);
+  console.log("[Electron] Server NODE_OPTIONS:", serverNodeOptions);
   sendToRenderer("server-status", { status: "starting", port: serverPort });
 
   // Fix #10: Use pipe instead of inherit for logging & readiness detection
@@ -630,6 +648,7 @@ function startNextServer() {
       NODE_ENV: "production",
       ELECTRON_RUN_AS_NODE: "1",
       NODE_PATH: resolveServerNodePath(serverEnv),
+      NODE_OPTIONS: serverNodeOptions,
     },
     stdio: "pipe",
     windowsHide: true,

@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { sanitizeReasoningEffortForProvider } = await import("../../open-sse/executors/base.ts");
+const { DefaultExecutor } = await import("../../open-sse/executors/default.ts");
+const { translateRequest } = await import("../../open-sse/translator/index.ts");
+const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 
 function makeLog() {
   const messages: Array<[string, string]> = [];
@@ -86,6 +89,70 @@ test("sanitizeReasoningEffortForProvider: xiaomi-mimo normalizes max → xhigh b
     log.messages.some(([tag, m]) => tag === "REASONING_SANITIZE" && /max → xhigh/.test(m)),
     "logs the normalization"
   );
+});
+
+test("sanitizeReasoningEffortForProvider: Ollama Cloud preserves max", () => {
+  const log = makeLog();
+  const body = {
+    model: "glm-5.2",
+    reasoning_effort: "max",
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "ollama-cloud", "glm-5.2", log);
+  assert.equal(result, body, "Ollama Cloud accepts max literally");
+  assert.equal((result as any).reasoning_effort, "max");
+  assert.equal(log.messages.length, 0);
+});
+
+test("end-to-end: Anthropic output_config.effort=max reaches Ollama Cloud as max (not xhigh)", () => {
+  // Bug: the claude→openai translator previously normalized max → xhigh, and the
+  // sanitizer could not recover the original intent because the carrier was already
+  // xhigh. Ollama Cloud accepts max literally but rejects xhigh (HTTP 400).
+  // The translator must pass max through verbatim and the sanitizer must keep it.
+  const translated = translateRequest(
+    FORMATS.CLAUDE,
+    FORMATS.OPENAI,
+    "gemma4:31b",
+    {
+      model: "gemma4:31b",
+      messages: [{ role: "user", content: "hi" }],
+      output_config: { effort: "max" },
+    },
+    false,
+    null,
+    "ollama-cloud"
+  ) as Record<string, unknown>;
+
+  assert.equal(
+    translated.reasoning_effort,
+    "max",
+    "translator must pass max through verbatim instead of rewriting it to xhigh"
+  );
+
+  const sanitized = sanitizeReasoningEffortForProvider(
+    translated,
+    "ollama-cloud",
+    "gemma4:31b",
+    null
+  ) as Record<string, unknown>;
+
+  assert.equal(
+    sanitized.reasoning_effort,
+    "max",
+    "Ollama Cloud accepts max literally — no downgrade, no rewrite to xhigh"
+  );
+});
+
+test("sanitizeReasoningEffortForProvider: Ollama Cloud preserves nested max", () => {
+  const body = {
+    model: "glm-5.2",
+    reasoning: { effort: "max", summary: "auto" },
+    input: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "ollama-cloud", "glm-5.2", null);
+  assert.equal(result, body, "Ollama Cloud accepts max literally");
+  assert.equal((result as any).reasoning.effort, "max");
+  assert.equal((result as any).reasoning.summary, "auto");
 });
 
 test("sanitizeReasoningEffortForProvider: OpenRouter DeepSeek normalizes max → xhigh", () => {
@@ -250,13 +317,25 @@ test("sanitizeReasoningEffortForProvider: mistral/devstral strips reasoning_effo
   );
 });
 
-test("sanitizeReasoningEffortForProvider: github/claude-opus strips reasoning_effort entirely", () => {
+test("sanitizeReasoningEffortForProvider: github/claude-opus-4.6 preserves reasoning_effort (#791)", () => {
+  // Upstream PR decolua/9router#791 (port): Copilot now honors reasoning_effort
+  // on Claude Opus 4.6 and Sonnet 4.6. Older Opus variants and Haiku still strip.
   const body = {
     model: "claude-opus-4-6",
     reasoning_effort: "high",
     messages: [],
   };
   const result = sanitizeReasoningEffortForProvider(body, "github", "claude-opus-4-6", null);
+  assert.equal((result as any).reasoning_effort, "high");
+});
+
+test("sanitizeReasoningEffortForProvider: github/claude-opus-4.7 still strips (#791)", () => {
+  const body = {
+    model: "claude-opus-4.7",
+    reasoning_effort: "high",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "github", "claude-opus-4.7", null);
   assert.equal((result as any).reasoning_effort, undefined);
 });
 
@@ -274,6 +353,10 @@ test("sanitizeReasoningEffortForProvider: rejecting providers strip max before n
   );
   assert.equal((mistralResult as any).reasoning_effort, undefined);
 
+  // Pre-#791: github stripped reasoning_effort entirely for every Claude model.
+  // Post-#791: Opus 4.6 keeps reasoning_effort; `max` downgrades to `high`
+  // because github is not Claude/CC-compatible (so supportsMax=false) and
+  // the canonical Claude Opus 4.6 model opts out of xhigh.
   const githubBody = {
     model: "claude-opus-4-6",
     reasoning_effort: "max",
@@ -285,7 +368,22 @@ test("sanitizeReasoningEffortForProvider: rejecting providers strip max before n
     "claude-opus-4-6",
     null
   );
-  assert.equal((githubResult as any).reasoning_effort, undefined);
+  assert.equal((githubResult as any).reasoning_effort, "high");
+
+  // Pre-#791 strip is preserved for github Claude models that DO NOT opt in
+  // (Haiku 4.5, Opus 4.7, older Sonnet, etc.).
+  const githubHaiku = {
+    model: "claude-haiku-4.5",
+    reasoning_effort: "max",
+    messages: [],
+  };
+  const githubHaikuResult = sanitizeReasoningEffortForProvider(
+    githubHaiku,
+    "github",
+    "claude-haiku-4.5",
+    null
+  );
+  assert.equal((githubHaikuResult as any).reasoning_effort, undefined);
 });
 
 test("sanitizeReasoningEffortForProvider: mistral/devstral strips reasoning object when only effort present", () => {
@@ -336,6 +434,114 @@ test("sanitizeReasoningEffortForProvider: non-object body returns unchanged", ()
   assert.equal(sanitizeReasoningEffortForProvider("string", "xiaomi-mimo", "x", null), "string");
   const arr: unknown[] = [];
   assert.equal(sanitizeReasoningEffortForProvider(arr, "xiaomi-mimo", "x", null), arr);
+});
+
+// ── NVIDIA NIM GLM-5.2 (#7215) ─────────────────────────────────────────────
+
+test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 enables thinking for active effort", () => {
+  for (const effort of ["low", "medium", "high", "xhigh", "max"]) {
+    const body = { reasoning_effort: effort, messages: [] };
+    const result = sanitizeReasoningEffortForProvider(
+      body,
+      "nvidia",
+      "z-ai/glm-5.2",
+      null
+    ) as Record<string, unknown>;
+
+    assert.notEqual(result, body);
+    assert.equal(result.reasoning_effort, undefined);
+    assert.deepEqual(result.chat_template_kwargs, { enable_thinking: true });
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 maps none to thinking off", () => {
+  const result = sanitizeReasoningEffortForProvider(
+    { reasoning_effort: "none", messages: [] },
+    "nvidia",
+    "z-ai/glm-5.2",
+    null
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning_effort, undefined);
+  assert.deepEqual(result.chat_template_kwargs, { enable_thinking: false });
+});
+
+test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 maps nested reasoning.effort", () => {
+  const result = sanitizeReasoningEffortForProvider(
+    { reasoning: { effort: "high" }, messages: [] },
+    "nvidia",
+    "z-ai/glm-5.2",
+    null
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning, undefined);
+  assert.deepEqual(result.chat_template_kwargs, { enable_thinking: true });
+});
+
+test("DefaultExecutor: NVIDIA GLM-5.2 maps nested effort before unsupported-param stripping", () => {
+  const result = new DefaultExecutor("nvidia").transformRequest(
+    "z-ai/glm-5.2",
+    {
+      model: "z-ai/glm-5.2",
+      reasoning: { effort: "high", summary: "auto" },
+      messages: [],
+    },
+    false,
+    {}
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning, undefined);
+  assert.equal(result.reasoning_effort, undefined);
+  assert.deepEqual(result.chat_template_kwargs, { enable_thinking: true });
+});
+
+test("DefaultExecutor: NVIDIA reasoning levels remain intact for GPT-OSS", () => {
+  const result = new DefaultExecutor("nvidia").transformRequest(
+    "openai/gpt-oss-120b",
+    {
+      model: "openai/gpt-oss-120b",
+      reasoning_effort: "low",
+      messages: [],
+    },
+    false,
+    {}
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning_effort, "low");
+  assert.equal(result.chat_template_kwargs, undefined);
+});
+
+test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 preserves a native thinking switch", () => {
+  const result = sanitizeReasoningEffortForProvider(
+    {
+      reasoning_effort: "xhigh",
+      chat_template_kwargs: { enable_thinking: false, custom_flag: true },
+      messages: [],
+    },
+    "nvidia",
+    "z-ai/glm-5.2",
+    null
+  ) as Record<string, unknown>;
+
+  assert.equal(result.reasoning_effort, undefined);
+  assert.deepEqual(result.chat_template_kwargs, {
+    enable_thinking: false,
+    custom_flag: true,
+  });
+});
+
+test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 mapping is narrowly scoped", () => {
+  const otherModel = { reasoning_effort: "high", messages: [] };
+  const otherProvider = { reasoning_effort: "high", messages: [] };
+
+  assert.equal(
+    sanitizeReasoningEffortForProvider(otherModel, "nvidia", "z-ai/glm-5.1", null),
+    otherModel
+  );
+  assert.equal(
+    sanitizeReasoningEffortForProvider(otherProvider, "openai", "z-ai/glm-5.2", null),
+    otherProvider
+  );
 });
 
 // ── Native DeepSeek (api.deepseek.com) ───────────────────────────────────────
@@ -425,7 +631,7 @@ test("sanitizeReasoningEffortForProvider: OpenRouter DeepSeek still preserves xh
   const body = {
     model: "deepseek/deepseek-v4-pro",
     reasoning_effort: "xhigh",
-    messages: [{ role: "user", content: "hi" }],
+    messages: [],
   };
   const result = sanitizeReasoningEffortForProvider(
     body,
@@ -435,4 +641,90 @@ test("sanitizeReasoningEffortForProvider: OpenRouter DeepSeek still preserves xh
   );
   assert.equal(result, body);
   assert.equal((result as any).reasoning_effort, "xhigh");
+});
+
+// ── opencode-go DeepSeek V4 Pro effort variants (#4647) ──────────────────────
+// opencode-go proxies DeepSeek with the native DeepSeek API contract, which
+// accepts {high, max} literally. The OpencodeExecutor's transformRequest sets
+// reasoning_effort to the variant suffix (low|medium|high|max), and the
+// sanitizer must NOT rewrite `max` → `xhigh` for this provider+model combo.
+
+test("sanitizeReasoningEffortForProvider: opencode-go DeepSeek V4 Pro preserves max", () => {
+  const body = {
+    model: "deepseek-v4-pro",
+    reasoning_effort: "max",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "opencode-go", "deepseek-v4-pro", null);
+  assert.equal(result, body, "opencode-go DeepSeek max must pass through unchanged");
+  assert.equal((result as any).reasoning_effort, "max");
+});
+
+test("sanitizeReasoningEffortForProvider: opencode-go DeepSeek V4 Pro preserves variant suffix levels", () => {
+  for (const level of ["low", "medium", "high", "max"]) {
+    const body = {
+      model: `deepseek-v4-pro-${level}`,
+      reasoning_effort: level,
+      messages: [],
+    };
+    const result = sanitizeReasoningEffortForProvider(
+      body,
+      "opencode-go",
+      `deepseek-v4-pro-${level}`,
+      null
+    );
+    assert.equal(
+      (result as any).reasoning_effort,
+      level,
+      `opencode-go deepseek-v4-pro-${level} preserves reasoning_effort=${level}`
+    );
+  }
+});
+
+test("sanitizeReasoningEffortForProvider: opencode-go with non-DeepSeek model still normalizes max → xhigh", () => {
+  // The opt-in must be scoped to DeepSeek models on opencode-go only — other
+  // opencode-go models (e.g. glm/kimi/mimo) follow the default xhigh policy.
+  const body = {
+    model: "mimo-v2.5-pro",
+    reasoning_effort: "max",
+    messages: [],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "opencode-go", "mimo-v2.5-pro", null);
+  assert.notEqual(result, body);
+  assert.equal((result as any).reasoning_effort, "xhigh");
+});
+
+test("sanitizeReasoningEffortForProvider: #7044 output_config.effort (Claude native) xhigh is downgraded, not bypassed", () => {
+  const log = makeLog();
+  const body = {
+    model: "claude-opus-4-6",
+    output_config: { effort: "xhigh" },
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "claude", "claude-opus-4-6", log);
+  assert.notEqual(result, body, "must return a new object when mutating");
+  assert.equal(
+    (result as any).output_config.effort,
+    "high",
+    "xhigh downgraded to high on the output_config carrier"
+  );
+  assert.ok(
+    !("reasoning_effort" in (result as any)),
+    "no spurious reasoning_effort injected when only output_config was present"
+  );
+  assert.ok(
+    log.messages.some(([tag, m]) => tag === "REASONING_SANITIZE" && /xhigh → high/.test(m)),
+    "logs the downgrade"
+  );
+});
+
+test("sanitizeReasoningEffortForProvider: #7044 output_config.effort high passes through unchanged", () => {
+  const body = {
+    model: "claude-opus-4-6",
+    output_config: { effort: "high" },
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "claude", "claude-opus-4-6", null);
+  assert.equal(result, body, "high is supported — body returned unchanged");
+  assert.equal((result as any).output_config.effort, "high");
 });

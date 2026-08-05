@@ -18,14 +18,19 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 test("bypassProxyPatch is present in the NVIDIA validation path (#3226 documented exception)", () => {
-  const validation = readFileSync("src/lib/providers/validation.ts", "utf8");
+  // After the validation.ts godfile split (#4921–#4930), bypassProxyPatch moved to the
+  // extracted validation/headers.ts. Assert the bypass lives in the validation LAYER
+  // (validation.ts + its extracted modules), not that it stayed in one file.
+  const validationLayer =
+    readFileSync("src/lib/providers/validation.ts", "utf8") +
+    readFileSync("src/lib/providers/validation/headers.ts", "utf8");
   assert.ok(
-    validation.includes("bypassProxyPatch"),
-    "expected bypassProxyPatch to be present in validation.ts (the documented NVIDIA exception)"
+    validationLayer.includes("bypassProxyPatch"),
+    "expected bypassProxyPatch in the validation layer (validation/headers.ts) — the documented NVIDIA exception"
   );
   assert.ok(
-    validation.includes("directHttpsRequest"),
-    "expected directHttpsRequest helper to be present in validation.ts"
+    validationLayer.includes("directHttpsRequest"),
+    "expected directHttpsRequest helper in the validation layer"
   );
 });
 
@@ -34,12 +39,18 @@ test("bypassProxyPatch is absent from the chat hot path (scope guard — #3226)"
   // If either of these assertions starts failing, a code change has silently
   // extended the NVIDIA-only exception to the chat/usage egress path.
   const chatHelpers = readFileSync("src/sse/handlers/chatHelpers.ts", "utf8");
+  // Anchor: without it, extracting the egress code into another module would make the
+  // negative guard below pass against a file that no longer contains the hot path.
+  assert.match(chatHelpers, /export async function executeChatWithBreaker\(/);
   assert.ok(
     !chatHelpers.includes("bypassProxyPatch"),
     "chatHelpers.ts must not bypass the proxy patch — only NVIDIA validation may do this (#3226)"
   );
 
   const chatCore = readFileSync("open-sse/handlers/chatCore.ts", "utf8");
+  // Anchor: chatCore.ts is actively being split, so pin the entry point the route
+  // imports — the negative guard is worthless if this read silently misses the file.
+  assert.match(chatCore, /export async function handleChatCore\(/);
   assert.ok(
     !chatCore.includes("bypassProxyPatch"),
     "chatCore.ts must not bypass the proxy patch — only NVIDIA validation may do this (#3226)"

@@ -17,6 +17,9 @@ Think of a provider like a **phone carrier**. Just as you need a phone carrier t
 | **OAuth**      | Login with your account   | Claude Code, GitHub Copilot       | Subscription           |
 | **Web Cookie** | Uses your browser session | ChatGPT Web, Gemini Web           | $0 (uses your account) |
 
+### Web Cookie Providers
+
+See **[WEB-COOKIE-GUIDE.md](./WEB-COOKIE-GUIDE.md)** for general setup instructions, limitations, troubleshooting, and provider-specific authentication guidance.
 ---
 
 ## Quick Start: Connect Your First Provider
@@ -29,7 +32,7 @@ Think of a provider like a **phone carrier**. Just as you need a phone carrier t
    - **Kiro AI** — Free Claude models (no auth needed)
    - **OpenCode Free** — Free GPT models (no auth needed)
    - **Pollinations** — Free GPT-5, Claude, Gemini (no key needed)
-   - **LongCat** — 50M tokens/day free
+   - **LongCat** — 10M tokens free (one-time grant, requires account + KYC)
    - **Cloudflare AI** — 50+ models, 10K neurons/day
 4. Click **Connect**
 5. Done! You now have free AI access.
@@ -69,7 +72,7 @@ These providers offer **free access** with no credit card:
 | **Kiro AI**       | 50 credits/month | Claude Sonnet 4.5, Haiku 4.5, Opus 4.6   | No auth needed |
 | **OpenCode Free** | Unlimited        | GPT-4o, Claude, Gemini                   | No auth needed |
 | **Pollinations**  | No key needed    | GPT-5, Claude, Gemini, DeepSeek, Llama 4 | No auth needed |
-| **LongCat**       | 50M tokens/day   | LongCat-Flash-Lite                       | No auth needed |
+| **LongCat**       | 10M one-time     | LongCat-2.0                              | API key + KYC  |
 | **Cloudflare AI** | 10K neurons/day  | 50+ models                               | No auth needed |
 | **NVIDIA NIM**    | ~40 RPM          | 129 models                               | API key needed |
 | **Cerebras**      | 1M tokens/day    | Qwen3 235B, GPT-OSS 120B                 | API key needed |

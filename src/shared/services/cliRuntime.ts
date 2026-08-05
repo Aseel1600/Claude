@@ -5,7 +5,10 @@ import path from "path";
 import { spawn, execFileSync } from "child_process";
 import { getHermesHome } from "@/lib/cli-helper/config-generator/hermesHome";
 import { getCachedLoginShellPath, mergeShellPath } from "./loginShellPath";
-
+import { withSettingsFallback } from "./cliInstallFallback";
+import { GROK_BUILD_RUNTIME_ENTRY, AMP_RUNTIME_ENTRY } from "./cliRuntimeGrokBuild";
+import { isLocationTrusted, findKnownPathMatch } from "./cliRuntimeKnownPath";
+import { buildHealthcheckPath } from "./cliRuntimeHealthcheckPath";
 const VALID_RUNTIME_MODES = new Set(["auto", "host", "container"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
 
@@ -113,13 +116,13 @@ const CLI_TOOLS: Record<string, any> = {
     },
   },
   continue: {
-    defaultCommand: null,
+    defaultCommand: "cn",
     envBinKey: "CLI_CONTINUE_BIN",
-    requiresBinary: false,
+    requiresBinary: true,
     // opencode and continue may take up to 15s on first run / cold start on VPS
     healthcheckTimeoutMs: 15000,
     paths: {
-      settings: ".continue/config.json",
+      settings: ".continue/config.yaml",
     },
   },
   opencode: {
@@ -155,13 +158,7 @@ const CLI_TOOLS: Record<string, any> = {
       config: "config.yaml",
     },
   },
-  amp: {
-    defaultCommand: "amp",
-    envBinKey: "CLI_AMP_BIN",
-    requiresBinary: true,
-    healthcheckTimeoutMs: 12000,
-    paths: {},
-  },
+  amp: AMP_RUNTIME_ENTRY,
   qoder: {
     defaultCommand: "qodercli",
     envBinKey: "CLI_QODER_BIN",
@@ -180,17 +177,6 @@ const CLI_TOOLS: Record<string, any> = {
     paths: {
       settings: ".qwen/settings.json",
       env: ".qwen/.env",
-    },
-  },
-  "gemini-cli": {
-    defaultCommand: "gemini",
-    envBinKey: "CLI_GEMINI_BIN",
-    requiresBinary: true,
-    healthcheckTimeoutMs: 8000,
-    paths: {
-      auth: ".gemini/oauth_creds.json",
-      accounts: ".gemini/google_accounts.json",
-      settings: ".gemini/settings.json",
     },
   },
   // ── Plan 14 — new "custom" configType tools ───────────────────────────────
@@ -212,6 +198,7 @@ const CLI_TOOLS: Record<string, any> = {
       config: ".jcode/config.json",
     },
   },
+  "grok-build": GROK_BUILD_RUNTIME_ENTRY,
   "deepseek-tui": {
     defaultCommand: "deepseek-tui",
     envBinKey: "CLI_DEEPSEEK_TUI_BIN",
@@ -219,6 +206,33 @@ const CLI_TOOLS: Record<string, any> = {
     healthcheckTimeoutMs: 8000,
     paths: {
       config: ".config/deepseek-tui/config.toml",
+    },
+  },
+  omp: {
+    defaultCommand: "omp",
+    envBinKey: "CLI_OMP_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 8000,
+    paths: {
+      config: ".omp/agent/models.yml",
+    },
+  },
+  letta: {
+    defaultCommand: "letta",
+    envBinKey: "CLI_LETTA_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 8000,
+    paths: {
+      config: ".letta/lc-local-backend/providers/auth.json",
+    },
+  },
+  codewhale: {
+    defaultCommand: "codewhale",
+    envBinKey: "CLI_CODEWHALE_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 8000,
+    paths: {
+      config: ".codewhale/config.toml",
     },
   },
   smelt: {
@@ -237,6 +251,18 @@ const CLI_TOOLS: Record<string, any> = {
     healthcheckTimeoutMs: 8000,
     paths: {
       config: ".pi/config.json",
+    },
+  },
+  // Config path reconciled with bin/cli/commands/setup-crush.mjs::resolveCrushTarget's
+  // default (~/.config/crush/crush.json) so the dashboard and `omniroute setup-crush`
+  // agree on one canonical config location.
+  crush: {
+    defaultCommand: "crush",
+    envBinKey: "CLI_CRUSH_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 8000,
+    paths: {
+      config: ".config/crush/crush.json",
     },
   },
 };
@@ -306,6 +332,7 @@ const runProcess = (
     // `command` as a raw argv[0] and the OS loader handles spaces. When useShell
     // is true (.cmd/.bat on Windows), Node quotes the command for cmd.exe itself.
     const child = spawn(command, args, {
+      windowsHide: true,
       env,
       stdio: ["ignore", "pipe", "pipe"],
       // On Windows, npm installs CLI wrappers as .cmd/.bat scripts. Those still
@@ -440,6 +467,7 @@ const getNpmGlobalPrefix = (): string => {
 
   try {
     const result = execFileSync("npm", ["config", "get", "prefix"], {
+      windowsHide: true,
       timeout: 5000,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],
@@ -523,7 +551,7 @@ const getExtraPaths = () =>
  * Checks npm global prefix, NVM locations, standalone installer paths.
  * Works on all platforms — Windows checks .cmd wrappers, Linux/macOS checks bare names.
  */
-const getKnownToolPaths = (toolId: string): string[] => {
+export const getKnownToolPaths = (toolId: string): string[] => {
   const home = os.homedir();
   const paths: string[] = [];
 
@@ -547,11 +575,13 @@ const getKnownToolPaths = (toolId: string): string[] => {
     ],
     cline: [["cline.cmd", "cline"]],
     kilo: [["kilocode.cmd", "kilocode"]],
+    continue: [["cn.cmd", "cn"]],
     opencode: [["opencode.cmd", "opencode"]],
     qoder: [
       ["qodercli.cmd", "qodercli"],
       ["qodercli.exe", "qodercli"],
     ],
+    qwen: [["qwen.cmd", "qwen"]],
     devin: [
       ["devin.exe", "devin"],
       ["devin.cmd", "devin"],
@@ -574,6 +604,16 @@ const getKnownToolPaths = (toolId: string): string[] => {
       if (localAppData) {
         paths.push(path.join(localAppData, "Programs", "Claude", "claude.exe"));
         paths.push(path.join(localAppData, "claude-code", "claude.exe"));
+        paths.push(
+          path.join(
+            localAppData,
+            "Microsoft",
+            "WinGet",
+            "Packages",
+            "Anthropic.ClaudeCode_Microsoft.Winget.Source_8wekyb3d8bbwe",
+            "claude.exe"
+          )
+        );
       }
     }
 
@@ -648,7 +688,7 @@ const getNvmNodePath = (): string | null => {
   return null;
 };
 
-const getLookupEnv = () => {
+export const getLookupEnv = () => {
   const env = { ...process.env };
   const extraPaths = getExtraPaths();
   const basePath = env.PATH || env.Path || "";
@@ -704,7 +744,7 @@ const checkExplicitPath = async (commandPath: string) => {
   }
 };
 
-const locateCommand = async (command: string, env: Record<string, string | undefined>) => {
+export const locateCommand = async (command: string, env: Record<string, string | undefined>) => {
   if (!command) {
     return { installed: false, commandPath: null, reason: "missing_command" };
   }
@@ -756,7 +796,7 @@ const locateCommand = async (command: string, env: Record<string, string | undef
  * - Verifies file is a regular file (not directory, pipe, or device)
  * - Checks file size bounds (30B - 100MB) to detect suspicious binaries
  */
-const checkKnownPath = async (commandPath: string) => {
+export const checkKnownPath = async (commandPath: string) => {
   if (!path.isAbsolute(commandPath)) {
     return { installed: false, commandPath: null, reason: "not_absolute" };
   }
@@ -769,27 +809,21 @@ const checkKnownPath = async (commandPath: string) => {
     // Resolve symlinks to get the real path and detect symlink escapes
     const realPath = await fs.realpath(commandPath);
 
-    // Verify the resolved path is still within expected directories
-    // Use pre-computed expected parent paths (cached at module startup for performance).
-    // On macOS temp directories often resolve from /var -> /private/var, so compare both
-    // the configured parent and its canonical realpath when available.
-    let isWithinExpected = false;
-    for (const parent of EXPECTED_PARENT_PATHS) {
-      if (isPathWithin(realPath, parent)) {
-        isWithinExpected = true;
-        break;
-      }
-
-      try {
-        const resolvedParent = await fs.realpath(parent);
-        if (isPathWithin(realPath, resolvedParent)) {
-          isWithinExpected = true;
-          break;
-        }
-      } catch {
-        // Ignore missing/unresolvable parents and continue checking the remaining ones.
-      }
-    }
+    // Verify the resolved path — OR the original pre-resolution path — is within
+    // expected directories. Use pre-computed expected parent paths (cached at module
+    // startup for performance). On macOS temp directories often resolve from
+    // /var -> /private/var, so compare both the configured parent and its canonical
+    // realpath when available.
+    //
+    // #7753: also trust the pre-resolution `commandPath` itself, not just `realPath`
+    // — see isLocationTrusted() in cliRuntimeKnownPath.ts for the rationale.
+    const isWithinExpected = await isLocationTrusted(
+      commandPath,
+      realPath,
+      EXPECTED_PARENT_PATHS,
+      isPathWithin,
+      fs.realpath
+    );
 
     if (!isWithinExpected) {
       return { installed: false, commandPath: null, reason: "symlink_escape" };
@@ -827,6 +861,8 @@ const checkKnownPath = async (commandPath: string) => {
   }
 };
 
+type KnownPathResult = Awaited<ReturnType<typeof checkKnownPath>>;
+
 const locateCommandCandidate = async (
   commands: string[],
   env: Record<string, string | undefined>,
@@ -838,35 +874,25 @@ const locateCommandCandidate = async (
 
   // SECURITY: First check known installation paths for this specific tool
   // This avoids searching PATH and reduces attack surface
+  let bestKnownPathFailure: KnownPathResult | null = null;
   if (toolId) {
-    const knownPaths = getKnownToolPaths(toolId);
-    for (const knownPath of knownPaths) {
-      const result = await checkKnownPath(knownPath);
-      if (result.installed && result.reason === null) {
-        return {
-          command: commands[0],
-          installed: true,
-          commandPath: result.commandPath,
-          reason: null,
-        };
-      }
-
-      if (result.installed && result.reason === "not_executable") {
-        return {
-          command: commands[0],
-          installed: true,
-          commandPath: result.commandPath,
-          reason: "not_executable",
-        };
-      }
-
-      if (result.reason && result.reason !== "not_found") {
-        return { command: commands[0], ...result };
-      }
+    const { match, bestFailure } = await findKnownPathMatch(
+      getKnownToolPaths(toolId),
+      checkKnownPath
+    );
+    if (match) {
+      return {
+        command: commands[0],
+        installed: true,
+        commandPath: match.commandPath,
+        reason: match.reason,
+      };
     }
+    bestKnownPathFailure = bestFailure;
   }
 
-  // Fallback: search PATH (user can set CLI_EXTRA_PATHS if needed)
+  // Always try PATH — a stray/broken known-path guess must never hide a genuinely
+  // PATH-resolvable binary (#7774). User can also set CLI_EXTRA_PATHS if needed.
   for (const command of commands) {
     const located = await locateCommand(command, env);
     if (located.installed || located.reason !== "not_found") {
@@ -874,6 +900,9 @@ const locateCommandCandidate = async (
     }
   }
 
+  if (bestKnownPathFailure) {
+    return { command: commands[0], ...bestKnownPathFailure };
+  }
   return { command: commands[0], installed: false, commandPath: null, reason: "not_found" };
 };
 
@@ -884,7 +913,9 @@ const checkRunnable = async (
 ) => {
   // Minimal environment to prevent credential leakage to potentially malicious binaries
   const minimalEnv: Record<string, string | undefined> = {
-    PATH: env.PATH || env.Path,
+    // #8036: merge in this Node's own bin dir so `#!/usr/bin/env node` npm CLIs
+    // (e.g. codex) can resolve their interpreter under a minimal launcher PATH.
+    PATH: buildHealthcheckPath(env.PATH || env.Path || "", path.dirname(process.execPath)),
     HOME: env.HOME || env.USERPROFILE,
     USERPROFILE: env.USERPROFILE, // Windows needs this for os.homedir()
     APPDATA: env.APPDATA, // Many npm CLI tools rely on APPDATA
@@ -1047,7 +1078,7 @@ export const getCliRuntimeStatus = async (toolId: string) => {
   const command = located.command;
 
   if (!located.installed) {
-    return {
+    return withSettingsFallback(getCliConfigPaths(toolId)?.settings, {
       installed: false,
       runnable: false,
       command,
@@ -1055,7 +1086,7 @@ export const getCliRuntimeStatus = async (toolId: string) => {
       reason: located.reason || "not_found",
       runtimeMode,
       requiresBinary,
-    };
+    });
   }
 
   if (located.reason === "not_executable") {
@@ -1071,13 +1102,14 @@ export const getCliRuntimeStatus = async (toolId: string) => {
   }
 
   const healthcheck = await checkRunnable(
-    located.commandPath,
+    located.commandPath || command || "", // located + executable ⇒ commandPath set
     env,
     Number(tool.healthcheckTimeoutMs || 4000)
   );
   return {
     installed: true,
     runnable: healthcheck.runnable,
+    version: healthcheck.version,
     command,
     commandPath: located.commandPath,
     reason: healthcheck.reason,

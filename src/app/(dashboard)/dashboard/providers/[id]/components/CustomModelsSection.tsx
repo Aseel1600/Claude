@@ -21,6 +21,7 @@ import {
   effectivePreserveForProtocol,
   effectiveUpstreamHeadersForProtocol,
   formatProviderModelsErrorResponse,
+  targetFormatBadgeI18nKey,
   type CompatModelRow,
   type CompatByProtocolMap,
 } from "../providerPageHelpers";
@@ -36,6 +37,29 @@ export interface CustomModelsSectionProps {
   copied?: string;
   onCopy: (text: string, key: string) => void;
   onModelsChanged?: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Map a targetFormat value to its display label, used for the model row badge. */
+function targetFormatLabel(value: string, t: (key: string) => string): string {
+  const key = targetFormatBadgeI18nKey(value);
+  return key ? t(key) : value;
+}
+
+/**
+ * #4125: parse the free-text "Context Window Override" field. Blank → no override
+ * (`value: null`, not an error). A non-empty value must be a positive whole number of
+ * tokens; anything else is rejected. Pulled out of saveEdit so its own branching stays
+ * off that handler's cyclomatic complexity.
+ */
+function parseContextWindowOverrideInput(raw: string): { value: number | null; invalid: boolean } {
+  const trimmed = raw.trim();
+  if (!trimmed) return { value: null, invalid: false };
+  if (!/^\d+$/.test(trimmed) || Number(trimmed) <= 0) return { value: null, invalid: true };
+  return { value: Number(trimmed), invalid: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -64,8 +88,21 @@ export default function CustomModelsSection({
   const [editingModelId, setEditingModelId] = useState<string | null>(null);
   const [editingApiFormat, setEditingApiFormat] = useState("chat-completions");
   const [editingEndpoints, setEditingEndpoints] = useState<string[]>(["chat"]);
+  // #2905: per-model upstream wire-format override (empty string = no override,
+  // use provider default). Round-trips through the targetFormat field on the
+  // custom model record.
+  const [editingTargetFormat, setEditingTargetFormat] = useState("");
+  const [newTargetFormat, setNewTargetFormat] = useState("");
   const [savingModelId, setSavingModelId] = useState<string | null>(null);
   const [togglingModelId, setTogglingModelId] = useState<string | null>(null);
+  // #4125: manual context-window override (Feature 5004 table) — free text so the
+  // field can be left blank (no override) without fighting a number input's "0".
+  const [editingContextWindowOverride, setEditingContextWindowOverride] = useState("");
+  // #1904: manual vision-capability override — some self-hosted/local OpenAI-compatible
+  // backends don't self-report an image input modality, so the user needs a way to flag
+  // the model as vision-capable by hand (read back by getCustomVisionCapabilityFields()).
+  const [newSupportsVision, setNewSupportsVision] = useState(false);
+  const [editingSupportsVision, setEditingSupportsVision] = useState(false);
 
   const customMap = useMemo(() => buildCompatMap(customModels), [customModels]);
   const overrideMap = useMemo(() => buildCompatMap(modelCompatOverrides), [modelCompatOverrides]);
@@ -102,6 +139,8 @@ export default function CustomModelsSection({
           modelName: newModelName.trim() || undefined,
           apiFormat: newApiFormat,
           supportedEndpoints: newEndpoints,
+          ...(newTargetFormat ? { targetFormat: newTargetFormat } : {}),
+          ...(newSupportsVision ? { supportsVision: true } : {}),
         }),
       });
       if (res.ok) {
@@ -109,6 +148,8 @@ export default function CustomModelsSection({
         setNewModelName("");
         setNewApiFormat("chat-completions");
         setNewEndpoints(["chat"]);
+        setNewTargetFormat("");
+        setNewSupportsVision(false);
         await fetchCustomModels();
         onModelsChanged?.();
       }
@@ -164,12 +205,20 @@ export default function CustomModelsSection({
         ? model.supportedEndpoints
         : ["chat"]
     );
+    setEditingTargetFormat(model.targetFormat || "");
+    setEditingContextWindowOverride(
+      typeof model.contextWindowOverride === "number" ? String(model.contextWindowOverride) : ""
+    );
+    setEditingSupportsVision(model.supportsVision === true);
   };
 
   const cancelEdit = () => {
     setEditingModelId(null);
     setEditingApiFormat("chat-completions");
     setEditingEndpoints(["chat"]);
+    setEditingTargetFormat("");
+    setEditingContextWindowOverride("");
+    setEditingSupportsVision(false);
     setSavingModelId(null);
   };
 
@@ -205,13 +254,10 @@ export default function CustomModelsSection({
     }
   };
 
-  const saveEdit = async (modelId: string) => {
-    if (!editingModelId || editingModelId !== modelId) return;
-    if (!editingEndpoints.length) {
-      notify.error("Select at least one supported endpoint");
-      return;
-    }
-
+  // Split out of saveEdit (which only validates + delegates) so the #4125 context-window
+  // validation stays a single early-return in the caller instead of adding a branch to
+  // this already-large PUT/fetch/error-handling body.
+  const performSaveEdit = async (modelId: string, contextWindowOverride: number | null) => {
     setSavingModelId(modelId);
     try {
       const model = customModels.find((m) => m.id === modelId);
@@ -225,6 +271,15 @@ export default function CustomModelsSection({
           source: model?.source || "manual",
           apiFormat: editingApiFormat,
           supportedEndpoints: editingEndpoints,
+          // #2905: send targetFormat only when set; the API treats the field
+          // as optional. Sending an empty string would fail Zod's enum check,
+          // so we omit it entirely when the user picks "Default (auto)".
+          ...(editingTargetFormat ? { targetFormat: editingTargetFormat } : {}),
+          // #4125: manual context-window override — number to set, null to clear.
+          contextWindowOverride,
+          // #1904: manual vision-capability override — true/false to set, null to
+          // clear back to the id-based heuristic.
+          supportsVision: editingSupportsVision ? true : null,
         }),
       });
 
@@ -245,6 +300,22 @@ export default function CustomModelsSection({
     } finally {
       setSavingModelId(null);
     }
+  };
+
+  const saveEdit = async (modelId: string) => {
+    if (!editingModelId || editingModelId !== modelId) return;
+    if (!editingEndpoints.length) {
+      notify.error("Select at least one supported endpoint");
+      return;
+    }
+
+    const contextOverride = parseContextWindowOverrideInput(editingContextWindowOverride);
+    if (contextOverride.invalid) {
+      notify.error(t("contextWindowOverrideInvalid"));
+      return;
+    }
+
+    await performSaveEdit(modelId, contextOverride.value);
   };
 
   return (
@@ -312,6 +383,25 @@ export default function CustomModelsSection({
               <option value="images-generations">{t("imagesGenerations")}</option>
             </select>
           </div>
+          <div className="w-48">
+            <label htmlFor="custom-target-format" className="text-xs text-text-muted mb-1 block">
+              {t("targetFormatLabel")}
+            </label>
+            <select
+              id="custom-target-format"
+              value={newTargetFormat}
+              onChange={(e) => setNewTargetFormat(e.target.value)}
+              title={t("targetFormatHint")}
+              className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:border-primary"
+            >
+              <option value="">{t("targetFormatAuto")}</option>
+              <option value="openai">{t("compatProtocolOpenAI")}</option>
+              <option value="openai-responses">{t("compatProtocolOpenAIResponses")}</option>
+              <option value="claude">{t("compatProtocolClaude")}</option>
+              <option value="gemini">{t("targetFormatGemini")}</option>
+              <option value="antigravity">{t("targetFormatAntigravity")}</option>
+            </select>
+          </div>
           <div className="flex-1">
             <span className="text-xs text-text-muted mb-1 block">
               {t("supportedEndpointsLabel")}
@@ -346,6 +436,23 @@ export default function CustomModelsSection({
                 </label>
               ))}
             </div>
+          </div>
+          <div>
+            <span className="text-xs text-text-muted mb-1 block">&nbsp;</span>
+            <label
+              htmlFor="custom-model-supports-vision"
+              className="flex items-center gap-1.5 text-xs text-text-main cursor-pointer whitespace-nowrap"
+              title={t("visionCapableHint")}
+            >
+              <input
+                id="custom-model-supports-vision"
+                type="checkbox"
+                checked={newSupportsVision}
+                onChange={(e) => setNewSupportsVision(e.target.checked)}
+                className="rounded border-border"
+              />
+              {`👁️ ${t("visionCapableLabel")}`}
+            </label>
           </div>
         </div>
       </div>
@@ -386,6 +493,30 @@ export default function CustomModelsSection({
                     {model.apiFormat === "responses" && (
                       <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">
                         {t("responses")}
+                      </span>
+                    )}
+                    {model.targetFormat && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-medium"
+                        title={t("targetFormatHint")}
+                      >
+                        {`→ ${targetFormatLabel(model.targetFormat, t)}`}
+                      </span>
+                    )}
+                    {typeof model.contextWindowOverride === "number" && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400 font-medium"
+                        title={t("contextWindowOverrideHint")}
+                      >
+                        {`🪟 ${model.contextWindowOverride.toLocaleString()}`}
+                      </span>
+                    )}
+                    {model.supportsVision === true && (
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-medium"
+                        title={t("visionCapableHint")}
+                      >
+                        {`👁️ ${t("visionCapableLabel")}`}
                       </span>
                     )}
                     {model.supportedEndpoints?.includes("embeddings") && (
@@ -445,12 +576,61 @@ export default function CustomModelsSection({
                             <option value="responses">{t("responsesApi")}</option>
                             <option value="embeddings">{t("embeddings")}</option>
                             <option value="rerank">Rerank</option>
-                            <option value="audio-transcriptions">
-                              {t("audioTranscriptions")}
-                            </option>
+                            <option value="audio-transcriptions">{t("audioTranscriptions")}</option>
                             <option value="audio-speech">{t("audioSpeech")}</option>
                             <option value="images-generations">{t("imagesGenerations")}</option>
                           </select>
+                        </div>
+                        <div className="w-[11rem] shrink-0 min-w-0">
+                          <label className="text-xs text-text-muted mb-1 block">
+                            {t("targetFormatLabel")}
+                          </label>
+                          <select
+                            value={editingTargetFormat}
+                            onChange={(e) => setEditingTargetFormat(e.target.value)}
+                            title={t("targetFormatHint")}
+                            className="w-full px-2.5 py-2 text-xs border border-border rounded-lg bg-background text-text-main focus:outline-none focus:border-primary"
+                          >
+                            <option value="">{t("targetFormatAuto")}</option>
+                            <option value="openai">{t("compatProtocolOpenAI")}</option>
+                            <option value="openai-responses">
+                              {t("compatProtocolOpenAIResponses")}
+                            </option>
+                            <option value="claude">{t("compatProtocolClaude")}</option>
+                            <option value="gemini">{t("targetFormatGemini")}</option>
+                            <option value="antigravity">{t("targetFormatAntigravity")}</option>
+                          </select>
+                        </div>
+                        <div className="w-[10rem] shrink-0 min-w-0">
+                          <label className="text-xs text-text-muted mb-1 block">
+                            {t("contextWindowOverrideLabel")}
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={editingContextWindowOverride}
+                            onChange={(e) => setEditingContextWindowOverride(e.target.value)}
+                            placeholder={t("contextWindowOverridePlaceholder")}
+                            title={t("contextWindowOverrideHint")}
+                            className="w-full px-2.5 py-2 text-xs border border-border rounded-lg bg-background text-text-main focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div className="w-[9rem] shrink-0 min-w-0">
+                          <label className="text-xs text-text-muted mb-1 block">&nbsp;</label>
+                          <label
+                            htmlFor={`custom-model-edit-vision-${model.id}`}
+                            className="flex items-center gap-1.5 text-xs text-text-main cursor-pointer whitespace-nowrap px-2.5 py-2"
+                            title={t("visionCapableHint")}
+                          >
+                            <input
+                              id={`custom-model-edit-vision-${model.id}`}
+                              type="checkbox"
+                              checked={editingSupportsVision}
+                              onChange={(e) => setEditingSupportsVision(e.target.checked)}
+                              className="rounded border-border"
+                            />
+                            {`👁️ ${t("visionCapableLabel")}`}
+                          </label>
                         </div>
                         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 overflow-x-auto overflow-y-visible [scrollbar-width:thin]">
                           <span className="text-xs text-text-muted shrink-0">

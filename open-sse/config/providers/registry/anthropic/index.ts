@@ -17,6 +17,20 @@ export const anthropicProvider: RegistryEntry = {
   },
   models: [
     {
+      id: "claude-fable-5",
+      name: "Claude Fable 5",
+      contextLength: 1048576,
+      unsupportedParams: ["temperature", "top_p", "top_k"],
+    },
+    {
+      id: "claude-opus-5",
+      name: "Claude Opus 5",
+      contextLength: 1000000,
+      maxOutputTokens: 128000,
+      supportsXHighEffort: true,
+      unsupportedParams: ["temperature", "top_p", "top_k"],
+    },
+    {
       id: "claude-opus-4.7",
       name: "Claude Opus 4.7",
       // Opus 4.7+ rejects non-default temperature/top_p/top_k with a 400 (sampling fixed;
@@ -30,14 +44,15 @@ export const anthropicProvider: RegistryEntry = {
       // Opus 4.7+ (incl. 4.8, Fable 5) reject non-default sampling with a 400. Mirrors claude-opus-4.7.
       unsupportedParams: ["temperature", "top_p", "top_k"],
     },
-    {
-      id: "claude-fable-5",
-      name: "Claude Fable 5",
-      contextLength: 1048576,
-      unsupportedParams: ["temperature", "top_p", "top_k"],
-    },
     { id: "claude-opus-4.6", name: "Claude Opus 4.6" },
     { id: "claude-opus-4.5", name: "Claude Opus 4.5" },
+    {
+      id: "claude-sonnet-5",
+      name: "Claude Sonnet 5",
+      contextLength: 1048576,
+      // Sonnet 5 rejects non-default sampling params with a 400 (adaptive-only).
+      unsupportedParams: ["temperature", "top_p", "top_k"],
+    },
     { id: "claude-sonnet-4.6", name: "Claude Sonnet 4.6" },
     { id: "claude-sonnet-4.5", name: "Claude Sonnet 4.6" },
     { id: "claude-haiku-4.5", name: "Claude Haiku 4.5" },

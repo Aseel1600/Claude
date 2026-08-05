@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { MODEL_SPECS } from "../../src/shared/constants/modelSpecs.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-model-capabilities-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -68,9 +69,8 @@ test("canonical model capability resolver lets exact synced metadata override gl
       }),
     },
     antigravity: {
-      // Since #3229, ANTIGRAVITY_MODEL_ALIASES maps both "gemini-3.1-pro-high" and
-      // "gemini-3.1-pro-low" → "gemini-3.1-pro", so the capability resolver looks
-      // synced metadata up under the canonical "gemini-3.1-pro" key. Save it there.
+      // gemini-pro-agent is the callable High id and resolves to the shared
+      // Gemini 3.1 Pro capability family.
       "gemini-3.1-pro": buildCapability({
         tool_call: false,
         reasoning: false,
@@ -92,23 +92,19 @@ test("canonical model capability resolver lets exact synced metadata override gl
   assert.equal(modelCapabilities.getModelContextLimit("openai", "gpt-4o-2024-11-20"), 256000);
   assert.equal(modelCapabilities.capMaxOutputTokens("openai/gpt-4o-2024-11-20", 999999), 12345);
 
-  const geminiHigh = modelCapabilities.getResolvedModelCapabilities(
-    "antigravity/gemini-3.1-pro-high"
-  );
+  const geminiHigh = modelCapabilities.getResolvedModelCapabilities("antigravity/gemini-pro-agent");
   assert.equal(geminiHigh.toolCalling, false);
   assert.equal(geminiHigh.reasoning, false);
   assert.equal(geminiHigh.supportsThinking, false);
   assert.equal(geminiHigh.contextWindow, 1024);
   assert.equal(geminiHigh.maxOutputTokens, 9999);
   assert.equal(geminiHigh.defaultThinkingBudget, 24576);
-  assert.equal(
-    modelCapabilities.capThinkingBudget("antigravity/gemini-3.1-pro-high", 40000),
-    32768
-  );
+  assert.equal(modelCapabilities.capThinkingBudget("antigravity/gemini-pro-agent", 40000), 32768);
 
   const codexGpt55 = modelCapabilities.getResolvedModelCapabilities("codex/gpt-5.5");
   assert.equal(codexGpt55.contextWindow, 400000);
-  assert.equal(codexGpt55.maxInputTokens, 400000);
+  // #6191: max_input_tokens is a distinct, smaller cap than the context window.
+  assert.equal(codexGpt55.maxInputTokens, 272000);
   assert.equal(codexGpt55.maxOutputTokens, 128000);
   assert.equal(codexGpt55.supportsThinking, true);
   assert.equal(codexGpt55.supportsVision, true);
@@ -135,6 +131,61 @@ test("canonical model capability resolver lets exact synced metadata override gl
 
   const bareGpt55 = modelCapabilities.getResolvedModelCapabilities("gpt-5.5");
   assert.equal(bareGpt55.contextWindow, 1050000);
+});
+
+test("unknown models keep maxOutputTokens null instead of using a generic default", () => {
+  const unknown = modelCapabilities.getResolvedModelCapabilities(
+    "openai-compatible-local/custom-large-output-model"
+  );
+
+  assert.equal(unknown.contextWindow, null);
+  assert.equal(unknown.maxInputTokens, null);
+  assert.equal(unknown.maxOutputTokens, null);
+  assert.equal(
+    modelCapabilities.capMaxOutputTokens(
+      "openai-compatible-local/custom-large-output-model",
+      32000
+    ),
+    32000
+  );
+  assert.equal(
+    modelCapabilities.capMaxOutputTokens("openai-compatible-local/custom-large-output-model"),
+    null
+  );
+});
+
+test("Antigravity Gemini 3.5 upstream IDs share the Flash capability profile", () => {
+  for (const modelId of [
+    "gemini-3.5-flash-extra-low",
+    "gemini-3.5-flash-low",
+    "gemini-3-flash-agent",
+  ]) {
+    const spec = MODEL_SPECS[modelId];
+    assert.ok(spec, `missing exact MODEL_SPECS entry for ${modelId}`);
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(`antigravity/${modelId}`);
+    assert.equal(capabilities.contextWindow, 1048576, modelId);
+    assert.equal(capabilities.maxOutputTokens, 65536, modelId);
+    assert.equal(capabilities.supportsThinking, false, modelId);
+    assert.equal(capabilities.supportsTools, true, modelId);
+    assert.equal(capabilities.supportsVision, true, modelId);
+  }
+});
+
+test("Antigravity Gemini 3.6 tier IDs share the Flash capability profile", () => {
+  for (const modelId of [
+    "gemini-3.6-flash-high",
+    "gemini-3.6-flash-medium",
+    "gemini-3.6-flash-low",
+  ]) {
+    const spec = MODEL_SPECS[modelId];
+    assert.ok(spec, `missing exact MODEL_SPECS entry for ${modelId}`);
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(`antigravity/${modelId}`);
+    assert.equal(capabilities.contextWindow, 1048576, modelId);
+    assert.equal(capabilities.maxOutputTokens, 65536, modelId);
+    assert.equal(capabilities.supportsThinking, false, modelId);
+    assert.equal(capabilities.supportsTools, true, modelId);
+    assert.equal(capabilities.supportsVision, true, modelId);
+  }
 });
 
 test("GPT OSS and DeepSeek Reasoner models support tool calling", () => {
@@ -185,4 +236,54 @@ test("Kimi K2.7 Code resolves full capabilities instead of the degraded import d
   assert.equal(ollama.supportsVision, true);
   assert.notEqual(ollama.contextWindow, 128000);
   assert.notEqual(ollama.maxOutputTokens, 8192);
+});
+
+test("GLM-5.2 context limits respect provider-hosted caps", () => {
+  modelsDevSync.saveModelsDevCapabilities({
+    huggingface: {
+      "zai-org/GLM-5.2": buildCapability({
+        limit_context: 128000,
+        limit_input: 128000,
+        limit_output: 128000,
+      }),
+    },
+    "cloudflare-ai": {
+      "@cf/zai-org/glm-5.2": buildCapability({
+        limit_context: 128000,
+        limit_input: 128000,
+        limit_output: 128000,
+      }),
+    },
+    zenmux: {
+      "z-ai/glm-5.2": buildCapability({
+        limit_context: 128000,
+        limit_input: 128000,
+        limit_output: 128000,
+      }),
+    },
+  });
+
+  for (const modelId of ["glm-5.2", "opencode-go/glm-5.2", "opencode/glm-5.2", "oc/glm-5.2"]) {
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(modelId);
+    assert.equal(capabilities.contextWindow, 1000000, modelId);
+    assert.equal(capabilities.maxInputTokens, 1000000, modelId);
+  }
+
+  for (const modelId of ["zenmux/z-ai/glm-5.2", "zenmux/z-ai/glm-5.2-free"]) {
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(modelId);
+    assert.equal(capabilities.contextWindow, 1000000, modelId);
+    assert.equal(capabilities.maxInputTokens, 1000000, modelId);
+  }
+
+  for (const modelId of ["cloudflare-ai/@cf/zai-org/glm-5.2", "cf/@cf/zai-org/glm-5.2"]) {
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(modelId);
+    assert.equal(capabilities.contextWindow, 262144, modelId);
+    assert.equal(capabilities.maxInputTokens, 262144, modelId);
+  }
+
+  for (const modelId of ["huggingface/zai-org/GLM-5.2", "hf/zai-org/GLM-5.2"]) {
+    const capabilities = modelCapabilities.getResolvedModelCapabilities(modelId);
+    assert.equal(capabilities.contextWindow, 262144, modelId);
+    assert.equal(capabilities.maxInputTokens, 262144, modelId);
+  }
 });

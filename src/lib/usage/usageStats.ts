@@ -13,6 +13,7 @@ import { getPendingRequests } from "./usageHistory";
 import { getAccountDisplayName } from "@/lib/display/names";
 import { calculateCost } from "./costCalculator";
 import { getRawDataCutoffDate, isAggregationEnabled } from "./aggregateHistory";
+import { toNumber } from "@/shared/utils/numeric";
 
 type JsonRecord = Record<string, unknown>;
 type UsageBucket = {
@@ -42,15 +43,6 @@ type ActiveRequest = {
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
 }
 
 function toStringOrEmpty(value: unknown): string {
@@ -166,7 +158,7 @@ async function calculateAggregateCost(row: JsonRecord): Promise<number> {
       cacheCreation: toNumber(row.cost_tokens_cache_creation ?? row.tokens_cache_creation),
       reasoning: toNumber(row.cost_tokens_reasoning ?? row.tokens_reasoning),
     },
-    { serviceTier }
+    { provider, serviceTier, flatRateAsZero: true }
   );
   return storedCost + calculatedCost;
 }
@@ -272,7 +264,11 @@ export async function getConnectionSpendUsdSinceAdded(
       cacheCreation: Number(row.cacheCreation ?? 0),
       reasoning: Number(row.reasoning ?? 0),
     };
-    costUsd += await calculateCost(provider, model, tokens, { provider, model });
+    costUsd += await calculateCost(provider, model, tokens, {
+      provider,
+      model,
+      flatRateAsZero: true,
+    });
   }
 
   return { costUsd: Math.max(0, costUsd), requests };

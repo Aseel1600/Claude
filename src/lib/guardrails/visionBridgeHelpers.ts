@@ -3,11 +3,7 @@
  */
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import { getRuntimePorts } from "@/lib/runtime/ports";
-import {
-  getBestVisionModel,
-  getFallbackModels,
-  recordLatency,
-} from "./visionBridgeRouter";
+import { getBestVisionModel, getFallbackModels, recordLatency } from "./visionBridgeRouter";
 /**
  * Provider to environment variable mapping for API key resolution.
  */
@@ -216,15 +212,21 @@ export async function callVisionModel(
   apiKey?: string,
   routerConfig?: Partial<import("./visionBridgeRouter").VisionBridgeRouterConfig>
 ): Promise<string> {
-  // Auto-select the best vision model if not explicitly configured
-  const modelToUse = getBestVisionModel({
+  // Auto-select the best vision model
+  const modelToUse = await getBestVisionModel({
     fixedModel: config.model,
     ...routerConfig,
   });
+  // (#8430) When no vision-capable provider has usable credentials on this
+  // instance, surface a clear error instead of attempting a describe call that
+  // would fail with an opaque auth/serde error upstream.
+  if (!modelToUse) {
+    throw new Error("No vision-capable provider connected, cannot process image request");
+  }
   let lastError: Error | null = null;
 
   // Try primary model + fallbacks
-  const modelsToTry = [modelToUse, ...getFallbackModels(modelToUse, routerConfig)];
+  const modelsToTry = [modelToUse, ...(await getFallbackModels(modelToUse, routerConfig))];
   const maxAttempts = Math.min(modelsToTry.length, routerConfig?.maxFallbackAttempts ?? 3);
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {

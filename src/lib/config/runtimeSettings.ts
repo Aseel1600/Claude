@@ -1,5 +1,6 @@
 import { clearHealthCheckLogCache } from "@/lib/tokenHealthCheck";
 import { setCustomBannedSignals } from "@omniroute/open-sse/services/accountFallback.ts";
+import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -86,14 +87,6 @@ function isTruthyEnvFlag(value: string | undefined): boolean {
   return new Set(["1", "true", "yes", "on"]).has(value.trim().toLowerCase());
 }
 
-function isAutomatedTestProcess(): boolean {
-  return (
-    typeof process !== "undefined" &&
-    (process.env.NODE_ENV === "test" ||
-      process.env.VITEST !== undefined ||
-      process.argv.some((arg) => arg.includes("test")))
-  );
-}
 
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -477,7 +470,9 @@ export async function applyRuntimeSettings(
 
   if (force || hasChanged(currentSnapshot.usageTokenBuffer, previousSnapshot.usageTokenBuffer)) {
     const newBuffer =
-      typeof currentSnapshot.usageTokenBuffer === "number" ? currentSnapshot.usageTokenBuffer : null;
+      typeof currentSnapshot.usageTokenBuffer === "number"
+        ? currentSnapshot.usageTokenBuffer
+        : null;
     await applyUsageTrackingSection(newBuffer);
     markChanged("usageTracking");
   }
@@ -531,17 +526,16 @@ export async function applyRuntimeSettings(
     markChanged("authzBypass");
   }
 
-  if (force || hasChanged(currentSnapshot.customBannedSignals, previousSnapshot.customBannedSignals)) {
+  if (
+    force ||
+    hasChanged(currentSnapshot.customBannedSignals, previousSnapshot.customBannedSignals)
+  ) {
     setCustomBannedSignals(currentSnapshot.customBannedSignals);
     markChanged("bannedSignals");
   }
 
   lastAppliedSnapshot = currentSnapshot;
   return changes;
-}
-
-export function getLastAppliedRuntimeSettingsSnapshotForTests() {
-  return lastAppliedSnapshot;
 }
 
 export function resetRuntimeSettingsStateForTests() {

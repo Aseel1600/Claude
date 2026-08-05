@@ -1,7 +1,7 @@
 ---
 title: "📖 Setup Guide — OmniRoute"
-version: 3.8.2
-lastUpdated: 2026-05-13
+version: 3.8.40
+lastUpdated: 2026-06-28
 ---
 
 # 📖 Setup Guide — OmniRoute
@@ -34,12 +34,11 @@ Dashboard opens at `http://localhost:20128` and API base URL is `http://localhos
 ### pnpm
 
 ```bash
-pnpm install -g omniroute
-pnpm approve-builds -g   # Select all packages → approve
+pnpm add -g omniroute@latest --allow-build=better-sqlite3 --allow-build=@swc/core
 omniroute
 ```
 
-> **pnpm users:** `pnpm approve-builds -g` is required to enable native build scripts for `better-sqlite3` and `@swc/core`.
+> **pnpm users:** the `--allow-build` flag is required to enable native build scripts for `better-sqlite3` and `@swc/core`. The `pnpm approve-builds -g` command is not supported for global installs on pnpm v11.
 
 ### Arch Linux (AUR)
 
@@ -150,7 +149,7 @@ omniroute providers validate
 ```txt
 Base URL: http://localhost:20128/v1
 API Key:  [copy from Endpoint page]
-Model:    if/kimi-k2-thinking (or any provider/model prefix)
+Model:    if/qwen3.8-max-preview (or any provider/model prefix)
 ```
 
 If your editor cannot send `Authorization: Bearer ...`, use the tokenized compatibility base instead:
@@ -162,7 +161,35 @@ Chat URL: http://localhost:20128/api/v1/vscode/YOUR_KEY/chat/completions
 Ollama Tags URL: http://localhost:20128/api/v1/vscode/YOUR_KEY/api/tags
 ```
 
-Works with Claude Code, Codex CLI, Gemini CLI, Cursor, Cline, OpenClaw, OpenCode, and OpenAI-compatible SDKs.
+Works with Claude Code, Codex CLI, Cursor, Cline, OpenClaw, OpenCode, and OpenAI-compatible SDKs.
+
+#### Auto-configure with `setup-*`
+
+Instead of pasting the base URL and key by hand, let OmniRoute write each tool's
+own config from the live model catalog. One command per tool:
+
+```bash
+omniroute setup-codex        # ~/.codex/<name>.config.toml profiles
+omniroute setup-claude       # ~/.claude/profiles/<name>/settings.json
+omniroute setup-opencode     # ~/.config/opencode/opencode.json (openai-compatible)
+omniroute setup-cline        # Cline CLI + VS Code extension settings
+omniroute setup-kilo         # Kilo Code
+omniroute setup-continue     # ~/.continue/config.yaml (Continue / cn)
+omniroute setup-cursor       # prints Cursor's in-app steps
+omniroute setup-roo          # Roo Code import + autoImport pointer
+omniroute setup-crush        # ~/.config/crush/crush.json
+omniroute setup-goose        # ~/.config/goose/config.yaml
+omniroute setup-aider        # ~/.aider.conf.yml
+omniroute setup-qwen         # ~/.qwen/settings.json + ~/.qwen/.env
+```
+
+Each accepts `--remote <url> --api-key <key>` to configure a local tool against a
+**remote** OmniRoute, plus `--dry-run` to preview. The launchers
+`omniroute launch` (Claude Code) and `omniroute launch-codex` (Codex) spawn the CLI
+with the right env injected, writing no config at all.
+
+For the full table (what each command writes, every flag, local vs remote, base-URL
+`/v1` conventions), see **[CLI Integrations](./CLI-INTEGRATIONS.md)**.
 
 For detailed per-tool configuration (Claude Code, Codex CLI, Cursor, Cline, OpenClaw, Kilo Code, Copilot, and more), see the dedicated **[CLI Tools Guide](../reference/CLI-TOOLS.md)**.
 

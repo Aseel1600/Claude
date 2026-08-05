@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { EngineConfigField } from "@omniroute/open-sse/services/compression/engines/types";
 import { EngineConfigForm } from "@/shared/components/compression/EngineConfigForm";
 
@@ -17,10 +18,25 @@ interface EngineEntry {
   configSchema: EngineConfigField[];
 }
 
-interface ComboStep {
-  engine: string;
-  intensity?: string;
-  config?: Record<string, unknown>;
+// Engines whose detailed config has a dedicated sub-object in the compression
+// settings store. The on/off + level for ALL engines now live in the panel
+// (/dashboard/context/settings, the `engines` map); only these have a place to
+// persist the extra per-engine fields edited on this page. session-dedup and ccr
+// joined headroom in #8388 (they previously rendered a real, editable detail form
+// with no Save affordance — edits vanished on reload). Other structural engines
+// (lite, llmlingua, relevance) still have no dedicated sub-object — their page
+// keeps the detail form + preview but has nothing extra to persist yet.
+const SETTINGS_SUBOBJECT: Record<string, string> = {
+  aggressive: "aggressive",
+  ultra: "ultra",
+  headroom: "headroom",
+  "session-dedup": "sessionDedup",
+  ccr: "ccr",
+};
+
+interface CompressionSettings {
+  engines?: Record<string, { enabled?: boolean; level?: string }>;
+  [key: string]: unknown;
 }
 
 interface Analytics {
@@ -53,10 +69,9 @@ interface PreviewResult {
 
 // ── Default preview sample ────────────────────────────────────────────────
 
-const PREVIEW_SAMPLE =
-  "The quick brown fox jumps over the lazy dog. " +
-  "This is a sample message used to preview compression. " +
-  "It contains enough text to show meaningful token savings.";
+const ENGINE_ICON_ALIASES: Record<string, string> = {
+  brain: "psychology",
+};
 
 // ── Sub-components ────────────────────────────────────────────────────────
 
@@ -69,7 +84,11 @@ function StatCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function renderDiffSegment(segment: PreviewDiffSegment, index: number) {
+function renderDiffSegment(
+  segment: PreviewDiffSegment,
+  index: number,
+  translateLabel: (label: string) => string
+) {
   const label = segment.type ?? "change";
   const text =
     segment.value ??
@@ -83,7 +102,7 @@ function renderDiffSegment(segment: PreviewDiffSegment, index: number) {
   return (
     <div key={`${label}-${index}`} className="rounded border border-border bg-background p-2">
       <span className="mr-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-muted">
-        {label}
+        {translateLabel(label)}
       </span>
       <span className="whitespace-pre-wrap break-words text-text">{text}</span>
     </div>
@@ -93,23 +112,23 @@ function renderDiffSegment(segment: PreviewDiffSegment, index: number) {
 // ── Main component ────────────────────────────────────────────────────────
 
 export function EngineConfigPage({ engineId }: { engineId: string }) {
+  const locale = useLocale();
+  const t = useTranslations("compressionEngineConfig");
   // ── Data state ──────────────────────────────────────────────────────────
   const [engine, setEngine] = useState<EngineEntry | null>(null);
-  const [enabled, setEnabled] = useState(false);
   const [configState, setConfigState] = useState<Record<string, unknown>>({});
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // ── Preview state ───────────────────────────────────────────────────────
-  const [previewText, setPreviewText] = useState(PREVIEW_SAMPLE);
+  const [previewText, setPreviewText] = useState(() => t("previewSample"));
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   // ── Action state ────────────────────────────────────────────────────────
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [toggleError, setToggleError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // ── Initial load ────────────────────────────────────────────────────────
@@ -123,13 +142,13 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
       // Fire the three independent reads in parallel — load time is the slowest
       // single request, not their sum. Each resolves to null on failure (fail-soft).
       const asJson = (r: Response) => (r.ok ? r.json() : null);
-      const [enginesData, comboData, analyticsData] = await Promise.all([
+      const [enginesData, settingsData, analyticsData] = await Promise.all([
         fetch("/api/compression/engines")
           .then(asJson)
           .catch(() => null) as Promise<{ engines: EngineEntry[] } | null>,
-        fetch("/api/context/combos/default")
+        fetch("/api/settings/compression")
           .then(asJson)
-          .catch(() => null) as Promise<{ pipeline?: ComboStep[] } | null>,
+          .catch(() => null) as Promise<CompressionSettings | null>,
         fetch(`/api/context/analytics/engine?engineId=${engineId}&days=7`)
           .then(asJson)
           .catch(() => null) as Promise<Analytics | null>,
@@ -139,28 +158,25 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
       if (enginesData) {
         foundEngine = enginesData.engines?.find((e) => e.id === engineId) ?? null;
       } else {
-        setLoadError("Failed to load engine information.");
+        setLoadError(t("loadFailed"));
       }
 
-      // Derive enabled + currentConfig from the default combo (404/null = defaults)
-      let currentEnabled = false;
-      let currentConfig: Record<string, unknown> = {};
-      const step = comboData?.pipeline?.find((s) => s.engine === engineId);
-      if (step) {
-        currentEnabled = step.config?.enabled !== false;
-        currentConfig = step.config ?? {};
-      }
+      // Detailed config lives in the engine's settings sub-object (when it has one);
+      // the on/off + level moved to the panel. 404/null/missing = schema defaults.
+      const subKey = SETTINGS_SUBOBJECT[engineId];
+      const stored = subKey ? settingsData?.[subKey] : undefined;
+      const currentConfig: Record<string, unknown> =
+        stored && typeof stored === "object" ? (stored as Record<string, unknown>) : {};
 
       if (!cancelled) {
         if (analyticsData) setAnalytics(analyticsData);
         setEngine(foundEngine);
-        setEnabled(currentEnabled);
-        // Seed configState from defaultValues then override with currentConfig
+        // Seed configState from defaultValues then override with the stored sub-object.
         const defaults: Record<string, unknown> = {};
         for (const field of foundEngine?.configSchema ?? []) {
           defaults[field.key] = field.defaultValue;
         }
-        setConfigState({ ...defaults, ...currentConfig, enabled: currentEnabled });
+        setConfigState({ ...defaults, ...currentConfig });
         setLoading(false);
       }
     }
@@ -169,52 +185,36 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [engineId]);
+  }, [engineId, t]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  async function handleToggle() {
-    const next = !enabled;
-    const nextConfig = { ...configState, enabled: next };
-    setEnabled(next);
-    setConfigState(nextConfig);
-    setToggleError(null);
-    try {
-      const res = await fetch("/api/context/combos/default", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engineId, enabled: next, config: nextConfig }),
-      });
-      if (!res.ok) {
-        setToggleError("Failed to update engine state.");
-        setEnabled(!next); // revert
-        setConfigState(configState);
-      }
-    } catch {
-      setToggleError("Failed to update engine state.");
-      setEnabled(!next); // revert
-      setConfigState(configState);
-    }
-  }
-
+  // Persist the engine's DETAILED config to its settings sub-object. The on/off +
+  // level are owned by the panel (the `engines` map) and are NOT written here — so
+  // this page never touches the deprecated /api/context/combos/default route.
   async function handleSave() {
-    const nextEnabled = typeof configState.enabled === "boolean" ? configState.enabled : enabled;
-    const nextConfig = { ...configState, enabled: nextEnabled };
-    setEnabled(nextEnabled);
-    setConfigState(nextConfig);
+    const subKey = SETTINGS_SUBOBJECT[engineId];
+    if (!subKey) {
+      // Structural engines have no detail store yet — nothing to persist this phase.
+      setSaveError(null);
+      return;
+    }
+    // Strip the `enabled` key — engine on/off is the panel's responsibility.
+    const { enabled: _ignored, ...detail } = configState;
+    void _ignored;
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch("/api/context/combos/default", {
+      const res = await fetch("/api/settings/compression", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ engineId, enabled: nextEnabled, config: nextConfig }),
+        body: JSON.stringify({ [subKey]: detail }),
       });
       if (!res.ok) {
-        setSaveError("Failed to save configuration.");
+        setSaveError(t("saveFailed"));
       }
     } catch {
-      setSaveError("Failed to save configuration.");
+      setSaveError(t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -225,22 +225,39 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
     setPreviewError(null);
     setPreview(null);
     try {
+      // Pass the form's current detail (e.g. headroom.minRows) so preview honors
+      // unsaved edits and the persisted sub-object after save (#8056).
+      const detailConfig =
+        engineId === "headroom"
+          ? {
+              headroom: {
+                ...(typeof configState.minRows === "number"
+                  ? { minRows: configState.minRows }
+                  : {}),
+              },
+            }
+          : engineId === "aggressive"
+            ? { aggressive: { ...configState } }
+            : engineId === "ultra"
+              ? { ultra: { ...configState } }
+              : undefined;
       const res = await fetch("/api/compression/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           engineId,
           messages: [{ role: "user", content: previewText }],
+          ...(detailConfig ? { config: detailConfig } : {}),
         }),
       });
       if (res.ok) {
         const data = (await res.json()) as PreviewResult;
         setPreview(data);
       } else {
-        setPreviewError("Preview failed.");
+        setPreviewError(t("previewFailed"));
       }
     } catch {
-      setPreviewError("Preview failed.");
+      setPreviewError(t("previewFailed"));
     } finally {
       setPreviewLoading(false);
     }
@@ -250,28 +267,65 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-12 text-text-muted text-sm">Loading…</div>
+      <div className="flex items-center justify-center p-12 text-text-muted text-sm">
+        {t("loading")}
+      </div>
     );
   }
 
   if (!engine) {
     return (
       <div className="p-6 text-sm text-text-muted">
-        {loadError ?? `Engine "${engineId}" not found.`}
+        {loadError ?? t("engineNotFound", { engine: engineId })}
       </div>
     );
   }
 
-  const subtitle = engine.metadata?.description ?? engine.description;
-  const visibleConfigSchema = engine.configSchema.filter((field) => field.key !== "enabled");
+  const engineNameKey = `engines.${engineId}.name`;
+  const engineDescriptionKey = `engines.${engineId}.description`;
+  const engineName = t.has(engineNameKey) ? t(engineNameKey) : engine.name;
+  const rawSubtitle = engine.metadata?.description ?? engine.description;
+  const subtitle = t.has(engineDescriptionKey) ? t(engineDescriptionKey) : rawSubtitle;
+  const visibleConfigSchema = engine.configSchema
+    .filter((field) => field.key !== "enabled")
+    .map((field) => {
+      const engineFieldPrefix = `engineFields.${engineId}.${field.key}`;
+      const fieldPrefix = `fields.${field.key}`;
+      const labelKey = t.has(`${engineFieldPrefix}.label`)
+        ? `${engineFieldPrefix}.label`
+        : `${fieldPrefix}.label`;
+      const descriptionKey = t.has(`${engineFieldPrefix}.description`)
+        ? `${engineFieldPrefix}.description`
+        : `${fieldPrefix}.description`;
+
+      return {
+        ...field,
+        label: t.has(labelKey) ? t(labelKey) : field.label,
+        description:
+          field.description && t.has(descriptionKey) ? t(descriptionKey) : field.description,
+        options: field.options?.map((option) => {
+          const optionKey = `options.${field.key}.${option.value}`;
+          return { ...option, label: t.has(optionKey) ? t(optionKey) : option.label };
+        }),
+      };
+    });
+  // Only engines with a dedicated settings sub-object can persist their detail here.
+  const persistable = Boolean(SETTINGS_SUBOBJECT[engineId]);
 
   return (
     <div className="flex flex-col gap-6 p-6 max-w-3xl">
       {/* ── Header ── */}
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
-          {engine.icon && <span className="text-2xl">{engine.icon}</span>}
-          <h1 className="text-2xl font-bold text-text">{engine.name}</h1>
+          {engine.icon && (
+            <span
+              className="material-symbols-outlined text-[28px] leading-none text-text-muted"
+              aria-hidden="true"
+            >
+              {ENGINE_ICON_ALIASES[engine.icon] || engine.icon}
+            </span>
+          )}
+          <h1 className="text-2xl font-bold text-text">{engineName}</h1>
         </div>
         {subtitle && <p className="text-sm text-text-muted">{subtitle}</p>}
       </div>
@@ -282,39 +336,20 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
         </p>
       )}
 
-      {/* ── Enable toggle ── */}
-      <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-text">Enable layer</span>
-            <span className="text-xs text-text-muted">
-              {enabled
-                ? "This layer is active in the default pipeline."
-                : "This layer is inactive."}
-            </span>
-          </div>
-          <input
-            type="checkbox"
-            data-toggle="enable"
-            checked={enabled}
-            onChange={handleToggle}
-            className="h-4 w-4 accent-primary cursor-pointer"
-            aria-label="Enable layer"
-          />
-        </div>
-        {toggleError && <p className="text-xs text-destructive">{toggleError}</p>}
-        <p className="text-xs text-text-muted" data-testid="stacked-mode-notice">
-          Enabled layers run when compression is in &quot;stacked&quot; mode. Configure it in{" "}
+      {/* ── Panel pointer (on/off + level live there now) ── */}
+      <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4">
+        <p className="text-xs text-text-muted" data-testid="panel-pointer-notice">
+          {t("panelPointerPrefix")}{" "}
           <a href="/dashboard/context/settings" className="underline hover:text-text">
-            Compression Settings
+            {t("compressionSettings")}
           </a>
-          .
+          {t("panelPointerSuffix")}
         </p>
       </div>
 
       {/* ── Config form ── */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Configuration</h2>
+        <h2 className="text-sm font-semibold text-text">{t("configuration")}</h2>
         {visibleConfigSchema.length > 0 ? (
           <EngineConfigForm
             schema={visibleConfigSchema}
@@ -322,28 +357,34 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
             onChange={setConfigState}
           />
         ) : (
-          <p className="text-sm text-text-muted">No additional configuration.</p>
+          <p className="text-sm text-text-muted">{t("noAdditionalConfiguration")}</p>
         )}
         <div className="flex items-center gap-3 pt-1">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
+          {persistable ? (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+            >
+              {saving ? t("saving") : t("save")}
+            </button>
+          ) : (
+            <p className="text-xs text-text-muted" data-testid="no-detail-store-notice">
+              {t("globalSettingsOnly")}
+            </p>
+          )}
           {saveError && <p className="text-xs text-destructive">{saveError}</p>}
         </div>
       </div>
 
       {/* ── Live preview ── */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Preview</h2>
+        <h2 className="text-sm font-semibold text-text">{t("preview")}</h2>
         <textarea
           className="border border-border rounded px-3 py-2 text-sm text-text bg-background resize-y min-h-[80px]"
           value={previewText}
           onChange={(e) => setPreviewText(e.target.value)}
-          aria-label="Preview input"
+          aria-label={t("previewInput")}
         />
         <div className="flex items-center gap-3">
           <button
@@ -351,7 +392,7 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
             disabled={previewLoading}
             className="px-4 py-1.5 rounded bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
           >
-            {previewLoading ? "Processing..." : "Preview"}
+            {previewLoading ? t("processing") : t("preview")}
           </button>
         </div>
         {previewError && <p className="text-xs text-destructive">{previewError}</p>}
@@ -359,19 +400,22 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
           <div className="flex flex-col gap-3 pt-1 text-sm">
             <div className="flex flex-wrap gap-4">
               <span className="text-text-muted">
-                Original tokens: <strong className="text-text">{preview.originalTokens}</strong>
+                {t("originalTokens")}:{" "}
+                <strong className="text-text">{preview.originalTokens}</strong>
               </span>
               <span className="text-text-muted">
-                Compressed tokens: <strong className="text-text">{preview.compressedTokens}</strong>
+                {t("compressedTokens")}:{" "}
+                <strong className="text-text">{preview.compressedTokens}</strong>
               </span>
               <span className="text-text-muted">
-                Savings: <strong className="text-primary">{preview.savingsPct.toFixed(1)}%</strong>
+                {t("savings")}:{" "}
+                <strong className="text-primary">{preview.savingsPct.toFixed(1)}%</strong>
               </span>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="flex flex-col gap-1">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Original
+                  {t("original")}
                 </h3>
                 <pre className="max-h-72 overflow-auto rounded border border-border bg-background p-3 whitespace-pre-wrap break-words text-text">
                   {preview.original ?? ""}
@@ -379,7 +423,7 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
               </div>
               <div className="flex flex-col gap-1">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Compressed
+                  {t("compressed")}
                 </h3>
                 <pre className="max-h-72 overflow-auto rounded border border-border bg-background p-3 whitespace-pre-wrap break-words text-text">
                   {preview.compressed ?? ""}
@@ -389,10 +433,15 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
             {preview.diff && preview.diff.length > 0 && (
               <div className="flex flex-col gap-2" data-testid="compression-preview-diff">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-                  Diff
+                  {t("diff")}
                 </h3>
                 <div className="flex max-h-72 flex-col gap-2 overflow-auto rounded border border-border p-2">
-                  {preview.diff.map(renderDiffSegment)}
+                  {preview.diff.map((segment, index) =>
+                    renderDiffSegment(segment, index, (label) => {
+                      const key = `diffLabels.${label}`;
+                      return t.has(key) ? t(key) : label;
+                    })
+                  )}
                 </div>
               </div>
             )}
@@ -402,20 +451,23 @@ export function EngineConfigPage({ engineId }: { engineId: string }) {
 
       {/* ── Analytics strip ── */}
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
-        <h2 className="text-sm font-semibold text-text">Last 7 days</h2>
+        <h2 className="text-sm font-semibold text-text">{t("last7Days")}</h2>
         {analytics && analytics.runs === 0 ? (
-          <p className="text-sm text-text-muted">No data yet</p>
+          <p className="text-sm text-text-muted">{t("noDataYet")}</p>
         ) : analytics ? (
           <div className="grid grid-cols-3 gap-3">
-            <StatCard label="Runs" value={analytics.runs.toLocaleString()} />
-            <StatCard label="Tokens saved" value={analytics.tokensSaved.toLocaleString()} />
+            <StatCard label={t("runs")} value={analytics.runs.toLocaleString(locale)} />
             <StatCard
-              label="Average savings"
+              label={t("tokensSaved")}
+              value={analytics.tokensSaved.toLocaleString(locale)}
+            />
+            <StatCard
+              label={t("averageSavings")}
               value={`${analytics.avgSavingsPercent.toFixed(1)}%`}
             />
           </div>
         ) : (
-          <p className="text-sm text-text-muted">No data yet</p>
+          <p className="text-sm text-text-muted">{t("noDataYet")}</p>
         )}
       </div>
     </div>

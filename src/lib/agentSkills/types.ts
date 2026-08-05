@@ -24,6 +24,8 @@ export type SkillArea =
   | "agents-a2a"
   | "version-manager"
   | "inference"
+  // GitHub skills
+  | "github-skills"
   // Config skills
   | "config-codex-cli"
   // CLI families (20)
@@ -46,7 +48,8 @@ export type SkillArea =
   | "cli-batches"
   | "cli-eval"
   | "cli-plugins-skills"
-  | "cli-setup";
+  | "cli-setup"
+  | "cli-skill-collector";
 
 export interface AgentSkill {
   id: string; // canonical id (e.g. "omni-providers", "cli-serve")
@@ -64,8 +67,10 @@ export interface AgentSkill {
 }
 
 export interface SkillCoverage {
-  api: { have: number; total: 22 };
-  cli: { have: number; total: 20 };
+  // Totals are derived from the catalog id lists (literal types went stale the
+  // first time the catalog grew — cli-skill-collector, 2026-07-15).
+  api: { have: number; total: number };
+  cli: { have: number; total: number };
   config: { have: number; total: number };
   totalSkills: number; // sum
   generatedAt: string; // ISO datetime

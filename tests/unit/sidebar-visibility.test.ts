@@ -23,6 +23,7 @@ test("system sidebar items: monitoring has activity at top then logs/audit/syste
       "logs",
       "logs-proxy",
       "logs-console",
+      "logs-timeline",
       "audit",
       "audit-mcp",
       "audit-a2a",
@@ -46,6 +47,7 @@ test("primary sidebar items place limits after cache", () => {
       "quota",
       "costs-quota-share",
       "context-settings",
+      "context-combos",
       "context-caveman",
       "context-rtk",
       "context-headroom",
@@ -55,14 +57,16 @@ test("primary sidebar items place limits after cache", () => {
       "context-lite",
       "context-aggressive",
       "context-ultra",
-      "context-combos",
+      "context-omniglyph",
       "compression-studio",
+      "compression-exclusions",
       "cli-code",
       "cli-agents",
       "acp-agents",
       "cloud-agents",
       "agent-bridge",
       "traffic-inspector",
+      "discovery",
       "api-endpoints",
       "webhooks",
       "proxy",
@@ -81,6 +85,7 @@ test("context sidebar section sits between primary and cli", () => {
       .map((item) => ({ id: item.id, href: item.href })),
     [
       { id: "context-settings", href: "/dashboard/context/settings" },
+      { id: "context-combos", href: "/dashboard/context/combos" },
       { id: "context-caveman", href: "/dashboard/context/caveman" },
       { id: "context-rtk", href: "/dashboard/context/rtk" },
       { id: "context-headroom", href: "/dashboard/context/headroom" },
@@ -90,7 +95,7 @@ test("context sidebar section sits between primary and cli", () => {
       { id: "context-lite", href: "/dashboard/context/lite" },
       { id: "context-aggressive", href: "/dashboard/context/aggressive" },
       { id: "context-ultra", href: "/dashboard/context/ultra" },
-      { id: "context-combos", href: "/dashboard/context/combos" },
+      { id: "context-omniglyph", href: "/dashboard/context/omniglyph" },
     ]
   );
 });
@@ -136,20 +141,21 @@ test("help sidebar exposes changelog after docs and issues", () => {
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("changelog"), true);
 });
 
-test("plugins (marketplace) has a discoverable sidebar entry (#3656 follow-up)", async () => {
+test("plugins has a discoverable sidebar entry (#3656 follow-up)", async () => {
   const items = sectionItems("agentic-features");
   const plugins = items.find((item) => item.id === "plugins");
   assert.ok(plugins, "expected a plugins item in the agentic-features section");
   assert.equal(plugins.href, "/dashboard/plugins");
   assert.equal(sidebarVisibility.HIDEABLE_SIDEBAR_ITEM_IDS.includes("plugins"), true);
 
-  // It must be a real page (plugin manager + marketplace tab), not a legacy redirect stub.
+  // It must be a real page (plugin manager), not a legacy redirect stub.
   const pluginsPage = await readFile(
     join(repoRoot, "src/app/(dashboard)/dashboard/plugins/page.tsx"),
     "utf8"
   );
   assert.doesNotMatch(pluginsPage, /^\s*redirect\(/m);
-  assert.match(pluginsPage, /marketplace/i);
+  // R0.2: marketplace tab removed (dead code) — verify the page still has plugin management UI.
+  assert.match(pluginsPage, /scanForPlugins|installedTab|fetchPlugins/i);
 });
 
 test("legacy dashboard routes redirect to their consolidated surfaces", async () => {

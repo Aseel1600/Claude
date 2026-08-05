@@ -9,13 +9,17 @@
 //       não resolve para um executor válido é um símbolo morto (roteia para fallback
 //       silencioso em vez de falhar).
 //
-//   (2) COMBO STRATEGIES — a cadeia de despacho `strategy === "..."` em
-//       open-sse/services/combo.ts DEVE tratar exatamente o conjunto canônico de
-//       ROUTING_STRATEGY_VALUES (src/shared/constants/routingStrategies.ts), exceto
-//       as estratégias-default implícitas documentadas em IMPLICIT_DEFAULT_STRATEGIES
-//       (estratégias canônicas sem NENHUMA referência `strategy === "..."`; caem no
-//       ordenamento padrão). Adicionar um valor canônico sem fiá-lo no despacho, ou
-//       fiar uma string de estratégia que não é canônica (inventada), falha aqui.
+//   (2) COMBO STRATEGIES — o despacho DEVE tratar exatamente o conjunto canônico de
+//       ROUTING_STRATEGY_VALUES ∪ INTERNAL_ROUTING_STRATEGY_VALUES
+//       (src/shared/constants/routingStrategies.ts), exceto as estratégias-default
+//       implícitas documentadas em IMPLICIT_DEFAULT_STRATEGIES (estratégias canônicas
+//       sem ramo de despacho próprio; caem no ordenamento padrão). Em vez de casar
+//       literais `strategy === "..."` por regex sobre a fonte, o conjunto tratado
+//       (handled) vem de uma enumeração em runtime importada de
+//       open-sse/services/combo/strategyDispatch.ts — o módulo que importa as funções
+//       reais de ordenação/despacho e lista quais estratégias elas implementam. Adicionar
+//       um valor canônico sem fiá-lo no despacho/e na enumeração, ou fiar uma string de
+//       estratégia que não é canônica (inventada), falha aqui.
 //
 //   (3) TRANSLATOR PAIRS — os pares from:to registrados em runtime no registry de
 //       tradutores (após bootstrap) são congelados em KNOWN_TRANSLATOR_PAIRS. Catraca:
@@ -78,10 +82,20 @@ const REPO_ROOT = resolvePath(HERE, "..", "..");
  */
 export const IMPLICIT_DEFAULT_STRATEGIES: Record<string, string> = {};
 
-/** Extrai todas as strings literais de `strategy === "..."` da fonte do combo. */
+/**
+ * Extrai todas as strings literais de `strategy === "..."` / `strategy !== "..."`
+ * da fonte do combo.
+ *
+ * Ambas as formas contam como despacho fiado. A decomposição do god-file (#3501)
+ * troca `if (strategy === "X") { ...corpo... }` por uma leaf `tryXDispatch()` cujo
+ * guard de saída antecipada é `if (strategy !== "X") return null;` — mesma branch,
+ * forma invertida. Reconhecer só `===` faria o gate acusar `canonicalNotHandled`
+ * para uma estratégia que continua perfeitamente fiada, e pressionaria o código a
+ * se contorcer para agradar a regex.
+ */
 export function extractHandledStrategies(comboSource: string): Set<string> {
   const handled = new Set<string>();
-  const re = /strategy\s*===\s*"([a-z0-9-]+)"/g;
+  const re = /strategy\s*[!=]==\s*"([a-z0-9-]+)"/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(comboSource)) !== null) {
     handled.add(match[1]);
@@ -181,8 +195,6 @@ export const KNOWN_TRANSLATOR_PAIRS: readonly string[] = [
   "claude:gemini",
   "claude:openai",
   "cursor:openai",
-  "gemini-cli:claude",
-  "gemini-cli:openai",
   "gemini:claude",
   "gemini:openai",
   "kiro:openai",
@@ -191,7 +203,6 @@ export const KNOWN_TRANSLATOR_PAIRS: readonly string[] = [
   "openai:claude",
   "openai:cursor",
   "openai:gemini",
-  "openai:gemini-cli",
   "openai:kiro",
   "openai:openai-responses",
 ];
@@ -200,10 +211,7 @@ export const KNOWN_TRANSLATOR_PAIRS: readonly string[] = [
  * Pares frozen que sumiram do registry vivo (regressão). frozen = snapshot;
  * live = pares observados em runtime. Retorna os que estão no frozen mas não no live.
  */
-export function findMissingTranslatorPairs(
-  frozen: readonly string[],
-  live: Set<string>
-): string[] {
+export function findMissingTranslatorPairs(frozen: readonly string[], live: Set<string>): string[] {
   return frozen.filter((pair) => !live.has(pair));
 }
 
@@ -375,10 +383,7 @@ export type A2ASkillDiff = {
  *   - inHandlersNotCard: skill is routable but agents can't discover it
  *   - inCardNotHandlers: skill is advertised but calling it fails silently
  */
-export function diffA2ASkills(
-  handlers: Set<string>,
-  agentCard: Set<string>
-): A2ASkillDiff {
+export function diffA2ASkills(handlers: Set<string>, agentCard: Set<string>): A2ASkillDiff {
   const inHandlersNotCard = [...handlers].filter((s) => !agentCard.has(s)).sort();
   const inCardNotHandlers = [...agentCard].filter((s) => !handlers.has(s)).sort();
   return { inHandlersNotCard, inCardNotHandlers };
@@ -456,13 +461,12 @@ async function main(): Promise<void> {
   const executorsMod = await import("@omniroute/open-sse/executors/index.ts");
   const getExecutor = executorsMod.getExecutor as (alias: string) => ExecutorLike;
   const BaseExecutor = executorsMod.BaseExecutor as new (...args: never[]) => unknown;
-  const indexSource = readFileSync(
-    resolvePath(REPO_ROOT, "open-sse/executors/index.ts"),
-    "utf8"
-  );
+  const indexSource = readFileSync(resolvePath(REPO_ROOT, "open-sse/executors/index.ts"), "utf8");
   const aliases = extractExecutorAliases(indexSource);
   if (aliases.length === 0) {
-    failures.push("[executor] parse do mapa `executors` não encontrou nenhum alias (regex quebrada?)");
+    failures.push(
+      "[executor] parse do mapa `executors` não encontrou nenhum alias (regex quebrada?)"
+    );
   }
   const isExecutorInstance = (value: unknown) => value instanceof BaseExecutor;
   const badExecutors = findNonConformingExecutors(aliases, getExecutor, isExecutorInstance);
@@ -475,10 +479,23 @@ async function main(): Promise<void> {
   }
 
   // ── (2) Combo strategies ──────────────────────────────────────────────────
+  // Canonical = user-facing ROUTING_STRATEGY_VALUES ∪ INTERNAL_ROUTING_STRATEGY_VALUES
+  // (system-only strategies like "quota-share" are registered but hidden from the UI;
+  // they still must have a real dispatch branch in combo.ts — enforced below).
   const strategiesMod = await import("@/shared/constants/routingStrategies.ts");
-  const canonical = strategiesMod.ROUTING_STRATEGY_VALUES as readonly string[];
-  const comboSource = readFileSync(resolvePath(REPO_ROOT, "open-sse/services/combo.ts"), "utf8");
-  const handled = extractHandledStrategies(comboSource);
+  const canonical = [
+    ...(strategiesMod.ROUTING_STRATEGY_VALUES as readonly string[]),
+    ...(strategiesMod.INTERNAL_ROUTING_STRATEGY_VALUES as readonly string[]),
+  ];
+  // G1: the handled set comes from a runtime-imported dispatch registry that imports the
+  // actual strategy-ordering functions and enumerates which strategies they implement —
+  // NOT from regex-scanning `strategy === "..."` literals in source. The old regex broke
+  // when the dispatch was decomposed (Block J / #3501) and will break again when R0.3
+  // converts it to a registry; enumerating at runtime keeps the gate correct either way.
+  // Each entry in HANDLED_COMBO_STRATEGIES must stay in sync with a real dispatch branch.
+  const strategyDispatchMod =
+    await import("@omniroute/open-sse/services/combo/strategyDispatch.ts");
+  const handled = new Set(strategyDispatchMod.HANDLED_COMBO_STRATEGIES as readonly string[]);
 
   // Stale-enforcement (6A.3): IMPLICIT_DEFAULT_STRATEGIES is a suppression allowlist —
   // each entry exists ONLY to suppress a `canonicalNotHandled` violation (a canonical
@@ -487,7 +504,11 @@ async function main(): Promise<void> {
   // EMPTY implicit-defaults map). An entry whose key IS already in `handled` suppresses
   // nothing → it is stale and the gate must fail asking for its removal.
   const liveImplicitNeeded = diffComboStrategies(canonical, handled, {}).canonicalNotHandled;
-  assertNoStale(Object.keys(IMPLICIT_DEFAULT_STRATEGIES), liveImplicitNeeded, "known-symbols:combo");
+  assertNoStale(
+    Object.keys(IMPLICIT_DEFAULT_STRATEGIES),
+    liveImplicitNeeded,
+    "known-symbols:combo"
+  );
 
   const { canonicalNotHandled, handledNotCanonical } = diffComboStrategies(
     canonical,
@@ -548,9 +569,8 @@ async function main(): Promise<void> {
   const { MCP_TOOLS } = await import("@omniroute/open-sse/mcp-server/schemas/tools.ts");
   const { memoryTools } = await import("@omniroute/open-sse/mcp-server/tools/memoryTools.ts");
   const { skillTools } = await import("@omniroute/open-sse/mcp-server/tools/skillTools.ts");
-  const { gamificationTools } = await import(
-    "@omniroute/open-sse/mcp-server/tools/gamificationTools.ts"
-  );
+  const { gamificationTools } =
+    await import("@omniroute/open-sse/mcp-server/tools/gamificationTools.ts");
   const { pluginTools } = await import("@omniroute/open-sse/mcp-server/tools/pluginTools.ts");
   const { notionTools } = await import("@omniroute/open-sse/mcp-server/tools/notionTools.ts");
   const { obsidianTools } = await import("@omniroute/open-sse/mcp-server/tools/obsidianTools.ts");
@@ -663,7 +683,9 @@ async function main(): Promise<void> {
 
   // ── Resultado ─────────────────────────────────────────────────────────────
   if (failures.length) {
-    console.error(`[known-symbols] ${failures.length} sub-checagem(ns) falharam:\n\n${failures.join("\n\n")}`);
+    console.error(
+      `[known-symbols] ${failures.length} sub-checagem(ns) falharam:\n\n${failures.join("\n\n")}`
+    );
     process.exit(1);
   }
   // assertNoStale (combo) seta process.exitCode=1 sem lançar — não imprima o OK
@@ -689,7 +711,9 @@ async function main(): Promise<void> {
 
 if (import.meta.url === pathToFileURL(process.argv[1] || "").href) {
   main().catch((err) => {
-    console.error(`[known-symbols] erro fatal: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(
+      `[known-symbols] erro fatal: ${err instanceof Error ? err.message : String(err)}`
+    );
     process.exit(1);
   });
 }

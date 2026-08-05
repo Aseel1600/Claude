@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
-version: 3.8.2
-lastUpdated: 2026-05-13
+version: 3.8.40
+lastUpdated: 2026-06-28
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-05-13 — v3.8.0
+> **Last updated:** 2026-06-28 — v3.8.40 (injection-guard coverage + 16 KB scan bound + red-team)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -20,14 +20,15 @@ request. Blocking is an explicit decision (`block: true`), never an accident.
 
 ## Built-in Guardrails
 
-The registry auto-loads three guardrails in priority order on import
+The registry auto-loads four guardrails in priority order on import
 (see `registry.ts` → `registerDefaultGuardrails()`):
 
-| Priority | Name               | Stage(s)       | File                 |
-| -------- | ------------------ | -------------- | -------------------- |
-| `5`      | `vision-bridge`    | `preCall`      | `visionBridge.ts`    |
-| `10`     | `pii-masker`       | `pre` + `post` | `piiMasker.ts`       |
-| `20`     | `prompt-injection` | `preCall`      | `promptInjection.ts` |
+| Priority | Name                 | Stage(s)       | File                  |
+| -------- | -------------------- | -------------- | --------------------- |
+| `5`      | `vision-bridge`       | `preCall`      | `visionBridge.ts`     |
+| `10`     | `pii-masker`          | `pre` + `post` | `piiMasker.ts`        |
+| `20`     | `prompt-injection`    | `preCall`      | `promptInjection.ts`  |
+| `95`     | `credential-masker`   | `pre` + `post` | `credentialMasker.ts` |
 
 Lower priority numbers run **first**.
 
@@ -60,12 +61,13 @@ exposes a `deps` constructor option so tests can inject fake `getSettings` and
 
 Runs on **both** stages.
 
-- **`preCall`** clones the payload, walks `system`, `messages`, and `input`
-  arrays, and applies `processPII()` (from `@/shared/utils/inputSanitizer`) to
-  string `content`/`text` fields. When `PII_REDACTION_ENABLED=true` **and**
-  `INPUT_SANITIZER_MODE=redact`, detected PII is stripped/redacted in the
-  outbound payload. Otherwise the call records detection counts without
-  rewriting content.
+- **`preCall`** clones the payload, walks `system`, `messages`, `input`, and
+  `prompt` (including plain string items), and applies `processPII()` (from
+  `@/shared/utils/inputSanitizer`) to string `content`/`text` fields. When
+  `PII_REDACTION_ENABLED=true`, detected PII is redacted in the outbound
+  payload. This is independent of `INPUT_SANITIZER_MODE` (which only controls
+  prompt-injection policy). When redaction is off, the call records detection
+  counts without rewriting content.
 - **`postCall`** deep-clones the response, runs `sanitizePIIResponse()` plus
   the Responses-API-shape masker (`maskResponsesOutput` — covers
   `output_text` and `output[].content[].text`). If any redaction occurs, the
@@ -83,8 +85,8 @@ options:
 | Setting         | Env var                                         | Default | Effect                                  |
 | --------------- | ----------------------------------------------- | ------- | --------------------------------------- |
 | Enabled         | `INPUT_SANITIZER_ENABLED`                       | `true`  | When `false`, guardrail short-circuits. |
-| Mode            | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE` | `warn`  | `block`, `warn`, or `log`.              |
-| Block threshold | `blockThreshold` option                         | `high`  | Minimum severity required to block.     |
+| Mode            | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE` | `warn`  | Injection policy: `block`, `warn`, or `log`. (`redact` is accepted for back-compat but does **not** strip injection text; request PII rewrite is controlled by `PII_REDACTION_ENABLED`.) |
+| Block threshold | `blockThreshold` option / `INPUT_SANITIZER_BLOCK_THRESHOLD` (alias `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high`  | Minimum severity required to block. Medium is observe-only at default. |
 
 **Mode precedence** (`getMode`): caller `options.mode` →
 `INJECTION_GUARD_MODE` **DB feature-flag override** (Dashboard → Settings →
@@ -108,6 +110,44 @@ threshold, `preCall` returns `{ block: true, message: "Request rejected:
 suspicious content detected" }`. In `warn`/`log` modes the guardrail logs but
 allows the call. The shared helper `evaluatePromptInjection()` is also exported
 for callers that need to evaluate prompts without going through the registry.
+
+**Scan bound (v3.8.20):** the detector only inspects the **first 16 KB** of
+joined prompt text — `MAX_INJECTION_SCAN_BYTES = 16 * 1024` (16 384 bytes) in
+`src/shared/utils/inputSanitizer.ts`. Both `detectInjection()` and
+`evaluatePromptInjection()` `slice(0, MAX_INJECTION_SCAN_BYTES)` before running
+the pattern loop. Injection directives sit near the top of an input, so this
+caps regex CPU/GC on multi-hundred-KB payloads without weakening detection (cf.
+#3932, #4041).
+
+### Credential Masker (`credentialMasker.ts`)
+
+Runs on **both** stages, last in the default chain (priority `95`). Redacts
+well-known API-key / secret-token patterns from the outbound payload (message
+content, tool-call arguments, tool results) **and** the provider response, so a
+credential pasted into a prompt (or echoed back by a tool result) is not leaked
+to the upstream provider or back to the client.
+
+- **Opt-in only**, same convention as PII redaction (Hard Rule #20-adjacent):
+  disabled unless `settings.credentialRedactionEnabled === true` **or**
+  `CREDENTIAL_REDACTION_ENABLED=true`. With it off, the guardrail is a no-op —
+  it never blocks and never rewrites.
+- `redactCredentials()` walks the full payload/response tree (`walkValue()`,
+  prototype-pollution-safe, cycle-safe via `WeakSet`) and replaces matches with
+  a `[REDACTED:<type>]` placeholder, cloning only the branches that actually
+  changed.
+- `CREDENTIAL_PATTERNS` covers LLM provider keys (OpenAI, OpenAI-proj,
+  Anthropic, Google, Hugging Face, Replicate), VCS/SaaS tokens (GitHub, Slack,
+  Linear, Notion, npm, Postman, Discord), payment keys (Stripe, Square), cloud
+  keys (AWS access key, Twilio, SendGrid, Mailgun), private keys / JWTs,
+  credential-bearing connection strings (`mongodb://user:pass@...`, etc.), and
+  a generic `Authorization`/`x-api-key`/`api-key`/`apikey` header-value
+  pattern. Header-shaped keys (`authorization`, `x-api-key`, `api-key`,
+  `apikey`) are redacted structurally (value only, scheme prefix like
+  `Bearer `/`Basic ` preserved) rather than via the generic text regex.
+- The guardrail never blocks; it only rewrites (`modifiedPayload` /
+  `modifiedResponse`) and annotates (`meta.credentialsRedacted`, `meta.count`).
+
+Regression guard: `tests/unit/credential-masker-guardrail.test.ts`.
 
 ## Base Contract (`base.ts`)
 
@@ -212,13 +252,15 @@ Guardrails that throw are recorded with `error: <message>` and logged via
 
 Environment variables read by the built-in guardrails:
 
-| Variable                              | Used by                          | Effect                                                |
-| ------------------------------------- | -------------------------------- | ----------------------------------------------------- |
-| `INPUT_SANITIZER_ENABLED`             | `prompt-injection`               | Set `false` to disable detection entirely.            |
-| `INPUT_SANITIZER_MODE`                | `prompt-injection`, `pii-masker` | Shared mode: `warn`, `block`, `log`, or `redact`.     |
+| Variable                              | Used by                          | Effect                                                                                           |
+| ------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `INPUT_SANITIZER_ENABLED`             | `prompt-injection`               | Set `false` to disable detection entirely.                                                       |
+| `INPUT_SANITIZER_MODE`                | `prompt-injection`               | Injection policy: `warn`, `block`, or `log`. Legacy value `redact` does not rewrite injection text. |
 | `INJECTION_GUARD_MODE`                | `prompt-injection`               | Mode for the injection guard; also a DB feature flag that **overrides** the env vars (DB > ENV). |
-| `PII_REDACTION_ENABLED`               | `pii-masker`                     | When `true` + mode `redact`, request PII is stripped. |
-| `PII_RESPONSE_SANITIZATION` / `_MODE` | `pii-masker` (downstream)        | Controls response-side masker behavior.               |
+| `INPUT_SANITIZER_BLOCK_THRESHOLD`     | `prompt-injection`               | Minimum severity that `MODE=block` rejects: `high` (default), `medium`, or `low`.                |
+| `INJECTION_GUARD_BLOCK_THRESHOLD`     | `prompt-injection`               | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`.                                              |
+| `PII_REDACTION_ENABLED`               | `pii-masker`                     | When `true`, request PII is redacted (independent of injection mode).                            |
+| `PII_RESPONSE_SANITIZATION` / `_MODE` | `pii-masker` (downstream)        | Controls response-side masker behavior.                                                          |
 
 The Vision Bridge reads runtime config from the DB-backed settings store
 (`getSettings()`), not env vars: `visionBridgeEnabled`, `visionBridgeModel`,
@@ -276,21 +318,38 @@ exercise the full flow without DB or network access.
 - `docs/architecture/RESILIENCE_GUIDE.md` — orthogonal layer (circuit breaker, cooldowns)
 - `docs/reference/ENVIRONMENT.md` — full env var reference
 
-## Injection-guard route coverage & red-team (Fase 8 · Bloco D)
+## Injection-guard route coverage & red-team (Phase 8 · Block D)
 
-O injection-guard (`createInjectionGuard` / `withInjectionGuard`) cobre todas as rotas
-que aceitam prompt do usuário. Respeita `INJECTION_GUARD_MODE` (default `warn` = só loga;
-`block` = retorna HTTP 400 `SECURITY_001`).
+The injection-guard (`createInjectionGuard` / `withInjectionGuard`) covers all routes
+that accept user prompts. It respects `INJECTION_GUARD_MODE` (default `warn` = log only;
+`block` = returns HTTP 400 `SECURITY_001`).
 
-| Tipo | Rotas | Modo default |
-|---|---|---|
-| Texto (já existente) | `/v1/chat/completions`, `/v1/completions`, `/v1/relay/chat/completions` | warn |
-| Generativas | `/v1/messages`, `/v1/responses`, `/v1/images/generations`, `/v1/images/edits`, `/v1/videos/generations`, `/v1/music/generations`, `/v1/audio/speech` | warn |
-| Dados | `/v1/embeddings`, `/v1/rerank`, `/v1/search`, `/v1/moderations` | warn |
+| Type            | Routes                                                                                                                                               | Default mode |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| Text (existing) | `/v1/chat/completions`, `/v1/completions`, `/v1/relay/chat/completions`                                                                              | warn         |
+| Generative      | `/v1/messages`, `/v1/responses`, `/v1/images/generations`, `/v1/images/edits`, `/v1/videos/generations`, `/v1/music/generations`, `/v1/audio/speech` | warn         |
+| Data            | `/v1/embeddings`, `/v1/rerank`, `/v1/search`, `/v1/moderations`                                                                                      | warn         |
 
-A extração de texto (`extractMessageContents`) cobre `messages`/`input`/`prompt`/`query`+`documents`/`instructions`/`system`.
+Text extraction (`extractMessageContents`) covers `messages`/`input`/`prompt`/`query`+`documents`/`instructions`/`system`.
 
-**Red-team (nightly, `nightly-llm-security.yml`):** promptfoo valida que cada rota bloqueia
-o corpus OWASP-LLM em `INJECTION_GUARD_MODE=block`; garak roda probes (skip sem secret).
-`moderations` é incluída por consistência — operadores em block-mode podem isentá-la via
+**Red-team (nightly, `nightly-llm-security.yml`):** promptfoo validates that each route blocks
+the OWASP-LLM corpus in `INJECTION_GUARD_MODE=block`; garak runs probes (skips without secret).
+`moderations` is included for consistency — operators in block-mode can exempt it via
 `resolveDisabledGuardrails`.
+
+The nightly workflow (`.github/workflows/nightly-llm-security.yml`, cron + manual
+dispatch) has two jobs:
+
+- **`promptfoo-guard` (blocking)** — runs `promptfoo eval -c promptfooconfig.yaml`
+  with `INJECTION_GUARD_MODE=block`. Each adversarial case (e.g. "ignore all
+  previous instructions…", DAN-style jailbreaks) asserts the response carries
+  `error.code === "SECURITY_001"`, i.e. the guard actually rejected the request.
+- **`garak` (advisory)** — runs garak `--probes promptinject,dan,leakreplay`
+  against a local OmniRoute instance (`http://localhost:20128/v1`). Gated on a
+  provider secret (`PROMPTFOO_PROVIDER_KEY`); skips gracefully and is suffixed
+  `|| true`, so it reports without failing CI.
+
+Coverage of the guard helper (`createInjectionGuard` / `withInjectionGuard`)
+spans every prompt-bearing `/v1` route; prompt text is pulled from
+`messages`/`input`/`prompt`/`query`+`documents`/`instructions`/`system` by
+`extractMessageContents()` in `src/shared/utils/inputSanitizer.ts`.

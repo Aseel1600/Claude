@@ -9,7 +9,7 @@
  * so the server rejects the request.
  *
  * This pool keeps one Chromium instance warm and serves "browser contexts"
- * (one per provider) on demand. Each context owns one or more pages; the
+ * (one per caller-defined isolation key) on demand. Each context owns one or more pages; the
  * caller is expected to be polite (one page per request, close on done).
  *
  * The pool prefers `cloakbrowser` (npm) when available — its binary-level
@@ -38,6 +38,7 @@ export interface BrowserPoolContextOptions {
   locale?: string;
   timezone?: string;
   preferCloakbrowser?: boolean;
+  proxyProviderKey?: string;
 }
 
 export interface PooledContext {
@@ -46,6 +47,36 @@ export interface PooledContext {
   warmupPage: Page | null;
   lastUsed: number;
   isStealth: boolean;
+}
+
+// #3368 PR7 — lightweight, cumulative browser-pool telemetry. Counters are
+// incremented at lifecycle points and surfaced via getBrowserPoolMetrics()
+// (and the omniroute_browser_pool_status MCP tool), giving the previously
+// caller-less getBrowserPoolStatus() an observability home.
+export interface BrowserPoolMetrics {
+  browserLaunches: number;
+  browserLaunchFailures: number;
+  contextsCreated: number;
+  contextsReused: number;
+  contextsEvicted: number;
+  contextsReleased: number;
+  contextCreateFailures: number;
+  shutdowns: number;
+  lastShutdownReason: string | null;
+}
+
+function createBrowserPoolMetrics(): BrowserPoolMetrics {
+  return {
+    browserLaunches: 0,
+    browserLaunchFailures: 0,
+    contextsCreated: 0,
+    contextsReused: 0,
+    contextsEvicted: 0,
+    contextsReleased: 0,
+    contextCreateFailures: 0,
+    shutdowns: 0,
+    lastShutdownReason: null,
+  };
 }
 
 interface PoolState {
@@ -58,13 +89,14 @@ interface PoolState {
   evictTimer: NodeJS.Timeout | null;
   cloakLaunch: ((opts: unknown) => Promise<Browser>) | null;
   cloakLaunchResolved: boolean;
+  metrics: BrowserPoolMetrics;
 }
 
 const POOL_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
 const CONTEXT_TTL_MS = 10 * 60 * 1000; // 10 min — evict stale contexts
 const EVICT_INTERVAL_MS = 60 * 1000; // check every 60s
 const DEFAULT_USER_AGENT =
-  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36";
+  "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
 const state: PoolState = {
   browser: null,
@@ -76,6 +108,7 @@ const state: PoolState = {
   evictTimer: null,
   cloakLaunch: null,
   cloakLaunchResolved: false,
+  metrics: createBrowserPoolMetrics(),
 };
 
 function getCloakbrowserModuleId(): string {
@@ -117,12 +150,12 @@ function evictStaleContexts(): void {
   for (const [key, pooled] of state.contexts) {
     if (now - pooled.lastUsed > CONTEXT_TTL_MS) {
       console.log(
-        "[BrowserPool] Evicted stale context:",
-        key,
+        "[BrowserPool] Evicted stale context",
         "(idle",
         ((now - pooled.lastUsed) / 1000).toFixed(0) + "s)"
       );
       state.contexts.delete(key);
+      state.metrics.contextsEvicted++;
       pooled.context.close().catch(() => {});
     }
   }
@@ -152,7 +185,7 @@ interface ResolvePlaywrightProxyDeps {
 // Exported for tests (deps injection avoids mock.module()).
 export async function resolvePlaywrightProxy(
   providerKey: string,
-  deps?: ResolvePlaywrightProxyDeps,
+  deps?: ResolvePlaywrightProxyDeps
 ): Promise<import("playwright").LaunchOptions["proxy"] | undefined> {
   try {
     const resolver =
@@ -164,14 +197,29 @@ export async function resolvePlaywrightProxy(
     const p = await resolver(providerKey);
     if (!p?.host) return undefined;
     const scheme = p.type === "socks5" ? "socks5" : "http";
-    return {
+    // Build explicitly instead of a conditional object spread: the spread form
+    // widens username/password to `{}` under the LaunchOptions["proxy"] type,
+    // tripping typecheck once browserPool.ts is pulled into typecheck-core scope.
+    const proxy: NonNullable<import("playwright").LaunchOptions["proxy"]> = {
       server: `${scheme}://${p.host}:${p.port}`,
-      ...(p.username ? { username: p.username, password: p.password ?? "" } : {}),
     };
+    if (p.username) {
+      proxy.username = String(p.username);
+      proxy.password = p.password == null ? "" : String(p.password);
+    }
+    return proxy;
   } catch (err) {
     console.warn("[BrowserPool] Failed to resolve proxy from DB:", err);
     return undefined;
   }
+}
+
+export async function resolveBrowserContextProxy(
+  contextKey: string,
+  options: Pick<BrowserPoolContextOptions, "proxyProviderKey">,
+  deps?: ResolvePlaywrightProxyDeps
+): Promise<import("playwright").LaunchOptions["proxy"] | undefined> {
+  return resolvePlaywrightProxy(options.proxyProviderKey ?? contextKey, deps);
 }
 
 async function launchBrowser(): Promise<Browser> {
@@ -200,12 +248,14 @@ async function launchBrowser(): Promise<Browser> {
     }
     state.browser = browser;
     state.launching = null;
+    state.metrics.browserLaunches++;
     return browser;
   })();
   try {
     return await state.launching;
   } catch (err) {
     state.launching = null;
+    state.metrics.browserLaunchFailures++;
     throw err;
   }
 }
@@ -256,6 +306,14 @@ function parseCookieString(
   }>;
 }
 
+// Clear a key from the pending-creation map once its promise settles, counting
+// failures. Kept as a leaf helper so acquireBrowserContext stays under the
+// function-length ceiling (#3368 PR7 metrics).
+function settlePendingContext(key: string, failed: boolean): void {
+  if (failed) state.metrics.contextCreateFailures++;
+  state.pendingContexts.delete(key);
+}
+
 export async function acquireBrowserContext(
   key: string,
   options: BrowserPoolContextOptions
@@ -269,6 +327,7 @@ export async function acquireBrowserContext(
   if (existing) {
     existing.lastUsed = Date.now();
     state.lastActivity = Date.now();
+    state.metrics.contextsReused++;
     resetIdleTimer();
     return existing;
   }
@@ -278,7 +337,10 @@ export async function acquireBrowserContext(
   if (pending) return pending;
 
   const createPromise = (async (): Promise<PooledContext> => {
-    const [browser, proxy] = await Promise.all([launchBrowser(), resolvePlaywrightProxy(key)]);
+    const [browser, proxy] = await Promise.all([
+      launchBrowser(),
+      resolveBrowserContextProxy(key, options),
+    ]);
     const isStealth = state.cloakLaunch !== null;
     const context = await browser.newContext({
       userAgent: options.userAgent || DEFAULT_USER_AGENT,
@@ -337,6 +399,7 @@ export async function acquireBrowserContext(
       isStealth,
     };
     state.contexts.set(key, pooled);
+    state.metrics.contextsCreated++;
     state.lastActivity = Date.now();
     resetIdleTimer();
     startEvictTimer();
@@ -345,8 +408,8 @@ export async function acquireBrowserContext(
 
   state.pendingContexts.set(key, createPromise);
   createPromise
-    .then(() => state.pendingContexts.delete(key))
-    .catch(() => state.pendingContexts.delete(key));
+    .then(() => settlePendingContext(key, false))
+    .catch(() => settlePendingContext(key, true));
 
   return createPromise;
 }
@@ -359,6 +422,7 @@ export async function releaseBrowserContext(key: string): Promise<void> {
   const pooled = state.contexts.get(key);
   if (!pooled) return;
   state.contexts.delete(key);
+  state.metrics.contextsReleased++;
   try {
     await pooled.context.close();
   } catch {
@@ -370,6 +434,8 @@ export async function releaseBrowserContext(key: string): Promise<void> {
 }
 
 export async function shutdownPool(reason: string): Promise<void> {
+  state.metrics.shutdowns++;
+  state.metrics.lastShutdownReason = reason;
   if (state.idleTimer) {
     clearTimeout(state.idleTimer);
     state.idleTimer = null;
@@ -417,9 +483,26 @@ export function getBrowserPoolStatus(): {
   };
 }
 
+/**
+ * #3368 PR7 — browser-pool observability. Returns live status plus cumulative
+ * lifecycle telemetry (launches, context create/reuse/evict/release counts,
+ * failures, shutdowns). Surfaced via the omniroute_browser_pool_status MCP tool.
+ */
+export function getBrowserPoolMetrics(): {
+  status: ReturnType<typeof getBrowserPoolStatus>;
+  metrics: BrowserPoolMetrics;
+} {
+  return { status: getBrowserPoolStatus(), metrics: { ...state.metrics } };
+}
+
+/** Test-only: reset cumulative metrics so assertions start from a clean slate. */
+export function __resetBrowserPoolMetricsForTest(): void {
+  state.metrics = createBrowserPoolMetrics();
+}
+
 export async function readPageResponseBody(
   response: import("playwright").Response
-): Promise<{ status: number; headers: Record<string, string>; body: Buffer }> {
+): Promise<{ status: number; headers: Record<string, string>; body: Buffer<ArrayBuffer> }> {
   const headers: Record<string, string> = {};
   for (const [name, value] of Object.entries(response.headers())) {
     headers[name] = value;

@@ -8,7 +8,6 @@ const REPO = "diegosouzapw/OmniRoute";
 const BRANCH = "main";
 const SKILL_PATH = "skills";
 
-export const AGENT_SKILLS_REPO_URL = `https://github.com/${REPO}`;
 export const AGENT_SKILLS_RAW_BASE = `https://raw.githubusercontent.com/${REPO}/refs/heads/${BRANCH}/${SKILL_PATH}`;
 export const AGENT_SKILLS_BLOB_BASE = `https://github.com/${REPO}/blob/${BRANCH}/${SKILL_PATH}`;
 
@@ -429,6 +428,15 @@ export const CURATED_SKILLS: CuratedSkillEntry[] = [
     area: "cli-setup",
     icon: "build",
   },
+  {
+    id: "cli-skill-collector",
+    name: "CLI: Agent Skill Collector",
+    description:
+      "Detect installed CLI coding tools (Claude Code, Codex, Cursor, Copilot, Cline and more), search GitHub for matching agent skills, and install them to the detected tools via OmniRoute's built-in APIs.",
+    category: "cli",
+    area: "cli-setup",
+    icon: "extension",
+  },
 
   // ── Config Skills ────────────────────────────────────────────────────────────
 
@@ -442,5 +450,17 @@ export const CURATED_SKILLS: CuratedSkillEntry[] = [
     icon: "terminal",
     isNew: true,
   },
-];
 
+  // ── GitHub Skills ─────────────────────────────────────────────────────────
+
+  {
+    id: "omni-github-skills",
+    name: "GitHub Skill Discovery",
+    description:
+      "Search, score, scan, and import agent skills from GitHub repositories that contain SKILL.md, CLAUDE.md, .cursorrules, and similar agent skill files. Discover community skills across 160+ provider categories, evaluate relevance with heuristic scoring, check for malware or hardcoded secrets, and install into Hermes, Claude Code, Gemini CLI, or OpenCode agent directories.",
+    category: "api",
+    area: "github-skills",
+    icon: "explore",
+    isNew: true,
+  },
+];

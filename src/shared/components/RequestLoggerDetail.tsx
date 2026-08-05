@@ -7,6 +7,7 @@ import {
   getProtocolColor,
 } from "@/shared/constants/colors";
 import { formatDuration, formatApiKeyLabel, maskAccount } from "@/shared/utils/formatting";
+import { formatErrorForDisplay } from "@/shared/utils/formatting";
 
 // ─── Payload Code Block ─────────────────────────────────────────────────────
 
@@ -26,14 +27,18 @@ function PayloadSection({ title, json, onCopy, collapsible = true, defaultOpen =
     <div>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <h3 className="text-[11px] text-text-muted uppercase tracking-wider font-bold">{title}</h3>
+          <h3 className="text-[11px] text-text-muted uppercase tracking-wider font-bold">
+            {title}
+          </h3>
           {collapsible && (
             <button
               onClick={() => setOpen((v) => !v)}
               className="p-1 rounded hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors"
               aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
             >
-              <span className="material-symbols-outlined text-[16px]">{open ? "expand_less" : "expand_more"}</span>
+              <span className="material-symbols-outlined text-[16px]">
+                {open ? "expand_less" : "expand_more"}
+              </span>
             </button>
           )}
         </div>
@@ -61,6 +66,7 @@ function PayloadSection({ title, json, onCopy, collapsible = true, defaultOpen =
 
 function StreamSection({ title, json, onCopy }) {
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState(true);
   const [autoscroll, setAutoscroll] = useState(() => {
     try {
       const v = localStorage.getItem("pref:stream:autoscroll");
@@ -80,7 +86,7 @@ function StreamSection({ title, json, onCopy }) {
   };
 
   useEffect(() => {
-    if (!autoscroll) return;
+    if (!autoscroll || !open) return;
     const el = ref.current;
     if (!el) return;
     // scroll on next animation frame to avoid layout thrash
@@ -89,7 +95,7 @@ function StreamSection({ title, json, onCopy }) {
         el.scrollTop = el.scrollHeight;
       } catch {}
     });
-  }, [json, autoscroll]);
+  }, [json, autoscroll, open]);
 
   const toggleAutoscroll = () => {
     const next = !autoscroll;
@@ -102,7 +108,20 @@ function StreamSection({ title, json, onCopy }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-[11px] text-text-muted uppercase tracking-wider font-bold">{title}</h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-[11px] text-text-muted uppercase tracking-wider font-bold">
+            {title}
+          </h3>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="p-1 rounded hover:bg-bg-subtle text-text-muted hover:text-text-primary transition-colors"
+            aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {open ? "expand_less" : "expand_more"}
+            </span>
+          </button>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={toggleAutoscroll}
@@ -117,17 +136,21 @@ function StreamSection({ title, json, onCopy }) {
             className="flex items-center gap-1 px-2 py-1 text-xs text-text-muted hover:text-text-primary transition-colors"
             aria-label={`Copy ${title}`}
           >
-            <span className="material-symbols-outlined text-[14px]">{copied ? "check" : "content_copy"}</span>
+            <span className="material-symbols-outlined text-[14px]">
+              {copied ? "check" : "content_copy"}
+            </span>
             {copied ? "Copied!" : "Copy"}
           </button>
         </div>
       </div>
-      <div
-        ref={ref}
-        className="p-4 rounded-xl bg-black/5 dark:bg-black/30 border border-border overflow-x-auto text-xs font-mono text-text-main max-h-150 overflow-y-auto leading-relaxed whitespace-pre-wrap break-words"
-      >
-        {json}
-      </div>
+      {open && (
+        <div
+          ref={ref}
+          className="p-4 rounded-xl bg-black/5 dark:bg-black/30 border border-border overflow-x-auto text-xs font-mono text-text-main max-h-150 overflow-y-auto leading-relaxed whitespace-pre-wrap break-words"
+        >
+          {json}
+        </div>
+      )}
     </div>
   );
 }
@@ -135,6 +158,30 @@ function StreamSection({ title, json, onCopy }) {
 // ─── Detail Modal ───────────────────────────────────────────────────────────
 
 type StreamChunks = Record<string, string | string[]>;
+
+function getCodexAccountRotation(detail) {
+  const sources = [detail?.requestBody, detail?.responseBody];
+
+  for (const source of sources) {
+    const meta = source?._omniroute;
+    const rotation = meta?.codexAccountRotation;
+    if (
+      rotation &&
+      typeof rotation.initialConnectionId === "string" &&
+      typeof rotation.finalConnectionId === "string" &&
+      rotation.initialConnectionId !== rotation.finalConnectionId
+    ) {
+      return rotation;
+    }
+  }
+
+  return null;
+}
+
+function formatConnectionId(value) {
+  if (typeof value !== "string" || value.length === 0) return "-";
+  return value.length > 8 ? `${value.slice(0, 8)}...` : value;
+}
 
 export default function RequestLoggerDetail({
   log,
@@ -146,6 +193,8 @@ export default function RequestLoggerDetail({
   onCopy,
   onPrevious,
   onNext,
+  relatedLogs = [],
+  onSelectRelated,
 }) {
   // Close on Escape key
   useEffect(() => {
@@ -164,6 +213,54 @@ export default function RequestLoggerDetail({
     text: "#fff",
     label: (log.provider || "-").toUpperCase(),
   };
+  const providerLabel = log.providerDisplay || providerColor.label;
+
+  const [unblocking, setUnblocking] = useState(false);
+  const [cleared, setCleared] = useState(false);
+
+  // #7920 gave this component formatErrorForDisplay for structured error objects, but the
+  // #8213 combo/cooldown checks below went straight to the raw field and call
+  // .toLowerCase() on it — which throws the moment `error` is an object. Same helper,
+  // same normalization, one source of truth.
+  const errorText = formatErrorForDisplay(detail?.error || log.error) ?? "";
+  const isCombo503 =
+    log.status === 503 && errorText.toLowerCase().includes("all targets exhausted");
+  const isModelCooldown = !isCombo503 && errorText.toLowerCase().includes("cooling down");
+
+  const [unblockAllBusy, setUnblockAllBusy] = useState(false);
+
+  const handleUnblockModel = async () => {
+    if (!log.provider || !log.model) return;
+    setUnblocking(true);
+    try {
+      const res = await fetch("/api/resilience/model-cooldowns", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: log.provider, model: log.model }),
+      });
+      if (res.ok) setCleared(true);
+    } catch {
+      /* ignore */
+    } finally {
+      setUnblocking(false);
+    }
+  };
+
+  const handleUnblockAll = async () => {
+    setUnblockAllBusy(true);
+    try {
+      const res = await fetch("/api/resilience/model-cooldowns", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ all: true }),
+      });
+      if (res.ok) setCleared(true);
+    } catch {
+      /* ignore */
+    } finally {
+      setUnblockAllBusy(false);
+    }
+  };
 
   const providerStatus = detail?.pipelinePayloads?.providerResponse?.status;
   const hasStatusDiscrepancy = providerStatus && providerStatus !== log.status;
@@ -172,11 +269,12 @@ export default function RequestLoggerDetail({
     if (iso == null) return "\u2014";
     try {
       const d = new Date(iso);
+      if (!Number.isFinite(d.getTime())) return "\u2014";
       return (
         d.toLocaleDateString("pt-BR") + ", " + d.toLocaleTimeString("en-US", { hour12: false })
       );
     } catch {
-      return iso;
+      return "\u2014";
     }
   };
 
@@ -209,32 +307,17 @@ export default function RequestLoggerDetail({
     : [];
   const requestJson = detail?.requestBody ? toPrettyJson(detail.requestBody) : null;
   const responseJson = detail?.responseBody ? toPrettyJson(detail.responseBody) : null;
-  const streamChunksText = (() => {
+  const streamChunks = (() => {
     if (!debugEnabled || !detail?.pipelinePayloads?.streamChunks) return null;
     let chunks: StreamChunks = detail.pipelinePayloads.streamChunks;
-
     if (typeof chunks === "string") {
       try {
-        const parsed = JSON.parse(chunks);
-        chunks = parsed;
+        chunks = JSON.parse(chunks);
       } catch {
-        return chunks;
+        return null;
       }
     }
-
-    if (chunks && typeof chunks === "object") {
-      try {
-        return Object.entries(chunks)
-          .map(([stage, arr]) => {
-            const joined = Array.isArray(arr) ? arr.join("") : String(arr);
-            return `--- ${stage} ---\n${joined}`;
-          })
-          .join("\n\n");
-      } catch {
-        return toPrettyJson(chunks);
-      }
-    }
-
+    if (chunks && typeof chunks === "object") return chunks;
     return null;
   })();
   const detailIssue =
@@ -262,6 +345,7 @@ export default function RequestLoggerDetail({
       ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
       : "bg-sky-500/20 text-sky-700 dark:text-sky-300 border-sky-500/30";
   const accountLabel = maskAccount(detail?.account || log.account, emailsVisible);
+  const codexAccountRotation = getCodexAccountRotation(detail);
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-[5vh]"
@@ -315,6 +399,14 @@ export default function RequestLoggerDetail({
                 {log.id}
               </span>
             )}
+            {log.correlationId && (
+              <span
+                className="text-[10px] text-text-muted/50 font-mono self-center ml-2 px-1.5 py-0.5 rounded bg-bg-subtle border border-border/40 select-all"
+                title="Correlation ID"
+              >
+                cid: {log.correlationId}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -348,28 +440,38 @@ export default function RequestLoggerDetail({
           {log.active ? (
             <div className="flex flex-wrap gap-4 p-4 bg-bg-subtle rounded-xl border border-border">
               <div className="min-w-[140px] flex-1">
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Started At</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Started At
+                </div>
                 <div className="text-sm font-medium">{formatDate(log.timestamp)}</div>
               </div>
               <div className="min-w-[100px] flex-1">
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Duration</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Duration
+                </div>
                 <div className="text-sm font-medium">{formatDuration(log.duration)}</div>
               </div>
               <div className="min-w-[140px] flex-1">
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Model</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Model
+                </div>
                 <div className="text-sm font-medium text-primary font-mono">{log.model}</div>
               </div>
               <div className="min-w-[120px] flex-1">
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Provider</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Provider
+                </div>
                 <span
                   className="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase"
                   style={{ backgroundColor: providerColor.bg, color: providerColor.text }}
                 >
-                  {providerColor.label}
+                  {providerLabel}
                 </span>
               </div>
               <div className="min-w-[120px] flex-1">
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Account</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Account
+                </div>
                 <div className="text-sm font-medium">{accountLabel}</div>
               </div>
             </div>
@@ -380,7 +482,23 @@ export default function RequestLoggerDetail({
             >
               <div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
-                  Completed Time
+                  Started At
+                </div>
+                <div className="text-sm font-medium">
+                  {(() => {
+                    try {
+                      const ts = new Date(log.timestamp).getTime();
+                      if (!Number.isFinite(ts)) return "\u2014";
+                      return formatDate(new Date(ts - (log.duration || 0)).toISOString());
+                    } catch {
+                      return "\u2014";
+                    }
+                  })()}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Ended At
                 </div>
                 <div className="text-sm font-medium">{formatDate(log.timestamp)}</div>
               </div>
@@ -391,8 +509,13 @@ export default function RequestLoggerDetail({
                 <div className="text-sm font-medium">{formatDuration(log.duration)}</div>
               </div>
               <div>
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Input</div>
-                <div className="flex flex-wrap items-center gap-1.5" data-testid="token-group-input">
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Input
+                </div>
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  data-testid="token-group-input"
+                >
                   <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-bold">
                     Total In: {formatTokenValue(tokenStats.totalIn)}
                   </span>
@@ -402,22 +525,32 @@ export default function RequestLoggerDetail({
                   <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold">
                     Cache Write: {formatTokenValue(tokenStats.cacheWrite)}
                   </span>
-                  {tokenStats.compressed != null && tokenStats.compressed > 0 && (() => {
-                    const fromTokens = tokenStats.totalIn + tokenStats.compressed;
-                    const pct = Math.round((tokenStats.compressed / fromTokens) * 100);
-                    return (
-                      <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-bold">
-                        Compressed: {fromTokens.toLocaleString()} \u2192 {tokenStats.totalIn.toLocaleString()} (-{pct}%)
-                      </span>
-                    );
-                  })()}
+                  {tokenStats.compressed != null &&
+                    tokenStats.compressed > 0 &&
+                    (() => {
+                      const fromTokens = tokenStats.compressed + Math.max(0, tokenStats.totalIn);
+                      const saved = Math.min(tokenStats.compressed, fromTokens);
+                      const pct =
+                        fromTokens > 0
+                          ? Math.max(0, Math.min(100, Math.round((saved / fromTokens) * 100)))
+                          : 100;
+                      return (
+                        <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-bold">
+                          Compressed: {fromTokens.toLocaleString()} →{" "}
+                          {Math.max(0, tokenStats.totalIn).toLocaleString()} ({pct}% saved)
+                        </span>
+                      );
+                    })()}
                 </div>
               </div>
               <div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
                   Output
                 </div>
-                <div className="flex flex-wrap items-center gap-1.5" data-testid="token-group-output">
+                <div
+                  className="flex flex-wrap items-center gap-1.5"
+                  data-testid="token-group-output"
+                >
                   <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-bold">
                     Total Out: {formatTokenValue(tokenStats.totalOut)}
                   </span>
@@ -427,7 +560,9 @@ export default function RequestLoggerDetail({
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Model</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Model
+                </div>
                 <div className="text-sm font-medium text-primary font-mono">{log.model}</div>
               </div>
               <div>
@@ -453,7 +588,7 @@ export default function RequestLoggerDetail({
                   className="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase"
                   style={{ backgroundColor: providerColor.bg, color: providerColor.text }}
                 >
-                  {providerColor.label}
+                  {providerLabel}
                 </span>
               </div>
               <div>
@@ -477,11 +612,33 @@ export default function RequestLoggerDetail({
                   {cacheSourceLabel}
                 </span>
               </div>
+              {(detail?.modelPinned || log.modelPinned) && (
+                <div>
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                    Model Pinning
+                  </div>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25">
+                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M4.5 2A1.5 1.5 0 003 3.5v1.9l-1.4 2.8A.5.5 0 002 9h4v4.5a.5.5 0 00.5.5h3a.5.5 0 00.5-.5V9h4a.5.5 0 00.44-.73L13 5.4V3.5A1.5 1.5 0 0011.5 2h-7z" />
+                    </svg>
+                    Active — model selected via session pinning
+                  </span>
+                </div>
+              )}
               <div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
                   Account
                 </div>
                 <div className="text-sm font-medium">{accountLabel}</div>
+                {codexAccountRotation && (
+                  <div
+                    className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-mono"
+                    title={`${codexAccountRotation.initialConnectionId} -> ${codexAccountRotation.finalConnectionId}`}
+                  >
+                    Rotated: {formatConnectionId(codexAccountRotation.initialConnectionId)} -&gt;{" "}
+                    {formatConnectionId(codexAccountRotation.finalConnectionId)}
+                  </div>
+                )}
               </div>
               <div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
@@ -504,7 +661,9 @@ export default function RequestLoggerDetail({
                 </div>
               </div>
               <div>
-                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Combo</div>
+                <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                  Combo
+                </div>
                 {detail?.comboName || log.comboName ? (
                   <span className="inline-block px-2.5 py-1 rounded-full text-[10px] font-bold bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30">
                     {detail?.comboName || log.comboName}
@@ -519,11 +678,149 @@ export default function RequestLoggerDetail({
           {/* Error Message */}
           {(detail?.error || log.error) && (
             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30">
-              <div className="text-[10px] text-red-600 dark:text-red-400 uppercase tracking-wider mb-1 font-bold">
-                Error
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-[10px] text-red-600 dark:text-red-400 uppercase tracking-wider font-bold">
+                  Error
+                </div>
+                {isCombo503 && !cleared && (
+                  <button
+                    onClick={handleUnblockAll}
+                    disabled={unblockAllBusy}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-lg
+                      bg-amber-500/10 border border-amber-500/30 text-amber-600
+                      hover:bg-amber-500/15 hover:border-amber-500/50
+                      dark:text-amber-400 transition-all duration-200
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <rect x="3" y="6" width="10" height="8" rx="1" />
+                      <path d="M5 6V4a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
+                      <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+                    </svg>
+                    {unblockAllBusy ? "..." : "Unblock all"}
+                  </button>
+                )}
+                {isCombo503 && cleared && (
+                  <span className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="4 8 7 11 12 4" />
+                    </svg>
+                    Cleared
+                  </span>
+                )}
+                {isModelCooldown && !cleared && (
+                  <button
+                    onClick={handleUnblockModel}
+                    disabled={unblocking}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-lg
+                      bg-amber-500/10 border border-amber-500/30 text-amber-600
+                      hover:bg-amber-500/15 hover:border-amber-500/50
+                      dark:text-amber-400 transition-all duration-200
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                    >
+                      <rect x="3" y="6" width="10" height="8" rx="1" />
+                      <path d="M5 6V4a3 3 0 0 1 3-3h0a3 3 0 0 1 3 3v1" />
+                      <circle cx="8" cy="10" r="1" fill="currentColor" stroke="none" />
+                    </svg>
+                    {unblocking ? "..." : "Unblock"}
+                  </button>
+                )}
+                {isModelCooldown && cleared && (
+                  <span className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-medium rounded-lg bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400">
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <polyline points="4 8 7 11 12 4" />
+                    </svg>
+                    Cleared
+                  </span>
+                )}
               </div>
-              <div className="text-sm text-red-600 dark:text-red-300 font-mono">
-                {detail?.error || log.error}
+              <div className="text-sm text-red-600 dark:text-red-300 font-mono whitespace-pre-wrap break-words">
+                {formatErrorForDisplay(detail?.error || log.error)}
+              </div>
+            </div>
+          )}
+
+          {/* Related Requests (same correlation ID) */}
+          {relatedLogs.length > 1 && (
+            <div className="p-4 rounded-xl bg-bg-subtle border border-border">
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-2 font-bold">
+                Related Requests ({relatedLogs.length})
+              </div>
+              <div className="flex flex-col gap-1">
+                {[...relatedLogs]
+                  .sort((a, b) => {
+                    const aStart = new Date(a.timestamp).getTime() - (a.duration || 0);
+                    const bStart = new Date(b.timestamp).getTime() - (b.duration || 0);
+                    return aStart - bStart;
+                  })
+                  .map((r) => {
+                    const rStatusStyle = r.active ? null : getStatusStyle(r.status);
+                    const isCurrent = r.id === log.id;
+                    const startTime = new Date(new Date(r.timestamp).getTime() - (r.duration || 0));
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => !isCurrent && onSelectRelated?.(r)}
+                        disabled={isCurrent}
+                        className={`flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors ${
+                          isCurrent
+                            ? "bg-primary/10 border border-primary/30 cursor-default"
+                            : "hover:bg-bg-hover cursor-pointer"
+                        }`}
+                      >
+                        <span
+                          className="inline-block px-1.5 py-0.5 rounded text-[9px] font-bold min-w-[28px] text-center"
+                          style={
+                            rStatusStyle
+                              ? { backgroundColor: rStatusStyle.bg, color: rStatusStyle.text }
+                              : { backgroundColor: "#374151", color: "#fff" }
+                          }
+                        >
+                          {r.status || "..."}
+                        </span>
+                        <span className="font-mono text-text-muted">{r.id}</span>
+                        <span className="text-text-muted">{r.model}</span>
+                        <span className="text-text-muted text-[10px]">
+                          {startTime.toLocaleTimeString("en-US", { hour12: false })}
+                        </span>
+                        <span className="text-text-muted ml-auto">
+                          {formatDuration(r.duration)}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[9px] text-primary font-bold ml-1">current</span>
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -543,13 +840,62 @@ export default function RequestLoggerDetail({
             </div>
           ) : (
             <>
-              {streamChunksText && (
+              {streamChunks && streamChunks.provider && (
                 <StreamSection
-                  title="Event Stream (Debug)"
-                  json={streamChunksText}
-                  onCopy={() => onCopy(streamChunksText)}
+                  title="Provider Event Stream"
+                  json={
+                    Array.isArray(streamChunks.provider)
+                      ? streamChunks.provider.join("")
+                      : String(streamChunks.provider)
+                  }
+                  onCopy={() =>
+                    onCopy(
+                      Array.isArray(streamChunks.provider)
+                        ? streamChunks.provider.join("")
+                        : String(streamChunks.provider)
+                    )
+                  }
                 />
               )}
+
+              {streamChunks && streamChunks.client && (
+                <StreamSection
+                  title="Client Event Stream"
+                  json={
+                    Array.isArray(streamChunks.client)
+                      ? streamChunks.client.join("")
+                      : String(streamChunks.client)
+                  }
+                  onCopy={() =>
+                    onCopy(
+                      Array.isArray(streamChunks.client)
+                        ? streamChunks.client.join("")
+                        : String(streamChunks.client)
+                    )
+                  }
+                />
+              )}
+
+              {streamChunks &&
+                streamChunks.openai &&
+                !streamChunks.provider &&
+                !streamChunks.client && (
+                  <StreamSection
+                    title="Event Stream"
+                    json={
+                      Array.isArray(streamChunks.openai)
+                        ? streamChunks.openai.join("")
+                        : String(streamChunks.openai)
+                    }
+                    onCopy={() =>
+                      onCopy(
+                        Array.isArray(streamChunks.openai)
+                          ? streamChunks.openai.join("")
+                          : String(streamChunks.openai)
+                      )
+                    }
+                  />
+                )}
 
               {payloadSections.length > 0 &&
                 payloadSections.map((section) => (

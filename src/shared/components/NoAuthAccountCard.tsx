@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import Card from "./Card";
 import Button from "./Button";
 import DistributeProxiesButton from "./DistributeProxiesButton";
@@ -10,12 +11,14 @@ interface NoAuthAccountCardProps {
   providerId: string;
   providerName: string;
   generateAccountId: () => string;
+  generateApiKey?: () => Promise<string>;
   dataKey?: string;
   description?: string;
   addLabel?: string;
   enabled?: boolean;
   savingEnabled?: boolean;
   onEnabledChange?: (enabled: boolean) => void;
+  providerProxyControl?: ReactNode;
 }
 
 interface Connection {
@@ -26,9 +29,30 @@ interface Connection {
   isActive?: boolean;
 }
 
+interface InlineProxy {
+  type: string;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+}
+
+// #5217 (Gap 1): an account proxy is now stored as EITHER a Proxy Pool reference
+// (`proxyId`, resolved server-side so a pool edit propagates to every account) OR
+// a one-off inline `proxy` (the "custom" escape hatch / legacy entries).
 interface AccountProxyConfig {
   fingerprint: string;
-  proxy: { type: string; host: string; port: number; username?: string; password?: string } | null;
+  proxy?: InlineProxy | null;
+  proxyId?: string | null;
+}
+
+interface SavedProxy {
+  id: string;
+  name?: string;
+  type?: string;
+  host?: string;
+  port?: number | string;
+  status?: string;
 }
 
 const PROXY_TYPES = [
@@ -41,25 +65,51 @@ function getAccountProxies(conn: Connection | undefined): AccountProxyConfig[] {
   return (conn?.providerSpecificData?.accountProxies as AccountProxyConfig[]) || [];
 }
 
-function getProxyForFingerprint(proxies: AccountProxyConfig[], fp: string) {
-  return proxies.find((p) => p.fingerprint === fp)?.proxy ?? null;
+function getEntryForFingerprint(proxies: AccountProxyConfig[], fp: string) {
+  return proxies.find((p) => p.fingerprint === fp) ?? null;
+}
+
+/**
+ * Resolve the proxy to DISPLAY for an account: a by-id reference is looked up in
+ * the Proxy Pool list, an inline proxy is shown directly. Returns null (direct)
+ * when there is no entry or the referenced pool proxy no longer exists.
+ */
+function getDisplayProxy(
+  entry: AccountProxyConfig | null,
+  savedProxies: SavedProxy[]
+): InlineProxy | null {
+  if (!entry) return null;
+  if (entry.proxyId) {
+    const found = savedProxies.find((p) => p.id === entry.proxyId);
+    if (!found || !found.host) return null;
+    return { type: found.type || "socks5", host: found.host, port: Number(found.port) || 0 };
+  }
+  return entry.proxy ?? null;
 }
 
 export default function NoAuthAccountCard({
   providerId,
   providerName,
   generateAccountId,
+  generateApiKey,
   dataKey = "fingerprints",
-  description = "Ready to use — no signup needed. Add accounts for rate-limit rotation.",
-  addLabel = "Add Account",
+  description,
+  addLabel,
   enabled = true,
   savingEnabled = false,
   onEnabledChange,
+  providerProxyControl,
 }: NoAuthAccountCardProps) {
+  const t = useTranslations("noAuthProvider");
+  const resolvedDescription = description || t("accountDescription");
+  const resolvedAddLabel = addLabel || t("addAccount");
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [proxyAccountId, setProxyAccountId] = useState<string | null>(null);
+  const [proxyMode, setProxyMode] = useState<"saved" | "custom">("saved");
+  const [savedProxies, setSavedProxies] = useState<SavedProxy[]>([]);
+  const [selectedProxyId, setSelectedProxyId] = useState("");
   const [proxyType, setProxyType] = useState("socks5");
   const [proxyHost, setProxyHost] = useState("");
   const [proxyPort, setProxyPort] = useState("1080");
@@ -85,9 +135,26 @@ export default function NoAuthAccountCard({
     }
   }, [providerId]);
 
+  const fetchSavedProxies = useCallback(async () => {
+    try {
+      const res = await fetch("/api/settings/proxies");
+      if (res.ok) {
+        const data = await res.json();
+        setSavedProxies(Array.isArray(data?.items) ? data.items : []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch saved proxies:", err);
+    }
+  }, []);
+
   useEffect(() => {
-    void fetchConnections();
-  }, [fetchConnections]);
+    const loadTimer = window.setTimeout(() => {
+      void fetchConnections();
+      void fetchSavedProxies();
+    }, 0);
+
+    return () => window.clearTimeout(loadTimer);
+  }, [fetchConnections, fetchSavedProxies]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -110,17 +177,22 @@ export default function NoAuthAccountCard({
     setAdding(true);
     try {
       const accountId = generateAccountId();
+      const apiKey = generateApiKey ? await generateApiKey() : undefined;
       if (connections.length === 0) {
         const res = await fetch("/api/providers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: providerId,
-            name: `${providerName} Account 1`,
+            name: t("accountName", { provider: providerName, number: 1 }),
+            ...(apiKey ? { apiKey } : {}),
             providerSpecificData: { [dataKey]: [accountId] },
           }),
         });
-        if (!res.ok) throw new Error("Failed to create connection");
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData?.error || t("createConnectionFailed"));
+        }
       } else {
         const updated = [...allAccountIds, accountId];
         const res = await fetch(`/api/providers/${conn.id}`, {
@@ -130,7 +202,7 @@ export default function NoAuthAccountCard({
             providerSpecificData: { [dataKey]: updated },
           }),
         });
-        if (!res.ok) throw new Error("Failed to update connection");
+        if (!res.ok) throw new Error(t("updateConnectionFailed"));
       }
       await fetchConnections();
     } catch (err) {
@@ -162,19 +234,27 @@ export default function NoAuthAccountCard({
   };
 
   const openProxyConfig = (accountId: string) => {
-    const existing = getProxyForFingerprint(accountProxies, accountId);
-    if (existing) {
-      setProxyType(existing.type);
-      setProxyHost(existing.host);
-      setProxyPort(String(existing.port));
-      setProxyUsername(existing.username || "");
-      setProxyPassword(existing.password || "");
+    const existing = getEntryForFingerprint(accountProxies, accountId);
+    // Reset custom-form fields, then prefill from whichever shape was stored.
+    setProxyType("socks5");
+    setProxyHost("");
+    setProxyPort("1080");
+    setProxyUsername("");
+    setProxyPassword("");
+    setSelectedProxyId("");
+    if (existing?.proxyId) {
+      setProxyMode("saved");
+      setSelectedProxyId(existing.proxyId);
+    } else if (existing?.proxy?.host) {
+      setProxyMode("custom");
+      setProxyType(existing.proxy.type);
+      setProxyHost(existing.proxy.host);
+      setProxyPort(String(existing.proxy.port));
+      setProxyUsername(existing.proxy.username || "");
+      setProxyPassword(existing.proxy.password || "");
     } else {
-      setProxyType("socks5");
-      setProxyHost("");
-      setProxyPort("1080");
-      setProxyUsername("");
-      setProxyPassword("");
+      // New: default to the Proxy Pool dropdown when pool entries exist.
+      setProxyMode(savedProxies.length > 0 ? "saved" : "custom");
     }
     setProxyAccountId(accountId);
   };
@@ -183,21 +263,30 @@ export default function NoAuthAccountCard({
     if (!conn || !proxyAccountId) return;
     setSavingProxy(true);
     try {
-      const trimmedHost = proxyHost.trim();
-      const newProxy: AccountProxyConfig["proxy"] = trimmedHost
-        ? {
-            type: proxyType,
-            host: trimmedHost,
-            port: Number(proxyPort) || 1080,
-            ...(proxyUsername.trim() ? { username: proxyUsername.trim() } : {}),
-            ...(proxyPassword.trim() ? { password: proxyPassword.trim() } : {}),
-          }
-        : null;
+      const others = accountProxies.filter((p) => p.fingerprint !== proxyAccountId);
+      let newEntry: AccountProxyConfig | null = null;
+      if (proxyMode === "saved") {
+        // Store a REFERENCE (by id); server resolves it to a live proxy record.
+        newEntry = selectedProxyId
+          ? { fingerprint: proxyAccountId, proxyId: selectedProxyId }
+          : null;
+      } else {
+        const trimmedHost = proxyHost.trim();
+        newEntry = trimmedHost
+          ? {
+              fingerprint: proxyAccountId,
+              proxy: {
+                type: proxyType,
+                host: trimmedHost,
+                port: Number(proxyPort) || 1080,
+                ...(proxyUsername.trim() ? { username: proxyUsername.trim() } : {}),
+                ...(proxyPassword.trim() ? { password: proxyPassword.trim() } : {}),
+              },
+            }
+          : null;
+      }
 
-      const existing = accountProxies.filter((p) => p.fingerprint !== proxyAccountId);
-      const updatedProxies = newProxy
-        ? [...existing, { fingerprint: proxyAccountId, proxy: newProxy }]
-        : existing;
+      const updatedProxies = newEntry ? [...others, newEntry] : others;
 
       const res = await fetch(`/api/providers/${conn.id}`, {
         method: "PUT",
@@ -221,26 +310,19 @@ export default function NoAuthAccountCard({
     if (!conn || allAccountIds.length === 0) return;
 
     const proxiesRes = await fetch("/api/settings/proxies");
-    if (!proxiesRes.ok) throw new Error("Failed to fetch proxies");
+    if (!proxiesRes.ok) throw new Error(t("fetchProxiesFailed"));
     const proxiesData = await proxiesRes.json();
     const savedProxies = (proxiesData?.items || []).filter((p: any) => p.status === "active");
     if (savedProxies.length === 0) {
-      throw new Error("No saved proxies found. Add proxies in Settings → Proxy first.");
+      throw new Error(t("noSavedProxiesError"));
     }
 
-    const updatedProxies: AccountProxyConfig[] = allAccountIds.map((fp, i) => {
-      const proxy = savedProxies[i % savedProxies.length];
-      return {
-        fingerprint: fp,
-        proxy: {
-          type: proxy.type || "socks5",
-          host: proxy.host,
-          port: proxy.port,
-          ...(proxy.username ? { username: proxy.username } : {}),
-          ...(proxy.password ? { password: proxy.password } : {}),
-        },
-      };
-    });
+    // #5217 (Gap 1): distribute stores by-id references too, so editing a pool
+    // proxy later propagates to every account it was distributed to.
+    const updatedProxies: AccountProxyConfig[] = allAccountIds.map((fp, i) => ({
+      fingerprint: fp,
+      proxyId: savedProxies[i % savedProxies.length].id,
+    }));
 
     const res = await fetch(`/api/providers/${conn.id}`, {
       method: "PUT",
@@ -249,7 +331,7 @@ export default function NoAuthAccountCard({
         providerSpecificData: { accountProxies: updatedProxies },
       }),
     });
-    if (!res.ok) throw new Error("Failed to update connection");
+    if (!res.ok) throw new Error(t("updateConnectionFailed"));
 
     await fetchConnections();
   };
@@ -262,22 +344,25 @@ export default function NoAuthAccountCard({
             <span className="material-symbols-outlined text-[20px]">lock_open</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium">No authentication required</p>
-            <p className="text-xs text-text-muted">{description}</p>
+            <p className="text-sm font-medium">{t("title")}</p>
+            <p className="text-xs text-text-muted">{resolvedDescription}</p>
           </div>
         </div>
-        <NoAuthProviderToggle
-          className="w-full justify-end sm:w-auto"
-          enabled={enabled}
-          saving={savingEnabled}
-          onEnabledChange={onEnabledChange}
-        />
+        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
+          {providerProxyControl}
+          <NoAuthProviderToggle
+            className="w-full justify-end sm:w-auto"
+            enabled={enabled}
+            saving={savingEnabled}
+            onEnabledChange={onEnabledChange}
+          />
+        </div>
       </div>
 
       <div className="border-t border-border pt-3 mt-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-medium">
-            Accounts ({loading ? "..." : allAccountIds.length})
+            {t("accounts", { count: loading ? "..." : allAccountIds.length })}
           </span>
           <div className="flex items-center justify-end gap-2">
             {!loading && allAccountIds.length > 0 && (
@@ -288,14 +373,14 @@ export default function NoAuthAccountCard({
               />
             )}
             <Button size="sm" icon="add" onClick={handleAddAccount} disabled={adding || !enabled}>
-              {adding ? "Adding..." : addLabel}
+              {adding ? t("adding") : resolvedAddLabel}
             </Button>
           </div>
         </div>
 
         {!loading && allAccountIds.length === 0 && (
           <p className="text-xs text-text-muted py-2">
-            Using auto-generated account. Click &quot;{addLabel}&quot; for rate-limit rotation.
+            {t("autoGeneratedAccount", { addLabel: resolvedAddLabel })}
           </p>
         )}
 
@@ -305,7 +390,10 @@ export default function NoAuthAccountCard({
             className="grid max-h-72 grid-cols-1 gap-1.5 overflow-y-auto pr-1 sm:grid-cols-2 lg:grid-cols-3"
           >
             {allAccountIds.map((id, i) => {
-              const proxy = getProxyForFingerprint(accountProxies, id);
+              const proxy = getDisplayProxy(
+                getEntryForFingerprint(accountProxies, id),
+                savedProxies
+              );
               return (
                 <div
                   key={id}
@@ -325,9 +413,11 @@ export default function NoAuthAccountCard({
                     title={
                       proxy
                         ? `Proxy: ${proxy.type}://${proxy.host}:${proxy.port}`
-                        : "Configure proxy"
+                        : t("configureProxy")
                     }
-                    aria-label={proxy ? `Proxy configured: ${proxy.host}` : "Configure proxy"}
+                    aria-label={
+                      proxy ? t("proxyConfigured", { host: proxy.host }) : t("configureProxy")
+                    }
                   >
                     <span
                       className="material-symbols-outlined text-[16px]"
@@ -340,7 +430,7 @@ export default function NoAuthAccountCard({
                     type="button"
                     onClick={() => handleRemoveAccount(id)}
                     className="shrink-0 rounded p-1 text-text-muted opacity-0 transition-colors hover:bg-red-500/10 hover:text-red-500 group-hover:opacity-100"
-                    aria-label="Remove account"
+                    aria-label={t("removeAccount")}
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
                   </button>
@@ -357,63 +447,111 @@ export default function NoAuthAccountCard({
               className="w-80 max-w-full rounded-lg border border-black/10 bg-surface p-4 shadow-lg dark:border-white/10"
             >
               <p className="mb-3 text-sm font-medium">
-                Proxy for Account {allAccountIds.indexOf(proxyAccountId) + 1}
+                {t("proxyForAccount", {
+                  number: allAccountIds.indexOf(proxyAccountId) + 1,
+                })}
               </p>
               <div className="space-y-3">
-                <div className="flex gap-2">
-                  <select
-                    value={proxyType}
-                    onChange={(e) => setProxyType(e.target.value)}
-                    className="flex-shrink-0 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                {/* #5217 (Gap 1): pick a pre-saved Proxy Pool entry by reference,
+                    or fall back to a one-off custom proxy. */}
+                <div className="flex gap-1 rounded-lg border border-border bg-bg-subtle p-1">
+                  <button
+                    type="button"
+                    onClick={() => setProxyMode("saved")}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      proxyMode === "saved"
+                        ? "bg-primary text-white"
+                        : "text-text-muted hover:text-text-main"
+                    }`}
                   >
-                    {PROXY_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
+                    {t("saved")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProxyMode("custom")}
+                    className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                      proxyMode === "custom"
+                        ? "bg-primary text-white"
+                        : "text-text-muted hover:text-text-main"
+                    }`}
+                  >
+                    {t("custom")}
+                  </button>
+                </div>
+
+                {proxyMode === "saved" ? (
+                  <select
+                    value={selectedProxyId}
+                    onChange={(e) => setSelectedProxyId(e.target.value)}
+                    className="w-full rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                  >
+                    <option value="">
+                      {savedProxies.length === 0 ? t("noSavedProxies") : t("directConnection")}
+                    </option>
+                    {savedProxies.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {(p.name || p.host) ?? p.id} ({p.type || "socks5"}://{p.host}:{p.port})
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    value={proxyHost}
-                    onChange={(e) => setProxyHost(e.target.value)}
-                    placeholder="Host"
-                    className="flex-1 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
-                  />
-                  <input
-                    type="text"
-                    value={proxyPort}
-                    onChange={(e) => setProxyPort(e.target.value)}
-                    placeholder="Port"
-                    className="w-16 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
-                  />
-                </div>
-                <input
-                  type="text"
-                  value={proxyUsername}
-                  onChange={(e) => setProxyUsername(e.target.value)}
-                  placeholder="Username (optional)"
-                  className="w-full rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
-                />
-                <input
-                  type="password"
-                  value={proxyPassword}
-                  onChange={(e) => setProxyPassword(e.target.value)}
-                  placeholder="Password (optional)"
-                  className="w-full rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
-                />
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <select
+                        value={proxyType}
+                        onChange={(e) => setProxyType(e.target.value)}
+                        className="flex-shrink-0 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                      >
+                        {PROXY_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={proxyHost}
+                        onChange={(e) => setProxyHost(e.target.value)}
+                        placeholder={t("host")}
+                        className="flex-1 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                      />
+                      <input
+                        type="text"
+                        value={proxyPort}
+                        onChange={(e) => setProxyPort(e.target.value)}
+                        placeholder={t("port")}
+                        className="w-16 rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                      />
+                    </div>
+                    <input
+                      type="text"
+                      value={proxyUsername}
+                      onChange={(e) => setProxyUsername(e.target.value)}
+                      placeholder={t("usernameOptional")}
+                      className="w-full rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                    />
+                    <input
+                      type="password"
+                      value={proxyPassword}
+                      onChange={(e) => setProxyPassword(e.target.value)}
+                      placeholder={t("passwordOptional")}
+                      className="w-full rounded-md border border-black/10 bg-bg px-2.5 py-1.5 text-xs dark:border-white/10"
+                    />
+                  </>
+                )}
                 <div className="flex justify-end gap-2 pt-1">
                   <button
                     onClick={() => setProxyAccountId(null)}
                     className="rounded-md px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-black/5 hover:text-text-main dark:hover:bg-white/5"
                   >
-                    Cancel
+                    {t("cancel")}
                   </button>
                   <button
                     onClick={handleSaveProxy}
                     disabled={savingProxy}
                     className="rounded-md bg-primary/10 px-3 py-1.5 text-xs text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
                   >
-                    {savingProxy ? "Saving..." : "Save"}
+                    {savingProxy ? t("saving") : t("save")}
                   </button>
                 </div>
               </div>

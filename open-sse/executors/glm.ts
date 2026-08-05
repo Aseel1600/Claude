@@ -19,6 +19,7 @@ import {
   getGlmTransport,
 } from "../config/glmProvider.ts";
 import { applyProviderRequestDefaults } from "../services/providerRequestDefaults.ts";
+import { stripUnsupportedParams } from "../translator/paramSupport.ts";
 import { getRotatingApiKey } from "../services/apiKeyRotator.ts";
 import { CLAUDE_CLI_STAINLESS_PACKAGE_VERSION } from "../config/anthropicHeaders.ts";
 import {
@@ -32,6 +33,7 @@ import { FORMATS } from "../translator/formats.ts";
 import { createSSETransformStreamWithLogger } from "../utils/stream.ts";
 import { ensureStreamReadiness } from "../utils/streamReadiness.ts";
 import { STREAM_READINESS_TIMEOUT_MS } from "../config/constants.ts";
+import { resolveSuppressThinkClose, THINKING_MARKER_HEADER } from "../utils/thinkCloseMarker.ts";
 
 type JsonRecord = Record<string, unknown>;
 type GlmExecuteResult = Awaited<ReturnType<DefaultExecutor["execute"]>> & {
@@ -180,7 +182,12 @@ function translateAnthropicJsonError(parsed: unknown): JsonRecord {
   };
 }
 
-function translateSseResponse(response: Response, provider: string, model: string): Response {
+export function translateSseResponse(
+  response: Response,
+  provider: string,
+  model: string,
+  suppressThinkClose: boolean = false
+): Response {
   if (!response.body) return response;
   const transform = createSSETransformStreamWithLogger(
     FORMATS.CLAUDE,
@@ -188,7 +195,14 @@ function translateSseResponse(response: Response, provider: string, model: strin
     provider,
     null,
     null,
-    model
+    model,
+    null,
+    null,
+    null,
+    null,
+    null,
+    false,
+    suppressThinkClose
   );
   const headers = cloneHeaders(response.headers);
   headers.set("content-type", "text/event-stream");
@@ -269,6 +283,14 @@ export class GlmExecutor extends DefaultExecutor {
 
     const transformed = this.transformRequest(effectiveModel, body, stream, credentials);
     const record = asRecord(transformed);
+
+    // #7364: unlike DefaultExecutor.execute() (default.ts), GlmExecutor.execute()
+    // never calls the base execute() loop — it drives its own fetch via
+    // executeTransport()/transformForTransport() — so stripUnsupportedParams()
+    // (normally applied at default.ts's execute() call site) never ran for GLM
+    // requests. Without this call, a STRIP_RULES clamp entry for provider "glm"
+    // (e.g. the glm-4.6v max_tokens ceiling) would be silently dead code.
+    if (record) stripUnsupportedParams(this.provider, effectiveModel, record);
 
     // Ensure upstream receives the base model ID, not the effort-suffixed alias
     if (record && effortTier) {
@@ -402,24 +424,49 @@ export class GlmExecutor extends DefaultExecutor {
     const result = { response, url, headers, transformedBody };
 
     if (transport === "anthropic") {
-      const translatedResponse =
-        input.stream && result.response.ok
-          ? translateSseResponse(result.response, this.provider, input.model)
-          : isJsonResponse(result.response)
-            ? await translateAnthropicJsonResponse(result.response)
-            : result.response;
-      return {
-        ...result,
-        response: translatedResponse,
-        url,
-        headers,
-        transformedBody,
-        targetFormat: FORMATS.OPENAI,
-      };
+      return this.finalizeAnthropicTransportResult(input, result);
     }
 
     return {
       ...result,
+      url,
+      headers,
+      transformedBody,
+      targetFormat: FORMATS.OPENAI,
+    };
+  }
+
+  /**
+   * GLM's Anthropic transport does its own Claude→OpenAI translation
+   * (bypassing chatCore's stream), so the `</think>` close-marker
+   * suppression flag and the response translation both have to be resolved
+   * here from the original client headers (#5245 / #5312). Extracted from
+   * `executeTransport` to keep that method's cyclomatic complexity under the
+   * project cap.
+   */
+  private async finalizeAnthropicTransportResult(
+    input: ExecuteInput,
+    result: { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown }
+  ): Promise<GlmExecuteResult> {
+    const { response: rawResponse, url, headers, transformedBody } = result;
+    const clientHeaders = input.clientHeaders ?? {};
+    const suppressThinkClose = resolveSuppressThinkClose({
+      userAgent: clientHeaders["user-agent"] ?? clientHeaders["User-Agent"] ?? null,
+      thinkingMarkerHeader:
+        clientHeaders[THINKING_MARKER_HEADER] ??
+        clientHeaders["x-omniroute-thinking-marker"] ??
+        null,
+      clientResponseFormat: input.clientResponseFormat ?? null,
+    });
+
+    const translatedResponse =
+      input.stream && rawResponse.ok
+        ? translateSseResponse(rawResponse, this.provider, input.model, suppressThinkClose)
+        : isJsonResponse(rawResponse)
+          ? await translateAnthropicJsonResponse(rawResponse)
+          : rawResponse;
+    return {
+      response: translatedResponse,
       url,
       headers,
       transformedBody,

@@ -8,7 +8,9 @@
  */
 
 import { useState, useEffect, useCallback, Fragment } from "react";
+import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
+import { useProviderNodeMap, resolveProviderName } from "@/lib/display/useProviderNodeMap";
 
 interface ProviderStat {
   provider: string;
@@ -33,7 +35,14 @@ interface ToolLatencyStat {
   measurementCount: number;
 }
 
-type SortKey = "totalRequests" | "successfulRequests" | "avgLatencyMs" | "totalTokensIn" | "totalTokensOut" | "avgTtftAfterToolMs" | "avgGapAfterToolMs";
+type SortKey =
+  | "totalRequests"
+  | "successfulRequests"
+  | "avgLatencyMs"
+  | "totalTokensIn"
+  | "totalTokensOut"
+  | "avgTtftAfterToolMs"
+  | "avgGapAfterToolMs";
 type SortDir = "asc" | "desc";
 
 function formatNumber(n: number | null): string {
@@ -55,6 +64,8 @@ function successRate(successful: number, total: number): string {
 }
 
 export default function ProviderStatsPage() {
+  const t = useTranslations("providerStats");
+  const nodeMap = useProviderNodeMap();
   const [data, setData] = useState<{
     providers: ProviderStat[];
     models: ModelStat[];
@@ -77,9 +88,9 @@ export default function ProviderStatsPage() {
       setError(null);
       setLastRefresh(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      setError(err instanceof Error ? err.message : t("unknownError"));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchData();
@@ -99,12 +110,11 @@ export default function ProviderStatsPage() {
   // Compute summary stats
   const totalRequests = data?.providers.reduce((s, p) => s + (p.totalRequests || 0), 0) ?? 0;
   const totalSuccessful = data?.providers.reduce((s, p) => s + (p.successfulRequests || 0), 0) ?? 0;
-  const avgLatency =
-    data?.providers.length
-      ? Math.round(
-          data.providers.reduce((s, p) => s + (p.avgLatencyMs || 0), 0) / data.providers.length
-        )
-      : 0;
+  const avgLatency = data?.providers.length
+    ? Math.round(
+        data.providers.reduce((s, p) => s + (p.avgLatencyMs || 0), 0) / data.providers.length
+      )
+    : 0;
   const activeProviders = data?.providers.length ?? 0;
 
   // Sorted providers
@@ -112,8 +122,8 @@ export default function ProviderStatsPage() {
     if (sortKey === "avgTtftAfterToolMs" || sortKey === "avgGapAfterToolMs") {
       const aLatency = data?.toolLatency?.[a.provider] ?? null;
       const bLatency = data?.toolLatency?.[b.provider] ?? null;
-      const va = aLatency ? (aLatency[sortKey] as number) ?? 0 : 0;
-      const vb = bLatency ? (bLatency[sortKey] as number) ?? 0 : 0;
+      const va = aLatency ? ((aLatency[sortKey] as number) ?? 0) : 0;
+      const vb = bLatency ? ((bLatency[sortKey] as number) ?? 0) : 0;
       return sortDir === "desc" ? vb - va : va - vb;
     }
     const va = (a[sortKey] as number) ?? 0;
@@ -143,7 +153,7 @@ export default function ProviderStatsPage() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-          <p className="text-text-muted mt-4">Loading provider stats...</p>
+          <p className="text-text-muted mt-4">{t("loading")}</p>
         </div>
       </div>
     );
@@ -154,12 +164,12 @@ export default function ProviderStatsPage() {
       <div>
         <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
           <span className="material-symbols-outlined text-red-500 text-[32px] mb-2">error</span>
-          <p className="text-red-400">Failed to load provider stats: {error}</p>
+          <p className="text-red-400">{t("loadFailed", { error })}</p>
           <button
             onClick={fetchData}
             className="mt-4 px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm hover:bg-primary/20 transition-colors"
           >
-            Retry
+            {t("retry")}
           </button>
         </div>
       </div>
@@ -172,13 +182,13 @@ export default function ProviderStatsPage() {
       <div className="flex items-center justify-end gap-3">
         {lastRefresh && (
           <span className="text-xs text-text-muted">
-            Updated {lastRefresh.toLocaleTimeString()}
+            {t("updated", { time: lastRefresh.toLocaleTimeString() })}
           </span>
         )}
         <button
           onClick={fetchData}
           className="p-2 rounded-lg bg-surface hover:bg-surface/80 text-text-muted hover:text-text-main transition-colors"
-          title="Refresh"
+          title={t("refresh")}
         >
           <span className="material-symbols-outlined text-[18px]">refresh</span>
         </button>
@@ -191,7 +201,7 @@ export default function ProviderStatsPage() {
             <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary">
               <span className="material-symbols-outlined text-[18px]">analytics</span>
             </div>
-            <span className="text-sm text-text-muted">Total Requests</span>
+            <span className="text-sm text-text-muted">{t("totalRequests")}</span>
           </div>
           <p className="text-xl font-semibold text-text-main">{formatNumber(totalRequests)}</p>
         </Card>
@@ -201,7 +211,7 @@ export default function ProviderStatsPage() {
             <div className="flex items-center justify-center size-8 rounded-lg bg-blue-500/10 text-blue-500">
               <span className="material-symbols-outlined text-[18px]">timer</span>
             </div>
-            <span className="text-sm text-text-muted">Avg Latency</span>
+            <span className="text-sm text-text-muted">{t("avgLatency")}</span>
           </div>
           <p className="text-xl font-semibold text-text-main">{formatLatency(avgLatency)}</p>
         </Card>
@@ -211,7 +221,7 @@ export default function ProviderStatsPage() {
             <div className="flex items-center justify-center size-8 rounded-lg bg-green-500/10 text-green-500">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
             </div>
-            <span className="text-sm text-text-muted">Success Rate</span>
+            <span className="text-sm text-text-muted">{t("successRate")}</span>
           </div>
           <p className="text-xl font-semibold text-text-main">
             {successRate(totalSuccessful, totalRequests)}
@@ -223,7 +233,7 @@ export default function ProviderStatsPage() {
             <div className="flex items-center justify-center size-8 rounded-lg bg-purple-500/10 text-purple-500">
               <span className="material-symbols-outlined text-[18px]">dns</span>
             </div>
-            <span className="text-sm text-text-muted">Active Providers</span>
+            <span className="text-sm text-text-muted">{t("activeProviders")}</span>
           </div>
           <p className="text-xl font-semibold text-text-main">{activeProviders}</p>
         </Card>
@@ -234,58 +244,60 @@ export default function ProviderStatsPage() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-text-main flex items-center gap-2">
             <span className="material-symbols-outlined text-[20px] text-primary">table_chart</span>
-            Provider Breakdown
+            {t("providerBreakdown")}
           </h2>
-          <span className="text-xs text-text-muted">{activeProviders} providers</span>
+          <span className="text-xs text-text-muted">
+            {t("providerCount", { count: activeProviders })}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-2 px-3 text-text-muted font-medium">Provider</th>
+                <th className="text-left py-2 px-3 text-text-muted font-medium">{t("provider")}</th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalRequests")}
                 >
-                  Requests <SortIcon column="totalRequests" />
+                  {t("requests")} <SortIcon column="totalRequests" />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("successfulRequests")}
                 >
-                  Success <SortIcon column="successfulRequests" />
+                  {t("success")} <SortIcon column="successfulRequests" />
                 </th>
-                <th className="text-right py-2 px-3 text-text-muted font-medium">Rate</th>
+                <th className="text-right py-2 px-3 text-text-muted font-medium">{t("rate")}</th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgLatencyMs")}
                 >
-                  Avg Latency <SortIcon column="avgLatencyMs" />
+                  {t("avgLatency")} <SortIcon column="avgLatencyMs" />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalTokensIn")}
                 >
-                  Tokens In <SortIcon column="totalTokensIn" />
+                  {t("tokensIn")} <SortIcon column="totalTokensIn" />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("totalTokensOut")}
                 >
-                  Tokens Out <SortIcon column="totalTokensOut" />
+                  {t("tokensOut")} <SortIcon column="totalTokensOut" />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgTtftAfterToolMs")}
                 >
-                  TTFT After Tool <SortIcon column="avgTtftAfterToolMs" />
+                  {t("ttftAfterTool")} <SortIcon column="avgTtftAfterToolMs" />
                 </th>
                 <th
                   className="text-right py-2 px-3 text-text-muted font-medium cursor-pointer hover:text-text-main transition-colors select-none"
                   onClick={() => handleSort("avgGapAfterToolMs")}
                 >
-                  Gap After Tool <SortIcon column="avgGapAfterToolMs" />
+                  {t("gapAfterTool")} <SortIcon column="avgGapAfterToolMs" />
                 </th>
                 <th className="py-2 px-3 w-8" />
               </tr>
@@ -294,17 +306,20 @@ export default function ProviderStatsPage() {
               {sortedProviders.map((p) => {
                 const isExpanded = expandedProvider === p.provider;
                 const models = modelsByProvider.get(p.provider) ?? [];
-                const rate = p.totalRequests > 0 ? (p.successfulRequests / p.totalRequests) * 100 : 0;
+                const rate =
+                  p.totalRequests > 0 ? (p.successfulRequests / p.totalRequests) * 100 : 0;
                 return (
                   <Fragment key={p.provider}>
                     <tr
                       className="border-b border-border/50 hover:bg-surface/50 transition-colors cursor-pointer"
                       onClick={() =>
-                        setExpandedProvider(isExpanded ? null : models.length > 0 ? p.provider : null)
+                        setExpandedProvider(
+                          isExpanded ? null : models.length > 0 ? p.provider : null
+                        )
                       }
                     >
                       <td className="py-2.5 px-3 font-medium text-text-main">
-                        {p.provider}
+                        {resolveProviderName(p.provider, nodeMap)}
                       </td>
                       <td className="py-2.5 px-3 text-right tabular-nums text-text-main">
                         {formatNumber(p.totalRequests)}
@@ -359,11 +374,21 @@ export default function ProviderStatsPage() {
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="text-text-muted">
-                                  <th className="text-left py-1.5 px-6 pl-12 font-medium">Model</th>
-                                  <th className="text-right py-1.5 px-3 font-medium">Requests</th>
-                                  <th className="text-right py-1.5 px-3 font-medium">Success</th>
-                                  <th className="text-right py-1.5 px-3 font-medium">Rate</th>
-                                  <th className="text-right py-1.5 px-3 font-medium">Avg Latency</th>
+                                  <th className="text-left py-1.5 px-6 pl-12 font-medium">
+                                    {t("model")}
+                                  </th>
+                                  <th className="text-right py-1.5 px-3 font-medium">
+                                    {t("requests")}
+                                  </th>
+                                  <th className="text-right py-1.5 px-3 font-medium">
+                                    {t("success")}
+                                  </th>
+                                  <th className="text-right py-1.5 px-3 font-medium">
+                                    {t("rate")}
+                                  </th>
+                                  <th className="text-right py-1.5 px-3 font-medium">
+                                    {t("avgLatency")}
+                                  </th>
                                   <th className="px-3 w-8" />
                                 </tr>
                               </thead>
@@ -414,7 +439,7 @@ export default function ProviderStatsPage() {
               {sortedProviders.length === 0 && (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-text-muted">
-                    No provider data recorded yet.
+                    {t("noProviderData")}
                   </td>
                 </tr>
               )}
@@ -426,8 +451,8 @@ export default function ProviderStatsPage() {
       {/* In-Memory Metrics */}
       {data?.comboMetrics && Object.keys(data.comboMetrics).length > 0 && (
         <Card
-          title="Combo Metrics"
-          subtitle="Per-combo latency and throughput from streaming"
+          title={t("comboMetrics")}
+          subtitle={t("comboMetricsDescription")}
           icon="speed"
           className="p-5"
         >
@@ -436,15 +461,26 @@ export default function ProviderStatsPage() {
               <thead>
                 <tr className="border-b border-border">
                   <th className="text-left py-2 px-3 text-text-muted font-medium">Combo</th>
-                  <th className="text-right py-2 px-3 text-text-muted font-medium">Requests</th>
-                  <th className="text-right py-2 px-3 text-text-muted font-medium">Avg TTFT</th>
-                  <th className="text-right py-2 px-3 text-text-muted font-medium">Avg Total</th>
-                  <th className="text-right py-2 px-3 text-text-muted font-medium">Success</th>
+                  <th className="text-right py-2 px-3 text-text-muted font-medium">
+                    {t("requests")}
+                  </th>
+                  <th className="text-right py-2 px-3 text-text-muted font-medium">
+                    {t("avgTtft")}
+                  </th>
+                  <th className="text-right py-2 px-3 text-text-muted font-medium">
+                    {t("avgTotal")}
+                  </th>
+                  <th className="text-right py-2 px-3 text-text-muted font-medium">
+                    {t("success")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(data.comboMetrics).map(([name, m]: [string, any]) => (
-                  <tr key={name} className="border-b border-border/50 hover:bg-surface/50 transition-colors">
+                  <tr
+                    key={name}
+                    className="border-b border-border/50 hover:bg-surface/50 transition-colors"
+                  >
                     <td className="py-2 px-3 font-medium text-text-main">{name}</td>
                     <td className="py-2 px-3 text-right tabular-nums text-text-main">
                       {formatNumber(m.requestCount ?? m.totalRequests ?? 0)}
@@ -456,7 +492,9 @@ export default function ProviderStatsPage() {
                       {formatLatency(m.avgLatency ?? m.avgTotalMs ?? null)}
                     </td>
                     <td className="py-2 px-3 text-right tabular-nums">
-                      {typeof m.successRate === "number" ? `${(m.successRate * 100).toFixed(1)}%` : "—"}
+                      {typeof m.successRate === "number"
+                        ? `${(m.successRate * 100).toFixed(1)}%`
+                        : "—"}
                     </td>
                   </tr>
                 ))}
@@ -469,8 +507,8 @@ export default function ProviderStatsPage() {
       {/* Telemetry Phase Breakdown */}
       {data?.telemetry && Object.keys(data.telemetry).length > 0 && (
         <Card
-          title="Request Telemetry"
-          subtitle="7-phase pipeline breakdown (last 5 minutes)"
+          title={t("requestTelemetry")}
+          subtitle={t("requestTelemetryDescription")}
           icon="route"
           className="p-5"
         >
@@ -478,10 +516,7 @@ export default function ProviderStatsPage() {
             {Object.entries(data.telemetry).map(([key, val]: [string, any]) => {
               if (val == null || typeof val === "object") return null;
               return (
-                <div
-                  key={key}
-                  className="rounded-lg border border-border/40 bg-surface/30 p-3"
-                >
+                <div key={key} className="rounded-lg border border-border/40 bg-surface/30 p-3">
                   <p className="text-xs text-text-muted uppercase tracking-wide">
                     {key.replace(/([A-Z])/g, " $1").replace(/_/g, " ")}
                   </p>

@@ -13,7 +13,7 @@ import { randomUUID } from "crypto";
 import { logger } from "../../../open-sse/utils/logger.ts";
 import { getDefaultPluginDir, scanPluginDir } from "./scanner";
 import { loadPlugin, type LoadedPlugin } from "./loader";
-import { registerHook, unregisterHooks, emitHook } from "./hooks";
+import { registerHook, unregisterHooks, emitHook, type HookHandler, type Plugin } from "./hooks";
 import {
   insertPlugin,
   getPluginByName,
@@ -27,6 +27,17 @@ import {
 import type { PluginManifestWithDefaults } from "./manifest";
 
 const log = logger("PLUGIN_MANAGER");
+
+type LifecycleHookName = Extract<
+  keyof Plugin,
+  | "onRequest"
+  | "onResponse"
+  | "onError"
+  | "onInstall"
+  | "onActivate"
+  | "onDeactivate"
+  | "onUninstall"
+>;
 
 /**
  * Compare two semver strings. Returns positive if a > b, negative if a < b, 0 if equal.
@@ -362,7 +373,12 @@ class PluginManager {
   async activate(name: string): Promise<void> {
     const row = getPluginByName(name);
     if (!row) throw new Error(`Plugin '${name}' not found`);
-    if (row.status === "active") return;
+    // Guard on in-memory state, not DB status. DB status survives a restart but
+    // loadedPlugins/hooks do not, so a DB-only check makes activate() a no-op for
+    // every plugin already marked active — including the loadAll() boot path, whose
+    // whole job is reloading exactly those. Hooks being fail-open, the plugin then
+    // silently enforces nothing while the UI still reports it as active.
+    if (row.status === "active" && this.loadedPlugins.has(name)) return;
 
     const manifest = JSON.parse(row.manifest) as PluginManifestWithDefaults;
 
@@ -377,7 +393,7 @@ class PluginManager {
     const resolvedEntry = await realpath(entryPoint).catch(() => null);
     if (
       !resolvedEntry ||
-      (!resolvedEntry.startsWith(resolvedPluginDir + "/") && resolvedEntry !== resolvedPluginDir)
+      (!resolvedEntry.startsWith(resolvedPluginDir + sep) && resolvedEntry !== resolvedPluginDir)
     ) {
       throw new Error(`Plugin '${name}' entry point escapes plugin directory`);
     }
@@ -385,7 +401,7 @@ class PluginManager {
     try {
       const loaded = await loadPlugin(entryPoint, manifest);
 
-      const hookNames = [
+      const hookNames: LifecycleHookName[] = [
         "onRequest",
         "onResponse",
         "onError",
@@ -397,7 +413,7 @@ class PluginManager {
       for (const hookName of hookNames) {
         const handler = loaded.plugin[hookName];
         if (typeof handler === "function") {
-          registerHook(hookName, name, handler as (payload: unknown) => void | Promise<void>);
+          registerHook(hookName, name, handler as HookHandler);
         }
       }
 

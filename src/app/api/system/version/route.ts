@@ -5,6 +5,7 @@
  * Security: Requires admin authentication (same as other management routes).
  * Safety: Update only runs if a newer version is available on npm.
  */
+import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -17,7 +18,16 @@ import {
   PROJECT_ROOT,
 } from "@/lib/system/autoUpdate";
 import { NEWS_JSON_URL, parseActiveNewsPayload } from "@/shared/utils/releaseNotes";
-import { isNewer, resolveLatestVersion } from "@/lib/system/versionCheck";
+import {
+  clearLatestVersionCache,
+  isNewer,
+  resolveLatestVersionCached,
+} from "@/lib/system/versionCheck";
+import { resolveGlobalOmniroutePath } from "@/lib/system/globalPackagePath";
+// #5542 — On Windows npm is `npm.cmd`; Node ≥24 refuses to execFile a `.cmd` without
+// a shell (nodejs/node#52554 → "spawn npm ENOENT"). buildNpmExecOptions enables the
+// shell on win32 only; SERVICE_VERSION_PATTERN keeps the shell-joined version safe.
+import { buildNpmExecOptions, SERVICE_VERSION_PATTERN } from "@/lib/services/installers/utils";
 
 const execFileAsync = promisify(execFile);
 
@@ -51,21 +61,34 @@ export async function GET(req: NextRequest) {
   const config = getAutoUpdateConfig();
 
   const [latest, news, validation] = await Promise.all([
-    resolveLatestVersion(),
+    resolveLatestVersionCached({
+      bypassCache: /(?:^|,)\s*(?:no-cache|no-store)\b/i.test(
+        req.headers.get("Cache-Control") ?? ""
+      ),
+      storeResult: !/(?:^|,)\s*no-store\b/i.test(req.headers.get("Cache-Control") ?? ""),
+    }),
     getNews(),
     validateAutoUpdateRuntime(config),
   ]);
 
-  const updateAvailable = isNewer(latest, current);
-
-  return NextResponse.json({
+  const body = {
     current,
     latest: latest ?? "unavailable",
-    updateAvailable,
+    updateAvailable: isNewer(latest, current),
     channel: config.mode,
     autoUpdateSupported: validation.supported,
     autoUpdateError: validation.reason,
     news,
+  };
+  const serialized = JSON.stringify(body);
+  const etag = `"${createHash("sha256").update(serialized).digest("base64url")}"`;
+  const headers = { "Cache-Control": "private, no-cache, must-revalidate", ETag: etag };
+  const validators = req.headers.get("If-None-Match")?.split(",").map((value) => value.trim());
+  if (validators?.some((value) => value === etag || value === `W/${etag}`)) {
+    return new NextResponse(null, { status: 304, headers });
+  }
+  return new NextResponse(serialized, {
+    headers: { ...headers, "Content-Type": "application/json" },
   });
 }
 
@@ -75,7 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   const current = getCurrentVersion();
-  const latest = await resolveLatestVersion();
+  const latest = await resolveLatestVersionCached({ bypassCache: true });
 
   if (!latest) {
     return NextResponse.json(
@@ -123,6 +146,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    clearLatestVersionCache();
     return NextResponse.json({
       success: true,
       message: `Update to v${latest} started. Docker rebuild is running in the background.`,
@@ -207,10 +231,11 @@ export async function POST(req: NextRequest) {
             status: "running",
             message: "Installing dependencies...",
           });
-          await execFileAsync("npm", ["install", "--legacy-peer-deps"], {
-            timeout: 300_000,
-            cwd: PROJECT_ROOT,
-          });
+          await execFileAsync(
+            "npm",
+            ["install", "--legacy-peer-deps"],
+            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 300_000 })
+          );
           send({ step: "rebuild", status: "done", message: "Dependencies installed" });
 
           try {
@@ -227,10 +252,11 @@ export async function POST(req: NextRequest) {
             status: "running",
             message: "Building application...",
           });
-          await execFileAsync("npm", ["run", "build"], {
-            timeout: 600_000,
-            cwd: PROJECT_ROOT,
-          });
+          await execFileAsync(
+            "npm",
+            ["run", "build"],
+            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 600_000 })
+          );
           send({ step: "rebuild", status: "done", message: "Build complete" });
 
           send({ step: "restart", status: "running", message: "Restarting service..." });
@@ -285,14 +311,19 @@ export async function POST(req: NextRequest) {
 
       try {
         // Step 1: Install
+        // #5542 — buildNpmExecOptions enables the shell on win32 (npm.cmd), which
+        // shell-joins argv, so the version spec must be metacharacter-free before it
+        // reaches the command line (Hard Rule #13).
+        if (!SERVICE_VERSION_PATTERN.test(latest)) {
+          send({ step: "install", status: "error", message: "Invalid version format" });
+          controller.close();
+          return;
+        }
         send({ step: "install", status: "running", message: `Installing omniroute@${latest}...` });
           await execFileAsync(
             "npm",
             ["install", "-g", `omniroute@${latest}`, "--ignore-scripts", "--legacy-peer-deps"],
-            {
-              timeout: 300000,
-              cwd: PROJECT_ROOT,
-            }
+            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 300_000 })
           );
         send({ step: "install", status: "done", message: `Installed omniroute@${latest}` });
 
@@ -302,17 +333,11 @@ export async function POST(req: NextRequest) {
           status: "running",
           message: "Rebuilding native modules (better-sqlite3)...",
         });
-          const globalRoot = (
-            await execFileAsync("npm", ["root", "-g"], { timeout: 10000, cwd: PROJECT_ROOT })
-          ).stdout.trim();
-        const omniPath = `${globalRoot}/omniroute/app`;
+        const omniPath = await resolveGlobalOmniroutePath();
         await execFileAsync(
           "npm",
           ["rebuild", "better-sqlite3"],
-          {
-            cwd: omniPath,
-            timeout: 120000,
-          }
+          buildNpmExecOptions(process.platform, { cwd: omniPath, timeoutMs: 120_000 })
         );
         send({ step: "rebuild", status: "done", message: "Native modules rebuilt" });
 
@@ -333,6 +358,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
+        clearLatestVersionCache();
         send({
           step: "complete",
           status: "done",

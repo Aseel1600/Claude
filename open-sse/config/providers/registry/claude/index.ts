@@ -38,6 +38,14 @@ export const claudeProvider: RegistryEntry = {
       unsupportedParams: ["temperature", "top_p", "top_k"],
     },
     {
+      id: "claude-opus-5",
+      name: "Claude Opus 5",
+      contextLength: 1000000,
+      maxOutputTokens: 128000,
+      supportsXHighEffort: true,
+      unsupportedParams: ["temperature", "top_p", "top_k"],
+    },
+    {
       id: "claude-opus-4-8",
       name: "Claude Opus 4.8",
       contextLength: 1000000,
@@ -66,10 +74,22 @@ export const claudeProvider: RegistryEntry = {
       maxOutputTokens: 64000,
     },
     {
+      id: "claude-sonnet-5",
+      name: "Claude Sonnet 5",
+      contextLength: 1000000,
+      maxOutputTokens: 128000,
+      // Sonnet 5 is the first Sonnet-tier model to support xhigh effort — do NOT copy
+      // the `supportsXHighEffort: false` from the older claude-sonnet-4-6/4-5 entries.
+      supportsXHighEffort: true,
+      // Sonnet 5 rejects non-default temperature/top_p/top_k with a 400 (adaptive-only;
+      // reasoning steered by output_config.effort). Mirrors the Opus/Fable entries.
+      unsupportedParams: ["temperature", "top_p", "top_k"],
+    },
+    {
       id: "claude-sonnet-4-6",
       name: "Claude 4.6 Sonnet",
       supportsXHighEffort: false,
-      contextLength: 200000,
+      contextLength: 1000000,
       maxOutputTokens: 64000,
     },
     {

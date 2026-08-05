@@ -21,7 +21,10 @@ import {
   type ExecutorLike,
 } from "../../scripts/check/check-known-symbols.ts";
 import { reportStaleEntries } from "../../scripts/check/lib/allowlist.mjs";
-import { ROUTING_STRATEGY_VALUES } from "../../src/shared/constants/routingStrategies.ts";
+import {
+  ROUTING_STRATEGY_VALUES,
+  INTERNAL_ROUTING_STRATEGY_VALUES,
+} from "../../src/shared/constants/routingStrategies.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,7 +35,7 @@ const REPO_ROOT = path.resolve(fileURLToPath(import.meta.url), "../../..");
 // (2) COMBO STRATEGIES — extractHandledStrategies + diffComboStrategies
 // ───────────────────────────────────────────────────────────────────────────
 
-test("extractHandledStrategies pulls every `strategy === \"...\"` literal, deduped", () => {
+test('extractHandledStrategies pulls every `strategy === "..."` literal, deduped', () => {
   const src = [
     'if (strategy === "round-robin") {',
     '} else if (strategy === "p2c") {',
@@ -47,6 +50,22 @@ test("extractHandledStrategies ignores non-matching comparisons", () => {
   const src = 'if (mode === "fast") {}\nif (strategy == "loose") {}\nif (strategy === "auto") {}';
   // `mode ===` and the loose `==` must not match; only the strict strategy compare.
   assert.deepEqual([...extractHandledStrategies(src)], ["auto"]);
+});
+
+test('extractHandledStrategies counts the `strategy !== "..."` early-return guard (#3501)', () => {
+  // The god-file decomposition turns `if (strategy === "X") { ...body... }` into a
+  // `tryXDispatch()` leaf whose guard is the inverted early return. Same dispatch
+  // branch, inverted form — the gate must not report it as canonicalNotHandled.
+  const src = [
+    'export async function tryFusionDispatch() { if (strategy !== "fusion") return null; }',
+    'export async function tryPipelineDispatch() { if (strategy !== "pipeline") return null; }',
+  ].join("\n");
+  assert.deepEqual([...extractHandledStrategies(src)].sort(), ["fusion", "pipeline"]);
+});
+
+test("extractHandledStrategies still rejects loose inequality", () => {
+  // Widening `===` to `[!=]==` must not accidentally admit the loose `!=`.
+  assert.deepEqual([...extractHandledStrategies('if (strategy != "loose") return null;')], []);
 });
 
 test("diffComboStrategies: no mismatch when dispatch + implicit defaults cover canonical exactly", () => {
@@ -87,6 +106,23 @@ test("diffComboStrategies: an implicit-default string handled in dispatch is not
   assert.deepEqual(result.handledNotCanonical, []);
 });
 
+test("combo dispatch registry (runtime import) covers the canonical strategy set exactly (G1)", async () => {
+  // G1: the handled set must come from a runtime-imported enumeration in the combo
+  // dispatch module — NOT from regex-scanning `strategy === "..."` literals in source.
+  // This proves a canonical strategy added without a dispatch-entry is still caught.
+  const { HANDLED_COMBO_STRATEGIES } =
+    await import("../../open-sse/services/combo/strategyDispatch.ts");
+  const handled = new Set(HANDLED_COMBO_STRATEGIES);
+  const canonical = [
+    ...(ROUTING_STRATEGY_VALUES as readonly string[]),
+    ...(INTERNAL_ROUTING_STRATEGY_VALUES as readonly string[]),
+  ];
+  // An empty implicit-defaults map: every handled strategy is genuinely dispatched.
+  const result = diffComboStrategies(canonical, handled, {});
+  assert.deepEqual(result.canonicalNotHandled, [], "canonical strategy without dispatch entry");
+  assert.deepEqual(result.handledNotCanonical, [], "handled string that is not canonical");
+});
+
 // ───────────────────────────────────────────────────────────────────────────
 // (1) EXECUTOR CONFORMANCE — extractExecutorAliases + findNonConformingExecutors
 // ───────────────────────────────────────────────────────────────────────────
@@ -96,18 +132,12 @@ test("extractExecutorAliases parses quoted and bare keys from the executors lite
     'import { Foo } from "./foo.ts";',
     "const executors = {",
     "  antigravity: new Foo(),",
-    '  "gemini-cli": new Foo(),',
     "  agy: new Foo(), // Alias",
     '  "amazon-q": new Foo("amazon-q"),',
     "};",
     "export function getExecutor() {}",
   ].join("\n");
-  assert.deepEqual(extractExecutorAliases(src), [
-    "antigravity",
-    "gemini-cli",
-    "agy",
-    "amazon-q",
-  ]);
+  assert.deepEqual(extractExecutorAliases(src), ["antigravity", "agy", "amazon-q"]);
 });
 
 test("extractExecutorAliases throws when the executors map cannot be located", () => {
@@ -185,7 +215,10 @@ test("IMPLICIT_DEFAULT_STRATEGIES: every documented key carries a non-trivial ju
   // The map may be empty (all canonical strategies are referenced in combo.ts), but any
   // entry that DOES exist must explain why the strategy has no explicit dispatch branch.
   for (const [key, justification] of Object.entries(IMPLICIT_DEFAULT_STRATEGIES)) {
-    assert.ok(typeof justification === "string" && justification.length > 20, `weak/missing justification for "${key}"`);
+    assert.ok(
+      typeof justification === "string" && justification.length > 20,
+      `weak/missing justification for "${key}"`
+    );
   }
 });
 

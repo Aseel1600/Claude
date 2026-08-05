@@ -5,7 +5,14 @@ import { normalizeExcludedModelPatterns } from "@/domain/connectionModelRules";
 import { normalizeRoutingTags } from "@/domain/tagRouter";
 import { normalizeOpenRouterPreset } from "@/shared/constants/openRouterPreset";
 
-export const CODEX_REASONING_EFFORT_VALUES = ["none", "low", "medium", "high", "xhigh"] as const;
+export const CODEX_REASONING_EFFORT_VALUES = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
 
 export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORT_VALUES)[number];
 
@@ -65,6 +72,10 @@ export function normalizeClaudeCodeCompatibleRedactThinking(value: unknown): tru
   return value === true ? true : undefined;
 }
 
+export function normalizeClaudeCodeCompatibleSummarizeThinking(value: unknown): true | undefined {
+  return value === true ? true : undefined;
+}
+
 export function normalizeRequestDefaults(
   provider: string | null | undefined,
   value: unknown
@@ -104,9 +115,66 @@ export function normalizeRequestDefaults(
     } else {
       delete normalized.redactThinking;
     }
+
+    const summarizeThinking = normalizeClaudeCodeCompatibleSummarizeThinking(
+      record.summarizeThinking
+    );
+    if (summarizeThinking) {
+      normalized.summarizeThinking = true;
+    } else {
+      delete normalized.summarizeThinking;
+    }
   }
 
   return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+const CACHE_PASSTHROUGH_VALUES = new Set(["strip", "openai-format", "claude-format"]);
+
+// #6880 — per-connection prompt-cache capability override: strip unknown keys / invalid
+// types, drop the sub-object entirely when nothing valid survives.
+export function normalizeCacheOverride(value: unknown): JsonRecord | undefined {
+  const record = asRecord(value);
+  if (Object.keys(record).length === 0) return undefined;
+
+  const normalized: JsonRecord = {};
+  if (typeof record.supportsPromptCaching === "boolean") {
+    normalized.supportsPromptCaching = record.supportsPromptCaching;
+  }
+  if (
+    typeof record.cacheControlPassthrough === "string" &&
+    CACHE_PASSTHROUGH_VALUES.has(record.cacheControlPassthrough)
+  ) {
+    normalized.cacheControlPassthrough = record.cacheControlPassthrough;
+  }
+
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
+// #6880 — extracted so normalizeProviderSpecificData() stays under the
+// max-lines-per-function gate: normalizes the two nested-object sub-fields
+// (requestDefaults, cache) in one pass.
+function normalizeNestedSubObjects(
+  provider: string | null | undefined,
+  normalized: JsonRecord
+): void {
+  if ("requestDefaults" in normalized) {
+    const requestDefaults = normalizeRequestDefaults(provider, normalized.requestDefaults);
+    if (requestDefaults) {
+      normalized.requestDefaults = requestDefaults;
+    } else {
+      delete normalized.requestDefaults;
+    }
+  }
+
+  if ("cache" in normalized) {
+    const cache = normalizeCacheOverride(normalized.cache);
+    if (cache) {
+      normalized.cache = cache;
+    } else {
+      delete normalized.cache;
+    }
+  }
 }
 
 export function normalizeProviderSpecificData(
@@ -118,14 +186,7 @@ export function normalizeProviderSpecificData(
 
   const normalized: JsonRecord = { ...record };
 
-  if ("requestDefaults" in normalized) {
-    const requestDefaults = normalizeRequestDefaults(provider, normalized.requestDefaults);
-    if (requestDefaults) {
-      normalized.requestDefaults = requestDefaults;
-    } else {
-      delete normalized.requestDefaults;
-    }
-  }
+  normalizeNestedSubObjects(provider, normalized);
 
   if ("openaiStoreEnabled" in normalized && typeof normalized.openaiStoreEnabled !== "boolean") {
     delete normalized.openaiStoreEnabled;
@@ -209,6 +270,13 @@ export function sanitizeProviderSpecificDataForResponse(value: unknown): JsonRec
   delete sanitized.awsSecretAccessKey;
   delete sanitized.sessionToken;
   delete sanitized.awsSessionToken;
+  delete sanitized.openCodeGoAuthCookie;
+  delete sanitized.opencodeGoAuthCookie;
+  delete sanitized.authCookie;
+  delete sanitized.ollamaUsageCookie;
+  delete sanitized.ollamaCloudUsageCookie;
+  delete sanitized.ollamaCloudCookie;
+  delete sanitized.usageCookie;
   return sanitized;
 }
 
@@ -279,6 +347,7 @@ export function getCodexRequestDefaults(providerSpecificData: unknown): {
 export function getClaudeCodeCompatibleRequestDefaults(providerSpecificData: unknown): {
   context1m?: true;
   redactThinking?: true;
+  summarizeThinking?: true;
 } {
   const defaults = getProviderRequestDefaults(
     "anthropic-compatible-cc-default",
@@ -286,8 +355,12 @@ export function getClaudeCodeCompatibleRequestDefaults(providerSpecificData: unk
   );
   const context1m = normalizeClaudeCodeCompatibleContext1m(defaults.context1m);
   const redactThinking = normalizeClaudeCodeCompatibleRedactThinking(defaults.redactThinking);
+  const summarizeThinking = normalizeClaudeCodeCompatibleSummarizeThinking(
+    defaults.summarizeThinking
+  );
   return {
     ...(context1m ? { context1m } : {}),
     ...(redactThinking ? { redactThinking } : {}),
+    ...(summarizeThinking ? { summarizeThinking } : {}),
   };
 }
