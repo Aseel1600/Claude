@@ -65,7 +65,10 @@ export async function validateMuseSparkWebProvider({ apiKey, providerSpecificDat
       response.status === 429 ||
       /limit exceeded|rate limit|too many requests/i.test(responseText)
     ) {
-      return { valid: true, error: null };
+      return {
+        valid: false,
+        error: "Meta AI rate limited (429) — wait before retrying",
+      };
     }
 
     if (response.ok) {
@@ -186,7 +189,10 @@ export async function validateClaudeWebProvider({ apiKey, providerSpecificData =
     }
 
     if (response.status === 429) {
-      return { valid: true, error: null };
+      return {
+        valid: false,
+        error: "Claude Web API rate limited (429) — wait before retrying",
+      };
     }
 
     if (response.status >= 500) {
