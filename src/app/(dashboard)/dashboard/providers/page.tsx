@@ -22,22 +22,20 @@ import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
 import { useTranslations } from "next-intl";
 import { useSyncedModelsByProvider } from "./hooks/useSyncedModelsByProvider";
+import { useProviderUrlFilters } from "./hooks/useProviderUrlFilters";
 import {
   buildStaticProviderEntries,
   buildCompatibleProviderGroups,
   connectionMatchesProviderCard,
   filterConfiguredProviderEntries,
-  readProviderFiltersFromUrl,
   shouldFilterProviderEntriesForDisplayMode,
   shouldShowFirstProviderHint,
   shouldShowProviderSection,
-  syncProviderFiltersToUrl,
   upsertProviderNodeById,
   loadProviderPageData,
 } from "./providerPageUtils";
 import type { ProviderEntry } from "./providerPageUtils";
 import {
-  readProviderDisplayModePreference,
   shouldSyncProviderDisplayMode,
   writeProviderDisplayModePreference,
   type ProviderDisplayMode,
@@ -193,7 +191,6 @@ export default function ProvidersPage() {
   const [testingMode, setTestingMode] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<any>(null);
   const [providerDisplayMode, setProviderDisplayMode] = useState<ProviderDisplayMode>("all");
-  const [displayModePreferenceReady, setDisplayModePreferenceReady] = useState(false);
   const [oauthEnvRepairStatus, setOauthEnvRepairStatus] = useState<{
     available: boolean;
     missingCount: number;
@@ -207,10 +204,6 @@ export default function ProvidersPage() {
   // #4240: media-category (serviceKind) filter — composes with activeCategory,
   // search and configured-only. null = no serviceKind filter.
   const [activeServiceKind, setActiveServiceKind] = useState<string | null>(null);
-  // URL hydration guard: the filter→URL sync effect must not write the URL
-  // before the initial URL→state read has applied, or a bookmarked view would
-  // be transiently clobbered by the default state on the first paint.
-  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const notify = useNotificationStore();
   const sectionCategoryAliases: Record<string, string> = {
     cloud: "cloudagent",
@@ -233,42 +226,21 @@ export default function ProvidersPage() {
   const addCcCompatibleLabel = t("addCcCompatible");
   const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const urlMode = readProviderFiltersFromUrl(searchParams).displayMode;
-    setProviderDisplayMode(urlMode ?? readProviderDisplayModePreference());
-    setDisplayModePreferenceReady(true);
-  }, [searchParams]);
-
-  useEffect(() => {
-    const urlFilters = readProviderFiltersFromUrl(searchParams);
-    setSearchQuery(urlFilters.searchQuery ?? "");
-    setModelSearchQuery(urlFilters.modelSearchQuery ?? "");
-    setActiveCategory(urlFilters.category ?? null);
-    setShowFreeOnly(urlFilters.showFreeOnly ?? false);
-    setActiveServiceKind(urlFilters.mediaKind ?? null);
-    setFiltersHydrated(true);
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (!filtersHydrated || !displayModePreferenceReady) return;
-    syncProviderFiltersToUrl({
-      searchQuery,
-      modelSearchQuery,
-      displayMode: providerDisplayMode,
-      category: activeCategory,
-      showFreeOnly,
-      mediaKind: activeServiceKind,
-    });
-  }, [
-    filtersHydrated,
-    displayModePreferenceReady,
-    searchQuery,
-    modelSearchQuery,
+  const { displayModePreferenceReady } = useProviderUrlFilters({
+    searchParams,
     providerDisplayMode,
+    setProviderDisplayMode,
+    searchQuery,
+    setSearchQuery,
+    modelSearchQuery,
+    setModelSearchQuery,
     activeCategory,
+    setActiveCategory,
     showFreeOnly,
+    setShowFreeOnly,
     activeServiceKind,
-  ]);
+    setActiveServiceKind,
+  });
 
   useEffect(() => {
     const fetchData = async () => {
