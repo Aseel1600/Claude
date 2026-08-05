@@ -58,6 +58,7 @@ import { evictLockoutOverflow } from "./accountFallback/lockoutEviction.ts";
 export { MODEL_LOCKOUT_EVICTION_CAP } from "./accountFallback/lockoutEviction.ts";
 import { capScaledCooldownMs } from "./accountFallback/cooldownCap.ts";
 import { resolveApiKeyForbiddenFallback } from "./accountFallback/nonRetryableUpstream.ts";
+import * as exactModelLock from "./accountFallback/exactModelLock.ts";
 export type ProviderProfile = {
   baseCooldownMs: number;
   useUpstreamRetryHints: boolean;
@@ -442,31 +443,11 @@ function getModelLockKey(
   return `${canonicalProvider}:${connectionId}:${lockModel}`;
 }
 
-// Some upstreams expose quota families, but an operator may need to isolate a
-// confirmed exhaustion to the exact requested model. Keep this distinct from
-// the normal quota-family key so existing family-scoped lockouts still work.
-function getExactModelLockKey(provider: string, connectionId: string, model: string) {
-  const canonicalProvider = getCanonicalLockProvider(provider);
-  return `${canonicalProvider}:${connectionId}:exact:${model.trim().toLowerCase()}`;
-}
-
-// #8050's 404/not_found lockout also collapses to the literal model (no family
-// scoping) — getModelLockKey() already produces that shape for this reason/status
-// pair. Named here so the multi-key read/clear paths below don't repeat the
-// reason/status pair inline.
-function getNotFoundModelLockKey(provider: string, connectionId: string, model: string) {
-  return getModelLockKey(provider, connectionId, model, "not_found", 404);
-}
-
-function getModelLockKeys(provider: string, connectionId: string, model: string) {
-  return Array.from(
-    new Set([
-      getModelLockKey(provider, connectionId, model),
-      getNotFoundModelLockKey(provider, connectionId, model),
-      getExactModelLockKey(provider, connectionId, model),
-    ])
-  );
-}
+const buildExactKey = exactModelLock.buildExactModelLockKey; // see exactModelLock.ts
+const getModelLockKeys = exactModelLock.createGetModelLockKeys(
+  getModelLockKey,
+  getCanonicalLockProvider
+);
 
 function getFailureWindowMs(profile: ProviderProfile | null = null, fallbackMs = 30 * 60 * 1000) {
   const configured = profile?.resetTimeoutMs;
@@ -585,43 +566,13 @@ export function lockModel(
   });
 }
 
-/**
- * Lock only this exact provider/account/model tuple. Unlike `lockModel`, this
- * never expands Antigravity models into a quota family.
- */
-export function lockExactModel(
-  provider: string,
-  connectionId: string,
-  model: string | null | undefined,
-  reason: string,
-  cooldownMs: number,
-  metadata: Partial<ModelLockoutEntry> = {}
-): void {
-  if (!model) return;
-  ensureCleanupTimer();
-  const key = getExactModelLockKey(provider, connectionId, model);
-  cleanupModelLockKey(key);
-  const newUntil = Date.now() + cooldownMs;
-  const existing = modelLockouts.get(key);
-  if (existing && existing.until > newUntil) {
-    if (metadata.failureCount && metadata.failureCount > existing.failureCount) {
-      existing.failureCount = metadata.failureCount;
-      existing.lastFailureAt = metadata.lastFailureAt ?? existing.lastFailureAt;
-      existing.resetAfterMs = metadata.resetAfterMs ?? existing.resetAfterMs;
-      modelLockouts.set(key, existing);
-    }
-    return;
-  }
-  const now = Date.now();
-  modelLockouts.set(key, {
-    reason,
-    until: newUntil,
-    lockedAt: now,
-    failureCount: metadata.failureCount ?? existing?.failureCount ?? 1,
-    lastFailureAt: metadata.lastFailureAt ?? now,
-    resetAfterMs: metadata.resetAfterMs ?? existing?.resetAfterMs ?? 0,
-  });
-}
+// Lock only this exact provider/account/model tuple, never a quota family — see exactModelLock.ts.
+export const lockExactModel = exactModelLock.createLockExactModel(
+  modelLockouts,
+  ensureCleanupTimer,
+  cleanupModelLockKey,
+  getCanonicalLockProvider
+);
 
 /**
  * Pick the `exactCooldownMs` to apply to a model lockout (#1308).
@@ -673,7 +624,7 @@ export function recordModelLockoutFailure(
   ensureCleanupTimer();
   const key =
     options.scope === "exact"
-      ? getExactModelLockKey(provider, connectionId, model)
+      ? buildExactKey(getCanonicalLockProvider(provider), connectionId, model)
       : getModelLockKey(provider, connectionId, model, reason, status);
   const now = Date.now();
   cleanupModelLockKey(key, now);
@@ -724,12 +675,12 @@ export function recordModelLockoutFailure(
     lastCooldownMs: cooldownMs,
   });
 
-  const metadata = { failureCount, lastFailureAt: now, resetAfterMs };
-  if (options.scope === "exact") {
-    lockExactModel(provider, connectionId, model, reason, cooldownMs, metadata);
-  } else {
-    lockModel(provider, connectionId, model, reason, cooldownMs, metadata);
-  }
+  const lockFn = options.scope === "exact" ? lockExactModel : lockModel;
+  lockFn(provider, connectionId, model, reason, cooldownMs, {
+    failureCount,
+    lastFailureAt: now,
+    resetAfterMs,
+  });
 
   return {
     cooldownMs,
@@ -744,16 +695,11 @@ export function clearModelLock(
   model: string | null | undefined
 ): boolean {
   if (!model) return false;
-  // Checks all 3 lockout key shapes: quota-family (default), #8050's 404/not_found
-  // literal-model key, and this module's opt-in exact-model key (lockExactModel) —
-  // a success on any one of them must clear the lock regardless of which reason
-  // originally wrote it.
-  let cleared = false;
-  for (const key of getModelLockKeys(provider, connectionId, model)) {
-    cleared = modelLockouts.delete(key) || cleared;
-    cleared = modelFailureState.delete(key) || cleared;
-  }
-  return cleared;
+  return exactModelLock.clearMultiKeyLock(
+    modelLockouts,
+    modelFailureState,
+    getModelLockKeys(provider, connectionId, model)
+  );
 }
 
 /**
@@ -801,11 +747,8 @@ export function lockModelIfPerModelQuota(
   // Skip model-level lock if the entire provider is in circuit-breaker cooldown.
   // The provider cooldown already prevents all requests, so a model lock is redundant.
   if (isProviderInCooldown(provider)) return false;
-  if (getCanonicalLockProvider(provider) === "antigravity") {
-    lockExactModel(provider, connectionId, model, reason, cooldownMs);
-  } else {
-    lockModel(provider, connectionId, model, reason, cooldownMs);
-  }
+  const lockFn = getCanonicalLockProvider(provider) === "antigravity" ? lockExactModel : lockModel;
+  lockFn(provider, connectionId, model, reason, cooldownMs);
   return true;
 }
 
@@ -874,11 +817,11 @@ export function isModelLocked(
   model: string | null | undefined
 ): boolean {
   if (!model) return false;
-  // Checks all 3 lockout key shapes — see getModelLockKeys().
-  return getModelLockKeys(provider, connectionId, model).some((key) => {
-    cleanupModelLockKey(key);
-    return modelLockouts.has(key);
-  });
+  return exactModelLock.isAnyKeyLocked(
+    modelLockouts,
+    cleanupModelLockKey,
+    getModelLockKeys(provider, connectionId, model)
+  );
 }
 
 /**
@@ -890,15 +833,11 @@ export function getModelLockoutInfo(
   model: string | null | undefined
 ) {
   if (!model) return null;
-  // Checks all 3 lockout key shapes — see getModelLockKeys() — and reports the
-  // entry with the most remaining time when more than one key matches.
-  const entry = getModelLockKeys(provider, connectionId, model)
-    .map((key) => {
-      cleanupModelLockKey(key);
-      return modelLockouts.get(key);
-    })
-    .filter((value): value is ModelLockoutEntry => Boolean(value))
-    .sort((a, b) => b.until - a.until)[0];
+  const entry = exactModelLock.findLatestLockEntry(
+    modelLockouts,
+    cleanupModelLockKey,
+    getModelLockKeys(provider, connectionId, model)
+  );
   if (!entry) return null;
   return {
     reason: entry.reason,

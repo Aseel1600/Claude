@@ -1445,11 +1445,9 @@ export class AntigravityExecutor extends BaseExecutor {
       // 1. Try to parse explicit retry time from message
       const parsedRetryMs = this.parseRetryFromErrorMessage(errorMessage);
 
-      // 2. Classify 429, then decide the final retry time BEFORE the credits
-      //    retry so that full_quota_exhausted can skip the credits attempt
-      //    entirely (avoids ~41s hold on an already-exhausted account) and
-      //    lock only this exact model so a Claude quota exhaustion does not
-      //    disable Gemini or another Claude model on this account.
+      // 2. Classify 429, then decide the final retry time BEFORE the credits retry so
+      //    full_quota_exhausted can skip the credits attempt entirely (avoids ~41s hold
+      //    on an already-exhausted account) and locks only this exact model.
       const category = classify429(errorMessage);
       const decision: Decision = decide429(category, parsedRetryMs);
       const retryMs = decision.retryAfterMs;
@@ -1464,7 +1462,6 @@ export class AntigravityExecutor extends BaseExecutor {
         shouldRetryWithCredits(credentials?.accessToken || "", creditsMode);
 
       // Retry mode gets one credits attempt before the exact-model lock is persisted.
-      // All other full-quota paths fail closed immediately.
       if (decision.kind === "full_quota_exhausted" && retryMs && !creditsRetryEligible) {
         lockExactModel(this.provider, accountId, model, "quota_exhausted", retryMs);
       }

@@ -295,7 +295,8 @@ import {
   acquire as acquireAccountSemaphore,
   markBlocked as markAccountSemaphoreBlocked,
 } from "../services/accountSemaphore.ts";
-import { lockExactModel, lockModel, lockModelIfPerModelQuota } from "../services/accountFallback.ts";
+import { lockModel, lockModelIfPerModelQuota } from "../services/accountFallback.ts";
+import { lockExactModel } from "../services/accountFallback.ts";
 import {
   generateSignature,
   getCachedResponse,
@@ -3704,11 +3705,8 @@ export async function handleChatCore({
             markAccountSemaphoreBlocked(accountSemaphoreKey, quotaCooldownMs);
           }
           if (isModelScope() && errorConnectionId) {
-            if (provider === "antigravity") {
-              lockExactModel(provider, errorConnectionId, model, "quota_exhausted", quotaCooldownMs);
-            } else {
-              lockModel(provider, errorConnectionId, model, "quota_exhausted", quotaCooldownMs);
-            }
+            const lockFn = provider === "antigravity" ? lockExactModel : lockModel;
+            lockFn(provider, errorConnectionId, model, "quota_exhausted", quotaCooldownMs);
             console.warn(
               `[provider] Node ${errorConnectionId} ModelScope model quota exhausted (${statusCode}) for ${model} - ${Math.ceil(quotaCooldownMs / 1000)}s (connection stays active)`
             );
