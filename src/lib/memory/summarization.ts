@@ -71,7 +71,7 @@ interface MemoryRow {
   id: string;
   api_key_id: string;
   session_id: string | null;
-  type: string;
+  type: MemoryType;
   key: string | null;
   content: string;
   metadata: string | null;
