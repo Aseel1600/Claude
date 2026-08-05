@@ -107,7 +107,7 @@ const DEFAULT_COMBO_CONFIG = {
     Math.max(Number(process.env.COMBO_CONCURRENCY_PER_MODEL) || 3, 1),
     32
   ),
-  queueTimeoutMs: 30000, // max wait time in semaphore queue (round-robin)
+  queueTimeoutMs: 120000, // max wait time in semaphore queue (round-robin); raised from 30s for browser-automation providers like gemini-web (#9407)
   queueDepth: DEFAULT_COMBO_QUEUE_DEPTH, // pre-cascade semaphore queue depth (round-robin, #3872)
   handoffThreshold: 0.85,
   handoffModel: "",
