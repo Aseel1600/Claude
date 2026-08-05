@@ -122,13 +122,13 @@ for (const [aliasOrId, models] of Object.entries(PROVIDER_MODELS)) {
 const KNOWN_MODEL_IDS = new Set(MODEL_TO_PROVIDERS.keys());
 // Bare Codex CLI defaults must always route to the `codex` provider (chatgpt.com
 // OAuth) even when other providers that also catalog the model id (e.g.
-// `agentrouter`) are active. The Codex cookie quota on the user's account is
-// the source of truth for capacity, and bare-id requests from `codex`
-// (CLI)/`Codex` (web) would otherwise silently fan out to whichever provider
-// won the inference race — leaving the user wondering why the canonical
-// ChatGPT subscription stopped working. Override per-request by prefixing the
-// model id (e.g. `agentrouter/gpt-5.6-sol`, `openai/gpt-5.6-sol`) — the prefix
-// path always wins.
+// `agentrouter`, `openai`) are active. The Codex cookie quota on the user's
+// account is the source of truth for capacity, and bare-id requests from
+// `codex` (CLI)/`Codex` (web) would otherwise silently fan out to whichever
+// provider won the inference race — leaving the user wondering why the
+// canonical ChatGPT subscription stopped working. Override per-request by
+// prefixing the model id (e.g. `agentrouter/gpt-5.6-sol`,
+// `openai/gpt-5.6-sol`) — the prefix path always wins.
 export const CODEX_NATIVE_UNPREFIXED_MODELS = new Set([
   "codex-auto-review",
   "gpt-5.6-sol",
@@ -151,29 +151,12 @@ export const CODEX_NATIVE_UNPREFIXED_MODELS = new Set([
   "gpt-5.6-luna-high",
   "gpt-5.6-luna-medium",
   "gpt-5.6-luna-low",
-  "gpt-5.3-codex-spark",
-]);
-
-// EXCEPTION to CODEX_NATIVE_UNPREFIXED_MODELS, enforced explicitly at its call
-// site below rather than by omission — a future edit that "helpfully" adds
-// gpt-5.5 back to that set (as #9323/#9275 did) must touch this comment and
-// this check, not just silently forget an entry exists. gpt-5.5 (+ effort
-// variants) has no `agentrouter` static-catalog entry (verified in
-// open-sse/config/providers/registry/agentrouter/index.ts), so the
-// inference-race bug CODEX_NATIVE_UNPREFIXED_MODELS exists to prevent cannot
-// occur for it — but it IS cataloged by `openai`, and
-// resolveModelByProviderInference() below has its own dedicated, tested
-// codex-vs-openai precedence rule for exactly this model (issue #5887:
-// codex-only installs route to codex; when openai is ALSO active, the
-// historical openai default wins). Unconditionally forcing codex here would
-// skip that rule before it ever runs, reverting #5887 for any user who has
-// both providers configured (tests/unit/codex-gpt55-routing-5887.test.ts).
-export const CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE = new Set([
   "gpt-5.5",
   "gpt-5.5-xhigh",
   "gpt-5.5-high",
   "gpt-5.5-medium",
   "gpt-5.5-low",
+  "gpt-5.3-codex-spark",
 ]);
 
 interface ProviderConnectionLike {
@@ -574,26 +557,42 @@ function parseAliasTarget(target: string): ResolvedModelTarget | null {
 }
 
 async function resolveModelByProviderInference(modelId: string, extendedContext: boolean) {
-  // See CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE above: gpt-5.5 stays out of
-  // this unconditional codex override on purpose, so its own
-  // codex-vs-openai precedence rule (issue #5887, below) still runs.
-  if (
-    CODEX_NATIVE_UNPREFIXED_MODELS.has(modelId) &&
-    !CODEX_NATIVE_MODELS_WITH_OPENAI_PRECEDENCE.has(modelId)
-  ) {
-    return {
-      provider: "codex",
-      model: modelId,
-      extendedContext,
-    };
-  }
-
   const [activeProviders, activeSyncedProviders, preferClaudeCodeForUnprefixedClaudeModels] =
     await Promise.all([
       getActiveProviderSet(),
       getActiveSyncedProvidersForModel(modelId),
       getPreferClaudeCodeForUnprefixedClaudeModels(),
     ]);
+
+  // Codex-native bare ids prefer the ChatGPT subscription, but the preference is only
+  // allowed to PREEMPT another provider when a codex connection is actually active.
+  // Returning "codex" unconditionally (as this did once the set grew past
+  // `codex-auto-review` to cover gpt-5.5 / the gpt-5.6-sol tiers) hands ids that OpenAI
+  // also serves to a provider the operator may not have configured: an OpenAI-only
+  // install fails with "no active credentials for provider: codex" on a model that
+  // works, and an install whose codex connection is merely *inactive* fails the same way.
+  // Ids only codex catalogs (e.g. `codex-auto-review`) keep resolving to codex with no
+  // connection at all — there is no alternative to preempt, and "no codex credentials"
+  // is the honest error. With codex active the preference still beats OpenAI, and an
+  // explicit `openai/…` prefix remains the per-request override either way.
+  // #5887 × #9447 (owner decision 2026-08-05): for gpt-5.5(+effort variants) this
+  // active-connection bound IS the codex-vs-openai precedence rule — OpenAI serves it
+  // while codex is inactive, an ACTIVE codex connection preempts (the ChatGPT
+  // subscription is the quota source of truth), and an explicit `openai/…` prefix
+  // remains the per-request override. Do not carve gpt-5.5 out of the set: the
+  // contract lives in tests/unit/codex-gpt55-routing-5887.test.ts.
+  if (CODEX_NATIVE_UNPREFIXED_MODELS.has(modelId)) {
+    const codexNativeAlternatives = (MODEL_TO_PROVIDERS.get(modelId) || []).filter(
+      (p) => p !== "codex"
+    );
+    if (codexNativeAlternatives.length === 0 || activeProviders?.has("codex")) {
+      return {
+        provider: "codex",
+        model: modelId,
+        extendedContext,
+      };
+    }
+  }
   // #FIX: synced catalogs (populated from `/v1/models` per connection) can
   // claim ownership of models the provider does not actually serve (e.g. a
   // `kiro` upstream briefly advertising `claude-opus-5` before it was
@@ -672,9 +671,7 @@ async function resolveModelByProviderInference(modelId: string, extendedContext:
 
   // Canonicalize candidates (deduplicate alias providers pointing to the same provider ID)
   const canonicalCandidates = Array.from(
-    new Set(
-      candidatesToUse.map((p) => resolveProviderAlias(p)).filter((p): p is string => p !== null)
-    )
+    new Set(candidatesToUse.map((p) => resolveProviderAlias(p)).filter((p): p is string => p !== null))
   );
 
   // Filter candidates by active connections configured in the database

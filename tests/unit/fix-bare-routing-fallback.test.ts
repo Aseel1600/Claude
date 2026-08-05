@@ -1,21 +1,43 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
-import { getModelInfoCore } from "../../open-sse/services/model.ts";
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-bare-routing-fallback-"));
+process.env.DATA_DIR = TEST_DATA_DIR;
+
+const core = await import("../../src/lib/db/core.ts");
+const providersDb = await import("../../src/lib/db/providers.ts");
+const { getModelInfoCore } = await import("../../open-sse/services/model.ts");
 
 // #FIX: end-to-end precedence checks for bare model routing. These guard
 // the contract that:
-//  - Bare Codex-default model ids (gpt-5.6-sol, etc. — see
-//    CODEX_NATIVE_UNPREFIXED_MODELS) ALWAYS route to `codex`, regardless of
-//    which other providers are also active. gpt-5.5 is the one exception:
-//    #5887-openai-precedence-regression removed it from that set, since it
-//    has its own dedicated, tested codex-vs-openai precedence rule (issue
-//    #5887) instead — see tests/unit/codex-gpt55-routing-5887.test.ts.
+//  - Bare Codex-default model ids (gpt-5.6-sol, gpt-5.5, etc.) route to
+//    `codex` ahead of any other provider that also catalogs them — bounded by
+//    #9447 to installs where a codex connection is actually ACTIVE, so an
+//    OpenAI-only install is not handed a provider it has no credentials for.
+//    Ids that only codex catalogs (the tier variants) need no connection:
+//    there is no alternative provider to preempt.
 //  - Bare model ids shared between providers (e.g. claude-opus-5 across
 //    anthropic/claude/github/agentrouter/etc.) never silently route to a
 //    provider whose static registry does NOT actually catalog them (the
 //    kiro-synced-catalog bug).
 //  - Explicit `provider/model` prefixes always win over the bare inference.
+
+test.before(async () => {
+  await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    email: "codex@example.com",
+    providerSpecificData: { workspaceId: "ws-routing-fallback" },
+  });
+});
+
+test.after(() => {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+});
 
 test("bare gpt-5.6-sol routes to codex (precedence via CODEX_NATIVE_UNPREFIXED_MODELS)", async () => {
   const info = await getModelInfoCore("gpt-5.6-sol", null);
@@ -26,13 +48,9 @@ test("bare gpt-5.6-sol routes to codex (precedence via CODEX_NATIVE_UNPREFIXED_M
   );
 });
 
-test("bare gpt-5.5 routes to openai when no provider connections are active", async () => {
-  // gpt-5.5 is deliberately excluded from CODEX_NATIVE_UNPREFIXED_MODELS
-  // (#5887-openai-precedence-regression) — see
-  // tests/unit/codex-gpt55-routing-5887.test.ts for the codex-vs-openai
-  // precedence contract this preserves.
+test("bare gpt-5.5 routes to codex", async () => {
   const info = await getModelInfoCore("gpt-5.5", null);
-  assert.equal(info.provider, "openai");
+  assert.equal(info.provider, "codex");
 });
 
 test("bare gpt-5.6-sol-xhigh (a tier id) routes to codex", async () => {
