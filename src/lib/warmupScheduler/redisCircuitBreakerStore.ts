@@ -4,7 +4,11 @@ import {
   markForbidden as sqliteMarkForbidden,
   upsertWarmupState as sqliteUpsertWarmupState,
 } from "@/lib/db/connectionRuntimeState";
+import { logger } from "@omniroute/open-sse/utils/logger";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import type { WarmupResult } from "./core";
+
+const log = logger("WarmupCircuitBreaker");
 
 type RedisLike = {
   hgetall: (key: string) => Promise<Record<string, string>>;
@@ -50,8 +54,16 @@ export class RedisCircuitBreakerStore implements CircuitBreakerStore {
           lastResult: "success",
           tokensUsed: result.tokensUsed,
         });
-      } catch {
-        /* non-fatal; Redis is source of truth */
+      } catch (err) {
+        // Non-fatal for THIS call -- Redis holds the live state -- but not
+        // harmless: the Redis key carries a TTL (see the expire below), and
+        // after it is evicted the stale SQLite row is what remains. Losing this
+        // write silently is exactly how a connection gets stuck in forbidden
+        // with nothing in the log to explain it.
+        log.warn("warmup circuit backup write failed (success path)", {
+          connectionId,
+          error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)),
+        });
       }
       return;
     }
@@ -65,8 +77,14 @@ export class RedisCircuitBreakerStore implements CircuitBreakerStore {
       // Redis is the source of truth, so a backup write failure is non-fatal.
       try {
         await sqliteMarkForbidden(connectionId, new Date().toISOString());
-      } catch {
-        /* non-fatal; Redis already holds the authoritative state */
+      } catch (err) {
+        // Fails open rather than closed (the connection loses its forbidden
+        // backup instead of gaining a false one), so this is the less dangerous
+        // of the two, but it is still a lost write and belongs in the log.
+        log.warn("warmup circuit backup write failed (forbidden path)", {
+          connectionId,
+          error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)),
+        });
       }
       return;
     }
