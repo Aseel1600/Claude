@@ -427,7 +427,7 @@ For any non-trivial change, read the matching deep-dive first:
 | What                    | Command                                                                     |
 | ----------------------- | --------------------------------------------------------------------------- |
 | Unit tests              | `npm run test:unit`                                                         |
-| Single file             | `node --import tsx/esm --test tests/unit/file.test.ts`                      |
+| Single file             | `node --import tsx/esm --test tests/unit/your-file.test.ts`                      |
 | Vitest (MCP, autoCombo) | `npm run test:vitest`                                                       |
 | E2E (Playwright)        | `npm run test:e2e`                                                          |
 | Protocol E2E (MCP+A2A)  | `npm run test:protocols:e2e`                                                |
