@@ -96,9 +96,7 @@ export function firstFailureLine(out) {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  const hit = lines.find((l) =>
-    /✖|✗|not ok|AssertionError|error TS|FAIL|Error:|REGRESS/i.test(l)
-  );
+  const hit = lines.find((l) => /✖|✗|not ok|AssertionError|error TS|FAIL|Error:|REGRESS/i.test(l));
   return (hit || lines[lines.length - 1] || "failed").slice(0, 200);
 }
 
@@ -582,10 +580,16 @@ async function main() {
         timeout: 15 * 60 * 1000,
       },
       {
+        // Measured 2026-08-05 on an idle 16-core box: 22m08s hermetic (935 tests,
+        // 112 files at --test-concurrency=1, i.e. strictly serial because ~16 of
+        // them bind a port or share a DB). The old "~3-10min" estimate was stale by
+        // ~3x and the 20min ceiling killed a healthy run. 40min keeps the ceiling's
+        // real purpose — turning a genuine hang (unreleased DB handle) into a
+        // visible failure — without punishing a long-but-healthy suite.
         id: "integration",
-        label: "Integration tests (~3-10min)",
+        label: "Integration tests (~20-25min)",
         args: ["run", "test:integration"],
-        timeout: 20 * 60 * 1000,
+        timeout: 40 * 60 * 1000,
       },
     ];
     if (WITH_BUILD) {
