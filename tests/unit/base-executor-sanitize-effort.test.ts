@@ -424,7 +424,10 @@ test("sanitizeReasoningEffortForProvider: codex maps OMP minimal to low across c
     output_config: { effort: "minimal" },
     input: [],
   };
-  const result = sanitizeReasoningEffortForProvider(body, "codex", "gpt-5.6-terra", null) as any;
+  const result = sanitizeReasoningEffortForProvider(body, "codex", "gpt-5.6-terra", null) as Record<
+    string,
+    unknown
+  >;
 
   assert.equal(result.reasoning_effort, "low");
   assert.deepEqual(result.reasoning, { effort: "low", summary: "auto" });
