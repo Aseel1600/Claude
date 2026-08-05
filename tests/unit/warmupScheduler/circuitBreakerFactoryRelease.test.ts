@@ -2,10 +2,10 @@
  * getCircuitBreakerStore() must release the ioredis client it built when the
  * probe fails partway through, not only when the probe succeeds.
  *
- * Its own file on purpose. `node:test` gives each file a fresh process, and
- * this case needs one: an ioredis client left over from an earlier test in the
- * same process wedges every later connect, so run it beside the routing tests
- * and it hangs rather than fails -- measured, not assumed.
+ * One ioredis case per file, and this is the whole reason: a client left behind
+ * by an earlier case in the same process wedges every later connect, so a second
+ * one here hangs rather than fails. Measured both ways round -- reordering does
+ * not help, only a fresh process does, and `node:test` gives each file one.
  */
 
 import test from "node:test";

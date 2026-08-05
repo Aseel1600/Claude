@@ -6,6 +6,13 @@ type RedisCtor = new (url: string, opts?: Record<string, unknown>) => any;
 let storeInstance: CircuitBreakerStore | null = null;
 let storeIsRedis = false;
 let redisClient: { disconnect?: () => void } | null = null;
+/**
+ * The probe currently in flight, if any. Without it two concurrent callers
+ * both see a null cache, both build a store, and the loser's Redis client is
+ * overwritten before anything can close it -- a leaked socket that holds the
+ * event loop open. Concurrent callers await the first probe instead.
+ */
+let pending: Promise<CircuitBreakerStore> | null = null;
 
 /**
  * Wraps a Redis-backed store so a runtime Redis failure drops the cached
@@ -57,13 +64,26 @@ class RedisCircuitBreakerStoreWithFailureReset implements CircuitBreakerStore {
  * runtime, clears the cached instance so the next call re-probes Redis
  * (or falls back to SQLite if Redis is still down).
  *
+ * Concurrent callers share one probe rather than each starting their own.
+ *
  * Known ceiling, unchanged by that reset: once the SQLite store is cached the
  * process keeps it, because only a Redis-backed store is ever evicted. A Redis
  * that comes back is picked up on the next process start, not sooner.
  */
-export async function getCircuitBreakerStore(): Promise<CircuitBreakerStore> {
-  if (storeInstance) return storeInstance;
+export function getCircuitBreakerStore(): Promise<CircuitBreakerStore> {
+  if (storeInstance) return Promise.resolve(storeInstance);
+  if (pending) return pending;
 
+  const p = buildStore().finally(() => {
+    // Only retract our own promise. A reset can already have replaced it, and
+    // nulling someone else's would let the next caller start a second probe.
+    if (pending === p) pending = null;
+  });
+  pending = p;
+  return p;
+}
+
+async function buildStore(): Promise<CircuitBreakerStore> {
   const redisUrl = process.env.REDIS_URL;
   if (redisUrl) {
     try {
@@ -137,8 +157,20 @@ function closeRedisClient(): void {
   }
 }
 
+/**
+ * Test hook: forget everything and release the client.
+ *
+ * Call it between operations, never while a probe is in flight. Dropping
+ * `pending` mid-build leaves that build running: it will still assign
+ * `storeInstance` when it finishes, and a caller arriving in the meantime
+ * starts a second one, which is the duplicate the pending guard exists to
+ * prevent. Every call site today either precedes the first
+ * getCircuitBreakerStore() or sits in a finally after awaiting it, so the
+ * window stays closed by discipline rather than by machinery.
+ */
 export function __resetCircuitBreakerFactory(): void {
   closeRedisClient();
   storeInstance = null;
   storeIsRedis = false;
+  pending = null;
 }
