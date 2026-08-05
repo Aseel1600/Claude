@@ -57,9 +57,13 @@ test("production Responses conversion preserves Kimi K3 reasoning history", () =
   };
 
   for (const { provider, model } of [
+    { provider: "kimi-coding", model: "k3" },
     { provider: "kimi-coding-apikey", model: "k3-256k" },
     { provider: "moonshot", model: "kimi-k3" },
     { provider: "kimi", model: "kimi-k3" },
+    { provider: "some-other", model: "k3" },
+    { provider: "some-other", model: "k3-256k" },
+    { provider: "some-other", model: "kimi-k3" },
   ]) {
     const converted = convertResponsesApiFormat(body, {}, provider, model) as {
       messages: Array<Record<string, unknown>>;
@@ -67,10 +71,12 @@ test("production Responses conversion preserves Kimi K3 reasoning history", () =
     assert.equal(converted.messages[1].reasoning_content, "I should search first.");
   }
 
-  const generic = convertResponsesApiFormat(body, {}, "openai", "gpt-5") as {
-    messages: Array<Record<string, unknown>>;
-  };
-  assert.equal(Object.hasOwn(generic.messages[1], "reasoning_content"), false);
+  for (const provider of ["kimi-coding", "kimi-coding-apikey"]) {
+    const generic = convertResponsesApiFormat(body, {}, provider, "kimi-k2.6") as {
+      messages: Array<Record<string, unknown>>;
+    };
+    assert.equal(Object.hasOwn(generic.messages[1], "reasoning_content"), false, provider);
+  }
 });
 
 test("Responses→Chat: input_image converted to image_url with detail", () => {
