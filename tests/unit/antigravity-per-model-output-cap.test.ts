@@ -200,3 +200,40 @@ test("the executor's cap differs per model on the same code path", async () => {
   if (result instanceof Response) throw new Error("Unexpected Response from transformRequest");
   assert.equal(generationConfigOf(result.request).maxOutputTokens, 32768);
 });
+
+// A routed request carries a provider prefix (`agy/...`, `antigravity/...`),
+// and cleanModelName strips it before the ceiling is resolved. Nothing states
+// that coupling in either function, so a change to the stripping would silently
+// route every prefixed request to the fallback. Handing the prefixed id
+// straight to the capability lookup returns null, which is what that failure
+// would look like.
+test("a provider-prefixed model id resolves to the model's ceiling, not the fallback", async () => {
+  const cases: Array<[string, number]> = [
+    ["agy/gemini-3.1-pro-high", 65535],
+    ["antigravity/gemini-3.1-pro-high", 65535],
+    ["agy/gemini-3.6-flash-high", 65536],
+    ["agy/gpt-oss-120b-medium", 32768],
+  ];
+
+  for (const [modelId, expected] of cases) {
+    const executor = new AntigravityExecutor();
+    const result = await executor.transformRequest(
+      modelId,
+      {
+        request: {
+          contents: [{ role: "user", parts: [{ text: "Hello" }] }],
+          generationConfig: { maxOutputTokens: 1_000_000 },
+        },
+      },
+      true,
+      { projectId: "project-1" }
+    );
+
+    if (result instanceof Response) throw new Error("Unexpected Response from transformRequest");
+    assert.equal(
+      generationConfigOf(result.request).maxOutputTokens,
+      expected,
+      `${modelId} must cap at ${expected}, not at the ${MAX_ANTIGRAVITY_OUTPUT_TOKENS} fallback`
+    );
+  }
+});
