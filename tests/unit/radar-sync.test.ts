@@ -55,16 +55,13 @@ function tamperByte(buf: Buffer): Buffer {
 }
 
 /** Build a minimal Response-like object for fetch mock. */
-function mockResponse(
-  body: Buffer,
-  headers: Record<string, string> = {},
-  status = 200
-): Response {
+function mockResponse(body: Buffer, headers: Record<string, string> = {}, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
     headers: new Map(Object.entries(headers)),
-    arrayBuffer: () => Promise.resolve(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)),
+    arrayBuffer: () =>
+      Promise.resolve(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength)),
   } as unknown as Response;
 }
 
@@ -119,14 +116,8 @@ test("pinnedKeys: toPublicKey returns null for garbage", () => {
 });
 
 test("pinnedKeys: PINNED_FEED_PUBLIC_KEYS is a non-empty array", () => {
-  assert.ok(
-    Array.isArray(pinnedKeys.PINNED_FEED_PUBLIC_KEYS),
-    "must be an array"
-  );
-  assert.ok(
-    pinnedKeys.PINNED_FEED_PUBLIC_KEYS.length > 0,
-    "must have at least one pinned key"
-  );
+  assert.ok(Array.isArray(pinnedKeys.PINNED_FEED_PUBLIC_KEYS), "must be an array");
+  assert.ok(pinnedKeys.PINNED_FEED_PUBLIC_KEYS.length > 0, "must have at least one pinned key");
 });
 
 // ===========================================================================
@@ -176,7 +167,11 @@ test("verifyFeedBytes: never throws on malformed input", () => {
 test("feedSchema: valid fixture parses successfully", () => {
   const parsed = JSON.parse(FIXTURE_STRING);
   const result = feedSchema.RadarFeedSchema.safeParse(parsed);
-  assert.equal(result.success, true, "fixture must parse: " + (result.success ? "" : JSON.stringify(result.error?.issues)));
+  assert.equal(
+    result.success,
+    true,
+    "fixture must parse: " + (result.success ? "" : JSON.stringify(result.error?.issues))
+  );
 });
 
 test("feedSchema: rejects missing required fields", () => {
@@ -295,10 +290,13 @@ test("syncRadar: valid signature => cache updated, payload byte-identical to fix
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
     getCache: () => null,
-    setCache: (entry) => { cacheStore.push(entry); },
-    fetch: (() => Promise.resolve(
-      mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
 
@@ -324,10 +322,13 @@ test("syncRadar: tampered bytes => invalid_signature, cache untouched", async ()
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
     getCache: () => null,
-    setCache: () => { cacheWritten = true; },
-    fetch: (() => Promise.resolve(
-      mockResponse(tampered, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: () => {
+      cacheWritten = true;
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(tampered, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "invalid_signature");
@@ -343,10 +344,13 @@ test("syncRadar: valid sig over garbage JSON => invalid_schema, cache untouched"
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
     getCache: () => null,
-    setCache: () => { cacheWritten = true; },
-    fetch: (() => Promise.resolve(
-      mockResponse(garbageBytes, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: () => {
+      cacheWritten = true;
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(garbageBytes, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "invalid_schema");
@@ -366,10 +370,13 @@ test("syncRadar: version floor — same version => stale, cache untouched", asyn
       payload: "{}",
       signature: "old-sig",
     }),
-    setCache: () => { cacheWritten = true; },
-    fetch: (() => Promise.resolve(
-      mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: () => {
+      cacheWritten = true;
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "stale");
@@ -389,10 +396,13 @@ test("syncRadar: version floor — incoming older => stale", async () => {
       payload: "{}",
       signature: "old-sig",
     }),
-    setCache: () => { cacheWritten = true; },
-    fetch: (() => Promise.resolve(
-      mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: () => {
+      cacheWritten = true;
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "stale");
@@ -416,10 +426,13 @@ test("syncRadar: version floor — incoming newer => updated", async () => {
       payload: "{}",
       signature: "old-sig",
     }),
-    setCache: (entry) => { cacheStore.push(entry); },
-    fetch: (() => Promise.resolve(
-      mockResponse(newerBytes, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(newerBytes, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
 
@@ -445,10 +458,13 @@ test("syncRadar: numeric version compare (2026.08.02.9 vs 2026.08.02.10)", async
       payload: "{}",
       signature: "old-sig",
     }),
-    setCache: (entry) => { cacheStore.push(entry); },
-    fetch: (() => Promise.resolve(
-      mockResponse(newerBytes, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(newerBytes, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
 
@@ -467,7 +483,9 @@ test("syncRadar: network error => error with no stack in reason", async () => {
   if (result.status === "error") {
     assert.ok(result.reason.length > 0, "reason must not be empty");
     assert.ok(
-      !result.reason.includes("at ") && !result.reason.includes(".ts:") && !result.reason.includes(".js:"),
+      !result.reason.includes("at ") &&
+        !result.reason.includes(".ts:") &&
+        !result.reason.includes(".js:"),
       "reason must NOT contain stack trace paths"
     );
     assert.ok(
@@ -481,14 +499,19 @@ test("syncRadar: timeout => error with no stack in reason", async () => {
   const result = await syncMod.syncRadar({
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
-    fetch: (() => Promise.reject(new DOMException("The operation was aborted", "AbortError"))) as unknown as typeof globalThis.fetch,
+    fetch: (() =>
+      Promise.reject(
+        new DOMException("The operation was aborted", "AbortError")
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "error");
   if (result.status === "error") {
     assert.ok(result.reason.length > 0, "reason must not be empty");
     assert.ok(
-      !result.reason.includes("at ") && !result.reason.includes(".ts:") && !result.reason.includes(".js:"),
+      !result.reason.includes("at ") &&
+        !result.reason.includes(".ts:") &&
+        !result.reason.includes(".js:"),
       "reason must NOT contain stack trace paths"
     );
   }
@@ -498,9 +521,10 @@ test("syncRadar: HTTP non-200 => error", async () => {
   const result = await syncMod.syncRadar({
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
-    fetch: (() => Promise.resolve(
-      mockResponse(Buffer.from("Internal Server Error"), {}, 500)
-    )) as unknown as typeof globalThis.fetch,
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(Buffer.from("Internal Server Error"), {}, 500)
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "error");
@@ -524,9 +548,7 @@ test("syncRadar: sends Authorization header when supporter key exists", async ()
           ? Object.entries(init.headers as Record<string, string>)
           : []
       );
-      return Promise.resolve(
-        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-      );
+      return Promise.resolve(mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig }));
     }) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
@@ -553,9 +575,7 @@ test("syncRadar: no Authorization header when no supporter key", async () => {
           ? Object.entries(init.headers as Record<string, string>)
           : []
       );
-      return Promise.resolve(
-        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-      );
+      return Promise.resolve(mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig }));
     }) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
@@ -574,14 +594,198 @@ test("syncRadar: missing signature header => invalid_signature", async () => {
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
     getCache: () => null,
-    setCache: () => { cacheWritten = true; },
-    fetch: (() => Promise.resolve(
-      mockResponse(FIXTURE_BYTES, {}) // no signature header
-    )) as unknown as typeof globalThis.fetch,
+    setCache: () => {
+      cacheWritten = true;
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, {}) // no signature header
+      )) as unknown as typeof globalThis.fetch,
   });
 
   assert.equal(result.status, "invalid_signature");
   assert.equal(cacheWritten, false, "cache must NOT be written");
+});
+
+// ===========================================================================
+// syncRadar — served-tier header (x-omniroute-feed-tier)
+//
+// Regression guard for the defect where a FREE user on a stale/community
+// snapshot saw "Ao vivo (tempo real)" in the UI: the signed body always
+// carries tier:"live" by design (one signed artifact per version), so the
+// client MUST trust the `x-omniroute-feed-tier` response header — the
+// tier ACTUALLY served — rather than the body field.
+// ===========================================================================
+
+test("syncRadar: header 'community' overrides body tier:'live' — cache + result use community", async () => {
+  const fixtureObj = JSON.parse(FIXTURE_STRING);
+  fixtureObj.tier = "live"; // signed body always says "live"
+  const bytes = Buffer.from(JSON.stringify(fixtureObj));
+  const sig = signBytes(bytes);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(bytes, {
+          "x-omniroute-feed-signature": sig,
+          "x-omniroute-feed-tier": "community",
+        })
+      )) as unknown as typeof globalThis.fetch,
+    now: () => new Date("2026-08-03T12:00:00Z"),
+  });
+
+  assert.equal(result.status, "updated");
+  if (result.status === "updated") {
+    assert.equal(
+      result.tier,
+      "community",
+      "syncRadar() must return the served tier from the header, not the body"
+    );
+  }
+  assert.equal(cacheStore.length, 1);
+  assert.equal(
+    cacheStore[0].tier,
+    "community",
+    "cache must store the served tier from the header, not the body"
+  );
+});
+
+test("syncRadar: header 'live' => cache + result use live", async () => {
+  const fixtureObj = JSON.parse(FIXTURE_STRING);
+  fixtureObj.tier = "live";
+  const bytes = Buffer.from(JSON.stringify(fixtureObj));
+  const sig = signBytes(bytes);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: "omr_supporter-key" }),
+    getCache: () => null,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(bytes, {
+          "x-omniroute-feed-signature": sig,
+          "x-omniroute-feed-tier": "live",
+        })
+      )) as unknown as typeof globalThis.fetch,
+    now: () => new Date("2026-08-03T12:00:00Z"),
+  });
+
+  assert.equal(result.status, "updated");
+  if (result.status === "updated") {
+    assert.equal(result.tier, "live");
+  }
+  assert.equal(cacheStore[0].tier, "live");
+});
+
+test("syncRadar: header absent => falls back to body tier (older server)", async () => {
+  const fixtureObj = JSON.parse(FIXTURE_STRING);
+  fixtureObj.tier = "community";
+  const bytes = Buffer.from(JSON.stringify(fixtureObj));
+  const sig = signBytes(bytes);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(bytes, { "x-omniroute-feed-signature": sig }) // no tier header
+      )) as unknown as typeof globalThis.fetch,
+    now: () => new Date("2026-08-03T12:00:00Z"),
+  });
+
+  assert.equal(result.status, "updated");
+  if (result.status === "updated") {
+    assert.equal(
+      result.tier,
+      "community",
+      "must fall back to the body tier when the header is absent"
+    );
+  }
+  assert.equal(cacheStore[0].tier, "community");
+});
+
+test("syncRadar: header holds a garbage value => falls back to body tier, garbage never stored", async () => {
+  const fixtureObj = JSON.parse(FIXTURE_STRING);
+  fixtureObj.tier = "live";
+  const bytes = Buffer.from(JSON.stringify(fixtureObj));
+  const sig = signBytes(bytes);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(bytes, {
+          "x-omniroute-feed-signature": sig,
+          "x-omniroute-feed-tier": "premium", // arbitrary/garbage header value
+        })
+      )) as unknown as typeof globalThis.fetch,
+    now: () => new Date("2026-08-03T12:00:00Z"),
+  });
+
+  assert.equal(result.status, "updated");
+  if (result.status === "updated") {
+    assert.equal(result.tier, "live", "garbage header must never be trusted — falls back to body");
+    assert.notEqual(result.tier as string, "premium");
+  }
+  assert.equal(cacheStore[0].tier, "live");
+  assert.notEqual(
+    cacheStore[0].tier as string,
+    "premium",
+    "garbage header value must never reach the cache"
+  );
+});
+
+test("syncRadar: header holds an empty string => falls back to body tier", async () => {
+  const fixtureObj = JSON.parse(FIXTURE_STRING);
+  fixtureObj.tier = "community";
+  const bytes = Buffer.from(JSON.stringify(fixtureObj));
+  const sig = signBytes(bytes);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(bytes, {
+          "x-omniroute-feed-signature": sig,
+          "x-omniroute-feed-tier": "",
+        })
+      )) as unknown as typeof globalThis.fetch,
+    now: () => new Date("2026-08-03T12:00:00Z"),
+  });
+
+  assert.equal(result.status, "updated");
+  if (result.status === "updated") {
+    assert.equal(result.tier, "community");
+  }
+  assert.equal(cacheStore[0].tier, "community");
 });
 
 test("syncRadar: first sync (no cache) with valid data => updated", async () => {
@@ -592,10 +796,13 @@ test("syncRadar: first sync (no cache) with valid data => updated", async () => 
     getFlag: () => true,
     getSettings: () => ({ optIn: true, supporterKey: null }),
     getCache: () => null, // no existing cache
-    setCache: (entry) => { cacheStore.push(entry); },
-    fetch: (() => Promise.resolve(
-      mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
-    )) as unknown as typeof globalThis.fetch,
+    setCache: (entry) => {
+      cacheStore.push(entry);
+    },
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
     now: () => new Date("2026-08-03T12:00:00Z"),
   });
 

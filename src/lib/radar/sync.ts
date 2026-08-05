@@ -11,7 +11,7 @@
  * Deps are injectable for testing.
  */
 
-import { RadarFeedSchema, type RadarFeed } from "./feedSchema";
+import { RadarFeedSchema, RadarTierSchema, type RadarFeed, type RadarTier } from "./feedSchema";
 import { verifyFeedBytes } from "./verify";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
@@ -61,6 +61,30 @@ export interface SyncDeps {
   getSettings?: () => RadarSettingsSnapshot;
   getCache?: () => RadarCacheEntry | null;
   setCache?: (entry: RadarCacheEntry) => void;
+}
+
+// ---------------------------------------------------------------------------
+// Served-tier header
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse & validate the `x-omniroute-feed-tier` response header.
+ *
+ * This header is the AUTHORITATIVE source for which tier was actually
+ * served to this caller — the server decides per-request based on the
+ * `Authorization` key, and an invalid/expired key degrades to
+ * `"community"`. The signed body's `tier` field is always `"live"` by
+ * design (see `feedSchema.ts`) and must never be shown to the user.
+ *
+ * Returns `null` when the header is absent, or holds a value that is not
+ * exactly `"community"` or `"live"` — an arbitrary/garbage header string
+ * is never trusted into the UI/DB; callers must fall back to the body's
+ * `tier` field in that case (also covers older servers that predate this
+ * header).
+ */
+function parseServedTierHeader(value: string | null): RadarTier | null {
+  const result = RadarTierSchema.safeParse(value);
+  return result.success ? result.data : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -197,10 +221,17 @@ export async function syncRadar(deps: SyncDeps = {}): Promise<SyncStatus> {
       return { status: "stale" };
     }
 
-    // Step 8: Cache the result
+    // Step 8: Resolve the served tier.
+    // The `x-omniroute-feed-tier` header reflects the tier ACTUALLY served
+    // (see `parseServedTierHeader`); fall back to the signed body's `tier`
+    // field only when the header is absent or unrecognized — never trust an
+    // arbitrary header value into the cache/UI.
+    const servedTier = parseServedTierHeader(res.headers.get("x-omniroute-feed-tier")) ?? feed.tier;
+
+    // Step 9: Cache the result
     const cacheEntry: RadarCacheEntry = {
       version: feed.version,
-      tier: feed.tier,
+      tier: servedTier,
       payload: rawBytes.toString("utf-8"),
       signature,
       fetchedAt: now().toISOString(),
@@ -213,7 +244,7 @@ export async function syncRadar(deps: SyncDeps = {}): Promise<SyncStatus> {
       mod.setRadarCache(cacheEntry);
     }
 
-    return { status: "updated", version: feed.version, tier: feed.tier };
+    return { status: "updated", version: feed.version, tier: servedTier };
   } catch (err: unknown) {
     const reason = sanitizeErrorMessage(err) || "Radar sync failed";
     return { status: "error", reason };

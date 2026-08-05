@@ -30,6 +30,13 @@ const SeverityEnum = z.enum(["info", "warn"]);
 
 const TierEnum = z.enum(["community", "live"]);
 
+/**
+ * Exported so `sync.ts` can validate the `x-omniroute-feed-tier` response
+ * header against the same allowed values, without duplicating the enum.
+ */
+export const RadarTierSchema = TierEnum;
+export type RadarTier = z.infer<typeof RadarTierSchema>;
+
 // ---------------------------------------------------------------------------
 // Sub-schemas
 // ---------------------------------------------------------------------------
@@ -132,6 +139,15 @@ export const RadarFeedSchema = z.object({
   schemaVersion: z.literal(1),
   version: z.string(),
   generatedAt: z.string().datetime(),
+  // NOTE: this body field is ALWAYS "live", by design — the community tier
+  // is the exact same signed bytes served from an older snapshot, and there
+  // is only one signed artifact per version (rewriting this field
+  // server-side per request would break the exact-bytes Ed25519 signature).
+  // The tier ACTUALLY served is decided by the server per-request based on
+  // the Authorization key, and is surfaced via the `x-omniroute-feed-tier`
+  // response header instead. NEVER read this field for UI/display — use the
+  // served-tier value that `sync.ts` derives from the header (falling back
+  // to this field only when the header is absent, e.g. an older server).
   tier: TierEnum,
   counts: z.object({
     providers: z.number().int(),
