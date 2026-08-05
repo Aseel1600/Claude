@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import Modal from "./Modal";
 import Button from "./Button";
 import Input from "./Input";
@@ -85,6 +86,7 @@ export default function TraeAuthModal({
   onClose,
   reauthConnection: _,
 }: TraeAuthModalProps) {
+  const t = useTranslations("oauthModal");
   const [accessToken, setAccessToken] = useState("");
   const [webId, setWebId] = useState("");
   const [bizUserId, setBizUserId] = useState("");
@@ -301,15 +303,15 @@ export default function TraeAuthModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Scope</label>
+            <label className="block text-sm font-medium mb-1">{t("traeScope")}</label>
             <Input value={scope} onChange={(e) => setScope(e.target.value)} className="text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Tenant</label>
+            <label className="block text-sm font-medium mb-1">{t("traeTenant")}</label>
             <Input value={tenant} onChange={(e) => setTenant(e.target.value)} className="text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Region</label>
+            <label className="block text-sm font-medium mb-1">{t("traeRegion")}</label>
             <Input value={region} onChange={(e) => setRegion(e.target.value)} className="text-sm" />
           </div>
         </div>

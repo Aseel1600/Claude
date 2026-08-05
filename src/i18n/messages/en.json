@@ -942,7 +942,8 @@
     "retryLoadingAria": "Retry loading",
     "openSystemStatusAria": "Open system status",
     "copyCodeAria": "Copy code to clipboard",
-    "clearSearchAria": "Clear search"
+    "clearSearchAria": "Clear search",
+    "degraded": "Degraded"
   },
   "disabled": "Disabled",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
@@ -1245,7 +1246,8 @@
     "toggleSidebarAria": "Toggle Sidebar",
     "breadcrumbAria": "Breadcrumb",
     "commandPaletteAria": "Command palette",
-    "clearSearchAria": "Clear search"
+    "clearSearchAria": "Clear search",
+    "commandPaletteNoResults": "No results"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2069,7 +2071,10 @@
     "routeFallbackTimelineSubtitle": "Inferred from persisted call logs around this request",
     "routeRecommendations": "Recommendations",
     "routeLimitations": "Limitations",
-    "routeNoKnownLimitations": "No known limitations for this explanation."
+    "routeNoKnownLimitations": "No known limitations for this explanation.",
+    "autoRoutingRequestsColumn": "Requests",
+    "autoRoutingShareColumn": "Share",
+    "autoRoutingProviderColumn": "Provider"
   },
   "apiManager": {
     "title": "API Keys",
@@ -2991,7 +2996,12 @@
     "copilotPasteInto": "Paste into:",
     "copilotReloadInstruction": "Then reload VS Code and set the API key in the input prompt.",
     "wireApiChatCompletions": "Chat Completions (/chat/completions)",
-    "wireApiResponses": "Responses API (/responses)"
+    "wireApiResponses": "Responses API (/responses)",
+    "version": "Version",
+    "health": "Health",
+    "port": "Port",
+    "healthy": "Healthy",
+    "unhealthy": "Unhealthy"
   },
   "combos": {
     "title": "Combos",
@@ -4255,7 +4265,9 @@
       "cleaning": "Cleaning...",
       "cleanNow": "Clean now",
       "cleanupSuccess": "{count} point(s) removed",
-      "cleanupFailed": "Cleanup failed"
+      "cleanupFailed": "Cleanup failed",
+      "hostLabel": "Host",
+      "collectionLabel": "Collection"
     },
     "rerank": {
       "enableLabel": "Enable Rerank",
@@ -4693,7 +4705,13 @@
     "requestLogDetailAria": "Request log detail",
     "previousRequestAria": "Previous request",
     "nextRequestAria": "Next request",
-    "closeDetailModalAria": "Close detail modal"
+    "closeDetailModalAria": "Close detail modal",
+    "proxyLabel": "Proxy",
+    "levelLabel": "Level",
+    "typeLabel": "Type",
+    "direct": "Direct",
+    "proxyEventTitle": "Proxy Event",
+    "timeLabel": "Time"
   },
   "onboarding": {
     "welcome": "Welcome",
@@ -7658,7 +7676,18 @@
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
     "routeOpusModelsPlaceholder": "Route Opus models to frontier combo",
-    "instanceNamePlaceholder": "Instance name"
+    "instanceNamePlaceholder": "Instance name",
+    "protocol": "Protocol",
+    "embeddingCollection": "Collection",
+    "oneproxyActive": "Active",
+    "oneproxyHostCol": "Host",
+    "oneproxyProtocolCol": "Protocol",
+    "oneproxyCountryCol": "Country",
+    "oneproxyQualityCol": "Quality",
+    "oneproxyLatencyCol": "Latency",
+    "oneproxyAnonymityCol": "Anonymity",
+    "oneproxyActionsCol": "Actions",
+    "memoryHost": "Host"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -9348,7 +9377,9 @@
     "protocolAcpDesc": "Register and manage agents via the ACP registry for inter-agent communication and tool sharing.",
     "protocolAcpStep1": "Navigate to Dashboard → Agents to view registered ACP agents.",
     "protocolAcpStep2": "Register new agents with capabilities and endpoint configuration.",
-    "protocolAcpStep3": "Use CLI Tools to configure agent communication channels."
+    "protocolAcpStep3": "Use CLI Tools to configure agent communication channels.",
+    "parameters": "Parameters",
+    "returns": "Returns"
   },
   "legal": {
     "privacyPolicy": "Privacy Policy",
@@ -9821,7 +9852,11 @@
     "successMessage": "Your {providerName} account has been connected.",
     "done": "Done",
     "error": "Connection failed",
-    "tryAgain": "Try again"
+    "tryAgain": "Try again",
+    "traeScope": "Scope",
+    "traeTenant": "Tenant",
+    "traeRegion": "Region",
+    "tokenAutoFilledPlaceholder": "Token will be auto-filled..."
   },
   "cursorAuthModal": {
     "title": "Connect Cursor IDE",
@@ -10337,7 +10372,15 @@
     "callLogsInfo": "Call logs are also saved as JSON files to {dataDir} and rotated based on {retentionDays} and {maxEntries}.",
     "loadMore": "Load More",
     "loadingMore": "Loading more...",
-    "correlationIdPlaceholder": "Correlation ID"
+    "correlationIdPlaceholder": "Correlation ID",
+    "timelineStarted": "Started",
+    "timelineEnded": "Ended",
+    "timelineDuration": "Duration",
+    "timelineStatus": "Status",
+    "timelineProvider": "Provider",
+    "timelineTitle": "Request Timeline",
+    "timelineActive": "Active",
+    "timelineOther": "Other"
   },
   "proxyLogger": {
     "filterAll": "All",
@@ -12062,7 +12105,9 @@
     },
     "searchModelProvider": "Search model, provider…",
     "searchFreeModelsAria": "Search free models",
-    "filterByProviderAria": "Filter by provider"
+    "filterByProviderAria": "Filter by provider",
+    "tosHeader": "ToS",
+    "allProvidersOption": "All providers"
   },
   "providerHealthAutopilot": {
     "title": "Provider Health Autopilot",

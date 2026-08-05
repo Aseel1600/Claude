@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Card, Button } from "@/shared/components";
 
 interface ToolState {
@@ -24,6 +25,7 @@ interface UpdateInfo {
 }
 
 export default function CliproxyapiToolCard({ isExpanded = false, onToggle = () => {} }) {
+  const t = useTranslations("cliTools");
   const [toolState, setToolState] = useState<ToolState | null>(null);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
@@ -177,25 +179,25 @@ export default function CliproxyapiToolCard({ isExpanded = false, onToggle = () 
 
           <div className="grid grid-cols-3 gap-3">
             <div className="p-3 rounded-lg bg-bg-secondary">
-              <p className="text-xs text-text-muted mb-1">Version</p>
+              <p className="text-xs text-text-muted mb-1">{t("version")}</p>
               <p className="text-sm font-medium">
-                {toolState?.installedVersion ? `v${toolState.installedVersion}` : "Not installed"}
+                {toolState?.installedVersion ? `v${toolState.installedVersion}` : t("notInstalled")}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-bg-secondary">
-              <p className="text-xs text-text-muted mb-1">Health</p>
+              <p className="text-xs text-text-muted mb-1">{t("health")}</p>
               <p
                 className={`text-sm font-medium ${toolState?.healthStatus === "healthy" ? "text-green-600 dark:text-green-400" : toolState?.healthStatus === "unhealthy" ? "text-red-600 dark:text-red-400" : "text-text-muted"}`}
               >
                 {toolState?.healthStatus === "healthy"
-                  ? `Healthy`
+                  ? t("healthy")
                   : toolState?.healthStatus === "unhealthy"
-                    ? "Unhealthy"
-                    : "Unknown"}
+                    ? t("unhealthy")
+                    : t("unknown")}
               </p>
             </div>
             <div className="p-3 rounded-lg bg-bg-secondary">
-              <p className="text-xs text-text-muted mb-1">Port</p>
+              <p className="text-xs text-text-muted mb-1">{t("port")}</p>
               <p className="text-sm font-mono">{toolState?.port || 8317}</p>
             </div>
           </div>

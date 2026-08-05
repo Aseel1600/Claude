@@ -70,7 +70,7 @@ export default function ProxyLogDetail({ log, onClose }) {
             >
               {log.status}
             </span>
-            <span className="font-bold text-lg">Proxy Event</span>
+            <span className="font-bold text-lg">{t("proxyEventTitle")}</span>
           </div>
           <button
             onClick={onClose}
@@ -85,7 +85,9 @@ export default function ProxyLogDetail({ log, onClose }) {
           {/* Metadata Grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-4 bg-bg-subtle rounded-xl border border-border">
             <div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Time</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                {t("timeLabel")}
+              </div>
               <div className="text-sm font-medium">{formatDate(log.timestamp)}</div>
             </div>
             <div>
@@ -103,13 +105,19 @@ export default function ProxyLogDetail({ log, onClose }) {
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Proxy</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                {t("proxyLabel")}
+              </div>
               <div className="text-sm font-medium font-mono text-primary">
-                {log.proxy ? `${log.proxy.type}://${log.proxy.host}:${log.proxy.port}` : "Direct"}
+                {log.proxy
+                  ? `${log.proxy.type}://${log.proxy.host}:${log.proxy.port}`
+                  : t("direct")}
               </div>
             </div>
             <div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Type</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                {t("typeLabel")}
+              </div>
               <span
                 className="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase"
                 style={{ backgroundColor: typeColor.bg, color: typeColor.text }}
@@ -118,7 +126,9 @@ export default function ProxyLogDetail({ log, onClose }) {
               </span>
             </div>
             <div>
-              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">Level</div>
+              <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                {t("levelLabel")}
+              </div>
               <span
                 className="inline-block px-2.5 py-1 rounded text-[10px] font-bold uppercase"
                 style={{ backgroundColor: levelColor.bg, color: levelColor.text }}

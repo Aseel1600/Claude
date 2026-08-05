@@ -53,7 +53,7 @@ export default function GamificationAdminPage() {
                   <th className="text-left p-2 font-medium text-text-muted">{t("apiKey")}</th>
                   <th className="text-right p-2 font-medium text-text-muted">{t("xpLastHour")}</th>
                   <th className="text-right p-2 font-medium text-text-muted">{t("zScore")}</th>
-                  <th className="text-center p-2 font-medium text-text-muted">Status</th>
+                  <th className="text-center p-2 font-medium text-text-muted">{t("status")}</th>
                 </tr>
               </thead>
               <tbody>

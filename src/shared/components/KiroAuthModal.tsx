@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import Modal from "./Modal";
 import Button from "./Button";
 import Input from "./Input";
@@ -24,6 +25,7 @@ export default function KiroAuthModal({
   onMethodSelect,
   onClose,
 }: KiroAuthModalProps) {
+  const t = useTranslations("oauthModal");
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [idcStartUrl, setIdcStartUrl] = useState("");
   const [idcRegion, setIdcRegion] = useState("us-east-1");
@@ -369,7 +371,7 @@ export default function KiroAuthModal({
                     type="password"
                     value={refreshToken}
                     onChange={(e) => setRefreshToken(e.target.value)}
-                    placeholder="Token will be auto-filled..."
+                    placeholder={t("tokenAutoFilledPlaceholder")}
                     className="font-mono text-sm"
                   />
                 </div>

@@ -493,7 +493,7 @@ export function FreeBudgetView({
                 <th className="font-medium py-1 pr-2">{labels.model}</th>
                 <th className="font-medium py-1 pr-2">{labels.type}</th>
                 <th className="font-medium py-1 pr-2 text-right">{labels.tokensMonth}</th>
-                <th className="font-medium py-1 pr-1 text-center">ToS</th>
+                <th className="font-medium py-1 pr-1 text-center">{t("tosHeader")}</th>
               </tr>
             </thead>
             <tbody>
@@ -611,7 +611,7 @@ export default function FreeBudgetCard() {
           data-testid="budget-provider-select"
           className="rounded border border-border bg-surface px-1.5 py-1 text-[11px] text-text-main"
         >
-          <option value="all">All providers</option>
+          <option value="all">{t("allProvidersOption")}</option>
           {providers.map((p) => (
             <option key={p} value={p}>
               {p}

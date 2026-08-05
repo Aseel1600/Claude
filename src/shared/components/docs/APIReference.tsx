@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/shared/utils/cn";
 
 interface APIReferenceProps {
@@ -20,6 +21,7 @@ export default function APIReference({
   returns,
   className,
 }: APIReferenceProps) {
+  const t = useTranslations("docs");
   return (
     <div
       role="region"
@@ -38,7 +40,7 @@ export default function APIReference({
 
       {params && params.length > 0 && (
         <div className="mb-6">
-          <h4 className="text-sm font-semibold text-text-primary mb-3">Parameters</h4>
+          <h4 className="text-sm font-semibold text-text-primary mb-3">{t("parameters")}</h4>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left border-collapse">
               <thead className="text-xs text-text-muted uppercase bg-border/50">
@@ -70,7 +72,7 @@ export default function APIReference({
 
       {returns && (
         <div>
-          <h4 className="text-sm font-semibold text-text-primary mb-3">Returns</h4>
+          <h4 className="text-sm font-semibold text-text-primary mb-3">{t("returns")}</h4>
           <div className="p-3 rounded bg-bg border border-border font-mono text-sm">
             <span className="text-text-muted">Type: </span>
             <span className="text-text-main">{returns.type}</span>

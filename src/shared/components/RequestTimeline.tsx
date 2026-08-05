@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { getHttpStatusStyle } from "@/shared/constants/colors";
 import { copyToClipboard } from "@/shared/utils/clipboard";
@@ -136,6 +137,7 @@ export default function RequestTimeline({
 }: {
   initialSelectedId?: string | null;
 } = {}) {
+  const t = useTranslations("requestLogger");
   const router = useRouter();
   const [logs, setLogs] = useState<TimelineLog[]>([]);
   const [mode, setMode] = useState<ViewMode>("follow");
@@ -544,7 +546,7 @@ export default function RequestTimeline({
         style={{ height: HEADER_HEIGHT }}
       >
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold text-text-main">Request Timeline</h2>
+          <h2 className="text-sm font-semibold text-text-main">{t("timelineTitle")}</h2>
           <span className="text-[10px] text-text-muted font-mono">
             {visibleLogs.length} visible / {logs.length} total
           </span>
@@ -728,7 +730,7 @@ export default function RequestTimeline({
           </div>
           <div className="space-y-0.5 text-[10px] text-text-muted font-mono">
             <div className="flex justify-between gap-4">
-              <span>Started</span>
+              <span>{t("timelineStarted")}</span>
               <span>
                 {(() => {
                   const ts = new Date(hoveredLog.timestamp).getTime();
@@ -742,7 +744,7 @@ export default function RequestTimeline({
             </div>
             {!hoveredLog.active && (
               <div className="flex justify-between gap-4">
-                <span>Ended</span>
+                <span>{t("timelineEnded")}</span>
                 <span>
                   {new Date(
                     hoveredLog.completed
@@ -753,7 +755,7 @@ export default function RequestTimeline({
               </div>
             )}
             <div className="flex justify-between gap-4">
-              <span>Duration</span>
+              <span>{t("timelineDuration")}</span>
               <span>
                 {hoveredLog.active
                   ? `~${Math.round((nowMs - computeBarRange(hoveredLog, nowMs).startMs) / 1000).toLocaleString()}s`
@@ -761,12 +763,12 @@ export default function RequestTimeline({
               </span>
             </div>
             <div className="flex justify-between gap-4">
-              <span>Status</span>
+              <span>{t("timelineStatus")}</span>
               <span>{hoveredLog.status || "pending"}</span>
             </div>
             {hoveredLog.provider && (
               <div className="flex justify-between gap-4">
-                <span>Provider</span>
+                <span>{t("timelineProvider")}</span>
                 <span>{hoveredLog.provider}</span>
               </div>
             )}
@@ -799,11 +801,11 @@ export default function RequestTimeline({
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6366F1" }} />
-          <span className="text-text-muted">Active</span>
+          <span className="text-text-muted">{t("timelineActive")}</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: "#6B7280" }} />
-          <span className="text-text-muted">Other</span>
+          <span className="text-text-muted">{t("timelineOther")}</span>
         </div>
         <div className="ml-4 flex items-center gap-1.5 text-text-muted">
           <div className="w-3 border-t border-dashed border-slate-400/40" />

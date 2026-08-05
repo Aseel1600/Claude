@@ -177,7 +177,7 @@ export default function OneproxyTab() {
           </Card>
           <Card className="p-4">
             <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-            <div className="text-sm text-text-muted">Active</div>
+            <div className="text-sm text-text-muted">{t("oneproxyActive")}</div>
           </Card>
           <Card className="p-4">
             <div className="text-2xl font-bold text-text-main">
@@ -238,14 +238,28 @@ export default function OneproxyTab() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Host</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Protocol</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Country</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Quality</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Latency</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Anonymity</th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyHostCol")}
+                  </th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyProtocolCol")}
+                  </th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyCountryCol")}
+                  </th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyQualityCol")}
+                  </th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyLatencyCol")}
+                  </th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyAnonymityCol")}
+                  </th>
                   <th className="text-left py-2 px-3 text-text-muted font-medium">Google</th>
-                  <th className="text-left py-2 px-3 text-text-muted font-medium">Actions</th>
+                  <th className="text-left py-2 px-3 text-text-muted font-medium">
+                    {t("oneproxyActionsCol")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
