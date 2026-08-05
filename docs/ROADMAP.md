@@ -1,7 +1,11 @@
 # OmniRoute Roadmap
 
 > Version-gated, not date-gated: each milestone ships when its quality gates pass.
-> Current line: **v3.8.x** (this branch). Last updated: 2026-07-23.
+> Current line: **v3.8.x** (this branch). Status snapshot: **2026-08-05**.
+
+> **Active release state:** `release/v3.8.50` is in the **PREPARE / active-development**
+> phase. The package version is `3.8.50`; the latest tag in this checkout is `v3.8.49`,
+> so `3.8.50` is not yet a released or LTS line.
 
 OmniRoute is heading from a monolithic router to a **modular AI platform**: a lightweight
 core engine, a typed SDK, and everything else as installable modules and plugins. The path
@@ -29,7 +33,46 @@ mandatory quality-gate battery before new merges open.
 | 3.8.51 | Executor registry (in-place) · end-to-end provider-journey contract test becomes a CI gate · official scoped-test dev loop · CI lane consolidation (shared install/setup across gate jobs, #8084) |
 | 3.8.52 | `combo.ts` decomposition · routing-strategy registry · unified model-catalog contract for `/v1/models` · one CI policy for PRs to `release/**` and `main` (#8084) |
 | 3.8.53 | `chatCore.ts` decomposition · headless mode (`OMNIROUTE_HEADLESS=1`) · local candidate build/promote loop |
-| 3.8.54 | Release infrastructure (dormant): channels, labels, PR templates, merge queue · full-regression authority moves to the merge queue once TIA shadow evidence clears (#8084) · public feature-freeze announcement |
+| 3.8.54 | Release infrastructure and merge-queue preparation: channels, labels, PR templates, merge queue · full-regression authority moves to the merge queue once TIA shadow evidence clears (#8084) · public feature-freeze announcement |
+
+## Current status snapshot — 2026-08-05
+
+This section records implementation evidence separately from release completion. A capability
+being present in the tree does not by itself close a version milestone; closure requires the
+milestone's quality gates and release decision to pass.
+
+| Signal | Current evidence | Status interpretation |
+| --- | --- | --- |
+| Branch and package | [`release/v3.8.50`](https://github.com/diegosouzapw/OmniRoute/tree/release/v3.8.50), package `3.8.50`, latest local tag `v3.8.49` | 3.8.50 development cycle is active; no 3.8.50 release has been cut |
+| Release hardening | [clean-install/upgrade publish gate](https://github.com/diegosouzapw/OmniRoute/commit/7eca04fd1), [release PR build gate](https://github.com/diegosouzapw/OmniRoute/commit/2a0b1755c), [base-red repairs](https://github.com/diegosouzapw/OmniRoute/commit/ef3f55466) | Significant PREPARE work is landed; final release readiness is still open |
+| Scoped verification | [TIA-based scoped test runner](https://github.com/diegosouzapw/OmniRoute/commit/b38f3a4c0), [runtime combo-strategy check](https://github.com/diegosouzapw/OmniRoute/commit/0ef50886e) | Local/CI feedback loops are implemented; full release evidence remains required |
+| Current quality work | [adaptive admission coverage](https://github.com/diegosouzapw/OmniRoute/commit/2c966c28a), [quality baseline hardening](https://github.com/diegosouzapw/OmniRoute/commit/9fcefcce9) | The branch is still actively hardening quality gates |
+| Local verification | Dependencies are not installed in this checkout | Tests/builds have not been run locally in this snapshot |
+
+### Milestone status
+
+| Milestone | Status | Evidence and remaining work |
+| --- | --- | --- |
+| 3.8.50 | **In progress** | The cycle opened on [2026-07-28](https://github.com/diegosouzapw/OmniRoute/commit/ed2db6cb1) and continues through release-hardening, provider fixes, quality baselines, and base-red repairs. Cut the release only after the full gate battery and release checklist pass. |
+| 3.8.51 | **Partially evidenced; not closed** | Provider-journey coverage exists in [the contract-test commit](https://github.com/diegosouzapw/OmniRoute/commit/0d92be211), and executor contracts/registry wiring are present. The milestone needs an explicit release-gate decision before it can be treated as complete. |
+| 3.8.52 | **Partially evidenced; not closed** | Combo extraction landed through [target-resolution decomposition](https://github.com/diegosouzapw/OmniRoute/commit/0eeb8f45d), the routing strategy registry exists in `open-sse/services/autoCombo/routerStrategy.ts`, and the unified model catalog is used by `/v1/models`. Characterization and coupling gates still determine closure. |
+| 3.8.53 | **Not evidenced as complete** | Combo decomposition is progressing, but no runtime implementation of the roadmap's explicit `OMNIROUTE_HEADLESS=1` flag or complete candidate build/promote loop was found in the current source snapshot. Treat these as open work. |
+| 3.8.54 | **Partially evidenced; not closed** | Release infrastructure is active through [quality-rail work](https://github.com/diegosouzapw/OmniRoute/commit/45c91e22c), [release-process fixes](https://github.com/diegosouzapw/OmniRoute/commit/494b1c961), and merge-queue tolerance [work](https://github.com/diegosouzapw/OmniRoute/commit/2e4268003). Feature-freeze and the final full-regression authority decision remain open. |
+| 3.8.55–3.8.59 | **Future validation rail** | Characterization, canary/performance, security/compliance, 3.9.0 cut rehearsal, and final GO/NO-GO gates have not been marked complete in this checkout. |
+
+### Release-readiness decision
+
+**Decision: NO-GO for a 3.8.50 release at this snapshot.** The branch has substantial
+quality and release infrastructure, but the release is not tagged, local dependencies are
+absent, the full verification matrix has not been run from this checkout, and the milestone
+closure evidence above is not yet complete. The next release decision should record the exact
+CI run, build artifact, test/coverage result, security result, and release checklist outcome.
+
+### Evidence maintenance rule
+
+When a milestone closes, update its row with the closing commit or PR, the quality-gate run,
+and the release decision. Keep future milestones explicitly labelled as planned rather than
+implying that source presence alone means the milestone shipped.
 
 ## Phase 2 — Validation (3.8.55 → 3.8.59)
 
