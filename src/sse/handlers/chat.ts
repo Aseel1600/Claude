@@ -81,6 +81,7 @@ import {
 import {
   isAntigravityMissingProjectError,
   PROVIDER_BREAKER_FAILURE_STATUSES,
+  resolveStreamReadinessClassificationError,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
@@ -1321,7 +1322,8 @@ async function handleSingleModelChat(
           provider,
           model,
           lastError,
-          lastStatus
+          lastStatus,
+          resolved.candidateAliases
         );
         const lastFailedConnectionId =
           excludedConnectionIds.size > 0
@@ -1489,10 +1491,9 @@ async function handleSingleModelChat(
         return result.response;
       }
 
-      // Missing Cloud Code project assignment is an account configuration error, not a
-      // transient upstream/account failure. Preserve the executor's typed fail-closed 422;
-      // marking the connection unavailable here would trigger cooldown redispatch and repeat
-      // bootstrap within the same logical request.
+      // Missing Cloud Code project assignment is configuration, not a transient failure.
+      // Preserve the typed fail-closed 422; marking it unavailable would trigger cooldown
+      // redispatch and repeat bootstrap within the same logical request.
       if (isAntigravityMissingProjectError(provider, result)) {
         return withSelectedConnectionHeader(result.response, credentials.connectionId);
       }
@@ -1535,10 +1536,11 @@ async function handleSingleModelChat(
       }
 
       if (isAntigravityStreamReadinessFailure) {
+        const classificationError = resolveStreamReadinessClassificationError(result);
         const { shouldFallback, cooldownMs } = await markAccountUnavailable(
           credentials.connectionId,
           result.status || HTTP_STATUS.BAD_GATEWAY,
-          result.error || result.errorCode || "Antigravity stream ended before useful content",
+          classificationError,
           provider,
           model,
           providerProfile,
@@ -1568,13 +1570,12 @@ async function handleSingleModelChat(
             }
           }
           excludedConnectionIds.add(credentials.connectionId);
-          lastError = result.error;
+          lastError = classificationError;
           lastStatus = result.status;
-          requestRetryLastError = result.error;
+          requestRetryLastError = classificationError;
           requestRetryLastStatus = result.status;
           continue;
         }
-
         return withSelectedConnectionHeader(result.response, credentials?.connectionId);
       }
 

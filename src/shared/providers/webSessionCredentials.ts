@@ -98,10 +98,14 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
   },
   "muse-spark-web": {
     kind: "cookie",
-    credentialName: "abra_sess",
-    placeholder: "abra_sess=...; other=value",
+    // #9502: the WS protocol (#7528) needs both the ecto_1_sess cookie (GraphQL
+    // warmup/mode-switch) and a separate ecto1:... WS auth token (Authorization
+    // query param on wss://gateway.meta.ai/ws/clippy). The executor extracts the
+    // ecto1: token from the apiKey field via /ecto1:[^\s;]+/i.
+    credentialName: "ecto_1_sess + ecto1: WS auth token",
+    placeholder: "ecto_1_sess=...; ecto1:... (WS auth token from meta.ai DevTools → Network → WS → clippy)",
     acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "abra_sess"],
+    storageKeys: ["cookie", "ecto_1_sess", "abra_sess"],
   },
   "hailuo-web": {
     kind: "token",
