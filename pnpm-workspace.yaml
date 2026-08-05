@@ -1,5 +1,17 @@
 packages:
   - "open-sse"
+
+# Expoe `use-intl` na raiz de node_modules quando a instalacao local usa pnpm.
+# tests/_setup/vitestUiPolyfills.ts importa `createTranslator` de "use-intl/core"
+# de proposito: o next-intl re-exporta de la, e isso evita que o polyfill fique
+# auto-referente com o proprio `vi.mock("next-intl", ...)`. O npm ica a dep
+# transitiva e ela resolve; o layout estrito do pnpm nao ica, e todo
+# tests/unit/ui/** falha ao carregar. Isto so torna visivel a dep que JA existe
+# na arvore (next-intl -> use-intl@^4.13.4) — nada novo entra no package.json.
+# O CI instala com npm e nao le este arquivo.
+publicHoistPattern:
+  - "use-intl"
+
 allowBuilds:
   "@parcel/watcher": true
   "@playwright/browser-chromium": true
