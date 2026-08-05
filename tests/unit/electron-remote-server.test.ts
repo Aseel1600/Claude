@@ -193,6 +193,45 @@ describe("Electron main.js Remote Server Mode wiring", () => {
     assert.match(body, /contextIsolation:\s*true/);
     assert.match(body, /nodeIntegration:\s*false/);
   });
+
+  // setRemoteServerUrl() is the runtime, UI-driven path (tray prompt / IPC) for
+  // applying an operator-supplied URL — distinct from resolveRemoteServerUrl()'s
+  // startup precedence, which is already covered above. A URL typed into the
+  // "Connect to Remote Server…" prompt must go through the same isValidHttpUrl
+  // guard (only http/https accepted) *before* any server-lifecycle mutation, so
+  // an arbitrary/malicious string (file://, javascript:, garbage) can never reach
+  // stopNextServer()/startNextServer() or get persisted to prefs. Exercised via
+  // static analysis (matching this file's convention) since setRemoteServerUrl
+  // requires the full Electron main process to invoke directly.
+  it("setRemoteServerUrl() validates via isValidHttpUrl and rejects before mutating server state", () => {
+    const fn = mainSrc.match(/async function setRemoteServerUrl\(nextUrl\)[\s\S]*?\n}/);
+    assert.ok(fn, "setRemoteServerUrl function should exist in electron/main.js");
+    const body = fn![0];
+
+    const validationIdx = body.indexOf("isValidHttpUrl(normalized)");
+    const stopServerIdx = body.indexOf("stopNextServer()");
+    assert.ok(validationIdx !== -1, "setRemoteServerUrl must validate via isValidHttpUrl");
+    assert.ok(
+      stopServerIdx !== -1,
+      "setRemoteServerUrl must stop the running server when switching modes"
+    );
+    assert.ok(
+      validationIdx < stopServerIdx,
+      "URL validation must run before any server-lifecycle mutation"
+    );
+
+    const rejectBranch = body.slice(validationIdx, stopServerIdx);
+    assert.match(
+      rejectBranch,
+      /return;/,
+      "an invalid URL must short-circuit setRemoteServerUrl instead of falling through"
+    );
+    assert.match(
+      rejectBranch,
+      /console\.warn/,
+      "an invalid URL should be logged so operators can see it was rejected"
+    );
+  });
 });
 
 describe("Electron packaging manifest includes Remote Server Mode files", () => {
