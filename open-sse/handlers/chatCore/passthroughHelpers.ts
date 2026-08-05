@@ -23,8 +23,6 @@ export function shouldUseNativeCodexPassthrough({
 }): boolean {
   if (provider !== "codex" && provider !== "chatgpt-web-codex") return false;
   if (sourceFormat !== FORMATS.OPENAI_RESPONSES) return false;
-  if (provider !== "codex" && provider !== "chatgpt-web-codex") return false;
-  if (sourceFormat !== FORMATS.OPENAI_RESPONSES) return false;
   let normalizedEndpoint = String(endpointPath || "");
   while (normalizedEndpoint.endsWith("/")) normalizedEndpoint = normalizedEndpoint.slice(0, -1);
   const segments = normalizedEndpoint.split("/");
