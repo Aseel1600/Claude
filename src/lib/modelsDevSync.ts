@@ -18,7 +18,7 @@
  */
 
 import { getDbInstance } from "./db/core";
-import { invalidateDbCache } from "./db/readCache";
+import { invalidateDbCache, getModelCatalogCacheVersion } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
 
 import {
@@ -88,10 +88,6 @@ let activeSyncIntervalMs = SYNC_INTERVAL_MS;
 let cachedData: ModelsDevData | null = null;
 let cacheTime = 0;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-let cachedPricing: PricingByProvider | null = null;
-let cachedPricingTime = 0;
-const PRICING_CACHE_TTL_MS = 60_000; // 60 seconds — pricing is read-only during catalog builds
-
 let cachedCapabilities: CapabilitiesByProvider | null = null;
 let cachedCapabilitiesLoadedAll = false;
 const MODELS_DEV_ABORT_ERROR = "AbortError";
@@ -197,14 +193,23 @@ function mapCapabilityRecord(record: Record<string, unknown>): ModelCapabilityEn
   };
 }
 
+// #8697: getModelsDevPricing() re-ran the SELECT + JSON.parse of ~180 blobs on
+// every call — called once per catalog model (up to ~6091x) instead of once per
+// request, freezing the whole server 41-54s on a cold /v1/models rebuild.
+// Memoized here, invalidated via the same modelCatalogCacheVersion signal
+// save/clearModelsDevPricing already bump through invalidateDbCache("pricing") —
+// reusing the existing pattern (getCachedRawProviderConnections et al. in
+// db/readCache.ts) instead of introducing a new invalidation mechanism.
+let pricingMemo: PricingByProvider | null = null;
+let pricingMemoVersion = -1; // -1: never equals a real cacheVersion (starts at 0), guarantees a miss on the first call
+
 /**
  * Read synced pricing from `models_dev_pricing` namespace.
- * Cached for 60s — pricing data is read-only during catalog builds
- * and only changes on explicit models.dev sync.
  */
 export function getModelsDevPricing(): PricingByProvider {
-  if (cachedPricing && Date.now() - cachedPricingTime < PRICING_CACHE_TTL_MS) {
-    return cachedPricing;
+  const currentVersion = getModelCatalogCacheVersion();
+  if (pricingMemo !== null && pricingMemoVersion === currentVersion) {
+    return pricingMemo;
   }
 
   const db = getDbInstance();
@@ -223,8 +228,8 @@ export function getModelsDevPricing(): PricingByProvider {
       console.warn(`[MODELS_DEV] Corrupted pricing data for provider "${key}", skipping`);
     }
   }
-  cachedPricing = synced;
-  cachedPricingTime = Date.now();
+  pricingMemo = synced;
+  pricingMemoVersion = currentVersion;
   return synced;
 }
 
@@ -232,10 +237,6 @@ export function getModelsDevPricing(): PricingByProvider {
  * Save synced pricing to `models_dev_pricing` namespace (full replace).
  */
 export function saveModelsDevPricing(data: PricingByProvider): void {
-  // Invalidate in-memory cache before write — the data is being replaced.
-  cachedPricing = null;
-  cachedPricingTime = 0;
-
   const db = getDbInstance();
   const del = db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'");
   const insert = db.prepare(
@@ -256,8 +257,6 @@ export function saveModelsDevPricing(data: PricingByProvider): void {
  * Clear all models.dev synced pricing data.
  */
 export function clearModelsDevPricing(): void {
-  cachedPricing = null;
-  cachedPricingTime = 0;
   const db = getDbInstance();
   db.prepare("DELETE FROM key_value WHERE namespace = 'models_dev_pricing'").run();
   backupDbFile("pre-write");
@@ -372,44 +371,26 @@ export function getSyncedCapability(
 ): ModelCapabilityEntry | null {
   if (!provider || !modelId) return null;
 
-  // Fast path: every provider is in the in-memory cache, skip SQLite entirely.
-  if (cachedCapabilitiesLoadedAll) {
-    const lookupCached = (p: string) => cachedCapabilities?.[p]?.[modelId] ?? null;
-    const directCached = lookupCached(provider);
-    if (directCached) return directCached;
-    const fallbacks = SYNCED_CAPABILITY_FALLBACK_ALIASES[provider];
-    if (fallbacks) {
-      for (const alt of fallbacks) {
-        const found = lookupCached(alt);
-        if (found) return found;
-      }
-    }
-    return null;
+  // #8697-adjacent: this used to hit SQLite with a per-model SELECT on every cold
+  // call, relying on some other caller (getSyncedCapabilities() with no args) to have
+  // already warmed the whole-table cache first — no such caller sits in the /v1/models
+  // catalog build path, so a cold rebuild ran one SQLite round-trip per model per call
+  // site instead of one bulk read for the whole rebuild. Self-warm here instead of
+  // depending on an external caller.
+  if (!cachedCapabilitiesLoadedAll) {
+    getSyncedCapabilities();
   }
 
-  // Cold path: hit SQLite. Prepare the statement once, reuse for every alias.
-  const db = getDbInstance();
-  ensureCapabilitiesTable();
-  const stmt = db.prepare(
-    "SELECT * FROM model_capabilities WHERE provider = ? AND model_id = ? LIMIT 1"
-  );
-  const lookupDb = (p: string): ModelCapabilityEntry | null => {
-    const row = stmt.get(p, modelId);
-    if (!row) return null;
-    return mapCapabilityRecord(toRecord(row));
-  };
-
-  const direct = lookupDb(provider);
-  if (direct) return direct;
-
+  const lookupCached = (p: string) => cachedCapabilities?.[p]?.[modelId] ?? null;
+  const directCached = lookupCached(provider);
+  if (directCached) return directCached;
   const fallbacks = SYNCED_CAPABILITY_FALLBACK_ALIASES[provider];
   if (fallbacks) {
     for (const alt of fallbacks) {
-      const found = lookupDb(alt);
+      const found = lookupCached(alt);
       if (found) return found;
     }
   }
-
   return null;
 }
 
