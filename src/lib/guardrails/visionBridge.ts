@@ -241,7 +241,13 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
           typeof settings.visionBridgeModel === "string" && settings.visionBridgeModel.trim()
             ? settings.visionBridgeModel.trim()
             : undefined;
-        const bestModel = await getBestVisionModel({ fixedModel: configuredModel });
+        // #9541: thread the injected credential checker into the router — without it,
+        // #8430's fixedModel validation runs the REAL DB check even under test DI,
+        // so an empty credential store (CI) silently disables the reroute path.
+        const bestModel = await getBestVisionModel(
+          { fixedModel: configuredModel },
+          { hasUsableCredentials: checkCreds }
+        );
         if (bestModel && bestModel !== model) {
           const bestUsable = await checkCreds(bestModel);
           // Only block the reroute when we KNOW the target is unusable (false).
@@ -319,8 +325,15 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // be vision-capable (reroute path / unknown capability).
     const allNull = descriptions.every((d) => d === null);
     if (allNull && comboVisionBridgeDecision === "process") {
-      for (let i = 0; i < descriptions.length; i++) {
-        descriptions[i] = `[Image ${i + 1}]: (unavailable — no vision-capable provider connected)`;
+      // #9541: the #8430 stub is only safe when the upstream is CONFIRMED non-vision
+      // (it can only handle text anyway). A vision-capable upstream forced through the
+      // combo describe path keeps its raw images on total describe failure — that is
+      // the #4012 contract this stub must not override.
+      const upstreamVision = getResolvedModelCapabilities(model)?.supportsVision === true;
+      if (!upstreamVision) {
+        for (let i = 0; i < descriptions.length; i++) {
+          descriptions[i] = `[Image ${i + 1}]: (unavailable — no vision-capable provider connected)`;
+        }
       }
     }
 

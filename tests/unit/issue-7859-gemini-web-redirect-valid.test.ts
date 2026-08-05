@@ -29,9 +29,15 @@ test("gemini-web validator: 302 redirect to a PUBLIC host → valid (regression 
   globalThis.fetch = async (url) => {
     const target = String(url);
     if (target.includes("gemini.google.com/app")) {
+      // #9407 tightened the contract AFTER this regression test was written:
+      // accounts.google.com/ServiceLogin now means EXPIRED session (valid:false,
+      // covered by issue-9407-gemini-web-validation-false-positive.test.ts).
+      // The #7859 contract this test guards — a PUBLIC redirect is not SSRF and
+      // a live Gemini session may bounce through Google — uses a non-ServiceLogin
+      // public target here.
       return new Response(null, {
         status: 302,
-        headers: { location: "https://accounts.google.com/ServiceLogin" },
+        headers: { location: "https://www.google.com/sorry/index" },
       });
     }
     throw new Error(`unexpected fetch: ${target}`);

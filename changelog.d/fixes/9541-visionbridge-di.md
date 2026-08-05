@@ -1,0 +1,1 @@
+- fix(guardrails): thread the injected credential checker into the vision-model router and keep raw images for vision-capable upstreams on total describe failure (#9541)
