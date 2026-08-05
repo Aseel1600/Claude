@@ -1,1 +1,1 @@
-- fix(translator): preserve authentic K3 Responses reasoning by model across providers, projecting it onto the matching assistant tool call or completed turn instead of dropping it or carrying it across a user boundary (#9496)
+- fix(translator): preserve authentic K3 Responses reasoning by model across providers, keep it on the matching assistant turn, and make Kimi Coding prefer client reasoning then cached replay before its empty-marker fallback (#9496)
