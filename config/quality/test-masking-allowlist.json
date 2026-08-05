@@ -76,18 +76,6 @@
     "tests/unit/plugins-sandbox.test.ts": {
       "sourceRemoved": ["src/lib/plugins/sandbox.ts"],
       "reason": "v3.8.50 #9126 (commit 8fac6bcd48): sandbox.ts foi removido por completo junto com pluginWorker.ts e signing.ts (\"zero importers confirmed\", subsistema de sandbox de plugins nunca ligado a nenhum consumidor). O teste cobria SandboxLevel/getSandboxLabel exportados por sandbox.ts; sem o arquivo-fonte não há mais símbolo a testar. Mesma causa-raiz de tests/unit/plugin-sandbox-permissions.test.ts nesta entrada."
-    },
-    "tests/unit/authz/probe-9033-repro.test.ts": {
-      "strayFromCommit": "f4e93f339d",
-      "reason": "v3.8.50 2026-08-05: arquivo entrou POR ACIDENTE no commit de docs f4e93f339d (#7786), que varreu artefatos de .claude/worktrees/feat-7786/ de outra sessao. probe TDD falhante-por-design do bug ABERTO #9033, dono: PR #9385 (fix em aberto). A delecao devolve o probe ao fluxo TDD do PR dono; nada da release perde cobertura."
-    },
-    "tests/unit/repro-8522.test.ts": {
-      "strayFromCommit": "f4e93f339d",
-      "reason": "v3.8.50 2026-08-05: arquivo entrou POR ACIDENTE no commit de docs f4e93f339d (#7786), que varreu artefatos de .claude/worktrees/feat-7786/ de outra sessao. probe TDD do #8522, dono: PR #9355 (fix ja mergeado na release; o probe falha aqui porque esta branch antecede o merge). A delecao devolve o probe ao fluxo TDD do PR dono; nada da release perde cobertura."
-    },
-    "tests/unit/repro-8956.test.ts": {
-      "strayFromCommit": "f4e93f339d",
-      "reason": "v3.8.50 2026-08-05: arquivo entrou POR ACIDENTE no commit de docs f4e93f339d (#7786), que varreu artefatos de .claude/worktrees/feat-7786/ de outra sessao. probe TDD do #8956, dono: PR #9354 (fix em aberto). A delecao devolve o probe ao fluxo TDD do PR dono; nada da release perde cobertura."
     }
   },
   "tests/unit/catalog-updates-v3x.test.ts": "v3.8.45 #6248: fix(providers) remove deprecated MiMo V2 entries — os 5 asserts removidos pinavam specs de modelos mimo-v2-* que deixaram de existir no catálogo (54→49). Asserts seguem a remoção dos modelos, não enfraquecimento. Verificado legítimo. Prune após v3.8.45 mergear para main.",
