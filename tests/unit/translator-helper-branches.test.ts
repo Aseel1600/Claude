@@ -259,6 +259,14 @@ test("openaiHelper keeps unmatched tool choices and deletes empty tools arrays",
 test("claudeHelper validates content, ordering and request preparation branches", () => {
   assert.equal(claudeHelper.hasValidContent({ content: " hello " }), true);
   assert.equal(claudeHelper.hasValidContent({ content: [{ type: "tool_use", id: "call" }] }), true);
+  assert.equal(
+    claudeHelper.hasValidContent({ content: [{ type: "thinking", thinking: "reasoning" }] }),
+    true
+  );
+  assert.equal(
+    claudeHelper.hasValidContent({ content: [{ type: "redacted_thinking", data: "opaque" }] }),
+    true
+  );
   assert.equal(claudeHelper.hasValidContent({ content: [{ type: "text", text: "   " }] }), false);
 
   assert.deepEqual(claudeHelper.fixToolUseOrdering([{ role: "user", content: "single" }]), [
