@@ -336,6 +336,7 @@ For any non-trivial change, read the matching deep-dive first:
 | Resilience (3 mechanisms)                     | `docs/architecture/RESILIENCE_GUIDE.md`                 |
 | Reasoning replay                              | `docs/routing/REASONING_REPLAY.md`                      |
 | Skills framework                              | `docs/frameworks/SKILLS.md`                             |
+| Radar (free-model catalog overlay)            | `docs/frameworks/RADAR.md`                              |
 | Memory system (FTS5 + Qdrant)                 | `docs/frameworks/MEMORY.md`                             |
 | Cloud agents                                  | `docs/frameworks/CLOUD_AGENT.md`                        |
 | Guardrails (PII / injection / vision)         | `docs/security/GUARDRAILS.md`                           |

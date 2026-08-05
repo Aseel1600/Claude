@@ -43,6 +43,7 @@ lastUpdated: 2026-06-28
 - [22. Debugging](#22-debugging)
 - [23. GitHub Integration](#23-github-integration)
 - [24. Skills Sandbox (v3.8.0+)](#24-skills-sandbox-v380)
+- [27. Radar Feed (Self-Hosting)](#27-radar-feed-self-hosting)
 - [Deployment Scenarios](#deployment-scenarios)
 - [Audit: Removed / Dead Variables](#audit-removed--dead-variables)
 
@@ -1230,6 +1231,22 @@ that should be able to run the docs translator.
 | `OMNIROUTE_TRANSLATION_MODEL`       | _(unset)_ | `scripts/i18n/run-translation.mjs` | Model id, e.g. `gpt-4o-mini` or `cx/gpt-5.4-mini`.                        |
 | `OMNIROUTE_TRANSLATION_TIMEOUT_MS`  | `60000`   | `scripts/i18n/run-translation.mjs` | Per-request timeout in milliseconds.                                      |
 | `OMNIROUTE_TRANSLATION_CONCURRENCY` | `4`       | `scripts/i18n/run-translation.mjs` | Parallel translation requests when running over multiple files / locales. |
+
+---
+
+## 27. Radar Feed (Self-Hosting)
+
+Optional add-on gated by the RADAR_ENABLED feature flag (default off — a feature
+flag toggled via Settings/DB, not an env var; see
+[docs/frameworks/RADAR.md](../frameworks/RADAR.md#flag-radar_enabled-default-off)).
+Both variables below are optional overrides used only to point the client at a
+self-hosted or forked feed instead of the default OmniRoute Radar feed. See
+[docs/frameworks/RADAR.md](../frameworks/RADAR.md) for the full module doc.
+
+| Variable            | Default                        | Source File                   | Description                                                                                     |
+| -------------------- | ------------------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `RADAR_FEED_URL`    | `https://radar.omniroute.dev`  | `src/lib/radar/sync.ts`       | Base URL of the Radar feed service. Override to point at a self-hosted or forked feed.          |
+| `RADAR_FEED_PUBKEY` | _(pinned default key)_          | `src/lib/radar/pinnedKeys.ts` | Ed25519 public key (base64-DER SPKI or PEM) used to verify feed signatures from a custom feed.   |
 
 ---
 
