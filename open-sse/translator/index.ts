@@ -13,7 +13,10 @@ import {
   providerHonorsOpenAIFormatCacheControl,
   resolveConnectionCacheOverride,
 } from "../utils/cacheControlPolicy.ts";
-import { requiresAuthenticReasoningContent } from "../utils/reasoningContentInjector.ts";
+import {
+  requiresAuthenticReasoningContent,
+  shouldPreserveResponsesReasoningContent,
+} from "../utils/reasoningContentInjector.ts";
 import {
   coerceToolSchemas,
   injectEmptyReasoningContentForToolCalls,
@@ -208,6 +211,17 @@ export function translateRequest(
   const connectionCacheOverride = resolveConnectionCacheOverride(
     (credentials as { providerSpecificData?: unknown } | null)?.providerSpecificData
   );
+  const normalizedProvider = String(provider ?? "");
+  const normalizedModel = String(model ?? "");
+  const isKimiCoding =
+    normalizedProvider === "kimi-coding" || normalizedProvider === "kimi-coding-apikey";
+  const requiresAuthenticReasoning = requiresAuthenticReasoningContent(
+    normalizedProvider,
+    normalizedModel
+  );
+  const preserveResponsesReasoning =
+    sourceFormat === FORMATS.OPENAI_RESPONSES &&
+    shouldPreserveResponsesReasoningContent(normalizedProvider, normalizedModel);
 
   // Phase 2: Apply thinking budget control before normalization
   result = applyThinkingBudget(result);
@@ -284,12 +298,16 @@ export function translateRequest(
             options?.preserveCacheControl === true &&
             providerHonorsOpenAIFormatCacheControl(provider, connectionCacheOverride);
           const step1Credentials =
-            options?.copilotClient || hasTargetHint || preserveCacheControl
+            options?.copilotClient ||
+            hasTargetHint ||
+            preserveCacheControl ||
+            preserveResponsesReasoning
               ? {
                   ...(credentials && typeof credentials === "object" ? credentials : {}),
                   ...(options?.copilotClient ? { _copilotClient: true } : {}),
                   ...(hasTargetHint ? { _targetFormat: targetFormat } : {}),
                   ...(preserveCacheControl ? { _preserveCacheControl: true } : {}),
+                  ...(preserveResponsesReasoning ? { _preserveReasoningContent: true } : {}),
                 }
               : credentials;
           result = toOpenAI(model, result, stream, step1Credentials);
@@ -327,14 +345,6 @@ export function translateRequest(
   // Resolve reasoning-replay status up-front: it gates both the reasoning_content
   // strip in filterToOpenAIFormat below (#4849 must NOT strip client reasoning for
   // replay providers) and the cache re-injection further down.
-  const normalizedProvider = String(provider ?? "");
-  const normalizedModel = String(model ?? "");
-  const isKimiCoding =
-    normalizedProvider === "kimi-coding" || normalizedProvider === "kimi-coding-apikey";
-  const requiresAuthenticReasoning = requiresAuthenticReasoningContent(
-    normalizedProvider,
-    normalizedModel
-  );
   const resolvedCapabilities = getResolvedModelCapabilities({
     provider: normalizedProvider,
     model: normalizedModel,
