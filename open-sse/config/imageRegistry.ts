@@ -957,7 +957,6 @@ export function getImageModelAliases() {
 export function isRegisteredImageModel(providerId, modelId) {
   return Boolean(findImageModelConfig(providerId, modelId));
 }
-
 export function getImageModelEntry(modelStr) {
   if (!modelStr) return null;
 
