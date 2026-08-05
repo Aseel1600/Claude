@@ -5588,6 +5588,7 @@
     "tagGroupPlaceholder": "ex.: personal, work, team-a",
     "testModel": "Test Model",
     "testingModel": "Testing Model",
+    "modelTestQuotaTooltip": "Cota esgotada — reinicia amanhã ou precisa de recarga",
     "toggleOffShort": "OFF",
     "toggleOnShort": "ON",
     "tokenExpiredBadge": "Expirado",

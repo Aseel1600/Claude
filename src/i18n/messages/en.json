@@ -5600,6 +5600,7 @@
     "tagGroupPlaceholder": "Tag Group Placeholder",
     "testModel": "Test Model",
     "testingModel": "Testing Model",
+    "modelTestQuotaTooltip": "Quota exhausted — resets tomorrow or needs a top-up",
     "toggleOffShort": "Off",
     "toggleOnShort": "On",
     "tokenExpiredBadge": "Token Expired Badge",
