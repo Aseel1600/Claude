@@ -12,6 +12,7 @@ import {
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@/shared/constants/models";
 import { getSyncStatus, getSyncedCapability, getModelsDevPricing } from "@/lib/modelsDevSync";
+import { getSyncedPricing } from "@/lib/pricingSync";
 import { getPricingForModel as getDefaultPricingForModel } from "@/shared/constants/pricing";
 import {
   CANONICAL_EFFORT_VALUES,
@@ -308,6 +309,45 @@ function resolveCatalogPricing(
     const providerPricing =
       findInsensitive(modelsDev, provider) ||
       findInsensitive(modelsDev, provider.replace(/-cn$/, ""));
+    if (providerPricing) {
+      const modelPricing =
+        findInsensitive(providerPricing, model) ||
+        findInsensitive(providerPricing, model.replace(/\./g, "-")) ||
+        findInsensitive(
+          providerPricing,
+          model.includes("/") ? model.split("/").pop() || model : model
+        );
+      if (modelPricing && typeof modelPricing === "object") {
+        const input = modelPricing.input;
+        const output = modelPricing.output;
+        if (typeof input === "number" || typeof output === "number") {
+          const pricing: Record<string, number> = {};
+          if (typeof input === "number") pricing.input = input;
+          if (typeof output === "number") pricing.output = output;
+          if (typeof modelPricing.cached === "number") pricing.cached = modelPricing.cached;
+          if (typeof modelPricing.cache_creation === "number") {
+            pricing.cache_creation = modelPricing.cache_creation;
+          }
+          return pricing;
+        }
+      }
+    }
+  } catch {
+    // pricing lookup must never break catalog assembly
+  }
+
+  // LiteLLM-synced pricing (`pricing_synced` namespace) — Layer 3 in the
+  // documented resolution order (user > models.dev > LiteLLM > defaults).
+  // Consulted only when models.dev returned nothing, matching the order
+  // already implemented in db/settings/pricing.ts::getPricing().
+  try {
+    const litellm = getSyncedPricing() as Record<
+      string,
+      Record<string, Record<string, number>>
+    >;
+    const providerPricing =
+      findInsensitive(litellm, provider) ||
+      findInsensitive(litellm, provider.replace(/-cn$/, ""));
     if (providerPricing) {
       const modelPricing =
         findInsensitive(providerPricing, model) ||
