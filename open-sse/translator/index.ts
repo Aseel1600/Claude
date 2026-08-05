@@ -208,6 +208,16 @@ export function translateRequest(
   const connectionCacheOverride = resolveConnectionCacheOverride(
     (credentials as { providerSpecificData?: unknown } | null)?.providerSpecificData
   );
+  const normalizedProvider = String(provider ?? "");
+  const normalizedModel = String(model ?? "");
+  const isKimiCoding =
+    normalizedProvider === "kimi-coding" || normalizedProvider === "kimi-coding-apikey";
+  const requiresAuthenticReasoning = requiresAuthenticReasoningContent(
+    normalizedProvider,
+    normalizedModel
+  );
+  const preserveResponsesReasoning =
+    sourceFormat === FORMATS.OPENAI_RESPONSES && requiresAuthenticReasoning;
 
   // Phase 2: Apply thinking budget control before normalization
   result = applyThinkingBudget(result);
@@ -284,12 +294,16 @@ export function translateRequest(
             options?.preserveCacheControl === true &&
             providerHonorsOpenAIFormatCacheControl(provider, connectionCacheOverride);
           const step1Credentials =
-            options?.copilotClient || hasTargetHint || preserveCacheControl
+            options?.copilotClient ||
+            hasTargetHint ||
+            preserveCacheControl ||
+            preserveResponsesReasoning
               ? {
                   ...(credentials && typeof credentials === "object" ? credentials : {}),
                   ...(options?.copilotClient ? { _copilotClient: true } : {}),
                   ...(hasTargetHint ? { _targetFormat: targetFormat } : {}),
                   ...(preserveCacheControl ? { _preserveCacheControl: true } : {}),
+                  ...(preserveResponsesReasoning ? { _preserveReasoningContent: true } : {}),
                 }
               : credentials;
           result = toOpenAI(model, result, stream, step1Credentials);
@@ -327,14 +341,6 @@ export function translateRequest(
   // Resolve reasoning-replay status up-front: it gates both the reasoning_content
   // strip in filterToOpenAIFormat below (#4849 must NOT strip client reasoning for
   // replay providers) and the cache re-injection further down.
-  const normalizedProvider = String(provider ?? "");
-  const normalizedModel = String(model ?? "");
-  const isKimiCoding =
-    normalizedProvider === "kimi-coding" || normalizedProvider === "kimi-coding-apikey";
-  const requiresAuthenticReasoning = requiresAuthenticReasoningContent(
-    normalizedProvider,
-    normalizedModel
-  );
   const resolvedCapabilities = getResolvedModelCapabilities({
     provider: normalizedProvider,
     model: normalizedModel,
@@ -438,7 +444,7 @@ export function translateRequest(
   // isReasoner / normalizedProvider / normalizedModel / resolvedCapabilities were
   // resolved up-front (before the OpenAI-format filter) so the #4849 reasoning strip
   // could honor reasoning-replay providers.
-  if (isReasoner && !isKimiCoding && result.messages && Array.isArray(result.messages)) {
+  if (isReasoner && result.messages && Array.isArray(result.messages)) {
     const canReplayReasoningOnly = isReasoningOnlyReplayTarget(normalizedProvider, normalizedModel);
 
     for (const [messageIndex, msg] of result.messages.entries()) {
@@ -486,29 +492,51 @@ export function translateRequest(
         // Has tool_use blocks but no thinking block yet.
         // Reasoning models (Kimi K2, etc.) require a thinking block before tool_use
         // on multi-turn or they regenerate the same tool call infinitely.
-        const hasThinkingBlock = msg.content.some(
+        const thinkingBlock = msg.content.find(
           (b) => b?.type === "thinking" || b?.type === "redacted_thinking"
         );
-        if (hasThinkingBlock) continue;
+        const hasNonEmptyClientThinking =
+          thinkingBlock?.type === "thinking" &&
+          typeof thinkingBlock.thinking === "string" &&
+          thinkingBlock.thinking.trim().length > 0;
+        if (thinkingBlock && (!isKimiCoding || hasNonEmptyClientThinking)) continue;
 
         const toolUseBlocks = msg.content.filter((b) => b?.type === "tool_use");
         const firstToolUseId = toolUseBlocks[0]?.id;
         const firstToolUseIdx = msg.content.findIndex((b) => b?.type === "tool_use");
 
-        // Try reasoning cache first
+        // Client reasoning wins above. Otherwise try authentic replay before
+        // retaining Kimi Code's empty protocol marker as the final fallback.
         if (firstToolUseId) {
           const cached = lookupReasoning(firstToolUseId);
           if (cached) {
-            msg.content.splice(firstToolUseIdx, 0, {
-              type: "thinking",
-              thinking: cached,
-            });
+            if (thinkingBlock) {
+              thinkingBlock.type = "thinking";
+              thinkingBlock.thinking = cached;
+              delete thinkingBlock.data;
+              delete thinkingBlock.signature;
+            } else {
+              msg.content.splice(firstToolUseIdx, 0, {
+                type: "thinking",
+                thinking: cached,
+              });
+            }
             recordReplay();
             continue;
           }
         }
+        if (isKimiCoding) {
+          if (thinkingBlock) {
+            thinkingBlock.type = "thinking";
+            thinkingBlock.thinking = "";
+            delete thinkingBlock.data;
+            delete thinkingBlock.signature;
+          } else {
+            msg.content.splice(firstToolUseIdx, 0, { type: "thinking", thinking: "" });
+          }
+          continue;
+        }
         if (requiresAuthenticReasoning) continue;
-        // Fallback: inject placeholder (must be non-empty for kimi-coding)
         msg.content.splice(firstToolUseIdx, 0, {
           type: "thinking",
           thinking: NON_ANTHROPIC_THINKING_PLACEHOLDER,

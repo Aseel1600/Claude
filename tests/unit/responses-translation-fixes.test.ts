@@ -37,6 +37,48 @@ test("convertResponsesApiFormat skips function_call items with empty names", () 
   assert.equal(assistantMsgs.length, 0);
 });
 
+test("production Responses conversion preserves Kimi K3 reasoning history", () => {
+  const body = {
+    model: "kimi-k3",
+    input: [
+      { role: "user", content: [{ type: "input_text", text: "Call search." }] },
+      {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "I should search first." }],
+      },
+      {
+        type: "function_call",
+        call_id: "call_1",
+        name: "search",
+        arguments: "{}",
+      },
+      { type: "function_call_output", call_id: "call_1", output: "found" },
+    ],
+  };
+
+  for (const { provider, model } of [
+    { provider: "kimi-coding", model: "k3" },
+    { provider: "kimi-coding-apikey", model: "k3-256k" },
+    { provider: "moonshot", model: "kimi-k3" },
+    { provider: "kimi", model: "kimi-k3" },
+    { provider: "some-other", model: "k3" },
+    { provider: "some-other", model: "k3-256k" },
+    { provider: "some-other", model: "kimi-k3" },
+  ]) {
+    const converted = convertResponsesApiFormat(body, {}, provider, model) as {
+      messages: Array<Record<string, unknown>>;
+    };
+    assert.equal(converted.messages[1].reasoning_content, "I should search first.");
+  }
+
+  for (const provider of ["kimi-coding", "kimi-coding-apikey"]) {
+    const generic = convertResponsesApiFormat(body, {}, provider, "kimi-k2.6") as {
+      messages: Array<Record<string, unknown>>;
+    };
+    assert.equal(Object.hasOwn(generic.messages[1], "reasoning_content"), false, provider);
+  }
+});
+
 test("Responses→Chat: input_image converted to image_url with detail", () => {
   const body = {
     model: "gpt-4",
