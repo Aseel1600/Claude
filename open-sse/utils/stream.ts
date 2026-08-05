@@ -1,6 +1,5 @@
 import { translateResponse, initState } from "../translator/index.ts";
 import { FORMATS } from "../translator/formats.ts";
-import { getRegistryEntry } from "../config/providerRegistry.ts";
 import { trackPendingRequest, appendRequestLog } from "@/lib/usageDb";
 import {
   extractUsage,
@@ -22,6 +21,7 @@ import {
   appendBoundedText,
   buildSyntheticChatChunk,
   hasActiveDeltaValue,
+  injectThinkingSignature,
 } from "./streamHelpers.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { buildOmniRouteSseMetadataComment } from "@/domain/omnirouteResponseMeta";
@@ -710,13 +710,9 @@ export function createSSEStream(options: StreamOptions = {}) {
   }
 
   // Drop internal commentary-phase Responses output before forwarding (#6199).
-  // Explicit option wins; otherwise read the feature flag (default on). Resolved
-  // once per stream — never on the hot per-chunk path.
+  // Explicit option wins; otherwise read the feature flag (default on) — resolved once per stream.
   const shouldDropResponsesCommentary =
     dropResponsesCommentary ?? isFeatureFlagEnabled("RESPONSES_PASSTHROUGH_DROP_COMMENTARY");
-  const ensureThinkingSignature =
-    provider !== null && getRegistryEntry(provider)?.ensureThinkingSignature === true;
-
   const clientExpectsResponsesStream =
     (mode === STREAM_MODE.PASSTHROUGH
       ? clientResponseFormat === FORMATS.OPENAI_RESPONSES
@@ -1598,19 +1594,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   }
                 } else if (isClaudeSSE) {
                   // Claude SSE: extract usage, track content, forward as-is
-                  let thinkingSignatureInjected = false;
-                  if (
-                    ensureThinkingSignature &&
-                    parsed.type === "content_block_start" &&
-                    parsed.content_block?.type === "thinking" &&
-                    parsed.content_block.signature === undefined
-                  ) {
-                    // Strict Anthropic Messages clients deserialize this field before a
-                    // later signature_delta arrives. Add only the empty envelope
-                    // placeholder; never synthesize or replace a provider signature.
-                    parsed.content_block.signature = "";
-                    thinkingSignatureInjected = true;
-                  }
+                  const thinkingSignatureInjected = injectThinkingSignature(parsed, provider);
                   const extracted = extractUsage(parsed);
                   if (extracted) {
                     // Non-destructive merge: never overwrite a positive value with 0
