@@ -76,8 +76,10 @@ import {
 import { isNoAuthProviderBlockedBySettings } from "./noAuthProviderSettings";
 import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
+import { getResource404Bypass } from "./requestResourceHealth";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
+import { readHeaderValue, type AuthRequestHeaders } from "./headerReader.ts";
 
 type JsonRecord = Record<string, unknown>;
 interface RecoverableConnectionState {
@@ -138,36 +140,8 @@ function toNullableNumber(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-
 function toBooleanOrDefault(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
-}
-
-export function readHeaderValue(
-  headers:
-    | Headers
-    | { get?: (name: string) => string | null }
-    | Record<string, string | string[] | undefined>
-    | null
-    | undefined,
-  name: string
-): string | null {
-  if (!headers) return null;
-
-  if (typeof (headers as Headers).get === "function") {
-    const value = (headers as Headers).get(name) || (headers as Headers).get(name.toLowerCase());
-    return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
-  }
-
-  const recordHeaders = headers as Record<string, string | string[] | undefined>;
-  const value =
-    recordHeaders[name] || recordHeaders[name.toLowerCase()] || recordHeaders[name.toUpperCase()];
-
-  if (Array.isArray(value)) {
-    return typeof value[0] === "string" && value[0].trim().length > 0 ? value[0].trim() : null;
-  }
-
-  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
 function normalizeSessionKey(value: unknown, prefix: string): string | null {
@@ -376,7 +350,10 @@ function isTerminalConnectionStatus(connection: ProviderConnectionView): boolean
 
 // #8200: cookie-auth providers (perplexity-web, grok-web, ...) use a rotating browser
 // session, not a static API key — a 401 means "session needs a refresh", not "dead".
-function isRecoverableCookieAuth401(provider: string | null, providerErrorType: string | null): boolean {
+function isRecoverableCookieAuth401(
+  provider: string | null,
+  providerErrorType: string | null
+): boolean {
   return (
     providerErrorType !== PROVIDER_ERROR_TYPES.ACCOUNT_DEACTIVATED &&
     provider != null &&
@@ -489,6 +466,12 @@ function getEarliestFutureDate(candidates: Array<string | null>): string | null 
       .filter((entry) => entry.ms !== null)
       .sort((a, b) => (a.ms as number) - (b.ms as number))[0]?.raw || null
   );
+}
+
+function getCachedQuotaResetAt(connectionId: string): string | null {
+  const entry = getQuotaCache(connectionId);
+  if (!entry?.quotas) return null;
+  return getEarliestFutureDate(Object.values(entry.quotas).map((quota) => quota.resetAt));
 }
 
 function isRetryableModelLockoutReason(reason: unknown): boolean {
@@ -624,7 +607,11 @@ function getP2CConnectionScore(
     quotaExhausted = isQuotaExhaustedForRequest(connection.id, provider, requestedModel);
   }
 
-  const quotaHeadroomPercent = getConnectionQuotaHeadroomPercent(provider, connection, requestedModel);
+  const quotaHeadroomPercent = getConnectionQuotaHeadroomPercent(
+    provider,
+    connection,
+    requestedModel
+  );
 
   let quotaPenalty = 0;
   if (quotaHeadroomPercent !== null) {
@@ -730,7 +717,10 @@ function buildSyntheticNoAuthCredentials(providerSpecificData: JsonRecord = {}):
 }
 
 /** Merge one connection's fingerprints/accountProxies into `hydrated`, first-wins. */
-function mergeNoAuthProviderSpecificData(hydrated: JsonRecord, conn: { providerSpecificData?: unknown }): void {
+function mergeNoAuthProviderSpecificData(
+  hydrated: JsonRecord,
+  conn: { providerSpecificData?: unknown }
+): void {
   const psd = conn.providerSpecificData;
   if (!psd || typeof psd !== "object") return;
   const record = psd as JsonRecord;
@@ -930,6 +920,9 @@ const markMutexes = new Map<string, Promise<void>>();
 // auth.ts uses getNextFromDeckSync inside the provider-scoped selection mutex.
 // Re-export for backwards compat with existing test imports.
 export { fisherYatesShuffle, getNextFromDeckSync as getNextFromDeck };
+// Re-export readHeaderValue and AuthRequestHeaders from headerReader.ts for
+// backwards compat with existing imports (e.g. googApiKeyAuth.ts).
+export { readHeaderValue, type AuthRequestHeaders } from "./headerReader.ts";
 
 const PROVIDER_SEARCH_PAIRS: string[][] = [
   ["nvidia", "nvidia_nim"],
@@ -1610,7 +1603,8 @@ export async function getProviderCredentials(
         if (j >= i) j++;
         const a = candidatePool[i];
         const b = candidatePool[j];
-        connection = compareP2CConnections(provider, a, b, requestedModel, quotaResults) <= 0 ? a : b;
+        connection =
+          compareP2CConnections(provider, a, b, requestedModel, quotaResults) <= 0 ? a : b;
       }
     } else if (strategy === "random") {
       // Random: Fisher-Yates-inspired random pick
@@ -1881,15 +1875,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
   }
 }
 
-/**
- * Mark account as unavailable — reads backoffLevel from DB, calculates cooldown with exponential backoff, saves new level
- * @param {string} connectionId
- * @param {number} status - HTTP status code
- * @param {string} errorText - Error message
- * @param {string|null} provider
- * @param {string|null} model - Model name for per-model lockout
- * @returns {{ shouldFallback: boolean, cooldownMs: number }}
- */
+/** Persist exponential-backoff state for an unavailable provider connection. */
 export async function markAccountUnavailable(
   connectionId: string,
   status: number,
@@ -1914,6 +1900,9 @@ export async function markAccountUnavailable(
 
   try {
     await currentMutex;
+
+    const resourceBypass = getResource404Bypass(status, errorText, connectionId, log);
+    if (resourceBypass) return resourceBypass;
 
     // Read current connection to get backoffLevel
     const connectionsRaw = await getProviderConnections({ provider });
@@ -2064,6 +2053,13 @@ export async function markAccountUnavailable(
               ? fallbackResult.cooldownMs
               : (fallbackResult.quotaResetHintMs ?? null),
           maxCooldownMs: mlSettings.maxCooldownMs,
+          // #6863 vs #7940: exactCooldownMs above is only ever set from a genuine
+          // upstream signal (Retry-After/reset header or a parsed quotaResetHintMs) —
+          // never a synthetic estimate — so it must bypass maxCooldownMs instead of
+          // being clamped down to a window the upstream already told us is wrong.
+          exactCooldownIsUpstreamReset:
+            fallbackResult.usedUpstreamRetryHint === true ||
+            typeof fallbackResult.quotaResetHintMs === "number",
         }
       );
       // Update last error for observability (without changing terminal status)
@@ -2114,7 +2110,17 @@ export async function markAccountUnavailable(
       providerErrorType,
       provider
     );
-    const cooldownMs = terminalStatus ? 0 : rawCooldownMs;
+    const cachedQuotaResetAt =
+      providerErrorType === PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED ||
+      reason === RateLimitReason.QUOTA_EXHAUSTED
+        ? getCachedQuotaResetAt(connectionId)
+        : null;
+    const cachedQuotaResetMs = parseFutureDateMs(cachedQuotaResetAt);
+    const cooldownMs = terminalStatus
+      ? 0
+      : cachedQuotaResetMs
+        ? cachedQuotaResetMs - Date.now()
+        : rawCooldownMs;
 
     // ── #3027: per-model subscription/permission 403 → model-only lockout ──
     if (isPerModelQuotaProvider && status === 403 && provider && model && !terminalStatus) {
@@ -2350,8 +2356,6 @@ export async function clearRecoveredProviderState(
   await clearAccountError(credentials.connectionId, credentials);
   return { applied: true };
 }
-
-type AuthRequestHeaders = Headers | Record<string, string | string[] | undefined>;
 
 type AuthRequestLike = {
   headers?: AuthRequestHeaders | null;

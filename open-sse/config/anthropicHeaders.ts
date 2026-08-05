@@ -24,6 +24,8 @@ const ANTHROPIC_BETA_BASE = Object.freeze([
   "advisor-tool-2026-03-01",
   "extended-cache-ttl-2025-04-11",
   "cache-diagnosis-2026-04-07",
+  "code-execution-2025-08-25",
+  "skills-2025-10-02",
 ]);
 
 const CLAUDE_OAUTH_EXTRA_BETAS = Object.freeze(["fine-grained-tool-streaming-2025-05-14"]);
@@ -43,9 +45,19 @@ export const ANTHROPIC_BETA_CLAUDE_OAUTH = [
  * claude.ai backend on top of OmniRoute's own set. Kept to betas the backend
  * actually accepts and that OmniRoute does not otherwise emit — so a blind
  * passthrough cannot reintroduce the over-sending fingerprint/rejection bugs
- * (#3415, #2454). Currently: deferred-tool negotiation (#3974).
+ * (#3415, #2454). Currently: deferred-tool negotiation (#3974) and the
+ * client's own `[1m]` long-context negotiation (context-1m). selectBetaFlags
+ * deliberately emits context-1m only for Opus (never FORCE it — long-context
+ * credit gate); forwarding it when the CLIENT negotiated it matches what real
+ * Claude Code sends for `/model <id>[1m]` and is required for >200K-context
+ * requests on models/accounts where the beta is enforced.
  */
-export const FORWARDABLE_CLIENT_BETAS = Object.freeze(["tool-search-tool-2025-10-19"]);
+export const FORWARDABLE_CLIENT_BETAS = Object.freeze([
+  "tool-search-tool-2025-10-19",
+  "context-1m-2025-08-07",
+  "code-execution-2025-08-25",
+  "skills-2025-10-02",
+]);
 
 /**
  * Union an `anthropic-beta` comma-list with the allowlisted client-negotiated
