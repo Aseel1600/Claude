@@ -45,6 +45,8 @@ import { refreshKimiCodingToken } from "./tokenRefresh/providers/kimiCoding.ts";
 import { refreshGitLabDuoToken } from "./tokenRefresh/providers/gitlabDuo.ts";
 import { refreshClaudeOAuthToken } from "./tokenRefresh/providers/claudeOAuth.ts";
 import { refreshGoogleToken } from "./tokenRefresh/providers/google.ts";
+import { ensureAntigravityProjectAssigned } from "./antigravityProjectBootstrap.ts";
+import { persistDiscoveredAntigravityProjectId } from "./antigravityProjectPersist.ts";
 import { refreshCodexToken } from "./tokenRefresh/providers/codex.ts";
 import { refreshKiroToken } from "./tokenRefresh/providers/kiro.ts";
 import { refreshQoderToken } from "./tokenRefresh/providers/qoder.ts";
@@ -107,14 +109,49 @@ export const REFRESH_LEAD_MS: Record<string, number> = {
   "gitlab-duo": 5 * 60 * 1000, // GitLab token family revocation on misuse
   kiro: 5 * 60 * 1000, // AWS SSO OIDC issues one-time-use refresh tokens
   "kimi-coding": 5 * 60 * 1000, // Moonshot rotates per-refresh
-  // Non-rotating providers — longer lead is safe.
-  iflow: 24 * 60 * 60 * 1000, // 24 hours
   // Google OAuth refresh_tokens are permanent (non-rotating) — longer lead
   // is safe and reduces unnecessary upstream chatter.
   antigravity: 15 * 60 * 1000,
   agy: 15 * 60 * 1000, // same Google backend as antigravity (non-rotating refresh tokens)
-  "gemini-cli": 15 * 60 * 1000, // legacy stored connections; provider is no longer public
 };
+
+/**
+ * Upstream providers that stored connections may still name, but that this build no
+ * longer serves. They are NOT routable — absent from PROVIDERS, from the chat REGISTRY,
+ * and without an executor — so keeping their token fresh maintains a credential that can
+ * never answer a request.
+ *
+ * Deprecation, not deletion: a connection here becomes terminal with a reason that names
+ * where to go instead, rather than silently sitting at `active` doing nothing. The
+ * migration target must be routable — `tests/unit/gemini-cli-deprecation.test.ts` asserts
+ * that, so the notice can never point somewhere useless.
+ */
+export const DEPRECATED_PROVIDERS: Readonly<
+  Record<string, { readonly migrateTo: string; readonly reason: string }>
+> = {
+  "gemini-cli": {
+    migrateTo: "gemini",
+    // The legacy path redeemed the token with PROVIDERS.gemini's client — the very same
+    // public Gemini CLI / Code Assist OAuth client — which is why re-adding the account
+    // under `gemini` is a real migration and not a suggestion to start over.
+    reason:
+      "The gemini-cli provider was discontinued and is not routable. Re-add this account " +
+      "under the `gemini` provider — it uses the same Google OAuth client, so the same " +
+      "login works and the account becomes usable again.",
+  },
+};
+
+/** Whether `provider` is a deprecated upstream that must not be refreshed. */
+export function isDeprecatedProvider(provider: string): boolean {
+  return Boolean(provider) && Object.prototype.hasOwnProperty.call(DEPRECATED_PROVIDERS, provider);
+}
+
+/** The migration notice for a deprecated provider, or null when it is not deprecated. */
+export function getDeprecationNotice(
+  provider: string
+): { migrateTo: string; reason: string } | null {
+  return isDeprecatedProvider(provider) ? DEPRECATED_PROVIDERS[provider] : null;
+}
 
 /**
  * Get the proactive refresh lead time (ms) for a given provider.
@@ -261,28 +298,77 @@ export async function refreshAccessToken(
  */
 async function _getAccessTokenInternal(provider, credentials, log, proxyConfig: unknown = null) {
   switch (provider) {
-    case "gemini-cli":
-      // Legacy DB rows can retain this discontinued provider id. Refresh them
-      // with the same public OAuth client used by Gemini CLI without restoring
-      // gemini-cli to the routable provider or OAuth UI registries.
-      return await refreshGoogleToken(
-        credentials.refreshToken,
-        PROVIDERS.gemini.clientId,
-        PROVIDERS.gemini.clientSecret,
-        log,
-        proxyConfig
+    case "gemini-cli": {
+      // Deprecated (see DEPRECATED_PROVIDERS). This used to refresh successfully against
+      // PROVIDERS.gemini's client, but the provider is not routable, so the fresh token
+      // had nowhere to go — periodic upstream calls maintaining an unusable credential.
+      //
+      // Return the ESTABLISHED unrecoverable contract, so every existing caller
+      // (isUnrecoverableRefreshError, the manual-refresh route) already stops retrying —
+      // but with a code that says WHY and a target to migrate to. A bare `null` here would
+      // read as a transient failure and be retried forever.
+      const notice = DEPRECATED_PROVIDERS[provider];
+      log?.warn?.(
+        "TOKEN_REFRESH",
+        `${provider} is deprecated — not refreshing; migrate this account to ${notice.migrateTo}`
       );
+      return {
+        error: "unrecoverable_refresh_error",
+        code: "provider_deprecated",
+        migrateTo: notice.migrateTo,
+        reason: notice.reason,
+      };
+    }
 
     case "gemini":
     case "antigravity":
-    case "agy":
-      return await refreshGoogleToken(
+    case "agy": {
+      const result = await refreshGoogleToken(
         credentials.refreshToken,
         PROVIDERS[provider].clientId,
         PROVIDERS[provider].clientSecret,
         log,
         proxyConfig
       );
+
+      // Google One AI accounts get no projectId at OAuth exchange time.
+      // Recover it via loadCodeAssist so downstream routing works.
+      if (
+        result?.accessToken &&
+        (provider === "antigravity" || provider === "agy") &&
+        !(credentials.projectId || credentials.providerSpecificData?.projectId)
+      ) {
+        try {
+          const discovered = await ensureAntigravityProjectAssigned(
+            result.accessToken,
+            fetch
+          );
+          if (discovered) {
+            result.projectId = discovered;
+            result.providerSpecificData = {
+              ...(credentials.providerSpecificData || {}),
+              ...(result.providerSpecificData || {}),
+              projectId: discovered,
+            };
+            if (credentials.connectionId) {
+              await persistDiscoveredAntigravityProjectId(
+                credentials.connectionId,
+                discovered,
+                credentials.providerSpecificData
+              );
+            }
+            log?.info?.("TOKEN", "Antigravity projectId discovered during token refresh", {
+              projectId: discovered,
+            });
+          }
+        } catch (discoveryError) {
+          const msg = discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
+          log?.warn?.("TOKEN", `Antigravity projectId discovery failed: ${msg}`);
+        }
+      }
+
+      return result;
+    }
 
     case "claude":
       return await refreshClaudeOAuthToken(credentials.refreshToken, log, proxyConfig);
@@ -349,7 +435,6 @@ async function _getAccessTokenInternal(provider, credentials, log, proxyConfig: 
 export function supportsTokenRefresh(provider) {
   const explicitlySupported = new Set([
     "gemini",
-    "gemini-cli", // legacy refresh compatibility only; not a routable provider
     "antigravity",
     "agy",
     "claude",

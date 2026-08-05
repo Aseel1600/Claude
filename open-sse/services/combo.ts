@@ -146,12 +146,14 @@ import {
   clampComboDepth,
   shouldSkipForPredictedTtft,
   shouldRecordProviderBreakerFailure,
+  isComboRequestScopedFailure as isScopedFailure,
   isRequestScopedUpstreamFailure,
   isInputBoundRequestFailure,
   shouldSkipConnDisable,
   resolveDelayMs,
   comboModelNotFoundResponse,
   isStreamReadinessFailureErrorBody,
+  isStreamEarlyEofErrorBody,
   isTokenLimitBreachErrorBody,
   toRecordedTarget,
   getExhaustedTargetSkipReason,
@@ -217,8 +219,7 @@ import {
 import { expandTargetsByFingerprints } from "./combo/fingerprintExpansion.ts";
 import { resolveComboTargetPipeline } from "./combo/targetResolution.ts";
 
-export { RESET_WINDOW_NAMES };
-export { QUOTA_SOFT_DEPRIORITIZE_FACTOR, setCandidateQuotaSoftPenalty };
+export { RESET_WINDOW_NAMES, QUOTA_SOFT_DEPRIORITIZE_FACTOR, setCandidateQuotaSoftPenalty };
 export { scoreAutoTargets, expandAutoComboCandidatePool };
 export type { SingleModelTarget, ResolvedComboTarget };
 export { validateResponseQuality };
@@ -1511,6 +1512,11 @@ export async function handleComboChat({
           const isStreamReadinessFailure =
             (result.status === 502 || result.status === 504) &&
             isStreamReadinessFailureErrorBody(errorBody);
+          // An early EOF is an upstream failure, not a readiness probe — the breaker must
+          // see it even though the transient-retry path below treats both codes alike.
+          const isStreamEarlyEof =
+            (result.status === 502 || result.status === 504) &&
+            isStreamEarlyEofErrorBody(errorBody);
 
           // FIX 5: a local per-API-key token-limit 429 must not cool shared accounts.
           const isTokenLimitBreach =
@@ -1557,7 +1563,7 @@ export async function handleComboChat({
                       : undefined,
                 }
               : undefined;
-          const requestScopedFailure = isRequestScopedUpstreamFailure(structuredError);
+          const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
 
           // #8375: input-bound request-scoped failures (context_length_exceeded) are
           // deterministic for the same input — retrying on other accounts of the same
@@ -1713,10 +1719,11 @@ export async function handleComboChat({
           if (
             shouldRecordProviderBreakerFailure({
               isStreamReadinessFailure,
+              isStreamEarlyEof,
               status: result.status,
               sameProviderNext,
               skipProviderBreaker: fallbackResult.skipProviderBreaker,
-              requestScopedFailure,
+              requestScopedFailure: scopedFailure,
               error: errorText,
               isProxyUnreachable: structuredError?.code === "proxy_unreachable",
             })
@@ -1754,7 +1761,7 @@ export async function handleComboChat({
             // once the model is cooling down, retrying it would waste an upstream
             // call and extend the cooldown via exponential backoff.
             let lockoutRecorded = false;
-            if (provider && rawModel && retry === 0 && !requestScopedFailure) {
+            if (provider && rawModel && retry === 0 && !scopedFailure) {
               const mlSettings = resolveModelLockoutSettings(settings);
               if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
                 recordModelLockoutFailure(
@@ -1812,7 +1819,7 @@ export async function handleComboChat({
           if (i > 0) fallbackCount++;
           // Wire combo failures into the resilience dashboard (model-level lockout)
           // alongside the provider-level cooldown below — they govern different scopes.
-          if (provider && rawModel && !requestScopedFailure) {
+          if (provider && rawModel && !scopedFailure) {
             const mlSettings = resolveModelLockoutSettings(settings);
             if (mlSettings.enabled && mlSettings.errorCodes.includes(result.status)) {
               recordModelLockoutFailure(
@@ -1846,7 +1853,7 @@ export async function handleComboChat({
             resilienceSettings.providerCooldown.enabled &&
             provider &&
             provider !== "unknown" &&
-            !requestScopedFailure &&
+            !scopedFailure &&
             !(
               (result.status === 500 || result.status === 429) &&
               hasPerModelQuota(provider, rawModel)
@@ -2783,7 +2790,7 @@ async function handleRoundRobinCombo({
                     : undefined,
               }
             : undefined;
-        const requestScopedFailure = isRequestScopedUpstreamFailure(structuredError);
+        const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
         const fallbackResult = checkFallbackError(
           result.status,
           errorText,
@@ -2835,7 +2842,7 @@ async function handleRoundRobinCombo({
         if (
           !isStreamReadinessFailure &&
           !isTokenLimitBreach &&
-          !requestScopedFailure &&
+          !scopedFailure &&
           TRANSIENT_FOR_SEMAPHORE.includes(result.status) &&
           cooldownMs > 0
         ) {
@@ -2878,7 +2885,7 @@ async function handleRoundRobinCombo({
           resilienceSettings.providerCooldown.enabled &&
           provider &&
           provider !== "unknown" &&
-          !requestScopedFailure &&
+          !scopedFailure &&
           !(
             (result.status === 500 || result.status === 429) &&
             hasPerModelQuota(provider, parseModel(modelStr).model || modelStr)
