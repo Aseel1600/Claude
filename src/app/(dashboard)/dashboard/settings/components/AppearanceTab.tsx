@@ -546,7 +546,7 @@ export default function AppearanceTab() {
               </div>
               <input
                 type="text"
-                value={settings.instanceName || "OmniRoute"}
+                value={settings.instanceName || "AI Gateway"}
                 onChange={(e) => updateSetting("instanceName", e.target.value)}
                 placeholder={t("instanceNamePlaceholder")}
                 maxLength={100}

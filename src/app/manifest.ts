@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "OmniRoute AI Gateway",
-    short_name: "OmniRoute",
+    name: "AI Gateway",
+    short_name: "AI Gateway",
     description:
-      "OmniRoute is an AI gateway for multi-provider LLMs. One endpoint for all your AI providers.",
+      "AI Gateway is a unified gateway for multi-provider LLMs. One endpoint for all your AI providers.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",
@@ -47,7 +47,7 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "1280x720",
         type: "image/png",
         form_factor: "wide",
-        label: "OmniRoute Dashboard",
+        label: "AI Gateway Dashboard",
       },
     ],
   };

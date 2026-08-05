@@ -53,7 +53,7 @@ export default function ForgotPasswordPage() {
                     Delete the settings file from the app data directory to reset your password:
                   </p>
                   <ol className="text-sm text-text-muted space-y-2 list-decimal list-inside mb-3">
-                    <li>Quit the OmniRoute desktop app completely</li>
+                    <li>Quit the AI Gateway desktop app completely</li>
                     <li>
                       Navigate to the app data directory:
                       {dataDir ? (
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
                       <code className="bg-black/30 px-1 rounded text-text-main">settings.json</code>{" "}
                       ({t("orRemovePasswordHashField")})
                     </li>
-                    <li>Relaunch the OmniRoute desktop app — it will start fresh setup</li>
+                    <li>Relaunch the AI Gateway desktop app — it will start fresh setup</li>
                   </ol>
                 </div>
               </div>
@@ -93,7 +93,7 @@ export default function ForgotPasswordPage() {
                     Set a new initial password via the server environment file:
                   </p>
                   <ol className="text-sm text-text-muted space-y-2 list-decimal list-inside mb-3">
-                    <li>Quit the OmniRoute desktop app completely</li>
+                    <li>Quit the AI Gateway desktop app completely</li>
                     <li>
                       Open{" "}
                       <code className="bg-black/30 px-1 rounded text-text-main">server.env</code> in
@@ -115,7 +115,7 @@ export default function ForgotPasswordPage() {
                       <code className="bg-black/30 px-1 rounded text-text-main">settings.json</code>{" "}
                       from the data directory
                     </li>
-                    <li>Relaunch the OmniRoute desktop app</li>
+                    <li>Relaunch the AI Gateway desktop app</li>
                   </ol>
                 </div>
               </div>

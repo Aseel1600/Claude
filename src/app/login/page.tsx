@@ -168,7 +168,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-text-muted/60 mt-8">
-            OmniRoute — {t("unifiedProxy")}
+            AI Gateway — {t("unifiedProxy")}
           </p>
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-text-muted/60 mt-8">
-            OmniRoute — {t("unifiedAiApiProxy")}
+            AI Gateway — {t("unifiedAiApiProxy")}
           </p>
         </div>
       </div>
@@ -231,7 +231,7 @@ export default function LoginPage() {
                   <span className="material-symbols-outlined text-white text-[20px]">hub</span>
                 </div>
                 <span className="text-xl font-semibold text-text-main tracking-tight">
-                  OmniRoute
+                  AI Gateway
                 </span>
               </div>
               <h1 className="text-2xl font-bold text-text-main tracking-tight">{t("signIn")}</h1>
