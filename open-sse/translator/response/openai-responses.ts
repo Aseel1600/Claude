@@ -18,6 +18,7 @@ import {
   normalizeOutputIndex,
   normalizeUpstreamFailure,
   getVisibleResponsesReasoningSummaryText,
+  buildResponsesReasoningSummaryDelta,
 } from "./openai-responses/pureHelpers.ts";
 import { createEventEmitter } from "./openai-responses/eventEmitter.ts";
 import { buildResponsesToolCallItem } from "./responsesToolItem.ts";
@@ -1122,17 +1123,16 @@ function openaiResponsesToOpenAIResponseStream(chunk, state) {
     };
   }
 
-  // Handle true reasoning summary ("Thought for 15s").
-  // Emit as `delta.reasoning_content` — matches the shape used by the
-  // `reasoning_content_text.delta` branch above and is what Chat clients
-  // (OpenCode, Claude Code, Cursor, etc.) actually render in their thinking
-  // panel. A nested `delta.reasoning.summary` object is swallowed by most
-  // stream mergers and never reaches the user.
+  // Handle true reasoning summary ("Thought for 15s"). Emit as `delta.reasoning_content`
+  // — matches the `reasoning_content_text.delta` branch above and is what Chat clients
+  // (OpenCode, Claude Code, Cursor, etc.) render in their thinking panel. A nested
+  // `delta.reasoning.summary` object is swallowed by most stream mergers.
   if (eventType === "response.reasoning_summary_text.delta") {
     const reasoningDelta = data.delta || "";
     if (!reasoningDelta) return null;
     markResponsesReasoningDeltaEmitted(state, data.item_id);
-    return buildResponsesReasoningDeltaChunk(state, reasoningDelta);
+    const deltaText = buildResponsesReasoningSummaryDelta(state, data, reasoningDelta);
+    return buildResponsesReasoningDeltaChunk(state, deltaText);
   }
 
   // #5786 — reasoning summary exposed ONLY as a terminal snapshot on
