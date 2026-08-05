@@ -18,7 +18,6 @@ import {
   normalizeOutputIndex,
   normalizeUpstreamFailure,
   getVisibleResponsesReasoningSummaryText,
-  buildResponsesReasoningSummaryDelta,
 } from "./openai-responses/pureHelpers.ts";
 import { createEventEmitter } from "./openai-responses/eventEmitter.ts";
 import { buildResponsesToolCallItem } from "./responsesToolItem.ts";
@@ -725,6 +724,37 @@ function markResponsesReasoningDeltaEmitted(state, itemId) {
     state.reasoningItemsWithDelta = new Set();
   }
   state.reasoningItemsWithDelta.add(id);
+}
+
+// #9500 — streaming separator helper. When summary_index increments mid-stream
+// for a given item_id, a new reasoning segment begins; prefix "\n\n" so segments
+// don't arrive back-to-back. Only prefixes when a delta was already emitted for
+// the item AND the index advanced — never on the first segment. Lives here (not
+// in pureHelpers.ts) because it reads and mutates stream state, which the pure
+// leaf must not hold.
+function buildResponsesReasoningSummaryDelta(state, data, reasoningDelta) {
+  const itemId = data.item_id != null ? String(data.item_id) : "";
+  const summaryIndex = typeof data.summary_index === "number" ? data.summary_index : null;
+  if (!(state.reasoningSummaryIndex instanceof Map)) {
+    state.reasoningSummaryIndex = new Map();
+  }
+  const lastIndex = itemId ? state.reasoningSummaryIndex.get(itemId) : undefined;
+  const alreadyEmittedForItem = itemId
+    ? state.reasoningItemsWithDelta instanceof Set && state.reasoningItemsWithDelta.has(itemId)
+    : Boolean(state.reasoningDeltaEmitted);
+  let deltaText = reasoningDelta;
+  if (
+    summaryIndex !== null &&
+    lastIndex !== undefined &&
+    summaryIndex > lastIndex &&
+    alreadyEmittedForItem
+  ) {
+    deltaText = `\n\n${reasoningDelta}`;
+  }
+  if (itemId && (lastIndex === undefined || summaryIndex > lastIndex)) {
+    state.reasoningSummaryIndex.set(itemId, summaryIndex);
+  }
+  return deltaText;
 }
 
 // #5786 — build a Chat-format reasoning delta chunk in the shape the client renders in
