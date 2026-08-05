@@ -20,7 +20,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
-const core = await import("../../../src/lib/db/core.ts");
+const core = await import("../../../../src/lib/db/core.ts");
 
 test.after(() => {
   core.resetDbInstance();
@@ -73,7 +73,7 @@ async function waitUntil(cond: () => boolean, timeoutMs: number): Promise<void> 
 
 test("a probe that fails after connecting still releases the Redis client", async () => {
   const { getCircuitBreakerStore, __resetCircuitBreakerFactory } =
-    await import("../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
+    await import("../../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
   const redis = await startProbeRefusingRedis();
   try {
     __resetCircuitBreakerFactory();

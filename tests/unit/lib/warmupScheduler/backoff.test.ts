@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getWarmupBackoffUntil } from "../../../src/lib/warmupScheduler/backoff.ts";
+import { getWarmupBackoffUntil } from "../../../../src/lib/warmupScheduler/backoff.ts";
 
 test("backoff: streak=1 → 5min", () => {
   const until = new Date(getWarmupBackoffUntil(1)).getTime();

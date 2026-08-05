@@ -14,10 +14,10 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
-const core = await import("../../../src/lib/db/core.ts");
-const providersDb = await import("../../../src/lib/db/providers.ts");
+const core = await import("../../../../src/lib/db/core.ts");
+const providersDb = await import("../../../../src/lib/db/providers.ts");
 const { SqliteCircuitBreakerStore } =
-  await import("../../../src/lib/warmupScheduler/sqliteCircuitBreakerStore.ts");
+  await import("../../../../src/lib/warmupScheduler/sqliteCircuitBreakerStore.ts");
 
 const store = new SqliteCircuitBreakerStore();
 

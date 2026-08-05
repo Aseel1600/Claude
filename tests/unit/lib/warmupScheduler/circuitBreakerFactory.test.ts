@@ -17,7 +17,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
 
-const core = await import("../../../src/lib/db/core.ts");
+const core = await import("../../../../src/lib/db/core.ts");
 
 async function resetDb() {
   core.resetDbInstance();
@@ -37,7 +37,7 @@ test.after(() => {
 
 test("REDIS_URL unset → SqliteCircuitBreakerStore", async () => {
   const { getCircuitBreakerStore, __resetCircuitBreakerFactory } =
-    await import("../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
+    await import("../../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
   __resetCircuitBreakerFactory();
   delete process.env.REDIS_URL;
   const store = await getCircuitBreakerStore();
@@ -77,7 +77,7 @@ function startFlakyRedis(): Promise<{ port: number; close: () => void }> {
 
 test("a Redis failure after caching drops the cached store instead of serving it forever", async () => {
   const { getCircuitBreakerStore, __resetCircuitBreakerFactory } =
-    await import("../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
+    await import("../../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
   const redis = await startFlakyRedis();
   try {
     __resetCircuitBreakerFactory();
@@ -108,7 +108,7 @@ test("a Redis failure after caching drops the cached store instead of serving it
 
 test("REDIS_URL set + unreachable → falls back to SqliteCircuitBreakerStore", async () => {
   const { getCircuitBreakerStore, __resetCircuitBreakerFactory } =
-    await import("../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
+    await import("../../../../src/lib/warmupScheduler/circuitBreakerFactory.ts");
   __resetCircuitBreakerFactory();
   process.env.REDIS_URL = "redis://127.0.0.1:1"; // non-listening port → connect timeout
   const store = await getCircuitBreakerStore();

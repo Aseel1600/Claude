@@ -5,12 +5,12 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RedisCircuitBreakerStore } from "../../../src/lib/warmupScheduler/redisCircuitBreakerStore.ts";
+import { RedisCircuitBreakerStore } from "../../../../src/lib/warmupScheduler/redisCircuitBreakerStore.ts";
 import {
   getConnectionRuntimeState,
   upsertWarmupState,
-} from "../../../src/lib/db/connectionRuntimeState.ts";
-import { resetDbInstance } from "../../../src/lib/db/core.ts";
+} from "../../../../src/lib/db/connectionRuntimeState.ts";
+import { resetDbInstance } from "../../../../src/lib/db/core.ts";
 
 function makeMockRedis() {
   const store = new Map<string, Map<string, string>>();
@@ -124,7 +124,7 @@ test("get: returns empty-state for unknown connection", async () => {
 
 test("recordResult(success) clears forbidden flag in SQLite backup", async () => {
   // Use isolated temp DB (same pattern as connectionRuntimeState.test.ts)
-  const providersDb = await import("../../../src/lib/db/providers.ts");
+  const providersDb = await import("../../../../src/lib/db/providers.ts");
   const conn = await providersDb.createProviderConnection({
     provider: "claude",
     authType: "oauth",
