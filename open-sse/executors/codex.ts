@@ -55,6 +55,7 @@ import {
   splitCodexReasoningSuffix,
   type CodexEffortLevel as EffortLevel,
 } from "./codex/reasoningSuffix.ts";
+import { repairMissingCodexToolCallOutputs } from "./codex/toolCallRepair.ts";
 // Re-exported for external importers (tests + provider services).
 export { isCodexFreePlan, normalizeCodexTools } from "./codex/tools.ts";
 
@@ -273,51 +274,6 @@ function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): v
   if (removedCount > 0) {
     console.debug(
       `[Codex] stripOrphanedCodexFunctionCallOutputs: removed ${removedCount} orphaned function_call_output item(s)`
-    );
-  }
-}
-
-function repairMissingCodexToolCallOutputs(body: Record<string, unknown>): void {
-  if (!Array.isArray(body.input)) return;
-
-  const existingOutputKeys = new Set<string>();
-  for (const item of body.input) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    if (record.type !== "function_call_output" && record.type !== "custom_tool_call_output") {
-      continue;
-    }
-    if (typeof record.call_id === "string" && record.call_id.trim()) {
-      existingOutputKeys.add(`${record.type}:${record.call_id.trim()}`);
-    }
-  }
-
-  const repaired: unknown[] = [];
-  let insertedCount = 0;
-  for (const item of body.input) {
-    repaired.push(item);
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    if (record.type !== "function_call" && record.type !== "custom_tool_call") continue;
-    const callId = typeof record.call_id === "string" ? record.call_id.trim() : "";
-    const outputType =
-      record.type === "custom_tool_call" ? "custom_tool_call_output" : "function_call_output";
-    const outputKey = `${outputType}:${callId}`;
-    if (!callId || existingOutputKeys.has(outputKey)) continue;
-
-    repaired.push({
-      type: outputType,
-      call_id: callId,
-      output: "",
-    });
-    existingOutputKeys.add(outputKey);
-    insertedCount++;
-  }
-
-  if (insertedCount > 0) {
-    body.input = repaired;
-    console.debug(
-      `[Codex] repairMissingCodexToolCallOutputs: inserted ${insertedCount} empty tool output item(s)`
     );
   }
 }
