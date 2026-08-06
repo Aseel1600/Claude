@@ -1305,3 +1305,25 @@ Used by `src/lib/vncSession/manifest.ts` to configure Docker-based headless Chro
 | `OMNIROUTE_VNC_READY_MS`              | `45000`                       | `src/lib/vncSession/manifest.ts`  | Browser readiness timeout (ms).                                                |
 | `OMNIROUTE_VNC_HARVEST_MS`            | `20000`                       | `src/lib/vncSession/manifest.ts`  | Harvest/cleanup timeout (ms).                                                  |
 | `VIBEPROXY_DATA_DIR`                  | _(unset)_                     | `open-sse/services/notionThreadSessions.ts` | Directory for Notion thread session persistence.                               |
+
+### Internal service auth
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OMNIROUTE_INTERNAL_SERVICE_TOKEN` | – | Inline token for management-plane service-to-service authentication. |
+| `OMNIROUTE_INTERNAL_SERVICE_TOKEN_FILE` | – | Path to a file containing the internal service token (preferred in containers; overrides the inline variable). |
+
+### OpenRouter provider stats
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `OPENROUTER_PROVIDER_STATS_ENABLED` | `true` | Set to `false` to skip fetching OpenRouter per-provider stats for catalog enrichment. |
+| `OPENROUTER_PROVIDER_STATS_TTL_MS` | `3600000` | Cache TTL (ms) for the fetched OpenRouter provider stats. |
+
+### Embedded Redis binding
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `REDIS_BIND_HOST` | `127.0.0.1` | Bind address for the embedded Redis service. |
+| `REDIS_PORT` | `6379` | Port for the embedded Redis service. |
+| `OMNIROUTE_REDIS_BIND_HOST` | – | OmniRoute-scoped override for the embedded Redis bind address. |
