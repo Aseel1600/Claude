@@ -23,9 +23,12 @@ export interface TrayInstance {
   destroy(): void;
 }
 
-// Minimal 16x16 OmniRoute icon as base64 PNG (fallback when file missing)
+// Minimal 16x16 OmniRoute icon as base64 PNG (fallback when file missing).
+// Encoded from public brand assets/_brand-concepts/final/_tmp/simple-16.png
+// (8-node simplified mark, burgundy gradient + ivory nodes, no key — see
+// `_brand-concepts/final/` for the source SVG).
 const FALLBACK_ICON_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAABGdBTUEAALGPC/xhBQAAAAlwSFlzAAALEwAACxMBAJqcGAAAAHpJREFUOE9jYBgFgwEwMjIy/Gdg+P8fyP4PxP8ZGBgEcBnGyMjIsICBgSEAhyH/gfgBUNN8XJoZsdkCVL8Ah+b/QPwbqvkBMvk/AwMDAzYX/GdgYAhAN+A/SICRWAMYGfFEJSMjzriEiwDR/xmIa2RkZCSqnZERb3QCAAo3KxzxbKe1AAAAAElFTkSuQmCC";
+  "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAI1SURBVDhPXZFtS5NRGMfPR3D343m8522bDgJzPhAqztFgMEgGQhZuzm3Mbc1mc1OnrnLhMnWk5WI292JlSpCiQlJCn0LqowiiNyPsxLoRDn/Oix8/rut/gUajcVCtjvT3dylKp8lkF4ReQbgtigOCMCRJTklyybIHodjg4OnubqPRALVy2dbSctNkMtLPI5P5oP+KliS3LHtk+a4sexXlZGcHePr6OP1kKrQc9F+5RfFFNPwyGnbJsluSytn03sKsV1FGFSXR0wPsqsrdudBEMTU9IIpDojii615d5+7zd2+Ot9ZHFeWeqvo1DRgnuYORt6N9TFEWW1uXzeaAqk7YOsYY4/QDVfVBCOyCUEjG12cS3P1U044o/Uwpz0KrmdMfljL72XQAQtArCIXp2Pbc4/u3OsM32g4ZO6DUmHPt1hl716dni/vzqRBCgG85JIpOSUpRWqO0xpgxc5rmgzAAYQihCELA2HcCwgpjFUr3/ib/L2DcpGMYA+7mfYfNWonSt4yV+KO0xNisrjfpBMbAKYouWS5n0+9XlsYtlhwhryjdYoznCiFJm+3n9y+XX08SGCcJAdx99HrjeHuDXycIYVrX59r0OELcffnt9MfFWRLjFCHALUnNyzf7jlotcavl/yQIJQlJEZKhFEx2d1+jfRBWH8WrD6eac3N3hpCiwwEONzev0QEIy5FgJRL8RxOSwjhD6QIhF2tr4Fe9/nF1Ne1wjBNi7Nvonjebi8PD5/n873r9D7I5xk27QSa1AAAAAElFTkSuQmCC";
 
 export function getIconPath(): string {
   const isWin = process.platform === "win32";
