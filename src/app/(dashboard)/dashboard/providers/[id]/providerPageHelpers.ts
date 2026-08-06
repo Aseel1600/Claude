@@ -130,6 +130,7 @@ export function validationBadgeProps(result: string): {
 /** A single model's outcome from a `/api/models/test-all` response. */
 export interface TestAllModelOutcome {
   status: "ok" | "error";
+  isQuota?: boolean;
   shouldHide: boolean;
 }
 type TestAllEntryStatus = "ok" | "error" | "slow";
@@ -159,16 +160,21 @@ export function evaluateTestAllEntry(
         rateLimited?: boolean;
         isTimeout?: boolean;
         isTransient?: boolean;
+        isQuota?: boolean;
       }
     | null
     | undefined,
   autoHideFailed: boolean
 ): TestAllModelOutcome {
   const ok = entry?.status === "ok";
-  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient].some(Boolean);
+  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient, entry?.isQuota].some(Boolean);
   return {
     status: ok ? "ok" : "error",
-    // Hide only persistent failures. Transient (rate-limited, timeout) are
+    // #9511: quota errors (isQuota) are surfaced on the icon but kept visible
+    // so an evening Test All on a free-tier provider doesn't silently wipe the
+    // catalog for the next day.
+    ...(entry?.isQuota ? { isQuota: true } : {}),
+    // Hide only persistent failures. Transient (rate-limited, timeout, quota) are
     // surfaced on the icon but kept visible so a single throttled batch test
     // does not silently wipe the catalog.
     shouldHide: !ok && autoHideFailed && !transient,
