@@ -30,6 +30,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assembleStandalone } from "./assembleStandalone.mjs";
+import { resolveBundledNpmEntry } from "./resolveNpmEntry.ts";
 import {
   APP_STAGING_ALLOWED_EXACT_PATHS,
   APP_STAGING_ALLOWED_PATH_PREFIXES,
@@ -65,21 +66,6 @@ function resolveLocalBinEntry(packageName: string, binName: string): string | nu
   } catch {
     return null;
   }
-}
-
-function resolveBundledNpmEntry(name: "npm-cli.js" | "npx-cli.js"): string | null {
-  const execDir = dirname(process.execPath);
-  const candidates = [
-    // Windows zips / some layouts: npm sits right next to node.exe.
-    join(execDir, "node_modules", "npm", "bin", name),
-    // Standard Unix install layout (incl. GitHub Actions hostedtoolcache):
-    // <prefix>/bin/node with npm at <prefix>/lib/node_modules/npm/bin/.
-    join(execDir, "..", "lib", "node_modules", "npm", "bin", name),
-  ];
-  for (const candidate of candidates) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
 }
 
 /**
