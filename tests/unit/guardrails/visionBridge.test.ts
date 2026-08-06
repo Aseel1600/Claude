@@ -482,6 +482,110 @@ test("VB-S03/#8430: combo-mapping describe failure replaces the image with an er
   assert.ok(unavailPart, "an 'unavailable' error stub should be present when describe fails");
 });
 
+test("VB-S03/#8488: combo with NO confirmed-vision target stubs partially-failed describes (not preserved)", async () => {
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      checkComboHasConfirmedVision: async (_model: string) => false,
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A red square";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+  }>;
+
+  const imageParts = content.filter((p) => p.type === "image_url");
+  assert.strictEqual(
+    imageParts.length,
+    0,
+    "no image_url may reach a combo whose targets cannot read raw images"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A red square")),
+    "successful describe text is kept"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("unavailable")),
+    "failed describe becomes an 'unavailable' stub instead of preserving the image"
+  );
+});
+
+test("VB-S03/#4012: combo WITH confirmed-vision target preserves failed describe", async () => {
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      checkComboHasConfirmedVision: async (_model: string) => true,
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A blue circle";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+    image_url?: { url?: string };
+  }>;
+
+  assert.ok(
+    content.some((p) => p.type === "image_url" && p.image_url?.url?.includes("FAIL.png")),
+    "failed image preserved when a combo target is vision-capable (#4012)"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A blue circle")),
+    "successful describe text is kept"
+  );
+});
+
 test("VB-S03: logs warning when vision API fails (via combo mapping)", async () => {
   shouldVisionFail = true;
   let warningLogged = false;

@@ -33,7 +33,9 @@ type ComboVisionBridgeDecision = "process" | "skip" | "not-combo";
 /// - "process" if any target cannot be proven vision-capable
 /// - "skip" if all model targets can handle images directly
 /// - "not-combo" when the model is not a combo/mapping
-async function getComboVisionBridgeDecision(model: string): Promise<ComboVisionBridgeDecision> {
+async function getComboVisionBridgeDecision(
+  model: string
+): Promise<{ decision: ComboVisionBridgeDecision; hasConfirmedVision: boolean | null }> {
   try {
     const { getComboByName } = await import("@/lib/localDb");
     const { resolveComboForModel } = await import("@/lib/db/modelComboMappings");
@@ -44,48 +46,57 @@ async function getComboVisionBridgeDecision(model: string): Promise<ComboVisionB
     // 2. If no exact match, try model-combo mapping
     if (!combo) {
       const mapping = await resolveComboForModel(model);
-      if (!mapping) return "not-combo";
+      if (!mapping) return { decision: "not-combo", hasConfirmedVision: null };
       const comboName = mapping.comboName ?? mapping.name ?? null;
-      if (!comboName) return "not-combo";
+      if (!comboName) return { decision: "not-combo", hasConfirmedVision: null };
       combo = await getComboByName(comboName);
     }
 
-    if (!combo) return "not-combo";
+    if (!combo) return { decision: "not-combo", hasConfirmedVision: null };
 
     // 3. Get the combo's models (target steps)
     const rawModels = (combo as Record<string, unknown>).models;
-    if (!Array.isArray(rawModels)) return "process";
+    if (!Array.isArray(rawModels)) return { decision: "process", hasConfirmedVision: null };
 
     // 4. Check each target for vision support
-    // combo-ref → conservative (process images)
+    // combo-ref → conservative (process images, capability unknown)
     // model step with no native vision → process images
     // all model steps with native vision → safe to skip
+    // hasConfirmedVision: true if ANY step is confirmed vision-capable, false if
+    // ≥1 model step and none confirmed, null when unknown (combo-ref / no steps).
     let hasModelStep = false;
+    let hasConfirmedVision = false;
     for (const step of rawModels) {
       const s = step as Record<string, unknown>;
-      if (s.kind === "combo-ref") return "process";
+      if (s.kind === "combo-ref") return { decision: "process", hasConfirmedVision: null };
       if (s.kind === "model") {
         hasModelStep = true;
         const targetModel = s.model;
         if (typeof targetModel === "string") {
           const caps = getResolvedModelCapabilities(targetModel);
-          if (caps.supportsVision !== true) {
-            return "process";
+          if (caps.supportsVision === true) {
+            hasConfirmedVision = true;
+          } else {
+            // Non-vision step — combo still needs image processing.
+            return {
+              decision: "process",
+              hasConfirmedVision: hasConfirmedVision || null,
+            };
           }
         } else {
-          return "process";
+          return { decision: "process", hasConfirmedVision: null };
         }
       }
     }
 
     // All model steps support vision — safe to skip
-    if (hasModelStep) return "skip";
+    if (hasModelStep) return { decision: "skip", hasConfirmedVision: true };
 
     // No recognizable steps — don't force bridge
-    return "not-combo";
+    return { decision: "not-combo", hasConfirmedVision: null };
   } catch {
     // On error, try to process images (conservative)
-    return "process";
+    return { decision: "process", hasConfirmedVision: null };
   }
 }
 
@@ -98,6 +109,13 @@ export interface VisionBridgeDependencies {
   ) => Promise<string>;
   /** Override combo-target vision check — return true to force processing, false to skip. */
   checkModelHasComboMapping?: (model: string) => Promise<boolean>;
+  /**
+   * Whether the combo resolved for `model` has at least one confirmed
+   * vision-capable target. `true` = a target can read raw images; `false` = no
+   * target can (failed describes must be stubbed, not preserved, or the combo
+   * #8488 filter fails closed); `null` = unknown (preserve #4012 behavior).
+   */
+  checkComboHasConfirmedVision?: (model: string) => Promise<boolean | null>;
   /**
    * Whether a model string has a usable active credential (true/false).
    * Return `null` when indeterminate (no DB / error) so callers can fail-open.
@@ -144,19 +162,27 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // Declare before the conditional so they're available to the rest of preCall
     let forceVisionBridge = false;
     let comboVisionBridgeDecision: ComboVisionBridgeDecision | undefined;
+    // Whether the resolved combo has at least one confirmed vision-capable target.
+    // `null` when unknown (deps path / combo-ref / no combo).
+    let comboHasConfirmedVision: boolean | null = null;
 
     if (!isAuto) {
       forceVisionBridge = isVisionBridgeForcedModel(model);
 
       // 4. Check if model supports vision
       const capabilities = getResolvedModelCapabilities(model);
-      comboVisionBridgeDecision = forceVisionBridge
-        ? "process"
+      const comboInfo = forceVisionBridge
+        ? { decision: "process" as const, hasConfirmedVision: null }
         : this.deps.checkModelHasComboMapping
-          ? (await this.deps.checkModelHasComboMapping(model))
-            ? "process"
-            : "skip"
+          ? {
+              decision: (await this.deps.checkModelHasComboMapping(model))
+                ? ("process" as const)
+                : ("skip" as const),
+              hasConfirmedVision: (await this.deps.checkComboHasConfirmedVision?.(model)) ?? null,
+            }
           : await getComboVisionBridgeDecision(model);
+      comboVisionBridgeDecision = comboInfo.decision;
+      comboHasConfirmedVision = comboInfo.hasConfirmedVision;
 
       if (comboVisionBridgeDecision === "skip") {
         return { block: false };
@@ -328,6 +354,18 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     if (allNull && comboVisionBridgeDecision === "process") {
       for (let i = 0; i < descriptions.length; i++) {
         descriptions[i] = `[Image ${i + 1}]: (unavailable — no vision-capable provider connected)`;
+      }
+    } else if (comboVisionBridgeDecision === "process" && comboHasConfirmedVision === false) {
+      // #8488: a combo with NO confirmed-vision target can never read a raw image,
+      // so a partially-failed describe must NOT preserve the failed image — that
+      // trips the combo capability filter ("No target in combo … has confirmed
+      // vision") and fails closed. Replace failed images with a text stub; keep the
+      // successful descriptions.
+      for (let i = 0; i < descriptions.length; i++) {
+        if (descriptions[i] === null) {
+          descriptions[i] =
+            `[Image ${i + 1}]: (unavailable — describe failed; no combo target can read raw images)`;
+        }
       }
     }
 
