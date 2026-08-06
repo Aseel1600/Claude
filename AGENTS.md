@@ -103,6 +103,24 @@ git switch -c <branch-name> upstream/<default-branch>
 Target that same release branch in the pull request. Stage only the intended files, run the
 focused checks, and use a Conventional Commit message (for example, `docs: slim AGENTS.md`).
 
+## Fork-only changes (do not push to source)
+
+**Local brand and design-system modifications stay in this fork only.** Do **not** open
+PRs or push commits that touch the visual identity (brand color tokens, logo, marketing
+page chrome, landing components, or any design system token override) to the upstream
+`diegosouzapw/OmniRoute` repository. These are personal deployment preferences and
+should never propagate back to the source of truth.
+
+This means:
+
+- `git push origin …` is fine — it publishes to the personal fork.
+- `git push upstream …` for any commit that changes the brand identity is **prohibited**.
+- The `feat(branding):` and `feat(theme):` commits merged into `release/v3.8.50` of
+  this fork must not be cherry-picked, rebased, or PR'd onto `upstream/release/v3.8.50`.
+
+Upstream still receives functional fixes, refactors, security patches, and i18n
+contributions from this fork — only the brand identity surface is excluded.
+
 ## Reference documentation
 
 Use the source of truth for the area you are changing:
