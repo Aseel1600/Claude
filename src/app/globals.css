@@ -348,9 +348,14 @@ body.electron-macos {
   scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
 }
 
-/* Keep .custom-scrollbar alias for backward compatibility */
+/* Keep .custom-scrollbar alias for backward compatibility.
+   Two-pronged scrollbar strategy:
+   - WebKit/Blink: `overflow: overlay` puts the scrollbar on top of content
+     (zero horizontal layout shift when content overflows / doesn't overflow)
+   - Firefox: `scrollbar-width: thin` (small ~8px gutter, no overlay support) */
 .custom-scrollbar {
   scrollbar-width: thin;
+  overflow: overlay;
 }
 
 /* Hero gradient */
