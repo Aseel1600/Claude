@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: omniroute
+    env: image
+    image:
+      imagePath: diegosouzapw/omniroute:latest
+    plan: free
