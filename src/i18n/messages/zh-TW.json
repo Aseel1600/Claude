@@ -12212,7 +12212,7 @@
     "privacyLocalOnly": "所有處理都在您的 OmniRoute 實例上進行",
     "activateButton": "啟用",
     "activating": "正在啟用...",
-    "colProvider": "供應商",
+    "colProvider": "提供者",
     "colModel": "模型",
     "colQuota": "配額",
     "colContext": "上下文",
@@ -12226,20 +12226,20 @@
     "capThinking": "思考"
   },
   "radarSetupPage": {
-    "title": "供應商設置",
+    "title": "提供者設置",
     "setupTitle": "設置：{provider}",
-    "setupSubtitle": "按照以下步驟配置此供應商",
+    "setupSubtitle": "按照以下步驟配置此提供者",
     "loading": "正在加載...",
     "loadFailed": "無法加載設置數據",
     "flagDisabled": "雷達已禁用",
-    "providerNotFound": "目錄中未找到供應商 \"{provider}\"",
-    "noProvider": "未指定供應商。返回目錄並選擇一個供應商。",
+    "providerNotFound": "目錄中未找到提供者 \"{provider}\"",
+    "noProvider": "未指定提供者。返回目錄並選擇一個提供者。",
     "backToCatalog": "返回目錄",
-    "providerConfigured": "供應商已配置並準備就緒",
+    "providerConfigured": "提供者已配置並準備就緒",
     "getApiKey": "獲取您的 API 密鑰",
     "setupSteps": "設置步驟",
-    "noGuide": "此供應商沒有可用的設置指南。",
-    "visitDocs": "訪問供應商文檔",
+    "noGuide": "此提供者沒有可用的設置指南。",
+    "visitDocs": "訪問提供者文件",
     "testConnection": "測試連接",
     "testDescription": "驗證您的連接是否正常工作。",
     "testButton": "測試連接",
@@ -12247,7 +12247,7 @@
     "testSuccess": "連接成功！",
     "testFailed": "連接測試失敗",
     "addConnection": "添加連接",
-    "addConnectionDescription": "還沒有連接？在供應商儀表板中添加一個。",
-    "addConnectionLink": "前往供應商 →"
+    "addConnectionDescription": "還沒有連接？在提供者儀表板中添加一個。",
+    "addConnectionLink": "前往提供者 →"
   }
 }
