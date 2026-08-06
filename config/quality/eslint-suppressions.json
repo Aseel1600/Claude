@@ -1,4 +1,5 @@
 {
+  "_comment": "Congelamento da divida ESLint da migracao TypeScript 7 (release/v3.8.50, 2026-08-05; regenerado 2026-08-06 apos prune de entradas orfas). Gerado pelo modo nativo `eslint --suppress-all --suppressions-location config/quality/eslint-suppressions.json` (NODE_OPTIONS=--max-old-space-size=12288). Politica: violacao PRE-EXISTENTE fica suprimida aqui; violacao NOVA (fora deste arquivo) e vermelho imediato e deve ser corrigida, nunca adicionada. Entradas que deixarem de ocorrer sao podadas com `eslint --prune-suppressions` (o job 'No new ESLint warnings' falha com supressoes orfas). A baseline eslintWarnings em config/quality/quality-baseline.json e 0 — o valor real medido com estas supressoes aplicadas.",
   "open-sse/executors/blackbox-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
@@ -903,17 +904,7 @@
       "count": 1
     }
   },
-  "src/app/api/v1/audio/speech/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/audio/transcriptions/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/v1/audio/translations/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -961,11 +952,6 @@
   "src/app/api/v1/images/edits/route.ts": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/api/v1/images/generations/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/app/api/v1/management/proxies/assignments/route.ts": {
@@ -3229,7 +3215,7 @@
   },
   "tests/unit/translator-claude-to-gemini.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 17
+      "count": 15
     }
   },
   "tests/unit/translator-claude-to-openai.test.ts": {
