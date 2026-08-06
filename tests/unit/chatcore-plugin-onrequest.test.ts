@@ -61,6 +61,7 @@ test("a body-rewriting hook → blocked:false with the new body", async () => {
   const gate = await runPluginOnRequestHook(baseArgs());
   assert.equal(gate.blocked, false);
   if (gate.blocked) return;
+  assert.equal("response" in gate, false);
   assert.deepEqual(gate.body, rewritten);
 });
 
