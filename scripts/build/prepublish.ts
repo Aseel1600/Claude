@@ -68,8 +68,18 @@ function resolveLocalBinEntry(packageName: string, binName: string): string | nu
 }
 
 function resolveBundledNpmEntry(name: "npm-cli.js" | "npx-cli.js"): string | null {
-  const candidate = join(dirname(process.execPath), "node_modules", "npm", "bin", name);
-  return existsSync(candidate) ? candidate : null;
+  const execDir = dirname(process.execPath);
+  const candidates = [
+    // Windows zips / some layouts: npm sits right next to node.exe.
+    join(execDir, "node_modules", "npm", "bin", name),
+    // Standard Unix install layout (incl. GitHub Actions hostedtoolcache):
+    // <prefix>/bin/node with npm at <prefix>/lib/node_modules/npm/bin/.
+    join(execDir, "..", "lib", "node_modules", "npm", "bin", name),
+  ];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
 }
 
 /**
@@ -440,15 +450,23 @@ if (existsSync(opencodePluginSrc) && existsSync(join(opencodePluginSrc, "package
       // types). Without this install a fresh CI publish fails at this step.
       if (!existsSync(join(opencodePluginSrc, "node_modules"))) {
         const npmEntry = resolveBundledNpmEntry("npm-cli.js");
-        if (!npmEntry) {
+        if (npmEntry) {
+          execFileSync(process.execPath, [npmEntry, "install", "--no-audit", "--no-fund"], {
+            cwd: opencodePluginSrc,
+            stdio: "inherit",
+          });
+        } else if (process.platform !== "win32") {
+          // No bundled npm entry found (non-standard Node layout). Plain `npm` is
+          // safe here — the .cmd-shim hazard #8858 guards against is Windows-only.
+          execFileSync("npm", ["install", "--no-audit", "--no-fund"], {
+            cwd: opencodePluginSrc,
+            stdio: "inherit",
+          });
+        } else {
           throw new Error(
             "npm-cli.js not found next to the running Node binary; cannot install the plugin dependencies without falling back to a .cmd shim."
           );
         }
-        execFileSync(process.execPath, [npmEntry, "install", "--no-audit", "--no-fund"], {
-          cwd: opencodePluginSrc,
-          stdio: "inherit",
-        });
       }
       runBuildTool("tsup", "tsup", [], {
         cwd: opencodePluginSrc,
