@@ -26,20 +26,29 @@
   --fd-sidebar-width: 220px;
 }
 
-/* OpenClaw × ClawHub Color Palette */
+/* OmniRoute Color Palette — Concept C (burgundy + rose-gold) */
 :root {
   --desktop-safe-top: 0px;
   --desktop-safe-bottom: 0px;
   color-scheme: light;
 
-  /* Primary - Coral Red (OpenClaw) */
-  --color-primary: #e54d5e;
-  --color-primary-hover: #c93d4e;
+  /* Primary - Burgundy (OmniRoute brand) */
+  --color-primary: #7f1d1d;
+  --color-primary-hover: #991b1b;
 
-  /* Accent - Indigo/Violet (buttons, links, gradients) */
-  --color-accent: #6366f1;
-  --color-accent-hover: #8b5cf6;
-  --color-accent-light: #a855f7;
+  /* Accent - same burgundy for primary action surfaces (dashboard buttons,
+     focus rings, selected states). Kept as a separate token from primary
+     so future brand splits don't require touching 40+ call sites. */
+  --color-accent: #7f1d1d;
+
+  /* Rose-gold - tertiary highlight (brand key, accent strokes, glow).
+     Used sparingly; not for primary action surfaces (white text on rose-gold
+     fails contrast). */
+  --color-rose-gold: #e0bfb8;
+  --color-rose-gold-hover: #c9a29a;
+
+  /* Ivory - provider nodes / warm neutral */
+  --color-ivory: #f5ebe0;
 
   /* Semantic */
   --color-error: #ef4444;
@@ -74,18 +83,19 @@
   --color-fd-card: #ffffff;
   --color-fd-card-foreground: #1a1a2e;
   --color-fd-border: rgba(0, 0, 0, 0.08);
-  --color-fd-primary: #e54d5e;
+  --color-fd-primary: #7f1d1d;
   --color-fd-primary-foreground: #ffffff;
   --color-fd-secondary: #f0f0f5;
   --color-fd-secondary-foreground: #1a1a2e;
-  --color-fd-accent: rgba(229, 77, 94, 0.08);
+  --color-fd-accent: rgba(127, 29, 29, 0.08);
   --color-fd-accent-foreground: #1a1a2e;
-  --color-fd-ring: #e54d5e;
+  --color-fd-ring: #7f1d1d;
 
   /* Shadows */
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px rgba(0, 0, 0, 0.015);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 77, 94, 0.12);
+  --shadow-warm: 0 2px 12px -2px rgba(127, 29, 29, 0.18);
   --shadow-elevated: 0 12px 28px -4px rgba(20, 20, 40, 0.06);
+  --shadow-glow: 0 0 24px -4px rgba(224, 191, 184, 0.35);
 
   /* Graph-paper wallpaper grid — shared visual identity with the marketing site
      (_mono_repo/omnirouteSite/css). Light theme values. Rendered by body::before.
@@ -100,7 +110,7 @@
   --surface-2: #f5f5fa;
   --radius: 14px;
   --radius-control: 9px;
-  --grad-brand: linear-gradient(135deg, var(--color-primary), var(--color-accent-light));
+  --grad-brand: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);
 
   /* Data-table surfaces — theme-aware. The DARK values (in .dark below) exactly mirror
      the previous hardcoded rgba in DataTable.tsx so dark stays byte-identical; these
@@ -110,7 +120,7 @@
   --table-row-hover: rgba(0, 0, 0, 0.04);
   --table-cell-border: rgba(0, 0, 0, 0.04);
   /* Selected row — an accent tint that reads on both themes (inherited by .dark). */
-  --table-row-selected: rgba(99, 102, 241, 0.1);
+  --table-row-selected: rgba(127, 29, 29, 0.1);
 }
 
 .dark {
@@ -138,18 +148,19 @@
   --color-fd-card: #161b22;
   --color-fd-card-foreground: #e6e6ef;
   --color-fd-border: rgba(255, 255, 255, 0.08);
-  --color-fd-primary: #e54d5e;
+  --color-fd-primary: #7f1d1d;
   --color-fd-primary-foreground: #ffffff;
   --color-fd-secondary: #111520;
   --color-fd-secondary-foreground: #e6e6ef;
-  --color-fd-accent: rgba(229, 77, 94, 0.12);
+  --color-fd-accent: rgba(127, 29, 29, 0.18);
   --color-fd-accent-foreground: #e6e6ef;
-  --color-fd-ring: #e54d5e;
+  --color-fd-ring: #7f1d1d;
 
   /* Dark shadows */
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-warm: 0 2px 12px -2px rgba(229, 77, 94, 0.15);
+  --shadow-warm: 0 2px 12px -2px rgba(127, 29, 29, 0.25);
   --shadow-elevated: 0 12px 28px -4px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 24px -4px rgba(224, 191, 184, 0.4);
 
   /* Graph-paper wallpaper grid — dark theme values (tuned up from 0.035 for visibility). */
   --grid-line: rgba(255, 255, 255, 0.06);
@@ -168,10 +179,13 @@
   --color-primary: var(--color-primary);
   --color-primary-hover: var(--color-primary-hover);
 
-  /* Accent */
+  /* Accent (same as primary — see :root for rationale) */
   --color-accent: var(--color-accent);
-  --color-accent-hover: var(--color-accent-hover);
-  --color-accent-light: var(--color-accent-light);
+
+  /* Rose-gold / ivory brand accents (selective, not for primary action) */
+  --color-rose-gold: var(--color-rose-gold);
+  --color-rose-gold-hover: var(--color-rose-gold-hover);
+  --color-ivory: var(--color-ivory);
 
   /* Semantic */
   --color-error: var(--color-error);
@@ -208,6 +222,7 @@
   --shadow-soft: var(--shadow-soft);
   --shadow-warm: var(--shadow-warm);
   --shadow-elevated: var(--shadow-elevated);
+  --shadow-glow: var(--shadow-glow);
 
   /* Font - macOS system fonts */
   --font-sans:
@@ -280,7 +295,7 @@ body.electron-macos {
 
 /* Selection — with fallback for browsers that don't support color-mix() */
 ::selection {
-  background-color: rgba(229, 77, 94, 0.22);
+  background-color: rgba(127, 29, 29, 0.22);
   background-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
   color: var(--color-primary);
 }
@@ -412,15 +427,15 @@ button .material-symbols-outlined,
   0%,
   100% {
     box-shadow:
-      0 0 5px rgba(229, 77, 94, 0.3),
-      0 0 10px rgba(229, 77, 94, 0.2);
-    border-color: rgba(229, 77, 94, 0.5);
+      0 0 5px rgba(127, 29, 29, 0.35),
+      0 0 10px rgba(127, 29, 29, 0.2);
+    border-color: rgba(127, 29, 29, 0.55);
   }
   50% {
     box-shadow:
-      0 0 10px rgba(229, 77, 94, 0.5),
-      0 0 20px rgba(229, 77, 94, 0.3);
-    border-color: rgba(229, 77, 94, 0.8);
+      0 0 10px rgba(127, 29, 29, 0.5),
+      0 0 20px rgba(127, 29, 29, 0.3);
+    border-color: rgba(127, 29, 29, 0.85);
   }
 }
 
