@@ -463,7 +463,7 @@ export default function Sidebar({
             className={cn(
               "flex items-center gap-2 pb-2",
               isMacElectron ? "pt-3" : "pt-5",
-              collapsed ? "px-3 justify-center" : "px-4"
+              collapsed ? "px-2 justify-center" : "px-3"
             )}
             aria-hidden="true"
           >
@@ -495,7 +495,7 @@ export default function Sidebar({
           </div>
         )}
 
-        <div className={cn("py-3", collapsed ? "px-2" : "px-4")}>
+        <div className={cn("py-3", collapsed ? "px-2" : "px-3")}>
           <Link
             href="/home"
             prefetch={false}
