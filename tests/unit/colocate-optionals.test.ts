@@ -199,6 +199,17 @@ test("onnxruntime-node partial trace (JS only) is re-copied with its native bind
       process.arch,
       "onnxruntime_binding.node"
     );
+    const libRel = join(
+      "bin",
+      "napi-v3",
+      process.platform,
+      process.arch,
+      process.platform === "win32"
+        ? "onnxruntime.dll"
+        : process.platform === "darwin"
+          ? "libonnxruntime.1.dylib"
+          : "libonnxruntime.so.1"
+    );
     // Full source packages: seeds + transformers (which OPTIONALLY pulls onnxruntime-node).
     mkPkg(rootNm, "@atjsh/llmlingua-2", {}, { "dist/index.js": "export const l2 = true;\n" });
     mkPkg(rootNm, "@tensorflow/tfjs", {}, { "dist/tf.js": "export const tf = true;\n" });
@@ -216,6 +227,7 @@ test("onnxruntime-node partial trace (JS only) is re-copied with its native bind
       {
         "dist/binding.js": "module.exports = { binding: true };\n",
         [nativeRel]: "not a real .node, just presence",
+        [libRel]: "not a real .so, just presence",
       }
     );
     mkPkg(
@@ -245,10 +257,14 @@ test("onnxruntime-node partial trace (JS only) is re-copied with its native bind
       assert.ok(result.copied >= 1, `expected onnxruntime-node copied, got ${result.copied}`);
     }
 
-    // The native binding must have landed despite the resolving partial trace.
+    // The native binding AND its dlopen lib must have landed despite the resolving partial trace.
     assert.ok(
       existsSync(join(distNm, "onnxruntime-node", nativeRel)),
       "onnxruntime-node native binding must be co-located (dlopen needs it)"
+    );
+    assert.ok(
+      existsSync(join(distNm, "onnxruntime-node", libRel)),
+      "onnxruntime-node dlopen lib must be co-located (binding dlopens it at runtime)"
     );
     // dist transformers remains the pinned instance.
     const distTransformers = JSON.parse(
