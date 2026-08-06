@@ -13,16 +13,27 @@ import { persistDiscoveredAntigravityProjectId } from "./antigravityProjectPersi
 export { persistDiscoveredAntigravityProjectId };
 
 /**
- * Return only the Antigravity connections that already have a stored projectId.
+ * Prefer Antigravity connections with a discovered/stored `projectId` for
+ * reset-aware quota routing.
  *
- * A connection whose projectId has been discovered and persisted can be used
- * immediately; a connection without one would need to go through the Code Assist
- * bootstrap first, which is handled by the calling strategy's fallback path.
+ * This is a preference, not a hard requirement: when no candidate has a stored
+ * projectId, retain the full pool rather than making freshly-added accounts unusable.
  */
-export function preferAntigravityConnectionsWithStoredProject(
-  connections: Array<Record<string, unknown>>
-): Array<Record<string, unknown>> {
-  return connections.filter(
-    (conn) => conn != null && typeof conn.projectId === "string" && conn.projectId.trim().length > 0
-  );
+function hasStoredProjectId(connection: Record<string, unknown>): boolean {
+  if (typeof connection.projectId === "string" && connection.projectId.trim().length > 0) {
+    return true;
+  }
+  const providerSpecificData = connection.providerSpecificData;
+  if (providerSpecificData && typeof providerSpecificData === "object") {
+    const nested = (providerSpecificData as Record<string, unknown>).projectId;
+    if (typeof nested === "string" && nested.trim().length > 0) return true;
+  }
+  return false;
+}
+
+export function preferAntigravityConnectionsWithStoredProject<T extends Record<string, unknown>>(
+  connections: T[]
+): T[] {
+  const withStoredProject = connections.filter(hasStoredProjectId);
+  return withStoredProject.length > 0 ? withStoredProject : connections;
 }
