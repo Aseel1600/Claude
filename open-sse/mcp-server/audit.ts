@@ -207,9 +207,10 @@ function toString(value: unknown): string {
 }
 
 async function openBetterSqliteAuditDb(dbPath: string): Promise<AuditDatabase> {
-  const Database = (await import("better-sqlite3")).default as unknown as new (
-    dbPath: string
-  ) => AuditDatabase;
+  const { createRequire } = await import("node:module");
+  const _require = createRequire(import.meta.url);
+  const mod = _require("better-sqlite3");
+  const Database = (mod?.default || mod) as unknown as new (dbPath: string) => AuditDatabase;
   return new Database(dbPath);
 }
 
@@ -225,7 +226,10 @@ async function openNodeSqliteAuditDb(dbPath: string): Promise<AuditDatabase> {
   return createNodeSqliteAuditAdapter(new DatabaseSync(dbPath));
 }
 
-async function openFallbackAuditDb(dbPath: string, nativeMessage: string): Promise<AuditDatabase | null> {
+async function openFallbackAuditDb(
+  dbPath: string,
+  nativeMessage: string
+): Promise<AuditDatabase | null> {
   if (!nodeSqliteFallbackAvailable()) {
     console.error(
       `[MCP Audit] better-sqlite3 native binding unavailable and Node ${process.version} ` +

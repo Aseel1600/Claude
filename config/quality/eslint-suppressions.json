@@ -903,17 +903,7 @@
       "count": 1
     }
   },
-  "src/app/api/v1/audio/speech/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/audio/transcriptions/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/v1/audio/translations/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -961,11 +951,6 @@
   "src/app/api/v1/images/edits/route.ts": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/api/v1/images/generations/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/app/api/v1/management/proxies/assignments/route.ts": {
@@ -3229,7 +3214,7 @@
   },
   "tests/unit/translator-claude-to-gemini.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 17
+      "count": 15
     }
   },
   "tests/unit/translator-claude-to-openai.test.ts": {
