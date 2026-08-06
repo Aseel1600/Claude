@@ -6,12 +6,12 @@ import {
   cleanJSONSchemaForAntigravity,
 } from "../helpers/geminiHelper.ts";
 import { buildGeminiTools, sanitizeGeminiToolName } from "../helpers/geminiToolsSanitizer.ts";
-import { capMaxOutputTokens, capThinkingBudget } from "../../../src/lib/modelCapabilities.ts";
-import { getModelSpec } from "../../../src/shared/constants/modelSpecs.ts";
 import {
   buildGeminiThoughtSignatureKey,
   resolveGeminiThoughtSignature,
 } from "../../services/geminiThoughtSignatureStore.ts";
+import { capMaxOutputTokens, capThinkingBudget } from "../../../src/lib/modelCapabilities.ts";
+import { getModelSpec } from "../../../src/shared/constants/modelSpecs.ts";
 import { buildHistoricalToolResultContext } from "./openai-to-gemini/helpers.ts";
 
 /**
@@ -127,6 +127,9 @@ export function claudeToGeminiRequest(model, body, stream, credentials = null) {
 
   // ── Convert messages ───────────────────────────────────────────
   if (body.messages && Array.isArray(body.messages)) {
+    // Tool-ids whose functionCall was omitted (no stored thought_signature) so the
+    // matching tool_result becomes text instead of a Gemini-400'd functionResponse.
+    const omittedToolCallIds = new Set<string>();
     for (const msg of body.messages) {
       const parts = [];
       let shouldUseEmbeddedSignature = true;
