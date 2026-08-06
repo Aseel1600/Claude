@@ -11529,7 +11529,10 @@
     "noSavedProxiesError": "Không tìm thấy proxy đã lưu. Hãy thêm proxy trong Cài đặt → Proxy trước.",
     "updateProviderFailed": "Không thể cập nhật nhà cung cấp",
     "providerEnabled": "Đã bật {provider}",
-    "providerDisabled": "Đã tắt {provider}"
+    "providerDisabled": "Đã tắt {provider}",
+    "providerAdded": "Đã thêm {provider}",
+    "add": "Thêm",
+    "manualApiKey": "Dùng khóa API thủ công"
   },
   "gamification": {
     "leaderboardScopes": {
