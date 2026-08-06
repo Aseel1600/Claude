@@ -187,6 +187,14 @@ test("getComboFromData and getComboModelsFromData resolve combos from array and 
   assert.deepEqual(models, ["openai/gpt-4o-mini", "claude/sonnet"]);
 });
 
+test("getComboModelsFromData strips context-window tags before matching a combo", () => {
+  const combos = [{ name: "alpha", models: ["openai/gpt-4o-mini"] }];
+
+  assert.deepEqual(getComboModelsFromData("alpha[500k]", combos), ["openai/gpt-4o-mini"]);
+  assert.deepEqual(getComboModelsFromData("alpha[1M]", combos), ["openai/gpt-4o-mini"]);
+  assert.equal(getComboModelsFromData("alpha[beta]", combos), null);
+});
+
 test("validateComboDAG rejects circular references and resolveNestedComboModels expands nested combos", () => {
   const combos = [
     { name: "root", models: ["child-a", "openai/gpt-4o-mini"] },
