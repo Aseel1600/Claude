@@ -398,6 +398,37 @@ async function ensureLlmlinguaOptionals() {
   }
 }
 
+/**
+ * Preflight check for development installs (when standalone dist/ bundle is not present).
+ * Warns or errors if critical native dependencies like better-sqlite3 were skipped by npm >= 11
+ * allowScripts restrictions.
+ */
+async function verifyDevNativeModules() {
+  if (hasStandaloneAppBundle(ROOT)) {
+    return;
+  }
+
+  const criticalModules = [
+    { name: "better-sqlite3", fatal: true },
+    { name: "esbuild", fatal: true },
+  ];
+
+  for (const { name, fatal } of criticalModules) {
+    if (!existsSync(join(ROOT, "node_modules", name))) {
+      const level = fatal ? "🔴 CRITICAL" : "⚠️  WARNING";
+      console.error(`\n  ${level}: '${name}' is missing from node_modules/`);
+      console.error(`     This usually happens with npm ≥ 11, which blocks install`);
+      console.error(`     scripts for optional dependencies by default.`);
+      console.error(`\n     Fix options:`);
+      console.error(`       1. npm approve-scripts ${name} && npm install`);
+      console.error(`       2. npm pack ${name} && tar -xzf ${name}-*.tgz -C node_modules`);
+      console.error(`          && mv node_modules/package node_modules/${name}`);
+      console.error(`       3. Downgrade to npm 10: npm install -g npm@10\n`);
+    }
+  }
+}
+
+await verifyDevNativeModules();
 await fixBetterSqliteBinary();
 await fixWreqJsBinary();
 await fixTlsClientNodeBinary({ rootDir: ROOT });

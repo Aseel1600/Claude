@@ -671,6 +671,7 @@ REQUEST_TIMEOUT_MS (global override)
 | `OMNIROUTE_NOTION_TLS_GRACE_MS`           | `10000`              | JS-side grace added on top of the wire timeout when the native binding is wedged.                                                                               |
 | `OMNIROUTE_BROWSER_POOL`                  | `on`                 | Shared Playwright browser pool for browser-backed web-cookie chat (`browserPool.ts`); set `off` to disable.                                                     |
 | `WEB_COOKIE_USE_BROWSER`                  | `0`                  | Opt a web-cookie chat request into the browser-backed path (`browserBackedChat.ts`); `1` to enable.                                                             |
+| `OMNIROUTE_LOGIN_BROWSER_PATH`            | _(auto-detected)_    | Path to a system Chrome/Edge executable for the Adobe Firefly interactive browser sign-in (`adobeFireflyBrowserLogin.ts`); overrides per-OS auto-detection.     |
 
 Combo target attempts inherit the resolved upstream request timeout (`FETCH_TIMEOUT_MS`, or
 `REQUEST_TIMEOUT_MS` when it supplies the fetch default). Set `targetTimeoutMs` in a combo,
