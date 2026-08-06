@@ -22,6 +22,9 @@ import {
   readdirSync,
   statSync,
   chmodSync,
+  openSync,
+  readSync,
+  closeSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,6 +77,30 @@ function resolveBundledNpmEntry(name: "npm-cli.js" | "npx-cli.js"): string | nul
  * tool lives in the local dependency tree; when it is not installed there the call
  * falls back to the Node-resolved `npx` entry point, and only then to the shim.
  */
+/**
+ * esbuild ≥0.25 ships its `bin/esbuild` as the NATIVE platform executable on
+ * Linux/macOS (ELF / Mach-O) instead of a JS shim — running it through
+ * `process.execPath` makes Node parse machine code as JavaScript and crash with
+ * "SyntaxError: Invalid or unexpected token". Sniff the magic bytes and exec
+ * native entries directly; JS entries keep going through this Node binary.
+ */
+function isNativeExecutable(entryPath: string): boolean {
+  try {
+    const fd = openSync(entryPath, "r");
+    const head = Buffer.alloc(4);
+    readSync(fd, head, 0, 4, 0);
+    closeSync(fd);
+    return (
+      (head[0] === 0x7f && head[1] === 0x45 && head[2] === 0x4c && head[3] === 0x46) || // ELF
+      head.readUInt32BE(0) === 0xfeedfacf || // Mach-O 64
+      head.readUInt32BE(0) === 0xcffaedfe || // Mach-O 64 (LE on disk)
+      (head[0] === 0x4d && head[1] === 0x5a) // PE (Windows MZ)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function runBuildTool(
   packageName: string,
   binName: string,
@@ -82,6 +109,10 @@ function runBuildTool(
 ): void {
   const localEntry = resolveLocalBinEntry(packageName, binName);
   if (localEntry) {
+    if (isNativeExecutable(localEntry)) {
+      execFileSync(localEntry, [...args], options);
+      return;
+    }
     execFileSync(process.execPath, [localEntry, ...args], options);
     return;
   }
