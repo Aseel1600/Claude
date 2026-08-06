@@ -131,7 +131,9 @@ function wrapRequestListenerWithWebdav(listener) {
       try {
         const handled = await maybeHandleWebdav(req, res);
         if (handled) return;
-      } catch {}
+      } catch {
+        // Never block a request on WebDAV errors — fall through to Next
+      }
       return listener.call(self, req, res);
     })();
   };
