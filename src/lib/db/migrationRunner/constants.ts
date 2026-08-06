@@ -69,6 +69,18 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "059",
     toName: "manifest_routing",
   },
+  {
+    fromVersion: "135",
+    fromName: "auto_restart_adopted",
+    toVersion: "137",
+    toName: "auto_restart_adopted",
+  },
+  {
+    fromVersion: "136",
+    fromName: "dario_fallback_backend",
+    toVersion: "138",
+    toName: "dario_fallback_backend",
+  },
 ] as const;
 
 export const LEGACY_VERSION_SLOT_MIGRATIONS = [

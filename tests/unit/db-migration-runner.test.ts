@@ -1496,3 +1496,99 @@ test(
     }
   }
 );
+
+test(
+  "reconcileRenumberedMigrations moves the 135/136 collision markers to 137/138",
+  serial,
+  async () => {
+    const runner = await importFresh("src/lib/db/migrationRunner.ts");
+    const db = createDb();
+
+    try {
+      db.exec(`
+        CREATE TABLE _omniroute_migrations (
+          version TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      // An install that upgraded BEFORE the renumber carries both markers under
+      // the numbers they originally shipped with.
+      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
+        "135",
+        "auto_restart_adopted"
+      );
+      db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(
+        "136",
+        "dario_fallback_backend"
+      );
+
+      const consoleErrors: string[] = [];
+      const originalError = console.error;
+      console.error = (...args: unknown[]) => {
+        consoleErrors.push(args.map(String).join(" "));
+      };
+
+      try {
+        const count = withMockedMigrationFs(
+          {
+            "135_migrate_model_capability_max_token.sql":
+              "CREATE TABLE IF NOT EXISTS renumber_probe_135 (id TEXT PRIMARY KEY);",
+            "136_radar_cache_settings.sql":
+              "CREATE TABLE IF NOT EXISTS renumber_probe_136 (id TEXT PRIMARY KEY);",
+            "137_auto_restart_adopted.sql":
+              "CREATE TABLE IF NOT EXISTS renumber_probe_137 (id TEXT PRIMARY KEY);",
+            "138_dario_fallback_backend.sql":
+              "CREATE TABLE IF NOT EXISTS renumber_probe_138 (id TEXT PRIMARY KEY);",
+          },
+          () => runner.runMigrations(db)
+        );
+
+        // Only the two slot owners run. 137/138 are recognised as already applied
+        // via the markers carried over from 135/136, so their SQL is NOT replayed.
+        assert.equal(count, 2);
+        assert.equal(
+          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("135")?.name,
+          "migrate_model_capability_max_token"
+        );
+        assert.equal(
+          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("136")?.name,
+          "radar_cache_settings"
+        );
+        assert.equal(
+          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("137")?.name,
+          "auto_restart_adopted"
+        );
+        assert.equal(
+          db.prepare("SELECT name FROM _omniroute_migrations WHERE version = ?").get("138")?.name,
+          "dario_fallback_backend"
+        );
+
+        // The two slot owners actually ran their SQL bodies, not just counted.
+        const executed = db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN (?, ?)")
+          .all("renumber_probe_135", "renumber_probe_136");
+        assert.equal(executed.length, 2);
+
+        // The carried-over migrations must not have re-executed their bodies.
+        const replayed = db
+          .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name IN (?, ?)")
+          .all("renumber_probe_137", "renumber_probe_138");
+        assert.equal(replayed.length, 0);
+
+        const renumberingWarnings = consoleErrors.filter(
+          (e) => e.includes("CRITICAL") && e.includes("renumbered")
+        );
+        assert.equal(
+          renumberingWarnings.length,
+          0,
+          `Expected no renumbering warnings, got: ${renumberingWarnings.join("; ")}`
+        );
+      } finally {
+        console.error = originalError;
+      }
+    } finally {
+      db.close();
+    }
+  }
+);
