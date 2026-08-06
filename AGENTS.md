@@ -121,6 +121,77 @@ This means:
 Upstream still receives functional fixes, refactors, security patches, and i18n
 contributions from this fork — only the brand identity surface is excluded.
 
+## Engineering lessons learned
+
+Hard-won knowledge from prior debugging sessions. Read this **before** the second dev
+server boot fails — it shortens the diagnosis from ~30 min to ~2 min.
+
+### 1. Turbopack + worktree junction is broken (run dev server from the main repo)
+
+When using a git worktree with `node_modules` as a junction (reparse point) to the main
+repo's `node_modules`:
+
+- **Turbopack** rejects it with `Symlink [project]/node_modules is invalid, it points out
+  of the filesystem root` and refuses to compile anything.
+- **Webpack** does not error on the junction but silently breaks native module loading:
+  the `instrumentation-node.ts` bundle compiles `const _require = createRequire(import.meta.url)`
+  to `const _require = undefined`, so any `require('better-sqlite3')` / `require('node:sqlite')`
+  inside `src/lib/db/adapters/driverFactory.ts` throws `Cannot find module '...'` and the
+  dev server falls through to sql.js (which lacks FTS5 → migration 117 aborts).
+
+**Workaround (canonical pattern):** run `npm run dev` from the **main repo** (Turbopack
+on, real `node_modules/`, native bindings present). Use the worktree only as a git
+work-area. For visual verification of worktree changes, copy the modified files into the
+main repo's working tree, hot-reload picks them up; restore from the worktree after.
+
+### 2. `node_modules/` may be silently incomplete (a prior cleanup deleted files)
+
+Symptoms: dev server fails with `Cannot find module 'X'` while `node -e "require('X')"`
+in a fresh shell succeeds. This means the **package's metadata is present but specific
+files are missing** — usually native binding artifacts or CSS assets that the package's
+"files" field ships but `npm install` won't re-fetch for already-installed packages.
+
+Common casualties seen in this repo (in order of frequency):
+
+- `@next/env/` — entire subdir may be wiped. `npm install --no-save` restores it.
+- `better-sqlite3/build/Release/better_sqlite3.node` — fallback to the
+  prebuild at `prebuilds/win32-x64.node`: `Copy-Item` it into `build/Release/`.
+- `fumadocs-ui/css/*.css` — when missing, the `@import "fumadocs-ui/css/neutral.css"`
+  in `src/app/globals.css` throws a CssSyntaxError. Fix by downloading the tarball
+  (`https://registry.npmjs.org/fumadocs-ui/-/fumadocs-ui-16.13.0.tgz`) and extracting
+  just the `css/` subtree into `node_modules/fumadocs-ui/`.
+
+Diagnostic checklist (run from the project root):
+
+```bash
+Test-Path node_modules/@next/env/package.json
+Test-Path node_modules/better-sqlite3/build/Release/better_sqlite3.node
+Test-Path node_modules/fumadocs-ui/css/neutral.css
+```
+
+### 3. Font cascade: don't redeclare `--font-sans` / `--font-mono` in `@theme inline`
+
+`next/font` (`Geist`, `Inter`, etc.) with `variable: "--font-sans"` injects a class on
+`<body>` that defines `--font-sans` at body scope. If `globals.css` also defines
+`--font-sans` in `@theme inline` at `:root`, the body-level value wins for `body
+{ font-family: var(--font-sans) }` (good), **but** the `font-sans` Tailwind utility
+class will resolve to the `:root` value instead — meaning the font *loads* but the
+utility does not pick it up. This is the silent "Inter was loaded but the page still
+uses SF Pro Text" bug.
+
+**Rule:** if you use `next/font`, do not also redeclare the variable in `@theme inline`.
+Either delete the system-font-stack line in `globals.css` or replace it with an inert
+fallback (e.g. `--font-sans: ui-sans-serif, system-ui, sans-serif`) that documents
+the intent and lets body scope win cleanly.
+
+### 4. Background dev server tasks report "failed" at the 30-min hard timeout
+
+Local background `bash` tasks that run `npm run dev` are killed by the harness at 30
+minutes regardless of server health. The terminal "failed" status with `Command exited
+with code 1` is the harness reporting the kill, not an application error. The dev server
+is healthy right up to the kill — `GET /login 200` in the last seconds of the log is
+proof. Restart and don't chase phantom errors from the final log lines.
+
 ## Reference documentation
 
 Use the source of truth for the area you are changing:
