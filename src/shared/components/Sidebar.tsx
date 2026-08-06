@@ -458,7 +458,7 @@ export default function Sidebar({
           {t("skipToContent")}
         </a>
 
-        {(onToggleCollapse || !isMacElectron) && (
+        {(onToggleCollapse || isMacElectron) && (
           <div
             className={cn(
               "flex items-center gap-2 pb-2",
@@ -467,7 +467,7 @@ export default function Sidebar({
             )}
             aria-hidden="true"
           >
-            {!isMacElectron && (
+            {isMacElectron && (
               <>
                 <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
                 <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
