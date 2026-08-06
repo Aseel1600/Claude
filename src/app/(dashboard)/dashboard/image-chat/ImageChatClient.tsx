@@ -10,7 +10,10 @@ import {
   computeTargetDimensions,
   estimateVisionTokens,
   extractGeneratedImage,
+  isSendKey,
+  resolveImageEndpoint,
   routeLabel,
+  seedPromptFromAnswer,
   type ChatMessage,
 } from "./imageChatHelpers";
 
@@ -24,6 +27,8 @@ interface Attachment {
   height: number;
   resized: boolean;
   estimatedTokens: number;
+  /** Already delivered in a previous turn — kept in the tray as an edit base. */
+  sent?: boolean;
 }
 
 const IMAGE_SIZES = ["1024x1024", "1536x1024", "1024x1536"];
@@ -78,6 +83,10 @@ export default function ImageChatClient() {
   const [busyLabel, setBusyLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [lastDuration, setLastDuration] = useState<number | null>(null);
+  /** Review draft: the prompt seeded from an assistant answer, before generating. */
+  const [draft, setDraft] = useState<string | null>(null);
+  /** Index of the attachment used as the edit base; null generates from scratch. */
+  const [baseIdx, setBaseIdx] = useState<number | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -117,18 +126,35 @@ export default function ImageChatClient() {
     }
   };
 
-  const removeAttachment = (idx: number) =>
+  const removeAttachment = (idx: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
+    setBaseIdx((prev) => {
+      if (prev === null) return null;
+      if (prev === idx) return null;
+      return prev > idx ? prev - 1 : prev;
+    });
+  };
 
+  /**
+   * Appends the user turn.
+   *
+   * Only attachments not yet sent ride along: the tray persists across turns so
+   * a reference stays available as an edit base, but re-sending the same image
+   * on every message would inflate the context for no gain.
+   */
   const pushUserTurn = (): ChatMessage[] => {
+    const fresh = attachments.filter((a) => !a.sent);
     const turn: ChatMessage = {
       role: "user",
       content: input,
-      attachments: attachments.map((a) => a.analysisUrl),
+      attachments: fresh.map((a) => a.analysisUrl),
     };
     const next = [...messages, turn];
     setMessages(next);
     setInput("");
+    if (fresh.length) {
+      setAttachments((prev) => prev.map((a) => ({ ...a, sent: true })));
+    }
     return next;
   };
 
@@ -200,9 +226,9 @@ export default function ImageChatClient() {
       if (!answer.trim()) {
         setError("O provider respondeu 2xx sem conteúdo utilizável.");
         setMessages((prev) => prev.slice(0, -1));
-      } else {
-        setAttachments([]);
       }
+      // Attachments intentionally survive the turn: the reference stays usable
+      // as an edit base for as long as the conversation is about it.
     } catch (err) {
       const e = err as { name?: string; message?: string };
       setError(e.name === "AbortError" ? "Requisição cancelada." : (e.message ?? "Falha de rede."));
@@ -214,35 +240,35 @@ export default function ImageChatClient() {
     }
   };
 
-  /** Image turn — generate from the prompt, or edit the first attachment. */
-  const handleImage = async (mode: "generate" | "edit") => {
+  /**
+   * Image turn.
+   *
+   * The endpoint is derived from state, not from the operator: a selected base
+   * attachment means "edit", its absence means "generate". Both read as "make
+   * me an image" from the outside.
+   */
+  const handleImage = async (prompt: string) => {
     if (loading) return;
-    if (mode === "edit" && attachments.length === 0) {
-      setError("Anexe uma imagem para editar.");
-      return;
-    }
-    if (!input.trim()) {
-      setError("Escreva o prompt da imagem.");
+    if (!prompt.trim()) {
+      setError("O prompt da imagem está vazio.");
       return;
     }
 
-    const history = pushUserTurn();
-    void history;
+    const base = baseIdx !== null ? attachments[baseIdx] : undefined;
     setLoading(true);
-    setBusyLabel(mode === "edit" ? "editando imagem" : "gerando imagem");
+    setBusyLabel(base ? "editando imagem" : "gerando imagem");
     setError(null);
+    setDraft(null);
     const started = Date.now();
 
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const endpoint =
-        mode === "edit" ? "/api/v1/images/edits" : "/api/v1/images/generations";
-      const body: Record<string, unknown> =
-        mode === "edit"
-          ? { model: IMAGE_MODEL, prompt: input, image: attachments[0].originalUrl, n: 1 }
-          : { model: IMAGE_MODEL, prompt: input, size, n: 1 };
+      const endpoint = resolveImageEndpoint(Boolean(base));
+      const body: Record<string, unknown> = base
+        ? { model: IMAGE_MODEL, prompt, image: base.originalUrl, n: 1 }
+        : { model: IMAGE_MODEL, prompt, size, n: 1 };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -262,7 +288,6 @@ export default function ImageChatClient() {
 
       const image = extractGeneratedImage(payload);
       setMessages((prev) => [...prev, { role: "assistant", content: "", image }]);
-      setAttachments([]);
     } catch (err) {
       const e = err as { name?: string; message?: string };
       setError(e.name === "AbortError" ? "Requisição cancelada." : (e.message ?? "Falha de rede."));
@@ -277,6 +302,25 @@ export default function ImageChatClient() {
     image.startsWith("http") || image.startsWith("data:")
       ? image
       : `data:image/png;base64,${image}`;
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape" && loading) {
+      abortRef.current?.abort();
+      return;
+    }
+    // Enter sends the conversation turn only — never an image generation, which
+    // costs ~20s and quota and must stay an explicit click.
+    if (isSendKey({ key: e.key, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey, metaKey: e.metaKey, altKey: e.altKey, isComposing: e.nativeEvent.isComposing })) {
+      e.preventDefault();
+      void handleSend();
+    }
+  };
+
+  /** Opens the review panel seeded with an assistant answer. */
+  const openDraftFrom = (answer: string) => {
+    setDraft(seedPromptFromAnswer(answer));
+    setError(null);
+  };
 
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)]">
@@ -340,7 +384,19 @@ export default function ImageChatClient() {
                 </a>
               </div>
             ) : (
-              <MarkdownMessage content={m.content} />
+              <>
+                <MarkdownMessage content={m.content} />
+                {m.role === "assistant" && m.content.trim() && (
+                  <button
+                    type="button"
+                    onClick={() => openDraftFrom(m.content)}
+                    disabled={loading}
+                    className="mt-2 text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    Gerar imagem a partir desta resposta
+                  </button>
+                )}
+              </>
             )}
           </div>
         ))}
@@ -353,6 +409,46 @@ export default function ImageChatClient() {
         </div>
       )}
 
+      {/* Revisão do prompt antes de gerar — o passo que protege quota */}
+      {draft !== null && (
+        <div className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-primary/5 p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">
+              Revisar prompt{" "}
+              {baseIdx !== null && (
+                <span className="text-xs text-text-muted">
+                  · usando o anexo {baseIdx + 1} como base (edição)
+                </span>
+              )}
+            </span>
+            <span className="text-xs text-text-muted">{draft.length} caracteres</span>
+          </div>
+          <textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={5}
+            className="w-full resize-y rounded-md border border-border bg-bg-main px-3 py-2 text-sm"
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void handleImage(draft)}
+              disabled={loading || !draft.trim()}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm text-white disabled:opacity-50"
+            >
+              Gerar com este prompt
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft(null)}
+              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-bg-main"
+            >
+              Descartar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Anexos pendentes */}
       {attachments.length > 0 && (
         <div className="flex flex-wrap gap-3">
@@ -362,7 +458,10 @@ export default function ImageChatClient() {
               <img
                 src={a.analysisUrl}
                 alt={a.name}
-                className="h-20 w-20 object-cover rounded border border-border"
+                onClick={() => setBaseIdx((prev) => (prev === i ? null : i))}
+                className={`h-20 w-20 object-cover rounded border cursor-pointer ${
+                  baseIdx === i ? "border-primary ring-2 ring-primary" : "border-border"
+                }`}
               />
               <button
                 type="button"
@@ -376,6 +475,7 @@ export default function ImageChatClient() {
                 {a.width}×{a.height}
                 {a.resized && " (reduzida)"}
                 <br />~{a.estimatedTokens} tk
+                {baseIdx === i && <><br /><span className="text-primary">base da edição</span></>}
               </div>
             </div>
           ))}
@@ -388,8 +488,9 @@ export default function ImageChatClient() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onPaste={handlePaste}
+          onKeyDown={handleKeyDown}
           rows={3}
-          placeholder="Escreva aqui. Cole uma imagem com Ctrl+V para usar como referência."
+          placeholder="Enter envia · Shift+Enter quebra linha · Ctrl+V cola uma imagem de referência"
           className="w-full resize-y rounded-md border border-border bg-bg-main px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-1 focus:ring-primary"
         />
 
@@ -445,29 +546,31 @@ export default function ImageChatClient() {
             <span className="text-xs text-text-muted">{(lastDuration / 1000).toFixed(1)}s</span>
           )}
 
+          {loading && (
+            <button
+              type="button"
+              onClick={() => abortRef.current?.abort()}
+              className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-bg-main"
+            >
+              Cancelar
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void handleSend()}
             disabled={loading}
-            className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-bg-main disabled:opacity-50"
+            className="rounded-md bg-primary px-3 py-1.5 text-sm text-white disabled:opacity-50"
           >
             Responder
           </button>
           <button
             type="button"
-            onClick={() => void handleImage("edit")}
-            disabled={loading || attachments.length === 0}
+            onClick={() => openDraftFrom(input)}
+            disabled={loading || !input.trim()}
             className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-bg-main disabled:opacity-50"
+            title="Usa o texto da caixa como prompt, sem consultar o modelo de raciocínio"
           >
-            Editar imagem
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleImage("generate")}
-            disabled={loading}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm text-white disabled:opacity-50"
-          >
-            Gerar imagem
+            Gerar direto
           </button>
         </div>
       </div>

@@ -143,3 +143,61 @@ export function routeLabel(route: string): string {
   const idx = route.lastIndexOf("/");
   return idx === -1 ? route : route.slice(idx + 1);
 }
+
+/**
+ * Decides which images endpoint a request belongs to.
+ *
+ * The split between `/generations` and `/edits` is an API detail: from the
+ * operator's side both are "make me an image". The presence of a base image is
+ * what actually distinguishes them, so the UI routes on that instead of asking.
+ */
+export function resolveImageEndpoint(hasBaseImage: boolean): string {
+  return hasBaseImage ? "/api/v1/images/edits" : "/api/v1/images/generations";
+}
+
+/**
+ * Strips conversational scaffolding so an assistant answer reads as an image
+ * prompt.
+ *
+ * The reasoning model already produced the description — asking it again for a
+ * condensed form would be paying twice for the same content. What it needs is
+ * light cleanup: markdown emphasis, headings and a leading acknowledgement
+ * ("Claro!", "Sure!") that the image model would otherwise try to draw.
+ *
+ * Deliberately conservative: this only trims, never rewrites. The operator sees
+ * and edits the result before anything is generated.
+ */
+export function seedPromptFromAnswer(answer: string): string {
+  if (!answer) return "";
+
+  let text = answer
+    // fenced code blocks rarely belong in an image prompt
+    .replace(/```[\s\S]*?```/g, " ")
+    // markdown headings, emphasis and list bullets
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*|__|\*|_/g, "")
+    .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "");
+
+  // Drop a single leading acknowledgement sentence, when short enough to be one.
+  const ack =
+    /^\s*(claro|certo|perfeito|com certeza|sure|of course|got it|entendi|beleza)\b[^.!?\n]{0,80}[.!?:]\s*/i;
+  text = text.replace(ack, "");
+
+  return text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/** True when the keystroke should send the message. */
+export function isSendKey(event: {
+  key: string;
+  shiftKey?: boolean;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  isComposing?: boolean;
+}): boolean {
+  if (event.key !== "Enter") return false;
+  // IME composition (accents, CJK) must not be interrupted.
+  if (event.isComposing) return false;
+  return !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey;
+}

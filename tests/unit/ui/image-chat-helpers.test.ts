@@ -9,7 +9,10 @@ import {
   computeTargetDimensions,
   estimateVisionTokens,
   extractGeneratedImage,
+  isSendKey,
+  resolveImageEndpoint,
   routeLabel,
+  seedPromptFromAnswer,
   type ChatMessage,
 } from "@/app/(dashboard)/dashboard/image-chat/imageChatHelpers";
 
@@ -152,4 +155,69 @@ test("the image model is a dedicated image route, not a chat model", () => {
 test("routeLabel strips the provider prefix", () => {
   assert.equal(routeLabel("openai-compatible-chat-abc/gpt-5.6"), "gpt-5.6");
   assert.equal(routeLabel("semprefixo"), "semprefixo");
+});
+
+test("resolveImageEndpoint routes on the presence of a base image", () => {
+  assert.equal(resolveImageEndpoint(false), "/api/v1/images/generations");
+  assert.equal(resolveImageEndpoint(true), "/api/v1/images/edits");
+});
+
+test("isSendKey accepts a bare Enter", () => {
+  assert.equal(isSendKey({ key: "Enter" }), true);
+});
+
+test("isSendKey rejects Enter with a modifier so newlines still work", () => {
+  assert.equal(isSendKey({ key: "Enter", shiftKey: true }), false);
+  assert.equal(isSendKey({ key: "Enter", ctrlKey: true }), false);
+  assert.equal(isSendKey({ key: "Enter", metaKey: true }), false);
+  assert.equal(isSendKey({ key: "Enter", altKey: true }), false);
+});
+
+test("isSendKey never fires mid-IME-composition", () => {
+  // Accented and CJK input commit with Enter; sending there would truncate.
+  assert.equal(isSendKey({ key: "Enter", isComposing: true }), false);
+});
+
+test("isSendKey ignores other keys", () => {
+  assert.equal(isSendKey({ key: "a" }), false);
+  assert.equal(isSendKey({ key: "Escape" }), false);
+});
+
+test("seedPromptFromAnswer drops a leading acknowledgement", () => {
+  const out = seedPromptFromAnswer("Claro! Aqui vai: uma estampa geometrica azul.");
+  assert.ok(!/claro/i.test(out), `acknowledgement survived: ${out}`);
+  assert.ok(out.includes("estampa geometrica azul"));
+});
+
+test("seedPromptFromAnswer strips markdown emphasis and bullets", () => {
+  const out = seedPromptFromAnswer("- **Estilo**: _minimalista_\n- Cor: azul");
+  assert.ok(!out.includes("**"));
+  assert.ok(!out.includes("_"));
+  assert.ok(!out.trimStart().startsWith("-"));
+  assert.ok(out.includes("minimalista"));
+});
+
+test("seedPromptFromAnswer removes fenced code blocks", () => {
+  const out = seedPromptFromAnswer("Use isto:\n```json\n{\"a\":1}\n```\nestampa azul");
+  assert.ok(!out.includes("{"), `code block survived: ${out}`);
+  assert.ok(out.includes("estampa azul"));
+});
+
+test("seedPromptFromAnswer preserves content it does not recognize", () => {
+  const text = "Uma camiseta preta com um leao dourado ao centro.";
+  assert.equal(seedPromptFromAnswer(text), text);
+});
+
+test("seedPromptFromAnswer is safe on empty input", () => {
+  assert.equal(seedPromptFromAnswer(""), "");
+});
+
+test("seedPromptFromAnswer does not swallow a long first sentence", () => {
+  // The acknowledgement stripper is bounded so it cannot eat real content.
+  const long =
+    "Certo, considerando todo o historico da conversa e as referencias enviadas " +
+    "pelo operador ao longo das ultimas mensagens, proponho o seguinte. Estampa azul.";
+  const out = seedPromptFromAnswer(long);
+  assert.ok(out.includes("Estampa azul"));
+  assert.ok(out.includes("historico"), "content beyond the 80-char bound must survive");
 });
