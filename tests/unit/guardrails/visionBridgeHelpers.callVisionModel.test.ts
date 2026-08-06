@@ -42,7 +42,7 @@ process.on("exit", () => {
 // visionBridgeRouter.test.ts and repro-8430.test.ts; these tests exercise
 // callVisionModel's own request/response handling, so they just need one
 // usable connection seeded per provider they use ("openai/gpt-4o-mini",
-// "anthropic/claude-3-haiku") so getBestVisionModel resolves the requested
+// "anthropic/claude-3-haiku", "gemini/gemma-4-31b-it") so getBestVisionModel resolves the requested
 // fixedModel unchanged instead of null.
 test.before(async () => {
   await createProviderConnection({
@@ -56,6 +56,12 @@ test.before(async () => {
     authType: "apikey",
     name: "vision-bridge-test-anthropic",
     apiKey: "sk-test-anthropic",
+  });
+  await createProviderConnection({
+    provider: "gemini",
+    authType: "apikey",
+    name: "vision-bridge-test-gemini",
+    apiKey: "sk-test-gemini",
   });
 });
 
@@ -333,6 +339,50 @@ test("callVisionModel fetches remote images before Anthropic requests", async ()
     assert.strictEqual(imageSource.type, "base64");
     assert.strictEqual(imageSource.media_type, "image/png");
     assert.strictEqual(imageSource.data, Buffer.from("cat-image-bytes").toString("base64"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("callVisionModel self-loop request sets stream:false and parses SSE response", async () => {
+  let capturedBody: Record<string, unknown> = {};
+
+  const sseBody = [
+    'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}',
+    "",
+    'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"The image"},"finish_reason":null}]}',
+    "",
+    'data: {"id":"chatcmpl-1","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":" is red."},"finish_reason":"stop"}]}',
+    "",
+    "data: [DONE]",
+    "",
+  ].join("\n");
+
+  globalThis.fetch = async (_url: URL | RequestInfo, init?: RequestInit) => {
+    if (init?.body) {
+      capturedBody = JSON.parse(init.body as string);
+    }
+    return new Response(sseBody, {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    });
+  };
+
+  try {
+    const config: VisionModelConfig = {
+      model: "gemini/gemma-4-31b-it",
+      prompt: "Describe this image",
+      timeoutMs: 30000,
+      maxImages: 10,
+    };
+
+    const result = await callVisionModel("data:image/png;base64,test123", config);
+
+    // Self-loop model id is preserved and stream:false is requested.
+    assert.strictEqual(capturedBody.model, "gemini/gemma-4-31b-it");
+    assert.strictEqual(capturedBody.stream, false);
+    // SSE chunks are reassembled into the final description.
+    assert.strictEqual(result, "The image is red.");
   } finally {
     globalThis.fetch = originalFetch;
   }

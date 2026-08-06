@@ -546,35 +546,38 @@ function parseSseVisionBody(rawBody: string): unknown {
 }
 
 /**
- * Read a vision-model HTTP response body tolerantly: try `json()` first, then
- * fall back to text/SSE parsing. Some OpenAI-compatible backends (including
- * OmniRoute's own self-loop and forceStream providers) reply with a `data:`
- * SSE stream even for `stream: false`, which makes `response.json()` throw
- * `Unexpected token 'd'`.
+ * Read a vision-model HTTP response body tolerantly. A Response body can be
+ * read only once, so on the raw-text path we read `text()` up front and let
+ * `parseSseVisionBody` decide between plain JSON and an SSE `data:` stream.
+ * Some OpenAI-compatible backends (including OmniRoute's own self-loop and
+ * forceStream providers) reply with a `data:` stream even for `stream: false`;
+ * calling `response.json()` on that throws `Unexpected token 'd'` and a later
+ * `response.text()` would then be a no-op (body already consumed). Minimal
+ * fetch test doubles expose only `json()`, which the fallback path handles.
  */
 async function readVisionResponseBody(response: Response): Promise<unknown> {
+  const textFn = (response as Response & { text?: unknown }).text;
+  if (typeof textFn === "function") {
+    let rawText = "";
+    try {
+      rawText = await (textFn as () => Promise<string>).call(response);
+    } catch {
+      rawText = "";
+    }
+
+    const parsed = parseSseVisionBody(rawText);
+    if (parsed === null) {
+      throw new Error("Vision API returned empty or invalid response");
+    }
+    return parsed;
+  }
+
+  // Minimal fetch test doubles expose only json().
   try {
-    // JSON path — also unwrap the { _streamed, summary } diagnostics envelope
-    // that some OmniRoute capture paths attach to provider responses.
     return unwrapVisionSummary(await response.json());
   } catch {
-    // Not JSON — attempt SSE / envelope parsing from the raw text.
-  }
-
-  let rawText = "";
-  try {
-    if (typeof (response as Response & { text?: unknown }).text === "function") {
-      rawText = await response.text();
-    }
-  } catch {
-    rawText = "";
-  }
-
-  const parsed = parseSseVisionBody(rawText);
-  if (parsed === null) {
     throw new Error("Vision API returned empty or invalid response");
   }
-  return parsed;
 }
 
 /**
