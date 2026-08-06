@@ -81,12 +81,20 @@ export function PageLoading({ message, className }: PageLoadingProps) {
   );
 }
 
-// Skeleton loading
-export function Skeleton({ className, ...props }: SkeletonProps) {
+// Skeleton loading — brand-tinted shimmer sweep
+// backgroundSize 200% lets the gradient translate from -200% to 200% across
+// the full element width, producing a continuous light-band effect.
+export function Skeleton({ className, style, ...props }: SkeletonProps) {
   return (
     <div
       aria-hidden="true"
-      className={cn("animate-pulse motion-reduce:animate-none rounded-lg bg-border", className)}
+      className={cn(
+        "rounded-lg overflow-hidden relative",
+        "bg-gradient-to-r from-surface via-primary/10 to-surface",
+        "animate-shimmer motion-reduce:animate-none",
+        className
+      )}
+      style={{ backgroundSize: "200% 100%", ...style }}
       {...props}
     />
   );

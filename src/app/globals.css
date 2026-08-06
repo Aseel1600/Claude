@@ -448,6 +448,30 @@ button .material-symbols-outlined,
   animation: border-glow 2s ease-in-out infinite;
 }
 
+/* Shimmer sweep used by <Skeleton> loading placeholders.
+   Animates background-position from -200% to 200% across a brand-tinted
+   gradient, producing a light-band sweep effect. Burgundy + rose-gold
+   give the loading state visual identity without competing with primary
+   action surfaces. */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shimmer {
+    animation: none;
+  }
+}
+
 /* macOS Vibrancy/Blur Effect */
 .bg-vibrancy {
   backdrop-filter: blur(20px);
