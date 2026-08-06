@@ -25,6 +25,14 @@ function mkPkg(
     mkdirSync(dirname(fp), { recursive: true });
     writeFileSync(fp, content);
   }
+  // Real packages always have a resolvable entry; the completeness check uses
+  // require.resolve, so a main-less stub would be re-copied on every run.
+  const main = (manifest.main as string) || "index.js";
+  const mainPath = join(dir, main);
+  if (!existsSync(mainPath)) {
+    mkdirSync(dirname(mainPath), { recursive: true });
+    writeFileSync(mainPath, "module.exports = {};\n");
+  }
 }
 
 /**
@@ -178,4 +186,83 @@ test("colocateLlmlinguaOptionals skips when there is no standalone dist bundle",
 test("SEED_PACKAGES excludes transformers (it is a dist-pinned peer, not a seed)", () => {
   assert.ok(!SEED_PACKAGES.includes("@huggingface/transformers"));
   assert.deepEqual(SEED_PACKAGES, ["@atjsh/llmlingua-2", "@tensorflow/tfjs", "js-tiktoken"]);
+});
+
+test("onnxruntime-node partial trace (JS only) is re-copied with its native binding", () => {
+  const root = mkdtempSync(join(tmpdir(), "omniroute-colocate-native-"));
+  try {
+    const rootNm = join(root, "node_modules");
+    const nativeRel = join(
+      "bin",
+      "napi-v3",
+      process.platform,
+      process.arch,
+      "onnxruntime_binding.node"
+    );
+    // Full source packages: seeds + transformers (which OPTIONALLY pulls onnxruntime-node).
+    mkPkg(rootNm, "@atjsh/llmlingua-2", {}, { "dist/index.js": "export const l2 = true;\n" });
+    mkPkg(rootNm, "@tensorflow/tfjs", {}, { "dist/tf.js": "export const tf = true;\n" });
+    mkPkg(rootNm, "js-tiktoken", {}, { "dist/token.js": "export const tk = true;\n" });
+    mkPkg(
+      rootNm,
+      "@huggingface/transformers",
+      { optionalDependencies: { "onnxruntime-node": "1.20.0", "onnxruntime-web": "1.20.0" } },
+      { "dist/transformers.js": "export const tx = true;\n" }
+    );
+    mkPkg(
+      rootNm,
+      "onnxruntime-node",
+      { main: "dist/binding.js", version: "1.20.0" },
+      {
+        "dist/binding.js": "module.exports = { binding: true };\n",
+        [nativeRel]: "not a real .node, just presence",
+      }
+    );
+    mkPkg(
+      rootNm,
+      "onnxruntime-web",
+      { main: "dist/web.js" },
+      { "dist/web.js": "export const web = true;\n" }
+    );
+
+    // dist ships the PINNED transformers (3.5.2) plus a Next.js-style PARTIAL
+    // onnxruntime-node trace: package.json + JS present, native bin/ MISSING.
+    const distNm = join(root, "dist", "node_modules");
+    mkPkg(distNm, "@huggingface/transformers", { version: "3.5.2" });
+    mkPkg(
+      distNm,
+      "onnxruntime-node",
+      { main: "dist/binding.js", version: "1.20.0" },
+      { "dist/binding.js": "module.exports = { binding: true };\n" }
+    );
+
+    const result = colocateLlmlinguaOptionals({
+      rootDir: root,
+      seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
+    });
+    assert.equal(result.skipped, false);
+    if (result.skipped === false) {
+      assert.ok(result.copied >= 1, `expected onnxruntime-node copied, got ${result.copied}`);
+    }
+
+    // The native binding must have landed despite the resolving partial trace.
+    assert.ok(
+      existsSync(join(distNm, "onnxruntime-node", nativeRel)),
+      "onnxruntime-node native binding must be co-located (dlopen needs it)"
+    );
+    // dist transformers remains the pinned instance.
+    const distTransformers = JSON.parse(
+      readFileSync(join(distNm, "@huggingface", "transformers", "package.json"), "utf8")
+    );
+    assert.equal(distTransformers.version, "3.5.2");
+
+    // Once complete (native present), a rerun is a no-op.
+    const second = colocateLlmlinguaOptionals({
+      rootDir: root,
+      seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
+    });
+    assert.equal(second.skipped, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

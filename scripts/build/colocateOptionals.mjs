@@ -114,6 +114,18 @@ function isCompletePackage(targetNm, name) {
   try {
     const require = createRequire(join(targetNm, ".omniroute-colocate.cjs"));
     require.resolve(name, { paths: [targetNm] });
+    // Next.js traces a native-module package's JS but not its .node/.so
+    // binaries — a traced onnxruntime-node still "resolves" while its binding
+    // is absent (ERR_DLOPEN_FAILED at runtime). Treat the native binding as
+    // part of completeness so a partial trace forces a full re-copy.
+    if (
+      name === "onnxruntime-node" &&
+      !existsSync(
+        join(pkgDir, "bin/napi-v3", process.platform, process.arch, "onnxruntime_binding.node")
+      )
+    ) {
+      return false;
+    }
     return true;
   } catch {
     return false;
