@@ -27,6 +27,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { assembleStandalone } from "./assembleStandalone.mjs";
+import { resolveBundledNpmEntry } from "./resolveNpmEntry.ts";
 import {
   APP_STAGING_ALLOWED_EXACT_PATHS,
   APP_STAGING_ALLOWED_PATH_PREFIXES,
@@ -62,11 +63,6 @@ function resolveLocalBinEntry(packageName: string, binName: string): string | nu
   } catch {
     return null;
   }
-}
-
-function resolveBundledNpmEntry(name: "npm-cli.js" | "npx-cli.js"): string | null {
-  const candidate = join(dirname(process.execPath), "node_modules", "npm", "bin", name);
-  return existsSync(candidate) ? candidate : null;
 }
 
 /**

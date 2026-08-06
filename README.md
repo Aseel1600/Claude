@@ -890,6 +890,12 @@ docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
 ```
 
+> **Pre-release Docker channel:** `diegosouzapw/omniroute:next` and
+> `diegosouzapw/omniroute:next-web` follow the current default `release/v*`
+> branch. These mutable tags are intended only for testing unreleased fixes and
+> are **not supported for production**. See
+> [Docker Release Channels](docs/guides/DOCKER_RELEASE_CHANNELS.md).
+
 **🛠️ From source**
 
 ```bash

@@ -1542,6 +1542,26 @@ async function handleSingleModelChat(
           continue;
         }
 
+        // #8928: once the bounded same-connection retry is unavailable or exhausted,
+        // remove only the affinity pin that still points at this failed connection. This lets
+        // the next client retry select another eligible account without deleting a
+        // pin that may already have moved to a healthy connection.
+        const isTerminalStreamEarlyEof =
+          result.errorCode === "STREAM_EARLY_EOF" ||
+          result.errorType === "stream_early_eof";
+
+        if (isTerminalStreamEarlyEof && runtimeOptions.sessionAffinityKey) {
+          try {
+            evictSessionAccountAffinityForConnection(
+              runtimeOptions.sessionAffinityKey,
+              provider,
+              credentials.connectionId
+            );
+          } catch {
+            // Best-effort: the current response still surfaces the original 502.
+          }
+        }
+
         // Stream readiness timeout is an upstream stall after an HTTP response was received,
         // not an account/quota failure. Do NOT mark the account unavailable here.
         return withSelectedConnectionHeader(result.response, credentials?.connectionId);
