@@ -1,3 +1,9 @@
+---
+title: "Docker Release Channels"
+version: 3.8.50
+lastUpdated: 2026-08-06
+---
+
 # Docker Release Channels
 
 OmniRoute publishes separate Docker channels for stable releases, active release-branch testing, and development builds.
