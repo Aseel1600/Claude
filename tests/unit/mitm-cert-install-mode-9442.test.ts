@@ -31,6 +31,16 @@ import { execFileSync } from "node:child_process";
 const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform")!;
 const originalPath = process.env.PATH;
 const originalNoSudo = process.env.OMNIROUTE_NO_SUDO;
+// The global test harness (tests/_setup/isolateDataDir.ts) sets
+// OMNIROUTE_SKIP_SYSTEM_TRUST=1 so no test mutates the host trust store —
+// which makes installCert() return before issuing any command, so this file
+// captures nothing and its install-gap assert can never pass under `npm run
+// test:unit` (it only passed when invoked directly, without the harness).
+// Clearing it here is safe: every spawned command (cp/mkdir/chmod/update-ca-*)
+// is a logging stub on PATH and OMNIROUTE_NO_SUDO=1 strips sudo, so nothing
+// touches the real system. Restored in test.after below.
+const originalSkipSystemTrust = process.env.OMNIROUTE_SKIP_SYSTEM_TRUST;
+delete process.env.OMNIROUTE_SKIP_SYSTEM_TRUST;
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-9442-"));
 const binDir = path.join(tmpRoot, "bin");
@@ -68,6 +78,8 @@ test.after(() => {
   process.env.PATH = originalPath;
   if (originalNoSudo === undefined) delete process.env.OMNIROUTE_NO_SUDO;
   else process.env.OMNIROUTE_NO_SUDO = originalNoSudo;
+  if (originalSkipSystemTrust === undefined) delete process.env.OMNIROUTE_SKIP_SYSTEM_TRUST;
+  else process.env.OMNIROUTE_SKIP_SYSTEM_TRUST = originalSkipSystemTrust;
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });
 
@@ -87,7 +99,10 @@ function fakeCertFile(seed: string): string {
   const der = crypto.createHash("sha256").update(seed).digest();
   const pem =
     "-----BEGIN CERTIFICATE-----\n" +
-    der.toString("base64").match(/.{1,64}/g)!.join("\n") +
+    der
+      .toString("base64")
+      .match(/.{1,64}/g)!
+      .join("\n") +
     "\n-----END CERTIFICATE-----\n";
   const certPath = path.join(tmpRoot, `${seed}.crt`);
   fs.writeFileSync(certPath, pem);
@@ -156,11 +171,7 @@ test("filesystem proof: cp under umask 0077 creates mode 0600 (why the fix is ne
     // the bare `cp` on PATH below is a logging stub from the install tests.
     execFileSync("/usr/bin/cp", [src, dst]);
     const mode = fs.statSync(dst).mode & 0o777;
-    assert.equal(
-      mode,
-      0o600,
-      "cp under umask 0077 must produce 0600 — the bug this fix repairs"
-    );
+    assert.equal(mode, 0o600, "cp under umask 0077 must produce 0600 — the bug this fix repairs");
   } finally {
     process.umask(oldUmask);
   }

@@ -6,6 +6,7 @@ import {
 import { normalizeOpenAICompatibleFinishReasonString } from "../utils/finishReason.ts";
 import { containsTextualToolCallMarker } from "../utils/textualToolCall.ts";
 import { getAnyReasoningValue } from "../utils/reasoningFields.ts";
+import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -137,10 +138,17 @@ export function translateNonStreamingResponse(
 ): unknown {
   // If already in source format, return as-is
   if (targetFormat === sourceFormat) {
+    if (targetFormat === FORMATS.OPENAI) {
+      restoreOpenAIToolNames(responseBody, toolNameMap);
+    }
     return responseBody;
   }
 
   let intermediateOpenAI = responseBody;
+
+  if (targetFormat === FORMATS.OPENAI) {
+    restoreOpenAIToolNames(intermediateOpenAI, toolNameMap);
+  }
 
   // Handle OpenAI Responses API format
   if (targetFormat === FORMATS.OPENAI_RESPONSES) {
@@ -553,11 +561,20 @@ export function translateNonStreamingResponse(
         const cacheCreationTokens = toNumber(usage.cache_creation_input_tokens, 0);
         const promptTokens = toNumber(usage.input_tokens, 0) + cachedTokens;
         const completionTokens = toNumber(usage.output_tokens, 0);
+        const reasoningTokens = firstPositiveNumber(
+          toRecord(usage.output_tokens_details).thinking_tokens,
+          toRecord(usage.completion_tokens_details).reasoning_tokens,
+          usage.reasoning_tokens
+        );
         const usageOut: JsonRecord = {
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
           total_tokens: promptTokens + completionTokens,
         };
+        if (reasoningTokens > 0) {
+          usageOut.reasoning_tokens = reasoningTokens;
+          usageOut.completion_tokens_details = { reasoning_tokens: reasoningTokens };
+        }
         if (cachedTokens > 0 || cacheCreationTokens > 0) {
           const details: JsonRecord = {};
           if (cachedTokens > 0) details.cached_tokens = cachedTokens;
