@@ -65,6 +65,7 @@ import {
   validateDeepgramProvider,
   validateAssemblyAIProvider,
   validateRevAiProvider,
+  validateSonioxProvider,
   validateElevenLabsProvider,
   validateInworldProvider,
   validateKieProvider,
@@ -188,6 +189,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     deepgram: validateDeepgramProvider,
     assemblyai: validateAssemblyAIProvider,
     "rev-ai": validateRevAiProvider,
+    soniox: validateSonioxProvider,
     "fal-ai": ({ apiKey, providerSpecificData }: any) =>
       validateImageProviderApiKey({ provider: "fal-ai", apiKey, providerSpecificData }),
     "stability-ai": ({ apiKey, providerSpecificData }: any) =>
