@@ -21,10 +21,10 @@ import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 // ---------------------------------------------------------------------------
 
 /**
- * Default feed base URL.  The real subdomain is set at F7; this placeholder
- * is overridden via `RADAR_FEED_URL` env var in production.
+ * Default feed base URL.  Forks and self-hosters point this at their own
+ * signed feed with the `RADAR_FEED_URL` env var (see docs/frameworks/RADAR.md).
  */
-const DEFAULT_FEED_BASE_URL = "https://radar.omniroute.dev";
+const DEFAULT_FEED_BASE_URL = "https://radar.omniroute.online";
 
 const SYNC_TIMEOUT_MS = 30_000;
 

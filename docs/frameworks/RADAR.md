@@ -41,7 +41,7 @@ Radar is gated end-to-end by the `RADAR_ENABLED` feature flag
 - No network call is ever made; `syncRadar()` (`src/lib/radar/sync.ts`) returns
   `{ status: "disabled" }` at step 1 without touching `fetch`.
 
-This is a strict superset gate: flipping the flag on unlocks the *screens*, nothing
+This is a strict superset gate: flipping the flag on unlocks the _screens_, nothing
 more. It does not upload data, does not start a background sync, and does not change
 routing or model selection — see the separate opt-in below.
 
@@ -51,7 +51,7 @@ routing or model selection — see the separate opt-in below.
 
 Turning `RADAR_ENABLED` on only unlocks the UI. Syncing the feed requires a second,
 independent opt-in stored in `radar_settings.opt_in` (`src/lib/db/radar.ts`,
-migration `135_radar_cache_settings.sql`). `syncRadar()` checks the flag *and* the
+migration `135_radar_cache_settings.sql`). `syncRadar()` checks the flag _and_ the
 opt-in before making any network call:
 
 ```
@@ -62,7 +62,7 @@ Opt-in false  → { status: "opt_out" }    — no network call
 When both are on, the sync path is:
 
 1. `GET <feed base URL>/v1/catalog/latest` with an optional `Authorization: Bearer
-   <supporter key>` header (see below).
+<supporter key>` header (see below).
 2. Nothing about the request, the operator, or their traffic is uploaded — it is a
    plain, unauthenticated-by-default GET. OmniRoute never posts usage data, provider
    configuration, or model traffic to the feed service.
@@ -106,9 +106,9 @@ Two env vars let forks and self-hosters point the client at their own feed inste
 the default OmniRoute service — see
 [How to self-host a feed](#how-to-self-host-a-feed) below:
 
-| Var                 | Purpose                                                              |
-| -------------------- | --------------------------------------------------------------------- |
-| `RADAR_FEED_URL`    | Overrides the feed base URL (default `https://radar.omniroute.dev`). |
+| Var                 | Purpose                                                                                                      |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `RADAR_FEED_URL`    | Overrides the feed base URL (default `https://radar.omniroute.online`).                                      |
 | `RADAR_FEED_PUBKEY` | Overrides the pinned public key (base64-DER SPKI or PEM), replacing the built-in array with this single key. |
 
 ### Version floor
@@ -162,7 +162,7 @@ Four rules, in order of precedence:
    the feed's value for that specific field is skipped — the operator's value wins.
 2. **`enabled: false` disables the entry, with provenance.** A feed entry that turns
    an entry off sets `enabled: false` and `disabledBy: "radar"` on the merged result,
-   so the UI can explain *why* an entry went from available to disabled.
+   so the UI can explain _why_ an entry went from available to disabled.
 3. **A user-added entry not present in the feed survives untouched.** Entries that
    only exist in the baseline (or were added locally) and have no corresponding feed
    entry pass through unchanged.
@@ -185,11 +185,11 @@ Every merged entry carries an `origin` field the UI renders as a badge:
 
 Three local routes back the UI, all under `src/app/api/radar/`:
 
-| Route                     | Method | Purpose                                                                 |
-| -------------------------- | ------ | ------------------------------------------------------------------------ |
-| `/api/radar/catalog`      | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache. |
-| `/api/radar/sync`         | POST   | Triggers `syncRadar()` server-side; returns the resulting status.      |
-| `/api/radar/settings`     | POST   | Sets opt-in and/or the (encrypted) supporter key.                      |
+| Route                 | Method | Purpose                                                                |
+| --------------------- | ------ | ---------------------------------------------------------------------- |
+| `/api/radar/catalog`  | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache. |
+| `/api/radar/sync`     | POST   | Triggers `syncRadar()` server-side; returns the resulting status.      |
+| `/api/radar/settings` | POST   | Sets opt-in and/or the (encrypted) supporter key.                      |
 
 **Hard rule: these routes never proxy the feed service.** The browser only ever talks
 to the local OmniRoute server; `syncRadar()` is the single module in the whole client
@@ -211,7 +211,7 @@ service without touching client code:
 
 1. Serve a `GET /v1/catalog/latest` endpoint returning a JSON body that satisfies
    `RadarFeedSchema` (`src/lib/radar/feedSchema.ts`) — top-level `feed:
-   "omniroute-radar"`, `schemaVersion: 1`, `version`, `tier`, `providers`, `models`,
+"omniroute-radar"`, `schemaVersion: 1`, `version`, `tier`, `providers`, `models`,
    `quirks`, and `totals`.
 2. Sign the exact response bytes with an Ed25519 key pair and return the base64
    signature in the `x-omniroute-feed-signature` response header.
