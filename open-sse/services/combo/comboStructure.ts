@@ -618,8 +618,6 @@ export type CompatFilterOptions = {
   failOpen?: boolean;
 };
 
-const HARD_COMPAT_REASONS = new Set(["tools", "vision", "structured_output"]);
-
 function hasHardCapabilityFailure(reasons: string[]): boolean {
   return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
 }
