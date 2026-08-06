@@ -46,7 +46,8 @@
  * fail-open, so this never throws into the install.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 /**
@@ -97,6 +98,29 @@ export function computeDependencyClosure(nodeModulesDir, seeds = SEED_PACKAGES) 
 }
 
 /**
+ * A closure package is only "co-located" when its main entry actually resolves
+ * on disk. Next.js/Turbopack sometimes leave a partial traced package dir in the
+ * standalone (package.json present, main file missing) — treating that dir as
+ * already-copied would skip the real copy and ship a broken package. Checking the
+ * main entry keeps the pinned-instance preservation while fixing incomplete traces.
+ *
+ * @param {string} targetNm absolute path to the target standalone `node_modules`
+ * @param {string} name package name (e.g. "@atjsh/llmlingua-2")
+ * @returns {boolean} true when the package main resolves from the target tree
+ */
+function isCompletePackage(targetNm, name) {
+  const pkgDir = join(targetNm, name);
+  if (!existsSync(join(pkgDir, "package.json"))) return false;
+  try {
+    const require = createRequire(join(targetNm, ".omniroute-colocate.cjs"));
+    require.resolve(name, { paths: [targetNm] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Co-locate the SLM optional dependency closure from `<rootDir>/node_modules`
  * into a standalone bundle's `node_modules`.
  *
@@ -129,9 +153,7 @@ export function colocateLlmlinguaOptionals({
   if (!existsSync(targetNm)) {
     return {
       skipped: true,
-      reason: targetNodeModulesDir
-        ? "no target node_modules"
-        : "no standalone dist/node_modules",
+      reason: targetNodeModulesDir ? "no target node_modules" : "no standalone dist/node_modules",
     };
   }
 
@@ -144,10 +166,7 @@ export function colocateLlmlinguaOptionals({
 
   // Check the complete closure rather than only the entry package. A partially
   // populated bundle must still receive any missing transitive dependencies.
-  if (
-    closure.length > 0 &&
-    closure.every((name) => existsSync(join(targetNm, name)))
-  ) {
+  if (closure.length > 0 && closure.every((name) => isCompletePackage(targetNm, name))) {
     return { skipped: true, reason: "already co-located" };
   }
 
@@ -155,16 +174,17 @@ export function colocateLlmlinguaOptionals({
 
   for (const name of closure) {
     const dest = join(targetNm, name);
-    if (existsSync(dest)) continue;
+    if (isCompletePackage(targetNm, name)) continue;
 
     try {
       mkdirSync(dirname(dest), { recursive: true });
+      // An existing dest dir is a broken partial trace or dangling symlink — clear
+      // it before copying so the real package (including its main entry) lands.
+      if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
       cpSync(join(rootNm, name), dest, { recursive: true });
       copied++;
     } catch (err) {
-      log(
-        `  ⚠️  LLMLingua optional co-location failed for ${name}: ${err.message}`
-      );
+      log(`  ⚠️  LLMLingua optional co-location failed for ${name}: ${err.message}`);
     }
   }
 
