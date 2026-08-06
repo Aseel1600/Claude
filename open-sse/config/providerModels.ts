@@ -171,7 +171,13 @@ export function findModelName(aliasOrId: string, modelId: string): string {
 
 export function getModelTargetFormat(aliasOrId: string, modelId: string): string | null {
   const models = PROVIDER_MODELS[aliasOrId];
-  const found = models?.find((m) => m.id === modelId) || getGlobalModel(modelId);
+  // Strip provider prefix if present: "openai/gpt-5.6-luna" → "gpt-5.6-luna"
+  const prefix = aliasOrId + "/";
+  const bareModelId =
+    typeof modelId === "string" && modelId.startsWith(prefix)
+      ? modelId.slice(prefix.length)
+      : modelId;
+  const found = models?.find((m) => m.id === bareModelId) || getGlobalModel(bareModelId);
   if (found?.targetFormat) return found.targetFormat;
   // #5842: OpenAI "*-pro" reasoning models (o1-pro, gpt-5.x-pro) are only served by
   // the native /v1/responses endpoint — /v1/chat/completions 404s ("only supported
