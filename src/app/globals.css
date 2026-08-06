@@ -224,10 +224,15 @@
   --shadow-elevated: var(--shadow-elevated);
   --shadow-glow: var(--shadow-glow);
 
-  /* Font - macOS system fonts */
-  --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif;
-  /* Monospace stack (parity with the site) — code blocks, IDs, endpoints, terminals */
+  /* Font tokens are driven by next/font in layout.tsx (Geist + Geist_Mono). The
+     CSS variables --font-sans / --font-mono are injected onto <body> via the
+     geistSans.variable / geistMono.variable classes, so we intentionally do NOT
+     redeclare them here — a :root-level system-font stack would shadow the
+     body-level Geist value and silently fall back (Inter had this bug — see
+     PR diff that introduced the original --font-inter stub). The next/font
+     CSS already provides its own platform-aware fallback chain, so removing
+     this block keeps the cascade single-sourced. (Fork-only brand change.) */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "JetBrains Mono", "Fira Code", "SF Mono", monospace;
 
   /* Nested surface (enables bg-surface-2) */
