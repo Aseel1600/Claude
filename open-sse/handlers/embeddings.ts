@@ -28,6 +28,7 @@ import { getCallLogPipelineCaptureStreamChunks } from "@/lib/logEnv";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { stripStaleEncodingHeaders } from "../utils/upstreamResponseHeaders.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { stripTrailingSlashes } from "../utils/urlSanitize.ts";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import {
   hasStructuredEmbeddingInput,
@@ -84,7 +85,11 @@ export async function handleEmbedding({
   connectionId = null,
 }: {
   body: Record<string, unknown>;
-  credentials: { apiKey?: string | null; accessToken?: string | null } | null;
+  credentials: {
+    apiKey?: string | null;
+    accessToken?: string | null;
+    providerSpecificData?: Record<string, unknown> | null;
+  } | null;
   log?: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
   resolvedProvider?: EmbeddingProvider | null;
   resolvedModel?: string | null;
@@ -230,6 +235,23 @@ export async function handleEmbedding({
   }
 
   let upstreamUrl = providerConfig.baseUrl;
+  if (provider === "ollama-local") {
+    const configuredBaseUrl = credentials?.providerSpecificData?.baseUrl;
+    const rawBaseUrl =
+      typeof configuredBaseUrl === "string" && configuredBaseUrl.trim().length > 0
+        ? configuredBaseUrl
+        : providerConfig.baseUrl;
+    // Use the shared O(n) helper instead of `/\/+$/` — that regex is
+    // vulnerable to polynomial backtracking on adversarial input
+    // (CodeQL js/polynomial-redos) since baseUrl is operator-configured
+    // per-connection data. See open-sse/utils/urlSanitize.ts.
+    const normalizedBaseUrl = stripTrailingSlashes(rawBaseUrl.trim());
+    const ollamaHost = normalizedBaseUrl
+      .replace(/\/v1\/(?:chat\/completions|embeddings)$/i, "")
+      .replace(/\/api\/chat$/i, "")
+      .replace(/\/v1$/i, "");
+    upstreamUrl = `${ollamaHost}/v1/embeddings`;
+  }
   let normalizeProviderResponse:
     ((data: Record<string, unknown>) => Record<string, unknown>) | null = null;
 

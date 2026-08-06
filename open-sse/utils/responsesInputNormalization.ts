@@ -77,8 +77,17 @@ function normalizeCodexResponsesInputItem(itemValue: unknown): unknown {
   const role = typeof item.role === "string" ? item.role : "user";
   const type = typeof item.type === "string" ? item.type : "";
 
+  if (type === "additional_tools") {
+    delete item.content;
+    return item;
+  }
+
   if (!type && item.content === undefined && typeof item.text === "string") {
-    return { type: "message", role, content: [{ type: textPartTypeForRole(role), text: item.text }] };
+    return {
+      type: "message",
+      role,
+      content: [{ type: textPartTypeForRole(role), text: item.text }],
+    };
   }
 
   if (!type && role) item.type = "message";

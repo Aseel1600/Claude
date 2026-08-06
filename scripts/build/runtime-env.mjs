@@ -87,6 +87,20 @@ export function buildNodeHeapArgs(env = process.env, memoryLimit) {
 }
 
 /**
+ * Build the complete argument list for spawning the Node.js server runtime.
+ * Prefer IPv4 DNS results before starting the application so undici does not
+ * stall on hosts whose IPv6 route silently drops outbound connections.
+ *
+ * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [env]
+ * @param {number} memoryLimit — calibrated V8 heap ceiling (MB)
+ * @param {string} serverPath — standalone server entrypoint
+ * @returns {string[]}
+ */
+export function buildNodeRuntimeArgs(env = process.env, memoryLimit, serverPath) {
+  return ["--dns-result-order=ipv4first", ...buildNodeHeapArgs(env, memoryLimit), serverPath];
+}
+
+/**
  * @param {NodeJS.ProcessEnv | Record<string, string | undefined>} [fromEnv]
  *        Defaults to process.env. Pass bootstrap `merged` so project `.env` PORT applies before spawn.
  */

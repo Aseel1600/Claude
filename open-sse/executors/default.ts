@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import { mapNvidiaGlm52ReasoningParams } from "./base/reasoningEffort.ts";
 import { PROVIDERS, OAUTH_ENDPOINTS } from "../config/constants.ts";
@@ -18,6 +20,7 @@ import {
 import { isOfficialAnthropicBaseUrl } from "../utils/anthropicHost.ts";
 import { applyProviderRequestDefaults } from "../services/providerRequestDefaults.ts";
 import { stripUnsupportedParams } from "../translator/paramSupport.ts";
+import { normalizeOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
 import {
   injectReasoningContentForThinkingModel,
   shouldInjectReasoningContentPlaceholder,
@@ -62,6 +65,38 @@ import { resolveAlibabaProviderBaseUrl } from "@/shared/constants/alibabaProvide
 import { usesCcWireImage } from "../services/ccWireImageBuiltins.ts";
 
 import type { PoolConfig } from "../services/sessionPool/types.ts";
+
+const NVIDIA_TOOL_CALL_ID_PATTERN = /^[A-Za-z0-9]{9}$/;
+
+function normalizeNvidiaToolCallId(id: unknown): unknown {
+  if (id === null || id === undefined) return id;
+  const value = String(id);
+  if (NVIDIA_TOOL_CALL_ID_PATTERN.test(value)) return value;
+  return createHash("sha256").update(value).digest("hex").slice(0, 9);
+}
+
+function normalizeNvidiaToolCallIds(body: unknown): void {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return;
+  const messages = (body as Record<string, unknown>).messages;
+  if (!Array.isArray(messages)) return;
+
+  for (const message of messages) {
+    if (!message || typeof message !== "object" || Array.isArray(message)) continue;
+    const record = message as Record<string, unknown>;
+    if (Array.isArray(record.tool_calls)) {
+      for (const toolCall of record.tool_calls) {
+        if (!toolCall || typeof toolCall !== "object" || Array.isArray(toolCall)) continue;
+        const call = toolCall as Record<string, unknown>;
+        if (call.id !== null && call.id !== undefined) {
+          call.id = normalizeNvidiaToolCallId(call.id);
+        }
+      }
+    }
+    if (record.tool_call_id !== null && record.tool_call_id !== undefined) {
+      record.tool_call_id = normalizeNvidiaToolCallId(record.tool_call_id);
+    }
+  }
+}
 
 /**
  * Apply operator-configured per-provider custom headers onto an outgoing header
@@ -638,6 +673,10 @@ export class DefaultExecutor extends BaseExecutor {
     withDefaults = this.applyJsonSchemaFallback(withDefaults);
     withDefaults = this.defaultResponsesTextFormat(withDefaults);
 
+    if (this.provider === "nvidia") {
+      normalizeNvidiaToolCallIds(withDefaults);
+    }
+
     // Port of decolua/9router commit d652300e:
     // Cerebras returns 400 (wrong_api_format), Mistral returns 422
     // (extra_forbidden), and NVIDIA's OpenAI-compatible wrapper returns 400
@@ -820,6 +859,34 @@ export class DefaultExecutor extends BaseExecutor {
           : model;
       if (shouldInjectReasoningContentPlaceholder(this.provider, outboundModel)) {
         withDefaults = injectReasoningContentForThinkingModel(withDefaults);
+      }
+    }
+
+    const toolNameMaxLength = getRegistryEntry(this.provider)?.toolNameMaxLength;
+    if (
+      toolNameMaxLength &&
+      withDefaults &&
+      typeof withDefaults === "object" &&
+      !Array.isArray(withDefaults)
+    ) {
+      const toolNameMap = normalizeOpenAIToolNames(withDefaults, toolNameMaxLength);
+      if (toolNameMap.size > 0) {
+        const existingToolNameMap =
+          (withDefaults as Record<string, unknown>)._toolNameMap instanceof Map
+            ? ((withDefaults as Record<string, unknown>)._toolNameMap as Map<string, string>)
+            : null;
+        const responseToolNameMap = existingToolNameMap
+          ? new Map(existingToolNameMap)
+          : new Map<string, string>();
+        for (const [alias, original] of toolNameMap) {
+          responseToolNameMap.set(alias, original);
+        }
+        Object.defineProperty(withDefaults, "_toolNameMap", {
+          value: responseToolNameMap,
+          enumerable: false,
+          configurable: true,
+          writable: true,
+        });
       }
     }
 

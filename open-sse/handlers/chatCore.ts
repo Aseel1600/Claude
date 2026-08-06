@@ -139,6 +139,7 @@ import {
   supportsMaxTokens,
   getResolvedModelCapabilities,
   getExplicitModelOutputCap,
+  resolveInputTokenCapForGate,
 } from "@/lib/modelCapabilities.ts";
 import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
@@ -222,8 +223,8 @@ import { recordCost } from "@/domain/costRules";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import {
   buildClaudePassthroughToolNameMap,
-  restoreClaudePassthroughToolNames,
-  mergeResponseToolNameMap,
+  normalizeOpenAIToolFinishReasons,
+  restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
 import { resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
@@ -1857,11 +1858,6 @@ export async function handleChatCore({
     }
   }
 
-  // Key the lookup by { provider, model } — the bare-string form resolves to
-  // `provider: null`, which skips both the registry cap and the operator's
-  // `max_token` capability override (#6524), the documented escape hatch for a
-  // wrong synced `limit_output`. Clamping against a stale spec while the operator
-  // raised the ceiling would silently truncate output.
   const modelOutputCap = toPositiveInteger(
     getExplicitModelOutputCap({ provider, model: effectiveModel })
   );
@@ -1870,13 +1866,15 @@ export async function handleChatCore({
     finalEstimatedInputTokens,
     finalContextLimit,
     targetFormat === FORMATS.CLAUDE && sourceFormat !== FORMATS.CLAUDE ? DEFAULT_MAX_TOKENS : 0,
-    modelOutputCap
+    modelOutputCap,
+    toPositiveInteger(resolveInputTokenCapForGate({ provider, model: effectiveModel }, { isCombo }))
   );
   if (!outputBudget.ok) {
+    const exceededInputCap = outputBudget.maxInputTokens !== undefined;
     const message =
-      `Input exceeds the context window for ${provider}/${effectiveModel}: ` +
-      `estimated ${outputBudget.estimatedInputTokens} input tokens, limit ${outputBudget.contextLimit}. ` +
-      "Reduce the prompt or route to a model with a larger context window.";
+      `Input exceeds ${exceededInputCap ? "maximum input tokens" : "context window"} for ${provider}/${effectiveModel}: ` +
+      `estimated ${outputBudget.estimatedInputTokens} input tokens, ${exceededInputCap ? `max input ${outputBudget.maxInputTokens}` : `limit ${outputBudget.contextLimit}`}. ` +
+      `Reduce the prompt or route to a model with a larger ${exceededInputCap ? "input limit" : "context window"}.`;
     log?.warn?.("CONTEXT", message);
     trackPendingRequest(model, provider, connectionId, false);
     return createErrorResult(
@@ -4195,14 +4193,14 @@ export async function handleChatCore({
       }
     }
 
-    const responseToolNameMap = mergeResponseToolNameMap(
+    const restoreClaudeNames = sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE;
+    let responseToolNameMap: Map<string, string> | null;
+    [responseBody, responseToolNameMap] = restoreNonStreamingToolNames(
+      responseBody,
       toolNameMap,
-      (finalBody as Record<string, unknown> | null | undefined) ?? null
+      finalBody,
+      restoreClaudeNames
     );
-
-    if (sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE) {
-      responseBody = restoreClaudePassthroughToolNames(responseBody, responseToolNameMap);
-    }
     reqLogger.logProviderResponse(
       providerResponse.status,
       providerResponse.statusText,
@@ -4298,17 +4296,7 @@ export async function handleChatCore({
     }
 
     // T18: Normalize finish_reason to 'tool_calls' if tool calls are present
-    if (translatedResponse?.choices) {
-      for (const choice of translatedResponse.choices) {
-        if (
-          choice.message?.tool_calls &&
-          choice.message.tool_calls.length > 0 &&
-          choice.finish_reason !== "tool_calls"
-        ) {
-          choice.finish_reason = "tool_calls";
-        }
-      }
-    }
+    normalizeOpenAIToolFinishReasons(translatedResponse);
 
     // Reasoning Replay Cache (#1628): Capture reasoning_content from non-streaming responses
     // with tool_calls so it can be replayed on subsequent turns (DeepSeek V4, Kimi K2, etc.)

@@ -21,6 +21,18 @@ import {
 } from "./kiroThinking.ts";
 import { ByteQueue, TEXT_ENCODER, parseEventFrame } from "./kiro/eventstream.ts";
 import { kiroRuntimeHost, resolveKiroRuntimeRegion } from "../services/kiroRegion.ts";
+import {
+  KIRO_TOOL_CALL_WRAPPER,
+  appendBufferedKiroToolInput,
+  encodeSse,
+  getBufferedKiroToolInput,
+  validateKiroToolCallWrapperInput,
+  validateKiroToolName,
+  validateKiroToolUse,
+  type PendingKiroWrapperToolCall,
+} from "./kiroToolCallValidation.ts";
+
+export { validateKiroToolUse } from "./kiroToolCallValidation.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -42,6 +54,9 @@ type KiroStreamState = {
   seenToolIds: Map<string, number>;
   toolArgsEmitted: Map<string, string>;
   toolArgsBuffered: Map<string, { toolIndex: number; canonical: string }>;
+  generatedToolIdCounter: number;
+  pendingWrapperToolCalls: Map<string, PendingKiroWrapperToolCall>;
+  invalidToolCall?: boolean;
   totalContentLength?: number;
   contextUsagePercentage?: number;
   hasContextUsage?: boolean;
@@ -396,9 +411,114 @@ export class KiroExecutor extends BaseExecutor {
       seenToolIds: new Map(),
       toolArgsEmitted: new Map(),
       toolArgsBuffered: new Map(),
+      generatedToolIdCounter: 0,
+      pendingWrapperToolCalls: new Map(),
       hasReasoningContent: false,
       reasoningChunkCount: 0,
       thinking: thinkingExpected ? { thinkingMode: false, pendingTag: "" } : undefined,
+    };
+
+    const getToolCallId = (toolUse: JsonRecord): string => {
+      if (typeof toolUse.toolUseId === "string" && toolUse.toolUseId) {
+        return toolUse.toolUseId;
+      }
+      state.generatedToolIdCounter += 1;
+      return `call_${created}_${state.generatedToolIdCounter}`;
+    };
+
+    const emitToolCallStart = (
+      controller: TransformStreamDefaultController,
+      toolCallId: string,
+      toolName: string,
+      toolIndex: number
+    ) => {
+      const startChunk: JsonRecord = {
+        id: responseId,
+        object: "chat.completion.chunk",
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            delta: {
+              ...(chunkIndex === 0 ? { role: "assistant" } : {}),
+              tool_calls: [
+                {
+                  index: toolIndex,
+                  id: toolCallId,
+                  type: "function",
+                  function: { name: toolName, arguments: "" },
+                },
+              ],
+            },
+            finish_reason: null,
+          },
+        ],
+      };
+      chunkIndex += 1;
+      controller.enqueue(encodeSse(`data: ${JSON.stringify(startChunk)}\n\n`));
+    };
+
+    const emitToolCallArguments = (
+      controller: TransformStreamDefaultController,
+      toolIndex: number,
+      argumentsStr: string
+    ) => {
+      const argsChunk: JsonRecord = {
+        id: responseId,
+        object: "chat.completion.chunk",
+        created,
+        model,
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [{ index: toolIndex, function: { arguments: argumentsStr } }],
+            },
+            finish_reason: null,
+          },
+        ],
+      };
+      chunkIndex += 1;
+      controller.enqueue(encodeSse(`data: ${JSON.stringify(argsChunk)}\n\n`));
+    };
+
+    const failInvalidToolCall = (controller: TransformStreamDefaultController, message: string) => {
+      const error = {
+        error: {
+          message,
+          type: "invalid_request_error",
+          code: "invalid_kiro_tool_call",
+        },
+      };
+      state.invalidToolCall = true;
+      state.finishEmitted = true;
+      controller.enqueue(encodeSse(`data: ${JSON.stringify(error)}\n\n`));
+      controller.enqueue(encodeSse("data: [DONE]\n\n"));
+      controller.terminate();
+    };
+
+    const flushPendingWrapperToolCalls = (
+      controller: TransformStreamDefaultController
+    ): boolean => {
+      for (const toolCall of state.pendingWrapperToolCalls.values()) {
+        const toolInput = getBufferedKiroToolInput(toolCall);
+        try {
+          validateKiroToolCallWrapperInput(toolInput);
+        } catch (error) {
+          failInvalidToolCall(controller, error instanceof Error ? error.message : String(error));
+          return false;
+        }
+
+        const toolIndex = state.toolCallIndex++;
+        state.seenToolIds.set(toolCall.toolCallId, toolIndex);
+        emitToolCallStart(controller, toolCall.toolCallId, toolCall.toolName, toolIndex);
+        const argumentsStr =
+          typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput ?? {});
+        if (argumentsStr) emitToolCallArguments(controller, toolIndex, argumentsStr);
+      }
+      state.pendingWrapperToolCalls.clear();
+      return true;
     };
 
     const transformStream = new TransformStream(
@@ -618,10 +738,54 @@ export class KiroExecutor extends BaseExecutor {
               const toolUse = event.payload;
               const toolUses = Array.isArray(toolUse) ? toolUse : [toolUse];
 
-              for (const singleToolUse of toolUses) {
-                const toolCallId = singleToolUse.toolUseId || `call_${Date.now()}`;
-                const toolName = singleToolUse.name || "";
+              for (const rawToolUse of toolUses) {
+                const singleToolUse = rawToolUse as JsonRecord;
+                let toolName: string;
+                try {
+                  toolName = validateKiroToolName(singleToolUse);
+                } catch (error) {
+                  failInvalidToolCall(
+                    controller,
+                    error instanceof Error ? error.message : String(error)
+                  );
+                  return;
+                }
+
+                const toolCallId = getToolCallId(singleToolUse);
                 const toolInput = singleToolUse.input;
+
+                if (toolName === KIRO_TOOL_CALL_WRAPPER) {
+                  let pending = state.pendingWrapperToolCalls.get(toolCallId);
+                  if (!pending) {
+                    if (state.seenToolIds.has(toolCallId)) {
+                      failInvalidToolCall(
+                        controller,
+                        "Invalid Kiro tool_call payload: duplicate toolUseId reused by wrapper"
+                      );
+                      return;
+                    }
+                    pending = { toolCallId, toolName };
+                    state.pendingWrapperToolCalls.set(toolCallId, pending);
+                  }
+                  try {
+                    appendBufferedKiroToolInput(pending, toolInput);
+                  } catch (error) {
+                    failInvalidToolCall(
+                      controller,
+                      error instanceof Error ? error.message : String(error)
+                    );
+                    return;
+                  }
+                  continue;
+                }
+
+                if (state.pendingWrapperToolCalls.has(toolCallId)) {
+                  failInvalidToolCall(
+                    controller,
+                    "Invalid Kiro tool_call payload: mixed wrapper and direct tool fragments"
+                  );
+                  return;
+                }
 
                 let toolIndex;
                 const isNewTool = !state.seenToolIds.has(toolCallId);
@@ -629,39 +793,9 @@ export class KiroExecutor extends BaseExecutor {
                 if (isNewTool) {
                   toolIndex = state.toolCallIndex++;
                   state.seenToolIds.set(toolCallId, toolIndex);
-
-                  const startChunk = {
-                    id: responseId,
-                    object: "chat.completion.chunk",
-                    created,
-                    model,
-                    choices: [
-                      {
-                        index: 0,
-                        delta: {
-                          ...(chunkIndex === 0 ? { role: "assistant" } : {}),
-                          tool_calls: [
-                            {
-                              index: toolIndex,
-                              id: toolCallId,
-                              type: "function",
-                              function: {
-                                name: toolName,
-                                arguments: "",
-                              },
-                            },
-                          ],
-                        },
-                        finish_reason: null,
-                      },
-                    ],
-                  };
-                  chunkIndex++;
-                  controller.enqueue(
-                    TEXT_ENCODER.encode(`data: ${JSON.stringify(startChunk)}\n\n`)
-                  );
+                  emitToolCallStart(controller, toolCallId, toolName, toolIndex);
                 } else {
-                  toolIndex = state.seenToolIds.get(toolCallId);
+                  toolIndex = state.seenToolIds.get(toolCallId) as number;
                 }
 
                 if (toolInput !== undefined) {
@@ -714,6 +848,7 @@ export class KiroExecutor extends BaseExecutor {
 
             // Handle messageStopEvent
             if (eventType === "messageStopEvent") {
+              if (!flushPendingWrapperToolCalls(controller)) return;
               flushBufferedToolArgs(state, controller, { responseId, created, model });
               state.stopSeen = true;
             }
@@ -819,6 +954,8 @@ export class KiroExecutor extends BaseExecutor {
         },
 
         flush(controller) {
+          if (!flushPendingWrapperToolCalls(controller)) return;
+          if (state.invalidToolCall) return;
           // Flush any buffered tool arguments (partial-object payloads) before finishing —
           // idempotent against toolArgsEmitted if messageStopEvent already flushed them.
           flushBufferedToolArgs(state, controller, { responseId, created, model });
