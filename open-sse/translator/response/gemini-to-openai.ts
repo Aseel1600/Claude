@@ -256,7 +256,20 @@ function emitFunctionCallPart(
   results: Array<Record<string, unknown>>
 ) {
   const rawToolName = part.functionCall.name;
-  const fcName = state.toolNameMap?.get(rawToolName) || rawToolName;
+  const fcName = (() => {
+    const direct = state.toolNameMap?.get(rawToolName);
+    if (direct) return direct;
+    // Case-insensitive fallback: Gemini always lowercases tool names in
+    // functionCall responses, so a direct match by lowercase key may have
+    // been missed if the map entry somehow didn't include the lowercase
+    // alias (#9568).
+    if (state.toolNameMap) {
+      for (const [key, val] of state.toolNameMap) {
+        if (key.toLowerCase() === rawToolName.toLowerCase()) return val;
+      }
+    }
+    return rawToolName;
+  })();
   const fcArgs = normalizeToolCallArgs(part.functionCall.args || {});
   const toolCallIndex = state.functionIndex++;
   const toolCall = {
