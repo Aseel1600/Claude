@@ -44,6 +44,39 @@ export const IMAGE_MODEL =
 /** Max edge, in px, for the derived copy sent to the vision model. */
 export const ANALYSIS_MAX_EDGE = 1024;
 
+export interface ImageOrientation {
+  id: "square" | "landscape" | "portrait";
+  label: string;
+  ratio: string;
+  /** The `size` value the images endpoints actually take. */
+  size: string;
+}
+
+/**
+ * The shapes offered to the operator.
+ *
+ * The endpoints speak pixels (`1024x1536`); people think in orientation
+ * ("retrato"). The dimensions stay as the transported value — only the label
+ * changes — so nothing about the request needs to know this list exists.
+ */
+export const IMAGE_ORIENTATIONS: readonly ImageOrientation[] = [
+  { id: "square", label: "Quadrado", ratio: "1:1", size: "1024x1024" },
+  { id: "landscape", label: "Paisagem", ratio: "3:2", size: "1536x1024" },
+  { id: "portrait", label: "Retrato", ratio: "2:3", size: "1024x1536" },
+] as const;
+
+/** The orientation a raw `size` belongs to, if any. */
+export function orientationForSize(size: string): ImageOrientation | undefined {
+  return IMAGE_ORIENTATIONS.find((o) => o.size === size);
+}
+
+/** Caption-friendly form: "Retrato 1024×1536". */
+export function describeSize(size: string): string {
+  const o = orientationForSize(size);
+  const pretty = size.replace("x", "×");
+  return o ? `${o.label} ${pretty}` : pretty;
+}
+
 /**
  * Vision token baseline measured on the TCB adapter (2026-08-06):
  * 128²→27, 256²→84, 512²→315, 1024²→1236 tokens.
