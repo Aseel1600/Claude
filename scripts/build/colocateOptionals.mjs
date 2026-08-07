@@ -46,7 +46,8 @@
  * fail-open, so this never throws into the install.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 
 /**
@@ -97,38 +98,109 @@ export function computeDependencyClosure(nodeModulesDir, seeds = SEED_PACKAGES) 
 }
 
 /**
- * Co-locate the SLM optional closure from `<rootDir>/node_modules` into
- * `<rootDir>/dist/node_modules`. No-op when the standalone `dist` bundle or the optional seeds are
- * absent, and idempotent once co-located. Never throws.
+ * A closure package is only "co-located" when its main entry actually resolves
+ * on disk. Next.js/Turbopack sometimes leave a partial traced package dir in the
+ * standalone (package.json present, main file missing) — treating that dir as
+ * already-copied would skip the real copy and ship a broken package. Checking the
+ * main entry keeps the pinned-instance preservation while fixing incomplete traces.
  *
- * @param {{ rootDir: string, log?: (message: string) => void }} opts
+ * @param {string} targetNm absolute path to the target standalone `node_modules`
+ * @param {string} name package name (e.g. "@atjsh/llmlingua-2")
+ * @returns {boolean} true when the package main resolves from the target tree
+ */
+function isCompletePackage(targetNm, name) {
+  const pkgDir = join(targetNm, name);
+  if (!existsSync(join(pkgDir, "package.json"))) return false;
+  try {
+    const require = createRequire(join(targetNm, ".omniroute-colocate.cjs"));
+    require.resolve(name, { paths: [targetNm] });
+    // Next.js traces a native-module package's JS and the .node it requires(),
+    // but NOT the .so/.dylib/.dll the binding dlopens at runtime — a traced
+    // onnxruntime-node still "resolves" while libonnxruntime.so.1 is absent
+    // (ERR_DLOPEN_FAILED at runtime). Treat both native files as part of
+    // completeness so a partial trace forces a full re-copy.
+    if (name === "onnxruntime-node") {
+      const nativeDir = join(pkgDir, "bin/napi-v3", process.platform, process.arch);
+      const libName =
+        process.platform === "win32"
+          ? "onnxruntime.dll"
+          : process.platform === "darwin"
+            ? "libonnxruntime.1.dylib"
+            : "libonnxruntime.so.1";
+      if (
+        !existsSync(join(nativeDir, "onnxruntime_binding.node")) ||
+        !existsSync(join(nativeDir, libName))
+      ) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Co-locate the SLM optional dependency closure from `<rootDir>/node_modules`
+ * into a standalone bundle's `node_modules`.
+ *
+ * The default destination remains `<rootDir>/dist/node_modules` for the npm
+ * postinstall path. Standalone builders, including Docker, may provide
+ * `targetNodeModulesDir`.
+ *
+ * Packages already present in the destination are never overwritten. This
+ * preserves the standalone bundle's pinned dependency instances while filling
+ * dynamically imported packages that Next.js did not trace.
+ *
+ * @param {{
+ *   rootDir: string,
+ *   targetNodeModulesDir?: string,
+ *   seeds?: string[],
+ *   log?: (message: string) => void
+ * }} opts
  * @returns {{ skipped: true, reason: string }
  *   | { skipped: false, copied: number, closure: number }}
  */
-export function colocateLlmlinguaOptionals({ rootDir, log = () => {} }) {
+export function colocateLlmlinguaOptionals({
+  rootDir,
+  targetNodeModulesDir,
+  seeds = SEED_PACKAGES,
+  log = () => {},
+}) {
   const rootNm = join(rootDir, "node_modules");
-  const distNm = join(rootDir, "dist", "node_modules");
+  const targetNm = targetNodeModulesDir ?? join(rootDir, "dist", "node_modules");
 
-  if (!existsSync(distNm)) {
-    return { skipped: true, reason: "no standalone dist/node_modules" };
+  if (!existsSync(targetNm)) {
+    return {
+      skipped: true,
+      reason: targetNodeModulesDir ? "no target node_modules" : "no standalone dist/node_modules",
+    };
   }
-  // Gate: only run when the optional stack was actually installed (`npm install --include=optional`).
-  if (!SEED_PACKAGES.every((seed) => existsSync(join(rootNm, seed)))) {
+
+  // Only run when every requested closure root was installed.
+  if (!seeds.every((seed) => existsSync(join(rootNm, seed)))) {
     return { skipped: true, reason: "SLM optionals not installed at root" };
   }
-  // Idempotent: the entry package is already co-located → nothing to do.
-  if (existsSync(join(distNm, "@atjsh", "llmlingua-2"))) {
+
+  const closure = computeDependencyClosure(rootNm, seeds);
+
+  // Check the complete closure rather than only the entry package. A partially
+  // populated bundle must still receive any missing transitive dependencies.
+  if (closure.length > 0 && closure.every((name) => isCompletePackage(targetNm, name))) {
     return { skipped: true, reason: "already co-located" };
   }
 
-  const closure = computeDependencyClosure(rootNm);
   let copied = 0;
 
   for (const name of closure) {
-    const dest = join(distNm, name);
-    if (existsSync(dest)) continue; // no-clobber: keep dist's pinned copy (transformers 3.5.2, …)
+    const dest = join(targetNm, name);
+    if (isCompletePackage(targetNm, name)) continue;
+
     try {
       mkdirSync(dirname(dest), { recursive: true });
+      // An existing dest dir is a broken partial trace or dangling symlink — clear
+      // it before copying so the real package (including its main entry) lands.
+      if (existsSync(dest)) rmSync(dest, { recursive: true, force: true });
       cpSync(join(rootNm, name), dest, { recursive: true });
       copied++;
     } catch (err) {
@@ -137,7 +209,9 @@ export function colocateLlmlinguaOptionals({ rootDir, log = () => {} }) {
   }
 
   if (copied > 0) {
-    log(`  ✅ Co-located ${copied} LLMLingua SLM optional package(s) into dist/node_modules.\n`);
+    log(
+      `  ✅ Co-located ${copied} LLMLingua SLM optional package(s) into standalone node_modules.\n`
+    );
   }
 
   return { skipped: false, copied, closure: closure.length };

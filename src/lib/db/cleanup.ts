@@ -371,6 +371,29 @@ export async function cleanupCompressionRunTelemetry(): Promise<CleanupResult> {
 }
 
 /**
+ * Clean up expired CCR blocks (#9061).
+ *
+ * Unlike the tables above, these rows carry their own expiry: the engine writes
+ * `expires_at` from the block's TTL, so this needs no retention-days setting of its own.
+ * It is the same sweep the engine does opportunistically, run on the operator's schedule
+ * so the table cannot sit on rows nobody will read again.
+ */
+export async function cleanupCcrBlocks(): Promise<CleanupResult> {
+  const result: CleanupResult = { deleted: 0, errors: 0 };
+
+  try {
+    const { pruneExpiredCcrBlocks } = await import("./ccrBlocks");
+    result.deleted = pruneExpiredCcrBlocks(Date.now());
+    console.log(`[Cleanup] Deleted ${result.deleted} expired ccr_blocks`);
+  } catch (err: unknown) {
+    console.error("[Cleanup] Error cleaning ccr_blocks:", err);
+    result.errors++;
+  }
+
+  return result;
+}
+
+/**
  * Run all cleanup functions if auto-cleanup is enabled.
  */
 export async function runAutoCleanup(): Promise<{
@@ -401,6 +424,7 @@ export async function runAutoCleanup(): Promise<{
     xpAuditLog: await cleanupXpAuditLog(),
     compressionRunTelemetry: await cleanupCompressionRunTelemetry(),
     proxyLogs: await cleanupProxyLogs(),
+    ccrBlocks: await cleanupCcrBlocks(),
   };
 
   const totalDeleted = Object.values(results).reduce((sum, r) => sum + r.deleted, 0);
@@ -547,16 +571,56 @@ function isResetUsageHistoryPeriod(period: string): period is ResetUsageHistoryP
  */
 const RESET_TARGETS: Array<DeleteByPeriodTarget & { resultKey: keyof ResetUsageHistoryResult }> = [
   { table: "usage_history", column: "timestamp", cutoff: "iso", resultKey: "deletedUsageHistory" },
-  { table: "daily_usage_summary", column: "date", cutoff: "date", resultKey: "deletedDailySummary" },
-  { table: "hourly_usage_summary", column: "date_hour", cutoff: "dateHour", resultKey: "deletedHourlySummary" },
+  {
+    table: "daily_usage_summary",
+    column: "date",
+    cutoff: "date",
+    resultKey: "deletedDailySummary",
+  },
+  {
+    table: "hourly_usage_summary",
+    column: "date_hour",
+    cutoff: "dateHour",
+    resultKey: "deletedHourlySummary",
+  },
   { table: "call_logs", column: "timestamp", cutoff: "iso", resultKey: "deletedCallLogs" },
-  { table: "request_detail_logs", column: "timestamp", cutoff: "iso", resultKey: "deletedRequestDetailLogs" },
+  {
+    table: "request_detail_logs",
+    column: "timestamp",
+    cutoff: "iso",
+    resultKey: "deletedRequestDetailLogs",
+  },
   { table: "proxy_logs", column: "timestamp", cutoff: "iso", resultKey: "deletedProxyLogs" },
-  { table: "relay_logs", column: "created_at", cutoff: "epochSeconds", resultKey: "deletedRelayLogs" },
-  { table: "compression_analytics", column: "timestamp", cutoff: "iso", resultKey: "deletedCompressionAnalytics" },
-  { table: "compression_run_telemetry", column: "timestamp", cutoff: "epochMs", resultKey: "deletedCompressionRunTelemetry" },
-  { table: "routing_decisions", column: "created_at", cutoff: "iso", resultKey: "deletedRoutingDecisions" },
-  { table: "quota_consumption", column: "updated_at", cutoff: "epochMs", resultKey: "deletedQuotaConsumption" },
+  {
+    table: "relay_logs",
+    column: "created_at",
+    cutoff: "epochSeconds",
+    resultKey: "deletedRelayLogs",
+  },
+  {
+    table: "compression_analytics",
+    column: "timestamp",
+    cutoff: "iso",
+    resultKey: "deletedCompressionAnalytics",
+  },
+  {
+    table: "compression_run_telemetry",
+    column: "timestamp",
+    cutoff: "epochMs",
+    resultKey: "deletedCompressionRunTelemetry",
+  },
+  {
+    table: "routing_decisions",
+    column: "created_at",
+    cutoff: "iso",
+    resultKey: "deletedRoutingDecisions",
+  },
+  {
+    table: "quota_consumption",
+    column: "updated_at",
+    cutoff: "epochMs",
+    resultKey: "deletedQuotaConsumption",
+  },
   { table: "token_ledger", column: "created_at", cutoff: "iso", resultKey: "deletedTokenLedger" },
 ];
 

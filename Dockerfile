@@ -77,7 +77,7 @@ RUN test -f package-lock.json \
 # a broken/rate-limited fetch fails the BUILD loudly instead of shipping a
 # broken image.
 RUN --mount=type=cache,id=npm-cache,target=/root/.npm \
-  npm ci --no-audit --no-fund --legacy-peer-deps --ignore-scripts \
+  npm ci --include=optional --no-audit --no-fund --legacy-peer-deps --ignore-scripts \
   && (cd node_modules/better-sqlite3 \
       && node /usr/local/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js rebuild) \
   && node -e "require('better-sqlite3')(':memory:').close()" \
@@ -119,7 +119,9 @@ ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
 COPY . ./
 RUN --mount=type=cache,id=next-cache,target=/app/.build/next/cache \
-  mkdir -p /app/data && npm run build
+  mkdir -p /app/data \
+  && npm run build \
+  && node --input-type=module -e "import { createRequire } from 'node:module'; import { pathToFileURL } from 'node:url'; const standaloneRoot = '/app/.build/next/standalone/node_modules/'; const require = createRequire('/app/.build/next/standalone/package.json'); for (const pkg of ['@atjsh/llmlingua-2', '@huggingface/transformers', '@tensorflow/tfjs', 'js-tiktoken', 'onnxruntime-node']) { try { const resolved = require.resolve(pkg); if (!resolved.startsWith(standaloneRoot)) throw new Error('resolved outside standalone: ' + resolved); await import(pathToFileURL(resolved).href); } catch (e) { console.warn('[standalone-check] optional SLM package ' + pkg + ' not importable in standalone: ' + (e && e.message)); } }"
 
 # ── Runner base ────────────────────────────────────────────────────────────
 FROM base AS runner-base
@@ -179,9 +181,9 @@ EXPOSE 20128
 USER node
 
 # Warns if the mounted data volume has wrong ownership
-COPY --chmod=755 scripts/check-permissions.sh /tmp/check-permissions.sh
-RUN test -x /tmp/check-permissions.sh
-ENTRYPOINT ["/tmp/check-permissions.sh"]
+COPY --chmod=755 scripts/check-permissions.sh /app/check-permissions.sh
+RUN test -x /app/check-permissions.sh
+ENTRYPOINT ["/app/check-permissions.sh"]
 
 HEALTHCHECK --interval=30s --timeout=8s --start-period=45s --retries=5 \
   CMD ["node", "healthcheck.mjs"]

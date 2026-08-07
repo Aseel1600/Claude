@@ -1,3 +1,9 @@
+---
+title: "Proxy Port Clash Investigation"
+version: 3.8.50
+lastUpdated: 2026-08-06
+---
+
 # Proxy Port Clash Investigation
 
 ## Summary
@@ -11,19 +17,20 @@ the server's main listen port can clash during crash-loop restarts.
 
 ## Proxy Subsystem: No Port Binding
 
-| Module | What It Does |
-|---|---|
-| `proxyAutoSelector.ts` | Selects a proxy config from the DB by applying health scores and rotation groups |
-| `proxyFallback.ts` | Implements retry/fallback strategies when a selected proxy fails (try another proxy, then direct) |
-| `proxyEgress.ts` | Probes/propagates egress IP info for logging — uses HTTP echo, not port binding |
-| `proxyDispatcher.ts` | Creates `undici.ProxyAgent` dispatchers — these are HTTP-level (forward proxy), not TCP listen sockets |
-| `proxyFetch.ts` | Patched global fetch that applies proxy dispatchers at the undici level |
+| Module                 | What It Does                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------ |
+| `proxyAutoSelector.ts` | Selects a proxy config from the DB by applying health scores and rotation groups                       |
+| `proxyFallback.ts`     | Implements retry/fallback strategies when a selected proxy fails (try another proxy, then direct)      |
+| `proxyEgress.ts`       | Probes/propagates egress IP info for logging — uses HTTP echo, not port binding                        |
+| `proxyDispatcher.ts`   | Creates `undici.ProxyAgent` dispatchers — these are HTTP-level (forward proxy), not TCP listen sockets |
+| `proxyFetch.ts`        | Patched global fetch that applies proxy dispatchers at the undici level                                |
 
 None of these modules call `net.createServer()`, `http.createServer()`, or `app.listen()`.
 Port management is entirely within the request life cycle — undici manages the TCP
 connection pool internally.
 
 **Fallback flow** (from `proxyFetch.ts` `runWithProxyContext`):
+
 1. Try assigned proxy → proxy dispatcher
 2. If unreachable → direct fallback (no dispatcher)
 3. If still failing → error propagated up
@@ -36,10 +43,10 @@ No port allocation or release happens in this flow.
 
 The actual port clash was in the **process supervisor** (`bin/cli/runtime/`):
 
-| File | Role |
-|---|---|
+| File                    | Role                                                                      |
+| ----------------------- | ------------------------------------------------------------------------- |
 | `processSupervisor.mjs` | `ServerSupervisor` — spawns a child process, monitors exit code, restarts |
-| `supervisorPolicy.mjs` | `waitUntilPortFree()`, `isPortFree()`, restart policy constants |
+| `supervisorPolicy.mjs`  | `waitUntilPortFree()`, `isPortFree()`, restart policy constants           |
 
 **Root cause:** When the server child process crashed and was immediately restarted, the
 OS had not yet released the listen socket (TIME_WAIT / TCP lingering). The restart
@@ -47,6 +54,7 @@ attempt would bind to the same port and immediately fail with `EADDRINUSE`, caus
 another crash → another restart → exhausted restart budget → gateway dead.
 
 **Fix (#4425, in `supervisorPolicy.mjs`):**
+
 1. Added `isPortFree(port)` — attempts a `net.createServer().listen()` on the target
    port; resolves `false` if EADDRINUSE.
 2. Added `waitUntilPortFree(port, timeoutMs=10000, intervalMs=250)` — polls every 250ms
@@ -70,11 +78,11 @@ gracefully.
 
 ## Current State
 
-| Risk | Status | Remaining |
-|---|---|---|
-| Supervisor restart EADDRINUSE | **Fixed** (#4425) | None |
-| LiveWS port clash | **Fixed** (#6324) | None |
-| Proxy selection port clash | **Never applicable** | None |
-| Two Redis CLIENT factories bind no TCP ports | **Never applicable** | None |
+| Risk                                         | Status               | Remaining |
+| -------------------------------------------- | -------------------- | --------- |
+| Supervisor restart EADDRINUSE                | **Fixed** (#4425)    | None      |
+| LiveWS port clash                            | **Fixed** (#6324)    | None      |
+| Proxy selection port clash                   | **Never applicable** | None      |
+| Two Redis CLIENT factories bind no TCP ports | **Never applicable** | None      |
 
 No further action needed on port clash.

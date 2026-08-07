@@ -411,7 +411,7 @@ test("Claude -> OpenAI maps thinking.budget_tokens to reasoning_effort buckets",
   }
 });
 
-test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", () => {
+test("Claude -> OpenAI passes output_config.effort=max through verbatim", () => {
   const result = claudeToOpenAIRequest(
     "gpt-5",
     {
@@ -421,7 +421,7 @@ test("Claude -> OpenAI normalizes output_config.effort=max to xhigh", () => {
     false
   );
 
-  assert.equal(result.reasoning_effort, "xhigh");
+  assert.equal(result.reasoning_effort, "max");
 });
 
 test("Claude -> OpenAI ignores disabled thinking and leaves reasoning_effort unset", () => {

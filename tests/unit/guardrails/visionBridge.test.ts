@@ -428,7 +428,7 @@ test("VB-S07: reroutes base64 image to vision model", async () => {
 
 // ── VB-S03: Fail-open on vision error (via combo mapping path) ────────────
 
-test("VB-S03: preserves the original image when the vision API fails (#4012)", async () => {
+test("VB-S03/#8430: combo-mapping describe failure replaces the image with an error stub (not preserved)", async () => {
   shouldVisionFail = true;
   const guardrail = createGuardrail({
     deps: {
@@ -464,12 +464,188 @@ test("VB-S03: preserves the original image when the vision API fails (#4012)", a
     text?: string;
   }>;
 
-  // #4012: a failed describe must NOT replace the image with an "(unavailable)"
-  // stub — the original image is preserved so a vision-capable upstream can see it.
+  // SEMANTIC CHANGE (#8430): in the combo describe path (forced here via
+  // checkModelHasComboMapping), when EVERY describe call fails, the upstream is
+  // a confirmed non-vision model that cannot handle raw images — the raw
+  // image_url part is now replaced with an "(unavailable)" error stub instead
+  // of being preserved. The original #4012 preserve-raw behavior still applies
+  // to the reroute path, where the upstream model might still be vision-capable
+  // (see tests/unit/vision-bridge-preserve-on-failure-4012.test.ts, updated by
+  // the same #8430 commit).
   const imagePart = content.find((p) => p.type === "image_url");
-  assert.ok(imagePart, "original image_url part must be preserved on describe failure");
+  assert.strictEqual(
+    imagePart,
+    undefined,
+    "raw image_url must be replaced when every describe call fails in the combo path"
+  );
   const unavailPart = content.find((p) => p.type === "text" && p.text?.includes("unavailable"));
-  assert.strictEqual(unavailPart, undefined);
+  assert.ok(unavailPart, "an 'unavailable' error stub should be present when describe fails");
+});
+
+test("VB-S03/#8488: combo with NO confirmed-vision target stubs partially-failed describes (not preserved)", async () => {
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      checkComboHasConfirmedVision: async (_model: string) => false,
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A red square";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+  }>;
+
+  const imageParts = content.filter((p) => p.type === "image_url");
+  assert.strictEqual(
+    imageParts.length,
+    0,
+    "no image_url may reach a combo whose targets cannot read raw images"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A red square")),
+    "successful describe text is kept"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("unavailable")),
+    "failed describe becomes an 'unavailable' stub instead of preserving the image"
+  );
+});
+
+test("VB-S03/#8488-combo-ref: combo with UNKNOWN vision support (deps null) stubs partially-failed describes (not preserved)", async () => {
+  // Regression for the `claude-fable-5 → pool-fable` incident: a combo-ref chain
+  // whose resolved vision support is unknown (`null`) previously fell through the
+  // partial-failure stub branch (`comboHasConfirmedVision === false` only), so a
+  // failed describe preserved the raw image, and the #8488 combo capability
+  // filter failed closed with "No target in combo … has confirmed vision support".
+  // An unknown-capability combo must behave like a confirmed text-only combo:
+  // never hand a raw image to targets that cannot prove they read it.
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      // No checkComboHasConfirmedVision override → the deps path resolves null.
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A red square";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+  }>;
+
+  const imageParts = content.filter((p) => p.type === "image_url");
+  assert.strictEqual(
+    imageParts.length,
+    0,
+    "no image_url may reach a combo whose vision support cannot be proven"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A red square")),
+    "successful describe text is kept"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("unavailable")),
+    "failed describe becomes an 'unavailable' stub instead of leaking a raw image into the combo filter"
+  );
+});
+
+test("VB-S03/#4012: combo WITH confirmed-vision target preserves failed describe", async () => {
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      checkComboHasConfirmedVision: async (_model: string) => true,
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A blue circle";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+    image_url?: { url?: string };
+  }>;
+
+  assert.ok(
+    content.some((p) => p.type === "image_url" && p.image_url?.url?.includes("FAIL.png")),
+    "failed image preserved when a combo target is vision-capable (#4012)"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A blue circle")),
+    "successful describe text is kept"
+  );
 });
 
 test("VB-S03: logs warning when vision API fails (via combo mapping)", async () => {
@@ -771,21 +947,11 @@ test("VB-CRED-02: does NOT reroute to a vision model known to lack credentials",
 });
 
 test("isProviderConnectionUsable rejects noauth without api key", async () => {
-  const { isProviderConnectionUsable } = await import(
-    "../../../src/lib/guardrails/visionBridge.ts"
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "noauth", apiKey: null }),
-    false
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }),
-    true
-  );
-  assert.strictEqual(
-    isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }),
-    true
-  );
+  const { isProviderConnectionUsable } =
+    await import("../../../src/lib/guardrails/visionBridge.ts");
+  assert.strictEqual(isProviderConnectionUsable({ authType: "noauth", apiKey: null }), false);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "apikey", apiKey: "sk-real" }), true);
+  assert.strictEqual(isProviderConnectionUsable({ authType: "oauth", refreshToken: "rt" }), true);
   assert.strictEqual(
     isProviderConnectionUsable({ authType: "apikey", apiKey: "x", testStatus: "banned" }),
     false

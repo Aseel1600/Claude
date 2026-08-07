@@ -1,6 +1,7 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { CLAUDE_OAUTH_TOOL_PREFIX } from "../request/openai-to-claude.ts";
+import { caseInsensitiveToolNameLookup } from "../helpers/toolCallHelper.ts";
 import { hasToolCallShim, applyToolCallShimToBuffer } from "../helpers/toolCallShim.ts";
 import { appendToolCallArgumentDelta } from "../../utils/toolCallArguments.ts";
 import { isAbortFinishReason } from "../../utils/finishReason.ts";
@@ -329,13 +330,9 @@ export function openaiToClaudeResponse(chunk, state) {
     // proper structured content_block_* events instead of raw JSON.
     const parsedBlocks = parseAnthropicContentBlockArray(rawContent);
     if (parsedBlocks) {
+      stopThinkingBlock(state, results);
       for (const block of parsedBlocks) {
         if (block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
-          // Do NOT stop the thinking block here — consecutive chunks may
-          // each carry a thinking-only array, and stopping before emitting
-          // would create 1-word thinking blocks (content_block_stop +
-          // content_block_start per chunk). emitTextDelta below already stops
-          // thinking when the array transitions to text.
           emitThinkingDelta(state, results, block.thinking);
         } else if (block.type === "text" && typeof block.text === "string" && block.text) {
           stopThinkingBlock(state, results);
@@ -414,6 +411,7 @@ export function openaiToClaudeResponse(chunk, state) {
       // Strip the Claude OAuth prefix from an incoming tool name (if any).
       const incomingName = (() => {
         let n = tc.function?.name || "";
+        n = caseInsensitiveToolNameLookup(n, state.toolNameMap) ?? n;
         if (n.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) n = n.slice(CLAUDE_OAUTH_TOOL_PREFIX.length);
         return n;
       })();

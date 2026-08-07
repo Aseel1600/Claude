@@ -26,6 +26,7 @@ export function stripInternalReasoningPlaceholder(value: unknown): string {
   // on several response paths, so fail safely instead of throwing while
   // invoking String.prototype.replaceAll on an object.
   if (typeof value !== "string") return "";
+  if (!value.includes(NON_ANTHROPIC_THINKING_PLACEHOLDER)) return value;
   const stripped = value.replaceAll(NON_ANTHROPIC_THINKING_PLACEHOLDER, "");
   return stripped.trim() === "" ? "" : stripped;
 }

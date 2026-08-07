@@ -37,7 +37,6 @@ function normalizeToolSchema(schema: unknown): Record<string, unknown> {
 function normalizeOpenAIReasoningEffort(effort: unknown): string | undefined {
   if (typeof effort !== "string") return undefined;
   const normalized = effort.toLowerCase();
-  if (normalized === "max") return "xhigh";
   return normalized || undefined;
 }
 
