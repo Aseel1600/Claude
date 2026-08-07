@@ -228,6 +228,11 @@ export interface PluginContext {
   model: string;
   provider: string;
   apiKeyInfo?: unknown;
+  /** Client request headers available at the call site. Optional — not all callers
+   *  have access to headers (e.g. internal triggers, retries). Exposed so
+   *  observability/trace-export plugins can read request-scoped context sent by the
+   *  client (trace ids, correlation ids, session markers). */
+  headers?: Record<string, string | string[] | undefined>;
   metadata: Record<string, unknown>;
 }
 
