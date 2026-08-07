@@ -1,7 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, Button } from "@/shared/components";
+import {
+  AppleButton,
+  AppleCard,
+  AppleField,
+  AppleInput,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSelect,
+  AppleStatusDot,
+  AppleSurface,
+} from "@/shared/components";
 import { useTranslations } from "next-intl";
 
 type McpTransport = "stdio" | "sse" | "streamable-http";
@@ -379,15 +390,20 @@ export default function McpDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label={t("processStatus")} value={status?.online ? t("online") : t("offline")} />
+        <StatCard
+          label={t("processStatus")}
+          value={status?.online ? t("online") : t("offline")}
+          valueClassName={status?.online ? "text-success" : "text-red"}
+          dotKind={status?.online ? "success" : "error"}
+        />
         <StatCard label={t("pid")} value={status?.heartbeat?.pid ?? "—"} />
         <StatCard label={t("sessionUptime")} value={runtimeUptime} />
         <StatCard label={t("lastHeartbeat")} value={heartbeatLabel} />
       </div>
 
-      <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-4">{t("activity24h")}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <AppleCard className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">{t("activity24h")}</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard label={t("totalCalls")} value={status?.activity?.totalCalls24h ?? 0} compact />
           <StatCard
             label={t("successRate")}
@@ -401,7 +417,7 @@ export default function McpDashboardPage() {
           />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="rounded-lg border border-border p-3">
+          <AppleSurface weight="light" className="p-3">
             <h3 className="text-sm font-semibold mb-2">{t("topTools")}</h3>
             {topTools.length === 0 ? (
               <p className="text-sm text-text-muted">{t("noToolCalls24h")}</p>
@@ -415,104 +431,115 @@ export default function McpDashboardPage() {
                 ))}
               </ul>
             )}
-          </div>
-          <div className="rounded-lg border border-border p-3">
+          </AppleSurface>
+          <AppleSurface weight="light" className="p-3 text-sm space-y-1">
             <h3 className="text-sm font-semibold mb-2">{t("runtimeDetails")}</h3>
-            <div className="text-sm space-y-1">
-              <p>
-                {t("transport")}: <span className="font-mono">{runtimeTransport}</span>
-              </p>
-              <p>
-                {t("scopesEnforced")}:{" "}
-                <span className="font-semibold">
-                  {(status?.scopesEnforced ?? status?.heartbeat?.scopesEnforced) ? t("yes") : t("no")}
-                </span>
-              </p>
-              <p>
-                {t("lastCall")}:{" "}
-                <span className="font-mono text-xs">
-                  {status?.activity?.lastCallTool || "—"}{" "}
-                  {status?.activity?.lastCallAt
-                    ? `(${new Date(status.activity.lastCallAt).toLocaleString()})`
-                    : ""}
-                </span>
-              </p>
-              <p>
-                {t("heartbeatPath")}:{" "}
-                <span className="font-mono text-xs break-all">{status?.heartbeatPath || "—"}</span>
-              </p>
-            </div>
-          </div>
+            <p>
+              {t("transport")}: <span className="font-mono">{runtimeTransport}</span>
+            </p>
+            <p>
+              {t("scopesEnforced")}:{" "}
+              <span className="font-semibold">
+                {(status?.scopesEnforced ?? status?.heartbeat?.scopesEnforced) ? t("yes") : t("no")}
+              </span>
+            </p>
+            <p>
+              {t("lastCall")}:{" "}
+              <span className="font-mono text-xs">
+                {status?.activity?.lastCallTool || "—"}{" "}
+                {status?.activity?.lastCallAt
+                  ? `(${new Date(status.activity.lastCallAt).toLocaleString()})`
+                  : ""}
+              </span>
+            </p>
+            <p>
+              {t("heartbeatPath")}:{" "}
+              <span className="font-mono text-xs break-all">{status?.heartbeatPath || "—"}</span>
+            </p>
+          </AppleSurface>
         </div>
-      </Card>
+      </AppleCard>
 
-      <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-4">{t("operationalControls")}</h2>
+      <AppleCard className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">{t("operationalControls")}</h2>
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div className="rounded-lg border border-border p-3 space-y-3">
+          <AppleSurface weight="light" className="p-3 space-y-3">
             <p className="text-sm font-semibold">{t("switchCombo")}</p>
-            <select
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={selectedComboId}
-              onChange={(event) => setSelectedComboId(event.target.value)}
-            >
-              {combos.map((combo) => (
-                <option key={combo.id} value={combo.id}>
-                  {combo.name} ({combo.isActive === false ? t("inactive") : t("active")})
-                </option>
-              ))}
-            </select>
-            <Button
-              size="sm"
+            <AppleField id="mcp-combo-select" label={t("switchCombo")} className="sr-only">
+              <AppleSelect
+                id="mcp-combo-select"
+                value={selectedComboId}
+                onChange={(event) => setSelectedComboId((event.target as HTMLInputElement).value)}
+              >
+                {combos.map((combo) => (
+                  <option key={combo.id} value={combo.id}>
+                    {combo.name} ({combo.isActive === false ? t("inactive") : t("active")})
+                  </option>
+                ))}
+              </AppleSelect>
+            </AppleField>
+            <AppleButton
               variant="secondary"
+              size="sm"
               onClick={handleSwitchCombo}
               disabled={!selectedCombo || actionBusy === "switch"}
+              className="w-full"
             >
               {selectedCombo?.isActive === false ? t("activateCombo") : t("deactivateCombo")}
-            </Button>
-          </div>
+            </AppleButton>
+          </AppleSurface>
 
-          <div className="rounded-lg border border-border p-3 space-y-3">
+          <AppleSurface weight="light" className="p-3 space-y-3">
             <p className="text-sm font-semibold">{t("applyResilienceProfile")}</p>
-            <select
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={selectedProfile}
-              onChange={(event) =>
-                setSelectedProfile(event.target.value as keyof typeof RESILIENCE_PRESETS)
-              }
+            <AppleField
+              id="mcp-resilience-profile"
+              label={t("applyResilienceProfile")}
+              className="sr-only"
             >
-              <option value="aggressive">{t("profileAggressive")}</option>
-              <option value="balanced">{t("profileBalanced")}</option>
-              <option value="conservative">{t("profileConservative")}</option>
-            </select>
-            <Button
-              size="sm"
+              <AppleSelect
+                id="mcp-resilience-profile"
+                value={selectedProfile}
+                onChange={(event) =>
+                  setSelectedProfile(
+                    (event.target as HTMLInputElement).value as keyof typeof RESILIENCE_PRESETS
+                  )
+                }
+              >
+                <option value="aggressive">{t("profileAggressive")}</option>
+                <option value="balanced">{t("profileBalanced")}</option>
+                <option value="conservative">{t("profileConservative")}</option>
+              </AppleSelect>
+            </AppleField>
+            <AppleButton
               variant="secondary"
+              size="sm"
               onClick={handleApplyResilience}
               disabled={actionBusy === "resilience"}
+              className="w-full"
             >
               {t("applyProfile")}
-            </Button>
-          </div>
+            </AppleButton>
+          </AppleSurface>
 
-          <div className="rounded-lg border border-border p-3 space-y-3">
+          <AppleSurface weight="light" className="p-3 space-y-3">
             <p className="text-sm font-semibold">{t("resetCircuitBreakers")}</p>
             <p className="text-xs text-text-muted">{t("resetCircuitBreakersHelp")}</p>
-            <Button
+            <AppleButton
+              variant="secondary"
               size="sm"
               onClick={handleResetCircuitBreakers}
-              className="bg-red-500! hover:bg-red-600! text-white!"
+              className="w-full bg-red-500/10! text-red! hover:bg-red-500/20! border-red/30!"
               disabled={actionBusy === "reset"}
             >
               {t("resetAllBreakers")}
-            </Button>
-          </div>
+            </AppleButton>
+          </AppleSurface>
         </div>
-        {actionMessage && <p className="text-sm text-text-muted mt-3">{actionMessage}</p>}
-      </Card>
+        {actionMessage && <p className="text-sm text-text-muted mt-1">{actionMessage}</p>}
+      </AppleCard>
 
-      <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-4">{t("toolsAndScopes")}</h2>
+      <AppleCard className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">{t("toolsAndScopes")}</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -535,53 +562,65 @@ export default function McpDashboardPage() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </AppleCard>
 
-      <Card className="p-5">
-        <div className="flex flex-wrap gap-2 items-end justify-between mb-4">
+      <AppleCard className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-2 items-end justify-between">
           <div>
-            <h2 className="text-lg font-semibold">{t("auditLog")}</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t("auditLog")}</h2>
             <p className="text-sm text-text-muted">
               {t("auditSummary", { total: auditData.total, page: currentPage, totalPages })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <select
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={toolFilter}
-              onChange={(event) => {
-                setAuditOffset(0);
-                setToolFilter(event.target.value);
-              }}
+            <AppleField id="mcp-audit-tool" label={t("allTools")} className="min-w-[160px]">
+              <AppleSelect
+                id="mcp-audit-tool"
+                value={toolFilter}
+                onChange={(event) => {
+                  setAuditOffset(0);
+                  setToolFilter((event.target as HTMLInputElement).value);
+                }}
+              >
+                <option value="">{t("allTools")}</option>
+                {tools.map((tool) => (
+                  <option key={tool.name} value={tool.name}>
+                    {tool.name}
+                  </option>
+                ))}
+              </AppleSelect>
+            </AppleField>
+            <AppleField id="mcp-audit-success" label={t("allResults")} className="min-w-[140px]">
+              <AppleSelect
+                id="mcp-audit-success"
+                value={successFilter}
+                onChange={(event) => {
+                  setAuditOffset(0);
+                  setSuccessFilter(
+                    (event.target as HTMLInputElement).value as "all" | "true" | "false"
+                  );
+                }}
+              >
+                <option value="all">{t("allResults")}</option>
+                <option value="true">{t("success")}</option>
+                <option value="false">{t("failure")}</option>
+              </AppleSelect>
+            </AppleField>
+            <AppleField
+              id="mcp-audit-apikey"
+              label={t("apiKeyIdPlaceholder")}
+              className="min-w-[200px]"
             >
-              <option value="">{t("allTools")}</option>
-              {tools.map((tool) => (
-                <option key={tool.name} value={tool.name}>
-                  {tool.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={successFilter}
-              onChange={(event) => {
-                setAuditOffset(0);
-                setSuccessFilter(event.target.value as "all" | "true" | "false");
-              }}
-            >
-              <option value="all">{t("allResults")}</option>
-              <option value="true">{t("success")}</option>
-              <option value="false">{t("failure")}</option>
-            </select>
-            <input
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              placeholder={t("apiKeyIdPlaceholder")}
-              value={apiKeyFilter}
-              onChange={(event) => {
-                setAuditOffset(0);
-                setApiKeyFilter(event.target.value);
-              }}
-            />
+              <AppleInput
+                id="mcp-audit-apikey"
+                placeholder={t("apiKeyIdPlaceholder")}
+                value={apiKeyFilter}
+                onChange={(event) => {
+                  setAuditOffset(0);
+                  setApiKeyFilter(event.target.value);
+                }}
+              />
+            </AppleField>
           </div>
         </div>
 
@@ -610,7 +649,7 @@ export default function McpDashboardPage() {
                     <td className="py-2 pr-2 font-mono text-xs">{entry.toolName}</td>
                     <td className="py-2 pr-2">{entry.durationMs}ms</td>
                     <td className="py-2 pr-2">
-                      <span className={entry.success ? "text-green-500" : "text-red-500"}>
+                      <span className={entry.success ? "text-success" : "text-red"}>
                         {entry.success ? t("success") : entry.errorCode || t("failed")}
                       </span>
                     </td>
@@ -622,18 +661,18 @@ export default function McpDashboardPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-end gap-2 mt-4">
-          <Button
-            size="sm"
+        <div className="flex items-center justify-end gap-2 mt-2">
+          <AppleButton
             variant="secondary"
+            size="sm"
             disabled={auditOffset === 0}
             onClick={() => setAuditOffset((current) => Math.max(0, current - AUDIT_PAGE_SIZE))}
           >
             {t("previous")}
-          </Button>
-          <Button
-            size="sm"
+          </AppleButton>
+          <AppleButton
             variant="secondary"
+            size="sm"
             disabled={auditOffset + AUDIT_PAGE_SIZE >= auditData.total}
             onClick={() =>
               setAuditOffset((current) =>
@@ -642,9 +681,9 @@ export default function McpDashboardPage() {
             }
           >
             {t("next")}
-          </Button>
+          </AppleButton>
         </div>
-      </Card>
+      </AppleCard>
     </div>
   );
 }
@@ -653,15 +692,28 @@ function StatCard({
   label,
   value,
   compact = false,
+  valueClassName,
+  dotKind,
 }: {
   label: string;
   value: string | number;
   compact?: boolean;
+  valueClassName?: string;
+  dotKind?: "success" | "muted" | "info" | "warning" | "error";
 }) {
   return (
-    <div className={`rounded-lg border border-border bg-bg p-4 ${compact ? "" : "min-h-[84px]"}`}>
-      <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-semibold mt-1">{value}</p>
-    </div>
+    <AppleSurface
+      weight="light"
+      className={`flex flex-col gap-1 p-4 ${compact ? "" : "min-h-[84px] justify-between"}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <AppleMetricLabel className="uppercase tracking-wide text-[10px]">{label}</AppleMetricLabel>
+        {dotKind ? <AppleStatusDot size="sm" className={valueClassName} /> : null}
+      </div>
+      <AppleMetric size="md" className={valueClassName}>
+        {value}
+      </AppleMetric>
+      {!compact ? <AppleMetricSub className="text-text-muted" /> : null}
+    </AppleSurface>
   );
 }
