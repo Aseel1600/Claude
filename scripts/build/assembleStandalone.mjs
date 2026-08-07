@@ -77,6 +77,11 @@ async function exists(targetPath) {
  */
 export const NATIVE_ASSET_ENTRIES = [
   {
+    label: "wreq-js native runtime",
+    src: ["node_modules", "wreq-js", "rust"],
+    dest: ["node_modules", "wreq-js", "rust"],
+  },
+  {
     label: "better-sqlite3 native binary",
     src: ["node_modules", "better-sqlite3", "build"],
     dest: ["node_modules", "better-sqlite3", "build"],
