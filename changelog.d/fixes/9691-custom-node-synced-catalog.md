@@ -1,0 +1,1 @@
+- **fix(models):** custom provider nodes regained their synced catalog (empty after #9294's active-connection filter — broke #7694 effort-suffix resolution and dropped thinking-effort/limit metadata for prefix-proxy nodes) ([#9691](https://github.com/diegosouzapw/OmniRoute/pull/9691))
