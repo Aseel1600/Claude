@@ -46,6 +46,7 @@ test("public login bootstrap route exposes the metadata the login page consumes"
 
   assert.equal(response.status, 200);
   assert.deepEqual(body, {
+    // #9491 added `authenticated` so /login can redirect an active session.
     authenticated: false,
     requireLogin: true,
     hasPassword: false,
@@ -69,6 +70,7 @@ test("public login bootstrap route reports env-provided bootstrap password metad
 
   assert.equal(response.status, 200);
   assert.deepEqual(body, {
+    // #9491 added `authenticated` so /login can redirect an active session.
     authenticated: false,
     requireLogin: true,
     hasPassword: true,
@@ -91,6 +93,7 @@ test("public login bootstrap route reports stored password metadata and disabled
 
   assert.equal(response.status, 200);
   assert.deepEqual(body, {
+    // #9491 added `authenticated` so /login can redirect an active session.
     authenticated: false,
     requireLogin: false,
     hasPassword: true,
