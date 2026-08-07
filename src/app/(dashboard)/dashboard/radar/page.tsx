@@ -126,32 +126,32 @@ export default function RadarPage() {
     }
   }, [t]);
 
-  // Fetch settings to determine opt-in state
+  // Fetch settings to determine opt-in state (GET /api/radar/settings — FIX 3:
+  // previously there was no settings GET, so an already-opted-in operator saw
+  // the activation screen on every reload).
   const fetchSettings = useCallback(async () => {
     try {
-      // We don't have a GET /api/radar/settings — infer from catalog response:
-      // If catalog returns meta=null and entries are baseline-only, user hasn't opted in.
-      // A 404 means flag is off.
-      const res = await fetch("/api/radar/catalog");
-      if (res.status === 404) {
+      const settingsRes = await fetch("/api/radar/settings");
+      if (settingsRes.status === 404) {
+        // Flag off
         setOptIn(false);
         return;
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setEntries(data.entries || []);
-      setMeta(data.meta || null);
-      // If meta is null, the user hasn't synced yet (or hasn't opted in).
-      // We need to check opt-in state. Since there's no GET endpoint for settings,
-      // we infer: if flag is on and we got baseline, user may or may not be opted in.
-      // The activation flow handles this — we show the activation screen if meta is null.
-      setOptIn(null); // unknown — will determine from user action
+      if (!settingsRes.ok) throw new Error(`HTTP ${settingsRes.status}`);
+      const settingsData = await settingsRes.json();
+      setOptIn(settingsData.optIn === true);
+
+      if (settingsData.optIn === true) {
+        // Already opted in — load the catalog now so the populated/empty
+        // state renders immediately instead of waiting for a manual sync.
+        await fetchCatalog();
+      }
     } catch {
       setOptIn(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchCatalog]);
 
   useEffect(() => {
     fetchSettings();
@@ -167,7 +167,10 @@ export default function RadarPage() {
       const data = await res.json();
       if (data.status === "updated" || data.status === "stale") {
         await fetchCatalog();
-      } else if (data.status === "error") {
+      } else if (data.status === "error" || data.status === "too_large") {
+        // "too_large" reuses the generic sync-failed copy — the feed exceeded the
+        // client-side size cap (10MB), which is operationally the same as any
+        // other sync failure from the operator's point of view.
         setError(data.reason || t("syncFailed"));
       } else if (data.status === "disabled") {
         setError(t("flagDisabled"));
