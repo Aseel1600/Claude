@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/shared/components";
+import { shouldAutoSyncOnOpen } from "@/lib/radar/autoSync";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -183,6 +184,19 @@ export default function RadarPage() {
       setSyncing(false);
     }
   }, [t, fetchCatalog]);
+
+  // Auto-sync on open: when the operator is already opted in and the cached
+  // feed is stale (or absent), refresh it automatically once per mount so the
+  // page always shows current data without requiring the manual Sync button
+  // (spec: dados atualizados a cada abrir da página). The ref guards against
+  // re-firing when `meta` updates after the sync itself.
+  const autoSyncFiredRef = useRef(false);
+  useEffect(() => {
+    if (loading || syncing || optIn !== true || autoSyncFiredRef.current) return;
+    if (!shouldAutoSyncOnOpen(meta?.fetchedAt ?? null, Date.now())) return;
+    autoSyncFiredRef.current = true;
+    void handleSync();
+  }, [loading, syncing, optIn, meta, handleSync]);
 
   // Activate opt-in
   const handleActivate = useCallback(async () => {

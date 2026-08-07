@@ -134,6 +134,17 @@ export async function POST(request: Request) {
   try {
     if (optIn !== undefined) {
       setRadarOptIn(optIn);
+      if (optIn) {
+        // Opting in is the moment the daily background sync becomes wanted —
+        // arm the scheduler lazily so a flag-off/opt-out install never even
+        // creates the timer (Radar inertia contract). Never fatal.
+        try {
+          const { ensureRadarSyncScheduler } = await import("@/lib/radar/scheduler");
+          ensureRadarSyncScheduler();
+        } catch {
+          // Scheduler is best-effort; manual sync keeps working without it.
+        }
+      }
     }
     if (supporterKey !== undefined) {
       setRadarKey(supporterKey);
