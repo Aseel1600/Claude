@@ -472,6 +472,11 @@ function isSchemaAlreadyApplied(
       return hasColumn(db, "version_manager", "auto_restart_adopted");
     case "138":
       return hasColumn(db, "upstream_proxy_config", "fallback_backend");
+    // Retroactive guard for the 134→139 renumber (proxy_logs_egress_ip collided
+    // with ccr_blocks at slot 134): a DB that applied it under the old number
+    // already has the column, and a bare ALTER TABLE ADD COLUMN would throw.
+    case "139":
+      return hasColumn(db, "proxy_logs", "egress_ip");
     default:
       return false;
   }

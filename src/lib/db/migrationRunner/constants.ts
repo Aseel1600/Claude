@@ -69,6 +69,15 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "059",
     toName: "manifest_routing",
   },
+  // 134_proxy_logs_egress_ip collided with 134_ccr_blocks; renumbered to 139 so
+  // the ccr_blocks durable-tier migration can apply at 134. DBs that already ran
+  // egress_ip under 134 are re-recorded to 139, freeing the slot for ccr_blocks.
+  {
+    fromVersion: "134",
+    fromName: "proxy_logs_egress_ip",
+    toVersion: "139",
+    toName: "proxy_logs_egress_ip",
+  },
 ] as const;
 
 export const LEGACY_VERSION_SLOT_MIGRATIONS = [
