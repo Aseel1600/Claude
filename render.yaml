@@ -4,3 +4,6 @@ services:
     env: docker
     dockerfilePath: ./Dockerfile.render
     plan: free
+    envVars:
+      - key: PORT
+        value: "20128"

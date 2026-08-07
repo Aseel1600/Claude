@@ -1,1 +1,7 @@
 FROM diegosouzapw/omniroute:latest
+# Render dynamically passes $PORT. Ensure we bind to it if necessary.
+ENV PORT=10000
+EXPOSE 10000
+
+# Optionally run as root to avoid volume permission issues on Render
+USER root
