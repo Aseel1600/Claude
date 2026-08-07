@@ -1,7 +1,7 @@
 /**
  * Vision Bridge helper functions for image processing.
  */
-import { detectMediaParts } from "@omniroute/open-sse/utils/mediaParts";
+import { detectMediaParts, type MediaPart } from "@omniroute/open-sse/utils/mediaParts";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveSelfLoopBearer } from "@/shared/middleware/chatBodyAdmission";
@@ -119,14 +119,30 @@ export type RequestContentPart =
  * vision-bridge guardrail, so the image was silently dropped by a text-only
  * executor instead of being described.
  */
+/**
+ * Shapes `replaceImageParts` knows how to splice: top-level content parts
+ * whose `type` is `image_url`, `image`, or `input_image`. Everything else the
+ * detector reports (nested hits, `data_uri_string`, `image_indicator`) is
+ * combo-filter material only — extracting it would desync the positional
+ * description consumption in visionBridge (descriptions would shift onto the
+ * wrong images).
+ */
+const REPLACEABLE_IMAGE_SHAPES: ReadonlySet<MediaPart["shape"]> = new Set([
+  "image_url",
+  "image_base64",
+  "image_source_url",
+  "input_image",
+]);
+
 export function extractImageParts(messages: RequestMessage[]): ImagePart[] {
   // Delegates to the unified detector (open-sse/utils/mediaParts.ts) so the
   // guardrail and the combo compatibility filter share one source of truth.
-  // Parts without an extractable ref (combo-parity indicator shapes) are
-  // skipped — the guardrail can only describe images it can actually fetch,
-  // mirroring the historical `if (url)` guard.
-  return detectMediaParts(messages as Parameters<typeof detectMediaParts>[0])
-    .filter((p) => p.kind === "image" && p.ref)
+  // Extraction is ALLOWLISTED to top-level (non-nested) parts whose shape
+  // replaceImageParts can splice back — the extract↔replace contract: every
+  // extracted part MUST be replaceable, in the same order, or the positional
+  // descriptions shift onto the wrong images.
+  return detectMediaParts(messages)
+    .filter((p) => p.kind === "image" && !p.nested && REPLACEABLE_IMAGE_SHAPES.has(p.shape))
     .map((p) => ({
       messageIndex: p.messageIndex,
       partIndex: p.partIndex,
@@ -666,7 +682,12 @@ export function replaceImageParts(
     const newContent: RequestContentPart[] = [];
 
     for (const part of message.content) {
-      if (part?.type === "image_url" || part?.type === "image") {
+      // `input_image` (Responses API) is read through a widened type: it is
+      // not part of the historical RequestContentPart union but MUST be
+      // replaceable — extractImageParts allowlists it, and every extracted
+      // part needs a matching splice here (extract↔replace contract).
+      const partType = (part as { type?: string } | null | undefined)?.type;
+      if (partType === "image_url" || partType === "image" || partType === "input_image") {
         if (descriptionIndex < descriptions.length) {
           const description = descriptions[descriptionIndex];
           descriptionIndex++;

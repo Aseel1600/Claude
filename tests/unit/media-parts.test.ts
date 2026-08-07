@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { detectMediaParts } from "../../open-sse/utils/mediaParts";
-import { extractImageParts } from "../../src/lib/guardrails/visionBridgeHelpers";
+import { extractImageParts, replaceImageParts } from "../../src/lib/guardrails/visionBridgeHelpers";
 
 const msg = (content: unknown) => [{ role: "user", content }];
 
@@ -21,7 +21,7 @@ test("detects Anthropic base64 image source", () => {
   assert.equal(parts[0].ref, "data:image/png;base64,AAA");
 });
 
-test("detects Responses-API input_image (gap atual)", () => {
+test("detects Responses-API input_image", () => {
   const parts = detectMediaParts(msg([{ type: "input_image", image_url: "https://x/i.png" }]));
   assert.equal(parts.length, 1);
   assert.equal(parts[0].kind, "image");
@@ -121,10 +121,11 @@ test("image nested inside input_audio payload is still detected", () => {
   assert.ok(parts.some((p) => p.kind === "image" && p.ref === "https://x/c.png"));
 });
 
-test("bare source.media_type audio/* yields a single audio part", () => {
+test("bare source.media_type audio/* yields a single audio_source part", () => {
   const parts = detectMediaParts(msg([{ source: { media_type: "audio/wav", data: "QUJD" } }]));
   assert.equal(parts.length, 1);
   assert.equal(parts[0].kind, "audio");
+  assert.equal(parts[0].shape, "audio_source");
   assert.equal(parts[0].ref, "QUJD");
 });
 
@@ -141,4 +142,61 @@ test("extractImageParts now sees input_image (Responses API)", () => {
   ]);
   assert.equal(parts.length, 1);
   assert.equal(parts[0].imageUrl, "https://x/i.png");
+});
+
+test("extract→replace round-trip: input_image does not shift sibling descriptions", () => {
+  const body = {
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "input_image", image_url: "https://x/a.png" },
+          { type: "image_url", image_url: { url: "https://x/b.png" } },
+        ],
+      },
+    ],
+  };
+  const extracted = extractImageParts(body.messages as never);
+  assert.equal(extracted.length, 2);
+  assert.equal(extracted[0].imageUrl, "https://x/a.png");
+  assert.equal(extracted[1].imageUrl, "https://x/b.png");
+
+  const replaced = replaceImageParts(body as never, ["DA", "DB"]);
+  const content = (replaced.messages as Array<{ content: unknown }>)[0].content;
+  assert.deepEqual(content, [
+    { type: "text", text: "DA" },
+    { type: "text", text: "DB" },
+  ]);
+});
+
+test("extractImageParts does not extract a data URI embedded in a text part", () => {
+  const parts = extractImageParts([
+    {
+      role: "user",
+      content: [{ type: "text", text: "data:image/png;base64,QUJD" }],
+    } as never,
+  ]);
+  assert.deepEqual(parts, []);
+});
+
+test("extractImageParts skips nested and indicator-only detections", () => {
+  const parts = extractImageParts([
+    {
+      role: "user",
+      content: [
+        // Image nested inside an audio payload: detector reports it (combo needs
+        // it) but the replacer cannot splice it — must not be extracted.
+        {
+          type: "input_audio",
+          input_audio: {
+            data: "QUJD",
+            cover: { type: "image_url", image_url: { url: "https://x/c.png" } },
+          },
+        },
+        // Bare image_url key without type: indicator shape, not replaceable.
+        { image_url: "https://x/bare.png" },
+      ],
+    } as never,
+  ]);
+  assert.deepEqual(parts, []);
 });
