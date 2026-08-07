@@ -1,65 +1,65 @@
 # Context Relay (Italiano)
 
-🌐 **Languages:** 🇺🇸 [English](../../../../../docs/features/context-relay.md) · 🇪🇸 [es](../../../es/docs/features/context-relay.md) · 🇫🇷 [fr](../../../fr/docs/features/context-relay.md) · 🇩🇪 [de](../../../de/docs/features/context-relay.md) · 🇮🇹 [it](../../../it/docs/features/context-relay.md) · 🇷🇺 [ru](../../../ru/docs/features/context-relay.md) · 🇨🇳 [zh-CN](../../../zh-CN/docs/features/context-relay.md) · 🇯🇵 [ja](../../../ja/docs/features/context-relay.md) · 🇰🇷 [ko](../../../ko/docs/features/context-relay.md) · 🇸🇦 [ar](../../../ar/docs/features/context-relay.md) · 🇮🇳 [hi](../../../hi/docs/features/context-relay.md) · 🇮🇳 [in](../../../in/docs/features/context-relay.md) · 🇹🇭 [th](../../../th/docs/features/context-relay.md) · 🇻🇳 [vi](../../../vi/docs/features/context-relay.md) · 🇮🇩 [id](../../../id/docs/features/context-relay.md) · 🇲🇾 [ms](../../../ms/docs/features/context-relay.md) · 🇳🇱 [nl](../../../nl/docs/features/context-relay.md) · 🇵🇱 [pl](../../../pl/docs/features/context-relay.md) · 🇸🇪 [sv](../../../sv/docs/features/context-relay.md) · 🇳🇴 [no](../../../no/docs/features/context-relay.md) · 🇩🇰 [da](../../../da/docs/features/context-relay.md) · 🇫🇮 [fi](../../../fi/docs/features/context-relay.md) · 🇵🇹 [pt](../../../pt/docs/features/context-relay.md) · 🇷🇴 [ro](../../../ro/docs/features/context-relay.md) · 🇭🇺 [hu](../../../hu/docs/features/context-relay.md) · 🇧🇬 [bg](../../../bg/docs/features/context-relay.md) · 🇸🇰 [sk](../../../sk/docs/features/context-relay.md) · 🇺🇦 [uk-UA](../../../uk-UA/docs/features/context-relay.md) · 🇮🇱 [he](../../../he/docs/features/context-relay.md) · 🇵🇭 [phi](../../../phi/docs/features/context-relay.md) · 🇧🇷 [pt-BR](../../../pt-BR/docs/features/context-relay.md) · 🇨🇿 [cs](../../../cs/docs/features/context-relay.md) · 🇹🇷 [tr](../../../tr/docs/features/context-relay.md)
+🌐 **Lingue:** 🌐 [English](../../../../../docs/features/context-relay.md) · [es](../../../es/docs/features/context-relay.md) · [fr](../../../fr/docs/features/context-relay.md) · [de](../../../de/docs/features/context-relay.md) · [it](../../../it/docs/features/context-relay.md) · [ru](../../../ru/docs/features/context-relay.md) · [zh-CN](../../../zh-CN/docs/features/context-relay.md) · [ja](../../../ja/docs/features/context-relay.md) · [ko](../../../ko/docs/features/context-relay.md) · [ar](../../../ar/docs/features/context-relay.md) · [hi](../../../hi/docs/features/context-relay.md) · [in](../../../in/docs/features/context-relay.md) · [th](../../../th/docs/features/context-relay.md) · [vi](../../../vi/docs/features/context-relay.md) · [id](../../../id/docs/features/context-relay.md) · [ms](../../../ms/docs/features/context-relay.md) · [nl](../../../nl/docs/features/context-relay.md) · [pl](../../../pl/docs/features/context-relay.md) · [sv](../../../sv/docs/features/context-relay.md) · [no](../../../no/docs/features/context-relay.md) · [da](../../../da/docs/features/context-relay.md) · [fi](../../../fi/docs/features/context-relay.md) · [pt](../../../pt/docs/features/context-relay.md) · [ro](../../../ro/docs/features/context-relay.md) · [hu](../../../hu/docs/features/context-relay.md) · [bg](../../../bg/docs/features/context-relay.md) · [sk](../../../sk/docs/features/context-relay.md) · [uk-UA](../../../uk-UA/docs/features/context-relay.md) · [he](../../../he/docs/features/context-relay.md) · [phi](../../../phi/docs/features/context-relay.md) · [pt-BR](../../../pt-BR/docs/features/context-relay.md) · [cs](../../../cs/docs/features/context-relay.md) · [tr](../../../tr/docs/features/context-relay.md)
 
 ---
 
-`context-relay` is a combo strategy that keeps session continuity when the active account
-rotates before the conversation is finished.
+`context-relay` è una strategia combo che mantiene la continuità della sessione quando l'account
+attivo ruota prima che la conversazione sia terminata.
 
-The current runtime behaves like priority routing for model selection, then adds a
-handoff layer on top:
+Il runtime attuale si comporta come il routing per-priorità per la selezione del modello, aggiungendo
+inoltre un livello di handoff sopra:
 
-- before the active account is exhausted, OmniRoute generates a compact structured summary
-- after authentication selects a different account for the same session, OmniRoute injects
-  that summary as a system message into the next request
-- once the handoff is consumed successfully, it is removed from storage
+- prima che l'account attivo sia esaurito, OmniRoute genera un riepilogo strutturato e compatto
+- dopo che l'autenticazione seleziona un account diverso per la stessa sessione, OmniRoute inietta
+  quel riepilogo come messaggio di sistema nella richiesta successiva
+- una volta che l'handoff viene consumato con successo, viene rimosso dallo storage
 
-## When To Use It
+## Quando Usarlo
 
-Use `context-relay` when all of the following are true:
+Usa `context-relay` quando sono vere tutte le seguenti condizioni:
 
-- the combo is expected to rotate between multiple accounts of the same provider
-- losing short-term conversational continuity would hurt task quality
-- the provider exposes enough quota information to predict an approaching account limit
+- il combo deve ruotare tra più account dello stesso fornitore
+- perdere la continuità conversazionale a breve termine danneggerebbe la qualità del compito
+- il fornitore espone informazioni sulla quota sufficienti per prevedere un limite d'account imminente
 
-This is most useful for long-running coding or research sessions that may outlive a single
-account window.
+È particolarmente utile per sessioni di sviluppo o ricerca di lunga durata che possono oltrepassare
+una singola finestra d'account.
 
-## Runtime Flow
+## Flusso di Runtime
 
-The current behavior is intentionally split across two runtime layers.
+Il comportamento attuale è volutamente suddiviso tra due livelli del runtime.
 
-### 0% to 84% quota used
+### Quota usata dallo 0% all'84%
 
-No handoff is generated. Requests behave like normal priority routing.
+Nessun handoff viene generato. Le richieste si comportano come il normale routing per-priorità.
 
-### 85% to 94% quota used
+### Quota usata dall'85% al 94%
 
-If the active provider is enabled in `handoffProviders`, OmniRoute generates a structured
-handoff summary in the background before the account is fully exhausted.
+Se il fornitore attivo è abilitato in `handoffProviders`, OmniRoute genera un riepilogo di handoff
+strutturato in background prima che l'account sia completamente esaurito.
 
-Important details:
+Dettagli importanti:
 
-- the default warning threshold is `0.85`
-- the hard stop for generation is `0.95`
-- only one in-flight handoff generation is allowed per `sessionId + comboName`
-- if an active handoff already exists for that session/combo, no duplicate summary is generated
+- la soglia di avviso predefinita è `0.85`
+- il blocco rigido per la generazione è `0.95`
+- è consentita una sola generazione di handoff in corso per `sessionId + comboName`
+- se esiste già un handoff attivo per quella sessione/combo, non viene generato un riepilogo duplicato
 
-### 95% or more quota used
+### Quota usata del 95% o superiore
 
-No new handoff is generated. At this point the system is already in or near exhaustion and
-the runtime avoids scheduling another summary request.
+Nessun nuovo handoff viene generato. A questo punto il sistema è già in o vicino all'esaurimento e
+il runtime evita di pianificare un'ulteriore richiesta di riepilogo.
 
-### After account rotation
+### Dopo la rotazione dell'account
 
-When the next request for the same session resolves to a different authenticated account,
-OmniRoute prepends the stored handoff as a system message. Injection happens only after the
-real account switch is known.
+Quando la richiesta successiva per la stessa sessione viene risolta su un account autenticato diverso,
+OmniRoute aggiunge in testa l'handoff salvato come messaggio di sistema. L'iniezione avviene solo dopo
+che il reale cambio di account è noto.
 
-## Handoff Payload
+## Payload dell'Handoff
 
-The persisted handoff payload is stored in `context_handoffs` and includes:
+Il payload dell'handoff persistito è memorizzato in `context_handoffs` e include:
 
 - `sessionId`
 - `comboName`
@@ -74,57 +74,57 @@ The persisted handoff payload is stored in `context_handoffs` and includes:
 - `generatedAt`
 - `expiresAt`
 
-The summary model is instructed to return a JSON object with this structure:
+Al modello del riepilogo viene chiesto di restituire un oggetto JSON con questa struttura:
 
 ```json
 {
-  "summary": "Dense summary of what matters for continuity",
-  "keyDecisions": ["Decision 1", "Decision 2"],
-  "taskProgress": "What is done, what is pending, and the next step",
-  "activeEntities": ["fileA.ts", "feature X", "provider Y"]
+  "summary": "Riepilogo denso di ciò che conta per la continuità",
+  "keyDecisions": ["Decisione 1", "Decisione 2"],
+  "taskProgress": "Cosa è stato fatto, cosa resta da fare e il prossimo passo",
+  "activeEntities": ["fileA.ts", "funzionalità X", "provider Y"]
 }
 ```
 
-At injection time, OmniRoute converts that payload into a `<context_handoff>` system
-message so the next account can continue with the correct local context.
+Al momento dell'iniezione, OmniRoute converte il payload in un messaggio di sistema `<context_handoff>`
+in modo che l'account successivo possa proseguire con il contesto locale corretto.
 
 ## Configurazione
 
-`context-relay` supports these config fields:
+`context-relay` supporta questi campi di configurazione:
 
-- `handoffThreshold`: warning threshold for summary generation, default `0.85`
-- `handoffModel`: optional model override used only for summary generation
-- `handoffProviders`: allowlist of providers allowed to trigger handoff generation
+- `handoffThreshold`: soglia di avviso per la generazione del riepilogo, predefinita `0.85`
+- `handoffModel`: override facoltativo del modello usato solo per la generazione del riepilogo
+- `handoffProviders`: allowlist dei fornitori autorizzati ad attivare la generazione dell'handoff
 
-Global defaults can be configured in Settings, and combo-specific values can override them
-in the Combos page.
+I valori predefiniti globali possono essere configurati nelle Impostazioni, mentre i valori specifici
+della combo possono sovrascriverli nella pagina Combos.
 
-## Architectural Note
+## Nota Architetturale
 
-The current implementation does not use a standalone `handleContextRelayCombo` handler.
+L'implementazione attuale non usa un gestore autonomo `handleContextRelayCombo`.
 
-Instead:
+Invece:
 
-- `open-sse/services/combo.ts` decides whether a successful turn should generate a handoff
-- `src/sse/handlers/chat.ts` injects the handoff only after authentication resolves the
-  actual account used for the request
+- `open-sse/services/combo.ts` decide se un turno riuscito deve generare un handoff
+- `src/sse/handlers/chat.ts` inietta l'handoff solo dopo che l'autenticazione risolve l'account
+  effettivamente usato per la richiesta
 
-This split is intentional in the current codebase because the combo loop alone does not know
-whether the request stayed on the same account or actually switched accounts.
+Questa separazione è intenzionale nel codebase attuale perché il loop della combo, da solo, non sa
+se la richiesta sia rimasta sullo stesso account o sia realmente passata a un altro account.
 
-## Limitations
+## Limitazioni
 
-- Effective runtime support is currently centered on `codex` quota rotation.
-- `handoffProviders` is already modeled as a config surface, but real handoff generation
-  still depends on provider-specific quota plumbing.
-- The summary is intentionally compact and recent-history based; it is not a full transcript
-  replay mechanism.
-- Handoffs are scoped by `sessionId + comboName` and expire automatically.
-- If the session does not switch accounts, the stored handoff is not injected.
+- Il supporto di runtime efficace è attualmente incentrato sulla rotazione della quota di `codex`.
+- `handoffProviders` è già modellato come superficie di configurazione, ma la generazione effettiva
+  dell'handoff dipende ancora dal plumbing della quota specifico del fornitore.
+- Il riepilogo è volutamente compatto e basato sulla cronologia recente; non è un meccanismo di
+  riproduzione completa del trascritto.
+- Gli handoff sono limitati da `sessionId + comboName` e scadono automaticamente.
+- Se la sessione non passa a un account diverso, l'handoff memorizzato non viene iniettato.
 
-## Recommended Usage Pattern
+## Modello di Uso Raccomandato
 
-- use multiple accounts from the same provider
-- keep stable `sessionId` values across the session
-- set `handoffThreshold` early enough to leave room for the background summary request
-- treat the feature as continuity assistance, not as a replacement for persistent memory
+- usa più account dello stesso fornitore
+- mantieni valori `sessionId` stabili per tutta la sessione
+- imposta `handoffThreshold` abbastanza presto da lasciare spazio alla richiesta di riepilogo in background
+- tratta la funzionalità come un'assistenza alla continuità, non come un sostituto della memoria persistente
