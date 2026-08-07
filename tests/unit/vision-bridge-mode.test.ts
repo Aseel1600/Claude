@@ -24,7 +24,12 @@ const { VisionBridgeGuardrail } = await import("../../src/lib/guardrails/visionB
 
 const TEXT_ONLY_MODEL = "some/text-only-model";
 
-function imageBody(): Record<string, unknown> {
+/**
+ * Unique per-test payload: the describe path caches by image+prompt+model
+ * (Task 8), so reusing the same data URI across tests would turn a later
+ * describe into a cache hit and hide the upstream call being asserted.
+ */
+function imageBody(uniqueRef: string): Record<string, unknown> {
   return {
     model: TEXT_ONLY_MODEL,
     messages: [
@@ -32,7 +37,12 @@ function imageBody(): Record<string, unknown> {
         role: "user",
         content: [
           { type: "text", text: "o que há na imagem?" },
-          { type: "image_url", image_url: { url: "data:image/png;base64,AAA" } },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/png;base64,${Buffer.from(uniqueRef).toString("base64")}`,
+            },
+          },
         ],
       },
     ],
@@ -57,7 +67,7 @@ test("mode=describe: never reroutes even when a reroute target exists", async ()
     },
   });
 
-  const body = imageBody();
+  const body = imageBody("mode-describe-test");
   const result = await guardrail.preCall(body, { model: TEXT_ONLY_MODEL, log: console });
 
   const meta = metaOf(result);
@@ -79,7 +89,7 @@ test("mode=reroute: falls back to describe when no reroute target has credential
     },
   });
 
-  const body = imageBody();
+  const body = imageBody("mode-reroute-fallback-test");
   const result = await guardrail.preCall(body, { model: TEXT_ONLY_MODEL, log: console });
 
   const meta = metaOf(result);
@@ -101,7 +111,7 @@ test("mode=reroute: forces reroute where auto mode would keep the credentialed m
     },
   });
 
-  const body = imageBody();
+  const body = imageBody("mode-reroute-forces-test");
   const result = await guardrail.preCall(body, { model: TEXT_ONLY_MODEL, log: console });
 
   const meta = metaOf(result);
@@ -119,7 +129,7 @@ test("mode=auto (default): credentialed model is described, not hijacked", async
     },
   });
 
-  const body = imageBody();
+  const body = imageBody("mode-auto-default-test");
   const result = await guardrail.preCall(body, { model: TEXT_ONLY_MODEL, log: console });
 
   const meta = metaOf(result);

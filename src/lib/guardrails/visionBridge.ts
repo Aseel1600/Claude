@@ -20,6 +20,7 @@ import {
 } from "@/shared/constants/visionBridgeDefaults";
 import { resolveVisionBridgeRuntimeSettings } from "@/shared/constants/modalityBridgeDefaults";
 import { getBestVisionModel } from "./visionBridgeRouter";
+import { bridgeCacheKey, getSharedBridgeCacheFor } from "./modalityBridge/bridgeCache";
 import {
   isProviderConnectionUsable,
   hasUsableCredentialsForModel,
@@ -342,10 +343,18 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     const composedPrompt = composeVisionPrompt(config.prompt, lastUserText, runtime.taskAware);
     const describeConfig = { ...config, prompt: composedPrompt };
 
+    // Shared describe cache (sha256 of contentRef+prompt+model): the same image
+    // with the same prompt/model is described once per TTL. Failures are never
+    // cached — a throw inside the map happens before the cache write.
+    const cache = runtime.cacheEnabled ? getSharedBridgeCacheFor(runtime) : null;
+
     // Process all images in parallel using Promise.allSettled for fail-partial behavior
     const results = await Promise.allSettled(
       limitedParts.map(async (imagePart, i) => {
-        const description = await callVision(imagePart.imageUrl, describeConfig);
+        const key = cache ? bridgeCacheKey(imagePart.imageUrl, composedPrompt, config.model) : null;
+        const cached = key && cache ? cache.get(key) : undefined;
+        const description = cached ?? (await callVision(imagePart.imageUrl, describeConfig));
+        if (cached === undefined && key && cache) cache.set(key, description);
         return `[Image ${i + 1}]: ${description}`;
       })
     );
