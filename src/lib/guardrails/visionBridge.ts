@@ -14,10 +14,10 @@ import {
   replaceImageParts,
 } from "./visionBridgeHelpers";
 import {
-  VISION_BRIDGE_DEFAULTS,
   getVisionBridgeConfig,
   isVisionBridgeForcedModel,
 } from "@/shared/constants/visionBridgeDefaults";
+import { resolveVisionBridgeRuntimeSettings } from "@/shared/constants/modalityBridgeDefaults";
 import { getBestVisionModel } from "./visionBridgeRouter";
 import {
   isProviderConnectionUsable,
@@ -193,11 +193,12 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       // If getSettings fails, use defaults
     }
 
-    // 7. Check if Vision Bridge is enabled in settings — BEFORE any media
-    // traversal, so a disabled bridge never pays the per-request deep scan
-    // of every message content part.
-    const enabled = settings.visionBridgeEnabled ?? VISION_BRIDGE_DEFAULTS.enabled;
-    if (!enabled) {
+    // 7. Resolve runtime settings (new modalityBridge* keys win; legacy
+    // visionBridge* keys stay a one-cycle fallback) and check enabled —
+    // BEFORE any media traversal, so a disabled bridge never pays the
+    // per-request deep scan of every message content part.
+    const runtime = resolveVisionBridgeRuntimeSettings(settings);
+    if (!runtime.enabled) {
       return { block: false };
     }
 
@@ -223,9 +224,16 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // request with model=auto would land on a text-only model (#7871). Keeping
     // "auto" is never the answer there, so the keep-credentialed-model skip
     // below does not apply to auto — only the reroute-target credential guard.
-    if ((comboVisionBridgeDecision === "not-combo" || isAuto) && !forceVisionBridge) {
+    const rerouteEligible =
+      (comboVisionBridgeDecision === "not-combo" || isAuto) && !forceVisionBridge;
+    // Forced modes short-circuit BEFORE the auto heuristic (#6640/#7204 untouched):
+    // - "describe" skips the whole reroute block → straight to the describe path.
+    // - "reroute" skips only the keep-credentialed-model guard; the reroute-target
+    //   credential guard still applies, and with no usable target it falls through
+    //   to describe (raw images must never reach a text-only backend — #8430).
+    if (rerouteEligible && runtime.mode !== "describe") {
       const checkCreds = this.deps.hasUsableCredentials ?? hasUsableCredentialsForModel;
-      const originalUsable = await checkCreds(model);
+      const originalUsable = runtime.mode === "reroute" ? false : await checkCreds(model);
 
       if (originalUsable === true && !isAuto) {
         // Keep the credentialed model; describe images below if needed.
@@ -235,14 +243,17 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         );
       } else {
         // Honor an explicit operator override from the Vision Bridge settings tab
-        // (settings.visionBridgeModel) as the fixed reroute target, for consistency
-        // with the combo/describe path below (step 10) which always honors it via
-        // getVisionBridgeConfig. When unset, auto-select the fastest available
-        // vision-capable model from available providers.
-        const configuredModel =
-          typeof settings.visionBridgeModel === "string" && settings.visionBridgeModel.trim()
-            ? settings.visionBridgeModel.trim()
-            : undefined;
+        // as the fixed reroute target, for consistency with the combo/describe
+        // path below (step 10) which always honors it via getVisionBridgeConfig.
+        // New modalityBridgeVisionModel wins over legacy visionBridgeModel (same
+        // precedence as resolveVisionBridgeRuntimeSettings — runtime.model can't
+        // be used here because it backfills the default and this path must
+        // auto-select the fastest available vision-capable model when unset).
+        const rawConfiguredModel = [
+          settings.modalityBridgeVisionModel,
+          settings.visionBridgeModel,
+        ].find((value): value is string => typeof value === "string" && value.trim().length > 0);
+        const configuredModel = rawConfiguredModel?.trim();
         // Propagate the same resolved credential check used by the adjacent
         // checkCreds() calls above/below (#8430) — without this, the router
         // falls back to the real DB-backed hasUsableCredentialsForModel and
@@ -281,13 +292,15 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       // Fall through: describe images as text (or no-op if describe path can't run)
     }
 
-    // 10. Get configuration
+    // 10. Get configuration — fed from the resolved runtime values so the new
+    // modalityBridge* keys are honored; getVisionBridgeConfig keeps producing
+    // the same VisionModelConfig shape callVisionModel expects.
     const config = getVisionBridgeConfig({
-      visionBridgeEnabled: settings.visionBridgeEnabled as boolean | undefined,
-      visionBridgeModel: settings.visionBridgeModel as string | undefined,
-      visionBridgePrompt: settings.visionBridgePrompt as string | undefined,
-      visionBridgeTimeout: settings.visionBridgeTimeout as number | undefined,
-      visionBridgeMaxImages: settings.visionBridgeMaxImages as number | undefined,
+      visionBridgeEnabled: runtime.enabled,
+      visionBridgeModel: runtime.model,
+      visionBridgePrompt: runtime.prompt,
+      visionBridgeTimeout: runtime.timeoutMs,
+      visionBridgeMaxImages: runtime.maxImages,
     });
 
     // 11. Limit images
