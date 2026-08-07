@@ -4,6 +4,7 @@ import {
   buildGeminiThoughtSignatureKey,
   storeGeminiThoughtSignature,
 } from "../../services/geminiThoughtSignatureStore.ts";
+import { caseInsensitiveToolNameLookup } from "../helpers/toolCallHelper.ts";
 import {
   parseTextualToolCallCandidate,
   containsTextualToolCallMarker,
@@ -256,20 +257,7 @@ function emitFunctionCallPart(
   results: Array<Record<string, unknown>>
 ) {
   const rawToolName = part.functionCall.name;
-  const fcName = (() => {
-    const direct = state.toolNameMap?.get(rawToolName);
-    if (direct) return direct;
-    // Case-insensitive fallback: Gemini always lowercases tool names in
-    // functionCall responses, so a direct match by lowercase key may have
-    // been missed if the map entry somehow didn't include the lowercase
-    // alias (#9568).
-    if (state.toolNameMap) {
-      for (const [key, val] of state.toolNameMap) {
-        if (key.toLowerCase() === rawToolName.toLowerCase()) return val;
-      }
-    }
-    return rawToolName;
-  })();
+  const fcName = caseInsensitiveToolNameLookup(rawToolName, state.toolNameMap) ?? rawToolName;
   const fcArgs = normalizeToolCallArgs(part.functionCall.args || {});
   const toolCallIndex = state.functionIndex++;
   const toolCall = {

@@ -6,7 +6,10 @@ import {
 import { normalizeOpenAICompatibleFinishReasonString } from "../utils/finishReason.ts";
 import { containsTextualToolCallMarker } from "../utils/textualToolCall.ts";
 import { getAnyReasoningValue } from "../utils/reasoningFields.ts";
-import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
+import {
+  caseInsensitiveToolNameLookup,
+  restoreOpenAIToolNames,
+} from "../translator/helpers/toolCallHelper.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -206,7 +209,7 @@ export function translateNonStreamingResponse(
           typeof argsToEmit === "string" ? argsToEmit : JSON.stringify(argsToEmit || {});
         const rawName = toString(itemObj.name);
         // Strip Claude OAuth proxy_ prefix using toolNameMap
-        const resolvedName = toolNameMap?.get(rawName) ?? rawName;
+        const resolvedName = caseInsensitiveToolNameLookup(rawName, toolNameMap) ?? rawName;
         toolCalls.push({
           id: callId,
           type: "function",
@@ -388,7 +391,8 @@ export function translateNonStreamingResponse(
                   if (partObj.functionCall) {
                     const fn = toRecord(partObj.functionCall);
                     const rawName = toString(fn.name);
-                    const restoredName = toolNameMap?.get(rawName) ?? rawName;
+                    const restoredName =
+                      caseInsensitiveToolNameLookup(rawName, toolNameMap) ?? rawName;
                     const nativeId = toString(fn.id);
                     const toolCallId =
                       nativeId.length > 0
@@ -507,7 +511,7 @@ export function translateNonStreamingResponse(
           thinkingContent += toString(blockObj.thinking);
         } else if (blockObj.type === "tool_use") {
           const rawName = toString(blockObj.name);
-          const strippedName = toolNameMap?.get(rawName) ?? rawName;
+          const strippedName = caseInsensitiveToolNameLookup(rawName, toolNameMap) ?? rawName;
           toolCalls.push({
             id: toString(blockObj.id, `call_${Date.now()}_${toolCalls.length}`),
             type: "function",
