@@ -317,7 +317,6 @@ export function normalizeComboStep(
     };
   }
 
-<<<<<<< HEAD
   if (value.kind === "provider-wildcard") {
     const providerId =
       toTrimmedString(value.providerId) ||
@@ -354,9 +353,6 @@ export function normalizeComboStep(
   }
 
   const rawModel = toTrimmedString(value.model);
-=======
-  const rawModel = extractModelField(value);
->>>>>>> 0be4243d2e (fix(combos): normalize hand-written model shapes + survive malformed JSON)
   if (!rawModel) return null;
   const isExplicitModel = value.kind === "model";
 

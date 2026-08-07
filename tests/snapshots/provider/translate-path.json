@@ -773,13 +773,8 @@
       "stream": "https://chatgpt.com/backend-api/conversation"
     }
   },
-<<<<<<< HEAD
   "cheaperinference": {
     "format": "openai",
-=======
-  "chatgpt-web-codex": {
-    "format": "openai-responses",
->>>>>>> 8aa9c6f710 (Document and test ChatGPT Web integration)
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -797,13 +792,8 @@
       }
     },
     "url": {
-<<<<<<< HEAD
       "nonStream": "https://api.cheaperinference.com/v1/chat/completions",
       "stream": "https://api.cheaperinference.com/v1/chat/completions"
-=======
-      "nonStream": "https://chatgpt.com",
-      "stream": "https://chatgpt.com"
->>>>>>> 8aa9c6f710 (Document and test ChatGPT Web integration)
     }
   },
   "chenzk": {

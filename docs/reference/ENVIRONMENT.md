@@ -1376,7 +1376,6 @@ Used by `src/lib/vncSession/manifest.ts` to configure Docker-based headless Chro
 | `OMNIROUTE_VNC_HARVEST_MS`            | `20000`                       | `src/lib/vncSession/manifest.ts`  | Harvest/cleanup timeout (ms).                                                  |
 | `VIBEPROXY_DATA_DIR`                  | _(unset)_                     | `open-sse/services/notionThreadSessions.ts` | Directory for Notion thread session persistence.                               |
 
-<<<<<<< HEAD
 ### Internal service auth
 
 | Variable | Default | Description |
@@ -1429,7 +1428,6 @@ These settings were introduced after the previous environment-contract snapshot.
 | `TELEGRAM_DEFAULT_MODEL` | `auto/chat` | `src/lib/telegram/chatProxy.ts` | Model used for Telegram chat replies. |
 | `TELEGRAM_BOT_API_BASE` | `https://api.telegram.org` | `src/lib/telegram/config.ts` | Bot API base URL override for proxies or self-hosted Bot API servers. |
 | `TELEGRAM_WEBHOOK_TIMEOUT_MS` | `60000` | `src/lib/telegram/config.ts` | Timeout in milliseconds for outbound Bot API calls. |
-=======
 ### ChatGPT Web (Codex)
 
 Globale Defaults für den headless Browser und den ausgehenden Tool-Tunnel. Im Dashboard gesetzte Connection-Werte haben Vorrang.
@@ -1442,4 +1440,3 @@ Globale Defaults für den headless Browser und den ausgehenden Tool-Tunnel. Im D
 | `CHATGPT_WEB_CODEX_TUNNEL_ID`        | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Globale OpenAI-Tunnel-ID für lokale Codex-Tool-Runden.                      |
 | `CHATGPT_WEB_CODEX_RUNTIME_KEY`      | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Globaler Tunnel Runtime-Key; niemals in Logs ausgeben.                      |
 | `CHATGPT_WEB_CODEX_CONNECTOR_NAME`   | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Name des ChatGPT-Custom-Connectors für die MCP-Brücke.                      |
->>>>>>> 8aa9c6f710 (Document and test ChatGPT Web integration)

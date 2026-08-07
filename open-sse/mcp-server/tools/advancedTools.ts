@@ -560,16 +560,12 @@ export async function handleTestCombo(args: { comboId: string; testPrompt: strin
           const resp = toRecord(
             await apiFetch("/v1/chat/completions", {
               method: "POST",
-<<<<<<< HEAD
               body: JSON.stringify({
                 model: model.model || "auto",
                 messages: [{ role: "user", content: prompt }],
                 max_tokens: 50,
                 stream: false,
               }),
-=======
-              body: JSON.stringify(buildTestComboBody(model.model || "auto", prompt)),
->>>>>>> 24e31285c2 (feat(routing): add capability filtering module)
             })
           );
           const usage = toRecord(resp.usage);
