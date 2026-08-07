@@ -10,6 +10,10 @@ import {
   SegmentedControl,
   AppleField,
   AppleInput,
+  AppleCard,
+  AppleButton,
+  AppleStatusDot,
+  AppleSurface,
 } from "@/shared/components";
 import Toggle from "@/shared/components/Toggle";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
@@ -1253,6 +1257,54 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
     : translateOrFallback("ngrokEnable", "Enable Tunnel");
   const ngrokUrlNotice = translateOrFallback("ngrokUrlNotice", "Creates a public ngrok tunnel.");
 
+  // Small inline helpers used by the Apple-ized status pills so we don't
+  // duplicate the same color logic on every tunnel row.
+  const pillClass = (kind: "success" | "muted" | "info" | "warning" | "error") => {
+    switch (kind) {
+      case "success":
+        return "bg-success/10 border-success/30 text-success";
+      case "info":
+        return "bg-info/10 border-info/30 text-info";
+      case "warning":
+        return "bg-warning/10 border-warning/30 text-warning";
+      case "error":
+        return "bg-red/10 border-red/30 text-red";
+      case "muted":
+      default:
+        return "bg-bg-subtle border-border/70 text-text-muted";
+    }
+  };
+  const cloudflaredPillKind: "success" | "muted" | "info" | "warning" | "error" =
+    cloudflaredPhase === "running"
+      ? "success"
+      : cloudflaredPhase === "starting"
+        ? "info"
+        : cloudflaredPhase === "unsupported"
+          ? "warning"
+          : cloudflaredPhase === "error"
+            ? "error"
+            : "muted";
+  const tailscalePillKind: "success" | "muted" | "info" | "warning" | "error" =
+    tailscalePhase === "running"
+      ? "success"
+      : tailscalePhase === "needs_login"
+        ? "info"
+        : tailscalePhase === "unsupported" || tailscalePhase === "error"
+          ? tailscalePhase === "error"
+            ? "error"
+            : "warning"
+          : "muted";
+  const ngrokPillKind: "success" | "muted" | "info" | "warning" | "error" =
+    ngrokPhase === "running"
+      ? "success"
+      : ngrokPhase === "starting"
+        ? "info"
+        : ngrokPhase === "needs_auth" || ngrokPhase === "unsupported"
+          ? "warning"
+          : ngrokPhase === "error"
+            ? "error"
+            : "muted";
+
   return (
     <div className="flex flex-col gap-8">
       <SegmentedControl
@@ -1273,18 +1325,20 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
       ) : null}
 
       {/* Endpoint Card */}
-      <Card>
-        <h2 className="text-lg font-semibold mb-4">{t("title")}</h2>
+      <AppleCard className="flex flex-col gap-5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
+        </div>
 
         {/* Cloud Status Toast */}
         {cloudStatus && (
           <div
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg mb-4 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300 ${
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-card border text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-300 ${
               cloudStatus.type === "success"
-                ? "bg-green-500/10 border border-green-500/30 text-green-400"
+                ? pillClass("success")
                 : cloudStatus.type === "warning"
-                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-400"
-                  : "bg-red-500/10 border border-red-500/30 text-red-400"
+                  ? pillClass("warning")
+                  : pillClass("error")
             }`}
           >
             <span className="material-symbols-outlined text-[18px]">
@@ -1297,7 +1351,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
             <span className="flex-1">{cloudStatus.message}</span>
             <button
               onClick={() => setCloudStatus(null)}
-              className="p-0.5 hover:bg-white/10 rounded transition-colors"
+              className="p-0.5 rounded transition-colors hover:bg-white/10"
             >
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
@@ -1306,21 +1360,22 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
 
         {/* Active URLs bar */}
         {activeUrls.length > 0 && (
-          <div className="mb-4 rounded-lg border border-primary/20 bg-primary/5 p-3">
-            <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2">
+          <AppleSurface weight="light" className="p-3.5">
+            <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-2.5">
               {t("activeEndpoints")}
             </p>
             <div className="flex flex-col gap-1.5">
               {activeUrls.map(({ label, url, key }) => (
                 <div key={key} className="flex items-center gap-2 min-w-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                  <AppleStatusDot size="sm" className="text-success shrink-0" />
                   <span className="text-xs text-text-muted w-20 shrink-0">{label}</span>
                   <code className="text-xs font-mono text-text-main flex-1 truncate min-w-0">
                     {url}
                   </code>
                   <button
                     onClick={() => void copy(url, key)}
-                    className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded border border-border/70 text-text-muted hover:text-text transition-colors"
+                    className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-md border border-border/70 text-text-muted hover:text-text transition-colors"
+                    aria-label={tc("copy")}
                   >
                     <span className="material-symbols-outlined text-[12px]">
                       {copied === key ? "check" : "content_copy"}
@@ -1329,7 +1384,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                 </div>
               ))}
             </div>
-          </div>
+          </AppleSurface>
         )}
 
         {/* Connection rows */}
@@ -1360,13 +1415,18 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                 ))}
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 border border-green-500/30 text-green-400 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shrink-0 ${pillClass(
+                "success"
+              )}`}
+            >
+              <AppleStatusDot size="sm" className="text-success" />
               {t("statusRunning")}
             </span>
             <button
               onClick={() => void copy(localApiUrl, "endpoint_url")}
               className="shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-md border border-border/70 text-text-muted hover:text-text hover:border-border transition-colors"
+              aria-label={tc("copy")}
             >
               <span className="material-symbols-outlined text-[14px]">
                 {copied === "endpoint_url" ? "check" : "content_copy"}
@@ -1401,14 +1461,13 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               <span className="text-sm font-medium">{t("cloudOmniroute")}</span>
             </div>
             <span
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border shrink-0 ${
-                cloudEnabled
-                  ? "bg-green-500/10 border-green-500/30 text-green-400"
-                  : "bg-surface border-border/70 text-text-muted"
+              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shrink-0 ${
+                cloudEnabled ? pillClass("success") : pillClass("muted")
               }`}
             >
-              <span
-                className={`w-1.5 h-1.5 rounded-full shrink-0 ${cloudEnabled ? "bg-green-400 animate-pulse" : "bg-text-muted"}`}
+              <AppleStatusDot
+                size="sm"
+                className={cloudEnabled ? "text-success" : "text-text-muted"}
               />
               {cloudEnabled ? tc("active") : tc("disabled")}
             </span>
@@ -1454,7 +1513,9 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                   </span>
                 </div>
                 <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${cloudflaredPhaseMeta[cloudflaredPhase].className}`}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${pillClass(
+                    cloudflaredPillKind
+                  )}`}
                 >
                   {cloudflaredPhaseMeta[cloudflaredPhase].label}
                 </span>
@@ -1477,12 +1538,12 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               </div>
               {cloudflaredNotice && (
                 <div
-                  className={`mb-2 ml-7 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                  className={`mb-2 ml-7 flex items-center gap-2 rounded-card border px-3 py-2 text-sm ${
                     cloudflaredNotice.type === "success"
-                      ? "border-green-500/30 bg-green-500/10 text-green-400"
+                      ? pillClass("success")
                       : cloudflaredNotice.type === "info"
-                        ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                        : "border-red-500/30 bg-red-500/10 text-red-400"
+                        ? pillClass("info")
+                        : pillClass("error")
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px]">
@@ -1554,7 +1615,9 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                   </div>
                 </div>
                 <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${tailscalePhaseMeta[tailscalePhase].className}`}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${pillClass(
+                    tailscalePillKind
+                  )}`}
                 >
                   {tailscalePhaseMeta[tailscalePhase].label}
                 </span>
@@ -1592,12 +1655,12 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                 <div className="pb-3 pl-7 pr-1 flex flex-col gap-2">
                   {tailscaleNotice && (
                     <div
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      className={`flex items-center gap-2 rounded-card border px-3 py-2 text-sm ${
                         tailscaleNotice.type === "success"
-                          ? "border-green-500/30 bg-green-500/10 text-green-400"
+                          ? pillClass("success")
                           : tailscaleNotice.type === "info"
-                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                            : "border-red-500/30 bg-red-500/10 text-red-400"
+                            ? pillClass("info")
+                            : pillClass("error")
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -1618,7 +1681,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                   )}
                   <p className="text-xs text-text-muted">{tailscaleUrlNotice}</p>
                   {tailscaleStatus?.phase === "needs_login" && (
-                    <p className="text-xs text-blue-400">
+                    <p className="text-xs text-info">
                       {translateOrFallback(
                         "tailscaleNeedsLoginHint",
                         "Authenticate this machine with Tailscale, then enable Funnel."
@@ -1694,7 +1757,9 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                   </span>
                 </div>
                 <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium shrink-0 ${ngrokPhaseMeta[ngrokPhase].className}`}
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium shrink-0 ${pillClass(
+                    ngrokPillKind
+                  )}`}
                 >
                   {ngrokPhaseMeta[ngrokPhase].label}
                 </span>
@@ -1726,12 +1791,12 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                 <div className="pb-3 pl-7 pr-1 flex flex-col gap-2">
                   {ngrokNotice && (
                     <div
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      className={`flex items-center gap-2 rounded-card border px-3 py-2 text-sm ${
                         ngrokNotice.type === "success"
-                          ? "border-green-500/30 bg-green-500/10 text-green-400"
+                          ? pillClass("success")
                           : ngrokNotice.type === "info"
-                            ? "border-blue-500/30 bg-blue-500/10 text-blue-400"
-                            : "border-red-500/30 bg-red-500/10 text-red-400"
+                            ? pillClass("info")
+                            : pillClass("error")
                       }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">
@@ -1810,12 +1875,12 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
             />
           </div>
         </div>
-      </Card>
+      </AppleCard>
 
-      <Card>
-        <div className="flex items-center justify-between mb-5">
+      <AppleCard className="flex flex-col gap-5">
+        <div className="flex items-center justify-between mb-1">
           <div>
-            <h2 className="text-lg font-semibold">{t("available")}</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t("available")}</h2>
             <p className="text-sm text-text-muted">
               {modelsLoading
                 ? translateOrFallback("loadingModels", "Loading available models...")
@@ -2085,7 +2150,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
 
           <VscodeTokenAliasCard className="mt-4" />
         </div>
-      </Card>
+      </AppleCard>
 
       {/* Cloud Enable Modal */}
       <Modal
@@ -2094,41 +2159,33 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
         onClose={() => setShowCloudModal(false)}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-            <p className="text-sm text-blue-800 dark:text-blue-200 font-medium mb-2">
-              {t("whatYouGet")}
-            </p>
-            <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+          <AppleSurface weight="light" className="p-4">
+            <p className="text-sm text-info font-medium mb-2">{t("whatYouGet")}</p>
+            <ul className="text-sm text-text-main space-y-1">
               <li>• {t("cloudBenefitAccess")}</li>
               <li>• {t("cloudBenefitShare")}</li>
               <li>• {t("cloudBenefitPorts")}</li>
               <li>• {t("cloudBenefitEdge")}</li>
             </ul>
-          </div>
+          </AppleSurface>
 
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-              {tc("note")}
-            </p>
-            <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+          <AppleSurface weight="light" className="p-4">
+            <p className="text-sm text-warning font-medium mb-1">{tc("note")}</p>
+            <ul className="text-sm text-text-main space-y-1">
               <li>• {t("cloudSessionNote")}</li>
               <li>• {t("cloudUnstableNote")}</li>
             </ul>
-          </div>
+          </AppleSurface>
 
           {/* Sync Progress / Success */}
           {(cloudSyncing || modalSuccess) && (
             <div
-              className={`flex items-center gap-3 p-3 rounded-lg border transition-all duration-300 ${
-                modalSuccess
-                  ? "bg-green-500/10 border-green-500/30"
-                  : "bg-primary/10 border-primary/30"
+              className={`flex items-center gap-3 p-3 rounded-card border transition-all duration-300 ${
+                modalSuccess ? pillClass("success") : "bg-primary/10 border-primary/30"
               }`}
             >
               {modalSuccess ? (
-                <span className="material-symbols-outlined text-green-500 text-xl">
-                  check_circle
-                </span>
+                <span className="material-symbols-outlined text-success text-xl">check_circle</span>
               ) : (
                 <span className="material-symbols-outlined animate-spin text-primary">
                   progress_activity
@@ -2137,7 +2194,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               <div className="flex-1">
                 <p
                   className={`text-sm font-medium ${
-                    modalSuccess ? "text-green-500" : "text-primary"
+                    modalSuccess ? "text-success" : "text-primary"
                   }`}
                 >
                   {modalSuccess && t("cloudConnected")}
@@ -2149,7 +2206,12 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
           )}
 
           <div className="flex gap-2">
-            <Button onClick={handleEnableCloud} fullWidth disabled={cloudSyncing || modalSuccess}>
+            <AppleButton
+              onClick={handleEnableCloud}
+              variant="primary"
+              disabled={cloudSyncing || modalSuccess}
+              className="flex-1"
+            >
               {cloudSyncing ? (
                 <span className="flex items-center gap-2">
                   <span className="material-symbols-outlined animate-spin text-sm">
@@ -2165,15 +2227,15 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               ) : (
                 t("enableCloud")
               )}
-            </Button>
-            <Button
+            </AppleButton>
+            <AppleButton
               onClick={() => setShowCloudModal(false)}
-              variant="ghost"
-              fullWidth
+              variant="tertiary"
               disabled={cloudSyncing || modalSuccess}
+              className="flex-1"
             >
               {tc("cancel")}
-            </Button>
+            </AppleButton>
           </div>
         </div>
       </Modal>
@@ -2185,23 +2247,19 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
         onClose={() => !cloudSyncing && setShowDisableModal(false)}
       >
         <div className="flex flex-col gap-4">
-          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <AppleSurface weight="light" className="p-4">
             <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-red-600 dark:text-red-400">
-                warning
-              </span>
+              <span className="material-symbols-outlined text-red">warning</span>
               <div>
-                <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-1">
-                  {tc("warning")}
-                </p>
-                <p className="text-sm text-red-700 dark:text-red-300">{t("disableWarning")}</p>
+                <p className="text-sm text-text-main font-medium mb-1">{tc("warning")}</p>
+                <p className="text-sm text-text-muted">{t("disableWarning")}</p>
               </div>
             </div>
-          </div>
+          </AppleSurface>
 
           {/* Sync Progress */}
           {cloudSyncing && (
-            <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-primary/10 border border-primary/30 rounded-card">
               <span className="material-symbols-outlined animate-spin text-primary">
                 progress_activity
               </span>
@@ -2252,20 +2310,20 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
         onClose={() => !tailscaleInstallBusy && setShowTailscaleInstallModal(false)}
       >
         <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4">
-            <p className="text-sm font-medium text-blue-300">
+          <AppleSurface weight="light" className="p-4">
+            <p className="text-sm font-medium text-info">
               {translateOrFallback(
                 "tailscaleInstallIntro",
                 "Installs Tailscale on this machine and prepares OmniRoute to enable Funnel."
               )}
             </p>
-            <p className="mt-2 text-sm text-blue-200/80">
+            <p className="mt-2 text-sm text-text-muted">
               {translateOrFallback(
                 "tailscaleInstallPasswordHint",
                 "On macOS and Linux, sudo may be required for the package install and daemon start."
               )}
             </p>
-          </div>
+          </AppleSurface>
 
           <AppleField
             id="tailscale-install-sudo"
@@ -2289,7 +2347,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
           </AppleField>
 
           {tailscaleInstallLog.length > 0 && (
-            <div className="max-h-48 overflow-auto rounded-lg border border-border/70 bg-surface/60 p-3">
+            <div className="max-h-48 overflow-auto rounded-card border border-border/70 bg-surface/60 p-3">
               <pre className="whitespace-pre-wrap text-xs text-text-muted">
                 {tailscaleInstallLog.join("\n")}
               </pre>
@@ -2297,10 +2355,11 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
           )}
 
           <div className="flex gap-2">
-            <Button
+            <AppleButton
               onClick={() => void handleTailscaleInstall()}
-              fullWidth
+              variant="primary"
               disabled={tailscaleInstallBusy}
+              className="flex-1"
             >
               {tailscaleInstallBusy ? (
                 <span className="flex items-center gap-2">
@@ -2312,15 +2371,15 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
               ) : (
                 translateOrFallback("tailscaleInstallAndEnable", "Install & Enable")
               )}
-            </Button>
-            <Button
+            </AppleButton>
+            <AppleButton
               onClick={() => setShowTailscaleInstallModal(false)}
-              variant="ghost"
-              fullWidth
+              variant="tertiary"
               disabled={tailscaleInstallBusy}
+              className="flex-1"
             >
               {tc("cancel")}
-            </Button>
+            </AppleButton>
           </div>
         </div>
       </Modal>
@@ -2382,7 +2441,7 @@ function ProviderModelsModal({
             return (
               <div
                 key={m.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface/60 group"
+                className="flex items-center gap-2 px-3 py-2 rounded-card hover:bg-surface/60 group"
               >
                 <code className="text-sm font-mono flex-1 truncate">{m.id}</code>
                 {m.custom && (
@@ -2394,6 +2453,7 @@ function ProviderModelsModal({
                   onClick={() => copy(m.id, copyKey)}
                   className="p-1 hover:bg-sidebar rounded text-text-muted hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                   title={tc("copy")}
+                  aria-label={tc("copy")}
                 >
                   <span className="material-symbols-outlined text-sm">
                     {copied === copyKey ? "check" : "content_copy"}
@@ -2460,7 +2520,7 @@ function EndpointCard({
   const fullUrl = `${baseUrl.replace(/\/v1$/, "")}${path}`;
 
   return (
-    <div className="border border-border rounded-lg p-3 hover:bg-surface/30 transition-colors flex flex-col gap-2">
+    <AppleCard noSpotlight compact className="flex flex-col gap-2.5 cursor-default">
       <div className="flex items-start gap-2.5">
         <div className={`flex items-center justify-center size-8 rounded-lg ${iconBg} shrink-0`}>
           <span className={`material-symbols-outlined text-base ${iconColor}`}>{icon}</span>
@@ -2484,20 +2544,21 @@ function EndpointCard({
         </div>
       </div>
       <div className="flex items-center gap-1.5">
-        <code className="flex-1 text-[10px] font-mono text-text-muted bg-surface/80 px-2 py-1 rounded truncate">
+        <code className="flex-1 text-[10px] font-mono text-text-muted bg-surface/80 px-2 py-1 rounded-md truncate">
           {path}
         </code>
         <button
           onClick={() => void copy(fullUrl, copyId)}
           className="shrink-0 flex items-center justify-center size-6 rounded hover:bg-sidebar transition-colors"
           title={t("copyUrl")}
+          aria-label={t("copyUrl")}
         >
           <span className="material-symbols-outlined text-[12px] text-text-muted">
             {copied === copyId ? "check" : "content_copy"}
           </span>
         </button>
       </div>
-    </div>
+    </AppleCard>
   );
 }
 

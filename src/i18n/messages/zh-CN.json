@@ -3974,7 +3974,9 @@
     "obsidianWebdavUrl": "WebDAV URL",
     "obsidianUsername": "Username",
     "obsidianPassword": "Password",
-    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network."
+    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network.",
+    "obsidianShowPassword": "显示密码",
+    "obsidianHidePassword": "隐藏密码"
   },
   "endpoints": {
     "tabProxy": "端点代理",
