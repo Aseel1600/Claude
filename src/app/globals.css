@@ -912,6 +912,11 @@ select option {
   height: 8px;
   border-radius: 50%;
   background: currentColor;
+}
+/* Pulse is opt-in via the modifier class so static state dots don't
+   expand an outer box-shadow that gets clipped by overflow-hidden
+   parents. */
+.apple-status-dot--pulse {
   animation: apple-pulse 2.4s var(--ease-spring-critical) infinite;
 }
 

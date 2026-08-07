@@ -150,8 +150,8 @@ function getStatusDisplay(
   }
   if (parts.length === 0) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-text-muted">
-        <AppleStatusDot size="sm" className="text-text-muted" />
+      <span className="inline-flex items-center gap-1.5 pl-1 shrink-0 text-text-muted">
+        <AppleStatusDot size="sm" pulse={false} className="text-text-muted mr-1" />
         {t("noConnections")}
       </span>
     );
