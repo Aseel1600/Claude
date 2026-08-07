@@ -137,7 +137,7 @@ function normalizeRuntimeStep(
       : {}),
     weight,
     label,
-    prompt: step.prompt || null,
+    prompt: step.kind === "model" ? step.prompt || null : null,
   } satisfies ResolvedComboTarget;
 }
 
@@ -612,13 +612,11 @@ function getTargetCompatibilityFailures(
 export type CompatFilterOptions = {
   /**
    * Opt-in legacy behavior (#8488): when every target fails a hard capability
-   * requirement (tools / vision / structured_output), restore the full pool
+   * requirement (tools / vision / structured_output / output_tokens), restore the full pool
    * instead of returning an empty list. Default is fail-closed.
    */
   failOpen?: boolean;
 };
-
-const HARD_COMPAT_REASONS = new Set(["tools", "vision", "structured_output"]);
 
 function hasHardCapabilityFailure(reasons: string[]): boolean {
   return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));

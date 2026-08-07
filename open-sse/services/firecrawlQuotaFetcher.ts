@@ -110,7 +110,8 @@ export function getFirecrawlBaseUrl(connection?: Record<string, unknown>): strin
     return envBase.replace(/\/+$/, "");
   }
   const providerData = toRecord(connection?.providerSpecificData);
-  const connBase = typeof connection?.baseUrl === "string" ? connection.baseUrl : providerData?.baseUrl;
+  const connBase =
+    typeof connection?.baseUrl === "string" ? connection.baseUrl : providerData?.baseUrl;
   if (typeof connBase === "string" && connBase.trim() && !connBase.includes("api.firecrawl.dev")) {
     return connBase.trim().replace(/\/+$/, "");
   }
@@ -120,7 +121,7 @@ export function getFirecrawlBaseUrl(connection?: Record<string, unknown>): strin
 export async function fetchFirecrawlQuota(
   connectionId: string,
   connection?: Record<string, unknown>
-): Promise<QuotaInfo | null> {
+): Promise<FirecrawlQuota | null> {
   const cached = quotaCache.get(connectionId);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.quota;
