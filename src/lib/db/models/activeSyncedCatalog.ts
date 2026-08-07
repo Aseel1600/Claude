@@ -1,7 +1,7 @@
 import { providerUsesAuthoritativeLiveCatalog } from "@omniroute/open-sse/config/providerRegistry";
 import { PROVIDER_ID_TO_ALIAS } from "@omniroute/open-sse/config/providerModels.ts";
 import { getSyncedAvailableModelsByConnection, type SyncedAvailableModel } from "../models";
-import { getRawProviderConnections } from "../providers";
+import { getProviderNodeById, getRawProviderConnections } from "../providers";
 
 export type ActiveSyncedCatalog = {
   authoritative: boolean;
@@ -101,7 +101,20 @@ export async function getActiveSyncedCatalog(providerId: string): Promise<Active
       .filter((connection): connection is ProviderConnectionRef => connection !== null)
       .map((connection) => connection.id);
 
-    const models = collectModelsForConnections(modelsByConnection, activeConnectionIds);
+    let models = collectModelsForConnections(modelsByConnection, activeConnectionIds);
+
+    // Custom provider NODES (#7694 prefix proxies) live in `provider_nodes`,
+    // not `provider_connections`, and address their synced catalog by their
+    // own id (`<id>:<id>` keys) — the provider-named connection query above
+    // cannot see them, which silently emptied their catalog (and killed the
+    // #7694 effort-suffix resolution) after #9294. A node has no is_active
+    // flag: existing means active, deletion is the off switch.
+    if (models.length === 0 && (modelsByConnection[storedProviderId]?.length ?? 0) > 0) {
+      const node = await getProviderNodeById(storedProviderId);
+      if (node) {
+        models = collectModelsForConnections(modelsByConnection, [storedProviderId]);
+      }
+    }
 
     return {
       authoritative: models.length > 0 && providerUsesAuthoritativeLiveCatalog(providerId),
