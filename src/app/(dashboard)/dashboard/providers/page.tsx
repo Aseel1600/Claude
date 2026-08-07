@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardSkeleton, Badge, Button, CollapsibleSection } from "@/shared/components";
+import { Card, CardSkeleton, Badge, CollapsibleSection } from "@/shared/components";
 import {
   AppleCard,
   AppleButton,
@@ -887,23 +887,26 @@ export default function ProvidersPage() {
       {/* Expiration Banner */}
       {expirations?.summary &&
         (expirations.summary.expired > 0 || expirations.summary.expiringSoon > 0) && (
-          <div
-            className={`p-4 rounded-xl flex items-start gap-3 border ${
+          <AppleSurface
+            weight="light"
+            className={`p-4 flex items-start gap-3 ${
               expirations.summary.expired > 0
-                ? "bg-red-500/10 border-red-500/20"
-                : "bg-amber-500/10 border-amber-500/20"
+                ? "!border-red/30 !bg-red/10"
+                : "!border-warning/30 !bg-warning/10"
             }`}
           >
             <span
               className={`material-symbols-outlined text-[24px] ${
-                expirations.summary.expired > 0 ? "text-red-500" : "text-amber-500"
+                expirations.summary.expired > 0 ? "text-red" : "text-warning"
               }`}
             >
               {expirations.summary.expired > 0 ? "error" : "warning"}
             </span>
             <div className="flex-1">
               <h3
-                className={`font-semibold ${expirations.summary.expired > 0 ? "text-red-500" : "text-amber-500"}`}
+                className={`font-semibold tracking-[-0.01em] ${
+                  expirations.summary.expired > 0 ? "text-red" : "text-warning"
+                }`}
               >
                 {expirations.summary.expired > 0
                   ? t("expirationBannerExpired", { count: expirations.summary.expired })
@@ -917,7 +920,7 @@ export default function ProvidersPage() {
                   : t("expirationBannerExpiringSoonDesc")}
               </p>
             </div>
-          </div>
+          </AppleSurface>
         )}
 
       {isCompactProviderDisplay ? (
@@ -988,20 +991,31 @@ export default function ProvidersPage() {
                     </button>
                   )}
                   {ccCompatibleProviderEnabled && (
-                    <Button size="sm" icon="add" onClick={() => setShowAddCcCompatibleModal(true)}>
+                    <AppleButton
+                      variant="secondary"
+                      size="sm"
+                      icon={<span className="material-symbols-outlined text-[16px]">add</span>}
+                      onClick={() => setShowAddCcCompatibleModal(true)}
+                    >
                       {addCcCompatibleLabel}
-                    </Button>
+                    </AppleButton>
                   )}
-                  <Button
+                  <AppleButton
+                    variant="secondary"
                     size="sm"
-                    icon="add"
+                    icon={<span className="material-symbols-outlined text-[16px]">add</span>}
                     onClick={() => setShowAddAnthropicCompatibleModal(true)}
                   >
                     {t("addAnthropicCompatible")}
-                  </Button>
-                  <Button size="sm" icon="add" onClick={() => setShowAddCompatibleModal(true)}>
+                  </AppleButton>
+                  <AppleButton
+                    variant="secondary"
+                    size="sm"
+                    icon={<span className="material-symbols-outlined text-[16px]">add</span>}
+                    onClick={() => setShowAddCompatibleModal(true)}
+                  >
                     {t("addOpenAICompatible")}
-                  </Button>
+                  </AppleButton>
                 </div>
               </div>
               <p className="text-sm text-text-muted -mt-2">{t("compatibleProvidersDesc")}</p>

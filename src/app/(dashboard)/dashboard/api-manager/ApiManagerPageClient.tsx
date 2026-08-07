@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, memo, useRef, useId } from "react";
-import { Card, Button, Input, Modal, CardSkeleton } from "@/shared/components";
+import { Input, Modal, CardSkeleton } from "@/shared/components";
 import {
   AppleCard,
   AppleButton,
+  AppleField,
+  AppleInput,
   AppleMetric,
   AppleMetricLabel,
   AppleMetricSub,
@@ -1026,16 +1028,20 @@ export default function ApiManagerPageClient() {
 
       {/* Error Banner */}
       {pageError && (
-        <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <span className="material-symbols-outlined text-red-500">error</span>
-          <p className="text-sm text-red-700 dark:text-red-300 flex-1">{pageError}</p>
+        <AppleSurface
+          weight="light"
+          className="flex items-center gap-3 p-4 !border-red/30 !bg-red/10"
+        >
+          <span className="material-symbols-outlined text-red">error</span>
+          <p className="text-sm text-red flex-1">{pageError}</p>
           <button
             onClick={clearPageError}
-            className="text-red-500 hover:text-red-700 transition-colors"
+            className="text-red hover:text-red transition-colors"
+            aria-label={tc("close")}
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
-        </div>
+        </AppleSurface>
       )}
 
       {/* Filter Bar — shown when there are keys */}
@@ -1054,14 +1060,14 @@ export default function ApiManagerPageClient() {
       )}
 
       {/* Keys List Card */}
-      <Card>
+      <AppleCard>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-amber-500/10 shrink-0">
-              <span className="material-symbols-outlined text-xl text-amber-500">vpn_key</span>
+            <div className="flex items-center justify-center size-10 rounded-control bg-warning/10 shrink-0">
+              <span className="material-symbols-outlined text-[22px] text-warning">vpn_key</span>
             </div>
             <div>
-              <h3 className="font-semibold">
+              <h3 className="font-semibold tracking-[-0.01em]">
                 {t("registeredKeys")}
                 {isFiltered && (
                   <span className="ml-1.5 text-sm font-normal text-text-muted">
@@ -1081,47 +1087,59 @@ export default function ApiManagerPageClient() {
               </p>
             </div>
           </div>
-          <Button
-            icon="add"
-            onClick={() => {
-              setNameError(null);
-              setCreateError(null);
-              clearPageError();
-              setShowAddModal(true);
-            }}
-          >
-            {t("createKey")}
-          </Button>
+          {keys.length === 0 ? null : (
+            <AppleButton
+              variant="primary"
+              size="sm"
+              icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+              onClick={() => {
+                setNameError(null);
+                setCreateError(null);
+                clearPageError();
+                setShowAddModal(true);
+              }}
+            >
+              {t("createKey")}
+            </AppleButton>
+          )}
         </div>
 
         <p className="text-sm text-text-muted mb-4">{t("keysSecurityNote")}</p>
 
         {keys.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
-            </div>
-            <p className="text-text-main font-medium mb-2">{t("noKeys")}</p>
-            <p className="text-sm text-text-muted mb-4">{t("noKeysDesc")}</p>
-            <Button
-              icon="add"
-              onClick={() => {
-                setNameError(null);
-                setCreateError(null);
-                setShowAddModal(true);
-              }}
-            >
-              {t("createFirstKey")}
-            </Button>
-          </div>
+          <AppleEmptyState
+            icon={
+              <span className="material-symbols-outlined text-[32px] text-primary">vpn_key</span>
+            }
+            title={t("noKeys")}
+            description={t("noKeysDesc")}
+            action={
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => {
+                  setNameError(null);
+                  setCreateError(null);
+                  setShowAddModal(true);
+                }}
+              >
+                {t("createFirstKey")}
+              </AppleButton>
+            }
+          />
         ) : filteredKeys.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">search_off</span>
-            </div>
-            <p className="text-text-main font-medium mb-2">{t("emptyFilterTitle")}</p>
-            <Button onClick={handleClearFilters}>{t("emptyFilterClear")}</Button>
-          </div>
+          <AppleEmptyState
+            icon={
+              <span className="material-symbols-outlined text-[32px] text-primary">search_off</span>
+            }
+            title={t("emptyFilterTitle")}
+            action={
+              <AppleButton variant="secondary" size="md" onClick={handleClearFilters}>
+                {t("emptyFilterClear")}
+              </AppleButton>
+            }
+          />
         ) : (
           (() => {
             const renderKeyRow = (key: ApiKey) => {
@@ -1480,7 +1498,7 @@ export default function ApiManagerPageClient() {
             );
           })()
         )}
-      </Card>
+      </AppleCard>
 
       {/* Add Key Modal */}
       <Modal
@@ -1610,13 +1628,19 @@ export default function ApiManagerPageClient() {
             </div>
           </div>
           {createError && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
-              <span className="material-symbols-outlined text-red-500 text-sm">error</span>
-              <p className="text-sm text-red-700 dark:text-red-300 flex-1">{createError}</p>
-            </div>
+            <AppleSurface
+              weight="light"
+              className="flex items-center gap-2 px-3 py-2 !border-red/30 !bg-red/10"
+            >
+              <span className="material-symbols-outlined text-red text-[16px]">error</span>
+              <p className="text-sm text-red flex-1">{createError}</p>
+            </AppleSurface>
           )}
           <div className="flex gap-2">
-            <Button
+            <AppleButton
+              variant="tertiary"
+              size="md"
+              className="flex-1"
               onClick={() => {
                 setShowAddModal(false);
                 setNewKeyName("");
@@ -1627,19 +1651,19 @@ export default function ApiManagerPageClient() {
                 setNameError(null);
                 setCreateError(null);
               }}
-              variant="ghost"
-              fullWidth
             >
               {tc("cancel")}
-            </Button>
-            <Button
+            </AppleButton>
+            <AppleButton
+              variant="primary"
+              size="md"
+              className="flex-1"
               onClick={handleCreateKey}
-              fullWidth
               disabled={!newKeyName.trim()}
               loading={isSubmitting}
             >
               {t("createKey")}
-            </Button>
+            </AppleButton>
           </div>
         </div>
       </Modal>
@@ -1647,32 +1671,41 @@ export default function ApiManagerPageClient() {
       {/* Created Key Modal */}
       <Modal isOpen={!!createdKey} title={t("keyCreated")} onClose={() => setCreatedKey(null)}>
         <div className="flex flex-col gap-4">
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-green-600 dark:text-green-400">
-                check_circle
-              </span>
-              <div>
-                <p className="text-sm text-green-800 dark:text-green-200 font-medium mb-1">
-                  {t("keyCreatedSuccess")}
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-300">{t("keyCreatedNote")}</p>
-              </div>
+          <AppleSurface
+            weight="light"
+            className="flex items-start gap-3 p-4 !border-success/30 !bg-success/10"
+          >
+            <span className="material-symbols-outlined text-success text-[20px]">check_circle</span>
+            <div>
+              <p className="text-sm text-success font-medium mb-1">{t("keyCreatedSuccess")}</p>
+              <p className="text-sm text-text-main opacity-80">{t("keyCreatedNote")}</p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Input value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
-            <Button
+          </AppleSurface>
+          <div className="flex gap-2 items-stretch">
+            <AppleField className="flex-1" aria-label={t("keyCreated")}>
+              <AppleInput value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
+            </AppleField>
+            <AppleButton
               variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
+              size="md"
+              icon={
+                <span className="material-symbols-outlined text-[18px]">
+                  {copied === "created_key" ? "check" : "content_copy"}
+                </span>
+              }
               onClick={() => copy(createdKey, "created_key")}
             >
               {copied === "created_key" ? tc("copied") : tc("copy")}
-            </Button>
+            </AppleButton>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
+          <AppleButton
+            variant="primary"
+            size="md"
+            className="w-full"
+            onClick={() => setCreatedKey(null)}
+          >
             {t("done")}
-          </Button>
+          </AppleButton>
         </div>
       </Modal>
 
@@ -3199,12 +3232,12 @@ const PermissionsModal = memo(function PermissionsModal({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={handleSave} fullWidth>
+          <AppleButton variant="primary" size="md" className="flex-1" onClick={handleSave}>
             {t("savePermissions")}
-          </Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>
+          </AppleButton>
+          <AppleButton variant="tertiary" size="md" className="flex-1" onClick={onClose}>
             {tc("cancel")}
-          </Button>
+          </AppleButton>
         </div>
       </div>
     </Modal>

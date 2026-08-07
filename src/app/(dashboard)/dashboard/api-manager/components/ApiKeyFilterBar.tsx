@@ -1,7 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Card, Input, Toggle } from "@/shared/components";
+import { Toggle } from "@/shared/components";
+import { AppleCard, AppleField, AppleInput } from "@/shared/components";
 import ApiKeyFilterChip from "./ApiKeyFilterChip";
 import type { KeyStatus, KeyType, ApiKeyCounts } from "../apiManagerPageUtils";
 
@@ -92,28 +93,38 @@ export default function ApiKeyFilterBar({
   ];
 
   return (
-    <Card padding="sm">
+    <AppleCard compact>
       <div className="flex flex-col gap-3">
         {/* Row 1: Search + Active Only toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[160px]">
-            <Input
-              value={searchQuery}
-              onChange={(e) => onSearchChange(e.target.value)}
-              placeholder={t("searchPlaceholder")}
-              aria-label={t("searchPlaceholder")}
-              icon="search"
-              inputClassName={searchQuery ? "pr-9" : ""}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => onSearchChange("")}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-primary transition-colors"
-                aria-label={tc("clear")}
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            )}
+            <AppleField aria-label={t("searchPlaceholder")}>
+              <div className="relative">
+                <span
+                  className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-text-muted pointer-events-none"
+                  aria-hidden="true"
+                >
+                  search
+                </span>
+                <AppleInput
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                  aria-label={t("searchPlaceholder")}
+                  className={searchQuery ? "pl-9 pr-9" : "pl-9"}
+                />
+                {searchQuery ? (
+                  <button
+                    onClick={() => onSearchChange("")}
+                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-main transition-colors"
+                    aria-label={tc("clear")}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                ) : null}
+              </div>
+            </AppleField>
           </div>
           <Toggle
             size="sm"
@@ -176,6 +187,6 @@ export default function ApiKeyFilterBar({
           </div>
         </div>
       </div>
-    </Card>
+    </AppleCard>
   );
 }

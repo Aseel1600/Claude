@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Card, Input } from "@/shared/components";
+import { AppleButton, AppleCard, AppleField, AppleInput } from "@/shared/components";
 import type { ProviderDisplayMode } from "../providerPageStorage";
 import { CategoryDot } from "./CategoryDot";
 import ProviderDisplayModeControl from "./ProviderDisplayModeControl";
@@ -152,46 +152,66 @@ export default function ProviderSummaryCard({
   ].filter((category) => category.key !== "no-auth" || category.stat.total > 0);
 
   return (
-    <Card padding="sm">
+    <AppleCard compact>
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="relative flex-1 min-w-[160px]">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("searchProviders")}
-              aria-label={t("searchProviders")}
-              icon="search"
-              inputClassName={searchQuery ? "pr-9" : ""}
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-primary transition-colors"
-                aria-label={tc("clear")}
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            )}
+            <AppleField aria-label={t("searchProviders")}>
+              <div className="relative">
+                <span
+                  className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-text-muted pointer-events-none"
+                  aria-hidden="true"
+                >
+                  search
+                </span>
+                <AppleInput
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("searchProviders")}
+                  aria-label={t("searchProviders")}
+                  className={searchQuery ? "pl-9 pr-9" : "pl-9"}
+                />
+                {searchQuery ? (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-main transition-colors"
+                    aria-label={tc("clear")}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                ) : null}
+              </div>
+            </AppleField>
           </div>
           <div className="relative flex-1 min-w-[160px]">
-            <Input
-              value={modelSearchQuery}
-              onChange={(e) => setModelSearchQuery(e.target.value)}
-              placeholder={t("searchByModel") || "Search by model…"}
-              aria-label={t("searchByModel") || "Search by model"}
-              icon="psychology"
-              inputClassName={modelSearchQuery ? "pr-9" : ""}
-            />
-            {modelSearchQuery && (
-              <button
-                onClick={() => setModelSearchQuery("")}
-                className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-primary transition-colors"
-                aria-label={tc("clear")}
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            )}
+            <AppleField aria-label={t("searchByModel") || "Search by model"}>
+              <div className="relative">
+                <span
+                  className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-[18px] text-text-muted pointer-events-none"
+                  aria-hidden="true"
+                >
+                  psychology
+                </span>
+                <AppleInput
+                  value={modelSearchQuery}
+                  onChange={(e) => setModelSearchQuery(e.target.value)}
+                  placeholder={t("searchByModel") || "Search by model…"}
+                  aria-label={t("searchByModel") || "Search by model"}
+                  className={modelSearchQuery ? "pl-9 pr-9" : "pl-9"}
+                />
+                {modelSearchQuery ? (
+                  <button
+                    onClick={() => setModelSearchQuery("")}
+                    className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-text-muted hover:text-text-main transition-colors"
+                    aria-label={tc("clear")}
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                ) : null}
+              </div>
+            </AppleField>
           </div>
           <ProviderDisplayModeControl
             disabledConfigured={disabledConfigured}
@@ -199,19 +219,29 @@ export default function ProviderSummaryCard({
             onChange={onDisplayModeChange}
             t={t}
           />
-          <Button size="sm" icon="add" onClick={onNewProvider}>
+          <AppleButton
+            variant="primary"
+            size="sm"
+            icon={<span className="material-symbols-outlined text-[16px]">add</span>}
+            onClick={onNewProvider}
+          >
             {providerText(t, "onboardingWizardShort", "Onboarding Wizard")}
-          </Button>
-          <Button size="sm" variant="secondary" icon="upload_file" onClick={onImportFromFile}>
+          </AppleButton>
+          <AppleButton
+            variant="secondary"
+            size="sm"
+            icon={<span className="material-symbols-outlined text-[16px]">upload_file</span>}
+            onClick={onImportFromFile}
+          >
             {providerText(t, "importFromFile", "Import from file")}
-          </Button>
+          </AppleButton>
           <button
             onClick={() => onBatchTest("all")}
             disabled={!!testingMode}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               testingMode === "all"
                 ? "bg-primary/20 border-primary/40 text-primary animate-pulse"
-                : "bg-bg-subtle border-border text-text-muted hover:text-text-primary hover:border-primary/40"
+                : "bg-bg-subtle border-border text-text-muted hover:text-text-main hover:border-primary/40"
             }`}
             title={t("testAll")}
           >
@@ -285,6 +315,6 @@ export default function ProviderSummaryCard({
           )}
         </div>
       </div>
-    </Card>
+    </AppleCard>
   );
 }
