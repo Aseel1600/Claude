@@ -22,8 +22,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { callVisionModel, type VisionModelConfig } from "@/lib/guardrails/visionBridgeHelpers";
+import { createProviderConnection } from "@/lib/db/providers";
+import { resetDbInstance } from "@/lib/db/core";
 
 const originalFetch = globalThis.fetch;
+
+// (#8430) getBestVisionModel validates that a `fixedModel` has a usable
+// connection (via hasUsableCredentialsForModel, which queries the real DB)
+// before returning it — an unreachable fixedModel falls through to
+// auto-selection and, with nothing else configured either, resolves to `null`,
+// which callVisionModel turns into a hard "No vision-capable provider
+// connected" error before it ever reaches the HTTP call these tests mock.
+// These tests exercise the SSE/reasoning response handling, so they just need
+// one usable connection seeded for their model ("cmd/xiaomi/mimo-v2.5").
+test.before(async () => {
+  await createProviderConnection({
+    provider: "cmd",
+    authType: "apikey",
+    name: "vision-bridge-test-cmd",
+    apiKey: "sk-test-cmd",
+  });
+});
+
+test.after(() => {
+  resetDbInstance();
+});
 
 function baseConfig(overrides: Partial<VisionModelConfig> = {}): VisionModelConfig {
   return {
