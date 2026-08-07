@@ -582,7 +582,10 @@ test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", () 
     "model",
     "userAgent",
     "requestType",
+    // #9568: identity entries are emitted too (Gemini lowercases tool names in responses).
+    "_toolNameMap",
   ]);
+  assert.equal((result._toolNameMap as Map<string, string>).get("weather"), "weather");
   assert.equal(result.userAgent, "antigravity");
   assert.equal(result.requestType, "agent");
   assert.match(result.requestId, /^agent\/\d+\/[0-9a-f]{8}$/);

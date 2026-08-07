@@ -56,7 +56,11 @@ function capabilityEntry(limitContext: number | null) {
   };
 }
 
-function capabilityEntryWithLimits(limitInput: number | null, limitContext: number | null, limitOutput = 4096) {
+function capabilityEntryWithLimits(
+  limitInput: number | null,
+  limitContext: number | null,
+  limitOutput = 4096
+) {
   return {
     ...capabilityEntry(limitContext),
     limit_input: limitInput,
@@ -325,12 +329,12 @@ test("small input-only maxInputTokens keeps a target whose input fits even thoug
   );
 });
 
-test("input-only maxInputTokens is advisory (#8944): known-fitting target is preferred, too-small stays as fallback", () => {
-  // #8944: catalog context metadata is a routing HINT, not a hard filter.
-  // `too-small` (maxInputTokens = 1) cannot hold the ~11-token input, so the
-  // known-fitting target must be ORDERED first — but too-small remains in the
-  // pool so the upstream response, not a possibly-stale catalog, has the final
-  // word.
+test("input-only maxInputTokens is demoted when the input itself exceeds the cap", () => {
+  // #8944 made context metadata ADVISORY: a catalog-too-small target is no longer
+  // removed (a stale catalog entry must never delete the only target that could
+  // accept the request at runtime), it is ordered AFTER the known-fitting ones.
+  // `too-small` has maxInputTokens = 1, which cannot hold the ~11-token input, so
+  // it must lose the ordering to `huge` while remaining available as a fallback.
   saveModelsDevCapabilities({
     "unit-7039-too-small": {
       "too-small": capabilityEntryWithLimits(1, 1_000_000, 500),
@@ -350,11 +354,10 @@ test("input-only maxInputTokens is advisory (#8944): known-fitting target is pre
   );
 });
 
-test("maxInputTokens defaulting to contextWindow is advisory (#8944): overflowing target demoted, not dropped (#7039 follow-up)", () => {
-  // Shared-window model where maxInputTokens equals the total window size.
-  // The input alone fits the input cap, but input + output overflows the
-  // window — post-#8944 that demotes the target behind the known-fitting one
-  // instead of dropping it (the catalog window may be stale/client-facing).
+test("maxInputTokens defaulting to contextWindow is demoted when input + output exceeds the total window (#7039 follow-up)", () => {
+  // Shared-window model where maxInputTokens equals the total window size. The
+  // input alone fits the input cap but input + output overflows the window, so the
+  // target must not be PREFERRED — since #8944 it is demoted rather than dropped.
   saveModelsDevCapabilities({
     "unit-7039-window": {
       "shared-window": capabilityEntryWithLimits(400_000, 400_000, 200_000),
@@ -394,27 +397,26 @@ test("model_context_override lets a small-catalog target survive a large-context
       largeContextBody(),
       noopLog
     );
-    assert.deepEqual(
-      out.map((entry) => entry.modelStr).sort(),
-      ["unit-override/big", "unit-override/capped"]
-    );
+    assert.deepEqual(out.map((entry) => entry.modelStr).sort(), [
+      "unit-override/big",
+      "unit-override/capped",
+    ]);
   } finally {
     removeModelContextOverride("unit-override", "capped");
   }
 });
 
-test("without an override the small-catalog target is demoted behind the known-fitting one (#8944)", () => {
+// #8944: "dropped" became "demoted" — the small-catalog target survives as a
+// runtime fallback but must never outrank the one whose known limit fits.
+test("without an override the small-catalog target is ordered last for the large request", () => {
   saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
       capped: capabilityEntry(8_000),
     },
   });
-  // No override: capped (8K) is known-too-small for the request, so the
-  // known-fitting target must be preferred — but post-#8944 the catalog limit
-  // is advisory, so capped stays in the fallback pool instead of being cut.
-  // This still guards the override read-path: the override test above expects
-  // BOTH targets as first-class (sorted), this one expects a demotion order.
+  // No override: capped (8K) is genuinely too small and must be filtered out,
+  // guarding the override read-path from masking a real too-small target.
   const out = filterTargetsByRequestCompatibility(
     [target("unit-override/capped"), target("unit-override/big")],
     largeContextBody(),
