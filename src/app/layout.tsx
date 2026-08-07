@@ -1,4 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
 import { NextIntlClientProvider } from "next-intl";
@@ -13,14 +13,40 @@ import { BasePathNetworkProvider } from "@/shared/components/BasePathNetworkProv
 
 // Geist (Vercel) — brand typography for OmniRoute fork.
 // Fork-only change: do NOT port to upstream diegosouzapw/OmniRoute (see AGENTS.md).
-const geistSans = Geist({
-  subsets: ["latin"],
+// Font files ship in `public/fonts/` (variable woff2 from Vercel geist-font
+// v1.7.2) so the Docker build doesn't need network access to Google Fonts
+// at build time — important for self-hosted 1Panel / mainland-China deploys
+// where `next/font/google` would otherwise block on a CDN fetch.
+const geistSans = localFont({
+  src: [
+    {
+      path: "../../public/fonts/Geist-Variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/Geist-Italic-Variable.woff2",
+      weight: "100 900",
+      style: "italic",
+    },
+  ],
   variable: "--font-sans",
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  subsets: ["latin"],
+const geistMono = localFont({
+  src: [
+    {
+      path: "../../public/fonts/GeistMono-Variable.woff2",
+      weight: "100 900",
+      style: "normal",
+    },
+    {
+      path: "../../public/fonts/GeistMono-Italic-Variable.woff2",
+      weight: "100 900",
+      style: "italic",
+    },
+  ],
   variable: "--font-mono",
   display: "swap",
 });
