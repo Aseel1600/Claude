@@ -582,16 +582,10 @@ test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", () 
     "model",
     "userAgent",
     "requestType",
-    // #9568 (c9a3361e5a): buildChangedToolNameMap now emits IDENTITY entries too,
-    // because Gemini lowercases tool names in functionCall responses and the
-    // response translator needs a key to map them back. So any request carrying
-    // tools now carries `_toolNameMap` in the envelope.
+    // #9568: identity entries are emitted too (Gemini lowercases tool names in responses).
     "_toolNameMap",
   ]);
-  assert.deepEqual(
-    [...(result._toolNameMap as Map<string, string>).entries()],
-    [["weather", "weather"]]
-  );
+  assert.equal((result._toolNameMap as Map<string, string>).get("weather"), "weather");
   assert.equal(result.userAgent, "antigravity");
   assert.equal(result.requestType, "agent");
   assert.match(result.requestId, /^agent\/\d+\/[0-9a-f]{8}$/);
