@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { detectMediaParts } from "../../open-sse/utils/mediaParts";
+import { containsMediaKind, detectMediaParts } from "../../open-sse/utils/mediaParts";
 import { extractImageParts, replaceImageParts } from "../../src/lib/guardrails/visionBridgeHelpers";
 
 const msg = (content: unknown) => [{ role: "user", content }];
@@ -127,6 +127,24 @@ test("bare source.media_type audio/* yields a single audio_source part", () => {
   assert.equal(parts[0].kind, "audio");
   assert.equal(parts[0].shape, "audio_source");
   assert.equal(parts[0].ref, "QUJD");
+});
+
+test("containsMediaKind early-exit agrees with detectMediaParts presence", () => {
+  const withImage = msg([
+    { type: "text", text: "hi" },
+    { type: "image_url", image_url: { url: "https://x/i.png" } },
+  ]);
+  assert.equal(containsMediaKind(withImage, "image"), true);
+  assert.equal(containsMediaKind(withImage, "audio"), false);
+
+  const withAudio = msg([{ type: "input_audio", input_audio: { data: "QUJD", format: "wav" } }]);
+  assert.equal(containsMediaKind(withAudio, "audio"), true);
+  assert.equal(containsMediaKind(withAudio, "image"), false);
+
+  // Nested/indicator hits count for presence (combo parity).
+  assert.equal(containsMediaKind(msg([{ image_url: "https://x" }]), "image"), true);
+  assert.equal(containsMediaKind([{ role: "user", content: "oi" }], "image"), false);
+  assert.equal(containsMediaKind(undefined, "image"), false);
 });
 
 test("extractImageParts skips indicator parts without extractable refs", () => {

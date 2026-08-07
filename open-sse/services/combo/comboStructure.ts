@@ -18,7 +18,7 @@ import { getHiddenModelsByProvider } from "../../../src/lib/db/models";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
 import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
-import { detectMediaParts } from "../../utils/mediaParts.ts";
+import { containsMediaKind } from "../../utils/mediaParts.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel, stripContextWindowSuffix } from "../model.ts";
 import { dedupeTargetsByExecutionKey, isRecord } from "./comboData.ts";
@@ -488,8 +488,9 @@ function valueContainsImagePart(value: unknown): boolean {
   // detector keeps this filter's legacy permissive matches (image-ish `type`
   // in any casing, bare `image_url`/`input_image` keys, source.media_type
   // image/*, bare data:image strings, recursion capped at depth 8) via
-  // "image_indicator" parts.
-  return detectMediaParts([{ content: [value] }]).some((part) => part.kind === "image");
+  // "image_indicator" parts. containsMediaKind short-circuits on the first
+  // hit — this runs on every request, so no full-part collection here.
+  return containsMediaKind([{ content: [value] }], "image");
 }
 
 export function deriveRequestCompatibilityRequirements(

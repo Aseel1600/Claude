@@ -184,13 +184,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       return { block: false };
     }
 
-    // 6. Check for images using helper (extractImageParts returns empty if no images)
-    const imageParts = extractImageParts(messages as Parameters<typeof extractImageParts>[0]);
-    if (imageParts.length === 0) {
-      return { block: false };
-    }
-
-    // 7. Get settings (injectable for testing)
+    // 6. Get settings (injectable for testing)
     const getSettings = this.deps.getSettings ?? defaultGetSettings;
     let settings: Record<string, unknown> = {};
     try {
@@ -199,9 +193,17 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       // If getSettings fails, use defaults
     }
 
-    // 8. Check if Vision Bridge is enabled in settings
+    // 7. Check if Vision Bridge is enabled in settings — BEFORE any media
+    // traversal, so a disabled bridge never pays the per-request deep scan
+    // of every message content part.
     const enabled = settings.visionBridgeEnabled ?? VISION_BRIDGE_DEFAULTS.enabled;
     if (!enabled) {
+      return { block: false };
+    }
+
+    // 8. Check for images using helper (extractImageParts returns empty if no images)
+    const imageParts = extractImageParts(messages as Parameters<typeof extractImageParts>[0]);
+    if (imageParts.length === 0) {
       return { block: false };
     }
 

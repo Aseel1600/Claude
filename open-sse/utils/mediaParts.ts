@@ -52,6 +52,9 @@ interface DetectCtx {
   out: MediaPart[];
   messageIndex: number;
   partIndex: number;
+  /** When set, `found` flips true on the first part of this kind (early exit). */
+  stopAtKind?: MediaKind;
+  found?: boolean;
 }
 
 /** Extract a URL from either a bare string or a `{ url }` object. */
@@ -76,6 +79,7 @@ function pushPart(
     nested: depth > 0,
     shape,
   });
+  if (ctx.stopAtKind === kind) ctx.found = true;
 }
 
 /** Strict image shapes with an extractable ref. Returns true when one was pushed. */
@@ -175,13 +179,16 @@ function inspectImageIndicators(
 }
 
 function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
-  if (depth > MAX_DEPTH || value == null) return;
+  if (ctx.found || depth > MAX_DEPTH || value == null) return;
   if (typeof value === "string") {
     if (value.startsWith("data:image/")) pushPart(ctx, "image", value, "data_uri_string", depth);
     return;
   }
   if (Array.isArray(value)) {
-    for (const entry of value) inspect(entry, ctx, depth + 1);
+    for (const entry of value) {
+      inspect(entry, ctx, depth + 1);
+      if (ctx.found) return;
+    }
     return;
   }
   if (typeof value !== "object") return;
@@ -195,8 +202,12 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
   // indicators (bare `image_url`/`input_image` keys the legacy combo filter
   // matched) or nest image parts inside its payload.
   inspectAudioShapes(obj, type, mediaType, ctx, depth);
+  if (ctx.found) return;
   if (inspectImageIndicators(obj, type, mediaType, ctx, depth)) return;
-  for (const nested of Object.values(obj)) inspect(nested, ctx, depth + 1);
+  for (const nested of Object.values(obj)) {
+    inspect(nested, ctx, depth + 1);
+    if (ctx.found) return;
+  }
 }
 
 export function detectMediaParts(
@@ -212,4 +223,28 @@ export function detectMediaParts(
     }
   }
   return out;
+}
+
+/**
+ * Early-exit presence check: returns true as soon as the FIRST part of the
+ * requested kind is found, without collecting the full part list or finishing
+ * the traversal. Prefer this on hot paths (e.g. the combo compatibility
+ * filter runs on every request) over `detectMediaParts(...).some(...)`.
+ */
+export function containsMediaKind(
+  messages: ReadonlyArray<{ role?: string; content?: unknown }> | undefined | null,
+  kind: MediaKind
+): boolean {
+  if (!Array.isArray(messages)) return false;
+  const out: MediaPart[] = [];
+  for (let messageIndex = 0; messageIndex < messages.length; messageIndex++) {
+    const content = messages[messageIndex]?.content;
+    if (!Array.isArray(content)) continue;
+    for (let partIndex = 0; partIndex < content.length; partIndex++) {
+      const ctx: DetectCtx = { out, messageIndex, partIndex, stopAtKind: kind };
+      inspect(content[partIndex], ctx, 0);
+      if (ctx.found) return true;
+    }
+  }
+  return false;
 }
