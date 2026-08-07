@@ -4,16 +4,19 @@ import {
   ANALYSIS_MAX_EDGE,
   EmptyUpstreamResponseError,
   IMAGE_MODEL,
+  IMAGE_ORIENTATIONS,
   NO_BASE,
   VERIFIED_VISION_ROUTES,
   buildMultimodalMessages,
   computeTargetDimensions,
+  describeSize,
   estimateBase64Bytes,
   estimateVisionTokens,
   extractGeneratedImage,
   formatBytes,
   formatElapsed,
   isSendKey,
+  orientationForSize,
   resolveEditBase,
   resolveImageEndpoint,
   routeLabel,
@@ -252,6 +255,43 @@ test("resolveEditBase falls back when the pick is out of range", () => {
   // An index left over from a removed attachment must not select nothing.
   assert.equal(resolveEditBase(2, 5), 1);
   assert.equal(resolveEditBase(2, -7), 1);
+});
+
+// --- Orientação ---------------------------------------------------------------
+
+test("every orientation carries a size the endpoints accept", () => {
+  assert.equal(IMAGE_ORIENTATIONS.length, 3);
+  for (const o of IMAGE_ORIENTATIONS) {
+    assert.match(o.size, /^\d+x\d+$/, `${o.id} must transport a WxH size`);
+    assert.ok(o.label.length > 0);
+    assert.match(o.ratio, /^\d+:\d+$/);
+  }
+});
+
+test("the three orientations are actually square, landscape and portrait", () => {
+  const shape = (size: string) => {
+    const [w, h] = size.split("x").map(Number);
+    return w === h ? "square" : w > h ? "landscape" : "portrait";
+  };
+  for (const o of IMAGE_ORIENTATIONS) {
+    assert.equal(shape(o.size), o.id, `${o.label} does not match its dimensions`);
+  }
+});
+
+test("orientationForSize maps a raw size back to its shape", () => {
+  assert.equal(orientationForSize("1024x1536")?.id, "portrait");
+  assert.equal(orientationForSize("1536x1024")?.id, "landscape");
+  assert.equal(orientationForSize("1024x1024")?.id, "square");
+  assert.equal(orientationForSize("999x1"), undefined);
+});
+
+test("describeSize names the shape instead of only the pixels", () => {
+  assert.equal(describeSize("1024x1536"), "Retrato 1024×1536");
+  assert.equal(describeSize("1024x1024"), "Quadrado 1024×1024");
+});
+
+test("describeSize degrades gracefully for an unknown size", () => {
+  assert.equal(describeSize("640x480"), "640×480");
 });
 
 // --- Legenda do preview -------------------------------------------------------

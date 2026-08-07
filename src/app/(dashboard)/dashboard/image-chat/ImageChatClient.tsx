@@ -5,10 +5,12 @@ import MarkdownMessage from "../playground/components/MarkdownMessage";
 import {
   ANALYSIS_MAX_EDGE,
   IMAGE_MODEL,
+  IMAGE_ORIENTATIONS,
   NO_BASE,
   VERIFIED_VISION_ROUTES,
   buildMultimodalMessages,
   computeTargetDimensions,
+  describeSize,
   estimateBase64Bytes,
   estimateVisionTokens,
   extractGeneratedImage,
@@ -36,7 +38,12 @@ interface Attachment {
   sent?: boolean;
 }
 
-const IMAGE_SIZES = ["1024x1024", "1536x1024", "1024x1536"];
+/** Little shape drawn on each orientation button, proportional to its ratio. */
+const ORIENTATION_GLYPH: Record<string, { width: number; height: number }> = {
+  square: { width: 10, height: 10 },
+  landscape: { width: 13, height: 9 },
+  portrait: { width: 9, height: 13 },
+};
 
 /** Reads a File/Blob as a data: URL. */
 function readAsDataUrl(file: Blob): Promise<string> {
@@ -197,7 +204,7 @@ export default function ImageChatClient() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [model, setModel] = useState<string>(VERIFIED_VISION_ROUTES[0]);
-  const [size, setSize] = useState<string>(IMAGE_SIZES[0]);
+  const [size, setSize] = useState<string>(IMAGE_ORIENTATIONS[0].size);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loading, setLoading] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
@@ -410,7 +417,7 @@ export default function ImageChatClient() {
     setBusyLabel(base ? "editando imagem" : "gerando imagem");
     setPending({
       label: base ? `editando a partir de ${base.name}` : "gerando imagem do zero",
-      detail: `${routeLabel(IMAGE_MODEL)} · ${size}`,
+      detail: `${routeLabel(IMAGE_MODEL)} · ${describeSize(size)}`,
     });
     setError(null);
     setDraft(null);
@@ -738,18 +745,38 @@ export default function ImageChatClient() {
             ))}
           </select>
 
-          <select
-            value={size}
-            onChange={(e) => setSize(e.target.value)}
-            className="rounded-md border border-border bg-bg-main text-sm px-2 py-1.5"
-            aria-label="Tamanho da imagem"
+          {/* Orientação, não pixels — a dimensão continua sendo o valor enviado. */}
+          <div
+            role="radiogroup"
+            aria-label="Orientação da imagem"
+            className="flex items-center gap-1 rounded-md border border-border p-0.5"
           >
-            {IMAGE_SIZES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            {IMAGE_ORIENTATIONS.map((o) => {
+              const active = size === o.size;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setSize(o.size)}
+                  title={`${o.label} ${o.ratio} · ${o.size}`}
+                  className={`flex items-center gap-1.5 rounded px-2 py-1 text-xs transition ${
+                    active ? "bg-primary text-white" : "text-text-muted hover:bg-bg-main"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    style={ORIENTATION_GLYPH[o.id]}
+                    className={`inline-block rounded-[2px] border ${
+                      active ? "border-white" : "border-current"
+                    }`}
+                  />
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
 
           <input
             ref={fileRef}
