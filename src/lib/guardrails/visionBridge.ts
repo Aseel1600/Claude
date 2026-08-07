@@ -21,6 +21,7 @@ import {
 import { resolveVisionBridgeRuntimeSettings } from "@/shared/constants/modalityBridgeDefaults";
 import { getBestVisionModel } from "./visionBridgeRouter";
 import { bridgeCacheKey, getSharedBridgeCacheFor } from "./modalityBridge/bridgeCache";
+import { recordBridgeUse } from "./modalityBridge/bridgeStats";
 import {
   isProviderConnectionUsable,
   hasUsableCredentialsForModel,
@@ -360,6 +361,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         const cached = key && cache ? cache.get(key) : undefined;
         const description = cached ?? (await callVision(imagePart.imageUrl, describeConfig));
         if (cached === undefined && key && cache) cache.set(key, description);
+        recordBridgeUse("vision", { cacheHit: cached !== undefined });
         return `[Image ${i + 1}]: ${description}`;
       })
     );
@@ -375,6 +377,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
       const message =
         result.reason instanceof Error ? result.reason.message : String(result.reason);
       logger?.warn?.("VISION-BRIDGE", `Failed to get description for image ${i + 1}: ${message}`);
+      recordBridgeUse("vision", { failure: true });
       return null;
     });
 
