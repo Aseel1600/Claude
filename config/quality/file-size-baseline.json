@@ -528,7 +528,7 @@
     "open-sse/executors/base.ts": 1640,
     "open-sse/executors/chatgpt-web.ts": 3241,
     "open-sse/executors/codex.ts": 1562,
-    "open-sse/executors/cursor.ts": 1560,
+    "open-sse/executors/cursor.ts": 1563,
     "open-sse/executors/deepseek-web.ts": 1148,
     "open-sse/executors/grok-web.ts": 1044,
     "open-sse/executors/muse-spark-web.ts": 1405,
