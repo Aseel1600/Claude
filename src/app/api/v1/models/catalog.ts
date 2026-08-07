@@ -37,7 +37,8 @@ import {
   createBuiltinAutoCombo,
   isPaidTierAutoId,
 } from "@omniroute/open-sse/services/autoCombo/builtinCatalog";
-import { getAllSyncedAvailableModels, type SyncedAvailableModel } from "@/lib/db/models";
+import type { SyncedAvailableModel } from "@/lib/db/models";
+import { getAllActiveSyncedModels } from "@/lib/db/models/activeSyncedCatalog";
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
 import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
@@ -676,7 +677,7 @@ async function buildUnifiedModelsResponseCore(
 
     let syncedModelsByProvider: Record<string, SyncedAvailableModel[]> = {};
     try {
-      syncedModelsByProvider = await getAllSyncedAvailableModels();
+      syncedModelsByProvider = await getAllActiveSyncedModels();
     } catch (e) {
       // DB unavailable — log and fall through; static models remain as defaults.
       console.log("[catalog] Could not fetch synced available models:", e);
