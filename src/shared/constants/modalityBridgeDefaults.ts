@@ -13,7 +13,7 @@ export const MODALITY_BRIDGE_DEFAULTS = {
   visionMode: "auto" as VisionBridgeMode,
   visionTaskAware: true,
   cacheEnabled: true,
-  cacheTtlMin: 60,
+  cacheTtlMinutes: 60,
   cacheMaxEntries: 200,
   audioEnabled: true,
   audioModel: "",
@@ -30,12 +30,24 @@ export interface VisionBridgeRuntimeSettings {
   timeoutMs: number;
   maxImages: number;
   cacheEnabled: boolean;
-  cacheTtlMin: number;
+  cacheTtlMinutes: number;
   cacheMaxEntries: number;
 }
 
-function pick<T>(...values: unknown[]): T | undefined {
-  for (const v of values) if (v !== undefined && v !== null) return v as T;
+// Typed candidate pickers: a stored value of the wrong type (e.g. the string
+// "off" in a boolean field) is skipped so the next candidate/default wins.
+function pickBoolean(...values: unknown[]): boolean | undefined {
+  for (const v of values) if (typeof v === "boolean") return v;
+  return undefined;
+}
+
+function pickNumber(...values: unknown[]): number | undefined {
+  for (const v of values) if (typeof v === "number" && Number.isFinite(v)) return v;
+  return undefined;
+}
+
+function pickString(...values: unknown[]): string | undefined {
+  for (const v of values) if (typeof v === "string") return v;
   return undefined;
 }
 
@@ -44,30 +56,30 @@ export function resolveVisionBridgeRuntimeSettings(
   settings: Record<string, unknown> | null | undefined
 ): VisionBridgeRuntimeSettings {
   const s = settings ?? {};
-  const mode = pick<string>(s.modalityBridgeVisionMode);
+  const mode = pickString(s.modalityBridgeVisionMode);
   return {
     enabled:
-      pick<boolean>(s.modalityBridgeVisionEnabled, s.visionBridgeEnabled) ??
+      pickBoolean(s.modalityBridgeVisionEnabled, s.visionBridgeEnabled) ??
       VISION_BRIDGE_DEFAULTS.enabled,
     mode: mode === "describe" || mode === "reroute" ? mode : MODALITY_BRIDGE_DEFAULTS.visionMode,
     model:
-      pick<string>(s.modalityBridgeVisionModel, s.visionBridgeModel) ??
-      VISION_BRIDGE_DEFAULTS.model,
+      pickString(s.modalityBridgeVisionModel, s.visionBridgeModel) ?? VISION_BRIDGE_DEFAULTS.model,
     taskAware:
-      pick<boolean>(s.modalityBridgeVisionTaskAware) ?? MODALITY_BRIDGE_DEFAULTS.visionTaskAware,
+      pickBoolean(s.modalityBridgeVisionTaskAware) ?? MODALITY_BRIDGE_DEFAULTS.visionTaskAware,
     prompt:
-      pick<string>(s.modalityBridgeVisionPrompt, s.visionBridgePrompt) ??
+      pickString(s.modalityBridgeVisionPrompt, s.visionBridgePrompt) ??
       VISION_BRIDGE_DEFAULTS.prompt,
     timeoutMs:
-      pick<number>(s.modalityBridgeVisionTimeout, s.visionBridgeTimeout) ??
+      pickNumber(s.modalityBridgeVisionTimeout, s.visionBridgeTimeout) ??
       VISION_BRIDGE_DEFAULTS.timeoutMs,
     maxImages:
-      pick<number>(s.modalityBridgeVisionMaxImages, s.visionBridgeMaxImages) ??
+      pickNumber(s.modalityBridgeVisionMaxImages, s.visionBridgeMaxImages) ??
       VISION_BRIDGE_DEFAULTS.maxImagesPerRequest,
     cacheEnabled:
-      pick<boolean>(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
-    cacheTtlMin: pick<number>(s.modalityBridgeCacheTtlMin) ?? MODALITY_BRIDGE_DEFAULTS.cacheTtlMin,
+      pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
+    cacheTtlMinutes:
+      pickNumber(s.modalityBridgeCacheTtlMinutes) ?? MODALITY_BRIDGE_DEFAULTS.cacheTtlMinutes,
     cacheMaxEntries:
-      pick<number>(s.modalityBridgeCacheMaxEntries) ?? MODALITY_BRIDGE_DEFAULTS.cacheMaxEntries,
+      pickNumber(s.modalityBridgeCacheMaxEntries) ?? MODALITY_BRIDGE_DEFAULTS.cacheMaxEntries,
   };
 }

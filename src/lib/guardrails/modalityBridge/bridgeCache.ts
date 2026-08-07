@@ -7,12 +7,15 @@
  */
 import { createHash } from "node:crypto";
 
+import type { VisionBridgeRuntimeSettings } from "@/shared/constants/modalityBridgeDefaults";
+
 export function bridgeCacheKey(contentRef: string, prompt: string, model: string): string {
+  // Length-prefix framing: hashing the byte lengths first makes the field
+  // boundaries unambiguous, so ("ab","c") can never collide with ("a","bc").
   return createHash("sha256")
+    .update(`${Buffer.byteLength(contentRef)}:${Buffer.byteLength(prompt)}:`)
     .update(contentRef)
-    .update(" ")
     .update(prompt)
-    .update(" ")
     .update(model)
     .digest("hex");
 }
@@ -67,4 +70,13 @@ export function getSharedBridgeCache(ttlMs: number, maxEntries: number): BridgeC
     shared = { cache: new BridgeCache({ maxEntries, ttlMs }), ttlMs, maxEntries };
   }
   return shared.cache;
+}
+
+/**
+ * Single conversion point from runtime settings to the shared cache: every
+ * bridge (vision, audio) goes through here so the minutes→ms conversion can
+ * never diverge between callers and thrash the singleton on each request.
+ */
+export function getSharedBridgeCacheFor(settings: VisionBridgeRuntimeSettings): BridgeCache {
+  return getSharedBridgeCache(settings.cacheTtlMinutes * 60_000, settings.cacheMaxEntries);
 }

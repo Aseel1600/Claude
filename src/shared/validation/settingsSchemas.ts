@@ -336,7 +336,7 @@ export const updateSettingsSchema = z.object({
   modalityBridgeAudioTimeout: z.number().int().min(1000).max(300000).optional(),
   modalityBridgeAudioMaxClips: z.number().int().min(1).max(10).optional(),
   modalityBridgeCacheEnabled: z.boolean().optional(),
-  modalityBridgeCacheTtlMin: z.number().int().min(1).max(1440).optional(),
+  modalityBridgeCacheTtlMinutes: z.number().int().min(1).max(1440).optional(),
   modalityBridgeCacheMaxEntries: z.number().int().min(10).max(5000).optional(),
   // Missing settings
   lkgpEnabled: z.boolean().optional(),

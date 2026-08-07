@@ -5,17 +5,19 @@ import path from "node:path";
 import Database from "better-sqlite3";
 
 const MIGRATION_PATH = path.resolve("src/lib/db/migrations/139_modality_bridge_settings.sql");
+const INITIAL_SCHEMA_PATH = path.resolve("src/lib/db/migrations/001_initial_schema.sql");
+
+/** Extract the REAL key_value DDL from the initial schema so the seed can never drift. */
+function keyValueTableDdl(): string {
+  const schema = fs.readFileSync(INITIAL_SCHEMA_PATH, "utf8");
+  const match = schema.match(/CREATE TABLE IF NOT EXISTS key_value \([\s\S]*?\);/);
+  assert.ok(match, "key_value CREATE TABLE block not found in 001_initial_schema.sql");
+  return match[0];
+}
 
 function createSeededDb(): InstanceType<typeof Database> {
   const db = new Database(":memory:");
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS key_value (
-      namespace TEXT NOT NULL,
-      key TEXT NOT NULL,
-      value TEXT NOT NULL,
-      PRIMARY KEY (namespace, key)
-    );
-  `);
+  db.exec(keyValueTableDdl());
   return db;
 }
 

@@ -32,7 +32,25 @@ test("defaults: mode auto, taskAware true, cache on", () => {
   assert.equal(s.mode, "auto");
   assert.equal(s.taskAware, true);
   assert.equal(s.cacheEnabled, true);
-  assert.equal(s.cacheTtlMin, MODALITY_BRIDGE_DEFAULTS.cacheTtlMin);
+  assert.equal(s.cacheTtlMinutes, MODALITY_BRIDGE_DEFAULTS.cacheTtlMinutes);
+});
+
+test("wrong-typed stored values are skipped in favor of the next candidate/default", () => {
+  const s = resolveVisionBridgeRuntimeSettings({
+    modalityBridgeVisionEnabled: "off", // string in a boolean field
+    modalityBridgeVisionTimeout: "9000", // string in a number field
+    modalityBridgeVisionModel: 42, // number in a string field
+  });
+  assert.equal(s.enabled, true); // falls through to VISION_BRIDGE_DEFAULTS.enabled
+  assert.equal(s.timeoutMs, 30000);
+  assert.equal(s.model, "openai/gpt-4o-mini");
+
+  // A wrong-typed NEW key must still fall through to a well-typed LEGACY key.
+  const fallback = resolveVisionBridgeRuntimeSettings({
+    modalityBridgeVisionEnabled: "off",
+    visionBridgeEnabled: false,
+  });
+  assert.equal(fallback.enabled, false);
 });
 
 test("Modality Bridge settings are accepted by the settings PATCH schema", () => {
@@ -49,25 +67,30 @@ test("Modality Bridge settings are accepted by the settings PATCH schema", () =>
     modalityBridgeAudioTimeout: 60000,
     modalityBridgeAudioMaxClips: 3,
     modalityBridgeCacheEnabled: true,
-    modalityBridgeCacheTtlMin: 60,
+    modalityBridgeCacheTtlMinutes: 60,
     modalityBridgeCacheMaxEntries: 200,
   });
 
   assert.equal(validation.success, true);
 });
 
-test("Modality Bridge settings keep numeric bounds and enum enforced", () => {
-  const outOfBounds = updateSettingsSchema.safeParse({
+test("Modality Bridge settings keep numeric bounds enforced (each field individually)", () => {
+  const invalidByField: Record<string, number> = {
     modalityBridgeVisionTimeout: 999999,
     modalityBridgeVisionMaxImages: 0,
     modalityBridgeAudioMaxClips: 11,
-    modalityBridgeCacheTtlMin: 0,
+    modalityBridgeCacheTtlMinutes: 0,
     modalityBridgeCacheMaxEntries: 9,
-  });
-  assert.equal(outOfBounds.success, false);
+  };
+  for (const [field, value] of Object.entries(invalidByField)) {
+    const validation = updateSettingsSchema.safeParse({ [field]: value });
+    assert.equal(validation.success, false, `${field}=${value} should be rejected`);
+  }
+});
 
-  const badMode = updateSettingsSchema.safeParse({
+test("Modality Bridge vision mode rejects values outside the enum", () => {
+  const validation = updateSettingsSchema.safeParse({
     modalityBridgeVisionMode: "invalid-mode",
   });
-  assert.equal(badMode.success, false);
+  assert.equal(validation.success, false);
 });
