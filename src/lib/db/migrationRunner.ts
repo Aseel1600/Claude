@@ -465,6 +465,7 @@ function isSchemaAlreadyApplied(
       // exists the rebuild ran — skip re-executing the rename/copy/drop, which
       // would fail on the missing proxy_assignments_pre117 table.
       return hasColumn(db, "proxy_assignments", "position");
+<<<<<<< HEAD
     // Retroactive guard for the 135/136 renumber (#8523 landed onto slots already taken
     // by #8908/#9515): a DB that ran these under the old numbers already has the column,
     // and a bare ALTER TABLE ADD COLUMN would throw on the re-run under the new number.
@@ -487,6 +488,12 @@ function isSchemaAlreadyApplied(
       // but still burn a version-tracking slot mismatch — guard it the same
       // way as the other renumbers for consistency.
       return hasTable(db, "connection_runtime_state");
+=======
+    case "134":
+      // Combo adaptation state v2 rebuild (keyed on model_str). If the new
+      // per-model shape is already present, the rebuild ran — skip it.
+      return hasColumn(db, "combo_adaptation_state", "model_str");
+>>>>>>> 24e31285c2 (feat(routing): add capability filtering module)
     default:
       return false;
   }

@@ -511,6 +511,23 @@ export async function handleSetResilienceProfile(args: {
   }
 }
 
+/**
+ * Build the OpenAI-compatible request body used by omniroute_test_combo.
+ *
+ * The body must stay a plain chat-completions payload: a previous version added
+ * an `x-provider` field that the gateway forwards verbatim upstream, and strict
+ * providers (Mistral) reject the unknown field with 422 — making healthy
+ * combo targets look broken in the tool's results.
+ */
+export function buildTestComboBody(model: string, prompt: string): Record<string, unknown> {
+  return {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 50,
+    stream: false,
+  };
+}
+
 export async function handleTestCombo(args: { comboId: string; testPrompt: string }) {
   const start = Date.now();
   try {
@@ -543,12 +560,16 @@ export async function handleTestCombo(args: { comboId: string; testPrompt: strin
           const resp = toRecord(
             await apiFetch("/v1/chat/completions", {
               method: "POST",
+<<<<<<< HEAD
               body: JSON.stringify({
                 model: model.model || "auto",
                 messages: [{ role: "user", content: prompt }],
                 max_tokens: 50,
                 stream: false,
               }),
+=======
+              body: JSON.stringify(buildTestComboBody(model.model || "auto", prompt)),
+>>>>>>> 24e31285c2 (feat(routing): add capability filtering module)
             })
           );
           const usage = toRecord(resp.usage);
