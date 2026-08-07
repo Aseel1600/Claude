@@ -18,6 +18,8 @@ export interface ChatMessage {
   attachments?: string[];
   /** b64 PNG produced by the image model (assistant turns only). */
   image?: string;
+  /** Wall time the image took to come back, shown in its caption. */
+  durationMs?: number;
   error?: string;
 }
 
@@ -185,6 +187,53 @@ export function seedPromptFromAnswer(answer: string): string {
   text = text.replace(ack, "");
 
   return text.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * Sentinel for "generate from scratch, ignore the tray".
+ *
+ * `null` means the operator has not chosen — see `resolveEditBase`.
+ */
+export const NO_BASE = -1;
+
+/**
+ * Decides which attachment goes to the image model as the edit base.
+ *
+ * The reference riding along is the DEFAULT, not an opt-in. A tray showing a
+ * thumbnail while the request silently carries no image produced a 2xx with a
+ * hallucinated result and no error to warn anyone — the failure was invisible.
+ * So an untouched selection (`null`) resolves to the most recent attachment;
+ * generating from scratch is now the deliberate act (`NO_BASE`).
+ */
+export function resolveEditBase(count: number, selected: number | null): number | null {
+  if (count <= 0) return null;
+  if (selected === NO_BASE) return null;
+  if (selected !== null && selected >= 0 && selected < count) return selected;
+  return count - 1;
+}
+
+/** Decoded byte length of a base64 payload, without allocating it. */
+export function estimateBase64Bytes(b64: string): number {
+  if (typeof b64 !== "string" || b64.length === 0) return 0;
+  const body = b64.includes(",") ? b64.slice(b64.indexOf(",") + 1) : b64;
+  const clean = body.replace(/\s/g, "");
+  if (!clean) return 0;
+  const padding = clean.endsWith("==") ? 2 : clean.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((clean.length * 3) / 4) - padding);
+}
+
+/** Human-readable byte size for an image caption. */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Elapsed time for the progress card — one decimal, always seconds. */
+export function formatElapsed(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return "0.0s";
+  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /** True when the keystroke should send the message. */

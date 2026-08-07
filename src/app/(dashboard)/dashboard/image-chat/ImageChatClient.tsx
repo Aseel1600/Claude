@@ -5,12 +5,17 @@ import MarkdownMessage from "../playground/components/MarkdownMessage";
 import {
   ANALYSIS_MAX_EDGE,
   IMAGE_MODEL,
+  NO_BASE,
   VERIFIED_VISION_ROUTES,
   buildMultimodalMessages,
   computeTargetDimensions,
+  estimateBase64Bytes,
   estimateVisionTokens,
   extractGeneratedImage,
+  formatBytes,
+  formatElapsed,
   isSendKey,
+  resolveEditBase,
   resolveImageEndpoint,
   routeLabel,
   seedPromptFromAnswer,
@@ -73,6 +78,116 @@ async function buildAnalysisCopy(
   };
 }
 
+/** Max height, in px, a generated image occupies inside the conversation. */
+const PREVIEW_MAX_HEIGHT = 256;
+
+/**
+ * A generated image inside the conversation.
+ *
+ * Capped so a 1024x1536 result does not push the rest of the thread out of
+ * view; the real dimensions are read from the decoded image on load and shown
+ * in the caption, and a click opens it at full size.
+ */
+function GeneratedImage({
+  src,
+  bytes,
+  durationMs,
+  index,
+  onZoom,
+}: {
+  src: string;
+  bytes: number;
+  durationMs?: number;
+  index: number;
+  onZoom: (src: string) => void;
+}) {
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt="imagem gerada"
+        onLoad={(e) =>
+          setDims({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })
+        }
+        onClick={() => onZoom(src)}
+        style={{ maxHeight: PREVIEW_MAX_HEIGHT }}
+        className="w-auto max-w-full object-contain rounded-md border border-border cursor-zoom-in"
+        title="Clique para ver em tamanho real"
+      />
+      <div className="flex items-center gap-2 text-[11px] text-text-muted">
+        {dims && (
+          <span>
+            {dims.w}×{dims.h}
+          </span>
+        )}
+        {bytes > 0 && <span>· {formatBytes(bytes)}</span>}
+        {durationMs !== undefined && <span>· {formatElapsed(durationMs)}</span>}
+        <a
+          href={src}
+          download={`omniroute-${index}.png`}
+          className="ml-auto text-primary hover:underline"
+        >
+          Baixar PNG
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Live feedback while the image model works.
+ *
+ * A ~20s wait with nothing but a muted label in the toolbar reads as a freeze.
+ * The counter is a real elapsed clock and the reference is a measured previous
+ * run — deliberately no percentage bar: the upstream emits no progress, so any
+ * bar would be an animation pretending to know something.
+ */
+function ImageProgressCard({
+  label,
+  detail,
+  elapsedMs,
+  referenceMs,
+  onCancel,
+}: {
+  label: string;
+  detail: string;
+  elapsedMs: number;
+  referenceMs: number | null;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="self-start max-w-[85%] rounded-lg border border-border bg-bg-main px-3 py-2">
+      <div className="text-[10px] uppercase tracking-wide text-text-muted mb-1">
+        {routeLabel(IMAGE_MODEL)}
+      </div>
+      <div
+        style={{ height: PREVIEW_MAX_HEIGHT, width: PREVIEW_MAX_HEIGHT }}
+        className="rounded-md border border-border bg-bg-subtle animate-pulse"
+        role="progressbar"
+        aria-label={label}
+      />
+      <div className="mt-2 flex flex-col gap-1">
+        <span className="text-xs text-text-main">{label}</span>
+        <span className="text-[11px] text-text-muted">{detail}</span>
+        <span className="text-[11px] text-text-muted">
+          {formatElapsed(elapsedMs)}
+          {referenceMs !== null && ` · a última levou ${formatElapsed(referenceMs)}`}
+        </span>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-1 w-fit rounded-md border border-border px-2 py-1 text-xs hover:bg-bg-subtle"
+        >
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ImageChatClient() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -85,15 +200,44 @@ export default function ImageChatClient() {
   const [lastDuration, setLastDuration] = useState<number | null>(null);
   /** Review draft: the prompt seeded from an assistant answer, before generating. */
   const [draft, setDraft] = useState<string | null>(null);
-  /** Index of the attachment used as the edit base; null generates from scratch. */
+  /**
+   * Edit-base selection. `null` = untouched (resolves to the most recent
+   * attachment), `NO_BASE` = deliberately from scratch, `>= 0` = explicit pick.
+   */
   const [baseIdx, setBaseIdx] = useState<number | null>(null);
+  /** In-flight image job, drives the progress card. */
+  const [pending, setPending] = useState<{ label: string; detail: string } | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  /** Duration of the last completed image job, used as the honest reference. */
+  const [lastImageMs, setLastImageMs] = useState<number | null>(null);
+  /** Generated image opened at full size. */
+  const [zoom, setZoom] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, pending]);
+
+  // Elapsed clock for the progress card — only ticks while a job is in flight.
+  useEffect(() => {
+    if (!pending) return;
+    const startedAt = Date.now();
+    setElapsed(0);
+    const id = setInterval(() => setElapsed(Date.now() - startedAt), 100);
+    return () => clearInterval(id);
+  }, [pending]);
+
+  // Esc closes the full-size view.
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoom(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
   const addFiles = async (files: FileList | File[]) => {
     const next: Attachment[] = [];
@@ -129,7 +273,8 @@ export default function ImageChatClient() {
   const removeAttachment = (idx: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
     setBaseIdx((prev) => {
-      if (prev === null) return null;
+      if (prev === null || prev === NO_BASE) return prev;
+      // Removing the chosen base falls back to automatic, not to "no reference".
       if (prev === idx) return null;
       return prev > idx ? prev - 1 : prev;
     });
@@ -254,9 +399,14 @@ export default function ImageChatClient() {
       return;
     }
 
-    const base = baseIdx !== null ? attachments[baseIdx] : undefined;
+    const effectiveIdx = resolveEditBase(attachments.length, baseIdx);
+    const base = effectiveIdx !== null ? attachments[effectiveIdx] : undefined;
     setLoading(true);
     setBusyLabel(base ? "editando imagem" : "gerando imagem");
+    setPending({
+      label: base ? `editando a partir de ${base.name}` : "gerando imagem do zero",
+      detail: `${routeLabel(IMAGE_MODEL)} · ${size}`,
+    });
     setError(null);
     setDraft(null);
     const started = Date.now();
@@ -266,8 +416,10 @@ export default function ImageChatClient() {
 
     try {
       const endpoint = resolveImageEndpoint(Boolean(base));
+      // `size` belongs on both routes — the edits handler forwards it upstream
+      // as a multipart field, so dropping it silently ignored the operator's pick.
       const body: Record<string, unknown> = base
-        ? { model: IMAGE_MODEL, prompt, image: base.originalUrl, n: 1 }
+        ? { model: IMAGE_MODEL, prompt, image: base.originalUrl, size, n: 1 }
         : { model: IMAGE_MODEL, prompt, size, n: 1 };
 
       const res = await fetch(endpoint, {
@@ -287,7 +439,9 @@ export default function ImageChatClient() {
       }
 
       const image = extractGeneratedImage(payload);
-      setMessages((prev) => [...prev, { role: "assistant", content: "", image }]);
+      const durationMs = Date.now() - started;
+      setLastImageMs(durationMs);
+      setMessages((prev) => [...prev, { role: "assistant", content: "", image, durationMs }]);
     } catch (err) {
       const e = err as { name?: string; message?: string };
       setError(e.name === "AbortError" ? "Requisição cancelada." : (e.message ?? "Falha de rede."));
@@ -295,6 +449,7 @@ export default function ImageChatClient() {
       setLastDuration(Date.now() - started);
       setLoading(false);
       setBusyLabel("");
+      setPending(null);
     }
   };
 
@@ -322,8 +477,32 @@ export default function ImageChatClient() {
     setError(null);
   };
 
+  // What the image model will actually receive — resolved, not merely selected.
+  const effectiveBaseIdx = resolveEditBase(attachments.length, baseIdx);
+  const effectiveBase = effectiveBaseIdx !== null ? attachments[effectiveBaseIdx] : undefined;
+
   return (
     <div className="flex flex-col gap-4 h-[calc(100vh-8rem)]">
+      {/* Tamanho real — data: URLs não podem abrir em aba nova no Chrome. */}
+      {zoom && (
+        <div
+          onClick={() => setZoom(null)}
+          role="dialog"
+          aria-label="Imagem em tamanho real"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6 cursor-zoom-out"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoom}
+            alt="imagem gerada em tamanho real"
+            className="max-h-full max-w-full object-contain"
+          />
+          <span className="absolute bottom-4 text-xs text-white/70">
+            Clique ou Esc para fechar
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">Image Chat</h1>
         <p className="text-sm text-text-muted">
@@ -368,21 +547,13 @@ export default function ImageChatClient() {
             )}
 
             {m.image ? (
-              <div className="flex flex-col gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={imageSrc(m.image)}
-                  alt="imagem gerada"
-                  className="max-w-full rounded-md border border-border"
-                />
-                <a
-                  href={imageSrc(m.image)}
-                  download={`omniroute-${i}.png`}
-                  className="text-xs text-primary hover:underline w-fit"
-                >
-                  Baixar PNG
-                </a>
-              </div>
+              <GeneratedImage
+                src={imageSrc(m.image)}
+                bytes={estimateBase64Bytes(m.image)}
+                durationMs={m.durationMs}
+                index={i}
+                onZoom={setZoom}
+              />
             ) : (
               <>
                 <MarkdownMessage content={m.content} />
@@ -400,6 +571,16 @@ export default function ImageChatClient() {
             )}
           </div>
         ))}
+
+        {pending && (
+          <ImageProgressCard
+            label={pending.label}
+            detail={pending.detail}
+            elapsedMs={elapsed}
+            referenceMs={lastImageMs}
+            onCancel={() => abortRef.current?.abort()}
+          />
+        )}
         <div ref={endRef} />
       </div>
 
@@ -413,16 +594,48 @@ export default function ImageChatClient() {
       {draft !== null && (
         <div className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-primary/5 p-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">
-              Revisar prompt{" "}
-              {baseIdx !== null && (
-                <span className="text-xs text-text-muted">
-                  · usando o anexo {baseIdx + 1} como base (edição)
-                </span>
-              )}
-            </span>
+            <span className="text-sm font-medium">Revisar prompt</span>
             <span className="text-xs text-text-muted">{draft.length} caracteres</span>
           </div>
+
+          {/* O que vai junto do prompt — sempre visível, nunca implícito. */}
+          {attachments.length > 0 && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-bg-main px-2 py-1.5 text-xs">
+              {effectiveBase ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={effectiveBase.analysisUrl}
+                    alt={effectiveBase.name}
+                    className="h-8 w-8 rounded object-cover border border-primary"
+                  />
+                  <span>
+                    enviando <strong>{effectiveBase.name}</strong> como referência — edição
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setBaseIdx(NO_BASE)}
+                    className="ml-auto text-text-muted hover:underline"
+                  >
+                    gerar sem referência
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-text-muted">
+                    sem referência — o modelo cria do zero e ignora os anexos
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setBaseIdx(null)}
+                    className="ml-auto text-primary hover:underline"
+                  >
+                    usar o último anexo
+                  </button>
+                </>
+              )}
+            </div>
+          )}
           <textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
@@ -458,9 +671,16 @@ export default function ImageChatClient() {
               <img
                 src={a.analysisUrl}
                 alt={a.name}
-                onClick={() => setBaseIdx((prev) => (prev === i ? null : i))}
-                className={`h-20 w-20 object-cover rounded border cursor-pointer ${
-                  baseIdx === i ? "border-primary ring-2 ring-primary" : "border-border"
+                onClick={() => setBaseIdx(effectiveBaseIdx === i ? NO_BASE : i)}
+                title={
+                  effectiveBaseIdx === i
+                    ? "É a referência enviada ao gpt-image-2 — clique para gerar sem ela"
+                    : "Clique para usar esta imagem como referência"
+                }
+                className={`h-20 w-20 object-cover rounded border cursor-pointer transition ${
+                  effectiveBaseIdx === i
+                    ? "border-primary ring-2 ring-primary"
+                    : "border-border opacity-50 hover:opacity-100"
                 }`}
               />
               <button
@@ -475,7 +695,12 @@ export default function ImageChatClient() {
                 {a.width}×{a.height}
                 {a.resized && " (reduzida)"}
                 <br />~{a.estimatedTokens} tk
-                {baseIdx === i && <><br /><span className="text-primary">base da edição</span></>}
+                {effectiveBaseIdx === i && (
+                  <>
+                    <br />
+                    <span className="text-primary">referência</span>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -539,14 +764,15 @@ export default function ImageChatClient() {
 
           <div className="flex-1" />
 
-          {loading && (
+          {/* Durante uma geração o card no chat já mostra estado e Cancelar. */}
+          {loading && !pending && (
             <span className="text-xs text-text-muted">{busyLabel}…</span>
           )}
           {!loading && lastDuration !== null && (
-            <span className="text-xs text-text-muted">{(lastDuration / 1000).toFixed(1)}s</span>
+            <span className="text-xs text-text-muted">{formatElapsed(lastDuration)}</span>
           )}
 
-          {loading && (
+          {loading && !pending && (
             <button
               type="button"
               onClick={() => abortRef.current?.abort()}

@@ -4,12 +4,17 @@ import {
   ANALYSIS_MAX_EDGE,
   EmptyUpstreamResponseError,
   IMAGE_MODEL,
+  NO_BASE,
   VERIFIED_VISION_ROUTES,
   buildMultimodalMessages,
   computeTargetDimensions,
+  estimateBase64Bytes,
   estimateVisionTokens,
   extractGeneratedImage,
+  formatBytes,
+  formatElapsed,
   isSendKey,
+  resolveEditBase,
   resolveImageEndpoint,
   routeLabel,
   seedPromptFromAnswer,
@@ -210,6 +215,78 @@ test("seedPromptFromAnswer preserves content it does not recognize", () => {
 
 test("seedPromptFromAnswer is safe on empty input", () => {
   assert.equal(seedPromptFromAnswer(""), "");
+});
+
+// --- Regressão: a referência anexada precisa chegar ao gpt-image-2 -----------
+
+test("an untouched selection still sends the attached reference", () => {
+  // Reported bug: the tray showed the image, the operator never clicked it, and
+  // the request went to /generations carrying no image at all — a 2xx with a
+  // hallucinated result and nothing to signal the reference had been dropped.
+  const idx = resolveEditBase(1, null);
+  assert.equal(idx, 0, "an attachment in the tray must be the default reference");
+  assert.equal(resolveImageEndpoint(idx !== null), "/api/v1/images/edits");
+});
+
+test("resolveEditBase defaults to the most recent attachment", () => {
+  assert.equal(resolveEditBase(3, null), 2);
+});
+
+test("resolveEditBase honours an explicit pick", () => {
+  assert.equal(resolveEditBase(3, 0), 0);
+  assert.equal(resolveEditBase(3, 1), 1);
+});
+
+test("resolveEditBase generates from scratch only when asked", () => {
+  assert.equal(resolveEditBase(3, NO_BASE), null);
+  assert.equal(resolveImageEndpoint(false), "/api/v1/images/generations");
+});
+
+test("resolveEditBase returns null with an empty tray", () => {
+  assert.equal(resolveEditBase(0, null), null);
+  assert.equal(resolveEditBase(0, 2), null);
+  assert.equal(resolveEditBase(0, NO_BASE), null);
+});
+
+test("resolveEditBase falls back when the pick is out of range", () => {
+  // An index left over from a removed attachment must not select nothing.
+  assert.equal(resolveEditBase(2, 5), 1);
+  assert.equal(resolveEditBase(2, -7), 1);
+});
+
+// --- Legenda do preview -------------------------------------------------------
+
+test("estimateBase64Bytes decodes the payload length without allocating it", () => {
+  // "AAAA" -> 3 bytes; padding shrinks the result.
+  assert.equal(estimateBase64Bytes("AAAA"), 3);
+  assert.equal(estimateBase64Bytes("AAA="), 2);
+  assert.equal(estimateBase64Bytes("AA=="), 1);
+});
+
+test("estimateBase64Bytes ignores a data: URL prefix and whitespace", () => {
+  assert.equal(estimateBase64Bytes("data:image/png;base64,AAAA"), 3);
+  assert.equal(estimateBase64Bytes("AA\nAA"), 3);
+});
+
+test("estimateBase64Bytes is safe on empty input", () => {
+  assert.equal(estimateBase64Bytes(""), 0);
+  assert.equal(estimateBase64Bytes("data:image/png;base64,"), 0);
+});
+
+test("formatBytes scales to the unit a human reads", () => {
+  assert.equal(formatBytes(512), "512 B");
+  assert.equal(formatBytes(2048), "2 KB");
+  assert.equal(formatBytes(3 * 1024 * 1024), "3.0 MB");
+  assert.equal(formatBytes(0), "0 B");
+  assert.equal(formatBytes(-1), "0 B");
+});
+
+test("formatElapsed always reads as seconds with one decimal", () => {
+  assert.equal(formatElapsed(0), "0.0s");
+  assert.equal(formatElapsed(8300), "8.3s");
+  assert.equal(formatElapsed(20000), "20.0s");
+  assert.equal(formatElapsed(-5), "0.0s");
+  assert.equal(formatElapsed(Number.NaN), "0.0s");
 });
 
 test("seedPromptFromAnswer does not swallow a long first sentence", () => {
