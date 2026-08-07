@@ -76,7 +76,10 @@ import {
   resolveSessionAffinityTtlMs,
   selectSessionAffinityConnection,
 } from "./sessionAffinityPin";
-import { isNoAuthProviderBlockedBySettings } from "./noAuthProviderSettings";
+import {
+  isAnonymousFallbackDisabledBySettings,
+  isNoAuthProviderBlockedBySettings,
+} from "./noAuthProviderSettings";
 import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
 import { getResource404Bypass } from "./requestResourceHealth";
@@ -728,6 +731,31 @@ function providerCanUseSyntheticNoAuthFallback(providerId: string): boolean {
     webCookieProviderDef?.noAuth === true
   );
 }
+
+/**
+ * True only for API-key gateway providers whose synthetic anonymous fallback
+ * eligibility comes from `anonymousFallback: true` on the static definition —
+ * NOT for true no-auth providers (NOAUTH_PROVIDERS / WEB_COOKIE_PROVIDERS),
+ * where the synthetic credential is the only credential path (blockedProviders
+ * is the disable mechanism for those). `noAuthFallbackDisabledProviders` gates
+ * exactly this subset.
+ */
+function isAnonymousFallbackOnlyProvider(providerId: string): boolean {
+  const providerDef = getProviderById(providerId) as
+    AnonymousFallbackProviderDefinition | undefined;
+  const noAuthProviderDef = (
+    NOAUTH_PROVIDERS as Record<string, AnonymousFallbackProviderDefinition | undefined>
+  )[providerId];
+  const webCookieProviderDef = (
+    WEB_COOKIE_PROVIDERS as Record<string, AnonymousFallbackProviderDefinition | undefined>
+  )[providerId];
+  return (
+    providerDef?.anonymousFallback === true &&
+    noAuthProviderDef?.noAuth !== true &&
+    webCookieProviderDef?.noAuth !== true
+  );
+}
+ 
 async function maybeSyntheticNoAuthFallback(
   providerId: string,
   excludedConnectionIds: Set<string>,
@@ -740,6 +768,13 @@ async function maybeSyntheticNoAuthFallback(
   // key reach free providers (felo-chat, etc.) that it should not access.
   if (Array.isArray(allowedConnections) && allowedConnections.length > 0) return null;
   if (excludedConnectionIds.has(SYNTHETIC_NOAUTH_CONNECTION_ID)) return null;
+  if (
+    isAnonymousFallbackOnlyProvider(providerId) &&
+    (await isAnonymousFallbackDisabledBySettings(providerId))
+  ) {
+    log.info("AUTH", `${providerId} | anonymous no-auth fallback disabled by settings`);
+    return null;
+  }
   // #4954: hydrate per-account proxy/rotation config off the connection row so
   // no-auth executors (opencode, mimocode) actually honor configured proxies.
   const providerSpecificData = await loadNoAuthProviderSpecificData(providerId);
