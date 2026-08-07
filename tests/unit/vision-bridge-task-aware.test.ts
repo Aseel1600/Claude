@@ -55,7 +55,12 @@ function describeGuardrail(
   });
 }
 
-function autoImageBody(userText: string): Record<string, unknown> {
+/**
+ * Unique per-test payload: the describe path caches by image+prompt+model
+ * (Task 8), so reusing the same data URI across tests would make a later
+ * describe a cache hit and hide the upstream call whose prompt is asserted.
+ */
+function autoImageBody(uniqueRef: string, userText: string): Record<string, unknown> {
   return {
     model: "auto/task-aware",
     messages: [
@@ -63,7 +68,12 @@ function autoImageBody(userText: string): Record<string, unknown> {
         role: "user",
         content: [
           { type: "text", text: userText },
-          { type: "image_url", image_url: { url: "data:image/png;base64,dGFzay1hd2FyZQ==" } },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/png;base64,${Buffer.from(uniqueRef).toString("base64")}`,
+            },
+          },
         ],
       },
     ],
@@ -74,10 +84,10 @@ test("describe call prompt contains the last user question (taskAware default on
   const prompts: string[] = [];
   const guardrail = describeGuardrail({}, prompts);
 
-  const result = await guardrail.preCall(autoImageBody("qual o erro no screenshot?"), {
-    model: "auto/task-aware",
-    log: console,
-  });
+  const result = await guardrail.preCall(
+    autoImageBody("task-aware-default-on-test", "qual o erro no screenshot?"),
+    { model: "auto/task-aware", log: console }
+  );
 
   assert.equal((result.meta ?? {}).imagesProcessed, 1);
   assert.equal(prompts.length, 1);
@@ -94,10 +104,10 @@ test("modalityBridgeVisionTaskAware=false keeps the base prompt untouched", asyn
     prompts
   );
 
-  const result = await guardrail.preCall(autoImageBody("pergunta que não deve vazar"), {
-    model: "auto/task-aware",
-    log: console,
-  });
+  const result = await guardrail.preCall(
+    autoImageBody("task-aware-disabled-test", "pergunta que não deve vazar"),
+    { model: "auto/task-aware", log: console }
+  );
 
   assert.equal((result.meta ?? {}).imagesProcessed, 1);
   assert.equal(prompts.length, 1);

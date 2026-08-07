@@ -6,14 +6,21 @@
  * → `getDbInstance`) dies at migration-file scan time, BEFORE the code under
  * test runs — making TDD on those paths impossible until the base is fixed.
  *
+ * Base-red tracking: issue #9679; fix PRs in flight: #9676 / #9688. Once one
+ * of those lands on the release branch the copy contains no duplicates and
+ * this degrades to a plain pass-through copy — at that point this helper (and
+ * its callsites) can be removed. Grep trigger: 9679 / 9676 / 9688.
+ *
  * This helper copies the real migrations into a temp dir, renumbering any file
  * whose numeric prefix duplicates an earlier one to a fresh (max+1) version,
  * and points `OMNIROUTE_MIGRATIONS_DIR` (supported operator env var — see
  * `src/lib/db/migrationRunner.ts::resolveMigrationsDir`) at the copy. On the
- * FRESH per-process test DATA_DIR (tests/_setup/isolateDataDir.ts) the
- * numbering is irrelevant: the schema content applied is byte-identical.
- * Once the collision is fixed on the base branch, the copy contains no
- * duplicates and this degrades to a plain pass-through copy.
+ * FRESH per-process test DATA_DIR (tests/_setup/isolateDataDir.ts) the schema
+ * CONTENT applied is byte-identical, but note the renumbering does shift the
+ * displaced duplicate to the END of the migration ORDER (it runs after every
+ * lower-numbered file instead of at its original slot). Harmless for the
+ * current colliding pair — and strictly better than the crash — but not
+ * literally "the same run" as production.
  *
  * MUST be called before the first `getDbInstance()` in the process (i.e. at
  * test-file top level, before any `preCall`). An explicitly configured

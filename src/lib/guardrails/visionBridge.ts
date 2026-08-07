@@ -345,7 +345,12 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
 
     // Shared describe cache (sha256 of contentRef+prompt+model): the same image
     // with the same prompt/model is described once per TTL. Failures are never
-    // cached — a throw inside the map happens before the cache write.
+    // cached — a throw inside the map happens before the cache write. The model
+    // component is the CONFIGURED bridge model (config.model — the bridge-config
+    // identity), not the model that actually produced the description:
+    // callVisionModel may fall back internally to another vision model, and
+    // keying by attempt would fragment the cache and leak router state into the
+    // key. Intentional and stable — do not "fix" this to key per attempt.
     const cache = runtime.cacheEnabled ? getSharedBridgeCacheFor(runtime) : null;
 
     // Process all images in parallel using Promise.allSettled for fail-partial behavior
