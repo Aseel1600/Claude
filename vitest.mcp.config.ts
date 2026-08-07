@@ -14,6 +14,7 @@ export default defineConfig({
       "open-sse/services/autoCombo/__tests__/**/*.test.ts",
       "open-sse/services/combo/__tests__/**/*.test.ts",
       "open-sse/services/__tests__/antigravity-quota-family.test.ts",
+      "open-sse/services/__tests__/fail-fast-concurrency-gate.test.ts",
       "src/lib/memory/__tests__/generic-backend.test.ts",
       "tests/unit/autoCombo/**/*.test.ts",
       "tests/unit/encryption.spec.ts",
