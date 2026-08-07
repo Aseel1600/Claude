@@ -537,6 +537,68 @@ test("VB-S03/#8488: combo with NO confirmed-vision target stubs partially-failed
   );
 });
 
+test("VB-S03/#8488-combo-ref: combo with UNKNOWN vision support (deps null) stubs partially-failed describes (not preserved)", async () => {
+  // Regression for the `claude-fable-5 → pool-fable` incident: a combo-ref chain
+  // whose resolved vision support is unknown (`null`) previously fell through the
+  // partial-failure stub branch (`comboHasConfirmedVision === false` only), so a
+  // failed describe preserved the raw image, and the #8488 combo capability
+  // filter failed closed with "No target in combo … has confirmed vision support".
+  // An unknown-capability combo must behave like a confirmed text-only combo:
+  // never hand a raw image to targets that cannot prove they read it.
+  const guardrail = createGuardrail({
+    deps: {
+      checkModelHasComboMapping: async (_model: string) => true,
+      // No checkComboHasConfirmedVision override → the deps path resolves null.
+      callVisionModel: async (imageDataUri: string) => {
+        if (imageDataUri.includes("FAIL")) {
+          throw new Error("Vision model failed");
+        }
+        return "A red square";
+      },
+    },
+  });
+
+  const payload = createPayload({
+    model: "openai/gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What is this?" },
+          { type: "image_url", image_url: { url: "https://example.com/ok.png" } },
+          { type: "image_url", image_url: { url: "https://example.com/FAIL.png" } },
+        ],
+      },
+    ],
+  });
+
+  const result = await guardrail.preCall(payload, createContext({ model: "openai/gpt-4o" }));
+
+  assert.strictEqual(result.block, false);
+  const modified = (result.modifiedPayload ?? payload) as {
+    messages: Array<{ content: unknown[] }>;
+  };
+  const content = modified.messages[0].content as Array<{
+    type: string;
+    text?: string;
+  }>;
+
+  const imageParts = content.filter((p) => p.type === "image_url");
+  assert.strictEqual(
+    imageParts.length,
+    0,
+    "no image_url may reach a combo whose vision support cannot be proven"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("A red square")),
+    "successful describe text is kept"
+  );
+  assert.ok(
+    content.some((p) => p.type === "text" && p.text?.includes("unavailable")),
+    "failed describe becomes an 'unavailable' stub instead of leaking a raw image into the combo filter"
+  );
+});
+
 test("VB-S03/#4012: combo WITH confirmed-vision target preserves failed describe", async () => {
   const guardrail = createGuardrail({
     deps: {
