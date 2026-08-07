@@ -208,6 +208,19 @@ export interface VisionModelConfig {
   maxImages: number;
 }
 
+/** Task-aware focus hint (codex-vision-proxy pattern): steer the description
+ * toward what the user actually asked, instead of a generic caption. */
+export function composeVisionPrompt(
+  basePrompt: string,
+  lastUserText: string | undefined,
+  taskAware: boolean
+): string {
+  const text = (lastUserText ?? "").trim();
+  if (!taskAware || !text) return basePrompt;
+  const hint = text.length > 500 ? `${text.slice(0, 500)}…` : text;
+  return `${basePrompt}\n\nThe user asked: "${hint}". Focus your description on what is relevant to answering this, and transcribe any text visible in the image.`;
+}
+
 /**
  * Call the vision model to get an image description.
  * Supports both OpenAI-compatible and Anthropic API formats.

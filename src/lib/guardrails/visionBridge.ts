@@ -11,6 +11,7 @@ import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import {
   extractImageParts,
   callVisionModel as defaultCallVisionModel,
+  composeVisionPrompt,
   replaceImageParts,
 } from "./visionBridgeHelpers";
 import {
@@ -87,6 +88,30 @@ async function getComboVisionBridgeDecision(model: string): Promise<ComboVisionB
     // On error, try to process images (conservative)
     return "process";
   }
+}
+
+/**
+ * Extract the text of the LAST user message that carries any (string content,
+ * or the first `type: "text"` part of an array content). Used as the
+ * task-aware focus hint for the describe path.
+ */
+function extractLastUserText(messages: unknown[]): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i] as { role?: unknown; content?: unknown } | null | undefined;
+    if (message?.role !== "user") continue;
+    if (typeof message.content === "string" && message.content.trim()) {
+      return message.content;
+    }
+    if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        const p = part as { type?: unknown; text?: unknown } | null | undefined;
+        if (p?.type === "text" && typeof p.text === "string" && p.text.trim()) {
+          return p.text;
+        }
+      }
+    }
+  }
+  return undefined;
 }
 
 export interface VisionBridgeDependencies {
@@ -311,10 +336,16 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     const logger = context.log;
     const startTime = Date.now();
 
+    // Task-aware focus hint: append the LAST user question so the description
+    // targets what the user actually asked instead of a generic caption.
+    const lastUserText = extractLastUserText(messages);
+    const composedPrompt = composeVisionPrompt(config.prompt, lastUserText, runtime.taskAware);
+    const describeConfig = { ...config, prompt: composedPrompt };
+
     // Process all images in parallel using Promise.allSettled for fail-partial behavior
     const results = await Promise.allSettled(
       limitedParts.map(async (imagePart, i) => {
-        const description = await callVision(imagePart.imageUrl, config);
+        const description = await callVision(imagePart.imageUrl, describeConfig);
         return `[Image ${i + 1}]: ${description}`;
       })
     );
