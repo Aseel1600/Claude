@@ -1,17 +1,17 @@
 ---
 title: "Radar Free-Model Catalog"
 version: 3.8.50
-lastUpdated: 2026-08-05
+lastUpdated: 2026-08-07
 ---
 
 # Radar Free-Model Catalog
 
 > **Source of truth:** `src/lib/radar/`, `src/lib/db/radar.ts`, `src/app/api/radar/`
-> **Last updated:** 2026-08-05 — v3.8.50
+> **Last updated:** 2026-08-07 — v3.8.50
 
 Radar is an **optional add-on** that overlays a signed, freshly-curated free-model
 catalog on top of the release baseline (`FREE_MODEL_BUDGETS` in
-`open-sse/config/freeModelCatalog.ts`). It exists because the free-tier landscape moves
+`open-sse/config/freeModelCatalog.data.ts`). It exists because the free-tier landscape moves
 faster than release cadence — providers add, shrink, or discontinue free quotas between
 releases, and the baseline catalog can only be refreshed when a new version ships.
 
@@ -127,6 +127,24 @@ untouched. The cached payload is defensively re-validated again on every read
 (`getRadarCatalog()`) — a corrupted or hand-edited cache row falls back to the
 baseline rather than being served.
 
+### Response size cap (10 MB)
+
+`syncRadar()` enforces a **10 MB hard cap** on the feed response body — the signed
+feed is a KB-scale JSON document, so anything past this points at a misconfigured or
+hostile `RADAR_FEED_URL` (or an upstream serving garbage), not a legitimate catalog.
+Enforcement is two-layered:
+
+1. A `Content-Length` preflight check skips reading the body entirely when the
+   header already declares a value over the cap.
+2. A running-total check while reading the body enforces the cap even when
+   `Content-Length` is absent or understates the real size — the header is never
+   trusted on its own. Concatenating the accumulated chunks preserves the exact
+   bytes needed for the Ed25519 signature check afterward.
+
+Exceeding the cap returns `{ status: "too_large" }` and leaves the cache untouched,
+following the same non-destructive pattern as every other sync failure
+(`invalid_signature`, `invalid_schema`, `stale`).
+
 ---
 
 ## Tiers: `community` and `live`
@@ -145,6 +163,28 @@ error.** The sync path only distinguishes signature/schema/version failures (all
 recoverable, all non-fatal to the cached state) from a successful `{ status:
 "updated", version, tier }`. There is no tier-specific error path a client needs to
 handle.
+
+### The served tier comes from a response header, not the signed body
+
+The signed feed **body**'s `tier` field is always `"live"` — the feed service ships
+**one signed artifact per version**, so the body cannot carry a per-request tier
+without invalidating the Ed25519 signature (re-signing per request would defeat the
+point of a pinned, cacheable, verifiable artifact). The tier actually served for a
+given request is instead carried in the **`x-omniroute-feed-tier` response header**,
+decided server-side from the request's `Authorization` key.
+
+`syncRadar()` (`src/lib/radar/sync.ts::parseServedTierHeader()`) is the single place
+that resolves the tier a client should trust:
+
+1. Parse `x-omniroute-feed-tier` with `RadarTierSchema` (Zod) — an absent header, or
+   a value that isn't exactly `"community"` or `"live"`, is treated as **not
+   present** (never trusted into the cache/UI as-is; this also covers older feed
+   servers that predate the header).
+2. Fall back to the signed body's `tier` field (always `"live"`) only when step 1
+   yields nothing.
+3. The resolved tier is what gets cached and returned as `{ status: "updated",
+   version, tier }` — this is the value the dashboard shows, never the raw body
+   field.
 
 ---
 
@@ -183,13 +223,14 @@ Every merged entry carries an `origin` field the UI renders as a badge:
 
 ## Local surfaces — never a feed proxy
 
-Three local routes back the UI, all under `src/app/api/radar/`:
+Four local routes back the UI, all under `src/app/api/radar/`:
 
-| Route                 | Method | Purpose                                                                |
-| --------------------- | ------ | ---------------------------------------------------------------------- |
-| `/api/radar/catalog`  | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache. |
-| `/api/radar/sync`     | POST   | Triggers `syncRadar()` server-side; returns the resulting status.      |
-| `/api/radar/settings` | POST   | Sets opt-in and/or the (encrypted) supporter key.                      |
+| Route                 | Method | Purpose                                                                                          |
+| --------------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| `/api/radar/catalog`  | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache.                            |
+| `/api/radar/sync`     | POST   | Triggers `syncRadar()` server-side; returns the resulting status.                                 |
+| `/api/radar/settings` | GET    | Returns `{ optIn, hasSupporterKey, supporterKeyMasked }` — never the raw key.                     |
+| `/api/radar/settings` | POST   | Sets opt-in and/or the (encrypted) supporter key.                                                 |
 
 **Hard rule: these routes never proxy the feed service.** The browser only ever talks
 to the local OmniRoute server; `syncRadar()` is the single module in the whole client
@@ -197,10 +238,21 @@ that touches the network for Radar (`src/lib/radar/sync.ts`), and it always runs
 server-side, never client-side. This keeps the feed URL and any supporter key
 out of client-facing network traffic entirely.
 
-All three routes return `404` when `RADAR_ENABLED` is off (see
+All four routes return `404` when `RADAR_ENABLED` is off (see
 [Flag](#flag-radar_enabled-default-off) above), and route error responses through
 `buildErrorBody()`/`sanitizeErrorMessage()` per the repo-wide error-sanitization rule
 (`docs/security/ERROR_SANITIZATION.md`).
+
+### Authentication
+
+All four routes require authentication via `isAuthenticated()`
+(`src/shared/utils/apiAuth.ts`) — a dashboard session cookie or a management-scoped
+API key, the same gate that protects the rest of `/api/settings/*`. The flag-off
+`404` check always runs **before** the auth check, so an install with `RADAR_ENABLED`
+off stays byte-identical (no auth prompt just to learn the surface doesn't exist);
+once the flag is on, an unauthenticated request gets `401` before any DB read or
+write. `GET /api/radar/settings` never returns the raw supporter key regardless of
+auth state — only the masked form and a `hasSupporterKey` boolean.
 
 ---
 
