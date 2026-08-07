@@ -82,6 +82,52 @@ test("combo-parity: image indicators without extractable refs are still detected
   assert.equal(upperType[0].ref, "https://x");
 });
 
+test("audio part does not shadow a bare image_url key on the same object", () => {
+  const parts = detectMediaParts(
+    msg([{ type: "input_audio", input_audio: { data: "QUJD" }, image_url: "https://x/i.png" }])
+  );
+  assert.deepEqual(parts.map((p) => p.kind).sort(), ["audio", "image"]);
+  assert.equal(parts.find((p) => p.kind === "image")?.ref, "https://x/i.png");
+});
+
+test("audio_url part does not shadow a bare input_image key on the same object", () => {
+  const parts = detectMediaParts(
+    msg([{ type: "audio_url", audio_url: "https://x/a.mp3", input_image: "https://x/i.png" }])
+  );
+  assert.deepEqual(parts.map((p) => p.kind).sort(), ["audio", "image"]);
+});
+
+test("audio media_type part still recurses into sibling values (combo parity)", () => {
+  const parts = detectMediaParts(
+    msg([{ source: { media_type: "audio/mp3", data: "QUJD" }, sibling: { type: "image" } }])
+  );
+  assert.equal(parts.filter((p) => p.kind === "audio").length, 1);
+  assert.equal(parts.filter((p) => p.kind === "image").length, 1);
+});
+
+test("image nested inside input_audio payload is still detected", () => {
+  const parts = detectMediaParts(
+    msg([
+      {
+        type: "input_audio",
+        input_audio: {
+          data: "QUJD",
+          cover: { type: "image_url", image_url: { url: "https://x/c.png" } },
+        },
+      },
+    ])
+  );
+  assert.equal(parts.filter((p) => p.kind === "audio").length, 1);
+  assert.ok(parts.some((p) => p.kind === "image" && p.ref === "https://x/c.png"));
+});
+
+test("bare source.media_type audio/* yields a single audio part", () => {
+  const parts = detectMediaParts(msg([{ source: { media_type: "audio/wav", data: "QUJD" } }]));
+  assert.equal(parts.length, 1);
+  assert.equal(parts[0].kind, "audio");
+  assert.equal(parts[0].ref, "QUJD");
+});
+
 test("extractImageParts skips indicator parts without extractable refs", () => {
   assert.deepEqual(
     extractImageParts([{ role: "user", content: [{ type: "image" }] } as never]),

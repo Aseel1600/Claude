@@ -84,14 +84,19 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
       return;
     }
   }
+  // Audio branches do NOT early-return: the same object can also carry image
+  // indicators (bare `image_url`/`input_image` keys the legacy combo filter
+  // matched) or nest image parts inside its payload — pushing audio must not
+  // shadow them. `pushedAudio` guarantees at most one audio part per object.
+  let pushedAudio = false;
   if (type === "input_audio") {
     const audio = obj.input_audio as Record<string, unknown> | undefined;
     if (typeof audio?.data === "string") {
       pushPart(ctx, "audio", audio.data, "input_audio");
-      return;
+      pushedAudio = true;
     }
   }
-  if (type === "audio_url") {
+  if (!pushedAudio && type === "audio_url") {
     const raw = obj.audio_url;
     const url =
       typeof raw === "string"
@@ -101,15 +106,15 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
           : undefined;
     if (url) {
       pushPart(ctx, "audio", url, "audio_url");
-      return;
+      pushedAudio = true;
     }
   }
   const mediaType = (obj.source as Record<string, unknown> | undefined)?.media_type;
-  if (typeof mediaType === "string" && mediaType.startsWith("audio/")) {
+  if (!pushedAudio && typeof mediaType === "string" && mediaType.startsWith("audio/")) {
     const data = (obj.source as Record<string, unknown>).data;
     if (typeof data === "string") {
       pushPart(ctx, "audio", data, "input_audio");
-      return;
+      pushedAudio = true;
     }
   }
   // Combo-parity fallback: the legacy valueContainsImagePart (comboStructure)
