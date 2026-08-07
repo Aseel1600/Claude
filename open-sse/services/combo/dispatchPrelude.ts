@@ -32,7 +32,8 @@ import {
   resolveComboStickyRoundRobinLimit,
   rrCounters,
 } from "./rrState.ts";
-import { executeRuntimeUnitCombo } from "./runtimeUnits.ts";
+import { executeHardRuleRuntimeUnitCombo, executeRuntimeUnitCombo } from "./runtimeUnits.ts";
+import { hardOfflineRuleEnabled } from "./offlineRule.ts";
 import {
   releaseQualityClone,
   releaseRejectedQualityResponse,
@@ -567,11 +568,18 @@ export async function tryRuntimeUnitDispatch(args: {
   const nestingContext = buildDefaultNesting(args.nesting, combo.name, config);
   const nestedComboMode = normalizeNestedComboMode(config.nestedComboMode);
 
+  const hardRuleEnabled = hardOfflineRuleEnabled(combo);
+  if (hardRuleEnabled && (strategy !== "guarded-priority" || nestedComboMode !== "execute")) {
+    throw new Error(
+      "Hard offline rules require Guarded Priority strategy with nestedComboMode execute"
+    );
+  }
+
   const executeModeUnits =
-    nestedComboMode === "execute" && allCombos
+    nestedComboMode === "execute" && (allCombos || hardRuleEnabled)
       ? resolveComboRuntimeUnits(
           combo,
-          allCombos,
+          allCombos ?? null,
           "execute",
           nestingContext.maxDepth,
           args.hiddenModelsByProvider
@@ -580,6 +588,7 @@ export async function tryRuntimeUnitDispatch(args: {
   const hasExecutableComboRef = executeModeUnits.some((unit) => unit.kind === "combo-ref");
   const simpleExecuteStrategies = new Set([
     "priority",
+    "guarded-priority",
     "round-robin",
     "random",
     "strict-random",
@@ -587,7 +596,8 @@ export async function tryRuntimeUnitDispatch(args: {
     "fill-first",
   ]);
 
-  if (!hasExecutableComboRef || !simpleExecuteStrategies.has(strategy)) return null;
+  if ((!hasExecutableComboRef && !hardRuleEnabled) || !simpleExecuteStrategies.has(strategy))
+    return null;
 
   const ordering = await orderRuntimeUnits({
     strategy,
@@ -603,11 +613,14 @@ export async function tryRuntimeUnitDispatch(args: {
     stickyTargets: runtimeStickyTargets,
   } = ordering;
 
-  const execution = await executeRuntimeUnitCombo({
+  const execution = await (
+    hardRuleEnabled ? executeHardRuleRuntimeUnitCombo : executeRuntimeUnitCombo
+  )({
     body,
     combo,
-    strategy: unitExecutionStrategy,
-    effectiveComboStrategy: strategy,
+    ...(hardRuleEnabled
+      ? {}
+      : { strategy: unitExecutionStrategy, effectiveComboStrategy: strategy }),
     units: runtimeUnits,
     handleSingleModel: args.handleSingleModelWithTimeout,
     isModelAvailable: args.isModelAvailable,

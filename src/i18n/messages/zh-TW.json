@@ -3422,6 +3422,10 @@
         "label": "策略",
         "description": "路由行為和高級設定"
       },
+      "guarded-priority": {
+        "label": "Guarded Priority",
+        "description": "Configure each child’s Hard Offline condition and cooldown"
+      },
       "intelligent": {
         "label": "智能路由",
         "description": "自動路由候選池、預設和評分"
@@ -3508,7 +3512,13 @@
     "sessionStickinessDisabled": "工作階段粘性關閉",
     "kimiPresetTitle": "Kimi Coding預設",
     "kimiPresetDescription": "以Kimi K3 作為主模型（Moonshot API），並在設定後自動回退到您的Kimi Code連接（kimi-coding、kimi-web）。",
-    "kimiPresetCta": "新增預設"
+    "kimiPresetCta": "新增預設",
+    "guardedPriority": "Guarded Priority",
+    "guardedPriorityDesc": "Falls through in priority order only when the current node matches its Hard Offline condition and enters cooldown.",
+    "offlineRuleEnabled": "Hard Offline condition",
+    "offlineRuleCondition": "Safe JSON Logic (advanced/custom condition)",
+    "offlineRuleCooldown": "Cooldown (ms)",
+    "offlineRuleHelp": "Default: 300000 ms (5 minutes). A non-matching response never falls through."
   },
   "costs": {
     "title": "成本",

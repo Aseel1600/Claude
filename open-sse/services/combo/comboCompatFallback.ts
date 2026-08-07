@@ -42,8 +42,8 @@ export async function attemptCompatRejectedFallback(
 
   for (const target of rejectedTargets) {
     if (ctx.isModelAvailable) {
-      const available = await ctx.isModelAvailable(target.modelStr, target);
-      if (!available) {
+      const availability = await ctx.isModelAvailable(target.modelStr, target);
+      if (availability !== true) {
         ctx.log.debug(
           "COMBO",
           `Last-resort compat fallback: ${target.modelStr} still unavailable — skipping`

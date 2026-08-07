@@ -174,6 +174,7 @@ export {
   isModelScoped400,
 };
 import { applyComboTargetExhaustion } from "./combo/targetExhaustion.ts";
+import { hardOfflineRuleEnabled } from "./combo/offlineRule.ts";
 import {
   pinIsDurablyUnhealthy,
   tryFusionDispatch,
@@ -548,7 +549,7 @@ export { pinIsDurablyUnhealthy };
  * @param {Object} options.body - Request body
  * @param {Object} options.combo - Full combo object { name, models, strategy, config }
  * @param {Function} options.handleSingleModel - Function: (body, modelStr) => Promise<Response>
- * @param {Function} [options.isModelAvailable] - Optional pre-check: (modelStr) => Promise<boolean>
+ * @param {Function} [options.isModelAvailable] - Optional pre-check: (modelStr) => Promise<ModelAvailabilityResult>
  * @param {Object} options.log - Logger object
  * @returns {Promise<Response>}
  */
@@ -599,7 +600,7 @@ export async function handleComboChat({
   // falls through to the target iteration loop below. Implementations live in
   // combo/dispatchPrelude.ts; only the chaos + round-robin hand-offs are short
   // enough to stay inline.
-  if (pinnedModel) {
+  if (pinnedModel && !hardOfflineRuleEnabled(combo)) {
     const pinnedDispatch = await tryPinnedModelDispatch({
       body,
       combo,
@@ -615,54 +616,61 @@ export async function handleComboChat({
   }
 
   const cfg = config as Record<string, unknown>;
-  const fusionDispatch = await tryFusionDispatch({
-    body,
-    combo,
-    cfg,
-    config,
-    strategy,
-    allCombos,
-    nesting,
-    handleSingleModel,
-    handleSingleModelWithTimeout,
-    isModelAvailable,
-    log,
-    settings,
-    relayOptions,
-    signal,
-    apiKeyAllowedConnections,
-    hiddenModelsByProvider,
-    runCombo: handleComboChat,
-  });
+  const hardRuleEnabled = hardOfflineRuleEnabled(combo);
+  const fusionDispatch = hardRuleEnabled
+    ? null
+    : await tryFusionDispatch({
+        body,
+        combo,
+        cfg,
+        config,
+        strategy,
+        allCombos,
+        nesting,
+        handleSingleModel,
+        handleSingleModelWithTimeout,
+        isModelAvailable,
+        log,
+        settings,
+        relayOptions,
+        signal,
+        apiKeyAllowedConnections,
+        hiddenModelsByProvider,
+        runCombo: handleComboChat,
+      });
   if (fusionDispatch) return fusionDispatch;
 
   // Chaos mode (parallel multi-model dispatch): detection + dispatch live in
   // chaosEngine.ts (dispatchChaosFromCombo), returning null when not chaos-enabled.
-  const chaosDispatch = dispatchChaosFromCombo({
-    cfg,
-    comboModels: resolveComboTargets(
-      combo,
-      allCombos,
-      clampComboDepth(config.maxComboDepth),
-      hiddenModelsByProvider
-    ).map((target) => target.modelStr),
-    comboName: combo.name,
-    body,
-    handleSingleModel: handleSingleModelWithTimeout,
-    log,
-  });
+  const chaosDispatch = hardRuleEnabled
+    ? null
+    : dispatchChaosFromCombo({
+        cfg,
+        comboModels: resolveComboTargets(
+          combo,
+          allCombos,
+          clampComboDepth(config.maxComboDepth),
+          hiddenModelsByProvider
+        ).map((target) => target.modelStr),
+        comboName: combo.name,
+        body,
+        handleSingleModel: handleSingleModelWithTimeout,
+        log,
+      });
   if (chaosDispatch) return chaosDispatch;
 
-  const pipelineDispatch = await tryPipelineDispatch({
-    body,
-    combo,
-    config,
-    strategy,
-    allCombos,
-    handleSingleModelWithTimeout,
-    log,
-    hiddenModelsByProvider,
-  });
+  const pipelineDispatch = hardRuleEnabled
+    ? null
+    : await tryPipelineDispatch({
+        body,
+        combo,
+        config,
+        strategy,
+        allCombos,
+        handleSingleModelWithTimeout,
+        log,
+        hiddenModelsByProvider,
+      });
   if (pipelineDispatch) return pipelineDispatch;
 
   const runtimeUnitDispatch = await tryRuntimeUnitDispatch({
@@ -993,8 +1001,8 @@ export async function handleComboChat({
         // unavailable target available again.  Circuit-breaker-OPEN providers
         // are already caught by the dedicated breaker check above.
         if (isModelAvailable) {
-          const available = await isModelAvailable(modelStr, targetForAttempt);
-          if (!available) {
+          const availability = await isModelAvailable(modelStr, targetForAttempt);
+          if (availability !== true) {
             log.debug?.(
               "COMBO",
               `Skipping ${modelStr} — no credentials available or model excluded`
@@ -2376,7 +2384,9 @@ async function handleRoundRobinCombo({
             rawModel &&
             isModelLocked(stickyTarget.provider, stickyTarget.connectionId || "", rawModel)
           ) &&
-          (isModelAvailable ? await isModelAvailable(stickyTarget.modelStr, stickyTarget) : true);
+          (isModelAvailable
+            ? (await isModelAvailable(stickyTarget.modelStr, stickyTarget)) === true
+            : true);
         if (!stickyAvailable) {
           log.info(
             "COMBO-RR",
@@ -2493,8 +2503,8 @@ async function handleRoundRobinCombo({
 
     // Pre-check availability
     if (isModelAvailable) {
-      const available = await isModelAvailable(modelStr, targetForAttempt);
-      if (!available) {
+      const availability = await isModelAvailable(modelStr, targetForAttempt);
+      if (availability !== true) {
         log.debug?.(
           "COMBO-RR",
           `Skipping ${modelStr} — no credentials available or model excluded`
