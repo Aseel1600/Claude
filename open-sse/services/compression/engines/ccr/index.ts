@@ -292,7 +292,10 @@ function rehydrateEntry(hash: string, principalId: string, now: number): CcrEntr
 
   // Re-admit through the same budgets a fresh store would face. If the block no longer
   // fits, it stays on disk and is served straight from the row instead of being cached.
-  if (enforcePrincipalBudget(entry.principalId, entry.bytes) && enforceGlobalBudget(entry.bytes)) {
+  if (
+    enforcePrincipalBudget(entry.principalId, entry.bytes) &&
+    enforceGlobalBudget(entry.principalId, entry.bytes)
+  ) {
     const key = buildStoreKey(hash, principalId === ANON ? undefined : principalId);
     ccrStore.set(key, entry);
     ccrTotalBytes += entry.bytes;

@@ -51,7 +51,7 @@ export function extractFusionPanelSpec(
       panel.push(step.comboName);
       return;
     }
-    panel.push(step.model);
+    panel.push(step.kind === "model" ? step.model : step.modelPattern);
   });
   return { panel, comboRefUnits };
 }

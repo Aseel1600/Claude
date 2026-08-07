@@ -121,7 +121,7 @@ export function getFirecrawlBaseUrl(connection?: Record<string, unknown>): strin
 export async function fetchFirecrawlQuota(
   connectionId: string,
   connection?: Record<string, unknown>
-): Promise<QuotaInfo | null> {
+): Promise<FirecrawlQuota | null> {
   const cached = quotaCache.get(connectionId);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return cached.quota;

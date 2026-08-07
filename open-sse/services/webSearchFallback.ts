@@ -2,10 +2,22 @@ import { FORMATS } from "../translator/formats.ts";
 
 export const OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME = "omniroute_web_search";
 const WEB_SEARCH_TOOL_TYPES = new Set(["web_search", "web_search_preview"]);
-// Anthropic typed server tool patterns: web_search_20250305, web_search_YYYYMMDD.
+// Anthropic typed server tool patterns: web_search_YYYYMMDD.
 // Claude Code sends these as native server tools; OmniRoute must intercept them
 // for upstreams that don't implement Anthropic server-tool dispatch (#4481).
 const ANTHROPIC_SERVER_WEB_SEARCH_PATTERN = /^web_search_\d{8}$/;
+
+export function isNativeWebSearchToolType(value: unknown): boolean {
+  return (
+    typeof value === "string" &&
+    (WEB_SEARCH_TOOL_TYPES.has(value) || ANTHROPIC_SERVER_WEB_SEARCH_PATTERN.test(value))
+  );
+}
+
+export function isNativeWebSearchTool(value: unknown): value is JsonRecord {
+  const record = toRecord(value);
+  return isNativeWebSearchToolType(record.type) && !record.function;
+}
 const SEARCH_CONTEXT_DEFAULTS: Record<string, number> = {
   low: 5,
   medium: 8,
@@ -29,19 +41,50 @@ function toRecord(value: unknown): JsonRecord {
 }
 
 function isBuiltInWebSearchTool(tool: unknown): tool is JsonRecord {
-  const toolRecord = toRecord(tool);
-  const toolType = typeof toolRecord.type === "string" ? toolRecord.type : "";
-  if (!toolType) return false;
-  return (
-    (WEB_SEARCH_TOOL_TYPES.has(toolType) || ANTHROPIC_SERVER_WEB_SEARCH_PATTERN.test(toolType)) &&
-    !toolRecord.function
-  );
+  return isNativeWebSearchTool(tool);
 }
 
 function isBuiltInWebSearchToolChoice(toolChoice: unknown): boolean {
   const choice = toRecord(toolChoice);
   const toolType = typeof choice.type === "string" ? choice.type : "";
-  return WEB_SEARCH_TOOL_TYPES.has(toolType) || ANTHROPIC_SERVER_WEB_SEARCH_PATTERN.test(toolType);
+  const toolName = typeof choice.name === "string" ? choice.name : "";
+  return isNativeWebSearchToolType(toolType) || isNativeWebSearchToolType(toolName);
+}
+
+// Anthropic rejects an EMPTY domain list on its server web-search tool:
+// "tools.0.web_search_20250305.blocked_domains: Empty list of domains is
+// ambiguous. Provide at least one domain or null." Claude Code sends
+// `allowed_domains: []` / `blocked_domains: []`, and the native Claude -> Claude
+// bypass forwards the tool verbatim, so that 400 reaches the user. An omitted
+// list already means "unrestricted", so dropping the empty key is lossless.
+const ANTHROPIC_DOMAIN_FILTER_KEYS = ["allowed_domains", "blocked_domains"] as const;
+
+function stripEmptyDomainFilters(tool: JsonRecord): JsonRecord | null {
+  const emptyKeys = ANTHROPIC_DOMAIN_FILTER_KEYS.filter(
+    (key) => Array.isArray(tool[key]) && (tool[key] as unknown[]).length === 0
+  );
+  if (emptyKeys.length === 0) return null;
+  const next: JsonRecord = { ...tool };
+  for (const key of emptyKeys) delete next[key];
+  return next;
+}
+
+/**
+ * Normalize the native Anthropic server web-search tools on a bypassed body.
+ * Returns the original body untouched when there is nothing to strip, so the
+ * "forwarded verbatim" contract of the native passthrough still holds.
+ */
+function normalizeNativeWebSearchTools<T extends JsonRecord>(body: T, tools: unknown[]): T {
+  let changed = false;
+  const nextTools = tools.map((tool) => {
+    if (!isBuiltInWebSearchTool(tool)) return tool;
+    const stripped = stripEmptyDomainFilters(tool);
+    if (!stripped) return tool;
+    changed = true;
+    return stripped;
+  });
+  if (!changed) return body;
+  return { ...body, tools: nextTools as T["tools"] };
 }
 
 function buildFallbackDescription(tool: JsonRecord): string {
@@ -61,6 +104,16 @@ function buildFallbackDescription(tool: JsonRecord): string {
 }
 
 function buildFallbackParameters(tool: JsonRecord): JsonRecord {
+  const includeDomains = Array.isArray(tool.allowed_domains)
+    ? tool.allowed_domains.filter(
+        (value): value is string => typeof value === "string" && value.trim()
+      )
+    : [];
+  const excludeDomains = Array.isArray(tool.blocked_domains)
+    ? tool.blocked_domains.filter(
+        (value): value is string => typeof value === "string" && value.trim()
+      )
+    : [];
   const contextSize =
     typeof tool.search_context_size === "string"
       ? tool.search_context_size.trim().toLowerCase()
@@ -107,11 +160,13 @@ function buildFallbackParameters(tool: JsonRecord): JsonRecord {
           include_domains: {
             type: "array",
             items: { type: "string" },
+            ...(includeDomains.length ? { default: includeDomains } : {}),
             description: "Optional list of domains to include.",
           },
           exclude_domains: {
             type: "array",
             items: { type: "string" },
+            ...(excludeDomains.length ? { default: excludeDomains } : {}),
             description: "Optional list of domains to exclude.",
           },
         },
@@ -141,13 +196,14 @@ function buildFallbackTool(tool: JsonRecord, targetFormat?: string | null): Json
   };
 }
 
-// Providers whose endpoint advertises Claude/Anthropic format but does NOT implement
-// Anthropic's typed server tools (web_search_20250305, …). For these the Claude -> Claude
-// bypass below must NOT apply: forwarding the native server tool makes the upstream 400
-// (MiniMax returns `invalid params, function name or parameters is empty (2013)`), so the
-// built-in web-search tool has to be converted to the omniroute_web_search function
-// fallback — which these models accept as a normal function tool (#4481).
-const CLAUDE_FORMAT_PROVIDERS_WITHOUT_SERVER_TOOLS = new Set(["minimax", "mistral"]);
+// Only first-party Anthropic endpoints are trusted to execute typed server tools.
+// Claude-format third-party providers vary by model and commonly return 400 for
+// web_search_YYYYMMDD; convert them to the local function fallback by default.
+const CLAUDE_FORMAT_PROVIDERS_WITH_SERVER_TOOLS = new Set(["claude", "anthropic"]); // #4481/#6586
+
+function supportsClaudeServerWebSearch(provider: string | null | undefined): boolean {
+  return typeof provider === "string" && CLAUDE_FORMAT_PROVIDERS_WITH_SERVER_TOOLS.has(provider);
+}
 
 export function supportsNativeWebSearchFallbackBypass({
   provider,
@@ -177,9 +233,7 @@ export function supportsNativeWebSearchFallbackBypass({
   // native tool untouched instead of rewriting it to omniroute_web_search. Mirrors the
   // Codex/Gemini bypasses so every native-web-search provider is treated symmetrically.
   if (sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE) {
-    // …except Anthropic-compatible providers that don't actually implement server tools.
-    if (provider && CLAUDE_FORMAT_PROVIDERS_WITHOUT_SERVER_TOOLS.has(provider)) return false;
-    return true;
+    return supportsClaudeServerWebSearch(provider);
   }
   return false;
 }
@@ -212,7 +266,7 @@ export function prepareWebSearchFallbackBody<T extends WebSearchFallbackBody>(
 
   if (supportsNativeWebSearchFallbackBypass(options)) {
     return {
-      body,
+      body: normalizeNativeWebSearchTools(body, tools),
       fallback: { enabled: false, toolName: null, convertedToolCount: 0 },
     };
   }

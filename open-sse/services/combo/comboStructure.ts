@@ -137,7 +137,7 @@ function normalizeRuntimeStep(
       : {}),
     weight,
     label,
-    prompt: step.prompt || null,
+    prompt: step.kind === "model" ? step.prompt || null : null,
   } satisfies ResolvedComboTarget;
 }
 

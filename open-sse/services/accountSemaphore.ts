@@ -200,7 +200,7 @@ export function acquire(
     return Promise.reject(makeAbortError(signal));
   }
 
-  const gate = ensureGate(semaphoreKey, maxConcurrency);
+  const gate = ensureGate(semaphoreKey, maxConcurrency ?? 0);
   clearCleanupTimer(gate);
 
   if (gate.running < gate.maxConcurrency && !isBlocked(gate)) {

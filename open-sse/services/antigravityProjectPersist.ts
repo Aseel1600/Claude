@@ -40,3 +40,26 @@ export async function persistDiscoveredAntigravityProjectId(
     // Non-fatal: persistence failure must never block the in-flight request.
   }
 }
+
+/**
+ * Order Antigravity connections so those that already have a discovered/stored
+ * projectId come first. Used by quota-aware selection (#8894): a connection
+ * without a projectId would need a fresh `loadCodeAssist` round-trip before its
+ * quota can be evaluated, so prefer the ones that are immediately usable.
+ */
+export function preferAntigravityConnectionsWithStoredProject(
+  connections: Array<Record<string, unknown>>
+): Array<Record<string, unknown>> {
+  if (!Array.isArray(connections)) return connections;
+  const withProject: Array<Record<string, unknown>> = [];
+  const withoutProject: Array<Record<string, unknown>> = [];
+  for (const conn of connections) {
+    const psd = conn?.providerSpecificData as Record<string, unknown> | undefined;
+    const hasProject =
+      (typeof conn?.projectId === "string" && (conn.projectId as string).trim().length > 0) ||
+      (typeof psd?.projectId === "string" && (psd.projectId as string).trim().length > 0);
+    if (hasProject) withProject.push(conn);
+    else withoutProject.push(conn);
+  }
+  return [...withProject, ...withoutProject];
+}

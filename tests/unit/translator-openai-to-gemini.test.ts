@@ -582,6 +582,7 @@ test("OpenAI -> Antigravity wraps Gemini requests in a Cloud Code envelope", () 
     "model",
     "userAgent",
     "requestType",
+    "_toolNameMap",
   ]);
   assert.equal(result.userAgent, "antigravity");
   assert.equal(result.requestType, "agent");
