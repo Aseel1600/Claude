@@ -1,0 +1,1 @@
+- **feat(ci):** new quality gate `check-forgotten-sibling-tests` detects when a source symbol changes but consumer tests are not in the same diff — preventing the 7 documented "forgotten sibling test" occurrences from PR #9529 ([#9530](https://github.com/diegosouzapw/OmniRoute/issues/9530))

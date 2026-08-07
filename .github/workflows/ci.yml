@@ -587,6 +587,9 @@ jobs:
       # Anti test-masking: flag net assert removal / new assert.ok(true) in changed tests.
       - name: Detect test-masking (weakened assertions)
         run: npm run check:test-masking
+      # Detect forgotten sibling tests (consumers whose test sibling is not in the diff).
+      - name: Detect forgotten sibling tests
+        run: npm run check:forgotten-sibling-tests
       # Evidence-in-PR-body (Hard Rule #18 mechanized): claims of "tests pass" must carry output.
       - name: Require evidence in PR body
         run: npm run check:pr-evidence

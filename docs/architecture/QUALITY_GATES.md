@@ -176,11 +176,12 @@ Full i18n validation matrix (one job per locale). Entire job is advisory.
 
 Runs on pull requests only.
 
-| Script                 | Validates                                                                                                                  | Blocking |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `check:pr-test-policy` | PRs that change production code in `src/`, `open-sse/`, `electron/`, or `bin/` must include or update tests (Hard Rule #8) | Yes      |
-| `check:test-masking`   | Changed test files do not reduce net assert count or add `assert.ok(true)` tautologies                                     | Yes      |
-| `check:pr-evidence`    | PR body cites test/VPS evidence for the change (mechanizes Hard Rule #18 by grepping PR prose — fragile, see Backlog)      | Yes      |
+| Script                          | Validates                                                                                                                                                                           | Blocking |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `check:pr-test-policy`          | PRs that change production code in `src/`, `open-sse/`, `electron/`, or `bin/` must include or update tests (Hard Rule #8)                                                          | Yes      |
+| `check:test-masking`            | Changed test files do not reduce net assert count or add `assert.ok(true)` tautologies                                                                                              | Yes      |
+| `check:pr-evidence`             | PR body cites test/VPS evidence for the change (mechanizes Hard Rule #18 by grepping PR prose — fragile, see Backlog)                                                               | Yes      |
+| `check:forgotten-sibling-tests` | When a PR changes source file Y, detects if any production consumer Z of Y has a test sibling that is NOT included in the same diff — preventing the forgotten-sibling-test pattern | Yes      |
 
 ### Job: `test-vitest`
 

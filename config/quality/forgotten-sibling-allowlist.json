@@ -1,0 +1,10 @@
+{
+  "_comment": "Forgotten-sibling-tests allowlist (check-forgotten-sibling-tests.mjs). Each entry exempts a (sourcePath, forgottenSibling) pair. Use when a consumer test legitimately does not need changes (compatible refactor, same interface). Every entry needs a reason with the tracking issue or PR ref. Wildcard sourcePath=\"*\" exempts the sibling regardless of which source triggered it.",
+  "_schema": [
+    {
+      "sourcePath": "src/lib/example.ts",
+      "forgottenSibling": "tests/unit/lib/example-consumer.test.ts",
+      "reason": "Issue #1234: compatible interface change only — consumer tests verify contract, not implementation"
+    }
+  ]
+}
