@@ -1,0 +1,1 @@
+- **chore(quality):** absorb release-tip file-size drift from #9515/#8630/#8704 (dated `_rebaseline_2026_08_06b` key) and fix 3 `no-explicit-any` lint errors in `tests/unit/vertex-functioncall-id-3440.test.ts` ([#9616](https://github.com/diegosouzapw/OmniRoute/pull/9616))
