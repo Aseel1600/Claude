@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Card, Button, Input, Modal, CardSkeleton, SegmentedControl } from "@/shared/components";
+import {
+  Card,
+  Button,
+  Modal,
+  CardSkeleton,
+  SegmentedControl,
+  AppleField,
+  AppleInput,
+} from "@/shared/components";
 import Toggle from "@/shared/components/Toggle";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { isPublicDisplayBaseUrl, useDisplayBaseUrl } from "@/shared/hooks";
@@ -1618,14 +1626,15 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                     </p>
                   )}
                   {tailscaleStatus?.installed && tailscaleStatus?.platform !== "win32" && (
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-text-muted">
-                        {translateOrFallback(
-                          "tailscaleSudoLabel",
-                          "Sudo Password (required on macOS/Linux)"
-                        )}
-                      </label>
-                      <Input
+                    <AppleField
+                      id="tailscale-sudo-password"
+                      label={translateOrFallback(
+                        "tailscaleSudoLabel",
+                        "Sudo Password (required on macOS/Linux)"
+                      )}
+                    >
+                      <AppleInput
+                        id="tailscale-sudo-password"
                         type="password"
                         value={tailscalePassword}
                         onChange={(event) => setTailscalePassword(event.target.value)}
@@ -1636,7 +1645,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                         disabled={tailscaleBusy}
                         className="font-mono text-sm"
                       />
-                    </div>
+                    </AppleField>
                   )}
                   {tailscaleStatus?.binaryPath && (
                     <p className="text-xs text-text-muted">
@@ -1743,14 +1752,15 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                   )}
                   <p className="text-xs text-text-muted">{ngrokUrlNotice}</p>
                   {ngrokStatus?.phase === "needs_auth" && (
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs text-text-muted">
-                        {translateOrFallback(
-                          "ngrokAuthTokenLabel",
-                          "Authtoken (Required if NGROK_AUTHTOKEN not set in environment)"
-                        )}
-                      </label>
-                      <Input
+                    <AppleField
+                      id="ngrok-authtoken"
+                      label={translateOrFallback(
+                        "ngrokAuthTokenLabel",
+                        "Authtoken (Required if NGROK_AUTHTOKEN not set in environment)"
+                      )}
+                    >
+                      <AppleInput
+                        id="ngrok-authtoken"
                         type="password"
                         value={ngrokToken}
                         onChange={(event) => setNgrokToken(event.target.value)}
@@ -1761,7 +1771,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
                         disabled={ngrokBusy}
                         className="font-mono text-sm"
                       />
-                    </div>
+                    </AppleField>
                   )}
                   {ngrokStatus?.lastError && (
                     <p className="text-xs text-red-400">
@@ -1784,7 +1794,7 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
           </div>
           <div className="flex items-center gap-3 shrink-0">
             {customSystemPromptEnabled && (
-              <Input
+              <AppleInput
                 type="text"
                 value={customSystemPrompt}
                 onChange={(e) => handleCustomSystemPromptChange(e.target.value)}
@@ -2257,13 +2267,26 @@ export default function APIPageClient({ machineId }: Readonly<APIPageClientProps
             </p>
           </div>
 
-          <Input
-            type="password"
-            value={tailscalePassword}
-            onChange={(event) => setTailscalePassword(event.target.value)}
-            placeholder={translateOrFallback("tailscaleSudoPlaceholder", "Optional sudo password")}
-            disabled={tailscaleInstallBusy}
-          />
+          <AppleField
+            id="tailscale-install-sudo"
+            label={translateOrFallback("tailscaleSudoLabel", "Sudo Password")}
+            hint={translateOrFallback(
+              "tailscaleInstallPasswordHint",
+              "Required for macOS/Linux package install and daemon start."
+            )}
+          >
+            <AppleInput
+              id="tailscale-install-sudo"
+              type="password"
+              value={tailscalePassword}
+              onChange={(event) => setTailscalePassword(event.target.value)}
+              placeholder={translateOrFallback(
+                "tailscaleSudoPlaceholder",
+                "Optional sudo password"
+              )}
+              disabled={tailscaleInstallBusy}
+            />
+          </AppleField>
 
           {tailscaleInstallLog.length > 0 && (
             <div className="max-h-48 overflow-auto rounded-lg border border-border/70 bg-surface/60 p-3">

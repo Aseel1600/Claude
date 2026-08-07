@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, Button, Input, Badge } from "@/shared/components";
+import { Card, Button, Badge, AppleField, AppleInput } from "@/shared/components";
 
 export default function NotionSourceCard() {
   const t = useTranslations("endpoint");
@@ -129,23 +129,23 @@ export default function NotionSourceCard() {
             )}
 
             {!connected ? (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-text-muted font-medium">
-                  Notion Internal Integration Token
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="ntn_... or secret_..."
-                    disabled={busy}
-                    className="font-mono text-sm flex-1"
-                  />
-                  <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
-                    Connect
-                  </Button>
-                </div>
+              <div className="flex flex-col gap-3">
+                <AppleField id="notion-token" label="Notion Internal Integration Token">
+                  <div className="flex gap-2">
+                    <AppleInput
+                      id="notion-token"
+                      type="password"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="ntn_... or secret_..."
+                      disabled={busy}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
+                      Connect
+                    </Button>
+                  </div>
+                </AppleField>
                 <p className="text-[10px] text-text-muted">
                   Create an Internal Integration at{" "}
                   <code className="text-primary font-mono bg-surface/80 px-1 rounded">

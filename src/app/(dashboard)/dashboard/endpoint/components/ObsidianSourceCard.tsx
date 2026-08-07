@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, Button, Input, Badge } from "@/shared/components";
+import { Card, Button, Badge, AppleField, AppleInput } from "@/shared/components";
 
 export default function ObsidianSourceCard() {
   const t = useTranslations("endpoint");
@@ -244,34 +244,34 @@ export default function ObsidianSourceCard() {
             )}
 
             {!connected ? (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-text-muted font-medium">
-                  {t("obsidianRestToken")}
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder={t("obsidianApiKeyPlaceholder")}
+              <div className="flex flex-col gap-3">
+                <AppleField id="obsidian-token" label={t("obsidianRestToken")}>
+                  <div className="flex gap-2">
+                    <AppleInput
+                      id="obsidian-token"
+                      type="password"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder={t("obsidianApiKeyPlaceholder")}
+                      disabled={busy}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
+                      {t("obsidianConnect")}
+                    </Button>
+                  </div>
+                </AppleField>
+                <AppleField id="obsidian-base-url" label={t("obsidianBaseUrlOptional")}>
+                  <AppleInput
+                    id="obsidian-base-url"
+                    type="text"
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_URL}
                     disabled={busy}
-                    className="font-mono text-sm flex-1"
+                    className="font-mono text-sm"
                   />
-                  <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
-                    {t("obsidianConnect")}
-                  </Button>
-                </div>
-                <label className="text-xs text-text-muted font-medium mt-1">
-                  {t("obsidianBaseUrlOptional")}
-                </label>
-                <Input
-                  type="text"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder={DEFAULT_URL}
-                  disabled={busy}
-                  className="font-mono text-sm"
-                />
+                </AppleField>
                 {baseUrl.includes(":27124") && (
                   <div className="flex items-center gap-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1.5 text-[10px] text-yellow-300">
                     <span className="material-symbols-outlined text-[14px]">warning</span>
@@ -308,12 +308,10 @@ export default function ObsidianSourceCard() {
                   <p className="text-[10px] text-text-muted">{t("obsidianVaultSyncDescription")}</p>
 
                   {!webdavEnabled ? (
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-text-muted font-medium">
-                        {t("obsidianVaultDirectoryPath")}
-                      </label>
+                    <AppleField id="obsidian-vault-path" label={t("obsidianVaultDirectoryPath")}>
                       <div className="flex gap-2">
-                        <Input
+                        <AppleInput
+                          id="obsidian-vault-path"
                           type="text"
                           value={vaultPath}
                           onChange={(e) => setVaultPath(e.target.value)}
@@ -330,7 +328,7 @@ export default function ObsidianSourceCard() {
                           {t("obsidianEnable")}
                         </Button>
                       </div>
-                    </div>
+                    </AppleField>
                   ) : (
                     <div className="flex flex-col gap-3">
                       <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AppleField, AppleInput } from "@/shared/components";
 import { EventChecklist } from "../shared/EventChecklist";
 import { PayloadPreview } from "../shared/PayloadPreview";
 
@@ -72,17 +73,14 @@ export function Step3EventsAndTest({
 
   return (
     <div className="space-y-5">
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("name")}
-        </label>
-        <input
+      <AppleField id="webhook-name" label={t("name")}>
+        <AppleInput
+          id="webhook-name"
           value={description}
           onChange={(e) => onChangeDescription(e.target.value)}
           placeholder={t("namePlaceholder")}
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-      </div>
+      </AppleField>
 
       <div>
         <label className="mb-2 block text-xs font-medium uppercase tracking-wider text-text-muted">
