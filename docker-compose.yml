@@ -30,8 +30,13 @@
 x-common: &common
   restart: unless-stopped
   stop_grace_period: 40s
+  mem_limit: ${OMNIROUTE_CONTAINER_MEMORY:-2g}
+  memswap_limit: ${OMNIROUTE_CONTAINER_MEMORY:-2g}
+  cpus: ${OMNIROUTE_CONTAINER_CPUS:-2}
   env_file: .env
   environment:
+    - NODE_OPTIONS=--max-old-space-size=${OMNIROUTE_MEMORY_MB:-1536}
+    - OMNIROUTE_MEMORY_MB=${OMNIROUTE_MEMORY_MB:-1536}
     - DATA_DIR=/app/data # Must match the volume mount below
     - OMNIROUTE_BASE_PATH=${OMNIROUTE_BASE_PATH:-}
     - PORT=${PORT:-20128}
@@ -57,6 +62,9 @@ services:
     image: docker.io/library/redis:7-alpine
     container_name: omniroute-redis
     restart: unless-stopped
+    mem_limit: ${REDIS_CONTAINER_MEMORY:-256m}
+    memswap_limit: ${REDIS_CONTAINER_MEMORY:-256m}
+    cpus: ${REDIS_CONTAINER_CPUS:-0.5}
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:

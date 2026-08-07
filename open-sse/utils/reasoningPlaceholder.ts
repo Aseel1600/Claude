@@ -20,7 +20,12 @@ export function isInternalReasoningPlaceholder(value: unknown): boolean {
  * Only collapse to "" when the placeholder WAS the whole content — never trim
  * real content, or streamed deltas glue together with their spaces eaten.
  */
-export function stripInternalReasoningPlaceholder(value: string): string {
+export function stripInternalReasoningPlaceholder(value: unknown): string {
+  // A few OpenAI-compatible streams (notably Mistral's) can send structured
+  // content despite the OpenAI contract requiring a string. This helper sits
+  // on several response paths, so fail safely instead of throwing while
+  // invoking String.prototype.replaceAll on an object.
+  if (typeof value !== "string") return "";
   const stripped = value.replaceAll(NON_ANTHROPIC_THINKING_PLACEHOLDER, "");
   return stripped.trim() === "" ? "" : stripped;
 }

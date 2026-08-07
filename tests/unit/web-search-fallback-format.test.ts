@@ -102,7 +102,7 @@ test("bypass predicate: true for Gemini target", () => {
   );
 });
 
-test("bypass predicate: true for Claude -> Claude passthrough", () => {
+test("bypass predicate: true for first-party Claude passthrough", () => {
   assert.equal(
     supportsNativeWebSearchFallbackBypass({
       provider: "claude",
@@ -111,6 +111,18 @@ test("bypass predicate: true for Claude -> Claude passthrough", () => {
       nativeCodexPassthrough: false,
     }),
     true
+  );
+});
+
+test("bypass predicate: false for unknown Claude-compatible providers", () => {
+  assert.equal(
+    supportsNativeWebSearchFallbackBypass({
+      provider: "anthropic-compatible-custom",
+      sourceFormat: "claude",
+      targetFormat: "claude",
+      nativeCodexPassthrough: false,
+    }),
+    false
   );
 });
 
@@ -312,4 +324,185 @@ test("#3384 end-to-end: interceptSearchOverride=true converts the tool on the Cl
 
   assert.equal(fallback.enabled, true);
   assert.equal(fallback.toolName, OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME);
+});
+
+// #6459: Claude Code v2.1.220 sends tool_choice as { type: "tool", name: "web_search_20250305" }.
+// isBuiltInWebSearchToolChoice only checked .type, missing tool-typed choices where the
+// Anthropic server tool name lives in .name. That left tool_choice unrewritten while
+// tools were converted to omniroute_web_search — upstream 400 "No tools provided for
+// tool choice `web_search`" (Mistral Medium 3.5, 2026-07-27).
+test("tool_choice {type:tool, name:web_search_20250305} is rewritten per target format (Chat)", () => {
+  const inputBody = {
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tool_choice: { type: "tool", name: "web_search_20250305" },
+  };
+  const { body, fallback } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "mistral",
+    sourceFormat: "claude",
+    targetFormat: "openai",
+    nativeCodexPassthrough: false,
+  });
+
+  assert.equal(fallback.enabled, true);
+  assert.equal(fallback.convertedToolCount, 1);
+  const cChoice = body.tool_choice as Record<string, unknown>;
+  const cFn = cChoice.function as Record<string, unknown> | undefined;
+  assert.equal(
+    cFn?.name,
+    OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME,
+    "tool_choice must be rewritten to reference the injected omniroute_web_search tool"
+  );
+});
+
+// Production payload from Claude Code v2.1.220 (2026-07-28): the Anthropic
+// *tool* carries the dated type, but tool_choice references it by its plain
+// name — { type: "tool", name: "web_search" }. Neither field matches the
+// dated pattern, so detection missed it and tool_choice stayed pointing at
+// "web_search" while tools became omniroute_web_search → Mistral 400
+// "No tools provided for tool choice `web_search`".
+test("tool_choice {type:tool, name:web_search} (plain name) is rewritten", () => {
+  const inputBody = {
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tool_choice: { type: "tool", name: "web_search" },
+  };
+  const { body, fallback } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "mistral",
+    sourceFormat: "claude",
+    targetFormat: "openai",
+    nativeCodexPassthrough: false,
+  });
+
+  assert.equal(fallback.enabled, true);
+  const choice = body.tool_choice as Record<string, unknown>;
+  const fn = choice.function as Record<string, unknown> | undefined;
+  assert.equal(
+    fn?.name,
+    OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME,
+    "plain-name tool_choice must be rewritten to omniroute_web_search"
+  );
+});
+
+test("tool_choice {type:tool, name:web_search_20250305} is rewritten per target format (Responses)", () => {
+  const inputBody = {
+    tools: [{ type: "web_search_20250305", name: "web_search" }],
+    tool_choice: { type: "tool", name: "web_search_20250305" },
+  };
+  const { body, fallback } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "mistral",
+    sourceFormat: "claude",
+    targetFormat: "openai-responses",
+    nativeCodexPassthrough: false,
+  });
+
+  assert.equal(fallback.enabled, true);
+  assert.equal(fallback.convertedToolCount, 1);
+  const rChoice = body.tool_choice as Record<string, unknown>;
+  assert.equal(
+    rChoice.name,
+    OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME,
+    "Responses tool_choice must use flat {type, name} pointing to omniroute_web_search"
+  );
+  assert.equal(rChoice.function, undefined);
+});
+
+// Anthropic rejects an EMPTY domain list on its server web-search tool:
+// "tools.0.web_search_20250305.blocked_domains: Empty list of domains is
+// ambiguous. Provide at least one domain or null." Claude Code sends
+// `allowed_domains: []` / `blocked_domains: []`, and the Claude -> Claude
+// bypass forwards the tool verbatim, so the 400 lands on the user. Empty
+// arrays must be dropped on the native passthrough (omitted == unrestricted).
+test("Claude -> Claude: empty allowed_domains/blocked_domains are dropped from the native tool", () => {
+  const inputBody = {
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 5,
+        allowed_domains: [],
+        blocked_domains: [],
+      },
+    ],
+  };
+  const { body, fallback } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "claude",
+    sourceFormat: "claude",
+    targetFormat: "claude",
+    nativeCodexPassthrough: false,
+  });
+
+  // Still a native bypass — the Anthropic upstream owns web search.
+  assert.equal(fallback.enabled, false);
+  assert.equal(fallback.toolName, null);
+
+  const tool = (body.tools as Record<string, unknown>[])[0];
+  assert.equal(tool.allowed_domains, undefined, "empty allowed_domains must be omitted");
+  assert.equal(tool.blocked_domains, undefined, "empty blocked_domains must be omitted");
+  // Everything else survives untouched.
+  assert.equal(tool.type, "web_search_20250305");
+  assert.equal(tool.name, "web_search");
+  assert.equal(tool.max_uses, 5);
+});
+
+test("Claude -> Claude: non-empty domain lists are preserved verbatim", () => {
+  const inputBody = {
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        allowed_domains: ["anthropic.com"],
+        blocked_domains: [],
+      },
+    ],
+  };
+  const { body } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "claude",
+    sourceFormat: "claude",
+    targetFormat: "claude",
+    nativeCodexPassthrough: false,
+  });
+
+  const tool = (body.tools as Record<string, unknown>[])[0];
+  assert.deepEqual(tool.allowed_domains, ["anthropic.com"], "populated list must survive");
+  assert.equal(tool.blocked_domains, undefined, "empty sibling must still be dropped");
+});
+
+test("fallback schema carries non-empty Anthropic domain constraints", () => {
+  const { body, fallback } = prepareWebSearchFallbackBody(
+    {
+      tools: [
+        {
+          type: "web_search_20250305",
+          name: "web_search",
+          allowed_domains: ["edsheeran.com"],
+          blocked_domains: ["example.com"],
+        },
+      ],
+    },
+    { targetFormat: "openai", nativeCodexPassthrough: false }
+  );
+
+  assert.equal(fallback.enabled, true);
+  const tool = (body.tools as Array<Record<string, unknown>>)[0];
+  const fn = tool.function as Record<string, unknown>;
+  const schema = fn.parameters as Record<string, unknown>;
+  const properties = schema.properties as Record<string, unknown>;
+  const filters = properties.filters as Record<string, unknown>;
+  const filterProperties = filters.properties as Record<string, Record<string, unknown>>;
+  assert.deepEqual(filterProperties.include_domains.default, ["edsheeran.com"]);
+  assert.deepEqual(filterProperties.exclude_domains.default, ["example.com"]);
+});
+
+test("Claude -> Claude: tools without empty domain arrays are not cloned unnecessarily", () => {
+  // Regression guard for the untouched-passthrough contract: when there is
+  // nothing to normalize, the body must be forwarded verbatim.
+  const inputBody = {
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+  };
+  const { body } = prepareWebSearchFallbackBody(inputBody, {
+    provider: "claude",
+    sourceFormat: "claude",
+    targetFormat: "claude",
+    nativeCodexPassthrough: false,
+  });
+  assert.deepEqual(body, inputBody);
 });

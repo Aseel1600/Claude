@@ -14,6 +14,8 @@
  * BEFORE combo/auto routing and before the layer-1 fallback is computed for the target.
  */
 
+import { isNativeWebSearchTool } from "./webSearchFallback.ts";
+
 interface WebSearchRouteResult {
   wasRouted: boolean;
   model: string;
@@ -38,10 +40,7 @@ export function hasNativeWebSearchTool(body: unknown): boolean {
   const tools = (body as { tools?: unknown }).tools;
   if (!Array.isArray(tools)) return false;
   return tools.some((tool) => {
-    if (!tool || typeof tool !== "object") return false;
-    const record = tool as { type?: unknown; function?: unknown };
-    if (record.function) return false; // a custom function tool, not the server tool
-    return asString(record.type).startsWith("web_search");
+    return isNativeWebSearchTool(tool);
   });
 }
 

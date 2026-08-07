@@ -180,9 +180,10 @@ USER node
 
 # Warns if the mounted data volume has wrong ownership
 COPY --chmod=755 scripts/check-permissions.sh /tmp/check-permissions.sh
+RUN test -x /tmp/check-permissions.sh
 ENTRYPOINT ["/tmp/check-permissions.sh"]
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=8s --start-period=45s --retries=5 \
   CMD ["node", "healthcheck.mjs"]
 
 CMD ["node", "dev/run-standalone.mjs"]

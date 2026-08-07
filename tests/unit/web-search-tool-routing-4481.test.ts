@@ -89,6 +89,12 @@ test("ignores a custom FUNCTION tool merely named web_search (has a function fie
   );
 });
 
+test("rejects malformed future-looking web-search types", () => {
+  for (const type of ["web_search_evil", "web_search_123", "web_search_123456789"]) {
+    assert.equal(hasNativeWebSearchTool({ tools: [{ type }] }), false, type);
+  }
+});
+
 test("returns false for no tools / non-web-search tools / malformed input", () => {
   assert.equal(hasNativeWebSearchTool({ tools: [] }), false);
   assert.equal(hasNativeWebSearchTool({ tools: [{ type: "code_interpreter" }] }), false);
@@ -110,9 +116,13 @@ test("routes to the configured model when a native web-search tool is present", 
 });
 
 test("does NOT route when the request has no native web-search tool", () => {
-  const r = resolveWebSearchRouteOverride("minimax,MiniMax-M3", { tools: [{ type: "function" }] }, {
-    webSearchRouteModel: "openrouter,anthropic/claude-3.5-sonnet",
-  });
+  const r = resolveWebSearchRouteOverride(
+    "minimax,MiniMax-M3",
+    { tools: [{ type: "function" }] },
+    {
+      webSearchRouteModel: "openrouter,anthropic/claude-3.5-sonnet",
+    }
+  );
   assert.deepEqual(r, { wasRouted: false, model: "minimax,MiniMax-M3" });
 });
 

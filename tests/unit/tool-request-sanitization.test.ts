@@ -9,9 +9,8 @@ const {
   injectEmptyReasoningContentForToolCalls,
 } = await import("../../open-sse/translator/helpers/schemaCoercion.ts");
 const { translateRequest } = await import("../../open-sse/translator/index.ts");
-const { NON_ANTHROPIC_THINKING_PLACEHOLDER } = await import(
-  "../../open-sse/translator/helpers/claudeHelper.ts"
-);
+const { NON_ANTHROPIC_THINKING_PLACEHOLDER } =
+  await import("../../open-sse/translator/helpers/claudeHelper.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 const { clearModelsDevCapabilities, saveModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
@@ -176,6 +175,69 @@ test("translateRequest sanitizes OpenAI tool payloads on passthrough", () => {
 
   assert.equal(translated.tools[0].function.description, "7");
   assert.equal(translated.tools[0].function.parameters.properties.count.minimum, 2);
+});
+
+test("translateRequest uses compact correlated ids for Mistral and Antigravity tool history", () => {
+  for (const [provider, targetFormat] of [
+    ["mistral", FORMATS.OPENAI],
+    ["antigravity", FORMATS.ANTIGRAVITY],
+  ] as const) {
+    const translated = translateRequest(
+      FORMATS.OPENAI,
+      targetFormat,
+      "test-model",
+      {
+        messages: [
+          {
+            role: "assistant",
+            tool_calls: [
+              {
+                id: "trajectory:step/1",
+                type: "function",
+                function: { name: "lookup", arguments: "{}" },
+              },
+            ],
+          },
+          { role: "tool", tool_call_id: "trajectory:step/1", content: "ok" },
+        ],
+      },
+      false,
+      null,
+      provider
+    );
+
+    if (targetFormat === FORMATS.OPENAI) {
+      const assistant = translated.messages.find(
+        (message: { role?: string; tool_calls?: Array<{ id: string }> }) =>
+          message.role === "assistant"
+      );
+      const tool = translated.messages.find(
+        (message: { role?: string; tool_call_id?: string }) => message.role === "tool"
+      );
+      const id = assistant?.tool_calls?.[0]?.id;
+      assert.match(id ?? "", /^[A-Za-z0-9]{9}$/);
+      assert.equal(tool?.tool_call_id, id);
+    } else {
+      // Antigravity wraps the translated request in a Cloud Code envelope —
+      // the content blocks live under `request.contents`, not at the top level.
+      const calls = translated.request.contents
+        .flatMap(
+          (content: { parts?: Array<{ functionCall?: { id: string } }> }) => content.parts || []
+        )
+        .map((part: { functionCall?: { id: string } }) => part.functionCall)
+        .filter(Boolean);
+      const responses = translated.request.contents
+        .flatMap(
+          (content: { parts?: Array<{ functionResponse?: { id: string } }> }) => content.parts || []
+        )
+        .map((part: { functionResponse?: { id: string } }) => part.functionResponse)
+        .filter(Boolean);
+      assert.equal(calls.length, 1);
+      assert.equal(responses.length, 1);
+      assert.match(calls[0].id, /^[A-Za-z0-9]{9}$/);
+      assert.equal(responses[0].id, calls[0].id);
+    }
+  }
 });
 
 test("tool sanitization: injects empty reasoning_content only for DeepSeek tool-call history", () => {

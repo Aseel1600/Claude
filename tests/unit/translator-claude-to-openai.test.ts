@@ -54,8 +54,6 @@ test("Claude -> OpenAI maps system blocks, parameters, tool declarations and too
   });
 });
 
-
-
 test("Claude -> OpenAI maps Claude server WebSearch to native Responses web_search", () => {
   const result = claudeToOpenAIRequest(
     "gpt-5.5",
@@ -104,7 +102,12 @@ test("translateRequest maps Claude server WebSearch natively only for Responses 
     structuredClone(body),
     true
   );
-  assert.deepEqual(responses.tools, [{ type: "web_search" }]);
+  assert.deepEqual(responses.tools, [
+    {
+      type: "web_search",
+      filters: { allowed_domains: null, blocked_domains: null },
+    },
+  ]);
   assert.deepEqual(responses.tool_choice, { type: "web_search" });
 
   const chat = translateRequest(

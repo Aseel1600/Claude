@@ -1,6 +1,7 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { adjustMaxTokens } from "../helpers/maxTokensHelper.ts";
+import { isNativeWebSearchToolType } from "../../services/webSearchFallback.ts";
 
 type JsonRecord = Record<string, unknown>;
 const TOOL_CHOICE_ANY = ["a", "n", "y"].join("");
@@ -43,11 +44,7 @@ function normalizeOpenAIReasoningEffort(effort: unknown): string | undefined {
 function isClaudeServerWebSearchTool(tool: unknown): tool is JsonRecord {
   if (!tool || typeof tool !== "object" || Array.isArray(tool)) return false;
   const record = tool as JsonRecord;
-  return (
-    record.name === "web_search" &&
-    typeof record.type === "string" &&
-    /^web_search_\d{8}$/.test(record.type)
-  );
+  return record.name === "web_search" && isNativeWebSearchToolType(record.type);
 }
 
 function toStringArray(value: unknown): string[] {
@@ -61,13 +58,14 @@ function toStringArray(value: unknown): string[] {
 function convertClaudeServerWebSearchTool(tool: JsonRecord): JsonRecord {
   const allowedDomains = toStringArray(tool.allowed_domains);
   const blockedDomains = toStringArray(tool.blocked_domains);
-  const filters: JsonRecord = {};
-  if (allowedDomains.length > 0) filters.allowed_domains = allowedDomains;
-  if (blockedDomains.length > 0) filters.blocked_domains = blockedDomains;
+  const filters: JsonRecord = {
+    allowed_domains: allowedDomains.length > 0 ? allowedDomains : null,
+    blocked_domains: blockedDomains.length > 0 ? blockedDomains : null,
+  };
 
   return {
     type: "web_search",
-    ...(Object.keys(filters).length > 0 ? { filters } : {}),
+    filters,
     ...(tool.user_location &&
     typeof tool.user_location === "object" &&
     !Array.isArray(tool.user_location)

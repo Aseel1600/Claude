@@ -863,13 +863,20 @@ function normalizeYouComResponse(
   return { results, totalResults: results.length };
 }
 
-function normalizeSearxngResponse(
+export function normalizeSearxngResponse(
   data: any,
   _query: string,
   _searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    throw new Error("Malformed SearXNG payload: expected object with results array");
+  }
+  if (!Array.isArray(data.results)) {
+    throw new Error("Malformed SearXNG payload: results must be an array");
+  }
+
   const now = new Date().toISOString();
-  const items = Array.isArray(data.results) ? data.results : [];
+  const items = data.results;
 
   const results = items.map((item: any, idx: number) =>
     makeResult(

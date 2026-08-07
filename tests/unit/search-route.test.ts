@@ -353,7 +353,7 @@ test("v1 search POST accepts authless SearXNG with the built-in default base URL
     assert.equal(response.status, 200);
     assert.equal(
       capturedUrl,
-      "http://localhost:8888/search?q=default+self+hosted+meta+search&format=json&categories=general"
+      "http://searxng:8080/search?q=default+self+hosted+meta+search&format=json&categories=general"
     );
     assert.equal(body.provider, "searxng-search");
     assert.equal(body.results[0].title, "Default SearXNG result");
@@ -454,7 +454,7 @@ test("v1 search POST auto-select uses authless SearXNG when no API-key providers
     assert.equal(response.status, 200);
     assert.equal(
       capturedUrl,
-      "http://localhost:8888/search?q=auto+select+self+hosted+search&format=json&categories=general"
+      "http://searxng:8080/search?q=auto+select+self+hosted+search&format=json&categories=general"
     );
     assert.equal(body.provider, "searxng-search");
     assert.equal(body.results[0].title, "Auto-selected SearXNG result");

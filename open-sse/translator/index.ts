@@ -203,7 +203,15 @@ export function translateRequest(
   }
 ) {
   let result = body;
-  const use9CharId = options?.normalizeToolCallId === true;
+  // Mistral requires exactly nine alphanumeric tool-call ids. Antigravity's
+  // Claude bridge also validates tool-use ids strictly; emitting the same
+  // compact form avoids leaking client-specific ids (for example SDK ids with
+  // punctuation) into that bridge. Keep the database compatibility flag as an
+  // explicit opt-in for every other provider.
+  const use9CharId =
+    options?.normalizeToolCallId === true ||
+    provider === "mistral" ||
+    targetFormat === FORMATS.ANTIGRAVITY;
   const preserveDeveloperRole = options?.preserveDeveloperRole;
   const connectionCacheOverride = resolveConnectionCacheOverride(
     (credentials as { providerSpecificData?: unknown } | null)?.providerSpecificData

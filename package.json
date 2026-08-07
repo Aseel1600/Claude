@@ -88,6 +88,7 @@
     "eval:router:trends": "node --import tsx scripts/router-eval/trends.ts",
     "release:sync-changelog-i18n": "node scripts/release/sync-changelog-i18n.mjs",
     "build": "node scripts/build/build-next-isolated.mjs",
+    "build:docker:safe": "bash scripts/build/docker-safe-build.sh",
     "build:secure": "OMNIROUTE_BUILD_PROFILE=minimal node scripts/build/build-next-isolated.mjs",
     "build:backend": "cross-env OMNIROUTE_BUILD_BACKEND_ONLY=1 node scripts/build/build-next-isolated.mjs",
     "build:cli": "node --import tsx scripts/build/prepublish.ts",

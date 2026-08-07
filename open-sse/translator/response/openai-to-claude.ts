@@ -94,21 +94,13 @@ function extractXmlInvokeBlocks(
  * Parse the array and emit proper structured content_block_* SSE events
  * instead of a raw text_delta containing JSON.
  */
-function parseAnthropicContentBlockArray(
-  raw: string
-): Array<Record<string, unknown>> | null {
+function parseAnthropicContentBlockArray(raw: string): Array<Record<string, unknown>> | null {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("[{")) return null;
   try {
     const parsed = JSON.parse(trimmed);
     if (!Array.isArray(parsed) || parsed.length === 0) return null;
-    const validTypes = new Set([
-      "text",
-      "thinking",
-      "tool_use",
-      "image",
-      "tool_result",
-    ]);
+    const validTypes = new Set(["text", "thinking", "tool_use", "image", "tool_result"]);
     for (const block of parsed) {
       if (!block || typeof block !== "object") return null;
       if (!validTypes.has(block.type)) return null;
@@ -121,8 +113,7 @@ function parseAnthropicContentBlockArray(
         if (Array.isArray(thinking)) {
           block.thinking = thinking
             .map((item: Record<string, unknown>) => {
-              if (item && item.type === "text" && typeof item.text === "string")
-                return item.text;
+              if (item && item.type === "text" && typeof item.text === "string") return item.text;
               return "";
             })
             .filter(Boolean)
@@ -330,18 +321,21 @@ export function openaiToClaudeResponse(chunk, state) {
     // fragment before any string-only operation so the downstream
     // `stripInternalReasoningPlaceholder` / `extractXmlInvokeBlocks`
     // chain never coerces an object into literal `[object Object]` text.
-    const rawContent = typeof delta.content === "string"
-      ? delta.content
-      : JSON.stringify(delta.content);
+    const rawContent =
+      typeof delta.content === "string" ? delta.content : JSON.stringify(delta.content);
 
     // Detect Mistral/other models emitting serialized Anthropic content
     // block arrays as raw text in delta.content. Parse them and emit
     // proper structured content_block_* events instead of raw JSON.
     const parsedBlocks = parseAnthropicContentBlockArray(rawContent);
     if (parsedBlocks) {
-      stopThinkingBlock(state, results);
       for (const block of parsedBlocks) {
         if (block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
+          // Do NOT stop the thinking block here — consecutive chunks may
+          // each carry a thinking-only array, and stopping before emitting
+          // would create 1-word thinking blocks (content_block_stop +
+          // content_block_start per chunk). emitTextDelta below already stops
+          // thinking when the array transitions to text.
           emitThinkingDelta(state, results, block.thinking);
         } else if (block.type === "text" && typeof block.text === "string" && block.text) {
           stopThinkingBlock(state, results);

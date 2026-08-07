@@ -34,7 +34,9 @@ function flatten(items: unknown[][]) {
 
 function assembleToolUseInput(events: Array<Record<string, unknown>>) {
   const jsonDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "input_json_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "input_json_delta"
   );
   const assembled = jsonDeltas
     .map((e) => (e.delta as Record<string, unknown>).partial_json as string)
@@ -114,7 +116,9 @@ test("#6459: tool-call arguments delivered as a structured object (not a JSON st
   try {
     parsed = JSON.parse(assembled);
   } catch {
-    assert.fail(`assembled partial_json is not valid JSON — arguments object was corrupted: ${assembled}`);
+    assert.fail(
+      `assembled partial_json is not valid JSON — arguments object was corrupted: ${assembled}`
+    );
   }
 
   assert.ok(Array.isArray(parsed.questions), "questions array must survive as structured data");
@@ -153,7 +157,9 @@ test("#6459 no-regression: a plain text-only turn still translates normally", ()
 
   const events = flatten([chunk1, chunk2, chunk3]) as Array<Record<string, unknown>>;
   const textDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "text_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "text_delta"
   );
 
   assert.equal(textDeltas.length, 1);
@@ -182,7 +188,9 @@ test("non-string delta.content is JSON.stringify'ed, never rendered as [object O
   );
   const events = flatten([chunk]) as Array<Record<string, unknown>>;
   const textDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "text_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "text_delta"
   );
   assert.equal(textDeltas.length, 1, "expected one text_delta for non-string content");
   const emitted = (textDeltas[0].delta as Record<string, unknown>).text as string;
@@ -217,7 +225,9 @@ test("non-string delta.reasoning_content never produces [object Object] in think
   );
   const events = flatten([chunk]) as Array<Record<string, unknown>>;
   const thinkingDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "thinking_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "thinking_delta"
   );
   if (thinkingDeltas.length > 0) {
     for (const td of thinkingDeltas) {
@@ -271,10 +281,12 @@ test("serialized Anthropic content block array in delta.content is parsed, not e
 
   // Must contain a thinking_delta with the thinking text
   const thinkingDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "thinking_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "thinking_delta"
   );
   const allThinking = thinkingDeltas
-    .map(t => ((t.delta as Record<string, unknown>).thinking as string) || "")
+    .map((t) => ((t.delta as Record<string, unknown>).thinking as string) || "")
     .join("");
   assert.ok(
     allThinking.includes("let me think..."),
@@ -283,10 +295,17 @@ test("serialized Anthropic content block array in delta.content is parsed, not e
 
   // Must contain a text_delta with the text
   const textDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "text_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "text_delta"
   );
-  const allText = textDeltas.map(t => ((t.delta as Record<string, unknown>).text as string) || "").join("");
-  assert.ok(allText.includes("Hello, world!"), `expected parsed text, got: ${allText.substring(0, 200)}`);
+  const allText = textDeltas
+    .map((t) => ((t.delta as Record<string, unknown>).text as string) || "")
+    .join("");
+  assert.ok(
+    allText.includes("Hello, world!"),
+    `expected parsed text, got: ${allText.substring(0, 200)}`
+  );
 });
 
 // The content block parser must also handle nested thinking arrays
@@ -312,19 +331,89 @@ test("serialized content block with nested thinking array is flattened", () => {
   );
   const events = flatten([chunk]) as Array<Record<string, unknown>>;
   const thinkingDeltas = events.filter(
-    (e) => e?.type === "content_block_delta" && (e.delta as Record<string, unknown>)?.type === "thinking_delta"
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "thinking_delta"
   );
   const allThinking = thinkingDeltas
-    .map(t => ((t.delta as Record<string, unknown>).thinking as string) || "")
+    .map((t) => ((t.delta as Record<string, unknown>).thinking as string) || "")
     .join("");
-  assert.ok(allThinking.includes("step one"), `expected nested thinking text, got: ${allThinking.substring(0, 200)}`);
-  assert.ok(allThinking.includes("step two"), `expected nested thinking text step two, got: ${allThinking.substring(0, 200)}`);
+  assert.ok(
+    allThinking.includes("step one"),
+    `expected nested thinking text, got: ${allThinking.substring(0, 200)}`
+  );
+  assert.ok(
+    allThinking.includes("step two"),
+    `expected nested thinking text step two, got: ${allThinking.substring(0, 200)}`
+  );
   // No raw JSON
   for (const e of events) {
     const delta = e.delta as Record<string, unknown> | undefined;
     if (delta && (delta.type === "text_delta" || delta.type === "thinking_delta")) {
       const text = (delta.text || delta.thinking || "") as string;
-      assert.ok(!text.includes('[{"type":"thinking"'), `raw JSON leaked: ${text.substring(0, 200)}`);
+      assert.ok(
+        !text.includes('[{"type":"thinking"'),
+        `raw JSON leaked: ${text.substring(0, 200)}`
+      );
     }
   }
+});
+
+// Consecutive thinking-only chunks from Mistral must NOT produce 1-word
+// thinking blocks. Before the fix, each chunk's array triggered
+// stopThinkingBlock → emitThinkingDelta, wrapping every chunk in its own
+// content_block_start/stop pair.
+test("consecutive thinking-only content-block arrays merge into a single thinking block", () => {
+  const state = createState();
+  const chunk1 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-6459-thinking-split-1",
+      model: "mistral/mistral-medium-3-5",
+      choices: [
+        {
+          index: 0,
+          delta: { content: JSON.stringify([{ type: "thinking", thinking: "step " }]) },
+          finish_reason: null,
+        },
+      ],
+    },
+    state
+  );
+  const chunk2 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-6459-thinking-split-2",
+      model: "mistral/mistral-medium-3-5",
+      choices: [
+        {
+          index: 0,
+          delta: { content: JSON.stringify([{ type: "thinking", thinking: "one." }]) },
+          finish_reason: null,
+        },
+      ],
+    },
+    state
+  );
+  const events = flatten([chunk1, chunk2]) as Array<Record<string, unknown>>;
+
+  const starts = events.filter(
+    (e) =>
+      e?.type === "content_block_start" &&
+      (e.content_block as Record<string, unknown>)?.type === "thinking"
+  );
+  const stops = events.filter((e) => e?.type === "content_block_stop");
+
+  // Should be at most 1 start and 0-1 stops within this window.
+  // Before the fix, each chunk produced its own start+stop = 2 starts.
+  assert.equal(starts.length, 1, `expected 1 thinking content_block_start, got ${starts.length}`);
+  assert.ok(stops.length <= 1, `expected at most 1 content_block_stop, got ${stops.length}`);
+
+  const thinkingDeltas = events.filter(
+    (e) =>
+      e?.type === "content_block_delta" &&
+      (e.delta as Record<string, unknown>)?.type === "thinking_delta"
+  );
+  const allThinking = thinkingDeltas
+    .map((t) => ((t.delta as Record<string, unknown>).thinking as string) || "")
+    .join("");
+  assert.equal(allThinking, "step one.");
 });
