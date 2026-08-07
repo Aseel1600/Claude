@@ -223,14 +223,15 @@ Every merged entry carries an `origin` field the UI renders as a badge:
 
 ## Local surfaces — never a feed proxy
 
-Four local routes back the UI, all under `src/app/api/radar/`:
+Five local routes back the UI, all under `src/app/api/radar/`:
 
-| Route                 | Method | Purpose                                                                                          |
-| --------------------- | ------ | -------------------------------------------------------------------------------------------------- |
-| `/api/radar/catalog`  | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache.                            |
-| `/api/radar/sync`     | POST   | Triggers `syncRadar()` server-side; returns the resulting status.                                 |
-| `/api/radar/settings` | GET    | Returns `{ optIn, hasSupporterKey, supporterKeyMasked }` — never the raw key.                     |
-| `/api/radar/settings` | POST   | Sets opt-in and/or the (encrypted) supporter key.                                                 |
+| Route                   | Method | Purpose                                                                                          |
+| ----------------------- | ------ | -------------------------------------------------------------------------------------------------- |
+| `/api/radar/catalog`    | GET    | Returns the merged catalog (`getRadarCatalog()`) from the local cache.                            |
+| `/api/radar/sync`       | POST   | Triggers `syncRadar()` server-side; returns the resulting status.                                 |
+| `/api/radar/settings`   | GET    | Returns `{ optIn, hasSupporterKey, supporterKeyMasked }` — never the raw key.                     |
+| `/api/radar/settings`   | POST   | Sets opt-in and/or the (encrypted) supporter key.                                                 |
+| `/api/radar/referrals`  | GET    | Returns `{ fixed, campaigns, tier }` from the local cache — see [Referral links](#referral-links-free-credits) below. |
 
 **Hard rule: these routes never proxy the feed service.** The browser only ever talks
 to the local OmniRoute server; `syncRadar()` is the single module in the whole client
@@ -238,14 +239,14 @@ that touches the network for Radar (`src/lib/radar/sync.ts`), and it always runs
 server-side, never client-side. This keeps the feed URL and any supporter key
 out of client-facing network traffic entirely.
 
-All four routes return `404` when `RADAR_ENABLED` is off (see
+All five routes return `404` when `RADAR_ENABLED` is off (see
 [Flag](#flag-radar_enabled-default-off) above), and route error responses through
 `buildErrorBody()`/`sanitizeErrorMessage()` per the repo-wide error-sanitization rule
 (`docs/security/ERROR_SANITIZATION.md`).
 
 ### Authentication
 
-All four routes require authentication via `isAuthenticated()`
+All five routes require authentication via `isAuthenticated()`
 (`src/shared/utils/apiAuth.ts`) — a dashboard session cookie or a management-scoped
 API key, the same gate that protects the rest of `/api/settings/*`. The flag-off
 `404` check always runs **before** the auth check, so an install with `RADAR_ENABLED`
@@ -253,6 +254,102 @@ off stays byte-identical (no auth prompt just to learn the surface doesn't exist
 once the flag is on, an unauthenticated request gets `401` before any DB read or
 write. `GET /api/radar/settings` never returns the raw supporter key regardless of
 auth state — only the masked form and a `hasSupporterKey` boolean.
+
+---
+
+## Referral links (free credits)
+
+The server-published feed carries a `referrals` section (server-side D28 work, already
+in production — this section documents the **client** consumption only):
+
+```ts
+referrals: {
+  fixed: RadarReferral[],      // present in EVERY tier, including community
+  campaigns: RadarReferral[],  // only populated on the live (supporter) tier;
+                                // the community artifact always publishes []
+}
+// RadarReferral = { provider, url, kind: "fixo" | "campanha", validUntil,
+//                    requiredAction, isDefault }
+```
+
+The client never decides which tier it received or which referrals belong in which
+tier — the server already publishes two artifacts (`live`/`community`) with
+`campaigns` gated server-side, same principle as the [tiers](#tiers-community-and-live)
+section above. `RadarFeedSchema` (`src/lib/radar/feedSchema.ts`) validates `referrals`
+as a whole-object `.default({fixed:[],campaigns:[]})`, and `campaigns` defaults
+independently inside it — so a feed cached before this section existed on the server
+still parses cleanly, and `campaigns` alone can also be absent without failing
+validation. Every `RadarReferral.url` must be `https://` — a `http://` url fails
+schema validation.
+
+### Accessor
+
+`src/lib/radar/index.ts` exports two read-only accessors, both never throwing (same
+defensive contract as `getRadarCatalog()` — flag off, no cache, or a corrupt/old cached
+payload all resolve to the empty shape instead of an error):
+
+- `getRadarReferrals()` → `{ fixed: RadarReferral[], campaigns: RadarReferral[] }`.
+- `getDefaultReferralFor(provider)` → the `fixed` referral with `isDefault: true` for
+  that provider, or `null`. Only looks at `fixed` — a campaign is never used as a
+  provider's "default" link.
+
+The actual "which referral is the default for a provider" rule lives in
+`findDefaultReferral()` (`src/lib/radar/referrals.ts`), a small pure function with **no
+DB import** — it is safe to import into a `"use client"` component. `getRadarReferrals`/
+`getDefaultReferralFor` (in `index.ts`) pull in `@/lib/db/radar` and therefore stay
+server-only; the providers dashboard imports `referrals.ts` directly instead of
+`index.ts` (see below) to avoid bundling `better-sqlite3` into the browser.
+
+### `GET /api/radar/referrals`
+
+Follows the exact same gate order as every other Radar route: `RADAR_ENABLED` off →
+`404` (checked first, byte-identical inertia); unauthenticated → `401`; otherwise `200`
+with `{ fixed, campaigns, tier }` — `tier` comes straight from the cache row and is
+purely informative (drives the UI's soft upsell copy below), the route does no
+gating of its own. Never proxies the feed server — same local-cache-only contract as
+`/api/radar/catalog`.
+
+### Dashboard UI — "Free credits" tab on `/dashboard/radar`
+
+Reuses the existing Radar page (`src/app/(dashboard)/dashboard/radar/page.tsx`) as a
+second tab instead of a new route — less routing/i18n surface for a feature that is a
+variation on data the page already fetches. Once opted in, the tab bar offers
+**Catalog** (existing table) and **Free credits**:
+
+- Fixed links are grouped by provider, each showing `requiredAction` (when present)
+  and a `target="_blank" rel="noopener noreferrer"` button to the referral URL.
+- Campaigns show the same, plus `validUntil` when present.
+- When `campaigns` is empty **and** the served tier is `community`, the UI shows a
+  short upsell note ("limited-time campaigns are a supporter extra") — this **never**
+  hides or gates the fixed links list, which stays fully populated for every tier. The
+  upsell is soft messaging only, never a block.
+
+### Referral link on the provider name (providers dashboard)
+
+`ProviderPageHeader` (`src/app/(dashboard)/dashboard/providers/[id]/components/`)
+already linked the provider name to `providerInfo.website` when present, with one
+precedent for a monetized link: the Kimi (Moonshot AI) partner-link note
+(`providers.kimiPartnerLinkNote` i18n key). D28 reuses that exact same discreet-note
+pattern for Radar default referrals instead of introducing a new key.
+
+Loose coupling, by design:
+
+- `resolveProviderHeaderLink()` (`src/app/(dashboard)/dashboard/providers/providerPageUtils.ts`)
+  is a **pure** function — `(staticWebsite, referralUrl) => { website, isReferralLink }`
+  — with no dependency on `@/lib/radar` or `@/lib/db/*`. `providerPageUtils.ts` as a
+  whole stays free of those imports (asserted by
+  `tests/unit/provider-header-referral-link.test.ts`).
+- `ProviderDetailPageClient.tsx` (a `"use client"` component) is the one place allowed
+  to fetch Radar data — via `fetch("/api/radar/referrals")`, the same local-route
+  pattern the Radar dashboard page itself uses — and it computes the default referral
+  client-side with `findDefaultReferral()` from the DB-free `src/lib/radar/referrals.ts`.
+- With `RADAR_ENABLED` off, the fetch 404s, `referralUrl` stays `null`, and
+  `resolveProviderHeaderLink()` returns the static catalog `website` unchanged — the
+  provider page is byte-identical to before this feature existed. Same outcome when
+  there is no cache yet or no default referral for that specific provider.
+- When a default referral does apply, `ProviderPageHeader` receives `isReferralLink`
+  and shows the same discreet note/tooltip as the Kimi partner link (reusing the
+  `providers.kimiPartnerLinkNote` key) — never a new, separate visual treatment.
 
 ---
 
@@ -283,6 +380,6 @@ feed.
 ## Related docs
 
 - [`docs/security/ERROR_SANITIZATION.md`](../security/ERROR_SANITIZATION.md) — the
-  error-response pattern the three `/api/radar/*` routes follow.
+  error-response pattern the five `/api/radar/*` routes follow.
 - [`docs/reference/ENVIRONMENT.md`](../reference/ENVIRONMENT.md#27-radar-feed-self-hosting)
   — `RADAR_FEED_URL` / `RADAR_FEED_PUBKEY` reference.
