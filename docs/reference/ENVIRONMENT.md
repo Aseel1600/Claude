@@ -1353,6 +1353,12 @@ Used by `src/lib/vncSession/manifest.ts` to configure Docker-based headless Chro
 | `OMNIROUTE_VNC_HARVEST_MS`            | `20000`                       | `src/lib/vncSession/manifest.ts`  | Harvest/cleanup timeout (ms).                                                  |
 | `VIBEPROXY_DATA_DIR`                  | _(unset)_                     | `open-sse/services/notionThreadSessions.ts` | Directory for Notion thread session persistence.                               |
 
+### Quality gate scripts (CI)
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `FORGOTTEN_SIBLING_MAX_CHANGED` | `300` | Threshold for the forgotten-sibling-tests quality gate. When a PR changes more source files than this value, the consumer dependency scan is skipped (release PR or mass refactor). |
+
 ### Internal service auth
 
 | Variable | Default | Description |
