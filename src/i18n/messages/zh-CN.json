@@ -1364,13 +1364,21 @@
       "webhookUrl": "Discord Webhook URL",
       "webhookUrlPlaceholder": "https://discord.com/api/webhooks/...",
       "webhookUrlHint": "从 Discord 频道集成设置中复制的 Webhook URL。",
-      "tutorial": "如何创建 Discord Webhook："
+      "tutorial": "如何创建 Discord Webhook：",
+      "tutorialStep1": "打开 Discord，进入你的服务器频道设置。",
+      "tutorialStep2": "点击 集成 → Webhooks → 新建 Webhook。",
+      "tutorialStep3": "选择名称和频道，然后点击 复制 Webhook URL。",
+      "tutorialStep4": "向该频道发送一条测试消息以验证 Webhook 是否生效。"
     },
     "slack": {
       "webhookUrl": "Slack Webhook URL",
       "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
       "webhookUrlHint": "从 Slack Incoming Webhooks 集成中复制的 Webhook URL。",
-      "tutorial": "如何创建 Slack Webhook："
+      "tutorial": "如何创建 Slack Webhook：",
+      "tutorialStep1": "前往 api.slack.com/apps，打开你的应用（或新建一个）。",
+      "tutorialStep2": "在 Features 菜单中启用 Incoming Webhooks。",
+      "tutorialStep3": "点击 Add New Webhook to Workspace 并选择频道。",
+      "tutorialStep4": "复制生成的 Webhook URL 并粘贴到上方输入框。"
     },
     "telegram": {
       "botToken": "Telegram 机器人令牌",
@@ -1379,7 +1387,11 @@
       "chatId": "Telegram 聊天 ID / 频道",
       "chatIdPlaceholder": "-100123456789 或 @channelname",
       "chatIdHint": "聊天/频道的唯一数字标识符或公开用户名。",
-      "tutorial": "如何配置 Telegram Webhook："
+      "tutorial": "如何配置 Telegram Webhook：",
+      "tutorialStep1": "打开 Telegram，搜索并打开 @BotFather。",
+      "tutorialStep2": "发送 /newbot，选择名称后复制机器人令牌。",
+      "tutorialStep3": "将机器人添加到你的群组或频道并设为管理员。",
+      "tutorialStep4": "从群组信息中复制 Chat ID，或使用 @userinfobot 查询。"
     }
   },
   "compliance": {

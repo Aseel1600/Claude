@@ -1364,13 +1364,21 @@
       "webhookUrl": "Discord Webhook URL",
       "webhookUrlPlaceholder": "https://discord.com/api/webhooks/...",
       "webhookUrlHint": "The webhook URL copied from your Discord channel integration settings.",
-      "tutorial": "How to create a Discord webhook:"
+      "tutorial": "How to create a Discord webhook:",
+      "tutorialStep1": "Open Discord and go to your server's channel settings.",
+      "tutorialStep2": "Click Integrations → Webhooks → New Webhook.",
+      "tutorialStep3": "Choose a name and channel, then click Copy Webhook URL.",
+      "tutorialStep4": "Test the webhook by sending a sample message to the channel."
     },
     "slack": {
       "webhookUrl": "Slack Webhook URL",
       "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
       "webhookUrlHint": "The webhook URL copied from your Slack Incoming Webhooks integration.",
-      "tutorial": "How to create a Slack webhook:"
+      "tutorial": "How to create a Slack webhook:",
+      "tutorialStep1": "Go to api.slack.com/apps and open your app (or create one).",
+      "tutorialStep2": "Enable Incoming Webhooks in the Features menu.",
+      "tutorialStep3": "Click Add New Webhook to Workspace and choose the channel.",
+      "tutorialStep4": "Copy the generated webhook URL and paste it above."
     },
     "telegram": {
       "botToken": "Telegram Bot Token",
@@ -1379,7 +1387,11 @@
       "chatId": "Telegram Chat ID / Channel",
       "chatIdPlaceholder": "-100123456789 or @channelname",
       "chatIdHint": "The unique numerical identifier or public username of the chat/channel.",
-      "tutorial": "How to configure Telegram webhook:"
+      "tutorial": "How to configure Telegram webhook:",
+      "tutorialStep1": "Open Telegram and search for @BotFather.",
+      "tutorialStep2": "Send /newbot, choose a name, and copy the bot token.",
+      "tutorialStep3": "Add the bot to your group or channel and make it an admin.",
+      "tutorialStep4": "Copy the Chat ID from the group info or use @userinfobot."
     }
   },
   "compliance": {

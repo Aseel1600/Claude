@@ -78,7 +78,7 @@ export function DiscordConfigForm({ value, onChange, t }: DiscordConfigFormProps
           {t("discord.tutorial")}
         </summary>
         <ol className="mt-3 space-y-1.5 text-xs text-text-muted">
-          {[1, 2, 3].map((n) => (
+          {[1, 2, 3, 4].map((n) => (
             <li key={n} className="flex gap-2">
               <span className="font-bold text-primary">{n}.</span>
               {t(`discord.tutorialStep${n}`)}
