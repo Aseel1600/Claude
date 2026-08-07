@@ -429,6 +429,5 @@ For deployments on small VPS instances (1 GB RAM or less):
 
 - **Disable background services** — set `OMNIROUTE_DISABLE_BACKGROUND_SERVICES=1` to skip scheduler, MCP server, and periodic maintenance tasks. See `docs/reference/ENVIRONMENT.md`.
 - **Use SQLite WAL mode** — enabled by default, reduces peak memory during concurrent reads.
-- **Limit connection concurrency** — reduce `OMNIROUTE_MAX_POOL_SIZE` and `OMNIROUTE_DB_POOL_SIZE` in your environment.
 - **Avoid `next build` on the VPS** — build locally and deploy the standalone output (`.next/standalone/`).
 - **Monitor with `top` / `free -m`** — OmniRoute typically uses 200-400 MB RSS at idle on a 1 GB VM.
