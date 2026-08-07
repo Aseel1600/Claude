@@ -2,6 +2,17 @@
 
 import { useState, useEffect, useMemo, useCallback, memo, useRef, useId } from "react";
 import { Card, Button, Input, Modal, CardSkeleton } from "@/shared/components";
+import {
+  AppleCard,
+  AppleButton,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSectionHeader,
+  AppleStatusDot,
+  AppleEmptyState,
+  AppleSurface,
+} from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useLocale, useTranslations } from "next-intl";
 import { getProviderDisplayName } from "@/lib/display/names";
@@ -932,6 +943,87 @@ export default function ApiManagerPageClient() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Hero — Apple-style page identity for API Manager. Compact summary
+          tiles give instant status (active / disabled / restricted / manage)
+          so the user doesn't have to scroll into the table to see health. */}
+      <section className="flex flex-col gap-6 spring-in">
+        <AppleSectionHeader
+          eyebrow="API · Authentication"
+          title={t("registeredKeys")}
+          subtitle={t("keysSecurityNote")}
+          action={
+            keys.length > 0 ? (
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => {
+                  setNameError(null);
+                  setCreateError(null);
+                  clearPageError();
+                  setShowAddModal(true);
+                }}
+              >
+                {t("createKey")}
+              </AppleButton>
+            ) : null
+          }
+        />
+        <div
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+          data-testid="api-manager-status-grid"
+        >
+          <AppleCard springIn={80} compact className="!p-4">
+            <AppleMetricLabel>{t("total")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <AppleMetric size="lg" trend="flat">
+                {keyCounts.total}
+              </AppleMetric>
+              <AppleMetricSub>{t("keys")}</AppleMetricSub>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={140} compact className="!p-4">
+            <AppleMetricLabel>{t("active")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-success self-center" />
+              <AppleMetric size="lg" trend="up">
+                {keyCounts.active}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={200} compact className="!p-4">
+            <AppleMetricLabel>{t("disabled")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot
+                size="sm"
+                className={
+                  keyCounts.disabled + keyCounts.banned + keyCounts.expired > 0
+                    ? "text-error"
+                    : "text-text-muted"
+                }
+              />
+              <AppleMetric
+                size="lg"
+                trend={
+                  keyCounts.disabled + keyCounts.banned + keyCounts.expired > 0 ? "down" : "flat"
+                }
+              >
+                {keyCounts.disabled + keyCounts.banned + keyCounts.expired}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={260} compact className="!p-4">
+            <AppleMetricLabel>{t("restricted")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleMetric size="lg" trend="flat">
+                {keyCounts.restricted + keyCounts.manage}
+              </AppleMetric>
+              <AppleMetricSub>{t("scoped")}</AppleMetricSub>
+            </div>
+          </AppleCard>
+        </div>
+      </section>
+
       {/* Error Banner */}
       {pageError && (
         <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
@@ -1062,7 +1154,11 @@ export default function ApiManagerPageClient() {
               return (
                 <div
                   key={key.id}
-                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-surface/30 transition-colors group min-w-[760px]"
+                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-bg-subtle/60 group min-w-[760px]"
+                  style={{
+                    transition:
+                      "background-color 220ms var(--ease-spring-critical), box-shadow 220ms var(--ease-spring-critical)",
+                  }}
                 >
                   <div className="col-span-2 flex items-center gap-2">
                     <span
@@ -1265,12 +1361,12 @@ export default function ApiManagerPageClient() {
                     </div>
                   </div>
                   <div className="col-span-2 flex flex-col justify-center">
-                    <span className="text-sm font-medium tabular-nums">
+                    <span className="text-sm font-medium apple-mono-num">
                       {stats?.totalRequests ?? 0}{" "}
                       <span className="text-text-muted font-normal text-xs">{t("reqs")}</span>
                     </span>
                     {(stats?.totalRequests ?? 0) > 0 && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 apple-mono-num">
                         {formatUsdCost(stats?.totalCost ?? 0, locale)}
                       </span>
                     )}
@@ -1282,7 +1378,7 @@ export default function ApiManagerPageClient() {
                       <span className="text-[10px] text-text-muted italic">{t("neverUsed")}</span>
                     )}
                   </div>
-                  <div className="col-span-1 flex items-center text-sm text-text-muted">
+                  <div className="col-span-1 flex items-center text-sm text-text-muted apple-mono-num">
                     {new Date(key.createdAt).toLocaleDateString()}
                   </div>
                   <div className="col-span-2 flex items-center justify-end gap-1">

@@ -1748,7 +1748,15 @@
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "Reloading page automatically...",
     "providerTopology": "Provider Topology",
-    "noResponseStream": "No response stream received."
+    "noResponseStream": "No response stream received.",
+    "statusProviders": "Providers",
+    "configured": "configured",
+    "statusModels": "Models",
+    "statusErrors": "Errors",
+    "heroTitle": "Route any model through one endpoint.",
+    "statusConnected": "Connected",
+    "heroSubtitle": "Connect providers, set policies, ship keys. The dashboard keeps traffic, providers, and policies in one place.",
+    "heroEyebrow": "AI Gateway"
   },
   "analytics": {
     "title": "Analytics",
@@ -2253,7 +2261,11 @@
     "bypassProviderQuota": "Bypass provider quota cutoffs",
     "bypassProviderQuotaDescription": "Allows this key to ignore upstream provider/account cutoff policy during routing. API key USD quotas still apply.",
     "quotaPill": "QUOTA",
-    "quotaModeOnly": "qtSd-only"
+    "quotaModeOnly": "qtSd-only",
+    "keys": "keys",
+    "total": "Total",
+    "active": "Active",
+    "scoped": "scoped"
   },
   "auditLog": {
     "title": "Audit Log",
@@ -3554,7 +3566,13 @@
     "sessionStickinessDisabled": "Stickiness off",
     "kimiPresetTitle": "Kimi Coding preset",
     "kimiPresetDescription": "Kimi K3 as the primary model (Moonshot API), with automatic fallback to your Kimi Code connections (kimi-coding, kimi-web) when configured.",
-    "kimiPresetCta": "Add preset"
+    "kimiPresetCta": "Add preset",
+    "heroEyebrow": "Routing · Combos",
+    "statusTotal": "Total",
+    "statusIntelligent": "Intelligent",
+    "statusActive": "Active",
+    "statusCombos": "combos",
+    "statusDeterministic": "Deterministic"
   },
   "costs": {
     "title": "Costs",

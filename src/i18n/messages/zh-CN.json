@@ -1748,7 +1748,15 @@
     "updateStarted": "更新已开始...",
     "reloadingPageAutomatically": "自动重新加载页面...",
     "providerTopology": "提供者拓扑",
-    "noResponseStream": "未收到响应流"
+    "noResponseStream": "未收到响应流",
+    "statusProviders": "提供商",
+    "configured": "已配置",
+    "statusModels": "模型",
+    "statusErrors": "异常",
+    "heroTitle": "用一个端点路由任何模型。",
+    "statusConnected": "已连接",
+    "heroSubtitle": "连接提供商、设置策略、分发密钥。仪表盘把流量、提供商和策略收在一处。",
+    "heroEyebrow": "AI 网关"
   },
   "analytics": {
     "title": "分析",
@@ -2253,7 +2261,12 @@
     "bypassProviderQuota": "绕过服务商配额限制",
     "bypassProviderQuotaDescription": "允许此密钥在路由期间忽略上游服务商/账户的截止策略。API 密钥的美元配额仍然适用。",
     "quotaPill": "配额",
-    "quotaModeOnly": "仅配额"
+    "quotaModeOnly": "仅配额",
+    "个密钥": null,
+    "total": "总计",
+    "active": "已启用",
+    "scoped": "已限定",
+    "keys": "个密钥"
   },
   "auditLog": {
     "title": "审核日志",
@@ -3554,7 +3567,13 @@
     "sessionStickinessDisabled": "会话粘性关闭",
     "kimiPresetTitle": "Kimi Coding 预设",
     "kimiPresetDescription": "以 Kimi K3 作为主模型（Moonshot API），并在配置后自动回退到您的 Kimi Code 连接（kimi-coding、kimi-web）。",
-    "kimiPresetCta": "添加预设"
+    "kimiPresetCta": "添加预设",
+    "heroEyebrow": "路由 · 组合",
+    "statusTotal": "总计",
+    "statusIntelligent": "智能",
+    "statusActive": "已启用",
+    "statusCombos": "个组合",
+    "statusDeterministic": "确定性"
   },
   "costs": {
     "title": "成本",

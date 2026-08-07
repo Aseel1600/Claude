@@ -30,7 +30,7 @@ export default function ServicesPage() {
   return (
     <div className="space-y-6">
       <header>
-        <h1 className="text-xl font-semibold text-text-primary">{t("title")}</h1>
+        <h1 className="apple-section-title text-[1.5rem] text-text-primary">{t("title")}</h1>
         <p className="text-sm text-text-muted mt-1">{t("description")}</p>
       </header>
 

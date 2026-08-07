@@ -7,6 +7,15 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardSkeleton, Button, Modal } from "@/shared/components";
+import {
+  AppleCard,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSectionHeader,
+  AppleHero,
+  AppleStatusDot,
+} from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import { AI_PROVIDERS, NOAUTH_PROVIDERS, OAUTH_PROVIDERS } from "@/shared/constants/providers";
 import {
@@ -788,8 +797,97 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
 
   const currentEndpoint = baseUrl;
 
+  // Aggregate status snapshot for the hero — used by AppleMetric tiles.
+  const connectedProvidersCount = providerStats.filter((p) => p.connected > 0).length;
+  const erroredProvidersCount = providerStats.filter((p) => p.errors > 0).length;
+  const configuredProvidersCount = providerStats.filter((p) => p.total > 0).length;
+  const totalModelsCount = providerStats.reduce((s, p) => s + (p.modelCount || 0), 0);
+
   return (
     <div className="flex flex-col gap-8">
+      {/* Hero — Apple-style page identity. Answers "where am I" with a tight
+          editorial headline + a status snapshot, so the user gets the full
+          picture without scrolling. Spring-enters so the page reads as alive
+          when first painted. */}
+      <section className="flex flex-col gap-6 spring-in">
+        <AppleHero
+          eyebrow={`${t("heroEyebrow")} · v${versionInfo?.current || "3.8.50"}`}
+          title={t("heroTitle")}
+          subtitle={t("heroSubtitle")}
+          action={
+            <>
+              <AppleCard
+                noSpotlight
+                compact
+                springIn={120}
+                className="cursor-pointer !p-0"
+                onClick={() => {
+                  navigator.clipboard?.writeText(currentEndpoint);
+                }}
+              >
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <AppleStatusDot size="sm" className="text-success" />
+                  <div className="min-w-0">
+                    <div className="apple-metric-label">Endpoint</div>
+                    <div className="apple-mono-num text-sm font-medium truncate max-w-[260px]">
+                      {currentEndpoint}
+                    </div>
+                  </div>
+                  <span className="material-symbols-outlined text-text-muted text-[18px]">
+                    content_copy
+                  </span>
+                </div>
+              </AppleCard>
+            </>
+          }
+        />
+
+        {/* Status grid — four AppleMetric tiles. Spring-stagger so they
+            cascade in rather than mount all at once. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="home-status-grid">
+          <AppleCard springIn={80} compact className="!p-4">
+            <AppleMetricLabel>{t("statusProviders")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <AppleMetric size="lg" trend="flat">
+                {configuredProvidersCount}
+              </AppleMetric>
+              <AppleMetricSub>
+                / {providerStats.length} {t("configured")}
+              </AppleMetricSub>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={140} compact className="!p-4">
+            <AppleMetricLabel>{t("statusConnected")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-success self-center" />
+              <AppleMetric size="lg" trend="up">
+                {connectedProvidersCount}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={200} compact className="!p-4">
+            <AppleMetricLabel>{t("statusErrors")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot
+                size="sm"
+                className={erroredProvidersCount > 0 ? "text-error" : "text-text-muted"}
+              />
+              <AppleMetric size="lg" trend={erroredProvidersCount > 0 ? "down" : "flat"}>
+                {erroredProvidersCount}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={260} compact className="!p-4">
+            <AppleMetricLabel>{t("statusModels")}</AppleMetricLabel>
+            <div className="mt-2">
+              <AppleMetric size="lg" trend="flat">
+                {totalModelsCount}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+        </div>
+      </section>
+
       {/* Update Progress Overlay */}
       {showUpdateOverlay && (
         <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1087,94 +1185,118 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
 
       {/* Quick Start (controlled by Appearance setting, default on) */}
       {showQuickStartOnHome && (
-        <Card>
-          <div className="flex flex-col gap-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold">{t("quickStart")}</h2>
-                <p className="text-sm text-text-muted">{t("quickStartDesc")}</p>
-              </div>
+        <section className="flex flex-col gap-5">
+          <AppleSectionHeader
+            eyebrow={t("quickStart")}
+            title={t("quickStartDesc", {
+              defaultMessage: "Get from install to first request in four steps.",
+            })}
+            action={
               <Link href="/docs" prefetch={false} className={DOCS_LINK}>
                 <span className="material-symbols-outlined text-[14px]">menu_book</span>
                 {t("fullDocs")}
               </Link>
-            </div>
+            }
+          />
 
-            <ol className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-              <li className="rounded-lg border border-border bg-bg-subtle p-4 flex gap-3">
-                <div className="flex items-center justify-center size-8 rounded-lg bg-primary/10 text-primary shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">key</span>
+          <ol className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <li className="block spring-in-1">
+              <AppleCard noSpotlight className="!p-5">
+                <div className="flex gap-3">
+                  <div className="flex items-center justify-center size-9 rounded-lg bg-primary/10 text-primary shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">key</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-semibold text-text-main">{t("step1Title")}</span>
+                    <p className="text-text-muted mt-0.5 leading-relaxed">
+                      {t.rich("step1Desc", {
+                        endpoint: (chunks) => (
+                          <Link
+                            href="/dashboard/api-manager"
+                            prefetch={false}
+                            className={INLINE_LINK}
+                          >
+                            {chunks}
+                          </Link>
+                        ),
+                      })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-semibold">{t("step1Title")}</span>
-                  <p className="text-text-muted mt-0.5">
-                    {t.rich("step1Desc", {
-                      endpoint: (chunks) => (
-                        <Link
-                          href="/dashboard/api-manager"
-                          prefetch={false}
-                          className={INLINE_LINK}
-                        >
-                          {chunks}
-                        </Link>
-                      ),
-                    })}
-                  </p>
+              </AppleCard>
+            </li>
+            <li className="block spring-in-2">
+              <AppleCard noSpotlight className="!p-5">
+                <div className="flex gap-3">
+                  <div className="flex items-center justify-center size-9 rounded-lg bg-green-500/10 text-green-500 shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">dns</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-semibold text-text-main">{t("step2Title")}</span>
+                    <p className="text-text-muted mt-0.5 leading-relaxed">
+                      {t.rich("step2Desc", {
+                        providers: (chunks) => (
+                          <Link
+                            href="/dashboard/providers"
+                            prefetch={false}
+                            className={INLINE_LINK}
+                          >
+                            {chunks}
+                          </Link>
+                        ),
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </li>
-              <li className="rounded-lg border border-border bg-bg-subtle p-4 flex gap-3">
-                <div className="flex items-center justify-center size-8 rounded-lg bg-green-500/10 text-green-500 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">dns</span>
+              </AppleCard>
+            </li>
+            <li className="block spring-in-3">
+              <AppleCard noSpotlight className="!p-5">
+                <div className="flex gap-3">
+                  <div className="flex items-center justify-center size-9 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">link</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-semibold text-text-main">{t("step3Title")}</span>
+                    <p className="text-text-muted mt-0.5 leading-relaxed">
+                      {t("step3Desc", { url: currentEndpoint })}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-semibold">{t("step2Title")}</span>
-                  <p className="text-text-muted mt-0.5">
-                    {t.rich("step2Desc", {
-                      providers: (chunks) => (
-                        <Link href="/dashboard/providers" prefetch={false} className={INLINE_LINK}>
-                          {chunks}
-                        </Link>
-                      ),
-                    })}
-                  </p>
+              </AppleCard>
+            </li>
+            <li className="block spring-in-4">
+              <AppleCard noSpotlight className="!p-5">
+                <div className="flex gap-3">
+                  <div className="flex items-center justify-center size-9 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
+                    <span className="material-symbols-outlined text-[20px]">analytics</span>
+                  </div>
+                  <div className="min-w-0">
+                    <span className="font-semibold text-text-main">{t("step4Title")}</span>
+                    <p className="text-text-muted mt-0.5 leading-relaxed">
+                      {t.rich("step4Desc", {
+                        logs: (chunks) => (
+                          <Link href="/dashboard/logs" prefetch={false} className={INLINE_LINK}>
+                            {chunks}
+                          </Link>
+                        ),
+                        analytics: (chunks) => (
+                          <Link
+                            href="/dashboard/analytics"
+                            prefetch={false}
+                            className={INLINE_LINK}
+                          >
+                            {chunks}
+                          </Link>
+                        ),
+                      })}
+                    </p>
+                  </div>
                 </div>
-              </li>
-              <li className="rounded-lg border border-border bg-bg-subtle p-4 flex gap-3">
-                <div className="flex items-center justify-center size-8 rounded-lg bg-blue-500/10 text-blue-500 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">link</span>
-                </div>
-                <div>
-                  <span className="font-semibold">{t("step3Title")}</span>
-                  <p className="text-text-muted mt-0.5">
-                    {t("step3Desc", { url: currentEndpoint })}
-                  </p>
-                </div>
-              </li>
-              <li className="rounded-lg border border-border bg-bg-subtle p-4 flex gap-3">
-                <div className="flex items-center justify-center size-8 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
-                  <span className="material-symbols-outlined text-[18px]">analytics</span>
-                </div>
-                <div>
-                  <span className="font-semibold">{t("step4Title")}</span>
-                  <p className="text-text-muted mt-0.5">
-                    {t.rich("step4Desc", {
-                      logs: (chunks) => (
-                        <Link href="/dashboard/logs" prefetch={false} className={INLINE_LINK}>
-                          {chunks}
-                        </Link>
-                      ),
-                      analytics: (chunks) => (
-                        <Link href="/dashboard/analytics" prefetch={false} className={INLINE_LINK}>
-                          {chunks}
-                        </Link>
-                      ),
-                    })}
-                  </p>
-                </div>
-              </li>
-            </ol>
-          </div>
-        </Card>
+              </AppleCard>
+            </li>
+          </ol>
+        </section>
       )}
 
       {showProviderTopologyOnHome && (
