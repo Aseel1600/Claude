@@ -934,7 +934,14 @@ test("provider models route retries Antigravity discovery endpoints before retur
     // After PR #2219, the discovery flow calls loadCodeAssist first as a project
     // bootstrap; treat all bootstrap calls as non-fatal failures so the test
     // exercises the discovery retry path.
-    if (urlString.includes("/v1internal:loadCodeAssist")) {
+    // `onboardUser` joined loadCodeAssist as a bootstrap hop (ff012ff420: fall back
+    // to onboardUser when loadCodeAssist fails). It must be excluded here too —
+    // otherwise it consumes the single 503 below and discovery never retries,
+    // which is a mock-ordering artifact, not a routing change.
+    if (
+      urlString.includes("/v1internal:loadCodeAssist") ||
+      urlString.includes("/v1internal:onboardUser")
+    ) {
       return new Response("nope", { status: 503 });
     }
     seenUrls.push(urlString);
