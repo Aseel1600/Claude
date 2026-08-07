@@ -1,0 +1,8 @@
+FROM diegosouzapw/omniroute:latest
+# Give script permission
+USER root
+RUN chmod +x /app/check-permissions.sh
+
+# Bypass the wrapper script which might be failing in Render
+ENTRYPOINT []
+CMD ["node", "dev/run-standalone.mjs"]
