@@ -1,6 +1,7 @@
 /**
  * Vision Bridge helper functions for image processing.
  */
+import { detectMediaParts } from "@omniroute/open-sse/utils/mediaParts";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveSelfLoopBearer } from "@/shared/middleware/chatBodyAdmission";
@@ -119,52 +120,20 @@ export type RequestContentPart =
  * executor instead of being described.
  */
 export function extractImageParts(messages: RequestMessage[]): ImagePart[] {
-  const results: ImagePart[] = [];
-
-  if (!Array.isArray(messages)) {
-    return results;
-  }
-
-  for (let msgIdx = 0; msgIdx < messages.length; msgIdx++) {
-    const message = messages[msgIdx];
-    if (!message || !Array.isArray(message.content)) {
-      continue;
-    }
-
-    for (let partIdx = 0; partIdx < message.content.length; partIdx++) {
-      const part = message.content[partIdx];
-
-      if (part?.type === "image_url" && part.image_url?.url) {
-        results.push({
-          messageIndex: msgIdx,
-          partIndex: partIdx,
-          imageUrl: part.image_url.url,
-          imageType: "image_url",
-        });
-      } else if (part?.type === "image" && part.source?.type === "base64") {
-        const { media_type, data } = part.source;
-        const dataUri = `data:${media_type};base64,${data}`;
-        results.push({
-          messageIndex: msgIdx,
-          partIndex: partIdx,
-          imageUrl: dataUri,
-          imageType: "image",
-        });
-      } else if (part?.type === "image" && part.source?.type === "url") {
-        const url = part.source.url;
-        if (url) {
-          results.push({
-            messageIndex: msgIdx,
-            partIndex: partIdx,
-            imageUrl: url,
-            imageType: "url",
-          });
-        }
-      }
-    }
-  }
-
-  return results;
+  // Delegates to the unified detector (open-sse/utils/mediaParts.ts) so the
+  // guardrail and the combo compatibility filter share one source of truth.
+  // Parts without an extractable ref (combo-parity indicator shapes) are
+  // skipped — the guardrail can only describe images it can actually fetch,
+  // mirroring the historical `if (url)` guard.
+  return detectMediaParts(messages as Parameters<typeof detectMediaParts>[0])
+    .filter((p) => p.kind === "image" && p.ref)
+    .map((p) => ({
+      messageIndex: p.messageIndex,
+      partIndex: p.partIndex,
+      imageUrl: p.ref,
+      imageType:
+        p.shape === "image_base64" ? "image" : p.shape === "image_source_url" ? "url" : "image_url",
+    }));
 }
 
 /**

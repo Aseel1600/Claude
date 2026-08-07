@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert";
 import { detectMediaParts } from "../../open-sse/utils/mediaParts";
+import { extractImageParts } from "../../src/lib/guardrails/visionBridgeHelpers";
 
 const msg = (content: unknown) => [{ role: "user", content }];
 
@@ -53,4 +54,45 @@ test("recursion depth capped at 8", () => {
 test("string content and empty messages yield []", () => {
   assert.deepEqual(detectMediaParts([{ role: "user", content: "oi" }]), []);
   assert.deepEqual(detectMediaParts([]), []);
+});
+
+test("combo-parity: image indicators without extractable refs are still detected", () => {
+  // Bare image_url key without a `type` (legacy combo matched by key presence).
+  const bareKey = detectMediaParts(msg([{ image_url: { url: "https://x/i.png" } }]));
+  assert.equal(bareKey.length, 1);
+  assert.equal(bareKey[0].kind, "image");
+  assert.equal(bareKey[0].ref, "https://x/i.png");
+
+  // `type: "image"` with no usable source (legacy combo matched by type name).
+  const bareType = detectMediaParts(msg([{ type: "image" }]));
+  assert.equal(bareType.length, 1);
+  assert.equal(bareType[0].shape, "image_indicator");
+  assert.equal(bareType[0].ref, "");
+
+  // source.media_type image/* on an untyped part.
+  const bySourceMedia = detectMediaParts(
+    msg([{ source: { media_type: "image/JPEG", data: "AAA" } }])
+  );
+  assert.equal(bySourceMedia.length, 1);
+  assert.equal(bySourceMedia[0].kind, "image");
+
+  // Case-insensitive type match (legacy combo lowercased `type`).
+  const upperType = detectMediaParts(msg([{ type: "IMAGE_URL", image_url: { url: "https://x" } }]));
+  assert.equal(upperType.length, 1);
+  assert.equal(upperType[0].ref, "https://x");
+});
+
+test("extractImageParts skips indicator parts without extractable refs", () => {
+  assert.deepEqual(
+    extractImageParts([{ role: "user", content: [{ type: "image" }] } as never]),
+    []
+  );
+});
+
+test("extractImageParts now sees input_image (Responses API)", () => {
+  const parts = extractImageParts([
+    { role: "user", content: [{ type: "input_image", image_url: "https://x/i.png" }] } as never,
+  ]);
+  assert.equal(parts.length, 1);
+  assert.equal(parts[0].imageUrl, "https://x/i.png");
 });

@@ -20,7 +20,15 @@ export interface MediaPart {
     | "input_image"
     | "data_uri_string"
     | "input_audio"
-    | "audio_url";
+    | "audio_url"
+    /**
+     * Combo-parity indicator: the value looks like an image part (image-ish
+     * `type` in any casing, a bare `image_url`/`input_image` key, or a
+     * `source.media_type` of image/*) but carries no extractable ref — `ref`
+     * may be "". Boolean callers (combo compatibility filter) count it;
+     * ref-consuming callers (vision bridge) must skip empty refs.
+     */
+    | "image_indicator";
 }
 
 const MAX_DEPTH = 8;
@@ -103,6 +111,31 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
       pushPart(ctx, "audio", data, "input_audio");
       return;
     }
+  }
+  // Combo-parity fallback: the legacy valueContainsImagePart (comboStructure)
+  // matched image-ish `type` names case-insensitively, bare `image_url` /
+  // `input_image` keys, and `source.media_type` image/* — all without needing
+  // an extractable ref. Emit an indicator part (ref best-effort, possibly "")
+  // so boolean callers keep seeing those requests as vision requests.
+  const lowerType = type?.toLowerCase();
+  const looksLikeImage =
+    lowerType === "image" ||
+    lowerType === "image_url" ||
+    lowerType === "input_image" ||
+    "image_url" in obj ||
+    "input_image" in obj;
+  const imageMediaType =
+    typeof mediaType === "string" && mediaType.toLowerCase().startsWith("image/");
+  if (looksLikeImage || imageMediaType) {
+    const rawUrl = obj.image_url ?? obj.input_image;
+    const ref =
+      typeof rawUrl === "string"
+        ? rawUrl
+        : typeof (rawUrl as Record<string, unknown> | undefined)?.url === "string"
+          ? ((rawUrl as Record<string, unknown>).url as string)
+          : "";
+    pushPart(ctx, "image", ref, "image_indicator");
+    return;
   }
   for (const nested of Object.values(obj)) inspect(nested, ctx, depth + 1);
 }
