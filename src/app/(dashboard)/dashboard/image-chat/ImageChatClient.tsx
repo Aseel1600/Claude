@@ -78,8 +78,13 @@ async function buildAnalysisCopy(
   };
 }
 
-/** Max height, in px, a generated image occupies inside the conversation. */
-const PREVIEW_MAX_HEIGHT = 256;
+/**
+ * Max height, in px, a generated image occupies inside the conversation.
+ *
+ * Display only — the PNG itself is untouched: the caption reports its real
+ * dimensions, a click opens it full size and the download serves the original.
+ */
+const PREVIEW_MAX_HEIGHT = 160;
 
 /**
  * A generated image inside the conversation.
