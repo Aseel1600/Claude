@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-const MIGRATION_PATH = path.resolve("src/lib/db/migrations/139_modality_bridge_settings.sql");
+const MIGRATION_PATH = path.resolve("src/lib/db/migrations/140_modality_bridge_settings.sql");
 const INITIAL_SCHEMA_PATH = path.resolve("src/lib/db/migrations/001_initial_schema.sql");
 
 /** Extract the REAL key_value DDL from the initial schema so the seed can never drift. */
