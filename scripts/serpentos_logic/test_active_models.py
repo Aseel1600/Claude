@@ -13,7 +13,7 @@ MODELS = [
     "god-mode"
 ]
 
-url = "http://localhost:20128/v1/chat/completions"
+url = "http://localhost:20131/v1/chat/completions"
 
 working_models = []
 failed_models = []
