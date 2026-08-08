@@ -863,7 +863,10 @@ test("OpenAI -> Antigravity maps Claude-family models to Gemini-compatible schem
   assert.match(result.requestId, /^agent\/\d+\/[0-9a-f]{8}$/);
   assert.equal(result.enabledCreditTypes, undefined);
   assert.equal(result.request.systemInstruction.parts[0].text, ANTIGRAVITY_DEFAULT_SYSTEM);
-  assert.equal(result.request.systemInstruction.parts[1].text, "Project rules");
+  assert.equal(result.request.systemInstruction.parts.length, 1, "systemInstruction must contain only ANTIGRAVITY_DEFAULT_SYSTEM (#9030)");
+  // #9030 — Client system content moved to first user message to avoid upstream 429s
+  assert.equal(result.request.contents[0].parts[0].text, "Project rules");
+  assert.equal(result.request.contents[0].parts[1].text, "Read a file");
   assert.equal((result as any).request?.generationConfig.maxOutputTokens, undefined);
   assert.equal((result as any).request?.messages, undefined);
   assert.equal((result as any).request?.system, undefined);
