@@ -15,13 +15,15 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const BIN = path.join(ROOT, "bin");
+const REPLAY_GATE = path.join(ROOT, "scripts", "ops", "bluegreen-replay-gate.sh");
 const SCRIPTS = [
   "rollback.sh",
   "snapshot-data.sh",
@@ -40,6 +42,113 @@ function runScript(script: string, args: string[], env: Record<string, string> =
     env: { ...process.env, ...env },
   });
 }
+
+async function runReplayGate(
+  responder: (
+    request: Record<string, unknown>,
+    requestNumber: number
+  ) => {
+    status?: number;
+    body: string;
+    contentType?: string;
+  }
+) {
+  const requests: Array<Record<string, unknown>> = [];
+  const server = http.createServer((req, res) => {
+    let body = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      const parsed = JSON.parse(body) as Record<string, unknown>;
+      requests.push(parsed);
+      const reply = responder(parsed, requests.length);
+      res.writeHead(reply.status ?? 200, {
+        "content-type": reply.contentType ?? "application/json",
+      });
+      res.end(reply.body);
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const child = spawn("bash", [REPLAY_GATE, `http://127.0.0.1:${address.port}`], {
+    env: {
+      ...process.env,
+      OMNIROUTE_API_KEY: "sentinel-secret-key",
+      REPLAY_TIMEOUT: "5",
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8").on("data", (chunk) => (stdout += chunk));
+  child.stderr.setEncoding("utf8").on("data", (chunk) => (stderr += chunk));
+  const status = await new Promise<number | null>((resolve) => child.on("close", resolve));
+  await new Promise<void>((resolve, reject) =>
+    server.close((error) => (error ? reject(error) : resolve()))
+  );
+  return { status, stdout, stderr, requests };
+}
+
+describe("blue-green replay gate", () => {
+  it("is executable strict bash and passes syntax check", () => {
+    assert.ok(fs.statSync(REPLAY_GATE).mode & 0o111);
+    const body = fs.readFileSync(REPLAY_GATE, "utf8");
+    assert.ok(body.startsWith("#!/usr/bin/env bash"));
+    assert.ok(body.includes("set -euo pipefail"));
+    assert.equal(spawnSync("bash", ["-n", REPLAY_GATE]).status, 0);
+  });
+
+  it("requires five complete text/image raw/combo suites without leaking the key", async () => {
+    const result = await runReplayGate((_request, number) => ({
+      body:
+        number % 2 === 0
+          ? 'data: {"choices":[{"delta":{"content":"ready"}}]}\n\ndata: [DONE]\n'
+          : '{"choices":[{"message":{"content":"ready"}}]}',
+      contentType: number % 2 === 0 ? "text/event-stream" : "application/json",
+    }));
+    assert.equal(result.status, 0, result.stderr || result.stdout);
+    assert.equal(result.requests.length, 20);
+    assert.deepEqual(
+      result.requests.slice(0, 4).map((request) => request.model),
+      [
+        "antigravity/gemini-2.5-flash-lite",
+        "antigravity/claude-sonnet-4-6",
+        "pool-sonnet",
+        "antigravity-sonnet-vision",
+      ]
+    );
+    const firstMessages = result.requests.slice(0, 4).map((request) => {
+      const messages = request.messages as Array<{ content: unknown }>;
+      return messages[0].content;
+    });
+    assert.equal(typeof firstMessages[0], "string");
+    assert.ok(Array.isArray(firstMessages[1]));
+    assert.equal(typeof firstMessages[2], "string");
+    assert.ok(Array.isArray(firstMessages[3]));
+    assert.match(result.stdout, /streak=5\/5/);
+    assert.doesNotMatch(result.stdout + result.stderr, /sentinel-secret-key/);
+  });
+
+  it("fails and resets qualification on any invalid case", async () => {
+    const failures = [
+      { status: 502, body: '{"error":{"message":"bad gateway"}}' },
+      { body: '{"error":{"message":"upstream failed"}}' },
+      { body: "event: error\ndata: {}\n", contentType: "text/event-stream" },
+      { body: "not-json" },
+      { body: '{"choices":[{"message":{"content":""}}]}' },
+    ];
+    for (const failure of failures) {
+      const result = await runReplayGate((_request, number) =>
+        number === 4 ? failure : { body: '{"choices":[{"message":{"content":"ready"}}]}' }
+      );
+      assert.notEqual(result.status, 0, result.stdout);
+      assert.equal(result.requests.length, 4);
+      assert.match(result.stdout, /streak=0\/5 FAIL/);
+      assert.doesNotMatch(result.stdout + result.stderr, /sentinel-secret-key/);
+    }
+  });
+});
 
 describe("ops runbook scripts (bin/*.sh)", () => {
   it("every script exists, is executable, and uses bash + strict mode", () => {
