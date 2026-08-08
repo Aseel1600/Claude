@@ -372,7 +372,9 @@ export function translateRequest(
       preserveReasoningContent: isReasoner,
       // Per-provider/model preserveVideoUrl flag from compat overrides.
       // Falls back to true for moonshot/kimi when unset (legacy behavior).
-      preserveVideoUrl: getModelPreserveVideoUrl(normalizedProvider, options?.model ?? "") ?? (normalizedProvider === "moonshot" || normalizedProvider === "kimi"),
+      preserveVideoUrl:
+        getModelPreserveVideoUrl(normalizedProvider, normalizedModel) ??
+        (normalizedProvider === "moonshot" || normalizedProvider === "kimi"),
     });
   }
 
