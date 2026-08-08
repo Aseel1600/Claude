@@ -107,15 +107,18 @@ client component never reads `process.env` itself.
 | `RADAR_CONTRIBUTOR_CLAIM_URL`   | Overrides the contributor-claim URL (default `https://radar.omniroute.online/auth/github`).   |
 | `RADAR_SUPPORTER_PLANS_URL`     | Overrides the supporter-plans URL (default `https://radar.omniroute.online/planos`).          |
 
-Once a visitor has a key (`omr_` + 40 hex chars), it is set with `POST
-/api/radar/settings` (`{ supporterKey }`) — the same endpoint documented under
-[Data sync](#data-sync-is-a-separate-opt-in--the-privacy-promise) above.
-
-**Known gap:** the dashboard activation screen does not yet have a dedicated
-key-paste input — pasting a key today requires calling `POST /api/radar/settings`
-directly (curl, a script, or a future UI). This release only adds the two claim/plans
-buttons; the API already accepts and masks the key, but no `<input>` for it exists in
-`src/app/(dashboard)/dashboard/radar/page.tsx` yet.
+Once a visitor has a key (`omr_` + 40 hex chars), the activation screen
+(`src/app/(dashboard)/dashboard/radar/page.tsx`) has a paste-key input as the primary
+path: pasting a key and submitting sends `POST /api/radar/settings`
+(`{ optIn: true, supporterKey }`) in one call — pasting a key both sets it and opts in,
+unlocking the screen. The format (`omr_` + 40 hex chars) is checked client-side first
+with the shared `isValidSupporterKeyFormat()` helper (`src/lib/radar/supporterKey.ts`)
+as a UX nicety; the server's Zod schema is the authoritative check either way. Once a
+key is set, the activation screen shows the masked form (`supporterKeyMasked` from
+`GET /api/radar/settings`) instead of an empty input, with a "change key" control to
+paste a new one — the raw key is never redisplayed. The two claim/plans buttons above
+remain the way to *obtain* a key in the first place; this input is where an operator
+who already has one activates it.
 
 ---
 
