@@ -42,13 +42,14 @@ export class HeadroomError extends Error {
 }
 
 function ensureDir(): void {
-  if (!fs.existsSync(HEADROOM_DIR)) fs.mkdirSync(HEADROOM_DIR, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ HEADROOM_DIR))
+    fs.mkdirSync(/*turbopackIgnore: true*/ HEADROOM_DIR, { recursive: true });
 }
 
 function readPid(): number | null {
   try {
-    if (!fs.existsSync(PID_FILE)) return null;
-    const raw = fs.readFileSync(PID_FILE, "utf8").trim();
+    if (!fs.existsSync(/*turbopackIgnore: true*/ PID_FILE)) return null;
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ PID_FILE, "utf8").trim();
     const pid = parseInt(raw, 10);
     return Number.isFinite(pid) && pid > 0 ? pid : null;
   } catch {
@@ -58,12 +59,13 @@ function readPid(): number | null {
 
 function writePid(pid: number): void {
   ensureDir();
-  fs.writeFileSync(PID_FILE, String(pid));
+  fs.writeFileSync(/*turbopackIgnore: true*/ PID_FILE, String(pid));
 }
 
 function clearPid(): void {
   try {
-    if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE);
+    if (fs.existsSync(/*turbopackIgnore: true*/ PID_FILE))
+      fs.unlinkSync(/*turbopackIgnore: true*/ PID_FILE);
   } catch {
     // ignore
   }

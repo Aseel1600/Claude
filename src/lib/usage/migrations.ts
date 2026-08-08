@@ -72,7 +72,11 @@ function buildLegacyRequestSummary(requestType: unknown, requestBody: unknown) {
 
 function copyIfMissing(fromPath: string | null, toPath: string | null, label: string) {
   if (!fromPath || !toPath) return;
-  if (!fs.existsSync(fromPath) || fs.existsSync(toPath)) return;
+  if (
+    !fs.existsSync(/*turbopackIgnore: true*/ fromPath) ||
+    fs.existsSync(/*turbopackIgnore: true*/ toPath)
+  )
+    return;
 
   if (fs.statSync(fromPath).isDirectory()) {
     fs.cpSync(fromPath, toPath, { recursive: true });
@@ -83,10 +87,10 @@ function copyIfMissing(fromPath: string | null, toPath: string | null, label: st
 }
 
 function containsLegacyCallLogLayout(dirPath: string | null): boolean {
-  if (!dirPath || !fs.existsSync(dirPath)) return false;
+  if (!dirPath || !fs.existsSync(/*turbopackIgnore: true*/ dirPath)) return false;
 
   try {
-    const topLevelEntries = fs.readdirSync(dirPath);
+    const topLevelEntries = fs.readdirSync(/*turbopackIgnore: true*/ dirPath);
     for (const topLevelEntry of topLevelEntries) {
       const topLevelPath = path.join(dirPath, topLevelEntry);
       const stat = fs.statSync(topLevelPath);
@@ -97,7 +101,7 @@ function containsLegacyCallLogLayout(dirPath: string | null): boolean {
         continue;
       }
 
-      const nestedEntries = fs.readdirSync(topLevelPath);
+      const nestedEntries = fs.readdirSync(/*turbopackIgnore: true*/ topLevelPath);
       for (const nestedEntry of nestedEntries) {
         if (/^\d{6}_.+_\d{3}\.json$/i.test(nestedEntry)) {
           return true;
@@ -113,7 +117,7 @@ function containsLegacyCallLogLayout(dirPath: string | null): boolean {
 
 function ensureArchiveDir() {
   if (!LOG_ARCHIVES_DIR) return;
-  fs.mkdirSync(LOG_ARCHIVES_DIR, { recursive: true });
+  fs.mkdirSync(/*turbopackIgnore: true*/ LOG_ARCHIVES_DIR, { recursive: true });
 }
 
 /**
@@ -132,10 +136,14 @@ function getLiveAppLogDir(): string | null {
 }
 
 function listRequestLogArchiveEntries(): ArchiveTarget[] {
-  if (!CURRENT_REQUEST_LOGS_DIR || !fs.existsSync(CURRENT_REQUEST_LOGS_DIR)) return [];
+  if (
+    !CURRENT_REQUEST_LOGS_DIR ||
+    !fs.existsSync(/*turbopackIgnore: true*/ CURRENT_REQUEST_LOGS_DIR)
+  )
+    return [];
 
   const liveAppLogDir = getLiveAppLogDir();
-  const entries = fs.readdirSync(CURRENT_REQUEST_LOGS_DIR);
+  const entries = fs.readdirSync(/*turbopackIgnore: true*/ CURRENT_REQUEST_LOGS_DIR);
   const targets: ArchiveTarget[] = [];
 
   for (const entry of entries) {
@@ -155,7 +163,10 @@ function listRequestLogArchiveEntries(): ArchiveTarget[] {
 function listArchiveTargets(): ArchiveTarget[] {
   const targets: ArchiveTarget[] = listRequestLogArchiveEntries();
 
-  if (CURRENT_REQUEST_SUMMARY_FILE && fs.existsSync(CURRENT_REQUEST_SUMMARY_FILE)) {
+  if (
+    CURRENT_REQUEST_SUMMARY_FILE &&
+    fs.existsSync(/*turbopackIgnore: true*/ CURRENT_REQUEST_SUMMARY_FILE)
+  ) {
     targets.push({
       sourcePath: CURRENT_REQUEST_SUMMARY_FILE,
       archiveRoot: "data/log.txt",
@@ -177,7 +188,7 @@ function listArchiveTargets(): ArchiveTarget[] {
 function addPathToZip(zipFile: ZipFile, sourcePath: string, archivePath: string) {
   const stat = fs.statSync(sourcePath);
   if (stat.isDirectory()) {
-    const entries = fs.readdirSync(sourcePath);
+    const entries = fs.readdirSync(/*turbopackIgnore: true*/ sourcePath);
     if (entries.length === 0) {
       zipFile.addEmptyDirectory(archivePath);
       return;
@@ -245,7 +256,7 @@ function writeLegacyLayoutMarker(archiveFilename: string) {
   if (!LEGACY_LAYOUT_MARKER) return;
   ensureArchiveDir();
   fs.writeFileSync(
-    LEGACY_LAYOUT_MARKER,
+    /*turbopackIgnore: true*/ LEGACY_LAYOUT_MARKER,
     JSON.stringify(
       {
         migratedAt: new Date().toISOString(),
@@ -259,7 +270,7 @@ function writeLegacyLayoutMarker(archiveFilename: string) {
 
 function deleteArchivedTargets(targets: ArchiveTarget[]) {
   for (const target of targets) {
-    if (!target.deleteAfterArchive || !fs.existsSync(target.sourcePath)) {
+    if (!target.deleteAfterArchive || !fs.existsSync(/*turbopackIgnore: true*/ target.sourcePath)) {
       continue;
     }
 
@@ -286,7 +297,8 @@ export function migrateLegacyUsageFiles() {
 
 export async function archiveLegacyRequestLogs() {
   if (!shouldPersistToDisk) return null;
-  if (LEGACY_LAYOUT_MARKER && fs.existsSync(LEGACY_LAYOUT_MARKER)) return null;
+  if (LEGACY_LAYOUT_MARKER && fs.existsSync(/*turbopackIgnore: true*/ LEGACY_LAYOUT_MARKER))
+    return null;
 
   const targets = listArchiveTargets();
   if (targets.length === 0) return null;
@@ -303,9 +315,9 @@ export function migrateUsageJsonToSqlite() {
   if (!shouldPersistToDisk) return;
   const db = getDbInstance();
 
-  if (USAGE_JSON_FILE && fs.existsSync(USAGE_JSON_FILE)) {
+  if (USAGE_JSON_FILE && fs.existsSync(/*turbopackIgnore: true*/ USAGE_JSON_FILE)) {
     try {
-      const raw = fs.readFileSync(USAGE_JSON_FILE, "utf-8");
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ USAGE_JSON_FILE, "utf-8");
       const data = JSON.parse(raw);
       const history = data.history || [];
 
@@ -373,9 +385,9 @@ export function migrateUsageJsonToSqlite() {
     }
   }
 
-  if (CALL_LOGS_JSON_FILE && fs.existsSync(CALL_LOGS_JSON_FILE)) {
+  if (CALL_LOGS_JSON_FILE && fs.existsSync(/*turbopackIgnore: true*/ CALL_LOGS_JSON_FILE)) {
     try {
-      const raw = fs.readFileSync(CALL_LOGS_JSON_FILE, "utf-8");
+      const raw = fs.readFileSync(/*turbopackIgnore: true*/ CALL_LOGS_JSON_FILE, "utf-8");
       const data = JSON.parse(raw);
       const logs = data.logs || [];
 

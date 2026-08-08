@@ -24,14 +24,17 @@ function getKimiDeviceId() {
   try {
     const oauthDir = path.join(resolveDataDir(), "oauth");
     const devicePath = path.join(oauthDir, DEVICE_ID_FILE);
-    if (fs.existsSync(devicePath)) {
-      const existing = fs.readFileSync(devicePath, "utf8").trim();
+    if (fs.existsSync(/*turbopackIgnore: true*/ devicePath)) {
+      const existing = fs.readFileSync(/*turbopackIgnore: true*/ devicePath, "utf8").trim();
       if (existing) return normalizeKimiDeviceId(existing);
     }
 
-    fs.mkdirSync(oauthDir, { recursive: true });
+    fs.mkdirSync(/*turbopackIgnore: true*/ oauthDir, { recursive: true });
     const deviceId = generateDeviceId();
-    fs.writeFileSync(devicePath, deviceId, { encoding: "utf8", mode: 0o600 });
+    fs.writeFileSync(/*turbopackIgnore: true*/ devicePath, deviceId, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
     try {
       fs.chmodSync(devicePath, 0o600);
     } catch {}

@@ -40,7 +40,7 @@ export async function enableObsidianVaultSync(
 ): Promise<ObsidianSyncEnableResult> {
   const resolvedPath = path.resolve(vaultPath);
 
-  if (!fs.existsSync(resolvedPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ resolvedPath)) {
     return { success: false, error: `Vault directory not found: ${resolvedPath}` };
   }
 
@@ -86,11 +86,11 @@ export async function disableObsidianVaultSync(): Promise<{ success: boolean; er
 function removeStignore(vaultPath: string): void {
   try {
     const stignorePath = path.join(vaultPath, ".stignore");
-    if (fs.existsSync(stignorePath)) {
-      const content = fs.readFileSync(stignorePath, "utf-8");
+    if (fs.existsSync(/*turbopackIgnore: true*/ stignorePath)) {
+      const content = fs.readFileSync(/*turbopackIgnore: true*/ stignorePath, "utf-8");
       const marker = "# Managed by OmniRoute";
       if (content.includes(marker)) {
-        fs.unlinkSync(stignorePath);
+        fs.unlinkSync(/*turbopackIgnore: true*/ stignorePath);
       }
     }
   } catch {

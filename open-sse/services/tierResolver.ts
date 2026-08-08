@@ -25,6 +25,26 @@ export function classifyTier(provider: string, model: string): TierAssignment {
     return tierCache.get(key)!;
   }
 
+  // Check for Claude Code subscription models first
+  if (
+    provider === "cc" ||
+    provider === "claude-code" ||
+    model.startsWith("cc/") ||
+    model.startsWith("claude-code/")
+  ) {
+    const assignment: TierAssignment = {
+      provider,
+      model,
+      tier: PROVIDER_TIER.SUBSCRIPTION,
+      reason: `Claude Code subscription model detected: ${provider}/${model}`,
+      costPer1MInput: 0,
+      costPer1MOutput: 0,
+      hasFreeTier: false,
+    };
+    tierCache.set(key, assignment);
+    return assignment;
+  }
+
   if (isExplicitlyFree(provider, currentConfig)) {
     const assignment: TierAssignment = {
       provider,

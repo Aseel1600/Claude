@@ -1,0 +1,50 @@
+npm notice run omniroute@3.8.50 dev
+npm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev
+[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/hermes-sandbox/server.env
+[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/hermes-sandbox/server.env
+[bootstrap]    These providers will not work until configured.
+[MDX] generated files in 15.111999999999966ms
+✓ Running next.config.mjs took 266ms
+[MDX] started dev server
+[Migration] 🔄 RECONCILIATION: Found missing intermediate migration 022_add_memory_fts5 (highest applied is 133). This gap will be back-filled to ensure schema integrity.
+[Migration] 🔄 RECONCILIATION: Found missing intermediate migration 023_fix_memory_fts_uuid (highest applied is 133). This gap will be back-filled to ensure schema integrity.
+[Migration] Pre-migration backup created: /Users/work/hermes-sandbox/db_backups/db_2026-08-07T11-39-16-442Z_pre-migration.sqlite
+[Migration] Applied: 022_add_memory_fts5
+[Migration] Applied: 023_fix_memory_fts_uuid
+[Migration] 2 migration(s) applied successfully.
+[DB] Changing cache_size from 65536KB to 16384KB
+[DB] cache_size changed to 16384KB
+[DB] SQLite database ready: /Users/work/hermes-sandbox/storage.sqlite (DATA_DIR=/Users/work/hermes-sandbox, SQLITE_FILE=/Users/work/hermes-sandbox/storage.sqlite)
+[CREDENTIALS] No external credentials file found, using defaults.
+[STARTUP] Global fetch proxy patch initialized
+[HealthCheck] Starting proactive token health-check (tick every 60s)
+[Shutdown] Graceful shutdown handlers registered.
+[STARTUP] Spend batch writer started
+[STARTUP] Guardrail registry initialized
+[STARTUP] Builtin skill handlers registered
+[STARTUP] Quota cache background refresh started
+[ProviderLimitsSync] Scheduler started — interval: 70m
+[STARTUP] Provider limits sync scheduler started
+[INFO] [QuotaAutoPing] scheduler started
+[STARTUP] Quota auto-ping scheduler started (opt-in, no-op until enabled)
+[ModelSync] Scheduler started — interval: 24h
+[STARTUP] Cloud/model sync background bootstrap initialized
+[BATCH] Initializing batch processor polling...
+[STARTUP] Batch processor started
+[STARTUP] Runtime settings hydrated: payloadRules, modelAliases, backgroundDegradation, cliCompatProviders, cacheControl, usageTracking, healthCheckLogs, thoughtSignature, modelsDevSync, corsOrigins, ccBridgeTransforms, systemTransforms, authzBypass, bannedSignals
+[STARTUP] Model alias seed: applied=0, skipped=2, removed=0, failed=0
+[HOT_RELOAD] Runtime config hot-reload started (poll=5000ms, fsWatch=on)
+[proxyLogger] Loaded 200 proxy logs from SQLite
+[CredentialHealth] Starting credential health check (initial delay 30s, interval 300s)
+[STARTUP] Credential health scheduler started
+[COMPLIANCE] Audit log table initialized
+[STARTUP] Scheduled VACUUM initialized (#4437)
+[AutoRefreshDaemon] Started — checking 0 credentials every 900s
+[ARENA_ELO_SYNC] Starting periodic sync every 86400s
+[PRICING_SYNC] Disabled (set PRICING_SYNC_ENABLED=true to enable)
+[STARTUP] Arena ELO sync initialized
+[ConnectionRecovery] Starting proactive cooldown recovery (tick every 60s)
+[STARTUP] Live dashboard WebSocket daemon bootstrap invoked
+[STARTUP] Embedded services bootstrap complete
+[MODELS_DEV] Disabled (enable via Settings > AI)

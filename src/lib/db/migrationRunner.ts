@@ -62,7 +62,7 @@ function resolveMigrationsDir(): string {
       path.join(basePath, "app", "src", "lib", "db", "migrations"),
     ];
     for (const loc of locations) {
-      if (fs.existsSync(loc)) return loc;
+      if (fs.existsSync(/*turbopackIgnore: true*/ loc)) return loc;
     }
     return null;
   };
@@ -219,7 +219,7 @@ function isDeferredUnsupportedMigration(
 function getMigrationFiles(): Array<{ version: string; name: string; path: string }> {
   // The extra directories are an independent set: a missing core directory must not
   // make them vanish silently.
-  if (!fs.existsSync(MIGRATIONS_DIR)) return getExtraMigrationFiles();
+  if (!fs.existsSync(/*turbopackIgnore: true*/ MIGRATIONS_DIR)) return getExtraMigrationFiles();
 
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
@@ -592,7 +592,7 @@ function applyCompressionReceiptsMigration(db: SqliteAdapter): void {
 }
 
 function applyCompressionCombosMigration(db: SqliteAdapter, migrationPath: string): void {
-  const sql = fs.readFileSync(migrationPath, "utf-8");
+  const sql = fs.readFileSync(/*turbopackIgnore: true*/ migrationPath, "utf-8");
   db.exec(sql);
   ensureColumn(
     db,
@@ -810,8 +810,8 @@ function createPreMigrationBackup(db: SqliteAdapter): string | null {
     if (!sqliteFile || sqliteFile === ":memory:") return null;
 
     const backupDir = path.join(path.dirname(sqliteFile), "db_backups");
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ backupDir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ backupDir, { recursive: true });
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -997,7 +997,7 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
       } else if (migration.version === "042") {
         applyCompressionCombosMigration(db, migration.path);
       } else {
-        const sql = fs.readFileSync(migration.path, "utf-8");
+        const sql = fs.readFileSync(/*turbopackIgnore: true*/ migration.path, "utf-8");
         db.exec(sql);
       }
       db.prepare("INSERT INTO _omniroute_migrations (version, name) VALUES (?, ?)").run(

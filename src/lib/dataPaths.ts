@@ -37,7 +37,7 @@ export function getDefaultDataDir() {
   const legacyDir = getLegacyDotDataDir();
 
   // Preserve legacy path if it exists to avoid data loss on updates (e.g., Windows migration)
-  if (fs.existsSync(legacyDir)) {
+  if (fs.existsSync(/*turbopackIgnore: true*/ legacyDir)) {
     try {
       if (fs.statSync(legacyDir).isDirectory()) {
         return legacyDir;
@@ -94,7 +94,7 @@ export function resolveWritableDataDir({ isCloud = false }: { isCloud?: boolean 
   if (!configured) return resolved;
 
   try {
-    fs.mkdirSync(resolved, { recursive: true });
+    fs.mkdirSync(/*turbopackIgnore: true*/ resolved, { recursive: true });
     return resolved;
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException | null)?.code;

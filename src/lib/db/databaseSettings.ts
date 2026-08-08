@@ -186,7 +186,7 @@ function getWalSizeBytes(): number {
 
   try {
     const walPath = `${SQLITE_FILE}-wal`;
-    return fs.existsSync(walPath) ? fs.statSync(walPath).size : 0;
+    return fs.existsSync(/*turbopackIgnore: true*/ walPath) ? fs.statSync(walPath).size : 0;
   } catch {
     return 0;
   }

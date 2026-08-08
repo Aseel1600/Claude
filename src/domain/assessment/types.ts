@@ -30,16 +30,14 @@ export type ModelCategory =
   | "structured_output"; // JSON mode / structured output support;
 
 /** Provider account tier classification */
-export type ModelTier = "premium" | "balanced" | "fast" | "free";
+export type ModelTier = "subscription" | "premium" | "balanced" | "fast" | "free";
 
 /** Probe intensity level */
 export type ProbeLevel = "quick" | "standard" | "deep";
 
 /** Scope for assessment runs */
 export type AssessmentScope =
-  | { type: "all" }
-  | { type: "provider"; providerId: string }
-  | { type: "model"; modelId: string };
+  { type: "all" } | { type: "provider"; providerId: string } | { type: "model"; modelId: string };
 
 /** Complete assessment result for a model/provider pair */
 export interface ModelAssessment {
@@ -93,11 +91,7 @@ export interface ModelAssessment {
 
 /** Trigger source for an assessment run */
 export type AssessmentTrigger =
-  | "scheduled"
-  | "on_demand"
-  | "on_provider_change"
-  | "on_error"
-  | "startup";
+  "scheduled" | "on_demand" | "on_provider_change" | "on_error" | "startup";
 
 /** Record of a single assessment run */
 export interface AssessmentRun {
@@ -193,7 +187,31 @@ export const DEFAULT_ASSESSMENT_CONFIG: AssessmentConfig = {
   skipBrokenModels: true,
 };
 
-// ── Probe Messages ───────────────────────────────────────────────────────────
+/** Probe Messages ─────────────────────────────────────────────────────────── */
+
+/** Capability flags for a model */
+export interface ModelCapability {
+  categories: ModelCategory[];
+  contextWindow?: number;
+  supportsTools?: boolean;
+  supportsPromptCaching?: boolean;
+}
+
+/** Quota state for subscription-based models */
+export interface QuotaState {
+  status: "available" | "soft_limit" | "hard_limit" | "unknown";
+  remainingPercent?: number;
+  resetAt?: string;
+}
+
+/** A candidate model within a combo with routing metadata */
+export interface ComboCandidate {
+  model: string;
+  tier: ModelTier;
+  priority: number;
+  capability: ModelCapability;
+  quota?: QuotaState;
+}
 
 /** Probe messages for different assessment levels */
 export const PROBE_MESSAGES = {
@@ -232,9 +250,9 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
   {
     name: "auto/best-coding",
     displayName: "Best Coding",
-    categories: ["coding"],
-    tiers: ["premium", "balanced"],
-    strategy: "weighted",
+    categories: ["coding", "reasoning"],
+    tiers: ["subscription", "premium", "balanced"],
+    strategy: "priority",
     systemMessage:
       "You are an expert coding assistant. Write clean, efficient, well-documented code.",
   },
@@ -242,8 +260,8 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
     name: "auto/best-reasoning",
     displayName: "Best Reasoning",
     categories: ["reasoning_deep", "reasoning"],
-    tiers: ["premium"],
-    strategy: "weighted",
+    tiers: ["subscription", "premium"],
+    strategy: "priority",
     systemMessage: "You are a deep reasoning assistant. Think carefully step by step.",
   },
   {
@@ -257,28 +275,28 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
     name: "auto/best-vision",
     displayName: "Best Vision",
     categories: ["vision"],
-    tiers: ["premium", "balanced"],
-    strategy: "weighted",
+    tiers: ["subscription", "premium", "balanced"],
+    strategy: "priority",
   },
   {
     name: "auto/best-chat",
     displayName: "Best Chat",
     categories: ["chat"],
-    tiers: ["balanced", "premium"],
-    strategy: "weighted",
+    tiers: ["subscription", "balanced", "premium"],
+    strategy: "priority",
   },
   {
     name: "auto/best-coding-fast",
     displayName: "Best Coding Fast",
     categories: ["coding", "fast"],
-    tiers: ["fast", "balanced"],
-    strategy: "weighted",
+    tiers: ["subscription", "fast", "balanced"],
+    strategy: "priority",
   },
   {
     name: "auto/pro-coding",
     displayName: "Pro Coding",
     categories: ["coding"],
-    tiers: ["premium"],
+    tiers: ["subscription", "premium"],
     strategy: "priority",
     systemMessage:
       "You are an expert coding assistant. Write clean, efficient, well-documented code.",
@@ -287,7 +305,7 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
     name: "auto/pro-reasoning",
     displayName: "Pro Reasoning",
     categories: ["reasoning_deep"],
-    tiers: ["premium"],
+    tiers: ["subscription", "premium"],
     strategy: "priority",
     systemMessage: "You are a deep reasoning assistant. Think carefully step by step.",
   },
@@ -295,21 +313,21 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
     name: "auto/pro-vision",
     displayName: "Pro Vision",
     categories: ["vision"],
-    tiers: ["premium"],
+    tiers: ["subscription", "premium"],
     strategy: "priority",
   },
   {
     name: "auto/pro-chat",
     displayName: "Pro Chat",
     categories: ["chat"],
-    tiers: ["premium"],
+    tiers: ["subscription", "premium"],
     strategy: "priority",
   },
   {
     name: "auto/pro-fast",
     displayName: "Pro Fast",
     categories: ["fast"],
-    tiers: ["fast"],
+    tiers: ["subscription", "fast"],
     strategy: "priority",
   },
   {
@@ -353,8 +371,7 @@ export const AUTO_COMBO_TEMPLATES: AutoComboTemplate[] = [
     categories: ["coding", "chat", "fast"],
     tiers: ["free"],
     strategy: "weighted",
-    systemMessage:
-      "You are a helpful coding assistant. Write clean, efficient code.",
+    systemMessage: "You are a helpful coding assistant. Write clean, efficient code.",
   },
 ];
 

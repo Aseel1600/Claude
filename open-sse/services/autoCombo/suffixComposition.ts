@@ -22,7 +22,7 @@ import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 
 export type AutoCategory = "coding" | "reasoning" | "vision" | "chat" | "multimodal";
-export type AutoTier = "fast" | "cheap" | "floor" | "free" | "reliable" | "pro";
+export type AutoTier = "fast" | "cheap" | "floor" | "free" | "reliable" | "pro" | "subscription";
 
 export const AUTO_CATEGORIES: readonly AutoCategory[] = [
   "coding",
@@ -38,6 +38,7 @@ export const AUTO_TIERS: readonly AutoTier[] = [
   "free",
   "reliable",
   "pro",
+  "subscription",
 ];
 
 const CATEGORY_SET = new Set<string>(AUTO_CATEGORIES);
@@ -86,6 +87,8 @@ export function tierToWeightVariant(tier?: AutoTier): AutoVariant | "reliability
       return "cheap";
     case "reliable":
       return "reliability";
+    case "subscription":
+      return "coding"; // subscription uses quality-first weights
     default:
       return undefined;
   }
@@ -132,6 +135,9 @@ export function buildAutoCandidateFilter(
   }
   if (tier === "pro") {
     checks.push((c) => safeClassifyTier(c) === "premium");
+  }
+  if (tier === "subscription") {
+    checks.push((c) => safeClassifyTier(c) === "subscription");
   }
 
   if (checks.length === 0) return null;

@@ -21,8 +21,8 @@ function getTTL(): number {
 function getCacheFilePath(): string {
   const dataDir = process.env.DATA_DIR || path.join(process.cwd(), "data");
   const cacheDir = path.join(dataDir, "cache");
-  if (!fs.existsSync(cacheDir)) {
-    fs.mkdirSync(cacheDir, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ cacheDir)) {
+    fs.mkdirSync(/*turbopackIgnore: true*/ cacheDir, { recursive: true });
   }
   return path.join(cacheDir, "openrouter-catalog.json");
 }
@@ -62,8 +62,8 @@ interface CacheFile {
 function readCache(): CacheFile | null {
   const filePath = getCacheFilePath();
   try {
-    if (!fs.existsSync(filePath)) return null;
-    const raw = fs.readFileSync(filePath, "utf8");
+    if (!fs.existsSync(/*turbopackIgnore: true*/ filePath)) return null;
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
     return JSON.parse(raw) as CacheFile;
   } catch {
     return null;
@@ -78,7 +78,7 @@ function writeCache(data: CatalogEntry[]): void {
     data,
   };
   try {
-    fs.writeFileSync(filePath, JSON.stringify(cache, null, 2), "utf8");
+    fs.writeFileSync(/*turbopackIgnore: true*/ filePath, JSON.stringify(cache, null, 2), "utf8");
   } catch (err) {
     console.warn("[OpenRouterCatalog] Failed to write cache:", err);
   }

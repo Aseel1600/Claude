@@ -154,7 +154,7 @@ export function parseOpenapi(): ParsedOpenapi {
   let rawContent: string;
 
   try {
-    rawContent = fs.readFileSync(yamlPath, "utf-8");
+    rawContent = fs.readFileSync(/*turbopackIgnore: true*/ yamlPath, "utf-8");
   } catch (err) {
     throw new Error(
       `openapiParser: could not read ${yamlPath}. ` +

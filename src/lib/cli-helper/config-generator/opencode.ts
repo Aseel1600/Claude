@@ -54,9 +54,6 @@ interface CatalogModelEntry {
     tool_calling?: boolean;
     vision?: boolean;
   };
-  /** OpenAI-compatible modality arrays; some upstreams return these. */
-  input_modalities?: string[];
-  output_modalities?: string[];
 }
 
 /** Per-model override carried over from the user's existing opencode.json. */
@@ -169,64 +166,6 @@ export async function fetchOmniRouteCatalog(
  * window. The user can override per-model via `limit.context` in their
  * existing opencode.json, or fix the upstream catalog.
  */
-/**
- * Map catalog capabilities/modalities to OpenCode model capability fields.
- * Preserves explicit user-set booleans (including `false`) over any catalog
- * value -- a deliberate local restriction must never be overwritten.
- *
- * Mapping rules per field:
- *  - `attachment`: explicit user flag; then catalog `capabilities.attachment`;
- *    then `capabilities.vision`; then `input_modalities` containing `image`.
- *  - `reasoning`: explicit user flag; then `capabilities.reasoning`.
- *  - `temperature`: explicit user flag; then `capabilities.temperature`.
- *  - `tool_call`: explicit user flag; then `capabilities.tool_calling`.
- */
-function deriveOpenCodeCapabilities(
-  catalog: CatalogModelEntry | undefined,
-  existing: ExistingModelEntry | undefined
-): Pick<ExistingModelEntry, "attachment" | "reasoning" | "temperature" | "tool_call"> {
-  const result: Pick<ExistingModelEntry, "attachment" | "reasoning" | "temperature" | "tool_call"> = {};
-
-  // attachment: explicit user flag wins, then catalog attachment, then vision, then image modality.
-  if (typeof existing?.attachment === "boolean") {
-    result.attachment = existing.attachment;
-  } else if (catalog?.capabilities) {
-    if (typeof catalog.capabilities.attachment === "boolean") {
-      result.attachment = catalog.capabilities.attachment;
-    } else if (catalog.capabilities.vision === true) {
-      result.attachment = true;
-    } else if (
-      Array.isArray(catalog.input_modalities) &&
-      catalog.input_modalities.includes("image")
-    ) {
-      result.attachment = true;
-    }
-  }
-
-  // reasoning: explicit user flag wins, then catalog reasoning.
-  if (typeof existing?.reasoning === "boolean") {
-    result.reasoning = existing.reasoning;
-  } else if (catalog?.capabilities?.reasoning === true) {
-    result.reasoning = true;
-  }
-
-  // temperature: explicit user flag wins, then catalog temperature.
-  if (typeof existing?.temperature === "boolean") {
-    result.temperature = existing.temperature;
-  } else if (catalog?.capabilities?.temperature === true) {
-    result.temperature = true;
-  }
-
-  // tool_call: explicit user flag wins, then catalog tool_calling.
-  if (typeof existing?.tool_call === "boolean") {
-    result.tool_call = existing.tool_call;
-  } else if (catalog?.capabilities?.tool_calling === true) {
-    result.tool_call = true;
-  }
-
-  return result;
-}
-
 function resolveContextLength(entry: CatalogModelEntry): number | undefined {
   const candidates = [entry.context_length, entry.max_context_window_tokens];
   for (const c of candidates) {
@@ -256,15 +195,11 @@ function buildModelEntry(
 
   const entry: ExistingModelEntry = { name };
 
-  // Derive capability flags from the catalog, preserving explicit user overrides.
-  // Explicit user booleans (including `false`) always win; catalog capabilities
-  // fill in missing values so newly discovered models are not presented as
-  // text-only to OpenCode clients.
-  const caps = deriveOpenCodeCapabilities(catalog, existing);
-  if (typeof caps.attachment === "boolean") entry.attachment = caps.attachment;
-  if (typeof caps.reasoning === "boolean") entry.reasoning = caps.reasoning;
-  if (typeof caps.temperature === "boolean") entry.temperature = caps.temperature;
-  if (typeof caps.tool_call === "boolean") entry.tool_call = caps.tool_call;
+  // Round-trip capability flags from the existing config (if any).
+  for (const flag of ["attachment", "reasoning", "temperature", "tool_call"] as const) {
+    const value = existing?.[flag];
+    if (typeof value === "boolean") entry[flag] = value;
+  }
 
   // Preserve any extra top-level keys the user set (variants, headers, etc.)
   // that we don't model explicitly.
@@ -309,7 +244,10 @@ function buildModelEntry(
   ) {
     const limit: { context?: number; input?: number; output?: number } = {};
     if (typeof context === "number") limit.context = context;
-    limit.output = output;
+    if (typeof userOutput === "number" || typeof catalogOutput === "number") {
+      limit.output =
+        typeof userOutput === "number" && userOutput > 0 ? userOutput : (catalogOutput ?? 8_192);
+    }
     const userInput = existing?.limit?.input;
     if (typeof userInput === "number" && userInput > 0) {
       limit.input = userInput;
@@ -332,8 +270,8 @@ function buildModelEntry(
  */
 function loadExistingConfig(): ExistingConfig {
   try {
-    if (!fs.existsSync(CONFIG_PATH)) return {};
-    const raw = fs.readFileSync(CONFIG_PATH, "utf8");
+    if (!fs.existsSync(/*turbopackIgnore: true*/ CONFIG_PATH)) return {};
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ CONFIG_PATH, "utf8");
     return JSON.parse(raw) as ExistingConfig;
   } catch {
     return {};

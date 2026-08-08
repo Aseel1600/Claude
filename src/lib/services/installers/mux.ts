@@ -50,7 +50,7 @@ function getInstalledPkgPath(): string {
 
 export async function getInstalledVersion(): Promise<string | null> {
   try {
-    const raw = fs.readFileSync(getInstalledPkgPath(), "utf8");
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ getInstalledPkgPath(), "utf8");
     const parsed = JSON.parse(raw) as { version?: string };
     return typeof parsed.version === "string" ? parsed.version : null;
   } catch {
@@ -82,11 +82,11 @@ export async function install(version = "latest"): Promise<InstallResult> {
   const startMs = Date.now();
 
   // Create install dir + minimal package.json (idempotent) — same shape as ninerouter.ts.
-  fs.mkdirSync(MUX_INSTALL_DIR, { recursive: true });
+  fs.mkdirSync(/*turbopackIgnore: true*/ MUX_INSTALL_DIR, { recursive: true });
   const hostPkgPath = path.join(MUX_INSTALL_DIR, "package.json");
-  if (!fs.existsSync(hostPkgPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ hostPkgPath)) {
     fs.writeFileSync(
-      hostPkgPath,
+      /*turbopackIgnore: true*/ hostPkgPath,
       JSON.stringify(
         { name: "omniroute-mux-host", version: "0.0.0", private: true, dependencies: {} },
         null,
@@ -136,7 +136,7 @@ export async function update(): Promise<InstallResult> {
 
 export async function uninstall(): Promise<void> {
   const nmDir = path.join(MUX_INSTALL_DIR, "node_modules");
-  if (fs.existsSync(nmDir)) {
+  if (fs.existsSync(/*turbopackIgnore: true*/ nmDir)) {
     fs.rmSync(nmDir, { recursive: true, force: true });
   }
   await upsertVersionManagerTool({
@@ -162,7 +162,7 @@ export function resolveSpawnArgs(apiKey: string, port: number): SpawnArgs {
   // (defaults to ~/.mux otherwise) — scope it under DATA_DIR like every other
   // embedded service instead of leaking into the OS-user home directory.
   const muxRoot = path.join(MUX_INSTALL_DIR, "data");
-  fs.mkdirSync(muxRoot, { recursive: true });
+  fs.mkdirSync(/*turbopackIgnore: true*/ muxRoot, { recursive: true });
 
   return {
     command: process.execPath,

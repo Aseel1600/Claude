@@ -1,10 +1,11 @@
 import type { ModelAssessment, ModelCategory, ModelTier } from "./types";
 
 const TIER_SCORES: Record<ModelTier, number> = {
-  premium: 1.0,
-  balanced: 0.67,
-  fast: 0.5,
-  free: 0.0,
+  subscription: 1.0,
+  premium: 0.85,
+  balanced: 0.55,
+  fast: 0.35,
+  free: 0.1,
 };
 
 const CATEGORY_WEIGHTS: Record<
@@ -22,6 +23,42 @@ const CATEGORY_WEIGHTS: Record<
 };
 
 const MODEL_PATTERNS: Array<{ pattern: RegExp; categories: ModelCategory[]; tier: ModelTier }> = [
+  {
+    pattern: /^(cc|claude-code)\//i,
+    categories: ["coding", "reasoning", "chat"],
+    tier: "subscription",
+  },
+  // Antigravity models (Google Antigravity IDE / agy CLI) — top-tier coding & reasoning
+  {
+    pattern: /^gemini-3\.6-flash-(high|medium|low)$/i,
+    categories: ["coding", "reasoning"],
+    tier: "premium",
+  },
+  {
+    pattern: /^gemini-3\.1-pro-(low|high)$/i,
+    categories: ["coding", "reasoning"],
+    tier: "premium",
+  },
+  { pattern: /^gemini-pro-agent$/i, categories: ["coding", "reasoning"], tier: "premium" },
+  { pattern: /^gemini-3-flash-agent$/i, categories: ["coding", "reasoning"], tier: "premium" },
+  {
+    pattern: /^gemini-3\.5-flash-(low|extra-low)$/i,
+    categories: ["coding", "reasoning"],
+    tier: "premium",
+  },
+  {
+    pattern: /^gemini-2\.5-flash(-thinking|-lite)?$/i,
+    categories: ["coding", "reasoning"],
+    tier: "premium",
+  },
+  {
+    pattern: /^claude-opus-4-6-thinking$/i,
+    categories: ["reasoning_deep", "coding", "reasoning"],
+    tier: "premium",
+  },
+  { pattern: /^claude-sonnet-4-6$/i, categories: ["coding", "reasoning", "chat"], tier: "premium" },
+  { pattern: /^gpt-oss-120b-medium$/i, categories: ["coding", "reasoning"], tier: "balanced" },
+  // Standard patterns
   {
     pattern: /opus|o[1-4]/i,
     categories: ["reasoning_deep", "coding", "reasoning"],

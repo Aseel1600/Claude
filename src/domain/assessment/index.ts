@@ -15,6 +15,9 @@ export type {
   HealAction,
   AssessmentConfig,
   AutoComboTemplate,
+  ModelCapability,
+  QuotaState,
+  ComboCandidate,
 } from "./types";
 export {
   DEFAULT_ASSESSMENT_CONFIG,

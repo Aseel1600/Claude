@@ -299,7 +299,7 @@ function readLegacyLogFromDisk(entry: {
       "0"
     )}-${String(date.getDate()).padStart(2, "0")}`;
     const dir = path.join(CALL_LOGS_DIR, dateFolder);
-    if (!fs.existsSync(dir)) return null;
+    if (!fs.existsSync(/*turbopackIgnore: true*/ dir)) return null;
 
     const time = `${String(date.getHours()).padStart(2, "0")}${String(date.getMinutes()).padStart(
       2,
@@ -309,15 +309,17 @@ function readLegacyLogFromDisk(entry: {
     const expectedName = `${time}_${safeModel}_${entry.status}.json`;
 
     const exactPath = path.join(dir, expectedName);
-    if (fs.existsSync(exactPath)) {
-      return JSON.parse(fs.readFileSync(exactPath, "utf8"));
+    if (fs.existsSync(/*turbopackIgnore: true*/ exactPath)) {
+      return JSON.parse(fs.readFileSync(/*turbopackIgnore: true*/ exactPath, "utf8"));
     }
 
     const files = fs
       .readdirSync(dir)
       .filter((file) => file.startsWith(time) && file.endsWith(`_${entry.status}.json`));
     if (files.length > 0) {
-      return JSON.parse(fs.readFileSync(path.join(dir, files[0]), "utf8"));
+      return JSON.parse(
+        fs.readFileSync(/*turbopackIgnore: true*/ path.join(dir, files[0]), "utf8")
+      );
     }
   } catch (error) {
     console.error("[callLogs] Failed to read legacy disk log:", (error as Error).message);
@@ -384,7 +386,7 @@ function deleteCallLogRowsByIds(ids: string[]): DeleteResult {
 }
 
 export function cleanupOrphanCallLogFiles(baseDir = CALL_LOGS_DIR) {
-  if (!baseDir || !fs.existsSync(baseDir)) return 0;
+  if (!baseDir || !fs.existsSync(/*turbopackIgnore: true*/ baseDir)) return 0;
 
   try {
     const referenced = listReferencedArtifacts();
@@ -404,7 +406,7 @@ export function cleanupOrphanCallLogFiles(baseDir = CALL_LOGS_DIR) {
 }
 
 export function cleanupOverflowCallLogFiles(baseDir = CALL_LOGS_DIR, maxEntries?: number) {
-  if (!baseDir || !fs.existsSync(baseDir)) return 0;
+  if (!baseDir || !fs.existsSync(/*turbopackIgnore: true*/ baseDir)) return 0;
 
   const limit = maxEntries ?? getCallLogMaxEntries();
   if (!Number.isInteger(limit) || limit < 1) return 0;
@@ -716,7 +718,7 @@ export async function saveCallLog(entry: any) {
 
 export function rotateCallLogs() {
   try {
-    if (!CALL_LOGS_DIR || !fs.existsSync(CALL_LOGS_DIR)) return;
+    if (!CALL_LOGS_DIR || !fs.existsSync(/*turbopackIgnore: true*/ CALL_LOGS_DIR)) return;
 
     const retentionMs = getCallLogRetentionDays() * 24 * 60 * 60 * 1000;
     const cutoff = new Date(Date.now() - retentionMs).toISOString();

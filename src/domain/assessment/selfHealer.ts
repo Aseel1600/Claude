@@ -5,6 +5,7 @@ import type {
   HealActionType,
   AssessmentConfig,
   AutoComboTemplate,
+  QuotaState,
 } from "./types";
 import { DEFAULT_ASSESSMENT_CONFIG, AUTO_COMBO_TEMPLATES } from "./types";
 
@@ -37,6 +38,48 @@ export class SelfHealer {
     this.config = { ...DEFAULT_ASSESSMENT_CONFIG, ...config };
   }
 
+  /**
+   * Check if a subscription model is near quota limit
+   * Returns true if model should be deprioritized
+   */
+  private isSubscriptionNearLimit(assessment: ModelAssessment): boolean {
+    // Check if this is a subscription tier model
+    if (assessment.tier !== "subscription") return false;
+
+    // Check if quota info is available in metadata
+    // This would be populated by the quota checking service
+    const quotaState = (assessment as any).quota as QuotaState | undefined;
+    if (!quotaState) return false;
+
+    // Soft limit: deprioritize but don't remove
+    if (quotaState.status === "soft_limit") {
+      return true;
+    }
+    // Hard limit: treat as broken
+    if (quotaState.status === "hard_limit") {
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Get weight adjustment for subscription quota
+   */
+  private getSubscriptionWeightAdjustment(assessment: ModelAssessment): number {
+    const quotaState = (assessment as any).quota as QuotaState | undefined;
+    if (!quotaState || !quotaState.remainingPercent) return 1.0;
+
+    // Linear reduction as we approach limit
+    // At 20% remaining -> 0.5 weight
+    // At 10% remaining -> 0.2 weight
+    // At 5% remaining -> 0.05 weight
+    const remaining = quotaState.remainingPercent;
+    if (remaining <= 5) return 0.05;
+    if (remaining <= 10) return 0.2;
+    if (remaining <= 20) return 0.5;
+    return 1.0;
+  }
+
   healCombo(
     combo: Combo,
     assessments: Map<string, ModelAssessment>
@@ -55,6 +98,51 @@ export class SelfHealer {
       const assessmentKey = `${model.providerId}/${model.model}`;
       const assessment = assessments.get(assessmentKey);
       const status = assessment?.status ?? "unknown";
+
+      // Check subscription quota for working models
+      if (status === "working" && assessment?.tier === "subscription") {
+        const quotaAdjustment = this.getSubscriptionWeightAdjustment(assessment);
+        if (quotaAdjustment < 1.0) {
+          const newWeight = Math.max(
+            this.config.minimumWeight,
+            Math.round(model.weight * quotaAdjustment)
+          );
+          updatedModels.push({ ...model, weight: newWeight });
+          healthyCount++;
+          actions.push(
+            this.createAction(
+              combo.id,
+              "reduce_weight",
+              model.model,
+              model.providerId,
+              `Subscription quota low (${(assessment as any).quota?.remainingPercent}%): weight ${model.weight} → ${newWeight}`
+            )
+          );
+          continue;
+        }
+
+        // Hard limit: treat as broken
+        if (this.isSubscriptionNearLimit(assessment)) {
+          const quotaState = (assessment as any).quota as QuotaState | undefined;
+          if (quotaState?.status === "hard_limit") {
+            deadCount++;
+            if (this.config.selfHealEnabled) {
+              actions.push(
+                this.createAction(
+                  combo.id,
+                  "remove_model",
+                  model.model,
+                  model.providerId,
+                  `Subscription quota exhausted (hard limit)`
+                )
+              );
+            } else {
+              updatedModels.push(model);
+            }
+            continue;
+          }
+        }
+      }
 
       if (status === "broken") {
         deadCount++;

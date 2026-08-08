@@ -2,6 +2,7 @@ export const PROVIDER_TIER = {
   FREE: "free",
   CHEAP: "cheap",
   PREMIUM: "premium",
+  SUBSCRIPTION: "subscription",
 } as const;
 
 export type ProviderTier = (typeof PROVIDER_TIER)[keyof typeof PROVIDER_TIER];
