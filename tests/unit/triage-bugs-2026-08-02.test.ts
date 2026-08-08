@@ -42,6 +42,7 @@ test("non-GPT-5.6 models still get max downgraded to xhigh", () => {
     )
   );
   assert.equal(translated.reasoning_effort, "xhigh");
+<<<<<<< HEAD
 });
 
 // ── #9177 test (from fix/9177 PR, merged into the release file) ─────────────
@@ -69,3 +70,22 @@ test("#9177 Gemini-to-Claude must preserve request-mapped TitleCase tool names",
   const start = events.find((event) => event.type === "content_block_start");
   assert.equal(start?.content_block?.name, "Write");
 });
+=======
+
+// #9140 — VS Code routes filter out built-in auto models
+const { isUsableChatModel } = await import(
+  "../../src/app/api/v1/vscode/[token]/usableChatModel.ts"
+);
+
+test("#9140 VS Code listing must accept built-in auto routing entries", () => {
+  assert.equal(
+    isUsableChatModel({ id: "auto/best-coding", owned_by: "combo" }),
+    true,
+    "built-in auto/* model should be accepted"
+  );
+  assert.equal(
+    isUsableChatModel({ id: "operator-combo", owned_by: "combo" }),
+    false,
+    "operator-created combo should still be rejected"
+  );
+>>>>>>> origin/release/v3.8.50
