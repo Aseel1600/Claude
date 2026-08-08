@@ -2318,9 +2318,6 @@ test("handleComboChat returns a 503 when every model is unavailable before execu
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  // #9630: pre-dispatch skips (unavailable/cooldown before any upstream call) are now
-  // reported as ALL_TARGETS_SKIPPED; ALL_ACCOUNTS_INACTIVE is reserved for genuine
-  // upstream failures.
   assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
@@ -2850,9 +2847,6 @@ test("handleComboChat round-robin resolves nested combos and returns inactive wh
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  // #9630: pre-dispatch skips (unavailable/cooldown before any upstream call) are now
-  // reported as ALL_TARGETS_SKIPPED; ALL_ACCOUNTS_INACTIVE is reserved for genuine
-  // upstream failures.
   assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
