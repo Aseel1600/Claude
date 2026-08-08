@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) đang ở trong danh sách chờ — xem vấn đề #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge đã được di chuyển",
     "modalityBridgeMovedBody": "Cài đặt Vision Bridge hiện đã có trên trang Modality Bridge chuyên dụng.",
-    "modalityBridgeMovedCta": "Mở cài đặt Cầu Modality"
+    "modalityBridgeMovedCta": "Mở cài đặt Cầu Modality",
+    "modalityBridgeAudioTitle": "Cầu Nối Âm Thanh",
+    "modalityBridgeAudioDesc": "Chuyển đổi âm thanh thành văn bản bằng mô hình nhận diện giọng nói trước khi tiếp tục với mô hình văn bản đã chọn.",
+    "modalityBridgeAudioEnabled": "Bật Cầu Nối Âm Thanh",
+    "modalityBridgeAudioEnabledDesc": "Thay thế các phần âm thanh bằng bản sao khi mô hình mục tiêu không thể xử lý âm thanh.",
+    "modalityBridgeAudioModel": "Mô hình chuyển đổi giọng nói thành văn bản",
+    "modalityBridgeAudioModelAuto": "Tự động (nhà cung cấp STT được kết nối đầu tiên)",
+    "modalityBridgeAudioMaxClips": "Số lượng clip âm thanh tối đa cho mỗi yêu cầu",
+    "modalityBridgeAudioTestButton": "Kiểm tra với âm thanh mẫu",
+    "modalityBridgeAudioTestRunning": "Đang kiểm tra âm thanh…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) đã được chuyển ngữ bởi {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge không được kích hoạt (mục tiêu có thể hỗ trợ âm thanh, không có nhà cung cấp STT nào được kết nối, hoặc cầu nối bị vô hiệu hóa)",
+    "modalityBridgeAudioTestError": "Kiểm tra âm thanh không thành công: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "חיבור וידאו (דגימת פריימים + כתוביות) נמצא ברשימת המטלות — ראה בעיה #9760.",
     "modalityBridgeMovedTitle": "הגשר של Vision הוזז",
     "modalityBridgeMovedBody": "הגדרות Vision Bridge עכשיו חיות בדף Modality Bridge המוקדש.",
-    "modalityBridgeMovedCta": "פתח את הגדרות גשר המודאליות"
+    "modalityBridgeMovedCta": "פתח את הגדרות גשר המודאליות",
+    "modalityBridgeAudioTitle": "גשר שמע",
+    "modalityBridgeAudioDesc": "הקלד אודיו עם מודל דיבור לטקסט לפני שתמשיך עם מודל הטקסט הנבחר.",
+    "modalityBridgeAudioEnabled": "אפשר גשר שמע",
+    "modalityBridgeAudioEnabledDesc": "החלף חלקי שמע בטקסטים כאשר המודל המיועד אינו יכול לעבד שמע.",
+    "modalityBridgeAudioModel": "מודל דיבור לטקסט",
+    "modalityBridgeAudioModelAuto": "אוטומטי (ספק STT הראשון שמתחבר)",
+    "modalityBridgeAudioMaxClips": "מקסימום קטעי שמע לכל בקשה",
+    "modalityBridgeAudioTestButton": "בדוק עם שמע לדוגמה",
+    "modalityBridgeAudioTestRunning": "בודק אודיו…",
+    "modalityBridgeAudioTestOk": "גשר שמע בסדר — {count} קליפ(ים) שהוקלטו על ידי {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge לא הופעל (ייתכן שהיעד תומך באודיו, אין ספק STT מחובר, או שהגשר מושבת)",
+    "modalityBridgeAudioTestError": "בדיקת שמע נכשלה: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

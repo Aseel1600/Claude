@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Видео свързване (извадка на кадри + надписи) е в списъка със задачи — вижте проблема #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge преместен",
     "modalityBridgeMovedBody": "Настройките на Vision Bridge вече са налични на специализираната страница Modality Bridge.",
-    "modalityBridgeMovedCta": "Отворете настройките на Modality Bridge"
+    "modalityBridgeMovedCta": "Отворете настройките на Modality Bridge",
+    "modalityBridgeAudioTitle": "Аудио Мост",
+    "modalityBridgeAudioDesc": "Транскрибирайте аудио с модел за разпознаване на реч, преди да продължите с избрания текстов модел.",
+    "modalityBridgeAudioEnabled": "Активирайте Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "Заменете аудио частите с транскрипции, когато целевият модел не може да обработва аудио.",
+    "modalityBridgeAudioModel": "Модел за преобразуване на реч в текст",
+    "modalityBridgeAudioModelAuto": "Авто (първият свързан доставчик на STT)",
+    "modalityBridgeAudioMaxClips": "Максимален брой аудио клипове на заявка",
+    "modalityBridgeAudioTestButton": "Тест с примерен аудио файл",
+    "modalityBridgeAudioTestRunning": "Тестване на аудио…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} клип(а) транскрибирани от {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge не беше активиран (целта може да поддържа аудио, няма свързан STT доставчик или моста е деактивиран)",
+    "modalityBridgeAudioTestError": "Тестът на звука не успя: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

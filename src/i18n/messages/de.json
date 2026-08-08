@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video-Bridging (Frame-Sampling + Untertitelung) steht auf der Warteliste – siehe Issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge verschoben",
     "modalityBridgeMovedBody": "Die Vision Bridge-Einstellungen sind jetzt auf der speziellen Modality Bridge-Seite verfügbar.",
-    "modalityBridgeMovedCta": "Modality Bridge-Einstellungen öffnen"
+    "modalityBridgeMovedCta": "Modality Bridge-Einstellungen öffnen",
+    "modalityBridgeAudioTitle": "Audio-Brücke",
+    "modalityBridgeAudioDesc": "Transkribiere Audio mit einem Sprach-zu-Text-Modell, bevor du mit dem gewählten Textmodell fortfährst.",
+    "modalityBridgeAudioEnabled": "Audio-Brücke aktivieren",
+    "modalityBridgeAudioEnabledDesc": "Ersetzen Sie Audioabschnitte durch Transkripte, wenn das Zielmodell Audio nicht verarbeiten kann.",
+    "modalityBridgeAudioModel": "Spracherkennungsmodell",
+    "modalityBridgeAudioModelAuto": "Auto (erster verbundener STT-Anbieter)",
+    "modalityBridgeAudioMaxClips": "Maximale Audio-Clips pro Anfrage",
+    "modalityBridgeAudioTestButton": "Testen mit Beispielaudio",
+    "modalityBridgeAudioTestRunning": "Audio wird getestet…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} Clip(s) von {model} transkribiert",
+    "modalityBridgeAudioTestNoop": "Audio Bridge wurde nicht aktiviert (das Ziel unterstützt möglicherweise Audio, kein STT-Anbieter ist verbunden oder die Brücke ist deaktiviert)",
+    "modalityBridgeAudioTestError": "Audiotest fehlgeschlagen: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

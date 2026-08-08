@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video brokering (rammesampling + undertekster) er på backloggen — se problem #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge flyttet",
     "modalityBridgeMovedBody": "Vision Bridge-indstillinger er nu live på den dedikerede Modality Bridge-side.",
-    "modalityBridgeMovedCta": "Åbn Modality Bridge-indstillinger"
+    "modalityBridgeMovedCta": "Åbn Modality Bridge-indstillinger",
+    "modalityBridgeAudioTitle": "Audio Bro",
+    "modalityBridgeAudioDesc": "Transskriber lyd med en tale-til-tekst model, før du fortsætter med den valgte tekstmodel.",
+    "modalityBridgeAudioEnabled": "Aktivér Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "Erstat lyddele med transkriptioner, når målmodellen ikke kan behandle lyd.",
+    "modalityBridgeAudioModel": "Tale-til-tekst model",
+    "modalityBridgeAudioModelAuto": "Auto (første tilsluttede STT-udbyder)",
+    "modalityBridgeAudioMaxClips": "Maksimalt antal lydklip pr. anmodning",
+    "modalityBridgeAudioTestButton": "Test med prøveaudio",
+    "modalityBridgeAudioTestRunning": "Tester lyd…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klip(klip) transskriberet af {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge blev ikke aktiveret (målet kan understøtte lyd, ingen STT-udbyder er tilsluttet, eller broen er deaktiveret)",
+    "modalityBridgeAudioTestError": "Lydtest mislykkedes: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

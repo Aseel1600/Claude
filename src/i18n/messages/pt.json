@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "A ponte de vídeo (amostragem de quadros + legendagem) está na lista de tarefas — veja o problema #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge movido",
     "modalityBridgeMovedBody": "As definições do Vision Bridge agora estão disponíveis na página dedicada do Modality Bridge.",
-    "modalityBridgeMovedCta": "Abrir as definições da Ponte de Modalidade"
+    "modalityBridgeMovedCta": "Abrir as definições da Ponte de Modalidade",
+    "modalityBridgeAudioTitle": "Ponte de Áudio",
+    "modalityBridgeAudioDesc": "Transcreva o áudio com um modelo de reconhecimento de fala antes de continuar com o modelo de texto escolhido.",
+    "modalityBridgeAudioEnabled": "Ativar Ponte de Áudio",
+    "modalityBridgeAudioEnabledDesc": "Substitua as partes de áudio por transcrições quando o modelo de destino não conseguir processar áudio.",
+    "modalityBridgeAudioModel": "Modelo de reconhecimento de voz",
+    "modalityBridgeAudioModelAuto": "Auto (primeiro fornecedor STT conectado)",
+    "modalityBridgeAudioMaxClips": "Máximo de clipes de áudio por pedido",
+    "modalityBridgeAudioTestButton": "Teste com áudio de amostra",
+    "modalityBridgeAudioTestRunning": "A testar áudio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clipe(s) transcrito(s) por {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge não ativou (o destino pode suportar áudio, nenhum fornecedor de STT está conectado ou a ponte está desativada)",
+    "modalityBridgeAudioTestError": "Teste de áudio falhou: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

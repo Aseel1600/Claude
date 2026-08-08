@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "వీడియో బ్రిడ్జింగ్ (ఫ్రేమ్ నమూనా + శీర్షికలు) బ్యాక్‌లాగ్‌లో ఉంది — సమస్య #9760ని చూడండి.",
     "modalityBridgeMovedTitle": "విజన్ బ్రిడ్జ్ మోవ్డ్",
     "modalityBridgeMovedBody": "విజన్ బ్రిడ్జ్ సెట్టింగ్స్ ఇప్పుడు ప్రత్యేకమైన మోడాలిటీ బ్రిడ్జ్ పేజీలో లైవ్ ఉన్నాయి.",
-    "modalityBridgeMovedCta": "మోడాలిటీ బ్రిడ్జ్ సెట్టింగ్స్‌ను తెరవండి"
+    "modalityBridgeMovedCta": "మోడాలిటీ బ్రిడ్జ్ సెట్టింగ్స్‌ను తెరవండి",
+    "modalityBridgeAudioTitle": "ఆడియో బ్రిడ్జ్",
+    "modalityBridgeAudioDesc": "ఎంచుకున్న టెక్స్ట్ మోడల్‌తో కొనసాగడానికి ముందు స్పీచ్-టు-టెక్స్ట్ మోడల్‌తో ఆడియోను ట్రాన్స్‌క్రైబ్ చేయండి.",
+    "modalityBridgeAudioEnabled": "ఆడియో బ్రిడ్జ్‌ను ప్రారంభించండి",
+    "modalityBridgeAudioEnabledDesc": "లక్ష్య మోడల్ ఆడియోను ప్రాసెస్ చేయలేకపోతే ఆడియో భాగాలను ట్రాన్స్క్రిప్ట్‌లతో మార్చండి.",
+    "modalityBridgeAudioModel": "స్పీచ్-టు-టెక్స్ట్ మోడల్",
+    "modalityBridgeAudioModelAuto": "ఆటో (మొదటి కనెక్ట్ అయిన STT ప్రొవైడర్)",
+    "modalityBridgeAudioMaxClips": "ప్రతి అభ్యర్థనకు గరిష్ట ఆడియో క్లిప్‌లు",
+    "modalityBridgeAudioTestButton": "నమూనా ఆడియోతో పరీక్షించండి",
+    "modalityBridgeAudioTestRunning": "ఆడియోని పరీక్షిస్తున్నాము…",
+    "modalityBridgeAudioTestOk": "ఆడియో బ్రిడ్జ్ బాగుంది — {count} క్లిప్(లు) {model} ద్వారా ట్రాన్స్‌క్రైబ్ చేయబడ్డాయి",
+    "modalityBridgeAudioTestNoop": "ఆడియో బ్రిడ్జ్ చెల్లించబడలేదు (లక్ష్యము ఆడియోను మద్దతు ఇవ్వవచ్చు, ఎలాంటి STT ప్రొవైడర్ కనెక్ట్ చేయబడలేదు, లేదా బ్రిడ్జ్ అచేతనంగా ఉంది)",
+    "modalityBridgeAudioTestError": "ఆడియో పరీక్ష విఫలమైంది: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

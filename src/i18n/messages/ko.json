@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "비디오 브리징(프레임 샘플링 + 캡셔닝)은 백로그에 있습니다 — 이슈 #9760을 참조하세요.",
     "modalityBridgeMovedTitle": "비전 브리지 이동됨",
     "modalityBridgeMovedBody": "Vision Bridge 설정이 이제 전용 Modality Bridge 페이지에 있습니다.",
-    "modalityBridgeMovedCta": "모달리티 브리지 설정 열기"
+    "modalityBridgeMovedCta": "모달리티 브리지 설정 열기",
+    "modalityBridgeAudioTitle": "오디오 브리지",
+    "modalityBridgeAudioDesc": "선택한 텍스트 모델을 계속 진행하기 전에 음성을 텍스트로 변환하는 음성 인식 모델을 사용하세요.",
+    "modalityBridgeAudioEnabled": "오디오 브릿지 활성화",
+    "modalityBridgeAudioEnabledDesc": "대상 모델이 오디오를 처리할 수 없을 때 오디오 부분을 전사로 교체합니다.",
+    "modalityBridgeAudioModel": "음성 인식 모델",
+    "modalityBridgeAudioModelAuto": "자동 (첫 번째 연결된 STT 공급자)",
+    "modalityBridgeAudioMaxClips": "요청당 최대 오디오 클립 수",
+    "modalityBridgeAudioTestButton": "샘플 오디오로 테스트하기",
+    "modalityBridgeAudioTestRunning": "오디오 테스트 중…",
+    "modalityBridgeAudioTestOk": "오디오 브리지 확인 — {count} 클립이 {model}에 의해 전사되었습니다",
+    "modalityBridgeAudioTestNoop": "오디오 브리지가 활성화되지 않았습니다(대상이 오디오를 지원할 수 있지만 STT 공급자가 연결되어 있지 않거나 브리지가 비활성화되어 있습니다)",
+    "modalityBridgeAudioTestError": "오디오 테스트 실패: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

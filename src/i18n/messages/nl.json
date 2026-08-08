@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Videobruggen (frame sampling + ondertiteling) staat op de backlog — zie probleem #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge verplaatst",
     "modalityBridgeMovedBody": "De Vision Bridge-instellingen zijn nu beschikbaar op de speciale Modality Bridge-pagina.",
-    "modalityBridgeMovedCta": "Open Modality Bridge-instellingen"
+    "modalityBridgeMovedCta": "Open Modality Bridge-instellingen",
+    "modalityBridgeAudioTitle": "Audio Brug",
+    "modalityBridgeAudioDesc": "Transcribeer audio met een spraak-naar-tekstmodel voordat je verdergaat met het gekozen tekstmodel.",
+    "modalityBridgeAudioEnabled": "Audio Bridge Inschakelen",
+    "modalityBridgeAudioEnabledDesc": "Vervang audio-onderdelen door transcripties wanneer het doelformulier audio niet kan verwerken.",
+    "modalityBridgeAudioModel": "Spraak-naar-tekstmodel",
+    "modalityBridgeAudioModelAuto": "Auto (eerste verbonden STT-provider)",
+    "modalityBridgeAudioMaxClips": "Max audio clips per verzoek",
+    "modalityBridgeAudioTestButton": "Test met voorbeeldaudio",
+    "modalityBridgeAudioTestRunning": "Audio testen…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) getranscribeerd door {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge is niet geactiveerd (het doel kan audio ondersteunen, er is geen STT-provider verbonden, of de brug is uitgeschakeld)",
+    "modalityBridgeAudioTestError": "Audio-test mislukt: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

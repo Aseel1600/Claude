@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Videosillan (kehysnäytteenotto + tekstitys) toteuttaminen on odotuslistalla — katso ongelma #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge siirretty",
     "modalityBridgeMovedBody": "Vision Bridge -asetukset ovat nyt käytettävissä omalla Modality Bridge -sivullaan.",
-    "modalityBridgeMovedCta": "Avaa Modality Bridge -asetukset"
+    "modalityBridgeMovedCta": "Avaa Modality Bridge -asetukset",
+    "modalityBridgeAudioTitle": "Äänisilta",
+    "modalityBridgeAudioDesc": "Transkriboi ääntä puheesta tekstiksi ennen kuin jatkat valitun tekstimallin kanssa.",
+    "modalityBridgeAudioEnabled": "Ota ääniyhteys käyttöön",
+    "modalityBridgeAudioEnabledDesc": "Korvaa ääniosat transkripteillä, kun kohdemalli ei voi käsitellä ääntä.",
+    "modalityBridgeAudioModel": "Puheesta tekstiksi -malli",
+    "modalityBridgeAudioModelAuto": "Auto (ensimmäinen yhdistetty STT-palveluntarjoaja)",
+    "modalityBridgeAudioMaxClips": "Maksimi äänitiedostot per pyyntö",
+    "modalityBridgeAudioTestButton": "Testaa näytteellä olevaa ääntä",
+    "modalityBridgeAudioTestRunning": "Testataan ääntä…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klippiä transkriptoitu {model} avulla",
+    "modalityBridgeAudioTestNoop": "Audio Bridge ei aktivoitunut (kohde saattaa tukea ääntä, STT-toimittajaa ei ole liitetty tai silta on poistettu käytöstä)",
+    "modalityBridgeAudioTestError": "Äänitesti epäonnistui: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

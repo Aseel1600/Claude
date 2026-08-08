@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "व्हिडिओ ब्रिजिंग (फ्रेम सॅम्पलिंग + कॅप्शनिंग) बॅकलॉगमध्ये आहे — समस्या #9760 पहा.",
     "modalityBridgeMovedTitle": "व्हिजन ब्रिज हलवला",
     "modalityBridgeMovedBody": "व्हिजन ब्रिज सेटिंग्ज आता समर्पित मोडालिटी ब्रिज पृष्ठावर उपलब्ध आहेत.",
-    "modalityBridgeMovedCta": "मोडालिटी ब्रिज सेटिंग्ज उघडा"
+    "modalityBridgeMovedCta": "मोडालिटी ब्रिज सेटिंग्ज उघडा",
+    "modalityBridgeAudioTitle": "ऑडिओ ब्रिज",
+    "modalityBridgeAudioDesc": "चयनित टेक्स्ट मॉडेलसह पुढे जाण्यापूर्वी ऑडिओचे ट्रान्सक्रिप्शन करा.",
+    "modalityBridgeAudioEnabled": "ऑडिओ ब्रिज सक्षम करा",
+    "modalityBridgeAudioEnabledDesc": "लक्ष्य मॉडेल ऑडिओ प्रक्रिया करू शकत नाही तेव्हा ऑडिओ भागांचे स्थानांतर ट्रान्सक्रिप्टसह करा.",
+    "modalityBridgeAudioModel": "स्पीच-टू-टेक्स्ट मॉडेल",
+    "modalityBridgeAudioModelAuto": "ऑटो (पहिला कनेक्ट केलेला STT प्रदाता)",
+    "modalityBridgeAudioMaxClips": "प्रत्येक विनंतीसाठी कमाल ऑडिओ क्लिप्स",
+    "modalityBridgeAudioTestButton": "नमुना ऑडिओसह चाचणी करा",
+    "modalityBridgeAudioTestRunning": "ऑडिओची चाचणी करत आहे…",
+    "modalityBridgeAudioTestOk": "ऑडिओ ब्रिज ठीक आहे — {count} क्लिप(स) {model} द्वारे ट्रान्सक्राइब केल्या गेल्या",
+    "modalityBridgeAudioTestNoop": "ऑडिओ ब्रिज सक्रिय झाला नाही (लक्ष्य ऑडिओला समर्थन देऊ शकतो, कोणताही STT प्रदाता जोडलेला नाही, किंवा ब्रिज अक्षम आहे)",
+    "modalityBridgeAudioTestError": "ऑडिओ चाचणी अयशस्वी: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

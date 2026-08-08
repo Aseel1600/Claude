@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Kuhusisha video (uchukuaji wa fremu + uandishi wa maandiko) iko kwenye orodha ya kazi — angalia suala #9760.",
     "modalityBridgeMovedTitle": "Daraja la Maono limehamishwa",
     "modalityBridgeMovedBody": "Mipangilio ya Vision Bridge sasa ipo kwenye ukurasa maalum wa Modality Bridge.",
-    "modalityBridgeMovedCta": "Fungua mipangilio ya Daraja la Modality"
+    "modalityBridgeMovedCta": "Fungua mipangilio ya Daraja la Modality",
+    "modalityBridgeAudioTitle": "Daraja la Sauti",
+    "modalityBridgeAudioDesc": "Transcribe sauti kwa kutumia mfano wa hotuba hadi maandiko kabla ya kuendelea na mfano wa maandiko uliochaguliwa.",
+    "modalityBridgeAudioEnabled": "wezesha Daraja la Sauti",
+    "modalityBridgeAudioEnabledDesc": "Badilisha sehemu za sauti na nakala wakati mfano wa lengo hauwezi kushughulikia sauti.",
+    "modalityBridgeAudioModel": "Mfano wa sauti hadi maandiko",
+    "modalityBridgeAudioModelAuto": "Auto (mtoa STT wa kwanza kuunganishwa)",
+    "modalityBridgeAudioMaxClips": "Max sauti za sauti kwa ombi",
+    "modalityBridgeAudioTestButton": "Jaribu na sauti ya sampuli",
+    "modalityBridgeAudioTestRunning": "Kujaribu sauti…",
+    "modalityBridgeAudioTestOk": "Daraja la Sauti Sawa — {count} kipande(kipande) kilichotafsiriwa na {model}",
+    "modalityBridgeAudioTestNoop": "Daraja la Sauti halikufanya kazi (lengo linaweza kusaidia sauti, hakuna mtoa huduma wa STT aliyeunganishwa, au daraja limezuiliwa)",
+    "modalityBridgeAudioTestError": "Jaribio la sauti limefeli: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

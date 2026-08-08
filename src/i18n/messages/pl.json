@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Mostkowanie wideo (próbkowanie klatek + napisy) jest na liście zadań — zobacz problem #9760.",
     "modalityBridgeMovedTitle": "Mostek Wizji przeniesiony",
     "modalityBridgeMovedBody": "Ustawienia Vision Bridge są teraz dostępne na dedykowanej stronie Modality Bridge.",
-    "modalityBridgeMovedCta": "Otwórz ustawienia Mostka Modalności"
+    "modalityBridgeMovedCta": "Otwórz ustawienia Mostka Modalności",
+    "modalityBridgeAudioTitle": "Mostek Audio",
+    "modalityBridgeAudioDesc": "Transkrybuj audio za pomocą modelu rozpoznawania mowy przed kontynuowaniem z wybranym modelem tekstowym.",
+    "modalityBridgeAudioEnabled": "Włącz Most Audio",
+    "modalityBridgeAudioEnabledDesc": "Zastąp części audio transkrypcjami, gdy docelowy model nie może przetworzyć audio.",
+    "modalityBridgeAudioModel": "Model rozpoznawania mowy na tekst",
+    "modalityBridgeAudioModelAuto": "Auto (pierwszy podłączony dostawca STT)",
+    "modalityBridgeAudioMaxClips": "Maksymalna liczba klipów audio na żądanie",
+    "modalityBridgeAudioTestButton": "Testuj z przykładowym dźwiękiem",
+    "modalityBridgeAudioTestRunning": "Testowanie dźwięku…",
+    "modalityBridgeAudioTestOk": "Most Audio OK — {count} klip(y) przetłumaczone przez {model}",
+    "modalityBridgeAudioTestNoop": "Mostek audio nie został aktywowany (docelowy może obsługiwać audio, żaden dostawca STT nie jest podłączony lub mostek jest wyłączony)",
+    "modalityBridgeAudioTestError": "Test audio nie powiódł się: {message}"
   },
   "contextRtk": {
     "title": "Silnik RTK",

@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) je na backlogu — pozrite si problém #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge presunutý",
     "modalityBridgeMovedBody": "Nastavenia Vision Bridge sú teraz dostupné na samostatnej stránke Modality Bridge.",
-    "modalityBridgeMovedCta": "Otvorenie nastavení Modality Bridge"
+    "modalityBridgeMovedCta": "Otvorenie nastavení Modality Bridge",
+    "modalityBridgeAudioTitle": "Audio Bridge",
+    "modalityBridgeAudioDesc": "Prepisujte zvuk pomocou modelu reč na text pred pokračovaním s vybraným textovým modelom.",
+    "modalityBridgeAudioEnabled": "Povoliť Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "Nahradiť audio časti prepisom, keď cieľový model nemôže spracovať audio.",
+    "modalityBridgeAudioModel": "Model na prevod reči na text",
+    "modalityBridgeAudioModelAuto": "Auto (prvý pripojený poskytovateľ STT)",
+    "modalityBridgeAudioMaxClips": "Maximálny počet audio klipov na požiadavku",
+    "modalityBridgeAudioTestButton": "Test s ukážkovým zvukom",
+    "modalityBridgeAudioTestRunning": "Testovanie zvuku…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klip(y) prepisované pomocou {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge sa nepodarilo aktivovať (cieľ môže podporovať audio, žiadny poskytovateľ STT nie je pripojený, alebo je most vypnutý)",
+    "modalityBridgeAudioTestError": "Test zvuku zlyhal: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Ang video bridging (frame sampling + captioning) ay nasa backlog — tingnan ang isyu #9760.",
     "modalityBridgeMovedTitle": "Inilipat ang Vision Bridge",
     "modalityBridgeMovedBody": "Ang mga setting ng Vision Bridge ay ngayon nasa nakalaang pahina ng Modality Bridge.",
-    "modalityBridgeMovedCta": "Buksan ang mga setting ng Modality Bridge"
+    "modalityBridgeMovedCta": "Buksan ang mga setting ng Modality Bridge",
+    "modalityBridgeAudioTitle": "Audio Bridge",
+    "modalityBridgeAudioDesc": "I-transcribe ang audio gamit ang speech-to-text na modelo bago magpatuloy sa napiling text model.",
+    "modalityBridgeAudioEnabled": "I-enable ang Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "Palitan ang mga bahagi ng audio ng mga transcript kapag hindi kayang iproseso ng target na modelo ang audio.",
+    "modalityBridgeAudioModel": "Modelo ng pagsasalita sa teksto",
+    "modalityBridgeAudioModelAuto": "Auto (unang nakakonektang STT provider)",
+    "modalityBridgeAudioMaxClips": "Max na audio clip sa bawat kahilingan",
+    "modalityBridgeAudioTestButton": "Subukan gamit ang sample na audio",
+    "modalityBridgeAudioTestRunning": "Sinusubukan ang audio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) na na-transcribe ng {model}",
+    "modalityBridgeAudioTestNoop": "Hindi na-activate ang Audio Bridge (maaaring sinusuportahan ng target ang audio, walang nakakonektang STT provider, o naka-disable ang bridge)",
+    "modalityBridgeAudioTestError": "Nabigo ang pagsubok sa audio: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

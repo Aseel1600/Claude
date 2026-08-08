@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Видеомост (выборка кадров + субтитры) находится в очереди — см. задачу #9760.",
     "modalityBridgeMovedTitle": "Мост Видения перемещен",
     "modalityBridgeMovedBody": "Настройки Vision Bridge теперь находятся на отдельной странице Modality Bridge.",
-    "modalityBridgeMovedCta": "Открыть настройки моста модальности"
+    "modalityBridgeMovedCta": "Открыть настройки моста модальности",
+    "modalityBridgeAudioTitle": "Аудио Мост",
+    "modalityBridgeAudioDesc": "Транскрибируйте аудио с помощью модели распознавания речи перед тем, как продолжить с выбранной текстовой моделью.",
+    "modalityBridgeAudioEnabled": "Включить аудиомост",
+    "modalityBridgeAudioEnabledDesc": "Замените аудиочасти на транскрипты, когда целевая модель не может обрабатывать аудио.",
+    "modalityBridgeAudioModel": "Модель распознавания речи",
+    "modalityBridgeAudioModelAuto": "Авто (первый подключенный поставщик STT)",
+    "modalityBridgeAudioMaxClips": "Максимальное количество аудиоклипов на запрос",
+    "modalityBridgeAudioTestButton": "Тест с образцовым аудио",
+    "modalityBridgeAudioTestRunning": "Тестирование аудио…",
+    "modalityBridgeAudioTestOk": "Аудио мост ОК — {count} клип(ов) транскрибировано {model}",
+    "modalityBridgeAudioTestNoop": "Аудио мост не активирован (цель может поддерживать аудио, провайдер STT не подключен или мост отключен)",
+    "modalityBridgeAudioTestError": "Тест аудио не удался: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

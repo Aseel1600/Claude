@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "پل‌سازی ویدئو (نمونه‌برداری فریم + زیرنویس) در لیست کارها قرار دارد — به مشکل #9760 مراجعه کنید.",
     "modalityBridgeMovedTitle": "پل بینایی جابجا شد",
     "modalityBridgeMovedBody": "تنظیمات Vision Bridge اکنون در صفحه اختصاصی Modality Bridge فعال است.",
-    "modalityBridgeMovedCta": "تنظیمات پل مدالیته را باز کنید"
+    "modalityBridgeMovedCta": "تنظیمات پل مدالیته را باز کنید",
+    "modalityBridgeAudioTitle": "پل صوتی",
+    "modalityBridgeAudioDesc": "قبل از ادامه با مدل متن انتخاب شده، صدای خود را با یک مدل تبدیل گفتار به متن رونویسی کنید.",
+    "modalityBridgeAudioEnabled": "فعال‌سازی پل صوتی",
+    "modalityBridgeAudioEnabledDesc": "قسمت‌های صوتی را با متن‌ها جایگزین کنید زمانی که مدل هدف نمی‌تواند صوت را پردازش کند.",
+    "modalityBridgeAudioModel": "مدل تبدیل گفتار به متن",
+    "modalityBridgeAudioModelAuto": "خودکار (اولین ارائه‌دهنده STT متصل شده)",
+    "modalityBridgeAudioMaxClips": "حداکثر کلیپ‌های صوتی در هر درخواست",
+    "modalityBridgeAudioTestButton": "تست با صدای نمونه",
+    "modalityBridgeAudioTestRunning": "در حال آزمایش صدا…",
+    "modalityBridgeAudioTestOk": "پل صوتی OK — {count} کلیپ(ها) توسط {model} رونویسی شد",
+    "modalityBridgeAudioTestNoop": "پل صوتی فعال نشد (ممکن است هدف از صوت پشتیبانی کند، هیچ ارائه‌دهنده STT متصل نیست، یا پل غیرفعال است)",
+    "modalityBridgeAudioTestError": "آزمون صدا ناموفق بود: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

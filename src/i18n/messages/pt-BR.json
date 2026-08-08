@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "A ponte de vídeo (amostragem de quadros + legendagem) está no backlog — veja a issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge movido",
     "modalityBridgeMovedBody": "As configurações do Vision Bridge agora estão na página dedicada do Modality Bridge.",
-    "modalityBridgeMovedCta": "Abra as configurações do Modality Bridge"
+    "modalityBridgeMovedCta": "Abra as configurações do Modality Bridge",
+    "modalityBridgeAudioTitle": "Ponte de Áudio",
+    "modalityBridgeAudioDesc": "Transcreva o áudio com um modelo de reconhecimento de fala antes de continuar com o modelo de texto escolhido.",
+    "modalityBridgeAudioEnabled": "Ativar Ponte de Áudio",
+    "modalityBridgeAudioEnabledDesc": "Substitua as partes de áudio por transcrições quando o modelo de destino não puder processar áudio.",
+    "modalityBridgeAudioModel": "Modelo de fala para texto",
+    "modalityBridgeAudioModelAuto": "Automático (primeiro provedor STT conectado)",
+    "modalityBridgeAudioMaxClips": "Máx. de clipes de áudio por solicitação",
+    "modalityBridgeAudioTestButton": "Teste com áudio de amostra",
+    "modalityBridgeAudioTestRunning": "Testando áudio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clipe(s) transcrito(s) por {model}",
+    "modalityBridgeAudioTestNoop": "O Audio Bridge não foi ativado (o destino pode suportar áudio, nenhum provedor de STT está conectado ou a ponte está desativada)",
+    "modalityBridgeAudioTestError": "Teste de áudio falhou: {message}"
   },
   "contextRtk": {
     "title": "Motor RTK",

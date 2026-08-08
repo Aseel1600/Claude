@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) este pe lista de așteptare — vezi problema #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge mutat",
     "modalityBridgeMovedBody": "Setările Vision Bridge sunt acum disponibile pe pagina dedicată Modality Bridge.",
-    "modalityBridgeMovedCta": "Deschide setările Modality Bridge"
+    "modalityBridgeMovedCta": "Deschide setările Modality Bridge",
+    "modalityBridgeAudioTitle": "Punte Audio",
+    "modalityBridgeAudioDesc": "Transcrieți audio cu un model de recunoaștere vocală înainte de a continua cu modelul de text ales.",
+    "modalityBridgeAudioEnabled": "Activează Podul Audio",
+    "modalityBridgeAudioEnabledDesc": "Înlocuiți părțile audio cu transcrieri atunci când modelul țintă nu poate procesa audio.",
+    "modalityBridgeAudioModel": "Model de recunoaștere vocală",
+    "modalityBridgeAudioModelAuto": "Auto (primul furnizor STT conectat)",
+    "modalityBridgeAudioMaxClips": "Maxim număr de clipuri audio per cerere",
+    "modalityBridgeAudioTestButton": "Testați cu audio de probă",
+    "modalityBridgeAudioTestRunning": "Testare audio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip-uri transcrise de {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge nu s-a activat (ținta poate suporta audio, nu este conectat niciun furnizor STT sau podul este dezactivat)",
+    "modalityBridgeAudioTestError": "Testul audio a eșuat: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

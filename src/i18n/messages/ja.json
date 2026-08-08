@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "ビデオブリッジ（フレームサンプリング + キャプショニング）はバックログにあります — イシュー #9760 を参照してください。",
     "modalityBridgeMovedTitle": "Vision Bridgeが移動しました",
     "modalityBridgeMovedBody": "Vision Bridgeの設定は、専用のModality Bridgeページに移動しました。",
-    "modalityBridgeMovedCta": "モダリティブリッジの設定を開く"
+    "modalityBridgeMovedCta": "モダリティブリッジの設定を開く",
+    "modalityBridgeAudioTitle": "オーディオブリッジ",
+    "modalityBridgeAudioDesc": "音声をテキストモデルで続行する前に、音声を音声認識モデルで文字起こししてください。",
+    "modalityBridgeAudioEnabled": "オーディオブリッジを有効にする",
+    "modalityBridgeAudioEnabledDesc": "ターゲットモデルが音声を処理できない場合は、音声部分をトランスクリプトに置き換えます。",
+    "modalityBridgeAudioModel": "音声認識モデル",
+    "modalityBridgeAudioModelAuto": "自動 (最初に接続された STT プロバイダー)",
+    "modalityBridgeAudioMaxClips": "リクエストごとの最大オーディオクリップ数",
+    "modalityBridgeAudioTestButton": "サンプル音声でテストする",
+    "modalityBridgeAudioTestRunning": "オーディオをテスト中…",
+    "modalityBridgeAudioTestOk": "オーディオブリッジ OK — {count} 件のクリップが {model} によって文字起こしされました",
+    "modalityBridgeAudioTestNoop": "Audio Bridgeはアクティブになりませんでした（ターゲットはオーディオをサポートしている可能性がありますが、STTプロバイダーが接続されていないか、ブリッジが無効になっています）",
+    "modalityBridgeAudioTestError": "オーディオテストに失敗しました: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

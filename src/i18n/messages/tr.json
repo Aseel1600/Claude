@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video köprüleme (çerçeve örnekleme + altyazı) beklemede — sorun #9760'a bakın.",
     "modalityBridgeMovedTitle": "Vision Bridge taşındı",
     "modalityBridgeMovedBody": "Vision Bridge ayarları artık özel Modality Bridge sayfasında yer alıyor.",
-    "modalityBridgeMovedCta": "Modality Bridge ayarlarını açın"
+    "modalityBridgeMovedCta": "Modality Bridge ayarlarını açın",
+    "modalityBridgeAudioTitle": "Ses Köprüsü",
+    "modalityBridgeAudioDesc": "Seçilen metin modeliyle devam etmeden önce sesi metne dönüştürme modelini kullanarak sesi transkribe et.",
+    "modalityBridgeAudioEnabled": "Ses Köprüsünü Etkinleştir",
+    "modalityBridgeAudioEnabledDesc": "Hedef model ses işleyemediğinde ses parçalarını transkriptlerle değiştir.",
+    "modalityBridgeAudioModel": "Konuşmadan Metne Modeli",
+    "modalityBridgeAudioModelAuto": "Otomatik (ilk bağlı STT sağlayıcısı)",
+    "modalityBridgeAudioMaxClips": "Her istekteki maksimum ses klibi",
+    "modalityBridgeAudioTestButton": "Örnek ses ile test et",
+    "modalityBridgeAudioTestRunning": "Ses testi yapılıyor…",
+    "modalityBridgeAudioTestOk": "Ses Köprüsü Tamam — {count} klip {model} tarafından transkribe edildi",
+    "modalityBridgeAudioTestNoop": "Ses Köprüsü etkinleştirilemedi (hedef ses desteği verebilir, STT sağlayıcısı bağlı değil veya köprü devre dışı)",
+    "modalityBridgeAudioTestError": "Ses testi başarısız oldu: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

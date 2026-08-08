@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "ভিডিও ব্রিজিং (ফ্রেম স্যাম্পলিং + ক্যাপশনিং) ব্যাকলগে রয়েছে — সমস্যা #9760 দেখুন।",
     "modalityBridgeMovedTitle": "ভিশন ব্রিজ স্থানান্তরিত হয়েছে",
     "modalityBridgeMovedBody": "ভিশন ব্রিজের সেটিংস এখন নির্দিষ্ট মডালিটি ব্রিজ পৃষ্ঠায় লাইভ।",
-    "modalityBridgeMovedCta": "মোডালিটি ব্রিজ সেটিংস খুলুন"
+    "modalityBridgeMovedCta": "মোডালিটি ব্রিজ সেটিংস খুলুন",
+    "modalityBridgeAudioTitle": "অডিও ব্রিজ",
+    "modalityBridgeAudioDesc": "নির্বাচিত টেক্সট মডেলের সাথে এগিয়ে যাওয়ার আগে একটি স্পিচ-টু-টেক্সট মডেলের সাহায্যে অডিও ট্রান্সক্রাইব করুন।",
+    "modalityBridgeAudioEnabled": "অডিও ব্রিজ সক্রিয় করুন",
+    "modalityBridgeAudioEnabledDesc": "লক্ষ্য মডেল অডিও প্রক্রিয়া করতে না পারলে অডিও অংশগুলি ট্রান্সক্রিপ্টের সাথে প্রতিস্থাপন করুন।",
+    "modalityBridgeAudioModel": "স্পিচ-টু-টেক্সট মডেল",
+    "modalityBridgeAudioModelAuto": "অটো (প্রথম সংযুক্ত STT প্রদানকারী)",
+    "modalityBridgeAudioMaxClips": "প্রতি অনুরোধে সর্বাধিক অডিও ক্লিপ",
+    "modalityBridgeAudioTestButton": "নমুনা অডিওর সাথে পরীক্ষা করুন",
+    "modalityBridgeAudioTestRunning": "অডিও পরীক্ষা করা হচ্ছে…",
+    "modalityBridgeAudioTestOk": "অডিও ব্রিজ ঠিক আছে — {count} ক্লিপ(গুলি) {model} দ্বারা ট্রান্সক্রাইব করা হয়েছে",
+    "modalityBridgeAudioTestNoop": "অডিও ব্রিজ সক্রিয় হয়নি (লক্ষ্য অডিও সমর্থন করতে পারে, কোন STT প্রদানকারী সংযুক্ত নয়, অথবা ব্রিজ নিষ্ক্রিয় রয়েছে)",
+    "modalityBridgeAudioTestError": "অডিও পরীক্ষা ব্যর্থ: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

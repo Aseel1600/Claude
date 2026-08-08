@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "ویڈیو برجنگ (فریم سیمپلنگ + کیپشننگ) بیک لاگ میں ہے — مسئلہ #9760 دیکھیں۔",
     "modalityBridgeMovedTitle": "ویژن برج منتقل ہوگیا",
     "modalityBridgeMovedBody": "ویژن برج کی ترتیبات اب مخصوص موڈالیٹی برج صفحے میں موجود ہیں۔",
-    "modalityBridgeMovedCta": "موڈالیٹی برج کی ترتیبات کھولیں"
+    "modalityBridgeMovedCta": "موڈالیٹی برج کی ترتیبات کھولیں",
+    "modalityBridgeAudioTitle": "آڈیو برج",
+    "modalityBridgeAudioDesc": "آڈیو کو تقریر سے متن ماڈل کے ساتھ نقل کریں اس سے پہلے کہ منتخب کردہ متن ماڈل کے ساتھ جاری رکھیں۔",
+    "modalityBridgeAudioEnabled": "آڈیو برج فعال کریں",
+    "modalityBridgeAudioEnabledDesc": "جب ہدف ماڈل آڈیو کو پروسیس نہیں کر سکتا تو آڈیو کے حصے کو تحریری شکل سے تبدیل کریں۔",
+    "modalityBridgeAudioModel": "تقریر سے متن ماڈل",
+    "modalityBridgeAudioModelAuto": "خودکار (پہلا منسلک STT فراہم کنندہ)",
+    "modalityBridgeAudioMaxClips": "فی درخواست زیادہ سے زیادہ آڈیو کلپس",
+    "modalityBridgeAudioTestButton": "نمونہ آڈیو کے ساتھ ٹیسٹ کریں",
+    "modalityBridgeAudioTestRunning": "آڈیو کی جانچ ہو رہی ہے…",
+    "modalityBridgeAudioTestOk": "آڈیو برج ٹھیک ہے — {count} کلپ(ز) کی نقل {model} کے ذریعے کی گئی",
+    "modalityBridgeAudioTestNoop": "آڈیو برج فعال نہیں ہوا (ہو سکتا ہے کہ ہدف آڈیو کی حمایت کرتا ہو، کوئی STT فراہم کنندہ منسلک نہیں ہے، یا برج غیر فعال ہے)",
+    "modalityBridgeAudioTestError": "آڈیو ٹیسٹ ناکام: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Videobrobyggning (ramprovtagning + textning) ligger på backloggen — se ärende #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge flyttad",
     "modalityBridgeMovedBody": "Inställningarna för Vision Bridge finns nu på den dedikerade Modality Bridge-sidan.",
-    "modalityBridgeMovedCta": "Öppna inställningar för Modality Bridge"
+    "modalityBridgeMovedCta": "Öppna inställningar för Modality Bridge",
+    "modalityBridgeAudioTitle": "Ljudbro",
+    "modalityBridgeAudioDesc": "Transkribera ljud med en tal-till-text-modell innan du fortsätter med den valda textmodellen.",
+    "modalityBridgeAudioEnabled": "Aktivera Ljudbro",
+    "modalityBridgeAudioEnabledDesc": "Ersätt ljuddelar med transkriptioner när målmodellen inte kan bearbeta ljud.",
+    "modalityBridgeAudioModel": "Tal-till-text-modell",
+    "modalityBridgeAudioModelAuto": "Auto (först ansluten STT-leverantör)",
+    "modalityBridgeAudioMaxClips": "Max ljudklipp per begäran",
+    "modalityBridgeAudioTestButton": "Testa med provljud",
+    "modalityBridgeAudioTestRunning": "Testar ljud…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klipp transkriberade av {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge aktiverades inte (målet kan stödja ljud, ingen STT-leverantör är ansluten, eller bron är inaktiverad)",
+    "modalityBridgeAudioTestError": "Ljudtestet misslyckades: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) is on the backlog — see issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge moved",
     "modalityBridgeMovedBody": "Vision Bridge settings now live in the dedicated Modality Bridge page.",
-    "modalityBridgeMovedCta": "Open Modality Bridge settings"
+    "modalityBridgeMovedCta": "Open Modality Bridge settings",
+    "modalityBridgeAudioTitle": "Audio Bridge",
+    "modalityBridgeAudioDesc": "Transcribe audio with a speech-to-text model before continuing with the chosen text model.",
+    "modalityBridgeAudioEnabled": "Enable Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "Replace audio parts with transcripts when the target model cannot process audio.",
+    "modalityBridgeAudioModel": "Speech-to-text model",
+    "modalityBridgeAudioModelAuto": "Auto (first connected STT provider)",
+    "modalityBridgeAudioMaxClips": "Max audio clips per request",
+    "modalityBridgeAudioTestButton": "Test with sample audio",
+    "modalityBridgeAudioTestRunning": "Testing audio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) transcribed by {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge did not activate (the target may support audio, no STT provider is connected, or the bridge is disabled)",
+    "modalityBridgeAudioTestError": "Audio test failed: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

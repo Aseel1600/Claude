@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Le pont vidéo (échantillonnage d'images + sous-titrage) est dans la liste des tâches — voir l'issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge déplacé",
     "modalityBridgeMovedBody": "Les paramètres de Vision Bridge sont désormais disponibles sur la page dédiée à Modality Bridge.",
-    "modalityBridgeMovedCta": "Ouvrir les paramètres du pont de modalité"
+    "modalityBridgeMovedCta": "Ouvrir les paramètres du pont de modalité",
+    "modalityBridgeAudioTitle": "Pont Audio",
+    "modalityBridgeAudioDesc": "Transcrivez l'audio avec un modèle de reconnaissance vocale avant de continuer avec le modèle de texte choisi.",
+    "modalityBridgeAudioEnabled": "Activer le Pont Audio",
+    "modalityBridgeAudioEnabledDesc": "Remplacez les parties audio par des transcriptions lorsque le modèle cible ne peut pas traiter l'audio.",
+    "modalityBridgeAudioModel": "Modèle de reconnaissance vocale",
+    "modalityBridgeAudioModelAuto": "Auto (premier fournisseur STT connecté)",
+    "modalityBridgeAudioMaxClips": "Nombre maximum de clips audio par demande",
+    "modalityBridgeAudioTestButton": "Tester avec un audio d'exemple",
+    "modalityBridgeAudioTestRunning": "Test de l'audio…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) transcrit(s) par {model}",
+    "modalityBridgeAudioTestNoop": "Le pont audio ne s'est pas activé (la cible peut prendre en charge l'audio, aucun fournisseur STT n'est connecté, ou le pont est désactivé)",
+    "modalityBridgeAudioTestError": "Échec du test audio : {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

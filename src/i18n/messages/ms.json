@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "Jambatan video (pengambilan bingkai + penulisan) berada dalam senarai tunggu — lihat isu #9760.",
     "modalityBridgeMovedTitle": "Jambatan Visi dipindahkan",
     "modalityBridgeMovedBody": "Tetapan Vision Bridge kini tersedia di halaman Modality Bridge yang khusus.",
-    "modalityBridgeMovedCta": "Buka tetapan Jambatan Modality"
+    "modalityBridgeMovedCta": "Buka tetapan Jambatan Modality",
+    "modalityBridgeAudioTitle": "Jambatan Audio",
+    "modalityBridgeAudioDesc": "Transkrip audio dengan model pertuturan-ke-teks sebelum meneruskan dengan model teks yang dipilih.",
+    "modalityBridgeAudioEnabled": "Aktifkan Jambatan Audio",
+    "modalityBridgeAudioEnabledDesc": "Gantikan bahagian audio dengan transkrip apabila model sasaran tidak dapat memproses audio.",
+    "modalityBridgeAudioModel": "Model Pertuturan-ke-teks",
+    "modalityBridgeAudioModelAuto": "Auto (penyedia STT yang pertama disambungkan)",
+    "modalityBridgeAudioMaxClips": "Maksimum klip audio setiap permintaan",
+    "modalityBridgeAudioTestButton": "Uji dengan audio sampel",
+    "modalityBridgeAudioTestRunning": "Menguji audio…",
+    "modalityBridgeAudioTestOk": "Jambatan Audio OK — {count} klip telah ditranskripsikan oleh {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge tidak diaktifkan (sasaran mungkin menyokong audio, tiada penyedia STT yang disambungkan, atau jambatan dinyahdayakan)",
+    "modalityBridgeAudioTestError": "Ujian audio gagal: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

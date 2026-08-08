@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "การเชื่อมโยงวิดีโอ (การสุ่มตัวอย่างเฟรม + การใส่คำบรรยาย) อยู่ในรายการที่รอการดำเนินการ — ดูปัญหา #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge ถูกย้ายแล้ว",
     "modalityBridgeMovedBody": "การตั้งค่า Vision Bridge ตอนนี้อยู่ในหน้า Modality Bridge ที่จัดเตรียมไว้เฉพาะ.",
-    "modalityBridgeMovedCta": "เปิดการตั้งค่า Modality Bridge"
+    "modalityBridgeMovedCta": "เปิดการตั้งค่า Modality Bridge",
+    "modalityBridgeAudioTitle": "สะพานเสียง",
+    "modalityBridgeAudioDesc": "ถอดเสียงออดิโอด้วยโมเดลการแปลงคำพูดเป็นข้อความก่อนที่จะดำเนินการต่อด้วยโมเดลข้อความที่เลือก",
+    "modalityBridgeAudioEnabled": "เปิดใช้งาน Audio Bridge",
+    "modalityBridgeAudioEnabledDesc": "แทนที่ส่วนเสียงด้วยข้อความเมื่อโมเดลเป้าหมายไม่สามารถประมวลผลเสียงได้.",
+    "modalityBridgeAudioModel": "โมเดลแปลงเสียงเป็นข้อความ",
+    "modalityBridgeAudioModelAuto": "อัตโนมัติ (ผู้ให้บริการ STT ที่เชื่อมต่อครั้งแรก)",
+    "modalityBridgeAudioMaxClips": "คลิปเสียงสูงสุดต่อคำขอ",
+    "modalityBridgeAudioTestButton": "ทดสอบด้วยเสียงตัวอย่าง",
+    "modalityBridgeAudioTestRunning": "กำลังทดสอบเสียง…",
+    "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} คลิป(ส์) ถูกถอดความโดย {model}",
+    "modalityBridgeAudioTestNoop": "Audio Bridge ไม่ได้เปิดใช้งาน (เป้าหมายอาจรองรับเสียง, ไม่มีผู้ให้บริการ STT ที่เชื่อมต่ออยู่, หรือสะพานถูกปิดใช้งาน)",
+    "modalityBridgeAudioTestError": "การทดสอบเสียงล้มเหลว: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",

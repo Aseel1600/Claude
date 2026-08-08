@@ -7684,7 +7684,19 @@
     "modalityBridgeVideoComingSoon": "વિડિયો બ્રિજિંગ (ફ્રેમ નમૂનાકરણ + કેપ્શનિંગ) બેકલોગમાં છે — મુદ્દો #9760 જુઓ.",
     "modalityBridgeMovedTitle": "વિઝન બ્રિજ ખસેડાયો",
     "modalityBridgeMovedBody": "વિઝન બ્રિજની સેટિંગ્સ હવે સમર્પિત મોડાલિટી બ્રિજ પૃષ્ઠમાં જીવંત છે.",
-    "modalityBridgeMovedCta": "મોડાલિટી બ્રિજ સેટિંગ્સ ખોલો"
+    "modalityBridgeMovedCta": "મોડાલિટી બ્રિજ સેટિંગ્સ ખોલો",
+    "modalityBridgeAudioTitle": "ઓડિયો બ્રિજ",
+    "modalityBridgeAudioDesc": "ચૂંટાયેલા ટેક્સ્ટ મોડલ સાથે આગળ વધવા પહેલા બોલીને લખવા માટેના મોડલ સાથે ઓડિયોનું લખાણ બનાવો.",
+    "modalityBridgeAudioEnabled": "ઓડિયો બ્રિજ સક્રિય કરો",
+    "modalityBridgeAudioEnabledDesc": "જ્યારે લક્ષ્ય મોડેલ ઓડિયો પ્રક્રિયા કરી શકતું નથી ત્યારે ઓડિયો ભાગોને ટ્રાન્સક્રિપ્ટ સાથે બદલવા.",
+    "modalityBridgeAudioModel": "વાણી-થી-ટેક્સ્ટ મોડેલ",
+    "modalityBridgeAudioModelAuto": "ઓટો (પ્રથમ જોડાયેલ STT પ્રદાતા)",
+    "modalityBridgeAudioMaxClips": "પ્રતિ વિનંતી મહત્તમ ઓડિયો ક્લિપ્સ",
+    "modalityBridgeAudioTestButton": "નમૂના ઓડિયો સાથે પરીક્ષણ કરો",
+    "modalityBridgeAudioTestRunning": "ઓડિયોનું પરીક્ષણ કરી રહ્યું છે…",
+    "modalityBridgeAudioTestOk": "ઓડિયો બ્રિજ ઠીક છે — {count} ક્લિપ(ઓ) {model} દ્વારા લખવામાં આવ્યા",
+    "modalityBridgeAudioTestNoop": "ઓડિયો બ્રિજ સક્રિય થયો નથી (લક્ષ્ય ઓડિયોને સપોર્ટ કરી શકે છે, કોઈ STT પ્રદાતા જોડાયેલ નથી, અથવા બ્રિજ નિષ્ક્રિય છે)",
+    "modalityBridgeAudioTestError": "ઓડિયો પરીક્ષણ નિષ્ફળ ગયું: {message}"
   },
   "contextRtk": {
     "title": "RTK Engine",
