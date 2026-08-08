@@ -2295,7 +2295,7 @@
     "suggestedModels": "Suggested models from provider",
     "imageGeneration": "Image Generation",
     "imageToText": "Image to Text",
-    "imageToTextComingSoon": "The inline Image-to-Text playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
+    "imageToTextComingSoon": "Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configure the Image→Text bridge in Modality Bridge settings",
     "sttBridgeCta": "Configure the Speech→Text bridge in Modality Bridge settings",
     "disabled": "Disabled",
