@@ -47,10 +47,13 @@ export async function loadOrCreateMitmCa(
 ): Promise<MitmCaPair> {
   const { keyPath, certPath } = caPaths(certDir);
 
-  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  if (
+    fs.existsSync(/*turbopackIgnore: true*/ keyPath) &&
+    fs.existsSync(/*turbopackIgnore: true*/ certPath)
+  ) {
     return {
-      key: fs.readFileSync(keyPath, "utf-8"),
-      cert: fs.readFileSync(certPath, "utf-8"),
+      key: fs.readFileSync(/*turbopackIgnore: true*/ keyPath, "utf-8"),
+      cert: fs.readFileSync(/*turbopackIgnore: true*/ certPath, "utf-8"),
       keyPath,
       certPath,
     };
@@ -58,12 +61,12 @@ export async function loadOrCreateMitmCa(
 
   const ca = await generateMitmCa();
 
-  if (!fs.existsSync(certDir)) {
-    fs.mkdirSync(certDir, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ certDir)) {
+    fs.mkdirSync(/*turbopackIgnore: true*/ certDir, { recursive: true });
   }
 
-  fs.writeFileSync(keyPath, ca.key);
-  fs.writeFileSync(certPath, ca.cert);
+  fs.writeFileSync(/*turbopackIgnore: true*/ keyPath, ca.key);
+  fs.writeFileSync(/*turbopackIgnore: true*/ certPath, ca.cert);
   // Owner-only read/write — the CA private key must never be group/world-
   // readable (it can sign a trusted leaf for any host). No-op on Windows,
   // which does not honor POSIX chmod bits.

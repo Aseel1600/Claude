@@ -188,7 +188,7 @@ export function parseCliRegistry(): ParsedCliRegistry {
 
   let files: string[];
   try {
-    files = fs.readdirSync(commandsDir).filter((f) => f.endsWith(".mjs"));
+    files = fs.readdirSync(/*turbopackIgnore: true*/ commandsDir).filter((f) => f.endsWith(".mjs"));
   } catch (err) {
     throw new Error(
       `cliRegistryParser: could not read ${commandsDir}. ` +
@@ -207,7 +207,7 @@ export function parseCliRegistry(): ParsedCliRegistry {
     const filePath = path.join(commandsDir, file);
     let content: string;
     try {
-      content = fs.readFileSync(filePath, "utf-8");
+      content = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf-8");
     } catch {
       continue; // skip unreadable files
     }

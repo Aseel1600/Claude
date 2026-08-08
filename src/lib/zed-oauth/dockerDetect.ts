@@ -7,7 +7,8 @@ export interface DockerDetectDeps {
 
 const defaultDeps: DockerDetectDeps = {
   existsSync: fs.existsSync,
-  readFileSync: (path, encoding) => fs.readFileSync(path, encoding as BufferEncoding) as string,
+  readFileSync: (path, encoding) =>
+    fs.readFileSync(/*turbopackIgnore: true*/ path, encoding as BufferEncoding) as string,
 };
 
 /**

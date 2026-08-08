@@ -32,7 +32,7 @@ const LINUX_CERT_PATHS: LinuxCertConfig[] = [
 
 function getLinuxCertConfig(): LinuxCertConfig {
   for (const config of LINUX_CERT_PATHS) {
-    if (fs.existsSync(config.dir)) {
+    if (fs.existsSync(/*turbopackIgnore: true*/ config.dir)) {
       return config;
     }
   }
@@ -104,7 +104,7 @@ async function updateNssDatabases(
 
 // Get SHA1 fingerprint from cert file using Node.js crypto
 function getCertFingerprint(certPath: string): string {
-  const pem = fs.readFileSync(certPath, "utf-8");
+  const pem = fs.readFileSync(/*turbopackIgnore: true*/ certPath, "utf-8");
   const der = Buffer.from(pem.replace(/-----[^-]+-----/g, "").replace(/\s/g, ""), "base64");
   const pairs = crypto.createHash("sha1").update(der).digest("hex").toUpperCase().match(/.{2}/g);
   if (!pairs) {
@@ -154,7 +154,7 @@ async function checkCertInstalledLinux(certPath: string): Promise<boolean> {
   try {
     const config = getLinuxCertConfig();
     const destFile = `${config.dir}/${LINUX_CERT_NAME}`;
-    if (!fs.existsSync(destFile)) return false;
+    if (!fs.existsSync(/*turbopackIgnore: true*/ destFile)) return false;
     return getCertFingerprint(certPath) === getCertFingerprint(destFile);
   } catch {
     return false;
@@ -190,7 +190,7 @@ async function checkCertInstalledWindows(certPath: string): Promise<boolean> {
  * Install SSL certificate to system trust store
  */
 export async function installCert(sudoPassword: string, certPath: string): Promise<void> {
-  if (!fs.existsSync(certPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ certPath)) {
     throw new Error(`Certificate file not found: ${certPath}`);
   }
 
@@ -451,7 +451,7 @@ async function uninstallCertLinux(sudoPassword: string, certPath: string): Promi
     const config = getLinuxCertConfig();
     const destFile = `${config.dir}/${LINUX_CERT_NAME}`;
 
-    if (fs.existsSync(destFile)) {
+    if (fs.existsSync(/*turbopackIgnore: true*/ destFile)) {
       await execFileWithPassword("sudo", ["-S", "rm", "-f", destFile], sudoPassword);
     }
 

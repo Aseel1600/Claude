@@ -21,13 +21,16 @@ export async function generateCert(): Promise<{ key: string; cert: string }> {
   const keyPath = path.join(certDir, "server.key");
   const certPath = path.join(certDir, "server.crt");
 
-  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+  if (
+    fs.existsSync(/*turbopackIgnore: true*/ keyPath) &&
+    fs.existsSync(/*turbopackIgnore: true*/ certPath)
+  ) {
     console.log("✅ SSL certificate already exists");
     return { key: keyPath, cert: certPath };
   }
 
-  if (!fs.existsSync(certDir)) {
-    fs.mkdirSync(certDir, { recursive: true });
+  if (!fs.existsSync(/*turbopackIgnore: true*/ certDir)) {
+    fs.mkdirSync(/*turbopackIgnore: true*/ certDir, { recursive: true });
   }
 
   // Dynamic import for optional dependency
@@ -47,8 +50,8 @@ export async function generateCert(): Promise<{ key: string; cert: string }> {
     ],
   });
 
-  fs.writeFileSync(keyPath, pems.private);
-  fs.writeFileSync(certPath, pems.cert);
+  fs.writeFileSync(/*turbopackIgnore: true*/ keyPath, pems.private);
+  fs.writeFileSync(/*turbopackIgnore: true*/ certPath, pems.cert);
 
   console.log(`✅ Generated SSL certificate for ${TARGET_HOSTS.join(", ")}`);
   return { key: keyPath, cert: certPath };

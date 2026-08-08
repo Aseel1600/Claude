@@ -639,7 +639,7 @@ export const codexComparisonSuite = {
           {
             role: "user",
             content:
-              "Add proper error handling to this Node.js function: async function readFile(path) { const data = fs.readFileSync(path, 'utf8'); return JSON.parse(data); }",
+              "Add proper error handling to this Node.js function: async function readFile(path) { const data = fs.readFileSync(/*turbopackIgnore: true*/ path, 'utf8'); return JSON.parse(data); }",
           },
         ],
       },

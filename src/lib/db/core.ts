@@ -206,9 +206,9 @@ function openSqliteDatabase(sqliteFile: string, options?: Record<string, unknown
 }
 
 // Ensure data directory exists — with fallback for restricted home directories (#133)
-if (!isCloud && !fs.existsSync(DATA_DIR)) {
+if (!isCloud && !fs.existsSync(/*turbopackIgnore: true*/ DATA_DIR)) {
   try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(/*turbopackIgnore: true*/ DATA_DIR, { recursive: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(
@@ -549,7 +549,7 @@ function listProbeFailureBackups(sqliteFile: string): string[] {
   const directory = path.dirname(sqliteFile);
   const baseName = path.basename(sqliteFile);
   const prefix = `${baseName}.probe-failed-`;
-  if (!fs.existsSync(directory)) return [];
+  if (!fs.existsSync(/*turbopackIgnore: true*/ directory)) return [];
 
   return fs
     .readdirSync(directory)
@@ -574,7 +574,7 @@ function captureCriticalDbState(sqliteFile: string): PreservedCriticalDbState {
     skippedTables: [],
   };
 
-  if (!fs.existsSync(sqliteFile)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ sqliteFile)) {
     snapshot.captureSucceeded = true;
     return snapshot;
   }
@@ -672,7 +672,8 @@ function cleanupRecreatedSqliteFiles(sqliteFile: string) {
     `${sqliteFile}-journal`,
   ]) {
     try {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (fs.existsSync(/*turbopackIgnore: true*/ filePath))
+        fs.unlinkSync(/*turbopackIgnore: true*/ filePath);
     } catch {
       /* ignore */
     }
@@ -845,8 +846,8 @@ function createManagedDbBackup(db: SqliteDatabase, reason: string): boolean {
 
   try {
     const backupDir = DB_BACKUPS_DIR || path.join(DATA_DIR, "db_backups");
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+    if (!fs.existsSync(/*turbopackIgnore: true*/ backupDir)) {
+      fs.mkdirSync(/*turbopackIgnore: true*/ backupDir, { recursive: true });
     }
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -994,7 +995,7 @@ export function getDbInstance(): SqliteDatabase {
   }
   const jsonDbFile = JSON_DB_FILE;
   const probeFailureBackups = listProbeFailureBackups(sqliteFile);
-  if (!fs.existsSync(sqliteFile) && probeFailureBackups.length > 0) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ sqliteFile) && probeFailureBackups.length > 0) {
     // Cycle-breaker: a previous probe failure renamed the DB to
     // `storage.sqlite.probe-failed-<ts>` and the next caller auto-restored it.
     // When the same DB continues to fail the probe (typically an OOM on a
@@ -1044,11 +1045,11 @@ export function getDbInstance(): SqliteDatabase {
   // This is needed so the migration runner skips the mass-migration safety abort
   // that would otherwise trigger because heuristic seeding marks some migrations
   // as applied, making the fresh DB look like a wiped existing DB (#1328).
-  const isNewDb = !fs.existsSync(sqliteFile);
+  const isNewDb = !fs.existsSync(/*turbopackIgnore: true*/ sqliteFile);
 
   // Detect and handle old schema format — preserve data when possible (#146)
   // Uses a single probe connection that becomes the real connection when possible.
-  if (fs.existsSync(sqliteFile)) {
+  if (fs.existsSync(/*turbopackIgnore: true*/ sqliteFile)) {
     try {
       const probe = openSqliteDatabase(sqliteFile, { readonly: true });
       const hasOldSchema = probe
@@ -1088,7 +1089,8 @@ export function getDbInstance(): SqliteDatabase {
           fs.renameSync(sqliteFile, oldPath);
           for (const ext of ["-wal", "-shm"]) {
             try {
-              if (fs.existsSync(sqliteFile + ext)) fs.unlinkSync(sqliteFile + ext);
+              if (fs.existsSync(/*turbopackIgnore: true*/ sqliteFile + ext))
+                fs.unlinkSync(/*turbopackIgnore: true*/ sqliteFile + ext);
             } catch {
               /* ok */
             }
@@ -1226,7 +1228,7 @@ export function getDbInstance(): SqliteDatabase {
   offloadLegacyCallLogDetails(db);
 
   // Auto-migrate from db.json if exists
-  if (jsonDbFile && fs.existsSync(jsonDbFile)) {
+  if (jsonDbFile && fs.existsSync(/*turbopackIgnore: true*/ jsonDbFile)) {
     migrateFromJson(db, jsonDbFile);
   }
 
@@ -1406,7 +1408,7 @@ export async function ensureDbInitialized(): Promise<void> {
 
 function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
   try {
-    const raw = fs.readFileSync(jsonPath, "utf-8");
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ jsonPath, "utf-8");
     const data = JSON.parse(raw);
 
     const connCount = (data.providerConnections || []).length;
@@ -1582,8 +1584,10 @@ function migrateFromJson(db: SqliteDatabase, jsonPath: string) {
     console.log(`[DB] ✓ Migration complete. Original saved as ${migratedPath}`);
 
     const legacyBackupDir = path.join(DATA_DIR, "db_backups");
-    if (fs.existsSync(legacyBackupDir)) {
-      const jsonBackups = fs.readdirSync(legacyBackupDir).filter((f) => f.endsWith(".json"));
+    if (fs.existsSync(/*turbopackIgnore: true*/ legacyBackupDir)) {
+      const jsonBackups = fs
+        .readdirSync(/*turbopackIgnore: true*/ legacyBackupDir)
+        .filter((f) => f.endsWith(".json"));
       if (jsonBackups.length > 0) {
         console.log(
           `[DB] Note: ${jsonBackups.length} legacy .json backups remain in ${legacyBackupDir}`

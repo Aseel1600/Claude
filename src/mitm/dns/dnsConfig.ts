@@ -99,7 +99,7 @@ function dnsLines(hostname: string): string[] {
  */
 function readHostsFile(): string {
   try {
-    return fs.readFileSync(HOSTS_FILE, "utf8");
+    return fs.readFileSync(/*turbopackIgnore: true*/ HOSTS_FILE, "utf8");
   } catch {
     return "";
   }
@@ -184,12 +184,12 @@ const REMOVE_HOSTS_ENTRY_SCRIPT = `
 const fs = require("fs");
 const filePath = process.argv[1];
 const targetHost = process.argv[2];
-const content = fs.readFileSync(filePath, "utf8");
+const content = fs.readFileSync(/*turbopackIgnore: true*/ filePath, "utf8");
 const filtered = content.split(/\\r?\\n/).filter((line) => {
   const parts = line.trim().split(/\\s+/).filter(Boolean);
   return !(parts.length >= 2 && parts.includes(targetHost));
 });
-fs.writeFileSync(filePath, filtered.join("\\n").replace(/\\n*$/, "\\n"));
+fs.writeFileSync(/*turbopackIgnore: true*/ filePath, filtered.join("\\n").replace(/\\n*$/, "\\n"));
 `;
 
 /**

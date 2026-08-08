@@ -244,7 +244,7 @@ export async function runElevatedPowerShell(script: string): Promise<string> {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-elevate-"));
   const scriptName = `omniroute-elevate-${crypto.randomUUID()}.ps1`;
   const scriptPath = path.join(tempDir, scriptName);
-  fs.writeFileSync(scriptPath, script, { encoding: "utf8", mode: 0o600 });
+  fs.writeFileSync(/*turbopackIgnore: true*/ scriptPath, script, { encoding: "utf8", mode: 0o600 });
   try {
     return await runPowerShell(buildElevatedScriptWrapper(scriptPath));
   } finally {
@@ -269,7 +269,7 @@ export async function _runElevatedPowerShellForTest(
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-elevate-"));
   const scriptName = `omniroute-elevate-${crypto.randomUUID()}.ps1`;
   const scriptPath = path.join(tempDir, scriptName);
-  fs.writeFileSync(scriptPath, script, { encoding: "utf8", mode: 0o600 });
+  fs.writeFileSync(/*turbopackIgnore: true*/ scriptPath, script, { encoding: "utf8", mode: 0o600 });
   try {
     return await runner(buildElevatedScriptWrapper(scriptPath), scriptPath);
   } finally {

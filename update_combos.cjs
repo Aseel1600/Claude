@@ -8,11 +8,11 @@ const modelsMap = {
   'coding': [
     { provider: 'deepseek', model: 'deepseek-coder' },
     { provider: 'mistral', model: 'codestral-latest' },
-    { provider: 'groq', model: 'llama-3.1-70b-versatile' }
+    { provider: 'groq', model: 'llama-3.3-70b-versatile' }
   ],
   'free-agent': [
     { provider: 'gemini', model: 'gemini-2.0-flash' },
-    { provider: 'groq', model: 'llama-3.1-70b-versatile' },
+    { provider: 'groq', model: 'llama-3.3-70b-versatile' },
     { provider: 'nvidia', model: 'meta/llama-3.1-70b-instruct' }
   ],
   'smart': [
@@ -29,7 +29,7 @@ const modelsMap = {
   ],
   'fallback-all': [
     { provider: 'gemini', model: 'gemini-2.0-flash' },
-    { provider: 'groq', model: 'llama-3.1-70b-versatile' }
+    { provider: 'groq', model: 'llama-3.3-70b-versatile' }
   ]
 };
 

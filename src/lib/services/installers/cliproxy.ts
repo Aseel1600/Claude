@@ -103,10 +103,14 @@ export async function update(): Promise<InstallResult> {
 export function resolveSpawnArgs(port: number): SpawnArgs {
   const symlinkPath = path.join(BIN_DIR, "cliproxyapi");
 
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.mkdirSync(/*turbopackIgnore: true*/ CONFIG_DIR, { recursive: true });
   const configPath = path.join(CONFIG_DIR, "config.yaml");
-  if (!fs.existsSync(configPath)) {
-    fs.writeFileSync(configPath, `port: ${port}\nhost: 127.0.0.1\nlog_level: warn\n`, "utf8");
+  if (!fs.existsSync(/*turbopackIgnore: true*/ configPath)) {
+    fs.writeFileSync(
+      /*turbopackIgnore: true*/ configPath,
+      `port: ${port}\nhost: 127.0.0.1\nlog_level: warn\n`,
+      "utf8"
+    );
   }
 
   return {

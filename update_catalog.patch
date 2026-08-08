@@ -1,0 +1,45 @@
+--- src/lib/agentSkills/catalog.ts
++++ src/lib/agentSkills/catalog.ts
+@@ -88,7 +88,38 @@
+ }
+ 
+ function deriveCatalog(): AgentSkill[] {
+-  return CURATED_SKILLS.map(buildFullSkill);
++  const catalog = CURATED_SKILLS.map(buildFullSkill);
++  
++  // Dynamically load skills from filesystem that aren't in CURATED_SKILLS
++  try {
++    const skillsDir = path.resolve(process.cwd(), "skills");
++    if (fs.existsSync(skillsDir)) {
++      const entries = fs.readdirSync(skillsDir, { withFileTypes: true });
++      const curatedIds = new Set(CURATED_SKILLS.map((s) => s.id));
++      
++      for (const entry of entries) {
++        if (entry.isDirectory() && !curatedIds.has(entry.name)) {
++          const skillPath = path.join(skillsDir, entry.name, "SKILL.md");
++          if (fs.existsSync(skillPath)) {
++            const raw = fs.readFileSync(skillPath, "utf-8");
++            const parsed = parseMarkdownFrontmatter(raw);
++            
++            catalog.push({
++              id: entry.name,
++              name: parsed.frontmatter.name || entry.name,
++              description: parsed.frontmatter.description || `Dynamically loaded skill: ${entry.name}`,
++              category: "config", // Treat external skills as config for now
++              area: "config-codex-cli" as any, // Cast to any to bypass strict union
++              isNew: true,
++              rawUrl: `file://${skillPath}`,
++              githubUrl: `file://${skillPath}`,
++            });
++          }
++        }
++      }
++    }
++  } catch (e) {
++    console.error("Failed to dynamically load skills:", e);
++  }
++  
++  return catalog;
+ }
+ 
+ // ── Public API ───────────────────────────────────────────────────────────────

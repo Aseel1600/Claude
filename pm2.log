@@ -1,0 +1,477 @@
+[1m[90m[TAILING] Tailing last 200 lines for [omniroute] process (change the value with --lines option)[39m[22m
+[90m/Users/work/.pm2/logs/omniroute-error.log last 200 lines:[39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m⨯ Another next dev server is already running.
+[31m21|omnirou | [39m
+[31m21|omnirou | [39m- Local:        http://localhost:3001
+[31m21|omnirou | [39m- PID:          20496
+[31m21|omnirou | [39m- Dir:          /Users/work/serpentos/Hermes_Omni
+[31m21|omnirou | [39m- Log:          .build/next/dev/logs/next-development.log
+[31m21|omnirou | [39m
+[31m21|omnirou | [39mYou can access the existing server at http://localhost:3001,
+[31m21|omnirou | [39mor run kill 20496 to stop it and start a new one.
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+[31m21|omnirou | [39m[ARENA_ELO_SYNC] Failed to fetch "text" leaderboard: The operation was aborted due to timeout
+[31m21|omnirou | [39m[ARENA_ELO_SYNC] Failed to fetch "code" leaderboard: The operation was aborted due to timeout
+[31m21|omnirou | [39m[ARENA_ELO_SYNC] Sync failed: All Arena leaderboard fetches failed: The operation was aborted due to timeout; The operation was aborted due to timeout
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001] native=[TypeError fetch failed | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001]
+[31m21|omnirou | [39m[ModelSync] github (34afe2ad): fetch failed — fetch failed
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001] native=[TypeError fetch failed | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001]
+[31m21|omnirou | [39m[ModelSync] slavakononovtattoo@gmail.com (176734ec): fetch failed — fetch failed
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001] native=[TypeError fetch failed | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001]
+[31m21|omnirou | [39m[ModelSync] Kimi Code (API) (kimi-cod): fetch failed — fetch failed
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed code=PROXY_UNREACHABLE | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001] native=[TypeError fetch failed | connect ECONNREFUSED 127.0.0.1:3001 code=ECONNREFUSED syscall=connect errno=-61 address=127.0.0.1:3001]
+[31m21|omnirou | [39m[ModelSync] Antigravity (antigrav): fetch failed — fetch failed
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed code=PROXY_UNREACHABLE | AggregateError code=ECONNREFUSED | ↳ code=ECONNREFUSED syscall=connect address=::1:20128 | ↳ code=ECONNREFUSED syscall=connect address=127.0.0.1:20128
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed code=PROXY_UNREACHABLE | AggregateError code=ECONNREFUSED | ↳ code=ECONNREFUSED syscall=connect address=::1:20128 | ↳ code=ECONNREFUSED syscall=connect address=127.0.0.1:20128] native=[TypeError fetch failed | AggregateError code=ECONNREFUSED | ↳ code=ECONNREFUSED syscall=connect address=::1:20128 | ↳ code=ECONNREFUSED syscall=connect address=127.0.0.1:20128]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND llamagate.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.galadriel.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.lambda.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND api.monsterapi.ai code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008] native=[TypeError fetch failed | getaddrinfo ENOTFOUND serving.app.predibase.com code=ENOTFOUND syscall=getaddrinfo errno=-3008]
+[31m21|omnirou | [39m[ProxyFetch] Undici dispatcher failed, falling back to native fetch (after retry): TypeError fetch failed | self-signed certificate in certificate chain code=SELF_SIGNED_CERT_IN_CHAIN
+[31m21|omnirou | [39m[ProxyFetch] native fetch fallback ALSO failed: dispatcher=[TypeError fetch failed | self-signed certificate in certificate chain code=SELF_SIGNED_CERT_IN_CHAIN] native=[TypeError fetch failed | self-signed certificate in certificate chain code=SELF_SIGNED_CERT_IN_CHAIN]
+[31m21|omnirou | [39mnpm notice run omniroute@3.8.50 dev
+[31m21|omnirou | [39mnpm notice run node --max-old-space-size=8192 scripts/dev/run-next.mjs dev --port 20128
+[31m21|omnirou | [39m[bootstrap] ℹ️  The following OAuth integrations are not configured:
+[31m21|omnirou | [39m[bootstrap]    • Antigravity OAuth (ANTIGRAVITY_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    • Qoder OAuth (QODER_OAUTH_CLIENT_SECRET) — set in .env or /Users/work/.omniroute/server.env
+[31m21|omnirou | [39m[bootstrap]    These providers will not work until configured.
+[31m21|omnirou | [39m[bootstrap] ⚠️  INITIAL_PASSWORD is not set — using default 'CHANGEME'. Change it in Settings!
+
+[90m/Users/work/.pm2/logs/omniroute-out.log last 200 lines:[39m
+[32m21|omnirou | [39m[STARTUP] Provider limits sync scheduler started
+[32m21|omnirou | [39m[INFO] [QuotaAutoPing] scheduler started
+[32m21|omnirou | [39m[STARTUP] Quota auto-ping scheduler started (opt-in, no-op until enabled)
+[32m21|omnirou | [39m[ModelSync] Scheduler started — interval: 24h
+[32m21|omnirou | [39m[STARTUP] Cloud/model sync background bootstrap initialized
+[32m21|omnirou | [39m[BATCH] Initializing batch processor polling...
+[32m21|omnirou | [39m[STARTUP] Batch processor started
+[32m21|omnirou | [39m[STARTUP] Runtime settings hydrated: payloadRules, modelAliases, backgroundDegradation, cliCompatProviders, cacheControl, usageTracking, healthCheckLogs, thoughtSignature, modelsDevSync, corsOrigins, ccBridgeTransforms, systemTransforms, authzBypass, bannedSignals
+[32m21|omnirou | [39m[STARTUP] Model alias seed: applied=0, skipped=2, removed=0, failed=0
+[32m21|omnirou | [39m[HOT_RELOAD] Runtime config hot-reload started (poll=5000ms, fsWatch=on)
+[32m21|omnirou | [39m[proxyLogger] Loaded 200 proxy logs from SQLite
+[32m21|omnirou | [39m[CredentialHealth] Starting credential health check (initial delay 30s, interval 300s)
+[32m21|omnirou | [39m[STARTUP] Credential health scheduler started
+[32m21|omnirou | [39m[COMPLIANCE] Audit log table initialized
+[32m21|omnirou | [39m[STARTUP] Scheduled VACUUM initialized (#4437)
+[32m21|omnirou | [39m[AutoRefreshDaemon] Started — checking 0 credentials every 900s
+[32m21|omnirou | [39m[ARENA_ELO_SYNC] Starting periodic sync every 86400s
+[32m21|omnirou | [39m[PRICING_SYNC] Disabled (set PRICING_SYNC_ENABLED=true to enable)
+[32m21|omnirou | [39m[STARTUP] Arena ELO sync initialized
+[32m21|omnirou | [39m[ConnectionRecovery] Starting proactive cooldown recovery (tick every 60s)
+[32m21|omnirou | [39m[LiveWS] Seeded latest compression run from analytics: a621d3da-eee5-4f34-8515-309d21dc1415
+[32m21|omnirou | [39m[STARTUP] Live dashboard WebSocket daemon bootstrap invoked
+[32m21|omnirou | [39m[STARTUP] Embedded services bootstrap complete
+[32m21|omnirou | [39m[MODELS_DEV] Disabled (enable via Settings > AI)
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-flash" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-flash" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-flash" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-flash" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "openai/gpt-oss-120b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "openai/gpt-oss-120b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "openai/gpt-oss-120b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "deepseek-ai/deepseek-v4-pro" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "openai/gpt-oss-120b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "moonshotai/Kimi-K2.7-Code" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "moonshotai/Kimi-K2.7-Code" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "moonshotai/Kimi-K2.7-Code" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "qwen/qwen3.6-27b" as an exact model id
+[32m21|omnirou | [39m[MODEL] Treating "moonshotai/Kimi-K2.7-Code" as an exact model id
+[32m21|omnirou | [39m[STARTUP] Model catalog cache warmed
+[32m21|omnirou | [39m[STARTUP] OpenRouter model catalog cache warmed
+[32m21|omnirou | [39m[EmbedWsProxy] Listening on 127.0.0.1:20131
+[32m21|omnirou | [39m[LiveWS] Dashboard WebSocket server listening on 127.0.0.1:20132
+[32m21|omnirou | [39m[ModelSync] Starting model sync cycle — 4 connection(s)
+[32m21|omnirou | [39m[HealthCheck] github/34afe2ad-6d24-4ccd-9747-ac430ba73aa4 has no refresh token but has a GitHub access token; keeping connection active
+[32m21|omnirou | [39m[CredentialHealth] Testing 250/250 connections...
+[32m21|omnirou | [39m[CredentialHealth] ❌ openai-compatible/0a53f78b-a2ad-4e9f-9668-e1c1f2ac951d — Provider test not supported [11ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ qwen/f5626345-947f-46f8-930a-5dabd6a68331 — Provider test not supported [13ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[Next] dev server listening on http://0.0.0.0:3001 (turbopack)
+[32m21|omnirou | [39m[ModelSync] Cycle complete: 0/4 synced in 189ms
+[32m21|omnirou | [39m[CredentialHealth] ❌ puter/puter-free — Invalid API key [300ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ longcat/bfb70bc9-4e06-4d63-8283-630228e900e8 — Invalid API key [499ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ qoder/qoder-free — Local CLI runtime is not installed [2342ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ huggingface/b684540c-e84f-4591-a435-71a7620c1999 — Cannot convert argument to a ByteString because the character at index 41 has a value of 8232 which is greater than 255. [2479ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ xai-oauth/809a7805-67c4-4085-9195-6c0708189eaa — API returned 402 [2575ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ dgrid/1454ba3b-53d9-4d44-a322-910f62f19ac7 — Invalid API key [298ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ cheaperinference/80519c86-cc63-4ad6-981a-de0279e49d16 — Invalid API key [435ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ command-code/d63168d8-5a22-4be8-a1e2-b57a18683cce — Invalid API key [579ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ agentrouter/d1556537-17c8-44f1-85ab-3a1daae0dfab — Invalid API key [1356ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ orcarouter/3b98bf6e-dead-4807-8146-c4a67aa9b23b — Invalid API key [490ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[05:02:57.823] [32mINFO[39m: [36m[sse] Account 7bd8a34d error cleared (CAS)[39m
+[32m21|omnirou | [39m    [35mmodule[39m: "sse"
+[32m21|omnirou | [39m    [35mtag[39m: "AUTH"
+[32m21|omnirou | [39m[CredentialHealth] ❌ wafer/b02994c7-3bb6-4753-ae11-d85dc5e2a0e9 — Invalid API key [1410ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ freetheai/b6fa0b94-088c-4693-9221-a96f795eb7d4 — Invalid API key [375ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ uncloseai/79e43f97-1192-47aa-8f52-99ea5ed0300d — Provider unavailable (502) [1383ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ vercel-ai-gateway/2b8023d4-82ce-4684-8fe8-c716d361fed8 — Invalid API key [174ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ llamagate/24cf76c7-4894-47ff-af6a-7e2af4720d3a — fetch failed [299ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ gitlawb-gmi/e18cf4cd-fa35-453e-8c8d-2741f6c1eaaf — Invalid API key [321ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ gitlawb/243a74a5-f41b-44b1-bed6-47edc1b9544b — Invalid API key [447ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ piapi/7f56fc63-8257-4998-85e4-5032d7d9a66b — Provider test not supported [28ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ getgoapi/1406f87c-8ddf-44bb-a0fa-cc04b6128306 — Provider test not supported [23ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ laozhang/630cd8b8-8074-49f8-b382-d510ebc9d5e7 — Provider test not supported [24ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ thebai/05fd1dfc-faab-45ce-b9d6-3be9a2ff4276 — Provider test not supported [24ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ poe/d9986d2a-fd90-41c6-8f5e-37a03943fd4c — Invalid API key [332ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ bai/c662bf62-720d-4acd-8d27-913c7e63dccc — Invalid API key [414ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ empower/45ad5813-1da8-4e92-9ca6-9696da0ecd57 — Provider test not supported [34ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ fenayai/486b463e-cbf4-464d-bf18-a2845bd88f4d — Provider test not supported [35ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ factory/aaf1a527-f9af-494f-b0f2-c81ff6605f62 — Provider validation endpoint not supported [405ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[05:03:04.389] [32mINFO[39m: [36m[sse] Account 809a7805 error cleared (CAS)[39m
+[32m21|omnirou | [39m    [35mmodule[39m: "sse"
+[32m21|omnirou | [39m    [35mtag[39m: "AUTH"
+[32m21|omnirou | [39m[CredentialHealth] ❌ bluesminds/e664de41-5bca-489b-bb85-46e6726b98e0 — Invalid API key [233ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ chutes/add9d1d1-3f43-44c7-b8a5-2bd3bb939203 — Invalid API key [355ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ dit/d59eb062-3f1b-4fa0-a3cc-e275aba9e386 — Invalid API key [795ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ sumopod/f3649287-8b58-41ab-a5c3-02674adbf157 — Invalid API key [1465ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ x5lab/12522685-26e7-4799-a8d3-13b95f1d71e7 — Provider unavailable (530) [317ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ openadapter/2be7647a-1211-4154-8cf1-df1575bb0c23 — Invalid API key [534ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ tokenrouter/62848fc3-351d-4d7b-8b30-50e1adecbfd0 — Invalid API key [807ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ chenzk/cd8f98c9-8dd9-476a-bf9b-9dc3ce0ece72 — Invalid API key [2379ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ aion/97948c8e-564e-470c-abdf-b744c363162b — Invalid API key [330ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[ProxyHealth] Starting proxy health scheduler (interval: 600000ms)
+[32m21|omnirou | [39m[CredentialHealth] ❌ nara/422b54f9-f654-40fb-906d-fff9b0de72de — Invalid API key [654ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ reka/c30f7b6b-ad2e-46b6-90c3-21926e6c3924 — Invalid API key [153ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ anthropic/ee916845-395a-4184-9b07-9c26f969aaa1 — Invalid API key [477ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ mistral/bec0969f-65ae-41dc-be66-43d36dc8897b — Invalid API key [281ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ cohere/763467f5-1a9a-4ae9-a310-a952387d8050 — Invalid API key [376ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ perplexity/1ce7f3fc-b063-43ff-93e3-2ce96e4de76c — Invalid API key [410ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ galadriel/99886394-bd42-4cf0-b59f-ea73df3f2895 — fetch failed [424ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ morph/ad1d2458-2dd3-4f9a-b653-d9def966be1b — Invalid API key [90ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ meta-llama/27504e6f-2422-4eac-8265-6282a7b31910 — Invalid API key [135ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ nous-research/867d96b1-6466-416a-8d77-7a4d61bf8823 — Invalid API key [311ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ maritalk/bf819d44-a782-4947-8051-aa5a8aeb3304 — Invalid API key [766ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ upstage/d75885b8-e055-48be-afcf-9d09b683543f — Invalid API key [882ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ codestral/81d87255-39e1-4085-8bb7-de1916484c18 — Invalid API key [298ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ writer/42ffd640-20a0-4f9a-8bf2-06a97c359771 — Invalid API key [410ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ liquid/916bc15c-fb8c-4763-b264-5f7794d63f52 — Invalid API key [473ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ fireworks/56d3d5d6-9ea4-4cff-aec5-5b285f6a6e42 — Invalid API key [530ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ arcee-ai/b1a6a4c1-a859-42ec-82f5-62786c1d790e — Provider test not supported [25ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ siliconflow/223f9fd1-0d0b-4306-9487-02ee2a4efccf — Invalid API key [523ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ nube/d9ddeb1b-ebc5-4e92-ac6b-5030011e114c — Invalid API key [685ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ hyperbolic/1acffcad-79bb-4309-adcb-93c7739942c0 — Invalid API key [800ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ openvecta/664194e7-da9d-4884-9112-286782dc1463 — Invalid API key [309ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ nebius/b416aaff-ad3e-4531-b6b8-71f5c97c671e — Invalid API key [353ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ deepinfra/f6307c55-52ac-424b-b4fd-99ecf43d68dc — Invalid API key [701ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ nscale/305c1ad6-1214-42bd-8fd5-6290103c7f6e — Invalid API key [275ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ lambda-ai/02e9af45-1152-4c03-8dce-c475db3952e2 — fetch failed [307ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ baseten/01b22f14-f3e4-4c7e-9a72-8cb515e9a94c — Invalid API key [340ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ featherless-ai/ad32b81a-0fe4-4014-95f6-6f9c42db0a46 — Invalid API key [787ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ publicai/85befdb8-4a2b-45f8-b8d3-24c978fbada6 — Invalid API key [271ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ inference-net/a11e8b2e-55e4-4b4e-b378-36f118100160 — Invalid API key [418ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ wandb/d4732e05-ee59-45b3-b4a1-0c4d00a0807a — Invalid API key [522ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ monsterapi/b54896e1-acf7-4100-9e18-f45b2456acdf — fetch failed [647ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ bytez/1ba3efe1-06e5-48ce-93bf-9dced73dc5ca — Invalid API key [299ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ azure-ai/92b248f6-87b9-479b-9b8b-e52dade0cf40 — Invalid API key [382ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ predibase/3dcf4649-7c03-4fdb-88b2-1bac201fb63a — fetch failed [420ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ bedrock/2511a80c-a6a5-4acc-a25e-3a0439b401ce — Invalid API key [524ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ byteplus/d35eed01-d625-4011-ad2d-4eeca7a39d3f — Invalid API key [746ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ azure-openai/82265a58-9a51-4c9a-9298-d053e64cba05 — Missing base URL [34ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ digitalocean/74fdfca2-e1a6-49c3-8254-a652103f22a7 — Invalid API key [316ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ watsonx/42e05ebc-d134-47ea-ad61-9f20bf324741 — Invalid API key [819ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity refreshed
+[32m21|omnirou | [39m[CredentialHealth] ❌ oci/0300cc22-79f8-4ef0-8c9f-0340121c1c34 — Invalid API key [1342ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ modal/a5d5b559-97a6-496d-9fe4-a9a29bd96b8f — Invalid outbound URL:  [93ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ scaleway/6ef89557-85c0-4175-af68-6e76ef41c8a0 — Invalid API key [237ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ ovhcloud/35d1b82e-4643-43ef-8098-9fd3f5eb8a8b — Invalid API key [269ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ databricks/a16ac17b-4de3-416e-aa5d-71c2fad52d18 — Missing base URL [40ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity projectId discovered during refresh: polar-weaver-2tclv
+[32m21|omnirou | [39m[CredentialHealth] ❌ clarifai/aa71f371-f781-40af-946c-99155c4c3018 — Invalid API key [692ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ qianfan/bbf3bde6-93ff-4b3a-acb5-a097111fb5ea — Invalid API key [1093ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ heroku/91c06d49-073c-49d9-b64f-f59bd8330023 — Missing base URL [28ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ snowflake/94a20d62-fa07-41ba-bdad-48d076d0b8e9 — Missing base URL [29ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ bailian-coding-plan/561f427a-1df7-46cf-899e-9ed61345fe5b — Invalid API key [858ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ glm/37a8e485-3177-46ca-9fd4-53408634e872 — Invalid API key [1003ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ glmt/ca7a155c-988d-43ba-971c-571bb0d679c1 — Invalid API key [1035ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ glm-cn/d4830be9-b2ea-462a-8067-c35f59aab73f — Invalid API key [288ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ qwen-cloud/c22ca10b-3907-4e6f-b9f7-53c0850bb313 — Invalid API key [686ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ qwen-cloud-token-plan/fc29d826-8de5-4266-9677-a663fa709cc8 — Invalid API key [722ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity refreshed
+[32m21|omnirou | [39m[CredentialHealth] ❌ zai/fbff3609-132c-492a-9c50-41a6603aa9b7 — Invalid API key [1539ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity projectId discovered during refresh: isometric-tendril-lfb6s
+[32m21|omnirou | [39m[CredentialHealth] ❌ minimax-cn/69617fca-c974-41d2-b2a4-5d2f1b849cf9 — Invalid API key [1922ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ kimi/62a54a22-c074-4007-9b7b-9784b2a7cb37 — Invalid API key [520ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ minimax/6e44c652-6ed0-44d2-9c61-c28289284b42 — Invalid API key [660ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ alibaba/db532af8-08a3-4589-bef3-30c8350c2b8d — Invalid API key [882ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ alibaba-cn/f20ca3c9-fe7f-406c-af34-6d388cc72e24 — Invalid API key [1061ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ volcengine/aa953628-bcbd-40ea-a395-acbc7ddca48f — Invalid API key [2233ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ moonshot/994f4192-a991-4996-9bfa-7bb6a7f583f2 — Invalid API key [527ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity refreshed
+[32m21|omnirou | [39m[CredentialHealth] ❌ xiaomi-mimo-token-plan/67977290-9d6a-4d4c-adc0-821b481829f3 — Invalid API key [927ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ yi/beb4c757-62f7-45d2-a646-c5d298c158aa — Invalid API key [1326ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ tencent/9cd0617a-4971-46fb-9d6d-a0f9e19d5f97 — Invalid API key [1873ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity projectId discovered during refresh: grand-vigil-qmvz5
+[32m21|omnirou | [39mTOKEN Antigravity refreshed
+[32m21|omnirou | [39m[CredentialHealth] ❌ baidu/d5b875f1-6395-4430-bac7-b5120304d2c8 — Invalid API key [5878ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ xiaomi-mimo/7bd8a34d-45aa-4159-9c45-d028f4067310 — Invalid API key [286ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39mTOKEN Antigravity projectId discovered during refresh: isometric-tendril-lfb6s
+[32m21|omnirou | [39m[CredentialHealth] ❌ gigachat/318c3bfc-ee0c-4f74-82b8-d55e28372837 — fetch failed [796ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ coze/0d817a49-5dd8-4d14-b0c9-49b60216a8e0 — Provider validation endpoint not supported [950ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ doubao/0bbd928d-6d57-404f-8c69-47e6f53af675 — Invalid API key [979ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m[CredentialHealth] ❌ stepfun/930f3cf5-16b6-4584-ae7d-5bff7f6dc9c1 — Invalid API key [1211ms] (failure #1, next check in 600s)
+[32m21|omnirou | [39m
+[32m21|omnirou | [39m[Shutdown] Received SIGINT. Draining 0 request(s)...
+[32m21|omnirou | [39m[Shutdown] All in-flight requests drained.
+[32m21|omnirou | [39m[DB] SQLite WAL checkpoint completed (TRUNCATE).
+[32m21|omnirou | [39m[Shutdown] SQLite database checkpointed and closed.
+[32m21|omnirou | [39m[Shutdown] Log rotation timer stopped.
+[32m21|omnirou | [39m[Shutdown] Bye.
+[32m21|omnirou | [39m[MDX] closing dev server
+[32m21|omnirou | [39m[MDX] generated files in 17.23112500000002ms
+[32m21|omnirou | [39m✓ Running next.config.mjs took 340ms
+[32m21|omnirou | [39m[MDX] started dev server
+[32m21|omnirou | [39m○ Compiling /instrumentation ...
+
+[31m21|omniroute  | [39m⚠ ./open-sse/services/browserPool.ts
+[31m21|omniroute  | [39mCritical dependency: the request of a dependency is an expression
+[31m21|omniroute  | [39mImport trace for requested module:
+[31m21|omniroute  | [39m./open-sse/services/browserPool.ts
+[31m21|omniroute  | [39m./open-sse/services/grokClearance.ts
+[31m21|omniroute  | [39m./open-sse/executors/grok-web.ts
+[31m21|omniroute  | [39m./open-sse/executors/index.ts
+[31m21|omniroute  | [39m./open-sse/index.ts
+[31m21|omniroute  | [39m./src/instrumentation-node.ts
+[31m21|omniroute  | [39m./src/lib/db/adapters/driverFactory.ts
+[31m21|omniroute  | [39mCritical dependency: require function is used in a way in which dependencies cannot be statically extracted
+[31m21|omniroute  | [39mImport trace for requested module:
+[31m21|omniroute  | [39m./src/lib/db/adapters/driverFactory.ts
+[31m21|omniroute  | [39m./src/lib/db/core.ts
+[31m21|omniroute  | [39m./src/lib/pricingSync.ts
+[31m21|omniroute  | [39m./src/instrumentation-node.ts
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[31m21|omniroute  | [39m[DB] Could not probe existing DB: [DB] Nenhum driver SQLite disponível para '/Users/work/.omniroute/storage.sqlite'. Chame ensureDbInitialized() no startup. Drivers testados: better-sqlite3 (failed), node:sqlite (unavailable). sql.js WASM ainda não foi pré-inicializado.
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[31m21|omniroute  | [39m[DB] Could not probe existing DB: [DB] Nenhum driver SQLite disponível para '/Users/work/.omniroute/storage.sqlite'. Chame ensureDbInitialized() no startup. Drivers testados: better-sqlite3 (failed), node:sqlite (unavailable). sql.js WASM ainda não foi pré-inicializado.
+[32m21|omniroute  | [39m[CREDENTIALS] No external credentials file found, using defaults.
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[31m21|omniroute  | [39m[DB] Could not probe existing DB: [DB] Nenhum driver SQLite disponível para '/Users/work/.omniroute/storage.sqlite'. Chame ensureDbInitialized() no startup. Drivers testados: better-sqlite3 (failed), node:sqlite (unavailable). sql.js WASM ainda não foi pré-inicializado.
+[32m21|omniroute  | [39m[STARTUP] Global fetch proxy patch initialized
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[31m21|omniroute  | [39m[DB] Pre-initializing sql.js WASM (synchronous drivers unavailable)...
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[31m21|omniroute  | [39m[DB] Could not probe existing DB: [DB] Nenhum driver SQLite disponível para '/Users/work/.omniroute/storage.sqlite'. Chame ensureDbInitialized() no startup. Drivers testados: better-sqlite3 (failed), node:sqlite (unavailable). sql.js WASM ainda não foi pré-inicializado.
+[31m21|omniroute  | [39m[callLogs] Failed to rotate request artifacts: [DB] Nenhum driver SQLite disponível para '/Users/work/.omniroute/storage.sqlite'. Chame ensureDbInitialized() no startup. Drivers testados: better-sqlite3 (failed), node:sqlite (unavailable). sql.js WASM ainda não foi pré-inicializado.
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[32m21|omniroute  | [39m[DB] Sync driver 'better-sqlite3' failed to open, will try next driver: Cannot find module 'better-sqlite3'
+[32m21|omniroute  | [39m[DB] Sync driver 'node:sqlite' failed to open, will try next driver: Cannot find module 'node:sqlite'
+[32m21|omniroute  | [39m[DB] Changing cache_size from 65536KB to 16384KB
+[32m21|omniroute  | [39m[DB] cache_size changed to 16384KB
+[32m21|omniroute  | [39m[DB] SQLite database ready: /Users/work/.omniroute/storage.sqlite (DATA_DIR=/Users/work/.omniroute, SQLITE_FILE=/Users/work/.omniroute/storage.sqlite)
+[32m21|omniroute  | [39m[HealthCheck] Starting proactive token health-check (tick every 60s)
+[32m21|omniroute  | [39m[Shutdown] Graceful shutdown handlers registered.
+[32m21|omniroute  | [39m[STARTUP] Spend batch writer started
+[32m21|omniroute  | [39m[STARTUP] Guardrail registry initialized
+[32m21|omniroute  | [39m[STARTUP] Builtin skill handlers registered
+[32m21|omniroute  | [39m[STARTUP] Quota cache background refresh started
+[32m21|omniroute  | [39m[ProviderLimitsSync] Scheduler started — interval: 70m
+[32m21|omniroute  | [39m[STARTUP] Provider limits sync scheduler started
+[32m21|omniroute  | [39m[INFO] [QuotaAutoPing] scheduler started
+[32m21|omniroute  | [39m[STARTUP] Quota auto-ping scheduler started (opt-in, no-op until enabled)
+[32m21|omniroute  | [39m[ModelSync] Scheduler started — interval: 24h
+[32m21|omniroute  | [39m[STARTUP] Cloud/model sync background bootstrap initialized
+[32m21|omniroute  | [39m[BATCH] Initializing batch processor polling...
+[32m21|omniroute  | [39m[STARTUP] Batch processor started
+[32m21|omniroute  | [39m[STARTUP] Runtime settings hydrated: payloadRules, modelAliases, backgroundDegradation, cliCompatProviders, cacheControl, usageTracking, healthCheckLogs, thoughtSignature, modelsDevSync, corsOrigins, ccBridgeTransforms, systemTransforms, authzBypass, bannedSignals
+[32m21|omniroute  | [39m[STARTUP] Model alias seed: applied=0, skipped=2, removed=0, failed=0
+[32m21|omniroute  | [39m[HOT_RELOAD] Runtime config hot-reload started (poll=5000ms, fsWatch=on)
+[32m21|omniroute  | [39m[proxyLogger] Loaded 200 proxy logs from SQLite
+[32m21|omniroute  | [39m[CredentialHealth] Starting credential health check (initial delay 30s, interval 300s)
+[32m21|omniroute  | [39m[STARTUP] Credential health scheduler started
+[32m21|omniroute  | [39m[COMPLIANCE] Audit log table initialized
+[32m21|omniroute  | [39m[STARTUP] Scheduled VACUUM initialized (#4437)
+[32m21|omniroute  | [39m[AutoRefreshDaemon] Started — checking 0 credentials every 900s
+[32m21|omniroute  | [39m[ARENA_ELO_SYNC] Starting periodic sync every 86400s
+[32m21|omniroute  | [39m[PRICING_SYNC] Disabled (set PRICING_SYNC_ENABLED=true to enable)
+[32m21|omniroute  | [39m[STARTUP] Arena ELO sync initialized
+[32m21|omniroute  | [39m[ConnectionRecovery] Starting proactive cooldown recovery (tick every 60s)
+[32m21|omniroute  | [39m[LiveWS] Seeded latest compression run from analytics: a621d3da-eee5-4f34-8515-309d21dc1415
+[32m21|omniroute  | [39m[STARTUP] Live dashboard WebSocket daemon bootstrap invoked
+[32m21|omniroute  | [39m[STARTUP] Embedded services bootstrap complete
+[32m21|omniroute  | [39m[MODELS_DEV] Disabled (enable via Settings > AI)

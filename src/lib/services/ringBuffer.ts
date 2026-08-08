@@ -70,7 +70,7 @@ export class RingBuffer {
     if (!this.flushPath) return;
     try {
       const content = this.entries.map((e) => `${e.ts} [${e.stream}] ${e.line}`).join("\n");
-      fs.writeFileSync(this.flushPath, content, "utf8");
+      fs.writeFileSync(/*turbopackIgnore: true*/ this.flushPath, content, "utf8");
     } catch (err: unknown) {
       if (!this.flushWarnedOnce) {
         this.flushWarnedOnce = true;

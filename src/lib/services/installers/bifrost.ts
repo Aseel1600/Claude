@@ -44,7 +44,7 @@ function getBinPath(): string {
 
 function getInstalledVersionSync(): string | null {
   try {
-    const raw = fs.readFileSync(getInstalledPkgPath(), "utf8");
+    const raw = fs.readFileSync(/*turbopackIgnore: true*/ getInstalledPkgPath(), "utf8");
     const parsed = JSON.parse(raw) as { version?: string };
     return typeof parsed.version === "string" ? parsed.version : null;
   } catch {
@@ -76,11 +76,11 @@ export async function install(version = "latest"): Promise<InstallResult> {
   const startMs = Date.now();
 
   // Create install dir + minimal package.json (idempotent)
-  fs.mkdirSync(BIFROST_INSTALL_DIR, { recursive: true });
+  fs.mkdirSync(/*turbopackIgnore: true*/ BIFROST_INSTALL_DIR, { recursive: true });
   const hostPkgPath = path.join(BIFROST_INSTALL_DIR, "package.json");
-  if (!fs.existsSync(hostPkgPath)) {
+  if (!fs.existsSync(/*turbopackIgnore: true*/ hostPkgPath)) {
     fs.writeFileSync(
-      hostPkgPath,
+      /*turbopackIgnore: true*/ hostPkgPath,
       JSON.stringify(
         { name: "omniroute-bifrost-host", version: "0.0.0", private: true, dependencies: {} },
         null,

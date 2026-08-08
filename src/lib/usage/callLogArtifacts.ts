@@ -210,8 +210,8 @@ export function writeCallArtifact(
     // so artifact bookkeeping is not treated as password hashing by static analysis.
     const fileChecksum = computeArtifactChecksum(serialized);
 
-    fs.mkdirSync(path.dirname(absPath), { recursive: true });
-    fs.writeFileSync(tmpPath, serialized);
+    fs.mkdirSync(/*turbopackIgnore: true*/ path.dirname(absPath), { recursive: true });
+    fs.writeFileSync(/*turbopackIgnore: true*/ tmpPath, serialized);
     fs.renameSync(tmpPath, absPath);
 
     return {
@@ -240,11 +240,13 @@ export function readCallArtifact(relativePath: string | null): {
 
   try {
     const absPath = path.join(CALL_LOGS_DIR, relativePath);
-    if (!fs.existsSync(absPath)) {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ absPath)) {
       return { artifact: null, state: "missing" };
     }
     return {
-      artifact: JSON.parse(fs.readFileSync(absPath, "utf8")) as CallLogArtifact,
+      artifact: JSON.parse(
+        fs.readFileSync(/*turbopackIgnore: true*/ absPath, "utf8")
+      ) as CallLogArtifact,
       state: "ready",
     };
   } catch (error) {
@@ -258,7 +260,7 @@ export function deleteCallArtifact(relativePath: string | null): boolean {
 
   try {
     const absPath = path.join(CALL_LOGS_DIR, relativePath);
-    if (!fs.existsSync(absPath)) return false;
+    if (!fs.existsSync(/*turbopackIgnore: true*/ absPath)) return false;
     fs.rmSync(absPath, { force: true });
     return true;
   } catch {
@@ -267,14 +269,14 @@ export function deleteCallArtifact(relativePath: string | null): boolean {
 }
 
 export function cleanupEmptyCallLogDirs(baseDir = CALL_LOGS_DIR) {
-  if (!baseDir || !fs.existsSync(baseDir)) return;
+  if (!baseDir || !fs.existsSync(/*turbopackIgnore: true*/ baseDir)) return;
 
   try {
-    for (const entry of fs.readdirSync(baseDir)) {
+    for (const entry of fs.readdirSync(/*turbopackIgnore: true*/ baseDir)) {
       const entryPath = path.join(baseDir, entry);
       const stat = fs.statSync(entryPath);
       if (!stat.isDirectory()) continue;
-      if (fs.readdirSync(entryPath).length === 0) {
+      if (fs.readdirSync(/*turbopackIgnore: true*/ entryPath).length === 0) {
         fs.rmSync(entryPath, { recursive: true, force: true });
       }
     }
@@ -284,7 +286,7 @@ export function cleanupEmptyCallLogDirs(baseDir = CALL_LOGS_DIR) {
 }
 
 export function listCallLogArtifactFiles(baseDir = CALL_LOGS_DIR) {
-  if (!baseDir || !fs.existsSync(baseDir)) return [];
+  if (!baseDir || !fs.existsSync(/*turbopackIgnore: true*/ baseDir)) return [];
 
   return fs
     .readdirSync(baseDir)
@@ -317,7 +319,7 @@ export function purgeCallLogArtifactDirectory(
   baseDir = CALL_LOGS_DIR
 ): PurgeCallLogArtifactDirectoryResult {
   const result = { deletedArtifacts: 0, errors: 0 };
-  if (!baseDir || !fs.existsSync(baseDir)) return result;
+  if (!baseDir || !fs.existsSync(/*turbopackIgnore: true*/ baseDir)) return result;
 
   try {
     result.deletedArtifacts = listCallLogArtifactFiles(baseDir).length;

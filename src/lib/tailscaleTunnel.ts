@@ -35,12 +35,7 @@ type JsonRecord = Record<string, unknown>;
 
 export type TailscaleTunnelInstallSource = "managed" | "path" | "env" | "windows-default";
 export type TailscaleTunnelPhase =
-  | "unsupported"
-  | "not_installed"
-  | "needs_login"
-  | "stopped"
-  | "running"
-  | "error";
+  "unsupported" | "not_installed" | "needs_login" | "stopped" | "running" | "error";
 
 type PersistedTailscaleState = {
   binaryPath?: string | null;
@@ -61,8 +56,7 @@ type BinaryResolution = {
 type TailscaleLoginResult = { alreadyLoggedIn: true } | { authUrl: string };
 
 type TailscaleFunnelResult =
-  | { tunnelUrl: string }
-  | { funnelNotEnabled: true; enableUrl: string | null };
+  { tunnelUrl: string } | { funnelNotEnabled: true; enableUrl: string | null };
 
 export type TailscaleCheckStatus = {
   supported: boolean;
@@ -234,12 +228,12 @@ async function resolvePathCommand(command: string) {
 
 async function resolveBinary(): Promise<BinaryResolution> {
   const envPath = toNonEmptyString(process.env.TAILSCALE_BIN);
-  if (envPath && fs.existsSync(envPath)) {
+  if (envPath && fs.existsSync(/*turbopackIgnore: true*/ envPath)) {
     return { binaryPath: envPath, installSource: "env", managedInstall: false };
   }
 
   const managedPath = getManagedBinaryPath();
-  if (fs.existsSync(managedPath)) {
+  if (fs.existsSync(/*turbopackIgnore: true*/ managedPath)) {
     return { binaryPath: managedPath, installSource: "managed", managedInstall: true };
   }
 
@@ -248,7 +242,7 @@ async function resolveBinary(): Promise<BinaryResolution> {
     return { binaryPath: pathBinary, installSource: "path", managedInstall: false };
   }
 
-  if (IS_WINDOWS && fs.existsSync(WINDOWS_TAILSCALE_BIN)) {
+  if (IS_WINDOWS && fs.existsSync(/*turbopackIgnore: true*/ WINDOWS_TAILSCALE_BIN)) {
     return {
       binaryPath: WINDOWS_TAILSCALE_BIN,
       installSource: "windows-default",
@@ -261,19 +255,20 @@ async function resolveBinary(): Promise<BinaryResolution> {
 
 async function resolveDaemonBinary(tailscaleBinaryPath: string | null) {
   const envPath = toNonEmptyString(process.env.TAILSCALED_BIN);
-  if (envPath && fs.existsSync(envPath)) return envPath;
+  if (envPath && fs.existsSync(/*turbopackIgnore: true*/ envPath)) return envPath;
 
   const daemonFilename = process.platform === "win32" ? "tailscaled.exe" : "tailscaled";
   const siblingDir = tailscaleBinaryPath ? path.dirname(tailscaleBinaryPath) : null;
   // path.format avoids the path.join/resolve pattern flagged by CWE-22 linters;
   // siblingDir is path.dirname of a trusted system binary from resolveBinary(), not user input.
   const sibling = siblingDir ? path.format({ dir: siblingDir, base: daemonFilename }) : null;
-  if (sibling && fs.existsSync(sibling)) return sibling;
+  if (sibling && fs.existsSync(/*turbopackIgnore: true*/ sibling)) return sibling;
 
   const pathBinary = await resolvePathCommand("tailscaled");
   if (pathBinary) return pathBinary;
 
-  if (IS_WINDOWS && fs.existsSync(WINDOWS_TAILSCALED_BIN)) return WINDOWS_TAILSCALED_BIN;
+  if (IS_WINDOWS && fs.existsSync(/*turbopackIgnore: true*/ WINDOWS_TAILSCALED_BIN))
+    return WINDOWS_TAILSCALED_BIN;
 
   return null;
 }
@@ -299,7 +294,7 @@ async function getActiveSocketPath(): Promise<string> {
 
   // Check system sockets first
   const systemSocket = IS_LINUX ? SYSTEM_SOCKET_LINUX : IS_MAC ? SYSTEM_SOCKET_MAC : null;
-  if (systemSocket && fs.existsSync(systemSocket)) {
+  if (systemSocket && fs.existsSync(/*turbopackIgnore: true*/ systemSocket)) {
     _cachedActiveSocket = systemSocket;
     _cachedActiveSocketTimestamp = now;
     return systemSocket;
@@ -315,7 +310,7 @@ async function getActiveSocketPath(): Promise<string> {
 /** Synchronous check: is the system daemon socket available? */
 function isSystemDaemonAvailable(): boolean {
   const systemSocket = IS_LINUX ? SYSTEM_SOCKET_LINUX : IS_MAC ? SYSTEM_SOCKET_MAC : null;
-  return Boolean(systemSocket && fs.existsSync(systemSocket));
+  return Boolean(systemSocket && fs.existsSync(/*turbopackIgnore: true*/ systemSocket));
 }
 
 /** Invalidate socket cache so the next call re-probes */

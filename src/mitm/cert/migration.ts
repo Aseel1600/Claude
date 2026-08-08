@@ -32,10 +32,11 @@ export function decideCertMigration(
   if (rootCaEnabled) return "use-root-ca";
 
   const hasLegacyLeaf =
-    fs.existsSync(path.join(certDir, "server.crt")) &&
-    fs.existsSync(path.join(certDir, "server.key"));
+    fs.existsSync(/*turbopackIgnore: true*/ path.join(certDir, "server.crt")) &&
+    fs.existsSync(/*turbopackIgnore: true*/ path.join(certDir, "server.key"));
   const hasCaPair =
-    fs.existsSync(path.join(certDir, "ca.crt")) && fs.existsSync(path.join(certDir, "ca.key"));
+    fs.existsSync(/*turbopackIgnore: true*/ path.join(certDir, "ca.crt")) &&
+    fs.existsSync(/*turbopackIgnore: true*/ path.join(certDir, "ca.key"));
 
   if (hasLegacyLeaf && !hasCaPair) return "use-legacy-leaf";
 

@@ -323,7 +323,7 @@ export async function generateAgentSkills(opts: GeneratorOptions): Promise<Gener
       // Read existing content for marker preservation
       let existingContent: string | undefined;
       try {
-        existingContent = fs.readFileSync(skillFile, "utf-8");
+        existingContent = fs.readFileSync(/*turbopackIgnore: true*/ skillFile, "utf-8");
       } catch {
         existingContent = undefined;
       }
@@ -342,8 +342,8 @@ export async function generateAgentSkills(opts: GeneratorOptions): Promise<Gener
         report.generated.push(skill.id);
       } else {
         // Apply: ensure directory + write file
-        fs.mkdirSync(skillDir, { recursive: true });
-        fs.writeFileSync(skillFile, newContent, "utf-8");
+        fs.mkdirSync(/*turbopackIgnore: true*/ skillDir, { recursive: true });
+        fs.writeFileSync(/*turbopackIgnore: true*/ skillFile, newContent, "utf-8");
         report.generated.push(skill.id);
       }
     } catch (err) {
