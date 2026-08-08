@@ -168,7 +168,3 @@ test("video route returns 400 for unknown custom provider", async () => {
   const payload = await response.json();
   assert.match(payload.error.message, /Invalid video model/);
 });
-test.after(() => {
-  core.closeDbInstance();
-  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-});
