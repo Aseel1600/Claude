@@ -47,7 +47,8 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-const DAY = 86_400; // seconds
+const DAY_SECONDS = 86_400;
+const DAY_MS = 86_400_000;
 
 /** Ensure compression_run_telemetry table exists (created lazily in production). */
 function ensureTelemetryTable(): void {
@@ -75,17 +76,17 @@ function ensureTelemetryTable(): void {
 
 test("#6848 cleanupDomainCostHistory: deletes rows older than retention window", async () => {
   const db = getDbInstance()!;
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
   const insert = db.prepare(
     "INSERT INTO domain_cost_history (api_key_id, cost, timestamp) VALUES (?, ?, ?)"
   );
 
   // 3 old (40 days ago), 2 recent (5 days ago)
-  insert.run("key1", 1.0, now - 40 * DAY);
-  insert.run("key1", 2.0, now - 40 * DAY);
-  insert.run("key1", 3.0, now - 40 * DAY);
-  insert.run("key1", 4.0, now - 5 * DAY);
-  insert.run("key1", 5.0, now - 5 * DAY);
+  insert.run("key1", 1.0, now - 40 * DAY_MS);
+  insert.run("key1", 2.0, now - 40 * DAY_MS);
+  insert.run("key1", 3.0, now - 40 * DAY_MS);
+  insert.run("key1", 4.0, now - 5 * DAY_MS);
+  insert.run("key1", 5.0, now - 5 * DAY_MS);
 
   const result = await cleanupDomainCostHistory();
 
@@ -100,8 +101,8 @@ test("#6848 cleanupDomainCostHistory: deletes rows older than retention window",
 
 test("#6848 cleanupCompressionCacheStats: deletes rows older than retention window", async () => {
   const db = getDbInstance()!;
-  const oldDate = new Date(Date.now() - 40 * DAY * 1000).toISOString();
-  const recentDate = new Date(Date.now() - 5 * DAY * 1000).toISOString();
+  const oldDate = new Date(Date.now() - 40 * DAY_MS).toISOString();
+  const recentDate = new Date(Date.now() - 5 * DAY_MS).toISOString();
   const insert = db.prepare(
     "INSERT INTO compression_cache_stats (provider, compression_mode, created_at) VALUES (?, ?, ?)"
   );
@@ -123,8 +124,8 @@ test("#6848 cleanupCompressionCacheStats: deletes rows older than retention wind
 
 test("#6848 cleanupXpAuditLog: deletes rows older than retention window", async () => {
   const db = getDbInstance()!;
-  const oldDate = new Date(Date.now() - 40 * DAY * 1000).toISOString();
-  const recentDate = new Date(Date.now() - 5 * DAY * 1000).toISOString();
+  const oldDate = new Date(Date.now() - 40 * DAY_MS).toISOString();
+  const recentDate = new Date(Date.now() - 5 * DAY_MS).toISOString();
   const insert = db.prepare(
     "INSERT INTO xp_audit_log (api_key_id, action, xp_earned, created_at) VALUES (?, ?, ?, ?)"
   );
@@ -151,9 +152,9 @@ test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention wi
     "INSERT INTO compression_run_telemetry (timestamp, tokens_before, tokens_after) VALUES (?, ?, ?)"
   );
 
-  insert.run(now - 40 * DAY, 1000, 500);
-  insert.run(now - 40 * DAY, 2000, 800);
-  insert.run(now - 5 * DAY, 1500, 600);
+  insert.run(now - 40 * DAY_SECONDS, 1000, 500);
+  insert.run(now - 40 * DAY_SECONDS, 2000, 800);
+  insert.run(now - 5 * DAY_SECONDS, 1500, 600);
 
   const result = await cleanupCompressionRunTelemetry();
 
@@ -169,13 +170,14 @@ test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention wi
 test("#6848 no rows deleted when all data is within retention window (calls all 4 real functions)", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
-  const now = Math.floor(Date.now() / 1000);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const nowMilliseconds = Date.now();
   const recentISO = new Date().toISOString();
 
   db.prepare("INSERT INTO domain_cost_history (api_key_id, cost, timestamp) VALUES (?, ?, ?)").run(
     "k",
     1,
-    now - DAY
+    nowMilliseconds - DAY_MS
   );
   db.prepare(
     "INSERT INTO compression_cache_stats (provider, compression_mode, created_at) VALUES (?, ?, ?)"
@@ -185,7 +187,7 @@ test("#6848 no rows deleted when all data is within retention window (calls all 
   ).run("k", "a", 5, recentISO);
   db.prepare(
     "INSERT INTO compression_run_telemetry (timestamp, tokens_before, tokens_after) VALUES (?, ?, ?)"
-  ).run(now - DAY, 100, 50);
+  ).run(nowSeconds - DAY_SECONDS, 100, 50);
 
   const r1 = await cleanupDomainCostHistory();
   const r2 = await cleanupCompressionCacheStats();
