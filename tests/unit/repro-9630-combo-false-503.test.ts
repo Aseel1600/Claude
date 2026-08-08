@@ -1,16 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type {
-  ComboLogger,
-  ComboRelayOptions,
-} from "../../open-sse/services/combo/types.ts";
 import {
   handleComboChat,
 } from "../../open-sse/services/combo.ts";
 import { getCircuitBreaker, STATE } from "../../src/shared/utils/circuitBreaker.js";
-
-const noopLogger: ComboLogger = { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} };
-type BodyType = Record<string, unknown>;
 
 function okResponse() {
   return new Response(JSON.stringify({ ok: true }), {
@@ -34,14 +27,14 @@ test("#9630: combo returns 503 when circuit breaker is OPEN but other healthy ta
       strategy: "priority",
       models: ["openai/gpt-4", "anthropic/claude-opus-5"],
     },
-    handleSingleModel: async (_body: BodyType, modelStr: string) => {
+    handleSingleModel: async (_body: any, modelStr: string) => {
       assert.equal(modelStr, "anthropic/claude-opus-5", "should skip openai breaker and try anthropic");
       return okResponse();
     },
     isModelAvailable: async () => true,
-    log: noopLogger,
+    log: { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} } as any,
     settings: null,
-    relayOptions: null as unknown as ComboRelayOptions,
+    relayOptions: null as any,
     allCombos: null,
   });
 
@@ -72,9 +65,9 @@ test("#9630: combo returns truthful error, not false ALL_ACCOUNTS_INACTIVE, when
     },
     handleSingleModel: async () => { throw new Error("should not be called"); },
     isModelAvailable: async () => true,
-    log: noopLogger,
+    log: { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} } as any,
     settings: null,
-    relayOptions: null as unknown as ComboRelayOptions,
+    relayOptions: null as any,
     allCombos: null,
   });
 
