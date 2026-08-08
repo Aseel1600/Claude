@@ -103,6 +103,8 @@ npm run build
 > **VPS deploy note:** the remote image directory `/usr/lib/node_modules/omniroute/app/`
 > is unchanged. The deploy skills rsync the contents of `dist/` into it.
 > Only the in-repo build output path moved (`app/` → `dist/`).
+> Oracle-VPS production is NOT deployed this way — it uses the blue-green native-Docker
+> pipeline (`docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16).
 
 Default URLs:
 
@@ -301,7 +303,7 @@ src/                        # TypeScript (.ts / .tsx)
 open-sse/                   # @omniroute/open-sse workspace
 ├── executors/              # 14 provider-specific request executors
 ├── handlers/               # 11 request handlers (chat, responses, embeddings, images, etc.)
-├── mcp-server/             # MCP server (104 tools, 3 transports, 31 scopes)
+├── mcp-server/             # MCP server (105 tools, 3 transports, 31 scopes)
 ├── services/               # 36+ services (combo, autoCombo, rateLimitManager, etc.)
 ├── translator/             # Format translators (OpenAI ↔ Claude ↔ Gemini ↔ Responses ↔ Ollama)
 ├── transformer/            # Responses API transformer
@@ -402,6 +404,7 @@ Releases are managed via the `/generate-release` workflow. When a new GitHub Rel
 For VPS deploys, use `npm run build:release` (not `npm run build`) — it performs a clean
 rebuild, assembles the bundle into `dist/`, and writes the `dist/BUILD_SHA` sentinel.
 Then use the `/deploy-vps-*-cc` skills which rsync `dist/` to the remote `app/` directory.
+Oracle-VPS production uses the blue-green native-Docker pipeline instead (`docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16).
 
 ---
 

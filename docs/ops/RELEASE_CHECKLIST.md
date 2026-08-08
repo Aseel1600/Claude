@@ -65,6 +65,7 @@ directly from anywhere — CI can only stage; only the owner's 2FA releases.
 as the default reflex (minutes, reversible); `npm unpublish` only inside the 72h/no-dependents
 window and never as the first move. Docker: never rewrite a version tag — rollback is
 repointing `latest` to the last good digest.
+
 ## Hotfix Fast-Lane (label `hotfix`)
 
 A PR labeled `hotfix` skips the heavy CI matrix (9-shard E2E, coverage ratchet,
@@ -247,9 +248,15 @@ Do NOT run `npm run build` followed by a separate `npm run build:cli` for deploy
 - [ ] Or manually:
   ```bash
   git tag -a vX.Y.Z -m "Release vX.Y.Z"
-  git push origin vX.Y.Z
+  git push origin vX.Y.Z     # NOTE: origin push is locked (no_push) — push to `fork` instead
   gh release create vX.Y.Z --notes-from-tag
   ```
+
+> **Production (`oracle-vps`) is deployed via the blue-green pipeline** — build with the 20g
+> builder from the `vps-build-vb` fork branch, promote with `vb-swap.sh`, roll back with
+> `vb-rollback.sh`, refresh the standby with `vb-standby.sh`, auto-switch via the
+> `omniroute-bluegreen.service` watcher (see `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The
+> rsync flow below applies to the **other** VPS targets (homologation `192.168.0.15`, Akamai `69.164.221.35`).
 
 ### Deploy
 

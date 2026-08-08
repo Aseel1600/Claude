@@ -2,14 +2,14 @@
 set -Eeuo pipefail
 
 DEFAULT_IMAGE="${IMAGE_TAG:-omniroute:deploy-candidate}"
-DEFAULT_HOST="${SSH_HOST:-vietnam-vps}"
+DEFAULT_HOST="${SSH_HOST:-oracle-vps}"
 DEFAULT_REMOTE_DIR="${REMOTE_DIR:-~/OmniRoute}"
 DEFAULT_COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.parallel.yml}"
 DEFAULT_SERVICE="${SERVICE:-omniroute}"
 DEFAULT_CONTAINER="${CONTAINER:-omniroute-parallel}"
 DEFAULT_HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:20130/api/monitoring/health}"
-DEFAULT_REMOTE_IMAGE="${REMOTE_IMAGE:-omniroute:search-v3-final}"
-DEFAULT_ROLLBACK_IMAGE="${ROLLBACK_IMAGE:-omniroute:rollback-prev}"
+DEFAULT_REMOTE_IMAGE="${REMOTE_IMAGE:-omniroute:vb-tool-result}"
+DEFAULT_ROLLBACK_IMAGE="${ROLLBACK_IMAGE:-omniroute:rollback-search-v3-final}"
 DEFAULT_SESSION="${TMUX_SESSION:-omni-deploy}"
 DEFAULT_LOG_FILE="${DEPLOY_LOG:-/tmp/omni-deploy.log}"
 DEFAULT_TIMEOUT="${HEALTH_TIMEOUT:-360}"
@@ -28,14 +28,14 @@ Modes:
 
 Options:
   --image IMAGE              Candidate image (default: omniroute:deploy-candidate)
-  --host HOST                SSH host (default: vietnam-vps)
+  --host HOST                SSH host (default: oracle-vps)
   --remote-dir DIR           Compose directory (default: ~/OmniRoute)
   --compose-file FILE        Compose file (default: docker-compose.parallel.yml)
   --service SERVICE          Compose service (default: omniroute)
   --container CONTAINER      Runtime container (default: omniroute-parallel)
   --health-url URL           Host health URL
-  --remote-image IMAGE       Compose image tag (default: omniroute:search-v3-final)
-  --rollback-image IMAGE     Rollback tag (default: omniroute:rollback-prev)
+  --remote-image IMAGE       Compose image tag (default: omniroute:vb-tool-result)
+  --rollback-image IMAGE     Rollback tag (default: omniroute:rollback-search-v3-final)
   --session NAME             Detached session (default: omni-deploy)
   --log-file FILE            Deployment log (default: /tmp/omni-deploy.log)
   --timeout SECONDS          Health deadline (default: 360)

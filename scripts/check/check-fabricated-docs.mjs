@@ -114,6 +114,7 @@ const ENV_VAR_ALLOWLIST = new Set([
   "LINUX_GPG_KEY", // electron AppImage signing key, CI/build only (ELECTRON_GUIDE.md)
   "BRANCH_LOCK_TOKEN", // release branch-protection ops token (QUALITY_GATE_PLAYBOOK.md)
   "NEXT_LOCALE", // next-intl locale cookie name (I18N.md)
+  "DEPLOY_OK", // deploy-omniroute.sh's success-marker line, not an env var (ORACLE_VPS_OPERATIONS_KB.md §6)
 ]);
 
 // Common pluralized / column-header all-caps that aren't env vars

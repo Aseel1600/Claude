@@ -327,7 +327,7 @@ git describe --tags --always
 git show --no-patch --oneline v3.4.7
 ```
 
-> Note: The current project version is `v3.8.0`. The `v3.4.7` references below are kept as historical examples only. For actual releases, use `:latest` or the current version tag (e.g. `:v3.8.0`).
+> Note: The current project version is `v3.8.50` (OmniRoute production currently runs on Oracle VPS blue-green — `docs/ops/ORACLE_VPS_OPERATIONS_KB.md`). The `v3.4.7` references below are kept as historical examples only. For actual releases, use `:latest` or the current version tag (e.g. `:v3.8.50`).
 
 If you want to merge the latest upstream `main` while forcefully keeping your fork's `fly.toml`, follow this workflow:
 
@@ -366,7 +366,7 @@ After syncing with the original repository, follow this recommended release orde
 6. `flyctl status -a omniroute`
 7. `flyctl logs --no-tail -a omniroute`
 
-This is the actual workflow used when upgrading the current project to `v3.4.7` (the example refers to a historical version; the current actual version is `v3.8.0`).
+This is the actual workflow used when upgrading the current project to `v3.4.7` (the example refers to a historical version; the current actual version is `v3.8.50`).
 
 ---
 

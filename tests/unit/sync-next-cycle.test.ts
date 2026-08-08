@@ -17,8 +17,7 @@ const SCRIPT_PATH = path.join(
 // Pure-function guards for the parallel-cycle sync-back (generate-release
 // Phase 5 step 20): main's CHANGELOG must win VERBATIM and the next cycle's
 // section must be re-inserted on top without eating any of main's bullets
-// (anti-CHANGELOG-eat protocol, design doc
-// _tasks/release-flow/2026-07-04_proposta-ciclo-paralelo-v2.md).
+// (anti-CHANGELOG-eat protocol; 2026-07-04 parallel-cycle design doc, artifact not preserved in _tasks/).
 
 const MAIN = `# Changelog
 
