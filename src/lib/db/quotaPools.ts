@@ -17,12 +17,6 @@ import { getDbInstance } from "./core";
 const quotaComboMaintenance = new Map<string, Promise<unknown>>();
 const deletingPools = new Set<string>();
 
-/** Reset module-level state for test isolation. Call in test.after() hooks. */
-export function resetQuotaPoolsModuleState(): void {
-  deletingPools.clear();
-  quotaComboMaintenance.clear();
-}
-
 function serializeQuotaComboMaintenance<T>(
   poolId: string,
   operation: () => Promise<T>
