@@ -17,24 +17,11 @@ module.exports = {
       time: true,
       merge_logs: true,
       env: {
-        NODE_ENV: "production"
+        NODE_ENV: "production",
+        PORT: 20128
       }
     },
-    {
-      name: "omniroute-tunnel",
-      script: "npm",
-      args: "run tunnel",
-      cwd: "/Users/work/hermes-sandbox/Hermes_Omni",
-      autorestart: true,
-      watch: false,
-      min_uptime: "10s",
-      max_restarts: 10,
-      exp_backoff_restart_delay: 1000,
-      restart_delay: 5000,
-      max_memory_restart: "500M",
-      time: true,
-      merge_logs: true
-    },
+
     {
       name: "hermes-tg-bot",
       script: "/Users/work/hermes-sandbox/Hermes_Omni/scripts/serpentos_logic/tg-bot.cjs",

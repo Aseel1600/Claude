@@ -20,6 +20,20 @@ export type LocalCatalogModel = {
   supportedEndpoints?: string[];
 };
 
+export const MODAL_KIMI_K3 = {
+  id: "modal/kimi-k3",
+  provider: "modal-kimi-k3",
+  baseUrl: process.env.MODAL_KIMI_BASE_URL,
+  apiKey: `wk-${process.env.MODAL_PROXY_TOKEN_ID}.ws-${process.env.MODAL_PROXY_TOKEN_SECRET}`,
+  model: "moonshotai/Kimi-K3",
+  tier: "free",
+  contextWindow: 1_000_000,
+  categories: ["coding", "long_context", "tools", "reasoning"],
+  supportsTools: true,
+  supportsVision: true,
+  priority: 70,
+};
+
 const STATIC_MODEL_PROVIDERS: Record<string, () => Array<{ id: string; name: string }>> = {
   deepgram: () => [
     { id: "nova-3", name: "Nova 3 (Transcription)" },
