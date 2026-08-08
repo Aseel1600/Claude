@@ -451,11 +451,22 @@ function closeMessage(state, emit, idx) {
   }
 }
 
+// Tool calls sit after reasoning (if any) AND after a text message (if one was
+// actually emitted this turn) — a model commonly emits a short preamble before
+// calling a tool (e.g. "Kör nu, på riktigt — apply_patch..."), and that message
+// claims the same reasoningIndex+1 slot the old per-call math (`reasoningIndex
+// + 1 + tcIdx`) assumed was free for tcIdx=0. Not accounting for the message
+// item collided the tool call's added/delta/done events onto the same
+// output_index as the just-closed message, which a client keying per-item
+// state by output_index can silently drop (live incident 2026-08-08).
+function toolCallOutputIndexBase(state) {
+  const msgIdx = state.reasoningId ? normalizeOutputIndex(state.reasoningIndex) + 1 : 0;
+  return state.msgItemAdded[msgIdx] ? msgIdx + 1 : msgIdx;
+}
+
 function emitToolCall(state, emit, tc) {
   const tcIdx = tc.index ?? 0;
-  const outputIndex = state.reasoningId
-    ? normalizeOutputIndex(state.reasoningIndex) + 1 + normalizeOutputIndex(tcIdx)
-    : normalizeOutputIndex(tcIdx);
+  const outputIndex = toolCallOutputIndexBase(state) + normalizeOutputIndex(tcIdx);
   const newCallId = tc.id;
   const funcName = tc.function?.name;
 
@@ -536,9 +547,7 @@ function emitToolCall(state, emit, tc) {
 function closeToolCall(state, emit, idx, recordAsCompleted = true) {
   const callId = state.funcCallIds[idx];
   if (callId && !state.funcItemDone[idx]) {
-    const normalizedIndex = state.reasoningId
-      ? normalizeOutputIndex(state.reasoningIndex) + 1 + normalizeOutputIndex(idx)
-      : normalizeOutputIndex(idx);
+    const normalizedIndex = toolCallOutputIndexBase(state) + normalizeOutputIndex(idx);
     const args = state.funcArgsBuf[idx] || "{}";
     const toolName = state.funcNames[idx] || "";
     const isCustomTool =

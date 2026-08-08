@@ -364,7 +364,7 @@
     "open-sse/services/combo.ts": 3648,
     "open-sse/services/compression/strategySelector.ts": 1060,
     "open-sse/services/rateLimitManager.ts": 1167,
-    "open-sse/translator/response/openai-responses.ts": 1215,
+    "open-sse/translator/response/openai-responses.ts": 1224,
     "open-sse/utils/cursorAgentProtobuf.ts": 1505,
     "open-sse/utils/stream.ts": 2889,
     "src/app/(dashboard)/dashboard/HomePageClient.tsx": 1388,
@@ -401,7 +401,7 @@
     "src/shared/components/RequestLoggerV2.tsx": 1629,
     "src/shared/components/analytics/charts.tsx": 1035,
     "src/shared/services/cliRuntime.ts": 1122,
-    "src/sse/handlers/chat.ts": 1918,
+    "src/sse/handlers/chat.ts": 1904,
     "src/sse/services/auth.ts": 2520,
     "tests/unit/account-fallback-service.test.ts": 1572,
     "tests/unit/provider-validation-specialty.test.ts": 2985,
@@ -561,5 +561,6 @@
   "open-sse/translator/request/openai-to-kiro.ts": "1057",
   "open-sse/utils/sseHeartbeat.ts": "142",
   "_rebaseline_2026_08_04_9305_sse_comments": "#9305 fix: broadened sseCommentsEnabled()",
-  "_rebaseline_2026_08_09_v3850_release_close": "Release v3.8.50 close reconciliation on e0ce95c592: src/sse/handlers/chat.ts 1904->1918 is the irreducible request-pipeline wiring from #9759 that invokes the Modality Bridge guardrail without moving its implementation into the handler; covered by the 17 Vision Bridge canaries plus the PR-1 focused suite. open-sse/translator/response/openai-responses.ts 1204->1215 is #9168's Responses tool-call argument delta buffering/normalization at the existing translator state-machine chokepoint; covered by its dedicated translator regression tests. Both values are measured by check:file-size (split-newline semantics), and the gate remains frozen at the new exact sizes."
+  "_rebaseline_2026_08_09_v3850_release_close": "Release v3.8.50 close reconciliation on e0ce95c592: src/sse/handlers/chat.ts 1904->1918 is the irreducible request-pipeline wiring from #9759 that invokes the Modality Bridge guardrail without moving its implementation into the handler; covered by the 17 Vision Bridge canaries plus the PR-1 focused suite. open-sse/translator/response/openai-responses.ts 1204->1215 is #9168's Responses tool-call argument delta buffering/normalization at the existing translator state-machine chokepoint; covered by its dedicated translator regression tests. Both values are measured by check:file-size (split-newline semantics), and the gate remains frozen at the new exact sizes.",
+  "_rebaseline_2026_08_08_toolcall_message_index_collision": "fix(responses-api): tool call after a text message collided on the same output_index. own growth: open-sse/translator/response/openai-responses.ts 1204->1224 (+20, extracted toolCallOutputIndexBase() shared helper so emitToolCall/closeToolCall can no longer compute a tool call's output_index independently and collide with a text message emitted in the same turn). Live incident (2026-08-08, OpenClaw agent): a client that tracks response items by output_index saw the tool call's added/delta/done events land on an index it had already marked complete (the just-closed text message), and silently dropped them — the agent spoke its preamble and never executed the tool call, even though OmniRoute's own recorded responseBody had a complete, valid tool_calls entry. Covered by the new regression test in tests/unit/translator-resp-openai-responses.test.ts reproducing the exact live scenario."
 }
