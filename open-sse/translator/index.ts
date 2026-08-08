@@ -379,13 +379,18 @@ export function translateRequest(
     provider: normalizedProvider,
     model: normalizedModel,
   });
-  const isReasoner = requiresReasoningReplay({
-    provider: normalizedProvider,
-    model: normalizedModel,
-    thinkingEnabled: hasThinkingConfig(result),
-    supportsReasoning: supportsReasoning({ provider: normalizedProvider, model: normalizedModel }),
-    interleavedField: resolvedCapabilities?.interleavedField ?? null,
-  });
+  const isReasoner =
+    requiresAuthenticReasoning ||
+    requiresReasoningReplay({
+      provider: normalizedProvider,
+      model: normalizedModel,
+      thinkingEnabled: hasThinkingConfig(result),
+      supportsReasoning: supportsReasoning({
+        provider: normalizedProvider,
+        model: normalizedModel,
+      }),
+      interleavedField: resolvedCapabilities?.interleavedField ?? null,
+    });
 
   // Always normalize to clean OpenAI format when target is OpenAI
   // This handles hybrid requests (e.g., OpenAI messages + Claude tools)

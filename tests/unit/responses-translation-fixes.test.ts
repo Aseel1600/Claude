@@ -1,3 +1,4 @@
+import { translateRequest } from "../../open-sse/translator/index.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -76,6 +77,39 @@ test("production Responses conversion preserves Kimi K3 reasoning history", () =
       messages: Array<Record<string, unknown>>;
     };
     assert.equal(Object.hasOwn(generic.messages[1], "reasoning_content"), false, provider);
+  }
+});
+
+test("Responses translation keeps authentic K3 reasoning through OpenAI cleanup", () => {
+  const body = {
+    model: "k3",
+    input: [
+      { role: "user", content: [{ type: "input_text", text: "Call search." }] },
+      {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "I should search first." }],
+      },
+      {
+        type: "function_call",
+        call_id: "call_1",
+        name: "search",
+        arguments: "{}",
+      },
+    ],
+  };
+
+  for (const provider of ["kimi-web", "some-other"]) {
+    const translated = translateRequest(
+      "openai-responses",
+      "openai",
+      "k3",
+      body,
+      false,
+      {},
+      provider
+    ) as { messages: Array<Record<string, unknown>> };
+
+    assert.equal(translated.messages[1].reasoning_content, "I should search first.", provider);
   }
 });
 
