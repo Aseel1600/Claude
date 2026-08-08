@@ -220,6 +220,28 @@ function parseJsonRecord(data: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * True when a body that failed JSON parsing is in fact an SSE stream.
+ *
+ * A stream may legally open with a comment line — per the EventSource spec any
+ * line starting with `:` is a comment, and it is the conventional keepalive.
+ * TCB opens every stream with `: keepalive`, and this proxy emits its own
+ * `x-omniroute-*` metadata the same way. Matching only `data:`/`event:` parsed
+ * those bodies as JSON, failed, and reported "response is not valid JSON" —
+ * which failed the target and, for a combo whose every target behaves this way,
+ * produced "All models failed" on responses that were perfectly good.
+ */
+function isServerSentEventStream(text: string): boolean {
+  for (const line of text.split("\n", 20)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith(":")) continue; // comentario/keepalive — segue procurando
+    return trimmed.startsWith("data:") || trimmed.startsWith("event:");
+  }
+  // Só comentários: um keepalive puro é um stream válido, ainda que vazio de dados.
+  return text.trimStart().startsWith(":");
+}
+
 export async function validateResponseQuality(
   response: Response,
   isStreaming: boolean,
@@ -583,7 +605,7 @@ export async function validateResponseQuality(
   try {
     json = JSON.parse(text);
   } catch {
-    if (text.startsWith("data:") || text.startsWith("event:")) return { valid: true };
+    if (isServerSentEventStream(text)) return { valid: true };
     return { valid: false, reason: "response is not valid JSON" };
   }
 
