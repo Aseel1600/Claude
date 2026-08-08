@@ -28,7 +28,7 @@ function getSetting(db: InstanceType<typeof Database>, key: string): string | un
   return row?.value;
 }
 
-test("migration 139 copies legacy visionBridge* settings to modalityBridge* keys", () => {
+test("migration 141 copies legacy visionBridge* settings to modalityBridge* keys", () => {
   const sql = fs.readFileSync(MIGRATION_PATH, "utf8");
   const db = createSeededDb();
   try {
@@ -55,7 +55,7 @@ test("migration 139 copies legacy visionBridge* settings to modalityBridge* keys
   }
 });
 
-test("migration 139 is idempotent and never overwrites an existing new key", () => {
+test("migration 141 is idempotent and never overwrites an existing new key", () => {
   const sql = fs.readFileSync(MIGRATION_PATH, "utf8");
   const db = createSeededDb();
   try {
@@ -79,7 +79,7 @@ test("migration 139 is idempotent and never overwrites an existing new key", () 
   }
 });
 
-test("migration 139 is a no-op on a database without legacy settings", () => {
+test("migration 141 is a no-op on a database without legacy settings", () => {
   const sql = fs.readFileSync(MIGRATION_PATH, "utf8");
   const db = createSeededDb();
   try {
