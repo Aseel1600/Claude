@@ -195,12 +195,17 @@ jobs:
           "$HOME/.local/bin/oasdiff" --version || true
           zizmor --version || true
       # Quality gates (all, non-fail-fast) — #8542: replaces 17 bare check:* steps,
-      # 6 G0 gates, 4 ratchet gates, and 2 typecheck steps with a single aggregation
+      # 6 G0 gates, 4 ratchet gates, and 3 typecheck steps with a single aggregation
       # step. Each gate runs in a loop with ::group::; failures are collected and
       # reported at the end. set -uo pipefail (NOT set -e) so one failing gate does
-      # not abort the job and mask every later gate.
+      # not abort the job and mask every later gate. Release-added gates are folded
+      # in: open-sse typecheck (#8781) and file-size base-relative mode (#8522).
       - name: Quality gates (all, non-fail-fast)
         env:
+          # #8522: base-relative file-size mode on PR events — inherited drift (base
+          # already over frozen cap) must not red an innocent PR. Unset on
+          # workflow_dispatch (no PR base) → absolute comparison.
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           BASE_REF: ${{ github.base_ref && format('origin/{0}', github.base_ref) || '' }}
         run: |
           set -uo pipefail
@@ -211,6 +216,9 @@ jobs:
             mutation-test-coverage any-budget:t11 build-scope pack-policy
             complexity-ratchets
             cycles lockfile duplication dead-code type-coverage compression-budget
+            # #8781: open-sse workspace typecheck gate — the workspace imports @/ which
+            # escapes to src/ via undeclared path aliases. See check-open-sse-typecheck.mjs.
+            open-sse-typecheck
           )
           ratchet_gates=(
             secrets vuln-ratchet workflows openapi-breaking
@@ -218,7 +226,14 @@ jobs:
           failed=()
           for g in "${gates[@]}"; do
             echo "::group::check:$g"
-            npm run "check:$g" || failed+=("$g")
+            # #8522: file-size is base-relative on PR events (compare against
+            # max(frozen, base)) so inherited drift doesn't red an innocent PR;
+            # workflow_dispatch (no PR base) falls back to absolute comparison.
+            if [ "$g" = "file-size" ] && [ -n "${PR_BASE_SHA:-}" ]; then
+              npm run "check:$g" -- --base-ref "$PR_BASE_SHA" || failed+=("$g")
+            else
+              npm run "check:$g" || failed+=("$g")
+            fi
             echo "::endgroup::"
           done
           for g in "${ratchet_gates[@]}"; do
