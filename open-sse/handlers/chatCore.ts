@@ -1,3 +1,4 @@
+import { LOCAL_QUEUE_TIMEOUT_ERROR_TYPE } from "./chatCore/cooldownClassification.ts";
 import { injectMemoryAndSkills } from "./chatCore/memorySkillsInjection.ts";
 import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
@@ -3348,8 +3349,12 @@ export async function handleChatCore({
     const isOwnDeadlineTimeout =
       failureStatus === HTTP_STATUS.GATEWAY_TIMEOUT &&
       (error.name === "TimeoutError" || error.name === "BodyTimeoutError");
-    const upstreamErrorType =
-      upstreamErrorCode === ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE || isOwnDeadlineTimeout
+    // A queue drop is self-inflicted too, and more plainly so: the request never
+    // left the process. Tagging it lets the cooldown layer skip punishing a
+    // connection that was never even asked to do anything.
+    const upstreamErrorType = isLocalQueueTimeout
+      ? LOCAL_QUEUE_TIMEOUT_ERROR_TYPE
+      : upstreamErrorCode === ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE || isOwnDeadlineTimeout
         ? "upstream_timeout"
         : failureStatus === 401
           ? "authentication_error"

@@ -8,7 +8,7 @@
 
 import { errorResponse } from "../../utils/error.ts";
 import { parseModel } from "../model.ts";
-import { isSelfInflictedUpstreamTimeout } from "../../handlers/chatCore/cooldownClassification.ts";
+import { isSelfInflictedFailure } from "../../handlers/chatCore/cooldownClassification.ts";
 import { isLocalStreamLifecycleError } from "@/shared/utils/circuitBreaker";
 import { CONTEXT_OVERFLOW_PATTERNS, MODEL_ACCESS_DENIED_PATTERNS } from "../accountFallback.ts";
 import { isResourceNotFoundResponse } from "../errorClassifier.ts";
@@ -264,7 +264,7 @@ export function shouldSkipConnDisable(
     result.errorType === "plugin_block" ||
     (is401 && hasExtraKeys) ||
     isRequestScopedUpstreamFailure({ code: result.errorCode, type: result.errorType }) ||
-    isSelfInflictedUpstreamTimeout(result.status, result.errorType, provider)
+    isSelfInflictedFailure(result.status, result.errorType, provider)
   );
 }
 
