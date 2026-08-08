@@ -253,3 +253,7 @@ tests/homolog/ui/.auth/
 homolog-report/
 docker-compose.yml.bak
 .playwright-cli/
+
+# Runtime artifacts
+.chroma_db/
+omniroute.log
