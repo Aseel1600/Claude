@@ -726,3 +726,92 @@ test("OpenAI -> Responses: parallel tool calls with mixed content survive transl
   const outputFcs = completed.data.response.output.filter((item) => item.type === "function_call");
   assert.equal(outputFcs.length, 2, "completed output should have both function_calls");
 });
+
+// Live incident (2026-08-08): an OpenClaw agent ("Ping") sent a preamble line
+// ("Kör nu, på riktigt — apply_patch på vibe-scriptet:") followed by an
+// apply_patch tool call in the same turn, with reasoning ahead of both. The
+// text message and the tool call both computed to output_index=1 — the tool
+// call's own index math (`reasoningIndex + 1 + tcIdx`) never accounted for
+// the message item also claiming `reasoningIndex + 1`, so a completed
+// message and a freshly-added tool call collided on the same output_index.
+// A client that tracks response items by output_index (as Responses-API
+// clients are expected to) sees the tool call's added/delta/done events land
+// on an index it already marked complete, and can silently drop or ignore
+// them — exactly the observed symptom: the agent spoke the preamble and
+// never executed the patch.
+test("OpenAI -> Responses: a text message and a following tool call in the same turn get distinct output_index values", () => {
+  const events = collectEvents([
+    {
+      id: "chatcmpl-1",
+      model: "big-pickle",
+      choices: [
+        { index: 0, delta: { reasoning_content: "thinking about the patch" }, finish_reason: null },
+      ],
+    },
+    {
+      id: "chatcmpl-1",
+      model: "big-pickle",
+      choices: [
+        {
+          index: 0,
+          delta: { content: "Kör nu, på riktigt — apply_patch på vibe-scriptet:" },
+          finish_reason: null,
+        },
+      ],
+    },
+    {
+      id: "chatcmpl-1",
+      model: "big-pickle",
+      choices: [
+        {
+          index: 0,
+          delta: {
+            tool_calls: [
+              {
+                index: 0,
+                id: "call_apply_patch",
+                type: "function",
+                function: { name: "apply_patch", arguments: '{"input":"*** Begin Patch ***"}' },
+              },
+            ],
+          },
+          finish_reason: "tool_calls",
+        },
+      ],
+    },
+    null,
+  ]);
+
+  const itemDoneEvents = events.filter((e) => e.event === "response.output_item.done");
+  const messageDone = itemDoneEvents.find((e) => e.data.item?.type === "message");
+  const toolCallDone = itemDoneEvents.find(
+    (e) => e.data.item?.type === "function_call" || e.data.item?.type === "custom_tool_call"
+  );
+  assert.ok(messageDone, "message output_item.done should be present");
+  assert.ok(toolCallDone, "tool call output_item.done should be present");
+  assert.notEqual(
+    messageDone.data.output_index,
+    toolCallDone.data.output_index,
+    "message and tool call must not collide on the same output_index"
+  );
+
+  // The tool call's own added/delta events (what a streaming client actually
+  // keys its per-item state on) must also use the tool call's real index,
+  // not the message's.
+  const toolCallAdded = events.find(
+    (e) =>
+      e.event === "response.output_item.added" &&
+      (e.data.item?.type === "function_call" || e.data.item?.type === "custom_tool_call")
+  );
+  assert.ok(toolCallAdded, "tool call output_item.added should be present");
+  assert.equal(toolCallAdded.data.output_index, toolCallDone.data.output_index);
+  assert.notEqual(toolCallAdded.data.output_index, messageDone.data.output_index);
+
+  const completed = events.find((e) => e.event === "response.completed");
+  const outputTypes = completed.data.response.output.map((item) => item.type);
+  assert.ok(outputTypes.includes("message"), "completed output must include the message");
+  assert.ok(
+    outputTypes.includes("function_call") || outputTypes.includes("custom_tool_call"),
+    "completed output must include the tool call"
+  );
+});
