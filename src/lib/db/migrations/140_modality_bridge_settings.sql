@@ -1,4 +1,4 @@
--- 139_modality_bridge_settings.sql
+-- 140_modality_bridge_settings.sql
 -- Modality Bridge (PR-1): copy legacy visionBridge* settings to the new modalityBridge* keys.
 -- Legacy keys are left in place for one release cycle (rollback window).
 -- Idempotent: each INSERT only fires when the new key does not exist yet, so an

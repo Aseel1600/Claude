@@ -1,13 +1,15 @@
 /**
  * Test-only workaround for the inherited base-red "Migration version collision
- * detected: version=134" (`134_ccr_blocks.sql` + `134_proxy_logs_egress_ip.sql`
- * both exist on release/v3.8.50). Any test that exercises a code path opening
+ * detected" on release/v3.8.50 (originally the `134_ccr_blocks.sql` +
+ * `134_proxy_logs_egress_ip.sql` pair, fixed by #9688; the surviving pair is
+ * `135_connection_runtime_state.sql` + `135_migrate_model_capability_max_token.sql`,
+ * fix #9676 in flight). Any test that exercises a code path opening
  * the DB (e.g. `VisionBridgeGuardrail.preCall` → `getResolvedModelCapabilities`
  * → `getDbInstance`) dies at migration-file scan time, BEFORE the code under
  * test runs — making TDD on those paths impossible until the base is fixed.
  *
- * Base-red tracking: issue #9679; fix PRs in flight: #9676 / #9688. Once one
- * of those lands on the release branch the copy contains no duplicates and
+ * Base-red tracking: issue #9679; remaining fix PR in flight: #9676 (#9688
+ * already landed). Once the base has no duplicate prefixes the copy and
  * this degrades to a plain pass-through copy — at that point this helper (and
  * its callsites) can be removed. Grep trigger: 9679 / 9676 / 9688.
  *
