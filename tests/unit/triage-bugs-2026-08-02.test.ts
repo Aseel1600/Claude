@@ -45,30 +45,21 @@ test("non-GPT-5.6 models still get max downgraded to xhigh", () => {
 <<<<<<< HEAD
 });
 
-// ── #9177 test (from fix/9177 PR, merged into the release file) ─────────────
+// ─────────────────────────────────────────────────────────────────────
+// PR #9142 — Anthropic top-level `system` prompts must trigger background detection
+// ─────────────────────────────────────────────────────────────────────
+const { getBackgroundTaskReason, setBackgroundDegradationConfig } =
+  await import("../../open-sse/services/backgroundTaskDetector.ts");
 
-const { geminiToClaudeResponse } =
-  await import("../../open-sse/translator/response/gemini-to-claude.ts");
-
-// #9177: Gemini-to-Claude must preserve request-mapped TitleCase tool names
-test("#9177 Gemini-to-Claude must preserve request-mapped TitleCase tool names", () => {
-  const state = {
-    toolNameMap: new Map([["write", "Write"]]),
-    contentBlockIndex: 0,
-    openTextBlockIdx: null,
-  };
-  const events = geminiToClaudeResponse({
-    response: {
-      responseId: "resp-1",
-      modelVersion: "gemini-test",
-      candidates: [{
-        content: { parts: [{ functionCall: { id: "call-1", name: "write", args: {} } }] },
-        finishReason: "STOP",
-      }],
-    },
-  }, state);
-  const start = events.find((event) => event.type === "content_block_start");
-  assert.equal(start?.content_block?.name, "Write");
+test("#9142 Anthropic top-level system prompts must trigger background detection", () => {
+  setBackgroundDegradationConfig({ enabled: true });
+  assert.equal(
+    getBackgroundTaskReason({
+      system: "Generate a title for this conversation",
+      messages: [{ role: "user", content: "hello" }],
+    }),
+    "system_prompt_pattern"
+  );
 });
 =======
 
@@ -89,3 +80,27 @@ test("#9140 VS Code listing must accept built-in auto routing entries", () => {
     "operator-created combo should still be rejected"
   );
 >>>>>>> origin/release/v3.8.50
+
+
+});
+
+// ── #9160 model discovery: capabilities.effort_tiers ────────────────────────
+
+// #9160: model discovery must ingest capabilities.effort_tiers
+test("#9160 model discovery must ingest capabilities.effort_tiers", () => {
+  assert.deepEqual(
+    detectSupportedThinkingEfforts({
+      capabilities: { effort_tiers: ["low", "medium", "high", "xhigh"] },
+    }),
+    ["low", "medium", "high", "xhigh"]
+  );
+});
+
+test("#9160 capabilities.effort_tiers with duplicate and synonym", () => {
+  assert.deepEqual(
+    detectSupportedThinkingEfforts({
+      capabilities: { effort_tiers: ["low", "low", "max"] },
+    }),
+    ["low", "xhigh"]
+  );
+
