@@ -77,7 +77,9 @@ import {
   withSessionHeader,
   withSelectedConnectionHeader,
   withCorrelationId,
+  withModalityBridgeHeader,
 } from "./chatHelpers";
+import { buildModalityBridgeHeader } from "@/lib/guardrails/modalityBridge/bridgeStats";
 import {
   isAntigravityMissingProjectError,
   PROVIDER_BREAKER_FAILURE_STATUSES,
@@ -544,6 +546,10 @@ async function handleChatImplementation(
     isModelAllowedForKey,
     log,
   }));
+  // Modality Bridge transparency (Task 9): non-null only when a pre-call bridge
+  // guardrail transformed the payload (describe path) — stamped on the main
+  // success exits below via withModalityBridgeHeader().
+  const modalityBridgeHeader = buildModalityBridgeHeader(preCallGuardrails.results);
   telemetry.endPhase();
 
   // T08: per-key active session limit (0 = unlimited).
@@ -907,7 +913,10 @@ async function handleChatImplementation(
         if (fallbackResponse.ok) {
           log.info("GLOBAL_FALLBACK", `Global fallback ${fallbackModel} succeeded`);
           recordTelemetry(telemetry);
-          return withSessionHeader(fallbackResponse, sessionId);
+          return withModalityBridgeHeader(
+            withSessionHeader(fallbackResponse, sessionId),
+            modalityBridgeHeader
+          );
         }
         log.warn(
           "GLOBAL_FALLBACK",
@@ -944,7 +953,10 @@ async function handleChatImplementation(
         });
       } catch {}
     }
-    return withCorrelationId(withSessionHeader(response, sessionId), reqId);
+    return withModalityBridgeHeader(
+      withCorrelationId(withSessionHeader(response, sessionId), reqId),
+      modalityBridgeHeader
+    );
   }
   telemetry.endPhase();
 
@@ -986,7 +998,10 @@ async function handleChatImplementation(
     false
   );
   recordTelemetry(telemetry);
-  return withCorrelationId(withSessionHeader(response, sessionId), reqId);
+  return withModalityBridgeHeader(
+    withCorrelationId(withSessionHeader(response, sessionId), reqId),
+    modalityBridgeHeader
+  );
 }
 
 export const handleChat = chatAdmission.withChatAdmission(handleChatImplementation);
