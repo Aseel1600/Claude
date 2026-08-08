@@ -20,7 +20,7 @@
  *    operator decision rather than a silent default (cf. #3963).
  */
 
-import { getCachedProviderNodes } from "@/lib/localDb";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import {
   buildDynamicAudioProvider,

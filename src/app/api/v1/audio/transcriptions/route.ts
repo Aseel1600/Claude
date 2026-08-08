@@ -84,6 +84,8 @@ async function transcribeWithModel(
   let credentials = null;
   if (providerConfig && providerConfig.authType !== "none") {
     const credentialKey = providerConfig.credentialProviderId || provider;
+    // NOTE: the 2nd arg of this helper is `excludeConnectionId`, not "use this
+    // connection" — a combo target's connectionId must never be passed here.
     credentials = await getProviderCredentialsWithQuotaPreflight(credentialKey);
     if (!credentials) {
       return errorResponse(HTTP_STATUS.BAD_REQUEST, `No credentials for provider: ${provider}`);
@@ -101,6 +103,8 @@ async function transcribeWithModel(
   });
   if (response?.ok) {
     await clearRecoveredProviderState(credentials);
+    // No text body / playback duration available from the multipart upload, so
+    // per-second pricing cannot be applied → cost 0 (ADD-only headers, body intact).
     response = attachOmniRouteMetaToResponse(response, {
       provider,
       model: resolvedModel,
