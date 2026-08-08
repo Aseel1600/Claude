@@ -38,7 +38,7 @@ Two paste formats both work:
 
 ### 2.1 Install and pin
 
-1. Install **[Cookie-Editor](https://chrome.google.com/webstore/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)** (Moustachauve) in Chrome/Edge, or the Firefox equivalent.
+1. Install **[Cookie-Editor](https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm)** (Moustachauve) in Chrome/Edge, or the Firefox equivalent.
 2. Pin it to the toolbar (right-click icon → Pin).
 
 ### 2.2 Update the extension's option settings (one-time)
