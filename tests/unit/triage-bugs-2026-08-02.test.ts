@@ -45,24 +45,20 @@ test("non-GPT-5.6 models still get max downgraded to xhigh", () => {
 <<<<<<< HEAD
 });
 
-// ── #9160 model discovery: capabilities.effort_tiers ────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// PR #9142 — Anthropic top-level `system` prompts must trigger background detection
+// ─────────────────────────────────────────────────────────────────────
+const { getBackgroundTaskReason, setBackgroundDegradationConfig } =
+  await import("../../open-sse/services/backgroundTaskDetector.ts");
 
-// #9160: model discovery must ingest capabilities.effort_tiers
-test("#9160 model discovery must ingest capabilities.effort_tiers", () => {
-  assert.deepEqual(
-    detectSupportedThinkingEfforts({
-      capabilities: { effort_tiers: ["low", "medium", "high", "xhigh"] },
+test("#9142 Anthropic top-level system prompts must trigger background detection", () => {
+  setBackgroundDegradationConfig({ enabled: true });
+  assert.equal(
+    getBackgroundTaskReason({
+      system: "Generate a title for this conversation",
+      messages: [{ role: "user", content: "hello" }],
     }),
-    ["low", "medium", "high", "xhigh"]
-  );
-});
-
-test("#9160 capabilities.effort_tiers with duplicate and synonym", () => {
-  assert.deepEqual(
-    detectSupportedThinkingEfforts({
-      capabilities: { effort_tiers: ["low", "low", "max"] },
-    }),
-    ["low", "xhigh"]
+    "system_prompt_pattern"
   );
 });
 =======
@@ -84,3 +80,27 @@ test("#9140 VS Code listing must accept built-in auto routing entries", () => {
     "operator-created combo should still be rejected"
   );
 >>>>>>> origin/release/v3.8.50
+
+
+});
+
+// ── #9160 model discovery: capabilities.effort_tiers ────────────────────────
+
+// #9160: model discovery must ingest capabilities.effort_tiers
+test("#9160 model discovery must ingest capabilities.effort_tiers", () => {
+  assert.deepEqual(
+    detectSupportedThinkingEfforts({
+      capabilities: { effort_tiers: ["low", "medium", "high", "xhigh"] },
+    }),
+    ["low", "medium", "high", "xhigh"]
+  );
+});
+
+test("#9160 capabilities.effort_tiers with duplicate and synonym", () => {
+  assert.deepEqual(
+    detectSupportedThinkingEfforts({
+      capabilities: { effort_tiers: ["low", "low", "max"] },
+    }),
+    ["low", "xhigh"]
+  );
+
