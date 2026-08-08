@@ -516,7 +516,9 @@ async function patchedFetch(
     // itself succeeds. Preserve the dispatcher path for Node and TLS-fingerprint
     // requests, but use Bun's native fetch for ordinary direct egress.
     if (process.versions.bun) {
-      return originalFetch(input, options);
+      const _nativeFetch =
+        (deps.nativeFetch as FetchWithDispatcher | undefined) ?? originalFetchWithDispatcher;
+      return _nativeFetch(input, options);
     }
     // Direct connection (no proxy) — use undici with custom dispatcher for timeout control.
     // Falls back to original native fetch if dispatcher initialization fails (#1054).
