@@ -114,7 +114,7 @@ The new `modalityBridge*` keys are Zod-validated in `updateSettingsSchema`
 `modalityBridgeVisionTaskAware`, `modalityBridgeVisionPrompt`,
 `modalityBridgeVisionTimeout`, `modalityBridgeVisionMaxImages`, the
 `modalityBridgeCache*` trio, and the PR-3-reserved `modalityBridgeAudio*`
-group. Migration `140_modality_bridge_settings.sql` copies existing legacy
+group. Migration `141_modality_bridge_settings.sql` copies existing legacy
 `visionBridge*` values to the matching new keys (idempotent, never overwrites
 an operator-set `modalityBridge*` value); the legacy keys stay accepted as a
 read fallback for one release cycle.
