@@ -74,10 +74,10 @@ Flow:
 
 #### Mode selector (`modalityBridgeVisionMode`)
 
-| Mode       | Default | Behavior                                                                                                                                                                                                                                            |
-| ---------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auto`     | ✔       | Legacy heuristic, untouched (#6640/#7204): non-combo/`auto/` models reroute to the best vision model unless the original model already has usable credentials (then describe); combo targets always describe.                                        |
-| `describe` |         | Always describe — the reroute block is skipped entirely; the user's chosen model always answers.                                                                                                                                                     |
+| Mode       | Default | Behavior                                                                                                                                                                                                                                                |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto`     | ✔       | Legacy heuristic, untouched (#6640/#7204): non-combo/`auto/` models reroute to the best vision model unless the original model already has usable credentials (then describe); combo targets always describe.                                           |
+| `describe` |         | Always describe — the reroute block is skipped entirely; the user's chosen model always answers.                                                                                                                                                        |
 | `reroute`  |         | Force reroute: the keep-credentialed-model guard is bypassed. The reroute-**target** credential guard still applies — when no usable vision target exists, the request falls through to describe so raw images never reach a text-only backend (#8430). |
 
 Forced modes short-circuit **before** the auto heuristic runs; `auto` behavior
@@ -114,7 +114,7 @@ The new `modalityBridge*` keys are Zod-validated in `updateSettingsSchema`
 `modalityBridgeVisionTaskAware`, `modalityBridgeVisionPrompt`,
 `modalityBridgeVisionTimeout`, `modalityBridgeVisionMaxImages`, the
 `modalityBridgeCache*` trio, and the PR-3-reserved `modalityBridgeAudio*`
-group. Migration `139_modality_bridge_settings.sql` copies existing legacy
+group. Migration `140_modality_bridge_settings.sql` copies existing legacy
 `visionBridge*` values to the matching new keys (idempotent, never overwrites
 an operator-set `modalityBridge*` value); the legacy keys stay accepted as a
 read fallback for one release cycle.
