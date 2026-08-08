@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { parseModel } from "@omniroute/open-sse/services/model.ts";
 import { getModelInfo } from "@/sse/services/model";
 import { getModelAliases } from "@/lib/db/models";
-import { getResolvedModelCapabilities, isNonChatCatalogSurface } from "@/lib/modelCapabilities";
+import {
+  getResolvedModelCapabilities,
+  getResolvedModelContextOverride,
+  isNonChatCatalogSurface,
+} from "@/lib/modelCapabilities";
 import {
   getAuthoritativeContextWindow,
   getAuthoritativeProviderContextWindow,
@@ -341,13 +345,12 @@ function resolveCatalogPricing(
   // Consulted only when models.dev returned nothing, matching the order
   // already implemented in db/settings/pricing.ts::getPricing().
   try {
-    const litellm = getSyncedPricing() as Record<
+    const litellm = getSyncedPricing() as unknown as Record<
       string,
       Record<string, Record<string, number>>
     >;
     const providerPricing =
-      findInsensitive(litellm, provider) ||
-      findInsensitive(litellm, provider.replace(/-cn$/, ""));
+      findInsensitive(litellm, provider) || findInsensitive(litellm, provider.replace(/-cn$/, ""));
     if (providerPricing) {
       const modelPricing =
         findInsensitive(providerPricing, model) ||
@@ -418,6 +421,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     getAuthoritativeContextWindow(metadata.model) ??
     getAuthoritativeContextWindow(model);
   const specialtySurface = isNonChatCatalogSurface(entry.type);
+  const persistedContextWindow = getResolvedModelContextOverride({ provider, model });
   const capabilityFields = {
     ...(typeof metadata.capabilities.vision === "boolean"
       ? { vision: metadata.capabilities.vision }
@@ -486,16 +490,21 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
 
   if (
     !specialtySurface &&
-    (typeof nextEntry.context_length !== "number" || authoritativeContextWindow !== null) &&
+    (typeof nextEntry.context_length !== "number" ||
+      authoritativeContextWindow !== null ||
+      persistedContextWindow !== null) &&
     typeof metadata.limits.contextWindow === "number"
   ) {
     nextEntry.context_length = metadata.limits.contextWindow;
+  } else if (specialtySurface && persistedContextWindow !== null) {
+    // Exact persisted overrides are authoritative for every surface of the model.
+    nextEntry.context_length = persistedContextWindow;
   } else if (
     specialtySurface &&
     authoritativeContextWindow !== null &&
     typeof authoritativeContextWindow === "number"
   ) {
-    // Only authoritative static windows may decorate specialty rows.
+    // Only authoritative static windows may otherwise decorate specialty rows.
     nextEntry.context_length = authoritativeContextWindow;
   } else if (specialtySurface && typeof nextEntry.context_length === "number") {
     // Keep an explicit source-provided context if the emitter already set one.

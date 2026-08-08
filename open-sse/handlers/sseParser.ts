@@ -244,10 +244,8 @@ export function parseSSEToOpenAIResponse(rawSSE, fallbackModel) {
             existing.index = tc.index;
           }
           if (tc?.function?.name && !existing.function?.name) {
-            existing.function = existing.function || {};
             existing.function.name = tc.function.name;
           }
-          existing.function = existing.function || {};
           existing.function.arguments = appendToolCallArgumentDelta(
             existing.function.arguments,
             deltaArgs
@@ -715,8 +713,7 @@ export function parseSSEToResponsesOutput(rawSSE, fallbackModel) {
       // part. Place deltas at summary[summary_index] (growing the array) so
       // segments are preserved for later "\n\n" joining on the non-stream path,
       // instead of overwriting summary[0] regardless of index.
-      const summaryIndex =
-        typeof evt.summary_index === "number" ? evt.summary_index : 0;
+      const summaryIndex = typeof evt.summary_index === "number" ? evt.summary_index : 0;
       const part =
         summary[summaryIndex] && typeof summary[summaryIndex] === "object"
           ? { ...toRecord(summary[summaryIndex]) }
@@ -735,8 +732,7 @@ export function parseSSEToResponsesOutput(rawSSE, fallbackModel) {
       );
       const summary = Array.isArray(reasoningItem.summary) ? reasoningItem.summary : [];
       // #9500 — respect summary_index on the terminal done event too.
-      const summaryIndex =
-        typeof evt.summary_index === "number" ? evt.summary_index : 0;
+      const summaryIndex = typeof evt.summary_index === "number" ? evt.summary_index : 0;
       const part =
         summary[summaryIndex] && typeof summary[summaryIndex] === "object"
           ? { ...toRecord(summary[summaryIndex]) }
