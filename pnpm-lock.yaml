@@ -394,7 +394,7 @@ importers:
         specifier: 4.22.0
         version: 4.22.0(encoding@0.1.13)(seedrandom@3.0.5)
       better-sqlite3:
-        specifier: ^13.0.1
+        specifier: ^13.0.2
         version: 13.0.2
       js-tiktoken:
         specifier: ^1.0.20
