@@ -9,10 +9,10 @@ import ModalityBridgeVisionTab from "@/app/(dashboard)/dashboard/settings/compon
 
 type TabId = "vision" | "audio" | "video";
 
-const TABS: ReadonlyArray<{ id: TabId; labelKey: string; fallback: string }> = [
-  { id: "vision", labelKey: "modalityBridgeVisionTab", fallback: "Vision" },
-  { id: "audio", labelKey: "modalityBridgeAudioTab", fallback: "Audio" },
-  { id: "video", labelKey: "modalityBridgeVideoTab", fallback: "Video" },
+const TABS: ReadonlyArray<{ id: TabId; labelKey: string }> = [
+  { id: "vision", labelKey: "modalityBridgeVisionTab" },
+  { id: "audio", labelKey: "modalityBridgeAudioTab" },
+  { id: "video", labelKey: "modalityBridgeVideoTab" },
 ];
 
 function ModalityBridgePageContent() {
@@ -20,8 +20,6 @@ function ModalityBridgePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const translateOrFallback = (key: string, fallback: string) =>
-    typeof t.has === "function" && !t.has(key) ? fallback : t(key);
 
   const activeTab = useMemo<TabId>(() => {
     const requested = searchParams.get("tab") as TabId | null;
@@ -40,7 +38,7 @@ function ModalityBridgePageContent() {
       <div
         className="flex gap-1 overflow-x-auto border-b border-border"
         role="tablist"
-        aria-label={translateOrFallback("modalityBridgeSubTabsAria", "Modality Bridge sections")}
+        aria-label={t("modalityBridgeSubTabsAria")}
       >
         {TABS.map((tab) => (
           <button
@@ -56,7 +54,7 @@ function ModalityBridgePageContent() {
                 : "border-transparent text-text-muted hover:text-text"
             }`}
           >
-            {translateOrFallback(tab.labelKey, tab.fallback)}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

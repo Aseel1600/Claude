@@ -17,6 +17,11 @@ const navigation = vi.hoisted(() => ({
   redirect: vi.fn(),
 }));
 
+const messages = vi.hoisted(() => ({
+  has: true,
+  values: {} as Record<string, string>,
+}));
+
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: navigation.replace }),
   useSearchParams: () => new URLSearchParams(navigation.search),
@@ -25,7 +30,8 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => Object.assign((key: string) => key, { has: () => true }),
+  useTranslations: () =>
+    Object.assign((key: string) => messages.values[key] ?? key, { has: () => messages.has }),
 }));
 
 vi.mock(
@@ -50,6 +56,8 @@ describe("Modality Bridge settings page", () => {
     navigation.search = "";
     navigation.replace.mockReset();
     navigation.redirect.mockReset();
+    messages.has = true;
+    messages.values = {};
   });
 
   afterEach(() => {
@@ -73,6 +81,27 @@ describe("Modality Bridge settings page", () => {
     navigation.search = "tab=unsupported";
     const el = renderPage();
     expect(el.querySelector('[data-testid="vision-tab"]')).toBeTruthy();
+  });
+
+  it("uses catalog translations without hardcoded English fallbacks", () => {
+    messages.has = false;
+    messages.values = {
+      modalityBridgeIntro: "Introducción localizada",
+      modalityBridgeVisionTab: "Visión localizada",
+      modalityBridgeAudioTab: "Audio localizado",
+      modalityBridgeVideoTab: "Vídeo localizado",
+      modalityBridgeSubTabsAria: "Secciones localizadas",
+    };
+
+    const el = renderPage();
+    expect(Array.from(el.querySelectorAll('[role="tab"]')).map((tab) => tab.textContent)).toEqual([
+      "Visión localizada",
+      "Audio localizado",
+      "Vídeo localizado",
+    ]);
+    expect(el.querySelector('[role="tablist"]')?.getAttribute("aria-label")).toBe(
+      "Secciones localizadas"
+    );
   });
 
   it("updates the URL without scrolling when an operator changes tabs", () => {

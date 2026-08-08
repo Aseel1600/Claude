@@ -1,0 +1,1 @@
+- **feat(settings):** add a dedicated Modality Bridge settings page with Vision controls, runtime stats, and URL-addressable Audio and Video tabs ([#9782](https://github.com/diegosouzapw/OmniRoute/pull/9782))
