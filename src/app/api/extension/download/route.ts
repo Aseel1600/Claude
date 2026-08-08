@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
+import { personalizeVsix, resolveInstanceOrigin } from "./personalizeVsix";
 
 /** Filename of the extension VSIX served by this endpoint. */
 const EXTENSION_FILENAME = "ia-one.vsix";
@@ -28,12 +29,16 @@ export async function GET(request: Request) {
   }
 
   const buffer = fs.readFileSync(filePath);
-  return new NextResponse(new Uint8Array(buffer), {
+  // The package is served BY this instance, so it leaves already knowing how to
+  // reach it. Only the API key is left for the operator to fill in.
+  const payload = personalizeVsix(new Uint8Array(buffer), resolveInstanceOrigin(request));
+
+  return new NextResponse(payload, {
     status: 200,
     headers: {
       "Content-Type": "application/octet-stream",
       "Content-Disposition": `attachment; filename="${EXTENSION_FILENAME}"`,
-      "Content-Length": String(buffer.length),
+      "Content-Length": String(payload.length),
       "Cache-Control": "no-store",
     },
   });

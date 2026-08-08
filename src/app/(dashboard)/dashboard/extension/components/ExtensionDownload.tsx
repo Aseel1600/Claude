@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/shared/components";
 
@@ -9,8 +10,17 @@ const DOWNLOAD_URL = "/api/extension/download";
 /** URL of the extension repository. */
 const REPO_URL = "https://github.com/dealenx/oai-compatible-copilot-mod";
 
+/** The address is fixed for the life of the page — nothing to subscribe to. */
+const subscribeToNothing = () => () => {};
+const getOrigin = () => window.location.origin;
+/** Rendered on the server, where there is no window to ask. */
+const getOriginPlaceholder = () => "…";
+
 export default function ExtensionDownload() {
   const t = useTranslations("extensionPage");
+  // The download stamps this same address into the package defaults, so what
+  // the page shows and what the operator gets cannot drift apart.
+  const instanceOrigin = useSyncExternalStore(subscribeToNothing, getOrigin, getOriginPlaceholder);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -40,9 +50,18 @@ export default function ExtensionDownload() {
       <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
         <h3 className="text-sm font-semibold uppercase text-text-main/80">{t("configTitle")}</h3>
         <p className="text-sm leading-relaxed text-text-muted">{t("configDescription")}</p>
-        <code className="rounded border border-border bg-bg-subtle px-3 py-2 font-mono text-[13px] text-text-main">
-          {"oaicopilot.baseUrl = http://localhost:20128/v1"}
-        </code>
+        <div className="flex flex-col gap-1 rounded border border-border bg-bg-subtle px-3 py-2 font-mono text-[13px] text-text-main">
+          <span>
+            iaone.omniroute.url = <strong>{instanceOrigin}</strong>
+            <span className="ml-2 font-sans text-xs text-text-muted">já vem preenchido</span>
+          </span>
+          <span>
+            iaone.omniroute.token = …
+            <span className="ml-2 font-sans text-xs text-text-muted">
+              o único passo manual — use o comando <code>iaone.setApikey</code>
+            </span>
+          </span>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
