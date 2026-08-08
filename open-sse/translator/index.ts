@@ -13,7 +13,6 @@ import {
   providerHonorsOpenAIFormatCacheControl,
   resolveConnectionCacheOverride,
 } from "../utils/cacheControlPolicy.ts";
-import { requiresAuthenticReasoningContent } from "../utils/reasoningContentInjector.ts";
 import { isInternalReasoningPlaceholder } from "../utils/reasoningPlaceholder.ts";
 import {
   coerceToolSchemas,
@@ -162,7 +161,11 @@ function isReasoningOnlyReplayTarget(provider: unknown, model: unknown): boolean
     /(^|\/)deepseek/i.test(normalizedModel) ||
     normalizedProvider === "xiaomi-mimo" ||
     /(^|\/)mimo/i.test(normalizedModel) ||
-    requiresAuthenticReasoningContent(normalizedProvider, normalizedModel)
+    requiresReasoningReplay({
+      provider: normalizedProvider,
+      model: normalizedModel,
+      allowLegacyFallback: false,
+    })
   );
 }
 
@@ -237,12 +240,13 @@ export function translateRequest(
   const normalizedModel = String(model ?? "");
   const isKimiCoding =
     normalizedProvider === "kimi-coding" || normalizedProvider === "kimi-coding-apikey";
-  const requiresAuthenticReasoning = requiresAuthenticReasoningContent(
-    normalizedProvider,
-    normalizedModel
-  );
+  const requiresExplicitReasoningReplay = requiresReasoningReplay({
+    provider: normalizedProvider,
+    model: normalizedModel,
+    allowLegacyFallback: false,
+  });
   const preserveResponsesReasoning =
-    sourceFormat === FORMATS.OPENAI_RESPONSES && requiresAuthenticReasoning;
+    sourceFormat === FORMATS.OPENAI_RESPONSES && requiresExplicitReasoningReplay;
 
   // Phase 2: Apply thinking budget control before normalization
   result = applyThinkingBudget(result);
@@ -399,18 +403,16 @@ export function translateRequest(
     provider: normalizedProvider,
     model: normalizedModel,
   });
-  const isReasoner =
-    requiresAuthenticReasoning ||
-    requiresReasoningReplay({
+  const isReasoner = requiresReasoningReplay({
+    provider: normalizedProvider,
+    model: normalizedModel,
+    thinkingEnabled: hasThinkingConfig(result),
+    supportsReasoning: supportsReasoning({
       provider: normalizedProvider,
       model: normalizedModel,
-      thinkingEnabled: hasThinkingConfig(result),
-      supportsReasoning: supportsReasoning({
-        provider: normalizedProvider,
-        model: normalizedModel,
-      }),
-      interleavedField: resolvedCapabilities?.interleavedField ?? null,
-    });
+    }),
+    interleavedField: resolvedCapabilities?.interleavedField ?? null,
+  });
 
   // Always normalize to clean OpenAI format when target is OpenAI
   // This handles hybrid requests (e.g., OpenAI messages + Claude tools)
@@ -481,7 +483,7 @@ export function translateRequest(
 
   if (
     targetFormat === FORMATS.OPENAI &&
-    !requiresAuthenticReasoning &&
+    !requiresExplicitReasoningReplay &&
     result.messages &&
     Array.isArray(result.messages)
   ) {
@@ -599,7 +601,7 @@ export function translateRequest(
           }
           continue;
         }
-        if (requiresAuthenticReasoning) continue;
+        if (requiresExplicitReasoningReplay) continue;
         msg.content.splice(firstToolUseIdx, 0, {
           type: "thinking",
           thinking: NON_ANTHROPIC_THINKING_PLACEHOLDER,
@@ -636,7 +638,7 @@ export function translateRequest(
       // Native Moonshot K3/K2.7 accepts only the real prior reasoning. If it
       // was not supplied and the cache missed, leave it absent so upstream can
       // enforce its contract instead of corrupting history with a placeholder.
-      if (requiresAuthenticReasoning) {
+      if (requiresExplicitReasoningReplay) {
         if (msg.reasoning_content === "") delete msg.reasoning_content;
         continue;
       }
@@ -649,7 +651,7 @@ export function translateRequest(
       // deepseek-v4-flash accepts an ABSENT reasoning_content field (the 400 is
       // specific to empty-string, and even that is endpoint-dependent). Omit
       // the field instead; providers that genuinely enforce the contract
-      // (kimi-coding, moonshot authentic-reasoning) have their own paths above.
+      // (kimi-coding, moonshot reasoning replay) have their own paths above.
       if ((hasToolCalls || shouldReplayReasoningOnly) && !msg.reasoning_content) {
         if (requiresReasoningContentPresence(normalizedProvider, normalizedModel)) {
           msg.reasoning_content = NON_ANTHROPIC_THINKING_PLACEHOLDER;

@@ -2,7 +2,7 @@
  * Convert OpenAI Responses API format to standard chat completions format.
  * Delegates to the canonical translator to avoid logic duplication.
  */
-import { requiresAuthenticReasoningContent } from "../../utils/reasoningContentInjector.ts";
+import { requiresReasoningReplay } from "../../services/reasoningCache.ts";
 import { openaiResponsesToOpenAIRequest } from "../request/openai-responses.ts";
 import { toRecord } from "../request/openai-responses/helpers.ts";
 
@@ -23,7 +23,11 @@ export function convertResponsesApiFormat(
     credentials && typeof credentials === "object" && !Array.isArray(credentials)
       ? (credentials as Record<string, unknown>)
       : {};
-  const translationCredentials = requiresAuthenticReasoningContent(provider, model)
+  const translationCredentials = requiresReasoningReplay({
+    provider: String(provider ?? ""),
+    model: String(model ?? ""),
+    allowLegacyFallback: false,
+  })
     ? { ...credentialRecord, _preserveReasoningContent: true }
     : credentials;
   const converted = openaiResponsesToOpenAIRequest(
