@@ -9,6 +9,7 @@
  */
 
 import Bottleneck from "bottleneck";
+import { applyBottleneckDoExpirePatch } from "./bottleneckPatch.ts";
 import { parseRetryAfterFromBody } from "./accountFallback.ts";
 import { getAntigravityQuotaFamily } from "./antigravityQuotaFamily.ts";
 import { getProviderCategory } from "../config/providerRegistry.ts";
@@ -310,6 +311,8 @@ function trackAsyncOperation<T>(promise: Promise<T>): Promise<T> {
 export async function initializeRateLimits() {
   if (initialized) return;
   initialized = true;
+  // Fix Bottleneck v2.19.5 doExpire bug before any limiter is created.
+  applyBottleneckDoExpirePatch();
 
   try {
     const { getCachedProviderConnections, getSettings } = await import("@/lib/localDb");
