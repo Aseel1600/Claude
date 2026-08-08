@@ -8,7 +8,7 @@
  * This test verifies the payload normalization fix is present in the source code
  * and that the correct contract keys are read by loadData().
  *
- * Run: node --import tsx/esm --test tests/unit/free-pool-frontend-repro.test.tsx
+ * Run: node --import tsx/esm --test tests/unit/free-pool-frontend-repro.test.ts
  */
 
 import test from "node:test";

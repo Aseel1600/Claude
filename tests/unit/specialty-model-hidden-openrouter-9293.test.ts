@@ -89,17 +89,15 @@ test("#9293 hidden OpenRouter specialty models are excluded from /v1/models cata
     new Request("http://localhost/v1/models")
   );
   assert.equal(response.status, 200);
-  const body = (await response.json()) as any;
+  const body = (await response.json()) as { data: Array<{ id: string; type?: string }> };
   assert.ok(Array.isArray(body.data), "response has data array");
 
   // Find audio and image models
-  const audioModels = body.data.filter((m: any) => m.type === "audio");
-  const imageModels = body.data.filter((m: any) => m.type === "image");
+  const audioModels = body.data.filter((m) => m.type === "audio");
+  const imageModels = body.data.filter((m) => m.type === "image");
 
   // chirp-3 model ID from the audio registry is openrouter/google/chirp-3
-  const hiddenAudio = audioModels.find((m: any) =>
-    String(m.id).endsWith("google/chirp-3")
-  );
+  const hiddenAudio = audioModels.find((m) => String(m.id).endsWith("google/chirp-3"));
   assert.equal(
     hiddenAudio,
     undefined,
@@ -107,7 +105,7 @@ test("#9293 hidden OpenRouter specialty models are excluded from /v1/models cata
   );
 
   // flux.2-pro model ID from the image registry is openrouter/black-forest-labs/flux.2-pro
-  const hiddenImage = imageModels.find((m: any) =>
+  const hiddenImage = imageModels.find((m) =>
     String(m.id).endsWith("black-forest-labs/flux.2-pro")
   );
   assert.equal(
@@ -118,11 +116,6 @@ test("#9293 hidden OpenRouter specialty models are excluded from /v1/models cata
 
   // Verify non-hidden audio models from OpenRouter still appear
   // deepgram/nova-3 is not hidden, so it should be present
-  const visibleAudio = audioModels.find((m: any) =>
-    String(m.id).endsWith("deepgram/nova-3")
-  );
-  assert.ok(
-    visibleAudio,
-    "non-hidden audio model deepgram/nova-3 should still appear in catalog"
-  );
+  const visibleAudio = audioModels.find((m) => String(m.id).endsWith("deepgram/nova-3"));
+  assert.ok(visibleAudio, "non-hidden audio model deepgram/nova-3 should still appear in catalog");
 });
