@@ -158,7 +158,7 @@ error lines produced **95.93% token savings / 96.26% character savings** — squ
 range. But the same pipeline run against normal, non-redundant tool output (a clean `grep` match list,
 a short file read, ordinary conversational text) correctly produces **near-zero savings**, because
 there is nothing repetitive to remove and `validateCompression()` (`validation.ts`) refuses to ship a
-rewrite that would drop or alter code blocks, URLs, headings, versions, or `CONST_CASE` identifiers.
+rewrite that would drop or alter code blocks, URLs, headings, versions, or ALL-CAPS constant identifiers.
 
 This is expected, safe behavior, not a bug: a coding session that mostly reads/greps clean files will
 see modest total savings even with compression fully enabled, while a session that hits a failing
