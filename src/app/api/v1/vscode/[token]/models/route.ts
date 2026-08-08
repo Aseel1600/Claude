@@ -26,7 +26,11 @@ import {
   parseVscodeServiceTierVariantModelId,
 } from "@/app/api/v1/vscode/[token]/serviceTierVariants";
 import { getFamilyFirstPublishedModelId } from "@/app/api/v1/vscode/[token]/familyFirstModelIds";
-import { isUsableChatModel } from "@/app/api/v1/vscode/[token]/usableChatModel";
+import {
+  isComboCatalogModel,
+  isUsableChatModel,
+  isUsableVscodeCatalogModel,
+} from "@/app/api/v1/vscode/[token]/usableChatModel";
 import { getCachedRawProviderConnections, getCachedProviderNodes } from "@/lib/db/readCache";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
 
@@ -200,7 +204,10 @@ export function enrichModelForVscode(
   request: Request,
   options: EnrichModelForVscodeOptions = {}
 ): VscodeImportModel {
-  if (!isUsableChatModel(model)) return model;
+  // Combos reach here only from the VS Code chat catalog; the `raw` caller
+  // filters them out upstream. They need the same enrichment as a model — the
+  // editor reads toolCalling/vision/limits off these fields.
+  if (!isUsableVscodeCatalogModel(model)) return model;
 
   const requestUrl = new URL(request.url);
   const tokenBasePath = requestUrl.pathname.replace(/\/models(?:\/raw)?\/?$/, "");
@@ -358,11 +365,18 @@ export function expandVscodeRawModels(models: CatalogModelEntry[]) {
   return Array.from(uniqueModels.values());
 }
 
+/**
+ * @param includeCombos Combos belong to the VS Code chat catalog, which the
+ * editor extension syncs, but NOT to the `raw` catalog that reuses this helper
+ * — that one mirrors native provider ids, and a combo has no native id.
+ */
 export async function getVscodeModelsCatalogResponse(
-  request: Request
+  request: Request,
+  { includeCombos = false }: { includeCombos?: boolean } = {}
 ): Promise<VscodeModelsCatalogResponse> {
   const response = await getUnifiedModelsResponse(request);
   const body = (await response.json()) as { data?: CatalogModelEntry[] };
+  const isListable = includeCombos ? isUsableVscodeCatalogModel : isUsableChatModel;
   return {
     status: response.status,
     headers: {
@@ -371,7 +385,7 @@ export async function getVscodeModelsCatalogResponse(
     },
     body: {
       ...body,
-      data: Array.isArray(body.data) ? body.data.filter(isUsableChatModel) : body.data,
+      data: Array.isArray(body.data) ? body.data.filter((model) => isListable(model)) : body.data,
     },
   };
 }
@@ -382,7 +396,7 @@ export async function GET(
 ) {
   const resolvedParams = params ? await params : undefined;
   const authorizedRequest = withPathTokenApiKey(request, resolvedParams?.token);
-  const catalog = await getVscodeModelsCatalogResponse(authorizedRequest);
+  const catalog = await getVscodeModelsCatalogResponse(authorizedRequest, { includeCombos: true });
   const body = catalog.body;
 
   if (catalog.status < 200 || catalog.status >= 300 || !Array.isArray(body.data)) {
@@ -394,6 +408,10 @@ export async function GET(
 
   const allowedOwners = await getAllowedVscodeOwners();
   const activeData = body.data.filter((model) => {
+    // A combo's owner is the literal "combo", never a provider id, so it can
+    // never be in the allow-list. Its targets are what resolve to real
+    // connections, and that happens at request time.
+    if (isComboCatalogModel(model)) return true;
     const owner = typeof model.owned_by === "string" ? model.owned_by.trim() : "";
     if (!owner) return false;
     return allowedOwners.has(owner);

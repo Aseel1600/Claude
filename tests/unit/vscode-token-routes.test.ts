@@ -66,7 +66,10 @@ test.after(async () => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("vscode tokenized root route mirrors the grouped VS Code catalog without combos", async () => {
+// Combos used to be filtered out of every VS Code listing. They are reachable
+// chat targets, and hiding them made a configured routing strategy unusable
+// from the editor — so the listing now advertises them alongside models.
+test("vscode tokenized root route advertises combos alongside models", async () => {
   await settingsDb.updateSettings({
     requireLogin: true,
     password: "hashed-password",
@@ -75,7 +78,7 @@ test("vscode tokenized root route mirrors the grouped VS Code catalog without co
   await seedConnection("openai", { name: "openai-vscode-root" });
   const key = await apiKeysDb.createApiKey("vscode-root", "machine-vscode-root");
   await combosDb.createCombo({
-    name: "root-hidden-combo",
+    name: "root-listed-combo",
     strategy: "priority",
     models: [],
   });
@@ -90,9 +93,16 @@ test("vscode tokenized root route mirrors the grouped VS Code catalog without co
   assert.ok(body.data.length > 0);
   assert.equal(
     body.data.some(
-      (entry: any) => entry.id === "root-hidden-combo" || entry.name === "root-hidden-combo"
+      (entry: any) => entry.id === "root-listed-combo" || entry.name === "root-listed-combo"
     ),
-    false
+    true,
+    "the combo must reach the VS Code catalog — the extension syncs this route"
+  );
+  // The provider models are still there; the combo is an addition, not a swap.
+  const rootEntries = (body.data ?? []) as Array<{ owned_by?: string }>;
+  assert.ok(
+    rootEntries.some((entry) => entry.owned_by && entry.owned_by !== "combo"),
+    "provider models must survive alongside combos"
   );
 });
 
@@ -898,7 +908,11 @@ test("vscode tokenized api/show route resolves a catalog model through the path 
     new Request(`http://localhost/api/v1/vscode/${encodeURIComponent(key.key)}/v1/models`)
   );
   const modelsBody = (await modelsResponse.json()) as any;
-  const modelId = modelsBody.data?.[0]?.id;
+  // Deliberately NOT data[0]: the catalog advertises the `auto/*` combos at the
+  // top, and api/show resolves model names — a combo has no single model behind
+  // it, so it answers 404 there by design. This test is about a provider model.
+  const catalogEntries = (modelsBody.data ?? []) as Array<{ id?: string; owned_by?: string }>;
+  const modelId = catalogEntries.find((entry) => entry?.owned_by !== "combo")?.id;
 
   assert.equal(modelsResponse.status, 200);
   assert.equal(typeof modelId, "string");
