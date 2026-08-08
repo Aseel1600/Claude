@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, Button, Input, Badge } from "@/shared/components";
+import {
+  Card,
+  Button,
+  Badge,
+  AppleField,
+  AppleInput,
+  AppleCard,
+  AppleSurface,
+  AppleButton,
+} from "@/shared/components";
 
 export default function ObsidianSourceCard() {
   const t = useTranslations("endpoint");
@@ -185,8 +194,8 @@ export default function ObsidianSourceCard() {
   };
 
   return (
-    <Card>
-      <div className="p-5">
+    <AppleCard>
+      <div className="flex flex-col gap-4">
         <button
           onClick={() => setExpanded(!expanded)}
           className="w-full flex items-center gap-3 text-left"
@@ -227,53 +236,59 @@ export default function ObsidianSourceCard() {
         </button>
 
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-3">
+          <div className="pt-3 border-t border-border/50 flex flex-col gap-3">
             {message && (
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              <AppleSurface
+                weight="light"
+                className={`flex items-center gap-2 px-3 py-2 text-sm ${
                   message.type === "success"
-                    ? "border-green-500/30 bg-green-500/10 text-green-400"
-                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                    ? "bg-success/10 border-success/30 text-success"
+                    : "bg-red/10 border-red/30 text-red"
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {message.type === "success" ? "check_circle" : "error"}
                 </span>
                 <span className="flex-1">{message.text}</span>
-              </div>
+              </AppleSurface>
             )}
 
             {!connected ? (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-text-muted font-medium">
-                  {t("obsidianRestToken")}
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder={t("obsidianApiKeyPlaceholder")}
+              <div className="flex flex-col gap-3">
+                <AppleField id="obsidian-token" label={t("obsidianRestToken")}>
+                  <div className="flex gap-2">
+                    <AppleInput
+                      id="obsidian-token"
+                      type="password"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder={t("obsidianApiKeyPlaceholder")}
+                      disabled={busy}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <AppleButton
+                      onClick={handleSaveToken}
+                      loading={busy}
+                      variant="primary"
+                      size="sm"
+                    >
+                      {t("obsidianConnect")}
+                    </AppleButton>
+                  </div>
+                </AppleField>
+                <AppleField id="obsidian-base-url" label={t("obsidianBaseUrlOptional")}>
+                  <AppleInput
+                    id="obsidian-base-url"
+                    type="text"
+                    value={baseUrl}
+                    onChange={(e) => setBaseUrl(e.target.value)}
+                    placeholder={DEFAULT_URL}
                     disabled={busy}
-                    className="font-mono text-sm flex-1"
+                    className="font-mono text-sm"
                   />
-                  <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
-                    {t("obsidianConnect")}
-                  </Button>
-                </div>
-                <label className="text-xs text-text-muted font-medium mt-1">
-                  {t("obsidianBaseUrlOptional")}
-                </label>
-                <Input
-                  type="text"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder={DEFAULT_URL}
-                  disabled={busy}
-                  className="font-mono text-sm"
-                />
+                </AppleField>
                 {baseUrl.includes(":27124") && (
-                  <div className="flex items-center gap-1.5 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-2.5 py-1.5 text-[10px] text-yellow-300">
+                  <div className="flex items-center gap-1.5 rounded-card border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-[10px] text-warning">
                     <span className="material-symbols-outlined text-[14px]">warning</span>
                     <span>{t("obsidianPortWarning")}</span>
                   </div>
@@ -308,12 +323,10 @@ export default function ObsidianSourceCard() {
                   <p className="text-[10px] text-text-muted">{t("obsidianVaultSyncDescription")}</p>
 
                   {!webdavEnabled ? (
-                    <div className="flex flex-col gap-2">
-                      <label className="text-xs text-text-muted font-medium">
-                        {t("obsidianVaultDirectoryPath")}
-                      </label>
+                    <AppleField id="obsidian-vault-path" label={t("obsidianVaultDirectoryPath")}>
                       <div className="flex gap-2">
-                        <Input
+                        <AppleInput
+                          id="obsidian-vault-path"
                           type="text"
                           value={vaultPath}
                           onChange={(e) => setVaultPath(e.target.value)}
@@ -321,27 +334,30 @@ export default function ObsidianSourceCard() {
                           disabled={webdavBusy}
                           className="font-mono text-sm flex-1"
                         />
-                        <Button
+                        <AppleButton
                           onClick={handleEnableWebdav}
                           loading={webdavBusy}
                           variant="primary"
                           size="sm"
                         >
                           {t("obsidianEnable")}
-                        </Button>
+                        </AppleButton>
                       </div>
-                    </div>
+                    </AppleField>
                   ) : (
                     <div className="flex flex-col gap-3">
-                      <div className="flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2">
-                        <span className="material-symbols-outlined text-[18px] text-blue-400">
+                      <AppleSurface
+                        weight="light"
+                        className="flex items-center gap-2 px-3 py-2 bg-info/10 border-info/30"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-info">
                           cloud_sync
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-blue-300 font-medium">
+                          <p className="text-xs text-info font-medium">
                             {t("obsidianWebdavEnabled")}
                           </p>
-                          <p className="text-[10px] text-blue-400/70 font-mono truncate">
+                          <p className="text-[10px] text-info/70 font-mono truncate">
                             {getWebdavUrl()}
                           </p>
                         </div>
@@ -354,9 +370,9 @@ export default function ObsidianSourceCard() {
                         >
                           {t("obsidianDisable")}
                         </Button>
-                      </div>
+                      </AppleSurface>
 
-                      <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-black/10 p-3">
+                      <AppleSurface weight="light" className="flex flex-col gap-2 p-3 bg-black/10">
                         <p className="text-[11px] text-text-muted font-medium">
                           {t("obsidianConfigureMobile")}
                         </p>
@@ -368,7 +384,7 @@ export default function ObsidianSourceCard() {
                           <label className="text-[10px] text-text-muted font-medium">
                             {t("obsidianWebdavUrl")}
                           </label>
-                          <div className="flex items-center gap-1.5 rounded border border-border/30 bg-black/20 px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5 rounded-md border border-border/30 bg-black/20 px-2.5 py-1.5">
                             <code className="text-[10px] text-text-muted font-mono flex-1 break-all select-all">
                               {getWebdavUrl()}
                             </code>
@@ -379,7 +395,7 @@ export default function ObsidianSourceCard() {
                           <label className="text-[10px] text-text-muted font-medium">
                             {t("obsidianUsername")}
                           </label>
-                          <div className="flex items-center gap-1.5 rounded border border-border/30 bg-black/20 px-2.5 py-1.5">
+                          <div className="flex items-center gap-1.5 rounded-md border border-border/30 bg-black/20 px-2.5 py-1.5">
                             <code className="text-[10px] text-text-muted font-mono flex-1 select-all">
                               {webdavUsername ?? "—"}
                             </code>
@@ -391,7 +407,7 @@ export default function ObsidianSourceCard() {
                             {t("obsidianPassword")}
                           </label>
                           <div className="flex items-center gap-1.5">
-                            <div className="flex items-center gap-1.5 rounded border border-border/30 bg-black/20 px-2.5 py-1.5 flex-1">
+                            <div className="flex items-center gap-1.5 rounded-md border border-border/30 bg-black/20 px-2.5 py-1.5 flex-1">
                               <code className="text-[10px] text-text-muted font-mono flex-1 select-all">
                                 {showPassword ? (webdavPassword ?? "—") : "••••••••••••"}
                               </code>
@@ -401,6 +417,9 @@ export default function ObsidianSourceCard() {
                               variant="secondary"
                               size="sm"
                               className="shrink-0"
+                              aria-label={
+                                showPassword ? t("obsidianHidePassword") : t("obsidianShowPassword")
+                              }
                             >
                               <span className="material-symbols-outlined text-[16px]">
                                 {showPassword ? "visibility_off" : "visibility"}
@@ -410,7 +429,7 @@ export default function ObsidianSourceCard() {
                         </div>
 
                         <p className="text-[10px] text-text-muted">{t("obsidianTailscaleHint")}</p>
-                      </div>
+                      </AppleSurface>
                     </div>
                   )}
                 </div>
@@ -419,6 +438,6 @@ export default function ObsidianSourceCard() {
           </div>
         )}
       </div>
-    </Card>
+    </AppleCard>
   );
 }

@@ -1,7 +1,19 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Card, CardSkeleton, Badge, Button, CollapsibleSection } from "@/shared/components";
+import { Card, CardSkeleton, Badge, CollapsibleSection } from "@/shared/components";
+import {
+  AppleCard,
+  AppleButton,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSectionHeader,
+  AppleHero,
+  AppleStatusDot,
+  AppleEmptyState,
+  AppleSurface,
+} from "@/shared/components";
 import {
   AGGREGATOR_PROVIDER_IDS,
   EMBEDDING_RERANK_PROVIDER_IDS,
@@ -816,34 +828,35 @@ export default function ProvidersPage() {
   return (
     <div className="flex flex-col gap-6">
       {showFirstProviderHint && (
-        <Card padding="lg">
-          <div className="flex flex-col items-center justify-center text-center">
-            <div className="flex items-center justify-center size-16 rounded-full bg-primary/10 mb-4">
-              <span className="material-symbols-outlined text-[32px] text-primary">dns</span>
-            </div>
-            <h2 className="text-xl font-semibold text-text-main">
-              {t("addFirstProvider") || "Add your first provider"}
-            </h2>
-            <p className="text-sm text-text-muted mt-2 max-w-md">
-              {t("addFirstProviderDesc") ||
-                "Connect an AI provider to start routing requests through OmniRoute. You can use free providers, API keys, or OAuth accounts."}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-              <Button icon="add" onClick={() => router.push("/dashboard/providers/new")}>
+        <AppleEmptyState
+          icon={<span className="material-symbols-outlined text-[28px] text-primary">dns</span>}
+          title={t("addFirstProvider") || "Add your first provider"}
+          description={
+            t("addFirstProviderDesc") ||
+            "Connect an AI provider to start routing requests through OmniRoute. You can use free providers, API keys, or OAuth accounts."
+          }
+          action={
+            <>
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => router.push("/dashboard/providers/new")}
+              >
                 {providerText(t, "onboardingWizard", "Provider Onboarding Wizard")}
-              </Button>
+              </AppleButton>
               <a
                 href="https://github.com/diegosouzapw/OmniRoute#-documentation"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-full border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"
               >
                 <span className="material-symbols-outlined text-[16px]">help</span>
                 {t("learnMore") || "Learn more"}
               </a>
-            </div>
-          </div>
-        </Card>
+            </>
+          }
+        />
       )}
 
       <ProviderSummaryCard
@@ -874,23 +887,26 @@ export default function ProvidersPage() {
       {/* Expiration Banner */}
       {expirations?.summary &&
         (expirations.summary.expired > 0 || expirations.summary.expiringSoon > 0) && (
-          <div
-            className={`p-4 rounded-xl flex items-start gap-3 border ${
+          <AppleSurface
+            weight="light"
+            className={`p-4 flex items-start gap-3 ${
               expirations.summary.expired > 0
-                ? "bg-red-500/10 border-red-500/20"
-                : "bg-amber-500/10 border-amber-500/20"
+                ? "!border-red/30 !bg-red/10"
+                : "!border-warning/30 !bg-warning/10"
             }`}
           >
             <span
               className={`material-symbols-outlined text-[24px] ${
-                expirations.summary.expired > 0 ? "text-red-500" : "text-amber-500"
+                expirations.summary.expired > 0 ? "text-red" : "text-warning"
               }`}
             >
               {expirations.summary.expired > 0 ? "error" : "warning"}
             </span>
             <div className="flex-1">
               <h3
-                className={`font-semibold ${expirations.summary.expired > 0 ? "text-red-500" : "text-amber-500"}`}
+                className={`font-semibold tracking-[-0.01em] ${
+                  expirations.summary.expired > 0 ? "text-red" : "text-warning"
+                }`}
               >
                 {expirations.summary.expired > 0
                   ? t("expirationBannerExpired", { count: expirations.summary.expired })
@@ -904,7 +920,7 @@ export default function ProvidersPage() {
                   : t("expirationBannerExpiringSoonDesc")}
               </p>
             </div>
-          </div>
+          </AppleSurface>
         )}
 
       {isCompactProviderDisplay ? (
@@ -927,13 +943,16 @@ export default function ProvidersPage() {
             ))}
           </div>
         ) : (
-          <div
-            className="flex items-center justify-center gap-2 py-8 border border-dashed border-border rounded-xl text-text-muted text-sm"
+          <AppleEmptyState
+            icon={
+              <span className="material-symbols-outlined text-[26px] text-text-muted">
+                search_off
+              </span>
+            }
+            title={providerText(t, "noProvidersMatch", "No providers match your search.")}
+            className="!py-10"
             data-testid="provider-compact-empty"
-          >
-            <span className="material-symbols-outlined text-[18px]">search_off</span>
-            <span>{providerText(t, "noProvidersMatch", "No providers match your search.")}</span>
-          </div>
+          />
         )
       ) : (
         <>
@@ -941,7 +960,7 @@ export default function ProvidersPage() {
           {showSection("compatible") && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("compatibleProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-orange-500"
@@ -972,20 +991,31 @@ export default function ProvidersPage() {
                     </button>
                   )}
                   {ccCompatibleProviderEnabled && (
-                    <Button size="sm" icon="add" onClick={() => setShowAddCcCompatibleModal(true)}>
+                    <AppleButton
+                      variant="secondary"
+                      size="sm"
+                      icon={<span className="material-symbols-outlined text-[16px]">add</span>}
+                      onClick={() => setShowAddCcCompatibleModal(true)}
+                    >
                       {addCcCompatibleLabel}
-                    </Button>
+                    </AppleButton>
                   )}
-                  <Button
+                  <AppleButton
+                    variant="secondary"
                     size="sm"
-                    icon="add"
+                    icon={<span className="material-symbols-outlined text-[16px]">add</span>}
                     onClick={() => setShowAddAnthropicCompatibleModal(true)}
                   >
                     {t("addAnthropicCompatible")}
-                  </Button>
-                  <Button size="sm" icon="add" onClick={() => setShowAddCompatibleModal(true)}>
+                  </AppleButton>
+                  <AppleButton
+                    variant="secondary"
+                    size="sm"
+                    icon={<span className="material-symbols-outlined text-[16px]">add</span>}
+                    onClick={() => setShowAddCompatibleModal(true)}
+                  >
                     {t("addOpenAICompatible")}
-                  </Button>
+                  </AppleButton>
                 </div>
               </div>
               <p className="text-sm text-text-muted -mt-2">{t("compatibleProvidersDesc")}</p>
@@ -1021,7 +1051,7 @@ export default function ProvidersPage() {
           {showSection("oauth") && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("oauthProviders")}{" "}
                   <span className="size-2.5 rounded-full bg-blue-500" title={t("oauthLabel")} />
                   <ProviderCountBadge
@@ -1093,7 +1123,7 @@ export default function ProvidersPage() {
           {showSection("ide") && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("ideProviders") || "IDE Providers"}{" "}
                   <span
                     className="size-2.5 rounded-full bg-cyan-500"
@@ -1153,7 +1183,7 @@ export default function ProvidersPage() {
           {showSection("web") && webCookieProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("webCookieProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-purple-500"
@@ -1200,7 +1230,7 @@ export default function ProvidersPage() {
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2">
                     {t("freeTierProviders")}
                     <CategoryDot color="bg-green-500" label={t("freeTierLabel")} />
                     <ProviderCountBadge {...countConfigured(freeSectionEntriesAll)} />
@@ -1248,7 +1278,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("apiKeyProviders")}{" "}
                   <span className="size-2.5 rounded-full bg-amber-500" title={t("apiKeyLabel")} />
                   <ProviderCountBadge {...countConfigured(apiKeyProviderEntriesAll)} />
@@ -1320,7 +1350,7 @@ export default function ProvidersPage() {
           {showSection("proxy") && upstreamProxyEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("upstreamProxyProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-indigo-500"
@@ -1366,7 +1396,7 @@ export default function ProvidersPage() {
           {showSection("webfetch") && webFetchEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("webFetchProvidersHeading")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-orange-500"
@@ -1399,7 +1429,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && aggregatorProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("aggregatorsGateways")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-amber-500"
@@ -1432,7 +1462,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && enterpriseProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("enterpriseCloud")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-amber-500"
@@ -1465,7 +1495,7 @@ export default function ProvidersPage() {
           {showSection("cloud") && cloudAgentProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("cloudAgentProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-violet-500"
@@ -1515,7 +1545,7 @@ export default function ProvidersPage() {
           {showSection("local") && localProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("localProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-emerald-500"
@@ -1561,7 +1591,7 @@ export default function ProvidersPage() {
           {showSection("search") && searchProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("searchProvidersHeading")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-teal-500"
@@ -1607,7 +1637,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && embeddingRerankProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("embeddingRerankProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-amber-500"
@@ -1640,7 +1670,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && imageProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("imageProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-amber-500"
@@ -1673,7 +1703,7 @@ export default function ProvidersPage() {
           {showSection("audio") && audioProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("audioProvidersHeading")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-rose-500"
@@ -1719,7 +1749,7 @@ export default function ProvidersPage() {
           {showSection("apikey") && videoProviderEntries.length > 0 && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold flex items-center gap-2 flex-1 min-w-0">
+                <h2 className="apple-section-title text-[1.15rem] flex items-center gap-2 flex-1 min-w-0">
                   {t("videoProviders")}{" "}
                   <span
                     className="size-2.5 rounded-full bg-amber-500"

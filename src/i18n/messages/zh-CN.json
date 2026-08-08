@@ -1364,13 +1364,21 @@
       "webhookUrl": "Discord Webhook URL",
       "webhookUrlPlaceholder": "https://discord.com/api/webhooks/...",
       "webhookUrlHint": "从 Discord 频道集成设置中复制的 Webhook URL。",
-      "tutorial": "如何创建 Discord Webhook："
+      "tutorial": "如何创建 Discord Webhook：",
+      "tutorialStep1": "打开 Discord，进入你的服务器频道设置。",
+      "tutorialStep2": "点击 集成 → Webhooks → 新建 Webhook。",
+      "tutorialStep3": "选择名称和频道，然后点击 复制 Webhook URL。",
+      "tutorialStep4": "向该频道发送一条测试消息以验证 Webhook 是否生效。"
     },
     "slack": {
       "webhookUrl": "Slack Webhook URL",
       "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
       "webhookUrlHint": "从 Slack Incoming Webhooks 集成中复制的 Webhook URL。",
-      "tutorial": "如何创建 Slack Webhook："
+      "tutorial": "如何创建 Slack Webhook：",
+      "tutorialStep1": "前往 api.slack.com/apps，打开你的应用（或新建一个）。",
+      "tutorialStep2": "在 Features 菜单中启用 Incoming Webhooks。",
+      "tutorialStep3": "点击 Add New Webhook to Workspace 并选择频道。",
+      "tutorialStep4": "复制生成的 Webhook URL 并粘贴到上方输入框。"
     },
     "telegram": {
       "botToken": "Telegram 机器人令牌",
@@ -1379,7 +1387,11 @@
       "chatId": "Telegram 聊天 ID / 频道",
       "chatIdPlaceholder": "-100123456789 或 @channelname",
       "chatIdHint": "聊天/频道的唯一数字标识符或公开用户名。",
-      "tutorial": "如何配置 Telegram Webhook："
+      "tutorial": "如何配置 Telegram Webhook：",
+      "tutorialStep1": "打开 Telegram，搜索并打开 @BotFather。",
+      "tutorialStep2": "发送 /newbot，选择名称后复制机器人令牌。",
+      "tutorialStep3": "将机器人添加到你的群组或频道并设为管理员。",
+      "tutorialStep4": "从群组信息中复制 Chat ID，或使用 @userinfobot 查询。"
     }
   },
   "compliance": {
@@ -1748,7 +1760,15 @@
     "updateStarted": "更新已开始...",
     "reloadingPageAutomatically": "自动重新加载页面...",
     "providerTopology": "提供者拓扑",
-    "noResponseStream": "未收到响应流"
+    "noResponseStream": "未收到响应流",
+    "statusProviders": "提供商",
+    "configured": "已配置",
+    "statusModels": "模型",
+    "statusErrors": "异常",
+    "heroTitle": "用一个端点路由任何模型。",
+    "statusConnected": "已连接",
+    "heroSubtitle": "连接提供商、设置策略、分发密钥。仪表盘把流量、提供商和策略收在一处。",
+    "heroEyebrow": "AI 网关"
   },
   "analytics": {
     "title": "分析",
@@ -2253,7 +2273,12 @@
     "bypassProviderQuota": "绕过服务商配额限制",
     "bypassProviderQuotaDescription": "允许此密钥在路由期间忽略上游服务商/账户的截止策略。API 密钥的美元配额仍然适用。",
     "quotaPill": "配额",
-    "quotaModeOnly": "仅配额"
+    "quotaModeOnly": "仅配额",
+    "个密钥": null,
+    "total": "总计",
+    "active": "已启用",
+    "scoped": "已限定",
+    "keys": "个密钥"
   },
   "auditLog": {
     "title": "审核日志",
@@ -3554,7 +3579,13 @@
     "sessionStickinessDisabled": "会话粘性关闭",
     "kimiPresetTitle": "Kimi Coding 预设",
     "kimiPresetDescription": "以 Kimi K3 作为主模型（Moonshot API），并在配置后自动回退到您的 Kimi Code 连接（kimi-coding、kimi-web）。",
-    "kimiPresetCta": "添加预设"
+    "kimiPresetCta": "添加预设",
+    "heroEyebrow": "路由 · 组合",
+    "statusTotal": "总计",
+    "statusIntelligent": "智能",
+    "statusActive": "已启用",
+    "statusCombos": "个组合",
+    "statusDeterministic": "确定性"
   },
   "costs": {
     "title": "成本",
@@ -3943,7 +3974,9 @@
     "obsidianWebdavUrl": "WebDAV URL",
     "obsidianUsername": "Username",
     "obsidianPassword": "Password",
-    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network."
+    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network.",
+    "obsidianShowPassword": "显示密码",
+    "obsidianHidePassword": "隐藏密码"
   },
   "endpoints": {
     "tabProxy": "端点代理",

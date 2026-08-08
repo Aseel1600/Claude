@@ -1,5 +1,7 @@
 "use client";
 
+import { AppleField, AppleInput } from "@/shared/components";
+
 export interface TelegramConfig {
   botToken: string;
   chatId: string;
@@ -14,32 +16,32 @@ interface TelegramConfigFormProps {
 export function TelegramConfigForm({ value, onChange, t }: TelegramConfigFormProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("telegram.botToken")}
-        </label>
-        <input
+      <AppleField
+        id="telegram-bot-token"
+        label={t("telegram.botToken")}
+        hint={t("telegram.botTokenHint")}
+      >
+        <AppleInput
+          id="telegram-bot-token"
           type="password"
           value={value.botToken}
           onChange={(e) => onChange({ ...value, botToken: e.target.value })}
           placeholder={t("telegram.botTokenPlaceholder")}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        <p className="mt-1 text-xs text-text-muted">{t("telegram.botTokenHint")}</p>
-      </div>
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("telegram.chatId")}
-        </label>
-        <input
+      </AppleField>
+      <AppleField
+        id="telegram-chat-id"
+        label={t("telegram.chatId")}
+        hint={t("telegram.chatIdHint")}
+      >
+        <AppleInput
+          id="telegram-chat-id"
           value={value.chatId}
           onChange={(e) => onChange({ ...value, chatId: e.target.value })}
           placeholder={t("telegram.chatIdPlaceholder")}
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        <p className="mt-1 text-xs text-text-muted">{t("telegram.chatIdHint")}</p>
-      </div>
+      </AppleField>
       <details className="rounded-lg border border-border bg-sidebar p-3">
         <summary className="cursor-pointer text-xs font-medium text-text-muted hover:text-text-main">
           {t("telegram.tutorial")}

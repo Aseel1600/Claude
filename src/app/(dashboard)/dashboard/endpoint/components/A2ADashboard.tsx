@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card, Button } from "@/shared/components";
+import {
+  AppleButton,
+  AppleCard,
+  AppleField,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleSelect,
+  AppleStatusDot,
+  AppleSurface,
+} from "@/shared/components";
 import { useTranslations } from "next-intl";
 
 type A2ATaskState = "submitted" | "working" | "completed" | "failed" | "cancelled";
@@ -75,11 +84,19 @@ const TASK_STATES: Array<"all" | A2ATaskState> = [
 ];
 
 function stateClass(state: A2ATaskState) {
-  if (state === "completed") return "bg-green-500/15 text-green-500";
-  if (state === "failed") return "bg-red-500/15 text-red-500";
-  if (state === "working") return "bg-amber-500/15 text-amber-500";
-  if (state === "cancelled") return "bg-gray-500/15 text-gray-400";
-  return "bg-blue-500/15 text-blue-500";
+  if (state === "completed") return "bg-success/15 text-success";
+  if (state === "failed") return "bg-red/15 text-red";
+  if (state === "working") return "bg-warning/15 text-warning";
+  if (state === "cancelled") return "bg-bg-subtle text-text-muted";
+  return "bg-info/15 text-info";
+}
+
+function stateDotKind(state: A2ATaskState): "success" | "muted" | "info" | "warning" | "error" {
+  if (state === "completed") return "success";
+  if (state === "failed") return "error";
+  if (state === "working") return "warning";
+  if (state === "cancelled") return "muted";
+  return "info";
 }
 
 export default function A2ADashboardPage() {
@@ -301,7 +318,12 @@ export default function A2ADashboardPage() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label={t("health")} value={status?.status === "ok" ? t("ok") : "—"} />
+        <StatCard
+          label={t("health")}
+          value={status?.status === "ok" ? t("ok") : "—"}
+          valueClassName={status?.status === "ok" ? "text-success" : "text-text-muted"}
+          dotKind={status?.status === "ok" ? "success" : "muted"}
+        />
         <StatCard label={t("totalTasks")} value={status?.tasks?.total || 0} />
         <StatCard label={t("activeStreams")} value={status?.tasks?.activeStreams || 0} />
         <StatCard
@@ -312,23 +334,28 @@ export default function A2ADashboardPage() {
         />
       </div>
 
-      <Card className="p-5">
-        <h2 className="text-lg font-semibold mb-4">{t("taskStateOverview")}</h2>
+      <AppleCard className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold tracking-tight">{t("taskStateOverview")}</h2>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {(["submitted", "working", "completed", "failed", "cancelled"] as A2ATaskState[]).map(
             (state) => (
-              <div key={state} className="rounded-lg border border-border p-3 bg-bg">
-                <p className="text-xs text-text-muted uppercase">{t(`state.${state}`)}</p>
-                <p className="text-2xl font-semibold mt-1">{status?.tasks?.counts?.[state] || 0}</p>
-              </div>
+              <AppleSurface key={state} weight="light" className="flex flex-col gap-1 p-3">
+                <div className="flex items-center justify-between">
+                  <AppleMetricLabel className="uppercase text-[10px]">
+                    {t(`state.${state}`)}
+                  </AppleMetricLabel>
+                  <AppleStatusDot size="sm" className={stateDotKind(state)} />
+                </div>
+                <AppleMetric size="md">{status?.tasks?.counts?.[state] || 0}</AppleMetric>
+              </AppleSurface>
             )
           )}
         </div>
-      </Card>
+      </AppleCard>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <Card className="p-5">
-          <h2 className="text-lg font-semibold mb-3">{t("agentCard")}</h2>
+        <AppleCard className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t("agentCard")}</h2>
           {status?.agent ? (
             <div className="space-y-2 text-sm">
               <p className="font-semibold">{status.agent.name}</p>
@@ -349,71 +376,75 @@ export default function A2ADashboardPage() {
           ) : (
             <p className="text-sm text-text-muted">{t("agentCardNotAvailable")}</p>
           )}
-        </Card>
+        </AppleCard>
 
-        <Card className="p-5">
-          <h2 className="text-lg font-semibold mb-3">{t("quickValidation")}</h2>
-          <p className="text-sm text-text-muted mb-3">{t("quickValidationDescription")}</p>
+        <AppleCard className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">{t("quickValidation")}</h2>
+          <p className="text-sm text-text-muted">{t("quickValidationDescription")}</p>
           <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
+            <AppleButton
               variant="secondary"
+              size="sm"
               onClick={handleSmokeSend}
               disabled={actionBusy !== null}
             >
               {t("runMessageSend")}
-            </Button>
-            <Button
-              size="sm"
+            </AppleButton>
+            <AppleButton
               variant="secondary"
+              size="sm"
               onClick={handleSmokeStream}
               disabled={actionBusy !== null}
             >
               {t("runMessageStream")}
-            </Button>
+            </AppleButton>
           </div>
-          {actionMessage && <p className="text-sm text-text-muted mt-3">{actionMessage}</p>}
-        </Card>
+          {actionMessage && <p className="text-sm text-text-muted mt-1">{actionMessage}</p>}
+        </AppleCard>
       </div>
 
-      <Card className="p-5">
-        <div className="flex flex-wrap items-end justify-between gap-3 mb-4">
+      <AppleCard className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold">{t("taskManagement")}</h2>
+            <h2 className="text-lg font-semibold tracking-tight">{t("taskManagement")}</h2>
             <p className="text-sm text-text-muted">
               {t("taskSummary", { total: tasksData.total, page: currentPage, totalPages })}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <select
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={stateFilter}
-              onChange={(event) => {
-                setOffset(0);
-                setStateFilter(event.target.value as "all" | A2ATaskState);
-              }}
-            >
-              {TASK_STATES.map((state) => (
-                <option key={state} value={state}>
-                  {state === "all" ? t("allStates") : t(`state.${state}`)}
-                </option>
-              ))}
-            </select>
-            <select
-              className="rounded-lg border border-border bg-bg px-3 py-2 text-sm"
-              value={skillFilter}
-              onChange={(event) => {
-                setOffset(0);
-                setSkillFilter(event.target.value);
-              }}
-            >
-              <option value="">{t("allSkills")}</option>
-              {availableSkills.map((skill) => (
-                <option key={skill} value={skill}>
-                  {skill}
-                </option>
-              ))}
-            </select>
+            <AppleField id="a2a-state-filter" label={t("allStates")} className="min-w-[140px]">
+              <AppleSelect
+                id="a2a-state-filter"
+                value={stateFilter}
+                onChange={(event) => {
+                  setOffset(0);
+                  setStateFilter((event.target as HTMLInputElement).value as "all" | A2ATaskState);
+                }}
+              >
+                {TASK_STATES.map((state) => (
+                  <option key={state} value={state}>
+                    {state === "all" ? t("allStates") : t(`state.${state}`)}
+                  </option>
+                ))}
+              </AppleSelect>
+            </AppleField>
+            <AppleField id="a2a-skill-filter" label={t("allSkills")} className="min-w-[160px]">
+              <AppleSelect
+                id="a2a-skill-filter"
+                value={skillFilter}
+                onChange={(event) => {
+                  setOffset(0);
+                  setSkillFilter((event.target as HTMLInputElement).value);
+                }}
+              >
+                <option value="">{t("allSkills")}</option>
+                {availableSkills.map((skill) => (
+                  <option key={skill} value={skill}>
+                    {skill}
+                  </option>
+                ))}
+              </AppleSelect>
+            </AppleField>
           </div>
         </div>
 
@@ -438,18 +469,18 @@ export default function A2ADashboardPage() {
                 {tasksData.tasks.map((task) => {
                   const fsmPhase =
                     task.metadata?.fsmPhase || (task.metadata?.workflowFSM as any)?.currentPhase;
-                  let fsmBadgeColor = "bg-gray-500/15 text-gray-500";
+                  let fsmBadgeColor = "bg-bg-subtle text-text-muted";
                   if (fsmPhase === "plan" || fsmPhase === "plan_review")
                     fsmBadgeColor = "bg-purple-500/15 text-purple-500";
-                  else if (fsmPhase === "execute") fsmBadgeColor = "bg-blue-500/15 text-blue-500";
+                  else if (fsmPhase === "execute") fsmBadgeColor = "bg-info/15 text-info";
                   else if (
                     ["code_review", "quality_review", "security", "test", "output_review"].includes(
                       fsmPhase
                     )
                   )
-                    fsmBadgeColor = "bg-amber-500/15 text-amber-500";
-                  else if (fsmPhase === "done") fsmBadgeColor = "bg-green-500/15 text-green-500";
-                  else if (fsmPhase === "failed") fsmBadgeColor = "bg-red-500/15 text-red-500";
+                    fsmBadgeColor = "bg-warning/15 text-warning";
+                  else if (fsmPhase === "done") fsmBadgeColor = "bg-success/15 text-success";
+                  else if (fsmPhase === "failed") fsmBadgeColor = "bg-red/15 text-red";
 
                   return (
                     <tr key={task.id} className="border-b border-border/40">
@@ -477,16 +508,16 @@ export default function A2ADashboardPage() {
                         {new Date(task.updatedAt).toLocaleString()}
                       </td>
                       <td className="py-2 flex gap-2">
-                        <Button
-                          size="sm"
+                        <AppleButton
                           variant="secondary"
+                          size="sm"
                           onClick={() => handleLoadTask(task.id)}
                         >
                           {t("view")}
-                        </Button>
-                        <Button
-                          size="sm"
+                        </AppleButton>
+                        <AppleButton
                           variant="secondary"
+                          size="sm"
                           onClick={() => handleCancelTask(task.id)}
                           disabled={
                             task.state === "completed" ||
@@ -496,7 +527,7 @@ export default function A2ADashboardPage() {
                           }
                         >
                           {t("cancel")}
-                        </Button>
+                        </AppleButton>
                       </td>
                     </tr>
                   );
@@ -506,18 +537,18 @@ export default function A2ADashboardPage() {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 mt-4">
-          <Button
-            size="sm"
+        <div className="flex justify-end gap-2 mt-2">
+          <AppleButton
             variant="secondary"
+            size="sm"
             disabled={offset === 0}
             onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
           >
             {t("previous")}
-          </Button>
-          <Button
-            size="sm"
+          </AppleButton>
+          <AppleButton
             variant="secondary"
+            size="sm"
             disabled={offset + PAGE_SIZE >= tasksData.total}
             onClick={() =>
               setOffset((current) =>
@@ -526,20 +557,20 @@ export default function A2ADashboardPage() {
             }
           >
             {t("next")}
-          </Button>
+          </AppleButton>
         </div>
-      </Card>
+      </AppleCard>
 
       {selectedTask && (
-        <Card className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">{t("taskDetail")}</h2>
-            <Button size="sm" variant="secondary" onClick={() => setSelectedTask(null)}>
+        <AppleCard className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">{t("taskDetail")}</h2>
+            <AppleButton variant="secondary" size="sm" onClick={() => setSelectedTask(null)}>
               {t("close")}
-            </Button>
+            </AppleButton>
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border p-3 bg-bg">
+            <AppleSurface weight="light" className="p-3">
               <p className="text-xs uppercase text-text-muted mb-2">{t("metadata")}</p>
               <code className="text-xs break-all whitespace-pre-wrap">
                 {JSON.stringify(
@@ -556,31 +587,46 @@ export default function A2ADashboardPage() {
                   2
                 )}
               </code>
-            </div>
-            <div className="rounded-lg border border-border p-3 bg-bg">
+            </AppleSurface>
+            <AppleSurface weight="light" className="p-3">
               <p className="text-xs uppercase text-text-muted mb-2">{t("events")}</p>
               <code className="text-xs break-all whitespace-pre-wrap">
                 {JSON.stringify(selectedTask.events, null, 2)}
               </code>
-            </div>
+            </AppleSurface>
           </div>
-          <div className="rounded-lg border border-border p-3 bg-bg mt-4">
+          <AppleSurface weight="light" className="p-3">
             <p className="text-xs uppercase text-text-muted mb-2">{t("artifacts")}</p>
             <code className="text-xs break-all whitespace-pre-wrap">
               {JSON.stringify(selectedTask.artifacts, null, 2)}
             </code>
-          </div>
-        </Card>
+          </AppleSurface>
+        </AppleCard>
       )}
     </div>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string | number }) {
+function StatCard({
+  label,
+  value,
+  valueClassName,
+  dotKind,
+}: {
+  label: string;
+  value: string | number;
+  valueClassName?: string;
+  dotKind?: "success" | "muted" | "info" | "warning" | "error";
+}) {
   return (
-    <div className="rounded-lg border border-border bg-bg p-4">
-      <p className="text-xs text-text-muted uppercase tracking-wide">{label}</p>
-      <p className="text-xl font-semibold mt-1">{value}</p>
-    </div>
+    <AppleSurface weight="light" className="flex flex-col gap-1 p-4 min-h-[84px] justify-between">
+      <div className="flex items-center justify-between gap-2">
+        <AppleMetricLabel className="uppercase tracking-wide text-[10px]">{label}</AppleMetricLabel>
+        {dotKind ? <AppleStatusDot size="sm" className={valueClassName} /> : null}
+      </div>
+      <AppleMetric size="md" className={valueClassName}>
+        {value}
+      </AppleMetric>
+    </AppleSurface>
   );
 }

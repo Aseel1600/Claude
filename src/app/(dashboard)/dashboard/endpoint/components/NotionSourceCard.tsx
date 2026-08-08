@@ -2,7 +2,16 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Card, Button, Input, Badge } from "@/shared/components";
+import {
+  Card,
+  Button,
+  Badge,
+  AppleField,
+  AppleInput,
+  AppleCard,
+  AppleSurface,
+  AppleButton,
+} from "@/shared/components";
 
 export default function NotionSourceCard() {
   const t = useTranslations("endpoint");
@@ -84,8 +93,8 @@ export default function NotionSourceCard() {
   };
 
   return (
-    <Card>
-      <div className="p-5">
+    <AppleCard>
+      <div className="flex flex-col gap-4">
         <button
           onClick={() => setExpanded(!expanded)}
           className="w-full flex items-center gap-3 text-left"
@@ -112,40 +121,46 @@ export default function NotionSourceCard() {
         </button>
 
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-border/50 flex flex-col gap-3">
+          <div className="pt-3 border-t border-border/50 flex flex-col gap-3">
             {message && (
-              <div
-                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+              <AppleSurface
+                weight="light"
+                className={`flex items-center gap-2 px-3 py-2 text-sm ${
                   message.type === "success"
-                    ? "border-green-500/30 bg-green-500/10 text-green-400"
-                    : "border-red-500/30 bg-red-500/10 text-red-400"
+                    ? "bg-success/10 border-success/30 text-success"
+                    : "bg-red/10 border-red/30 text-red"
                 }`}
               >
                 <span className="material-symbols-outlined text-[18px]">
                   {message.type === "success" ? "check_circle" : "error"}
                 </span>
                 <span className="flex-1">{message.text}</span>
-              </div>
+              </AppleSurface>
             )}
 
             {!connected ? (
-              <div className="flex flex-col gap-2">
-                <label className="text-xs text-text-muted font-medium">
-                  Notion Internal Integration Token
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    type="password"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="ntn_... or secret_..."
-                    disabled={busy}
-                    className="font-mono text-sm flex-1"
-                  />
-                  <Button onClick={handleSaveToken} loading={busy} variant="primary" size="sm">
-                    Connect
-                  </Button>
-                </div>
+              <div className="flex flex-col gap-3">
+                <AppleField id="notion-token" label="Notion Internal Integration Token">
+                  <div className="flex gap-2">
+                    <AppleInput
+                      id="notion-token"
+                      type="password"
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="ntn_... or secret_..."
+                      disabled={busy}
+                      className="font-mono text-sm flex-1"
+                    />
+                    <AppleButton
+                      onClick={handleSaveToken}
+                      loading={busy}
+                      variant="primary"
+                      size="sm"
+                    >
+                      Connect
+                    </AppleButton>
+                  </div>
+                </AppleField>
                 <p className="text-[10px] text-text-muted">
                   Create an Internal Integration at{" "}
                   <code className="text-primary font-mono bg-surface/80 px-1 rounded">
@@ -172,6 +187,6 @@ export default function NotionSourceCard() {
           </div>
         )}
       </div>
-    </Card>
+    </AppleCard>
   );
 }

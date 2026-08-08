@@ -8,6 +8,20 @@ import Button from "@/shared/components/Button";
 import Card from "@/shared/components/Card";
 import { CardSkeleton } from "@/shared/components/Loading";
 import EmptyState from "@/shared/components/EmptyState";
+import {
+  AppleCard,
+  AppleButton,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSectionHeader,
+  AppleStatusDot,
+  AppleEmptyState,
+  AppleField,
+  AppleInput,
+  AppleTextarea,
+  AppleSelect,
+} from "@/shared/components";
 import Input from "@/shared/components/Input";
 import Modal from "@/shared/components/Modal";
 import Toggle from "@/shared/components/Toggle";
@@ -1037,23 +1051,88 @@ export default function CombosPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{t("title")}</h1>
-          <p className="text-sm text-text-muted mt-1">{t("description")}</p>
-        </div>
+      {/* Hero — Apple-style page identity. Status tiles give instant
+          visibility into active/hidden/intelligent/deterministic counts so
+          the user can decide which filter tab to open without scanning the
+          filter bar. */}
+      <section className="flex flex-col gap-6 spring-in">
+        <AppleSectionHeader
+          eyebrow={getI18nOrFallback(t, "heroEyebrow", "Routing · Combos")}
+          title={t("title")}
+          subtitle={t("description")}
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              {!showUsageGuide && (
+                <AppleButton
+                  variant="tertiary"
+                  size="md"
+                  icon={<span className="material-symbols-outlined text-[18px]">menu_book</span>}
+                  onClick={handleShowUsageGuide}
+                >
+                  {getI18nOrFallback(t, "usageGuideShow", "Show guide")}
+                </AppleButton>
+              )}
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => setShowCreateModal(true)}
+              >
+                {t("createCombo")}
+              </AppleButton>
+            </div>
+          }
+        />
 
-        <div className="flex flex-wrap items-center gap-2">
-          {!showUsageGuide && (
-            <Button size="sm" variant="ghost" onClick={handleShowUsageGuide}>
-              {getI18nOrFallback(t, "usageGuideShow", "Show guide")}
-            </Button>
-          )}
-          <Button icon="add" onClick={() => setShowCreateModal(true)}>
-            {t("createCombo")}
-          </Button>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3" data-testid="combos-status-grid">
+          <AppleCard springIn={80} compact className="!p-4">
+            <AppleMetricLabel>{getI18nOrFallback(t, "statusTotal", "Total")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <AppleMetric size="lg" trend="flat">
+                {combos.length}
+              </AppleMetric>
+              <AppleMetricSub>{getI18nOrFallback(t, "statusCombos", "combos")}</AppleMetricSub>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={140} compact className="!p-4">
+            <AppleMetricLabel>{getI18nOrFallback(t, "statusActive", "Active")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-success self-center" />
+              <AppleMetric size="lg" trend="up">
+                {combos.filter((combo) => combo?.isActive !== false).length}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={200} compact className="!p-4">
+            <AppleMetricLabel>
+              {getI18nOrFallback(t, "statusIntelligent", "Intelligent")}
+            </AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-primary self-center" />
+              <AppleMetric size="lg" trend="flat">
+                {
+                  combos.filter((combo) => getStrategyCategory(combo?.strategy) === "intelligent")
+                    .length
+                }
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={260} compact className="!p-4">
+            <AppleMetricLabel>
+              {getI18nOrFallback(t, "statusDeterministic", "Deterministic")}
+            </AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-text-muted self-center" />
+              <AppleMetric size="lg" trend="flat">
+                {
+                  combos.filter((combo) => getStrategyCategory(combo?.strategy) === "deterministic")
+                    .length
+                }
+              </AppleMetric>
+            </div>
+          </AppleCard>
         </div>
-      </div>
+      </section>
 
       <AutoComboCatalog />
 
@@ -1326,16 +1405,16 @@ function ComboUsageGuide({ onHide, onHideForever, onCreateCombo }) {
   const t = useTranslations("combos");
 
   return (
-    <Card padding="sm">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="size-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-[16px]">
+    <Card padding="md">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="size-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-primary text-[20px]">
               tips_and_updates
             </span>
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold">
+            <h2 className="text-base font-semibold tracking-[-0.01em] text-text-main">
               {getI18nOrFallback(t, "wizardGuideTitle", "Getting Started with Combos")}
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
@@ -1348,56 +1427,64 @@ function ComboUsageGuide({ onHide, onHideForever, onCreateCombo }) {
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Button size="sm" variant="ghost" onClick={onHide} className="!h-6 px-2 text-[10px]">
+          <Button size="sm" variant="ghost" onClick={onHide} className="!h-7 px-2.5 text-[11px]">
             {getI18nOrFallback(t, "usageGuideHide", "Hide")}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             onClick={onHideForever}
-            className="!h-6 px-2 text-[10px]"
+            className="!h-7 px-2.5 text-[11px]"
           >
             {getI18nOrFallback(t, "usageGuideDontShowAgain", "Don't show again")}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-        {COMBO_WIZARD_STEPS.map((step, index) => {
-          return (
-            <div
-              key={step.step}
-              className="relative rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] p-2.5"
-            >
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="inline-flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
-                  {step.step}
-                </span>
-                <span className="material-symbols-outlined text-[14px] text-primary">
-                  {step.icon}
-                </span>
+      {/*
+        Horizontal timeline. Each step is a flex-1 column anchored to a
+        numbered dot; a 1px connector runs between consecutive dots so the
+        user reads the flow left-to-right without 4 hard boxes fighting
+        for attention.
+      */}
+      <div className="mt-5">
+        <div className="relative flex items-start">
+          {/*
+            Connector line: a single 1px line that runs across the row at
+            dot-center height. Hidden on small screens (grid falls back
+            to 2x2). Built with a left/right offset equal to half a column
+            so the line touches the dots, not the column edges.
+          */}
+          <div
+            className="absolute top-[14px] left-[12.5%] right-[12.5%] h-px bg-primary/30 hidden md:block"
+            aria-hidden
+          />
+          {COMBO_WIZARD_STEPS.map((step) => (
+            <div key={step.step} className="flex-1 flex flex-col items-center text-center px-2">
+              <div className="size-7 rounded-full bg-surface border-2 border-primary text-primary flex items-center justify-center text-[12px] font-bold mb-2 relative z-10 shadow-[0_0_0_4px_var(--color-bg-subtle)]">
+                {step.step}
               </div>
-              <p className="text-xs font-medium">
+              <p className="text-xs font-semibold text-text-main leading-tight">
                 {getI18nOrFallback(t, step.titleKey, step.titleKey)}
               </p>
-              <p className="mt-1 text-[11px] leading-4 text-text-muted">
+              <p className="text-[11px] leading-[1.5] text-text-muted mt-1 max-w-[180px]">
                 {getI18nOrFallback(t, step.descKey, step.descKey)}
               </p>
-              {index < COMBO_WIZARD_STEPS.length - 1 && (
-                <span className="absolute -right-2.5 top-1/2 z-10 hidden -translate-y-1/2 text-text-muted md:block">
-                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                </span>
-              )}
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
-        <Button size="sm" icon="add" onClick={onCreateCombo}>
+      <div className="mt-5 flex flex-wrap items-center gap-3 pt-4 border-t border-black/5 dark:border-white/5">
+        <Button
+          size="md"
+          icon="add"
+          onClick={onCreateCombo}
+          className="shadow-[0_4px_12px_rgba(127,29,29,0.18)]"
+        >
           {getI18nOrFallback(t, "createFirstCombo", "Create Your First Combo")}
         </Button>
-        <span className="text-[10px] text-text-muted">
+        <span className="text-[11px] text-text-muted">
           {getI18nOrFallback(t, "wizardGuideHint", "or click + Create Combo above")}
         </span>
       </div>
@@ -2809,13 +2896,13 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       >
         <div className="flex flex-col gap-3">
           {!isExpertMode && (
-            <div className="rounded-lg border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="rounded-card border border-border bg-bg-subtle/30 p-4">
+              <div className="flex items-center justify-between gap-2 mb-3">
                 <div>
-                  <p className="text-xs font-semibold text-text-main">
+                  <p className="apple-section-eyebrow">
                     {getI18nOrFallback(t, "builderFlowTitle", "Combo Builder Flow")}
                   </p>
-                  <p className="text-[10px] text-text-muted mt-0.5">
+                  <p className="text-[12px] text-text-muted mt-1 max-w-2xl">
                     {getI18nOrFallback(
                       t,
                       "builderStagesDescription",
@@ -2823,8 +2910,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     )}
                   </p>
                 </div>
-                <span className="text-[10px] uppercase tracking-wide text-text-muted">
-                  {Math.max(currentStageIndex + 1, 1)}/{visibleStageMeta.length}
+                <span className="apple-eyebrow text-text-muted">
+                  {Math.max(currentStageIndex + 1, 1)} / {visibleStageMeta.length}
                 </span>
               </div>
 
@@ -2834,16 +2921,13 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                   const canVisitStage = isActive
                     ? true
                     : canAccessComboBuilderStage(stageMeta.id, builderStageChecks, { strategy });
-                  const isCompleted =
-                    stageMeta.id === "review"
-                      ? false
-                      : stageMeta.id === "basics"
-                        ? builderStageChecks.basics
-                        : stageMeta.id === "steps"
-                          ? builderStageChecks.steps
-                          : stageMeta.id === "intelligent"
-                            ? usesIntelligentBuilderStage
-                            : builderStageChecks.strategy;
+                  // A stage is "completed" only when the user has actually advanced
+                  // past it. `builderStageChecks.*` is a per-stage validity check,
+                  // not a progress signal — defaulting `strategy` to `true` when
+                  // neither `hasInvalidWeightedTotal` nor `hasCostOptimizedWithoutPricing`
+                  // was set caused every later stage to render as a green check
+                  // before the user ever touched them.
+                  const isCompleted = stageMeta.id === "review" ? false : index < currentStageIndex;
 
                   return (
                     <button
@@ -2855,27 +2939,33 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         setBuilderStage(stageMeta.id);
                       }}
                       disabled={!canVisitStage}
-                      className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                      className={`group relative text-left rounded-card px-3 py-2.5 transition-all duration-200 [transition-timing-function:var(--ease-spring-critical)] disabled:cursor-not-allowed ${
                         isActive
-                          ? "border-primary bg-primary/8"
+                          ? "bg-surface border-2 border-primary shadow-[0_0_0_3px_rgba(127,29,29,0.10)]"
                           : canVisitStage
-                            ? "border-black/8 dark:border-white/8 bg-white/60 dark:bg-white/[0.02] hover:border-primary/40"
-                            : "border-black/6 dark:border-white/6 bg-black/[0.015] dark:bg-white/[0.015] opacity-60 cursor-not-allowed"
+                            ? "bg-surface border border-border hover:border-primary/50 hover:shadow-soft apple-pressable"
+                            : "border border-border bg-bg-subtle/50 opacity-50 cursor-not-allowed"
                       }`}
                     >
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`material-symbols-outlined text-[14px] ${
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`size-6 rounded-md flex items-center justify-center shrink-0 ${
                             isCompleted && !isActive
-                              ? "text-emerald-500"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                               : isActive
-                                ? "text-primary"
-                                : "text-text-muted"
+                                ? "bg-primary text-white"
+                                : "bg-bg-subtle text-text-muted"
                           }`}
                         >
-                          {isCompleted && !isActive ? "check_circle" : stageMeta.icon}
-                        </span>
-                        <span className="text-[11px] font-semibold text-text-main">
+                          <span className="material-symbols-outlined text-[14px]">
+                            {isCompleted && !isActive ? "check" : stageMeta.icon}
+                          </span>
+                        </div>
+                        <span
+                          className={`text-[12px] tracking-[-0.005em] ${
+                            isActive ? "font-semibold text-primary" : "font-medium text-text-main"
+                          }`}
+                        >
                           {getI18nOrFallback(
                             t,
                             `builderStage.${stageMeta.id}.label`,
@@ -2883,14 +2973,22 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           )}
                         </span>
                       </div>
-                      <p className="text-[10px] text-text-muted mt-1 leading-[1.45]">
+                      <p className="text-[11px] text-text-muted mt-1.5 leading-[1.45] line-clamp-2">
                         {getI18nOrFallback(
                           t,
                           `builderStage.${stageMeta.id}.description`,
                           stageMeta.fallbackDescription
                         )}
                       </p>
-                      <p className="text-[9px] uppercase tracking-wide mt-1 text-text-muted">
+                      <p
+                        className={`text-[9px] uppercase tracking-[0.08em] mt-1.5 ${
+                          index < currentStageIndex
+                            ? "text-emerald-600"
+                            : isActive
+                              ? "text-primary font-semibold"
+                              : "text-text-muted"
+                        }`}
+                      >
                         {index < currentStageIndex
                           ? getI18nOrFallback(t, "builderStageVisited", "Visited")
                           : isActive
@@ -2909,28 +3007,34 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
           {showBasicsSection && (
             <>
               {/* Name */}
-              <div>
-                <Input
-                  label={t("comboName")}
+              <AppleField
+                id="combo-name-input"
+                label={t("comboName")}
+                required
+                error={nameError}
+                hint={!isExpertMode ? t("nameHint") : undefined}
+                className="max-w-md"
+              >
+                <AppleInput
+                  id="combo-name-input"
                   data-testid="combo-name-input"
                   value={name}
                   onChange={handleNameChange}
                   placeholder={t("comboNamePlaceholder")}
-                  error={nameError}
+                  invalid={!!nameError}
                 />
-                {!isExpertMode && (
-                  <p className="text-[10px] text-text-muted mt-0.5">{t("nameHint")}</p>
-                )}
-              </div>
+              </AppleField>
 
               {/* Description (#5005) — optional free-text note for this combo */}
-              <div>
-                <label className="text-[11px] font-medium text-text-muted block mb-0.5">
-                  {getI18nOrFallback(t, "comboDescription", "Description")}
-                </label>
-                <textarea
-                  rows={2}
+              <AppleField
+                id="combo-description-input"
+                label={getI18nOrFallback(t, "comboDescription", "Description")}
+                className="max-w-2xl"
+              >
+                <AppleTextarea
+                  id="combo-description-input"
                   data-testid="combo-description-input"
+                  rows={2}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={getI18nOrFallback(
@@ -2938,9 +3042,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     "comboDescriptionPlaceholder",
                     "Optional note describing this combo"
                   )}
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none resize-none"
                 />
-              </div>
+              </AppleField>
 
               {!isEdit && !isExpertMode && (
                 <div className="rounded-lg border border-black/8 dark:border-white/8 bg-black/[0.02] dark:bg-white/[0.02] p-3">
@@ -3163,16 +3266,17 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-3">
-                  <div>
-                    <label className="text-[10px] font-medium uppercase tracking-wide text-text-muted block mb-1">
-                      1. {getI18nOrFallback(t, "builderProvider", "Provider")}
-                    </label>
-                    <select
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                  <AppleField
+                    id="combo-builder-provider"
+                    prefix="1"
+                    label={getI18nOrFallback(t, "builderProvider", "Provider")}
+                  >
+                    <AppleSelect
+                      id="combo-builder-provider"
+                      data-testid="combo-builder-provider"
                       value={builderProviderId}
                       onChange={handleBuilderProviderChange}
-                      data-testid="combo-builder-provider"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
                     >
                       <option value="">
                         {builderLoading
@@ -3185,19 +3289,20 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           {provider.connectionCount === 1 ? "" : "s"})
                         </option>
                       ))}
-                    </select>
-                  </div>
+                    </AppleSelect>
+                  </AppleField>
 
-                  <div>
-                    <label className="text-[10px] font-medium uppercase tracking-wide text-text-muted block mb-1">
-                      2. {getI18nOrFallback(t, "builderModel", "Model")}
-                    </label>
-                    <select
+                  <AppleField
+                    id="combo-builder-model"
+                    prefix="2"
+                    label={getI18nOrFallback(t, "builderModel", "Model")}
+                  >
+                    <AppleSelect
+                      id="combo-builder-model"
+                      data-testid="combo-builder-model"
                       value={builderModelId}
                       onChange={handleBuilderModelChange}
                       disabled={!selectedBuilderProvider}
-                      data-testid="combo-builder-model"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value="">
                         {selectedBuilderProvider
@@ -3210,19 +3315,20 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           {model.source ? ` · ${model.source}` : ""}
                         </option>
                       ))}
-                    </select>
-                  </div>
+                    </AppleSelect>
+                  </AppleField>
 
-                  <div>
-                    <label className="text-[10px] font-medium uppercase tracking-wide text-text-muted block mb-1">
-                      3. {getI18nOrFallback(t, "builderAccount", "Account")}
-                    </label>
-                    <select
+                  <AppleField
+                    id="combo-builder-account"
+                    prefix="3"
+                    label={getI18nOrFallback(t, "builderAccount", "Account")}
+                  >
+                    <AppleSelect
+                      id="combo-builder-account"
+                      data-testid="combo-builder-account"
                       value={builderConnectionId}
                       onChange={handleBuilderConnectionChange}
                       disabled={!selectedBuilderModel}
-                      data-testid="combo-builder-account"
-                      className="w-full text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none disabled:opacity-50"
                     >
                       <option value={COMBO_BUILDER_AUTO_CONNECTION}>
                         {getI18nOrFallback(
@@ -3237,8 +3343,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           {connection.status !== "active" ? ` · ${connection.status}` : ""}
                         </option>
                       ))}
-                    </select>
-                  </div>
+                    </AppleSelect>
+                  </AppleField>
                 </div>
 
                 {builderConnectionId === COMBO_BUILDER_AUTO_CONNECTION &&
@@ -3337,15 +3443,15 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                   </div>
                 )}
 
-                <div className="mt-3 pt-3 border-t border-black/5 dark:border-white/5">
-                  <label className="text-[10px] font-medium uppercase tracking-wide text-text-muted block mb-1">
+                <div className="mt-3 pt-3 border-t border-border">
+                  <label className="text-[11px] font-medium text-text-main block mb-1.5">
                     {getI18nOrFallback(t, "builderComboRef", "Reference another combo")}
                   </label>
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <select
+                    <AppleSelect
                       value={builderComboRefName}
                       onChange={(e) => setBuilderComboRefName(e.target.value)}
-                      className="flex-1 text-xs py-2 px-2 rounded border border-black/10 dark:border-white/10 bg-white dark:bg-white/5 text-text-main focus:border-primary focus:outline-none"
+                      className="flex-1"
                     >
                       <option value="">
                         {getI18nOrFallback(
@@ -3360,7 +3466,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           {comboRef.stepCount === 1 ? "" : "s"}
                         </option>
                       ))}
-                    </select>
+                    </AppleSelect>
                     <Button
                       onClick={handleAddComboReference}
                       variant="ghost"
@@ -3935,7 +4041,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         )}
                         showHelp={!isExpertMode}
                       />
-                      <select
+                      <AppleSelect
                         value={config.nestedComboMode ?? "flatten"}
                         onChange={(e) =>
                           setConfig({
@@ -3943,7 +4049,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             nestedComboMode: e.target.value === "execute" ? "execute" : "flatten",
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
+                        className="text-xs"
                       >
                         <option value="flatten">
                           {getI18nOrFallback(t, "nestedComboFlatten", "Flatten nested combos")}
@@ -3955,7 +4061,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                             "Execute nested combos as targets"
                           )}
                         </option>
-                      </select>
+                      </AppleSelect>
                     </div>
                     {/* #6168: per-combo session-stickiness override (tri-state so it can
                         force ON or OFF regardless of the global default; blank = inherit). */}
@@ -3973,7 +4079,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         )}
                         showHelp={!isExpertMode}
                       />
-                      <select
+                      <AppleSelect
                         value={
                           config.disableSessionStickiness === true
                             ? "disabled"
@@ -3992,7 +4098,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                                   : undefined,
                           })
                         }
-                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
+                        className="text-xs"
                       >
                         <option value="inherit">
                           {getI18nOrFallback(t, "stickyLimitInherit", "inherit")}
@@ -4003,7 +4109,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                         <option value="disabled">
                           {getI18nOrFallback(t, "sessionStickinessDisabled", "Stickiness off")}
                         </option>
-                      </select>
+                      </AppleSelect>
                     </div>
                   </div>
                   {strategy === "context-relay" && (

@@ -1,7 +1,20 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, memo, useRef, useId } from "react";
-import { Card, Button, Input, Modal, CardSkeleton } from "@/shared/components";
+import { Input, Modal, CardSkeleton } from "@/shared/components";
+import {
+  AppleCard,
+  AppleButton,
+  AppleField,
+  AppleInput,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleMetricSub,
+  AppleSectionHeader,
+  AppleStatusDot,
+  AppleEmptyState,
+  AppleSurface,
+} from "@/shared/components";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { useLocale, useTranslations } from "next-intl";
 import { getProviderDisplayName } from "@/lib/display/names";
@@ -932,18 +945,103 @@ export default function ApiManagerPageClient() {
 
   return (
     <div className="flex flex-col gap-8">
+      {/* Hero — Apple-style page identity for API Manager. Compact summary
+          tiles give instant status (active / disabled / restricted / manage)
+          so the user doesn't have to scroll into the table to see health. */}
+      <section className="flex flex-col gap-6 spring-in">
+        <AppleSectionHeader
+          eyebrow="API · Authentication"
+          title={t("registeredKeys")}
+          subtitle={t("keysSecurityNote")}
+          action={
+            keys.length > 0 ? (
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => {
+                  setNameError(null);
+                  setCreateError(null);
+                  clearPageError();
+                  setShowAddModal(true);
+                }}
+              >
+                {t("createKey")}
+              </AppleButton>
+            ) : null
+          }
+        />
+        <div
+          className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+          data-testid="api-manager-status-grid"
+        >
+          <AppleCard springIn={80} compact className="!p-4">
+            <AppleMetricLabel>{t("total")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <AppleMetric size="lg" trend="flat">
+                {keyCounts.total}
+              </AppleMetric>
+              <AppleMetricSub>{t("keys")}</AppleMetricSub>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={140} compact className="!p-4">
+            <AppleMetricLabel>{t("active")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot size="sm" className="text-success self-center" />
+              <AppleMetric size="lg" trend="up">
+                {keyCounts.active}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={200} compact className="!p-4">
+            <AppleMetricLabel>{t("disabled")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleStatusDot
+                size="sm"
+                className={
+                  keyCounts.disabled + keyCounts.banned + keyCounts.expired > 0
+                    ? "text-error"
+                    : "text-text-muted"
+                }
+              />
+              <AppleMetric
+                size="lg"
+                trend={
+                  keyCounts.disabled + keyCounts.banned + keyCounts.expired > 0 ? "down" : "flat"
+                }
+              >
+                {keyCounts.disabled + keyCounts.banned + keyCounts.expired}
+              </AppleMetric>
+            </div>
+          </AppleCard>
+          <AppleCard springIn={260} compact className="!p-4">
+            <AppleMetricLabel>{t("restricted")}</AppleMetricLabel>
+            <div className="mt-2 flex items-baseline gap-2">
+              <AppleMetric size="lg" trend="flat">
+                {keyCounts.restricted + keyCounts.manage}
+              </AppleMetric>
+              <AppleMetricSub>{t("scoped")}</AppleMetricSub>
+            </div>
+          </AppleCard>
+        </div>
+      </section>
+
       {/* Error Banner */}
       {pageError && (
-        <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-          <span className="material-symbols-outlined text-red-500">error</span>
-          <p className="text-sm text-red-700 dark:text-red-300 flex-1">{pageError}</p>
+        <AppleSurface
+          weight="light"
+          className="flex items-center gap-3 p-4 !border-red/30 !bg-red/10"
+        >
+          <span className="material-symbols-outlined text-red">error</span>
+          <p className="text-sm text-red flex-1">{pageError}</p>
           <button
             onClick={clearPageError}
-            className="text-red-500 hover:text-red-700 transition-colors"
+            className="text-red hover:text-red transition-colors"
+            aria-label={tc("close")}
           >
-            <span className="material-symbols-outlined">close</span>
+            <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
-        </div>
+        </AppleSurface>
       )}
 
       {/* Filter Bar — shown when there are keys */}
@@ -962,14 +1060,14 @@ export default function ApiManagerPageClient() {
       )}
 
       {/* Keys List Card */}
-      <Card>
+      <AppleCard>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-amber-500/10 shrink-0">
-              <span className="material-symbols-outlined text-xl text-amber-500">vpn_key</span>
+            <div className="flex items-center justify-center size-10 rounded-control bg-warning/10 shrink-0">
+              <span className="material-symbols-outlined text-[22px] text-warning">vpn_key</span>
             </div>
             <div>
-              <h3 className="font-semibold">
+              <h3 className="font-semibold tracking-[-0.01em]">
                 {t("registeredKeys")}
                 {isFiltered && (
                   <span className="ml-1.5 text-sm font-normal text-text-muted">
@@ -989,47 +1087,59 @@ export default function ApiManagerPageClient() {
               </p>
             </div>
           </div>
-          <Button
-            icon="add"
-            onClick={() => {
-              setNameError(null);
-              setCreateError(null);
-              clearPageError();
-              setShowAddModal(true);
-            }}
-          >
-            {t("createKey")}
-          </Button>
+          {keys.length === 0 ? null : (
+            <AppleButton
+              variant="primary"
+              size="sm"
+              icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+              onClick={() => {
+                setNameError(null);
+                setCreateError(null);
+                clearPageError();
+                setShowAddModal(true);
+              }}
+            >
+              {t("createKey")}
+            </AppleButton>
+          )}
         </div>
 
         <p className="text-sm text-text-muted mb-4">{t("keysSecurityNote")}</p>
 
         {keys.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">vpn_key</span>
-            </div>
-            <p className="text-text-main font-medium mb-2">{t("noKeys")}</p>
-            <p className="text-sm text-text-muted mb-4">{t("noKeysDesc")}</p>
-            <Button
-              icon="add"
-              onClick={() => {
-                setNameError(null);
-                setCreateError(null);
-                setShowAddModal(true);
-              }}
-            >
-              {t("createFirstKey")}
-            </Button>
-          </div>
+          <AppleEmptyState
+            icon={
+              <span className="material-symbols-outlined text-[32px] text-primary">vpn_key</span>
+            }
+            title={t("noKeys")}
+            description={t("noKeysDesc")}
+            action={
+              <AppleButton
+                variant="primary"
+                size="md"
+                icon={<span className="material-symbols-outlined text-[18px]">add</span>}
+                onClick={() => {
+                  setNameError(null);
+                  setCreateError(null);
+                  setShowAddModal(true);
+                }}
+              >
+                {t("createFirstKey")}
+              </AppleButton>
+            }
+          />
         ) : filteredKeys.length === 0 ? (
-          <div className="text-center py-12 border border-dashed border-border rounded-lg">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
-              <span className="material-symbols-outlined text-[32px]">search_off</span>
-            </div>
-            <p className="text-text-main font-medium mb-2">{t("emptyFilterTitle")}</p>
-            <Button onClick={handleClearFilters}>{t("emptyFilterClear")}</Button>
-          </div>
+          <AppleEmptyState
+            icon={
+              <span className="material-symbols-outlined text-[32px] text-primary">search_off</span>
+            }
+            title={t("emptyFilterTitle")}
+            action={
+              <AppleButton variant="secondary" size="md" onClick={handleClearFilters}>
+                {t("emptyFilterClear")}
+              </AppleButton>
+            }
+          />
         ) : (
           (() => {
             const renderKeyRow = (key: ApiKey) => {
@@ -1062,7 +1172,11 @@ export default function ApiManagerPageClient() {
               return (
                 <div
                   key={key.id}
-                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-surface/30 transition-colors group min-w-[760px]"
+                  className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-black/[0.03] dark:border-white/[0.03] last:border-b-0 hover:bg-bg-subtle/60 group min-w-[760px]"
+                  style={{
+                    transition:
+                      "background-color 220ms var(--ease-spring-critical), box-shadow 220ms var(--ease-spring-critical)",
+                  }}
                 >
                   <div className="col-span-2 flex items-center gap-2">
                     <span
@@ -1265,12 +1379,12 @@ export default function ApiManagerPageClient() {
                     </div>
                   </div>
                   <div className="col-span-2 flex flex-col justify-center">
-                    <span className="text-sm font-medium tabular-nums">
+                    <span className="text-sm font-medium apple-mono-num">
                       {stats?.totalRequests ?? 0}{" "}
                       <span className="text-text-muted font-normal text-xs">{t("reqs")}</span>
                     </span>
                     {(stats?.totalRequests ?? 0) > 0 && (
-                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 apple-mono-num">
                         {formatUsdCost(stats?.totalCost ?? 0, locale)}
                       </span>
                     )}
@@ -1282,7 +1396,7 @@ export default function ApiManagerPageClient() {
                       <span className="text-[10px] text-text-muted italic">{t("neverUsed")}</span>
                     )}
                   </div>
-                  <div className="col-span-1 flex items-center text-sm text-text-muted">
+                  <div className="col-span-1 flex items-center text-sm text-text-muted apple-mono-num">
                     {new Date(key.createdAt).toLocaleDateString()}
                   </div>
                   <div className="col-span-2 flex items-center justify-end gap-1">
@@ -1384,7 +1498,7 @@ export default function ApiManagerPageClient() {
             );
           })()
         )}
-      </Card>
+      </AppleCard>
 
       {/* Add Key Modal */}
       <Modal
@@ -1514,13 +1628,19 @@ export default function ApiManagerPageClient() {
             </div>
           </div>
           {createError && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30">
-              <span className="material-symbols-outlined text-red-500 text-sm">error</span>
-              <p className="text-sm text-red-700 dark:text-red-300 flex-1">{createError}</p>
-            </div>
+            <AppleSurface
+              weight="light"
+              className="flex items-center gap-2 px-3 py-2 !border-red/30 !bg-red/10"
+            >
+              <span className="material-symbols-outlined text-red text-[16px]">error</span>
+              <p className="text-sm text-red flex-1">{createError}</p>
+            </AppleSurface>
           )}
           <div className="flex gap-2">
-            <Button
+            <AppleButton
+              variant="tertiary"
+              size="md"
+              className="flex-1"
               onClick={() => {
                 setShowAddModal(false);
                 setNewKeyName("");
@@ -1531,19 +1651,19 @@ export default function ApiManagerPageClient() {
                 setNameError(null);
                 setCreateError(null);
               }}
-              variant="ghost"
-              fullWidth
             >
               {tc("cancel")}
-            </Button>
-            <Button
+            </AppleButton>
+            <AppleButton
+              variant="primary"
+              size="md"
+              className="flex-1"
               onClick={handleCreateKey}
-              fullWidth
               disabled={!newKeyName.trim()}
               loading={isSubmitting}
             >
               {t("createKey")}
-            </Button>
+            </AppleButton>
           </div>
         </div>
       </Modal>
@@ -1551,32 +1671,41 @@ export default function ApiManagerPageClient() {
       {/* Created Key Modal */}
       <Modal isOpen={!!createdKey} title={t("keyCreated")} onClose={() => setCreatedKey(null)}>
         <div className="flex flex-col gap-4">
-          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <span className="material-symbols-outlined text-green-600 dark:text-green-400">
-                check_circle
-              </span>
-              <div>
-                <p className="text-sm text-green-800 dark:text-green-200 font-medium mb-1">
-                  {t("keyCreatedSuccess")}
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-300">{t("keyCreatedNote")}</p>
-              </div>
+          <AppleSurface
+            weight="light"
+            className="flex items-start gap-3 p-4 !border-success/30 !bg-success/10"
+          >
+            <span className="material-symbols-outlined text-success text-[20px]">check_circle</span>
+            <div>
+              <p className="text-sm text-success font-medium mb-1">{t("keyCreatedSuccess")}</p>
+              <p className="text-sm text-text-main opacity-80">{t("keyCreatedNote")}</p>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <Input value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
-            <Button
+          </AppleSurface>
+          <div className="flex gap-2 items-stretch">
+            <AppleField className="flex-1" aria-label={t("keyCreated")}>
+              <AppleInput value={createdKey || ""} readOnly className="flex-1 font-mono text-sm" />
+            </AppleField>
+            <AppleButton
               variant="secondary"
-              icon={copied === "created_key" ? "check" : "content_copy"}
+              size="md"
+              icon={
+                <span className="material-symbols-outlined text-[18px]">
+                  {copied === "created_key" ? "check" : "content_copy"}
+                </span>
+              }
               onClick={() => copy(createdKey, "created_key")}
             >
               {copied === "created_key" ? tc("copied") : tc("copy")}
-            </Button>
+            </AppleButton>
           </div>
-          <Button onClick={() => setCreatedKey(null)} fullWidth>
+          <AppleButton
+            variant="primary"
+            size="md"
+            className="w-full"
+            onClick={() => setCreatedKey(null)}
+          >
             {t("done")}
-          </Button>
+          </AppleButton>
         </div>
       </Modal>
 
@@ -3103,12 +3232,12 @@ const PermissionsModal = memo(function PermissionsModal({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Button onClick={handleSave} fullWidth>
+          <AppleButton variant="primary" size="md" className="flex-1" onClick={handleSave}>
             {t("savePermissions")}
-          </Button>
-          <Button onClick={onClose} variant="ghost" fullWidth>
+          </AppleButton>
+          <AppleButton variant="tertiary" size="md" className="flex-1" onClick={onClose}>
             {tc("cancel")}
-          </Button>
+          </AppleButton>
         </div>
       </div>
     </Modal>

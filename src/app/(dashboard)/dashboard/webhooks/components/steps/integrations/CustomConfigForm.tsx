@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AppleField, AppleInput } from "@/shared/components";
 import { HmacRecipeBlock } from "../../shared/HmacRecipeBlock";
 
 export interface CustomConfig {
@@ -62,44 +63,33 @@ export function CustomConfigForm({ value, onChange, t, isEditing }: CustomConfig
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("custom.endpointUrl")}
-        </label>
-        <input
+      <AppleField
+        id="custom-endpoint-url"
+        label={t("custom.endpointUrl")}
+        error={urlState === "blocked" || urlState === "invalid" ? urlHint : undefined}
+        hint={urlState === "ok" || urlState === "checking" ? urlHint : undefined}
+      >
+        <AppleInput
+          id="custom-endpoint-url"
           value={value.endpointUrl}
           onChange={(e) => onChange({ ...value, endpointUrl: e.target.value })}
           placeholder={t("custom.endpointUrlPlaceholder")}
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        {urlHint && (
-          <p
-            className={`mt-1 text-xs ${
-              urlState === "ok"
-                ? "text-emerald-500"
-                : urlState === "checking"
-                  ? "text-text-muted"
-                  : "text-red-500"
-            }`}
-          >
-            {urlHint}
-          </p>
-        )}
-      </div>
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("custom.secretKey")}
-        </label>
-        <input
+      </AppleField>
+      <AppleField
+        id="custom-secret-key"
+        label={t("custom.secretKey")}
+        hint={t("custom.secretKeyHint")}
+      >
+        <AppleInput
+          id="custom-secret-key"
           type="password"
           value={value.secretKey}
           onChange={(e) => onChange({ ...value, secretKey: e.target.value })}
           placeholder={isEditing ? t("secretEditPlaceholder") : t("custom.secretKeyPlaceholder")}
           autoComplete="new-password"
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        <p className="mt-1 text-xs text-text-muted">{t("custom.secretKeyHint")}</p>
-      </div>
+      </AppleField>
       <HmacRecipeBlock
         title={t("howItWorks.hmacRecipeTitle")}
         snippets={[

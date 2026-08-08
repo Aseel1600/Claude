@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AppleField, AppleInput } from "@/shared/components";
 
 export interface SlackConfig {
   webhookUrl: string;
@@ -59,25 +60,19 @@ export function SlackConfigForm({ value, onChange, t }: SlackConfigFormProps) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="text-xs font-medium uppercase tracking-wider text-text-muted">
-          {t("slack.webhookUrl")}
-        </label>
-        <input
+      <AppleField
+        id="slack-webhook-url"
+        label={t("slack.webhookUrl")}
+        error={urlState === "blocked" || urlState === "invalid" ? urlHint : undefined}
+        hint={urlState === "ok" || urlState === "checking" ? urlHint : t("slack.webhookUrlHint")}
+      >
+        <AppleInput
+          id="slack-webhook-url"
           value={value.webhookUrl}
           onChange={(e) => onChange({ webhookUrl: e.target.value })}
           placeholder={t("slack.webhookUrlPlaceholder")}
-          className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
-        {urlHint && (
-          <p
-            className={`mt-1 text-xs ${urlState === "ok" ? "text-emerald-500" : urlState === "checking" ? "text-text-muted" : "text-red-500"}`}
-          >
-            {urlHint}
-          </p>
-        )}
-        <p className="mt-1 text-xs text-text-muted">{t("slack.webhookUrlHint")}</p>
-      </div>
+      </AppleField>
       <details className="rounded-lg border border-border bg-sidebar p-3">
         <summary className="cursor-pointer text-xs font-medium text-text-muted hover:text-text-main">
           {t("slack.tutorial")}

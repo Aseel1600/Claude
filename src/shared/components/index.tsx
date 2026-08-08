@@ -48,5 +48,14 @@ export { default as DistributeProxiesButton } from "./DistributeProxiesButton";
 
 export { SkillsConceptCard } from "./SkillsConceptCard";
 
+// ── Apple fluid interface (fork-only brand primitives) ──
+export { default as AppleCard } from "./AppleCard";
+export { default as AppleButton } from "./AppleButton";
+export { default as AppleMetric, AppleMetricLabel, AppleMetricSub } from "./AppleMetric";
+export { AppleSectionHeader, AppleHero } from "./AppleSectionHeader";
+export { default as AppleStatusDot } from "./AppleStatusDot";
+export { AppleSurface, AppleEmptyState } from "./AppleSurface";
+export { AppleField, AppleInput, AppleTextarea, AppleSelect } from "./AppleField";
+
 // Layouts
 export * from "./layouts";

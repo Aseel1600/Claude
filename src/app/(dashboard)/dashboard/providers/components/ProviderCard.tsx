@@ -6,7 +6,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { Badge, Card, Toggle } from "@/shared/components";
+import { Badge, Toggle } from "@/shared/components";
+import { AppleButton, AppleCard, AppleStatusDot } from "@/shared/components";
 import ProviderTestSlideOver from "@/shared/components/ProviderTestSlideOver";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import {
@@ -148,7 +149,12 @@ function getStatusDisplay(
     );
   }
   if (parts.length === 0) {
-    return <span className="text-text-muted">{t("noConnections")}</span>;
+    return (
+      <span className="inline-flex items-center gap-1.5 pl-1 shrink-0 text-text-muted">
+        <AppleStatusDot size="sm" pulse={false} className="text-text-muted mr-1" />
+        {t("noConnections")}
+      </span>
+    );
   }
   return parts;
 }
@@ -327,13 +333,14 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
         className="group flex-1 flex flex-col focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary/60"
         onClick={handleCardClick}
       >
-        <Card
-          padding="xs"
-          className={`h-full flex flex-col hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer ${
+        <AppleCard
+          noSpotlight
+          compact
+          className={`h-full flex flex-col cursor-pointer ${
             isKimiPartner
               ? // Kimi (Moonshot AI) official-partnership accent — official Kimi blue
                 // (#1783FF) border (2px, clearly legible) + a subtle whole-card tint
-                // (inset shadow — avoids clobbering Card's own bg-surface via
+                // (inset shadow — avoids clobbering AppleCard's own bg-surface via
                 // twMerge) + soft outer glow. Kept identical in light/dark since it
                 // is a raw (non-token) brand hex, not a theme color. Keep the hex in
                 // sync with KIMI_BRAND_COLOR (featuredProviders.ts).
@@ -343,14 +350,14 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                   // its brand green (#31f889 = rgb(49,248,137)). Keep in sync with
                   // CHEAPERINFERENCE_BRAND_COLOR (featuredProviders.ts).
                   "border-2 border-[#31f889]/70 hover:border-[#31f889]/90 shadow-[inset_0_0_0_100px_rgba(49,248,137,0.035),0_4px_16px_-4px_rgba(49,248,137,0.45)]"
-                : "hover:border-primary/40"
+                : ""
           } ${allDisabled ? "opacity-50" : ""} ${provider.deprecated ? "opacity-60" : ""}`}
         >
           <div className="flex flex-col gap-2 h-full">
             {/* Row 1 — Identity: icon + full name + risk/category indicators */}
             <div className="flex items-start gap-3 min-w-0">
               <div
-                className="size-9 rounded-lg flex items-center justify-center shrink-0"
+                className="size-9 rounded-control flex items-center justify-center shrink-0"
                 style={{ backgroundColor: `${provider.color || "#64748b"}15` }}
               >
                 {provider.iconUrl ? (
@@ -396,7 +403,7 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                 )}
                 {provider.subscriptionRisk === true && (
                   <span
-                    className="material-symbols-outlined text-[16px] leading-none text-amber-500"
+                    className="material-symbols-outlined text-[16px] leading-none text-warning"
                     title={t("riskNotice.tooltip")}
                     aria-label={t("riskNotice.tooltip")}
                   >
@@ -424,7 +431,7 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                 {provider.serviceKinds?.map((k) => (
                   <span
                     key={k}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-bg-subtle border border-border text-text-muted leading-none"
+                    className="text-[10px] px-2 py-0.5 rounded-full border border-black/10 dark:border-white/10 bg-bg-subtle/60 text-text-muted leading-none font-medium tracking-wide"
                   >
                     {KIND_LABEL[k] ?? k}
                   </span>
@@ -498,17 +505,19 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
                   </div>
                 )}
                 {isLlmProvider && (
-                  <button
-                    type="button"
+                  <AppleButton
+                    variant="tertiary"
+                    size="sm"
                     onClick={handleTestClick}
                     title={tp("expandTest")}
-                    className="inline-flex items-center gap-0.5 rounded-md border border-border bg-bg-subtle px-2 py-0.5 text-[11px] text-text-muted hover:text-text-primary hover:border-primary/30 transition-colors"
+                    icon={
+                      <span className="material-symbols-outlined text-[14px] leading-none">
+                        play_arrow
+                      </span>
+                    }
                   >
-                    <span className="material-symbols-outlined text-[11px] leading-none">
-                      play_arrow
-                    </span>
                     {tp("testLabel")}
-                  </button>
+                  </AppleButton>
                 )}
                 {!isLlmProvider && (
                   <span className="material-symbols-outlined text-text-muted opacity-0 group-hover:opacity-100 transition-opacity">
@@ -518,7 +527,7 @@ const ProviderCard = forwardRef<ProviderCardHandle, ProviderCardProps>(function 
               </div>
             </div>
           </div>
-        </Card>
+        </AppleCard>
       </Link>
       {isLlmProvider && (
         <ProviderTestSlideOver

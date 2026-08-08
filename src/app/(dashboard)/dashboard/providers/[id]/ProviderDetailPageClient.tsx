@@ -7,6 +7,16 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card, Button, CardSkeleton } from "@/shared/components";
 import {
+  AppleCard,
+  AppleButton,
+  AppleMetric,
+  AppleMetricLabel,
+  AppleSectionHeader,
+  AppleStatusDot,
+  AppleSurface,
+  AppleEmptyState,
+} from "@/shared/components";
+import {
   NOAUTH_PROVIDERS,
   getProviderAlias,
   getProviderById,
@@ -438,12 +448,24 @@ export default function ProviderDetailPageClient() {
 
   if (!providerInfo) {
     return (
-      <div className="text-center py-20">
-        <p className="text-text-muted">{t("providerNotFound")}</p>
-        <Link href="/dashboard/providers" className="text-primary mt-4 inline-block">
-          {t("backToProviders")}
-        </Link>
-      </div>
+      <AppleEmptyState
+        icon={
+          <span className="material-symbols-outlined text-[28px] text-text-muted">search_off</span>
+        }
+        title={t("providerNotFound")}
+        action={
+          <AppleButton
+            variant="secondary"
+            size="md"
+            icon={<span className="material-symbols-outlined text-[18px]">arrow_back</span>}
+            onClick={() => {
+              if (typeof window !== "undefined") window.history.back();
+            }}
+          >
+            {t("backToProviders")}
+          </AppleButton>
+        }
+      />
     );
   }
 
@@ -633,7 +655,7 @@ export default function ProviderDetailPageClient() {
       {/* Models — hidden for search providers (they don't have models) */}
       {!isSearchProvider && !isUpstreamProxyProvider && (
         <Card>
-          <h2 className="text-lg font-semibold mb-4">{t("availableModels")}</h2>
+          <h2 className="apple-section-title text-[1.15rem] mb-4">{t("availableModels")}</h2>
           <ProviderModelsSection
             providerId={providerId}
             providerAlias={providerAlias}

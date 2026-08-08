@@ -119,7 +119,7 @@ export default function ComboPlaygroundClient() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold">{t("playgroundTitle")}</h1>
+          <h1 className="apple-section-title text-[1.5rem]">{t("playgroundTitle")}</h1>
           <p className="text-sm text-text-muted mt-1">{t("playgroundDescription")}</p>
         </div>
       </div>

@@ -1364,13 +1364,21 @@
       "webhookUrl": "Discord Webhook URL",
       "webhookUrlPlaceholder": "https://discord.com/api/webhooks/...",
       "webhookUrlHint": "The webhook URL copied from your Discord channel integration settings.",
-      "tutorial": "How to create a Discord webhook:"
+      "tutorial": "How to create a Discord webhook:",
+      "tutorialStep1": "Open Discord and go to your server's channel settings.",
+      "tutorialStep2": "Click Integrations → Webhooks → New Webhook.",
+      "tutorialStep3": "Choose a name and channel, then click Copy Webhook URL.",
+      "tutorialStep4": "Test the webhook by sending a sample message to the channel."
     },
     "slack": {
       "webhookUrl": "Slack Webhook URL",
       "webhookUrlPlaceholder": "https://hooks.slack.com/services/...",
       "webhookUrlHint": "The webhook URL copied from your Slack Incoming Webhooks integration.",
-      "tutorial": "How to create a Slack webhook:"
+      "tutorial": "How to create a Slack webhook:",
+      "tutorialStep1": "Go to api.slack.com/apps and open your app (or create one).",
+      "tutorialStep2": "Enable Incoming Webhooks in the Features menu.",
+      "tutorialStep3": "Click Add New Webhook to Workspace and choose the channel.",
+      "tutorialStep4": "Copy the generated webhook URL and paste it above."
     },
     "telegram": {
       "botToken": "Telegram Bot Token",
@@ -1379,7 +1387,11 @@
       "chatId": "Telegram Chat ID / Channel",
       "chatIdPlaceholder": "-100123456789 or @channelname",
       "chatIdHint": "The unique numerical identifier or public username of the chat/channel.",
-      "tutorial": "How to configure Telegram webhook:"
+      "tutorial": "How to configure Telegram webhook:",
+      "tutorialStep1": "Open Telegram and search for @BotFather.",
+      "tutorialStep2": "Send /newbot, choose a name, and copy the bot token.",
+      "tutorialStep3": "Add the bot to your group or channel and make it an admin.",
+      "tutorialStep4": "Copy the Chat ID from the group info or use @userinfobot."
     }
   },
   "compliance": {
@@ -1748,7 +1760,15 @@
     "updateStarted": "Update started...",
     "reloadingPageAutomatically": "Reloading page automatically...",
     "providerTopology": "Provider Topology",
-    "noResponseStream": "No response stream received."
+    "noResponseStream": "No response stream received.",
+    "statusProviders": "Providers",
+    "configured": "configured",
+    "statusModels": "Models",
+    "statusErrors": "Errors",
+    "heroTitle": "Route any model through one endpoint.",
+    "statusConnected": "Connected",
+    "heroSubtitle": "Connect providers, set policies, ship keys. The dashboard keeps traffic, providers, and policies in one place.",
+    "heroEyebrow": "AI Gateway"
   },
   "analytics": {
     "title": "Analytics",
@@ -2253,7 +2273,11 @@
     "bypassProviderQuota": "Bypass provider quota cutoffs",
     "bypassProviderQuotaDescription": "Allows this key to ignore upstream provider/account cutoff policy during routing. API key USD quotas still apply.",
     "quotaPill": "QUOTA",
-    "quotaModeOnly": "qtSd-only"
+    "quotaModeOnly": "qtSd-only",
+    "keys": "keys",
+    "total": "Total",
+    "active": "Active",
+    "scoped": "scoped"
   },
   "auditLog": {
     "title": "Audit Log",
@@ -3554,7 +3578,13 @@
     "sessionStickinessDisabled": "Stickiness off",
     "kimiPresetTitle": "Kimi Coding preset",
     "kimiPresetDescription": "Kimi K3 as the primary model (Moonshot API), with automatic fallback to your Kimi Code connections (kimi-coding, kimi-web) when configured.",
-    "kimiPresetCta": "Add preset"
+    "kimiPresetCta": "Add preset",
+    "heroEyebrow": "Routing · Combos",
+    "statusTotal": "Total",
+    "statusIntelligent": "Intelligent",
+    "statusActive": "Active",
+    "statusCombos": "combos",
+    "statusDeterministic": "Deterministic"
   },
   "costs": {
     "title": "Costs",
@@ -3943,7 +3973,9 @@
     "obsidianWebdavUrl": "WebDAV URL",
     "obsidianUsername": "Username",
     "obsidianPassword": "Password",
-    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network."
+    "obsidianTailscaleHint": "Use your Tailscale IP instead of localhost if connecting from mobile. Both devices must be on the same Tailscale network.",
+    "obsidianShowPassword": "Show password",
+    "obsidianHidePassword": "Hide password"
   },
   "endpoints": {
     "tabProxy": "Endpoint Proxy",

@@ -2,7 +2,16 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { Card } from "@/shared/components";
+import {
+  Card,
+  AppleCard,
+  AppleField,
+  AppleInput,
+  AppleTextarea,
+  AppleSelect,
+  AppleEmptyState,
+  AppleSurface,
+} from "@/shared/components";
 import { useDisplayBaseUrl } from "@/shared/hooks";
 import VscodeTokenAliasCard from "./VscodeTokenAliasCard";
 import { matchesSearch } from "@/shared/utils/turkishText";
@@ -316,64 +325,70 @@ export default function ApiEndpointsTab() {
       </div>
     );
   }
+  // 状态颜色辅助:tunnel 风格的统一状态色,跟 EndpointPageClient 同步
+  const METHOD_COLORS_APPLE: Record<string, string> = {
+    GET: "bg-success/15 text-success border-success/30",
+    POST: "bg-info/15 text-info border-info/30",
+    PUT: "bg-warning/15 text-warning border-warning/30",
+    PATCH: "bg-warning/15 text-warning border-warning/30",
+    DELETE: "bg-red/15 text-red border-red/30",
+  };
 
   return (
     <div className="space-y-5">
       {/* Header with spec info */}
       {catalog && (
-        <Card className="p-5">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10">
-                <span className="material-symbols-outlined text-primary text-[20px]">api</span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold">{catalog.info.title || "API"}</h2>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold">
-                    {catalog.info.version}
-                  </span>
-                </div>
-                <p className="text-xs text-text-muted mt-0.5">
-                  {t("catalogStats", {
-                    endpoints: catalog.endpoints.length,
-                    categories: allTags.length,
-                  })}
-                </p>
-              </div>
+        <AppleCard className="flex flex-row items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-10 rounded-xl bg-primary/10">
+              <span className="material-symbols-outlined text-primary text-[20px]">api</span>
             </div>
-            <div className="flex items-center gap-2">
-              <a
-                href="/docs/openapi.yaml"
-                download
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg
-                           bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[14px]">download</span>
-                YAML
-              </a>
-              <a
-                href="/api/openapi/spec"
-                target="_blank"
-                rel="noopener"
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg
-                           bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                JSON
-              </a>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-semibold">{catalog.info.title || "API"}</h2>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-semibold">
+                  {catalog.info.version}
+                </span>
+              </div>
+              <p className="text-xs text-text-muted mt-0.5">
+                {t("catalogStats", {
+                  endpoints: catalog.endpoints.length,
+                  categories: allTags.length,
+                })}
+              </p>
             </div>
           </div>
-        </Card>
+          <div className="flex items-center gap-2">
+            <a
+              href="/docs/openapi.yaml"
+              download
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg
+                         bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">download</span>
+              YAML
+            </a>
+            <a
+              href="/api/openapi/spec"
+              target="_blank"
+              rel="noopener"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg
+                         bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[14px]">open_in_new</span>
+              JSON
+            </a>
+          </div>
+        </AppleCard>
       )}
 
       {/* ═══ API CATALOG ═══ */}
       {!catalog && (
         <>
-          <Card className="p-6">
+          <AppleSurface weight="light" className="p-6">
             <div className="flex items-start gap-3">
               <div className="flex size-10 items-center justify-center rounded-lg bg-red-500/10">
-                <span className="material-symbols-outlined text-[20px] text-red-500">error</span>
+                <span className="material-symbols-outlined text-[20px] text-red">error</span>
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-text-main">
@@ -394,7 +409,7 @@ export default function ApiEndpointsTab() {
                 </a>
               </div>
             </div>
-          </Card>
+          </AppleSurface>
 
           <VscodeTokenAliasCard variant="catalog" />
         </>
@@ -491,7 +506,7 @@ export default function ApiEndpointsTab() {
 
           {/* Endpoint groups */}
           {Object.entries(groupedEndpoints).map(([tag, endpoints]) => (
-            <Card key={tag} className="overflow-hidden">
+            <AppleCard key={tag} compact={false} className="p-0 overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-black/5 dark:border-white/5">
                 <span className="material-symbols-outlined text-[14px] text-primary">folder</span>
                 <h3 className="text-xs font-semibold uppercase tracking-wider text-text-muted">
@@ -517,7 +532,7 @@ export default function ApiEndpointsTab() {
                       >
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded border min-w-[42px] text-center font-mono
-                            ${METHOD_COLORS[ep.method] || "bg-gray-500/15 text-gray-500"}`}
+                            ${METHOD_COLORS_APPLE[ep.method] || "bg-gray-500/15 text-gray-500"}`}
                         >
                           {ep.method}
                         </span>
@@ -530,7 +545,7 @@ export default function ApiEndpointsTab() {
                         <EndpointBadges ep={ep} />
                         {ep.security && (
                           <span
-                            className="material-symbols-outlined text-[12px] text-amber-500"
+                            className="material-symbols-outlined text-[12px] text-warning"
                             title={t("apiEndpointsRequiresAuth")}
                           >
                             lock
@@ -555,7 +570,7 @@ export default function ApiEndpointsTab() {
                               <div className="flex items-center gap-3 mt-2 text-[10px] text-text-muted">
                                 {ep.security && (
                                   <span className="flex items-center gap-1">
-                                    <span className="material-symbols-outlined text-[12px] text-amber-500">
+                                    <span className="material-symbols-outlined text-[12px] text-warning">
                                       lock
                                     </span>
                                     {t("bearerAuth")}
@@ -611,7 +626,7 @@ export default function ApiEndpointsTab() {
 
                           {/* Try It panel */}
                           {isTrying && (
-                            <div className="rounded-lg border border-primary/20 bg-primary/[0.02] p-3 space-y-3">
+                            <div className="rounded-card border border-primary/20 bg-primary/[0.02] p-3 space-y-3">
                               {ep.security && (
                                 <div>
                                   <div className="flex items-center justify-between mb-1">
@@ -628,51 +643,51 @@ export default function ApiEndpointsTab() {
                                   </div>
 
                                   {useManualKey ? (
-                                    <input
-                                      type="password"
-                                      value={manualApiKey}
-                                      onChange={(e) => setManualApiKey(e.target.value)}
-                                      placeholder={t("pasteApiKey")}
-                                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-black/10
-                                               dark:border-white/10 bg-white dark:bg-black/30 focus:outline-none
-                                               focus:ring-1 focus:ring-primary"
-                                    />
+                                    <AppleField id={`tryit-manual-key-${key}`} label={t("apiKey")}>
+                                      <AppleInput
+                                        id={`tryit-manual-key-${key}`}
+                                        type="password"
+                                        value={manualApiKey}
+                                        onChange={(e) => setManualApiKey(e.target.value)}
+                                        placeholder={t("pasteApiKey")}
+                                        className="font-mono text-xs"
+                                      />
+                                    </AppleField>
                                   ) : availableApiKeys.length > 0 ? (
-                                    <select
-                                      value={selectedApiKeyId}
-                                      onChange={(e) => setSelectedApiKeyId(e.target.value)}
-                                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-black/10
-                                               dark:border-white/10 bg-white dark:bg-black/30 focus:outline-none
-                                               focus:ring-1 focus:ring-primary"
-                                    >
-                                      {availableApiKeys.map((apiKey) => (
-                                        <option key={apiKey.id} value={apiKey.id}>
-                                          {apiKey.key}
-                                        </option>
-                                      ))}
-                                    </select>
+                                    <AppleField id={`tryit-key-select-${key}`} label={t("apiKey")}>
+                                      <AppleSelect
+                                        id={`tryit-key-select-${key}`}
+                                        value={selectedApiKeyId}
+                                        onChange={(e) =>
+                                          setSelectedApiKeyId((e.target as HTMLInputElement).value)
+                                        }
+                                        className="font-mono text-xs"
+                                      >
+                                        {availableApiKeys.map((apiKey) => (
+                                          <option key={apiKey.id} value={apiKey.id}>
+                                            {apiKey.key}
+                                          </option>
+                                        ))}
+                                      </AppleSelect>
+                                    </AppleField>
                                   ) : (
-                                    <p className="text-[11px] text-amber-500">
+                                    <p className="text-[11px] text-warning">
                                       {apiKeyLoadError || t("noActiveApiKeys")}
                                     </p>
                                   )}
                                 </div>
                               )}
                               {ep.method !== "GET" && (
-                                <div>
-                                  <label className="text-[9px] font-semibold text-text-muted uppercase tracking-wider">
-                                    {t("requestBodyJson")}
-                                  </label>
-                                  <textarea
+                                <AppleField id={`tryit-body-${key}`} label={t("requestBodyJson")}>
+                                  <AppleTextarea
+                                    id={`tryit-body-${key}`}
                                     value={tryBody}
                                     onChange={(e) => setTryBody(e.target.value)}
                                     rows={8}
-                                    className="w-full mt-1 px-3 py-2 text-xs font-mono rounded-lg border border-black/10
-                                             dark:border-white/10 bg-white dark:bg-black/30 focus:outline-none
-                                             focus:ring-1 focus:ring-primary resize-none"
                                     placeholder='{ "model": "gpt-4o", "messages": [...] }'
+                                    className="font-mono text-xs"
                                   />
-                                </div>
+                                </AppleField>
                               )}
                               <button
                                 onClick={() => executeTryIt(ep)}
@@ -692,10 +707,10 @@ export default function ApiEndpointsTab() {
                                     <span
                                       className={`px-2 py-0.5 rounded font-bold ${
                                         tryResult.status >= 200 && tryResult.status < 300
-                                          ? "bg-emerald-500/15 text-emerald-500"
+                                          ? "bg-success/15 text-success"
                                           : tryResult.status >= 400
-                                            ? "bg-red-500/15 text-red-500"
-                                            : "bg-amber-500/15 text-amber-500"
+                                            ? "bg-red/15 text-red"
+                                            : "bg-warning/15 text-warning"
                                       }`}
                                     >
                                       {tryResult.status} {tryResult.statusText}
@@ -717,21 +732,19 @@ export default function ApiEndpointsTab() {
                   );
                 })}
               </div>
-            </Card>
+            </AppleCard>
           ))}
 
           {filteredEndpoints.length === 0 && (
-            <Card className="p-8 text-center">
-              <span className="material-symbols-outlined text-[32px] text-text-muted">
-                search_off
-              </span>
-              <p className="text-sm text-text-muted mt-2">{t("apiEndpointsNoMatch")}</p>
-            </Card>
+            <AppleEmptyState
+              icon={<span className="material-symbols-outlined text-[28px]">search_off</span>}
+              title={t("apiEndpointsNoMatch")}
+            />
           )}
 
           {/* Schemas section */}
           {catalog.schemas.length > 0 && (
-            <Card className="p-4">
+            <AppleCard compact>
               <div className="flex items-center gap-2 mb-3">
                 <span className="material-symbols-outlined text-[14px] text-primary">
                   data_object
@@ -753,7 +766,7 @@ export default function ApiEndpointsTab() {
                   </span>
                 ))}
               </div>
-            </Card>
+            </AppleCard>
           )}
         </>
       )}
