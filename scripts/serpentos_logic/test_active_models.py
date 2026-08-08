@@ -13,7 +13,7 @@ MODELS = [
     "god-mode"
 ]
 
-url = "http://localhost:20131/v1/chat/completions"
+url = "http://localhost:3001/api/v1/chat/completions"
 
 working_models = []
 failed_models = []
@@ -40,6 +40,10 @@ for model in MODELS:
             elapsed = time.time() - start_time
             print(f"✅ OK ({elapsed:.2f}s) -> '{content}'")
             working_models.append(model)
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='replace')
+        print(f"❌ FAILED HTTP {e.code}: {body}")
+        failed_models.append(model)
     except Exception as e:
         print(f"❌ FAILED: {e}")
         failed_models.append(model)
