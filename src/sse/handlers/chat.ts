@@ -1348,7 +1348,7 @@ async function handleSingleModelChat(
         const breakerFailureStatus = Number(lastStatus ?? credentials?.lastErrorCode);
         if (
           !forceLiveComboTest &&
-          isAllRateLimited &&
+          credentials?.allRateLimited &&
           PROVIDER_BREAKER_FAILURE_STATUSES.has(breakerFailureStatus)
         ) {
           breaker._onFailure();

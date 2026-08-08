@@ -32,7 +32,7 @@
       "replacement": " ",
       "context": "all",
       "category": "ultra",
-      "minIntensity": "notes"
+      "minIntensity": "ultra"
     },
     {
       "name": "ultra_lowercase",
@@ -40,7 +40,7 @@
       "replacement": " $1",
       "context": "all",
       "category": "ultra",
-      "minIntensity": "notes"
+      "minIntensity": "ultra"
     }
   ]
 }

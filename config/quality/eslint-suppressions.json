@@ -81,7 +81,7 @@
   },
   "open-sse/handlers/search.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 33
     }
   },
   "open-sse/handlers/sseParser.ts": {

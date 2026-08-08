@@ -5076,7 +5076,7 @@
     "importDoneCount": "✓ Hoàn tất! {count, plural, one {Đã nhập # mô hình.} other {Đã nhập # mô hình.}}",
     "unexpectedErrorOccurred": "Đã xảy ra lỗi không mong muốn",
     "getApiKey": "Lấy khóa API",
-    "getApiKeyDescription": "Đăng ký hoặc đăng nhập để nhận khóa API",
+    "getApiKeyDescription": "Đăng ký hoặc tạo tài khoản để nhận khóa API",
     "connectionCountLabel": "{count, plural, one {# kết nối} other {# kết nối}}",
     "messagesPath": "messages",
     "responsesPath": "responses",

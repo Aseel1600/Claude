@@ -8,7 +8,7 @@
  * This test verifies the payload normalization fix is present in the source code
  * and that the correct contract keys are read by loadData().
  *
- * Run: node --import tsx/esm --test tests/unit/free-pool-frontend-repro.test.tsx
+ * Run: node --import tsx/esm --test tests/unit/free-pool-frontend-repro.test.ts
  */
 
 import test from "node:test";
@@ -89,7 +89,10 @@ test("Payload normalization produces correct values with real API contract shape
 
   // THE FIX: normalize through body?.data
   const payload = (apiResponse as Record<string, unknown>)?.data ?? apiResponse;
-  const fixedProxies = (payload as Record<string, unknown>).proxies ?? (payload as Record<string, unknown>).items ?? [];
+  const fixedProxies =
+    (payload as Record<string, unknown>).proxies ??
+    (payload as Record<string, unknown>).items ??
+    [];
   const fixedTotal = (payload as Record<string, unknown>).total ?? 0;
 
   assert.equal(fixedProxies.length, 2, "FIX: payload.proxies contains 2 items");
@@ -99,10 +102,7 @@ test("Payload normalization produces correct values with real API contract shape
 // Also verify the backend contract is still correct
 test("Backend route test asserts body.data.proxies contract", () => {
   // Verify the route test asserts data.proxies, not data.items
-  const routeTestPath = resolve(
-    import.meta.dirname,
-    "./api/free-proxies-list-route.test.ts"
-  );
+  const routeTestPath = resolve(import.meta.dirname, "./api/free-proxies-list-route.test.ts");
   const routeTest = readFileSync(routeTestPath, "utf-8");
   assert.ok(
     routeTest.includes("body.data.proxies") || routeTest.includes("body.data.total"),
