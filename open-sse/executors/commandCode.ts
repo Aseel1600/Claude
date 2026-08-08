@@ -48,6 +48,21 @@ function recordOrEmpty(value: unknown): JsonRecord {
   return {};
 }
 
+/**
+ * Build the `arguments` field for an assistant tool-call part that Command
+ * Code's /alpha/generate schema REQUIRES (rejects a missing field with
+ * `missing required field 'arguments'`). Valid source values round-trip:
+ *   - object arguments  -> JSON string of the object
+ *   - string arguments  -> the string as-is (already valid JSON)
+ *   - missing / empty / invalid JSON -> "{}" (a valid empty-object string)
+ */
+function toolCallArgumentsString(value: unknown): string {
+  const parsed = recordOrEmpty(value);
+  if (isRecord(value)) return JSON.stringify(parsed);
+  if (typeof value === "string" && value.trim()) return value;
+  return JSON.stringify(parsed);
+}
+
 function normalizeContentText(content: unknown): string {
   if (typeof content === "string") return content;
   return asRecordArray(content)
@@ -244,11 +259,15 @@ function convertMessages(
         const id = stringValue(call.id) || "";
         if (!id || !pairedToolCallIds.has(id)) continue;
         const fn = isRecord(call.function) ? call.function : {};
+        const parsedInput = recordOrEmpty(fn.arguments);
         parts.push({
           type: "tool-call",
           toolCallId: id,
           toolName: stringValue(fn.name) || "",
-          input: recordOrEmpty(fn.arguments),
+          input: parsedInput,
+          // /alpha/generate requires this field on assistant tool-call parts;
+          // a missing one is rejected with `missing required field 'arguments'`.
+          arguments: toolCallArgumentsString(fn.arguments),
         });
       }
 
