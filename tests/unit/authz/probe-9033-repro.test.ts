@@ -10,8 +10,14 @@ import os from "node:os";
 import path from "node:path";
 import { NextRequest } from "next/server";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-9033-repro-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
+const TEST_DATA_DIR = path.join(process.env.DATA_DIR!, "probe-9033-repro");
+// NOTE: Not reassigning process.env.DATA_DIR at module scope because
+// node --test spawns test files as worker threads sharing process.env.
+// A module-level DATA_DIR override would leak to ALL concurrently running
+// workers, causing them to share the same SQLite file and race on it (#9541).
+// isolateDataDir.ts (--import) already set DATA_DIR to a unique temp dir per
+// process; we use a subdirectory within it instead.
+
 process.env.JWT_SECRET = "test-secret-9033";
 
 const core = await import("../../../src/lib/db/core.ts");
@@ -55,11 +61,7 @@ test("D1: blacklisted IP is blocked on a DIRECT connection (trusted peer stamp, 
     { enforce: true }
   );
 
-  assert.equal(
-    res.status,
-    403,
-    `direct blacklisted IP must be blocked, got status=${res.status}`
-  );
+  assert.equal(res.status, 403, `direct blacklisted IP must be blocked, got status=${res.status}`);
 });
 
 test("D2: persisted config written after first load is honored WITHOUT restart", async () => {
@@ -74,9 +76,7 @@ test("D2: persisted config written after first load is honored WITHOUT restart",
   // Now simulate a "settings route" write: write directly to the DB key_value table
   // with a DIFFERENT config (e.g. empty blacklist, effectively "allow all").
   const db = core.getDbInstance();
-  db.prepare(
-    "INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)"
-  ).run(
+  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
     "ipFilter",
     "config",
     JSON.stringify({ enabled: true, mode: "blacklist", blacklist: [], whitelist: [] })
@@ -116,9 +116,7 @@ test("D3: behind reverse proxy (peer stamp=loopback + via-proxy marker + XFF=bla
 });
 
 test("Bonus: ipFilterModeSchema accepts whitelist-priority", async () => {
-  const { ipFilterModeSchema } = await import(
-    "../../../src/shared/validation/schemas/misc.ts"
-  );
+  const { ipFilterModeSchema } = await import("../../../src/shared/validation/schemas/misc.ts");
   const result = ipFilterModeSchema.safeParse("whitelist-priority");
   assert.equal(
     result.success,

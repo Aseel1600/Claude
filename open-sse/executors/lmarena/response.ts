@@ -175,6 +175,7 @@ function emitStopAndDone(controller: ReadableStreamDefaultController, model: str
     ...baseChunk(model),
     choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
   });
+
   controller.enqueue(encoder.encode("data: [DONE]\n\n"));
   controller.close();
 }
