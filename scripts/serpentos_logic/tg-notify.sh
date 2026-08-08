@@ -22,8 +22,8 @@ case "$LEVEL" in
   loop|ralph)      ICON="🌀" ;;
 esac
 
-TOK="${TELEGRAM_BOT_TOKEN:-$(doppler secrets get TELEGRAM_BOT_TOKEN --project serpent --config dev --plain 2>/dev/null || doppler secrets get TELEGRAM_BOT_TOKEN --project serpent --config dev_personal --plain 2>/dev/null || echo '')}"
-CHAT="${TELEGRAM_CHAT_ID:-$(doppler secrets get TELEGRAM_CHAT_ID --project serpent --config dev --plain 2>/dev/null || doppler secrets get TELEGRAM_CHAT_ID --project serpent --config dev_personal --plain 2>/dev/null || echo '')}"
+TOK="${TELEGRAM_BOT_TOKEN:-$(doppler secrets get TELEGRAM_BOT_TOKEN --project serpent --config prd --plain 2>/dev/null || doppler secrets get TELEGRAM_BOT_TOKEN --project serpent --config dev --plain 2>/dev/null || doppler secrets get TELEGRAM_BOT_TOKEN --project serpent --config dev_personal --plain 2>/dev/null || echo '')}"
+CHAT="${TELEGRAM_CHAT_ID:-$(doppler secrets get TELEGRAM_CHAT_ID --project serpent --config prd --plain 2>/dev/null || doppler secrets get TELEGRAM_CHAT_ID --project serpent --config dev --plain 2>/dev/null || doppler secrets get TELEGRAM_CHAT_ID --project serpent --config dev_personal --plain 2>/dev/null || echo '')}"
 
 if [ -z "$TOK" ] || [ -z "$CHAT" ]; then
   echo "[tg-notify] Token or Chat ID not found in environment or Doppler. Skipping notification." >&2
