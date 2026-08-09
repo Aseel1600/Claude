@@ -392,7 +392,6 @@ import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
 
 // extractSystemRoleMessages extracted to chatCore/claudeSystemRole.ts (#3501); re-exported above so
 // existing importers (e.g. tests/unit/system-role-extraction.test.ts) keep resolving it from here.
-
 export async function handleChatCore({
   body,
   modelInfo,
@@ -5033,7 +5032,6 @@ export async function handleChatCore({
     }),
   };
 }
-
 export function isTokenExpiringSoon(expiresAt, bufferMs = 5 * 60 * 1000) {
   if (!expiresAt) return false;
   const expiresAtMs = new Date(expiresAt).getTime();
