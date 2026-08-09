@@ -937,7 +937,7 @@
   "disabled": "Отключено",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Перенаправлять запросы при исчерпании бюджета на резервный бесплатный провайдер/модель.",
   "featureFlagArenaEloSyncEnabledDescription": "Включить периодическую синхронизацию ELO из таблицы лидеров Arena AI для рейтинга интеллектуальности моделей.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Публиковать claude/<провайдер>/<модель> зеркальные ID на /v1/models, чтобы Claude Code мог видеть не-Claude модели. Внимание: удваивает записи каталога для всех клиентов при глобальном включении.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Публиковать claude/&lt;провайдер&gt;/&lt;модель&gt; зеркальные ID на /v1/models, чтобы Claude Code мог видеть не-Claude модели. Внимание: удваивает записи каталога для всех клиентов при глобальном включении.",
   "sidebar": {
     "home": "Главная",
     "dashboard": "Панель управления",
@@ -2516,7 +2516,7 @@
       "always": "Всегда"
     },
     "ccDiscoveryInfoButton": "Как включить обнаружение в Claude Code",
-    "ccDiscoveryInfoTooltip": "Публиковать не-Claude модели под зеркальными ID claude/<провайдер>/<модель>, чтобы Claude Code мог их обнаруживать. Удваивает записи каталога для всех клиентов при глобальном включении.",
+    "ccDiscoveryInfoTooltip": "Публиковать не-Claude модели под зеркальными ID claude/&lt;провайдер&gt;/&lt;модель&gt;, чтобы Claude Code мог их обнаруживать. Удваивает записи каталога для всех клиентов при глобальном включении.",
     "ccDiscoveryInfoLink": "Открыть Feature Flags",
     "ccOnboardingTitle": "settings.json для обнаружения gateway моделей",
     "ccOnboardingCopy": "Копировать",
@@ -5206,7 +5206,7 @@
     "interceptionLoadError": "Не удалось загрузить настройки перехвата: {error}",
     "interceptionSaveError": "Не удалось сохранить настройки перехвата: {error}",
     "ccAliasSectionTitle": "Зеркальные ID Claude Code",
-    "ccAliasSectionHint": "Эти зеркала публикуют не-Claude модели под ID claude/<провайдер>/<модель>, чтобы Claude Code gateway model discovery мог их перечислить.",
+    "ccAliasSectionHint": "Эти зеркала публикуют не-Claude модели под ID claude/&lt;провайдер&gt;/&lt;модель&gt;, чтобы Claude Code gateway model discovery мог их перечислить.",
     "ccAliasProviderLevelLabel": "Провайдер включён",
     "ccAliasModelOverridesLabel": "Переопределения моделей",
     "ccAliasModelOverrideAriaLabel": "Переопределение модели",

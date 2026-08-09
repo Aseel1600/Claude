@@ -17,6 +17,7 @@ import { createTranslator } from "next-intl";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MESSAGES_DIR = path.resolve(__dirname, "..", "..", "src", "i18n", "messages");
 const RAW_PATTERN = "claude/<provider>/<model>";
+const RAW_ALIAS_PATTERN = /claude\/<[^>\n]+>\/<[^>\n]+>/;
 const ESCAPED_PATTERN = "claude/&lt;provider&gt;/&lt;model&gt;";
 
 function localeFiles(): string[] {
@@ -26,17 +27,14 @@ function localeFiles(): string[] {
 }
 
 function readLocale(file: string): Record<string, unknown> {
-  return JSON.parse(readFileSync(path.join(MESSAGES_DIR, file), "utf8")) as Record<
-    string,
-    unknown
-  >;
+  return JSON.parse(readFileSync(path.join(MESSAGES_DIR, file), "utf8")) as Record<string, unknown>;
 }
 
-test("no locale message file contains raw claude/<provider>/<model>", () => {
+test("no locale message file contains raw claude/<provider>/<model> in any language", () => {
   const offenders: string[] = [];
   for (const file of localeFiles()) {
     const text = readFileSync(path.join(MESSAGES_DIR, file), "utf8");
-    if (text.includes(RAW_PATTERN)) {
+    if (RAW_ALIAS_PATTERN.test(text)) {
       offenders.push(file);
     }
   }
@@ -74,39 +72,42 @@ test("en.json CC discovery-alias keys use HTML-entity escaped path", () => {
   }
 });
 
-test("createTranslator does not report INVALID_MESSAGE for CC discovery-alias keys", () => {
-  const en = readLocale("en.json");
-  const errors: Array<{ code?: string; originalMessage?: string; message?: string }> = [];
+test("createTranslator accepts CC discovery-alias keys in every locale", () => {
+  const errors: Array<{
+    locale: string;
+    code?: string;
+    originalMessage?: string;
+    message?: string;
+  }> = [];
 
-  const onError = (err: unknown) => {
-    errors.push(err as { code?: string; originalMessage?: string; message?: string });
-  };
+  for (const file of localeFiles()) {
+    const locale = file.replace(/\.json$/, "");
+    const messages = readLocale(file);
+    const onError = (err: unknown) => {
+      errors.push({
+        locale,
+        ...(err as { code?: string; originalMessage?: string; message?: string }),
+      });
+    };
 
-  const tProviders = createTranslator({
-    locale: "en",
-    messages: en,
-    namespace: "providers",
-    onError,
-  });
-  const tCliTools = createTranslator({
-    locale: "en",
-    messages: en,
-    namespace: "cliTools",
-    onError,
-  });
-  const tRoot = createTranslator({
-    locale: "en",
-    messages: en,
-    onError,
-  });
+    const tProviders = createTranslator({
+      locale,
+      messages,
+      namespace: "providers",
+      onError,
+    });
+    const tCliTools = createTranslator({
+      locale,
+      messages,
+      namespace: "cliTools",
+      onError,
+    });
+    const tRoot = createTranslator({ locale, messages, onError });
 
-  const hint = tProviders("ccAliasSectionHint");
-  const tooltip = tCliTools("ccDiscoveryInfoTooltip");
-  const flag = tRoot("featureFlagExposeCcDiscoveryAliasesDescription");
-
-  assert.ok(typeof hint === "string" && hint.length > 0);
-  assert.ok(typeof tooltip === "string" && tooltip.length > 0);
-  assert.ok(typeof flag === "string" && flag.length > 0);
+    assert.ok(tProviders("ccAliasSectionHint").length > 0);
+    assert.ok(tCliTools("ccDiscoveryInfoTooltip").length > 0);
+    assert.ok(tRoot("featureFlagExposeCcDiscoveryAliasesDescription").length > 0);
+  }
 
   const bad = errors.filter(
     (e) =>
@@ -117,7 +118,7 @@ test("createTranslator does not report INVALID_MESSAGE for CC discovery-alias ke
     bad.length,
     0,
     `next-intl INVALID_MESSAGE/UNCLOSED_TAG on CC alias keys:\n${bad
-      .map((e) => `${e.code}: ${e.originalMessage ?? e.message}`)
+      .map((e) => `${e.locale}: ${e.code}: ${e.originalMessage ?? e.message}`)
       .join("\n")}`
   );
 });
