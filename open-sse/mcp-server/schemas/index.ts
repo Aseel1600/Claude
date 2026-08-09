@@ -35,9 +35,6 @@ export {
   listModelsCatalogInput,
   listModelsCatalogOutput,
   listModelsCatalogTool,
-  radarCatalogInput,
-  radarCatalogOutput,
-  radarCatalogTool,
   // Phase 2: Advanced tool schemas
   simulateRouteInput,
   simulateRouteOutput,
@@ -93,6 +90,8 @@ export {
   ccrStatsOutput,
   ccrStatsTool,
 } from "./tools.ts";
+
+export { radarCatalogInput, radarCatalogOutput, radarCatalogTool } from "./radarCatalog.ts";
 
 // A2A schemas
 export {
