@@ -185,6 +185,113 @@ describe("webTools — prepareToolMessages", () => {
     assert.equal(result.hasTools, false);
     assert.equal(result.effectiveMessages, messages);
   });
+
+  test("passes messages through untouched for an empty tools array", () => {
+    const messages = [{ role: "user", content: "hi" }];
+    const result = prepareToolMessages({ tools: [] }, messages);
+
+    assert.equal(result.hasTools, false);
+    assert.equal(result.effectiveMessages, messages);
+  });
+
+  test("appends the full contract as a trailing system message after a multi-turn history", () => {
+    const messages = [
+      { role: "system", content: "You are a helpful assistant." },
+      { role: "user", content: "first question" },
+      { role: "assistant", content: "first answer" },
+      { role: "user", content: "weather in Tokyo?" },
+    ];
+    const result = prepareToolMessages({ tools: WEATHER_TOOL }, messages);
+
+    assert.equal(result.hasTools, true);
+    assert.equal(result.effectiveMessages.length, messages.length + 1);
+    const contractMsg = result.effectiveMessages[result.effectiveMessages.length - 1];
+    assert.equal(contractMsg.role, "system");
+    assert.ok(String(contractMsg.content).includes("Available tools:"));
+    assert.ok(String(contractMsg.content).includes("- get_weather"));
+    // The contract must be appended AFTER the client messages (folds to the tail
+    // of the folded system block), never prepended to the head. The latest user
+    // turn still carries its own short reminder.
+    assert.equal(result.effectiveMessages[3].role, "user");
+    assert.ok(String(result.effectiveMessages[3].content).startsWith("weather in Tokyo?"));
+  });
+
+  test("adds the reminder only to the latest user message, leaving earlier turns intact", () => {
+    const messages = [
+      { role: "user", content: "first question" },
+      { role: "assistant", content: "first answer" },
+      { role: "user", content: "weather in Paris?" },
+    ];
+    const result = prepareToolMessages({ tools: WEATHER_TOOL }, messages);
+
+    assert.equal(result.effectiveMessages[0].content, "first question");
+    assert.equal(result.effectiveMessages[1].content, "first answer");
+    const latestContent = String(result.effectiveMessages[2].content);
+    assert.ok(latestContent.startsWith("weather in Paris?\n\n[Client protocol reminder"));
+    assert.ok(latestContent.includes("client-tool contract in the system instructions"));
+    assert.ok(latestContent.endsWith("block protocol: get_weather.]"));
+    // the original array and its objects must not be mutated
+    assert.equal(messages[2].content, "weather in Paris?");
+  });
+
+  test("names every tool in the reminder for a multi-tool set, comma-separated", () => {
+    const multiTools = [
+      ...WEATHER_TOOL,
+      {
+        type: "function",
+        function: {
+          name: "get_time",
+          description: "Get the current time",
+          parameters: { type: "object", properties: {} },
+        },
+      },
+    ];
+    const messages = [{ role: "user", content: "now" }];
+    const result = prepareToolMessages({ tools: multiTools }, messages);
+
+    assert.ok(String(result.effectiveMessages[0].content).includes("get_weather, get_time"));
+  });
+
+  test("does not inject a reminder when no user message is present, and still appends the contract", () => {
+    const messages = [{ role: "system", content: "You are a helpful assistant." }];
+    const result = prepareToolMessages({ tools: WEATHER_TOOL }, messages);
+
+    assert.equal(result.hasTools, true);
+    assert.equal(result.effectiveMessages.length, 2);
+    assert.equal(result.effectiveMessages[0].content, "You are a helpful assistant.");
+    assert.equal(result.effectiveMessages[1].role, "system");
+    assert.ok(String(result.effectiveMessages[1].content).includes("Available tools:"));
+  });
+
+  test("appends the reminder as a text part when the latest user content is an array", () => {
+    const messages = [{ role: "user", content: [{ type: "text", text: "weather?" }] }];
+    const result = prepareToolMessages({ tools: WEATHER_TOOL }, messages);
+
+    const content = result.effectiveMessages[0].content as Array<{ type: string; text: string }>;
+    assert.equal(content.length, 2);
+    assert.equal(content[0].text, "weather?");
+    assert.equal(content[1].type, "text");
+    assert.ok(content[1].text.includes("Client protocol reminder"));
+    // the original content array must not be mutated
+    assert.equal((messages[0].content as Array<{ type: string; text: string }>).length, 1);
+  });
+
+  test("preserves every original message when tools are present", () => {
+    const messages = [
+      { role: "system", content: "sys" },
+      { role: "user", content: "u1" },
+      { role: "assistant", content: "a1" },
+      { role: "user", content: "u2" },
+    ];
+    const result = prepareToolMessages({ tools: WEATHER_TOOL }, messages);
+
+    assert.equal(messages.length, 4);
+    assert.equal(messages[0].content, "sys");
+    assert.equal(messages[1].content, "u1");
+    assert.equal(messages[2].content, "a1");
+    assert.equal(messages[3].content, "u2");
+    assert.equal(result.effectiveMessages.length, 5);
+  });
 });
 
 describe("webTools — buildToolAwareResult", () => {
