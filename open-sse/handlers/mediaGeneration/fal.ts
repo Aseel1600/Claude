@@ -38,7 +38,26 @@ function falDuration(value: unknown, fallback: string): string {
   return numeric && [4, 6, 8].includes(numeric) ? `${numeric}s` : fallback;
 }
 
-export function buildFalVideoRequestBody(body: FalBody): FalBody {
+function grokDuration(value: unknown, fallback = 6): number {
+  const numeric = numberValue(value);
+  if (numeric !== undefined) return Math.round(numeric);
+  if (typeof value === "string") {
+    const match = value.trim().match(/^(\d+)s$/);
+    if (match) return Number(match[1]);
+  }
+  return fallback;
+}
+
+export function buildFalVideoRequestBody(body: FalBody, model = ""): FalBody {
+  if (model.startsWith("xai/grok-imagine-video/")) {
+    return {
+      prompt: stringValue(body.prompt) || "",
+      aspect_ratio: stringValue(body.aspect_ratio) || "16:9",
+      duration: grokDuration(body.duration),
+      resolution: stringValue(body.resolution) || "720p",
+    };
+  }
+
   const request: FalBody = {
     prompt: stringValue(body.prompt) || "",
     aspect_ratio: stringValue(body.aspect_ratio) || "16:9",
@@ -176,7 +195,8 @@ async function runFalQueue({
   };
   const timeoutMs = getConfiguredTimeout();
   const deadline = startTime + timeoutMs;
-  const falModel = model.startsWith("fal-ai/") ? model : `fal-ai/${model}`;
+  const falModel =
+    model.startsWith("fal-ai/") || model.startsWith("xai/") ? model : `fal-ai/${model}`;
   const queueUrl = `${baseUrl}/${falModel}`;
 
   try {
@@ -297,7 +317,11 @@ export function handleFalVideoGeneration(args: {
   credentials: FalCredentials | null | undefined;
   log?: FalLog | null;
 }) {
-  return runFalQueue({ ...args, body: buildFalVideoRequestBody(args.body), kind: "video" });
+  return runFalQueue({
+    ...args,
+    body: buildFalVideoRequestBody(args.body, args.model),
+    kind: "video",
+  });
 }
 
 export function handleFalMusicGeneration(args: {

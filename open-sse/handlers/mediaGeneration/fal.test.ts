@@ -34,6 +34,27 @@ test("buildFalVideoRequestBody maps the OpenAI-compatible request", () => {
   );
 });
 
+test("buildFalVideoRequestBody maps the Fal-hosted Grok endpoint schema", () => {
+  assert.deepEqual(
+    buildFalVideoRequestBody(
+      {
+        prompt: "A realistic dog walking through a park",
+        aspect_ratio: "16:9",
+        duration: "8s",
+        resolution: "720p",
+        generate_audio: true,
+      },
+      "xai/grok-imagine-video/text-to-video"
+    ),
+    {
+      prompt: "A realistic dog walking through a park",
+      aspect_ratio: "16:9",
+      duration: 8,
+      resolution: "720p",
+    }
+  );
+});
+
 test("buildFalMusicRequestBody uses prompt as tags and supports lyrics", () => {
   assert.deepEqual(
     buildFalMusicRequestBody({
@@ -134,6 +155,39 @@ test("handleFalVideoGeneration uses the provider-neutral queue contract", async 
       duration: "4s",
       resolution: "720p",
       generate_audio: true,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleFalVideoGeneration preserves Fal model paths outside the fal-ai namespace", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), body: String(init?.body) });
+    return new Response(JSON.stringify({ video: { url: "https://cdn.example/grok.mp4" } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await handleFalVideoGeneration({
+      model: "xai/grok-imagine-video/text-to-video",
+      provider: "fal-ai",
+      providerConfig: { baseUrl: "https://queue.fal.run" },
+      body: { prompt: "a dog walking through a park", duration: 8 },
+      credentials: { apiKey: "test-key" },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(requests[0]?.url, "https://queue.fal.run/xai/grok-imagine-video/text-to-video");
+    assert.deepEqual(JSON.parse(requests[0]?.body || "{}"), {
+      prompt: "a dog walking through a park",
+      aspect_ratio: "16:9",
+      duration: 8,
+      resolution: "720p",
     });
   } finally {
     globalThis.fetch = originalFetch;
