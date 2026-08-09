@@ -217,4 +217,3 @@ export type RadarProvider = z.infer<typeof ProviderSchema>;
 export type RadarQuirk = z.infer<typeof QuirkSchema>;
 export type RadarBudget = z.infer<typeof BudgetSchema>;
 export type RadarReferral = z.infer<typeof RadarReferralSchema>;
-export type RadarReferrals = z.infer<typeof RadarReferralsSchema>;

@@ -20,11 +20,10 @@ const ROOT = new URL("../..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/
  */
 describe("omniroute --mcp stdio transport", () => {
   it("writes only valid JSON-RPC to stdout — no DB init or other startup logging leaks through", async () => {
-    const child = spawn(
-      process.execPath,
-      [join(ROOT, "bin", "omniroute.mjs"), "--mcp"],
-      { cwd: ROOT, env: process.env }
-    );
+    const child = spawn(process.execPath, [join(ROOT, "bin", "omniroute.mjs"), "--mcp"], {
+      cwd: ROOT,
+      env: process.env,
+    });
 
     let stdout = "";
     let stderr = "";
@@ -48,11 +47,23 @@ describe("omniroute --mcp stdio transport", () => {
       })}\n`
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 4000));
+    // The full chain (omniroute.mjs CLI startup + spawned MCP child, each paying a tsx
+    // import + the child's DB init/migrations) takes ~10s on a warm dev box and longer on
+    // loaded CI runners — a fixed 4s sleep made this test red from birth. Poll for the
+    // first stdout line instead, then give the stream a short settle window so any
+    // late startup logging that WOULD corrupt the protocol still gets caught.
+    const deadline = Date.now() + 60_000;
+    while (!stdout.includes("\n") && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     child.kill();
 
     const stdoutLines = stdout.split("\n").filter((line) => line.trim().length > 0);
-    assert.ok(stdoutLines.length > 0, "expected at least one line on stdout (the initialize response)");
+    assert.ok(
+      stdoutLines.length > 0,
+      "expected at least one line on stdout (the initialize response)"
+    );
 
     for (const line of stdoutLines) {
       assert.doesNotThrow(
@@ -61,9 +72,7 @@ describe("omniroute --mcp stdio transport", () => {
       );
     }
 
-    const initResponse = stdoutLines
-      .map((line) => JSON.parse(line))
-      .find((msg) => msg.id === 1);
+    const initResponse = stdoutLines.map((line) => JSON.parse(line)).find((msg) => msg.id === 1);
     assert.ok(initResponse, "expected an initialize response with id 1 on stdout");
     assert.equal(initResponse.jsonrpc, "2.0");
 
