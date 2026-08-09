@@ -335,8 +335,8 @@ The local Radar route families below back the UI under `src/app/api/radar/`:
 | `/api/radar/settings`          | GET    | Returns `{ optIn, hasSupporterKey, supporterKeyMasked }` — never the raw key.                                         |
 | `/api/radar/settings`          | POST   | Sets opt-in and/or the (encrypted) supporter key.                                                                     |
 | `/api/radar/referrals`         | GET    | Returns `{ fixed, campaigns, tier }` from the local cache — see [Referral links](#referral-links-free-credits) below. |
-| `/api/radar/offers`            | GET    | Returns active offers from the verified local live cache; never returns the supporter key.                          |
-| `/api/radar/offers/sync`       | POST   | Triggers the server-side, live-key-only `syncRadarOffers()` pipeline.                                                |
+| `/api/radar/offers`            | GET    | Returns active offers from the verified local live cache; never returns the supporter key.                            |
+| `/api/radar/offers/sync`       | POST   | Triggers the server-side, live-key-only `syncRadarOffers()` pipeline.                                                 |
 | `/api/radar/local-model-state` | GET    | Lists persisted overrides and tombstones for edit/restore controls.                                                   |
 | `/api/radar/local-model-state` | PATCH  | Sets or clears the validated `displayName`/`enabled` override fields.                                                 |
 | `/api/radar/local-model-state` | PUT    | Creates or removes a tombstone with `{ provider, modelId, tombstoned }`.                                              |
