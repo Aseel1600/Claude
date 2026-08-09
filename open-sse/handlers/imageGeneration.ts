@@ -2149,7 +2149,7 @@ function parseSizeToDimensions(size, fallback = 1024) {
   };
 }
 
-function normalizeRequestedImageFormat(
+export function normalizeRequestedImageFormat(
   body,
   fallback = "png",
   allowedFormats = ["jpeg", "png", "webp"]
@@ -2169,7 +2169,7 @@ function normalizeRequestedImageFormat(
   return fallback;
 }
 
-function mapFalImageSize(size, fallback = "square_hd") {
+export function mapFalImageSize(size, fallback = "square_hd") {
   if (typeof size !== "string") return fallback;
   if (FAL_PRESET_SIZES[size]) return FAL_PRESET_SIZES[size];
   if (size.includes("x")) {
@@ -2200,7 +2200,7 @@ function shouldIncludeStabilityMask(model) {
   ]).has(model);
 }
 
-async function normalizeProviderImagePayload(payload, body, log) {
+export async function normalizeProviderImagePayload(payload, body, log) {
   const candidates = [];
 
   const pushCandidate = (value) => {
