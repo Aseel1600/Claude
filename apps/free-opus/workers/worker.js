@@ -5,27 +5,55 @@ const runway = require("../lib/runway-mock");
 async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function run() {
-  console.log("Worker started (demo in-memory). Polling queue...");
+  console.log("Worker started (demo). Polling queue with retry/backoff...");
+  const MAX_ATTEMPTS = Number(process.env.WORKER_MAX_ATTEMPTS || 3);
+  const BASE_DELAY_MS = Number(process.env.WORKER_BASE_DELAY_MS || 2000);
+
   while (true) {
-    const item = queue.dequeue();
+    const item = await queue.dequeue();
     if (!item) {
-      await sleep(2000);
+      await sleep(1000);
       continue;
     }
 
-    console.log(`Processing job ${item.id}`);
+    const jobId = item.id || item.job?.id;
+    console.log(`Processing job ${jobId}`);
     try {
-      // Simulate render time and progress updates
+      // Update runway status to rendering
+      await runway.setStatus(jobId, "rendering");
+
+      // Simulate render work (could call providers.runway here)
       await sleep(3000);
-      // Mark runway mock as rendering
-      await runway.setStatus(item.id, "rendering");
-      await sleep(3000);
+
+      // Simulate possible transient failure
+      if (Math.random() < 0.1) throw new Error("transient_render_error");
+
       // On success write a fake result URL
-      queue.complete(item.id, { url: `https://mock-storage.local/video/${item.id}.mp4` });
-      console.log(`Job ${item.id} complete`);
+      const result = { url: `https://mock-storage.local/video/${jobId}.mp4` };
+      await queue.complete(jobId, result);
+      console.log(`Job ${jobId} complete`);
     } catch (err) {
-      console.error(`Job ${item.id} failed`, err);
-      queue.fail(item.id, err);
+      console.error(`Job ${jobId} failed`, err.message || err);
+      // Attempt retry/backoff if attempts available
+      try {
+        const status = await queue.getStatus(jobId) || {};
+        const attempts = Number(status.attempts || 0) + 1;
+        await queue.fail(jobId, err);
+        if (attempts < MAX_ATTEMPTS) {
+          const delay = BASE_DELAY_MS * Math.pow(2, attempts - 1);
+          console.log(`Re-enqueueing job ${jobId} for retry #${attempts} after ${delay}ms`);
+          // simple delay using setTimeout then re-enqueue (for in-memory); for Redis we'd use delayed queue or scheduler
+          setTimeout(async () => {
+            try {
+              await queue.enqueue({ id: jobId, prompt: item.job?.prompt || item.prompt });
+              const meta = await queue.getStatus(jobId);
+              if (meta) meta.attempts = attempts;
+            } catch (e) { console.error('re-enqueue failed', e); }
+          }, delay);
+        } else {
+          console.log(`Job ${jobId} reached max attempts (${MAX_ATTEMPTS}) and is marked failed.`);
+        }
+      } catch (e) { console.error('retry handling failed', e); }
     }
   }
 }
