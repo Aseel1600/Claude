@@ -6037,7 +6037,9 @@
     "anonymousFallbackDesc": "Quando todas as conexões configuradas estiverem esgotadas (cota, créditos ou expiração), use temporariamente a camada sem chave deste provedor. Desative para ignorar este provedor em vez de enviar solicitações anônimas — recomendado quando a camada sem chave as rejeita (401).",
     "anonymousFallbackEnabled": "Fallback anônimo ativado para {provider}",
     "anonymousFallbackDisabled": "Fallback anônimo desativado para {provider} — conexões esgotadas ignorarão este provedor",
-    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anônimo"
+    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anônimo",
+    "webSessionGuideStep2Fast": "Caminho rápido: instale a extensão Cookie Editor (chromewebstore.google.com → Cookie Editor), abra-a na aba do {provider}, encontre {credential} (se estiver dividido, selecione todos os trechos numerados) e clique em Export → Copy com o formato de exportação definido como “Cookie header”.",
+    "webSessionGuideStep3Manual": "Caminho manual: abra as ferramentas do desenvolvedor do navegador (F12 → Network), atualize a página, abra uma requisição autenticada e copie o valor do cabeçalho Cookie em Request Headers — omita o prefixo Cookie:."
   },
   "settings": {
     "title": "Configurações",
