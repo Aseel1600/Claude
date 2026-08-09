@@ -55,6 +55,44 @@ test("buildFalVideoRequestBody maps the Fal-hosted Grok endpoint schema", () => 
   );
 });
 
+test("buildFalVideoRequestBody maps one provider-neutral image reference", () => {
+  assert.deepEqual(
+    buildFalVideoRequestBody(
+      {
+        prompt: "Animate this dog",
+        image_urls: ["data:image/png;base64,ZmFrZQ=="],
+      },
+      "xai/grok-imagine-video/text-to-video"
+    ),
+    {
+      prompt: "Animate this dog",
+      aspect_ratio: "16:9",
+      duration: 6,
+      resolution: "720p",
+      image_url: "data:image/png;base64,ZmFrZQ==",
+    }
+  );
+});
+
+test("buildFalVideoRequestBody maps multiple provider-neutral image references", () => {
+  assert.deepEqual(
+    buildFalVideoRequestBody(
+      {
+        prompt: "Combine these references",
+        image_urls: ["data:image/png;base64,YQ==", "data:image/png;base64,Yg=="],
+      },
+      "xai/grok-imagine-video/text-to-video"
+    ),
+    {
+      prompt: "Combine these references",
+      aspect_ratio: "16:9",
+      duration: 6,
+      resolution: "720p",
+      reference_image_urls: ["data:image/png;base64,YQ==", "data:image/png;base64,Yg=="],
+    }
+  );
+});
+
 test("buildFalMusicRequestBody uses prompt as tags and supports lyrics", () => {
   assert.deepEqual(
     buildFalMusicRequestBody({
@@ -188,6 +226,43 @@ test("handleFalVideoGeneration preserves Fal model paths outside the fal-ai name
       aspect_ratio: "16:9",
       duration: 8,
       resolution: "720p",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleFalVideoGeneration selects Grok image-to-video for one reference image", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), body: String(init?.body) });
+    return new Response(JSON.stringify({ video: { url: "https://cdn.example/grok-i2v.mp4" } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await handleFalVideoGeneration({
+      model: "xai/grok-imagine-video/text-to-video",
+      provider: "fal-ai",
+      providerConfig: { baseUrl: "https://queue.fal.run" },
+      body: {
+        prompt: "Animate this dog",
+        image_urls: ["data:image/png;base64,ZmFrZQ=="],
+      },
+      credentials: { apiKey: "test-key" },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(requests[0]?.url, "https://queue.fal.run/xai/grok-imagine-video/image-to-video");
+    assert.deepEqual(JSON.parse(requests[0]?.body || "{}"), {
+      prompt: "Animate this dog",
+      aspect_ratio: "16:9",
+      duration: 6,
+      resolution: "720p",
+      image_url: "data:image/png;base64,ZmFrZQ==",
     });
   } finally {
     globalThis.fetch = originalFetch;

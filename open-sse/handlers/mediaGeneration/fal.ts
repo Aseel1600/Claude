@@ -28,6 +28,11 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map(stringValue).filter((value): value is string => Boolean(value));
+}
+
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
@@ -50,12 +55,21 @@ function grokDuration(value: unknown, fallback = 6): number {
 
 export function buildFalVideoRequestBody(body: FalBody, model = ""): FalBody {
   if (model.startsWith("xai/grok-imagine-video/")) {
-    return {
+    const request: FalBody = {
       prompt: stringValue(body.prompt) || "",
       aspect_ratio: stringValue(body.aspect_ratio) || "16:9",
       duration: grokDuration(body.duration),
       resolution: stringValue(body.resolution) || "720p",
     };
+
+    const imageUrls = stringArray(body.image_urls);
+    if (imageUrls.length === 1) {
+      request.image_url = imageUrls[0];
+    } else if (imageUrls.length > 1) {
+      request.reference_image_urls = imageUrls;
+    }
+
+    return request;
   }
 
   const request: FalBody = {
@@ -77,6 +91,17 @@ export function buildFalVideoRequestBody(body: FalBody, model = ""): FalBody {
   if (typeof body.auto_fix === "boolean") request.auto_fix = body.auto_fix;
 
   return request;
+}
+
+function resolveFalModel(model: string, body: FalBody, kind: MediaKind): string {
+  if (kind !== "video" || !model.startsWith("xai/grok-imagine-video/")) return model;
+
+  const suffix = Array.isArray(body.reference_image_urls)
+    ? "reference-to-video"
+    : typeof body.image_url === "string"
+      ? "image-to-video"
+      : "text-to-video";
+  return `xai/grok-imagine-video/${suffix}`;
 }
 
 export function buildFalMusicRequestBody(body: FalBody): FalBody {
@@ -195,8 +220,11 @@ async function runFalQueue({
   };
   const timeoutMs = getConfiguredTimeout();
   const deadline = startTime + timeoutMs;
+  const resolvedModel = resolveFalModel(model, body, kind);
   const falModel =
-    model.startsWith("fal-ai/") || model.startsWith("xai/") ? model : `fal-ai/${model}`;
+    resolvedModel.startsWith("fal-ai/") || resolvedModel.startsWith("xai/")
+      ? resolvedModel
+      : `fal-ai/${resolvedModel}`;
   const queueUrl = `${baseUrl}/${falModel}`;
 
   try {
