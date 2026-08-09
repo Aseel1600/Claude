@@ -934,9 +934,9 @@
     "batchActionRetryError": "Error al reintentar las solicitudes fallidas. Inténtalo de nuevo.",
     "batchConceptRetentionNote": "Los archivos de resultados y errores se conservan durante 30 días (Anthropic: 29 días)"
   },
-  "disabled": "Desactivado",
-  "featureFlagOmnirouteEmergencyFallbackDescription": "Enruta las solicitudes que hayan agotado el presupuesto al proveedor/modelo fallback gratuito de emergencia.",
-  "featureFlagArenaEloSyncEnabledDescription": "Activa la sincronización periódica del ELO de la clasificación de Arena AI para los rankings de inteligencia de modelos.",
+  "disabled": "Disabled",
+  "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
+  "featureFlagArenaEloSyncEnabledDescription": "Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Inicio",

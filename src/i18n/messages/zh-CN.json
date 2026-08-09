@@ -935,8 +935,8 @@
     "batchConceptRetentionNote": "结果和错误文件保留 30 天（Anthropic：29 天）"
   },
   "disabled": "已禁用",
-  "featureFlagOmnirouteEmergencyFallbackDescription": "将预算耗尽的请求路由到紧急免费备用供应商/模型。",
-  "featureFlagArenaEloSyncEnabledDescription": "启用定期同步Arena AI排行榜ELO，用于模型智能排名。",
+  "featureFlagOmnirouteEmergencyFallbackDescription": "将预算耗尽的请求路由到紧急免费备用提供者/模型。",
+  "featureFlagArenaEloSyncEnabledDescription": "启用定期同步 Arena AI 排行榜 ELO，用于模型智能排名。",
   "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "首页",
