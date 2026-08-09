@@ -18,12 +18,8 @@ import {
 import { FORMATS } from "../../open-sse/translator/formats.ts";
 import { saveIdempotency } from "../../src/lib/idempotencyLayer.ts";
 
-test("sanitizeChatRequestBody: Responses source targeting Chat maps max_output_tokens → max_tokens", () => {
-  const out = sanitizeChatRequestBody(
-    { max_output_tokens: 256 },
-    FORMATS.OPENAI_RESPONSES,
-    FORMATS.OPENAI
-  );
+test("sanitizeChatRequestBody: Chat Completions target maps max_output_tokens → max_tokens", () => {
+  const out = sanitizeChatRequestBody({ max_output_tokens: 256 }, FORMATS.OPENAI, FORMATS.OPENAI);
   assert.equal(out.max_tokens, 256);
   assert.equal(out.max_output_tokens, undefined);
 });
@@ -39,11 +35,7 @@ test("sanitizeChatRequestBody: Responses target maps max_completion_tokens → m
 });
 
 test("sanitizeChatRequestBody: Responses target maps max_tokens → max_output_tokens", () => {
-  const out = sanitizeChatRequestBody(
-    { max_tokens: 128 },
-    FORMATS.OPENAI,
-    FORMATS.OPENAI_RESPONSES
-  );
+  const out = sanitizeChatRequestBody({ max_tokens: 128 }, FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI);
   assert.equal(out.max_output_tokens, 128);
   assert.equal(out.max_tokens, undefined);
 });
@@ -57,6 +49,7 @@ test("sanitizeChatRequestBody: strips empty message name and filters nameless to
       ],
       tools: [
         { type: "function", function: { name: "real_tool", parameters: {} } },
+        { type: "web_search_preview" },
         { type: "function", function: { name: "" } }, // dropped — empty name
         { type: "function", function: {} }, // dropped — no name
       ],
@@ -70,8 +63,9 @@ test("sanitizeChatRequestBody: strips empty message name and filters nameless to
   assert.equal(messages[1].name, "keepme", "non-empty name kept");
 
   const tools = out.tools as Array<Record<string, unknown>>;
-  assert.equal(tools.length, 1, "only the named tool survives");
+  assert.equal(tools.length, 2, "the named function and built-in tool survive");
   assert.equal((tools[0].function as Record<string, unknown>).name, "real_tool");
+  assert.deepEqual(tools[1], { type: "web_search_preview" });
 });
 
 test("checkIdempotencyCache returns { hit:null, idempotencyKey } on a miss", async () => {

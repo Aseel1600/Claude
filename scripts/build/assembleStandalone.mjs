@@ -48,6 +48,10 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
+import {
+  colocateLlmlinguaOptionals,
+  SEED_PACKAGES,
+} from "./colocateOptionals.mjs";
 
 /**
  * Check whether a path exists (async).
@@ -86,6 +90,15 @@ const NATIVE_ASSET_ENTRIES = [
     dest: ["node_modules", "better-sqlite3", "build"],
   },
   {
+    // #8847: Bun (and npx -g global installs) resolve better-sqlite3's native
+    // binary from prebuilds/ instead of build/Release/, so the compiled build/
+    // copy alone leaves a hollow package that falls back to sql.js (OOM under
+    // Bun). Ship the prebuilds alongside the compiled binary.
+    label: "better-sqlite3 prebuilds (Bun / global installs)",
+    src: ["node_modules", "better-sqlite3", "prebuilds"],
+    dest: ["node_modules", "better-sqlite3", "prebuilds"],
+  },
+  {
     // TPROXY IP_TRANSPARENT addon (Fase 3 / Epic A). Built by build-tproxy-native
     // before assembly; Linux-only + opt-in, so the source is absent on non-Linux
     // builds → syncNativeAssetsToDir skips it gracefully. The runtime loader
@@ -116,6 +129,25 @@ const EXTRA_MODULE_ENTRIES = [
   { label: "split2", src: ["node_modules", "split2"], dest: ["node_modules", "split2"] },
   { label: "migrations", src: ["src", "lib", "db", "migrations"], dest: ["migrations"] },
   { label: "MITM server", src: ["src", "mitm", "server.cjs"], dest: ["src", "mitm", "server.cjs"] },
+  {
+    // #9451: server.cjs requires 6 shims from ./_internal/ (bypass, ingest,
+    // forwardTarget, aliasConfig, standaloneRouting, rootCaShim) which the MITM
+    // child process loads via require(). Next.js's standalone tracer never sees
+    // them (server.cjs is a separate node process, not imported by the main
+    // server), so the _internal/ directory must be copied explicitly or the MITM
+    // child crashes with MODULE_NOT_FOUND at boot.
+    label: "MITM _internal shims (#9451)",
+    src: ["src", "mitm", "_internal"],
+    dest: ["src", "mitm", "_internal"],
+  },
+  {
+    // #9451: rootCaShim.cjs does `await import("selfsigned")` for dynamic SSL
+    // certificate generation. The MITM child is not traced by Next.js, so the
+    // package is absent from the Docker standalone bundle without this entry.
+    label: "selfsigned (MITM rootCaShim dynamic import — #9451)",
+    src: ["node_modules", "selfsigned"],
+    dest: ["node_modules", "selfsigned"],
+  },
   {
     label: "run-standalone script",
     src: ["scripts", "dev", "run-standalone.mjs"],
@@ -213,6 +245,11 @@ const EXTRA_MODULE_ENTRIES = [
     label: "undici (MCP server static import — #7701)",
     src: ["node_modules", "undici"],
     dest: ["node_modules", "undici"],
+  },
+  {
+    label: "sql.js WASM fallback runtime",
+    src: ["node_modules", "sql.js"],
+    dest: ["node_modules", "sql.js"],
   },
   {
     label: "sqlite-vec wrapper (vector memory - loaded at runtime via createRequire)",
@@ -712,6 +749,19 @@ export function assembleStandalone({
   // 6. Optionally copy native assets + extra modules (synchronous)
   if (copyNatives) {
     copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir);
+
+    // #9166: dynamically imported LLMLingua packages are not reliably traced
+    // into the standalone bundle. Copy their complete dependency closure from
+    // the installed root tree without overwriting packages already traced by
+    // Next.js. Include transformers here so its ONNX runtime closure is also
+    // guaranteed in Docker/standalone builds.
+    colocateLlmlinguaOptionals({
+      rootDir: projectRoot,
+      targetNodeModulesDir: path.join(resolvedOutDir, "node_modules"),
+      seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
+      log: (message) =>
+        console.log(`[assembleStandalone] ${message.trim()}`),
+    });
   }
 
   // 7. Optionally dereference Turbopack hashed-module symlinks so the bundle is
