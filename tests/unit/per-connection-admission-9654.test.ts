@@ -149,13 +149,13 @@ test("admitChatRequest with explicit controller overrides per-connection lookup"
   if (result.admit) result.lease?.release();
 });
 
-test("admitChatStructure routes structural rejection to per-connection controller", () => {
+test("admitChatStructure routes structural rejection to per-connection controller", async () => {
   // occupy sess-a's per-connection controller via the module-level instance
   const controller = perConnectionAdmissionController.getController("sess-a");
   const occupied = controller.tryAcquireHeavy();
   assert.ok(occupied);
 
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     {
       messages: Array.from({ length: 3 }, () => ({ role: "user", content: "x" })),
     },
@@ -176,14 +176,14 @@ test("admitChatStructure routes structural rejection to per-connection controlle
   occupied.release();
 });
 
-test("admitChatStructure with different sessionId gets independent capacity", () => {
+test("admitChatStructure with different sessionId gets independent capacity", async () => {
   // occupy sess-a's per-connection controller
   const ctrlA = perConnectionAdmissionController.getController("sess-a");
   const occupied = ctrlA.tryAcquireHeavy();
   assert.ok(occupied);
 
   // Session B should get its own controller → admitted
-  const result = admitChatStructure(
+  const result = await admitChatStructure(
     {
       messages: Array.from({ length: 500 }, () => ({ role: "user", content: "x" })),
     },
