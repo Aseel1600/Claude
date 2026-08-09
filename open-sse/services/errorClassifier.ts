@@ -78,6 +78,7 @@ export const PROVIDER_ERROR_TYPES = {
   OAUTH_INVALID_TOKEN: "oauth_invalid_token",
   EMPTY_CONTENT: "empty_content",
   MODEL_NOT_FOUND: "model_not_found",
+  FINGERPRINT_REJECTION: "fingerprint_rejection",
 };
 
 export const CONTEXT_OVERFLOW_SIGNALS = [
@@ -111,6 +112,31 @@ const MODEL_NAMED_UNSUPPORTED_REGEX = /\bmodel\b[^\n]{0,80}\bis not supported\b/
 
 export function containsModelUnavailableMessage(errorMessage: string): boolean {
   return MODEL_NAMED_UNSUPPORTED_REGEX.test(String(errorMessage || "").toLowerCase());
+}
+
+// Cloudflare 1010 "Access denied ... blocked based on your browser's signature" —
+// a fingerprint/browser-like rejection issued by the CDN in front of an upstream
+// (e.g. opencode.ai/zen/v1), carrying error_code 1010 or error_name
+// "browser_signature_banned". Distinct from an auth 403: the account is healthy,
+// the CLIENT's TLS/UA signature was refused.
+//
+// IMPORTANT: the bare number 1010 is NOT matched on its own — a 403 body can
+// legitimately contain "1010" as a port, count, request id, or model token
+// ("model foo-1010 is not supported", "retry after 1010 seconds"). 1010 is only
+// treated as a fingerprint rejection when it appears with an explicit Cloudflare
+// key (`error_code` / `error-code`) or the unique `browser_signature_banned` /
+// `fingerprint_rejection` tokens. `\\?` tolerates the escaped-quote form that
+// appears when the upstream body is nested inside the gateway's error.message JSON.
+const CLOUDFLARE_1010_REGEX =
+  /(?<![A-Za-z0-9_-])error[\s_-]?code[\\"':=\s]{0,12}1010(?!\w)|(?<![A-Za-z0-9_-])error[-_]\s?1010(?!\w)\/?/i;
+
+export function isCloudflareFingerprintRejection(errorText: string): boolean {
+  const text = String(errorText || "").toLowerCase();
+  return (
+    CLOUDFLARE_1010_REGEX.test(text) ||
+    text.includes("browser_signature_banned") ||
+    text.includes("fingerprint_rejection")
+  );
 }
 
 function responseBodyToString(responseBody: unknown): string {
@@ -216,6 +242,16 @@ export function classifyProviderError(
   }
 
   if (statusCode === 402) return PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED;
+  if (statusCode === 403 && isCloudflareFingerprintRejection(bodyStr)) {
+    // Cloudflare 1010 / error_name "browser_signature_banned": the CDN in front of the
+    // upstream (e.g. opencode.ai/zen/v1) rejected the CLIENT's TLS/UA signature, not the
+    // account's credentials. It says nothing about account health — a different client on
+    // the same key succeeds (measured 2026-08-08: curl 200, urllib 403 on byte-identical
+    // body). Marking it FORBIDDEN would flow through markAccountUnavailable to the
+    // terminal "banned" state and, after two such calls, flip the whole free pool to
+    // ALL_ACCOUNTS_INACTIVE. Classify it separately so account state stays untouched.
+    return PROVIDER_ERROR_TYPES.FINGERPRINT_REJECTION;
+  }
   if (statusCode === 403 && accountDeactivated) {
     return PROVIDER_ERROR_TYPES.ACCOUNT_DEACTIVATED;
   }

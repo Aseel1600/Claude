@@ -364,7 +364,13 @@ function resolveTerminalConnectionStatus(
   if (result.creditsExhausted || status === 402) return "credits_exhausted";
   if (
     providerErrorType === PROVIDER_ERROR_TYPES.PROJECT_ROUTE_ERROR ||
-    providerErrorType === PROVIDER_ERROR_TYPES.OAUTH_INVALID_TOKEN
+    providerErrorType === PROVIDER_ERROR_TYPES.OAUTH_INVALID_TOKEN ||
+    // #1010: Cloudflare fingerprint rejection is the CDN refusing the CLIENT's
+    // signature, not the account's credentials — never a terminal account state.
+    // A different client on the same key succeeds (measured 2026-08-08: curl 200,
+    // urllib 403 on byte-identical body), so banning the account here would flip a
+    // healthy free pool to ALL_ACCOUNTS_INACTIVE after two such calls.
+    providerErrorType === PROVIDER_ERROR_TYPES.FINGERPRINT_REJECTION
   ) {
     return null;
   }
@@ -2046,7 +2052,10 @@ export async function markAccountUnavailable(
         ? "model"
         : getQuotaScopeLabelForProvider(provider, model);
       const antigravityFamilyInferredBaseCooldownMs =
-        !usesExactAntigravityLock && provider === "antigravity" && quotaScope === "family" && status === 429
+        !usesExactAntigravityLock &&
+        provider === "antigravity" &&
+        quotaScope === "family" &&
+        status === 429
           ? ANTIGRAVITY_FAMILY_INFERRED_BASE_COOLDOWN_MS
           : null;
       const lockout = recordModelLockoutFailure(
