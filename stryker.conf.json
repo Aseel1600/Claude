@@ -247,6 +247,7 @@
       "tests/unit/no-memory-header.test.ts",
       "tests/unit/noauth-autocombo-lockout-7623.test.ts",
       "tests/unit/non-streaming-sse-terminal-typescan-4459.test.ts",
+      "tests/unit/nvidia-410-model-scope.test.ts",
       "tests/unit/nvidia-passthrough-models-6773.test.ts",
       "tests/unit/nvidia-quota-phase1.test.ts",
       "tests/unit/oauth-providers-config.test.ts",
@@ -470,5 +471,5 @@
     "  grep -rlE \"circuitBreaker|publicCreds|accountFallback|routeGuard|services/auth|chatCore|services/combo|utils/error|public-client|account-fallback|route-guard|circuit-breaker\" tests/unit --include=\"*.test.ts\" | sort -u"
   ],
   "dryRunTimeoutMinutes": 30,
-  "_concurrency_comment": "concurrency=4 (was 1): the covering node:test files used to share SQLite/module state via the default DATA_DIR (~/.omniroute), so running them concurrently in the Stryker sandbox caused cross-file races that failed the all-green baseline. tap.nodeArgs now imports ./tests/_setup/isolateDataDir.ts, which gives each spawned test process its own temp DATA_DIR — eliminating the shared on-disk DB, so concurrency>1 is deterministic. A/B verified 2026-06-17: dry-run at concurrency=4 fails WITHOUT the isolation import (account-fallback-service tap exit 9) and passes WITH it. Raise further only if the runner has spare cores."
+  "_concurrency_comment": "concurrency=4 (was 1): the covering node:test files used to share SQLite/module state via the default DATA_DIR (~/.omniroute), so running them concurrently in the Stryker sandbox caused cross-file races that failed the all-green baseline dry-run (account-fallback-service tap exit 9) and passes WITH it. Raise further only if the runner has spare cores."
 }
