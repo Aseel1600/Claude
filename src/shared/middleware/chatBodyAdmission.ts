@@ -47,6 +47,32 @@ export const CHAT_HARD_MAX_MESSAGES = parsePositiveInt(
   800
 );
 
+/**
+ * How long a heavyweight request may wait for capacity before giving up.
+ *
+ * Bounded by the CLIENT's patience, not ours: coding agents abort around 30s
+ * (measured — four aborts at 29.996–29.998s in production). Waiting longer than a
+ * third of that spends the client's whole budget queueing and leaves nothing for
+ * TTFB, so the request would fail anyway — just later and after holding a slot.
+ */
+export const CHAT_ADMISSION_MAX_WAIT_MS = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_ADMISSION_MAX_WAIT_MS,
+  10_000
+);
+
+/**
+ * How many may wait at once. This is the memory bound, and it is the reason the queue
+ * does not reintroduce the problem the gate exists to prevent: a chunked client
+ * declares no Content-Length, so a request is only known to be heavy once the
+ * threshold's worth of body is already resident. Waiters therefore hold bytes, and
+ * the worst case is `depth × body size` — 8 × ~400 KB measured ≈ 3 MB against a 1 GB
+ * heap. A full queue rejects immediately rather than growing.
+ */
+export const CHAT_ADMISSION_MAX_QUEUE_DEPTH = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_ADMISSION_MAX_QUEUE_DEPTH,
+  8
+);
+
 export interface ChatAdmissionLease {
   readonly released: boolean;
   release(): void;
@@ -77,6 +103,34 @@ export interface ChatAdmissionRejection {
   status: 503;
   trigger: ChatAdmissionTrigger;
   activeHeavy: number;
+  /** Why the wait ended without a slot. */
+  reason?: ChatAdmissionFailureReason;
+  /** Wait actually measured, never the nominal budget. */
+  waitedMs?: number;
+}
+
+export type ChatAdmissionFailureReason = "wait-timeout" | "queue-full" | "aborted";
+
+/**
+ * Outcome of an acquisition. `waitedMs` is stamped on entry to the queue and read when
+ * the slot is granted or the wait ends — measured, not assumed. A previous resilience
+ * bug in this codebase came from delegating that measurement to a mechanism that
+ * measured something else (`expiration` of Bottleneck bounded execution while claiming
+ * to bound queue time), so it is computed here and reported verbatim.
+ */
+export type ChatAdmissionAcquisition =
+  | { lease: ChatAdmissionLease; waitedMs: number; reason?: undefined }
+  | { lease: null; waitedMs: number; reason: ChatAdmissionFailureReason };
+
+interface ChatAdmissionWaiter {
+  /** Returns false when this waiter already settled, so the slot is offered onward. */
+  grant(): boolean;
+}
+
+export interface AcquireHeavyOptions {
+  /** `0` disables waiting and reproduces the pre-queue behaviour. */
+  maxWaitMs?: number;
+  signal?: AbortSignal;
 }
 
 function logAdmissionRejection(
@@ -86,9 +140,13 @@ function logAdmissionRejection(
   const extra = Object.entries(detail)
     .map(([key, value]) => `${key}=${value}`)
     .join(" ");
+  const waited =
+    rejection.reason === undefined
+      ? ""
+      : ` reason=${rejection.reason} waitedMs=${rejection.waitedMs ?? 0}`;
   console.warn(
     `[chat-admission] rejected code=${rejection.code} trigger=${rejection.trigger} ` +
-      `activeHeavy=${rejection.activeHeavy}${extra ? ` ${extra}` : ""}`
+      `activeHeavy=${rejection.activeHeavy}${waited}${extra ? ` ${extra}` : ""}`
   );
 }
 
@@ -96,6 +154,7 @@ function logAdmissionRejection(
 function capacityRejection(
   trigger: ChatAdmissionTrigger,
   controller: ChatAdmissionController,
+  outcome: { reason?: ChatAdmissionFailureReason; waitedMs?: number } = {},
   detail?: Record<string, number>
 ): ChatAdmissionRejection {
   const rejection: ChatAdmissionRejection = {
@@ -103,6 +162,8 @@ function capacityRejection(
     status: 503,
     trigger,
     activeHeavy: controller.activeHeavy,
+    reason: outcome.reason,
+    waitedMs: outcome.waitedMs,
   };
   logAdmissionRejection(rejection, detail);
   return rejection;
@@ -115,10 +176,17 @@ function capacityRejection(
  */
 export class ChatAdmissionController {
   #activeHeavy = 0;
+  #waiters: ChatAdmissionWaiter[] = [];
 
-  constructor(readonly maxHeavyInFlight = 1) {
+  constructor(
+    readonly maxHeavyInFlight = 1,
+    readonly maxQueueDepth = CHAT_ADMISSION_MAX_QUEUE_DEPTH
+  ) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
       throw new RangeError("maxHeavyInFlight must be a positive integer");
+    }
+    if (!Number.isSafeInteger(maxQueueDepth) || maxQueueDepth < 0) {
+      throw new RangeError("maxQueueDepth must be a non-negative integer");
     }
   }
 
@@ -126,9 +194,66 @@ export class ChatAdmissionController {
     return this.#activeHeavy;
   }
 
+  get queuedHeavy(): number {
+    return this.#waiters.length;
+  }
+
   tryAcquireHeavy(): ChatAdmissionLease | null {
     if (this.#activeHeavy >= this.maxHeavyInFlight) return null;
     this.#activeHeavy += 1;
+    return this.#createLease();
+  }
+
+  /**
+   * Wait for capacity instead of failing the request outright. Rejecting immediately was
+   * a deliberate choice ("unavailable capacity is a retryable 503"), but it pushed the
+   * retry onto the client: production served this 503 continuously to a coding agent
+   * that recovered by retrying — visibly, every time.
+   */
+  async acquireHeavy(options: AcquireHeavyOptions = {}): Promise<ChatAdmissionAcquisition> {
+    const enqueuedAt = Date.now();
+    const immediate = this.tryAcquireHeavy();
+    if (immediate) return { lease: immediate, waitedMs: 0 };
+
+    const maxWaitMs = options.maxWaitMs ?? CHAT_ADMISSION_MAX_WAIT_MS;
+    if (!(maxWaitMs > 0)) return { lease: null, waitedMs: 0, reason: "wait-timeout" };
+    if (options.signal?.aborted) return { lease: null, waitedMs: 0, reason: "aborted" };
+    if (this.#waiters.length >= this.maxQueueDepth) {
+      return { lease: null, waitedMs: 0, reason: "queue-full" };
+    }
+
+    return new Promise<ChatAdmissionAcquisition>((resolve) => {
+      let settled = false;
+      const settle = (result: ChatAdmissionAcquisition) => {
+        if (settled) return false;
+        settled = true;
+        clearTimeout(timer);
+        options.signal?.removeEventListener("abort", onAbort);
+        resolve(result);
+        return true;
+      };
+
+      const waiter: ChatAdmissionWaiter = {
+        grant: () =>
+          settle({ lease: this.#createLease(), waitedMs: Date.now() - enqueuedAt }),
+      };
+
+      const drop = (reason: ChatAdmissionFailureReason) => {
+        const index = this.#waiters.indexOf(waiter);
+        if (index >= 0) this.#waiters.splice(index, 1);
+        settle({ lease: null, waitedMs: Date.now() - enqueuedAt, reason });
+      };
+
+      const onAbort = () => drop("aborted");
+      const timer = setTimeout(() => drop("wait-timeout"), maxWaitMs);
+      // Never keep the process alive for a waiter that nobody is coming back for.
+      timer.unref?.();
+      options.signal?.addEventListener("abort", onAbort, { once: true });
+      this.#waiters.push(waiter);
+    });
+  }
+
+  #createLease(): ChatAdmissionLease {
     let released = false;
     return {
       get released() {
@@ -137,9 +262,24 @@ export class ChatAdmissionController {
       release: () => {
         if (released) return;
         released = true;
-        this.#activeHeavy = Math.max(0, this.#activeHeavy - 1);
+        this.#passOnOrRelease();
       },
     };
+  }
+
+  /**
+   * Hand the slot straight to the longest waiter rather than decrementing and letting
+   * whoever calls next barge in — otherwise a queued request can starve behind a stream
+   * of arrivals. Waiters that already timed out or aborted decline the hand-off, and the
+   * slot is offered onward; if nobody takes it the count finally drops. Skipping that
+   * loop would leak a slot permanently on the timeout/release race.
+   */
+  #passOnOrRelease(): void {
+    while (this.#waiters.length > 0) {
+      const next = this.#waiters.shift();
+      if (next?.grant()) return;
+    }
+    this.#activeHeavy = Math.max(0, this.#activeHeavy - 1);
   }
 }
 
@@ -254,7 +394,7 @@ function estimateStructureTokens(value: unknown, limit: number): TokenEstimate {
   return { tokens, exhausted: stack.length > 0 && tokens < limit };
 }
 
-export function admitChatStructure(
+export async function admitChatStructure(
   body: unknown,
   lease: ChatAdmissionLease | null,
   options: {
@@ -263,8 +403,10 @@ export function admitChatStructure(
     heavyMessages?: number;
     heavyTools?: number;
     heavyTokens?: number;
+    maxWaitMs?: number;
+    signal?: AbortSignal;
   } = {}
-): ChatStructureAdmission {
+): Promise<ChatStructureAdmission> {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { admit: true, lease };
 
   const record = body as Record<string, unknown>;
@@ -294,8 +436,11 @@ export function admitChatStructure(
   if (!heavy || lease) return { admit: true, lease };
 
   const controller = options.controller ?? defaultAdmissionController;
-  const acquired = controller.tryAcquireHeavy();
-  if (acquired) return { admit: true, lease: acquired };
+  const acquired = await controller.acquireHeavy({
+    maxWaitMs: options.maxWaitMs,
+    signal: options.signal,
+  });
+  if (acquired.lease) return { admit: true, lease: acquired.lease };
 
   // Name the rule that classified this heavy, in the same precedence the check above
   // used — otherwise the operator sees "busy" with no way to know which threshold to
@@ -305,7 +450,7 @@ export function admitChatStructure(
   return {
     admit: false,
     response: structuralRejectionResponse(503, maxMessages),
-    rejection: capacityRejection(trigger, controller, {
+    rejection: capacityRejection(trigger, controller, acquired, {
       messages: messages.length,
       tools: tools.length,
     }),
@@ -342,6 +487,7 @@ export async function admitChatRequest(
     controller?: ChatAdmissionController;
     largeBodyBytes?: number;
     hardMaxBytes?: number;
+    maxWaitMs?: number;
   } = {}
 ): Promise<ChatRequestAdmission> {
   const controller = options.controller ?? defaultAdmissionController;
@@ -354,19 +500,27 @@ export async function admitChatRequest(
   }
 
   let lease: ChatAdmissionLease | null = null;
-  const reserve = (): boolean => {
+  // Carries the outcome of the last failed reservation so the rejection can report the
+  // measured wait instead of the nominal budget.
+  let lastOutcome: { reason?: ChatAdmissionFailureReason; waitedMs?: number } = {};
+  const reserve = async (): Promise<boolean> => {
     if (lease) return true;
-    lease = controller.tryAcquireHeavy();
+    const acquired = await controller.acquireHeavy({
+      maxWaitMs: options.maxWaitMs,
+      signal: request.signal,
+    });
+    lastOutcome = { reason: acquired.reason, waitedMs: acquired.waitedMs };
+    lease = acquired.lease;
     return lease !== null;
   };
 
   // A known-large declaration can reserve before ingestion. Unknown lengths are boundedly
   // sniffed below; this avoids consuming scarce heavyweight capacity for small chunked bodies.
-  if (contentLength !== null && contentLength >= largeBodyBytes && !reserve()) {
+  if (contentLength !== null && contentLength >= largeBodyBytes && !(await reserve())) {
     return {
       admit: false,
       response: rejectionResponse(503, hardMaxBytes),
-      rejection: capacityRejection("content-length", controller, {
+      rejection: capacityRejection("content-length", controller, lastOutcome, {
         bytes: contentLength,
         limit: largeBodyBytes,
       }),
@@ -388,12 +542,12 @@ export async function admitChatRequest(
         lease?.release();
         return { admit: false, response: rejectionResponse(413, hardMaxBytes) };
       }
-      if (totalBytes >= largeBodyBytes && !reserve()) {
+      if (totalBytes >= largeBodyBytes && !(await reserve())) {
         await reader.cancel("chat admission capacity unavailable").catch(() => undefined);
         return {
           admit: false,
           response: rejectionResponse(503, hardMaxBytes),
-          rejection: capacityRejection("streamed-bytes", controller, {
+          rejection: capacityRejection("streamed-bytes", controller, lastOutcome, {
             bytes: totalBytes,
             limit: largeBodyBytes,
           }),

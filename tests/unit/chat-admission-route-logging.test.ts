@@ -12,6 +12,10 @@ import path from "node:path";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chat-admission-log-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
+// O que este teste fixa é a persistência da rejeição, não a espera. A rota lê o orçamento
+// do env no carregamento do módulo, então encurtá-lo aqui evita segurar o teste por 10s
+// sem trocar o caminho exercitado — a fila continua sendo percorrida.
+process.env.OMNIROUTE_CHAT_ADMISSION_MAX_WAIT_MS = "1";
 
 const core = await import("../../src/lib/db/core.ts");
 const chatRoute = await import("../../src/app/api/v1/chat/completions/route.ts");

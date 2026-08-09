@@ -169,7 +169,9 @@ export async function POST(request) {
           }
         }
 
-        const structuralAdmission = admitChatStructure(parsedBody, admission.lease);
+        const structuralAdmission = await admitChatStructure(parsedBody, admission.lease, {
+          signal: request.signal,
+        });
         if (structuralAdmission.admit === false) {
           admission.lease?.release();
           await recordAdmissionRejection(

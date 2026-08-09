@@ -17,19 +17,6 @@ const {
   ChatAdmissionController,
 } = await import("../../src/shared/middleware/chatBodyAdmission.ts");
 
-function captureWarnings<T>(run: () => T): { result: T; warnings: string[] } {
-  const warnings: string[] = [];
-  const original = console.warn;
-  console.warn = (...args: unknown[]) => {
-    warnings.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" "));
-  };
-  try {
-    return { result: run(), warnings };
-  } finally {
-    console.warn = original;
-  }
-}
-
 async function captureWarningsAsync<T>(
   run: () => Promise<T>
 ): Promise<{ result: T; warnings: string[] }> {
@@ -62,6 +49,7 @@ test("rejeição por Content-Length declarado emite log estruturado com gatilho 
       controller,
       largeBodyBytes: 512,
       hardMaxBytes: 1024 * 1024,
+      maxWaitMs: 0,
     })
   );
 
@@ -83,6 +71,7 @@ test("rejeição descoberta durante a leitura (chunked) reporta gatilho próprio
       controller,
       largeBodyBytes: 512,
       hardMaxBytes: 1024 * 1024,
+      maxWaitMs: 0,
     })
   );
 
@@ -96,18 +85,19 @@ test("rejeição descoberta durante a leitura (chunked) reporta gatilho próprio
   occupied.release();
 });
 
-test("rejeição estrutural nomeia a regra que classificou como pesada", () => {
+test("rejeição estrutural nomeia a regra que classificou como pesada", async () => {
   const controller = new ChatAdmissionController(1);
   const occupied = controller.tryAcquireHeavy();
   assert.ok(occupied);
 
-  const { result, warnings } = captureWarnings(() =>
+  const { result, warnings } = await captureWarningsAsync(() =>
     admitChatStructure({ messages: [], tools: [{ type: "function" }, { type: "function" }] }, null, {
       controller,
       maxMessages: 10,
       heavyMessages: 10,
       heavyTools: 2,
       heavyTokens: 10_000,
+      maxWaitMs: 0,
     })
   );
 
@@ -127,6 +117,7 @@ test("a rejeição carrega metadados para a rota persistir em call_logs", async 
     controller,
     largeBodyBytes: 512,
     hardMaxBytes: 1024 * 1024,
+    maxWaitMs: 0,
   });
 
   assert.equal(result.admit, false);
@@ -147,6 +138,7 @@ test("admissão bem-sucedida não emite log de rejeição", async () => {
       controller,
       largeBodyBytes: 512,
       hardMaxBytes: 1024 * 1024,
+      maxWaitMs: 0,
     })
   );
 
@@ -172,10 +164,10 @@ test("413 de limite rígido não entra no canal de capacidade", async () => {
   assert.deepEqual(warnings, [], "limite rígido é erro terminal, não medida de capacidade");
 });
 
-test("413 de histórico não entra no canal de capacidade", () => {
+test("413 de histórico não entra no canal de capacidade", async () => {
   const controller = new ChatAdmissionController(1);
 
-  const { result, warnings } = captureWarnings(() =>
+  const { result, warnings } = await captureWarningsAsync(() =>
     admitChatStructure({ messages: new Array(20).fill({ role: "user", content: "x" }) }, null, {
       controller,
       maxMessages: 10,
