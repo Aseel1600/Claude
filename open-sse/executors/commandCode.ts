@@ -280,7 +280,7 @@ function convertMessages(
         parts.push({
           type: "tool-call",
           toolCallId: id,
-          toolName: stringValue(fn.name) || "",
+          toolName: stringValue(fn.name) || stringValue(call.name) || "unknown",
           input: parsedInput,
           // /alpha/generate requires this field on assistant tool-call parts;
           // a missing one is rejected with `missing required field 'arguments'`.
