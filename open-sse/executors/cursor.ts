@@ -12,6 +12,7 @@ declare const EdgeRuntime: string | undefined;
 
 import { BaseExecutor, mergeUpstreamExtraHeaders } from "./base.ts";
 import { PROVIDERS, HTTP_STATUS } from "../config/constants.ts";
+import { getAccessToken } from "../services/tokenRefresh.ts";
 import {
   buildAgentRequestBody,
   decodeAgentServerMessage,
@@ -75,6 +76,11 @@ import {
   visibleComposerContentFromThinking,
   composerReasoningRemainder,
 } from "./cursor/composer.ts";
+import {
+  classifyCursorError,
+  isCursorBenignCancelError,
+  resolveCursorEmptyTurnError,
+} from "./cursor/cursorErrors.ts";
 // Composer helpers re-exported for external importers (tests).
 export {
   isComposerModel,
@@ -245,17 +251,31 @@ function tryParseJsonError(payload: Buffer): { message: string; status: number }
     if (!text.includes('"error"')) return null;
     const parsed = JSON.parse(text);
     const err = parsed?.error || {};
-    const message =
+    const rawMessage =
       err?.details?.[0]?.debug?.details?.title ||
       err?.details?.[0]?.debug?.details?.detail ||
       err?.message ||
-      text;
-    const status =
-      err?.code === "resource_exhausted" ? HTTP_STATUS.RATE_LIMITED : HTTP_STATUS.BAD_REQUEST;
-    return { message, status };
+      (typeof err?.code === "string" ? `${err.code}: ${text}` : text);
+    const codeHint =
+      typeof err?.code === "string" &&
+      !String(rawMessage).toLowerCase().includes(err.code.toLowerCase())
+        ? `${err.code}: ${rawMessage}`
+        : String(rawMessage);
+    const classified = classifyCursorError(codeHint);
+    return { message: classified.message, status: classified.status };
   } catch {
     return null;
   }
+}
+
+/** True when the turn produced no client-visible assistant payload. */
+function isCursorEmptyTurn(ctx: StreamCtx): boolean {
+  return (
+    ctx.totalText.length === 0 &&
+    ctx.thinkingText.length === 0 &&
+    ctx.toolCalls.length === 0 &&
+    !ctx.composerInlineToolCallsEmitted
+  );
 }
 
 // ─── Phase 4: streaming dispatch context ───────────────────────────────────
@@ -1220,8 +1240,10 @@ export class CursorExecutor extends BaseExecutor {
     if (isToolFollowUp) {
       session = cursorSessionManager.acquire(conversationId);
       // #9029: content-based session match when client lacks conversation_id.
-      if (!session && !body.conversation_id) session = cursorSessionManager.findByToolCallIds(
-        messages.filter(m => m.role === "tool" && m.tool_call_id).map(m => m.tool_call_id!));
+      if (!session && !body.conversation_id)
+        session = cursorSessionManager.findByToolCallIds(
+          messages.filter((m) => m.role === "tool" && m.tool_call_id).map((m) => m.tool_call_id!)
+        );
     }
 
     if (session) {
@@ -1340,6 +1362,17 @@ export class CursorExecutor extends BaseExecutor {
               finishLifecycle(ctx, false);
               controller.close();
             } catch (err) {
+              // OpenCodex: NGHTTP2_CANCEL after client-tool suspend is expected — finish
+              // the SSE turn instead of surfacing a transport failure.
+              if (
+                isCursorBenignCancelError(err) &&
+                (ctx.totalText.length > 0 || ctx.pendingToolCalls.size > 0)
+              ) {
+                this.finalizeSseStream(ctx, body);
+                finishLifecycle(ctx, false);
+                controller.close();
+                return;
+              }
               finishLifecycle(ctx, true);
               controller.error(err);
             }
@@ -1367,10 +1400,23 @@ export class CursorExecutor extends BaseExecutor {
     try {
       await this.driveH2(h2, ctx, mcpTools, blobStore, clientPlatform, todoHistory, signal);
     } catch (err) {
+      if (
+        isCursorBenignCancelError(err) &&
+        (ctx.totalText.length > 0 || ctx.pendingToolCalls.size > 0)
+      ) {
+        finishLifecycle(ctx, false);
+        return {
+          response: this.buildResponseFromCtx(ctx, body),
+          url,
+          headers,
+          transformedBody: body,
+        };
+      }
       finishLifecycle(ctx, true);
       const message = err instanceof Error ? err.message : String(err);
+      const classified = classifyCursorError(message);
       return {
-        response: buildErrorResponse(HTTP_STATUS.SERVER_ERROR, message, "connection_error"),
+        response: buildErrorResponse(classified.status, classified.message, classified.type),
         url,
         headers,
         transformedBody: body,
@@ -1392,6 +1438,7 @@ export class CursorExecutor extends BaseExecutor {
    */
   private finalizeSseStream(ctx: StreamCtx, body: { messages?: ChatMessage[] }) {
     if (ctx.midStreamError && ctx.totalText.length === 0) {
+      const classified = classifyCursorError(ctx.midStreamError.message);
       const payload = {
         id: ctx.responseId,
         object: "chat.completion.chunk",
@@ -1399,17 +1446,37 @@ export class CursorExecutor extends BaseExecutor {
         model: ctx.model,
         choices: [],
         error: {
-          message: ctx.midStreamError.message,
-          type:
-            ctx.midStreamError.status === HTTP_STATUS.RATE_LIMITED
-              ? "rate_limit_error"
-              : "api_error",
+          message: classified.message,
+          type: classified.type,
         },
       };
       ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
       ctx.emit("data: [DONE]\n\n");
       return;
     }
+
+    // Silent empty turn (auth accepted, no text) — surface actionable error instead of
+    // an empty assistant completion that chatCore maps to opaque "empty content" 502.
+    if (isCursorEmptyTurn(ctx) && ctx.endReason && ctx.endReason !== "tool_calls") {
+      const empty = resolveCursorEmptyTurnError({
+        upstreamMessage: ctx.midStreamError?.message,
+      });
+      const payload = {
+        id: ctx.responseId,
+        object: "chat.completion.chunk",
+        created: ctx.created,
+        model: ctx.model,
+        choices: [],
+        error: {
+          message: empty.message,
+          type: empty.type,
+        },
+      };
+      ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
+      ctx.emit("data: [DONE]\n\n");
+      return;
+    }
+
     if (!ctx.emittedRoleChunk) {
       // Edge case: empty response. Emit a role chunk so clients see at least
       // one delta before finish.
@@ -1464,18 +1531,34 @@ export class CursorExecutor extends BaseExecutor {
    */
   private buildResponseFromCtx(ctx: StreamCtx, body: { messages?: ChatMessage[] }): Response {
     if (ctx.midStreamError && ctx.totalText.length === 0) {
+      const classified = classifyCursorError(ctx.midStreamError.message);
       return new Response(
         JSON.stringify({
           error: {
-            message: ctx.midStreamError.message,
-            type:
-              ctx.midStreamError.status === HTTP_STATUS.RATE_LIMITED
-                ? "rate_limit_error"
-                : "api_error",
+            message: classified.message,
+            type: classified.type,
           },
         }),
         {
-          status: ctx.midStreamError.status,
+          status: classified.status,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (isCursorEmptyTurn(ctx) && ctx.endReason && ctx.endReason !== "tool_calls") {
+      const empty = resolveCursorEmptyTurnError({
+        upstreamMessage: ctx.midStreamError?.message,
+      });
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: empty.message,
+            type: empty.type,
+          },
+        }),
+        {
+          status: empty.status,
           headers: { "Content-Type": "application/json" },
         }
       );
@@ -1554,8 +1637,23 @@ export class CursorExecutor extends BaseExecutor {
     );
   }
 
-  async refreshCredentials() {
-    return null;
+  async refreshCredentials(credentials, log) {
+    if (!credentials?.refreshToken) {
+      log?.warn?.(
+        "TOKEN_REFRESH",
+        "Cursor: no refresh token available, re-authentication required"
+      );
+      return null;
+    }
+    const result = await getAccessToken("cursor", credentials, log);
+    if (!result || result.error) {
+      log?.warn?.(
+        "TOKEN_REFRESH",
+        `Cursor: token refresh failed${result?.error ? ` (${result.error})` : ""} — re-authentication required`
+      );
+      return null;
+    }
+    return result;
   }
 }
 
