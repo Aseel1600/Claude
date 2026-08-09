@@ -2296,6 +2296,7 @@
     "imageGeneration": "تصویر بنانا",
     "imageToText": "تصویر سے متن",
     "imageToTextComingSoon": "ان لائن تصویر سے متن کا پلے گراؤنڈ تب دستیاب ہوگا جب <code>/api/v1/images/understanding</code> کو نافذ کیا جائے گا۔",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge کی سیٹنگز میں Image→Text پل کو ترتیب دیں",
     "sttBridgeCta": "Modality Bridge کی سیٹنگز میں Speech→Text پل کو ترتیب دیں",
     "disabled": "غیر فعال",

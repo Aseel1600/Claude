@@ -2296,6 +2296,7 @@
     "imageGeneration": "Képgenerálás",
     "imageToText": "Képből szöveg",
     "imageToTextComingSoon": "A beágyazott Képből szöveg játszótér akkor lesz elérhető, ha a <code>/api/v1/images/understanding</code> implementálásra kerül.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Állítsa be a Kép→Szöveg hidat a Modalitás Híd beállításaiban",
     "sttBridgeCta": "Állítsa be a Beszéd→Szöveg hidat a Modalitás Híd beállításaiban",
     "disabled": "Letiltva",

@@ -2296,6 +2296,7 @@
     "imageGeneration": "Generowanie obrazów",
     "imageToText": "Obraz na tekst",
     "imageToTextComingSoon": "Wbudowana piaskownica Obraz na tekst będzie dostępna po zaimplementowaniu <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Skonfiguruj most Obraz→Tekst w ustawieniach Mostu Modalności",
     "sttBridgeCta": "Skonfiguruj most Speech→Text w ustawieniach Modality Bridge",
     "disabled": "Wyłączone",

@@ -2296,6 +2296,7 @@
     "imageGeneration": "Kuvan luonti",
     "imageToText": "Kuva tekstiksi",
     "imageToTextComingSoon": "Sisäinen Kuva tekstiksi -kokeiluympäristö on käytettävissä, kun <code>/api/v1/images/understanding</code> on toteutettu.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Määritä Image→Text-silta Modality Bridge -asetuksissa",
     "sttBridgeCta": "Määritä Puhe→Teksti-silta Modality Bridge -asetuksissa",
     "disabled": "Poistettu käytöstä",

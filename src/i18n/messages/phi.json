@@ -2296,6 +2296,7 @@
     "imageGeneration": "Pagbuo ng Larawan",
     "imageToText": "Larawan sa Teksto",
     "imageToTextComingSoon": "Magiging available ang inline na Image-to-Text playground kapag naipatupad na ang <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "I-configure ang Image→Text na tulay sa mga setting ng Modality Bridge",
     "sttBridgeCta": "I-configure ang Speech→Text na tulay sa mga setting ng Modality Bridge",
     "disabled": "Naka-disable",

@@ -219,7 +219,7 @@ export default function MediaProviderPageClient({
       {renderPlayground(activeKind, providerId, {
         imageToText: {
           title: t("imageToText"),
-          description: t.rich("imageToTextComingSoon", {
+          description: t.rich("imageToTextBridgeAvailable", {
             code: (chunks) => <code className="rounded bg-bg-subtle px-1 font-mono">{chunks}</code>,
           }),
           cta: t("imageToTextBridgeCta"),

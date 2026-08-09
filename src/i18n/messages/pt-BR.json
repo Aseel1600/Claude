@@ -2296,6 +2296,7 @@
     "imageGeneration": "Geração de imagem",
     "imageToText": "Imagem para texto",
     "imageToTextComingSoon": "O playground inline de Imagem para Texto estará disponível quando <code>/api/v1/images/understanding</code> for implementado.",
+    "imageToTextBridgeAvailable": "A Ponte de Modalidade agora pode descrever imagens para modelos somente de texto. O playground inline estará disponível quando <code>/api/v1/images/understanding</code> for implementado.",
     "imageToTextBridgeCta": "Configure a ponte Imagem→Texto nas configurações da Ponte de Modalidade",
     "sttBridgeCta": "Configure a ponte de Fala→Texto nas configurações da Ponte de Modalidade",
     "disabled": "Desativado",

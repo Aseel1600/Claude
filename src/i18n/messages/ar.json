@@ -2296,6 +2296,7 @@
     "imageGeneration": "توليد الصور",
     "imageToText": "تحويل الصورة إلى نص",
     "imageToTextComingSoon": "ستكون ساحة تجربة تحويل الصورة إلى نص المضمنة متاحة عند تنفيذ <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "قم بتكوين جسر الصورة→النص في إعدادات جسر الوضعية",
     "sttBridgeCta": "قم بتكوين جسر الكلام→النص في إعدادات جسر الوضعية",
     "disabled": "معطل",

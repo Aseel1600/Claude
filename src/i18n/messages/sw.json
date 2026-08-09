@@ -2296,6 +2296,7 @@
     "imageGeneration": "Uundaji wa Picha",
     "imageToText": "Picha kwenda Maandishi",
     "imageToTextComingSoon": "Uwanja wa majaribio wa ndani wa Picha-kwenda-Maandishi utapatikana wakati <code>/api/v1/images/understanding</code> itakapotekelezwa.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Sanitize daraja la Picha→Maandishi katika mipangilio ya Daraja la Modality",
     "sttBridgeCta": "Sanidi daraja la Hotuba→Maandishi katika mipangilio ya Daraja la Modality",
     "disabled": "Imezimwa",

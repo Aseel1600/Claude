@@ -2296,6 +2296,7 @@
     "imageGeneration": "Bildegenerering",
     "imageToText": "Bilde til tekst",
     "imageToTextComingSoon": "Den innebygde sandkassen for bilde-til-tekst vil være tilgjengelig når <code>/api/v1/images/understanding</code> er implementert.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Konfigurer Image→Text-broen i Modality Bridge-innstillingene",
     "sttBridgeCta": "Konfigurer Tale→Tekst-broen i Modality Bridge-innstillinger",
     "disabled": "Deaktivert",

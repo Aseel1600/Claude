@@ -2296,6 +2296,7 @@
     "imageGeneration": "การสร้างรูปภาพ",
     "imageToText": "รูปภาพเป็นข้อความ",
     "imageToTextComingSoon": "Playground Image-to-Text แบบอินไลน์จะพร้อมใช้งานเมื่อ <code>/api/v1/images/understanding</code> ถูกนำไปใช้งาน",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "กำหนดค่าสะพานภาพ→ข้อความในการตั้งค่าสะพานโมดัลิตี้",
     "sttBridgeCta": "กำหนดค่าสะพาน Speech→Text ในการตั้งค่า Modality Bridge",
     "disabled": "ปิดใช้งาน",

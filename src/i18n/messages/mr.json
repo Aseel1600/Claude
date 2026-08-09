@@ -2296,6 +2296,7 @@
     "imageGeneration": "प्रतिमा निर्मिती",
     "imageToText": "प्रतिमा ते मजकूर",
     "imageToTextComingSoon": "जेव्हा <code>/api/v1/images/understanding</code> लागू केले जाईल तेव्हा इनलाइन प्रतिमा-ते-मजकूर प्लेग्राउंड उपलब्ध होईल.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge सेटिंग्जमध्ये Image→Text ब्रिज कॉन्फिगर करा",
     "sttBridgeCta": "Modality Bridge सेटिंग्जमध्ये Speech→Text ब्रिज कॉन्फिगर करा",
     "disabled": "अक्षम",

@@ -2296,6 +2296,7 @@
     "imageGeneration": "Generare de imagini",
     "imageToText": "Imagine în text",
     "imageToTextComingSoon": "Playground-ul inline Imagine în text va fi disponibil când <code>/api/v1/images/understanding</code> este implementat.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configurează puntea Imagine→Text în setările Modality Bridge",
     "sttBridgeCta": "Configurează puntea Speech→Text în setările Modality Bridge",
     "disabled": "Dezactivat",

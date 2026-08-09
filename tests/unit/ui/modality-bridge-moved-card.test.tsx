@@ -135,6 +135,8 @@ describe("Modality Bridge relocation and shortcuts", () => {
     expect(
       el.querySelector('a[href="/dashboard/settings/modality-bridge?tab=vision"]')
     ).toBeTruthy();
+    expect(el.textContent).toContain("imageToTextBridgeAvailable");
+    expect(el.textContent).not.toContain("imageToTextComingSoon");
     expect(el.textContent).toContain("imageToTextBridgeCta");
   });
 

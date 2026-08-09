@@ -2296,6 +2296,7 @@
     "imageGeneration": "Afbeeldingsgeneratie",
     "imageToText": "Afbeelding naar tekst",
     "imageToTextComingSoon": "De inline Afbeelding-naar-tekst-playground is beschikbaar wanneer <code>/api/v1/images/understanding</code> is geïmplementeerd.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configureer de Image→Text-brug in de Modality Bridge-instellingen",
     "sttBridgeCta": "Configureer de Spraak→Tekst brug in de Modality Bridge-instellingen",
     "disabled": "Uitgeschakeld",

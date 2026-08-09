@@ -2296,6 +2296,7 @@
     "imageGeneration": "יצירת תמונות",
     "imageToText": "תמונה לטקסט",
     "imageToTextComingSoon": "סביבת הניסויים המוטמעת של תמונה לטקסט תהיה זמינה כאשר <code>/api/v1/images/understanding</code> ייושם.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "הגדר את גשר התמונה→טקסט בהגדרות גשר המודאליות",
     "sttBridgeCta": "הגדר את גשר דיבור→טקסט בהגדרות גשר מודליות",
     "disabled": "מושבת",

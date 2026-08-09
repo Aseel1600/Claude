@@ -2296,6 +2296,7 @@
     "imageGeneration": "ইমেজ জেনারেশন",
     "imageToText": "ইমেজ টু টেক্সট",
     "imageToTextComingSoon": "<code>/api/v1/images/understanding</code> বাস্তবায়িত হলে ইনলাইন Image-to-Text প্লেগ্রাউন্ড উপলব্ধ হবে।",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge সেটিংসে Image→Text ব্রিজ কনফিগার করুন",
     "sttBridgeCta": "Modality Bridge সেটিংসে Speech→Text ব্রিজ কনফিগার করুন",
     "disabled": "নিষ্ক্রিয়",

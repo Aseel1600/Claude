@@ -2296,6 +2296,7 @@
     "imageGeneration": "Pembuatan Gambar",
     "imageToText": "Gambar ke Teks",
     "imageToTextComingSoon": "Playground Gambar-ke-Teks inline akan tersedia saat <code>/api/v1/images/understanding</code> diimplementasikan.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Konfigurasikan jembatan Gambar→Teks di pengaturan Jembatan Modality",
     "sttBridgeCta": "Konfigurasikan jembatan Ucapan→Teks di pengaturan Jembatan Modality",
     "disabled": "Dinonaktifkan",

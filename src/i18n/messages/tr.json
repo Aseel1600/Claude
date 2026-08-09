@@ -2296,6 +2296,7 @@
     "imageGeneration": "Görsel Oluşturma",
     "imageToText": "Görselden Metne",
     "imageToTextComingSoon": "Satır içi Görselden Metne oyun alanı, <code>/api/v1/images/understanding</code> uygulandığında kullanılabilir olacaktır.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge ayarlarında Görüntü→Metin köprüsünü yapılandırın",
     "sttBridgeCta": "Modality Bridge ayarlarında Konuşma→Metin köprüsünü yapılandırın",
     "disabled": "Devre Dışı",

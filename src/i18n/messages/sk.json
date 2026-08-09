@@ -2296,6 +2296,7 @@
     "imageGeneration": "Generovanie obrázkov",
     "imageToText": "Obrázok na text",
     "imageToTextComingSoon": "Vstavané testovacie prostredie Obrázok na text bude k dispozícii po implementácii <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Nastavte most Obraz→Text v nastaveniach Modality Bridge",
     "sttBridgeCta": "Nakonfigurujte most Reč→Text v nastaveniach Modality Bridge",
     "disabled": "Deaktivované",

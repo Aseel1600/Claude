@@ -2296,6 +2296,7 @@
     "imageGeneration": "圖像生成",
     "imageToText": "圖像轉文本",
     "imageToTextComingSoon": "當 <code>/api/v1/images/understanding</code> 實現後，內聯圖像轉文本Playground將可用。",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "在模態橋設定中配置圖像→文本橋接",
     "sttBridgeCta": "在模態橋設定中配置語音→文本橋接器",
     "disabled": "已禁用",

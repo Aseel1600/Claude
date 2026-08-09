@@ -2296,6 +2296,7 @@
     "imageGeneration": "Tạo hình ảnh",
     "imageToText": "Chuyển hình ảnh thành văn bản",
     "imageToTextComingSoon": "Playground chuyển hình ảnh thành văn bản trực tiếp sẽ khả dụng khi <code>/api/v1/images/understanding</code> được triển khai.",
+    "imageToTextBridgeAvailable": "Cầu nối phương thức hiện có thể mô tả hình ảnh cho các mô hình chỉ hỗ trợ văn bản. Playground nội tuyến sẽ khả dụng khi <code>/api/v1/images/understanding</code> được triển khai.",
     "imageToTextBridgeCta": "Cấu hình cầu Hình Ảnh→Văn Bản trong cài đặt Cầu Modality",
     "sttBridgeCta": "Cấu hình cầu Nói→Văn bản trong cài đặt Cầu Modality",
     "disabled": "Đã tắt",

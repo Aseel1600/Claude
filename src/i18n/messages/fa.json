@@ -2296,6 +2296,7 @@
     "imageGeneration": "تولید تصویر",
     "imageToText": "تصویر به متن",
     "imageToTextComingSoon": "محیط آزمایشی درون‌خطی تصویر به متن زمانی در دسترس خواهد بود که <code>/api/v1/images/understanding</code> پیاده‌سازی شود.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "تنظیم پل تصویر→متن در تنظیمات پل مدالیته",
     "sttBridgeCta": "تنظیم پل گفتار→متن در تنظیمات پل مدالیته",
     "disabled": "غیرفعال",

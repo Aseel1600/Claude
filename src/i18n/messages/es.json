@@ -2296,6 +2296,7 @@
     "imageGeneration": "Generación de imágenes",
     "imageToText": "Imagen a texto",
     "imageToTextComingSoon": "El playground integrado de imagen a texto estará disponible cuando se implemente <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configura el puente de Imagen→Texto en la configuración del Puente de Modalidad",
     "sttBridgeCta": "Configura el puente de Voz→Texto en la configuración del Puente de Modalidad",
     "disabled": "Desactivado",

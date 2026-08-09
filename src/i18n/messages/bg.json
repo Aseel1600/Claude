@@ -2296,6 +2296,7 @@
     "imageGeneration": "Генериране на изображения",
     "imageToText": "Изображение към текст",
     "imageToTextComingSoon": "Интегрираната среда за тестване на Изображение към текст ще бъде налична, когато бъде внедрен <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Конфигурирайте моста Image→Text в настройките на Modality Bridge",
     "sttBridgeCta": "Конфигурирайте моста Speech→Text в настройките на Modality Bridge",
     "disabled": "Деактивиран",

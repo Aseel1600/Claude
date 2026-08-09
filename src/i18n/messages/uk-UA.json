@@ -2296,6 +2296,7 @@
     "imageGeneration": "Генерація зображень",
     "imageToText": "Зображення в текст",
     "imageToTextComingSoon": "Вбудований плейграунд «Зображення в текст» буде доступний після реалізації <code>/api/v1/images/understanding</code>.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Налаштуйте міст зображення→текст у налаштуваннях моста модальності",
     "sttBridgeCta": "Налаштуйте міст між Мовленням→Текстом у налаштуваннях Мосту Модальності",
     "disabled": "Вимкнено",

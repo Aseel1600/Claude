@@ -2296,6 +2296,7 @@
     "imageGeneration": "చిత్ర జనరేషన్",
     "imageToText": "చిత్రం నుండి వచనం",
     "imageToTextComingSoon": "<code>/api/v1/images/understanding</code> అమలు చేయబడినప్పుడు ఇన్‌లైన్ ఇమేజ్-టు-టెక్స్ట్ ప్లేగ్రౌండ్ అందుబాటులో ఉంటుంది.",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge సెట్టింగ్స్‌లో Image→Text బ్రిడ్జ్‌ను కాన్ఫిగర్ చేయండి",
     "sttBridgeCta": "Modality Bridge సెట్టింగ్స్‌లో Speech→Text బ్రిడ్జ్‌ను కాన్ఫిగర్ చేయండి",
     "disabled": "నిలిపివేయబడింది",

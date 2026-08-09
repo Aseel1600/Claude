@@ -2296,6 +2296,7 @@
     "imageGeneration": "画像生成",
     "imageToText": "画像からテキスト",
     "imageToTextComingSoon": "インラインのImage-to-Textプレイグラウンドは、<code>/api/v1/images/understanding</code>が実装されたときに利用可能になります。",
+    "imageToTextBridgeAvailable": "__MISSING__:Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Modality Bridge 設定で Image→Text ブリッジを構成する",
     "sttBridgeCta": "Modality Bridge 設定で Speech→Text ブリッジを構成する",
     "disabled": "無効",
