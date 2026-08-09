@@ -1,0 +1,1 @@
+- Sequence the release-green tarball boot smoke after its package artifact build so clean-worktree validation cannot race a missing `dist/server.js`.
