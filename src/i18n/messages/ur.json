@@ -1232,7 +1232,9 @@
     "alwaysVisible": "ہمیشہ ظاہر",
     "groupSeparatorLabel": "جدا کار",
     "discovery": "دریافت",
-    "discoverySubtitle": "مفت رسائی کے لیے فراہم کنندگان کو اسکین کریں"
+    "discoverySubtitle": "مفت رسائی کے لیے فراہم کنندگان کو اسکین کریں",
+    "resilienceConnections": "کنکشن مضبوطی",
+    "resilienceConnectionsSubtitle": "کولڈاؤن، بریکر، لاک آؤٹ حالت"
   },
   "webhooks": {
     "title": "ویب ہکس",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) OmniRoute کا بانی اوپن سورس دوست ہے",
     "cheaperInferenceSupporterBadge": "اوپن سورس دوست",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference اوپن سورس دوست کے طور پر OmniRoute کی حمایت کرتی ہے",
-    "kimiPartnerLinkNote": "پارٹنر لنک — آپ کے لیے بغیر کسی اضافی قیمت کے OmniRoute کو سپورٹ کرتا ہے"
+    "kimiPartnerLinkNote": "پارٹنر لنک — آپ کے لیے بغیر کسی اضافی قیمت کے OmniRoute کو سپورٹ کرتا ہے",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "پیغام کی کم از کم لمبائی"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "کاپی ہو گیا!",
     "run": "چلائیں",
     "running": "چل رہا ہے...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "جواب",
     "tunnel": "ٹنل",
     "send": "بھیجیں",
@@ -12317,5 +12332,99 @@
     "addConnection": "کنکشن شامل کریں",
     "addConnectionDescription": "کیا آپ کے پاس ابھی تک کوئی کنکشن نہیں ہے؟ فراہم کنندہ کے ڈیش بورڈ میں ایک شامل کریں۔",
     "addConnectionLink": "فراہم کنندگان پر جائیں →"
+  },
+  "resilienceConnections": {
+    "title": "کنکشن مضبوطی",
+    "table": {
+      "status": "حیثیت",
+      "provider": "فراہم کنندہ",
+      "connectionId": "کنکشن",
+      "authType": "توثیق",
+      "backoffLevel": "پسپائی",
+      "cooldown": "کولڈاؤن",
+      "lastError": "آخری خرابی",
+      "lockouts": "لاک آؤٹس",
+      "healthy": "صحت مند",
+      "coolingDown": "کولڈاؤن",
+      "circuitOpen": "سرکٹ کھلا",
+      "recovering": "بحال ہو رہا ہے",
+      "degraded": "خراب",
+      "terminal": "ٹرمینل",
+      "unknown": "نامعلوم",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "بریکر منتقلی",
+      "window": "ونڈو",
+      "window1h": "1گھ",
+      "window6h": "6گھ",
+      "window24h": "24گھ",
+      "empty": "منتخب ونڈو میں کوئی منتقلی نہیں",
+      "currentState": "موجودہ حیثیت",
+      "state": {
+        "open": "کھلا",
+        "half_open": "نیم کھلا",
+        "closed": "بند",
+        "degraded": "خراب"
+      },
+      "reason": {
+        "timeout-elapsed": "وقت ختم",
+        "success-recovery": "کامیابی سے بحالی",
+        "manual-reset": "دستی ری سیٹ",
+        "probe-success": "جانچ کامیاب",
+        "recovery": "بحالی",
+        "probe-failed": "جانچ ناکام"
+      }
+    },
+    "detail": {
+      "title": "کنکشن کی تفصیل",
+      "metadata": "میٹا ڈیٹا",
+      "cooldown": "کولڈاؤن",
+      "lastError": "آخری خرابی",
+      "breaker": "سرکٹ بریکر",
+      "lockouts": "ماڈل لاک آؤٹس",
+      "rateLimitedUntil": "تک شرح محدود",
+      "backoffLevel": "پسپائی کی سطح",
+      "remaining": "باقی",
+      "noLockouts": "کوئی فعال لاک آؤٹ نہیں",
+      "provider": "فراہم کنندہ",
+      "id": "ID",
+      "authType": "توثیق کی قسم",
+      "priority": "ترجیح",
+      "isActive": "فعال",
+      "errorCode": "خرابی کوڈ",
+      "lastErrorAt": "آخری خرابی پر",
+      "yes": "ہاں",
+      "no": "نہیں",
+      "close": "بند کریں",
+      "never": "-",
+      "failureCount": "ناکامیوں کی تعداد",
+      "retryAfterMs": "بعد میں دوبارہ کوشش کریں (ms)",
+      "lastFailureKind": "آخری ناکامی کی قسم"
+    },
+    "empty": {
+      "title": "کوئی کنکشن نہیں",
+      "description": "فراہم کنندہ کے کنکشن یہاں ظاہر ہوں گے۔"
+    },
+    "loading": {
+      "title": "لوڈ ہو رہا ہے",
+      "description": "کنکشن مضبوطی کی حیثیت حاصل کی جا رہی ہے..."
+    },
+    "summary": {
+      "total": "{count} کنکشنز",
+      "coolingDown": "{count} کولڈاؤن میں",
+      "unhealthyBreakers": "{count} بریکرز بند نہیں",
+      "capped": "پہلے 1000 دکھائے جا رہے ہیں"
+    },
+    "pollingNote": "نوٹ: اس صفحے کو دیکھنے سے بریکر کی سست بحالی (HALF_OPEN جانچ) شروع ہوتی ہے۔ ہر 30 سیکنڈ میں تازہ کاری۔",
+    "retry": "دوبارہ کوشش کریں",
+    "pollErrorLocalOnly": "یہ صفحہ صرف localhost یا LAN سے قابل رسائی ہے (LOCAL_ONLY)۔",
+    "pollErrorStopped": "پولنگ روک دی گئی: سرور نے درخواست مسترد کر دی (404/403)۔",
+    "pollErrorTransient": "ڈیٹا حاصل کرنے میں خرابی: خودکار طور پر دوبارہ کوشش کی جا رہی ہے۔",
+    "degraded": "جزوی ڈیٹا: غیر دستیاب ذرائع: {sources}",
+    "degraded.source.database": "ڈیٹا بیس",
+    "degraded.source.circuitBreaker": "سرکٹ بریکر",
+    "degraded.source.modelLockouts": "ماڈل لاک آؤٹس",
+    "degraded.source.count": "کنکشنز کی تعداد"
   }
 }

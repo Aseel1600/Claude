@@ -1232,7 +1232,9 @@
     "alwaysVisible": "সর্বদা দৃশ্যমান",
     "groupSeparatorLabel": "বিভাজক",
     "discovery": "ডিসকভারি",
-    "discoverySubtitle": "ফ্রি অ্যাক্সেসের জন্য প্রোভাইডার স্ক্যান করুন"
+    "discoverySubtitle": "ফ্রি অ্যাক্সেসের জন্য প্রোভাইডার স্ক্যান করুন",
+    "resilienceConnections": "সংযোগ স্থিতিস্থাপকতা",
+    "resilienceConnectionsSubtitle": "কুলডাউন, ব্রেকার, লকআউট অবস্থা"
   },
   "webhooks": {
     "title": "ওয়েবহুক",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) হল OmniRoute-এর প্রতিষ্ঠাতা ওপেন সোর্স বন্ধু",
     "cheaperInferenceSupporterBadge": "ওপেন সোর্স বন্ধু",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference একজন ওপেন সোর্স বন্ধু হিসেবে OmniRoute-কে সমর্থন করে",
-    "kimiPartnerLinkNote": "পার্টনার লিঙ্ক — আপনার কোনো অতিরিক্ত খরচ ছাড়াই OmniRoute-কে সমর্থন করে"
+    "kimiPartnerLinkNote": "পার্টনার লিঙ্ক — আপনার কোনো অতিরিক্ত খরচ ছাড়াই OmniRoute-কে সমর্থন করে",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "বার্তার ন্যূনতম দৈর্ঘ্য"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "কপি করা হয়েছে!",
     "run": "চালান",
     "running": "চলছে...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "প্রতিক্রিয়া",
     "tunnel": "টানেল",
     "send": "পাঠান",
@@ -12317,5 +12332,99 @@
     "addConnection": "সংযোগ যোগ করুন",
     "addConnectionDescription": "এখনও একটি সংযোগ নেই? প্রদানকারীদের ড্যাশবোর্ডে একটি যোগ করুন।",
     "addConnectionLink": "প্রদানকারীদের কাছে যান →"
+  },
+  "resilienceConnections": {
+    "title": "সংযোগ স্থিতিস্থাপকতা",
+    "table": {
+      "status": "স্ট্যাটাস",
+      "provider": "প্রদানকারী",
+      "connectionId": "সংযোগ",
+      "authType": "প্রমাণীকরণ",
+      "backoffLevel": "ব্যাকঅফ",
+      "cooldown": "কুলডাউন",
+      "lastError": "সর্বশেষ ত্রুটি",
+      "lockouts": "লকআউট",
+      "healthy": "সুস্থ",
+      "coolingDown": "কুলডাউন",
+      "circuitOpen": "সার্কিট খোলা",
+      "recovering": "পুনরুদ্ধার হচ্ছে",
+      "degraded": "অবনতি",
+      "terminal": "টার্মিনাল",
+      "unknown": "অজানা",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "ব্রেকার ট্রানজিশন",
+      "window": "উইন্ডো",
+      "window1h": "১ঘ",
+      "window6h": "৬ঘ",
+      "window24h": "২৪ঘ",
+      "empty": "নির্বাচিত উইন্ডোতে কোনো ট্রানজিশন নেই",
+      "currentState": "বর্তমান অবস্থা",
+      "state": {
+        "open": "খোলা",
+        "half_open": "অর্ধ-খোলা",
+        "closed": "বন্ধ",
+        "degraded": "অবনতি"
+      },
+      "reason": {
+        "timeout-elapsed": "সময়সীমা শেষ",
+        "success-recovery": "সাফল্যের মাধ্যমে পুনরুদ্ধার",
+        "manual-reset": "ম্যানুয়াল রিসেট",
+        "probe-success": "প্রোব সফল",
+        "recovery": "পুনরুদ্ধার",
+        "probe-failed": "প্রোব ব্যর্থ"
+      }
+    },
+    "detail": {
+      "title": "সংযোগের বিবরণ",
+      "metadata": "মেটাডেটা",
+      "cooldown": "কুলডাউন",
+      "lastError": "সর্বশেষ ত্রুটি",
+      "breaker": "সার্কিট ব্রেকার",
+      "lockouts": "মডেল লকআউট",
+      "rateLimitedUntil": "পর্যন্ত রেট-সীমিত",
+      "backoffLevel": "ব্যাকঅফ স্তর",
+      "remaining": "অবশিষ্ট",
+      "noLockouts": "কোনো সক্রিয় লকআউট নেই",
+      "provider": "প্রদানকারী",
+      "id": "ID",
+      "authType": "প্রমাণীকরণের ধরন",
+      "priority": "অগ্রাধিকার",
+      "isActive": "সক্রিয়",
+      "errorCode": "ত্রুটি কোড",
+      "lastErrorAt": "সর্বশেষ ত্রুটি সময়",
+      "yes": "হ্যাঁ",
+      "no": "না",
+      "close": "বন্ধ করুন",
+      "never": "-",
+      "failureCount": "ব্যর্থতার সংখ্যা",
+      "retryAfterMs": "পরে পুনরায় চেষ্টা করুন (ms)",
+      "lastFailureKind": "সর্বশেষ ব্যর্থতার ধরন"
+    },
+    "empty": {
+      "title": "কোনো সংযোগ নেই",
+      "description": "প্রদানকারীর সংযোগগুলি এখানে প্রদর্শিত হবে।"
+    },
+    "loading": {
+      "title": "লোড হচ্ছে",
+      "description": "সংযোগ স্থিতিস্থাপকতার অবস্থা আনা হচ্ছে..."
+    },
+    "summary": {
+      "total": "{count} সংযোগ",
+      "coolingDown": "{count} কুলডাউনে",
+      "unhealthyBreakers": "{count} ব্রেকার বন্ধ হয়নি",
+      "capped": "প্রথম ১০০০ দেখানো হচ্ছে"
+    },
+    "pollingNote": "নোট: এই পৃষ্ঠাটি দেখলে ব্রেকারের বিলম্বিত পুনরুদ্ধার (HALF_OPEN প্রোব) শুরু হয়। প্রতি ৩০ সেকেন্ডে রিফ্রেশ হয়।",
+    "retry": "পুনরায় চেষ্টা করুন",
+    "pollErrorLocalOnly": "এই পৃষ্ঠাটি শুধুমাত্র localhost বা LAN থেকে অ্যাক্সেসযোগ্য (LOCAL_ONLY)।",
+    "pollErrorStopped": "পোলিং বন্ধ: সার্ভার অনুরোধ প্রত্যাখ্যান করেছে (404/403)।",
+    "pollErrorTransient": "ডেটা আনতে ত্রুটি: স্বয়ংক্রিয়ভাবে পুনরায় চেষ্টা করা হচ্ছে।",
+    "degraded": "আংশিক ডেটা: অনুপলব্ধ উৎস: {sources}",
+    "degraded.source.database": "ডাটাবেস",
+    "degraded.source.circuitBreaker": "সার্কিট ব্রেকার",
+    "degraded.source.modelLockouts": "মডেল লকআউট",
+    "degraded.source.count": "সংযোগ সংখ্যা"
   }
 }

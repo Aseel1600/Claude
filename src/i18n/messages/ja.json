@@ -1232,7 +1232,9 @@
     "alwaysVisible": "常に表示",
     "groupSeparatorLabel": "セパレーター",
     "discovery": "ディスカバリー",
-    "discoverySubtitle": "無料アクセス対象のプロバイダーをスキャン"
+    "discoverySubtitle": "無料アクセス対象のプロバイダーをスキャン",
+    "resilienceConnections": "接続レジリエンス",
+    "resilienceConnectionsSubtitle": "クールダウン、ブレーカー、ロックアウト状態"
   },
   "webhooks": {
     "title": "Webhook",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "新しいモデルは追加されませんでした (すべてすでに存在しています)。",
     "importDoneCount": "✓ 完了! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "予期しないエラーが発生しました",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "メッセージ",
     "responsesPath": "応答",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi（Moonshot AI）は OmniRoute の創設オープンソースフレンドです",
     "cheaperInferenceSupporterBadge": "オープンソースフレンド",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference は OmniRoute をオープンソースフレンドとして支援しています",
-    "kimiPartnerLinkNote": "パートナーリンク — 追加費用なしで OmniRoute をサポートします"
+    "kimiPartnerLinkNote": "パートナーリンク — 追加費用なしで OmniRoute をサポートします",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "設定",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "最小メッセージ長"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "コピーしました！",
     "run": "実行",
     "running": "実行中...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "レスポンス",
     "tunnel": "トンネル",
     "send": "送信",
@@ -12317,5 +12332,99 @@
     "addConnection": "接続を追加",
     "addConnectionDescription": "まだ接続がありませんか？プロバイダーダッシュボードで追加してください。",
     "addConnectionLink": "プロバイダーに移動 →"
+  },
+  "resilienceConnections": {
+    "title": "接続レジリエンス",
+    "table": {
+      "status": "状態",
+      "provider": "プロバイダー",
+      "connectionId": "接続",
+      "authType": "認証",
+      "backoffLevel": "バックオフ",
+      "cooldown": "クールダウン",
+      "lastError": "最終エラー",
+      "lockouts": "ロックアウト",
+      "healthy": "正常",
+      "coolingDown": "クールダウン",
+      "circuitOpen": "サーキット開放",
+      "recovering": "回復中",
+      "degraded": "劣化",
+      "terminal": "終端",
+      "unknown": "不明",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "ブレーカー遷移",
+      "window": "期間",
+      "window1h": "1時間",
+      "window6h": "6時間",
+      "window24h": "24時間",
+      "empty": "選択した期間に遷移はありません",
+      "currentState": "現在の状態",
+      "state": {
+        "open": "開放",
+        "half_open": "半開放",
+        "closed": "閉鎖",
+        "degraded": "劣化"
+      },
+      "reason": {
+        "timeout-elapsed": "タイムアウト経過",
+        "success-recovery": "成功による回復",
+        "manual-reset": "手動リセット",
+        "probe-success": "プローブ成功",
+        "recovery": "回復",
+        "probe-failed": "プローブ失敗"
+      }
+    },
+    "detail": {
+      "title": "接続の詳細",
+      "metadata": "メタデータ",
+      "cooldown": "クールダウン",
+      "lastError": "最終エラー",
+      "breaker": "サーキットブレーカー",
+      "lockouts": "モデルロックアウト",
+      "rateLimitedUntil": "レート制限中(まで)",
+      "backoffLevel": "バックオフレベル",
+      "remaining": "残り",
+      "noLockouts": "アクティブなロックアウトなし",
+      "provider": "プロバイダー",
+      "id": "ID",
+      "authType": "認証タイプ",
+      "priority": "優先度",
+      "isActive": "有効",
+      "errorCode": "エラーコード",
+      "lastErrorAt": "最終エラー日時",
+      "yes": "はい",
+      "no": "いいえ",
+      "close": "閉じる",
+      "never": "-",
+      "failureCount": "失敗回数",
+      "retryAfterMs": "再試行まで(ms)",
+      "lastFailureKind": "最終失敗種別"
+    },
+    "empty": {
+      "title": "接続なし",
+      "description": "プロバイダー接続はここに表示されます。"
+    },
+    "loading": {
+      "title": "読み込み中",
+      "description": "接続レジリエンス状態を取得中..."
+    },
+    "summary": {
+      "total": "{count} 件の接続",
+      "coolingDown": "{count} 件クールダウン中",
+      "unhealthyBreakers": "{count} 件のブレーカーが未閉鎖",
+      "capped": "最初の1000件を表示中"
+    },
+    "pollingNote": "注: このページを表示するとサーキットブレーカーの遅延回復(HALF_OPENプローブ)がトリガーされます。30秒ごとに更新されます。",
+    "retry": "再試行",
+    "pollErrorLocalOnly": "このページはlocalhostまたはLANからのみアクセス可能です(LOCAL_ONLY)。",
+    "pollErrorStopped": "ポーリング停止:サーバーがリクエストを拒否しました(404/403)。",
+    "pollErrorTransient": "データ取得エラー:自動的に再試行します。",
+    "degraded": "部分データ:利用できないソース: {sources}",
+    "degraded.source.database": "データベース",
+    "degraded.source.circuitBreaker": "サーキットブレーカー",
+    "degraded.source.modelLockouts": "モデルロックアウト",
+    "degraded.source.count": "接続数"
   }
 }

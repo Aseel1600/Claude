@@ -1232,7 +1232,9 @@
     "alwaysVisible": "גלוי תמיד",
     "groupSeparatorLabel": "מפריד",
     "discovery": "גילוי",
-    "discoverySubtitle": "סריקת ספקים לגישה חינמית"
+    "discoverySubtitle": "סריקת ספקים לגישה חינמית",
+    "resilienceConnections": "עמידות חיבור",
+    "resilienceConnectionsSubtitle": "צינון, נתיק, מצב נעילה"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "לא נוספו דגמים חדשים (כולם כבר קיימים).",
     "importDoneCount": "✓ בוצע! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "אירעה שגיאה בלתי צפויה",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "הודעות",
     "responsesPath": "תגובות",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) הוא חבר הקוד הפתוח המייסד של OmniRoute",
     "cheaperInferenceSupporterBadge": "ידיד קוד פתוח",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference תומכת ב-OmniRoute כידידת קוד פתוח",
-    "kimiPartnerLinkNote": "קישור שותף — תומך ב-OmniRoute ללא עלות נוספת עבורך"
+    "kimiPartnerLinkNote": "קישור שותף — תומך ב-OmniRoute ללא עלות נוספת עבורך",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "הגדרות",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "אורך הודעה מינימלי"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "הועתק!",
     "run": "הפעל",
     "running": "מריץ...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "תגובה",
     "tunnel": "מנהרה",
     "send": "שלח",
@@ -12317,5 +12332,99 @@
     "addConnection": "הוסף חיבור",
     "addConnectionDescription": "עדיין אין לך חיבור? הוסף אחד בלוח הבקרה של הספקים.",
     "addConnectionLink": "עבור לספקים →"
+  },
+  "resilienceConnections": {
+    "title": "עמידות חיבור",
+    "table": {
+      "status": "סטטוס",
+      "provider": "ספק",
+      "connectionId": "חיבור",
+      "authType": "אימות",
+      "backoffLevel": "השהיה",
+      "cooldown": "צינון",
+      "lastError": "שגיאה אחרונה",
+      "lockouts": "נעילות",
+      "healthy": "תקין",
+      "coolingDown": "צינון",
+      "circuitOpen": "מעגל פתוח",
+      "recovering": "בהתאוששות",
+      "degraded": "מוחלש",
+      "terminal": "סופי",
+      "unknown": "לא ידוע",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "מעברי נתיק",
+      "window": "חלון",
+      "window1h": "שעה",
+      "window6h": "6 שעות",
+      "window24h": "24 שעות",
+      "empty": "אין מעברים בחלון שנבחר",
+      "currentState": "מצב נוכחי",
+      "state": {
+        "open": "פתוח",
+        "half_open": "חצי פתוח",
+        "closed": "סגור",
+        "degraded": "מוחלש"
+      },
+      "reason": {
+        "timeout-elapsed": "פסק זמן חלף",
+        "success-recovery": "התאוששות בהצלחה",
+        "manual-reset": "איפוס ידני",
+        "probe-success": "בדיקה הצליחה",
+        "recovery": "התאוששות",
+        "probe-failed": "בדיקה נכשלה"
+      }
+    },
+    "detail": {
+      "title": "פרטי חיבור",
+      "metadata": "מטא-נתונים",
+      "cooldown": "צינון",
+      "lastError": "שגיאה אחרונה",
+      "breaker": "נתיק מעגל",
+      "lockouts": "נעילות מודל",
+      "rateLimitedUntil": "מוגבל קצב עד",
+      "backoffLevel": "רמת השהיה",
+      "remaining": "נותר",
+      "noLockouts": "אין נעילות פעילות",
+      "provider": "ספק",
+      "id": "מזהה",
+      "authType": "סוג אימות",
+      "priority": "עדיפות",
+      "isActive": "פעיל",
+      "errorCode": "קוד שגיאה",
+      "lastErrorAt": "שגיאה אחרונה בתאריך",
+      "yes": "כן",
+      "no": "לא",
+      "close": "סגור",
+      "never": "-",
+      "failureCount": "מספר כשלים",
+      "retryAfterMs": "נסה שוב אחרי (ms)",
+      "lastFailureKind": "סוג כשל אחרון"
+    },
+    "empty": {
+      "title": "אין חיבורים",
+      "description": "חיבורי הספק יופיעו כאן."
+    },
+    "loading": {
+      "title": "טוען",
+      "description": "מאחזר מצב עמידות חיבור..."
+    },
+    "summary": {
+      "total": "{count} חיבורים",
+      "coolingDown": "{count} בצינון",
+      "unhealthyBreakers": "{count} נתיקים לא סגורים",
+      "capped": "מציג את 1000 הראשונים"
+    },
+    "pollingNote": "הערה: צפייה בדף זה מפעילה התאוששות עצלה של הנתיק (בדיקות HALF_OPEN). רענון כל 30 שניות.",
+    "retry": "נסה שוב",
+    "pollErrorLocalOnly": "דף זה נגיש רק מ-localhost או רשת מקומית (LOCAL_ONLY).",
+    "pollErrorStopped": "הסקר הופסק: השרת דחה את הבקשה (404/403).",
+    "pollErrorTransient": "שגיאה באחזור נתונים: ניסיון חוזר אוטומטי.",
+    "degraded": "נתונים חלקיים: מקורות לא זמינים: {sources}",
+    "degraded.source.database": "מסד נתונים",
+    "degraded.source.circuitBreaker": "נתיק מעגל",
+    "degraded.source.modelLockouts": "נעילות מודל",
+    "degraded.source.count": "מספר חיבורים"
   }
 }

@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Always visible",
     "groupSeparatorLabel": "Separator",
     "discovery": "Discovery",
-    "discoverySubtitle": "Scan providers for free access"
+    "discoverySubtitle": "Scan providers for free access",
+    "resilienceConnections": "Connection Resilience",
+    "resilienceConnectionsSubtitle": "Cooldown, breaker, lockout state"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5999,7 +6001,9 @@
     "webTokenRequiredCredential": "Required token: {credential}",
     "webSessionGuideStep1": "Sign in to {provider} in your browser.",
     "webSessionGuideStep2": "Open the browser developer tools and inspect a request made by the web app.",
+    "webSessionGuideStep2Fast": "Fast path: install the Cookie Editor extension (chromewebstore.google.com → Cookie Editor), open it on the {provider} tab, find {credential} (select all numbered chunks if split), and click Export → Copy with the export format set to “Cookie header”.",
     "webSessionGuideStep3": "Copy the required credential from the provider's own domain. For cookies, copy only the Cookie header value and omit Cookie:.",
+    "webSessionGuideStep3Manual": "Manual path: open the browser developer tools (F12 → Network), refresh the page, open an authenticated request, and copy the Cookie header value from Request Headers — omit the Cookie: prefix.",
     "webSessionGuideStep4": "Paste it here and check the connection. If it stops working, sign in again and replace it with a fresh value.",
     "webSessionSecurityHint": "Treat this like a password: it may access your signed-in web account until it expires or is revoked.",
     "webNoAuthGuideTitle": "No credential required",
@@ -6030,7 +6034,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is OmniRoute's founding Open Source Friend",
     "cheaperInferenceSupporterBadge": "Open Source Friend",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference backs OmniRoute as an Open Source Friend",
-    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you"
+    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "anonymousFallbackTitle": "Anonymous fallback",
+    "anonymousFallbackDesc": "When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7835,6 +7844,10 @@
       },
       "minMessageLength": {
         "label": "Minimum message length"
+      },
+      "compressToolResults": {
+        "label": "Proactively truncate long tool results",
+        "description": "Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -12321,5 +12334,99 @@
     "addConnection": "Add connection",
     "addConnectionDescription": "Don't have a connection yet? Add one in the providers dashboard.",
     "addConnectionLink": "Go to providers →"
+  },
+  "resilienceConnections": {
+    "title": "Connection Resilience",
+    "table": {
+      "status": "Status",
+      "provider": "Provider",
+      "connectionId": "Connection",
+      "authType": "Auth",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Last Error",
+      "lockouts": "Lockouts",
+      "healthy": "Healthy",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuit Open",
+      "recovering": "Recovering",
+      "degraded": "Degraded",
+      "terminal": "Terminal",
+      "unknown": "Unknown",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Breaker Transitions",
+      "window": "Window",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "No transitions in selected window",
+      "currentState": "Current State",
+      "state": {
+        "open": "Open",
+        "half_open": "Half Open",
+        "closed": "Closed",
+        "degraded": "Degraded"
+      },
+      "reason": {
+        "timeout-elapsed": "Timeout Elapsed",
+        "success-recovery": "Success Recovery",
+        "manual-reset": "Manual Reset",
+        "probe-success": "Probe Success",
+        "recovery": "Recovery",
+        "probe-failed": "Probe Failed"
+      }
+    },
+    "detail": {
+      "title": "Connection Detail",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Last Error",
+      "breaker": "Circuit Breaker",
+      "lockouts": "Model Lockouts",
+      "rateLimitedUntil": "Rate Limited Until",
+      "backoffLevel": "Backoff Level",
+      "remaining": "Remaining",
+      "noLockouts": "No active lockouts",
+      "provider": "Provider",
+      "id": "ID",
+      "authType": "Auth Type",
+      "priority": "Priority",
+      "isActive": "Active",
+      "errorCode": "Error Code",
+      "lastErrorAt": "Last Error At",
+      "yes": "Yes",
+      "no": "No",
+      "close": "Close",
+      "never": "-",
+      "failureCount": "Failure Count",
+      "retryAfterMs": "Retry After (ms)",
+      "lastFailureKind": "Last Failure Kind"
+    },
+    "empty": {
+      "title": "No connections",
+      "description": "Provider connections will appear here."
+    },
+    "loading": {
+      "title": "Loading",
+      "description": "Fetching connection resilience state..."
+    },
+    "summary": {
+      "total": "{count} connections",
+      "coolingDown": "{count} cooling down",
+      "unhealthyBreakers": "{count} breakers not closed",
+      "capped": "showing first 1000"
+    },
+    "pollingNote": "Note: viewing this page triggers circuit breaker lazy recovery (HALF_OPEN probes). 30s refresh.",
+    "retry": "Retry",
+    "pollErrorLocalOnly": "This page is only accessible from localhost or LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Polling stopped: the server rejected the request (404/403).",
+    "pollErrorTransient": "Error fetching data: retrying automatically.",
+    "degraded": "Partial data: unavailable sources: {sources}",
+    "degraded.source.database": "Database",
+    "degraded.source.circuitBreaker": "Circuit Breaker",
+    "degraded.source.modelLockouts": "Model Lockouts",
+    "degraded.source.count": "Connection Count"
   }
 }

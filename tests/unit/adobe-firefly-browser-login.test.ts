@@ -1,14 +1,23 @@
 /**
  * Pure-function tests for Adobe Firefly browser login helpers.
- * (No Playwright launch тАФ that path is integration-only.)
+ * (No Playwright launch — that path is integration-only.)
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  adobeFireflyBackgroundUsesHeadlessChrome,
+  adobeFireflyBrowserSessionKey,
   accountLabelFromAdobeJwt,
+  buildAdobeFireflyBrowserArgs,
   buildAdobeFireflyCookieHeader,
   clampAdobeFireflyLoginTimeout,
   extractAdobeBearerTokenFromAuthorization,
+  extractAdobeForterTimestampFromValue,
+  extractUserJwtFromStorageRaw,
+  filterAdobeBrowserCookies,
+  filterSeedCookiesForWarm,
+  isAdobeRiskCookieName,
+  resolveAdobeAccountLabel,
   resolveSystemBrowserExecutable,
 } from "../../open-sse/services/adobeFireflyBrowserLogin.ts";
 
@@ -35,10 +44,16 @@ test("buildAdobeFireflyCookieHeader keeps only wanted pairs", () => {
     { name: "unrelated", value: "x" },
     { name: "sherlockToken", value: "s1" },
     { name: "forterToken", value: "f1" },
+    { name: "arkose", value: "a1" },
     { name: "bad", value: "a;b" },
     { name: "ff_session_guid", value: "g1" },
+    { name: "bfp", value: "b1" },
+    { name: "fpjs", value: "j1" },
   ]);
-  assert.equal(header, "sherlockToken=s1; forterToken=f1; ff_session_guid=g1");
+  assert.equal(
+    header,
+    "sherlockToken=s1; forterToken=f1; arkose=a1; ff_session_guid=g1; bfp=b1; fpjs=j1"
+  );
   assert.equal(buildAdobeFireflyCookieHeader([]), "");
 });
 
@@ -51,9 +66,144 @@ test("accountLabelFromAdobeJwt prefers email", () => {
   assert.equal(accountLabelFromAdobeJwt("not-a-jwt"), "");
 });
 
+test("accountLabelFromAdobeJwt never exposes opaque Adobe IDs", () => {
+  const payload = Buffer.from(
+    JSON.stringify({ user_id: "0123456789ABCDEF@AdobeID", sub: "opaque-subject" })
+  ).toString("base64url");
+  assert.equal(accountLabelFromAdobeJwt(`eyJhbGciOiJIUzI1NiJ9.${payload}.sig`), "");
+});
+
+test("resolveAdobeAccountLabel uses IMS display name and generic fallback", async () => {
+  const payload = Buffer.from(
+    JSON.stringify({ client_id: "clio-playground-web", user_id: "opaque@AdobeID" })
+  ).toString("base64url");
+  const jwt = `eyJhbGciOiJIUzI1NiJ9.${payload}.sig`;
+  const displayName = await resolveAdobeAccountLabel(
+    jwt,
+    (async () =>
+      new Response(JSON.stringify({ name: "Friendly Name", sub: "opaque@AdobeID" }), {
+        status: 200,
+      })) as typeof fetch
+  );
+  assert.equal(displayName, "Friendly Name");
+
+  const fallback = await resolveAdobeAccountLabel(
+    jwt,
+    (async () => new Response("unavailable", { status: 503 })) as typeof fetch
+  );
+  assert.equal(fallback, "Adobe account");
+});
+
+test("browser args: interactive headed; background offscreen (Forter-safe), headless opt-in only", () => {
+  const firstKey = adobeFireflyBrowserSessionKey("connection-a");
+  const secondKey = adobeFireflyBrowserSessionKey("connection-b");
+  assert.equal(firstKey, adobeFireflyBrowserSessionKey("connection-a"));
+  assert.notEqual(firstKey, secondKey);
+
+  const interactive = buildAdobeFireflyBrowserArgs({
+    port: 9222,
+    userDataDir: `C:\\profiles\\${firstKey}`,
+    interactive: true,
+    freshSession: true,
+  });
+  // User-initiated Sign in with browser: real window, never headless.
+  assert.equal(interactive.includes("--headless=new"), false);
+  assert.ok(interactive.includes("--new-window"));
+  assert.ok(interactive.includes(`--user-data-dir=C:\\profiles\\${firstKey}`));
+  assert.equal(interactive.at(-1), "https://firefly.adobe.com/");
+
+  const prevHeadless = process.env.ADOBE_FIREFLY_CHROME_HEADLESS;
+  delete process.env.ADOBE_FIREFLY_CHROME_HEADLESS;
+  try {
+    // Default background: offscreen headed (colligo accepts; true headless → 408).
+    assert.equal(adobeFireflyBackgroundUsesHeadlessChrome(), false);
+    const background = buildAdobeFireflyBrowserArgs({
+      port: 9223,
+      userDataDir: `C:\\profiles\\${secondKey}`,
+      interactive: false,
+    });
+    assert.equal(background.includes("--headless=new"), false);
+    assert.equal(background.includes("--new-window"), false);
+    assert.ok(background.includes("--window-position=-32000,-32000"));
+    assert.ok(background.includes("--start-minimized"));
+    assert.equal(background.at(-1), "https://firefly.adobe.com/");
+
+    process.env.ADOBE_FIREFLY_CHROME_HEADLESS = "1";
+    assert.equal(adobeFireflyBackgroundUsesHeadlessChrome(), true);
+    const headless = buildAdobeFireflyBrowserArgs({
+      port: 9224,
+      userDataDir: `C:\\profiles\\${secondKey}`,
+      interactive: false,
+    });
+    assert.ok(headless.includes("--headless=new"));
+  } finally {
+    if (prevHeadless === undefined) delete process.env.ADOBE_FIREFLY_CHROME_HEADLESS;
+    else process.env.ADOBE_FIREFLY_CHROME_HEADLESS = prevHeadless;
+  }
+});
+
+test("isAdobeRiskCookieName flags forter/arkose/sherlock", () => {
+  assert.equal(isAdobeRiskCookieName("forterToken"), true);
+  assert.equal(isAdobeRiskCookieName("arkose"), true);
+  assert.equal(isAdobeRiskCookieName("sherlockToken"), true);
+  assert.equal(isAdobeRiskCookieName("ff_session_guid"), false);
+  assert.equal(isAdobeRiskCookieName("aux_sid"), false);
+});
+
+test("filterSeedCookiesForWarm drops risk cookies on force warm", () => {
+  const filtered = filterSeedCookiesForWarm(
+    [
+      { name: "forterToken", value: "stale" },
+      { name: "arkose", value: "a" },
+      { name: "ff_session_guid", value: "sid" },
+      { name: "aux_sid", value: "aux" },
+    ],
+    { dropRiskCookies: true }
+  );
+  assert.deepEqual(filtered.map((c) => c.name).sort(), ["aux_sid", "ff_session_guid"]);
+});
+
+test("extractAdobeForterTimestampFromValue reads embedded ms", () => {
+  const ftr = "abc_1785777856265__UDF43-mnts-ants-x";
+  assert.equal(extractAdobeForterTimestampFromValue(ftr), 1785777856265);
+  assert.equal(extractAdobeForterTimestampFromValue(""), 0);
+});
+
+test("extractUserJwtFromStorageRaw prefers user AdobeID JWT", () => {
+  const guestPayload = Buffer.from(
+    JSON.stringify({ type: "guest", account_type: "guest", user_id: "x@GuestID" })
+  ).toString("base64url");
+  const userPayload = Buffer.from(
+    JSON.stringify({
+      type: "access_token",
+      user_id: "0EB6@AdobeID",
+      client_id: "clio-playground-web",
+      created_at: Date.now(),
+      expires_in: 86400000,
+    })
+  ).toString("base64url");
+  const guest = `eyJhbGciOiJIUzI1NiJ9.${guestPayload}.sig`;
+  const user = `eyJhbGciOiJSUzI1NiJ9.${userPayload}.usersig`;
+  const raw = JSON.stringify({ tokenValue: guest }) + "\n" + JSON.stringify({ access_token: user });
+  assert.equal(extractUserJwtFromStorageRaw(raw), user);
+});
+
+test("filterAdobeBrowserCookies keeps Adobe SSO domains only", () => {
+  assert.deepEqual(
+    filterAdobeBrowserCookies([
+      { name: "ims", value: "one", domain: ".adobelogin.com", secure: true },
+      { name: "firefly", value: "two", domain: "firefly.adobe.com" },
+      { name: "service", value: "three", domain: "firefly-3p.ff.adobe.io" },
+      { name: "unrelated", value: "secret", domain: ".example.com" },
+      { name: "bad", value: "line\nbreak", domain: ".adobe.com" },
+    ]).map((cookie) => cookie.name),
+    ["ims", "firefly", "service"]
+  );
+});
+
 test("resolveSystemBrowserExecutable finds Chrome or Edge on this host (or honors env)", () => {
   const path = resolveSystemBrowserExecutable();
-  // CI images may lack a browser тАФ only assert type / env override behavior.
+  // CI images may lack a browser — only assert type / env override behavior.
   if (path) {
     assert.equal(typeof path, "string");
     assert.ok(path.length > 0);
@@ -71,9 +221,9 @@ test("error path does not mention Playwright (packaged backend has no Playwright
     const { startAdobeFireflyBrowserLogin } =
       await import("../../open-sse/services/adobeFireflyBrowserLogin.ts");
     // resolveSystemBrowserExecutable still finds real Chrome before env if env
-    // path does not exist тАФ force by temporarily only using missing env:
+    // path does not exist — force by temporarily only using missing env:
     // when path is missing, existsSync fails and falls through to candidates.
-    // If Chrome exists on the machine this will open a browser тАФ skip live launch.
+    // If Chrome exists on the machine this will open a browser — skip live launch.
     // Instead assert the static error string for the no-browser branch:
     const msg =
       "No Chrome or Edge browser found for Adobe Firefly sign-in. " +

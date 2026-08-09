@@ -1232,7 +1232,9 @@
     "alwaysVisible": "همیشه نمایان",
     "groupSeparatorLabel": "جداکننده",
     "discovery": "شناسایی",
-    "discoverySubtitle": "اسکن ارائه‌دهندگان برای دسترسی رایگان"
+    "discoverySubtitle": "اسکن ارائه‌دهندگان برای دسترسی رایگان",
+    "resilienceConnections": "تاب‌آوری اتصال",
+    "resilienceConnectionsSubtitle": "خنک‌سازی، قطع‌کننده، وضعیت قفل"
   },
   "webhooks": {
     "title": "وب هوک ها",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) دوست بنیان‌گذار متن‌باز OmniRoute است",
     "cheaperInferenceSupporterBadge": "دوست متن‌باز",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference از OmniRoute به‌عنوان دوست متن‌باز حمایت می‌کند",
-    "kimiPartnerLinkNote": "لینک همکاری — پشتیبانی از OmniRoute بدون هزینه اضافی برای شما"
+    "kimiPartnerLinkNote": "لینک همکاری — پشتیبانی از OmniRoute بدون هزینه اضافی برای شما",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "حداقل طول پیام"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "کپی شد!",
     "run": "اجرا",
     "running": "در حال اجرا...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "پاسخ",
     "tunnel": "تونل",
     "send": "ارسال",
@@ -12317,5 +12332,99 @@
     "addConnection": "افزودن اتصال",
     "addConnectionDescription": "هنوز اتصالی ندارید؟ یکی را در داشبورد تأمین‌کنندگان اضافه کنید.",
     "addConnectionLink": "به تأمین‌کنندگان بروید →"
+  },
+  "resilienceConnections": {
+    "title": "تاب‌آوری اتصال",
+    "table": {
+      "status": "وضعیت",
+      "provider": "ارائه‌دهنده",
+      "connectionId": "اتصال",
+      "authType": "احراز هویت",
+      "backoffLevel": "عقب‌نشینی",
+      "cooldown": "خنک‌سازی",
+      "lastError": "آخرین خطا",
+      "lockouts": "قفل‌ها",
+      "healthy": "سالم",
+      "coolingDown": "خنک‌سازی",
+      "circuitOpen": "مدار باز",
+      "recovering": "در حال بازیابی",
+      "degraded": "تنزل‌یافته",
+      "terminal": "پایانه",
+      "unknown": "ناشناخته",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "انتقال‌های قطع‌کننده",
+      "window": "بازه",
+      "window1h": "۱ساعت",
+      "window6h": "۶ساعت",
+      "window24h": "۲۴ساعت",
+      "empty": "هیچ انتقالی در بازه انتخابی نیست",
+      "currentState": "وضعیت فعلی",
+      "state": {
+        "open": "باز",
+        "half_open": "نیمه‌باز",
+        "closed": "بسته",
+        "degraded": "تنزل‌یافته"
+      },
+      "reason": {
+        "timeout-elapsed": "پایان زمان",
+        "success-recovery": "بازیابی موفق",
+        "manual-reset": "بازنشانی دستی",
+        "probe-success": "کاوش موفق",
+        "recovery": "بازیابی",
+        "probe-failed": "کاوش ناموفق"
+      }
+    },
+    "detail": {
+      "title": "جزئیات اتصال",
+      "metadata": "فراداده",
+      "cooldown": "خنک‌سازی",
+      "lastError": "آخرین خطا",
+      "breaker": "قطع‌کننده مدار",
+      "lockouts": "قفل‌های مدل",
+      "rateLimitedUntil": "محدود شده تا",
+      "backoffLevel": "سطح عقب‌نشینی",
+      "remaining": "باقی‌مانده",
+      "noLockouts": "بدون قفل فعال",
+      "provider": "ارائه‌دهنده",
+      "id": "شناسه",
+      "authType": "نوع احراز هویت",
+      "priority": "اولویت",
+      "isActive": "فعال",
+      "errorCode": "کد خطا",
+      "lastErrorAt": "آخرین خطا در",
+      "yes": "بله",
+      "no": "خیر",
+      "close": "بستن",
+      "never": "-",
+      "failureCount": "تعداد شکست‌ها",
+      "retryAfterMs": "تلاش مجدد پس از (ms)",
+      "lastFailureKind": "آخرین نوع شکست"
+    },
+    "empty": {
+      "title": "بدون اتصال",
+      "description": "اتصالات ارائه‌دهنده اینجا نمایش داده می‌شود."
+    },
+    "loading": {
+      "title": "در حال بارگذاری",
+      "description": "در حال دریافت وضعیت تاب‌آوری اتصال..."
+    },
+    "summary": {
+      "total": "{count} اتصال",
+      "coolingDown": "{count} در حال خنک‌سازی",
+      "unhealthyBreakers": "{count} قطع‌کننده بسته نشده",
+      "capped": "نمایش ۱۰۰۰ مورد اول"
+    },
+    "pollingNote": "توجه: مشاهده این صفحه بازیابی تنبل قطع‌کننده را فعال می‌کند (کاوش‌های HALF_OPEN). به‌روزرسانی هر ۳۰ ثانیه.",
+    "retry": "تلاش مجدد",
+    "pollErrorLocalOnly": "این صفحه فقط از localhost یا LAN قابل دسترسی است (LOCAL_ONLY).",
+    "pollErrorStopped": "نظرسنجی متوقف شد: سرور درخواست را رد کرد (404/403).",
+    "pollErrorTransient": "خطا در دریافت داده: تلاش مجدد خودکار.",
+    "degraded": "داده ناقص: منابع در دسترس نیست: {sources}",
+    "degraded.source.database": "پایگاه داده",
+    "degraded.source.circuitBreaker": "قطع‌کننده مدار",
+    "degraded.source.modelLockouts": "قفل‌های مدل",
+    "degraded.source.count": "تعداد اتصالات"
   }
 }

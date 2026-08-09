@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Alltid synlig",
     "groupSeparatorLabel": "Skillelinje",
     "discovery": "Oppdagelse",
-    "discoverySubtitle": "Skann leverandører for gratis tilgang"
+    "discoverySubtitle": "Skann leverandører for gratis tilgang",
+    "resilienceConnections": "Tilkoblingsresiliens",
+    "resilienceConnectionsSubtitle": "Cooldown, bryter, lockout-status"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Ingen nye modeller ble lagt til (alle finnes allerede).",
     "importDoneCount": "✓ Ferdig! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Det oppstod en uventet feil",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "meldinger",
     "responsesPath": "svar",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) er OmniRoutes grunnleggende åpen kildekode-venn",
     "cheaperInferenceSupporterBadge": "Åpen kildekode-venn",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference støtter OmniRoute som åpen kildekode-venn",
-    "kimiPartnerLinkNote": "Partnerlenke — støtter OmniRoute uten ekstra kostnad for deg"
+    "kimiPartnerLinkNote": "Partnerlenke — støtter OmniRoute uten ekstra kostnad for deg",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Innstillinger",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimum meldingslengde"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Kopiert!",
     "run": "Kjør",
     "running": "Kjører...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Send",
@@ -12317,5 +12332,99 @@
     "addConnection": "Legg til tilkobling",
     "addConnectionDescription": "Har du ikke en tilkobling ennå? Legg til en i leverandørdashbordet.",
     "addConnectionLink": "Gå til leverandører →"
+  },
+  "resilienceConnections": {
+    "title": "Tilkoblingsresiliens",
+    "table": {
+      "status": "Status",
+      "provider": "Leverandør",
+      "connectionId": "Tilkobling",
+      "authType": "Autentisering",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Siste Feil",
+      "lockouts": "Lockouts",
+      "healthy": "Frisk",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Krets Åpen",
+      "recovering": "Gjenoppretter",
+      "degraded": "Forringet",
+      "terminal": "Terminal",
+      "unknown": "Ukjent",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Bryterovergangar",
+      "window": "Vindu",
+      "window1h": "1t",
+      "window6h": "6t",
+      "window24h": "24t",
+      "empty": "Ingen overganger i valgt vindu",
+      "currentState": "Gjeldende Status",
+      "state": {
+        "open": "Åpen",
+        "half_open": "Halvåpen",
+        "closed": "Lukket",
+        "degraded": "Forringet"
+      },
+      "reason": {
+        "timeout-elapsed": "Tidsavbrudd",
+        "success-recovery": "Gjenoppretting ved Suksess",
+        "manual-reset": "Manuell Tilbakestilling",
+        "probe-success": "Prøve Vellykket",
+        "recovery": "Gjenoppretting",
+        "probe-failed": "Prøve Mislyktes"
+      }
+    },
+    "detail": {
+      "title": "Tilkoblingsdetalj",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Siste Feil",
+      "breaker": "Kretsbryter",
+      "lockouts": "Modelllåsinger",
+      "rateLimitedUntil": "Hastighetsbegrenset Til",
+      "backoffLevel": "Backoff-nivå",
+      "remaining": "Gjenstående",
+      "noLockouts": "Ingen aktive lockouts",
+      "provider": "Leverandør",
+      "id": "ID",
+      "authType": "Autentiseringstype",
+      "priority": "Prioritet",
+      "isActive": "Aktiv",
+      "errorCode": "Feilkode",
+      "lastErrorAt": "Siste Feil Kl",
+      "yes": "Ja",
+      "no": "Nei",
+      "close": "Lukk",
+      "never": "-",
+      "failureCount": "Antall Feil",
+      "retryAfterMs": "Prøv Igjen Etter (ms)",
+      "lastFailureKind": "Siste Feiltype"
+    },
+    "empty": {
+      "title": "Ingen tilkoblinger",
+      "description": "Leverandørtilkoblinger vises her."
+    },
+    "loading": {
+      "title": "Laster",
+      "description": "Henter tilkoblingsresiliensstatus..."
+    },
+    "summary": {
+      "total": "{count} tilkoblinger",
+      "coolingDown": "{count} i cooldown",
+      "unhealthyBreakers": "{count} brytere ikke lukket",
+      "capped": "viser de første 1000"
+    },
+    "pollingNote": "Merk: visning av denne siden utløser bryterens late gjenoppretting (HALF_OPEN-prøver). Oppdateres hvert 30. sekund.",
+    "retry": "Prøv Igjen",
+    "pollErrorLocalOnly": "Denne siden er kun tilgjengelig fra localhost eller LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Polling stoppet: serveren avviste forespørselen (404/403).",
+    "pollErrorTransient": "Feil ved henting av data: prøver automatisk igjen.",
+    "degraded": "Delvise data: utilgjengelige kilder: {sources}",
+    "degraded.source.database": "Database",
+    "degraded.source.circuitBreaker": "Kretsbryter",
+    "degraded.source.modelLockouts": "Modelllåsinger",
+    "degraded.source.count": "Antall Tilkoblinger"
   }
 }

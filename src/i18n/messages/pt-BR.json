@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Sempre visível",
     "groupSeparatorLabel": "Separador",
     "discovery": "Descoberta",
-    "discoverySubtitle": "Buscar acesso gratuito em provedores"
+    "discoverySubtitle": "Buscar acesso gratuito em provedores",
+    "resilienceConnections": "Resiliência de Conexão",
+    "resilienceConnectionsSubtitle": "Cooldown, disjuntor, estado de bloqueio"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -6030,7 +6032,14 @@
     "kimiOfficialSupporterTooltip": "A Kimi (Moonshot AI) é a amiga fundadora de código aberto do OmniRoute",
     "cheaperInferenceSupporterBadge": "Amigo do Código Aberto",
     "cheaperInferenceSupporterTooltip": "A Cheaper Inference apoia o OmniRoute como amiga do código aberto",
-    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custo extra para você"
+    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custo extra para você",
+    "anonymousFallbackTitle": "Fallback anônimo",
+    "anonymousFallbackDesc": "Quando todas as conexões configuradas estiverem esgotadas (cota, créditos ou expiração), use temporariamente a camada sem chave deste provedor. Desative para ignorar este provedor em vez de enviar solicitações anônimas — recomendado quando a camada sem chave as rejeita (401).",
+    "anonymousFallbackEnabled": "Fallback anônimo ativado para {provider}",
+    "anonymousFallbackDisabled": "Fallback anônimo desativado para {provider} — conexões esgotadas ignorarão este provedor",
+    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anônimo",
+    "webSessionGuideStep2Fast": "Caminho rápido: instale a extensão Cookie Editor (chromewebstore.google.com → Cookie Editor), abra-a na aba do {provider}, encontre {credential} (se estiver dividido, selecione todos os trechos numerados) e clique em Export → Copy com o formato de exportação definido como “Cookie header”.",
+    "webSessionGuideStep3Manual": "Caminho manual: abra as ferramentas do desenvolvedor do navegador (F12 → Network), atualize a página, abra uma requisição autenticada e copie o valor do cabeçalho Cookie em Request Headers — omita o prefixo Cookie:."
   },
   "settings": {
     "title": "Configurações",
@@ -7835,6 +7844,10 @@
       },
       "minMessageLength": {
         "label": "Comprimento mínimo da mensagem"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -12321,5 +12334,99 @@
     "addConnection": "Adicionar conexão",
     "addConnectionDescription": "Ainda não tem uma conexão? Adicione uma no painel de provedores.",
     "addConnectionLink": "Ir para provedores →"
+  },
+  "resilienceConnections": {
+    "title": "Resiliência de Conexão",
+    "table": {
+      "status": "Status",
+      "provider": "Provedor",
+      "connectionId": "Conexão",
+      "authType": "Autenticação",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Último Erro",
+      "lockouts": "Bloqueios",
+      "healthy": "Saudável",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuito Aberto",
+      "recovering": "Recuperando",
+      "degraded": "Degradado",
+      "terminal": "Terminal",
+      "unknown": "Desconhecido",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Transições do Disjuntor",
+      "window": "Janela",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Nenhuma transição na janela selecionada",
+      "currentState": "Estado Atual",
+      "state": {
+        "open": "Aberto",
+        "half_open": "Meio Aberto",
+        "closed": "Fechado",
+        "degraded": "Degradado"
+      },
+      "reason": {
+        "timeout-elapsed": "Tempo Limite Esgotado",
+        "success-recovery": "Recuperação por Sucesso",
+        "manual-reset": "Reset Manual",
+        "probe-success": "Sondagem com Sucesso",
+        "recovery": "Recuperação",
+        "probe-failed": "Sondagem Falhou"
+      }
+    },
+    "detail": {
+      "title": "Detalhe da Conexão",
+      "metadata": "Metadados",
+      "cooldown": "Cooldown",
+      "lastError": "Último Erro",
+      "breaker": "Disjuntor",
+      "lockouts": "Bloqueios de Modelo",
+      "rateLimitedUntil": "Limitado por Taxa Até",
+      "backoffLevel": "Nível de Backoff",
+      "remaining": "Restante",
+      "noLockouts": "Nenhum bloqueio ativo",
+      "provider": "Provedor",
+      "id": "ID",
+      "authType": "Tipo de Autenticação",
+      "priority": "Prioridade",
+      "isActive": "Ativo",
+      "errorCode": "Código de Erro",
+      "lastErrorAt": "Último Erro Em",
+      "yes": "Sim",
+      "no": "Não",
+      "close": "Fechar",
+      "never": "-",
+      "failureCount": "Contagem de Falhas",
+      "retryAfterMs": "Repetir Após (ms)",
+      "lastFailureKind": "Último Tipo de Falha"
+    },
+    "empty": {
+      "title": "Nenhuma conexão",
+      "description": "As conexões do provedor aparecerão aqui."
+    },
+    "loading": {
+      "title": "Carregando",
+      "description": "Buscando estado de resiliência da conexão..."
+    },
+    "summary": {
+      "total": "{count} conexões",
+      "coolingDown": "{count} em cooldown",
+      "unhealthyBreakers": "{count} disjuntores não fechados",
+      "capped": "mostrando os primeiros 1000"
+    },
+    "pollingNote": "Nota: visualizar esta página aciona a recuperação preguiçosa do disjuntor (sondagens HALF_OPEN). Atualização a cada 30s.",
+    "retry": "Repetir",
+    "pollErrorLocalOnly": "Esta página só é acessível a partir de localhost ou LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Sondagem interrompida: o servidor rejeitou a requisição (404/403).",
+    "pollErrorTransient": "Erro ao buscar dados: repetindo automaticamente.",
+    "degraded": "Dados parciais: fontes indisponíveis: {sources}",
+    "degraded.source.database": "Banco de Dados",
+    "degraded.source.circuitBreaker": "Disjuntor",
+    "degraded.source.modelLockouts": "Bloqueios de Modelo",
+    "degraded.source.count": "Contagem de Conexões"
   }
 }

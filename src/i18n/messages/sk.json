@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Vždy viditeľné",
     "groupSeparatorLabel": "Oddeľovač",
     "discovery": "Zisťovanie",
-    "discoverySubtitle": "Skenovať poskytovateľov na bezplatný prístup"
+    "discoverySubtitle": "Skenovať poskytovateľov na bezplatný prístup",
+    "resilienceConnections": "Odolnosť Pripojenia",
+    "resilienceConnectionsSubtitle": "Cooldown, istič, stav uzamknutia"
   },
   "webhooks": {
     "title": "Webhooky",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Neboli pridané žiadne nové modely (všetky už existujú).",
     "importDoneCount": "✓ Hotovo! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Vyskytla sa neočakávaná chyba",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "správy",
     "responsesPath": "odozvy",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) je zakladajúci open source priateľ OmniRoute",
     "cheaperInferenceSupporterBadge": "Priateľ open source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference podporuje OmniRoute ako priateľ open source",
-    "kimiPartnerLinkNote": "Partnerský odkaz — podporuje OmniRoute bez akýchkoľvek dodatočných nákladov pre vás"
+    "kimiPartnerLinkNote": "Partnerský odkaz — podporuje OmniRoute bez akýchkoľvek dodatočných nákladov pre vás",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Nastavenia",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimálna dĺžka správy"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Skopírované!",
     "run": "Spustiť",
     "running": "Spúšťa sa...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Odpoveď",
     "tunnel": "Tunel",
     "send": "Odoslať",
@@ -12317,5 +12332,99 @@
     "addConnection": "Pridať pripojenie",
     "addConnectionDescription": "Ešte nemáte pripojenie? Pridajte jedno v ovládacom paneli poskytovateľov.",
     "addConnectionLink": "Prejdite na poskytovateľov →"
+  },
+  "resilienceConnections": {
+    "title": "Odolnosť Pripojenia",
+    "table": {
+      "status": "Stav",
+      "provider": "Poskytovateľ",
+      "connectionId": "Pripojenie",
+      "authType": "Autentifikácia",
+      "backoffLevel": "Odklad",
+      "cooldown": "Cooldown",
+      "lastError": "Posledná Chyba",
+      "lockouts": "Uzamknutia",
+      "healthy": "Zdravé",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Obvod Otvorený",
+      "recovering": "Zotavuje sa",
+      "degraded": "Zhoršené",
+      "terminal": "Terminál",
+      "unknown": "Neznáme",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Prechody Ističa",
+      "window": "Okno",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Žiadne prechody vo vybranom okne",
+      "currentState": "Aktuálny Stav",
+      "state": {
+        "open": "Otvorené",
+        "half_open": "Polootvorené",
+        "closed": "Zatvorené",
+        "degraded": "Zhoršené"
+      },
+      "reason": {
+        "timeout-elapsed": "Časový Limit Vypršal",
+        "success-recovery": "Zotavenie Úspechom",
+        "manual-reset": "Ručný Reset",
+        "probe-success": "Sonda Úspešná",
+        "recovery": "Zotavenie",
+        "probe-failed": "Sonda Zlyhala"
+      }
+    },
+    "detail": {
+      "title": "Detail Pripojenia",
+      "metadata": "Metadáta",
+      "cooldown": "Cooldown",
+      "lastError": "Posledná Chyba",
+      "breaker": "Istič",
+      "lockouts": "Uzamknutia Modelu",
+      "rateLimitedUntil": "Obmedzené Do",
+      "backoffLevel": "Úroveň Odkladu",
+      "remaining": "Zostáva",
+      "noLockouts": "Žiadne aktívne uzamknutia",
+      "provider": "Poskytovateľ",
+      "id": "ID",
+      "authType": "Typ Autentifikácie",
+      "priority": "Priorita",
+      "isActive": "Aktívne",
+      "errorCode": "Kód Chyby",
+      "lastErrorAt": "Posledná Chyba O",
+      "yes": "Áno",
+      "no": "Nie",
+      "close": "Zavrieť",
+      "never": "-",
+      "failureCount": "Počet Zlyhaní",
+      "retryAfterMs": "Skúsiť Znova Po (ms)",
+      "lastFailureKind": "Posledný Typ Zlyhania"
+    },
+    "empty": {
+      "title": "Žiadne pripojenia",
+      "description": "Pripojenia poskytovateľa sa zobrazia tu."
+    },
+    "loading": {
+      "title": "Načítava sa",
+      "description": "Načítava sa stav odolnosti pripojenia..."
+    },
+    "summary": {
+      "total": "{count} pripojení",
+      "coolingDown": "{count} v cooldowne",
+      "unhealthyBreakers": "{count} ističov nezatvorených",
+      "capped": "zobrazených prvých 1000"
+    },
+    "pollingNote": "Poznámka: zobrazenie tejto stránky spúšťa lenivé zotavenie ističa (sondy HALF_OPEN). Aktualizácia každých 30 s.",
+    "retry": "Skúsiť Znova",
+    "pollErrorLocalOnly": "Táto stránka je prístupná iba z localhost alebo LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Dopytovanie zastavené: server odmietol požiadavku (404/403).",
+    "pollErrorTransient": "Chyba pri načítaní dát: automatické opakovanie.",
+    "degraded": "Čiastočné dáta: nedostupné zdroje: {sources}",
+    "degraded.source.database": "Databáza",
+    "degraded.source.circuitBreaker": "Istič",
+    "degraded.source.modelLockouts": "Uzamknutia Modelu",
+    "degraded.source.count": "Počet Pripojení"
   }
 }

@@ -1232,7 +1232,9 @@
     "alwaysVisible": "항상 표시",
     "groupSeparatorLabel": "구분선",
     "discovery": "디스커버리",
-    "discoverySubtitle": "무료 액세스를 위한 제공자 스캔"
+    "discoverySubtitle": "무료 액세스를 위한 제공자 스캔",
+    "resilienceConnections": "연결 복원력",
+    "resilienceConnectionsSubtitle": "쿨다운, 차단기, 잠금 상태"
   },
   "webhooks": {
     "title": "웹훅",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "새로운 모델이 추가되지 않았습니다(모두 이미 존재함).",
     "importDoneCount": "✓ 완료! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "예상치 못한 오류가 발생했습니다.",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi(Moonshot AI)는 OmniRoute의 창립 오픈소스 프렌드입니다",
     "cheaperInferenceSupporterBadge": "오픈 소스 친구",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference는 오픈 소스 친구로서 OmniRoute를 후원합니다",
-    "kimiPartnerLinkNote": "파트너 링크 — 추가 비용 없이 OmniRoute를 지원합니다"
+    "kimiPartnerLinkNote": "파트너 링크 — 추가 비용 없이 OmniRoute를 지원합니다",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "설정",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "최소 메시지 길이"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "복사되었습니다!",
     "run": "실행",
     "running": "실행 중...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "응답",
     "tunnel": "터널",
     "send": "전송",
@@ -12317,5 +12332,99 @@
     "addConnection": "연결 추가",
     "addConnectionDescription": "아직 연결이 없으신가요? 제공자 대시보드에서 추가하세요.",
     "addConnectionLink": "제공자로 이동 →"
+  },
+  "resilienceConnections": {
+    "title": "연결 복원력",
+    "table": {
+      "status": "상태",
+      "provider": "공급자",
+      "connectionId": "연결",
+      "authType": "인증",
+      "backoffLevel": "백오프",
+      "cooldown": "쿨다운",
+      "lastError": "마지막 오류",
+      "lockouts": "잠금",
+      "healthy": "정상",
+      "coolingDown": "쿨다운",
+      "circuitOpen": "회로 열림",
+      "recovering": "복구 중",
+      "degraded": "저하됨",
+      "terminal": "종료",
+      "unknown": "알 수 없음",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "차단기 전환",
+      "window": "기간",
+      "window1h": "1시간",
+      "window6h": "6시간",
+      "window24h": "24시간",
+      "empty": "선택한 기간에 전환 없음",
+      "currentState": "현재 상태",
+      "state": {
+        "open": "열림",
+        "half_open": "반열림",
+        "closed": "닫힘",
+        "degraded": "저하됨"
+      },
+      "reason": {
+        "timeout-elapsed": "시간 초과",
+        "success-recovery": "성공에 의한 복구",
+        "manual-reset": "수동 재설정",
+        "probe-success": "프로브 성공",
+        "recovery": "복구",
+        "probe-failed": "프로브 실패"
+      }
+    },
+    "detail": {
+      "title": "연결 상세",
+      "metadata": "메타데이터",
+      "cooldown": "쿨다운",
+      "lastError": "마지막 오류",
+      "breaker": "회로 차단기",
+      "lockouts": "모델 잠금",
+      "rateLimitedUntil": "속도 제한 만료 시각",
+      "backoffLevel": "백오프 수준",
+      "remaining": "남은 시간",
+      "noLockouts": "활성 잠금 없음",
+      "provider": "공급자",
+      "id": "ID",
+      "authType": "인증 유형",
+      "priority": "우선순위",
+      "isActive": "활성",
+      "errorCode": "오류 코드",
+      "lastErrorAt": "마지막 오류 시각",
+      "yes": "예",
+      "no": "아니오",
+      "close": "닫기",
+      "never": "-",
+      "failureCount": "실패 횟수",
+      "retryAfterMs": "재시도까지(ms)",
+      "lastFailureKind": "마지막 실패 유형"
+    },
+    "empty": {
+      "title": "연결 없음",
+      "description": "공급자 연결이 여기에 표시됩니다."
+    },
+    "loading": {
+      "title": "로딩 중",
+      "description": "연결 복원력 상태를 가져오는 중..."
+    },
+    "summary": {
+      "total": "{count}개 연결",
+      "coolingDown": "{count}개 쿨다운 중",
+      "unhealthyBreakers": "{count}개 차단기 닫히지 않음",
+      "capped": "처음 1000개 표시 중"
+    },
+    "pollingNote": "참고: 이 페이지를 보면 회로 차단기의 지연 복구(HALF_OPEN 프로브)가 트리거됩니다. 30초마다 새로고침됩니다.",
+    "retry": "재시도",
+    "pollErrorLocalOnly": "이 페이지는 localhost 또는 LAN에서만 접근 가능합니다(LOCAL_ONLY).",
+    "pollErrorStopped": "폴링 중지됨: 서버가 요청을 거부했습니다(404/403).",
+    "pollErrorTransient": "데이터 가져오기 오류: 자동으로 재시도합니다.",
+    "degraded": "부분 데이터: 사용할 수 없는 소스: {sources}",
+    "degraded.source.database": "데이터베이스",
+    "degraded.source.circuitBreaker": "회로 차단기",
+    "degraded.source.modelLockouts": "모델 잠금",
+    "degraded.source.count": "연결 수"
   }
 }

@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Immer sichtbar",
     "groupSeparatorLabel": "Trennlinie",
     "discovery": "Discovery",
-    "discoverySubtitle": "Anbieter auf kostenlosen Zugang scannen"
+    "discoverySubtitle": "Anbieter auf kostenlosen Zugang scannen",
+    "resilienceConnections": "Verbindungsresilienz",
+    "resilienceConnectionsSubtitle": "Cooldown, Schalter, Sperrstatus"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Es wurden keine neuen Modelle hinzugefügt (alle bereits vorhanden).",
     "importDoneCount": "✓ Fertig! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Es ist ein unerwarteter Fehler aufgetreten",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "Nachrichten",
     "responsesPath": "Antworten",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) ist OmniRoutes Gründungs-Open-Source-Freund",
     "cheaperInferenceSupporterBadge": "Open-Source-Freund",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference unterstützt OmniRoute als Open-Source-Freund",
-    "kimiPartnerLinkNote": "Partnerlink — unterstützt OmniRoute ohne zusätzliche Kosten für Sie"
+    "kimiPartnerLinkNote": "Partnerlink — unterstützt OmniRoute ohne zusätzliche Kosten für Sie",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Einstellungen",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Mindestlänge der Nachricht"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Kopiert!",
     "run": "Ausführen",
     "running": "Wird ausgeführt...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Antwort",
     "tunnel": "Tunnel",
     "send": "Senden",
@@ -12317,5 +12332,99 @@
     "addConnection": "Verbindung hinzufügen",
     "addConnectionDescription": "Haben Sie noch keine Verbindung? Fügen Sie eine im Anbieter-Dashboard hinzu.",
     "addConnectionLink": "Zu den Anbietern →"
+  },
+  "resilienceConnections": {
+    "title": "Verbindungsresilienz",
+    "table": {
+      "status": "Status",
+      "provider": "Anbieter",
+      "connectionId": "Verbindung",
+      "authType": "Auth",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Letzter Fehler",
+      "lockouts": "Sperren",
+      "healthy": "Gesund",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Schaltkreis Offen",
+      "recovering": "Erholung",
+      "degraded": "Beeinträchtigt",
+      "terminal": "Terminal",
+      "unknown": "Unbekannt",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Schalterübergänge",
+      "window": "Zeitfenster",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Keine Übergänge im ausgewählten Zeitfenster",
+      "currentState": "Aktueller Status",
+      "state": {
+        "open": "Offen",
+        "half_open": "Halboffen",
+        "closed": "Geschlossen",
+        "degraded": "Beeinträchtigt"
+      },
+      "reason": {
+        "timeout-elapsed": "Zeitüberschreitung",
+        "success-recovery": "Erholung durch Erfolg",
+        "manual-reset": "Manueller Reset",
+        "probe-success": "Sondierung Erfolgreich",
+        "recovery": "Erholung",
+        "probe-failed": "Sondierung Fehlgeschlagen"
+      }
+    },
+    "detail": {
+      "title": "Verbindungsdetail",
+      "metadata": "Metadaten",
+      "cooldown": "Cooldown",
+      "lastError": "Letzter Fehler",
+      "breaker": "Leistungsschalter",
+      "lockouts": "Modellsperren",
+      "rateLimitedUntil": "Ratenbegrenzt Bis",
+      "backoffLevel": "Backoff-Stufe",
+      "remaining": "Verbleibend",
+      "noLockouts": "Keine aktiven Sperren",
+      "provider": "Anbieter",
+      "id": "ID",
+      "authType": "Auth-Typ",
+      "priority": "Priorität",
+      "isActive": "Aktiv",
+      "errorCode": "Fehlercode",
+      "lastErrorAt": "Letzter Fehler Am",
+      "yes": "Ja",
+      "no": "Nein",
+      "close": "Schließen",
+      "never": "-",
+      "failureCount": "Fehleranzahl",
+      "retryAfterMs": "Erneut Versuchen Nach (ms)",
+      "lastFailureKind": "Letzte Fehlerart"
+    },
+    "empty": {
+      "title": "Keine Verbindungen",
+      "description": "Anbieterverbindungen werden hier angezeigt."
+    },
+    "loading": {
+      "title": "Wird geladen",
+      "description": "Verbindungsresilienzstatus wird abgerufen..."
+    },
+    "summary": {
+      "total": "{count} Verbindungen",
+      "coolingDown": "{count} im Cooldown",
+      "unhealthyBreakers": "{count} Schalter nicht geschlossen",
+      "capped": "zeigt die ersten 1000"
+    },
+    "pollingNote": "Hinweis: Das Aufrufen dieser Seite löst die verzögerte Wiederherstellung des Schalters aus (HALF_OPEN-Sondierungen). Aktualisierung alle 30s.",
+    "retry": "Erneut Versuchen",
+    "pollErrorLocalOnly": "Diese Seite ist nur von localhost oder LAN aus zugänglich (LOCAL_ONLY).",
+    "pollErrorStopped": "Abfrage gestoppt: Der Server hat die Anfrage abgelehnt (404/403).",
+    "pollErrorTransient": "Fehler beim Abrufen der Daten: automatischer erneuter Versuch.",
+    "degraded": "Teildaten: nicht verfügbare Quellen: {sources}",
+    "degraded.source.database": "Datenbank",
+    "degraded.source.circuitBreaker": "Leistungsschalter",
+    "degraded.source.modelLockouts": "Modellsperren",
+    "degraded.source.count": "Verbindungsanzahl"
   }
 }

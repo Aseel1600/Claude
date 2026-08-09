@@ -1232,7 +1232,9 @@
     "alwaysVisible": "ఎల్లప్పుడూ కనిపిస్తుంది",
     "groupSeparatorLabel": "సెపరేటర్",
     "discovery": "డిస్కవరీ",
-    "discoverySubtitle": "ఉచిత యాక్సెస్ కోసం ప్రొవైడర్లను స్కాన్ చేయండి"
+    "discoverySubtitle": "ఉచిత యాక్సెస్ కోసం ప్రొవైడర్లను స్కాన్ చేయండి",
+    "resilienceConnections": "కనెక్షన్ స్థితిస్థాపకత",
+    "resilienceConnectionsSubtitle": "కూల్‌డౌన్, బ్రేకర్, లాక్‌అవుట్ స్థితి"
   },
   "webhooks": {
     "title": "వెబ్‌బూక్స్",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) అనేది OmniRoute యొక్క వ్యవస్థాపక ఓపెన్ సోర్స్ మిత్రుడు",
     "cheaperInferenceSupporterBadge": "ఓపెన్ సోర్స్ స్నేహితుడు",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference ఓపెన్ సోర్స్ స్నేహితురాలిగా OmniRoute కు మద్దతు ఇస్తోంది",
-    "kimiPartnerLinkNote": "భాగస్వామి లింక్ — మీకు ఎటువంటి అదనపు ఖర్చు లేకుండా OmniRouteకు మద్దతు ఇస్తుంది"
+    "kimiPartnerLinkNote": "భాగస్వామి లింక్ — మీకు ఎటువంటి అదనపు ఖర్చు లేకుండా OmniRouteకు మద్దతు ఇస్తుంది",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "కనీస సందేశ నిడివి"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "కాపీ చేయబడింది!",
     "run": "రన్ చేయండి",
     "running": "రన్ అవుతోంది...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "ప్రతిస్పందన",
     "tunnel": "టన్నెల్",
     "send": "పంపండి",
@@ -12317,5 +12332,99 @@
     "addConnection": "కనెక్షన్ జోడించండి",
     "addConnectionDescription": "ఇంకా కనెక్షన్ లేదు? ప్రొవైడర్ డాష్‌బోర్డులో ఒకటి జోడించండి.",
     "addConnectionLink": "ప్రొవైడర్లకు వెళ్లండి →"
+  },
+  "resilienceConnections": {
+    "title": "కనెక్షన్ స్థితిస్థాపకత",
+    "table": {
+      "status": "స్థితి",
+      "provider": "ప్రొవైడర్",
+      "connectionId": "కనెక్షన్",
+      "authType": "ప్రామాణీకరణ",
+      "backoffLevel": "బ్యాక్‌ఆఫ్",
+      "cooldown": "కూల్‌డౌన్",
+      "lastError": "చివరి లోపం",
+      "lockouts": "లాక్‌అవుట్‌లు",
+      "healthy": "ఆరోగ్యంగా",
+      "coolingDown": "కూల్‌డౌన్",
+      "circuitOpen": "సర్క్యూట్ ఓపెన్",
+      "recovering": "కోలుకుంటోంది",
+      "degraded": "క్షీణించింది",
+      "terminal": "టెర్మినల్",
+      "unknown": "తెలియదు",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "బ్రేకర్ మార్పులు",
+      "window": "విండో",
+      "window1h": "1గం",
+      "window6h": "6గం",
+      "window24h": "24గం",
+      "empty": "ఎంచుకున్న విండోలో మార్పులు లేవు",
+      "currentState": "ప్రస్తుత స్థితి",
+      "state": {
+        "open": "తెరిచి ఉంది",
+        "half_open": "సగం తెరిచి ఉంది",
+        "closed": "మూసివేయబడింది",
+        "degraded": "క్షీణించింది"
+      },
+      "reason": {
+        "timeout-elapsed": "సమయం ముగిసింది",
+        "success-recovery": "విజయం ద్వారా కోలుకోవడం",
+        "manual-reset": "మాన్యువల్ రీసెట్",
+        "probe-success": "ప్రోబ్ విజయవంతమైంది",
+        "recovery": "కోలుకోవడం",
+        "probe-failed": "ప్రోబ్ విఫలమైంది"
+      }
+    },
+    "detail": {
+      "title": "కనెక్షన్ వివరాలు",
+      "metadata": "మెటాడేటా",
+      "cooldown": "కూల్‌డౌన్",
+      "lastError": "చివరి లోపం",
+      "breaker": "సర్క్యూట్ బ్రేకర్",
+      "lockouts": "మోడల్ లాక్‌అవుట్‌లు",
+      "rateLimitedUntil": "వరకు రేటు-పరిమితం",
+      "backoffLevel": "బ్యాక్‌ఆఫ్ స్థాయి",
+      "remaining": "మిగిలినవి",
+      "noLockouts": "క్రియాశీల లాక్‌అవుట్‌లు లేవు",
+      "provider": "ప్రొవైడర్",
+      "id": "ID",
+      "authType": "ప్రామాణీకరణ రకం",
+      "priority": "ప్రాధాన్యత",
+      "isActive": "క్రియాశీలం",
+      "errorCode": "లోప కోడ్",
+      "lastErrorAt": "చివరి లోపం సమయం",
+      "yes": "అవును",
+      "no": "కాదు",
+      "close": "మూసివేయి",
+      "never": "-",
+      "failureCount": "వైఫల్యాల సంఖ్య",
+      "retryAfterMs": "తర్వాత మళ్లీ ప్రయత్నించండి (ms)",
+      "lastFailureKind": "చివరి వైఫల్య రకం"
+    },
+    "empty": {
+      "title": "కనెక్షన్‌లు లేవు",
+      "description": "ప్రొవైడర్ కనెక్షన్‌లు ఇక్కడ కనిపిస్తాయి."
+    },
+    "loading": {
+      "title": "లోడ్ అవుతోంది",
+      "description": "కనెక్షన్ స్థితిస్థాపకత స్థితిని పొందుతోంది..."
+    },
+    "summary": {
+      "total": "{count} కనెక్షన్‌లు",
+      "coolingDown": "{count} కూల్‌డౌన్‌లో",
+      "unhealthyBreakers": "{count} బ్రేకర్లు మూసివేయబడలేదు",
+      "capped": "మొదటి 1000 చూపిస్తోంది"
+    },
+    "pollingNote": "గమనిక: ఈ పేజీని చూడటం బ్రేకర్ యొక్క ఆలస్య రికవరీని ప్రేరేపిస్తుంది (HALF_OPEN ప్రోబ్‌లు). ప్రతి 30సె రిఫ్రెష్ అవుతుంది.",
+    "retry": "మళ్లీ ప్రయత్నించండి",
+    "pollErrorLocalOnly": "ఈ పేజీ localhost లేదా LAN నుండి మాత్రమే యాక్సెస్ చేయబడుతుంది (LOCAL_ONLY).",
+    "pollErrorStopped": "పోలింగ్ ఆగింది: సర్వర్ అభ్యర్థనను తిరస్కరించింది (404/403).",
+    "pollErrorTransient": "డేటాను పొందడంలో లోపం: స్వయంచాలకంగా మళ్లీ ప్రయత్నిస్తోంది.",
+    "degraded": "పాక్షిక డేటా: అందుబాటులో లేని మూలాలు: {sources}",
+    "degraded.source.database": "డేటాబేస్",
+    "degraded.source.circuitBreaker": "సర్క్యూట్ బ్రేకర్",
+    "degraded.source.modelLockouts": "మోడల్ లాక్‌అవుట్‌లు",
+    "degraded.source.count": "కనెక్షన్ల సంఖ్య"
   }
 }

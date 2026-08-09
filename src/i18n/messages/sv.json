@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Alltid synlig",
     "groupSeparatorLabel": "Avskiljare",
     "discovery": "Upptäckt",
-    "discoverySubtitle": "Skanna leverantörer efter fri åtkomst"
+    "discoverySubtitle": "Skanna leverantörer efter fri åtkomst",
+    "resilienceConnections": "Anslutningsresiliens",
+    "resilienceConnectionsSubtitle": "Cooldown, brytare, låsstatus"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Inga nya modeller har lagts till (alla finns redan).",
     "importDoneCount": "✓ Klart! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ett oväntat fel inträffade",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "meddelanden",
     "responsesPath": "svar",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) är OmniRoutes grundande öppen källkod-vän",
     "cheaperInferenceSupporterBadge": "Öppen källkod-vän",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference stödjer OmniRoute som öppen källkod-vän",
-    "kimiPartnerLinkNote": "Partnerlänk — stöder OmniRoute utan extra kostnad för dig"
+    "kimiPartnerLinkNote": "Partnerlänk — stöder OmniRoute utan extra kostnad för dig",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Inställningar",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minsta meddelandelängd"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Kopierat!",
     "run": "Kör",
     "running": "Körs...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Svar",
     "tunnel": "Tunnel",
     "send": "Skicka",
@@ -12317,5 +12332,99 @@
     "addConnection": "Lägg till anslutning",
     "addConnectionDescription": "Har du ingen anslutning ännu? Lägg till en i leverantörernas instrumentpanel.",
     "addConnectionLink": "Gå till leverantörer →"
+  },
+  "resilienceConnections": {
+    "title": "Anslutningsresiliens",
+    "table": {
+      "status": "Status",
+      "provider": "Leverantör",
+      "connectionId": "Anslutning",
+      "authType": "Autentisering",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Senaste Fel",
+      "lockouts": "Låsningar",
+      "healthy": "Frisk",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Krets Öppen",
+      "recovering": "Återhämtar",
+      "degraded": "Försämrad",
+      "terminal": "Terminal",
+      "unknown": "Okänd",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Brytarövergångar",
+      "window": "Fönster",
+      "window1h": "1t",
+      "window6h": "6t",
+      "window24h": "24t",
+      "empty": "Inga övergångar i valt fönster",
+      "currentState": "Nuvarande Status",
+      "state": {
+        "open": "Öppen",
+        "half_open": "Halvöppen",
+        "closed": "Stängd",
+        "degraded": "Försämrad"
+      },
+      "reason": {
+        "timeout-elapsed": "Timeout Uppnådd",
+        "success-recovery": "Återhämtning genom Framgång",
+        "manual-reset": "Manuell Återställning",
+        "probe-success": "Sondering Lyckades",
+        "recovery": "Återhämtning",
+        "probe-failed": "Sondering Misslyckades"
+      }
+    },
+    "detail": {
+      "title": "Anslutningsdetalj",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Senaste Fel",
+      "breaker": "Kretsbrytare",
+      "lockouts": "Modellåsningar",
+      "rateLimitedUntil": "Hastighetsbegränsad Till",
+      "backoffLevel": "Backoff-nivå",
+      "remaining": "Återstående",
+      "noLockouts": "Inga aktiva låsningar",
+      "provider": "Leverantör",
+      "id": "ID",
+      "authType": "Autentiseringstyp",
+      "priority": "Prioritet",
+      "isActive": "Aktiv",
+      "errorCode": "Felkod",
+      "lastErrorAt": "Senaste Fel Vid",
+      "yes": "Ja",
+      "no": "Nej",
+      "close": "Stäng",
+      "never": "-",
+      "failureCount": "Antal Fel",
+      "retryAfterMs": "Försök Igen Efter (ms)",
+      "lastFailureKind": "Senaste Feltyp"
+    },
+    "empty": {
+      "title": "Inga anslutningar",
+      "description": "Leverantörsanslutningar visas här."
+    },
+    "loading": {
+      "title": "Laddar",
+      "description": "Hämtar anslutningsresiliensstatus..."
+    },
+    "summary": {
+      "total": "{count} anslutningar",
+      "coolingDown": "{count} i cooldown",
+      "unhealthyBreakers": "{count} brytare ej stängda",
+      "capped": "visar de första 1000"
+    },
+    "pollingNote": "Obs: att visa denna sida utlöser brytarens lata återhämtning (HALF_OPEN-sonderingar). Uppdateras var 30:e sekund.",
+    "retry": "Försök Igen",
+    "pollErrorLocalOnly": "Denna sida är endast åtkomlig från localhost eller LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Pollning stoppad: servern avvisade förfrågan (404/403).",
+    "pollErrorTransient": "Fel vid hämtning av data: försöker automatiskt igen.",
+    "degraded": "Partiell data: otillgängliga källor: {sources}",
+    "degraded.source.database": "Databas",
+    "degraded.source.circuitBreaker": "Kretsbrytare",
+    "degraded.source.modelLockouts": "Modellåsningar",
+    "degraded.source.count": "Antal Anslutningar"
   }
 }

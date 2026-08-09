@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Завжди видимий",
     "groupSeparatorLabel": "Розділювач",
     "discovery": "Виявлення",
-    "discoverySubtitle": "Сканувати провайдерів на наявність безкоштовного доступу"
+    "discoverySubtitle": "Сканувати провайдерів на наявність безкоштовного доступу",
+    "resilienceConnections": "Стійкість З'єднання",
+    "resilienceConnectionsSubtitle": "Охолодження, автомат, стан блокування"
   },
   "webhooks": {
     "title": "Веб-хуки",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Нові моделі не додано (усі вже є).",
     "importDoneCount": "✓ Готово! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Сталася неочікувана помилка",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "повідомлення",
     "responsesPath": "відповіді",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) — друг-засновник відкритого коду OmniRoute",
     "cheaperInferenceSupporterBadge": "Друг відкритого коду",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference підтримує OmniRoute як друг відкритого коду",
-    "kimiPartnerLinkNote": "Партнерське посилання — підтримує OmniRoute без додаткових витрат для вас"
+    "kimiPartnerLinkNote": "Партнерське посилання — підтримує OmniRoute без додаткових витрат для вас",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Налаштування",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Мінімальна довжина повідомлення"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Скопійовано!",
     "run": "Запустити",
     "running": "Виконання...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Відповідь",
     "tunnel": "Тунель",
     "send": "Надіслати",
@@ -12317,5 +12332,99 @@
     "addConnection": "Додати з'єднання",
     "addConnectionDescription": "Ще немає з'єднання? Додайте його на панелі постачальників.",
     "addConnectionLink": "Перейти до постачальників →"
+  },
+  "resilienceConnections": {
+    "title": "Стійкість З'єднання",
+    "table": {
+      "status": "Статус",
+      "provider": "Постачальник",
+      "connectionId": "З'єднання",
+      "authType": "Автентифікація",
+      "backoffLevel": "Відкат",
+      "cooldown": "Охолодження",
+      "lastError": "Остання Помилка",
+      "lockouts": "Блокування",
+      "healthy": "Справний",
+      "coolingDown": "Охолодження",
+      "circuitOpen": "Коло Розімкнено",
+      "recovering": "Відновлюється",
+      "degraded": "Погіршено",
+      "terminal": "Термінал",
+      "unknown": "Невідомо",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Переходи Автомата",
+      "window": "Вікно",
+      "window1h": "1г",
+      "window6h": "6г",
+      "window24h": "24г",
+      "empty": "Немає переходів у вибраному вікні",
+      "currentState": "Поточний Стан",
+      "state": {
+        "open": "Розімкнено",
+        "half_open": "Напіврозімкнено",
+        "closed": "Замкнено",
+        "degraded": "Погіршено"
+      },
+      "reason": {
+        "timeout-elapsed": "Час Очікування Вичерпано",
+        "success-recovery": "Відновлення Успіхом",
+        "manual-reset": "Ручне Скидання",
+        "probe-success": "Перевірка Успішна",
+        "recovery": "Відновлення",
+        "probe-failed": "Перевірка Невдала"
+      }
+    },
+    "detail": {
+      "title": "Деталі З'єднання",
+      "metadata": "Метадані",
+      "cooldown": "Охолодження",
+      "lastError": "Остання Помилка",
+      "breaker": "Автоматичний Вимикач",
+      "lockouts": "Блокування Моделі",
+      "rateLimitedUntil": "Обмежено за Швидкістю До",
+      "backoffLevel": "Рівень Відкату",
+      "remaining": "Залишилось",
+      "noLockouts": "Немає активних блокувань",
+      "provider": "Постачальник",
+      "id": "ID",
+      "authType": "Тип Автентифікації",
+      "priority": "Пріоритет",
+      "isActive": "Активний",
+      "errorCode": "Код Помилки",
+      "lastErrorAt": "Остання Помилка О",
+      "yes": "Так",
+      "no": "Ні",
+      "close": "Закрити",
+      "never": "-",
+      "failureCount": "Кількість Збоїв",
+      "retryAfterMs": "Повторити Через (мс)",
+      "lastFailureKind": "Останній Тип Збою"
+    },
+    "empty": {
+      "title": "Немає з'єднань",
+      "description": "З'єднання постачальника з'являться тут."
+    },
+    "loading": {
+      "title": "Завантаження",
+      "description": "Отримання стану стійкості з'єднання..."
+    },
+    "summary": {
+      "total": "{count} з'єднань",
+      "coolingDown": "{count} в охолодженні",
+      "unhealthyBreakers": "{count} автоматів не замкнено",
+      "capped": "показано перші 1000"
+    },
+    "pollingNote": "Примітка: перегляд цієї сторінки запускає ліниве відновлення автомата (перевірки HALF_OPEN). Оновлення кожні 30с.",
+    "retry": "Повторити",
+    "pollErrorLocalOnly": "Ця сторінка доступна лише з localhost або LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Опитування зупинено: сервер відхилив запит (404/403).",
+    "pollErrorTransient": "Помилка отримання даних: автоматичний повтор.",
+    "degraded": "Часткові дані: недоступні джерела: {sources}",
+    "degraded.source.database": "База Даних",
+    "degraded.source.circuitBreaker": "Автоматичний Вимикач",
+    "degraded.source.modelLockouts": "Блокування Моделі",
+    "degraded.source.count": "Кількість З'єднань"
   }
 }

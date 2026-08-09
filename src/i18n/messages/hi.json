@@ -1232,7 +1232,9 @@
     "alwaysVisible": "हमेशा दृश्यमान",
     "groupSeparatorLabel": "विभाजक",
     "discovery": "डिस्कवरी",
-    "discoverySubtitle": "मुफ़्त एक्सेस के लिए प्रोवाइडर्स को स्कैन करें"
+    "discoverySubtitle": "मुफ़्त एक्सेस के लिए प्रोवाइडर्स को स्कैन करें",
+    "resilienceConnections": "कनेक्शन रेज़िलिएंस",
+    "resilienceConnectionsSubtitle": "कूलडाउन, ब्रेकर, लॉकआउट स्थिति"
   },
   "webhooks": {
     "title": "वेबहुक",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "कोई नया मॉडल नहीं जोड़ा गया (सभी पहले से मौजूद हैं)।",
     "importDoneCount": "✓ हो गया! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "एक अप्रत्याशित त्रुटि उत्पन्न हुई",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "संदेश",
     "responsesPath": "प्रतिक्रियाएं",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI), OmniRoute का संस्थापक ओपन सोर्स मित्र है",
     "cheaperInferenceSupporterBadge": "ओपन सोर्स मित्र",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference एक ओपन सोर्स मित्र के रूप में OmniRoute का समर्थन करता है",
-    "kimiPartnerLinkNote": "पार्टनर लिंक — बिना किसी अतिरिक्त लागत के OmniRoute का समर्थन करता है"
+    "kimiPartnerLinkNote": "पार्टनर लिंक — बिना किसी अतिरिक्त लागत के OmniRoute का समर्थन करता है",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "सेटिंग्स",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "न्यूनतम संदेश लंबाई"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "कॉपी किया गया!",
     "run": "चलाएं",
     "running": "चल रहा है...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "रिस्पॉन्स",
     "tunnel": "टनल",
     "send": "भेजें",
@@ -12317,5 +12332,99 @@
     "addConnection": "कनेक्शन जोड़ें",
     "addConnectionDescription": "क्या आपके पास अभी तक कोई कनेक्शन नहीं है? प्रदाता डैशबोर्ड में एक जोड़ें।",
     "addConnectionLink": "प्रदाताओं पर जाएं →"
+  },
+  "resilienceConnections": {
+    "title": "कनेक्शन रेज़िलिएंस",
+    "table": {
+      "status": "स्थिति",
+      "provider": "प्रदाता",
+      "connectionId": "कनेक्शन",
+      "authType": "प्रमाणीकरण",
+      "backoffLevel": "बैकऑफ़",
+      "cooldown": "कूलडाउन",
+      "lastError": "अंतिम त्रुटि",
+      "lockouts": "लॉकआउट",
+      "healthy": "स्वस्थ",
+      "coolingDown": "कूलडाउन",
+      "circuitOpen": "सर्किट खुला",
+      "recovering": "पुनर्प्राप्त हो रहा है",
+      "degraded": "गिरावट",
+      "terminal": "टर्मिनल",
+      "unknown": "अज्ञात",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "ब्रेकर संक्रमण",
+      "window": "विंडो",
+      "window1h": "1घं",
+      "window6h": "6घं",
+      "window24h": "24घं",
+      "empty": "चयनित विंडो में कोई संक्रमण नहीं",
+      "currentState": "वर्तमान स्थिति",
+      "state": {
+        "open": "खुला",
+        "half_open": "अर्ध-खुला",
+        "closed": "बंद",
+        "degraded": "गिरावट"
+      },
+      "reason": {
+        "timeout-elapsed": "समय सीमा समाप्त",
+        "success-recovery": "सफलता से पुनर्प्राप्ति",
+        "manual-reset": "मैनुअल रीसेट",
+        "probe-success": "प्रोब सफल",
+        "recovery": "पुनर्प्राप्ति",
+        "probe-failed": "प्रोब विफल"
+      }
+    },
+    "detail": {
+      "title": "कनेक्शन विवरण",
+      "metadata": "मेटाडेटा",
+      "cooldown": "कूलडाउन",
+      "lastError": "अंतिम त्रुटि",
+      "breaker": "सर्किट ब्रेकर",
+      "lockouts": "मॉडल लॉकआउट",
+      "rateLimitedUntil": "तक दर-सीमित",
+      "backoffLevel": "बैकऑफ़ स्तर",
+      "remaining": "शेष",
+      "noLockouts": "कोई सक्रिय लॉकआउट नहीं",
+      "provider": "प्रदाता",
+      "id": "आईडी",
+      "authType": "प्रमाणीकरण प्रकार",
+      "priority": "प्राथमिकता",
+      "isActive": "सक्रिय",
+      "errorCode": "त्रुटि कोड",
+      "lastErrorAt": "अंतिम त्रुटि पर",
+      "yes": "हां",
+      "no": "नहीं",
+      "close": "बंद करें",
+      "never": "-",
+      "failureCount": "विफलता गणना",
+      "retryAfterMs": "पुनः प्रयास बाद (ms)",
+      "lastFailureKind": "अंतिम विफलता प्रकार"
+    },
+    "empty": {
+      "title": "कोई कनेक्शन नहीं",
+      "description": "प्रदाता कनेक्शन यहां दिखाई देंगे।"
+    },
+    "loading": {
+      "title": "लोड हो रहा है",
+      "description": "कनेक्शन रेज़िलिएंस स्थिति प्राप्त की जा रही है..."
+    },
+    "summary": {
+      "total": "{count} कनेक्शन",
+      "coolingDown": "{count} कूलडाउन में",
+      "unhealthyBreakers": "{count} ब्रेकर बंद नहीं हुए",
+      "capped": "पहले 1000 दिखाए जा रहे हैं"
+    },
+    "pollingNote": "नोट: यह पृष्ठ देखने से ब्रेकर की धीमी पुनर्प्राप्ति (HALF_OPEN जांच) शुरू होती है। हर 30s में रीफ्रेश।",
+    "retry": "पुनः प्रयास करें",
+    "pollErrorLocalOnly": "यह पृष्ठ केवल localhost या LAN से सुलभ है (LOCAL_ONLY)।",
+    "pollErrorStopped": "पोलिंग रुकी: सर्वर ने अनुरोध अस्वीकार किया (404/403)।",
+    "pollErrorTransient": "डेटा प्राप्त करने में त्रुटि: स्वतः पुनः प्रयास।",
+    "degraded": "आंशिक डेटा: अनुपलब्ध स्रोत: {sources}",
+    "degraded.source.database": "डेटाबेस",
+    "degraded.source.circuitBreaker": "सर्किट ब्रेकर",
+    "degraded.source.modelLockouts": "मॉडल लॉकआउट",
+    "degraded.source.count": "कनेक्शन गणना"
   }
 }

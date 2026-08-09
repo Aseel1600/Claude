@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Винаги видим",
     "groupSeparatorLabel": "Разделител",
     "discovery": "Откриване",
-    "discoverySubtitle": "Сканиране на доставчици за безплатен достъп"
+    "discoverySubtitle": "Сканиране на доставчици за безплатен достъп",
+    "resilienceConnections": "Устойчивост на Връзката",
+    "resilienceConnectionsSubtitle": "Охлаждане, прекъсвач, статус на заключване"
   },
   "webhooks": {
     "title": "Уеб кукички",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "Не са добавени нови модели (всички вече съществуват).",
     "importDoneCount": "✓ Готово! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Възникна неочаквана грешка",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "съобщения",
     "responsesPath": "отговори",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) е основаващият приятел на отворения код на OmniRoute",
     "cheaperInferenceSupporterBadge": "Приятел на отворения код",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference подкрепя OmniRoute като приятел на отворения код",
-    "kimiPartnerLinkNote": "Партньорска връзка — поддържа OmniRoute без допълнителни разходи за вас"
+    "kimiPartnerLinkNote": "Партньорска връзка — поддържа OmniRoute без допълнителни разходи за вас",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Настройки",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Минимална дължина на съобщението"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Копирано!",
     "run": "Изпълнение",
     "running": "Изпълнява се...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Отговор",
     "tunnel": "Тунел",
     "send": "Изпращане",
@@ -12317,5 +12332,99 @@
     "addConnection": "Добавете връзка",
     "addConnectionDescription": "Все още нямате връзка? Добавете една в таблото на доставчиците.",
     "addConnectionLink": "Отидете на доставчиците →"
+  },
+  "resilienceConnections": {
+    "title": "Устойчивост на Връзката",
+    "table": {
+      "status": "Статус",
+      "provider": "Доставчик",
+      "connectionId": "Връзка",
+      "authType": "Удостоверяване",
+      "backoffLevel": "Отлагане",
+      "cooldown": "Охлаждане",
+      "lastError": "Последна Грешка",
+      "lockouts": "Заключвания",
+      "healthy": "Здрав",
+      "coolingDown": "Охлаждане",
+      "circuitOpen": "Верига Отворена",
+      "recovering": "Възстановява се",
+      "degraded": "Влошен",
+      "terminal": "Терминал",
+      "unknown": "Неизвестен",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Преходи на Прекъсвача",
+      "window": "Прозорец",
+      "window1h": "1ч",
+      "window6h": "6ч",
+      "window24h": "24ч",
+      "empty": "Няма преходи в избрания прозорец",
+      "currentState": "Текущо Състояние",
+      "state": {
+        "open": "Отворен",
+        "half_open": "Полуотворен",
+        "closed": "Затворен",
+        "degraded": "Влошен"
+      },
+      "reason": {
+        "timeout-elapsed": "Времето Изтече",
+        "success-recovery": "Възстановяване чрез Успех",
+        "manual-reset": "Ръчно Нулиране",
+        "probe-success": "Успешна Проверка",
+        "recovery": "Възстановяване",
+        "probe-failed": "Неуспешна Проверка"
+      }
+    },
+    "detail": {
+      "title": "Детайли за Връзката",
+      "metadata": "Метаданни",
+      "cooldown": "Охлаждане",
+      "lastError": "Последна Грешка",
+      "breaker": "Прекъсвач",
+      "lockouts": "Заключвания на Модел",
+      "rateLimitedUntil": "Ограничен по Скорост До",
+      "backoffLevel": "Ниво на Отлагане",
+      "remaining": "Оставащо",
+      "noLockouts": "Няма активни заключвания",
+      "provider": "Доставчик",
+      "id": "ID",
+      "authType": "Тип на Удостоверяване",
+      "priority": "Приоритет",
+      "isActive": "Активен",
+      "errorCode": "Код на Грешка",
+      "lastErrorAt": "Последна Грешка В",
+      "yes": "Да",
+      "no": "Не",
+      "close": "Затвори",
+      "never": "-",
+      "failureCount": "Брой Провали",
+      "retryAfterMs": "Опитай Отново След (ms)",
+      "lastFailureKind": "Последен Тип Провал"
+    },
+    "empty": {
+      "title": "Няма връзки",
+      "description": "Връзките на доставчика ще се показват тук."
+    },
+    "loading": {
+      "title": "Зареждане",
+      "description": "Извличане на състоянието на устойчивост на връзката..."
+    },
+    "summary": {
+      "total": "{count} връзки",
+      "coolingDown": "{count} в охлаждане",
+      "unhealthyBreakers": "{count} прекъсвача не са затворени",
+      "capped": "показани първите 1000"
+    },
+    "pollingNote": "Забележка: преглеждането на тази страница задейства ленивото възстановяване на прекъсвача (проверки HALF_OPEN). Обновяване на всеки 30с.",
+    "retry": "Опитай Отново",
+    "pollErrorLocalOnly": "Тази страница е достъпна само от localhost или LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Запитването е спряно: сървърът отхвърли заявката (404/403).",
+    "pollErrorTransient": "Грешка при извличане на данни: автоматичен повторен опит.",
+    "degraded": "Частични данни: недостъпни източници: {sources}",
+    "degraded.source.database": "База Данни",
+    "degraded.source.circuitBreaker": "Прекъсвач",
+    "degraded.source.modelLockouts": "Заключвания на Модел",
+    "degraded.source.count": "Брой Връзки"
   }
 }

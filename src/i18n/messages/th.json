@@ -1232,7 +1232,9 @@
     "alwaysVisible": "แสดงอยู่เสมอ",
     "groupSeparatorLabel": "ตัวคั่น",
     "discovery": "การค้นพบ",
-    "discoverySubtitle": "สแกนผู้ให้บริการเพื่อเข้าใช้งานฟรี"
+    "discoverySubtitle": "สแกนผู้ให้บริการเพื่อเข้าใช้งานฟรี",
+    "resilienceConnections": "ความยืดหยุ่นของการเชื่อมต่อ",
+    "resilienceConnectionsSubtitle": "คูลดาวน์ เบรกเกอร์ สถานะการล็อกเอาต์"
   },
   "webhooks": {
     "title": "เว็บฮุค",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "ไม่มีการเพิ่มโมเดลใหม่ (มีอยู่แล้วทั้งหมด)",
     "importDoneCount": "✓ เสร็จแล้ว! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "เกิดข้อผิดพลาดที่ไม่คาดคิด",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "ข้อความ",
     "responsesPath": "การตอบสนอง",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) คือเพื่อนโอเพนซอร์สผู้ก่อตั้งของ OmniRoute",
     "cheaperInferenceSupporterBadge": "เพื่อนโอเพนซอร์ส",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference สนับสนุน OmniRoute ในฐานะเพื่อนโอเพนซอร์ส",
-    "kimiPartnerLinkNote": "ลิงก์พันธมิตร — สนับสนุน OmniRoute โดยไม่มีค่าใช้จ่ายเพิ่มเติมสำหรับคุณ"
+    "kimiPartnerLinkNote": "ลิงก์พันธมิตร — สนับสนุน OmniRoute โดยไม่มีค่าใช้จ่ายเพิ่มเติมสำหรับคุณ",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "การตั้งค่า",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "ความยาวข้อความขั้นต่ำ"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "คัดลอกแล้ว!",
     "run": "รัน",
     "running": "กำลังรัน...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "การตอบกลับ",
     "tunnel": "ทันเนล",
     "send": "ส่ง",
@@ -12317,5 +12332,99 @@
     "addConnection": "เพิ่มการเชื่อมต่อ",
     "addConnectionDescription": "ยังไม่มีการเชื่อมต่อ? เพิ่มหนึ่งในแดชบอร์ดผู้ให้บริการ",
     "addConnectionLink": "ไปที่ผู้ให้บริการ →"
+  },
+  "resilienceConnections": {
+    "title": "ความยืดหยุ่นของการเชื่อมต่อ",
+    "table": {
+      "status": "สถานะ",
+      "provider": "ผู้ให้บริการ",
+      "connectionId": "การเชื่อมต่อ",
+      "authType": "การยืนยันตัวตน",
+      "backoffLevel": "การถอยกลับ",
+      "cooldown": "คูลดาวน์",
+      "lastError": "ข้อผิดพลาดล่าสุด",
+      "lockouts": "การล็อกเอาต์",
+      "healthy": "ปกติ",
+      "coolingDown": "คูลดาวน์",
+      "circuitOpen": "วงจรเปิด",
+      "recovering": "กำลังกู้คืน",
+      "degraded": "เสื่อมสภาพ",
+      "terminal": "สิ้นสุด",
+      "unknown": "ไม่ทราบ",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "การเปลี่ยนสถานะเบรกเกอร์",
+      "window": "ช่วงเวลา",
+      "window1h": "1ชม",
+      "window6h": "6ชม",
+      "window24h": "24ชม",
+      "empty": "ไม่มีการเปลี่ยนสถานะในช่วงเวลาที่เลือก",
+      "currentState": "สถานะปัจจุบัน",
+      "state": {
+        "open": "เปิด",
+        "half_open": "เปิดครึ่งหนึ่ง",
+        "closed": "ปิด",
+        "degraded": "เสื่อมสภาพ"
+      },
+      "reason": {
+        "timeout-elapsed": "หมดเวลา",
+        "success-recovery": "กู้คืนจากความสำเร็จ",
+        "manual-reset": "รีเซ็ตด้วยตนเอง",
+        "probe-success": "การตรวจสอบสำเร็จ",
+        "recovery": "การกู้คืน",
+        "probe-failed": "การตรวจสอบล้มเหลว"
+      }
+    },
+    "detail": {
+      "title": "รายละเอียดการเชื่อมต่อ",
+      "metadata": "ข้อมูลเมตา",
+      "cooldown": "คูลดาวน์",
+      "lastError": "ข้อผิดพลาดล่าสุด",
+      "breaker": "เซอร์กิตเบรกเกอร์",
+      "lockouts": "การล็อกเอาต์โมเดล",
+      "rateLimitedUntil": "จำกัดอัตราจนถึง",
+      "backoffLevel": "ระดับการถอยกลับ",
+      "remaining": "คงเหลือ",
+      "noLockouts": "ไม่มีการล็อกเอาต์ที่ใช้งานอยู่",
+      "provider": "ผู้ให้บริการ",
+      "id": "ID",
+      "authType": "ประเภทการยืนยันตัวตน",
+      "priority": "ลำดับความสำคัญ",
+      "isActive": "ใช้งานอยู่",
+      "errorCode": "รหัสข้อผิดพลาด",
+      "lastErrorAt": "ข้อผิดพลาดล่าสุดเมื่อ",
+      "yes": "ใช่",
+      "no": "ไม่ใช่",
+      "close": "ปิด",
+      "never": "-",
+      "failureCount": "จำนวนความล้มเหลว",
+      "retryAfterMs": "ลองใหม่หลัง (ms)",
+      "lastFailureKind": "ประเภทความล้มเหลวล่าสุด"
+    },
+    "empty": {
+      "title": "ไม่มีการเชื่อมต่อ",
+      "description": "การเชื่อมต่อของผู้ให้บริการจะแสดงที่นี่"
+    },
+    "loading": {
+      "title": "กำลังโหลด",
+      "description": "กำลังดึงสถานะความยืดหยุ่นของการเชื่อมต่อ..."
+    },
+    "summary": {
+      "total": "{count} การเชื่อมต่อ",
+      "coolingDown": "{count} กำลังคูลดาวน์",
+      "unhealthyBreakers": "{count} เบรกเกอร์ยังไม่ปิด",
+      "capped": "แสดง 1000 รายการแรก"
+    },
+    "pollingNote": "หมายเหตุ: การดูหน้านี้จะกระตุ้นการกู้คืนแบบเลื่อนเวลาของเบรกเกอร์ (การตรวจสอบ HALF_OPEN) รีเฟรชทุก 30 วินาที",
+    "retry": "ลองใหม่",
+    "pollErrorLocalOnly": "หน้านี้เข้าถึงได้เฉพาะจาก localhost หรือ LAN เท่านั้น (LOCAL_ONLY)",
+    "pollErrorStopped": "หยุดการสำรวจ: เซิร์ฟเวอร์ปฏิเสธคำขอ (404/403)",
+    "pollErrorTransient": "เกิดข้อผิดพลาดในการดึงข้อมูล: กำลังลองใหม่โดยอัตโนมัติ",
+    "degraded": "ข้อมูลบางส่วน: แหล่งข้อมูลที่ไม่พร้อมใช้งาน: {sources}",
+    "degraded.source.database": "ฐานข้อมูล",
+    "degraded.source.circuitBreaker": "เซอร์กิตเบรกเกอร์",
+    "degraded.source.modelLockouts": "การล็อกเอาต์โมเดล",
+    "degraded.source.count": "จำนวนการเชื่อมต่อ"
   }
 }

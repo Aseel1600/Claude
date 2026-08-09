@@ -5225,6 +5225,102 @@ paths:
         "200":
           description: Sync initialized
 
+  # ─── Background Jobs (local-only administration) ───────────────
+
+  /api/jobs:
+    get:
+      tags: [System]
+      summary: List registered background jobs
+      description: Local-only runtime administration. Returns each registered job and its latest run.
+      x-internal: true
+      responses:
+        "200":
+          description: Registered jobs
+        "500":
+          description: Failed to list jobs
+
+  /api/jobs/{id}/enable:
+    post:
+      tags: [System]
+      summary: Enable a background job
+      description: Local-only runtime administration. Enables the job and restarts its timer.
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job enabled
+        "404":
+          description: Job not found
+        "500":
+          description: Failed to enable job
+
+  /api/jobs/{id}/disable:
+    post:
+      tags: [System]
+      summary: Disable a background job
+      description: Local-only runtime administration. Disables the job and stops its timer.
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job disabled
+        "404":
+          description: Job not found
+        "500":
+          description: Failed to disable job
+
+  /api/jobs/{id}/run-now:
+    post:
+      tags: [System]
+      summary: Trigger a background job
+      description: >-
+        Local-only runtime administration. Starts the job, or waits for an in-flight
+        run before queueing the next one, subject to OMNIROUTE_RUNNOW_TIMEOUT_MS.
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job trigger accepted
+        "404":
+          description: Job not found
+        "500":
+          description: Failed to trigger job
+
+  /api/jobs/{id}/runs:
+    get:
+      tags: [System]
+      summary: Read background-job run history
+      description: Local-only runtime administration. Returns newest-first run history for one job.
+      x-internal: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Job run history
+        "404":
+          description: Job not found
+        "500":
+          description: Failed to load job runs
+
   # ─── Resilience & Monitoring ────────────────────────────────────
 
   /api/resilience:
@@ -5246,6 +5342,70 @@ paths:
       responses:
         "200":
           description: Updated resilience configuration
+
+  /api/resilience/connections:
+    get:
+      tags: [System]
+      summary: Inspect connection resilience state
+      description: >-
+        Local-only operational view of per-connection cooldowns, provider circuit
+        breakers, model lockouts, and recent breaker transitions. Credential columns
+        are excluded by an explicit database whitelist.
+      x-internal: true
+      parameters:
+        - name: windowMs
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 86400000
+            default: 3600000
+        - name: provider
+          in: query
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 64
+      responses:
+        "200":
+          description: Connection, breaker, lockout, window, and degradation metadata
+        "400":
+          description: Invalid query parameters
+        "500":
+          description: Failed to collect resilience state
+
+  /api/telegram/update:
+    post:
+      tags: [System]
+      summary: Receive Telegram updates or Mini App messages
+      description: >-
+        Public Telegram integration endpoint. Bot updates are acknowledged after
+        reply dispatch is queued. Mini App requests must include Telegram-signed
+        initData, which is verified with TELEGRAM_BOT_TOKEN before chat proxying.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+              properties:
+                initData:
+                  type: string
+                message:
+                  type: string
+                update_id:
+                  type: integer
+      responses:
+        "200":
+          description: Update acknowledged or Mini App reply returned
+        "400":
+          description: Invalid JSON, request shape, or missing Mini App message
+        "401":
+          description: Invalid Mini App initData signature
+        "503":
+          description: Telegram integration is not configured
 
   /api/resilience/reset:
     post:

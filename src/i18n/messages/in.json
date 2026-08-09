@@ -1232,7 +1232,9 @@
     "alwaysVisible": "Selalu terlihat",
     "groupSeparatorLabel": "Pemisah",
     "discovery": "Penemuan",
-    "discoverySubtitle": "Pindai penyedia untuk akses gratis"
+    "discoverySubtitle": "Pindai penyedia untuk akses gratis",
+    "resilienceConnections": "Resiliensi Koneksi",
+    "resilienceConnectionsSubtitle": "Cooldown, breaker, status penguncian"
   },
   "webhooks": {
     "title": "Webhook",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) adalah sahabat open source pendiri OmniRoute",
     "cheaperInferenceSupporterBadge": "Teman Open Source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference mendukung OmniRoute sebagai Teman Open Source",
-    "kimiPartnerLinkNote": "Tautan mitra — mendukung OmniRoute tanpa biaya tambahan bagi Anda"
+    "kimiPartnerLinkNote": "Tautan mitra — mendukung OmniRoute tanpa biaya tambahan bagi Anda",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Panjang pesan minimum"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "Tersalin!",
     "run": "Jalankan",
     "running": "Menjalankan...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Kirim",
@@ -12317,5 +12332,99 @@
     "addConnection": "कनेक्शन जोड़ें",
     "addConnectionDescription": "क्या आपके पास अभी तक कोई कनेक्शन नहीं है? प्रदाता डैशबोर्ड में एक जोड़ें।",
     "addConnectionLink": "प्रदाताओं पर जाएं →"
+  },
+  "resilienceConnections": {
+    "title": "Resiliensi Koneksi",
+    "table": {
+      "status": "Status",
+      "provider": "Penyedia",
+      "connectionId": "Koneksi",
+      "authType": "Auth",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Kesalahan Terakhir",
+      "lockouts": "Penguncian",
+      "healthy": "Sehat",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Sirkuit Terbuka",
+      "recovering": "Memulihkan",
+      "degraded": "Terdegradasi",
+      "terminal": "Terminal",
+      "unknown": "Tidak Diketahui",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Transisi Breaker",
+      "window": "Jendela",
+      "window1h": "1j",
+      "window6h": "6j",
+      "window24h": "24j",
+      "empty": "Tidak ada transisi dalam jendela terpilih",
+      "currentState": "Status Saat Ini",
+      "state": {
+        "open": "Terbuka",
+        "half_open": "Setengah Terbuka",
+        "closed": "Tertutup",
+        "degraded": "Terdegradasi"
+      },
+      "reason": {
+        "timeout-elapsed": "Waktu Habis",
+        "success-recovery": "Pemulihan karena Sukses",
+        "manual-reset": "Reset Manual",
+        "probe-success": "Probe Berhasil",
+        "recovery": "Pemulihan",
+        "probe-failed": "Probe Gagal"
+      }
+    },
+    "detail": {
+      "title": "Detail Koneksi",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Kesalahan Terakhir",
+      "breaker": "Circuit Breaker",
+      "lockouts": "Penguncian Model",
+      "rateLimitedUntil": "Dibatasi Kecepatan Sampai",
+      "backoffLevel": "Level Backoff",
+      "remaining": "Sisa",
+      "noLockouts": "Tidak ada penguncian aktif",
+      "provider": "Penyedia",
+      "id": "ID",
+      "authType": "Tipe Auth",
+      "priority": "Prioritas",
+      "isActive": "Aktif",
+      "errorCode": "Kode Kesalahan",
+      "lastErrorAt": "Kesalahan Terakhir Pada",
+      "yes": "Ya",
+      "no": "Tidak",
+      "close": "Tutup",
+      "never": "-",
+      "failureCount": "Jumlah Kegagalan",
+      "retryAfterMs": "Coba Lagi Setelah (ms)",
+      "lastFailureKind": "Tipe Kegagalan Terakhir"
+    },
+    "empty": {
+      "title": "Tidak ada koneksi",
+      "description": "Koneksi penyedia akan muncul di sini."
+    },
+    "loading": {
+      "title": "Memuat",
+      "description": "Mengambil status resiliensi koneksi..."
+    },
+    "summary": {
+      "total": "{count} koneksi",
+      "coolingDown": "{count} dalam cooldown",
+      "unhealthyBreakers": "{count} breaker belum tertutup",
+      "capped": "menampilkan 1000 pertama"
+    },
+    "pollingNote": "Catatan: melihat halaman ini memicu pemulihan lambat breaker (probe HALF_OPEN). Diperbarui setiap 30 detik.",
+    "retry": "Coba Lagi",
+    "pollErrorLocalOnly": "Halaman ini hanya dapat diakses dari localhost atau LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Polling dihentikan: server menolak permintaan (404/403).",
+    "pollErrorTransient": "Kesalahan mengambil data: mencoba lagi secara otomatis.",
+    "degraded": "Data sebagian: sumber tidak tersedia: {sources}",
+    "degraded.source.database": "Basis Data",
+    "degraded.source.circuitBreaker": "Circuit Breaker",
+    "degraded.source.modelLockouts": "Penguncian Model",
+    "degraded.source.count": "Jumlah Koneksi"
   }
 }

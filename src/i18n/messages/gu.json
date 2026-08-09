@@ -1232,7 +1232,9 @@
     "alwaysVisible": "હંમેશા દૃશ્યમાન",
     "groupSeparatorLabel": "વિભાજક",
     "discovery": "ડિસ્કવરી",
-    "discoverySubtitle": "મફત ઍક્સેસ માટે પ્રોવાઇડર્સ સ્કેન કરો"
+    "discoverySubtitle": "મફત ઍક્સેસ માટે પ્રોવાઇડર્સ સ્કેન કરો",
+    "resilienceConnections": "કનેક્શન સ્થિતિસ્થાપકતા",
+    "resilienceConnectionsSubtitle": "કૂલડાઉન, બ્રેકર, લોકઆઉટ સ્થિતિ"
   },
   "webhooks": {
     "title": "વેબહુક્સ",
@@ -5071,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6028,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) એ OmniRoute નો સ્થાપક ઓપન સોર્સ મિત્ર છે",
     "cheaperInferenceSupporterBadge": "ઓપન સોર્સ મિત્ર",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference ઓપન સોર્સ મિત્ર તરીકે OmniRoute ને સમર્થન આપે છે",
-    "kimiPartnerLinkNote": "પાર્ટનર લિંક — તમારા માટે કોઈ વધારાના ખર્ચ વિના OmniRoute ને સપોર્ટ કરે છે"
+    "kimiPartnerLinkNote": "પાર્ટનર લિંક — તમારા માટે કોઈ વધારાના ખર્ચ વિના OmniRoute ને સપોર્ટ કરે છે",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7833,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "ન્યૂનતમ સંદેશ લંબાઈ"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10189,6 +10202,8 @@
     "copied": "કૉપિ કર્યું!",
     "run": "ચલાવો",
     "running": "ચાલી રહ્યું છે...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "પ્રતિસાદ",
     "tunnel": "ટનલ",
     "send": "મોકલો",
@@ -12317,5 +12332,99 @@
     "addConnection": "કનેક્શન ઉમેરો",
     "addConnectionDescription": "હજુ સુધી કનેક્શન નથી? પ્રદાતા ડેશબોર્ડમાં એક ઉમેરો.",
     "addConnectionLink": "પ્રદાતાઓ પર જાઓ →"
+  },
+  "resilienceConnections": {
+    "title": "કનેક્શન સ્થિતિસ્થાપકતા",
+    "table": {
+      "status": "સ્થિતિ",
+      "provider": "પ્રદાતા",
+      "connectionId": "કનેક્શન",
+      "authType": "પ્રમાણીકરણ",
+      "backoffLevel": "બેકઓફ",
+      "cooldown": "કૂલડાઉન",
+      "lastError": "છેલ્લી ભૂલ",
+      "lockouts": "લોકઆઉટ",
+      "healthy": "સ્વસ્થ",
+      "coolingDown": "કૂલડાઉન",
+      "circuitOpen": "સર્કિટ ખુલ્લું",
+      "recovering": "પુનઃપ્રાપ્ત થઈ રહ્યું છે",
+      "degraded": "અધોગતિ",
+      "terminal": "ટર્મિનલ",
+      "unknown": "અજ્ઞાત",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "બ્રેકર સંક્રમણ",
+      "window": "વિન્ડો",
+      "window1h": "1ક",
+      "window6h": "6ક",
+      "window24h": "24ક",
+      "empty": "પસંદ કરેલ વિન્ડોમાં કોઈ સંક્રમણ નથી",
+      "currentState": "વર્તમાન સ્થિતિ",
+      "state": {
+        "open": "ખુલ્લું",
+        "half_open": "અર્ધ ખુલ્લું",
+        "closed": "બંધ",
+        "degraded": "અધોગતિ"
+      },
+      "reason": {
+        "timeout-elapsed": "સમય મર્યાદા સમાપ્ત",
+        "success-recovery": "સફળતા દ્વારા પુનઃપ્રાપ્તિ",
+        "manual-reset": "મેન્યુઅલ રીસેટ",
+        "probe-success": "તપાસ સફળ",
+        "recovery": "પુનઃપ્રાપ્તિ",
+        "probe-failed": "તપાસ નિષ્ફળ"
+      }
+    },
+    "detail": {
+      "title": "કનેક્શન વિગત",
+      "metadata": "મેટાડેટા",
+      "cooldown": "કૂલડાઉન",
+      "lastError": "છેલ્લી ભૂલ",
+      "breaker": "સર્કિટ બ્રેકર",
+      "lockouts": "મોડેલ લોકઆઉટ",
+      "rateLimitedUntil": "સુધી દર-મર્યાદિત",
+      "backoffLevel": "બેકઓફ સ્તર",
+      "remaining": "બાકી",
+      "noLockouts": "કોઈ સક્રિય લોકઆઉટ નથી",
+      "provider": "પ્રદાતા",
+      "id": "ID",
+      "authType": "પ્રમાણીકરણ પ્રકાર",
+      "priority": "પ્રાથમિકતા",
+      "isActive": "સક્રિય",
+      "errorCode": "ભૂલ કોડ",
+      "lastErrorAt": "છેલ્લી ભૂલ સમય",
+      "yes": "હા",
+      "no": "ના",
+      "close": "બંધ કરો",
+      "never": "-",
+      "failureCount": "નિષ્ફળતાની ગણતરી",
+      "retryAfterMs": "પછી ફરી પ્રયાસ કરો (ms)",
+      "lastFailureKind": "છેલ્લો નિષ્ફળતા પ્રકાર"
+    },
+    "empty": {
+      "title": "કોઈ કનેક્શન નથી",
+      "description": "પ્રદાતાના કનેક્શન અહીં દેખાશે."
+    },
+    "loading": {
+      "title": "લોડ થઈ રહ્યું છે",
+      "description": "કનેક્શન સ્થિતિસ્થાપકતાની સ્થિતિ મેળવી રહ્યાં છીએ..."
+    },
+    "summary": {
+      "total": "{count} કનેક્શન",
+      "coolingDown": "{count} કૂલડાઉનમાં",
+      "unhealthyBreakers": "{count} બ્રેકર બંધ નથી",
+      "capped": "પ્રથમ 1000 બતાવી રહ્યાં છીએ"
+    },
+    "pollingNote": "નોંધ: આ પૃષ્ઠ જોવાથી બ્રેકરની ધીમી પુનઃપ્રાપ્તિ (HALF_OPEN તપાસ) શરૂ થાય છે. દર 30 સેકન્ડે તાજું થાય છે.",
+    "retry": "ફરી પ્રયાસ કરો",
+    "pollErrorLocalOnly": "આ પૃષ્ઠ ફક્ત localhost અથવા LAN પરથી જ ઍક્સેસિબલ છે (LOCAL_ONLY).",
+    "pollErrorStopped": "પોલિંગ બંધ: સર્વરે વિનંતી નકારી (404/403).",
+    "pollErrorTransient": "ડેટા મેળવવામાં ભૂલ: આપમેળે ફરી પ્રયાસ કરી રહ્યાં છીએ.",
+    "degraded": "આંશિક ડેટા: અનુપલબ્ધ સ્રોત: {sources}",
+    "degraded.source.database": "ડેટાબેઝ",
+    "degraded.source.circuitBreaker": "સર્કિટ બ્રેકર",
+    "degraded.source.modelLockouts": "મોડેલ લોકઆઉટ",
+    "degraded.source.count": "કનેક્શન ગણતરી"
   }
 }
