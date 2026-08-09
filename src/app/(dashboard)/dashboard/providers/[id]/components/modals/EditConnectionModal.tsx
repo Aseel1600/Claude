@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Badge, Input, Modal, Toggle, Select } from "@/shared/components";
@@ -58,7 +57,6 @@ import AgentrouterConsoleFields from "./AgentrouterConsoleFields";
 import QuotaScrapingFields, { EMPTY_QUOTA_SCRAPING_FIELDS } from "./QuotaScrapingFields";
 import GlmTeamQuotaFields, { EMPTY_GLM_TEAM_QUOTA_FIELDS } from "./GlmTeamQuotaFields";
 import ProviderRegionField, { getProviderRegionConfig } from "./AlibabaProviderRegionField";
-
 export interface EditConnectionModalConnection {
   id?: string;
   name?: string;
@@ -73,7 +71,6 @@ export interface EditConnectionModalConnection {
   healthCheckInterval?: number;
   projectId?: string | null;
 }
-
 export interface EditConnectionModalProps {
   isOpen: boolean;
   connection: EditConnectionModalConnection | null;
@@ -84,9 +81,7 @@ export interface EditConnectionModalProps {
   onResyncModels?: (connectionId: string) => void | Promise<void>;
   onClose: () => void;
 }
-
 const stringField = (value: unknown) => (typeof value === "string" ? value : "");
-
 export default function EditConnectionModal({
   isOpen,
   connection,
@@ -170,7 +165,6 @@ export default function EditConnectionModal({
   >({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const showEmail = useEmailPrivacyStore((state) => state.emailsVisible);
-
   // #6147 — built-in providers can opt in to an advanced base-URL override.
   // OAuth connections are excluded: their save path does not persist
   // providerSpecificData.baseUrl.
@@ -247,7 +241,6 @@ export default function EditConnectionModal({
       })),
     [t]
   );
-
   useEffect(() => {
     if (isOpen && connection) {
       const effectiveProvider = connection.provider || providerId;
@@ -388,7 +381,6 @@ export default function EditConnectionModal({
     defaultRegion,
     setOpenRouterPreset,
   ]);
-
   const handleTest = async () => {
     if (!provider) return;
     setTesting(true);
@@ -417,7 +409,6 @@ export default function EditConnectionModal({
       setTesting(false);
     }
   };
-
   const handleValidate = async () => {
     if (
       !provider ||
@@ -450,7 +441,6 @@ export default function EditConnectionModal({
       setValidating(false);
     }
   };
-
   const handleAddParsedExtraKeys = (raw: string) => {
     const { added, duplicates } = parseExtraApiKeys(raw, extraApiKeys);
     if (added.length > 0) {
@@ -461,7 +451,6 @@ export default function EditConnectionModal({
       notify.warning(t("bulkPasteDuplicatesIgnored", { count: duplicates }));
     }
   };
-
   const handleSubmit = async () => {
     setSaving(true);
     setSaveError(null);
@@ -477,14 +466,12 @@ export default function EditConnectionModal({
         }
         parsedMaxConcurrent = numericMaxConcurrent;
       }
-
       const updates: any = {
         name: formData.name,
         priority: formData.priority,
         maxConcurrent: parsedMaxConcurrent,
         healthCheckInterval: formData.healthCheckInterval,
       };
-
       const overrides: Record<string, number> = {};
       if (formData.rpm.trim()) overrides.rpm = Number(formData.rpm);
       if (formData.tpm.trim()) overrides.tpm = Number(formData.tpm);
@@ -493,16 +480,13 @@ export default function EditConnectionModal({
       if (formData.rateLimitMaxConcurrent.trim())
         overrides.maxConcurrent = Number(formData.rateLimitMaxConcurrent);
       updates.rateLimitOverrides = Object.keys(overrides).length > 0 ? overrides : null;
-
       if (isAntigravityFamily) {
         updates.projectId = trimmedCloudCodeProjectId || null;
       }
-
       if (isGooglePse && !formData.cx.trim()) {
         setSaveError(t("searchEngineIdRequired"));
         return;
       }
-
       let validatedBaseUrl = null;
       if (usesBaseUrl) {
         // #6147 — an opt-in override left blank clears it (no default to fall
@@ -518,7 +502,6 @@ export default function EditConnectionModal({
           validatedBaseUrl = checked.value;
         }
       }
-
       if (!isOAuth && formData.apiKey) {
         updates.apiKey = formData.apiKey;
         let isValid = validationResult === "success";
@@ -648,15 +631,12 @@ export default function EditConnectionModal({
       setSaving(false);
     }
   };
-
   if (!connection) return null;
-
   const isOAuth = connection.authType === "oauth";
   const testErrorMeta =
     !testResult?.valid && testResult?.diagnosis?.type
       ? ERROR_TYPE_LABELS[testResult.diagnosis.type] || null
       : null;
-
   const preserveEncryptedReasoningToggle = isResponsesConnection ? (
     <Toggle
       checked={formData.preserveEncryptedReasoning}
@@ -669,7 +649,6 @@ export default function EditConnectionModal({
       )}
     />
   ) : null;
-
   return (
     <Modal isOpen={isOpen} title={t("editConnection")} onClose={onClose}>
       <div className="flex flex-col gap-4">
@@ -1053,7 +1032,6 @@ export default function EditConnectionModal({
             />
           </>
         )}
-
         {/* #6147 — opt-in "Advanced → override base URL" for eligible built-ins */}
         {!usesBaseUrl && isBaseUrlOverrideEligible && (
           <button
@@ -1064,7 +1042,6 @@ export default function EditConnectionModal({
             {providerText(t, "overrideBaseUrlAdvanced", "Advanced: override base URL")}
           </button>
         )}
-
         {usesBaseUrl && (
           <Input
             label={t("baseUrlLabel")}
@@ -1083,7 +1060,6 @@ export default function EditConnectionModal({
             }
           />
         )}
-
         {showProtocolSelector && (
           <Select
             label={providerText(t, "apiProtocolLabel", "API protocol")}
@@ -1103,13 +1079,11 @@ export default function EditConnectionModal({
             )}
           />
         )}
-
         <ProviderRegionField
           provider={provider}
           value={formData.region}
           onChange={(region) => setFormData({ ...formData, region })}
         />
-
         {isCloudflare && (
           <Input
             label={t("accountIdLabel")}
@@ -1119,7 +1093,6 @@ export default function EditConnectionModal({
             hint={t("accountIdHint")}
           />
         )}
-
         {isGlm && (
           <div className="flex flex-col gap-3">
             <div>
