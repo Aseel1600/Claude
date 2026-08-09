@@ -818,5 +818,7 @@ export {
   getRadarSettings,
   setRadarOptIn,
   setRadarKey,
+  getRadarReferralsCache,
+  setRadarReferralsCache,
 } from "./db/radar";
-export type { RadarCache, RadarSettings } from "./db/radar";
+export type { RadarCache, RadarSettings, RadarReferralsCache } from "./db/radar";

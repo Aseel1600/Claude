@@ -166,6 +166,29 @@ function isReasoningOnlyReplayTarget(provider: unknown, model: unknown): boolean
   );
 }
 
+/**
+ * Upstreams that reject an ABSENT reasoning_content on replay turns, so the
+ * placeholder must survive the cache miss.
+ *
+ * #9573/#9610 removed the placeholder globally because the model echoed it as
+ * its own reasoning and stopped (empty turns). That holds for DeepSeek, where
+ * an absent field was verified to be accepted — but Xiaomi MiMo still 400s
+ * ("Param Incorrect: The reasoning_content in the thinking mode must be passed
+ * back to the API", 9router#1321/#1337), so omitting the field there trades one
+ * live bug for another. Keep the placeholder only for those providers; the echo
+ * that comes back is still stripped on the way in by
+ * isInternalReasoningPlaceholder(), so it never re-poisons cache or history.
+ */
+function requiresReasoningContentPresence(provider: unknown, model: unknown): boolean {
+  const normalizedProvider = String(provider ?? "")
+    .trim()
+    .toLowerCase();
+  const normalizedModel = String(model ?? "")
+    .trim()
+    .toLowerCase();
+  return normalizedProvider === "xiaomi-mimo" || /(^|\/)mimo/i.test(normalizedModel);
+}
+
 /** @param options.normalizeToolCallId - When true, use 9-char tool call ids (e.g. Mistral); when false, leave ids as-is */
 /** @param options.preserveDeveloperRole - undefined/true: keep developer for OpenAI format (default); false: map to system */
 /** @param options.preserveCacheControl - When true, preserve client-side cache_control markers (for Claude Code, etc.) */
@@ -575,7 +598,11 @@ export function translateRequest(
       // the field instead; providers that genuinely enforce the contract
       // (kimi-coding, moonshot authentic-reasoning) have their own paths above.
       if ((hasToolCalls || shouldReplayReasoningOnly) && !msg.reasoning_content) {
-        delete msg.reasoning_content;
+        if (requiresReasoningContentPresence(normalizedProvider, normalizedModel)) {
+          msg.reasoning_content = NON_ANTHROPIC_THINKING_PLACEHOLDER;
+        } else {
+          delete msg.reasoning_content;
+        }
       }
     }
   } else if (
