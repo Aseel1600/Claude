@@ -93,6 +93,10 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   // runtime; shipped via package.json "files", so it must be allowed here.
   "bin/aliasResolverHook.mjs",
   "bin/mcp-server.mjs",
+  // #9281: stdout/stderr console guard preloaded via `node --import` by
+  // bin/mcp-server.mjs before the MCP entry's module graph evaluates — without it
+  // the published CLI's `omniroute --mcp` crashes on the pathToFileURL() import.
+  "bin/mcpStdioConsoleGuard.mjs",
   "bin/nodeRuntimeSupport.mjs",
   "bin/omniroute.mjs",
   "bin/reset-password.mjs",
@@ -117,6 +121,9 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   // shipped via package.json "files", so it must be allowed in the tarball.
   "open-sse/utils/setupPolyfill.ts",
   "package.json",
+  "scripts/build/assembleStandalone.mjs",
+  "scripts/build/backendOnlyPages.mjs",
+  "scripts/build/build-tproxy-native.mjs",
   "scripts/build/build-next-isolated.mjs",
   "scripts/check/check-supported-node-runtime.ts",
   "scripts/build/native-binary-compat.mjs",
@@ -183,6 +190,10 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "bin/cli/utils/storageKeyProvision.mjs",
   "bin/cli/utils/versionFastPath.mjs",
   "bin/mcp-server.mjs",
+  // #9281: stdout/stderr console guard preloaded via `node --import` by
+  // bin/mcp-server.mjs before the MCP entry's module graph evaluates — without it
+  // the published CLI's `omniroute --mcp` crashes on the pathToFileURL() import.
+  "bin/mcpStdioConsoleGuard.mjs",
   "bin/nodeRuntimeSupport.mjs",
   "bin/omniroute.mjs",
   // #7808: aliasResolver + its hook file. bin/omniroute.mjs imports

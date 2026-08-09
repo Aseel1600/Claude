@@ -25,6 +25,7 @@ import {
 } from "./streamHelpers.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { buildOmniRouteSseMetadataComment } from "@/domain/omnirouteResponseMeta";
+import { sseCommentsEnabled } from "./sseHeartbeat.ts";
 import {
   createStructuredSSECollector,
   buildStreamSummaryFromEvents,
@@ -1001,6 +1002,11 @@ export function createSSEStream(options: StreamOptions = {}) {
     controller: TransformStreamDefaultController,
     finalUsage: UsageTokenRecord | Record<string, unknown> | null | undefined
   ) => {
+    // Skip SSE metadata comment lines when OMNIROUTE_SSE_COMMENTS is disabled
+    // (e.g., "off", "false", "0", "no"). Strict OpenAI-compatible clients that
+    // JSON.parse every SSE line will crash on `: x-omniroute-*` comment lines.
+    if (!sseCommentsEnabled()) return;
+
     const costUsd = finalUsage ? await calculateCost(provider, model, finalUsage) : 0;
     const comment = buildOmniRouteSseMetadataComment({
       provider,
@@ -2463,8 +2469,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                   status: 200,
                   usage,
                   responseBody,
+                  // #9315 switched the summary to the accumulated responseBody to avoid
+                  // stale/truncated event data — but responseBody here is synthesized in
+                  // chat-completion shape, which loses the Responses API `response` object.
+                  // Keep the events-derived summary for OPENAI_RESPONSES only.
                   providerPayload: providerPayloadCollector.build(
-                    responseBody,
+                    sourceFormat === FORMATS.OPENAI_RESPONSES
+                      ? buildStreamSummaryFromEvents(
+                          providerPayloadCollector.getEvents(),
+                          sourceFormat,
+                          model
+                        )
+                      : responseBody,
                     { includeEvents: false }
                   ),
                   clientPayload: clientPayloadCollector.build(responseBody, {
@@ -2734,8 +2750,16 @@ export function createSSEStream(options: StreamOptions = {}) {
                 status: 200,
                 usage: state?.usage,
                 responseBody,
+                // Same OPENAI_RESPONSES carve-out as the passthrough branch above —
+                // the synthesized chat-shaped responseBody drops the `response` object.
                 providerPayload: providerPayloadCollector.build(
-                  responseBody,
+                  targetFormat === FORMATS.OPENAI_RESPONSES
+                    ? buildStreamSummaryFromEvents(
+                        providerPayloadCollector.getEvents(),
+                        targetFormat,
+                        model
+                      )
+                    : responseBody,
                   { includeEvents: false }
                 ),
                 clientPayload: clientPayloadCollector.build(responseBody, {
