@@ -1455,6 +1455,7 @@ async function handleFalAIImageGeneration({
 }) {
   const startTime = Date.now();
   const token = credentials.apiKey || credentials.accessToken;
+  const falModel = model.startsWith("fal-ai/") ? model : `fal-ai/${model}`;
   const { imageUrl, imageUrls } = extractImageInputs(body);
   const upstreamBody: Record<string, unknown> = {
     prompt: body.prompt,
@@ -1500,7 +1501,7 @@ async function handleFalAIImageGeneration({
   }
 
   try {
-    const response = await fetch(`${providerConfig.baseUrl.replace(/\/$/, "")}/${model}`, {
+    const response = await fetch(`${providerConfig.baseUrl.replace(/\/$/, "")}/${falModel}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

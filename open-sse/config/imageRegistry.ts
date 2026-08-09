@@ -503,18 +503,18 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     authHeader: "key",
     format: "fal-ai",
     models: [
-      { id: "fal-ai/flux-2-max", name: "FLUX.2 Max" },
-      { id: "fal-ai/flux-2-pro", name: "FLUX.2 Pro" },
-      { id: "fal-ai/flux-2-flex", name: "FLUX.2 Flex" },
+      { id: "flux-2-max", name: "FLUX.2 Max" },
+      { id: "flux-2-pro", name: "FLUX.2 Pro" },
+      { id: "flux-2-flex", name: "FLUX.2 Flex" },
       { id: "bria/text-to-image/3.2", name: "Bria 3.2" },
-      { id: "fal-ai/bytedance/seedream/v4.5/text-to-image", name: "SeeDream V4.5" },
-      { id: "fal-ai/bytedance/dreamina/v3.1/text-to-image", name: "Dreamina V3.1" },
-      { id: "fal-ai/ideogram/v3", name: "Ideogram V3" },
-      { id: "fal-ai/nano-banana-pro", name: "Nano Banana Pro" },
-      { id: "fal-ai/nano-banana-2", name: "Nano Banana 2" },
-      { id: "fal-ai/recraft/v4/pro/text-to-image", name: "Recraft V4 Pro via Fal" },
-      { id: "fal-ai/recraft/v4/text-to-image", name: "Recraft V4 via Fal" },
-      { id: "fal-ai/stable-diffusion-v35-medium", name: "Stable Diffusion v3.5 Medium" },
+      { id: "bytedance/seedream/v4.5/text-to-image", name: "SeeDream V4.5" },
+      { id: "bytedance/dreamina/v3.1/text-to-image", name: "Dreamina V3.1" },
+      { id: "ideogram/v3", name: "Ideogram V3" },
+      { id: "nano-banana-pro", name: "Nano Banana Pro" },
+      { id: "nano-banana-2", name: "Nano Banana 2" },
+      { id: "recraft/v4/pro/text-to-image", name: "Recraft V4 Pro via Fal" },
+      { id: "recraft/v4/text-to-image", name: "Recraft V4 via Fal" },
+      { id: "stable-diffusion-v35-medium", name: "Stable Diffusion v3.5 Medium" },
     ],
     supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
   },
@@ -835,15 +835,13 @@ export function parseImageModel(modelStr) {
   for (const [providerId, config] of Object.entries(IMAGE_PROVIDERS)) {
     if (modelStr.startsWith(providerId + "/")) {
       const model = modelStr.slice(providerId.length + 1);
-      const aliased =
-        resolveImageModelAlias(`${providerId}/${model}`) || resolveImageModelAlias(model);
+      const aliased = resolveImageModelAlias(`${providerId}/${model}`);
       return aliased || { provider: providerId, model };
     }
     // Check alias if available
     if (config.alias && modelStr.startsWith(config.alias + "/")) {
       const model = modelStr.slice(config.alias.length + 1);
-      const aliased =
-        resolveImageModelAlias(`${providerId}/${model}`) || resolveImageModelAlias(model);
+      const aliased = resolveImageModelAlias(`${providerId}/${model}`);
       return aliased || { provider: providerId, model };
     }
   }
