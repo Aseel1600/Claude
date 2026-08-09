@@ -20,6 +20,11 @@ import zlib from "node:zlib";
 import crypto from "node:crypto";
 import { decodeNativeTodoWriteCompletion } from "./cursorAgentProtobuf/nativeTodoWrite.ts";
 import {
+  cursorImageAttachmentPath,
+  encodeSelectedImageBody,
+  type EncodedImage,
+} from "./cursorAgentProtobuf/imageEncoding.ts";
+import {
   WT_VARINT,
   WT_LEN,
   encodeVarint,
@@ -63,30 +68,7 @@ const UM_MESSAGE_ID = 2; // UserMessage.message_id
 const UM_SELECTED_CONTEXT = 3; // UserMessage.selected_context (empty placeholder required)
 const UM_MODE = 4; // UserMessage.mode (cursor-agent sends 1)
 
-// ─── Vision input (image) field numbers ────────────────────────────────────
-// Pinned from cursor-agent's agent.v1 protobuf descriptor (bundle version
-// 2026.06.02-8c11d9f, cross-checked against composer-api's older-endpoint
-// encoder for shape). Images attach to the current UserMessage through its
-// selected_context (field 3): UserMessage.selected_context is a SelectedContext
-// whose `selected_images` (field 1) is a repeated SelectedImage. Each
-// SelectedImage uses the `blob_id_with_data` oneof case (field 9) so Cursor can
-// hydrate via getBlob while also receiving the bytes inline for cache warm-up.
-// Field 8 (`data`) is intentionally not written — live Cursor hydration expects
-// blobIdWithData. We also set `path` like native/shunt clients.
 const SC_SELECTED_IMAGES = 1; // SelectedContext.selected_images [repeated SelectedImage]
-
-const SI_UUID = 2; // SelectedImage.uuid
-const SI_PATH = 3; // SelectedImage.path
-const SI_DIMENSION = 4; // SelectedImage.dimension (SelectedImage.Dimension)
-const SI_MIME_TYPE = 7; // SelectedImage.mime_type
-// Field 8 (SelectedImage.data) is the legacy inline oneof case — not written.
-const SI_BLOB_ID_WITH_DATA = 9; // SelectedImage.blob_id_with_data (oneof)
-
-const SIBD_BLOB_ID = 1; // SelectedImage.BlobIdWithData.blob_id
-const SIBD_DATA = 2; // SelectedImage.BlobIdWithData.data
-
-const DIM_WIDTH = 1; // SelectedImage.Dimension.width (int32)
-const DIM_HEIGHT = 2; // SelectedImage.Dimension.height (int32)
 
 const RM_MODEL_ID = 1; // RequestedModel.model_id
 const RM_PARAMETERS = 3; // RequestedModel.parameters [repeated]
@@ -426,83 +408,8 @@ export type AgentRunInput = {
   images?: EncodedImage[];
 };
 
-/**
- * A resolved image ready to embed in a cursor request. `data` is the raw
- * decoded image bytes (already SSRF-checked / size-capped / JPEG-prepped by
- * resolveCursorImages). `mimeType` (e.g. "image/png") helps cursor decode
- * the bytes; `width`/`height` populate the optional Dimension sub-message
- * when cheaply known; `uuid` is a stable per-image id.
- */
-export type EncodedImage = {
-  data: Buffer;
-  mimeType?: string;
-  width?: number;
-  height?: number;
-  uuid: string;
-};
-
-/** Filename Cursor clients typically put on SelectedImage.path. */
-export function cursorImageAttachmentPath(uuid: string, mimeType?: string): string {
-  const normalized = (mimeType || "").toLowerCase();
-  const ext =
-    normalized === "image/jpeg" || normalized === "image/jpg"
-      ? "jpg"
-      : normalized === "image/gif"
-        ? "gif"
-        : normalized === "image/webp"
-          ? "webp"
-          : "png";
-  return `attachment-${uuid}.${ext}`;
-}
-
-/**
- * Encode the body of a SelectedImage message (no outer field tag — the caller
- * wraps it via encodeMessage(SC_SELECTED_IMAGES, [body])). Uses the
- * `blob_id_with_data` oneof case (field 9), stores sha256(data) → bytes in
- * `blobStore` when provided (same map as system-prompt getBlob), and sets
- * path/uuid/optional dimension/mime_type. Fields are written in ascending
- * field-number order (canonical protobuf layout).
- */
-export function encodeSelectedImageBody(
-  img: EncodedImage,
-  blobStore?: Map<string, Buffer>
-): Buffer {
-  const blobId = crypto.createHash("sha256").update(img.data).digest();
-  if (blobStore) {
-    blobStore.set(blobId.toString("hex"), img.data);
-  }
-
-  const parts: Buffer[] = [
-    encodeString(SI_UUID, img.uuid),
-    encodeString(SI_PATH, cursorImageAttachmentPath(img.uuid, img.mimeType)),
-  ];
-  if (
-    typeof img.width === "number" &&
-    typeof img.height === "number" &&
-    Number.isFinite(img.width) &&
-    Number.isFinite(img.height) &&
-    img.width > 0 &&
-    img.height > 0
-  ) {
-    parts.push(
-      encodeMessage(SI_DIMENSION, [
-        encodeUInt32Field(DIM_WIDTH, Math.floor(img.width)),
-        encodeUInt32Field(DIM_HEIGHT, Math.floor(img.height)),
-      ])
-    );
-  }
-  if (img.mimeType) {
-    parts.push(encodeString(SI_MIME_TYPE, img.mimeType));
-  }
-  // data_or_blob_id oneof = blob_id_with_data — field 9 (not legacy field 8).
-  parts.push(
-    encodeMessage(SI_BLOB_ID_WITH_DATA, [
-      encodeBytes(SIBD_BLOB_ID, blobId),
-      encodeBytes(SIBD_DATA, img.data),
-    ])
-  );
-  return Buffer.concat(parts);
-}
+export { cursorImageAttachmentPath, encodeSelectedImageBody };
+export type { EncodedImage };
 
 /**
  * Convert OpenAI tool definitions to cursor McpToolDefinition bodies. Used
