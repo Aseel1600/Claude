@@ -122,6 +122,8 @@ app.log
 deploy.sh
 docker-compose.minimal.yml
 
+# Docker Compose override (local-only, never commit)
+docker-compose.override.yml
 
 # Backup directories
 app.__qa_backup/
