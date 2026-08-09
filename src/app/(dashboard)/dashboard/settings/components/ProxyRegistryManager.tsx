@@ -16,85 +16,17 @@ import {
 } from "./parseBulkProxyImport";
 import { POOL_STRATEGY_OPTIONS, isPoolStrategy, type PoolStrategy } from "./proxyStrategyOptions";
 import type { ProxyItem } from "./proxyRegistryTypes";
+import {
+  BULK_IMPORT_PLACEHOLDER,
+  EMPTY_FORM,
+  type HealthInfo,
+  type ProxyRegistryManagerProps,
+  type TestResult,
+  type UsageInfo,
+} from "./proxyRegistryConstants";
+import { loadAllProxyUsage, loadProxyHealth, loadProxyUsage } from "./proxyRegistryData";
 
-type UsageInfo = {
-  count: number;
-  assignments: Array<{ scope: string; scopeId: string | null }>;
-};
-
-type HealthInfo = {
-  proxyId: string;
-  totalRequests: number;
-  successRate: number | null;
-  avgLatencyMs: number | null;
-  lastSeenAt: string | null;
-};
-
-type TestResult = {
-  success: boolean;
-  publicIp?: string;
-  latencyMs?: number;
-  country?: string;
-  error?: string;
-};
-
-const EMPTY_FORM = {
-  id: "",
-  name: "",
-  type: "http",
-  host: "",
-  port: "8080",
-  username: "",
-  password: "",
-  region: "",
-  notes: "",
-  status: "active",
-  family: "auto",
-};
-
-const BULK_IMPORT_PLACEHOLDER = `# Proxy Bulk Import
-# ─────────────────────────────────────────────────────────────────────────────
-# FORMAT 1 — Pipe-delimited (full control):
-#   NAME|HOST|PORT|USERNAME|PASSWORD|TYPE|REGION|STATUS|NOTES
-#   Required: NAME, HOST, PORT
-#   Optional: USERNAME, PASSWORD, TYPE (http|https|socks5, default: socks5), REGION, STATUS (active|inactive, default: active), NOTES
-#
-# FORMAT 2 — Shorthand (one proxy per line, no pipe needed):
-#   ip:port                          → no auth, type defaults to socks5
-#   ip:port:user:pass                → with auth
-#   user:pass@ip:port                → with auth (@-style)
-#   user:pass:ip:port                 → with auth (user-pass-first)
-#   protocol://ip:port               → explicit protocol
-#   protocol://user:pass@ip:port     → explicit protocol + auth
-#
-# FORMAT 3 — Protocol header mode:
-#   Put a bare protocol (http, https, socks5) on its own line to set
-#   the default type for all subsequent shorthand lines that don't
-#   include an explicit protocol:// prefix.
-#
-# Lines starting with # are ignored. Existing proxies (same host+port) will be updated.
-#
-# ─────────────────────────────────────────────────────────────────────────────
-# Pipe-delimited examples:
-# proxy-us|138.99.147.218|50101|myuser|mypass|socks5|US-East|active|US production proxy
-# proxy-eu|200.234.177.62|50101|myuser|mypass|socks5|EU-West
-# http-proxy|10.0.0.50|8080|||http||active|Internal HTTP proxy
-#
-# Shorthand examples:
-# 138.99.147.218:50101
-# 138.99.147.218:50101:myuser:mypass
-# myuser:mypass@138.99.147.218:50101
-# myuser:mypass:138.99.147.218:50101
-# http://10.0.0.50:8080
-# https://admin:secret123@proxy.example.com:443
-#
-# Protocol header mode example:
-# socks5
-# 138.99.147.218:50101:myuser:mypass
-# 200.234.177.62:50101:otheruser:otherpass
-#`;
-
-export default function ProxyRegistryManager({
+ export default function ProxyRegistryManager({
   onRedeployRelay,
   showVercelRelay = false,
   showDenoRelay = false,
@@ -102,15 +34,7 @@ export default function ProxyRegistryManager({
   onOpenVercelRelay,
   onOpenDenoRelay,
   onOpenCloudflareRelay,
-}: {
-  onRedeployRelay?: (proxy: ProxyItem) => void;
-  showVercelRelay?: boolean;
-  showDenoRelay?: boolean;
-  showCloudflareRelay?: boolean;
-  onOpenVercelRelay?: () => void;
-  onOpenDenoRelay?: () => void;
-  onOpenCloudflareRelay?: () => void;
-} = {}) {
+}: ProxyRegistryManagerProps = {}) {
   const t = useTranslations("proxyRegistry");
   const settingsT = useTranslations("settings");
   const [items, setItems] = useState<ProxyItem[]>([]);
@@ -188,50 +112,11 @@ export default function ProxyRegistryManager({
 
   const editingId = useMemo(() => form.id || "", [form.id]);
 
-  const loadHealth = useCallback(async () => {
-    try {
-      const res = await fetch("/api/settings/proxies/health?hours=24");
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return;
-      const entries = Array.isArray(data?.items) ? data.items : [];
-      const mapped = Object.fromEntries(
-        entries.map((entry: HealthInfo) => [entry.proxyId, entry])
-      ) as Record<string, HealthInfo>;
-      setHealthById(mapped);
-    } catch {
-      // ignore health loading errors in UI
-    }
-  }, []);
-
-  const loadAllUsage = useCallback(async (proxyIds: string[]) => {
-    if (!proxyIds.length) return;
-    try {
-      const results = await Promise.all(
-        proxyIds.map((id) =>
-          fetch(`/api/settings/proxies/assignments?proxyId=${encodeURIComponent(id)}`)
-            .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
-              const rawAssignments: Array<{ scope: string; scopeId: string | null }> =
-                Array.isArray(data?.items) ? data.items : [];
-              // Deduplicate by scope+scopeId — prevents double-counting when both
-              // a provider-scope and account-scope row exist for the same proxy
-              const seen = new Set<string>();
-              const assignments = rawAssignments.filter((a) => {
-                const key = `${a.scope}:${a.scopeId ?? ""}`;
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-              });
-              return [id, { count: assignments.length, assignments }] as [string, UsageInfo];
-            })
-            .catch(() => [id, { count: 0, assignments: [] }] as [string, UsageInfo])
-        )
-      );
-      setUsageById(Object.fromEntries(results));
-    } catch {
-      // ignore
-    }
-  }, []);
+  const loadHealth = useCallback(() => loadProxyHealth(setHealthById), []);
+  const loadAllUsage = useCallback(
+    (proxyIds: string[]) => loadAllProxyUsage(proxyIds, setUsageById),
+    []
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -323,33 +208,7 @@ export default function ProxyRegistryManager({
     setModalOpen(true);
   };
 
-  const loadUsage = async (proxyId: string) => {
-    try {
-      const res = await fetch(
-        `/api/settings/proxies/assignments?proxyId=${encodeURIComponent(proxyId)}`
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return;
-      const rawAssignments: Array<{ scope: string; scopeId: string | null }> = Array.isArray(
-        data?.items
-      )
-        ? data.items
-        : [];
-      const seen = new Set<string>();
-      const assignments = rawAssignments.filter((a) => {
-        const key = `${a.scope}:${a.scopeId ?? ""}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-      setUsageById((prev) => ({
-        ...prev,
-        [proxyId]: { count: assignments.length, assignments },
-      }));
-    } catch {
-      // ignore usage loading errors in UI
-    }
-  };
+  const loadUsage = (proxyId: string) => loadProxyUsage(proxyId, setUsageById);
 
   const handleTestProxy = async (item: ProxyItem) => {
     if (testingId) return;
