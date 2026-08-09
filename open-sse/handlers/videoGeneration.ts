@@ -18,6 +18,7 @@ import { handleNovitaVideoGeneration } from "./videoGeneration/novitaHandler.ts"
 import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandler.ts";
 import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { handleAdobeFireflyVideoGeneration } from "./videoGeneration/adobeFireflyHandler.ts";
+import { handleFalVideoGeneration } from "./videoGeneration/falHandler.ts";
 import { handleOpenAIVideoGeneration } from "./videoGeneration/openai.ts";
 import { getVideoJobPreset, handleVideoJobGeneration } from "./videoGeneration/job.ts";
 import {
@@ -199,6 +200,10 @@ export async function handleVideoGeneration({ body, credentials, log, resolvedPr
 
   if (providerConfig.format === "vertex-veo") {
     return handleVertexVeoGeneration({ model, body, credentials, log });
+  }
+
+  if (providerConfig.format === "fal-ai-video") {
+    return handleFalVideoGeneration({ model, provider, providerConfig, body, credentials, log });
   }
 
   if (providerConfig.format === "google-flow") {
