@@ -2005,16 +2005,17 @@ export async function markAccountUnavailable(
     const disableCooling = connProviderSpecificData.disableCooling === true;
 
     const isPerModelQuotaProvider = hasPerModelQuota(provider, model, connectionPassthroughModels);
+    const isNvidiaModelGone = provider === "nvidia" && status === 410;
     const modelLockoutOptions = { maxCooldownMs: effectiveProviderProfile?.maxCooldownMs };
     if (
       isPerModelQuotaProvider &&
       provider &&
       provider !== "codex" &&
       model &&
-      (status === 404 || status === 429 || status >= 500)
+      (status === 404 || isNvidiaModelGone || status === 429 || status >= 500)
     ) {
       const reason =
-        status === 404
+        status === 404 || isNvidiaModelGone
           ? "not_found"
           : status === 429 && fallbackResult.reason === RateLimitReason.QUOTA_EXHAUSTED
             ? "quota_exhausted"
@@ -2046,7 +2047,10 @@ export async function markAccountUnavailable(
         ? "model"
         : getQuotaScopeLabelForProvider(provider, model);
       const antigravityFamilyInferredBaseCooldownMs =
-        !usesExactAntigravityLock && provider === "antigravity" && quotaScope === "family" && status === 429
+        !usesExactAntigravityLock &&
+        provider === "antigravity" &&
+        quotaScope === "family" &&
+        status === 429
           ? ANTIGRAVITY_FAMILY_INFERRED_BASE_COOLDOWN_MS
           : null;
       const lockout = recordModelLockoutFailure(
@@ -2055,7 +2059,7 @@ export async function markAccountUnavailable(
         model,
         reason,
         status,
-        status === 404
+        status === 404 || isNvidiaModelGone
           ? (effectiveProviderProfile?.baseCooldownMs ?? COOLDOWN_MS.notFoundLocal)
           : (antigravityFamilyInferredBaseCooldownMs ??
               fallbackResult.baseCooldownMs ??
