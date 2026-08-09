@@ -98,12 +98,19 @@ describe("CommandCodeExecutor", () => {
               type: "function",
               function: { name: "lookup", arguments: '{"q":"string"}' },
             },
+            // Invalid JSON string arguments -> defaults to "{}"
+            {
+              id: "call_invalid",
+              type: "function",
+              function: { name: "lookup", arguments: "{invalid-json" },
+            },
           ],
         },
         { role: "tool", tool_call_id: "call_missing", content: "r1" },
         { role: "tool", tool_call_id: "call_empty", content: "r2" },
         { role: "tool", tool_call_id: pairedId, content: "r3" },
         { role: "tool", tool_call_id: "call_string", content: "r4" },
+        { role: "tool", tool_call_id: "call_invalid", content: "r5" },
       ],
     };
 
@@ -115,9 +122,6 @@ describe("CommandCodeExecutor", () => {
         credentials: { apiKey: "fake-key" },
         signal: null,
       });
-      assert.fail("Expected fetch to reject (no real network)");
-    } catch {
-      // Fetch rejection is expected; inspect the captured body
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -130,7 +134,7 @@ describe("CommandCodeExecutor", () => {
     assert.ok(assistant, "assistant turn present");
     const parts = assistant.content as Array<Record<string, unknown>>;
     const toolCalls = parts.filter((p) => p.type === "tool-call");
-    assert.equal(toolCalls.length, 4, "all four paired tool calls converted");
+    assert.equal(toolCalls.length, 5, "all five paired tool calls converted");
 
     for (const call of toolCalls) {
       assert.equal(
@@ -155,6 +159,11 @@ describe("CommandCodeExecutor", () => {
       byId.get("call_string").arguments,
       '{"q":"string"}',
       "valid string arguments preserved as-is"
+    );
+    assert.equal(
+      byId.get("call_invalid").arguments,
+      "{}",
+      "invalid JSON string arguments -> empty object"
     );
   });
 });

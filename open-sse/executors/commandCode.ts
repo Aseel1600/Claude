@@ -53,14 +53,22 @@ function recordOrEmpty(value: unknown): JsonRecord {
  * Code's /alpha/generate schema REQUIRES (rejects a missing field with
  * `missing required field 'arguments'`). Valid source values round-trip:
  *   - object arguments  -> JSON string of the object
- *   - string arguments  -> the string as-is (already valid JSON)
- *   - missing / empty / invalid JSON -> "{}" (a valid empty-object string)
+ *   - valid JSON string arguments -> the string as-is
+ *   - missing / empty / invalid JSON string -> "{}" (a valid empty-object string)
  */
-function toolCallArgumentsString(value: unknown): string {
-  const parsed = recordOrEmpty(value);
-  if (isRecord(value)) return JSON.stringify(parsed);
-  if (typeof value === "string" && value.trim()) return value;
-  return JSON.stringify(parsed);
+function toolCallArgumentsString(value: unknown, parsedRecord?: JsonRecord): string {
+  if (isRecord(value)) return JSON.stringify(value);
+  if (typeof value === "string" && value.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (isRecord(parsed)) return value;
+    } catch {
+      return "{}";
+    }
+    return "{}";
+  }
+  const record = parsedRecord ?? recordOrEmpty(value);
+  return JSON.stringify(record);
 }
 
 function normalizeContentText(content: unknown): string {
@@ -267,7 +275,7 @@ function convertMessages(
           input: parsedInput,
           // /alpha/generate requires this field on assistant tool-call parts;
           // a missing one is rejected with `missing required field 'arguments'`.
-          arguments: toolCallArgumentsString(fn.arguments),
+          arguments: toolCallArgumentsString(fn.arguments, parsedInput),
         });
       }
 
