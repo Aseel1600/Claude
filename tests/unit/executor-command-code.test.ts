@@ -104,6 +104,12 @@ describe("CommandCodeExecutor", () => {
               type: "function",
               function: { name: "lookup", arguments: "{invalid-json" },
             },
+            // Tool call without name -> defaults tool-result toolName to "unknown"
+            {
+              id: "call_unnamed",
+              type: "function",
+              function: { arguments: { q: "unnamed" } },
+            },
           ],
         },
         { role: "tool", tool_call_id: "call_missing", content: "r1" },
@@ -111,6 +117,7 @@ describe("CommandCodeExecutor", () => {
         { role: "tool", tool_call_id: pairedId, content: "r3" },
         { role: "tool", tool_call_id: "call_string", content: "r4" },
         { role: "tool", tool_call_id: "call_invalid", content: "r5" },
+        { role: "tool", tool_call_id: "call_unnamed", content: "r6" },
       ],
     };
 
@@ -134,7 +141,7 @@ describe("CommandCodeExecutor", () => {
     assert.ok(assistant, "assistant turn present");
     const parts = assistant.content as Array<Record<string, unknown>>;
     const toolCalls = parts.filter((p) => p.type === "tool-call");
-    assert.equal(toolCalls.length, 5, "all five paired tool calls converted");
+    assert.equal(toolCalls.length, 6, "all six paired tool calls converted");
 
     for (const call of toolCalls) {
       assert.equal(
@@ -167,17 +174,19 @@ describe("CommandCodeExecutor", () => {
     );
 
     const toolMsgs = sentBody.params.messages.filter((m) => m.role === "tool");
-    assert.equal(toolMsgs.length, 5, "all 5 tool result messages present");
-    for (const msg of toolMsgs) {
-      const toolParts = msg.content as Array<Record<string, unknown>>;
-      assert.equal(toolParts.length, 1);
-      assert.equal(toolParts[0].type, "tool-result");
-      assert.equal(
-        toolParts[0].toolName,
-        "lookup",
-        "toolName resolved from matching assistant tool call"
-      );
-    }
+    assert.equal(toolMsgs.length, 6, "all 6 tool result messages present");
+    const resultByName = new Map(
+      toolMsgs.map((m) => {
+        const p = (m.content as Array<Record<string, unknown>>)[0];
+        return [String(p.toolCallId), String(p.toolName)];
+      })
+    );
+    assert.equal(resultByName.get("call_missing"), "lookup");
+    assert.equal(
+      resultByName.get("call_unnamed"),
+      "unknown",
+      "unnamed call falls back to 'unknown'"
+    );
   });
 
   it("COMMAND_CODE_VERSION default constant is 1.15.1", () => {

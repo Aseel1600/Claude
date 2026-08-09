@@ -56,7 +56,7 @@ function recordOrEmpty(value: unknown): JsonRecord {
  *   - valid JSON string arguments -> the string as-is
  *   - missing / empty / invalid JSON string -> "{}" (a valid empty-object string)
  */
-function toolCallArgumentsString(value: unknown, parsedRecord?: JsonRecord): string {
+function toolCallArgumentsString(value: unknown): string {
   if (isRecord(value)) return JSON.stringify(value);
   if (typeof value === "string" && value.trim()) {
     try {
@@ -67,8 +67,7 @@ function toolCallArgumentsString(value: unknown, parsedRecord?: JsonRecord): str
     }
     return "{}";
   }
-  const record = parsedRecord ?? recordOrEmpty(value);
-  return JSON.stringify(record);
+  return JSON.stringify(recordOrEmpty(value));
 }
 
 function normalizeContentText(content: unknown): string {
@@ -216,15 +215,24 @@ function convertTools(tools: unknown): unknown[] {
   });
 }
 
-function completeToolCallIds(messages: JsonRecord[]): Set<string> {
+function buildToolCallMetadata(messages: JsonRecord[]): {
+  pairedToolCallIds: Set<string>;
+  toolCallNames: Map<string, string>;
+} {
   const callIds = new Set<string>();
   const resultIds = new Set<string>();
+  const toolCallNames = new Map<string, string>();
 
   for (const message of messages) {
     if (message.role === "assistant") {
       for (const call of asRecordArray(message.tool_calls)) {
         const id = stringValue(call.id);
-        if (id) callIds.add(id);
+        if (id) {
+          callIds.add(id);
+          const fn = isRecord(call.function) ? call.function : {};
+          const name = stringValue(fn.name) || stringValue(call.name);
+          if (name) toolCallNames.set(id, name);
+        }
       }
     } else if (message.role === "tool") {
       const id = stringValue(message.tool_call_id);
@@ -232,22 +240,8 @@ function completeToolCallIds(messages: JsonRecord[]): Set<string> {
     }
   }
 
-  return new Set([...callIds].filter((id) => resultIds.has(id)));
-}
-
-function extractToolCallNames(messages: JsonRecord[]): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const message of messages) {
-    if (message.role === "assistant") {
-      for (const call of asRecordArray(message.tool_calls)) {
-        const id = stringValue(call.id);
-        const fn = isRecord(call.function) ? call.function : {};
-        const name = stringValue(fn.name);
-        if (id && name) map.set(id, name);
-      }
-    }
-  }
-  return map;
+  const pairedToolCallIds = new Set([...callIds].filter((id) => resultIds.has(id)));
+  return { pairedToolCallIds, toolCallNames };
 }
 
 function convertMessages(
@@ -255,8 +249,7 @@ function convertMessages(
   model?: string | null
 ): { system: string; messages: unknown[] } {
   const source = asRecordArray(messages);
-  const pairedToolCallIds = completeToolCallIds(source);
-  const toolCallNames = extractToolCallNames(source);
+  const { pairedToolCallIds, toolCallNames } = buildToolCallMetadata(source);
   const out: unknown[] = [];
   const system: string[] = [];
   const isVision = isCommandCodeVisionModel(model);
@@ -291,7 +284,7 @@ function convertMessages(
           input: parsedInput,
           // /alpha/generate requires this field on assistant tool-call parts;
           // a missing one is rejected with `missing required field 'arguments'`.
-          arguments: toolCallArgumentsString(fn.arguments, parsedInput),
+          arguments: toolCallArgumentsString(fn.arguments),
         });
       }
 
