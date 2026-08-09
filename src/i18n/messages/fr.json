@@ -937,7 +937,7 @@
   "disabled": "Désactivé",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Router les requêtes ayant épuisé leur budget vers le fournisseur/modèle de secours gratuit d'urgence.",
   "featureFlagArenaEloSyncEnabledDescription": "Activer la synchronisation périodique de l'ELO du classement Arena AI pour les classements d'intelligence des modèles.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Afficher les identifiants miroir claude/<provider>/<model> dans /v1/models afin que la découverte de modèles de la passerelle Claude Code répertorie les modèles non-Claude. Attention : cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Afficher les identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; dans /v1/models afin que la découverte de modèles de la passerelle Claude Code répertorie les modèles non-Claude. Attention : cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
   "sidebar": {
     "home": "Accueil",
     "dashboard": "Tableau de bord",
@@ -2514,7 +2514,7 @@
       "always": "Toujours"
     },
     "ccDiscoveryInfoButton": "Comment activer la découverte dans Claude Code",
-    "ccDiscoveryInfoTooltip": "Afficher les modèles non-Claude sous forme d'identifiants miroir claude/<provider>/<model> afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
+    "ccDiscoveryInfoTooltip": "Afficher les modèles non-Claude sous forme d'identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
     "ccDiscoveryInfoLink": "Ouvrir les indicateurs de fonctionnalités",
     "ccOnboardingTitle": "settings.json pour la découverte des modèles de la passerelle",
     "ccOnboardingCopy": "Copier",
@@ -5202,7 +5202,7 @@
     "interceptionLoadError": "Échec du chargement des paramètres d'interception : {error}",
     "interceptionSaveError": "Échec de l'enregistrement des paramètres d'interception : {error}",
     "ccAliasSectionTitle": "Exposer dans Claude Code (claude/…)",
-    "ccAliasSectionHint": "Afficher les modèles de ce fournisseur sous forme d'identifiants miroir claude/<provider>/<model> afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option est désactivée par défaut ; son activation double les entrées du catalogue pour tous les clients.",
+    "ccAliasSectionHint": "Afficher les modèles de ce fournisseur sous forme d'identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option est désactivée par défaut ; son activation double les entrées du catalogue pour tous les clients.",
     "ccAliasProviderLevelLabel": "Valeur par défaut du fournisseur",
     "ccAliasModelOverridesLabel": "Surcharges par modèle",
     "ccAliasModelOverrideAriaLabel": "Surcharge pour {modelId}",
