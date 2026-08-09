@@ -114,7 +114,6 @@ export async function addCustomModel(
   // #1904: optional manual vision-capability override for the "add custom model"
   // form — read back by getCustomVisionCapabilityFields() in the /v1/models catalog.
   supportsVision?: boolean,
-<<<<<<< HEAD
   // #9820: optional video-generation job preset (e.g. "agnes-video-job") for
   // custom OpenAI-compatible video models. Persisted on the model row; the
   // /v1/videos/generations handler reads it back to pick the job/poll path.
