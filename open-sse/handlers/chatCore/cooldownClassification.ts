@@ -11,6 +11,29 @@ import { HTTP_STATUS } from "../../config/constants.ts";
 export const LOCAL_QUEUE_TIMEOUT_ERROR_TYPE = "local_queue_timeout";
 
 /**
+ * `errorType` tag for a job dropped when OmniRoute force-reset its own WEDGED
+ * queue — the limiter was idle with capacity (`queued>0 running=0 executing=0`)
+ * and the job had never been dispatched.
+ *
+ * Set in `chatCore.ts` from `RATE_LIMIT_QUEUE_WEDGED`, the sibling of
+ * `RATE_LIMIT_QUEUE_TIMEOUT` thrown from the same catch in `withRateLimit`. It
+ * surfaces as a 502 rather than a 503, which is precisely how it slipped past the
+ * 2026-08-08 rule: that one was written for the pair `503 + local_queue_timeout`.
+ */
+export const LOCAL_QUEUE_WEDGE_ERROR_TYPE = "local_queue_wedge";
+
+/**
+ * Tags OmniRoute writes about its OWN request queue, at a single site each. No
+ * provider response can produce them, so matching on the tag alone is safe — and
+ * necessary: binding them to a status is the trap that left the wedge unprotected
+ * for a day while its sibling was covered.
+ */
+const OWN_QUEUE_FAILURE_TYPES = new Set<string>([
+  LOCAL_QUEUE_TIMEOUT_ERROR_TYPE,
+  LOCAL_QUEUE_WEDGE_ERROR_TYPE,
+]);
+
+/**
  * Whether a failed single-model attempt is *self-inflicted* — OmniRoute gave up,
  * the provider never rejected anything. Two shapes qualify:
  *
@@ -37,12 +60,15 @@ export function isSelfInflictedFailure(
   errorType: string | undefined | null,
   provider: string
 ): boolean {
-  if (
-    status === HTTP_STATUS.SERVICE_UNAVAILABLE &&
-    errorType === LOCAL_QUEUE_TIMEOUT_ERROR_TYPE
-  ) {
+  // Our own queue, either way it failed — matched by tag, never by status. Both
+  // shapes mean the request never reached the provider; the wedge means it was
+  // never even dispatched.
+  if (typeof errorType === "string" && OWN_QUEUE_FAILURE_TYPES.has(errorType)) {
     return true;
   }
+  // `upstream_timeout` keeps the status pairing: unlike the queue tags it is not
+  // exclusively ours (antigravity emits it for its pre-response timeout), so the
+  // 504 narrows it to the case this rule was written for.
   return (
     status === HTTP_STATUS.GATEWAY_TIMEOUT &&
     errorType === "upstream_timeout" &&

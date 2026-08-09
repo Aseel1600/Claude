@@ -1,4 +1,7 @@
-import { LOCAL_QUEUE_TIMEOUT_ERROR_TYPE } from "./chatCore/cooldownClassification.ts";
+import {
+  LOCAL_QUEUE_TIMEOUT_ERROR_TYPE,
+  LOCAL_QUEUE_WEDGE_ERROR_TYPE,
+} from "./chatCore/cooldownClassification.ts";
 import { injectMemoryAndSkills } from "./chatCore/memorySkillsInjection.ts";
 import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
@@ -3327,6 +3330,11 @@ export async function handleChatCore({
       !isRequestAborted && (error as { errorCode?: unknown })?.errorCode === "proxy_unreachable";
     const errorCode = getUpstreamErrorIdentifier(error);
     const isLocalQueueTimeout = errorCode === "RATE_LIMIT_QUEUE_TIMEOUT";
+    // Sibling of the above, thrown from the same catch in withRateLimit when the
+    // watchdog force-resets a WEDGED limiter (idle with capacity, job never
+    // dispatched). It surfaces as a 502, which is exactly why the 2026-08-08 rule
+    // — written for `503 + local_queue_timeout` — never covered it.
+    const isLocalQueueWedge = errorCode === "RATE_LIMIT_QUEUE_WEDGED";
     const failureStatus = isRequestAborted
       ? 499
       : isProxyUnreachableFailure
@@ -3354,7 +3362,9 @@ export async function handleChatCore({
     // connection that was never even asked to do anything.
     const upstreamErrorType = isLocalQueueTimeout
       ? LOCAL_QUEUE_TIMEOUT_ERROR_TYPE
-      : upstreamErrorCode === ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE || isOwnDeadlineTimeout
+      : isLocalQueueWedge
+        ? LOCAL_QUEUE_WEDGE_ERROR_TYPE
+        : upstreamErrorCode === ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE || isOwnDeadlineTimeout
         ? "upstream_timeout"
         : failureStatus === 401
           ? "authentication_error"
