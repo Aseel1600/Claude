@@ -35,6 +35,9 @@ export {
   listModelsCatalogInput,
   listModelsCatalogOutput,
   listModelsCatalogTool,
+  radarCatalogInput,
+  radarCatalogOutput,
+  radarCatalogTool,
   // Phase 2: Advanced tool schemas
   simulateRouteInput,
   simulateRouteOutput,

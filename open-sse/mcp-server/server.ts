@@ -17,6 +17,8 @@ import {
   routeRequestInput,
   costReportInput,
   listModelsCatalogInput,
+  radarCatalogInput,
+  radarCatalogOutput,
   webSearchInput,
   webFetchInput,
   simulateRouteInput,
@@ -93,7 +95,9 @@ import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
+import { getMcpRadarCatalog } from "./radarCatalog.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
+export { getMcpRadarCatalog } from "./radarCatalog.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
 const MCP_ENFORCE_SCOPES = process.env.OMNIROUTE_MCP_ENFORCE_SCOPES === "true";
@@ -570,6 +574,29 @@ async function handleListModelsCatalog(args: { provider?: string; capability?: s
   }
 }
 
+async function handleRadarCatalog(args: {
+  provider?: string;
+  familyId?: string;
+  enabledOnly: boolean;
+}) {
+  const start = Date.now();
+  try {
+    const result = radarCatalogOutput.parse(await getMcpRadarCatalog(args));
+    await logToolCall(
+      "omniroute_radar_catalog",
+      args,
+      { modelCount: result.models.length },
+      Date.now() - start,
+      true
+    );
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (error) {
+    const message = sanitizeErrorMessage(error) || "Failed to read Radar catalog";
+    await logToolCall("omniroute_radar_catalog", args, null, Date.now() - start, false, message);
+    return { content: [{ type: "text" as const, text: `Error: ${message}` }], isError: true };
+  }
+}
+
 async function handleWebSearch(args: {
   query: string;
   max_results?: number;
@@ -812,6 +839,17 @@ export function createMcpServer(): McpServer {
     },
     withScopeEnforcement("omniroute_list_models_catalog", (args) =>
       handleListModelsCatalog(listModelsCatalogInput.parse(args))
+    )
+  );
+
+  server.registerTool(
+    "omniroute_radar_catalog",
+    {
+      description: "Reads the local signed Radar catalog with optional provider and family filters",
+      inputSchema: radarCatalogInput,
+    },
+    withScopeEnforcement("omniroute_radar_catalog", (args) =>
+      handleRadarCatalog(radarCatalogInput.parse(args))
     )
   );
 

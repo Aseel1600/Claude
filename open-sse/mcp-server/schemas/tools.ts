@@ -1,5 +1,5 @@
 /**
- * MCP Tool Schemas — Contracts for all 23 core and advanced OmniRoute MCP tools.
+ * MCP Tool Schemas — Contracts for the canonical OmniRoute MCP tools.
  *
  * Defines input/output Zod schemas, descriptions, scopes, and audit levels
  * for both essential (Phase 1) and advanced (Phase 2) MCP tools.
@@ -27,7 +27,7 @@ import type { McpToolDefinition } from "./toolDefinition.ts";
 export { pickFastestModelInput, pickFastestModelOutput } from "./pickFastestModel.ts";
 export * from "./ccrTools.ts";
 
-// ============ Phase 1: Essential Tools (8) ============
+// ============ Phase 1: Essential Tools ============
 
 // --- Tool 1: omniroute_get_health ---
 export const getHealthInput = z.object({}).describe("No parameters required");
@@ -432,7 +432,70 @@ export const listModelsCatalogTool: McpToolDefinition<
   sourceEndpoints: ["/api/models/catalog", "/v1/models"],
 };
 
-// --- Tool 9: omniroute_web_search ---
+// --- Tool 9: omniroute_radar_catalog ---
+export const radarCatalogInput = z.object({
+  provider: z.string().trim().min(1).max(100).optional().describe("Filter by provider id"),
+  familyId: z.string().trim().min(1).max(120).optional().describe("Filter by curated family id"),
+  enabledOnly: z.boolean().default(true).describe("Exclude models disabled by the Radar feed"),
+});
+
+const radarLimitOutput = z.object({
+  rpm: z.number().nullable(),
+  rpd: z.number().nullable(),
+  tpm: z.number().nullable(),
+  tpd: z.number().nullable(),
+});
+
+export const radarCatalogOutput = z.object({
+  meta: z
+    .object({
+      version: z.string(),
+      tier: z.string(),
+      fetchedAt: z.string(),
+    })
+    .nullable(),
+  models: z.array(
+    z.object({
+      provider: z.string(),
+      modelId: z.string(),
+      displayName: z.string(),
+      familyId: z.string().nullable(),
+      quota: z.object({
+        monthlyTokens: z.number(),
+        creditTokens: z.number(),
+        freeType: z.string(),
+        limits: radarLimitOutput.nullable(),
+      }),
+      capabilities: z
+        .object({
+          tools: z.boolean(),
+          vision: z.boolean(),
+          thinking: z.boolean(),
+        })
+        .nullable(),
+      enabled: z.boolean(),
+      origin: z.enum(["baseline", "radar", "local"]),
+      disabledBy: z.literal("radar").nullable(),
+    })
+  ),
+});
+
+export const radarCatalogTool: McpToolDefinition<
+  typeof radarCatalogInput,
+  typeof radarCatalogOutput
+> = {
+  name: "omniroute_radar_catalog",
+  description:
+    "Reads the local signed Radar catalog with optional provider and curated-family filters. Never syncs or writes data.",
+  inputSchema: radarCatalogInput,
+  outputSchema: radarCatalogOutput,
+  scopes: ["read:radar"],
+  auditLevel: "none",
+  phase: 1,
+  sourceEndpoints: ["/api/radar/catalog"],
+};
+
+// --- Tool 10: omniroute_web_search ---
 export const webSearchInput = z.object({
   query: z
     .string()
@@ -1512,6 +1575,7 @@ export const MCP_TOOLS = [
   routeRequestTool,
   costReportTool,
   listModelsCatalogTool,
+  radarCatalogTool,
   webSearchTool,
   webFetchTool,
   simulateRouteTool,
