@@ -157,7 +157,6 @@ const nextConfig = {
       },
     ],
   },
-  output: "standalone",
   compress: true,
   productionBrowserSourceMaps: false,
   // OmniRoute is a proxy for AI APIs — request bodies routinely include
