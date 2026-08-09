@@ -1,23 +1,29 @@
 /**
- * Bounded admission for POST /v1/chat/completions.
+ * Process-local bounded admission for POST /v1/chat/completions.
  *
  * Large chat bodies amplify into multiple transient representations while they are parsed,
  * translated, compressed, and dispatched. A heap snapshot alone cannot prevent two healthy
  * requests from entering that allocation-heavy path together. This module reserves process-
  * local heavyweight capacity before parsing and enforces the hard limit against bytes read,
  * not an untrusted Content-Length header.
+ *
+ * Per-connection virtual admission lanes (#9654): each distinct API-key (or anonymous)
+ * bucket gets its own FairCostQueue so one connection cannot exhaust heavyweight capacity
+ * and starve others. Idle sessions are auto-evicted after a TTL.
  */
 
 import { CORS_HEADERS } from "../utils/cors";
+import { createHash } from "crypto";
+
+
+const OMNIROUTE_CHAT_VIRTUAL_TTL_MS = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_VIRTUAL_TTL_MS,
+  60_000
+);
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(String(value), 10);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function parseNonNegativeInt(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(String(value), 10);
-  return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : fallback;
 }
 
 export const CHAT_LARGE_BODY_BYTES = parsePositiveInt(
@@ -30,21 +36,9 @@ export const CHAT_HARD_MAX_BODY_BYTES = parsePositiveInt(
   50 * 1024 * 1024
 );
 
-const CHAT_MAX_HEAVY_IN_FLIGHT = parsePositiveInt(
+export const CHAT_MAX_HEAVY_IN_FLIGHT = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_MAX_HEAVY_IN_FLIGHT,
   1
-);
-
-/**
- * How long a heavy request waits for heavyweight capacity before giving up with a
- * retryable 503. Agent loops (OpenCode, Claude Code, Cursor…) fan out sub-requests
- * that routinely land on the admission gate together; an immediate 503 makes the
- * client burn its retry budget in seconds and the agent dies mid-task. A short
- * bounded wait serializes the burst instead. `0` (legacy) rejects immediately.
- */
-export const CHAT_ADMISSION_QUEUE_MAX_MS = parseNonNegativeInt(
-  process.env.OMNIROUTE_CHAT_ADMISSION_QUEUE_MS,
-  5000
 );
 
 export const CHAT_HEAVY_MESSAGE_COUNT = parsePositiveInt(
@@ -88,13 +82,10 @@ export interface ChatAdmissionLease {
 /**
  * Process-local heavyweight reservation. The capacity check and increment execute in one
  * synchronous JavaScript turn, making acquisition atomic within an OmniRoute process.
- * Unavailable capacity is a bounded wait (see `acquireHeavyWithin`) and only then a
- * retryable 503, so short agent bursts serialize instead of killing the client's
- * retry budget.
+ * Queueing is intentionally separate: unavailable capacity is a retryable 503.
  */
 export class ChatAdmissionController {
   #activeHeavy = 0;
-  #waiters: Array<() => void> = [];
 
   constructor(readonly maxHeavyInFlight = 1) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
@@ -118,43 +109,148 @@ export class ChatAdmissionController {
         if (released) return;
         released = true;
         this.#activeHeavy = Math.max(0, this.#activeHeavy - 1);
-        this.#waiters.shift()?.();
       },
     };
-  }
-
-  /**
-   * Wait up to `timeoutMs` for heavyweight capacity, retrying atomically on each
-   * release. Resolves `null` when the deadline expires with no capacity freed, in
-   * which case the caller answers the retryable 503. `timeoutMs <= 0` is the
-   * legacy immediate-reject path. Waiters are served FIFO.
-   */
-  async acquireHeavyWithin(timeoutMs: number): Promise<ChatAdmissionLease | null> {
-    const deadline = Date.now() + Math.max(0, Math.floor(timeoutMs));
-    for (;;) {
-      const lease = this.tryAcquireHeavy();
-      if (lease) return lease;
-      const remaining = deadline - Date.now();
-      if (remaining <= 0) return null;
-      let resolver: (() => void) | null = null;
-      const released = new Promise<void>((resolve) => {
-        resolver = () => resolve();
-        this.#waiters.push(resolver);
-      });
-      const timedOut = await Promise.race([
-        released.then(() => false),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(true), remaining)),
-      ]);
-      if (resolver) {
-        const index = this.#waiters.indexOf(resolver);
-        if (index >= 0) this.#waiters.splice(index, 1);
-      }
-      if (timedOut) return null;
-    }
   }
 }
 
 const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
+
+/**
+ * Per-connection virtual admission lanes (#9654).
+ *
+ * Maps a sessionId (API-key hash or "anonymous") → ChatAdmissionController.
+   Each connection gets its own bounded heavyweight capacity so one connection
+ * cannot exhaust `CHAT_MAX_HEAVY_IN_FLIGHT` and starve others at the byte-level
+ * admission stage.
+ *
+ * Idle sessions are auto-evicted after OMNIROUTE_CHAT_VIRTUAL_TTL_MS
+ * (default 60s) to prevent unbounded Map growth.
+ */
+const OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS,
+  64
+);
+
+export function resolveSessionId(request: Request): string {
+  // Reuse the existing internal-bypass auth extraction: bearer token from
+  // Authorization, x-api-key (Anthropic-style), or Google API key header.
+  const authHeader = request.headers.get("authorization") || "";
+  const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
+  if (bearerMatch) {
+    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16);
+  }
+  const xApiKey = request.headers.get("x-api-key") || "";
+  if (xApiKey.trim().length > 0) {
+    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16);
+  }
+  const xGoogApiKey = request.headers.get("x-goog-api-key") || "";
+  if (xGoogApiKey.trim().length > 0) {
+    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16);
+  }
+  return "anonymous";
+}
+
+interface SessionRecord {
+  controller: ChatAdmissionController;
+  lastUsedMs: number;
+}
+
+export class PerConnectionAdmissionController {
+  #sessions = new Map<string, SessionRecord>();
+  #evictionTimer: ReturnType<typeof setTimeout> | null = null;
+  readonly maxSessions: number;
+  readonly sessionTtlMs: number;
+
+  constructor(
+    readonly maxHeavyPerSession: number,
+    opts?: { maxSessions?: number; sessionTtlMs?: number }
+  ) {
+    this.maxSessions = opts?.maxSessions ?? OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS;
+    this.sessionTtlMs = opts?.sessionTtlMs ?? OMNIROUTE_CHAT_VIRTUAL_TTL_MS;
+  }
+
+  getController(sessionId: string): ChatAdmissionController {
+    this.evictIfDue();
+    const existing = this.#sessions.get(sessionId);
+    if (existing) {
+      existing.lastUsedMs = Date.now();
+      return existing.controller;
+    }
+    // Evict oldest if at capacity (LRU fallback when TTL hasn't fired).
+    if (this.#sessions.size >= this.maxSessions) {
+      const oldestKey = this.oldestKey();
+      if (oldestKey) this.#sessions.delete(oldestKey);
+    }
+    const controller = new ChatAdmissionController(this.maxHeavyPerSession);
+    this.#sessions.set(sessionId, { controller, lastUsedMs: Date.now() });
+    this.armEviction();
+    return controller;
+  }
+
+  /** Snapshot for observability — never exposes raw API keys. */
+  snapshot(): ReadonlyArray<{ sessionId: string; activeHeavy: number; idleMs: number }> {
+    const now = Date.now();
+    const arr: Array<{ sessionId: string; activeHeavy: number; idleMs: number }> = [];
+    for (const [sessionId, record] of this.#sessions) {
+      arr.push({
+        sessionId,
+        activeHeavy: record.controller.activeHeavy,
+        idleMs: now - record.lastUsedMs,
+      });
+    }
+    return arr;
+  }
+
+  get sessionCount(): number {
+    return this.#sessions.size;
+  }
+
+  private oldestKey(): string | undefined {
+    let oldest: string | undefined;
+    let oldestMs = Infinity;
+    for (const [key, record] of this.#sessions) {
+      // Use <= so that for equal timestamps, later-inserted entries win,
+      // preserving LRU semantics when Date.now() returns the same value.
+      if (record.lastUsedMs <= oldestMs) {
+        oldestMs = record.lastUsedMs;
+        oldest = key;
+      }
+    }
+    return oldest;
+  }
+
+  private evictIfDue(): void {
+    const now = Date.now();
+    let evicted = false;
+    for (const [sessionId, record] of this.#sessions) {
+      if (now - record.lastUsedMs >= this.sessionTtlMs) {
+        this.#sessions.delete(sessionId);
+        evicted = true;
+      }
+    }
+    if (evicted) this.armEviction();
+  }
+
+  private armEviction(): void {
+    if (this.#evictionTimer !== null) return;
+    this.#evictionTimer = setTimeout(() => {
+      this.#evictionTimer = null;
+      this.evictIfDue();
+    }, this.sessionTtlMs).unref();
+  }
+
+  /** Force cleanup of all sessions (used by shutdown / tests). */
+  dispose(): void {
+    this.#sessions.clear();
+    if (this.#evictionTimer !== null) {
+      clearTimeout(this.#evictionTimer);
+      this.#evictionTimer = null;
+    }
+  }
+}
+
+export const perConnectionAdmissionController = new PerConnectionAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
 
 export type ChatRequestAdmission =
   | { admit: true; request: Request; lease: ChatAdmissionLease | null }
@@ -259,18 +355,18 @@ function estimateStructureTokens(value: unknown, limit: number): TokenEstimate {
   return { tokens, exhausted: stack.length > 0 && tokens < limit };
 }
 
-export async function admitChatStructure(
+export function admitChatStructure(
   body: unknown,
   lease: ChatAdmissionLease | null,
   options: {
     controller?: ChatAdmissionController;
+    sessionId?: string;
     maxMessages?: number;
     heavyMessages?: number;
     heavyTools?: number;
     heavyTokens?: number;
-    queueMs?: number;
   } = {}
-): Promise<ChatStructureAdmission> {
+): ChatStructureAdmission {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { admit: true, lease };
 
   const record = body as Record<string, unknown>;
@@ -301,9 +397,12 @@ export async function admitChatStructure(
     estimatedTokens >= heavyTokens;
   if (!heavy || lease) return { admit: true, lease };
 
-  const acquired = await (options.controller ?? defaultAdmissionController).acquireHeavyWithin(
-    options.queueMs ?? 0
-  );
+  const controller =
+    options.controller ??
+    (options.sessionId
+      ? perConnectionAdmissionController.getController(options.sessionId)
+      : defaultAdmissionController);
+  const acquired = controller.tryAcquireHeavy();
   return acquired
     ? { admit: true, lease: acquired }
     : { admit: false, response: structuralRejectionResponse(503, maxMessages) };
@@ -413,15 +512,16 @@ export async function admitChatRequest(
   request: Request,
   options: {
     controller?: ChatAdmissionController;
+    sessionId?: string;
     largeBodyBytes?: number;
     hardMaxBytes?: number;
-    queueMs?: number;
   } = {}
 ): Promise<ChatRequestAdmission> {
-  const controller = options.controller ?? defaultAdmissionController;
+  const sessionId = options.sessionId ?? resolveSessionId(request);
+  const controller =
+    options.controller ?? perConnectionAdmissionController.getController(sessionId);
   const largeBodyBytes = options.largeBodyBytes ?? CHAT_LARGE_BODY_BYTES;
   const hardMaxBytes = options.hardMaxBytes ?? CHAT_HARD_MAX_BODY_BYTES;
-  const queueMs = options.queueMs ?? 0;
   const internalBypass = isInternalAdmissionBypass(request);
   const contentLength = parseContentLength(request.headers.get("content-length"));
 
@@ -467,15 +567,15 @@ export async function admitChatRequest(
   }
 
   let lease: ChatAdmissionLease | null = null;
-  const reserve = async (): Promise<boolean> => {
+  const reserve = (): boolean => {
     if (lease) return true;
-    lease = await controller.acquireHeavyWithin(queueMs);
+    lease = controller.tryAcquireHeavy();
     return lease !== null;
   };
 
   // A known-large declaration can reserve before ingestion. Unknown lengths are boundedly
   // sniffed below; this avoids consuming scarce heavyweight capacity for small chunked bodies.
-  if (contentLength !== null && contentLength >= largeBodyBytes && !(await reserve())) {
+  if (contentLength !== null && contentLength >= largeBodyBytes && !reserve()) {
     return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
   }
 
@@ -494,7 +594,7 @@ export async function admitChatRequest(
         lease?.release();
         return { admit: false, response: rejectionResponse(413, hardMaxBytes) };
       }
-      if (totalBytes >= largeBodyBytes && !(await reserve())) {
+      if (totalBytes >= largeBodyBytes && !reserve()) {
         await reader.cancel("chat admission capacity unavailable").catch(() => undefined);
         return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
       }

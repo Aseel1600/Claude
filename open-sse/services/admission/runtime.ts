@@ -39,6 +39,7 @@ export const DEFAULT_ADAPTIVE_ADMISSION_CONFIG: Readonly<AdaptiveAdmissionConfig
   maxQueueCost: 2000,
   defaultMaxWaitMs: 5_000,
   windowMs: 1_000,
+  virtualLanes: false,
 });
 
 const RUNTIME_STORE_KEY = Symbol.for("omniroute.adaptiveAdmission.runtime");
@@ -70,6 +71,7 @@ const ENV_KEYS = {
   maxQueueCost: "ADAPTIVE_ADMISSION_MAX_QUEUE_COST",
   defaultMaxWaitMs: "ADAPTIVE_ADMISSION_MAX_WAIT_MS",
   windowMs: "ADAPTIVE_ADMISSION_WINDOW_MS",
+  virtualLanes: "OMNIROUTE_CHAT_VIRTUAL_LANES",
 } as const;
 
 function parsePositiveSafeInt(name: string, raw: string): number {
@@ -117,6 +119,11 @@ export function resolveAdaptiveAdmissionConfigFromEnv(
 
   // Shared pure validation — accept exact documented maxima, reject core-invalid configs.
   validateConfig(cfg);
+
+  // Per-connection virtual admission lanes (#9654) — opt-in via OMNIROUTE_CHAT_VIRTUAL_LANES.
+  const vlRaw = env[ENV_KEYS.virtualLanes];
+  cfg.virtualLanes = vlRaw === "1" || vlRaw === "true";
+
   return cfg;
 }
 
