@@ -557,7 +557,6 @@ export async function handleChatCore({
   const persistCodexQuotaState = async (headers: Record<string, string> | null, status = 0) => {
     const currentConnectionId = getCurrentConnectionId();
     if (provider !== "codex" || !currentConnectionId || !headers) return;
-
     try {
       const existingProviderData =
         credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
@@ -572,28 +571,23 @@ export async function handleChatCore({
         status,
       });
       if (!built) return;
-
       if (built.exhaustionLog) {
         log?.debug?.("CODEX", built.exhaustionLog);
       }
-
       // Invalidate the preflight cache for this connection so the next
       // isModelAvailable check fetches fresh quota data.
       if (status === 429) {
         invalidateCodexQuotaCache(currentConnectionId);
       }
-
       await updateProviderConnection(currentConnectionId, {
         providerSpecificData: built.nextProviderData,
       });
-
       credentials.providerSpecificData = built.nextProviderData;
     } catch (err) {
       const errMessage = err instanceof Error ? err.message : String(err);
       log?.debug?.("CODEX", `Failed to persist codex quota state: ${errMessage}`);
     }
   };
-
   // ── Phase 9.2: Idempotency check ──
   // Resolve the idempotency key once here and reuse it at the Phase 9.2 save site below,
   // rather than re-deriving it. (#3821-review LEDGER-6)
@@ -612,13 +606,11 @@ export async function handleChatCore({
   if (idempotencyHit) {
     return idempotencyHit;
   }
-
   // T07: Inject connectionId into credentials so executors can rotate API keys
   // using providerSpecificData.extraApiKeys (API Key Round-Robin feature)
   if (connectionId && credentials && !credentials.connectionId) {
     credentials.connectionId = connectionId;
   }
-
   // Endpoint/format resolution extracted to chatCore/requestFormat.ts (#3501); pure derivation
   // from the inbound request, destructured so every downstream use stays byte-identical.
   const {
