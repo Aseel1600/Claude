@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Organisasjonsdomene kreves",
     "denoRelayDeployFailed": "Deno Deploy mislyktes",
     "denoRelayTokenHint": "Organisasjonstoken (prefiks ddo_) fra console.deno.com → Organization → Settings → Organization Tokens. Brukes én gang til distribusjon og blir aldri lagret.",
-    "denoRelayOrgDomainHint": "Standarddomenet til din Deno Deploy-organisasjon (f.eks. acme.deno.net). Reléet vil være tilgjengelig på https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Standarddomenet til din Deno Deploy-organisasjon (f.eks. acme.deno.net). Reléet vil være tilgjengelig på https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filtrer etter protokoll",
     "proxyFreePoolProtocol": "Protokoll",
     "proxyFreePoolCountryPlaceholder": "Land (f.eks. US)",

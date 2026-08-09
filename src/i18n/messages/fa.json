@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "دامنه سازمان الزامی است",
     "denoRelayDeployFailed": "استقرار Deno Deploy ناموفق بود",
     "denoRelayTokenHint": "توکن سازمان (با پیشوند ddo_) از console.deno.com → Organization → Settings → Organization Tokens. یک‌بار برای استقرار استفاده می‌شود و هرگز ذخیره نمی‌شود.",
-    "denoRelayOrgDomainHint": "دامنه پیش‌فرض سازمان Deno Deploy شما (مانند acme.deno.net). رله در https://<app-name>.<org-slug>.deno.net در دسترس خواهد بود.",
+    "denoRelayOrgDomainHint": "دامنه پیش‌فرض سازمان Deno Deploy شما (مانند acme.deno.net). رله در https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net در دسترس خواهد بود.",
     "proxyFreePoolFilterProtocol": "فیلتر بر اساس پروتکل",
     "proxyFreePoolProtocol": "پروتکل",
     "proxyFreePoolCountryPlaceholder": "کشور (مانند US)",

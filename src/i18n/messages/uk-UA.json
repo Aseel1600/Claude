@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Домен організації обов'язковий",
     "denoRelayDeployFailed": "Збій Deno Deploy",
     "denoRelayTokenHint": "Токен організації (префікс ddo_) з console.deno.com → Організація → Налаштування → Токени організації. Використовується один раз для розгортання і ніколи не зберігається.",
-    "denoRelayOrgDomainHint": "Домен за замовчуванням вашої організації Deno Deploy (наприклад, acme.deno.net). Релей буде доступний за адресою https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Домен за замовчуванням вашої організації Deno Deploy (наприклад, acme.deno.net). Релей буде доступний за адресою https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Фільтрувати за протоколом",
     "proxyFreePoolProtocol": "Протокол",
     "proxyFreePoolCountryPlaceholder": "Країна (наприклад, US)",

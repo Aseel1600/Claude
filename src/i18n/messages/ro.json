@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Domeniul organizației este obligatoriu",
     "denoRelayDeployFailed": "Deno Deploy a eșuat",
     "denoRelayTokenHint": "Tokenul organizației (prefix ddo_) de la console.deno.com → Organization → Settings → Organization Tokens. Utilizat o singură dată pentru implementare și nu este stocat niciodată.",
-    "denoRelayOrgDomainHint": "Domeniul implicit al organizației tale Deno Deploy (de ex. acme.deno.net). Releul va fi accesibil la https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Domeniul implicit al organizației tale Deno Deploy (de ex. acme.deno.net). Releul va fi accesibil la https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filtrează după protocol",
     "proxyFreePoolProtocol": "Protocol",
     "proxyFreePoolCountryPlaceholder": "Țară (de ex. US)",

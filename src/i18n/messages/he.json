@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "נדרש דומיין של הארגון",
     "denoRelayDeployFailed": "Deno Deploy נכשל",
     "denoRelayTokenHint": "אסימון ארגון (קידומת ddo_) מתוך console.deno.com → Organization → Settings → Organization Tokens. משמש פעם אחת לפריסה ואינו נשמר לעולם.",
-    "denoRelayOrgDomainHint": "דומיין ברירת המחדל של ארגון ה-Deno Deploy שלך (למשל acme.deno.net). הממסר יהיה נגיש בכתובת https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "דומיין ברירת המחדל של ארגון ה-Deno Deploy שלך (למשל acme.deno.net). הממסר יהיה נגיש בכתובת https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "סנן לפי פרוטוקול",
     "proxyFreePoolProtocol": "פרוטוקול",
     "proxyFreePoolCountryPlaceholder": "מדינה (למשל US)",

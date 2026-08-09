@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Kikoa cha shirika kinahitajika",
     "denoRelayDeployFailed": "Deno Deploy imeshindwa",
     "denoRelayTokenHint": "Tokeni ya shirika (kiambishi awali ddo_) kutoka console.deno.com → Organization → Settings → Organization Tokens. Inatumika mara moja kwa usambazaji na haihifadhiwi kamwe.",
-    "denoRelayOrgDomainHint": "Kikoa chaguomsingi cha shirika lako la Deno Deploy (k.m. acme.deno.net). Kiunganishi kitafikiwa kwenye https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Kikoa chaguomsingi cha shirika lako la Deno Deploy (k.m. acme.deno.net). Kiunganishi kitafikiwa kwenye https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Chuja kwa itifaki",
     "proxyFreePoolProtocol": "Itifaki",
     "proxyFreePoolCountryPlaceholder": "Nchi (k.m. US)",

@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Domain organisasi diperlukan",
     "denoRelayDeployFailed": "Deno Deploy gagal",
     "denoRelayTokenHint": "Token organisasi (awalan ddo_) dari console.deno.com → Organization → Settings → Organization Tokens. Digunakan sekali untuk penerapan dan tidak pernah disimpan.",
-    "denoRelayOrgDomainHint": "Domain baku organisasi Deno Deploy Anda (mis. acme.deno.net). Relay akan dapat diakses di https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Domain baku organisasi Deno Deploy Anda (mis. acme.deno.net). Relay akan dapat diakses di https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Saring berdasarkan protokol",
     "proxyFreePoolProtocol": "Protokol",
     "proxyFreePoolCountryPlaceholder": "Negara (mis. US)",

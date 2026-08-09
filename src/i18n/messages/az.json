@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Təşkilat domeni tələb olunur",
     "denoRelayDeployFailed": "Deno Deploy uğursuz oldu",
     "denoRelayTokenHint": "console.deno.com → Organization → Settings → Organization Tokens bölməsindən təşkilat tokeni (ddo_ prefiksi). Yerləşdirmə üçün bir dəfə istifadə olunur və heç vaxt saxlanılmır.",
-    "denoRelayOrgDomainHint": "Deno Deploy təşkilatınızın standart domeni (məs. acme.deno.net). Rele https://<app-name>.<org-slug>.deno.net ünvanında əlçatan olacaq.",
+    "denoRelayOrgDomainHint": "Deno Deploy təşkilatınızın standart domeni (məs. acme.deno.net). Rele https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net ünvanında əlçatan olacaq.",
     "proxyFreePoolFilterProtocol": "Protokola görə filtrləyin",
     "proxyFreePoolProtocol": "Protokol",
     "proxyFreePoolCountryPlaceholder": "Ölkə (məs. US)",

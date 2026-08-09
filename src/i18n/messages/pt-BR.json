@@ -6404,7 +6404,7 @@
     "denoRelayOrgDomainRequired": "O domínio da organização é obrigatório",
     "denoRelayDeployFailed": "Falha no Deno Deploy",
     "denoRelayTokenHint": "Token da organização (prefixo ddo_) de console.deno.com → Organization → Settings → Organization Tokens. Usado uma vez para o deploy e nunca armazenado.",
-    "denoRelayOrgDomainHint": "O domínio padrão da sua organização no Deno Deploy (ex: acme.deno.net). O relay estará acessível em https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "O domínio padrão da sua organização no Deno Deploy (ex: acme.deno.net). O relay estará acessível em https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filtrar por protocolo",
     "proxyFreePoolProtocol": "Protocolo",
     "proxyFreePoolCountryPlaceholder": "País (ex.: US)",

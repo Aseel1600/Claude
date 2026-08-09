@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "組織ドメインが必要です",
     "denoRelayDeployFailed": "Deno Deploy に失敗しました",
     "denoRelayTokenHint": "console.deno.com → Organization → Settings → Organization Tokens から取得した組織トークン (プレフィックス ddo_)。デプロイに一度だけ使用され、保存されることはありません。",
-    "denoRelayOrgDomainHint": "Deno Deploy 組織のデフォルトドメイン (例: acme.deno.net)。リレーは https://<app-name>.<org-slug>.deno.net でアクセス可能になります。",
+    "denoRelayOrgDomainHint": "Deno Deploy 組織のデフォルトドメイン (例: acme.deno.net)。リレーは https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net でアクセス可能になります。",
     "proxyFreePoolFilterProtocol": "プロトコルでフィルター",
     "proxyFreePoolProtocol": "プロトコル",
     "proxyFreePoolCountryPlaceholder": "国 (例: US)",

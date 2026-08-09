@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "ऑर्गनायझेशन डोमेन आवश्यक आहे",
     "denoRelayDeployFailed": "Deno Deploy अयशस्वी झाले",
     "denoRelayTokenHint": "console.deno.com → Organization → Settings → Organization Tokens मधील ऑर्गनायझेशन टोकन (प्रिफिक्स ddo_). डिप्लॉयसाठी एकदाच वापरले जाते आणि कधीही स्टोअर केले जात नाही.",
-    "denoRelayOrgDomainHint": "तुमच्या Deno Deploy ऑर्गनायझेशनचे डीफॉल्ट डोमेन (उदा. acme.deno.net). रिले https://<app-name>.<org-slug>.deno.net येथे उपलब्ध असेल.",
+    "denoRelayOrgDomainHint": "तुमच्या Deno Deploy ऑर्गनायझेशनचे डीफॉल्ट डोमेन (उदा. acme.deno.net). रिले https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net येथे उपलब्ध असेल.",
     "proxyFreePoolFilterProtocol": "प्रोटोकॉलनुसार फिल्टर करा",
     "proxyFreePoolProtocol": "प्रोटोकॉल",
     "proxyFreePoolCountryPlaceholder": "देश (उदा. US)",

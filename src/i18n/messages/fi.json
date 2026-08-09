@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Organisaation verkkotunnus vaaditaan",
     "denoRelayDeployFailed": "Deno Deploy epäonnistui",
     "denoRelayTokenHint": "Organisaation tunnus (etuliite ddo_) osoitteesta console.deno.com → Organization → Settings → Organization Tokens. Käytetään kerran käyttöönottoon, eikä sitä koskaan tallenneta.",
-    "denoRelayOrgDomainHint": "Deno Deploy -organisaatiosi oletusverkkotunnus (esim. acme.deno.net). Välityspalvelin on tavoitettavissa osoitteessa https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Deno Deploy -organisaatiosi oletusverkkotunnus (esim. acme.deno.net). Välityspalvelin on tavoitettavissa osoitteessa https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Suodata protokollan mukaan",
     "proxyFreePoolProtocol": "Protokolla",
     "proxyFreePoolCountryPlaceholder": "Maa (esim. US)",

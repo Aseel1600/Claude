@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Doména organizácie je povinná",
     "denoRelayDeployFailed": "Deno Deploy zlyhalo",
     "denoRelayTokenHint": "Token organizácie (predpona ddo_) z console.deno.com → Organization → Settings → Organization Tokens. Použije sa raz na nasadenie a nikdy sa neukladá.",
-    "denoRelayOrgDomainHint": "Predvolená doména vašej organizácie Deno Deploy (napr. acme.deno.net). Relay bude dostupný na https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Predvolená doména vašej organizácie Deno Deploy (napr. acme.deno.net). Relay bude dostupný na https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filtrovať podľa protokolu",
     "proxyFreePoolProtocol": "Protokol",
     "proxyFreePoolCountryPlaceholder": "Krajina (napr. US)",

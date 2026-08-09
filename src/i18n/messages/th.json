@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "จำเป็นต้องมีโดเมนขององค์กร",
     "denoRelayDeployFailed": "Deno Deploy ล้มเหลว",
     "denoRelayTokenHint": "โทเค็นองค์กร (คำนำหน้า ddo_) จาก console.deno.com → Organization → Settings → Organization Tokens ใช้เพียงครั้งเดียวสำหรับการปรับใช้และจะไม่ถูกจัดเก็บ",
-    "denoRelayOrgDomainHint": "โดเมนเริ่มต้นขององค์กร Deno Deploy ของคุณ (เช่น acme.deno.net) รีเลย์จะสามารถเข้าถึงได้ที่ https://<app-name>.<org-slug>.deno.net",
+    "denoRelayOrgDomainHint": "โดเมนเริ่มต้นขององค์กร Deno Deploy ของคุณ (เช่น acme.deno.net) รีเลย์จะสามารถเข้าถึงได้ที่ https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net",
     "proxyFreePoolFilterProtocol": "กรองตามโปรโตคอล",
     "proxyFreePoolProtocol": "โปรโตคอล",
     "proxyFreePoolCountryPlaceholder": "ประเทศ (เช่น US)",

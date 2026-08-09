@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Szervezeti tartomány megadása kötelező",
     "denoRelayDeployFailed": "A Deno Deploy sikertelen",
     "denoRelayTokenHint": "Szervezeti token (ddo_ előtaggal) a console.deno.com → Organization → Settings → Organization Tokens menüpontból. Csak egyszer használatos a telepítéshez, és soha nem tároljuk.",
-    "denoRelayOrgDomainHint": "A Deno Deploy szervezetének alapértelmezett tartománya (pl. acme.deno.net). A relay a következő címen lesz elérhető: https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "A Deno Deploy szervezetének alapértelmezett tartománya (pl. acme.deno.net). A relay a következő címen lesz elérhető: https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Szűrés protokoll szerint",
     "proxyFreePoolProtocol": "Protokoll",
     "proxyFreePoolCountryPlaceholder": "Ország (pl. US)",

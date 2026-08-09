@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "组织域名为必填项",
     "denoRelayDeployFailed": "Deno Deploy 失败",
     "denoRelayTokenHint": "来自 console.deno.com → Organization → Settings → Organization Tokens 的组织令牌（前缀为 ddo_）。仅用于部署一次，绝不存储。",
-    "denoRelayOrgDomainHint": "您的 Deno Deploy 组织默认域名（例如 acme.deno.net）。中继将可通过 https://<app-name>.<org-slug>.deno.net 访问。",
+    "denoRelayOrgDomainHint": "您的 Deno Deploy 组织默认域名（例如 acme.deno.net）。中继将可通过 https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net 访问。",
     "proxyFreePoolFilterProtocol": "按协议筛选",
     "proxyFreePoolProtocol": "协议",
     "proxyFreePoolCountryPlaceholder": "国家（例如 US）",

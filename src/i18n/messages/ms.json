@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Domain organisasi diperlukan",
     "denoRelayDeployFailed": "Deno Deploy gagal",
     "denoRelayTokenHint": "Token organisasi (awalan ddo_) daripada console.deno.com → Organisasi → Tetapan → Token Organisasi. Digunakan sekali untuk deploy dan tidak pernah disimpan.",
-    "denoRelayOrgDomainHint": "Domain lalai organisasi Deno Deploy anda (cth. acme.deno.net). Geganti akan dapat dihubungi di https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Domain lalai organisasi Deno Deploy anda (cth. acme.deno.net). Geganti akan dapat dihubungi di https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Tapis mengikut protokol",
     "proxyFreePoolProtocol": "Protokol",
     "proxyFreePoolCountryPlaceholder": "Negara (cth. US)",

@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Domena organizacji jest wymagana",
     "denoRelayDeployFailed": "Deno Deploy nie powiodło się",
     "denoRelayTokenHint": "Token organizacji (z prefiksem ddo_) z console.deno.com → Organization → Settings → Organization Tokens. Używany jednorazowo do wdrożenia i nigdy nieprzechowywany.",
-    "denoRelayOrgDomainHint": "Domyślna domena organizacji w Deno Deploy (np. acme.deno.net). Przekaźnik będzie dostępny pod adresem https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Domyślna domena organizacji w Deno Deploy (np. acme.deno.net). Przekaźnik będzie dostępny pod adresem https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filtruj według protokołu",
     "proxyFreePoolProtocol": "Protokół",
     "proxyFreePoolCountryPlaceholder": "Kraj (np. US)",

@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "Kinakailangan ang domain ng organisasyon",
     "denoRelayDeployFailed": "Nabigo ang Deno Deploy",
     "denoRelayTokenHint": "Token ng organisasyon (prefix na ddo_) mula sa console.deno.com → Organization → Settings → Organization Tokens. Ginamit nang isang beses para sa pag-deploy at hindi kailanman iniimbak.",
-    "denoRelayOrgDomainHint": "Ang default na domain ng iyong organisasyon sa Deno Deploy (hal. acme.deno.net). Maaabot ang relay sa https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Ang default na domain ng iyong organisasyon sa Deno Deploy (hal. acme.deno.net). Maaabot ang relay sa https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "I-filter ayon sa protocol",
     "proxyFreePoolProtocol": "Protocol",
     "proxyFreePoolCountryPlaceholder": "Bansa (hal. US)",

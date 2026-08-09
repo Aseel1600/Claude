@@ -6404,7 +6404,7 @@
     "denoRelayOrgDomainRequired": "Yêu cầu phải có tên miền tổ chức",
     "denoRelayDeployFailed": "Triển khai Deno Deploy thất bại",
     "denoRelayTokenHint": "Token tổ chức (tiền tố ddo_) lấy từ console.deno.com → Organization → Settings → Organization Tokens. Chỉ được sử dụng một lần để triển khai và không bao giờ được lưu trữ.",
-    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Lọc theo giao thức",
     "proxyFreePoolProtocol": "Giao thức",
     "proxyFreePoolCountryPlaceholder": "Quốc gia (ví dụ: US)",

@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "نطاق المؤسسة مطلوب",
     "denoRelayDeployFailed": "فشل Deno Deploy",
     "denoRelayTokenHint": "رمز المؤسسة المميز (البادئة ddo_) من console.deno.com → Organization → Settings → Organization Tokens. يُستخدم مرة واحدة للنشر ولا يتم تخزينه أبدًا.",
-    "denoRelayOrgDomainHint": "النطاق الافتراضي لمؤسسة Deno Deploy الخاصة بك (مثل acme.deno.net). سيكون المرحل متاحًا على https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "النطاق الافتراضي لمؤسسة Deno Deploy الخاصة بك (مثل acme.deno.net). سيكون المرحل متاحًا على https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "التصفية حسب البروتوكول",
     "proxyFreePoolProtocol": "البروتوكول",
     "proxyFreePoolCountryPlaceholder": "البلد (مثل US)",

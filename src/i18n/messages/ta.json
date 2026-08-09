@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "நிறுவன டொமைன் தேவை",
     "denoRelayDeployFailed": "Deno Deploy தோல்வியடைந்தது",
     "denoRelayTokenHint": "console.deno.com → Organization → Settings → Organization Tokens இலிருந்து பெறப்படும் நிறுவன டோக்கன் (முன்னொட்டு ddo_). வரிசைப்படுத்தலுக்கு ஒரு முறை மட்டுமே பயன்படுத்தப்படும் மற்றும் ஒருபோதும் சேமிக்கப்படாது.",
-    "denoRelayOrgDomainHint": "உங்கள் Deno Deploy நிறுவனத்தின் இயல்புநிலை டொமைன் (எ.கா. acme.deno.net). ரிலேவை https://<app-name>.<org-slug>.deno.net இல் அணுக முடியும்.",
+    "denoRelayOrgDomainHint": "உங்கள் Deno Deploy நிறுவனத்தின் இயல்புநிலை டொமைன் (எ.கா. acme.deno.net). ரிலேவை https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net இல் அணுக முடியும்.",
     "proxyFreePoolFilterProtocol": "புரோட்டோகால் மூலம் வடிகட்டவும்",
     "proxyFreePoolProtocol": "புரோட்டோகால்",
     "proxyFreePoolCountryPlaceholder": "நாடு (எ.கா. US)",

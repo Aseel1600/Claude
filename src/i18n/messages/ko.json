@@ -6402,7 +6402,7 @@
     "denoRelayOrgDomainRequired": "조직 도메인이 필요합니다",
     "denoRelayDeployFailed": "Deno Deploy 실패",
     "denoRelayTokenHint": "console.deno.com → Organization → Settings → Organization Tokens에서 발급받은 조직 토큰(접두사 ddo_). 배포에 한 번만 사용되며 절대 저장되지 않습니다.",
-    "denoRelayOrgDomainHint": "Deno Deploy 조직의 기본 도메인(예: acme.deno.net). 릴레이는 https://<app-name>.<org-slug>.deno.net에서 액세스할 수 있습니다.",
+    "denoRelayOrgDomainHint": "Deno Deploy 조직의 기본 도메인(예: acme.deno.net). 릴레이는 https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net에서 액세스할 수 있습니다.",
     "proxyFreePoolFilterProtocol": "프로토콜로 필터링",
     "proxyFreePoolProtocol": "프로토콜",
     "proxyFreePoolCountryPlaceholder": "국가 (예: US)",
