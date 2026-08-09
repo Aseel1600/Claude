@@ -1377,7 +1377,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                           const responseToolCallEvents =
                             buildResponsesFunctionCallEvents(collectedToolCall);
                           output = formatSSEDataEvents(responseToolCallEvents);
-                          clientPayloadCollector.push(...responseToolCallEvents);
+                          for (const event of responseToolCallEvents) {
+                            clientPayloadCollector.push(event);
+                          }
                           reqLogger?.appendConvertedChunk?.(output);
                           controller.enqueue(encoder.encode(output));
                           injectedUsage = true;
