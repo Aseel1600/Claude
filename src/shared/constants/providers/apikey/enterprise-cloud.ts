@@ -102,6 +102,18 @@ export const APIKEY_PROVIDERS_ENTERPRISE = {
     freeNote: "$30/month free credits for new accounts",
     passthroughModels: true,
   },
+  "modal-kimi-k3": {
+    id: "modal-kimi-k3",
+    alias: "k3",
+    name: "Modal Kimi K3",
+    icon: "cloud_queue",
+    color: "#7C3AED",
+    textIcon: "K3",
+    website: "https://modal.com/docs",
+    authHint: "Uses environment variables MODAL_KIMI_BASE_URL and proxy tokens for auth.",
+    apiHint: "OpenAI-compatible wrapper on Modal",
+    passthroughModels: true,
+  },
   vertex: {
     id: "vertex",
     alias: "vertex",
