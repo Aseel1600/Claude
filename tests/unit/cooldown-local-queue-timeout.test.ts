@@ -44,9 +44,20 @@ test("the queue drop has no antigravity exception — the queue is ours for ever
 });
 
 test("the two rules do not bleed into each other", () => {
-  // A 504 tagged as a queue drop, or a 503 tagged as a deadline timeout, are
-  // shapes we never emit — neither should be waved through by accident.
-  assert.equal(isSelfInflictedFailure(504, LOCAL_QUEUE_TIMEOUT_ERROR_TYPE, OTHER), false);
+  // REVISADO 2026-08-09. A versão original desta asserção exigia que um 504
+  // etiquetado como queue drop fosse `false`, com a justificativa de que é "uma
+  // forma que nunca emitimos". Essa exatidão foi a armadilha: no dia seguinte
+  // descobrimos o irmão `RATE_LIMIT_QUEUE_WEDGED`, que É emitido, com a mesma
+  // natureza e um status diferente (502) — e a regra amarrada ao par status+tipo
+  // não o cobriu, custando lockout e cooldown numa conexão saudável.
+  //
+  // A etiqueta de fila é escrita só pelo OmniRoute, num ponto único. Onde ela
+  // aparecer, o significado é o mesmo: a requisição não chegou ao provider. Não
+  // existe status que torne correto punir a conexão nesse caso, então o tipo
+  // sozinho decide.
+  assert.equal(isSelfInflictedFailure(504, LOCAL_QUEUE_TIMEOUT_ERROR_TYPE, OTHER), true);
+  // `upstream_timeout` mantém o par: não é etiqueta exclusivamente nossa (a
+  // antigravity também a emite), então o 504 continua delimitando a regra.
   assert.equal(isSelfInflictedFailure(503, "upstream_timeout", OTHER), false);
 });
 
