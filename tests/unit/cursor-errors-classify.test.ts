@@ -28,6 +28,15 @@ test("classifyCursorErrorKind: auth cues", () => {
   assert.equal(classifyCursorErrorKind("unauthenticated"), "auth");
 });
 
+test("classifyCursorErrorKind: AI Model Not Found is rate_limit (Cursor out-of-usage)", () => {
+  assert.equal(
+    classifyCursorErrorKind("not_found: AI Model Not Found (reset after 109h 9s)"),
+    "rate_limit"
+  );
+  assert.equal(classifyCursorErrorKind("not_found: AI Model Not Found"), "rate_limit");
+  assert.equal(classifyCursorErrorKind("model not found"), "invalid");
+});
+
 test("classifyCursorError redacts credentials and paths", () => {
   const out = classifyCursorError(
     "Authentication failed authorization=secret-token path=/Users/alice/code/file"

@@ -90,6 +90,17 @@ export function classifyCursorErrorKind(rawMessage: string): CursorErrorKind {
   }
   if (QUOTA_RATE_CUES.some((cue) => lower.includes(cue))) return "rate_limit";
 
+  // Live Cursor out-of-usage for premium models often surfaces as:
+  //   not_found: AI Model Not Found (reset after 109h …)
+  // OmniRoute may also append "(reset after …)" after classification; treat the
+  // Cursor-specific "AI Model Not Found" cue as rate/quota either way.
+  if (
+    lower.includes("ai model not found") ||
+    (lower.includes("reset after") && lower.includes("model not found"))
+  ) {
+    return "rate_limit";
+  }
+
   if (
     lower.includes("unauthenticated") ||
     lower.includes("unauthorized") ||
@@ -202,11 +213,12 @@ export function classifyCursorError(rawMessage: string): ClassifiedCursorError {
     .replace(/resource[_ ]exhausted/gi, "resource limit exceeded")
     .slice(0, 500);
   const prefix = kindPrefix(kind);
+  const message = detail.startsWith(prefix) ? detail : detail ? `${prefix}: ${detail}` : prefix;
   return {
     kind,
     status: kindToStatus(kind),
     type: kindToType(kind),
-    message: detail ? `${prefix}: ${detail}` : prefix,
+    message,
   };
 }
 
