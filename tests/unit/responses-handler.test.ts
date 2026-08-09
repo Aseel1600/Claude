@@ -367,8 +367,8 @@ test("handleResponsesCore transforms Command Code executor SSE through Responses
   assert.match(sse, /data: \[DONE\]/);
 });
 
-test("handleResponsesCore propagates upstream failures from chatCore unchanged", async () => {
-  const { result } = await invokeResponsesCore({
+test("handleResponsesCore propagates upstream failures without retrying", async () => {
+  const { result, calls } = await invokeResponsesCore({
     body: {
       model: "gpt-4o-mini",
       input: "hello",
@@ -382,6 +382,7 @@ test("handleResponsesCore propagates upstream failures from chatCore unchanged",
 
   assert.equal(result.success, false);
   assert.equal(result.status, 401);
+  assert.equal(calls.length, 1);
 
   const payload = (await result.response.json()) as ErrorPayload;
   assert.equal(payload.error.message, "[401]: unauthorized");
