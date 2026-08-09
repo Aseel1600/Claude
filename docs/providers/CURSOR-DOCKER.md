@@ -63,8 +63,12 @@ alone is no longer required).
 
 When Cursor accepts a Run but returns no assistant text (common when premium
 usage is exhausted), OmniRoute surfaces an actionable **429** (quota cues) or
-**502** with guidance — not a bare “Provider returned empty content”. Check
-Provider Limits, try model **`auto`**, or raise Cursor plan limits.
+**502** with guidance — not a bare “Provider returned empty content”. Streaming
+failures such as `not_found: AI Model Not Found` (usage window exhausted) are
+classified as **Cursor rate limit / usage exceeded** and keep that message
+through the SSE pipeline (the shared empty-stream guard does not overwrite an
+already-emitted error). Check Provider Limits, try model **`auto`**, or raise
+Cursor plan limits.
 
 ## Client version (headless)
 

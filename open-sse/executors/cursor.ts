@@ -80,6 +80,7 @@ import {
   classifyCursorError,
   isCursorBenignCancelError,
   resolveCursorEmptyTurnError,
+  type ClassifiedCursorError,
 } from "./cursor/cursorErrors.ts";
 // Composer helpers re-exported for external importers (tests).
 export {
@@ -368,6 +369,27 @@ function emitChunk(ctx: StreamCtx, delta: object, finishReason: string | null = 
     choices: [{ index: 0, delta, finish_reason: finishReason }],
   };
   ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+/**
+ * Emit a terminal OpenAI SSE error matching `buildStreamErrorChunks` shape
+ * (`finish_reason: "error"` + `error.message`) so #8649 sawError stands down
+ * and Model Test All keeps the classified Cursor message.
+ */
+export function emitCursorSseError(ctx: StreamCtx, classified: ClassifiedCursorError): void {
+  const payload = {
+    id: ctx.responseId,
+    object: "chat.completion.chunk",
+    created: ctx.created,
+    model: ctx.model,
+    choices: [{ index: 0, delta: {}, finish_reason: "error" }],
+    error: {
+      message: classified.message,
+      type: classified.type,
+    },
+  };
+  ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
+  ctx.emit("data: [DONE]\n\n");
 }
 
 export function buildCursorUsage(ctx: StreamCtx, body: { messages?: ChatMessage[] }) {
@@ -1438,42 +1460,19 @@ export class CursorExecutor extends BaseExecutor {
    */
   private finalizeSseStream(ctx: StreamCtx, body: { messages?: ChatMessage[] }) {
     if (ctx.midStreamError && ctx.totalText.length === 0) {
-      const classified = classifyCursorError(ctx.midStreamError.message);
-      const payload = {
-        id: ctx.responseId,
-        object: "chat.completion.chunk",
-        created: ctx.created,
-        model: ctx.model,
-        choices: [],
-        error: {
-          message: classified.message,
-          type: classified.type,
-        },
-      };
-      ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
-      ctx.emit("data: [DONE]\n\n");
+      emitCursorSseError(ctx, classifyCursorError(ctx.midStreamError.message));
       return;
     }
 
     // Silent empty turn (auth accepted, no text) — surface actionable error instead of
     // an empty assistant completion that chatCore maps to opaque "empty content" 502.
     if (isCursorEmptyTurn(ctx) && ctx.endReason && ctx.endReason !== "tool_calls") {
-      const empty = resolveCursorEmptyTurnError({
-        upstreamMessage: ctx.midStreamError?.message,
-      });
-      const payload = {
-        id: ctx.responseId,
-        object: "chat.completion.chunk",
-        created: ctx.created,
-        model: ctx.model,
-        choices: [],
-        error: {
-          message: empty.message,
-          type: empty.type,
-        },
-      };
-      ctx.emit(`data: ${JSON.stringify(payload)}\n\n`);
-      ctx.emit("data: [DONE]\n\n");
+      emitCursorSseError(
+        ctx,
+        resolveCursorEmptyTurnError({
+          upstreamMessage: ctx.midStreamError?.message,
+        })
+      );
       return;
     }
 
