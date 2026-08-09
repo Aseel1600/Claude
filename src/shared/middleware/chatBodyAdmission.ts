@@ -53,6 +53,62 @@ export interface ChatAdmissionLease {
 }
 
 /**
+ * How a request came to be classified heavyweight. Kept granular because the three
+ * paths have different operational meaning: `content-length` rejects before reading a
+ * byte, `streamed-bytes` only discovers the size mid-read (chunked clients declare no
+ * length, so the threshold's worth of body is already resident), and the structural
+ * triggers fire after the body is fully parsed.
+ */
+export type ChatAdmissionTrigger =
+  | "content-length"
+  | "streamed-bytes"
+  | "tools"
+  | "messages"
+  | "tokens";
+
+/**
+ * Capacity rejections are invisible without this. They are produced before the chat
+ * handler runs, so the call logger never sees them: production served
+ * `chat_admission_busy` continuously while `call_logs/` and the app log both showed
+ * zero. The route persists these fields; the middleware stays free of DB imports.
+ */
+export interface ChatAdmissionRejection {
+  code: "chat_admission_busy";
+  status: 503;
+  trigger: ChatAdmissionTrigger;
+  activeHeavy: number;
+}
+
+function logAdmissionRejection(
+  rejection: ChatAdmissionRejection,
+  detail: Record<string, number> = {}
+): void {
+  const extra = Object.entries(detail)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(" ");
+  console.warn(
+    `[chat-admission] rejected code=${rejection.code} trigger=${rejection.trigger} ` +
+      `activeHeavy=${rejection.activeHeavy}${extra ? ` ${extra}` : ""}`
+  );
+}
+
+/** Build + log in one step so no rejection path can emit one without the other. */
+function capacityRejection(
+  trigger: ChatAdmissionTrigger,
+  controller: ChatAdmissionController,
+  detail?: Record<string, number>
+): ChatAdmissionRejection {
+  const rejection: ChatAdmissionRejection = {
+    code: "chat_admission_busy",
+    status: 503,
+    trigger,
+    activeHeavy: controller.activeHeavy,
+  };
+  logAdmissionRejection(rejection, detail);
+  return rejection;
+}
+
+/**
  * Process-local heavyweight reservation. The capacity check and increment execute in one
  * synchronous JavaScript turn, making acquisition atomic within an OmniRoute process.
  * Queueing is intentionally separate: unavailable capacity is a retryable 503.
@@ -87,15 +143,20 @@ export class ChatAdmissionController {
   }
 }
 
-const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
+/**
+ * Process-wide default. Exported so the route-level regression test can occupy capacity
+ * deterministically — the alternative is racing two in-flight requests, which tests the
+ * scheduler rather than the wiring under test.
+ */
+export const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
 
 export type ChatRequestAdmission =
   | { admit: true; request: Request; lease: ChatAdmissionLease | null }
-  | { admit: false; response: Response };
+  | { admit: false; response: Response; rejection?: ChatAdmissionRejection };
 
 export type ChatStructureAdmission =
   | { admit: true; lease: ChatAdmissionLease | null }
-  | { admit: false; response: Response };
+  | { admit: false; response: Response; rejection?: ChatAdmissionRejection };
 
 function rejectionResponse(status: 413 | 503, hardMaxBytes: number): Response {
   const isPayload = status === 413;
@@ -232,10 +293,23 @@ export function admitChatStructure(
     estimatedTokens >= heavyTokens;
   if (!heavy || lease) return { admit: true, lease };
 
-  const acquired = (options.controller ?? defaultAdmissionController).tryAcquireHeavy();
-  return acquired
-    ? { admit: true, lease: acquired }
-    : { admit: false, response: structuralRejectionResponse(503, maxMessages) };
+  const controller = options.controller ?? defaultAdmissionController;
+  const acquired = controller.tryAcquireHeavy();
+  if (acquired) return { admit: true, lease: acquired };
+
+  // Name the rule that classified this heavy, in the same precedence the check above
+  // used — otherwise the operator sees "busy" with no way to know which threshold to
+  // recalibrate. Production ran 99 tools against a limit of 64 and nothing said so.
+  const trigger: ChatAdmissionTrigger =
+    tools.length >= heavyTools ? "tools" : messages.length >= heavyMessages ? "messages" : "tokens";
+  return {
+    admit: false,
+    response: structuralRejectionResponse(503, maxMessages),
+    rejection: capacityRejection(trigger, controller, {
+      messages: messages.length,
+      tools: tools.length,
+    }),
+  };
 }
 
 function parseContentLength(header: string | null): number | null {
@@ -289,7 +363,14 @@ export async function admitChatRequest(
   // A known-large declaration can reserve before ingestion. Unknown lengths are boundedly
   // sniffed below; this avoids consuming scarce heavyweight capacity for small chunked bodies.
   if (contentLength !== null && contentLength >= largeBodyBytes && !reserve()) {
-    return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
+    return {
+      admit: false,
+      response: rejectionResponse(503, hardMaxBytes),
+      rejection: capacityRejection("content-length", controller, {
+        bytes: contentLength,
+        limit: largeBodyBytes,
+      }),
+    };
   }
 
   const reader = request.body?.getReader();
@@ -309,7 +390,14 @@ export async function admitChatRequest(
       }
       if (totalBytes >= largeBodyBytes && !reserve()) {
         await reader.cancel("chat admission capacity unavailable").catch(() => undefined);
-        return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
+        return {
+          admit: false,
+          response: rejectionResponse(503, hardMaxBytes),
+          rejection: capacityRejection("streamed-bytes", controller, {
+            bytes: totalBytes,
+            limit: largeBodyBytes,
+          }),
+        };
       }
       chunks.push(value);
     }
