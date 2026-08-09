@@ -1,5 +1,5 @@
 // API: /api/status?jobId=...
-const queue = require("../lib/../lib/queue") || require("../../lib/queue");
+const queue = require("../../lib/queue");
 const runway = require("../../lib/runway-mock");
 
 module.exports = async (req, res) => {

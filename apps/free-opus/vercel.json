@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "package.json", "use": "@vercel/next" }
+  ],
+  "env": {
+    "OPENAI_API_KEY": "@openai_api_key",
+    "RUNWAY_API_KEY": "@runway_api_key",
+    "STORAGE_S3_ENDPOINT": "@storage_s3_endpoint",
+    "STORAGE_S3_KEY": "@storage_s3_key",
+    "STORAGE_S3_SECRET": "@storage_s3_secret",
+    "STRIPE_SECRET_KEY": "@stripe_secret_key"
+  }
+}
