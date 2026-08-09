@@ -151,6 +151,7 @@ export async function POST(request) {
         const structuralAdmission = await admitChatStructure(parsedBody, admission.lease, {
           sessionId,
           queueMs: CHAT_ADMISSION_QUEUE_MAX_MS,
+          signal: request.signal,
         });
         if (structuralAdmission.admit === false) {
           admission.lease?.release();

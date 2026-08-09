@@ -978,3 +978,189 @@ test("admission waiters are served FIFO as capacity frees", async () => {
   if (secondResult.admit) secondResult.lease?.release();
   assert.equal(controller.activeHeavy, 0);
 });
+
+// ── AbortSignal support in acquireHeavyWithin (#9654 / U2) ────────────────
+// A disconnected client must not keep parking in the admission queue for the
+// full queueMs. On abort the waiter is removed from the FIFO immediately and
+// the acquire resolves `null` early (the caller's 503 is dropped on the dead
+// connection); no capacity is consumed and the freed slot does not wake it.
+
+test("aborting the admission wait settles early, grants no lease, and removes the waiter", async () => {
+  const controller = new ChatAdmissionController(1);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const abortController = new AbortController();
+  const pending = controller.acquireHeavyWithin(2_000, abortController.signal);
+
+  // Parked while capacity is busy.
+  let settled = false;
+  void pending.then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(settled, false, "must be parked while capacity is busy");
+
+  abortController.abort();
+
+  // Must settle well before the 2s deadline.
+  let settledAfterAbort = false;
+  void pending.then(() => {
+    settledAfterAbort = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(settledAfterAbort, true, "abort must settle the wait promptly, not park for queueMs");
+
+  const lease = await pending;
+  assert.equal(lease, null, "abort must not grant a lease");
+  assert.equal(controller.activeHeavy, 1, "the holder keeps its lease; the aborted wait consumed nothing");
+
+  // Releasing must NOT wake the removed waiter: capacity stays free.
+  held.release();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(
+    controller.activeHeavy,
+    0,
+    "releasing after abort must not wake the removed waiter"
+  );
+});
+
+test("aborting the head waiter preserves FIFO order for remaining waiters", async () => {
+  const controller = new ChatAdmissionController(1);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const firstAbort = new AbortController();
+  const first = controller.acquireHeavyWithin(2_000, firstAbort.signal);
+  const second = controller.acquireHeavyWithin(2_000);
+
+  // Both are parked, head-first.
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  // Abort the HEAD waiter: it must leave the queue without disturbing the rest.
+  firstAbort.abort();
+  assert.equal(await first, null, "head waiter returns null on abort");
+
+  // The remaining waiter is now first in line and must get the freed capacity.
+  held.release();
+  const secondLease = await second;
+  assert.ok(secondLease, "remaining waiter must acquire the freed capacity");
+  secondLease?.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("a pre-aborted signal never parks in the admission queue", async () => {
+  const controller = new ChatAdmissionController(1);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const abortController = new AbortController();
+  abortController.abort("client already disconnected");
+
+  const pending = controller.acquireHeavyWithin(2_000, abortController.signal);
+  let settled = false;
+  void pending.then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(settled, true, "a pre-aborted signal must settle immediately, not park");
+
+  const lease = await pending;
+  assert.equal(lease, null, "no lease is granted after abort");
+  assert.equal(controller.activeHeavy, 1, "holder keeps capacity; aborted wait consumed nothing");
+  held.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("aborting the request signal cancels a queued byte-heavy wait", async () => {
+  const controller = new ChatAdmissionController(1);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const abortController = new AbortController();
+  const body = JSON.stringify({ messages: [{ role: "user", content: "x".repeat(40) }] });
+  const request = new Request("http://x/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body,
+    signal: abortController.signal,
+  });
+  const pending = admitChatRequest(request, {
+    controller,
+    largeBodyBytes: 32,
+    hardMaxBytes: 1024,
+    queueMs: 2_000,
+  });
+
+  let settled = false;
+  void pending.then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(settled, false, "must queue while capacity is busy");
+
+  abortController.abort();
+  const started = Date.now();
+  const result = await pending;
+  assert.ok(
+    Date.now() - started < 500,
+    "abort must cancel the queue-wait early, not park the full queueMs"
+  );
+  assert.equal(result.admit, false, "abort must not admit");
+  if (!result.admit) {
+    assert.equal(result.response.status, 503);
+    assert.equal((await result.response.json()).error.code, "chat_admission_busy");
+  }
+  assert.equal(controller.activeHeavy, 1, "holder keeps capacity; aborted wait consumed nothing");
+  held.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("aborting the signal cancels a structural queue-wait", async () => {
+  const controller = new ChatAdmissionController(1);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const abortController = new AbortController();
+  const pending = admitChatStructure(
+    {
+      messages: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
+    null,
+    {
+      controller,
+      maxMessages: 10,
+      heavyMessages: 2,
+      heavyTools: 10,
+      heavyTokens: 10_000,
+      queueMs: 2_000,
+      signal: abortController.signal,
+    }
+  );
+
+  let settled = false;
+  void pending.then(() => {
+    settled = true;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(settled, false, "must queue while capacity is busy");
+
+  abortController.abort();
+  const started = Date.now();
+  const result = await pending;
+  assert.ok(
+    Date.now() - started < 500,
+    "abort must cancel the queue-wait early, not park the full queueMs"
+  );
+  assert.equal(result.admit, false, "abort must not admit");
+  if (!result.admit) {
+    assert.equal(result.response.status, 503);
+    assert.equal((await result.response.json()).error.code, "chat_admission_busy");
+  }
+  assert.equal(controller.activeHeavy, 1, "holder keeps its lease");
+  held.release();
+  assert.equal(controller.activeHeavy, 0);
+});

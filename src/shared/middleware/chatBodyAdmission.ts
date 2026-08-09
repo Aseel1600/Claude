@@ -139,10 +139,21 @@ export class ChatAdmissionController {
    * release. Resolves `null` when the deadline expires with no capacity freed, in
    * which case the caller answers the retryable 503. `timeoutMs <= 0` is the
    * legacy immediate-reject path. Waiters are served FIFO.
+   *
+   * When `signal` aborts while parked (client disconnect), the waiter is removed
+   * from the FIFO immediately and the promise resolves `null` early instead of
+   * parking for the full `timeoutMs` — the caller's 503 is dropped on the dead
+   * connection, so no capacity is consumed and the freed slot never wakes a
+   * waiter the client no longer needs. A signal that is already aborted never
+   * parks at all.
    */
-  async acquireHeavyWithin(timeoutMs: number): Promise<ChatAdmissionLease | null> {
+  async acquireHeavyWithin(
+    timeoutMs: number,
+    signal?: AbortSignal
+  ): Promise<ChatAdmissionLease | null> {
     const deadline = Date.now() + Math.max(0, Math.floor(timeoutMs));
     for (;;) {
+      if (signal?.aborted) return null;
       const lease = this.tryAcquireHeavy();
       if (lease) return lease;
       const remaining = deadline - Date.now();
@@ -152,14 +163,33 @@ export class ChatAdmissionController {
         resolver = () => resolve();
         this.#waiters.push(resolver);
       });
-      const timedOut = await Promise.race([
+      let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+      const races: Array<Promise<boolean>> = [
         released.then(() => false),
-        new Promise<boolean>((resolve) => setTimeout(() => resolve(true), remaining)),
-      ]);
+        new Promise<boolean>((resolve) => {
+          deadlineTimer = setTimeout(() => resolve(true), remaining);
+        }),
+      ];
+      let onAbort: (() => void) | null = null;
+      if (signal) {
+        races.push(
+          new Promise<boolean>((resolve) => {
+            const listener = () => resolve(true);
+            onAbort = listener;
+            signal.addEventListener("abort", listener, { once: true });
+            // Already-aborted signals must settle without parking.
+            if (signal.aborted) resolve(true);
+          })
+        );
+      }
+      const timedOut = await Promise.race(races);
       if (resolver) {
         const index = this.#waiters.indexOf(resolver);
         if (index >= 0) this.#waiters.splice(index, 1);
       }
+      // Cancel the deadline timer when abort/release wins; a fired timer is a no-op.
+      if (deadlineTimer) clearTimeout(deadlineTimer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
       if (timedOut) return null;
     }
   }
@@ -417,6 +447,7 @@ export async function admitChatStructure(
     heavyTools?: number;
     heavyTokens?: number;
     queueMs?: number;
+    signal?: AbortSignal;
   } = {}
 ): Promise<ChatStructureAdmission> {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { admit: true, lease };
@@ -454,7 +485,7 @@ export async function admitChatStructure(
     (options.sessionId
       ? perConnectionAdmissionController.getController(options.sessionId)
       : defaultAdmissionController);
-  const acquired = await controller.acquireHeavyWithin(options.queueMs ?? 0);
+  const acquired = await controller.acquireHeavyWithin(options.queueMs ?? 0, options.signal);
   return acquired
     ? { admit: true, lease: acquired }
     : { admit: false, response: structuralRejectionResponse(503, maxMessages) };
@@ -623,7 +654,7 @@ export async function admitChatRequest(
   let lease: ChatAdmissionLease | null = null;
   const reserve = async (): Promise<boolean> => {
     if (lease) return true;
-    lease = await controller.acquireHeavyWithin(queueMs);
+    lease = await controller.acquireHeavyWithin(queueMs, request.signal);
     return lease !== null;
   };
 
