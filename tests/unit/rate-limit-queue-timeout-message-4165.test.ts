@@ -41,8 +41,15 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-// Drive a real Bottleneck `expiration` failure: a tiny maxWaitMs and a job that
-// runs longer than it.
+// Drive a real queue drop: one slot, occupied, so the second job genuinely WAITS
+// past maxWaitMs before it can start.
+//
+// This used to drive the drop with a single job that RAN longer than maxWaitMs,
+// back when the knob was passed to Bottleneck as `{ expiration }`. That was the
+// bug, not the feature: `expiration` is an execution deadline, so the old driver
+// exercised "call was too slow" while asserting on "queue was too full" — the
+// very confusion #4165 set out to end. The assertions below are unchanged; only
+// the way the drop is produced was corrected.
 async function triggerQueueTimeout() {
   await rateLimitManager.applyRequestQueueSettings({
     ...resilienceSettings.DEFAULT_RESILIENCE_SETTINGS.requestQueue,
@@ -54,10 +61,27 @@ async function triggerQueueTimeout() {
   });
   rateLimitManager.enableRateLimitProtection("conn-queue-timeout");
 
-  return rateLimitManager.withRateLimit("openai", "conn-queue-timeout", "gpt-4o", async () => {
-    await wait(400); // > maxWaitMs (40ms) → Bottleneck fails the job
-    return "should-not-reach";
-  });
+  const blocker = rateLimitManager.withRateLimit(
+    "openai",
+    "conn-queue-timeout",
+    "gpt-4o",
+    async () => {
+      await wait(400);
+      return "blocker";
+    }
+  );
+  await wait(30); // let the blocker take the only slot
+
+  try {
+    return await rateLimitManager.withRateLimit(
+      "openai",
+      "conn-queue-timeout",
+      "gpt-4o",
+      async () => "should-not-reach"
+    );
+  } finally {
+    await blocker;
+  }
 }
 
 test("#4165 queue-timeout surfaces a clear OmniRoute error, not the raw upstream-looking string", async () => {
@@ -87,9 +111,16 @@ test("#4165 queue-timeout surfaces a clear OmniRoute error, not the raw upstream
     "raw Bottleneck/upstream-looking string must not leak into the surfaced message"
   );
 
-  // The original Bottleneck error is preserved for debugging.
-  assert.ok(caught.cause, "original error should be preserved as cause");
-  assert.match(String(caught.cause?.message ?? ""), /This job timed out/);
+  // #4165 originally asserted that Bottleneck's raw error survived as `cause`,
+  // because the drop was Bottleneck's to report and we only rewrote the wording.
+  // OmniRoute now measures the queue wait itself and raises the error directly,
+  // so there is no upstream-looking string to preserve — the diagnostic that
+  // replaces it is the measured wait, which the raw error never carried.
+  assert.match(
+    caught.message,
+    /waited\s+\d+ms/i,
+    "the drop must report how long the job actually waited"
+  );
 });
 
 test("#4165 a job that completes within maxWaitMs is unaffected", async () => {

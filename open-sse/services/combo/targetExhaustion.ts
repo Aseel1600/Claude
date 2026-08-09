@@ -22,6 +22,7 @@ import {
 } from "../accountFallback.ts";
 import { RateLimitReason } from "../../config/constants.ts";
 import { isProviderCircuitOpenResult, isRequestScopedUpstreamFailure } from "./comboPredicates.ts";
+import { isSelfInflictedFailure } from "../../handlers/chatCore/cooldownClassification.ts";
 import type { ComboLogger, ResolvedComboTarget } from "./types.ts";
 
 // Connection-level failure statuses: the provider connection itself is likely bad (upstream
@@ -209,6 +210,14 @@ function markConnectionLevelExhaustion(
     !CONNECTION_LEVEL_ERROR_STATUSES.includes(result.status) ||
     isProviderCircuitOpenResult(result, errorText) ||
     isRequestScopedUpstreamFailure(structuredError) ||
+    // The failure was OmniRoute's own — our request queue dropped the job, or our
+    // deadline fired while the upstream was still working. The provider never
+    // rejected anything, so the connection is healthy and its remaining targets
+    // must stay eligible. Shares the predicate with the connection-cooldown layer
+    // so the two cannot drift on what counts as our own fault. Measured 2026-08-08:
+    // without this, a queue drop skipped two healthy models on the same connection
+    // and returned "All models failed".
+    isSelfInflictedFailure(result.status, structuredError?.type, provider) ||
     // #5085: empty-content 502 is a healthy connection returning no body — model-level, not
     // connection-level. Don't exhaust the provider; let the remaining legs (incl. same-provider)
     // be tried in-request.

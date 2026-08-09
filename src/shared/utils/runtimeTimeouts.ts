@@ -6,7 +6,24 @@ type ReadTimeoutOptions = {
   logger?: TimeoutLogger;
 };
 
-export const DEFAULT_FETCH_TIMEOUT_MS = 600_000;
+/**
+ * Time allowed for an upstream to return RESPONSE HEADERS (and, derived from it,
+ * the per-read body budget). Not a cap on total response time: once headers land,
+ * streaming is governed by STREAM_IDLE_TIMEOUT_MS, and each body read gets its own
+ * window.
+ *
+ * Was 600s, which is not resilience — it is a hang. Production 2026-08-08: the
+ * Verboo backend accepted two connections and stayed silent for the full ten
+ * minutes, pinning a concurrency slot each while the combo could have failed over
+ * in seconds.
+ *
+ * 90s is sized from measured traffic: p50 9.9s, p90 16.1s, worst observed success
+ * 35.1s (n=325) — ~2.5x headroom over the worst real case. Models that reason
+ * before emitting a first token raise this per model via `RegistryModel.timeoutMs`,
+ * which takes precedence (see chatCore/upstreamTimeouts.ts::getExecutorTimeoutMs);
+ * operators raise it globally with FETCH_TIMEOUT_MS.
+ */
+export const DEFAULT_FETCH_TIMEOUT_MS = 90_000;
 export const DEFAULT_STREAM_IDLE_TIMEOUT_MS = 600_000;
 export const MAX_TIMER_TIMEOUT_MS = 2_147_483_647;
 export const DEFAULT_SSE_HEARTBEAT_INTERVAL_MS = 15_000;

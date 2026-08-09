@@ -577,6 +577,36 @@ async function getQueueHealthSnapshot(key: string, limiter: Bottleneck) {
   };
 }
 
+/** Classification tag for a job dropped by OmniRoute's own request queue. */
+export const QUEUE_WAIT_TIMEOUT_CODE = "RATE_LIMIT_QUEUE_TIMEOUT";
+
+/**
+ * The error for a job that sat in the local queue longer than `maxWaitMs`.
+ *
+ * Reports the wait that was actually MEASURED, not the nominal knob value. The
+ * previous wording ("exceeding the local rate-limit queue budget maxWaitMs
+ * (15000ms)") described a budget that was never enforced — see the note at the
+ * `guardQueueWait` call site — and in #4165 that phrasing cost an operator ~3h
+ * diagnosing queue saturation that was really an execution deadline firing.
+ */
+function createQueueWaitTimeoutError(
+  provider: string,
+  model: string | null | undefined,
+  waitedMs: number,
+  budgetMs: number
+): Error & { code?: string; waitedMs?: number } {
+  const target = model ? `${provider}/${model}` : provider;
+  const err = new Error(
+    `Request dropped: waited ${waitedMs}ms in OmniRoute's local request queue for ${target}, ` +
+      `over the ${budgetMs}ms budget (resilienceSettings.requestQueue.maxWaitMs). This is ` +
+      `OmniRoute's own queue, not an upstream timeout — the request never reached the provider. ` +
+      `Raise maxWaitMs in Settings → Resilience if this is queue saturation rather than a slow provider.`
+  ) as Error & { code?: string; waitedMs?: number };
+  err.code = QUEUE_WAIT_TIMEOUT_CODE;
+  err.waitedMs = waitedMs;
+  return err;
+}
+
 export async function withRateLimit(
   provider,
   connectionId,
@@ -608,7 +638,31 @@ export async function withRateLimit(
 
   const limiter = getLimiter(provider, connectionId, model);
   const maxWaitMs = currentRequestQueueSettings.maxWaitMs;
-  const scheduleOpts = maxWaitMs && maxWaitMs > 0 ? { expiration: maxWaitMs } : {};
+
+  // `maxWaitMs` is a QUEUE-WAIT budget, and this is the only place that can
+  // measure it: the gap between handing the job to Bottleneck and the job
+  // actually starting.
+  //
+  // It used to be passed as `{ expiration: maxWaitMs }`, but Bottleneck defines
+  // `expiration` as an EXECUTION deadline — "The number milliseconds a job has
+  // to finish" (bottleneck.d.ts:109). Verified against the installed dependency
+  // on 2026-08-09: a job that waited 1150ms in queue with `expiration: 300`
+  // PASSED, while a job that entered immediately and ran 1200ms FAILED at 304ms.
+  // So the knob never bounded queue wait at all — it silently killed every
+  // upstream call slower than 15s (the default), which in production meant 12
+  // kills in 24h, 7 of them with the limiter completely idle. Call duration
+  // belongs to the guards in chatCore/upstreamTimeouts.ts (TTFB -> readiness ->
+  // idle), which have the right boundaries and a per-model override chain.
+  const enqueuedAt = Date.now();
+  const guardQueueWait = <R>(job: () => Promise<R>) => {
+    return async (): Promise<R> => {
+      const waitedMs = Date.now() - enqueuedAt;
+      if (maxWaitMs && maxWaitMs > 0 && waitedMs > maxWaitMs) {
+        throw createQueueWaitTimeoutError(provider, model, waitedMs, maxWaitMs);
+      }
+      return job();
+    };
+  };
 
   // Issue #6593: opt-in admission cap — fast-reject before Bottleneck's
   // schedule() (and before any downstream compression/prompt work runs) when
@@ -653,29 +707,43 @@ export async function withRateLimit(
       });
 
       try {
-        return await Promise.race([limiter.schedule(scheduleOpts, fn), abortPromise]);
+        return await Promise.race([limiter.schedule(guardQueueWait(fn)), abortPromise]);
       } finally {
         if (abortListener) {
           signal.removeEventListener("abort", abortListener);
         }
       }
     } else {
-      return await limiter.schedule(scheduleOpts, fn);
+      return await limiter.schedule(guardQueueWait(fn));
     }
   } catch (err) {
-    // Bottleneck's raw `This job timed out after <maxWaitMs> ms.` is
-    // indistinguishable from an upstream gateway timeout, so it leaks into 502
-    // bodies / call-log `last_error` and gets misdiagnosed as a provider outage
-    // (#4165). Rewrite it into a clear, OmniRoute-owned error (knob named,
-    // upstream disclaimed, original kept as `cause`, `code` for classification).
-    // If the limiter is idle with capacity after the expiry, the scheduler is wedged.
-    // Reset it and retry this never-dispatched function once on a fresh limiter.
-    if (err?.message?.includes("This job timed out")) {
+    // Two ways a job can be dropped by the local queue:
+    //  - our own wait-budget guard (`guardQueueWait`), already carrying the right
+    //    message and `code` — the normal path;
+    //  - Bottleneck's raw `This job timed out after <N> ms.`, which only appears
+    //    if an `expiration` is reintroduced somewhere. Kept as a safety net: that
+    //    string is indistinguishable from an upstream gateway timeout and leaks
+    //    into 502 bodies / call-log `last_error`, which is exactly how #4165 got
+    //    misdiagnosed as a provider outage.
+    // Either way, if the limiter is idle with capacity the scheduler is wedged —
+    // reset it and retry this never-dispatched function once on a fresh limiter.
+    const ownQueueDrop = (err as { code?: string })?.code === QUEUE_WAIT_TIMEOUT_CODE;
+    const bottleneckExpiry = err?.message?.includes("This job timed out") === true;
+    if (ownQueueDrop || bottleneckExpiry) {
       const key = getLimiterKey(provider, connectionId, model);
       const queueState = await getQueueHealthSnapshot(key, limiter);
+      const waitedMs = (err as { waitedMs?: number })?.waitedMs;
       logRateLimit(
-        `⏰ [RATE-LIMIT] ${key} — job expired after ${Math.ceil((maxWaitMs || 0) / 1000)}s in queue, dropping`
+        `⏰ [RATE-LIMIT] ${key} — dropped after waiting ` +
+          `${typeof waitedMs === "number" ? `${waitedMs}ms` : "over budget"} in queue ` +
+          `(maxWaitMs=${maxWaitMs}ms)`
       );
+      // NOTE: while the trigger was Bottleneck's `expiration`, this recovery never
+      // recovered anything — the retry's job hit the same execution deadline and
+      // died identically, so its only measurable effect was doubling the caller's
+      // wait from 15s to 30s (production, 2026-08-08: 7 recoveries, 0 rescues).
+      // With the trigger corrected to a real queue wait, a fresh limiter is a
+      // genuine second chance.
       const limiterIsWedged =
         retryAfterWedge &&
         queueState.running === 0 &&
@@ -685,18 +753,13 @@ export async function withRateLimit(
         typeof queueState.lastDispatchAgeMs === "number" &&
         queueState.lastDispatchAgeMs >= Math.max(1, maxWaitMs || 0);
       if (limiterIsWedged) {
-        logRateLimit(`🔄 [RATE-LIMIT] ${key} — recovering idle limiter after queue expiry`);
+        logRateLimit(`🔄 [RATE-LIMIT] ${key} — recovering idle limiter after queue drop`);
         evictWedgeLimiter(key, limiter);
         return withRateLimit(provider, connectionId, model, fn, signal, false);
       }
-      const queueErr = new Error(
-        `Request dropped after exceeding the local rate-limit queue budget maxWaitMs (${maxWaitMs}ms) for ` +
-          `${model ? `${provider}/${model}` : provider} — this is OmniRoute's request queue ` +
-          `(resilienceSettings.requestQueue.maxWaitMs), not an upstream timeout. Raise it in ` +
-          `Settings → Resilience if this is queue saturation rather than a slow provider.`,
-        { cause: err }
-      ) as Error & { code?: string };
-      queueErr.code = "RATE_LIMIT_QUEUE_TIMEOUT";
+      if (ownQueueDrop) throw err;
+      const queueErr = createQueueWaitTimeoutError(provider, model, maxWaitMs, maxWaitMs);
+      (queueErr as Error & { cause?: unknown }).cause = err;
       throw queueErr;
     }
     // The watchdog's stop({ dropWaitingJobs: true }) wedge-recovery (above) rejects
