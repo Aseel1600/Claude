@@ -2516,7 +2516,7 @@
       "always": "Luôn bật"
     },
     "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
-    "ccDiscoveryInfoTooltip": "Quảng bá các mô hình không phải Claude dưới dạng id phản chiếu claude/<provider>/<model> để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+    "ccDiscoveryInfoTooltip": "Công bố các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
     "ccDiscoveryInfoLink": "Mở Feature Flags",
     "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
     "ccOnboardingCopy": "Sao chép",
@@ -2979,15 +2979,7 @@
     "copilotPasteInto": "Dán vào:",
     "copilotReloadInstruction": "Sau đó tải lại VS Code và nhập khóa API khi được yêu cầu.",
     "wireApiChatCompletions": "Chat Completions (/chat/completions)",
-    "wireApiResponses": "Responses API (/responses)",
-    "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
-    "ccDiscoveryInfoTooltip": "Công bố các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
-    "ccDiscoveryInfoLink": "Mở Feature Flags",
-    "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
-    "ccOnboardingCopy": "Sao chép",
-    "ccOnboardingCopied": "Đã sao chép",
-    "ccOnboardingKeyPlaceholder": "<khóa API OmniRoute của bạn>",
-    "ccOnboardingWindowNote": "Claude Code mặc định coi mọi id mô hình mà nó không nhận ra là có cửa sổ ngữ cảnh 200K. Với mô hình có cửa sổ thực tế khác, hãy thêm CLAUDE_CODE_AUTO_COMPACT_WINDOW ngay bên dưới để việc nén ngữ cảnh tự động không kích hoạt quá sớm."
+    "wireApiResponses": "Responses API (/responses)"
   },
   "combos": {
     "title": "Combo",
@@ -6045,7 +6037,9 @@
     "anonymousFallbackDisabled": "Đã tắt dự phòng ẩn danh cho {provider} — các kết nối đã cạn kiệt sẽ bỏ qua nhà cung cấp này",
     "anonymousFallbackUpdateFailed": "Không thể cập nhật cài đặt dự phòng ẩn danh",
     "getApiKey": "Lấy khóa API",
-    "getApiKeyDescription": "Đăng ký hoặc tạo tài khoản để nhận khóa API"
+    "getApiKeyDescription": "Đăng ký hoặc tạo tài khoản để nhận khóa API",
+    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
+    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:."
   },
   "settings": {
     "title": "Cài đặt",
