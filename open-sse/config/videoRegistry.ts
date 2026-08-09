@@ -339,6 +339,15 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     format: "adobe-firefly-video",
     models: toRegistryVideoModels(),
   },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/video/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "default", name: "NanoGPT Video" }],
+  },
 };
 
 /**
