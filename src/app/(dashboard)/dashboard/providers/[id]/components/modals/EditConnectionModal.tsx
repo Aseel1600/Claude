@@ -1116,7 +1116,6 @@ export default function EditConnectionModal({
             />
           </div>
         )}
-
         {!isOAuth && connection?.apiKey && (
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-text-main">{t("apiKeyHealthLabel")}</label>
