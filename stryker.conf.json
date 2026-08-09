@@ -39,7 +39,9 @@
   "incremental": true,
   "incrementalFile": "reports/mutation/stryker-incremental.json",
   "testRunner": "tap",
-  "plugins": ["@stryker-mutator/tap-runner"],
+  "plugins": [
+    "@stryker-mutator/tap-runner"
+  ],
   "tap": {
     "testFiles": [
       "tests/unit/7993-noauth-proxy-routing.test.ts",
@@ -333,7 +335,8 @@
       "tests/unit/upstream-timeout-model-override.test.ts",
       "tests/unit/usage-service-hardening.test.ts",
       "tests/unit/validate-response-quality.test.ts",
-      "tests/unit/xai-agent-tools-passthrough.test.ts"
+      "tests/unit/xai-agent-tools-passthrough.test.ts",
+      "tests/unit/capability-filter.test.ts"
     ],
     "nodeArgs": [
       "--import",
@@ -442,7 +445,11 @@
     ".worktrees",
     ".stryker-tmp"
   ],
-  "reporters": ["progress", "html", "json"],
+  "reporters": [
+    "progress",
+    "html",
+    "json"
+  ],
   "htmlReporter": {
     "fileName": "reports/mutation/mutation.html"
   },
