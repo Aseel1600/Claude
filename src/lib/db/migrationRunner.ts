@@ -487,8 +487,6 @@ function isSchemaAlreadyApplied(
       // but still burn a version-tracking slot mismatch — guard it the same
       // way as the other renumbers for consistency.
       return hasTable(db, "connection_runtime_state");
-    case "146":
-      return hasTable(db, "jobs") && hasTable(db, "job_runs");
     default:
       return false;
   }
