@@ -4,10 +4,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chatcore-translation-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
-
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
@@ -49,14 +47,12 @@ const { resetPayloadRulesConfigForTests, setPayloadRulesConfig } =
   await import("../../open-sse/services/payloadRules.ts");
 const { FORMATS } = await import("../../open-sse/translator/formats.ts");
 const { register, getRequestTranslator } = await import("../../open-sse/translator/registry.ts");
-
 const originalFetch = globalThis.fetch;
 const originalResponsesToOpenAI = getRequestTranslator(FORMATS.OPENAI_RESPONSES, FORMATS.OPENAI);
 const originalSetTimeout = globalThis.setTimeout;
 const originalBackgroundConfig = getBackgroundDegradationConfig();
 const originalCallLogPipelineCaptureStreamChunks =
   process.env.CALL_LOG_PIPELINE_CAPTURE_STREAM_CHUNKS;
-
 function noopLog() {
   return {
     debug() {},
@@ -65,7 +61,6 @@ function noopLog() {
     error() {},
   };
 }
-
 function restorePipelineCaptureEnv() {
   if (originalCallLogPipelineCaptureStreamChunks === undefined) {
     delete process.env.CALL_LOG_PIPELINE_CAPTURE_STREAM_CHUNKS;
@@ -74,7 +69,6 @@ function restorePipelineCaptureEnv() {
       originalCallLogPipelineCaptureStreamChunks;
   }
 }
-
 function toPlainHeaders(headers) {
   if (!headers) return {};
   if (headers instanceof Headers) return Object.fromEntries(headers.entries());
@@ -82,7 +76,6 @@ function toPlainHeaders(headers) {
     Object.entries(headers).map(([key, value]) => [key, value == null ? "" : String(value)])
   );
 }
-
 function buildOpenAIResponse(stream, text = "ok") {
   if (stream) {
     return new Response(
@@ -97,7 +90,6 @@ function buildOpenAIResponse(stream, text = "ok") {
       }
     );
   }
-
   return new Response(
     JSON.stringify({
       id: "chatcmpl-json",
@@ -122,7 +114,6 @@ function buildOpenAIResponse(stream, text = "ok") {
     }
   );
 }
-
 function buildClaudeResponse(stream, text = "ok") {
   if (stream) {
     return new Response(
@@ -170,7 +161,6 @@ function buildClaudeResponse(stream, text = "ok") {
       }
     );
   }
-
   return new Response(
     JSON.stringify({
       id: "msg_json",
@@ -389,7 +379,6 @@ test.after(async () => {
   await resetStorage();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
-
 test("chatCore times out upstream execution before provider response headers", async () => {
   // This test asserts pendingDetail.providerRequest — only attached when the
   // call-log pipeline capture is enabled. Declare the dependency explicitly
@@ -456,7 +445,6 @@ test("chatCore times out upstream execution before provider response headers", a
     globalThis.fetch = originalFetch;
   }
 });
-
 test("chatCore can disable pipeline stream chunk capture through environment", async () => {
   process.env.CALL_LOG_PIPELINE_CAPTURE_STREAM_CHUNKS = "false";
   await settingsDb.updateSettings({ call_log_pipeline_enabled: true });
@@ -479,7 +467,6 @@ test("chatCore can disable pipeline stream chunk capture through environment", a
   assert.ok(detail.pipelinePayloads, "expected pipeline payloads when capture is enabled");
   assert.equal((detail.pipelinePayloads as any).streamChunks, undefined);
 });
-
 test("chatCore keeps Responses-native Codex payloads in native passthrough mode", async () => {
   const { call, result } = await invokeChatCore({
     provider: "codex",
@@ -507,7 +494,6 @@ test("chatCore keeps Responses-native Codex payloads in native passthrough mode"
   assert.deepEqual(call.body.metadata, { source: "codex-client" });
   assert.equal("messages" in call.body, false);
 });
-
 test("chatCore honors providerSpecificData.apiType for legacy openai-compatible providers", async () => {
   const { call, result } = await invokeChatCore({
     provider: "openai-compatible-sp-openai",
@@ -537,7 +523,78 @@ test("chatCore honors providerSpecificData.apiType for legacy openai-compatible 
   assert.equal("messages" in call.body, false);
   assert.equal(payload.choices[0].message.content, "ok");
 });
+test("chatCore applies Responses input policy to openai-compatible targets", async () => {
+  const reasoningItems = [
+    { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+    { type: "reasoning", encrypted_content: "" },
+    { type: "reasoning", summary: [{ text: "not self-contained" }] },
+    { type: "item_reference", id: "rs_reference" },
+    { id: "fc_call", type: "function_call", call_id: "call_1", name: "search", arguments: "{}" },
+  ];
 
+  for (const preserveEncryptedReasoning of [false, true]) {
+    const { call, result } = await invokeChatCore({
+      provider: "openai-compatible-sp-openai",
+      model: "gpt-5.4",
+      endpoint: "/v1/responses",
+      credentials: {
+        apiKey: "sk-test",
+        providerSpecificData: {
+          apiType: "responses",
+          baseUrl: "https://proxy.example.com/v1",
+          prefix: "sp-openai",
+          preserveEncryptedReasoning,
+        },
+      },
+      body: { model: "gpt-5.4", stream: false, input: reasoningItems },
+      responseFormat: "openai-responses",
+    });
+
+    assert.equal(result.success, true);
+    const input = call.body.input as Array<Record<string, unknown>>;
+    assert.deepEqual(
+      input.filter((item) => item.type === "reasoning"),
+      preserveEncryptedReasoning ? [{ type: "reasoning", encrypted_content: "encrypted-blob" }] : []
+    );
+    assert.equal(
+      input.some((item) => item.type === "item_reference"),
+      false
+    );
+    assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
+  }
+});
+test("chatCore preserves opted-in encrypted reasoning for Codex", async () => {
+  const { call, result } = await invokeChatCore({
+    provider: "codex",
+    model: "gpt-5.1-codex",
+    endpoint: "/v1/responses",
+    credentials: {
+      accessToken: "codex-token",
+      providerSpecificData: { preserveEncryptedReasoning: true },
+    },
+    body: {
+      model: "gpt-5.1-codex",
+      stream: false,
+      input: [
+        { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+        { type: "reasoning", encrypted_content: "" },
+        { type: "item_reference", id: "rs_reference" },
+        { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] },
+      ],
+    },
+    responseFormat: "openai-responses",
+  });
+
+  assert.equal(result.success, true);
+  assert.deepEqual(
+    call.body.input.filter((item) => item.type === "reasoning"),
+    [{ type: "reasoning", encrypted_content: "encrypted-blob" }]
+  );
+  assert.equal(
+    call.body.input.some((item) => item.type === "item_reference"),
+    false
+  );
+});
 test("chatCore helper exports detect responses passthrough paths and token expiry windows", () => {
   assert.equal(
     shouldUseNativeCodexPassthrough({
@@ -565,7 +622,6 @@ test("chatCore helper exports detect responses passthrough paths and token expir
   );
   assert.equal(isTokenExpiringSoon(null), false);
 });
-
 test("chatCore helper detects Claude Code semantic passthrough only for direct Claude-Code routes", () => {
   assert.equal(
     isClaudeCodeSemanticPassthroughRequest({
@@ -605,7 +661,6 @@ test("chatCore helper detects Claude Code semantic passthrough only for direct C
     false
   );
 });
-
 test("chatCore applies payload rules after translating Responses input into Chat payloads", async () => {
   setPayloadRulesConfig({
     default: [
@@ -651,7 +706,6 @@ test("chatCore applies payload rules after translating Responses input into Chat
   assert.equal(call.body.messages[0].metadata.routeTag, "feature-110");
   assert.equal(call.body.messages[0].role, "user");
 });
-
 test("chatCore builds Claude Code-compatible upstream requests for CC providers", async () => {
   const { call, result } = await invokeChatCore({
     provider: "anthropic-compatible-cc-test",
@@ -761,7 +815,6 @@ test("chatCore normalizes native Claude Code messages for native Claude OAuth pa
   // user msg[2] (was clientMessages[3]): tool_result preserved (preserveToolResultBlocks:true)
   assert.equal(call.body.messages[2].content[0].type, "tool_result");
 });
-
 test("chatCore preserves Opus 5 mid-conversation system cache breakpoints", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "auto" });
   invalidateCacheControlSettingsCache();
@@ -815,7 +868,6 @@ test("chatCore preserves Opus 5 mid-conversation system cache breakpoints", asyn
   );
   assert.equal(call.body.messages[3].content[0].cache_control, undefined);
 });
-
 test("chatCore keeps Claude normalization for non-Claude-Code Claude passthrough", async () => {
   const { call, result } = await invokeChatCore({
     provider: "claude",
@@ -943,7 +995,6 @@ test("chatCore normalizes native Claude Code messages before CC-compatible relay
   // user msg[2] (was clientMessages[3]): tool_result preserved (preserveToolResultBlocks:true)
   assert.equal(call.body.messages[2].content[0].type, "tool_result");
 });
-
 test("chatCore preserves cache_control automatically for Claude Code single-model requests", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "auto" });
   invalidateCacheControlSettingsCache();
@@ -990,7 +1041,6 @@ test("chatCore preserves cache_control automatically for Claude Code single-mode
   // base.ts executor explicitly strips cache_control from tools for Claude Code clients
   assert.equal(call.body.tools[0].cache_control, undefined);
 });
-
 test("chatCore supplements a missing message cache breakpoint for native Claude Code requests", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "auto" });
   invalidateCacheControlSettingsCache();
@@ -1036,7 +1086,6 @@ test("chatCore supplements a missing message cache breakpoint for native Claude 
   assert.deepEqual(call.body.messages[2].content[0].cache_control, { type: "ephemeral" });
   assert.equal(call.body.tools[0].cache_control, undefined);
 });
-
 test("chatCore auto cache policy becomes false for nondeterministic combos", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "auto" });
   invalidateCacheControlSettingsCache();
@@ -1070,7 +1119,6 @@ test("chatCore auto cache policy becomes false for nondeterministic combos", asy
     true
   );
 });
-
 test("chatCore always-preserve mode keeps cache_control even without Claude Code user-agent", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "always" });
   invalidateCacheControlSettingsCache();
@@ -1092,7 +1140,6 @@ test("chatCore always-preserve mode keeps cache_control even without Claude Code
   assert.equal(hasCacheControl(call.body), true);
   assert.deepEqual(call.body.system[0].cache_control, { type: "ephemeral", ttl: "5m" });
 });
-
 test("chatCore disables raw Claude passthrough when cache preservation is off and normalizes through OpenAI", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "never" });
   invalidateCacheControlSettingsCache();
@@ -1128,7 +1175,6 @@ test("chatCore disables raw Claude passthrough when cache preservation is off an
   // Tools disable flag is applied
   assert.equal("_disableToolPrefix" in call.body, false);
 });
-
 test("chatCore default translation converts Claude requests to OpenAI and strips cache markers for non-Claude providers", async () => {
   const { call } = await invokeChatCore({
     provider: "openai",
@@ -1154,7 +1200,6 @@ test("chatCore default translation converts Claude requests to OpenAI and strips
   assert.equal(call.body.messages[0].role, "system");
   assert.equal(JSON.stringify(call.body).includes("cache_control"), false);
 });
-
 test("chatCore sets Claude tool prefix disabling, strips empty Anthropic text blocks, and cleans helper flags", async () => {
   const { call } = await invokeChatCore({
     provider: "claude",
@@ -1197,7 +1242,6 @@ test("chatCore sets Claude tool prefix disabling, strips empty Anthropic text bl
     ["hello"]
   );
 });
-
 test("chatCore restores prefixed Claude passthrough tool names in upstream responses", async () => {
   const { result } = await invokeChatCore({
     provider: "claude",
@@ -1249,7 +1293,6 @@ test("chatCore restores prefixed Claude passthrough tool names in upstream respo
   assert.equal(result.success, true);
   assert.equal(payload.content[0].name, "Bash");
 });
-
 test("chatCore strips unsupported reasoning params and caps provider token fields", async () => {
   const { call } = await invokeChatCore({
     provider: "openai",
@@ -1271,7 +1314,6 @@ test("chatCore strips unsupported reasoning params and caps provider token field
   assert.equal(call.body.max_tokens, undefined);
   assert.equal(call.body.max_completion_tokens, 16384);
 });
-
 test("chatCore preserves reasoning_effort for assistant-prefill OpenAI-compatible requests", async () => {
   const { call, result } = await invokeChatCore({
     provider: "openai-compatible-aio",
@@ -1293,7 +1335,6 @@ test("chatCore preserves reasoning_effort for assistant-prefill OpenAI-compatibl
   assert.equal(call.body.model, "glm-5.1");
   assert.equal(call.body.reasoning_effort, "xhigh");
 });
-
 test("chatCore logs chat completions endpoint as OpenAI protocol", async () => {
   const { call, result } = await invokeChatCore({
     provider: "openrouter",
@@ -1320,7 +1361,6 @@ test("chatCore logs chat completions endpoint as OpenAI protocol", async () => {
   assert.equal(logEntry.path, "/v1/chat/completions");
   assert.equal(logEntry.sourceFormat, FORMATS.OPENAI);
 });
-
 test("chatCore surfaces translation errors with explicit status codes", async () => {
   register(
     FORMATS.OPENAI_RESPONSES,
@@ -1347,7 +1387,6 @@ test("chatCore surfaces translation errors with explicit status codes", async ()
   assert.equal(result.status, 409);
   assert.equal(result.error, "responses translator rejected the payload");
 });
-
 test("chatCore surfaces typed translation errors with the declared error type", async () => {
   register(
     FORMATS.OPENAI_RESPONSES,
@@ -1378,7 +1417,6 @@ test("chatCore surfaces typed translation errors with the declared error type", 
   assert.equal(payload.error.type, "unsupported_feature");
   assert.equal(payload.error.code, "unsupported_feature");
 });
-
 test("chatCore returns 500 when translation throws a generic error", async () => {
   register(
     FORMATS.OPENAI_RESPONSES,
@@ -1403,7 +1441,6 @@ test("chatCore returns 500 when translation throws a generic error", async () =>
   assert.equal(result.status, 500);
   assert.equal(result.error, "unexpected translator crash");
 });
-
 test("chatCore refreshes GitHub credentials after 401 and retries with the refreshed Copilot token", async () => {
   let refreshedCredentials = null;
   const { calls, result } = await invokeChatCore({
@@ -1469,7 +1506,6 @@ test("chatCore refreshes GitHub credentials after 401 and retries with the refre
   assert.equal(refreshedCredentials?.providerSpecificData?.copilotToken, "copilot-refreshed-token");
   assert.equal(payload.choices[0].message.content, "retry succeeded after refresh");
 });
-
 test("chatCore uses the native executor when no upstream proxy mode is enabled", async () => {
   const { call } = await invokeChatCore({
     provider: "openai",
@@ -1483,7 +1519,6 @@ test("chatCore uses the native executor when no upstream proxy mode is enabled",
 
   assert.match(call.url, /^https:\/\/api\.openai\.com\/v1\/chat\/completions$/);
 });
-
 test("chatCore routes providers through CLIProxyAPI in passthrough mode", async () => {
   await upstreamProxyDb.upsertUpstreamProxyConfig({
     providerId: "qoder",
@@ -1505,7 +1540,6 @@ test("chatCore routes providers through CLIProxyAPI in passthrough mode", async 
   assert.match(call.url, /^http:\/\/127\.0\.0\.1:8317\/v1\/chat\/completions$/);
   assert.equal(call.headers.Authorization ?? call.headers.authorization, "Bearer qoder-token");
 });
-
 test("chatCore fallback proxy mode retries through CLIProxyAPI after retryable native failures", async () => {
   await upstreamProxyDb.upsertUpstreamProxyConfig({
     providerId: "github",
@@ -1546,7 +1580,6 @@ test("chatCore fallback proxy mode retries through CLIProxyAPI after retryable n
   assert.match(calls[0].url, /^https:\/\/api\.githubcopilot\.com\/chat\/completions$/);
   assert.match(calls[1].url, /^http:\/\/127\.0\.0\.1:8317\/v1\/chat\/completions$/);
 });
-
 test("chatCore fallback proxy mode surfaces CLIProxyAPI errors after a retryable native status", async () => {
   await upstreamProxyDb.upsertUpstreamProxyConfig({
     providerId: "github",
@@ -1587,7 +1620,6 @@ test("chatCore fallback proxy mode surfaces CLIProxyAPI errors after a retryable
   assert.equal(result.status, 502);
   assert.equal(result.error, "[502]: cliproxy retry failed");
 });
-
 test("chatCore fallback proxy mode surfaces CLIProxyAPI errors after native executor throws", async () => {
   await upstreamProxyDb.upsertUpstreamProxyConfig({
     providerId: "github",
@@ -1625,7 +1657,6 @@ test("chatCore fallback proxy mode surfaces CLIProxyAPI errors after native exec
   assert.equal(result.status, 502);
   assert.equal(result.error, "[502]: cliproxy transport exploded");
 });
-
 test("chatCore serves a cached idempotent response without hitting the provider twice", async () => {
   const sharedHeaders = { "idempotency-key": "unit-idempotent-key" };
 
@@ -1661,7 +1692,6 @@ test("chatCore serves a cached idempotent response without hitting the provider 
   const payload = (await second.result.response.json()) as any;
   assert.equal(payload.choices[0].message.content, "ok");
 });
-
 test("chatCore returns a semantic cache HIT for repeated deterministic requests", async () => {
   let upstreamHits = 0;
   const sharedBody = {
@@ -1714,7 +1744,6 @@ test("chatCore returns a semantic cache HIT for repeated deterministic requests"
   assert.equal(semanticLog.path, "/v1/chat/completions");
   assert.equal(semanticLog.status, 200);
 });
-
 test("chatCore skips semantic cache when disabled in settings", async () => {
   await settingsDb.updateSettings({ semanticCacheEnabled: false });
 
@@ -1757,7 +1786,6 @@ test("chatCore skips semantic cache when disabled in settings", async () => {
   const payload = (await second.result.response.json()) as any;
   assert.equal(payload.choices[0].message.content, "fresh-2");
 });
-
 test("chatCore attaches OmniRoute response metadata headers to non-stream responses", async () => {
   const { result } = await invokeChatCore({
     provider: "claude",
@@ -1779,7 +1807,6 @@ test("chatCore attaches OmniRoute response metadata headers to non-stream respon
   assert.ok(Number(result.response.headers.get("X-OmniRoute-Latency-Ms")) >= 0);
   assert.match(String(result.response.headers.get("X-OmniRoute-Response-Cost")), /^\d+\.\d{10}$/);
 });
-
 test("chatCore does not expose provider request credentials in non-stream response headers", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -1798,7 +1825,6 @@ test("chatCore does not expose provider request credentials in non-stream respon
   assert.equal(result.response.headers.get("Content-Type"), "application/json");
   assert.equal(result.response.headers.get("X-OmniRoute-Cache"), "MISS");
 });
-
 test("chatCore normalizes tool finish reasons and estimates usage when upstream omits it", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -1850,7 +1876,6 @@ test("chatCore normalizes tool finish reasons and estimates usage when upstream 
   assert.ok(payload.usage.total_tokens > 0);
   assert.ok(payload.usage.prompt_tokens > 0);
 });
-
 test("chatCore bypasses Claude CLI warmup probes before touching the provider", async () => {
   const { calls, result } = await invokeChatCore({
     model: "gpt-5",
@@ -1867,7 +1892,6 @@ test("chatCore bypasses Claude CLI warmup probes before touching the provider", 
   assert.equal(calls.length, 0);
   assert.match(payload.choices[0].message.content, /CLI Command Execution/);
 });
-
 test("chatCore redirects background utility tasks to a cheaper mapped model", async () => {
   setBackgroundDegradationConfig({
     enabled: true,
@@ -1894,7 +1918,6 @@ test("chatCore redirects background utility tasks to a cheaper mapped model", as
   assert.equal(result.success, true);
   assert.equal(call.body.model, "gpt-5-mini");
 });
-
 test("chatCore preserves Codex dual-window scope cooldowns on 429 responses", async () => {
   const connection = await providersDb.createProviderConnection({
     provider: "codex",
@@ -1948,7 +1971,6 @@ test("chatCore preserves Codex dual-window scope cooldowns on 429 responses", as
   );
   assert.equal((updated as any).providerSpecificData.codexExhaustedWindow, "5h");
 });
-
 test("chatCore 429 lets account fallback apply the configured resilience cooldown", async () => {
   await settingsDb.updateSettings({
     resilienceSettings: {
@@ -2009,7 +2031,6 @@ test("chatCore 429 lets account fallback apply the configured resilience cooldow
   assert.equal((afterFallback as any).testStatus, "unavailable");
   assert.ok(cooldownRemaining > 0 && cooldownRemaining <= 2_000);
 });
-
 test("chatCore falls back to the next family model when the requested model is unavailable", async () => {
   const { calls, result } = await invokeChatCore({
     provider: "openai",
@@ -2036,7 +2057,6 @@ test("chatCore falls back to the next family model when the requested model is u
   assert.equal(calls[1].body.model, "gpt-5.1-mini");
   assert.equal(payload.choices[0].message.content, "family fallback ok");
 });
-
 test("chatCore falls back to a larger-context sibling when the request overflows context", async () => {
   saveModelsDevCapabilities({
     unknown: {
@@ -2071,7 +2091,6 @@ test("chatCore falls back to a larger-context sibling when the request overflows
   assert.equal(calls[1].body.model, "gpt-4o");
   assert.equal(payload.choices[0].message.content, "larger context fallback");
 });
-
 test("chatCore parses upstream SSE payloads for non-streaming requests", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2090,7 +2109,6 @@ test("chatCore parses upstream SSE payloads for non-streaming requests", async (
   assert.equal(result.success, true);
   assert.equal(payload.choices[0].message.content, "sse json");
 });
-
 test("chatCore rejects malformed non-streaming SSE payloads", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2112,7 +2130,6 @@ test("chatCore rejects malformed non-streaming SSE payloads", async () => {
   assert.equal(result.status, 502);
   assert.match(result.error, /Invalid SSE response/);
 });
-
 test("chatCore rejects malformed non-streaming JSON payloads", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2134,7 +2151,6 @@ test("chatCore rejects malformed non-streaming JSON payloads", async () => {
   assert.equal(result.status, 502);
   assert.equal(result.error, "Invalid JSON response from provider");
 });
-
 test("chatCore falls back after an empty-content success response", async () => {
   const { calls, result } = await invokeChatCore({
     provider: "openai",
@@ -2175,7 +2191,6 @@ test("chatCore falls back after an empty-content success response", async () => 
   assert.equal(calls[1].body.model, "gpt-5.1-mini");
   assert.equal(payload.choices[0].message.content, "empty-content fallback ok");
 });
-
 test("chatCore returns a gateway error when the empty-content fallback responds with invalid JSON", async () => {
   const { result, calls } = await invokeChatCore({
     provider: "openai",
@@ -2220,7 +2235,6 @@ test("chatCore returns a gateway error when the empty-content fallback responds 
   assert.equal(calls.length, 2);
   assert.equal(calls[1].body.model, "gpt-5.1-mini");
 });
-
 test("chatCore records Claude prompt cache and cache usage metadata in call logs", async () => {
   await settingsDb.updateSettings({ alwaysPreserveClientCache: "always" });
   invalidateCacheControlSettingsCache();
@@ -2298,7 +2312,6 @@ test("chatCore records Claude prompt cache and cache usage metadata in call logs
     cacheCreationTokens: 2,
   });
 });
-
 test("chatCore propagates budget errors without an executor-level emergency hop", async () => {
   // The emergency budget fallback is orchestrated by the routing layer
   // (src/sse/handlers/chat.ts), which resolves credentials FOR the emergency
@@ -2338,7 +2351,6 @@ test("chatCore propagates budget errors without an executor-level emergency hop"
     "emergency fallback model must not be called at executor level"
   );
 });
-
 test("chatCore injects progress events into streaming responses when requested", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2360,7 +2372,6 @@ test("chatCore injects progress events into streaming responses when requested",
   assert.equal(result.response.headers.get("X-OmniRoute-Progress"), "enabled");
   assert.match(streamText, /event: progress/);
 });
-
 test("chatCore emits final SSE metadata comments before [DONE] on streaming responses", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2388,7 +2399,6 @@ test("chatCore emits final SSE metadata comments before [DONE] on streaming resp
     streamText.indexOf(": x-omniroute-response-cost=") < streamText.indexOf("data: [DONE]")
   );
 });
-
 test("buildStreamingResponseHeaders drops upstream compression and framing headers", () => {
   const headers = new Headers(
     buildStreamingResponseHeaders(
@@ -2417,7 +2427,6 @@ test("buildStreamingResponseHeaders drops upstream compression and framing heade
   assert.equal(headers.get("X-Upstream-Trace"), "trace-1");
   assert.equal(headers.get("X-OmniRoute-Cache"), "MISS");
 });
-
 test("chatCore strips upstream compression and length headers from streaming responses", async () => {
   const upstreamPayload = `data: ${JSON.stringify({
     id: "chatcmpl-stream-headers",
@@ -2452,7 +2461,6 @@ test("chatCore strips upstream compression and length headers from streaming res
   assert.equal(result.response.headers.get("X-OmniRoute-Cache"), "MISS");
   await result.response.text();
 });
-
 test("chatCore maps upstream aborts to request-aborted errors", async () => {
   const { result } = await invokeChatCore({
     provider: "openai",
@@ -2473,7 +2481,6 @@ test("chatCore maps upstream aborts to request-aborted errors", async () => {
   assert.equal(result.status, 499);
   assert.equal(result.error, "Request aborted");
 });
-
 test("chatCore maps raw string abort reasons to 499, not 502 (#7907)", async () => {
   // abort(reason) rejects the upstream fetch with the raw reason — often a
   // bare string with no `name`/`status`. It must map to 499 like a named
@@ -2536,7 +2543,6 @@ test("chatCore does not log a synthetic clientResponse body for a client abort",
     "an aborted request never delivered anything to the client — clientResponse must stay unset"
   );
 });
-
 test("chatCore returns streaming responses without waiting for upstream completion", async () => {
   const encoder = new TextEncoder();
   let closeUpstream: (() => void) | null = null;
@@ -2605,7 +2611,6 @@ test("chatCore returns streaming responses without waiting for upstream completi
   assert.equal(result.success, true);
   assert.match(streamText, /streamed-without-buffering/);
 });
-
 test("chatCore releases account semaphore slots when upstream execution throws", async () => {
   const connectionId = "sem-exception";
   const semaphoreKey = buildAccountSemaphoreKey({
@@ -2638,7 +2643,6 @@ test("chatCore releases account semaphore slots when upstream execution throws",
   assert.equal(result.status, 502);
   assert.equal(getAccountSemaphoreStats()[semaphoreKey], undefined);
 });
-
 test("chatCore locks per-model quota failures without dropping quota helper references", async () => {
   const model = "gemini-1.5-pro";
   const connection = await providersDb.createProviderConnection({
@@ -2684,7 +2688,6 @@ test("chatCore locks per-model quota failures without dropping quota helper refe
 });
 
 // ── Streaming semantic cache tests ──────────────────────────────────────────
-
 test("chatCore caches streaming response and serves cache HIT on repeat", async () => {
   let upstreamHits = 0;
   const sharedBody = {
@@ -2739,7 +2742,6 @@ test("chatCore caches streaming response and serves cache HIT on repeat", async 
   assert.match(sse, /^data:/m, "cache HIT should be SSE-framed");
   assert.match(sse, /streamed-once/, "SSE cache HIT should carry the cached content");
 });
-
 test("chatCore does not cache streaming response when temperature > 0", async () => {
   let upstreamHits = 0;
   const sharedBody = {
@@ -2780,7 +2782,6 @@ test("chatCore does not cache streaming response when temperature > 0", async ()
   assert.equal(upstreamHits, 2, "both requests should hit upstream");
   assert.equal(second.calls.length, 1, "second request should reach upstream");
 });
-
 test("chatCore skips streaming cache when X-OmniRoute-No-Cache header is set", async () => {
   let upstreamHits = 0;
   const sharedBody = {
@@ -2827,7 +2828,6 @@ test("chatCore skips streaming cache when X-OmniRoute-No-Cache header is set", a
   await second.result.response.text();
   assert.equal(upstreamHits, 2, "both requests should hit upstream with no-cache");
 });
-
 test("chatCore returns cache HIT as SSE when the client requests streaming", async () => {
   const sharedBody = {
     model: "gpt-4o-mini",
