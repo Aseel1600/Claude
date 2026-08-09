@@ -48,10 +48,7 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
-import {
-  colocateLlmlinguaOptionals,
-  SEED_PACKAGES,
-} from "./colocateOptionals.mjs";
+import { colocateLlmlinguaOptionals, SEED_PACKAGES } from "./colocateOptionals.mjs";
 
 /**
  * Check whether a path exists (async).
@@ -236,6 +233,16 @@ const EXTRA_MODULE_ENTRIES = [
     label: "undici (MCP server static import — #7701)",
     src: ["node_modules", "undici"],
     dest: ["node_modules", "undici"],
+  },
+  {
+    // Turbopack's standalone tracer can emit a hollow node_modules/ws/ directory
+    // for the externalized `ws` package (no package.json / index.js), which then
+    // shadows the real install at runtime and crashes instrumentation with:
+    // "Cannot find package '<bundle>/node_modules/ws/index.js'" (#OmniRoute v3.8.50 live bug).
+    // Overlay the full source package so the bundled server resolves the real entrypoint.
+    label: "ws (externalized runtime package shadow fix)",
+    src: ["node_modules", "ws"],
+    dest: ["node_modules", "ws"],
   },
   {
     label: "sql.js WASM fallback runtime",
@@ -525,6 +532,68 @@ function copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir) {
 }
 
 /**
+ * Next/Turbopack standalone output can leave behind hollow top-level package
+ * directories for externalized runtime deps (directory exists, but contains no
+ * files). Those empty placeholders shadow the real repo-level install and make
+ * runtime ESM externals fail with "Cannot find package '<bundle>/node_modules/<pkg>/index.js'"
+ * even though the dependency is present in the source tree.
+ *
+ * Repair strategy: for each empty top-level package dir already present in the
+ * assembled bundle, if the same package exists in the project root node_modules,
+ * replace the hollow directory with a full recursive copy from the source install.
+ * This keeps the fix narrowly scoped to packages the standalone already expects.
+ *
+ * @param {string} projectRoot
+ * @param {string} resolvedOutDir
+ * @returns {{repaired: number, packages: string[]}}
+ */
+function repairEmptyExternalPackageDirs(projectRoot, resolvedOutDir) {
+  const summary = { repaired: 0, packages: [] };
+  const bundleNodeModules = path.join(resolvedOutDir, "node_modules");
+  const sourceNodeModules = path.join(projectRoot, "node_modules");
+  if (!fsSync.existsSync(bundleNodeModules) || !fsSync.existsSync(sourceNodeModules)) {
+    return summary;
+  }
+
+  for (const name of fsSync.readdirSync(bundleNodeModules)) {
+    if (name.startsWith(".") || name.startsWith("@")) continue;
+
+    const bundlePkgDir = path.join(bundleNodeModules, name);
+    const sourcePkgDir = path.join(sourceNodeModules, name);
+
+    let bundleStat;
+    try {
+      bundleStat = fsSync.statSync(bundlePkgDir);
+    } catch {
+      continue;
+    }
+    if (!bundleStat.isDirectory()) continue;
+
+    let bundleEntries = [];
+    try {
+      bundleEntries = fsSync.readdirSync(bundlePkgDir);
+    } catch {
+      continue;
+    }
+    if (bundleEntries.length > 0 || !fsSync.existsSync(sourcePkgDir)) continue;
+
+    let sourceStat;
+    try {
+      sourceStat = fsSync.statSync(sourcePkgDir);
+    } catch {
+      continue;
+    }
+    if (!sourceStat.isDirectory()) continue;
+
+    fsSync.cpSync(sourcePkgDir, bundlePkgDir, { recursive: true, force: true });
+    summary.repaired += 1;
+    summary.packages.push(name);
+  }
+
+  return summary;
+}
+
+/**
  * Materialize Turbopack "hashed external module" symlinks inside a bundled
  * node_modules dir into real, self-contained directories.
  *
@@ -740,6 +809,13 @@ export function assembleStandalone({
   // 6. Optionally copy native assets + extra modules (synchronous)
   if (copyNatives) {
     copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir);
+    const emptyPkgRepair = repairEmptyExternalPackageDirs(projectRoot, resolvedOutDir);
+    if (emptyPkgRepair.repaired > 0) {
+      console.log(
+        `[assembleStandalone] Repaired ${emptyPkgRepair.repaired} hollow external package dir(s): ` +
+          emptyPkgRepair.packages.join(", ")
+      );
+    }
 
     // #9166: dynamically imported LLMLingua packages are not reliably traced
     // into the standalone bundle. Copy their complete dependency closure from
@@ -750,8 +826,7 @@ export function assembleStandalone({
       rootDir: projectRoot,
       targetNodeModulesDir: path.join(resolvedOutDir, "node_modules"),
       seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
-      log: (message) =>
-        console.log(`[assembleStandalone] ${message.trim()}`),
+      log: (message) => console.log(`[assembleStandalone] ${message.trim()}`),
     });
   }
 
