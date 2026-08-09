@@ -24,6 +24,8 @@ import {
   readCompressionRequestHeader,
   withCompressionHeaderEcho,
 } from "@/shared/utils/compressionHeaderEcho";
+import { recordRejectedRequestUsage } from "@/sse/handlers/rejectedRequestUsage";
+import type { ChatAdmissionRejection } from "@/shared/middleware/chatBodyAdmission";
 
 let initPromise = null;
 
@@ -75,7 +77,32 @@ export async function OPTIONS() {
   return handleCorsOptions();
 }
 
+/**
+ * Admission rejections short-circuit before `handleChat`, so nothing downstream ever
+ * logs them: production served `chat_admission_busy` continuously while `call_logs/`
+ * and the app log both showed zero, and three separate log analyses concluded "no
+ * errors" while the operator watched the client fail. Reuses the same gate-rejection
+ * recorder as the circuit-breaker/cooldown paths (`call_logs` + `usage_history`), so
+ * this traffic is counted per API key like every other rejection.
+ */
+async function recordAdmissionRejection(
+  rejection: ChatAdmissionRejection | undefined,
+  startTime: number,
+  requestedModel?: string | null
+): Promise<void> {
+  if (!rejection) return;
+  await recordRejectedRequestUsage({
+    status: rejection.status,
+    model: requestedModel || "unknown",
+    requestedModel: requestedModel || "unknown",
+    provider: "omniroute",
+    error: `${rejection.code} (trigger=${rejection.trigger}, activeHeavy=${rejection.activeHeavy})`,
+    startTime,
+  }).catch(() => {});
+}
+
 export async function POST(request) {
+  const requestStartedAt = Date.now();
   await ensureInitialized();
 
   // Content-Type guard (#6414) — reject non-JSON POST bodies with 415 per RFC 7231.
@@ -99,7 +126,10 @@ export async function POST(request) {
   // BEFORE JSON parsing. Missing or dishonest Content-Length values cannot bypass
   // the actual-byte limit. Capacity exhaustion is retryable rather than process-fatal.
   const admissionResult = await admitChatRequest(request);
-  if (admissionResult.admit === false) return admissionResult.response;
+  if (admissionResult.admit === false) {
+    await recordAdmissionRejection(admissionResult.rejection, requestStartedAt);
+    return admissionResult.response;
+  }
   const admission = admissionResult;
   request = admission.request;
   const finishAdmission = (response: Response) =>
@@ -139,9 +169,16 @@ export async function POST(request) {
           }
         }
 
-        const structuralAdmission = admitChatStructure(parsedBody, admission.lease);
+        const structuralAdmission = await admitChatStructure(parsedBody, admission.lease, {
+          signal: request.signal,
+        });
         if (structuralAdmission.admit === false) {
           admission.lease?.release();
+          await recordAdmissionRejection(
+            structuralAdmission.rejection,
+            requestStartedAt,
+            typeof parsedBody.model === "string" ? parsedBody.model : null
+          );
           return structuralAdmission.response;
         }
         admission.lease = structuralAdmission.lease;
