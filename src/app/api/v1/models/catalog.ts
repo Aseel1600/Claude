@@ -1295,7 +1295,16 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        const alias = providerIdToAlias[canonicalProviderId] || providerKey;
+        // #8327 follow-up: the operator-configured node `prefix` wins here exactly as it
+        // does in the synced-models and custom-models blocks. Without it, a compatible
+        // provider node (UUID id, absent from the static alias maps) fell through to
+        // `providerKey` and published a SECOND entry per model under the raw node id —
+        // `openai-compatible-chat-<uuid>/mimo-v2.5` alongside `[VB]-/mimo-v2.5`. #8327
+        // taught `owned_by` to honor the prefix but left the published `id` behind, so
+        // the duplicate survived; and because it is emitted by the `includeAlias` branch,
+        // MODELS_CATALOG_PREFIX_MODE=alias could not remove it either.
+        const prefix = providerIdToPrefix[providerKey] || providerIdToPrefix[canonicalProviderId];
+        const alias = prefix || providerIdToAlias[canonicalProviderId] || providerKey;
         if (
           !activeAliases.has(alias) &&
           !activeAliases.has(canonicalProviderId) &&
@@ -1337,6 +1346,10 @@ async function buildUnifiedModelsResponseCore(
         if (
           includeCanonical &&
           canonicalProviderId !== alias &&
+          // A configured prefix IS the published name for this node — re-emitting the
+          // raw node id here would restore the duplicate the `alias` fix above removes.
+          // Mirrors the same guard in the synced-models and custom-models blocks.
+          !prefix &&
           !isNoAuthProviderKey(canonicalProviderId) &&
           prefixRoutesToProvider(canonicalProviderId, canonicalProviderId)
         ) {
