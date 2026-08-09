@@ -13,6 +13,8 @@ import { vertexGenerateVideo } from "../executors/vertexMedia.ts";
 import { handleGoogleFlowVideoGeneration } from "./videoGeneration/googleFlowHandler.ts";
 import { handleDeepinfraVideoGeneration } from "./videoGeneration/deepinfraHandler.ts";
 import { handleLeonardoVideoGeneration } from "./videoGeneration/leonardoHandler.ts";
+import { handleDashscopeVideoGeneration } from "./videoGeneration/dashscopeHandler.ts";
+import { handleNovitaVideoGeneration } from "./videoGeneration/novitaHandler.ts";
 import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandler.ts";
 import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { handleAdobeFireflyVideoGeneration } from "./videoGeneration/adobeFireflyHandler.ts";
