@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { z } from "zod";
 import { Button, Card, Modal } from "@/shared/components";
 import { useProxyBatchOperations } from "./useProxyBatchOperations";
 import { ProxyStatusBadge } from "./ProxyStatusBadge";
@@ -24,7 +23,12 @@ import {
   type TestResult,
   type UsageInfo,
 } from "./proxyRegistryConstants";
-import { loadAllProxyUsage, loadProxyHealth, loadProxyUsage } from "./proxyRegistryData";
+import {
+  loadAllProxyUsage,
+  loadProxyHealth,
+  loadProxyUsage,
+  repairRelayResponseSchema,
+} from "./proxyRegistryData";
 
  export default function ProxyRegistryManager({
   onRedeployRelay,
@@ -164,17 +168,9 @@ import { loadAllProxyUsage, loadProxyHealth, loadProxyUsage } from "./proxyRegis
 
   const allSelected = items.length > 0 && items.every((item) => selectedIds.has(item.id));
 
-  const handleBatchDelete = useCallback(() => {
-    hookHandleBatchDelete(setError);
-  }, [hookHandleBatchDelete, setError]);
-
-  const handleBatchActivate = useCallback(() => {
-    hookHandleBatchActivate(setError, "active");
-  }, [hookHandleBatchActivate, setError]);
-
-  const handleAutoTestAll = useCallback(() => {
-    hookHandleAutoTestAll(setError, setTestById);
-  }, [hookHandleAutoTestAll, setError, setTestById]);
+  const handleBatchDelete = () => hookHandleBatchDelete(setError);
+  const handleBatchActivate = () => hookHandleBatchActivate(setError, "active");
+  const handleAutoTestAll = () => hookHandleAutoTestAll(setError, setTestById);
 
   useEffect(() => {
     void load();
@@ -242,12 +238,6 @@ import { loadAllProxyUsage, loadProxyHealth, loadProxyUsage } from "./proxyRegis
       setTestingId(null);
     }
   };
-
-  const repairRelayResponseSchema = z.object({
-    repaired: z.boolean().optional(),
-    mode: z.enum(["noop", "recovered", "redeploy"]).optional(),
-    error: z.object({ message: z.string() }).optional(),
-  });
 
   const handleRepairRelay = async (item: ProxyItem) => {
     if (repairingId || !item.relayInfo?.isRelay) return;

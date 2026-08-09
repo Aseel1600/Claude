@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { HealthInfo, UsageInfo } from "./proxyRegistryConstants";
 
 type SetState<T> = (value: T | ((previous: T) => T)) => void;
@@ -49,6 +50,12 @@ export async function loadAllProxyUsage(
     // Ignore usage-loading errors in the UI.
   }
 }
+
+export const repairRelayResponseSchema = z.object({
+  repaired: z.boolean().optional(),
+  mode: z.enum(["noop", "recovered", "redeploy"]).optional(),
+  error: z.object({ message: z.string() }).optional(),
+});
 
 export async function loadProxyUsage(
   proxyId: string,
