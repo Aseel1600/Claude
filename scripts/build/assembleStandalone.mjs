@@ -48,6 +48,10 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
+import {
+  colocateLlmlinguaOptionals,
+  SEED_PACKAGES,
+} from "./colocateOptionals.mjs";
 
 /**
  * Check whether a path exists (async).
@@ -84,6 +88,15 @@ const NATIVE_ASSET_ENTRIES = [
     label: "better-sqlite3 native binary",
     src: ["node_modules", "better-sqlite3", "build"],
     dest: ["node_modules", "better-sqlite3", "build"],
+  },
+  {
+    // #8847: Bun (and npx -g global installs) resolve better-sqlite3's native
+    // binary from prebuilds/ instead of build/Release/, so the compiled build/
+    // copy alone leaves a hollow package that falls back to sql.js (OOM under
+    // Bun). Ship the prebuilds alongside the compiled binary.
+    label: "better-sqlite3 prebuilds (Bun / global installs)",
+    src: ["node_modules", "better-sqlite3", "prebuilds"],
+    dest: ["node_modules", "better-sqlite3", "prebuilds"],
   },
   {
     // TPROXY IP_TRANSPARENT addon (Fase 3 / Epic A). Built by build-tproxy-native
@@ -736,6 +749,19 @@ export function assembleStandalone({
   // 6. Optionally copy native assets + extra modules (synchronous)
   if (copyNatives) {
     copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir);
+
+    // #9166: dynamically imported LLMLingua packages are not reliably traced
+    // into the standalone bundle. Copy their complete dependency closure from
+    // the installed root tree without overwriting packages already traced by
+    // Next.js. Include transformers here so its ONNX runtime closure is also
+    // guaranteed in Docker/standalone builds.
+    colocateLlmlinguaOptionals({
+      rootDir: projectRoot,
+      targetNodeModulesDir: path.join(resolvedOutDir, "node_modules"),
+      seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
+      log: (message) =>
+        console.log(`[assembleStandalone] ${message.trim()}`),
+    });
   }
 
   // 7. Optionally dereference Turbopack hashed-module symlinks so the bundle is
