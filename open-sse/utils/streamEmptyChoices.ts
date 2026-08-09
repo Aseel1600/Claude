@@ -20,8 +20,15 @@
 import { buildErrorBody } from "./error.ts";
 import { buildStreamSummaryFromEvents } from "./streamPayloadCollector.ts";
 
+type StructuredSSEEventLike = {
+  index: number;
+  timestamp?: string;
+  event?: string;
+  data: unknown;
+};
+
 type StructuredSSECollectorLike = {
-  getEvents: () => unknown[];
+  getEvents: () => StructuredSSEEventLike[];
   build: (summary?: unknown, opts?: { includeEvents?: boolean }) => unknown;
 };
 
