@@ -4,7 +4,7 @@
  * Handles POST /v1/videos/generations requests. Proxies to upstream video
  * generation providers (ComfyUI AnimateDiff/SVD, SD WebUI AnimateDiff, and
  * more — see the per-format handlers below). Response format (OpenAI-like):
- * { "created": 1234567890, "data": [{ "b64_json": "...", "format": "mp4" }] }
+ * { "created": 1234567890, "data": [{ "url": "https://…", "format": "mp4" }] }
  */
 
 import { getVideoProvider, parseVideoModel } from "../config/videoRegistry.ts";
@@ -17,6 +17,7 @@ import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandle
 import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { handleAdobeFireflyVideoGeneration } from "./videoGeneration/adobeFireflyHandler.ts";
 import { handleOpenAIVideoGeneration } from "./videoGeneration/openai.ts";
+import { getVideoJobPreset, handleVideoJobGeneration } from "./videoGeneration/job.ts";
 import { getExecutor } from "../executors/index.ts";
 import { getKieTaskId, isJsonObject, parseKieResultJson } from "../utils/kieTask.ts";
 import {
@@ -32,6 +33,7 @@ import {
   resolveComfyUiBaseUrl,
 } from "../utils/comfyuiClient.ts";
 import { saveCallLog } from "@/lib/usageDb";
+import { getAllCustomModels } from "@/lib/db/models";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import {
   FetchTimeoutError,
@@ -71,6 +73,40 @@ export function resolveVideoBaseUrl(
 }
 
 /**
+ * Read generationConfig.preset from the custom model row for the given
+ * provider/model id. Returns null when the model has no preset configured (or
+ * the registry is unreadable), so callers can fall back to the sync path.
+ */
+async function getCustomModelVideoPreset(
+  providerId: string,
+  modelId: string
+): Promise<string | null> {
+  try {
+    const customModelsMap = (await getAllCustomModels()) as Record<
+      string,
+      Array<Record<string, unknown>>
+    >;
+    const models = customModelsMap[providerId];
+    if (!Array.isArray(models)) return null;
+    for (const model of models) {
+      if (!model || typeof model !== "object" || model.id !== modelId) continue;
+      const generationConfig = model.generationConfig;
+      if (
+        generationConfig &&
+        typeof generationConfig === "object" &&
+        typeof (generationConfig as Record<string, unknown>).preset === "string"
+      ) {
+        return (generationConfig as Record<string, unknown>).preset as string;
+      }
+      return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Handle video generation request
  */
 
@@ -103,8 +139,29 @@ export async function handleVideoGeneration({ body, credentials, log, resolvedPr
         error: `Unknown video provider: ${provider}`,
       };
     }
-    // Custom OpenAI-compatible provider node — dispatch via the generic handler
-    // with a synthetic config (mirrors the images route custom-model path).
+    // Custom provider node. When the custom model row carries a
+    // generationConfig.preset (e.g. "agnes-video-job"), dispatch through the
+    // submit → poll job pipeline; otherwise mirror the images route and use the
+    // generic OpenAI-compatible handler with a synthetic config.
+    const presetName = await getCustomModelVideoPreset(provider, model);
+    if (presetName !== null) {
+      if (!getVideoJobPreset(presetName)) {
+        return {
+          success: false,
+          status: 502,
+          error: `Unknown video job preset: ${presetName}`,
+        };
+      }
+      if (log)
+        log.info("VIDEO", `Custom model ${provider}/${model} — using job preset ${presetName}`);
+      return handleVideoJobGeneration({
+        model,
+        presetName,
+        body,
+        credentials,
+        log,
+      });
+    }
     if (log)
       log.info("VIDEO", `Custom model ${provider}/${model} — using OpenAI-compatible handler`);
     const syntheticConfig = {

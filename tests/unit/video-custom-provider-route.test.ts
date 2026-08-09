@@ -168,3 +168,184 @@ test("video route returns 400 for unknown custom provider", async () => {
   const payload = await response.json();
   assert.match(payload.error.message, /Invalid video model/);
 });
+
+test("video route dispatches submit→poll job flow for custom model with agnes-video-job preset", async () => {
+  globalThis.setTimeout = immediateButSafeTimeout as typeof setTimeout;
+
+  await modelsDb.addCustomModel(
+    "custom-job-provider",
+    "job-video-v1",
+    "Job Video v1",
+    "manual",
+    "chat-completions",
+    ["videos"],
+    undefined,
+    {},
+    undefined,
+    { preset: "agnes-video-job" }
+  );
+
+  await providersDb.createProviderConnection({
+    provider: "custom-job-provider",
+    authType: "apikey",
+    apiKey: "custom-key",
+    providerSpecificData: { baseUrl: "https://custom.example.com" },
+  });
+
+  const calls: Array<{
+    url: string;
+    method: string;
+    body: unknown;
+    headers: Record<string, string>;
+  }> = [];
+
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    const stringUrl = String(url);
+    const method = init?.method || "GET";
+    const requestBody = init?.body ? JSON.parse(String(init.body)) : {};
+    const headers = (init?.headers || {}) as Record<string, string>;
+
+    calls.push({ url: stringUrl, method, body: requestBody, headers });
+
+    if (stringUrl === "https://custom.example.com/v1/videos") {
+      return createResponse(JSON.stringify({ task_id: "task-123" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (stringUrl === "https://custom.example.com/v1/videos/task-123") {
+      return createResponse(
+        JSON.stringify({
+          status: "completed",
+          metadata: { url: "https://custom.example.com/job-out.mp4" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    return createResponse(JSON.stringify({ error: "unexpected fetch" }), { status: 500 });
+  }) as typeof fetch;
+
+  const response = await videoRoute.POST(
+    new Request("http://localhost/api/v1/videos/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "custom-job-provider/job-video-v1",
+        prompt: "a cat playing piano",
+      }),
+    })
+  );
+
+  const payload = (await response.json()) as {
+    created: number;
+    data: Array<{ url?: string; format?: string }>;
+  };
+
+  assert.equal(response.status, 200);
+  assert.equal(payload.data.length, 1);
+  assert.equal(payload.data[0].url, "https://custom.example.com/job-out.mp4");
+  assert.equal(payload.data[0].format, "mp4");
+  assert.ok(payload.created > 0);
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].method, "POST");
+  assert.equal(calls[0].url, "https://custom.example.com/v1/videos");
+  assert.equal(calls[0].headers["x-api-key"], "custom-key");
+  assert.deepEqual(calls[0].body, {
+    model: "job-video-v1",
+    prompt: "a cat playing piano",
+  });
+  assert.equal(calls[1].method, "GET");
+  assert.equal(calls[1].url, "https://custom.example.com/v1/videos/task-123");
+});
+
+test("video route returns 502 when job preset reports failed status", async () => {
+  globalThis.setTimeout = immediateButSafeTimeout as typeof setTimeout;
+
+  await modelsDb.addCustomModel(
+    "custom-job-provider-fail",
+    "job-video-fail-v1",
+    "Job Video Fail v1",
+    "manual",
+    "chat-completions",
+    ["videos"],
+    undefined,
+    {},
+    undefined,
+    { preset: "agnes-video-job" }
+  );
+
+  await providersDb.createProviderConnection({
+    provider: "custom-job-provider-fail",
+    authType: "apikey",
+    apiKey: "custom-fail-key",
+    providerSpecificData: { baseUrl: "https://custom.example.com" },
+  });
+
+  globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+    if (String(url).endsWith("/v1/videos")) {
+      return createResponse(JSON.stringify({ task_id: "task-fail" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    return createResponse(JSON.stringify({ status: "failed" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  const response = await videoRoute.POST(
+    new Request("http://localhost/api/v1/videos/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "custom-job-provider-fail/job-video-fail-v1",
+        prompt: "this should fail",
+      }),
+    })
+  );
+
+  assert.equal(response.status, 502);
+  const payload = (await response.json()) as { error: { message?: string } };
+  assert.equal(payload.error?.message, "Video job failed (agnes-video-job)");
+});
+
+test("video route returns 502 for unknown generationConfig preset", async () => {
+  globalThis.setTimeout = immediateButSafeTimeout as typeof setTimeout;
+
+  await modelsDb.addCustomModel(
+    "custom-job-provider-bad",
+    "job-video-bad-v1",
+    "Job Video Bad v1",
+    "manual",
+    "chat-completions",
+    ["videos"],
+    undefined,
+    {},
+    undefined,
+    { preset: "no-such-preset" }
+  );
+
+  await providersDb.createProviderConnection({
+    provider: "custom-job-provider-bad",
+    authType: "apikey",
+    apiKey: "custom-bad-key",
+    providerSpecificData: { baseUrl: "https://custom.example.com" },
+  });
+
+  const response = await videoRoute.POST(
+    new Request("http://localhost/api/v1/videos/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "custom-job-provider-bad/job-video-bad-v1",
+        prompt: "bad preset",
+      }),
+    })
+  );
+
+  assert.equal(response.status, 502);
+  const payload = (await response.json()) as { error: { message?: string } };
+  assert.equal(payload.error.message, "Unknown video job preset: no-such-preset");
+});
