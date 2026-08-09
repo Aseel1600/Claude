@@ -6,7 +6,7 @@ import { BaseExecutor, mergeUpstreamExtraHeaders, type ExecuteInput } from "./ba
 
 type JsonRecord = Record<string, unknown>;
 
-export const COMMAND_CODE_VERSION = process.env.COMMAND_CODE_VERSION?.trim() || "0.33.2";
+export const COMMAND_CODE_VERSION = process.env.COMMAND_CODE_VERSION?.trim() || "1.15.1";
 // Hard server-side ceiling enforced by Command Code's /alpha/generate endpoint:
 // any request with params.max_tokens > 200_000 is rejected with a 400
 // "Too big: expected number to be <=200000 at params.max_tokens". We only use
@@ -235,12 +235,28 @@ function completeToolCallIds(messages: JsonRecord[]): Set<string> {
   return new Set([...callIds].filter((id) => resultIds.has(id)));
 }
 
+function extractToolCallNames(messages: JsonRecord[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const message of messages) {
+    if (message.role === "assistant") {
+      for (const call of asRecordArray(message.tool_calls)) {
+        const id = stringValue(call.id);
+        const fn = isRecord(call.function) ? call.function : {};
+        const name = stringValue(fn.name);
+        if (id && name) map.set(id, name);
+      }
+    }
+  }
+  return map;
+}
+
 function convertMessages(
   messages: unknown,
   model?: string | null
 ): { system: string; messages: unknown[] } {
   const source = asRecordArray(messages);
   const pairedToolCallIds = completeToolCallIds(source);
+  const toolCallNames = extractToolCallNames(source);
   const out: unknown[] = [];
   const system: string[] = [];
   const isVision = isCommandCodeVisionModel(model);
@@ -286,13 +302,14 @@ function convertMessages(
     if (role === "tool") {
       const toolCallId = stringValue(message.tool_call_id) || "";
       if (!toolCallId || !pairedToolCallIds.has(toolCallId)) continue;
+      const toolName = stringValue(message.name) || toolCallNames.get(toolCallId) || "unknown";
       out.push({
         role: "tool",
         content: [
           {
             type: "tool-result",
             toolCallId,
-            toolName: stringValue(message.name) || "",
+            toolName,
             output: { type: "text", value: normalizeContentText(message.content) },
           },
         ],

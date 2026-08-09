@@ -165,5 +165,22 @@ describe("CommandCodeExecutor", () => {
       "{}",
       "invalid JSON string arguments -> empty object"
     );
+
+    const toolMsgs = sentBody.params.messages.filter((m) => m.role === "tool");
+    assert.equal(toolMsgs.length, 5, "all 5 tool result messages present");
+    for (const msg of toolMsgs) {
+      const toolParts = msg.content as Array<Record<string, unknown>>;
+      assert.equal(toolParts.length, 1);
+      assert.equal(toolParts[0].type, "tool-result");
+      assert.equal(
+        toolParts[0].toolName,
+        "lookup",
+        "toolName resolved from matching assistant tool call"
+      );
+    }
+  });
+
+  it("COMMAND_CODE_VERSION default constant is 1.15.1", () => {
+    assert.equal(mod.COMMAND_CODE_VERSION, "1.15.1");
   });
 });
