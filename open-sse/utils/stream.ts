@@ -8,6 +8,7 @@ import {
   logUsage,
   addBufferToUsage,
   filterUsageForFormat,
+  normalizeUsage as normalizeTokenUsage,
 } from "./usageTracking.ts";
 import {
   parseSSELine,
@@ -1012,7 +1013,9 @@ export function createSSEStream(options: StreamOptions = {}) {
     // JSON.parse every SSE line will crash on `: x-omniroute-*` comment lines.
     if (!sseCommentsEnabled()) return;
 
-    const costUsd = finalUsage ? await calculateCost(provider, model, finalUsage) : 0;
+    const costUsd = finalUsage
+      ? await calculateCost(provider, model, normalizeTokenUsage(finalUsage))
+      : 0;
     const comment = buildOmniRouteSseMetadataComment({
       provider,
       model,
