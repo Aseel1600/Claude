@@ -755,7 +755,6 @@ function isAnonymousFallbackOnlyProvider(providerId: string): boolean {
     webCookieProviderDef?.noAuth !== true
   );
 }
- 
 async function maybeSyntheticNoAuthFallback(
   providerId: string,
   excludedConnectionIds: Set<string>,
