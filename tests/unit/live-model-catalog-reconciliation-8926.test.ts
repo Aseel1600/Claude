@@ -202,3 +202,39 @@ test("#8926: partial passthrough discovery remains non-authoritative", async () 
     ["gpt-5.6-luna"]
   );
 });
+
+test("#ANTIGRAVITY-CATALOG: stale discovery cannot revoke a pinned built-in model", async () => {
+  const modelId = "gemini-3.6-flash-high";
+  assert.ok(
+    getProviderModels("antigravity").some((model: { id?: string }) => model.id === modelId),
+    `precondition: ${modelId} must remain in the pinned Antigravity catalog`
+  );
+
+  await seedProviderCatalog("antigravity", "antigravity-stale-catalog", ["gemini-2.5-flash"]);
+
+  const catalog = await getActiveSyncedCatalog("antigravity");
+  assert.equal(catalog.authoritative, false);
+
+  const resolved = await getModelInfo(`antigravity/${modelId}`);
+  assert.equal(resolved.provider, "antigravity");
+  assert.equal(resolved.model, modelId);
+  assert.equal(resolved.errorType, undefined);
+});
+
+test("#ANTIGRAVITY-CATALOG: agy pinned models also survive partial discovery", async () => {
+  const modelId = "gemini-3.6-flash-high";
+  assert.ok(
+    getProviderModels("agy").some((model: { id?: string }) => model.id === modelId),
+    `precondition: ${modelId} must remain in the pinned agy catalog`
+  );
+
+  await seedProviderCatalog("agy", "agy-stale-catalog", ["gemini-2.5-flash"]);
+
+  const catalog = await getActiveSyncedCatalog("agy");
+  assert.equal(catalog.authoritative, false);
+
+  const resolved = await getModelInfo(`agy/${modelId}`);
+  assert.equal(resolved.provider, "agy");
+  assert.equal(resolved.model, modelId);
+  assert.equal(resolved.errorType, undefined);
+});
