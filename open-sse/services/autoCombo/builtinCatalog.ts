@@ -1,6 +1,6 @@
 import type { AutoVariant } from "./autoPrefix";
 import { VALID_VARIANTS } from "./autoPrefix";
-import { parseAutoSuffix } from "./suffixComposition";
+import { parseAutoSuffix, type AutoCategory, type AutoTier } from "./suffixComposition";
 import { isValidModelFamily, AUTO_FAMILY_IDS } from "./modelFamily";
 
 export { AUTO_FAMILY_IDS };
@@ -112,13 +112,71 @@ export function isPaidTierAutoId(autoId: string): boolean {
   return parsed.valid && parsed.tier === "pro";
 }
 
-export async function createBuiltinAutoCombo(modelStr: string, suffix: string) {
-  const { createVirtualAutoCombo } = await import("./virtualFactory.ts");
+/**
+ * Resolved spec for a built-in `auto/*` id: either a flat variant (legacy) or
+ * a category/tier overlay (#4235 Phase B). Category `vision`/`multimodal` adds
+ * a candidate filter so the virtual combo only scores vision-capable models.
+ */
+export type BuiltinAutoSpec =
+  | { variant: AutoVariant | undefined }
+  | { category: AutoCategory; tier?: AutoTier };
+
+/**
+ * Vision-flavored flat ids that MUST resolve to the `vision` category (candidate
+ * filter by capability), not to a flat variant: the vision-bridge guardrail and
+ * its self-loop depend on `auto/best-vision` picking a model that can actually
+ * see images. Mapping it to `smart` scored ALL candidates and resolved to
+ * text-only models (e.g. deepseek-v4-flash-free), breaking every describe call.
+ */
+const VISION_CATEGORY_AUTO_IDS: Record<string, { category: "vision"; tier?: AutoTier }> = {
+  "auto/best-vision": { category: "vision" },
+  "auto/pro-vision": { category: "vision", tier: "pro" },
+};
+
+/**
+ * Pure resolver for a built-in `auto/*` id. Extracted from
+ * `createBuiltinAutoCombo` so the catalog mapping is unit-testable without
+ * materializing a virtual combo (which requires the DB).
+ */
+export function resolveBuiltinAutoSpec(modelStr: string, suffix: string): BuiltinAutoSpec {
+  const visionSpec = VISION_CATEGORY_AUTO_IDS[modelStr];
+  if (visionSpec) return visionSpec;
 
   const resolved = resolveAutoVariant(modelStr, suffix);
   if (resolved.recognized) {
-    const spec = modelStr === "auto/best-free" ? { tier: "free" as const } : undefined;
-    const virtualCombo = await createVirtualAutoCombo(resolved.variant, spec);
+    return { variant: resolved.variant };
+  }
+
+  const parsed = parseAutoSuffix(suffix);
+  if (parsed.valid) {
+    return {
+      category: parsed.category as AutoCategory,
+      ...(parsed.tier ? { tier: parsed.tier } : {}),
+    };
+  }
+
+  return { variant: undefined };
+}
+
+export async function createBuiltinAutoCombo(modelStr: string, suffix: string) {
+  const { createVirtualAutoCombo } = await import("./virtualFactory.ts");
+  const spec = resolveBuiltinAutoSpec(modelStr, suffix);
+
+  if ("category" in spec) {
+    // #4235 Phase B category/tier path (incl. vision ids like auto/best-vision).
+    const virtualCombo = await createVirtualAutoCombo(undefined, {
+      category: spec.category,
+      ...(spec.tier ? { tier: spec.tier } : {}),
+    });
+    virtualCombo.name = modelStr;
+    virtualCombo.id = modelStr;
+    return virtualCombo;
+  }
+
+  if ("variant" in spec && spec.variant !== undefined) {
+    const virtualCombo = await createVirtualAutoCombo(spec.variant, {
+      ...(modelStr === "auto/best-free" ? { tier: "free" as const } : {}),
+    });
     virtualCombo.name = modelStr;
     virtualCombo.id = modelStr;
     return virtualCombo;

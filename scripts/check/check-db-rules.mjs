@@ -49,6 +49,7 @@ export const INTENTIONALLY_INTERNAL = new Set([
   "commandCodeAuth", // intentionally-internal: 5 API routes em /api/providers/command-code/auth/*
   "compression", // intentionally-internal: 2 API routes (settings/compression, context/rtk/config)
   "compressionDetailNormalizers", // db-internal: importado só por db/compression.ts (normalizeSessionDedupConfig/normalizeCcrConfig/buildDetailConfigDefaults/applyDetailConfigUpdate — normalizadores do detail-config split do compression.ts, #8404)
+  "connectionRuntimeState", // intentionally-internal: warmupScheduler sqlite/redis stores importam diretamente de @/lib/db/connectionRuntimeState (Rule #2)
   "vacuumScheduler", // intentionally-internal: src/instrumentation-node.ts (dynamic import, lifecycle wiring per Rule #2)
   "detailedLogs", // intentionally-internal: 3 callers (callLogs.ts, logs/detail route, embeddings handler)
   "discovery", // DEAD?: 0 importers na auditoria de 2026-06-11; lib/discovery/index.ts não usa db/discovery
@@ -63,6 +64,7 @@ export const INTENTIONALLY_INTERNAL = new Set([
   "optimizationSettings", // db-internal: imported by db/core.ts for SQLite PRAGMA application helpers that require the live adapter
   "pluginMetrics", // DEAD? (production): write path não foi conectado ainda (documentado no cabeçalho do módulo); testado por tests/unit/plugins-metrics.test.ts
   "prompts", // DEAD? (production): zero callers de produção encontrados; domínio domain/prompts.ts é independente; testado por tests/integration/proxy-pipeline.test.ts
+  "probeUtils", // db-internal: importado so por db/core.ts (retryProbeIfTransient no caminho da corruption-probe, #9541); testado por tests/unit/probe-9541-repro.test.ts
   "providerNodeSelect", // db-internal: importado só por db/providers.ts (selectProviderNodeForConnection — lógica pura de seleção de provider node split do providers.ts, #4421)
   "providerStats", // intentionally-internal: src/app/api/provider-stats/route.ts
   "proxyLatency", // intentionally-internal: imported directly by src/lib/db/proxies.ts (anti-barrel, #6798)

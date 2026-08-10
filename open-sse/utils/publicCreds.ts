@@ -177,6 +177,9 @@ const EMBEDDED_DEFAULTS = {
     13, 92, 15, 89, 66, 91, 76, 70, 72, 29, 71, 70, 3, 65, 93, 84, 72, 23, 28, 87, 92, 88, 15, 95,
     91, 22, 71, 87, 20, 66, 67, 86, 13, 81, 81, 21,
   ],
+  // Openference OAuth — public PKCE client id. The plaintext equals the first
+  // nine bytes of MASK, so its XOR-masked representation is nine zero bytes.
+  openference_id: [0, 0, 0, 0, 0, 0, 0, 0, 0],
   // Trae Cloud IDE — public oauth client id
   trae_id: [10, 3, 95, 6, 10, 22, 66, 3, 11, 90, 72, 31, 91, 2],
   // Microsoft Designer web app — public ClientId header sent by the
@@ -207,6 +210,15 @@ const EMBEDDED_DEFAULTS = {
   // Firefly credits balance endpoint public x-api-key (`SunbreakWebUI1`) from
   // GET firefly.adobe.io/v1/credits/balance browser traffic.
   adobe_firefly_balance_api_key: [60, 24, 0, 11, 0, 10, 20, 31, 50, 72, 18, 32, 43, 93],
+  // Raycast Pro V2 request-signature secret (#8895). Community-extracted from the
+  // public Raycast macOS client — the SAME value ships to every install, so it is
+  // public by design, not a per-user credential. Overridable via RAYCAST_SIG_SECRET
+  // or providerSpecificData.sigSecret.
+  raycast_sig_secret: [
+    89, 15, 13, 93, 71, 90, 65, 67, 86, 24, 71, 67, 1, 9, 91, 0, 73, 64, 87, 88, 93, 90, 91, 68, 12,
+    20, 18, 3, 21, 70, 66, 3, 13, 11, 1, 72, 69, 87, 88, 95, 87, 88, 17, 94, 20, 67, 92, 27, 72, 68,
+    3, 10, 92, 6, 21, 21, 84, 95, 14, 15, 88, 70, 95, 77,
+  ],
 } as const;
 
 export type EmbeddedDefaultKey = keyof typeof EMBEDDED_DEFAULTS;

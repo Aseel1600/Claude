@@ -102,9 +102,7 @@ export async function getCachedPricing(): Promise<Record<string, unknown>> {
 export async function getCachedProviderConnections(
   filter?: Record<string, unknown>
 ): Promise<unknown[]> {
-  const cacheKey = filter && Object.keys(filter).length > 0
-    ? JSON.stringify(filter)
-    : "all";
+  const cacheKey = filter && Object.keys(filter).length > 0 ? JSON.stringify(filter) : "all";
 
   const cached = connectionsCache.get(cacheKey);
   if (cached) return cached;
@@ -136,7 +134,10 @@ export async function getCachedRawProviderConnections(
   return rows;
 }
 
-const connectionByIdCache = new TTLCache<Record<string, unknown> | null>(CONNECTIONS_TTL_MS, 10_000);
+const connectionByIdCache = new TTLCache<Record<string, unknown> | null>(
+  CONNECTIONS_TTL_MS,
+  10_000
+);
 const nodesCache = new TTLCache<(Record<string, unknown> | null)[]>(CONNECTIONS_TTL_MS);
 
 /**
@@ -209,6 +210,14 @@ export async function setCachedLKGP(
   lkgpCache.invalidate(`lkgp:${comboName}:${modelId}`);
 }
 
+/**
+ * Invalidate one persisted LKGP pin by its `${comboName}:${modelId}` storage key,
+ * or every cached LKGP pin when no key is provided.
+ */
+export function invalidateCachedLKGP(pinKey?: string): void {
+  lkgpCache.invalidate(pinKey ? `lkgp:${pinKey}` : undefined);
+}
+
 // ──────────────── Combo Cache Invalidation Signal ────────────────
 //
 // The nested-combo expansion caches live in request handlers
@@ -263,7 +272,7 @@ export function getModelCatalogCacheVersion(): number {
  * cannot be selectively invalidated).
  */
 export function invalidateDbCache(
-  scope?: "settings" | "pricing" | "connections" | "combos" | "nodes",
+  scope?: "settings" | "pricing" | "connections" | "combos" | "nodes" | "model-capabilities",
   id?: string
 ): void {
   if (!scope || scope === "settings") settingsCache.invalidate();
