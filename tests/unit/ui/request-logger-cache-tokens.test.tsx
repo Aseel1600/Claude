@@ -18,10 +18,8 @@ vi.mock("@/store/emailPrivacyStore", () => ({
   default: () => ({ emailsVisible: true }),
 }));
 
-const RequestLoggerV2 = (await import("../../../src/shared/components/RequestLoggerV2.tsx"))
-  .default;
-const RequestLoggerDetail = (await import("../../../src/shared/components/RequestLoggerDetail.tsx"))
-  .default;
+const RequestLoggerV2 = (await import("@/shared/components/RequestLoggerV2")).default;
+const RequestLoggerDetail = (await import("@/shared/components/RequestLoggerDetail")).default;
 
 let container: HTMLElement;
 let root: Root;
