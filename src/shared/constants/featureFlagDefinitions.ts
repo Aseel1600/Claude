@@ -573,7 +573,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     category: "runtime",
     defaultValue: "off",
     type: "enum",
-    enumValues: ["off", "shadow", "simulate", "active-canary"],
+    enumValues: ["off", "shadow", "simulate", "active-canary", "active"],
     requiresRestart: false,
     warningLevel: "info",
   },
