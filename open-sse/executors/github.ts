@@ -1,4 +1,9 @@
-import { BaseExecutor, ExecuteInput, type ProviderCredentials } from "./base.ts";
+import {
+  BaseExecutor,
+  ExecuteInput,
+  type ProviderConfig,
+  type ProviderCredentials,
+} from "./base.ts";
 import { PROVIDERS, OAUTH_ENDPOINTS } from "../config/constants.ts";
 import { getModelTargetFormat } from "../config/providerModels.ts";
 import {
@@ -28,9 +33,11 @@ export interface RefreshedCopilotCredentials {
   providerSpecificData?: Record<string, unknown>;
 }
 
+type GithubExecutorConfig = ProviderConfig & Record<string, unknown>;
+
 export class GithubExecutor extends BaseExecutor {
-  constructor() {
-    super("github", PROVIDERS.github);
+  constructor(provider = "github", config?: GithubExecutorConfig) {
+    super(provider, config ?? PROVIDERS.github);
   }
 
   getCopilotToken(credentials: Record<string, any> | null | undefined) {
