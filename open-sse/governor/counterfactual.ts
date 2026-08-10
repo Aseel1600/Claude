@@ -188,8 +188,20 @@ export function resolveCounterfactualPlan(
     USER_MAX_OUTPUT_RESPECTED: userMaxRespected,
   };
 
+  // Provider availability/quota can remain UNKNOWN at planning time because the
+  // active runtime resolves them through OmniRoute's real credential/quota
+  // preflight before dispatch. A factual NO is still terminal.
+  const planningGuardsPass = [
+    capability,
+    contextFits,
+    reasoningSupported,
+    compressionSupported,
+    userMaxRespected,
+  ].every((value) => value === "YES");
+  const runtimePreflightNotRejected =
+    providerAvailable !== "NO" && quotaAcceptable !== "NO";
   const executable =
-    Boolean(candidate) && Object.values(guardrailResults).every((value) => value === "YES");
+    Boolean(candidate) && planningGuardsPass && runtimePreflightNotRejected;
 
   const confidence: Confidence = executable
     ? counterCost != null && currentCost != null
