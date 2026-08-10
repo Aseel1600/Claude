@@ -1,0 +1,37 @@
+import type { CounterfactualExecutionPlan } from "./counterfactual.ts";
+
+export interface ActiveCanaryConfig { enabled: boolean; rate: number; maxEstimatedCost?: number | null; }
+export interface ActiveCanaryDecision { selected: boolean; eligible: boolean; reason: string; }
+export interface GovernorMutableRequest { provider?: string; model?: string; max_tokens?: number; reasoning?: unknown; compression?: unknown; }
+
+export function stableCanarySample(correlationId: string, rate: number): boolean {
+  if (!Number.isFinite(rate) || rate <= 0 || rate > 1) return false;
+  let hash = 2166136261; for (const c of correlationId) hash = Math.imul(hash ^ c.charCodeAt(0), 16777619);
+  return (hash >>> 0) / 0xffffffff < rate;
+}
+
+export function assessActiveCanary(plan: CounterfactualExecutionPlan, correlationId: string, config: ActiveCanaryConfig): ActiveCanaryDecision {
+  if (!config.enabled) return { selected: false, eligible: false, reason: "kill_switch" };
+  if (!stableCanarySample(correlationId, config.rate)) return { selected: false, eligible: false, reason: "not_sampled" };
+  if (!plan.executable || plan.confidence !== "HIGH") return { selected: false, eligible: false, reason: "plan_not_high_confidence" };
+  if (Object.values(plan.guardrailResults).some((value) => value !== "YES")) return { selected: false, eligible: false, reason: "guardrail_unknown_or_failed" };
+  if (plan.estimatedCurrentCost == null || plan.estimatedCounterfactualCost == null || plan.estimatedCounterfactualCost > plan.estimatedCurrentCost) return { selected: false, eligible: false, reason: "cost_unknown_or_higher" };
+  if (config.maxEstimatedCost != null && plan.estimatedCounterfactualCost > config.maxEstimatedCost) return { selected: false, eligible: false, reason: "cost_ceiling" };
+  return { selected: true, eligible: true, reason: "canary_selected" };
+}
+
+export function applyGovernorPlan(request: GovernorMutableRequest, plan: CounterfactualExecutionPlan): GovernorMutableRequest {
+  const snapshot = { ...request };
+  if (plan.selectedProvider) request.provider = plan.selectedProvider;
+  if (plan.selectedModel) request.model = plan.selectedModel;
+  if (plan.maxOutputTokens != null) request.max_tokens = plan.maxOutputTokens;
+  return snapshot;
+}
+
+export class ActiveCanaryCircuitBreaker {
+  private failures = 0; private tripped = false;
+  constructor(private readonly threshold = 3) {}
+  record(success: boolean) { if (success) this.failures = 0; else this.failures += 1; if (this.failures >= this.threshold) this.tripped = true; }
+  isTripped() { return this.tripped; }
+  reset() { this.failures = 0; this.tripped = false; }
+}
