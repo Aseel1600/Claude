@@ -4744,7 +4744,26 @@
       "configure": "Configure providers"
     },
     "tierFlowDiagramAlt": "OmniRoute 3-tier fallback diagram",
-    "apiKeyMgmt": "API Key Management"
+    "apiKeyMgmt": "API Key Management",
+    "freeProviders": {
+      "title": "Set up free providers",
+      "description": "Optionally enable selected no-signup providers. Review each provider's notice and site before continuing; availability and rate limits are controlled by third parties.",
+      "loading": "Loading free providers...",
+      "loadFailed": "Could not load free providers.",
+      "alreadyConfigured": "All eligible free providers are already configured.",
+      "reviewProviderSite": "Review provider site and terms",
+      "confirmation": "I reviewed these third-party providers and want OmniRoute to create the selected connections.",
+      "setupSelected": "Set up selected providers",
+      "settingUp": "Setting up...",
+      "setupFailed": "Could not set up the selected providers. Nothing existing was changed.",
+      "retryFailed": "Retry failed providers",
+      "orUseApiKey": "or connect with an API key",
+      "result": {
+        "created": "created",
+        "skipped": "already configured",
+        "failed": "failed"
+      }
+    }
   },
   "providers": {
     "title": "Providers",
