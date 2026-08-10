@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-// One-cycle migration notice. The legacy settings component remains in the
-// codebase for rollback, but Settings → AI no longer renders or writes it.
+// One-cycle migration notice. Settings → AI no longer renders or writes the
+// legacy controls; the dedicated Modality Bridge page owns these settings.
 export default function ModalityBridgeMovedCard() {
   const t = useTranslations("settings");
 
