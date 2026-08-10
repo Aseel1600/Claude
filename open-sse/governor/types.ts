@@ -109,13 +109,13 @@ export interface ActualRequestContext {
   routingStrategy?: string;
   reasoningConfig?: string;
   compressionConfig?: string;
-  promptTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  estimatedCost?: number;
-  latencyMs?: number;
-  retryCount?: number;
-  success?: boolean;
+  promptTokens?: number | null;
+  outputTokens?: number | null;
+  totalTokens?: number | null;
+  estimatedCost?: number | null;
+  latencyMs?: number | null;
+  retryCount?: number | null;
+  success?: boolean | null;
   errorCategory?: string;
 }
 

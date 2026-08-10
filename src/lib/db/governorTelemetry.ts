@@ -20,13 +20,14 @@ import { getDbInstance } from "./core";
 const MAX_PENDING_TELEMETRY = 256;
 const pendingTelemetry: GovernorTelemetry[] = [];
 let flushScheduled = false;
-const queueMetrics = { queued: 0, persisted: 0, dropped: 0, persistenceFailures: 0, highWaterMark: 0 };
+const pendingOutcomes = new Map<string, Partial<GovernorTelemetry>>();
+const queueMetrics = { queued: 0, persisted: 0, sampledOut: 0, queueDropped: 0, persistenceFailures: 0, highWaterMark: 0 };
 
 export function getGovernorTelemetryQueueMetrics() {
-  return { ...queueMetrics, pending: pendingTelemetry.length, maxPending: MAX_PENDING_TELEMETRY };
+  return { ...queueMetrics, dropped: queueMetrics.queueDropped, pending: pendingTelemetry.length, maxPending: MAX_PENDING_TELEMETRY };
 }
 
-function shouldSample(correlationId: string): boolean {
+export function shouldSampleGovernorTelemetry(correlationId: string): boolean {
   const raw = process.env.GOVERNOR_TELEMETRY_SAMPLE_RATE;
   const rate = raw == null ? 1 : Number(raw);
   if (!Number.isFinite(rate) || rate <= 0) return false;
@@ -37,8 +38,9 @@ function shouldSample(correlationId: string): boolean {
 }
 
 export function enqueueGovernorTelemetryRow(row: GovernorTelemetry): void {
-  if (!shouldSample(row.correlationId) || pendingTelemetry.length >= MAX_PENDING_TELEMETRY) {
-    queueMetrics.dropped += 1;
+  if (!shouldSampleGovernorTelemetry(row.correlationId) || pendingTelemetry.length >= MAX_PENDING_TELEMETRY) {
+    if (!shouldSampleGovernorTelemetry(row.correlationId)) queueMetrics.sampledOut += 1;
+    else queueMetrics.queueDropped += 1;
     return;
   }
   pendingTelemetry.push(row);
@@ -57,6 +59,9 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
   try {
     const db = getDbInstance();
 
+    const outcome = pendingOutcomes.get(row.correlationId);
+    if (outcome) pendingOutcomes.delete(row.correlationId);
+    const merged = outcome ? { ...row, ...outcome } : row;
     db.prepare(`
       INSERT INTO governor_telemetry (
         timestamp, correlation_id, governor_mode, actual_provider, actual_model,
@@ -67,28 +72,15 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
         observed_features_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
-      row.timestamp ?? Date.now(),
-      row.correlationId || "unknown",
-      row.governorMode,
-      row.actualProvider ?? null,
-      row.actualModel ?? null,
-      row.actualRoutingStrategy ?? null,
-      row.actualReasoningConfig ?? null,
-      row.actualCompressionConfig ?? null,
-      row.actualPromptTokens ?? null,
-      row.actualOutputTokens ?? null,
-      row.actualTotalTokens ?? null,
-      row.estimatedCost ?? null,
-      row.latencyMs ?? null,
-      row.retryCount ?? null,
-      row.success == null ? null : row.success ? 1 : 0,
-      row.errorCategory ?? null,
-      JSON.stringify(row.recommendation),
-      row.decisionLatencyMs ?? null,
-      row.governorName ?? "NativeOmniGovernor",
-      row.governorVersion ?? "0.1.0",
-      row.policyVersion ?? "v0",
-      row.observedFeatures ? JSON.stringify(row.observedFeatures) : null
+      merged.timestamp ?? Date.now(), merged.correlationId || "unknown", merged.governorMode,
+      merged.actualProvider ?? null, merged.actualModel ?? null, merged.actualRoutingStrategy ?? null,
+      merged.actualReasoningConfig ?? null, merged.actualCompressionConfig ?? null,
+      merged.actualPromptTokens ?? null, merged.actualOutputTokens ?? null, merged.actualTotalTokens ?? null,
+      merged.estimatedCost ?? null, merged.latencyMs ?? null, merged.retryCount ?? null,
+      merged.success == null ? null : merged.success ? 1 : 0, merged.errorCategory ?? null,
+      JSON.stringify(merged.recommendation), merged.decisionLatencyMs ?? null,
+      merged.governorName ?? "NativeOmniGovernor", merged.governorVersion ?? "0.1.0",
+      merged.policyVersion ?? "v0", merged.observedFeatures ? JSON.stringify(merged.observedFeatures) : null
     );
     queueMetrics.persisted += 1;
   } catch (error) {
@@ -102,7 +94,20 @@ export function updateGovernorTelemetryOutcome(
   correlationId: string,
   outcome: Partial<Pick<GovernorTelemetry, "actualProvider" | "actualModel" | "actualRoutingStrategy" | "actualPromptTokens" | "actualOutputTokens" | "actualTotalTokens" | "estimatedCost" | "latencyMs" | "retryCount" | "success" | "errorCategory">>
 ): void {
+  if (!shouldSampleGovernorTelemetry(correlationId)) return;
   setImmediate(() => {
+   if (pendingTelemetry.some((row) => row.correlationId === correlationId)) {
+     const index = pendingTelemetry.findIndex((row) => row.correlationId === correlationId);
+     pendingTelemetry[index] = { ...pendingTelemetry[index], ...outcome };
+     return;
+   }
+   if (pendingOutcomes.size >= MAX_PENDING_TELEMETRY) {
+     const oldest = pendingOutcomes.keys().next().value;
+     if (oldest) pendingOutcomes.delete(oldest);
+   }
+   pendingOutcomes.set(correlationId, outcome);
+   const timer = setTimeout(() => pendingOutcomes.delete(correlationId), 10_000);
+   timer.unref?.();
    try {
     const db = getDbInstance();
     db.prepare(`UPDATE governor_telemetry SET
@@ -117,6 +122,7 @@ export function updateGovernorTelemetryOutcome(
       outcome.estimatedCost ?? null, outcome.latencyMs ?? null, outcome.retryCount ?? null,
       outcome.success == null ? null : outcome.success ? 1 : 0, outcome.errorCategory ?? null, correlationId
     );
+    pendingOutcomes.delete(correlationId);
    } catch { queueMetrics.persistenceFailures += 1; }
   });
 }
@@ -147,6 +153,10 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       error_category: string | null;
       recommendation_json: string;
       decision_latency_ms: number;
+      governor_name: string | null;
+      governor_version: string | null;
+      policy_version: string | null;
+      observed_features_json: string | null;
     }>;
 
     return rows.map((r) => ({
@@ -169,6 +179,10 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       errorCategory: r.error_category ?? undefined,
       recommendation: JSON.parse(r.recommendation_json),
       decisionLatencyMs: r.decision_latency_ms,
+      governorName: r.governor_name ?? undefined,
+      governorVersion: r.governor_version ?? undefined,
+      policyVersion: r.policy_version ?? undefined,
+      observedFeatures: r.observed_features_json ? JSON.parse(r.observed_features_json) : undefined,
     }));
   } catch {
     return [];
