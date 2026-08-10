@@ -144,7 +144,11 @@ import {
   getExplicitModelOutputCap,
   resolveInputTokenCapForGate,
 } from "@/lib/modelCapabilities.ts";
-import { checkRequestCapabilityFit, deriveRequestCapabilityRequirements, buildCapabilityMismatchMessage } from "@/shared/constants/capabilities/capabilityFilter.ts";
+import {
+  checkRequestCapabilityFit,
+  deriveRequestCapabilityRequirements,
+  buildCapabilityMismatchMessage,
+} from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
 import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
@@ -418,6 +422,7 @@ export async function handleChatCore({
   comboStrategy = null,
   isCombo = false,
   routingComboId = null,
+  sessionAffinityKey = null,
   comboStepId = null,
   comboExecutionKey = null,
   cachedSettings = null,
@@ -881,6 +886,10 @@ export async function handleChatCore({
           "x-omniroute-session-id"
         )) || null;
   const pipelineSessionId = explicitSessionIdHeader || skillRequestId;
+  const reasoningReplaySessionKey = sessionAffinityKey || explicitSessionIdHeader;
+  const reasoningCacheScope = reasoningReplaySessionKey
+    ? `api-key:${String(apiKeyInfo?.id ?? "local")}\x1f${String(reasoningReplaySessionKey)}`
+    : null;
   // persistAttemptLogs extracted to chatCore/attemptLogging.ts (#3501); bind the per-request context
   // once so the 16 call sites keep passing only the per-attempt args (byte-identical).
   const persistAttemptLogs = (args: PersistAttemptLogsArgs) =>
@@ -2039,6 +2048,7 @@ export async function handleChatCore({
             preserveDeveloperRole,
             preserveCacheControl,
             copilotClient: copilotCompatibleReasoning,
+            reasoningCacheScope,
           }
         );
       }
@@ -2203,6 +2213,7 @@ export async function handleChatCore({
           preserveCacheControl,
           signatureNamespace: connectionId,
           copilotClient: copilotCompatibleReasoning,
+          reasoningCacheScope,
           ...(preCompressionBody ? { preCompressionBody } : {}),
         }
       );
@@ -2637,8 +2648,11 @@ export async function handleChatCore({
   }
   // === /Quota Share enforcement PRE-hook ===
   if (isFeatureFlagEnabled("CAPABILITY_FILTER_ENABLED")) {
-    const fit = checkRequestCapabilityFit(getResolvedModelCapabilities({ provider, model: effectiveModel }),
-      deriveRequestCapabilityRequirements(body as Record<string, unknown>), provider);
+    const fit = checkRequestCapabilityFit(
+      getResolvedModelCapabilities({ provider, model: effectiveModel }),
+      deriveRequestCapabilityRequirements(body as Record<string, unknown>),
+      provider
+    );
     if (!fit.compatible) {
       const msg = buildCapabilityMismatchMessage(fit.terminalReason!, provider, effectiveModel);
       log?.warn?.("CAPABILITY", msg);
@@ -4380,16 +4394,23 @@ export async function handleChatCore({
     // Reasoning Replay Cache (#1628): Capture reasoning_content from non-streaming responses
     // with tool_calls so it can be replayed on subsequent turns (DeepSeek V4, Kimi K2, etc.)
     try {
-      const firstChoice = translatedResponse?.choices?.[0];
+      const cacheResponse = translatedResponse?.choices?.[0]
+        ? translatedResponse
+        : needsTranslation(responsePayloadFormat, FORMATS.OPENAI)
+          ? translateNonStreamingResponse(
+              responseBody,
+              responsePayloadFormat,
+              FORMATS.OPENAI,
+              responseToolNameMap
+            )
+          : responseBody;
+      const firstChoice = cacheResponse?.choices?.[0];
       const msg = firstChoice?.message;
-      // The response being cached now will be replayed as history on the *next*
-      // turn, where the read side (translator/index.ts) keys the lookup by the
-      // message's real position in that future `messages` array — i.e. right
-      // after everything the client sent this turn.
-      const bodyMessages = (body as { messages?: unknown[] } | null | undefined)?.messages;
+      const historyMessages = (translatedBody as { messages?: unknown[] } | null | undefined)
+        ?.messages;
       cacheReasoningFromAssistantMessage(msg, provider, model, {
-        requestId: skillRequestId,
-        messageIndex: Array.isArray(bodyMessages) ? bodyMessages.length : 0,
+        scope: reasoningCacheScope,
+        historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
       });
     } catch {
       // Cache capture is non-critical — never block the response
@@ -4815,14 +4836,24 @@ export async function handleChatCore({
     if (normalizedStreamStatus === 200 && streamResponseBody) {
       try {
         const streamBody = streamResponseBody as Record<string, unknown>;
-        const choices = streamBody.choices as { message?: Record<string, unknown> }[] | undefined;
+        const cacheStreamBody = Array.isArray(streamBody.choices)
+          ? streamBody
+          : needsTranslation(clientResponseFormat, FORMATS.OPENAI)
+            ? (translateNonStreamingResponse(
+                streamBody,
+                clientResponseFormat,
+                FORMATS.OPENAI,
+                responseToolNameMap
+              ) as Record<string, unknown>)
+            : streamBody;
+        const choices = cacheStreamBody.choices as
+          { message?: Record<string, unknown> }[] | undefined;
         const msg = choices?.[0]?.message;
-        // See the non-streaming capture above: messageIndex must match the
-        // position this message will occupy in the *next* turn's history.
-        const bodyMessages = (body as { messages?: unknown[] } | null | undefined)?.messages;
+        const historyMessages = (translatedBody as { messages?: unknown[] } | null | undefined)
+          ?.messages;
         cacheReasoningFromAssistantMessage(msg, provider, model, {
-          requestId: skillRequestId,
-          messageIndex: Array.isArray(bodyMessages) ? bodyMessages.length : 0,
+          scope: reasoningCacheScope,
+          historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
         });
       } catch {
         // Cache capture is non-critical — never block the stream

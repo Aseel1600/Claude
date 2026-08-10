@@ -29,6 +29,8 @@ const { clearModelLock, isModelLocked } =
   await import("../../open-sse/services/accountFallback.ts");
 const { saveModelsDevCapabilities, clearModelsDevCapabilities } =
   await import("../../src/lib/modelsDevSync.ts");
+// Dynamic import is required after TEST_DATA_DIR is initialized above.
+const { clearReasoningCacheAll } = await import("../../open-sse/services/reasoningCache.ts");
 const {
   getBackgroundDegradationConfig,
   setBackgroundDegradationConfig,
@@ -256,6 +258,7 @@ async function resetStorage() {
   clearIdempotency();
   clearInflight();
   clearModelsDevCapabilities();
+  clearReasoningCacheAll();
   setBackgroundDegradationConfig(originalBackgroundConfig);
   resetBackgroundStats();
   globalThis.setTimeout = originalSetTimeout;
@@ -305,6 +308,7 @@ async function invokeChatCore({
   connectionId = null,
   onCredentialsRefreshed = null,
   onRequestSuccess = null,
+  sessionAffinityKey = null,
 }: any = {}) {
   const calls: any[] = [];
 
@@ -348,6 +352,7 @@ async function invokeChatCore({
       connectionId,
       apiKeyInfo,
       userAgent,
+      sessionAffinityKey,
       isCombo,
       comboStrategy,
       onCredentialsRefreshed,
@@ -562,6 +567,178 @@ test("chatCore applies Responses input policy to openai-compatible targets", asy
     );
     assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
   }
+});
+
+test("chatCore replays no-tool reasoning across public Responses turns", async () => {
+  saveModelsDevCapabilities({
+    deepseek: {
+      "deepseek-v4-pro": {
+        ...capabilityEntry(128_000),
+        reasoning: true,
+        interleaved_field: null,
+      },
+    },
+  });
+  const sessionAffinityKey = "header:reasoning-replay-session";
+  const apiKeyInfo = { id: "reasoning-replay-key" };
+  const responseFactory = () =>
+    new Response(
+      JSON.stringify({
+        id: "chatcmpl-reasoning",
+        object: "chat.completion",
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: "Hello! How can I help?",
+              reasoning_content: "Authentic upstream reasoning",
+            },
+            finish_reason: "stop",
+          },
+        ],
+        usage: { prompt_tokens: 4, completion_tokens: 2, total_tokens: 6 },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+
+  const first = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    endpoint: "/v1/responses",
+    body: {
+      model: "deepseek-v4-pro",
+      stream: false,
+      reasoning: { effort: "high" },
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+    },
+    apiKeyInfo,
+    sessionAffinityKey,
+    responseFactory,
+  });
+  assert.equal(first.result.success, true);
+
+  const second = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    endpoint: "/v1/responses",
+    body: {
+      model: "deepseek-v4-pro",
+      stream: false,
+      reasoning: { effort: "high" },
+      input: [
+        { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Hello! How can I help?" }],
+        },
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "tell me more" }],
+        },
+      ],
+    },
+    apiKeyInfo,
+    sessionAffinityKey,
+    responseFactory,
+  });
+
+  assert.equal(second.result.success, true);
+  assert.equal(second.call.body.messages[1].reasoning_content, "Authentic upstream reasoning");
+});
+test("chatCore captures streaming no-tool reasoning for Responses replay", async () => {
+  saveModelsDevCapabilities({
+    deepseek: {
+      "deepseek-v4-pro": {
+        ...capabilityEntry(128_000),
+        reasoning: true,
+        interleaved_field: null,
+      },
+    },
+  });
+  const sessionAffinityKey = "header:streaming-reasoning-replay-session";
+  const apiKeyInfo = { id: "streaming-reasoning-replay-key" };
+  const streamResponseFactory = () =>
+    new Response(
+      [
+        `data: ${JSON.stringify({
+          id: "chatcmpl-stream-reasoning",
+          object: "chat.completion.chunk",
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: "assistant",
+                reasoning_content: "Authentic streaming reasoning",
+              },
+            },
+          ],
+        })}`,
+        `data: ${JSON.stringify({
+          id: "chatcmpl-stream-reasoning",
+          object: "chat.completion.chunk",
+          choices: [{ index: 0, delta: { content: "Streamed answer" } }],
+        })}`,
+        `data: ${JSON.stringify({
+          id: "chatcmpl-stream-reasoning",
+          object: "chat.completion.chunk",
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+        })}`,
+        "data: [DONE]",
+        "",
+      ].join("\n\n"),
+      { status: 200, headers: { "Content-Type": "text/event-stream" } }
+    );
+
+  const first = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    endpoint: "/v1/responses",
+    body: {
+      model: "deepseek-v4-pro",
+      stream: true,
+      reasoning: { effort: "high" },
+      input: [{ type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] }],
+    },
+    apiKeyInfo,
+    sessionAffinityKey,
+    responseFactory: streamResponseFactory,
+  });
+  assert.equal(first.result.success, true);
+  await first.result.response.text();
+  await flushAsyncSideEffects();
+
+  const second = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    endpoint: "/v1/responses",
+    body: {
+      model: "deepseek-v4-pro",
+      stream: false,
+      reasoning: { effort: "high" },
+      input: [
+        { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
+        {
+          type: "message",
+          role: "assistant",
+          content: [{ type: "output_text", text: "Streamed answer" }],
+        },
+        {
+          type: "message",
+          role: "user",
+          content: [{ type: "input_text", text: "tell me more" }],
+        },
+      ],
+    },
+    apiKeyInfo,
+    sessionAffinityKey,
+    responseFactory: () => buildOpenAIResponse(false),
+  });
+
+  assert.equal(second.result.success, true);
+  assert.equal(second.call.body.messages[1].reasoning_content, "Authentic streaming reasoning");
 });
 test("chatCore preserves opted-in encrypted reasoning for Codex", async () => {
   const { call, result } = await invokeChatCore({
