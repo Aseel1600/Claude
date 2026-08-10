@@ -132,7 +132,7 @@ describe("request log cache token metrics (#9620)", () => {
     expect(outputGroup?.textContent).toContain("Reasoning: 50");
   });
 
-  it("omits cache metrics when historical logs contain zero or null values", async () => {
+  it("handles historical null and zero cache values without inventing usage", async () => {
     const emptyCacheLog = {
       ...populatedLog,
       id: "log-no-cache",
@@ -151,8 +151,8 @@ describe("request log cache token metrics (#9620)", () => {
     );
 
     const inputGroup = container.querySelector('[data-testid="token-group-input"]');
-    expect(inputGroup?.textContent).not.toContain("Cache Read");
-    expect(inputGroup?.textContent).not.toContain("Cache Write");
+    expect(inputGroup?.textContent).toContain("Cache Read: N/A");
+    expect(inputGroup?.textContent).toContain("Cache Write: 0");
     expect(inputGroup?.textContent).toContain("Total In: 1,000");
   });
 });
