@@ -23,21 +23,20 @@ import {
 
 export { validateProviderSpecificData };
 
+import { isValidProviderIconUrl } from "@/shared/validation/iconUrl";
+
 // ──── Provider Schemas ────
 
-// #2166: shared optional remote icon URL for compatible provider nodes. Empty string
-// is accepted as "no custom icon" (clears any previously stored value). Restricted to
-// http(s) — `.url()` alone also accepts syntactically-valid-but-unsafe schemes like
-// `javascript:`/`data:`, which we never want persisted as an <img src>.
+// #2166 + data-URL support: shared optional remote icon URL for compatible provider
+// nodes. Empty string is accepted as "no custom icon". Accepts http(s) URLs AND
+// valid `data:image/*;base64,...` data URLs; rejects malformed/unsafe schemes. The
+// validator lives in src/shared/validation/iconUrl.ts so UI and API never diverge.
 const providerNodeIconUrlSchema = z
   .string()
   .trim()
   .max(2000)
-  .refine((value) => value === "" || z.string().url().safeParse(value).success, {
-    message: "Icon URL must be a valid URL",
-  })
-  .refine((value) => value === "" || /^https?:\/\//i.test(value), {
-    message: "Icon URL must be a valid http:// or https:// URL",
+  .refine((value) => isValidProviderIconUrl(value), {
+    message: "Icon URL must be a valid http(s) or data:image/*;base64 URL",
   })
   .optional();
 
