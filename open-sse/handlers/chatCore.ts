@@ -1129,9 +1129,17 @@ export async function handleChatCore({
     const compressionExcluded =
       nativeCodexPassthrough ||
       isCompressionExcluded({ provider, model: effectiveModel }, compressionSettings?.exclusions);
-    let promptCompressionEnabled = compressionSettingsResult.enabled && !compressionExcluded;
+    // A per-key opt-out is a request-scoped hard kill for prompt compression. It
+    // deliberately does not disable the independent reactive context-fit safety
+    // passes, matching the existing x-omniroute-compression: off contract.
+    const apiKeyCompressionEnabled = apiKeyInfo?.compressionEnabled !== false;
+    let promptCompressionEnabled =
+      compressionSettingsResult.enabled && !compressionExcluded && apiKeyCompressionEnabled;
     reactiveContextCompactionEnabled = compressionSettingsResult.enabled && !compressionExcluded;
     contextEditingEnabled = compressionSettingsResult.contextEditingEnabled;
+    if (!apiKeyCompressionEnabled) {
+      log?.debug?.("COMPRESSION", "Prompt compression disabled for this API key");
+    }
     if (compressionExcluded) {
       void writeCompressionSkip(
         {
@@ -1174,7 +1182,9 @@ export async function handleChatCore({
       } = await import("../services/compression/strategySelector.ts");
       const { trackCompressionStats } = await import("../services/compression/stats.ts");
       let config: CompressionConfig = compressionSettings ?? createDisabledCompressionConfig();
-      if (compressionExcluded) config = { ...config, enabled: false };
+      if (compressionExcluded || !apiKeyCompressionEnabled) {
+        config = { ...config, enabled: false };
+      }
       if (!promptCompressionEnabled || !compressionSettings) {
         log?.debug?.("COMPRESSION", "Prompt compression disabled or unavailable");
       }

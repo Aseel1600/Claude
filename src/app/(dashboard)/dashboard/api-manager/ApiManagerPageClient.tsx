@@ -27,6 +27,7 @@ import { hasProviderQuotaBypassScope } from "@/shared/constants/apiKeyPolicyScop
 import { UsageLimitSettings } from "./components/UsageLimitSettings";
 import { ChaosModeAccessToggle } from "./components/ChaosModeAccessToggle";
 import { BypassProviderQuotaToggle } from "./components/BypassProviderQuotaToggle";
+import { ApiKeyCompressionToggle } from "./components/ApiKeyCompressionToggle";
 import ReasoningRoutingRules from "@/shared/components/ReasoningRoutingRules";
 
 // Constants for validation
@@ -126,6 +127,7 @@ interface ApiKey {
   scopes?: string[];
   allowedEndpoints?: string[];
   streamDefaultMode?: StreamDefaultMode;
+  compressionEnabled?: boolean;
   disableNonPublicModels?: boolean;
   allowUsageCommand?: boolean;
   chaosModeEnabled?: boolean;
@@ -790,6 +792,7 @@ export default function ApiManagerPageClient() {
     scopes: string[],
     allowedEndpoints: string[],
     streamDefaultMode: StreamDefaultMode,
+    compressionEnabled: boolean,
     disableNonPublicModels: boolean,
     allowUsageCommand: boolean,
     usageLimitEnabled: boolean,
@@ -862,6 +865,7 @@ export default function ApiManagerPageClient() {
           scopes,
           allowedEndpoints,
           streamDefaultMode,
+          compressionEnabled,
           disableNonPublicModels,
           allowUsageCommand,
           usageLimitEnabled,
@@ -1646,6 +1650,7 @@ const PermissionsModal = memo(function PermissionsModal({
     scopes: string[],
     allowedEndpoints: string[],
     streamDefaultMode: StreamDefaultMode,
+    compressionEnabled: boolean,
     disableNonPublicModels: boolean,
     allowUsageCommand: boolean,
     usageLimitEnabled: boolean,
@@ -1716,6 +1721,9 @@ const PermissionsModal = memo(function PermissionsModal({
   );
   const [streamDefaultMode, setStreamDefaultMode] = useState<StreamDefaultMode>(
     apiKey?.streamDefaultMode === "json" ? "json" : "legacy"
+  );
+  const [compressionEnabled, setCompressionEnabled] = useState(
+    apiKey?.compressionEnabled !== false
   );
   const [nameError, setNameError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -1938,6 +1946,7 @@ const PermissionsModal = memo(function PermissionsModal({
       }),
       allowAllEndpoints ? [] : selectedEndpoints,
       streamDefaultMode,
+      compressionEnabled,
       disableNonPublicModels,
       usageCommandEnabled,
       usageLimitEnabled,
@@ -1975,6 +1984,7 @@ const PermissionsModal = memo(function PermissionsModal({
     allowAllEndpoints,
     selectedEndpoints,
     streamDefaultMode,
+    compressionEnabled,
     disableNonPublicModels,
     usageCommandEnabled,
     usageLimitEnabled,
@@ -2420,6 +2430,11 @@ const PermissionsModal = memo(function PermissionsModal({
             </button>
           </div>
         </div>
+
+        <ApiKeyCompressionToggle
+          enabled={compressionEnabled}
+          onToggle={() => setCompressionEnabled((prev) => !prev)}
+        />
 
         {/* Ban Toggle (SECURITY) */}
         <div className="flex items-start justify-between gap-3 p-3 rounded-lg border border-red-500/20 bg-red-500/5">

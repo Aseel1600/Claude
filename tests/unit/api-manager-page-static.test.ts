@@ -75,6 +75,7 @@ test("permissions modal switch buttons declare button type", () => {
   for (const rel of [
     "src/app/(dashboard)/dashboard/api-manager/components/BypassProviderQuotaToggle.tsx",
     "src/app/(dashboard)/dashboard/api-manager/components/ChaosModeAccessToggle.tsx",
+    "src/app/(dashboard)/dashboard/api-manager/components/ApiKeyCompressionToggle.tsx",
   ]) {
     const componentSource = fs.readFileSync(path.join(repoRoot, rel), "utf8");
     const compSwitches = (componentSource.match(/role="switch"/g) ?? []).length;
@@ -83,6 +84,25 @@ test("permissions modal switch buttons declare button type", () => {
     assert.ok(compSwitches >= 1, `${rel} must render a switch`);
     assert.equal(compTyped, compSwitches, `${rel}: every switch declares type="button"`);
   }
+});
+
+test("permissions modal persists the per-key prompt-compression switch", () => {
+  const source = readApiManagerPage();
+  const component = fs.readFileSync(
+    path.join(
+      repoRoot,
+      "src/app/(dashboard)/dashboard/api-manager/components/ApiKeyCompressionToggle.tsx"
+    ),
+    "utf8"
+  );
+
+  assert.match(source, /apiKey\?\.compressionEnabled !== false/);
+  assert.match(source, /compressionEnabled,/);
+  assert.match(source, /<ApiKeyCompressionToggle/);
+  assert.match(component, /useTranslations\("settings"\)/);
+  assert.match(component, /tSettings\("compressionTitle"\)/);
+  assert.match(component, /tSettings\("compressionDesc"\)/);
+  assert.match(component, /aria-checked=\{enabled\}/);
 });
 
 test("permissions modal exposes Claude Code default wildcard model", () => {

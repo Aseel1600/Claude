@@ -97,6 +97,7 @@ export interface ApiKeyMetadata {
   usageLimitEnabled?: boolean;
   dailyUsageLimitUsd?: number | null;
   weeklyUsageLimitUsd?: number | null;
+  compressionEnabled?: boolean;
 }
 
 /**

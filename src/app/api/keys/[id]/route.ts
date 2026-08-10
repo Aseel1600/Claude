@@ -81,6 +81,7 @@ export async function PATCH(request, { params }) {
       scopes,
       allowedEndpoints,
       streamDefaultMode,
+      compressionEnabled,
       disableNonPublicModels,
       allowUsageCommand,
       usageLimitEnabled,
@@ -107,6 +108,7 @@ export async function PATCH(request, { params }) {
     if (scopes !== undefined) payload.scopes = scopes;
     if (allowedEndpoints !== undefined) payload.allowedEndpoints = allowedEndpoints;
     if (streamDefaultMode !== undefined) payload.streamDefaultMode = streamDefaultMode;
+    if (compressionEnabled !== undefined) payload.compressionEnabled = compressionEnabled;
     if (disableNonPublicModels !== undefined)
       payload.disableNonPublicModels = disableNonPublicModels;
     if (allowUsageCommand !== undefined) payload.allowUsageCommand = allowUsageCommand;
@@ -142,6 +144,7 @@ export async function PATCH(request, { params }) {
       ...(scopes !== undefined && { scopes }),
       ...(allowedEndpoints !== undefined && { allowedEndpoints }),
       ...(streamDefaultMode !== undefined && { streamDefaultMode }),
+      ...(compressionEnabled !== undefined && { compressionEnabled }),
       ...(disableNonPublicModels !== undefined && { disableNonPublicModels }),
       ...(allowUsageCommand !== undefined && { allowUsageCommand }),
       ...(usageLimitEnabled !== undefined && { usageLimitEnabled }),

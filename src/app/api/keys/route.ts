@@ -125,6 +125,7 @@ export async function POST(request) {
         weeklyUsageLimitUsd: weeklyUsageLimitUsd ?? null,
         chaosModeEnabled: chaosModeEnabled === true,
         streamDefaultMode: "legacy",
+        compressionEnabled: true,
       },
       { status: 201 }
     );
