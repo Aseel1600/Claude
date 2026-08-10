@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { calculateSuccessfulTaskMetrics } from "../../../open-sse/governor/metrics.ts";
 import type { GovernorTelemetry } from "../../../open-sse/governor/types.ts";
 
-describe("Governor Successful-Task Metrics Calculator", () => {
+describe("Governor Successful-Request Metrics Calculator", () => {
   it("should return zero metrics without error when records are empty or have zero successes", () => {
     const emptyMetrics = calculateSuccessfulTaskMetrics([]);
     assert.equal(emptyMetrics.totalEvaluations, 0);

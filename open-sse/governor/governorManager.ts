@@ -6,7 +6,7 @@
  * GUARANTEES:
  * - When mode is 'off': Zero overhead, no evaluations performed.
  * - When mode is 'shadow': Recommendations are generated and recorded for telemetry ONLY.
- * - Active routing decision is 100% UNTOUCHED (DEFAULT_ROUTING_BEHAVIOR_CHANGED = false).
+ * - Shadow recommendations do not alter authoritative routing selection; shadow mode may add local overhead.
  * - Non-blocking telemetry persistence: failure to log telemetry never throws into request flow.
  */
 

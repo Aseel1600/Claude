@@ -49,7 +49,7 @@ describe("GovernorManager & Shadow Mode Isolation", () => {
       assert.notEqual(result.recommendation, null);
       assert.equal(result.recommendation?.modelPolicy.recommendedTier, "highest");
 
-      // Verify active context object remains 100% UNMUTATED
+      // Verify the active request context remains unchanged by shadow evaluation.
       assert.deepEqual(originalContext, contextCopy);
     } finally {
       delete process.env.INTELLIGENCE_GOVERNOR_MODE;

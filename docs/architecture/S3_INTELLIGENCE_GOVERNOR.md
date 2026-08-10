@@ -17,13 +17,13 @@ The **Intelligence Governor** establishes a clean, provider-neutral architectura
               │             │             │
               └─────────────┼─────────────┘
                             ▼
-                  PERSIST TELEMETRY (Background, Non-Blocking)
+                  BOUNDED TELEMETRY ENQUEUE
                             │
                             ▼
        AUTHORITATIVE OMNIROUTE ROUTING ENGINE (Unmutated)
                             │
                             ▼
-                   PROVIDER ADAPTER / EXECUTION
+                  PROVIDER ADAPTER / EXECUTION
 ```
 
 ---
@@ -34,19 +34,19 @@ The Intelligence Governor operates strictly on provider-neutral abstractions def
 
 - `GovernorInput`: Standardized evaluation context (prompt token estimates, task classification, context utilization, tool counts, retry counts, quota state, latency state, cache state).
 - `GovernorDecision`: Comprehensive recommendation policies (`modelPolicy`, `routingPolicy`, `reasoningPolicy`, `compressionPolicy`, `contextBudgetPolicy`, `maxOutputTokens`, `escalationPolicy`).
-- `GovernorTelemetry`: Non-blocking metadata record storing correlation IDs, timestamps, mode, actual provider/model metrics, and governor recommendations.
+- `GovernorTelemetry`: Metadata record storing correlation IDs, timestamps, mode, known provider/model metrics, and governor recommendations. Unknown execution outcomes remain nullable.
 - `IntelligenceGovernor`: The core contract interface implemented by decision engines.
 
 ---
 
 ## 3. Deterministic NativeOmniGovernor V0
 
-The initial implementation (`NativeOmniGovernor`) is a 100% deterministic, local fast-path decision engine:
+The initial implementation (`NativeOmniGovernor`) is a deterministic, local fast-path decision engine:
 
 - **Zero LLM Calls**: Requires NO external network requests or AI model invocations to produce recommendations.
 - **Task Classification**: Deterministically categorizes requests into `trivial_control`, `tool_output_processing`, `code_edit_simple`, `code_debug`, `architecture_reasoning`, or `unknown`.
-- **Pure Mathematical Evaluation**: Identical `GovernorInput` guaranteed to yield byte-identical `GovernorDecision`.
-- **Sub-Millisecond Overhead**: Average decision latency < 0.05 ms per evaluation.
+- **Pure Mathematical Evaluation**: Identical `GovernorInput` yields the same `GovernorDecision`.
+- **Measured Local Overhead**: See the synthetic in-process benchmark for warmup, repeated runs, and median throughput. It is not an end-to-end performance claim.
 
 ---
 
@@ -54,9 +54,9 @@ The initial implementation (`NativeOmniGovernor`) is a 100% deterministic, local
 
 - **Default Off**: Governed by feature flag `INTELLIGENCE_GOVERNOR_MODE` (`"off"` | `"shadow"`, default `"off"`).
 - **Shadow Mode Contract**:
-  - `DEFAULT_ROUTING_BEHAVIOR_CHANGED = false`
+  - `ROUTING_SELECTION_CHANGED = NO`
   - `SHADOW_CAN_MUTATE_ROUTING = false`
-- In `shadow` mode, the governor evaluates recommendations and logs telemetry in the background. Active request execution is **never mutated** by governor recommendations.
+- In `shadow` mode, the governor evaluates recommendations and enqueues bounded best-effort telemetry. Active request execution is not changed by governor recommendations, although shadow evaluation can add local CPU, memory, and scheduling overhead.
 
 ---
 
