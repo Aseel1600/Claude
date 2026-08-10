@@ -116,8 +116,9 @@ test("request log detail splits token badges into input and output groups", () =
 
   assert.match(
     html,
-    /data-testid="token-group-input"[\s\S]*Total In: 21[\s\S]*818[\s\S]*Cache Read: 21[\s\S]*632[\s\S]*Cache Write: N\/A/
+    /data-testid="token-group-input"[\s\S]*Total In: 21[\s\S]*818[\s\S]*Cache Read: 21[\s\S]*632/
   );
+  assert.equal(html.includes("Cache Write:"), false);
   assert.match(html, /data-testid="token-group-output"[\s\S]*Total Out: 42[\s\S]*Reasoning: N\/A/);
 });
 
