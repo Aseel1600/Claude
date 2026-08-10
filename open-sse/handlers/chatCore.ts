@@ -4,6 +4,8 @@ import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
 import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
 import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
+import { GovernorManager } from "../governor/governorManager.ts";
+import type { GovernorInput } from "../governor/types.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import {
@@ -5045,6 +5047,29 @@ export async function handleChatCore({
     headers: clientRawRequest?.headers,
     response: { status: 200, streamed: true },
   });
+
+  // ── Intelligence Governor (Shadow Mode Evaluation) ──
+  try {
+    const governorInput: GovernorInput = {
+      correlationId: correlationId || traceId,
+      contextWindow: (extendedContext as { maxTokens?: number } | undefined)?.maxTokens ?? 128000,
+      requestedMaxOutput: (body as { max_tokens?: number } | undefined)?.max_tokens,
+      toolCount: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools)
+        ? (body as { tools: unknown[] }).tools.length
+        : 0,
+      retryCount: skipUpstreamRetry ? 1 : 0,
+    };
+    GovernorManager.evaluateShadow(governorInput, {
+      provider: provider || "unknown",
+      model: model || "unknown",
+      routingStrategy: comboStrategy ?? (isCombo ? "auto_combo" : "direct"),
+      retryCount: skipUpstreamRetry ? 1 : 0,
+      success: true,
+      latencyMs: Date.now() - startTime,
+    });
+  } catch {
+    /* shadow governor failure never affects request flow */
+  }
 
   return {
     success: true,
