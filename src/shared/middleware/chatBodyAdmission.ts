@@ -55,7 +55,20 @@ export const CHAT_MAX_HEAVY_IN_FLIGHT = parsePositiveInt(
  */
 export const CHAT_ADMISSION_QUEUE_MAX_MS = parseNonNegativeInt(
   process.env.OMNIROUTE_CHAT_ADMISSION_QUEUE_MS,
-  5000
+  2000
+);
+
+/**
+ * Queued-bytes budget for the admission wait (#9654 / U3). A parked waiter holds a
+ * fully-buffered request body; several large coding-agent bodies (~750 KB) waiting at
+ * once is exactly the heap-amplification scenario chatBodyAdmission was built to stop
+ * (#4380). Each lane's controller charges every parked waiter's buffered size against
+ * this budget and rejects over-budget waits immediately (retryable 503) instead of
+ * parking. Bytes are released when a waiter wakes, aborts, or times out.
+ */
+export const CHAT_ADMISSION_MAX_QUEUED_BYTES = parsePositiveInt(
+  process.env.OMNIROUTE_CHAT_ADMISSION_MAX_QUEUED_BYTES,
+  4 * 1024 * 1024
 );
 
 export const CHAT_HEAVY_MESSAGE_COUNT = parsePositiveInt(
@@ -105,16 +118,28 @@ export interface ChatAdmissionLease {
  */
 export class ChatAdmissionController {
   #activeHeavy = 0;
+  #queuedBytes = 0;
   #waiters: Array<() => void> = [];
 
-  constructor(readonly maxHeavyInFlight = 1) {
+  constructor(
+    readonly maxHeavyInFlight = 1,
+    readonly maxQueuedBytes = CHAT_ADMISSION_MAX_QUEUED_BYTES
+  ) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
       throw new RangeError("maxHeavyInFlight must be a positive integer");
+    }
+    if (!Number.isSafeInteger(maxQueuedBytes) || maxQueuedBytes < 0) {
+      throw new RangeError("maxQueuedBytes must be a non-negative integer");
     }
   }
 
   get activeHeavy(): number {
     return this.#activeHeavy;
+  }
+
+  /** Total buffered bytes currently parked in the FIFO (heap valve accounting). */
+  get queuedBytes(): number {
+    return this.#queuedBytes;
   }
 
   tryAcquireHeavy(): ChatAdmissionLease | null {
@@ -146,10 +171,17 @@ export class ChatAdmissionController {
    * connection, so no capacity is consumed and the freed slot never wakes a
    * waiter the client no longer needs. A signal that is already aborted never
    * parks at all.
+   *
+   * `queuedBytes` is the buffered body size this waiter will hold while parked;
+   * it is charged against `maxQueuedBytes` so a burst of large bodies cannot
+   * amplify the heap (#4380). An over-budget wait is rejected immediately with
+   * `null` (retryable 503) and never parks; the charge is released on wake,
+   * abort, or timeout.
    */
   async acquireHeavyWithin(
     timeoutMs: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    queuedBytes = 0
   ): Promise<ChatAdmissionLease | null> {
     const deadline = Date.now() + Math.max(0, Math.floor(timeoutMs));
     for (;;) {
@@ -158,6 +190,11 @@ export class ChatAdmissionController {
       if (lease) return lease;
       const remaining = deadline - Date.now();
       if (remaining <= 0) return null;
+      // Heap valve: refuse to park when the queued-bytes budget is exhausted.
+      if (queuedBytes > 0 && this.#queuedBytes + queuedBytes > this.maxQueuedBytes) {
+        return null;
+      }
+      this.#queuedBytes += queuedBytes;
       let resolver: (() => void) | null = null;
       const released = new Promise<void>((resolve) => {
         resolver = () => resolve();
@@ -183,6 +220,8 @@ export class ChatAdmissionController {
         );
       }
       const timedOut = await Promise.race(races);
+      // The waiter has left the FIFO (wake, abort, or timeout) — release its charge.
+      this.#queuedBytes = Math.max(0, this.#queuedBytes - queuedBytes);
       if (resolver) {
         const index = this.#waiters.indexOf(resolver);
         if (index >= 0) this.#waiters.splice(index, 1);
@@ -485,7 +524,14 @@ export async function admitChatStructure(
     (options.sessionId
       ? perConnectionAdmissionController.getController(options.sessionId)
       : defaultAdmissionController);
-  const acquired = await controller.acquireHeavyWithin(options.queueMs ?? 0, options.signal);
+  // Structural-only waits happen on byte-light bodies (a byte-heavy body already
+  // holds the byte-stage lease), so the conservative 256KB weight bounds the
+  // parsed JSON the waiter keeps resident while parked.
+  const acquired = await controller.acquireHeavyWithin(
+    options.queueMs ?? 0,
+    options.signal,
+    CHAT_LARGE_BODY_BYTES
+  );
   return acquired
     ? { admit: true, lease: acquired }
     : { admit: false, response: structuralRejectionResponse(503, maxMessages) };
@@ -652,15 +698,19 @@ export async function admitChatRequest(
   }
 
   let lease: ChatAdmissionLease | null = null;
-  const reserve = async (): Promise<boolean> => {
+  const reserve = async (bytes = 0): Promise<boolean> => {
     if (lease) return true;
-    lease = await controller.acquireHeavyWithin(queueMs, request.signal);
+    lease = await controller.acquireHeavyWithin(queueMs, request.signal, bytes);
     return lease !== null;
   };
 
   // A known-large declaration can reserve before ingestion. Unknown lengths are boundedly
   // sniffed below; this avoids consuming scarce heavyweight capacity for small chunked bodies.
-  if (contentLength !== null && contentLength >= largeBodyBytes && !(await reserve())) {
+  if (
+    contentLength !== null &&
+    contentLength >= largeBodyBytes &&
+    !(await reserve(Math.min(contentLength, hardMaxBytes)))
+  ) {
     return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
   }
 
@@ -679,7 +729,7 @@ export async function admitChatRequest(
         lease?.release();
         return { admit: false, response: rejectionResponse(413, hardMaxBytes) };
       }
-      if (totalBytes >= largeBodyBytes && !(await reserve())) {
+      if (totalBytes >= largeBodyBytes && !(await reserve(totalBytes))) {
         await reader.cancel("chat admission capacity unavailable").catch(() => undefined);
         return { admit: false, response: rejectionResponse(503, hardMaxBytes) };
       }

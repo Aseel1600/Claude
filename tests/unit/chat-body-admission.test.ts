@@ -8,6 +8,9 @@ const {
   admitChatStructure,
   ChatAdmissionController,
   CHAT_HARD_MAX_MESSAGES,
+  CHAT_ADMISSION_QUEUE_MAX_MS,
+  CHAT_ADMISSION_MAX_QUEUED_BYTES,
+  CHAT_LARGE_BODY_BYTES,
   releaseChatAdmissionAfterHandler,
   releaseChatAdmissionWhenDone,
   resolveSelfLoopBearer,
@@ -1047,6 +1050,144 @@ test("aborting the head waiter preserves FIFO order for remaining waiters", asyn
   assert.ok(secondLease, "remaining waiter must acquire the freed capacity");
   secondLease?.release();
   assert.equal(controller.activeHeavy, 0);
+});
+
+// ── Heap-pressure safety valve (#9654 / U3) ───────────────────────────────
+// The queue-wait parks fully-buffered bodies; the queued-bytes cap bounds the
+// total buffered memory parked per lane so the wait cannot recreate the #4380
+// heap amplification. Over-budget waits are rejected immediately (503).
+
+test("queued-bytes cap rejects an over-budget wait without parking", async () => {
+  const controller = new ChatAdmissionController(1, 200);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  // First waiter parks within budget.
+  const first = controller.acquireHeavyWithin(2_000, undefined, 150);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(controller.queuedBytes, 150);
+
+  // Second waiter would push the total over the 200-byte budget → must NOT park.
+  const started = Date.now();
+  const second = await controller.acquireHeavyWithin(2_000, undefined, 100);
+  assert.equal(second, null, "over-budget wait must be rejected");
+  assert.ok(Date.now() - started < 500, "rejection must be immediate, not park for queueMs");
+  assert.equal(controller.queuedBytes, 150, "rejected waiter must not be charged");
+  assert.equal(controller.activeHeavy, 1, "holder keeps its lease");
+
+  // Free the slot: the parked waiter acquires and its bytes leave the queue.
+  held.release();
+  const firstLease = await first;
+  assert.ok(firstLease, "in-budget waiter acquires the freed slot");
+  assert.equal(controller.queuedBytes, 0, "acquired waiter's bytes must leave the queue");
+  firstLease?.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("aborting a parked wait releases its queued bytes", async () => {
+  const controller = new ChatAdmissionController(1, 1_000);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const abortController = new AbortController();
+  const pending = controller.acquireHeavyWithin(2_000, abortController.signal, 400);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(controller.queuedBytes, 400);
+
+  abortController.abort();
+  assert.equal(await pending, null);
+  assert.equal(controller.queuedBytes, 0, "abort must release the charged bytes");
+
+  held.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("a timed-out wait releases its queued bytes", async () => {
+  const controller = new ChatAdmissionController(1, 1_000);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const pending = controller.acquireHeavyWithin(50, undefined, 400);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.equal(controller.queuedBytes, 400);
+
+  assert.equal(await pending, null);
+  assert.equal(controller.queuedBytes, 0, "timeout must release the charged bytes");
+  held.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("byte-heavy admission enforces the queued-bytes cap end-to-end", async () => {
+  const controller = new ChatAdmissionController(1, 100);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const body = JSON.stringify({ messages: [{ role: "user", content: "x".repeat(40) }] });
+  const options = { controller, largeBodyBytes: 32, hardMaxBytes: 1024, queueMs: 2_000 };
+
+  // First request parks: declared length (~70B) fits the budget.
+  const first = admitChatRequest(chatRequest(body), options);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  // Second request would exceed the 100-byte budget → rejected immediately.
+  const started = Date.now();
+  const second = await admitChatRequest(chatRequest(body), options);
+  assert.equal(second.admit, false, "over-budget byte-heavy wait must not admit");
+  if (!second.admit) assert.equal(second.response.status, 503);
+  assert.ok(Date.now() - started < 500, "over-budget wait must reject immediately");
+
+  held.release();
+  const firstResult = await first;
+  assert.equal(firstResult.admit, true);
+  if (firstResult.admit) firstResult.lease?.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("structural admission enforces the queued-bytes cap end-to-end", async () => {
+  const controller = new ChatAdmissionController(1, CHAT_LARGE_BODY_BYTES);
+  const held = controller.tryAcquireHeavy();
+  assert.ok(held);
+
+  const structural = {
+    messages: [
+      { role: "user", content: "one" },
+      { role: "user", content: "two" },
+    ],
+  };
+  const options = {
+    controller,
+    maxMessages: 10,
+    heavyMessages: 2,
+    heavyTools: 10,
+    heavyTokens: 10_000,
+    queueMs: 2_000,
+  };
+
+  // First structural wait parks, charging the conservative 256KB weight.
+  const first = admitChatStructure(structural, null, options);
+  await new Promise((resolve) => setTimeout(resolve, 30));
+
+  // Second would double the charge → rejected immediately.
+  const started = Date.now();
+  const second = await admitChatStructure(structural, null, options);
+  assert.equal(second.admit, false, "over-budget structural wait must not admit");
+  if (!second.admit) assert.equal(second.response.status, 503);
+  assert.ok(Date.now() - started < 500, "over-budget structural wait must reject immediately");
+
+  held.release();
+  const firstResult = await first;
+  assert.equal(firstResult.admit, true);
+  if (firstResult.admit) firstResult.lease?.release();
+  assert.equal(controller.activeHeavy, 0);
+});
+
+test("queue-wait defaults are bounded (2s wait, 4MB queued-bytes budget)", () => {
+  if (process.env.OMNIROUTE_CHAT_ADMISSION_QUEUE_MS === undefined) {
+    assert.equal(CHAT_ADMISSION_QUEUE_MAX_MS, 2_000);
+  }
+  if (process.env.OMNIROUTE_CHAT_ADMISSION_MAX_QUEUED_BYTES === undefined) {
+    assert.equal(CHAT_ADMISSION_MAX_QUEUED_BYTES, 4 * 1024 * 1024);
+  }
 });
 
 test("a pre-aborted signal never parks in the admission queue", async () => {
