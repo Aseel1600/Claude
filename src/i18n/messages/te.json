@@ -937,7 +937,7 @@
   "disabled": "నిలిపివేయబడింది",
   "featureFlagOmnirouteEmergencyFallbackDescription": "బడ్జెట్ ముగిసిపోయిన అభ్యర్థనలను అత్యవసర ఉచిత ఫాల్‌బ్యాక్ ప్రొవైడర్/మోడల్‌కు రూట్ చేయండి.",
   "featureFlagArenaEloSyncEnabledDescription": "మోడల్ ఇంటెలిజెన్స్ ర్యాంకింగ్‌ల కోసం క్రమానుగత Arena AI లీడర్‌బోర్డ్ ELO సమకాలీకరణను ప్రారంభించండి.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "సెపరేటర్",
     "discovery": "డిస్కవరీ",
     "discoverySubtitle": "ఉచిత యాక్సెస్ కోసం ప్రొవైడర్లను స్కాన్ చేయండి",
+    "resilienceConnections": "కనెక్షన్ స్థితిస్థాపకత",
+    "resilienceConnectionsSubtitle": "కూల్‌డౌన్, బ్రేకర్, లాక్‌అవుట్ స్థితి",
     "settingsModalityBridge": "మోడాలిటీ బ్రిడ్జ్",
     "settingsModalityBridgeSubtitle": "చిత్రం/ఆడియో → టెక్స్ట్ మాత్రమే మోడళ్ల కోసం టెక్స్ట్ ఫాల్బ్యాక్"
   },
@@ -2519,7 +2521,7 @@
       "always": "ఎల్లప్పుడూ"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "ఇంటర్‌సెప్షన్ సెట్టింగ్‌లను లోడ్ చేయడం విఫలమైంది: {error}",
     "interceptionSaveError": "ఇంటర్‌సెప్షన్ సెట్టింగ్‌లను సేవ్ చేయడం విఫలమైంది: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) అనేది OmniRoute యొక్క వ్యవస్థాపక ఓపెన్ సోర్స్ మిత్రుడు",
     "cheaperInferenceSupporterBadge": "ఓపెన్ సోర్స్ స్నేహితుడు",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference ఓపెన్ సోర్స్ స్నేహితురాలిగా OmniRoute కు మద్దతు ఇస్తోంది",
-    "kimiPartnerLinkNote": "భాగస్వామి లింక్ — మీకు ఎటువంటి అదనపు ఖర్చు లేకుండా OmniRouteకు మద్దతు ఇస్తుంది"
+    "kimiPartnerLinkNote": "భాగస్వామి లింక్ — మీకు ఎటువంటి అదనపు ఖర్చు లేకుండా OmniRouteకు మద్దతు ఇస్తుంది",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "కనీస సందేశ నిడివి"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "కాపీ చేయబడింది!",
     "run": "రన్ చేయండి",
     "running": "రన్ అవుతోంది...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "ప్రతిస్పందన",
     "tunnel": "టన్నెల్",
     "send": "పంపండి",
@@ -12364,5 +12379,99 @@
     "addConnection": "కనెక్షన్ జోడించండి",
     "addConnectionDescription": "ఇంకా కనెక్షన్ లేదు? ప్రొవైడర్ డాష్‌బోర్డులో ఒకటి జోడించండి.",
     "addConnectionLink": "ప్రొవైడర్లకు వెళ్లండి →"
+  },
+  "resilienceConnections": {
+    "title": "కనెక్షన్ స్థితిస్థాపకత",
+    "table": {
+      "status": "స్థితి",
+      "provider": "ప్రొవైడర్",
+      "connectionId": "కనెక్షన్",
+      "authType": "ప్రామాణీకరణ",
+      "backoffLevel": "బ్యాక్‌ఆఫ్",
+      "cooldown": "కూల్‌డౌన్",
+      "lastError": "చివరి లోపం",
+      "lockouts": "లాక్‌అవుట్‌లు",
+      "healthy": "ఆరోగ్యంగా",
+      "coolingDown": "కూల్‌డౌన్",
+      "circuitOpen": "సర్క్యూట్ ఓపెన్",
+      "recovering": "కోలుకుంటోంది",
+      "degraded": "క్షీణించింది",
+      "terminal": "టెర్మినల్",
+      "unknown": "తెలియదు",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "బ్రేకర్ మార్పులు",
+      "window": "విండో",
+      "window1h": "1గం",
+      "window6h": "6గం",
+      "window24h": "24గం",
+      "empty": "ఎంచుకున్న విండోలో మార్పులు లేవు",
+      "currentState": "ప్రస్తుత స్థితి",
+      "state": {
+        "open": "తెరిచి ఉంది",
+        "half_open": "సగం తెరిచి ఉంది",
+        "closed": "మూసివేయబడింది",
+        "degraded": "క్షీణించింది"
+      },
+      "reason": {
+        "timeout-elapsed": "సమయం ముగిసింది",
+        "success-recovery": "విజయం ద్వారా కోలుకోవడం",
+        "manual-reset": "మాన్యువల్ రీసెట్",
+        "probe-success": "ప్రోబ్ విజయవంతమైంది",
+        "recovery": "కోలుకోవడం",
+        "probe-failed": "ప్రోబ్ విఫలమైంది"
+      }
+    },
+    "detail": {
+      "title": "కనెక్షన్ వివరాలు",
+      "metadata": "మెటాడేటా",
+      "cooldown": "కూల్‌డౌన్",
+      "lastError": "చివరి లోపం",
+      "breaker": "సర్క్యూట్ బ్రేకర్",
+      "lockouts": "మోడల్ లాక్‌అవుట్‌లు",
+      "rateLimitedUntil": "వరకు రేటు-పరిమితం",
+      "backoffLevel": "బ్యాక్‌ఆఫ్ స్థాయి",
+      "remaining": "మిగిలినవి",
+      "noLockouts": "క్రియాశీల లాక్‌అవుట్‌లు లేవు",
+      "provider": "ప్రొవైడర్",
+      "id": "ID",
+      "authType": "ప్రామాణీకరణ రకం",
+      "priority": "ప్రాధాన్యత",
+      "isActive": "క్రియాశీలం",
+      "errorCode": "లోప కోడ్",
+      "lastErrorAt": "చివరి లోపం సమయం",
+      "yes": "అవును",
+      "no": "కాదు",
+      "close": "మూసివేయి",
+      "never": "-",
+      "failureCount": "వైఫల్యాల సంఖ్య",
+      "retryAfterMs": "తర్వాత మళ్లీ ప్రయత్నించండి (ms)",
+      "lastFailureKind": "చివరి వైఫల్య రకం"
+    },
+    "empty": {
+      "title": "కనెక్షన్‌లు లేవు",
+      "description": "ప్రొవైడర్ కనెక్షన్‌లు ఇక్కడ కనిపిస్తాయి."
+    },
+    "loading": {
+      "title": "లోడ్ అవుతోంది",
+      "description": "కనెక్షన్ స్థితిస్థాపకత స్థితిని పొందుతోంది..."
+    },
+    "summary": {
+      "total": "{count} కనెక్షన్‌లు",
+      "coolingDown": "{count} కూల్‌డౌన్‌లో",
+      "unhealthyBreakers": "{count} బ్రేకర్లు మూసివేయబడలేదు",
+      "capped": "మొదటి 1000 చూపిస్తోంది"
+    },
+    "pollingNote": "గమనిక: ఈ పేజీని చూడటం బ్రేకర్ యొక్క ఆలస్య రికవరీని ప్రేరేపిస్తుంది (HALF_OPEN ప్రోబ్‌లు). ప్రతి 30సె రిఫ్రెష్ అవుతుంది.",
+    "retry": "మళ్లీ ప్రయత్నించండి",
+    "pollErrorLocalOnly": "ఈ పేజీ localhost లేదా LAN నుండి మాత్రమే యాక్సెస్ చేయబడుతుంది (LOCAL_ONLY).",
+    "pollErrorStopped": "పోలింగ్ ఆగింది: సర్వర్ అభ్యర్థనను తిరస్కరించింది (404/403).",
+    "pollErrorTransient": "డేటాను పొందడంలో లోపం: స్వయంచాలకంగా మళ్లీ ప్రయత్నిస్తోంది.",
+    "degraded": "పాక్షిక డేటా: అందుబాటులో లేని మూలాలు: {sources}",
+    "degraded.source.database": "డేటాబేస్",
+    "degraded.source.circuitBreaker": "సర్క్యూట్ బ్రేకర్",
+    "degraded.source.modelLockouts": "మోడల్ లాక్‌అవుట్‌లు",
+    "degraded.source.count": "కనెక్షన్ల సంఖ్య"
   }
 }

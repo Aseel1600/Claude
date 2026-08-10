@@ -937,7 +937,7 @@
   "disabled": "Imezimwa",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Elekeza maombi yaliyomaliza bajeti kwenye mtoa huduma/muundo wa dharura wa akiba usiolipiwa.",
   "featureFlagArenaEloSyncEnabledDescription": "Washa usawazishaji wa mara kwa mara wa ELO wa ubao wa wanaoongoza wa Arena AI kwa viwango vya akili vya muundo.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Kigawanyishi",
     "discovery": "Ugunduzi",
     "discoverySubtitle": "Changanua watoa huduma kwa ufikiaji wa bure",
+    "resilienceConnections": "Uimara wa Muunganisho",
+    "resilienceConnectionsSubtitle": "Kupoa, kivunja mzunguko, hali ya kufuli",
     "settingsModalityBridge": "Daraja la Modality",
     "settingsModalityBridgeSubtitle": "Picha/sauti → maandiko ya akiba kwa mifano ya maandiko pekee"
   },
@@ -2519,7 +2521,7 @@
       "always": "Kila wakati"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Imeshindwa kupakia mipangilio ya uzuiaji: {error}",
     "interceptionSaveError": "Imeshindwa kuhifadhi mipangilio ya uzuiaji: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) ni rafiki mwanzilishi wa chanzo huria wa OmniRoute",
     "cheaperInferenceSupporterBadge": "Rafiki wa Chanzo Huria",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference inaunga mkono OmniRoute kama Rafiki wa Chanzo Huria",
-    "kimiPartnerLinkNote": "Kiungo cha mshirika — kinaunga mkono OmniRoute bila gharama ya ziada kwako"
+    "kimiPartnerLinkNote": "Kiungo cha mshirika — kinaunga mkono OmniRoute bila gharama ya ziada kwako",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Urefu wa chini wa ujumbe"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Imenakiliwa!",
     "run": "Endesha",
     "running": "Inaendesha...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Jibu",
     "tunnel": "Tunnel",
     "send": "Tuma",
@@ -12364,5 +12379,99 @@
     "addConnection": "Lägg till anslutning",
     "addConnectionDescription": "Har du ingen anslutning ännu? Lägg till en i leverantörernas instrumentpanel.",
     "addConnectionLink": "Gå till leverantörer →"
+  },
+  "resilienceConnections": {
+    "title": "Uimara wa Muunganisho",
+    "table": {
+      "status": "Hali",
+      "provider": "Mtoa Huduma",
+      "connectionId": "Muunganisho",
+      "authType": "Uthibitishaji",
+      "backoffLevel": "Kurudi Nyuma",
+      "cooldown": "Kupoa",
+      "lastError": "Hitilafu ya Mwisho",
+      "lockouts": "Kufuli",
+      "healthy": "Salama",
+      "coolingDown": "Kupoa",
+      "circuitOpen": "Mzunguko Wazi",
+      "recovering": "Inapona",
+      "degraded": "Imedhoofika",
+      "terminal": "Mwisho",
+      "unknown": "Haijulikani",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Mabadiliko ya Kivunja Mzunguko",
+      "window": "Dirisha",
+      "window1h": "saa1",
+      "window6h": "saa6",
+      "window24h": "saa24",
+      "empty": "Hakuna mabadiliko katika dirisha lililochaguliwa",
+      "currentState": "Hali ya Sasa",
+      "state": {
+        "open": "Wazi",
+        "half_open": "Nusu Wazi",
+        "closed": "Imefungwa",
+        "degraded": "Imedhoofika"
+      },
+      "reason": {
+        "timeout-elapsed": "Muda Umeisha",
+        "success-recovery": "Kupona kwa Ufanisi",
+        "manual-reset": "Kuweka Upya kwa Mikono",
+        "probe-success": "Uchunguzi Umefanikiwa",
+        "recovery": "Kupona",
+        "probe-failed": "Uchunguzi Umeshindwa"
+      }
+    },
+    "detail": {
+      "title": "Maelezo ya Muunganisho",
+      "metadata": "Metadata",
+      "cooldown": "Kupoa",
+      "lastError": "Hitilafu ya Mwisho",
+      "breaker": "Kivunja Mzunguko",
+      "lockouts": "Kufuli za Mfano",
+      "rateLimitedUntil": "Kikomo cha Kasi Hadi",
+      "backoffLevel": "Kiwango cha Kurudi Nyuma",
+      "remaining": "Iliyobaki",
+      "noLockouts": "Hakuna kufuli hai",
+      "provider": "Mtoa Huduma",
+      "id": "ID",
+      "authType": "Aina ya Uthibitishaji",
+      "priority": "Kipaumbele",
+      "isActive": "Hai",
+      "errorCode": "Msimbo wa Hitilafu",
+      "lastErrorAt": "Hitilafu ya Mwisho Saa",
+      "yes": "Ndiyo",
+      "no": "Hapana",
+      "close": "Funga",
+      "never": "-",
+      "failureCount": "Idadi ya Kushindwa",
+      "retryAfterMs": "Jaribu Tena Baada ya (ms)",
+      "lastFailureKind": "Aina ya Mwisho ya Kushindwa"
+    },
+    "empty": {
+      "title": "Hakuna muunganisho",
+      "description": "Miunganisho ya mtoa huduma itaonekana hapa."
+    },
+    "loading": {
+      "title": "Inapakia",
+      "description": "Inapata hali ya uimara wa muunganisho..."
+    },
+    "summary": {
+      "total": "{count} miunganisho",
+      "coolingDown": "{count} inapoa",
+      "unhealthyBreakers": "{count} vivunja mzunguko havijafungwa",
+      "capped": "inaonyesha 1000 za kwanza"
+    },
+    "pollingNote": "Kumbuka: kutazama ukurasa huu husababisha kupona kwa uvivu kwa kivunja mzunguko (uchunguzi wa HALF_OPEN). Inasasishwa kila sekunde 30.",
+    "retry": "Jaribu Tena",
+    "pollErrorLocalOnly": "Ukurasa huu unafikiwa tu kutoka localhost au LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Uchunguzi umesimamishwa: seva ilikataa ombi (404/403).",
+    "pollErrorTransient": "Hitilafu katika kupata data: inajaribu tena kiotomatiki.",
+    "degraded": "Data isiyokamilika: vyanzo visivyopatikana: {sources}",
+    "degraded.source.database": "Hifadhidata",
+    "degraded.source.circuitBreaker": "Kivunja Mzunguko",
+    "degraded.source.modelLockouts": "Kufuli za Mfano",
+    "degraded.source.count": "Idadi ya Miunganisho"
   }
 }

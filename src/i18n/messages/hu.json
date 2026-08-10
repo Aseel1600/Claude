@@ -937,7 +937,7 @@
   "disabled": "Letiltva",
   "featureFlagOmnirouteEmergencyFallbackDescription": "A keretet kimerítő kérések átirányítása a vészhelyzeti ingyenes tartalék szolgáltatóhoz/modellhez.",
   "featureFlagArenaEloSyncEnabledDescription": "Rendszeres Arena AI ranglista ELO szinkronizáció engedélyezése a modellintelligencia rangsorokhoz.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Otthon",
     "dashboard": "Irányítópult",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Elválasztó",
     "discovery": "Felfedezés",
     "discoverySubtitle": "Szolgáltatók vizsgálata ingyenes hozzáférésért",
+    "resilienceConnections": "Kapcsolat Ellenálló Képesség",
+    "resilienceConnectionsSubtitle": "Cooldown, megszakító, zárolási állapot",
     "settingsModalityBridge": "Modalitás Híd",
     "settingsModalityBridgeSubtitle": "Kép/hang → szöveg visszaesés csak szöveges modellekhez"
   },
@@ -2519,7 +2521,7 @@
       "always": "Mindig"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Nem adtak hozzá új modelleket (már mindegyik létezik).",
     "importDoneCount": "✓ Kész! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Váratlan hiba történt",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "üzeneteket",
     "responsesPath": "válaszokat",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Nem sikerült betölteni az elfogási beállításokat: {error}",
     "interceptionSaveError": "Nem sikerült menteni az elfogási beállításokat: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "A Kimi (Moonshot AI) az OmniRoute alapító nyílt forráskódú barátja",
     "cheaperInferenceSupporterBadge": "Nyílt forráskódú barát",
     "cheaperInferenceSupporterTooltip": "A Cheaper Inference nyílt forráskódú barátként támogatja az OmniRoute-ot",
-    "kimiPartnerLinkNote": "Partnerhivatkozás — az Ön számára további költség nélkül támogatja az OmniRoute-ot"
+    "kimiPartnerLinkNote": "Partnerhivatkozás — az Ön számára további költség nélkül támogatja az OmniRoute-ot",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Beállítások elemre",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Minimális üzenethossz"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Másolva!",
     "run": "Futtatás",
     "running": "Futtatás...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Válasz",
     "tunnel": "Alagút",
     "send": "Küldés",
@@ -12364,5 +12379,99 @@
     "addConnection": "Kapcsolat hozzáadása",
     "addConnectionDescription": "Még nincs kapcsolatod? Adj hozzá egyet a szolgáltatók irányítópultján.",
     "addConnectionLink": "Menj a szolgáltatókhoz →"
+  },
+  "resilienceConnections": {
+    "title": "Kapcsolat Ellenálló Képesség",
+    "table": {
+      "status": "Állapot",
+      "provider": "Szolgáltató",
+      "connectionId": "Kapcsolat",
+      "authType": "Hitelesítés",
+      "backoffLevel": "Visszalépés",
+      "cooldown": "Cooldown",
+      "lastError": "Utolsó Hiba",
+      "lockouts": "Zárolások",
+      "healthy": "Egészséges",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Áramkör Nyitva",
+      "recovering": "Helyreáll",
+      "degraded": "Leromlott",
+      "terminal": "Terminál",
+      "unknown": "Ismeretlen",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Megszakító Átmenetek",
+      "window": "Ablak",
+      "window1h": "1ó",
+      "window6h": "6ó",
+      "window24h": "24ó",
+      "empty": "Nincs átmenet a kiválasztott ablakban",
+      "currentState": "Jelenlegi Állapot",
+      "state": {
+        "open": "Nyitva",
+        "half_open": "Félig Nyitva",
+        "closed": "Zárva",
+        "degraded": "Leromlott"
+      },
+      "reason": {
+        "timeout-elapsed": "Időtúllépés",
+        "success-recovery": "Helyreállás Sikerrel",
+        "manual-reset": "Kézi Visszaállítás",
+        "probe-success": "Próba Sikeres",
+        "recovery": "Helyreállás",
+        "probe-failed": "Próba Sikertelen"
+      }
+    },
+    "detail": {
+      "title": "Kapcsolat Részletei",
+      "metadata": "Metaadatok",
+      "cooldown": "Cooldown",
+      "lastError": "Utolsó Hiba",
+      "breaker": "Megszakító",
+      "lockouts": "Modell Zárolások",
+      "rateLimitedUntil": "Sebességkorlátozva Eddig",
+      "backoffLevel": "Visszalépési Szint",
+      "remaining": "Hátralévő",
+      "noLockouts": "Nincs aktív zárolás",
+      "provider": "Szolgáltató",
+      "id": "ID",
+      "authType": "Hitelesítés Típusa",
+      "priority": "Prioritás",
+      "isActive": "Aktív",
+      "errorCode": "Hibakód",
+      "lastErrorAt": "Utolsó Hiba Ekkor",
+      "yes": "Igen",
+      "no": "Nem",
+      "close": "Bezárás",
+      "never": "-",
+      "failureCount": "Hibák Száma",
+      "retryAfterMs": "Újrapróbálás Után (ms)",
+      "lastFailureKind": "Utolsó Hiba Típusa"
+    },
+    "empty": {
+      "title": "Nincs kapcsolat",
+      "description": "A szolgáltató kapcsolatai itt jelennek meg."
+    },
+    "loading": {
+      "title": "Betöltés",
+      "description": "Kapcsolat ellenálló képesség állapotának lekérése..."
+    },
+    "summary": {
+      "total": "{count} kapcsolat",
+      "coolingDown": "{count} cooldownban",
+      "unhealthyBreakers": "{count} megszakító nincs zárva",
+      "capped": "az első 1000 megjelenítése"
+    },
+    "pollingNote": "Megjegyzés: az oldal megtekintése aktiválja a megszakító lusta helyreállítását (HALF_OPEN próbák). Frissítés 30 másodpercenként.",
+    "retry": "Újrapróbálás",
+    "pollErrorLocalOnly": "Ez az oldal csak localhostról vagy LAN-ról érhető el (LOCAL_ONLY).",
+    "pollErrorStopped": "Lekérdezés leállítva: a szerver elutasította a kérést (404/403).",
+    "pollErrorTransient": "Hiba az adatok lekérésekor: automatikus újrapróbálkozás.",
+    "degraded": "Részleges adatok: nem elérhető források: {sources}",
+    "degraded.source.database": "Adatbázis",
+    "degraded.source.circuitBreaker": "Megszakító",
+    "degraded.source.modelLockouts": "Modell Zárolások",
+    "degraded.source.count": "Kapcsolatok Száma"
   }
 }

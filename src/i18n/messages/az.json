@@ -937,7 +937,7 @@
   "disabled": "Deaktiv",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Büdcəsi tükənmiş sorğuları təcili pulsuz ehtiyat təminatçıya/modelə yönləndirin.",
   "featureFlagArenaEloSyncEnabledDescription": "Model intellekti reytinqləri üçün dövri Arena AI liderlər cədvəli ELO sinxronizasiyasını aktivləşdirin.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Ayırıcı",
     "discovery": "Kəşf",
     "discoverySubtitle": "Pulsuz giriş üçün provayderləri skan edin",
+    "resilienceConnections": "Bağlantı Davamlılığı",
+    "resilienceConnectionsSubtitle": "Soyuma, açar, blok vəziyyəti",
     "settingsModalityBridge": "Modallıq Körpüsü",
     "settingsModalityBridgeSubtitle": "Şəkil/səs → mətn yalnız model üçün mətnə keçid"
   },
@@ -2519,7 +2521,7 @@
       "always": "Həmişə"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Ələ keçirmə parametrlərini yükləmək mümkün olmadı: {error}",
     "interceptionSaveError": "Ələ keçirmə parametrlərini yadda saxlamaq mümkün olmadı: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) OmniRoute-un təsisçi Açıq Mənbə Dostudur",
     "cheaperInferenceSupporterBadge": "Açıq Mənbə Dostu",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference OmniRoute-u Açıq Mənbə Dostu kimi dəstəkləyir",
-    "kimiPartnerLinkNote": "Tərəfdaş linki — sizə heç bir əlavə xərc olmadan OmniRoute-u dəstəkləyir"
+    "kimiPartnerLinkNote": "Tərəfdaş linki — sizə heç bir əlavə xərc olmadan OmniRoute-u dəstəkləyir",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Minimum mesaj uzunluğu"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Kopyalandı!",
     "run": "İşə sal",
     "running": "İcra olunur...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Cavab",
     "tunnel": "Tunel",
     "send": "Göndər",
@@ -12364,5 +12379,99 @@
     "addConnection": "Bağlantı əlavə et",
     "addConnectionDescription": "Hələ bağlantınız yoxdur? Təchizatçılar panelində birini əlavə edin.",
     "addConnectionLink": "Təchizatçılara keç →"
+  },
+  "resilienceConnections": {
+    "title": "Bağlantı Davamlılığı",
+    "table": {
+      "status": "Status",
+      "provider": "Provayder",
+      "connectionId": "Bağlantı",
+      "authType": "Autentifikasiya",
+      "backoffLevel": "Geri Çəkilmə",
+      "cooldown": "Soyuma",
+      "lastError": "Son Xəta",
+      "lockouts": "Bloklar",
+      "healthy": "Sağlam",
+      "coolingDown": "Soyuma",
+      "circuitOpen": "Dövrə Açıq",
+      "recovering": "Bərpa Olunur",
+      "degraded": "Zəifləmiş",
+      "terminal": "Terminal",
+      "unknown": "Naməlum",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Açar Keçidləri",
+      "window": "Pəncərə",
+      "window1h": "1s",
+      "window6h": "6s",
+      "window24h": "24s",
+      "empty": "Seçilmiş pəncərədə keçid yoxdur",
+      "currentState": "Cari Vəziyyət",
+      "state": {
+        "open": "Açıq",
+        "half_open": "Yarı Açıq",
+        "closed": "Qapalı",
+        "degraded": "Zəifləmiş"
+      },
+      "reason": {
+        "timeout-elapsed": "Vaxt Bitdi",
+        "success-recovery": "Uğurla Bərpa",
+        "manual-reset": "Əl ilə Sıfırlama",
+        "probe-success": "Sınaq Uğurlu",
+        "recovery": "Bərpa",
+        "probe-failed": "Sınaq Uğursuz"
+      }
+    },
+    "detail": {
+      "title": "Bağlantı Təfərrüatı",
+      "metadata": "Metaverilənlər",
+      "cooldown": "Soyuma",
+      "lastError": "Son Xəta",
+      "breaker": "Dövrə Açarı",
+      "lockouts": "Model Blokları",
+      "rateLimitedUntil": "Sürət Məhdudlaşdırılıb",
+      "backoffLevel": "Geri Çəkilmə Səviyyəsi",
+      "remaining": "Qalıq",
+      "noLockouts": "Aktiv blok yoxdur",
+      "provider": "Provayder",
+      "id": "ID",
+      "authType": "Autentifikasiya Növü",
+      "priority": "Prioritet",
+      "isActive": "Aktiv",
+      "errorCode": "Xəta Kodu",
+      "lastErrorAt": "Son Xəta Vaxtı",
+      "yes": "Bəli",
+      "no": "Xeyr",
+      "close": "Bağla",
+      "never": "-",
+      "failureCount": "Uğursuzluq Sayı",
+      "retryAfterMs": "Sonra Yenidən Cəhd Et (ms)",
+      "lastFailureKind": "Son Uğursuzluq Növü"
+    },
+    "empty": {
+      "title": "Bağlantı yoxdur",
+      "description": "Provayder bağlantıları burada görünəcək."
+    },
+    "loading": {
+      "title": "Yüklənir",
+      "description": "Bağlantı davamlılığı vəziyyəti alınır..."
+    },
+    "summary": {
+      "total": "{count} bağlantı",
+      "coolingDown": "{count} soyumada",
+      "unhealthyBreakers": "{count} açar bağlanmayıb",
+      "capped": "ilk 1000 göstərilir"
+    },
+    "pollingNote": "Qeyd: bu səhifəyə baxmaq açarın tənbəl bərpasını işə salır (HALF_OPEN sınaqları). Hər 30 saniyədən yenilənir.",
+    "retry": "Yenidən Cəhd Et",
+    "pollErrorLocalOnly": "Bu səhifə yalnız localhost və ya LAN-dan əlçatandır (LOCAL_ONLY).",
+    "pollErrorStopped": "Sorğu dayandırıldı: server sorğunu rədd etdi (404/403).",
+    "pollErrorTransient": "Məlumat alarkən xəta: avtomatik yenidən cəhd edilir.",
+    "degraded": "Qismən məlumat: əlçatmaz mənbələr: {sources}",
+    "degraded.source.database": "Verilənlər Bazası",
+    "degraded.source.circuitBreaker": "Dövrə Açarı",
+    "degraded.source.modelLockouts": "Model Blokları",
+    "degraded.source.count": "Bağlantı Sayı"
   }
 }

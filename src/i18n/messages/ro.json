@@ -937,7 +937,7 @@
   "disabled": "Dezactivat",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Redirecționează cererile cu buget epuizat către furnizorul/modelul de rezervă gratuit de urgență.",
   "featureFlagArenaEloSyncEnabledDescription": "Activează sincronizarea periodică ELO a clasamentului Arena AI pentru clasamentele de inteligență ale modelelor.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Acasă",
     "dashboard": "Tabloul de bord",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Separator",
     "discovery": "Descoperire",
     "discoverySubtitle": "Scanează furnizorii pentru acces gratuit",
+    "resilienceConnections": "Reziliența Conexiunii",
+    "resilienceConnectionsSubtitle": "Cooldown, întrerupător, stare de blocare",
     "settingsModalityBridge": "Podul de Modalitate",
     "settingsModalityBridgeSubtitle": "Fallback pentru text-only modele pentru imagine/audio → text"
   },
@@ -2519,7 +2521,7 @@
       "always": "Întotdeauna"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Nu au fost adăugate modele noi (toate există deja).",
     "importDoneCount": "✓ Gata! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "A apărut o eroare neașteptată",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mesaje",
     "responsesPath": "răspunsuri",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Nu s-au putut încărca setările de interceptare: {error}",
     "interceptionSaveError": "Nu s-au putut salva setările de interceptare: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) este prietenul fondator open source al OmniRoute",
     "cheaperInferenceSupporterBadge": "Prieten open source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference susține OmniRoute ca prieten open source",
-    "kimiPartnerLinkNote": "Link de partener — susține OmniRoute fără costuri suplimentare pentru dvs."
+    "kimiPartnerLinkNote": "Link de partener — susține OmniRoute fără costuri suplimentare pentru dvs.",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Setări",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Lungime minimă a mesajului"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Copiat!",
     "run": "Rulează",
     "running": "Se rulează...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Răspuns",
     "tunnel": "Tunel",
     "send": "Trimite",
@@ -12364,5 +12379,99 @@
     "addConnection": "Adaugă conexiune",
     "addConnectionDescription": "Nu ai o conexiune încă? Adaugă una în tabloul de bord al furnizorilor.",
     "addConnectionLink": "Mergi la furnizori →"
+  },
+  "resilienceConnections": {
+    "title": "Reziliența Conexiunii",
+    "table": {
+      "status": "Stare",
+      "provider": "Furnizor",
+      "connectionId": "Conexiune",
+      "authType": "Autentificare",
+      "backoffLevel": "Amânare",
+      "cooldown": "Cooldown",
+      "lastError": "Ultima Eroare",
+      "lockouts": "Blocaje",
+      "healthy": "Sănătos",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuit Deschis",
+      "recovering": "Se Recuperează",
+      "degraded": "Degradat",
+      "terminal": "Terminal",
+      "unknown": "Necunoscut",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Tranziții Întrerupător",
+      "window": "Fereastră",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Nicio tranziție în fereastra selectată",
+      "currentState": "Stare Curentă",
+      "state": {
+        "open": "Deschis",
+        "half_open": "Semi-deschis",
+        "closed": "Închis",
+        "degraded": "Degradat"
+      },
+      "reason": {
+        "timeout-elapsed": "Timp Expirat",
+        "success-recovery": "Recuperare prin Succes",
+        "manual-reset": "Resetare Manuală",
+        "probe-success": "Sondă Reușită",
+        "recovery": "Recuperare",
+        "probe-failed": "Sondă Eșuată"
+      }
+    },
+    "detail": {
+      "title": "Detaliu Conexiune",
+      "metadata": "Metadate",
+      "cooldown": "Cooldown",
+      "lastError": "Ultima Eroare",
+      "breaker": "Întrerupător de Circuit",
+      "lockouts": "Blocaje Model",
+      "rateLimitedUntil": "Limitat ca Rată Până La",
+      "backoffLevel": "Nivel Amânare",
+      "remaining": "Rămas",
+      "noLockouts": "Niciun blocaj activ",
+      "provider": "Furnizor",
+      "id": "ID",
+      "authType": "Tip Autentificare",
+      "priority": "Prioritate",
+      "isActive": "Activ",
+      "errorCode": "Cod Eroare",
+      "lastErrorAt": "Ultima Eroare La",
+      "yes": "Da",
+      "no": "Nu",
+      "close": "Închide",
+      "never": "-",
+      "failureCount": "Număr Eșecuri",
+      "retryAfterMs": "Reîncearcă După (ms)",
+      "lastFailureKind": "Ultimul Tip de Eșec"
+    },
+    "empty": {
+      "title": "Nicio conexiune",
+      "description": "Conexiunile furnizorului vor apărea aici."
+    },
+    "loading": {
+      "title": "Se încarcă",
+      "description": "Se preia starea de reziliență a conexiunii..."
+    },
+    "summary": {
+      "total": "{count} conexiuni",
+      "coolingDown": "{count} în cooldown",
+      "unhealthyBreakers": "{count} întrerupătoare neînchise",
+      "capped": "se afișează primele 1000"
+    },
+    "pollingNote": "Notă: vizualizarea acestei pagini declanșează recuperarea leneșă a întrerupătorului (sonde HALF_OPEN). Reîmprospătare la 30s.",
+    "retry": "Reîncearcă",
+    "pollErrorLocalOnly": "Această pagină este accesibilă doar din localhost sau LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Interogare oprită: serverul a respins cererea (404/403).",
+    "pollErrorTransient": "Eroare la preluarea datelor: reîncercare automată.",
+    "degraded": "Date parțiale: surse indisponibile: {sources}",
+    "degraded.source.database": "Bază de Date",
+    "degraded.source.circuitBreaker": "Întrerupător de Circuit",
+    "degraded.source.modelLockouts": "Blocaje Model",
+    "degraded.source.count": "Număr de Conexiuni"
   }
 }

@@ -937,7 +937,7 @@
   "disabled": "Poistettu käytöstä",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Reititä budjettinsa ylittäneet pyynnöt varalla olevalle ilmaiselle varatarjoajalle/-mallille.",
   "featureFlagArenaEloSyncEnabledDescription": "Ota käyttöön jaksottainen Arena AI -tulostaulukon ELO-synkronointi mallien älykkyysluokituksia varten.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Kotiin",
     "dashboard": "Kojelauta",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Erotin",
     "discovery": "Löytäminen",
     "discoverySubtitle": "Skannaa tarjoajat ilmaisen pääsyn varalta",
+    "resilienceConnections": "Yhteyden Kestävyys",
+    "resilienceConnectionsSubtitle": "Jäähdytys, katkaisija, lukitustila",
     "settingsModalityBridge": "Modaalisilta",
     "settingsModalityBridgeSubtitle": "Kuva/ääni → tekstivaraus vain tekstimalleille"
   },
@@ -2519,7 +2521,7 @@
       "always": "Aina"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Uusia malleja ei lisätty (kaikki on jo olemassa).",
     "importDoneCount": "✓ Valmis! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Tapahtui odottamaton virhe",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "viestejä",
     "responsesPath": "vastaukset",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Sieppausasetusten lataaminen epäonnistui: {error}",
     "interceptionSaveError": "Sieppausasetusten tallentaminen epäonnistui: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) on OmniRouten perustajan avoimen lähdekoodin ystävä",
     "cheaperInferenceSupporterBadge": "Avoimen lähdekoodin ystävä",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference tukee OmniRoutea avoimen lähdekoodin ystävänä",
-    "kimiPartnerLinkNote": "Kumppanilinkki — tukee OmniRoutea ilman lisäkustannuksia sinulle"
+    "kimiPartnerLinkNote": "Kumppanilinkki — tukee OmniRoutea ilman lisäkustannuksia sinulle",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Asetukset",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Viestin vähimmäispituus"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Kopioitu!",
     "run": "Suorita",
     "running": "Suoritetaan...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Vastaus",
     "tunnel": "Tunneli",
     "send": "Lähetä",
@@ -12364,5 +12379,99 @@
     "addConnection": "Lisää yhteys",
     "addConnectionDescription": "Eikö sinulla vielä ole yhteyttä? Lisää yksi palveluntarjoajien hallintapaneelissa.",
     "addConnectionLink": "Siirry palveluntarjoajiin →"
+  },
+  "resilienceConnections": {
+    "title": "Yhteyden Kestävyys",
+    "table": {
+      "status": "Tila",
+      "provider": "Palveluntarjoaja",
+      "connectionId": "Yhteys",
+      "authType": "Todennus",
+      "backoffLevel": "Peruutus",
+      "cooldown": "Jäähdytys",
+      "lastError": "Viimeisin Virhe",
+      "lockouts": "Lukitukset",
+      "healthy": "Terve",
+      "coolingDown": "Jäähdytys",
+      "circuitOpen": "Piiri Auki",
+      "recovering": "Palautuu",
+      "degraded": "Heikentynyt",
+      "terminal": "Pääte",
+      "unknown": "Tuntematon",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Katkaisijan Siirtymät",
+      "window": "Ikkuna",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Ei siirtymiä valitussa ikkunassa",
+      "currentState": "Nykyinen Tila",
+      "state": {
+        "open": "Auki",
+        "half_open": "Puoliauki",
+        "closed": "Suljettu",
+        "degraded": "Heikentynyt"
+      },
+      "reason": {
+        "timeout-elapsed": "Aikakatkaisu",
+        "success-recovery": "Palautuminen Onnistumisesta",
+        "manual-reset": "Manuaalinen Nollaus",
+        "probe-success": "Koettelu Onnistui",
+        "recovery": "Palautuminen",
+        "probe-failed": "Koettelu Epäonnistui"
+      }
+    },
+    "detail": {
+      "title": "Yhteyden Tiedot",
+      "metadata": "Metatiedot",
+      "cooldown": "Jäähdytys",
+      "lastError": "Viimeisin Virhe",
+      "breaker": "Piirikatkaisija",
+      "lockouts": "Mallilukitukset",
+      "rateLimitedUntil": "Nopeusrajoitettu Asti",
+      "backoffLevel": "Peruutustaso",
+      "remaining": "Jäljellä",
+      "noLockouts": "Ei aktiivisia lukituksia",
+      "provider": "Palveluntarjoaja",
+      "id": "ID",
+      "authType": "Todennustyyppi",
+      "priority": "Prioriteetti",
+      "isActive": "Aktiivinen",
+      "errorCode": "Virhekoodi",
+      "lastErrorAt": "Viimeisin Virhe Klo",
+      "yes": "Kyllä",
+      "no": "Ei",
+      "close": "Sulje",
+      "never": "-",
+      "failureCount": "Virheiden Määrä",
+      "retryAfterMs": "Yritä Uudelleen (ms)",
+      "lastFailureKind": "Viimeisin Virhetyyppi"
+    },
+    "empty": {
+      "title": "Ei yhteyksiä",
+      "description": "Palveluntarjoajan yhteydet näkyvät täällä."
+    },
+    "loading": {
+      "title": "Ladataan",
+      "description": "Haetaan yhteyden kestävyystilaa..."
+    },
+    "summary": {
+      "total": "{count} yhteyttä",
+      "coolingDown": "{count} jäähdytyksessä",
+      "unhealthyBreakers": "{count} katkaisijaa ei suljettu",
+      "capped": "näytetään ensimmäiset 1000"
+    },
+    "pollingNote": "Huom: tämän sivun katselu käynnistää katkaisijan laiskan palautumisen (HALF_OPEN-koettelut). Päivitys 30s välein.",
+    "retry": "Yritä Uudelleen",
+    "pollErrorLocalOnly": "Tämä sivu on käytettävissä vain localhostista tai LAN-verkosta (LOCAL_ONLY).",
+    "pollErrorStopped": "Kysely pysäytetty: palvelin hylkäsi pyynnön (404/403).",
+    "pollErrorTransient": "Virhe tietojen haussa: yritetään automaattisesti uudelleen.",
+    "degraded": "Osittaiset tiedot: käyttökelvottomat lähteet: {sources}",
+    "degraded.source.database": "Tietokanta",
+    "degraded.source.circuitBreaker": "Piirikatkaisija",
+    "degraded.source.modelLockouts": "Mallilukitukset",
+    "degraded.source.count": "Yhteyksien Määrä"
   }
 }

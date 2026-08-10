@@ -937,7 +937,7 @@
   "disabled": "Zakázáno",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Směrovat požadavky s vyčerpaným rozpočtem na nouzového bezplatného záložního poskytovatele/model.",
   "featureFlagArenaEloSyncEnabledDescription": "Povolit periodickou synchronizaci ELO z žebříčku Arena AI pro hodnocení inteligence modelů.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Domov",
     "dashboard": "Nástěnka",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Oddělovač",
     "discovery": "Objevování",
     "discoverySubtitle": "Skenovat poskytovatele pro bezplatný přístup",
+    "resilienceConnections": "Odolnost Připojení",
+    "resilienceConnectionsSubtitle": "Cooldown, jistič, stav uzamčení",
     "settingsModalityBridge": "Modální Most",
     "settingsModalityBridgeSubtitle": "Obrázek/audio → textový fallback pro modely pouze s textem"
   },
@@ -2519,7 +2521,7 @@
       "always": "Vždy"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Nebyly přidány žádné nové modely (všechny již existují).",
     "importDoneCount": "✓ Hotovo! {count, plural, one {# importován model.} other {# importováno modelů.}}",
     "unexpectedErrorOccurred": "Došlo k neočekávané chybě",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# spojení} other {# spojení}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Nepodařilo se načíst nastavení zachytávání: {error}",
     "interceptionSaveError": "Nepodařilo se uložit nastavení zachytávání: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) je zakládající open source přítel OmniRoute",
     "cheaperInferenceSupporterBadge": "Přítel open source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference podporuje OmniRoute jako přítel open source",
-    "kimiPartnerLinkNote": "Partnerský odkaz — podporuje OmniRoute bez jakýchkoli dalších nákladů pro vás"
+    "kimiPartnerLinkNote": "Partnerský odkaz — podporuje OmniRoute bez jakýchkoli dalších nákladů pro vás",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Nastavení",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Minimální délka zprávy"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Zkopírováno!",
     "run": "Spustit",
     "running": "Spouští se...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Odpověď",
     "tunnel": "Tunel",
     "send": "Odeslat",
@@ -12364,5 +12379,99 @@
     "addConnection": "Přidat připojení",
     "addConnectionDescription": "Ještě nemáte připojení? Přidejte jedno v řídicím panelu poskytovatelů.",
     "addConnectionLink": "Přejít na poskytovatele →"
+  },
+  "resilienceConnections": {
+    "title": "Odolnost Připojení",
+    "table": {
+      "status": "Stav",
+      "provider": "Poskytovatel",
+      "connectionId": "Připojení",
+      "authType": "Autentizace",
+      "backoffLevel": "Odklad",
+      "cooldown": "Cooldown",
+      "lastError": "Poslední Chyba",
+      "lockouts": "Uzamčení",
+      "healthy": "Zdravé",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Obvod Otevřen",
+      "recovering": "Zotavuje se",
+      "degraded": "Zhoršeno",
+      "terminal": "Terminál",
+      "unknown": "Neznámé",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Přechody Jističe",
+      "window": "Okno",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Žádné přechody ve vybraném okně",
+      "currentState": "Aktuální Stav",
+      "state": {
+        "open": "Otevřeno",
+        "half_open": "Polootevřeno",
+        "closed": "Zavřeno",
+        "degraded": "Zhoršeno"
+      },
+      "reason": {
+        "timeout-elapsed": "Časový Limit Vypršel",
+        "success-recovery": "Zotavení Úspěchem",
+        "manual-reset": "Ruční Reset",
+        "probe-success": "Sonda Úspěšná",
+        "recovery": "Zotavení",
+        "probe-failed": "Sonda Selhala"
+      }
+    },
+    "detail": {
+      "title": "Detail Připojení",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Poslední Chyba",
+      "breaker": "Jistič",
+      "lockouts": "Uzamčení Modelu",
+      "rateLimitedUntil": "Omezeno Do",
+      "backoffLevel": "Úroveň Odkladu",
+      "remaining": "Zbývá",
+      "noLockouts": "Žádná aktivní uzamčení",
+      "provider": "Poskytovatel",
+      "id": "ID",
+      "authType": "Typ Autentizace",
+      "priority": "Priorita",
+      "isActive": "Aktivní",
+      "errorCode": "Kód Chyby",
+      "lastErrorAt": "Poslední Chyba V",
+      "yes": "Ano",
+      "no": "Ne",
+      "close": "Zavřít",
+      "never": "-",
+      "failureCount": "Počet Selhání",
+      "retryAfterMs": "Zkusit Znovu Po (ms)",
+      "lastFailureKind": "Poslední Typ Selhání"
+    },
+    "empty": {
+      "title": "Žádná připojení",
+      "description": "Připojení poskytovatele se zobrazí zde."
+    },
+    "loading": {
+      "title": "Načítání",
+      "description": "Načítání stavu odolnosti připojení..."
+    },
+    "summary": {
+      "total": "{count} připojení",
+      "coolingDown": "{count} v cooldownu",
+      "unhealthyBreakers": "{count} jističů nezavřeno",
+      "capped": "zobrazeno prvních 1000"
+    },
+    "pollingNote": "Poznámka: zobrazení této stránky spouští líné zotavení jističe (sondy HALF_OPEN). Aktualizace každých 30 s.",
+    "retry": "Zkusit Znovu",
+    "pollErrorLocalOnly": "Tato stránka je přístupná pouze z localhost nebo LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Dotazování zastaveno: server odmítl požadavek (404/403).",
+    "pollErrorTransient": "Chyba při načítání dat: automatické opakování.",
+    "degraded": "Částečná data: nedostupné zdroje: {sources}",
+    "degraded.source.database": "Databáze",
+    "degraded.source.circuitBreaker": "Jistič",
+    "degraded.source.modelLockouts": "Uzamčení Modelu",
+    "degraded.source.count": "Počet Připojení"
   }
 }

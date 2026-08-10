@@ -937,7 +937,7 @@
   "disabled": "Отключено",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Перенаправлять запросы при исчерпании бюджета на резервный бесплатный провайдер/модель.",
   "featureFlagArenaEloSyncEnabledDescription": "Включить периодическую синхронизацию ELO из таблицы лидеров Arena AI для рейтинга интеллектуальности моделей.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Публиковать claude/<провайдер>/<модель> зеркальные ID на /v1/models, чтобы Claude Code мог видеть не-Claude модели. Внимание: удваивает записи каталога для всех клиентов при глобальном включении.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Публиковать claude/&lt;провайдер&gt;/&lt;модель&gt; зеркальные ID на /v1/models, чтобы Claude Code мог видеть не-Claude модели. Внимание: удваивает записи каталога для всех клиентов при глобальном включении.",
   "sidebar": {
     "home": "Главная",
     "dashboard": "Панель управления",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Разделитель",
     "discovery": "Обнаружение",
     "discoverySubtitle": "Сканировать провайдеров на наличие бесплатного доступа",
+    "resilienceConnections": "Устойчивость Соединения",
+    "resilienceConnectionsSubtitle": "Cooldown, автомат защиты, состояние блокировки",
     "settingsModalityBridge": "Мост Модальности",
     "settingsModalityBridgeSubtitle": "Резервное копирование изображения/аудио в текст для моделей только с текстом"
   },
@@ -2519,7 +2521,7 @@
       "always": "Всегда"
     },
     "ccDiscoveryInfoButton": "Как включить обнаружение в Claude Code",
-    "ccDiscoveryInfoTooltip": "Публиковать не-Claude модели под зеркальными ID claude/<провайдер>/<модель>, чтобы Claude Code мог их обнаруживать. Удваивает записи каталога для всех клиентов при глобальном включении.",
+    "ccDiscoveryInfoTooltip": "Публиковать не-Claude модели под зеркальными ID claude/&lt;провайдер&gt;/&lt;модель&gt;, чтобы Claude Code мог их обнаруживать. Удваивает записи каталога для всех клиентов при глобальном включении.",
     "ccDiscoveryInfoLink": "Открыть Feature Flags",
     "ccOnboardingTitle": "settings.json для обнаружения gateway моделей",
     "ccOnboardingCopy": "Копировать",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Новых моделей не добавлялось (все уже есть).",
     "importDoneCount": "✓ Готово! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Произошла непредвиденная ошибка",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# соединение} few {# соединения} many {# соединений} other {# соединения}}",
     "messagesPath": "сообщения",
     "responsesPath": "ответы",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Не удалось загрузить настройки перехвата: {error}",
     "interceptionSaveError": "Не удалось сохранить настройки перехвата: {error}",
     "ccAliasSectionTitle": "Зеркальные ID Claude Code",
-    "ccAliasSectionHint": "Эти зеркала публикуют не-Claude модели под ID claude/<провайдер>/<модель>, чтобы Claude Code gateway model discovery мог их перечислить.",
+    "ccAliasSectionHint": "Эти зеркала публикуют не-Claude модели под ID claude/&lt;провайдер&gt;/&lt;модель&gt;, чтобы Claude Code gateway model discovery мог их перечислить.",
     "ccAliasProviderLevelLabel": "Провайдер включён",
     "ccAliasModelOverridesLabel": "Переопределения моделей",
     "ccAliasModelOverrideAriaLabel": "Переопределение модели",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) — друг-основатель открытого кода OmniRoute",
     "cheaperInferenceSupporterBadge": "Друг открытого кода",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference поддерживает OmniRoute как друг открытого кода",
-    "kimiPartnerLinkNote": "Партнерская ссылка — поддерживает OmniRoute без дополнительных затрат с вашей стороны"
+    "kimiPartnerLinkNote": "Партнерская ссылка — поддерживает OmniRoute без дополнительных затрат с вашей стороны",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Настройки",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Минимальная длина сообщения"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Скопировано!",
     "run": "Запустить",
     "running": "Запуск...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Ответ",
     "tunnel": "Туннель",
     "send": "Отправить",
@@ -12364,5 +12379,99 @@
     "addConnection": "Добавить соединение",
     "addConnectionDescription": "У вас еще нет соединения? Добавьте его на панели провайдеров.",
     "addConnectionLink": "Перейти к провайдерам →"
+  },
+  "resilienceConnections": {
+    "title": "Устойчивость Соединения",
+    "table": {
+      "status": "Статус",
+      "provider": "Провайдер",
+      "connectionId": "Соединение",
+      "authType": "Аутентификация",
+      "backoffLevel": "Задержка",
+      "cooldown": "Cooldown",
+      "lastError": "Последняя Ошибка",
+      "lockouts": "Блокировки",
+      "healthy": "Исправно",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Цепь Разомкнута",
+      "recovering": "Восстановление",
+      "degraded": "Деградация",
+      "terminal": "Завершено",
+      "unknown": "Неизвестно",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Переходы Автомата",
+      "window": "Окно",
+      "window1h": "1ч",
+      "window6h": "6ч",
+      "window24h": "24ч",
+      "empty": "Нет переходов в выбранном окне",
+      "currentState": "Текущее Состояние",
+      "state": {
+        "open": "Разомкнуто",
+        "half_open": "Полуразомкнуто",
+        "closed": "Замкнуто",
+        "degraded": "Деградация"
+      },
+      "reason": {
+        "timeout-elapsed": "Тайм-аут Истёк",
+        "success-recovery": "Восстановление по Успеху",
+        "manual-reset": "Ручной Сброс",
+        "probe-success": "Проверка Успешна",
+        "recovery": "Восстановление",
+        "probe-failed": "Проверка Неудачна"
+      }
+    },
+    "detail": {
+      "title": "Детали Соединения",
+      "metadata": "Метаданные",
+      "cooldown": "Cooldown",
+      "lastError": "Последняя Ошибка",
+      "breaker": "Автомат Защиты",
+      "lockouts": "Блокировки Модели",
+      "rateLimitedUntil": "Ограничено по Скорости До",
+      "backoffLevel": "Уровень Задержки",
+      "remaining": "Осталось",
+      "noLockouts": "Нет активных блокировок",
+      "provider": "Провайдер",
+      "id": "ID",
+      "authType": "Тип Аутентификации",
+      "priority": "Приоритет",
+      "isActive": "Активно",
+      "errorCode": "Код Ошибки",
+      "lastErrorAt": "Последняя Ошибка В",
+      "yes": "Да",
+      "no": "Нет",
+      "close": "Закрыть",
+      "never": "-",
+      "failureCount": "Количество Сбоев",
+      "retryAfterMs": "Повтор Через (мс)",
+      "lastFailureKind": "Тип Последнего Сбоя"
+    },
+    "empty": {
+      "title": "Нет соединений",
+      "description": "Соединения провайдера появятся здесь."
+    },
+    "loading": {
+      "title": "Загрузка",
+      "description": "Получение состояния устойчивости соединения..."
+    },
+    "summary": {
+      "total": "{count} соединений",
+      "coolingDown": "{count} в cooldown",
+      "unhealthyBreakers": "{count} автоматов не замкнуто",
+      "capped": "показаны первые 1000"
+    },
+    "pollingNote": "Примечание: просмотр этой страницы запускает отложенное восстановление автомата (проверки HALF_OPEN). Обновление каждые 30с.",
+    "retry": "Повторить",
+    "pollErrorLocalOnly": "Эта страница доступна только с localhost или LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Опрос остановлен: сервер отклонил запрос (404/403).",
+    "pollErrorTransient": "Ошибка получения данных: автоматический повтор.",
+    "degraded": "Частичные данные: недоступные источники: {sources}",
+    "degraded.source.database": "База Данных",
+    "degraded.source.circuitBreaker": "Автомат Защиты",
+    "degraded.source.modelLockouts": "Блокировки Модели",
+    "degraded.source.count": "Количество Соединений"
   }
 }

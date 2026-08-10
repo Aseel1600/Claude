@@ -937,7 +937,7 @@
   "disabled": "Désactivé",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Router les requêtes ayant épuisé leur budget vers le fournisseur/modèle de secours gratuit d'urgence.",
   "featureFlagArenaEloSyncEnabledDescription": "Activer la synchronisation périodique de l'ELO du classement Arena AI pour les classements d'intelligence des modèles.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Afficher les identifiants miroir claude/<provider>/<model> dans /v1/models afin que la découverte de modèles de la passerelle Claude Code répertorie les modèles non-Claude. Attention : cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Afficher les identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; dans /v1/models afin que la découverte de modèles de la passerelle Claude Code répertorie les modèles non-Claude. Attention : cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
   "sidebar": {
     "home": "Accueil",
     "dashboard": "Tableau de bord",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Séparateur",
     "discovery": "Découverte",
     "discoverySubtitle": "Analyser les fournisseurs pour un accès gratuit",
+    "resilienceConnections": "Résilience de Connexion",
+    "resilienceConnectionsSubtitle": "Cooldown, disjoncteur, état de blocage",
     "settingsModalityBridge": "Pont de Modalité",
     "settingsModalityBridgeSubtitle": "Fallback image/audio → texte pour les modèles uniquement textuels"
   },
@@ -2519,7 +2521,7 @@
       "always": "Toujours"
     },
     "ccDiscoveryInfoButton": "Comment activer la découverte dans Claude Code",
-    "ccDiscoveryInfoTooltip": "Afficher les modèles non-Claude sous forme d'identifiants miroir claude/<provider>/<model> afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
+    "ccDiscoveryInfoTooltip": "Afficher les modèles non-Claude sous forme d'identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option double les entrées du catalogue pour tous les clients lorsqu'elle est activée globalement.",
     "ccDiscoveryInfoLink": "Ouvrir les indicateurs de fonctionnalités",
     "ccOnboardingTitle": "settings.json pour la découverte des modèles de la passerelle",
     "ccOnboardingCopy": "Copier",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Aucun nouveau modèle n'a été ajouté (tous existent déjà).",
     "importDoneCount": "✓ C'est fait ! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Une erreur inattendue s'est produite",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "réponses",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Échec du chargement des paramètres d'interception : {error}",
     "interceptionSaveError": "Échec de l'enregistrement des paramètres d'interception : {error}",
     "ccAliasSectionTitle": "Exposer dans Claude Code (claude/…)",
-    "ccAliasSectionHint": "Afficher les modèles de ce fournisseur sous forme d'identifiants miroir claude/<provider>/<model> afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option est désactivée par défaut ; son activation double les entrées du catalogue pour tous les clients.",
+    "ccAliasSectionHint": "Afficher les modèles de ce fournisseur sous forme d'identifiants miroir claude/&lt;provider&gt;/&lt;model&gt; afin que la découverte de modèles de la passerelle Claude Code puisse les répertorier. Cette option est désactivée par défaut ; son activation double les entrées du catalogue pour tous les clients.",
     "ccAliasProviderLevelLabel": "Valeur par défaut du fournisseur",
     "ccAliasModelOverridesLabel": "Surcharges par modèle",
     "ccAliasModelOverrideAriaLabel": "Surcharge pour {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) est l'ami open source fondateur d'OmniRoute",
     "cheaperInferenceSupporterBadge": "Ami open source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference soutient OmniRoute en tant qu'ami open source",
-    "kimiPartnerLinkNote": "Lien partenaire — soutient OmniRoute sans frais supplémentaires pour vous"
+    "kimiPartnerLinkNote": "Lien partenaire — soutient OmniRoute sans frais supplémentaires pour vous",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Paramètres",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Longueur minimale du message"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Copié !",
     "run": "Exécuter",
     "running": "Exécution en cours...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Réponse",
     "tunnel": "Tunnel",
     "send": "Envoyer",
@@ -12364,5 +12379,99 @@
     "addConnection": "Ajouter une connexion",
     "addConnectionDescription": "Vous n'avez pas encore de connexion ? Ajoutez-en une dans le tableau de bord des fournisseurs.",
     "addConnectionLink": "Aller aux fournisseurs →"
+  },
+  "resilienceConnections": {
+    "title": "Résilience de Connexion",
+    "table": {
+      "status": "Statut",
+      "provider": "Fournisseur",
+      "connectionId": "Connexion",
+      "authType": "Authentification",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Dernière Erreur",
+      "lockouts": "Blocages",
+      "healthy": "Sain",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuit Ouvert",
+      "recovering": "Récupération",
+      "degraded": "Dégradé",
+      "terminal": "Terminal",
+      "unknown": "Inconnu",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Transitions du Disjoncteur",
+      "window": "Fenêtre",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Aucune transition dans la fenêtre sélectionnée",
+      "currentState": "État Actuel",
+      "state": {
+        "open": "Ouvert",
+        "half_open": "Semi-ouvert",
+        "closed": "Fermé",
+        "degraded": "Dégradé"
+      },
+      "reason": {
+        "timeout-elapsed": "Délai Dépassé",
+        "success-recovery": "Récupération par Succès",
+        "manual-reset": "Réinitialisation Manuelle",
+        "probe-success": "Sondage Réussi",
+        "recovery": "Récupération",
+        "probe-failed": "Sondage Échoué"
+      }
+    },
+    "detail": {
+      "title": "Détail de la Connexion",
+      "metadata": "Métadonnées",
+      "cooldown": "Cooldown",
+      "lastError": "Dernière Erreur",
+      "breaker": "Disjoncteur",
+      "lockouts": "Blocages de Modèle",
+      "rateLimitedUntil": "Limité en Débit Jusqu'à",
+      "backoffLevel": "Niveau de Backoff",
+      "remaining": "Restant",
+      "noLockouts": "Aucun blocage actif",
+      "provider": "Fournisseur",
+      "id": "ID",
+      "authType": "Type d'Authentification",
+      "priority": "Priorité",
+      "isActive": "Actif",
+      "errorCode": "Code d'Erreur",
+      "lastErrorAt": "Dernière Erreur À",
+      "yes": "Oui",
+      "no": "Non",
+      "close": "Fermer",
+      "never": "-",
+      "failureCount": "Nombre d'Échecs",
+      "retryAfterMs": "Réessayer Après (ms)",
+      "lastFailureKind": "Dernier Type d'Échec"
+    },
+    "empty": {
+      "title": "Aucune connexion",
+      "description": "Les connexions du fournisseur apparaîtront ici."
+    },
+    "loading": {
+      "title": "Chargement",
+      "description": "Récupération de l'état de résilience de la connexion..."
+    },
+    "summary": {
+      "total": "{count} connexions",
+      "coolingDown": "{count} en cooldown",
+      "unhealthyBreakers": "{count} disjoncteurs non fermés",
+      "capped": "affichage des 1000 premiers"
+    },
+    "pollingNote": "Remarque : consulter cette page déclenche la récupération paresseuse du disjoncteur (sondages HALF_OPEN). Actualisation toutes les 30s.",
+    "retry": "Réessayer",
+    "pollErrorLocalOnly": "Cette page n'est accessible que depuis localhost ou le LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Sondage arrêté : le serveur a rejeté la requête (404/403).",
+    "pollErrorTransient": "Erreur lors de la récupération des données : nouvelle tentative automatique.",
+    "degraded": "Données partielles : sources indisponibles : {sources}",
+    "degraded.source.database": "Base de Données",
+    "degraded.source.circuitBreaker": "Disjoncteur",
+    "degraded.source.modelLockouts": "Blocages de Modèle",
+    "degraded.source.count": "Nombre de Connexions"
   }
 }

@@ -937,7 +937,7 @@
   "disabled": "Naka-disable",
   "featureFlagOmnirouteEmergencyFallbackDescription": "I-route ang mga request na naubusan ng budget sa emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "I-enable ang pana-panahong Arena AI leaderboard ELO sync para sa mga ranking ng intelligence ng modelo.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Bahay",
     "dashboard": "Dashboard",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Separator",
     "discovery": "Pagtuklas",
     "discoverySubtitle": "I-scan ang mga provider para sa libreng access",
+    "resilienceConnections": "Katatagan ng Koneksyon",
+    "resilienceConnectionsSubtitle": "Cooldown, breaker, katayuan ng lockout",
     "settingsModalityBridge": "Modality Bridge",
     "settingsModalityBridgeSubtitle": "Fallback ng imahe/audio → teksto para sa mga modelong teksto lamang"
   },
@@ -2519,7 +2521,7 @@
       "always": "Palagi"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Walang mga bagong modelo ang naidagdag (lahat ay mayroon na).",
     "importDoneCount": "✓ Tapos na! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "May naganap na hindi inaasahang error",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mga mensahe",
     "responsesPath": "mga tugon",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Hindi nai-load ang mga setting ng interception: {error}",
     "interceptionSaveError": "Hindi nai-save ang mga setting ng interception: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Ang Kimi (Moonshot AI) ang tagapagtatag na open source na kaibigan ng OmniRoute",
     "cheaperInferenceSupporterBadge": "Kaibigan ng Open Source",
     "cheaperInferenceSupporterTooltip": "Sinusuportahan ng Cheaper Inference ang OmniRoute bilang Kaibigan ng Open Source",
-    "kimiPartnerLinkNote": "Link ng kasosyo — sumusuporta sa OmniRoute nang walang karagdagang gastos sa iyo"
+    "kimiPartnerLinkNote": "Link ng kasosyo — sumusuporta sa OmniRoute nang walang karagdagang gastos sa iyo",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Mga setting",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Minimum na haba ng mensahe"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Nakopya na!",
     "run": "Patakbuhin",
     "running": "Tumatakbo...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Tugon",
     "tunnel": "Tunnel",
     "send": "Ipadala",
@@ -12364,5 +12379,99 @@
     "addConnection": "Add connection",
     "addConnectionDescription": "Don't have a connection yet? Add one in the providers dashboard.",
     "addConnectionLink": "Go to providers →"
+  },
+  "resilienceConnections": {
+    "title": "Katatagan ng Koneksyon",
+    "table": {
+      "status": "Katayuan",
+      "provider": "Provider",
+      "connectionId": "Koneksyon",
+      "authType": "Pagpapatunay",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Huling Error",
+      "lockouts": "Mga Lockout",
+      "healthy": "Malusog",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Bukas ang Circuit",
+      "recovering": "Gumagaling",
+      "degraded": "Bumaba ang Kalidad",
+      "terminal": "Terminal",
+      "unknown": "Hindi Alam",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Mga Paglipat ng Breaker",
+      "window": "Window",
+      "window1h": "1oras",
+      "window6h": "6oras",
+      "window24h": "24oras",
+      "empty": "Walang paglipat sa napiling window",
+      "currentState": "Kasalukuyang Katayuan",
+      "state": {
+        "open": "Bukas",
+        "half_open": "Kalahating Bukas",
+        "closed": "Sarado",
+        "degraded": "Bumaba ang Kalidad"
+      },
+      "reason": {
+        "timeout-elapsed": "Naubos ang Oras",
+        "success-recovery": "Paggaling sa Tagumpay",
+        "manual-reset": "Manual na Pag-reset",
+        "probe-success": "Matagumpay ang Probe",
+        "recovery": "Paggaling",
+        "probe-failed": "Nabigo ang Probe"
+      }
+    },
+    "detail": {
+      "title": "Detalye ng Koneksyon",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Huling Error",
+      "breaker": "Circuit Breaker",
+      "lockouts": "Mga Lockout ng Modelo",
+      "rateLimitedUntil": "May Limitasyon sa Bilis Hanggang",
+      "backoffLevel": "Antas ng Backoff",
+      "remaining": "Natitira",
+      "noLockouts": "Walang aktibong lockout",
+      "provider": "Provider",
+      "id": "ID",
+      "authType": "Uri ng Pagpapatunay",
+      "priority": "Priyoridad",
+      "isActive": "Aktibo",
+      "errorCode": "Error Code",
+      "lastErrorAt": "Huling Error Noong",
+      "yes": "Oo",
+      "no": "Hindi",
+      "close": "Isara",
+      "never": "-",
+      "failureCount": "Bilang ng Kabiguan",
+      "retryAfterMs": "Subukan Muli Pagkatapos ng (ms)",
+      "lastFailureKind": "Huling Uri ng Kabiguan"
+    },
+    "empty": {
+      "title": "Walang koneksyon",
+      "description": "Ang mga koneksyon ng provider ay lalabas dito."
+    },
+    "loading": {
+      "title": "Naglo-load",
+      "description": "Kinukuha ang katayuan ng katatagan ng koneksyon..."
+    },
+    "summary": {
+      "total": "{count} koneksyon",
+      "coolingDown": "{count} nasa cooldown",
+      "unhealthyBreakers": "{count} breaker ang hindi sarado",
+      "capped": "ipinapakita ang unang 1000"
+    },
+    "pollingNote": "Paalala: ang pagtingin sa pahinang ito ay magpapasimula ng tamad na paggaling ng breaker (HALF_OPEN probes). Nagre-refresh bawat 30s.",
+    "retry": "Subukan Muli",
+    "pollErrorLocalOnly": "Ang pahinang ito ay maa-access lamang mula sa localhost o LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Huminto ang polling: tinanggihan ng server ang kahilingan (404/403).",
+    "pollErrorTransient": "Error sa pagkuha ng data: awtomatikong sinusubukan muli.",
+    "degraded": "Bahagyang data: hindi available na pinagmulan: {sources}",
+    "degraded.source.database": "Database",
+    "degraded.source.circuitBreaker": "Circuit Breaker",
+    "degraded.source.modelLockouts": "Mga Lockout ng Modelo",
+    "degraded.source.count": "Bilang ng Koneksyon"
   }
 }

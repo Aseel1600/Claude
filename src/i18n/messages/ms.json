@@ -937,7 +937,7 @@
   "disabled": "Disabled",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Rumah",
     "dashboard": "Papan pemuka",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Pemisah",
     "discovery": "Penemuan",
     "discoverySubtitle": "Imbas penyedia untuk akses percuma",
+    "resilienceConnections": "Daya Tahan Sambungan",
+    "resilienceConnectionsSubtitle": "Cooldown, breaker, status penguncian",
     "settingsModalityBridge": "Jambatan Modality",
     "settingsModalityBridgeSubtitle": "Fallback imej/audio → teks untuk model hanya teks"
   },
@@ -2519,7 +2521,7 @@
       "always": "Sentiasa"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Tiada model baharu ditambahkan (semua sudah wujud).",
     "importDoneCount": "✓ Selesai! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ralat yang tidak dijangka berlaku",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mesej",
     "responsesPath": "maklum balas",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Gagal memuatkan tetapan pintasan: {error}",
     "interceptionSaveError": "Gagal menyimpan tetapan pintasan: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) ialah rakan sumber terbuka pengasas OmniRoute",
     "cheaperInferenceSupporterBadge": "Rakan Sumber Terbuka",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference menyokong OmniRoute sebagai Rakan Sumber Terbuka",
-    "kimiPartnerLinkNote": "Pautan rakan kongsi — menyokong OmniRoute tanpa kos tambahan kepada anda"
+    "kimiPartnerLinkNote": "Pautan rakan kongsi — menyokong OmniRoute tanpa kos tambahan kepada anda",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "tetapan",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Panjang mesej minimum"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Disalin!",
     "run": "Jalankan",
     "running": "Menjalankan...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Terowong",
     "send": "Hantar",
@@ -12364,5 +12379,99 @@
     "addConnection": "Tambah sambungan",
     "addConnectionDescription": "Belum mempunyai sambungan? Tambah satu di papan pemuka penyedia.",
     "addConnectionLink": "Pergi ke penyedia →"
+  },
+  "resilienceConnections": {
+    "title": "Daya Tahan Sambungan",
+    "table": {
+      "status": "Status",
+      "provider": "Pembekal",
+      "connectionId": "Sambungan",
+      "authType": "Pengesahan",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Ralat Terakhir",
+      "lockouts": "Penguncian",
+      "healthy": "Sihat",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Litar Terbuka",
+      "recovering": "Memulihkan",
+      "degraded": "Merosot",
+      "terminal": "Terminal",
+      "unknown": "Tidak Diketahui",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Peralihan Breaker",
+      "window": "Tetingkap",
+      "window1h": "1j",
+      "window6h": "6j",
+      "window24h": "24j",
+      "empty": "Tiada peralihan dalam tetingkap terpilih",
+      "currentState": "Status Semasa",
+      "state": {
+        "open": "Terbuka",
+        "half_open": "Separuh Terbuka",
+        "closed": "Tertutup",
+        "degraded": "Merosot"
+      },
+      "reason": {
+        "timeout-elapsed": "Had Masa Tamat",
+        "success-recovery": "Pemulihan melalui Kejayaan",
+        "manual-reset": "Set Semula Manual",
+        "probe-success": "Probe Berjaya",
+        "recovery": "Pemulihan",
+        "probe-failed": "Probe Gagal"
+      }
+    },
+    "detail": {
+      "title": "Perincian Sambungan",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Ralat Terakhir",
+      "breaker": "Circuit Breaker",
+      "lockouts": "Penguncian Model",
+      "rateLimitedUntil": "Dihadkan Kadar Sehingga",
+      "backoffLevel": "Tahap Backoff",
+      "remaining": "Baki",
+      "noLockouts": "Tiada penguncian aktif",
+      "provider": "Pembekal",
+      "id": "ID",
+      "authType": "Jenis Pengesahan",
+      "priority": "Keutamaan",
+      "isActive": "Aktif",
+      "errorCode": "Kod Ralat",
+      "lastErrorAt": "Ralat Terakhir Pada",
+      "yes": "Ya",
+      "no": "Tidak",
+      "close": "Tutup",
+      "never": "-",
+      "failureCount": "Bilangan Kegagalan",
+      "retryAfterMs": "Cuba Semula Selepas (ms)",
+      "lastFailureKind": "Jenis Kegagalan Terakhir"
+    },
+    "empty": {
+      "title": "Tiada sambungan",
+      "description": "Sambungan pembekal akan dipaparkan di sini."
+    },
+    "loading": {
+      "title": "Memuatkan",
+      "description": "Mengambil status daya tahan sambungan..."
+    },
+    "summary": {
+      "total": "{count} sambungan",
+      "coolingDown": "{count} dalam cooldown",
+      "unhealthyBreakers": "{count} breaker tidak tertutup",
+      "capped": "memaparkan 1000 pertama"
+    },
+    "pollingNote": "Nota: melihat halaman ini mencetuskan pemulihan malas breaker (probe HALF_OPEN). Muat semula setiap 30s.",
+    "retry": "Cuba Semula",
+    "pollErrorLocalOnly": "Halaman ini hanya boleh diakses dari localhost atau LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Polling dihentikan: pelayan menolak permintaan (404/403).",
+    "pollErrorTransient": "Ralat mengambil data: cuba semula secara automatik.",
+    "degraded": "Data separa: sumber tidak tersedia: {sources}",
+    "degraded.source.database": "Pangkalan Data",
+    "degraded.source.circuitBreaker": "Circuit Breaker",
+    "degraded.source.modelLockouts": "Penguncian Model",
+    "degraded.source.count": "Bilangan Sambungan"
   }
 }

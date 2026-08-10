@@ -937,7 +937,7 @@
   "disabled": "Uitgeschakeld",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Routeer verzoeken met uitgeput budget naar de gratis nood-fallbackprovider/-model.",
   "featureFlagArenaEloSyncEnabledDescription": "Schakel periodieke ELO-synchronisatie van het Arena AI-leaderboard in voor modelintelligentieranglijsten.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Thuis",
     "dashboard": "Dashboard",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Scheidingslijn",
     "discovery": "Detectie",
     "discoverySubtitle": "Providers scannen op gratis toegang",
+    "resilienceConnections": "Verbindingsveerkracht",
+    "resilienceConnectionsSubtitle": "Cooldown, breaker, lockout-status",
     "settingsModalityBridge": "Modality Brug",
     "settingsModalityBridgeSubtitle": "Afbeelding/audio → tekst fallback voor alleen-tekstmodellen"
   },
@@ -2519,7 +2521,7 @@
       "always": "Altijd"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Er zijn geen nieuwe modellen toegevoegd (ze bestaan allemaal al).",
     "importDoneCount": "✓ Klaar! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Er is een onverwachte fout opgetreden",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "berichten",
     "responsesPath": "reacties",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Laden van onderscheppingsinstellingen mislukt: {error}",
     "interceptionSaveError": "Opslaan van onderscheppingsinstellingen mislukt: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is OmniRoute's oprichtende open source-vriend",
     "cheaperInferenceSupporterBadge": "Opensourcevriend",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference steunt OmniRoute als opensourcevriend",
-    "kimiPartnerLinkNote": "Partnerlink — ondersteunt OmniRoute zonder extra kosten voor u"
+    "kimiPartnerLinkNote": "Partnerlink — ondersteunt OmniRoute zonder extra kosten voor u",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Instellingen",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Minimale berichtlengte"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Gekopieerd!",
     "run": "Uitvoeren",
     "running": "Bezig met uitvoeren...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Verzenden",
@@ -12364,5 +12379,99 @@
     "addConnection": "Voeg verbinding toe",
     "addConnectionDescription": "Nog geen verbinding? Voeg er een toe in het leveranciersdashboard.",
     "addConnectionLink": "Ga naar leveranciers →"
+  },
+  "resilienceConnections": {
+    "title": "Verbindingsveerkracht",
+    "table": {
+      "status": "Status",
+      "provider": "Provider",
+      "connectionId": "Verbinding",
+      "authType": "Auth",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Laatste Fout",
+      "lockouts": "Lockouts",
+      "healthy": "Gezond",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuit Open",
+      "recovering": "Herstellend",
+      "degraded": "Verslechterd",
+      "terminal": "Terminal",
+      "unknown": "Onbekend",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Breaker-overgangen",
+      "window": "Venster",
+      "window1h": "1u",
+      "window6h": "6u",
+      "window24h": "24u",
+      "empty": "Geen overgangen in geselecteerd venster",
+      "currentState": "Huidige Status",
+      "state": {
+        "open": "Open",
+        "half_open": "Half Open",
+        "closed": "Gesloten",
+        "degraded": "Verslechterd"
+      },
+      "reason": {
+        "timeout-elapsed": "Time-out Verstreken",
+        "success-recovery": "Herstel door Succes",
+        "manual-reset": "Handmatige Reset",
+        "probe-success": "Probe Geslaagd",
+        "recovery": "Herstel",
+        "probe-failed": "Probe Mislukt"
+      }
+    },
+    "detail": {
+      "title": "Verbindingsdetail",
+      "metadata": "Metadata",
+      "cooldown": "Cooldown",
+      "lastError": "Laatste Fout",
+      "breaker": "Circuit Breaker",
+      "lockouts": "Modelvergrendelingen",
+      "rateLimitedUntil": "Rate-limited Tot",
+      "backoffLevel": "Backoff-niveau",
+      "remaining": "Resterend",
+      "noLockouts": "Geen actieve lockouts",
+      "provider": "Provider",
+      "id": "ID",
+      "authType": "Auth-type",
+      "priority": "Prioriteit",
+      "isActive": "Actief",
+      "errorCode": "Foutcode",
+      "lastErrorAt": "Laatste Fout Op",
+      "yes": "Ja",
+      "no": "Nee",
+      "close": "Sluiten",
+      "never": "-",
+      "failureCount": "Aantal Mislukkingen",
+      "retryAfterMs": "Opnieuw Proberen Na (ms)",
+      "lastFailureKind": "Laatste Foutsoort"
+    },
+    "empty": {
+      "title": "Geen verbindingen",
+      "description": "Providerverbindingen verschijnen hier."
+    },
+    "loading": {
+      "title": "Laden",
+      "description": "Verbindingsveerkrachtstatus wordt opgehaald..."
+    },
+    "summary": {
+      "total": "{count} verbindingen",
+      "coolingDown": "{count} in cooldown",
+      "unhealthyBreakers": "{count} breakers niet gesloten",
+      "capped": "eerste 1000 worden weergegeven"
+    },
+    "pollingNote": "Opmerking: het bekijken van deze pagina activeert lui herstel van de breaker (HALF_OPEN-probes). Elke 30s vernieuwd.",
+    "retry": "Opnieuw Proberen",
+    "pollErrorLocalOnly": "Deze pagina is alleen toegankelijk vanaf localhost of LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Polling gestopt: de server heeft het verzoek geweigerd (404/403).",
+    "pollErrorTransient": "Fout bij ophalen van gegevens: automatisch opnieuw proberen.",
+    "degraded": "Gedeeltelijke gegevens: niet-beschikbare bronnen: {sources}",
+    "degraded.source.database": "Database",
+    "degraded.source.circuitBreaker": "Circuit Breaker",
+    "degraded.source.modelLockouts": "Modelvergrendelingen",
+    "degraded.source.count": "Aantal Verbindingen"
   }
 }

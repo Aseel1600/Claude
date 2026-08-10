@@ -937,7 +937,7 @@
   "disabled": "Desativado",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Encaminhar pedidos com orçamento esgotado para o fornecedor/modelo de contingência gratuito de emergência.",
   "featureFlagArenaEloSyncEnabledDescription": "Ativar a sincronização periódica do ELO da tabela de classificação da Arena AI para classificações de inteligência do modelo.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "Página inicial",
     "dashboard": "Painel",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Separador",
     "discovery": "Descoberta",
     "discoverySubtitle": "Analisar fornecedores para acesso gratuito",
+    "resilienceConnections": "Resiliência de Ligação",
+    "resilienceConnectionsSubtitle": "Cooldown, disjuntor, estado de bloqueio",
     "settingsModalityBridge": "Ponte de Modalidade",
     "settingsModalityBridgeSubtitle": "Fallback de imagem/áudio → texto para modelos apenas de texto"
   },
@@ -2519,7 +2521,7 @@
       "always": "Sempre"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Nenhum novo modelo foi adicionado (todos já existem).",
     "importDoneCount": "✓ Pronto! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ocorreu um erro inesperado",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mensagens",
     "responsesPath": "respostas",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Falha ao carregar as definições de interceção: {error}",
     "interceptionSaveError": "Falha ao guardar as definições de interceção: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "A Kimi (Moonshot AI) é a amiga fundadora de código aberto do OmniRoute",
     "cheaperInferenceSupporterBadge": "Amigo do Código Aberto",
     "cheaperInferenceSupporterTooltip": "A Cheaper Inference apoia o OmniRoute como amiga do código aberto",
-    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custos adicionais para si"
+    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custos adicionais para si",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Configurações",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Comprimento mínimo da mensagem"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Copiado!",
     "run": "Executar",
     "running": "A executar...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Resposta",
     "tunnel": "Túnel",
     "send": "Enviar",
@@ -12364,5 +12379,99 @@
     "addConnection": "Adicionar conexão",
     "addConnectionDescription": "Não tem uma conexão ainda? Adicione uma no painel de fornecedores.",
     "addConnectionLink": "Ir para fornecedores →"
+  },
+  "resilienceConnections": {
+    "title": "Resiliência de Ligação",
+    "table": {
+      "status": "Estado",
+      "provider": "Fornecedor",
+      "connectionId": "Ligação",
+      "authType": "Autenticação",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Último Erro",
+      "lockouts": "Bloqueios",
+      "healthy": "Saudável",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuito Aberto",
+      "recovering": "A Recuperar",
+      "degraded": "Degradado",
+      "terminal": "Terminal",
+      "unknown": "Desconhecido",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Transições do Disjuntor",
+      "window": "Janela",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Sem transições na janela selecionada",
+      "currentState": "Estado Atual",
+      "state": {
+        "open": "Aberto",
+        "half_open": "Meio Aberto",
+        "closed": "Fechado",
+        "degraded": "Degradado"
+      },
+      "reason": {
+        "timeout-elapsed": "Tempo Limite Esgotado",
+        "success-recovery": "Recuperação por Sucesso",
+        "manual-reset": "Reinício Manual",
+        "probe-success": "Sondagem com Sucesso",
+        "recovery": "Recuperação",
+        "probe-failed": "Sondagem Falhada"
+      }
+    },
+    "detail": {
+      "title": "Detalhe da Ligação",
+      "metadata": "Metadados",
+      "cooldown": "Cooldown",
+      "lastError": "Último Erro",
+      "breaker": "Disjuntor",
+      "lockouts": "Bloqueios de Modelo",
+      "rateLimitedUntil": "Limitado por Taxa Até",
+      "backoffLevel": "Nível de Backoff",
+      "remaining": "Restante",
+      "noLockouts": "Sem bloqueios ativos",
+      "provider": "Fornecedor",
+      "id": "ID",
+      "authType": "Tipo de Autenticação",
+      "priority": "Prioridade",
+      "isActive": "Ativo",
+      "errorCode": "Código de Erro",
+      "lastErrorAt": "Último Erro Em",
+      "yes": "Sim",
+      "no": "Não",
+      "close": "Fechar",
+      "never": "-",
+      "failureCount": "Contagem de Falhas",
+      "retryAfterMs": "Repetir Após (ms)",
+      "lastFailureKind": "Último Tipo de Falha"
+    },
+    "empty": {
+      "title": "Sem ligações",
+      "description": "As ligações do fornecedor vão aparecer aqui."
+    },
+    "loading": {
+      "title": "A carregar",
+      "description": "A obter o estado de resiliência da ligação..."
+    },
+    "summary": {
+      "total": "{count} ligações",
+      "coolingDown": "{count} em cooldown",
+      "unhealthyBreakers": "{count} disjuntores não fechados",
+      "capped": "a mostrar os primeiros 1000"
+    },
+    "pollingNote": "Nota: ver esta página aciona a recuperação preguiçosa do disjuntor (sondagens HALF_OPEN). Atualização a cada 30s.",
+    "retry": "Repetir",
+    "pollErrorLocalOnly": "Esta página só é acessível a partir de localhost ou LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Sondagem interrompida: o servidor rejeitou o pedido (404/403).",
+    "pollErrorTransient": "Erro ao obter dados: a repetir automaticamente.",
+    "degraded": "Dados parciais: fontes indisponíveis: {sources}",
+    "degraded.source.database": "Base de Dados",
+    "degraded.source.circuitBreaker": "Disjuntor",
+    "degraded.source.modelLockouts": "Bloqueios de Modelo",
+    "degraded.source.count": "Contagem de Ligações"
   }
 }

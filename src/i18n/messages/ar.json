@@ -937,7 +937,7 @@
   "disabled": "معطل",
   "featureFlagOmnirouteEmergencyFallbackDescription": "توجيه الطلبات التي استنفدت الميزانية إلى موفر/نموذج الاحتياط المجاني للطوارئ.",
   "featureFlagArenaEloSyncEnabledDescription": "تمكين المزامنة الدورية لتصنيف ELO للوحة صدارة Arena AI لتصنيفات ذكاء النماذج.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/<provider>/<model> mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "__MISSING__:Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
   "sidebar": {
     "home": "الصفحة الرئيسية",
     "dashboard": "لوحة القيادة",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "فاصل",
     "discovery": "اكتشاف",
     "discoverySubtitle": "فحص المزودين للوصول المجاني",
+    "resilienceConnections": "مرونة الاتصال",
+    "resilienceConnectionsSubtitle": "التبريد، القاطع، حالة الحظر",
     "settingsModalityBridge": "جسر الوضعية",
     "settingsModalityBridgeSubtitle": "تحويل الصورة/الصوت إلى نص للنماذج التي تدعم النص فقط"
   },
@@ -2519,7 +2521,7 @@
       "always": "دائمًا"
     },
     "ccDiscoveryInfoButton": "__MISSING__:How to enable discovery in Claude Code",
-    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
+    "ccDiscoveryInfoTooltip": "__MISSING__:Advertise non-Claude models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Doubles catalog entries for all clients when enabled globally.",
     "ccDiscoveryInfoLink": "__MISSING__:Open Feature Flags",
     "ccOnboardingTitle": "__MISSING__:settings.json for gateway model discovery",
     "ccOnboardingCopy": "__MISSING__:Copy",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "لم تتم إضافة أي نماذج جديدة (كلها موجودة بالفعل).",
     "importDoneCount": "✓ تم! {count, plural, one {استُورد نموذج واحد.} other {استُورد # من النماذج.}}",
     "unexpectedErrorOccurred": "حدث خطأ غير متوقع",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "عدد الاتصالات: {count, plural, one {اتصال واحد} other {# اتصالات}}",
     "messagesPath": "الرسائل",
     "responsesPath": "الردود",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "فشل تحميل إعدادات الاعتراض: {error}",
     "interceptionSaveError": "فشل حفظ إعدادات الاعتراض: {error}",
     "ccAliasSectionTitle": "__MISSING__:Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/<provider>/<model> mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasSectionHint": "__MISSING__:Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
     "ccAliasProviderLevelLabel": "__MISSING__:Provider default",
     "ccAliasModelOverridesLabel": "__MISSING__:Per-model overrides",
     "ccAliasModelOverrideAriaLabel": "__MISSING__:Override for {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) هو الصديق المؤسس للمصادر المفتوحة لـ OmniRoute",
     "cheaperInferenceSupporterBadge": "صديق مفتوح المصدر",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference تدعم OmniRoute كصديق للمصادر المفتوحة",
-    "kimiPartnerLinkNote": "رابط شريك — يدعم OmniRoute دون أي تكلفة إضافية عليك"
+    "kimiPartnerLinkNote": "رابط شريك — يدعم OmniRoute دون أي تكلفة إضافية عليك",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "الإعدادات",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "الحد الأدنى لطول الرسالة"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "منسوخ!",
     "run": "تشغيل",
     "running": "جارٍ...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "الاستجابة",
     "tunnel": "نفق",
     "send": "إرسال",
@@ -12364,5 +12379,99 @@
     "addConnection": "إضافة اتصال",
     "addConnectionDescription": "لا تملك اتصالاً بعد؟ أضف واحدًا في لوحة معلومات المزودين.",
     "addConnectionLink": "انتقل إلى المزودين →"
+  },
+  "resilienceConnections": {
+    "title": "مرونة الاتصال",
+    "table": {
+      "status": "الحالة",
+      "provider": "المزوّد",
+      "connectionId": "الاتصال",
+      "authType": "المصادقة",
+      "backoffLevel": "التراجع",
+      "cooldown": "التبريد",
+      "lastError": "آخر خطأ",
+      "lockouts": "الحظر",
+      "healthy": "سليم",
+      "coolingDown": "التبريد",
+      "circuitOpen": "الدائرة مفتوحة",
+      "recovering": "قيد الاستعادة",
+      "degraded": "متدهور",
+      "terminal": "نهائي",
+      "unknown": "غير معروف",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "انتقالات القاطع",
+      "window": "النافذة",
+      "window1h": "ساعة",
+      "window6h": "6 ساعات",
+      "window24h": "24 ساعة",
+      "empty": "لا توجد انتقالات في النافذة المحددة",
+      "currentState": "الحالة الحالية",
+      "state": {
+        "open": "مفتوح",
+        "half_open": "نصف مفتوح",
+        "closed": "مغلق",
+        "degraded": "متدهور"
+      },
+      "reason": {
+        "timeout-elapsed": "انتهت المهلة",
+        "success-recovery": "استعادة بالنجاح",
+        "manual-reset": "إعادة ضبط يدوية",
+        "probe-success": "فحص ناجح",
+        "recovery": "استعادة",
+        "probe-failed": "فحص فاشل"
+      }
+    },
+    "detail": {
+      "title": "تفاصيل الاتصال",
+      "metadata": "البيانات الوصفية",
+      "cooldown": "التبريد",
+      "lastError": "آخر خطأ",
+      "breaker": "قاطع الدائرة",
+      "lockouts": "حظر النماذج",
+      "rateLimitedUntil": "محدود المعدل حتى",
+      "backoffLevel": "مستوى التراجع",
+      "remaining": "المتبقي",
+      "noLockouts": "لا يوجد حظر نشط",
+      "provider": "المزوّد",
+      "id": "المعرّف",
+      "authType": "نوع المصادقة",
+      "priority": "الأولوية",
+      "isActive": "نشط",
+      "errorCode": "رمز الخطأ",
+      "lastErrorAt": "آخر خطأ في",
+      "yes": "نعم",
+      "no": "لا",
+      "close": "إغلاق",
+      "never": "-",
+      "failureCount": "عدد الإخفاقات",
+      "retryAfterMs": "إعادة المحاولة بعد (ms)",
+      "lastFailureKind": "نوع آخر إخفاق"
+    },
+    "empty": {
+      "title": "لا توجد اتصالات",
+      "description": "ستظهر اتصالات المزوّد هنا."
+    },
+    "loading": {
+      "title": "جارٍ التحميل",
+      "description": "جارٍ جلب حالة مرونة الاتصال..."
+    },
+    "summary": {
+      "total": "{count} اتصال",
+      "coolingDown": "{count} في التبريد",
+      "unhealthyBreakers": "{count} قاطع غير مغلق",
+      "capped": "عرض أول 1000"
+    },
+    "pollingNote": "ملاحظة: عرض هذه الصفحة يُفعّل الاستعادة الكسولة للقاطع (فحوصات HALF_OPEN). تحديث كل 30 ثانية.",
+    "retry": "إعادة المحاولة",
+    "pollErrorLocalOnly": "هذه الصفحة متاحة فقط من localhost أو الشبكة المحلية (LOCAL_ONLY).",
+    "pollErrorStopped": "توقف الاستطلاع: رفض الخادم الطلب (404/403).",
+    "pollErrorTransient": "خطأ في جلب البيانات: إعادة المحاولة تلقائيًا.",
+    "degraded": "بيانات جزئية: مصادر غير متاحة: {sources}",
+    "degraded.source.database": "قاعدة البيانات",
+    "degraded.source.circuitBreaker": "قاطع الدائرة",
+    "degraded.source.modelLockouts": "حظر النماذج",
+    "degraded.source.count": "عدد الاتصالات"
   }
 }

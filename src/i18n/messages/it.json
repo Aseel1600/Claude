@@ -937,7 +937,7 @@
   "disabled": "Disabilitato",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Indirizza le richieste con budget esaurito al provider/modello di fallback gratuito di emergenza.",
   "featureFlagArenaEloSyncEnabledDescription": "Abilita la sincronizzazione periodica dell'ELO della classifica Arena AI per le graduatorie di intelligenza dei modelli.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Mostra gli id specchio claude/<provider>/<model> su /v1/models in modo che la scoperta dei modelli gateway di Claude Code elenchi i modelli non-Claude. Attenzione: raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Mostra gli id specchio claude/&lt;provider&gt;/&lt;model&gt; su /v1/models in modo che la scoperta dei modelli gateway di Claude Code elenchi i modelli non-Claude. Attenzione: raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
   "sidebar": {
     "home": "Casa",
     "dashboard": "Pannello di controllo",
@@ -1233,6 +1233,8 @@
     "groupSeparatorLabel": "Separatore",
     "discovery": "Discovery",
     "discoverySubtitle": "Scansiona provider per accesso gratuito",
+    "resilienceConnections": "Resilienza della Connessione",
+    "resilienceConnectionsSubtitle": "Cooldown, interruttore, stato di blocco",
     "settingsModalityBridge": "Ponte di Modalità",
     "settingsModalityBridgeSubtitle": "Fallback immagine/audio → testo per modelli solo testo"
   },
@@ -2519,7 +2521,7 @@
       "always": "Sempre"
     },
     "ccDiscoveryInfoButton": "Come abilitare la scoperta in Claude Code",
-    "ccDiscoveryInfoTooltip": "Mostra i modelli non-Claude sotto gli id specchio claude/<provider>/<model> così la scoperta modelli gateway di Claude Code può elencarli. Raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
+    "ccDiscoveryInfoTooltip": "Mostra i modelli non-Claude sotto gli id specchio claude/&lt;provider&gt;/&lt;model&gt; così la scoperta modelli gateway di Claude Code può elencarli. Raddoppia le voci nel catalogo per tutti i client quando abilitato globalmente.",
     "ccDiscoveryInfoLink": "Apri le Flag Funzionalità",
     "ccOnboardingTitle": "settings.json per la scoperta modelli gateway",
     "ccOnboardingCopy": "Copia",
@@ -5076,6 +5078,8 @@
     "noNewModelsAddedExisting": "Non sono stati aggiunti nuovi modelli (esistono già tutti).",
     "importDoneCount": "✓ Fatto! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Si è verificato un errore imprevisto",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messaggi",
     "responsesPath": "risposte",
@@ -5207,7 +5211,7 @@
     "interceptionLoadError": "Impossibile caricare le impostazioni di intercettazione: {error}",
     "interceptionSaveError": "Impossibile salvare le impostazioni di intercettazione: {error}",
     "ccAliasSectionTitle": "Esponi in Claude Code (claude/…)",
-    "ccAliasSectionHint": "Mostra i modelli di questo provider sotto gli id specchio claude/<provider>/<model> così la scoperta modelli gateway di Claude Code può elencarli. Disattivato per impostazione predefinita — abilitarlo raddoppia le voci nel catalogo per tutti i client.",
+    "ccAliasSectionHint": "Mostra i modelli di questo provider sotto gli id specchio claude/&lt;provider&gt;/&lt;model&gt; così la scoperta modelli gateway di Claude Code può elencarli. Disattivato per impostazione predefinita — abilitarlo raddoppia le voci nel catalogo per tutti i client.",
     "ccAliasProviderLevelLabel": "Impostazione predefinita del provider",
     "ccAliasModelOverridesLabel": "Sostituzioni per modello",
     "ccAliasModelOverrideAriaLabel": "Sostituzione per {modelId}",
@@ -6033,7 +6037,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) è l'amico open source fondatore di OmniRoute",
     "cheaperInferenceSupporterBadge": "Amico open source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference sostiene OmniRoute come amico open source",
-    "kimiPartnerLinkNote": "Link partner — supporta OmniRoute senza costi aggiuntivi per te"
+    "kimiPartnerLinkNote": "Link partner — supporta OmniRoute senza costi aggiuntivi per te",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Impostazioni",
@@ -7880,6 +7889,10 @@
       },
       "minMessageLength": {
         "label": "Lunghezza minima del messaggio"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10236,6 +10249,8 @@
     "copied": "Copiato!",
     "run": "Esegui",
     "running": "Esecuzione in corso...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Risposta",
     "tunnel": "Tunnel",
     "send": "Invia",
@@ -12364,5 +12379,99 @@
     "addConnection": "Aggiungi connessione",
     "addConnectionDescription": "Non hai ancora una connessione? Aggiungine una nel dashboard dei fornitori.",
     "addConnectionLink": "Vai ai fornitori →"
+  },
+  "resilienceConnections": {
+    "title": "Resilienza della Connessione",
+    "table": {
+      "status": "Stato",
+      "provider": "Provider",
+      "connectionId": "Connessione",
+      "authType": "Autenticazione",
+      "backoffLevel": "Backoff",
+      "cooldown": "Cooldown",
+      "lastError": "Ultimo Errore",
+      "lockouts": "Blocchi",
+      "healthy": "In Salute",
+      "coolingDown": "Cooldown",
+      "circuitOpen": "Circuito Aperto",
+      "recovering": "In Recupero",
+      "degraded": "Degradato",
+      "terminal": "Terminale",
+      "unknown": "Sconosciuto",
+      "never": "-"
+    },
+    "timeline": {
+      "title": "Transizioni dell'Interruttore",
+      "window": "Finestra",
+      "window1h": "1h",
+      "window6h": "6h",
+      "window24h": "24h",
+      "empty": "Nessuna transizione nella finestra selezionata",
+      "currentState": "Stato Attuale",
+      "state": {
+        "open": "Aperto",
+        "half_open": "Semi Aperto",
+        "closed": "Chiuso",
+        "degraded": "Degradato"
+      },
+      "reason": {
+        "timeout-elapsed": "Timeout Scaduto",
+        "success-recovery": "Recupero per Successo",
+        "manual-reset": "Reset Manuale",
+        "probe-success": "Sondaggio Riuscito",
+        "recovery": "Recupero",
+        "probe-failed": "Sondaggio Fallito"
+      }
+    },
+    "detail": {
+      "title": "Dettaglio Connessione",
+      "metadata": "Metadati",
+      "cooldown": "Cooldown",
+      "lastError": "Ultimo Errore",
+      "breaker": "Interruttore",
+      "lockouts": "Blocchi Modello",
+      "rateLimitedUntil": "Limitato per Tasso Fino a",
+      "backoffLevel": "Livello Backoff",
+      "remaining": "Rimanente",
+      "noLockouts": "Nessun blocco attivo",
+      "provider": "Provider",
+      "id": "ID",
+      "authType": "Tipo di Autenticazione",
+      "priority": "Priorità",
+      "isActive": "Attivo",
+      "errorCode": "Codice Errore",
+      "lastErrorAt": "Ultimo Errore Il",
+      "yes": "Sì",
+      "no": "No",
+      "close": "Chiudi",
+      "never": "-",
+      "failureCount": "Conteggio Fallimenti",
+      "retryAfterMs": "Riprova Dopo (ms)",
+      "lastFailureKind": "Ultimo Tipo di Fallimento"
+    },
+    "empty": {
+      "title": "Nessuna connessione",
+      "description": "Le connessioni del provider appariranno qui."
+    },
+    "loading": {
+      "title": "Caricamento",
+      "description": "Recupero dello stato di resilienza della connessione..."
+    },
+    "summary": {
+      "total": "{count} connessioni",
+      "coolingDown": "{count} in cooldown",
+      "unhealthyBreakers": "{count} interruttori non chiusi",
+      "capped": "mostrando i primi 1000"
+    },
+    "pollingNote": "Nota: visualizzare questa pagina attiva il ripristino pigro dell'interruttore (sondaggi HALF_OPEN). Aggiornamento ogni 30s.",
+    "retry": "Riprova",
+    "pollErrorLocalOnly": "Questa pagina è accessibile solo da localhost o LAN (LOCAL_ONLY).",
+    "pollErrorStopped": "Sondaggio interrotto: il server ha rifiutato la richiesta (404/403).",
+    "pollErrorTransient": "Errore nel recupero dei dati: nuovo tentativo automatico.",
+    "degraded": "Dati parziali: fonti non disponibili: {sources}",
+    "degraded.source.database": "Database",
+    "degraded.source.circuitBreaker": "Interruttore",
+    "degraded.source.modelLockouts": "Blocchi Modello",
+    "degraded.source.count": "Conteggio Connessioni"
   }
 }
