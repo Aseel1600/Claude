@@ -88,6 +88,18 @@ export class GovernorManager {
         errorCategory: actualContext.errorCategory,
         recommendation,
         decisionLatencyMs,
+        governorName: this.governor.name,
+        governorVersion: this.governor.version,
+        policyVersion: "v0",
+        observedFeatures: {
+          estimatedPromptTokens: input.estimatedPromptTokens ?? null,
+          contextUtilization: input.contextUtilization ?? null,
+          toolCount: input.toolCount ?? null,
+          messageCount: input.messageCount ?? null,
+          requestedMaxOutput: input.requestedMaxOutput ?? null,
+          retryCount: input.retryCount ?? null,
+          cacheState: input.cacheState ?? null,
+        },
       };
 
       // Non-blocking telemetry persistence

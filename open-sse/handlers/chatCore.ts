@@ -5089,6 +5089,9 @@ export async function handleChatCore({
       toolCount: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools)
         ? (body as { tools: unknown[] }).tools.length
         : 0,
+      messageCount: Array.isArray((body as { messages?: unknown[] } | undefined)?.messages)
+        ? (body as { messages: unknown[] }).messages.length
+        : undefined,
       rawPromptText: extractGovernorPromptText(body),
       retryCount: undefined,
     };

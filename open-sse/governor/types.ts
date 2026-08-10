@@ -29,6 +29,7 @@ export interface GovernorInput {
   contextUtilization?: number; // 0.0 - 1.0
   toolOutputTokens?: number;
   toolCount?: number;
+  messageCount?: number;
   retryCount?: number;
   previousFailureClass?: string;
   requestedMaxOutput?: number;
@@ -96,6 +97,10 @@ export interface GovernorTelemetry {
   errorCategory?: string;
   recommendation: GovernorDecision;
   decisionLatencyMs: number;
+  governorName?: string;
+  governorVersion?: string;
+  policyVersion?: string;
+  observedFeatures?: Record<string, number | string | boolean | null>;
 }
 
 export interface ActualRequestContext {

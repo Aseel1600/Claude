@@ -20,10 +20,30 @@ import { getDbInstance } from "./core";
 const MAX_PENDING_TELEMETRY = 256;
 const pendingTelemetry: GovernorTelemetry[] = [];
 let flushScheduled = false;
+const queueMetrics = { queued: 0, persisted: 0, dropped: 0, persistenceFailures: 0, highWaterMark: 0 };
+
+export function getGovernorTelemetryQueueMetrics() {
+  return { ...queueMetrics, pending: pendingTelemetry.length, maxPending: MAX_PENDING_TELEMETRY };
+}
+
+function shouldSample(correlationId: string): boolean {
+  const raw = process.env.GOVERNOR_TELEMETRY_SAMPLE_RATE;
+  const rate = raw == null ? 1 : Number(raw);
+  if (!Number.isFinite(rate) || rate <= 0) return false;
+  if (rate >= 1) return true;
+  let hash = 2166136261;
+  for (const char of correlationId) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
+  return (hash >>> 0) / 0xffffffff < rate;
+}
 
 export function enqueueGovernorTelemetryRow(row: GovernorTelemetry): void {
-  if (pendingTelemetry.length >= MAX_PENDING_TELEMETRY) return;
+  if (!shouldSample(row.correlationId) || pendingTelemetry.length >= MAX_PENDING_TELEMETRY) {
+    queueMetrics.dropped += 1;
+    return;
+  }
   pendingTelemetry.push(row);
+  queueMetrics.queued += 1;
+  queueMetrics.highWaterMark = Math.max(queueMetrics.highWaterMark, pendingTelemetry.length);
   if (flushScheduled) return;
   flushScheduled = true;
   setImmediate(() => {
@@ -43,8 +63,9 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
         actual_routing_strategy, actual_reasoning_config, actual_compression_config,
         actual_prompt_tokens, actual_output_tokens, actual_total_tokens,
         estimated_cost, latency_ms, retry_count, success, error_category,
-        recommendation_json, decision_latency_ms
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        recommendation_json, decision_latency_ms, governor_name, governor_version, policy_version,
+        observed_features_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       row.timestamp ?? Date.now(),
       row.correlationId || "unknown",
@@ -63,12 +84,41 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
       row.success == null ? null : row.success ? 1 : 0,
       row.errorCategory ?? null,
       JSON.stringify(row.recommendation),
-      row.decisionLatencyMs ?? null
+      row.decisionLatencyMs ?? null,
+      row.governorName ?? "NativeOmniGovernor",
+      row.governorVersion ?? "0.1.0",
+      row.policyVersion ?? "v0",
+      row.observedFeatures ? JSON.stringify(row.observedFeatures) : null
     );
+    queueMetrics.persisted += 1;
   } catch (error) {
+    queueMetrics.persistenceFailures += 1;
     // Best-effort telemetry: failure to persist NEVER impacts an AI request
     console.warn("[governorTelemetry] Best-effort telemetry write failed:", error);
   }
+}
+
+export function updateGovernorTelemetryOutcome(
+  correlationId: string,
+  outcome: Partial<Pick<GovernorTelemetry, "actualProvider" | "actualModel" | "actualRoutingStrategy" | "actualPromptTokens" | "actualOutputTokens" | "actualTotalTokens" | "estimatedCost" | "latencyMs" | "retryCount" | "success" | "errorCategory">>
+): void {
+  setImmediate(() => {
+   try {
+    const db = getDbInstance();
+    db.prepare(`UPDATE governor_telemetry SET
+      actual_provider = COALESCE(?, actual_provider), actual_model = COALESCE(?, actual_model),
+      actual_routing_strategy = COALESCE(?, actual_routing_strategy), actual_prompt_tokens = COALESCE(?, actual_prompt_tokens),
+      actual_output_tokens = COALESCE(?, actual_output_tokens), actual_total_tokens = COALESCE(?, actual_total_tokens),
+      estimated_cost = COALESCE(?, estimated_cost), latency_ms = COALESCE(?, latency_ms),
+      retry_count = COALESCE(?, retry_count), success = COALESCE(?, success), error_category = COALESCE(?, error_category)
+      WHERE correlation_id = ?`).run(
+      outcome.actualProvider ?? null, outcome.actualModel ?? null, outcome.actualRoutingStrategy ?? null,
+      outcome.actualPromptTokens ?? null, outcome.actualOutputTokens ?? null, outcome.actualTotalTokens ?? null,
+      outcome.estimatedCost ?? null, outcome.latencyMs ?? null, outcome.retryCount ?? null,
+      outcome.success == null ? null : outcome.success ? 1 : 0, outcome.errorCategory ?? null, correlationId
+    );
+   } catch { queueMetrics.persistenceFailures += 1; }
+  });
 }
 
 export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {

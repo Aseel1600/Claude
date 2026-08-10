@@ -36,6 +36,18 @@ export class NativeOmniGovernor implements IntelligenceGovernor {
       return "tool_output_processing";
     }
 
+    // Structural signals cover multilingual requests without a keyword dictionary.
+    if (input.previousFailureClass || (input.retryCount ?? 0) > 0) {
+      return "code_debug";
+    }
+    if (promptTokens >= 8000 || (input.messageCount ?? 0) >= 12) {
+      return "architecture_reasoning";
+    }
+    if (promptTokens >= 600 || (input.messageCount ?? 0) >= 4) {
+      return "code_edit_simple";
+    }
+
+    // Low-weight English hints remain only as a backwards-compatible fallback.
     if (
       promptText.includes("architecture") ||
       promptText.includes("system design") ||
