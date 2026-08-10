@@ -441,7 +441,11 @@ export async function resolveAutoStrategyOrder(
         promptText: prompt,
         estimatedInputTokens,
         taskType,
-        correlationId,
+        correlationId:
+          correlationId ??
+          (typeof relayOptions?.governorCorrelationId === "string"
+            ? relayOptions.governorCorrelationId
+            : null),
         nativeSelectedTarget: selectedTarget,
         orderedTargets,
         routableCandidates,

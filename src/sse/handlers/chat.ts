@@ -264,7 +264,9 @@ async function dispatchGovernedSingleModel(
 ) {
   const mode = getGovernorMode();
   const governed = !isCombo && (String(originalModel).startsWith("auto/") || originalModel === "auto");
-  if (!governed || runtimeOptions.governorBypass || mode === "off") {
+  const hasExplicitConnection =
+    typeof runtimeOptions.forcedConnectionId === "string" && runtimeOptions.forcedConnectionId.trim().length > 0;
+  if (!governed || runtimeOptions.governorBypass || mode === "off" || hasExplicitConnection) {
     return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
   }
 
@@ -299,7 +301,7 @@ async function dispatchGovernedSingleModel(
       toolCount: Array.isArray(body?.tools) ? body.tools.length : 0,
       availableCandidates: registryCandidates.map((candidate) => candidate.routingModelId || `${candidate.provider}/${candidate.model}`),
     };
-    const { result } = GovernorManager.evaluateRequest(input, {
+    const { result, context } = GovernorManager.evaluateRequest(input, {
       provider,
       model,
       routingStrategy: "auto",
@@ -312,7 +314,12 @@ async function dispatchGovernedSingleModel(
     } as any);
     const config = getGovernorRuntimeConfig();
     const breaker = getGovernorActiveBreaker();
-    const canApply = config.activeEnabled && !breaker.isTripped() && (mode === "active" || mode === "active-canary") && result.plan?.executable === true;
+    const canApply =
+      config.activeEnabled &&
+      !breaker.isTripped() &&
+      context.activeSelected &&
+      (mode === "active" || mode === "active-canary") &&
+      result.plan?.executable === true;
     const selected = canApply ? registryCandidates.find((candidate) => candidate.provider === result.plan?.selectedProvider && candidate.model === result.plan?.selectedModel) : null;
     if (selected?.routingModelId && selected.routingModelId !== originalModel) {
       const resolved = await resolveModelOrError(selected.routingModelId, body, clientRawRequest?.endpoint, clientRawRequest?.headers);
