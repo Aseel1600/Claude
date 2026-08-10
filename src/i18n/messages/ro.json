@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Reziliența Conexiunii",
     "resilienceConnectionsSubtitle": "Cooldown, întrerupător, stare de blocare",
     "settingsModalityBridge": "Podul de Modalitate",
-    "settingsModalityBridgeSubtitle": "Fallback pentru text-only modele pentru imagine/audio → text"
+    "settingsModalityBridgeSubtitle": "Fallback pentru text-only modele pentru imagine/audio → text",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook-uri",
@@ -10468,7 +10470,8 @@
       "compressed": "Compresie",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

@@ -1236,7 +1236,9 @@
     "resilienceConnections": "कनेक्शन लवचिकता",
     "resilienceConnectionsSubtitle": "कूलडाउन, ब्रेकर, लॉकआउट स्थिती",
     "settingsModalityBridge": "मोडालिटी ब्रिज",
-    "settingsModalityBridgeSubtitle": "प्रतिमा/ऑडिओ → मजकूर-फक्त मॉडेलसाठी मजकूर बॅकअप"
+    "settingsModalityBridgeSubtitle": "प्रतिमा/ऑडिओ → मजकूर-फक्त मॉडेलसाठी मजकूर बॅकअप",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "वेबहुक",
@@ -10468,7 +10470,8 @@
       "compressed": "संक्षेप",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

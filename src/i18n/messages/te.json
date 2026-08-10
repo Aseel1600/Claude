@@ -1236,7 +1236,9 @@
     "resilienceConnections": "కనెక్షన్ స్థితిస్థాపకత",
     "resilienceConnectionsSubtitle": "కూల్‌డౌన్, బ్రేకర్, లాక్‌అవుట్ స్థితి",
     "settingsModalityBridge": "మోడాలిటీ బ్రిడ్జ్",
-    "settingsModalityBridgeSubtitle": "చిత్రం/ఆడియో → టెక్స్ట్ మాత్రమే మోడళ్ల కోసం టెక్స్ట్ ఫాల్బ్యాక్"
+    "settingsModalityBridgeSubtitle": "చిత్రం/ఆడియో → టెక్స్ట్ మాత్రమే మోడళ్ల కోసం టెక్స్ట్ ఫాల్బ్యాక్",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "వెబ్‌బూక్స్",
@@ -10468,7 +10470,8 @@
       "compressed": "కుదింపు",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Устойчивость Соединения",
     "resilienceConnectionsSubtitle": "Cooldown, автомат защиты, состояние блокировки",
     "settingsModalityBridge": "Мост Модальности",
-    "settingsModalityBridgeSubtitle": "Резервное копирование изображения/аудио в текст для моделей только с текстом"
+    "settingsModalityBridgeSubtitle": "Резервное копирование изображения/аудио в текст для моделей только с текстом",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Вебхуки",
@@ -10468,7 +10470,8 @@
       "compressed": "Сжатие",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

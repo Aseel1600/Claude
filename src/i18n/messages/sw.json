@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Uimara wa Muunganisho",
     "resilienceConnectionsSubtitle": "Kupoa, kivunja mzunguko, hali ya kufuli",
     "settingsModalityBridge": "Daraja la Modality",
-    "settingsModalityBridgeSubtitle": "Picha/sauti → maandiko ya akiba kwa mifano ya maandiko pekee"
+    "settingsModalityBridgeSubtitle": "Picha/sauti → maandiko ya akiba kwa mifano ya maandiko pekee",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Viboko vya mtandao",
@@ -10468,7 +10470,8 @@
       "compressed": "Mfinyazo",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

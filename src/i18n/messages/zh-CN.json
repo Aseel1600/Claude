@@ -1239,7 +1239,9 @@
     "resilienceConnections": "连接韧性",
     "resilienceConnectionsSubtitle": "冷却、断路器、锁定状态",
     "settingsModalityBridge": "模态桥",
-    "settingsModalityBridgeSubtitle": "图像/音频 → 仅限文本模型的文本回退"
+    "settingsModalityBridgeSubtitle": "图像/音频 → 仅限文本模型的文本回退",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -10544,7 +10546,8 @@
       "compressed": "压缩",
       "tps": "TPS",
       "duration": "时长",
-      "time": "时间"
+      "time": "时间",
+      "conversation": "Conversation"
     },
     "loadingLogs": "正在加载日志...",
     "noLogs": "暂无日志记录。进行一些API调用以在此处查看它们。",

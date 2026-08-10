@@ -1236,7 +1236,9 @@
     "resilienceConnections": "עמידות חיבור",
     "resilienceConnectionsSubtitle": "צינון, נתיק, מצב נעילה",
     "settingsModalityBridge": "גשר מודליות",
-    "settingsModalityBridgeSubtitle": "גיבוי תמונה/שמע → טקסט עבור מודלים רק טקסט"
+    "settingsModalityBridgeSubtitle": "גיבוי תמונה/שמע → טקסט עבור מודלים רק טקסט",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -10468,7 +10470,8 @@
       "compressed": "דחיסה",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

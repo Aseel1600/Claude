@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Resiliensi Koneksi",
     "resilienceConnectionsSubtitle": "Cooldown, breaker, status penguncian",
     "settingsModalityBridge": "Jembatan Modalitas",
-    "settingsModalityBridgeSubtitle": "Fallback teks untuk model hanya teks dari gambar/audio"
+    "settingsModalityBridgeSubtitle": "Fallback teks untuk model hanya teks dari gambar/audio",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -10468,7 +10470,8 @@
       "compressed": "Kompresi",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

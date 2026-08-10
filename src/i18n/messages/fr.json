@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Résilience de Connexion",
     "resilienceConnectionsSubtitle": "Cooldown, disjoncteur, état de blocage",
     "settingsModalityBridge": "Pont de Modalité",
-    "settingsModalityBridgeSubtitle": "Fallback image/audio → texte pour les modèles uniquement textuels"
+    "settingsModalityBridgeSubtitle": "Fallback image/audio → texte pour les modèles uniquement textuels",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -10468,7 +10470,8 @@
       "compressed": "Compression",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

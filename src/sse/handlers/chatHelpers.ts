@@ -419,6 +419,7 @@ export async function executeChatWithBreaker({
   skipUpstreamRetry = false,
   trafficType = "production",
   correlationId = null,
+  conversationId = null,
   modelPinned = false,
   routingComboId = null,
 }: ExecuteChatWithBreakerOptions): Promise<ExecuteChatWithBreakerResult> {
@@ -468,6 +469,7 @@ export async function executeChatWithBreaker({
             skipUpstreamRetry,
             trafficType: normalizedTrafficType,
             correlationId,
+            conversationId,
             modelPinned,
             routingComboId,
             skipResourcePressureGuard: true,
@@ -941,6 +943,23 @@ export function withModalityBridgeHeader(response: Response, value: string | nul
       headers: response.headers,
     });
     cloned.headers.set("x-omniroute-modality-bridge", value);
+    return cloned;
+  }
+}
+
+export function withConversationId(response: Response, conversationId: string | null): Response {
+  if (!response || !conversationId) return response;
+
+  try {
+    response.headers.set("X-ConversationId", conversationId);
+    return response;
+  } catch {
+    const cloned = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    cloned.headers.set("X-ConversationId", conversationId);
     return cloned;
   }
 }

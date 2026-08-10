@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Khả Năng Phục Hồi Kết Nối",
     "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa",
     "settingsModalityBridge": "Cầu Kết Nối Modality",
-    "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản"
+    "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -10470,7 +10472,8 @@
       "compressed": "Nén",
       "tps": "TPS",
       "duration": "Thời lượng",
-      "time": "Thời gian"
+      "time": "Thời gian",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Đang tải nhật ký...",
     "noLogs": "Chưa có nhật ký nào. Hãy thực hiện một số cuộc gọi API để xem chúng ở đây.",

@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Odporność Połączenia",
     "resilienceConnectionsSubtitle": "Cooldown, wyłącznik, stan blokady",
     "settingsModalityBridge": "Mostek Modalności",
-    "settingsModalityBridgeSubtitle": "Fallback obrazu/audio → tekst dla modeli tylko tekstowych"
+    "settingsModalityBridgeSubtitle": "Fallback obrazu/audio → tekst dla modeli tylko tekstowych",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -10468,7 +10470,8 @@
       "compressed": "Kompresja",
       "tps": "TPS",
       "duration": "Czas trwania",
-      "time": "Czas"
+      "time": "Czas",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Wczytywanie logów...",
     "noLogs": "Brak logów. Wykonaj połączenia API, aby zobaczyć je tutaj.",

@@ -1236,7 +1236,9 @@
     "resilienceConnections": "Yhteyden Kestävyys",
     "resilienceConnectionsSubtitle": "Jäähdytys, katkaisija, lukitustila",
     "settingsModalityBridge": "Modaalisilta",
-    "settingsModalityBridgeSubtitle": "Kuva/ääni → tekstivaraus vain tekstimalleille"
+    "settingsModalityBridgeSubtitle": "Kuva/ääni → tekstivaraus vain tekstimalleille",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -10468,7 +10470,8 @@
       "compressed": "Puristus",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",
