@@ -373,6 +373,23 @@ import {
   isRpmExhausted,
 } from "../services/geminiRateLimitTracker.ts";
 import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
+
+function extractGovernorPromptText(body: unknown): string | undefined {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return undefined;
+  const messages = (body as { messages?: unknown[] }).messages;
+  if (!Array.isArray(messages)) return undefined;
+  const text = messages
+    .map((message) => {
+      if (!message || typeof message !== "object") return "";
+      const content = (message as { content?: unknown }).content;
+      return typeof content === "string" ? content : "";
+    })
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 4_000);
+  return text || undefined;
+}
+
 /**
  * Core chat handler - shared between SSE and Worker
  * Returns { success, response, status, error } for caller to handle fallback
@@ -1098,6 +1115,7 @@ export async function handleChatCore({
   let cavemanOutputModeIntensity: string | null = null;
   let preCompressionBody: typeof body | null = null;
   let compressionResponseMeta: string | null = null;
+  let governorEstimatedPromptTokens: number | undefined;
   // Delegated Context Editing (Claude only): captured at the canonical compression
   // settings read below, then threaded to executor.execute() further down. Lives at
   // function scope because the read happens inside the per-message compression block.
@@ -1113,6 +1131,7 @@ export async function handleChatCore({
   let contextLimit = getTokenLimit(provider, effectiveModel);
   if (body && Array.isArray(allMessages) && allMessages.length > 0) {
     let estimatedTokens = estimateTokens(allMessages);
+    governorEstimatedPromptTokens = estimatedTokens;
     const compressionSettingsResult = await resolveCompressionSettings(log);
     const compressionSettings: CompressionConfig | null = compressionSettingsResult.settings;
     // #8034 — operator-named model/endpoint exclusions bypass the whole pipeline, exactly
@@ -5052,11 +5071,18 @@ export async function handleChatCore({
   try {
     const governorInput: GovernorInput = {
       correlationId: correlationId || traceId,
+      estimatedPromptTokens: governorEstimatedPromptTokens,
       contextWindow: (extendedContext as { maxTokens?: number } | undefined)?.maxTokens ?? 128000,
+      contextUtilization:
+        governorEstimatedPromptTokens != null
+          ? governorEstimatedPromptTokens /
+            ((extendedContext as { maxTokens?: number } | undefined)?.maxTokens ?? 128000)
+          : undefined,
       requestedMaxOutput: (body as { max_tokens?: number } | undefined)?.max_tokens,
       toolCount: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools)
         ? (body as { tools: unknown[] }).tools.length
         : 0,
+      rawPromptText: extractGovernorPromptText(body),
       retryCount: undefined,
     };
     GovernorManager.evaluateShadow(governorInput, {

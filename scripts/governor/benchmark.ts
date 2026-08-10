@@ -21,9 +21,12 @@ export interface BenchmarkMetrics {
   maxLatencyMs: number;
   memoryDeltaMb: number;
   breakdownByTaskKind: Record<string, number>;
+  warmupDecisions: number;
+  runs: number;
+  medianThroughputPerSecond: number;
 }
 
-export function runGovernorBenchmark(sampleSize = 10_000): BenchmarkMetrics {
+export function runGovernorBenchmark(sampleSize = 10_000, runCount = 3): BenchmarkMetrics {
   const governor = new NativeOmniGovernor();
   const initialMemory = process.memoryUsage().heapUsed;
 
@@ -60,6 +63,9 @@ export function runGovernorBenchmark(sampleSize = 10_000): BenchmarkMetrics {
   const latencies: number[] = new Array(sampleSize);
   const breakdown: Record<string, number> = {};
 
+  const warmupDecisions = Math.min(1_000, sampleSize);
+  for (let i = 0; i < warmupDecisions; i++) governor.decide(syntheticInputs[i]);
+
   const wallStart = performance.now();
 
   for (let i = 0; i < sampleSize; i++) {
@@ -83,6 +89,13 @@ export function runGovernorBenchmark(sampleSize = 10_000): BenchmarkMetrics {
   const max = latencies[sampleSize - 1];
 
   const opsPerSec = Math.round((sampleSize / wallDuration) * 1000);
+  const throughputs = [opsPerSec];
+  for (let run = 1; run < Math.max(1, runCount); run++) {
+    const runStart = performance.now();
+    for (const input of syntheticInputs) governor.decide(input);
+    throughputs.push(Math.round((sampleSize / (performance.now() - runStart)) * 1000));
+  }
+  throughputs.sort((a, b) => a - b);
   const memDeltaMb = Number(((finalMemory - initialMemory) / (1024 * 1024)).toFixed(2));
 
   return {
@@ -95,16 +108,20 @@ export function runGovernorBenchmark(sampleSize = 10_000): BenchmarkMetrics {
     maxLatencyMs: Number(max.toFixed(4)),
     memoryDeltaMb: memDeltaMb,
     breakdownByTaskKind: breakdown,
+    warmupDecisions,
+    runs: throughputs.length,
+    medianThroughputPerSecond: throughputs[Math.floor(throughputs.length / 2)],
   };
 }
 
 const isMainModule = process.argv[1]?.includes("benchmark.ts");
 if (isMainModule || import.meta.url.endsWith("benchmark.ts")) {
   console.log("=== OmniRoute Intelligence Governor Synthetic Benchmark ===");
-  const results = runGovernorBenchmark(10_000);
+  const results = runGovernorBenchmark(10_000, 3);
   console.log(`Total Decisions  : ${results.totalDecisions.toLocaleString()}`);
   console.log(`Total Duration   : ${results.totalDurationMs} ms`);
   console.log(`Throughput       : ${results.decisionsPerSecond.toLocaleString()} decisions/sec`);
+  console.log(`Median throughput: ${results.medianThroughputPerSecond.toLocaleString()} decisions/sec (${results.runs} runs, ${results.warmupDecisions} warmup decisions)`);
   console.log(`Latency p50      : ${results.latencyP50Ms} ms`);
   console.log(`Latency p95      : ${results.latencyP95Ms} ms`);
   console.log(`Latency p99      : ${results.latencyP99Ms} ms`);

@@ -2,6 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { GovernorManager } from "../../../open-sse/governor/governorManager.ts";
 import type { ActualRequestContext, GovernorInput } from "../../../open-sse/governor/types.ts";
+import {
+  getFeatureFlagOverride,
+  removeFeatureFlagOverride,
+  setFeatureFlagOverride,
+} from "../../../src/lib/db/featureFlags.ts";
 
 describe("GovernorManager & Shadow Mode Isolation", () => {
   it("should return null recommendation when mode is off", () => {
@@ -16,6 +21,8 @@ describe("GovernorManager & Shadow Mode Isolation", () => {
   });
 
   it("should evaluate shadow decision without mutating active request context", () => {
+    const previousOverride = getFeatureFlagOverride("INTELLIGENCE_GOVERNOR_MODE");
+    removeFeatureFlagOverride("INTELLIGENCE_GOVERNOR_MODE");
     process.env.INTELLIGENCE_GOVERNOR_MODE = "shadow";
     try {
       const input: GovernorInput = {
@@ -46,6 +53,8 @@ describe("GovernorManager & Shadow Mode Isolation", () => {
       assert.deepEqual(originalContext, contextCopy);
     } finally {
       delete process.env.INTELLIGENCE_GOVERNOR_MODE;
+      if (previousOverride === undefined) removeFeatureFlagOverride("INTELLIGENCE_GOVERNOR_MODE");
+      else setFeatureFlagOverride("INTELLIGENCE_GOVERNOR_MODE", previousOverride);
     }
   });
 });
