@@ -82,6 +82,8 @@ export type ComboRelayOptions = {
   budgetCap?: number | null;
   /** Per-request X-OmniRoute-Budget-Fallback value ("cheapest" | "strict") — #3470. */
   budgetFallback?: "cheapest" | "strict" | null;
+  /** Internal request identity used only to deduplicate Governor evaluation. */
+  governorCorrelationId?: string | null;
   [key: string]: unknown;
 };
 
@@ -110,6 +112,8 @@ export type HandleComboChatOptions = {
   apiKeyAllowedConnections?: string[] | null;
   nesting?: ComboNestingContext | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  /** Internal request identity; never forwarded upstream. */
+  correlationId?: string | null;
 };
 
 export type HandleRoundRobinOptions = Omit<
@@ -173,6 +177,10 @@ export type ResolvedComboTarget = {
   prompt?: string | null;
   failoverBeforeRetry?: unknown;
   trafficType?: "production" | "shadow";
+  /** Set only when the Governor reordered this factual Auto Combo target to the front. */
+  governorSelected?: boolean;
+  /** Request identity paired with governorSelected for breaker/telemetry correlation. */
+  governorCorrelationId?: string | null;
   /**
    * Fingerprint-based account pin resolved from a combo builder composite
    * connectionId (`${rowId}|fp|${fingerprint}`, see
