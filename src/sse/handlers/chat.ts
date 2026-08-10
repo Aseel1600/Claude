@@ -29,6 +29,7 @@ import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.
 import { applyNoThinkingAlias } from "@omniroute/open-sse/utils/noThinkingAlias.ts";
 import { resolveCcDiscoveryAliasStrip } from "@/lib/ccDiscoveryAliasResolve";
 import { handleComboChat, shouldSkipConnDisable } from "@omniroute/open-sse/services/combo.ts";
+import type { SingleModelTarget } from "@omniroute/open-sse/services/combo/types.ts";
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
 import { resolveComboConfig } from "@omniroute/open-sse/services/comboConfig.ts";
@@ -588,7 +589,7 @@ async function handleChatImplementation(
     >,
     model: modelStr,
     combo: undefined,
-    apiKeyInfo: apiKeyInfo as Record<string, unknown> | undefined,
+    apiKeyInfo: apiKeyInfo ? { ...apiKeyInfo } : undefined,
     log,
   });
 
@@ -992,7 +993,7 @@ async function handleChatImplementation(
       try {
         const { getComboByName } = await import("@/lib/db/combos");
         const routingCombo = await getComboByName(providerPrefix);
-        if (routingCombo?.id) {
+        if (typeof routingCombo?.id === "string") {
           routingComboId = routingCombo.id;
         }
       } catch {}
@@ -1097,21 +1098,9 @@ async function handleSingleModelChat(
         String(clientRawRequest?.endpoint || "")
           .split("/")
           .includes("responses"),
-      handleSingleModel: (
-        b: any,
-        m: string,
-        target?: {
-          connectionId?: string | null;
-          executionKey?: string | null;
-          stepId?: string | null;
-          failoverBeforeRetry?: boolean;
-          allowRateLimitedConnection?: boolean;
-          providerId?: string | null;
-          effectiveComboStrategy?: string | null;
-          modelAbortSignal?: AbortSignal | null;
-        }
-      ) =>
-        handleSingleModelChat(
+      handleSingleModel: (b: Record<string, unknown>, m: string, target?: SingleModelTarget) => {
+        const resolvedTarget = target && "kind" in target ? target : null;
+        return handleSingleModelChat(
           b,
           m,
           clientRawRequest,
@@ -1126,23 +1115,23 @@ async function handleSingleModelChat(
             allowedConnectionIds: null,
             comboStepId: null,
             comboExecutionKey: null,
-            skipUpstreamRetry: target?.failoverBeforeRetry ?? false,
-            allowRateLimitedConnection: target?.allowRateLimitedConnection === true,
-            providerId: target?.providerId ?? null,
+            skipUpstreamRetry: resolvedTarget?.failoverBeforeRetry === true,
+            allowRateLimitedConnection: resolvedTarget?.allowRateLimitedConnection === true,
+            providerId: resolvedTarget?.providerId ?? null,
             correlationId: runtimeOptions?.correlationId ?? null,
             // #7360 follow-up — see the primary handleSingleModel closure above.
             modelAbortSignal: target?.modelAbortSignal ?? null,
           },
-          target?.effectiveComboStrategy ?? redirectCombo.strategy ?? "priority",
+          resolvedTarget?.effectiveComboStrategy ?? redirectCombo.strategy ?? "priority",
           false
-        ),
+        );
+      },
       isModelAvailable: async () => true,
       log,
       settings: {},
       allCombos: [],
       relayOptions: undefined,
       signal: request?.signal ?? null,
-      correlationId: runtimeOptions?.correlationId ?? null,
     });
   }
 
@@ -1392,6 +1381,12 @@ async function handleSingleModelChat(
           breaker._onFailure();
         }
 
+        const candidateAliases =
+          "candidateAliases" in resolved && Array.isArray(resolved.candidateAliases)
+            ? resolved.candidateAliases.filter(
+                (candidate): candidate is string => typeof candidate === "string"
+              )
+            : undefined;
         const noCredsRes = handleNoCredentials(
           credentials,
           excludedConnectionIds.size > 0 ? Array.from(excludedConnectionIds)[0] : null,
@@ -1399,7 +1394,7 @@ async function handleSingleModelChat(
           model,
           lastError,
           lastStatus,
-          resolved.candidateAliases
+          candidateAliases
         );
         const lastFailedConnectionId =
           excludedConnectionIds.size > 0
