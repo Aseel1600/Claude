@@ -69,8 +69,8 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
         actual_prompt_tokens, actual_output_tokens, actual_total_tokens,
         estimated_cost, latency_ms, retry_count, success, error_category,
         recommendation_json, decision_latency_ms, governor_name, governor_version, policy_version,
-        observed_features_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        observed_features_json, counterfactual_plan_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       merged.timestamp ?? Date.now(), merged.correlationId || "unknown", merged.governorMode,
       merged.actualProvider ?? null, merged.actualModel ?? null, merged.actualRoutingStrategy ?? null,
@@ -81,6 +81,7 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
       JSON.stringify(merged.recommendation), merged.decisionLatencyMs ?? null,
       merged.governorName ?? "NativeOmniGovernor", merged.governorVersion ?? "0.1.0",
       merged.policyVersion ?? "v0", merged.observedFeatures ? JSON.stringify(merged.observedFeatures) : null
+      , merged.counterfactualPlan ? JSON.stringify(merged.counterfactualPlan) : null
     );
     queueMetrics.persisted += 1;
   } catch (error) {
@@ -157,6 +158,7 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       governor_version: string | null;
       policy_version: string | null;
       observed_features_json: string | null;
+      counterfactual_plan_json: string | null;
     }>;
 
     return rows.map((r) => ({
@@ -183,6 +185,7 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       governorVersion: r.governor_version ?? undefined,
       policyVersion: r.policy_version ?? undefined,
       observedFeatures: r.observed_features_json ? JSON.parse(r.observed_features_json) : undefined,
+      counterfactualPlan: r.counterfactual_plan_json ? JSON.parse(r.counterfactual_plan_json) : undefined,
     }));
   } catch {
     return [];

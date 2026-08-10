@@ -81,7 +81,7 @@ export interface GovernorTelemetry {
   id?: number;
   correlationId: string;
   timestamp: number;
-  governorMode: "off" | "shadow";
+  governorMode: "off" | "shadow" | "simulate";
   actualProvider: string;
   actualModel: string;
   actualRoutingStrategy?: string;
@@ -101,6 +101,7 @@ export interface GovernorTelemetry {
   governorVersion?: string;
   policyVersion?: string;
   observedFeatures?: Record<string, number | string | boolean | null>;
+  counterfactualPlan?: unknown;
 }
 
 export interface ActualRequestContext {
