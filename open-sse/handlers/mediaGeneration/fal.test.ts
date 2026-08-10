@@ -93,6 +93,66 @@ test("buildFalVideoRequestBody maps multiple provider-neutral image references",
   );
 });
 
+test("buildFalVideoRequestBody maps the Gemini Omni Flash video schema", () => {
+  assert.deepEqual(
+    buildFalVideoRequestBody(
+      {
+        prompt: "A realistic dog walking through a park",
+        aspect_ratio: "9:16",
+        duration: 10,
+        resolution: "1080p",
+        generate_audio: false,
+      },
+      "google/gemini-omni-flash"
+    ),
+    {
+      prompt: "A realistic dog walking through a park",
+      aspect_ratio: "9:16",
+      duration: 10,
+    }
+  );
+});
+
+test("handleFalVideoGeneration selects Gemini Omni Flash image-to-video", async () => {
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; body: string }> = [];
+  globalThis.fetch = async (input, init) => {
+    requests.push({ url: String(input), body: String(init?.body) });
+    return new Response(JSON.stringify({ video: { url: "https://cdn.example/gemini.mp4" } }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const result = await handleFalVideoGeneration({
+      model: "google/gemini-omni-flash",
+      provider: "fal-ai",
+      providerConfig: { baseUrl: "https://queue.fal.run" },
+      body: {
+        prompt: "Animate this dog",
+        image_urls: ["data:image/png;base64,ZmFrZQ=="],
+        duration: 8,
+      },
+      credentials: { apiKey: "test-key" },
+    });
+
+    assert.equal(result.success, true);
+    assert.equal(
+      requests[0]?.url,
+      "https://queue.fal.run/fal-ai/google/gemini-omni-flash/image-to-video"
+    );
+    assert.deepEqual(JSON.parse(requests[0]?.body || "{}"), {
+      prompt: "Animate this dog",
+      aspect_ratio: "16:9",
+      duration: 8,
+      image_url: "data:image/png;base64,ZmFrZQ==",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("buildFalMusicRequestBody uses prompt as tags and supports lyrics", () => {
   assert.deepEqual(
     buildFalMusicRequestBody({

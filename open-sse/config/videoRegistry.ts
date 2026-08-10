@@ -81,6 +81,7 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     format: "fal-ai-video",
     models: [
       { id: "veo3.1/lite", name: "Veo 3.1 Lite" },
+      { id: "google/gemini-omni-flash", name: "Gemini Omni Flash" },
       {
         id: "xai/grok-imagine-video/text-to-video",
         name: "Grok Imagine Video",

@@ -53,7 +53,30 @@ function grokDuration(value: unknown, fallback = 6): number {
   return fallback;
 }
 
+function geminiDuration(value: unknown, fallback = 8): number {
+  const numeric = numberValue(value);
+  const parsed =
+    numeric ??
+    (typeof value === "string" && /^\d+(?:\.\d+)?s$/.test(value.trim())
+      ? Number(value.trim().slice(0, -1))
+      : undefined);
+  return parsed === undefined ? fallback : Math.min(10, Math.max(3, Math.round(parsed)));
+}
+
 export function buildFalVideoRequestBody(body: FalBody, model = ""): FalBody {
+  if (model.startsWith("google/gemini-omni-flash")) {
+    const request: FalBody = {
+      prompt: stringValue(body.prompt) || "",
+      aspect_ratio: stringValue(body.aspect_ratio) || "16:9",
+      duration: geminiDuration(body.duration),
+    };
+
+    const imageUrl = stringValue(body.image_url) || stringArray(body.image_urls)[0];
+    if (imageUrl) request.image_url = imageUrl;
+
+    return request;
+  }
+
   if (model.startsWith("xai/grok-imagine-video/")) {
     const request: FalBody = {
       prompt: stringValue(body.prompt) || "",
@@ -94,7 +117,14 @@ export function buildFalVideoRequestBody(body: FalBody, model = ""): FalBody {
 }
 
 function resolveFalModel(model: string, body: FalBody, kind: MediaKind): string {
-  if (kind !== "video" || !model.startsWith("xai/grok-imagine-video/")) return model;
+  if (kind !== "video") return model;
+
+  if (model.startsWith("google/gemini-omni-flash") && !model.endsWith("/image-to-video")) {
+    const hasImage = typeof body.image_url === "string" || stringArray(body.image_urls).length > 0;
+    return hasImage ? "google/gemini-omni-flash/image-to-video" : model;
+  }
+
+  if (!model.startsWith("xai/grok-imagine-video/")) return model;
 
   const suffix = Array.isArray(body.reference_image_urls)
     ? "reference-to-video"
