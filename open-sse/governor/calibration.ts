@@ -5,5 +5,5 @@ export const GOVERNOR_PROFILES: Record<GovernorProfile, { costWeight: number; co
 export function calibratePolicy(observations: CalibrationObservation[]): PolicyCalibrationReport {
   const complete = observations.filter((o) => o.success != null && o.currentCost != null && o.counterfactualCost != null);
   const evidence = complete.length >= 30 ? "OBSERVED" : complete.length >= 5 ? "DIRECTIONAL" : "INSUFFICIENT_DATA";
-  return { policyVersion: "v1-candidate", evidence, sampleSize: complete.length, profiles: GOVERNOR_PROFILES, suggestedProfile: "balanced" };
+  return { policyVersion: "v1", evidence, sampleSize: complete.length, profiles: GOVERNOR_PROFILES, suggestedProfile: "balanced" };
 }

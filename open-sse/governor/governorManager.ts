@@ -14,17 +14,19 @@ import { getGovernorMode, isGovernorTelemetryEnabled } from "@/shared/utils/feat
 import { enqueueGovernorTelemetryRow } from "@/lib/db/governorTelemetry.ts";
 import { NativeOmniGovernor } from "./nativeGovernor.ts";
 import { resolveCounterfactualPlan, type CounterfactualExecutionPlan, type CounterfactualInput } from "./counterfactual.ts";
+import { GOVERNOR_POLICY_VERSION } from "./constants.ts";
 import type {
   GovernorDecision,
   GovernorInput,
   GovernorTelemetry,
   IntelligenceGovernor,
   ActualRequestContext,
+  GovernorExecutionContext,
 } from "./types.ts";
 
 export interface EvaluationResult {
   recommendation: GovernorDecision | null;
-  mode: "off" | "shadow" | "simulate";
+  mode: "off" | "shadow" | "simulate" | "active-canary" | "active";
   decisionLatencyMs: number;
   plan?: CounterfactualExecutionPlan;
 }
@@ -40,6 +42,12 @@ export class GovernorManager {
 
   public static setGovernor(governor: IntelligenceGovernor): void {
     this.governor = governor;
+  }
+
+  public static evaluateRequest(input: GovernorInput, actualContext: ActualRequestContext, counterfactualInput?: CounterfactualInput): { result: EvaluationResult; context: GovernorExecutionContext } {
+    const mode = getGovernorMode();
+    const result = this.evaluateShadow(input, actualContext, counterfactualInput);
+    return { result, context: { correlationId: input.correlationId ?? "unknown", mode, decision: result.recommendation, plan: result.plan, decisionCount: result.recommendation ? 1 : 0, planResolutionCount: result.plan ? 1 : 0, originalRoute: { provider: actualContext.provider, model: actualContext.model, strategy: actualContext.routingStrategy }, activeEligible: Boolean(result.plan && (mode === "active" || mode === "active-canary")), activeSelected: false, activeApplied: false, fallbackAttempted: false, fallbackSucceeded: false, bypassReason: mode === "off" ? "off" : undefined } };
   }
 
   public static evaluateShadow(
@@ -72,7 +80,7 @@ export class GovernorManager {
     }
 
     const decisionLatencyMs = Number((performance.now() - startTime).toFixed(3));
-    const counterfactualPlan = mode === "simulate" && counterfactualInput
+    const counterfactualPlan = ["simulate", "active-canary", "active"].includes(mode) && counterfactualInput
       ? resolveCounterfactualPlan(counterfactualInput, recommendation)
       : undefined;
 
@@ -98,7 +106,7 @@ export class GovernorManager {
         decisionLatencyMs,
         governorName: this.governor.name,
         governorVersion: this.governor.version,
-        policyVersion: "v0",
+        policyVersion: GOVERNOR_POLICY_VERSION,
         observedFeatures: {
           estimatedPromptTokens: input.estimatedPromptTokens ?? null,
           contextUtilization: input.contextUtilization ?? null,

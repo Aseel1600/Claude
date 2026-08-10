@@ -81,7 +81,7 @@ export interface GovernorTelemetry {
   id?: number;
   correlationId: string;
   timestamp: number;
-  governorMode: "off" | "shadow" | "simulate";
+  governorMode: "off" | "shadow" | "simulate" | "active-canary" | "active";
   actualProvider: string;
   actualModel: string;
   actualRoutingStrategy?: string;
@@ -118,6 +118,14 @@ export interface ActualRequestContext {
   retryCount?: number | null;
   success?: boolean | null;
   errorCategory?: string;
+}
+
+export interface GovernorExecutionContext {
+  correlationId: string; mode: "off" | "shadow" | "simulate" | "active-canary" | "active";
+  decision: GovernorDecision | null; plan?: unknown; decisionCount: number; planResolutionCount: number;
+  originalRoute: { provider: string; model: string; strategy?: string }; selectedRoute?: { provider: string; model: string; strategy?: string };
+  activeEligible: boolean; activeSelected: boolean; activeApplied: boolean; bypassReason?: string;
+  fallbackAttempted: boolean; fallbackSucceeded: boolean; breakerState?: string;
 }
 
 export interface IntelligenceGovernor {

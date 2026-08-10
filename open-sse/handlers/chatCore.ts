@@ -5108,7 +5108,7 @@ export async function handleChatCore({
       requiredCapabilities: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) && (body as { tools: unknown[] }).tools.length > 0 ? ["tools"] : [],
       candidates: buildCounterfactualCandidates([{ provider: provider || "unknown", model: model || "unknown", tier: "preserve" as ModelTier, available: true, capabilities: ["streaming", ...(Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) ? ["tools"] : [])], quotaState: "unknown" }]),
     };
-    GovernorManager.evaluateShadow(governorInput, {
+    GovernorManager.evaluateRequest(governorInput, {
       provider: provider || "unknown",
       model: model || "unknown",
       routingStrategy: comboStrategy ?? (isCombo ? "auto_combo" : "direct"),
