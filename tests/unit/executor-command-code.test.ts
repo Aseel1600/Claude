@@ -187,6 +187,53 @@ describe("CommandCodeExecutor", () => {
       "unknown",
       "unnamed call falls back to 'unknown'"
     );
+
+    // /alpha/generate also requires `arguments` on tool-result parts; a
+    // missing one is rejected with `input[N] missing required field 'arguments'`
+    // (the index landing on the tool message). Echo the paired call's
+    // normalized arguments.
+    const resultById = new Map(
+      toolMsgs.map((m) => {
+        const p = (m.content as Array<Record<string, unknown>>)[0];
+        return [String(p.toolCallId), p];
+      })
+    );
+    assert.equal(resultById.size, 6, "each tool result maps to its call id");
+    for (const p of resultById.values()) {
+      assert.equal(
+        typeof p.arguments,
+        "string",
+        `tool-result ${String(p.toolCallId)} must carry a string arguments field`
+      );
+      const parsed = JSON.parse(p.arguments as string);
+      assert.equal(typeof parsed, "object");
+      assert.ok(!Array.isArray(parsed), "tool-result arguments must parse to a JSON object");
+    }
+    assert.equal(
+      resultById.get("call_missing").arguments,
+      "{}",
+      "tool-result echoes paired call's missing arguments as empty object"
+    );
+    assert.equal(
+      resultById.get(pairedId).arguments,
+      '{"q":"docs"}',
+      "tool-result echoes paired call's object arguments as JSON string"
+    );
+    assert.equal(
+      resultById.get("call_string").arguments,
+      '{"q":"string"}',
+      "tool-result echoes paired call's valid string arguments as-is"
+    );
+    assert.equal(
+      resultById.get("call_empty").arguments,
+      "{}",
+      "tool-result echoes paired call's empty arguments as empty object"
+    );
+    assert.equal(
+      resultById.get("call_invalid").arguments,
+      "{}",
+      "tool-result echoes paired call's invalid JSON arguments as empty object"
+    );
   });
 
   it("COMMAND_CODE_VERSION default constant is 1.15.1", () => {

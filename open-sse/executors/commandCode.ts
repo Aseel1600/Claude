@@ -218,10 +218,12 @@ function convertTools(tools: unknown): unknown[] {
 function buildToolCallMetadata(messages: JsonRecord[]): {
   pairedToolCallIds: Set<string>;
   toolCallNames: Map<string, string>;
+  toolCallArgs: Map<string, string>;
 } {
   const callIds = new Set<string>();
   const resultIds = new Set<string>();
   const toolCallNames = new Map<string, string>();
+  const toolCallArgs = new Map<string, string>();
 
   for (const message of messages) {
     if (message.role === "assistant") {
@@ -232,6 +234,7 @@ function buildToolCallMetadata(messages: JsonRecord[]): {
           const fn = isRecord(call.function) ? call.function : {};
           const name = stringValue(fn.name) || stringValue(call.name);
           if (name) toolCallNames.set(id, name);
+          toolCallArgs.set(id, toolCallArgumentsString(fn.arguments));
         }
       }
     } else if (message.role === "tool") {
@@ -241,7 +244,7 @@ function buildToolCallMetadata(messages: JsonRecord[]): {
   }
 
   const pairedToolCallIds = new Set([...callIds].filter((id) => resultIds.has(id)));
-  return { pairedToolCallIds, toolCallNames };
+  return { pairedToolCallIds, toolCallNames, toolCallArgs };
 }
 
 function convertMessages(
@@ -249,7 +252,7 @@ function convertMessages(
   model?: string | null
 ): { system: string; messages: unknown[] } {
   const source = asRecordArray(messages);
-  const { pairedToolCallIds, toolCallNames } = buildToolCallMetadata(source);
+  const { pairedToolCallIds, toolCallNames, toolCallArgs } = buildToolCallMetadata(source);
   const out: unknown[] = [];
   const system: string[] = [];
   const isVision = isCommandCodeVisionModel(model);
@@ -303,6 +306,9 @@ function convertMessages(
             type: "tool-result",
             toolCallId,
             toolName,
+            // /alpha/generate requires `arguments` here too (same rejection as
+            // tool-call parts); echo the paired call's args, defensively "{}".
+            arguments: toolCallArgs.get(toolCallId) ?? "{}",
             output: { type: "text", value: normalizeContentText(message.content) },
           },
         ],
