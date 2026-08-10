@@ -65,6 +65,7 @@ export interface ResolveAutoStrategyDeps {
   relayOptions?: {
     bypassProviderQuotaPolicy?: boolean;
     sessionId?: string | null;
+    governorCorrelationId?: string | null;
     /** Per-request X-OmniRoute-Mode value (#6024/#6025). */
     mode?: string | null;
     /** Per-request X-OmniRoute-Budget value in USD (#6023). */
