@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "لم تتم إضافة أي نماذج جديدة (كلها موجودة بالفعل).",
     "importDoneCount": "✓ تم! {count, plural, one {استُورد نموذج واحد.} other {استُورد # من النماذج.}}",
     "unexpectedErrorOccurred": "حدث خطأ غير متوقع",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "عدد الاتصالات: {count, plural, one {اتصال واحد} other {# اتصالات}}",
     "messagesPath": "الرسائل",
     "responsesPath": "الردود",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) هو الصديق المؤسس للمصادر المفتوحة لـ OmniRoute",
     "cheaperInferenceSupporterBadge": "صديق مفتوح المصدر",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference تدعم OmniRoute كصديق للمصادر المفتوحة",
-    "kimiPartnerLinkNote": "رابط شريك — يدعم OmniRoute دون أي تكلفة إضافية عليك"
+    "kimiPartnerLinkNote": "رابط شريك — يدعم OmniRoute دون أي تكلفة إضافية عليك",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "الإعدادات",
@@ -7812,10 +7819,6 @@
         "label": "الحد الأدنى للصفوف لضغطها",
         "description": "الحد الأدنى للصفوف في مصفوفة JSON متجانسة المطلوبة لتشغيل الضغط الجدولي. الافتراضي: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "الحفاظ على توجيه النظام"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "الحد الأدنى لطول الرسالة"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "منسوخ!",
     "run": "تشغيل",
     "running": "جارٍ...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "الاستجابة",
     "tunnel": "نفق",
     "send": "إرسال",

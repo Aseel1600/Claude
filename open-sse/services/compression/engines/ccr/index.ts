@@ -35,7 +35,6 @@
  *   - Only replace blocks ≥ minChars (default 600).
  *   - `stackable: true`, `stackPriority: 4` (runs just after session-dedup(3)).
  */
-
 import crypto from "node:crypto";
 import {
   deleteAllCcrBlocks,

@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Nenhum novo modelo foi adicionado (todos já existem).",
     "importDoneCount": "✓ Pronto! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ocorreu um erro inesperado",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mensagens",
     "responsesPath": "respostas",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "A Kimi (Moonshot AI) é a amiga fundadora de código aberto do OmniRoute",
     "cheaperInferenceSupporterBadge": "Amigo do Código Aberto",
     "cheaperInferenceSupporterTooltip": "A Cheaper Inference apoia o OmniRoute como amiga do código aberto",
-    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custos adicionais para si"
+    "kimiPartnerLinkNote": "Link de parceiro — apoia o OmniRoute sem custos adicionais para si",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Configurações",
@@ -7812,10 +7819,6 @@
         "label": "Mínimo de linhas a compactar",
         "description": "Número mínimo de linhas num array JSON homogéneo necessário para acionar a compactação tabular. Predefinição: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Preservar prompt do sistema"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Comprimento mínimo da mensagem"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Copiado!",
     "run": "Executar",
     "running": "A executar...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Resposta",
     "tunnel": "Túnel",
     "send": "Enviar",

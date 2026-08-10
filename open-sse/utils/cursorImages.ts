@@ -23,13 +23,21 @@
 import crypto from "node:crypto";
 import dns from "node:dns";
 import { isIP } from "node:net";
-import sharp from "sharp";
 import {
   parseAndValidatePublicUrl,
   isPrivateHost,
   OutboundUrlGuardError,
 } from "@/shared/network/outboundUrlGuard";
 import type { EncodedImage } from "./cursorAgentProtobuf.ts";
+
+type SharpFactory = (typeof import("sharp"))["default"];
+
+let sharpFactoryPromise: Promise<SharpFactory> | undefined;
+
+function loadSharp(): Promise<SharpFactory> {
+  sharpFactoryPromise ??= import("sharp").then((module) => module.default);
+  return sharpFactoryPromise;
+}
 
 /** Final per-image byte cap after prep (composer-api / wire bound). */
 export const MAX_CURSOR_IMAGE_BYTES = 1024 * 1024;
@@ -503,6 +511,7 @@ export async function prepareCursorImageForWire(input: {
   mimeType: string;
   detail?: string;
 }): Promise<PreparedImage> {
+  const sharp = await loadSharp();
   const mime = input.mimeType.toLowerCase();
   const softMax = softMaxBytesForDetail(input.detail);
   const qualities = jpegQualitiesForDetail(input.detail);

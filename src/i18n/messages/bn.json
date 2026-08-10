@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) হল OmniRoute-এর প্রতিষ্ঠাতা ওপেন সোর্স বন্ধু",
     "cheaperInferenceSupporterBadge": "ওপেন সোর্স বন্ধু",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference একজন ওপেন সোর্স বন্ধু হিসেবে OmniRoute-কে সমর্থন করে",
-    "kimiPartnerLinkNote": "পার্টনার লিঙ্ক — আপনার কোনো অতিরিক্ত খরচ ছাড়াই OmniRoute-কে সমর্থন করে"
+    "kimiPartnerLinkNote": "পার্টনার লিঙ্ক — আপনার কোনো অতিরিক্ত খরচ ছাড়াই OmniRoute-কে সমর্থন করে",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7812,10 +7819,6 @@
         "label": "কম্প্যাক্ট করার জন্য ন্যূনতম সারি",
         "description": "ট্যাবুলার কম্প্যাকশন ট্রিগার করার জন্য একটি সমজাতীয় JSON অ্যারেতে প্রয়োজনীয় ন্যূনতম সারি। ডিফল্ট: 8।"
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "সিস্টেম প্রম্পট সংরক্ষণ করুন"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "বার্তার ন্যূনতম দৈর্ঘ্য"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "কপি করা হয়েছে!",
     "run": "চালান",
     "running": "চলছে...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "প্রতিক্রিয়া",
     "tunnel": "টানেল",
     "send": "পাঠান",

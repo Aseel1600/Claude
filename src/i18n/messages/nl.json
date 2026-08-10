@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Er zijn geen nieuwe modellen toegevoegd (ze bestaan allemaal al).",
     "importDoneCount": "✓ Klaar! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Er is een onverwachte fout opgetreden",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "berichten",
     "responsesPath": "reacties",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is OmniRoute's oprichtende open source-vriend",
     "cheaperInferenceSupporterBadge": "Opensourcevriend",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference steunt OmniRoute als opensourcevriend",
-    "kimiPartnerLinkNote": "Partnerlink — ondersteunt OmniRoute zonder extra kosten voor u"
+    "kimiPartnerLinkNote": "Partnerlink — ondersteunt OmniRoute zonder extra kosten voor u",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Instellingen",
@@ -7812,10 +7819,6 @@
         "label": "Minimum aantal rijen om te compacteren",
         "description": "Minimum aantal rijen in een homogene JSON-array dat vereist is om tabulaire compactie te activeren. Standaard: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Systeemprompt behouden"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimale berichtlengte"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Gekopieerd!",
     "run": "Uitvoeren",
     "running": "Bezig met uitvoeren...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Verzenden",

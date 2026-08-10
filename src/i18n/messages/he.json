@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "לא נוספו דגמים חדשים (כולם כבר קיימים).",
     "importDoneCount": "✓ בוצע! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "אירעה שגיאה בלתי צפויה",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "הודעות",
     "responsesPath": "תגובות",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) הוא חבר הקוד הפתוח המייסד של OmniRoute",
     "cheaperInferenceSupporterBadge": "ידיד קוד פתוח",
     "cheaperInferenceSupporterTooltip": "‏Cheaper Inference תומכת ב-OmniRoute כידידת קוד פתוח",
-    "kimiPartnerLinkNote": "קישור שותף — תומך ב-OmniRoute ללא עלות נוספת עבורך"
+    "kimiPartnerLinkNote": "קישור שותף — תומך ב-OmniRoute ללא עלות נוספת עבורך",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "הגדרות",
@@ -7812,10 +7819,6 @@
         "label": "מינימום שורות לכיווץ",
         "description": "מספר השורות המינימלי במערך JSON הומוגני הנדרש להפעלת כיווץ טבלאי. ברירת מחדל: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "שמור על הנחיית המערכת"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "אורך הודעה מינימלי"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "הועתק!",
     "run": "הפעל",
     "running": "מריץ...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "תגובה",
     "tunnel": "מנהרה",
     "send": "שלח",

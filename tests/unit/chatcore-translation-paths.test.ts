@@ -1897,7 +1897,7 @@ test("chatCore redirects background utility tasks to a cheaper mapped model", as
     enabled: true,
     degradationMap: {
       ...originalBackgroundConfig.degradationMap,
-      "gpt-5": "gpt-5-mini",
+      "gpt-5": "gpt-4o-mini",
     },
     detectionPatterns: ["generate a title"],
   });
@@ -1916,7 +1916,7 @@ test("chatCore redirects background utility tasks to a cheaper mapped model", as
   });
 
   assert.equal(result.success, true);
-  assert.equal(call.body.model, "gpt-5-mini");
+  assert.equal(call.body.model, "gpt-4o-mini");
 });
 test("chatCore preserves Codex dual-window scope cooldowns on 429 responses", async () => {
   const connection = await providersDb.createProviderConnection({

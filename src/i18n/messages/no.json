@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Ingen nye modeller ble lagt til (alle finnes allerede).",
     "importDoneCount": "✓ Ferdig! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Det oppstod en uventet feil",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "meldinger",
     "responsesPath": "svar",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) er OmniRoutes grunnleggende åpen kildekode-venn",
     "cheaperInferenceSupporterBadge": "Åpen kildekode-venn",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference støtter OmniRoute som åpen kildekode-venn",
-    "kimiPartnerLinkNote": "Partnerlenke — støtter OmniRoute uten ekstra kostnad for deg"
+    "kimiPartnerLinkNote": "Partnerlenke — støtter OmniRoute uten ekstra kostnad for deg",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Innstillinger",
@@ -7812,10 +7819,6 @@
         "label": "Minimum rader å komprimere",
         "description": "Minimum antall rader i et homogent JSON-array som kreves for å utløse tabulær komprimering. Standard: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Bevar system-prompt"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimum meldingslengde"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Kopiert!",
     "run": "Kjør",
     "running": "Kjører...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Send",

@@ -154,7 +154,7 @@ export const XAI_OAUTH_CONFIG = {
 
 // Openference OAuth Configuration (Authorization Code Flow with PKCE)
 export const OPENFERENCE_CONFIG = {
-  clientId: "omniroute",
+  clientId: resolvePublicCred("openference_id"),
   authorizeUrl: "https://openference.com/app/oauth/authorize",
   tokenUrl: "https://openference.com/oauth/token",
   userinfoUrl: "https://openference.com/oauth/userinfo",

@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Tidak ada model baru yang ditambahkan (semua sudah ada).",
     "importDoneCount": "✓ Selesai! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Terjadi kesalahan yang tidak terduga",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "pesan",
     "responsesPath": "tanggapan",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) adalah sahabat open source pendiri OmniRoute",
     "cheaperInferenceSupporterBadge": "Teman Open Source",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference mendukung OmniRoute sebagai Teman Open Source",
-    "kimiPartnerLinkNote": "Tautan mitra — mendukung OmniRoute tanpa biaya tambahan bagi Anda"
+    "kimiPartnerLinkNote": "Tautan mitra — mendukung OmniRoute tanpa biaya tambahan bagi Anda",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Pengaturan",
@@ -7812,10 +7819,6 @@
         "label": "Baris minimum untuk dipadatkan",
         "description": "Jumlah baris minimum dalam array JSON homogen yang diperlukan untuk memicu pemadatan tabular. Default: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Pertahankan prompt sistem"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Panjang pesan minimum"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Disalin!",
     "run": "Jalankan",
     "running": "Menjalankan...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Respons",
     "tunnel": "Tunnel",
     "send": "Kirim",

@@ -254,7 +254,7 @@ export async function handleVideoJobGeneration({
     body: JSON.stringify(bodyForPreset),
     log,
   });
-  if (!submitResult.ok) {
+  if (submitResult.ok === false) {
     return { success: false, status: submitResult.status, error: submitResult.error };
   }
 
@@ -279,7 +279,7 @@ export async function handleVideoJobGeneration({
       headers: buildJobHeaders(preset, credentials),
       log,
     });
-    if (!pollResult.ok) {
+    if (pollResult.ok === false) {
       return { success: false, status: pollResult.status, error: pollResult.error };
     }
 

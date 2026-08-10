@@ -3730,7 +3730,7 @@
     "modelsCount": "{count, plural, one {# model} other {# models}}",
     "sectionTitle": "Superficie de integración",
     "sectionDescription": "API compatibles con OpenAI y puntos finales de protocolo operativo",
-    "tabApis": "__MISSING__:APIs",
+    "tabApis": "API",
     "tabProtocols": "Protocolos",
     "tabsAria": "Secciones de punto final",
     "protocolsTitle": "Protocolos",
@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "No se agregaron nuevos modelos (todos ya existen).",
     "importDoneCount": "✓ ¡Listo! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Ocurrió un error inesperado",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "mensajes",
     "responsesPath": "respuestas",
@@ -5449,8 +5451,8 @@
     "t3ChatWebCookieHint": "Abra t3.chat → DevTools → Aplicación → Almacenamiento local → https://t3.chat, copie 'convex-session-id'. Luego abra DevTools → Red, copie el encabezado completo de la cookie de cualquier solicitud de chat. Pegue ambos valores en los campos siguientes.",
     "t3ChatWebCookiePlaceholder": "ID-sesión-convexa=abc123...",
     "grokWebCookieHint": "Grok Web Cookie Hint",
-    "blockClaudeExtraUsageDescription": "__MISSING__:When enabled, OmniRoute marks this Claude connection unavailable as soon as the usage API reports queued extra usage, so fallback switches to another connection instead of continuing on pay-as-you-go extra billing.",
-    "blockClaudeExtraUsageLabel": "__MISSING__:Block extra Claude usage",
+    "blockClaudeExtraUsageDescription": "Cuando está activado, OmniRoute marca esta conexión de Claude como no disponible tan pronto como la API de uso informe de uso adicional en cola, para que el fallback cambie a otra conexión en lugar de continuar con la facturación adicional de pago por uso.",
+    "blockClaudeExtraUsageLabel": "Bloquear el uso adicional de Claude",
     "disableCoolingDescription": "Skip the transient cooldown so this connection stays eligible even after recoverable errors (terminal states like banned/expired still apply).",
     "disableCoolingLabel": "Disable cooldown for this connection",
     "bulkPasteAdded": "{count, plural, one {1 key added} other {# keys added}}",
@@ -5637,13 +5639,13 @@
     "importGrokAuth": "Import Grok Build auth",
     "zedImportTitle": "Import from Zed Keychain",
     "zedImportDescription": "Discover AI provider credentials (OpenAI, Anthropic, Google, Mistral, xAI) stored by Zed IDE in the OS keychain and import them as connections. Zed IDE must be installed on this machine.",
-    "zedImportButton": "__MISSING__:Import from Zed",
-    "zedImportFailed": "__MISSING__:Zed import failed",
+    "zedImportButton": "Importar desde Zed",
+    "zedImportFailed": "Error al importar desde Zed",
     "zedImportHint": "Zed Import Hint",
     "zedImportNetworkError": "Zed Import Network Error",
     "zedImportNone": "Zed Import None",
     "zedImportSuccess": "Se han importado {credentials} credencial(es) de Zed para {providers} proveedor(es)",
-    "zedImporting": "__MISSING__:Importing…",
+    "zedImporting": "Importando…",
     "zedNoCredentials": "No Zed credentials found in the keychain",
     "zedUnsupportedCredentials": "Found {count} keychain credential(s), but none matched supported providers",
     "zedManualTitle": "Manual Token Import",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) is an official OmniRoute launch partner",
     "cheaperInferenceSupporterBadge": "Amigo del código abierto",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference apoya a OmniRoute como amigo del código abierto",
-    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you"
+    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Configuración",
@@ -7812,10 +7819,6 @@
         "label": "Minimum rows to compact",
         "description": "Minimum rows in a homogeneous JSON array required to trigger tabular compaction. Default: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Preserve system prompt"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimum message length"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Copied!",
     "run": "Run",
     "running": "Running...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Response",
     "tunnel": "Tunnel",
     "send": "Send",

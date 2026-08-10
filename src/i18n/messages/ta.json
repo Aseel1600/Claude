@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "No new models were added (all already exist).",
     "importDoneCount": "✓ Done! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "An unexpected error occurred",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) என்பது OmniRoute இன் நிறுவன திறந்த மூல நண்பர் ஆகும்",
     "cheaperInferenceSupporterBadge": "திறந்த மூல நண்பர்",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference ஒரு திறந்த மூல நண்பராக OmniRoute-ஐ ஆதரிக்கிறது",
-    "kimiPartnerLinkNote": "பங்குதாரர் இணைப்பு — உங்களுக்கு எந்த கூடுதல் கட்டணமும் இன்றி OmniRoute-ஐ ஆதரிக்கிறது"
+    "kimiPartnerLinkNote": "பங்குதாரர் இணைப்பு — உங்களுக்கு எந்த கூடுதல் கட்டணமும் இன்றி OmniRoute-ஐ ஆதரிக்கிறது",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Settings",
@@ -7812,10 +7819,6 @@
         "label": "சுருக்குவதற்கான குறைந்தபட்ச வரிசைகள்",
         "description": "அட்டவணை சுருக்கத்தைத் தூண்டுவதற்கு ஒரே மாதிரியான JSON வரிசையில் தேவைப்படும் குறைந்தபட்ச வரிசைகள். இயல்புநிலை: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "சிஸ்டம் பிராம்ப்ட்டைப் பாதுகாக்கவும்"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "குறைந்தபட்ச செய்தி நீளம்"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "நகலெடுக்கப்பட்டது!",
     "run": "இயக்கு",
     "running": "இயங்குகிறது...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "பதில்",
     "tunnel": "டன்னல்",
     "send": "அனுப்பு",

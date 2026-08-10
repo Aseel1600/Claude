@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Nem adtak hozzá új modelleket (már mindegyik létezik).",
     "importDoneCount": "✓ Kész! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Váratlan hiba történt",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "üzeneteket",
     "responsesPath": "válaszokat",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "A Kimi (Moonshot AI) az OmniRoute alapító nyílt forráskódú barátja",
     "cheaperInferenceSupporterBadge": "Nyílt forráskódú barát",
     "cheaperInferenceSupporterTooltip": "A Cheaper Inference nyílt forráskódú barátként támogatja az OmniRoute-ot",
-    "kimiPartnerLinkNote": "Partnerhivatkozás — az Ön számára további költség nélkül támogatja az OmniRoute-ot"
+    "kimiPartnerLinkNote": "Partnerhivatkozás — az Ön számára további költség nélkül támogatja az OmniRoute-ot",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Beállítások elemre",
@@ -7812,10 +7819,6 @@
         "label": "Tömörítendő sorok minimális száma",
         "description": "Egy homogén JSON-tömb minimális sorszáma a táblázatos tömörítés indításához. Alapértelmezett: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Rendszerüzenet megőrzése"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimális üzenethossz"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Másolva!",
     "run": "Futtatás",
     "running": "Futtatás...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Válasz",
     "tunnel": "Alagút",
     "send": "Küldés",

@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Uusia malleja ei lisätty (kaikki on jo olemassa).",
     "importDoneCount": "✓ Valmis! {count, plural, one {# model imported.} other {# models imported.}}",
     "unexpectedErrorOccurred": "Tapahtui odottamaton virhe",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# connection} other {# connections}}",
     "messagesPath": "viestejä",
     "responsesPath": "vastaukset",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) on OmniRouten perustajan avoimen lähdekoodin ystävä",
     "cheaperInferenceSupporterBadge": "Avoimen lähdekoodin ystävä",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference tukee OmniRoutea avoimen lähdekoodin ystävänä",
-    "kimiPartnerLinkNote": "Kumppanilinkki — tukee OmniRoutea ilman lisäkustannuksia sinulle"
+    "kimiPartnerLinkNote": "Kumppanilinkki — tukee OmniRoutea ilman lisäkustannuksia sinulle",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Asetukset",
@@ -7812,10 +7819,6 @@
         "label": "Tiivistettävien rivien vähimmäismäärä",
         "description": "Homogeenisen JSON-taulukon rivien vähimmäismäärä taulukkomaisen tiivistämisen käynnistämiseksi. Oletus: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Säilytä järjestelmäkehote"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Viestin vähimmäispituus"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Kopioitu!",
     "run": "Suorita",
     "running": "Suoritetaan...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Vastaus",
     "tunnel": "Tunneli",
     "send": "Lähetä",

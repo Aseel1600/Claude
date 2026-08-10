@@ -87,6 +87,11 @@ export const NATIVE_ASSET_ENTRIES = [
     dest: ["node_modules", "better-sqlite3", "build"],
   },
   {
+    label: "better-sqlite3 prebuilt native binaries",
+    src: ["node_modules", "better-sqlite3", "prebuilds"],
+    dest: ["node_modules", "better-sqlite3", "prebuilds"],
+  },
+  {
     // onnxruntime-node's dist/binding.js dlopen()s a platform-specific
     // libonnxruntime.so.1 shipped under bin/napi-v3/<platform>/<arch>/ — a
     // *dynamic* native load Next.js's standalone file trace can't see (same

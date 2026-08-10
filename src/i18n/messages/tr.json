@@ -5073,6 +5073,8 @@
     "noNewModelsAddedExisting": "Yeni model eklenmedi (tümü zaten var).",
     "importDoneCount": "✓ Bitti! {count, plural, one {# model içe aktarıldı.} other {# model içe aktarıldı.}}",
     "unexpectedErrorOccurred": "Beklenmeyen bir hata oluştu",
+    "getApiKey": "__MISSING__:Get API key",
+    "getApiKeyDescription": "__MISSING__:Register or sign up for an API key",
     "connectionCountLabel": "{count, plural, one {# bağlantı} other {# bağlantı}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -6030,7 +6032,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI), OmniRoute'un kurucu açık kaynak dostu",
     "cheaperInferenceSupporterBadge": "Açık Kaynak Dostu",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference, OmniRoute'u Açık Kaynak Dostu olarak destekliyor",
-    "kimiPartnerLinkNote": "Ortaklık bağlantısı — size hiçbir ek ücret ödetmeden OmniRoute'u destekler"
+    "kimiPartnerLinkNote": "Ortaklık bağlantısı — size hiçbir ek ücret ödetmeden OmniRoute'u destekler",
+    "anonymousFallbackTitle": "__MISSING__:Anonymous fallback",
+    "anonymousFallbackDesc": "__MISSING__:When all configured connections are exhausted (quota, credits, or expiry), temporarily use this provider's keyless tier. Turn off to skip this provider instead of sending anonymous requests — recommended when the keyless tier rejects them (401).",
+    "anonymousFallbackEnabled": "__MISSING__:Anonymous fallback enabled for {provider}",
+    "anonymousFallbackDisabled": "__MISSING__:Anonymous fallback disabled for {provider} — exhausted connections will skip this provider",
+    "anonymousFallbackUpdateFailed": "__MISSING__:Failed to update anonymous fallback setting"
   },
   "settings": {
     "title": "Ayarlar",
@@ -7812,10 +7819,6 @@
         "label": "Sıkıştırılacak minimum satır sayısı",
         "description": "Tablosal sıkıştırmayı tetiklemek için homojen bir JSON dizisinde gereken minimum satır sayısı. Varsayılan: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Sistem istemini koru"
       },
@@ -7839,6 +7842,10 @@
       },
       "minMessageLength": {
         "label": "Minimum mesaj uzunluğu"
+      },
+      "compressToolResults": {
+        "label": "__MISSING__:Proactively truncate long tool results",
+        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
       }
     },
     "engineFields": {
@@ -10195,6 +10202,8 @@
     "copied": "Kopyalandı!",
     "run": "Çalıştır",
     "running": "Çalıştırılıyor...",
+    "loading": "__MISSING__:Loading...",
+    "retry": "__MISSING__:Retry",
     "response": "Yanıt",
     "tunnel": "Tünel",
     "send": "Gönder",

@@ -18,6 +18,7 @@ import { getHiddenModelsByProvider } from "../../../src/lib/db/models";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
 import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
+import { containsMediaKind } from "../../utils/mediaParts.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel, stripContextWindowSuffix } from "../model.ts";
 import { dedupeTargetsByExecutionKey, isRecord } from "./comboData.ts";
@@ -481,21 +482,8 @@ function estimateRequestInputTokens(body: Record<string, unknown>): number {
   return Object.keys(estimatePayload).length > 0 ? estimateTokens(estimatePayload) : 0;
 }
 
-function valueContainsImagePart(value: unknown, depth = 0): boolean {
-  if (depth > 8 || value === null || value === undefined) return false;
-  if (typeof value === "string") return value.startsWith("data:image/");
-  if (Array.isArray(value)) return value.some((entry) => valueContainsImagePart(entry, depth + 1));
-  if (!isRecord(value)) return false;
-
-  const type = typeof value.type === "string" ? value.type.toLowerCase() : null;
-  if (type === "image" || type === "image_url" || type === "input_image") return true;
-  if ("image_url" in value || "input_image" in value) return true;
-
-  const source = isRecord(value.source) ? value.source : null;
-  const mediaType = typeof source?.media_type === "string" ? source.media_type.toLowerCase() : "";
-  if (mediaType.startsWith("image/")) return true;
-
-  return Object.values(value).some((entry) => valueContainsImagePart(entry, depth + 1));
+function valueContainsImagePart(value: unknown): boolean {
+  return containsMediaKind([{ content: [value] }], "image");
 }
 
 export function deriveRequestCompatibilityRequirements(
@@ -532,6 +520,8 @@ function hasKnownCompatibleContextLimit(
   const capabilities = getResolvedModelCapabilities(target.modelStr);
   return evaluateContextLimit(capabilities, requirements, target.modelStr) === true;
 }
+
+const HARD_COMPAT_REASONS = new Set(["tools", "vision", "structured_output", "output_tokens"]);
 
 /**
  * #8332: vision is a hard requirement, not a soft preference — a target whose vision
@@ -616,7 +606,7 @@ export type CompatFilterOptions = {
   failOpen?: boolean;
 };
 
-function hasHardCapabilityFailure(reasons: string[]): boolean {
+export function hasHardCapabilityFailure(reasons: string[]): boolean {
   return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
 }
 

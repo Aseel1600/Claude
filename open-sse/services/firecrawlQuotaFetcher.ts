@@ -110,7 +110,8 @@ export function getFirecrawlBaseUrl(connection?: Record<string, unknown>): strin
     return envBase.replace(/\/+$/, "");
   }
   const providerData = toRecord(connection?.providerSpecificData);
-  const connBase = typeof connection?.baseUrl === "string" ? connection.baseUrl : providerData?.baseUrl;
+  const connBase =
+    typeof connection?.baseUrl === "string" ? connection.baseUrl : providerData?.baseUrl;
   if (typeof connBase === "string" && connBase.trim() && !connBase.includes("api.firecrawl.dev")) {
     return connBase.trim().replace(/\/+$/, "");
   }
