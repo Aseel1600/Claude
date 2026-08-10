@@ -5,6 +5,8 @@
  * Pre-work campaign for future S3 Adaptive Intelligence Runtime integration.
  */
 
+import type { CounterfactualExecutionPlan } from "./counterfactual.ts";
+
 export type TaskKind =
   | "trivial_control"
   | "tool_output_processing"
@@ -20,6 +22,7 @@ export type CompressionMode = "none" | "rtk" | "caveman" | "compact" | "preserve
 export type QuotaState = "normal" | "warning" | "exceeded";
 export type LatencyState = "low" | "normal" | "high";
 export type CacheState = "hit" | "miss" | "partial";
+export type GovernorMode = "off" | "shadow" | "simulate" | "active-canary" | "active";
 
 export interface GovernorInput {
   correlationId?: string;
@@ -81,7 +84,7 @@ export interface GovernorTelemetry {
   id?: number;
   correlationId: string;
   timestamp: number;
-  governorMode: "off" | "shadow" | "simulate" | "active-canary" | "active";
+  governorMode: GovernorMode;
   actualProvider: string;
   actualModel: string;
   actualRoutingStrategy?: string;
@@ -101,7 +104,7 @@ export interface GovernorTelemetry {
   governorVersion?: string;
   policyVersion?: string;
   observedFeatures?: Record<string, number | string | boolean | null>;
-  counterfactualPlan?: unknown;
+  counterfactualPlan?: CounterfactualExecutionPlan;
 }
 
 export interface ActualRequestContext {
@@ -121,11 +124,25 @@ export interface ActualRequestContext {
 }
 
 export interface GovernorExecutionContext {
-  correlationId: string; mode: "off" | "shadow" | "simulate" | "active-canary" | "active";
-  decision: GovernorDecision | null; plan?: unknown; decisionCount: number; planResolutionCount: number;
-  originalRoute: { provider: string; model: string; strategy?: string }; selectedRoute?: { provider: string; model: string; strategy?: string };
-  activeEligible: boolean; activeSelected: boolean; activeApplied: boolean; bypassReason?: string;
-  fallbackAttempted: boolean; fallbackSucceeded: boolean; breakerState?: string;
+  correlationId: string;
+  mode: GovernorMode;
+  decision: GovernorDecision | null;
+  plan?: CounterfactualExecutionPlan;
+  decisionCount: number;
+  planResolutionCount: number;
+  originalRoute: { provider: string; model: string; strategy?: string };
+  selectedRoute?: { provider: string; model: string; strategy?: string };
+  planAvailable: boolean;
+  eligibilityEvaluated: boolean;
+  activeEligible: boolean;
+  activeSelected: boolean;
+  activeApplied: boolean;
+  bypassReason?: string;
+  selectedDispatchCount: number;
+  fallbackDispatchCount: number;
+  fallbackAttempted: boolean;
+  fallbackSucceeded: boolean;
+  breakerState?: string;
 }
 
 export interface IntelligenceGovernor {
