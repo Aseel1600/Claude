@@ -51,6 +51,43 @@ interface CachedEvaluation {
 const EVALUATION_CACHE_TTL_MS = 60_000;
 const EVALUATION_CACHE_MAX = 2_048;
 
+function isLateObservationOnlyActiveInput(input?: CounterfactualInput): boolean {
+  if (!input || input.candidates.length === 0) return true;
+  if (input.candidates.length > 1) return false;
+  const candidate = input.candidates[0];
+  return candidate.tier === "preserve" && candidate.provider === input.currentProvider && candidate.model === input.currentModel;
+}
+
+function emptyExecutionContext(
+  mode: GovernorMode,
+  input: GovernorInput,
+  actualContext: ActualRequestContext,
+  bypassReason: string
+): GovernorExecutionContext {
+  return {
+    correlationId: input.correlationId ?? "unknown",
+    mode,
+    decision: null,
+    decisionCount: 0,
+    planResolutionCount: 0,
+    originalRoute: {
+      provider: actualContext.provider,
+      model: actualContext.model,
+      strategy: actualContext.routingStrategy,
+    },
+    planAvailable: false,
+    eligibilityEvaluated: false,
+    activeEligible: false,
+    activeSelected: false,
+    activeApplied: false,
+    selectedDispatchCount: 0,
+    fallbackDispatchCount: 0,
+    fallbackAttempted: false,
+    fallbackSucceeded: false,
+    bypassReason,
+  };
+}
+
 export class GovernorManager {
   private static governor: IntelligenceGovernor = new NativeOmniGovernor();
   private static evaluationCache = new Map<string, CachedEvaluation>();
@@ -103,6 +140,25 @@ export class GovernorManager {
     const cached = this.readCachedEvaluation(cacheKey);
     if (cached) return { result: cached.result, context: cached.context };
 
+    // Active modes are evaluated before Auto Combo dispatch with the factual
+    // candidate pool. The late chatCore observer only has the current preserve
+    // route; evaluating there again would create two decisions for one logical
+    // request. Direct/pinned requests are deliberately not governed by model/
+    // provider active control, so a single preserve candidate is a safe no-op.
+    if (
+      (mode === "active" || mode === "active-canary") &&
+      isLateObservationOnlyActiveInput(counterfactualInput)
+    ) {
+      const result: EvaluationResult = {
+        recommendation: null,
+        mode,
+        decisionLatencyMs: 0,
+      };
+      const context = emptyExecutionContext(mode, input, actualContext, "active_requires_runtime_candidate_pool");
+      this.writeCachedEvaluation(cacheKey, { createdAt: Date.now(), result, context });
+      return { result, context };
+    }
+
     const baseResult = this.evaluateShadow(input, actualContext, counterfactualInput);
     let result = baseResult;
     const correlationId = input.correlationId ?? "unknown";
@@ -144,9 +200,6 @@ export class GovernorManager {
       context.activeSelected = canary.selected;
       context.bypassReason = canary.selected ? undefined : canary.reason;
 
-      // The current pre-credential dispatch seam consumes plan.executable. Make
-      // the returned runtime plan non-executable when the canary was not selected,
-      // while leaving the persisted counterfactual observation itself untouched.
       if (!canary.selected) {
         const runtimePlan = {
           ...plan,
