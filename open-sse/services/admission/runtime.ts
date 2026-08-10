@@ -121,7 +121,7 @@ export function resolveAdaptiveAdmissionConfigFromEnv(
   validateConfig(cfg);
 
   // Per-connection virtual admission lanes (#9654) — opt-in via OMNIROUTE_CHAT_VIRTUAL_LANES.
-  const vlRaw = env[ENV_KEYS.virtualLanes];
+  const vlRaw = env.OMNIROUTE_CHAT_VIRTUAL_LANES;
   cfg.virtualLanes = vlRaw === "1" || vlRaw === "true";
 
   return cfg;
@@ -241,6 +241,12 @@ const REJECT_MAP: Record<AdmissionRejectCode, RejectHttpMapping> = {
     status: 503,
     code: "admission_unavailable",
     message: "Service temporarily unavailable",
+    retryAfter: "1",
+  },
+  ADMISSION_LANE_EVICTED: {
+    status: 503,
+    code: "admission_lane_evicted",
+    message: "Connection lane evicted",
     retryAfter: "1",
   },
 };
