@@ -99,6 +99,13 @@ import {
 } from "./reasoningRouting";
 import { createVirtualAutoCombo, resolveAutoRoutingState } from "./autoRouting";
 import { getComboFailureLogError } from "./comboFailureLogging";
+import { GovernorManager } from "@omniroute/open-sse/governor/governorManager.ts";
+import { getGovernorMode } from "@/shared/utils/featureFlags.ts";
+import { getGovernorRuntimeConfig } from "@omniroute/open-sse/governor/runtimeConfig.ts";
+import type { GovernorInput } from "@omniroute/open-sse/governor/types.ts";
+import type { CounterfactualCandidate } from "@omniroute/open-sse/governor/counterfactual.ts";
+import { getProviderModels, PROVIDER_MODELS } from "@omniroute/open-sse/config/providerModels.ts";
+import { getGovernorActiveBreaker } from "@omniroute/open-sse/governor/activeCanary.ts";
 
 // Pipeline integration — wired modules
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
@@ -236,6 +243,120 @@ function intersectAllowedConnectionIds(primary: unknown, secondary: unknown): st
 }
 
 const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
+
+/**
+ * Govern the logical single-model route before credentials are acquired.  The
+ * selected dispatch still goes through handleSingleModelChat; this wrapper is
+ * deliberately small so auth, quota, retries, breakers and translation remain
+ * authoritative in the existing pipeline.
+ */
+async function dispatchGovernedSingleModel(
+  body: any,
+  originalModel: string,
+  clientRawRequest: any,
+  request: any,
+  comboName: string | null,
+  apiKeyInfo: any,
+  telemetry: any,
+  runtimeOptions: any,
+  comboStrategy: string | null,
+  isCombo: boolean
+) {
+  const mode = getGovernorMode();
+  const governed = !isCombo && (String(originalModel).startsWith("auto/") || originalModel === "auto");
+  const hasExplicitConnection =
+    typeof runtimeOptions.forcedConnectionId === "string" && runtimeOptions.forcedConnectionId.trim().length > 0;
+  if (!governed || runtimeOptions.governorBypass || mode === "off" || hasExplicitConnection) {
+    return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
+  }
+
+  try {
+    const original = await resolveModelOrError(originalModel, body, clientRawRequest?.endpoint, clientRawRequest?.headers);
+    if (original.error) return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
+    const provider = original.provider;
+    const model = original.model;
+    const registryCandidates: CounterfactualCandidate[] = [];
+    for (const alias of Object.keys(PROVIDER_MODELS)) {
+      for (const entry of getProviderModels(alias)) {
+        registryCandidates.push({
+          provider: PROVIDER_ID_TO_ALIAS[alias] || alias,
+          model: entry.id,
+          routingModelId: `${alias}/${entry.id}`,
+          tier: entry.supportsXHighEffort ? "highest" : entry.supportsReasoning ? "high" : "medium",
+          available: true,
+          capabilities: [
+            ...(entry.toolCalling ? ["tools"] : []),
+            ...(entry.supportsVision ? ["vision"] : []),
+          ],
+          contextWindow: entry.contextLength,
+          supportsReasoning: entry.supportsReasoning,
+          quotaState: "unknown",
+        });
+      }
+    }
+    const input: GovernorInput = {
+      correlationId: runtimeOptions.correlationId ?? undefined,
+      requestedMaxOutput: body?.max_tokens,
+      messageCount: Array.isArray(body?.messages) ? body.messages.length : undefined,
+      toolCount: Array.isArray(body?.tools) ? body.tools.length : 0,
+      availableCandidates: registryCandidates.map((candidate) => candidate.routingModelId || `${candidate.provider}/${candidate.model}`),
+    };
+    const { result, context } = GovernorManager.evaluateRequest(input, {
+      provider,
+      model,
+      routingStrategy: "auto",
+      success: null,
+    }, {
+      ...input,
+      currentProvider: provider,
+      currentModel: model,
+      candidates: registryCandidates,
+    } as any);
+    const config = getGovernorRuntimeConfig();
+    const breaker = getGovernorActiveBreaker();
+    const canApply =
+      config.activeEnabled &&
+      !breaker.isTripped() &&
+      context.activeSelected &&
+      (mode === "active" || mode === "active-canary") &&
+      result.plan?.executable === true;
+    const selected = canApply ? registryCandidates.find((candidate) => candidate.provider === result.plan?.selectedProvider && candidate.model === result.plan?.selectedModel) : null;
+    if (selected?.routingModelId && selected.routingModelId !== originalModel) {
+      const resolved = await resolveModelOrError(selected.routingModelId, body, clientRawRequest?.endpoint, clientRawRequest?.headers);
+      if (!resolved.error) {
+        const allowed = runtimeOptions.allowedConnectionIds ?? null;
+        const credentials = await getProviderCredentialsWithQuotaPreflight(resolved.provider, null, allowed, resolved.model, {
+          sessionKey: runtimeOptions.sessionAffinityKey ?? runtimeOptions.sessionId ?? null,
+          ...(runtimeOptions.forcedConnectionId ? { forcedConnectionId: runtimeOptions.forcedConnectionId } : {}),
+        });
+        if (
+          credentials &&
+          !credentials.allRateLimited &&
+          "allExpired" in credentials &&
+          !credentials.allExpired &&
+          "connectionId" in credentials &&
+          Boolean(credentials.connectionId)
+        ) {
+          const selectedResponse = await handleSingleModelChat(body, selected.routingModelId, clientRawRequest, request, comboName, apiKeyInfo, telemetry, {
+            ...runtimeOptions,
+            governorBypass: true,
+            preselectedCredentials: credentials,
+          }, comboStrategy, isCombo);
+          if (selectedResponse.ok) {
+            breaker.recordSuccess();
+            return selectedResponse;
+          }
+          breaker.recordFailure();
+          if (selectedResponse.status < 500 || selectedResponse.status >= 600) return selectedResponse;
+          return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
+        }
+      }
+    }
+  } catch (error) {
+    log.warn("GOVERNOR", `Active route degraded to original: ${error instanceof Error ? error.message : "unknown"}`);
+  }
+  return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
+}
 
 export { shouldTripProviderBreakerForResult } from "./chatPredicates";
 
@@ -990,7 +1111,7 @@ async function handleChatImplementation(
       } catch {}
     }
   }
-  const response = await handleSingleModelChat(
+  const response = await dispatchGovernedSingleModel(
     body,
     resolvedModelStr,
     clientRawRequest,
@@ -1041,6 +1162,7 @@ async function handleSingleModelChat(
   apiKeyInfo: any = null,
   telemetry: any = null,
   runtimeOptions: {
+    governorBypass?: boolean;
     emergencyFallbackTried?: boolean;
     forceLiveComboTest?: boolean;
     sessionId?: string | null;

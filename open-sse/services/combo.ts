@@ -572,7 +572,11 @@ export async function handleComboChat({
   apiKeyAllowedConnections = null,
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
+  correlationId = null,
 }: HandleComboChatOptions): Promise<Response> {
+  if (correlationId) {
+    relayOptions = { ...(relayOptions ?? {}), governorCorrelationId: correlationId };
+  }
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
     strategy,
@@ -1203,6 +1207,18 @@ export async function handleComboChat({
             failoverBeforeRetry: config.failoverBeforeRetry,
           });
 
+          if (
+            target.governorSelected === true &&
+            !result.ok &&
+            result.status >= 500 &&
+            result.status < 600
+          ) {
+            try {
+              const { getGovernorActiveBreaker } = await import('../governor/activeCanary.ts');
+              getGovernorActiveBreaker().recordFailure();
+            } catch {}
+          }
+
           // Success — validate response quality before returning
           if (result.ok) {
             const selectedConnectionId =
@@ -1278,6 +1294,12 @@ export async function handleComboChat({
                 error: `Quality: ${quality.reason}`,
                 latencyMs: Date.now() - startTime,
               });
+              if (target.governorSelected === true) {
+                try {
+                  const { getGovernorActiveBreaker } = await import('../governor/activeCanary.ts');
+                  getGovernorActiveBreaker().recordFailure();
+                } catch {}
+              }
               return null;
             }
 
@@ -1296,6 +1318,12 @@ export async function handleComboChat({
             }
 
             const latencyMs = Date.now() - startTime;
+            if (target.governorSelected === true) {
+              try {
+                const { getGovernorActiveBreaker } = await import('../governor/activeCanary.ts');
+                getGovernorActiveBreaker().recordSuccess();
+              } catch {}
+            }
             emit("combo.target.succeeded", {
               comboName: combo.name,
               targetIndex: i,

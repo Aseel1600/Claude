@@ -15,6 +15,7 @@ import type { RoutingHint } from "../manifestAdapter";
 import { parseModel } from "../model.ts";
 import { supportsToolCalling } from "../modelCapabilities.ts";
 import type { ResilienceSettings } from "../../../src/lib/resilience/settings";
+import { applyGovernorToAutoComboOrder } from "../../governor/autoComboRuntime.ts";
 import { parseAutoConfig } from "./autoConfig.ts";
 import { dedupeTargetsByExecutionKey } from "./comboData.ts";
 import {
@@ -60,9 +61,11 @@ export interface ResolveAutoStrategyDeps {
   combo: ComboLike;
   settings: Record<string, unknown> | null | undefined;
   config: { complexityAwareRouting?: boolean; compatFilterFailOpen?: boolean };
+  correlationId?: string | null;
   relayOptions?: {
     bypassProviderQuotaPolicy?: boolean;
     sessionId?: string | null;
+    governorCorrelationId?: string | null;
     /** Per-request X-OmniRoute-Mode value (#6024/#6025). */
     mode?: string | null;
     /** Per-request X-OmniRoute-Budget value in USD (#6023). */
@@ -98,6 +101,7 @@ export async function resolveAutoStrategyOrder(
     combo,
     settings,
     config,
+    correlationId,
     relayOptions,
     resilienceSettings,
     log,
@@ -426,6 +430,54 @@ export async function resolveAutoStrategyOrder(
         (entry): entry is ResolvedComboTarget => entry !== undefined && entry !== null
       )
     );
+
+    // Governor V1 is an ordering overlay over the already-filtered Auto Combo
+    // candidate pool. Shadow/simulate leave the native order untouched; active
+    // modes may move one safe candidate to the front while preserving the entire
+    // native tail as OmniRoute's authoritative fallback path.
+    try {
+      const governed = await applyGovernorToAutoComboOrder({
+        body,
+        promptText: prompt,
+        estimatedInputTokens,
+        taskType,
+        correlationId:
+          correlationId ??
+          (typeof relayOptions?.governorCorrelationId === "string"
+            ? relayOptions.governorCorrelationId
+            : null),
+        nativeSelectedTarget: selectedTarget,
+        orderedTargets,
+        routableCandidates,
+      });
+      orderedTargets = governed.orderedTargets;
+      if (governed.selectedExecutionKey) {
+        const selectedRuntimeTarget = orderedTargets.find(
+          (target) => target.executionKey === governed.selectedExecutionKey
+        );
+        if (selectedRuntimeTarget) {
+          (selectedRuntimeTarget as ResolvedComboTarget & {
+            governorSelected?: boolean;
+            governorCorrelationId?: string | null;
+          }).governorSelected = governed.applied;
+          (selectedRuntimeTarget as ResolvedComboTarget & {
+            governorSelected?: boolean;
+            governorCorrelationId?: string | null;
+          }).governorCorrelationId = correlationId ?? null;
+        }
+      }
+      if (governed.applied) {
+        log.info(
+          "GOVERNOR",
+          `Active Governor reordered auto target: ${orderedTargets[0]?.modelStr || "unknown"}`
+        );
+      }
+    } catch (err) {
+      log.warn(
+        "GOVERNOR",
+        `Auto policy evaluation failed open to native ordering: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
 
     log.info(
       "COMBO",
