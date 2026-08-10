@@ -294,7 +294,8 @@ export async function validateCopilotWebProvider({ apiKey, providerSpecificData 
     if (!raw) {
       return {
         valid: false,
-        error: "Paste your access_token from copilot.microsoft.com DevTools → Cookies",
+        error:
+          "Paste your access_token from an authenticated copilot.microsoft.com request (DevTools → Network → Authorization)",
       };
     }
 
@@ -326,7 +327,7 @@ export async function validateCopilotWebProvider({ apiKey, providerSpecificData 
       return {
         valid: false,
         error:
-          "Invalid or expired access_token — re-paste from copilot.microsoft.com DevTools → Cookies",
+          "Invalid or expired access_token — capture a fresh Authorization bearer token from copilot.microsoft.com DevTools → Network",
       };
     }
 

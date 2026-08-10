@@ -125,7 +125,7 @@ export const WEB_COOKIE_PROVIDERS = {
     textIcon: "CP",
     website: "https://copilot.microsoft.com",
     authHint:
-      "Paste your access_token from copilot.microsoft.com (or export a .har file from DevTools while logged in)",
+      "Paste the access_token from an authenticated copilot.microsoft.com request (DevTools → Network → Authorization), or export a HAR while logged in",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
   },
