@@ -89,3 +89,51 @@ test("queue-timeout recordProviderFailure never opens the provider breaker", () 
   }
   assert.equal(isProviderInCooldown(provider), false, "queue timeouts must not open the breaker");
 });
+
+test("same-provider network errors in one window dedup to a single failure", () => {
+  // Several combo targets on the same provider failing one network event (a VPN blip)
+  // must count once, not per target — otherwise one blip opens the provider breaker.
+  const originalNow = Date.now;
+  let now = 1_700_000_000_000;
+  Date.now = () => now;
+  try {
+    const provider = "test-net-dedup-provider";
+    clearProviderFailure(provider);
+    const threshold = PROVIDER_PROFILES.apikey.circuitBreakerThreshold;
+    for (let i = 0; i < threshold; i++) {
+      recordProviderFailure(provider, undefined, undefined, null, { isNetworkError: true });
+      now += 500; // every call inside the same 10s window
+    }
+    assert.equal(
+      isProviderInCooldown(provider),
+      false,
+      "one transient network event must not open the breaker"
+    );
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("persistent dead proxy across windows still opens the breaker", () => {
+  // A genuinely dead proxy keeps failing across requests (past the dedup window), so it
+  // must still accumulate to the breaker threshold — the dedup must not shield real pain.
+  const originalNow = Date.now;
+  let now = 1_700_000_000_000;
+  Date.now = () => now;
+  try {
+    const provider = "test-net-deadproxy-provider";
+    clearProviderFailure(provider);
+    const threshold = PROVIDER_PROFILES.apikey.circuitBreakerThreshold;
+    for (let i = 0; i < threshold; i++) {
+      recordProviderFailure(provider, undefined, undefined, null, { isNetworkError: true });
+      now += 11_000; // past each 10s window
+    }
+    assert.equal(
+      isProviderInCooldown(provider),
+      true,
+      "a persistent network failure must still accumulate to the threshold"
+    );
+  } finally {
+    Date.now = originalNow;
+  }
+});

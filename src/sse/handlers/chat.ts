@@ -1399,7 +1399,6 @@ async function handleSingleModelChat(
         if (
           !forceLiveComboTest &&
           credentials?.allRateLimited &&
-<<<<<<< HEAD
           isProviderBreakerFailureStatus(breakerFailureStatus) &&
           !isNetworkError &&
           !isQueueTimeout
