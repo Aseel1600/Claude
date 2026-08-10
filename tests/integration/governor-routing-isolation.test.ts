@@ -7,6 +7,10 @@ import path from "node:path";
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-governor-routing-"));
 process.env.DATA_DIR = dataDir;
 
+const { ensureDbInitialized, getDbInstance, resetDbInstance } = await import("../../src/lib/db/core.ts");
+await ensureDbInitialized();
+console.log(`ROUTING_ISOLATION_DRIVER=${getDbInstance().driver}`);
+
 const { handleComboChat } = await import("../../open-sse/services/combo.ts");
 const { GovernorManager } = await import("../../open-sse/governor/governorManager.ts");
 const { getFeatureFlagOverride, removeFeatureFlagOverride, setFeatureFlagOverride } =
@@ -63,4 +67,9 @@ test("active routing target is identical with Governor off and shadow", async ()
   const offTarget = await selectAuthoritativeTarget("off");
   const shadowTarget = await selectAuthoritativeTarget("shadow");
   assert.deepEqual(offTarget, shadowTarget);
+});
+
+test.after(() => {
+  resetDbInstance();
+  fs.rmSync(dataDir, { recursive: true, force: true });
 });
