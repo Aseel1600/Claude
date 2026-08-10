@@ -334,18 +334,25 @@ export function resolveSessionId(request: Request): string {
   // material never appears in diagnostics. Reuses the internal-bypass auth
   // extraction: bearer token from Authorization, x-api-key (Anthropic-style),
   // or Google API key header.
+  // CodeQL: Intentionally SHA-256, NOT password hashing. The digest is a
+  // deterministic, non-reversible per-key fairness key for the shared
+  // admission budget — never stored or used for password-style verification.
+  // codeql[js/insufficient-password-hash]
   const authHeader = request.headers.get("authorization") || "";
   const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
   if (bearerMatch) {
-    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16);
+    // codeql[js/insufficient-password-hash]
+    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
   }
   const xApiKey = request.headers.get("x-api-key") || "";
   if (xApiKey.trim().length > 0) {
-    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16);
+    // codeql[js/insufficient-password-hash]
+    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
   }
   const xGoogApiKey = request.headers.get("x-goog-api-key") || "";
   if (xGoogApiKey.trim().length > 0) {
-    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16);
+    // codeql[js/insufficient-password-hash]
+    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
   }
   return "anonymous";
 }
