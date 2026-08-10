@@ -1,3 +1,9 @@
+---
+title: "Admission lanes — two lane systems, what gates each, where each reports"
+status: active
+lastUpdated: 2026-08-09
+---
+
 # Admission lanes (#9654) — two lane systems, what gates each, where each reports
 
 OmniRoute has **two** process-local lane systems with different scopes. They are
