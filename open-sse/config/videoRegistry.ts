@@ -73,6 +73,21 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     ],
   },
 
+  "fal-ai": {
+    id: "fal-ai",
+    baseUrl: "https://queue.fal.run",
+    authType: "apikey",
+    authHeader: "key",
+    format: "fal-ai-video",
+    models: [
+      { id: "veo3.1/lite", name: "Veo 3.1 Lite" },
+      {
+        id: "xai/grok-imagine-video/text-to-video",
+        name: "Grok Imagine Video",
+      },
+    ],
+  },
+
   googleflow: {
     id: "googleflow",
     alias: "flow",
@@ -338,6 +353,15 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     authHeader: "bearer",
     format: "adobe-firefly-video",
     models: toRegistryVideoModels(),
+  },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/video/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "default", name: "NanoGPT Video" }],
   },
 };
 

@@ -9,11 +9,10 @@ import { sanitizeErrorMessage } from "../../utils/error.ts";
 import {
   AdobeFireflyError,
   adobeFireflyGenerateVideo,
-  resolveAdobeAccessToken,
-  resolveAdobeSourceImageReferences,
+  resolveAdobeSourceImageIds,
   resolveAdobeVideoModel,
 } from "../../services/adobeFireflyClient.ts";
-import { getAdobeReferenceUploadLimit } from "../../services/adobeFireflyModels.ts";
+import { ensureAdobeFireflySession } from "../../services/adobeFireflySession.ts";
 
 function normalizePositiveNumber(value: unknown, fallback: number): number {
   const n = Number(value);
@@ -32,7 +31,17 @@ export async function handleAdobeFireflyVideoGeneration({
   provider: string;
   providerConfig?: { baseUrl?: string };
   body: Record<string, unknown>;
-  credentials?: { apiKey?: string; accessToken?: string } | null;
+  credentials?: {
+    apiKey?: string;
+    accessToken?: string;
+    connectionId?: string;
+    providerSpecificData?: {
+      cookie?: unknown;
+      access_token?: unknown;
+      accessToken?: unknown;
+      browserSessionKey?: unknown;
+    } | null;
+  } | null;
   log?: { info?: (...args: unknown[]) => void; error?: (...args: unknown[]) => void };
   fetchImpl?: typeof fetch;
 }) {
@@ -47,7 +56,14 @@ export async function handleAdobeFireflyVideoGeneration({
   }
 
   try {
-    const accessToken = await resolveAdobeAccessToken(credentials, fetchImpl);
+    const session = await ensureAdobeFireflySession({
+      credentials,
+      fetchImpl,
+      log,
+    });
+    const accessToken = session.accessToken;
+    const sessionCookie = session.cookie || undefined;
+    const arpSessionId = session.arpSessionId;
     const timeoutMs = normalizePositiveNumber(body.timeout_ms, 300_000);
     const seed =
       typeof body.seed === "number"
@@ -55,22 +71,16 @@ export async function handleAdobeFireflyVideoGeneration({
         : typeof body.seed === "string" && String(body.seed).trim()
           ? Number(body.seed)
           : undefined;
-    // Keep raw paste for Cookie + sherlockToken (x-arp-session-id).
-    const psd = (credentials as { providerSpecificData?: { cookie?: string } })
-      ?.providerSpecificData;
-    const sessionCookie =
-      (typeof psd?.cookie === "string" && psd.cookie.trim()) ||
-      (typeof credentials?.apiKey === "string" && credentials.apiKey.trim()) ||
-      (typeof credentials?.accessToken === "string" && credentials.accessToken.includes(";")
-        ? credentials.accessToken
-        : undefined);
 
-    const { spec } = resolveAdobeVideoModel(String(model));
-    const references = await resolveAdobeSourceImageReferences({
+    // Kling i2v / Veo ref / Sora frame: upload reference images first.
+    const { id: videoModelId } = resolveAdobeVideoModel(String(model));
+    const maxFrames = videoModelId.includes("kling") || videoModelId.includes("sora") ? 2 : 3;
+    const sourceImageIds = await resolveAdobeSourceImageIds({
       accessToken,
       body,
-      max: getAdobeReferenceUploadLimit(spec, "image"),
+      max: maxFrames,
       sessionCookie,
+      arpSessionId,
       prompt,
       fetchImpl,
       log,
@@ -79,7 +89,8 @@ export async function handleAdobeFireflyVideoGeneration({
     log?.info?.(
       "VIDEO",
       `${provider}/${model} (adobe-firefly) | prompt: "${prompt.slice(0, 60)}${prompt.length > 60 ? "..." : ""}"` +
-        (references.length ? ` | refs: ${references.length}` : "")
+        (sourceImageIds.length ? ` | frames: ${sourceImageIds.length}` : "") +
+        ` | session=${session.source}`
     );
 
     const result = await adobeFireflyGenerateVideo({
@@ -99,8 +110,11 @@ export async function handleAdobeFireflyVideoGeneration({
             ? body.negativePrompt
             : undefined,
       generateAudio: body.generate_audio !== false && body.generateAudio !== false,
-      references: references.length ? references : undefined,
+      sourceImageIds: sourceImageIds.length ? sourceImageIds : undefined,
       sessionCookie,
+      arpSessionId,
+      sessionFingerprint: session.fingerprint,
+      sessionBrowserKey: session.browserSessionKey,
       timeoutMs,
       fetchImpl,
       log,

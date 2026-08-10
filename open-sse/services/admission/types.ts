@@ -33,6 +33,7 @@ export type AdmissionRejectCode =
   | "ADMISSION_QUEUE_FULL"
   | "ADMISSION_DEADLINE"
   | "ADMISSION_ABORTED"
+  | "ADMISSION_LANE_EVICTED"
   | "ADMISSION_SHUTDOWN"
   | "ADMISSION_UNAVAILABLE";
 
@@ -79,6 +80,8 @@ export interface AdaptiveAdmissionConfig {
   maxIncreasePerWindow?: number;
   /** Optional cost quanta override used only when callers pass features instead of cost. */
   cost?: Partial<AdmissionCostConfig>;
+  /** Per-connection virtual admission lanes (#9654). Default: false. */
+  virtualLanes?: boolean;
 }
 
 export interface AdmissionRequest {
@@ -137,6 +140,16 @@ export interface AdmissionSnapshot {
   virtualActiveCount: number;
   virtualQueuedCost: number;
   virtualQueuedCount: number;
+  /** Per-connection virtual lane metrics (#9654). */
+  laneCount: number;
+  laneQueuedCost: number;
+  laneQueuedCount: number;
+  /** Per-tenant queue breakdown (opaque keys, never raw API keys). */
+  laneTenants: ReadonlyArray<{
+    tenantKey: string;
+    queuedCount: number;
+    queuedCost: number;
+  }>;
   admittedCount: number;
   rejectedCount: number;
   wouldAdmitCount: number;
