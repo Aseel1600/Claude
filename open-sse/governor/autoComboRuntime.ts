@@ -1,4 +1,5 @@
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities.ts";
+import { getGovernorMode } from "@/shared/utils/featureFlags.ts";
 import { GovernorManager } from "./governorManager.ts";
 import { getGovernorActiveBreaker } from "./activeCanary.ts";
 import type {
@@ -192,9 +193,6 @@ async function buildCounterfactualCandidates(
     }
   }
 
-  // Governor's HIGHEST tier is intentionally a duplicate view over the strongest
-  // factual premium candidate. It reuses OmniRoute's own task-fitness signal and
-  // context capability instead of hard-coding model names.
   const strongest = premium.sort(
     (a, b) => b.fitness - a.fitness || b.contextWindow - a.contextWindow || (b.candidate.healthScore ?? 0) - (a.candidate.healthScore ?? 0)
   )[0]?.candidate;
@@ -207,6 +205,15 @@ export async function applyGovernorToAutoComboOrder(
   input: AutoComboGovernorRuntimeInput
 ): Promise<AutoComboGovernorRuntimeResult> {
   if (input.orderedTargets.length === 0) {
+    return { orderedTargets: input.orderedTargets, context: null, selectedExecutionKey: null, applied: false };
+  }
+
+  // Shadow and simulate stay on the late observation hook in chatCore. Active
+  // modes must evaluate before dispatch because only they can change target order.
+  // This separation avoids double Governor decisions without altering the existing
+  // observation lifecycle.
+  const mode = getGovernorMode();
+  if (mode === "off" || mode === "shadow" || mode === "simulate") {
     return { orderedTargets: input.orderedTargets, context: null, selectedExecutionKey: null, applied: false };
   }
 
@@ -275,10 +282,6 @@ export async function applyGovernorToAutoComboOrder(
     },
     counterfactualInput
   );
-
-  if (context.mode !== "active" && context.mode !== "active-canary") {
-    return { orderedTargets: input.orderedTargets, context, selectedExecutionKey: null, applied: false };
-  }
 
   const breaker = getGovernorActiveBreaker();
   context.breakerState = breaker.getState();
