@@ -1,7 +1,10 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { GovernorTelemetry } from "../../../open-sse/governor/types.ts";
-import { insertGovernorTelemetryRow, queryGovernorTelemetryRows } from "../../../src/lib/db/governorTelemetry.ts";
+import {
+  insertGovernorTelemetryRow,
+  queryGovernorTelemetryRows,
+} from "../../../src/lib/db/governorTelemetry.ts";
 import { getDbInstance } from "../../../src/lib/db/core.ts";
 
 describe("Governor Telemetry Privacy & Resilience", () => {

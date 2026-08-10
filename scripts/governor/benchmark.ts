@@ -55,8 +55,8 @@ export function runGovernorBenchmark(sampleSize = 10_000, runCount = 3): Benchma
         kind === "code_debug"
           ? "fix TypeError: cannot read properties of undefined (reading 'map') in stack trace"
           : kind === "architecture_reasoning"
-          ? "design a scalable high-availability system architecture with failover"
-          : "simple user message text",
+            ? "design a scalable high-availability system architecture with failover"
+            : "simple user message text",
     };
   });
 
@@ -121,7 +121,9 @@ if (isMainModule || import.meta.url.endsWith("benchmark.ts")) {
   console.log(`Total Decisions  : ${results.totalDecisions.toLocaleString()}`);
   console.log(`Total Duration   : ${results.totalDurationMs} ms`);
   console.log(`Throughput       : ${results.decisionsPerSecond.toLocaleString()} decisions/sec`);
-  console.log(`Median throughput: ${results.medianThroughputPerSecond.toLocaleString()} decisions/sec (${results.runs} runs, ${results.warmupDecisions} warmup decisions)`);
+  console.log(
+    `Median throughput: ${results.medianThroughputPerSecond.toLocaleString()} decisions/sec (${results.runs} runs, ${results.warmupDecisions} warmup decisions)`
+  );
   console.log(`Latency p50      : ${results.latencyP50Ms} ms`);
   console.log(`Latency p95      : ${results.latencyP95Ms} ms`);
   console.log(`Latency p99      : ${results.latencyP99Ms} ms`);

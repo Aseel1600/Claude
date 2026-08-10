@@ -74,14 +74,17 @@ Telemetry is stored in the local SQLite table `governor_telemetry` (`src/lib/db/
 When the S3 Adaptive Intelligence Runtime becomes available, OmniRoute will support three pluggable integration patterns without altering `chatCore`:
 
 ### Mode A: Native In-Process FFI
+
 - Node.js native binding (`napi` / C-FFI) invoking S3 shared library (`s3_governor.dll` / `libs3_governor.so`).
 - Lowest latency (< 100 µs), direct shared-memory evaluation.
 
 ### Mode B: Local Process IPC
+
 - Independent local process spawned alongside OmniRoute, communicating via Unix Domain Sockets or Windows Named Pipes.
 - Strong memory isolation; process crashes do not crash the Node.js main thread.
 
 ### Mode C: Service / Container Sidecar
+
 - S3 Governor deployed as a standalone container or sidecar service accessible via HTTP REST or gRPC.
 - Best suited for distributed Kubernetes or cloud-native deployments.
 
