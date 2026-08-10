@@ -186,6 +186,32 @@ test("injectSkills auto mode matches message/context semantics and applies score
   });
 });
 
+test("injectSkills auto mode only scores name tokens with at least three characters", async () => {
+  for (const name of ["aiSearch", "apiSearch"]) {
+    await skillRegistry.register({
+      name,
+      version: "1.0.0",
+      description: "find",
+      schema: { input: {}, output: {} },
+      handler: `${name}-handler`,
+      enabled: true,
+      mode: "auto",
+      apiKeyId: "key-token-length",
+    });
+  }
+
+  const tools = injectSkills({
+    provider: "other",
+    apiKeyId: "key-token-length",
+    messages: [{ role: "user", content: "ai api find" }],
+  });
+
+  assert.deepEqual(
+    tools.map((tool) => (tool as { function: { name: string } }).function.name),
+    ["apiSearch@1.0.0"]
+  );
+});
+
 test("injectSkills auto mode prefers provider-matching tagged skills", async () => {
   await skillRegistry.register({
     name: "openaiDocTool",

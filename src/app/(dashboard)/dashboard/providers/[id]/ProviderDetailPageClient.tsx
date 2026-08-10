@@ -14,6 +14,7 @@ import {
   isAnthropicCompatibleProvider,
   isClaudeCodeCompatibleProvider,
   supportsApiKeyOnFreeProvider,
+  supportsDualAuthProvider,
 } from "@/shared/constants/providers";
 import { getModelsByProviderId } from "@/shared/constants/models";
 import {
@@ -21,13 +22,17 @@ import {
   getCompatibleFallbackModels,
 } from "@/lib/providers/managedAvailableModels";
 import { getProviderServiceKinds } from "@/lib/providers/serviceKindIndex";
-import { providerLacksModelListing } from "@/lib/providers/modelListingCapability";
-import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
+import {
+  providerLacksModelListing,
+  providerUsesCuratedModelsOnly,
+} from "@/lib/providers/modelListingCapability";
+import { mergeProviderModelListing } from "@/lib/providers/mergeProviderModelListing";
 import { normalizeModelCatalogSource } from "@/shared/utils/modelCatalogSearch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
-import { resolveDashboardProviderInfo } from "../providerPageUtils";
+import { resolveDashboardProviderInfo, resolveProviderHeaderLink } from "../providerPageUtils";
+import { findDefaultReferral } from "@/lib/radar/referrals";
 import { type ConnectionRowConnection } from "./components/ConnectionRow";
 import { useProviderConnections } from "./hooks/useProviderConnections";
 import { useProviderSettings } from "./hooks/useProviderSettings";
@@ -57,6 +62,7 @@ import EmptyConnectionsPlaceholder from "./components/EmptyConnectionsPlaceholde
 import UpstreamProxyCard from "./components/UpstreamProxyCard";
 import SearchProviderCard from "./components/SearchProviderCard";
 import NoAuthProviderControls from "./components/NoAuthProviderControls";
+import AnonymousFallbackToggle from "./components/AnonymousFallbackToggle";
 // providerText used by UpstreamProxyCard (Phase 1t.7)
 
 export default function ProviderDetailPageClient() {
@@ -116,6 +122,8 @@ export default function ProviderDetailPageClient() {
     proxyConfig,
     connProxyMap,
     cpaProviderEnabled,
+    upstreamProxyMode,
+    upstreamProxyFallbackBackend,
     refreshingId,
     setPage,
     setHealthFilter,
@@ -133,6 +141,7 @@ export default function ProviderDetailPageClient() {
     handleToggleClaudeExtraUsage,
     handleToggleCodexLimit,
     handleToggleCliproxyapiMode,
+    handleSetUpstreamProxyMode,
     handleToggleProxyEnabled,
     handleTogglePerKeyProxyEnabled,
     handleRetestConnection,
@@ -210,6 +219,39 @@ export default function ProviderDetailPageClient() {
       openAiCompatibleName: t("openaiCompatibleName"),
     },
   });
+
+  // D28 — Radar default referral link ("Pegue seus créditos grátis"). Fetched
+  // from the LOCAL /api/radar/referrals route only (never talks to the
+  // private feed server directly) — same client-fetch pattern the Radar
+  // dashboard page already uses for its own data. This keeps the providers
+  // page decoupled from @/lib/radar (DB-touching, Node-only): a 404 (flag
+  // off) or 401/network failure just leaves `referralUrl` null, and
+  // `resolveProviderHeaderLink` below then falls back to the static catalog
+  // website — byte-identical to before this feature existed.
+  const [referralUrl, setReferralUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/radar/referrals");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const fixed = Array.isArray(data?.fixed) ? data.fixed : [];
+        const match = findDefaultReferral(fixed, providerId);
+        setReferralUrl(match?.url ?? null);
+      } catch {
+        // Best-effort only — never blocks rendering of the provider page.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [providerId]);
+  const { website: providerHeaderWebsite, isReferralLink } = resolveProviderHeaderLink(
+    providerInfo?.website,
+    referralUrl
+  );
   const providerSupportsOAuth =
     providerInfo?.toggleAuthType === "oauth" || providerInfo?.toggleAuthType === "free";
   const subscriptionRisk = providerInfo?.subscriptionRisk === true;
@@ -223,6 +265,7 @@ export default function ProviderDetailPageClient() {
   } = useConnectionGate({ providerId, subscriptionRisk });
 
   const providerSupportsPat = supportsApiKeyOnFreeProvider(providerId);
+  const supportsDualAuth = supportsDualAuthProvider(providerId);
   const isOAuth = providerSupportsOAuth && !providerSupportsPat;
   const providerAlias = getProviderAlias(providerId);
   const isFreeNoAuth =
@@ -230,39 +273,29 @@ export default function ProviderDetailPageClient() {
     getProviderById(providerId)?.managedAccount === true;
   const registryModels = getModelsByProviderId(providerId);
   // Prefer synced API-discovered models when available, then merge built-ins
-  // and user-managed custom models without duplicating IDs.
+  // and user-managed custom models without duplicating IDs. Cursor exclusive
+  // listing drops the static registry entirely when synced is non-empty.
   const models = useMemo(() => {
-    // Synced models keep their full property spread so provider-specific fields
-    // (e.g. Gemini's `supportedGenerationMethods`) survive into the table.
-    const builtInModels = registryModels.map((model) => ({
-      ...model,
-      source: "system",
-    }));
-
-    const registryIds = new Set(builtInModels.map((m) => m.id));
-    const syncedExtras = (usesCuratedModelsOnly ? [] : syncedAvailableModels)
-      .filter((model: any) => model?.id && !registryIds.has(model.id))
-      .map((model: any) => ({
-        ...model,
-        id: model.id,
-        name: model.name || model.id,
-        source: "imported",
-      }));
-    const knownIds = new Set([...registryIds, ...syncedExtras.map((model: any) => model.id)]);
-    const customExtras = (usesCuratedModelsOnly ? [] : modelMeta.customModels)
-      .filter((cm: any) => cm.id && !knownIds.has(cm.id))
-      .map((cm: any) => ({
-        id: cm.id,
-        name: cm.name || cm.id,
-        source: normalizeModelCatalogSource(cm.source) === "imported" ? "imported" : "custom",
-      }));
-    const allModels = [...builtInModels, ...syncedExtras, ...customExtras];
-    const deduped = new Map<string, (typeof allModels)[0]>();
-    for (const m of allModels) {
-      if (m.id && !deduped.has(m.id)) deduped.set(m.id, m);
-    }
-    return Array.from(deduped.values());
-  }, [registryModels, syncedAvailableModels, modelMeta.customModels, usesCuratedModelsOnly]);
+    return mergeProviderModelListing({
+      providerId,
+      registryModels,
+      syncedModels: syncedAvailableModels,
+      customModels: (modelMeta.customModels || []).map(
+        (cm: { id: string; name?: string; source?: string }) => ({
+          id: cm.id,
+          name: cm.name || cm.id,
+          source: normalizeModelCatalogSource(cm.source) === "imported" ? "imported" : "custom",
+        })
+      ),
+      usesCuratedModelsOnly,
+    });
+  }, [
+    providerId,
+    registryModels,
+    syncedAvailableModels,
+    modelMeta.customModels,
+    usesCuratedModelsOnly,
+  ]);
   const isUpstreamProxyProvider = providerInfo?.category === "upstream-proxy";
   const compatibleSupportsModelImport = compatibleProviderSupportsModelImport(providerId);
 
@@ -460,12 +493,13 @@ export default function ProviderDetailPageClient() {
     <div className="flex flex-col gap-8">
       <ProviderPageHeader
         providerId={providerId}
-        providerInfo={providerInfo}
+        providerInfo={{ ...providerInfo, website: providerHeaderWebsite }}
         connectionsCount={connections.length}
         isOpenAICompatible={isOpenAICompatible}
         isAnthropicProtocolCompatible={isAnthropicProtocolCompatible}
         onOpenTutorial={() => setShowTutorialModal(true)}
         t={t}
+        isReferralLink={isReferralLink}
       />
 
       {providerId === "zed" && (
@@ -499,6 +533,12 @@ export default function ProviderDetailPageClient() {
         />
       )}
       {!isUpstreamProxyProvider && !isFreeNoAuth && (
+        <AnonymousFallbackToggle
+          providerId={providerId}
+          providerName={providerInfo?.name || providerId}
+        />
+      )}
+      {!isUpstreamProxyProvider && !isFreeNoAuth && (
         <Card>
           <ProviderAccountRoutingCard
             providerKey={providerId}
@@ -510,6 +550,7 @@ export default function ProviderDetailPageClient() {
             isCompatible={isCompatible}
             isCommandCode={isCommandCode}
             isOAuth={isOAuth}
+            supportsDualAuth={supportsDualAuth}
             providerSupportsPat={providerSupportsPat}
             connections={connections}
             batchTesting={batchTesting}
@@ -556,6 +597,7 @@ export default function ProviderDetailPageClient() {
               isCompatible={isCompatible}
               isCommandCode={isCommandCode}
               providerId={providerId}
+              supportsDualAuth={supportsDualAuth}
               providerSupportsPat={providerSupportsPat}
               commandCodeAuthState={commandCodeAuthState}
               gateConnectionFlow={gateConnectionFlow}
@@ -609,6 +651,9 @@ export default function ProviderDetailPageClient() {
                 canAutoSync={!usesCuratedModelsOnly && compatibleSupportsModelImport}
                 handleToggleConnectionAutoSync={handleToggleConnectionAutoSync}
                 handleToggleCliproxyapiMode={handleToggleCliproxyapiMode}
+                handleSetUpstreamProxyMode={handleSetUpstreamProxyMode}
+                upstreamProxyMode={upstreamProxyMode}
+                upstreamProxyFallbackBackend={upstreamProxyFallbackBackend}
                 handleToggleCodexLimit={handleToggleCodexLimit}
                 handleToggleProxyEnabled={handleToggleProxyEnabled}
                 handleTogglePerKeyProxyEnabled={handleTogglePerKeyProxyEnabled}

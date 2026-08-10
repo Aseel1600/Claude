@@ -81,12 +81,34 @@ function getCopilotTokenExpiryMs(expiresAt: unknown): number {
   return 0;
 }
 
+// Providers whose OAuth flow yields only a GitHub-style access token (no
+// refresh_token) plus a short-lived Copilot sub-token: github.com Copilot and
+// GHE Copilot (device-code flow against the enterprise host) both fit this
+// shape. Keep both in sync — adding a github-token-only provider elsewhere
+// (e.g. new GHE-flavored Copilot variant) must also list it here.
+const GITHUB_ACCESS_TOKEN_ONLY_PROVIDERS = new Set(["github", "ghe-copilot"]);
+
 function isGitHubAccessTokenOnlyConnection(conn: any): boolean {
   return (
-    String(conn?.provider || "").toLowerCase() === "github" &&
+    GITHUB_ACCESS_TOKEN_ONLY_PROVIDERS.has(String(conn?.provider || "").toLowerCase()) &&
     typeof conn?.accessToken === "string" &&
     conn.accessToken.trim().length > 0
   );
+}
+
+/**
+ * Resolve the Copilot token endpoint base URL for a connection. github.com
+ * Copilot always uses api.github.com; GHE Copilot uses its own per-enterprise
+ * host stored in providerSpecificData.gheUrl at connect time.
+ */
+function getCopilotTokenBaseUrl(conn: any): string {
+  if (String(conn?.provider || "").toLowerCase() === "ghe-copilot") {
+    const gheUrl = conn?.providerSpecificData?.gheUrl;
+    if (typeof gheUrl === "string" && gheUrl.trim().length > 0) {
+      return `${gheUrl.trim().replace(/\/+$/, "")}/api/v3`;
+    }
+  }
+  return "https://api.github.com";
 }
 
 function canClearGitHubNoRefreshTokenState(conn: any): boolean {
@@ -245,7 +267,7 @@ function isEnvFlagEnabled(name: string): boolean {
   return TRUE_ENV_VALUES.has(value.trim().toLowerCase());
 }
 
-function isHealthCheckDisabled(): boolean {
+export function isHealthCheckDisabled(): boolean {
   return (
     isEnvFlagEnabled("OMNIROUTE_DISABLE_TOKEN_HEALTHCHECK") ||
     isBuildProcess() ||
@@ -275,7 +297,7 @@ let cacheTimestamp = 0;
 let pendingHideLogs: Promise<boolean> | null = null;
 const CACHE_TTL = 30_000; // Cache settings for 30 seconds
 
-async function shouldHideLogs(): Promise<boolean> {
+export async function shouldHideLogs(): Promise<boolean> {
   if (
     isEnvFlagEnabled("OMNIROUTE_HIDE_HEALTHCHECK_LOGS") ||
     isBuildProcess() ||
@@ -399,16 +421,18 @@ export function stopTokenHealthCheck() {
 }
 
 // ── Core sweep (batch concurrent) ──────────────────────────────────────────
-export async function sweep() {
+/** Returns the number of connections swept, which the job registry records. */
+export async function sweep(): Promise<number> {
   const state = getHCState();
   if (state.sweeping) {
-    return log(`${LOG_PREFIX} Sweep skipped — previous sweep still in progress`);
+    log(`${LOG_PREFIX} Sweep skipped — previous sweep still in progress`);
+    return 0;
   }
   state.sweeping = true;
   try {
     const connections = await getProviderConnections({ authType: "oauth" });
 
-    if (!connections || connections.length === 0) return;
+    if (!connections || connections.length === 0) return 0;
 
     const staggerMs = parseInt(process.env.HEALTHCHECK_STAGGER_MS || "3000", 10);
     const total = connections.length;
@@ -449,8 +473,10 @@ export async function sweep() {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
+    return total;
   } catch (err) {
     logError(`${LOG_PREFIX} Sweep error:`, err.message);
+    return 0;
   } finally {
     state.sweeping = false;
   }
@@ -564,7 +590,8 @@ export async function checkConnection(conn) {
         const copilotResult = await refreshCopilotToken(
           conn.accessToken,
           healthCheckLog,
-          proxyConfig
+          proxyConfig,
+          getCopilotTokenBaseUrl(conn)
         );
         if (copilotResult?.token) {
           refreshedProviderSpecificData = {
@@ -604,9 +631,18 @@ export async function checkConnection(conn) {
         });
       }
 
-      log(
-        `${LOG_PREFIX} ${conn.provider}/${getConnectionLogLabel(conn)} has no refresh token but has a GitHub access token; keeping connection active`
-      );
+      // Steady-state ticks stay silent: this path runs once per TICK_MS (60s) for
+      // EVERY github/ghe-copilot connection, so an unconditional line here emits
+      // ~1440 entries/day per connection all saying the same nothing-changed thing.
+      // Only report when the sweep actually did work — a Copilot sub-token refresh
+      // attempt — so a genuine refresh failure still surfaces in the log.
+      if (copilotAboutToExpire) {
+        log(
+          `${LOG_PREFIX} ${conn.provider}/${getConnectionLogLabel(conn)} Copilot token ${
+            refreshedProviderSpecificData ? "refreshed" : "refresh FAILED"
+          } (no refresh token; connection stays active)`
+        );
+      }
       return;
     }
 
@@ -691,6 +727,7 @@ export async function checkConnection(conn) {
     "amazon-q",
     "gitlab-duo",
     "claude",
+    "openference",
   ]);
   const isRotatingProvider = ROTATING_REFRESH_PROVIDERS.has(
     String(conn.provider || "").toLowerCase()
@@ -1013,8 +1050,3 @@ export async function checkConnection(conn) {
     );
   }
 }
-
-// Auto-start when imported
-initTokenHealthCheck();
-
-export default initTokenHealthCheck;

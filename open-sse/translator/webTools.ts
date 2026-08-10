@@ -391,10 +391,15 @@ export function serializeToolsToPrompt(tools: unknown): string {
   if (lines.length === 0) return "";
 
   return [
-    "You can call tools. To call a tool, reply with a single line containing a <tool> block",
+    "The client application provides tools beyond your built-in ones. They are NOT in your " +
+      "native tool registry; they are invoked via a plain-text protocol: the client parses " +
+      "your reply and executes the tool on the user machine. Treat these client tools as " +
+      "fully available to you; never claim they are unavailable. To invoke one, reply with " +
+      "a single line containing a <tool> block",
     `with JSON that includes the secret binding "_nonce": "${nonce}":`,
     `<tool>{"name": "<tool_name>", "arguments": { ... }, "_nonce": "${nonce}"}</tool>`,
-    "Only emit the <tool> block when you actually want to call a tool; otherwise answer normally.",
+    "These client tools ARE available to you in this conversation. Only emit the <tool> " +
+      "block when you actually want to call a tool; otherwise answer normally.",
     "",
     "Available tools:",
     ...lines,
@@ -425,10 +430,7 @@ export function parseToolCallsFromText(
   requestedTools?: unknown
 ): { content: string; toolCalls: OpenAIToolCall[] | null } {
   const requestedToolNames = getRequestedToolNames(requestedTools);
-  if (
-    typeof text !== "string" ||
-    (!text.includes("<tool>") && !text.includes("<tool_call"))
-  ) {
+  if (typeof text !== "string" || (!text.includes("<tool>") && !text.includes("<tool_call"))) {
     return { content: text ?? "", toolCalls: null };
   }
 
@@ -506,11 +508,37 @@ interface ToolPrepResult {
   effectiveMessages: Array<{ role: string; content: unknown }>;
 }
 
+/** One-line nudge appended to the latest user message. Web-UI models weigh the
+ *  current user turn far more heavily than a large system block, and ChatGPT's
+ *  injection heuristics distrust long instructions embedded in user content —
+ *  so the full contract stays in the system block (trailing, see below) and the
+ *  user turn only carries a short pointer back to it, naming the tools. */
+function buildToolReminder(toolPrompt: string): string {
+  const names = (toolPrompt.match(/^- [^:\n]+/gm) || []).map((s) => s.slice(2).trim()).join(", ");
+  return (
+    "\n\n[Client protocol reminder: the client-tool contract in the system instructions " +
+    "is active in this conversation. These client tools ARE available via the <tool> " +
+    "block protocol" +
+    (names ? ": " + names : "") +
+    ".]"
+  );
+}
+
 /**
- * Extract tools from an OpenAI request body and prepend a tool-system-prompt
- * to the messages array when tools are present.  Every web-cookie executor
- * that wants tool-call support calls this once before building its upstream
- * request body.
+ * Extract tools from an OpenAI request body and inject the tool contract when
+ * tools are present. Every web-cookie executor that wants tool-call support
+ * calls this once before building its upstream request body.
+ *
+ * Placement matters: the contract used to be PREPENDED as the first system
+ * message. Executors fold all system messages into one block, so with agentic
+ * clients whose system prompts exceed ~28K chars the contract sat at the head
+ * of a huge block and web models (chatgpt-web observed) ignored it, answering
+ * "tool X is not in my tool set" instead of emitting <tool> blocks. Dual
+ * placement fixes it: the full contract goes AFTER the client messages (folds
+ * to the tail of the system block) and a one-line reminder rides at the end of
+ * the latest user message. Measured on cgpt-web/gpt-5.5-thinking with a
+ * 30K-char system prompt: prepend 0/3 tool calls, dual placement 16/17 across
+ * 30K-250K prompts, 30-tool sets, multi-turn tool history, and streaming.
  */
 export function prepareToolMessages(
   bodyObj: Record<string, unknown>,
@@ -521,11 +549,25 @@ export function prepareToolMessages(
   if (!hasTools) return { hasTools: false, requestedTools, effectiveMessages: messages };
 
   const toolPrompt = serializeToolsToPrompt(requestedTools);
-  return {
-    hasTools: true,
-    requestedTools,
-    effectiveMessages: [{ role: "system", content: toolPrompt }, ...messages],
-  };
+  if (!toolPrompt) return { hasTools: true, requestedTools, effectiveMessages: messages };
+
+  const effectiveMessages = [...messages];
+  const reminder = buildToolReminder(toolPrompt);
+  for (let i = effectiveMessages.length - 1; i >= 0; i--) {
+    const msg = effectiveMessages[i];
+    if (msg?.role !== "user") continue;
+    if (typeof msg.content === "string") {
+      effectiveMessages[i] = { ...msg, content: msg.content + reminder };
+    } else if (Array.isArray(msg.content)) {
+      effectiveMessages[i] = {
+        ...msg,
+        content: [...msg.content, { type: "text", text: reminder }],
+      };
+    }
+    break;
+  }
+  effectiveMessages.push({ role: "system", content: toolPrompt });
+  return { hasTools: true, requestedTools, effectiveMessages };
 }
 
 interface ToolCompletionResult {

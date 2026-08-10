@@ -13,6 +13,7 @@ import {
   openDatabaseAsync,
 } from "./adapters/driverFactory";
 import path from "path";
+import { retryProbeIfTransient } from "./probeUtils";
 import fs from "fs";
 import { resolveWritableDataDir, getLegacyDotDataDir } from "../dataPaths";
 import { runMigrations } from "./migrationRunner";
@@ -1044,13 +1045,35 @@ export function getDbInstance(): SqliteDatabase {
   // This is needed so the migration runner skips the mass-migration safety abort
   // that would otherwise trigger because heuristic seeding marks some migrations
   // as applied, making the fresh DB look like a wiped existing DB (#1328).
-  const isNewDb = !fs.existsSync(sqliteFile);
+  // #9934: also classify as fresh a file that `omniroute setup` created with
+  // only the clipped skeleton schema (see the probe below) — even though the
+  // file exists, it has never had migrations run.
+  let isNewDb = !fs.existsSync(sqliteFile);
 
   // Detect and handle old schema format — preserve data when possible (#146)
   // Uses a single probe connection that becomes the real connection when possible.
   if (fs.existsSync(sqliteFile)) {
     try {
       const probe = openSqliteDatabase(sqliteFile, { readonly: true });
+      // #9934: init asymmetry — bin/cli/sqlite.mjs::openOmniRouteDb (used by
+      // `omniroute setup`) creates storage.sqlite with only the partial inline
+      // schema (key_value + provider_connections) and never runs migrations.
+      // Purely file-existence-based freshness made that file look like an
+      // existing DB, so the first `serve` auto-seeded only the 001 marker and
+      // tripped the mass-migration safety abort on a brand-new install. A
+      // skeleton file has provider_connections but none of the tables the 001
+      // migration creates (combos) — treat it as fresh, not as a wiped DB.
+      const probeHasProviderConnections = !!probe
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='provider_connections'"
+        )
+        .get();
+      const probeHasCombos = !!probe
+        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='combos'")
+        .get();
+      if (probeHasProviderConnections && !probeHasCombos) {
+        isNewDb = true;
+      }
       const hasOldSchema = probe
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'")
         .get();
@@ -1142,18 +1165,19 @@ export function getDbInstance(): SqliteDatabase {
             `Original error: ${message}`
         );
       }
-      preservedCriticalState = captureCriticalDbState(sqliteFile);
-
-      // SAFETY: Never delete the database — rename to backup so data can be recovered.
-      // The old code would silently destroy all user data on any probe failure.
-      const failedPath = sqliteFile + `.probe-failed-${Date.now()}`;
-      try {
-        fs.renameSync(sqliteFile, failedPath);
-        console.warn(`[DB] Renamed corrupt DB to ${path.basename(failedPath)}`);
-        failedProbePath = failedPath;
-        failedProbeMessage = message;
-      } catch {
-        /* ok */
+      if (!retryProbeIfTransient(sqliteFile, e, openSqliteDatabase, closeProbeIfSafe)) {
+        preservedCriticalState = captureCriticalDbState(sqliteFile);
+        // SAFETY: Never delete the database — rename to backup so data can be recovered.
+        // The old code would silently destroy all user data on any probe failure.
+        const failedPath = sqliteFile + `.probe-failed-${Date.now()}`;
+        try {
+          fs.renameSync(sqliteFile, failedPath);
+          console.warn(`[DB] Renamed corrupt DB to ${path.basename(failedPath)}`);
+          failedProbePath = failedPath;
+          failedProbeMessage = message;
+        } catch {
+          /* ok */
+        }
       }
     }
   }
