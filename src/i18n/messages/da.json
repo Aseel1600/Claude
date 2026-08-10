@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Påkrævet token: {credential}",
     "webSessionGuideStep1": "Log ind på {provider} i din browser.",
     "webSessionGuideStep2": "Åbn browserens udviklerværktøjer, og inspicér en anmodning fra webappen.",
+    "webSessionGuideStep2Fast": "Hurtigvej: installer Cookie Editor-udvidelsen (chromewebstore.google.com → Cookie Editor), åbn den på {provider}-fanen, find {credential} (vælg alle nummererede dele, hvis de er opdelt), og klik på Eksporter → Kopier med eksportformatet indstillet til \"Cookie header\".",
     "webSessionGuideStep3": "Kopiér de påkrævede legitimationsoplysninger fra udbyderens eget domæne. For cookies skal du kun kopiere Cookie-headerværdien og udelade Cookie:.",
+    "webSessionGuideStep3Manual": "Manuel sti: åbn browserens udviklerværktøjer (F12 → Netværk), opdater siden, åbn en godkendt anmodning, og kopier Cookie-headerens værdi fra anmodningsoverskrifterne — udelad Cookie:-præfikset.",
     "webSessionGuideStep4": "Indsæt det her og kontroller forbindelsen. Hvis det holder op med at fungere, skal du logge ind igen og erstatte det med en ny værdi.",
     "webSessionSecurityHint": "Behandl dette som en adgangskode: den kan få adgang til din loggede webkonto, indtil den udløber eller tilbagekaldes.",
     "webNoAuthGuideTitle": "Der kræves ingen legitimationsoplysninger",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Når alle konfigurerede forbindelser er udtømt (kvote, kreditter eller udløb), brug midlertidigt denne udbyders nøgleløse niveau. Sluk for at springe denne udbyder over i stedet for at sende anonyme anmodninger - anbefales når det nøgleløse niveau afviser dem (401).",
     "anonymousFallbackEnabled": "Anonym fallback aktiveret for {provider}",
     "anonymousFallbackDisabled": "Anonym fallback deaktiveret for {provider} — udtømte forbindelser vil springe denne udbyder over",
-    "anonymousFallbackUpdateFailed": "Mislykkedes med at opdatere anonym fallback-indstilling",
-    "webSessionGuideStep2Fast": "Hurtigvej: installer Cookie Editor-udvidelsen (chromewebstore.google.com → Cookie Editor), åbn den på {provider}-fanen, find {credential} (vælg alle nummererede dele, hvis de er opdelt), og klik på Eksporter → Kopier med eksportformatet indstillet til \"Cookie header\".",
-    "webSessionGuideStep3Manual": "Manuel sti: åbn browserens udviklerværktøjer (F12 → Netværk), opdater siden, åbn en godkendt anmodning, og kopier Cookie-headerens værdi fra anmodningsoverskrifterne — udelad Cookie:-præfikset."
+    "anonymousFallbackUpdateFailed": "Mislykkedes med at opdatere anonym fallback-indstilling"
   },
   "settings": {
     "title": "Indstillinger",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Afbryder",
     "degraded.source.modelLockouts": "Modellåsninger",
     "degraded.source.count": "Antal Forbindelser"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Afvis anmodninger før afsendelse, når målmodellen mangler de nødvendige funktioner (vision, værktøjer, struktureret output, kontekstvindue). Beskytter direkte anmodninger fra en enkelt udbyder, der omgår kombinationslagets kompatibilitetsfilter.",
+  "capabilityFilter.visionMismatch": "Udbyderen understøtter ikke vision for denne billedanmodning",
+  "capabilityFilter.toolsMismatch": "Udbyderen understøtter ikke værktøjsopkald.",
+  "capabilityFilter.structuredOutputMismatch": "Udbyderen understøtter ikke struktureret output",
+  "capabilityFilter.contextWindowMismatch": "Anmodningen overskrider udbyderens kontekstvindue"
 }

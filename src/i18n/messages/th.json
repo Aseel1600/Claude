@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "โทเค็นที่จำเป็น: {credential}",
     "webSessionGuideStep1": "ลงชื่อเข้าใช้ {provider} ในเบราว์เซอร์ของคุณ",
     "webSessionGuideStep2": "เปิดเครื่องมือสำหรับนักพัฒนาเบราว์เซอร์และตรวจสอบคำขอที่ทำโดยเว็บแอป",
+    "webSessionGuideStep2Fast": "เส้นทางด่วน: ติดตั้งส่วนขยาย Cookie Editor (chromewebstore.google.com → Cookie Editor), เปิดมันในแท็บ {provider}, ค้นหา {credential} (เลือกทุกส่วนที่มีหมายเลขหากแยกออก), และคลิก Export → Copy โดยตั้งค่าโครงสร้างการส่งออกเป็น “Cookie header”.",
     "webSessionGuideStep3": "คัดลอกข้อมูลรับรองที่จำเป็นจากโดเมนของผู้ให้บริการเอง สำหรับคุกกี้ ให้คัดลอกเฉพาะค่าส่วนหัวของคุกกี้และละเว้น Cookie:",
+    "webSessionGuideStep3Manual": "เส้นทางแบบแมนนวล: เปิดเครื่องมือพัฒนาเบราว์เซอร์ (F12 → Network), รีเฟรชหน้า, เปิดคำขอที่ได้รับการตรวจสอบสิทธิ์, และคัดลอกค่า Cookie header จาก Request Headers — ไม่รวมคำนำหน้า Cookie:",
     "webSessionGuideStep4": "วางที่นี่และตรวจสอบการเชื่อมต่อ หากหยุดทำงาน ให้ลงชื่อเข้าใช้อีกครั้งและแทนที่ด้วยค่าใหม่",
     "webSessionSecurityHint": "ปฏิบัติต่อสิ่งนี้เหมือนเป็นรหัสผ่าน: มันอาจเข้าถึงบัญชีเว็บที่คุณลงชื่อเข้าใช้จนกว่ามันจะหมดอายุหรือถูกเพิกถอน",
     "webNoAuthGuideTitle": "ไม่จำเป็นต้องมีหนังสือรับรอง",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "เมื่อการเชื่อมต่อที่กำหนดทั้งหมดหมดลง (โควตา, เครดิต, หรือหมดอายุ) ให้ใช้ชั้นที่ไม่มีคีย์ของผู้ให้บริการนี้ชั่วคราว ปิดเพื่อข้ามผู้ให้บริการนี้แทนที่จะส่งคำขอแบบไม่ระบุชื่อ — แนะนำเมื่อชั้นที่ไม่มีคีย์ปฏิเสธคำขอเหล่านั้น (401).",
     "anonymousFallbackEnabled": "เปิดใช้งานการสำรองข้อมูลแบบไม่ระบุชื่อสำหรับ {provider}",
     "anonymousFallbackDisabled": "ปิดการใช้งานการสำรองข้อมูลแบบไม่ระบุชื่อสำหรับ {provider} — การเชื่อมต่อที่หมดจะข้ามผู้ให้บริการนี้",
-    "anonymousFallbackUpdateFailed": "ไม่สามารถอัปเดตการตั้งค่าการสำรองข้อมูลที่ไม่ระบุชื่อได้",
-    "webSessionGuideStep2Fast": "เส้นทางด่วน: ติดตั้งส่วนขยาย Cookie Editor (chromewebstore.google.com → Cookie Editor), เปิดมันในแท็บ {provider}, ค้นหา {credential} (เลือกทุกส่วนที่มีหมายเลขหากแยกออก), และคลิก Export → Copy โดยตั้งค่าโครงสร้างการส่งออกเป็น “Cookie header”.",
-    "webSessionGuideStep3Manual": "เส้นทางแบบแมนนวล: เปิดเครื่องมือพัฒนาเบราว์เซอร์ (F12 → Network), รีเฟรชหน้า, เปิดคำขอที่ได้รับการตรวจสอบสิทธิ์, และคัดลอกค่า Cookie header จาก Request Headers — ไม่รวมคำนำหน้า Cookie:"
+    "anonymousFallbackUpdateFailed": "ไม่สามารถอัปเดตการตั้งค่าการสำรองข้อมูลที่ไม่ระบุชื่อได้"
   },
   "settings": {
     "title": "การตั้งค่า",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "เซอร์กิตเบรกเกอร์",
     "degraded.source.modelLockouts": "การล็อกเอาต์โมเดล",
     "degraded.source.count": "จำนวนการเชื่อมต่อ"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "ปฏิเสธคำขอก่อนการส่งเมื่อโมเดลเป้าหมายขาดความสามารถที่จำเป็น (วิสัยทัศน์, เครื่องมือ, ผลลัพธ์ที่มีโครงสร้าง, หน้าต่างบริบท) ป้องกันคำขอจากผู้ให้บริการเดียวที่ข้ามตัวกรองความเข้ากันได้ของเลเยอร์รวม",
+  "capabilityFilter.visionMismatch": "ผู้ให้บริการไม่รองรับการมองเห็นสำหรับคำขอภาพนี้",
+  "capabilityFilter.toolsMismatch": "ผู้ให้บริการไม่รองรับการเรียกเครื่องมือ",
+  "capabilityFilter.structuredOutputMismatch": "ผู้ให้บริการไม่รองรับการส่งออกแบบมีโครงสร้าง",
+  "capabilityFilter.contextWindowMismatch": "คำขอเกินขอบเขตบริบทของผู้ให้บริการ"
 }

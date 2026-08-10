@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Token requerido: {credential}",
     "webSessionGuideStep1": "Inicie sesión en {provider} en su navegador.",
     "webSessionGuideStep2": "Abra las herramientas de desarrollo del navegador e inspeccione una solicitud realizada por la aplicación web.",
+    "webSessionGuideStep2Fast": "Ruta rápida: instala la extensión Cookie Editor (chromewebstore.google.com → Cookie Editor), ábrela en la pestaña {provider}, encuentra {credential} (selecciona todos los fragmentos numerados si están divididos), y haz clic en Exportar → Copiar con el formato de exportación configurado en “Cookie header”.",
     "webSessionGuideStep3": "Copie la credencial requerida del propio dominio del proveedor. Para las cookies, copie solo el valor del encabezado Cookie y omita Cookie:.",
+    "webSessionGuideStep3Manual": "Ruta manual: abre las herramientas de desarrollo del navegador (F12 → Red), actualiza la página, abre una solicitud autenticada y copia el valor del encabezado Cookie de los Encabezados de Solicitud — omite el prefijo Cookie:.",
     "webSessionGuideStep4": "Pégalo aquí y comprueba la conexión. Si deja de funcionar, inicie sesión nuevamente y reemplácelo con un valor nuevo.",
     "webSessionSecurityHint": "Trate esto como una contraseña: puede acceder a su cuenta web iniciada hasta que caduque o sea revocada.",
     "webNoAuthGuideTitle": "No se requiere credencial",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Cuando todas las conexiones configuradas están agotadas (cuota, créditos o expiración), utiliza temporalmente el nivel sin clave de este proveedor. Desactiva para omitir este proveedor en lugar de enviar solicitudes anónimas — recomendado cuando el nivel sin clave las rechaza (401).",
     "anonymousFallbackEnabled": "Fallback anónimo habilitado para {provider}",
     "anonymousFallbackDisabled": "El retroceso anónimo está deshabilitado para {provider} — las conexiones agotadas omitirán este proveedor",
-    "anonymousFallbackUpdateFailed": "Error al actualizar la configuración de respaldo anónimo",
-    "webSessionGuideStep2Fast": "Ruta rápida: instala la extensión Cookie Editor (chromewebstore.google.com → Cookie Editor), ábrela en la pestaña {provider}, encuentra {credential} (selecciona todos los fragmentos numerados si están divididos), y haz clic en Exportar → Copiar con el formato de exportación configurado en “Cookie header”.",
-    "webSessionGuideStep3Manual": "Ruta manual: abre las herramientas de desarrollo del navegador (F12 → Red), actualiza la página, abre una solicitud autenticada y copia el valor del encabezado Cookie de los Encabezados de Solicitud — omite el prefijo Cookie:."
+    "anonymousFallbackUpdateFailed": "Error al actualizar la configuración de respaldo anónimo"
   },
   "settings": {
     "title": "Configuración",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Disyuntor",
     "degraded.source.modelLockouts": "Bloqueos de Modelo",
     "degraded.source.count": "Cantidad de Conexiones"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Rechazar solicitudes antes del despacho cuando el modelo objetivo carece de capacidades requeridas (visión, herramientas, salida estructurada, ventana de contexto). Protege las solicitudes directas de un solo proveedor que eluden el filtro de compatibilidad de la capa combinada.",
+  "capabilityFilter.visionMismatch": "El proveedor no admite visión para esta solicitud de imagen",
+  "capabilityFilter.toolsMismatch": "El proveedor no admite la llamada a la herramienta",
+  "capabilityFilter.structuredOutputMismatch": "El proveedor no admite salida estructurada",
+  "capabilityFilter.contextWindowMismatch": "La solicitud excede la ventana de contexto del proveedor"
 }

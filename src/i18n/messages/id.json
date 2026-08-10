@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Token yang diperlukan: {credential}",
     "webSessionGuideStep1": "Masuk ke {provider} di browser Anda.",
     "webSessionGuideStep2": "Buka alat pengembang browser dan periksa permintaan yang dibuat oleh aplikasi web.",
+    "webSessionGuideStep2Fast": "Jalur cepat: instal ekstensi Cookie Editor (chromewebstore.google.com → Cookie Editor), buka di tab {provider}, temukan {credential} (pilih semua bagian bernomor jika terpisah), dan klik Ekspor → Salin dengan format ekspor diatur ke “Cookie header”.",
     "webSessionGuideStep3": "Salin kredensial yang diperlukan dari domain penyedia itu sendiri. Untuk cookie, salin hanya nilai header Cookie dan hilangkan Cookie:.",
+    "webSessionGuideStep3Manual": "Jalur manual: buka alat pengembang browser (F12 → Jaringan), muat ulang halaman, buka permintaan yang terautentikasi, dan salin nilai header Cookie dari Header Permintaan — hilangkan awalan Cookie:.",
     "webSessionGuideStep4": "Rekatkan di sini dan periksa koneksinya. Jika berhenti berfungsi, masuk lagi dan ganti dengan nilai baru.",
     "webSessionSecurityHint": "Perlakukan ini seperti kata sandi: kata sandi tersebut dapat mengakses akun web yang Anda masuki hingga masa berlakunya habis atau dicabut.",
     "webNoAuthGuideTitle": "Tidak diperlukan kredensial",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Ketika semua koneksi yang dikonfigurasi habis (kuota, kredit, atau masa berlaku), gunakan sementara tingkat tanpa kunci penyedia ini. Matikan untuk melewati penyedia ini alih-alih mengirim permintaan anonim — disarankan ketika tingkat tanpa kunci menolak permintaan tersebut (401).",
     "anonymousFallbackEnabled": "Fallback anonim diaktifkan untuk {provider}",
     "anonymousFallbackDisabled": "Fallback anonim tidak diaktifkan untuk {provider} — koneksi yang habis akan melewati penyedia ini",
-    "anonymousFallbackUpdateFailed": "Gagal memperbarui pengaturan fallback anonim",
-    "webSessionGuideStep2Fast": "Jalur cepat: instal ekstensi Cookie Editor (chromewebstore.google.com → Cookie Editor), buka di tab {provider}, temukan {credential} (pilih semua bagian bernomor jika terpisah), dan klik Ekspor → Salin dengan format ekspor diatur ke “Cookie header”.",
-    "webSessionGuideStep3Manual": "Jalur manual: buka alat pengembang browser (F12 → Jaringan), muat ulang halaman, buka permintaan yang terautentikasi, dan salin nilai header Cookie dari Header Permintaan — hilangkan awalan Cookie:."
+    "anonymousFallbackUpdateFailed": "Gagal memperbarui pengaturan fallback anonim"
   },
   "settings": {
     "title": "Pengaturan",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Circuit Breaker",
     "degraded.source.modelLockouts": "Penguncian Model",
     "degraded.source.count": "Jumlah Koneksi"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Tolak permintaan sebelum pengiriman ketika model target tidak memiliki kemampuan yang diperlukan (visi, alat, output terstruktur, jendela konteks). Melindungi permintaan penyedia tunggal langsung yang melewati filter kompatibilitas lapisan kombinasi.",
+  "capabilityFilter.visionMismatch": "Penyedia tidak mendukung visi untuk permintaan gambar ini",
+  "capabilityFilter.toolsMismatch": "Penyedia tidak mendukung pemanggilan alat",
+  "capabilityFilter.structuredOutputMismatch": "Penyedia tidak mendukung keluaran terstruktur",
+  "capabilityFilter.contextWindowMismatch": "Permintaan melebihi jendela konteks penyedia"
 }

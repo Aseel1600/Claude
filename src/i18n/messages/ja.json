@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "必要なトークン: {credential}",
     "webSessionGuideStep1": "ブラウザで {provider} にサインインします。",
     "webSessionGuideStep2": "ブラウザー開発者ツールを開き、Web アプリによって行われたリクエストを検査します。",
+    "webSessionGuideStep2Fast": "ファストパス: Cookie Editor 拡張機能をインストールします (chromewebstore.google.com → Cookie Editor)、{provider} タブで開き、{credential} を見つけます (分割されている場合はすべての番号付きチャンクを選択)、そしてエクスポートをクリック → エクスポート形式を「Cookie ヘッダー」に設定してコピーします。",
     "webSessionGuideStep3": "プロバイダー独自のドメインから必要な資格情報をコピーします。 Cookie の場合は、Cookie ヘッダー値のみをコピーし、Cookie: を省略します。",
+    "webSessionGuideStep3Manual": "手動パス: ブラウザの開発者ツールを開く (F12 → ネットワーク)、ページをリフレッシュし、認証されたリクエストを開き、リクエストヘッダーからCookieヘッダーの値をコピーします — Cookie: プレフィックスは省略してください。",
     "webSessionGuideStep4": "ここに貼り付けて接続を確認してください。動作しなくなった場合は、再度サインインして新しい値に置き換えます。",
     "webSessionSecurityHint": "これをパスワードのように扱います。有効期限が切れるか取り消されるまで、サインインしている Web アカウントにアクセスできます。",
     "webNoAuthGuideTitle": "資格情報は必要ありません",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "すべての設定された接続が使い果たされた場合（クォータ、クレジット、または有効期限）、このプロバイダーのキーなしティアを一時的に使用します。このプロバイダーをスキップするにはオフにしてください。匿名リクエストを送信する代わりに、キーなしティアがそれらを拒否する場合（401）に推奨されます。",
     "anonymousFallbackEnabled": "{provider}の匿名フォールバックが有効になりました",
     "anonymousFallbackDisabled": "{provider}の匿名フォールバックが無効になりました — 接続が尽きるとこのプロバイダーはスキップされます",
-    "anonymousFallbackUpdateFailed": "匿名フォールバック設定の更新に失敗しました",
-    "webSessionGuideStep2Fast": "ファストパス: Cookie Editor 拡張機能をインストールします (chromewebstore.google.com → Cookie Editor)、{provider} タブで開き、{credential} を見つけます (分割されている場合はすべての番号付きチャンクを選択)、そしてエクスポートをクリック → エクスポート形式を「Cookie ヘッダー」に設定してコピーします。",
-    "webSessionGuideStep3Manual": "手動パス: ブラウザの開発者ツールを開く (F12 → ネットワーク)、ページをリフレッシュし、認証されたリクエストを開き、リクエストヘッダーからCookieヘッダーの値をコピーします — Cookie: プレフィックスは省略してください。"
+    "anonymousFallbackUpdateFailed": "匿名フォールバック設定の更新に失敗しました"
   },
   "settings": {
     "title": "設定",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "サーキットブレーカー",
     "degraded.source.modelLockouts": "モデルロックアウト",
     "degraded.source.count": "接続数"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "ディスパッチ前にリクエストを拒否します。ターゲットモデルに必要な機能（ビジョン、ツール、構造化出力、コンテキストウィンドウ）が欠けている場合。コンボレイヤーの互換性フィルターをバイパスする直接の単一プロバイダーリクエストを保護します。",
+  "capabilityFilter.visionMismatch": "プロバイダーはこの画像リクエストのビジョンをサポートしていません",
+  "capabilityFilter.toolsMismatch": "プロバイダーはツール呼び出しをサポートしていません",
+  "capabilityFilter.structuredOutputMismatch": "プロバイダーは構造化出力をサポートしていません",
+  "capabilityFilter.contextWindowMismatch": "リクエストがプロバイダーのコンテキストウィンドウを超えています"
 }

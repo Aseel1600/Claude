@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Token yang diperlukan: {credential}",
     "webSessionGuideStep1": "Log masuk ke {provider} dalam penyemak imbas anda.",
     "webSessionGuideStep2": "Buka alat pembangun penyemak imbas dan periksa permintaan yang dibuat oleh apl web.",
+    "webSessionGuideStep2Fast": "Jalan pantas: pasang sambungan Cookie Editor (chromewebstore.google.com → Cookie Editor), buka pada tab {provider}, cari {credential} (pilih semua bahagian bernombor jika terbahagi), dan klik Eksport → Salin dengan format eksport ditetapkan kepada “Cookie header”.",
     "webSessionGuideStep3": "Salin bukti kelayakan yang diperlukan daripada domain penyedia sendiri. Untuk kuki, salin hanya nilai pengepala Kuki dan tinggalkan Kuki:.",
+    "webSessionGuideStep3Manual": "Jalan manual: buka alat pemaju pelayar (F12 → Rangkaian), segarkan halaman, buka permintaan yang telah disahkan, dan salin nilai tajuk Cookie dari Tajuk Permintaan — abaikan awalan Cookie:.",
     "webSessionGuideStep4": "Tampalkannya di sini dan semak sambungannya. Jika ia berhenti berfungsi, log masuk semula dan gantikannya dengan nilai baharu.",
     "webSessionSecurityHint": "Anggap ini seperti kata laluan: ia boleh mengakses akaun web anda yang dilog masuk sehingga ia tamat tempoh atau dibatalkan.",
     "webNoAuthGuideTitle": "Tiada kelayakan diperlukan",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Apabila semua sambungan yang dikonfigurasikan habis (kuota, kredit, atau tamat tempoh), gunakan sementara tier tanpa kunci penyedia ini. Matikan untuk mengabaikan penyedia ini daripada menghantar permintaan tanpa nama — disyorkan apabila tier tanpa kunci menolak permintaan tersebut (401).",
     "anonymousFallbackEnabled": "Fallback tanpa nama diaktifkan untuk {provider}",
     "anonymousFallbackDisabled": "Fallback tanpa nama dinyahaktifkan untuk {provider} — sambungan yang habis akan melangkau penyedia ini",
-    "anonymousFallbackUpdateFailed": "Gagal mengemas kini tetapan fallback tanpa nama",
-    "webSessionGuideStep2Fast": "Jalan pantas: pasang sambungan Cookie Editor (chromewebstore.google.com → Cookie Editor), buka pada tab {provider}, cari {credential} (pilih semua bahagian bernombor jika terbahagi), dan klik Eksport → Salin dengan format eksport ditetapkan kepada “Cookie header”.",
-    "webSessionGuideStep3Manual": "Jalan manual: buka alat pemaju pelayar (F12 → Rangkaian), segarkan halaman, buka permintaan yang telah disahkan, dan salin nilai tajuk Cookie dari Tajuk Permintaan — abaikan awalan Cookie:."
+    "anonymousFallbackUpdateFailed": "Gagal mengemas kini tetapan fallback tanpa nama"
   },
   "settings": {
     "title": "tetapan",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Circuit Breaker",
     "degraded.source.modelLockouts": "Penguncian Model",
     "degraded.source.count": "Bilangan Sambungan"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Tolak permintaan sebelum penghantaran apabila model sasaran tidak mempunyai keupayaan yang diperlukan (penglihatan, alat, output terstruktur, tetingkap konteks). Melindungi permintaan penyedia tunggal secara langsung yang mengabaikan penapis keserasian lapisan gabungan.",
+  "capabilityFilter.visionMismatch": "Penyedia tidak menyokong penglihatan untuk permintaan imej ini",
+  "capabilityFilter.toolsMismatch": "Penyedia tidak menyokong panggilan alat",
+  "capabilityFilter.structuredOutputMismatch": "Penyedia tidak menyokong output berstruktur",
+  "capabilityFilter.contextWindowMismatch": "Permintaan melebihi tetingkap konteks penyedia"
 }

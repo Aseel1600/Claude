@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Wymagany token: {credential}",
     "webSessionGuideStep1": "Zaloguj się do {provider} w przeglądarce.",
     "webSessionGuideStep2": "Otwórz narzędzia deweloperskie przeglądarki i zbadaj żądanie wysłane przez aplikację webową.",
+    "webSessionGuideStep2Fast": "Szybka ścieżka: zainstaluj rozszerzenie Cookie Editor (chromewebstore.google.com → Cookie Editor), otwórz je na karcie {provider}, znajdź {credential} (wybierz wszystkie numerowane fragmenty, jeśli są podzielone) i kliknij Eksportuj → Kopiuj z formatem eksportu ustawionym na „Nagłówek cookie”.",
     "webSessionGuideStep3": "Skopiuj wymagane dane uwierzytelniające z własnej domeny provider. W przypadku cookies skopiuj tylko wartość nagłówka Cookie i pomiń Cookie:.",
+    "webSessionGuideStep3Manual": "Ręczna ścieżka: otwórz narzędzia dewelopera przeglądarki (F12 → Sieć), odśwież stronę, otwórz uwierzytelnione żądanie i skopiuj wartość nagłówka Cookie z nagłówków żądania — pomiń prefiks Cookie:.",
     "webSessionGuideStep4": "Wklej tutaj i sprawdź połączenie. Jeśli przestanie działać, zaloguj się ponownie i zastąp nową wartością.",
     "webSessionSecurityHint": "Należy traktować to jak hasło: może zapewniać dostęp do zalogowanego konta webowego, dopóki nie wygaśnie lub nie zostanie unieważnione.",
     "webNoAuthGuideTitle": "Dane uwierzytelniające niewymagane",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Gdy wszystkie skonfigurowane połączenia są wyczerpane (kwota, kredyty lub wygaśnięcie), tymczasowo użyj bezkluczowego poziomu tego dostawcy. Wyłącz, aby pominąć tego dostawcę zamiast wysyłać anonimowe żądania — zalecane, gdy bezkluczowy poziom je odrzuca (401).",
     "anonymousFallbackEnabled": "Anonimowe przełączanie włączone dla {provider}",
     "anonymousFallbackDisabled": "Anonimowe zapasowe wyłączone dla {provider} — wyczerpane połączenia pominą tego dostawcę",
-    "anonymousFallbackUpdateFailed": "Nie udało się zaktualizować ustawienia domyślnego dla anonimowych użytkowników",
-    "webSessionGuideStep2Fast": "Szybka ścieżka: zainstaluj rozszerzenie Cookie Editor (chromewebstore.google.com → Cookie Editor), otwórz je na karcie {provider}, znajdź {credential} (wybierz wszystkie numerowane fragmenty, jeśli są podzielone) i kliknij Eksportuj → Kopiuj z formatem eksportu ustawionym na „Nagłówek cookie”.",
-    "webSessionGuideStep3Manual": "Ręczna ścieżka: otwórz narzędzia dewelopera przeglądarki (F12 → Sieć), odśwież stronę, otwórz uwierzytelnione żądanie i skopiuj wartość nagłówka Cookie z nagłówków żądania — pomiń prefiks Cookie:."
+    "anonymousFallbackUpdateFailed": "Nie udało się zaktualizować ustawienia domyślnego dla anonimowych użytkowników"
   },
   "settings": {
     "title": "Ustawienia",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Wyłącznik",
     "degraded.source.modelLockouts": "Blokady Modelu",
     "degraded.source.count": "Liczba Połączeń"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Odrzuć żądania przed wysyłką, gdy docelowy model nie ma wymaganych możliwości (wizja, narzędzia, strukturalne wyjście, okno kontekstowe). Chroni bezpośrednie żądania od pojedynczego dostawcy, które omijają filtr zgodności warstwy kombinacyjnej.",
+  "capabilityFilter.visionMismatch": "Dostawca nie obsługuje wizji dla tego żądania obrazu",
+  "capabilityFilter.toolsMismatch": "Dostawca nie obsługuje wywoływania narzędzi",
+  "capabilityFilter.structuredOutputMismatch": "Dostawca nie obsługuje strukturalnego wyjścia",
+  "capabilityFilter.contextWindowMismatch": "Żądanie przekracza okno kontekstu dostawcy"
 }

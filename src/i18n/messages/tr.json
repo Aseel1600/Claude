@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Gerekli jeton: {credential}",
     "webSessionGuideStep1": "Tarayıcınızda {provider} adresinde oturum açın.",
     "webSessionGuideStep2": "Tarayıcı geliştirici araçlarını açın ve web uygulaması tarafından yapılan isteği inceleyin.",
+    "webSessionGuideStep2Fast": "Hızlı yol: Cookie Editor uzantısını yükleyin (chromewebstore.google.com → Cookie Editor), {provider} sekmesinde açın, {credential} bulun (bölünmüşse tüm numaralı parçaları seçin) ve Dışa Aktar → “Cookie header” olarak ayarlanmış dışa aktarma formatıyla Kopyala'ya tıklayın.",
     "webSessionGuideStep3": "Gerekli kimlik bilgilerini sağlayıcının kendi alanından kopyalayın. Çerezler için yalnızca Cookie başlık değerini kopyalayın ve Cookie:'yi çıkartın.",
+    "webSessionGuideStep3Manual": "Manuel yol: tarayıcı geliştirici araçlarını açın (F12 → Ağ), sayfayı yenileyin, kimlik doğrulamalı bir isteği açın ve İstek Başlıkları'ndan Cookie başlık değerini kopyalayın — Cookie: ön ekini atlayın.",
     "webSessionGuideStep4": "Buraya yapıştırın ve bağlantıyı kontrol edin. Çalışmayı durdurursa tekrar oturum açın ve yeni bir değerle değiştirin.",
     "webSessionSecurityHint": "Buna bir şifre gibi davranın: Süresi dolana veya iptal edilene kadar oturum açmış olduğunuz web hesabınıza erişebilir.",
     "webNoAuthGuideTitle": "Kimlik bilgisi gerekmez",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Tüm yapılandırılmış bağlantılar tükendiğinde (kota, kredi veya süresi dolmuş), bu sağlayıcının anahtarsız katmanını geçici olarak kullanın. Anahtarsız katmanın bunları reddettiği (401) durumlarda, anonim istek göndermek yerine bu sağlayıcıyı atlamak için kapatın — önerilir.",
     "anonymousFallbackEnabled": "{provider} için anonim geri dönüş etkinleştirildi",
     "anonymousFallbackDisabled": "{provider} için anonim yedekleme devre dışı — tükenen bağlantılar bu sağlayıcıyı atlayacak",
-    "anonymousFallbackUpdateFailed": "Anonim yedek ayarını güncellemeyi başaramadı",
-    "webSessionGuideStep2Fast": "Hızlı yol: Cookie Editor uzantısını yükleyin (chromewebstore.google.com → Cookie Editor), {provider} sekmesinde açın, {credential} bulun (bölünmüşse tüm numaralı parçaları seçin) ve Dışa Aktar → “Cookie header” olarak ayarlanmış dışa aktarma formatıyla Kopyala'ya tıklayın.",
-    "webSessionGuideStep3Manual": "Manuel yol: tarayıcı geliştirici araçlarını açın (F12 → Ağ), sayfayı yenileyin, kimlik doğrulamalı bir isteği açın ve İstek Başlıkları'ndan Cookie başlık değerini kopyalayın — Cookie: ön ekini atlayın."
+    "anonymousFallbackUpdateFailed": "Anonim yedek ayarını güncellemeyi başaramadı"
   },
   "settings": {
     "title": "Ayarlar",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Devre Kesici",
     "degraded.source.modelLockouts": "Model Kilitleri",
     "degraded.source.count": "Bağlantı Sayısı"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Hedef model gerekli yeteneklere (görüş, araçlar, yapılandırılmış çıktı, bağlam penceresi) sahip olmadığında, gönderimden önce istekleri reddedin. Kombinasyon katmanı uyumluluk filtresini atlayan doğrudan tek sağlayıcı isteklerini korur.",
+  "capabilityFilter.visionMismatch": "Sağlayıcı, bu görüntü isteği için görsel desteği sağlamıyor.",
+  "capabilityFilter.toolsMismatch": "Sağlayıcı araç çağrısını desteklemiyor",
+  "capabilityFilter.structuredOutputMismatch": "Sağlayıcı yapılandırılmış çıktıyı desteklemiyor",
+  "capabilityFilter.contextWindowMismatch": "Talep sağlayıcı bağlam penceresini aşıyor"
 }

@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "אסימון נדרש: {credential}",
     "webSessionGuideStep1": "היכנס אל {provider} בדפדפן שלך.",
     "webSessionGuideStep2": "פתח את כלי מפתח הדפדפן ובדוק בקשה שנעשתה על ידי אפליקציית האינטרנט.",
+    "webSessionGuideStep2Fast": "שביל מהיר: התקן את תוסף עורך העוגיות (chromewebstore.google.com → עורך עוגיות), פתח אותו בכרטיסיית {provider}, מצא את {credential} (בחר את כל החלקים המסומנים אם מפוצלים), ולחץ על ייצוא → העתק עם פורמט הייצוא מוגדר ל“כותרת עוגיה”.",
     "webSessionGuideStep3": "העתק את האישור הנדרש מהדומיין של הספק עצמו. עבור קובצי Cookie, העתק רק את ערך כותרת ה-Cookie והשמט את Cookie:.",
+    "webSessionGuideStep3Manual": "נתיב ידני: פתח את כלי המפתחים של הדפדפן (F12 → Network), רענן את הדף, פתח בקשה מאומתת, והעתק את ערך כותרת ה-Cookie מהכותרות של הבקשה — השאר את הקידומת Cookie: מחוץ.",
     "webSessionGuideStep4": "הדבק אותו כאן ובדוק את החיבור. אם הוא מפסיק לעבוד, היכנס שוב והחלף אותו בערך חדש.",
     "webSessionSecurityHint": "התייחס לזה כאל סיסמה: היא עשויה לגשת לחשבון האינטרנט המחובר שלך עד שתוקפו יפוג או יבוטל.",
     "webNoAuthGuideTitle": "אין צורך באישור",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "כאשר כל החיבורים המוגדרים נוצלו (מכסה, אשראי או תאריך תפוגה), השתמש זמנית בשכבת ללא מפתח של ספק זה. כבה כדי לדלג על ספק זה במקום לשלוח בקשות אנונימיות - מומלץ כאשר שכבת ללא מפתח דוחה אותן (401).",
     "anonymousFallbackEnabled": "גיבוי אנונימי מופעל עבור {provider}",
     "anonymousFallbackDisabled": "גיבוי אנונימי מושבת עבור {provider} — חיבורים שנוצלו ידלגו על ספק זה",
-    "anonymousFallbackUpdateFailed": "נכשל בעדכון הגדרת גיבוי אנונימית",
-    "webSessionGuideStep2Fast": "שביל מהיר: התקן את תוסף עורך העוגיות (chromewebstore.google.com → עורך עוגיות), פתח אותו בכרטיסיית {provider}, מצא את {credential} (בחר את כל החלקים המסומנים אם מפוצלים), ולחץ על ייצוא → העתק עם פורמט הייצוא מוגדר ל“כותרת עוגיה”.",
-    "webSessionGuideStep3Manual": "נתיב ידני: פתח את כלי המפתחים של הדפדפן (F12 → Network), רענן את הדף, פתח בקשה מאומתת, והעתק את ערך כותרת ה-Cookie מהכותרות של הבקשה — השאר את הקידומת Cookie: מחוץ."
+    "anonymousFallbackUpdateFailed": "נכשל בעדכון הגדרת גיבוי אנונימית"
   },
   "settings": {
     "title": "הגדרות",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "נתיק מעגל",
     "degraded.source.modelLockouts": "נעילות מודל",
     "degraded.source.count": "מספר חיבורים"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "דחה בקשות לפני שליחה כאשר המודל המטרה חסר יכולות נדרשות (חזון, כלים, פלט מובנה, חלון הקשר). מגן על בקשות ישירות מספק אחד שעוקפות את מסנן ההתאמה של שכבת הקומבו.",
+  "capabilityFilter.visionMismatch": "הספק אינו תומך בראייה עבור בקשה זו של תמונה",
+  "capabilityFilter.toolsMismatch": "הספק אינו תומך בקריאת כלים",
+  "capabilityFilter.structuredOutputMismatch": "הספק אינו תומך בפלט מובנה",
+  "capabilityFilter.contextWindowMismatch": "הבקשה חורגת מגבול ההקשר של הספק"
 }

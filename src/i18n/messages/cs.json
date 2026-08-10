@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Požadovaný token: {credential}",
     "webSessionGuideStep1": "Přihlaste se do {provider} ve svém prohlížeči.",
     "webSessionGuideStep2": "Otevřete vývojářské nástroje prohlížeče a zkontrolujte požadavek vytvořený webovou aplikací.",
+    "webSessionGuideStep2Fast": "Rychlá cesta: nainstalujte rozšíření Cookie Editor (chromewebstore.google.com → Cookie Editor), otevřete ho na kartě {provider}, najděte {credential} (vyberte všechny číslované části, pokud jsou rozdělené) a klikněte na Export → Kopírovat s exportním formátem nastaveným na „Cookie header“.",
     "webSessionGuideStep3": "Zkopírujte požadované přihlašovací údaje z vlastní domény poskytovatele. U souborů cookie zkopírujte pouze hodnotu záhlaví souboru cookie a vynechejte soubor cookie:.",
+    "webSessionGuideStep3Manual": "Ruční cesta: otevřete nástroje pro vývojáře prohlížeče (F12 → Síť), obnovte stránku, otevřete ověřený požadavek a zkopírujte hodnotu hlavičky Cookie z hlaviček požadavku — vynechte prefix Cookie:.",
     "webSessionGuideStep4": "Vložte jej sem a zkontrolujte připojení. Pokud přestane fungovat, přihlaste se znovu a nahraďte ji novou hodnotou.",
     "webSessionSecurityHint": "Zacházejte s tím jako s heslem: může přistupovat k vašemu přihlášenému webovému účtu, dokud jeho platnost nevyprší nebo nebude zrušena.",
     "webNoAuthGuideTitle": "Nejsou vyžadovány žádné přihlašovací údaje",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Když jsou všechny nakonfigurované připojení vyčerpány (kvóta, kredity nebo expirace), dočasně použijte bezklíčovou úroveň tohoto poskytovatele. Vypněte, abyste tohoto poskytovatele přeskočili místo odesílání anonymních požadavků — doporučeno, když bezklíčová úroveň je odmítá (401).",
     "anonymousFallbackEnabled": "Anonymní záložní možnost povolena pro {provider}",
     "anonymousFallbackDisabled": "Anonymní záložní možnost zakázána pro {provider} — vyčerpané připojení tuto službu přeskočí",
-    "anonymousFallbackUpdateFailed": "Nepodařilo se aktualizovat nastavení anonymního záložního režimu",
-    "webSessionGuideStep2Fast": "Rychlá cesta: nainstalujte rozšíření Cookie Editor (chromewebstore.google.com → Cookie Editor), otevřete ho na kartě {provider}, najděte {credential} (vyberte všechny číslované části, pokud jsou rozdělené) a klikněte na Export → Kopírovat s exportním formátem nastaveným na „Cookie header“.",
-    "webSessionGuideStep3Manual": "Ruční cesta: otevřete nástroje pro vývojáře prohlížeče (F12 → Síť), obnovte stránku, otevřete ověřený požadavek a zkopírujte hodnotu hlavičky Cookie z hlaviček požadavku — vynechte prefix Cookie:."
+    "anonymousFallbackUpdateFailed": "Nepodařilo se aktualizovat nastavení anonymního záložního režimu"
   },
   "settings": {
     "title": "Nastavení",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Jistič",
     "degraded.source.modelLockouts": "Uzamčení Modelu",
     "degraded.source.count": "Počet Připojení"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Odmítnout požadavky před odesláním, když cílový model postrádá požadované schopnosti (vidění, nástroje, strukturovaný výstup, kontextové okno). Chrání přímé požadavky od jednotlivých poskytovatelů, které obcházejí filtr kompatibility kombinované vrstvy.",
+  "capabilityFilter.visionMismatch": "Poskytovatel nepodporuje zobrazení pro tento požadavek na obrázek",
+  "capabilityFilter.toolsMismatch": "Poskytovatel nepodporuje volání nástroje",
+  "capabilityFilter.structuredOutputMismatch": "Poskytovatel nepodporuje strukturovaný výstup",
+  "capabilityFilter.contextWindowMismatch": "Žádost překračuje kontextové okno poskytovatele"
 }

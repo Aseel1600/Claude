@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Token richiesto: {credential}",
     "webSessionGuideStep1": "Accedi a {provider} nel tuo browser.",
     "webSessionGuideStep2": "Apri gli strumenti per sviluppatori del browser ed esamina una richiesta effettuata dall'app Web.",
+    "webSessionGuideStep2Fast": "Percorso veloce: installa l'estensione Cookie Editor (chromewebstore.google.com → Cookie Editor), aprila nella scheda {provider}, trova {credential} (seleziona tutti i pezzi numerati se divisi), e clicca su Esporta → Copia con il formato di esportazione impostato su “Intestazione cookie”.",
     "webSessionGuideStep3": "Copia le credenziali richieste dal dominio del provider. Per i cookie, copiare solo il valore dell'intestazione Cookie e omettere Cookie:.",
+    "webSessionGuideStep3Manual": "Percorso manuale: apri gli strumenti di sviluppo del browser (F12 → Rete), aggiorna la pagina, apri una richiesta autenticata e copia il valore dell'intestazione Cookie dagli Intestazioni della Richiesta — ometti il prefisso Cookie:.",
     "webSessionGuideStep4": "Incollalo qui e controlla la connessione. Se smette di funzionare, accedi nuovamente e sostituiscilo con un nuovo valore.",
     "webSessionSecurityHint": "Trattala come una password: può accedere al tuo account web a cui hai effettuato l'accesso fino alla scadenza o alla revoca.",
     "webNoAuthGuideTitle": "Nessuna credenziale richiesta",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Quando tutte le connessioni configurate sono esaurite (quota, crediti o scadenza), utilizza temporaneamente il livello senza chiave di questo fornitore. Disattiva per saltare questo fornitore invece di inviare richieste anonime — consigliato quando il livello senza chiave le rifiuta (401).",
     "anonymousFallbackEnabled": "Fallback anonimo abilitato per {provider}",
     "anonymousFallbackDisabled": "Fallback anonimo disabilitato per {provider} — le connessioni esaurite salteranno questo provider",
-    "anonymousFallbackUpdateFailed": "Impossibile aggiornare l'impostazione di fallback anonimo",
-    "webSessionGuideStep2Fast": "Percorso veloce: installa l'estensione Cookie Editor (chromewebstore.google.com → Cookie Editor), aprila nella scheda {provider}, trova {credential} (seleziona tutti i pezzi numerati se divisi), e clicca su Esporta → Copia con il formato di esportazione impostato su “Intestazione cookie”.",
-    "webSessionGuideStep3Manual": "Percorso manuale: apri gli strumenti di sviluppo del browser (F12 → Rete), aggiorna la pagina, apri una richiesta autenticata e copia il valore dell'intestazione Cookie dagli Intestazioni della Richiesta — ometti il prefisso Cookie:."
+    "anonymousFallbackUpdateFailed": "Impossibile aggiornare l'impostazione di fallback anonimo"
   },
   "settings": {
     "title": "Impostazioni",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Interruttore",
     "degraded.source.modelLockouts": "Blocchi Modello",
     "degraded.source.count": "Conteggio Connessioni"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Rifiuta le richieste prima della spedizione quando il modello di destinazione manca delle capacità richieste (visione, strumenti, output strutturato, finestra di contesto). Protegge le richieste dirette a singolo fornitore che bypassano il filtro di compatibilità del livello combinato.",
+  "capabilityFilter.visionMismatch": "Il fornitore non supporta la visione per questa richiesta di immagine",
+  "capabilityFilter.toolsMismatch": "Il provider non supporta la chiamata degli strumenti",
+  "capabilityFilter.structuredOutputMismatch": "Il provider non supporta l'output strutturato",
+  "capabilityFilter.contextWindowMismatch": "La richiesta supera la finestra di contesto del fornitore"
 }

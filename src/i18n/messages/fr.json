@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Jeton requis : {credential}",
     "webSessionGuideStep1": "Connectez-vous à {provider} dans votre navigateur.",
     "webSessionGuideStep2": "Ouvrez les outils de développement du navigateur et inspectez une demande faite par l'application Web.",
+    "webSessionGuideStep2Fast": "Chemin rapide : installez l'extension Cookie Editor (chromewebstore.google.com → Cookie Editor), ouvrez-la dans l'onglet {provider}, trouvez {credential} (sélectionnez tous les morceaux numérotés s'ils sont divisés), et cliquez sur Exporter → Copier avec le format d'exportation défini sur \"En-tête de cookie\".",
     "webSessionGuideStep3": "Copiez les informations d'identification requises à partir du propre domaine du fournisseur. Pour les cookies, copiez uniquement la valeur d'en-tête Cookie et omettez Cookie :.",
+    "webSessionGuideStep3Manual": "Chemin manuel : ouvrez les outils de développement du navigateur (F12 → Réseau), actualisez la page, ouvrez une requête authentifiée et copiez la valeur de l'en-tête Cookie depuis les en-têtes de requête — omettez le préfixe Cookie : .",
     "webSessionGuideStep4": "Collez-le ici et vérifiez la connexion. S'il cesse de fonctionner, reconnectez-vous et remplacez-le par une nouvelle valeur.",
     "webSessionSecurityHint": "Traitez-le comme un mot de passe : il peut accéder à votre compte Web connecté jusqu'à son expiration ou sa révocation.",
     "webNoAuthGuideTitle": "Aucun justificatif requis",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Lorsque toutes les connexions configurées sont épuisées (quota, crédits ou expiration), utilisez temporairement le niveau sans clé de ce fournisseur. Désactivez cette option pour ignorer ce fournisseur au lieu d'envoyer des requêtes anonymes — recommandé lorsque le niveau sans clé les rejette (401).",
     "anonymousFallbackEnabled": "Fallback anonyme activé pour {provider}",
     "anonymousFallbackDisabled": "Le secours anonyme désactivé pour {provider} — les connexions épuisées ignoreront ce fournisseur",
-    "anonymousFallbackUpdateFailed": "Échec de la mise à jour du paramètre de secours anonyme",
-    "webSessionGuideStep2Fast": "Chemin rapide : installez l'extension Cookie Editor (chromewebstore.google.com → Cookie Editor), ouvrez-la dans l'onglet {provider}, trouvez {credential} (sélectionnez tous les morceaux numérotés s'ils sont divisés), et cliquez sur Exporter → Copier avec le format d'exportation défini sur \"En-tête de cookie\".",
-    "webSessionGuideStep3Manual": "Chemin manuel : ouvrez les outils de développement du navigateur (F12 → Réseau), actualisez la page, ouvrez une requête authentifiée et copiez la valeur de l'en-tête Cookie depuis les en-têtes de requête — omettez le préfixe Cookie : ."
+    "anonymousFallbackUpdateFailed": "Échec de la mise à jour du paramètre de secours anonyme"
   },
   "settings": {
     "title": "Paramètres",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Disjoncteur",
     "degraded.source.modelLockouts": "Blocages de Modèle",
     "degraded.source.count": "Nombre de Connexions"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Rejeter les demandes avant l'expédition lorsque le modèle cible manque des capacités requises (vision, outils, sortie structurée, fenêtre de contexte). Protège les demandes directes à un seul fournisseur qui contournent le filtre de compatibilité de la couche combo.",
+  "capabilityFilter.visionMismatch": "Le fournisseur ne prend pas en charge la vision pour cette demande d'image",
+  "capabilityFilter.toolsMismatch": "Le fournisseur ne prend pas en charge l'appel d'outils",
+  "capabilityFilter.structuredOutputMismatch": "Le fournisseur ne prend pas en charge la sortie structurée",
+  "capabilityFilter.contextWindowMismatch": "La demande dépasse la fenêtre de contexte du fournisseur"
 }

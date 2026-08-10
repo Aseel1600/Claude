@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Erforderliches Token: {credential}",
     "webSessionGuideStep1": "Melden Sie sich im Browser bei {provider} an.",
     "webSessionGuideStep2": "Öffnen Sie die Entwicklertools des Browsers und prüfen Sie eine Anfrage der Web-App.",
+    "webSessionGuideStep2Fast": "Schneller Weg: Installieren Sie die Cookie Editor-Erweiterung (chromewebstore.google.com → Cookie Editor), öffnen Sie sie im {provider}-Tab, suchen Sie {credential} (alle nummerierten Teile auswählen, falls aufgeteilt), und klicken Sie auf Exportieren → Kopieren mit dem Exportformat auf „Cookie-Header“ gesetzt.",
     "webSessionGuideStep3": "Kopieren Sie die erforderlichen Zugangsdaten von der Domain des Anbieters. Bei Cookies nur den Cookie-Header-Wert kopieren und Cookie: weglassen.",
+    "webSessionGuideStep3Manual": "Manueller Pfad: Öffnen Sie die Entwicklertools des Browsers (F12 → Netzwerk), aktualisieren Sie die Seite, öffnen Sie eine authentifizierte Anfrage und kopieren Sie den Wert des Cookie-Headers aus den Anfrage-Headern — lassen Sie das Präfix Cookie: weg.",
     "webSessionGuideStep4": "Fügen Sie den Wert hier ein und prüfen Sie die Verbindung. Falls er nicht mehr funktioniert, melden Sie sich erneut an und ersetzen ihn durch einen frischen Wert.",
     "webSessionSecurityHint": "Behandeln Sie dies wie ein Passwort: Es kann Zugriff auf Ihr angemeldetes Webkonto ermöglichen, bis es abläuft oder widerrufen wird.",
     "webNoAuthGuideTitle": "Keine Zugangsdaten erforderlich",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Wenn alle konfigurierten Verbindungen erschöpft sind (Kontingent, Guthaben oder Ablauf), verwenden Sie vorübergehend die schlüssellose Stufe dieses Anbieters. Deaktivieren Sie dies, um diesen Anbieter zu überspringen, anstatt anonyme Anfragen zu senden – empfohlen, wenn die schlüssellose Stufe diese ablehnt (401).",
     "anonymousFallbackEnabled": "Anonymer Fallback für {provider} aktiviert",
     "anonymousFallbackDisabled": "Anonymer Fallback für {provider} deaktiviert — erschöpfte Verbindungen überspringen diesen Anbieter",
-    "anonymousFallbackUpdateFailed": "Fehler beim Aktualisieren der anonymen Fallback-Einstellung",
-    "webSessionGuideStep2Fast": "Schneller Weg: Installieren Sie die Cookie Editor-Erweiterung (chromewebstore.google.com → Cookie Editor), öffnen Sie sie im {provider}-Tab, suchen Sie {credential} (alle nummerierten Teile auswählen, falls aufgeteilt), und klicken Sie auf Exportieren → Kopieren mit dem Exportformat auf „Cookie-Header“ gesetzt.",
-    "webSessionGuideStep3Manual": "Manueller Pfad: Öffnen Sie die Entwicklertools des Browsers (F12 → Netzwerk), aktualisieren Sie die Seite, öffnen Sie eine authentifizierte Anfrage und kopieren Sie den Wert des Cookie-Headers aus den Anfrage-Headern — lassen Sie das Präfix Cookie: weg."
+    "anonymousFallbackUpdateFailed": "Fehler beim Aktualisieren der anonymen Fallback-Einstellung"
   },
   "settings": {
     "title": "Einstellungen",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Leistungsschalter",
     "degraded.source.modelLockouts": "Modellsperren",
     "degraded.source.count": "Verbindungsanzahl"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Lehnen Sie Anfragen ab, bevor sie versendet werden, wenn das Zielmodell über die erforderlichen Funktionen (Vision, Werkzeuge, strukturierte Ausgabe, Kontextfenster) nicht verfügt. Schützt direkte Einzelanbieteranfragen, die den Kombo-Schicht-Kompatibilitätsfilter umgehen.",
+  "capabilityFilter.visionMismatch": "Der Anbieter unterstützt die Vision für diese Bildanfrage nicht",
+  "capabilityFilter.toolsMismatch": "Der Anbieter unterstützt keinen Toolaufruf",
+  "capabilityFilter.structuredOutputMismatch": "Der Anbieter unterstützt keine strukturierten Ausgaben",
+  "capabilityFilter.contextWindowMismatch": "Anfrage überschreitet das Kontextfenster des Anbieters"
 }

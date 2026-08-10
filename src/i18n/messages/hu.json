@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Szükséges token: {credential}",
     "webSessionGuideStep1": "Jelentkezzen be a {provider} szolgáltatásba böngészőjében.",
     "webSessionGuideStep2": "Nyissa meg a böngésző fejlesztői eszközeit, és ellenőrizze a webalkalmazás által küldött kérést.",
+    "webSessionGuideStep2Fast": "Gyors út: telepítse a Cookie Editor kiterjesztést (chromewebstore.google.com → Cookie Editor), nyissa meg a {provider} fülön, keresse meg a {credential} (válassza ki az összes számozott részt, ha fel van osztva), és kattintson az Exportálás → Másolás lehetőségre, az exportálási formátumot állítsa “Cookie header”-re.",
     "webSessionGuideStep3": "Másolja ki a szükséges hitelesítő adatokat a szolgáltató saját domainjéből. Cookie-k esetén csak a Cookie fejléc értékét másolja, és hagyja ki a Cookie:-t.",
+    "webSessionGuideStep3Manual": "Manuális útvonal: nyissa meg a böngésző fejlesztői eszközeit (F12 → Hálózat), frissítse az oldalt, nyisson meg egy hitelesített kérést, és másolja a Cookie fejléc értékét a Kérés Fejlécekből — hagyja ki a Cookie: előtagot.",
     "webSessionGuideStep4": "Illessze be ide, és ellenőrizze a kapcsolatot. Ha nem működik, jelentkezzen be újra, és cserélje ki egy új értékre.",
     "webSessionSecurityHint": "Kezelje ezt úgy, mint egy jelszót: addig hozzáférhet a bejelentkezett webfiókjához, amíg le nem jár vagy visszavonják.",
     "webNoAuthGuideTitle": "Nincs szükség hitelesítő adatra",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Amikor az összes konfigurált kapcsolat kimerült (kvóta, kreditek vagy lejárat), ideiglenesen használja ezt a szolgáltató kulcs nélküli szintjét. Kapcsolja ki, hogy kihagyja ezt a szolgáltatót a névtelen kérések küldése helyett — ajánlott, ha a kulcs nélküli szint elutasítja őket (401).",
     "anonymousFallbackEnabled": "Névtelen visszaesés engedélyezve a(z) {provider} számára",
     "anonymousFallbackDisabled": "Névtelen visszaesés letiltva a(z) {provider} esetében — a kimerült kapcsolatok átugorják ezt a szolgáltatót",
-    "anonymousFallbackUpdateFailed": "Nem sikerült frissíteni az anonim visszaállítási beállítást",
-    "webSessionGuideStep2Fast": "Gyors út: telepítse a Cookie Editor kiterjesztést (chromewebstore.google.com → Cookie Editor), nyissa meg a {provider} fülön, keresse meg a {credential} (válassza ki az összes számozott részt, ha fel van osztva), és kattintson az Exportálás → Másolás lehetőségre, az exportálási formátumot állítsa “Cookie header”-re.",
-    "webSessionGuideStep3Manual": "Manuális útvonal: nyissa meg a böngésző fejlesztői eszközeit (F12 → Hálózat), frissítse az oldalt, nyisson meg egy hitelesített kérést, és másolja a Cookie fejléc értékét a Kérés Fejlécekből — hagyja ki a Cookie: előtagot."
+    "anonymousFallbackUpdateFailed": "Nem sikerült frissíteni az anonim visszaállítási beállítást"
   },
   "settings": {
     "title": "Beállítások elemre",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Megszakító",
     "degraded.source.modelLockouts": "Modell Zárolások",
     "degraded.source.count": "Kapcsolatok Száma"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Elutasítja a kéréseket a kiszállítás előtt, amikor a célmodell hiányzik a szükséges képességekből (látás, eszközök, strukturált kimenet, kontextusablak). Védi a közvetlen, egy szolgáltatótól érkező kéréseket, amelyek megkerülik a kombinált réteg kompatibilitási szűrőt.",
+  "capabilityFilter.visionMismatch": "A szolgáltató nem támogatja a látást ehhez a képkéréshez",
+  "capabilityFilter.toolsMismatch": "A szolgáltató nem támogatja az eszközhívást",
+  "capabilityFilter.structuredOutputMismatch": "A szolgáltató nem támogatja a strukturált kimenetet",
+  "capabilityFilter.contextWindowMismatch": "A kérés meghaladja a szolgáltató kontextusablakát"
 }

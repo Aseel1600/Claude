@@ -1094,6 +1094,8 @@
     "costsFreeTiersSubtitle": "Hạn mức token miễn phí hàng tháng",
     "freeProviderRankings": "Xếp hạng nhà cung cấp miễn phí",
     "freeProviderRankingsSubtitle": "Các nhà cung cấp miễn phí tốt nhất được xếp hạng theo điểm ELO của mô hình",
+    "radar": "Danh mục Radar",
+    "radarSubtitle": "Danh mục mô hình miễn phí được làm phong phú bởi cộng đồng",
     "costsQuotaShare": "Chia sẻ hạn mức",
     "costsPricing": "Định giá",
     "logsProxy": "Nhật ký proxy",
@@ -1119,6 +1121,7 @@
     "runtime": "Thời gian chạy",
     "consoleLogs": "Nhật ký bảng điều khiển",
     "logsTimeline": "Timeline",
+    "logsTimelineSubtitle": "Dòng thời gian yêu cầu trực quan",
     "globalRouting": "Định tuyến toàn cục",
     "mitmProxy": "MITM Proxy",
     "oneProxy": "1Proxy",
@@ -1164,7 +1167,6 @@
     "logsSubtitle": "Nhật ký ứng dụng",
     "logsProxySubtitle": "Nhật ký lưu lượng proxy",
     "consoleLogsSubtitle": "Đầu ra bảng điều khiển",
-    "logsTimelineSubtitle": "Dòng thời gian yêu cầu trực quan",
     "logsActivitySubtitle": "Nhật ký hoạt động người dùng",
     "healthSubtitle": "Kiểm tra tình trạng hệ thống",
     "costsPricingSubtitle": "Quy tắc định giá theo từng mô hình",
@@ -1233,8 +1235,6 @@
     "discoverySubtitle": "Quét các nhà cung cấp để tìm quyền truy cập miễn phí",
     "resilienceConnections": "Khả Năng Phục Hồi Kết Nối",
     "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa",
-    "radar": "Danh mục Radar",
-    "radarSubtitle": "Danh mục mô hình miễn phí được làm phong phú bởi cộng đồng",
     "settingsModalityBridge": "Cầu Kết Nối Modality",
     "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản"
   },
@@ -5078,6 +5078,8 @@
     "noNewModelsAddedExisting": "Không có mô hình mới nào được thêm (tất cả đã tồn tại).",
     "importDoneCount": "✓ Hoàn tất! {count, plural, one {Đã nhập # mô hình.} other {Đã nhập # mô hình.}}",
     "unexpectedErrorOccurred": "Đã xảy ra lỗi không mong muốn",
+    "getApiKey": "Lấy khóa API",
+    "getApiKeyDescription": "Đăng ký hoặc tạo tài khoản để nhận khóa API",
     "connectionCountLabel": "{count, plural, one {# kết nối} other {# kết nối}}",
     "messagesPath": "messages",
     "responsesPath": "responses",
@@ -5786,6 +5788,7 @@
     "onboardingProviderDescriptions": {
       "360ai": "Lấy khóa API tại ai.360.cn",
       "agentrouter": "Nhận 200 USD tín dụng miễn phí tại https://agentrouter.org/register — không cần thẻ tín dụng.",
+      "unorouter": "Tạo khóa API tại https://unorouter.ai, sau đó dán vào đây dưới dạng Bearer token.",
       "agnes": "Lấy khóa API tại agnes-ai.com",
       "aimlapi": "Gói miễn phí đã tạm dừng (2026) — AI/ML API hiện chỉ tính phí theo mức sử dụng (nạp tối thiểu 20 USD); không còn tín dụng miễn phí định kỳ.",
       "ai21": "10 USD tín dụng dùng thử khi đăng ký (có hiệu lực 3 tháng), không cần thẻ tín dụng",
@@ -5982,8 +5985,7 @@
       "kimi-coding": "Kết nối Kimi Coding bằng luồng OAuth hiện có.",
       "kiro": "Gói miễn phí: 50 tín dụng/tháng (khoảng 25–100 nghìn token). ⚠️ Điều khoản Kiro cấm sử dụng proxy/harness của bên thứ ba.",
       "codex": "Kết nối OpenAI Codex bằng luồng OAuth hiện có.",
-      "qwen": "Kết nối Qwen Code bằng luồng OAuth hiện có.",
-      "unorouter": "Tạo khóa API tại https://unorouter.ai, sau đó dán vào đây dưới dạng Bearer token."
+      "qwen": "Kết nối Qwen Code bằng luồng OAuth hiện có."
     },
     "passthroughModelsDescription": "{provider} chấp nhận ID mô hình gốc của nhà cung cấp. Nhập từ /models hoặc thêm ID tùy chỉnh để định tuyến.",
     "bedrockModelsDescription": "Các mô hình Amazon Bedrock được giới hạn theo vùng AWS. Nhập từ /models hoặc thêm ID mô hình Bedrock được bật trong vùng đã chọn.",
@@ -6004,7 +6006,9 @@
     "webTokenRequiredCredential": "Token bắt buộc: {credential}",
     "webSessionGuideStep1": "Đăng nhập vào {provider} trong trình duyệt của bạn.",
     "webSessionGuideStep2": "Mở công cụ dành cho nhà phát triển của trình duyệt và kiểm tra một yêu cầu do ứng dụng web gửi.",
+    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
     "webSessionGuideStep3": "Sao chép thông tin xác thực được yêu cầu từ tên miền riêng của nhà cung cấp. Đối với cookie, chỉ sao chép giá trị tiêu đề Cookie và bỏ qua Cookie:.",
+    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:.",
     "webSessionGuideStep4": "Dán vào đây và kiểm tra kết nối. Nếu nó ngừng hoạt động, hãy đăng nhập lại và thay thế bằng một giá trị mới.",
     "webSessionSecurityHint": "Hãy coi đây như mật khẩu: nó có thể truy cập vào tài khoản web đã đăng nhập của bạn cho đến khi hết hạn hoặc bị thu hồi.",
     "webNoAuthGuideTitle": "Không yêu cầu thông tin xác thực",
@@ -6040,11 +6044,7 @@
     "anonymousFallbackDesc": "Khi tất cả kết nối đã cấu hình đều cạn kiệt (hạn ngạch, tín dụng hoặc hết hạn), hãy tạm thời sử dụng tầng không cần khóa của nhà cung cấp này. Tắt tùy chọn này để bỏ qua nhà cung cấp thay vì gửi yêu cầu ẩn danh — khuyến nghị khi tầng không cần khóa từ chối các yêu cầu đó (401).",
     "anonymousFallbackEnabled": "Đã bật dự phòng ẩn danh cho {provider}",
     "anonymousFallbackDisabled": "Đã tắt dự phòng ẩn danh cho {provider} — các kết nối đã cạn kiệt sẽ bỏ qua nhà cung cấp này",
-    "anonymousFallbackUpdateFailed": "Không thể cập nhật cài đặt dự phòng ẩn danh",
-    "getApiKey": "Lấy khóa API",
-    "getApiKeyDescription": "Đăng ký hoặc tạo tài khoản để nhận khóa API",
-    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
-    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:."
+    "anonymousFallbackUpdateFailed": "Không thể cập nhật cài đặt dự phòng ẩn danh"
   },
   "settings": {
     "title": "Cài đặt",
@@ -10852,6 +10852,8 @@
     "sourceModel": "Mô hình nguồn (agent gốc)",
     "targetModel": "Mô hình mục tiêu (OmniRoute)",
     "noMappings": "Chưa cấu hình ánh xạ mô hình. Hãy chạy trình hướng dẫn thiết lập để tự động phát hiện mô hình.",
+    "noMappingsDesc": "Chưa cấu hình ánh xạ mô hình nào. Hãy thêm ánh xạ để định tuyến yêu cầu của agent qua OmniRoute.",
+    "addMapping": "Thêm ánh xạ",
     "selectModel": "Chọn…",
     "saveMappings": "Lưu ánh xạ",
     "setupWizard": "Trình hướng dẫn thiết lập",
@@ -10923,9 +10925,7 @@
       "goNow": "Đi ngay",
       "message": "MITM Proxy hiện nằm trong AgentBridge.",
       "title": "Trang này đã được di chuyển"
-    },
-    "noMappingsDesc": "Chưa cấu hình ánh xạ mô hình nào. Hãy thêm ánh xạ để định tuyến yêu cầu của agent qua OmniRoute.",
-    "addMapping": "Thêm ánh xạ"
+    }
   },
   "providerStats": {
     "unknownError": "Lỗi không xác định",
@@ -11795,6 +11795,7 @@
     "danger": "Nguy hiểm",
     "requiresRestart": "Cần khởi động lại",
     "source": "Nguồn",
+    "ccDiscoveryAliasesEnvWarning": "Đang bật qua biến môi trường (EXPOSE_CC_DISCOVERY_ALIASES) — giá trị này ghi đè mọi công tắc trong bảng điều khiển bên dưới.",
     "resetFlag": "Đặt lại {label} về mặc định",
     "reset": "Đặt lại",
     "loadFailed": "Không thể tải cờ tính năng",
@@ -11951,8 +11952,7 @@
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Cho phép môi trường sandbox của kỹ năng truy cập mạng."
       }
-    },
-    "ccDiscoveryAliasesEnvWarning": "Đang bật qua biến môi trường (EXPOSE_CC_DISCOVERY_ALIASES) — giá trị này ghi đè mọi công tắc trong bảng điều khiển bên dưới."
+    }
   },
   "comboControl": {
     "title": "Trung tâm điều khiển combo",

@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Tələb olunan nişan: {credential}",
     "webSessionGuideStep1": "Brauzerinizdə {provider} daxil olun.",
     "webSessionGuideStep2": "Brauzer tərtibatçısı alətlərini açın və veb tətbiqi tərəfindən edilən sorğunu yoxlayın.",
+    "webSessionGuideStep2Fast": "Tez yol: Cookie Editor uzantısını quraşdırın (chromewebstore.google.com → Cookie Editor), {provider} tabında açın, {credential} tapın (bölünmüşsə bütün nömrələnmiş hissələri seçin) və İxrac et → İxrac formatını “Cookie header” olaraq təyin edərək Kopyala düyməsini basın.",
     "webSessionGuideStep3": "Tələb olunan etimadnaməni provayderin öz domenindən kopyalayın. Kukilər üçün yalnız Kuki başlıq dəyərini kopyalayın və Kuki: buraxın.",
+    "webSessionGuideStep3Manual": "Əl ilə yol: brauzerin inkişaf etdirici alətlərini açın (F12 → Şəbəkə), səhifəni yeniləyin, təsdiqlənmiş sorğunu açın və İstək Başlıqlarından Cookie başlıq dəyərini kopyalayın — Cookie: prefiksini atlayın.",
     "webSessionGuideStep4": "Bura yapışdırın və əlaqəni yoxlayın. Əgər işləməyi dayandırarsa, yenidən daxil olun və onu təzə dəyərlə əvəz edin.",
     "webSessionSecurityHint": "Bunu parol kimi qəbul edin: müddəti bitənə və ya ləğv edilənə qədər o, daxil olduğunuz veb hesabınıza daxil ola bilər.",
     "webNoAuthGuideTitle": "Etibarnamə tələb olunmur",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Bütün konfiqurasiya olunmuş bağlantılar tükəndikdə (kvota, kreditlər və ya müddət), müvəqqəti olaraq bu təminatçının açarsız səviyyəsini istifadə edin. Anonim sorğular göndərmək əvəzinə bu təminatçını atlamaq üçün söndürün — açarsız səviyyə onları rədd etdikdə (401) tövsiyə olunur.",
     "anonymousFallbackEnabled": "{provider} üçün anonim ehtiyat aktivdir",
     "anonymousFallbackDisabled": "{provider} üçün anonim ehtiyat deaktiv edilib — tükənmiş bağlantılar bu provayderi atlayacaq",
-    "anonymousFallbackUpdateFailed": "Anonim ehtiyat parametrlərini yeniləmək mümkün olmadı",
-    "webSessionGuideStep2Fast": "Tez yol: Cookie Editor uzantısını quraşdırın (chromewebstore.google.com → Cookie Editor), {provider} tabında açın, {credential} tapın (bölünmüşsə bütün nömrələnmiş hissələri seçin) və İxrac et → İxrac formatını “Cookie header” olaraq təyin edərək Kopyala düyməsini basın.",
-    "webSessionGuideStep3Manual": "Əl ilə yol: brauzerin inkişaf etdirici alətlərini açın (F12 → Şəbəkə), səhifəni yeniləyin, təsdiqlənmiş sorğunu açın və İstək Başlıqlarından Cookie başlıq dəyərini kopyalayın — Cookie: prefiksini atlayın."
+    "anonymousFallbackUpdateFailed": "Anonim ehtiyat parametrlərini yeniləmək mümkün olmadı"
   },
   "settings": {
     "title": "Settings",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Dövrə Açarı",
     "degraded.source.modelLockouts": "Model Blokları",
     "degraded.source.count": "Bağlantı Sayı"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Tələb olunan imkanlar (görmə, alətlər, strukturlaşdırılmış çıxış, kontekst pəncərəsi) olmayan hədəf modelində göndərilmədən əvvəl tələbləri rədd edin. Kombinasiya qatının uyğunluq filtrini keçən birbaşa tək təminatçı tələblərini qoruyur.",
+  "capabilityFilter.visionMismatch": "Təchizatçı bu şəkil tələbi üçün görünüşü dəstəkləmir",
+  "capabilityFilter.toolsMismatch": "Təchizatçı alət çağırışını dəstəkləmir",
+  "capabilityFilter.structuredOutputMismatch": "Təchizatçı strukturlaşdırılmış çıxışı dəstəkləmir",
+  "capabilityFilter.contextWindowMismatch": "Sorğu təminatçının kontekst pəncərəsini aşır"
 }

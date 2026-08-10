@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "所需權杖：{credential}",
     "webSessionGuideStep1": "在瀏覽器中登入 {provider}。",
     "webSessionGuideStep2": "開啟瀏覽器開發人員工具並檢查 Web 應用程式發出的請求。",
+    "webSessionGuideStep2Fast": "快速路徑：安裝 Cookie Editor 擴展（chromewebstore.google.com → Cookie Editor），在 {provider} 標籤上打開它，找到 {credential}（如果分割，選擇所有編號的部分），然後點擊匯出 → 複製，匯出格式設置為「Cookie 標頭」。",
     "webSessionGuideStep3": "從提供者自己的域複製所需的憑據。對於 cookie，僅複製 Cookie 標頭值並省略 Cookie:。",
+    "webSessionGuideStep3Manual": "手動路徑：打開瀏覽器開發者工具 (F12 → 網路)，刷新頁面，打開一個經過身份驗證的請求，並從請求標頭中複製 Cookie 標頭值 — 省略 Cookie: 前綴。",
     "webSessionGuideStep4": "將其貼上到此處並檢查連線。如果它停止工作，請重新登入並將其替換為新值。",
     "webSessionSecurityHint": "將其視為密碼：它可以訪問您登入的網路帳戶，直到其過期或被撤銷。",
     "webNoAuthGuideTitle": "無需任何憑證",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "當所有配置的連接耗盡（配額、積分或到期）時，暫時使用此提供者的無密鑰層級。關閉以跳過此提供者，而不是發送匿名請求 — 當無密鑰層級拒絕它們（401）時建議這樣做。",
     "anonymousFallbackEnabled": "為 {provider} 啟用匿名後備",
     "anonymousFallbackDisabled": "已禁用 {provider} 的匿名後備 — 耗盡的連接將跳過此提供者",
-    "anonymousFallbackUpdateFailed": "無法更新匿名回退設置",
-    "webSessionGuideStep2Fast": "快速路徑：安裝 Cookie Editor 擴展（chromewebstore.google.com → Cookie Editor），在 {provider} 標籤上打開它，找到 {credential}（如果分割，選擇所有編號的部分），然後點擊匯出 → 複製，匯出格式設置為「Cookie 標頭」。",
-    "webSessionGuideStep3Manual": "手動路徑：打開瀏覽器開發者工具 (F12 → 網路)，刷新頁面，打開一個經過身份驗證的請求，並從請求標頭中複製 Cookie 標頭值 — 省略 Cookie: 前綴。"
+    "anonymousFallbackUpdateFailed": "無法更新匿名回退設置"
   },
   "settings": {
     "title": "設定",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "斷路器",
     "degraded.source.modelLockouts": "模型鎖定",
     "degraded.source.count": "連線數"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "在目標模型缺乏所需功能（視覺、工具、結構化輸出、上下文窗口）時，拒絕發送前的請求。保護繞過組合層兼容性過濾器的直接單一提供者請求。",
+  "capabilityFilter.visionMismatch": "提供者不支援此影像請求的視覺效果",
+  "capabilityFilter.toolsMismatch": "提供者不支援工具調用",
+  "capabilityFilter.structuredOutputMismatch": "提供者不支援結構化輸出",
+  "capabilityFilter.contextWindowMismatch": "請求超出提供者上下文窗口"
 }

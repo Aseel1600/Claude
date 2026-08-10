@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Kinakailangang token: {credential}",
     "webSessionGuideStep1": "Mag-sign in sa {provider} sa iyong browser.",
     "webSessionGuideStep2": "Buksan ang mga tool ng developer ng browser at suriin ang isang kahilingang ginawa ng web app.",
+    "webSessionGuideStep2Fast": "Mabilis na daan: i-install ang Cookie Editor extension (chromewebstore.google.com → Cookie Editor), buksan ito sa {provider} tab, hanapin ang {credential} (pumili ng lahat ng numeradong bahagi kung nahati), at i-click ang Export → Kopyahin na may nakatakdang format ng export na “Cookie header”.",
     "webSessionGuideStep3": "Kopyahin ang kinakailangang kredensyal mula sa sariling domain ng provider. Para sa cookies, kopyahin lang ang value ng Cookie header at alisin ang Cookie:.",
+    "webSessionGuideStep3Manual": "Manwal na landas: buksan ang mga developer tools ng browser (F12 → Network), i-refresh ang pahina, buksan ang isang authenticated na request, at kopyahin ang halaga ng Cookie header mula sa Request Headers — alisin ang prefix na Cookie:.",
     "webSessionGuideStep4": "I-paste ito dito at suriin ang koneksyon. Kung huminto ito sa paggana, mag-sign in muli at palitan ito ng bagong halaga.",
     "webSessionSecurityHint": "Tratuhin ito bilang isang password: maaari nitong i-access ang iyong naka-sign-in na web account hanggang sa mag-expire o mabawi ito.",
     "webNoAuthGuideTitle": "Walang kinakailangang kredensyal",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Kapag naubos na ang lahat ng nakatakdang koneksyon (quota, kredito, o pag-expire), pansamantalang gamitin ang keyless tier ng provider na ito. Patayin upang laktawan ang provider na ito sa halip na magpadala ng mga hindi nagpapakilalang kahilingan — inirerekomenda kapag tinanggihan ng keyless tier ang mga ito (401).",
     "anonymousFallbackEnabled": "Naka-enable ang anonymous fallback para sa {provider}",
     "anonymousFallbackDisabled": "Naka-disable ang anonymous fallback para sa {provider} — ang mga nauubos na koneksyon ay laktawan ang provider na ito",
-    "anonymousFallbackUpdateFailed": "Nabigong i-update ang anonymous fallback setting",
-    "webSessionGuideStep2Fast": "Mabilis na daan: i-install ang Cookie Editor extension (chromewebstore.google.com → Cookie Editor), buksan ito sa {provider} tab, hanapin ang {credential} (pumili ng lahat ng numeradong bahagi kung nahati), at i-click ang Export → Kopyahin na may nakatakdang format ng export na “Cookie header”.",
-    "webSessionGuideStep3Manual": "Manwal na landas: buksan ang mga developer tools ng browser (F12 → Network), i-refresh ang pahina, buksan ang isang authenticated na request, at kopyahin ang halaga ng Cookie header mula sa Request Headers — alisin ang prefix na Cookie:."
+    "anonymousFallbackUpdateFailed": "Nabigong i-update ang anonymous fallback setting"
   },
   "settings": {
     "title": "Mga setting",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Circuit Breaker",
     "degraded.source.modelLockouts": "Mga Lockout ng Modelo",
     "degraded.source.count": "Bilang ng Koneksyon"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Tanggihan ang mga kahilingan bago ang pagpapadala kapag ang target na modelo ay kulang sa mga kinakailangang kakayahan (paningin, mga tool, nakabalangkas na output, bintana ng konteksto). Pinoprotektahan ang mga direktang kahilingan mula sa isang tagapagbigay na lumalampas sa filter ng pagiging tugma ng combo-layer.",
+  "capabilityFilter.visionMismatch": "Hindi sinusuportahan ng provider ang vision para sa kahilingang ito ng larawan",
+  "capabilityFilter.toolsMismatch": "Hindi sinusuportahan ng provider ang pagtawag sa tool",
+  "capabilityFilter.structuredOutputMismatch": "Hindi sinusuportahan ng provider ang nakabalangkas na output",
+  "capabilityFilter.contextWindowMismatch": "Lumampas ang kahilingan sa konteksto ng tagapagbigay"
 }

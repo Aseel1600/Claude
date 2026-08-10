@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Vaadittu tunnus: {credential}",
     "webSessionGuideStep1": "Kirjaudu sisään {provider} -palveluun selaimessasi.",
     "webSessionGuideStep2": "Avaa selaimen kehittäjätyökalut ja tarkista verkkosovelluksen tekemä pyyntö.",
+    "webSessionGuideStep2Fast": "Nopea reitti: asenna Cookie Editor -laajennus (chromewebstore.google.com → Cookie Editor), avaa se {provider} -välilehdellä, etsi {credential} (valitse kaikki numeroidut osat, jos ne on jaettu), ja napsauta Vie → Kopioi, kun vientimuoto on asetettu “Cookie header”.",
     "webSessionGuideStep3": "Kopioi tarvittavat tunnistetiedot palveluntarjoajan omasta verkkotunnuksesta. Kopioi evästeitä varten vain Evästeen otsikon arvo ja jätä pois Cookie:.",
+    "webSessionGuideStep3Manual": "Manuaalinen polku: avaa selaimen kehittäjätyökalut (F12 → Verkko), päivitä sivu, avaa todennettu pyyntö ja kopioi Cookie-otsikon arvo Pyyntöotsikoista — jätä Cookie:-etuliite pois.",
     "webSessionGuideStep4": "Liitä se tähän ja tarkista yhteys. Jos se lakkaa toimimasta, kirjaudu uudelleen sisään ja korvaa se uudella arvolla.",
     "webSessionSecurityHint": "Käsittele tätä kuin salasanaa: se voi käyttää kirjautuneena verkkotiliäsi, kunnes se vanhenee tai se peruutetaan.",
     "webNoAuthGuideTitle": "Tunnuksia ei vaadita",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Kun kaikki määritetyt yhteydet on käytetty loppuun (kiintiö, krediitit tai vanhentuminen), käytä väliaikaisesti tämän tarjoajan avaimettomaa tasoa. Poista käytöstä tämän tarjoajan ohittamiseksi sen sijaan, että lähetät nimettömiä pyyntöjä — suositellaan, kun avaimeton taso hylkää ne (401).",
     "anonymousFallbackEnabled": "Anonyymi varajärjestelmä käytössä {provider} varten",
     "anonymousFallbackDisabled": "Anonyymi varayhteys pois käytöstä {provider} — loppuneet yhteydet ohittavat tämän tarjoajan",
-    "anonymousFallbackUpdateFailed": "Anonyymin varasetuksen päivittäminen epäonnistui",
-    "webSessionGuideStep2Fast": "Nopea reitti: asenna Cookie Editor -laajennus (chromewebstore.google.com → Cookie Editor), avaa se {provider} -välilehdellä, etsi {credential} (valitse kaikki numeroidut osat, jos ne on jaettu), ja napsauta Vie → Kopioi, kun vientimuoto on asetettu “Cookie header”.",
-    "webSessionGuideStep3Manual": "Manuaalinen polku: avaa selaimen kehittäjätyökalut (F12 → Verkko), päivitä sivu, avaa todennettu pyyntö ja kopioi Cookie-otsikon arvo Pyyntöotsikoista — jätä Cookie:-etuliite pois."
+    "anonymousFallbackUpdateFailed": "Anonyymin varasetuksen päivittäminen epäonnistui"
   },
   "settings": {
     "title": "Asetukset",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Piirikatkaisija",
     "degraded.source.modelLockouts": "Mallilukitukset",
     "degraded.source.count": "Yhteyksien Määrä"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Hylkää pyynnöt ennen lähettämistä, kun kohdemallilta puuttuu vaadittuja ominaisuuksia (näkö, työkalut, jäsennelty ulostulo, kontekstikkelu). Suojaa suorat yhden tarjoajan pyynnöt, jotka ohittavat yhdistelmäkerroksen yhteensopivuussuodattimen.",
+  "capabilityFilter.visionMismatch": "Palveluntarjoaja ei tue näkymää tälle kuvapyynnölle",
+  "capabilityFilter.toolsMismatch": "Toimittaja ei tue työkalun kutsumista",
+  "capabilityFilter.structuredOutputMismatch": "Palveluntarjoaja ei tue jäsenneltyä tulostusta",
+  "capabilityFilter.contextWindowMismatch": "Pyyntö ylittää tarjoajan kontekstin ikkunan"
 }

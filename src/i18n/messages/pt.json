@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Token necessário: {credential}",
     "webSessionGuideStep1": "Faça login em {provider} em seu navegador.",
     "webSessionGuideStep2": "Abra as ferramentas de desenvolvedor do navegador e inspecione uma solicitação feita pelo aplicativo web.",
+    "webSessionGuideStep2Fast": "Caminho rápido: instale a extensão Cookie Editor (chromewebstore.google.com → Cookie Editor), abra-a na aba {provider}, encontre {credential} (selecione todos os pedaços numerados se estiverem divididos) e clique em Exportar → Copiar com o formato de exportação definido como “Cookie header”.",
     "webSessionGuideStep3": "Copie a credencial necessária do próprio domínio do provedor. Para cookies, copie apenas o valor do cabeçalho Cookie e omita Cookie:.",
+    "webSessionGuideStep3Manual": "Caminho manual: abra as ferramentas de desenvolvedor do navegador (F12 → Rede), atualize a página, abra uma solicitação autenticada e copie o valor do cabeçalho Cookie dos Cabeçalhos da Solicitação — omita o prefixo Cookie:.",
     "webSessionGuideStep4": "Cole aqui e verifique a conexão. Se parar de funcionar, faça login novamente e substitua-o por um novo valor.",
     "webSessionSecurityHint": "Trate isso como uma senha: ela poderá acessar sua conta da web conectada até que ela expire ou seja revogada.",
     "webNoAuthGuideTitle": "Nenhuma credencial necessária",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Quando todas as conexões configuradas estiverem esgotadas (quota, créditos ou expiração), use temporariamente o nível sem chave deste fornecedor. Desative para ignorar este fornecedor em vez de enviar pedidos anónimos — recomendado quando o nível sem chave os rejeita (401).",
     "anonymousFallbackEnabled": "Fallback anónimo ativado para {provider}",
     "anonymousFallbackDisabled": "Fallback anónimo desativado para {provider} — conexões esgotadas irão ignorar este provedor",
-    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anónimo",
-    "webSessionGuideStep2Fast": "Caminho rápido: instale a extensão Cookie Editor (chromewebstore.google.com → Cookie Editor), abra-a na aba {provider}, encontre {credential} (selecione todos os pedaços numerados se estiverem divididos) e clique em Exportar → Copiar com o formato de exportação definido como “Cookie header”.",
-    "webSessionGuideStep3Manual": "Caminho manual: abra as ferramentas de desenvolvedor do navegador (F12 → Rede), atualize a página, abra uma solicitação autenticada e copie o valor do cabeçalho Cookie dos Cabeçalhos da Solicitação — omita o prefixo Cookie:."
+    "anonymousFallbackUpdateFailed": "Falha ao atualizar a configuração de fallback anónimo"
   },
   "settings": {
     "title": "Configurações",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Disjuntor",
     "degraded.source.modelLockouts": "Bloqueios de Modelo",
     "degraded.source.count": "Contagem de Ligações"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Rejeitar pedidos antes do envio quando o modelo de destino não tiver as capacidades necessárias (visão, ferramentas, saída estruturada, janela de contexto). Protege pedidos diretos de um único fornecedor que contornam o filtro de compatibilidade da camada combinada.",
+  "capabilityFilter.visionMismatch": "O fornecedor não suporta visão para este pedido de imagem",
+  "capabilityFilter.toolsMismatch": "O fornecedor não suporta a chamada de ferramentas",
+  "capabilityFilter.structuredOutputMismatch": "O fornecedor não suporta saída estruturada",
+  "capabilityFilter.contextWindowMismatch": "A solicitação excede a janela de contexto do fornecedor"
 }

@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Indicativ necesar: {credential}",
     "webSessionGuideStep1": "Conectați-vă la {provider} în browser.",
     "webSessionGuideStep2": "Deschideți instrumentele pentru dezvoltatori de browser și inspectați o solicitare făcută de aplicația web.",
+    "webSessionGuideStep2Fast": "Calea rapidă: instalează extensia Cookie Editor (chromewebstore.google.com → Cookie Editor), deschide-o pe tab-ul {provider}, găsește {credential} (selectează toate bucățile numerotate dacă sunt împărțite) și dă clic pe Export → Copiază cu formatul de export setat pe „Cookie header”.",
     "webSessionGuideStep3": "Copiați acreditările necesare din domeniul propriu al furnizorului. Pentru cookie-uri, copiați numai valoarea antetului Cookie și omiteți Cookie:.",
+    "webSessionGuideStep3Manual": "Calea manuală: deschideți instrumentele de dezvoltare ale browserului (F12 → Rețea), reîncărcați pagina, deschideți o cerere autentificată și copiați valoarea antetului Cookie din Anteturile cererii — omiteți prefixul Cookie:.",
     "webSessionGuideStep4": "Lipiți-l aici și verificați conexiunea. Dacă nu mai funcționează, conectați-vă din nou și înlocuiți-l cu o valoare nouă.",
     "webSessionSecurityHint": "Tratați acest lucru ca pe o parolă: poate accesa contul dvs. web conectat până când expiră sau este revocat.",
     "webNoAuthGuideTitle": "Nu sunt necesare acreditări",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Când toate conexiunile configurate sunt epuizate (cota, credite sau expirare), folosiți temporar nivelul fără cheie al acestui furnizor. Dezactivați pentru a sări peste acest furnizor în loc de a trimite cereri anonime — recomandat atunci când nivelul fără cheie le respinge (401).",
     "anonymousFallbackEnabled": "Fallback anonim activat pentru {provider}",
     "anonymousFallbackDisabled": "Fallback anonim dezactivat pentru {provider} — conexiunile epuizate vor sări peste acest furnizor",
-    "anonymousFallbackUpdateFailed": "Actualizarea setării de rezervă anonimă a eșuat",
-    "webSessionGuideStep2Fast": "Calea rapidă: instalează extensia Cookie Editor (chromewebstore.google.com → Cookie Editor), deschide-o pe tab-ul {provider}, găsește {credential} (selectează toate bucățile numerotate dacă sunt împărțite) și dă clic pe Export → Copiază cu formatul de export setat pe „Cookie header”.",
-    "webSessionGuideStep3Manual": "Calea manuală: deschideți instrumentele de dezvoltare ale browserului (F12 → Rețea), reîncărcați pagina, deschideți o cerere autentificată și copiați valoarea antetului Cookie din Anteturile cererii — omiteți prefixul Cookie:."
+    "anonymousFallbackUpdateFailed": "Actualizarea setării de rezervă anonimă a eșuat"
   },
   "settings": {
     "title": "Setări",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Întrerupător de Circuit",
     "degraded.source.modelLockouts": "Blocaje Model",
     "degraded.source.count": "Număr de Conexiuni"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Respinge cererile înainte de expediere atunci când modelul țintă nu are capabilitățile necesare (viziune, instrumente, ieșire structurată, fereastră de context). Protejează cererile directe de un singur furnizor care ocolesc filtrul de compatibilitate al stratului combinat.",
+  "capabilityFilter.visionMismatch": "Furnizorul nu suportă viziunea pentru această cerere de imagine",
+  "capabilityFilter.toolsMismatch": "Furnizorul nu suportă apelarea instrumentului",
+  "capabilityFilter.structuredOutputMismatch": "Furnizorul nu suportă ieșirea structurată",
+  "capabilityFilter.contextWindowMismatch": "Cererea depășește fereastra de context a furnizorului"
 }

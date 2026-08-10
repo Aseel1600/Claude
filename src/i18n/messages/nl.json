@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Vereist token: {credential}",
     "webSessionGuideStep1": "Meld u aan bij {provider} in uw browser.",
     "webSessionGuideStep2": "Open de browserontwikkelaarstools en inspecteer een verzoek van de webapp.",
+    "webSessionGuideStep2Fast": "Snelle route: installeer de Cookie Editor-extensie (chromewebstore.google.com → Cookie Editor), open deze op het {provider} tabblad, vind {credential} (selecteer alle genummerde delen als ze zijn opgesplitst), en klik op Exporteren → Kopiëren met het exportformaat ingesteld op “Cookie header”.",
     "webSessionGuideStep3": "Kopieer de vereiste inloggegevens uit het eigen domein van de provider. Kopieer voor cookies alleen de waarde van de Cookie-header en laat Cookie: weg.",
+    "webSessionGuideStep3Manual": "Handmatige pad: open de browserontwikkelaarstools (F12 → Netwerk), vernieuw de pagina, open een geauthenticeerd verzoek en kopieer de waarde van de Cookie-header uit de Verzoekheaders — laat de Cookie: prefix weg.",
     "webSessionGuideStep4": "Plak het hier en controleer de verbinding. Als het niet meer werkt, logt u opnieuw in en vervangt u het door een nieuwe waarde.",
     "webSessionSecurityHint": "Behandel dit als een wachtwoord: het heeft toegang tot uw ingelogde webaccount totdat het verloopt of wordt ingetrokken.",
     "webNoAuthGuideTitle": "Geen legitimatie vereist",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Wanneer alle geconfigureerde verbindingen zijn uitgeput (quota, tegoeden of vervaldatum), gebruik tijdelijk de keyless-laag van deze provider. Zet uit om deze provider over te slaan in plaats van anonieme verzoeken te verzenden - aanbevolen wanneer de keyless-laag deze afwijst (401).",
     "anonymousFallbackEnabled": "Anonieme fallback ingeschakeld voor {provider}",
     "anonymousFallbackDisabled": "Anonieme fallback uitgeschakeld voor {provider} — uitgeputte verbindingen zullen deze provider overslaan",
-    "anonymousFallbackUpdateFailed": "Kon de anonieme fallback-instelling niet bijwerken",
-    "webSessionGuideStep2Fast": "Snelle route: installeer de Cookie Editor-extensie (chromewebstore.google.com → Cookie Editor), open deze op het {provider} tabblad, vind {credential} (selecteer alle genummerde delen als ze zijn opgesplitst), en klik op Exporteren → Kopiëren met het exportformaat ingesteld op “Cookie header”.",
-    "webSessionGuideStep3Manual": "Handmatige pad: open de browserontwikkelaarstools (F12 → Netwerk), vernieuw de pagina, open een geauthenticeerd verzoek en kopieer de waarde van de Cookie-header uit de Verzoekheaders — laat de Cookie: prefix weg."
+    "anonymousFallbackUpdateFailed": "Kon de anonieme fallback-instelling niet bijwerken"
   },
   "settings": {
     "title": "Instellingen",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Circuit Breaker",
     "degraded.source.modelLockouts": "Modelvergrendelingen",
     "degraded.source.count": "Aantal Verbindingen"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Weiger verzoeken vóór verzending wanneer het doellmodel ontbrekende vereiste mogelijkheden heeft (zicht, tools, gestructureerde output, contextvenster). Beschermt directe verzoeken van een enkele aanbieder die de compatibiliteitsfilter van de comb-laag omzeilen.",
+  "capabilityFilter.visionMismatch": "Provider ondersteunt geen visie voor dit afbeeldingsverzoek",
+  "capabilityFilter.toolsMismatch": "Provider ondersteunt het aanroepen van tools niet",
+  "capabilityFilter.structuredOutputMismatch": "Provider ondersteunt geen gestructureerde uitvoer",
+  "capabilityFilter.contextWindowMismatch": "Verzoek overschrijdt de contextvenster van de provider"
 }

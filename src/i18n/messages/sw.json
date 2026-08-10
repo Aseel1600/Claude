@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Tokeni inayohitajika: {credential}",
     "webSessionGuideStep1": "Ingia kwa {provider} katika kivinjari chako.",
     "webSessionGuideStep2": "Fungua zana za msanidi wa kivinjari na uangalie ombi lililotolewa na programu ya wavuti.",
+    "webSessionGuideStep2Fast": "Njia ya haraka: sakinisha nyongeza ya Mhariri wa Keki (chromewebstore.google.com → Mhariri wa Keki), ifungue kwenye kichupo cha {provider}, pata {credential} (chagua vipande vyote vilivyogawanywa ikiwa vimegawanywa), na bonyeza Export → Nakili huku muundo wa usafirishaji ukiwa umewekwa kwenye \"Kichwa cha Keki\".",
     "webSessionGuideStep3": "Nakili kitambulisho kinachohitajika kutoka kwa kikoa cha mtoaji mwenyewe. Kwa vidakuzi, nakili tu thamani ya kichwa cha Kuki na uache Cookie:.",
+    "webSessionGuideStep3Manual": "Njia ya mwongozo: fungua zana za maendeleo za kivinjari (F12 → Mtandao), refresh ukurasa, fungua ombi lililoidhinishwa, na nakili thamani ya kichwa cha Cookie kutoka kwa Vichwa vya Ombi — acha kipande cha Cookie: bila.",
     "webSessionGuideStep4": "Ibandike hapa na uangalie muunganisho. Ikiacha kufanya kazi, ingia tena na uibadilishe kwa thamani mpya.",
     "webSessionSecurityHint": "Lichukulie hili kama nenosiri: linaweza kufikia akaunti yako ya wavuti uliyoingia hadi itakapoisha au kubatilishwa.",
     "webNoAuthGuideTitle": "Hakuna kitambulisho kinachohitajika",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "Wakati muunganisho wote uliowekwa umepita (kikomo, mikopo, au muda wa kumalizika), tumia muda huu kiwango kisicho na funguo cha mtoa huduma huyu. Zima ili kupuuza mtoa huduma huyu badala ya kutuma maombi yasiyo na utambulisho — inapendekezwa wakati kiwango kisicho na funguo kinapokataa maombi hayo (401).",
     "anonymousFallbackEnabled": "Fallback isiyojulikana imewezeshwa kwa {provider}",
     "anonymousFallbackDisabled": "Fallback ya kutotambulika imezimwa kwa {provider} — muunganisho uliochoka utaepuka mtoa huduma huyu",
-    "anonymousFallbackUpdateFailed": "Imeshindikana kuboresha mipangilio ya kurudi nyuma isiyo na jina",
-    "webSessionGuideStep2Fast": "Njia ya haraka: sakinisha nyongeza ya Mhariri wa Keki (chromewebstore.google.com → Mhariri wa Keki), ifungue kwenye kichupo cha {provider}, pata {credential} (chagua vipande vyote vilivyogawanywa ikiwa vimegawanywa), na bonyeza Export → Nakili huku muundo wa usafirishaji ukiwa umewekwa kwenye \"Kichwa cha Keki\".",
-    "webSessionGuideStep3Manual": "Njia ya mwongozo: fungua zana za maendeleo za kivinjari (F12 → Mtandao), refresh ukurasa, fungua ombi lililoidhinishwa, na nakili thamani ya kichwa cha Cookie kutoka kwa Vichwa vya Ombi — acha kipande cha Cookie: bila."
+    "anonymousFallbackUpdateFailed": "Imeshindikana kuboresha mipangilio ya kurudi nyuma isiyo na jina"
   },
   "settings": {
     "title": "Settings",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Kivunja Mzunguko",
     "degraded.source.modelLockouts": "Kufuli za Mfano",
     "degraded.source.count": "Idadi ya Miunganisho"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "kataa maombi kabla ya kutuma wakati mfano wa lengo hauna uwezo unaohitajika (maono, zana, matokeo yaliyoandikwa, dirisha la muktadha). Inalinda maombi ya moja kwa moja kutoka kwa mtoa huduma mmoja ambayo yanapita chujio cha ulinganifu wa safu ya mchanganyiko.",
+  "capabilityFilter.visionMismatch": "Mtoa huduma haitoi msaada wa kuona kwa ombi hili la picha",
+  "capabilityFilter.toolsMismatch": "Mtoa huduma haitoi msaada wa kuita zana",
+  "capabilityFilter.structuredOutputMismatch": "Mtoa huduma haitoi matokeo yaliyoandikwa kwa muundo",
+  "capabilityFilter.contextWindowMismatch": "Omba inazidi dirisha la muktadha wa mtoa huduma"
 }

@@ -6006,7 +6006,9 @@
     "webTokenRequiredCredential": "Obligatorisk token: {credential}",
     "webSessionGuideStep1": "Logga in på {provider} i din webbläsare.",
     "webSessionGuideStep2": "Öppna webbläsarens utvecklarverktyg och granska en begäran från webbappen.",
+    "webSessionGuideStep2Fast": "Snabbväg: installera Cookie Editor-tillägget (chromewebstore.google.com → Cookie Editor), öppna det på {provider}-fliken, hitta {credential} (välj alla numrerade delar om de är uppdelade), och klicka på Exportera → Kopiera med exportformatet inställt på \"Cookie-header\".",
     "webSessionGuideStep3": "Kopiera den nödvändiga referensen från leverantörens egen domän. För cookies, kopiera endast värdet för Cookie-huvudet och utelämna Cookie:.",
+    "webSessionGuideStep3Manual": "Manuell väg: öppna webbläsarens utvecklarverktyg (F12 → Nätverk), uppdatera sidan, öppna en autentiserad begäran och kopiera värdet för Cookie-huvudet från Begärningshuvuden — utelämna prefixet Cookie:.",
     "webSessionGuideStep4": "Klistra in den här och kontrollera anslutningen. Om det slutar fungera, logga in igen och ersätt det med ett nytt värde.",
     "webSessionSecurityHint": "Behandla detta som ett lösenord: det kan komma åt ditt inloggade webbkonto tills det löper ut eller återkallas.",
     "webNoAuthGuideTitle": "Ingen legitimation krävs",
@@ -6042,9 +6044,7 @@
     "anonymousFallbackDesc": "När alla konfigurerade anslutningar är uttömda (kvot, krediter eller utgång), använd tillfälligt denna leverantörs nyckellösa nivå. Stäng av för att hoppa över denna leverantör istället för att skicka anonyma förfrågningar — rekommenderas när den nyckellösa nivån avvisar dem (401).",
     "anonymousFallbackEnabled": "Anonym fallback aktiverad för {provider}",
     "anonymousFallbackDisabled": "Anonym fallback inaktiverad för {provider} — uttömda anslutningar kommer att hoppa över denna leverantör",
-    "anonymousFallbackUpdateFailed": "Misslyckades med att uppdatera anonym fallback-inställning",
-    "webSessionGuideStep2Fast": "Snabbväg: installera Cookie Editor-tillägget (chromewebstore.google.com → Cookie Editor), öppna det på {provider}-fliken, hitta {credential} (välj alla numrerade delar om de är uppdelade), och klicka på Exportera → Kopiera med exportformatet inställt på \"Cookie-header\".",
-    "webSessionGuideStep3Manual": "Manuell väg: öppna webbläsarens utvecklarverktyg (F12 → Nätverk), uppdatera sidan, öppna en autentiserad begäran och kopiera värdet för Cookie-huvudet från Begärningshuvuden — utelämna prefixet Cookie:."
+    "anonymousFallbackUpdateFailed": "Misslyckades med att uppdatera anonym fallback-inställning"
   },
   "settings": {
     "title": "Inställningar",
@@ -12475,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Kretsbrytare",
     "degraded.source.modelLockouts": "Modellåsningar",
     "degraded.source.count": "Antal Anslutningar"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Avvisa förfrågningar innan de skickas när målmodellen saknar nödvändiga funktioner (vision, verktyg, strukturerad utdata, kontextfönster). Skyddar direkta förfrågningar från en enda leverantör som kringgår kompatibilitetsfiltret för kombinationslager.",
+  "capabilityFilter.visionMismatch": "Leverantören stöder inte vision för denna bildförfrågan",
+  "capabilityFilter.toolsMismatch": "Leverantören stöder inte verktygsanrop.",
+  "capabilityFilter.structuredOutputMismatch": "Leverantören stöder inte strukturerad utdata",
+  "capabilityFilter.contextWindowMismatch": "Begäran överskrider leverantörens kontextfönster"
 }
