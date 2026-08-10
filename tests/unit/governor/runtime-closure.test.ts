@@ -1,0 +1,7 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { getGovernorRuntimeConfig } from "../../../open-sse/governor/runtimeConfig.ts";
+import { applyActiveGovernorPlan } from "../../../open-sse/governor/activeV1.ts";
+
+test("runtime configuration is factual and fail-safe", () => { const old = { ...process.env }; process.env.GOVERNOR_ACTIVE_ENABLED = "true"; process.env.GOVERNOR_ACTIVE_CANARY_RATE = "0.25"; assert.equal(getGovernorRuntimeConfig().activeEnabled, true); assert.equal(getGovernorRuntimeConfig().canaryRate, 0.25); process.env.GOVERNOR_ACTIVE_CANARY_RATE = "bad"; assert.equal(getGovernorRuntimeConfig().canaryRate, 0); for (const key of Object.keys(process.env)) { if (!(key in old)) delete process.env[key]; } Object.assign(process.env, old); });
+test("reasoning and compression controls apply only when enabled", () => { const plan = { executable: true, confidence: "HIGH", guardrailResults: { all: "YES" }, estimatedCurrentCost: 2, estimatedCounterfactualCost: 1, selectedProvider: "p2", selectedModel: "m2", maxOutputTokens: 100, reasoningEffort: "medium", compressionMode: "rtk" } as never; const request = { provider: "p1", model: "m1", reasoning: "original", compression: "original" }; const result = applyActiveGovernorPlan(request, plan, "id", { enabled: true, controlModel: false, controlProvider: false, controlReasoning: true, controlCompression: true, controlOutput: false }); assert.equal(result.applied, true); assert.equal(request.reasoning, "medium"); assert.equal(request.compression, "rtk"); });

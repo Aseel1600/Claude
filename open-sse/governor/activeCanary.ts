@@ -25,6 +25,8 @@ export function applyGovernorPlan(request: GovernorMutableRequest, plan: Counter
   if (plan.selectedProvider) request.provider = plan.selectedProvider;
   if (plan.selectedModel) request.model = plan.selectedModel;
   if (plan.maxOutputTokens != null) request.max_tokens = plan.maxOutputTokens;
+  if (plan.reasoningEffort && plan.reasoningEffort !== "preserve") request.reasoning = plan.reasoningEffort;
+  if (plan.compressionMode && plan.compressionMode !== "preserve") request.compression = plan.compressionMode;
   return snapshot;
 }
 
