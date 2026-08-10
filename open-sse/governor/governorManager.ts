@@ -4,37 +4,56 @@
  * Intelligence Governor Manager & Shadow Mode Evaluator.
  *
  * GUARANTEES:
- * - When mode is 'off': Zero overhead, no evaluations performed.
- * - When mode is 'shadow': Recommendations are generated and recorded for telemetry ONLY.
- * - Shadow recommendations do not alter authoritative routing selection; shadow mode may add local overhead.
- * - Non-blocking telemetry persistence: failure to log telemetry never throws into request flow.
+ * - When mode is 'off': no Governor decision is performed.
+ * - One logical request/correlation id is evaluated at most once inside the cache window.
+ * - Shadow/simulate recommendations do not alter authoritative routing selection.
+ * - Telemetry persistence is best-effort and never throws into request flow.
  */
 
 import { getGovernorMode, isGovernorTelemetryEnabled } from "@/shared/utils/featureFlags.ts";
 import { enqueueGovernorTelemetryRow } from "@/lib/db/governorTelemetry.ts";
 import { NativeOmniGovernor } from "./nativeGovernor.ts";
-import { resolveCounterfactualPlan, type CounterfactualExecutionPlan, type CounterfactualInput } from "./counterfactual.ts";
+import {
+  resolveCounterfactualPlan,
+  type CounterfactualExecutionPlan,
+  type CounterfactualInput,
+} from "./counterfactual.ts";
 import { GOVERNOR_POLICY_VERSION } from "./constants.ts";
+import { assessActiveCanary, allHardGuardrailsPass } from "./activeCanary.ts";
+import { getGovernorRuntimeConfig } from "./runtimeConfig.ts";
 import type {
   GovernorDecision,
+  GovernorExecutionContext,
   GovernorInput,
+  GovernorMode,
   GovernorTelemetry,
   IntelligenceGovernor,
   ActualRequestContext,
-  GovernorExecutionContext,
 } from "./types.ts";
 
 export interface EvaluationResult {
   recommendation: GovernorDecision | null;
-  mode: "off" | "shadow" | "simulate" | "active-canary" | "active";
+  mode: GovernorMode;
   decisionLatencyMs: number;
   plan?: CounterfactualExecutionPlan;
 }
 
-export interface SimulationResult extends EvaluationResult { plan: CounterfactualExecutionPlan | null; }
+export interface SimulationResult extends EvaluationResult {
+  plan: CounterfactualExecutionPlan | null;
+}
+
+interface CachedEvaluation {
+  createdAt: number;
+  result: EvaluationResult;
+  context: GovernorExecutionContext;
+}
+
+const EVALUATION_CACHE_TTL_MS = 60_000;
+const EVALUATION_CACHE_MAX = 2_048;
 
 export class GovernorManager {
   private static governor: IntelligenceGovernor = new NativeOmniGovernor();
+  private static evaluationCache = new Map<string, CachedEvaluation>();
 
   public static getGovernor(): IntelligenceGovernor {
     return this.governor;
@@ -42,12 +61,120 @@ export class GovernorManager {
 
   public static setGovernor(governor: IntelligenceGovernor): void {
     this.governor = governor;
+    this.clearEvaluationCacheForTests();
   }
 
-  public static evaluateRequest(input: GovernorInput, actualContext: ActualRequestContext, counterfactualInput?: CounterfactualInput): { result: EvaluationResult; context: GovernorExecutionContext } {
+  public static clearEvaluationCacheForTests(): void {
+    this.evaluationCache.clear();
+  }
+
+  private static getCacheKey(mode: GovernorMode, correlationId?: string): string | null {
+    if (!correlationId) return null;
+    return `${mode}:${correlationId}`;
+  }
+
+  private static readCachedEvaluation(key: string | null): CachedEvaluation | null {
+    if (!key) return null;
+    const cached = this.evaluationCache.get(key);
+    if (!cached) return null;
+    if (Date.now() - cached.createdAt > EVALUATION_CACHE_TTL_MS) {
+      this.evaluationCache.delete(key);
+      return null;
+    }
+    return cached;
+  }
+
+  private static writeCachedEvaluation(key: string | null, value: CachedEvaluation): void {
+    if (!key) return;
+    this.evaluationCache.set(key, value);
+    if (this.evaluationCache.size <= EVALUATION_CACHE_MAX) return;
+
+    const oldest = this.evaluationCache.keys().next().value as string | undefined;
+    if (oldest) this.evaluationCache.delete(oldest);
+  }
+
+  public static evaluateRequest(
+    input: GovernorInput,
+    actualContext: ActualRequestContext,
+    counterfactualInput?: CounterfactualInput
+  ): { result: EvaluationResult; context: GovernorExecutionContext } {
     const mode = getGovernorMode();
-    const result = this.evaluateShadow(input, actualContext, counterfactualInput);
-    return { result, context: { correlationId: input.correlationId ?? "unknown", mode, decision: result.recommendation, plan: result.plan, decisionCount: result.recommendation ? 1 : 0, planResolutionCount: result.plan ? 1 : 0, originalRoute: { provider: actualContext.provider, model: actualContext.model, strategy: actualContext.routingStrategy }, activeEligible: Boolean(result.plan && (mode === "active" || mode === "active-canary")), activeSelected: false, activeApplied: false, fallbackAttempted: false, fallbackSucceeded: false, bypassReason: mode === "off" ? "off" : undefined } };
+    const cacheKey = this.getCacheKey(mode, input.correlationId);
+    const cached = this.readCachedEvaluation(cacheKey);
+    if (cached) return { result: cached.result, context: cached.context };
+
+    const baseResult = this.evaluateShadow(input, actualContext, counterfactualInput);
+    let result = baseResult;
+    const correlationId = input.correlationId ?? "unknown";
+    const config = getGovernorRuntimeConfig();
+    const plan = baseResult.plan;
+
+    const context: GovernorExecutionContext = {
+      correlationId,
+      mode,
+      decision: baseResult.recommendation,
+      plan,
+      decisionCount: baseResult.recommendation ? 1 : 0,
+      planResolutionCount: plan ? 1 : 0,
+      originalRoute: {
+        provider: actualContext.provider,
+        model: actualContext.model,
+        strategy: actualContext.routingStrategy,
+      },
+      planAvailable: Boolean(plan),
+      eligibilityEvaluated: false,
+      activeEligible: false,
+      activeSelected: false,
+      activeApplied: false,
+      selectedDispatchCount: 0,
+      fallbackDispatchCount: 0,
+      fallbackAttempted: false,
+      fallbackSucceeded: false,
+      bypassReason: mode === "off" ? "off" : undefined,
+    };
+
+    if (mode === "active-canary" && plan) {
+      const canary = assessActiveCanary(plan, correlationId, {
+        enabled: config.activeEnabled,
+        rate: config.canaryRate,
+        maxEstimatedCost: config.maxEstimatedRequestCost,
+      });
+      context.eligibilityEvaluated = true;
+      context.activeEligible = canary.eligible;
+      context.activeSelected = canary.selected;
+      context.bypassReason = canary.selected ? undefined : canary.reason;
+
+      // The current pre-credential dispatch seam consumes plan.executable. Make
+      // the returned runtime plan non-executable when the canary was not selected,
+      // while leaving the persisted counterfactual observation itself untouched.
+      if (!canary.selected) {
+        const runtimePlan = {
+          ...plan,
+          executable: false,
+          reasons: [...plan.reasons, `active_canary=${canary.reason}`],
+        };
+        result = { ...baseResult, plan: runtimePlan };
+        context.plan = runtimePlan;
+      }
+    } else if (mode === "active" && plan) {
+      context.eligibilityEvaluated = true;
+      context.activeEligible =
+        config.activeEnabled && plan.executable && allHardGuardrailsPass(plan);
+      context.activeSelected = context.activeEligible;
+      context.bypassReason = context.activeEligible
+        ? undefined
+        : !config.activeEnabled
+          ? "kill_switch"
+          : "plan_not_executable";
+    }
+
+    const value: CachedEvaluation = {
+      createdAt: Date.now(),
+      result,
+      context,
+    };
+    this.writeCachedEvaluation(cacheKey, value);
+    return { result, context };
   }
 
   public static evaluateShadow(
@@ -74,19 +201,21 @@ export class GovernorManager {
       console.warn("[GovernorManager] Governor decision error:", error);
       return {
         recommendation: null,
-        mode: "shadow",
+        mode,
         decisionLatencyMs: Number((performance.now() - startTime).toFixed(3)),
       };
     }
 
     const decisionLatencyMs = Number((performance.now() - startTime).toFixed(3));
-    const counterfactualPlan = ["simulate", "active-canary", "active"].includes(mode) && counterfactualInput
-      ? resolveCounterfactualPlan(counterfactualInput, recommendation)
-      : undefined;
+    const counterfactualPlan =
+      ["simulate", "active-canary", "active"].includes(mode) && counterfactualInput
+        ? resolveCounterfactualPlan(counterfactualInput, recommendation)
+        : undefined;
 
     if (isGovernorTelemetryEnabled()) {
       const telemetryRecord: GovernorTelemetry = {
-        correlationId: input.correlationId || `gov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        correlationId:
+          input.correlationId || `gov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: Date.now(),
         governorMode: mode,
         actualProvider: actualContext.provider || "unknown",
@@ -119,11 +248,9 @@ export class GovernorManager {
         counterfactualPlan,
       };
 
-      // Non-blocking telemetry persistence
       enqueueGovernorTelemetryRow(telemetryRecord);
     }
 
-    // ACTIVE DECISION UNTOUCHED — SHADOW RECOMMENDATION IS RETURNED FOR LOGGING ONLY
     return {
       recommendation,
       mode,
@@ -134,13 +261,26 @@ export class GovernorManager {
 
   public static evaluateSimulation(input: CounterfactualInput): SimulationResult {
     const mode = getGovernorMode();
-    if (mode !== "simulate") return { recommendation: null, mode, decisionLatencyMs: 0, plan: null };
+    if (mode !== "simulate") {
+      return { recommendation: null, mode, decisionLatencyMs: 0, plan: null };
+    }
+
     const start = performance.now();
     try {
       const recommendation = this.governor.decide(input);
-      return { recommendation, mode: "simulate", decisionLatencyMs: Number((performance.now() - start).toFixed(3)), plan: resolveCounterfactualPlan(input, recommendation) };
+      return {
+        recommendation,
+        mode: "simulate",
+        decisionLatencyMs: Number((performance.now() - start).toFixed(3)),
+        plan: resolveCounterfactualPlan(input, recommendation),
+      };
     } catch {
-      return { recommendation: null, mode: "simulate", decisionLatencyMs: Number((performance.now() - start).toFixed(3)), plan: null };
+      return {
+        recommendation: null,
+        mode: "simulate",
+        decisionLatencyMs: Number((performance.now() - start).toFixed(3)),
+        plan: null,
+      };
     }
   }
 }
