@@ -322,7 +322,14 @@ async function dispatchGovernedSingleModel(
           sessionKey: runtimeOptions.sessionAffinityKey ?? runtimeOptions.sessionId ?? null,
           ...(runtimeOptions.forcedConnectionId ? { forcedConnectionId: runtimeOptions.forcedConnectionId } : {}),
         });
-        if (credentials && !credentials.allRateLimited && !credentials.allExpired && credentials.connectionId) {
+        if (
+          credentials &&
+          !credentials.allRateLimited &&
+          "allExpired" in credentials &&
+          !credentials.allExpired &&
+          "connectionId" in credentials &&
+          Boolean(credentials.connectionId)
+        ) {
           const selectedResponse = await handleSingleModelChat(body, selected.routingModelId, clientRawRequest, request, comboName, apiKeyInfo, telemetry, {
             ...runtimeOptions,
             governorBypass: true,
