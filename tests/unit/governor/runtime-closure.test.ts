@@ -28,6 +28,7 @@ function plan(overrides: Partial<CounterfactualExecutionPlan> = {}): Counterfact
     escalationPolicy: { allowedRetries: 0 },
     estimatedCurrentCost: 2,
     estimatedCounterfactualCost: 1,
+    costEstimateBasis: "ACTUAL_USAGE",
     estimatedSavings: 1,
     estimatedSavingsPercent: 50,
     tokenReductionOpportunity: 0,
