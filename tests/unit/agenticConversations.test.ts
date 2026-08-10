@@ -12,7 +12,13 @@ import { tmpdir } from "node:os";
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-agentic-conv-db-"));
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "agentic-conversations-test-secret";
 
-import {
+// Dynamic imports (not static) are required here: a static `import` of a module
+// that reads process.env.DATA_DIR at its own top level (src/lib/db/core.ts's
+// `export const DATA_DIR = ...`) is evaluated before this file's own top-level
+// code runs — ESM instantiates the whole dependency graph, dependencies first,
+// regardless of source-line order — so the override above would silently miss
+// and the module would resolve the real host DATA_DIR instead of the temp dir.
+const {
   createAgenticConversation,
   findAgenticConversationsByFingerprint,
   updateAgenticConversation,
@@ -23,8 +29,8 @@ import {
   getConversationTurnTree,
   getConversationTurnPage,
   resolveCallLogIdsByCorrelationIds,
-} from "../../src/lib/db/agenticConversations.ts";
-import { getDbInstance } from "../../src/lib/db/core.ts";
+} = await import("../../src/lib/db/agenticConversations.ts");
+const { getDbInstance } = await import("../../src/lib/db/core.ts");
 
 test("createAgenticConversation + findAgenticConversationsByFingerprint round-trip", () => {
   const row = createAgenticConversation({

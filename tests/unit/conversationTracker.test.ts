@@ -13,12 +13,15 @@ import { tmpdir } from "node:os";
 process.env.DATA_DIR = mkdtempSync(join(tmpdir(), "omniroute-conv-tracker-"));
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "conversation-tracker-test-secret";
 
-import {
-  extractCanonicalTurns,
-  computeFingerprintHash,
-  resolveConversationId,
-} from "../../open-sse/services/conversationTracker.ts";
-import { getConversationTurnTree } from "../../src/lib/db/agenticConversations.ts";
+// Dynamic imports (not static) are required here: a static `import` of a module
+// that reads process.env.DATA_DIR at its own top level (src/lib/db/core.ts's
+// `export const DATA_DIR = ...`) is evaluated before this file's own top-level
+// code runs — ESM instantiates the whole dependency graph, dependencies first,
+// regardless of source-line order — so the override above would silently miss
+// and the module would resolve the real host DATA_DIR instead of the temp dir.
+const { extractCanonicalTurns, computeFingerprintHash, resolveConversationId } =
+  await import("../../open-sse/services/conversationTracker.ts");
+const { getConversationTurnTree } = await import("../../src/lib/db/agenticConversations.ts");
 
 let correlationCounter = 0;
 function nextCorrelationId(): string {
