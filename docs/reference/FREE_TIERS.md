@@ -61,6 +61,8 @@ A 50-agent web-research pass (official docs + last-7-days news, adversarially ve
 
 ## ToS attention table
 
+> **ToS flag is advisory, not a routing gate.** Providers marked `tos` are still included in routing and combo/fallback by default; the flag only surfaces on `/dashboard/free-tiers` and `/api/free-tier/summary`. The `excludeTosAvoid` query parameter affects the summary view only, not global routing. The verdict lives in `open-sse/config/freeTierCatalog.ts` (informational, not read by routing engines).
+
 > A quick read on each provider's terms for a self-hosted, single-user personal proxy. `caution` = a personal-use or proxy clause worth checking; `ambiguous` = unclear; `ok` = explicitly permitted. Informational, not legal advice — you decide.
 
 ### ⚠️ Caution — personal-use / proxy clauses worth checking (19)
