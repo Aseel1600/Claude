@@ -71,7 +71,6 @@ const ENV_KEYS = {
   maxQueueCost: "ADAPTIVE_ADMISSION_MAX_QUEUE_COST",
   defaultMaxWaitMs: "ADAPTIVE_ADMISSION_MAX_WAIT_MS",
   windowMs: "ADAPTIVE_ADMISSION_WINDOW_MS",
-  virtualLanes: "OMNIROUTE_CHAT_VIRTUAL_LANES",
 } as const;
 
 function parsePositiveSafeInt(name: string, raw: string): number {
