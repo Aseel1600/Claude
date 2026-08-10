@@ -1254,6 +1254,63 @@ jobs:
       - run: npm run check:node-runtime
       - run: npm run test:security
 
+  # Live-server E2E. Both suites boot a real OmniRoute via their own runner and
+  # drive it over HTTP; neither needs provider credentials. They were documented in
+  # AGENTS.md's test matrix but wired to NO workflow, and had additionally been
+  # unrunnable (vitest.config.ts excluded the very files their runners passed as a
+  # positional filter) — so nothing had executed them for as long as that was true.
+  test-ecosystem:
+    name: Ecosystem E2E (live server)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # needs: changes (not build) — the runner boots its own dev server.
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
+    env:
+      JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
+      API_KEY_SECRET: ci-test-api-key-secret-long
+      DISABLE_SQLITE_AUTO_BACKUP: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.CI_NODE_VERSION }}
+          cache: npm
+      - uses: ./.github/actions/npm-ci-retry
+      - run: npm run check:node-runtime
+      - run: npm run test:ecosystem
+
+  test-protocols-e2e:
+    name: Protocol Clients E2E (live server, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: changes
+    if: ${{ github.event_name != 'pull_request' || (needs.changes.outputs.code == 'true' && github.event.pull_request.draft == false) }}
+    # ADVISORY until #10049 is resolved. Restoring this suite immediately surfaced a
+    # real discrepancy that had been invisible while it could not run: GET
+    # /api/mcp/audit answers 403 over loopback where the suite expects 200|401. That
+    # is a pre-existing contract question, not a defect introduced by wiring the job
+    # up, so it must not block every PR in the meantime. Flip to blocking (drop this
+    # continue-on-error) the moment #10049 lands.
+    continue-on-error: true
+    env:
+      JWT_SECRET: ci-test-secret-with-sufficient-length-for-validation
+      API_KEY_SECRET: ci-test-api-key-secret-long
+      DISABLE_SQLITE_AUTO_BACKUP: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.CI_NODE_VERSION }}
+          cache: npm
+      - uses: ./.github/actions/npm-ci-retry
+      - run: npm run check:node-runtime
+      - run: npm run test:protocols:e2e
+
   ci-summary:
     name: CI Dashboard
     runs-on: ubuntu-latest
@@ -1276,6 +1333,8 @@ jobs:
       - test-e2e
       - test-integration
       - test-security
+      - test-ecosystem
+      - test-protocols-e2e
     steps:
       - name: Download i18n results
         continue-on-error: true
@@ -1356,6 +1415,8 @@ jobs:
           echo "| E2E | $(status '${{ needs.test-e2e.result }}') |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Integration | $(status '${{ needs.test-integration.result }}') |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Security Tests | $(status '${{ needs.test-security.result }}') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Ecosystem E2E | $(status '${{ needs.test-ecosystem.result }}') |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Protocol Clients E2E (advisory, #10049) | $(status '${{ needs.test-protocols-e2e.result }}') |" >> "$GITHUB_STEP_SUMMARY"
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "## 🌍 Translations" >> "$GITHUB_STEP_SUMMARY"

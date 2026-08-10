@@ -24,8 +24,6 @@ export default defineConfig({
       "tests/unit/**/*.test.tsx",
       "open-sse/**/__tests__/**/*.test.ts",
       "open-sse/services/**/__tests__/**/*.test.ts",
-      "tests/e2e/ecosystem.test.ts",
-      "tests/e2e/protocol-clients.test.ts",
     ],
     exclude: [
       // Standard Vitest / tooling exclusions
@@ -35,7 +33,8 @@ export default defineConfig({
       ".idea/**",
       ".git/**",
       ".cache/**",
-      // E2E tests — run via their own scripts, not the UI vitest job
+      // Live-server E2E — these drive a real running server, so they must never run
+      // in this jsdom job. They have their own runners + vitest.e2e-live.config.ts.
       "tests/e2e/ecosystem.test.ts",
       "tests/e2e/protocol-clients.test.ts",
       // ── Pre-existing failures tracked by #8618 ───────────────────────────────
