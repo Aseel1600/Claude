@@ -4,6 +4,22 @@ import type { GovernorInput, GovernorTelemetry } from "../../open-sse/governor/t
 
 export type ShadowDatasetRecord = { input: GovernorInput; observation: GovernorTelemetry };
 
+export function analyzeCounterfactualPlans(records: ShadowDatasetRecord[]) {
+  const plans = records.map((record) => record.observation.counterfactualPlan as { executable?: boolean; confidence?: string; estimatedSavings?: number | null } | undefined).filter(Boolean);
+  return {
+    DATA_QUALITY: { total: records.length, plans: plans.length },
+    COUNTERFACTUAL_PLANS: plans.length,
+    EXECUTABLE_PLANS: plans.filter((p) => p?.executable === true).length,
+    NON_EXECUTABLE_PLANS: plans.filter((p) => p?.executable === false).length,
+    UNKNOWN_PLANS: plans.filter((p) => p?.executable == null).length,
+    HIGH_CONFIDENCE: plans.filter((p) => p?.confidence === "HIGH").length,
+    MEDIUM_CONFIDENCE: plans.filter((p) => p?.confidence === "MEDIUM").length,
+    LOW_CONFIDENCE: plans.filter((p) => p?.confidence === "LOW").length,
+    INSUFFICIENT_DATA: plans.filter((p) => p?.confidence === "INSUFFICIENT_DATA").length,
+    COST_REDUCTION_OPPORTUNITIES: plans.filter((p) => typeof p?.estimatedSavings === "number" && p.estimatedSavings > 0).length,
+  };
+}
+
 export interface ShadowAnalysis {
   TOTAL_OBSERVATIONS: number;
   REPLAY_ANALYSIS: { REPLAY_EXACT_MATCHES: number; REPLAY_POLICY_DRIFT: number; REPLAY_MODEL_TIER_DRIFT: number; REPLAY_REASONING_DRIFT: number; REPLAY_COMPRESSION_DRIFT: number; REPLAY_OUTPUT_BUDGET_DRIFT: number };

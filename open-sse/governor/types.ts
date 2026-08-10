@@ -101,6 +101,7 @@ export interface GovernorTelemetry {
   governorVersion?: string;
   policyVersion?: string;
   observedFeatures?: Record<string, number | string | boolean | null>;
+  counterfactualPlan?: unknown;
 }
 
 export interface ActualRequestContext {

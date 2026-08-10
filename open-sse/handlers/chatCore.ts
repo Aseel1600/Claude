@@ -5,7 +5,9 @@ import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
 import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 import { GovernorManager } from "../governor/governorManager.ts";
-import type { GovernorInput } from "../governor/types.ts";
+import type { GovernorInput, ModelTier } from "../governor/types.ts";
+import type { CounterfactualInput } from "../governor/counterfactual.ts";
+import { buildCounterfactualCandidates } from "../governor/catalogAdapter.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import {
@@ -5095,6 +5097,17 @@ export async function handleChatCore({
       rawPromptText: extractGovernorPromptText(body),
       retryCount: undefined,
     };
+    const counterfactualInput: CounterfactualInput = {
+      ...governorInput,
+      currentProvider: provider || undefined,
+      currentModel: model || undefined,
+      currentModelTier: null,
+      actualInputTokens: governorEstimatedPromptTokens ?? null,
+      actualOutputTokens: null,
+      currentCost: null,
+      requiredCapabilities: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) && (body as { tools: unknown[] }).tools.length > 0 ? ["tools"] : [],
+      candidates: buildCounterfactualCandidates([{ provider: provider || "unknown", model: model || "unknown", tier: "preserve" as ModelTier, available: true, capabilities: ["streaming", ...(Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) ? ["tools"] : [])], quotaState: "unknown" }]),
+    };
     GovernorManager.evaluateShadow(governorInput, {
       provider: provider || "unknown",
       model: model || "unknown",
@@ -5102,7 +5115,7 @@ export async function handleChatCore({
       retryCount: null,
       success: null,
       latencyMs: null,
-    });
+    }, counterfactualInput);
   } catch {
     /* shadow governor failure never affects request flow */
   }

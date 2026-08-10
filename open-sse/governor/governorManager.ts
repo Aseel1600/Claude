@@ -26,6 +26,7 @@ export interface EvaluationResult {
   recommendation: GovernorDecision | null;
   mode: "off" | "shadow" | "simulate";
   decisionLatencyMs: number;
+  plan?: CounterfactualExecutionPlan;
 }
 
 export interface SimulationResult extends EvaluationResult { plan: CounterfactualExecutionPlan | null; }
@@ -43,7 +44,8 @@ export class GovernorManager {
 
   public static evaluateShadow(
     input: GovernorInput,
-    actualContext: ActualRequestContext
+    actualContext: ActualRequestContext,
+    counterfactualInput?: CounterfactualInput
   ): EvaluationResult {
     const mode = getGovernorMode();
 
@@ -70,12 +72,15 @@ export class GovernorManager {
     }
 
     const decisionLatencyMs = Number((performance.now() - startTime).toFixed(3));
+    const counterfactualPlan = mode === "simulate" && counterfactualInput
+      ? resolveCounterfactualPlan(counterfactualInput, recommendation)
+      : undefined;
 
     if (isGovernorTelemetryEnabled()) {
       const telemetryRecord: GovernorTelemetry = {
         correlationId: input.correlationId || `gov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: Date.now(),
-        governorMode: "shadow",
+        governorMode: mode,
         actualProvider: actualContext.provider || "unknown",
         actualModel: actualContext.model || "unknown",
         actualRoutingStrategy: actualContext.routingStrategy,
@@ -103,6 +108,7 @@ export class GovernorManager {
           retryCount: input.retryCount ?? null,
           cacheState: input.cacheState ?? null,
         },
+        counterfactualPlan,
       };
 
       // Non-blocking telemetry persistence
@@ -112,8 +118,9 @@ export class GovernorManager {
     // ACTIVE DECISION UNTOUCHED — SHADOW RECOMMENDATION IS RETURNED FOR LOGGING ONLY
     return {
       recommendation,
-      mode: "shadow",
+      mode,
       decisionLatencyMs,
+      ...(counterfactualPlan ? { plan: counterfactualPlan } : {}),
     };
   }
 

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NativeOmniGovernor } from "../../../open-sse/governor/nativeGovernor.ts";
+import type { CompressionMode } from "../../../open-sse/governor/types.ts";
 import { resolveCounterfactualPlan, type CounterfactualInput } from "../../../open-sse/governor/counterfactual.ts";
 
-const candidate = { provider: "fixture-provider", model: "fixture-model", tier: "low" as const, available: true, capabilities: ["tools", "streaming"], inputPrice: 1, outputPrice: 2 };
+const candidate = { provider: "fixture-provider", model: "fixture-model", tier: "low" as const, available: true, capabilities: ["tools", "streaming"], contextWindow: 128000, inputPrice: 1, outputPrice: 2, supportsReasoning: true, supportsCompression: ["compact", "caveman", "rtk", "none"] as CompressionMode[], quotaState: "normal" as const };
 function base(overrides: Partial<CounterfactualInput> = {}): CounterfactualInput { return { taskKind: "trivial_control", estimatedPromptTokens: 50, requestedMaxOutput: 1000, actualInputTokens: 50, actualOutputTokens: 100, currentCost: 0.001, candidates: [candidate], ...overrides }; }
 
 test("counterfactual planner is deterministic and record-only", () => {
