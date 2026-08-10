@@ -20,6 +20,8 @@ export interface GovernorMutableRequest {
   compression?: unknown;
 }
 
+const RUNTIME_PREFLIGHT_GUARDS = new Set(["PROVIDER_AVAILABLE", "QUOTA_ACCEPTABLE"]);
+
 export function stableCanarySample(correlationId: string, rate: number): boolean {
   if (!Number.isFinite(rate) || rate <= 0 || rate > 1) return false;
   let hash = 2166136261;
@@ -27,8 +29,16 @@ export function stableCanarySample(correlationId: string, rate: number): boolean
   return (hash >>> 0) / 0x100000000 < rate;
 }
 
+/**
+ * Planning-time hard guards must be YES. Provider availability/quota may remain
+ * UNKNOWN until the selected route goes through OmniRoute's real credential and
+ * quota preflight. A factual NO is never deferred.
+ */
 export function allHardGuardrailsPass(plan: CounterfactualExecutionPlan): boolean {
-  return Object.values(plan.guardrailResults).every((value) => value === "YES");
+  return Object.entries(plan.guardrailResults).every(([name, value]) => {
+    if (value === "YES") return true;
+    return value === "UNKNOWN" && RUNTIME_PREFLIGHT_GUARDS.has(name);
+  });
 }
 
 export function assessActiveCanary(
