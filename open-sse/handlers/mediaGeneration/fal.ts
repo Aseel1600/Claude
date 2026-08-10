@@ -252,7 +252,9 @@ async function runFalQueue({
   const deadline = startTime + timeoutMs;
   const resolvedModel = resolveFalModel(model, body, kind);
   const falModel =
-    resolvedModel.startsWith("fal-ai/") || resolvedModel.startsWith("xai/")
+    resolvedModel.startsWith("fal-ai/") ||
+    resolvedModel.startsWith("xai/") ||
+    resolvedModel.startsWith("google/")
       ? resolvedModel
       : `fal-ai/${resolvedModel}`;
   const queueUrl = `${baseUrl}/${falModel}`;

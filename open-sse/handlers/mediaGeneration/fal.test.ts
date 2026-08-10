@@ -138,10 +138,7 @@ test("handleFalVideoGeneration selects Gemini Omni Flash image-to-video", async 
     });
 
     assert.equal(result.success, true);
-    assert.equal(
-      requests[0]?.url,
-      "https://queue.fal.run/fal-ai/google/gemini-omni-flash/image-to-video"
-    );
+    assert.equal(requests[0]?.url, "https://queue.fal.run/google/gemini-omni-flash/image-to-video");
     assert.deepEqual(JSON.parse(requests[0]?.body || "{}"), {
       prompt: "Animate this dog",
       aspect_ratio: "16:9",
