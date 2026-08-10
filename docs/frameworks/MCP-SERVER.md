@@ -417,7 +417,7 @@ The heartbeat snapshot contains:
 
 Every tool call is logged to the SQLite `mcp_tool_audit` table by `open-sse/mcp-server/audit.ts`:
 
-- Tool name, arguments (hashed/truncated as per per-tool `auditLevel`), result
+- Tool name, arguments (hashed/truncated as per-tool `auditLevel`), result
 - Duration in ms, success/failure flag, error message (when applicable)
 - API key hash, timestamp
 - Scope denials are logged as `scope_denied:<reason>` with the missing scope list
