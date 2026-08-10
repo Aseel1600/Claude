@@ -105,6 +105,7 @@ import { getGovernorRuntimeConfig } from "@omniroute/open-sse/governor/runtimeCo
 import type { GovernorInput } from "@omniroute/open-sse/governor/types.ts";
 import type { CounterfactualCandidate } from "@omniroute/open-sse/governor/counterfactual.ts";
 import { getProviderModels, PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@omniroute/open-sse/config/providerModels.ts";
+import { getGovernorActiveBreaker } from "@omniroute/open-sse/governor/activeCanary.ts";
 
 // Pipeline integration — wired modules
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
@@ -310,7 +311,8 @@ async function dispatchGovernedSingleModel(
       candidates: registryCandidates,
     } as any);
     const config = getGovernorRuntimeConfig();
-    const canApply = config.activeEnabled && (mode === "active" || mode === "active-canary") && result.plan?.executable === true;
+    const breaker = getGovernorActiveBreaker();
+    const canApply = config.activeEnabled && !breaker.isTripped() && (mode === "active" || mode === "active-canary") && result.plan?.executable === true;
     const selected = canApply ? registryCandidates.find((candidate) => candidate.provider === result.plan?.selectedProvider && candidate.model === result.plan?.selectedModel) : null;
     if (selected?.routingModelId && selected.routingModelId !== originalModel) {
       const resolved = await resolveModelOrError(selected.routingModelId, body, clientRawRequest?.endpoint, clientRawRequest?.headers);
@@ -321,11 +323,18 @@ async function dispatchGovernedSingleModel(
           ...(runtimeOptions.forcedConnectionId ? { forcedConnectionId: runtimeOptions.forcedConnectionId } : {}),
         });
         if (credentials && !credentials.allRateLimited && !credentials.allExpired && credentials.connectionId) {
-          return handleSingleModelChat(body, selected.routingModelId, clientRawRequest, request, comboName, apiKeyInfo, telemetry, {
+          const selectedResponse = await handleSingleModelChat(body, selected.routingModelId, clientRawRequest, request, comboName, apiKeyInfo, telemetry, {
             ...runtimeOptions,
             governorBypass: true,
             preselectedCredentials: credentials,
           }, comboStrategy, isCombo);
+          if (selectedResponse.ok) {
+            breaker.recordSuccess();
+            return selectedResponse;
+          }
+          breaker.recordFailure();
+          if (selectedResponse.status < 500 || selectedResponse.status >= 600) return selectedResponse;
+          return handleSingleModelChat(body, originalModel, clientRawRequest, request, comboName, apiKeyInfo, telemetry, { ...runtimeOptions, governorBypass: true }, comboStrategy, isCombo);
         }
       }
     }

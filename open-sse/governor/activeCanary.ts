@@ -36,4 +36,17 @@ export class ActiveCanaryCircuitBreaker {
   record(success: boolean) { if (success) this.failures = 0; else this.failures += 1; if (this.failures >= this.threshold) this.tripped = true; }
   isTripped() { return this.tripped; }
   reset() { this.failures = 0; this.tripped = false; }
+  recordSuccess() { this.record(true); }
+  recordFailure() { this.record(false); }
+  getFailureCount() { return this.failures; }
+  getThreshold() { return this.threshold; }
+  getState() { return this.tripped ? "open" : "closed" as const; }
+}
+
+let sharedBreaker: ActiveCanaryCircuitBreaker | null = null;
+export function getGovernorActiveBreaker(): ActiveCanaryCircuitBreaker {
+  return (sharedBreaker ??= new ActiveCanaryCircuitBreaker());
+}
+export function resetGovernorActiveBreakerForTests(): void {
+  sharedBreaker?.reset();
 }

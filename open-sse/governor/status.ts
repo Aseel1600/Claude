@@ -4,9 +4,11 @@ import { getGovernorTelemetryQueueMetrics } from "@/lib/db/governorTelemetry.ts"
 import { GOVERNOR_PROFILES, type GovernorProfile } from "./calibration.ts";
 import { GOVERNOR_POLICY_VERSION } from "./constants.ts";
 import { getGovernorRuntimeConfig } from "./runtimeConfig.ts";
+import { getGovernorActiveBreaker } from "./activeCanary.ts";
 
 export function getGovernorStatus(profile: GovernorProfile = "balanced") {
   const mode: GovernorMode = getGovernorMode();
   const config = getGovernorRuntimeConfig();
-  return { mode, ...config, profile, policyVersion: GOVERNOR_POLICY_VERSION, telemetryEnabled: isGovernorTelemetryEnabled(), queue: getGovernorTelemetryQueueMetrics(), breakerState: "closed", breakerFailureCount: 0, profileConfig: GOVERNOR_PROFILES[profile] };
+  const breaker = getGovernorActiveBreaker();
+  return { mode, ...config, profile, policyVersion: GOVERNOR_POLICY_VERSION, telemetryEnabled: isGovernorTelemetryEnabled(), queue: getGovernorTelemetryQueueMetrics(), breakerState: breaker.getState(), breakerFailureCount: breaker.getFailureCount(), breakerThreshold: breaker.getThreshold(), profileConfig: GOVERNOR_PROFILES[profile] };
 }
