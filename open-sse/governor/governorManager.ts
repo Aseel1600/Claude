@@ -157,15 +157,31 @@ export class GovernorManager {
         context.plan = runtimePlan;
       }
     } else if (mode === "active" && plan) {
+      const costSafe =
+        plan.estimatedCurrentCost != null &&
+        plan.estimatedCounterfactualCost != null &&
+        plan.estimatedCounterfactualCost <= plan.estimatedCurrentCost &&
+        (config.maxEstimatedRequestCost == null ||
+          plan.estimatedCounterfactualCost <= config.maxEstimatedRequestCost);
       context.eligibilityEvaluated = true;
       context.activeEligible =
-        config.activeEnabled && plan.executable && allHardGuardrailsPass(plan);
+        config.activeEnabled &&
+        plan.executable &&
+        plan.confidence === "HIGH" &&
+        allHardGuardrailsPass(plan) &&
+        costSafe;
       context.activeSelected = context.activeEligible;
       context.bypassReason = context.activeEligible
         ? undefined
         : !config.activeEnabled
           ? "kill_switch"
-          : "plan_not_executable";
+          : !plan.executable
+            ? "plan_not_executable"
+            : plan.confidence !== "HIGH"
+              ? "insufficient_confidence"
+              : !costSafe
+                ? "cost_unknown_or_higher"
+                : "guardrail_unknown_or_failed";
     }
 
     const value: CachedEvaluation = {
