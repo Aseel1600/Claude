@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   PROVIDER_COLORS,
   getHttpStatusStyle as getStatusStyle,
@@ -196,6 +197,8 @@ export default function RequestLoggerDetail({
   relatedLogs = [],
   onSelectRelated,
 }) {
+  const tCache = useTranslations("cache");
+
   // Close on Escape key
   useEffect(() => {
     const handler = (e) => {
@@ -519,12 +522,16 @@ export default function RequestLoggerDetail({
                   <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-bold">
                     Total In: {formatTokenValue(tokenStats.totalIn)}
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-700 dark:text-sky-400 text-xs font-bold">
-                    Cache Read: {formatTokenValue(tokenStats.cacheRead)}
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold">
-                    Cache Write: {formatTokenValue(tokenStats.cacheWrite)}
-                  </span>
+                  {tokenStats.cacheRead != null && tokenStats.cacheRead > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-700 dark:text-sky-400 text-xs font-bold">
+                      {tCache("cachedTokensCol")}: {formatTokenValue(tokenStats.cacheRead)}
+                    </span>
+                  )}
+                  {tokenStats.cacheWrite != null && tokenStats.cacheWrite > 0 && (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold">
+                      {tCache("cacheCreation")}: {formatTokenValue(tokenStats.cacheWrite)}
+                    </span>
+                  )}
                   {tokenStats.compressed != null &&
                     tokenStats.compressed > 0 &&
                     (() => {
