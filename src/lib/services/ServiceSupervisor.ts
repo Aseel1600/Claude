@@ -56,6 +56,19 @@ export class ServiceSupervisor extends EventEmitter {
     this.checker = new HealthChecker(config.healthUrl, config.healthIntervalMs, (h) => {
       this.health = h;
       this.emit("stateChange", this.getStatus());
+      // A service that fails FAILURE_THRESHOLD consecutive health probes will
+      // not recover by itself. Stop the poller and surface an explicit error
+      // state instead of probing the dead port forever — every failed probe
+      // fires a full ProxyFetch dispatcher+native fetch pair (e.g. against a
+      // CLIProxyAPI binary that cannot execute on this platform).
+      if (h === "unhealthy" && (this.state === "running" || this.state === "starting")) {
+        this.checker.stop();
+        this.lastError = sanitizeErrorMessage(
+          `Health probe failed for ${this.config.tool} (port ${this.config.port})`
+        );
+        this.setState("error");
+        void setToolStatus(this.config.tool, "error", undefined, this.lastError);
+      }
     });
   }
 
@@ -135,7 +148,22 @@ export class ServiceSupervisor extends EventEmitter {
 
       const { command, args, env, cwd } = this.config.spawnArgs();
 
-      const child = spawn(command, args, buildServiceSpawnOptions(env, cwd));
+      // spawn() can throw SYNCHRONOUSLY on Windows when the binary is not
+      // executable (EFTYPE/EINVAL for an ELF or a plain text file) instead of
+      // emitting the child 'error' event. Handle both paths identically so a
+      // non-spawnable service surfaces an explicit error state and the health
+      // poller is stopped instead of hammering a dead port forever.
+      let child: ChildProcess;
+      try {
+        child = spawn(command, args, buildServiceSpawnOptions(env, cwd));
+      } catch (err) {
+        this.checker.stop();
+        const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
+        this.lastError = msg;
+        this.setState("error");
+        await setToolStatus(this.config.tool, "error", undefined, msg);
+        return this.getStatus();
+      }
 
       this.childProcess = child;
       this.pid = child.pid ?? null;
@@ -160,6 +188,17 @@ export class ServiceSupervisor extends EventEmitter {
       const spawnTime = Date.now();
       child.once("exit", (code, signal) => {
         void this.handleExit(code, signal, spawnTime);
+      });
+      // Spawn failures (ENOENT, EACCES, or a non-executable binary such as an
+      // ELF on Windows) surface via the child 'error' event — NOT 'exit'.
+      // Without this handler the supervisor stays in "starting" forever and
+      // the health poller hammers the dead port every healthIntervalMs.
+      child.once("error", (err) => {
+        this.checker.stop();
+        const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));
+        this.lastError = msg;
+        this.setState("error");
+        void setToolStatus(this.config.tool, "error", undefined, msg);
       });
 
       this.startedAt = new Date().toISOString();
@@ -224,10 +263,12 @@ export class ServiceSupervisor extends EventEmitter {
       if (this.state === "error") throw new Error(this.lastError ?? "Service failed to start");
       await new Promise((r) => setTimeout(r, 1_000));
     }
-    // Timeout reached without a healthy probe. Surface this so callers /
-    // dashboards do not see "running" + "unknown" health silently. We do not
-    // throw — the service may still be initializing — but we DO record a
-    // degraded marker so /status returns it and operators can act.
+    // Timeout reached without a healthy probe. The health poller may have
+    // flipped the state to "error" while we were waiting (FAILURE_THRESHOLD
+    // consecutive failures) — surface that instead of a degraded marker.
+    if (this.state === "error") {
+      throw new Error(this.lastError ?? "Service failed to start");
+    }
     this.lastError = sanitizeErrorMessage(
       `Health probe did not succeed within ${timeoutMs}ms — service may still be initializing`
     );

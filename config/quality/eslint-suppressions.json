@@ -2036,11 +2036,6 @@
       "count": 3
     }
   },
-  "tests/unit/codebuddy-cn-provider.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "tests/unit/codex-banked-reset-credits-5199.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 7

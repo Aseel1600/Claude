@@ -1,4 +1,4 @@
--- Migration 139: generic job registry (jobs + job_runs tables)
+-- Migration 146: generic job registry (jobs + job_runs tables)
 -- Job registry (#8848): centralized periodic-job scheduling + run history.
 --
 -- jobs:      one row per registered job (interval or cron), with env-flag gating

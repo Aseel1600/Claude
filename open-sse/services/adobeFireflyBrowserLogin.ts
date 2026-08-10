@@ -23,6 +23,7 @@ import {
   isAdobeUserAccessToken,
   looksLikeAdobeJwt,
 } from "./adobeFireflyClient.ts";
+import { isAdobeFireflyApiUrl, isAdobeLoginCookieDomain } from "./adobeFireflySecurity.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 
 /**
@@ -70,7 +71,6 @@ function loopbackHttpGetJson<T = unknown>(
 }
 
 const FIREFLY_HOME_URL = "https://firefly.adobe.com/";
-const FIREFLY_3P_HOST_SUFFIX = "firefly-3p.ff.adobe.io";
 // Bounded quantifiers (Hard Rule: avoid ReDoS on adversarial Authorization headers).
 const ADOBE_BEARER_REGEX =
   /^Bearer\s+(eyJ[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096}\.[A-Za-z0-9_-]{1,4096})/i;
@@ -649,7 +649,7 @@ async function captureViaCdp(opts: {
     if (method === "Network.requestWillBeSent") {
       const request = params.request as
         { url?: string; headers?: Record<string, string> } | undefined;
-      if (!request?.url || !request.url.includes(FIREFLY_3P_HOST_SUFFIX)) return;
+      if (!request?.url || !isAdobeFireflyApiUrl(request.url)) return;
       const headers = request.headers || {};
       const auth = headers.Authorization || headers.authorization || headers.AUTHORIZATION || "";
       const token = extractAdobeBearerTokenFromAuthorization(auth);
@@ -794,7 +794,7 @@ async function captureViaCdp(opts: {
             domain === "ff.adobe.io" ||
             domain.endsWith(".ff.adobe.io");
           if (!isFireflySite && !isAdobeRiskCookieName(cookie.name)) continue;
-          if (domain.includes("adobelogin.com") && !isAdobeRiskCookieName(cookie.name)) continue;
+          if (isAdobeLoginCookieDomain(domain) && !isAdobeRiskCookieName(cookie.name)) continue;
           await browserCdp
             .send("Storage.deleteCookies", {
               name: cookie.name,

@@ -1,4 +1,5 @@
 import { getUpstreamTimeoutConfig } from "@/shared/utils/runtimeTimeouts";
+import { resolvePublicCred } from "../utils/publicCreds.ts";
 import type { LegacyProvider } from "./providerRegistry.ts";
 import { loadProviderCredentials } from "./credentialLoader.ts";
 import { generateLegacyProviders } from "./providerRegistry.ts";
@@ -136,7 +137,7 @@ export const OAUTH_ENDPOINTS = {
   openference: {
     token: "https://openference.com/oauth/token",
     auth: "https://openference.com/app/oauth/authorize",
-    clientId: "omniroute",
+    clientId: resolvePublicCred("openference_id"),
   },
 };
 

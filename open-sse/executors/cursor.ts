@@ -75,6 +75,7 @@ import {
   visibleComposerContentFromThinking,
   composerReasoningRemainder,
 } from "./cursor/composer.ts";
+import { getActiveSyncedCatalog } from "../../src/lib/db/models/activeSyncedCatalog.ts";
 // Composer helpers re-exported for external importers (tests).
 export {
   isComposerModel,
@@ -805,6 +806,20 @@ export class CursorExecutor extends BaseExecutor {
     return resolveCursorImages(imageUrls);
   }
 
+  /**
+   * Exact ids from the active Cursor synced catalog. Empty/unavailable →
+   * undefined so resolveRequestedModel keeps #7289 offline splitting.
+   */
+  private async loadLiveCatalogIds(): Promise<ReadonlySet<string> | undefined> {
+    try {
+      const catalog = await getActiveSyncedCatalog("cursor");
+      if (!catalog.models.length) return undefined;
+      return new Set(catalog.models.map((model) => model.id));
+    } catch {
+      return undefined;
+    }
+  }
+
   private async buildRequest(
     model: string,
     body: {
@@ -819,7 +834,10 @@ export class CursorExecutor extends BaseExecutor {
     }
   ): Promise<{ body: Uint8Array; blobStore: Map<string, Buffer> }> {
     const { userText, tools } = this.assembleTextAndTools(body);
-    const images = await this.resolveRequestImages(body);
+    const [images, liveCatalogIds] = await Promise.all([
+      this.resolveRequestImages(body),
+      this.loadLiveCatalogIds(),
+    ]);
 
     const blobStore = new Map<string, Buffer>();
     const requestBody = buildAgentRequestBody({
@@ -829,6 +847,7 @@ export class CursorExecutor extends BaseExecutor {
       tools,
       blobStore,
       images,
+      liveCatalogIds,
     });
     return { body: requestBody, blobStore };
   }

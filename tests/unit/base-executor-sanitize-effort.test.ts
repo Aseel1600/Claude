@@ -391,7 +391,7 @@ test("sanitizeReasoningEffortForProvider: codex with xhigh passes through unchan
   assert.equal((result as Record<string, unknown>).reasoning_effort, "xhigh");
 });
 
-test("sanitizeReasoningEffortForProvider: codex maps OMP minimal to low across carriers", () => {
+test("sanitizeReasoningEffortForProvider: codex preserves OMP minimal across carriers", () => {
   const body = {
     model: "gpt-5.6-terra",
     reasoning_effort: "minimal",
@@ -404,9 +404,9 @@ test("sanitizeReasoningEffortForProvider: codex maps OMP minimal to low across c
     unknown
   >;
 
-  assert.equal(result.reasoning_effort, "low");
-  assert.deepEqual(result.reasoning, { effort: "low", summary: "auto" });
-  assert.deepEqual(result.output_config, { effort: "low" });
+  assert.equal(result.reasoning_effort, "minimal");
+  assert.deepEqual(result.reasoning, { effort: "minimal", summary: "auto" });
+  assert.deepEqual(result.output_config, { effort: "minimal" });
 });
 
 test("sanitizeReasoningEffortForProvider: no-op when reasoning_effort absent", () => {

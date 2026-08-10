@@ -138,9 +138,7 @@ function normalizeRuntimeStep(
       : {}),
     weight,
     label,
-    // `prompt` is a per-step pipeline input and only exists on a model step —
-    // #8894 widened the union with ComboProviderWildcardStep, which has no prompt.
-    prompt: (step.kind === "model" ? step.prompt : null) || null,
+    prompt: step.kind === "model" ? step.prompt || null : null,
   } satisfies ResolvedComboTarget;
 }
 
@@ -485,13 +483,6 @@ function estimateRequestInputTokens(body: Record<string, unknown>): number {
 }
 
 function valueContainsImagePart(value: unknown): boolean {
-  // Delegates to the unified media detector (open-sse/utils/mediaParts.ts) —
-  // single source of truth shared with the vision-bridge guardrail. The
-  // detector keeps this filter's legacy permissive matches (image-ish `type`
-  // in any casing, bare `image_url`/`input_image` keys, source.media_type
-  // image/*, bare data:image strings, recursion capped at depth 8) via
-  // "image_indicator" parts. containsMediaKind short-circuits on the first
-  // hit — this runs on every request, so no full-part collection here.
   return containsMediaKind([{ content: [value] }], "image");
 }
 
@@ -615,11 +606,9 @@ export type CompatFilterOptions = {
   failOpen?: boolean;
 };
 
-
-function hasHardCapabilityFailure(reasons: string[]): boolean {
+export function hasHardCapabilityFailure(reasons: string[]): boolean {
   return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
 }
-
 
 /**
  * Summarize a capability-filter exhaustion for a 400-class combo error (#8488).
@@ -724,9 +713,7 @@ export function filterTargetsByRequestCompatibility(
 
   if (compatible.length === targets.length) return targets;
   if (compatible.length === 0) {
-    const hardRejected = rejected.some((entry) =>
-      entry.reasons.some((r) => HARD_COMPAT_REASONS.has(r))
-    );
+    const hardRejected = rejected.some((entry) => hasHardCapabilityFailure(entry.reasons));
     const failOpen = options?.failOpen === true;
 
     log.debug?.(

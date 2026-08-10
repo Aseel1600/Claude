@@ -29,6 +29,7 @@ test("system sidebar items: monitoring has activity at top then logs/audit/syste
       "audit-a2a",
       "health",
       "runtime",
+      "resilience-connections",
     ]
   );
 });

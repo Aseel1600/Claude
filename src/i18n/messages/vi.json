@@ -937,7 +937,7 @@
   "disabled": "Đã tắt",
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
   "featureFlagArenaEloSyncEnabledDescription": "Bật đồng bộ ELO định kỳ từ bảng xếp hạng Arena AI để xếp hạng năng lực của mô hình.",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "Công bố các id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; trên /v1/models để tính năng khám phá mô hình qua gateway của Claude Code liệt kê được các mô hình không phải Claude. Cảnh báo: khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "Quảng bá các id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; trên /v1/models để tính năng khám phá mô hình qua gateway của Claude Code liệt kê được các mô hình không phải Claude. Cảnh báo: khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
   "sidebar": {
     "home": "Trang chủ",
     "dashboard": "Trang tổng quan",
@@ -1234,7 +1234,9 @@
     "discovery": "Khám phá",
     "discoverySubtitle": "Quét các nhà cung cấp để tìm quyền truy cập miễn phí",
     "resilienceConnections": "Khả Năng Phục Hồi Kết Nối",
-    "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa"
+    "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa",
+    "settingsModalityBridge": "Cầu Kết Nối Modality",
+    "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản"
   },
   "webhooks": {
     "title": "Webhook",
@@ -2343,7 +2345,10 @@
     "downloadFormat": "Tải xuống {format}",
     "noTextReturned": "Không có văn bản trả về",
     "wordTimestamps": "Mốc thời gian từng từ ({count} từ)",
-    "providerCount": "{count} nhà cung cấp"
+    "providerCount": "{count} nhà cung cấp",
+    "imageToTextBridgeAvailable": "Cầu nối phương thức hiện có thể mô tả hình ảnh cho các mô hình chỉ hỗ trợ văn bản. Playground nội tuyến sẽ khả dụng khi <code>/api/v1/images/understanding</code> được triển khai.",
+    "imageToTextBridgeCta": "Cấu hình cầu Hình Ảnh→Văn Bản trong cài đặt Cầu Modality",
+    "sttBridgeCta": "Cấu hình cầu Nói→Văn bản trong cài đặt Cầu Modality"
   },
   "search": {
     "searchQuery": "Truy vấn tìm kiếm",
@@ -2516,7 +2521,7 @@
       "always": "Luôn bật"
     },
     "ccDiscoveryInfoButton": "Cách bật khám phá mô hình trong Claude Code",
-    "ccDiscoveryInfoTooltip": "Công bố các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+    "ccDiscoveryInfoTooltip": "Quảng bá các mô hình không phải Claude dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
     "ccDiscoveryInfoLink": "Mở Feature Flags",
     "ccOnboardingTitle": "settings.json cho việc khám phá mô hình qua gateway",
     "ccOnboardingCopy": "Sao chép",
@@ -5206,7 +5211,7 @@
     "interceptionLoadError": "Không thể tải cài đặt chặn: {error}",
     "interceptionSaveError": "Không thể lưu cài đặt chặn: {error}",
     "ccAliasSectionTitle": "Hiển thị trong Claude Code (claude/…)",
-    "ccAliasSectionHint": "Công bố các mô hình của nhà cung cấp này dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Mặc định tắt — bật lên sẽ nhân đôi số mục trong danh mục với mọi client.",
+    "ccAliasSectionHint": "Quảng bá các mô hình của nhà cung cấp này dưới dạng id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; để tính năng khám phá mô hình qua gateway của Claude Code có thể liệt kê chúng. Mặc định tắt — bật lên sẽ nhân đôi số mục trong danh mục với mọi client.",
     "ccAliasProviderLevelLabel": "Mặc định của nhà cung cấp",
     "ccAliasModelOverridesLabel": "Ghi đè theo từng mô hình",
     "ccAliasModelOverrideAriaLabel": "Ghi đè cho {modelId}",
@@ -5492,12 +5497,12 @@
     "newApiUserIdPlaceholder": "vd. 12345",
     "newApiUserIdHint": "Giá trị tiêu đề New-Api-User của AgentRouter, dùng cùng với khóa API console để lấy số dư hạn mức.",
     "newApiAggregatorToggleLabel": "Cổng tổng hợp",
-    "newApiAggregatorToggleHint": "Bật phát hiện số dư cho các node tổng hợp New-API / One-API / Sub2API. Bảng điều khiển sẽ hiển thị huy hiệu số dư và định tuyến quota-preflight sẽ bỏ qua các tài khoản đã cạn.",
-    "newApiAggregatorConsoleApiKeyHint": "System Access Token cho endpoint /api/user/self của bộ tổng hợp. Không phải khóa API định tuyến.",
-    "newApiAggregatorUserIdHint": "Giá trị header New-Api-User dùng để lấy số dư quota của người dùng bộ tổng hợp.",
-    "newApiAggregatorQuotaPerUnitLabel": "Quota mỗi đơn vị",
-    "newApiAggregatorQuotaPerUnitHint": "Số đơn vị tín dụng New-API cho mỗi 1 USD (mặc định: 500000). Ghi đè nếu bộ tổng hợp của bạn dùng tỷ lệ khác.",
-    "featureFlagNewApiAggregatorBalanceDescription": "Bật phát hiện số dư cho các node tương thích New-API / One-API / Sub2API",
+    "newApiAggregatorToggleHint": "Bật tính năng phát hiện số dư cho các node tổng hợp New-API / One-API / Sub2API. Bảng điều khiển sẽ hiển thị huy hiệu số dư và định tuyến kiểm tra hạn mức trước sẽ bỏ qua các tài khoản đã hết hạn mức.",
+    "newApiAggregatorConsoleApiKeyHint": "Token truy cập hệ thống cho endpoint /api/user/self của bộ tổng hợp. Không phải là khóa API định tuyến.",
+    "newApiAggregatorUserIdHint": "Giá trị tiêu đề New-Api-User dùng để lấy số dư hạn mức của người dùng bộ tổng hợp.",
+    "newApiAggregatorQuotaPerUnitLabel": "Hạn mức trên mỗi đơn vị",
+    "newApiAggregatorQuotaPerUnitHint": "Số đơn vị tín dụng New-API trên mỗi $1 (mặc định: 500000). Ghi đè nếu bộ tổng hợp của bạn sử dụng tỷ lệ khác.",
+    "featureFlagNewApiAggregatorBalanceDescription": "Bật tính năng phát hiện số dư cho các node tương thích với bộ tổng hợp New-API / One-API / Sub2API",
     "cpaModeDisabledTitle": "Chế độ tương thích CLIProxyAPI đã bị tắt",
     "cpaModeEnabledTitle": "Chế độ tương thích CLIProxyAPI đã được bật",
     "customUserAgentHint": "Gợi ý User Agent tùy chỉnh",
@@ -5613,7 +5618,7 @@
     "tagGroupPlaceholder": "Nhập nhóm thẻ...",
     "testModel": "Kiểm tra mô hình",
     "testingModel": "Đang kiểm tra mô hình",
-    "modelTestQuotaTooltip": "Đã hết quota — sẽ đặt lại vào ngày mai hoặc cần nạp thêm",
+    "modelTestQuotaTooltip": "Đã hết hạn mức — sẽ được đặt lại vào ngày mai hoặc cần nạp thêm",
     "toggleOffShort": "Tắt",
     "toggleOnShort": "Bật",
     "tokenExpiredBadge": "Nhãn token đã hết hạn",
@@ -6001,7 +6006,9 @@
     "webTokenRequiredCredential": "Token bắt buộc: {credential}",
     "webSessionGuideStep1": "Đăng nhập vào {provider} trong trình duyệt của bạn.",
     "webSessionGuideStep2": "Mở công cụ dành cho nhà phát triển của trình duyệt và kiểm tra một yêu cầu do ứng dụng web gửi.",
+    "webSessionGuideStep2Fast": "Cách nhanh: cài đặt tiện ích Cookie Editor (chromewebstore.google.com → Cookie Editor), mở tiện ích trong thẻ {provider}, tìm {credential} (chọn tất cả các phần được đánh số nếu bị chia nhỏ), rồi nhấp Export → Copy với định dạng xuất là “Cookie header”.",
     "webSessionGuideStep3": "Sao chép thông tin xác thực được yêu cầu từ tên miền riêng của nhà cung cấp. Đối với cookie, chỉ sao chép giá trị tiêu đề Cookie và bỏ qua Cookie:.",
+    "webSessionGuideStep3Manual": "Cách thủ công: mở công cụ dành cho nhà phát triển của trình duyệt (F12 → Network), tải lại trang, mở một yêu cầu đã xác thực và sao chép giá trị tiêu đề Cookie trong Request Headers — bỏ tiền tố Cookie:.",
     "webSessionGuideStep4": "Dán vào đây và kiểm tra kết nối. Nếu nó ngừng hoạt động, hãy đăng nhập lại và thay thế bằng một giá trị mới.",
     "webSessionSecurityHint": "Hãy coi đây như mật khẩu: nó có thể truy cập vào tài khoản web đã đăng nhập của bạn cho đến khi hết hạn hoặc bị thu hồi.",
     "webNoAuthGuideTitle": "Không yêu cầu thông tin xác thực",
@@ -6032,7 +6039,12 @@
     "kimiOfficialSupporterTooltip": "Kimi (Moonshot AI) là người bạn mã nguồn mở sáng lập của OmniRoute",
     "cheaperInferenceSupporterBadge": "Người bạn mã nguồn mở",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference hỗ trợ OmniRoute với tư cách là người bạn mã nguồn mở",
-    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you"
+    "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "anonymousFallbackTitle": "Dự phòng ẩn danh",
+    "anonymousFallbackDesc": "Khi tất cả kết nối đã cấu hình đều cạn kiệt (hạn ngạch, tín dụng hoặc hết hạn), hãy tạm thời sử dụng tầng không cần khóa của nhà cung cấp này. Tắt tùy chọn này để bỏ qua nhà cung cấp thay vì gửi yêu cầu ẩn danh — khuyến nghị khi tầng không cần khóa từ chối các yêu cầu đó (401).",
+    "anonymousFallbackEnabled": "Đã bật dự phòng ẩn danh cho {provider}",
+    "anonymousFallbackDisabled": "Đã tắt dự phòng ẩn danh cho {provider} — các kết nối đã cạn kiệt sẽ bỏ qua nhà cung cấp này",
+    "anonymousFallbackUpdateFailed": "Không thể cập nhật cài đặt dự phòng ẩn danh"
   },
   "settings": {
     "title": "Cài đặt",
@@ -6397,7 +6409,7 @@
     "denoRelayOrgDomainRequired": "Yêu cầu phải có tên miền tổ chức",
     "denoRelayDeployFailed": "Triển khai Deno Deploy thất bại",
     "denoRelayTokenHint": "Token tổ chức (tiền tố ddo_) lấy từ console.deno.com → Organization → Settings → Organization Tokens. Chỉ được sử dụng một lần để triển khai và không bao giờ được lưu trữ.",
-    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Tên miền mặc định của tổ chức Deno Deploy của bạn (ví dụ: acme.deno.net). Dịch vụ chuyển tiếp sẽ có thể truy cập tại https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Lọc theo giao thức",
     "proxyFreePoolProtocol": "Giao thức",
     "proxyFreePoolCountryPlaceholder": "Quốc gia (ví dụ: US)",
@@ -7630,7 +7642,49 @@
     "enableCredentialRedaction": "Enable credential redaction",
     "enableCredentialRedactionDesc": "Scrubs API keys, tokens, private keys, and JWTs from messages, tool calls, and responses.",
     "pricingAutoSyncDisabled": "Đã tắt đồng bộ hóa tự động",
-    "pricingAutoSyncEnabled": "Đã bật đồng bộ hóa tự động"
+    "pricingAutoSyncEnabled": "Đã bật đồng bộ hóa tự động",
+    "modalityBridgeIntro": "Kết nối nội dung đa phương thức với văn bản trước khi nó đến các mô hình chỉ văn bản. Hình ảnh đang hoạt động; Âm thanh đến với AudioBridge; Video đang trong lộ trình.",
+    "modalityBridgeVisionTab": "Tầm Nhìn",
+    "modalityBridgeAudioTab": "Âm thanh",
+    "modalityBridgeVideoTab": "Video",
+    "modalityBridgeSubTabsAria": "Các phần Cầu Nối Modalité",
+    "modalityBridgeVisionTitle": "Cầu Nhìn",
+    "modalityBridgeVisionDesc": "Mô tả hình ảnh bằng mô hình thị giác và tiếp tục với mô hình văn bản mà người dùng đã chọn.",
+    "modalityBridgeMode": "Chế Độ",
+    "modalityBridgeModeAuto": "Tự động (được khuyến nghị)",
+    "modalityBridgeModeAutoHint": "Heuristic di sản: chuyển hướng các mô hình cá nhân mà không cần thông tin xác thực; mô tả theo cách khác.",
+    "modalityBridgeModeDescribe": "Luôn mô tả",
+    "modalityBridgeModeDescribeHint": "Mô hình bạn chọn luôn trả lời; hình ảnh được thay thế bằng mô tả văn bản.",
+    "modalityBridgeModeReroute": "Luôn chuyển hướng",
+    "modalityBridgeModeRerouteHint": "Gửi toàn bộ yêu cầu đến mô hình có khả năng nhìn tốt nhất (sẽ quay lại mô tả khi không có mô hình nào khả dụng).",
+    "modalityBridgeVisionModel": "Mô Hình Thị Giác",
+    "modalityBridgeVisionModelAuto": "Tự động (tốt nhất có sẵn)",
+    "modalityBridgeTaskAware": "Mô tả nhận thức nhiệm vụ",
+    "modalityBridgeTaskAwareDesc": "Bao gồm câu hỏi của người dùng làm trọng tâm để mô hình thị giác mô tả những gì quan trọng và phiên âm văn bản nhìn thấy.",
+    "modalityBridgePrompt": "Mô tả yêu cầu",
+    "modalityBridgeAdvanced": "Nâng Cao",
+    "modalityBridgeTimeoutMs": "Thời Gian Chờ (ms)",
+    "modalityBridgeMaxImages": "Số hình ảnh tối đa mỗi yêu cầu",
+    "modalityBridgeCacheEnabled": "Mô tả bộ nhớ đệm",
+    "modalityBridgeCacheEnabledDesc": "Tái sử dụng mô tả cho các hình ảnh giống hệt nhau (khóa SHA-256, trong bộ nhớ).",
+    "modalityBridgeCacheTtlMinutes": "Thời Gian Sống Bộ Nhớ Đệm (phút)",
+    "modalityBridgeCacheMaxEntries": "Số mục tối đa trong bộ nhớ cache",
+    "modalityBridgeStatsBridged": "đã kết nối",
+    "modalityBridgeStatsCacheHits": "lượt truy cập bộ nhớ đệm",
+    "modalityBridgeStatsFailures": "thất bại",
+    "modalityBridgeStatsLastUsed": "được sử dụng lần cuối",
+    "modalityBridgeStatsNever": "không bao giờ",
+    "modalityBridgeTestButton": "Kiểm tra với hình ảnh mẫu",
+    "modalityBridgeTestRunning": "Đang kiểm tra…",
+    "modalityBridgeTestOk": "Cầu OK — {count} hình ảnh được mô tả bởi {model}",
+    "modalityBridgeTestReroute": "Bridge đã chuyển hướng yêu cầu đến {model}",
+    "modalityBridgeTestNoop": "Cầu không được kích hoạt (mô hình có thể hỗ trợ tầm nhìn một cách tự nhiên hoặc cầu đã bị vô hiệu hóa)",
+    "modalityBridgeTestError": "Kiểm tra không thành công: {message}",
+    "modalityBridgeAudioComingSoon": "Cầu nối Âm thanh (nói → văn bản qua /v1/audio/transcriptions) sẽ được phát hành trong bản tiếp theo. Các khóa cài đặt của nó đã được đặt trước.",
+    "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) đang ở trong danh sách chờ — xem vấn đề #9760.",
+    "modalityBridgeMovedTitle": "Vision Bridge đã được di chuyển",
+    "modalityBridgeMovedBody": "Cài đặt Vision Bridge hiện đã có trên trang Modality Bridge chuyên dụng.",
+    "modalityBridgeMovedCta": "Mở cài đặt Cầu Modality"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -7814,10 +7868,6 @@
         "label": "Số hàng tối thiểu để nén",
         "description": "Số hàng tối thiểu trong một mảng JSON đồng nhất để kích hoạt nén dạng bảng. Mặc định: 8."
       },
-      "compressToolResults": {
-        "label": "__MISSING__:Proactively truncate long tool results",
-        "description": "__MISSING__:Truncates tool results over 2,000 characters during Lite compression. Emergency overflow protection may still trim content when the context exceeds the model budget."
-      },
       "preserveSystemPrompt": {
         "label": "Giữ nguyên prompt hệ thống"
       },
@@ -7841,6 +7891,10 @@
       },
       "minMessageLength": {
         "label": "Độ dài tin nhắn tối thiểu"
+      },
+      "compressToolResults": {
+        "label": "Chủ động rút gọn kết quả công cụ dài",
+        "description": "Rút gọn các kết quả công cụ dài hơn 2.000 ký tự trong quá trình nén Lite. Cơ chế bảo vệ tràn khẩn cấp vẫn có thể cắt bớt nội dung khi ngữ cảnh vượt quá ngân sách của mô hình."
       }
     },
     "engineFields": {
@@ -12421,5 +12475,10 @@
     "degraded.source.circuitBreaker": "Cầu Dao Mạch",
     "degraded.source.modelLockouts": "Khóa Mô Hình",
     "degraded.source.count": "Số Lượng Kết Nối"
-  }
+  },
+  "featureFlagCapabilityFilterEnabledDescription": "Từ chối yêu cầu trước khi gửi đi khi mô hình đích thiếu các khả năng bắt buộc (thị giác, công cụ, đầu ra có cấu trúc, cửa sổ ngữ cảnh). Bảo vệ các yêu cầu trực tiếp đến một nhà cung cấp khi chúng bỏ qua bộ lọc tương thích của combo.",
+  "capabilityFilter.visionMismatch": "Nhà cung cấp không hỗ trợ thị giác cho yêu cầu hình ảnh này",
+  "capabilityFilter.toolsMismatch": "Nhà cung cấp không hỗ trợ gọi công cụ",
+  "capabilityFilter.structuredOutputMismatch": "Nhà cung cấp không hỗ trợ đầu ra có cấu trúc",
+  "capabilityFilter.contextWindowMismatch": "Yêu cầu vượt quá cửa sổ ngữ cảnh của nhà cung cấp"
 }

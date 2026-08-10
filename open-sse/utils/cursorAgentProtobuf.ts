@@ -332,6 +332,8 @@ function splitCursorEffortSuffix(
 /**
  * cursor-agent rewrites model ids before putting them on the wire:
  *   "auto"                 → RequestedModel { model_id: "default" }
+ *   "auto-cost"            → RequestedModel { model_id: "default",
+ *                                             parameters: [{id: "optimization", value: "cost"}] }
  *   "composer-2-fast"      → RequestedModel { model_id: "composer-2",
  *                                             parameters: [{id: "fast", value: "true"}] }
  *   "claude-opus-4-8-high" → RequestedModel { model_id: "claude-opus-4-8",
@@ -342,13 +344,51 @@ function splitCursorEffortSuffix(
  * Other ids are passed through verbatim after spelling-variant normalization
  * (see normalizeCursorModelId).
  */
-export function resolveRequestedModel(modelId: string): {
+/** Cursor Router optimization levels (OpenCodex `CURSOR_ROUTING_LEVELS`). */
+export const CURSOR_ROUTING_LEVELS = ["cost", "balance", "intelligence"] as const;
+export type CursorRoutingLevel = (typeof CURSOR_ROUTING_LEVELS)[number];
+
+/**
+ * ModelParameter id for Cursor's Cost/Balance/Intelligence control on wire model
+ * `default` (OpenCodex `CURSOR_ROUTING_LEVEL_PARAMETER_ID`).
+ */
+export const CURSOR_ROUTING_LEVEL_PARAMETER_ID = "optimization";
+
+export type ResolveRequestedModelOptions = {
+  /**
+   * When set and containing the normalized client model id, send that id
+   * verbatim on AgentRun (skip composer-fast / Claude / GPT splits).
+   * Live AvailableModels returns flattened effort-suffixed ids; stripping them
+   * to a missing base causes Cursor `AI Model Not Found`. Auto / auto-* still
+   * map to wire `default` (+ optimization) even when present in this set.
+   */
+  liveCatalogIds?: ReadonlySet<string>;
+};
+
+export function resolveRequestedModel(
+  modelId: string,
+  opts?: ResolveRequestedModelOptions
+): {
   modelId: string;
   parameters: Array<{ id: string; value: string }>;
 } {
   const normalized = normalizeCursorModelId(modelId);
   if (normalized === "auto") {
     return { modelId: "default", parameters: [] };
+  }
+  // OpenCodex-style router variants: auto-cost / auto-balance / auto-intelligence
+  // → wire `default` + ModelParameter { id: "optimization", value: <level> }.
+  for (const level of CURSOR_ROUTING_LEVELS) {
+    if (normalized === `auto-${level}`) {
+      return {
+        modelId: "default",
+        parameters: [{ id: CURSOR_ROUTING_LEVEL_PARAMETER_ID, value: level }],
+      };
+    }
+  }
+  // Live catalog is authoritative for exact ids (flattened effort variants).
+  if (opts?.liveCatalogIds?.has(normalized)) {
+    return { modelId: normalized, parameters: [] };
   }
   // Strip the "-fast" suffix and surface it as a parameter — only the composer
   // family observably needs this split today, but the protocol field is generic.
@@ -406,6 +446,8 @@ export type AgentRunInput = {
   // encodeSelectedImageBody). Empty / undefined keeps the request
   // byte-identical to the text-only path.
   images?: EncodedImage[];
+  /** Exact live AvailableModels ids — see resolveRequestedModel liveCatalogIds. */
+  liveCatalogIds?: ReadonlySet<string>;
 };
 
 export { cursorImageAttachmentPath, encodeSelectedImageBody };
@@ -433,7 +475,9 @@ export function openAIToolsToMcpDefs(tools: OpenAITool[]): McpToolDefinition[] {
 export function encodeAgentRunRequest(input: AgentRunInput): Buffer {
   const conversationId = input.conversationId || crypto.randomUUID();
   const messageId = input.messageId || crypto.randomUUID();
-  const { modelId, parameters } = resolveRequestedModel(input.modelId);
+  const { modelId, parameters } = resolveRequestedModel(input.modelId, {
+    liveCatalogIds: input.liveCatalogIds,
+  });
 
   // UserMessage { text, message_id, selected_context, mode=1 }.
   // selected_context is normally an empty placeholder (required by the server
