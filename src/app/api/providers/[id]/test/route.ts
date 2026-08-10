@@ -11,6 +11,7 @@ import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { syncToCloud } from "@/lib/cloudSync";
 import { validateProviderApiKey } from "@/lib/providers/validation";
 import { getCliRuntimeStatus } from "@/shared/services/cliRuntime";
+import { buildQoderCliNotFoundHint } from "@omniroute/open-sse/services/qoderCliResolve.ts";
 // Use the shared open-sse token refresh with built-in dedup/race-condition cache
 import { getAccessToken } from "@omniroute/open-sse/services/tokenRefresh.ts";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
@@ -206,7 +207,9 @@ async function getProviderRuntimeStatus(connection: any) {
 
     const runtimeMessage = runtime.installed
       ? `Local CLI runtime is installed but not runnable (${runtime.reason || "healthcheck_failed"})`
-      : "Local CLI runtime is not installed";
+      : provider === "qoder"
+        ? buildQoderCliNotFoundHint(runtime.reason || "not_found")
+        : "Local CLI runtime is not installed";
 
     return {
       ...runtime,
@@ -698,6 +701,17 @@ export async function testSingleConnection(connectionId: string, validationModel
       ? makeDiagnosis("ok", "local", null, null)
       : classifyFailure({ error: result.error, statusCode: result.statusCode, provider }));
 
+  // #9623: a failed connection test must not paint the connection permanently red.
+  // Previously a non-terminal failure wrote `testStatus: "error"` with
+  // `rateLimitedUntil: null` — since the cooldown filter only ever skips entries
+  // whose rateLimitedUntil is in the future, a null cooldown left the connection
+  // permanently unavailable after a transient outage. Give non-terminal test
+  // failures a short cooldown so the lazy-recovery path retries them.
+  const terminalTestStatuses = new Set(["banned", "expired", "credits_exhausted"]);
+  const isTerminalFailure =
+    !result.valid && terminalTestStatuses.has(String(diagnosis.code ?? diagnosis.type ?? "").toLowerCase());
+  const testFailureCooldownMs = result.valid ? 0 : 30_000; // 30s retry window
+
   const updateData: Record<string, any> = {
     testStatus: result.valid ? "active" : "error",
     lastError: result.valid ? null : result.error,
@@ -706,7 +720,12 @@ export async function testSingleConnection(connectionId: string, validationModel
     lastErrorType: result.valid ? null : diagnosis.type,
     lastErrorSource: result.valid ? null : diagnosis.source,
     errorCode: result.valid ? null : diagnosis.code || result.statusCode || null,
-    rateLimitedUntil: result.valid ? null : connection.rateLimitedUntil || null,
+    rateLimitedUntil:
+      result.valid || isTerminalFailure
+        ? result.valid
+          ? null
+          : connection.rateLimitedUntil || null
+        : new Date(Date.now() + testFailureCooldownMs).toISOString(),
   };
 
   if (result.valid) {

@@ -23,21 +23,20 @@ import {
 
 export { validateProviderSpecificData };
 
+import { isValidProviderIconUrl } from "@/shared/validation/iconUrl";
+
 // ──── Provider Schemas ────
 
-// #2166: shared optional remote icon URL for compatible provider nodes. Empty string
-// is accepted as "no custom icon" (clears any previously stored value). Restricted to
-// http(s) — `.url()` alone also accepts syntactically-valid-but-unsafe schemes like
-// `javascript:`/`data:`, which we never want persisted as an <img src>.
+// #2166 + data-URL support: shared optional remote icon URL for compatible provider
+// nodes. Empty string is accepted as "no custom icon". Accepts http(s) URLs AND
+// valid `data:image/*;base64,...` data URLs; rejects malformed/unsafe schemes. The
+// validator lives in src/shared/validation/iconUrl.ts so UI and API never diverge.
 const providerNodeIconUrlSchema = z
   .string()
   .trim()
   .max(2000)
-  .refine((value) => value === "" || z.string().url().safeParse(value).success, {
-    message: "Icon URL must be a valid URL",
-  })
-  .refine((value) => value === "" || /^https?:\/\//i.test(value), {
-    message: "Icon URL must be a valid http:// or https:// URL",
+  .refine((value) => isValidProviderIconUrl(value), {
+    message: "Icon URL must be a valid http(s) or data:image/*;base64 URL",
   })
   .optional();
 
@@ -249,6 +248,7 @@ export const providerModelMutationSchema = z.object({
         "audio-transcriptions",
         "audio-speech",
         "images-generations",
+        "videos",
       ])
     )
     .default(["chat"]),
@@ -280,6 +280,17 @@ export const providerModelMutationSchema = z.object({
   /** Zod 4: `z.record(z.enum([...]), …)` requires every enum key; use `partialRecord` for sparse patches. */
   compatByProtocol: z
     .partialRecord(z.enum(["openai", "openai-responses", "claude"]), modelCompatPerProtocolSchema)
+    .optional(),
+  // #9820: optional async video-generation job preset for a custom
+  // OpenAI-compatible provider whose /videos surface is a submit→poll API
+  // (agnes-video-job, muapi-video-job, sora-job). Persisted on the custom model
+  // row; the /v1/videos/generations handler branches on it between the
+  // synchronous OpenAI-compatible path and the job/poll path. `"openai-video"`
+  // is a legacy no-op value that keeps the sync handler selected.
+  generationConfig: z
+    .object({
+      preset: z.enum(["agnes-video-job", "muapi-video-job", "sora-job", "openai-video"]),
+    })
     .optional(),
 });
 

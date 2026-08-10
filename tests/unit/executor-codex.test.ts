@@ -1153,6 +1153,67 @@ test("CodexExecutor.transformRequest preserves native Codex custom tools", () =>
   assert.equal(tools[1].strict, false);
 });
 
+test("CodexExecutor.transformRequest defaults translated function strict without changing native payloads", () => {
+  const executor = new CodexExecutor();
+  const translated = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          function: { name: "translated_tool", parameters: { type: "object" } },
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const translatedTool = (translated.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(translatedTool.strict, false);
+
+  const native = executor.transformRequest(
+    "gpt-5.5",
+    {
+      _nativeCodexPassthrough: true,
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          name: "native_tool",
+          parameters: { type: "object" },
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const nativeTool = (native.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(nativeTool.strict, undefined);
+
+  const explicit = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          name: "explicit_tool",
+          parameters: { type: "object" },
+          strict: true,
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const explicitTool = (explicit.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(explicitTool.strict, true);
+});
+
 test("CodexExecutor.transformRequest still drops custom tools outside native passthrough", () => {
   const executor = new CodexExecutor();
   const result = executor.transformRequest(

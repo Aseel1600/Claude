@@ -10,7 +10,7 @@
  * .next/standalone -> outDir (cp)                              Y               Y           Y    SHARED
  * .next/static -> outDir/.next/static (cp)                    Y               Y           Y    SHARED
  * public/ -> outDir/public/ (cp)                              Y               Y           Y    SHARED
- * wreq-js/rust -> outDir/node_modules/wreq-js/rust            Y               -           -    SHARED (native asset)
+ * wreq-js -> outDir/node_modules/wreq-js                     Y               Y           Y    SHARED (extra module)
  * better-sqlite3/build -> outDir/node_modules/better-sqlite3/ Y               -           -    SHARED (native asset)
  * @swc/helpers -> outDir/node_modules/@swc/helpers             Y               Y           Y    SHARED (extra module)
  * pino-abstract-transport -> outDir/node_modules/...          Y               -           -    SHARED (extra module)
@@ -48,10 +48,7 @@
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
-import {
-  colocateLlmlinguaOptionals,
-  SEED_PACKAGES,
-} from "./colocateOptionals.mjs";
+import { colocateLlmlinguaOptionals, SEED_PACKAGES } from "./colocateOptionals.mjs";
 
 /**
  * Check whether a path exists (async).
@@ -78,16 +75,29 @@ async function exists(targetPath) {
  * (relative to projectRoot) and destination (relative to outDir) can be joined
  * for either path/platform. @type {{label:string, src:string[], dest:string[]}[]}
  */
-const NATIVE_ASSET_ENTRIES = [
-  {
-    label: "wreq-js native runtime",
-    src: ["node_modules", "wreq-js", "rust"],
-    dest: ["node_modules", "wreq-js", "rust"],
-  },
+export const NATIVE_ASSET_ENTRIES = [
   {
     label: "better-sqlite3 native binary",
     src: ["node_modules", "better-sqlite3", "build"],
     dest: ["node_modules", "better-sqlite3", "build"],
+  },
+  {
+    label: "better-sqlite3 prebuilt native binaries",
+    src: ["node_modules", "better-sqlite3", "prebuilds"],
+    dest: ["node_modules", "better-sqlite3", "prebuilds"],
+  },
+  {
+    // onnxruntime-node's dist/binding.js dlopen()s a platform-specific
+    // libonnxruntime.so.1 shipped under bin/napi-v3/<platform>/<arch>/ — a
+    // *dynamic* native load Next.js's standalone file trace can't see (same
+    // blind spot class as the LLMLingua closure below, just for a .so instead
+    // of a JS import). Without this the standalone bundle boots with
+    // "Error: libonnxruntime.so.1: cannot open shared object file: No such
+    // file or directory" the first time transformers/llmlingua actually try
+    // to run ONNX inference.
+    label: "onnxruntime-node native binaries (libonnxruntime .so + .node addon)",
+    src: ["node_modules", "onnxruntime-node", "bin"],
+    dest: ["node_modules", "onnxruntime-node", "bin"],
   },
   {
     // TPROXY IP_TRANSPARENT addon (Fase 3 / Epic A). Built by build-tproxy-native
@@ -102,6 +112,15 @@ const NATIVE_ASSET_ENTRIES = [
 
 /** @type {{label:string, src:string[], dest:string[]}[]} */
 const EXTRA_MODULE_ENTRIES = [
+  {
+    // tlsClient.ts intentionally resolves wreq-js through a runtime-dynamic
+    // require so Turbopack cannot rewrite the package name to a hashed external.
+    // That also makes the package invisible to static tracing, so copy the whole
+    // module—not only rust/—into every standalone artifact.
+    label: "wreq-js TLS runtime",
+    src: ["node_modules", "wreq-js"],
+    dest: ["node_modules", "wreq-js"],
+  },
   {
     label: "@swc/helpers",
     src: ["node_modules", "@swc", "helpers"],
@@ -238,6 +257,16 @@ const EXTRA_MODULE_ENTRIES = [
     dest: ["node_modules", "undici"],
   },
   {
+    // Turbopack's standalone tracer can emit a hollow node_modules/ws/ directory
+    // for the externalized `ws` package (no package.json / index.js), which then
+    // shadows the real install at runtime and crashes instrumentation with:
+    // "Cannot find package '<bundle>/node_modules/ws/index.js'" (#OmniRoute v3.8.50 live bug).
+    // Overlay the full source package so the bundled server resolves the real entrypoint.
+    label: "ws (externalized runtime package shadow fix)",
+    src: ["node_modules", "ws"],
+    dest: ["node_modules", "ws"],
+  },
+  {
     label: "sql.js WASM fallback runtime",
     src: ["node_modules", "sql.js"],
     dest: ["node_modules", "sql.js"],
@@ -263,7 +292,7 @@ const EXTRA_MODULE_ENTRIES = [
 ];
 
 /**
- * Copy native standalone assets (wreq-js rust/, better-sqlite3 build/).
+ * Copy native standalone assets (better-sqlite3 build/prebuilds and TPROXY).
  *
  * The destination is derived as <rootDir>/<distDir>/standalone/node_modules/...
  * for backward compatibility with existing callers and tests.
@@ -497,8 +526,8 @@ function copyStaticAndPublic({ distDir, relDistDir, projectRoot, resolvedOutDir 
 }
 
 /**
- * Copy native assets (wreq-js, better-sqlite3) and extra runtime modules/sidecars
- * (pino, migrations, MITM server, helper scripts, sqlite-vec platform packages, …)
+ * Copy native assets (better-sqlite3 and TPROXY) and extra runtime modules/sidecars
+ * (wreq-js, pino, migrations, MITM server, helper scripts, sqlite-vec platform packages, …)
  * into the assembled bundle. Missing sources are skipped silently.
  *
  * @param {string} projectRoot
@@ -522,6 +551,68 @@ function copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir) {
     fsSync.cpSync(src, dest, { recursive: true, force: true });
     console.log(`[assembleStandalone] Synced module: ${mod.label}`);
   }
+}
+
+/**
+ * Next/Turbopack standalone output can leave behind hollow top-level package
+ * directories for externalized runtime deps (directory exists, but contains no
+ * files). Those empty placeholders shadow the real repo-level install and make
+ * runtime ESM externals fail with "Cannot find package '<bundle>/node_modules/<pkg>/index.js'"
+ * even though the dependency is present in the source tree.
+ *
+ * Repair strategy: for each empty top-level package dir already present in the
+ * assembled bundle, if the same package exists in the project root node_modules,
+ * replace the hollow directory with a full recursive copy from the source install.
+ * This keeps the fix narrowly scoped to packages the standalone already expects.
+ *
+ * @param {string} projectRoot
+ * @param {string} resolvedOutDir
+ * @returns {{repaired: number, packages: string[]}}
+ */
+function repairEmptyExternalPackageDirs(projectRoot, resolvedOutDir) {
+  const summary = { repaired: 0, packages: [] };
+  const bundleNodeModules = path.join(resolvedOutDir, "node_modules");
+  const sourceNodeModules = path.join(projectRoot, "node_modules");
+  if (!fsSync.existsSync(bundleNodeModules) || !fsSync.existsSync(sourceNodeModules)) {
+    return summary;
+  }
+
+  for (const name of fsSync.readdirSync(bundleNodeModules)) {
+    if (name.startsWith(".") || name.startsWith("@")) continue;
+
+    const bundlePkgDir = path.join(bundleNodeModules, name);
+    const sourcePkgDir = path.join(sourceNodeModules, name);
+
+    let bundleStat;
+    try {
+      bundleStat = fsSync.statSync(bundlePkgDir);
+    } catch {
+      continue;
+    }
+    if (!bundleStat.isDirectory()) continue;
+
+    let bundleEntries = [];
+    try {
+      bundleEntries = fsSync.readdirSync(bundlePkgDir);
+    } catch {
+      continue;
+    }
+    if (bundleEntries.length > 0 || !fsSync.existsSync(sourcePkgDir)) continue;
+
+    let sourceStat;
+    try {
+      sourceStat = fsSync.statSync(sourcePkgDir);
+    } catch {
+      continue;
+    }
+    if (!sourceStat.isDirectory()) continue;
+
+    fsSync.cpSync(sourcePkgDir, bundlePkgDir, { recursive: true, force: true });
+    summary.repaired += 1;
+    summary.packages.push(name);
+  }
+
+  return summary;
 }
 
 /**
@@ -740,6 +831,13 @@ export function assembleStandalone({
   // 6. Optionally copy native assets + extra modules (synchronous)
   if (copyNatives) {
     copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir);
+    const emptyPkgRepair = repairEmptyExternalPackageDirs(projectRoot, resolvedOutDir);
+    if (emptyPkgRepair.repaired > 0) {
+      console.log(
+        `[assembleStandalone] Repaired ${emptyPkgRepair.repaired} hollow external package dir(s): ` +
+          emptyPkgRepair.packages.join(", ")
+      );
+    }
 
     // #9166: dynamically imported LLMLingua packages are not reliably traced
     // into the standalone bundle. Copy their complete dependency closure from
@@ -750,8 +848,7 @@ export function assembleStandalone({
       rootDir: projectRoot,
       targetNodeModulesDir: path.join(resolvedOutDir, "node_modules"),
       seeds: [...SEED_PACKAGES, "@huggingface/transformers"],
-      log: (message) =>
-        console.log(`[assembleStandalone] ${message.trim()}`),
+      log: (message) => console.log(`[assembleStandalone] ${message.trim()}`),
     });
   }
 

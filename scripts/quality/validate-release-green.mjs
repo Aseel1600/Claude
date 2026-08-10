@@ -221,6 +221,17 @@ export const FULL_CI_SKIP = new Set(["check:pr-evidence", "check:codeql-ratchet"
 // Gates that need a specific env to behave like CI (else they compare against the wrong base).
 export const FULL_CI_ENV = { "check:test-masking": { GITHUB_BASE_REF: "main" } };
 
+const FULL_CI_DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
+const FULL_CI_TIMEOUT_OVERRIDES_MS = {
+  // Measured at 19m38s on the loaded release-v3.8.50 devbox. The former generic
+  // 10m ceiling killed a green scan before it could report its result.
+  "check:test-masking": 30 * 60 * 1000,
+};
+
+export function fullCiTimeoutFor(gateId) {
+  return FULL_CI_TIMEOUT_OVERRIDES_MS[gateId] ?? FULL_CI_DEFAULT_TIMEOUT_MS;
+}
+
 /**
  * Parse a ci.yml text and return the ordered, de-duplicated list of gate commands to run.
  * Each entry: { id, job, args:["run", <script>, ...("--" + args)], env }.
@@ -272,7 +283,8 @@ export function extractCiGates(
  * never an infinite block that the release captain mistakes for a hang and kills the pre-flight.
  */
 export function classifyRunError(err, timeoutMs) {
-  if (err && err.killed && timeoutMs) {
+  const timedOut = err?.killed === true || err?.code === "ETIMEDOUT";
+  if (timedOut && timeoutMs) {
     return {
       code: 124,
       out: `gate exceeded its ${Math.round(timeoutMs / 1000)}s ceiling and was killed — treat as a hung/failed gate (e.g. an unreleased DB handle in the unit suite); does NOT pass`,
@@ -609,14 +621,6 @@ async function main() {
         args: ["run", "check:pack-artifact"],
         timeout: 20 * 60 * 1000,
       });
-      // WS1.2 (#7065 class): boot the REAL packed tarball from a clean install —
-      // the runtime gate structure checks cannot provide. Reuses the same dist/ build.
-      slow.push({
-        id: "pack-boot",
-        label: "Tarball boot-smoke (installed CLI serves /health)",
-        args: ["run", "check:pack-boot"],
-        timeout: 15 * 60 * 1000,
-      });
     }
     slow.forEach((g) => announce(`${g.label} [parallel]`));
     const slowResults = await Promise.all(
@@ -633,6 +637,41 @@ async function main() {
         detail: code === 0 ? "pass" : firstFailureLine(out),
       });
     });
+
+    if (WITH_BUILD) {
+      // WS1.2 (#7065 class): boot the REAL packed tarball from a clean install.
+      // check:pack-artifact is the builder for dist/ when staging is absent, so the
+      // boot smoke MUST run after it completes. Running both in the parallel wave
+      // races check:pack-boot against dist/server.js creation on clean worktrees.
+      const packArtifactIndex = slow.findIndex((g) => g.id === "pack-artifact");
+      const packArtifactResult = slowResults[packArtifactIndex];
+      const bootLabel = "Tarball boot-smoke (installed CLI serves /health)";
+
+      if (!packArtifactResult || packArtifactResult.code !== 0) {
+        const out = "skipped because package-artifact did not produce a valid dist/ build";
+        saveGateLog("pack-boot", out);
+        record({
+          id: "pack-boot",
+          label: bootLabel,
+          kind: "hard",
+          ok: false,
+          detail: out,
+        });
+      } else {
+        announce(bootLabel);
+        const { code, out } = await runAsync(npmCmd, ["run", "check:pack-boot"], {
+          timeout: 15 * 60 * 1000,
+        });
+        saveGateLog("pack-boot", out);
+        record({
+          id: "pack-boot",
+          label: bootLabel,
+          kind: "hard",
+          ok: code === 0,
+          detail: code === 0 ? "pass" : firstFailureLine(out),
+        });
+      }
+    }
   } else if (WITH_BUILD) {
     // --with-build without the suites (--quick): still verify the package artifact.
     const { code, out } = await runAsync(npmCmd, ["run", "check:pack-artifact"], {
@@ -669,7 +708,10 @@ async function main() {
     for (const g of gates) {
       // Skip a gate the curated pass already ran with the same id (avoid double-running lint).
       if (already.has(g.id)) continue;
-      const { code, out } = run(npmCmd, g.args, { env: g.env, timeout: 10 * 60 * 1000 });
+      const { code, out } = run(npmCmd, g.args, {
+        env: g.env,
+        timeout: fullCiTimeoutFor(g.id),
+      });
       saveGateLog(`fullci-${g.id.replace(/[^a-z0-9]+/gi, "-")}`, out);
       record({
         id: g.id,

@@ -24,7 +24,15 @@
  * Fixes: https://github.com/diegosouzapw/OmniRoute/issues/7802
  */
 
-import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -78,7 +86,8 @@ function patchNodeGypCommonGypi() {
     const variablesMatch = content.match(/('variables'\s*:\s*\{)/);
     if (variablesMatch) {
       const insertPos = content.indexOf(variablesMatch[0]) + variablesMatch[0].length;
-      content = content.slice(0, insertPos) + "\n      'android_ndk_path%': ''," + content.slice(insertPos);
+      content =
+        content.slice(0, insertPos) + "\n      'android_ndk_path%': ''," + content.slice(insertPos);
       writeFileSync(commonGypi, content, "utf8");
       console.log(`  ✅ Patched common.gypi for Android at ${commonGypi}`);
     }

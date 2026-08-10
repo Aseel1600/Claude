@@ -8,6 +8,7 @@ import {
   logUsage,
   addBufferToUsage,
   filterUsageForFormat,
+  normalizeUsage as normalizeTokenUsage,
 } from "./usageTracking.ts";
 import {
   parseSSELine,
@@ -23,8 +24,10 @@ import {
   hasActiveDeltaValue,
   injectThinkingSignature,
 } from "./streamHelpers.ts";
+import { rejectEmptyChoicesStream, buildEmptyChoicesStreamError } from "./streamEmptyChoices.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { buildOmniRouteSseMetadataComment } from "@/domain/omnirouteResponseMeta";
+import { sseCommentsEnabled } from "./sseHeartbeat.ts";
 import {
   createStructuredSSECollector,
   buildStreamSummaryFromEvents,
@@ -70,7 +73,10 @@ import {
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
 import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
-import { restoreOpenAIToolNames } from "../translator/helpers/toolCallHelper.ts";
+import {
+  caseInsensitiveToolNameLookup,
+  restoreOpenAIToolNames,
+} from "../translator/helpers/toolCallHelper.ts";
 import { normalizeFinalOpenAIStreamChunk } from "./openAIStreamChunk.ts";
 
 /**
@@ -578,7 +584,7 @@ function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: un
       : null;
   if (!block || block.type !== "tool_use" || typeof block.name !== "string") return false;
 
-  const restoredName = toolNameMap.get(block.name) ?? block.name;
+  const restoredName = caseInsensitiveToolNameLookup(block.name, toolNameMap) ?? block.name;
   if (restoredName === block.name) return false;
   block.name = restoredName;
   return true;
@@ -687,7 +693,8 @@ export function createSSEStream(options: StreamOptions = {}) {
   // Responses API, Anthropic SSE, and Antigravity/cloudcode terminate on
   // their own protocol events (response.completed / message_stop / last
   // response candidate respectively).
-  const shouldEmitDoneTerminator = !clientExpectsResponsesStream && !clientExpectsClaudeStream && !clientExpectsAntigravityStream;
+  const shouldEmitDoneTerminator =
+    !clientExpectsResponsesStream && !clientExpectsClaudeStream && !clientExpectsAntigravityStream;
 
   let buffer = "";
   let usage: UsageTokenRecord | null = null;
@@ -719,6 +726,9 @@ export function createSSEStream(options: StreamOptions = {}) {
           requestToolIdentityMap,
         }
       : null;
+
+  // Tracks whether any valuable chunk was forwarded; empty at flush => retryable 502 (#9268)
+  let forwardedValuableChunk = false;
 
   // Track content length for usage estimation (both modes)
   let totalContentLength = 0;
@@ -990,6 +1000,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     const output = formatSSE(itemSanitized, sourceFormat);
     clientPayloadCollector.push(itemSanitized);
     reqLogger?.appendConvertedChunk?.(output);
+    forwardedValuableChunk = true;
     controller.enqueue(encoder.encode(output));
   };
 
@@ -997,7 +1008,14 @@ export function createSSEStream(options: StreamOptions = {}) {
     controller: TransformStreamDefaultController,
     finalUsage: UsageTokenRecord | Record<string, unknown> | null | undefined
   ) => {
-    const costUsd = finalUsage ? await calculateCost(provider, model, finalUsage) : 0;
+    // Skip SSE metadata comment lines when OMNIROUTE_SSE_COMMENTS is disabled
+    // (e.g., "off", "false", "0", "no"). Strict OpenAI-compatible clients that
+    // JSON.parse every SSE line will crash on `: x-omniroute-*` comment lines.
+    if (!sseCommentsEnabled()) return;
+
+    const costUsd = finalUsage
+      ? await calculateCost(provider, model, normalizeTokenUsage(finalUsage))
+      : 0;
     const comment = buildOmniRouteSseMetadataComment({
       provider,
       model,
@@ -1047,9 +1065,9 @@ export function createSSEStream(options: StreamOptions = {}) {
       return;
     }
 
-    // #7095/#7176 reconciliation: compute the visible placeholder WITHOUT
-    // mutating `item` — the encrypted reasoning item (and its `encrypted_content`,
-    // required by Codex for subsequent requests) is forwarded to the client intact.
+    // #7176/#7243: only synthesize summary events from real upstream plaintext —
+    // never mutate `item` and never fabricate alarming placeholder text for
+    // encrypted-only reasoning (`encrypted_content` still forwards intact).
     const visibleSummary = getVisibleResponsesReasoningSummaryText(item);
 
     if (!visibleSummary) {
@@ -1362,7 +1380,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                           const responseToolCallEvents =
                             buildResponsesFunctionCallEvents(collectedToolCall);
                           output = formatSSEDataEvents(responseToolCallEvents);
-                          clientPayloadCollector.push(...responseToolCallEvents);
+                          for (const event of responseToolCallEvents) {
+                            clientPayloadCollector.push(event);
+                          }
                           reqLogger?.appendConvertedChunk?.(output);
                           controller.enqueue(encoder.encode(output));
                           injectedUsage = true;
@@ -1616,7 +1636,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // retry." with finish_reason: "stop" — clients (Goose/opencode) feed that
                   // text back as a turn and spin in a retry loop. This restores the #3400
                   // behavior that #3422 inadvertently reverted (regression #3388/#3502).
-                  if (Array.isArray(parsed.choices) && parsed.choices.length === 0) {
+                  if (Array.isArray(parsed.choices) && (parsed.choices.length === 0 ||
+                      (parsed.choices.length === 1 &&
+                        parsed.choices[0]?.delta &&
+                        typeof parsed.choices[0].delta === "object" &&
+                        Object.keys(parsed.choices[0].delta).length === 0))
+                  ) {
                     const emptyChoicesUsage = extractUsage(parsed) ?? parsed.usage;
                     if (hasValidUsage(emptyChoicesUsage)) {
                       // Some upstreams (e.g. Ollama Cloud) emit prompt_tokens: 0
@@ -2459,12 +2484,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                   status: 200,
                   usage,
                   responseBody,
+                  // #9315 switched the summary to the accumulated responseBody to avoid
+                  // stale/truncated event data — but responseBody here is synthesized in
+                  // chat-completion shape, which loses the Responses API `response` object.
+                  // Keep the events-derived summary for OPENAI_RESPONSES only.
                   providerPayload: providerPayloadCollector.build(
-                    buildStreamSummaryFromEvents(
-                      providerPayloadCollector.getEvents(),
-                      sourceFormat,
-                      model
-                    ),
+                    sourceFormat === FORMATS.OPENAI_RESPONSES
+                      ? buildStreamSummaryFromEvents(
+                          providerPayloadCollector.getEvents(),
+                          sourceFormat,
+                          model
+                        )
+                      : responseBody,
                     { includeEvents: false }
                   ),
                   clientPayload: clientPayloadCollector.build(responseBody, {
@@ -2603,6 +2634,27 @@ export function createSSEStream(options: StreamOptions = {}) {
             return;
           }
 
+          // #9268: reject a translate-mode stream that forwarded no valuable chunk
+          // (all-empty `choices: []`) instead of completing with an empty 200.
+          if (
+            mode === STREAM_MODE.TRANSLATE &&
+            rejectEmptyChoicesStream({
+              forwardedValuableChunk,
+              hasValidUsage: hasValidUsage(state?.usage),
+              providerPayloadCollector,
+              clientPayloadCollector,
+              targetFormat,
+              model,
+              usage: state?.usage,
+              onFailure,
+              onComplete,
+              clearPendingRequestFromStream,
+            })
+          ) {
+            controller.error(markPendingRequestCleared(buildEmptyChoicesStreamError()));
+            return;
+          }
+
           // Flush remaining events (only once at stream end)
           const flushed = translateResponse(targetFormat, sourceFormat, null, state);
 
@@ -2734,12 +2786,16 @@ export function createSSEStream(options: StreamOptions = {}) {
                 status: 200,
                 usage: state?.usage,
                 responseBody,
+                // Same OPENAI_RESPONSES carve-out as the passthrough branch above —
+                // the synthesized chat-shaped responseBody drops the `response` object.
                 providerPayload: providerPayloadCollector.build(
-                  buildStreamSummaryFromEvents(
-                    providerPayloadCollector.getEvents(),
-                    targetFormat,
-                    model
-                  ),
+                  targetFormat === FORMATS.OPENAI_RESPONSES
+                    ? buildStreamSummaryFromEvents(
+                        providerPayloadCollector.getEvents(),
+                        targetFormat,
+                        model
+                      )
+                    : responseBody,
                   { includeEvents: false }
                 ),
                 clientPayload: clientPayloadCollector.build(responseBody, {
@@ -2782,7 +2838,7 @@ export function createSSETransformStreamWithLogger(
   body: unknown = null,
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
-  onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
+  onFailure: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null = null,
   copilotCompatibleReasoning = false,
   suppressThinkClose = false,
   customToolNames: ReadonlySet<string> = new Set(),
@@ -2817,7 +2873,7 @@ export function createPassthroughStreamWithLogger(
   body: unknown = null,
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
-  onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
+  onFailure: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null = null,
   clientResponseFormat: string | null = null,
   requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null = null
 ) {

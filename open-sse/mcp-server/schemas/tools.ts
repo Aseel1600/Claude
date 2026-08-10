@@ -68,12 +68,20 @@ export const getHealthOutput = z.object({
       provider: z.string(),
     })
     .optional(),
+  degraded: z
+    .array(
+      z.object({
+        source: z.enum(["health", "resilience", "rateLimits"]),
+        error: z.string(),
+      })
+    )
+    .optional(),
 });
 
 export const getHealthTool: McpToolDefinition<typeof getHealthInput, typeof getHealthOutput> = {
   name: "omniroute_get_health",
   description:
-    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics.",
+    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics. If an underlying source (health/resilience/rate-limits) could not be reached, it is listed in `degraded` instead of being silently reported as empty/zero.",
   inputSchema: getHealthInput,
   outputSchema: getHealthOutput,
   scopes: ["read:health"],
@@ -186,6 +194,53 @@ export const switchComboTool: McpToolDefinition<typeof switchComboInput, typeof 
       "Activates or deactivates a combo. When deactivated, requests will not be routed through this combo. Use to toggle between different routing strategies.",
     inputSchema: switchComboInput,
     outputSchema: switchComboOutput,
+    scopes: ["write:combos"],
+    auditLevel: "full",
+    phase: 1,
+    sourceEndpoints: ["/api/combos"],
+  };
+
+// --- Tool 4b: omniroute_create_combo ---
+export const createComboInput = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .describe("Unique combo name (letters, numbers, spaces, -, _, /, ., [ and ])"),
+  description: z.string().max(2000).optional().describe("Optional human-readable description"),
+  strategy: z
+    .enum(ROUTING_STRATEGY_VALUES)
+    .optional()
+    .describe("Routing strategy (default: priority)"),
+  models: z
+    .array(
+      z.object({
+        provider: z.string().describe("Provider name (e.g., 'claude', 'gemini')"),
+        model: z.string().describe("Model ID for that provider"),
+      })
+    )
+    .min(1)
+    .describe("Ordered model chain; order defines priority"),
+});
+
+export const createComboOutput = z.object({
+  success: z.boolean(),
+  combo: z.object({
+    id: z.string(),
+    name: z.string(),
+    strategy: z.string(),
+    enabled: z.boolean(),
+  }),
+});
+
+export const createComboTool: McpToolDefinition<typeof createComboInput, typeof createComboOutput> =
+  {
+    name: "omniroute_create_combo",
+    description:
+      "Registers a new combo (model chain) with a name, ordered model list, and optional routing strategy. Full validation (name collisions, nested-combo DAG, composite tiers) is enforced by the combos API.",
+    inputSchema: createComboInput,
+    outputSchema: createComboOutput,
     scopes: ["write:combos"],
     auditLevel: "full",
     phase: 1,
@@ -1460,6 +1515,7 @@ export const MCP_TOOLS = [
   listCombosTool,
   getComboMetricsTool,
   switchComboTool,
+  createComboTool,
   checkQuotaTool,
   routeRequestTool,
   costReportTool,

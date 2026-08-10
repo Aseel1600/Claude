@@ -45,6 +45,7 @@ export const SIDEBAR_ICON_ACCENTS: Partial<Record<SidebarItemId, string>> = {
   "logs-activity": "#60A5FA",
   health: "#EF4444",
   runtime: "#F59E0B",
+  "resilience-connections": "#22C55E",
   "costs-pricing": "#FB923C",
   "costs-budget": "#22C55E",
   "costs-quota-share": "#06B6D4",
@@ -68,6 +69,7 @@ export const SIDEBAR_ICON_ACCENTS: Partial<Record<SidebarItemId, string>> = {
   "settings-general": "#64748B",
   "settings-appearance": "#D946EF",
   "settings-ai": "#A78BFA",
+  "settings-modality-bridge": "#8B5CF6",
   "settings-routing": "#06B6D4",
   "settings-resilience": "#22C55E",
   "settings-advanced": "#F97316",
@@ -126,6 +128,21 @@ export function getSidebarIconAccent(id: string): string {
   );
 }
 
+/**
+ * Decide whether a sidebar item should be shown given a resolved feature-flag
+ * map. Items without `featureFlagKey` are always visible. Fails OPEN when the
+ * flag isn't present in the map (e.g. `/api/settings` hasn't returned yet, or
+ * an older server response predates the flag) — a missing entry must never
+ * hide an unrelated item.
+ */
+export function isSidebarItemVisibleForFlags(
+  item: Pick<SidebarItemDefinition, "featureFlagKey">,
+  flags: Record<string, boolean>
+): boolean {
+  if (!item.featureFlagKey) return true;
+  return flags[item.featureFlagKey] !== false;
+}
+
 export function getSectionItems(
   section: SidebarSectionDefinition | { children: readonly SidebarSectionChild[] }
 ): readonly SidebarItemDefinition[] {
@@ -179,6 +196,7 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "logs",
   "health",
   "runtime",
+  "resilience-connections",
   "translator",
   "playground",
   "memory",
@@ -186,6 +204,7 @@ const DEVELOPER_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "mcp",
   "a2a",
   "settings-general",
+  "settings-modality-bridge",
   "settings-routing",
   "settings-resilience",
   "settings-sidebar",
@@ -217,6 +236,7 @@ const ADMIN_SHOWN: ReadonlySet<HideableSidebarItemId> = new Set([
   "audit-mcp",
   "audit-a2a",
   "settings-general",
+  "settings-modality-bridge",
   "settings-routing",
   "settings-resilience",
   "settings-security",
