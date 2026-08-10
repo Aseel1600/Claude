@@ -177,3 +177,9 @@ export function resolveExecutionCredentials(opts: {
     },
   };
 }
+
+export function getExecutionConnectionId(credentials: unknown): string | null {
+  if (!credentials || typeof credentials !== "object") return null;
+  const connectionId = (credentials as Record<string, unknown>).connectionId;
+  return typeof connectionId === "string" && connectionId.trim() ? connectionId.trim() : null;
+}

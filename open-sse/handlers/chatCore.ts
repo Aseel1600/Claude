@@ -200,6 +200,7 @@ import {
 import { wrapReadableStreamWithFinalize } from "./chatCore/streamFinalize.ts";
 import { buildCacheUsageLogMeta } from "./chatCore/cacheUsageMeta.ts";
 import { buildExecutorClientHeaders } from "./chatCore/executorClientHeaders.ts";
+import { getExecutionConnectionId } from "./chatCore/executionCredentials.ts";
 import { resolveExecutionCredentials as resolveExecutionCredentialsFor } from "./chatCore/executionCredentials.ts";
 import { resolveExecutorWithProxy as resolveExecutorWithProxyFor } from "./chatCore/executorProxy.ts";
 import type { ClaudeMessage } from "./chatCore/claudeMessageTypes.ts";
@@ -231,7 +232,8 @@ import {
   normalizeOpenAIToolFinishReasons,
   restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
-import { resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
+import { createDisabledCompressionConfig, resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
+import type { EnforceDecision } from "@/lib/quota/types";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
 import {
   isBuiltinStackedPipeline,
@@ -1171,14 +1173,7 @@ export async function handleChatCore({
         formatCompressionAnnotation,
       } = await import("../services/compression/strategySelector.ts");
       const { trackCompressionStats } = await import("../services/compression/stats.ts");
-      let config: CompressionConfig = compressionSettings ?? {
-        enabled: false,
-        defaultMode: "off",
-        autoTriggerTokens: 0,
-        cacheMinutes: 5,
-        preserveSystemPrompt: true,
-        comboOverrides: {},
-      };
+      let config: CompressionConfig = compressionSettings ?? createDisabledCompressionConfig();
       if (compressionExcluded) config = { ...config, enabled: false };
       if (!promptCompressionEnabled || !compressionSettings) {
         log?.debug?.("COMPRESSION", "Prompt compression disabled or unavailable");
@@ -2573,7 +2568,7 @@ export async function handleChatCore({
         // router/log use. Operators configure per-(key,model) caps against THIS id.
         model: model || undefined,
         estimatedCost: {},
-      }).catch((err: unknown) => {
+      }).catch((err: unknown): EnforceDecision => {
         log?.warn?.(
           "QUOTA_SHARE",
           `enforceQuotaShare failed; fail-open: ${err instanceof Error ? err.message : String(err)}`
@@ -2738,7 +2733,8 @@ export async function handleChatCore({
               stage: "sending_to_provider",
             });
             const execCreds = getExecutionCredentials();
-            const attemptConnectionId = execCreds?.connectionId || connectionId;
+            const executionConnectionId = getExecutionConnectionId(execCreds);
+            const attemptConnectionId = executionConnectionId || connectionId;
             const accountSemaphoreMaxConcurrency = resolveAccountSemaphoreMaxConcurrency(execCreds);
             const accountSemaphoreKey = resolveAccountSemaphoreKey({
               provider,
@@ -2822,7 +2818,7 @@ export async function handleChatCore({
                 stage: "provider_response_started",
               });
 
-              if (res.response.status === 401 && execCreds?.connectionId) {
+              if (res.response.status === 401 && executionConnectionId) {
                 recordKeyHealthStatus(401, execCreds);
               }
 
@@ -2854,7 +2850,7 @@ export async function handleChatCore({
                 attempts < maxAttempts - 1
               ) {
                 const failedConnectionId =
-                  execCreds?.connectionId || credentials?.connectionId || connectionId;
+                  executionConnectionId || credentials?.connectionId || connectionId;
                 const normalizedHeaders = normalizeHeaders(res.response.headers);
                 const retryAfterHeader = normalizedHeaders["retry-after"] ?? null;
                 const retryAfterMs = retryAfterHeader
