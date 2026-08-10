@@ -1,3 +1,8 @@
+---
+title: OmniRoute Intelligence Governor V1
+description: Deterministic, provider-neutral routing intelligence for OmniRoute.
+---
+
 # OmniRoute Intelligence Governor V1
 
 The Governor is a deterministic, provider-neutral control plane that does not require S3. Modes are `off`, `shadow`, `simulate`, `active-canary`, and `active`; the default is `off`.

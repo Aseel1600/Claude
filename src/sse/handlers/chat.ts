@@ -104,7 +104,7 @@ import { getGovernorMode } from "@/shared/utils/featureFlags.ts";
 import { getGovernorRuntimeConfig } from "@omniroute/open-sse/governor/runtimeConfig.ts";
 import type { GovernorInput } from "@omniroute/open-sse/governor/types.ts";
 import type { CounterfactualCandidate } from "@omniroute/open-sse/governor/counterfactual.ts";
-import { getProviderModels, PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@omniroute/open-sse/config/providerModels.ts";
+import { getProviderModels, PROVIDER_MODELS } from "@omniroute/open-sse/config/providerModels.ts";
 import { getGovernorActiveBreaker } from "@omniroute/open-sse/governor/activeCanary.ts";
 
 // Pipeline integration — wired modules

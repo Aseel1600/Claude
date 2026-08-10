@@ -35,7 +35,7 @@ export interface EvaluationResult {
   recommendation: GovernorDecision | null;
   mode: GovernorMode;
   decisionLatencyMs: number;
-  plan?: CounterfactualExecutionPlan;
+  plan?: CounterfactualExecutionPlan | null;
 }
 
 export interface SimulationResult extends EvaluationResult {
@@ -169,7 +169,7 @@ export class GovernorManager {
       correlationId,
       mode,
       decision: baseResult.recommendation,
-      plan,
+      plan: plan ?? undefined,
       decisionCount: baseResult.recommendation ? 1 : 0,
       planResolutionCount: plan ? 1 : 0,
       originalRoute: {
