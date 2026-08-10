@@ -937,7 +937,7 @@
   "disabled": "已停用",
   "featureFlagOmnirouteEmergencyFallbackDescription": "將預算耗盡的請求路由到緊急免費備用提供者/模型。",
   "featureFlagArenaEloSyncEnabledDescription": "啟用定期 Arena AI 排行榜 ELO 同步，用於模型智慧排名。",
-  "featureFlagExposeCcDiscoveryAliasesDescription": "在 /v1/models 上廣告 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID，以便 Claude Code 閘道模型發現列出非 Claude 模型。警告：當全局啟用時，會為所有客戶端重複目錄條目。",
+  "featureFlagExposeCcDiscoveryAliasesDescription": "在 /v1/models 上廣告 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID，以便 Claude Code 閘道模型發現列出非 Claude 模型。警告：當全域啟用時，會為所有客戶端重複目錄條目。",
   "sidebar": {
     "home": "首頁",
     "dashboard": "儀表板",
@@ -2521,7 +2521,7 @@
       "always": "始終"
     },
     "ccDiscoveryInfoButton": "如何在 Claude Code 中啟用發現功能",
-    "ccDiscoveryInfoTooltip": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告非 Claude 模型，以便 Claude Code 的網關模型發現可以列出它們。當全局啟用時，為所有客戶雙重目錄條目。",
+    "ccDiscoveryInfoTooltip": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告非 Claude 模型，以便 Claude Code 的網關模型發現可以列出它們。當全域啟用時，為所有客戶雙重目錄條目。",
     "ccDiscoveryInfoLink": "開啟功能標誌",
     "ccOnboardingTitle": "gateway 模型發現的 settings.json",
     "ccOnboardingCopy": "複製",
@@ -2930,7 +2930,7 @@
     "hermesRoleApproval": "核准",
     "hermesRoleApprovalDesc": "安全與核准決策",
     "hermesRoleMcp": "MCP",
-    "hermesRoleMcpDesc": "MCP 伺服器工具調用",
+    "hermesRoleMcpDesc": "MCP 伺服器工具呼叫",
     "hermesRoleTitleGeneration": "標題生成",
     "hermesRoleTitleGenerationDesc": "會議標題生成",
     "hermesRoleMemoryQueryRewrite": "記憶體查詢重寫",
@@ -5211,7 +5211,7 @@
     "interceptionLoadError": "載入攔截設定失敗：{error}",
     "interceptionSaveError": "儲存攔截設定失敗：{error}",
     "ccAliasSectionTitle": "在 Claude Code (claude/…) 中公開",
-    "ccAliasSectionHint": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告此提供者的模型，以便 Claude Code 的網關模型發現可以列出它們。默認為關閉 — 啟用此功能會使所有客戶的目錄條目加倍。",
+    "ccAliasSectionHint": "在 claude/&lt;provider&gt;/&lt;model&gt; 鏡像 ID 下廣告此提供者的模型，以便 Claude Code 的網關模型發現可以列出它們。預設為關閉 — 啟用此功能會使所有客戶的目錄條目加倍。",
     "ccAliasProviderLevelLabel": "提供者預設",
     "ccAliasModelOverridesLabel": "每個模型的覆蓋設定",
     "ccAliasModelOverrideAriaLabel": "{modelId} 的覆蓋設定",
@@ -6032,7 +6032,7 @@
     "overrideBaseUrlHint": "進階：將此內建提供者指向自訂端點。留空以使用預設值。",
     "apiProtocolLabel": "API 協議",
     "apiProtocolDefault": "OpenAI 相容（預設）",
-    "apiProtocolHint": "某些提供者在多個協議上發布相同的模型。除非您需要替代方案，否則請保留默認設置。",
+    "apiProtocolHint": "某些提供者在多個協議上發布相同的模型。除非您需要替代方案，否則請保留預設設置。",
     "bulkAddFormatHintCloudflare": "每行一個金鑰。格式：name|accountId|apiKey（Cloudflare 帳戶 ID + API 令牌）。",
     "lmarenaWebCookieHint": "開啟 arena.ai，登入後從網路請求中複製完整的 Cookie 標頭。請包含 arena-auth-prod-v1.0 和 arena-auth-prod-v1.1（以及後續區塊，如有），最好附帶 cf_clearance。請勿僅貼上空白的 arena-auth-prod-v1 cookie。可選：若 create-evaluation 仍然回傳 403，可提供 providerSpecificData.recaptchaV3Token。",
     "kimiOfficialSupporterBadge": "創始好友",
@@ -12300,7 +12300,7 @@
     "partnerLinkNote": "合作夥伴連結",
     "dismissAriaLabel": "關閉"
   },
-  "featureFlagExposeFunctionalGatewayMirrorsDescription": "在 /v1/models 上廣告 <gateway-alias>/<model> 鏡像 ID，針對那些其正規擁有者沒有有效憑證但有一個通過網關且有有效憑證路由它們的模型。警告：當全局啟用時，會為所有客戶端添加目錄條目。",
+  "featureFlagExposeFunctionalGatewayMirrorsDescription": "在 /v1/models 上廣告 <gateway-alias>/<model> 鏡像 ID，針對那些其正規擁有者沒有有效憑證但有一個通過網關且有有效憑證路由它們的模型。警告：當全域啟用時，會為所有客戶端添加目錄條目。",
   "radarPage": {
     "title": "雷達目錄",
     "subtitle": "由社群智慧增強的免費模型目錄",
@@ -12478,7 +12478,7 @@
   },
   "featureFlagCapabilityFilterEnabledDescription": "在目標模型缺乏所需功能（視覺、工具、結構化輸出、上下文窗口）時，拒絕發送前的請求。保護繞過組合層兼容性過濾器的直接單一提供者請求。",
   "capabilityFilter.visionMismatch": "提供者不支援此影像請求的視覺效果",
-  "capabilityFilter.toolsMismatch": "提供者不支援工具調用",
+  "capabilityFilter.toolsMismatch": "提供者不支援工具呼叫",
   "capabilityFilter.structuredOutputMismatch": "提供者不支援結構化輸出",
   "capabilityFilter.contextWindowMismatch": "請求超出提供者上下文窗口"
 }
