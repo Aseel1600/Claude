@@ -8,6 +8,7 @@ import {
   logUsage,
   addBufferToUsage,
   filterUsageForFormat,
+  normalizeUsage as normalizeTokenUsage,
 } from "./usageTracking.ts";
 import {
   parseSSELine,
@@ -23,6 +24,7 @@ import {
   hasActiveDeltaValue,
   injectThinkingSignature,
 } from "./streamHelpers.ts";
+import { rejectEmptyChoicesStream, buildEmptyChoicesStreamError } from "./streamEmptyChoices.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { buildOmniRouteSseMetadataComment } from "@/domain/omnirouteResponseMeta";
 import { sseCommentsEnabled } from "./sseHeartbeat.ts";
@@ -725,6 +727,9 @@ export function createSSEStream(options: StreamOptions = {}) {
         }
       : null;
 
+  // Tracks whether any valuable chunk was forwarded; empty at flush => retryable 502 (#9268)
+  let forwardedValuableChunk = false;
+
   // Track content length for usage estimation (both modes)
   let totalContentLength = 0;
   // Passthrough: accumulate content and reasoning separately for call log response body
@@ -995,6 +1000,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     const output = formatSSE(itemSanitized, sourceFormat);
     clientPayloadCollector.push(itemSanitized);
     reqLogger?.appendConvertedChunk?.(output);
+    forwardedValuableChunk = true;
     controller.enqueue(encoder.encode(output));
   };
 
@@ -1007,7 +1013,9 @@ export function createSSEStream(options: StreamOptions = {}) {
     // JSON.parse every SSE line will crash on `: x-omniroute-*` comment lines.
     if (!sseCommentsEnabled()) return;
 
-    const costUsd = finalUsage ? await calculateCost(provider, model, finalUsage) : 0;
+    const costUsd = finalUsage
+      ? await calculateCost(provider, model, normalizeTokenUsage(finalUsage))
+      : 0;
     const comment = buildOmniRouteSseMetadataComment({
       provider,
       model,
@@ -1372,7 +1380,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                           const responseToolCallEvents =
                             buildResponsesFunctionCallEvents(collectedToolCall);
                           output = formatSSEDataEvents(responseToolCallEvents);
-                          clientPayloadCollector.push(...responseToolCallEvents);
+                          for (const event of responseToolCallEvents) {
+                            clientPayloadCollector.push(event);
+                          }
                           reqLogger?.appendConvertedChunk?.(output);
                           controller.enqueue(encoder.encode(output));
                           injectedUsage = true;
@@ -1626,7 +1636,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // retry." with finish_reason: "stop" — clients (Goose/opencode) feed that
                   // text back as a turn and spin in a retry loop. This restores the #3400
                   // behavior that #3422 inadvertently reverted (regression #3388/#3502).
-                  if (Array.isArray(parsed.choices) && parsed.choices.length === 0) {
+                  if (Array.isArray(parsed.choices) && (parsed.choices.length === 0 ||
+                      (parsed.choices.length === 1 &&
+                        parsed.choices[0]?.delta &&
+                        typeof parsed.choices[0].delta === "object" &&
+                        Object.keys(parsed.choices[0].delta).length === 0))
+                  ) {
                     const emptyChoicesUsage = extractUsage(parsed) ?? parsed.usage;
                     if (hasValidUsage(emptyChoicesUsage)) {
                       // Some upstreams (e.g. Ollama Cloud) emit prompt_tokens: 0
@@ -2616,6 +2631,27 @@ export function createSSEStream(options: StreamOptions = {}) {
             controller.error(
               markPendingRequestCleared(new Error(err.message || "Upstream failure"))
             );
+            return;
+          }
+
+          // #9268: reject a translate-mode stream that forwarded no valuable chunk
+          // (all-empty `choices: []`) instead of completing with an empty 200.
+          if (
+            mode === STREAM_MODE.TRANSLATE &&
+            rejectEmptyChoicesStream({
+              forwardedValuableChunk,
+              hasValidUsage: hasValidUsage(state?.usage),
+              providerPayloadCollector,
+              clientPayloadCollector,
+              targetFormat,
+              model,
+              usage: state?.usage,
+              onFailure,
+              onComplete,
+              clearPendingRequestFromStream,
+            })
+          ) {
+            controller.error(markPendingRequestCleared(buildEmptyChoicesStreamError()));
             return;
           }
 

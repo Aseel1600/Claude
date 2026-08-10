@@ -10,7 +10,7 @@
  * .next/standalone -> outDir (cp)                              Y               Y           Y    SHARED
  * .next/static -> outDir/.next/static (cp)                    Y               Y           Y    SHARED
  * public/ -> outDir/public/ (cp)                              Y               Y           Y    SHARED
- * wreq-js/rust -> outDir/node_modules/wreq-js/rust            Y               -           -    SHARED (native asset)
+ * wreq-js -> outDir/node_modules/wreq-js                     Y               Y           Y    SHARED (extra module)
  * better-sqlite3/build -> outDir/node_modules/better-sqlite3/ Y               -           -    SHARED (native asset)
  * @swc/helpers -> outDir/node_modules/@swc/helpers             Y               Y           Y    SHARED (extra module)
  * pino-abstract-transport -> outDir/node_modules/...          Y               -           -    SHARED (extra module)
@@ -75,16 +75,29 @@ async function exists(targetPath) {
  * (relative to projectRoot) and destination (relative to outDir) can be joined
  * for either path/platform. @type {{label:string, src:string[], dest:string[]}[]}
  */
-const NATIVE_ASSET_ENTRIES = [
-  {
-    label: "wreq-js native runtime",
-    src: ["node_modules", "wreq-js", "rust"],
-    dest: ["node_modules", "wreq-js", "rust"],
-  },
+export const NATIVE_ASSET_ENTRIES = [
   {
     label: "better-sqlite3 native binary",
     src: ["node_modules", "better-sqlite3", "build"],
     dest: ["node_modules", "better-sqlite3", "build"],
+  },
+  {
+    label: "better-sqlite3 prebuilt native binaries",
+    src: ["node_modules", "better-sqlite3", "prebuilds"],
+    dest: ["node_modules", "better-sqlite3", "prebuilds"],
+  },
+  {
+    // onnxruntime-node's dist/binding.js dlopen()s a platform-specific
+    // libonnxruntime.so.1 shipped under bin/napi-v3/<platform>/<arch>/ — a
+    // *dynamic* native load Next.js's standalone file trace can't see (same
+    // blind spot class as the LLMLingua closure below, just for a .so instead
+    // of a JS import). Without this the standalone bundle boots with
+    // "Error: libonnxruntime.so.1: cannot open shared object file: No such
+    // file or directory" the first time transformers/llmlingua actually try
+    // to run ONNX inference.
+    label: "onnxruntime-node native binaries (libonnxruntime .so + .node addon)",
+    src: ["node_modules", "onnxruntime-node", "bin"],
+    dest: ["node_modules", "onnxruntime-node", "bin"],
   },
   {
     // TPROXY IP_TRANSPARENT addon (Fase 3 / Epic A). Built by build-tproxy-native
@@ -99,6 +112,15 @@ const NATIVE_ASSET_ENTRIES = [
 
 /** @type {{label:string, src:string[], dest:string[]}[]} */
 const EXTRA_MODULE_ENTRIES = [
+  {
+    // tlsClient.ts intentionally resolves wreq-js through a runtime-dynamic
+    // require so Turbopack cannot rewrite the package name to a hashed external.
+    // That also makes the package invisible to static tracing, so copy the whole
+    // module—not only rust/—into every standalone artifact.
+    label: "wreq-js TLS runtime",
+    src: ["node_modules", "wreq-js"],
+    dest: ["node_modules", "wreq-js"],
+  },
   {
     label: "@swc/helpers",
     src: ["node_modules", "@swc", "helpers"],
@@ -270,7 +292,7 @@ const EXTRA_MODULE_ENTRIES = [
 ];
 
 /**
- * Copy native standalone assets (wreq-js rust/, better-sqlite3 build/).
+ * Copy native standalone assets (better-sqlite3 build/prebuilds and TPROXY).
  *
  * The destination is derived as <rootDir>/<distDir>/standalone/node_modules/...
  * for backward compatibility with existing callers and tests.
@@ -504,8 +526,8 @@ function copyStaticAndPublic({ distDir, relDistDir, projectRoot, resolvedOutDir 
 }
 
 /**
- * Copy native assets (wreq-js, better-sqlite3) and extra runtime modules/sidecars
- * (pino, migrations, MITM server, helper scripts, sqlite-vec platform packages, …)
+ * Copy native assets (better-sqlite3 and TPROXY) and extra runtime modules/sidecars
+ * (wreq-js, pino, migrations, MITM server, helper scripts, sqlite-vec platform packages, …)
  * into the assembled bundle. Missing sources are skipped silently.
  *
  * @param {string} projectRoot

@@ -1047,7 +1047,7 @@ Arguments: {"command":"systemctl status omniroute"}`;
   assert.doesNotMatch(text, /Arguments:/);
   assert.match(text, /response.output_item.added/);
   assert.match(text, /response.function_call_arguments.done/);
-  assert.match(text, /"name":"terminal"/);
+  assert.equal(onCompletePayload.clientPayload._eventCount, 5);
   assert.equal(onCompletePayload.responseBody.choices[0].finish_reason, "tool_calls");
   assert.equal(onCompletePayload.responseBody.choices[0].message.content, null);
   assert.equal(

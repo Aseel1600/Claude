@@ -112,3 +112,29 @@ test("cleanup: memories uses correct table name (not 'memory_entries')", () => {
     "must NOT use non-existent table name memory_entries"
   );
 });
+
+test("cleanup: mcp_tool_audit prunes by created_at (existing column), not timestamp", () => {
+  // mcp_tool_audit has created_at (see 002_mcp_a2a_tables.sql); timestamp does
+  // not exist, so WHERE timestamp < ? raised SqliteError "no such column" at
+  // every boot-time cleanup and the retention pruning never ran.
+  assert.ok(
+    source.includes("DELETE FROM mcp_tool_audit WHERE created_at < ?"),
+    "mcp_tool_audit cleanup must use created_at column"
+  );
+  assert.ok(
+    !source.includes("DELETE FROM mcp_tool_audit WHERE timestamp"),
+    "must NOT use timestamp for mcp_tool_audit (column doesn't exist)"
+  );
+});
+
+test("cleanup: a2a_task_events prunes by created_at (existing column), not timestamp", () => {
+  // Same schema fact for a2a_task_events (created_at, no timestamp column).
+  assert.ok(
+    source.includes("DELETE FROM a2a_task_events WHERE created_at < ?"),
+    "a2a_task_events cleanup must use created_at column"
+  );
+  assert.ok(
+    !source.includes("DELETE FROM a2a_task_events WHERE timestamp"),
+    "must NOT use timestamp for a2a_task_events (column doesn't exist)"
+  );
+});

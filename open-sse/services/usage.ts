@@ -68,6 +68,7 @@ import { getXaiUsage } from "./usage/xai.ts";
 import { getXaiOauthUsage } from "./usage/xaiOauth.ts";
 import { getGrokCliUsage } from "./usage/grokCli.ts";
 import { getFirecrawlUsage } from "./usage/firecrawl.ts";
+import { getCommandCodeUsage } from "./usage/command-code.ts";
 
 type JsonRecord = Record<string, unknown>;
 type UsageProviderConnection = JsonRecord & {
@@ -130,6 +131,8 @@ export const USAGE_FETCHER_PROVIDERS = [
   "ha",
   // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
+  // Command Code credits + 5h/weekly windows (GET /alpha/billing/credits)
+  "command-code",
 ] as const;
 
 export type UsageFetcherProvider = (typeof USAGE_FETCHER_PROVIDERS)[number];
@@ -229,6 +232,8 @@ export async function getUsageForProvider(
       return await getHyperAgentUsage(apiKey || accessToken, providerSpecificData);
     case "firecrawl":
       return await getFirecrawlUsage(id || "", apiKey, connection);
+    case "command-code":
+      return await getCommandCodeUsage(apiKey || accessToken || "");
     default:
       return { message: `Usage API not implemented for ${provider}` };
   }
@@ -259,6 +264,7 @@ export const __testing = {
   getXaiUsage,
   getXaiOauthUsage,
   getFirecrawlUsage,
+  getCommandCodeUsage,
   getVertexUsage,
   getMiniMaxAuthErrorMessage,
   getMiniMaxErrorSummary,

@@ -517,6 +517,7 @@ export async function httpBackedChat(
       headers,
       body,
       signal: signal ?? undefined,
+      sessionScope: req.poolKey,
     });
 
     const fetchMs = Date.now() - fetchStart;
