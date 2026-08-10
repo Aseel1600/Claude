@@ -112,12 +112,13 @@ export function isControlPlaneProxyDirectFallbackEnabled(): boolean {
   }
 }
 
-export type GovernorMode = "off" | "shadow";
+export type GovernorMode = "off" | "shadow" | "simulate";
 
 export function getGovernorMode(): GovernorMode {
   try {
     const value = resolveFeatureFlag("INTELLIGENCE_GOVERNOR_MODE");
     if (value === "shadow") return "shadow";
+    if (value === "simulate") return "simulate";
     return "off";
   } catch {
     return "off";

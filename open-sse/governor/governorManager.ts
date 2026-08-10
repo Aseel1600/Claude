@@ -13,6 +13,7 @@
 import { getGovernorMode, isGovernorTelemetryEnabled } from "@/shared/utils/featureFlags.ts";
 import { enqueueGovernorTelemetryRow } from "@/lib/db/governorTelemetry.ts";
 import { NativeOmniGovernor } from "./nativeGovernor.ts";
+import { resolveCounterfactualPlan, type CounterfactualExecutionPlan, type CounterfactualInput } from "./counterfactual.ts";
 import type {
   GovernorDecision,
   GovernorInput,
@@ -23,9 +24,11 @@ import type {
 
 export interface EvaluationResult {
   recommendation: GovernorDecision | null;
-  mode: "off" | "shadow";
+  mode: "off" | "shadow" | "simulate";
   decisionLatencyMs: number;
 }
+
+export interface SimulationResult extends EvaluationResult { plan: CounterfactualExecutionPlan | null; }
 
 export class GovernorManager {
   private static governor: IntelligenceGovernor = new NativeOmniGovernor();
@@ -112,5 +115,17 @@ export class GovernorManager {
       mode: "shadow",
       decisionLatencyMs,
     };
+  }
+
+  public static evaluateSimulation(input: CounterfactualInput): SimulationResult {
+    const mode = getGovernorMode();
+    if (mode !== "simulate") return { recommendation: null, mode, decisionLatencyMs: 0, plan: null };
+    const start = performance.now();
+    try {
+      const recommendation = this.governor.decide(input);
+      return { recommendation, mode: "simulate", decisionLatencyMs: Number((performance.now() - start).toFixed(3)), plan: resolveCounterfactualPlan(input, recommendation) };
+    } catch {
+      return { recommendation: null, mode: "simulate", decisionLatencyMs: Number((performance.now() - start).toFixed(3)), plan: null };
+    }
   }
 }
