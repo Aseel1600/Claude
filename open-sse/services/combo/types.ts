@@ -74,7 +74,6 @@ export type IsModelAvailable = (
 
 export type ComboRelayOptions = {
   sessionId?: string | null;
-  governorCorrelationId?: string | null;
   config?: Record<string, unknown> | null;
   bypassProviderQuotaPolicy?: boolean;
   /** Per-request X-OmniRoute-Mode value (auto-combo preset / mode-pack name) — #6024/#6025. */
