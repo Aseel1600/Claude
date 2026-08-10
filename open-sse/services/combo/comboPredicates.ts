@@ -228,11 +228,27 @@ export function isInputBoundRequestFailure(error?: {
 }
 
 /**
+ * The HTTP form of #8375's input-bound failure: `413 Payload Too Large` is decided by
+ * the request body, never by the account's health. The connection just answered — to
+ * say the body does not fit — so cooling it down cannot help: the same 329 KB body is
+ * still 329 KB on the retry.
+ *
+ * Production 2026-08-10 proved the cost: `[VB]-/mimo-v2.5` rejects above ~256 KB, and
+ * every rejection cooled BOTH sibling connections for 3s (12 cooldowns inside 101
+ * client-visible failures) before the combo moved on. The provider was healthy
+ * throughout.
+ */
+export function isPayloadTooLargeFailure(status: number): boolean {
+  return status === 413;
+}
+
+/**
  * #7177: whether handleSingleModelChat should skip the connection-level cooldown
  * (markAccountUnavailable) for a failed attempt — client disconnects, a 401 when the
  * connection has extra keys to rotate through, a known request-scoped upstream failure
- * (e.g. context overflow — not a connection health signal), a plugin refusing the
- * request (our own policy, not a provider fault — see below), or our own
+ * (e.g. context overflow — not a connection health signal), a payload the upstream
+ * refuses by size (413 — decided by the body, identical on every retry), a plugin
+ * refusing the request (our own policy, not a provider fault — see below), or our own
  * self-inflicted timeout all mean the connection itself is healthy and should not be
  * cooled down.
  *
@@ -264,6 +280,7 @@ export function shouldSkipConnDisable(
     result.errorType === "plugin_block" ||
     (is401 && hasExtraKeys) ||
     isRequestScopedUpstreamFailure({ code: result.errorCode, type: result.errorType }) ||
+    isPayloadTooLargeFailure(result.status) ||
     isSelfInflictedFailure(result.status, result.errorType, provider)
   );
 }
