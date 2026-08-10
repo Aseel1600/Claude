@@ -974,9 +974,14 @@ export function recordProviderFailure(
   provider: string | null | undefined,
   log?: { warn?: (...args: unknown[]) => void },
   connectionId?: string | null,
-  profile?: ProviderBreakerProfile | null
+  profile?: ProviderBreakerProfile | null,
+  opts?: { isQueueTimeout?: boolean }
 ): void {
   if (!provider) return;
+  // OmniRoute's own rate-limit queue timeout is backpressure we applied, not a
+  // provider failure — the provider never saw the request, so it must not count
+  // toward the provider breaker.
+  if (opts?.isQueueTimeout) return;
 
   // Deduplicate rapid-fire failures from the same connection
   if (connectionId) {
