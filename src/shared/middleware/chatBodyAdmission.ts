@@ -13,13 +13,23 @@
  */
 
 import { CORS_HEADERS } from "../utils/cors";
-import { createHash } from "crypto";
-
+import { createHmac, randomBytes } from "node:crypto";
 
 const OMNIROUTE_CHAT_VIRTUAL_TTL_MS = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_VIRTUAL_TTL_MS,
   60_000
 );
+
+// Session lanes are process-local, so a fresh secret is sufficient and prevents
+// offline guessing of low-entropy API-key fingerprints.
+const CHAT_SESSION_HASH_SECRET = randomBytes(32);
+
+function hashSessionCredential(credential: string): string {
+  return createHmac("sha256", CHAT_SESSION_HASH_SECRET)
+    .update(credential)
+    .digest("hex")
+    .slice(0, 16);
+}
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(String(value), 10);
@@ -258,15 +268,15 @@ export function resolveSessionId(request: Request): string {
   const authHeader = request.headers.get("authorization") || "";
   const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
   if (bearerMatch) {
-    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16);
+    return "key_" + hashSessionCredential(bearerMatch[1]);
   }
   const xApiKey = request.headers.get("x-api-key") || "";
   if (xApiKey.trim().length > 0) {
-    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16);
+    return "key_" + hashSessionCredential(xApiKey.trim());
   }
   const xGoogApiKey = request.headers.get("x-goog-api-key") || "";
   if (xGoogApiKey.trim().length > 0) {
-    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16);
+    return "key_" + hashSessionCredential(xGoogApiKey.trim());
   }
   return "anonymous";
 }
