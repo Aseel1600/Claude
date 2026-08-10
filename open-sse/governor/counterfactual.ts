@@ -9,6 +9,7 @@ import { GOVERNOR_POLICY_VERSION } from "./constants.ts";
 
 export type Confidence = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT_DATA";
 export type GuardrailResult = "YES" | "NO" | "UNKNOWN";
+export type CostEstimateBasis = "ACTUAL_USAGE" | "PRE_REQUEST_BUDGET" | null;
 
 export interface CounterfactualCandidate {
   provider: string;
@@ -32,6 +33,8 @@ export interface CounterfactualInput extends GovernorInput {
   currentModelTier?: ModelTier | null;
   actualInputTokens?: number | null;
   actualOutputTokens?: number | null;
+  estimatedInputTokensForCost?: number | null;
+  estimatedOutputTokensForCost?: number | null;
   currentCost?: number | null;
   requiredCapabilities?: string[];
   candidates: CounterfactualCandidate[];
@@ -55,6 +58,7 @@ export interface CounterfactualExecutionPlan {
   escalationPolicy: GovernorDecision["escalationPolicy"];
   estimatedCurrentCost: number | null;
   estimatedCounterfactualCost: number | null;
+  costEstimateBasis: CostEstimateBasis;
   estimatedSavings: number | null;
   estimatedSavingsPercent: number | null;
   tokenReductionOpportunity: number | null;
@@ -70,20 +74,43 @@ function supports(candidate: CounterfactualCandidate, required: string[]): boole
   return required.every((value) => candidate.capabilities.includes(value));
 }
 
-function cost(candidate: CounterfactualCandidate, input: CounterfactualInput): number | null {
-  if (
-    candidate.inputPrice == null ||
-    candidate.outputPrice == null ||
-    input.actualInputTokens == null ||
-    input.actualOutputTokens == null
-  ) {
-    return null;
+function resolveCostUsage(input: CounterfactualInput): {
+  inputTokens: number;
+  outputTokens: number;
+  basis: Exclude<CostEstimateBasis, null>;
+} | null {
+  if (input.actualInputTokens != null && input.actualOutputTokens != null) {
+    return {
+      inputTokens: input.actualInputTokens,
+      outputTokens: input.actualOutputTokens,
+      basis: "ACTUAL_USAGE",
+    };
   }
-  return (
-    (candidate.inputPrice * input.actualInputTokens +
-      candidate.outputPrice * input.actualOutputTokens) /
-    1_000_000
-  );
+  if (
+    input.estimatedInputTokensForCost != null &&
+    input.estimatedOutputTokensForCost != null
+  ) {
+    return {
+      inputTokens: input.estimatedInputTokensForCost,
+      outputTokens: input.estimatedOutputTokensForCost,
+      basis: "PRE_REQUEST_BUDGET",
+    };
+  }
+  return null;
+}
+
+function cost(
+  candidate: CounterfactualCandidate,
+  input: CounterfactualInput
+): { value: number; basis: Exclude<CostEstimateBasis, null> } | null {
+  const usage = resolveCostUsage(input);
+  if (candidate.inputPrice == null || candidate.outputPrice == null || !usage) return null;
+  return {
+    value:
+      (candidate.inputPrice * usage.inputTokens + candidate.outputPrice * usage.outputTokens) /
+      1_000_000,
+    basis: usage.basis,
+  };
 }
 
 function quotaGuard(candidate: CounterfactualCandidate | undefined): GuardrailResult {
@@ -155,8 +182,10 @@ export function resolveCounterfactualPlan(
     : "UNKNOWN";
   const quotaAcceptable = quotaGuard(candidate);
 
+  const counterCostResult = candidate ? cost(candidate, input) : null;
   const currentCost = input.currentCost ?? null;
-  const counterCost = candidate ? cost(candidate, input) : null;
+  const counterCost = counterCostResult?.value ?? null;
+  const costEstimateBasis = counterCostResult?.basis ?? null;
   if (counterCost == null) unresolved.push("pricingOrUsage");
 
   const requestedMax = input.requestedMaxOutput;
@@ -175,8 +204,7 @@ export function resolveCounterfactualPlan(
   const userMaxRespected: GuardrailResult =
     outputTokens == null || requestedMax == null || outputTokens <= requestedMax ? "YES" : "NO";
 
-  const savings =
-    currentCost != null && counterCost != null ? currentCost - counterCost : null;
+  const savings = currentCost != null && counterCost != null ? currentCost - counterCost : null;
 
   const guardrailResults: Record<string, GuardrailResult> = {
     CAPABILITY_COMPATIBLE: capability,
@@ -198,10 +226,8 @@ export function resolveCounterfactualPlan(
     compressionSupported,
     userMaxRespected,
   ].every((value) => value === "YES");
-  const runtimePreflightNotRejected =
-    providerAvailable !== "NO" && quotaAcceptable !== "NO";
-  const executable =
-    Boolean(candidate) && planningGuardsPass && runtimePreflightNotRejected;
+  const runtimePreflightNotRejected = providerAvailable !== "NO" && quotaAcceptable !== "NO";
+  const executable = Boolean(candidate) && planningGuardsPass && runtimePreflightNotRejected;
 
   const confidence: Confidence = executable
     ? counterCost != null && currentCost != null
@@ -229,6 +255,7 @@ export function resolveCounterfactualPlan(
     escalationPolicy: decision.escalationPolicy,
     estimatedCurrentCost: currentCost,
     estimatedCounterfactualCost: counterCost,
+    costEstimateBasis,
     estimatedSavings: savings,
     estimatedSavingsPercent:
       savings != null && currentCost != null && currentCost !== 0
@@ -244,6 +271,7 @@ export function resolveCounterfactualPlan(
       `tier=${decision.modelPolicy.recommendedTier}`,
       `candidate=${candidate ? "resolved" : "unresolved"}`,
       `routing=${decision.routingPolicy.strategy}`,
+      `cost_basis=${costEstimateBasis ?? "unknown"}`,
       "plan=counterfactual",
     ],
     liveActiveControl: false,
