@@ -113,6 +113,7 @@ import { enforceApiKeyPolicy } from "../../shared/utils/apiKeyPolicy";
 import { hasProviderQuotaBypassScope } from "../../shared/constants/apiKeyPolicyScopes";
 import { cloneBoundedForLog } from "@omniroute/open-sse/utils/requestLogger.ts";
 import { handleInternalUsageCommand } from "@/lib/usage/internalUsageCommand";
+import { updateGovernorTelemetryOutcome } from "@/lib/db/governorTelemetry";
 import {
   applyTaskAwareRouting,
   getTaskRoutingConfig,
@@ -1011,6 +1012,16 @@ async function handleChatImplementation(
     null,
     false
   );
+  // Non-stream responses have factual HTTP completion here. Streaming rows remain
+  // unknown until a safe finalization hook is available.
+  if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+    updateGovernorTelemetryOutcome(reqId, {
+      actualProvider: resolvedModelStr.split("/")[0] || null,
+      actualModel: resolvedModelStr,
+      success: response.ok,
+      errorCategory: response.ok ? undefined : `http_${response.status}`,
+    });
+  }
   recordTelemetry(telemetry);
   return withModalityBridgeHeader(
     withCorrelationId(withSessionHeader(response, sessionId), reqId),

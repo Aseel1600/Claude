@@ -111,3 +111,23 @@ export function isControlPlaneProxyDirectFallbackEnabled(): boolean {
     return false;
   }
 }
+
+export type GovernorMode = "off" | "shadow";
+
+export function getGovernorMode(): GovernorMode {
+  try {
+    const value = resolveFeatureFlag("INTELLIGENCE_GOVERNOR_MODE");
+    if (value === "shadow") return "shadow";
+    return "off";
+  } catch {
+    return "off";
+  }
+}
+
+export function isGovernorTelemetryEnabled(): boolean {
+  try {
+    return isFeatureFlagEnabled("INTELLIGENCE_GOVERNOR_TELEMETRY");
+  } catch {
+    return true;
+  }
+}
