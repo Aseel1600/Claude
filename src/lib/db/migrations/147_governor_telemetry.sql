@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS governor_telemetry (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  timestamp INTEGER NOT NULL,
+  correlation_id TEXT NOT NULL,
+  governor_mode TEXT NOT NULL,
+  actual_provider TEXT,
+  actual_model TEXT,
+  actual_routing_strategy TEXT,
+  actual_reasoning_config TEXT,
+  actual_compression_config TEXT,
+  actual_prompt_tokens INTEGER,
+  actual_output_tokens INTEGER,
+  actual_total_tokens INTEGER,
+  estimated_cost REAL,
+  latency_ms INTEGER,
+  retry_count INTEGER,
+  success INTEGER,
+  error_category TEXT,
+  recommendation_json TEXT NOT NULL,
+  decision_latency_ms REAL
+);

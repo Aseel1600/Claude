@@ -17,41 +17,25 @@
 import type { GovernorTelemetry } from "@omniroute/open-sse/governor/types.ts";
 import { getDbInstance } from "./core";
 
-export function ensureGovernorTelemetryTable(): void {
-  try {
-    const db = getDbInstance();
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS governor_telemetry (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp INTEGER NOT NULL,
-        correlation_id TEXT NOT NULL,
-        governor_mode TEXT NOT NULL,
-        actual_provider TEXT,
-        actual_model TEXT,
-        actual_routing_strategy TEXT,
-        actual_reasoning_config TEXT,
-        actual_compression_config TEXT,
-        actual_prompt_tokens INTEGER DEFAULT 0,
-        actual_output_tokens INTEGER DEFAULT 0,
-        actual_total_tokens INTEGER DEFAULT 0,
-        estimated_cost REAL,
-        latency_ms INTEGER DEFAULT 0,
-        retry_count INTEGER DEFAULT 0,
-        success INTEGER NOT NULL,
-        error_category TEXT,
-        recommendation_json TEXT NOT NULL,
-        decision_latency_ms REAL DEFAULT 0
-      )
-    `);
-  } catch (error) {
-    console.error("[governorTelemetry] Failed to ensure table:", error);
-  }
+const MAX_PENDING_TELEMETRY = 256;
+const pendingTelemetry: GovernorTelemetry[] = [];
+let flushScheduled = false;
+
+export function enqueueGovernorTelemetryRow(row: GovernorTelemetry): void {
+  if (pendingTelemetry.length >= MAX_PENDING_TELEMETRY) return;
+  pendingTelemetry.push(row);
+  if (flushScheduled) return;
+  flushScheduled = true;
+  setImmediate(() => {
+    flushScheduled = false;
+    const batch = pendingTelemetry.splice(0, pendingTelemetry.length);
+    for (const pending of batch) insertGovernorTelemetryRow(pending);
+  });
 }
 
 export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
   try {
     const db = getDbInstance();
-    ensureGovernorTelemetryTable();
 
     db.prepare(`
       INSERT INTO governor_telemetry (
@@ -70,16 +54,16 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
       row.actualRoutingStrategy ?? null,
       row.actualReasoningConfig ?? null,
       row.actualCompressionConfig ?? null,
-      row.actualPromptTokens ?? 0,
-      row.actualOutputTokens ?? 0,
-      row.actualTotalTokens ?? 0,
+      row.actualPromptTokens ?? null,
+      row.actualOutputTokens ?? null,
+      row.actualTotalTokens ?? null,
       row.estimatedCost ?? null,
-      row.latencyMs ?? 0,
-      row.retryCount ?? 0,
-      row.success ? 1 : 0,
+      row.latencyMs ?? null,
+      row.retryCount ?? null,
+      row.success == null ? null : row.success ? 1 : 0,
       row.errorCategory ?? null,
       JSON.stringify(row.recommendation),
-      row.decisionLatencyMs ?? 0
+      row.decisionLatencyMs ?? null
     );
   } catch (error) {
     // Best-effort telemetry: failure to persist NEVER impacts an AI request
@@ -90,7 +74,6 @@ export function insertGovernorTelemetryRow(row: GovernorTelemetry): void {
 export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
   try {
     const db = getDbInstance();
-    ensureGovernorTelemetryTable();
 
     const rows = db.prepare(`
       SELECT * FROM governor_telemetry ORDER BY id DESC LIMIT ?
@@ -104,13 +87,13 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       actual_routing_strategy: string | null;
       actual_reasoning_config: string | null;
       actual_compression_config: string | null;
-      actual_prompt_tokens: number;
-      actual_output_tokens: number;
-      actual_total_tokens: number;
+      actual_prompt_tokens: number | null;
+      actual_output_tokens: number | null;
+      actual_total_tokens: number | null;
       estimated_cost: number | null;
-      latency_ms: number;
-      retry_count: number;
-      success: number;
+      latency_ms: number | null;
+      retry_count: number | null;
+      success: number | null;
       error_category: string | null;
       recommendation_json: string;
       decision_latency_ms: number;
@@ -132,7 +115,7 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       estimatedCost: r.estimated_cost ?? undefined,
       latencyMs: r.latency_ms,
       retryCount: r.retry_count,
-      success: Boolean(r.success),
+      success: r.success == null ? null : Boolean(r.success),
       errorCategory: r.error_category ?? undefined,
       recommendation: JSON.parse(r.recommendation_json),
       decisionLatencyMs: r.decision_latency_ms,

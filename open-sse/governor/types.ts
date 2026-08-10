@@ -86,16 +86,32 @@ export interface GovernorTelemetry {
   actualRoutingStrategy?: string;
   actualReasoningConfig?: string;
   actualCompressionConfig?: string;
-  actualPromptTokens: number;
-  actualOutputTokens: number;
-  actualTotalTokens: number;
-  estimatedCost?: number;
-  latencyMs: number;
-  retryCount: number;
-  success: boolean;
+  actualPromptTokens: number | null;
+  actualOutputTokens: number | null;
+  actualTotalTokens: number | null;
+  estimatedCost?: number | null;
+  latencyMs: number | null;
+  retryCount: number | null;
+  success: boolean | null;
   errorCategory?: string;
   recommendation: GovernorDecision;
   decisionLatencyMs: number;
+}
+
+export interface ActualRequestContext {
+  provider: string;
+  model: string;
+  routingStrategy?: string;
+  reasoningConfig?: string;
+  compressionConfig?: string;
+  promptTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  estimatedCost?: number;
+  latencyMs?: number;
+  retryCount?: number;
+  success?: boolean;
+  errorCategory?: string;
 }
 
 export interface IntelligenceGovernor {

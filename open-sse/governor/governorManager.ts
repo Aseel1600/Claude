@@ -11,35 +11,20 @@
  */
 
 import { getGovernorMode, isGovernorTelemetryEnabled } from "@/shared/utils/featureFlags.ts";
-import { insertGovernorTelemetryRow } from "@/lib/db/governorTelemetry.ts";
+import { enqueueGovernorTelemetryRow } from "@/lib/db/governorTelemetry.ts";
 import { NativeOmniGovernor } from "./nativeGovernor.ts";
 import type {
   GovernorDecision,
   GovernorInput,
   GovernorTelemetry,
   IntelligenceGovernor,
+  ActualRequestContext,
 } from "./types.ts";
 
 export interface EvaluationResult {
   recommendation: GovernorDecision | null;
   mode: "off" | "shadow";
   decisionLatencyMs: number;
-}
-
-export interface ActualRequestContext {
-  provider: string;
-  model: string;
-  routingStrategy?: string;
-  reasoningConfig?: string;
-  compressionConfig?: string;
-  promptTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  estimatedCost?: number;
-  latencyMs?: number;
-  retryCount?: number;
-  success?: boolean;
-  errorCategory?: string;
 }
 
 export class GovernorManager {
@@ -84,10 +69,6 @@ export class GovernorManager {
     const decisionLatencyMs = Number((performance.now() - startTime).toFixed(3));
 
     if (isGovernorTelemetryEnabled()) {
-      const promptTokens = actualContext.promptTokens ?? input.estimatedPromptTokens ?? 0;
-      const outputTokens = actualContext.outputTokens ?? input.requestedMaxOutput ?? 0;
-      const totalTokens = actualContext.totalTokens ?? promptTokens + outputTokens;
-
       const telemetryRecord: GovernorTelemetry = {
         correlationId: input.correlationId || `gov-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         timestamp: Date.now(),
@@ -97,24 +78,20 @@ export class GovernorManager {
         actualRoutingStrategy: actualContext.routingStrategy,
         actualReasoningConfig: actualContext.reasoningConfig,
         actualCompressionConfig: actualContext.compressionConfig,
-        actualPromptTokens: promptTokens,
-        actualOutputTokens: outputTokens,
-        actualTotalTokens: totalTokens,
+        actualPromptTokens: actualContext.promptTokens ?? null,
+        actualOutputTokens: actualContext.outputTokens ?? null,
+        actualTotalTokens: actualContext.totalTokens ?? null,
         estimatedCost: actualContext.estimatedCost,
-        latencyMs: actualContext.latencyMs ?? 0,
-        retryCount: actualContext.retryCount ?? input.retryCount ?? 0,
-        success: actualContext.success ?? true,
+        latencyMs: actualContext.latencyMs ?? null,
+        retryCount: actualContext.retryCount ?? null,
+        success: actualContext.success ?? null,
         errorCategory: actualContext.errorCategory,
         recommendation,
         decisionLatencyMs,
       };
 
       // Non-blocking telemetry persistence
-      try {
-        insertGovernorTelemetryRow(telemetryRecord);
-      } catch (err) {
-        console.warn("[GovernorManager] Telemetry persistence catch:", err);
-      }
+      enqueueGovernorTelemetryRow(telemetryRecord);
     }
 
     // ACTIVE DECISION UNTOUCHED — SHADOW RECOMMENDATION IS RETURNED FOR LOGGING ONLY

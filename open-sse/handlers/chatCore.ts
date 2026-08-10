@@ -5057,15 +5057,15 @@ export async function handleChatCore({
       toolCount: Array.isArray((body as { tools?: unknown[] } | undefined)?.tools)
         ? (body as { tools: unknown[] }).tools.length
         : 0,
-      retryCount: skipUpstreamRetry ? 1 : 0,
+      retryCount: undefined,
     };
     GovernorManager.evaluateShadow(governorInput, {
       provider: provider || "unknown",
       model: model || "unknown",
       routingStrategy: comboStrategy ?? (isCombo ? "auto_combo" : "direct"),
-      retryCount: skipUpstreamRetry ? 1 : 0,
-      success: true,
-      latencyMs: Date.now() - startTime,
+      retryCount: null,
+      success: null,
+      latencyMs: null,
     });
   } catch {
     /* shadow governor failure never affects request flow */

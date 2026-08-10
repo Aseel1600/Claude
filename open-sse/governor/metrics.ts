@@ -1,15 +1,14 @@
 /**
  * open-sse/governor/metrics.ts
  *
- * Successful-Task Metrics Calculator for Intelligence Governor pre-work.
- * Calculates TOKENS_PER_SUCCESS, COST_PER_SUCCESS, TIME_PER_SUCCESS, RETRIES_PER_SUCCESS.
+ * Successful-request metrics calculator for Intelligence Governor pre-work.
  *
  * Safe math: handles empty dataset and zero successful tasks without producing NaN or Infinity.
  */
 
 import type { GovernorTelemetry } from "./types.ts";
 
-export interface SuccessfulTaskMetrics {
+export interface SuccessfulRequestMetrics {
   totalEvaluations: number;
   successfulTasks: number;
   tokensPerSuccess: number;
@@ -18,11 +17,11 @@ export interface SuccessfulTaskMetrics {
   retriesPerSuccess: number;
 }
 
-export function calculateSuccessfulTaskMetrics(
+export function calculateSuccessfulRequestMetrics(
   telemetryRecords: GovernorTelemetry[]
-): SuccessfulTaskMetrics {
+): SuccessfulRequestMetrics {
   const totalEvaluations = telemetryRecords.length;
-  const successfulRecords = telemetryRecords.filter((r) => r.success);
+  const successfulRecords = telemetryRecords.filter((r) => r.success === true);
   const successfulTasks = successfulRecords.length;
 
   if (successfulTasks === 0) {
@@ -36,10 +35,10 @@ export function calculateSuccessfulTaskMetrics(
     };
   }
 
-  const totalTokens = successfulRecords.reduce((sum, r) => sum + (r.actualTotalTokens || 0), 0);
-  const totalCost = successfulRecords.reduce((sum, r) => sum + (r.estimatedCost || 0), 0);
-  const totalTime = successfulRecords.reduce((sum, r) => sum + (r.latencyMs || 0), 0);
-  const totalRetries = successfulRecords.reduce((sum, r) => sum + (r.retryCount || 0), 0);
+  const totalTokens = successfulRecords.reduce((sum, r) => sum + (r.actualTotalTokens ?? 0), 0);
+  const totalCost = successfulRecords.reduce((sum, r) => sum + (r.estimatedCost ?? 0), 0);
+  const totalTime = successfulRecords.reduce((sum, r) => sum + (r.latencyMs ?? 0), 0);
+  const totalRetries = successfulRecords.reduce((sum, r) => sum + (r.retryCount ?? 0), 0);
 
   return {
     totalEvaluations,
@@ -50,3 +49,7 @@ export function calculateSuccessfulTaskMetrics(
     retriesPerSuccess: Number((totalRetries / successfulTasks).toFixed(4)),
   };
 }
+
+/** @deprecated Use calculateSuccessfulRequestMetrics; request semantics are intentional. */
+export const calculateSuccessfulTaskMetrics = calculateSuccessfulRequestMetrics;
+export type SuccessfulTaskMetrics = SuccessfulRequestMetrics;
