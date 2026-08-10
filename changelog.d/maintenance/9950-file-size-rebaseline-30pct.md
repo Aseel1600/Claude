@@ -1,0 +1,1 @@
+- **chore(quality):** expand all file-size baselines by +30% ahead of v3.8.51 (authorized DRIFT rebaseline) to unblock the pre-release queue; no functionality changes.

@@ -121,6 +121,8 @@ app.log
 deploy.sh
 docker-compose.minimal.yml
 
+# Docker Compose override (local-only, never commit)
+docker-compose.override.yml
 
 # Backup directories
 app.__qa_backup/
@@ -221,6 +223,26 @@ CODEX-SETUP-PROMPT.md
 # Quality ratchet — métricas efêmeras (baseline commitado em config/quality/; métricas não)
 config/quality/quality-metrics.json
 
+# Electron desktop build output unpacked into the repo root.
+# `electron-builder` (squirrel-windows target) unpacks the packaged app — the
+# entire Chromium runtime, ~24k files — directly into the repository root.
+# Every rule below is ROOT-ANCHORED (leading `/`) on purpose: a bare `locales/`
+# or `resources/` would also swallow tracked sources such as the CLI
+# translations in `bin/cli/locales/*.json`.
+/OmniRoute.exe
+/Uninstall OmniRoute.exe
+/uninstallerIcon.ico
+/locales/
+/resources/
+/*.pak
+/*.dll
+/icudtl.dat
+/snapshot_blob.bin
+/v8_context_snapshot.bin
+/vk_swiftshader_icd.json
+/LICENSE.electron.txt
+/LICENSES.chromium.html
+
 # Runtime logs (diretório local, nunca versionado)
 /logs/
 -home-diegosouzapw-dev-automações-bots-yt-downloader-20260504 .txt
@@ -255,3 +277,6 @@ docker-compose.yml.bak
 # ignora um SYMLINK chamado _tasks; /_tasks (ancorado) cobre arquivo/symlink/dir na raiz
 # e impede que um git add -A recapture o symlink (incidente 2026-08-08).
 /_tasks
+
+# CLI local cache/state
+.playwright-cli

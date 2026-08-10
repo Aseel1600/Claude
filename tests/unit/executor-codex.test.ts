@@ -184,10 +184,10 @@ test("CodexExecutor.buildHeaders binds workspace ids and disables SSE accept for
   assert.equal(standardHeaders.Authorization, "Bearer codex-token");
   assert.equal(standardHeaders.Accept, "text/event-stream");
   assert.equal(standardHeaders["chatgpt-account-id"], "workspace-1");
-  assert.equal(standardHeaders.Version, "0.144.1");
+  assert.equal(standardHeaders.Version, "0.146.0");
   assert.equal(standardHeaders["Openai-Beta"], "responses=experimental");
   assert.equal(standardHeaders["X-Codex-Beta-Features"], "responses_websockets");
-  assert.equal(standardHeaders["User-Agent"], "codex-cli/0.144.1 (Windows 10.0.26200; x64)");
+  assert.equal(standardHeaders["User-Agent"], "codex-cli/0.146.0 (Windows 10.0.26200; x64)");
   assert.equal(compactHeaders.Accept, "application/json");
 });
 
@@ -213,7 +213,7 @@ test("CodexExecutor.buildHeaders honors safe env overrides for Version and User-
     },
     () => {
       const headers = executor.buildHeaders({ accessToken: "codex-token" }, true);
-      assert.equal(headers.Version, "0.144.1");
+      assert.equal(headers.Version, "0.146.0");
       assert.equal(headers["User-Agent"], "custom-codex/9.9.9");
     }
   );
@@ -1151,6 +1151,67 @@ test("CodexExecutor.transformRequest preserves native Codex custom tools", () =>
     },
   });
   assert.equal(tools[1].strict, false);
+});
+
+test("CodexExecutor.transformRequest defaults translated function strict without changing native payloads", () => {
+  const executor = new CodexExecutor();
+  const translated = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          function: { name: "translated_tool", parameters: { type: "object" } },
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const translatedTool = (translated.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(translatedTool.strict, false);
+
+  const native = executor.transformRequest(
+    "gpt-5.5",
+    {
+      _nativeCodexPassthrough: true,
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          name: "native_tool",
+          parameters: { type: "object" },
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const nativeTool = (native.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(nativeTool.strict, undefined);
+
+  const explicit = executor.transformRequest(
+    "gpt-5.5",
+    {
+      model: "gpt-5.5",
+      input: [],
+      tools: [
+        {
+          type: "function",
+          name: "explicit_tool",
+          parameters: { type: "object" },
+          strict: true,
+        },
+      ],
+    },
+    true,
+    { requestEndpointPath: "/responses" }
+  );
+  const explicitTool = (explicit.tools as Array<Record<string, unknown>>)[0];
+  assert.equal(explicitTool.strict, true);
 });
 
 test("CodexExecutor.transformRequest still drops custom tools outside native passthrough", () => {

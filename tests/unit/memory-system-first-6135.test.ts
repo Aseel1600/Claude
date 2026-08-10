@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 import {
   injectMemory,
   systemMessageMustBeFirst,
+  parseStrictSystemProvidersEnv,
 } from "../../src/lib/memory/injection.ts";
 import type { ChatMessage, ChatRequest } from "../../src/lib/memory/injection.ts";
 import { MemoryType } from "../../src/lib/memory/types.ts";
@@ -111,5 +112,33 @@ describe("injectMemory system-must-be-first (#6135)", () => {
     assert.ok(out.messages[3].content.includes("Memory context"));
     assert.equal(out.messages[4].content, "turn 2 question");
     assert.equal(out.messages.length, 5);
+  });
+});
+
+describe("OMNIROUTE_STRICT_SYSTEM_PROVIDERS env override", () => {
+  it("is a no-op when unset or empty", () => {
+    assert.deepEqual(parseStrictSystemProvidersEnv({}), []);
+    assert.deepEqual(parseStrictSystemProvidersEnv({ OMNIROUTE_STRICT_SYSTEM_PROVIDERS: "" }), []);
+    assert.equal(systemMessageMustBeFirst("coding-agent", {}), false);
+  });
+
+  it("extends the built-in set without removing xiaomi-mimo/mimo", () => {
+    const env = { OMNIROUTE_STRICT_SYSTEM_PROVIDERS: "coding-agent" };
+    assert.equal(systemMessageMustBeFirst("coding-agent", env), true);
+    assert.equal(systemMessageMustBeFirst("xiaomi-mimo", env), true);
+    assert.equal(systemMessageMustBeFirst("mimo", env), true);
+    assert.equal(systemMessageMustBeFirst("anthropic", env), false);
+  });
+
+  it("is case-insensitive and trims whitespace around comma-separated ids", () => {
+    const env = { OMNIROUTE_STRICT_SYSTEM_PROVIDERS: " Coding-Agent , My-Backend  " };
+    assert.deepEqual(parseStrictSystemProvidersEnv(env), ["coding-agent", "my-backend"]);
+    assert.equal(systemMessageMustBeFirst("CODING-AGENT", env), true);
+    assert.equal(systemMessageMustBeFirst("my-backend", env), true);
+  });
+
+  it("ignores empty entries from stray/trailing commas", () => {
+    const env = { OMNIROUTE_STRICT_SYSTEM_PROVIDERS: "coding-agent,,  ,my-backend," };
+    assert.deepEqual(parseStrictSystemProvidersEnv(env), ["coding-agent", "my-backend"]);
   });
 });

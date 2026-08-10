@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import net from "node:net";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-chat-helpers-"));
 process.env.DATA_DIR = TEST_DATA_DIR;
@@ -21,6 +22,8 @@ const {
 } = await import("../../src/sse/handlers/chatHelpers.ts");
 const { getCircuitBreaker, resetAllCircuitBreakers, STATE } =
   await import("../../src/shared/utils/circuitBreaker.ts");
+// DATA_DIR must be fixed before these modules load; keep this test seam dynamic.
+const { setTlsClientForTest } = await import("../../open-sse/utils/proxyFetch.ts");
 
 async function resetStorage() {
   resetAllCircuitBreakers();
@@ -418,6 +421,96 @@ test("executeChatWithBreaker converts proxy fast-fail errors", async () => {
     assert.match(String(proxyResult.result.error || ""), /Proxy unreachable/);
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("executeChatWithBreaker preserves account TLS scope when a proxy bypasses to direct", async () => {
+  const server = net.createServer((socket) => socket.end());
+  const listening = Promise.withResolvers<void>();
+  server.listen(0, "127.0.0.1", listening.resolve);
+  await listening.promise;
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const prior = {
+    enable: process.env.ENABLE_TLS_FINGERPRINT,
+    providers: process.env.TLS_FINGERPRINT_PROVIDERS,
+    noProxy: process.env.NO_PROXY,
+  };
+  process.env.ENABLE_TLS_FINGERPRINT = "true";
+  delete process.env.TLS_FINGERPRINT_PROVIDERS;
+  process.env.NO_PROXY = "api.openai.com";
+  let observedProxy: string | null | undefined;
+  let observedScope: string | undefined;
+  setTlsClientForTest({
+    available: true,
+    fetch: async (_url, options) => {
+      observedProxy = options?.proxy;
+      observedScope = options?.sessionScope;
+      return new Response(
+        JSON.stringify({
+          id: "chatcmpl-test",
+          object: "chat.completion",
+          created: 0,
+          model: "gpt-4o-mini",
+          choices: [
+            {
+              index: 0,
+              message: { role: "assistant", content: "ok" },
+              finish_reason: "stop",
+            },
+          ],
+          usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    },
+  });
+
+  try {
+    const credentials = {
+      connectionId: "conn_tls_scope",
+      apiKey: "sk-openai-helper",
+      providerSpecificData: {},
+    };
+    const result = await executeChatWithBreaker({
+      bypassCircuitBreaker: false,
+      breaker: getCircuitBreaker("openai"),
+      body: { model: "openai/gpt-4o-mini", messages: [] },
+      provider: "openai",
+      model: "gpt-4o-mini",
+      refreshedCredentials: credentials,
+      proxyInfo: {
+        proxy: `http://127.0.0.1:${address.port}`,
+        level: "connection",
+        levelId: credentials.connectionId,
+      },
+      log: console,
+      clientRawRequest: null,
+      credentials,
+      apiKeyInfo: null,
+      userAgent: "",
+      comboName: null,
+      comboStrategy: null,
+      isCombo: false,
+      extendedContext: false,
+      comboStepId: null,
+      comboExecutionKey: null,
+    });
+
+    assert.equal(result.tlsFingerprintUsed, true);
+    assert.equal(observedProxy, null);
+    assert.equal(observedScope, credentials.connectionId);
+  } finally {
+    setTlsClientForTest(null);
+    if (prior.enable === undefined) delete process.env.ENABLE_TLS_FINGERPRINT;
+    else process.env.ENABLE_TLS_FINGERPRINT = prior.enable;
+    if (prior.providers === undefined) delete process.env.TLS_FINGERPRINT_PROVIDERS;
+    else process.env.TLS_FINGERPRINT_PROVIDERS = prior.providers;
+    if (prior.noProxy === undefined) delete process.env.NO_PROXY;
+    else process.env.NO_PROXY = prior.noProxy;
+    const closed = Promise.withResolvers<void>();
+    server.close(() => closed.resolve());
+    await closed.promise;
   }
 });
 
