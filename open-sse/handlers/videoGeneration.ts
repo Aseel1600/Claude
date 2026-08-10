@@ -194,6 +194,15 @@ export async function handleVideoGeneration({ body, credentials, log, resolvedPr
       log,
     });
   }
+  if (getVideoJobPreset(providerConfig.format)) {
+    return handleVideoJobGeneration({
+      model,
+      presetName: providerConfig.format,
+      body,
+      credentials,
+      log,
+    });
+  }
   if (providerConfig.format === "openai-video") {
     return handleOpenAIVideoGeneration({ model, provider, providerConfig, body, credentials, log });
   }

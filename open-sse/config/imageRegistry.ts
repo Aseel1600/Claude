@@ -150,6 +150,23 @@ function resolveAliasImageRequired(alias, modelConfig) {
 }
 
 export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "agnes-image",
+    models: [
+      {
+        id: "agnes-image-2.1-flash",
+        name: "Agnes Image 2.1 Flash",
+        inputModalities: ["text", "image"],
+        description: "Agnes text-to-image, image-to-image, and multi-image composition model",
+      },
+    ],
+    supportedSizes: ["1K", "2K", "3K", "4K"],
+  },
+
   "qwen-cloud-token-plan": {
     id: "qwen-cloud-token-plan",
     alias: "qct",

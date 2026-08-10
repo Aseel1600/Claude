@@ -89,7 +89,7 @@
     }
   },
   "agnes": {
-    "format": "openai",
+    "format": "openai-responses",
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -107,8 +107,8 @@
       }
     },
     "url": {
-      "nonStream": "https://apihub.agnes-ai.com/v1/chat/completions",
-      "stream": "https://apihub.agnes-ai.com/v1/chat/completions"
+      "nonStream": "https://apihub.agnes-ai.com/v1/responses",
+      "stream": "https://apihub.agnes-ai.com/v1/responses"
     }
   },
   "agy": {

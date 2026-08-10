@@ -30,6 +30,21 @@ interface VideoProvider {
 }
 
 export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com",
+    statusUrl: "https://apihub.agnes-ai.com/agnesapi",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "agnes-video-job",
+    models: [
+      {
+        id: "agnes-video-v2.0",
+        name: "Agnes Video V2.0",
+      },
+    ],
+  },
+
   "qwen-cloud-token-plan": {
     id: "qwen-cloud-token-plan",
     alias: "qct",
