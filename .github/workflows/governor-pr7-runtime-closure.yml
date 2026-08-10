@@ -101,7 +101,7 @@ jobs:
           npm run check:open-sse-typecheck
 
       - name: Router evaluation
-        run: npm run eval:router
+        run: npm run check:router-eval
 
       - name: Diff check
         run: git diff --check
