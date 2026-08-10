@@ -1673,7 +1673,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 48
+      "count": 6
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -2032,11 +2032,6 @@
     }
   },
   "tests/unit/cloudflaredTunnel-extended.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "tests/unit/codebuddy-cn-provider.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }

@@ -744,8 +744,8 @@ test("DefaultExecutor.execute reports the exact serialized provider request befo
     assert.equal(preparedBeforeFetch, true);
     assert.deepEqual(prepared.body, fetchBody);
     assert.deepEqual(result.transformedBody, fetchBody);
-    assert.equal(prepared.body.reasoning_effort, "high");
-    assert.equal(fetchBody.reasoning_effort, "high");
+    assert.equal(prepared.body.reasoning_effort, "max");
+    assert.equal(fetchBody.reasoning_effort, "max");
     assert.match(JSON.stringify(fetchBody), /\bcch=(?!00000)[0-9a-f]{5};/);
   } finally {
     globalThis.fetch = originalFetch;

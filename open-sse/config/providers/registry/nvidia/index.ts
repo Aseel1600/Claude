@@ -32,8 +32,6 @@ export const nvidiaProvider: RegistryEntry = {
     { id: "qwen/qwen3.5-122b-a10b", name: "Qwen3.5-122B-A10B" },
     { id: "stepfun-ai/step-3.5-flash", name: "Step 3.5 Flash" },
     { id: "stepfun-ai/step-3.7-flash", name: "Step 3.7 Flash" },
-    { id: "deepseek-ai/deepseek-v4-pro", name: "DeepSeek V4 Pro", supportsReasoning: true },
-    { id: "deepseek-ai/deepseek-v4-flash", name: "DeepSeek V4 Flash", supportsReasoning: true },
     // Sweep 2026-06-19: verified present in the live NVIDIA NIM /v1/models catalog.
     { id: "moonshotai/kimi-k2.6", name: "Kimi K2.6" },
     { id: "openai/gpt-oss-120b", name: "GPT OSS 120B", toolCalling: false },

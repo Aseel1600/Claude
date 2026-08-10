@@ -76,8 +76,10 @@ test("createResponsesApiTransformStream converts plain chat deltas into Response
   assert.ok(types.includes("response.output_text.done"));
   assert.equal(completed.output[0].content[0].text, "Hello");
   assert.deepEqual(completed.usage, {
-    prompt_tokens: 1,
-    completion_tokens: 2,
+    input_tokens: 1,
+    input_tokens_details: { cached_tokens: 0 },
+    output_tokens: 2,
+    output_tokens_details: { reasoning_tokens: 0 },
     total_tokens: 3,
   });
   assert.equal(doneMarker.data, "[DONE]");
@@ -374,8 +376,10 @@ test("createResponsesApiTransformStream ignores malformed events and preserves u
   assert.equal(completed.id, "resp_chatcmpl_edge");
   assert.equal(completed.output[0].content[0].text, "ok");
   assert.deepEqual(completed.usage, {
-    prompt_tokens: 2,
-    completion_tokens: 1,
+    input_tokens: 2,
+    input_tokens_details: { cached_tokens: 0 },
+    output_tokens: 1,
+    output_tokens_details: { reasoning_tokens: 0 },
     total_tokens: 3,
   });
 });
