@@ -70,6 +70,34 @@ function toolCallArgumentsString(value: unknown): string {
   return JSON.stringify(recordOrEmpty(value));
 }
 
+/**
+ * Tool names that collide with Command Code's server-side built-in tools.
+ * The /alpha/generate server normalizes tool-call/tool-result parts against
+ * ITS OWN built-in registry for matching names; for its built-in `tool_search`
+ * the result normalization requires `arguments` in a shape we do not send, so
+ * the result is rejected with `input[N] missing required field 'arguments'`
+ * (verified live 2026-08-10 — renaming the call/result `tool_search` → `grep`
+ * makes the identical request pass; the server pairs each tool-result with the
+ * nearest preceding tool-call, so any result following such a call is affected).
+ * We rename the colliding name consistently on the wire — definitions, calls
+ * and results — then un-rename on the response path so the client still sees
+ * its original tool names.
+ */
+const COMMAND_CODE_RESERVED_TOOL_NAMES = new Set(["tool_search"]);
+
+function wireToolName(clientName: string, toolNameMap: Map<string, string>): string {
+  if (COMMAND_CODE_RESERVED_TOOL_NAMES.has(clientName)) {
+    const wire = `omniroute_${clientName}`;
+    toolNameMap.set(wire, clientName);
+    return wire;
+  }
+  return clientName;
+}
+
+function clientToolName(wireName: string, toolNameMap: Map<string, string>): string {
+  return toolNameMap.get(wireName) ?? wireName;
+}
+
 function normalizeContentText(content: unknown): string {
   if (typeof content === "string") return content;
   return asRecordArray(content)
@@ -203,19 +231,22 @@ function convertUserContentParts(content: unknown, isVisionModel: boolean): stri
   return parts;
 }
 
-function convertTools(tools: unknown): unknown[] {
+function convertTools(tools: unknown, toolNameMap: Map<string, string>): unknown[] {
   return asRecordArray(tools).map((tool) => {
     const fn = isRecord(tool.function) ? tool.function : tool;
     return {
       type: "function",
-      name: stringValue(fn.name) || "",
+      name: wireToolName(stringValue(fn.name) || "", toolNameMap),
       description: stringValue(fn.description) || "",
       input_schema: isRecord(fn.parameters) ? fn.parameters : {},
     };
   });
 }
 
-function buildToolCallMetadata(messages: JsonRecord[]): {
+function buildToolCallMetadata(
+  messages: JsonRecord[],
+  toolNameMap: Map<string, string>
+): {
   pairedToolCallIds: Set<string>;
   toolCallNames: Map<string, string>;
   toolCallArgs: Map<string, string>;
@@ -233,7 +264,7 @@ function buildToolCallMetadata(messages: JsonRecord[]): {
           callIds.add(id);
           const fn = isRecord(call.function) ? call.function : {};
           const name = stringValue(fn.name) || stringValue(call.name);
-          if (name) toolCallNames.set(id, name);
+          if (name) toolCallNames.set(id, wireToolName(name, toolNameMap));
           toolCallArgs.set(id, toolCallArgumentsString(fn.arguments));
         }
       }
@@ -249,10 +280,14 @@ function buildToolCallMetadata(messages: JsonRecord[]): {
 
 function convertMessages(
   messages: unknown,
-  model?: string | null
+  model?: string | null,
+  toolNameMap?: Map<string, string>
 ): { system: string; messages: unknown[] } {
   const source = asRecordArray(messages);
-  const { pairedToolCallIds, toolCallNames, toolCallArgs } = buildToolCallMetadata(source);
+  const { pairedToolCallIds, toolCallNames, toolCallArgs } = buildToolCallMetadata(
+    source,
+    toolNameMap ?? new Map<string, string>()
+  );
   const out: unknown[] = [];
   const system: string[] = [];
   const isVision = isCommandCodeVisionModel(model);
@@ -283,7 +318,10 @@ function convertMessages(
         parts.push({
           type: "tool-call",
           toolCallId: id,
-          toolName: stringValue(fn.name) || stringValue(call.name) || "unknown",
+          toolName: wireToolName(
+            stringValue(fn.name) || stringValue(call.name) || "unknown",
+            toolNameMap ?? new Map<string, string>()
+          ),
           input: parsedInput,
           // /alpha/generate requires this field on assistant tool-call parts;
           // a missing one is rejected with `missing required field 'arguments'`.
@@ -298,7 +336,10 @@ function convertMessages(
     if (role === "tool") {
       const toolCallId = stringValue(message.tool_call_id) || "";
       if (!toolCallId || !pairedToolCallIds.has(toolCallId)) continue;
-      const toolName = stringValue(message.name) || toolCallNames.get(toolCallId) || "unknown";
+      const toolName = wireToolName(
+        stringValue(message.name) || toolCallNames.get(toolCallId) || "unknown",
+        toolNameMap ?? new Map<string, string>()
+      );
       out.push({
         role: "tool",
         content: [
@@ -346,8 +387,13 @@ const COMMAND_CODE_PASSTHROUGH_FIELDS = [
   "extra_body",
 ] as const;
 
-function buildCommandCodeBody(model: string, body: unknown, stream = false): JsonRecord {
+function buildCommandCodeBody(
+  model: string,
+  body: unknown,
+  stream = false
+): { body: JsonRecord; toolNameMap: Map<string, string> } {
   const input = isRecord(body) ? body : {};
+  const toolNameMap = new Map<string, string>();
 
   // Payload rules may rewrite `body.model` (e.g. deepseek-v4-pro-max →
   // deepseek/deepseek-v4-pro for the command-code provider). Prefer the
@@ -355,14 +401,14 @@ function buildCommandCodeBody(model: string, body: unknown, stream = false): Jso
   const resolvedModel =
     typeof input.model === "string" && input.model.trim().length > 0 ? input.model : model;
 
-  const converted = convertMessages(input.messages, resolvedModel);
+  const converted = convertMessages(input.messages, resolvedModel, toolNameMap);
   const explicitSystem = typeof input.system === "string" ? input.system : "";
   const system = [converted.system, explicitSystem].filter(Boolean).join("\n\n");
 
   const params: JsonRecord = {
     model: resolvedModel,
     messages: converted.messages,
-    tools: convertTools(input.tools),
+    tools: convertTools(input.tools, toolNameMap),
     system,
     stream: true,
   };
@@ -386,22 +432,25 @@ function buildCommandCodeBody(model: string, body: unknown, stream = false): Jso
   }
 
   return {
-    config: {
-      workingDir: "/workspace",
-      date: new Date().toISOString().slice(0, 10),
-      environment: "external",
-      structure: [],
-      isGitRepo: false,
-      currentBranch: "",
-      mainBranch: "",
-      gitStatus: "",
-      recentCommits: [],
+    body: {
+      config: {
+        workingDir: "/workspace",
+        date: new Date().toISOString().slice(0, 10),
+        environment: "external",
+        structure: [],
+        isGitRepo: false,
+        currentBranch: "",
+        mainBranch: "",
+        gitStatus: "",
+        recentCommits: [],
+      },
+      memory: "",
+      taste: "",
+      skills: "",
+      permissionMode: "standard",
+      params,
     },
-    memory: "",
-    taste: "",
-    skills: "",
-    permissionMode: "standard",
-    params,
+    toolNameMap,
   };
 }
 
@@ -513,7 +562,11 @@ function rememberCommandCodeUsage(state: AggregateState, event: JsonRecord): voi
   state.usage = mergeCommandCodeUsage(state.usage, usage);
 }
 
-function applyEventToAggregate(event: JsonRecord, state: AggregateState): void {
+function applyEventToAggregate(
+  event: JsonRecord,
+  state: AggregateState,
+  toolNameMap: Map<string, string>
+): void {
   // Some Command Code protocol revisions attach usage to the terminal payload
   // without preserving the event type. Capture it before event-specific handling.
   rememberCommandCodeUsage(state, event);
@@ -531,7 +584,10 @@ function applyEventToAggregate(event: JsonRecord, state: AggregateState): void {
         id: stringValue(event.toolCallId) || stringValue(event.id) || randomUUID(),
         type: "function",
         function: {
-          name: stringValue(event.toolName) || stringValue(event.name) || "",
+          name: clientToolName(
+            stringValue(event.toolName) || stringValue(event.name) || "",
+            toolNameMap
+          ),
           arguments: JSON.stringify(args),
         },
       });
@@ -545,7 +601,11 @@ function applyEventToAggregate(event: JsonRecord, state: AggregateState): void {
   }
 }
 
-function applyEventToAggregateOrThrow(event: JsonRecord, state: AggregateState): void {
+function applyEventToAggregateOrThrow(
+  event: JsonRecord,
+  state: AggregateState,
+  toolNameMap: Map<string, string>
+): void {
   if (event.type === "error") {
     const error = isRecord(event.error) ? event.error : {};
     throw new Error(
@@ -553,7 +613,7 @@ function applyEventToAggregateOrThrow(event: JsonRecord, state: AggregateState):
     );
   }
 
-  applyEventToAggregate(event, state);
+  applyEventToAggregate(event, state, toolNameMap);
 }
 
 function usageFromCommandCode(usage: JsonRecord | null) {
@@ -631,7 +691,8 @@ function usageFromCommandCode(usage: JsonRecord | null) {
 function createStreamResponse(
   upstream: Response,
   model: string,
-  signal?: AbortSignal | null
+  signal?: AbortSignal | null,
+  toolNameMap: Map<string, string> = new Map()
 ): Response {
   const id = `chatcmpl-${randomUUID()}`;
   const reader = upstream.body?.getReader();
@@ -691,7 +752,10 @@ function createStreamResponse(
               id: stringValue(event.toolCallId) || stringValue(event.id) || randomUUID(),
               type: "function",
               function: {
-                name: stringValue(event.toolName) || stringValue(event.name) || "",
+                name: clientToolName(
+                  stringValue(event.toolName) || stringValue(event.name) || "",
+                  toolNameMap
+                ),
                 arguments: JSON.stringify(args),
               },
             };
@@ -790,7 +854,8 @@ function createStreamResponse(
 async function createJsonResponse(
   upstream: Response,
   model: string,
-  signal?: AbortSignal | null
+  signal?: AbortSignal | null,
+  toolNameMap: Map<string, string> = new Map()
 ): Promise<Response> {
   const reader = upstream.body?.getReader();
   if (!reader) throw new Error("Command Code response missing body");
@@ -816,12 +881,12 @@ async function createJsonResponse(
       for (const line of lines) {
         const event = parseStreamLine(line);
         if (!isRecord(event)) continue;
-        applyEventToAggregateOrThrow(event, state);
+        applyEventToAggregateOrThrow(event, state, toolNameMap);
       }
     }
     if (buffer.trim()) {
       const event = parseStreamLine(buffer);
-      if (isRecord(event)) applyEventToAggregateOrThrow(event, state);
+      if (isRecord(event)) applyEventToAggregateOrThrow(event, state, toolNameMap);
     }
   } finally {
     try {
@@ -888,7 +953,7 @@ export class CommandCodeExecutor extends BaseExecutor {
     };
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
 
-    const transformedBody = buildCommandCodeBody(model, body, stream);
+    const { body: transformedBody, toolNameMap } = buildCommandCodeBody(model, body, stream);
     const url = this.buildUrl();
     const upstream = await fetch(url, {
       method: "POST",
@@ -915,8 +980,8 @@ export class CommandCodeExecutor extends BaseExecutor {
     }
 
     const response = stream
-      ? createStreamResponse(upstream, model, signal)
-      : await createJsonResponse(upstream, model, signal);
+      ? createStreamResponse(upstream, model, signal, toolNameMap)
+      : await createJsonResponse(upstream, model, signal, toolNameMap);
 
     return { response, url, headers, transformedBody };
   }
