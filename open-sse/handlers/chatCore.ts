@@ -211,6 +211,7 @@ import { stageTrace } from "./chatCore/stageTrace.ts";
 import { attachCompressionUsageReceiptAfterAnalytics as attachCompressionUsageReceiptAfterAnalyticsFor } from "./chatCore/compressionUsageReceipt.ts";
 import { prepareUpstreamBody } from "./chatCore/upstreamBody.ts";
 import { getQuotaScopeLabelForProvider } from "../services/antigravityQuotaFamily.ts";
+import { getKimiTemporaryRateLimitResetAt } from "./chatCore/kimiQuotaRecovery.ts";
 import {
   getCallLogPipelineCaptureStreamChunks,
   getCallLogPipelineMaxSizeBytes,
@@ -3746,8 +3747,25 @@ export async function handleChatCore({
             );
           }
         } else if (errorType === PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED) {
+          // Kimi's 403 says "billing cycle" for both an exhausted subscription and a
+          // temporary request window. Read its official usage endpoint before making
+          // the connection terminal: a non-zero Weekly quota plus an empty Ratelimit
+          // window must recover automatically at the reported reset time.
+          let kimiRateLimitResetAt: string | null = null;
+          if (provider === "kimi-coding") {
+            try {
+              const { fetchAndPersistProviderLimits } = await import("@/lib/usage/providerLimits");
+              const { usage } = await fetchAndPersistProviderLimits(errorConnectionId, "manual");
+              kimiRateLimitResetAt = getKimiTemporaryRateLimitResetAt(usage);
+            } catch {
+              // Preserve the existing quota handling when Kimi's usage endpoint is unavailable.
+            }
+          }
+
           // Providers with per-model quotas — lock the model only, not the connection
-          const quotaCooldownMs = retryAfterMs || COOLDOWN_MS.rateLimit;
+          const quotaCooldownMs = kimiRateLimitResetAt
+            ? Math.max(new Date(kimiRateLimitResetAt).getTime() - Date.now(), 0)
+            : retryAfterMs || COOLDOWN_MS.rateLimit;
           const accountSemaphoreKey = resolveAccountSemaphoreKey({
             provider,
             model: currentModel,
@@ -3757,7 +3775,19 @@ export async function handleChatCore({
           if (accountSemaphoreKey) {
             markAccountSemaphoreBlocked(accountSemaphoreKey, quotaCooldownMs);
           }
-          if (isModelScope() && errorConnectionId) {
+          if (kimiRateLimitResetAt) {
+            await updateProviderConnection(errorConnectionId, {
+              testStatus: "unavailable",
+              rateLimitedUntil: kimiRateLimitResetAt,
+              backoffLevel: 0,
+              lastErrorType: PROVIDER_ERROR_TYPES.RATE_LIMITED,
+              lastError: message,
+              errorCode: statusCode,
+            });
+            console.warn(
+              `[provider] Node ${errorConnectionId} Kimi request window exhausted (${statusCode}) — retrying after ${kimiRateLimitResetAt}`
+            );
+          } else if (isModelScope() && errorConnectionId) {
             const lockFn = provider === "antigravity" ? lockExactModel : lockModel;
             lockFn(provider, errorConnectionId, model, "quota_exhausted", quotaCooldownMs);
             console.warn(
