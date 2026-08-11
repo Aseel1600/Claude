@@ -145,6 +145,18 @@ export class ActiveCanaryCircuitBreaker {
     return this.threshold;
   }
 
+  getCooldownMs(): number {
+    return this.cooldownMs;
+  }
+
+  getOpenedAt(): number | null {
+    return this.openedAt > 0 ? this.openedAt : null;
+  }
+
+  isHalfOpenProbeInFlight(): boolean {
+    return this.halfOpenProbeInFlight;
+  }
+
   getState(): "open" | "closed" | "half-open" {
     if (this.state === "open" && this.now() - this.openedAt >= this.cooldownMs) {
       this.state = "half-open";
@@ -188,12 +200,18 @@ export function getGovernorActiveBreakerStatus(): {
   state: "open" | "closed" | "half-open";
   failureCount: number;
   threshold: number;
+  cooldownMs: number;
+  openedAt: number | null;
+  halfOpenProbeInFlight: boolean;
 } {
   const breaker = getGovernorActiveBreaker();
   return {
     state: breaker.getState(),
     failureCount: breaker.getFailureCount(),
     threshold: breaker.getThreshold(),
+    cooldownMs: breaker.getCooldownMs(),
+    openedAt: breaker.getOpenedAt(),
+    halfOpenProbeInFlight: breaker.isHalfOpenProbeInFlight(),
   };
 }
 

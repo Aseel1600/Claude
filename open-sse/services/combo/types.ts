@@ -181,6 +181,8 @@ export type ResolvedComboTarget = {
   governorSelected?: boolean;
   /** Request identity paired with governorSelected for breaker/telemetry correlation. */
   governorCorrelationId?: string | null;
+  /** Internal request-local overrides applied only to this Governor-selected attempt. */
+  governorRequestOverrides?: Record<string, unknown>;
   /**
    * Fingerprint-based account pin resolved from a combo builder composite
    * connectionId (`${rowId}|fp|${fingerprint}`, see

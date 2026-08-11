@@ -451,9 +451,6 @@ export async function resolveAutoStrategyOrder(
         routableCandidates,
       });
       orderedTargets = governed.orderedTargets;
-      if (governed.requestOverrides) {
-        Object.assign(body, governed.requestOverrides);
-      }
       if (governed.selectedExecutionKey) {
         const selectedRuntimeTarget = orderedTargets.find(
           (target) => target.executionKey === governed.selectedExecutionKey
@@ -467,6 +464,9 @@ export async function resolveAutoStrategyOrder(
             governorSelected?: boolean;
             governorCorrelationId?: string | null;
           }).governorCorrelationId = correlationId ?? null;
+          selectedRuntimeTarget.governorRequestOverrides = governed.requestOverrides
+            ? { ...governed.requestOverrides }
+            : undefined;
         }
       }
       if (governed.applied) {

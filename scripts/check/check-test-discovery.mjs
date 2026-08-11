@@ -57,11 +57,9 @@ export const COLLECTORS = [
   // abaixo). Subdir novo: adicione aqui E nos scripts (o drift-check + o gate de
   // órfãos forçam a manutenção em sincronia).
   {
-    glob: "tests/unit/{api,auth,authz,build,cli,cli-helper,combo,compression,correctness,cors,db,db-adapters,docs,gamification,guardrails,lib,mcp,memory,runtime,security,services,settings,shared,ui,usage}/**/*.test.ts",
+    glob: "tests/unit/{api,auth,authz,build,cli,cli-helper,combo,compression,correctness,cors,db,db-adapters,docs,gamification,governor,guardrails,lib,mcp,memory,runtime,security,services,settings,shared,ui,usage}/**/*.test.ts",
     sources: ["package.json"],
   },
-  // Governor unit suite is part of the canonical Node runner.
-  { glob: "tests/unit/governor/**/*.test.ts", sources: ["package.json"] },
   // Node native runner — tests/unit/dashboard/** roda numa invocação separada com o hook
   // COMPLETO do tsx (--import tsx): o grafo dos componentes de dashboard puxa
   // @lobehub/icons, cujo build es/ faz require() interno de arquivos com sintaxe ESM —

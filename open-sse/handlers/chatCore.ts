@@ -1856,6 +1856,12 @@ export async function handleChatCore({
     );
   }
 
+  // Internal-only attempt metadata must never survive to provider translators,
+  // including compression-disabled and best-effort error paths.
+  if (body && typeof body === "object") {
+    delete (body as Record<string, unknown>).__omnirouteGovernorCompressionPreference;
+  }
+
   // Re-check the concrete target after all compression passes. Combo compatibility
   // filtering is advisory and may preserve an all-incompatible pool; this is the
   // hard boundary that prevents a too-large prompt (or a negative token budget)

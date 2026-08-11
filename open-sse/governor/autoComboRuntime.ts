@@ -304,18 +304,6 @@ export async function applyGovernorToAutoComboOrder(
 
   const breaker = getGovernorActiveBreaker();
   context.breakerState = breaker.getState();
-  if (!breaker.tryAcquireActiveAttempt()) {
-    context.activeSelected = false;
-    context.activeApplied = false;
-    context.bypassReason = "governor_breaker_open";
-    return {
-      orderedTargets: input.orderedTargets,
-      context,
-      selectedExecutionKey: null,
-      applied: false,
-    };
-  }
-
   if (!context.activeSelected || !result.plan?.executable) {
     return {
       orderedTargets: input.orderedTargets,
@@ -377,6 +365,20 @@ export async function applyGovernorToAutoComboOrder(
       orderedTargets: input.orderedTargets,
       context,
       selectedExecutionKey: selected.executionKey || null,
+      applied: false,
+    };
+  }
+
+  // Acquire only at the real dispatch boundary. Earlier acquisition can leak the
+  // sole HALF-OPEN probe when a later eligibility/control exit preserves native routing.
+  if (!breaker.tryAcquireActiveAttempt()) {
+    context.activeSelected = false;
+    context.activeApplied = false;
+    context.bypassReason = "governor_breaker_open";
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
       applied: false,
     };
   }

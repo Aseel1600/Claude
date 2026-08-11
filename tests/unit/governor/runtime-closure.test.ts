@@ -8,6 +8,10 @@ import {
   stableCanarySample,
 } from "../../../open-sse/governor/activeCanary.ts";
 import type { CounterfactualExecutionPlan } from "../../../open-sse/governor/counterfactual.ts";
+import {
+  buildGovernorAttemptBody,
+  buildTargetTimeoutRunner,
+} from "../../../open-sse/services/combo/targetTimeoutRunner.ts";
 
 function plan(overrides: Partial<CounterfactualExecutionPlan> = {}): CounterfactualExecutionPlan {
   return {
@@ -142,6 +146,124 @@ test("shared breaker primitive trips deterministically and resets", () => {
   breaker.reset();
   assert.equal(breaker.getFailureCount(), 0);
   assert.equal(breaker.getState(), "closed");
+});
+
+test("half-open breaker consumes only one real dispatch probe and recovers", () => {
+  let now = 1;
+  const breaker = new ActiveCanaryCircuitBreaker(1, 100, () => now);
+  breaker.recordFailure();
+  assert.equal(breaker.getState(), "open");
+  now = 101;
+  assert.equal(breaker.getState(), "half-open");
+  assert.equal(breaker.isHalfOpenProbeInFlight(), false, "eligibility exits consume no probe");
+  assert.equal(breaker.tryAcquireActiveAttempt(), true);
+  assert.equal(breaker.isHalfOpenProbeInFlight(), true);
+  assert.equal(breaker.tryAcquireActiveAttempt(), false, "concurrent probe is rejected");
+  breaker.recordSuccess();
+  assert.equal(breaker.getState(), "closed");
+  assert.equal(breaker.getFailureCount(), 0);
+});
+
+test("failed half-open probe reopens and restarts cooldown", () => {
+  let now = 1;
+  const breaker = new ActiveCanaryCircuitBreaker(1, 100, () => now);
+  breaker.recordFailure();
+  now = 101;
+  assert.equal(breaker.tryAcquireActiveAttempt(), true);
+  breaker.recordFailure();
+  assert.equal(breaker.getState(), "open");
+  now = 200;
+  assert.equal(breaker.getState(), "open");
+  now = 201;
+  assert.equal(breaker.getState(), "half-open");
+});
+
+test("Governor request overrides are cloned onto selected attempt only", () => {
+  const original = { reasoning_effort: "low", max_tokens: 800, messages: [{ role: "user", content: "x" }] };
+  const selected = buildGovernorAttemptBody(original, {
+    kind: "model",
+    stepId: "b",
+    executionKey: "b",
+    modelStr: "p2/m2",
+    provider: "p2",
+    providerId: null,
+    connectionId: "b-connection",
+    weight: 1,
+    label: null,
+    governorSelected: true,
+    governorRequestOverrides: {
+      reasoning_effort: "medium",
+      max_tokens: 100,
+      __omnirouteGovernorCompressionPreference: "rtk",
+    },
+  });
+  const fallback = buildGovernorAttemptBody(original, {
+    kind: "model",
+    stepId: "a",
+    executionKey: "a",
+    modelStr: "p1/m1",
+    provider: "p1",
+    providerId: null,
+    connectionId: "a-connection",
+    weight: 1,
+    label: null,
+  });
+  assert.notEqual(selected, original);
+  assert.equal(selected.reasoning_effort, "medium");
+  assert.equal(selected.max_tokens, 100);
+  assert.equal(fallback, original);
+  assert.equal(fallback.reasoning_effort, "low");
+  assert.equal(fallback.max_tokens, 800);
+  assert.equal("__omnirouteGovernorCompressionPreference" in fallback, false);
+});
+
+test("precommit fallback receives original body after governed attempt fails", async () => {
+  const original = { reasoning_effort: "low", max_tokens: 800, messages: [{ role: "user", content: "x" }] };
+  const captured: Array<Record<string, unknown>> = [];
+  const run = buildTargetTimeoutRunner({
+    comboTargetTimeoutMs: 0,
+    log: { info() {}, warn() {}, debug() {} },
+    handleSingleModel: async (attemptBody, model) => {
+      captured.push(attemptBody);
+      return new Response(null, { status: model === "p2/m2" ? 500 : 200 });
+    },
+  });
+  const governed = {
+    kind: "model" as const,
+    stepId: "b",
+    executionKey: "b",
+    modelStr: "p2/m2",
+    provider: "p2",
+    providerId: null,
+    connectionId: "b-connection",
+    weight: 1,
+    label: null,
+    governorSelected: true,
+    governorRequestOverrides: {
+      reasoning_effort: "medium",
+      max_tokens: 100,
+      __omnirouteGovernorCompressionPreference: "rtk",
+    },
+  };
+  const native = {
+    kind: "model" as const,
+    stepId: "a",
+    executionKey: "a",
+    modelStr: "p1/m1",
+    provider: "p1",
+    providerId: null,
+    connectionId: "a-connection",
+    weight: 1,
+    label: null,
+  };
+  assert.equal((await run(original, governed.modelStr, governed)).status, 500);
+  assert.equal((await run(original, native.modelStr, native)).status, 200);
+  assert.equal(captured[0].reasoning_effort, "medium");
+  assert.equal(captured[0].max_tokens, 100);
+  assert.equal(captured[1], original);
+  assert.equal(captured[1].reasoning_effort, "low");
+  assert.equal(captured[1].max_tokens, 800);
+  assert.equal("__omnirouteGovernorCompressionPreference" in captured[1], false);
 });
 
 test("reasoning and compression controls apply only when enabled", () => {
