@@ -170,8 +170,11 @@ export function findModelName(aliasOrId: string, modelId: string): string {
 }
 
 export function getModelTargetFormat(aliasOrId: string, modelId: string): string | null {
-  const models = PROVIDER_MODELS[aliasOrId];
-  const found = models?.find((m) => m.id === modelId) || getGlobalModel(modelId);
+  const alias = PROVIDER_ID_TO_ALIAS[aliasOrId] || aliasOrId;
+  const prefixes = [`${aliasOrId}/`, `${alias}/`];
+  const prefix = prefixes.find((value) => modelId.startsWith(value));
+  const bareModelId = prefix ? modelId.slice(prefix.length) : modelId;
+  const found = PROVIDER_MODELS[alias]?.find((m) => m.id === bareModelId);
   if (found?.targetFormat) return found.targetFormat;
   // #5842: OpenAI "*-pro" reasoning models (o1-pro, gpt-5.x-pro) are only served by
   // the native /v1/responses endpoint — /v1/chat/completions 404s ("only supported
@@ -179,7 +182,7 @@ export function getModelTargetFormat(aliasOrId: string, modelId: string): string
   // covers dynamically-synced ids that post-date the catalog (same spirit as the gh
   // executor's /codex/i routing, 9router#102). Scoped to the openai alias so other
   // providers shipping *-pro ids keep their own endpoint semantics.
-  if (aliasOrId === "openai" && /-pro$/i.test(modelId)) return "openai-responses";
+  if (alias === "openai" && /-pro$/i.test(bareModelId)) return "openai-responses";
   return null;
 }
 
