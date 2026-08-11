@@ -9,6 +9,7 @@
  * `src/lib/modelAliasSeed.ts`.
  */
 import { getModelAliases } from "@/lib/db/models/aliases";
+import { DEFAULT_MODEL_ALIAS_SEED } from "@/lib/modelAliasSeed";
 
 let cachedAliases: Record<string, unknown> | null = null;
 let lastFetch = 0;
@@ -35,7 +36,7 @@ export async function resolveModelAlias(
   if (!model) return model;
 
   const aliases = await loadAliases();
-  const target = aliases[model];
+  const target = aliases[model] ?? (DEFAULT_MODEL_ALIAS_SEED as Record<string, unknown>)[model];
 
   if (target === undefined) return model;
 
