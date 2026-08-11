@@ -934,6 +934,31 @@ export function getDbInstance(): SqliteDatabase {
   if (isCloud || isBuildPhase) {
     if (isBuildPhase) {
       console.log("[DB] Build phase detected — using in-memory SQLite (read-only)");
+      // Use a no-op stub during build to avoid loading better-sqlite3 native
+      // bindings. The native Statement destructor crashes with SIGABRT when the
+      // Next.js build worker exits (assertion in node::RemoveEnvironmentCleanupHook).
+      // The DB is never queried during build — it only exists to satisfy module eval.
+      const noopStatement: import("./adapters/types").PreparedStatement = {
+        run: () => ({ changes: 0, lastInsertRowid: 0 }),
+        get: () => undefined,
+        all: () => [],
+      };
+      const stubDb: SqliteDatabase = {
+        driver: "sql.js" as const,
+        open: true,
+        name: ":memory:",
+        prepare: () => noopStatement,
+        exec: () => {},
+        pragma: () => undefined,
+        transaction: <T>(fn: (...args: unknown[]) => T) => fn,
+        immediate: (fn: () => void) => fn(),
+        backup: async () => {},
+        checkpoint: () => {},
+        close: () => {},
+        raw: null,
+      };
+      setDb(stubDb);
+      return stubDb;
     }
     const memoryDb = openSqliteDatabase(":memory:");
     memoryDb.pragma("journal_mode = WAL");
@@ -942,20 +967,6 @@ export function getDbInstance(): SqliteDatabase {
     ensureCallLogsColumns(memoryDb);
     ensureProviderConnectionsColumns(memoryDb);
     setDb(memoryDb);
-
-    // Close the DB before V8 teardown to prevent the better-sqlite3
-    // Statement destructor from crashing (SIGABRT) during build worker exit.
-    // The native cleanup hook assertion fires too late otherwise.
-    if (isBuildPhase) {
-      process.on("exit", () => {
-        try {
-          memoryDb.close();
-        } catch {
-          /* already closed */
-        }
-      });
-    }
-
     return memoryDb;
   }
 
