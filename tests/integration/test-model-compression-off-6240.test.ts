@@ -168,6 +168,16 @@ test("chatCore: a per-key opt-out wins over request headers and Output Styles (#
     enabled: true,
     defaultMode: "lite",
     autoTriggerTokens: 0,
+    // Force the adaptive planner to escalate any non-empty prompt. The per-key opt-out must
+    // remain a hard kill even when a context budget would otherwise select a stacked plan.
+    contextBudget: {
+      mode: "floor",
+      policy: "absolute",
+      outputReserve: 0,
+      safetyMargin: 0,
+      pct: 1,
+      absoluteBudget: 1,
+    },
     cavemanOutputMode: {
       enabled: true,
       intensity: "full",
