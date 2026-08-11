@@ -81,7 +81,12 @@ ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
 COPY . ./
 RUN --mount=type=cache,target=/app/.build/next/cache \
-  mkdir -p /app/data && npm run build
+  mkdir -p /app/data \
+  && mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide 2>/dev/null || true \
+  && npm run build \
+  && mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide \
+       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node 2>/dev/null || true
 
 # ── Runner base ────────────────────────────────────────────────────────────
 FROM base AS runner-base
