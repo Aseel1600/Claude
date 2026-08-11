@@ -8,7 +8,7 @@
  * Part of: Quota-aware provider scheduling (Phase 2).
  */
 
-import { recordProviderQuotaUsage, getProviderQuota } from "./providerQuotaState.ts";
+import { recordProviderQuotaUsage, getProviderQuota } from "./providerQuotaState";
 
 export interface ParsedQuotaHeaderResult {
   tokensUsed?: number;
