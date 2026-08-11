@@ -1,4 +1,4 @@
-import { BaseExecutor, type ExecuteInput } from "./base.ts";
+import { BaseExecutor, type ExecuteInput, type ExecutorExecuteResult } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
 import { initTinyCmsWasm, generateSecurePayload } from "./tinycmsSigner.ts";
 
@@ -45,7 +45,7 @@ export class TinyCmsExecutor extends BaseExecutor {
     super("tinycms-web", { id: "tinycms-web", baseUrl: CHAT_URL });
   }
 
-  async execute(input: ExecuteInput) {
+  async execute(input: ExecuteInput): Promise<ExecutorExecuteResult> {
     const { body, credentials, signal } = input;
     const bodyObj = (body || {}) as Record<string, any>;
 
@@ -116,9 +116,10 @@ export class TinyCmsExecutor extends BaseExecutor {
 
       const response = await fetch(CHAT_URL, fetchOptions);
       return {
-        status: response.status,
+        response,
+        url: CHAT_URL,
         headers: Object.fromEntries(response.headers.entries()),
-        body: response.body,
+        transformedBody: bodyObj,
       };
     } catch (err: any) {
       return makeErrorResult(

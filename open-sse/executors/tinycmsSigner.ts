@@ -358,17 +358,6 @@ function decodeText(ptr, len) {
 
 const cachedTextEncoder = new TextEncoder();
 
-if (!('encodeInto' in cachedTextEncoder)) {
-    cachedTextEncoder.encodeInto = function (arg, view) {
-        const buf = cachedTextEncoder.encode(arg);
-        view.set(buf);
-        return {
-            read: arg.length,
-            written: buf.length
-        };
-    };
-}
-
 let WASM_VECTOR_LEN = 0;
 
 let wasmModule, wasm;

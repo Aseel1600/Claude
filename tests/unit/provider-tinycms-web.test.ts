@@ -168,6 +168,51 @@ test("TinyCmsExecutor returns 401 when UUID does not start with 'R'", async () =
   assert.ok(!errMsg.includes("at /"), "error must not contain a stack trace path");
 });
 
+test("TinyCmsExecutor returns the standard executor response envelope on success", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url.includes("api64.ipify.org")) {
+      return new Response(JSON.stringify({ ip: "127.0.0.1" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    if (url.includes("/api/challenge")) {
+      return new Response(
+        JSON.stringify({
+          challenge: "test",
+          challengeId: "challenge-id",
+          expiresAt: Date.now() + 60_000,
+          version: "1",
+          difficulty: 0,
+        }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+    return new Response("upstream body", {
+      status: 200,
+      headers: { "X-TinyCMS-Test": "yes" },
+    });
+  };
+
+  try {
+    const requestBody = { messages: [{ role: "user", content: "hi" }] };
+    const result = await new TinyCmsExecutor().execute({
+      model: "gpt-5-free",
+      body: requestBody,
+      stream: false,
+      credentials: { apiKey: "Rtest-device" },
+    });
+
+    assert.ok(!(result instanceof Response), "TinyCMS must preserve executor metadata");
+    assert.equal(result.response.status, 200);
+    assert.equal(result.headers?.["x-tinycms-test"], "yes");
+    assert.deepEqual(result.transformedBody, requestBody);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 // ── WASM initialization ───────────────────────────────────────────────────────
 
 test("initTinyCmsWasm module exports expected functions", async () => {
