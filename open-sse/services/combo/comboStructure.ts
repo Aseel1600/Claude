@@ -533,6 +533,14 @@ function hasKnownCompatibleContextLimit(
   return evaluateContextLimit(capabilities, requirements, target.modelStr) === true;
 }
 
+// #8494: hard capability requirements fail the combo closed when every target
+// is incompatible (tools / vision / structured_output — and output_tokens).
+// Soft failures (context_window) stay fallback-eligible. Restored verbatim:
+// cherry-pick #9901 accidentally deleted this declaration while keeping the
+// three call sites below, producing `HARD_COMPAT_REASONS is not defined` on
+// every capability-filtered combo request.
+const HARD_COMPAT_REASONS = new Set(["tools", "vision", "structured_output", "output_tokens"]);
+
 /**
  * #8332: vision is a hard requirement, not a soft preference — a target whose vision
  * support is not confirmed can never succeed on an image_url request. Callers
