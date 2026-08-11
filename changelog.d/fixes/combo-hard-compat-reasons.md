@@ -1,0 +1,1 @@
+- fix(combo): restore the HARD_COMPAT_REASONS declaration dropped by cherry-pick #9901 so capability-filtered combo requests no longer throw ReferenceError
