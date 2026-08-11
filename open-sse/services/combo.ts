@@ -80,7 +80,29 @@ import {
 import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
+import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
+import { getCachedProviderConnectionById } from "../../src/lib/localDb.js";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
+
+/**
+ * Resolve the configured per-connection token budget (rateLimitOverrides.tpm)
+ * for quota reservation. Returns undefined when unconfigured — the store then
+ * keeps the previously recorded limit (or 0 for a fresh row, meaning "no
+ * budget enforced").
+ */
+function resolveTargetTokenLimit(target: { connectionId?: string }): number | undefined {
+  const connectionId = target?.connectionId;
+  if (!connectionId) return undefined;
+  try {
+    const connection = getCachedProviderConnectionById(connectionId);
+    const overrides = (connection as { rateLimitOverrides?: Record<string, number> | null } | null)
+      ?.rateLimitOverrides;
+    const tpm = overrides?.tpm;
+    return typeof tpm === "number" && tpm > 0 ? tpm : undefined;
+  } catch {
+    return undefined;
+  }
+}
 import {
   applyPromptCacheAffinity,
   expandPromptCacheAffinityTargets,
@@ -981,6 +1003,27 @@ export async function handleComboChat({
             log.info(
               "COMBO",
               `Skipping ${modelStr} — quota exhaustion cutoff (${quotaCutoff.reason || "quota_exhausted"})`
+            );
+            if (i > 0) fallbackCount++;
+            return null;
+          }
+        }
+
+        // Quota-aware scheduling (opt-in, OMNIROUTE_QUOTA_AWARE_ROUTING=1):
+        // when a per-connection token budget is configured (provider_quota_state),
+        // skip targets whose remaining budget cannot afford this request —
+        // BEFORE dispatching — instead of waiting for a 429. Fails open: when
+        // no budget is configured the decision is always affordable.
+        if (process.env.OMNIROUTE_QUOTA_AWARE_ROUTING === "1" && provider && target.connectionId) {
+          const quotaDecision = canAffordRequest(
+            target.connectionId,
+            modelStr,
+            body as Record<string, unknown> | null | undefined
+          );
+          if (!quotaDecision.affordable) {
+            log.info(
+              "COMBO",
+              `Skipping ${modelStr} — quota budget ${quotaDecision.reason} (remaining ${quotaDecision.tokensRemaining ?? 0}, cost ${quotaDecision.estimatedCost ?? 0})`
             );
             if (i > 0) fallbackCount++;
             return null;
@@ -2618,6 +2661,25 @@ async function handleRoundRobinCombo({
           failoverBeforeRetry: config.failoverBeforeRetry,
         });
 
+        // Quota-aware scheduling: reserve the estimated budget for this
+        // dispatch (opt-in, same env gate as the pre-request check). Best-effort
+        // and non-blocking — recording must never break the request path.
+        if (
+          process.env.OMNIROUTE_QUOTA_AWARE_ROUTING === "1" &&
+          target.connectionId &&
+          attemptBody &&
+          typeof attemptBody === "object"
+        ) {
+          try {
+            const { reserveQuota } = await import("../../src/lib/quota/quotaScheduler.ts");
+            reserveQuota(target.connectionId, modelStr, attemptBody as Record<string, unknown>, {
+              tokenLimit: resolveTargetTokenLimit(target),
+            });
+          } catch {
+            // best-effort only
+          }
+        }
+
         // Success — validate response quality before returning
         if (result.ok) {
           let rrClone: Response;
@@ -3020,7 +3082,8 @@ async function handleRoundRobinCombo({
       return new Response(
         JSON.stringify({
           error: {
-            message: "Service temporarily unavailable: all targets were skipped by pre-dispatch filters",
+            message:
+              "Service temporarily unavailable: all targets were skipped by pre-dispatch filters",
             type: "service_unavailable",
             code: "ALL_TARGETS_SKIPPED",
           },

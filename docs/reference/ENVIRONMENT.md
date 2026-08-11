@@ -1389,3 +1389,11 @@ Used by `src/lib/vncSession/manifest.ts` to configure Docker-based headless Chro
 | `REDIS_BIND_HOST` | `127.0.0.1` | Bind address for the embedded Redis service. |
 | `REDIS_PORT` | `6379` | Port for the embedded Redis service. |
 | `OMNIROUTE_REDIS_BIND_HOST` | – | OmniRoute-scoped override for the embedded Redis bind address. |
+
+### Quota-aware scheduling
+
+Used by `open-sse/services/combo.ts` and `src/lib/quota/quotaScheduler.ts` for pre-request token-budget checks. Opt-in — default routing behavior is unchanged when unset.
+
+| Variable                          | Default  | Source File                       | Description                                                                                                      |
+| --------------------------------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `OMNIROUTE_QUOTA_AWARE_ROUTING`   | `0`      | `open-sse/services/combo.ts`      | When `1`, skip connections whose per-window token budget (`rateLimitOverrides.tpm`, table `provider_quota_state`) cannot afford the estimated request cost before dispatch. Fail-open when no budget configured. |
