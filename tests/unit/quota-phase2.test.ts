@@ -1,9 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseProviderQuotaHeaders, applyQuotaHeadersToState } from "../../src/lib/quota/quotaAdapters.ts";
-import { getQuotaAnalyticsSummary } from "../../src/lib/quota/quotaAnalytics.ts";
-import { getActiveQuotaResetItems, resetExpiredQuotaWindows } from "../../src/lib/quota/quotaResetTimers.ts";
-import { recordProviderQuotaUsage, getProviderQuota } from "../../src/lib/quota/providerQuotaState.ts";
+import { parseProviderQuotaHeaders, applyQuotaHeadersToState } from "../../src/lib/quota/quotaAdapters";
+import { getQuotaAnalyticsSummary } from "../../src/lib/quota/quotaAnalytics";
+import { getActiveQuotaResetItems, resetExpiredQuotaWindows } from "../../src/lib/quota/quotaResetTimers";
+import { recordProviderQuotaUsage, getProviderQuota } from "../../src/lib/quota/providerQuotaState";
 
 test("parseProviderQuotaHeaders: parses OpenAI rate limit headers", () => {
   const headers = new Headers({
