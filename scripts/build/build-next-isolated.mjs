@@ -110,6 +110,7 @@ export function resolveNextBuildEnv(baseEnv = process.env) {
   const env = {
     ...baseEnv,
     NEXT_PRIVATE_BUILD_WORKER: baseEnv.NEXT_PRIVATE_BUILD_WORKER || "0",
+    OMNIROUTE_BUILDING: "1",
   };
 
   // Raise the Node heap for the spawned `next build`. The webpack production pass

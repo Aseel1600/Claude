@@ -56,6 +56,9 @@ jobs:
       # Build-scope guard: fails if worktrees/cruft leak into the tsconfig include
       # scope (would OOM `next build`). Instant. See incident 2026-06-25 / #5031.
       - run: npm run check:build-scope
+      # Dockerfile pin guard: fails if the base image / npm global install drift
+      # from the pinned versions (2026-08-10 Railway SIGABRT — floating node:22 tag).
+      - run: npm run check:dockerfile-pins
       # Pack-policy (unexpected-files allowlist) WITHOUT a build — catches a stray file
       # leaking into the npm tarball (v3.8.36: 6 ops bin/*.sh) per-PR instead of only on
       # the release PR's heavy Package Artifact job.

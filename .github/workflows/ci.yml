@@ -108,6 +108,9 @@ jobs:
           cache: npm
       - uses: ./.github/actions/npm-ci-retry
       - run: npm run check:node-runtime
+      # Dockerfile pin guard: fails if the base image / npm global install drift
+      # from the pinned versions (2026-08-10 Railway SIGABRT — floating node:22 tag).
+      - run: npm run check:dockerfile-pins
       - run: npm run audit:deps
       - run: npm run lint
       - run: npm run check:cycles

@@ -1,6 +1,16 @@
 # ── Common base with runtime deps ──────────────────────────────────────────
-FROM node:22-bookworm-slim AS base
+FROM node:22.23.1-bookworm-slim AS base
 WORKDIR /app
+
+# Guard: fail the build if the base image drifts from the pinned Node version.
+# The 2026-08-10 Railway outage was caused by a floating `node:22` tag drifting
+# to a runtime whose teardown aborts better-sqlite3 (SIGABRT); node:22.23.2
+# additionally SIGSEGV'd a next-build worker locally (no standalone emitted),
+# so the pin is 22.23.1. When bumping the base image, update BOTH the FROM line
+# and this guard together (ci.yml also runs `check:dockerfile-pins` to catch
+# drift before merge).
+RUN node --version | grep -qx "v22.23.1" \
+  || { echo "Base image Node version drifted: expected v22.23.1, got $(node --version). Update Dockerfile FROM + guard together." >&2; exit 1; }
 
 # `apt-get upgrade` pulls the security-patched versions of the Debian (trixie)
 # base-image packages at build time — clears the subset of container-scan CVEs
@@ -15,13 +25,22 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=shared \
   && apt-get install -y --no-install-recommends libsecret-1-0 ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Refresh the globally-installed npm so its *bundled* node_modules (undici, tar)
-# ship the patched versions. These are npm's own internals — not application
-# dependencies (our app already resolves undici@8.5.0 / tar@7.5.16, both fixed) —
-# but the container scanner flags the stale copies under
-# /usr/local/lib/node_modules/npm/node_modules. npm is not invoked at runtime in
-# the runner stages, so this is hygiene, not an exploitable runtime path.
-RUN npm install -g npm@latest \
+# Refresh the globally-installed npm so its *bundled* node_modules ship patched
+# versions of the packages the container scanner flags (npm 11.19.0 bundles
+# tar@^7.5.19 and no longer declares undici as a bundled dependency, so that
+# stale copy from older npm lines is gone). These are npm's own internals — not
+# application dependencies (our app already resolves undici@8.5.0 / tar@7.5.16,
+# both fixed) — and npm is not invoked at runtime in the runner stages, so this
+# is hygiene, not an exploitable runtime path.
+#
+# Pinned to npm@11.19.0 (the last 11.x line), NOT npm 12: npm 12's allowScripts
+# policy blocks `npm rebuild better-sqlite3` install scripts by default, so the
+# native binary is never built and the build fails with "Could not locate the
+# bindings file" (hit during the 2026-08-10 local Docker build). 11.x runs
+# rebuild scripts normally. Same rationale as the pinned node:22.23.2 base
+# image — bump deliberately, and keep check-dockerfile-pins.mjs in sync.
+RUN npm install -g npm@11.19.0 \
+  && test "$(npm --version)" = "11.19.0" \
   && npm cache clean --force
 
 # ── Builder ────────────────────────────────────────────────────────────────
@@ -80,6 +99,16 @@ ARG OMNIROUTE_BUILD_MEMORY_MB=6144
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
 COPY . ./
+# Only the native binary is hidden (not the whole package) while `npm run build` runs.
+# Build-time code that evaluates the driver — Next.js page-data workers load route
+# modules natively, and OMNIROUTE_BUILDING=1 routes every DB entry point to a no-op
+# stub — can then never load the addon, whose Statement destructor aborts with SIGABRT
+# during worker teardown on some Node versions (node::RemoveEnvironmentCleanupHook
+# assertion, env == nullptr). The npm-rebuild smoke test above is safe: it opens
+# `:memory:` and closes it immediately with zero Statements. The mv-restore puts the
+# binary back before the runner stages COPY it; the runner's
+# `COPY --from=builder .../better-sqlite3` (AFTER the standalone COPY) is what
+# guarantees the complete package (lib/ + .node) lands in the image — keep that order.
 RUN --mount=type=cache,target=/app/.build/next/cache \
   mkdir -p /app/data \
   && mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node \

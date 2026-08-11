@@ -24,8 +24,18 @@ export function tryOpenSync(
   filePath: string,
   options?: Record<string, unknown>
 ): SqliteAdapter | null {
-  // better-sqlite3: rápido, nativo — skip em Bun
-  if (!process.versions.bun) {
+  // better-sqlite3: rápido, nativo — skip em Bun e no build.
+  // Next.js build workers sometimes drop NEXT_PHASE from process.env, so
+  // OMNIROUTE_BUILDING=1 (set by build-next-isolated.mjs and inherited by build
+  // workers) is the primary build signal. Deliberately NOT checking isMainThread:
+  // at runtime many worker threads (pino thread-stream, compression workers)
+  // legitimately use better-sqlite3, and skipping it there would silently degrade
+  // them to node:sqlite / sql.js in production.
+  const isBuild =
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.OMNIROUTE_BUILDING === "1" ||
+    process.env.npm_lifecycle_event === "build";
+  if (!process.versions.bun && !isBuild) {
     try {
       const BetterSqlite = _require("better-sqlite3") as {
         new (p: string, o?: object): import("better-sqlite3").Database;

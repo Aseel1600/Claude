@@ -91,6 +91,7 @@ const nextConfig = {
     resolveAlias: {
       // Point mitm/manager to a stub during build (native child_process/fs can't be bundled)
       "@/mitm/manager": "./src/mitm/manager.stub.ts",
+      "better-sqlite3": "./src/lib/db/better-sqlite3.stub.js",
       ...minimalBuildAliases,
     },
   },
