@@ -46,12 +46,12 @@ export const KNOWN_DUPLICATE_VERSIONS = new Set([
 // 143–145 estão reservados pelas migrations Radar que já existem na série
 // empilhada. O job registry foi promovido de 139 para 146 pela tabela
 // RENAMED_MIGRATION_COMPATIBILITY para não ocupar esses slots em trânsito. A
-// 147 está reservada pela migration Devin Desktop do PR #8228 enquanto ele
-// permanece em trânsito; esta branch usa 148 para evitar uma colisão conhecida.
-// O stale-enforcement exige que cada reserva seja removida quando o arquivo
-// correspondente aterrissar na release.
+// 147–149 estão reservadas por migrations atualmente em trânsito nos PRs #8228,
+// #9313, #10047 e #10066; esta branch usa 150 para evitar essas colisões conhecidas.
+// O stale-enforcement exige que cada reserva seja removida quando os arquivos
+// correspondentes aterrissarem na release.
 // ---------------------------------------------------------------------------
-export const KNOWN_GAPS = new Set(["026", "055", "121", "143", "144", "145", "147"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
+export const KNOWN_GAPS = new Set(["026", "055", "121", "143", "144", "145", "147", "148", "149"]); // 121: número queimado no ciclo v3.8.47 — 122 (#6909) mergeou antes e 121 nunca aterrissou (validação e2e 2026-07-12)
 
 function pad3(n) {
   return String(n).padStart(3, "0");
