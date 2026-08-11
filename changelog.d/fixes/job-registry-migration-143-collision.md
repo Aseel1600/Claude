@@ -1,0 +1,1 @@
+- fix(db): remove stale duplicate 143_job_registry.sql and renumber 143_api_key_cache_default_mode to 144 so fresh DB init passes the migration collision check (job registry's canonical slot is 146 upstream)
