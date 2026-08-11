@@ -942,6 +942,20 @@ export function getDbInstance(): SqliteDatabase {
     ensureCallLogsColumns(memoryDb);
     ensureProviderConnectionsColumns(memoryDb);
     setDb(memoryDb);
+
+    // Close the DB before V8 teardown to prevent the better-sqlite3
+    // Statement destructor from crashing (SIGABRT) during build worker exit.
+    // The native cleanup hook assertion fires too late otherwise.
+    if (isBuildPhase) {
+      process.on("exit", () => {
+        try {
+          memoryDb.close();
+        } catch {
+          /* already closed */
+        }
+      });
+    }
+
     return memoryDb;
   }
 
@@ -996,8 +1010,7 @@ export function getDbInstance(): SqliteDatabase {
         let hasData = false;
         try {
           const count = probe.prepare("SELECT COUNT(*) as c FROM provider_connections").get() as
-            | { c: number }
-            | undefined;
+            { c: number } | undefined;
           hasData = Boolean(count && count.c > 0);
         } catch {
           // Table might not exist at all — truly incompatible
