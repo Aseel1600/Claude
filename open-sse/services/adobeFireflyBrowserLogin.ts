@@ -454,23 +454,6 @@ function cookieValue(cookies: CdpCookie[], name: string): string {
   return cookies.find((cookie) => cookie.name.toLowerCase() === name.toLowerCase())?.value || "";
 }
 
-function parseCookieHeader(cookieHeader: string): Array<{ name: string; value: string }> {
-  const cookies: Array<{ name: string; value: string }> = [];
-  for (const part of String(cookieHeader || "").split(";")) {
-    const idx = part.indexOf("=");
-    if (idx <= 0) continue;
-    const name = part.slice(0, idx).trim();
-    const value = part.slice(idx + 1).trim();
-    if (!name || !value || /[\r\n\0]/.test(name + value)) continue;
-    cookies.push({ name, value });
-  }
-  return cookies;
-}
-
-function cookieValue(cookies: CdpCookie[], name: string): string {
-  return cookies.find((cookie) => cookie.name.toLowerCase() === name.toLowerCase())?.value || "";
-}
-
 class CdpSocket {
   private ws: WebSocket;
   private nextId = 1;
@@ -1058,65 +1041,6 @@ function killProcessTree(child: ChildProcess | null): void {
       /* ignore */
     }
   }
-}
-
-/**
- * Background cookie/JWT refresh visibility.
- *
- * Default = **offscreen headed** (window parked off-display + minimized + windowsHide).
- * True `--headless=new` mints Forter/ARP risk sessions colligo rejects → HTTP 408 on
- * generate while a normal browser still works. Only opt into true headless with
- * ADOBE_FIREFLY_CHROME_HEADLESS=1 (known-broken for media; debug only).
- */
-export function adobeFireflyBackgroundUsesHeadlessChrome(): boolean {
-  return process.env.ADOBE_FIREFLY_CHROME_HEADLESS === "1";
-}
-
-export function buildAdobeFireflyBrowserArgs(opts: {
-  port: number;
-  userDataDir: string;
-  interactive: boolean;
-  freshSession?: boolean;
-}): string[] {
-  const interactive = opts.interactive === true;
-  // Interactive "Sign in with browser" = real headed UI. Everything else = headless
-  // (or rare opt-in offscreen headed) so image gen / 408 recovery never pops a window.
-  const backgroundHeadless = !interactive && adobeFireflyBackgroundUsesHeadlessChrome();
-
-  return [
-    `--remote-debugging-port=${opts.port}`,
-    // Force loopback bind so waitForCdpReady (node:http → 127.0.0.1) can connect.
-    "--remote-debugging-address=127.0.0.1",
-    // Chrome 111+ may refuse CDP HTTP (/json/version) without an allow-list.
-    "--remote-allow-origins=*",
-    `--user-data-dir=${opts.userDataDir}`,
-    "--no-first-run",
-    "--no-default-browser-check",
-    // NOTE: do NOT use --incognito here. Unique user-data-dir already isolates the
-    // session; incognito + remote-debugging is flaky on recent Chrome (CDP port
-    // never binds → ECONNREFUSED while a chrome.exe process still exists).
-    ...(interactive
-      ? [
-          // Prevent attaching to an existing Chrome instance (would drop remote-debugging).
-          "--new-window",
-          "--window-size=1280,800",
-        ]
-      : backgroundHeadless
-        ? [
-            // Silent cookie/JWT warm — ZERO visible window (user requirement).
-            "--headless=new",
-            "--disable-gpu",
-            "--window-size=1280,800",
-          ]
-        : [
-            // Rare Forter debug: headed but parked far off-screen + minimized.
-            "--window-position=-32000,-32000",
-            "--window-size=1280,800",
-            "--start-minimized",
-          ]),
-    // Start on Firefly so risk SDKs load (especially important for background warm).
-    FIREFLY_HOME_URL,
-  ];
 }
 
 /**

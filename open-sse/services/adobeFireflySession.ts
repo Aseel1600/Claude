@@ -593,18 +593,6 @@ export async function refreshAdobeSessionViaBrowser(
         : "") || session.accessToken;
     if (!isAdobeUserAccessToken(nextToken)) return null;
 
-    const nextArp =
-      warmed.arpSessionId ||
-      buildAdobeArpSessionIdFromCookies(nextCookie) ||
-      extractAdobeArpSessionId(nextCookie);
-    if (!nextArp) return null;
-
-    const nextToken =
-      (warmed.accessToken && isAdobeUserAccessToken(warmed.accessToken)
-        ? warmed.accessToken
-        : "") || session.accessToken;
-    if (!isAdobeUserAccessToken(nextToken)) return null;
-
     const next: AdobeFireflySession = {
       ...session,
       accessToken: nextToken,

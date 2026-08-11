@@ -223,10 +223,7 @@ test("buildAdobeImagePayload attaches referenceBlobs like live adobe_atach_image
   assert.deepEqual(gpt.referenceBlobs, [
     { id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee", usage: "subject" },
   ]);
-  assert.equal(
-    (gpt.generationMetadata as Record<string, unknown>).module,
-    "image2image"
-  );
+  assert.equal((gpt.generationMetadata as Record<string, unknown>).module, "image2image");
 });
 
 test("extractAdobeSourceImageSources reads Media page image fields", () => {
@@ -825,87 +822,6 @@ test("extractAdobeArpSessionId recovers JWT+ARP joined by space (PasswordBox man
 test("extractAdobeArpSessionId does not pick aux_sid over sherlockToken", async () => {
   const { extractAdobeArpSessionId, isValidAdobeArpSessionId } =
     await import("../../open-sse/services/adobeFireflyClient.ts");
-  const { ADOBE_FIREFLY_FTR_MAGIC } = await import("../../open-sse/services/adobeFireflyClient.ts");
-  const realArp = Buffer.from(
-    JSON.stringify({
-      sid: "bdf37b8a-117f-467d-a737-7792932d98b4",
-      ark: "10618c58b8d3cd588.3119555905|r=eu-west-1|pk=BBCC314C-4937-4CCD-B0A3-FDF0F0F7603C",
-      ftr: `aa_${Date.now()}${ADOBE_FIREFLY_FTR_MAGIC}_x=-1-v2_tt`,
-    }),
-    "utf8"
-  ).toString("base64");
-  // Long aux_sid must NOT win ranking (this was the live 408 root cause)
-  const aux = "A" + "x".repeat(780);
-  const cookie = `ff_session_guid=bdf37b8a-117f-467d-a737-7792932d98b4; sherlockToken=${realArp}; aux_sid=${aux}; forterToken=x`;
-  const got = extractAdobeArpSessionId(cookie);
-  assert.equal(got, realArp);
-  assert.equal(isValidAdobeArpSessionId(`aux_sid=${aux}`), false);
-  assert.equal(isValidAdobeArpSessionId(realArp), true);
-});
-
-test("rebuild ARP from cookie components (forter+arkose+sid)", async () => {
-  const {
-    buildAdobeArpSessionIdFromCookies,
-    canRebuildAdobeArpFromCookies,
-    mergeAdobeCookieHeaders,
-    resolveAdobeArpSessionIdSmart,
-    serializeAdobeFireflyCredential,
-    normalizeAdobeForterToken,
-  } = await import("../../open-sse/services/adobeFireflySession.ts");
-  const { ADOBE_FIREFLY_FTR_MAGIC } = await import("../../open-sse/services/adobeFireflyClient.ts");
-
-  const ftr = `aab9dc9eb48f4ee1916428649f908f7d_${Date.now()}${ADOBE_FIREFLY_FTR_MAGIC}_x=-1092-v2_tt`;
-  const ark =
-    "87818c58b11662a57.5347274705|r=eu-west-1|meta=3|pk=BBCC314C-4937-4CCD-B0A3-FDF0F0F7603C|at=40";
-  const cookie =
-    `ff_session_guid=bdf37b8a-117f-467d-a737-7792932d98b4; arkose=${ark}; ` +
-    `forterToken=${encodeURIComponent(ftr)}; bfp=58ef2899-b1c4-42e4-9625-ae265e1b4994; ` +
-    `fpjs=${encodeURIComponent(JSON.stringify({ requestId: "1.x", visitorId: "v" }))}`;
-
-  assert.equal(canRebuildAdobeArpFromCookies(cookie), true);
-  const arp = buildAdobeArpSessionIdFromCookies(cookie);
-  assert.ok(arp.length > 40);
-  const decoded = JSON.parse(Buffer.from(arp, "base64").toString("utf8"));
-  assert.equal(decoded.sid, "bdf37b8a-117f-467d-a737-7792932d98b4");
-  assert.equal(decoded.ark, ark);
-  assert.ok(String(decoded.ftr).includes(ADOBE_FIREFLY_FTR_MAGIC));
-  assert.equal(decoded.bfp, "58ef2899-b1c4-42e4-9625-ae265e1b4994");
-  assert.ok(decoded.fpjs);
-
-  // forter without _tt suffix gets normalized
-  assert.match(normalizeAdobeForterToken("abc_1__UDF43-m4_31ck_x=-1-v2"), /-v2_tt$/);
-  // localStorage comma form is rejected
-  assert.equal(normalizeAdobeForterToken("aab9dc9eb48f4ee1916428649f908f7d,1784986682306"), "");
-
-  const merged = mergeAdobeCookieHeaders(
-    "ff_session_guid=old; arkose=a1",
-    "arkose=a2; forterToken=newftr"
-  );
-  assert.match(merged, /arkose=a2/);
-  assert.match(merged, /forterToken=newftr/);
-  assert.match(merged, /ff_session_guid=old/);
-
-  // Smart resolve prefers rebuild when cookie pieces present
-  const smart = resolveAdobeArpSessionIdSmart(cookie);
-  assert.equal(smart, arp);
-
-  const ser = serializeAdobeFireflyCredential({
-    accessToken: "eyJ.token.sig",
-    cookie,
-    arpSessionId: arp,
-  });
-  assert.match(ser, /eyJ\.token\.sig/);
-  assert.match(ser, /ff_session_guid=/);
-});
-
-test("isAdobeTransientSubmitError detects 408 system under load", () => {
-  assert.equal(
-    isAdobeTransientSubmitError(
-      408,
-      '{"error_code":"timeout_error","message":"system under load"}'
-    ),
-    true
-  );
   const { ADOBE_FIREFLY_FTR_MAGIC } = await import("../../open-sse/services/adobeFireflyClient.ts");
   const realArp = Buffer.from(
     JSON.stringify({
