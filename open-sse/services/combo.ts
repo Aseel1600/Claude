@@ -2626,7 +2626,8 @@ async function handleRoundRobinCombo({
         filteredTargets,
         // #7270: normalize both wire shapes (.messages / Responses-API .input) so RR
         // stickiness engages on the /v1/responses surface, not just Chat Completions.
-        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown })
+        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown }),
+        combo.name
       );
   const rrAffinity = applyPromptCacheAffinity(
     filteredTargets,
