@@ -15,6 +15,17 @@ import type { HandleSingleModel, SingleModelTarget, ComboLogger } from "./types.
 /** Stable internal classification for OmniRoute's own combo per-target timer. */
 export const COMBO_TARGET_TIMEOUT_CODE = "combo_target_timeout";
 
+function buildGovernorAttemptBody(
+  body: Record<string, unknown>,
+  target?: SingleModelTarget
+): Record<string, unknown> {
+  if (!target || !("governorSelected" in target) || target.governorSelected !== true) return body;
+  const overrides = target.governorRequestOverrides;
+  if (!overrides || Object.keys(overrides).length === 0) return body;
+  const attemptBody = typeof structuredClone === "function" ? structuredClone(body) : { ...body };
+  return Object.assign(attemptBody, overrides);
+}
+
 export function buildTargetTimeoutRunner(deps: {
   handleSingleModel: HandleSingleModel;
   comboTargetTimeoutMs: number;
@@ -30,8 +41,9 @@ export function buildTargetTimeoutRunner(deps: {
     modelStr: string,
     target?: SingleModelTarget
   ): Promise<Response> => {
+    const attemptBody = buildGovernorAttemptBody(b, target);
     if (comboTargetTimeoutMs <= 0) {
-      return handleSingleModel(b, modelStr, target).catch((err) =>
+      return handleSingleModel(attemptBody, modelStr, target).catch((err) =>
         errorResponse(502, err?.message ?? "Upstream model error")
       );
     }
@@ -85,7 +97,7 @@ export function buildTargetTimeoutRunner(deps: {
     }
     try {
       return await Promise.race([
-        handleSingleModel(b, modelStr, targetWithSignal).catch((err) => {
+        handleSingleModel(attemptBody, modelStr, targetWithSignal).catch((err) => {
           if (timedOut) {
             // Inner call rejected because we aborted it. The synthetic 504 from
             // timeoutPromise already wins the race; return an empty response so

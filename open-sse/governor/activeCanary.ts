@@ -1,4 +1,5 @@
 import type { CounterfactualExecutionPlan } from "./counterfactual.ts";
+import { getGovernorRuntimeConfig } from "./runtimeConfig.ts";
 
 export interface ActiveCanaryConfig {
   enabled: boolean;
@@ -91,26 +92,41 @@ export function applyGovernorPlan(
 
 export class ActiveCanaryCircuitBreaker {
   private failures = 0;
-  private tripped = false;
+  private state: "closed" | "open" | "half-open" = "closed";
+  private openedAt = 0;
+  private halfOpenProbeInFlight = false;
 
-  constructor(private readonly threshold = 3) {}
+  constructor(
+    private readonly threshold = 3,
+    private readonly cooldownMs = 30_000,
+    private readonly now = () => Date.now()
+  ) {}
 
   record(success: boolean): void {
     if (success) {
       this.failures = 0;
+      this.state = "closed";
+      this.openedAt = 0;
+      this.halfOpenProbeInFlight = false;
       return;
     }
     this.failures += 1;
-    if (this.failures >= this.threshold) this.tripped = true;
+    if (this.failures >= this.threshold) {
+      this.state = "open";
+      this.openedAt = this.now();
+      this.halfOpenProbeInFlight = false;
+    }
   }
 
   isTripped(): boolean {
-    return this.tripped;
+    return this.state === "open" || this.state === "half-open";
   }
 
   reset(): void {
     this.failures = 0;
-    this.tripped = false;
+    this.state = "closed";
+    this.openedAt = 0;
+    this.halfOpenProbeInFlight = false;
   }
 
   recordSuccess(): void {
@@ -129,30 +145,76 @@ export class ActiveCanaryCircuitBreaker {
     return this.threshold;
   }
 
-  getState(): "open" | "closed" {
-    return this.tripped ? "open" : "closed";
+  getCooldownMs(): number {
+    return this.cooldownMs;
+  }
+
+  getOpenedAt(): number | null {
+    return this.openedAt > 0 ? this.openedAt : null;
+  }
+
+  isHalfOpenProbeInFlight(): boolean {
+    return this.halfOpenProbeInFlight;
+  }
+
+  getState(): "open" | "closed" | "half-open" {
+    if (this.state === "open" && this.now() - this.openedAt >= this.cooldownMs) {
+      this.state = "half-open";
+    }
+    return this.state;
+  }
+
+  tryAcquireActiveAttempt(): boolean {
+    const state = this.getState();
+    if (state === "closed") return true;
+    if (state === "open") return false;
+    if (this.halfOpenProbeInFlight) return false;
+    this.halfOpenProbeInFlight = true;
+    return true;
+  }
+
+  recordActiveOutcome(success: boolean): void {
+    this.record(success);
+    if (!success && this.state === "half-open") {
+      this.state = "open";
+      this.openedAt = this.now();
+      this.halfOpenProbeInFlight = false;
+    }
   }
 }
 
 let sharedBreaker: ActiveCanaryCircuitBreaker | null = null;
 
 export function getGovernorActiveBreaker(): ActiveCanaryCircuitBreaker {
-  return (sharedBreaker ??= new ActiveCanaryCircuitBreaker());
+  if (!sharedBreaker) {
+    const config = getGovernorRuntimeConfig();
+    sharedBreaker = new ActiveCanaryCircuitBreaker(
+      config.breakerFailureThreshold,
+      config.breakerCooldownMs
+    );
+  }
+  return sharedBreaker;
 }
 
 export function getGovernorActiveBreakerStatus(): {
-  state: "open" | "closed";
+  state: "open" | "closed" | "half-open";
   failureCount: number;
   threshold: number;
+  cooldownMs: number;
+  openedAt: number | null;
+  halfOpenProbeInFlight: boolean;
 } {
   const breaker = getGovernorActiveBreaker();
   return {
     state: breaker.getState(),
     failureCount: breaker.getFailureCount(),
     threshold: breaker.getThreshold(),
+    cooldownMs: breaker.getCooldownMs(),
+    openedAt: breaker.getOpenedAt(),
+    halfOpenProbeInFlight: breaker.isHalfOpenProbeInFlight(),
   };
 }
 
-export function resetGovernorActiveBreakerForTests(): void {
-  sharedBreaker?.reset();
+export function setGovernorActiveBreakerForTests(breaker: ActiveCanaryCircuitBreaker | null): void {
+  sharedBreaker = breaker;
 }

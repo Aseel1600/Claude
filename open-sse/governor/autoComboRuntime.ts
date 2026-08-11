@@ -1,19 +1,19 @@
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities.ts";
 import { getGovernorMode } from "@/shared/utils/featureFlags.ts";
 import { GovernorManager } from "./governorManager.ts";
-import { getGovernorActiveBreaker } from "./activeCanary.ts";
+import { getGovernorActiveBreaker, type ActiveCanaryCircuitBreaker } from "./activeCanary.ts";
+import { getGovernorRuntimeConfig } from "./runtimeConfig.ts";
+import type { GovernorRuntimeConfig } from "./runtimeConfig.ts";
 import type {
   CounterfactualCandidate,
+  CounterfactualExecutionPlan,
   CounterfactualInput,
 } from "./counterfactual.ts";
 import type { GovernorExecutionContext, GovernorInput, ModelTier } from "./types.ts";
 import { parseModel } from "../services/model.ts";
 import { classifyTier } from "../services/tierResolver.ts";
 import { getTaskFitness } from "../services/autoCombo/taskFitness.ts";
-import type {
-  AutoProviderCandidate,
-  ResolvedComboTarget,
-} from "../services/combo/types.ts";
+import type { AutoProviderCandidate, ResolvedComboTarget } from "../services/combo/types.ts";
 
 const LOCAL_COMPRESSION_MODES = ["none", "rtk", "caveman", "compact", "preserve"] as const;
 
@@ -38,6 +38,36 @@ export interface AutoComboGovernorRuntimeResult {
   context: GovernorExecutionContext | null;
   selectedExecutionKey: string | null;
   applied: boolean;
+  requestOverrides?: Record<string, unknown>;
+}
+
+export interface GovernorDispatchProbeEligibility {
+  activeSelected: boolean;
+  planExecutable: boolean;
+  selectedTargetAvailable: boolean;
+  controlsPermitTarget: boolean;
+  differsFromNativeTarget: boolean;
+}
+
+/**
+ * The breaker probe belongs to a concrete Governor dispatch, never to planning.
+ * Keeping every pre-dispatch condition here makes HALF-OPEN acquisition auditable
+ * and prevents future call-site reordering from consuming a probe on a bypass.
+ */
+export function tryAcquireGovernorDispatchProbe(
+  breaker: ActiveCanaryCircuitBreaker,
+  eligibility: GovernorDispatchProbeEligibility
+): boolean {
+  if (
+    !eligibility.activeSelected ||
+    !eligibility.planExecutable ||
+    !eligibility.selectedTargetAvailable ||
+    !eligibility.controlsPermitTarget ||
+    !eligibility.differsFromNativeTarget
+  ) {
+    return false;
+  }
+  return breaker.tryAcquireActiveAttempt();
 }
 
 function toFiniteNonNegative(value: unknown): number | null {
@@ -45,7 +75,10 @@ function toFiniteNonNegative(value: unknown): number | null {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
-async function getPricingEvidence(provider: string, model: string): Promise<PricingEvidence | null> {
+async function getPricingEvidence(
+  provider: string,
+  model: string
+): Promise<PricingEvidence | null> {
   try {
     const { getPricingForModel } = await import("@/lib/localDb");
     let pricing = await getPricingForModel(provider, model);
@@ -90,7 +123,9 @@ function candidateHealth(candidate: AutoProviderCandidate | undefined): number {
   return Math.max(0, Math.min(1, 1 - errorRate));
 }
 
-function quotaState(candidate: AutoProviderCandidate | undefined): "normal" | "warning" | "exhausted" | "unknown" {
+function quotaState(
+  candidate: AutoProviderCandidate | undefined
+): "normal" | "warning" | "exhausted" | "unknown" {
   if (!candidate) return "unknown";
   const remaining = toFiniteNonNegative(candidate.quotaRemaining);
   if (remaining == null) return "unknown";
@@ -116,6 +151,33 @@ function requestedOutputBudget(body: Record<string, unknown>): number | null {
   return null;
 }
 
+export function buildGovernorRequestOverrides(
+  body: Record<string, unknown>,
+  plan: CounterfactualExecutionPlan,
+  config: GovernorRuntimeConfig
+): Record<string, unknown> {
+  const requestOverrides: Record<string, unknown> = {};
+  if (
+    config.controlReasoning &&
+    plan.reasoningEffort &&
+    plan.reasoningEffort !== "preserve" &&
+    body.reasoning_effort == null &&
+    body.reasoning == null &&
+    body.thinking == null
+  ) {
+    requestOverrides.reasoning_effort = plan.reasoningEffort;
+  }
+  if (config.controlOutput && plan.maxOutputTokens != null) {
+    const explicit = requestedOutputBudget(body);
+    requestOverrides.max_tokens =
+      explicit == null ? plan.maxOutputTokens : Math.min(explicit, plan.maxOutputTokens);
+  }
+  if (config.controlCompression && plan.compressionMode && plan.compressionMode !== "preserve") {
+    requestOverrides.__omnirouteGovernorCompressionPreference = plan.compressionMode;
+  }
+  return requestOverrides;
+}
+
 function findAutoCandidate(
   candidates: AutoProviderCandidate[],
   provider: string,
@@ -136,7 +198,11 @@ async function buildCounterfactualCandidates(
   taskType: string
 ): Promise<CounterfactualCandidate[]> {
   const normalized: CounterfactualCandidate[] = [];
-  const premium: Array<{ candidate: CounterfactualCandidate; fitness: number; contextWindow: number }> = [];
+  const premium: Array<{
+    candidate: CounterfactualCandidate;
+    fitness: number;
+    contextWindow: number;
+  }> = [];
   const seen = new Set<string>();
 
   for (const target of targets) {
@@ -194,7 +260,10 @@ async function buildCounterfactualCandidates(
   }
 
   const strongest = premium.sort(
-    (a, b) => b.fitness - a.fitness || b.contextWindow - a.contextWindow || (b.candidate.healthScore ?? 0) - (a.candidate.healthScore ?? 0)
+    (a, b) =>
+      b.fitness - a.fitness ||
+      b.contextWindow - a.contextWindow ||
+      (b.candidate.healthScore ?? 0) - (a.candidate.healthScore ?? 0)
   )[0]?.candidate;
   if (strongest) normalized.push({ ...strongest, tier: "highest" });
 
@@ -205,7 +274,12 @@ export async function applyGovernorToAutoComboOrder(
   input: AutoComboGovernorRuntimeInput
 ): Promise<AutoComboGovernorRuntimeResult> {
   if (input.orderedTargets.length === 0) {
-    return { orderedTargets: input.orderedTargets, context: null, selectedExecutionKey: null, applied: false };
+    return {
+      orderedTargets: input.orderedTargets,
+      context: null,
+      selectedExecutionKey: null,
+      applied: false,
+    };
   }
 
   // Shadow and simulate stay on the late observation hook in chatCore. Active
@@ -214,7 +288,12 @@ export async function applyGovernorToAutoComboOrder(
   // observation lifecycle.
   const mode = getGovernorMode();
   if (mode === "off" || mode === "shadow" || mode === "simulate") {
-    return { orderedTargets: input.orderedTargets, context: null, selectedExecutionKey: null, applied: false };
+    return {
+      orderedTargets: input.orderedTargets,
+      context: null,
+      selectedExecutionKey: null,
+      applied: false,
+    };
   }
 
   const native = parseTarget(input.nativeSelectedTarget);
@@ -256,7 +335,8 @@ export async function applyGovernorToAutoComboOrder(
     ),
   };
 
-  const requiredCapabilities = Array.isArray(input.body.tools) && input.body.tools.length > 0 ? ["tools"] : [];
+  const requiredCapabilities =
+    Array.isArray(input.body.tools) && input.body.tools.length > 0 ? ["tools"] : [];
   const counterfactualInput: CounterfactualInput = {
     ...governorInput,
     currentProvider: native.provider,
@@ -285,29 +365,55 @@ export async function applyGovernorToAutoComboOrder(
 
   const breaker = getGovernorActiveBreaker();
   context.breakerState = breaker.getState();
-  if (breaker.isTripped()) {
-    context.activeSelected = false;
-    context.activeApplied = false;
-    context.bypassReason = "governor_breaker_open";
-    return { orderedTargets: input.orderedTargets, context, selectedExecutionKey: null, applied: false };
-  }
-
   if (!context.activeSelected || !result.plan?.executable) {
-    return { orderedTargets: input.orderedTargets, context, selectedExecutionKey: null, applied: false };
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
+      applied: false,
+    };
   }
 
   const selectedIndex = input.orderedTargets.findIndex((target) => {
     const parsed = parseTarget(target);
-    return parsed.provider === result.plan?.selectedProvider && parsed.model === result.plan?.selectedModel;
+    return (
+      parsed.provider === result.plan?.selectedProvider &&
+      parsed.model === result.plan?.selectedModel
+    );
   });
   if (selectedIndex < 0) {
     context.activeSelected = false;
     context.activeApplied = false;
     context.bypassReason = "selected_target_not_in_runtime_pool";
-    return { orderedTargets: input.orderedTargets, context, selectedExecutionKey: null, applied: false };
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
+      applied: false,
+    };
   }
 
   const selected = input.orderedTargets[selectedIndex];
+  const config = getGovernorRuntimeConfig();
+  const selectedTarget = parseTarget(selected);
+  const modelChanged = selectedTarget.model !== native.model;
+  const providerChanged = selectedTarget.provider !== native.provider;
+  if ((modelChanged && !config.controlModel) || (providerChanged && !config.controlProvider)) {
+    context.activeSelected = false;
+    context.activeApplied = false;
+    context.bypassReason =
+      modelChanged && providerChanged
+        ? "model_provider_control_disabled"
+        : modelChanged
+          ? "model_control_disabled"
+          : "provider_control_disabled";
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
+      applied: false,
+    };
+  }
   context.selectedRoute = {
     provider: result.plan.selectedProvider || "unknown",
     model: result.plan.selectedModel || selected.modelStr,
@@ -324,13 +430,40 @@ export async function applyGovernorToAutoComboOrder(
     };
   }
 
+  // Acquire only at the real dispatch boundary. Earlier acquisition can leak the
+  // sole HALF-OPEN probe when a later eligibility/control exit preserves native routing.
+  if (
+    !tryAcquireGovernorDispatchProbe(breaker, {
+      activeSelected: context.activeSelected,
+      planExecutable: result.plan.executable,
+      selectedTargetAvailable: true,
+      controlsPermitTarget: true,
+      differsFromNativeTarget: true,
+    })
+  ) {
+    context.activeSelected = false;
+    context.activeApplied = false;
+    context.bypassReason = "governor_breaker_open";
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
+      applied: false,
+    };
+  }
+
   context.activeApplied = true;
   context.selectedDispatchCount = 0;
   context.bypassReason = undefined;
+  const requestOverrides = buildGovernorRequestOverrides(input.body, result.plan, config);
   return {
-    orderedTargets: [selected, ...input.orderedTargets.filter((_, index) => index !== selectedIndex)],
+    orderedTargets: [
+      selected,
+      ...input.orderedTargets.filter((_, index) => index !== selectedIndex),
+    ],
     context,
     selectedExecutionKey: selected.executionKey || null,
     applied: true,
+    requestOverrides,
   };
 }

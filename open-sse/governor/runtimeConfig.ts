@@ -7,6 +7,8 @@ export interface GovernorRuntimeConfig {
   controlReasoning: boolean;
   controlCompression: boolean;
   controlOutput: boolean;
+  breakerFailureThreshold: number;
+  breakerCooldownMs: number;
 }
 
 function bool(name: string, fallback: boolean): boolean {
@@ -27,6 +29,11 @@ function optionalNonNegativeNumber(name: string): number | null {
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
+function positiveInteger(name: string, fallback: number): number {
+  const value = Number(process.env[name] ?? fallback);
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
 export function getGovernorRuntimeConfig(): GovernorRuntimeConfig {
   return {
     activeEnabled: bool("GOVERNOR_ACTIVE_ENABLED", false),
@@ -37,5 +44,7 @@ export function getGovernorRuntimeConfig(): GovernorRuntimeConfig {
     controlReasoning: bool("GOVERNOR_CONTROL_REASONING", true),
     controlCompression: bool("GOVERNOR_CONTROL_COMPRESSION", true),
     controlOutput: bool("GOVERNOR_CONTROL_OUTPUT", true),
+    breakerFailureThreshold: positiveInteger("GOVERNOR_BREAKER_FAILURE_THRESHOLD", 3),
+    breakerCooldownMs: positiveInteger("GOVERNOR_BREAKER_COOLDOWN_MS", 30_000),
   };
 }

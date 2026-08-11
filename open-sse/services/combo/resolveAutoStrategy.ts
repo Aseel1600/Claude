@@ -464,6 +464,9 @@ export async function resolveAutoStrategyOrder(
             governorSelected?: boolean;
             governorCorrelationId?: string | null;
           }).governorCorrelationId = correlationId ?? null;
+          selectedRuntimeTarget.governorRequestOverrides = governed.requestOverrides
+            ? { ...governed.requestOverrides }
+            : undefined;
         }
       }
       if (governed.applied) {

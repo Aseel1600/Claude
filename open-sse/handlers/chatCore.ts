@@ -1461,6 +1461,7 @@ export async function handleChatCore({
           },
         }
       );
+      delete (compressionInputBody as Record<string, unknown>).__omnirouteGovernorCompressionPreference;
       const mode = compressionPlan.mode as CompressionConfig["defaultMode"];
       if (adaptiveTelemetry && adaptiveTelemetry.fit === false) {
         log?.warn?.(
@@ -1853,6 +1854,12 @@ export async function handleChatCore({
       "CONTEXT",
       `Skipping compression check: body=${!!body}, hasMessages=${Array.isArray(allMessages)}`
     );
+  }
+
+  // Internal-only attempt metadata must never survive to provider translators,
+  // including compression-disabled and best-effort error paths.
+  if (body && typeof body === "object") {
+    delete (body as Record<string, unknown>).__omnirouteGovernorCompressionPreference;
   }
 
   // Re-check the concrete target after all compression passes. Combo compatibility
