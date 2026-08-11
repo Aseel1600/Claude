@@ -1420,3 +1420,25 @@ These settings were introduced after the previous environment-contract snapshot.
 | `TELEGRAM_DEFAULT_MODEL` | `auto/chat` | `src/lib/telegram/chatProxy.ts` | Model used for Telegram chat replies. |
 | `TELEGRAM_BOT_API_BASE` | `https://api.telegram.org` | `src/lib/telegram/config.ts` | Bot API base URL override for proxies or self-hosted Bot API servers. |
 | `TELEGRAM_WEBHOOK_TIMEOUT_MS` | `60000` | `src/lib/telegram/config.ts` | Timeout in milliseconds for outbound Bot API calls. |
+
+### Intelligence Governor V1
+
+The Governor remains off unless `INTELLIGENCE_GOVERNOR_MODE` is explicitly set.
+Active modes also require `GOVERNOR_ACTIVE_ENABLED=true`; a canary rate alone
+cannot activate routing. See [Governor V1](../architecture/GOVERNOR_V1.md).
+
+| Variable | Default | Source File | Description |
+| --- | --- | --- | --- |
+| `INTELLIGENCE_GOVERNOR_MODE` | `off` | `src/shared/utils/featureFlags.ts` | Governor mode: `off`, `shadow`, `simulate`, `active-canary`, or `active`. |
+| `INTELLIGENCE_GOVERNOR_TELEMETRY` | `true` | `src/shared/utils/featureFlags.ts` | Enables metadata-only Governor telemetry. |
+| `GOVERNOR_ACTIVE_ENABLED` | `false` | `open-sse/governor/runtimeConfig.ts` | Independent active-routing kill switch. |
+| `GOVERNOR_ACTIVE_CANARY_RATE` | `0` | `open-sse/governor/runtimeConfig.ts` | Deterministic active-canary sample rate from `0` through `1`. |
+| `GOVERNOR_MAX_ESTIMATED_REQUEST_COST` | _(unset)_ | `open-sse/governor/runtimeConfig.ts` | Optional non-negative estimated-cost ceiling for active execution. |
+| `GOVERNOR_CONTROL_MODEL` | `true` | `open-sse/governor/runtimeConfig.ts` | Allows an eligible active plan to change model. |
+| `GOVERNOR_CONTROL_PROVIDER` | `true` | `open-sse/governor/runtimeConfig.ts` | Allows an eligible active plan to change provider. |
+| `GOVERNOR_CONTROL_REASONING` | `true` | `open-sse/governor/runtimeConfig.ts` | Allows request-local Governor reasoning preference when the client did not set reasoning explicitly. |
+| `GOVERNOR_CONTROL_COMPRESSION` | `true` | `open-sse/governor/runtimeConfig.ts` | Allows request-local Governor preference in OmniRoute's local compression pipeline. |
+| `GOVERNOR_CONTROL_OUTPUT` | `true` | `open-sse/governor/runtimeConfig.ts` | Allows Governor to reduce, never widen, the selected attempt's output maximum. |
+| `GOVERNOR_BREAKER_FAILURE_THRESHOLD` | `3` | `open-sse/governor/runtimeConfig.ts` | Consecutive selected-attempt failures before the shared active breaker opens. |
+| `GOVERNOR_BREAKER_COOLDOWN_MS` | `30000` | `open-sse/governor/runtimeConfig.ts` | Open-state cooldown before one half-open dispatch probe is permitted. |
+| `GOVERNOR_TELEMETRY_SAMPLE_RATE` | `1` | `src/lib/db/governorTelemetry.ts` | Deterministic metadata telemetry sample rate from `0` through `1`. |

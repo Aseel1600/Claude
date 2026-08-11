@@ -215,6 +215,6 @@ export function getGovernorActiveBreakerStatus(): {
   };
 }
 
-export function resetGovernorActiveBreakerForTests(): void {
-  sharedBreaker?.reset();
+export function setGovernorActiveBreakerForTests(breaker: ActiveCanaryCircuitBreaker | null): void {
+  sharedBreaker = breaker;
 }

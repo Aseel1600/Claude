@@ -15,17 +15,14 @@ import type { HandleSingleModel, SingleModelTarget, ComboLogger } from "./types.
 /** Stable internal classification for OmniRoute's own combo per-target timer. */
 export const COMBO_TARGET_TIMEOUT_CODE = "combo_target_timeout";
 
-export function buildGovernorAttemptBody(
+function buildGovernorAttemptBody(
   body: Record<string, unknown>,
   target?: SingleModelTarget
 ): Record<string, unknown> {
   if (!target || !("governorSelected" in target) || target.governorSelected !== true) return body;
   const overrides = target.governorRequestOverrides;
   if (!overrides || Object.keys(overrides).length === 0) return body;
-  const attemptBody =
-    typeof structuredClone === "function"
-      ? structuredClone(body)
-      : { ...body };
+  const attemptBody = typeof structuredClone === "function" ? structuredClone(body) : { ...body };
   return Object.assign(attemptBody, overrides);
 }
 

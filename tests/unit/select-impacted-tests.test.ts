@@ -52,7 +52,10 @@ test("changed e2e test → NOT selected (not a node:test unit file)", () => {
 });
 
 test("changed vitest file in uncurated tests/unit/autoCombo → NOT selected", () => {
-  const sel = selectImpacted({ changed: ["tests/unit/autoCombo/tieredRotation.test.ts"], map: MAP });
+  const sel = selectImpacted({
+    changed: ["tests/unit/autoCombo/tieredRotation.test.ts"],
+    map: MAP,
+  });
   assert.deepEqual(sel, []);
 });
 
@@ -85,6 +88,14 @@ test("changed unit test under combo/ → run itself", () => {
     map: MAP,
   });
   assert.deepEqual(sel, ["tests/unit/combo/routing.test.ts"]);
+});
+
+test("changed unit test under governor/ → run itself", () => {
+  const sel = selectImpacted({
+    changed: ["tests/unit/governor/runtime-closure.test.ts"],
+    map: MAP,
+  });
+  assert.deepEqual(sel, ["tests/unit/governor/runtime-closure.test.ts"]);
 });
 
 test("changed unit test under serial/ → run itself", () => {

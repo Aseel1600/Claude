@@ -1,9 +1,14 @@
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities.ts";
 import { getGovernorMode } from "@/shared/utils/featureFlags.ts";
 import { GovernorManager } from "./governorManager.ts";
-import { getGovernorActiveBreaker } from "./activeCanary.ts";
+import { getGovernorActiveBreaker, type ActiveCanaryCircuitBreaker } from "./activeCanary.ts";
 import { getGovernorRuntimeConfig } from "./runtimeConfig.ts";
-import type { CounterfactualCandidate, CounterfactualInput } from "./counterfactual.ts";
+import type { GovernorRuntimeConfig } from "./runtimeConfig.ts";
+import type {
+  CounterfactualCandidate,
+  CounterfactualExecutionPlan,
+  CounterfactualInput,
+} from "./counterfactual.ts";
 import type { GovernorExecutionContext, GovernorInput, ModelTier } from "./types.ts";
 import { parseModel } from "../services/model.ts";
 import { classifyTier } from "../services/tierResolver.ts";
@@ -34,6 +39,35 @@ export interface AutoComboGovernorRuntimeResult {
   selectedExecutionKey: string | null;
   applied: boolean;
   requestOverrides?: Record<string, unknown>;
+}
+
+export interface GovernorDispatchProbeEligibility {
+  activeSelected: boolean;
+  planExecutable: boolean;
+  selectedTargetAvailable: boolean;
+  controlsPermitTarget: boolean;
+  differsFromNativeTarget: boolean;
+}
+
+/**
+ * The breaker probe belongs to a concrete Governor dispatch, never to planning.
+ * Keeping every pre-dispatch condition here makes HALF-OPEN acquisition auditable
+ * and prevents future call-site reordering from consuming a probe on a bypass.
+ */
+export function tryAcquireGovernorDispatchProbe(
+  breaker: ActiveCanaryCircuitBreaker,
+  eligibility: GovernorDispatchProbeEligibility
+): boolean {
+  if (
+    !eligibility.activeSelected ||
+    !eligibility.planExecutable ||
+    !eligibility.selectedTargetAvailable ||
+    !eligibility.controlsPermitTarget ||
+    !eligibility.differsFromNativeTarget
+  ) {
+    return false;
+  }
+  return breaker.tryAcquireActiveAttempt();
 }
 
 function toFiniteNonNegative(value: unknown): number | null {
@@ -115,6 +149,33 @@ function requestedOutputBudget(body: Record<string, unknown>): number | null {
     if (parsed != null && parsed > 0) return Math.floor(parsed);
   }
   return null;
+}
+
+export function buildGovernorRequestOverrides(
+  body: Record<string, unknown>,
+  plan: CounterfactualExecutionPlan,
+  config: GovernorRuntimeConfig
+): Record<string, unknown> {
+  const requestOverrides: Record<string, unknown> = {};
+  if (
+    config.controlReasoning &&
+    plan.reasoningEffort &&
+    plan.reasoningEffort !== "preserve" &&
+    body.reasoning_effort == null &&
+    body.reasoning == null &&
+    body.thinking == null
+  ) {
+    requestOverrides.reasoning_effort = plan.reasoningEffort;
+  }
+  if (config.controlOutput && plan.maxOutputTokens != null) {
+    const explicit = requestedOutputBudget(body);
+    requestOverrides.max_tokens =
+      explicit == null ? plan.maxOutputTokens : Math.min(explicit, plan.maxOutputTokens);
+  }
+  if (config.controlCompression && plan.compressionMode && plan.compressionMode !== "preserve") {
+    requestOverrides.__omnirouteGovernorCompressionPreference = plan.compressionMode;
+  }
+  return requestOverrides;
 }
 
 function findAutoCandidate(
@@ -371,7 +432,15 @@ export async function applyGovernorToAutoComboOrder(
 
   // Acquire only at the real dispatch boundary. Earlier acquisition can leak the
   // sole HALF-OPEN probe when a later eligibility/control exit preserves native routing.
-  if (!breaker.tryAcquireActiveAttempt()) {
+  if (
+    !tryAcquireGovernorDispatchProbe(breaker, {
+      activeSelected: context.activeSelected,
+      planExecutable: result.plan.executable,
+      selectedTargetAvailable: true,
+      controlsPermitTarget: true,
+      differsFromNativeTarget: true,
+    })
+  ) {
     context.activeSelected = false;
     context.activeApplied = false;
     context.bypassReason = "governor_breaker_open";
@@ -386,26 +455,7 @@ export async function applyGovernorToAutoComboOrder(
   context.activeApplied = true;
   context.selectedDispatchCount = 0;
   context.bypassReason = undefined;
-  const requestOverrides: Record<string, unknown> = {};
-  if (
-    config.controlReasoning &&
-    result.plan.reasoningEffort &&
-    result.plan.reasoningEffort !== "preserve" &&
-    input.body.reasoning_effort == null &&
-    input.body.reasoning == null &&
-    input.body.thinking == null
-  ) {
-    requestOverrides.reasoning_effort = result.plan.reasoningEffort;
-  }
-  if (config.controlOutput && result.plan.maxOutputTokens != null) {
-    const explicit = requestedOutputBudget(input.body);
-    requestOverrides.max_tokens = explicit == null
-      ? result.plan.maxOutputTokens
-      : Math.min(explicit, result.plan.maxOutputTokens);
-  }
-  if (config.controlCompression && result.plan.compressionMode && result.plan.compressionMode !== "preserve") {
-    requestOverrides.__omnirouteGovernorCompressionPreference = result.plan.compressionMode;
-  }
+  const requestOverrides = buildGovernorRequestOverrides(input.body, result.plan, config);
   return {
     orderedTargets: [
       selected,
