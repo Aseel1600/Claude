@@ -98,6 +98,15 @@ ENV OMNIROUTE_USE_TURBOPACK=0
 ARG OMNIROUTE_BUILD_MEMORY_MB=6144
 ENV NODE_OPTIONS="--max-old-space-size=${OMNIROUTE_BUILD_MEMORY_MB}"
 
+# Cap Next.js build worker pools. Next 16 defaults to `os.cpus().length - 1`
+# workers (31 on a 32-core builder) for page-data collection; on memory-tight
+# hosts (e.g. Docker Desktop with a small VM) 31 workers + webpack's multi-GB
+# heap blow past RAM and a worker dies with SIGSEGV at teardown ("worker exited
+# with code: null and signal: SIGSEGV"), silently leaving no standalone bundle.
+# Next derives the default worker count from CIRCLE_NODE_TOTAL (workers = N-1),
+# so N=8 → 7 workers: fast enough while fitting comfortably in RAM on any host.
+ENV CIRCLE_NODE_TOTAL=8
+
 COPY . ./
 # Only the native binary is hidden (not the whole package) while `npm run build` runs.
 # Build-time code that evaluates the driver — Next.js page-data workers load route
@@ -111,11 +120,21 @@ COPY . ./
 # guarantees the complete package (lib/ + .node) lands in the image — keep that order.
 RUN --mount=type=cache,target=/app/.build/next/cache \
   mkdir -p /app/data \
-  && mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
-       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide 2>/dev/null || true \
-  && npm run build \
-  && mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide \
-       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node 2>/dev/null || true
+  && ( mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node \
+       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide 2>/dev/null || true ) \
+  && ( npm run build ; \
+       # next build can exit 0 even when a page-data worker crashed (intermittent
+       # SIGSEGV during teardown on many-CPU hosts; the standalone bundle is then
+       # never emitted). Retry once if the standalone output is missing, then fail
+       # loudly — this also stops the broken layer from being cached as a success.
+       if [ ! -d /app/.build/next/standalone ]; then \
+         echo "Retrying next build: no standalone emitted (intermittent worker SIGSEGV during page-data collection)" ; \
+         npm run build ; \
+       fi ; \
+       test -d /app/.build/next/standalone \
+         || { echo "ERROR: next build produced no standalone after retry — worker crash is persistent (check the node:22.23.1 pin)." >&2 ; exit 1 ; } ) \
+  && ( mv /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node.build-hide \
+       /app/node_modules/better-sqlite3/build/Release/better_sqlite3.node 2>/dev/null || true )
 
 # ── Runner base ────────────────────────────────────────────────────────────
 FROM base AS runner-base
@@ -164,12 +183,22 @@ RUN chown -R node:node /app
 
 EXPOSE 20128
 
+# Warns if the mounted data volume has wrong ownership
+COPY --chmod=755 scripts/check-permissions.sh /tmp/check-permissions.sh
+# Belt-and-suspenders: strip CR from the entrypoint even if the build context
+# came from a CRLF checkout (Windows + core.autocrlf without .gitattributes
+# honoring). A CRLF shebang ("#!/bin/sh\r") makes kernel exec fail with
+# `exec /tmp/check-permissions.sh: no such file or directory`. .gitattributes
+# (*.sh text eol=lf) is the root fix; this guards stale checkouts. No-op when
+# the file is already LF. Runs before `USER node` because sed -i renames a
+# temp file over the target, which fails with EPERM under the sticky-bit /tmp
+# for the non-root user when the COPY'd file is root-owned.
+RUN sed -i 's/\r$//' /tmp/check-permissions.sh
+
 # Drop to non-root before ENTRYPOINT/CMD so every derived stage (runner-cli,
 # runner-web) also runs as a non-root user unless they explicitly switch back.
 USER node
 
-# Warns if the mounted data volume has wrong ownership
-COPY --chmod=755 scripts/check-permissions.sh /tmp/check-permissions.sh
 ENTRYPOINT ["/tmp/check-permissions.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
