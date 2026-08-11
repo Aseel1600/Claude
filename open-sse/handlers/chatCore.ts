@@ -1,6 +1,7 @@
 import { extractRequestToolIdentityMap } from "./chatCore/requestToolIdentity.ts";
 import { injectMemoryAndSkills } from "./chatCore/memorySkillsInjection.ts";
 import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
+import { normalizeOpenAICompatibleTools } from "./chatCore/openAICompatibleTools.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
 import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
 import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
@@ -2159,26 +2160,12 @@ export async function handleChatCore({
       //   - tools without a name AND without .function → dropped (unconvertible)
       // This must happen before translateRequest, which validates and throws on unknown types.
       if (provider?.startsWith("openai-compatible-") && Array.isArray(translatedBody.tools)) {
-        const before = (translatedBody.tools as unknown[]).length;
-        translatedBody.tools = (translatedBody.tools as Record<string, unknown>[])
-          .filter((t) => !t.type || t.type === "function" || !!t.function || !!t.name)
-          .map((t) => {
-            if (!t.type || t.type === "function" || t.function) return t;
-            // Named non-function tool: normalise to function format so the translator
-            // does not throw on the unknown type.
-            return {
-              type: "function",
-              function: {
-                name: t.name,
-                ...(t.description === undefined ? {} : { description: t.description }),
-                ...(t.parameters !== undefined || t.input_schema !== undefined
-                  ? { parameters: t.parameters ?? t.input_schema ?? {} }
-                  : {}),
-                ...(t.strict === undefined ? {} : { strict: t.strict }),
-              },
-            };
-          });
-        const dropped = before - (translatedBody.tools as unknown[]).length;
+        const normalized = normalizeOpenAICompatibleTools(
+          translatedBody.tools as Record<string, unknown>[],
+          sourceFormat
+        );
+        translatedBody.tools = normalized.tools;
+        const { dropped } = normalized;
         if (dropped > 0) {
           log?.debug?.(
             "TOOLS",
