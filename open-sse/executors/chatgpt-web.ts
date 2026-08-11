@@ -2822,8 +2822,7 @@ export class ChatGptWebExecutor extends BaseExecutor {
     const modelSlug = resolvedModel.slug;
     const { hasTools, requestedTools, effectiveMessages } = prepareToolMessages(
       (body || {}) as Record<string, unknown>,
-      messages as Array<{ role: string; content: unknown }>,
-      { hardened: isThinkingCapableModel(model, modelSlug) }
+      messages as Array<{ role: string; content: unknown }>
     );
 
     if (!credentials.apiKey) {

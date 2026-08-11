@@ -59,6 +59,12 @@ test("resolvePublicCred('grok_id') returns a UUID-shaped xAI OAuth client id", (
   assert.equal(v.length, 36);
 });
 
+test("resolvePublicCred('openference_id') returns the public PKCE client id shape", () => {
+  const v = resolvePublicCred("openference_id");
+  assert.match(v, /^[a-z]+$/);
+  assert.equal(v.length, 9);
+});
+
 test("encode/decode roundtrip is stable across arbitrary plaintexts", () => {
   for (const sample of [
     "hello world",

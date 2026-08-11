@@ -67,6 +67,11 @@ interface CopilotWsEvent {
   [key: string]: unknown;
 }
 
+type NodeWebSocketConstructor = new (
+  url: string | URL,
+  options?: { headers?: Record<string, string> }
+) => WebSocket;
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 export function getCopilotMode(model?: string): string {
@@ -104,6 +109,12 @@ export function extractAccessToken(credential: string): string | null {
   const bearerMatch = credential.match(/[Bb]earer\s+(.+)/);
   if (bearerMatch) return bearerMatch[1];
   return credential;
+}
+
+/* @testonly */ export function buildCopilotWebSocketHeaders(
+  accessToken: string
+): Record<string, string> {
+  return { Authorization: `Bearer ${accessToken}` };
 }
 
 /**
@@ -292,19 +303,17 @@ export class CopilotWebExecutor extends BaseExecutor {
             // Use Node.js built-in WebSocket if available, else dynamic import.
             // Pass the access token via Authorization header (not URL) to avoid
             // credential exposure in server logs.
-            let WS = globalThis.WebSocket;
-            if (!WS) {
+            const BrowserWebSocket = globalThis.WebSocket;
+            if (BrowserWebSocket) {
+              ws = new BrowserWebSocket(wsUrl);
+            } else {
               // @ts-ignore — ws module has no type declarations in this project
-              WS = (await import("ws")).default as unknown as typeof WebSocket;
-              if (accessToken) {
-                // @ts-ignore — ws module supports headers option in second arg
-                ws = new WS(wsUrl, {
-                  headers: { Authorization: `Bearer ${accessToken}` },
-                }) as WebSocket;
-              }
-            }
-            if (!ws) {
-              ws = new WS(wsUrl) as WebSocket;
+              const NodeWebSocket = (await import("ws"))
+                .default as unknown as NodeWebSocketConstructor;
+              ws = new NodeWebSocket(
+                wsUrl,
+                accessToken ? { headers: buildCopilotWebSocketHeaders(accessToken) } : undefined
+              );
             }
 
             const timeout = setTimeout(() => abort("Copilot WebSocket timeout"), FETCH_TIMEOUT_MS);

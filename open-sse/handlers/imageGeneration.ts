@@ -1524,7 +1524,7 @@ async function handleFalAIImageGeneration({
     }
 
     const payload = await response.json();
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "b64_json");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1714,7 +1714,7 @@ async function handleStabilityAIImageGeneration({
       payload = { image: buffer.toString("base64") };
     }
 
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "b64_json");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1833,7 +1833,7 @@ async function handleBlackForestLabsImageGeneration({
         })
       : initialPayload;
 
-    const images = await normalizeProviderImagePayload(finalPayload, body, log);
+    const images = await normalizeProviderImagePayload(finalPayload, body, log, "url");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1908,7 +1908,7 @@ async function handleRecraftImageGeneration({
     }
 
     const payload = await response.json();
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "url");
     return saveImageSuccessResult({
       provider,
       model,
@@ -2149,7 +2149,7 @@ function parseSizeToDimensions(size, fallback = 1024) {
   };
 }
 
-function normalizeRequestedImageFormat(
+export function normalizeRequestedImageFormat(
   body,
   fallback = "png",
   allowedFormats = ["jpeg", "png", "webp"]
@@ -2169,7 +2169,7 @@ function normalizeRequestedImageFormat(
   return fallback;
 }
 
-function mapFalImageSize(size, fallback = "square_hd") {
+export function mapFalImageSize(size, fallback = "square_hd") {
   if (typeof size !== "string") return fallback;
   if (FAL_PRESET_SIZES[size]) return FAL_PRESET_SIZES[size];
   if (size.includes("x")) {
@@ -2200,7 +2200,7 @@ function shouldIncludeStabilityMask(model) {
   ]).has(model);
 }
 
-async function normalizeProviderImagePayload(payload, body, log) {
+export async function normalizeProviderImagePayload(payload, body, log, defaultFormat) {
   const candidates = [];
 
   const pushCandidate = (value) => {
@@ -2226,7 +2226,7 @@ async function normalizeProviderImagePayload(payload, body, log) {
 
   const normalized = [];
   for (const candidate of candidates) {
-    const item = await normalizeProviderImageCandidate(candidate, body);
+    const item = await normalizeProviderImageCandidate(candidate, body, defaultFormat);
     if (item) normalized.push(item);
   }
 
@@ -2240,8 +2240,8 @@ async function normalizeProviderImagePayload(payload, body, log) {
   return normalized;
 }
 
-async function normalizeProviderImageCandidate(candidate, body) {
-  const wantsBase64 = body?.response_format === "b64_json";
+async function normalizeProviderImageCandidate(candidate, body, defaultFormat) {
+  const wantsBase64 = body?.response_format === "b64_json" || defaultFormat === "b64_json";
   let url = null;
   let b64 = null;
 

@@ -109,7 +109,11 @@ export async function addCustomModel(
   tokenLimits: { inputTokenLimit?: number; outputTokenLimit?: number } = {},
   // #1904: optional manual vision-capability override for the "add custom model"
   // form — read back by getCustomVisionCapabilityFields() in the /v1/models catalog.
-  supportsVision?: boolean
+  supportsVision?: boolean,
+  // #9820: optional video-generation job preset (e.g. "agnes-video-job") for
+  // custom OpenAI-compatible video models. Persisted on the model row; the
+  // /v1/videos/generations handler reads it back to pick the job/poll path.
+  generationConfig?: { preset: string }
 ) {
   const db = getDbInstance();
   const row = db
@@ -135,6 +139,7 @@ export async function addCustomModel(
       ? { outputTokenLimit: tokenLimits.outputTokenLimit }
       : {}),
     ...(typeof supportsVision === "boolean" ? { supportsVision } : {}),
+    ...(generationConfig && generationConfig.preset ? { generationConfig } : {}),
   };
   models.push(model);
   db.prepare(
@@ -161,6 +166,7 @@ export async function replaceCustomModels(
     description?: string;
     supportsThinking?: boolean;
     targetFormat?: string;
+    generationConfig?: { preset?: string };
   }>,
   { allowEmpty = false }: { allowEmpty?: boolean } = {}
 ) {
@@ -195,6 +201,13 @@ export async function replaceCustomModels(
         ? { targetFormat: m.targetFormat }
         : (prev as any)?.targetFormat
           ? { targetFormat: (prev as any).targetFormat }
+          : {}),
+      // #9820: preserve a video job preset across auto-sync (new value wins,
+      // else prev — so sync overwrites don't drop a job-config model).
+      ...(m.generationConfig?.preset
+        ? { generationConfig: { preset: m.generationConfig.preset } }
+        : (prev as any)?.generationConfig?.preset
+          ? { generationConfig: { preset: (prev as any).generationConfig.preset } }
           : {}),
       // Preserve metadata from provider API (or previous sync)
       ...(m.inputTokenLimit != null
@@ -719,6 +732,18 @@ export async function updateCustomModel(
       const s = sanitizeUpstreamHeadersMap(uh as Record<string, unknown>);
       if (Object.keys(s).length === 0) delete next.upstreamHeaders;
       else next.upstreamHeaders = s;
+    }
+  }
+
+  // #9820: optional video-generation job preset. Mirrors the upstreamHeaders
+  // pattern: `null`/`undefined` clears a previously set preset; a well-formed
+  // object replaces it verbatim.
+  if (Object.prototype.hasOwnProperty.call(updates, "generationConfig")) {
+    const gc = updates.generationConfig;
+    if (gc === null || gc === undefined) {
+      delete next.generationConfig;
+    } else if (typeof gc === "object" && !Array.isArray(gc)) {
+      next.generationConfig = gc;
     }
   }
 

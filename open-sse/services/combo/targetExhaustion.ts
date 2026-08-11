@@ -22,6 +22,7 @@ import {
 } from "../accountFallback.ts";
 import { RateLimitReason } from "../../config/constants.ts";
 import { isProviderCircuitOpenResult, isRequestScopedUpstreamFailure } from "./comboPredicates.ts";
+import { isCloudflareFingerprintRejection } from "../errorClassifier.ts";
 import type { ComboLogger, ResolvedComboTarget } from "./types.ts";
 
 // Connection-level failure statuses: the provider connection itself is likely bad (upstream
@@ -77,12 +78,45 @@ export function applyComboTargetExhaustion(
   target: ResolvedComboTarget,
   opts: ApplyComboTargetExhaustionOptions
 ): boolean {
-  const { result, sets, log, tag } = opts;
+  const { result, sets, log, tag, errorText, structuredError } = opts;
   const provider = target.provider;
 
   // #8133/#8137: auth-level failures (401/403) mean that connection's credentials are bad.
   // Split out to keep applyComboTargetExhaustion under the complexity ceiling.
-  if (AUTH_LEVEL_ERROR_STATUSES.includes(result.status) && provider && provider !== "unknown") {
+  // Cloudflare 1010 (a 403 carrying error_code 1010 / browser_signature_banned) is NOT an
+  // auth failure: the CDN in front of the upstream refused the client's TLS/UA signature,
+  // and a different client on the same key succeeds. Treating it as auth-level would mark
+  // every connection in the pool exhausted on the first 1010 and, with a multi-target combo,
+  // crystallize a misleading ALL_ACCOUNTS_INACTIVE after two such calls — see
+  // errorClassifier.isCloudflareFingerprintRejection. The signal may arrive via the
+  // upstream JSON's structuredError.message (nested "error_code":1010 / browser_signature_banned)
+  // when the raw errorText is generic, so inspect both. A normalized structuredError.code/type
+  // ("1010" / browser_signature_banned / fingerprint_rejection) is matched directly — it arrives
+  // without the error_code key that the text regex keys on. The comparison is case-insensitive
+  // (matching isCloudflareFingerprintRejection's lowercase) and exact: a numeric 10101
+  // (port/count/request id) is a different token, never a 1010.
+  const fingerprintToken = [structuredError?.code, structuredError?.type].some((value) =>
+    ["1010", "browser_signature_banned", "fingerprint_rejection"].includes(
+      value == null ? "" : String(value).toLowerCase()
+    )
+  );
+  // code/type can also carry the signal in a non-normalized form (e.g. a gateway stuffing
+  // "error_code: 1010" into the code field verbatim), so the shared text matcher sees every
+  // candidate string — the exact allowlist above is not the only path in.
+  const fingerprintText = isCloudflareFingerprintRejection(
+    [structuredError?.message, structuredError?.code, structuredError?.type, errorText]
+      .filter(Boolean)
+      .join(" ")
+  );
+  if (
+    AUTH_LEVEL_ERROR_STATUSES.includes(result.status) &&
+    // Cloudflare 1010 is a 403-ONLY fingerprint rejection. A 401 that merely happens to
+    // mention "1010" or "fingerprint_rejection" in a port/count/model token must NOT skip
+    // auth-level exhaustion — only a 403 carrying the Cloudflare fingerprint signal does.
+    !(result.status === 403 && (fingerprintToken || fingerprintText)) &&
+    provider &&
+    provider !== "unknown"
+  ) {
     markAuthLevelExhaustion(target, { result, sets, log, tag });
     return true;
   }

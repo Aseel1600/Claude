@@ -1,8 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { getCopilotMode, extractAccessToken, sessionPoolKey, solveHashcash } =
-  await import("../../open-sse/executors/copilot-web.ts");
+const {
+  buildCopilotWebSocketHeaders,
+  getCopilotMode,
+  extractAccessToken,
+  sessionPoolKey,
+  solveHashcash,
+} = await import("../../open-sse/executors/copilot-web.ts");
 
 test("getCopilotMode maps known models to their Copilot modes", () => {
   assert.equal(getCopilotMode("copilot"), "chat");
@@ -41,6 +46,12 @@ test("extractAccessToken extracts Bearer token from Authorization header", () =>
 
 test("extractAccessToken returns null for empty input", () => {
   assert.equal(extractAccessToken(""), null);
+});
+
+test("Copilot WebSocket credentials use the Authorization header", () => {
+  assert.deepEqual(buildCopilotWebSocketHeaders("access-token"), {
+    Authorization: "Bearer access-token",
+  });
 });
 
 test("sessionPoolKey produces unique keys per token preventing session sharing", () => {

@@ -20,6 +20,7 @@ import type { AutoVariant } from "./autoPrefix";
 import { classifyTier } from "../tierResolver";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
+import { isVisionBridgeForcedModel } from "@/shared/constants/visionBridgeDefaults";
 
 export type AutoCategory = "coding" | "reasoning" | "vision" | "chat" | "multimodal";
 export type AutoTier = "fast" | "cheap" | "floor" | "free" | "reliable" | "pro";
@@ -111,9 +112,16 @@ export function buildAutoCandidateFilter(
     checks.push((c) => {
       try {
         const caps = getResolvedModelCapabilities({ provider: c.provider, model: c.model });
-        return caps.supportsVision === true || isVisionModelId(c.model);
+        const capable =
+          caps.supportsVision === true || isVisionModelId(c.model);
+        if (!capable) return false;
+        // #vison-pool: registry entries whose catalog OVERSTATES vision support
+        // (opencode-go/opencode-zen/tokenrouter — the backend models are text-only)
+        // are forced through the vision bridge by isVisionBridgeForcedModel.
+        // They must never be selected as the vision-capable candidate itself.
+        return !isVisionBridgeForcedModel(`${c.provider}/${c.model}`);
       } catch {
-        return isVisionModelId(c.model);
+        return isVisionModelId(c.model) && !isVisionBridgeForcedModel(`${c.provider}/${c.model}`);
       }
     });
   }

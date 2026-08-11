@@ -225,6 +225,44 @@ test("handleResponsesCore converts Responses API input, instructions, tools, met
   assert.equal("store" in call.body, false);
 });
 
+test("handleResponsesCore preserves Kimi K3 reasoning through provider translation", async () => {
+  const body = {
+    model: "k3-256k",
+    reasoning: { effort: "high" },
+    input: [
+      { role: "user", content: [{ type: "input_text", text: "Call search." }] },
+      {
+        type: "reasoning",
+        summary: [{ type: "summary_text", text: "I should search first." }],
+      },
+      {
+        type: "function_call",
+        call_id: "call_1",
+        name: "search",
+        arguments: "{}",
+      },
+      { type: "function_call_output", call_id: "call_1", output: "found" },
+    ],
+  };
+
+  const coding = await invokeResponsesCore({
+    body,
+    provider: "kimi-coding-apikey",
+    model: "k3-256k",
+  });
+  assert.deepEqual(coding.call.body.messages?.[1]?.content?.[0], {
+    type: "thinking",
+    thinking: "I should search first.",
+  });
+
+  const native = await invokeResponsesCore({
+    body: { ...body, model: "kimi-k3", reasoning: { effort: "max" } },
+    provider: "moonshot",
+    model: "kimi-k3",
+  });
+  assert.equal(native.call.body.messages?.[1]?.reasoning_content, "I should search first.");
+});
+
 test("handleResponsesCore strips previous_response_id by default and handles empty input arrays", async () => {
   const { call, result } = await invokeResponsesCore({
     body: {
@@ -329,8 +367,8 @@ test("handleResponsesCore transforms Command Code executor SSE through Responses
   assert.match(sse, /data: \[DONE\]/);
 });
 
-test("handleResponsesCore propagates upstream failures from chatCore unchanged", async () => {
-  const { result } = await invokeResponsesCore({
+test("handleResponsesCore propagates upstream failures without retrying", async () => {
+  const { result, calls } = await invokeResponsesCore({
     body: {
       model: "gpt-4o-mini",
       input: "hello",
@@ -344,6 +382,7 @@ test("handleResponsesCore propagates upstream failures from chatCore unchanged",
 
   assert.equal(result.success, false);
   assert.equal(result.status, 401);
+  assert.equal(calls.length, 1);
 
   const payload = (await result.response.json()) as ErrorPayload;
   assert.equal(payload.error.message, "[401]: unauthorized");

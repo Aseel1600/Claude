@@ -529,6 +529,15 @@ export async function executeChatWithBreaker({
         )
       );
 
+    const tlsTrackingIdentity = {
+      provider,
+      sessionScope: credentials.connectionId,
+    };
+    // Track whenever direct TLS is possible. proxyFetch decides against wreq only
+    // after resolving NO_PROXY/local bypasses, so predicting from proxyInfo here
+    // would drop the account scope when a configured proxy resolves to direct.
+    const tlsFingerprintActive = isTlsFingerprintActive(provider);
+
     if (isShadowTraffic) {
       if (!bypassCircuitBreaker && breaker && !breaker.canExecute()) {
         const retryAfterMs = breaker.getRetryAfterMs();
@@ -542,8 +551,8 @@ export async function executeChatWithBreaker({
         };
       }
 
-      if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-        const tracked = await runWithTlsTracking(chatFn);
+      if (tlsFingerprintActive) {
+        const tracked = await runWithTlsTracking(tlsTrackingIdentity, chatFn);
         return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
       }
 
@@ -552,8 +561,8 @@ export async function executeChatWithBreaker({
     }
 
     if (bypassCircuitBreaker) {
-      if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-        const tracked = await runWithTlsTracking(chatFn);
+      if (tlsFingerprintActive) {
+        const tracked = await runWithTlsTracking(tlsTrackingIdentity, chatFn);
         return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
       }
 
@@ -561,8 +570,10 @@ export async function executeChatWithBreaker({
       return { result, tlsFingerprintUsed: false };
     }
 
-    if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-      const tracked = await breaker.execute(async () => runWithTlsTracking(chatFn));
+    if (tlsFingerprintActive) {
+      const tracked = await breaker.execute(async () =>
+        runWithTlsTracking(tlsTrackingIdentity, chatFn)
+      );
       return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
     }
 

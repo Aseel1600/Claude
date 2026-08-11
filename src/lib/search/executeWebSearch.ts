@@ -173,6 +173,25 @@ export async function executeWebSearch(
     credentials = await resolveSearchCredentials(providerConfig.id);
 
     if (!credentials) {
+      const fallbackProviders = Object.values(SEARCH_PROVIDERS)
+        .filter((provider) => provider.fallbackOnly && supportsSearchType(provider, searchType))
+        .sort((a, b) => a.costPerQuery - b.costPerQuery);
+
+      for (const fallbackProvider of fallbackProviders) {
+        providerConfig = fallbackProvider;
+        if (fallbackProvider.id === "duckduckgo-free") {
+          credentials = {};
+          break;
+        }
+        const fallbackCredentials = await resolveSearchCredentials(fallbackProvider.id);
+        if (fallbackCredentials) {
+          credentials = fallbackCredentials;
+          break;
+        }
+      }
+    }
+
+    if (!credentials) {
       const sortedIds = Object.values(SEARCH_PROVIDERS)
         .filter((provider) => supportsSearchType(provider, searchType))
         .sort((a, b) => a.costPerQuery - b.costPerQuery)

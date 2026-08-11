@@ -180,6 +180,8 @@ curl http://localhost:20128/v1/chat/completions \
 
 <sub>Prefer a specific free backend? Call it directly, e.g. `oc/…` (OpenCode Free) or `felo/…` (Felo). Then graduate to `auto` and let OmniRoute pick.</sub>
 
+<sub>📦 Copy-paste quickstart scripts for **Python, Node.js, PHP, and cURL** → [`examples/quickstart/`](examples/quickstart/)</sub>
+
 <br/>
 
 <div align="center">

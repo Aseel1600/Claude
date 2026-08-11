@@ -66,6 +66,7 @@ export const IMAGE_ONLY_PROVIDER_IDS = new Set([
   "topaz",
   "segmind",
   "freepik",
+  "deepai",
 ]);
 
 export const AGGREGATOR_PROVIDER_IDS = new Set([
@@ -463,6 +464,8 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "grok-cli",
   // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
+  // Command Code credits + 5h/weekly rolling windows
+  "command-code",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

@@ -14,6 +14,7 @@ import { notion_webProvider } from "./registry/notion-web/index.ts";
 import { anthropicProvider } from "./registry/anthropic/index.ts";
 import { sambanovaProvider } from "./registry/sambanova/index.ts";
 import { puterProvider } from "./registry/puter/index.ts";
+import { deepaiProvider } from "./registry/deepai/index.ts";
 import { upstageProvider } from "./registry/upstage/index.ts";
 import { nebiusProvider } from "./registry/nebius/index.ts";
 import { fireworksProvider } from "./registry/fireworks/index.ts";
@@ -121,6 +122,8 @@ import { chatgpt_webProvider } from "./registry/chatgpt-web/index.ts";
 import { openrouterProvider } from "./registry/openrouter/index.ts";
 import { cheaperinferenceProvider } from "./registry/cheaperinference/index.ts";
 import { openvectaProvider } from "./registry/openvecta/index.ts";
+import { openferenceProvider } from "./registry/openference/index.ts";
+import { openference_apiProvider } from "./registry/openference-api/index.ts";
 import { orcarouterProvider } from "./registry/orcarouter/index.ts";
 import { copilot_webProvider } from "./registry/copilot-web/index.ts";
 import { copilot_m365_webProvider } from "./registry/copilot-m365-web/index.ts";
@@ -225,6 +228,7 @@ import { digitaloceanProvider } from "./registry/digitalocean/index.ts";
 import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
+import { muse_codeProvider } from "./registry/muse-code/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -239,6 +243,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   sambanova: sambanovaProvider,
   puter: puterProvider,
   upstage: upstageProvider,
+  deepai: deepaiProvider,
   nebius: nebiusProvider,
   fireworks: fireworksProvider,
   llamagate: llamagateProvider,
@@ -345,6 +350,8 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   openrouter: openrouterProvider,
   cheaperinference: cheaperinferenceProvider,
   openvecta: openvectaProvider,
+  openference: openferenceProvider,
+  "openference-api": openference_apiProvider,
   orcarouter: orcarouterProvider,
   "copilot-web": copilot_webProvider,
   "copilot-m365-web": copilot_m365_webProvider,
@@ -451,5 +458,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   hcnsec: hcnsecProvider,
   promptql: promptqlProvider,
   hyperagent: hyperagentProvider,
+  "muse-code": muse_codeProvider,
   unorouter: unorouterProvider,
 };

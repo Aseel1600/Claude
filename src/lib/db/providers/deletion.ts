@@ -10,6 +10,8 @@
 
 import { getDbInstance } from "../core";
 import { backupDbFile } from "../backup";
+import { cleanupComboConnectionRefs } from "../combos";
+import { deleteLKGPByConnectionIds } from "../settings/lkgp";
 import {
   removeConnectionHealth,
   removeConnectionIndex,
@@ -41,6 +43,40 @@ function _deleteAccountProxyAssignments(db: DbLike, ids: string[]) {
   ).run(...ids);
 }
 
+function _selectExistingConnectionIds(db: DbLike, ids: string[]): string[] {
+  if (ids.length === 0) return [];
+
+  const placeholders = ids.map(() => "?").join(",");
+
+  return db
+    .prepare(`SELECT id FROM provider_connections WHERE id IN (${placeholders})`)
+    .all(...ids)
+    .map((row) => {
+      const record = toRecord(row);
+      return typeof record.id === "string" ? record.id : null;
+    })
+    .filter((id): id is string => id !== null);
+}
+
+async function _cleanupDeletedComboConnectionRefs(connectionIds: string | string[]): Promise<void> {
+  try {
+    await cleanupComboConnectionRefs(connectionIds);
+  } catch (error) {
+    console.error("Failed to clean up combo route refs for deleted connections:", error);
+  }
+}
+
+async function _cleanupDeletedLKGPConnectionRefs(connectionIds: string | string[]): Promise<void> {
+  const ids = Array.isArray(connectionIds) ? connectionIds : [connectionIds];
+  if (ids.length === 0) return;
+
+  try {
+    await deleteLKGPByConnectionIds(ids);
+  } catch (error) {
+    console.error("Failed to clean up LKGP refs for deleted connections:", error);
+  }
+}
+
 export async function deleteProviderConnection(id: string) {
   const db = getDbInstance() as unknown as DbLike;
   const existing = db.prepare("SELECT provider FROM provider_connections WHERE id = ?").get(id);
@@ -51,6 +87,10 @@ export async function deleteProviderConnection(id: string) {
     db.prepare("DELETE FROM quota_snapshots WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM provider_connections WHERE id = ?").run(id);
   })();
+
+  await _cleanupDeletedComboConnectionRefs(id);
+  await _cleanupDeletedLKGPConnectionRefs(id);
+
   removeConnectionHealth(id);
   removeConnectionIndex(id);
   bumpProxyConfigGeneration();
@@ -68,25 +108,36 @@ export async function deleteProviderConnection(id: string) {
 
 export async function deleteProviderConnections(ids: string[]): Promise<number> {
   if (ids.length === 0) return 0;
+
   const db = getDbInstance() as unknown as DbLike;
+  const existingIds = _selectExistingConnectionIds(db, ids);
 
   const deletedCount = db.transaction(() => {
     const placeholders = ids.map(() => "?").join(",");
+
     db.prepare(`DELETE FROM quota_snapshots WHERE connection_id IN (${placeholders})`).run(...ids);
+
     _deleteAccountProxyAssignments(db, ids);
+
     const result = db
       .prepare(`DELETE FROM provider_connections WHERE id IN (${placeholders})`)
       .run(...ids);
+
     return result.changes ?? 0;
   })();
+
+  await _cleanupDeletedComboConnectionRefs(existingIds);
+  await _cleanupDeletedLKGPConnectionRefs(existingIds);
 
   for (const id of ids) {
     removeConnectionHealth(id);
     removeConnectionIndex(id);
   }
+
   backupDbFile("pre-write");
   invalidateDbCache("connections");
   invalidateReasoningRoutingRuleCache();
+
   return deletedCount;
 }
 
@@ -111,6 +162,10 @@ export async function deleteProviderConnectionsByProvider(providerId: string) {
     }
     return db.prepare("DELETE FROM provider_connections WHERE provider = ?").run(providerId);
   })();
+
+  await _cleanupDeletedComboConnectionRefs(connectionIds);
+  await _cleanupDeletedLKGPConnectionRefs(connectionIds);
+
   for (const connectionId of connectionIds) {
     removeConnectionHealth(connectionId);
     removeConnectionIndex(connectionId);
