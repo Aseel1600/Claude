@@ -113,6 +113,7 @@ export interface ResolveComboTargetPipelineDeps {
    */
   buildAutoCandidates: ResolveAutoStrategyDeps["buildAutoCandidates"];
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  clientManagedResponsesContext?: boolean;
 }
 
 export interface ResolvedComboTargetPipeline {
@@ -160,6 +161,12 @@ async function isTargetSelectableForWeighted(
     isModelLocked(target.provider, target.connectionId || "", rawModel)
   ) {
     return false;
+  }
+  if (target.provider && rawModel && target.connectionId) {
+    const { isAlibabaFreeTierModelRoutable } = await import("../alibabaFreeTier.ts");
+    if (!(await isAlibabaFreeTierModelRoutable(target.provider, target.connectionId, rawModel))) {
+      return false;
+    }
   }
   return isModelAvailable ? await isModelAvailable(target.modelStr, target) : true;
 }
@@ -717,7 +724,9 @@ export async function resolveComboTargetPipeline(
 
   orderedTargets = await applyRequestTagRouting(orderedTargets, body, log);
 
-  const overflow = getKnownContextOverflow(orderedTargets, body);
+  const overflow = getKnownContextOverflow(orderedTargets, body, {
+    clientManagedResponsesContext: deps.clientManagedResponsesContext,
+  });
   if (overflow) {
     return { earlyResponse: buildContextOverflowResponse(overflow, orderedTargets, log) };
   }

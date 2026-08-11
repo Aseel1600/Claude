@@ -37,7 +37,11 @@ import {
   HTTP_STATUS,
   ANTIGRAVITY_PRE_RESPONSE_TIMEOUT_CODE,
 } from "@omniroute/open-sse/config/constants.ts";
-import { getTargetFormat, detectFormatFromUrl } from "@omniroute/open-sse/services/provider.ts";
+import {
+  getTargetFormat,
+  detectFormatFromEndpoint,
+  detectFormatFromUrl,
+} from "@omniroute/open-sse/services/provider.ts";
 import {
   getModelsByProviderId,
   getModelTargetFormat,
@@ -86,6 +90,7 @@ import {
   resolveStreamReadinessClassificationError,
   shouldTripProviderBreakerForResult,
 } from "./chatPredicates";
+import { markAntigravityMissingCloudCodeProject } from "@omniroute/open-sse/services/antigravityProjectPersistence.ts";
 import { connectionHasExtraKeys } from "@omniroute/open-sse/services/apiKeyRotator.ts";
 import {
   extractReasoningIntent,
@@ -106,6 +111,7 @@ import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextC
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
+import { resolveForcedConnectionForCredentialPool } from "../services/sessionAffinityPin.ts";
 import { RequestTelemetry, recordTelemetry } from "../../shared/utils/requestTelemetry";
 import { generateRequestId } from "../../shared/utils/requestId";
 import { logAuditEvent } from "../../lib/compliance/index";
@@ -816,6 +822,9 @@ async function handleChatImplementation(
     const response = await (handleComboChat as any)({
       body,
       combo,
+      clientManagedResponsesContext:
+        sourceFormat === "openai-responses" &&
+        new URL(request.url).pathname.split("/").includes("responses"),
       handleSingleModel: (
         b: any,
         m: string,
@@ -1083,6 +1092,11 @@ async function handleSingleModelChat(
     return handleComboChat({
       body,
       combo: redirectCombo,
+      clientManagedResponsesContext:
+        detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "") === "openai-responses" &&
+        String(clientRawRequest?.endpoint || "")
+          .split("/")
+          .includes("responses"),
       handleSingleModel: (
         b: any,
         m: string,
@@ -1309,9 +1323,19 @@ async function handleSingleModelChat(
                 ...(!forceLiveComboTest && bypassProviderQuotaPolicy
                   ? { bypassQuotaPolicy: true }
                   : {}),
-                ...(runtimeOptions.forcedConnectionId
-                  ? { forcedConnectionId: runtimeOptions.forcedConnectionId }
-                  : {}),
+                ...(() => {
+                  const effectiveForcedId = resolveForcedConnectionForCredentialPool({
+                    forcedConnectionId: runtimeOptions.forcedConnectionId ?? null,
+                    excludedConnectionIds,
+                    connections: [],
+                    allowRateLimitedConnections:
+                      runtimeOptions.allowRateLimitedConnection === true || forceLiveComboTest,
+                    bypassQuotaPolicy: forceLiveComboTest || bypassProviderQuotaPolicy,
+                    isQuotaExhausted: () => false,
+                    isQuotaPolicyBlocked: () => false,
+                  });
+                  return effectiveForcedId ? { forcedConnectionId: effectiveForcedId } : {};
+                })(),
               }
             );
       preselectedCredentials = null;
@@ -1363,7 +1387,7 @@ async function handleSingleModelChat(
         if (
           !forceLiveComboTest &&
           credentials?.allRateLimited &&
-          PROVIDER_BREAKER_FAILURE_STATUSES.has(breakerFailureStatus)
+          isProviderBreakerFailureStatus(breakerFailureStatus)
         ) {
           breaker._onFailure();
         }
@@ -1548,6 +1572,7 @@ async function handleSingleModelChat(
       // Preserve the typed fail-closed 422; marking it unavailable would trigger cooldown
       // redispatch and repeat bootstrap within the same logical request.
       if (isAntigravityMissingProjectError(provider, result)) {
+        markAntigravityMissingCloudCodeProject(credentials.connectionId);
         return withSelectedConnectionHeader(result.response, credentials.connectionId);
       }
 

@@ -17,6 +17,7 @@ import {
   isDailyQuotaExhausted,
 } from "@omniroute/open-sse/services/accountFallback";
 import { looksLikeQuotaExhausted } from "@/shared/utils/classify429";
+import { getTrustedLocalRateLimitError } from "@omniroute/open-sse/services/rateLimitManager/errors";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
 export const DEFAULT_MODEL_TEST_TIMEOUT_MS = 30_000;
@@ -484,12 +485,14 @@ export async function runSingleModelTest(
         rateLimited: true,
       };
     }
+    const localRateLimitFailure = getTrustedLocalRateLimitError(error);
     return {
       modelId: fullModelStr,
-      status: "error",
+      status: localRateLimitFailure?.status === 429 ? "rate_limited" : "error",
       latencyMs,
-      httpStatus: 500,
+      httpStatus: localRateLimitFailure?.status ?? 500,
       error: getErrorMessage(error),
+      ...(localRateLimitFailure?.status === 429 ? { rateLimited: true } : {}),
     };
   }
   let latencyMs = Date.now() - startTime;

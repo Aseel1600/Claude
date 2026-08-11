@@ -19,6 +19,7 @@ import {
   MODEL_ACCESS_DENIED_PATTERNS,
   recordModelLockoutFailure,
   recordProviderFailure,
+  recordProviderSuccess,
   selectLockoutCooldownMs,
 } from "./accountFallback.ts";
 import {
@@ -35,6 +36,10 @@ import {
 import { buildNoUpstreamResponseDiagnostics, buildRecoveryHint } from "./combo/pinRecovery.ts";
 import { buildTargetTimeoutRunner } from "./combo/targetTimeoutRunner.ts";
 import { recordComboRequest, recordComboShadowRequest, getComboMetrics } from "./comboMetrics.ts";
+import {
+  expandComboSystemPromptIfPresent,
+  resolveTargetFingerprint,
+} from "./comboAgentMiddleware.ts";
 import {
   resolveComboConfig,
   getDefaultComboConfig,
@@ -89,11 +94,7 @@ import {
 } from "./combo/promptCacheAffinity.ts";
 import type { CompressionMode } from "./compression/types.ts";
 import { getCachedProviderConnections } from "../../src/lib/db/readCache";
-import {
-  isProviderInCooldown,
-  recordProviderCooldown,
-  recordProviderSuccess,
-} from "./providerCooldownTracker.ts";
+import { isProviderInCooldown, recordProviderCooldown } from "./providerCooldownTracker.ts";
 import {
   resolveResilienceSettings,
   type ResilienceSettings,
@@ -572,6 +573,7 @@ export async function handleComboChat({
   apiKeyAllowedConnections = null,
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
+  clientManagedResponsesContext = false,
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
@@ -697,6 +699,7 @@ export async function handleComboChat({
       allCombos,
       signal,
       hiddenModelsByProvider,
+      clientManagedResponsesContext,
     });
   }
 
@@ -722,6 +725,7 @@ export async function handleComboChat({
     handleSingleModelWithTimeout,
     buildAutoCandidates,
     hiddenModelsByProvider,
+    clientManagedResponsesContext,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -1197,6 +1201,18 @@ export async function handleComboChat({
               }
             }
           }
+          // #5501: server-side template expansion for the combo system_message —
+          // resolved per-target, scoped to combo-injected content only (never
+          // client-owned system messages). Gate: a non-empty combo system_message.
+          attemptBody = expandComboSystemPromptIfPresent(attemptBody, combo, {
+            modelId: modelStr,
+            providerId: provider !== "unknown" ? provider : "",
+            account:
+              typeof target.label === "string" && target.label.trim().length > 0
+                ? target.label.trim()
+                : "",
+            fingerprint: resolveTargetFingerprint(target) ?? "",
+          });
           const result = await handleSingleModelWithTimeout(attemptBody, modelStr, {
             ...targetForAttempt,
             effectiveComboStrategy: strategy,
@@ -1591,7 +1607,7 @@ export async function handleComboChat({
                       : undefined,
                 }
               : undefined;
-          const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
+          const scopedFailure = isScopedFailure(result, errorText, structuredError);
 
           // #8375: input-bound request-scoped failures (context_length_exceeded) are
           // deterministic for the same input — retrying on other accounts of the same
@@ -1672,6 +1688,7 @@ export async function handleComboChat({
             rawModel,
             isTokenLimitBreach,
             allAccountsRateLimited: false,
+            requestScopedFailure: scopedFailure,
             sets: { exhaustedProviders, exhaustedConnections, transientRateLimitedProviders },
             log,
             tag: "COMBO",
@@ -1764,6 +1781,7 @@ export async function handleComboChat({
           const isTransient =
             !isStreamReadinessFailure &&
             !isTokenLimitBreach &&
+            !scopedFailure &&
             [408, 429, 500, 502, 503, 504].includes(result.status);
           if (retry < maxRetries && isTransient && !providerExhausted) {
             if (
@@ -2223,7 +2241,9 @@ async function handleRoundRobinCombo({
   settings,
   allCombos,
   signal,
+  nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
+  clientManagedResponsesContext,
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
@@ -2270,7 +2290,9 @@ async function handleRoundRobinCombo({
   );
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
-  const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body);
+  const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body, {
+    clientManagedResponsesContext,
+  });
   if (knownContextOverflow) {
     return errorResponseWithComboDiagnostics(
       400,
@@ -2612,6 +2634,18 @@ async function handleRoundRobinCombo({
           }
         }
 
+        // #5501: combo system_message template expansion per target (same gate
+        // as the main iteration loop — round-robin branches here, not executeTarget).
+        attemptBody = expandComboSystemPromptIfPresent(attemptBody, combo, {
+          modelId: modelStr,
+          providerId: provider !== "unknown" ? provider : "",
+          account:
+            typeof target.label === "string" && target.label.trim().length > 0
+              ? target.label.trim()
+              : "",
+          fingerprint: resolveTargetFingerprint(target) ?? "",
+        });
+
         const result = await handleSingleModel(attemptBody, modelStr, {
           ...targetForAttempt,
           effectiveComboStrategy: "round-robin",
@@ -2834,7 +2868,7 @@ async function handleRoundRobinCombo({
                     : undefined,
               }
             : undefined;
-        const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
+        const scopedFailure = isScopedFailure(result, errorText, structuredError);
         const fallbackResult = checkFallbackError(
           result.status,
           errorText,
@@ -2873,6 +2907,7 @@ async function handleRoundRobinCombo({
           rawModel: parseModel(modelStr).model || modelStr,
           isTokenLimitBreach,
           allAccountsRateLimited: isAllAccountsRateLimited,
+          requestScopedFailure: scopedFailure,
           sets: { exhaustedProviders, exhaustedConnections, transientRateLimitedProviders },
           log,
           tag: "COMBO-RR",
@@ -2906,6 +2941,7 @@ async function handleRoundRobinCombo({
         const isTransient =
           !isStreamReadinessFailure &&
           !isTokenLimitBreach &&
+          !scopedFailure &&
           [408, 429, 500, 502, 503, 504].includes(result.status);
         if (retry < maxRetries && isTransient && !providerExhausted) {
           continue;

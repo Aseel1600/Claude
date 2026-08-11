@@ -158,11 +158,11 @@ export function supportsMaxEffortForProvider(provider: string, model: string): b
   const isOpencodeGoDeepSeek =
     provider === "opencode-go" && resolvedModelId.toLowerCase().includes("deepseek");
   const isOllamaCloud = provider === "ollama-cloud";
-  // Kimi K3 only accepts literal max and rejects xhigh natively. Apply this mapping
-  // regardless of provider so that OpenAI-compatible proxies (e.g. TokenRouter)
-  // correctly pass max instead of the internal xhigh top tier.
   const isMoonshotK3 = /^kimi-k3(?:$|-)/i.test(resolvedModelId);
-  return isClaude || isOpencodeGoDeepSeek || isOllamaCloud || isMoonshotK3;
+  // Command Code's upstream API accepts the literal DeepSeek/OpenAI effort value
+  // `max`; do not rewrite it to OmniRoute's internal `xhigh` spelling.
+  const isCommandCode = provider === "command-code";
+  return isClaude || isOpencodeGoDeepSeek || isOllamaCloud || isMoonshotK3 || isCommandCode;
 }
 
 // ── Effort carrier helpers (#7044) ──────────────────────────────────────────
@@ -270,6 +270,17 @@ export function sanitizeReasoningEffortForProvider(
       `${provider}/${modelStr}: removed unsupported reasoning_effort`
     );
     return stripEffortValue(b, c);
+  }
+
+  // Command Code accepts the literal top-tier value `max`, while the shared
+  // standardization stage may have already represented the client's `max` as
+  // OmniRoute's internal `xhigh`. Convert it back before the upstream request.
+  if (provider === "command-code" && effortStr === "xhigh") {
+    log?.info?.(
+      "REASONING_SANITIZE",
+      `${provider}/${modelStr}: normalized reasoning_effort xhigh → max`
+    );
+    return writeEffortValue(b, "max", c);
   }
 
   // Native DeepSeek (api.deepseek.com) — V4 thinking mode accepts reasoning_effort
