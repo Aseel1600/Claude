@@ -2,7 +2,13 @@
 
 ## [Unreleased]
 
-### Fixed
+---
+
+## [3.8.50] — 2026-07-28
+
+_Living section — opened when the v3.8.50 development cycle started. Finalized at the v3.8.50 release._
+
+### 🐛 Bug Fixes
 
 - **executors**: fix internal timeout misclassified as client disconnect (499) for 7 niche executors — pass TimeoutError reason to controller.abort() (#8197 side-finding)
 

@@ -6,6 +6,17 @@
 
 ## [3.8.31] — 2026-06-20
 
+## [3.8.50] — 2026-07-28
+
+_Living section — opened when the v3.8.50 development cycle started. Finalized at the v3.8.50 release._
+
+### 🐛 Bug Fixes
+
+- **executors**: fix internal timeout misclassified as client disconnect (499) for 7 niche executors — pass TimeoutError reason to controller.abort() (#8197 side-finding)
+
+---
+
+
 ## [3.8.49] — 2026-07-28
 
 _Living section — regenerated 2026-07-19 from all 306 cycle commits (bump 2c62333b0 → tip). Bullets carry the merged PR and its author; direct pushes listed separately. Finalized at the v3.8.49 release._
