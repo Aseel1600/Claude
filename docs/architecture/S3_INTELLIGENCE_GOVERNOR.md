@@ -1,3 +1,8 @@
+---
+title: OmniRoute and S3 Intelligence Governor Architecture
+description: Future provider-neutral boundary for a later S3 integration.
+---
+
 # OmniRoute × S3 Intelligence Governor Architecture
 
 ## 1. Overview & Architectural Vision

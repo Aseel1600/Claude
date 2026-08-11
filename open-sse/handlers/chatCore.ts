@@ -5,7 +5,9 @@ import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
 import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
 import { GovernorManager } from "../governor/governorManager.ts";
-import type { GovernorInput } from "../governor/types.ts";
+import type { GovernorInput, ModelTier } from "../governor/types.ts";
+import type { CounterfactualInput } from "../governor/counterfactual.ts";
+import { buildCounterfactualCandidates } from "../governor/catalogAdapter.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import {
@@ -1459,6 +1461,8 @@ export async function handleChatCore({
           },
         }
       );
+      delete (compressionInputBody as Record<string, unknown>)
+        .__omnirouteGovernorCompressionPreference;
       const mode = compressionPlan.mode as CompressionConfig["defaultMode"];
       if (adaptiveTelemetry && adaptiveTelemetry.fit === false) {
         log?.warn?.(
@@ -1851,6 +1855,12 @@ export async function handleChatCore({
       "CONTEXT",
       `Skipping compression check: body=${!!body}, hasMessages=${Array.isArray(allMessages)}`
     );
+  }
+
+  // Internal-only attempt metadata must never survive to provider translators,
+  // including compression-disabled and best-effort error paths.
+  if (body && typeof body === "object") {
+    delete (body as Record<string, unknown>).__omnirouteGovernorCompressionPreference;
   }
 
   // Re-check the concrete target after all compression passes. Combo compatibility
@@ -5095,14 +5105,45 @@ export async function handleChatCore({
       rawPromptText: extractGovernorPromptText(body),
       retryCount: undefined,
     };
-    GovernorManager.evaluateShadow(governorInput, {
-      provider: provider || "unknown",
-      model: model || "unknown",
-      routingStrategy: comboStrategy ?? (isCombo ? "auto_combo" : "direct"),
-      retryCount: null,
-      success: null,
-      latencyMs: null,
-    });
+    const counterfactualInput: CounterfactualInput = {
+      ...governorInput,
+      currentProvider: provider || undefined,
+      currentModel: model || undefined,
+      currentModelTier: null,
+      actualInputTokens: governorEstimatedPromptTokens ?? null,
+      actualOutputTokens: null,
+      currentCost: null,
+      requiredCapabilities:
+        Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) &&
+        (body as { tools: unknown[] }).tools.length > 0
+          ? ["tools"]
+          : [],
+      candidates: buildCounterfactualCandidates([
+        {
+          provider: provider || "unknown",
+          model: model || "unknown",
+          tier: "preserve" as ModelTier,
+          available: true,
+          capabilities: [
+            "streaming",
+            ...(Array.isArray((body as { tools?: unknown[] } | undefined)?.tools) ? ["tools"] : []),
+          ],
+          quotaState: "unknown",
+        },
+      ]),
+    };
+    GovernorManager.evaluateRequest(
+      governorInput,
+      {
+        provider: provider || "unknown",
+        model: model || "unknown",
+        routingStrategy: comboStrategy ?? (isCombo ? "auto_combo" : "direct"),
+        retryCount: null,
+        success: null,
+        latencyMs: null,
+      },
+      counterfactualInput
+    );
   } catch {
     /* shadow governor failure never affects request flow */
   }

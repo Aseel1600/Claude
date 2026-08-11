@@ -52,4 +52,3 @@ export function calculateSuccessfulRequestMetrics(
 
 /** @deprecated Use calculateSuccessfulRequestMetrics; request semantics are intentional. */
 export const calculateSuccessfulTaskMetrics = calculateSuccessfulRequestMetrics;
-export type SuccessfulTaskMetrics = SuccessfulRequestMetrics;

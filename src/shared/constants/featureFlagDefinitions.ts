@@ -568,19 +568,21 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
   {
     key: "INTELLIGENCE_GOVERNOR_MODE",
     label: "Intelligence Governor Mode",
-    description: "Intelligence Governor execution mode: off (disable), shadow (log recommendations without altering routing)",
+    description:
+      "Intelligence Governor execution mode: off, shadow recommendations, or simulate counterfactual plans without altering routing",
     descriptionI18nKey: "featureFlagIntelligenceGovernorModeDescription",
     category: "runtime",
     defaultValue: "off",
     type: "enum",
-    enumValues: ["off", "shadow"],
+    enumValues: ["off", "shadow", "simulate", "active-canary", "active"],
     requiresRestart: false,
     warningLevel: "info",
   },
   {
     key: "INTELLIGENCE_GOVERNOR_TELEMETRY",
     label: "Intelligence Governor Telemetry",
-    description: "Enable non-blocking metadata telemetry persistence for Intelligence Governor evaluations",
+    description:
+      "Enable non-blocking metadata telemetry persistence for Intelligence Governor evaluations",
     descriptionI18nKey: "featureFlagIntelligenceGovernorTelemetryDescription",
     category: "runtime",
     defaultValue: "true",
