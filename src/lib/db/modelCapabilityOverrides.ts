@@ -76,7 +76,7 @@ export function getModelCapabilityOverride(
   if (!target || !isSupportedKey(key)) return null;
 
   if (bulkMaxTokenOverrides) {
-    if (key !== "max_token") return null;
+    if (key !== "max_output_tokens") return null;
     return bulkMaxTokenOverrides.get(target.provider)?.get(target.modelId) ?? null;
   }
 

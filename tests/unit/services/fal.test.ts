@@ -6,10 +6,10 @@ import {
   handleFalMusicGeneration,
   handleFalVideoGeneration,
   normalizeFalMediaResult,
-} from "./fal.ts";
-import { parseImageModel } from "../../config/imageRegistry.ts";
-import { parseMusicModel } from "../../config/musicRegistry.ts";
-import { parseVideoModel } from "../../config/videoRegistry.ts";
+} from "../../../open-sse/handlers/mediaGeneration/fal.ts";
+import { parseImageModel } from "../../../open-sse/config/imageRegistry.ts";
+import { parseMusicModel } from "../../../open-sse/config/musicRegistry.ts";
+import { parseVideoModel } from "../../../open-sse/config/videoRegistry.ts";
 
 test("buildFalVideoRequestBody maps the OpenAI-compatible request", () => {
   assert.deepEqual(

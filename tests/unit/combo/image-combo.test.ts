@@ -26,12 +26,12 @@ const { createCombo } = await import("@/lib/db/combos");
 const { executeImageCombo } = await import("@omniroute/open-sse/services/imageCombo");
 
 function createLog() {
-  const entries: any[] = [];
+  const entries: unknown[] = [];
   return {
-    info: (tag: any, msg: any) => entries.push({ level: "info", tag, msg }),
-    warn: (tag: any, msg: any) => entries.push({ level: "warn", tag, msg }),
-    error: (tag: any, msg: any) => entries.push({ level: "error", tag, msg }),
-    debug: (tag: any, msg: any) => entries.push({ level: "debug", tag, msg }),
+    info: (tag: string, msg: unknown) => entries.push({ level: "info", tag, msg }),
+    warn: (tag: string, msg: unknown) => entries.push({ level: "warn", tag, msg }),
+    error: (tag: string, msg: unknown) => entries.push({ level: "error", tag, msg }),
+    debug: (tag: string, msg: unknown) => entries.push({ level: "debug", tag, msg }),
     entries,
   };
 }
@@ -52,13 +52,13 @@ function createMockAuth() {
 }
 
 async function cleanupTestDataDir() {
-  let lastError: any;
+  let lastError: unknown;
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       core.resetDbInstance();
       fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       return;
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
