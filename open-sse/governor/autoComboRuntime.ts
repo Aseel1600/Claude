@@ -33,6 +33,7 @@ export interface AutoComboGovernorRuntimeResult {
   context: GovernorExecutionContext | null;
   selectedExecutionKey: string | null;
   applied: boolean;
+  requestOverrides?: Record<string, unknown>;
 }
 
 function toFiniteNonNegative(value: unknown): number | null {
@@ -383,6 +384,26 @@ export async function applyGovernorToAutoComboOrder(
   context.activeApplied = true;
   context.selectedDispatchCount = 0;
   context.bypassReason = undefined;
+  const requestOverrides: Record<string, unknown> = {};
+  if (
+    config.controlReasoning &&
+    result.plan.reasoningEffort &&
+    result.plan.reasoningEffort !== "preserve" &&
+    input.body.reasoning_effort == null &&
+    input.body.reasoning == null &&
+    input.body.thinking == null
+  ) {
+    requestOverrides.reasoning_effort = result.plan.reasoningEffort;
+  }
+  if (config.controlOutput && result.plan.maxOutputTokens != null) {
+    const explicit = requestedOutputBudget(input.body);
+    requestOverrides.max_tokens = explicit == null
+      ? result.plan.maxOutputTokens
+      : Math.min(explicit, result.plan.maxOutputTokens);
+  }
+  if (config.controlCompression && result.plan.compressionMode && result.plan.compressionMode !== "preserve") {
+    requestOverrides.__omnirouteGovernorCompressionPreference = result.plan.compressionMode;
+  }
   return {
     orderedTargets: [
       selected,
@@ -391,5 +412,6 @@ export async function applyGovernorToAutoComboOrder(
     context,
     selectedExecutionKey: selected.executionKey || null,
     applied: true,
+    requestOverrides,
   };
 }

@@ -214,6 +214,23 @@ export function selectCompressionPlan(
   adaptiveOptions?: AdaptiveSelectOptions
 ): DerivedPlan {
   let plan = resolveBasePlan(config, comboId, estimatedTokens, combos, header);
+  const governorPreference = body?.__omnirouteGovernorCompressionPreference;
+  if (
+    !header &&
+    typeof governorPreference === "string" &&
+    ["none", "rtk", "caveman", "compact", "stacked"].includes(governorPreference) &&
+    config.enabled !== false &&
+    !comboId &&
+    !config.activeComboId
+  ) {
+    plan = resolveBasePlan(
+      { ...config, defaultMode: governorPreference as CompressionConfig["defaultMode"] },
+      comboId,
+      estimatedTokens,
+      combos,
+      header
+    );
+  }
 
   // Adaptive context-budget floor/escalation (D-C4): after the base plan, replacing the
   // (now-bypassed) auto-trigger branch. Pure resolver; chatCore supplies the model limit.

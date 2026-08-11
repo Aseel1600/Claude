@@ -451,6 +451,9 @@ export async function resolveAutoStrategyOrder(
         routableCandidates,
       });
       orderedTargets = governed.orderedTargets;
+      if (governed.requestOverrides) {
+        Object.assign(body, governed.requestOverrides);
+      }
       if (governed.selectedExecutionKey) {
         const selectedRuntimeTarget = orderedTargets.find(
           (target) => target.executionKey === governed.selectedExecutionKey

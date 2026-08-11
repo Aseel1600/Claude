@@ -1461,6 +1461,7 @@ export async function handleChatCore({
           },
         }
       );
+      delete (compressionInputBody as Record<string, unknown>).__omnirouteGovernorCompressionPreference;
       const mode = compressionPlan.mode as CompressionConfig["defaultMode"];
       if (adaptiveTelemetry && adaptiveTelemetry.fit === false) {
         log?.warn?.(
