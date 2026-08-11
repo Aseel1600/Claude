@@ -6,6 +6,13 @@ export function normalizeOpenAICompatibleTools(
   tools: Tool[],
   sourceFormat: string
 ): { tools: Tool[]; dropped: number } {
+  // The Responses translator has dedicated handling for custom, namespace,
+  // tool_search, local_shell, and hosted tool types. Normalizing any of them
+  // here destroys information before that format-aware conversion can run.
+  if (sourceFormat === FORMATS.OPENAI_RESPONSES) {
+    return { tools, dropped: 0 };
+  }
+
   const before = tools.length;
   const normalized = tools
     .filter((tool) =>
@@ -17,8 +24,7 @@ export function normalizeOpenAICompatibleTools(
       if (
         !tool.type ||
         tool.type === "function" ||
-        tool.function ||
-        (sourceFormat === FORMATS.OPENAI_RESPONSES && tool.type === "custom")
+        tool.function
       ) {
         return tool;
       }

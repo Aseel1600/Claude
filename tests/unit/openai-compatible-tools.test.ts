@@ -4,19 +4,28 @@ import assert from "node:assert/strict";
 import { normalizeOpenAICompatibleTools } from "../../open-sse/handlers/chatCore/openAICompatibleTools.ts";
 import { FORMATS } from "../../open-sse/translator/formats.ts";
 
-test("preserves Responses custom tools for the Responses translator", () => {
+test("preserves all Responses tool types for the Responses translator", () => {
   const customTool = {
     type: "custom",
     name: "exec",
     description: "Run a shell command",
   };
+  const namespaceTool = {
+    type: "namespace",
+    name: "functions",
+    tools: [customTool],
+  };
+  const localShellTool = { type: "local_shell" };
 
   const result = normalizeOpenAICompatibleTools(
-    [customTool],
+    [customTool, namespaceTool, localShellTool],
     FORMATS.OPENAI_RESPONSES
   );
 
-  assert.deepEqual(result, { tools: [customTool], dropped: 0 });
+  assert.deepEqual(result, {
+    tools: [customTool, namespaceTool, localShellTool],
+    dropped: 0,
+  });
 });
 
 test("normalizes named non-function tools for other source formats", () => {
