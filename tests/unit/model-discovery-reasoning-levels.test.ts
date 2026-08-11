@@ -127,3 +127,40 @@ test("client_version opt-in without an explicit version still defaults off (no g
   });
   assert.ok(!url.includes("client_version"));
 });
+
+test("metadata.reasoning.supported_efforts (neuralwatt shape) is parsed into supportedThinkingEfforts", () => {
+  const [model] = normalizeDiscoveredModels([
+    {
+      id: "neuralwatt/glm-5.2",
+      metadata: {
+        reasoning: { supported_efforts: ["max", "high", "none"] },
+        capabilities: { reasoning_effort: true },
+      },
+    },
+  ]);
+  // max canonicalizes to xhigh through the shared discovery normalization,
+  // matching every other tier-array source.
+  assert.deepEqual(model.supportedThinkingEfforts, ["xhigh", "high", "none"]);
+});
+
+test("metadata.reasoning.supported_efforts does not override a top-level declared tier list", () => {
+  const [model] = normalizeDiscoveredModels([
+    {
+      id: "both-shapes",
+      reasoning: { supported_efforts: ["medium"] },
+      metadata: { reasoning: { supported_efforts: ["max", "none"] } },
+    },
+  ]);
+  assert.deepEqual(model.supportedThinkingEfforts, ["medium"]);
+});
+
+test("malformed metadata.reasoning shape degrades to undefined, does not throw", () => {
+  const models = normalizeDiscoveredModels([
+    { id: "bad-metadata-1", metadata: { reasoning: { supported_efforts: "not-an-array" } } },
+    { id: "bad-metadata-2", metadata: { reasoning: 42 } },
+    { id: "bad-metadata-3", metadata: null },
+  ]);
+  for (const model of models) {
+    assert.equal("supportedThinkingEfforts" in model, false);
+  }
+});

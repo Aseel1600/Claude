@@ -145,6 +145,27 @@ export function detectSupportedThinkingEfforts(record: JsonRecord): string[] | u
     }
   }
 
+  // neuralwatt-style upstreams wrap the same tier data one level deeper under
+  // `metadata.reasoning.supported_efforts` (their /v1/models nests capabilities
+  // and reasoning under a `metadata` object). Same semantics and validation as
+  // the top-level #7694 shape; placed right after it so a top-level declaration
+  // still wins when both are present.
+  const metadataRecord = asRecord(record.metadata);
+  const metadataParsed = reasoningSupportedEffortsSchema.safeParse(metadataRecord.reasoning);
+  if (metadataParsed.success && metadataParsed.data) {
+    const rawEfforts = metadataParsed.data.supported_efforts;
+    if (Array.isArray(rawEfforts)) {
+      const efforts = Array.from(
+        new Set(
+          rawEfforts
+            .filter((effort): effort is string => typeof effort === "string" && effort.length > 0)
+            .map(normalizeSupportedEffort)
+        )
+      );
+      if (efforts.length > 0) return efforts;
+    }
+  }
+
   // #9160: fall back to `capabilities.effort_tiers` before the legacy fields.
   // OmniRoute's own catalog surfaces effort tiers inside `capabilities.effort_tiers`,
   // which the existing `parseEffortList` already handles (string arrays).
