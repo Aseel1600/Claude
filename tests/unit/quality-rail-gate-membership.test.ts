@@ -55,6 +55,7 @@ test("fast-gates carries the deterministic ratchets and security scanners from t
     "secrets vuln-ratchet workflows openapi-breaking",
     "typecheck:core",
     "check:dashboard-typecheck",
+    "check:ts7-diagnostics-ratchet",
   ]) {
     assert.ok(block.includes(needle), `fast-gates must contain "${needle}"`);
   }
@@ -84,6 +85,20 @@ test("the complexity ratchet stays on the release rail (G0's written validation 
   assert.ok(
     jobBlock("fast-gates").includes("complexity-ratchets"),
     "a complexity regression in a PR→release/** must be blocked by fast-gates"
+  );
+});
+
+test("the TS7 shadow and zero-new-diagnostics ratchet use one pinned compiler and core scope", () => {
+  const block = jobBlock("fast-gates");
+  assert.match(block, /typescript@7\.0\.2/, "TS7 diagnostics must use the reviewed compiler");
+  assert.match(
+    block,
+    /TS7_BASE_REF:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
+    "the ratchet must compare against the exact pull-request base commit"
+  );
+  assert.ok(
+    block.includes("tsconfig.typecheck-core.json"),
+    "the advisory shadow must use the same core scope as the blocking ratchet"
   );
 });
 

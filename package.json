@@ -215,6 +215,7 @@
     "typecheck:noimplicit:core": "tsc --pretty false -p tsconfig.typecheck-noimplicit-core.json",
     "check:dashboard-typecheck": "node scripts/check/check-dashboard-typecheck.mjs",
     "check:open-sse-typecheck": "node scripts/check/check-open-sse-typecheck.mjs",
+    "check:ts7-diagnostics-ratchet": "node scripts/check/check-ts7-diagnostics-ratchet.mjs",
     "backfill-aggregation": "node --import tsx src/scripts/backfillAggregation.ts",
     "env:sync": "node scripts/dev/sync-env.mjs",
     "test:integration": "cross-env DISABLE_SQLITE_AUTO_BACKUP=true node --import tsx/esm --import ./open-sse/utils/setupPolyfill.ts --import ./tests/_setup/isolateDataDir.ts --test --test-force-exit --test-concurrency=1 tests/integration/*.test.ts \"tests/integration/combo-matrix/*.test.ts\"",
