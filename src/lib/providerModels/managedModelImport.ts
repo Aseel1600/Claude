@@ -95,8 +95,11 @@ function normalizeImportedModel(model: JsonRecord): ManagedImportedModel {
   return normalized;
 }
 
-function normalizeImportedModels(fetchedModels: unknown): ManagedImportedModel[] {
-  const discovered = normalizeDiscoveredModels(fetchedModels);
+function normalizeImportedModels(
+  fetchedModels: unknown,
+  providerId: string
+): ManagedImportedModel[] {
+  const discovered = normalizeDiscoveredModels(fetchedModels, providerId);
   return discovered.map((model) => normalizeImportedModel(model as JsonRecord));
 }
 
@@ -250,8 +253,8 @@ export async function importManagedModels({
   const previousSyncedAvailableModels =
     previousSyncedAvailableModelsInput ??
     (await getSyncedAvailableModelsForConnection(providerId, connectionId));
-  const discoveredModels = normalizeDiscoveredModels(fetchedModels);
-  const candidateImportedModels = normalizeImportedModels(fetchedModels);
+  const discoveredModels = normalizeDiscoveredModels(fetchedModels, providerId);
+  const candidateImportedModels = normalizeImportedModels(fetchedModels, providerId);
   const importedIds = new Set(candidateImportedModels.map((model) => model.id));
   const discoveredIds = new Set(discoveredModels.map((model) => model.id));
 

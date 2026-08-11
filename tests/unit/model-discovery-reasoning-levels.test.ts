@@ -104,6 +104,55 @@ test("thinking.levels alone still populates supportedThinkingEfforts via normali
   ]);
   assert.deepEqual(models[0].supportedThinkingEfforts, ["high"]);
 });
+test("CrofAI reasoning_effort true maps to the supported effort tiers", () => {
+  const [model] = normalizeDiscoveredModels(
+    [{ id: "crof-reasoning-model", reasoning_effort: true }],
+    "crof"
+  );
+  assert.equal(model.supportsThinking, true);
+  assert.deepEqual(model.supportedThinkingEfforts, ["none", "low", "medium", "high", "max"]);
+});
+
+test("CrofAI false or absent reasoning_effort adds no reasoning metadata", () => {
+  const models = normalizeDiscoveredModels(
+    [{ id: "crof-no-reasoning", reasoning_effort: false }, { id: "crof-unknown-reasoning" }],
+    "crof"
+  );
+  for (const model of models) {
+    assert.equal(model.supportsThinking, undefined);
+    assert.equal("supportedThinkingEfforts" in model, false);
+  }
+});
+
+test("reasoning_effort boolean remains provider-scoped", () => {
+  assert.deepEqual(
+    normalizeDiscoveredModels(
+      [{ id: "other-provider-model", reasoning_effort: true, custom_reasoning: true }],
+      "other-provider"
+    ),
+    [{ id: "other-provider-model", name: "other-provider-model", source: "imported" }]
+  );
+});
+
+test("explicit effort tiers take precedence over the CrofAI boolean fallback", () => {
+  const models = normalizeDiscoveredModels(
+    [
+      {
+        id: "crof-flat-tiers",
+        reasoning_effort: true,
+        supportedThinkingEfforts: ["low", "high"],
+      },
+      {
+        id: "crof-nested-tiers",
+        reasoning_effort: true,
+        reasoning: { supported_efforts: ["medium"] },
+      },
+    ],
+    "crof"
+  );
+  assert.deepEqual(models[0].supportedThinkingEfforts, ["low", "high"]);
+  assert.deepEqual(models[1].supportedThinkingEfforts, ["medium"]);
+});
 
 test("client_version is absent from the model-list URL by default", () => {
   const url = buildProviderModelsUrl("https://example.com/v1/models", undefined);
