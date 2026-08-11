@@ -609,6 +609,7 @@ export type CompatFilterOptions = {
 export function hasHardCapabilityFailure(reasons: string[]): boolean {
   return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
 }
+
 /**
  * Summarize a capability-filter exhaustion for a 400-class combo error (#8488).
  * Returns null when the empty pool is not attributable to hard requirements.
