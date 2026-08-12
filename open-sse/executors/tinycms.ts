@@ -72,7 +72,7 @@ export class TinyCmsExecutor extends BaseExecutor {
       // Security context: this nonce is signed into `x-secure-signature` and
       // reused as the session id, so it must be unpredictable. `node:crypto`
       // randomUUID() is always available on the supported runtime — never fall
-      // back to Math.random() (CodeQL js/insecure-randomness).
+      // back to a non-CSPRNG source (CodeQL js/insecure-randomness).
       const nonceJs = randomUUID();
 
       const securePayload = generateSecurePayload(
