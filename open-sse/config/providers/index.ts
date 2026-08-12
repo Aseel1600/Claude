@@ -27,7 +27,6 @@ import { raycastProvider } from "./registry/raycast/index.ts";
 import { muse_spark_webProvider } from "./registry/muse-spark-web/index.ts";
 import { lmarenaProvider } from "./registry/lmarena/index.ts";
 import { kilocodeProvider } from "./registry/kilocode/index.ts";
-import { github_modelsProvider } from "./registry/github/models/index.ts";
 import { githubProvider } from "./registry/github/index.ts";
 import { gheCopilotProvider } from "./registry/ghe-copilot/index.ts";
 import { difyProvider } from "./registry/dify/index.ts";
@@ -102,6 +101,7 @@ import { sensenovaProvider } from "./registry/sensenova/index.ts";
 import { hyperbolicProvider } from "./registry/hyperbolic/index.ts";
 import { lambda_aiProvider } from "./registry/lambda-ai/index.ts";
 import { t3_webProvider } from "./registry/t3-web/index.ts";
+import { conol_webProvider } from "./registry/conol-web/index.ts";
 import { iflytekProvider } from "./registry/iflytek/index.ts";
 import { crofProvider } from "./registry/crof/index.ts";
 import { moonshotProvider } from "./registry/moonshot/index.ts";
@@ -119,6 +119,7 @@ import { blackbox_webProvider } from "./registry/blackbox/web/index.ts";
 import { uncloseaiProvider } from "./registry/uncloseai/index.ts";
 import { nscaleProvider } from "./registry/nscale/index.ts";
 import { chatgpt_webProvider } from "./registry/chatgpt-web/index.ts";
+import { chatgpt_web_codexProvider } from "./registry/chatgpt-web-codex/index.ts";
 import { openrouterProvider } from "./registry/openrouter/index.ts";
 import { cheaperinferenceProvider } from "./registry/cheaperinference/index.ts";
 import { openvectaProvider } from "./registry/openvecta/index.ts";
@@ -152,7 +153,7 @@ import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
 import { regoloProvider } from "./registry/regolo/index.ts";
-import { windsurfProvider } from "./registry/windsurf/index.ts";
+import { devin_desktopProvider } from "./registry/devin-desktop/index.ts";
 import { zed_hostedProvider } from "./registry/zed-hosted/index.ts";
 import { nanogptProvider } from "./registry/nanogpt/index.ts";
 import { scalewayProvider } from "./registry/scaleway/index.ts";
@@ -216,6 +217,7 @@ import { grok_cliProvider } from "./registry/grok-cli/index.ts";
 import { codebuddy_cnProvider } from "./registry/codebuddy-cn/index.ts";
 import { pioneerProvider } from "./registry/pioneer/index.ts";
 import { zenmux_freeProvider } from "./registry/zenmux-free/index.ts";
+import { tinycmsProvider } from "./registry/tinycms/index.ts";
 import { sumopodProvider } from "./registry/sumopod/index.ts";
 import { x5labProvider } from "./registry/x5lab/index.ts";
 import { kenariProvider } from "./registry/kenari/index.ts";
@@ -229,8 +231,9 @@ import { hcnsecProvider } from "./registry/hcnsec/index.ts";
 import { promptqlProvider } from "./registry/promptql/index.ts";
 import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 import { muse_codeProvider } from "./registry/muse-code/index.ts";
+import { naga_acProvider } from "./registry/naga-ac/index.ts";
+import { chatanywhereProvider } from "./registry/chatanywhere/index.ts";
 import { zyloApiProvider } from "./registry/zylo-api/index.ts";
-import { unorouterProvider } from "./registry/unorouter/index.ts";
 import { poolsideProvider } from "./registry/poolside/index.ts";
 import { fastrouterProvider } from "./registry/fastrouter/index.ts";
 import { anyapiProvider } from "./registry/anyapi/index.ts";
@@ -248,7 +251,6 @@ import { dxntProvider } from "./registry/dxnt/index.ts";
 import { cloudcodeOneProvider } from "./registry/cloudcode-one/index.ts";
 import { ofoxaiProvider } from "./registry/ofoxai/index.ts";
 import { zerolimitaiProvider } from "./registry/zerolimitai/index.ts";
-import { chatanywhereProvider } from "./registry/chatanywhere/index.ts";
 import { helyxaiProvider } from "./registry/helyxai/index.ts";
 import { aurikoProvider } from "./registry/auriko/index.ts";
 import { poixeAiProvider } from "./registry/poixe-ai/index.ts";
@@ -258,6 +260,7 @@ import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
 import { voidAiProvider } from "./registry/void-ai/index.ts";
 import { helixmindProvider } from "./registry/helixmind/index.ts";
+
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -284,7 +287,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "muse-spark-web": muse_spark_webProvider,
   lmarena: lmarenaProvider,
   kilocode: kilocodeProvider,
-  "github-models": github_modelsProvider,
   github: githubProvider,
   "ghe-copilot": gheCopilotProvider,
   dify: difyProvider,
@@ -359,6 +361,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   hyperbolic: hyperbolicProvider,
   "lambda-ai": lambda_aiProvider,
   "t3-web": t3_webProvider,
+  "conol-web": conol_webProvider,
   iflytek: iflytekProvider,
   crof: crofProvider,
   moonshot: moonshotProvider,
@@ -376,6 +379,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   uncloseai: uncloseaiProvider,
   nscale: nscaleProvider,
   "chatgpt-web": chatgpt_webProvider,
+  "chatgpt-web-codex": chatgpt_web_codexProvider,
   openrouter: openrouterProvider,
   cheaperinference: cheaperinferenceProvider,
   openvecta: openvectaProvider,
@@ -409,7 +413,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "command-code": command_codeProvider,
   novita: novitaProvider,
   regolo: regoloProvider,
-  windsurf: windsurfProvider,
+  "devin-desktop": devin_desktopProvider,
   "zed-hosted": zed_hostedProvider,
   nanogpt: nanogptProvider,
   scaleway: scalewayProvider,
@@ -475,6 +479,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "codebuddy-cn": codebuddy_cnProvider,
   pioneer: pioneerProvider,
   "zenmux-free": zenmux_freeProvider,
+  "tinycms-web": tinycmsProvider,
   sumopod: sumopodProvider,
   x5lab: x5labProvider,
   kenari: kenariProvider,
@@ -490,6 +495,8 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "muse-code": muse_codeProvider,
   "zylo-api": zyloApiProvider,
   unorouter: unorouterProvider,
+  "naga-ac": naga_acProvider,
+  chatanywhere: chatanywhereProvider,
   poolside: poolsideProvider,
   fastrouter: fastrouterProvider,
   anyapi: anyapiProvider,
@@ -507,7 +514,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "cloudcode-one": cloudcodeOneProvider,
   ofoxai: ofoxaiProvider,
   zerolimitai: zerolimitaiProvider,
-  chatanywhere: chatanywhereProvider,
   helyxai: helyxaiProvider,
   auriko: aurikoProvider,
   "poixe-ai": poixeAiProvider,
@@ -517,4 +523,5 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "free-ai": freeAiProvider,
   "void-ai": voidAiProvider,
   helixmind: helixmindProvider,
+
 };

@@ -8,8 +8,11 @@ import type { AgentSkill, SkillCoverage } from "../../src/lib/agentSkills/types"
 
 // ── i18n stub ────────────────────────────────────────────────────────────────
 vi.mock("next-intl", () => ({
+  useLocale: () => "en",
   useTranslations: () => {
-    return Object.assign((key: string) => key, { has: () => false });
+    const t = (key: string) => key;
+    t.has = () => false;
+    return t;
   },
 }));
 
@@ -61,9 +64,9 @@ function makeSkill(overrides: Partial<AgentSkill> = {}): AgentSkill {
   };
 }
 
-function make45Skills(): AgentSkill[] {
+function make42Skills(): AgentSkill[] {
   const skills: AgentSkill[] = [];
-  for (let i = 0; i < 23; i++) {
+  for (let i = 0; i < 22; i++) {
     skills.push(
       makeSkill({
         id: `omni-skill-${i}`,
@@ -72,7 +75,7 @@ function make45Skills(): AgentSkill[] {
       })
     );
   }
-  for (let i = 0; i < 21; i++) {
+  for (let i = 0; i < 20; i++) {
     skills.push(
       makeSkill({
         id: `cli-skill-${i}`,
@@ -83,31 +86,19 @@ function make45Skills(): AgentSkill[] {
       })
     );
   }
-  skills.push(
-    makeSkill({
-      id: "config-codex-cli",
-      name: "Config: Codex CLI",
-      category: "config",
-      area: "config-codex-cli",
-      endpoints: undefined,
-      cliCommands: undefined,
-    })
-  );
   return skills;
 }
 
 const FULL_COVERAGE: SkillCoverage = {
-  api: { have: 23, total: 23 },
-  cli: { have: 21, total: 21 },
-  config: { have: 1, total: 1 },
-  totalSkills: 45,
+  api: { have: 22, total: 22 },
+  cli: { have: 20, total: 20 },
+  totalSkills: 42,
   generatedAt: new Date().toISOString(),
 };
 
 const PARTIAL_COVERAGE: SkillCoverage = {
-  api: { have: 10, total: 23 },
-  cli: { have: 8, total: 21 },
-  config: { have: 0, total: 1 },
+  api: { have: 10, total: 22 },
+  cli: { have: 8, total: 20 },
   totalSkills: 18,
   generatedAt: new Date().toISOString(),
 };
@@ -185,8 +176,8 @@ afterEach(async () => {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe("AgentSkillsPageClient", () => {
-  it("renders 45 skill cards after fetch resolves", async () => {
-    const skills = make45Skills();
+  it("renders 42 skill cards after fetch resolves", async () => {
+    const skills = make42Skills();
     vi.stubGlobal("fetch", mockFetch(skills, FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
@@ -198,11 +189,11 @@ describe("AgentSkillsPageClient", () => {
     });
 
     const cards = container.querySelectorAll("[data-testid^='skill-card-']");
-    expect(cards.length).toBe(45);
+    expect(cards.length).toBe(42);
   });
 
   it("renders SkillsConceptCard variant=agent at the top", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), FULL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -217,7 +208,7 @@ describe("AgentSkillsPageClient", () => {
   });
 
   it("filter API shows only api-category cards", async () => {
-    const skills = make45Skills();
+    const skills = make42Skills();
     vi.stubGlobal("fetch", mockFetch(skills, FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
@@ -238,11 +229,11 @@ describe("AgentSkillsPageClient", () => {
     });
 
     const cards = container.querySelectorAll("[data-testid^='skill-card-']");
-    expect(cards.length).toBe(23);
+    expect(cards.length).toBe(22);
   });
 
   it("filter CLI shows only cli-category cards", async () => {
-    const skills = make45Skills();
+    const skills = make42Skills();
     vi.stubGlobal("fetch", mockFetch(skills, FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
@@ -261,36 +252,12 @@ describe("AgentSkillsPageClient", () => {
     });
 
     const cards = container.querySelectorAll("[data-testid^='skill-card-']");
-    expect(cards.length).toBe(21);
-  });
-
-  it("filter config shows only config-category cards", async () => {
-    const skills = make45Skills();
-    vi.stubGlobal("fetch", mockFetch(skills, FULL_COVERAGE));
-
-    const { AgentSkillsPageClient } =
-      await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
-    const container = makeContainer();
-    root = createRoot(container);
-    await act(async () => {
-      root?.render(<AgentSkillsPageClient />);
-    });
-
-    const filterConfigBtn = container.querySelector(
-      "[data-testid='filter-config']"
-    ) as HTMLButtonElement | null;
-    await act(async () => {
-      filterConfigBtn?.click();
-    });
-
-    const cards = container.querySelectorAll("[data-testid^='skill-card-']");
-    expect(cards.length).toBe(1);
-    expect(cards[0]?.getAttribute("data-testid")).toBe("skill-card-config-codex-cli");
+    expect(cards.length).toBe(20);
   });
 
   it("clicking a card triggers preview fetch after 200ms debounce", async () => {
     vi.useFakeTimers();
-    const skills = make45Skills();
+    const skills = make42Skills();
     const fetchMock = mockFetch(skills, FULL_COVERAGE, "# omni-skill-0 doc");
     vi.stubGlobal("fetch", fetchMock);
 
@@ -332,7 +299,7 @@ describe("AgentSkillsPageClient", () => {
   });
 
   it("preview pane shows empty state when no card is selected", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), FULL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -347,7 +314,7 @@ describe("AgentSkillsPageClient", () => {
   });
 
   it("CoverageBar is rendered with 100% = green bars when coverage is full", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), FULL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -361,21 +328,19 @@ describe("AgentSkillsPageClient", () => {
     expect(coverageBar).not.toBeNull();
 
     const progressBars = container.querySelectorAll("[role='progressbar']");
-    expect(progressBars.length).toBe(3);
+    expect(progressBars.length).toBe(2);
 
-    // API, config, and CLI are all complete, so every bar should be green.
+    // API bar — 22/22 = 100%, should have emerald color class
     const apiBar = progressBars[0] as HTMLElement;
     expect(apiBar.className).toContain("bg-emerald-500");
 
-    const configBar = progressBars[1] as HTMLElement;
-    expect(configBar.className).toContain("bg-emerald-500");
-
-    const cliBar = progressBars[2] as HTMLElement;
+    // CLI bar — 20/20 = 100%, should have emerald color class
+    const cliBar = progressBars[1] as HTMLElement;
     expect(cliBar.className).toContain("bg-emerald-500");
   });
 
   it("generate button is hidden when coverage is 100%", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), FULL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -390,7 +355,7 @@ describe("AgentSkillsPageClient", () => {
   });
 
   it("generate button is visible when coverage is partial", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), PARTIAL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), PARTIAL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -405,7 +370,7 @@ describe("AgentSkillsPageClient", () => {
   });
 
   it("search filters cards by name", async () => {
-    const skills = make45Skills();
+    const skills = make42Skills();
     vi.stubGlobal("fetch", mockFetch(skills, FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
@@ -438,11 +403,11 @@ describe("AgentSkillsPageClient", () => {
     // After search, cards with "API Skill 0" in name should be visible
     // (at minimum the one exact match)
     const cards = container.querySelectorAll("[data-testid^='skill-card-']");
-    expect(cards.length).toBeLessThanOrEqual(45);
+    expect(cards.length).toBeLessThanOrEqual(42);
   });
 
   it("MCP and A2A links bar is present", async () => {
-    vi.stubGlobal("fetch", mockFetch(make45Skills(), FULL_COVERAGE));
+    vi.stubGlobal("fetch", mockFetch(make42Skills(), FULL_COVERAGE));
 
     const { AgentSkillsPageClient } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/AgentSkillsPageClient");
@@ -460,7 +425,7 @@ describe("AgentSkillsPageClient", () => {
 // ── CoverageBar isolated tests ───────────────────────────────────────────────
 
 describe("CoverageBar", () => {
-  it("renders three progressbars with correct aria attributes", async () => {
+  it("renders two progressbars with correct aria attributes", async () => {
     const { CoverageBar } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/components/CoverageBar");
     const container = makeContainer();
@@ -470,19 +435,15 @@ describe("CoverageBar", () => {
     });
 
     const bars = container.querySelectorAll("[role='progressbar']");
-    expect(bars.length).toBe(3);
+    expect(bars.length).toBe(2);
 
     const apiBar = bars[0] as HTMLElement;
-    expect(apiBar.getAttribute("aria-valuenow")).toBe("23");
-    expect(apiBar.getAttribute("aria-valuemax")).toBe("23");
+    expect(apiBar.getAttribute("aria-valuenow")).toBe("22");
+    expect(apiBar.getAttribute("aria-valuemax")).toBe("22");
 
-    const configBar = bars[1] as HTMLElement;
-    expect(configBar.getAttribute("aria-valuenow")).toBe("1");
-    expect(configBar.getAttribute("aria-valuemax")).toBe("1");
-
-    const cliBar = bars[2] as HTMLElement;
-    expect(cliBar.getAttribute("aria-valuenow")).toBe("21");
-    expect(cliBar.getAttribute("aria-valuemax")).toBe("21");
+    const cliBar = bars[1] as HTMLElement;
+    expect(cliBar.getAttribute("aria-valuenow")).toBe("20");
+    expect(cliBar.getAttribute("aria-valuemax")).toBe("20");
 
     await act(async () => localRoot.unmount());
   });
@@ -491,9 +452,8 @@ describe("CoverageBar", () => {
     const { CoverageBar } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/components/CoverageBar");
     const lowCoverage: SkillCoverage = {
-      api: { have: 5, total: 23 },
-      cli: { have: 0, total: 21 },
-      config: { have: 0, total: 1 },
+      api: { have: 5, total: 22 },
+      cli: { have: 0, total: 20 },
       totalSkills: 5,
       generatedAt: new Date().toISOString(),
     };
@@ -515,9 +475,8 @@ describe("CoverageBar", () => {
     const { CoverageBar } =
       await import("../../src/app/(dashboard)/dashboard/agent-skills/components/CoverageBar");
     const partialCoverage: SkillCoverage = {
-      api: { have: 18, total: 23 }, // ~78.3% = amber
-      cli: { have: 16, total: 21 }, // ~76.2% = amber
-      config: { have: 0, total: 1 },
+      api: { have: 18, total: 22 }, // ~81.8% = amber
+      cli: { have: 15, total: 20 }, // 75% = amber
       totalSkills: 33,
       generatedAt: new Date().toISOString(),
     };

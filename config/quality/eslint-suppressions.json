@@ -44,14 +44,19 @@
       "count": 11
     }
   },
-  "open-sse/executors/vertex.ts": {
+  "open-sse/executors/tinycms.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore.ts": {
-    "no-restricted-imports": {
+  "open-sse/executors/tinycmsSigner.ts": {
+    "@typescript-eslint/no-explicit-any": {
       "count": 1
+    }
+  },
+  "open-sse/executors/vertex.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "open-sse/handlers/chatCore/codexFailover.ts": {
@@ -403,11 +408,6 @@
       "count": 1
     }
   },
-  "src/app/api/combos/[id]/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/combos/reorder/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -554,11 +554,6 @@
     }
   },
   "src/app/api/providers/[id]/login/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1788,7 +1783,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 31
     }
   },
   "tests/unit/chatgpt-web-tools-5240.test.ts": {

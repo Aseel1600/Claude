@@ -25,13 +25,13 @@ Ele fornece um único endpoint compatível com OpenAI (`/v1/*`) e roteia o tráf
 
 Capacidades principais:
 
-- Superfície de API compatível com OpenAI para CLI/ferramentas (329 entradas de provedores, 89 módulos de implementação de executores)
+- Superfície de API compatível com OpenAI para CLI/ferramentas (177 provedores, 38 executores)
 - Tradução de solicitação/resposta entre formatos de provedores
 - Fallback de combinação de modelos (sequência de múltiplos modelos)
 - Passos de combinação estruturados (`provedor + modelo + conexão`) com ordenação em tempo de execução por `compositeTiers`
 - Fallback em nível de conta (multi-conta por provedor)
 - Pré-verificação de cota e seleção de conta P2C ciente da cota no caminho principal de chat
-- Gerenciamento de conexão de provedor OAuth + chave de API (21 módulos de implementação OAuth)
+- Gerenciamento de conexão de provedor OAuth + chave de API (14 módulos OAuth)
 - Geração de embeddings via `/v1/embeddings` (6 provedores, 9 modelos)
 - Geração de imagens via `/v1/images/generations` (10+ provedores, 20+ modelos)
 - Transcrição de áudio via `/v1/audio/transcriptions` (7 provedores)
@@ -45,7 +45,7 @@ Capacidades principais:
 - Sanitização de resposta para compatibilidade estrita com o SDK da OpenAI
 - Normalização de papéis (desenvolvedor→sistema, sistema→usuário) para compatibilidade entre provedores
 - Conversão de saída estruturada (json_schema → Gemini responseSchema)
-- Persistência local para provedores, chaves, aliases, combos, configurações, preços (110 módulos de DB de nível superior)
+- Persistência local para provedores, chaves, aliases, combos, configurações, preços (26 módulos de DB)
 - Rastreamento de uso/custo e registro de solicitações
 - Sincronização em nuvem opcional para sincronização multi-dispositivo/estado
 - Lista de permissão/bloqueio de IP para controle de acesso à API
@@ -66,7 +66,7 @@ Capacidades principais:
 - Registro de auditoria de conformidade com opção de exclusão por chave de API
 - Estrutura de avaliação para garantia de qualidade de LLM
 - Painel de saúde com status de disjuntor de provedor em tempo real
-- Servidor MCP (107 ferramentas únicas, 32 escopos) com 3 transportes (stdio/SSE/Streamable HTTP)
+- Servidor MCP (37 ferramentas) com 3 transportes (stdio/SSE/Streamable HTTP)
 - Servidor A2A (JSON-RPC 2.0 + SSE) com habilidades e ciclo de vida de tarefas
 - Sistema de memória (extração, injeção, recuperação, sumarização)
 - Sistema de habilidades (registro, executor, sandbox, habilidades integradas)
@@ -74,7 +74,7 @@ Capacidades principais:
 - Middleware de proteção contra injeção de prompt
 - Pipeline de compressão de prompt com Caveman, RTK, pipelines empilhados, combos de compressão, pacotes de idioma e análises
 - Registro de ACP (Agent Communication Protocol)
-- Provedores OAuth modulares (21 módulos de implementação sob `src/lib/oauth/providers/`)
+- Provedores OAuth modulares (22 módulos individuais sob `src/lib/oauth/providers/`)
 - Scripts de desinstalação/desinstalação completa
 - Ação de reparo de ambiente OAuth
 - Ponte WebSocket para clientes WS compatíveis com OpenAI (`/v1/ws`)
@@ -329,10 +329,10 @@ Módulos da camada de domínio:
 - Executor de avaliação: `src/lib/domain/evalRunner.ts`
 - Persistência do estado do domínio: `src/lib/db/domainState.ts` — CRUD SQLite para cadeias de fallback, orçamentos, histórico de custos, estado de bloqueio, disjuntores
 
-Módulos do provedor OAuth (21 módulos de implementação em `src/lib/oauth/providers/`):
+Módulos do provedor OAuth (22 arquivos individuais em `src/lib/oauth/providers/`):
 
 - Índice do registro: `src/lib/oauth/providers/index.ts`
-- Provedores individuais: `claude.ts`, `codex.ts`, `gemini.ts`, `antigravity.ts`, `qoder.ts`, `qwen.ts`, `kimi-coding.ts`, `github.ts`, `kiro.ts`, `cursor.ts`, `kilocode.ts`, `cline.ts`, `windsurf.ts`, `gitlab-duo.ts`
+- Provedores individuais: `agy.ts`, `antigravity.ts`, `claude.ts`, `cline.ts`, `codebuddy-cn.ts`, `codex.ts`, `cursor.ts`, `devin-desktop.ts`, `ghe-copilot.ts`, `github.ts`, `gitlab-duo.ts`, `grok-cli-oauth.ts`, `grok-cli.ts`, `kilocode.ts`, `kimi-coding.ts`, `kiro.ts`, `qoder.ts`, `raycast.ts`, `trae.ts`, `xai-oauth.ts`, `zed-hosted.ts`, `zed.ts`
 - Wrapper fino: `src/lib/oauth/providers.ts` — re-exportações de módulos individuais
 
 ## Subsistemas Principais (v3.8.0)
@@ -908,13 +908,13 @@ Cada provedor tem um executor especializado que estende `BaseExecutor` (em `open
 | `PuterExecutor`          | Puter                                                                                                                                                       | Integração de provedor baseada em navegador                                          |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                    | Suporte a PAT e OAuth, nível gratuito multi-modelo                                   |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                            | Autenticação de conta de serviço, endpoints baseados em região                       |
-| `WindsurfExecutor`       | Windsurf (Codeium)                                                                                                                                          | Atualização de token de sessão + OAuth do Codeium                                    |
+| `DevinDesktopExecutor` | Devin Desktop | Chave de API importada + streaming de chat Connect-protobuf |
 
 Todos os outros provedores (incluindo nós compatíveis personalizados) usam o `DefaultExecutor`.
 
 ## Matriz de Compatibilidade de Provedores
 
-> **Nota:** A matriz abaixo é uma amostra representativa das 329 entradas de provedores registradas no
+> **Nota:** A matriz abaixo é uma amostra representativa dos 177 provedores registrados no
 > OmniRoute v3.8.0. Para a lista canônica e continuamente atualizada, consulte
 > [`docs/reference/PROVIDER_REFERENCE.md`](../reference/PROVIDER_REFERENCE.md) (gerada automaticamente) ou a fonte
 > de verdade em `src/shared/constants/providers.ts` (validada pelo Zod na carga).
@@ -962,9 +962,9 @@ Todos os outros provedores (incluindo nós compatíveis personalizados) usam o `
 | GLMT (preset)     | claude           | Chave de API               | ✅               | ✅         | ❌                   | ⚠️ Por solicitação   |
 | Kimi Coding       | openai           | OAuth / Chave de API       | ✅               | ✅         | ✅                   | ❌                   |
 | KIE               | openai           | Chave de API               | ✅               | ✅         | ❌                   | ❌                   |
-| Windsurf          | openai           | OAuth (Codeium)            | ✅               | ✅         | ✅                   | ⚠️ Por solicitação   |
+| Devin Desktop | openai | Chave de API importada | ✅ (Connect→SSE) | ✅ | ❌ | ⚠️ Por solicitação |
 | GitLab Duo        | openai           | OAuth (GitLab)             | ✅               | ✅         | ✅                   | ❌                   |
-| Devin CLI         | openai           | OAuth                      | ✅               | ✅         | ✅                   | ✅ API de Tarefas    |
+| Devin CLI | openai | Login local da CLI | ✅ | ✅ | ❌ | ✅ API de Tarefas |
 | Codex Cloud       | openai-responses | OAuth                      | ✅               | ❌         | ✅                   | ✅ Limites de taxa   |
 | Jules             | openai           | OAuth                      | ✅               | ✅         | ✅                   | ✅ API de Tarefas    |
 | AgentRouter       | openai           | Chave de API               | ✅               | ✅         | ❌                   | ❌                   |

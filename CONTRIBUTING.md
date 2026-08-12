@@ -3,7 +3,7 @@
 Thank you for your interest in contributing! This guide covers everything you need to get started.
 
 For the official per-change workflow, start with the
-[Contribution Golden Path](docs/dev/CONTRIBUTION_GOLDEN_PATH.md). It maps provider, routing,
+[Contribution Golden Path](docs/ops/CONTRIBUTION_GOLDEN_PATH.md). It maps provider, routing,
 UI/UX, i18n, CLI, database, and build/deploy changes to their contracts, focused tests, CI
 coverage, and reconciliation steps.
 
@@ -210,7 +210,7 @@ Coverage notes:
 ### Pull Request Requirements
 
 Before opening a PR, use the
-[Contribution Golden Path](docs/dev/CONTRIBUTION_GOLDEN_PATH.md) to run the focused loop for
+[Contribution Golden Path](docs/ops/CONTRIBUTION_GOLDEN_PATH.md) to run the focused loop for
 what you changed. The full unit suite (4 CI shards), Vitest, the **60%+** coverage gate, and
 the production build are CI's responsibility — running them locally adds no signal the PR
 checks will not already give you, and on smaller machines it can saturate the host (#8084):

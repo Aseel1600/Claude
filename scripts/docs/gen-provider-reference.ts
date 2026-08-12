@@ -6,6 +6,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  FREE_PROVIDERS,
   NOAUTH_PROVIDERS,
   OAUTH_PROVIDERS,
   WEB_COOKIE_PROVIDERS,
@@ -135,7 +136,8 @@ function buildHeader(total: number): string {
     "",
     "## Categories",
     "",
-    "- **No-auth** — provider endpoint that does not require a credential in OmniRoute",
+    "- **Free** — free tier with API key (configured via dashboard)",
+    "- **No-auth** — public endpoints that require no key or sign-in at all",
     "- **OAuth** — sign-in flow handled by OmniRoute, no API key needed",
     "- **Web cookie** — wraps the provider's web app via cookie auth",
     "- **API key** — paid provider configured via API key (free credits may apply)",
@@ -159,8 +161,19 @@ function buildHeader(total: number): string {
   ].join("\n");
 }
 
+function countExecutorImpls(): number {
+  const dir = path.join(ROOT, "open-sse", "executors");
+  const nonImpl = new Set(["index.ts", "index.mts", "types.ts", "base.ts", "constants.ts"]);
+  return fs
+    .readdirSync(dir)
+    .filter(
+      (f) => f.endsWith(".ts") && !f.endsWith(".test.ts") && !f.startsWith("__") && !nonImpl.has(f)
+    ).length;
+}
+
 function main() {
-  const noAuth = asRecords(NOAUTH_PROVIDERS);
+  const free = asRecords(FREE_PROVIDERS);
+  const noauth = asRecords(NOAUTH_PROVIDERS as Record<string, ProviderRecord>);
   const oauth = asRecords(OAUTH_PROVIDERS);
   const webCookie = asRecords(WEB_COOKIE_PROVIDERS);
   const apiKey = asRecords(APIKEY_PROVIDERS);
@@ -172,7 +185,8 @@ function main() {
   const system = asRecords(SYSTEM_PROVIDERS);
 
   const allIds = new Set<string>([
-    ...noAuth.map((p) => p.id),
+    ...free.map((p) => p.id),
+    ...noauth.map((p) => p.id),
     ...oauth.map((p) => p.id),
     ...webCookie.map((p) => p.id),
     ...apiKey.map((p) => p.id),
@@ -185,7 +199,8 @@ function main() {
   ]);
 
   const sections = [
-    buildSection("No-Auth Providers", noAuth, "No-auth"),
+    buildSection("Free Tier (OAuth-first or no-key)", free, "Free"),
+    buildSection("No-auth Providers (no key required)", noauth, "No-auth"),
     buildSection("OAuth Providers", oauth, "OAuth"),
     buildSection("Web Cookie Providers", webCookie, "Web cookie"),
     buildSection("API Key Providers (paid / paid-with-free-credits)", apiKey, "API key"),
@@ -202,7 +217,7 @@ function main() {
     "",
     "- Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)",
     "- Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)",
-    "- Executors: [`open-sse/executors/`](../../open-sse/executors/)",
+    `- Executors: [\`open-sse/executors/\`](../../open-sse/executors/) (${countExecutorImpls()} implementations)`,
     "- Translators: [`open-sse/translator/`](../../open-sse/translator/)",
     "",
     "## See Also",
@@ -218,9 +233,10 @@ function main() {
   console.log(`✓ Wrote ${OUT_FILE}`);
   console.log(`  Providers: ${allIds.size} unique IDs`);
   console.log(
-    `  Sections: noauth=${noAuth.length}, oauth=${oauth.length}, web=${webCookie.length}, ` +
-      `apikey=${apiKey.length}, local=${local.length}, search=${search.length}, ` +
-      `audio=${audio.length}, proxy=${upstreamProxy.length}, cloud=${cloudAgent.length}, system=${system.length}`
+    `  Sections: free=${free.length}, noauth=${noauth.length}, oauth=${oauth.length}, ` +
+      `web=${webCookie.length}, apikey=${apiKey.length}, local=${local.length}, ` +
+      `search=${search.length}, audio=${audio.length}, proxy=${upstreamProxy.length}, ` +
+      `cloud=${cloudAgent.length}, system=${system.length}`
   );
 }
 

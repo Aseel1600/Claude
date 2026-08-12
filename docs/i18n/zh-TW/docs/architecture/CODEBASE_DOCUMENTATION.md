@@ -627,17 +627,17 @@ bin/
 
 ## 7. `tests/`
 
-| 目錄                                                                           | 類型                                                                                     |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `tests/unit/`                                                                  | 透過 Node 原生測試執行器的單元測試（1821 個檔案，加上 `api/`、`auth/`、`authz/` 子目錄） |
-| `tests/integration/`                                                           | 跨模組 + 資料庫狀態測試                                                                  |
-| `tests/e2e/`                                                                   | Playwright UI 測試                                                                       |
-| `tests/protocols-e2e/`                                                         | MCP/A2A 協定 e2e 測試                                                                    |
-| `tests/translator/`                                                            | 翻譯器專用測試                                                                           |
-| `tests/security/`                                                              | 安全性回歸測試                                                                           |
-| `tests/load/`                                                                  | 負載/壓力測試                                                                            |
-| `tests/golden-set/`                                                            | 翻譯器回歸測試的參考輸出                                                                 |
-| `tests/helpers/`、`tests/fixtures/`、`tests/manual/`、`tests/scratch_test.mjs` | 支援                                                                                     |
+| 目錄                                                 | 類型                                                                                     |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `tests/unit/`                                        | 透過 Node 原生測試執行器的單元測試（1821 個檔案，加上 `api/`、`auth/`、`authz/` 子目錄） |
+| `tests/integration/`                                 | 跨模組 + 資料庫狀態測試                                                                  |
+| `tests/e2e/`                                         | Playwright UI 測試                                                                       |
+| `tests/protocols-e2e/`                               | MCP/A2A 協定 e2e 測試                                                                    |
+| `tests/translator/`                                  | 翻譯器專用測試                                                                           |
+| `tests/security/`                                    | 安全性回歸測試                                                                           |
+| `tests/load/`                                        | 負載/壓力測試                                                                            |
+| `tests/golden-set/`                                  | 翻譯器回歸測試的參考輸出                                                                 |
+| `tests/helpers/`、`tests/fixtures/`、`tests/manual/` | 支援                                                                                     |
 
 常用命令：
 
