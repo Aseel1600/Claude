@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { BaseExecutor, type ExecuteInput, type ExecutorExecuteResult } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
 import { initTinyCmsWasm, generateSecurePayload } from "./tinycmsSigner.ts";
@@ -28,9 +30,9 @@ async function fetchChallenge(uuid: string): Promise<any> {
   const res = await fetch(CHALLENGE_URL, {
     method: "GET",
     headers: {
-      "uuid": uuid,
+      uuid: uuid,
       "x-origin": "https://gov.freegpt.win",
-      "Accept": "application/json",
+      Accept: "application/json",
       "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
     },
   });
@@ -67,10 +69,11 @@ export class TinyCmsExecutor extends BaseExecutor {
       const challengeObj = await fetchChallenge(uuid);
 
       const timestamp = Date.now().toString();
-      const nonceJs =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      // Security context: this nonce is signed into `x-secure-signature` and
+      // reused as the session id, so it must be unpredictable. `node:crypto`
+      // randomUUID() is always available on the supported runtime — never fall
+      // back to Math.random() (CodeQL js/insecure-randomness).
+      const nonceJs = randomUUID();
 
       const securePayload = generateSecurePayload(
         uuid,
@@ -122,12 +125,7 @@ export class TinyCmsExecutor extends BaseExecutor {
         transformedBody: bodyObj,
       };
     } catch (err: any) {
-      return makeErrorResult(
-        500,
-        `TinyCMS Error: ${err.message}`,
-        body,
-        CHAT_URL
-      );
+      return makeErrorResult(500, `TinyCMS Error: ${err.message}`, body, CHAT_URL);
     }
   }
 }
