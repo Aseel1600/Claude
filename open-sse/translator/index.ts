@@ -34,7 +34,10 @@ import {
   recordReplay,
   requiresReasoningReplay,
 } from "../services/reasoningCache.ts";
-import { normalizeResponsesReasoningEffort } from "./request/openai-responses/helpers.ts";
+import {
+  normalizeResponsesReasoningEffort,
+  RESPONSES_STORE_MARKER,
+} from "./request/openai-responses/helpers.ts";
 
 bootstrapTranslatorRegistry();
 export { register } from "./registry.ts";
@@ -673,6 +676,19 @@ export function translateRequest(
         }
       }
     }
+  }
+
+  // #<store-marker-leak>: a Responses-source request stashes the client's
+  // `store` intent under this internal marker (see the Responses -> OpenAI
+  // step above) so a later OpenAI -> Responses re-conversion can restore it
+  // as `store`. When the destination stays in Chat Completions shape (no
+  // such re-conversion happens), nothing else consumes the marker, and it
+  // was leaking verbatim into the real upstream request body — e.g. OpenAI
+  // itself rejects it with "Unknown parameter: '_omnirouteResponsesStore'".
+  // Always drop it here: any handler that still needs the client's original
+  // `store` value would have already read the marker before this point.
+  if (RESPONSES_STORE_MARKER in result) {
+    delete result[RESPONSES_STORE_MARKER];
   }
 
   return result;
