@@ -844,7 +844,7 @@ npm install -g omniroute
 omniroute
 ```
 
-> 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/getting-started/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
+> 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/guides/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
 
 Dashboard at `http://localhost:20128` · API at `http://localhost:20128/v1`.
 
@@ -896,7 +896,7 @@ docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
 > `diegosouzapw/omniroute:next-web` follow the current default `release/v*`
 > branch. These mutable tags are intended only for testing unreleased fixes and
 > are **not supported for production**. See
-> [Docker Release Channels](docs/guides/DOCKER_RELEASE_CHANNELS.md).
+> [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).
 
 **🛠️ From source**
 
