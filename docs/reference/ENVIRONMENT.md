@@ -748,24 +748,44 @@ The logging system writes to both stdout and rotated log files. All configuratio
 | ------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------- |
 | `OMNIROUTE_RTK_TRUST_PROJECT_FILTERS` | unset   | Trust project `.rtk/filters.json` without a `.rtk/trust.json` hash. Use only in controlled local development. |
 
-### Memory Engine (plan 21)
+### Memory Engine (v4.0 — four-layer hard cutover)
 
-Embedding layer, vector store and reranking knobs for the persistent memory subsystem (`src/lib/memory/`).
+The memory subsystem (`src/lib/memory/`) replaces the v3.x single-table store with a
+four-layer (L0 raw / L1 typed / L2 navigation / L3 working) pipeline backed by a
+standalone `<DATA_DIR>/memory.db` (SQLite, WAL). No Redis, no Qdrant, no external
+vector store. Capture and injection are off by default and scoped per API key.
+See `docs/frameworks/MEMORY.md` for the architecture.
 
-| Variable                        | Default                    | Description                                                                                                |
-| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `MEMORY_EMBEDDING_CACHE_TTL_MS` | `300000` (5 min)           | TTL for the in-memory embedding cache (per source/model/dim signature).                                    |
-| `MEMORY_EMBEDDING_CACHE_MAX`    | `1000`                     | Max LRU entries kept in the embedding cache.                                                               |
-| `MEMORY_TRANSFORMERS_MODEL`     | `Xenova/all-MiniLM-L6-v2`  | HF repo id for the opt-in `@huggingface/transformers` local MiniLM pipeline (~23 MB int8, ~400 MB RAM).    |
-| `MEMORY_STATIC_MODEL`           | `minishlab/potion-base-8M` | HF repo id for the static potion/Model2Vec lookup-table embedder. Downloaded lazily into the cache dir.    |
-| `MEMORY_STATIC_CACHE_DIR`       | `<DATA_DIR>/embeddings`    | Directory used to cache the static potion model files. Defaults under `DATA_DIR` when unset.               |
-| `MEMORY_VEC_TOP_K`              | `20`                       | Default top-K used by the `sqlite-vec` brute-force vector search inside `src/lib/memory/vectorStore.ts`.   |
-| `MEMORY_RRF_K`                  | `60`                       | Reciprocal Rank Fusion constant `k` for hybrid FTS5 + vector retrieval (sqlite-vec recipe).                |
-| `HF_HUB_ENDPOINT`               | `https://huggingface.co`   | Override Hugging Face Hub base URL used by `staticPotion.ts` (e.g. mirror endpoint for air-gapped setups). |
-| `MEMORY_TYPED_DECAY_ENABLED`    | `false`                    | TV6 typed memory decay master switch. **Opt-in (default off)** — the sweep **deletes** decayed memories. With it off, `access_count`/`last_accessed_at` are pure telemetry and nothing is ever deleted. |
-| `MEMORY_TYPED_DECAY_EPISODIC_DAYS` | `30`                    | TTL (days) after which an unused `episodic` memory decays. `0` makes episodic immune too. Durable types (`factual`/`procedural`/`semantic`) are always immune. The decay clock re-bases on `last_accessed_at`. |
-| `MEMORY_TYPED_DECAY_ACCESS_IMMUNITY` | `3`                   | A memory injected `>=` this many times becomes immune to decay regardless of type. `0` disables access immunity. |
-| `MEMORY_TYPED_DECAY_SWEEP_INTERVAL` | `0` (disabled)        | Interval (seconds) for the optional periodic decay sweep in `src/lib/memory/typedDecay.ts`. `0`/unset = no periodic sweep. Doubly opt-in: also requires `MEMORY_TYPED_DECAY_ENABLED=true`. |
+| Variable                            | Default                  | Description                                                                                                                          |
+| ----------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `MEMORY_GLOBAL_ENABLED`             | `false`                  | Master switch: when `true`, new API keys default to `memory.capture=true` + `memory.inject=true`. Per-key `false` always wins.       |
+| `MEMORY_DB_PATH`                    | `<DATA_DIR>/memory.db`   | Path to the standalone memory database. WAL journaling is auto-managed.                                                              |
+| `MEMORY_DISTILLATION_ENABLED`       | `false`                  | Master switch for the background distillation loop. When off, L0 turns are written (if capture is on) but no L1/L2 entries are produced. |
+| `MEMORY_DISTILLATION_INTERVAL`      | `300` (5 min)            | Loop tick interval (seconds). Doubly opt-in: also requires `MEMORY_DISTILLATION_ENABLED=true`.                                       |
+| `MEMORY_DISTILLATION_CONCURRENCY`   | `2`                      | Max concurrent distillation calls across the loop.                                                                                  |
+| `MEMORY_DISTILLATION_BATCH_TURNS`   | `20`                     | Number of L0 turns per distillation batch.                                                                                          |
+| `MEMORY_DISTILL_MODEL`              | _(unset → selector)_     | Override distillation model (`provider/model`). When unset, the selector chain picks the first chat-capable provider with a key.   |
+| `MEMORY_INJECT_MAX_TOKENS`          | `2000` (clamp 1..8000)   | Token budget for the L1 user cache-safe injection walk.                                                                              |
+| `MEMORY_INJECT_TIMEOUT_MS`          | `7500`                   | Total combined L3+L2+L1 read timeout. Past this the chat pipeline proceeds without memory.                                          |
+| `MEMORY_L3_TIMEOUT_MS`              | `5000`                   | L3 read timeout. Past this the pipeline proceeds without L3.                                                                         |
+| `MEMORY_L0_RETENTION_DAYS`          | `30`                     | L0 retention window in days. Older L0 turns are pruned on each loop tick.                                                            |
+| `MEMORY_ENABLE_VECTOR`              | `false`                  | Opt-in: enables sqlite-vec hybrid RRF (k=60) for L1 retrieval. Requires an embedding source (see v3.x `MEMORY_EMBEDDING_*` vars).     |
+| `MEMORY_EMBEDDING_CACHE_TTL_MS`     | `300000` (5 min)         | TTL for the in-memory embedding cache (per source/model/dim signature). Used only when vector retrieval is enabled.                |
+| `MEMORY_EMBEDDING_CACHE_MAX`        | `1000`                   | Max LRU entries kept in the embedding cache. Used only when vector retrieval is enabled.                                            |
+| `MEMORY_TRANSFORMERS_MODEL`         | `Xenova/all-MiniLM-L6-v2` | HF repo id for the opt-in `@huggingface/transformers` local MiniLM pipeline (~23 MB int8, ~400 MB RAM). Vector mode only.          |
+| `MEMORY_STATIC_MODEL`               | `minishlab/potion-base-8M` | HF repo id for the static potion/Model2Vec lookup-table embedder. Vector mode only.                                                |
+| `MEMORY_STATIC_CACHE_DIR`           | `<DATA_DIR>/embeddings`  | Directory used to cache the static potion model files. Vector mode only. Defaults under `DATA_DIR` when unset.                      |
+| `MEMORY_VEC_TOP_K`                  | `20`                     | Default top-K used by the `sqlite-vec` brute-force vector search inside `src/lib/memory/vectorStore.ts`. Vector mode only.          |
+| `MEMORY_RRF_K`                      | `60`                     | Reciprocal Rank Fusion constant `k` for hybrid FTS5 + vector retrieval (sqlite-vec recipe). Vector mode only.                       |
+| `MEMORY_VEC_QUANTIZATION`           | `none`                   | Set to `int8` to store local sqlite-vec vectors quantized (~4× smaller; opt-in). Vector mode only. Mode change forces a reindex.    |
+| `HF_HUB_ENDPOINT`                   | `https://huggingface.co` | Override Hugging Face Hub base URL used by `staticPotion.ts`. Vector mode only.                                                     |
+
+> **Removed in v4.0 (no env vars kept):** `MEMORY_TYPED_DECAY_ENABLED`,
+> `MEMORY_TYPED_DECAY_EPISODIC_DAYS`, `MEMORY_TYPED_DECAY_ACCESS_IMMUNITY`,
+> `MEMORY_TYPED_DECAY_SWEEP_INTERVAL` — typed-decay was a v3.x feature over the
+> flat `memories` table. The four-layer architecture has no per-fact decay; L0
+> retention is the only retention knob, and L1 facts live until `regenerate`
+> deletes them or until `reset` wipes the DB.
 
 ### Low-RAM Docker Example
 
