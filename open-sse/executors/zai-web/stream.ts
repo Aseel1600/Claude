@@ -193,6 +193,11 @@ export async function collectZaiNonStreaming(
   let answer = "";
   let reasoning = "";
   await drainSseDeltas(sourceBody, (delta) => {
+    // Match the streaming path: an upstream error frame (rejected signature,
+    // expired captcha, stale token) must surface as a failed request, not as a
+    // successful empty completion. The caller converts this throw into an error
+    // result (e.g. 502), so the client is never left reading an empty 200.
+    if (delta.error) throw new Error(delta.error);
     if (delta.reasoning) reasoning += delta.reasoning;
     if (delta.content) answer += delta.content;
     return delta.done;

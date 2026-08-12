@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { buildZaiStreamingBody, parseZaiFrame } = await import(
+const { buildZaiStreamingBody, parseZaiFrame, collectZaiNonStreaming } = await import(
   "../../open-sse/executors/zai-web/stream.ts"
 );
 
@@ -131,4 +131,27 @@ test("control: a phase-only stream is not turned into an error", async () => {
 
   assert.equal(contentOf(out), "hi");
   assert.ok(!out.includes("[Z.ai error]"));
+});
+
+// ── Non-streaming path (collectZaiNonStreaming) ───────────────────────────────
+
+test("collectZaiNonStreaming rejects on an error frame instead of returning empty", async () => {
+  const upstream = sseStream(JSON.stringify({ error: { detail: "captcha expired" } }));
+  await assert.rejects(
+    () => collectZaiNonStreaming(upstream),
+    (err: Error) => {
+      assert.match(err.message, /captcha expired/);
+      return true;
+    }
+  );
+});
+
+test("collectZaiNonStreaming returns content when no error frame is present", async () => {
+  const upstream = sseStream(
+    JSON.stringify({ type: "chat:completion", data: { delta_content: "hello", phase: "answer" } }),
+    JSON.stringify({ type: "chat:completion", data: { phase: "done", done: true } })
+  );
+  const result = await collectZaiNonStreaming(upstream);
+  assert.equal(result.answer, "hello");
+  assert.equal(result.reasoning, "");
 });
