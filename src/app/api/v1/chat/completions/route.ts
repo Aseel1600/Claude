@@ -1,24 +1,32 @@
+import { z } from "zod";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { callCloudWithMachineId } from "@/shared/utils/cloud";
 import { handleChat } from "@/sse/handlers/chat";
 import { generateRequestId } from "@/shared/utils/requestId";
+import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { initTranslators } from "@omniroute/open-sse/translator/index.ts";
 import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.ts";
 import {
+  OPENAI_CHAT_ERROR_FRAME,
   OPENAI_KEEPALIVE_FRAME,
+  OPENAI_STARTUP_FRAME,
   withEarlyStreamKeepalive,
 } from "@omniroute/open-sse/utils/earlyStreamKeepalive";
 import { resolveKeepaliveThreshold } from "@omniroute/open-sse/utils/keepaliveThreshold";
 import {
   admitChatRequest,
+  admitChatStructure,
+  CHAT_ADMISSION_QUEUE_MAX_MS,
   releaseChatAdmissionAfterHandler,
   releaseChatAdmissionWhenDone,
+  resolveSessionId,
 } from "@/shared/middleware/chatBodyAdmission";
 import {
   readCompressionRequestHeader,
   withCompressionHeaderEcho,
 } from "@/shared/utils/compressionHeaderEcho";
+import { resolveModelAliasOnBody } from "@/lib/modelAliasResolver";
 
 let initPromise = null;
 
@@ -41,6 +49,28 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+// Minimal request-shape validation (Rule #7 / T06 gate). This is the hottest path in the
+// proxy, and the body is already parsed exactly once above into `parsedBody` (see the
+// #4380/#7862 comment on the single `request.json()` call) — so this only runs `.safeParse()`
+// over that already-parsed object, it does NOT read the body again.
+//
+// Deliberately permissive: `src/sse/handlers/chat.ts` (deeper in `handleChat`) owns the real
+// validation of this payload — messages/model/temperature/top_p/max_tokens/n — and accepts
+// shapes this schema must not newly reject, e.g. a `model` that is entirely absent (resolved
+// later via `input`/antigravity) or `null`, and message `role`s such as `"developer"` (see
+// `open-sse/services/roleNormalizer.ts`) that a stricter enum would exclude. `.passthrough()`
+// keeps every other field (stream, tools, reasoning, provider-specific extras, ...) intact.
+// This schema only asserts what the route already assumes before handing `parsedBody` to
+// `handleChat`: a non-null object, `model` a nullable string when present, `messages` an
+// array when present — so `.safeParse()` failing here is always a shape the deep validation
+// would already have rejected with its own 400, never a new rejection.
+const chatCompletionsRouteShapeSchema = z
+  .object({
+    model: z.string().nullable().optional(),
+    messages: z.array(z.unknown()).optional(),
+  })
+  .passthrough();
+
 /**
  * Handle CORS preflight
  */
@@ -55,6 +85,7 @@ export async function POST(request) {
   // OpenAI/Anthropic reject `text/plain` or missing Content-Type at the edge; matching
   // that behavior prevents a text/plain body from silently reaching provider lookup.
   const contentType = request.headers.get("content-type") ?? "";
+  const requestContentLengthHeader = request.headers.get("content-length");
   if (!contentType.toLowerCase().split(";")[0].trim().startsWith("application/json")) {
     return new Response(
       JSON.stringify({
@@ -71,8 +102,13 @@ export async function POST(request) {
   // Reserve heavyweight capacity atomically and ingest the body with a hard byte bound
   // BEFORE JSON parsing. Missing or dishonest Content-Length values cannot bypass
   // the actual-byte limit. Capacity exhaustion is retryable rather than process-fatal.
-  const admission = await admitChatRequest(request);
-  if (!admission.admit) return admission.response;
+  const sessionId = resolveSessionId(request);
+  const admissionResult = await admitChatRequest(request, {
+    sessionId,
+    queueMs: CHAT_ADMISSION_QUEUE_MAX_MS,
+  });
+  if (admissionResult.admit === false) return admissionResult.response;
+  const admission = admissionResult;
   request = admission.request;
   const finishAdmission = (response: Response) =>
     releaseChatAdmissionWhenDone(response, admission.lease);
@@ -80,10 +116,10 @@ export async function POST(request) {
   try {
     // One-line marker for diagnosing 413 / Server-Action interceptions.
     // Logs only when Content-Length is present so debug noise stays low for
-    // typical chat payloads. Toggle off via OMNIROUTE_LOG_REQUEST_SHAPE=0.
-    if (process.env.OMNIROUTE_LOG_REQUEST_SHAPE !== "0") {
-      const ct = request.headers.get("content-type") ?? "";
-      const cl = request.headers.get("content-length");
+    // typical chat payloads. Opt-in via OMNIROUTE_LOG_REQUEST_SHAPE=1.
+    if (process.env.OMNIROUTE_LOG_REQUEST_SHAPE === "1") {
+      const ct = contentType;
+      const cl = requestContentLengthHeader;
       if (cl && Number(cl) > 256 * 1024) {
         console.error(`[CHAT-ROUTE] large body content-type="${ct}" content-length=${cl}`);
       }
@@ -99,6 +135,38 @@ export async function POST(request) {
     try {
       parsedBody = await request.json().catch(() => null);
       if (parsedBody) {
+        // Route-level shape gate (T06) — validates the object already parsed above; it
+        // never reads the request body a second time. See chatCompletionsRouteShapeSchema
+        // for why this stays scoped to record-shaped bodies and deliberately permissive.
+        if (isRecord(parsedBody)) {
+          const shapeCheck = chatCompletionsRouteShapeSchema.safeParse(parsedBody);
+          if (!shapeCheck.success) {
+            const issue = shapeCheck.error.issues[0];
+            const field = issue?.path?.length ? issue.path.join(".") : "body";
+            return finishAdmission(
+              errorResponse(400, `${field}: ${issue?.message ?? "Invalid request"}`)
+            );
+          }
+        }
+
+        const structuralAdmission = await admitChatStructure(parsedBody, admission.lease, {
+          sessionId,
+          queueMs: CHAT_ADMISSION_QUEUE_MAX_MS,
+          signal: request.signal,
+        });
+        if (structuralAdmission.admit === false) {
+          admission.lease?.release();
+          return finishAdmission(structuralAdmission.response);
+        }
+
+        // Resolve model alias before forwarding to handleChat
+        if (parsedBody && typeof parsedBody === "object") {
+          await resolveModelAliasOnBody(parsedBody).catch(() => {
+            /* swallow — fall through with original model */
+          });
+        }
+        admission.lease = structuralAdmission.lease;
+
         const { blocked, result } = injectionGuard(parsedBody);
         if (blocked) {
           return finishAdmission(
@@ -149,6 +217,8 @@ export async function POST(request) {
         signal: request.signal,
         thresholdMs: resolveKeepaliveThreshold(parsedBody?.model),
         keepaliveFrame: OPENAI_KEEPALIVE_FRAME,
+        startupFrame: OPENAI_STARTUP_FRAME,
+        errorFrame: OPENAI_CHAT_ERROR_FRAME,
         extraHeaders: { "X-Correlation-Id": reqId },
       });
       return withCompressionHeaderEcho(streamedResponse, compressionRequestHeader);

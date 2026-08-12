@@ -6,18 +6,14 @@ import {
   type ExecutorLog,
   type ProviderCredentials,
 } from "./base.ts";
-import {
-  PROVIDERS,
-  OAUTH_ENDPOINTS,
-  HTTP_STATUS,
-  FETCH_TIMEOUT_MS,
-} from "../config/constants.ts";
+import { PROVIDERS, OAUTH_ENDPOINTS, HTTP_STATUS, FETCH_TIMEOUT_MS } from "../config/constants.ts";
 import { scrubProxyAndFingerprintHeaders } from "../services/antigravityHeaderScrub.ts";
 import {
-  antigravityNativeOAuthUserAgent,
-  antigravityUserAgent,
+  getAntigravityContentHeaders,
+  getAntigravityOAuthUserAgent,
 } from "../services/antigravityHeaders.ts";
 import { classify429, decide429, type Decision } from "../services/antigravity429Engine.ts";
+import { lockExactModel } from "../services/accountFallback.ts";
 import {
   shouldRetryWithCredits,
   shouldUseCreditsFirst,
@@ -27,9 +23,14 @@ import {
 import { persistCreditBalance, getAllPersistedCreditBalances } from "@/lib/db/creditBalance";
 import { setConnectionRateLimitUntil } from "@/lib/db/providers";
 import { getMitmAlias } from "@/lib/db/models";
-import { obfuscateSensitiveWords } from "../services/antigravityObfuscation.ts";
-import { resolveAntigravityVersion } from "../services/antigravityVersion.ts";
+import {
+  MAX_ANTIGRAVITY_OUTPUT_TOKENS,
+  resolveAntigravityOutputCap,
+} from "./antigravityOutputCap.ts";
+export { MAX_ANTIGRAVITY_OUTPUT_TOKENS } from "./antigravityOutputCap.ts";
 import { ensureAntigravityProjectAssigned } from "../services/antigravityProjectBootstrap.ts";
+import { persistDiscoveredAntigravityProjectId } from "../services/antigravityProjectPersist.ts";
+import { markAntigravityMissingCloudCodeProject } from "../services/antigravityProjectPersistence.ts";
 import {
   resolveAntigravityModelId,
   getAntigravityModelFallbacks,
@@ -39,7 +40,6 @@ import {
   stripCloudCodeThinkingConfig,
 } from "../services/cloudCodeThinking.ts";
 import { buildGeminiTools } from "../translator/helpers/geminiToolsSanitizer.ts";
-import { DEFAULT_SAFETY_SETTINGS } from "../translator/helpers/geminiHelper.ts";
 import {
   type AntigravityCollectedStream,
   processAntigravitySSEText,
@@ -60,12 +60,17 @@ import {
   buildFinalAntigravityResult,
   buildAntigravity429ErrorMessage,
   markCreditsExhausted,
+  isAbortError,
   type SafeAntigravityLog,
 } from "./antigravity/executeAttempt.ts";
 import {
   handleAntigravityFallbackChainError,
   handleAntigravityFallback400,
 } from "./antigravity/proFallbackChain.ts";
+import {
+  getAntigravityClientProfile,
+  resolveAntigravityClientVersion,
+} from "../services/antigravityClientProfile.ts";
 import {
   generateAntigravityRequestId,
   getAntigravityEnvelopeUserAgent,
@@ -132,7 +137,7 @@ type AntigravityChunkContent = Record<string, unknown> & {
 type AntigravityRequestEnvelope = Record<string, unknown> & {
   project: string;
   model?: string;
-  userAgent: "antigravity" | "jetski";
+  userAgent: "antigravity";
   requestType: "agent" | "image_gen";
   requestId: string;
   request: Record<string, unknown>;
@@ -280,18 +285,10 @@ async function cleanModelName(model: string, modelIdOverride?: string): Promise<
   return clean;
 }
 
-/**
- * Hard ceiling on `generationConfig.maxOutputTokens` for Antigravity Cloud Code.
- *
- * Ports decolua/9router#779 (lukmanfauzie): VS Code GitHub Copilot Chat in
- * Agent mode regularly requests 32K–65K output tokens, which the Antigravity
- * backend rejects with HTTP 400 "Invalid Argument". 16384 matches the
- * upstream-accepted ceiling confirmed via successful 200 OK runs with
- * claude-sonnet-4-6 and gemini-3.1-pro-high across both Ask and Agent modes.
- */
-export const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 16384;
-
-function applyAntigravityGenerationDefaults(request: Record<string, unknown>): void {
+function applyAntigravityGenerationDefaults(
+  request: Record<string, unknown>,
+  modelId?: string | null
+): void {
   const generationConfig =
     request.generationConfig && typeof request.generationConfig === "object"
       ? (request.generationConfig as Record<string, unknown>)
@@ -323,9 +320,10 @@ function applyAntigravityGenerationDefaults(request: Record<string, unknown>): v
   // (32K–65K) that trigger upstream 400 "Invalid Argument". Clamp silently
   // — the cap is provider-driven, not client-driven, and only matters when
   // the request would otherwise be rejected outright.
+  const cap = resolveAntigravityOutputCap(modelId);
   const finalMax = Number(generationConfig.maxOutputTokens);
-  if (Number.isFinite(finalMax) && finalMax > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-    generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+  if (Number.isFinite(finalMax) && finalMax > cap) {
+    generationConfig.maxOutputTokens = cap;
   }
 
   request.generationConfig = generationConfig;
@@ -341,9 +339,10 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function getAntigravitySafetySettings(safetySettings: unknown): unknown[] {
-  const source = Array.isArray(safetySettings) ? safetySettings : DEFAULT_SAFETY_SETTINGS;
-  return source.filter((setting) => {
+function getAntigravitySafetySettings(safetySettings: unknown): unknown[] | undefined {
+  if (!Array.isArray(safetySettings)) return undefined;
+
+  return safetySettings.filter((setting) => {
     const category = asRecord(setting)?.category;
     return typeof category !== "string" || !ANTIGRAVITY_UNSUPPORTED_SAFETY_CATEGORIES.has(category);
   });
@@ -369,18 +368,7 @@ function sanitizeAntigravityGeminiRequest(
   const geminiTools = buildGeminiTools(request.tools);
   if (geminiTools) {
     clean.tools = geminiTools;
-    // #6914: Preserve includeServerSideToolInvocations from the raw request's
-    // toolConfig when present (set by transformRequest when tools exist). The
-    // sanitize whitelist would otherwise rebuild toolConfig without it.
-    const rawToolConfig = asRecord(request.toolConfig);
-    const rawFnConfig = asRecord(rawToolConfig?.functionCallingConfig);
-    const includeServerSide = rawFnConfig?.includeServerSideToolInvocations === true;
-    clean.toolConfig = {
-      functionCallingConfig: {
-        mode: "VALIDATED",
-        ...(includeServerSide ? { includeServerSideToolInvocations: true } : {}),
-      },
-    };
+    clean.toolConfig = { functionCallingConfig: { mode: "VALIDATED" } };
   } else if (asRecord(request.toolConfig)) {
     clean.toolConfig = request.toolConfig;
   }
@@ -389,10 +377,8 @@ function sanitizeAntigravityGeminiRequest(
     clean.sessionId = request.sessionId;
   }
 
-  // #5003: preserve safetySettings through the Claude-path whitelist so the all-OFF
-  // default (or a caller-supplied value) actually reaches Google Cloud Code. Without
-  // this the field is dropped and Google applies its own safety defaults that
-  // false-flag benign technical prompts as `prohibited_content`.
+  // Preserve only caller-supplied safetySettings through the Claude-path whitelist.
+  // Missing settings stay absent so OmniRoute does not silently weaken upstream safety.
   if (Array.isArray(request.safetySettings)) {
     clean.safetySettings = request.safetySettings;
   }
@@ -440,6 +426,8 @@ function stripTrailingAntigravityAssistantTurn(
 // Test-only export so the unit suite can exercise the strip logic directly.
 export const __test_stripTrailingAntigravityAssistantTurn = stripTrailingAntigravityAssistantTurn;
 
+type AntigravityCreditsRetryState = { attempted: boolean };
+
 /** Base per-url-index attempt context, before the request has been sent. */
 type AntigravityAttemptContext = {
   url: string;
@@ -448,13 +436,13 @@ type AntigravityAttemptContext = {
    * credits-retry re-serializes from these, NOT from `finalHeaders` (already fingerprinted). */
   headers: Record<string, string>;
   transformedBody: Record<string, unknown>;
-  requestToolNameMap: Map<string, string> | null;
   credentials: AntigravityCredentials;
   stream: boolean;
   signal: AbortSignal | null | undefined;
   log: SafeAntigravityLog;
   accountId: string;
   creditsMode: ReturnType<typeof getCreditsMode>;
+  creditsRetryState: AntigravityCreditsRetryState;
   urlIndex: number;
   retryAttemptsByUrl: Record<number, number>;
   fallbackCount: number;
@@ -501,12 +489,10 @@ export class AntigravityExecutor extends BaseExecutor {
   }
 
   buildHeaders(credentials: AntigravityCredentials, _stream = true): Record<string, string> {
+    const clientProfile = getAntigravityClientProfile(credentials);
     const raw = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${credentials.accessToken}`,
-      "User-Agent": antigravityUserAgent(),
+      ...getAntigravityContentHeaders(clientProfile, credentials.accessToken),
       Accept: "text/event-stream",
-      "X-OmniRoute-Source": "omniroute",
     };
     // Scrub proxy/fingerprint headers that reveal non-native traffic
     return scrubProxyAndFingerprintHeaders(raw);
@@ -517,7 +503,8 @@ export class AntigravityExecutor extends BaseExecutor {
     body: unknown,
     _stream: boolean,
     credentials: AntigravityCredentials,
-    modelIdOverride?: string
+    modelIdOverride?: string,
+    signal?: AbortSignal
   ): Promise<AntigravityRequestEnvelope | Response> {
     // Project ID resolution: prefer OAuth-stored projectId over incoming body.project
     // to avoid stale/wrong client-side values causing 404/403 from Cloud Code endpoints.
@@ -549,11 +536,26 @@ export class AntigravityExecutor extends BaseExecutor {
     // returned empty/transiently failed). Mirror the Cloud Code bootstrap to recover it
     // here — the helper memoizes per access-token, so this is a one-time round-trip.
     if (!projectId && credentials?.accessToken) {
-      const discovered = await ensureAntigravityProjectAssigned(credentials.accessToken);
-      if (discovered) projectId = discovered;
+      const discovered = await ensureAntigravityProjectAssigned(
+        credentials.accessToken,
+        fetch,
+        getAntigravityClientProfile(credentials),
+        signal
+      );
+      if (discovered) {
+        projectId = discovered;
+        // #8491: persist the recovered id so it survives the next token refresh
+        // or process restart instead of being silently rediscovered every time.
+        await persistDiscoveredAntigravityProjectId(
+          credentials.connectionId,
+          discovered,
+          credentials.providerSpecificData
+        );
+      }
     }
 
     if (!projectId) {
+      markAntigravityMissingCloudCodeProject(credentials?.connectionId);
       // (#489) Return a structured error instead of throwing — gives the client a clear signal
       // to show a "Reconnect OAuth" prompt rather than an opaque "Internal Server Error".
       const errorMsg =
@@ -643,6 +645,7 @@ export class AntigravityExecutor extends BaseExecutor {
       }
     }
 
+    const safetySettings = getAntigravitySafetySettings(normalizedRequest?.safetySettings);
     const rawTransformedRequest = {
       ...normalizedRequest,
       ...(contents.length > 0 && { contents }),
@@ -650,13 +653,10 @@ export class AntigravityExecutor extends BaseExecutor {
         credentials,
         typeof normalizedRequest?.sessionId === "string" ? normalizedRequest.sessionId : undefined
       ),
-      // #5003: send explicit all-OFF safety entries that Cloud Code accepts. Omitting the
-      // field lets Cloud Code apply server-side defaults that false-flag benign technical
-      // prompts as `prohibited_content`.
-      safetySettings: getAntigravitySafetySettings(normalizedRequest?.safetySettings),
+      ...(safetySettings !== undefined && { safetySettings }),
       toolConfig:
         Array.isArray(normalizedRequest?.tools) && normalizedRequest.tools.length > 0
-          ? { functionCallingConfig: { mode: "VALIDATED", includeServerSideToolInvocations: true } }
+          ? { functionCallingConfig: { mode: "VALIDATED" } }
           : normalizedRequest?.toolConfig,
     };
 
@@ -666,21 +666,7 @@ export class AntigravityExecutor extends BaseExecutor {
         )
       : rawTransformedRequest;
 
-    // Obfuscate sensitive client names in user content (e.g. "OpenCode", "Cursor")
-    const requestContents = transformedRequest.contents;
-    if (Array.isArray(requestContents)) {
-      for (const msg of requestContents) {
-        if (Array.isArray(msg.parts)) {
-          for (const part of msg.parts) {
-            if (typeof part.text === "string") {
-              part.text = obfuscateSensitiveWords(part.text);
-            }
-          }
-        }
-      }
-    }
-
-    applyAntigravityGenerationDefaults(transformedRequest);
+    applyAntigravityGenerationDefaults(transformedRequest, upstreamModel);
 
     const {
       project: _project,
@@ -704,6 +690,7 @@ export class AntigravityExecutor extends BaseExecutor {
       reasoning: _reasoning,
       enable_thinking: _enableThinking,
       thinking_budget: _thinkingBudget,
+      enabledCreditTypes: _enabledCreditTypes,
       ...passthroughFields
     } = normalizedBody;
 
@@ -717,10 +704,6 @@ export class AntigravityExecutor extends BaseExecutor {
       requestType,
       ...passthroughFields,
     };
-
-    if (requestType === "agent" && envelope.enabledCreditTypes === undefined) {
-      envelope.enabledCreditTypes = ["GOOGLE_ONE_AI"];
-    }
 
     return envelope;
   }
@@ -746,7 +729,7 @@ export class AntigravityExecutor extends BaseExecutor {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           Accept: "application/json",
-          "User-Agent": antigravityNativeOAuthUserAgent(),
+          "User-Agent": getAntigravityOAuthUserAgent(getAntigravityClientProfile(credentials)),
         },
         body: new URLSearchParams(bodyParams),
       });
@@ -768,14 +751,49 @@ export class AntigravityExecutor extends BaseExecutor {
       const tokens = (await response.json()) as Record<string, unknown>;
       log?.info?.("TOKEN", "Antigravity refreshed");
 
+      const newAccessToken =
+        typeof tokens.access_token === "string" ? tokens.access_token : undefined;
+
+      // Discover projectId if the stored value is empty. The initial OAuth exchange
+      // may have failed to populate it (network timeout, account not yet onboarded to
+      // Gemini Code Assist). The runtime transformRequest path already does this, but
+      // a proactive discovery here prevents 422 errors on the next request when the
+      // per-token memoization cache is invalidated by the new access token.
+      let projectId = credentials.projectId?.trim() || "";
+      if (!projectId && newAccessToken) {
+        try {
+          const discovered = await ensureAntigravityProjectAssigned(
+            newAccessToken,
+            fetch,
+            getAntigravityClientProfile(credentials),
+            AbortSignal.timeout(8_000)
+          );
+          if (discovered) {
+            projectId = discovered;
+            await persistDiscoveredAntigravityProjectId(
+              credentials.connectionId,
+              discovered,
+              credentials.providerSpecificData
+            );
+            const okMsg = `Antigravity projectId discovered during refresh: ${discovered}`;
+            log?.info?.("TOKEN", okMsg);
+          }
+        } catch (discoveryError) {
+          // Best-effort: if discovery fails, the runtime path will retry on next request.
+          const msg =
+            discoveryError instanceof Error ? discoveryError.message : String(discoveryError);
+          log?.warn?.("TOKEN", `Antigravity projectId discovery during refresh failed: ${msg}`);
+        }
+      }
+
       return {
-        accessToken: typeof tokens.access_token === "string" ? tokens.access_token : undefined,
+        accessToken: newAccessToken,
         refreshToken:
           typeof tokens.refresh_token === "string" && tokens.refresh_token
             ? tokens.refresh_token
             : credentials.refreshToken,
         expiresIn: typeof tokens.expires_in === "number" ? tokens.expires_in : undefined,
-        projectId: credentials.projectId,
+        projectId,
         // Preserve providerSpecificData so a projectId stored there survives the refresh
         // (the onCredentialsRefreshed DB write) instead of being dropped → 422 (#2480).
         providerSpecificData: credentials.providerSpecificData,
@@ -1015,7 +1033,7 @@ export class AntigravityExecutor extends BaseExecutor {
    * exactly the same single call as before (zero extra upstream requests).
    */
   async execute(input: ExecuteInput) {
-    await resolveAntigravityVersion();
+    await resolveAntigravityClientVersion(getAntigravityClientProfile(input.credentials));
 
     // Look up the chain by the NORMALLY-resolved upstream id (honours MITM/static aliases).
     // If a MITM alias remapped the id away from a known Pro tier, no chain applies → fast path.
@@ -1088,7 +1106,7 @@ export class AntigravityExecutor extends BaseExecutor {
     { model, body, stream, credentials, signal, log, upstreamExtraHeaders }: ExecuteInput,
     modelIdOverride?: string
   ) {
-    await resolveAntigravityVersion();
+    await resolveAntigravityClientVersion(getAntigravityClientProfile(credentials));
     const fallbackCount = this.getFallbackCount();
     const l = toSafeAntigravityLog(log);
     let lastError = null;
@@ -1111,6 +1129,7 @@ export class AntigravityExecutor extends BaseExecutor {
     // preflight normal call is skipped entirely.
     const creditsMode = getCreditsMode();
     const useCreditsFirst = shouldUseCreditsFirst(credentials?.accessToken || "", creditsMode);
+    const creditsRetryState: AntigravityCreditsRetryState = { attempted: false };
 
     for (let urlIndex = 0; urlIndex < fallbackCount; urlIndex++) {
       const url = this.buildUrl(model, upstreamStream, urlIndex);
@@ -1121,18 +1140,15 @@ export class AntigravityExecutor extends BaseExecutor {
         body,
         upstreamStream,
         credentials,
-        modelIdOverride
+        modelIdOverride,
+        signal ?? undefined
       );
 
       if (transformed instanceof Response) {
         return { response: transformed, url, headers, transformedBody: body };
       }
 
-      const { transformedBody, requestToolNameMap } = finalizeAntigravityRequestBody(
-        transformed,
-        useCreditsFirst,
-        l
-      );
+      const transformedBody = finalizeAntigravityRequestBody(transformed, useCreditsFirst, l);
 
       // Initialize retry counter for this URL
       if (!retryAttemptsByUrl[urlIndex]) {
@@ -1145,13 +1161,13 @@ export class AntigravityExecutor extends BaseExecutor {
           model,
           headers,
           transformedBody,
-          requestToolNameMap,
           credentials,
           stream,
           signal,
           log: l,
           accountId,
           creditsMode,
+          creditsRetryState,
           urlIndex,
           retryAttemptsByUrl,
           fallbackCount,
@@ -1162,6 +1178,9 @@ export class AntigravityExecutor extends BaseExecutor {
         if (outcome.sameUrl) urlIndex--;
         continue;
       } catch (error) {
+        if (signal?.aborted || isAbortError(error)) {
+          throw signal?.reason ?? error;
+        }
         lastError = error;
         l.error(
           "TELEMETRY",
@@ -1193,7 +1212,6 @@ export class AntigravityExecutor extends BaseExecutor {
       model,
       headers,
       transformedBody,
-      requestToolNameMap,
       credentials,
       stream,
       signal,
@@ -1253,7 +1271,6 @@ export class AntigravityExecutor extends BaseExecutor {
       url,
       finalHeaders,
       transformedBody,
-      requestToolNameMap,
       log
     );
     if (embedded) return { action: "return", result: embedded };
@@ -1265,7 +1282,6 @@ export class AntigravityExecutor extends BaseExecutor {
       url,
       finalHeaders,
       transformedBody,
-      requestToolNameMap,
       accountId,
       signal,
       log
@@ -1291,7 +1307,6 @@ export class AntigravityExecutor extends BaseExecutor {
     url: string,
     finalHeaders: Record<string, string>,
     transformedBody: Record<string, unknown>,
-    requestToolNameMap: Map<string, string> | null,
     accountId: string,
     signal: AbortSignal | null | undefined,
     log: SafeAntigravityLog
@@ -1314,7 +1329,6 @@ export class AntigravityExecutor extends BaseExecutor {
       url,
       finalHeaders,
       transformedBody,
-      requestToolNameMap,
       accountId,
       signal,
       updateAntigravityRemainingCredits
@@ -1328,7 +1342,7 @@ export class AntigravityExecutor extends BaseExecutor {
    * the last url with no more retries left) fall through with the resolved retryMs
    * so the caller can still embed a long Retry-After in the final response body.
    */
-  private async handleAntigravityRateLimit(
+  async handleAntigravityRateLimit(
     ctx: AntigravityRateLimitContext
   ): Promise<AntigravityRateLimitOutcome> {
     const { response, log, urlIndex, retryAttemptsByUrl, fallbackCount } = ctx;
@@ -1337,10 +1351,12 @@ export class AntigravityExecutor extends BaseExecutor {
     let retryMs: number | null = this.parseRetryHeaders(response.headers);
 
     // If no retry time in headers, try to parse from error message body
+    let switchAuth = false;
     if (!retryMs) {
       const resolved = await this.tryResolveRetryFromErrorBody(ctx);
       if (resolved.kind === "return") return { action: "return", result: resolved.result };
       retryMs = resolved.retryMs;
+      switchAuth = resolved.switchAuth;
     }
 
     // Bounded short-retry: a non-null retryAfterMs ≤ 60s covers nearly every
@@ -1351,6 +1367,7 @@ export class AntigravityExecutor extends BaseExecutor {
     if (
       retryMs &&
       retryMs <= LONG_RETRY_THRESHOLD_MS &&
+      !switchAuth &&
       retryAttemptsByUrl[urlIndex] < MAX_AUTO_RETRIES
     ) {
       retryAttemptsByUrl[urlIndex]++;
@@ -1406,20 +1423,22 @@ export class AntigravityExecutor extends BaseExecutor {
   private async tryResolveRetryFromErrorBody(
     ctx: AntigravityRateLimitContext
   ): Promise<
-    { kind: "return"; result: SsePassthroughResult } | { kind: "resolved"; retryMs: number | null }
+    | { kind: "return"; result: SsePassthroughResult }
+    | { kind: "resolved"; retryMs: number | null; switchAuth: boolean }
   > {
     const {
       response,
       url,
+      model,
       headers,
       transformedBody,
-      requestToolNameMap,
       credentials,
       stream,
       signal,
       log,
       accountId,
       creditsMode,
+      creditsRetryState,
     } = ctx;
 
     try {
@@ -1430,21 +1449,26 @@ export class AntigravityExecutor extends BaseExecutor {
       // 1. Try to parse explicit retry time from message
       const parsedRetryMs = this.parseRetryFromErrorMessage(errorMessage);
 
-      // 2. Classify 429, then decide the final retry time BEFORE the credits
-      //    retry so that full_quota_exhausted can skip the credits attempt
-      //    entirely (avoids ~41s hold on an already-exhausted account) and
-      //    persist the cooldown to DB for post-restart routing.
+      // 2. Classify 429, then decide the final retry time BEFORE the credits retry so
+      //    full_quota_exhausted can skip the credits attempt entirely (avoids ~41s hold
+      //    on an already-exhausted account) and locks only this exact model.
       const category = classify429(errorMessage);
       const decision: Decision = decide429(category, parsedRetryMs);
       const retryMs = decision.retryAfterMs;
       log.debug("AG_429", `Category: ${category}, Decision: ${decision.kind} — ${decision.reason}`);
 
-      if (decision.kind === "full_quota_exhausted" && retryMs) {
-        markConnectionQuotaExhausted(accountId, retryMs);
-      }
-
       const creditsAlreadyInjected =
         (transformedBody as { enabledCreditTypes?: unknown }).enabledCreditTypes != null;
+      const creditsRetryEligible =
+        category === "quota_exhausted" &&
+        !creditsAlreadyInjected &&
+        !creditsRetryState.attempted &&
+        shouldRetryWithCredits(credentials?.accessToken || "", creditsMode);
+
+      // Retry mode gets one credits attempt before the exact-model lock is persisted.
+      if (decision.kind === "full_quota_exhausted" && retryMs && !creditsRetryEligible) {
+        lockExactModel(this.provider, accountId, model, "quota_exhausted", retryMs);
+      }
 
       if (category === "quota_exhausted" && creditsAlreadyInjected) {
         handleCreditsFailure(credentials?.accessToken || "");
@@ -1452,18 +1476,13 @@ export class AntigravityExecutor extends BaseExecutor {
         markCreditsExhausted(accountId);
       }
 
-      if (
-        category === "quota_exhausted" &&
-        decision.kind !== "full_quota_exhausted" &&
-        !creditsAlreadyInjected &&
-        shouldRetryWithCredits(credentials?.accessToken || "", creditsMode !== "off")
-      ) {
+      if (creditsRetryEligible) {
+        creditsRetryState.attempted = true;
         const creditsResult = await tryCreditsRetry(
           this.provider,
           url,
           headers,
           transformedBody,
-          requestToolNameMap,
           credentials,
           stream,
           signal,
@@ -1472,12 +1491,20 @@ export class AntigravityExecutor extends BaseExecutor {
           updateAntigravityRemainingCredits
         );
         if (creditsResult) return { kind: "return", result: creditsResult };
+        if (retryMs) markConnectionQuotaExhausted(accountId, retryMs);
       }
 
-      return { kind: "resolved", retryMs };
-    } catch {
+      return {
+        kind: "resolved",
+        retryMs,
+        switchAuth: decision.kind === "short_cooldown_switch_auth",
+      };
+    } catch (error) {
+      if (signal?.aborted || isAbortError(error)) {
+        throw signal?.reason ?? error;
+      }
       // Ignore parse errors, will fall back to exponential backoff
-      return { kind: "resolved", retryMs: null };
+      return { kind: "resolved", retryMs: null, switchAuth: false };
     }
   }
 

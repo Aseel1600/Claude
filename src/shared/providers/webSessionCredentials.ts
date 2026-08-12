@@ -25,12 +25,26 @@ export type WebSessionCredentialRequirement =
     };
 
 export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
+  "chatgpt-web-codex": {
+    kind: "cookie",
+    credentialName: "ChatGPT Cookie header (full)",
+    placeholder: "__Secure-next-auth.session-token=...; cf_clearance=...",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "sessionToken", "session-token", "__Secure-next-auth.session-token"],
+  },
   "zenmux-free": {
     kind: "cookie",
     credentialName: "Cookie header (full)",
     placeholder: "paste the full Cookie header from zenmux.ai",
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie"],
+  },
+  "tinycms-web": {
+    kind: "token",
+    credentialName: "app-config-uuid",
+    placeholder: "R...",
+    acceptsFullCookieHeader: false,
+    storageKeys: ["apiKey", "token", "uuid", "app-config-uuid"],
   },
   "chatgpt-web": {
     kind: "cookie",
@@ -82,6 +96,13 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "sessionToken", "session-token", "__Secure-next-auth.session-token"],
   },
+  hyperagent: {
+    kind: "cookie",
+    credentialName: "Session Cookie",
+    placeholder: "Paste full Cookie header from hyperagent.com",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "sessionCookie", "authCookie"],
+  },
   "blackbox-web": {
     kind: "cookie",
     credentialName: "__Secure-authjs.session-token",
@@ -91,10 +112,22 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
   },
   "muse-spark-web": {
     kind: "cookie",
-    credentialName: "abra_sess",
-    placeholder: "abra_sess=...; other=value",
+    // #9502: the WS protocol (#7528) needs both the ecto_1_sess cookie (GraphQL
+    // warmup/mode-switch) and a separate ecto1:... WS auth token (Authorization
+    // query param on wss://gateway.meta.ai/ws/clippy). The executor extracts the
+    // ecto1: token from the apiKey field via /ecto1:[^\s;]+/i.
+    credentialName: "ecto_1_sess + ecto1: WS auth token",
+    placeholder:
+      "ecto_1_sess=...; ecto1:... (WS auth token from meta.ai DevTools → Network → WS → clippy)",
     acceptsFullCookieHeader: true,
-    storageKeys: ["cookie", "abra_sess"],
+    storageKeys: ["cookie", "ecto_1_sess", "abra_sess"],
+  },
+  "hailuo-web": {
+    kind: "token",
+    credentialName: "_token",
+    placeholder: '_token=... (hailuo.ai → DevTools → Local Storage → "_token")',
+    acceptsFullCookieHeader: false,
+    storageKeys: ["token", "_token"],
   },
   "claude-web": {
     kind: "cookie",
@@ -281,14 +314,34 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     hintFallback:
       "Open arena.ai, sign in, then copy the full Cookie header from a Network request. Include arena-auth-prod-v1.0 and arena-auth-prod-v1.1 (and further chunks if present), preferably with cf_clearance. Do not paste only the empty arena-auth-prod-v1 cookie. Optional: providerSpecificData.recaptchaV3Token if create-evaluation still returns 403.",
   },
-  "promptql": {
+  promptql: {
     kind: "token",
     credentialName: "Bearer JWT (optional: projectId, session Cookie)",
     placeholder: "eyJ...  (Authorization Bearer from prompt.ql.app)",
     acceptsFullCookieHeader: false,
     storageKeys: ["token", "jwt", "apiKey", "projectId", "project_id", "cookie"],
   },
-} satisfies Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
+  "adobe-firefly": {
+    // Prefer IMS access_token JWT (Bearer). Cookie from firefly.adobe.com alone
+    // only mints a guest IMS token. Kind stays "cookie" for multi-account UX;
+    // resolveAdobeAccessToken auto-detects JWT vs cookie and rejects guests.
+    kind: "cookie",
+    credentialName: "IMS access_token JWT (recommended) or multi-domain Cookie",
+    placeholder:
+      "Paste eyJ… JWT from Authorization: Bearer on firefly-3p generate request (not page Cookie alone)",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "token", "access_token", "accessToken"],
+  },
+  "conol-web": {
+    kind: "cookie",
+    credentialName: "__Secure-better-auth.session_token",
+    placeholder:
+      "__Secure-better-auth.session_token=... or full Cookie header from conol.ai",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie", "__Secure-better-auth.session_token"],
+  },
+} satisfies Record<string, WebSessionCredentialRequirement> &
+  Record<keyof typeof WEB_COOKIE_PROVIDERS, WebSessionCredentialRequirement>;
 
 export function getWebSessionCredentialRequirement(
   providerId: unknown

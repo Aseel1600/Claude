@@ -250,4 +250,44 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     passthroughModels: true,
     authHint: "Get API key at liquid.ai",
   },
+  inception: {
+    id: "inception",
+    alias: "inception",
+    name: "Inception",
+    icon: "auto_awesome",
+    color: "#F97316",
+    textIcon: "IN",
+    website: "https://docs.inceptionlabs.ai",
+    apiHint:
+      "Inception Labs is OpenAI-compatible at https://api.inceptionlabs.ai/v1. mercury-2 is the first diffusion LLM (dLLM) in the catalog — 5-10x faster generation than comparable autoregressive models, with tool calling, json_mode, and structured outputs.",
+    hasFree: true,
+    freeNote: "10M free tokens on signup, no credit card required.",
+  },
+  writer: {
+    id: "writer",
+    alias: "writer",
+    name: "Writer",
+    icon: "auto_awesome",
+    color: "#111827",
+    textIcon: "WR",
+    website: "https://dev.writer.com",
+    apiHint:
+      "Writer Palmyra is OpenAI-compatible at https://api.writer.com/v1. palmyra-x5 offers a 1M-token context window.",
+    hasFree: false,
+  },
+  "muse-code": {
+    id: "muse-code",
+    alias: "mc",
+    name: "Muse Code (Meta)",
+    icon: "auto_awesome",
+    color: "#0866FF",
+    textIcon: "MC",
+    website: "https://github.com/meta-llama/llama-stack",
+    authHint:
+      "Use your META_API_KEY env var as a Bearer token. Muse Code CLI uses the OpenAI Responses API wire format (POST /responses).",
+    apiHint:
+      "Muse Code is OpenAI-compatible. OmniRoute routes chat traffic through the Responses API and exposes the proprietary model catalog at /v1/muse-code/models.",
+    passthroughModels: true,
+    hasFree: false,
+  },
 };

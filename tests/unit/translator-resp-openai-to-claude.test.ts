@@ -113,6 +113,116 @@ test("OpenAI stream: internal reasoning replay placeholder stays hidden from Cla
   assert.equal(result[2].delta.text, "Answer");
 });
 
+test("OpenAI stream: placeholder-only content bundled with finish_reason still emits the stop event (#8081 regression)", () => {
+  const state = createState();
+  // Start a real message with some text first.
+  const first = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-2c",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "Answer" }, finish_reason: null }],
+    },
+    state
+  );
+  // Final chunk carries the internal reasoning placeholder as ordinary content
+  // AND the finish_reason in the SAME chunk. The placeholder content must be
+  // suppressed, but the stop event must still fire (the pre-fix bare `return`
+  // dropped the finish entirely — this is the regression guard).
+  const final = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-2c",
+      model: "gpt-4.1",
+      choices: [
+        {
+          index: 0,
+          delta: { content: "(prior reasoning summary unavailable)" },
+          finish_reason: "stop",
+        },
+      ],
+      usage: { prompt_tokens: 4, completion_tokens: 1, total_tokens: 5 },
+    },
+    state
+  );
+  const result = flatten([first, final]);
+
+  // The placeholder text is never emitted as a visible text delta.
+  assert.equal(
+    result.some(
+      (event) =>
+        event.type === "content_block_delta" &&
+        event.delta?.type === "text_delta" &&
+        typeof event.delta.text === "string" &&
+        event.delta.text.includes("prior reasoning summary unavailable")
+    ),
+    false
+  );
+  // The stop event still fires despite the placeholder-only final content.
+  const stop = result.find((event) => event.type === "message_delta");
+  assert.ok(stop, "expected a message_delta stop event even with placeholder-only final content");
+  assert.equal(stop.delta.stop_reason, "end_turn");
+  assert.ok(
+    result.some((event) => event.type === "message_stop"),
+    "expected a message_stop event"
+  );
+});
+
+test("OpenAI stream: multi-chunk content without the placeholder passes through byte-identical, boundary whitespace preserved (#8162 regression)", () => {
+  // Regression guard for the unconditional `.trim()` in
+  // stripInternalReasoningPlaceholder (#8162, port of #8081): when a chunk's
+  // content does NOT contain the sentinel, the function must be a no-op —
+  // including leading/trailing whitespace, which is a real word boundary
+  // between streaming fragments. Trimming it glues adjacent chunks together
+  // (e.g. "Hello, " + "world." + " Bye." -> "Hello,world.Bye.").
+  const state = createState();
+  const chunk1 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-space1",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "Hello, " }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk2 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-space1",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: "world." }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk3 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-space1",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: { content: " Bye." }, finish_reason: null }],
+    },
+    state
+  );
+  const chunk4 = openaiToClaudeResponse(
+    {
+      id: "chatcmpl-space1",
+      model: "gpt-4.1",
+      choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+      usage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+    },
+    state
+  );
+  const result = flatten([chunk1, chunk2, chunk3, chunk4]);
+
+  const textDeltas = result.filter(
+    (event) => event.type === "content_block_delta" && event.delta?.type === "text_delta"
+  );
+  // Each chunk's delta text must be emitted verbatim — no per-chunk trimming.
+  assert.deepEqual(
+    textDeltas.map((event) => event.delta.text),
+    ["Hello, ", "world.", " Bye."]
+  );
+  assert.equal(
+    textDeltas.map((event) => event.delta.text).join(""),
+    "Hello, world. Bye."
+  );
+});
+
 test("OpenAI stream: tool calls strip Claude OAuth prefix and keep cache usage", () => {
   const state = createState();
   const started = openaiToClaudeResponse(

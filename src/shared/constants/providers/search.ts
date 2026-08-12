@@ -60,6 +60,22 @@ export const SEARCH_PROVIDERS = {
     authHint: "API key from app.tavily.com (format: tvly-...)",
     serviceKinds: ["webSearch", "webFetch"],
   },
+  firecrawl: {
+    id: "firecrawl",
+    alias: "fc",
+    name: "Firecrawl",
+    icon: "language",
+    color: "#FB923C",
+    textIcon: "FC",
+    website: "https://firecrawl.dev",
+    hasFree: true,
+    authHint: "API key from firecrawl.dev/app/api-keys (or set your self-hosted Firecrawl base URL)",
+    notice: {
+      text: "Free tier: 1,000 credits/month. Powers /v1/web/fetch and /v1/search.",
+      apiKeyUrl: "https://firecrawl.dev/app/api-keys",
+    },
+    serviceKinds: ["webSearch", "webFetch"],
+  },
   "google-pse-search": {
     id: "google-pse-search",
     alias: "google-pse",

@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Handle, Position, type Node, type Edge, type NodeTypes } from "@xyflow/react";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
@@ -8,6 +9,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import { FlowCanvas } from "@/shared/components/flow/FlowCanvas";
 import { StatusDot } from "@/shared/components/flow/StatusDot";
 import { edgeStyle, FLOW_EDGE_COLORS } from "@/shared/components/flow/edgeStyles";
+import { getFallbackProviderColor } from "@/shared/utils/providerFallbackColor";
 import { resolveTopologyNodeLabel } from "./topologyLabel";
 
 // Rings: [capacity, rx, ry]. Each successive ring fits ~6 more nodes.
@@ -23,9 +25,12 @@ const RINGS: [number, number, number][] = [
 type ProviderConfig = { color?: string; name?: string; textIcon?: string };
 
 function getProviderConfig(providerId: string): ProviderConfig {
+  // Predefined providers keep their registry color/name untouched. Anything else (custom
+  // openai-compatible-*/anthropic-compatible-* provider_nodes) gets a deterministic,
+  // per-id fallback color instead of one shared gray — see #8328.
   return (
     (AI_PROVIDERS as Record<string, ProviderConfig>)[providerId] || {
-      color: "#6b7280",
+      color: getFallbackProviderColor(providerId),
       name: providerId,
     }
   );
@@ -39,16 +44,22 @@ type ProviderNodeData = {
   error: boolean;
   /** Connection-health base state: a healthy connection with no in-flight traffic. */
   healthy: boolean;
+  /** Most recently routed provider. Orthogonal to health — it can be last *and* healthy. */
+  last: boolean;
 };
 
 function ProviderNode({ data }: { data: ProviderNodeData }) {
-  const { label, color, providerId, active, error, healthy } = data;
+  const { label, color, providerId, active, error, healthy, last } = data;
   const GREEN = FLOW_EDGE_COLORS.active;
   const RED = FLOW_EDGE_COLORS.error;
+  const AMBER = FLOW_EDGE_COLORS.last;
+  // "Last routed" is a traffic annotation, not a health state: the border keeps saying
+  // whether the connection is up, and only the dot turns amber to mark recency.
+  const dotColor = active ? color : last ? AMBER : GREEN;
 
   return (
     <div
-      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border-2 transition-all duration-300 bg-bg"
+      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border-2 transition-all duration-300 bg-bg cursor-pointer hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
       style={{
         borderColor: error ? RED : active ? color : healthy ? GREEN : "var(--color-border)",
         boxShadow: error
@@ -102,8 +113,8 @@ function ProviderNode({ data }: { data: ProviderNodeData }) {
         {label}
       </span>
 
-      {(active || error || healthy) && (
-        <StatusDot color={active ? color : GREEN} error={error} pulse={active || error} />
+      {(active || error || healthy || last) && (
+        <StatusDot color={dotColor} error={error} pulse={active || error} />
       )}
     </div>
   );
@@ -206,9 +217,7 @@ function buildLayout(
       return 4;
     };
     const d = rank(a) - rank(b);
-    return d !== 0
-      ? d
-      : a.provider.toLowerCase().localeCompare(b.provider.toLowerCase()); // ASCII kasıtlı
+    return d !== 0 ? d : a.provider.toLowerCase().localeCompare(b.provider.toLowerCase()); // ASCII kasıtlı
   });
 
   let provIdx = 0;
@@ -225,8 +234,13 @@ function buildLayout(
       // still reflects "what is connected" at rest instead of going blank after a restart.
       const trafficError = !active && errorSet.has(pid);
       const last = !active && !trafficError && lastSet.has(pid);
-      const healthError = !active && !trafficError && !last && p.status === "error";
-      const healthy = !active && !trafficError && !last && !healthError && p.status === "active";
+      // Health is orthogonal to recency: having just served a request does not make a
+      // connection any less connected. `last` used to suppress `healthy`/`healthError`,
+      // and because the node had no `last` visual it fell all the way through to the idle
+      // grey — so the provider you had just used rendered *less* connected than an idle
+      // peer, while its edge was amber. Health drives the border, `last` only the dot.
+      const healthError = !active && !trafficError && p.status === "error";
+      const healthy = !active && !trafficError && !healthError && p.status === "active";
       const error = trafficError || healthError;
       const config = getProviderConfig(p.provider);
       const nodeId = `provider-${p.provider}`;
@@ -247,6 +261,7 @@ function buildLayout(
           active,
           error,
           healthy,
+          last,
         } satisfies ProviderNodeData,
         draggable: false,
       });
@@ -314,6 +329,21 @@ export default function ProviderTopology({
     [providers]
   );
 
+  const router = useRouter();
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (node.type !== "provider") return;
+      const providerId =
+        (node.data as ProviderNodeData | undefined)?.providerId ||
+        node.id.replace(/^provider-/, "");
+      if (providerId) {
+        router.push(`/dashboard/providers/${providerId}`);
+      }
+    },
+    [router]
+  );
+
   const containerClass =
     "h-[300px] w-full min-w-0 rounded-xl border border-border bg-bg-subtle/20 overflow-hidden sm:h-[420px]";
 
@@ -335,6 +365,7 @@ export default function ProviderTopology({
       nodeTypes={nodeTypes}
       fitKey={providersKey}
       className={containerClass}
+      onNodeClick={handleNodeClick}
     />
   );
 }

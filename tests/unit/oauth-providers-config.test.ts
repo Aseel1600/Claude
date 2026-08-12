@@ -33,16 +33,18 @@ const {
   GHE_COPILOT_CONFIG,
   GITHUB_CONFIG,
   GITLAB_DUO_CONFIG,
-  GROK_CLI_CONFIG,
+  GROK_BUILD_OAUTH_CONFIG,
   KILOCODE_CONFIG,
   KIMI_CODING_CONFIG,
   KIRO_CONFIG,
   OAUTH_TIMEOUT,
   PROVIDERS: OAUTH_PROVIDER_IDS,
   QODER_CONFIG,
+  RAYCAST_CONFIG,
   TRAE_CONFIG,
   WINDSURF_CONFIG,
   XAI_OAUTH_CONFIG,
+  OPENFERENCE_CONFIG,
   ZED_HOSTED_CONFIG,
 } = oauthModule;
 const { getAntigravityLoadCodeAssistMetadata } = antigravityHeadersModule;
@@ -63,6 +65,7 @@ const EXPECTED_PROVIDER_KEYS = [
   "amazon-q",
   "cursor",
   "trae",
+  "raycast",
   "kilocode",
   "cline",
   "clinepass",
@@ -70,6 +73,7 @@ const EXPECTED_PROVIDER_KEYS = [
   "devin-cli",
   "grok-cli",
   "xai-oauth",
+  "openference",
   "codebuddy-cn",
   "zed",
   "zed-hosted",
@@ -100,9 +104,11 @@ const EXPECTED_CONFIG_BY_PROVIDER = {
   clinepass: CLINE_CONFIG, // reuses the Cline WorkOS flow (clinepass: cline in providers/index.ts)
   windsurf: WINDSURF_CONFIG,
   "devin-cli": WINDSURF_CONFIG,
+  raycast: RAYCAST_CONFIG,
   trae: TRAE_CONFIG,
-  "grok-cli": GROK_CLI_CONFIG,
+  "grok-cli": GROK_BUILD_OAUTH_CONFIG,
   "xai-oauth": XAI_OAUTH_CONFIG,
+  openference: OPENFERENCE_CONFIG,
   "codebuddy-cn": CODEBUDDY_CN_CONFIG,
   zed: ZED_CONFIG,
   "zed-hosted": ZED_HOSTED_CONFIG,
@@ -150,6 +156,10 @@ const REQUIRED_FIELDS_BY_PROVIDER = {
   trae: ["apiEndpoint", "chatEndpoint", "webUrl"],
   // prettier-ignore
   "xai-oauth": ["authorizeUrl", "tokenUrl", "scope", "codeChallengeMethod", "clientId", "loopbackPort", "callbackPath", "callbackHost"],
+  // prettier-ignore
+  openference: ["authorizeUrl", "tokenUrl", "userinfoUrl", "scope", "codeChallengeMethod", "clientId", "loopbackPort", "callbackPath", "callbackHost"],
+  // prettier-ignore
+  "grok-cli": ["authorizeUrl", "tokenUrl", "scope", "codeChallengeMethod", "clientId", "loopbackPort", "callbackPath", "callbackHost"],
   // prettier-ignore
   "zed-hosted": ["webBaseUrl", "cloudBaseUrl", "llmBaseUrl", "userInfoUrl", "llmTokenUrl", "modelsUrl"],
 };
@@ -549,8 +559,11 @@ test("Antigravity runs mocked browser OAuth exchanges and post-exchange enrichme
     (_url, init: any = {}) => {
       assert.equal(init.method, "POST");
       assert.equal(init.headers.Authorization, "Bearer anti-access");
-      assert.match(init.headers["User-Agent"], /^vscode\/1\.X\.X \(Antigravity\//);
-      assert.equal(init.headers["X-Goog-Api-Client"], undefined);
+      assert.match(
+        init.headers["User-Agent"],
+        /^antigravity\/2\.1\.1 [^ ]+\/[^ ]+ google-api-nodejs-client\/10\.3\.0$/
+      );
+      assert.equal(init.headers["X-Goog-Api-Client"], "gl-node/22.21.1");
       assert.deepEqual(
         JSON.parse(String(init.body)).metadata,
         getAntigravityLoadCodeAssistMetadata()
@@ -564,8 +577,11 @@ test("Antigravity runs mocked browser OAuth exchanges and post-exchange enrichme
     (_url, init: any = {}) => {
       assert.equal(init.method, "POST");
       assert.equal(init.headers.Authorization, "Bearer anti-access");
-      assert.match(init.headers["User-Agent"], /^vscode\/1\.X\.X \(Antigravity\//);
-      assert.equal(init.headers["X-Goog-Api-Client"], undefined);
+      assert.match(
+        init.headers["User-Agent"],
+        /^antigravity\/2\.1\.1 [^ ]+\/[^ ]+ google-api-nodejs-client\/10\.3\.0$/
+      );
+      assert.equal(init.headers["X-Goog-Api-Client"], "gl-node/22.21.1");
       assert.deepEqual(
         JSON.parse(String(init.body)).metadata,
         getAntigravityLoadCodeAssistMetadata()
@@ -597,6 +613,7 @@ test("Antigravity runs mocked browser OAuth exchanges and post-exchange enrichme
   // no longer updates the returned projectId synchronously — matching the 9router web
   // flow, which also returns the loadCodeAssist project id.
   assert.equal(antigravityMapped.projectId, "anti-project");
+  assert.equal(antigravityMapped.providerSpecificData.clientProfile, "ide");
 });
 
 test("Qoder enabled mode exchanges tokens and loads profile metadata through mocked endpoints", async () => {

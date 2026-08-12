@@ -89,10 +89,12 @@ export {
   reorderCombos,
   deleteCombo,
 } from "./db/combos";
+export * from "./db/ccrBlocks";
 export * from "./db/compressionCacheStats";
 export * from "./db/compressionCombos";
 export * from "./db/compressionContextBudget";
 export * from "./db/compressionRunTelemetry";
+export * from "./db/jobRegistryDb";
 export * from "./db/modelContextOverrides";
 
 export {
@@ -135,6 +137,7 @@ export type {
 export {
   // Settings
   getSettings,
+  getSettingsRevision,
   updateSettings,
   isCloudEnabled,
 
@@ -683,7 +686,7 @@ export {
   listApiKeyContextSources,
 } from "./db/apiKeyContextSources";
 export type { ApiKeyContextSource } from "./db/apiKeyContextSources";
-
+export * from "./db/localCorpus";
 export { sumUsageTokensThisMonth } from "./db/usageSummary";
 
 export {
@@ -805,4 +808,16 @@ export { markConnectionRateLimitedUntil, clearConnectionRateLimit } from "./db/p
 export * from "./db/paramFilters";
 export * from "./db/interceptionRules"; // Per-model web-search/web-fetch interception rules (#3384)
 export * from "./db/relayProbeStats"; // Relay probe latency/health stats (#6909)
+export * from "./db/ccDiscoveryAliases"; // Claude Code discovery-alias gate (flag + per-provider/model overrides)
+export * from "./db/ccDiscoveryMetrics"; // Claude Code discovery-alias usage counters (alias requests + discovery hits)
+export * from "./db/functionalGatewayMirrors"; // Functional-gateway mirror gate (flag + per-provider/model overrides)
+// Radar client — local feed cache + settings (opt-in, encrypted supporter key)
+export {
+  getRadarCache,
+  setRadarCache,
+  getRadarSettings,
+  setRadarOptIn,
+  setRadarKey,
+} from "./db/radar";
+export type { RadarCache, RadarSettings } from "./db/radar";
 export * from "./db/conductorBridge"; // OmniConductor hub mirror — SSE cursor (PRD Conductor RF1)

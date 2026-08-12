@@ -1,4 +1,9 @@
-import { BaseExecutor, ExecuteInput, type ProviderCredentials } from "./base.ts";
+import {
+  BaseExecutor,
+  ExecuteInput,
+  type ProviderConfig,
+  type ProviderCredentials,
+} from "./base.ts";
 import { PROVIDERS, OAUTH_ENDPOINTS } from "../config/constants.ts";
 import { getModelTargetFormat } from "../config/providerModels.ts";
 import {
@@ -8,9 +13,31 @@ import {
 import { sanitizeResponsesInputItems } from "../services/responsesInputSanitizer.ts";
 import { stripUnsupportedParams } from "../translator/paramSupport.ts";
 
+/**
+ * What a Copilot credential refresh resolves to.
+ *
+ * `refreshCredentials()` returns one of three shapes — the raw GitHub token pair, that pair
+ * plus the minted Copilot token, or the Copilot token folded onto the existing credentials —
+ * and `null` when nothing could be refreshed. Left to inference, the union of those literals
+ * is narrower than the contract subclasses actually honor: `GheCopilotExecutor` carries a
+ * wider `providerSpecificData` (it also records the enterprise proxy URL) and omits
+ * `expiresIn`, which made a valid override fail with TS2416. Every field is therefore
+ * optional here — callers already treat them as such.
+ */
+export interface RefreshedCopilotCredentials {
+  accessToken?: string;
+  refreshToken?: string;
+  expiresIn?: number;
+  copilotToken?: string;
+  copilotTokenExpiresAt?: string | number;
+  providerSpecificData?: Record<string, unknown>;
+}
+
+type GithubExecutorConfig = ProviderConfig & Record<string, unknown>;
+
 export class GithubExecutor extends BaseExecutor {
-  constructor() {
-    super("github", PROVIDERS.github);
+  constructor(provider = "github", config?: GithubExecutorConfig) {
+    super(provider, config ?? PROVIDERS.github);
   }
 
   getCopilotToken(credentials: Record<string, any> | null | undefined) {
@@ -39,8 +66,24 @@ export class GithubExecutor extends BaseExecutor {
     return !(m.includes("gemini") || m.includes("claude"));
   }
 
-  buildUrl(model: string, _stream: boolean, _urlIndex = 0) {
-    const targetFormat = getModelTargetFormat("gh", model);
+  buildUrl(
+    model: string,
+    _stream: boolean,
+    _urlIndex = 0,
+    credentials?: ProviderCredentials | null
+  ) {
+    // #2905/#7364-pattern: a custom Copilot model's per-model targetFormat
+    // override isn't in the static PROVIDER_MODELS registry, so
+    // getModelTargetFormat() can't see it. chatCore/executionCredentials.ts
+    // threads the resolved override onto providerSpecificData.targetFormat
+    // for exactly this case — prefer it when present.
+    const overrideTargetFormat = (
+      credentials as { providerSpecificData?: { targetFormat?: unknown } }
+    )?.providerSpecificData?.targetFormat;
+    const targetFormat =
+      typeof overrideTargetFormat === "string"
+        ? overrideTargetFormat
+        : getModelTargetFormat("gh", model);
     // Claude models: route to Copilot's Anthropic-native /v1/messages shim — the
     // only Copilot endpoint that surfaces prompt-cache token counts for Claude and
     // avoids a lossy round-trip of tool_use/tool_result/thinking content blocks
@@ -250,7 +293,10 @@ export class GithubExecutor extends BaseExecutor {
 
   async execute(input: ExecuteInput) {
     const result = await super.execute(input);
-    if (!result || !result.response) return result;
+    // BaseExecutor.execute() is typed as the union it contracts for; the bare-Response
+    // arm has nothing to materialize, which is what the existing `!result.response`
+    // guard already meant.
+    if (result instanceof Response || !result?.response) return result;
 
     if (!input.stream) {
       // wreq-js clone/text semantics consume the original response body. Materialize
@@ -364,7 +410,7 @@ export class GithubExecutor extends BaseExecutor {
     }
   }
 
-  async refreshCredentials(credentials, log) {
+  async refreshCredentials(credentials, log): Promise<RefreshedCopilotCredentials | null> {
     let copilotResult = await this.refreshCopilotToken(credentials.accessToken, log);
 
     if (!copilotResult && credentials.refreshToken) {
