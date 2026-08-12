@@ -10,14 +10,41 @@
 //   - coverage/      — relatórios de cobertura gerados pelo c8
 //   - quality-metrics.json — saída do collect-metrics.mjs (gerado, não-versionado)
 //   - symlinks rastreados (mode 120000) — indício de `git add -A` em worktree
+//   - _tasks (exato E prefixo) — repo git SEPARADO; o blob symlink rastreado causou DOIS
+//     wipes do diretório real (2026-08-08 e 2026-08-10; Hard Rule #23)
+//   - _references/ _mono_repo/ _ideia/ _cache/ — diretórios privados de raiz (regra /_*/)
+//   - .claude/worktrees/ — worktrees de sessão nunca entram no repo
+//   - docs/superpowers/ — artefatos de planejamento vivem em _tasks/, não em docs/
+//   - .eslintcache* .fakebin-* dist/ .build/ .artifacts/ logs/ — caches e outputs gerados
+//
+// Todos os prefixos são ancorados na raiz (startsWith sobre paths do `git ls-files`):
+// paths aninhados legítimos como `src/lib/logs/` NÃO são atingidos.
 
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
-const FORBIDDEN_PREFIXES = ["node_modules/", ".next/", "coverage/"];
+const FORBIDDEN_PREFIXES = [
+  "node_modules/",
+  ".next/",
+  "coverage/",
+  "_tasks/",
+  "_references/",
+  "_mono_repo/",
+  "_ideia/",
+  "_cache/",
+  ".claude/worktrees/",
+  "docs/superpowers/",
+  ".eslintcache", // matches .eslintcache, .eslintcache-complexity, .eslintcache-probe, …
+  ".fakebin-", // test executable shim dirs (.fakebin-<pid>/)
+  "dist/",
+  ".build/",
+  ".artifacts/",
+  "logs/",
+];
 const FORBIDDEN_EXACT = new Set([
   "quality-metrics.json", // legacy root location (still forbidden if a stale run writes it)
   "config/quality/quality-metrics.json", // current generated location (collect-metrics.mjs)
+  "_tasks", // separate git repo — a tracked blob/symlink here wiped the real dir twice (HR#23)
 ]);
 
 /**
