@@ -1,4 +1,7 @@
-import { extractRequestToolIdentityMap } from "./chatCore/requestToolIdentity.ts";
+import {
+  extractRequestToolIdentityMap,
+  toToolNameAliasMap,
+} from "./chatCore/requestToolIdentity.ts";
 import { injectMemoryAndSkills } from "./chatCore/memorySkillsInjection.ts";
 import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { normalizeOpenAICompatibleTools } from "./chatCore/openAICompatibleTools.ts";
@@ -2317,13 +2320,8 @@ export async function handleChatCore({
   // response toolNameMap so the response translator can restore tool names
   // from their lowercased form (#9568). Only merge string-valued entries
   // (tool name aliases), not object-valued namespace identities (#7936).
-  if (!toolNameMap && requestToolIdentityMap instanceof Map && requestToolIdentityMap.size > 0) {
-    const hasStringValues = [...requestToolIdentityMap.values()].every(
-      (v: unknown) => typeof v === "string"
-    );
-    if (hasStringValues) {
-      toolNameMap = requestToolIdentityMap;
-    }
+  if (!toolNameMap) {
+    toolNameMap = toToolNameAliasMap(requestToolIdentityMap);
   }
   delete translatedBody._toolNameMap;
   delete translatedBody._disableToolPrefix;
