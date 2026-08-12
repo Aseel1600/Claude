@@ -13019,9 +13019,9 @@
     "testFailed": "Échec du test"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) est l'ami open source fondateur d'OmniRoute",
-    "description": "Kimi K3 apporte une fenêtre de contexte de 1M de tokens et des performances de codage de pointe à OmniRoute pour une fraction du coût.",
-    "cta": "Obtenir Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) est l'ami open source fondateur d'OmniRoute",
+    "description": "Utilisez Kimi K3 dans OmniRoute via l'API officielle Kimi. Profitez d'une intelligence de pointe en dépensant moins.",
+    "cta": "Obtenir une clé API Kimi",
     "partnerLinkNote": "Lien partenaire",
     "dismissAriaLabel": "Ignorer"
   },

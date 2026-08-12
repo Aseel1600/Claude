@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Tiada penggantian — semua penyedia aktif akan mengambil bahagian dengan model lalai mereka"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) ialah rakan sumber terbuka pengasas OmniRoute",
-    "description": "Kimi K3 membawakan tetingkap konteks 1M-token dan prestasi pengekodan termaju ke OmniRoute pada sebahagian kecil daripada kos.",
-    "cta": "Dapatkan Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) ialah Rakan Sumber Terbuka pengasas OmniRoute",
+    "description": "Gunakan Kimi K3 dalam OmniRoute melalui Kimi API rasmi. Nikmati kecerdasan terkehadapan dengan perbelanjaan lebih rendah.",
+    "cta": "Dapatkan Kunci API Kimi",
     "partnerLinkNote": "Pautan rakan kongsi",
     "dismissAriaLabel": "Tutup"
   },

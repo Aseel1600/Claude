@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Ingen overstyringer — alle aktive leverandører vil delta med sine standardmodeller"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) er OmniRoutes grunnleggende åpen kildekode-venn",
-    "description": "Kimi K3 bringer et 1M-token kontekstvindu og banebrytende kodeytelse til OmniRoute til en brøkdel av kostnaden.",
-    "cta": "Hent Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) er OmniRoutes grunnleggende open source-venn",
+    "description": "Bruk Kimi K3 i OmniRoute via det offisielle Kimi API-et. Nyt banebrytende intelligens til en lavere kostnad.",
+    "cta": "Få en Kimi API-nøkkel",
     "partnerLinkNote": "Partnerlenke",
     "dismissAriaLabel": "Avvis"
   },

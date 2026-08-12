@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Nincsenek felülbírálások — minden aktív szolgáltató az alapértelmezett modelljével vesz részt"
   },
   "kimiSponsorBanner": {
-    "title": "A Kimi (Moonshot AI) az OmniRoute alapító nyílt forráskódú barátja",
-    "description": "A Kimi K3 1M-tokenes kontextusablakot és élvonalbeli kódolási teljesítményt hoz az OmniRoute-ba, a költségek töredékéért.",
-    "cta": "Kimi Code beszerzése",
+    "foundingFriendTitle": "A Kimi (Moonshot AI) az OmniRoute alapító nyílt forráskódú barátja",
+    "description": "Használd a Kimi K3-at az OmniRoute-ban a hivatalos Kimi API-n keresztül. Élvezd az élvonalbeli intelligenciát kevesebb költséggel.",
+    "cta": "Kimi API-kulcs beszerzése",
     "partnerLinkNote": "Partnerhivatkozás",
     "dismissAriaLabel": "Elvetés"
   },

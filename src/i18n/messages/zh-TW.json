@@ -12395,9 +12395,9 @@
     "noProviderOverrides": "無覆寫——所有啟用的提供者將使用其預設模型參與"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi（Moonshot AI）是 OmniRoute 的創始開源好友",
-    "description": "Kimi K3 提供 100 萬 Token 的上下文視窗與頂尖程式碼效能，但只需同類產品的一小部分成本。",
-    "cta": "取得 Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) 是 OmniRoute 的創始開源好友",
+    "description": "透過官方 Kimi API 在 OmniRoute 中使用 Kimi K3。以更低的花費享受前沿智慧。",
+    "cta": "取得 Kimi API 金鑰",
     "partnerLinkNote": "合作夥伴連結",
     "dismissAriaLabel": "關閉"
   },

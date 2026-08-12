@@ -13008,9 +13008,9 @@
     "testFailed": "__MISSING__:Test failed"
   },
   "kimiSponsorBanner": {
-    "title": "A Kimi (Moonshot AI) agora é patrocinadora oficial do OmniRoute",
-    "description": "A Kimi K3 traz uma janela de contexto de 1M de tokens e desempenho de ponta em programação ao OmniRoute por uma fração do custo.",
-    "cta": "Obter Kimi Code",
+    "foundingFriendTitle": "A Kimi (Moonshot AI) é a Amiga do Código Aberto fundadora do OmniRoute",
+    "description": "Use o Kimi K3 no OmniRoute pela API oficial da Kimi. Aproveite inteligência de fronteira gastando menos.",
+    "cta": "Obter uma chave de API da Kimi",
     "partnerLinkNote": "Link de parceria",
     "dismissAriaLabel": "Dispensar"
   },
