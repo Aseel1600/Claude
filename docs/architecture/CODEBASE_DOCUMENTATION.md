@@ -452,12 +452,12 @@ open-sse/
 ├── types.d.ts
 ├── config/                 Provider registries, header profiles, identity, …
 ├── handlers/               Request handlers (chat, embeddings, audio, image, …)
-├── executors/              89 provider-specific HTTP executors
+├── executors/              101 provider-specific HTTP executors
 ├── translator/             Format conversion (OpenAI ↔ Claude ↔ Gemini ↔ Cursor ↔ Kiro)
 ├── transformer/            Responses API ↔ Chat Completions stream transformer
 ├── services/               80+ service modules (combos, fallback, quotas, identity, …)
 ├── utils/                  Streaming helpers, TLS client, AWS SigV4, proxy fetch, …
-└── mcp-server/             MCP server (3 transports, 32 scopes, 99 tools)
+└── mcp-server/             MCP server (3 transports, 31 scopes, 105 tools)
 ```
 
 ### 4.1 `open-sse/handlers/`
@@ -482,7 +482,7 @@ open-sse/
 
 ### 4.2 `open-sse/executors/`
 
-84 provider executors, each extending `BaseExecutor` (`base.ts`):
+101 provider executors, each extending `BaseExecutor` (`base.ts`):
 
 `antigravity`, `azure-openai`, `blackbox-web`, `chatgpt-web`, `cliproxyapi`,
 `cloudflare-ai`, `codex`, `commandCode`, `cursor`, `default`, `devin-cli`,
@@ -491,7 +491,7 @@ open-sse/
 (shared identity helper) and `index.ts` (registry).
 
 > Note: providers not listed here are served by `default.ts` using the generic
-> OpenAI-compatible executor. The full provider catalog (268 entries) lives in
+> OpenAI-compatible executor. The full provider catalog (338 providers) lives in
 > `src/shared/constants/providers.ts`.
 
 ### 4.3 `open-sse/translator/`
@@ -524,7 +524,7 @@ Highlights (full list under `open-sse/services/`):
 
 | Concern              | Files                                                                                                                                                                                                                                             |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Combo routing        | `combo.ts` (17 strategies), `comboConfig.ts`, `comboMetrics.ts`, `comboManifestMetrics.ts`, `comboAgentMiddleware.ts`                                                                                                                             |
+| Combo routing        | `combo.ts` (19 strategies), `comboConfig.ts`, `comboMetrics.ts`, `comboManifestMetrics.ts`, `comboAgentMiddleware.ts`                                                                                                                             |
 | Auto Combo engine    | `autoCombo/` — `engine.ts`, `scoring.ts`, `taskFitness.ts`, `virtualFactory.ts`, `modePacks.ts`, `autoPrefix.ts`, `persistence.ts`, `providerDiversity.ts`, `providerRegistryAccessor.ts`, `routerStrategy.ts`, `selfHealing.ts`, `index.ts`      |
 | Resilience           | `accountFallback.ts` (cooldown + lockout), `errorClassifier.ts`, `emergencyFallback.ts`, `rateLimitManager.ts`, `rateLimitSemaphore.ts`, `accountSemaphore.ts`, `accountSelector.ts`                                                              |
 | Quotas               | `quotaMonitor.ts`, `quotaPreflight.ts`, `bailianQuotaFetcher.ts`, `codexQuotaFetcher.ts`, `deepseekQuotaFetcher.ts`, `openrouterQuotaFetcher.ts`, `openrouterFreeWindow.ts`, `crofUsageFetcher.ts`, `antigravityCredits.ts`                       |
@@ -544,7 +544,7 @@ Highlights (full list under `open-sse/services/`):
   5 compression tools, 3 memory tools, 4 skills tools, plus advanced tools added
   through `advancedTools.ts`).
 - **3 transports**: stdio, HTTP Streamable, SSE.
-- **13 scopes** declared in `src/shared/constants/mcpScopes.ts`.
+- **31 scopes** declared in `src/shared/constants/mcpScopes.ts`.
 - Audit table: `mcp_tool_audit` (populated by `audit.ts`).
 - Files: `server.ts`, `index.ts`, `httpTransport.ts`, `audit.ts`, `scopeEnforcement.ts`,
   `runtimeHeartbeat.ts`, `descriptionCompressor.ts`, `schemas/{tools, a2a, audit, index}.ts`,

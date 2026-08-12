@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Əvəzetmə yoxdur — bütün aktiv provayderlər standart modelləri ilə iştirak edəcək"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) OmniRoute-un təsisçi Açıq Mənbə Dostudur",
-    "description": "Kimi K3, OmniRoute-a 1M-token kontekst pəncərəsi və qabaqcıl kodlaşdırma performansı gətirir, həm də xərclərin kiçik bir hissəsinə.",
-    "cta": "Kimi Code əldə et",
+    "foundingFriendTitle": "Kimi (Moonshot AI) OmniRoute-un təsisçi Açıq Mənbə Dostudur",
+    "description": "Kimi K3-ü OmniRoute-da rəsmi Kimi API vasitəsilə istifadə edin. Daha az xərclə qabaqcıl intellektdən yararlanın.",
+    "cta": "Kimi API açarı əldə edin",
     "partnerLinkNote": "Tərəfdaş linki",
     "dismissAriaLabel": "Bağla"
   },

@@ -17,7 +17,7 @@ It provides a single OpenAI-compatible endpoint (`/v1/*`) and routes traffic acr
 
 Core capabilities:
 
-- OpenAI-compatible API surface for CLI/tools (271 providers, 89 executors)
+- OpenAI-compatible API surface for CLI/tools (338 providers, 101 executors)
 - Request/response translation across provider formats
 - Model combo fallback (multi-model sequence)
 - Structured combo steps (`provider + model + connection`) with runtime ordering by `compositeTiers`
@@ -365,7 +365,7 @@ relying on a static combo definition. It powers the `auto/*` model prefix family
 
 Key capabilities:
 
-- **17 routing strategies** (priority, weighted, fill-first, round-robin, P2C, random,
+- **19 routing strategies** (priority, weighted, fill-first, round-robin, P2C, random,
   least-used, cost-optimized, reset-aware, reset-window, headroom, strict-random,
   **auto**, lkgp, context-optimized, context-relay, **fusion**, plus a fallback path) —
   auto is the headline addition in v3.8.0; `fusion` (panel fan-out + judge synthesis,

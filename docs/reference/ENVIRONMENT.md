@@ -1015,6 +1015,7 @@ changing them requires a code edit, not an env var:
 | `CURSOR_TOKEN`                   | _(unset)_           | `scripts/ad-hoc/cursor-tap.cjs`            | Direct Cursor bearer token used by developer tooling.                                        |
 | `OMNIROUTE_LOG_REQUEST_SHAPE`    | disabled (opt-in via `"1"`) | `src/app/api/v1/chat/completions/route.ts` | Log content-type/length markers for large chat payloads when `"1"` is set. Off by default to reduce log noise. |
 | `DEBUG_RESPONSES_SSE_TO_JSON`    | _(unset)_           | `open-sse/handlers/responseTranslator.ts`  | Set `true` to log Responses API SSE→JSON translation details.                                |
+| `DEBUG_CLAUDE_NONSTREAM`         | _(unset)_           | `open-sse/handlers/responseTranslator.ts`  | Set `true` to surface empty textContent chunks in the Claude response translation path (debug only). |
 | `NEXT_PUBLIC_OMNIROUTE_E2E_MODE` | _(unset)_           | E2E test harness                           | Set `true` to enable E2E test mode (relaxed auth, test hooks).                               |
 
 ---

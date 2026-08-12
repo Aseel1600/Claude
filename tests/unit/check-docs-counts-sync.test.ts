@@ -8,6 +8,9 @@ import {
   tallyDrift,
   readProviderTotal,
   countLocales,
+  readMcpFactsFromSource,
+  listLocalizedDocs,
+  makeRequiredCountsValidator,
 } from "../../scripts/check/check-docs-counts-sync.mjs";
 
 // Explicit types for the .mjs exports — keep the test at 0 no-explicit-any warnings.
@@ -24,6 +27,11 @@ const tally = tallyDrift as (
 ) => { strict: number; soft: number; lines: string[] };
 const readTotal = readProviderTotal as () => number;
 const locales = countLocales as () => number;
+const mcpFacts = readMcpFactsFromSource as () => { tools: number; scopes: number } | null;
+const localizedDocs = listLocalizedDocs as (relativePath: string) => string[];
+const requireCounts = makeRequiredCountsValidator as (
+  requirements: { label: string; value: number }[]
+) => (content: string) => { ok: boolean; detail: string };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GATE = path.resolve(here, "../../scripts/check/check-docs-counts-sync.mjs");
@@ -85,11 +93,36 @@ test("a missing file (null content) registers drift, not a crash", () => {
 // --- live source readers (smoke) -----------------------------------------------------
 
 test("readProviderTotal reads a real, positive total from the catalog", () => {
-  assert.ok(readTotal() > 100, "provider catalog total should be > 100");
+  assert.ok(readTotal() >= 300, "live provider catalog total should be at least 300");
 });
 
 test("countLocales reads a real, positive locale count from config/i18n.json", () => {
   assert.ok(locales() >= 40, "i18n config should define at least 40 locales");
+});
+
+test("source-only MCP fallback matches the canonical inventory and scope union", () => {
+  assert.deepEqual(mcpFacts(), { tools: 107, scopes: 32 });
+});
+
+test("localized-doc discovery returns every locale root document", () => {
+  const readmes = localizedDocs("README.md");
+  assert.equal(readmes.length, 42);
+  assert.ok(readmes.includes("docs/i18n/pt-BR/README.md"));
+  assert.ok(readmes.includes("docs/i18n/zh-CN/README.md"));
+});
+
+test("required-count validator reports precisely which live markers are missing", () => {
+  const validate = requireCounts([
+    { label: "providers", value: 327 },
+    { label: "MCP tools", value: 107 },
+    { label: "MCP scopes", value: 32 },
+  ]);
+  assert.equal(validate("327 providers; 107 tools; 32 scopes").ok, true);
+  const stale = validate("290 providers; 104 tools; 31 scopes");
+  assert.equal(stale.ok, false);
+  assert.match(stale.detail, /providers=327/);
+  assert.match(stale.detail, /MCP tools=107/);
+  assert.match(stale.detail, /MCP scopes=32/);
 });
 
 // --- live gate smoke -----------------------------------------------------------------
@@ -105,6 +138,7 @@ test("the gate exits 0 against the current (synced) repo state", () => {
 // down to 1.37B, because no gate watched that number.
 import {
   checkFreeTierHeadline,
+  checkFreeTierInventory,
   extractHeadlineClaims,
 } from "../../scripts/check/check-docs-counts-sync.mjs";
 
@@ -146,9 +180,27 @@ test("free-tier gate passes when a file carries no headline at all", () => {
   assert.equal(checkHeadline("no figures here", TOTALS).ok, true);
 });
 
+const checkInventory = checkFreeTierInventory as (
+  content: string,
+  totals: { pools: number; models: number }
+) => { ok: boolean; detail: string };
+
+test("free-tier inventory gate accepts the live pool/model counts", () => {
+  assert.equal(
+    checkInventory("43 provider pools / 522 model budget entries", { pools: 43, models: 522 }).ok,
+    true
+  );
+});
+
+test("free-tier inventory gate rejects stale model counts", () => {
+  const result = checkInventory("43 provider pools / 516 models", { pools: 43, models: 522 });
+  assert.equal(result.ok, false);
+  assert.match(result.detail, /live catalog has 43 pools \/ 522 model budget entries/);
+});
+
 // --- Generic numeric-claim gate (engines / MCP tools / scopes / CLI) --------
 // Extends the same drift guard to the counts that silently drifted in v3.8.49:
-// 11→12 engines, 94→104 MCP tools, 30→31 scopes, 26→33 CLI tools.
+// 11→12 engines, 94→107 MCP tools, 30→32 scopes, 26→33 CLI tools.
 import { makeNumberClaimValidator } from "../../scripts/check/check-docs-counts-sync.mjs";
 
 const makeValidator = makeNumberClaimValidator as (
@@ -157,19 +209,19 @@ const makeValidator = makeNumberClaimValidator as (
 ) => (content: string) => { ok: boolean; detail: string };
 
 test("MCP-tools gate accepts the aggregate and rejects a stale one", () => {
-  const v = makeValidator(104, {
+  const v = makeValidator(107, {
     what: "MCP tools",
     pattern: /(\d+) tools/gi,
     skipBefore: /(tools?|definitions?)\s*\(\s*$/i,
     skipAfter: /^\s*\(\d+ CLI/,
   });
-  assert.equal(v("MCP Server (104 tools)").ok, true);
-  assert.equal(v("with 104 tools total").ok, true);
+  assert.equal(v("MCP Server (107 tools)").ok, true);
+  assert.equal(v("with 107 tools total").ok, true);
   assert.equal(v("MCP Server (94 tools)").ok, false);
 });
 
 test("MCP-tools gate ignores per-module counts and the CLI catalog total", () => {
-  const v = makeValidator(104, {
+  const v = makeValidator(107, {
     what: "MCP tools",
     pattern: /(\d+) tools/gi,
     skipBefore: /(tools?|definitions?)\s*\(\s*$/i,
@@ -195,4 +247,88 @@ test("compression-engines and CLI-tools gates catch their v3.8.49 drift", () => 
   });
   assert.equal(cli("all 33 tools (25 CLI Code's)").ok, true);
   assert.equal(cli("all 26 tools (25 CLI Code's)").ok, false);
+});
+
+// --- v3.8.50 hardening: live provider source, llm.txt/package.json, migrations, SVGs --
+// Regression guards for the 2026-08-12 audit: PROVIDER_REFERENCE.md was hand-stale at
+// 291 while the live provider modules defined 338, and the gate trusted the doc — so
+// README/AGENTS validated against a stale total and the gate stayed falsely green.
+import {
+  countMigrations,
+  makeProviderReferenceValidator,
+  makePackageDescriptionValidator,
+  checkSvgCanonicalNumbers,
+} from "../../scripts/check/check-docs-counts-sync.mjs";
+
+const countMigs = countMigrations as () => number;
+const makeRefValidator = makeProviderReferenceValidator as (
+  expected: number
+) => (content: string) => { ok: boolean; detail: string };
+const makePkgValidator = makePackageDescriptionValidator as (
+  expected: number
+) => (content: string) => { ok: boolean; detail: string };
+const checkSvg = checkSvgCanonicalNumbers as (
+  content: string,
+  expected: { providers?: number; mcpTools?: number; strategies?: number; pools?: number }
+) => { ok: boolean; detail: string };
+
+test("countMigrations reads a real, positive migration count", () => {
+  assert.ok(countMigs() > 100, "migrations dir should hold > 100 .sql files");
+});
+
+test("provider-reference validator accepts the live total and rejects a stale doc", () => {
+  const v = makeRefValidator(338);
+  assert.equal(v("Total providers: **338**. See category breakdown below.").ok, true);
+  const stale = v("Total providers: **291**. See category breakdown below.");
+  assert.equal(stale.ok, false, "a hand-stale doc total must be a red, not a silent pass");
+  assert.match(stale.detail, /gen:provider-reference/);
+  assert.equal(v("# Provider Reference\n\nNo total marker.").ok, false);
+});
+
+test("package.json description validator catches a stale provider count", () => {
+  const v = makePkgValidator(338);
+  assert.equal(v(JSON.stringify({ description: "Unified AI router with 338 providers" })).ok, true);
+  assert.equal(
+    v(JSON.stringify({ description: "Unified AI router with 291 providers" })).ok,
+    false
+  );
+  assert.equal(v("not json at all {").ok, false);
+});
+
+test("migrations claim validator accepts the real count and rejects stale styles", () => {
+  const v = makeValidator(144, { what: "migrations", pattern: /(\d+)\+? migrations?\b/gi });
+  assert.equal(v("SQLite domain modules (144 migrations)").ok, true);
+  assert.equal(v("local, zero-config, 110+ migrations").ok, false);
+  assert.equal(v("(130 migrations)").ok, false);
+});
+
+const SVG_EXPECTED = { providers: 338, mcpTools: 105, strategies: 19, pools: 42 };
+
+test("SVG gate accepts canonical numbers in text and aria-label claims", () => {
+  const good =
+    'aria-label="338 AI providers, 19 routing strategies, MCP with 105 tools, ' +
+    '42 provider pools" <text>338 providers</text><text>MCP (105</text>';
+  assert.equal(checkSvg(good, SVG_EXPECTED).ok, true);
+});
+
+test("SVG gate flags each stale canonical number the audit found", () => {
+  for (const stale of [
+    "<text>290 providers</text>",
+    'aria-label="MCP server with 104 tools"',
+    "<text>MCP (104</text>",
+    "<text>18 routing strategies</text>",
+    'aria-label="43 provider pools and 460+ models"',
+  ]) {
+    const r = checkSvg(stale, SVG_EXPECTED);
+    assert.equal(r.ok, false, `expected stale claim to be flagged: ${stale}`);
+  }
+});
+
+test("SVG gate ignores coordinates, sizes and unrelated small counts", () => {
+  const noise =
+    '<path d="M 30,310 C 136,290 176,240 296,206"/><rect width="104" height="24"/>' +
+    '<animate values="250;290;250"/><text font-size="104">15 providers ToS-flagged</text>' +
+    "<text>100+ providers</text><text>90+ free</text>";
+  const r = checkSvg(noise, SVG_EXPECTED);
+  assert.equal(r.ok, true, `coordinates/attrs must never register claims: ${r.detail}`);
 });
