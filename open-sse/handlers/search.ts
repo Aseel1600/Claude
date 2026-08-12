@@ -304,7 +304,7 @@ function buildSerperRequest(
     url: `${config.baseUrl}${endpoint}`,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": params.token },
+      headers: { "Content-Type": "application/json", "X-API-Key": params.token ?? "" },
       body: JSON.stringify(body),
     },
   };
