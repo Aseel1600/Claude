@@ -552,6 +552,7 @@ _Living section — regenerated 2026-08-12 from all cycle commits (cycle open `e
 
 ### 📝 Maintenance
 
+- **refactor(providers):** removed the Puter provider (id `puter`, alias `pu`) entirely — registry entry, `PuterExecutor`, API-key preset, 33 free-catalog models, i18n auth hints and docs — at the request of Puter's owner, Nariman Jelveh. Migration 152 cleans up any locally stored Puter connections/keys/custom models; historical usage records are preserved.
 - **fix(types):** preserve the client response format contract while estimating usage for non-streaming responses (#8484)
 - Preserve the Responses API transform options contract under TypeScript 7.
 - **fix(types):** preserved the known first-failure record while reading Anthropic thinking-signature recovery details so TypeScript 7 keeps the retry result union narrow ([#8484](https://github.com/diegosouzapw/OmniRoute/issues/8484))

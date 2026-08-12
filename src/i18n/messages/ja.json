@@ -5949,7 +5949,6 @@
       "poe": "Poeはhttps://api.poe.com/v1でOpenAI互換のチャットとレスポンスを提供し、/usage/current_balanceで認証済みの残高確認を行います。",
       "pollinations": "無料のキーレス層：openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning。プレミアムモデル（claude, gemini, midijourney）にはenter.pollinations.aiから取得したPollinations APIキーが必要です。",
       "publicai": "APIキーが必要 — 初回登録時の無料クレジット、その後は有料",
-      "puter": "puter.com/dashboardでトークンを取得 → Auth Tokenをコピー",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-keyでQiniu AI推論APIキーを作成し、ここにBearerトークンとして貼り付けます。https://api.qnaigc.com/v1にあるOpenAI互換のエンドポイントは、1つのキーの背後でDeepSeek、Claude、Kimiなどをプロキシします。",
       "recraft": "APIキーでRecraftに接続します。",
       "reka": "Reka Chatは/v1でOpenAI互換です。OmniRouteは/v1/modelsを調査し、チャットトラフィックを/v1/chat/completionsにルーティングします。",

@@ -5,7 +5,8 @@
 ---
 
 
-> OmniRoute is a free, open-source AI Gateway that acts as a universal API proxy for multi-provider LLMs. It provides smart routing, automatic fallback, load balancing, and format translation across 338 AI providers — all through a single OpenAI-compatible endpoint. Includes a built-in MCP Server (105 tools), A2A v0.3 protocol, Memory/Skills systems, Cloud Agents (codex, cursor, devin, jules), Guardrails framework, and an Electron desktop app.
+
+> OmniRoute is a free, open-source AI Gateway that acts as a universal API proxy for multi-provider LLMs. It provides smart routing, automatic fallback, load balancing, and format translation across 337 AI providers — all through a single OpenAI-compatible endpoint. Includes a built-in MCP Server (105 tools), A2A v0.3 protocol, Memory/Skills systems, Cloud Agents (codex, cursor, devin, jules), Guardrails framework, and an Electron desktop app.
 
 ## Overview
 
@@ -19,7 +20,7 @@ OmniRoute solves the problem of managing multiple AI provider subscriptions, quo
 
 - **Runtime:** Node.js `>=22.0.0 <23 || >=24.0.0 <27`, ES Modules (`"type": "module"`)
 - **Framework:** Next.js 16 (App Router) with TypeScript 6
-- **Database:** SQLite via better-sqlite3 (local, zero-config, 144 migrations)
+- **Database:** SQLite via better-sqlite3 (local, zero-config, 145 migrations)
 - **State management:** Zustand (client), SQLite (server persistence)
 - **UI:** React 19, Tailwind CSS 4, Recharts for analytics, @lobehub/icons for 130+ provider SVG icons
 - **Auth:** OAuth 2.0 (PKCE) for providers, bcrypt for local user auth
@@ -170,7 +171,7 @@ OmniRoute solves the problem of managing multiple AI provider subscriptions, quo
 │   │   └── manager.ts            # MITM proxy manager
 │   ├── shared/                   # Shared utilities, components, and constants
 │   │   ├── components/           # Reusable UI components (Card, Badge, Button, Modal, Sidebar, ProviderIcon, etc.)
-│   │   ├── constants/            # Provider definitions (338), model lists, pricing, routing strategies, MCP scopes
+│   │   ├── constants/            # Provider definitions (337), model lists, pricing, routing strategies, MCP scopes
 │   │   ├── contracts/            # Shared API contracts
 │   │   ├── hooks/                # React hooks
 │   │   ├── middleware/           # Shared middleware utilities
@@ -199,8 +200,7 @@ OmniRoute solves the problem of managing multiple AI provider subscriptions, quo
 │   │   ├── vertex.ts             # Vertex AI (Service Account JSON)
 │   │   ├── cloudflare-ai.ts      # Cloudflare Workers AI
 │   │   ├── opencode.ts           # OpenCode Zen/Go
-│   │   ├── pollinations.ts       # Pollinations AI
-│   │   └── puter.ts              # Puter AI
+│   │   └── pollinations.ts       # Pollinations AI
 │   ├── handlers/                 # Request handlers per API type (11 handlers)
 │   │   ├── chatCore.ts           # Main chat completions handler
 │   │   ├── responsesHandler.ts   # OpenAI Responses API handler
@@ -283,7 +283,7 @@ OmniRoute solves the problem of managing multiple AI provider subscriptions, quo
 ## Key Features (v3.8.50)
 
 ### Core Proxy
-- **338 AI providers** with automatic format translation
+- **337 AI providers** with automatic format translation
 - **Provider categories**: Free (90+ free tiers), OAuth, API Key, Self-Hosted, Custom (OpenAI/Anthropic-compatible)
 - **18 routing strategies**: priority, weighted, round-robin, fill-first, p2c, random, least-used, cost-optimized, reset-aware, reset-window, headroom, strict-random, auto, lkgp, context-optimized, context-relay, fusion, pipeline
 - **4-tier fallback**: Subscription → API Key → Cheap → Free
@@ -369,7 +369,7 @@ diagnostics) plus **memory**, **skill**, **agentSkill**, **githubSkill**, **pool
 
 **OAuth Providers (13):** Claude Code, Antigravity, OpenAI Codex, GitHub Copilot, Cursor IDE, Kimi Coding, Kilo Code, Cline, Kiro, Qoder, Gemini, Windsurf, GitLab Duo
 
-**API Key Providers (48+):** OpenAI, Anthropic, Gemini (Google AI Studio), DeepSeek, Groq, xAI (Grok), Mistral, Perplexity, Together AI, Fireworks AI, Cerebras, Cohere, NVIDIA NIM, Nebius AI, SiliconFlow, Hyperbolic, HuggingFace, OpenRouter, Vertex AI, Cloudflare Workers AI, Scaleway AI, AI/ML API, Pollinations AI, Puter AI, LongCat AI, Alibaba, Alibaba (China), Kimi, Kimi Coding (API Key), Minimax, Minimax (China), Blackbox AI, Synthetic, Kilo Gateway, Z.AI, GLM Coding, Deepgram, AssemblyAI, ElevenLabs, Cartesia, PlayHT, Inworld, NanoBanana, SD WebUI, ComfyUI, Ollama Cloud, Perplexity Search, Serper Search, Brave Search, Exa Search, Tavily Search, OpenCode Zen, OpenCode Go, Alibaba Coding Plan
+**API Key Providers (48+):** OpenAI, Anthropic, Gemini (Google AI Studio), DeepSeek, Groq, xAI (Grok), Mistral, Perplexity, Together AI, Fireworks AI, Cerebras, Cohere, NVIDIA NIM, Nebius AI, SiliconFlow, Hyperbolic, HuggingFace, OpenRouter, Vertex AI, Cloudflare Workers AI, Scaleway AI, AI/ML API, Pollinations AI, LongCat AI, Alibaba, Alibaba (China), Kimi, Kimi Coding (API Key), Minimax, Minimax (China), Blackbox AI, Synthetic, Kilo Gateway, Z.AI, GLM Coding, Deepgram, AssemblyAI, ElevenLabs, Cartesia, PlayHT, Inworld, NanoBanana, SD WebUI, ComfyUI, Ollama Cloud, Perplexity Search, Serper Search, Brave Search, Exa Search, Tavily Search, OpenCode Zen, OpenCode Go, Alibaba Coding Plan
 
 **Custom Providers:** OpenAI-compatible (`openai-compatible-*`) and Anthropic-compatible (`anthropic-compatible-*`) with custom base URLs
 
@@ -440,7 +440,7 @@ diagnostics) plus **memory**, **skill**, **agentSkill**, **githubSkill**, **pool
 
 4. **Environment variables:** All configuration is in `.env` (from `.env.example`). Key vars: `PORT`, `NEXT_PUBLIC_BASE_URL`, `API_KEY`, `ADMIN_PASSWORD`.
 
-5. **Database layer:** Operations go through `src/lib/db/` modules (117 domain-specific files, 144 migrations). `localDb.ts` is re-exports only — add new functions to the proper `db/*.ts` module.
+5. **Database layer:** Operations go through `src/lib/db/` modules (117 domain-specific files, 145 migrations). `localDb.ts` is re-exports only — add new functions to the proper `db/*.ts` module.
 
 6. **Tests** use Node.js built-in test runner + Vitest. Run `npm test`. Vitest for MCP/autoCombo (`npm run test:vitest`). Playwright for E2E (`npm run test:e2e`). Coverage gate: ratchet vs `quality-baseline.json`, absolute floor 60% statements/lines/functions/branches.
 
@@ -481,7 +481,7 @@ diagnostics) plus **memory**, **skill**, **agentSkill**, **githubSkill**, **pool
 
 ## v3.8.x Highlights
 
-- **338-provider catalog** with 90+ free tiers, one-click account imports, and bulk key add
+- **337-provider catalog** with 90+ free tiers, one-click account imports, and bulk key add
 - **19 routing strategies** — including `fusion` (parallel panel + judge synthesis), `pipeline`, `reset-aware`, `reset-window`, `headroom`, and `context-relay`
 - **14-factor Auto-Combo scoring** with bandit exploration and progressive cooldown
 - **MCP server expanded to 105 tools / 31 scopes** (base + memory/skill/agentSkill/githubSkill/pool/notion/obsidian/localCorpus/gamification/plugin modules)

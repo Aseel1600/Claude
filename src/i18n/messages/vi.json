@@ -6114,7 +6114,6 @@
       "poe": "Poe cung cấp trò chuyện và Responses tương thích OpenAI tại https://api.poe.com/v1, kèm kiểm tra số dư có xác thực tại /usage/current_balance.",
       "pollinations": "Gói miễn phí không cần khóa: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Mô hình cao cấp (claude, gemini, midijourney) yêu cầu khóa API Pollinations từ enter.pollinations.ai.",
       "publicai": "Yêu cầu khóa API — nhận tín dụng một lần khi đăng ký, sau đó trả phí",
-      "puter": "Lấy token tại puter.com/dashboard → Copy Auth Token",
       "qiniu": "Tạo khóa API suy luận Qiniu AI tại https://portal.qiniu.com/ai-inference/api-key, rồi dán dưới dạng token Bearer. Endpoint tương thích OpenAI tại https://api.qnaigc.com/v1, làm proxy cho DeepSeek, Claude, Kimi và nhiều mô hình khác sau một khóa.",
       "recraft": "Kết nối Recraft bằng khóa API.",
       "reka": "Reka Chat tương thích OpenAI trên /v1. OmniRoute thăm dò /v1/models và định tuyến trò chuyện tới /v1/chat/completions.",

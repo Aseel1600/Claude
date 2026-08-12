@@ -5949,7 +5949,6 @@
       "poe": "Poe expune chat și răspunsuri compatibile cu OpenAI la https://api.poe.com/v1, cu verificări autentificate ale soldului la /usage/current_balance.",
       "pollinations": "Nivel gratuit fără cheie: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Modelele premium (claude, gemini, midijourney) necesită o cheie API Pollinations de la enter.pollinations.ai.",
       "publicai": "Necesită o cheie API — credit unic la înregistrare, apoi cu plată",
-      "puter": "Obține tokenul la puter.com/dashboard → Copy Auth Token",
       "qiniu": "Creează o cheie API Qiniu AI inference la https://portal.qiniu.com/ai-inference/api-key, apoi lipește-o aici ca token Bearer. Endpoint compatibil cu OpenAI la https://api.qnaigc.com/v1, oferind proxy pentru DeepSeek, Claude, Kimi și altele în spatele unei singure chei.",
       "recraft": "Conectează Recraft cu o cheie API.",
       "reka": "Reka Chat este compatibil cu OpenAI pe /v1. OmniRoute sondează /v1/models și direcționează traficul de chat către /v1/chat/completions.",

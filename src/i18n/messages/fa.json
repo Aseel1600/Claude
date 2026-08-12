@@ -5949,7 +5949,6 @@
       "poe": "سرویس Poe چت و پاسخ‌های سازگار با OpenAI را در https://api.poe.com/v1 ارائه می‌دهد، همراه با بررسی موجودی احراز هویت شده در /usage/current_balance.",
       "pollinations": "سطح رایگان بدون کلید: openai، openai-fast، openai-large، qwen-coder، mistral، deepseek، grok، gemini-flash-lite-3.1، perplexity-fast، perplexity-reasoning. مدل‌های پرمیوم (claude، gemini، midijourney) به یک کلید API از Pollinations از آدرس enter.pollinations.ai نیاز دارند.",
       "publicai": "نیاز به یک کلید API دارد — اعتبار ثبت‌نام یک‌بار مصرف، سپس پرداخت هزینه",
-      "puter": "توکن را در puter.com/dashboard دریافت کنید ← کپی کردن Auth Token",
       "qiniu": "یک کلید API استنتاج Qiniu AI در https://portal.qiniu.com/ai-inference/api-key بسازید، سپس آن را در اینجا به عنوان توکن Bearer جای‌گذاری کنید. نقطه پایانی سازگار با OpenAI در https://api.qnaigc.com/v1، که DeepSeek، Claude، Kimi و موارد دیگر را پشت یک کلید پروکسی می‌کند.",
       "recraft": "اتصال Recraft با یک کلید API.",
       "reka": "سرویس Reka Chat در مسیر /v1 با OpenAI سازگار است. OmniRoute مسیر /v1/models را بررسی کرده و ترافیک چت را به /v1/chat/completions هدایت می‌کند.",

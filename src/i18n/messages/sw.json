@@ -5949,7 +5949,6 @@
       "poe": "Poe hutoa gumzo na majibu yanayooana na OpenAI kwenye https://api.poe.com/v1, ikiwa na ukaguzi wa salio uliothibitishwa kwenye /usage/current_balance.",
       "pollinations": "Kiwango cha bure kisicho na ufunguo: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Miundo ya kulipia (claude, gemini, midijourney) inahitaji ufunguo wa API wa Pollinations kutoka enter.pollinations.ai.",
       "publicai": "Inahitaji ufunguo wa API — salio la mara moja la kujisajili, kisha ya kulipia",
-      "puter": "Pata tokeni kwenye puter.com/dashboard → Copy Auth Token",
       "qiniu": "Unda ufunguo wa API wa makisio ya Qiniu AI kwenye https://portal.qiniu.com/ai-inference/api-key, kisha ubandike hapa kama tokeni ya Bearer. Endpoint inayooana na OpenAI iko kwenye https://api.qnaigc.com/v1, ikifanya kazi kama proksi ya DeepSeek, Claude, Kimi na zaidi nyuma ya ufunguo mmoja.",
       "recraft": "Unganisha Recraft kwa kutumia ufunguo wa API.",
       "reka": "Reka Chat inaoana na OpenAI kwenye /v1. OmniRoute huchunguza /v1/models na kuelekeza trafiki ya gumzo kwenye /v1/chat/completions.",

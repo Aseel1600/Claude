@@ -481,7 +481,7 @@ open-sse/
 `antigravity`、`azure-openai`、`blackbox-web`、`chatgpt-web`、`cliproxyapi`、
 `cloudflare-ai`、`codex`、`commandCode`、`cursor`、`default`、`devin-cli`、
 `muse-spark-web`、`nlpcloud`、`opencode`、`perplexity-web`、`petals`、
-`pollinations`、`puter`、`qoder`、`vertex`、`windsurf`，加上 `claudeIdentity.ts`
+`pollinations`、`qoder`、`vertex`、`windsurf`，加上 `claudeIdentity.ts`
 （共用身分識別輔助程式）和 `index.ts`（註冊表）。
 
 > 注意：未列在此處的提供者由 `default.ts` 使用通用的

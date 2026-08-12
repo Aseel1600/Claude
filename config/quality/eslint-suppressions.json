@@ -34,11 +34,6 @@
       "count": 7
     }
   },
-  "open-sse/executors/puter.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11

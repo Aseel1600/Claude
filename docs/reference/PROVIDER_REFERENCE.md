@@ -10,7 +10,7 @@ lastUpdated: 2026-08-12
 > Regenerate with: `npm run gen:provider-reference`
 > **Last generated:** 2026-08-12
 
-Total providers: **338**. See category breakdown below.
+Total providers: **337**. See category breakdown below.
 
 ## Categories
 
@@ -118,7 +118,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (227)
+## API Key Providers (paid / paid-with-free-credits) (226)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -289,7 +289,6 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `poolside` | `poolside` | Poolside | API key | [link](https://poolside.ai) | Laguna S 2.1 and XS 2.1 are free during Preview; no public numeric quota is published. |
 | `predibase` | `predibase` | Predibase | API key | [link](https://predibase.com) | ⚠️ **DEPRECATED.** serving.app.predibase.com no longer resolves (sweep 2026-06-19); the managed serving API appears discontinued. |
 | `publicai` | `publicai` | PublicAI | API key | [link](https://publicai.co) | Requires an API key — one-time signup credit, then paid |
-| `puter` | `pu` | Puter AI | API key | [link](https://puter.com) | Get token at puter.com/dashboard → Copy Auth Token |
 | `qianfan` | `qianfan` | Baidu Qianfan | API key | [link](https://cloud.baidu.com/product-s/qianfan_home) | — |
 | `qiniu` | `qiniu` | Qiniu | API key | [link](https://www.qiniu.com) | — |
 | `qwen-cloud` | `qwc` | Qwen Cloud | API key | [link](https://www.qwencloud.com/) | — |
@@ -426,7 +425,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (101 implementations)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (100 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also

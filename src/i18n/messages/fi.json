@@ -5949,7 +5949,6 @@
       "poe": "Poe tarjoaa OpenAI-yhteensopivan chatin ja vastaukset osoitteessa https://api.poe.com/v1 sekä todennetut saldotarkistukset osoitteessa /usage/current_balance.",
       "pollinations": "Ilmainen avaimeton taso: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium-mallit (claude, gemini, midijourney) vaativat Pollinations API -avaimen osoitteesta enter.pollinations.ai.",
       "publicai": "Vaatii API-avaimen — kertaluonteinen rekisteröitymissaldo, sen jälkeen maksullinen",
-      "puter": "Hanki token osoitteessa puter.com/dashboard → Copy Auth Token",
       "qiniu": "Luo Qiniu AI -päättelyn API-avain osoitteessa https://portal.qiniu.com/ai-inference/api-key ja liitä se sitten tähän Bearer-tokenina. OpenAI-yhteensopiva päätepiste osoitteessa https://api.qnaigc.com/v1 välittää DeepSeek-, Claude-, Kimi- ja muita malleja yhden avaimen takana.",
       "recraft": "Yhdistä Recraft API-avaimella.",
       "reka": "Reka Chat on OpenAI-yhteensopiva polussa /v1. OmniRoute tutkii polun /v1/models ja reitittää chat-liikenteen polkuun /v1/chat/completions.",

@@ -5949,7 +5949,6 @@
       "poe": "Poe https://api.poe.com/v1 ünvanında OpenAI ilə uyğun söhbət və cavabları təqdim edir, /usage/current_balance ünvanında isə autentifikasiya edilmiş balans yoxlamalarını dəstəkləyir.",
       "pollinations": "Pulsuz açarsız səviyyə: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium modellər (claude, gemini, midijourney) enter.pollinations.ai saytından Pollinations API açarı tələb edir.",
       "publicai": "API açarı tələb olunur — qeydiyyat zamanı birdəfəlik kredit, sonra isə ödənişli",
-      "puter": "Tokeni puter.com/dashboard ünvanından əldə edin → Auth Token-i kopyalayın",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key ünvanında Qiniu AI inference API açarı yaradın, sonra onu bura Bearer tokeni kimi yapışdırın. OpenAI ilə uyğun son nöqtə https://api.qnaigc.com/v1 ünvanındadır və bir açar arxasında DeepSeek, Claude, Kimi və digərlərini proksiləşdirir.",
       "recraft": "Recraft-ı API açarı ilə qoşun.",
       "reka": "Reka Chat /v1 ünvanında OpenAI ilə uyğundur. OmniRoute /v1/models ünvanını yoxlayır və söhbət trafikini /v1/chat/completions ünvanına yönləndirir.",

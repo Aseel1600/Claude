@@ -5950,7 +5950,6 @@
       "poe": "Poe 在 https://api.poe.com/v1 提供 OpenAI 相容的聊天和回應功能，並在 /usage/current_balance 進行認證餘額檢查。",
       "pollinations": "免費無需金鑰方案：openai、openai-fast、openai-large、qwen-coder、mistral、deepseek、grok、gemini-flash-lite-3.1、perplexity-fast、perplexity-reasoning。進階模型（claude、gemini、midijourney）需要從 enter.pollinations.ai 取得 Pollinations API 金鑰。",
       "publicai": "需要 API 金鑰 — 一次性註冊額度，之後付費",
-      "puter": "在 puter.com/dashboard 取得 token → 複製 Auth Token",
       "qiniu": "在 https://portal.qiniu.com/ai-inference/api-key 建立七牛 AI 推論 API 金鑰，然後以 Bearer token 形式貼上。OpenAI 相容端點為 https://api.qnaigc.com/v1，使用單一金鑰代理 DeepSeek、Claude、Kimi 等模型。",
       "recraft": "使用 API 金鑰連線 Recraft。",
       "reka": "Reka Chat 在 /v1 提供 OpenAI 相容介面。OmniRoute 探測 /v1/models 並將聊天流量路由至 /v1/chat/completions。",

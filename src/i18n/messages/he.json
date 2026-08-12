@@ -5949,7 +5949,6 @@
       "poe": "Poe חושף chat ו-responses תואמי OpenAI בכתובת https://api.poe.com/v1, עם בדיקות יתרה מאומתות ב-/usage/current_balance.",
       "pollinations": "שכבה חינמית ללא מפתח: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. מודלי פרימיום (claude, gemini, midijourney) דורשים מפתח API של Pollinations מ-enter.pollinations.ai.",
       "publicai": "דורש מפתח API — קרדיט חד-פעמי בהרשמה, ולאחר מכן בתשלום",
-      "puter": "קבל טוקן ב-puter.com/dashboard → Copy Auth Token",
       "qiniu": "צור מפתח API להסקת Qiniu AI בכתובת https://portal.qiniu.com/ai-inference/api-key, ולאחר מכן הדבק אותו כאן כ-Bearer token. נקודת קצה תואמת OpenAI בכתובת https://api.qnaigc.com/v1, המשמשת כפרוקסי עבור DeepSeek, Claude, Kimi ועוד מאחורי מפתח יחיד.",
       "recraft": "חבר את Recraft באמצעות מפתח API.",
       "reka": "Reka Chat תואם ל-OpenAI ב-/v1. ‏OmniRoute בודק את /v1/models ומנתב תעבורת צ'אט אל /v1/chat/completions.",

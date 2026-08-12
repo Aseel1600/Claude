@@ -7,7 +7,7 @@
 
 # 🚀 OmniRoute — The Free AI Gateway
 
-<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 338 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with auto-fallback. RTK + Caveman stacked compression saves 15–95% tokens (~89% avg) — never hit limits. 338 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
+<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 337 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with auto-fallback. RTK + Caveman stacked compression saves 15–95% tokens (~89% avg) — never hit limits. 337 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
 
 </div>
 
@@ -62,7 +62,7 @@
 
 |                           | v3.8.49 | **v3.8.50** | `v3.8.51+`  |
 | ------------------------- | :-----: | :---------: | :---------: |
-| 🌐 Providers              |   291   |   **338**   | more queued |
+| 🌐 Providers              |   291   |   **337**   | more queued |
 | 🧠 Documented models      |  500+   |  **1200+**  |      —      |
 | 🖼️ Modality Bridge        |    —    |  🆕 vision  |    video    |
 | 📡 Radar free catalog     |    —    |      —      |   🔭 next   |
@@ -100,7 +100,7 @@
   <tr>
     <td align="right"><b>⚙️ Features</b></td>
     <td align="center"><a href="#-combos--the-flagship">🎯 Combos</a></td>
-    <td align="center"><a href="#-338-ai-providers--90-free">🌐 Providers</a></td>
+    <td align="center"><a href="#-337-ai-providers--90-free">🌐 Providers</a></td>
     <td align="center"><a href="#-full-cli--a2a--mcp">🔌 CLI &amp; MCP</a></td>
   </tr>
   <tr>
@@ -209,7 +209,7 @@ curl http://localhost:20128/v1/chat/completions \
 
 </div>
 
-<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint. 338 providers. Never stop building — OmniRoute picks the cheapest one that works. Six pillars: Never hit limits (auto-fallback across 338 providers in milliseconds, zero downtime) · Save up to 95% tokens (RTK + Caveman stacked compression cuts 15–95%, ~89% avg on tool-heavy sessions) · $0 to start (90+ free tiers, 40+ free forever — no card needed) · Every tool works (33 coding agents through one config) · One endpoint (OpenAI ↔ Claude ↔ Gemini ↔ Responses API at /v1) · Production-grade (circuit breakers, TLS stealth, MCP 105 tools, A2A, memory, guardrails, evals — 25,000+ tests)."/>
+<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint. 337 providers. Never stop building — OmniRoute picks the cheapest one that works. Six pillars: Never hit limits (auto-fallback across 337 providers in milliseconds, zero downtime) · Save up to 95% tokens (RTK + Caveman stacked compression cuts 15–95%, ~89% avg on tool-heavy sessions) · $0 to start (90+ free tiers, 40+ free forever — no card needed) · Every tool works (33 coding agents through one config) · One endpoint (OpenAI ↔ Claude ↔ Gemini ↔ Responses API at /v1) · Production-grade (circuit breakers, TLS stealth, MCP 105 tools, A2A, memory, guardrails, evals — 25,000+ tests)."/>
 
 <br/>
 <br/>
@@ -460,7 +460,7 @@ All **19** strategies — mix & match per combo step:
 
 </div>
 
-<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — comparison table vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 338 providers, 90+ free providers built-in, 19 routing strategies, 12-engine token compression, built-in MCP server with 105 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA, 43 i18n UI locales, 100% MIT self-hosted. OmniRoute is the only one with the full set; competitors show a mix of checks, partials and crosses. Verified from each project&apos;s docs."/>
+<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — comparison table vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 337 providers, 90+ free providers built-in, 19 routing strategies, 12-engine token compression, built-in MCP server with 105 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA, 43 i18n UI locales, 100% MIT self-hosted. OmniRoute is the only one with the full set; competitors show a mix of checks, partials and crosses. Verified from each project&apos;s docs."/>
 
 <sub>📊 Full methodology &amp; per-feature detail vs 9router, OpenRouter, CLIProxyAPI &amp; LiteLLM → [`docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md`](docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md)</sub>
 
@@ -537,7 +537,7 @@ Pix copia-e-cola:
 - **🖼️ New endpoints** — `/v1/ocr` (Mistral OCR) and `/v1/audio/translations` (Whisper-style) round out the media surface. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🎨 Image / video / audio generation** — one API for media: xAI Grok Imagine & Novita AI video, ComfyUI, Freepik, Adobe Firefly, Microsoft Designer, Google Imagen, Segmind, EdgeTTS. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🌍 Deployment & ops** — reverse-proxy `basePath`, browser-language auto-detect, per-key device tracking, root-less MITM trust, zh-TW localization. → [Environment](docs/reference/ENVIRONMENT.md)
-- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **338-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
+- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **337-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
 - **📡 Routing transparency** — every response carries an `X-OmniRoute-Decision` header naming the strategy/provider/latency that served it, a new `cache-optimized` combo strategy + Auto-Combo `cacheAffinity` factor route repeat requests back to the connection holding the cached prefix, and a read-only `/v1/auto-combo/{channel}/candidates` endpoint exposes an `auto/*` channel's live candidate pool. → [Auto-Combo](docs/routing/AUTO-COMBO.md)
 - **⚡ Local performance & infra** — one-click local Redis, Cloudflare Workers / Deno Deploy relay deployers, Bifrost & Mux as supervised embedded services. → [Embedded Services](docs/frameworks/EMBEDDED-SERVICES.md)
 
@@ -598,11 +598,11 @@ Pix copia-e-cola:
 
 <div align="center">
 
-## 🌐 338 AI Providers — 90+ Free
+## 🌐 337 AI Providers — 90+ Free
 
 </div>
 
-> The most complete catalog of any open-source router: **338 providers**, **90+ with a free tier**, **40+ free forever**.
+> The most complete catalog of any open-source router: **337 providers**, **90+ with a free tier**, **40+ free forever**.
 
 <div align="center">
 
@@ -1060,7 +1060,7 @@ same process on one port, so there is no separate CLI-only package today.
   <tr><td nowrap><b>Runtime</b></td><td>Node.js 22.x / 24.x LTS — <code>&gt;=22.22.2 &lt;23 || &gt;=24.0.0 &lt;27</code></td></tr>
   <tr><td nowrap><b>Language</b></td><td>TypeScript 6.0 — <b>100% TypeScript</b> across <code>src/</code> and <code>open-sse/</code> (zero <code>any</code> in core since v2.0)</td></tr>
   <tr><td nowrap><b>Framework</b></td><td>Next.js 16 + React 19 + Tailwind CSS 4</td></tr>
-  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 95 domain modules, 144 migrations</td></tr>
+  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 95 domain modules, 145 migrations</td></tr>
   <tr><td nowrap><b>Memory</b></td><td>SQLite FTS5 full-text + int8-quantized vector embeddings, typed decay</td></tr>
   <tr><td nowrap><b>Schemas</b></td><td>Zod 4 — MCP tool I/O validation + API contracts</td></tr>
   <tr><td nowrap><b>Protocols</b></td><td>MCP (stdio / HTTP / SSE) + A2A v0.3 (JSON-RPC 2.0 + SSE)</td></tr>

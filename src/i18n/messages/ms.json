@@ -5949,7 +5949,6 @@
       "poe": "Poe mendedahkan sembang dan respons serasi OpenAI pada https://api.poe.com/v1, dengan semakan baki disahkan pada /usage/current_balance.",
       "pollinations": "Peringkat tanpa kunci percuma: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Model premium (claude, gemini, midijourney) memerlukan kunci API Pollinations daripada enter.pollinations.ai.",
       "publicai": "Memerlukan kunci API — kredit pendaftaran sekali sahaja, kemudian berbayar",
-      "puter": "Dapatkan token di puter.com/dashboard → Salin Auth Token",
       "qiniu": "Cipta kunci API inferens Qiniu AI di https://portal.qiniu.com/ai-inference/api-key, kemudian tampalkannya di sini sebagai token Bearer. Titik akhir serasi OpenAI di https://api.qnaigc.com/v1, memproksikan DeepSeek, Claude, Kimi dan banyak lagi di sebalik satu kunci.",
       "recraft": "Sambungkan Recraft dengan kunci API.",
       "reka": "Reka Chat adalah serasi OpenAI pada /v1. OmniRoute menyiasat /v1/models dan menghalakan trafik sembang ke /v1/chat/completions.",

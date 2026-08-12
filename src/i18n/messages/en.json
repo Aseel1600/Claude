@@ -6129,7 +6129,6 @@
       "poe": "Poe exposes OpenAI-compatible chat and responses on https://api.poe.com/v1, with authenticated balance checks on /usage/current_balance.",
       "pollinations": "Free keyless tier: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium models (claude, gemini, midijourney) require a Pollinations API key from enter.pollinations.ai.",
       "publicai": "Requires an API key — one-time signup credit, then paid",
-      "puter": "Get token at puter.com/dashboard → Copy Auth Token",
       "qiniu": "Create a Qiniu AI inference API key at https://portal.qiniu.com/ai-inference/api-key, then paste it here as a Bearer token. OpenAI-compatible endpoint at https://api.qnaigc.com/v1, proxying DeepSeek, Claude, Kimi and more behind one key.",
       "recraft": "Connect Recraft with an API key.",
       "reka": "Reka Chat is OpenAI-compatible on /v1. OmniRoute probes /v1/models and routes chat traffic to /v1/chat/completions.",

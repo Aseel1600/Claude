@@ -5949,7 +5949,6 @@
       "poe": "Poe https://api.poe.com/v1 पर OpenAI-संगत चैट और रिस्पॉन्स एक्सपोज़ करता है, जिसमें /usage/current_balance पर प्रमाणित बैलेंस चेक शामिल है।",
       "pollinations": "मुफ्त कीलेस टियर: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning। प्रीमियम मॉडल (claude, gemini, midijourney) के लिए enter.pollinations.ai से एक Pollinations API कुंजी की आवश्यकता होती है।",
       "publicai": "एक API कुंजी की आवश्यकता है — एक बार साइनअप क्रेडिट, फिर सशुल्क",
-      "puter": "puter.com/dashboard पर टोकन प्राप्त करें → Auth Token कॉपी करें",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key पर एक Qiniu AI इनफेरेंस API कुंजी बनाएं, फिर इसे यहाँ Bearer टोकन के रूप में पेस्ट करें। https://api.qnaigc.com/v1 पर OpenAI-संगत एंडपॉइंट, जो एक कुंजी के पीछे DeepSeek, Claude, Kimi और अन्य को प्रॉक्सी करता है।",
       "recraft": "API कुंजी के साथ Recraft को कनेक्ट करें।",
       "reka": "Reka Chat /v1 पर OpenAI-संगत है। OmniRoute /v1/models की जांच करता है और चैट ट्रैफ़िक को /v1/chat/completions पर रूट करता है।",

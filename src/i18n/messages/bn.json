@@ -5949,7 +5949,6 @@
       "poe": "Poe https://api.poe.com/v1-এ OpenAI-সামঞ্জস্যপূর্ণ চ্যাট এবং রেসপন্স প্রকাশ করে, সাথে /usage/current_balance-এ অথেন্টিকেটেড ব্যালেন্স চেক করার সুবিধা রয়েছে।",
       "pollinations": "ফ্রি কী-হীন টিয়ার: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning। প্রিমিয়াম মডেলগুলোর (claude, gemini, midijourney) জন্য enter.pollinations.ai থেকে একটি Pollinations API কী প্রয়োজন।",
       "publicai": "একটি API কী প্রয়োজন — এককালীন সাইনআপ ক্রেডিট, তারপর পেইড",
-      "puter": "puter.com/dashboard থেকে টোকেন পান → Auth Token কপি করুন",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key-এ একটি Qiniu AI ইনফারেন্স API কী তৈরি করুন, তারপর এটি এখানে Bearer টোকেন হিসেবে পেস্ট করুন। https://api.qnaigc.com/v1-এ OpenAI-সামঞ্জস্যপূর্ণ এন্ডপয়েন্ট, যা একটি কী-এর মাধ্যমে DeepSeek, Claude, Kimi এবং আরও অনেক কিছু প্রক্সি করে।",
       "recraft": "একটি API কী দিয়ে Recraft কানেক্ট করুন।",
       "reka": "Reka Chat /v1-এ OpenAI-সামঞ্জস্যপূর্ণ। OmniRoute /v1/models প্রোব করে এবং চ্যাট ট্রাফিক /v1/chat/completions-এ রাউট করে।",

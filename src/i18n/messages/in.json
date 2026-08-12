@@ -5949,7 +5949,6 @@
       "poe": "Poe mengekspos chat dan responses yang kompatibel dengan OpenAI di https://api.poe.com/v1, dengan pemeriksaan saldo terautentikasi pada /usage/current_balance.",
       "pollinations": "Tingkat gratis tanpa kunci: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Model premium (claude, gemini, midijourney) memerlukan kunci API Pollinations dari enter.pollinations.ai.",
       "publicai": "Memerlukan kunci API — kredit pendaftaran satu kali, selanjutnya berbayar",
-      "puter": "Dapatkan token di puter.com/dashboard → Salin Token Auth",
       "qiniu": "Buat kunci API inferensi Qiniu AI di https://portal.qiniu.com/ai-inference/api-key, lalu tempelkan di sini sebagai token Bearer. Endpoint yang kompatibel dengan OpenAI di https://api.qnaigc.com/v1, memproksi DeepSeek, Claude, Kimi, dan lainnya di balik satu kunci.",
       "recraft": "Hubungkan Recraft dengan kunci API.",
       "reka": "Reka Chat kompatibel dengan OpenAI pada /v1. OmniRoute menyelidiki /v1/models dan mengarahkan lalu lintas chat ke /v1/chat/completions.",

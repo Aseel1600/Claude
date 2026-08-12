@@ -467,7 +467,7 @@ open-sse/
 `antigravity`、`azure-openai`、`blackbox-web`、`chatgpt-web`、`cliproxyapi`、
 `cloudflare-ai`、`codex`、`commandCode`、`cursor`、`default`、`devin-cli`、
 `muse-spark-web`、`nlpcloud`、`opencode`、`perplexity-web`、`petals`、
-`pollinations`、`puter`、`qoder`、`vertex`、`windsurf`，以及 `claudeIdentity.ts`
+`pollinations`、`qoder`、`vertex`、`windsurf`，以及 `claudeIdentity.ts`
 （共享身份标识辅助）和 `index.ts`（注册表）。
 
 > 注意：未在此列出的服务商由 `default.ts` 通过通用 OpenAI 兼容执行器提供服务。完整的服务商目录（237 条目）位于 `src/shared/constants/providers.ts`。

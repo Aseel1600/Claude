@@ -5949,7 +5949,6 @@
       "poe": "Poe ให้บริการ chat และ responses ที่เข้ากันได้กับ OpenAI บน https://api.poe.com/v1 พร้อมการตรวจสอบยอดคงเหลือที่ผ่านการยืนยันตัวตนบน /usage/current_balance",
       "pollinations": "ระดับฟรีแบบไม่ต้องใช้คีย์: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning โมเดลพรีเมียม (claude, gemini, midijourney) ต้องใช้คีย์ API ของ Pollinations จาก enter.pollinations.ai",
       "publicai": "ต้องใช้คีย์ API — เครดิตลงทะเบียนแบบครั้งเดียว จากนั้นเป็นแบบชำระเงิน",
-      "puter": "รับโทเค็นที่ puter.com/dashboard → Copy Auth Token",
       "qiniu": "สร้างคีย์ API การอนุมาน Qiniu AI ที่ https://portal.qiniu.com/ai-inference/api-key จากนั้นวางที่นี่เป็นโทเค็น Bearer ปลายทางที่เข้ากันได้กับ OpenAI อยู่ที่ https://api.qnaigc.com/v1 ซึ่งทำหน้าที่เป็นพร็อกซีสำหรับ DeepSeek, Claude, Kimi และอื่นๆ ภายใต้คีย์เดียว",
       "recraft": "เชื่อมต่อ Recraft ด้วยคีย์ API",
       "reka": "Reka Chat เข้ากันได้กับ OpenAI บน /v1 โดย OmniRoute จะตรวจสอบ /v1/models และกำหนดเส้นทางการรับส่งข้อมูลแชทไปยัง /v1/chat/completions",

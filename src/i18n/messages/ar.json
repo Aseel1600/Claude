@@ -5949,7 +5949,6 @@
       "poe": "يوفر Poe دردشة واستجابات متوافقة مع OpenAI على https://api.poe.com/v1، مع التحقق من الرصيد المصادق عليه على /usage/current_balance.",
       "pollinations": "الفئة المجانية بدون مفتاح: openai، وopenai-fast، وopenai-large، وqwen-coder، وmistral، وdeepseek، وgrok، وgemini-flash-lite-3.1، وperplexity-fast، وperplexity-reasoning. تتطلب النماذج المميزة (claude، وgemini، وmidijourney) مفتاح Pollinations API من enter.pollinations.ai.",
       "publicai": "يتطلب مفتاح API — رصيد تسجيل لمرة واحدة، ثم مدفوع",
-      "puter": "احصل على الرمز المميز من puter.com/dashboard ← انسخ Auth Token",
       "qiniu": "أنشئ مفتاح Qiniu AI inference API على https://portal.qiniu.com/ai-inference/api-key، ثم الصقه هنا كرمز Bearer. نقطة نهاية متوافقة مع OpenAI على https://api.qnaigc.com/v1، لتوكيل DeepSeek وClaude وKimi والمزيد خلف مفتاح واحد.",
       "recraft": "ربط Recraft بمفتاح API.",
       "reka": "Reka Chat متوافق مع OpenAI على /v1. يقوم OmniRoute بفحص /v1/models وتوجيه حركة مرور الدردشة إلى /v1/chat/completions.",

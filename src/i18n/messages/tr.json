@@ -5949,7 +5949,6 @@
       "poe": "Poe, https://api.poe.com/v1 adresinde OpenAI uyumlu sohbet ve yanıtlar sunar; /usage/current_balance üzerinde kimliği doğrulanmış bakiye kontrolleri mevcuttur.",
       "pollinations": "Ücretsiz anahtarsız katman: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium modeller (claude, gemini, midijourney) enter.pollinations.ai adresinden alınacak bir Pollinations API anahtarı gerektirir.",
       "publicai": "API anahtarı gerektirir — tek seferlik kayıt kredisi, sonrasında ücretli",
-      "puter": "puter.com/dashboard adresinden belirteç alın → Auth Token'ı Kopyalayın",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key adresinde bir Qiniu AI çıkarım API anahtarı oluşturun, ardından buraya Bearer token olarak yapıştırın. OpenAI uyumlu uç nokta https://api.qnaigc.com/v1 adresindedir ve tek bir anahtar arkasında DeepSeek, Claude, Kimi ve daha fazlasını proxy olarak yönlendirir.",
       "recraft": "Recraft'ı bir API anahtarı ile bağlayın.",
       "reka": "Reka Chat, /v1 üzerinde OpenAI uyumludur. OmniRoute, /v1/models uç noktasını sorgular ve sohbet trafiğini /v1/chat/completions uç noktasına yönlendirir.",

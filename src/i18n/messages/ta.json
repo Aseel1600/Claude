@@ -5949,7 +5949,6 @@
       "poe": "Poe ஆனது https://api.poe.com/v1 இல் OpenAI-உடன் இணக்கமான அரட்டை மற்றும் பதில்களை வழங்குகிறது, மேலும் /usage/current_balance இல் அங்கீகரிக்கப்பட்ட இருப்புச் சோதனைகளைக் கொண்டுள்ளது.",
       "pollinations": "இலவச கீ இல்லாத அடுக்கு: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. பிரீமியம் மாதிரிகளுக்கு (claude, gemini, midijourney) enter.pollinations.ai இலிருந்து ஒரு Pollinations API கீ தேவைப்படுகிறது.",
       "publicai": "ஒரு API கீ தேவை — ஒரு முறை பதிவு செய்வதற்கான கிரெடிட், அதன் பிறகு கட்டணம் செலுத்த வேண்டும்",
-      "puter": "puter.com/dashboard இல் டோக்கனைப் பெறவும் → Auth Token-ஐ நகலெடுக்கவும்",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key இல் ஒரு Qiniu AI அனுமான API கீயை உருவாக்கி, பின்னர் அதை இங்கே Bearer டோக்கனாக ஒட்டவும். OpenAI-உடன் இணக்கமான எண்ட்பாயிண்ட் https://api.qnaigc.com/v1 இல் உள்ளது, இது ஒரு கீயின் கீழ் DeepSeek, Claude, Kimi மற்றும் பலவற்றை பிராக்சி செய்கிறது.",
       "recraft": "Recraft-ஐ ஒரு API கீ மூலம் இணைக்கவும்.",
       "reka": "Reka Chat ஆனது /v1 இல் OpenAI-உடன் இணக்கமானது. OmniRoute ஆனது /v1/models ஐ ஆய்வு செய்து, அரட்டை டிராஃபிக்கை /v1/chat/completions க்கு வழிப்படுத்துகிறது.",

@@ -5949,7 +5949,6 @@
       "poe": "Poe eksponerer OpenAI-kompatibel chat og responses på https://api.poe.com/v1 med godkendte saldotjek på /usage/current_balance.",
       "pollinations": "Gratis nøglefrit niveau: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium-modeller (claude, gemini, midijourney) kræver en Pollinations API-nøgle fra enter.pollinations.ai.",
       "publicai": "Kræver en API-nøgle — engangskredit ved tilmelding, derefter betalt",
-      "puter": "Hent token på puter.com/dashboard → Kopiér Auth Token",
       "qiniu": "Opret en Qiniu AI-inferens-API-nøgle på https://portal.qiniu.com/ai-inference/api-key, og indsæt den derefter her som en Bearer-token. OpenAI-kompatibelt slutpunkt på https://api.qnaigc.com/v1, der fungerer som proxy for DeepSeek, Claude, Kimi og flere bag én nøgle.",
       "recraft": "Forbind Recraft med en API-nøgle.",
       "reka": "Reka Chat er OpenAI-kompatibel på /v1. OmniRoute undersøger /v1/models og dirigerer chattrafik til /v1/chat/completions.",

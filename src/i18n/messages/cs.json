@@ -5949,7 +5949,6 @@
       "poe": "Poe poskytuje chat a odpovědi kompatibilní s OpenAI na adrese https://api.poe.com/v1, s ověřenou kontrolou zůstatku na /usage/current_balance.",
       "pollinations": "Bezplatná úroveň bez klíče: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Prémiové modely (claude, gemini, midijourney) vyžadují API klíč Pollinations z enter.pollinations.ai.",
       "publicai": "Vyžaduje API klíč — jednorázový kredit při registraci, poté placené",
-      "puter": "Získejte token na puter.com/dashboard → Zkopírujte Auth Token",
       "qiniu": "Vytvořte API klíč pro Qiniu AI inferenci na adrese https://portal.qiniu.com/ai-inference/api-key a poté jej vložte sem jako Bearer token. Koncový bod kompatibilní s OpenAI je na adrese https://api.qnaigc.com/v1, který pod jedním klíčem proxyuje DeepSeek, Claude, Kimi a další.",
       "recraft": "Připojte Recraft pomocí API klíče.",
       "reka": "Reka Chat je kompatibilní s OpenAI na /v1. OmniRoute testuje /v1/models a směruje chatovací provoz na /v1/chat/completions.",

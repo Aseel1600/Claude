@@ -922,7 +922,6 @@ flowchart LR
 | `PerplexityWebExecutor`  | Perplexity web                                                                                                                                              | Web 会话反向，用于聊延续                            |
 | `PetalsExecutor`         | Petals distributed inference                                                                                                                                | 去中心化集群路由                                   |
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                             | 无需 API Key、带速率限制的请求                     |
-| `PuterExecutor`          | Puter                                                                                                                                                       | 基于浏览器的服务商集成                             |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                    | PAT 和 OAuth 支持、多模型免费层                    |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                            | 服务帐户认证、基于区域的端点                       |
 | `DevinDesktopExecutor` | Devin Desktop | 导入的 API 密钥 + Connect-protobuf 聊天流 |
@@ -973,7 +972,6 @@ flowchart LR
 | SiliconFlow       | openai           | API Key               | ✅             | ✅         | ❌          | ❌                 |
 | Hyperbolic        | openai           | API Key               | ✅             | ✅         | ❌          | ❌                 |
 | Vertex AI         | gemini           | 服务帐户               | ✅             | ✅         | ✅          | ⚠️ Cloud Console   |
-| Puter             | openai           | API Key               | ✅             | ✅         | ❌          | ❌                 |
 | Command Code      | openai           | OAuth                 | ✅             | ✅         | ✅          | ⚠️ 每请求          |
 | Z.AI / GLM        | openai           | API Key / OAuth       | ✅             | ✅         | ❌          | ❌                 |
 | GLMT (preset)     | claude           | API Key               | ✅             | ✅         | ❌          | ⚠️ 每请求          |

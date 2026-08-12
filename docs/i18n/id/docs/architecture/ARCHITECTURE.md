@@ -674,7 +674,6 @@ Setiap penyedia memiliki pelaksana khusus yang memperluas `BaseExecutor` (dalam 
 | `KiroExecutor`         | AWS CodeWhisperer/Kiro                                                                                                                                      | Format biner AWS EventStream → konversi SSE                       |
 | `OpenCodeExecutor`     | OpenCode                                                                                                                                                    | Penyiapan penyedia yang kompatibel dengan AI SDK                                     |
 | `PollinationsExecutor` | Pollinations AI                                                                                                                                             | Tidak diperlukan kunci API, permintaan dengan tarif terbatas                           |
-| `PuterExecutor`        | Puter                                                                                                                                                       | Integrasi penyedia berbasis browser                                   |
 | `QoderExecutor`        | Qoder AI                                                                                                                                                    | Dukungan PAT dan OAuth, tingkat gratis multi-model                         |
 | `VertexExecutor`       | Google Vertex AI                                                                                                                                            | Otentikasi akun layanan, titik akhir berbasis wilayah                         |
 
@@ -719,7 +718,6 @@ Semua penyedia lain (termasuk node khusus yang kompatibel) menggunakan `DefaultE
 | SiliconFlow      | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Hyperbolic       | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Vertex AI        | gemini           | Service Account       | ✅               | ✅         | ✅            | ⚠️ Cloud Console   |
-| Puter            | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 
 ## Format Cakupan Terjemahan
 

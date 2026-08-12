@@ -5949,7 +5949,6 @@
       "poe": "A Poe OpenAI-kompatibilis chat és responses végpontokat tesz elérhetővé a https://api.poe.com/v1 címen, hitelesített egyenleg-ellenőrzéssel a /usage/current_balance végponton.",
       "pollinations": "Ingyenes, kulcs nélküli szint: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. A prémium modellekhez (claude, gemini, midijourney) Pollinations API-kulcs szükséges az enter.pollinations.ai oldalról.",
       "publicai": "API-kulcs szükséges — egyszeri regisztrációs kredit, utána fizetős",
-      "puter": "Szerezze be a tokent a puter.com/dashboard oldalon → Copy Auth Token",
       "qiniu": "Hozzon létre egy Qiniu AI inference API-kulcsot a https://portal.qiniu.com/ai-inference/api-key oldalon, majd illessze be ide Bearer tokenként. OpenAI-kompatibilis végpont a https://api.qnaigc.com/v1 címen, amely a DeepSeek, Claude, Kimi és további modelleket proxyzza egyetlen kulcs mögött.",
       "recraft": "Csatlakoztassa a Recraftot egy API-kulccsal.",
       "reka": "A Reka Chat OpenAI-kompatibilis a /v1 végponton. Az OmniRoute lekérdezi a /v1/models végpontot, és a csevegési forgalmat a /v1/chat/completions végpontra irányítja.",

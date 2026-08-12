@@ -5949,7 +5949,6 @@
       "poe": "Poe는 https://api.poe.com/v1에서 OpenAI 호환 채팅 및 응답을 제공하며, /usage/current_balance에서 인증된 잔액 확인을 지원합니다.",
       "pollinations": "무료 키리스(keyless) 티어: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. 프리미엄 모델(claude, gemini, midijourney)은 enter.pollinations.ai에서 발급받은 Pollinations API 키가 필요합니다.",
       "publicai": "API 키 필요 — 가입 시 1회성 크레딧 제공 후 유료 전환",
-      "puter": "puter.com/dashboard에서 토큰 받기 → Auth Token 복사",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key에서 Qiniu AI 추론 API 키를 생성한 후 여기에 Bearer 토큰으로 붙여넣으세요. https://api.qnaigc.com/v1의 OpenAI 호환 엔드포인트는 하나의 키로 DeepSeek, Claude, Kimi 등을 프록시합니다.",
       "recraft": "API 키로 Recraft를 연결합니다.",
       "reka": "Reka Chat은 /v1에서 OpenAI와 호환됩니다. OmniRoute는 /v1/models를 탐색하고 채팅 트래픽을 /v1/chat/completions로 라우팅합니다.",

@@ -351,7 +351,7 @@ export function FreeBudgetView({
   // "No API key required" — derived from routing behaviour, NOT from
   // freeType: "keyless". That field means "free access not quantifiable in
   // tokens"; probing the endpoints showed several of those rows (blackbox,
-  // puter, iflytek, sparkdesk, friendliai, muse-spark-web) answering 401/403
+  // iflytek, sparkdesk, friendliai, muse-spark-web) answering 401/403
   // with no credential. Listing them here would invite users to call providers
   // that reject them.
   const keylessModels = perModel.filter((m) => noCredentialProviders.includes(m.provider));

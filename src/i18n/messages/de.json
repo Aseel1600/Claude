@@ -5950,7 +5950,6 @@
       "poe": "Poe stellt OpenAI-kompatible Chat- und Responses-Endpunkte unter https://api.poe.com/v1 bereit, mit authentifizierten Guthabenabfragen auf /usage/current_balance.",
       "pollinations": "Kostenlose schlüssellose Stufe: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium-Modelle (claude, gemini, midijourney) erfordern einen Pollinations-API-Schlüssel von enter.pollinations.ai.",
       "publicai": "Erfordert einen API-Schlüssel — einmaliges Startguthaben bei Registrierung, danach kostenpflichtig",
-      "puter": "Token unter puter.com/dashboard abrufen → Auth-Token kopieren",
       "qiniu": "Erstellen Sie einen Qiniu-AI-Inferenz-API-Schlüssel unter https://portal.qiniu.com/ai-inference/api-key und fügen Sie ihn hier als Bearer-Token ein. OpenAI-kompatibler Endpunkt unter https://api.qnaigc.com/v1, der DeepSeek, Claude, Kimi und weitere hinter einem einzigen Schlüssel per Proxy bereitstellt.",
       "recraft": "Recraft mit einem API-Schlüssel verbinden.",
       "reka": "Reka Chat ist auf /v1 OpenAI-kompatibel. OmniRoute fragt /v1/models ab und leitet den Chat-Traffic an /v1/chat/completions weiter.",

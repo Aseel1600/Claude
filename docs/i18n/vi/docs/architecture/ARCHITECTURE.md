@@ -674,7 +674,6 @@ Each provider has a specialized executor extending `BaseExecutor` (in `open-sse/
 | `KiroExecutor`         | AWS CodeWhisperer/Kiro                                                                                                                                      | AWS EventStream binary format → SSE conversion                       |
 | `OpenCodeExecutor`     | OpenCode                                                                                                                                                    | AI SDK compatible provider setup                                     |
 | `PollinationsExecutor` | Pollinations AI                                                                                                                                             | No API key required, rate-limited requests                           |
-| `PuterExecutor`        | Puter                                                                                                                                                       | Browser-based provider integration                                   |
 | `QoderExecutor`        | Qoder AI                                                                                                                                                    | PAT and OAuth support, multi-model free tier                         |
 | `VertexExecutor`       | Google Vertex AI                                                                                                                                            | Service account auth, region-based endpoints                         |
 
@@ -719,7 +718,6 @@ All other providers (including custom compatible nodes) use the `DefaultExecutor
 | SiliconFlow      | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Hyperbolic       | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Vertex AI        | gemini           | Service Account       | ✅               | ✅         | ✅            | ⚠️ Cloud Console   |
-| Puter            | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 
 ## Format Translation Coverage
 

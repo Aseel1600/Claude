@@ -487,7 +487,7 @@ open-sse/
 `antigravity`, `azure-openai`, `blackbox-web`, `chatgpt-web`, `cliproxyapi`,
 `cloudflare-ai`, `codex`, `commiCode`, `cursor`, `default`, `devin-cli`,
 `muse-spark-web`, `nlpcloud`, `opencode`, `perplexity-web`, `petals`,
-`pollinations`, `puter`, `qoder`, `vertex`, `windsurf`, plus `claudeIdentity.ts`
+`pollinations`, `qoder`, `vertex`, `windsurf`, plus `claudeIdentity.ts`
 (współdzielony helper identity) i `index.ts` (rejestr).
 
 > Uwaga: providery niewymienione tutaj są obsługiwane przez `default.ts` z generycznym

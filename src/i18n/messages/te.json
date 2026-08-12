@@ -5949,7 +5949,6 @@
       "poe": "Poe అనేది https://api.poe.com/v1 లో OpenAI-అనుకూల చాట్ మరియు రెస్పాన్స్‌లను అందిస్తుంది, /usage/current_balance పై ప్రామాణీకరించబడిన బ్యాలెన్స్ తనిఖీలతో.",
       "pollinations": "ఉచిత కీ-లేని శ్రేణి: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. ప్రీమియం మోడల్‌లకు (claude, gemini, midijourney) enter.pollinations.ai నుండి Pollinations API కీ అవసరం.",
       "publicai": "API కీ అవసరం — ఒకసారి సైన్అప్ క్రెడిట్, ఆపై చెల్లింపు",
-      "puter": "puter.com/dashboard వద్ద టోకెన్ పొందండి → Auth Tokenని కాపీ చేయండి",
       "qiniu": "https://portal.qiniu.com/ai-inference/api-key వద్ద Qiniu AI ఇన్‌ఫరెన్స్ API కీని సృష్టించండి, ఆపై దానిని ఇక్కడ Bearer టోకెన్‌గా పేస్ట్ చేయండి. https://api.qnaigc.com/v1 వద్ద OpenAI-అనుకూల ఎండ్‌పాయింట్ ఉంది, ఇది ఒకే కీ వెనుక DeepSeek, Claude, Kimi మరియు మరిన్నింటిని ప్రాక్సీ చేస్తుంది.",
       "recraft": "API కీతో Recraftని కనెక్ట్ చేయండి.",
       "reka": "Reka Chat అనేది /v1 లో OpenAI-అనుకూలమైనది. OmniRoute అనేది /v1/models ని శోధిస్తుంది మరియు చాట్ ట్రాఫిక్‌ను /v1/chat/completions కి రూట్ చేస్తుంది.",
