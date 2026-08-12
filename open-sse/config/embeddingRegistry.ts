@@ -287,36 +287,6 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     ],
   },
 
-  "github-models": {
-    id: "github-models",
-    baseUrl: "https://models.github.ai/inference/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
-    models: [
-      {
-        id: "openai/text-embedding-3-large",
-        name: "OpenAI Text Embedding 3 (large)",
-        dimensions: 3_072,
-      },
-      {
-        id: "openai/text-embedding-3-small",
-        name: "OpenAI Text Embedding 3 (small)",
-        dimensions: 1_536,
-      },
-    ],
-  },
-
-  github: {
-    id: "github",
-    baseUrl: "https://models.inference.ai.azure.com/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
-    models: [
-      { id: "text-embedding-3-small", name: "Text Embedding 3 Small (GitHub)", dimensions: 1536 },
-      { id: "text-embedding-3-large", name: "Text Embedding 3 Large (GitHub)", dimensions: 3072 },
-    ],
-  },
-
   "jina-ai": {
     id: "jina-ai",
     structuredInputProtocol: "jina-v1",
@@ -406,6 +376,25 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
         id: "mixedbread-ai/mxbai-embed-2d-large-v1",
         name: "Mixedbread Embed 2D Large v1",
         dimensions: 1024,
+      },
+    ],
+  },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/v1/embeddings",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      {
+        id: "text-embedding-3-small",
+        name: "Text Embedding 3 Small",
+        dimensions: 1536,
+      },
+      {
+        id: "text-embedding-3-large",
+        name: "Text Embedding 3 Large",
+        dimensions: 3072,
       },
     ],
   },

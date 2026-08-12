@@ -44,14 +44,19 @@
       "count": 11
     }
   },
-  "open-sse/executors/vertex.ts": {
+  "open-sse/executors/tinycms.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore.ts": {
-    "no-restricted-imports": {
+  "open-sse/executors/tinycmsSigner.ts": {
+    "@typescript-eslint/no-explicit-any": {
       "count": 1
+    }
+  },
+  "open-sse/executors/vertex.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "open-sse/handlers/chatCore/codexFailover.ts": {
@@ -81,7 +86,7 @@
   },
   "open-sse/handlers/search.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 33
     }
   },
   "open-sse/handlers/sseParser.ts": {
@@ -1356,21 +1361,8 @@
       "count": 1
     }
   },
-  "src/sse/handlers/chat.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/sse/handlers/chatHelpers.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/sse/services/auth.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -1686,7 +1678,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 48
+      "count": 6
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -2045,11 +2037,6 @@
     }
   },
   "tests/unit/cloudflaredTunnel-extended.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "tests/unit/codebuddy-cn-provider.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }

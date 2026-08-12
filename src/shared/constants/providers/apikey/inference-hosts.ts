@@ -32,6 +32,19 @@ export const APIKEY_PROVIDERS_INFERENCE = {
     freeNote:
       "Free credits on signup for OpenAI-compatible inference across LLMs, embeddings, and reasoning models",
   },
+  // Openference — OpenAI-compatible AI inference gateway (https://openference.com/).
+  // API-key auth via Authorization: Bearer sk-… on the same gateway as OAuth JWTs.
+  "openference-api": {
+    id: "openference-api",
+    alias: "ofa",
+    name: "Openference API",
+    icon: "openference",
+    color: "#6366F1",
+    textIcon: "OF",
+    website: "https://openference.com",
+    hasFree: true,
+    freeNote: "Free plan: 3-day trial with open-source models — no credit card required",
+  },
   fireworks: {
     id: "fireworks",
     alias: "fireworks",
@@ -132,18 +145,6 @@ export const APIKEY_PROVIDERS_INFERENCE = {
     website: "https://huggingface.co",
     hasFree: true,
     freeNote: "Free Inference API for thousands of models (Whisper, VITS, SDXL…)",
-  },
-  "github-models": {
-    id: "github-models",
-    alias: "ghm",
-    name: "GitHub Models",
-    icon: "code",
-    color: "#238636",
-    textIcon: "GH",
-    website: "https://github.com/marketplace/models",
-    hasFree: true,
-    freeNote: "Free GPT-5, o-series, DeepSeek-R1, Llama 4, Grok 3 — GitHub account only.",
-    authHint: "Create a GitHub PAT with 'models: read' scope at github.com/settings/tokens",
   },
   deepinfra: {
     id: "deepinfra",

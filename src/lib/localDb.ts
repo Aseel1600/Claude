@@ -94,6 +94,7 @@ export * from "./db/compressionCacheStats";
 export * from "./db/compressionCombos";
 export * from "./db/compressionContextBudget";
 export * from "./db/compressionRunTelemetry";
+export * from "./db/jobRegistryDb";
 export * from "./db/modelContextOverrides";
 
 export {
@@ -819,3 +820,4 @@ export {
   setRadarKey,
 } from "./db/radar";
 export type { RadarCache, RadarSettings } from "./db/radar";
+export * from "./db/conductorBridge"; // OmniConductor hub mirror — SSE cursor (PRD Conductor RF1)

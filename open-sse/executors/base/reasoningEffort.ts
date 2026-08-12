@@ -2,16 +2,19 @@
 // Extracted verbatim from base.ts. Deps are config/services only (no host import → no cycle).
 import { PROVIDER_CLAUDE } from "../../services/systemTransforms.ts";
 import { isClaudeCodeCompatible } from "../../services/provider.ts";
-import { supportsClaudeMaxEffort, supportsXHighEffort } from "../../config/providerModels.ts";
+import {
+  supportsClaudeMaxEffort,
+  supportsXHighEffort,
+  getProviderModel,
+} from "../../config/providerModels.ts";
 
 /**
  * Sanitize reasoning_effort for providers that don't accept all values.
  *
- * The claude→openai translator passes output_config.effort through verbatim
- * (including max) and only performs form conversion; provider-aware effort
- * policy is owned here. Combined with runtime alias remapping (e.g.
- * claude-opus-4-6 → mimo/mimo-v2.5-pro), this routes a client's effort value
- * to OpenAI-shape providers that don't accept it:
+ * The claude→openai translator may emit reasoning_effort=max/xhigh when the
+ * client sends output_config.effort=max on a Claude-shape request. Combined with
+ * runtime alias remapping (e.g. claude-opus-4-6 → mimo/mimo-v2.5-pro), this
+ * routes xhigh to OpenAI-shape providers that don't accept the value:
  *
  *   xiaomi-mimo : low|medium|high only — 400 literal_error on xhigh
  *   mistral     : devstral models reject reasoning_effort entirely
@@ -140,9 +143,11 @@ export function mapNvidiaGlm52ReasoningParams(
 }
 
 export function supportsMaxEffortForProvider(provider: string, model: string): boolean {
+  const resolvedModelId = getProviderModel(provider, model)?.id || model;
+
   const isClaude =
     (provider === PROVIDER_CLAUDE || isClaudeCodeCompatible(provider)) &&
-    supportsClaudeMaxEffort(model);
+    supportsClaudeMaxEffort(resolvedModelId);
   // opencode-go proxies DeepSeek with the native DeepSeek API contract, which
   // accepts {high, max} literally. Without this opt-in, max would be
   // normalized to xhigh (the OmniRoute-internal top tier) and rejected by the
@@ -151,11 +156,14 @@ export function supportsMaxEffortForProvider(provider: string, model: string): b
   // Ollama Cloud also accepts literal max (for example GLM 5.2 supports
   // low|medium|high|max|none) and rejects xhigh.
   const isOpencodeGoDeepSeek =
-    provider === "opencode-go" && model.toLowerCase().includes("deepseek");
+    (provider === "opencode-go" || provider === "opencode-zen") &&
+    resolvedModelId.toLowerCase().includes("deepseek");
   const isOllamaCloud = provider === "ollama-cloud";
-  const isMoonshotK3 =
-    (provider === "moonshot" || provider === "kimi") && /^kimi-k3(?:$|-)/i.test(model);
-  return isClaude || isOpencodeGoDeepSeek || isOllamaCloud || isMoonshotK3;
+  const isMoonshotK3 = /^kimi-k3(?:$|-)/i.test(resolvedModelId);
+  // Command Code's upstream API accepts the literal DeepSeek/OpenAI effort value
+  // `max`; do not rewrite it to OmniRoute's internal `xhigh` spelling.
+  const isCommandCode = provider === "command-code";
+  return isClaude || isOpencodeGoDeepSeek || isOllamaCloud || isMoonshotK3 || isCommandCode;
 }
 
 // ── Effort carrier helpers (#7044) ──────────────────────────────────────────
@@ -275,17 +283,36 @@ export function sanitizeReasoningEffortForProvider(
     return stripEffortValue(b, c);
   }
 
-  // Native DeepSeek (api.deepseek.com) — V4 thinking mode accepts reasoning_effort
-  // ONLY as {high, max} (its own top tier is literally "max"). OmniRoute's internal
-  // scale is low|medium|high|xhigh where xhigh is the top, so map onto DeepSeek's
-  // vocabulary: xhigh → max (top→top), low|medium → high (below the enum floor).
-  // high/max pass through unchanged. Without this, the claude→openai translator's
-  // xhigh (and max-normalized-to-xhigh below) reaches DeepSeek as an unknown value,
-  // silently dropping the client's requested effort. This is the INVERSE of the
-  // OpenRouter-DeepSeek path, whose normalized API expects xhigh, not max (pi#4055).
+  // Command Code accepts the literal top-tier value `max`, while the shared
+  // standardization stage may have already represented the client's `max` as
+  // OmniRoute's internal `xhigh`. Convert it back before the upstream request.
+  if (provider === "command-code" && effortStr === "xhigh") {
+    log?.info?.(
+      "REASONING_SANITIZE",
+      `${provider}/${modelStr}: normalized reasoning_effort xhigh → max`
+    );
+    return writeEffortValue(b, "max", c);
+  }
+
+  // Native DeepSeek (api.deepseek.com) — V4 thinking mode uses the native
+  // {low, high, max} vocabulary on Flash and {high, max} on Pro. OmniRoute's
+  // internal top tier xhigh maps to DeepSeek's literal max. Pro's unsupported
+  // low/medium values still clamp to high; Flash's documented low tier passes
+  // through. This is the INVERSE of the OpenRouter-DeepSeek path, whose
+  // normalized API expects xhigh, not max (pi#4055). `none` is already the
+  // OpenAI no-thinking carrier and passes through unchanged.
   if (provider === "deepseek") {
+    // Match the Flash family even when the sanitizer sees a suffixed or prefixed
+    // id — exact-match would silently clamp Flash `low → high` if a future route
+    // forwards the raw catalog id (`deepseek-v4-flash-low`) before resolution
+    // (#9485 review).
+    const isFlash = modelStr.toLowerCase().startsWith("deepseek-v4-flash");
     const mapped =
-      effortStr === "xhigh" ? "max" : effortStr === "low" || effortStr === "medium" ? "high" : null;
+      effortStr === "xhigh"
+        ? "max"
+        : effortStr === "medium" || (effortStr === "low" && !isFlash)
+          ? "high"
+          : null;
     if (mapped && mapped !== effortStr) {
       log?.info?.(
         "REASONING_SANITIZE",
@@ -297,26 +324,47 @@ export function sanitizeReasoningEffortForProvider(
   }
 
   const supportsXHigh = supportsXHighEffort(provider, modelStr);
-  const shouldDowngradeXHigh = effortStr === "xhigh" && !supportsXHigh;
-  const supportsXHighForMax = supportsXHigh;
   const supportsMax = supportsMaxEffortForProvider(provider, modelStr);
-  const shouldNormalizeMaxToXHigh = effortStr === "max" && !supportsMax && supportsXHighForMax;
-  const shouldDowngradeMax = effortStr === "max" && !supportsMax && !supportsXHighForMax;
 
-  if (shouldNormalizeMaxToXHigh) {
+  // ── xhigh handling ──────────────────────────────────────────────────────
+  // xhigh is OmniRoute-internal. Map it to the best effort the model accepts.
+  if (effortStr === "xhigh") {
+    if (supportsXHigh) return body; // model accepts xhigh natively
+    if (supportsMax) {
+      log?.info?.(
+        "REASONING_SANITIZE",
+        `${provider}/${modelStr}: mapped reasoning_effort xhigh → max`
+      );
+      return writeEffortValue(b, "max", c);
+    }
+    // Model explicitly rejects xhigh — gracefully degrade to high (its highest standard tier)
     log?.info?.(
       "REASONING_SANITIZE",
-      `${provider}/${modelStr}: normalized reasoning_effort max → xhigh`
-    );
-    return writeEffortValue(b, "xhigh", c);
-  }
-
-  if (shouldDowngradeXHigh || shouldDowngradeMax) {
-    log?.info?.(
-      "REASONING_SANITIZE",
-      `${provider}/${modelStr}: downgraded reasoning_effort ${effortStr} → high`
+      `${provider}/${modelStr}: downgraded reasoning_effort xhigh → high`
     );
     return writeEffortValue(b, "high", c);
+  }
+
+  // ── max handling ────────────────────────────────────────────────────────
+  // NEW DEFAULT: pass max through unchanged. Most reasoning-capable APIs
+  // accept max natively. Only degrade when we KNOW the model rejects it
+  // (registry has supportsXHighEffort explicitly set to false AND it's not
+  // in the supportsMax whitelist). Unknown models pass through — trust the
+  // upstream, and if it 400s the user gets a clear signal. This prevents
+  // new models from being unusable for weeks until they're whitelisted (#8057).
+  if (effortStr === "max") {
+    if (supportsMax) return body; // explicitly known to accept max
+    if (!supportsXHigh) {
+      // Model is explicitly flagged as rejecting xhigh (and not in supportsMax) —
+      // it likely only accepts standard tiers. Degrade to its highest: high.
+      log?.info?.(
+        "REASONING_SANITIZE",
+        `${provider}/${modelStr}: downgraded reasoning_effort max → high (model rejects max/xhigh)`
+      );
+      return writeEffortValue(b, "high", c);
+    }
+    // Default: pass max through unchanged — trust the upstream
+    return body;
   }
 
   return body;

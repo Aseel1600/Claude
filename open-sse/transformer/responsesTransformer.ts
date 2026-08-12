@@ -37,6 +37,102 @@ async function getPath() {
   return _path || null;
 }
 
+type UsageRecord = Record<string, unknown>;
+
+function usageRecord(value: unknown): UsageRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as UsageRecord)
+    : {};
+}
+
+function usageNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function usageDetails(record: UsageRecord, ...keys: string[]): UsageRecord {
+  for (const key of keys) {
+    const value = usageRecord(record[key]);
+    if (Object.keys(value).length > 0) return value;
+  }
+  return {};
+}
+
+/** Normalize Chat Completions and Responses usage into the Responses API shape. */
+function normalizeResponsesUsage(previous: unknown, raw: unknown): UsageRecord | null {
+  const source = usageRecord(raw);
+  if (Object.keys(source).length === 0) return usageRecord(previous);
+
+  const before = usageRecord(previous);
+  const beforeInputDetails = usageDetails(before, "input_tokens_details", "prompt_tokens_details");
+  const beforeOutputDetails = usageDetails(
+    before,
+    "output_tokens_details",
+    "completion_tokens_details"
+  );
+  const inputDetails = usageDetails(
+    source,
+    "input_tokens_details",
+    "prompt_tokens_details",
+    "inputTokenDetails",
+    "input_token_details"
+  );
+  const outputDetails = usageDetails(
+    source,
+    "output_tokens_details",
+    "completion_tokens_details",
+    "outputTokenDetails",
+    "output_token_details",
+    "reasoningTokenDetails",
+    "reasoning_token_details"
+  );
+
+  const inputTokens =
+    usageNumber(source.input_tokens) ??
+    usageNumber(source.prompt_tokens) ??
+    usageNumber(source.inputTokens) ??
+    usageNumber(source.promptTokens) ??
+    usageNumber(before.input_tokens) ??
+    usageNumber(before.prompt_tokens) ??
+    0;
+  const cachedTokens =
+    usageNumber(source.cache_read_input_tokens) ??
+    usageNumber(source.cached_input_tokens) ??
+    usageNumber(source.cachedInputTokens) ??
+    usageNumber(source.cached_tokens) ??
+    usageNumber(inputDetails.cached_tokens) ??
+    usageNumber(inputDetails.cachedTokens) ??
+    usageNumber(inputDetails.cacheReadTokens) ??
+    usageNumber(beforeInputDetails.cached_tokens) ??
+    0;
+  const outputTokens =
+    usageNumber(source.output_tokens) ??
+    usageNumber(source.completion_tokens) ??
+    usageNumber(source.outputTokens) ??
+    usageNumber(source.completionTokens) ??
+    usageNumber(before.output_tokens) ??
+    usageNumber(before.completion_tokens) ??
+    0;
+  const reasoningTokens =
+    usageNumber(source.reasoning_tokens) ??
+    usageNumber(source.reasoningTokens) ??
+    usageNumber(outputDetails.reasoning_tokens) ??
+    usageNumber(outputDetails.reasoningTokens) ??
+    usageNumber(beforeOutputDetails.reasoning_tokens) ??
+    0;
+  const totalTokens =
+    usageNumber(source.total_tokens) ??
+    usageNumber(source.totalTokens) ??
+    inputTokens + outputTokens;
+
+  return {
+    input_tokens: inputTokens,
+    input_tokens_details: { cached_tokens: cachedTokens },
+    output_tokens: outputTokens,
+    output_tokens_details: { reasoning_tokens: reasoningTokens },
+    total_tokens: totalTokens,
+  };
+}
+
 // Create log directory for responses (Node.js only)
 export function createResponsesLogger(model, logsDir = null) {
   // Skip logging in worker environment (no fs)
@@ -477,10 +573,11 @@ export function createResponsesApiTransformStream(
             continue;
           }
 
+          if (parsed.usage) {
+            state.usage = normalizeResponsesUsage(state.usage, parsed.usage);
+          }
+
           if (!parsed.choices?.length) {
-            if (parsed.usage) {
-              state.usage = parsed.usage;
-            }
             // #6906: trailing usage-only chunk after finish_reason already deferred
             // completion — send it now with the usage just captured above.
             if (state.awaitingTrailingUsage && !state.completedSent) {
