@@ -37,12 +37,12 @@ test("#6272: resolveProxyForConnection('noauth', ...) honors a provider-level pr
     `expected the mimocode provider-level proxy to be honored, got level=${resolved?.level} proxy=${JSON.stringify(resolved?.proxy)}`
   );
   assert.equal(resolved?.level, "provider");
-  assert.equal(resolved?.levelId, "mimocode");
+  assert.equal(resolved?.levelId, "opencode");
 });
 
 test("control: resolveProxyForConnection('noauth', ...) still honors the GLOBAL proxy when no no-auth provider proxy is set", async () => {
   core.getDbInstance();
-  await settingsDb.deleteProxyForLevel("provider", "mimocode");
+  await settingsDb.deleteProxyForLevel("provider", "opencode");
   const proxy = { type: "http", host: "10.0.0.1", port: 9999 };
   await settingsDb.setProxyForLevel("global", null, proxy);
 
@@ -54,7 +54,7 @@ test("control: resolveProxyForConnection('noauth', ...) still honors the GLOBAL 
 test("resolveProxyForConnection keeps provider-level no-auth proxies isolated", async () => {
   core.getDbInstance();
   await settingsDb.deleteProxyForLevel("global", null);
-  await settingsDb.setProxyForLevel("provider", "mimocode", {
+  await settingsDb.setProxyForLevel("provider", "opencode", {
     type: "http",
     host: "127.0.0.2",
     port: 8889,
