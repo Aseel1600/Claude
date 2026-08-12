@@ -20,6 +20,7 @@
 import { getDbInstance } from "./db/core";
 import { invalidateDbCache } from "./db/readCache";
 import { backupDbFile } from "./db/backup";
+import { registerDbStateResetter } from "./db/stateReset";
 
 import {
   transformModelsDevToPricing,
@@ -206,6 +207,9 @@ let modelsDevPricingCache: PricingByProvider | null = null;
 function invalidateModelsDevPricingCache(): void {
   modelsDevPricingCache = null;
 }
+
+// Register cache invalidation with DB state reset system so resetDbInstance() clears the memo.
+registerDbStateResetter(invalidateModelsDevPricingCache);
 
 /**
  * Read synced pricing from `models_dev_pricing` namespace.

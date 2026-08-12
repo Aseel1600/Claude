@@ -285,6 +285,18 @@ test("getModelsDevPricing memoizes until save/clear (#9685)", async () => {
   const afterSave = modelsDev.getModelsDevPricing();
   assert.notEqual(afterSave, first, "save must invalidate the memo");
   assert.equal(afterSave.openai["gpt-4o"].input, 2.5);
+
+  // Copilot review: DB reset must invalidate the memo so import/restore doesn't serve stale pricing.
+  const beforeReset = modelsDev.getModelsDevPricing();
+  core.resetDbInstance();
+  const afterReset = modelsDev.getModelsDevPricing();
+  assert.notEqual(
+    afterReset,
+    beforeReset,
+    "resetDbInstance must invalidate the memo (Copilot #10055)"
+  );
+  // Data is still on disk after resetDbInstance(), but the cache was cleared and re-read from fresh DB.
+  assert.equal(afterReset.openai["gpt-4o"].input, 2.5, "DB reset re-reads from fresh connection");
 });
 
 test("modelsDev capabilities helpers create the table, persist rows, filter by provider/model, and expose context limits", async () => {
