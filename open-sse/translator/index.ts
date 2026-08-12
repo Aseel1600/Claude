@@ -97,6 +97,31 @@ function normalizeOpenAIResponsesRequest(body) {
 
   const normalized = promoteStrayReasoningEffort({ ...body });
 
+  // #10165 safety net: if a chat-shaped body reached Responses normalization
+  // without input, promote messages → input and map token/format fields.
+  if (normalized.input == null && Array.isArray(normalized.messages)) {
+    normalized.input = normalized.messages;
+    delete normalized.messages;
+  }
+  if (normalized.max_output_tokens == null) {
+    if (normalized.max_completion_tokens != null) {
+      normalized.max_output_tokens = normalized.max_completion_tokens;
+      delete normalized.max_completion_tokens;
+    } else if (normalized.max_tokens != null) {
+      normalized.max_output_tokens = normalized.max_tokens;
+      delete normalized.max_tokens;
+    }
+  } else {
+    delete normalized.max_tokens;
+    delete normalized.max_completion_tokens;
+  }
+  if (normalized.response_format != null && normalized.text == null) {
+    normalized.text = { format: normalized.response_format };
+    delete normalized.response_format;
+  } else if (normalized.response_format != null) {
+    delete normalized.response_format;
+  }
+
   if (typeof normalized.input === "string") {
     normalized.input = [
       {
