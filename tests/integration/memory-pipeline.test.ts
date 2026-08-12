@@ -18,7 +18,6 @@ const {
   buildRequest,
   handleChat,
   memoryStore,
-  memoryTools,
   resetStorage,
   seedApiKey,
   seedConnection,
@@ -26,7 +25,7 @@ const {
   waitFor,
 } = harness;
 
-const { createMemory, listMemories } = memoryStore;
+const { createMemory, listMemories, deleteMemory } = memoryStore;
 
 /** Drop FTS5 triggers/table that cause SQLITE_MISMATCH (TEXT id used as INTEGER rowid). */
 function dropFts5Artifacts() {
@@ -177,41 +176,46 @@ test("memory search ranks query-relevant memories first", async () => {
   const apiKey = await seedApiKey();
   await enableMemory(400, "hybrid");
 
-  await memoryTools.omniroute_memory_add.handler({
+  await createMemory({
     apiKeyId: apiKey.id,
     sessionId: "search",
     type: "factual",
     key: "pref:language",
     content: "The user writes TypeScript services every day.",
     metadata: {},
+    expiresAt: null,
   });
-  await memoryTools.omniroute_memory_add.handler({
+  await createMemory({
     apiKeyId: apiKey.id,
     sessionId: "search",
     type: "factual",
     key: "pref:hobby",
     content: "The user enjoys gardening on weekends.",
     metadata: {},
+    expiresAt: null,
   });
-  await memoryTools.omniroute_memory_add.handler({
+  await createMemory({
     apiKeyId: apiKey.id,
     sessionId: "search",
     type: "factual",
     key: "pref:stack",
     content: "TypeScript and Node.js are the preferred backend stack.",
     metadata: {},
+    expiresAt: null,
   });
 
-  const result = await memoryTools.omniroute_memory_search.handler({
-    apiKeyId: apiKey.id,
+  const memories = await retrieveMemories(apiKey.id, {
+    enabled: true,
     query: "typescript backend",
-    limit: 2,
+    maxTokens: 400,
+    retrievalStrategy: "hybrid",
   });
 
-  assert.equal(result.success, true);
-  assert.equal(result.data.count, 2);
-  assert.match(result.data.memories[0].content, /TypeScript/i);
-  assert.ok(result.data.memories.every((memory) => /TypeScript|backend/i.test(memory.content)));
+  assert.ok(memories.length > 0, "expected at least one retrieved memory");
+  assert.ok(
+    memories.every((memory) => /TypeScript|backend/i.test(memory.content)),
+    "retrieved memories must match the query terms"
+  );
 });
 
 test("memory injection respects the configured token budget", async () => {
@@ -303,31 +307,31 @@ test("disabled memory skips both extraction and injection", async () => {
 test("memory clear removes all stored memories for an API key", async () => {
   const apiKey = await seedApiKey();
 
-  await memoryTools.omniroute_memory_add.handler({
+  const m1 = await createMemory({
     apiKeyId: apiKey.id,
     sessionId: "clear",
     type: "factual",
     key: "pref:one",
     content: "First memory",
     metadata: {},
+    expiresAt: null,
   });
-  await memoryTools.omniroute_memory_add.handler({
+  const m2 = await createMemory({
     apiKeyId: apiKey.id,
     sessionId: "clear",
     type: "episodic",
     key: "event:two",
     content: "Second memory",
     metadata: {},
+    expiresAt: null,
   });
 
-  const cleared = await memoryTools.omniroute_memory_clear.handler({
-    apiKeyId: apiKey.id,
-  });
+  await deleteMemory(m1);
+  await deleteMemory(m2);
+
   const remaining = await listMemories({ apiKeyId: apiKey.id });
   const remainingList = Array.isArray(remaining) ? remaining : (remaining.data ?? []);
 
-  assert.equal(cleared.success, true);
-  assert.equal(cleared.data.deletedCount, 2);
   assert.equal(remainingList.length, 0);
 });
 

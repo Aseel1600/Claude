@@ -1,38 +1,79 @@
-import { readFileSync } from "node:fs";
+/**
+ * OmniRoute CLI — Memory command (four-layer hard cutover).
+ *
+ * Shape:
+ *   memory l0 search <query> [--session <id>] [--scene <key>] [--limit <n>]
+ *   memory l1 search <query> [--session <id>] [--scene <key>] [--limit <n>]
+ *   memory l2 read <id>
+ *   memory l3 read  [--session <id>]
+ *   memory list     [--session <id>] [--scene <key>] [--limit <n>]
+ *   memory settings get | set <key> <value> | reset
+ *   memory distil status | retry-dlq
+ *
+ * The legacy flat verbs (`search`, `add`, `clear`, `list`, `get`, `delete`,
+ * `health`) are intentionally removed; callers must use the layered verbs.
+ * Owner-scoping comes from the API key configured in the active context
+ * (the CLI does not let the user pass a different `owner`/`apiKey` to read
+ * another tenant's memory).
+ *
+ * All routes use the existing `apiFetch` client. Errors are sanitized by a
+ * local `sanitizeErrorMessage` (mirrors `open-sse/utils/error.ts`) so we
+ * never print raw stack traces — Hard Rule #12.
+ */
+
 import { apiFetch } from "../api.mjs";
 import { emit } from "../output.mjs";
 import { t } from "../i18n.mjs";
 
-const VALID_TYPES = ["factual", "episodic", "procedural", "semantic"];
-
-const LEGACY_TYPE_MAP = {
-  user: "factual",
-  feedback: "factual",
-  project: "factual",
-  reference: "factual",
-};
+const DEFAULT_LIMIT = 20;
+const MAX_LIMIT = 100;
+const MIN_LIMIT = 1;
+const MAX_QUERY_LEN = 1024;
+const MAX_ID_LEN = 256;
+const MAX_SESSION_LEN = 256;
+const MAX_ERROR_LEN = 4096;
+const SOURCE_EXT = ["ts", "tsx", "js", "jsx", "mjs", "cjs"];
 
 /**
- * Plan 21 Bug#4/D17 fix: remap legacy types in ALL CLI subcommands
- * (search/list/clear in addition to add), with a stderr warning on remap.
- * Returns the canonical type, or the original value (which the backend will
- * 400 on if invalid) — never throws.
+ * Lightweight error-message sanitizer for CLI responses (Hard Rule #12).
+ * Mirrors the behavior of `open-sse/utils/error.ts::sanitizeErrorMessage` so
+ * we never print raw `err.stack` or absolute source paths from the API to the
+ * operator's terminal. Avoids importing the .ts file (the bin CLI is plain
+ * ESM `.mjs` with no TS loader).
  */
-function applyLegacyTypeMap(type) {
-  if (!type) return type;
-  if (Object.prototype.hasOwnProperty.call(LEGACY_TYPE_MAP, type)) {
-    const mapped = LEGACY_TYPE_MAP[type];
-    process.stderr.write(
-      `Warning: legacy type '${type}' is deprecated; using '${mapped}'. Use --type factual|episodic|procedural|semantic.\n`
-    );
-    return mapped;
+function sanitizeErrorMessage(message) {
+  let str = typeof message === "string" ? message : String(message ?? "");
+  if (str.length > MAX_ERROR_LEN) str = str.slice(0, MAX_ERROR_LEN);
+  const nl = str.indexOf("\n");
+  const firstLine = nl >= 0 ? str.slice(0, nl) : str;
+  const parts = firstLine.split(/(\s+)/);
+  for (let i = 0; i < parts.length; i++) {
+    const tok = parts[i];
+    if (tok.length < 4 || tok.length > 2048) continue;
+    const isPosix = tok.charCodeAt(0) === 0x2f;
+    const isWindows = tok.length > 2 && tok.charCodeAt(1) === 0x3a && /[A-Za-z]/.test(tok[0]);
+    if (!isPosix && !isWindows) continue;
+    const dot = tok.lastIndexOf(".");
+    if (dot <= 0 || dot === tok.length - 1) continue;
+    const ext = tok
+      .slice(dot + 1)
+      .split(":", 1)[0]
+      .toLowerCase();
+    if (SOURCE_EXT.includes(ext)) parts[i] = "<path>";
   }
-  if (!VALID_TYPES.includes(type)) {
-    process.stderr.write(
-      `Warning: unknown type '${type}'. Valid types: factual, episodic, procedural, semantic.\n`
-    );
-  }
-  return type;
+  return parts.join("");
+}
+
+function clampLimit(raw) {
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < MIN_LIMIT) return DEFAULT_LIMIT;
+  return Math.min(MAX_LIMIT, n);
+}
+
+function trimLen(value, max) {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.length > max ? trimmed.slice(0, max) : trimmed;
 }
 
 function truncate(v, len = 60) {
@@ -50,195 +91,319 @@ function fmtTs(v) {
   }
 }
 
-const memorySchema = [
+const layerSearchSchema = [
   { key: "id", header: "ID", width: 14 },
-  { key: "type", header: "Type", width: 12 },
+  { key: "sessionId", header: "Session", width: 14 },
+  { key: "scene", header: "Scene", width: 18 },
   { key: "content", header: "Content", width: 60, formatter: truncate },
   { key: "score", header: "Score", formatter: (v) => (v != null ? v.toFixed(3) : "-") },
   { key: "createdAt", header: "Created", formatter: fmtTs },
 ];
 
-function parseDuration(s) {
-  const m = String(s).match(/^(\d+)(d|m|y)$/i);
-  if (!m) return null;
-  const n = parseInt(m[1], 10);
-  const unit = m[2].toLowerCase();
-  const now = Date.now();
-  if (unit === "d") return new Date(now - n * 86400000).toISOString();
-  if (unit === "m") return new Date(now - n * 30 * 86400000).toISOString();
-  if (unit === "y") return new Date(now - n * 365 * 86400000).toISOString();
-  return null;
-}
+const listSchema = [
+  { key: "layer", header: "Layer", width: 5 },
+  { key: "id", header: "ID", width: 14 },
+  { key: "sessionId", header: "Session", width: 14 },
+  { key: "scene", header: "Scene", width: 18 },
+  { key: "content", header: "Content", width: 60, formatter: truncate },
+  { key: "createdAt", header: "Created", formatter: fmtTs },
+];
 
-async function confirm(question) {
-  return new Promise((resolve) => {
-    process.stdout.write(`${question} (yes/no) `);
-    process.stdin.setEncoding("utf8");
-    process.stdin.once("data", (chunk) => {
-      resolve(chunk.toString().trim().toLowerCase().startsWith("y"));
-    });
+const settingsSchema = [
+  { key: "key", header: "Key", width: 32 },
+  { key: "value", header: "Value", width: 60 },
+];
+
+const distilSchema = [
+  { key: "id", header: "ID", width: 14 },
+  { key: "status", header: "Status", width: 12 },
+  { key: "attempts", header: "Attempts", width: 10 },
+  { key: "lastError", header: "Last error", width: 60, formatter: truncate },
+  { key: "updatedAt", header: "Updated", formatter: fmtTs },
+];
+
+function pickLayerRows(items) {
+  if (!Array.isArray(items)) return [];
+  return items.map((raw) => {
+    const item = raw && typeof raw === "object" ? raw : {};
+    return {
+      id: item.id ?? item.memoryId ?? "-",
+      sessionId: item.sessionId ?? item.session_id ?? "-",
+      scene: item.scene ?? "-",
+      content: item.content ?? item.text ?? "",
+      score: item.score,
+      createdAt: item.createdAt ?? item.created_at ?? null,
+    };
   });
 }
 
-export async function runMemorySearch(query, opts, cmd) {
-  const globalOpts = cmd.optsWithGlobals();
-  const params = new URLSearchParams({ q: query, limit: String(opts.limit ?? 20) });
-  const mappedSearchType = applyLegacyTypeMap(opts.type);
-  if (mappedSearchType) params.set("type", mappedSearchType);
-  if (opts.apiKey) params.set("apiKey", opts.apiKey);
-  if (opts.tokenBudget) params.set("tokenBudget", String(opts.tokenBudget));
-  const res = await apiFetch(`/api/memory?${params}`);
-  if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
-    process.exit(1);
-  }
-  const data = await res.json();
-  emit(data.items ?? data, globalOpts, memorySchema);
+function pickListRows(payload) {
+  if (!payload || typeof payload !== "object") return [];
+  const items = Array.isArray(payload.items)
+    ? payload.items
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  return items.map((raw) => {
+    const item = raw && typeof raw === "object" ? raw : {};
+    return {
+      layer: item.layer ?? item.l ?? "-",
+      id: item.id ?? item.memoryId ?? "-",
+      sessionId: item.sessionId ?? item.session_id ?? "-",
+      scene: item.scene ?? "-",
+      content: item.content ?? item.text ?? "",
+      createdAt: item.createdAt ?? item.created_at ?? null,
+    };
+  });
 }
 
-export async function runMemoryAdd(opts, cmd) {
+function pickSettingsRows(payload) {
+  if (!payload || typeof payload !== "object") return [];
+  if (Array.isArray(payload)) {
+    return payload.map((entry) => ({
+      key: entry?.key ?? "-",
+      value: typeof entry?.value === "string" ? entry.value : JSON.stringify(entry?.value ?? ""),
+    }));
+  }
+  return Object.entries(payload).map(([key, value]) => ({
+    key,
+    value: typeof value === "string" ? value : JSON.stringify(value ?? ""),
+  }));
+}
+
+function pickDistilRows(payload) {
+  if (!payload || typeof payload !== "object") return [];
+  const rows = Array.isArray(payload.items) ? payload.items : Array.isArray(payload) ? payload : [];
+  return rows.map((raw) => {
+    const item = raw && typeof raw === "object" ? raw : {};
+    return {
+      id: item.id ?? "-",
+      status: item.status ?? "-",
+      attempts: item.attempts ?? 0,
+      lastError: item.lastError ?? item.error ?? "",
+      updatedAt: item.updatedAt ?? item.updated_at ?? null,
+    };
+  });
+}
+
+async function runLayerSearch(layer, query, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
-  const content = opts.content ?? (opts.file ? readFileSync(opts.file, "utf8") : null);
-  if (!content) {
-    process.stderr.write("--content or --file required\n");
+  const safeQuery = trimLen(query, MAX_QUERY_LEN);
+  if (!safeQuery) {
+    process.stderr.write("Query is required (1-1024 chars)\n");
     process.exit(2);
   }
-  const resolvedType = opts.type ? applyLegacyTypeMap(opts.type) : "factual";
-  const body = {
-    content,
-    type: resolvedType,
-    ...(opts.metadata ? { metadata: JSON.parse(opts.metadata) } : {}),
-    ...(opts.apiKey ? { apiKey: opts.apiKey } : {}),
-  };
-  const res = await apiFetch("/api/memory", { method: "POST", body });
+  const params = new URLSearchParams({ q: safeQuery, limit: String(clampLimit(opts.limit)) });
+  if (opts.session) params.set("sessionId", trimLen(opts.session, MAX_SESSION_LEN));
+  if (opts.scene) params.set("scene", trimLen(opts.scene, MAX_ID_LEN));
+  const res = await apiFetch(`/api/memory/${layer}/search?${params.toString()}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
     process.exit(1);
   }
-  const created = await res.json();
-  emit(created, globalOpts, memorySchema);
+  const data = await res.json().catch(() => ({}));
+  emit(pickLayerRows(data.items ?? data), globalOpts, layerSearchSchema);
 }
 
-export async function runMemoryClear(opts, cmd) {
+export async function runL0Search(query, opts, cmd) {
+  return runLayerSearch("l0", query, opts, cmd);
+}
+
+export async function runL1Search(query, opts, cmd) {
+  return runLayerSearch("l1", query, opts, cmd);
+}
+
+export async function runL2Read(id, opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
-  if (!opts.yes) {
-    const ok = await confirm("This will delete memories. Continue?");
-    if (!ok) process.exit(0);
+  const safeId = trimLen(id, MAX_ID_LEN);
+  if (!safeId) {
+    process.stderr.write("Id is required (1-256 chars)\n");
+    process.exit(2);
   }
+  const res = await apiFetch(`/api/memory/l2/${encodeURIComponent(safeId)}`);
+  if (!res.ok) {
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
+    process.exit(1);
+  }
+  const data = await res.json().catch(() => ({}));
+  emit(
+    [
+      {
+        id: safeId,
+        scene: data.scene ?? null,
+        content: data.content ?? data.text ?? "",
+        createdAt: data.createdAt ?? null,
+      },
+    ],
+    globalOpts,
+    layerSearchSchema
+  );
+}
+
+export async function runL3Read(opts, cmd) {
+  const globalOpts = cmd.optsWithGlobals();
   const params = new URLSearchParams();
-  const mappedClearType = applyLegacyTypeMap(opts.type);
-  if (mappedClearType) params.set("type", mappedClearType);
-  if (opts.olderThan) {
-    const iso = parseDuration(opts.olderThan);
-    if (!iso) {
-      process.stderr.write(`Invalid --older-than value: ${opts.olderThan}\n`);
-      process.exit(2);
-    }
-    params.set("olderThan", iso);
+  if (opts.session) params.set("sessionId", trimLen(opts.session, MAX_SESSION_LEN));
+  const path = `/api/memory/l3${params.toString() ? `?${params.toString()}` : ""}`;
+  const res = await apiFetch(path);
+  if (!res.ok) {
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
+    process.exit(1);
   }
-  if (opts.apiKey) params.set("apiKey", opts.apiKey);
-  const res = await apiFetch(`/api/memory?${params}`, { method: "DELETE" });
-  const data = await res.json();
-  emit(data, globalOpts);
+  const data = await res.json().catch(() => ({}));
+  emit(
+    [
+      {
+        id: data.id ?? "persona",
+        sessionId: data.sessionId ?? opts.session ?? "-",
+        content: data.persona?.content ?? data.content ?? JSON.stringify(data.persona ?? data),
+        createdAt: data.persona?.updatedAt ?? data.updatedAt ?? null,
+      },
+    ],
+    globalOpts,
+    layerSearchSchema
+  );
 }
 
 export async function runMemoryList(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
-  const params = new URLSearchParams({ limit: String(opts.limit ?? 100) });
-  const mappedListType = applyLegacyTypeMap(opts.type);
-  if (mappedListType) params.set("type", mappedListType);
-  if (opts.apiKey) params.set("apiKey", opts.apiKey);
-  const res = await apiFetch(`/api/memory?${params}`);
+  const params = new URLSearchParams({ limit: String(clampLimit(opts.limit)) });
+  if (opts.session) params.set("sessionId", trimLen(opts.session, MAX_SESSION_LEN));
+  if (opts.scene) params.set("scene", trimLen(opts.scene, MAX_ID_LEN));
+  const res = await apiFetch(`/api/memory/list?${params.toString()}`);
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
     process.exit(1);
   }
-  const data = await res.json();
-  emit(data.items ?? data, globalOpts, memorySchema);
+  const data = await res.json().catch(() => ({}));
+  emit(pickListRows(data), globalOpts, listSchema);
 }
 
-export async function runMemoryGet(id, opts, cmd) {
+export async function runSettingsGet(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
-  const res = await apiFetch(`/api/memory/${id}`);
+  const res = await apiFetch("/api/memory/settings");
   if (!res.ok) {
-    process.stderr.write(`Not found: ${id}\n`);
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
     process.exit(1);
   }
-  const data = await res.json();
-  emit(data, globalOpts, memorySchema);
+  const data = await res.json().catch(() => ({}));
+  emit(pickSettingsRows(data), globalOpts, settingsSchema);
 }
 
-export async function runMemoryDelete(id, opts, cmd) {
+export async function runSettingsSet(key, value, opts, cmd) {
+  const globalOpts = cmd.optsWithGlobals();
+  if (!key || typeof value !== "string") {
+    process.stderr.write("Settings key and value are required\n");
+    process.exit(2);
+  }
+  const res = await apiFetch("/api/memory/settings", {
+    method: "PUT",
+    body: { key, value },
+  });
+  if (!res.ok) {
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
+    process.exit(1);
+  }
+  const data = await res.json().catch(() => ({}));
+  emit(pickSettingsRows({ [key]: data.value ?? value }), globalOpts, settingsSchema);
+}
+
+export async function runSettingsReset(opts, cmd) {
+  const globalOpts = cmd.optsWithGlobals();
+  const res = await apiFetch("/api/memory/settings", { method: "POST", body: { reset: true } });
+  if (!res.ok) {
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
+    process.exit(1);
+  }
+  const data = await res.json().catch(() => ({}));
+  emit(pickSettingsRows(data), globalOpts, settingsSchema);
+}
+
+export async function runDistilStatus(opts, cmd) {
+  const globalOpts = cmd.optsWithGlobals();
+  const res = await apiFetch("/api/memory/distil/status");
+  if (!res.ok) {
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
+    process.exit(1);
+  }
+  const data = await res.json().catch(() => ({}));
+  emit(pickDistilRows(data), globalOpts, distilSchema);
+}
+
+export async function runDistilRetryDlq(opts, cmd) {
   const globalOpts = cmd.optsWithGlobals();
   if (!opts.yes) {
-    const ok = await confirm(`Delete memory ${id}?`);
-    if (!ok) process.exit(0);
+    process.stderr.write("Use --yes to confirm DLQ retry.\n");
+    process.exit(2);
   }
-  const res = await apiFetch(`/api/memory/${id}`, { method: "DELETE" });
+  const res = await apiFetch("/api/memory/distil/retry-dlq", { method: "POST", body: {} });
   if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
+    process.stderr.write(`Error: ${sanitizeErrorMessage(await res.text().catch(() => "error"))}\n`);
     process.exit(1);
   }
-  process.stdout.write(`Deleted: ${id}\n`);
-}
-
-export async function runMemoryHealth(opts, cmd) {
-  const globalOpts = cmd.optsWithGlobals();
-  const res = await apiFetch("/api/memory/health");
-  if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
-    process.exit(1);
-  }
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   emit(data, globalOpts);
 }
 
 export function registerMemory(program) {
   const memory = program.command("memory").description(t("memory.description"));
 
-  memory
-    .command("search <query>")
-    .description(t("memory.search.description"))
-    .option("--type <type>", t("memory.search.type"))
-    .option("--limit <n>", t("memory.search.limit"), parseInt, 20)
-    .option("--api-key <key>", t("memory.search.api_key"))
-    .option("--token-budget <n>", t("memory.search.token_budget"), parseInt)
-    .action(runMemorySearch);
+  // Layer subcommands
+  const l0 = memory.command("l0").description("Layer-0 (vector/semantic) memory operations");
+  l0.command("search <query>")
+    .description("Search layer-0 memory (vector/semantic)")
+    .option("--session <id>", "Filter by session id")
+    .option("--scene <key>", "Filter by scene key")
+    .option("--limit <n>", "Max items to return (1-100, default 20)", String, "20")
+    .action(runL0Search);
 
-  memory
-    .command("add")
-    .description(t("memory.add.description"))
-    .option("--content <text>", t("memory.add.content"))
-    .option("--file <path>", t("memory.add.file"))
-    .option("--type <type>", t("memory.add.type"))
-    .option("--metadata <json>", t("memory.add.metadata"))
-    .option("--api-key <key>", t("memory.add.api_key"))
-    .action(runMemoryAdd);
+  const l1 = memory.command("l1").description("Layer-1 (full-text/FTS5) memory operations");
+  l1.command("search <query>")
+    .description("Search layer-1 memory (FTS5)")
+    .option("--session <id>", "Filter by session id")
+    .option("--scene <key>", "Filter by scene key")
+    .option("--limit <n>", "Max items to return (1-100, default 20)", String, "20")
+    .action(runL1Search);
 
-  memory
-    .command("clear")
-    .description(t("memory.clear.description"))
-    .option("--type <type>", t("memory.clear.type"))
-    .option("--older-than <duration>", t("memory.clear.older"))
-    .option("--api-key <key>", t("memory.clear.api_key"))
-    .option("--yes", t("memory.clear.yes"))
-    .action(runMemoryClear);
+  const l2 = memory.command("l2").description("Layer-2 (scene/pod) memory operations");
+  l2.command("read <id>").description("Read a layer-2 scene/pod by id").action(runL2Read);
 
+  const l3 = memory.command("l3").description("Layer-3 (current persona) memory operations");
+  l3.command("read")
+    .description("Read the layer-3 current persona (optionally filtered by session)")
+    .option("--session <id>", "Filter by session id")
+    .action(runL3Read);
+
+  // Cross-layer list
   memory
     .command("list")
-    .description(t("memory.list.description"))
-    .option("--type <type>", t("memory.list.type"))
-    .option("--limit <n>", t("memory.list.limit"), parseInt, 100)
-    .option("--api-key <key>", t("memory.list.api_key"))
+    .description("List memory across all layers (L0+L1+L2+L3) for the calling API key")
+    .option("--session <id>", "Filter by session id")
+    .option("--scene <key>", "Filter by scene key")
+    .option("--limit <n>", "Max items to return (1-100, default 20)", String, "20")
     .action(runMemoryList);
 
-  memory.command("get <id>").description(t("memory.get.description")).action(runMemoryGet);
+  // Settings subcommand
+  const settings = memory.command("settings").description("Memory settings");
+  settings.command("get").description("Show current memory settings").action(runSettingsGet);
+  settings
+    .command("set <key> <value>")
+    .description("Set a single memory setting")
+    .action(runSettingsSet);
+  settings
+    .command("reset")
+    .description("Reset memory settings to defaults")
+    .action(runSettingsReset);
 
-  memory
-    .command("delete <id>")
-    .description(t("memory.delete.description"))
-    .option("--yes", t("memory.delete.yes"))
-    .action(runMemoryDelete);
-
-  memory.command("health").description(t("memory.health.description")).action(runMemoryHealth);
+  // Distil subcommand
+  const distil = memory.command("distil").description("Memory distillation queue");
+  distil
+    .command("status")
+    .description("Show the distillation queue status")
+    .action(runDistilStatus);
+  distil
+    .command("retry-dlq")
+    .description("Retry the distillation dead-letter queue")
+    .option("--yes", "Skip confirmation prompt")
+    .action(runDistilRetryDlq);
 }

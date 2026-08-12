@@ -976,7 +976,7 @@
   },
   "tests/unit/cli-memory-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 18
+      "count": 3
     }
   },
   "tests/unit/cli-nodes-commands.test.ts": {
