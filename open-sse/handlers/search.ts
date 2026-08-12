@@ -322,7 +322,7 @@ function buildBraveRequest(
     url: `${config.baseUrl}${endpoint}?${qp}`,
     init: {
       method: "GET",
-      headers: { Accept: "application/json", "X-Subscription-Token": params.token },
+      headers: { Accept: "application/json", "X-Subscription-Token": params.token ?? "" },
     },
   };
 }
@@ -348,7 +348,7 @@ function buildExaRequest(
     url: config.baseUrl,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": params.token },
+      headers: { "Content-Type": "application/json", "x-api-key": params.token ?? "" },
       body: JSON.stringify(body),
     },
   };
