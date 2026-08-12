@@ -20,6 +20,7 @@ import { NineRouterExecutor } from "./ninerouter.ts";
 import { PerplexityWebExecutor } from "./perplexity-web.ts";
 import { GrokWebExecutor } from "./grok-web.ts";
 import { GeminiWebExecutor } from "./gemini-web.ts";
+import { TencentAIStudioWebExecutor } from "./tencent-aistudio-web.ts";
 import { GeminiBusinessExecutor } from "./gemini-business.ts";
 import { ChatGptWebExecutor } from "./chatgpt-web.ts";
 import { ChatGptWebCodexExecutor } from "./chatgpt-web-codex.ts";
@@ -162,6 +163,8 @@ const executors = {
   huggingchat: new HuggingChatExecutor(),
   hc: new HuggingChatExecutor(), // Alias
   "yuanbao-web": new YuanbaoWebExecutor(),
+  "tencent-aistudio-web": new TencentAIStudioWebExecutor(),
+  tasw: new TencentAIStudioWebExecutor(),
   ybw: new YuanbaoWebExecutor(), // Alias
   "poe-web": new PoeWebExecutor(),
   // #8969: do NOT alias canonical `poe` (API-key / api.poe.com) to PoeWebExecutor.
