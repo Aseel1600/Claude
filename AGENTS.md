@@ -258,6 +258,15 @@ Read the nearest `AGENTS.md` and the linked deep-dive before making a non-trivia
 
 When creating _any_ validation tests or one-off logic scripts, default to `scripts/ad-hoc/` or `tests/unit/` according to your goals. Do not pollute the `/` root context.
 
+- **Root `_*` paths are private and NEVER tracked** (`_tasks/`, `_references/`, `_mono_repo/`,
+  `_ideia/`, `_cache/` and any future `_<name>`): they live on disk only, are gitignored by the
+  anchored patterns `/_*/` + `/_*`, and some are full git repositories of their own (`_tasks` →
+  private remote `_tasks_omniroute`). Never `git add` anything inside them (a plain `add` is
+  already blocked by the ignore; never use `-f`), and never "clean them up" from the main repo —
+  untracking is done with `git rm --cached` so the disk content stays. The
+  `check:tracked-artifacts` gate (pre-commit + CI) fails on ANY tracked root path starting with
+  `_`, present or future. See Hard Rule #23 for the `_tasks` specifics.
+
 ---
 
 ## Key Conventions

@@ -27,11 +27,9 @@ const FORBIDDEN_PREFIXES = [
   "node_modules/",
   ".next/",
   "coverage/",
-  "_tasks/",
-  "_references/",
-  "_mono_repo/",
-  "_ideia/",
-  "_cache/",
+  // "_" na raiz é GENÉRICO (regra abaixo em checkTrackedArtifacts): _tasks/, _references/,
+  // _mono_repo/, _ideia/, _cache/ e qualquer _<novo>/ futuro — dirs privados, alguns com
+  // repo git próprio (_tasks). Nunca rastrear nada dentro deles (Hard Rule #23).
   ".claude/worktrees/",
   "docs/superpowers/",
   ".eslintcache", // matches .eslintcache, .eslintcache-complexity, .eslintcache-probe, …
@@ -61,6 +59,13 @@ export function checkTrackedArtifacts(trackedFiles, trackedSymlinks = []) {
   for (const file of trackedFiles) {
     if (FORBIDDEN_EXACT.has(file)) {
       violations.push(`forbidden tracked artifact: ${file}`);
+      continue;
+    }
+    // Regra genérica: NENHUM caminho de raiz prefixado com "_" pode ser rastreado
+    // (dir ou arquivo). Cobre _tasks, _references, _mono_repo e qualquer _<novo> futuro;
+    // paths aninhados legítimos (src/lib/_x) não são atingidos.
+    if (file.startsWith("_")) {
+      violations.push(`forbidden tracked artifact (root underscore path): ${file}`);
       continue;
     }
     for (const prefix of FORBIDDEN_PREFIXES) {

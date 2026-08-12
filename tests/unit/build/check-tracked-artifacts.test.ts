@@ -84,6 +84,25 @@ test("checkTrackedArtifacts: private root underscore dirs are flagged", () => {
   assert.equal(result.length, 4);
 });
 
+test("checkTrackedArtifacts: ANY future root underscore dir is flagged (generic rule)", () => {
+  const result = checkTrackedArtifacts([
+    "_nova-pasta-futura/qualquer/arquivo.md",
+    "_scratch/notes.txt",
+  ]);
+  assert.equal(result.length, 2);
+  assert.ok(result[0].includes("root underscore path"));
+});
+
+test("checkTrackedArtifacts: root underscore FILE is flagged; nested underscore paths pass", () => {
+  const flagged = checkTrackedArtifacts(["_notas-soltas.md"]);
+  assert.equal(flagged.length, 1);
+  const nested = checkTrackedArtifacts([
+    "src/lib/_internal/helper.ts",
+    "open-sse/services/_shared/util.ts",
+  ]);
+  assert.deepEqual(nested, []);
+});
+
 test("checkTrackedArtifacts: .claude/worktrees/ prefix is flagged", () => {
   const result = checkTrackedArtifacts([".claude/worktrees/fix-123/src/app.ts"]);
   assert.equal(result.length, 1);
