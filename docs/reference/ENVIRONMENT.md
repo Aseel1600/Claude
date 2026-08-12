@@ -1473,3 +1473,13 @@ Globale Defaults für den headless Browser und den ausgehenden Tool-Tunnel. Im D
 | `CHATGPT_WEB_CODEX_TUNNEL_ID`        | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Globale OpenAI-Tunnel-ID für lokale Codex-Tool-Runden.                      |
 | `CHATGPT_WEB_CODEX_RUNTIME_KEY`      | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Globaler Tunnel Runtime-Key; niemals in Logs ausgeben.                      |
 | `CHATGPT_WEB_CODEX_CONNECTOR_NAME`   | _(unset)_                        | `open-sse/executors/chatgpt-web-codex.ts`        | Name des ChatGPT-Custom-Connectors für die MCP-Brücke.                      |
+---
+
+## OmniConductor Bridge
+
+Long-lived SSE consumer that mirrors OmniConductor hub tasks into the local A2A TaskManager (`src/lib/conductor/`). Opt-in — the bridge only starts when `CONDUCTOR_HUB_URL` is set. Server-side only: the hub token must never reach the browser.
+
+| Variable              | Default    | Source File                  | Description                                                                                             |
+| --------------------- | ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `CONDUCTOR_HUB_URL`   | _(empty)_  | `src/lib/conductor/boot.ts`  | Base URL of the OmniConductor hub (e.g. `http://127.0.0.1:7910`). Unset = bridge disabled.               |
+| `CONDUCTOR_HUB_TOKEN` | _(empty)_  | `src/lib/conductor/boot.ts`  | Hub credential for the SSE feed — emit a `spokesperson`-kind peer on the hub (`POST /v1/peers`, admin).  |
