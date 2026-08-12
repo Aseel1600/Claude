@@ -104,6 +104,12 @@ function mergeUpdateStep(steps: UpdateStep[], nextStep: UpdateStep) {
   return next;
 }
 
+// Quick-start link classes, extracted so each <Link> still fits on one line with
+// prefetch={false} (#8281) — this file is size-frozen.
+const INLINE_LINK = "text-primary hover:underline";
+const DOCS_LINK =
+  "hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors";
+
 export default function HomePageClient({ machineId }: HomePageClientProps) {
   const router = useRouter();
   const isElectron = useIsElectron();
@@ -138,31 +144,31 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     const cleanLatest = latest.replace(/^v/, "");
     if (platform === "darwin") {
       return {
-        label: "Download DMG (macOS)",
+        label: t("downloadDmg"),
         url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute-${cleanLatest}.dmg`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download and install the macOS DMG installer to update (current: v${versionInfo?.current || ""}).`,
+        desc: t("downloadDmgDescription", { version: versionInfo?.current || "" }),
       };
     }
     if (platform === "win32") {
       return {
-        label: "Download EXE (Windows)",
+        label: t("downloadExe"),
         url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute.Setup.${cleanLatest}.exe`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download and install the Windows EXE installer to update (current: v${versionInfo?.current || ""}).`,
+        desc: t("downloadExeDescription", { version: versionInfo?.current || "" }),
       };
     }
     if (platform === "linux") {
       return {
-        label: "Download AppImage (Linux)",
+        label: t("downloadAppImage"),
         url: `https://github.com/diegosouzapw/OmniRoute/releases/download/v${cleanLatest}/OmniRoute-${cleanLatest}.AppImage`,
-        desc: `A new version of the OmniRoute desktop app is available. Please download the Linux AppImage package to update (current: v${versionInfo?.current || ""}).`,
+        desc: t("downloadAppImageDescription", { version: versionInfo?.current || "" }),
       };
     }
     return {
-      label: "Download Update",
+      label: t("downloadUpdate"),
       url: `https://github.com/diegosouzapw/OmniRoute/releases/tag/v${cleanLatest}`,
-      desc: `A new version of the OmniRoute desktop app is available. Please download the respective app format for your system to update (current: v${versionInfo?.current || ""}).`,
+      desc: t("downloadUpdateDescription", { version: versionInfo?.current || "" }),
     };
-  }, [platform, versionInfo?.latest, versionInfo?.current]);
+  }, [platform, t, versionInfo?.latest, versionInfo?.current]);
 
   // Electron internal auto-updater state and listeners
   const [electronUpdateStatus, setElectronUpdateStatus] = useState<{
@@ -492,6 +498,12 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       const canonicalProviderId = normalizeProviderId(rawProviderId);
       if (!canonicalProviderId || byProvider.has(canonicalProviderId)) return;
 
+      // Exclude providers with no active connections (or where all connections are deactivated)
+      const hasActiveConn = providerConnections.some(
+        (c) => normalizeProviderId(c.provider) === canonicalProviderId && c.isActive !== false
+      );
+      if (!hasActiveConn) return;
+
       const resolvedName =
         getProviderDisplayLabel(rawProviderId, providerNodes) ||
         name ||
@@ -509,10 +521,11 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     providerStats
       .filter((provider) => provider.total > 0)
       .forEach((provider) => addProvider(provider.id, provider.provider.name));
+    providerConnections.forEach((conn) => addProvider(conn.provider));
     Object.keys(providerMetrics).forEach((provider) => addProvider(provider));
 
     return Array.from(byProvider.values());
-  }, [providerStats, providerMetrics, providerNodes]);
+  }, [providerStats, providerMetrics, providerNodes, providerConnections]);
 
   const { lastProvider, errorProvider } = providerTopology;
 
@@ -533,29 +546,29 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               {
                 step: "install",
                 status: "done",
-                message: message || `Queued update to v${targetVersion}.`,
+                message: message || t("updateQueued", { version: targetVersion }),
               },
               {
                 step: "rebuild",
                 status: "running",
-                message: "Docker image is rebuilding in the background.",
+                message: t("updateDockerRebuilding"),
               },
               {
                 step: "restart",
                 status: "pending",
-                message: "Waiting for OmniRoute to restart with the new version.",
+                message: t("updateWaitingRestart"),
               },
             ]
           : [
               {
                 step: "install",
                 status: "running",
-                message: message || `Installing v${targetVersion}.`,
+                message: message || t("updateInstalling", { version: targetVersion }),
               },
               {
                 step: "restart",
                 status: "pending",
-                message: "Waiting for OmniRoute to restart with the new version.",
+                message: t("updateWaitingRestart"),
               },
             ];
 
@@ -587,14 +600,14 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               next = mergeUpdateStep(next, {
                 step: "complete",
                 status: "done",
-                message: `OmniRoute is now running v${targetVersion}.`,
+                message: t("updateRunning", { version: targetVersion }),
               });
 
               return next;
             });
             setUpdating(false);
             setUpdatePhase("done");
-            notify.success(`OmniRoute updated to v${targetVersion}.`);
+            notify.success(t("updateCompleted", { version: targetVersion }));
             await fetchData();
             return;
           }
@@ -605,20 +618,20 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               next = mergeUpdateStep(next, {
                 step: "rebuild",
                 status: "running",
-                message: `Docker image is still rebuilding for v${targetVersion}.`,
+                message: t("updateDockerStillRebuilding", { version: targetVersion }),
               });
             } else {
               next = mergeUpdateStep(next, {
                 step: "install",
                 status: "running",
-                message: `Installing v${targetVersion} in the background.`,
+                message: t("updateInstallingBackground", { version: targetVersion }),
               });
             }
 
             next = mergeUpdateStep(next, {
               step: "restart",
               status: "pending",
-              message: `Waiting for OmniRoute to come back on v${targetVersion}.`,
+              message: t("updateWaitingVersion", { version: targetVersion }),
             });
 
             return next;
@@ -630,20 +643,20 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               next = mergeUpdateStep(next, {
                 step: "rebuild",
                 status: "running",
-                message: "Docker rebuild is still in progress.",
+                message: t("updateDockerStillInProgress"),
               });
             } else {
               next = mergeUpdateStep(next, {
                 step: "install",
                 status: "running",
-                message: `Installing v${targetVersion} in the background.`,
+                message: t("updateInstallingBackground", { version: targetVersion }),
               });
             }
 
             next = mergeUpdateStep(next, {
               step: "restart",
               status: "running",
-              message: "Service restart in progress. Waiting for OmniRoute to come back online...",
+              message: t("updateRestarting"),
             });
 
             return next;
@@ -655,14 +668,14 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         mergeUpdateStep(prev, {
           step: "error",
           status: "failed",
-          message: `Update started, but v${targetVersion} did not become available before timeout. Refresh the page or check server logs.`,
+          message: t("updateTimeout", { version: targetVersion }),
         })
       );
       setUpdating(false);
       setUpdatePhase("failed");
-      notify.error(`Update to v${targetVersion} timed out.`);
+      notify.error(t("updateTimedOut", { version: targetVersion }));
     },
-    [fetchData]
+    [fetchData, t]
   );
 
   const handleUpdate = async () => {
@@ -683,12 +696,12 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           // Passing the raw object to notify.error() rendered it as a React child →
           // "Minified React error #31" crash ("Internal Server Error" screen), e.g. on
           // the 403 from the loopback-only /api/system/version. Extract the string.
-          notify.error(extractApiErrorMessage(data, "Failed to start update."));
+          notify.error(extractApiErrorMessage(data, t("updateStartFailed")));
           setUpdating(false);
           setUpdatePhase("idle");
           return;
         }
-        notify.success(data.message || "Update started.");
+        notify.success(data.message || t("updateStarted"));
         await pollBackgroundUpdate({
           channel: data.channel || "docker-compose",
           message: data.message || "",
@@ -699,7 +712,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
 
       // SSE stream — read progress events
       if (!res.body) {
-        notify.error("No response stream received.");
+        notify.error(t("noResponseStream"));
         setUpdating(false);
         setUpdatePhase("idle");
         return;
@@ -729,10 +742,10 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
             if (event.step === "complete") {
               setUpdatePhase("done");
               setUpdating(false);
-              notify.success(event.message || "Update complete!");
+              notify.success(event.message || t("updateComplete"));
             } else if (event.step === "error") {
               setUpdatePhase("failed");
-              notify.error(event.message || "Update failed.");
+              notify.error(event.message || t("updateFailed"));
               setUpdating(false);
             }
           } catch {
@@ -747,7 +760,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         {
           step: "error",
           status: "failed",
-          message: "Network error — connection lost during update.",
+          message: t("updateNetworkError"),
         },
       ]);
       setUpdating(false);
@@ -763,11 +776,11 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     return () => clearTimeout(timer);
   }, [updatePhase]);
   const stepLabels: Record<string, string> = {
-    install: "Install Package",
-    rebuild: "Rebuild Native Modules",
-    restart: "Restart Service",
-    complete: "Complete",
-    error: "Error",
+    install: t("stepInstallPackage"),
+    rebuild: t("stepRebuildNativeModules"),
+    restart: t("stepRestartService"),
+    complete: t("stepComplete"),
+    error: t("stepError"),
   };
   const showUpdateOverlay = updatePhase !== "idle";
 
@@ -795,17 +808,17 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               <div>
                 <h3 className="text-lg font-bold">
                   {updatePhase === "done"
-                    ? "Update Complete!"
+                    ? t("updateCompleteTitle")
                     : updatePhase === "failed"
-                      ? "Update Failed"
-                      : "Updating OmniRoute..."}
+                      ? t("updateFailedTitle")
+                      : t("updatingTitle")}
                 </h3>
                 <p className="text-xs text-text-muted mt-0.5">
                   {updatePhase === "done"
-                    ? "The page will reload automatically in a few seconds."
+                    ? t("reloadNotice")
                     : updatePhase === "failed"
-                      ? "Please try again or update manually via the CLI."
-                      : "Do not close this page. The system will restart automatically."}
+                      ? t("retryNotice")
+                      : t("restartNotice")}
                 </p>
               </div>
             </div>
@@ -865,7 +878,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                 <div className="mt-1 px-3 py-2.5 rounded-lg border border-green-500/30 bg-green-500/5">
                   <p className="text-sm font-semibold text-green-500 flex items-center gap-2">
                     <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    {updateSteps.find((s) => s.step === "complete")?.message || "Update complete!"}
+                    {updateSteps.find((s) => s.step === "complete")?.message || t("updateComplete")}
                   </p>
                   <p className="text-xs text-text-muted mt-1">{t("reloadingPageAutomatically")}</p>
                 </div>
@@ -885,11 +898,11 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                     if (updatePhase === "done") globalThis.window.location.reload();
                   }}
                 >
-                  {updatePhase === "done" ? "Reload Now" : "Close"}
+                  {updatePhase === "done" ? t("reloadNow") : t("closeUpdate")}
                 </Button>
                 {updatePhase === "failed" && (
                   <Button size="sm" variant="secondary" fullWidth onClick={handleUpdate}>
-                    Retry
+                    {t("retryUpdate")}
                   </Button>
                 )}
               </div>
@@ -911,30 +924,32 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                 </span>
                 <div>
                   <p className="font-semibold text-sm">
-                    Update Available: v{versionInfo.latest} {isElectron && "(Desktop App)"}
+                    {t("updateAvailableTitle", {
+                      version: versionInfo.latest,
+                      desktop: isElectron ? ` ${t("desktopAppLabel")}` : "",
+                    })}
                   </p>
                   <p className="text-xs opacity-80 mt-0.5">
                     {isElectron ? (
                       <>
-                        {electronUpdateStatus.status === "checking" && "Checking for updates..."}
+                        {electronUpdateStatus.status === "checking" && t("checkingForUpdates")}
                         {electronUpdateStatus.status === "available" &&
-                          `Version v${versionInfo.latest} is available for download.`}
+                          t("versionAvailableForDownload", { version: versionInfo.latest })}
                         {electronUpdateStatus.status === "downloading" &&
-                          `Downloading update... ${electronUpdateStatus.percent || 0}% complete.`}
-                        {electronUpdateStatus.status === "downloaded" &&
-                          "Update downloaded successfully! Click Restart & Install to apply."}
+                          t("downloadingUpdate", { percent: electronUpdateStatus.percent || 0 })}
+                        {electronUpdateStatus.status === "downloaded" && t("updateDownloaded")}
                         {electronUpdateStatus.status === "error" &&
-                          `Auto-update failed: ${electronUpdateStatus.message || "Unknown error"}.`}
+                          t("autoUpdateFailed", {
+                            reason: electronUpdateStatus.message || t("unknownUpdateError"),
+                          })}
                         {(electronUpdateStatus.status === "idle" ||
                           electronUpdateStatus.status === "not-available") &&
-                          `Version v${versionInfo.latest} is available for the desktop app.`}
+                          t("versionAvailableDesktop", { version: versionInfo.latest })}
                       </>
                     ) : versionInfo.autoUpdateSupported ? (
-                      t("updateAvailableDesc") ||
-                      `You are currently using v${versionInfo.current}. Update to access the latest features and bug fixes.`
+                      t("updateAvailableDesc")
                     ) : (
-                      versionInfo.autoUpdateError ||
-                      "Manual update required for this installation type."
+                      versionInfo.autoUpdateError || t("manualUpdateRequired")
                     )}
                   </p>
                 </div>
@@ -948,7 +963,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       onClick={() => globalThis.window.electronAPI?.downloadUpdate()}
                       className="font-semibold"
                     >
-                      Download Update
+                      {t("downloadUpdate")}
                     </Button>
                   )}
                   {electronUpdateStatus.status === "downloading" && (
@@ -967,7 +982,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       onClick={() => globalThis.window.electronAPI?.installUpdate()}
                       className="font-semibold animate-pulse"
                     >
-                      Restart & Install
+                      {t("restartAndInstall")}
                     </Button>
                   )}
                   {(electronUpdateStatus.status === "error" ||
@@ -983,7 +998,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       }}
                       className="font-semibold"
                     >
-                      Check for Update
+                      {t("checkForUpdate")}
                     </Button>
                   )}
                 </div>
@@ -995,9 +1010,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   className="ml-4 shrink-0 font-semibold"
                   title={versionInfo.autoUpdateError || ""}
                 >
-                  {versionInfo.autoUpdateSupported
-                    ? t("updateNow") || "Update Now"
-                    : "Manual Update"}
+                  {versionInfo.autoUpdateSupported ? t("updateNow") : t("manualUpdate")}
                 </Button>
               )}
             </div>
@@ -1009,9 +1022,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                 electronUpdateStatus.status === "available" ||
                 electronUpdateStatus.status === "not-available") && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-primary/20 mt-2 pt-3 gap-2">
-                  <p className="text-xs opacity-75">
-                    Or download the respective installer format directly:
-                  </p>
+                  <p className="text-xs opacity-75">{t("directDownloadHint")}</p>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -1023,7 +1034,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       }
                       className="font-semibold text-xs py-1"
                     >
-                      Release Notes
+                      {t("releaseNotes")}
                     </Button>
                     <Button
                       size="sm"
@@ -1061,7 +1072,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   rel="noopener noreferrer"
                   className="ml-4 inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-bg px-4 py-2 text-xs font-semibold text-text-main transition-colors hover:border-primary/30 hover:text-primary"
                 >
-                  {versionInfo.news.linkLabel || "Ler Mais"}
+                  {versionInfo.news.linkLabel || t("readMore")}
                   <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </a>
               )}
@@ -1070,7 +1081,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
         </div>
       )}
 
-      {/* Pinned Provider Quota Limits (compact, no filters) */}
+      {/* Pinned Provider Quota Limits */}
       {pinProviderQuotaToHome && (
         <Suspense fallback={<CardSkeleton />}>
           <ProviderQuotaWidget
@@ -1088,10 +1099,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                 <h2 className="text-lg font-semibold">{t("quickStart")}</h2>
                 <p className="text-sm text-text-muted">{t("quickStartDesc")}</p>
               </div>
-              <Link
-                href="/docs"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-border text-text-muted hover:text-text-main hover:bg-bg-subtle transition-colors"
-              >
+              <Link href="/docs" prefetch={false} className={DOCS_LINK}>
                 <span className="material-symbols-outlined text-[14px]">menu_book</span>
                 {t("fullDocs")}
               </Link>
@@ -1109,7 +1117,8 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                       endpoint: (chunks) => (
                         <Link
                           href="/dashboard/api-manager"
-                          className="text-primary hover:underline"
+                          prefetch={false}
+                          className={INLINE_LINK}
                         >
                           {chunks}
                         </Link>
@@ -1127,7 +1136,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   <p className="text-text-muted mt-0.5">
                     {t.rich("step2Desc", {
                       providers: (chunks) => (
-                        <Link href="/dashboard/providers" className="text-primary hover:underline">
+                        <Link href="/dashboard/providers" prefetch={false} className={INLINE_LINK}>
                           {chunks}
                         </Link>
                       ),
@@ -1155,12 +1164,12 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
                   <p className="text-text-muted mt-0.5">
                     {t.rich("step4Desc", {
                       logs: (chunks) => (
-                        <Link href="/dashboard/logs" className="text-primary hover:underline">
+                        <Link href="/dashboard/logs" prefetch={false} className={INLINE_LINK}>
                           {chunks}
                         </Link>
                       ),
                       analytics: (chunks) => (
-                        <Link href="/dashboard/analytics" className="text-primary hover:underline">
+                        <Link href="/dashboard/analytics" prefetch={false} className={INLINE_LINK}>
                           {chunks}
                         </Link>
                       ),
@@ -1210,7 +1219,7 @@ function ProviderOverviewCard({
     item.errors > 0 ? "text-red-500" : item.connected > 0 ? "text-green-500" : "text-text-muted";
 
   const authTypeConfig = {
-    "no-auth": { color: "bg-stone-500", label: "No Auth" },
+    "no-auth": { color: "bg-stone-500", label: t("noAuthLabel") },
     free: { color: "bg-green-500", label: tc("free") },
     oauth: { color: "bg-blue-500", label: t("oauthLabel") },
     apikey: { color: "bg-amber-500", label: t("apiKeyLabel") },

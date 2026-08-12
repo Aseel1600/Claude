@@ -21,6 +21,15 @@ export const AUDIO_ONLY_PROVIDERS = {
     textIcon: "AA",
     website: "https://assemblyai.com",
   },
+  soniox: {
+    id: "soniox",
+    alias: "sx",
+    name: "Soniox",
+    icon: "mic",
+    color: "#5B5BD6",
+    textIcon: "SX",
+    website: "https://soniox.com",
+  },
   elevenlabs: {
     id: "elevenlabs",
     alias: "el",
@@ -38,6 +47,15 @@ export const AUDIO_ONLY_PROVIDERS = {
     color: "#FF4F8B",
     textIcon: "CA",
     website: "https://cartesia.ai",
+  },
+  fishaudio: {
+    id: "fishaudio",
+    alias: "fishaudio",
+    name: "Fish Audio",
+    icon: "graphic_eq",
+    color: "#3B82F6",
+    textIcon: "FA",
+    website: "https://fish.audio",
   },
   playht: {
     id: "playht",

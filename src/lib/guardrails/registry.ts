@@ -1,8 +1,30 @@
-import { BaseGuardrail, type GuardrailContext, type GuardrailExecutionResult } from "./base";
+import {
+  BaseGuardrail,
+  type GuardrailContext,
+  type GuardrailExecutionResult,
+  type GuardrailResult,
+} from "./base";
 import { PIIMaskerGuardrail } from "./piiMasker";
 import { PromptInjectionGuardrail } from "./promptInjection";
 import { VisionBridgeGuardrail } from "./visionBridge";
+import { AudioBridgeGuardrail } from "./audioBridge";
 import { CredentialMaskerGuardrail } from "./credentialMasker";
+
+/**
+ * `preCall`/`postCall` may legitimately return nothing — that is the documented
+ * "no change" signal, alongside `{}` and `{ block: false }`
+ * (`docs/security/GUARDRAILS.md`), and `CredentialMaskerGuardrail` still declares
+ * the `| void` arm.
+ *
+ * `void` is not a value the checker lets us inspect, so neither `result?.block`
+ * nor a truthiness test compiles against `GuardrailResult | void`. Funnel the
+ * return through `unknown` once, here, and hand the dispatch loops a plain
+ * optional. Runtime behavior is unchanged: a guardrail that returns nothing
+ * still yields `undefined` and is still treated as "passed".
+ */
+function asGuardrailResult(raw: unknown): GuardrailResult<unknown> | undefined {
+  return raw && typeof raw === "object" ? (raw as GuardrailResult<unknown>) : undefined;
+}
 
 type HeadersLike = Headers | Record<string, unknown> | null | undefined;
 
@@ -128,7 +150,7 @@ export class GuardrailRegistry {
       }
 
       try {
-        const result = await guardrail.preCall(currentPayload, context);
+        const result = asGuardrailResult(await guardrail.preCall(currentPayload, context));
         const modified = result?.modifiedPayload !== undefined;
         const meta = result?.meta || null;
 
@@ -201,7 +223,7 @@ export class GuardrailRegistry {
       }
 
       try {
-        const result = await guardrail.postCall(currentResponse, context);
+        const result = asGuardrailResult(await guardrail.postCall(currentResponse, context));
         const modified = result?.modifiedResponse !== undefined;
         const meta = result?.meta || null;
 
@@ -265,6 +287,7 @@ export function registerDefaultGuardrails() {
   if (defaultGuardrailsRegistered) return guardrailRegistry;
 
   guardrailRegistry.register(new VisionBridgeGuardrail());
+  guardrailRegistry.register(new AudioBridgeGuardrail());
   guardrailRegistry.register(new PIIMaskerGuardrail());
   guardrailRegistry.register(new CredentialMaskerGuardrail());
   guardrailRegistry.register(new PromptInjectionGuardrail());

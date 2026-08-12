@@ -17,13 +17,13 @@ It provides a single OpenAI-compatible endpoint (`/v1/*`) and routes traffic acr
 
 Core capabilities:
 
-- OpenAI-compatible API surface for CLI/tools (271 providers, 86 executors)
+- OpenAI-compatible API surface for CLI/tools (271 providers, 89 executors)
 - Request/response translation across provider formats
 - Model combo fallback (multi-model sequence)
 - Structured combo steps (`provider + model + connection`) with runtime ordering by `compositeTiers`
 - Account-level fallback (multi-account per provider)
 - Quota preflight and quota-aware P2C account selection in the main chat path
-- OAuth + API-key provider connection management (19 OAuth provider modules)
+- OAuth + API-key provider connection management (21 OAuth provider modules)
 - Embedding generation via `/v1/embeddings` (6 providers, 9 models)
 - Image generation via `/v1/images/generations` (10+ providers, 20+ models)
 - Audio transcription via `/v1/audio/transcriptions` (7 providers)
@@ -481,7 +481,7 @@ the global circuit breaker / connection cooldown / model lockout layers:
 - Antigravity 429 engine: `open-sse/services/antigravity429Engine.ts` (rotates
   identity, scrubs response headers, drives credits/version tracking via
   `antigravityCredits.ts`, `antigravityHeaderScrub.ts`, `antigravityHeaders.ts`,
-  `antigravityIdentity.ts`, `antigravityObfuscation.ts`, `antigravityVersion.ts`)
+  `antigravityIdentity.ts`, `antigravityVersion.ts`)
 - ModelScope quota policy: `open-sse/services/modelscopePolicy.ts`
 - Claude Code CCH (Compatibility Channel Handshake): `open-sse/services/claudeCodeCCH.ts`,
   plus `claudeCodeCompatible.ts`, `claudeCodeConstraints.ts`, `claudeCodeExtraRemap.ts`,

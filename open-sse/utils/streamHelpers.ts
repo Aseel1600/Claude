@@ -13,6 +13,7 @@
 
 import { FORMATS } from "../translator/formats.ts";
 import { hasAnyReasoningSignal } from "./reasoningFields.ts";
+import { getRegistryEntry } from "../config/providerRegistry.ts";
 
 type SSEPayloadOptions = {
   eventType?: string;
@@ -475,6 +476,28 @@ export function formatSSE(data: unknown, sourceFormat: string): string {
   return `data: ${JSON.stringify(data)}\n\n`;
 }
 
+/**
+ * Build a synthetic OpenAI-shaped chat completion chunk for a manually
+ * assembled SSE delta (end-of-stream flushes, textual tool-call fallback,
+ * think-tag reasoning flush, terminal finish_reason synthesis, etc). Reuses
+ * the same `id`/`created` fallback and `choices[0]` shape every passthrough
+ * flush site needs.
+ */
+export function buildSyntheticChatChunk(
+  responsesId: string | null | undefined,
+  model: string | null | undefined,
+  delta: Record<string, unknown>,
+  finishReason: string | null = null
+): Record<string, unknown> {
+  return {
+    id: responsesId || `chatcmpl-${Date.now()}`,
+    object: "chat.completion.chunk",
+    created: Math.floor(Date.now() / 1000),
+    model: model || "unknown",
+    choices: [{ index: 0, delta, finish_reason: finishReason }],
+  };
+}
+
 const STREAM_SUMMARY_TEXT_LIMIT = 64 * 1024;
 
 // Bounded accumulator for streamed content/reasoning text — caps memory on long streams
@@ -500,4 +523,25 @@ export function hasActiveDeltaValue(value: unknown): boolean {
     return Object.values(value).some((entry) => hasActiveDeltaValue(entry));
   }
   return value !== null && value !== undefined;
+}
+
+// Claude SSE content_block_start normalization for providers (e.g. MiniMax) whose thinking
+// blocks omit `signature` on the opening event. Strict Anthropic Messages clients deserialize
+// this field before a later signature_delta arrives — inject only the empty envelope
+// placeholder, never synthesize/replace a provider-supplied signature.
+export function injectThinkingSignature(
+  parsed: { type?: string; content_block?: { type?: string; signature?: string } },
+  provider: string | null
+): boolean {
+  if (
+    provider !== null &&
+    getRegistryEntry(provider)?.ensureThinkingSignature === true &&
+    parsed.type === "content_block_start" &&
+    parsed.content_block?.type === "thinking" &&
+    parsed.content_block.signature === undefined
+  ) {
+    parsed.content_block.signature = "";
+    return true;
+  }
+  return false;
 }

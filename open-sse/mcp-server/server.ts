@@ -12,6 +12,7 @@ import {
   listCombosInput,
   getComboMetricsInput,
   switchComboInput,
+  createComboInput,
   checkQuotaInput,
   routeRequestInput,
   costReportInput,
@@ -46,6 +47,7 @@ import {
   type McpToolExtraLike,
 } from "./scopeEnforcement.ts";
 import { getMcpHttpAuthHeadersForInternalFetch } from "./httpAuthContext.ts";
+import { getInternalServiceAuthHeaders } from "../../src/lib/api/internalServiceAuth.ts";
 import {
   handleSimulateRoute,
   handleSetBudgetGuard,
@@ -77,6 +79,7 @@ import { poolTools } from "./tools/poolTools.ts";
 import { gamificationTools } from "./tools/gamificationTools.ts";
 import { notionTools } from "./tools/notionTools.ts";
 import { obsidianTools } from "./tools/obsidianTools.ts";
+import { localCorpusTools } from "./tools/localCorpusTools.ts";
 import { compressMcpRegistryMetadata } from "./descriptionCompressor.ts";
 import { reduceToolManifest, readMcpToolProfileFromEnv } from "./toolCardinality.ts";
 import { smartFilterText } from "../services/compression/engines/mcpAccessibility/index.ts";
@@ -88,6 +91,7 @@ import {
 import { getDbInstance } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
+import { sanitizeErrorMessage } from "../utils/error.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
 
@@ -110,6 +114,7 @@ const TOTAL_MCP_TOOL_COUNT = countUniqueMcpTools({
   pluginTools,
   notionTools,
   obsidianTools,
+  localCorpusTools,
   compressionTools,
 });
 
@@ -200,6 +205,9 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     ...getMcpHttpAuthHeadersForInternalFetch(),
     ...((options.headers as Record<string, string>) || {}),
+    // Authenticate only the server-to-server hop. This does not replace or
+    // weaken the caller identity forwarded above.
+    ...getInternalServiceAuthHeaders(),
   };
 
   const signal = options.signal || AbortSignal.timeout(10000);
@@ -262,6 +270,15 @@ function withScopeEnforcement(
   };
 }
 
+// process.uptime() (the source of health.uptime) returns a number, not a string;
+// the shared toString() helper only passes through actual strings, so a naive
+// toString(health.uptime, "unknown") silently discarded every real uptime value.
+function toUptimeString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "unknown";
+}
+
 async function handleGetHealth() {
   const start = Date.now();
   try {
@@ -279,8 +296,25 @@ async function handleGetHealth() {
     const resilienceCircuitBreakers = toArray(resilience.circuitBreakers);
     const rateLimitEntries = toArray(rateLimits.limits);
 
+    // Surface fetch failures instead of letting Promise.allSettled's {} fallback
+    // masquerade as genuine zero/empty data (indistinguishable "no data" vs.
+    // "couldn't reach the source" was the actual root confusion this fixes).
+    const degradedSources: Array<{ source: string; settled: PromiseSettledResult<unknown> }> = [
+      { source: "health", settled: healthRaw },
+      { source: "resilience", settled: resilienceRaw },
+      { source: "rateLimits", settled: rateLimitsRaw },
+    ];
+    const degraded = degradedSources
+      .filter(({ settled }) => settled.status === "rejected")
+      .map(({ source, settled }) => ({
+        source,
+        error: sanitizeErrorMessage(
+          settled.status === "rejected" ? (settled as PromiseRejectedResult).reason : undefined
+        ),
+      }));
+
     const result = {
-      uptime: toString(health.uptime, "unknown"),
+      uptime: toUptimeString(health.uptime),
       version: toString(health.version, "unknown"),
       memoryUsage: {
         heapUsed: toNumber(memoryUsageRaw.heapUsed, 0),
@@ -302,6 +336,7 @@ async function handleGetHealth() {
             provider: toString(toRecord(health.cryptography).provider, "unknown"),
           }
         : undefined,
+      degraded: degraded.length > 0 ? degraded : undefined,
     };
 
     await logToolCall("omniroute_get_health", {}, result, Date.now() - start, true);
@@ -382,6 +417,27 @@ async function handleSwitchCombo(args: { comboId: string; active: boolean }) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await logToolCall("omniroute_switch_combo", args, null, Date.now() - start, false, msg);
+    return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
+  }
+}
+
+async function handleCreateCombo(args: {
+  name: string;
+  description?: string;
+  strategy?: string;
+  models: { provider: string; model: string }[];
+}) {
+  const start = Date.now();
+  try {
+    const result = await omniRouteFetch("/api/combos", {
+      method: "POST",
+      body: JSON.stringify(args),
+    });
+    await logToolCall("omniroute_create_combo", args, result, Date.now() - start, true);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await logToolCall("omniroute_create_combo", args, null, Date.now() - start, false, msg);
     return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
   }
 }
@@ -681,6 +737,7 @@ export function createMcpServer(): McpServer {
     ...gamificationTools.map((t) => t.name),
     ...obsidianTools.map((t) => t.name),
     ...notionTools.map((t) => t.name),
+    ...localCorpusTools.map((t) => t.name),
   ]);
 
   server.registerTool(
@@ -727,6 +784,17 @@ export function createMcpServer(): McpServer {
     },
     withScopeEnforcement("omniroute_switch_combo", (args) =>
       handleSwitchCombo(switchComboInput.parse(args))
+    )
+  );
+
+  server.registerTool(
+    "omniroute_create_combo",
+    {
+      description: "Registers a new combo (model chain) with name, models, and strategy",
+      inputSchema: createComboInput,
+    },
+    withScopeEnforcement("omniroute_create_combo", (args) =>
+      handleCreateCombo(createComboInput.parse(args))
     )
   );
 
@@ -1249,6 +1317,35 @@ export function createMcpServer(): McpServer {
     );
   });
 
+  // ── Local Corpus Context Source Tools ─────────
+  localCorpusTools.forEach((toolDef) => {
+    server.registerTool(
+      toolDef.name,
+      {
+        description: toolDef.description,
+        // @ts-ignore: dynamic zod access
+        inputSchema: toolDef.inputSchema,
+      },
+      withScopeEnforcement(
+        toolDef.name,
+        async (args, extra) => {
+          try {
+            const parsedArgs = toolDef.inputSchema.parse(args ?? {});
+            // @ts-ignore: handler expected specific object
+            const result = await toolDef.handler(parsedArgs, extra);
+            return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+          } catch (error) {
+            return {
+              content: [{ type: "text" as const, text: `Error: ${sanitizeErrorMessage(error)}` }],
+              isError: true,
+            };
+          }
+        },
+        toolDef.scopes
+      )
+    );
+  });
+
   // ── Obsidian Context Source Tools ─────────────
   obsidianTools.forEach((toolDef) => {
     server.registerTool(
@@ -1333,6 +1430,10 @@ export function createMcpServer(): McpServer {
  * Called when `omniroute --mcp` is used.
  */
 export async function startMcpStdio(): Promise<void> {
+  // Stdout is reserved for JSON-RPC — bin/mcpStdioConsoleGuard.mjs is preloaded via
+  // `node --import` (see bin/mcp-server.mjs) so console.log/warn already redirect to
+  // stderr before this module's own imports evaluate (DB init happens as a side effect of
+  // createMcpServer()'s tool registration, earlier than any code placed here could catch).
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   const version = process.env.npm_package_version || "1.8.1";

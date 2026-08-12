@@ -9,6 +9,7 @@ import { compareTr } from "@/shared/utils/turkishText";
 import type { CodexGlobalServiceMode } from "@/lib/providers/codexFastTier";
 import { supportsProviderQuota } from "@/shared/utils/providerQuotaVisibility";
 import type { ConnectionDeleteConfirmState } from "../hooks/useConnectionDeleteConfirm";
+import { filterConnectionsByQuery } from "../connectionsSearchFilter";
 
 type ConnectionsListPanelProps = {
   connections: ConnectionRowConnection[];
@@ -26,6 +27,7 @@ type ConnectionsListPanelProps = {
   distributingProxies: boolean;
   healthFilter: string;
   page: number;
+  accountSearch: string;
   PAGE_SIZE: number;
   connProxyMap: Record<
     string,
@@ -41,13 +43,22 @@ type ConnectionsListPanelProps = {
   setSelectedIds: React.Dispatch<React.SetStateAction<Set<string>>>;
   setPage: React.Dispatch<React.SetStateAction<number>>;
   setHealthFilter: (v: string) => void;
+  setAccountSearch: (v: string) => void;
   // Callbacks from useProviderConnections
   deleteConfirm: ConnectionDeleteConfirmState;
   handleUpdateConnectionStatus: (id: string, isActive: boolean) => void;
   handleToggleRateLimit: (id: string, enabled: boolean) => void;
   handleToggleQuotaVisibility: (id: string, visible: boolean) => void;
   handleToggleClaudeExtraUsage: (id: string, enabled: boolean) => void;
+  canAutoSync?: boolean;
+  handleToggleConnectionAutoSync?: (connectionId: string, enabled: boolean) => void;
   handleToggleCliproxyapiMode: (id: string, enabled: boolean) => void;
+  handleSetUpstreamProxyMode: (
+    mode: "native" | "cliproxyapi" | "dario" | "fallback",
+    fallbackBackend?: "cliproxyapi" | "dario"
+  ) => void;
+  upstreamProxyMode: "native" | "cliproxyapi" | "dario" | "fallback";
+  upstreamProxyFallbackBackend: "cliproxyapi" | "dario";
   handleToggleCodexLimit: (id: string, type: "use5h" | "useWeekly", enabled: boolean) => void;
   handleToggleProxyEnabled: (id: string, enabled: boolean) => void;
   handleTogglePerKeyProxyEnabled: (id: string, enabled: boolean) => void;
@@ -107,6 +118,7 @@ export default function ConnectionsListPanel({
   distributingProxies,
   healthFilter,
   page,
+  accountSearch,
   PAGE_SIZE,
   connProxyMap,
   proxyConfig,
@@ -118,12 +130,17 @@ export default function ConnectionsListPanel({
   setSelectedIds,
   setPage,
   setHealthFilter,
+  setAccountSearch,
   deleteConfirm,
   handleUpdateConnectionStatus,
   handleToggleRateLimit,
   handleToggleQuotaVisibility,
   handleToggleClaudeExtraUsage,
+  handleToggleConnectionAutoSync,
   handleToggleCliproxyapiMode,
+  handleSetUpstreamProxyMode,
+  upstreamProxyMode,
+  upstreamProxyFallbackBackend,
   handleToggleCodexLimit,
   handleToggleProxyEnabled,
   handleTogglePerKeyProxyEnabled,
@@ -137,6 +154,7 @@ export default function ConnectionsListPanel({
   handleToggleSelectAll,
   handleDistributeProxies,
   cpaProviderEnabled,
+  canAutoSync,
   onOpenEditModal,
   onOpenOAuth,
   onSetProxyTarget,
@@ -212,7 +230,7 @@ export default function ConnectionsListPanel({
       label: t("filterCreditsExhausted", "Credits Exhausted"),
     },
   ];
-  const filtered =
+  const healthFiltered =
     healthFilter === "all"
       ? sorted
       : sorted.filter((c) => {
@@ -223,11 +241,30 @@ export default function ConnectionsListPanel({
             );
           return c.testStatus === healthFilter;
         });
+  // #7937 — substring search over id/tag/name/email, applied across the FULL
+  // in-memory list (not just the current page).
+  const filtered = filterConnectionsByQuery(accountSearch, healthFiltered);
 
   const totalFilteredPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const clampedPage = Math.min(page, totalFilteredPages - 1);
   const pageStart = clampedPage * PAGE_SIZE;
   const pageEnd = pageStart + PAGE_SIZE;
+
+  const accountSearchInput = (
+    <div className="relative min-w-[160px] max-w-[220px]">
+      <span className="material-symbols-outlined pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[15px] text-text-muted">
+        search
+      </span>
+      <input
+        type="text"
+        value={accountSearch}
+        onChange={(e) => setAccountSearch(e.target.value)}
+        placeholder={t("accountSearchPlaceholder", "Search accounts…")}
+        aria-label={t("accountSearchPlaceholder", "Search accounts…")}
+        className="w-full rounded-lg border border-border bg-sidebar/50 py-1.5 pl-7 pr-3 text-xs text-text-main placeholder:text-text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+    </div>
+  );
 
   const filterPills = (
     <div className="flex items-center gap-1.5 flex-wrap">
@@ -331,11 +368,13 @@ export default function ConnectionsListPanel({
                     )}
               </span>
             </label>
+            {accountSearchInput}
             {filterPills}
           </div>
 
           {bulkActions}
         </div>
+        {paginationBar}
         <div className="flex flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03] border border-t-0 border-border rounded-b-lg overflow-hidden">
           {pageConnections.length === 0 ? (
             <div className="px-3 py-6 text-center text-sm text-text-muted">
@@ -365,10 +404,18 @@ export default function ConnectionsListPanel({
                 onToggleClaudeExtraUsage={(enabled) =>
                   handleToggleClaudeExtraUsage(conn.id, enabled)
                 }
+                onToggleAutoSync={
+                  canAutoSync && handleToggleConnectionAutoSync
+                    ? (enabled) => handleToggleConnectionAutoSync(conn.id, enabled)
+                    : undefined
+                }
                 isCodex={providerId === "codex"}
                 isCcCompatible={isCcCompatible}
                 cliproxyapiEnabled={cpaProviderEnabled}
                 onToggleCliproxyapiMode={(enabled) => handleToggleCliproxyapiMode(conn.id, enabled)}
+                upstreamProxyMode={upstreamProxyMode}
+                upstreamProxyFallbackBackend={upstreamProxyFallbackBackend}
+                onSetUpstreamProxyMode={handleSetUpstreamProxyMode}
                 onToggleCodex5h={(enabled) => handleToggleCodexLimit(conn.id, "use5h", enabled)}
                 onToggleCodexWeekly={(enabled) =>
                   handleToggleCodexLimit(conn.id, "useWeekly", enabled)
@@ -433,7 +480,10 @@ export default function ConnectionsListPanel({
     );
   }
 
-  // Build ordered tag groups: untagged first, then alphabetically
+  // Build ordered tag groups: untagged first, then alphabetically. Group
+  // ordering + per-tag totals come from the FULL filtered set so the tag
+  // order/count stay stable across pages; row rendering below only shows the
+  // slice that belongs to the current page (#7937 — tagged view pagination).
   const groupMap = new Map<string, ConnectionRowConnection[]>();
   for (const conn of filtered) {
     const tag = (conn.providerSpecificData?.tag as string | undefined)?.trim() || "";
@@ -445,6 +495,15 @@ export default function ConnectionsListPanel({
     if (b === "") return 1;
     return compareTr(a, b);
   });
+
+  const pageConnectionsTagged = filtered.slice(pageStart, pageEnd);
+  const pagedGroupMap = new Map<string, ConnectionRowConnection[]>();
+  for (const conn of pageConnectionsTagged) {
+    const tag = (conn.providerSpecificData?.tag as string | undefined)?.trim() || "";
+    if (!pagedGroupMap.has(tag)) pagedGroupMap.set(tag, []);
+    pagedGroupMap.get(tag)!.push(conn);
+  }
+  const visibleGroupKeys = groupKeys.filter((tag) => (pagedGroupMap.get(tag)?.length ?? 0) > 0);
 
   return (
     <>
@@ -479,6 +538,7 @@ export default function ConnectionsListPanel({
                     )}
               </span>
             </label>
+            {accountSearchInput}
             {filterPills}
           </div>
 
@@ -490,9 +550,11 @@ export default function ConnectionsListPanel({
           </div>
         </div>
       ) : null}
+      {paginationBar}
       <div className="flex flex-col gap-0 border border-t-0 border-border rounded-b-lg overflow-hidden">
-        {groupKeys.map((tag, gi) => {
-          const groupConns = groupMap.get(tag)!;
+        {visibleGroupKeys.map((tag, gi) => {
+          const groupConns = pagedGroupMap.get(tag)!;
+          const groupTotal = groupMap.get(tag)!.length;
           return (
             <div
               key={tag || "__untagged__"}
@@ -516,7 +578,7 @@ export default function ConnectionsListPanel({
                     disabled={batchTesting || !!retestingId}
                     size="sm"
                   />
-                  <span className="text-[10px] text-text-muted/40">{groupConns.length}</span>
+                  <span className="text-[10px] text-text-muted/40">{groupTotal}</span>
                 </div>
               )}
               <div className="flex flex-col divide-y divide-black/[0.03] dark:divide-white/[0.03]">
@@ -528,7 +590,7 @@ export default function ConnectionsListPanel({
                     isClaude={providerId === "claude"}
                     codexGlobalServiceMode={codexGlobalServiceMode}
                     isFirst={gi === 0 && index === 0}
-                    isLast={gi === groupKeys.length - 1 && index === groupConns.length - 1}
+                    isLast={gi === visibleGroupKeys.length - 1 && index === groupConns.length - 1}
                     isSelected={selectedIds.has(conn.id)}
                     onToggleSelect={() => handleToggleSelectOne(conn.id)}
                     onMoveUp={() => handleSwapPriority(conn, sorted[sorted.indexOf(conn) - 1])}
@@ -543,12 +605,20 @@ export default function ConnectionsListPanel({
                     onToggleClaudeExtraUsage={(enabled) =>
                       handleToggleClaudeExtraUsage(conn.id, enabled)
                     }
+                    onToggleAutoSync={
+                      canAutoSync && handleToggleConnectionAutoSync
+                        ? (enabled) => handleToggleConnectionAutoSync(conn.id, enabled)
+                        : undefined
+                    }
                     isCodex={providerId === "codex"}
                     isCcCompatible={isCcCompatible}
                     cliproxyapiEnabled={cpaProviderEnabled}
                     onToggleCliproxyapiMode={(enabled) =>
                       handleToggleCliproxyapiMode(conn.id, enabled)
                     }
+                    upstreamProxyMode={upstreamProxyMode}
+                    upstreamProxyFallbackBackend={upstreamProxyFallbackBackend}
+                    onSetUpstreamProxyMode={handleSetUpstreamProxyMode}
                     onToggleCodex5h={(enabled) => handleToggleCodexLimit(conn.id, "use5h", enabled)}
                     onToggleCodexWeekly={(enabled) =>
                       handleToggleCodexLimit(conn.id, "useWeekly", enabled)
@@ -611,6 +681,7 @@ export default function ConnectionsListPanel({
           );
         })}
       </div>
+      {paginationBar}
     </>
   );
 }

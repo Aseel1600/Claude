@@ -23,6 +23,7 @@ import {
 } from "@/lib/db/usageAnalytics";
 import { getFallbackStats } from "@/lib/db/callLogStats";
 import { buildByProviderRows } from "@/lib/usage/providerDisplayNames";
+import { toNumber } from "@/shared/utils/numeric";
 
 function getRangeStartIso(range: string): string | null {
   const end = new Date();
@@ -73,15 +74,6 @@ type GetCodexFastCostMultiplier = (
   model: string | null | undefined,
   serviceTier: string | null | undefined
 ) => number;
-
-function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
 
 function toStringValue(value: unknown, fallback = ""): string {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
@@ -224,7 +216,12 @@ function resolveModelPricing(
     }
   }
 
-  // Last resort fallback for historical usage (e.g. "gpt-4" missing, matches "gpt-4.1" or first available)
+  // Short-circuit :free models to $0 (they have no pricing entry → should not fall back to arbitrary rates)
+  if (!pricing && model.endsWith(":free")) {
+    return null;
+  }
+
+  // Last resort fallback for historical usage (e.g. "gpt-4" missing, matches "gpt-4.1")
   if (!pricing && providerPricing && typeof providerPricing === "object") {
     for (const [key, val] of Object.entries(providerPricing as Record<string, unknown>)) {
       const lm = model.toLowerCase();
@@ -232,10 +229,6 @@ function resolveModelPricing(
         pricing = val;
         break;
       }
-    }
-    if (!pricing) {
-      const keys = Object.keys(providerPricing as Record<string, unknown>);
-      if (keys.length > 0) pricing = (providerPricing as Record<string, unknown>)[keys[0]];
     }
   }
 
@@ -355,10 +348,10 @@ export async function GET(request: Request) {
       }
     }
 
-    // Compute the raw-data cutoff: rows older than this may have been rolled up to
-    // daily_usage_summary and deleted from usage_history.
+    // Raw-data cutoff: must match cleanupUsageHistory's rollup/delete boundary —
+    // retention.usageHistory (src/lib/db/cleanup.ts), NOT aggregation.rawDataRetentionDays.
     const dbSettings = getUserDatabaseSettings();
-    const rawRetentionDays = dbSettings.aggregation?.rawDataRetentionDays ?? 30;
+    const rawRetentionDays = dbSettings.retention?.usageHistory ?? 30;
     const rawCutoff = new Date();
     rawCutoff.setDate(rawCutoff.getDate() - rawRetentionDays);
     const rawCutoffIso = rawCutoff.toISOString();
@@ -598,7 +591,10 @@ export async function GET(request: Request) {
         normalizeModelName,
         computeCostFromPricing
       );
-      const key = `${provider}::${short}`;
+      // Keyed by model name alone (not provider) — the table renders one row per
+      // model, so the same model served via multiple provider connections/accounts
+      // must be merged here rather than producing duplicate `key={m.model}` rows.
+      const key = short;
       const existing = modelMap.get(key) || {
         model: short,
         provider,

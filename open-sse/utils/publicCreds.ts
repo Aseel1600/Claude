@@ -177,6 +177,9 @@ const EMBEDDED_DEFAULTS = {
     13, 92, 15, 89, 66, 91, 76, 70, 72, 29, 71, 70, 3, 65, 93, 84, 72, 23, 28, 87, 92, 88, 15, 95,
     91, 22, 71, 87, 20, 66, 67, 86, 13, 81, 81, 21,
   ],
+  // Openference OAuth — public PKCE client id. The plaintext equals the first
+  // nine bytes of MASK, so its XOR-masked representation is nine zero bytes.
+  openference_id: [0, 0, 0, 0, 0, 0, 0, 0, 0],
   // Trae Cloud IDE — public oauth client id
   trae_id: [10, 3, 95, 6, 10, 22, 66, 3, 11, 90, 72, 31, 91, 2],
   // Microsoft Designer web app — public ClientId header sent by the
@@ -195,6 +198,26 @@ const EMBEDDED_DEFAULTS = {
   edgetts_token: [
     89, 44, 91, 40, 51, 94, 49, 64, 32, 108, 54, 51, 86, 41, 80, 37, 111, 69, 6, 42, 95, 93, 45, 68,
     87, 65, 77, 84, 105, 70, 51, 86,
+  ],
+  // Adobe Firefly web (firefly.adobe.com) — public x-api-key + IMS client_id
+  // (`clio-playground-web`). Captured from live browser generate/discovery calls.
+  // Not a per-user secret; every Firefly SPA session sends the same value.
+  // (Express still uses `projectx_webapp` — see adobe_firefly_express_client_id.)
+  adobe_firefly_api_key: [12, 1, 7, 6, 95, 31, 25, 21, 28, 74, 2, 26, 23, 2, 13, 78, 90, 19, 83],
+  // Adobe Express fallback IMS client_id for cookie exchange when Firefly
+  // clio-playground-web refresh fails (older Express cookies).
+  adobe_firefly_express_client_id: [31, 31, 1, 3, 23, 12, 1, 12, 58, 90, 21, 23, 3, 28, 25],
+  // Firefly credits balance endpoint public x-api-key (`SunbreakWebUI1`) from
+  // GET firefly.adobe.io/v1/credits/balance browser traffic.
+  adobe_firefly_balance_api_key: [60, 24, 0, 11, 0, 10, 20, 31, 50, 72, 18, 32, 43, 93],
+  // Raycast Pro V2 request-signature secret (#8895). Community-extracted from the
+  // public Raycast macOS client — the SAME value ships to every install, so it is
+  // public by design, not a per-user credential. Overridable via RAYCAST_SIG_SECRET
+  // or providerSpecificData.sigSecret.
+  raycast_sig_secret: [
+    89, 15, 13, 93, 71, 90, 65, 67, 86, 24, 71, 67, 1, 9, 91, 0, 73, 64, 87, 88, 93, 90, 91, 68, 12,
+    20, 18, 3, 21, 70, 66, 3, 13, 11, 1, 72, 69, 87, 88, 95, 87, 88, 17, 94, 20, 67, 92, 27, 72, 68,
+    3, 10, 92, 6, 21, 21, 84, 95, 14, 15, 88, 70, 95, 77,
   ],
 } as const;
 

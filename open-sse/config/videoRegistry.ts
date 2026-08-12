@@ -5,14 +5,17 @@
  * Supports local providers plus hosted task-based APIs such as Runway.
  */
 
-import { parseModelFromRegistry, getAllModelsFromRegistry } from "./registryUtils.ts";
+import { parseModelFromRegistry } from "./registryUtils.ts";
 import { RUNWAYML_SUPPORTED_VIDEO_MODELS } from "./runway.ts";
 import { SEGMIND_VIDEO_MODELS } from "./providers/registry/segmind/videoModels.ts";
+import { toRegistryVideoModels } from "../services/adobeFireflyModels.ts";
 
 interface VideoModel {
   id: string;
   name: string;
   isMarket?: boolean;
+  supportedSizes?: string[];
+  mediaCapabilities?: Record<string, unknown>;
 }
 
 interface VideoProvider {
@@ -27,6 +30,51 @@ interface VideoProvider {
 }
 
 export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com",
+    statusUrl: "https://apihub.agnes-ai.com/agnesapi",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "agnes-video-job",
+    models: [
+      {
+        id: "agnes-video-v2.0",
+        name: "Agnes Video V2.0",
+      },
+    ],
+  },
+
+  "qwen-cloud-token-plan": {
+    id: "qwen-cloud-token-plan",
+    alias: "qct",
+    baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/api/v1",
+    statusUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/api/v1/tasks",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "dashscope-video",
+    models: [
+      { id: "happyhorse-1.1-i2v", name: "HappyHorse 1.1 I2V" },
+      { id: "happyhorse-1.1-t2v", name: "HappyHorse 1.1 T2V" },
+      { id: "happyhorse-1.1-r2v", name: "HappyHorse 1.1 R2V" },
+    ],
+  },
+
+  "bailian-coding-plan": {
+    id: "bailian-coding-plan",
+    alias: "bcp",
+    baseUrl: "https://coding-intl.dashscope.aliyuncs.com/api/v1",
+    statusUrl: "https://coding-intl.dashscope.aliyuncs.com/api/v1/tasks",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "dashscope-video",
+    models: [
+      { id: "happyhorse-1.1-i2v", name: "HappyHorse 1.1 I2V" },
+      { id: "happyhorse-1.1-t2v", name: "HappyHorse 1.1 T2V" },
+      { id: "happyhorse-1.1-r2v", name: "HappyHorse 1.1 R2V" },
+    ],
+  },
+
   vertex: {
     id: "vertex",
     baseUrl: "https://us-central1-aiplatform.googleapis.com/v1",
@@ -37,6 +85,22 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
       { id: "veo-3.0-generate-001", name: "Veo 3.0 (Vertex)" },
       { id: "veo-3.0-fast-generate-001", name: "Veo 3.0 Fast (Vertex)" },
       { id: "veo-2.0-generate-001", name: "Veo 2.0 (Vertex)" },
+    ],
+  },
+
+  "fal-ai": {
+    id: "fal-ai",
+    baseUrl: "https://queue.fal.run",
+    authType: "apikey",
+    authHeader: "key",
+    format: "fal-ai-video",
+    models: [
+      { id: "veo3.1/lite", name: "Veo 3.1 Lite" },
+      { id: "google/gemini-omni-flash", name: "Gemini Omni Flash" },
+      {
+        id: "xai/grok-imagine-video/text-to-video",
+        name: "Grok Imagine Video",
+      },
     ],
   },
 
@@ -221,7 +285,37 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     format: "dashscope-video",
-    models: [{ id: "wan2.7-t2v", name: "Wan 2.7 T2V" }],
+    models: [
+      { id: "happyhorse-1.1-i2v", name: "HappyHorse 1.1 I2V" },
+      { id: "happyhorse-1.1-t2v", name: "HappyHorse 1.1 T2V" },
+      { id: "happyhorse-1.1-r2v", name: "HappyHorse 1.1 R2V" },
+      { id: "happyhorse-1.0-video-edit", name: "HappyHorse 1.0 Video Edit" },
+      { id: "wan2.7-i2v-2026-04-25", name: "Wan 2.7 I2V (2026-04-25)" },
+      { id: "wan2.6-i2v-flash", name: "Wan 2.6 I2V Flash" },
+      { id: "wan2.7-t2v-2026-06-12", name: "Wan 2.7 T2V (2026-06-12)" },
+      { id: "wan2.7-r2v-2026-06-12", name: "Wan 2.7 R2V (2026-06-12)" },
+      { id: "wan2.7-videoedit", name: "Wan 2.7 Video Edit" },
+    ],
+  },
+
+  "qwen-cloud": {
+    id: "qwen-cloud",
+    alias: "qwc",
+    baseUrl: "https://dashscope-intl.aliyuncs.com/api/v1",
+    statusUrl: "https://dashscope-intl.aliyuncs.com/api/v1/tasks",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "dashscope-video",
+    models: [
+      { id: "happyhorse-1.1-i2v", name: "HappyHorse 1.1 I2V" },
+      { id: "happyhorse-1.1-t2v", name: "HappyHorse 1.1 T2V" },
+      { id: "happyhorse-1.1-r2v", name: "HappyHorse 1.1 R2V" },
+      { id: "happyhorse-1.0-video-edit", name: "HappyHorse 1.0 Video Edit" },
+      { id: "wan2.7-t2v", name: "Wan 2.7 T2V" },
+      { id: "wan2.7-i2v", name: "Wan 2.7 I2V" },
+      { id: "wan2.7-r2v-2026-06-12", name: "Wan 2.7 R2V (2026-06-12)" },
+      { id: "wan2.7-videoedit", name: "Wan 2.7 Video Edit" },
+    ],
   },
 
   // Segmind video generation (#6656). Same `POST /v1/{model}` REST shape as
@@ -264,6 +358,27 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     format: "xai-video",
     models: [{ id: "grok-imagine-video", name: "Grok Imagine Video" }],
   },
+
+  // Adobe Firefly (unofficial) — same IMS/cookie credential as the image entry.
+  // Exact async video models and capabilities from the verified discovery snapshot.
+  "adobe-firefly": {
+    id: "adobe-firefly",
+    alias: "firefly",
+    baseUrl: "https://firefly-3p.ff.adobe.io/v2/3p-videos/generate-async",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "adobe-firefly-video",
+    models: toRegistryVideoModels(),
+  },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/video/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "default", name: "NanoGPT Video" }],
+  },
 };
 
 /**
@@ -284,5 +399,17 @@ export function parseVideoModel(modelStr: string | null) {
  * Get all video models as a flat list
  */
 export function getAllVideoModels() {
-  return getAllModelsFromRegistry(VIDEO_PROVIDERS);
+  return Object.entries(VIDEO_PROVIDERS).flatMap(([providerId, config]) =>
+    [providerId, config.alias]
+      .filter((prefix): prefix is string => Boolean(prefix))
+      .flatMap((prefix) =>
+        config.models.map((model) => ({
+          id: `${prefix}/${model.id}`,
+          name: model.name,
+          provider: providerId,
+          supportedSizes: model.supportedSizes || [],
+          mediaCapabilities: model.mediaCapabilities,
+        }))
+      )
+  );
 }

@@ -11,6 +11,11 @@ import { KIE_IMAGE_MODELS } from "./providers/registry/kie/imageModels.ts";
 import { FREEPIK_IMAGE_PROVIDER } from "./providers/registry/freepik/index.ts";
 import { STABILITY_AI_IMAGE_MODELS } from "./providers/registry/stability-ai/imageModels.ts";
 import { GEMINI_IMAGEN_PROVIDER } from "./providers/registry/gemini/imageModels.ts";
+import { CHEAPERINFERENCE_IMAGE_PROVIDER } from "./providers/registry/cheaperinference/imageModels.ts";
+import {
+  ADOBE_FIREFLY_IMAGE_ROUTING_ALIASES,
+  toRegistryImageModels,
+} from "../services/adobeFireflyModels.ts";
 
 interface ImageModelEntry {
   id: string;
@@ -21,6 +26,8 @@ interface ImageModelEntry {
   imageRequired?: boolean;
   description?: string;
   isMarket?: boolean;
+  supportedSizes?: string[];
+  mediaCapabilities?: Record<string, unknown>;
 }
 
 interface ImageProviderConfig {
@@ -34,6 +41,7 @@ interface ImageProviderConfig {
   authHeader: string;
   format: string;
   models: ImageModelEntry[];
+  routingAliases?: readonly string[];
   supportedSizes: string[];
 }
 
@@ -45,6 +53,7 @@ interface ImageModelAliasEntry {
   inputModalities?: string[];
   imageRequired?: boolean;
   description?: string;
+  mediaCapabilities?: Record<string, unknown>;
 }
 
 interface ImageCatalogModelEntry {
@@ -54,6 +63,7 @@ interface ImageCatalogModelEntry {
   supportedSizes: string[];
   inputModalities: string[];
   description?: string;
+  mediaCapabilities?: Record<string, unknown>;
 }
 
 const IMAGE_MODEL_ALIASES: Record<string, ImageModelAliasEntry> = {
@@ -140,6 +150,48 @@ function resolveAliasImageRequired(alias, modelConfig) {
 }
 
 export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com/v1/images/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "agnes-image",
+    models: [
+      {
+        id: "agnes-image-2.1-flash",
+        name: "Agnes Image 2.1 Flash",
+        inputModalities: ["text", "image"],
+        description: "Agnes text-to-image, image-to-image, and multi-image composition model",
+      },
+    ],
+    supportedSizes: ["1K", "2K", "3K", "4K"],
+  },
+
+  "qwen-cloud-token-plan": {
+    id: "qwen-cloud-token-plan",
+    alias: "qct",
+    baseUrl:
+      "https://token-plan.ap-southeast-1.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "qwen-token-plan-image",
+    models: [
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    // Both models share 1K/2K support. The Pro model also accepts explicit 4K
+    // dimensions, which callers can still pass through the permissive request schema.
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+
   openai: {
     id: "openai",
     baseUrl: "https://api.openai.com/v1/images/generations",
@@ -187,7 +239,8 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
   "microsoft-designer-web": {
     id: "microsoft-designer-web",
     alias: "msdesigner",
-    baseUrl: "https://designerapp.officeapps.live.com/designerapp/DallE.ashx?action=GetDallEImagesCogSci",
+    baseUrl:
+      "https://designerapp.officeapps.live.com/designerapp/DallE.ashx?action=GetDallEImagesCogSci",
     authType: "apikey",
     authHeader: "bearer",
     format: "designer-web",
@@ -467,18 +520,18 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     authHeader: "key",
     format: "fal-ai",
     models: [
-      { id: "fal-ai/flux-2-max", name: "FLUX.2 Max" },
-      { id: "fal-ai/flux-2-pro", name: "FLUX.2 Pro" },
-      { id: "fal-ai/flux-2-flex", name: "FLUX.2 Flex" },
+      { id: "flux-2-max", name: "FLUX.2 Max" },
+      { id: "flux-2-pro", name: "FLUX.2 Pro" },
+      { id: "flux-2-flex", name: "FLUX.2 Flex" },
       { id: "bria/text-to-image/3.2", name: "Bria 3.2" },
-      { id: "fal-ai/bytedance/seedream/v4.5/text-to-image", name: "SeeDream V4.5" },
-      { id: "fal-ai/bytedance/dreamina/v3.1/text-to-image", name: "Dreamina V3.1" },
-      { id: "fal-ai/ideogram/v3", name: "Ideogram V3" },
-      { id: "fal-ai/nano-banana-pro", name: "Nano Banana Pro" },
-      { id: "fal-ai/nano-banana-2", name: "Nano Banana 2" },
-      { id: "fal-ai/recraft/v4/pro/text-to-image", name: "Recraft V4 Pro via Fal" },
-      { id: "fal-ai/recraft/v4/text-to-image", name: "Recraft V4 via Fal" },
-      { id: "fal-ai/stable-diffusion-v35-medium", name: "Stable Diffusion v3.5 Medium" },
+      { id: "bytedance/seedream/v4.5/text-to-image", name: "SeeDream V4.5" },
+      { id: "bytedance/dreamina/v3.1/text-to-image", name: "Dreamina V3.1" },
+      { id: "ideogram/v3", name: "Ideogram V3" },
+      { id: "nano-banana-pro", name: "Nano Banana Pro" },
+      { id: "nano-banana-2", name: "Nano Banana 2" },
+      { id: "recraft/v4/pro/text-to-image", name: "Recraft V4 Pro via Fal" },
+      { id: "recraft/v4/text-to-image", name: "Recraft V4 via Fal" },
+      { id: "stable-diffusion-v35-medium", name: "Stable Diffusion v3.5 Medium" },
     ],
     supportedSizes: ["1024x1024", "1024x1280", "1280x1024"],
   },
@@ -639,6 +692,141 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     models: LMARENA_DIRECT_IMAGE_MODELS,
     supportedSizes: ["1024x1024", "1024x1792", "1792x1024"],
   },
+
+  // Adobe Firefly (unofficial) — IMS access_token (clio-playground-web) or browser
+  // Cookie from firefly.adobe.com. Async 3P image generate + poll.
+  // Model list = static fallback from models/discovery capture; live discovery
+  // refreshes via resolveAdobeFireflyCatalog when credentials work.
+  "adobe-firefly": {
+    id: "adobe-firefly",
+    alias: "firefly",
+    baseUrl: "https://firefly-3p.ff.adobe.io/v2/3p-images/generate-async",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "adobe-firefly-image",
+    models: toRegistryImageModels(),
+    routingAliases: ADOBE_FIREFLY_IMAGE_ROUTING_ALIASES,
+    supportedSizes: [],
+  },
+
+  // Cheaper Inference (OSS-sponsor gateway). Declared AFTER adobe-firefly on
+  // purpose: it shares the nano-banana-pro / nano-banana-2 ids, and parseImageModel
+  // resolves a bare id by first-match over this object's iteration order, so
+  // Firefly keeps the bare ids and these are prefix-only. See the module for the
+  // full collision note.
+  cheaperinference: CHEAPERINFERENCE_IMAGE_PROVIDER,
+
+  // Keep Bailian Coding Plan after existing duplicate model owners so adding
+  // explicit `bailian-coding-plan/` and `bcp/` routes does not change
+  // historical bare-model routing.
+  "bailian-coding-plan": {
+    id: "bailian-coding-plan",
+    alias: "bcp",
+    baseUrl:
+      "https://coding-intl.dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "bailian-coding-plan-image",
+    models: [
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0",
+        name: "Qwen Image 2.0",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro",
+        name: "Qwen Image 2.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+    ],
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
+
+  // Keep Alibaba after existing duplicate model owners so adding explicit
+  // `alibaba/` and `ali/` routes does not change historical bare-model routing.
+  alibaba: {
+    id: "alibaba",
+    alias: "ali",
+    baseUrl:
+      "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "alibaba-image",
+    models: [
+      {
+        id: "qwen-image-3.0-pro",
+        name: "Qwen Image 3.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro-2026-06-22",
+        name: "Qwen Image 2.0 Pro (2026-06-22)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0",
+        name: "Qwen Image 2.0",
+        inputModalities: ["text", "image"],
+      },
+      { id: "z-image-turbo", name: "Z-Image Turbo" },
+      { id: "wan2.6-t2i", name: "Wan 2.6 T2I" },
+    ],
+    supportedSizes: ["1024x1024", "1280x1280", "2048x2048"],
+  },
+
+  // Keep regular Qwen Cloud isolated from Alibaba, Bailian Coding Plan, and
+  // Qwen Cloud Token Plan. Explicit `qwen-cloud/` or `qwc/` routes use only
+  // the regular Qwen Cloud connection and its regional DashScope endpoint.
+  "qwen-cloud": {
+    id: "qwen-cloud",
+    alias: "qwc",
+    baseUrl:
+      "https://dashscope-intl.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "qwen-cloud-image",
+    models: [
+      {
+        id: "wan2.7-image-pro",
+        name: "Wan 2.7 Image Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "wan2.7-image",
+        name: "Wan 2.7 Image",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-3.0-pro",
+        name: "Qwen Image 3.0 Pro",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-pro-2026-06-22",
+        name: "Qwen Image 2.0 Pro (2026-06-22)",
+        inputModalities: ["text", "image"],
+      },
+      {
+        id: "qwen-image-2.0-2026-03-03",
+        name: "Qwen Image 2.0 (2026-03-03)",
+        inputModalities: ["text", "image"],
+      },
+      { id: "z-image-turbo", name: "Z-Image Turbo" },
+    ],
+    // 1K/2K are shared by the whole catalog. Wan 2.7 Image Pro callers can
+    // still pass supported 4K dimensions through the permissive request schema.
+    supportedSizes: ["1024x1024", "2048x2048"],
+  },
 };
 
 /**
@@ -664,22 +852,20 @@ export function parseImageModel(modelStr) {
   for (const [providerId, config] of Object.entries(IMAGE_PROVIDERS)) {
     if (modelStr.startsWith(providerId + "/")) {
       const model = modelStr.slice(providerId.length + 1);
-      const aliased =
-        resolveImageModelAlias(`${providerId}/${model}`) || resolveImageModelAlias(model);
+      const aliased = resolveImageModelAlias(`${providerId}/${model}`);
       return aliased || { provider: providerId, model };
     }
     // Check alias if available
     if (config.alias && modelStr.startsWith(config.alias + "/")) {
       const model = modelStr.slice(config.alias.length + 1);
-      const aliased =
-        resolveImageModelAlias(`${providerId}/${model}`) || resolveImageModelAlias(model);
+      const aliased = resolveImageModelAlias(`${providerId}/${model}`);
       return aliased || { provider: providerId, model };
     }
   }
 
   // No provider prefix — try to find the model in every provider
   for (const [providerId, config] of Object.entries(IMAGE_PROVIDERS)) {
-    if (config.models.some((m) => m.id === modelStr)) {
+    if (config.routingAliases?.includes(modelStr) || config.models.some((m) => m.id === modelStr)) {
       return { provider: providerId, model: modelStr };
     }
   }
@@ -698,9 +884,10 @@ function imageProviderCatalogEntries(
     id: `${providerId}/${model.id}`,
     name: model.name,
     provider: providerId,
-    supportedSizes: config.supportedSizes,
+    supportedSizes: model.supportedSizes || config.supportedSizes,
     inputModalities: model.inputModalities || ["text"],
     description: model.description || undefined,
+    mediaCapabilities: model.mediaCapabilities,
   }));
 }
 
@@ -749,7 +936,6 @@ export function getImageModelAliases() {
 export function isRegisteredImageModel(providerId, modelId) {
   return Boolean(findImageModelConfig(providerId, modelId));
 }
-
 export function getImageModelEntry(modelStr) {
   if (!modelStr) return null;
 

@@ -29,6 +29,7 @@ export const ERROR_TYPES: Record<number, ErrorInfo> = {
   404: { type: "invalid_request_error", code: "model_not_found" },
   406: { type: "invalid_request_error", code: "model_not_supported" },
   429: { type: "rate_limit_error", code: "rate_limit_exceeded" },
+  499: { type: "client_disconnected", code: "client_disconnected" },
   500: { type: "server_error", code: "internal_server_error" },
   502: { type: "server_error", code: "bad_gateway" },
   503: { type: "server_error", code: "service_unavailable" },
@@ -44,6 +45,7 @@ export const DEFAULT_ERROR_MESSAGES: Record<number, string> = {
   404: "Model not found",
   406: "Model not supported",
   429: "Rate limit exceeded",
+  499: "Client disconnected",
   500: "Internal server error",
   502: "Bad gateway - upstream provider error",
   503: "Service temporarily unavailable",
@@ -147,6 +149,18 @@ export const ERROR_RULES: ErrorRule[] = [
     backoff: true,
     reason: "quota_exhausted",
   },
+  {
+    id: "out_of_extra_usage",
+    text: "out of extra usage",
+    backoff: true,
+    reason: "quota_exhausted",
+  },
+  {
+    id: "extra_usage_required",
+    text: "extra usage required",
+    backoff: true,
+    reason: "quota_exhausted",
+  },
   { id: "capacity", text: "capacity", backoff: true, reason: "model_capacity" },
   { id: "overloaded", text: "overloaded", backoff: true, reason: "model_capacity" },
   { id: "high_demand", text: "high demand", backoff: true, reason: "model_capacity" },
@@ -198,6 +212,19 @@ export function matchErrorRuleByStatus(statusCode: number): ErrorRule | null {
 
 export function findMatchingErrorRule(statusCode: number, message: unknown): ErrorRule | null {
   return matchErrorRuleByText(message) || matchErrorRuleByStatus(statusCode);
+}
+
+// #8248: NVIDIA NIM function-state DEGRADED — some NIM deployments signal a non-standard
+// HTTP 400 whose body reports the backing "function" is DEGRADED (e.g. `Function id "<uuid>"
+// submitted for inference is DEGRADED`) instead of a clean model-not-found/5xx. Bounded
+// lookahead ({0,80}) — ReDoS-safe, no nested quantifiers.
+const NIM_FUNCTION_DEGRADED_PATTERNS = [
+  /\bfunction\b[\s\S]{0,80}?\bDEGRADED\b/i,
+  /\bDEGRADED\b[\s\S]{0,80}?\bfunction\b/i,
+];
+
+export function isNimFunctionDegraded(errorText: string): boolean {
+  return NIM_FUNCTION_DEGRADED_PATTERNS.some((p) => p.test(errorText));
 }
 
 export interface ServiceSupervisorCooldown {

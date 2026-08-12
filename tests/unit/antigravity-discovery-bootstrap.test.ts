@@ -126,7 +126,7 @@ describe("ensureAntigravityProjectAssigned", () => {
     assert.equal(capturedAuth, "Bearer my-secret-token", "Authorization header must be set");
   });
 
-  test("uses CLI/SDK harness headers when requested", async () => {
+  test("uses the official CLI content headers when requested", async () => {
     let capturedHeaders: Headers | null = null;
 
     const mockFetch = async (_url: string, init?: RequestInit): Promise<Response> => {
@@ -137,44 +137,47 @@ describe("ensureAntigravityProjectAssigned", () => {
       });
     };
 
-    await ensureAntigravityProjectAssigned("harness-token", mockFetch, "harness");
+    await ensureAntigravityProjectAssigned("cli-token", mockFetch, "cli");
 
     assert.match(
       capturedHeaders?.get("User-Agent") || "",
-      /^antigravity\/4\.2\.0 [^ ]+\/[^ ]+ google-api-nodejs-client\/10\.3\.0$/
+      /^antigravity\/cli\/1\.1\.5 \(aidev_client; os_type=.+; arch=.+; auth_method=consumer\)$/
     );
-    assert.equal(capturedHeaders?.get("X-Goog-Api-Client"), "gl-node/22.21.1");
+    assert.equal(capturedHeaders?.get("X-Goog-Api-Client"), null);
     assert.equal(capturedHeaders?.get("Client-Metadata"), null);
   });
 
-  test("falls through to next URL when first loadCodeAssist returns 404", async () => {
+  test("uses the official IDE native content headers by default", async () => {
+    let capturedHeaders: Headers | null = null;
+    const mockFetch = async (_url: string, init?: RequestInit): Promise<Response> => {
+      capturedHeaders = new Headers(init?.headers);
+      return Response.json({ cloudaicompanionProject: "proj-ide" });
+    };
+
+    await ensureAntigravityProjectAssigned("ide-token", mockFetch);
+
+    assert.match(capturedHeaders?.get("User-Agent") || "", /^antigravity\/ide\/2\.1\.1 /);
+    assert.equal(capturedHeaders?.get("X-Goog-Api-Client"), null);
+    assert.equal(capturedHeaders?.get("Client-Metadata"), null);
+  });
+
+  test("bootstrap tries loadCodeAssist then onboardUser on 404, non-fatal", async () => {
     const hitUrls: string[] = [];
 
     const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
       hitUrls.push(url);
-      // Exact hostname match (not substring .includes) so the check can't be fooled by a
-      // look-alike host like daily-cloudcode-pa.googleapis.com.evil.com (CodeQL
-      // js/incomplete-url-substring-sanitization).
-      if (new URL(url).hostname === "daily-cloudcode-pa.googleapis.com") {
-        // First URL fails
-        return new Response("not found", { status: 404 });
-      }
-      // Second URL succeeds
-      return new Response(JSON.stringify({ cloudaicompanionProject: "proj-fallback" }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+      return new Response("not found", { status: 404 });
     };
 
-    const projectId = await ensureAntigravityProjectAssigned("fallback-token", mockFetch);
+    const projectId = await ensureAntigravityProjectAssigned("bootstrap-404-token", mockFetch);
 
-    assert.ok(hitUrls.length >= 2, "should try at least two URLs on the first failure");
-    assert.equal(projectId, "proj-fallback", "should return the project from the successful URL");
-    assert.equal(
-      getAntigravityProjectFromCache("fallback-token"),
-      "proj-fallback",
-      "should cache the project from the successful URL"
-    );
+    // loadCodeAssist returns no project on 404, so the fallback calls
+    // onboardUser (also 404). Total: 2 URLs (loadCodeAssist + onboardUser).
+    assert.equal(hitUrls.length, 2, "must try loadCodeAssist then onboardUser");
+    for (const url of hitUrls) {
+      assert.equal(new URL(url).hostname, "cloudcode-pa.googleapis.com");
+    }
+    assert.equal(projectId, undefined, "a 404 bootstrap is non-fatal and returns undefined");
   });
 
   test("getAntigravityLoadCodeAssistUrls returns URLs matching ANTIGRAVITY_BASE_URLS", () => {
@@ -231,5 +234,115 @@ describe("ordering guarantee: loadCodeAssist before :models", () => {
     assert.ok(loadIdx >= 0, ":loadCodeAssist must be called");
     assert.ok(modelsIdx >= 0, ":models must be called");
     assert.ok(loadIdx < modelsIdx, ":loadCodeAssist must be called BEFORE :models");
+  });
+});
+
+// ── onboardUser fallback when loadCodeAssist returns no project ──────────
+
+describe("onboardUser fallback", () => {
+  test("calls onboardUser when loadCodeAssist returns empty, then retries loadCodeAssist", async () => {
+    let loadCalls = 0;
+    let onboardCalls = 0;
+
+    const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
+      if (url.endsWith(":loadCodeAssist")) {
+        loadCalls++;
+        // First call returns empty, second returns project after onboarding.
+        if (loadCalls >= 2) {
+          return new Response(JSON.stringify({ cloudaicompanionProject: "proj-after-onboard" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith(":onboardUser")) {
+        onboardCalls++;
+        return new Response(JSON.stringify({ done: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    const projectId = await ensureAntigravityProjectAssigned("onboard-test-token", mockFetch);
+
+    assert.equal(projectId, "proj-after-onboard");
+    assert.equal(onboardCalls, 1, "onboardUser must be called exactly once");
+    assert.ok(loadCalls >= 2, "loadCodeAssist must be called twice (before and after onboard)");
+  });
+
+  test("returns undefined when both loadCodeAssist and onboardUser fail", async () => {
+    const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
+      if (url.endsWith(":loadCodeAssist")) {
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith(":onboardUser")) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    const projectId = await ensureAntigravityProjectAssigned("both-fail-token", mockFetch);
+    assert.equal(projectId, undefined, "must return undefined when both fail");
+  });
+
+  test("does not retry onboardUser for the same token", async () => {
+    let onboardCalls = 0;
+
+    const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
+      if (url.endsWith(":loadCodeAssist")) {
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith(":onboardUser")) {
+        onboardCalls++;
+        return new Response(JSON.stringify({ done: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    await ensureAntigravityProjectAssigned("dedup-token", mockFetch);
+    await ensureAntigravityProjectAssigned("dedup-token", mockFetch);
+
+    assert.equal(onboardCalls, 1, "onboardUser must be called only once per token");
+  });
+
+  test("skips onboardUser when loadCodeAssist succeeds on first try", async () => {
+    let onboardCalls = 0;
+
+    const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
+      if (url.endsWith(":loadCodeAssist")) {
+        return new Response(JSON.stringify({ cloudaicompanionProject: "proj-exists" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith(":onboardUser")) {
+        onboardCalls++;
+        return new Response(JSON.stringify({ done: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    const projectId = await ensureAntigravityProjectAssigned("already-ok-token", mockFetch);
+
+    assert.equal(projectId, "proj-exists");
+    assert.equal(onboardCalls, 0, "onboardUser must NOT be called when loadCodeAssist succeeds");
   });
 });

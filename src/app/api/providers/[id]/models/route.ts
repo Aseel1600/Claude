@@ -30,6 +30,7 @@ import {
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { getStaticQoderModels } from "@omniroute/open-sse/services/qoderCli.ts";
 import { deriveConfigFromRegistryModelsUrl } from "./discoveryConfig";
+import { resolveZedModels } from "@omniroute/open-sse/shared/zedAuth.ts";
 import {
   fetchGitHubCopilotModels,
   fetchGheCopilotModels,
@@ -83,12 +84,17 @@ import {
   isAutoFetchModelsEnabled,
   persistDiscoveredModels,
 } from "@/lib/providerModels/modelDiscovery";
+import { buildProviderModelsUrl, getDiscoveryClientVersionOptions } from "./discoveryClientVersion";
+import { getAdobeModels } from "./adobeFireflyDiscovery";
 import {
   parseGeminiModelsList,
   type GeminiDiscoveryModel,
 } from "@/lib/providerModels/geminiModelsParser";
 import { getSyncedAvailableModels, getCustomModels } from "@/lib/db/models";
 import { fetchCursorAgentModels } from "@/lib/providerModels/cursorAgent";
+import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
+import { fetchRaycastModels } from "@omniroute/open-sse/services/raycast.ts";
+import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import {
   type JsonRecord,
   asRecord,
@@ -107,6 +113,7 @@ import {
   normalizeDataRobotCatalogResponse,
   normalizeOpenAiLikeModelsResponse,
   normalizeSapModelsResponse,
+  normalizeAzureModelsResponse,
 } from "./discovery/normalizers";
 import { isNamedOpenAIStyleProvider } from "./discovery/providerSets";
 import { buildStaleEncryptionKeyResponse } from "./staleEncryptionGuard";
@@ -120,6 +127,7 @@ import {
   fetchCodexDiscoveryModels,
   fetchCodexGithubCatalogModels,
 } from "./discovery/codex";
+import { maybeHandleConolModelDiscovery } from "./conolDiscovery";
 
 function toLiveModel(item: Record<string, unknown>): { id: string; name: string } | null {
   const itemId = typeof item.id === "string" ? item.id.trim() : "";
@@ -414,10 +422,7 @@ export async function GET(
       // #6267 — a models-endpoint redirect (307/308) is not a fixable-config
       // error. safeOutboundFetch throws REDIRECT_BLOCKED which
       // getSafeOutboundFetchErrorStatus maps to 503, but unlike the other 503
-      // cases (URL_GUARD_BLOCKED / INVALID_URL, which are genuinely
-      // unrecoverable and stay hard errors) a blocked redirect should degrade to
-      // the local/cached catalog OmniRoute ships instead of surfacing a raw 503.
-      // General fix — covers any config-driven provider that 307s (e.g. qwen-web).
+      // Redirect blocks degrade to the local/cached catalog; invalid URLs remain hard errors.
       if (error instanceof SafeOutboundFetchError && error.code === "REDIRECT_BLOCKED") {
         return buildDiscoveryFallbackResponse(warnings);
       }
@@ -425,6 +430,11 @@ export async function GET(
       if (status === 400 || status === 503 || status === 504) return null;
       return buildDiscoveryFallbackResponse(warnings);
     };
+
+    if (provider === "adobe-firefly") {
+      const discovery = await getAdobeModels(apiKey, accessToken, connection.providerSpecificData);
+      return buildResponse({ provider, connectionId, ...discovery });
+    }
 
     const maybeReturnCachedDiscovery = () => {
       if (!refresh && cachedDiscoveryModels.length > 0) {
@@ -658,6 +668,20 @@ export async function GET(
         });
       }
     }
+    const conolResponse = await maybeHandleConolModelDiscovery({
+      provider,
+      connectionId,
+      apiKey,
+      accessToken,
+      providerSpecificData: connection.providerSpecificData,
+      proxy,
+      maybeReturnCachedDiscovery,
+      maybeReturnAutoFetchDisabled,
+      buildDiscoveryFallbackResponse,
+      buildResponse,
+      buildApiDiscoveryResponse,
+    });
+    if (conolResponse) return conolResponse;
 
     if (provider === "bedrock") {
       const cachedResponse = maybeReturnCachedDiscovery();
@@ -801,8 +825,16 @@ export async function GET(
         `${baseUrl.replace(/\/$/, "")}/models`, // Original fallback
       ];
 
+      // #8347: opt-in `client_version` query param on the model-LIST request only (never on
+      // any inference URL, and never on this path by default) — see discoveryClientVersion.ts.
+      const discoveryClientVersionOptions = getDiscoveryClientVersionOptions(
+        connection.providerSpecificData
+      );
+
       // Remove duplicates
-      const uniqueEndpoints = [...new Set(endpoints)];
+      const uniqueEndpoints = [...new Set(endpoints)].map((endpoint) =>
+        buildProviderModelsUrl(endpoint, discoveryClientVersionOptions)
+      );
       let models = null;
       let lastErrorStatus = null;
       const token = apiKey || accessToken;
@@ -996,58 +1028,63 @@ export async function GET(
         );
       }
 
-      const baseUrl =
+      const rawBaseUrl =
         getProviderBaseUrl(connection.providerSpecificData) || AZURE_AI_DEFAULT_BASE_URL;
-      const modelsUrl = buildAzureAiModelsUrl(baseUrl);
+      const baseUrl = normalizeAzureOpenAIBaseUrl(rawBaseUrl);
+      const apiVersion = encodeURIComponent(
+        getAzureOpenAIApiVersion(connection.providerSpecificData) || "2024-12-01-preview"
+      );
 
-      let response: Response;
-      try {
-        response = await safeOutboundFetch(modelsUrl, {
-          ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
-          guard: getProviderOutboundGuard(),
-          proxyConfig: proxy,
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            "api-key": token,
-          },
-        });
-      } catch (error) {
-        const fallback = buildDiscoveryErrorFallbackResponse(error, {
-          cacheWarning: "Azure AI models API unavailable — using cached catalog",
-          localWarning: "Azure AI models API unavailable — using local catalog",
-        });
-        if (fallback) return fallback;
-        throw error;
+      const discoveryUrls = [
+        buildAzureAiModelsUrl(rawBaseUrl),
+        `${baseUrl}/deployments`,
+        `${baseUrl}/openai/deployments?api-version=${apiVersion}`,
+        `${baseUrl}/openai/models?api-version=${apiVersion}`,
+      ];
+
+      let lastStatus = 0;
+      for (const modelsUrl of discoveryUrls) {
+        let response: Response;
+        try {
+          response = await safeOutboundFetch(modelsUrl, {
+            ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+            guard: getProviderOutboundGuard(),
+            proxyConfig: proxy,
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              "api-key": token,
+            },
+          });
+        } catch (error) {
+          const fallback = buildDiscoveryErrorFallbackResponse(error, {
+            cacheWarning: "Azure AI models API unavailable — using cached catalog",
+            localWarning: "Azure AI models API unavailable — using local catalog",
+          });
+          if (fallback) return fallback;
+          throw error;
+        }
+
+        if (response.ok) {
+          const normalized = normalizeAzureModelsResponse(await response.json(), "azure-ai");
+          if (normalized.length > 0) {
+            return buildApiDiscoveryResponse(normalized);
+          }
+        }
+
+        lastStatus = response.status;
+        if (response.status === 401 || response.status === 403) break;
       }
 
-      if (!response.ok) {
-        const fallback = buildDiscoveryFallbackResponse({
-          cacheWarning: `Models probe failed (${response.status}) — using cached catalog`,
-          localWarning: `Models probe failed (${response.status}) — using local catalog`,
-        });
-        if (fallback) return fallback;
-        return NextResponse.json(
-          { error: `Failed to fetch models: ${response.status}` },
-          { status: response.status }
-        );
-      }
-
-      const data = await response.json();
-      const models = (data.data || data.models || []).map((model: Record<string, unknown>) => ({
-        id:
-          (typeof model.id === "string" && model.id) ||
-          (typeof model.name === "string" && model.name) ||
-          "",
-        name:
-          (typeof model.display_name === "string" && model.display_name) ||
-          (typeof model.name === "string" && model.name) ||
-          (typeof model.id === "string" && model.id) ||
-          "",
-        owned_by: "azure-ai",
-      }));
-
-      return buildApiDiscoveryResponse(models.filter((model) => model.id));
+      const fallback = buildDiscoveryFallbackResponse({
+        cacheWarning: `Azure AI models probe failed (${lastStatus || "empty"}) — using cached catalog`,
+        localWarning: `Azure AI models probe failed (${lastStatus || "empty"}) — using local catalog`,
+      });
+      if (fallback) return fallback;
+      return NextResponse.json(
+        { error: `Failed to fetch models: ${lastStatus || "unknown"}` },
+        { status: lastStatus || 502 }
+      );
     }
 
     if (provider === "azure-openai") {
@@ -1327,6 +1364,58 @@ export async function GET(
       });
     }
 
+    if (provider === "raycast") {
+      const cachedResponse = maybeReturnCachedDiscovery();
+      if (cachedResponse) return cachedResponse;
+
+      const autoFetchDisabledResponse = maybeReturnAutoFetchDisabled();
+      if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
+
+      const psd = asRecord(connection.providerSpecificData);
+      const deviceId = toNonEmptyString(psd.deviceId);
+      const aid = toNonEmptyString(psd.aid) || deviceId;
+      if (!accessToken || !deviceId) {
+        const fallback = buildDiscoveryFallbackResponse({
+          localWarning: "Raycast credentials incomplete — using local catalog",
+        });
+        if (fallback) return fallback;
+        return NextResponse.json({ error: "Raycast credentials incomplete" }, { status: 400 });
+      }
+
+      try {
+        const raycastModels = await runWithProxyContext(proxy, () =>
+          fetchRaycastModels({
+            accessToken,
+            providerSpecificData: {
+              deviceId,
+              aid: aid || deviceId,
+              sigSecret: toNonEmptyString(psd.sigSecret) || undefined,
+            },
+          })
+        );
+        const models = raycastModels.map((model) => ({
+          id: model.id,
+          name: model.name || model.id,
+          owned_by: model.provider || provider,
+          ...(model.requires_better_ai ? { premium: true } : {}),
+          ...(model.availability ? { availability: model.availability } : {}),
+        }));
+        return buildApiDiscoveryResponse(models);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.log("[models] raycast fetch failed:", message);
+        const fallback = buildDiscoveryFallbackResponse({
+          cacheWarning: `Raycast API unavailable (${message}) — using cached catalog`,
+          localWarning: `Raycast API unavailable (${message}) — using local catalog`,
+        });
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Failed to fetch Raycast models: ${message}` },
+          { status: 502 }
+        );
+      }
+    }
+
     if (provider === "cursor") {
       const cachedResponse = maybeReturnCachedDiscovery();
       if (cachedResponse) return cachedResponse;
@@ -1335,7 +1424,7 @@ export async function GET(
       if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
 
       try {
-        const models = await fetchCursorAgentModels();
+        const models = ensureCursorAutoCatalogEntry(await fetchCursorAgentModels());
         return buildApiDiscoveryResponse(models);
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -1535,14 +1624,14 @@ export async function GET(
       return buildApiDiscoveryResponse(models);
     }
 
-    if (provider === "antigravity") {
+    if (provider === "antigravity" || provider === "agy") {
       const cachedResponse = maybeReturnCachedDiscovery();
       if (cachedResponse) return cachedResponse;
 
       const autoFetchDisabledResponse = maybeReturnAutoFetchDisabled();
       if (autoFetchDisabledResponse) return autoFetchDisabledResponse;
 
-      const staticModels = getStaticModelsForProvider("antigravity") || [];
+      const staticModels = getStaticModelsForProvider(provider) || [];
 
       if (!accessToken) {
         const fallback = buildDiscoveryFallbackResponse({
@@ -1563,7 +1652,8 @@ export async function GET(
         accessToken,
         connectionId,
         proxy,
-        connection.providerSpecificData
+        connection.providerSpecificData,
+        provider
       );
       if (remoteModels.length > 0) {
         return buildApiDiscoveryResponse(remoteModels);
@@ -1932,6 +2022,62 @@ export async function GET(
       return buildApiDiscoveryResponse(models);
     }
 
+    // Zed Hosted needs a two-step auth the generic discovery path cannot express:
+    // `cloud.zed.dev/models` rejects the account access token and requires an LLM
+    // token minted by POST /client/llm_tokens (authorized with Zed's own
+    // `<userId> <accessToken>` scheme). The registry `modelsUrl` otherwise falls
+    // through to deriveConfigFromRegistryModelsUrl(), which hardcodes
+    // `Bearer <token>` and always 401s with "Invalid Authorization header".
+    // ProviderModelsConfigEntry.buildHeaders is synchronous, so the token
+    // exchange cannot be expressed there — hence a dedicated branch that reuses
+    // the executor's own resolveZedModels().
+    if (provider === "zed-hosted") {
+      const zedToken = accessToken || apiKey;
+      if (!zedToken) {
+        const fallback = buildDiscoveryFallbackResponse();
+        if (fallback) return fallback;
+        return NextResponse.json({ error: "Zed connection has no access token" }, { status: 400 });
+      }
+      let providerSpecificData: Record<string, unknown> = {};
+      const rawPsd = (connection as { providerSpecificData?: unknown }).providerSpecificData;
+      if (typeof rawPsd === "string") {
+        try {
+          providerSpecificData = JSON.parse(rawPsd) as Record<string, unknown>;
+        } catch {
+          providerSpecificData = {};
+        }
+      } else if (rawPsd && typeof rawPsd === "object") {
+        providerSpecificData = rawPsd as Record<string, unknown>;
+      }
+
+      try {
+        const catalog = await resolveZedModels({
+          accessToken: zedToken,
+          providerSpecificData,
+        } as Parameters<typeof resolveZedModels>[0]);
+        const zedModels = (catalog?.models ?? []).map((model) => ({
+          id: model.id,
+          name: model.name,
+          context_length: model.contextLength,
+          max_output_tokens: model.maxOutputTokens,
+          supports_tools: model.supportsTools,
+          supports_images: model.supportsImages,
+        }));
+        return buildApiDiscoveryResponse(zedModels);
+      } catch (error) {
+        console.log("Error fetching models from provider", {
+          provider,
+          errorText: error instanceof Error ? error.message : String(error),
+        });
+        const fallback = buildDiscoveryFallbackResponse();
+        if (fallback) return fallback;
+        return NextResponse.json(
+          { error: `Failed to fetch models: ${sanitizeErrorMessage(error)}` },
+          { status: 502 }
+        );
+      }
+    }
+
     const config =
       provider in PROVIDER_MODELS_CONFIG
         ? PROVIDER_MODELS_CONFIG[provider as keyof typeof PROVIDER_MODELS_CONFIG]
@@ -2191,7 +2337,15 @@ export async function GET(
       }
 
       const data = await response.json();
-      const pageModels = config.parseResponse(data);
+      let pageModels = config.parseResponse(data);
+      if (provider === "alibaba" || provider === "alibaba-cn") {
+        const { parseAlibabaModelStudioModelsForConnection } =
+          await import("./discovery/providerModelsConfig.ts");
+        pageModels = parseAlibabaModelStudioModelsForConnection(
+          data,
+          connection.providerSpecificData as Record<string, unknown> | null | undefined
+        );
+      }
       allModels = allModels.concat(pageModels);
 
       const nextPageToken = data.nextPageToken;
@@ -2211,6 +2365,45 @@ export async function GET(
       console.log(
         `[models] ${provider}: fetched ${allModels.length} models across ${pageCount} pages`
       );
+    }
+
+    if (provider === "alibaba" || provider === "alibaba-cn") {
+      const { shouldUseLiveAlibabaFreeModelDiscovery } =
+        await import("@omniroute/open-sse/services/alibabaFreeTier.ts");
+      const { scheduleAlibabaFreeTierProbeRefresh } =
+        await import("@omniroute/open-sse/services/alibabaFreeTierDiscovery.ts");
+      const { scheduleAlibabaFreeTierQuotaRefresh, hasAlibabaConsoleFreeTierAuth } =
+        await import("@omniroute/open-sse/services/alibabaFreeTierQuotaFetcher.ts");
+      const { resolveAlibabaProviderBaseUrl } =
+        await import("@/shared/constants/alibabaProviderRegions.ts");
+      const providerSpecificData = connection.providerSpecificData as Record<
+        string,
+        unknown
+      > | null;
+      if (shouldUseLiveAlibabaFreeModelDiscovery(providerSpecificData)) {
+        if (hasAlibabaConsoleFreeTierAuth(providerSpecificData)) {
+          scheduleAlibabaFreeTierQuotaRefresh(provider, {
+            id: connectionId,
+            providerSpecificData,
+          });
+        } else {
+          const baseUrl = resolveAlibabaProviderBaseUrl(
+            provider,
+            providerSpecificData,
+            paginationBaseUrl.replace(/\/models$/, "")
+          );
+          scheduleAlibabaFreeTierProbeRefresh(
+            provider,
+            {
+              id: connectionId,
+              apiKey: token,
+              providerSpecificData,
+            },
+            allModels,
+            `${baseUrl.replace(/\/$/, "")}/chat/completions`
+          );
+        }
+      }
     }
 
     return buildApiDiscoveryResponse(allModels);
