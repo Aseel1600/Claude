@@ -153,7 +153,7 @@ import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
 import { regoloProvider } from "./registry/regolo/index.ts";
-import { windsurfProvider } from "./registry/windsurf/index.ts";
+import { devin_desktopProvider } from "./registry/devin-desktop/index.ts";
 import { zed_hostedProvider } from "./registry/zed-hosted/index.ts";
 import { nanogptProvider } from "./registry/nanogpt/index.ts";
 import { scalewayProvider } from "./registry/scaleway/index.ts";
@@ -233,6 +233,32 @@ import { hyperagentProvider } from "./registry/hyperagent/index.ts";
 import { muse_codeProvider } from "./registry/muse-code/index.ts";
 import { naga_acProvider } from "./registry/naga-ac/index.ts";
 import { chatanywhereProvider } from "./registry/chatanywhere/index.ts";
+import { zyloApiProvider } from "./registry/zylo-api/index.ts";
+import { poolsideProvider } from "./registry/poolside/index.ts";
+import { fastrouterProvider } from "./registry/fastrouter/index.ts";
+import { anyapiProvider } from "./registry/anyapi/index.ts";
+import { electronhubProvider } from "./registry/electronhub/index.ts";
+import { llmgatewayProvider } from "./registry/llmgateway/index.ts";
+import { llmKiwiProvider } from "./registry/llm-kiwi/index.ts";
+import { literouterProvider } from "./registry/literouter/index.ts";
+import { mnnAiProvider } from "./registry/mnn-ai/index.ts";
+import { meganovaAiProvider } from "./registry/meganova-ai/index.ts";
+import { mixlayerProvider } from "./registry/mixlayer/index.ts";
+import { spekaProvider } from "./registry/speka/index.ts";
+import { tokenreplyProvider } from "./registry/tokenreply/index.ts";
+import { yoloAutoProvider } from "./registry/yolo-auto/index.ts";
+import { dxntProvider } from "./registry/dxnt/index.ts";
+import { cloudcodeOneProvider } from "./registry/cloudcode-one/index.ts";
+import { ofoxaiProvider } from "./registry/ofoxai/index.ts";
+import { zerolimitaiProvider } from "./registry/zerolimitai/index.ts";
+import { helyxaiProvider } from "./registry/helyxai/index.ts";
+import { aurikoProvider } from "./registry/auriko/index.ts";
+import { poixeAiProvider } from "./registry/poixe-ai/index.ts";
+import { nagaAiProvider } from "./registry/naga-ai/index.ts";
+import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
+import { freeinferenceProvider } from "./registry/freeinference/index.ts";
+import { freeAiProvider } from "./registry/free-ai/index.ts";
+
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -385,7 +411,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "command-code": command_codeProvider,
   novita: novitaProvider,
   regolo: regoloProvider,
-  windsurf: windsurfProvider,
+  "devin-desktop": devin_desktopProvider,
   "zed-hosted": zed_hostedProvider,
   nanogpt: nanogptProvider,
   scaleway: scalewayProvider,
@@ -465,7 +491,33 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   promptql: promptqlProvider,
   hyperagent: hyperagentProvider,
   "muse-code": muse_codeProvider,
+  "zylo-api": zyloApiProvider,
   unorouter: unorouterProvider,
   "naga-ac": naga_acProvider,
   chatanywhere: chatanywhereProvider,
+  poolside: poolsideProvider,
+  fastrouter: fastrouterProvider,
+  anyapi: anyapiProvider,
+  electronhub: electronhubProvider,
+  llmgateway: llmgatewayProvider,
+  "llm-kiwi": llmKiwiProvider,
+  literouter: literouterProvider,
+  "mnn-ai": mnnAiProvider,
+  "meganova-ai": meganovaAiProvider,
+  mixlayer: mixlayerProvider,
+  speka: spekaProvider,
+  tokenreply: tokenreplyProvider,
+  "yolo-auto": yoloAutoProvider,
+  dxnt: dxntProvider,
+  "cloudcode-one": cloudcodeOneProvider,
+  ofoxai: ofoxaiProvider,
+  zerolimitai: zerolimitaiProvider,
+  helyxai: helyxaiProvider,
+  auriko: aurikoProvider,
+  "poixe-ai": poixeAiProvider,
+  "naga-ai": nagaAiProvider,
+  "chat-oripe": chatOripeProvider,
+  freeinference: freeinferenceProvider,
+  "free-ai": freeAiProvider,
+
 };

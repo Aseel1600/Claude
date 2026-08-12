@@ -25,13 +25,19 @@ const core = await import("@/lib/db/core.ts");
 const { createCombo } = await import("@/lib/db/combos");
 const { executeImageCombo } = await import("@omniroute/open-sse/services/imageCombo");
 
+type LogEntry = { level: string; tag: unknown; msg: unknown };
+
 function createLog() {
-  const entries: unknown[] = [];
+  const entries: LogEntry[] = [];
+  const record =
+    (level: string) =>
+    (tag: unknown, msg: unknown): number =>
+      entries.push({ level, tag, msg });
   return {
-    info: (tag: string, msg: unknown) => entries.push({ level: "info", tag, msg }),
-    warn: (tag: string, msg: unknown) => entries.push({ level: "warn", tag, msg }),
-    error: (tag: string, msg: unknown) => entries.push({ level: "error", tag, msg }),
-    debug: (tag: string, msg: unknown) => entries.push({ level: "debug", tag, msg }),
+    info: record("info"),
+    warn: record("warn"),
+    error: record("error"),
+    debug: record("debug"),
     entries,
   };
 }

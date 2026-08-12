@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "オーバーライドなし — すべてのアクティブなプロバイダーがデフォルトモデルで参加します"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi（Moonshot AI）は OmniRoute の創設オープンソースフレンドです",
-    "description": "Kimi K3 は、わずかなコストで 1M トークンのコンテキストウィンドウと最先端のコーディングパフォーマンスを OmniRoute に提供します。",
-    "cta": "Kimi Code を取得",
+    "foundingFriendTitle": "Kimi（Moonshot AI）はOmniRouteの創設オープンソースフレンドです",
+    "description": "公式Kimi APIを通じてOmniRouteでKimi K3を使えます。最先端の知能をより低コストで。",
+    "cta": "Kimi APIキーを取得",
     "partnerLinkNote": "パートナーリンク",
     "dismissAriaLabel": "閉じる"
   },

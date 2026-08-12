@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "کوئی اوور رائیڈز نہیں — تمام فعال فراہم کنندگان اپنے ڈیفالٹ ماڈلز کے ساتھ حصہ لیں گے"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) OmniRoute کا بانی اوپن سورس دوست ہے",
-    "description": "Kimi K3 لاگت کے ایک معمولی حصے میں OmniRoute کے لیے 1M-ٹوکن سیاق و سباق کی ونڈو اور جدید ترین کوڈنگ کارکردگی لاتا ہے۔",
-    "cta": "Kimi Code حاصل کریں",
+    "foundingFriendTitle": "Kimi (Moonshot AI) OmniRoute کا بانی اوپن سورس دوست ہے",
+    "description": "سرکاری Kimi API کے ذریعے OmniRoute میں Kimi K3 استعمال کریں۔ کم خرچ میں جدید ترین ذہانت سے لطف اٹھائیں۔",
+    "cta": "Kimi API کلید حاصل کریں",
     "partnerLinkNote": "پارٹنر لنک",
     "dismissAriaLabel": "خارج کریں"
   },

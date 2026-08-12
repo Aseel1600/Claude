@@ -53,6 +53,9 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     color: "#8B5CF6",
     textIcon: "UR",
     passthroughModels: true,
+    hasFree: true,
+    freeNote:
+      "Models with the :free suffix do not debit balance; limit is 1 request/minute per free model per user.",
     website: "https://unorouter.ai",
     apiHint: "Create an API key at https://unorouter.ai, then paste it here as a Bearer token.",
   },
@@ -424,6 +427,37 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Use https://api.oriper.com/v1 only after confirming the provider's current documentation, terms and key issuance. No quota is guaranteed by this catalog.",
   },
+  freeinference: {
+    id: "freeinference",
+    alias: "freeinference",
+    name: "FreeInference",
+    icon: "science",
+    color: "#8B5CF6",
+    textIcon: "FI",
+    passthroughModels: true,
+    website: "https://freeinference.org",
+    hasFree: true,
+    freeNote:
+      "Free research access without a card; non-Harvard applicants require manual approval and no numeric quota is publicly guaranteed.",
+    apiHint:
+      "Apply for a FreeInference key, then use https://freeinference.org/v1 as the OpenAI-compatible base URL. Terms allow prompt/response logging and possible publication of anonymized research data; never send sensitive or production data.",
+  },
+  "free-ai": {
+    id: "free-ai",
+    alias: "free-ai",
+    name: "Free.ai",
+    icon: "hub",
+    color: "#16A34A",
+    textIcon: "FA",
+    passthroughModels: true,
+    website: "https://free.ai",
+    hasFree: true,
+    freeNote:
+      "30,000 tokens/day cover self-hosted models after email verification. Usage beyond the pool can bill at raw cost, and premium external models are paid.",
+    apiHint:
+      "Create an sk-free- key, then use the nonstandard but OpenAI-shaped https://api.free.ai/v1/chat/ endpoint. Select a self-hosted zero-price model to stay within the free pool.",
+  },
+
   dgrid: {
     id: "dgrid",
     alias: "dgrid",
@@ -1180,20 +1214,5 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     passthroughModels: true,
     authHint:
       "Get API key at naga.ac — Google/GitHub/Discord signup available.",
-  },
-  chatanywhere: {
-    id: "chatanywhere",
-    alias: "chtany",
-    name: "ChatAnywhere",
-    icon: "chat",
-    color: "#10B981",
-    textIcon: "CA",
-    website: "https://api.chatanywhere.tech",
-    hasFree: true,
-    freeNote:
-      "Free tier: 5 req/day for GPT-5/4o/4.1, 30/day DeepSeek, 200/day gpt-4o-mini. Personal non-commercial use only — see chatanywhere/GPT_API_free. Requires GitHub-account-gated API key.",
-    passthroughModels: true,
-    authHint:
-      "Get free API key at api.chatanywhere.tech — requires GitHub account signup.",
   },
 };

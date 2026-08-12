@@ -200,10 +200,10 @@ function scheduleBackgroundRefresh(
         });
     }, 0);
   });
-
   // Nobody on the stale path awaits this, so pre-handle the rejection; a cold-path
   // caller that joins it via catalogInFlight attaches its own handler and still
   // observes the failure.
+  refreshPromise.catch(() => {});
 
   catalogInFlight.set(cacheKey, { generation, promise: refreshPromise });
   refreshPromise

@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Hakuna ubatilishaji — watoa huduma wote wanaotumika watashiriki na miundo yao chaguomsingi"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) ni rafiki mwanzilishi wa chanzo huria wa OmniRoute",
-    "description": "Kimi K3 inaleta dirisha la muktadha la tokeni 1M na utendaji wa kiwango cha juu wa uandishi wa nambari kwenye OmniRoute kwa gharama nafuu sana.",
-    "cta": "Pata Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) ni Rafiki Mwanzilishi wa Open Source wa OmniRoute",
+    "description": "Tumia Kimi K3 kwenye OmniRoute kupitia Kimi API rasmi. Furahia akili ya kisasa kwa gharama ndogo.",
+    "cta": "Pata Ufunguo wa Kimi API",
     "partnerLinkNote": "Kiungo cha mshirika",
     "dismissAriaLabel": "Ondoa"
   },

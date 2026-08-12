@@ -634,17 +634,17 @@ Dwa binaria są wystawione w `package.json` → `bin`:
 
 ## 7. `tests/`
 
-| Katalog                                                                        | Typ                                                                                                       |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| `tests/unit/`                                                                  | Testy jednostkowe przez Node native test runner (1821 plików, plus `api/`, `auth/`, `authz/` podkatalogi) |
-| `tests/integration/`                                                           | Testy cross-module + stan DB                                                                              |
-| `tests/e2e/`                                                                   | Playwright UI tests                                                                                       |
-| `tests/protocols-e2e/`                                                         | MCP/A2A protocol e2e                                                                                      |
-| `tests/translator/`                                                            | Translator-specific tests                                                                                 |
-| `tests/security/`                                                              | Security regressions                                                                                      |
-| `tests/load/`                                                                  | Load / stress tests                                                                                       |
-| `tests/golden-set/`                                                            | Reference outputs for translator regressions                                                              |
-| `tests/helpers/`, `tests/fixtures/`, `tests/manual/`, `tests/scratch_test.mjs` | Support                                                                                                   |
+| Katalog                                              | Typ                                                                                                       |
+| ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `tests/unit/`                                        | Testy jednostkowe przez Node native test runner (1821 plików, plus `api/`, `auth/`, `authz/` podkatalogi) |
+| `tests/integration/`                                 | Testy cross-module + stan DB                                                                              |
+| `tests/e2e/`                                         | Playwright UI tests                                                                                       |
+| `tests/protocols-e2e/`                               | MCP/A2A protocol e2e                                                                                      |
+| `tests/translator/`                                  | Translator-specific tests                                                                                 |
+| `tests/security/`                                    | Security regressions                                                                                      |
+| `tests/load/`                                        | Load / stress tests                                                                                       |
+| `tests/golden-set/`                                  | Reference outputs for translator regressions                                                              |
+| `tests/helpers/`, `tests/fixtures/`, `tests/manual/` | Support                                                                                                   |
 
 Common commands:
 
