@@ -1,3 +1,9 @@
+---
+title: "Thinking Budget"
+version: 3.8.49
+lastUpdated: 2026-08-12
+---
+
 # Thinking Budget
 
 > **Dashboard:** Settings → **AI** → Thinking Budget  
