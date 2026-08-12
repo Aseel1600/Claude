@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Ei ohituksia — kaikki aktiiviset tarjoajat osallistuvat oletusmalleillaan"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) on OmniRouten perustajan avoimen lähdekoodin ystävä",
-    "description": "Kimi K3 tuo 1M-tokenin konteksti-ikkunan ja huippuluokan koodaussuorituskyvyn OmniRouteen murto-osalla kustannuksista.",
-    "cta": "Hanki Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) on OmniRouten perustava avoimen lähdekoodin ystävä",
+    "description": "Käytä Kimi K3:a OmniRoutessa virallisen Kimi API:n kautta. Nauti huippuälystä pienemmillä kustannuksilla.",
+    "cta": "Hanki Kimi API-avain",
     "partnerLinkNote": "Kumppanilinkki",
     "dismissAriaLabel": "Sulje"
   },

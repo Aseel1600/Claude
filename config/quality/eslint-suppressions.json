@@ -563,11 +563,6 @@
       "count": 1
     }
   },
-  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/providers/[id]/models/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1793,7 +1788,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 31
     }
   },
   "tests/unit/chatgpt-web-tools-5240.test.ts": {

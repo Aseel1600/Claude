@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "Žádná přepsání — všichni aktivní poskytovatelé se zapojí se svými výchozími modely"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) je zakládající open source přítel OmniRoute",
-    "description": "Kimi K3 přináší do OmniRoute kontextové okno s kapacitou 1M-token a špičkový výkon při kódování za zlomek ceny.",
-    "cta": "Získat Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) je zakládající open source přítel OmniRoute",
+    "description": "Používejte Kimi K3 v OmniRoute přes oficiální Kimi API. Užijte si špičkovou inteligenci za méně peněz.",
+    "cta": "Získat Kimi API klíč",
     "partnerLinkNote": "Partnerský odkaz",
     "dismissAriaLabel": "Zavřít"
   },

@@ -183,7 +183,7 @@ Both have "long-running tasks" but at different layers:
 curl http://localhost:20128/.well-known/agent.json
 ```
 
-Returns the Agent Card with all 5 skills, transports, and version.
+Returns the Agent Card with all 6 skills, transports, and version.
 
 ### Call OmniRoute as an A2A agent
 

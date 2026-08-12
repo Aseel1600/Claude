@@ -12394,9 +12394,9 @@
     "noProviderOverrides": "אין דריסות — כל הספקים הפעילים ישתתפו עם מודלי ברירת המחדל שלהם"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) הוא חבר הקוד הפתוח המייסד של OmniRoute",
-    "description": "Kimi K3 מביא חלון הקשר של 1M-token וביצועי קידוד מובילים ל-OmniRoute בחלק קטן מהעלות.",
-    "cta": "קבל את Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) הוא חבר הקוד הפתוח המייסד של OmniRoute",
+    "description": "השתמשו ב-Kimi K3 ב-OmniRoute דרך ה-API הרשמי של Kimi. תיהנו מאינטליגנציה חדשנית בעלות נמוכה יותר.",
+    "cta": "קבלו מפתח Kimi API",
     "partnerLinkNote": "קישור שותף",
     "dismissAriaLabel": "התעלם"
   },

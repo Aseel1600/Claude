@@ -237,10 +237,9 @@ function trustedEnvironmentText(parsed: CodexParsedRequest): string {
 }
 
 function decodeXmlText(value: string): string {
-  // `&amp;` MUST be decoded last: decoding it first turns `&amp;quot;` (the encoding of the
-  // literal text `&quot;`) into `&quot;`, which the following pass then decodes again into `"`.
-  // These values feed the workspace-root trust comparison below, so a double-unescape lets an
-  // encoded path decode into a different path than the one the client actually declared.
+  // `&amp;` MUST be decoded last: decoding it first produces a bare `&` that the
+  // later passes re-consume, so `&amp;quot;` would collapse to `"` instead of the
+  // literal `&quot;` (double-unescape — CodeQL js/double-escaping).
   return value
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
