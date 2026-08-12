@@ -60,17 +60,16 @@
 
 <div align="center">
 
-|                      | v3.8.49 | **v3.8.50** |                           |
-| -------------------- | :-----: | :---------: | ------------------------- |
-| 🌐 Providers         |   291   |   **338**   | **+47 in a single cycle** |
-| 🧠 Documented models |  500+   |  **1200+**  | catalog more than doubled |
+|                           | v3.8.49 | **v3.8.50** | `v3.8.51+`  |
+| ------------------------- | :-----: | :---------: | :---------: |
+| 🌐 Providers              |   291   |   **338**   | more queued |
+| 🧠 Documented models      |  500+   |  **1200+**  |      —      |
+| 🖼️ Modality Bridge        |    —    |  🆕 vision  |    video    |
+| 📡 Radar free catalog     |    —    |      —      |   🔭 next   |
+| ⚖️ Quota-aware scheduling |    —    |      —      |   🔭 next   |
+| 📊 Quota telemetry        |    —    |      —      |   🔭 next   |
 
-**🔭 Next stop `v3.8.51+` — already in flight:**
-
-| 🖼️ **Modality Bridge** — vision landed in v3.8.50; video next                                    | 📡 **Radar** — live free-model catalog overlay               |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| ⚖️ **Quota-aware scheduling** — route by remaining quota                                         | 📊 **Quota telemetry** — adaptive routing + status inventory |
-| 🤝 **338 providers → more queued** — 3 PRs open: Tencent AI Studio, ZCode & a free-gateway batch | 🗺️ [Roadmap](ROADMAP.md) → riding the rail to **v3.9.0 LTS** |
+**→ [Roadmap](ROADMAP.md) — riding the rail to `v3.9.0 LTS`**
 
 </div>
 
