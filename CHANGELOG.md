@@ -552,6 +552,160 @@ _Living section — regenerated 2026-08-12 from all cycle commits (cycle open `e
 
 ### 📝 Maintenance
 
+### 🙌 Contributors
+
+Thanks to everyone whose work landed in v3.8.50:
+
+| Contributor | PRs / Issues |
+| --- | --- |
+| [@AbdullahFageeh](https://github.com/AbdullahFageeh) | #9087 |
+| [@adevwithpurpose](https://github.com/adevwithpurpose) | #9790 |
+| [@adrianojiu](https://github.com/adrianojiu) | #8438 |
+| [@agisota](https://github.com/agisota) | #9837 |
+| [@AgnesRiber](https://github.com/AgnesRiber) | #9718, #9976 |
+| [@ahmet-cetinkaya](https://github.com/ahmet-cetinkaya) | #8878 |
+| [@AIB1TAL0S](https://github.com/AIB1TAL0S) | #9284 |
+| [@AlanSyue](https://github.com/AlanSyue) | direct commit / report |
+| [@alex-jordan547](https://github.com/alex-jordan547) | #9235, #9245, #9813 |
+| [@AndrianBalanescu](https://github.com/AndrianBalanescu) | #8888, #8889, #8890, #8891, #8892, #8893, #8894, #8895 |
+| [@AnhLead](https://github.com/AnhLead) | #9722 |
+| [@aniketshukla1](https://github.com/aniketshukla1) | #9148 |
+| [@Anjielon](https://github.com/Anjielon) | #8776 |
+| [@apoapostolov](https://github.com/apoapostolov) | #8916 |
+| [@ARC345](https://github.com/ARC345) | #9628 |
+| [@artickc](https://github.com/artickc) | #8571, #8578, #8791, #8843, #8870, #8927, #8974, #9097, #9549 |
+| [@Arul-](https://github.com/Arul-) | #9761 |
+| [@b1nhm1nh](https://github.com/b1nhm1nh) | direct commit / report |
+| [@backryun](https://github.com/backryun) | #8228, #8451, #8627, #8809, #8818, #9084, #9086, #9090, #9091, #9092, #9093, #9114, #9119, #9120, #9122, #9135, #9136, #9137, #9138, #9139, #9141, #9561, #9562, #9563, #9564, #9565, #9566, #9742, #9747, #9748, #9751, #9753, #9755, #9791, #9792, #9793, #9795, #9796, #9797, #9798, #9920, #9972, #9973, #9974, #9975, #9977, #9978, #9979, #9984, #9986, #9987, #9988, #9989, #9990, #9998, #10087, #10088, #10134, #10178 |
+| [@Benson-mk](https://github.com/Benson-mk) | #8369 |
+| [@benzntech](https://github.com/benzntech) | #9810, #9812, #9939 |
+| [@Bl0ck154](https://github.com/Bl0ck154) | #9231 |
+| [@branben](https://github.com/branben) | #9940 |
+| [@Chewji9875](https://github.com/Chewji9875) | #9257, #9420, #9821, #9994 |
+| [@chirag127](https://github.com/chirag127) | #6674 |
+| [@chloeassistant](https://github.com/chloeassistant) | #9675, #9746 |
+| [@configurowebmax](https://github.com/configurowebmax) | #8877 |
+| [@corefusiion](https://github.com/corefusiion) | #8285 |
+| [@costaeder](https://github.com/costaeder) | #8626, #8629, #8630 |
+| [@csoftware-arigpt](https://github.com/csoftware-arigpt) | #3440 |
+| [@DaDecky](https://github.com/DaDecky) | direct commit / report |
+| [@ddarkr](https://github.com/ddarkr) | #9035, #9036 |
+| [@Dingding-leo](https://github.com/Dingding-leo) | #7987, #8640, #8678, #8704, #8774, #8790, #8808, #8817 |
+| [@DinonowDev](https://github.com/DinonowDev) | #8804 |
+| [@Dragost](https://github.com/Dragost) | #8339 |
+| [@dsitmilis](https://github.com/dsitmilis) | direct commit / report |
+| [@Egorich-print](https://github.com/Egorich-print) | #9001, #9020, #9058 |
+| [@engmarcosjr](https://github.com/engmarcosjr) | #9993 |
+| [@epsilonode](https://github.com/epsilonode) | #8871 |
+| [@ervareza](https://github.com/ervareza) | direct commit / report |
+| [@fajarhide](https://github.com/fajarhide) | #9191, #9198 |
+| [@fenix007](https://github.com/fenix007) | #9618 |
+| [@Gecky2102](https://github.com/Gecky2102) | #9280 |
+| [@Gioxaa](https://github.com/Gioxaa) | #9162, #9171 |
+| [@HaoNgo232](https://github.com/HaoNgo232) | direct commit / report |
+| [@Hariprajwal](https://github.com/Hariprajwal) | #9922 |
+| [@hartmark](https://github.com/hartmark) | #9635, #9704, #9711, #9712, #9727, #9734, #9735, #9738, #9741, #9744, #9745, #9822 |
+| [@Hdiaktoros](https://github.com/Hdiaktoros) | #8930 |
+| [@HectorBernstorff](https://github.com/HectorBernstorff) | direct commit / report |
+| [@HellFiveOsborn](https://github.com/HellFiveOsborn) | #9248 |
+| [@herjarsa](https://github.com/herjarsa) | #9714, #9816, #9937, #9946 |
+| [@horacecar](https://github.com/horacecar) | #7679 |
+| [@HouMinXi](https://github.com/HouMinXi) | #8886, #8904, #8905, #8976, #8984, #9079, #9106, #9207, #9242, #9328, #9340, #9342, #9351, #9365, #9380, #9381, #9392, #9449, #9482, #9483, #9509, #9510, #9572, #9631, #9634, #9695, #9929 |
+| [@hppsc1215](https://github.com/hppsc1215) | #8970 |
+| [@Iammilansoni](https://github.com/Iammilansoni) | #9353, #9397 |
+| [@ikelvingo](https://github.com/ikelvingo) | #8591, #8872, #9053 |
+| [@infinit-X](https://github.com/infinit-X) | #9095 |
+| [@isaaclb98](https://github.com/isaaclb98) | #9730 |
+| [@jackjinke](https://github.com/jackjinke) | #9556, #9601, #10005 |
+| [@jax-novita](https://github.com/jax-novita) | #8913 |
+| [@jhordanjw123](https://github.com/jhordanjw123) | #8736 |
+| [@jktan0504](https://github.com/jktan0504) | #9025 |
+| [@joachimBrindeau](https://github.com/joachimBrindeau) | #9200 |
+| [@JoshimOfficial](https://github.com/JoshimOfficial) | #9011 |
+| [@jowimila](https://github.com/jowimila) | #9325 |
+| [@JxnLexn](https://github.com/JxnLexn) | #8933, #8940, #8944, #8949 |
+| [@Kaedo17](https://github.com/Kaedo17) | #8922 |
+| [@khoazero123](https://github.com/khoazero123) | #9272 |
+| [@KittisakT](https://github.com/KittisakT) | #9423 |
+| [@KooshaPari](https://github.com/KooshaPari) | #7329 |
+| [@larin-vas](https://github.com/larin-vas) | #9828 |
+| [@lazysaltyfish](https://github.com/lazysaltyfish) | direct commit / report |
+| [@LeonG606](https://github.com/LeonG606) | #9457 |
+| [@Llliao1113](https://github.com/Llliao1113) | #8921 |
+| [@lucasalx](https://github.com/lucasalx) | #9919 |
+| [@lucasmellos](https://github.com/lucasmellos) | #8925 |
+| [@lukiod](https://github.com/lukiod) | #8828 |
+| [@luoyide](https://github.com/luoyide) | direct commit / report |
+| [@mad-gooze](https://github.com/mad-gooze) | #9052 |
+| [@maisdesign](https://github.com/maisdesign) | #8858 |
+| [@marchlhw](https://github.com/marchlhw) | #9050 |
+| [@matiasbaglieri](https://github.com/matiasbaglieri) | #9707 |
+| [@maxmad64bis](https://github.com/maxmad64bis) | #9150, #9246, #9291, #9414 |
+| [@McLuck](https://github.com/McLuck) | #8914 |
+| [@Michael-Rocco-Goldmann](https://github.com/Michael-Rocco-Goldmann) | #9770, #9773, #9777, #9787 |
+| [@MichaelYcJo](https://github.com/MichaelYcJo) | #8244 |
+| [@minhnhat166](https://github.com/minhnhat166) | direct commit / report |
+| [@MohitRawat017](https://github.com/MohitRawat017) | #8718, #8772, #9605 |
+| [@Momen4444](https://github.com/Momen4444) | #9612 |
+| [@MrShitFox](https://github.com/MrShitFox) | #9826 |
+| [@MumuTW](https://github.com/MumuTW) | #8839 |
+| [@mvanhorn](https://github.com/mvanhorn) | #9542 |
+| [@Mynacol](https://github.com/Mynacol) | #9733 |
+| [@nguyenha935](https://github.com/nguyenha935) | #9044, #9215 |
+| [@nosolosoft](https://github.com/nosolosoft) | #8900 |
+| [@oyi77](https://github.com/oyi77) | #8299, #8752, #9158, #9818 |
+| [@PixmaNts](https://github.com/PixmaNts) | #9432 |
+| [@pizzav-xyz](https://github.com/pizzav-xyz) | #9077 |
+| [@Poid-ZA](https://github.com/Poid-ZA) | #9467 |
+| [@Prudhvivuda](https://github.com/Prudhvivuda) | #8807, #9014, #9015, #9016 |
+| [@qianze0628](https://github.com/qianze0628) | #9038 |
+| [@raflyazf](https://github.com/raflyazf) | direct commit / report |
+| [@Rahulsharma0810](https://github.com/Rahulsharma0810) | #8961 |
+| [@rinseaid](https://github.com/rinseaid) | #8945, #9037, #9932, #9933, #9969, #9982 |
+| [@rixzkiye](https://github.com/rixzkiye) | direct commit / report |
+| [@RobertsXML](https://github.com/RobertsXML) | direct commit / report |
+| [@royanrosyad85](https://github.com/royanrosyad85) | direct commit / report |
+| [@rushsinging](https://github.com/rushsinging) | #8947 |
+| [@ryan-brosas](https://github.com/ryan-brosas) | #9693 |
+| [@ryanngit](https://github.com/ryanngit) | direct commit / report |
+| [@sadSanta-07](https://github.com/sadSanta-07) | #9938 |
+| [@SalyyS1](https://github.com/SalyyS1) | direct commit / report |
+| [@Sam280903](https://github.com/Sam280903) | #9274, #9278, #9281 |
+| [@seakleangnhak](https://github.com/seakleangnhak) | direct commit / report |
+| [@seanford](https://github.com/seanford) | #8523 |
+| [@SemonCat](https://github.com/SemonCat) | direct commit / report |
+| [@shixi-li](https://github.com/shixi-li) | #9022, #9513, #10001 |
+| [@soulhakr](https://github.com/soulhakr) | #8799 |
+| [@stanleytejakusuma](https://github.com/stanleytejakusuma) | #9610 |
+| [@Stazyu](https://github.com/Stazyu) | #9007, #9226, #9438 |
+| [@SupremeNexas](https://github.com/SupremeNexas) | #9913 |
+| [@swingtempo](https://github.com/swingtempo) | #9307 |
+| [@szzhoujiarui](https://github.com/szzhoujiarui) | #9218 |
+| [@tald26](https://github.com/tald26) | #9959 |
+| [@taltas](https://github.com/taltas) | direct commit / report |
+| [@TechNickAI](https://github.com/TechNickAI) | #9251 |
+| [@TengSivtean](https://github.com/TengSivtean) | #10000, #10002 |
+| [@TheFrenchGhosty](https://github.com/TheFrenchGhosty) | #9326 |
+| [@tuxmonteiro](https://github.com/tuxmonteiro) | #9065 |
+| [@vinogradovnet](https://github.com/vinogradovnet) | #9581 |
+| [@VXNCXNX](https://github.com/VXNCXNX) | #9111, #9783 |
+| [@wgordon17](https://github.com/wgordon17) | #8909, #9233, #9441, #9619 |
+| [@Witroch4](https://github.com/Witroch4) | #8713 |
+| [@witt3rd](https://github.com/witt3rd) | #9962, #9963 |
+| [@xiaoyaner0201](https://github.com/xiaoyaner0201) | #8757, #8869, #8876, #8883, #8906, #8931, #9021, #9027, #9452 |
+| [@xz-dev](https://github.com/xz-dev) | #8908, #9199, #9205, #9262, #9290, #9313, #9555, #9569, #9629, #9788, #9983 |
+| [@yansigit](https://github.com/yansigit) | #9834, #9911, #9917, #9921 |
+| [@yidecode](https://github.com/yidecode) | direct commit / report |
+| [@yulinlina](https://github.com/yulinlina) | #10013 |
+| [@yutuknown](https://github.com/yutuknown) | #8999 |
+| [@zabrodschiipavel-sketch](https://github.com/zabrodschiipavel-sketch) | #9312 |
+| [@Zartharas](https://github.com/Zartharas) | #9161, #9164, #9181, #9182, #9184, #9185, #9186, #9189, #9294, #9825, #9833, #9936, #9965, #9992 |
+| [@Zenlyte](https://github.com/Zenlyte) | #9005 |
+| [@zhiru](https://github.com/zhiru) | #9099, #9101 |
+| [@ziuus](https://github.com/ziuus) | #8912 |
+| [@zuckdorsey](https://github.com/zuckdorsey) | #9723 |
+| [@diegosouzapw](https://github.com/diegosouzapw) | maintainer |
+
 ---
 - **fix(types):** preserve the client response format contract while estimating usage for non-streaming responses (#8484)
 - Preserve the Responses API transform options contract under TypeScript 7.
