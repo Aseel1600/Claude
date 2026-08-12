@@ -340,12 +340,12 @@ Multi-platform manifest: `linux/amd64` + `linux/arm64` native (Apple Silicon, AW
 
 OmniRoute publishes separate Docker channels for stable releases, active release-branch testing, and development builds.
 
-| Channel | Source | Mutability | Recommended use |
-| --- | --- | --- | --- |
-| `:<version>` / `:<version>-web` | Signed/versioned release | Immutable | Production deployments that pin an exact release |
-| `:latest` / `:latest-web` | Highest stable release | Mutable stable pointer | Production deployments that intentionally follow stable releases |
-| `:next` / `:next-web` | Current default `release/v*` branch | Mutable pre-release pointer | Testing fixes that have landed on the active release branch but are not yet in a stable release |
-| `:main` / `:main-web` | `main` branch | Mutable development pointer | Development and integration testing only |
+| Channel                         | Source                              | Mutability                  | Recommended use                                                                                 |
+| ------------------------------- | ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `:<version>` / `:<version>-web` | Signed/versioned release            | Immutable                   | Production deployments that pin an exact release                                                |
+| `:latest` / `:latest-web`       | Highest stable release              | Mutable stable pointer      | Production deployments that intentionally follow stable releases                                |
+| `:next` / `:next-web`           | Current default `release/v*` branch | Mutable pre-release pointer | Testing fixes that have landed on the active release branch but are not yet in a stable release |
+| `:main` / `:main-web`           | `main` branch                       | Mutable development pointer | Development and integration testing only                                                        |
 
 #### Using the pre-release channel
 

@@ -891,7 +891,6 @@ To leave it off, simply keep `autoSummarize` at its default (`false`).
 
 ---
 
-
 ## MemoryBackend Provider Pattern
 
 > **Source of truth:** `src/lib/memory/backend.ts`, `src/lib/memory/genericBackend.ts`, `src/lib/memory/manager.ts`
