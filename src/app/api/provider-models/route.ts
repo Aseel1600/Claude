@@ -146,6 +146,8 @@ export async function POST(request) {
       max_output_tokens: maxOutputTokens,
       // #1904: manual vision-capability override set in the add-model form.
       supportsVision,
+      // #9820: optional video-generation job preset (job/poll path).
+      generationConfig,
     } = validation.data;
 
     const model = await addCustomModel(
@@ -160,7 +162,8 @@ export async function POST(request) {
         ...(maxInputTokens != null ? { inputTokenLimit: maxInputTokens } : {}),
         ...(maxOutputTokens != null ? { outputTokenLimit: maxOutputTokens } : {}),
       },
-      typeof supportsVision === "boolean" ? supportsVision : undefined
+      typeof supportsVision === "boolean" ? supportsVision : undefined,
+      generationConfig
     );
     return Response.json({ model });
   } catch (error) {
@@ -213,6 +216,7 @@ export async function PUT(request) {
       compatByProtocol,
       contextWindowOverride,
       supportsVision,
+      generationConfig,
     } = validation.data;
 
     const raw = rawBody as Record<string, unknown>;
@@ -227,6 +231,11 @@ export async function PUT(request) {
     if ("upstreamHeaders" in raw) updates.upstreamHeaders = upstreamHeaders;
     // #1904: manual vision-capability override — null clears back to heuristic.
     if ("supportsVision" in raw) updates.supportsVision = supportsVision;
+    // #9820: video-generation job preset — schema is non-nullable optional, so
+    // presence implies a well-formed { preset } object; null is rejected by Zod.
+    if ("generationConfig" in raw && generationConfig !== undefined) {
+      updates.generationConfig = generationConfig;
+    }
     if ("compatByProtocol" in raw && compatByProtocol !== undefined) {
       updates.compatByProtocol = compatByProtocol;
     }

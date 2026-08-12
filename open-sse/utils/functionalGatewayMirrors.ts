@@ -19,6 +19,8 @@
 
 export const FUNCTIONAL_GATEWAY_MIRROR_SUFFIX = " (via ";
 
+const FUNCTIONAL_GATEWAY_MIRROR = Symbol("functionalGatewayMirror");
+
 export interface FunctionalGatewayMirrorsDeps {
   /** Ordered list of passthrough gateway provider ids to consider as mirrors. */
   gatewayProviderIds: string[];
@@ -40,7 +42,12 @@ interface GatewayMirrorCatalogEntry {
   root?: unknown;
   name?: unknown;
   display_name?: unknown;
+  [FUNCTIONAL_GATEWAY_MIRROR]?: true;
   [key: string]: unknown;
+}
+
+export function isFunctionalGatewayMirror(model: GatewayMirrorCatalogEntry): boolean {
+  return model?.[FUNCTIONAL_GATEWAY_MIRROR] === true;
 }
 
 /**
@@ -95,6 +102,7 @@ export function appendFunctionalGatewayMirrors<T extends GatewayMirrorCatalogEnt
       root: id,
       owned_by: chosenProvider,
       display_name: `${label}${FUNCTIONAL_GATEWAY_MIRROR_SUFFIX}${chosenProvider})`,
+      [FUNCTIONAL_GATEWAY_MIRROR]: true,
     } as T);
   }
 

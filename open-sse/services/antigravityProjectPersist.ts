@@ -22,6 +22,40 @@ import { updateProviderConnection } from "@/lib/db/providers";
  * Best-effort / non-fatal by design: a persistence failure must never block
  * the in-flight request, which already has the discovered id in hand.
  */
+/**
+ * Selection-side companion of the persistence write path (#8894): given a pool
+ * of Antigravity/AGY connections, prefer the ones that already carry a stored
+ * projectId — they can serve a request without the `loadCodeAssist` discovery
+ * round-trip. "Prefer", not "require": when NO connection has a stored project
+ * the pool is returned unchanged, so a fresh install never empties its
+ * candidate list.
+ *
+ * Sync on purpose (called inside the quota-strategy connection expansion, which
+ * builds candidate lists without awaiting per-connection work). Tolerates
+ * `providerSpecificData` arriving either parsed or as the raw DB JSON string.
+ */
+export function preferAntigravityConnectionsWithStoredProject<T extends Record<string, unknown>>(
+  connections: T[]
+): T[] {
+  if (!Array.isArray(connections) || connections.length === 0) return connections;
+  const hasStoredProject = (connection: T): boolean => {
+    if (typeof connection.projectId === "string" && connection.projectId.trim()) return true;
+    let psd = connection.providerSpecificData;
+    if (typeof psd === "string") {
+      try {
+        psd = JSON.parse(psd);
+      } catch {
+        return false;
+      }
+    }
+    if (!psd || typeof psd !== "object") return false;
+    const projectId = (psd as Record<string, unknown>).projectId;
+    return typeof projectId === "string" && projectId.trim().length > 0;
+  };
+  const withStoredProject = connections.filter(hasStoredProject);
+  return withStoredProject.length > 0 ? withStoredProject : connections;
+}
+
 export async function persistDiscoveredAntigravityProjectId(
   connectionId: string | undefined | null,
   discoveredProjectId: string | undefined | null,
@@ -41,25 +75,3 @@ export async function persistDiscoveredAntigravityProjectId(
   }
 }
 
-/**
- * Order Antigravity connections so those that already have a discovered/stored
- * projectId come first. Used by quota-aware selection (#8894): a connection
- * without a projectId would need a fresh `loadCodeAssist` round-trip before its
- * quota can be evaluated, so prefer the ones that are immediately usable.
- */
-export function preferAntigravityConnectionsWithStoredProject(
-  connections: Array<Record<string, unknown>>
-): Array<Record<string, unknown>> {
-  if (!Array.isArray(connections)) return connections;
-  const withProject: Array<Record<string, unknown>> = [];
-  const withoutProject: Array<Record<string, unknown>> = [];
-  for (const conn of connections) {
-    const psd = conn?.providerSpecificData as Record<string, unknown> | undefined;
-    const hasProject =
-      (typeof conn?.projectId === "string" && (conn.projectId as string).trim().length > 0) ||
-      (typeof psd?.projectId === "string" && (psd.projectId as string).trim().length > 0);
-    if (hasProject) withProject.push(conn);
-    else withoutProject.push(conn);
-  }
-  return [...withProject, ...withoutProject];
-}

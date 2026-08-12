@@ -1,17 +1,13 @@
 import { FORMATS } from "../translator/formats.ts";
 
 export const OMNIROUTE_WEB_SEARCH_FALLBACK_TOOL_NAME = "omniroute_web_search";
-const WEB_SEARCH_TOOL_TYPES = new Set(["web_search", "web_search_preview"]);
-// Anthropic typed server tool patterns: web_search_YYYYMMDD.
-// Claude Code sends these as native server tools; OmniRoute must intercept them
-// for upstreams that don't implement Anthropic server-tool dispatch (#4481).
-const ANTHROPIC_SERVER_WEB_SEARCH_PATTERN = /^web_search_\d{8}$/;
+// Prefix match — Anthropic sends date-suffixed variants (web_search_20250305, …).
+// The other two detectors (openai-responses/helpers.ts, webSearchRouting.ts) already
+// use /^web_search/ prefix matching; this aligns the fallback detector with them.
+const WEB_SEARCH_TOOL_TYPES = /^web_search/;
 
 export function isNativeWebSearchToolType(value: unknown): boolean {
-  return (
-    typeof value === "string" &&
-    (WEB_SEARCH_TOOL_TYPES.has(value) || ANTHROPIC_SERVER_WEB_SEARCH_PATTERN.test(value))
-  );
+  return typeof value === "string" && WEB_SEARCH_TOOL_TYPES.test(value);
 }
 
 export function isNativeWebSearchTool(value: unknown): value is JsonRecord {

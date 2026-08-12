@@ -510,8 +510,14 @@ test("v1 image edit POST executes Codex through the configured connection proxy"
     host: "127.0.0.1",
     port: 1,
   });
+  // #9100: the reachability probe is NON-BLOCKING — dispatch is optimistic and the
+  // probe aborts the request only while it is still in flight (t14 pattern). The
+  // mock must stay pending: an instantly-throwing fetch would settle the race
+  // first and surface as a generic 502 upstream error instead of the proxy 503.
+  // Never resolved on purpose so the aborted continuation cannot proceed.
   globalThis.fetch = async () => {
-    throw new Error("Direct fetch must not run when the configured proxy is unreachable");
+    await new Promise(() => {});
+    throw new Error("unreachable");
   };
 
   const response = await imageEditRoute.POST(
@@ -537,8 +543,11 @@ test("v1 image generation POST resolves proxy and executes with proxy context wh
     port: 1, // intentionally unreachable — proves proxy path was taken
   });
 
+  // #9100 non-blocking probe: keep the request in flight so the fast-fail can
+  // abort it with the proxy-specific 503 (see the edit-route case above).
   globalThis.fetch = async () => {
-    throw new Error("fetch should not be called — proxy fast-fail should trigger first");
+    await new Promise(() => {});
+    throw new Error("unreachable");
   };
 
   const response = await imageRoute.POST(
@@ -690,6 +699,67 @@ test("provider-scoped image generation POST uses the shared 401 account fallback
     "Bearer provider-expired-key",
     "Bearer provider-healthy-key",
   ]);
+});
+
+test("v1 image generation POST normalizes a terminal upstream 401 to the OpenAI-standard error shape", async () => {
+  await seedConnection("openai", { apiKey: "single-expired-image-key" });
+
+  globalThis.fetch = async (url, options: RequestInit = {}) => {
+    assert.equal(String(url), "https://api.openai.com/v1/images/generations");
+    const authorization = new Headers(options.headers).get("authorization") ?? "";
+    assert.equal(authorization, "Bearer single-expired-image-key");
+    return new Response(JSON.stringify({ error: { message: "expired access token" } }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const response = await imageRoute.POST(
+    new Request("http://localhost/api/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "openai/gpt-image-2", prompt: "normalize terminal 401" }),
+    })
+  );
+  const body = (await response.json()) as ErrorResponseBody;
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body.error, {
+    message: "expired access token",
+    type: "authentication_error",
+    code: "invalid_api_key",
+  });
+});
+
+test("provider-scoped image generation POST normalizes a terminal upstream 401 to the OpenAI-standard error shape", async () => {
+  await seedConnection("openai", { apiKey: "provider-single-expired-key" });
+
+  globalThis.fetch = async (url, options: RequestInit = {}) => {
+    assert.equal(String(url), "https://api.openai.com/v1/images/generations");
+    const authorization = new Headers(options.headers).get("authorization") ?? "";
+    assert.equal(authorization, "Bearer provider-single-expired-key");
+    return new Response(JSON.stringify({ error: { message: "expired provider token" } }), {
+      status: 401,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const response = await providerImageRoute.POST(
+    new Request("http://localhost/api/v1/providers/openai/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "gpt-image-2", prompt: "normalize provider terminal 401" }),
+    }),
+    { params: Promise.resolve({ provider: "openai" }) }
+  );
+  const body = (await response.json()) as ErrorResponseBody;
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body.error, {
+    message: "expired provider token",
+    type: "authentication_error",
+    code: "invalid_api_key",
+  });
 });
 
 test("v1 image generation POST refreshes an expired Antigravity token before dispatch", async () => {

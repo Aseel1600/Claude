@@ -200,7 +200,9 @@ export function acquire(
     return Promise.reject(makeAbortError(signal));
   }
 
-  const gate = ensureGate(semaphoreKey, maxConcurrency ?? 0);
+  // isBypassed() above already excluded null/<=0 — ensureGate requires a plain
+  // number, but a boolean-returning helper isn't a type predicate TS can narrow on.
+  const gate = ensureGate(semaphoreKey, maxConcurrency as number);
   clearCleanupTimer(gate);
 
   if (gate.running < gate.maxConcurrency && !isBlocked(gate)) {

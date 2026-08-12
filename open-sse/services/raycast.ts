@@ -9,14 +9,23 @@
 
 import { createHmac, createHash, randomUUID } from "node:crypto";
 
+import { resolvePublicCred } from "../utils/publicCreds.ts";
+
 export const RAYCAST_CHAT_URL = "https://backend.raycast.com/api/v1/ai/chat_completions";
 export const RAYCAST_MODELS_URL = "https://backend.raycast.com/api/v1/ai/models";
 export const RAYCAST_DEFAULT_USER_AGENT = "Raycast/1.104.20 (macOS Version 26.5.1 (Build 25F80))";
 export const RAYCAST_DEFAULT_EXPERIMENTAL = "chatBranching, mcpHTTPServer";
 
-/** Community-extracted default; override via providerSpecificData.sigSecret or RAYCAST_SIG_SECRET. */
-export const RAYCAST_DEFAULT_SIG_SECRET =
-  "6bc455473576ce2cd6f70426caff867aabbe3f7291c1a79681af5e8ce0ca1408";
+/**
+ * Community-extracted default; override via providerSpecificData.sigSecret or
+ * RAYCAST_SIG_SECRET. Embedded through resolvePublicCred() per Hard Rule #11 —
+ * a public upstream credential must never be a string literal in the source
+ * (see docs/security/PUBLIC_CREDS.md).
+ */
+export const RAYCAST_DEFAULT_SIG_SECRET = resolvePublicCred(
+  "raycast_sig_secret",
+  "RAYCAST_SIG_SECRET"
+);
 
 export type RaycastCredentials = {
   accessToken?: string;

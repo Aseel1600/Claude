@@ -23,8 +23,14 @@ import {
 import { persistCreditBalance, getAllPersistedCreditBalances } from "@/lib/db/creditBalance";
 import { setConnectionRateLimitUntil } from "@/lib/db/providers";
 import { getMitmAlias } from "@/lib/db/models";
+import {
+  MAX_ANTIGRAVITY_OUTPUT_TOKENS,
+  resolveAntigravityOutputCap,
+} from "./antigravityOutputCap.ts";
+export { MAX_ANTIGRAVITY_OUTPUT_TOKENS } from "./antigravityOutputCap.ts";
 import { ensureAntigravityProjectAssigned } from "../services/antigravityProjectBootstrap.ts";
 import { persistDiscoveredAntigravityProjectId } from "../services/antigravityProjectPersist.ts";
+import { markAntigravityMissingCloudCodeProject } from "../services/antigravityProjectPersistence.ts";
 import {
   resolveAntigravityModelId,
   getAntigravityModelFallbacks,
@@ -279,18 +285,10 @@ async function cleanModelName(model: string, modelIdOverride?: string): Promise<
   return clean;
 }
 
-/**
- * Hard ceiling on `generationConfig.maxOutputTokens` for Antigravity Cloud Code.
- *
- * Ports decolua/9router#779 (lukmanfauzie): VS Code GitHub Copilot Chat in
- * Agent mode regularly requests 32K–65K output tokens, which the Antigravity
- * backend rejects with HTTP 400 "Invalid Argument". 16384 matches the
- * upstream-accepted ceiling confirmed via successful 200 OK runs with
- * claude-sonnet-4-6 and gemini-pro-agent across both Ask and Agent modes.
- */
-export const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 16384;
-
-function applyAntigravityGenerationDefaults(request: Record<string, unknown>): void {
+function applyAntigravityGenerationDefaults(
+  request: Record<string, unknown>,
+  modelId?: string | null
+): void {
   const generationConfig =
     request.generationConfig && typeof request.generationConfig === "object"
       ? (request.generationConfig as Record<string, unknown>)
@@ -322,9 +320,10 @@ function applyAntigravityGenerationDefaults(request: Record<string, unknown>): v
   // (32K–65K) that trigger upstream 400 "Invalid Argument". Clamp silently
   // — the cap is provider-driven, not client-driven, and only matters when
   // the request would otherwise be rejected outright.
+  const cap = resolveAntigravityOutputCap(modelId);
   const finalMax = Number(generationConfig.maxOutputTokens);
-  if (Number.isFinite(finalMax) && finalMax > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-    generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+  if (Number.isFinite(finalMax) && finalMax > cap) {
+    generationConfig.maxOutputTokens = cap;
   }
 
   request.generationConfig = generationConfig;
@@ -556,6 +555,7 @@ export class AntigravityExecutor extends BaseExecutor {
     }
 
     if (!projectId) {
+      markAntigravityMissingCloudCodeProject(credentials?.connectionId);
       // (#489) Return a structured error instead of throwing — gives the client a clear signal
       // to show a "Reconnect OAuth" prompt rather than an opaque "Internal Server Error".
       const errorMsg =
@@ -666,7 +666,7 @@ export class AntigravityExecutor extends BaseExecutor {
         )
       : rawTransformedRequest;
 
-    applyAntigravityGenerationDefaults(transformedRequest);
+    applyAntigravityGenerationDefaults(transformedRequest, upstreamModel);
 
     const {
       project: _project,
@@ -1342,7 +1342,7 @@ export class AntigravityExecutor extends BaseExecutor {
    * the last url with no more retries left) fall through with the resolved retryMs
    * so the caller can still embed a long Retry-After in the final response body.
    */
-  private async handleAntigravityRateLimit(
+  async handleAntigravityRateLimit(
     ctx: AntigravityRateLimitContext
   ): Promise<AntigravityRateLimitOutcome> {
     const { response, log, urlIndex, retryAttemptsByUrl, fallbackCount } = ctx;
@@ -1351,10 +1351,12 @@ export class AntigravityExecutor extends BaseExecutor {
     let retryMs: number | null = this.parseRetryHeaders(response.headers);
 
     // If no retry time in headers, try to parse from error message body
+    let switchAuth = false;
     if (!retryMs) {
       const resolved = await this.tryResolveRetryFromErrorBody(ctx);
       if (resolved.kind === "return") return { action: "return", result: resolved.result };
       retryMs = resolved.retryMs;
+      switchAuth = resolved.switchAuth;
     }
 
     // Bounded short-retry: a non-null retryAfterMs ≤ 60s covers nearly every
@@ -1365,6 +1367,7 @@ export class AntigravityExecutor extends BaseExecutor {
     if (
       retryMs &&
       retryMs <= LONG_RETRY_THRESHOLD_MS &&
+      !switchAuth &&
       retryAttemptsByUrl[urlIndex] < MAX_AUTO_RETRIES
     ) {
       retryAttemptsByUrl[urlIndex]++;
@@ -1420,7 +1423,8 @@ export class AntigravityExecutor extends BaseExecutor {
   private async tryResolveRetryFromErrorBody(
     ctx: AntigravityRateLimitContext
   ): Promise<
-    { kind: "return"; result: SsePassthroughResult } | { kind: "resolved"; retryMs: number | null }
+    | { kind: "return"; result: SsePassthroughResult }
+    | { kind: "resolved"; retryMs: number | null; switchAuth: boolean }
   > {
     const {
       response,
@@ -1490,13 +1494,17 @@ export class AntigravityExecutor extends BaseExecutor {
         if (retryMs) markConnectionQuotaExhausted(accountId, retryMs);
       }
 
-      return { kind: "resolved", retryMs };
+      return {
+        kind: "resolved",
+        retryMs,
+        switchAuth: decision.kind === "short_cooldown_switch_auth",
+      };
     } catch (error) {
       if (signal?.aborted || isAbortError(error)) {
         throw signal?.reason ?? error;
       }
       // Ignore parse errors, will fall back to exponential backoff
-      return { kind: "resolved", retryMs: null };
+      return { kind: "resolved", retryMs: null, switchAuth: false };
     }
   }
 

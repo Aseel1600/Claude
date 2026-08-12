@@ -89,7 +89,7 @@
     }
   },
   "agnes": {
-    "format": "openai",
+    "format": "openai-responses",
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -107,8 +107,8 @@
       }
     },
     "url": {
-      "nonStream": "https://apihub.agnes-ai.com/v1/chat/completions",
-      "stream": "https://apihub.agnes-ai.com/v1/chat/completions"
+      "nonStream": "https://apihub.agnes-ai.com/v1/responses",
+      "stream": "https://apihub.agnes-ai.com/v1/responses"
     }
   },
   "agy": {
@@ -775,6 +775,8 @@
   },
   "cheaperinference": {
     "format": "openai",
+  "chatgpt-web-codex": {
+    "format": "openai-responses",
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -794,6 +796,8 @@
     "url": {
       "nonStream": "https://api.cheaperinference.com/v1/chat/completions",
       "stream": "https://api.cheaperinference.com/v1/chat/completions"
+      "nonStream": "https://chatgpt.com",
+      "stream": "https://chatgpt.com"
     }
   },
   "chenzk": {
@@ -1488,6 +1492,52 @@
       "stream": "devin://acp/stdio"
     }
   },
+  "devin-cli-agentic": {
+    "format": "claude",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "devin://acp/stdio",
+      "stream": "devin://acp/stdio"
+    }
+  },
+  "devin-desktop": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://server.codeium.com",
+      "stream": "https://server.codeium.com"
+    }
+  },
   "dgrid": {
     "format": "openai",
     "headers": {
@@ -2137,33 +2187,6 @@
     "url": {
       "nonStream": "https://api.githubcopilot.com/chat/completions",
       "stream": "https://api.githubcopilot.com/chat/completions"
-    }
-  },
-  "github-models": {
-    "format": "openai",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2026-03-10"
-      },
-      "nonStream": {
-        "Accept": "application/vnd.github+json",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2026-03-10"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2026-03-10"
-      }
-    },
-    "url": {
-      "nonStream": "https://models.github.ai/inference/chat/completions",
-      "stream": "https://models.github.ai/inference/chat/completions"
     }
   },
   "gitlab-duo": {
@@ -3382,6 +3405,26 @@
       "stream": "https://api.morphllm.com/v1/chat/completions"
     }
   },
+  "muse-code": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {}
+  },
   "muse-spark-web": {
     "format": "openai",
     "headers": {
@@ -3797,6 +3840,52 @@
     "url": {
       "nonStream": "https://opencode.ai/zen/v1",
       "stream": "https://opencode.ai/zen/v1"
+    }
+  },
+  "openference": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.openference.com/v1/chat/completions",
+      "stream": "https://api.openference.com/v1/chat/completions"
+    }
+  },
+  "openference-api": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.openference.com/v1/chat/completions",
+      "stream": "https://api.openference.com/v1/chat/completions"
     }
   },
   "openrouter": {
@@ -4272,6 +4361,52 @@
     "url": {
       "nonStream": "https://chat.qwen.ai/api/v2/chat/completions",
       "stream": "https://chat.qwen.ai/api/v2/chat/completions"
+    }
+  },
+  "raycast": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://backend.raycast.com/api/v1/ai",
+      "stream": "https://backend.raycast.com/api/v1/ai"
+    }
+  },
+  "regolo": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.regolo.ai",
+      "stream": "https://api.regolo.ai"
     }
   },
   "reka": {
@@ -4829,6 +4964,29 @@
       "stream": "https://hermes.ai.unturf.com/v1/chat/completions"
     }
   },
+  "unorouter": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.unorouter.ai/v1/chat/completions",
+      "stream": "https://api.unorouter.ai/v1/chat/completions"
+    }
+  },
   "upstage": {
     "format": "openai",
     "headers": {
@@ -5060,29 +5218,6 @@
     "url": {
       "nonStream": "https://api.inference.wandb.ai/v1/chat/completions",
       "stream": "https://api.inference.wandb.ai/v1/chat/completions"
-    }
-  },
-  "windsurf": {
-    "format": "windsurf",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "nonStream": {
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      }
-    },
-    "url": {
-      "nonStream": "https://server.self-serve.windsurf.com",
-      "stream": "https://server.self-serve.windsurf.com"
     }
   },
   "writer": {

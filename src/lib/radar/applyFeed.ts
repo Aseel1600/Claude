@@ -5,11 +5,14 @@
  * The baseline (`FREE_MODEL_BUDGETS`) is NEVER mutated.
  *
  * Merge rules:
- *  1. Feed never overwrites a local override.
+ *  1. Feed never overwrites a local override, except the safety-critical
+ *     `enabled:false` signal for an upstream model confirmed unavailable.
  *  2. `enabled:false` disables the entry with `disabledBy: "radar"` provenance.
  *  3. User-added entry NOT in the feed survives untouched.
  *  4. User deletion tombstone prevents feed from resurrecting the entry.
  */
+
+import type { RadarLocalizedText } from "./feedSchema";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,6 +54,30 @@ export interface MergedEntry {
    * Absent for entries disabled by other means or still enabled.
    */
   disabledBy?: "radar";
+  /**
+   * Context window size in tokens. Only present on entries that carry feed
+   * data (origin "radar"/"local" merged from a feed entry); undefined for
+   * baseline-only entries.
+   */
+  contextWindow?: number | null;
+  /** Capability flags reported by the feed. Undefined for baseline-only entries. */
+  capabilities?: {
+    tools: boolean;
+    vision: boolean;
+    thinking: boolean;
+  };
+  /** Rate/quota limits reported by the feed. Undefined for baseline-only entries. */
+  limits?: {
+    rpm: number | null;
+    rpd: number | null;
+    tpm: number | null;
+    tpd: number | null;
+  };
+  /** Setup guide (key URL + steps) reported by the feed. Undefined for baseline-only entries. */
+  setup?: {
+    keyUrl: string | null;
+    steps: RadarLocalizedText[];
+  } | null;
 }
 
 /**
@@ -83,7 +110,7 @@ export interface FeedModel {
   tosRisk: MergedEntry["tos"];
   setup: {
     keyUrl: string | null;
-    steps: string[];
+    steps: RadarLocalizedText[];
   } | null;
   enabled: boolean;
 }
@@ -250,6 +277,18 @@ function mergeOne(
   if (!overriddenKeys.has("creditTokens")) {
     // Feed doesn't have creditTokens; keep baseline
   }
+  if (!overriddenKeys.has("contextWindow")) {
+    result.contextWindow = feed.contextWindow;
+  }
+  if (!overriddenKeys.has("capabilities")) {
+    result.capabilities = feed.capabilities;
+  }
+  if (!overriddenKeys.has("limits")) {
+    result.limits = feed.limits;
+  }
+  if (!overriddenKeys.has("setup")) {
+    result.setup = feed.setup;
+  }
 
   // Apply local overrides (rule 1: they win)
   if (overrides) {
@@ -261,6 +300,17 @@ function mergeOne(
     if (overrides.tos !== undefined) result.tos = overrides.tos;
     if (overrides.trainsOnPrompts !== undefined) result.trainsOnPrompts = overrides.trainsOnPrompts;
     if (overrides.enabled !== undefined) result.enabled = overrides.enabled;
+    if (overrides.contextWindow !== undefined) result.contextWindow = overrides.contextWindow;
+    if (overrides.capabilities !== undefined) result.capabilities = overrides.capabilities;
+    if (overrides.limits !== undefined) result.limits = overrides.limits;
+    if (overrides.setup !== undefined) result.setup = overrides.setup;
+  }
+
+  // Safety exception to rule 1: a model confirmed unavailable upstream is
+  // never resurrected by a stale local enabled:true override.
+  if (!feed.enabled) {
+    result.enabled = false;
+    result.disabledBy = "radar";
   }
 
   // Origin: "local" if user has overrides, else "radar" (feed updated it)
@@ -286,10 +336,15 @@ function feedModelToMerged(
     poolKey: overrides?.poolKey ?? feedBudgetToPoolKey(feed.budget),
     tos: overrides?.tos ?? feed.tosRisk,
     trainsOnPrompts: overrides?.trainsOnPrompts ?? feed.trainsOnPrompts ?? undefined,
-    enabled: overrides?.enabled ?? feed.enabled,
+    enabled: feed.enabled ? (overrides?.enabled ?? true) : false,
     origin: overrides ? "local" : "radar",
+    contextWindow: overrides?.contextWindow ?? feed.contextWindow,
+    capabilities: overrides?.capabilities ?? feed.capabilities,
+    limits: overrides?.limits ?? feed.limits,
+    setup: overrides?.setup ?? feed.setup,
   };
 
+  // Rule 2 is the safety exception to local override precedence.
   if (!feed.enabled) {
     entry.enabled = false;
     entry.disabledBy = "radar";

@@ -21,9 +21,21 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { callVisionModel, type VisionModelConfig } from "@/lib/guardrails/visionBridgeHelpers";
+import {
+  callVisionModel as callVisionModelRaw,
+  type VisionModelConfig,
+} from "@/lib/guardrails/visionBridgeHelpers";
 import { createProviderConnection } from "@/lib/db/providers";
 import { resetDbInstance } from "@/lib/db/core";
+
+// Inject the router's credential-check seam as INDETERMINATE (null): the fixed
+// model is used as-is and selection never touches the live connections DB — on a
+// clean box the suite otherwise dies with "No vision-capable provider connected",
+// and on a dev box auto-selection may swap the model under the assertions.
+const callVisionModel = (img: string, config: VisionModelConfig) =>
+  callVisionModelRaw(img, config, undefined, undefined, {
+    hasUsableCredentials: async () => null,
+  });
 
 const originalFetch = globalThis.fetch;
 

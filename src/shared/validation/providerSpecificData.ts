@@ -154,6 +154,15 @@ export function validateProviderSpecificData(
     });
   }
 
+  const preserveEncryptedReasoning = data.preserveEncryptedReasoning;
+  if (preserveEncryptedReasoning !== undefined && typeof preserveEncryptedReasoning !== "boolean") {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "providerSpecificData.preserveEncryptedReasoning must be a boolean",
+      path: ["preserveEncryptedReasoning"],
+    });
+  }
+
   const blockExtraUsage = data.blockExtraUsage;
   if (blockExtraUsage !== undefined && typeof blockExtraUsage !== "boolean") {
     ctx.addIssue({
@@ -302,6 +311,8 @@ export function validateProviderSpecificData(
     "ollamaCloudUsageCookie",
     "ollamaCloudCookie",
     "usageCookie",
+    "alibabaConsoleCookie",
+    "alibabaConsoleSecToken",
   ] as const) {
     const value = data[key];
     if (value !== undefined && value !== null && typeof value !== "string") {

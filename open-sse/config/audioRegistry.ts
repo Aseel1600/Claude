@@ -145,6 +145,19 @@ export const AUDIO_TRANSCRIPTION_PROVIDERS: Record<string, AudioProvider> = {
     ],
   },
 
+  soniox: {
+    id: "soniox",
+    baseUrl: "https://api.soniox.com/v1/transcriptions",
+    authType: "apikey",
+    authHeader: "bearer",
+    async: true,
+    format: "soniox",
+    models: [
+      { id: "stt-async-v5", name: "Soniox STT Async v5" },
+      { id: "stt-async-v4", name: "Soniox STT Async v4" },
+    ],
+  },
+
   nvidia: {
     id: "nvidia",
     baseUrl: "https://integrate.api.nvidia.com/v1/audio/transcriptions",
@@ -234,6 +247,17 @@ export const AUDIO_TRANSCRIPTION_PROVIDERS: Record<string, AudioProvider> = {
     format: "speechmatics",
     models: [{ id: "enhanced", name: "Enhanced" }],
   },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/audio/transcriptions",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "whisper-1", name: "Whisper 1" },
+      { id: "gpt-4o-transcription", name: "GPT-4o Transcription" },
+    ],
+  },
 };
 
 /**
@@ -318,6 +342,15 @@ export const AUDIO_SPEECH_PROVIDERS: Record<string, AudioProvider> = {
       { id: "nvidia/fastpitch", name: "FastPitch" },
       { id: "nvidia/tacotron2", name: "Tacotron2" },
     ],
+  },
+
+  soniox: {
+    id: "soniox",
+    baseUrl: "https://tts-rt.soniox.com/tts",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "soniox-tts",
+    models: [{ id: "tts-rt-v1", name: "Soniox TTS RT v1" }],
   },
 
   elevenlabs: {
@@ -548,6 +581,17 @@ export const AUDIO_SPEECH_PROVIDERS: Record<string, AudioProvider> = {
       { id: "mimo-v2.5-tts-voiceclone", name: "MiMo V2.5 Voice Clone" },
     ],
   },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/audio/speech",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "tts-1-hd", name: "TTS 1 HD" },
+      { id: "tts-1", name: "TTS 1" },
+    ],
+  },
 };
 
 /**
@@ -581,7 +625,7 @@ export interface ProviderNodeRow {
 }
 
 /** Hosts reachable only from the operator's machine/Docker network. */
-function isLoopbackNodeHost(baseUrl: string): boolean {
+export function isLoopbackNodeHost(baseUrl: string): boolean {
   try {
     const hostname = new URL(baseUrl).hostname;
     return (

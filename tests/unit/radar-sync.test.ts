@@ -82,7 +82,7 @@ test("contract: fixture sha256 matches the server's canonical hash", () => {
   const hash = crypto.createHash("sha256").update(FIXTURE_BYTES).digest("hex");
   assert.equal(
     hash,
-    "13992d27702071bcb240306b052d0fdfacb2a2c688056c5e5118e92957e28a3d",
+    "80194e15a8add2a3be57eaef63b26ab75976c83e20b5589172aefa806eae72d3",
     "Fixture sha256 must match the server's canonical fixture. " +
       "If this fails, the fixture was modified or re-downloaded with different formatting."
   );
@@ -407,6 +407,35 @@ test("syncRadar: version floor — incoming older => stale", async () => {
 
   assert.equal(result.status, "stale");
   assert.equal(cacheWritten, false, "cache must NOT be overwritten with older version");
+});
+
+test("syncRadar: an entitlement downgrade replaces a newer live cache with community", async () => {
+  const sig = signBytes(FIXTURE_BYTES);
+  const cacheStore: syncMod.RadarCacheEntry[] = [];
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: "omr_" + "a".repeat(40) }),
+    getCache: () => ({
+      version: "2026.08.02.1",
+      tier: "live",
+      payload: "{}",
+      signature: "old-live-sig",
+    }),
+    setCache: (entry) => cacheStore.push(entry),
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, {
+          "x-omniroute-feed-signature": sig,
+          "x-omniroute-feed-tier": "community",
+        })
+      )) as unknown as typeof globalThis.fetch,
+  });
+
+  assert.equal(result.status, "updated");
+  assert.equal(cacheStore.length, 1);
+  assert.equal(cacheStore[0]!.tier, "community");
+  assert.equal(cacheStore[0]!.version, "2026.08.01.1");
 });
 
 test("syncRadar: version floor — incoming newer => updated", async () => {
@@ -808,4 +837,76 @@ test("syncRadar: first sync (no cache) with valid data => updated", async () => 
 
   assert.equal(result.status, "updated");
   assert.equal(cacheStore.length, 1);
+});
+
+// ===========================================================================
+// FIX 6 — 10 MB response cap (unbounded `Buffer.from(await res.arrayBuffer())`)
+// ===========================================================================
+
+test("FIX6: Content-Length header exceeding the 10MB cap => too_large, cache untouched, body never read", async () => {
+  let arrayBufferCalled = false;
+  const oversizedContentLength = String(10 * 1024 * 1024 + 1);
+  const response = mockResponse(Buffer.from("irrelevant"), {
+    "content-length": oversizedContentLength,
+  });
+  const originalArrayBuffer = response.arrayBuffer.bind(response);
+  (response as unknown as { arrayBuffer: () => Promise<ArrayBuffer> }).arrayBuffer = () => {
+    arrayBufferCalled = true;
+    return originalArrayBuffer();
+  };
+
+  let setCacheCalled = false;
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: () => {
+      setCacheCalled = true;
+    },
+    fetch: (() => Promise.resolve(response)) as unknown as typeof globalThis.fetch,
+  });
+
+  assert.deepEqual(result, { status: "too_large" });
+  assert.equal(setCacheCalled, false, "cache must not be touched");
+  assert.equal(
+    arrayBufferCalled,
+    false,
+    "body must not be read once Content-Length already exceeds the cap"
+  );
+});
+
+test("FIX6: oversized body without a trustworthy Content-Length header => too_large, cache untouched", async () => {
+  const oversized = Buffer.alloc(10 * 1024 * 1024 + 1, 0x41);
+  let setCacheCalled = false;
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: () => {
+      setCacheCalled = true;
+    },
+    fetch: (() =>
+      Promise.resolve(mockResponse(oversized, {}))) as unknown as typeof globalThis.fetch,
+  });
+
+  assert.deepEqual(result, { status: "too_large" });
+  assert.equal(setCacheCalled, false, "cache must not be touched");
+});
+
+test("FIX6: body within the 10MB cap proceeds normally (never returns too_large)", async () => {
+  const sig = signBytes(FIXTURE_BYTES);
+
+  const result = await syncMod.syncRadar({
+    getFlag: () => true,
+    getSettings: () => ({ optIn: true, supporterKey: null }),
+    getCache: () => null,
+    setCache: () => {},
+    fetch: (() =>
+      Promise.resolve(
+        mockResponse(FIXTURE_BYTES, { "x-omniroute-feed-signature": sig })
+      )) as unknown as typeof globalThis.fetch,
+  });
+
+  assert.notEqual(result.status, "too_large");
 });

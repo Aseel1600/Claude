@@ -192,6 +192,26 @@ test("all known-too-small context targets still fall back to strategy order", ()
   );
 });
 
+test("output-token limits remain a hard compatibility requirement", () => {
+  saveModelsDevCapabilities({
+    "unit-output-limit": {
+      insufficient: capabilityEntryWithLimits(128_000, 128_000, 128),
+      sufficient: capabilityEntryWithLimits(128_000, 128_000, 4_096),
+    },
+  });
+
+  const out = filterTargetsByRequestCompatibility(
+    [target("unit-output-limit/insufficient"), target("unit-output-limit/sufficient")],
+    { messages: [{ role: "user", content: "hello" }], max_tokens: 512 },
+    noopLog
+  );
+
+  assert.deepEqual(
+    out.map((entry) => entry.modelStr),
+    ["unit-output-limit/sufficient"]
+  );
+});
+
 test("known context overflow reports the largest target limit", () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
@@ -278,6 +298,65 @@ test("combo rejects a known oversized request before upstream dispatch", async (
   assert.equal(body.diagnostics.attempted, 0);
 });
 
+test("native Responses context bypasses catalog overflow only for all-Codex pools (#8932)", () => {
+  saveModelsDevCapabilities({
+    codex: {
+      large: capabilityEntry(272_000),
+    },
+    "unit-known-context": {
+      large: capabilityEntry(272_000),
+    },
+  });
+  const body = bigContextBody(275_000);
+
+  assert.equal(
+    getKnownContextOverflow([target("codex/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    null
+  );
+  assert.equal(
+    getKnownContextOverflow([target("codex/large"), target("chatgpt-web-codex/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    null
+  );
+  assert.ok(
+    getKnownContextOverflow([target("unit-known-context/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    "non-Codex pools must retain the catalog overflow guard"
+  );
+});
+
+test("native Responses context reaches an all-Codex target beyond its catalog hint (#8932)", async () => {
+  saveModelsDevCapabilities({
+    codex: {
+      large: capabilityEntry(272_000),
+    },
+  });
+  let dispatches = 0;
+
+  const response = await handleComboChat({
+    body: bigContextBody(275_000),
+    combo: {
+      name: "native-codex-overflow",
+      strategy: "priority",
+      models: ["codex/large"],
+    },
+    clientManagedResponsesContext: true,
+    isModelAvailable: async () => true,
+    handleSingleModel: async () => {
+      dispatches += 1;
+      return new Response("ok", { status: 200 });
+    },
+    log: noopLog,
+  });
+
+  assert.notEqual(response.status, 400);
+  assert.equal(dispatches, 1);
+});
+
 test("input-only maxInputTokens is not double-counted against the output reserve (#7039)", () => {
   // Faithful reproduction of #7039 (Codex gpt-5.5-xhigh):
   //   maxInputTokens = 272_000, contextWindow = 400_000, maxOutputTokens = 128_000
@@ -329,10 +408,12 @@ test("small input-only maxInputTokens keeps a target whose input fits even thoug
   );
 });
 
-test("input-only maxInputTokens still rejects when the input itself exceeds the cap", () => {
-  // The fix must not let a genuinely-too-small input cap pass. `too-small` has
-  // maxInputTokens = 1, which cannot even hold the ~11-token input, so it must
-  // still be dropped while the compatible target survives.
+test("input-only maxInputTokens is demoted when the input itself exceeds the cap", () => {
+  // #8944 made context metadata ADVISORY: a catalog-too-small target is no longer
+  // removed (a stale catalog entry must never delete the only target that could
+  // accept the request at runtime), it is ordered AFTER the known-fitting ones.
+  // `too-small` has maxInputTokens = 1, which cannot hold the ~11-token input, so
+  // it must lose the ordering to `huge` while remaining available as a fallback.
   saveModelsDevCapabilities({
     "unit-7039-too-small": {
       "too-small": capabilityEntryWithLimits(1, 1_000_000, 500),
@@ -348,14 +429,14 @@ test("input-only maxInputTokens still rejects when the input itself exceeds the 
 
   assert.deepEqual(
     out.map((entry) => entry.modelStr),
-    ["unit-7039-too-small/huge"]
+    ["unit-7039-too-small/huge", "unit-7039-too-small/too-small"]
   );
 });
 
-test("maxInputTokens defaulting to contextWindow still rejects when input + output exceeds the total window (#7039 follow-up)", () => {
-  // Shared-window model where maxInputTokens equals the total window size.
-  // The input alone fits the input cap, but input + output overflows the
-  // window, so the target must be rejected instead of passing on the input cap.
+test("maxInputTokens defaulting to contextWindow is demoted when input + output exceeds the total window (#7039 follow-up)", () => {
+  // Shared-window model where maxInputTokens equals the total window size. The
+  // input alone fits the input cap but input + output overflows the window, so the
+  // target must not be PREFERRED — since #8944 it is demoted rather than dropped.
   saveModelsDevCapabilities({
     "unit-7039-window": {
       "shared-window": capabilityEntryWithLimits(400_000, 400_000, 200_000),
@@ -371,7 +452,7 @@ test("maxInputTokens defaulting to contextWindow still rejects when input + outp
 
   assert.deepEqual(
     out.map((entry) => entry.modelStr),
-    ["unit-7039-window/huge"]
+    ["unit-7039-window/huge", "unit-7039-window/shared-window"]
   );
 });
 
@@ -404,15 +485,17 @@ test("model_context_override lets a small-catalog target survive a large-context
   }
 });
 
-test("without an override the small-catalog target is still dropped for the large request", () => {
+// #8944: "dropped" became "demoted" — the small-catalog target survives as a
+// runtime fallback but must never outrank the one whose known limit fits.
+test("without an override the small-catalog target is ordered last for the large request", () => {
   saveModelsDevCapabilities({
     "unit-override": {
       big: capabilityEntry(1_000_000),
       capped: capabilityEntry(8_000),
     },
   });
-  // No override: capped (8K) is genuinely too small and must be filtered out,
-  // guarding the override read-path from masking a real too-small target.
+  // No override: capped (8K) is catalog-too-small, so it stays behind the
+  // known-compatible target while remaining available as a runtime fallback.
   const out = filterTargetsByRequestCompatibility(
     [target("unit-override/capped"), target("unit-override/big")],
     largeContextBody(),
@@ -421,6 +504,6 @@ test("without an override the small-catalog target is still dropped for the larg
 
   assert.deepEqual(
     out.map((entry) => entry.modelStr),
-    ["unit-override/big"]
+    ["unit-override/big", "unit-override/capped"]
   );
 });

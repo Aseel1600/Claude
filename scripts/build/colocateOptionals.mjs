@@ -48,7 +48,7 @@
 
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 
 /**
  * Entry packages of the SLM optional stack (the closure roots). `@huggingface/transformers` is
@@ -99,10 +99,12 @@ export function computeDependencyClosure(nodeModulesDir, seeds = SEED_PACKAGES) 
 
 /**
  * A closure package is only "co-located" when its main entry actually resolves
- * on disk. Next.js/Turbopack sometimes leave a partial traced package dir in the
- * standalone (package.json present, main file missing) — treating that dir as
- * already-copied would skip the real copy and ship a broken package. Checking the
- * main entry keeps the pinned-instance preservation while fixing incomplete traces.
+ * on disk from INSIDE the target tree. Next.js/Turbopack sometimes leave a
+ * partial traced package dir in the standalone (package.json present, main file
+ * missing) — treating that dir as already-copied would skip the real copy and
+ * ship a broken package. Checking the main entry keeps the pinned-instance
+ * preservation while fixing incomplete traces; a resolution that walked past
+ * the target into an ancestor tree does not prove the target copy is usable.
  *
  * @param {string} targetNm absolute path to the target standalone `node_modules`
  * @param {string} name package name (e.g. "@atjsh/llmlingua-2")
@@ -113,7 +115,8 @@ function isCompletePackage(targetNm, name) {
   if (!existsSync(join(pkgDir, "package.json"))) return false;
   try {
     const require = createRequire(join(targetNm, ".omniroute-colocate.cjs"));
-    require.resolve(name, { paths: [targetNm] });
+    const resolved = require.resolve(name, { paths: [targetNm] });
+    if (!resolved.startsWith(targetNm + sep)) return false;
     // Next.js traces a native-module package's JS and the .node it requires(),
     // but NOT the .so/.dylib/.dll the binding dlopens at runtime — a traced
     // onnxruntime-node still "resolves" while libonnxruntime.so.1 is absent
@@ -184,8 +187,9 @@ export function colocateLlmlinguaOptionals({
 
   const closure = computeDependencyClosure(rootNm, seeds);
 
-  // Check the complete closure rather than only the entry package. A partially
-  // populated bundle must still receive any missing transitive dependencies.
+  // Check the complete closure rather than only the entry package, and judge
+  // presence by entrypoint integrity — a partially traced directory (see
+  // isCompletePackage) must still receive its missing files.
   if (closure.length > 0 && closure.every((name) => isCompletePackage(targetNm, name))) {
     return { skipped: true, reason: "already co-located" };
   }

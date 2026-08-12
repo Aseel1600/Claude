@@ -52,7 +52,12 @@ export async function getFirecrawlUsage(
   }
 
   try {
-    const live = await fetchFirecrawlQuota(connectionId, connection);
+    // The explicit `apiKey` argument was silently dropped when #91bb6aa619 moved
+    // this to fetchFirecrawlQuota(connectionId, connection): the fetcher reads the
+    // key off the connection record, so a caller that passes the key directly —
+    // without a connection carrying it — always got "API key not available".
+    const resolvedConnection = apiKey ? { ...(connection || {}), apiKey } : connection;
+    const live = await fetchFirecrawlQuota(connectionId, resolvedConnection);
     if (!live) {
       return { message: "Firecrawl API key not available or credit usage unavailable." };
     }

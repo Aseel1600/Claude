@@ -306,6 +306,7 @@ export async function registerNodejs(): Promise<void> {
     { applyRuntimeSettings },
     { startRuntimeConfigHotReload },
     { startSpendBatchWriter },
+    { startCleanupScheduler },
     { registerDefaultGuardrails },
     { ensurePersistentManagementPasswordHash },
     { skillExecutor },
@@ -320,6 +321,7 @@ export async function registerNodejs(): Promise<void> {
     import("@/lib/config/runtimeSettings"),
     import("@/lib/config/hotReload"),
     import("@/lib/spend/batchWriter"),
+    import("@/lib/db/cleanup"),
     import("@/lib/guardrails"),
     import("@/lib/auth/managementPassword"),
     import("@/lib/skills/executor"),
@@ -489,6 +491,17 @@ export async function registerNodejs(): Promise<void> {
     console.warn("[STARTUP] Could not initialize vacuum scheduler (non-fatal):", msg);
   }
 
+  // Retention cleanup scheduler (#4691/#6988, #9624): runs the general retention
+  // cleanup once after startup and then every 6 hours. Previously this was only
+  // wired into the unused src/server-init.ts, so telemetry tables grew unboundedly
+  // even with retention.autoCleanupEnabled=true. Idempotent (guarded internally).
+  try {
+    startCleanupScheduler();
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[STARTUP] Could not start cleanup scheduler (non-fatal):", msg);
+  }
+
   // Warm the model catalog's durable, apiKey-independent sub-caches at
   // startup — see warmModelCatalogCache() for why the top-level Response
   // cache alone doesn't deliver this. Fire-and-forget, non-fatal.
@@ -521,6 +534,15 @@ export async function registerNodejs(): Promise<void> {
           console.warn("[STARTUP] Auto-refresh daemon failed to start (non-fatal):", msg);
         }),
 
+      // Conductor bridge (PRD Conductor RF1): mirrors OmniConductor hub tasks into the
+      // A2A TaskManager via the hub SSE. Opt-in — self-gated on CONDUCTOR_HUB_URL.
+      import("@/lib/conductor/boot").then((m) => {
+        if (m.initConductorBridge()) console.log("[STARTUP] Conductor bridge started");
+      }).catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn("[STARTUP] Conductor bridge failed to start (non-fatal):", msg);
+      }),
+
       // Proactive connection-cooldown recovery (#8): re-validate connections whose
       // transient `rate_limited_until` window has elapsed OUTSIDE the request hot path,
       // so the first request after a cooldown does not pay the probe latency.
@@ -541,6 +563,19 @@ export async function registerNodejs(): Promise<void> {
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
           console.warn("[STARTUP] Arena ELO sync failed to start (non-fatal):", msg);
+        }),
+
+      // Radar daily feed sync: only arms itself when RADAR_ENABLED AND the user
+      // opt-in are already on (flag-off boot stays timer-free — Radar inertia
+      // contract). Non-blocking, never fatal.
+      import("@/lib/radar/scheduler")
+        .then((m) => {
+          const started = m.initRadarSyncScheduler();
+          if (started) console.log("[STARTUP] Radar sync scheduler initialized");
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.warn("[STARTUP] Radar sync scheduler failed to start (non-fatal):", msg);
         }),
 
       // Pricing sync: opt-in external pricing data (self-gated by PRICING_SYNC_ENABLED inside
