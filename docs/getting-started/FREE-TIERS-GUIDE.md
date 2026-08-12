@@ -272,5 +272,5 @@ No catch! Providers offer free tiers to attract users. OmniRoute just makes it e
 
 - **[Auto-Combo Guide](./AUTO-COMBO-GUIDE.md)** — Let OmniRoute pick the best AI for you
 - **[Providers Guide](./PROVIDERS-GUIDE.md)** — Connect more providers
-- **[Troubleshooting](./TROUBLESHOOTING.md)** — Fix common issues
+- **[Troubleshooting](../guides/TROUBLESHOOTING.md)** — Fix common issues
 - **[Free Tiers Reference](../reference/FREE_TIERS.md)** — Full list of free tiers
