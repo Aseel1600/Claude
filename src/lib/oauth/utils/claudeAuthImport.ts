@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import {
   getProviderConnections,
   createProviderConnection,
@@ -214,6 +215,12 @@ export async function createConnectionFromAuthFile(
           subscriptionType: enriched.subscriptionType,
           bootstrapEmail: enriched.email,
           importedAt: new Date().toISOString(),
+          // #10143: preserve an already-persisted device identity across
+          // re-imports so the connection doesn't present as a new device to
+          // Anthropic on every process restart; only mint one if absent.
+          cliUserID:
+            toNonEmptyString(toRecord(existing.providerSpecificData).cliUserID) ||
+            crypto.randomBytes(32).toString("hex"),
         },
       });
 
@@ -254,6 +261,10 @@ export async function createConnectionFromAuthFile(
       subscriptionType: enriched.subscriptionType,
       bootstrapEmail: enriched.email,
       importedAt: new Date().toISOString(),
+      // #10143: mint a persistent device identity so this imported
+      // connection doesn't fall back to a lazy-random device id that
+      // regenerates on every process restart (see resolveCliUserID).
+      cliUserID: crypto.randomBytes(32).toString("hex"),
     },
   });
 
