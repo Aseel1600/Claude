@@ -65,7 +65,12 @@
 | 🌐 Providers         |   291   |   **338**   | **+47 in a single cycle** |
 | 🧠 Documented models |  500+   |  **1200+**  | catalog more than doubled |
 
-**Next stop `v3.8.51+`** — Modality Bridge (vision & video everywhere) · Radar free-model catalog · quota-aware scheduling · new providers queued (Tencent AI Studio & more) → [Roadmap](ROADMAP.md)
+**🔭 Next stop `v3.8.51+` — already in flight:**
+
+| 🖼️ **Modality Bridge** — vision landed in v3.8.50; video next                                    | 📡 **Radar** — live free-model catalog overlay               |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| ⚖️ **Quota-aware scheduling** — route by remaining quota                                         | 📊 **Quota telemetry** — adaptive routing + status inventory |
+| 🤝 **338 providers → more queued** — 3 PRs open: Tencent AI Studio, ZCode & a free-gateway batch | 🗺️ [Roadmap](ROADMAP.md) → riding the rail to **v3.9.0 LTS** |
 
 </div>
 
