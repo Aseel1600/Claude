@@ -1,21 +1,15 @@
 import type { RequestPipelinePayloads } from "@omniroute/open-sse/utils/requestLogger.ts";
 import { sanitizePII } from "../../piiSanitizer";
-import { protectPayloadForLog } from "../../logPayloads";
+import { omitEncryptedReasoningFromLogChunks, protectPayloadForLog } from "../../logPayloads";
 import type { CallLogDetailState } from "../callLogArtifacts";
+// #7879: re-export the canonical helper so existing consumers of this module
+// keep importing `toNumber` from here unchanged.
+export { toNumber } from "@/shared/utils/numeric";
 
 type JsonRecord = Record<string, unknown>;
 
 export function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
-}
-
-export function toNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
 }
 
 export function toStringOrNull(value: unknown): string | null {
@@ -85,9 +79,12 @@ export function protectPipelinePayloads(payloads: unknown): RequestPipelinePaylo
     if (key === "streamChunks" && value && typeof value === "object") {
       const chunks = value as Record<string, unknown>;
       const compacted = Object.fromEntries(
-        Object.entries(chunks).filter(
-          ([, chunkValue]) => Array.isArray(chunkValue) && chunkValue.length > 0
-        )
+        Object.entries(chunks)
+          .filter(([, chunkValue]) => Array.isArray(chunkValue) && chunkValue.length > 0)
+          .map(([stage, chunkValue]) => [
+            stage,
+            omitEncryptedReasoningFromLogChunks(chunkValue as string[]),
+          ])
       );
       if (Object.keys(compacted).length > 0) {
         protectedPayloads.streamChunks = protectPayloadForLog(

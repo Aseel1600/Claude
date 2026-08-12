@@ -8,6 +8,8 @@ import {
   logUsage,
   addBufferToUsage,
   filterUsageForFormat,
+  normalizeUsage as normalizeTokenUsage,
+  sanitizeUsagePayloadForRequest,
 } from "./usageTracking.ts";
 import {
   parseSSELine,
@@ -19,10 +21,14 @@ import {
   formatSSE,
   unwrapGeminiChunk,
   appendBoundedText,
+  buildSyntheticChatChunk,
   hasActiveDeltaValue,
+  injectThinkingSignature,
 } from "./streamHelpers.ts";
+import { rejectEmptyChoicesStream, buildEmptyChoicesStreamError } from "./streamEmptyChoices.ts";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { buildOmniRouteSseMetadataComment } from "@/domain/omnirouteResponseMeta";
+import { sseCommentsEnabled } from "./sseHeartbeat.ts";
 import {
   createStructuredSSECollector,
   buildStreamSummaryFromEvents,
@@ -39,6 +45,11 @@ import {
 } from "./responsesCommentaryDrop.ts";
 import { buildErrorBody } from "./error.ts";
 import { parseTextualToolCallCandidate, isValidToolCallHeaderPrefix } from "./textualToolCall.ts";
+import {
+  formatTranslatedStreamError,
+  normalizeStreamFailurePayload,
+  type StreamFailurePayload,
+} from "./streamErrorFormat.ts";
 import { recordToolLatency } from "../services/toolLatencyTracker.ts";
 import { extractToolSchemaMap } from "../translator/response/openai-responses/toolSchemas.ts";
 import {
@@ -48,6 +59,7 @@ import {
 } from "../services/sessionManager.ts";
 import {
   backfillResponsesCompletedOutput,
+  normalizeResponsesCompletedUsage as normalizeUsage,
   normalizeResponsesSseIds,
   pushUniqueResponsesOutputItems,
   stringifyIdValue,
@@ -61,6 +73,13 @@ import {
   getUnsupportedReasoningValue,
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
+import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
+import {
+  caseInsensitiveToolNameLookup,
+  restoreOpenAIToolNames,
+} from "../translator/helpers/toolCallHelper.ts";
+import { normalizeFinalOpenAIStreamChunk } from "./openAIStreamChunk.ts";
+import { collectClaudeDelta } from "./streamClaudeDelta.ts";
 
 /**
  * Race a response body read against a timeout.
@@ -112,13 +131,6 @@ type StreamCompletePayload = {
   ttft?: number | null;
 };
 
-type StreamFailurePayload = {
-  status: number;
-  message: string;
-  code?: string;
-  type?: string;
-};
-
 type StreamOptions = {
   mode?: string;
   targetFormat?: string;
@@ -143,6 +155,15 @@ type StreamOptions = {
   body?: unknown;
   onComplete?: ((payload: StreamCompletePayload) => void) | null;
   onFailure?: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null;
+  /**
+   * Request-scoped `{namespace, name}` ledger for Responses namespace child
+   * tools that were flattened to a bare leaf on the Chat wire (#7936
+   * round-trip closure). The Responses response translator keys on the leaf
+   * name emitted in `response.function_call_arguments.*` /
+   * `response.output_item.added` / `response.output_item.done` and emits
+   * codex-compatible `namespace` + `name` fields.
+   */
+  requestToolIdentityMap?: Map<string, { namespace: string; name: string }> | null;
 };
 
 type TranslateState = ReturnType<typeof initState> & {
@@ -161,6 +182,7 @@ type TranslateState = ReturnType<typeof initState> & {
   /** #6951 — per-tool JSON Schema (from request `tools[]`), keyed by tool name. */
   toolSchemas?: Map<string, Record<string, unknown>> | null;
   customToolNames?: ReadonlySet<string>;
+  requestToolIdentityMap?: Map<string, { namespace: string; name: string }> | null;
   upstreamError?: {
     status: number;
     type: string;
@@ -180,6 +202,47 @@ type UsageTokenRecord = Record<string, number>;
 
 function asRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
+}
+
+// #7936 — restore `{namespace, name}` on Responses passthrough `function_call`
+// items when the request-side Responses→Chat flatten stamped the bare leaf on the
+// Chat wire. Codex's ResponseItem::FunctionCall schema declares an independent
+// `namespace: Option<String>` field (see codex-rs/protocol/src/models.rs and the
+// `function_call_deserializes_optional_namespace` round-trip test); emit it back.
+function restoreResponsesPassthroughFunctionCallIdentity(
+  parsed: JsonRecord,
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null | undefined
+): boolean {
+  if (!(requestToolIdentityMap instanceof Map)) return false;
+
+  const restoreItem = (item: unknown): boolean => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return false;
+    const functionCall = item as JsonRecord;
+    if (functionCall.type !== "function_call" || typeof functionCall.name !== "string")
+      return false;
+
+    const identity = requestToolIdentityMap.get(functionCall.name);
+    if (!identity) return false;
+
+    const changed =
+      functionCall.namespace !== identity.namespace || functionCall.name !== identity.name;
+    functionCall.namespace = identity.namespace;
+    functionCall.name = identity.name;
+    return changed;
+  };
+
+  if (parsed.type === "response.output_item.added" || parsed.type === "response.output_item.done") {
+    return restoreItem(parsed.item);
+  }
+
+  if (parsed.type === "response.completed" && Array.isArray(asRecord(parsed.response).output)) {
+    return (asRecord(parsed.response).output as unknown[]).reduce<boolean>(
+      (changed: boolean, item: unknown) => restoreItem(item) || changed,
+      false
+    );
+  }
+
+  return false;
 }
 
 function parseTextualToolCallFromContent(text: unknown): { name: string; args: unknown } | null {
@@ -347,63 +410,6 @@ function toResponsesCompletedWithToolCalls(parsed: JsonRecord, toolCalls: ToolCa
   };
 }
 
-function toStreamFailureStatus(value: unknown): number | null {
-  if (typeof value === "number" && Number.isInteger(value) && value >= 400 && value <= 599) {
-    return value;
-  }
-  if (typeof value === "string" && /^\d{3}$/.test(value.trim())) {
-    const parsed = Number(value.trim());
-    return parsed >= 400 && parsed <= 599 ? parsed : null;
-  }
-  return null;
-}
-
-function looksLikeStreamRateLimit(code: string, type: string, message: string): boolean {
-  const haystack = `${code} ${type} ${message}`.toLowerCase();
-  return (
-    haystack.includes("usage_limit_reached") ||
-    haystack.includes("rate_limit") ||
-    haystack.includes("rate limit") ||
-    haystack.includes("quota") ||
-    haystack.includes("too many requests") ||
-    haystack.includes("limit reached") ||
-    haystack.includes("limit has been reached")
-  );
-}
-
-function normalizeStreamFailurePayload(payload: unknown): StreamFailurePayload | null {
-  const record = payload && typeof payload === "object" ? (payload as JsonRecord) : {};
-  const response = asRecord(record.response);
-  const error = Object.keys(asRecord(response.error)).length
-    ? asRecord(response.error)
-    : Object.keys(asRecord(record.error)).length
-      ? asRecord(record.error)
-      : record;
-  const code = typeof error.code === "string" ? error.code : "upstream_error";
-  const type = typeof error.type === "string" ? error.type : undefined;
-  const message =
-    typeof error.message === "string" && error.message.trim()
-      ? error.message
-      : typeof record.message === "string" && record.message.trim()
-        ? record.message
-        : "Upstream failure";
-  const status =
-    toStreamFailureStatus(error.status_code) ??
-    toStreamFailureStatus(error.status) ??
-    toStreamFailureStatus(response.status_code) ??
-    toStreamFailureStatus(response.status) ??
-    toStreamFailureStatus(record.status_code) ??
-    toStreamFailureStatus(record.status) ??
-    (looksLikeStreamRateLimit(code, type || "", message) ? 429 : 502);
-
-  return {
-    status,
-    message,
-    code,
-    ...(type ? { type } : {}),
-  };
-}
-
 type ClaudeEmptyResponseLifecycle = {
   hasMessageStart: boolean;
   hasContentBlock: boolean;
@@ -434,7 +440,7 @@ function getClaudeEventType(payload: unknown): string | null {
   return typeof type === "string" ? type : null;
 }
 
-function isClaudeEventPayload(payload: unknown): payload is JsonRecord {
+function isClaudeEventPayload(payload: unknown): boolean {
   return getClaudeEventType(payload) !== null;
 }
 
@@ -580,7 +586,7 @@ function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: un
       : null;
   if (!block || block.type !== "tool_use" || typeof block.name !== "string") return false;
 
-  const restoredName = toolNameMap.get(block.name) ?? block.name;
+  const restoredName = caseInsensitiveToolNameLookup(block.name, toolNameMap) ?? block.name;
   if (restoredName === block.name) return false;
   block.name = restoredName;
   return true;
@@ -590,9 +596,7 @@ function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: un
 // to avoid shared state issues with concurrent streams (TextDecoder with {stream:true}
 // maintains internal buffering state between decode() calls).
 
-/**
- * Stream modes
- */
+// Stream modes
 const STREAM_MODE = {
   TRANSLATE: "translate", // Full translation between formats
   PASSTHROUGH: "passthrough", // No translation, normalize output, extract usage
@@ -634,6 +638,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     onFailure = null,
     dropResponsesCommentary,
     customToolNames = new Set<string>(),
+    requestToolIdentityMap = null,
   } = options;
   const signatureNamespace = connectionId;
   // Request-body-size metric (for monitoring payload size distribution & correlation with TTFT).
@@ -656,11 +661,9 @@ export function createSSEStream(options: StreamOptions = {}) {
   }
 
   // Drop internal commentary-phase Responses output before forwarding (#6199).
-  // Explicit option wins; otherwise read the feature flag (default on). Resolved
-  // once per stream — never on the hot per-chunk path.
+  // Explicit option wins; otherwise read the feature flag (default on) — resolved once per stream.
   const shouldDropResponsesCommentary =
     dropResponsesCommentary ?? isFeatureFlagEnabled("RESPONSES_PASSTHROUGH_DROP_COMMENTARY");
-
   const clientExpectsResponsesStream =
     (mode === STREAM_MODE.PASSTHROUGH
       ? clientResponseFormat === FORMATS.OPENAI_RESPONSES
@@ -677,11 +680,23 @@ export function createSSEStream(options: StreamOptions = {}) {
       ? clientResponseFormat === FORMATS.CLAUDE
       : sourceFormat === FORMATS.CLAUDE) === true;
 
+  // Antigravity/cloudcode streams terminate naturally on their last
+  // `data: {"response":{...}}` event, not on a `[DONE]` marker. Emitting
+  // `[DONE]` to the Antigravity IDE causes a protobuf parse failure
+  // (proto: syntax error (line 1:1): unexpected token [) because the
+  // Go binary's protobuf deserializer receives `[DONE]` as input.
+  const clientExpectsAntigravityStream =
+    (mode === STREAM_MODE.PASSTHROUGH
+      ? clientResponseFormat === FORMATS.ANTIGRAVITY
+      : sourceFormat === FORMATS.ANTIGRAVITY) === true;
+
   // Single source of truth for the [DONE] decision, used at both emission
   // sites below. Only OpenAI Chat Completions clients expect [DONE];
-  // Responses API and Anthropic SSE terminate on their own protocol events
-  // (response.completed / message_stop respectively).
-  const shouldEmitDoneTerminator = !clientExpectsResponsesStream && !clientExpectsClaudeStream;
+  // Responses API, Anthropic SSE, and Antigravity/cloudcode terminate on
+  // their own protocol events (response.completed / message_stop / last
+  // response candidate respectively).
+  const shouldEmitDoneTerminator =
+    !clientExpectsResponsesStream && !clientExpectsClaudeStream && !clientExpectsAntigravityStream;
 
   let buffer = "";
   let usage: UsageTokenRecord | null = null;
@@ -694,6 +709,7 @@ export function createSSEStream(options: StreamOptions = {}) {
   let passthroughToolCallSeq = 0;
   const allowedToolNames = extractAllowedToolNames(body);
   let skipPassthroughEvent = false;
+  const thinkState = initThinkState(mode === STREAM_MODE.PASSTHROUGH, provider, model);
 
   // State for translate mode (accumulatedContent for call log response body)
   const state: TranslateState | null =
@@ -709,8 +725,12 @@ export function createSSEStream(options: StreamOptions = {}) {
           accumulatedReasoning: "",
           toolSchemas: extractToolSchemaMap(body),
           customToolNames,
+          requestToolIdentityMap,
         }
       : null;
+
+  // Tracks whether any valuable chunk was forwarded; empty at flush => retryable 502 (#9268)
+  let forwardedValuableChunk = false;
 
   // Track content length for usage estimation (both modes)
   let totalContentLength = 0;
@@ -760,10 +780,11 @@ export function createSSEStream(options: StreamOptions = {}) {
   let pendingToolFinishTime: number | null = null;
   try {
     pendingToolFinishTime = consumeToolFinishTime(sessionId);
-  } catch {}
+  } catch {} // best-effort read of optional timing state — absence is normal
 
   // Guard against duplicate [DONE] events — ensures exactly one per stream
   let doneSent = false;
+  let upstreamErrorForwarded = false;
   const providerPayloadCollector = createStructuredSSECollector({
     stage: "provider_response",
   });
@@ -926,7 +947,9 @@ export function createSSEStream(options: StreamOptions = {}) {
     if (onFailure) {
       try {
         failureHandled = onFailure({ status: 502, message: msg, code: "empty_response" }) === true;
-      } catch {}
+      } catch (e) {
+        console.debug(`[STREAM] onFailure callback error (empty_response):`, e);
+      }
     }
     if (decrementPendingRequest && !failureHandled) {
       clearPendingRequestFromStream();
@@ -979,6 +1002,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     const output = formatSSE(itemSanitized, sourceFormat);
     clientPayloadCollector.push(itemSanitized);
     reqLogger?.appendConvertedChunk?.(output);
+    forwardedValuableChunk = true;
     controller.enqueue(encoder.encode(output));
   };
 
@@ -986,7 +1010,14 @@ export function createSSEStream(options: StreamOptions = {}) {
     controller: TransformStreamDefaultController,
     finalUsage: UsageTokenRecord | Record<string, unknown> | null | undefined
   ) => {
-    const costUsd = finalUsage ? await calculateCost(provider, model, finalUsage) : 0;
+    // Skip SSE metadata comment lines when OMNIROUTE_SSE_COMMENTS is disabled
+    // (e.g., "off", "false", "0", "no"). Strict OpenAI-compatible clients that
+    // JSON.parse every SSE line will crash on `: x-omniroute-*` comment lines.
+    if (!sseCommentsEnabled()) return;
+
+    const costUsd = finalUsage
+      ? await calculateCost(provider, model, normalizeTokenUsage(finalUsage))
+      : 0;
     const comment = buildOmniRouteSseMetadataComment({
       provider,
       model,
@@ -1036,9 +1067,9 @@ export function createSSEStream(options: StreamOptions = {}) {
       return;
     }
 
-    // #7095/#7176 reconciliation: compute the visible placeholder WITHOUT
-    // mutating `item` — the encrypted reasoning item (and its `encrypted_content`,
-    // required by Codex for subsequent requests) is forwarded to the client intact.
+    // #7176/#7243: only synthesize summary events from real upstream plaintext —
+    // never mutate `item` and never fabricate alarming placeholder text for
+    // encrypted-only reasoning (`encrypted_content` still forwards intact).
     const visibleSummary = getVisibleResponsesReasoningSummaryText(item);
 
     if (!visibleSummary) {
@@ -1109,7 +1140,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                       code: "stream_idle_timeout",
                       type: "timeout_error",
                     }) === true;
-                } catch {}
+                } catch (e) {
+                  console.debug(`[STREAM] onFailure callback error (idle_timeout):`, e);
+                }
               }
               if (!failureHandled) {
                 clearPendingRequestFromStream();
@@ -1285,7 +1318,10 @@ export function createSSEStream(options: StreamOptions = {}) {
                     parsed.type.startsWith("content_block") ||
                     parsed.type === "ping" ||
                     parsed.type === "error");
-
+                if (sanitizeUsagePayloadForRequest(parsed, body, clientResponseFormat)) {
+                  output = `data: ${JSON.stringify(parsed)}\n\n`;
+                  injectedUsage = true;
+                }
                 if (isResponsesSSE) {
                   // #6199/#6561 — statefully drop internal commentary-phase output (see
                   // ./responsesCommentaryDrop.ts) and clear the buffered `event:` line
@@ -1349,7 +1385,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                           const responseToolCallEvents =
                             buildResponsesFunctionCallEvents(collectedToolCall);
                           output = formatSSEDataEvents(responseToolCallEvents);
-                          clientPayloadCollector.push(...responseToolCallEvents);
+                          for (const event of responseToolCallEvents) {
+                            clientPayloadCollector.push(event);
+                          }
                           reqLogger?.appendConvertedChunk?.(output);
                           controller.enqueue(encoder.encode(output));
                           injectedUsage = true;
@@ -1481,6 +1519,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                       parsed.response.output
                     );
                   }
+                  // #7936 — restore `namespace` + `name` fields on passthrough
+                  // Responses function_call items for downstream Codex clients.
+                  if (
+                    parsed.type === "response.output_item.added" ||
+                    parsed.type === "response.output_item.done" ||
+                    parsed.type === "response.completed"
+                  ) {
+                    restoreResponsesPassthroughFunctionCallIdentity(
+                      parsed as JsonRecord,
+                      requestToolIdentityMap
+                    );
+                  }
                   if (
                     parsed.type === "response.completed" &&
                     passthroughResponsesPendingFunctionCalls.size > 0
@@ -1511,17 +1561,20 @@ export function createSSEStream(options: StreamOptions = {}) {
                     parsed,
                     passthroughResponsesOutputItems
                   );
+                  const usageNormalized = normalizeUsage(parsed);
                   if (
                     stripped ||
                     backfilled ||
                     textualToolCallBackfilled ||
-                    responsesIdsNormalized
+                    responsesIdsNormalized ||
+                    usageNormalized
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
                   }
                 } else if (isClaudeSSE) {
                   // Claude SSE: extract usage, track content, forward as-is
+                  const thinkingSignatureInjected = injectThinkingSignature(parsed, provider);
                   const extracted = extractUsage(parsed);
                   if (extracted) {
                     // Non-destructive merge: never overwrite a positive value with 0
@@ -1563,7 +1616,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                       parsed.delta.thinking
                     );
                   }
-                  if (restoredToolName) {
+                  if (restoredToolName || thinkingSignatureInjected) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
                   }
@@ -1588,7 +1641,13 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // retry." with finish_reason: "stop" — clients (Goose/opencode) feed that
                   // text back as a turn and spin in a retry loop. This restores the #3400
                   // behavior that #3422 inadvertently reverted (regression #3388/#3502).
-                  if (Array.isArray(parsed.choices) && parsed.choices.length === 0) {
+                  if (Array.isArray(parsed.choices) && (parsed.choices.length === 0 ||
+                      (parsed.choices.length === 1 &&
+                        parsed.choices[0]?.delta &&
+                        typeof parsed.choices[0].delta === "object" &&
+                        Object.keys(parsed.choices[0].delta).length === 0 &&
+                        !parsed.choices[0]?.finish_reason))
+                  ) {
                     const emptyChoicesUsage = extractUsage(parsed) ?? parsed.usage;
                     if (hasValidUsage(emptyChoicesUsage)) {
                       // Some upstreams (e.g. Ollama Cloud) emit prompt_tokens: 0
@@ -1651,6 +1710,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                     continue;
                   }
 
+                  const restoredOpenAIToolName = restoreOpenAIToolNames(parsed, toolNameMap);
                   const idFixed = hadNonStringTopLevelId ? false : fixInvalidId(parsed);
 
                   if (!hasValuableContent(parsed, FORMATS.OPENAI)) {
@@ -1661,6 +1721,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   let textualToolCallConverted = false;
                   let toolCallIdCoerced = false;
                   let splitMixedReasoningContent = false;
+                  const thinkParsed = applyThinkTag(thinkState, delta);
 
                   // Split combined reasoning+content deltas into separate SSE events.
                   // Standard OpenAI streaming never mixes both fields in one delta;
@@ -1700,6 +1761,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // to avoid blocking subsequent finish_reason / usage mutations)
                   const needsReserialization =
                     splitMixedReasoningContent ||
+                    thinkParsed ||
                     hadReasoningAlias ||
                     (delta?.content === "" && delta?.reasoning_content);
 
@@ -1761,7 +1823,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                             toolTs ? now - toolTs : null,
                             lastChunkTs ? now - lastChunkTs : null
                           );
-                        } catch {}
+                        } catch {} // best-effort telemetry — must never break the stream
                         pendingToolFinishTime = null;
                       }
                     }
@@ -1794,11 +1856,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                     passthroughSawFinishReason = true;
                   }
 
+
                   if (isFinishChunk && passthroughHasToolCalls) {
                     toolFinishTime = now;
                     try {
                       markToolFinish(sessionId);
-                    } catch {}
+                    } catch {} // best-effort bookkeeping write — a miss just skips latency correlation
                   }
 
                   // T18: Normalize finish_reason to 'tool_calls' if tool calls were used
@@ -1837,7 +1900,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                     needsReserialization ||
                     toolCallIdCoerced ||
                     hadNonStringToolCallId ||
-                    hadNonStringTopLevelId
+                    hadNonStringTopLevelId ||
+                    restoredOpenAIToolName
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
@@ -1874,7 +1938,9 @@ export function createSSEStream(options: StreamOptions = {}) {
               if (onFailure) {
                 try {
                   failureHandled = onFailure(failurePayload) === true;
-                } catch {}
+                } catch (e) {
+                  console.debug(`[STREAM] onFailure callback error:`, e);
+                }
               }
               clearIdleTimer();
               if (!failureHandled) {
@@ -1901,6 +1967,17 @@ export function createSSEStream(options: StreamOptions = {}) {
           const parsed = parseSSELine(trimmed);
           if (!parsed) continue;
 
+          if (upstreamErrorForwarded) continue;
+
+          if (parsed.error) {
+            const output = formatTranslatedStreamError(parsed, sourceFormat);
+            reqLogger?.appendConvertedChunk?.(output);
+            controller.enqueue(encoder.encode(output));
+            upstreamErrorForwarded = true;
+            doneSent = true;
+            continue;
+          }
+
           // #5786 — drop replayed Responses-API events (identical/lower sequence_number
           // re-sent on an upstream reconnect) so their deltas are not glued twice into
           // the translated client stream.
@@ -1912,13 +1989,11 @@ export function createSSEStream(options: StreamOptions = {}) {
           }
 
           if (shouldDropResponsesCommentary && dropCommentary(parsed as JsonRecord)) continue;
-
           providerPayloadCollector.push(parsed);
-
           if (parsed && parsed.done) {
             continue;
           }
-
+          sanitizeUsagePayloadForRequest(parsed, body, targetFormat);
           if (parsed.choices?.[0]?.delta?.tool_calls) {
             lastToolCallChunkTime = now;
           }
@@ -1926,25 +2001,15 @@ export function createSSEStream(options: StreamOptions = {}) {
             toolFinishTime = now;
             try {
               markToolFinish(sessionId);
-            } catch {}
+            } catch {} // best-effort bookkeeping write — a miss just skips latency correlation
           }
 
           // Track content length and accumulate for call log (from raw provider chunk, so content is never missed)
           // Do this before translation so we capture content regardless of translator output shape
 
           // Claude format
-          if (parsed.delta?.text) {
-            const t = parsed.delta.text;
-            totalContentLength += t.length;
-            if (state?.accumulatedContent !== undefined && typeof t === "string")
-              state.accumulatedContent = appendBoundedText(state.accumulatedContent, t);
-          }
-          if (parsed.delta?.thinking) {
-            const t = parsed.delta.thinking;
-            totalContentLength += t.length;
-            if (state?.accumulatedReasoning !== undefined && typeof t === "string")
-              state.accumulatedReasoning = appendBoundedText(state.accumulatedReasoning, t);
-          }
+          const claudeDelta = collectClaudeDelta(parsed.delta, state);
+          totalContentLength += claudeDelta.contentLength;
 
           // OpenAI format
           if (parsed.choices?.[0]?.delta?.content) {
@@ -2026,7 +2091,7 @@ export function createSSEStream(options: StreamOptions = {}) {
           }
 
           const translateHasContent =
-            typeof parsed.delta?.text === "string" ||
+            claudeDelta.hasText ||
             typeof parsed.choices?.[0]?.delta?.content === "string" ||
             Boolean(getAnyReasoningValue(parsed.choices?.[0]?.delta));
           if (translateHasContent && !contentAfterToolSeen) {
@@ -2040,7 +2105,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   toolTs ? now - toolTs : null,
                   lastChunkTs ? now - lastChunkTs : null
                 );
-              } catch {}
+              } catch {} // best-effort telemetry — must never break the stream
               pendingToolFinishTime = null;
             }
           }
@@ -2092,6 +2157,10 @@ export function createSSEStream(options: StreamOptions = {}) {
         if (streamTimedOut) {
           return;
         }
+        if (upstreamErrorForwarded) {
+          clearPendingRequestFromStream();
+          return;
+        }
         try {
           const remaining = decoder.decode();
           if (remaining) buffer += remaining;
@@ -2126,6 +2195,7 @@ export function createSSEStream(options: StreamOptions = {}) {
               },
               pushProviderPayload: (payload: unknown) => providerPayloadCollector.push(payload),
               pushClientPayload: (payload: unknown) => clientPayloadCollector.push(payload),
+              sanitizeUsagePayload: (payload: unknown) => sanitizeUsagePayloadForRequest(payload, body, clientResponseFormat),
               setPassthroughResponsesId: (value: string) => {
                 passthroughResponsesId = value;
               },
@@ -2165,6 +2235,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                 toResponsesCompletedWithToolCalls(parsed, [
                   ...passthroughToolCalls.values(),
                 ]) as JsonRecord,
+              restoreOpenAIToolNames: (parsed: JsonRecord) =>
+                restoreOpenAIToolNames(parsed, toolNameMap),
             };
 
             for (const line of normalizedTailLines) {
@@ -2172,7 +2244,6 @@ export function createSSEStream(options: StreamOptions = {}) {
                 return;
               }
             }
-
             const bufferedLine = buffer.trim();
             if (skipPassthroughEvent || /^event:\s*keepalive\b/i.test(bufferedLine)) {
               skipPassthroughEvent = false;
@@ -2185,6 +2256,7 @@ export function createSSEStream(options: StreamOptions = {}) {
               const bufferedPayload = parseSSELine(bufferedLine);
               if (bufferedPayload) {
                 providerPayloadCollector.push(bufferedPayload);
+                if (sanitizeUsagePayloadForRequest(bufferedPayload, body, clientResponseFormat)) output = `data: ${JSON.stringify(bufferedPayload)}\n\n`;
                 if (
                   shouldInjectClaudeEmptyResponseBeforeCurrentEvent(
                     claudeEmptyResponseLifecycle,
@@ -2198,7 +2270,6 @@ export function createSSEStream(options: StreamOptions = {}) {
                   updateClaudeEmptyResponseLifecycle(claudeEmptyResponseLifecycle, bufferedPayload);
                 }
                 clientPayloadCollector.push(bufferedPayload);
-
                 // Normalize numeric IDs for final buffered data: chunk (same as transform path)
                 if (typeof bufferedPayload === "object" && !Array.isArray(bufferedPayload)) {
                   const flushedParsed = bufferedPayload as JsonRecord;
@@ -2207,40 +2278,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                   const isResponses = flushedType.startsWith("response.");
                   const isClaude = isClaudeEventPayload(flushedParsed);
                   if (isResponses) {
-                    if (normalizeResponsesSseIds(flushedParsed)) {
+                    const idsNormalized = normalizeResponsesSseIds(flushedParsed);
+                    const usageNormalized = normalizeUsage(flushedParsed);
+                    if (idsNormalized || usageNormalized) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }
                   } else if (!isClaude) {
-                    let flushChanged = false;
-                    const flushedHadNonStringTopLevelId =
-                      flushedParsed?.id != null && typeof flushedParsed.id !== "string";
-                    if (flushedHadNonStringTopLevelId) {
-                      flushedParsed.id = String(flushedParsed.id);
-                      flushChanged = true;
-                    }
-                    if (Array.isArray(flushedParsed.choices)) {
-                      for (const choice of flushedParsed.choices as JsonRecord[]) {
-                        const tcs = (choice as JsonRecord | undefined)?.delta as
-                          JsonRecord | undefined;
-                        if (Array.isArray(tcs?.tool_calls)) {
-                          for (const tc of tcs.tool_calls as JsonRecord[]) {
-                            if (tc?.id != null && typeof tc.id !== "string") {
-                              tc.id = String(tc.id);
-                              flushChanged = true;
-                            }
-                          }
-                        }
-                      }
-                    }
+                    const { changed: flushChanged, hasFinishReason } =
+                      normalizeFinalOpenAIStreamChunk(flushedParsed, toolNameMap);
                     // #7800: track finish_reason in the flush path too, so a
                     // final chunk without trailing newline still suppresses the
                     // synthetic finish_reason synthesis.
-                    if (
-                      Array.isArray(flushedParsed.choices) &&
-                      (flushedParsed.choices[0] as JsonRecord | undefined)?.finish_reason
-                    ) {
-                      passthroughSawFinishReason = true;
-                    }
+                    if (hasFinishReason) passthroughSawFinishReason = true;
                     if (flushChanged) {
                       output = `data: ${JSON.stringify(flushedParsed)}\n\n`;
                     }
@@ -2291,21 +2340,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                 };
                 flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
               } else {
-                const syntheticChunk = {
-                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
-                  object: "chat.completion.chunk",
-                  created: Math.floor(Date.now() / 1000),
-                  model: model || "unknown",
-                  choices: [
-                    {
-                      index: 0,
-                      delta: {
-                        content: passthroughBufferedTextualToolCallContent,
-                      },
-                      finish_reason: null,
-                    },
-                  ],
-                };
+                const syntheticChunk = buildSyntheticChatChunk(passthroughResponsesId, model, {
+                  content: passthroughBufferedTextualToolCallContent,
+                });
                 flushOutput = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
               }
               reqLogger?.appendConvertedChunk?.(flushOutput);
@@ -2315,6 +2352,18 @@ export function createSSEStream(options: StreamOptions = {}) {
                 passthroughBufferedTextualToolCallContent
               );
               passthroughBufferedTextualToolCallContent = "";
+            }
+
+            const accR = passthroughAccumulatedReasoning;
+            const accC = passthroughAccumulatedContent;
+            const thinkFlush = flushThink(thinkState, passthroughResponsesId, accR, accC);
+            if (thinkFlush) {
+              passthroughAccumulatedReasoning = thinkFlush.reasoning;
+              passthroughAccumulatedContent = thinkFlush.content;
+              totalContentLength += thinkFlush.addedLength;
+              clientPayloadCollector.push(thinkFlush.syntheticChunk);
+              reqLogger?.appendConvertedChunk?.(thinkFlush.flushOutput);
+              controller.enqueue(encoder.encode(thinkFlush.flushOutput));
             }
 
             // Estimate usage if provider didn't return valid usage
@@ -2340,19 +2389,12 @@ export function createSSEStream(options: StreamOptions = {}) {
               // (pi CLI) reject the stream with "Stream ended without finish_reason".
               // Synthesize a terminal chunk when the upstream omitted one.
               if (shouldEmitDoneTerminator && !passthroughSawFinishReason) {
-                const syntheticFinishChunk = {
-                  id: passthroughResponsesId || `chatcmpl-${Date.now()}`,
-                  object: "chat.completion.chunk",
-                  created: Math.floor(Date.now() / 1000),
-                  model: model || "unknown",
-                  choices: [
-                    {
-                      index: 0,
-                      delta: {},
-                      finish_reason: passthroughHasToolCalls ? "tool_calls" : "stop",
-                    },
-                  ],
-                };
+                const syntheticFinishChunk = buildSyntheticChatChunk(
+                  passthroughResponsesId,
+                  model,
+                  {},
+                  passthroughHasToolCalls ? "tool_calls" : "stop"
+                );
                 const finishOutput = `data: ${JSON.stringify(syntheticFinishChunk)}\n\n`;
                 reqLogger?.appendConvertedChunk?.(finishOutput);
                 controller.enqueue(encoder.encode(finishOutput));
@@ -2416,6 +2458,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                   console.warn(
                     `[STREAM] Empty assistant response after tool_calls completion (${provider || "provider"}:${model || "unknown"}) — sessionId=${sessionId}`
                   );
+                } else if (passthroughHasToolCalls && !content.trim() && reasoning.trim()) {
+                  message.content = "";
                 }
 
                 const responseBody = {
@@ -2436,19 +2480,27 @@ export function createSSEStream(options: StreamOptions = {}) {
                   status: 200,
                   usage,
                   responseBody,
+                  // #9315 switched the summary to the accumulated responseBody to avoid
+                  // stale/truncated event data — but responseBody here is synthesized in
+                  // chat-completion shape, which loses the Responses API `response` object.
+                  // Keep the events-derived summary for OPENAI_RESPONSES only.
                   providerPayload: providerPayloadCollector.build(
-                    buildStreamSummaryFromEvents(
-                      providerPayloadCollector.getEvents(),
-                      sourceFormat,
-                      model
-                    ),
+                    sourceFormat === FORMATS.OPENAI_RESPONSES
+                      ? buildStreamSummaryFromEvents(
+                          providerPayloadCollector.getEvents(),
+                          sourceFormat,
+                          model
+                        )
+                      : responseBody,
                     { includeEvents: false }
                   ),
                   clientPayload: clientPayloadCollector.build(responseBody, {
                     includeEvents: false,
                   }),
                 });
-              } catch {}
+              } catch (e) {
+                console.debug(`[STREAM] onComplete callback error (${model || "unknown"}):`, e);
+              }
             } else {
               clearPendingRequestFromStream();
             }
@@ -2533,7 +2585,9 @@ export function createSSEStream(options: StreamOptions = {}) {
                     code: err.code,
                     type: err.type,
                   }) === true;
-              } catch {}
+              } catch (e) {
+                console.debug(`[STREAM] onFailure callback error (${model || "unknown"}):`, e);
+              }
             }
 
             const errorBody = buildErrorBody(err.status, err.message);
@@ -2558,7 +2612,12 @@ export function createSSEStream(options: StreamOptions = {}) {
                   }),
                 });
                 failureHandled = true;
-              } catch {}
+              } catch (e) {
+                console.debug(
+                  `[STREAM] onComplete callback error in error path (${model || "unknown"}):`,
+                  e
+                );
+              }
             }
 
             clearIdleTimer();
@@ -2568,6 +2627,27 @@ export function createSSEStream(options: StreamOptions = {}) {
             controller.error(
               markPendingRequestCleared(new Error(err.message || "Upstream failure"))
             );
+            return;
+          }
+
+          // #9268: reject a translate-mode stream that forwarded no valuable chunk
+          // (all-empty `choices: []`) instead of completing with an empty 200.
+          if (
+            mode === STREAM_MODE.TRANSLATE &&
+            rejectEmptyChoicesStream({
+              forwardedValuableChunk,
+              hasValidUsage: hasValidUsage(state?.usage),
+              providerPayloadCollector,
+              clientPayloadCollector,
+              targetFormat,
+              model,
+              usage: state?.usage,
+              onFailure,
+              onComplete,
+              clearPendingRequestFromStream,
+            })
+          ) {
+            controller.error(markPendingRequestCleared(buildEmptyChoicesStreamError()));
             return;
           }
 
@@ -2702,19 +2782,28 @@ export function createSSEStream(options: StreamOptions = {}) {
                 status: 200,
                 usage: state?.usage,
                 responseBody,
+                // Same OPENAI_RESPONSES carve-out as the passthrough branch above —
+                // the synthesized chat-shaped responseBody drops the `response` object.
                 providerPayload: providerPayloadCollector.build(
-                  buildStreamSummaryFromEvents(
-                    providerPayloadCollector.getEvents(),
-                    targetFormat,
-                    model
-                  ),
+                  targetFormat === FORMATS.OPENAI_RESPONSES
+                    ? buildStreamSummaryFromEvents(
+                        providerPayloadCollector.getEvents(),
+                        targetFormat,
+                        model
+                      )
+                    : responseBody,
                   { includeEvents: false }
                 ),
                 clientPayload: clientPayloadCollector.build(responseBody, {
                   includeEvents: false,
                 }),
               });
-            } catch {}
+            } catch (e) {
+              console.debug(
+                `[STREAM] onComplete callback error in flush (${model || "unknown"}):`,
+                e
+              );
+            }
           } else {
             clearPendingRequestFromStream();
           }
@@ -2745,10 +2834,11 @@ export function createSSETransformStreamWithLogger(
   body: unknown = null,
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
-  onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
+  onFailure: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null = null,
   copilotCompatibleReasoning = false,
   suppressThinkClose = false,
-  customToolNames: ReadonlySet<string> = new Set()
+  customToolNames: ReadonlySet<string> = new Set(),
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null = null
 ) {
   return createSSEStream({
     mode: STREAM_MODE.TRANSLATE,
@@ -2766,6 +2856,7 @@ export function createSSETransformStreamWithLogger(
     copilotCompatibleReasoning,
     suppressThinkClose,
     customToolNames,
+    requestToolIdentityMap,
   });
 }
 
@@ -2778,8 +2869,9 @@ export function createPassthroughStreamWithLogger(
   body: unknown = null,
   onComplete: ((payload: StreamCompletePayload) => void) | null = null,
   apiKeyInfo: unknown = null,
-  onFailure: ((payload: StreamFailurePayload) => void | Promise<void>) | null = null,
-  clientResponseFormat: string | null = null
+  onFailure: ((payload: StreamFailurePayload) => boolean | void | Promise<void>) | null = null,
+  clientResponseFormat: string | null = null,
+  requestToolIdentityMap: Map<string, { namespace: string; name: string }> | null = null
 ) {
   return createSSEStream({
     mode: STREAM_MODE.PASSTHROUGH,
@@ -2793,6 +2885,7 @@ export function createPassthroughStreamWithLogger(
     onComplete,
     onFailure,
     clientResponseFormat,
+    requestToolIdentityMap,
   });
 }
 

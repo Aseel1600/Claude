@@ -114,7 +114,18 @@ test("P1: GitHub Copilot sub-token is refreshed by tokenHealthCheck", async () =
 test("P1: tokenHealthCheck checks copilotTokenExpiresAt before refreshing", async () => {
   const src = await read("src/lib/tokenHealthCheck.ts");
   assert.match(src, /copilotTokenExpiresAt/, "must check copilotTokenExpiresAt");
-  assert.match(src, /toLowerCase\(\)\s*===\s*["']github["']/, "must be gated on github provider");
+  // The gate must still lowercase-normalize conn.provider (#6947), but it is no
+  // longer a single `=== "github"` literal: GHE Copilot shares the exact same
+  // shape (GitHub-style access token, no refresh_token, short-lived Copilot
+  // sub-token), so the branch is now driven by a provider Set. Accept either
+  // form — the invariant under test is the normalized provider gate, not which
+  // syntax expresses it.
+  assert.match(
+    src,
+    /toLowerCase\(\)\s*===\s*["']github["']|_PROVIDERS\.has\(\s*String\([^)]*\)\s*\.toLowerCase\(\)\s*\)/,
+    "must be gated on a lowercase-normalized provider check (=== \"github\" literal " +
+      "or a *_PROVIDERS Set membership test covering github/ghe-copilot)"
+  );
 });
 
 // ─── P1: case-insensitive provider comparisons (regression for #6947) ────────
@@ -240,8 +251,11 @@ test("P3: refreshWindsurfToken parses Firebase USER_DISABLED/TOKEN_EXPIRED error
 
 // ─── isUnrecoverableRefreshError consistency ──────────────────────────────────
 
+// isUnrecoverableRefreshError moved to tokenRefresh/shared.ts in the god-file
+// decomposition (tokenRefresh.ts re-exports it, so the public surface is unchanged);
+// this source-text assertion has to follow it to the file that defines the body.
 test("isUnrecoverableRefreshError detects the normalized sentinel shape", async () => {
-  const src = await read("open-sse/services/tokenRefresh.ts");
+  const src = await read("open-sse/services/tokenRefresh/shared.ts");
   const fnMatch = src.match(/export\s+function\s+isUnrecoverableRefreshError\([\s\S]+?\n\}/);
   assert.ok(fnMatch, "isUnrecoverableRefreshError function body not found");
   assert.match(

@@ -168,7 +168,7 @@ function encodeVarint(value: number): Uint8Array {
   return new Uint8Array(bytes);
 }
 
-function concatBytes(arrays: Uint8Array[]): Uint8Array {
+function concatBytes(arrays: Uint8Array[]): Uint8Array<ArrayBuffer> {
   const total = arrays.reduce((n, a) => n + a.length, 0);
   const out = new Uint8Array(total);
   let off = 0;
@@ -248,8 +248,16 @@ function buildGetChatMessageRequest(
 
 // ─── gRPC-web framing ────────────────────────────────────────────────────────
 
-/** Wrap a protobuf message in a 5-byte gRPC-web data frame. */
-function grpcWebFrame(payload: Uint8Array): Uint8Array {
+/**
+ * Wrap a protobuf message in a 5-byte gRPC-web data frame.
+ *
+ * Returns `Uint8Array<ArrayBuffer>`, not bare `Uint8Array`: the frame is
+ * allocated with `new Uint8Array(length)`, which is always ArrayBuffer-backed,
+ * and only that narrower form satisfies `BodyInit` at the `fetch` call below.
+ * Bare `Uint8Array` widens to `Uint8Array<ArrayBufferLike>`, which admits
+ * `SharedArrayBuffer` and is therefore rejected as a request body.
+ */
+function grpcWebFrame(payload: Uint8Array): Uint8Array<ArrayBuffer> {
   const frame = new Uint8Array(5 + payload.length);
   frame[0] = 0x00; // compression flag: no compression
   const view = new DataView(frame.buffer);
@@ -618,7 +626,8 @@ export class WindsurfExecutor extends BaseExecutor {
                 const { done, value } = await reader.read();
                 if (done) break;
                 if (!value) continue;
-                pending = pending.length === 0 ? value : concatBytes([pending, value]);
+                pending =
+                  pending.length === 0 ? Uint8Array.from(value) : concatBytes([pending, value]);
                 drainFrames();
               }
             } finally {

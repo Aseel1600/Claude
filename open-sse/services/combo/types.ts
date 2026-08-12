@@ -13,7 +13,17 @@ export const RESET_WINDOW_NAMES = ["weekly", "session", "monthly"] as const;
 export type ComboRetryAfter = string | number | Date;
 
 export type ComboErrorBody = {
-  error?: { code?: string | null; message?: string | null } | string;
+  error?:
+    | {
+        code?: string | null;
+        message?: string | null;
+        // buildModelCooldownBody (open-sse/utils/error.ts) nests its retry hint
+        // here instead of at the top level — see the retryAfter fallback in
+        // combo.ts's dispatchWithCooldownRetry error extraction.
+        retry_after?: string | null;
+        reset_seconds?: number | null;
+      }
+    | string;
   message?: string | null;
   retryAfter?: ComboRetryAfter | null;
 } | null;
@@ -85,6 +95,8 @@ export type ComboNestingContext = {
   attemptBudget: { count: number; limit: number };
 };
 
+export type HiddenModelsByProvider = ReadonlyMap<string, ReadonlySet<string>>;
+
 export type HandleComboChatOptions = {
   body: Record<string, unknown>;
   combo: ComboLike;
@@ -97,12 +109,12 @@ export type HandleComboChatOptions = {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   nesting?: ComboNestingContext | null;
+  hiddenModelsByProvider?: HiddenModelsByProvider;
+  /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
+  clientManagedResponsesContext?: boolean;
 };
 
-export type HandleRoundRobinOptions = Omit<
-  HandleComboChatOptions,
-  "relayOptions" | "apiKeyAllowedConnections"
->;
+export type HandleRoundRobinOptions = Omit<HandleComboChatOptions, "apiKeyAllowedConnections">;
 
 export type HistoricalLatencyStatsEntry = {
   totalRequests?: number;
@@ -152,12 +164,15 @@ export type ResolvedComboTarget = {
   executionKey: string;
   modelStr: string;
   provider: string;
+  authType?: string | null;
   providerId: string | null;
   connectionId: string | null;
   allowedConnectionIds?: string[] | null;
   weight: number;
   label: string | null;
+  prompt?: string | null;
   failoverBeforeRetry?: unknown;
+  fallbackOnlyOnQuotaExhaustion?: boolean;
   trafficType?: "production" | "shadow";
   /**
    * Fingerprint-based account pin resolved from a combo builder composite
@@ -184,6 +199,7 @@ export type ResolvedComboRefTarget = {
   comboName: string;
   weight: number;
   label: string | null;
+  fallbackOnlyOnQuotaExhaustion?: boolean;
 };
 
 export type ResolvedComboUnit = ResolvedComboTarget | ResolvedComboRefTarget;

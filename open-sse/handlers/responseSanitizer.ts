@@ -2,11 +2,13 @@ import {
   copyOpenAICompatibleReasoningFields,
   getReadableReasoningValue,
 } from "../utils/reasoningFields.ts";
+import { stripInternalReasoningPlaceholder } from "../utils/reasoningPlaceholder.ts";
 import { normalizeOpenAICompatibleFinishReason } from "../utils/finishReason.ts";
 import {
   collapseExcessiveNewlines,
   extractThinkingFromContent,
 } from "./responseSanitizer/reasoning.ts";
+import { applyCacheHitTokensToUsage, applyCacheHitTokensToResponsesUsage } from "./responseSanitizer/cacheHitTokens.ts";
 export {
   extractThinkingFromContent,
   shouldParseTextualReasoningTags,
@@ -29,7 +31,7 @@ const ALLOWED_USAGE_FIELDS = new Set([
   "total_tokens",
   "cached_tokens",
   "prompt_tokens_details",
-  "completion_tokens_details",
+  "completion_tokens_details", "cache_read_input_tokens", "cache_creation_input_tokens",
   // Keep through sanitize → applyClientUsageBuffer so heuristic web usage is
   // not inflated by the default USAGE_TOKEN_BUFFER (2000).
   "estimated",
@@ -41,7 +43,16 @@ const ALLOWED_RESPONSES_USAGE_FIELDS = new Set([
   "input_tokens_details",
   "output_tokens_details",
   "estimated",
+  "cost_in_usd_ticks",
+  "server_side_tool_usage_details",
+  "server_side_tool_usage",
 ]);
+
+const RESPONSES_EXTRA_TOP_LEVEL_FIELDS = [
+  "server_side_tool_usage_details",
+  "server_side_tool_usage",
+  "cost_in_usd_ticks",
+] as const;
 
 type JsonRecord = Record<string, unknown>;
 type ParseOptions = { parseTextualReasoningTags?: boolean };
@@ -354,6 +365,10 @@ export function sanitizeResponsesApiResponse(body: unknown): unknown {
     sanitized.usage = sanitizeResponsesUsage(responseRoot.usage);
   }
 
+  for (const key of RESPONSES_EXTRA_TOP_LEVEL_FIELDS) {
+    if (responseRoot[key] !== undefined) sanitized[key] = responseRoot[key];
+  }
+
   return sanitized;
 }
 
@@ -395,7 +410,9 @@ function sanitizeChoice(
 
 function sanitizeMessageContent(msgRecord: JsonRecord, options: ParseOptions = {}): JsonRecord {
   if (typeof msgRecord.content === "string") {
-    const strippedContent = stripInternalToolEnvelopeText(msgRecord.content);
+    const strippedContent = stripInternalReasoningPlaceholder(
+      stripInternalToolEnvelopeText(msgRecord.content)
+    );
     const nativeReasoning = getReadableReasoningValue(msgRecord);
     const { content, thinking } =
       options.parseTextualReasoningTags === true && !nativeReasoning
@@ -479,7 +496,7 @@ function sanitizeUsage(usage: unknown): unknown {
       sanitized[key] = usageRecord[key];
     }
   }
-
+  applyCacheHitTokensToUsage(usageRecord, sanitized); // DeepSeek/MiniMax/Bedrock cache-hit passthrough (#8171)
   // Ensure required fields
   const promptTokens = toNumber(sanitized.prompt_tokens) ?? 0;
   const completionTokens = toNumber(sanitized.completion_tokens) ?? 0;
@@ -517,12 +534,32 @@ function sanitizeResponsesUsage(usage: unknown): unknown {
     normalized.output_tokens_details = normalized.completion_tokens_details;
   }
 
+  // DeepSeek native API: map flat prompt_cache_hit_tokens into input_tokens_details
+  if (
+    normalized.prompt_cache_hit_tokens !== undefined &&
+    !normalized.input_tokens_details?.cached_tokens
+  ) {
+    normalized.input_tokens_details = {
+      ...(normalized.input_tokens_details as Record<string, unknown> || {}),
+      cached_tokens: normalized.prompt_cache_hit_tokens,
+    };
+  }
+
+  // MiniMax / Bedrock: flat cache_read_input_tokens → input_tokens_details.cached_tokens
+  if (
+    normalized.cache_read_input_tokens !== undefined &&
+    normalized.cache_read_input_tokens !== 0 &&
+    !normalized.input_tokens_details?.cached_tokens
+  ) {
+    normalized.input_tokens_details = {
+      ...(normalized.input_tokens_details as Record<string, unknown> || {}),
+      cached_tokens: normalized.cache_read_input_tokens,
+    };
+  }
+
   const inputDetails = toRecord(normalized.input_tokens_details) || {};
   const cachedTokens = normalized.cached_tokens ?? normalized.cache_read_input_tokens;
-  if (
-    cachedTokens !== undefined &&
-    inputDetails.cached_tokens === undefined
-  ) {
+  if (cachedTokens !== undefined && inputDetails.cached_tokens === undefined) {
     inputDetails.cached_tokens = cachedTokens;
   }
   if (
@@ -563,15 +600,21 @@ function sanitizeResponsesUsage(usage: unknown): unknown {
 
 /**
  * Normalize response ID to use chatcmpl- prefix.
+ * Preserves numeric/short custom ids as their string form rather than
+ * regenerating them — a passthrough numeric id (e.g. `123`) must stay `"123"`
+ * so streaming clients can correlate chunks (#3427/#5776). Only a genuinely
+ * missing/empty id gets a fresh `chatcmpl-` token.
  */
 function normalizeResponseId(id: unknown): string {
-  if (!id || typeof id !== "string") {
+  if (!id || (typeof id !== "string" && typeof id !== "number")) {
     return `chatcmpl-${crypto.randomUUID().replace(/-/g, "").slice(0, 29)}`;
   }
-  // Already correct format
-  if (id.startsWith("chatcmpl-")) return id;
-  // Keep custom IDs but don't break them
-  return id;
+  const str = String(id);
+  if (str === "") {
+    return `chatcmpl-${crypto.randomUUID().replace(/-/g, "").slice(0, 29)}`;
+  }
+  // Already correct format, or a custom/numeric id — keep it.
+  return str;
 }
 
 function normalizeResponsesId(id: unknown): string {
@@ -845,7 +888,9 @@ function sanitizeResponsesMessageContent(content: unknown): JsonRecord[] {
     return [
       {
         type: "output_text",
-        text: collapseExcessiveNewlines(stripInternalToolEnvelopeText(content)),
+        text: collapseExcessiveNewlines(
+          stripInternalReasoningPlaceholder(stripInternalToolEnvelopeText(content))
+        ),
         annotations: [],
       },
     ];
@@ -860,7 +905,9 @@ function sanitizeResponsesMessageContent(content: unknown): JsonRecord[] {
         if (typeof part === "string") {
           return {
             type: "output_text",
-            text: collapseExcessiveNewlines(stripInternalToolEnvelopeText(part)),
+            text: collapseExcessiveNewlines(
+              stripInternalReasoningPlaceholder(stripInternalToolEnvelopeText(part))
+            ),
             annotations: [],
           };
         }
@@ -877,7 +924,9 @@ function sanitizeResponsesMessageContent(content: unknown): JsonRecord[] {
           ...partRecord,
           type: "output_text",
           text: collapseExcessiveNewlines(
-            stripInternalToolEnvelopeText(toString(partRecord.text) || "")
+            stripInternalReasoningPlaceholder(
+              stripInternalToolEnvelopeText(toString(partRecord.text) || "")
+            )
           ),
           annotations: Array.isArray(partRecord.annotations) ? partRecord.annotations : [],
         };
@@ -1003,6 +1052,23 @@ export function sanitizeStreamingChunk(parsed: unknown): unknown {
   const eventType = toString(parsedRecord.type) || "";
   if (eventType.startsWith("response.") || parsedRecord.object === "response") {
     return sanitizeResponsesStreamingEvent(parsedRecord);
+  }
+
+  // #8271: Anthropic-native streaming events (content_block_delta with
+  // text_delta / thinking_delta) bypass the OpenAI choices[].delta.content
+  // path below. Strip zero-width characters from their text payloads so
+  // U+200D and friends don't leak to the client on the Messages API.
+  if (eventType === "content_block_delta") {
+    const deltaRecord = toRecord(parsedRecord.delta);
+    if (deltaRecord) {
+      if (typeof deltaRecord.text === "string") {
+        deltaRecord.text = stripZeroWidthText(deltaRecord.text);
+      }
+      if (typeof deltaRecord.thinking === "string") {
+        deltaRecord.thinking = stripZeroWidthText(deltaRecord.thinking);
+      }
+    }
+    return parsedRecord;
   }
 
   // Build sanitized chunk

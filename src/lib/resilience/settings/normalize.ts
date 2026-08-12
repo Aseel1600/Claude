@@ -83,6 +83,26 @@ export function resolveStreamRecoveryDefaults(): StreamRecoverySettings {
   return {
     enabled: resolveBooleanFeatureFlag("STREAM_RECOVERY_ENABLED", false),
     continueMidStream: resolveBooleanFeatureFlag("STREAM_RECOVERY_MIDSTREAM_ENABLED", false),
+    throughputWatchdog: {
+      enabled: resolveBooleanFeatureFlag("STREAM_THROUGHPUT_WATCHDOG_ENABLED", false),
+      warmupMs: toInteger(process.env.STREAM_THROUGHPUT_WATCHDOG_WARMUP_MS, 30_000, {
+        min: 0,
+        max: 10 * 60 * 1000,
+      }),
+      windowMs: toInteger(process.env.STREAM_THROUGHPUT_WATCHDOG_WINDOW_MS, 30_000, {
+        min: 1_000,
+        max: 10 * 60 * 1000,
+      }),
+      minUsefulBytesPerSecond: toInteger(
+        process.env.STREAM_THROUGHPUT_WATCHDOG_MIN_BYTES_PER_SECOND,
+        4,
+        { min: 1, max: 1_000_000 }
+      ),
+      minUsefulBytes: toInteger(process.env.STREAM_THROUGHPUT_WATCHDOG_MIN_USEFUL_BYTES, 1, {
+        min: 1,
+        max: 1_000_000,
+      }),
+    },
   };
 }
 
@@ -295,6 +315,14 @@ export function normalizeWaitForCooldownSettings(
     max: 300,
   });
   const maxRetries = toInteger(record.maxRetries, fallback.maxRetries, { min: 0, max: 10 });
+  const maxRetryWaitMs = maxRetryWaitSec * 1000;
+  // Cumulative cap across all waits for one request (#7360 follow-up) — mirrors
+  // comboCooldownWait.budgetMs. Floored at maxRetryWaitMs so at least one wait
+  // can always fire; ceiling matches the same 5-minute give-up point.
+  const budgetMs = toInteger(record.budgetMs, fallback.budgetMs, {
+    min: maxRetryWaitMs,
+    max: 5 * 60 * 1000,
+  });
   const enabled =
     toBoolean(record.enabled, fallback.enabled) && maxRetries > 0 && maxRetryWaitSec > 0;
 
@@ -302,7 +330,8 @@ export function normalizeWaitForCooldownSettings(
     enabled,
     maxRetries,
     maxRetryWaitSec,
-    maxRetryWaitMs: maxRetryWaitSec * 1000,
+    maxRetryWaitMs,
+    budgetMs,
   };
 }
 
@@ -311,10 +340,15 @@ export function normalizeComboCooldownWaitSettings(
   fallback: ComboCooldownWaitSettings
 ): ComboCooldownWaitSettings {
   const record = asRecord(next);
-  // Hard ceiling of 30s on a single wait — this layer only ever exists for
-  // SHORT transient cooldowns; anything longer should fall through to the
-  // existing 429 crystallization (and the cross-request cooldown layers).
-  const maxWaitMs = toInteger(record.maxWaitMs, fallback.maxWaitMs, { min: 0, max: 30000 });
+  // Hard ceiling of 5 minutes on a single wait (#7360 follow-up — raised from
+  // 90s now that streaming clients get an immediate synthetic keep-alive
+  // event via withEarlyStreamKeepalive, so a long wait no longer risks a
+  // client-side first-byte timeout). This layer exists for transient cooldowns
+  // (including Gemini-class TPM/RPM windows, which report ~60s retry-after
+  // live); anything the upstream itself reports as longer than this should
+  // fall through to the existing 429 crystallization (and the cross-request
+  // cooldown layers).
+  const maxWaitMs = toInteger(record.maxWaitMs, fallback.maxWaitMs, { min: 0, max: 300000 });
   const maxAttempts = toInteger(record.maxAttempts, fallback.maxAttempts, { min: 0, max: 10 });
   // Budget can never be smaller than a single wait, otherwise no wait could
   // ever fire; floor it at maxWaitMs.
@@ -358,9 +392,31 @@ export function normalizeStreamRecoverySettings(
   fallback: StreamRecoverySettings
 ): StreamRecoverySettings {
   const record = asRecord(next);
+  const watchdog = asRecord(record.throughputWatchdog);
   return {
     enabled: toBoolean(record.enabled, fallback.enabled),
     continueMidStream: toBoolean(record.continueMidStream, fallback.continueMidStream),
+    throughputWatchdog: {
+      enabled: toBoolean(watchdog.enabled, fallback.throughputWatchdog.enabled),
+      warmupMs: toInteger(watchdog.warmupMs, fallback.throughputWatchdog.warmupMs, {
+        min: 0,
+        max: 10 * 60 * 1000,
+      }),
+      windowMs: toInteger(watchdog.windowMs, fallback.throughputWatchdog.windowMs, {
+        min: 1_000,
+        max: 10 * 60 * 1000,
+      }),
+      minUsefulBytesPerSecond: toInteger(
+        watchdog.minUsefulBytesPerSecond,
+        fallback.throughputWatchdog.minUsefulBytesPerSecond,
+        { min: 1, max: 1_000_000 }
+      ),
+      minUsefulBytes: toInteger(
+        watchdog.minUsefulBytes,
+        fallback.throughputWatchdog.minUsefulBytes,
+        { min: 1, max: 1_000_000 }
+      ),
+    },
   };
 }
 

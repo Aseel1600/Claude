@@ -47,8 +47,8 @@ const BX_UMIDTOKEN_FALLBACK = "T2gA0000000000000000000000000000000000000000";
 // header the upstream returns HTTP 200 with `{"success":false,"data":{"code":"Bad_Request"}}`
 // for every completion request, even with a valid session. The version string is
 // the SPA build identifier shipped in the React client's `version` request header.
-// Pinned from a live capture (2026-07); bump if Qwen ships a breaking change.
-const QWEN_SPA_VERSION = "0.2.66";
+// Pinned from a live capture (2026-08); bump if Qwen ships a breaking change.
+const QWEN_SPA_VERSION = "0.2.81";
 
 const MODEL_ALIASES: Record<string, string> = {
   // Legacy OmniRoute ids → current upstream catalog (GET /api/models).
@@ -94,7 +94,7 @@ export class QwenWebExecutor extends BaseExecutor {
     super("qwen-web", { id: "qwen-web", baseUrl: BASE_URL });
   }
 
-  private buildHeaders(
+  private buildApiHeaders(
     token: string,
     cookieHeader: string,
     chatId?: string
@@ -139,7 +139,7 @@ export class QwenWebExecutor extends BaseExecutor {
     try {
       const newChatRes = await fetch(CHATS_NEW_URL, {
         method: "POST",
-        headers: this.buildHeaders(token, cookieHeader),
+        headers: this.buildApiHeaders(token, cookieHeader),
         body: JSON.stringify({
           title: "New Chat",
           models: [modelId],
@@ -186,7 +186,7 @@ export class QwenWebExecutor extends BaseExecutor {
     try {
       upstream = await fetch(completionUrl, {
         method: "POST",
-        headers: this.buildHeaders(token, cookieHeader, chatId),
+        headers: this.buildApiHeaders(token, cookieHeader, chatId),
         body: JSON.stringify(msgPayload),
         signal,
       });
@@ -251,7 +251,7 @@ export class QwenWebExecutor extends BaseExecutor {
         },
       }),
       url: completionUrl,
-      headers: this.buildHeaders(token, cookieHeader, chatId),
+      headers: this.buildApiHeaders(token, cookieHeader, chatId),
       transformedBody: msgPayload,
     };
   }

@@ -9,19 +9,30 @@ import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
 import { hasUsableWebSessionCredential } from "@/shared/providers/webSessionCredentials";
 import { defaultLogger as log } from "@omniroute/open-sse/utils/logger";
 import { getTokenLimit } from "../contextManager";
-import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
+import {
+  createModelCapabilityResolutionSnapshot,
+  getResolvedModelCapabilities,
+  type ModelCapabilityResolutionSnapshot,
+} from "@/lib/modelCapabilities";
 import {
   buildAutoCandidateFilter,
   tierToWeightVariant,
   type AutoCategory,
   type AutoTier,
 } from "./suffixComposition";
+import type { AutoVariant } from "./autoPrefix";
 import { buildFamilyCandidateFilter, type ModelFamily } from "./modelFamily";
 import { getHiddenModelsByProvider } from "@/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
 import { filterExcludedCandidates } from "./candidateOverrides";
 import { getExcludedConnectionIds } from "@/lib/db/autoCandidateOverrides";
+import {
+  filterResilienceBlockedCandidates,
+  SYNTHETIC_NOAUTH_CONNECTION_ID as RESILIENCE_NOAUTH_CONNECTION_ID,
+  type ConnectionResilienceView,
+} from "./resilienceCandidateFilter";
+import type { ChaosTuning } from "./chaosEngine";
 
 /** #4235 Phase B: optional category/tier overlay for `auto/<category>:<tier>` combos.
  * #6453: optional `family` overlay for `auto/<family>` combos (e.g. `auto/glm`) —
@@ -58,6 +69,12 @@ export interface VirtualAutoComboCandidate {
   model: string;
   modelStr: string; // e.g., 'openai/gpt-4o'
   costPer1MTokens: number; // from providerRegistry
+  /** Build-local capability snapshot. Runtime calls rebuild it; catalog entries reuse it. */
+  resolvedContextLength?: number | null;
+  resolvedMaxOutputTokens?: number | null;
+  resolvedSupportsVision?: boolean;
+  resolvedReasoning?: boolean;
+  resolvedSupportsThinking?: boolean;
 }
 
 type VirtualAutoCombo = AutoComboConfig & {
@@ -90,8 +107,23 @@ type VirtualAutoCombo = AutoComboConfig & {
       explorationRate: number;
       routerStrategy: string;
     };
+    chaos?: {
+      enabled: true;
+      panelSize: number;
+      judgeModel?: string;
+      tuning: ChaosTuning;
+    };
   };
 };
+
+/**
+ * Build-local candidate snapshots shared by the built-in entries in one model-catalog build.
+ * Runtime routing does not retain or reuse this object across requests.
+ */
+export interface PreparedVirtualAutoComboInputs {
+  readonly regularCandidates: readonly VirtualAutoComboCandidate[];
+  readonly familyCandidates: readonly VirtualAutoComboCandidate[];
+}
 
 function toExpiryMs(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -132,10 +164,33 @@ function hasUsableConnectionCredential(conn: VirtualFactoryConn): boolean {
   return hasApiKey || hasUsableOAuthToken(conn) || hasProviderSpecificSessionData(conn);
 }
 
-const SYNTHETIC_NOAUTH_CONNECTION_ID = "noauth";
+const SYNTHETIC_NOAUTH_CONNECTION_ID = RESILIENCE_NOAUTH_CONNECTION_ID;
 
-function isChatAutoComboNoAuthProvider(providerDef: NoAuthProviderDefinition): boolean {
+// Allowlist of no-auth (keyless) providers permitted to enter the `auto`/`auto-*`
+// candidate pool. Narrowed to the backends verified to answer without any
+// configuration on our reference egress (VPS .15): `opencode` and `felo-web`
+// both return 200 there, while duckduckgo-web (429/VQD rate limit), theoldllm
+// (403 Vercel egress block), chipotle (502), aihorde (401, anon key rejected)
+// and the others are unreliable. The excluded providers stay fully usable via
+// direct `<alias>/<model>` calls — they are just kept OUT of auto-routing until
+// re-verified. Re-add an id here to bring it back into every auto/* pool.
+//
+// Scope (operator decision 2026-07-24, refs #8183/#6453/#7032): this allowlist
+// targets public-HTTP-egress reliability for the category/tier and flat-variant
+// `auto/*` pools (auto/best-free, auto/coding:fast, ...). It does NOT apply to
+// `auto/<family>` pools (auto/glm, auto/zai, ...) — a family combo is an
+// identity selector ("whatever genuinely serves GLM"), not a reliability-curated
+// pool, so it admits any no-auth backend that genuinely serves the family (e.g.
+// auggie, a local CLI subprocess with zero HTTP egress, belongs in auto/glm
+// regardless of this list). See the `bypassAllowlist` param below.
+const AUTO_COMBO_NOAUTH_ALLOWLIST = new Set<string>(["opencode", "felo-web"]);
+
+function isChatAutoComboNoAuthProvider(
+  providerDef: NoAuthProviderDefinition,
+  bypassAllowlist: boolean
+): boolean {
   if (providerDef.noAuth !== true) return false;
+  if (!bypassAllowlist && !AUTO_COMBO_NOAUTH_ALLOWLIST.has(providerDef.id)) return false;
   if (!Array.isArray(providerDef.serviceKinds) || providerDef.serviceKinds.length === 0)
     return true;
   return providerDef.serviceKinds.includes("llm");
@@ -146,13 +201,14 @@ function getNoAuthCandidates(
   blockedProviders: Set<string>,
   disabledNoAuthProviders: Set<string>,
   noAuthProviderSpecificData: Map<string, Record<string, unknown> | null | undefined>,
-  hiddenModelsMap: Map<string, Set<string>>
+  hiddenModelsMap: Map<string, Set<string>>,
+  bypassAllowlist: boolean
 ): VirtualAutoComboCandidate[] {
   const registry = getProviderRegistry();
   const candidates: VirtualAutoComboCandidate[] = [];
 
   for (const providerDef of Object.values(NOAUTH_PROVIDERS) as NoAuthProviderDefinition[]) {
-    if (!isChatAutoComboNoAuthProvider(providerDef)) continue;
+    if (!isChatAutoComboNoAuthProvider(providerDef, bypassAllowlist)) continue;
 
     const providerId = providerDef.id;
     if (!providerId || excludedProviders.has(providerId)) continue;
@@ -252,7 +308,14 @@ function getNoAuthCandidates(
  */
 const DEFAULT_ADVERTISED_MAX_OUTPUT_TOKENS = 8192;
 
-export function computeAdvertisedLimits(candidates: Array<{ provider: string; model: string }>): {
+type AdvertisedLimitCandidate = {
+  provider: string;
+  model: string;
+  resolvedContextLength?: number | null;
+  resolvedMaxOutputTokens?: number | null;
+};
+
+export function computeAdvertisedLimits(candidates: AdvertisedLimitCandidate[]): {
   contextLength: number | null;
   maxOutputTokens: number | null;
 } {
@@ -263,14 +326,20 @@ export function computeAdvertisedLimits(candidates: Array<{ provider: string; mo
   let contextLength: number | null = null;
   let maxOutputTokens: number | null = null;
   for (const candidate of candidates) {
-    const limit = getTokenLimit(candidate.provider, candidate.model);
-    if (Number.isFinite(limit) && limit > 0) {
+    const limit =
+      candidate.resolvedContextLength !== undefined
+        ? candidate.resolvedContextLength
+        : getTokenLimit(candidate.provider, candidate.model);
+    if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
       contextLength = contextLength === null ? limit : Math.max(contextLength, limit);
     }
-    const output = getResolvedModelCapabilities({
-      provider: candidate.provider,
-      model: candidate.model,
-    }).maxOutputTokens;
+    const output =
+      candidate.resolvedMaxOutputTokens !== undefined
+        ? candidate.resolvedMaxOutputTokens
+        : getResolvedModelCapabilities({
+            provider: candidate.provider,
+            model: candidate.model,
+          }).maxOutputTokens;
     if (typeof output === "number" && Number.isFinite(output) && output > 0) {
       maxOutputTokens = maxOutputTokens === null ? output : Math.max(maxOutputTokens, output);
     }
@@ -281,12 +350,82 @@ export function computeAdvertisedLimits(candidates: Array<{ provider: string; mo
   return { contextLength, maxOutputTokens };
 }
 
-export async function createVirtualAutoCombo(
-  variant: AutoVariant | undefined,
-  spec?: AutoComboSpec,
-  apiKeyId?: string,
-  autoChannel?: string
-): Promise<VirtualAutoCombo> {
+const PREPARED_CAPABILITY_YIELD_INTERVAL = 16;
+
+type PreparedCapabilityValues = {
+  resolvedContextLength: number | null;
+  resolvedMaxOutputTokens: number | null;
+  resolvedSupportsVision: boolean;
+  resolvedReasoning: boolean;
+  resolvedSupportsThinking: boolean;
+};
+
+type PreparedCapabilityState = {
+  /** Nested provider → model memo; collision-free for arbitrary model ids. */
+  byTarget: Map<string, Map<string, PreparedCapabilityValues>>;
+  resolvedSinceYield: number;
+  /** Build-local bulk maps; one per catalog prepare, never retained at runtime. */
+  resolutionSnapshot: ModelCapabilityResolutionSnapshot;
+};
+
+function yieldVirtualAutoPreparationTurn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function attachPreparedCapabilityValues(
+  candidates: readonly VirtualAutoComboCandidate[],
+  state: PreparedCapabilityState
+): Promise<VirtualAutoComboCandidate[]> {
+  const prepared: VirtualAutoComboCandidate[] = [];
+  for (const candidate of candidates) {
+    let byModel = state.byTarget.get(candidate.provider);
+    if (!byModel) {
+      byModel = new Map();
+      state.byTarget.set(candidate.provider, byModel);
+    }
+    let values = byModel.get(candidate.model);
+    if (!values) {
+      const contextLength = getTokenLimit(
+        candidate.provider,
+        candidate.model,
+        state.resolutionSnapshot
+      );
+      const capabilities = getResolvedModelCapabilities(
+        {
+          provider: candidate.provider,
+          model: candidate.model,
+        },
+        state.resolutionSnapshot
+      );
+      const maxOutputTokens = capabilities.maxOutputTokens;
+      values = {
+        resolvedContextLength:
+          Number.isFinite(contextLength) && contextLength > 0 ? contextLength : null,
+        resolvedMaxOutputTokens:
+          typeof maxOutputTokens === "number" &&
+          Number.isFinite(maxOutputTokens) &&
+          maxOutputTokens > 0
+            ? maxOutputTokens
+            : null,
+        resolvedSupportsVision: capabilities.supportsVision === true,
+        resolvedReasoning: capabilities.reasoning === true,
+        resolvedSupportsThinking: capabilities.supportsThinking === true,
+      };
+      byModel.set(candidate.model, values);
+      state.resolvedSinceYield++;
+      if (state.resolvedSinceYield >= PREPARED_CAPABILITY_YIELD_INTERVAL) {
+        state.resolvedSinceYield = 0;
+        await yieldVirtualAutoPreparationTurn();
+      }
+    }
+    prepared.push({ ...candidate, ...values });
+  }
+  return prepared;
+}
+
+export async function prepareVirtualAutoComboInputs(
+  options: { includeResolvedCapabilities?: boolean } = {}
+): Promise<PreparedVirtualAutoComboInputs> {
   const [connections, disabledNoAuthConnections, settings] = await Promise.all([
     getCachedProviderConnections({ isActive: true }) as Promise<VirtualFactoryConn[]>,
     // #6557: no-auth providers (opencode/mimocode/etc.) don't get an isActive
@@ -368,29 +507,79 @@ export async function createVirtualAutoCombo(
     }
   }
 
-  candidatePool.push(
-    ...getNoAuthCandidates(
-      new Set(validConnections.map((conn) => conn.provider)),
-      blockedProviders,
-      disabledNoAuthProviders,
-      noAuthProviderSpecificData,
-      hiddenModelsMap
-    )
-  );
-
-  // #6512 (follow-up to #6328/#6495): when the operator opts into `hidePaidModels`,
-  // exclude paid-only backends from EVERY `auto/*` candidate pool — not just the
-  // `/v1/models` listing — so auto-routing never picks a model that will 402/403.
-  // If this empties the pool the existing graceful empty-pool path below handles it
-  // (consistent with the opt-in intent). Default OFF → pool unchanged.
-  const paidFilteredPool = filterPaidOnlyCandidates(
-    candidatePool,
-    settings.hidePaidModels === true
-  );
-  if (paidFilteredPool !== candidatePool) {
-    candidatePool.length = 0;
-    candidatePool.push(...paidFilteredPool);
+  // #7623: honor existing model lockouts + connection cooldown/terminal state so
+  // auto/* never advertises models the dispatch path would immediately skip.
+  const connectionsById = new Map<string, ConnectionResilienceView>();
+  for (const conn of [...connections, ...disabledNoAuthConnections]) {
+    connectionsById.set(conn.id, conn);
   }
+
+  const connectedProviders = new Set(validConnections.map((conn) => conn.provider));
+  const buildPreparedPool = (bypassNoAuthAllowlist: boolean) => {
+    let pool = [
+      ...candidatePool,
+      ...getNoAuthCandidates(
+        connectedProviders,
+        blockedProviders,
+        disabledNoAuthProviders,
+        noAuthProviderSpecificData,
+        hiddenModelsMap,
+        bypassNoAuthAllowlist
+      ),
+    ];
+
+    const resilienceFilteredPool = filterResilienceBlockedCandidates(pool, connectionsById);
+    if (resilienceFilteredPool !== pool) pool = resilienceFilteredPool;
+
+    // #6512 (follow-up to #6328/#6495): when the operator opts into `hidePaidModels`,
+    // exclude paid-only backends from EVERY `auto/*` candidate pool.
+    const paidFilteredPool = filterPaidOnlyCandidates(pool, settings.hidePaidModels === true);
+    if (paidFilteredPool !== pool) pool = paidFilteredPool;
+    return pool;
+  };
+
+  const regularCandidates = buildPreparedPool(false);
+  // #6453/#8183: family selectors bypass the reliability-curated no-auth allowlist.
+  const familyCandidates = buildPreparedPool(true);
+  if (!options.includeResolvedCapabilities) {
+    return { regularCandidates, familyCandidates };
+  }
+
+  // One uninterrupted bulk read of all three capability tables for this prepare only.
+  // Do not yield between the three loads; later cooperative yields remain fine because
+  // catalog generation guards already prevent publishing across intervening writes.
+  const capabilityState: PreparedCapabilityState = {
+    byTarget: new Map(),
+    resolvedSinceYield: 0,
+    resolutionSnapshot: createModelCapabilityResolutionSnapshot(),
+  };
+  return {
+    regularCandidates: await attachPreparedCapabilityValues(regularCandidates, capabilityState),
+    familyCandidates: await attachPreparedCapabilityValues(familyCandidates, capabilityState),
+  };
+}
+
+function clonePreparedCandidates(
+  candidates: readonly VirtualAutoComboCandidate[]
+): VirtualAutoComboCandidate[] {
+  return candidates.map((candidate) => ({
+    ...candidate,
+    ...(candidate.allowedConnectionIds
+      ? { allowedConnectionIds: [...candidate.allowedConnectionIds] }
+      : {}),
+  }));
+}
+
+export async function createVirtualAutoComboFromPrepared(
+  prepared: PreparedVirtualAutoComboInputs,
+  variant: AutoVariant | undefined,
+  spec?: AutoComboSpec,
+  apiKeyId?: string,
+  autoChannel?: string
+): Promise<VirtualAutoCombo> {
+  let candidatePool = clonePreparedCandidates(
+    spec?.family ? prepared.familyCandidates : prepared.regularCandidates
+  );
 
   // #7819 (Level 2): per-API-key candidate exclusions. Fail-open — an absent
   // apiKeyId/autoChannel (every caller before #7819) or a DB lookup failure
@@ -455,9 +644,7 @@ export async function createVirtualAutoCombo(
       ? buildAutoCandidateFilter(spec.category, spec.tier)
       : null;
   if (candidateFilter) {
-    const narrowed = candidatePool.filter((c) =>
-      candidateFilter({ provider: c.provider, model: c.model })
-    );
+    const narrowed = candidatePool.filter((candidate) => candidateFilter(candidate));
     const label = spec?.family
       ? `auto/${spec.family}`
       : `auto/${spec?.category ?? ""}${spec?.tier ? `:${spec.tier}` : ""}`;
@@ -559,11 +746,35 @@ export async function createVirtualAutoCombo(
     routerStrategy,
   };
 
-  // Chaos mode fans out to the top-N most stable models in parallel. We cap the
-  // panel size so a single IDE request doesn't fan out to dozens of providers.
+  // Chaos mode fans out to the top-N most stable models in parallel. Panel size
+  // is capped to keep a single IDE request from fanning out to dozens of providers;
+  // operators can override via env var OMNIROUTE_CHAOS_MAX_PANEL (default 5).
+  //
+  // Provider diversity: when multiple candidates from the same provider exist, only
+  // the highest-scored model per provider is included. This prevents a single
+  // provider from monopolizing the panel and gives the IDE truly diverse answers.
   const isChaos = variant === "chaos";
-  const CHAOS_MAX_PANEL = 5;
-  const chaosModels = isChaos ? models.slice(0, CHAOS_MAX_PANEL) : models;
+  const CHAOS_MAX_PANEL = (() => {
+    const env = process.env.OMNIROUTE_CHAOS_MAX_PANEL;
+    const parsed = env ? parseInt(env, 10) : 5;
+    return Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 10) : 5;
+  })();
+  let chaosModels: typeof models;
+  if (isChaos) {
+    // Deduplicate by provider: keep first occurrence per provider (models are
+    // already scored/sorted by health + stability from scoring).
+    const seenProviders = new Set<string>();
+    const diverse: typeof models = [];
+    for (const m of models) {
+      if (seenProviders.has(m.providerId)) continue;
+      seenProviders.add(m.providerId);
+      diverse.push(m);
+      if (diverse.length >= CHAOS_MAX_PANEL) break;
+    }
+    chaosModels = diverse.length > 0 ? diverse : models.slice(0, CHAOS_MAX_PANEL);
+  } else {
+    chaosModels = models;
+  }
 
   const advertisedLimits = computeAdvertisedLimits(effectivePool);
 
@@ -571,7 +782,7 @@ export async function createVirtualAutoCombo(
     id: `virtual-auto-${variant || "default"}`,
     name: `Auto ${variant || "Default"}`,
     type: "auto",
-    strategy: isChaos ? "fusion" : "auto",
+    strategy: "auto",
     models: chaosModels,
     candidatePool: providerPool,
     weights,
@@ -588,6 +799,11 @@ export async function createVirtualAutoCombo(
               enabled: true,
               panelSize: chaosModels.length,
               judgeModel: chaosModels[0]?.model,
+              tuning: {
+                panelHardTimeoutMs:
+                  Number(process.env.OMNIROUTE_CHAOS_PANEL_TIMEOUT_MS) || undefined,
+                minPanel: Number(process.env.OMNIROUTE_CHAOS_MIN_PANEL) || undefined,
+              },
             },
           }
         : {}),
@@ -595,4 +811,14 @@ export async function createVirtualAutoCombo(
     advertisedContextLength: advertisedLimits.contextLength,
     advertisedMaxOutputTokens: advertisedLimits.maxOutputTokens,
   };
+}
+
+export async function createVirtualAutoCombo(
+  variant: AutoVariant | undefined,
+  spec?: AutoComboSpec,
+  apiKeyId?: string,
+  autoChannel?: string
+): Promise<VirtualAutoCombo> {
+  const prepared = await prepareVirtualAutoComboInputs();
+  return createVirtualAutoComboFromPrepared(prepared, variant, spec, apiKeyId, autoChannel);
 }

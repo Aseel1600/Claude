@@ -16,6 +16,10 @@ export interface RequestQueueSettings {
   requestsPerMinute: number;
   minTimeBetweenRequestsMs: number;
   concurrentRequests: number;
+  /**
+   * Legacy persisted key used as Bottleneck's post-dispatch execution
+   * expiration. It does not bound time spent in Bottleneck's QUEUED state.
+   */
   maxWaitMs: number;
   /**
    * Issue #6593: opt-in admission cap on the local rate-limit queue. When the
@@ -54,15 +58,23 @@ export interface WaitForCooldownSettings {
   maxRetries: number;
   maxRetryWaitSec: number;
   maxRetryWaitMs: number;
+  /**
+   * Cumulative cap (ms) across all retry waits for one request — mirrors
+   * ComboCooldownWaitSettings.budgetMs (#7360 follow-up). Without this a
+   * request could re-wait maxRetries times at up to maxRetryWaitMs each,
+   * with no overall ceiling; budgetMs bounds the total regardless of how
+   * many individual waits fire.
+   */
+  budgetMs: number;
 }
 
 /**
- * Quota-share combo cooldown-aware retry (Variante A). A quota-share (`qtSd/…`)
- * combo that would crystallize a 429 `model_cooldown` for a SHORT transient
- * cooldown waits it out and re-dispatches instead. Guards (gating + the
- * `quota_exhausted`/auth/not-found exclusions) live in
- * open-sse/services/combo/comboCooldownRetry.ts; `maxWaitMs`/`maxAttempts`/
- * `budgetMs` bound a single wait, the retry cycles, and the total wait time.
+ * Combo cooldown-aware retry. When enabled, any combo strategy that would
+ * crystallize a 429 `model_cooldown` for a SHORT transient cooldown waits it
+ * out and re-dispatches instead. Guards (gating + the `quota_exhausted`/auth/
+ * not-found exclusions) live in open-sse/services/combo/comboCooldownRetry.ts;
+ * `maxWaitMs`/`maxAttempts`/`budgetMs` bound a single wait, the retry cycles,
+ * and the total wait time.
  */
 export interface ComboCooldownWaitSettings {
   enabled: boolean;
@@ -178,6 +190,20 @@ export interface StreamRecoverySettings {
    * STREAM_RECOVERY_MIDSTREAM_ENABLED feature flag / env var.
    */
   continueMidStream: boolean;
+  throughputWatchdog: StreamThroughputWatchdogSettings;
+}
+
+export interface StreamThroughputWatchdogSettings {
+  /** Opt-in; false preserves the existing stream byte path. */
+  enabled: boolean;
+  /** Grace period before the rolling window starts participating in decisions. */
+  warmupMs: number;
+  /** Full rolling window required before a slow-stream abort is possible. */
+  windowMs: number;
+  /** Minimum useful assistant-output byte rate. */
+  minUsefulBytesPerSecond: number;
+  /** Minimum amount required before a non-zero sample is considered measurable. */
+  minUsefulBytes: number;
 }
 
 export interface ResilienceSettings {

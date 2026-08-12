@@ -7,6 +7,23 @@ const CLINE_OAUTH_TEST_CONFIG = {
   refreshable: true,
 };
 
+// Shared api.x.ai chat probe for apikey `xai` and OAuth `xai-oauth` / alias `xao`.
+const XAI_CHAT_OAUTH_TEST_CONFIG = {
+  url: "https://api.x.ai/v1/chat/completions",
+  method: "POST",
+  authHeader: "Authorization",
+  authPrefix: "Bearer ",
+  extraHeaders: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    model: "grok-4.3",
+    messages: [{ role: "user", content: "ping" }],
+    max_tokens: 1,
+    stream: false,
+    reasoning: { effort: "high" },
+  }),
+  refreshable: true,
+};
+
 // OAuth provider test endpoints. Extracted from route.ts (#7610) so adding a
 // provider entry doesn't grow the frozen route.ts file past its check-file-size
 // cap — this module carries no logic of its own beyond the GitLab URL builder.
@@ -51,21 +68,21 @@ export const OAUTH_TEST_CONFIG = {
     authPrefix: "Bearer ",
     refreshable: true,
   },
-  xai: {
-    url: "https://api.x.ai/v1/chat/completions",
-    method: "POST",
+  // `agy` is a separate connection id that shares the Antigravity backend and the same
+  // Google OAuth token lifecycle (tokenRefresh.ts routes it to refreshGoogleToken), but
+  // it was missing here — so "Test Connection" fell through to "Provider test not
+  // supported", recorded testStatus="error", and painted the home topology node red on a
+  // perfectly good account. Probe the same userinfo endpoint as antigravity.
+  agy: {
+    url: "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+    method: "GET",
     authHeader: "Authorization",
     authPrefix: "Bearer ",
-    extraHeaders: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "grok-4.3",
-      messages: [{ role: "user", content: "ping" }],
-      max_tokens: 1,
-      stream: false,
-      reasoning: { effort: "high" },
-    }),
     refreshable: true,
   },
+  xai: XAI_CHAT_OAUTH_TEST_CONFIG,
+  "xai-oauth": XAI_CHAT_OAUTH_TEST_CONFIG,
+  xao: XAI_CHAT_OAUTH_TEST_CONFIG,
   github: {
     url: "https://api.github.com/user",
     method: "GET",
@@ -94,6 +111,14 @@ export const OAUTH_TEST_CONFIG = {
     // Validate using token presence/expiry as a lightweight auth check.
     checkExpiry: true,
   },
+  raycast: {
+    // #8895 — Raycast Pro is an `import_token` provider: the token is imported
+    // from the local Raycast install, `refreshToken` is always null and the
+    // stored `expiresIn` defaults to 30 days. There is nothing to refresh, so
+    // the test is the expiry check on the imported token; without an entry here
+    // Test Connection persists testStatus="error" on a healthy account (#8408).
+    checkExpiry: true,
+  },
   cline: CLINE_OAUTH_TEST_CONFIG,
   // ClinePass reuses the same WorkOS OAuth flow and token lifecycle as Cline.
   clinepass: CLINE_OAUTH_TEST_CONFIG,
@@ -111,6 +136,16 @@ export const OAUTH_TEST_CONFIG = {
     // verified through real /v2/chat/completions traffic.
     checkExpiry: true,
     refreshable: true,
+  },
+  "devin-cli": {
+    // Same gap as grok-cli #7610: absent from this table, so "Test Connection"
+    // always fell through to "Provider test not supported" and left a working
+    // connection showing a red ERR badge. There is no HTTP probe to hit — the
+    // executor drives the local `devin` binary over ACP stdio and the binary
+    // owns its own credentials (`devin auth login`), so there is no refresh
+    // token to rotate either. Validate on token presence/expiry; real
+    // connectivity is proven by every chat/completions request.
+    checkExpiry: true,
   },
   "grok-cli": {
     // #7610: was entirely absent from OAUTH_TEST_CONFIG, so "Test Connection"
@@ -136,5 +171,23 @@ export const OAUTH_TEST_CONFIG = {
     authPrefix: "Bearer ",
     extraHeaders: { "User-Agent": "OmniRoute", Accept: "application/vnd.github+json" },
     refreshable: true,
+  },
+  // Openference: first-party OAuth gateway — list models to verify the JWT without
+  // consuming inference quota. 402 (no active plan) still means auth succeeded.
+  openference: {
+    url: "https://api.openference.com/v1/models",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    refreshable: true,
+    acceptStatuses: [402],
+  },
+  of: {
+    url: "https://api.openference.com/v1/models",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    refreshable: true,
+    acceptStatuses: [402],
   },
 };

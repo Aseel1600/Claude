@@ -155,7 +155,6 @@ export async function getConductorTaskDetail(
     return null;
   }
 }
-
 export interface DelegationInput {
   repoUrl: string;
   prompt: string;

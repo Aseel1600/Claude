@@ -14,8 +14,22 @@ type MediaModelListEntry = {
 };
 
 type MediaGenerationResult =
-  | { success: true; data: unknown }
-  | { success: false; error: unknown; status: number };
+  { success: true; data: unknown } | { success: false; error: unknown; status: number };
+
+type MediaGenerationFailure = Extract<MediaGenerationResult, { success: false }>;
+
+export type MediaGenerationResultLike = {
+  success: boolean;
+  data?: unknown;
+  error?: unknown;
+  status?: number;
+};
+
+export function isMediaGenerationFailure(
+  result: MediaGenerationResultLike
+): result is MediaGenerationFailure {
+  return result.success === false && "error" in result && typeof result.status === "number";
+}
 
 type MediaGenerationBody = {
   model: string;
@@ -24,8 +38,7 @@ type MediaGenerationBody = {
 } & Record<string, unknown>;
 
 type ValidatedMediaGenerationBody =
-  | { ok: true; body: MediaGenerationBody }
-  | { ok: false; response: Response };
+  { state: "ok"; body: MediaGenerationBody } | { state: "invalid"; response: Response };
 
 export function mediaGenerationOptionsResponse() {
   return new Response(null, {
@@ -67,18 +80,21 @@ export async function readMediaGenerationBody(
     rawBody = await request.json();
   } catch {
     log.warn(logScope, "Invalid JSON body");
-    return { ok: false, response: errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body") };
+    return {
+      state: "invalid",
+      response: errorResponse(HTTP_STATUS.BAD_REQUEST, "Invalid JSON body"),
+    };
   }
 
   const validation = validateBody(v1ImageGenerationSchema, rawBody);
   if (isValidationFailure(validation)) {
     return {
-      ok: false,
+      state: "invalid",
       response: errorResponse(HTTP_STATUS.BAD_REQUEST, validation.error.message),
     };
   }
 
-  return { ok: true, body: validation.data as MediaGenerationBody };
+  return { state: "ok", body: validation.data as MediaGenerationBody };
 }
 
 export function promptRequiredResponse(body: { prompt?: unknown }) {
@@ -125,6 +141,12 @@ export function failedMediaGenerationResponse(
   result: MediaGenerationResult,
   fallbackMessage: string
 ) {
+  if (!isMediaGenerationFailure(result)) {
+    return new Response(JSON.stringify(toJsonErrorPayload(undefined, fallbackMessage)), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   const errorPayload = toJsonErrorPayload(result.error, fallbackMessage);
   return new Response(JSON.stringify(errorPayload), {
     status: result.status,
