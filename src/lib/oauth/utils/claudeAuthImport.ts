@@ -119,6 +119,8 @@ export async function enrichWithBootstrap(
         Authorization: `Bearer ${parsed.accessToken}`,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
+        "User-Agent": "claude-cli/1.0.0 (external, cli)",
+        "anthropic-beta": "oauth-2025-04-20",
       },
       signal: controller.signal,
     });
