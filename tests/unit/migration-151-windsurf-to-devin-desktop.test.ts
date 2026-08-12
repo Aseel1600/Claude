@@ -8,7 +8,7 @@ import Database from "better-sqlite3";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationDir = path.join(__dirname, "../../src/lib/db/migrations");
-const migrationPath = path.join(migrationDir, "147_windsurf_to_devin_desktop.sql");
+const migrationPath = path.join(migrationDir, "151_windsurf_to_devin_desktop.sql");
 const schemaMigrations = [
   "001_initial_schema.sql",
   "002_mcp_a2a_tables.sql",
@@ -26,7 +26,7 @@ const schemaMigrations = [
   "119_model_capability_overrides.sql",
 ];
 
-test("migration 147 for the Devin Desktop provider exists", () => {
+test("migration 151 for the Devin Desktop provider exists", () => {
   assert.equal(fs.existsSync(migrationPath), true);
 });
 
@@ -42,7 +42,7 @@ function rows(db: Database.Database, table: string): unknown[] {
   return db.prepare(`SELECT * FROM ${table} ORDER BY 1, 2`).all();
 }
 
-test("migration 147 moves provider aliases when the destination is absent", () => {
+test("migration 151 moves provider aliases when the destination is absent", () => {
   const migration = fs.readFileSync(migrationPath, "utf8");
   const db = createDb();
   db.prepare(
@@ -58,7 +58,7 @@ test("migration 147 moves provider aliases when the destination is absent", () =
   db.close();
 });
 
-test("migration 147 moves live key provisioning state with destination-wins collisions", () => {
+test("migration 151 moves live key provisioning state with destination-wins collisions", () => {
   const migration = fs.readFileSync(migrationPath, "utf8");
   const sourceOnly = createDb();
   sourceOnly
@@ -120,7 +120,7 @@ test("migration 147 moves live key provisioning state with destination-wins coll
   collision.close();
 });
 
-test("migration 147 moves current settings safely and preserves historical records", () => {
+test("migration 151 moves current settings safely and preserves historical records", () => {
   const migration = fs.readFileSync(migrationPath, "utf8");
   const db = createDb();
   db.exec(`

@@ -46,7 +46,7 @@ function withMockedMigrationFs(files: Record<string, string>, fn: () => void) {
 }
 
 test(
-  "reconcileRenumberedMigrations moves legacy Devin Desktop marker 131→147",
+  "reconcileRenumberedMigrations moves legacy Devin Desktop marker 131→151",
   serial,
   async () => {
     const runner = await importFresh("src/lib/db/migrationRunner.ts");
@@ -72,7 +72,7 @@ test(
             "CREATE TABLE proxy_subscriptions_meta (id TEXT PRIMARY KEY);",
           "135_migrate_model_capability_max_token.sql":
             "CREATE TABLE max_token_migration_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -85,7 +85,7 @@ test(
         { version: "131", name: "proxy_subscriptions" },
         { version: "132", name: "proxy_subscriptions_meta" },
         { version: "135", name: "migrate_model_capability_max_token" },
-        { version: "147", name: "windsurf_to_devin_desktop" },
+        { version: "151", name: "windsurf_to_devin_desktop" },
       ]);
       assert.ok(
         db
@@ -138,7 +138,7 @@ test(
         {
           "135_migrate_model_capability_max_token.sql":
             "CREATE TABLE max_token_migration_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -148,7 +148,7 @@ test(
         db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "135", name: "migrate_model_capability_max_token" },
-          { version: "147", name: "windsurf_to_devin_desktop" },
+          { version: "151", name: "windsurf_to_devin_desktop" },
         ]
       );
       assert.ok(
@@ -192,7 +192,7 @@ test(
         {
           "136_radar_cache_settings.sql":
             "CREATE TABLE radar_cache_settings_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -202,7 +202,7 @@ test(
         db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "136", name: "radar_cache_settings" },
-          { version: "147", name: "windsurf_to_devin_desktop" },
+          { version: "151", name: "windsurf_to_devin_desktop" },
         ]
       );
       assert.ok(
@@ -245,7 +245,7 @@ test(
       withMockedMigrationFs(
         {
           "139_ccr_blocks.sql": "CREATE TABLE ccr_blocks_migration_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -255,7 +255,7 @@ test(
         db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "139", name: "ccr_blocks" },
-          { version: "147", name: "windsurf_to_devin_desktop" },
+          { version: "151", name: "windsurf_to_devin_desktop" },
         ]
       );
       assert.ok(
@@ -299,7 +299,7 @@ test(
         {
           "140_connection_runtime_state.sql":
             "CREATE TABLE connection_runtime_state_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -309,7 +309,7 @@ test(
         db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "140", name: "connection_runtime_state" },
-          { version: "147", name: "windsurf_to_devin_desktop" },
+          { version: "151", name: "windsurf_to_devin_desktop" },
         ]
       );
       assert.ok(
@@ -353,7 +353,7 @@ test(
         {
           "143_retired_provider_purge.sql":
             "CREATE TABLE retired_provider_purge_ran (id TEXT PRIMARY KEY);",
-          "147_windsurf_to_devin_desktop.sql":
+          "151_windsurf_to_devin_desktop.sql":
             "CREATE TABLE devin_migration_must_not_rerun (id TEXT PRIMARY KEY);",
         },
         () => runner.runMigrations(db)
@@ -363,7 +363,7 @@ test(
         db.prepare("SELECT version, name FROM _omniroute_migrations ORDER BY version").all(),
         [
           { version: "143", name: "retired_provider_purge" },
-          { version: "147", name: "windsurf_to_devin_desktop" },
+          { version: "151", name: "windsurf_to_devin_desktop" },
         ]
       );
       assert.ok(
