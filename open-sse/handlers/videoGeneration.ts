@@ -19,6 +19,7 @@ import { handleXaiVideoGeneration } from "./videoGeneration/xaiGrokImagineHandle
 import { handleSegmindVideoGeneration } from "./videoGeneration/providers/segmind.ts";
 import { handleAdobeFireflyVideoGeneration } from "./videoGeneration/adobeFireflyHandler.ts";
 import { handleFalVideoGeneration } from "./videoGeneration/falHandler.ts";
+
 import { handleOpenAIVideoGeneration } from "./videoGeneration/openai.ts";
 import { getVideoJobPreset, handleVideoJobGeneration } from "./videoGeneration/job.ts";
 import {
@@ -51,7 +52,6 @@ import {
   fetchWithTimeout,
   getConfiguredTimeout,
 } from "@/shared/utils/fetchTimeout";
-import { handleFalVideoGeneration } from "./mediaGeneration/fal.ts";
 
 /**
  * Resolve the base URL for OpenAI-compatible video generation endpoints.
