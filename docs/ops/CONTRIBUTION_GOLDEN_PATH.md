@@ -13,7 +13,7 @@ change type to its contracts, focused checks, and CI coverage.
 1. **Choose the base before editing.** Find the highest active `release/v*` branch and branch from
    its tip. Target that branch, not `main`. If a release freeze is active, do not target the frozen
    branch; use the next active cycle described in
-   [Branching & Release Model](../ops/BRANCHING_MODEL.md).
+   [Branching & Release Model](BRANCHING_MODEL.md).
 2. **Name the contracts.** Identify every catalog, schema, generated artifact, public API, or user
    interface that the change affects. The table below gives the minimum starting set.
 3. **Write or update focused tests.** Production changes in `src/`, `open-sse/`, `electron/`, or
@@ -225,5 +225,5 @@ Before requesting review:
 - Never weaken assertions or drop required tests merely to match a moved base.
 
 For release-freeze and retargeting rules, use
-[Branching & Release Model](../ops/BRANCHING_MODEL.md). For the complete CI inventory, use
+[Branching & Release Model](BRANCHING_MODEL.md). For the complete CI inventory, use
 [Quality Gates Reference](../architecture/QUALITY_GATES.md).

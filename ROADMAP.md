@@ -7,7 +7,7 @@ lastUpdated: 2026-08-06
 # OmniRoute Roadmap
 
 > Version-gated, not date-gated: each milestone ships when its quality gates pass.
-> Current line: **v3.8.x** (this branch). Last updated: 2026-07-23.
+> Current line: **v3.8.x** (this branch). Last updated: 2026-08-06.
 
 OmniRoute is heading from a monolithic router to a **modular AI platform**: a lightweight
 core engine, a typed SDK, and everything else as installable modules and plugins. The path
