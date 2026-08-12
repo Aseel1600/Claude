@@ -237,12 +237,16 @@ function trustedEnvironmentText(parsed: CodexParsedRequest): string {
 }
 
 function decodeXmlText(value: string): string {
+  // `&amp;` MUST be decoded last: decoding it first turns `&amp;quot;` (the encoding of the
+  // literal text `&quot;`) into `&quot;`, which the following pass then decodes again into `"`.
+  // These values feed the workspace-root trust comparison below, so a double-unescape lets an
+  // encoded path decode into a different path than the one the client actually declared.
   return value
     .replaceAll("&lt;", "<")
     .replaceAll("&gt;", ">")
-    .replaceAll("&amp;", "&")
     .replaceAll("&quot;", '"')
-    .replaceAll("&#39;", "'");
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&");
 }
 
 function uniqueAbsolutePaths(values: string[], field: string): string[] {

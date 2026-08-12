@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import { makeExecutorErrorResult as makeErrorResult } from "../utils/error.ts";
 import { initTinyCmsWasm, generateSecurePayload } from "./tinycmsSigner.ts";
@@ -28,9 +30,9 @@ async function fetchChallenge(uuid: string): Promise<any> {
   const res = await fetch(CHALLENGE_URL, {
     method: "GET",
     headers: {
-      "uuid": uuid,
+      uuid: uuid,
       "x-origin": "https://gov.freegpt.win",
-      "Accept": "application/json",
+      Accept: "application/json",
       "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
     },
   });
@@ -67,10 +69,10 @@ export class TinyCmsExecutor extends BaseExecutor {
       const challengeObj = await fetchChallenge(uuid);
 
       const timestamp = Date.now().toString();
-      const nonceJs =
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      // The nonce is signed into the anti-replay payload below, so it must come from a CSPRNG.
+      // `randomUUID` from node:crypto is always available on the supported runtimes — the old
+      // non-cryptographic fallback produced a predictable nonce with no way to notice.
+      const nonceJs = randomUUID();
 
       const securePayload = generateSecurePayload(
         uuid,
@@ -121,12 +123,7 @@ export class TinyCmsExecutor extends BaseExecutor {
         body: response.body,
       };
     } catch (err: any) {
-      return makeErrorResult(
-        500,
-        `TinyCMS Error: ${err.message}`,
-        body,
-        CHAT_URL
-      );
+      return makeErrorResult(500, `TinyCMS Error: ${err.message}`, body, CHAT_URL);
     }
   }
 }
