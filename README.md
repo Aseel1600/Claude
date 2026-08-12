@@ -56,6 +56,21 @@
 
 <br/>
 
+## 📈 The Gateway Keeps Growing
+
+<div align="center">
+
+|                      | v3.8.49 | **v3.8.50** |                           |
+| -------------------- | :-----: | :---------: | ------------------------- |
+| 🌐 Providers         |   291   |   **338**   | **+47 in a single cycle** |
+| 🧠 Documented models |  500+   |  **1200+**  | catalog more than doubled |
+
+**Next stop `v3.8.51+`** — Modality Bridge (vision & video everywhere) · Radar free-model catalog · quota-aware scheduling · new providers queued (Tencent AI Studio & more) → [Roadmap](ROADMAP.md)
+
+</div>
+
+<br/>
+
 ## 🧩 Available
 
 [![npm version](https://img.shields.io/npm/v/omniroute?color=cb3837&logo=npm)](https://www.npmjs.com/package/omniroute)
