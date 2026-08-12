@@ -57,10 +57,6 @@ node_modules/
 *.map
 .DS_Store
 
-# Obsidian sync plugin — committed for community distribution
-!obsidian-plugin/
-obsidian-plugin/node_modules/
-
 # Serena AI assistant config (local-only tool, not project code)
 .serena/
 
