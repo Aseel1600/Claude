@@ -437,9 +437,10 @@ async function __wbg_init(module_or_path) {
         }
     }
 
-    if (module_or_path === undefined) {
-        module_or_path = new URL('wasm_signer_bg.wasm', import.meta.url);
-    }
+    // ponytail: the wasm-bindgen default `new URL('wasm_signer_bg.wasm', import.meta.url)`
+    // branch is removed — the .wasm is embedded as WASM_BASE64 and initTinyCmsWasm() is the
+    // only caller, so it always passes bytes. Turbopack resolves that URL statically and
+    // fails the build on the missing file. Restore it only if a caller ever inits by path.
     const imports = __wbg_get_imports();
 
     if (typeof module_or_path === 'string' || (typeof Request === 'function' && module_or_path instanceof Request) || (typeof URL === 'function' && module_or_path instanceof URL)) {

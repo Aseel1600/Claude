@@ -244,6 +244,8 @@ async function runFalQueue({
   const startTime = Date.now();
   const baseUrl = providerConfig.baseUrl.replace(/\/$/, "");
   const token = getToken(credentials);
+  if (!token) return { success: false as const, status: 401, error: "Fal API key is required" };
+
   const headers = {
     Authorization: `Key ${token}`,
     "Content-Type": "application/json",

@@ -124,17 +124,18 @@ import {
   type CatalogCachePolicy,
 } from "./catalogCache";
 
+// #9199 replaced the overridable SWR accessor with a fixed
+// CATALOG_STALE_WHILE_REVALIDATE_MS window, so getCatalogStaleWhileRevalidateMs and the
+// two __set…ForTest hooks no longer exist in ./catalogCache — re-exporting the dead names
+// made every page importing this module fail to compile.
 export {
   CATALOG_STALE_WHILE_REVALIDATE_MS,
-  getCatalogStaleWhileRevalidateMs,
   __resetCatalogBuilderRunsForTest,
   __getCatalogBuilderRunsForTest,
   __expireCatalogCacheForTest,
   __setCatalogCacheEntryForTest,
   __flushCatalogBackgroundRefreshForTest,
   __forceCatalogInFlightRejectionForTest,
-  __setCatalogStaleWhileRevalidateAccessorForTest,
-  __setCatalogStaleWhileRevalidateMsForTest,
 } from "./catalogCache";
 export type { CachedCatalog, CatalogCachePolicy } from "./catalogCache";
 

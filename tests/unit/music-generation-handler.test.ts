@@ -162,6 +162,29 @@ test("handleMusicGeneration polls KIE music tasks and returns audio URLs", async
   }
 });
 
+test("handleMusicGeneration rejects Fal music requests without credentials", async () => {
+  // Guards the shared runFalQueue credential check: without it the handler sends
+  // `Authorization: Key ` (empty) and the prompt reaches fal.ai unauthenticated.
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => {
+    throw new Error("upstream must not be called without credentials");
+  };
+
+  try {
+    const result = await handleMusicGeneration({
+      body: { model: "fal-ai/ace-step", prompt: "x" },
+      credentials: null,
+      log: null,
+    });
+
+    assert.equal(result.success, false);
+    assert.equal(result.status, 401);
+    assert.match(result.error, /Fal API key is required/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("handleMusicGeneration rejects unsupported provider formats", async () => {
   const originalProvider = MUSIC_PROVIDERS.fakeprovider;
 
