@@ -1075,7 +1075,10 @@ async function handleChatImplementation(
       } catch {}
     }
     return withModalityBridgeHeader(
-      withConversationId(withCorrelationId(withSessionHeader(response, sessionId), reqId), conversationId),
+      withConversationId(
+        withCorrelationId(withSessionHeader(response, sessionId), reqId),
+        conversationId
+      ),
       modalityBridgeHeader
     );
   }
@@ -1121,7 +1124,10 @@ async function handleChatImplementation(
   );
   recordTelemetry(telemetry);
   return withModalityBridgeHeader(
-    withConversationId(withCorrelationId(withSessionHeader(response, sessionId), reqId), conversationId),
+    withConversationId(
+      withCorrelationId(withSessionHeader(response, sessionId), reqId),
+      conversationId
+    ),
     modalityBridgeHeader
   );
 }
