@@ -352,21 +352,6 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Create a ZeroLimitAI Bearer token, then use https://www.zerolimitai.com/api/v1 as the OpenAI-compatible base URL.",
   },
-  chatanywhere: {
-    id: "chatanywhere",
-    alias: "chatanywhere",
-    name: "ChatAnywhere",
-    icon: "router",
-    color: "#2563EB",
-    textIcon: "CA",
-    passthroughModels: true,
-    website: "https://chatanywhere.tech",
-    hasFree: true,
-    freeNote:
-      "Personal, educational or research use only: public documentation cites 10,000 points/day and 200 requests/day per IP/key; do not use for commercial traffic.",
-    apiHint:
-      "Create a ChatAnywhere key linked to GitHub, then use https://api.chatanywhere.org/v1 outside China. Review the non-commercial terms before enabling it.",
-  },
   helyxai: {
     id: "helyxai",
     alias: "helyxai",
@@ -1215,5 +1200,35 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
       "Free models include Nemotron 3 Ultra (free) and Llama 3.3 70B Instruct (Free). Paid models require credits. Google/GitHub/Discord signup.",
     passthroughModels: true,
     authHint: "Get API key at naga.ac — Google/GitHub/Discord signup available.",
+  },
+  "void-ai": {
+    id: "void-ai",
+    alias: "void-ai",
+    name: "Void AI",
+    icon: "science",
+    color: "#111827",
+    textIcon: "VA",
+    passthroughModels: true,
+    website: "https://voidai.app",
+    hasFree: true,
+    freeNote:
+      "The public model catalog marks some models with a free plan requirement, but access is conditional and no numeric quota is confirmed.",
+    apiHint:
+      "Use https://api.voidai.app/v1 only after confirming authentication, account eligibility and terms. Treat this integration as experimental until the blocked documentation becomes public.",
+  },
+  helixmind: {
+    id: "helixmind",
+    alias: "helixmind",
+    name: "HelixMind",
+    icon: "hub",
+    color: "#4F46E5",
+    textIcon: "HM",
+    passthroughModels: true,
+    website: "https://helixmind.online",
+    hasFree: false,
+    freeNote:
+      "Previously circulated 3 RPM/50 RPD and no-card claims were not confirmed during the 2026-08-02 audit; current quota and billing require account verification.",
+    apiHint:
+      "Create a helix- key and use https://helixmind.online/v1. OpenAI requests use Bearer authentication; the Anthropic-compatible messages endpoint accepts x-api-key.",
   },
 };

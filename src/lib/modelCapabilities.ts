@@ -648,9 +648,9 @@ function getMaxTokenCapabilityOverride(
 ): number | null {
   const bulk = snapshot?.maxTokenOverrides ?? null;
   return (
-    getModelCapabilityOverride(resolved.provider, resolved.model, "max_token", bulk) ??
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_output_tokens", bulk) ??
     (resolved.rawModel && resolved.rawModel !== resolved.model
-      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_token", bulk)
+      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_output_tokens", bulk)
       : null)
   );
 }

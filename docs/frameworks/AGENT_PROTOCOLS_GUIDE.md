@@ -24,7 +24,7 @@ The three are independent — pick any subset.
 ## Decision Tree
 
 ```
-Do you need a cloud service to do work outside this machine (Codex Cloud / Devin / Jules)?
+Do you need a cloud service to do work outside this machine (Codex Cloud / Cursor Cloud / Devin / Jules)?
 ├─ YES → Cloud Agents (POST /api/v1/agents/tasks)
 └─ NO → Continue
     │

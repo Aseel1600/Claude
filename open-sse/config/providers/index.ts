@@ -257,6 +257,8 @@ import { nagaAiProvider } from "./registry/naga-ai/index.ts";
 import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
 import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
+import { voidAiProvider } from "./registry/void-ai/index.ts";
+import { helixmindProvider } from "./registry/helixmind/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -516,4 +518,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "chat-oripe": chatOripeProvider,
   freeinference: freeinferenceProvider,
   "free-ai": freeAiProvider,
+  "void-ai": voidAiProvider,
+  helixmind: helixmindProvider,
 };

@@ -2801,6 +2801,29 @@
       "stream": "https://api.hcnsec.cn/v1/chat/completions"
     }
   },
+  "helixmind": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://helixmind.online/v1/chat/completions",
+      "stream": "https://helixmind.online/v1/chat/completions"
+    }
+  },
   "helyxai": {
     "format": "openai",
     "headers": {
@@ -5757,6 +5780,29 @@
     "url": {
       "nonStream": "https://us-central1-aiplatform.googleapis.com/v1/projects",
       "stream": "https://us-central1-aiplatform.googleapis.com/v1/projects"
+    }
+  },
+  "void-ai": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.voidai.app/v1/chat/completions",
+      "stream": "https://api.voidai.app/v1/chat/completions"
     }
   },
   "volcengine": {
