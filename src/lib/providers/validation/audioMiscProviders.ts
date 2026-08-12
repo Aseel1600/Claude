@@ -3,6 +3,7 @@
 // poe. Extracted from validation.ts (god-file decomposition) — top-level functions with no
 // dispatcher-state captures; behavior is byte-identical to the original inline defs.
 import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
+import { POE_DEFAULT_BASE_URL } from "@omniroute/open-sse/config/providers/registry/poe/index.ts";
 import { normalizeBaseUrl } from "./urlHelpers";
 import {
   applyCustomUserAgent,
@@ -66,6 +67,22 @@ export async function validateAssemblyAIProvider({ apiKey, providerSpecificData 
 export async function validateRevAiProvider({ apiKey, providerSpecificData = {} }: any) {
   try {
     const response = await validationRead("https://api.rev.ai/speechtotext/v1/jobs?limit=1", {
+      method: "GET",
+      headers: buildBearerHeaders(apiKey, providerSpecificData),
+    });
+    if (response.ok) return { valid: true, error: null };
+    if (response.status === 401 || response.status === 403) {
+      return { valid: false, error: "Invalid API key" };
+    }
+    return { valid: false, error: `Validation failed: ${response.status}` };
+  } catch (error: any) {
+    return toValidationErrorResult(error);
+  }
+}
+
+export async function validateSonioxProvider({ apiKey, providerSpecificData = {} }: any) {
+  try {
+    const response = await validationRead("https://api.soniox.com/v1/transcriptions", {
       method: "GET",
       headers: buildBearerHeaders(apiKey, providerSpecificData),
     });
@@ -608,7 +625,7 @@ export async function validateNousResearchProvider({ apiKey, providerSpecificDat
 }
 
 export async function validatePoeProvider({ apiKey, providerSpecificData = {} }: any) {
-  const baseUrl = normalizeBaseUrl(providerSpecificData.baseUrl) || "https://api.poe.com/v1";
+  const baseUrl = normalizeBaseUrl(providerSpecificData.baseUrl) || POE_DEFAULT_BASE_URL;
   const balanceUrl = new URL("/usage/current_balance", baseUrl).toString();
 
   try {

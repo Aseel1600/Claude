@@ -13,14 +13,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
-import { runSingleModelTest } from "@/lib/api/modelTestRunner";
+import { DEFAULT_MODEL_TEST_TIMEOUT_MS, runSingleModelTest } from "@/lib/api/modelTestRunner";
 import { setModelIsHidden } from "@/lib/localDb";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { getSettings } from "@/lib/db/settings";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import * as log from "@/sse/utils/logger";
 
-const PER_MODEL_TIMEOUT_MS = 20_000;
 const CONSECUTIVE_RATE_LIMIT_STOP_THRESHOLD = 3;
 /** Web-session providers (esp. Arena/CF) ban burst probes — pause between models. */
 const SLOW_PROBE_PROVIDERS = new Set(["lmarena", "lma"]);
@@ -48,6 +47,7 @@ export interface BatchTestResultEntry {
   statusCode?: number;
   rateLimited?: boolean;
   isTransient?: boolean;
+  isQuota?: boolean;
   hidden?: boolean;
   isTimeout?: boolean;
 }
@@ -64,6 +64,7 @@ function toBatchEntry(
   if (result.statusCode !== undefined) entry.statusCode = result.statusCode;
   if (result.rateLimited === true) entry.rateLimited = true;
   if (result.isTransient === true) entry.isTransient = true;
+  if (result.isQuota === true) entry.isQuota = true;
   if (result.isTimeout === true) entry.isTimeout = true;
   return entry;
 }
@@ -153,7 +154,7 @@ export async function POST(request: Request) {
         providerId,
         modelId,
         ...(effectiveConnectionId ? { connectionId: effectiveConnectionId } : {}),
-        timeoutMs: PER_MODEL_TIMEOUT_MS,
+        timeoutMs: DEFAULT_MODEL_TEST_TIMEOUT_MS,
         streamChat: true,
       });
       entry = toBatchEntry(result);
@@ -177,10 +178,13 @@ export async function POST(request: Request) {
       consecutiveRateLimits = 0;
     }
 
+    // #9511: quota entries (403 with "insufficient balance" etc.) are NOT
+    // bot-blocks — they should not count toward the bot-block stop threshold.
     const botBlocked =
-      entry.statusCode === 403 ||
-      (typeof entry.error === "string" &&
-        /cloudflare|bot management|recaptcha|cf-chl|just a moment/i.test(entry.error));
+      !entry.isQuota &&
+      (entry.statusCode === 403 ||
+        (typeof entry.error === "string" &&
+          /cloudflare|bot management|recaptcha|cf-chl|just a moment/i.test(entry.error)));
     if (botBlocked) {
       consecutiveBotBlocks += 1;
     } else if (entry.status === "ok") {
@@ -192,7 +196,8 @@ export async function POST(request: Request) {
       entry.status === "error" &&
       !entry.rateLimited &&
       !entry.isTimeout &&
-      !entry.isTransient
+      !entry.isTransient &&
+      !entry.isQuota
     ) {
       try {
         await setModelIsHidden(providerId, modelId, true);

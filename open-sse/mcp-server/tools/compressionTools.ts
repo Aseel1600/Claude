@@ -256,6 +256,7 @@ import {
   getCcrStoreStats,
   handleCcrRetrieve,
   inspectCcrBlock,
+  isCcrStoreRejection,
   listCcrBlocks,
   tryStoreBlock,
 } from "../../services/compression/engines/ccr/index.ts";
@@ -298,7 +299,7 @@ export async function handleCcrStoreTool(
     ttlSeconds: args.ttlSeconds,
   });
   const auditInput = buildCcrStoreAuditInput(args);
-  if (!result.stored) {
+  if (isCcrStoreRejection(result)) {
     const output = { stored: false as const, reason: result.reason };
     await logToolCall(
       "omniroute_ccr_store",
@@ -428,26 +429,39 @@ export async function handleSetCompressionEngine(
   args: z.infer<typeof setCompressionEngineInput>
 ): Promise<{ success: boolean; settings: Record<string, unknown> }> {
   const updates: Record<string, unknown> = { enabled: true };
+  const current = await getCompressionSettings();
   if (args.engine) {
     updates.defaultMode = args.engine === "caveman" ? "standard" : args.engine;
-    if (args.engine === "off") updates.enabled = false;
+    if (args.engine === "off") {
+      updates.enabled = false;
+    } else if (args.engine !== "stacked") {
+      const selectedEngine = args.engine === "caveman" ? "caveman" : args.engine;
+      updates.engines = Object.fromEntries(
+        Object.entries(current.engines).map(([id, toggle]) => [
+          id,
+          {
+            ...toggle,
+            enabled: id === selectedEngine,
+            ...(id === "caveman" && args.cavemanIntensity ? { level: args.cavemanIntensity } : {}),
+            ...(id === "rtk" && args.rtkIntensity ? { level: args.rtkIntensity } : {}),
+          },
+        ])
+      );
+    }
   }
   if (args.cavemanIntensity) {
-    const current = await getCompressionSettings();
     updates.cavemanConfig = {
       ...(current.cavemanConfig ?? {}),
       intensity: args.cavemanIntensity,
     };
   }
   if (args.rtkIntensity) {
-    const current = await getCompressionSettings();
     updates.rtkConfig = {
       ...(current.rtkConfig ?? {}),
       intensity: args.rtkIntensity,
     };
   }
   if (args.outputMode !== undefined) {
-    const current = await getCompressionSettings();
     updates.cavemanOutputMode = {
       ...(current.cavemanOutputMode ?? {}),
       enabled: args.outputMode,

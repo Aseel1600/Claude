@@ -15,6 +15,9 @@ const {
   resolveNestedComboModels,
   handleComboChat,
 } = await import("../../open-sse/services/combo.ts");
+const { resolveComboTargets } = await import("../../open-sse/services/combo/comboStructure.ts");
+const { applyPromptCacheAffinity } =
+  await import("../../open-sse/services/combo/promptCacheAffinity.ts");
 const { resolveReasoningBufferedMaxTokens } =
   await import("../../open-sse/services/reasoningTokenBuffer.ts");
 const { normalizeComboStep } = await import("../../src/lib/combos/steps.ts");
@@ -182,6 +185,14 @@ test("getComboFromData and getComboModelsFromData resolve combos from array and 
   assert.equal(fromArray.name, "alpha");
   assert.equal(fromObject.name, "alpha");
   assert.deepEqual(models, ["openai/gpt-4o-mini", "claude/sonnet"]);
+});
+
+test("getComboModelsFromData strips context-window tags before matching a combo", () => {
+  const combos = [{ name: "alpha", models: ["openai/gpt-4o-mini"] }];
+
+  assert.deepEqual(getComboModelsFromData("alpha[500k]", combos), ["openai/gpt-4o-mini"]);
+  assert.deepEqual(getComboModelsFromData("alpha[1M]", combos), ["openai/gpt-4o-mini"]);
+  assert.equal(getComboModelsFromData("alpha[beta]", combos), null);
 });
 
 test("validateComboDAG rejects circular references and resolveNestedComboModels expands nested combos", () => {
@@ -534,6 +545,50 @@ test("handleComboChat weighted strategy selects by weight and falls back in desc
   }
 });
 
+test("handleComboChat preserves the weighted primary before prompt-cache affinity reordering", async () => {
+  const combo = {
+    name: "weighted-cache-affinity-protection",
+    strategy: "weighted",
+    models: [
+      { model: "openai/gpt-4o-mini", weight: 1 },
+      { model: "claude/sonnet", weight: 9 },
+    ],
+    config: { maxRetries: 0 },
+  };
+  const resolvedTargets = resolveComboTargets(combo, null);
+  assert.equal(resolvedTargets.length, 2);
+
+  const cacheKey = Array.from({ length: 100 }, (_, index) => `weighted-cache-${index}`).find(
+    (key) =>
+      applyPromptCacheAffinity(resolvedTargets, { prompt_cache_key: key }).targets[0] !==
+      resolvedTargets[0]
+  );
+  assert.ok(cacheKey, "test fixture must exercise a different affinity winner");
+
+  const calls: string[] = [];
+  _setSecureRandomFloatSource(() => 0);
+  try {
+    const result = await handleComboChat({
+      body: { prompt_cache_key: cacheKey },
+      combo,
+      handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
+        calls.push(modelStr);
+        return okResponse();
+      },
+      isModelAvailable: async () => true,
+      log: createLog(),
+      settings: null,
+      relayOptions: null,
+      allCombos: null,
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(calls, ["openai/gpt-4o-mini"]);
+  } finally {
+    _setSecureRandomFloatSource(null);
+  }
+});
+
 test("handleComboChat weighted strategy falls back to uniform random when all weights are zero", async () => {
   const calls: any[] = [];
   _setSecureRandomFloatSource(() => 0.75);
@@ -842,7 +897,7 @@ test("handleComboChat records per-target metrics separately when the same model 
   assert.equal(metrics.byTarget[secondStep.id].connectionId, "conn-openai-b");
 });
 
-test("handleComboChat preserves the first failure status but surfaces the last error message plus per-model diagnostics", async () => {
+test("handleComboChat surfaces the last failing target's status AND error message together, not a cross-target mismatch (#8486)", async () => {
   const result = await handleComboChat({
     body: {},
     combo: {
@@ -863,7 +918,7 @@ test("handleComboChat preserves the first failure status but surfaces the last e
 
   const payload = (await result.json()) as any;
 
-  assert.equal(result.status, 500);
+  assert.equal(result.status, 429); // #8486: status/message from the SAME (last) failing target
   // The last error message is preserved and now carries an aggregated
   // per-model diagnostics suffix (status codes for every target attempted
   // in this set try), added alongside the global comboTimeoutMs feature.
@@ -1624,7 +1679,7 @@ test("handleComboChat round-robin falls through generic 400s when a later model 
   assert.deepEqual(calls, ["model-a", "model-b"]);
 });
 
-test("handleComboChat round-robin falls through 400s and returns the final error payload when no target recovers", async () => {
+test("handleComboChat round-robin falls through 400s and returns the LAST target's status+message together, not a cross-target mismatch (#8486)", async () => {
   const calls: any[] = [];
 
   const result = await handleComboChat({
@@ -1662,7 +1717,7 @@ test("handleComboChat round-robin falls through 400s and returns the final error
   });
 
   const payload = (await result.json()) as any;
-  assert.equal(result.status, 400);
+  assert.equal(result.status, 500); // #8486: status/message from the SAME (last) failing target
   assert.equal(payload.error.message, "rr-final-fail");
   assert.deepEqual(calls, ["model-a", "model-b"]);
 });
@@ -1926,7 +1981,7 @@ test("handleComboChat skips tool, vision, and structured-output incompatible fal
   assert.deepEqual(calls, ["openai/compatible"]);
 });
 
-test("handleComboChat preserves strategy order when context-aware filtering rejects all targets", async () => {
+test("handleComboChat fails closed when context-aware filtering rejects all targets (#8488)", async () => {
   saveModelsDevCapabilities({
     openai: {
       "no-tools-a": capabilityEntry(128000, { tool_call: false }),
@@ -1934,7 +1989,7 @@ test("handleComboChat preserves strategy order when context-aware filtering reje
     },
   });
 
-  const calls: any[] = [];
+  const calls: string[] = [];
   const result = await handleComboChat({
     body: {
       messages: [{ role: "user", content: "Use a tool." }],
@@ -1945,14 +2000,54 @@ test("handleComboChat preserves strategy order when context-aware filtering reje
       strategy: "priority",
       models: ["openai/no-tools-a", "openai/no-tools-b"],
     },
-    handleSingleModel: async (_body: any, modelStr: any) => {
+    handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
       calls.push(modelStr);
       return okResponse();
     },
     isModelAvailable: async () => true,
     log: createLog(),
     settings: null,
-    relayOptions: null as any,
+    relayOptions: null,
+    allCombos: null,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.status, 400);
+  assert.deepEqual(calls, []);
+  const body = await result.json();
+  assert.match(String(body?.error?.message || ""), /supports tool calling/i);
+  assert.equal(body?.error?.code, "capability_mismatch");
+  assert.equal(body?.diagnostics?.terminalReason, "capability_mismatch");
+});
+
+test("handleComboChat compatFilterFailOpen restores dispatch when all targets fail tools (#8488)", async () => {
+  saveModelsDevCapabilities({
+    openai: {
+      "no-tools-a": capabilityEntry(128000, { tool_call: false }),
+      "no-tools-b": capabilityEntry(128000, { tool_call: false }),
+    },
+  });
+
+  const calls: string[] = [];
+  const result = await handleComboChat({
+    body: {
+      messages: [{ role: "user", content: "Use a tool." }],
+      tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
+    },
+    combo: {
+      name: "context-aware-fail-open",
+      strategy: "priority",
+      models: ["openai/no-tools-a", "openai/no-tools-b"],
+      config: { compatFilterFailOpen: true },
+    },
+    handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
+      calls.push(modelStr);
+      return okResponse();
+    },
+    isModelAvailable: async () => true,
+    log: createLog(),
+    settings: null,
+    relayOptions: null,
     allCombos: null,
   });
 
@@ -2009,6 +2104,57 @@ test("handleComboChat eval-driven routing prioritizes higher scoring evaluated t
 
   assert.equal(result.ok, true);
   assert.deepEqual(calls, ["openai/eval-high"]);
+});
+
+test("cache-optimized preserves eval routing when no reusable cache key exists", async () => {
+  evalsDb.saveEvalRun({
+    suiteId: "cache-miss-routing",
+    suiteName: "Cache Miss Routing",
+    target: { type: "model", id: "openai/cache-low", label: "Model: openai/cache-low" },
+    summary: { total: 10, passed: 2, failed: 8, passRate: 20 },
+    avgLatencyMs: 100,
+    results: [],
+    createdAt: new Date().toISOString(),
+  });
+  evalsDb.saveEvalRun({
+    suiteId: "cache-miss-routing",
+    suiteName: "Cache Miss Routing",
+    target: { type: "model", id: "openai/cache-high", label: "Model: openai/cache-high" },
+    summary: { total: 10, passed: 10, failed: 0, passRate: 100 },
+    avgLatencyMs: 100,
+    results: [],
+    createdAt: new Date().toISOString(),
+  });
+
+  const calls: string[] = [];
+  const result = await handleComboChat({
+    body: { messages: [{ role: "user", content: "First turn without reusable prefix" }] },
+    combo: {
+      name: "cache-optimized-miss",
+      strategy: "cache-optimized",
+      models: ["openai/cache-low", "openai/cache-high"],
+      config: {
+        evalRouting: {
+          enabled: true,
+          suiteIds: ["cache-miss-routing"],
+          qualityWeight: 1,
+          latencyWeight: 0,
+        },
+      },
+    },
+    handleSingleModel: async (_body: any, modelStr: string) => {
+      calls.push(modelStr);
+      return okResponse();
+    },
+    isModelAvailable: async () => true,
+    log: createLog(),
+    settings: { promptCacheAffinityEnabled: false },
+    relayOptions: null as any,
+    allCombos: null,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(calls, ["openai/cache-high"]);
 });
 
 test("handleComboChat eval-driven routing ignores stale and undersized eval runs", async () => {
@@ -2172,7 +2318,7 @@ test("handleComboChat returns a 503 when every model is unavailable before execu
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  assert.equal(payload.error.code, "ALL_ACCOUNTS_INACTIVE");
+  assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
 test("handleComboChat treats provider circuit breaker responses as ordinary target failures", async () => {
@@ -2583,7 +2729,7 @@ test("handleComboChat context cache protection pins the model and tags tool-call
     },
     isModelAvailable: async () => true,
     log: createLog(),
-    settings: null,
+    settings: { promptCacheAffinityEnabled: false },
     relayOptions: null as any,
     allCombos: null,
   });
@@ -2701,7 +2847,7 @@ test("handleComboChat round-robin resolves nested combos and returns inactive wh
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  assert.equal(payload.error.code, "ALL_ACCOUNTS_INACTIVE");
+  assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
 test("handleComboChat round-robin treats provider circuit breaker responses as ordinary target failures", async () => {
@@ -2998,8 +3144,8 @@ test("#3587 reasoning model gets max_tokens buffer applied", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(bodies.length, 1, "should have called handleSingleModel once");
-  // 4096 * 1.5 = 6144; max(4096+1000, 6144) = 6144
-  assert.equal(bodies[0].max_tokens, 6144, "max_tokens should be buffered for reasoning model");
+  // #9507: buffer never enlarges an explicit client max_tokens; pass-through 4096.
+  assert.equal(bodies[0].max_tokens, 4096, "max_tokens forwarded verbatim (#9507)");
 });
 
 test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds model cap", async () => {
@@ -3016,8 +3162,8 @@ test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds m
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "4096"),
-    6144,
-    "numeric string max_tokens should be normalized before applying a safe buffer"
+    4096,
+    "numeric string max_tokens is normalized and forwarded verbatim (#9507)"
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "not-a-number"),
@@ -3080,8 +3226,8 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/default-cap-reasoning", 300),
-    1300,
-    "explicit default-sized caps are treated as real capability data"
+    300,
+    "explicit default-sized caps are treated as real capability data, forwarded verbatim (#9507)"
   );
 });
 
@@ -3164,7 +3310,7 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
   // Two reasoning models in a round-robin combo. The first fails (400) so the
   // loop falls through to the second. The buffer must be computed from the
   // ORIGINAL max_tokens for each attempt — never from an already-buffered value —
-  // so both attempts see 6144 (4096 * 1.5), not [6144, 9216, ...]. Regression for
+  // so both attempts see the original 4096 (no enlargement per #9507), not a compounded value. Regression for
   // the shared-`body` mutation that compounded the buffer on every RR iteration.
   saveModelsDevCapabilities({
     openai: {
@@ -3207,12 +3353,12 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
 
   assert.equal(result.status, 200);
   assert.equal(seen.length, 2, "both reasoning models should have been attempted");
-  // Each attempt buffers from the original 4096 → 6144. No compounding.
-  assert.equal(seen[0].maxTokens, 6144, "first reasoning model buffered from original");
+  // #9507: buffer never enlarges, so each attempt sees the original 4096; no compounding.
+  assert.equal(seen[0].maxTokens, 4096, "first reasoning model forwards original (#9507)");
   assert.equal(
     seen[1].maxTokens,
-    6144,
-    "second reasoning model must ALSO buffer from original 4096, not 6144"
+    4096,
+    "second reasoning model must ALSO forward original 4096, not a buffered value (#9507)"
   );
 });
 

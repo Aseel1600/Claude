@@ -37,6 +37,7 @@ import {
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { GITLAB_DUO_OAUTH_SETUP_MESSAGE } from "@/shared/constants/gitlabDuoSetupMessage";
 import { keychainImportOnlyGuard } from "./keychainImportOnly";
 import { buildRemoteOAuthHint } from "./remoteOAuthHint";
 
@@ -46,7 +47,7 @@ if (!globalThis.__pkceCallbackStates) {
 }
 
 /** Providers that use the PKCE browser callback flow (like Codex). */
-const PKCE_CALLBACK_PROVIDERS = new Set(["codex", "xai-oauth"]);
+const PKCE_CALLBACK_PROVIDERS = new Set(["codex", "xai-oauth", "grok-cli", "openference"]);
 
 /**
  * Providers whose device flow runs in the user's browser (auth.openai.com blocks
@@ -174,17 +175,14 @@ export async function GET(
             "Qoder browser OAuth is experimental and disabled by default. Configure QODER_OAUTH_* environment variables or use a Personal Access Token.",
         });
       }
-      // #3861: GitLab Duo needs a self-registered OAuth app. Without a client_id,
+      // #3861 / #8688: GitLab Duo needs a self-registered OAuth app. Without a client_id,
       // buildAuthUrl returns null — surface a clear setup message instead of a 500.
+      // Same copy is shown in the OAuthModal setup step *before* authorize (#8688).
       if (provider === "gitlab-duo" && !authData.authUrl) {
         return NextResponse.json({
           ...authData,
           supported: false,
-          error:
-            "GitLab Duo OAuth is not configured. Register an OAuth application at " +
-            "https://gitlab.com/-/profile/applications with redirect URI " +
-            'http://localhost:20128/callback and scopes "ai_features read_user", then set ' +
-            "GITLAB_DUO_OAUTH_CLIENT_ID (and optionally GITLAB_DUO_OAUTH_CLIENT_SECRET) and restart.",
+          error: GITLAB_DUO_OAUTH_SETUP_MESSAGE,
         });
       }
       return NextResponse.json(authData);
@@ -488,7 +486,15 @@ export async function POST(
       const normalizedState = typeof state === "string" && state.length > 0 ? state : undefined;
       const providerData = getProvider(provider);
 
-      if (providerData.flowType === "authorization_code_pkce" && !codeVerifier) {
+      // Capability check, not a bare flowType equality: grok-cli keeps flowType
+      // "device_code" as its primary flow (#7358) while ALSO exposing a browser
+      // PKCE login via supportsBrowserPkce (#7013 rework) — its exchange still
+      // needs a codeVerifier when the browser method was used. Other providers
+      // are untouched since only grok-cli sets supportsBrowserPkce.
+      if (
+        (providerData.flowType === "authorization_code_pkce" || providerData.supportsBrowserPkce) &&
+        !codeVerifier
+      ) {
         return NextResponse.json(
           {
             error: {
@@ -568,12 +574,7 @@ export async function POST(
 
       // Poll for token (through proxy if configured)
       let result;
-      if (NO_PKCE_DEVICE_CODE_PROVIDERS.has(provider)) {
-        // Non-PKCE device providers do not receive a code verifier.
-        result = await runWithProxyContextOrDirect(proxy, () =>
-          (pollForToken as any)(provider, deviceCode)
-        );
-      } else if (provider === "ghe-copilot") {
+      if (provider === "ghe-copilot") {
         // GHE Copilot needs gheUrl threaded through poll → postExchange
         const gheUrl =
           extraData && typeof extraData === "object" ? (extraData as any).gheUrl : undefined;
@@ -582,6 +583,11 @@ export async function POST(
         }
         result = await runWithProxyContextOrDirect(proxy, () =>
           (pollForToken as any)(provider, deviceCode, null, gheUrl ? { gheUrl } : undefined)
+        );
+      } else if (NO_PKCE_DEVICE_CODE_PROVIDERS.has(provider)) {
+        // Non-PKCE device providers do not receive a code verifier.
+        result = await runWithProxyContextOrDirect(proxy, () =>
+          (pollForToken as any)(provider, deviceCode)
         );
       } else if (provider === "kiro" || provider === "amazon-q") {
         // Kiro needs extraData (clientId, clientSecret) from device code response
@@ -747,7 +753,12 @@ export async function POST(
           const existing = await getProviderConnections({ provider });
           // Codex accounts sharing an email require workspaceId/chatgptUserId
           // agreement to be treated as the same account (#7737).
-          const match = findExistingOAuthConnectionMatch(existing, provider, tokenData, connectionId);
+          const match = findExistingOAuthConnectionMatch(
+            existing,
+            provider,
+            tokenData,
+            connectionId
+          );
           const matchId = typeof match?.id === "string" ? match.id : null;
           if (matchId) {
             connection = await updateProviderConnection(matchId, {

@@ -41,6 +41,31 @@ const OPENCODE_COOLDOWN_MAX_MS = 60_000;
 const EFFORT_LEVELS = ["low", "medium", "high", "max"] as const;
 
 /**
+ * Models that work WITHOUT any API key on the free/noauth opencode tier.
+ *
+ * The upstream free tier rotates frequently — when a `-free` suffix model is
+ * delisted upstream, the upstream returns "Model X is not supported" (a separate
+ * issue from this gate). The set is defined by two data sources:
+ *
+ *   1. **Known free models** — models explicitly listed in the noauth
+ *      `opencode` provider registry (`open-sse/config/providers/registry/opencode/index.ts`).
+ *      These are the canonical free models. `deepseek-v4-flash-free` appears in both
+ *      the noauth AND the zen registry (it is free on both tiers).
+ *   2. **`-free` suffix** — any model whose id ends in `-free`. This automatically
+ *      covers upstream free-tier additions without a code deploy.
+ *
+ * For `opencode-go`, there is no free tier — ALL models require an API key.
+ */
+const OPENCODE_FREE_MODELS = new Set([
+  "big-pickle",
+  "deepseek-v4-flash-free",
+  "mimo-v2.5-free",
+  "hy3-free",
+  "nemotron-3-ultra-free",
+  "north-mini-code-free",
+]);
+
+/**
  * Models on opencode-go that support effort-tier aliases. Each entry maps the
  * canonical base id to the set of effort suffixes the upstream supports.
  *
@@ -49,11 +74,23 @@ const EFFORT_LEVELS = ["low", "medium", "high", "max"] as const;
  *   low/medium are not supported on the OpenAI transport)
  * - mimo-v2.5: high/max only (same reasoning; Xiaomi MiMo does not document
  *   low/medium effort tiers)
+ * - #8353 OpenCode Go registry effort variants (exact suffix sets from
+ *   `opencode models opencode-go --verbose`; MiniMax M3 excluded — different
+ *   thinking-mode mapping):
+ *   deepseek-v4-flash high/max; grok-4.5 low/medium/high; hy3 none/low/high;
+ *   kimi-k3 max; qwen3.6-plus / qwen3.7-max / qwen3.7-plus high/max
  */
 const EFFORT_TIERS: Record<string, readonly string[]> = {
   "deepseek-v4-pro": EFFORT_LEVELS,
+  "deepseek-v4-flash": ["high", "max"],
   "glm-5.2": ["high", "max"],
   "mimo-v2.5": ["high", "max"],
+  "grok-4.5": ["low", "medium", "high"],
+  hy3: ["none", "low", "high"],
+  "kimi-k3": ["max"],
+  "qwen3.6-plus": ["high", "max"],
+  "qwen3.7-max": ["high", "max"],
+  "qwen3.7-plus": ["high", "max"],
 };
 
 /**
@@ -74,7 +111,31 @@ export function parseEffortLevel(model: string): { baseModel: string; effort: st
   return null;
 }
 
+/**
+ * Determine whether a model requires an API key on the given opencode provider.
+ *
+ * - `opencode-go`: ALL models require a key (no free tier).
+ * - `opencode` / `opencode-zen`: premium = any model NOT in the free set (known
+ *   free models OR ending in `-free`).
+ * - Unknown models are assumed premium (fail-safe).
+ */
+export function isPremiumOpencodeModel(model: string, provider: string): boolean {
+  // opencode-go has no free tier — every model requires a key.
+  if (provider === "opencode-go") return true;
+
+  // Models ending in `-free` are always free on the noauth/zen tier.
+  if (model.endsWith("-free")) return false;
+
+  // Check the known free model catalog.
+  return !OPENCODE_FREE_MODELS.has(model);
+}
+
 export class OpencodeExecutor extends BaseExecutor {
+  /** Delegates to `isPremiumOpencodeModel`. Exported for testability. */
+  static isPremiumModel(model: string, provider: string): boolean {
+    return isPremiumOpencodeModel(model, provider);
+  }
+
   _requestFormat: string | null = null;
 
   /**
@@ -169,6 +230,33 @@ export class OpencodeExecutor extends BaseExecutor {
 
   async execute(input: ExecuteInput) {
     this._requestFormat = getModelTargetFormat(this.provider, input.model) || "openai";
+
+    // #8681: Gate premium opencode models behind a usable API key.
+    // When the connection is keyless (no apiKey, no accessToken) and the model
+    // is a premium model (not on the free tier), return a clear 402 error
+    // instead of proxying the raw upstream 401 "Missing API key" response.
+    const creds = input.credentials;
+    const isKeyless =
+      !creds?.apiKey && !creds?.accessToken && !creds?.providerSpecificData?.extraApiKeys;
+    if (isKeyless && isPremiumOpencodeModel(input.model, this.provider)) {
+      const bodyJson = JSON.stringify({
+        error: {
+          message: "This model requires an opencode API key — add one in Settings → Providers.",
+          type: "invalid_request_error",
+          code: "premium_model_requires_key",
+        },
+      });
+      return {
+        response: new Response(bodyJson, {
+          status: 402,
+          headers: { "Content-Type": "application/json" },
+        }),
+        url: "",
+        headers: {} as Record<string, string>,
+        transformedBody: null,
+      };
+    }
+
     try {
       this.syncAccountsFromCredentials(input.credentials);
 
@@ -251,7 +339,11 @@ export class OpencodeExecutor extends BaseExecutor {
     model?: string
   ) {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
-    const key = credentials?.apiKey || credentials?.accessToken;
+    // #8467: honor Extra API Keys rotation via BaseExecutor.resolveEffectiveKey.
+    // Fall back to accessToken only when no apiKey/extras resolve to a key.
+    const key = credentials
+      ? this.resolveEffectiveKey(credentials) || credentials.accessToken
+      : undefined;
 
     if (key) {
       if (this._requestFormat === "claude") {
@@ -306,6 +398,77 @@ export class OpencodeExecutor extends BaseExecutor {
     return headers;
   }
 
+  /**
+   * OpenCode's free DeepSeek V4 Flash endpoint accepts json_object but
+   * rejects json_schema response_format with HTTP 400. Preserve the schema
+   * as an instruction and downgrade only this proven-incompatible route to
+   * json_object so callers still receive structured JSON.
+   */
+  private applyDeepSeekJsonSchemaFallback<T>(model: string, body: T): T {
+    if (
+      model !== "deepseek-v4-flash-free" ||
+      (this.provider !== "opencode" && this.provider !== "opencode-zen")
+    ) {
+      return body;
+    }
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return body;
+    }
+
+    const record = body as Record<string, unknown>;
+    const responseFormat = record.response_format as
+      | {
+          type?: string;
+          json_schema?: {
+            schema?: unknown;
+          };
+        }
+      | undefined;
+
+    if (responseFormat?.type !== "json_schema" || !responseFormat.json_schema?.schema) {
+      return body;
+    }
+
+    const schemaJson = JSON.stringify(responseFormat.json_schema.schema, null, 2);
+
+    const prompt =
+      "You must respond with valid JSON that strictly follows " +
+      "this JSON schema:\\n```json\\n" +
+      schemaJson +
+      "\\n```\\nRespond ONLY with the JSON object, no other text.";
+
+    const messages: Array<Record<string, unknown>> = Array.isArray(record.messages)
+      ? (record.messages as Array<Record<string, unknown>>).map((message) => ({ ...message }))
+      : [];
+
+    const systemMessage = messages.find((message) => message.role === "system");
+
+    if (systemMessage) {
+      if (typeof systemMessage.content === "string") {
+        systemMessage.content = `${systemMessage.content}\\n\\n${prompt}`;
+      } else if (Array.isArray(systemMessage.content)) {
+        systemMessage.content.push({
+          type: "text",
+          text: `\\n\\n${prompt}`,
+        });
+      }
+    } else {
+      messages.unshift({
+        role: "system",
+        content: prompt,
+      });
+    }
+
+    return {
+      ...record,
+      messages,
+      response_format: {
+        type: "json_object",
+      },
+    } as T;
+  }
+
   transformRequest(
     model: string,
     body: any,
@@ -313,6 +476,7 @@ export class OpencodeExecutor extends BaseExecutor {
     credentials: ProviderCredentials
   ): any {
     let modifiedBody = super.transformRequest(model, body, stream, credentials);
+    modifiedBody = this.applyDeepSeekJsonSchemaFallback(model, modifiedBody);
     // 9router#1442: OpenCode upstreams (e.g. kimi-k2.6 via opencode-go) return
     // 400 "Extra inputs are not permitted, field: 'client_metadata'" — an
     // OpenAI-Codex/Claude-CLI passthrough field with no equivalent here. The
@@ -326,13 +490,11 @@ export class OpencodeExecutor extends BaseExecutor {
     ) {
       delete (modifiedBody as Record<string, unknown>).client_metadata;
     }
-    if (
-      modifiedBody &&
-      typeof modifiedBody === "object" &&
-      Array.isArray(modifiedBody.tools) &&
-      modifiedBody.tools.length > 128
-    ) {
-      modifiedBody.tools = modifiedBody.tools.slice(0, 128);
+    if (modifiedBody && typeof modifiedBody === "object" && !Array.isArray(modifiedBody)) {
+      const mb = modifiedBody as Record<string, unknown>;
+      if (Array.isArray(mb.tools) && mb.tools.length > 128) {
+        mb.tools = mb.tools.slice(0, 128);
+      }
     }
     if (modifiedBody && typeof modifiedBody === "object" && !Array.isArray(modifiedBody)) {
       const mb = modifiedBody as Record<string, unknown>;

@@ -197,6 +197,15 @@ export const COMPRESSION_CONTEXT_GROUP: SidebarItemGroup = {
       subtitleFallback: "Live engine cascade",
       icon: "monitoring",
     },
+    {
+      id: "compression-exclusions",
+      href: "/dashboard/compression/exclusions",
+      i18nKey: "compressionExclusions",
+      labelFallback: "Exclusions",
+      subtitleKey: "compressionExclusionsSubtitle",
+      subtitleFallback: "Per-model/endpoint bypass",
+      icon: "block",
+    },
   ],
 };
 
@@ -385,6 +394,13 @@ const LOGS_GROUP: SidebarItemGroup = {
       subtitleKey: "consoleLogsSubtitle",
       icon: "terminal",
     },
+    {
+      id: "logs-timeline",
+      href: "/dashboard/logs/timeline",
+      i18nKey: "logsTimeline",
+      subtitleKey: "logsTimelineSubtitle",
+      icon: "view_timeline",
+    },
   ],
 };
 
@@ -407,6 +423,13 @@ const SYSTEM_GROUP: SidebarItemGroup = {
       i18nKey: "runtime",
       subtitleKey: "runtimeSubtitle",
       icon: "bolt",
+    },
+    {
+      id: "resilience-connections",
+      href: "/dashboard/resilience/connections",
+      i18nKey: "resilienceConnections",
+      subtitleKey: "resilienceConnectionsSubtitle",
+      icon: "shield",
     },
   ],
 };
@@ -446,6 +469,14 @@ const COSTS_ITEMS: readonly SidebarItemDefinition[] = [
     i18nKey: "freeProviderRankings",
     subtitleKey: "freeProviderRankingsSubtitle",
     icon: "leaderboard",
+  },
+  {
+    id: "radar",
+    href: "/dashboard/radar",
+    i18nKey: "radar",
+    subtitleKey: "radarSubtitle",
+    icon: "radar",
+    featureFlagKey: "RADAR_ENABLED",
   },
 ];
 
@@ -645,6 +676,13 @@ const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
     icon: "auto_awesome",
   },
   {
+    id: "settings-modality-bridge",
+    href: "/dashboard/settings/modality-bridge",
+    i18nKey: "settingsModalityBridge",
+    subtitleKey: "settingsModalityBridgeSubtitle",
+    icon: "image_search",
+  },
+  {
     id: "settings-routing",
     href: "/dashboard/settings/routing",
     i18nKey: "globalRouting",
@@ -686,6 +724,13 @@ const CONFIGURATION_ITEMS: readonly SidebarItemDefinition[] = [
     i18nKey: "settingsFeatureFlags",
     subtitleKey: "settingsFeatureFlagsSubtitle",
     icon: "flag",
+  },
+  {
+    id: "settings-cache",
+    href: "/dashboard/settings/cache",
+    i18nKey: "settingsCache",
+    subtitleKey: "settingsCacheSubtitle",
+    icon: "memory",
   },
   {
     id: "settings-sidebar",

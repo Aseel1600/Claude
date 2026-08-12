@@ -44,7 +44,6 @@ const SENTINEL_PREPARE_URL = `${CHATGPT_BASE}/backend-api/sentinel/chat-requirem
 const SENTINEL_CR_URL = `${CHATGPT_BASE}/backend-api/sentinel/chat-requirements`;
 const CONV_URL = `${CHATGPT_BASE}/backend-api/f/conversation`;
 const USER_LAST_USED_MODEL_CONFIG_URL = `${CHATGPT_BASE}/backend-api/settings/user_last_used_model_config`;
-
 const DEFAULT_PRO_POLL_TIMEOUT_MS = 20 * 60_000;
 const DEFAULT_PRO_POLL_INTERVAL_MS = 4_000;
 
@@ -2263,7 +2262,7 @@ interface ResolverContext {
   deviceId: string;
   cookie: string;
   signal?: AbortSignal | null;
-  log?: { debug?: (tag: string, msg: string) => void; warn?: (tag: string, msg: string) => void };
+  log?: Partial<Record<"debug" | "info" | "warn", (tag: string, msg: string) => void>>;
   /**
    * Absolute base URL that downstream clients should use to fetch cached
    * images served by /v1/chatgpt-web/image/<id>. Derived from the inbound
@@ -2659,7 +2658,7 @@ async function pollForAsyncImage(
           : `WebSocket re-registration failed on retry attempt ${attempt + 1}`
       );
       if (attempt === 0) continue; // try again — registration can be flaky
-      return [];
+      break; // fall through to the conversation-poll fallback below
     }
     ctx.log?.debug?.(
       "CGPT-WEB",
@@ -2671,11 +2670,49 @@ async function pollForAsyncImage(
     // Only retry when the connection died before producing anything useful.
     // A clean close with no pointers (e.g., upstream cancellation) shouldn't
     // burn a second attempt — the result would be the same.
-    if (!outcome.errored || outcome.gotAnyMessage) return [];
+    if (!outcome.errored || outcome.gotAnyMessage) break;
     ctx.log?.warn?.(
       "CGPT-WEB",
       `WebSocket attempt ${attempt + 1} ended in transport error before any frame; retrying`
     );
+  }
+
+  // Fallback: the async image websocket is unreliable in some environments —
+  // register-websocket is Cloudflare-sensitive and the plain WebSocket lacks the
+  // browser TLS fingerprint the HTTP client uses, so it can error or receive no
+  // frames even though the image was generated. The image still lands in the
+  // conversation, so poll it over the same authenticated HTTP path used
+  // everywhere else and read the image_asset_pointer directly. This is the
+  // durable fallback recommended in #7357.
+  const pollDeadline = Math.max(deadline, Date.now() + 60_000);
+  while (Date.now() < pollDeadline && !ctx.signal?.aborted) {
+    const { detail } = await fetchConversationDetail(conversationId, ctx);
+    const mapping = detail?.mapping;
+    if (mapping) {
+      // Prefer the newest message carrying image pointers, so a reused
+      // conversation doesn't surface a stale image from an earlier turn.
+      let newest: { pointers: ImagePointerRef[]; at: number } | null = null;
+      for (const node of Object.values(mapping)) {
+        const message = node?.message;
+        const parts = message?.content?.parts;
+        if (!Array.isArray(parts)) continue;
+        const pointers = extractImagePointers(parts).map((pointer) => ({
+          pointer,
+          messageId: message?.id,
+        }));
+        if (pointers.length === 0) continue;
+        const at = message?.create_time ?? 0;
+        if (!newest || at >= newest.at) newest = { pointers, at };
+      }
+      if (newest) {
+        ctx.log?.info?.(
+          "CGPT-WEB",
+          `Recovered ${newest.pointers.length} image pointer(s) via conversation poll (websocket yielded none)`
+        );
+        return newest.pointers;
+      }
+    }
+    await delayWithAbort(3_000, ctx.signal);
   }
   return [];
 }
@@ -2779,8 +2816,10 @@ export class ChatGptWebExecutor extends BaseExecutor {
       };
     }
 
-    // Tool-call emulation (#5240): inject a `<tool>` contract when `tools` are
-    // present; parsed back on the response side. Mirrors qwen-web/perplexity-web.
+    // Tool-call emulation (#5240, #7679): inject a `<tool>` contract when tools
+    // are present; parsed back on the response side. Hardened for thinking models.
+    const resolvedModel = resolveChatGptModel(model, body, credentials.providerSpecificData);
+    const modelSlug = resolvedModel.slug;
     const { hasTools, requestedTools, effectiveMessages } = prepareToolMessages(
       (body || {}) as Record<string, unknown>,
       messages as Array<{ role: string; content: unknown }>
@@ -2881,12 +2920,9 @@ export class ChatGptWebExecutor extends BaseExecutor {
       log
     );
 
-    // 2a''. Resolve model + effort and apply thinking-effort preference for
-    // thinking-capable models. Dedicated thinking models mirror the browser's
-    // user-config PATCH; GPT-5.5 Pro sends the effort with the conversation
-    // body because the Pro standard/extended budget is part of that turn.
-    const resolvedModel = resolveChatGptModel(model, body, credentials.providerSpecificData);
-    const modelSlug = resolvedModel.slug;
+    // 2a''. Apply thinking-effort preference for thinking models.
+    // Dedicated thinking models mirror the browser's user-config PATCH;
+    // GPT-5.5 Pro effort is sent with the conversation body.
     const requestedEffort = resolvedModel.effort;
     if (requestedEffort && isThinkingCapableModel(model, modelSlug)) {
       await setUserThinkingEffort(

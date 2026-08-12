@@ -1,0 +1,1 @@
+- fix(db): invalidate stale LKGP pins when provider connections are deleted (#8887)

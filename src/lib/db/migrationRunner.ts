@@ -28,6 +28,7 @@ import {
   INITIAL_SCHEMA_SENTINELS,
   OPTIONAL_FTS5_MIGRATION_VERSIONS,
 } from "./migrationRunner/constants";
+import { getExtraMigrationFiles } from "./migrationRunner/extraDirs";
 
 const isNodeTestRunnerChild = typeof process.env.NODE_TEST_CONTEXT === "string";
 
@@ -216,7 +217,9 @@ function isDeferredUnsupportedMigration(
  * Get all migration files sorted by version number.
  */
 function getMigrationFiles(): Array<{ version: string; name: string; path: string }> {
-  if (!fs.existsSync(MIGRATIONS_DIR)) return [];
+  // The extra directories are an independent set: a missing core directory must not
+  // make them vanish silently.
+  if (!fs.existsSync(MIGRATIONS_DIR)) return getExtraMigrationFiles();
 
   const files = fs
     .readdirSync(MIGRATIONS_DIR)
@@ -265,7 +268,13 @@ function getMigrationFiles(): Array<{ version: string; name: string; path: strin
     );
   }
 
-  return files;
+  // Extra directories registered via OMNIROUTE_EXTRA_MIGRATIONS_DIRS, appended
+  // AFTER the numeric set so a distribution's own schema always lands on top of
+  // the upstream one. Their versions are namespaced (`ee-134`), so they cannot
+  // collide with a numeric slot, and every downstream consumer here — the applied
+  // set, the gap reconciliation, the name-mismatch check — keys on the version
+  // string and needs no further change. Empty and filesystem-free when unset.
+  return [...files, ...getExtraMigrationFiles()];
 }
 
 function filterSupersededDuplicateMigrations(
@@ -456,6 +465,28 @@ function isSchemaAlreadyApplied(
       // exists the rebuild ran — skip re-executing the rename/copy/drop, which
       // would fail on the missing proxy_assignments_pre117 table.
       return hasColumn(db, "proxy_assignments", "position");
+    // Retroactive guard for the 135/136 renumber (#8523 landed onto slots already taken
+    // by #8908/#9515): a DB that ran these under the old numbers already has the column,
+    // and a bare ALTER TABLE ADD COLUMN would throw on the re-run under the new number.
+    case "137":
+      return hasColumn(db, "version_manager", "auto_restart_adopted");
+    case "138":
+      return hasColumn(db, "upstream_proxy_config", "fallback_backend");
+    case "139":
+      // Retroactive guard for the 134 → 139 renumber: ccr_blocks landed on the 134
+      // slot already taken by proxy_logs_egress_ip. A DB that already applied
+      // ccr_blocks under the old 134 number has the table — skip the re-run.
+      return hasTable(db, "ccr_blocks");
+    case "140":
+      // Retroactive guard for the connection_runtime_state migration renumbered
+      // 135 -> 140 (#9449 landed onto the slot already taken by #8908's
+      // 135_migrate_model_capability_max_token.sql — the same recurring
+      // numbering-race class as the 135/136 -> 137/138 renumber above). A DB
+      // that already ran this under the old 135 number has the table, and a
+      // bare CREATE TABLE re-run would otherwise just no-op (IF NOT EXISTS)
+      // but still burn a version-tracking slot mismatch — guard it the same
+      // way as the other renumbers for consistency.
+      return hasTable(db, "connection_runtime_state");
     default:
       return false;
   }
@@ -891,9 +922,26 @@ export function runMigrations(db: SqliteAdapter, options?: { isNewDb?: boolean }
   // interpolates this resolved value, so it auto-reflects any override.
   const maxPendingMigrations = resolveMaxPendingMigrations();
 
+  // #9934: `omniroute setup`'s openOmniRouteDb writes a partial skeleton file
+  // (provider_connections + key_value) that has never had migrations run. When
+  // the first `serve` opens it and auto-seeds only the 001 marker, the applied
+  // set is exactly {001} — which would otherwise look like a wiped existing DB
+  // and trip this abort on a brand-new install. This is distinct from a real
+  // wiped/backup-restored database: that case has a non-trivial physical schema
+  // (baseline inference is non-null) and full data tables, so it still aborts.
+  // The 001-marker-only state on a provider_connections skeleton is the fresh
+  // auto-seed — let it through. A genuinely empty table is already exempt via
+  // `applied.size > 0`, and an upgraded DB has a non-trivial applied set.
+  const isFreshSeedOnly =
+    applied.size === 1 &&
+    applied.has("001") &&
+    inferPhysicalSchemaBaseline(db) === null &&
+    hasTable(db, "provider_connections");
+
   if (
     !isTestEnvironment &&
     !isNewDb &&
+    !isFreshSeedOnly &&
     process.env.DISABLE_SQLITE_AUTO_BACKUP !== "true" &&
     maxPendingMigrations > 0 &&
     applied.size > 0 &&

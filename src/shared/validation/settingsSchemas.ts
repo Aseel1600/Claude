@@ -15,7 +15,10 @@ import { RESPONSES_PREVIOUS_RESPONSE_ID_MODES } from "@/shared/constants/respons
 // Import from the server-free constants leaf, NOT from `@/server/authz/routeGuard`:
 // this schema is reachable from client components (dashboard onboarding wizard), and
 // routeGuard drags in server runtime (→ ioredis) that breaks the client/CLI build.
-import { SPAWN_CAPABLE_PREFIXES } from "@/shared/constants/spawnCapablePrefixes";
+import {
+  SPAWN_CAPABLE_PREFIXES,
+  SPAWN_CAPABLE_PATTERN_ANCESTORS,
+} from "@/shared/constants/spawnCapablePrefixes";
 
 const signatureCacheModeValues = ["enabled", "bypass", "bypass-strict"] as const;
 
@@ -68,6 +71,7 @@ const transformInjectBillingHeaderSchema = z.object({
   versionFormat: z.enum(["ex-machina", "omniroute-daystamp"]),
   cchAlgo: z.enum(["sha256-first-user", "xxhash64-body", "static-zero"]),
   version: z.string().max(50).optional(),
+  buildRevision: z.string().min(1).max(20).optional(),
 });
 
 const commonSystemTransformOperationSchemas = [
@@ -91,6 +95,8 @@ const transformObfuscateWordsSchema = z.object({
 });
 
 export const updateSettingsSchema = z.object({
+  /** #7784: opt-in optimistic concurrency — must match GET settingsRevision / ETag. */
+  expectedRevision: z.number().int().nonnegative().optional(),
   newPassword: z.string().min(1).max(200).optional(),
   currentPassword: z.string().max(200).optional(),
   credentialRedactionEnabled: z.boolean().optional(),
@@ -115,6 +121,8 @@ export const updateSettingsSchema = z.object({
   baseUrl: z.string().max(500).optional(),
   setupComplete: z.boolean().optional(),
   blockedProviders: z.array(z.string().max(100)).optional(),
+  noAuthFallbackDisabledProviders: z.array(z.string().max(100)).optional(),
+  hidePaidModels: z.boolean().optional(),
   hideHealthCheckLogs: z.boolean().optional(),
   hideEndpointCloudflaredTunnel: z.boolean().optional(),
   hideEndpointTailscaleFunnel: z.boolean().optional(),
@@ -132,7 +140,10 @@ export const updateSettingsSchema = z.object({
   showProviderTopologyOnHome: z.boolean().optional(),
   localOnlyManageScopeBypassEnabled: z.boolean().optional(),
   // Layer 1 of the spawn-capable guard (Hard Rules #15/#17): reject any bypass
-  // prefix that reaches a SPAWN_CAPABLE_PREFIXES path at PATCH time, with the
+  // prefix that reaches a SPAWN_CAPABLE_PREFIXES path, or a
+  // SPAWN_CAPABLE_PATTERN_ANCESTORS ancestor (e.g. /api/providers/, the
+  // shared ancestor of the dynamic-segment routes in SPAWN_CAPABLE_PATTERNS
+  // such as /login and /refresh-cursor), at PATCH time, with the
   // BYPASS_PREFIX_NOT_ALLOWED code the settings route handler translates.
   // Layer 2 (isLocalOnlyBypassableByManageScope) still refuses spawn paths at
   // runtime even if a malformed DB row claims otherwise. This refine was in the
@@ -146,7 +157,10 @@ export const updateSettingsSchema = z.object({
         .refine(
           (prefix) => {
             const normalized = prefix.endsWith("/") ? prefix : `${prefix}/`;
-            return !SPAWN_CAPABLE_PREFIXES.some((sp) => normalized.startsWith(sp));
+            return (
+              !SPAWN_CAPABLE_PREFIXES.some((sp) => normalized.startsWith(sp)) &&
+              !SPAWN_CAPABLE_PATTERN_ANCESTORS.some((sp) => normalized.startsWith(sp))
+            );
           },
           {
             message:
@@ -199,6 +213,14 @@ export const updateSettingsSchema = z.object({
       connections: z.record(z.string().max(100), z.boolean()).optional(),
     })
     .optional(),
+  // #8848: opt-in per-connection Claude proactive warmup. `connections` maps a
+  // provider_connections id -> enabled; default is an empty map (off for everyone)
+  // until the operator flips a specific OAuth connection on from the settings UI.
+  claudeWarmup: z
+    .object({
+      connections: z.record(z.string().max(100), z.boolean()).optional(),
+    })
+    .optional(),
   responsesPreviousResponseIdMode: z.enum(RESPONSES_PREVIOUS_RESPONSE_ID_MODES).optional(),
   // Routing settings (#134)
   fallbackStrategy: z.enum(ACCOUNT_FALLBACK_STRATEGY_VALUES).optional(),
@@ -218,12 +240,16 @@ export const updateSettingsSchema = z.object({
     .optional(),
   // #6168: global session-stickiness opt-out (per-combo config overrides this).
   disableSessionStickiness: z.boolean().optional(),
+  /** Keep eligible combo targets close to the provider-side prompt cache. */
+  promptCacheAffinityEnabled: z.boolean().optional(),
   /**
    * Per-operator quota row visibility on the usage dashboard, keyed by
    * provider id. Independent of the model catalog's isHidden/isDeleted flags.
    * Ported from upstream decolua/9router#2371.
    */
-  quotaVisibility: z.record(z.string().trim().min(1), z.object({ hidden: z.array(z.string()).max(500).optional() })).optional(),
+  quotaVisibility: z
+    .record(z.string().trim().min(1), z.object({ hidden: z.array(z.string()).max(500).optional() }))
+    .optional(),
   requestRetry: z.number().int().min(0).max(10).optional(),
   maxRetryIntervalSec: z.number().int().min(0).max(300).optional(),
   maxBodySizeMb: z
@@ -314,6 +340,23 @@ export const updateSettingsSchema = z.object({
   visionBridgePrompt: z.string().max(5000).optional(),
   visionBridgeTimeout: z.number().int().min(1000).max(300000).optional(),
   visionBridgeMaxImages: z.number().int().min(1).max(20).optional(),
+  // Modality Bridge settings (new schema — visionBridge* keys above are the
+  // deprecated legacy aliases, kept accepted for one release cycle)
+  modalityBridgeVisionEnabled: z.boolean().optional(),
+  modalityBridgeVisionMode: z.enum(["auto", "describe", "reroute"]).optional(),
+  modalityBridgeVisionModel: z.string().max(200).optional(),
+  modalityBridgeVisionTaskAware: z.boolean().optional(),
+  modalityBridgeVisionPrompt: z.string().max(5000).optional(),
+  modalityBridgeVisionTimeout: z.number().int().min(1000).max(300000).optional(),
+  modalityBridgeVisionMaxImages: z.number().int().min(1).max(20).optional(),
+  modalityBridgeAudioEnabled: z.boolean().optional(),
+  modalityBridgeAudioModel: z.string().max(200).optional(),
+  modalityBridgeAudioTimeout: z.number().int().min(1000).max(300000).optional(),
+  modalityBridgeAudioMaxClips: z.number().int().min(1).max(10).optional(),
+  modalityBridgeCacheEnabled: z.boolean().optional(),
+  modalityBridgeCacheTtlMinutes: z.number().int().min(1).max(1440).optional(),
+  modalityBridgeCacheMaxEntries: z.number().int().min(10).max(5000).optional(),
+  visionBridgeRerouteTextOnly: z.boolean().optional(),
   // Missing settings
   lkgpEnabled: z.boolean().optional(),
   // #1311: echo the requested alias/combo name in the response model field (opt-in)
@@ -400,6 +443,7 @@ export const databaseSettingsSchema = z
       promptCacheEnabled: z.boolean(),
       promptCacheStrategy: z.literal("auto").or(z.literal("system-only")).or(z.literal("manual")),
       alwaysPreserveClientCache: z.literal("auto").or(z.literal("always")).or(z.literal("never")),
+      modelCatalogCacheTtlMs: z.number().int().min(500).max(60000),
     }),
 
     // Retention settings

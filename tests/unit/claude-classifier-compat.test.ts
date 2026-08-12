@@ -90,9 +90,13 @@ test("detector: auto fires on the security-monitor system-prompt marker", () => 
   assert.equal(shouldDefaultAllowClassifier(FORMATS.CLAUDE, body, "auto"), true);
 });
 
-test("detector: auto fires on the </block> stop_sequence token", () => {
+test("detector: auto does NOT fire on the </block> stop_sequence token alone (#8189 — over-broad trigger fix)", () => {
   const body = { system: [{ type: "text", text: "unrelated" }], stop_sequences: ["</block>"] };
-  assert.equal(shouldDefaultAllowClassifier(FORMATS.CLAUDE, body, "auto"), true);
+  assert.equal(
+    shouldDefaultAllowClassifier(FORMATS.CLAUDE, body, "auto"),
+    false,
+    "stop_sequences=['</block>'] alone must not short-circuit without the security-monitor marker"
+  );
 });
 
 test("detector: auto does NOT fire on a regular Claude request (no marker, no </block>)", () => {
@@ -108,9 +112,25 @@ test("detector: never fires for non-Claude source formats even in always mode", 
   assert.equal(shouldDefaultAllowClassifier(FORMATS.OPENAI, CLASSIFIER_BODY, "always"), false);
 });
 
-test("detector: always fires for every Claude-format request", () => {
+test("detector: always does NOT fire for normal chat without classifier marker (#9276)", () => {
   const plain = { system: [{ type: "text", text: "hi" }], stop_sequences: [] };
-  assert.equal(shouldDefaultAllowClassifier(FORMATS.CLAUDE, plain, "always"), true);
+  assert.equal(
+    shouldDefaultAllowClassifier(FORMATS.CLAUDE, plain, "always"),
+    false,
+    "always must NOT short-circuit a normal chat (no security-monitor marker)"
+  );
+});
+
+test("detector: always fires when classifier marker is present", () => {
+  const classifier = {
+    system: [{ type: "text", text: "You are a security monitor for autonomous AI coding agents. Evaluate the following action." }],
+    stop_sequences: ["</block>"],
+  };
+  assert.equal(
+    shouldDefaultAllowClassifier(FORMATS.CLAUDE, classifier, "always"),
+    true,
+    "always must short-circuit when the classifier marker is present"
+  );
 });
 
 // ─── Pure builder: buildDefaultAllowClaudeMessage ────────────────────────────
