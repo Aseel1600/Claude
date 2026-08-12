@@ -634,17 +634,17 @@ Two binaries are exposed in `package.json` → `bin`:
 
 ## 7. `tests/`
 
-| Directory                                                                      | Type                                                                                        |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| `tests/unit/`                                                                  | Unit tests via Node native test runner (1821 files, plus `api/`, `auth/`, `authz/` subdirs) |
-| `tests/integration/`                                                           | Cross-module + DB-state tests                                                               |
-| `tests/e2e/`                                                                   | Playwright UI tests                                                                         |
-| `tests/protocols-e2e/`                                                         | MCP/A2A protocol e2e                                                                        |
-| `tests/translator/`                                                            | Translator-specific tests                                                                   |
-| `tests/security/`                                                              | Security regressions                                                                        |
-| `tests/load/`                                                                  | Load / stress tests                                                                         |
-| `tests/golden-set/`                                                            | Reference outputs for translator regressions                                                |
-| `tests/helpers/`, `tests/fixtures/`, `tests/manual/`, `tests/scratch_test.mjs` | Support                                                                                     |
+| Directory                                            | Type                                                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `tests/unit/`                                        | Unit tests via Node native test runner (1821 files, plus `api/`, `auth/`, `authz/` subdirs) |
+| `tests/integration/`                                 | Cross-module + DB-state tests                                                               |
+| `tests/e2e/`                                         | Playwright UI tests                                                                         |
+| `tests/protocols-e2e/`                               | MCP/A2A protocol e2e                                                                        |
+| `tests/translator/`                                  | Translator-specific tests                                                                   |
+| `tests/security/`                                    | Security regressions                                                                        |
+| `tests/load/`                                        | Load / stress tests                                                                         |
+| `tests/golden-set/`                                  | Reference outputs for translator regressions                                                |
+| `tests/helpers/`, `tests/fixtures/`, `tests/manual/` | Support                                                                                     |
 
 Common commands:
 

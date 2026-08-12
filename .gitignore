@@ -159,6 +159,7 @@ vscode-extension/
 
 # Empty/dangling files
 typescript
+/MAX
 
 # Gemini Antigravity agent data
 .gemini/
@@ -202,6 +203,9 @@ scripts/i18n/_pending-keys.json
 .claude/commands/port-upstream-issues-cc.md
 .claude/worktrees/
 .codegraph/
+
+# Test executable shims belong in the OS temporary directory, not the repository root
+/.fakebin-*/
 
 # Fumadocs generated source
 .source/
@@ -262,6 +266,7 @@ _artifacts/          # release-green artifacts
 # ESLint file cache (npm run lint --cache / complexity ratchets)
 .eslintcache
 .eslintcache-complexity
+/.eslintcache-*
 
 
 # CI/local quality artifacts (eslint-results.json, quality-ratchet.md, etc.)
