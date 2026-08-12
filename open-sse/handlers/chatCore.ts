@@ -336,8 +336,15 @@ import {
 } from "../utils/aiSdkCompat.ts";
 import { generateRequestId } from "@/shared/utils/requestId";
 import { isLocalStreamLifecycleError } from "@/shared/utils/circuitBreaker";
-import { extractFacts } from "@/lib/memory/extraction";
 import { handleToolCallExecution } from "@/lib/skills/interception";
+import {
+  buildL0CaptureRecords,
+  scheduleL0Capture,
+  evaluateL0CaptureGate,
+  shouldCaptureComboResult,
+  createInMemoryL0Store,
+  type L0CaptureController,
+} from "@/memory/integration/l0Capture.ts";
 import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
 import { getClaudeCodeCompatibleRequestDefaults } from "@/lib/providers/requestDefaults";
 import {
@@ -390,6 +397,36 @@ import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
 
 // extractSystemRoleMessages extracted to chatCore/claudeSystemRole.ts (#3501); re-exported above so
 // existing importers (e.g. tests/unit/system-role-extraction.test.ts) keep resolving it from here.
+
+// Shared L0 capture controller builder. The store defaults to an in-memory
+// implementation so the pipeline never blocks on a missing storage layer
+// (the future Tencent / distillation storage layer will register a real store
+// via `setL0MessageStore`). The L1 enqueue stays a no-op until the distillation
+// worker is wired in.
+function buildL0CaptureController(args: {
+  ownerId: string;
+  sessionId: string;
+  correlationId: string | null;
+  comboExecutionKey: string | null;
+  provider: string | null;
+  model: string | null;
+  log: { debug?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void } | null | undefined;
+}): L0CaptureController {
+  // The store is resolved lazily at schedule time so that a future registered
+  // store wins over the default. We keep a tiny in-memory fallback in the
+  // closure so the pipeline never crashes when no store is registered.
+  const fallback = createInMemoryL0Store();
+  void args; // owner/session/etc. are intentionally unused here — the store is registered separately.
+  return {
+    store: fallback,
+    enqueueL1: {
+      enqueueL1Task() {
+        /* no-op until the L1 distillation worker is wired in */
+      },
+    },
+    log: args.log,
+  };
+}
 
 export async function handleChatCore({
   body,
@@ -4366,15 +4403,44 @@ export async function handleChatCore({
       preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
     });
 
-    if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
-      const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
-      if (requestMemoryText) {
-        extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);
-      }
-
-      const memoryText = extractMemoryTextFromResponse(memoryExtractionResponse);
-      if (memoryText) {
-        extractFacts(memoryText, memoryOwnerId, pipelineSessionId);
+    if (memoryOwnerId && memorySettings?.captureEnabled) {
+      const gate = evaluateL0CaptureGate({
+        ownerId: memoryOwnerId,
+        isInternal: false,
+        captureEnabled: memorySettings.captureEnabled === true,
+        isCombo: Boolean(isCombo),
+        comboExecutionKey: comboExecutionKey ?? null,
+        comboStepId: comboStepId ?? null,
+      });
+      const captureAllowed =
+        gate.shouldCapture ||
+        shouldCaptureComboResult({
+          isCombo: Boolean(isCombo),
+          comboExecutionKey: comboExecutionKey ?? null,
+          comboStepId: comboStepId ?? null,
+        });
+      if (captureAllowed) {
+        const controller = buildL0CaptureController({
+          ownerId: memoryOwnerId,
+          sessionId: pipelineSessionId,
+          correlationId: correlationId ?? null,
+          comboExecutionKey: comboExecutionKey ?? null,
+          provider: provider ?? null,
+          model: effectiveModel ?? null,
+          log,
+        });
+        const records = buildL0CaptureRecords({
+          ownerId: memoryOwnerId,
+          sessionId: pipelineSessionId,
+          correlationId: correlationId ?? null,
+          comboExecutionKey: comboExecutionKey ?? null,
+          requestBody: body as Record<string, unknown>,
+          responseBody: memoryExtractionResponse as Record<string, unknown> | null,
+          source: "chat",
+          provider: provider ?? null,
+          model: effectiveModel ?? null,
+        });
+        scheduleL0Capture(records, controller);
       }
     }
 
@@ -4853,20 +4919,46 @@ export async function handleChatCore({
 
     if (
       memoryOwnerId &&
-      memorySettings?.enabled &&
-      memorySettings.maxTokens > 0 &&
+      memorySettings?.captureEnabled &&
       streamStatus === 200
     ) {
-      const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
-      if (requestMemoryText) {
-        extractFacts(requestMemoryText, memoryOwnerId, pipelineSessionId);
-      }
-
-      const streamedMemoryText = extractMemoryTextFromResponse(
-        (streamResponseBody ?? null) as Record<string, unknown> | null
-      );
-      if (streamedMemoryText) {
-        extractFacts(streamedMemoryText, memoryOwnerId, pipelineSessionId);
+      const gate = evaluateL0CaptureGate({
+        ownerId: memoryOwnerId,
+        isInternal: false,
+        captureEnabled: memorySettings.captureEnabled === true,
+        isCombo: Boolean(isCombo),
+        comboExecutionKey: comboExecutionKey ?? null,
+        comboStepId: comboStepId ?? null,
+      });
+      const captureAllowed =
+        gate.shouldCapture ||
+        shouldCaptureComboResult({
+          isCombo: Boolean(isCombo),
+          comboExecutionKey: comboExecutionKey ?? null,
+          comboStepId: comboStepId ?? null,
+        });
+      if (captureAllowed) {
+        const controller = buildL0CaptureController({
+          ownerId: memoryOwnerId,
+          sessionId: pipelineSessionId,
+          correlationId: correlationId ?? null,
+          comboExecutionKey: comboExecutionKey ?? null,
+          provider: provider ?? null,
+          model: effectiveModel ?? null,
+          log,
+        });
+        const records = buildL0CaptureRecords({
+          ownerId: memoryOwnerId,
+          sessionId: pipelineSessionId,
+          correlationId: correlationId ?? null,
+          comboExecutionKey: comboExecutionKey ?? null,
+          requestBody: body as Record<string, unknown>,
+          responseBody: (streamResponseBody ?? null) as Record<string, unknown> | null,
+          source: "stream",
+          provider: provider ?? null,
+          model: effectiveModel ?? null,
+        });
+        scheduleL0Capture(records, controller);
       }
     }
 
