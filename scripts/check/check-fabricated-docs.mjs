@@ -360,19 +360,6 @@ const SKIP_DOC_FILES = new Set([
   "docs/reference/PROVIDER_REFERENCE.md", // auto-generated from providers.ts
   "docs/openapi.yaml",
   "docs/i18n", // translations — separate workflow
-  // Design / research / plan docs: by definition describe not-yet-built files and
-  // proposed (not-yet-shipped) endpoints (each carries a `Status: Design`/`Active
-  // research`/`Plano` header). Same rationale as the audit report above — these are
-  // forward-looking specs, not living API docs, so their forward references are
-  // expected, not fabrications.
-  "docs/research", // DISCOVERY_TOOL_DESIGN.md, UNLIMITED_LLM_ACCESS.md, …
-  "docs/superpowers/plans", // dated implementation plans (files described before they exist)
-  "docs/superpowers/specs", // dated research/spec reports (point-in-time findings, may cite proposed/not-yet-built endpoints, env vars, and files) — same rationale as the plans/research dirs above
-  // Release notes are historical, point-in-time records: they intentionally describe
-  // modules/paths as they were at that release (e.g. a module later moved or renamed).
-  // Rewriting them to today's layout would falsify history — out of scope for a
-  // living-docs accuracy gate.
-  "docs/releases",
   // Forward-looking coverage plan: a `- [ ]` checklist of test targets and helper
   // components to be created. Same rationale as the design/plan docs above.
   "docs/ops/COVERAGE_PLAN.md",
