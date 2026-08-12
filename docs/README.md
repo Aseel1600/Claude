@@ -28,6 +28,7 @@ Simple guides for using OmniRoute — no technical background needed.
 
 - [SETUP_GUIDE.md](guides/SETUP_GUIDE.md) — first-time setup of OmniRoute.
 - [USER_GUIDE.md](guides/USER_GUIDE.md) — daily usage of the dashboard and API.
+- [THINKING_BUDGET.md](guides/THINKING_BUDGET.md) — thinking/reasoning budget modes (passthrough vs auto-strip).
 - [FEATURES.md](guides/FEATURES.md) — dashboard feature gallery.
 - [TIERS.md](guides/TIERS.md) — OmniRoute tiers explained (user guide).
 - [USAGE_QUOTA_GUIDE.md](guides/USAGE_QUOTA_GUIDE.md) — usage, quota & spend tracking.
