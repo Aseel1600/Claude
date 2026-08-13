@@ -8146,7 +8146,16 @@
     "cliproxyapiHealth": "Zdravie",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Host",
-    "qdrantCollection": "Zbierka"
+    "qdrantCollection": "Zbierka",
+    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
+    "thinkingModePassthrough": "__MISSING__:Passthrough",
+    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
+    "thinkingModeAuto": "__MISSING__:Auto (strip)",
+    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
+    "thinkingModeCustom": "__MISSING__:Custom",
+    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
+    "thinkingModeAdaptive": "__MISSING__:Adaptive",
+    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
   },
   "contextRtk": {
     "title": "RTK Engine",

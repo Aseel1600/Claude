@@ -161,7 +161,9 @@ export interface RequestMessage {
 
 export type RequestContentPart =
   | { type: "text"; text: string }
+  | { type: "input_text"; text: string }
   | { type: "image_url"; image_url: { url: string; detail?: string } }
+  | { type: "input_image"; image_url: string; detail?: string }
   | {
       type: "image";
       source: { type: "base64"; media_type: string; data: string } | { type: "url"; url: string };
@@ -815,6 +817,7 @@ async function callVisionModelSingle(
 export interface RequestBody {
   model?: string;
   messages?: RequestMessage[];
+  input?: RequestMessage[];
   [key: string]: unknown;
 }
 
@@ -834,14 +837,23 @@ export function replaceImageParts(
 
   const result = structuredClone(body) as RequestBody;
 
-  if (!Array.isArray(result.messages)) {
+  const usesResponsesInput = !Array.isArray(result.messages) && Array.isArray(result.input);
+  const requestMessages = Array.isArray(result.messages)
+    ? result.messages
+    : usesResponsesInput
+      ? result.input
+      : null;
+
+  if (!requestMessages) {
     return result;
   }
 
+  const replacementTextType: "text" | "input_text" = usesResponsesInput ? "input_text" : "text";
+
   let descriptionIndex = 0;
 
-  for (let msgIdx = 0; msgIdx < result.messages.length; msgIdx++) {
-    const message = result.messages[msgIdx];
+  for (let msgIdx = 0; msgIdx < requestMessages.length; msgIdx++) {
+    const message = requestMessages[msgIdx];
     if (!message || !Array.isArray(message.content)) {
       continue;
     }
@@ -863,7 +875,10 @@ export function replaceImageParts(
             // image so a vision-capable upstream can still process it.
             newContent.push(part as RequestContentPart);
           } else {
-            newContent.push({ type: "text", text: description });
+            newContent.push({
+              type: replacementTextType,
+              text: description,
+            } as RequestContentPart);
           }
         }
       } else {

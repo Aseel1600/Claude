@@ -1562,6 +1562,7 @@ async function handleSingleModelChat(
           correlationId: runtimeOptions?.correlationId ?? null,
           modelPinned: runtimeOptions?.modelPinned ?? false,
           routingComboId: runtimeOptions?.routingComboId ?? null,
+          sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
         });
       } catch (error) {
         releaseOAuthSession();

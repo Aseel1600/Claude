@@ -74,6 +74,7 @@ import {
   hasUnsupportedReasoningSignal,
 } from "./reasoningFields.ts";
 import { applyThinkTag, flushThink, initThinkState } from "./thinkTagParser.ts";
+import { sseCommentsEnabled } from "./sseHeartbeat.ts";
 import {
   caseInsensitiveToolNameLookup,
   restoreOpenAIToolNames,

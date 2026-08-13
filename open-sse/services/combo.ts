@@ -1908,7 +1908,23 @@ export async function handleComboChat({
             !isTokenLimitBreach &&
             !scopedFailure &&
             [408, 429, 500, 502, 503, 504].includes(result.status);
-          if (retry < maxRetries && isTransient && !providerExhausted) {
+          // failoverBeforeRetry means what it says: prefer the next sibling
+          // target over hammering this one again. Without this check, a
+          // transient error always re-hit the SAME model up to maxRetries
+          // times regardless of the setting — config.failoverBeforeRetry was
+          // threaded through to skipUpstreamRetry (a different, lower-level
+          // retry mechanism) but never consulted here, so a rate-limited
+          // model got maxRetries+1 back-to-back attempts on itself before
+          // this loop's own fallback-to-next-target ever ran (#2417). Only
+          // skip the same-model retry when `nextTarget` (computed above)
+          // actually gives us somewhere to fail over to — with no sibling
+          // left, skipping just burns the last attempt for nothing.
+          if (
+            retry < maxRetries &&
+            isTransient &&
+            !providerExhausted &&
+            (!config.failoverBeforeRetry || !nextTarget)
+          ) {
             if (
               !protectedPriorityTarget &&
               provider &&
@@ -2644,7 +2660,8 @@ async function handleRoundRobinCombo({
         filteredTargets,
         // #7270: normalize both wire shapes (.messages / Responses-API .input) so RR
         // stickiness engages on the /v1/responses surface, not just Chat Completions.
-        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown })
+        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown }),
+        combo.name
       );
   const rrAffinity = applyPromptCacheAffinity(
     filteredTargets,
@@ -3141,7 +3158,18 @@ async function handleRoundRobinCombo({
           !isTokenLimitBreach &&
           !scopedFailure &&
           [408, 429, 500, 502, 503, 504].includes(result.status);
-        if (retry < maxRetries && isTransient && !providerExhausted) {
+        // See the same guard's comment in the "auto" strategy loop above —
+        // failoverBeforeRetry must prevent this same-model retry too, not
+        // just the lower-level skipUpstreamRetry mechanism. Only skip when
+        // `offset + 1 < modelCount` means a sibling target is actually left
+        // in this rotation; with none left, skipping just wastes the attempt.
+        const hasNextRrTarget = offset + 1 < modelCount;
+        if (
+          retry < maxRetries &&
+          isTransient &&
+          !providerExhausted &&
+          (!config.failoverBeforeRetry || !hasNextRrTarget)
+        ) {
           continue;
         }
 
