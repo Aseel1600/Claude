@@ -41,7 +41,7 @@ import {
   resolveResetWindowConfig,
   getResetAwareProvider,
   scoreResetAwareQuota,
-  getResetWindowTimestampMs,
+  getResetWindowRemainingMs,
   type QuotaFetchCacheConfig,
 } from "./quotaScoring.ts";
 import { rankByHeadroom, type HeadroomSaturation } from "./headroomRanking.ts";
@@ -89,9 +89,7 @@ async function getQuotaAwareConnectionsForTarget(
               ? (connections as Array<Record<string, unknown>>)
               : [];
             if (provider === "antigravity" || provider === "agy") {
-              activeConnections = preferAntigravityConnectionsWithStoredProject(
-                activeConnections
-              ) as Array<Record<string, unknown>>;
+              activeConnections = preferAntigravityConnectionsWithStoredProject(activeConnections);
             }
             if (
               !resetAwareConnectionCache.has(provider) &&
@@ -536,27 +534,35 @@ export async function orderTargetsByResetWindow(
     apiKeyAllowedConnectionIds
   );
 
+  // One `now` snapshot for the whole ranking: quota fetches run concurrently and
+  // can take seconds, so re-reading the clock per target would compare remaining
+  // times measured against different instants (#9330).
+  const now = Date.now();
   const scoredTargets = await scoreQuotaAwareTargets({
     comboName,
     config,
     connectionById,
     expandedTargets,
     log,
-    scoreQuota: (quota) => ({ resetMs: getResetWindowTimestampMs(quota, config.windows) }),
+    scoreQuota: (quota) => ({
+      remainingMs: getResetWindowRemainingMs(quota, config.windows, now),
+    }),
   });
 
+  // Ascending: the account whose quota resets SOONEST goes first. Targets with
+  // no known reset (Infinity) fall to the back, ordered by combo priority.
   scoredTargets.sort((a, b) => {
-    if (a.resetMs !== b.resetMs) return a.resetMs - b.resetMs;
+    if (a.remainingMs !== b.remainingMs) return a.remainingMs - b.remainingMs;
     return a.index - b.index;
   });
 
-  const bestResetMs = scoredTargets[0]?.resetMs ?? Infinity;
-  if (!Number.isFinite(bestResetMs) || config.tieBandMs <= 0) {
+  const bestRemainingMs = scoredTargets[0]?.remainingMs ?? Infinity;
+  if (!Number.isFinite(bestRemainingMs) || config.tieBandMs <= 0) {
     return scoredTargets.map((entry) => entry.target);
   }
 
   const tiedTargets = scoredTargets.filter(
-    (entry) => entry.resetMs - bestResetMs <= config.tieBandMs
+    (entry) => entry.remainingMs - bestRemainingMs <= config.tieBandMs
   );
   if (tiedTargets.length <= 1) return scoredTargets.map((entry) => entry.target);
 

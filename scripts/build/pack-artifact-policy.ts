@@ -41,6 +41,7 @@ export const APP_STAGING_ALLOWED_EXACT_PATHS: string[] = [
   "head-response-guard.cjs",
   "http-method-guard.cjs",
   "open-sse/mcp-server/server.js",
+  "open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/mcp-server.js",
   // LLMLingua ONNX worker — esbuild'd standalone .js spawned via worker_threads
   // (the Next.js bundler can't trace the computed Worker path). Kept like the MCP server.
   "open-sse/services/compression/engines/llmlingua/onnxWorker.js",
@@ -48,6 +49,7 @@ export const APP_STAGING_ALLOWED_EXACT_PATHS: string[] = [
   "peer-stamp.mjs",
   "main-server-timeouts.mjs",
   "responses-ws-proxy.mjs",
+  "bin/chatgpt-web-codex-mcp.mjs",
   "scripts/dev/sync-env.mjs",
   "scripts/dev/tls-options.mjs",
   "server.js",
@@ -86,13 +88,19 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   ".env.example",
   "LICENSE",
   "README.md",
+  "THIRD_PARTY_NOTICES.md",
   "bin/aliasResolver.mjs",
+  "bin/chatgpt-web-codex-mcp.mjs",
   // #7808: ESM loader hook split out of bin/aliasResolver.mjs to silence CodeQL
   // js/incomplete-url-substring-sanitization (the old code built a
   // `data:text/javascript,...` URL dynamically). Loaded via pathToFileURL() at
   // runtime; shipped via package.json "files", so it must be allowed here.
   "bin/aliasResolverHook.mjs",
   "bin/mcp-server.mjs",
+  // #9281: stdout/stderr console guard preloaded via `node --import` by
+  // bin/mcp-server.mjs before the MCP entry's module graph evaluates — without it
+  // the published CLI's `omniroute --mcp` crashes on the pathToFileURL() import.
+  "bin/mcpStdioConsoleGuard.mjs",
   "bin/nodeRuntimeSupport.mjs",
   "bin/omniroute.mjs",
   "bin/reset-password.mjs",
@@ -117,6 +125,9 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   // shipped via package.json "files", so it must be allowed in the tarball.
   "open-sse/utils/setupPolyfill.ts",
   "package.json",
+  "scripts/build/assembleStandalone.mjs",
+  "scripts/build/backendOnlyPages.mjs",
+  "scripts/build/build-tproxy-native.mjs",
   "scripts/build/build-next-isolated.mjs",
   "scripts/check/check-supported-node-runtime.ts",
   "scripts/build/native-binary-compat.mjs",
@@ -160,6 +171,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_PATH_PREFIXES: string[] = [
 
 export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "dist/open-sse/services/compression/engines/rtk/filters/generic-output.json",
+  "dist/open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/mcp-server.js",
   "dist/open-sse/services/compression/rules/en/filler.json",
   "dist/server.js",
   "dist/server-ws.mjs",
@@ -183,6 +195,10 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "bin/cli/utils/storageKeyProvision.mjs",
   "bin/cli/utils/versionFastPath.mjs",
   "bin/mcp-server.mjs",
+  // #9281: stdout/stderr console guard preloaded via `node --import` by
+  // bin/mcp-server.mjs before the MCP entry's module graph evaluates — without it
+  // the published CLI's `omniroute --mcp` crashes on the pathToFileURL() import.
+  "bin/mcpStdioConsoleGuard.mjs",
   "bin/nodeRuntimeSupport.mjs",
   "bin/omniroute.mjs",
   // #7808: aliasResolver + its hook file. bin/omniroute.mjs imports
@@ -210,6 +226,59 @@ export function normalizeArtifactPath(filePath: string): string {
     .replace(/^\.\//, "")
     .replace(/^\/+/, "")
     .replace(/\/{2,}/g, "/");
+}
+
+/** Extract complete JSON values from npm's mixed stdout/stderr-style output. */
+export function parseJsonValuesOutput(output: string): unknown[] {
+  const values: unknown[] = [];
+  for (let start = 0; start < output.length; start++) {
+    if (output[start] !== "[" && output[start] !== "{") continue;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+    for (let end = start; end < output.length; end++) {
+      const char = output[end];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if (char === "[" || char === "{") {
+        stack.push(char);
+      } else if (char === "]" || char === "}") {
+        const expectedOpen = char === "]" ? "[" : "{";
+        if (stack.at(-1) !== expectedOpen) break;
+        stack.pop();
+        if (stack.length === 0) {
+          try {
+            const parsed: unknown = JSON.parse(output.slice(start, end + 1));
+            values.push(parsed);
+            start = end;
+          } catch {
+            // This bracket pair was not a complete JSON value; continue scanning.
+          }
+          break;
+        }
+      }
+    }
+  }
+  return values;
+}
+
+/** Extract the first matching JSON array from npm's mixed stdout/stderr-style output. */
+export function parseJsonArrayOutput(
+  output: string,
+  matches: (parsed: unknown[]) => boolean = () => true
+): unknown[] {
+  const parsed = parseJsonValuesOutput(output).find(
+    (value): value is unknown[] => Array.isArray(value) && matches(value)
+  );
+  if (!parsed) throw new Error("Expected a valid JSON array in command output.");
+  return parsed;
 }
 
 /**

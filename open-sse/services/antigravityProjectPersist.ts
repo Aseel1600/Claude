@@ -39,7 +39,7 @@ export function preferAntigravityConnectionsWithStoredProject<T extends Record<s
 ): T[] {
   if (!Array.isArray(connections) || connections.length === 0) return connections;
   const hasStoredProject = (connection: T): boolean => {
-    if (typeof connection.projectId === "string" && connection.projectId) return true;
+    if (typeof connection.projectId === "string" && connection.projectId.trim()) return true;
     let psd = connection.providerSpecificData;
     if (typeof psd === "string") {
       try {
@@ -48,12 +48,9 @@ export function preferAntigravityConnectionsWithStoredProject<T extends Record<s
         return false;
       }
     }
-    return Boolean(
-      psd &&
-      typeof psd === "object" &&
-      typeof (psd as Record<string, unknown>).projectId === "string" &&
-      (psd as Record<string, unknown>).projectId
-    );
+    if (!psd || typeof psd !== "object") return false;
+    const projectId = (psd as Record<string, unknown>).projectId;
+    return typeof projectId === "string" && projectId.trim().length > 0;
   };
   const withStoredProject = connections.filter(hasStoredProject);
   return withStoredProject.length > 0 ? withStoredProject : connections;

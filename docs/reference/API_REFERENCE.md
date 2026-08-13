@@ -61,24 +61,24 @@ Content-Type: application/json
 
 ### Custom Headers
 
-| Header                   | Direction | Description                                                                                                                                                                       |
-| ------------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                                                                                                                                                     |
-| `x-omniroute-no-memory`  | Request   | Set to `true` to skip memory + skills injection for this request (mirrors no-cache; avoids the per-call token/cost overhead)                                                      |
-| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                                                                                                                                                 |
-| `X-Session-Id`           | Request   | Sticky session key for external session affinity                                                                                                                                  |
-| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)                                                                                                                                    |
+| Header                   | Direction | Description                                                                                                                                                                                        |
+| ------------------------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `X-OmniRoute-No-Cache`   | Request   | Set to `true` to bypass cache                                                                                                                                                                      |
+| `x-omniroute-no-memory`  | Request   | Set to `true` to skip memory + skills injection for this request (mirrors no-cache; avoids the per-call token/cost overhead)                                                                       |
+| `X-OmniRoute-Progress`   | Request   | Set to `true` for progress events                                                                                                                                                                  |
+| `X-Session-Id`           | Request   | Sticky session key for external session affinity                                                                                                                                                   |
+| `x_session_id`           | Request   | Underscore variant also accepted (direct HTTP)                                                                                                                                                     |
 | `X-OmniRoute-Session-Id` | Request   | Caller-supplied session/conversation tag (also feeds memory). When present, persisted verbatim to `call_logs.session_tag` for per-session cost attribution (#8249) — never synthesized when absent |
-| `Idempotency-Key`        | Request   | Dedup key (5s window)                                                                                                                                                             |
-| `X-Request-Id`           | Request   | Alternative dedup key                                                                                                                                                             |
-| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                                                                                                                                                   |
-| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                                                                                                                                                            |
-| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                                                                                                                                                 |
-| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute                                                                                                                                            |
-| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)                                                                                                                                               |
-| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)                                                                                                                                          |
-| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only)                                                                                                                                  |
-| `X-OmniRoute-Decision`   | Response  | Routing trace: `strategy=<name>; provider=<alias>; latency_ms=<n>` (`<name>` is the combo strategy, or `single` for a non-combo request) — always present on completion responses |
+| `Idempotency-Key`        | Request   | Dedup key (5s window)                                                                                                                                                                              |
+| `X-Request-Id`           | Request   | Alternative dedup key                                                                                                                                                                              |
+| `X-OmniRoute-Cache`      | Response  | `HIT` or `MISS` (non-streaming)                                                                                                                                                                    |
+| `X-OmniRoute-Idempotent` | Response  | `true` if deduplicated                                                                                                                                                                             |
+| `X-OmniRoute-Progress`   | Response  | `enabled` if progress tracking on                                                                                                                                                                  |
+| `X-OmniRoute-Session-Id` | Response  | Effective session ID used by OmniRoute                                                                                                                                                             |
+| `X-OmniRoute-Request-Id` | Response  | Request correlation id (when known)                                                                                                                                                                |
+| `X-OmniRoute-Version`    | Response  | OmniRoute build version (always present)                                                                                                                                                           |
+| `X-OmniRoute-Cost-Saved` | Response  | USD the cache avoided on a HIT (cache hits only)                                                                                                                                                   |
+| `X-OmniRoute-Decision`   | Response  | Routing trace: `strategy=<name>; provider=<alias>; latency_ms=<n>` (`<name>` is the combo strategy, or `single` for a non-combo request) — always present on completion responses                  |
 
 > Nginx note: if you rely on underscore headers (for example `x_session_id`), enable `underscores_in_headers on;`.
 
@@ -128,7 +128,7 @@ Content-Type: application/json
 }
 ```
 
-Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, **GitHub Models**.
+Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**.
 
 Registry models that advertise multimodal support also accept up to 32 provider-neutral structured
 items. Media item types are `text`, `image`, `audio`, `video`, and `document`. Their media `source`
@@ -349,9 +349,9 @@ Web/search provider abstraction (Tavily, Brave, Exa, Serper, etc.).
 Extract content from a URL via a configured web-fetch provider (Firecrawl, Jina
 Reader, Tavily Extract, TinyFish Fetch).
 
-| Method | Path           | Description                                                              |
-| ------ | -------------- | ------------------------------------------------------------------------- |
-| POST   | `/v1/web/fetch` | Fetch/scrape a URL — body validated by `v1WebFetchSchema`               |
+| Method | Path            | Description                                               |
+| ------ | --------------- | --------------------------------------------------------- |
+| POST   | `/v1/web/fetch` | Fetch/scrape a URL — body validated by `v1WebFetchSchema` |
 
 **Auth:** Bearer API key (`extractApiKey` + `isValidApiKey`). Policy enforced via `enforceApiKeyPolicy`.
 
@@ -481,6 +481,42 @@ Response example:
 }
 ```
 
+### Latency impact
+
+A semantic cache HIT serves the response from cache **without an upstream
+call**, so the reported `X-OmniRoute-Response-Latency` is near-zero
+(regardless of the original upstream latency). Latency-sensitive clients
+(benchmarking, p50/p99 monitoring) should check the
+`X-OmniRoute-Cache-Latency` response header:
+
+| Value | Meaning |
+|-------|---------|
+| `synthetic` | Response served from cache; latency is not real upstream time |
+| *(absent)* | Response from real upstream call |
+
+### Per-key cache bypass
+
+API keys can opt out of semantic cache reads via `cacheDefaultMode`:
+
+| Value | Behavior |
+|-------|----------|
+| `legacy` | Normal cache behavior (default) |
+| `bypass` | Skip cache lookup entirely; always hit upstream |
+
+Set at key creation (`POST /api/keys`) or update (`PATCH /api/keys/[id]`):
+
+```json
+{ "cacheDefaultMode": "bypass" }
+```
+
+### Per-request bypass
+
+Any request can bypass the cache regardless of key settings:
+
+```
+X-OmniRoute-No-Cache: true
+```
+
 ---
 
 ## Dashboard & Management
@@ -525,28 +561,28 @@ Response example:
 
 ### Usage & Analytics
 
-| Endpoint                    | Method          | Description                     |
-| --------------------------- | --------------- | ------------------------------- |
-| `/api/usage/history`        | GET             | Usage history                   |
-| `/api/usage/logs`           | GET             | Usage logs                      |
-| `/api/usage/request-logs`   | GET             | Request-level logs              |
-| `/api/usage/[connectionId]` | GET             | Per-connection usage            |
-| `/api/usage/token-limits`   | GET/POST/DELETE | Per-API-key token-limit budgets |
-| `/api/usage/model-latency-stats` | GET        | Rolling per-provider/model latency aggregate (avg/p50/p95/p99, success rate); filters: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873) |
-| `/api/usage/cache-health`   | GET             | Prompt-cache health summary over `call_logs` — write/read ratio, p50/p90/p99 write-size distribution, heavy-write concentration, per-model split, and a `healthy`/`degraded`/`thrash`/`no-data` verdict; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, default `24h`) and optional `model` (#8827) |
+| Endpoint                         | Method          | Description                                                                                                                                                                                                                                                                                          |
+| -------------------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/usage/history`             | GET             | Usage history                                                                                                                                                                                                                                                                                        |
+| `/api/usage/logs`                | GET             | Usage logs                                                                                                                                                                                                                                                                                           |
+| `/api/usage/request-logs`        | GET             | Request-level logs                                                                                                                                                                                                                                                                                   |
+| `/api/usage/[connectionId]`      | GET             | Per-connection usage                                                                                                                                                                                                                                                                                 |
+| `/api/usage/token-limits`        | GET/POST/DELETE | Per-API-key token-limit budgets                                                                                                                                                                                                                                                                      |
+| `/api/usage/model-latency-stats` | GET             | Rolling per-provider/model latency aggregate (avg/p50/p95/p99, success rate); filters: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873)                                                                                                                                               |
+| `/api/usage/cache-health`        | GET             | Prompt-cache health summary over `call_logs` — write/read ratio, p50/p90/p99 write-size distribution, heavy-write concentration, per-model split, and a `healthy`/`degraded`/`thrash`/`no-data` verdict; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, default `24h`) and optional `model` (#8827) |
 
 ### Settings
 
-| Endpoint                              | Method        | Description                                         |
-| ------------------------------------- | ------------- | --------------------------------------------------- |
-| `/api/settings`                       | GET/PUT/PATCH | General settings                                    |
-| `/api/settings/proxy`                 | GET/PUT       | Network proxy config                                |
-| `/api/settings/proxy/test`            | POST          | Test proxy connection                               |
-| `/api/settings/ip-filter`             | GET/PUT       | IP allowlist/blocklist                              |
-| `/api/settings/thinking-budget`       | GET/PUT       | Reasoning token budget                              |
-| `/api/settings/system-prompt`         | GET/PUT       | Global system prompt                                |
-| `/api/settings/compression`           | GET/PUT       | Global compression config                           |
-| `/api/settings/purge-request-history` | POST          | Clear request log rows and local call-log artifacts |
+| Endpoint                              | Method        | Description                                                                                                                                                                     |
+| ------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/settings`                       | GET/PUT/PATCH | General settings                                                                                                                                                                |
+| `/api/settings/proxy`                 | GET/PUT       | Network proxy config                                                                                                                                                            |
+| `/api/settings/proxy/test`            | POST          | Test proxy connection                                                                                                                                                           |
+| `/api/settings/ip-filter`             | GET/PUT       | IP allowlist/blocklist                                                                                                                                                          |
+| `/api/settings/thinking-budget`       | GET/PUT       | Thinking/reasoning **request** rewrite mode (passthrough / auto-strip / custom / adaptive). Independent of compression. See [THINKING_BUDGET.md](../guides/THINKING_BUDGET.md). |
+| `/api/settings/system-prompt`         | GET/PUT       | Global system prompt                                                                                                                                                            |
+| `/api/settings/compression`           | GET/PUT       | Global compression config                                                                                                                                                       |
+| `/api/settings/purge-request-history` | POST          | Clear request log rows and local call-log artifacts                                                                                                                             |
 
 ### Context & Compression
 
@@ -573,6 +609,7 @@ Response example:
 | `/api/rate-limits`       | GET        | Per-account rate limits                                                                              |
 | `/api/monitoring/health` | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`) |
 | `/api/cache/stats`       | GET/DELETE | Cache stats / clear                                                                                  |
+| `/api/modality-bridge/stats` | GET    | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
 
 ### Backup & Export/Import
 

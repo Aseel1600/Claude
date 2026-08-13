@@ -29,6 +29,19 @@ export const OAUTH_PROVIDERS = {
     authHint:
       "Sign in with xAI to use api.x.ai models such as Grok 4.5. This is separate from Grok Build JWT sessions, which use cli-chat-proxy.grok.com and grok-build model aliases.",
   },
+  openference: {
+    id: "openference",
+    alias: "of",
+    name: "Openference",
+    icon: "openference",
+    color: "#6366F1",
+    textIcon: "OF",
+    website: "https://openference.com",
+    hasFree: true,
+    freeNote: "Free plan: 3-day trial with open-source models — no credit card required",
+    authHint:
+      "Sign in with your Openference account to route requests through api.openference.com. An active plan is required for inference — OAuth may authenticate but return 402 without one.",
+  },
   "grok-cli": {
     id: "grok-cli",
     alias: "gc",
@@ -236,23 +249,23 @@ export const OAUTH_PROVIDERS = {
     authHint:
       "ClinePass is Cline's $9.99/mo subscription bundling 10 open coding models. Sign in with your Cline account (same login as the Cline CLI/IDE), or paste a direct ClinePass API key (app.cline.bot → Settings → API Keys). A ClinePass subscription unlocks the cline-pass/* models. Reuses the Cline WorkOS OAuth flow.",
   },
-  windsurf: {
-    id: "windsurf",
-    alias: "ws",
-    name: "Windsurf (Devin CLI)",
-    icon: "air",
-    color: "#00C5A0",
-    textIcon: "WS",
+  "devin-desktop": {
+    id: "devin-desktop",
+    alias: undefined,
+    name: "Devin Desktop",
+    icon: "terminal",
+    color: "#6366F1",
+    textIcon: "DD",
     subscriptionRisk: true,
     riskNoticeVariant: "oauth",
     authHint:
-      'In the Windsurf / VS Code IDE, open the command palette and run `Windsurf: Provide Auth Token` (or click the Jupyter "Get Windsurf Authentication Token" button), then copy the shown token and paste it here. Note: opening windsurf.com/show-auth-token directly only renders a "Redirecting" page — the IDE must initiate the flow (it adds a `?state=...` param) for the token to appear.',
-    website: "https://windsurf.com",
+      "Paste an existing Devin API key from an authenticated Devin session. Key export availability and steps vary by Devin version and account.",
+    website: "https://devin.ai",
   },
   "devin-cli": {
     id: "devin-cli",
     alias: "dv",
-    name: "Devin CLI (Official)",
+    name: "Devin CLI",
     icon: "terminal",
     color: "#6366F1",
     textIcon: "DV",

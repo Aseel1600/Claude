@@ -35,7 +35,6 @@
  *   - Only replace blocks ≥ minChars (default 600).
  *   - `stackable: true`, `stackPriority: 4` (runs just after session-dedup(3)).
  */
-
 import crypto from "node:crypto";
 import {
   deleteAllCcrBlocks,
@@ -292,8 +291,10 @@ function rehydrateEntry(hash: string, principalId: string, now: number): CcrEntr
 
   // Re-admit through the same budgets a fresh store would face. If the block no longer
   // fits, it stays on disk and is served straight from the row instead of being cached.
-  const { principalId: owner, bytes } = entry;
-  if (enforcePrincipalBudget(owner, bytes) && enforceGlobalBudget(owner, bytes)) {
+  if (
+    enforcePrincipalBudget(entry.principalId, entry.bytes) &&
+    enforceGlobalBudget(entry.principalId, entry.bytes)
+  ) {
     const key = buildStoreKey(hash, principalId === ANON ? undefined : principalId);
     ccrStore.set(key, entry);
     ccrTotalBytes += entry.bytes;
