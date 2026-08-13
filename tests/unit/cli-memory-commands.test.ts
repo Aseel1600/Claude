@@ -1,95 +1,83 @@
-/**
- * tests/unit/cli-memory-commands.test.ts
- *
- * Hard-cutover CLI memory surface — four-layer verbs only.
- *
- * Cases:
- *   A) runL0Search posts to /api/memory/l0/search with q + limit
- *   B) runL1Search posts to /api/memory/l1/search
- *   C) runL2Read fetches /api/memory/l2/:id
- *   D) runL3Read fetches /api/memory/l3 (optionally with sessionId)
- *   E) runMemoryList fetches /api/memory/list
- *   F) runSettingsGet fetches /api/memory/settings
- *   G) runSettingsSet PUTs to /api/memory/settings
- *   H) runSettingsReset POSTs to /api/memory/settings
- *   I) runDistilStatus fetches /api/memory/distil/status
- *   J) runDistilRetryDlq POSTs to /api/memory/distil/retry-dlq (gated by --yes)
- *   K) legacy exports (runMemorySearch, runMemoryAdd, runMemoryClear,
- *      runMemoryList, runMemoryGet, runMemoryDelete, runMemoryHealth) are
- *      removed.
- */
-
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const L0_ITEMS = [
   {
     id: "m_l0_1",
     sessionId: "s1",
-    scene: "dev",
-    content: "L0 vector hit",
-    score: 0.91,
-    createdAt: "2026-05-10T10:00:00Z",
+    content: "raw trace",
+    recordedAt: "2026-05-10T10:00:00Z",
   },
 ];
 
 const L1_ITEMS = [
   {
     id: "m_l1_1",
-    sessionId: "s1",
-    scene: "ops",
-    content: "L1 fts hit",
-    score: 0.5,
+    sceneName: "ops",
+    content: "curated memory",
+    priority: 80,
     createdAt: "2026-05-09T10:00:00Z",
   },
 ];
 
-const L2_SCENE = { id: "scene_x", content: "scene payload", createdAt: "2026-05-09T10:00:00Z" };
-const L3_PERSONA = { id: "persona", sessionId: "s1", persona: { content: "persona body" } };
-const LIST_PAYLOAD = {
-  layers: { L0: 1, L1: 1, L2: 1, L3: 1 },
-  items: [
-    { layer: "L0", id: "a", sessionId: "s", scene: "x", content: "l0" },
-    { layer: "L1", id: "b", sessionId: "s", scene: "x", content: "l1" },
-    { layer: "L2", id: "c", sessionId: "s", scene: "x", content: "l2" },
-    { layer: "L3", id: "d", sessionId: "s", scene: "x", content: "l3" },
-  ],
-};
-const SETTINGS_PAYLOAD = { strategy: "hybrid", maxTokens: 4000 };
-const DISTIL_PAYLOAD = {
-  items: [
-    {
-      id: "d1",
-      status: "failed",
-      attempts: 3,
-      lastError: "boom",
-      updatedAt: "2026-05-10T10:00:00Z",
-    },
-  ],
+const L2_SCENE = {
+  id: "scene_x",
+  sceneName: "release",
+  summary: "Release work",
+  content: "scene payload",
+  createdAt: "2026-05-09T10:00:00Z",
 };
 
-function makeResp(data: unknown, status = 200) {
-  const obj = {
+const L3_ENTRY = {
+  id: "persona_1",
+  content: "persona body",
+  promptMode: "code",
+  updatedAt: "2026-05-09T11:00:00Z",
+};
+
+const SELECTOR = {
+  provider: "anthropic",
+  modelId: "claude-sonnet-5",
+  sourceLayer: "per-key",
+  apiKeyId: "owner-a",
+  scope: "self",
+};
+
+const DLQ_ENTRY = {
+  id: "17",
+  sourceLayer: "l1",
+  sourceId: "m_l1_1",
+  errorMessage: "provider unavailable",
+  errorAt: "2026-05-10T10:00:00Z",
+  retryCount: 2,
+  status: "failed",
+  lastErrorCode: "UPSTREAM_503",
+};
+
+function makeResp(data: unknown, status = 200): Response {
+  return {
     ok: status < 400,
     status,
     headers: new Headers(),
     json: () => Promise.resolve(data),
     text: () => Promise.resolve(JSON.stringify(data)),
-  };
-  return obj as unknown as Response;
+  } as unknown as Response;
 }
 
 async function captureStdout(fn: () => Promise<void>): Promise<string> {
   const chunks: string[] = [];
-  const orig = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (c: string | Uint8Array) => {
-    if (typeof c === "string") chunks.push(c);
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk: string | Uint8Array) => {
+    if (typeof chunk === "string") chunks.push(chunk);
     return true;
   };
   try {
     await fn();
   } finally {
-    process.stdout.write = orig;
+    process.stdout.write = originalWrite;
   }
   return chunks.join("");
 }
@@ -98,262 +86,295 @@ function makeCmd(output = "json") {
   return { optsWithGlobals: () => ({ output, quiet: output !== "table" }) };
 }
 
-function installFetch(impl: (url: string, init?: unknown) => Promise<Response>) {
-  const orig = globalThis.fetch;
-  globalThis.fetch = impl as unknown as typeof fetch;
+function installFetch(impl: (url: string, init?: RequestInit) => Promise<Response>) {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = impl as typeof fetch;
   return () => {
-    globalThis.fetch = orig;
+    globalThis.fetch = originalFetch;
   };
 }
 
-// ── A: runL0Search — URL + params + JSON items ─────────────────────────────
+function requestPath(url: string): string {
+  const parsed = new URL(url);
+  return `${parsed.pathname}${parsed.search}`;
+}
 
-test("runL0Search calls GET /api/memory/l0/search?q=...&limit=...", async () => {
+test("runL0Search queries the real L0 collection and reads the data envelope", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp({ items: L0_ITEMS }));
+    return Promise.resolve(
+      makeResp({ data: L0_ITEMS, pagination: { page: 1, limit: 10, total: 1 } })
+    );
   });
   try {
     const { runL0Search } = await import("../../bin/cli/commands/memory.mjs");
-    const out = await captureStdout(() =>
-      runL0Search("vector query", { limit: "10" }, makeCmd() as never)
+    const output = await captureStdout(() =>
+      runL0Search("raw query", { limit: "10", session: "s1", scene: "release" }, makeCmd() as never)
     );
-    const parsed = JSON.parse(out);
-    assert.ok(Array.isArray(parsed));
-    assert.equal(parsed[0].id, "m_l0_1");
-    assert.ok(capturedUrl.includes("/api/memory/l0/search"));
-    assert.ok(capturedUrl.includes("q=vector"));
-    assert.ok(capturedUrl.includes("limit=10"));
+    const parsed = JSON.parse(output) as Array<{ id: string }>;
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/l0");
+    assert.equal(url.searchParams.get("q"), "raw query");
+    assert.equal(url.searchParams.get("limit"), "10");
+    assert.equal(url.searchParams.get("sessionId"), "s1");
+    assert.equal(url.searchParams.get("sceneName"), "release");
+    assert.equal(parsed[0]?.id, "m_l0_1");
   } finally {
     restore();
   }
 });
 
-// ── B: runL1Search — URL + params ────────────────────────────────────────
-
-test("runL1Search calls GET /api/memory/l1/search?q=...&scene=...", async () => {
+test("runL1Search queries the real L1 collection and reads the data envelope", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp({ items: L1_ITEMS }));
+    return Promise.resolve(
+      makeResp({ data: L1_ITEMS, pagination: { page: 1, limit: 5, total: 1 } })
+    );
   });
   try {
     const { runL1Search } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() =>
-      runL1Search("fts query", { limit: "5", scene: "ops" }, makeCmd() as never)
+    const output = await captureStdout(() =>
+      runL1Search("curated query", { limit: "5", scene: "ops" }, makeCmd() as never)
     );
-    assert.ok(capturedUrl.includes("/api/memory/l1/search"));
-    assert.ok(capturedUrl.includes("q=fts"));
-    assert.ok(capturedUrl.includes("scene=ops"));
+    const parsed = JSON.parse(output) as Array<{ id: string; scene: string }>;
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/l1");
+    assert.equal(url.searchParams.get("q"), "curated query");
+    assert.equal(url.searchParams.get("sceneName"), "ops");
+    assert.equal(parsed[0]?.id, "m_l1_1");
+    assert.equal(parsed[0]?.scene, "ops");
   } finally {
     restore();
   }
 });
 
-// ── C: runL2Read — /api/memory/l2/:id ─────────────────────────────────────
-
-test("runL2Read calls GET /api/memory/l2/:id", async () => {
+test("runL2Read unwraps the real detail data envelope", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp(L2_SCENE));
+    return Promise.resolve(makeResp({ data: L2_SCENE }));
   });
   try {
     const { runL2Read } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() => runL2Read("scene_x", {}, makeCmd() as never));
-    assert.ok(capturedUrl.includes("/api/memory/l2/scene_x"));
+    const output = await captureStdout(() => runL2Read("scene_x", {}, makeCmd() as never));
+    const parsed = JSON.parse(output) as Array<{ id: string; content: string }>;
+    assert.equal(new URL(capturedUrl).pathname, "/api/memory/l2/scene_x");
+    assert.equal(parsed[0]?.id, "scene_x");
+    assert.equal(parsed[0]?.content, "scene payload");
   } finally {
     restore();
   }
 });
 
-// ── D: runL3Read — /api/memory/l3 ─────────────────────────────────────────
-
-test("runL3Read calls GET /api/memory/l3 (optionally with sessionId)", async () => {
+test("runL3Read uses the real L3 collection and returns its current entry", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp(L3_PERSONA));
+    return Promise.resolve(
+      makeResp({ data: [L3_ENTRY], pagination: { page: 1, limit: 1, total: 1 } })
+    );
   });
   try {
     const { runL3Read } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() => runL3Read({ session: "s1" }, makeCmd() as never));
-    assert.ok(capturedUrl.includes("/api/memory/l3"));
-    assert.ok(capturedUrl.includes("sessionId=s1"));
+    const output = await captureStdout(() => runL3Read({ session: "s1" }, makeCmd() as never));
+    const parsed = JSON.parse(output) as Array<{ id: string; content: string }>;
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/l3");
+    assert.equal(url.searchParams.get("limit"), "1");
+    assert.equal(url.searchParams.get("sessionId"), "s1");
+    assert.equal(parsed[0]?.id, "persona_1");
+    assert.equal(parsed[0]?.content, "persona body");
   } finally {
     restore();
   }
 });
 
-// ── E: runMemoryList — /api/memory/list ───────────────────────────────────
-
-test("runMemoryList calls GET /api/memory/list", async () => {
-  let capturedUrl = "";
+test("runMemoryList aggregates the four real collection routes", async () => {
+  const capturedPaths: string[] = [];
   const restore = installFetch((url) => {
-    capturedUrl = String(url);
-    return Promise.resolve(makeResp(LIST_PAYLOAD));
+    const parsed = new URL(String(url));
+    capturedPaths.push(`${parsed.pathname}${parsed.search}`);
+    const dataByLayer: Record<string, unknown[]> = {
+      l0: L0_ITEMS,
+      l1: L1_ITEMS,
+      l2: [L2_SCENE],
+      l3: [L3_ENTRY],
+    };
+    const layer = parsed.pathname.split("/").at(-1) ?? "";
+    const data = dataByLayer[layer] ?? [];
+    return Promise.resolve(
+      makeResp({ data, pagination: { page: 1, limit: 5, total: data.length } })
+    );
   });
   try {
     const { runMemoryList } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() =>
-      runMemoryList({ limit: "50", session: "s1", scene: "x" }, makeCmd() as never)
+    const output = await captureStdout(() =>
+      runMemoryList({ limit: "5", session: "s1", scene: "release" }, makeCmd() as never)
     );
-    assert.ok(capturedUrl.includes("/api/memory/list"));
-    assert.ok(capturedUrl.includes("limit=50"));
-    assert.ok(capturedUrl.includes("sessionId=s1"));
-    assert.ok(capturedUrl.includes("scene=x"));
+    const parsed = JSON.parse(output) as Array<{ layer: string; id: string }>;
+    assert.deepEqual(
+      capturedPaths.map((value) => new URL(value, "http://localhost").pathname).sort(),
+      ["/api/memory/l0", "/api/memory/l1", "/api/memory/l2", "/api/memory/l3"]
+    );
+    assert.deepEqual(
+      parsed.map((entry) => entry.layer),
+      ["L0", "L1", "L2", "L3"]
+    );
+    assert.ok(capturedPaths.every((value) => value.includes("limit=5")));
+    assert.ok(capturedPaths.every((value) => value.includes("sceneName=release")));
   } finally {
     restore();
   }
 });
 
-// ── F: runSettingsGet — GET /api/memory/settings ──────────────────────────
-
-test("runSettingsGet calls GET /api/memory/settings", async () => {
+test("runDistillationModelGet reads the selector data envelope", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp(SETTINGS_PAYLOAD));
+    return Promise.resolve(makeResp({ data: SELECTOR }));
   });
   try {
-    const { runSettingsGet } = await import("../../bin/cli/commands/memory.mjs");
-    const out = await captureStdout(() => runSettingsGet({}, makeCmd() as never));
-    const parsed = JSON.parse(out);
-    assert.ok(Array.isArray(parsed));
-    assert.equal(parsed[0].key, "strategy");
-    assert.ok(capturedUrl.endsWith("/api/memory/settings"));
+    const { runDistillationModelGet } = await import("../../bin/cli/commands/memory.mjs");
+    const output = await captureStdout(() => runDistillationModelGet({}, makeCmd() as never));
+    const parsed = JSON.parse(output) as typeof SELECTOR;
+    assert.equal(new URL(capturedUrl).pathname, "/api/memory/distillation-model");
+    assert.equal(parsed.modelId, "claude-sonnet-5");
   } finally {
     restore();
   }
 });
 
-// ── G: runSettingsSet — PUT /api/memory/settings with {key, value} ────────
-
-test("runSettingsSet calls PUT /api/memory/settings with {key,value} body", async () => {
+test("runDistillationModelSet PUTs the real selector schema", async () => {
   let capturedUrl = "";
-  let capturedInit: any = null;
+  let capturedInit: RequestInit | undefined;
   const restore = installFetch((url, init) => {
     capturedUrl = String(url);
     capturedInit = init;
-    return Promise.resolve(makeResp({ value: "hybrid" }));
+    return Promise.resolve(makeResp({ data: SELECTOR }));
   });
   try {
-    const { runSettingsSet } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() => runSettingsSet("strategy", "hybrid", {}, makeCmd() as never));
-    assert.ok(capturedUrl.endsWith("/api/memory/settings"));
+    const { runDistillationModelSet } = await import("../../bin/cli/commands/memory.mjs");
+    await captureStdout(() =>
+      runDistillationModelSet("anthropic", "claude-sonnet-5", { scope: "self" }, makeCmd() as never)
+    );
+    assert.equal(new URL(capturedUrl).pathname, "/api/memory/distillation-model");
     assert.equal(capturedInit?.method, "PUT");
-    const body = JSON.parse(capturedInit?.body);
-    assert.equal(body.key, "strategy");
-    assert.equal(body.value, "hybrid");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), {
+      provider: "anthropic",
+      modelId: "claude-sonnet-5",
+      scope: "self",
+    });
   } finally {
     restore();
   }
 });
 
-// ── H: runSettingsReset — POST /api/memory/settings {reset:true} ─────────
-
-test("runSettingsReset calls POST /api/memory/settings with {reset:true}", async () => {
+test("runDistillationModelDelete DELETEs by real selector scope", async () => {
   let capturedUrl = "";
-  let capturedInit: any = null;
+  let capturedInit: RequestInit | undefined;
   const restore = installFetch((url, init) => {
     capturedUrl = String(url);
     capturedInit = init;
-    return Promise.resolve(makeResp(SETTINGS_PAYLOAD));
+    return Promise.resolve(makeResp({ success: true, scope: "global" }));
   });
   try {
-    const { runSettingsReset } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() => runSettingsReset({}, makeCmd() as never));
-    assert.ok(capturedUrl.endsWith("/api/memory/settings"));
-    assert.equal(capturedInit?.method, "POST");
-    const body = JSON.parse(capturedInit?.body);
-    assert.equal(body.reset, true);
+    const { runDistillationModelDelete } = await import("../../bin/cli/commands/memory.mjs");
+    await captureStdout(() => runDistillationModelDelete({ scope: "global" }, makeCmd() as never));
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/distillation-model");
+    assert.equal(url.searchParams.get("scope"), "global");
+    assert.equal(capturedInit?.method, "DELETE");
   } finally {
     restore();
   }
 });
 
-// ── I: runDistilStatus — GET /api/memory/distil/status ────────────────────
-
-test("runDistilStatus calls GET /api/memory/distil/status", async () => {
+test("runDlqList queries the real DLQ route and data envelope", async () => {
   let capturedUrl = "";
   const restore = installFetch((url) => {
     capturedUrl = String(url);
-    return Promise.resolve(makeResp(DISTIL_PAYLOAD));
+    return Promise.resolve(
+      makeResp({
+        data: [DLQ_ENTRY],
+        statusCounts: { failed: 1 },
+        pagination: { limit: 25 },
+      })
+    );
   });
   try {
-    const { runDistilStatus } = await import("../../bin/cli/commands/memory.mjs");
-    const out = await captureStdout(() => runDistilStatus({}, makeCmd() as never));
-    const parsed = JSON.parse(out);
-    assert.ok(Array.isArray(parsed));
-    assert.equal(parsed[0].id, "d1");
-    assert.ok(capturedUrl.endsWith("/api/memory/distil/status"));
+    const { runDlqList } = await import("../../bin/cli/commands/memory.mjs");
+    const output = await captureStdout(() =>
+      runDlqList({ limit: "25", statuses: "failed,pending" }, makeCmd() as never)
+    );
+    const parsed = JSON.parse(output) as Array<{ id: string; status: string }>;
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/distillation-model/dlq");
+    assert.equal(url.searchParams.get("limit"), "25");
+    assert.equal(url.searchParams.get("statuses"), "failed,pending");
+    assert.equal(parsed[0]?.id, "17");
+    assert.equal(parsed[0]?.status, "failed");
   } finally {
     restore();
   }
 });
 
-// ── J: runDistilRetryDlq — gated by --yes, POSTs to retry-dlq ────────────
-
-test("runDistilRetryDlq calls POST /api/memory/distil/retry-dlq when --yes", async () => {
+test("runDlqRetry POSTs op=retry with the real selected-id schema", async () => {
   let capturedUrl = "";
-  let capturedInit: any = null;
+  let capturedInit: RequestInit | undefined;
   const restore = installFetch((url, init) => {
     capturedUrl = String(url);
     capturedInit = init;
-    return Promise.resolve(makeResp({ retried: 3 }));
+    return Promise.resolve(makeResp({ success: true, retried: 2, skipped: 0 }));
   });
   try {
-    const { runDistilRetryDlq } = await import("../../bin/cli/commands/memory.mjs");
-    await captureStdout(() => runDistilRetryDlq({ yes: true }, makeCmd() as never));
-    assert.ok(capturedUrl.endsWith("/api/memory/distil/retry-dlq"));
+    const { runDlqRetry } = await import("../../bin/cli/commands/memory.mjs");
+    await captureStdout(() => runDlqRetry(["17", "18"], { yes: true }, makeCmd() as never));
+    const url = new URL(capturedUrl);
+    assert.equal(url.pathname, "/api/memory/distillation-model/dlq");
+    assert.equal(url.searchParams.get("op"), "retry");
     assert.equal(capturedInit?.method, "POST");
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), { ids: ["17", "18"] });
   } finally {
     restore();
   }
 });
 
-test("runDistilRetryDlq refuses without --yes", async () => {
-  const origExit = process.exit;
+test("runDlqRetry supports the real all=true schema", async () => {
+  let capturedInit: RequestInit | undefined;
+  const restore = installFetch((_url, init) => {
+    capturedInit = init;
+    return Promise.resolve(makeResp({ success: true, retried: 3, skipped: 0 }));
+  });
+  try {
+    const { runDlqRetry } = await import("../../bin/cli/commands/memory.mjs");
+    await captureStdout(() => runDlqRetry([], { yes: true, all: true }, makeCmd() as never));
+    assert.deepEqual(JSON.parse(String(capturedInit?.body)), { all: true });
+  } finally {
+    restore();
+  }
+});
+
+test("runDlqRetry refuses without --yes", async () => {
+  const originalExit = process.exit;
   let exitCode: number | null = null;
   process.exit = ((code?: number) => {
     exitCode = code ?? 0;
     throw new Error("__exit__");
   }) as never;
   try {
-    const { runDistilRetryDlq } = await import("../../bin/cli/commands/memory.mjs");
-    await runDistilRetryDlq({}, makeCmd() as never).catch(() => {});
-    assert.equal(exitCode, 2, "expected exit code 2 (invalid args) when --yes is missing");
+    const { runDlqRetry } = await import("../../bin/cli/commands/memory.mjs");
+    await runDlqRetry(["17"], {}, makeCmd() as never).catch(() => undefined);
+    assert.equal(exitCode, 2);
   } finally {
-    process.exit = origExit;
+    process.exit = originalExit;
   }
 });
 
-// ── K: legacy exports are removed ────────────────────────────────────────
-
-test("legacy memory CLI exports are removed", async () => {
+test("memory CLI exports and command tree contain only live cutover surfaces", async () => {
   const mod = await import("../../bin/cli/commands/memory.mjs");
-  for (const legacy of [
-    "runMemorySearch",
-    "runMemoryAdd",
-    "runMemoryClear",
-    "runMemoryGet",
-    "runMemoryDelete",
-    "runMemoryHealth",
-  ]) {
-    assert.equal(
-      (mod as Record<string, unknown>)[legacy],
-      undefined,
-      `legacy export ${legacy} must be removed`
-    );
-  }
-  // The new exports exist.
-  for (const fresh of [
-    "runL0Search",
-    "runL1Search",
-    "runL2Read",
-    "runL3Read",
-    "runMemoryList",
+  for (const removed of [
     "runSettingsGet",
     "runSettingsSet",
     "runSettingsReset",
@@ -361,40 +382,99 @@ test("legacy memory CLI exports are removed", async () => {
     "runDistilRetryDlq",
   ]) {
     assert.equal(
-      typeof (mod as Record<string, unknown>)[fresh],
-      "function",
-      `new export ${fresh} must be a function`
+      (mod as Record<string, unknown>)[removed],
+      undefined,
+      `${removed} must be removed`
     );
+  }
+  for (const live of [
+    "runL0Search",
+    "runL1Search",
+    "runL2Read",
+    "runL3Read",
+    "runMemoryList",
+    "runDistillationModelGet",
+    "runDistillationModelSet",
+    "runDistillationModelDelete",
+    "runDlqList",
+    "runDlqRetry",
+    "registerMemory",
+  ]) {
+    assert.equal(typeof (mod as Record<string, unknown>)[live], "function", `${live} must exist`);
+  }
+
+  const captured: Array<{ name: string; sub: string[] }> = [];
+  type Fake = {
+    name: string;
+    sub: string[];
+    description: () => Fake;
+    command: (name: string) => Fake;
+    option: () => Fake;
+    action: () => Fake;
+  };
+  function makeNode(name: string): Fake {
+    const node: Fake = {
+      name,
+      sub: [],
+      description: () => node,
+      command(commandName: string) {
+        node.sub.push(commandName);
+        return makeNode(`${node.name}>${commandName}`);
+      },
+      option: () => node,
+      action: () => node,
+    };
+    return node;
+  }
+  const root = {
+    command(name: string): Fake {
+      const child = makeNode(name);
+      captured.push(child);
+      return child;
+    },
+  };
+  mod.registerMemory(root);
+  const memory = captured.find((entry) => entry.name === "memory");
+  assert.ok(memory);
+  assert.deepEqual(memory.sub, ["l0", "l1", "l2", "l3", "list", "distillation-model", "dlq"]);
+});
+
+test("memory CLI source contains no removed v3 or invented route paths", () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+  const source = fs.readFileSync(path.join(root, "bin/cli/commands/memory.mjs"), "utf8");
+  for (const banned of [
+    "/api/memory/l0/search",
+    "/api/memory/l1/search",
+    "/api/memory/list",
+    "/api/memory/settings",
+    "/api/memory/distil/",
+  ]) {
+    assert.doesNotMatch(source, new RegExp(banned.replaceAll("/", "\\/")));
   }
 });
 
-// ── L: error response is sanitized (no raw stack) ────────────────────────
-
-test("CLI memory commands sanitize error responses (no raw stack)", async () => {
-  const origExit = process.exit;
-  const origWrite = process.stderr.write.bind(process.stderr);
+test("CLI memory commands sanitize error responses", async () => {
+  const originalExit = process.exit;
+  const originalWrite = process.stderr.write.bind(process.stderr);
   let stderrText = "";
-  process.stderr.write = (c: string | Uint8Array) => {
-    if (typeof c === "string") stderrText += c;
+  process.stderr.write = (chunk: string | Uint8Array) => {
+    if (typeof chunk === "string") stderrText += chunk;
     return true;
   };
   process.exit = ((code?: number) => {
-    throw new Error("__exit__" + String(code));
+    throw new Error(`__exit__${String(code)}`);
   }) as never;
   const restore = installFetch(() =>
-    Promise.resolve(makeResp({ error: "Some\n    at /abs/path/foo.ts:1:1\n  (more stack)" }, 500))
+    Promise.resolve(makeResp("Some failure\n    at /abs/path/foo.ts:1:1", 500))
   );
   try {
     const { runL0Search } = await import("../../bin/cli/commands/memory.mjs");
-    await runL0Search("boom", { limit: "5" }, makeCmd() as never).catch(() => {});
-    assert.ok(!stderrText.includes("at /abs/path"), `stderr leaked path: ${stderrText}`);
-    assert.ok(
-      !stderrText.includes("\n  (more stack)"),
-      `stderr leaked multi-line stack: ${stderrText}`
-    );
+    await runL0Search("boom", { limit: "5" }, makeCmd() as never).catch(() => undefined);
+    assert.doesNotMatch(stderrText, /at \/abs\/path/);
+    assert.doesNotMatch(stderrText, /foo\.ts/);
   } finally {
-    process.exit = origExit;
-    process.stderr.write = origWrite;
+    process.exit = originalExit;
+    process.stderr.write = originalWrite;
     restore();
   }
 });

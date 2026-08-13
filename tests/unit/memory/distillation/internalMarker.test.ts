@@ -8,7 +8,7 @@ import {
   INTERNAL_SIGNATURE_HEADER,
   INTERNAL_DEPTH_HEADER,
   INTERNAL_CALLS_HEADER,
-} from "../../../src/memory/distillation/internalMarker.ts";
+} from "../../../../src/memory/distillation/internalMarker.ts";
 
 function getSecret(seed = 1): Uint8Array {
   const out = new Uint8Array(32);

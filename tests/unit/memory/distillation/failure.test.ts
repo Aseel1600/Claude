@@ -7,8 +7,8 @@ import {
   extractStatusCode,
   isNetworkError,
   MAX_STORED_ERROR_LENGTH,
-} from "../../../src/memory/distillation/failure.ts";
-import { MAX_RETRY_ATTEMPTS } from "../../../src/memory/distillation/scheduler.ts";
+} from "../../../../src/memory/distillation/failure.ts";
+import { MAX_RETRY_ATTEMPTS } from "../../../../src/memory/distillation/scheduler.ts";
 
 describe("distillation/failure — classifyFailure", () => {
   it("returns retry_429 for HTTP 429", () => {

@@ -1,10 +1,11 @@
 /**
  * Unit tests for `src/shared/schemas/memoryFourLayer.ts`.
  *
- *  - 7 L1 types
+ *  - 7 L1 types (TencentDB-style taxonomy)
  *  - L0 has NO PUT/edit in the schema (the schema is read/import/delete-only)
- *  - L1 PUT requires `expectedVersion` (optimistic concurrency)
- *  - DistillationPut requires `apiKeyId` when scope='self'
+ *  - L1 PUT requires `expectedVersion >= 1` (optimistic concurrency)
+ *  - DistillationPut: schema-level `apiKeyId` is optional — the ROUTE fills it
+ *    for `scope=self` and enforces cross-owner writes
  *  - DistillationDlqRetry requires `ids` or `all`
  */
 
@@ -22,17 +23,10 @@ import {
 
 test("L1_TYPE_VALUES has exactly 7 types", () => {
   assert.strictEqual(L1_TYPE_VALUES.length, 7);
-  for (const t of [
-    "factual",
-    "episodic",
-    "procedural",
-    "semantic",
-    "preference",
-    "constraint",
-    "glossary",
-  ]) {
-    assert.ok(L1_TYPE_VALUES.includes(t as (typeof L1_TYPE_VALUES)[number]));
-  }
+  assert.deepEqual(
+    [...L1_TYPE_VALUES],
+    ["persona", "episodic", "instruction", "work_fact", "work_task", "work_method", "work_artifact"]
+  );
 });
 
 test("L1CreateSchema accepts all 7 types", () => {
@@ -64,9 +58,9 @@ test("L1UpdateSchema REQUIRES expectedVersion (optimistic concurrency)", () => {
   }
 });
 
-test("L1UpdateSchema accepts expectedVersion=0", () => {
+test("L1UpdateSchema rejects expectedVersion=0 (versions start at 1)", () => {
   const parsed = L1UpdateSchema.safeParse({ expectedVersion: 0, content: "new" });
-  assert.equal(parsed.success, true);
+  assert.equal(parsed.success, false);
 });
 
 test("L1UpdateSchema rejects unknown fields (strict)", () => {
@@ -79,51 +73,43 @@ test("L1UpdateSchema rejects unknown fields (strict)", () => {
 
 test("L0ImportSchema accepts up to 500 items and rejects unknown fields", () => {
   const ok = L0ImportSchema.safeParse({
-    apiKeyId: "k1",
     sessionId: "s1",
     items: [
-      { payload: { a: 1 } },
-      { payload: { b: 2 }, sourceId: "src-1", occurredAt: new Date().toISOString() },
+      { idempotencyKey: "k-1", role: "user", content: "hi" },
+      {
+        idempotencyKey: "k-2",
+        role: "assistant",
+        content: "hello",
+        timestamp: new Date().toISOString(),
+        provider: "openai",
+        model: "gpt-4o-mini",
+      },
     ],
   });
   assert.equal(ok.success, true);
 
   const bad = L0ImportSchema.safeParse({
-    apiKeyId: "k1",
     sessionId: "s1",
-    items: [{ payload: { a: 1 }, secretKey: "should-fail" }],
+    items: [{ idempotencyKey: "k-1", role: "user", content: "hi", secretKey: "should-fail" }],
   });
   assert.equal(bad.success, false);
 });
 
 test("L0ImportSchema rejects empty items", () => {
   const parsed = L0ImportSchema.safeParse({
-    apiKeyId: "k1",
     sessionId: "s1",
     items: [],
   });
   assert.equal(parsed.success, false);
 });
 
-test("DistillationPutSchema requires apiKeyId when scope=self", () => {
-  const noKey = DistillationPutSchema.safeParse({
+test("DistillationPutSchema accepts scope=self without apiKeyId (the route fills it)", () => {
+  const parsed = DistillationPutSchema.safeParse({
     provider: "openai",
     modelId: "gpt-4o-mini",
     scope: "self",
   });
-  assert.equal(noKey.success, false);
-  if (!noKey.success) {
-    const issue = noKey.error.issues.find((i) => i.path.includes("apiKeyId"));
-    assert.ok(issue, "should mention apiKeyId field");
-  }
-
-  const ok = DistillationPutSchema.safeParse({
-    provider: "openai",
-    modelId: "gpt-4o-mini",
-    scope: "self",
-    apiKeyId: "k1",
-  });
-  assert.equal(ok.success, true);
+  assert.equal(parsed.success, true);
 });
 
 test("DistillationPutSchema permits global scope without apiKeyId", () => {

@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import {
   WARMUP_RAMP_MS,
   IDLE_BACKOFF_MS,
+  L1_IDLE_TIMEOUT_MS,
+  L1_MAX_CONVERSATION_THRESHOLD,
+  L2_INITIAL_DELAY_MS,
   L2_MIN_DEBOUNCE_MS,
-  L2_MAX_DEBOUNCE_MS,
   L3_IMMEDIATE_DELAY_MS,
   RETRY_BACKOFF_MS,
   MAX_RETRY_ATTEMPTS,
@@ -13,10 +15,12 @@ import {
   computeRetryBackoffMs,
   clampRetryAttempt,
   initialDelayForKind,
+  nextL1ConversationThreshold,
+  nextL1ScheduleMs,
   nextSceneScheduleMs,
   shouldDeferScene,
   idleSleepMs,
-} from "../../../src/memory/distillation/scheduler.ts";
+} from "../../../../src/memory/distillation/scheduler.ts";
 
 describe("distillation/scheduler — warm-up ramp", () => {
   it("follows 1s → 2s → 4s → 5s then caps", () => {
@@ -35,6 +39,28 @@ describe("distillation/scheduler — warm-up ramp", () => {
   });
 });
 
+describe("distillation/scheduler — L1 conversation cadence", () => {
+  it("ramps thresholds 1 → 2 → 4 → 5 and then caps", () => {
+    assert.equal(L1_MAX_CONVERSATION_THRESHOLD, 5);
+    assert.equal(nextL1ConversationThreshold(0), 1);
+    assert.equal(nextL1ConversationThreshold(1), 2);
+    assert.equal(nextL1ConversationThreshold(2), 4);
+    assert.equal(nextL1ConversationThreshold(4), 5);
+    assert.equal(nextL1ConversationThreshold(99), 5);
+  });
+
+  it("fires quickly at threshold and otherwise uses the 10 minute idle debounce", () => {
+    const now = 1_000_000;
+    assert.equal(L1_IDLE_TIMEOUT_MS, 600_000);
+    assert.equal(nextL1ScheduleMs({ roundsSinceLast: 1, completedRuns: 0, now }), now + 1_000);
+    assert.equal(
+      nextL1ScheduleMs({ roundsSinceLast: 1, completedRuns: 1, now }),
+      now + L1_IDLE_TIMEOUT_MS
+    );
+    assert.equal(nextL1ScheduleMs({ roundsSinceLast: 2, completedRuns: 1, now }), now + 1_000);
+  });
+});
+
 describe("distillation/scheduler — idle back-off", () => {
   it("idle sleep is 90s", () => {
     assert.equal(idleSleepMs(), IDLE_BACKOFF_MS);
@@ -43,9 +69,10 @@ describe("distillation/scheduler — idle back-off", () => {
 });
 
 describe("distillation/scheduler — L2 debounce", () => {
-  it("initial fire is now + 90s when no history", () => {
+  it("initial fire is now + 10s when no history", () => {
     const now = 1_000_000;
-    assert.equal(nextSceneScheduleMs(0, now), now + 90_000);
+    assert.equal(L2_INITIAL_DELAY_MS, 10_000);
+    assert.equal(nextSceneScheduleMs(0, now), now + L2_INITIAL_DELAY_MS);
   });
 
   it("respects the 15-min minimum debounce between two scene fires", () => {
@@ -56,12 +83,12 @@ describe("distillation/scheduler — L2 debounce", () => {
     assert.ok(shouldDeferScene(last, now));
   });
 
-  it("respects the 60-min hard cap (further requests drop)", () => {
-    const now = 1_000_000;
+  it("fires immediately after the 60-min hard cap has elapsed", () => {
+    const now = 100_000_000;
     const last = now - 24 * 60 * 60_000; // 1 day ago
     const next = nextSceneScheduleMs(last, now);
-    assert.ok(next <= last + L2_MAX_DEBOUNCE_MS);
-    assert.ok(next > now);
+    assert.equal(next, now);
+    assert.equal(shouldDeferScene(last, now), false);
   });
 });
 

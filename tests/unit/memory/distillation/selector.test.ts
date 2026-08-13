@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import {
   resolveDistillationSelection,
   validateModelStillUsable,
-} from "../../../src/memory/distillation/selector.ts";
-import type { DistillationTask, SelectorDeps } from "../../../src/memory/distillation/selector.ts";
+} from "../../../../src/memory/distillation/selector.ts";
+import type {
+  DistillationTask,
+  SelectorDeps,
+} from "../../../../src/memory/distillation/selector.ts";
 
 function makeTask(over: Partial<DistillationTask>): DistillationTask {
   return {

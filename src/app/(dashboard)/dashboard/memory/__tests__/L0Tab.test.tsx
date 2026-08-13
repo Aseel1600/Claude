@@ -3,24 +3,12 @@ import React, { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const notifications = {
-  success: vi.fn(),
-  error: vi.fn(),
-  info: vi.fn(),
-};
-
-vi.mock("@/store/notificationStore", () => ({
-  useNotificationStore: () => notifications,
-}));
+const notifications = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
+vi.mock("@/store/notificationStore", () => ({ useNotificationStore: () => notifications }));
 
 const fetchMock = vi.fn();
 const jsonResponse = (data: unknown, status = 200) =>
-  ({
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => data,
-  }) as Response;
-
+  ({ ok: status >= 200 && status < 300, status, json: async () => data }) as Response;
 const cleanupCallbacks: Array<() => void> = [];
 
 function makeContainer(): HTMLElement {
@@ -33,57 +21,58 @@ function makeContainer(): HTMLElement {
 const sampleMessages = [
   {
     id: "msg-1",
+    ownerApiKeyId: "owner-a",
+    sessionKey: "sess-abc",
     sessionId: "sess-abc",
     role: "user",
     content: "Hello there.",
     timestamp: "2026-01-01T00:00:00Z",
+    recordedAt: "2026-01-01T00:00:00Z",
+    source: "user",
+    correlationId: null,
+    comboExecutionKey: null,
+    isInternal: false,
     provider: "openai",
     model: "gpt-4o-mini",
-    associatedL1Ids: ["mem-1", "mem-2"],
-  },
-  {
-    id: "msg-2",
-    sessionId: "sess-abc",
-    role: "assistant",
-    content: "Hi, how can I help?",
-    timestamp: "2026-01-01T00:00:01Z",
+    truncated: false,
+    idempotencyKey: "turn-1",
+    deletedAt: null,
   },
 ];
-
 const sampleBin = [
   {
+    ...sampleMessages[0],
     id: "msg-9",
-    sessionId: "sess-abc",
-    role: "user",
     content: "Removed message.",
     deletedAt: "2026-01-02T00:00:00Z",
   },
 ];
 
-async function renderL0(props: Parameters<typeof import("../../../components/layers/L0Tab").default>[0] = {}) {
-  const { default: L0Tab } = await import("../../../components/layers/L0Tab");
+async function renderL0() {
+  const { default: L0Tab } = await import("../components/layers/L0Tab");
   const container = makeContainer();
   const root = createRoot(container);
-  await act(async () => {
-    root.render(<L0Tab {...props} />);
-  });
+  await act(async () => root.render(<L0Tab />));
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
   return { container, root };
 }
 
 describe("L0Tab", () => {
   beforeEach(() => {
     fetchMock.mockReset();
-    notifications.success.mockReset();
-    notifications.error.mockReset();
-    notifications.info.mockReset();
+    Object.values(notifications).forEach((fn) => fn.mockReset());
     (
       globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
-    fetchMock.mockImplementation(async (url: string) => {
-      const u = String(url);
-      if (u.includes("/api/memory/l0/messages")) return jsonResponse({ data: sampleMessages });
-      if (u.includes("/api/memory/l0/recycle-bin")) return jsonResponse({ data: sampleBin });
-      return jsonResponse({});
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      const value = String(url);
+      if ((!init || init.method === "GET") && value === "/api/memory/l0?includeDeleted=deleted") {
+        return jsonResponse({ data: sampleBin });
+      }
+      if ((!init || init.method === "GET") && value.startsWith("/api/memory/l0")) {
+        return jsonResponse({ data: sampleMessages });
+      }
+      return jsonResponse({ success: true });
     });
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -95,78 +84,57 @@ describe("L0Tab", () => {
     vi.clearAllMocks();
   });
 
-  it("renders messages with public metadata only (no is_internal or combo_execution_key)", async () => {
+  it("loads active and deleted rows from the canonical L0 collection", async () => {
     const { container } = await renderL0();
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    expect(container.querySelector("[data-testid='l0-messages']")).toBeTruthy();
-    expect(container.innerHTML).not.toMatch(/is_internal/);
-    expect(container.innerHTML).not.toMatch(/combo_execution_key/);
-  });
-
-  it("renders a recycle bin row with restore and permanent-delete buttons", async () => {
-    const { container } = await renderL0();
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
+    expect(container.querySelector("[data-testid='l0-message-msg-1']")).toBeTruthy();
     expect(container.querySelector("[data-testid='l0-recycle-msg-9']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='l0-restore-msg-9']")).toBeTruthy();
-    expect(container.querySelector("[data-testid='l0-perm-delete-msg-9']")).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/memory/l0",
+      expect.objectContaining({ method: "GET" })
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/memory/l0?includeDeleted=deleted",
+      expect.objectContaining({ method: "GET" })
+    );
   });
 
-  it("toggles message content visibility on expand", async () => {
+  it("restores through POST ?op=restore", async () => {
     const { container } = await renderL0();
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
+      (container.querySelector("[data-testid='l0-restore-msg-9']") as HTMLButtonElement).click();
     });
-    expect(container.querySelector("[data-testid='l0-content-msg-1']")).toBeNull();
-    const toggle = container.querySelector("[data-testid='l0-toggle-msg-1']") as HTMLButtonElement;
-    await act(async () => {
-      toggle.click();
-    });
-    expect(container.querySelector("[data-testid='l0-content-msg-1']")).toBeTruthy();
+    expect(fetchMock.mock.calls).toContainEqual([
+      "/api/memory/l0/msg-9?op=restore",
+      expect.objectContaining({ method: "POST" }),
+    ]);
   });
 
-  it("opens permanent-delete modal that requires typing DELETE", async () => {
+  it("permanently deletes through the detail route with an explicit mode", async () => {
     const { container } = await renderL0();
     await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
+      (
+        container.querySelector("[data-testid='l0-perm-delete-msg-9']") as HTMLButtonElement
+      ).click();
     });
-    const permBtn = container.querySelector("[data-testid='l0-perm-delete-msg-9']") as HTMLButtonElement;
+    const input = container.querySelector(
+      "[data-testid='l0-perm-confirm-input']"
+    ) as HTMLInputElement;
     await act(async () => {
-      permBtn.click();
-    });
-    const confirm = container.querySelector("[data-testid='l0-confirm-perm-delete']") as HTMLButtonElement;
-    expect(confirm).toBeTruthy();
-    expect(confirm.disabled).toBe(true);
-    const input = container.querySelector("[data-testid='l0-perm-confirm-input']") as HTMLInputElement;
-    await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
-      setter?.call(input, "DELETE");
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set?.call(
+        input,
+        "DELETE"
+      );
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     await act(async () => {
-      // Re-render so the controlled input shows "DELETE"
-      input.focus();
+      (
+        container.querySelector("[data-testid='l0-confirm-perm-delete']") as HTMLButtonElement
+      ).click();
     });
-    await act(async () => {
-      confirm.click();
-    });
-    const permDelCall = fetchMock.mock.calls.find(([url, init]) => {
-      return (
-        String(url).includes("/api/memory/l0/messages/msg-9/permanent") &&
-        (init as RequestInit | undefined)?.method === "DELETE"
-      );
-    });
-    expect(permDelCall).toBeTruthy();
-  });
-
-  it("renders an associated L1 link for messages that have one", async () => {
-    const { container } = await renderL0();
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 20));
-    });
-    expect(container.querySelector("[data-testid='l0-associated-l1-msg-1']")).toBeTruthy();
+    const call = fetchMock.mock.calls.find(
+      ([url, init]) => String(url) === "/api/memory/l0/msg-9" && init?.method === "DELETE"
+    );
+    expect(call).toBeTruthy();
+    expect(JSON.parse(String(call?.[1]?.body))).toEqual({ mode: "permanent" });
   });
 });

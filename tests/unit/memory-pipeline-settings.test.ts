@@ -4,9 +4,9 @@
  * Covers:
  *   - captureEnabled / injectionEnabled default FALSE.
  *   - No silent default owner (no settings -> no capture, no injection).
- *   - Legacy memoryEnabled=true propagates as migratedFromLegacy + both flags true.
- *   - Legacy memoryEnabled=false or missing does NOT enable capture/injection.
- *   - Env overrides legacy when explicitly set.
+ *   - Removed legacy MEMORY_ENABLED and alias env vars never enable the pipeline.
+ *   - Only the dedicated four-layer capture/injection env vars are honored.
+ *   - The returned settings shape carries no legacy migration marker.
  *   - normalizePipelineSettings clamp behavior.
  *   - setMemoryPipelineSettingsResolver / reset for tests.
  */
@@ -27,7 +27,7 @@ describe("memory pipeline settings — defaults", () => {
   it("all defaults are off / conservative", () => {
     assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.captureEnabled, false);
     assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.injectionEnabled, false);
-    assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.migratedFromLegacy, false);
+    assert.equal("migratedFromLegacy" in DEFAULT_MEMORY_PIPELINE_SETTINGS, false);
     assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.l3CharBudget, 600);
     assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.l2CharBudget, 600);
     assert.equal(DEFAULT_MEMORY_PIPELINE_SETTINGS.l1CharBudget, 600);
@@ -47,11 +47,11 @@ describe("defaultMemoryPipelineSettingsResolver (env/DB adapter)", () => {
     const out = defaultMemoryPipelineSettingsResolver("apikey-1");
     assert.equal(out.captureEnabled, false);
     assert.equal(out.injectionEnabled, false);
-    assert.equal(out.migratedFromLegacy, false);
+    assert.equal("migratedFromLegacy" in out, false);
     process.env = prev;
   });
 
-  it("legacy memoryEnabled=true migrates to both flags true", () => {
+  it("removed MEMORY_ENABLED=true does not enable the four-layer pipeline", () => {
     const prev = { ...process.env };
     delete process.env.OMNIROUTE_MEMORY_CAPTURE_ENABLED;
     delete process.env.OMNIROUTE_MEMORY_INJECTION_ENABLED;
@@ -59,9 +59,9 @@ describe("defaultMemoryPipelineSettingsResolver (env/DB adapter)", () => {
     delete process.env.OMNIROUTE_MEMORY_INJECTION;
     process.env.MEMORY_ENABLED = "true";
     const out = defaultMemoryPipelineSettingsResolver("apikey-1");
-    assert.equal(out.migratedFromLegacy, true);
-    assert.equal(out.captureEnabled, true);
-    assert.equal(out.injectionEnabled, true);
+    assert.equal("migratedFromLegacy" in out, false);
+    assert.equal(out.captureEnabled, false);
+    assert.equal(out.injectionEnabled, false);
     process.env = prev;
   });
 
@@ -73,13 +73,13 @@ describe("defaultMemoryPipelineSettingsResolver (env/DB adapter)", () => {
     delete process.env.OMNIROUTE_MEMORY_INJECTION;
     process.env.MEMORY_ENABLED = "false";
     const out = defaultMemoryPipelineSettingsResolver("apikey-1");
-    assert.equal(out.migratedFromLegacy, false);
+    assert.equal("migratedFromLegacy" in out, false);
     assert.equal(out.captureEnabled, false);
     assert.equal(out.injectionEnabled, false);
     process.env = prev;
   });
 
-  it("OMNIROUTE_MEMORY_CAPTURE_ENABLED=true wins over legacy memoryEnabled", () => {
+  it("dedicated capture env enables capture independently", () => {
     const prev = { ...process.env };
     process.env.OMNIROUTE_MEMORY_CAPTURE_ENABLED = "true";
     process.env.MEMORY_ENABLED = "false";
@@ -99,12 +99,21 @@ describe("defaultMemoryPipelineSettingsResolver (env/DB adapter)", () => {
     process.env = prev;
   });
 
-  it("legacy alias OMNIROUTE_MEMORY_L0_CAPTURE=true is honored", () => {
+  it("removed alias OMNIROUTE_MEMORY_L0_CAPTURE is ignored", () => {
     const prev = { ...process.env };
     delete process.env.OMNIROUTE_MEMORY_CAPTURE_ENABLED;
     process.env.OMNIROUTE_MEMORY_L0_CAPTURE = "1";
     const out = defaultMemoryPipelineSettingsResolver("apikey-3");
-    assert.equal(out.captureEnabled, true);
+    assert.equal(out.captureEnabled, false);
+    process.env = prev;
+  });
+
+  it("removed alias OMNIROUTE_MEMORY_INJECTION is ignored", () => {
+    const prev = { ...process.env };
+    delete process.env.OMNIROUTE_MEMORY_INJECTION_ENABLED;
+    process.env.OMNIROUTE_MEMORY_INJECTION = "true";
+    const out = defaultMemoryPipelineSettingsResolver("apikey-3");
+    assert.equal(out.injectionEnabled, false);
     process.env = prev;
   });
 
@@ -172,15 +181,15 @@ describe("normalizePipelineSettings", () => {
     assert.equal(out.injectionEnabled, false);
   });
 
-  it("accepts explicit true", () => {
+  it("normalizes without adding removed migration metadata", () => {
     const out = normalizePipelineSettings({
       captureEnabled: true,
       injectionEnabled: true,
       migratedFromLegacy: true,
-    });
+    } as never);
     assert.equal(out.captureEnabled, true);
     assert.equal(out.injectionEnabled, true);
-    assert.equal(out.migratedFromLegacy, true);
+    assert.equal("migratedFromLegacy" in out, false);
   });
 });
 

@@ -26,6 +26,7 @@ import {
   noopL1Enqueuer,
   scheduleL0Capture,
   shouldCaptureComboResult,
+  stripCodeBlocks,
   stripCodeBlocksLocal,
 } from "../../src/memory/integration/l0Capture.ts";
 
@@ -87,11 +88,7 @@ describe("L0 — assistant snapshot extraction", () => {
 
   it("reads Anthropic content[] text blocks", () => {
     const out = extractLastVisibleAssistantText({
-      content: [
-        { type: "text", text: "a" },
-        { type: "image" },
-        { type: "text", text: "b" },
-      ],
+      content: [{ type: "text", text: "a" }, { type: "image" }, { type: "text", text: "b" }],
     });
     assert.equal(out, "a\nb");
   });
@@ -117,7 +114,7 @@ describe("L0 — assistant snapshot extraction", () => {
 
 describe("L0 — stripCodeBlocksLocal (pure fallback)", () => {
   it("strips a single outer fence", () => {
-    assert.equal(stripCodeBlocksLocal("```json\n{\"ok\":true}\n```"), '{"ok":true}');
+    assert.equal(stripCodeBlocksLocal('```json\n{"ok":true}\n```'), '{"ok":true}');
   });
 
   it("leaves text alone when no outer fence", () => {
@@ -135,6 +132,16 @@ describe("L0 — stripCodeBlocksLocal (pure fallback)", () => {
     const input = "```\n```js\ninner\n```\n```";
     const out = stripCodeBlocksLocal(input);
     assert.equal(out, "```js\ninner\n```");
+  });
+});
+
+describe("L0 — Tencent sanitizer integration", () => {
+  it("removes an embedded fenced block through the shipped Tencent helper", async () => {
+    const input = "visible before\n```ts\nconst secret = 1;\n```\nvisible after";
+    assert.deepEqual(await stripCodeBlocks(input), {
+      text: "visible before\n\nvisible after",
+      stripped: true,
+    });
   });
 });
 
@@ -249,8 +256,20 @@ describe("L0 — stable idempotency-derived IDs", () => {
   });
 
   it("different role => different id", () => {
-    const a = buildL0MessageId({ ownerId: "k", sessionId: "s", correlationId: null, role: "user", content: "x" });
-    const b = buildL0MessageId({ ownerId: "k", sessionId: "s", correlationId: null, role: "assistant", content: "x" });
+    const a = buildL0MessageId({
+      ownerId: "k",
+      sessionId: "s",
+      correlationId: null,
+      role: "user",
+      content: "x",
+    });
+    const b = buildL0MessageId({
+      ownerId: "k",
+      sessionId: "s",
+      correlationId: null,
+      role: "assistant",
+      content: "x",
+    });
     assert.notEqual(a, b);
   });
 
@@ -328,7 +347,7 @@ describe("L0 — buildL0CaptureRecords", () => {
       correlationId: null,
       comboExecutionKey: null,
       requestBody: { messages: [{ role: "user", content: "u" }] },
-      responseBody: { choices: [{ message: { content: "```json\n{\"k\":\"v\"}\n```" } }] },
+      responseBody: { choices: [{ message: { content: '```json\n{"k":"v"}\n```' } }] },
       source: "chat",
       provider: null,
       model: null,

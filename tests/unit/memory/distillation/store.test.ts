@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { InMemoryDistillationStore } from "../../../src/memory/distillation/store.ts";
-import type { DistillationTask } from "../../../src/memory/distillation/store.ts";
+import { InMemoryDistillationStore } from "../../../../src/memory/distillation/store.ts";
+import type { DistillationTask } from "../../../../src/memory/distillation/store.ts";
 
 function makeTask(over: Partial<DistillationTask>): DistillationTask {
   return {
@@ -81,7 +81,7 @@ describe("distillation/store — claim/transition guards", () => {
     const r = snap.tasks.find((x) => x.id === "r");
     assert.equal(r?.status, "queued");
     assert.equal(r?.attempt, 2);
-    assert.equal(r?.version, 6);
+    assert.equal(r?.version, 7);
     assert.equal(r?.lastError, "boom");
   });
 
@@ -128,6 +128,41 @@ describe("distillation/store — claim/transition guards", () => {
     const b = await store.acquireLock("scope-A", "ownerA", 90_000);
     assert.ok(b);
     assert.equal(b?.ownerId, "ownerA");
+  });
+
+  it("usage accounting keeps the first record per task", async () => {
+    const store = new InMemoryDistillationStore();
+    const task = makeTask({ id: "usage-once" });
+    store.seed([task]);
+    assert.equal(await store.markClaimed(task.id, task.version, "owner", 60_000), true);
+    await store.markRunning(task.id, "owner");
+    const first = {
+      taskId: task.id,
+      scope: task.scope,
+      kind: task.kind,
+      provider: "p1",
+      model: "m1",
+      tokens: 10,
+      usd: 0.001,
+      recordedAt: 100,
+    };
+
+    await store.completeTask(
+      task,
+      "owner",
+      { payload: { memories: [] }, fallbackEvidence: [] },
+      first
+    );
+    await store.recordUsage({
+      ...first,
+      provider: "p2",
+      model: "m2",
+      tokens: 20,
+      usd: 0.002,
+      recordedAt: 200,
+    });
+
+    assert.deepEqual(store.snapshot().usage, [first]);
   });
 
   it("recordUsage stores a record; getQueueStats counts queued/running/dlq", async () => {

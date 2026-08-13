@@ -1,7 +1,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { UsageBatcher, buildUsageRecord } from "../../../src/memory/distillation/usage.ts";
-import { InMemoryDistillationStore } from "../../../src/memory/distillation/store.ts";
+import { UsageBatcher, buildUsageRecord } from "../../../../src/memory/distillation/usage.ts";
+import { InMemoryDistillationStore } from "../../../../src/memory/distillation/store.ts";
 
 describe("distillation/usage — buildUsageRecord", () => {
   it("computes tokens + USD from prompt/completion counts and per-1k prices", () => {

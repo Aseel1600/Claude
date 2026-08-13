@@ -6,10 +6,7 @@ import {
   parseDistillationModelOverride,
   DEFAULT_DISTILLATION_INTERVAL_SECONDS,
   DEFAULT_DISTILLATION_CONCURRENCY,
-  __resetDistillationStoreState as _reset,
-} from "../../../src/memory/distillation/config.ts";
-
-void _reset;
+} from "../../../../src/memory/distillation/config.ts";
 
 describe("distillation/config — env resolution", () => {
   it("is disabled by default (master switch off)", () => {
@@ -42,7 +39,7 @@ describe("distillation/config — env resolution", () => {
     } as NodeJS.ProcessEnv);
     assert.equal(c.intervalMs, DEFAULT_DISTILLATION_INTERVAL_SECONDS * 1000);
     assert.equal(c.concurrency, DEFAULT_DISTILLATION_CONCURRENCY);
-    assert.equal(c.maxDepth, 64); // capped at the max
+    assert.equal(c.maxDepth, 64);
   });
 
   it("accepts a positive integer interval and converts to ms", () => {
@@ -124,7 +121,6 @@ describe("distillation/config — secret handling", () => {
     const c = resolveDistillationConfig({
       MEMORY_DISTILLATION_SECRET: "short",
     } as NodeJS.ProcessEnv);
-    // Falls back to auto-generated; just assert it is non-empty.
     assert.ok(c.secret.length >= 16);
   });
 });

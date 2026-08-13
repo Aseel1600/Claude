@@ -14,7 +14,11 @@
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import { setMemoryPipelineSettingsResolver, resetMemoryPipelineSettingsResolverForTests, DEFAULT_MEMORY_PIPELINE_SETTINGS } from "../../src/memory/integration/settings.ts";
+import {
+  setMemoryPipelineSettingsResolver,
+  resetMemoryPipelineSettingsResolverForTests,
+  DEFAULT_MEMORY_PIPELINE_SETTINGS,
+} from "../../src/memory/integration/settings.ts";
 import { setRecallProvider, resetRecallProviderForTests } from "../../src/memory/recall/facade.ts";
 import {
   injectMemoryAndSkills,
@@ -117,12 +121,8 @@ describe("injectMemoryAndSkills — injectionEnabled=true renders layers", () =>
       injectionEnabled: true,
     }));
     setRecallProvider({
-      fetchL3: async () => [
-        { id: "L3-1", title: "Project", content: "Postgres" },
-      ],
-      fetchL2: async () => [
-        { id: "L2-1", title: "Overview", summary: "How to use OmniRoute" },
-      ],
+      fetchL3: async () => [{ id: "L3-1", title: "Project", content: "Postgres" }],
+      fetchL2: async () => [{ id: "L2-1", title: "Overview", summary: "How to use OmniRoute" }],
       fetchL1: async () => [
         { id: "m1", content: "user mentioned dark mode", score: 0.9, tags: [] },
       ],
@@ -160,8 +160,8 @@ describe("injectMemoryAndSkills — injectionEnabled=true renders layers", () =>
     assert.ok((sys.content as string).includes("L2 navigation index"));
     assert.ok((sys.content as string).includes("MEMORY TOOLS GUIDE"));
     // L1 placed before the last user message.
-    const l1Idx = messages.findIndex((m) =>
-      typeof m.content === "string" && (m.content as string).includes("<relevant-memories>")
+    const l1Idx = messages.findIndex(
+      (m) => typeof m.content === "string" && (m.content as string).includes("<relevant-memories>")
     );
     const lastUserIdx = (() => {
       for (let i = messages.length - 1; i >= 0; i--) {
@@ -178,13 +178,12 @@ describe("injectMemoryAndSkills — injectionEnabled=true renders layers", () =>
   });
 });
 
-describe("injectMemoryAndSkills — legacy migration (memoryEnabled=true)", () => {
+describe("injectMemoryAndSkills — explicit four-layer settings", () => {
   before(() => {
     setMemoryPipelineSettingsResolver(() => ({
       ...DEFAULT_MEMORY_PIPELINE_SETTINGS,
       captureEnabled: true,
       injectionEnabled: true,
-      migratedFromLegacy: true,
     }));
     setRecallProvider({
       fetchL3: async () => [],
@@ -197,7 +196,7 @@ describe("injectMemoryAndSkills — legacy migration (memoryEnabled=true)", () =
     resetRecallProviderForTests();
   });
 
-  it("migratedFromLegacy=true is surfaced on memorySettings", async () => {
+  it("surfaces explicit capture and injection flags without migration metadata", async () => {
     const body = { model: "gpt-4o", messages: [{ role: "user", content: "hi" }] };
     const out = await injectMemoryAndSkills({
       body,
@@ -209,7 +208,7 @@ describe("injectMemoryAndSkills — legacy migration (memoryEnabled=true)", () =
       backgroundReason: null,
       log: null,
     });
-    assert.equal(out.memorySettings?.migratedFromLegacy, true);
+    assert.equal("migratedFromLegacy" in (out.memorySettings ?? {}), false);
     assert.equal(out.memorySettings?.captureEnabled, true);
     assert.equal(out.memorySettings?.injectionEnabled, true);
   });

@@ -1,34 +1,26 @@
-/**
- * Unit tests for the memory four-layer dependency-injection registry.
- *
- *  - default service is the no-op service and throws `not wired`
- *  - tests can swap the service via setFourLayerServiceForTesting
- *  - tests can swap the validator / audit writer / task enqueuer
- *  - the default validator is permissive when the storage repo is absent
- */
-
 import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  getFourLayerService,
-  isNoOpService,
-  resetFourLayerServiceForTesting,
-  setFourLayerServiceForTesting,
-  getProviderModelValidator,
-  setProviderModelValidatorForTesting,
-  resetProviderModelValidatorForTesting,
   getAuditWriter,
-  setAuditWriterForTesting,
-  resetAuditWriterForTesting,
+  getFourLayerService,
+  getProviderModelValidator,
   getTaskEnqueuer,
-  setTaskEnqueuerForTesting,
+  isNoOpService,
+  resetAuditWriterForTesting,
+  resetFourLayerServiceForTesting,
+  resetProviderModelValidatorForTesting,
   resetTaskEnqueuerForTesting,
+  setAuditWriterForTesting,
+  setFourLayerServiceForTesting,
+  setProviderModelValidatorForTesting,
+  setTaskEnqueuerForTesting,
+  type AuditWriter,
   type MemoryFourLayerService,
   type ProviderModelValidator,
-  type AuditWriter,
   type TaskEnqueuer,
 } from "../../src/memory/api/dependencies.ts";
+import { createFourLayerService } from "../../src/memory/db/service.ts";
 
 test.afterEach(() => {
   resetFourLayerServiceForTesting();
@@ -37,130 +29,24 @@ test.afterEach(() => {
   resetTaskEnqueuerForTesting();
 });
 
-test("default service is the no-op adapter", () => {
-  assert.ok(isNoOpService());
-  const svc = getFourLayerService();
-  assert.rejects(() => svc.listL1({} as never, {}), /memory four-layer storage not wired/);
+test("default service is the standalone production adapter", () => {
+  assert.equal(isNoOpService(), false);
+  assert.ok(getFourLayerService());
 });
 
-test("setFourLayerServiceForTesting replaces the service", async () => {
+test("test service overrides reset to the production adapter", async () => {
   const fakeService: MemoryFourLayerService = {
-    importL0: async () => ({ importedIds: ["1"] }),
-    listL0: async () => ({ data: [], total: 0, page: 1, limit: 20 }),
-    getL0: async () => null,
-    deleteL0: async () => true,
-    deleteL0Session: async () => ({ deleted: 0 }),
-    restoreL0: async () => null,
-    createL1: async () => ({
-      id: "x",
-      ownerApiKeyId: "k",
-      type: "factual",
-      priority: 50,
-      content: "c",
-      sceneName: "s",
-      metadata: {},
-      sourceId: null,
-      version: 1,
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-      deletedAt: null,
-    }),
+    ...createFourLayerService(),
     listL1: async () => ({ data: [], total: 0, page: 1, limit: 20 }),
-    searchL1: async () => ({ data: [], total: 0, page: 1, limit: 20 }),
-    getL1: async () => null,
-    updateL1: async () => ({
-      entry: {
-        id: "x",
-        ownerApiKeyId: "k",
-        type: "factual",
-        priority: 50,
-        content: "c",
-        sceneName: "s",
-        metadata: {},
-        sourceId: null,
-        version: 2,
-        createdAt: "2026-01-01T00:00:00Z",
-        updatedAt: "2026-01-01T00:00:00Z",
-        deletedAt: null,
-      },
-      conflict: false,
-    }),
-    deleteL1: async () => true,
-    restoreL1: async () => null,
-    createL2: async () => ({
-      id: "x",
-      ownerApiKeyId: "k",
-      sessionId: null,
-      sourceId: null,
-      sceneName: null,
-      content: "c",
-      metadata: {},
-      version: 1,
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-      deletedAt: null,
-      errorCount: 0,
-    }),
-    listL2: async () => ({ data: [], total: 0, page: 1, limit: 20 }),
-    getL2: async () => null,
-    updateL2: async () => ({
-      id: "x",
-      ownerApiKeyId: "k",
-      sessionId: null,
-      sourceId: null,
-      sceneName: null,
-      content: "c",
-      metadata: {},
-      version: 2,
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-      deletedAt: null,
-      errorCount: 0,
-    }),
-    deleteL2: async () => true,
-    restoreL2: async () => null,
-    regenerateL2: async () => ({ enqueued: 1 }),
-    listL3: async () => ({ data: [], total: 0, page: 1, limit: 20 }),
-    getL3: async () => null,
-    upsertL3: async () => ({
-      id: "x",
-      ownerApiKeyId: "k",
-      sourceLayer: "l2",
-      sourceId: null,
-      content: "c",
-      metadata: {},
-      version: 1,
-      createdAt: "2026-01-01T00:00:00Z",
-      updatedAt: "2026-01-01T00:00:00Z",
-      deletedAt: null,
-    }),
-    deleteL3: async () => true,
-    restoreL3: async () => null,
-    regenerateL3: async () => ({ enqueued: 1 }),
-    getDistillationSelector: async () => ({
-      provider: "openai",
-      modelId: "gpt-4o-mini",
-      sourceLayer: "auto",
-      apiKeyId: null,
-      scope: null,
-    }),
-    setDistillationSelector: async () => ({
-      provider: "openai",
-      modelId: "gpt-4o-mini",
-      sourceLayer: "global",
-      apiKeyId: null,
-      scope: "global",
-    }),
-    deleteDistillationSelector: async () => true,
-    listDistillationDlq: async () => ({ entries: [], statusCounts: { pending: 0, failed: 0 } }),
-    retryDistillationDlq: async () => ({ retried: 0, skipped: 0 }),
   };
 
   setFourLayerServiceForTesting(fakeService);
+  assert.equal(getFourLayerService(), fakeService);
   assert.equal(isNoOpService(), false);
 
-  const result = await getFourLayerService().listL1({} as never, {});
-  assert.deepEqual(result, { data: [], total: 0, page: 1, limit: 20 });
+  resetFourLayerServiceForTesting();
+  assert.notEqual(getFourLayerService(), fakeService);
+  assert.equal(isNoOpService(), false);
 });
 
 test("setProviderModelValidatorForTesting replaces the validator", async () => {
@@ -187,7 +73,7 @@ test("setAuditWriterForTesting replaces the audit writer", async () => {
     target: "x",
     resourceType: "memory_l1",
   });
-  assert.strictEqual(called, 1);
+  assert.equal(called, 1);
 });
 
 test("setTaskEnqueuerForTesting replaces the task enqueuer", async () => {

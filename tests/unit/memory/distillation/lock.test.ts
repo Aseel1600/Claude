@@ -4,8 +4,8 @@ import {
   withOwnerLock,
   LOCK_TTL_MS,
   LOCK_RENEW_MS,
-} from "../../../src/memory/distillation/lock.ts";
-import { InMemoryDistillationStore } from "../../../src/memory/distillation/store.ts";
+} from "../../../../src/memory/distillation/lock.ts";
+import { InMemoryDistillationStore } from "../../../../src/memory/distillation/store.ts";
 
 describe("distillation/lock — owner mutual exclusion + renew", () => {
   it("issues a lock and renews it on the same owner", async () => {

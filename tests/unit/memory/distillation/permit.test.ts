@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ProcessPermitPool, releasePermit } from "../../../src/memory/distillation/permit.ts";
+import { ProcessPermitPool, releasePermit } from "../../../../src/memory/distillation/permit.ts";
 
 describe("distillation/permit — nonblocking pool", () => {
   it("rejects construction with size < 1", () => {

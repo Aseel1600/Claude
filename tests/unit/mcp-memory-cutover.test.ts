@@ -177,46 +177,51 @@ test("A2A skills do not import from @/lib/memory", async () => {
 
 // ── 9. CLI legacy exports are absent, new exports are present ──────────────
 
-test("CLI memory module drops legacy exports and exposes new ones", async () => {
+test("CLI memory module exposes only live four-layer route adapters", async () => {
   const mod = await import("../../bin/cli/commands/memory.mjs");
-  for (const legacy of [
+  for (const removed of [
     "runMemorySearch",
     "runMemoryAdd",
     "runMemoryClear",
     "runMemoryGet",
     "runMemoryDelete",
     "runMemoryHealth",
-  ]) {
-    assert.equal(
-      (mod as Record<string, unknown>)[legacy],
-      undefined,
-      `legacy export ${legacy} must be removed`
-    );
-  }
-  for (const fresh of [
-    "runL0Search",
-    "runL1Search",
-    "runL2Read",
-    "runL3Read",
-    "runMemoryList",
     "runSettingsGet",
     "runSettingsSet",
     "runSettingsReset",
     "runDistilStatus",
     "runDistilRetryDlq",
+  ]) {
+    assert.equal(
+      (mod as Record<string, unknown>)[removed],
+      undefined,
+      `removed export ${removed} must stay absent`
+    );
+  }
+  for (const live of [
+    "runL0Search",
+    "runL1Search",
+    "runL2Read",
+    "runL3Read",
+    "runMemoryList",
+    "runDistillationModelGet",
+    "runDistillationModelSet",
+    "runDistillationModelDelete",
+    "runDlqList",
+    "runDlqRetry",
     "registerMemory",
   ]) {
     assert.equal(
-      typeof (mod as Record<string, unknown>)[fresh],
+      typeof (mod as Record<string, unknown>)[live],
       "function",
-      `new export ${fresh} must be present`
+      `live export ${live} must be present`
     );
   }
 });
 
 // ── 10. CLI command tree contains l0/l1/l2/l3/settings/distil/list ─────────
 
-test("CLI registerMemory registers the four-layer command tree", async () => {
+test("CLI registerMemory registers only live four-layer command groups", async () => {
   // Build a real program and walk its command tree.
   const captured: { name: string; sub: string[] }[] = [];
   type Fake = {
@@ -254,7 +259,7 @@ test("CLI registerMemory registers the four-layer command tree", async () => {
 
   const memory = captured.find((c) => c.name === "memory");
   assert.ok(memory, "memory root command must be registered");
-  for (const sub of ["l0", "l1", "l2", "l3", "list", "settings", "distil"]) {
+  for (const sub of ["l0", "l1", "l2", "l3", "list", "distillation-model", "dlq"]) {
     assert.ok(
       memory!.sub.includes(sub),
       `memory must register subcommand ${sub}; got ${JSON.stringify(memory!.sub)}`

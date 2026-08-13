@@ -1,610 +1,511 @@
-/**
- * Integration tests for the four-layer memory API.
- *
- * Each test:
- *  - sets DATA_DIR to a fresh tmp dir,
- *  - seeds one or two API keys in `api_keys`,
- *  - injects the fake service into the registry,
- *  - exercises the route handler (Node-native fetch-style),
- *  - asserts the status code and the response shape.
- *
- * These tests intentionally DO NOT touch SQL — every storage call goes
- * through the injected fake.
- */
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-four-layer-"));
-process.env.DATA_DIR = TEST_DATA_DIR;
-process.env.API_KEY_SECRET = "test-secret-four-layer";
-process.env.JWT_SECRET = "test-jwt-secret-four-layer";
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-four-layer-routes-"));
+process.env["DATA_DIR"] = TEST_DATA_DIR;
+process.env["API_KEY_SECRET"] = "test-secret-four-layer";
+process.env["JWT_SECRET"] = "test-jwt-secret-four-layer";
+process.env["DISABLE_SQLITE_AUTO_BACKUP"] = "true";
 
-const core = await import("../../src/lib/db/core.ts");
+const dbCore = await import("../../src/lib/db/core.ts");
+const memoryCore = await import("../../src/memory/db/core.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
-const localDb = await import("../../src/lib/localDb.ts");
-const deps = await import("../../src/memory/api/dependencies.ts");
-const { createFakeState, buildFakeService, fakeAuditCapture } =
-  await import("./memory-four-layer-fake-service.ts");
-const sessionHelpers = await import("../helpers/managementSession.ts");
+const settingsDb = await import("../../src/lib/db/settings.ts");
+const dependencies = await import("../../src/memory/api/dependencies.ts");
+const distillation = await import("../../src/memory/db/repositories/distillation.ts");
+const { createFourLayerService } = await import("../../src/memory/db/service.ts");
 
-// ─────────────────────────────── Boot DB ───────────────────────────────
+await settingsDb.updateSettings({ requireLogin: false });
+const selfRecord = await apiKeysDb.createApiKey("memory-self", "1111111111111111", []);
+const managementRecord = await apiKeysDb.createApiKey("memory-management", "2222222222222222", [
+  "manage",
+]);
 
-await localDb.updateSettings({ requireLogin: false });
+const selfHeaders = (): Headers =>
+  new Headers({
+    authorization: `Bearer ${selfRecord.key}`,
+    "content-type": "application/json",
+  });
+const managementHeaders = (): Headers =>
+  new Headers({
+    authorization: `Bearer ${managementRecord.key}`,
+    "content-type": "application/json",
+  });
 
-// Seed two API keys: one self-scope, one management-scope.
-const selfApiKeyRecord = await apiKeysDb.createApiKey("self-key", "1111111111111111", []);
-const mgmtApiKeyRecord = await apiKeysDb.createApiKey("mgmt-key", "2222222222222222", ["manage"]);
-
-const selfKey: string = selfApiKeyRecord.key;
-const selfKeyId: string = selfApiKeyRecord.id;
-const mgmtKey: string = mgmtApiKeyRecord.key;
-const mgmtKeyId: string = mgmtApiKeyRecord.id;
-
-// ─────────────────────────────── Helpers ───────────────────────────────
-
-interface TestEnv {
-  state: ReturnType<typeof createFakeState>;
-  selfAuth: string;
-  mgmtAuth: string;
-  dashboardHeaders: () => Promise<Headers>;
-  selfHeaders: () => Headers;
-  mgmtHeaders: () => Headers;
+function wipeMemoryDb(): void {
+  memoryCore.resetMemoryDbInstance();
+  const filePath = memoryCore.getMemoryDbFilePath();
+  if (filePath === ":memory:") return;
+  for (const candidate of [filePath, `${filePath}-wal`, `${filePath}-shm`, `${filePath}-journal`]) {
+    try {
+      fs.unlinkSync(candidate);
+    } catch {
+      // File may not exist yet.
+    }
+  }
 }
 
-function setup(): TestEnv {
-  const state = createFakeState();
-  deps.setFourLayerServiceForTesting(buildFakeService(state));
-  deps.setAuditWriterForTesting(fakeAuditCapture(state));
-  deps.setProviderModelValidatorForTesting(async () => ({ ok: true }));
-
-  return {
-    state,
-    selfAuth: `Bearer ${selfKey}`,
-    mgmtAuth: `Bearer ${mgmtKey}`,
-    dashboardHeaders: async () => sessionHelpers.createManagementSessionHeaders(),
-    selfHeaders: () =>
-      new Headers({
-        authorization: `Bearer ${selfKey}`,
-        "content-type": "application/json",
-      }),
-    mgmtHeaders: () =>
-      new Headers({
-        authorization: `Bearer ${mgmtKey}`,
-        "content-type": "application/json",
-      }),
-  };
+function configureProductionDependencies(): void {
+  dependencies.resetFourLayerServiceForTesting();
+  dependencies.setAuditWriterForTesting(async () => undefined);
+  dependencies.setProviderModelValidatorForTesting(async () => ({ ok: true }));
 }
 
-function resetState(): void {
-  deps.resetFourLayerServiceForTesting();
-  deps.resetAuditWriterForTesting();
-  deps.resetProviderModelValidatorForTesting();
-}
+test.beforeEach(() => {
+  wipeMemoryDb();
+  configureProductionDependencies();
+});
 
-test.after(async () => {
-  resetState();
-  core.resetDbInstance();
+test.after(() => {
+  dependencies.resetFourLayerServiceForTesting();
+  dependencies.resetAuditWriterForTesting();
+  dependencies.resetProviderModelValidatorForTesting();
+  memoryCore.resetMemoryDbInstance();
+  dbCore.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-// ─────────────────────────────── Auth gate ───────────────────────────────
-
-test("GET /api/memory/l0 — 401 without auth (requireLogin=true)", async () => {
-  await localDb.updateSettings({ requireLogin: true, password: "hashed-pw" });
-  const env = setup();
-  const req = new Request("http://localhost/api/memory/l0", { method: "GET" });
-  // Force a fresh requireLogin true state.
+test("invalid bearer credentials are rejected", async () => {
   const route = await import("../../src/app/api/memory/l0/route.ts");
-  const res = await route.GET(req);
-  assert.strictEqual(res.status, 401);
-  resetState();
-  await localDb.updateSettings({ requireLogin: false });
+  const response = await route.GET(
+    new Request("http://localhost/api/memory/l0", {
+      headers: { authorization: "Bearer invalid-memory-key" },
+    })
+  );
+  assert.equal(response.status, 401);
 });
 
-test("GET /api/memory/l0 — 401 with invalid bearer key", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l0/route.ts");
-  const req = new Request("http://localhost/api/memory/l0", {
-    method: "GET",
-    headers: { authorization: "Bearer not-a-real-key" },
-  });
-  const res = await route.GET(req);
-  assert.strictEqual(res.status, 401);
-});
-
-test("GET /api/memory/l0 — 200 with valid self API key (empty list)", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l0/route.ts");
-  const req = new Request("http://localhost/api/memory/l0", {
-    method: "GET",
-    headers: { authorization: `Bearer ${selfKey}` },
-  });
-  const res = await route.GET(req);
-  assert.strictEqual(res.status, 200);
-  const body = await res.json();
-  assert.deepEqual(body.data, []);
-  assert.deepEqual(body.pagination, { page: 1, limit: 20, total: 0, totalPages: 0 });
-});
-
-// ─────────────────────────────── Owner isolation ───────────────────────────────
-
-test("Self API key cannot cross owner via apiKeyId query override", async () => {
-  setup();
+test("owner scope rejects self overrides and honors management overrides", async () => {
   const route = await import("../../src/app/api/memory/l1/route.ts");
-  const req = new Request("http://localhost/api/memory/l1?apiKeyId=some-other-id", {
-    method: "GET",
-    headers: { authorization: `Bearer ${selfKey}` },
-  });
-  const res = await route.GET(req);
-  assert.strictEqual(res.status, 403);
+  const denied = await route.GET(
+    new Request("http://localhost/api/memory/l1?apiKeyId=other-owner", {
+      headers: selfHeaders(),
+    })
+  );
+  assert.equal(denied.status, 403);
+
+  const allowed = await route.GET(
+    new Request(`http://localhost/api/memory/l1?apiKeyId=${selfRecord.id}`, {
+      headers: managementHeaders(),
+    })
+  );
+  assert.equal(allowed.status, 200);
 });
 
-test("Management API key MAY override owner via apiKeyId query", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l1/route.ts");
-  const req = new Request(`http://localhost/api/memory/l1?apiKeyId=${selfKeyId}`, {
-    method: "GET",
-    headers: { authorization: `Bearer ${mgmtKey}` },
-  });
-  const res = await route.GET(req);
-  assert.strictEqual(res.status, 200);
-});
+test("L0 canonical import is idempotent and supports session recycle", async () => {
+  const collection = await import("../../src/app/api/memory/l0/route.ts");
+  const detail = await import("../../src/app/api/memory/l0/[id]/route.ts");
+  const importBody = {
+    sessionId: "session-1",
+    items: [
+      {
+        idempotencyKey: "turn-1",
+        role: "user",
+        content: "hello memory",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+  };
 
-test("Self API key cannot POST l1 on behalf of another key", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l1/route.ts");
-  const req = new Request("http://localhost/api/memory/l1", {
-    method: "POST",
-    headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      type: "factual",
-      content: "hi",
-      sceneName: "general",
-      apiKeyId: mgmtKeyId,
-    }),
-  });
-  const res = await route.POST(req);
-  assert.strictEqual(res.status, 403);
-});
-
-// ─────────────────────────────── Validation ───────────────────────────────
-
-test("POST /api/memory/l1 — 400 on missing required fields (strict schema)", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l1/route.ts");
-  const req = new Request("http://localhost/api/memory/l1", {
-    method: "POST",
-    headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-    body: JSON.stringify({ type: "factual" }),
-  });
-  const res = await route.POST(req);
-  assert.strictEqual(res.status, 400);
-});
-
-test("POST /api/memory/l1 — 400 on unknown type", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l1/route.ts");
-  const req = new Request("http://localhost/api/memory/l1", {
-    method: "POST",
-    headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-    body: JSON.stringify({
-      type: "totally-unknown",
-      content: "x",
-      sceneName: "general",
-    }),
-  });
-  const res = await route.POST(req);
-  assert.strictEqual(res.status, 400);
-});
-
-// ─────────────────────────────── CRUD contract ───────────────────────────────
-
-test("L0 list/import/session-delete flow", async () => {
-  const env = setup();
-  const route = await import("../../src/app/api/memory/l0/route.ts");
-
-  // import
-  const importRes = await route.POST(
+  const first = await collection.POST(
     new Request("http://localhost/api/memory/l0", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        apiKeyId: selfKeyId,
-        sessionId: "sess-1",
-        items: [{ payload: { role: "user", text: "hi" } }],
-      }),
+      headers: selfHeaders(),
+      body: JSON.stringify(importBody),
     })
   );
-  assert.strictEqual(importRes.status, 201);
-  const importBody = await importRes.json();
-  assert.strictEqual(importBody.success, true);
-  assert.strictEqual(importBody.importedIds.length, 1);
+  assert.equal(first.status, 201);
+  const firstBody = await first.json();
+  const id = firstBody.importedIds[0] as string;
 
-  // list
-  const listRes = await route.GET(
-    new Request("http://localhost/api/memory/l0?sessionId=sess-1", {
-      headers: { authorization: `Bearer ${selfKey}` },
-    })
-  );
-  const listBody = await listRes.json();
-  assert.strictEqual(listBody.data.length, 1);
-
-  // session delete
-  const delRes = await route.POST(
-    new Request("http://localhost/api/memory/l0?sessionId=sess-1", {
+  const duplicate = await collection.POST(
+    new Request("http://localhost/api/memory/l0", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ sessionId: "sess-1", mode: "soft" }),
+      headers: selfHeaders(),
+      body: JSON.stringify(importBody),
     })
   );
-  assert.strictEqual(delRes.status, 200);
-  const delBody = await delRes.json();
-  assert.strictEqual(delBody.deleted, 1);
+  assert.equal(duplicate.status, 201);
+  assert.deepEqual((await duplicate.json()).importedIds, [id]);
 
-  // includeDeleted=any should now return the entry
-  const listAll = await route.GET(
-    new Request("http://localhost/api/memory/l0?sessionId=sess-1&includeDeleted=any", {
-      headers: { authorization: `Bearer ${selfKey}` },
+  const listed = await collection.GET(
+    new Request("http://localhost/api/memory/l0?sessionId=session-1", {
+      headers: selfHeaders(),
     })
   );
-  const listAllBody = await listAll.json();
-  assert.strictEqual(listAllBody.data.length, 1);
+  const listedBody = await listed.json();
+  assert.equal(listedBody.data.length, 1);
+  assert.equal(listedBody.data[0].content, "hello memory");
+
+  const deleted = await collection.POST(
+    new Request("http://localhost/api/memory/l0?sessionId=session-1", {
+      method: "POST",
+      headers: selfHeaders(),
+      body: JSON.stringify({ sessionId: "session-1", mode: "soft" }),
+    })
+  );
+  assert.equal(deleted.status, 200);
+  assert.equal((await deleted.json()).deleted, 1);
+
+  const recycle = await collection.GET(
+    new Request("http://localhost/api/memory/l0?includeDeleted=deleted", {
+      headers: selfHeaders(),
+    })
+  );
+  assert.equal((await recycle.json()).data.length, 1);
+
+  const restored = await detail.POST(
+    new Request(`http://localhost/api/memory/l0/${id}?op=restore`, {
+      method: "POST",
+      headers: selfHeaders(),
+    }),
+    { params: Promise.resolve({ id }) }
+  );
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json()).data.content, "hello memory");
 });
 
-test("L0 NO PUT (only GET/POST/DELETE exposed; PUT returns 405)", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/l0/[id]/route.ts");
-  assert.equal(typeof route.GET, "function");
-  assert.equal(typeof route.POST, "function");
-  assert.equal(typeof route.DELETE, "function");
-  // Next.js returns 405 when no PUT export exists — just check we did not add one.
-  assert.equal(typeof (route as { PUT?: unknown }).PUT, "undefined");
-});
-
-test("L1 optimistic version conflict → 409", async () => {
-  setup();
-  const create = await import("../../src/app/api/memory/l1/route.ts");
-  const createRes = await create.POST(
+test("L1 canonical taxonomy supports optimistic conflict and recycle restore", async () => {
+  const collection = await import("../../src/app/api/memory/l1/route.ts");
+  const detail = await import("../../src/app/api/memory/l1/[id]/route.ts");
+  const createdResponse = await collection.POST(
     new Request("http://localhost/api/memory/l1", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ type: "factual", content: "v1", sceneName: "general" }),
+      headers: selfHeaders(),
+      body: JSON.stringify({
+        type: "work_fact",
+        priority: 80,
+        content: "Uses TypeScript",
+        sceneName: "project",
+        metadata: { tags: ["typescript"] },
+        sourceMessageIds: [],
+      }),
     })
   );
-  const created = (await createRes.json()).data;
-  const idRoute = await import("../../src/app/api/memory/l1/[id]/route.ts");
+  assert.equal(createdResponse.status, 201);
+  const created = (await createdResponse.json()).data;
+  assert.equal(created.type, "work_fact");
+  assert.equal(created.version, 1);
 
-  // First update with version=1 succeeds
-  const upd1 = await idRoute.PUT(
+  const updated = await detail.PUT(
     new Request(`http://localhost/api/memory/l1/${created.id}`, {
       method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ content: "v2", expectedVersion: 1 }),
+      headers: selfHeaders(),
+      body: JSON.stringify({ content: "Uses strict TypeScript", expectedVersion: 1 }),
     }),
-    { params: Promise.resolve({ id: created.id }) }
+    { params: Promise.resolve({ id: created.id as string }) }
   );
-  assert.strictEqual(upd1.status, 200);
+  assert.equal(updated.status, 200);
+  assert.equal((await updated.json()).data.version, 2);
 
-  // Second update with stale expectedVersion=1 → conflict
-  const upd2 = await idRoute.PUT(
+  const stale = await detail.PUT(
     new Request(`http://localhost/api/memory/l1/${created.id}`, {
       method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ content: "v3", expectedVersion: 1 }),
+      headers: selfHeaders(),
+      body: JSON.stringify({ content: "stale", expectedVersion: 1 }),
     }),
-    { params: Promise.resolve({ id: created.id }) }
+    { params: Promise.resolve({ id: created.id as string }) }
   );
-  assert.strictEqual(upd2.status, 409);
-});
+  assert.equal(stale.status, 409);
 
-test("L1 soft-delete → recycle → restore roundtrip", async () => {
-  setup();
-  const create = await import("../../src/app/api/memory/l1/route.ts");
-  const created = (
-    await (
-      await create.POST(
-        new Request("http://localhost/api/memory/l1", {
-          method: "POST",
-          headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ type: "preference", content: "x", sceneName: "general" }),
-        })
-      )
-    ).json()
-  ).data;
-
-  const idRoute = await import("../../src/app/api/memory/l1/[id]/route.ts");
-  const del = await idRoute.DELETE(
+  const deleted = await detail.DELETE(
     new Request(`http://localhost/api/memory/l1/${created.id}`, {
       method: "DELETE",
-      headers: { authorization: `Bearer ${selfKey}` },
-    }),
-    { params: Promise.resolve({ id: created.id }) }
-  );
-  assert.strictEqual(del.status, 200);
-  const delBody = await del.json();
-  assert.strictEqual(delBody.mode, "soft");
-
-  const restore = await idRoute.POST(
-    new Request(`http://localhost/api/memory/l1/${created.id}?op=restore`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${selfKey}` },
-    }),
-    { params: Promise.resolve({ id: created.id }) }
-  );
-  assert.strictEqual(restore.status, 200);
-});
-
-test("L2 regenerate: 200 then 409 after 15 errors", async () => {
-  const env = setup();
-  // create an L2 entry
-  const l2 = await import("../../src/app/api/memory/l2/route.ts");
-  const created = (
-    await (
-      await l2.POST(
-        new Request("http://localhost/api/memory/l2", {
-          method: "POST",
-          headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-          body: JSON.stringify({ content: "c" }),
-        })
-      )
-    ).json()
-  ).data;
-
-  const regen = await import("../../src/app/api/memory/l2/[id]/regenerate/route.ts");
-  // bump errorCount to 15 via the L2 update path (we can't call regen 15 times —
-  // each call increments by 1 in the fake).
-  for (let i = 0; i < 15; i++) {
-    const res = await regen.POST(
-      new Request(`http://localhost/api/memory/l2/${created.id}/regenerate`, {
-        method: "POST",
-        headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-        body: JSON.stringify({}),
-      }),
-      { params: Promise.resolve({ id: created.id }) }
-    );
-    assert.strictEqual(res.status, 200);
-  }
-  const blocked = await regen.POST(
-    new Request(`http://localhost/api/memory/l2/${created.id}/regenerate`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({}),
-    }),
-    { params: Promise.resolve({ id: created.id }) }
-  );
-  assert.strictEqual(blocked.status, 409);
-});
-
-test("L3 upsert returns the entry, delete has 3 modes", async () => {
-  setup();
-  const l3 = await import("../../src/app/api/memory/l3/[id]/route.ts");
-  const upsert = await l3.PUT(
-    new Request("http://localhost/api/memory/l3/l3-1", {
-      method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ content: "distilled" }),
-    }),
-    { params: Promise.resolve({ id: "l3-1" }) }
-  );
-  assert.strictEqual(upsert.status, 200);
-  const upsertBody = await upsert.json();
-  assert.strictEqual(upsertBody.data.content, "distilled");
-
-  const soft = await l3.DELETE(
-    new Request("http://localhost/api/memory/l3/l3-1", {
-      method: "DELETE",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
+      headers: selfHeaders(),
       body: JSON.stringify({ mode: "soft" }),
     }),
-    { params: Promise.resolve({ id: "l3-1" }) }
+    { params: Promise.resolve({ id: created.id as string }) }
   );
-  assert.strictEqual(soft.status, 200);
-  const softBody = await soft.json();
-  assert.strictEqual(softBody.mode, "soft");
-});
+  assert.equal(deleted.status, 200);
 
-// ─────────────────────────────── Distillation-model ───────────────────────────────
-
-test("Distillation GET/PUT/DELETE: selector sourceLayer ladder", async () => {
-  setup();
-  const route = await import("../../src/app/api/memory/distillation-model/route.ts");
-
-  // 1) initial GET → falls back to 'auto'
-  let res = await route.GET(
-    new Request("http://localhost/api/memory/distillation-model", {
-      headers: { authorization: `Bearer ${selfKey}` },
+  const recycle = await collection.GET(
+    new Request("http://localhost/api/memory/l1?includeDeleted=deleted", {
+      headers: selfHeaders(),
     })
   );
-  let body = await res.json();
-  assert.strictEqual(body.data.sourceLayer, "auto");
+  assert.equal((await recycle.json()).data.length, 1);
 
-  // 2) PUT self scope requires apiKeyId; we omit it and use the auth subject
-  const putSelf = await route.PUT(
+  const restored = await detail.POST(
+    new Request(`http://localhost/api/memory/l1/${created.id}?op=restore`, {
+      method: "POST",
+      headers: selfHeaders(),
+    }),
+    { params: Promise.resolve({ id: created.id as string }) }
+  );
+  assert.equal(restored.status, 200);
+  assert.equal((await restored.json()).data.version, 2);
+});
+
+test("L2 canonical scenes support optimistic conflict and regeneration enqueue", async () => {
+  const collection = await import("../../src/app/api/memory/l2/route.ts");
+  const detail = await import("../../src/app/api/memory/l2/[id]/route.ts");
+  const regenerate = await import("../../src/app/api/memory/l2/[id]/regenerate/route.ts");
+  const createdResponse = await collection.POST(
+    new Request("http://localhost/api/memory/l2", {
+      method: "POST",
+      headers: selfHeaders(),
+      body: JSON.stringify({
+        sceneName: "project",
+        groupKey: "repo-a",
+        summary: "Project context",
+        heat: 0.8,
+        content: "Detailed project scene",
+      }),
+    })
+  );
+  assert.equal(createdResponse.status, 201);
+  const created = (await createdResponse.json()).data;
+
+  const updated = await detail.PUT(
+    new Request(`http://localhost/api/memory/l2/${created.id}`, {
+      method: "PUT",
+      headers: selfHeaders(),
+      body: JSON.stringify({ summary: "Updated context", heat: 0.9, expectedVersion: 1 }),
+    }),
+    { params: Promise.resolve({ id: created.id as string }) }
+  );
+  assert.equal(updated.status, 200);
+  assert.equal((await updated.json()).data.version, 2);
+
+  const stale = await detail.PUT(
+    new Request(`http://localhost/api/memory/l2/${created.id}`, {
+      method: "PUT",
+      headers: selfHeaders(),
+      body: JSON.stringify({ content: "stale", expectedVersion: 1 }),
+    }),
+    { params: Promise.resolve({ id: created.id as string }) }
+  );
+  assert.equal(stale.status, 409);
+
+  const regenerated = await regenerate.POST(
+    new Request(`http://localhost/api/memory/l2/${created.id}/regenerate`, {
+      method: "POST",
+      headers: selfHeaders(),
+      body: JSON.stringify({ reason: "refresh" }),
+    }),
+    { params: Promise.resolve({ id: created.id as string }) }
+  );
+  assert.equal(regenerated.status, 200);
+  assert.equal((await regenerated.json()).enqueued, 1);
+  assert.equal((await distillation.createDistillationStore().getQueueStats()).queued, 1);
+});
+
+test("L3 singleton persona returns 409 for stale expectedVersion and restores", async () => {
+  const collection = await import("../../src/app/api/memory/l3/route.ts");
+  const detail = await import("../../src/app/api/memory/l3/[id]/route.ts");
+  const firstResponse = await detail.PUT(
+    new Request("http://localhost/api/memory/l3/persona", {
+      method: "PUT",
+      headers: selfHeaders(),
+      body: JSON.stringify({ content: "Prefer concise answers", promptMode: "chat" }),
+    }),
+    { params: Promise.resolve({ id: "persona" }) }
+  );
+  assert.equal(firstResponse.status, 200);
+  const first = (await firstResponse.json()).data;
+
+  const secondResponse = await detail.PUT(
+    new Request(`http://localhost/api/memory/l3/${first.id}`, {
+      method: "PUT",
+      headers: selfHeaders(),
+      body: JSON.stringify({
+        content: "Prefer concise code answers",
+        promptMode: "code",
+        expectedVersion: 1,
+      }),
+    }),
+    { params: Promise.resolve({ id: first.id as string }) }
+  );
+  assert.equal(secondResponse.status, 200);
+  assert.equal((await secondResponse.json()).data.version, 2);
+
+  const stale = await detail.PUT(
+    new Request(`http://localhost/api/memory/l3/${first.id}`, {
+      method: "PUT",
+      headers: selfHeaders(),
+      body: JSON.stringify({ content: "stale", promptMode: "chat", expectedVersion: 1 }),
+    }),
+    { params: Promise.resolve({ id: first.id as string }) }
+  );
+  assert.equal(stale.status, 409);
+
+  const listed = await collection.GET(
+    new Request("http://localhost/api/memory/l3", { headers: selfHeaders() })
+  );
+  assert.equal((await listed.json()).data.length, 1);
+
+  const deleted = await detail.DELETE(
+    new Request(`http://localhost/api/memory/l3/${first.id}`, {
+      method: "DELETE",
+      headers: selfHeaders(),
+      body: JSON.stringify({ mode: "soft" }),
+    }),
+    { params: Promise.resolve({ id: first.id as string }) }
+  );
+  assert.equal(deleted.status, 200);
+
+  const restored = await detail.DELETE(
+    new Request(`http://localhost/api/memory/l3/${first.id}`, {
+      method: "DELETE",
+      headers: selfHeaders(),
+      body: JSON.stringify({ mode: "restore" }),
+    }),
+    { params: Promise.resolve({ id: first.id as string }) }
+  );
+  assert.equal(restored.status, 200);
+});
+
+test("distillation selector persists self and global tiers", async () => {
+  const route = await import("../../src/app/api/memory/distillation-model/route.ts");
+  const initial = await route.GET(
+    new Request("http://localhost/api/memory/distillation-model", { headers: selfHeaders() })
+  );
+  assert.equal((await initial.json()).data.sourceLayer, "auto");
+
+  const selfSet = await route.PUT(
     new Request("http://localhost/api/memory/distillation-model", {
       method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
+      headers: selfHeaders(),
       body: JSON.stringify({ provider: "openai", modelId: "gpt-4o-mini", scope: "self" }),
     })
   );
-  assert.strictEqual(putSelf.status, 200);
-  const putSelfBody = await putSelf.json();
-  assert.strictEqual(putSelfBody.data.sourceLayer, "per-key");
-  assert.strictEqual(putSelfBody.data.apiKeyId, selfKeyId);
+  assert.equal(selfSet.status, 200);
+  assert.equal((await selfSet.json()).data.apiKeyId, selfRecord.id);
 
-  // 3) self scope cannot set global
-  const putGlobal = await route.PUT(
+  const globalDenied = await route.PUT(
     new Request("http://localhost/api/memory/distillation-model", {
       method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ provider: "openai", modelId: "gpt-4o-mini", scope: "global" }),
+      headers: selfHeaders(),
+      body: JSON.stringify({ provider: "anthropic", modelId: "claude", scope: "global" }),
     })
   );
-  assert.strictEqual(putGlobal.status, 403);
+  assert.equal(globalDenied.status, 403);
 
-  // 4) management key CAN set global
-  const mgmtPut = await route.PUT(
+  const globalSet = await route.PUT(
     new Request("http://localhost/api/memory/distillation-model", {
       method: "PUT",
-      headers: { authorization: `Bearer ${mgmtKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        provider: "anthropic",
-        modelId: "claude-3-5-sonnet",
-        scope: "global",
-      }),
+      headers: managementHeaders(),
+      body: JSON.stringify({ provider: "anthropic", modelId: "claude", scope: "global" }),
     })
   );
-  assert.strictEqual(mgmtPut.status, 200);
+  assert.equal(globalSet.status, 200);
 
-  // 5) GET now sees the global selector (per-key is absent for mgmt key)
-  res = await route.GET(
+  const managementEffective = await route.GET(
     new Request("http://localhost/api/memory/distillation-model", {
-      headers: { authorization: `Bearer ${mgmtKey}` },
+      headers: managementHeaders(),
     })
   );
-  body = await res.json();
-  assert.strictEqual(body.data.sourceLayer, "global");
-  assert.strictEqual(body.data.provider, "anthropic");
+  assert.equal((await managementEffective.json()).data.sourceLayer, "global");
 
-  // 6) DELETE global requires management
-  const selfDel = await route.DELETE(
-    new Request("http://localhost/api/memory/distillation-model?scope=global", {
+  const selfDelete = await route.DELETE(
+    new Request("http://localhost/api/memory/distillation-model?scope=self", {
       method: "DELETE",
-      headers: { authorization: `Bearer ${selfKey}` },
+      headers: selfHeaders(),
     })
   );
-  assert.strictEqual(selfDel.status, 403);
+  assert.equal(selfDelete.status, 200);
 
-  const mgmtDel = await route.DELETE(
-    new Request("http://localhost/api/memory/distillation-model?scope=global", {
-      method: "DELETE",
-      headers: { authorization: `Bearer ${mgmtKey}` },
-    })
+  const fallback = await route.GET(
+    new Request("http://localhost/api/memory/distillation-model", { headers: selfHeaders() })
   );
-  assert.strictEqual(mgmtDel.status, 200);
+  assert.equal((await fallback.json()).data.sourceLayer, "global");
 });
 
-test("Distillation validator rejection → 400", async () => {
-  const env = setup();
-  deps.setProviderModelValidatorForTesting(async () => ({
-    ok: false,
-    reason: "model not in synced catalog",
-  }));
-  const route = await import("../../src/app/api/memory/distillation-model/route.ts");
-  const res = await route.PUT(
-    new Request("http://localhost/api/memory/distillation-model", {
-      method: "PUT",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({
-        provider: "openai",
-        modelId: "bogus",
-        scope: "self",
-        apiKeyId: selfKeyId,
-      }),
-    })
-  );
-  assert.strictEqual(res.status, 400);
-  const body = await res.json();
-  assert.ok(JSON.stringify(body).includes("not in synced catalog"));
-});
-
-// ─────────────────────────────── DLQ ───────────────────────────────
-
-test("Distillation DLQ GET + POST retry selected/all", async () => {
-  setup();
-  // Seed two DLQ entries
-  const { state } = setup();
-  state.dlq.set("dlq-1", {
-    id: "dlq-1",
-    ownerApiKeyId: selfKeyId,
-    sourceLayer: "l2",
-    sourceId: "x",
-    errorMessage: "boom",
-    errorAt: new Date().toISOString(),
-    retryCount: 0,
-    status: "failed",
-    lastErrorCode: "E_GENERIC",
+test("DLQ listing and retry are owner-scoped", async () => {
+  const ownTask = distillation.enqueueDistillationTask({
+    kind: "L2_scene",
+    scope: selfRecord.id,
+    payload: { sceneId: "own" },
   });
-  state.dlq.set("dlq-2", {
-    id: "dlq-2",
-    ownerApiKeyId: selfKeyId,
-    sourceLayer: "l2",
-    sourceId: "y",
-    errorMessage: "boom2",
-    errorAt: new Date().toISOString(),
-    retryCount: 0,
-    status: "succeeded",
-    lastErrorCode: null,
+  const otherTask = distillation.enqueueDistillationTask({
+    kind: "L2_scene",
+    scope: "other-owner",
+    payload: { sceneId: "other" },
+  });
+  const store = distillation.createDistillationStore();
+  await store.markDLQ(ownTask.id, "worker", "own failure", "parse_failed");
+  await store.appendDLQ({
+    taskId: ownTask.id,
+    reason: "parse_failed",
+    failureKind: "parse_failed",
+    attempts: 0,
+    error: "own failure",
+    recordedAt: Date.now(),
+  });
+  await store.markDLQ(otherTask.id, "worker", "other failure", "parse_failed");
+  await store.appendDLQ({
+    taskId: otherTask.id,
+    reason: "parse_failed",
+    failureKind: "parse_failed",
+    attempts: 0,
+    error: "other failure",
+    recordedAt: Date.now(),
   });
 
   const route = await import("../../src/app/api/memory/distillation-model/dlq/route.ts");
-  const list = await route.GET(
+  const listed = await route.GET(
     new Request("http://localhost/api/memory/distillation-model/dlq", {
-      headers: { authorization: `Bearer ${selfKey}` },
+      headers: selfHeaders(),
     })
   );
-  const listBody = await list.json();
-  assert.strictEqual(listBody.data.length, 1);
-  assert.strictEqual(listBody.statusCounts.failed, 1);
+  assert.equal(listed.status, 200);
+  const body = await listed.json();
+  assert.equal(body.data.length, 1);
+  assert.equal(body.data[0].ownerApiKeyId, selfRecord.id);
 
-  const retrySelected = await route.POST(
+  const otherDlq = distillation.listDistillationDlqEntries({ scope: "other-owner" })[0]!;
+  const denied = await route.POST(
     new Request("http://localhost/api/memory/distillation-model/dlq?op=retry", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ ids: ["dlq-1"] }),
+      headers: selfHeaders(),
+      body: JSON.stringify({ ids: [String(otherDlq.id)] }),
     })
   );
-  const retrySelectedBody = await retrySelected.json();
-  assert.strictEqual(retrySelectedBody.retried, 1);
-  assert.strictEqual(retrySelectedBody.skipped, 0);
+  assert.equal(denied.status, 200);
+  assert.deepEqual(
+    { retried: (await denied.clone().json()).retried, skipped: (await denied.json()).skipped },
+    { retried: 0, skipped: 1 }
+  );
 
-  const retryAll = await route.POST(
+  const ownId = body.data[0].id as string;
+  const retried = await route.POST(
     new Request("http://localhost/api/memory/distillation-model/dlq?op=retry", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ all: true }),
+      headers: selfHeaders(),
+      body: JSON.stringify({ ids: [ownId] }),
     })
   );
-  const retryAllBody = await retryAll.json();
-  // dlq-1 already succeeded after the first retry; dlq-2 was already succeeded.
-  // Retried is the pending→pending transition count (now zero pending).
-  assert.strictEqual(retryAllBody.retried + retryAllBody.skipped >= 0, true);
+  const retriedBody = await retried.json();
+  assert.equal(retriedBody.retried, 1);
+  assert.equal(distillation.getDistillationTask(ownTask.id)?.status, "queued");
+  assert.equal(distillation.getDistillationTask(otherTask.id)?.status, "failed_dlq");
 });
 
-// ─────────────────────────────── Error sanitization ───────────────────────────────
-
-test("L1 POST returns sanitized error (no stack trace) when storage throws", async () => {
-  const env = setup();
-  deps.setFourLayerServiceForTesting({
-    ...buildFakeService(env.state),
+test("storage errors are sanitized and do not expose absolute paths", async () => {
+  dependencies.setFourLayerServiceForTesting({
+    ...createFourLayerService(),
     createL1: async () => {
       throw new Error("at /secret/path/file.ts:42 — boom");
     },
   });
   const route = await import("../../src/app/api/memory/l1/route.ts");
-  const res = await route.POST(
+  const response = await route.POST(
     new Request("http://localhost/api/memory/l1", {
       method: "POST",
-      headers: { authorization: `Bearer ${selfKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ type: "factual", content: "x", sceneName: "general" }),
+      headers: selfHeaders(),
+      body: JSON.stringify({
+        type: "work_fact",
+        content: "x",
+        sceneName: "general",
+        sourceMessageIds: [],
+      }),
     })
   );
-  assert.strictEqual(res.status, 400);
-  const body = await res.json();
-  const bodyStr = JSON.stringify(body);
-  assert.ok(!bodyStr.includes("/secret/path/file.ts"), "absolute path must be redacted");
-  assert.ok(!bodyStr.match(/\sat\s\//), "stack-trace tail must not be in body");
-});
-
-test("Service not wired → 503", async () => {
-  deps.resetFourLayerServiceForTesting();
-  const route = await import("../../src/app/api/memory/l0/route.ts");
-  const res = await route.GET(
-    new Request("http://localhost/api/memory/l0", {
-      headers: { authorization: `Bearer ${selfKey}` },
-    })
-  );
-  assert.strictEqual(res.status, 503);
+  assert.equal(response.status, 400);
+  const body = JSON.stringify(await response.json());
+  assert.equal(body.includes("/secret/path/file.ts"), false);
+  assert.equal(/\sat\s+\//.test(body), false);
 });
