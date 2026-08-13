@@ -1289,7 +1289,8 @@
       "navigate": "naviguer",
       "open": "ouvrir",
       "close": "fermer"
-    }
+    },
+    "noResults": "__MISSING__:No results"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2187,7 +2188,8 @@
     "searchAnalyticsEmptyDescription": "Utilisez <code>POST /v1/search</code> pour commencer à router des recherches Web.",
     "searchAnalyticsFreeTier": "<strong>Une offre gratuite est disponible :</strong> Serper (2 500/mois), Brave (2 000/mois), Exa (1 000/mois), Tavily (1 000/mois) — plus de 6 500 recherches gratuites par mois avec basculement automatique.",
     "autoRoutingNoDataAvailable": "Aucune analyse d’auto-routing n’est disponible. Faites des demandes avec le préfixe auto/ pour voir les métriques.",
-    "defaultVariantLabel": "Par défaut"
+    "defaultVariantLabel": "Par défaut",
+    "freeTierAvailable": "__MISSING__:Free tier available"
   },
   "apiManager": {
     "title": "Clés API",
@@ -2476,7 +2478,9 @@
     "providerCount": "{count} fournisseurs",
     "imageToTextBridgeAvailable": "Le Modality Bridge peut désormais décrire des images pour les modèles uniquement textuels. Le terrain de jeu en ligne sera disponible lorsque <code>/api/v1/images/understanding</code> sera implémenté.",
     "imageToTextBridgeCta": "Configurer le pont Image→Texte dans les paramètres du Modality Bridge",
-    "sttBridgeCta": "Configurer le pont Speech→Text dans les paramètres du Modality Bridge"
+    "sttBridgeCta": "Configurer le pont Speech→Text dans les paramètres du Modality Bridge",
+    "existingConnection": "__MISSING__:Existing connection",
+    "openrouterSttDescription": "__MISSING__:OpenRouter speech-to-text models use your configured OpenRouter connection. No separate credential is required."
   },
   "search": {
     "searchQuery": "Search Query",
@@ -3708,7 +3712,8 @@
     "errorTitle": "Impossible de charger les combos",
     "errorDescription": "Les données des combos ne peuvent pas être chargées pour le moment. Vérifiez votre connexion et réessayez.",
     "errorId": "ID d'erreur : {id}",
-    "errorRetry": "Réessayer"
+    "errorRetry": "Réessayer",
+    "comboLabel": "__MISSING__:Combo"
   },
   "costs": {
     "title": "Coûts",
@@ -4438,7 +4443,9 @@
       "cleaning": "Nettoyage en cours...",
       "cleanNow": "Nettoyer maintenant",
       "cleanupSuccess": "{count} point(s) supprimé(s)",
-      "cleanupFailed": "Échec du nettoyage"
+      "cleanupFailed": "Échec du nettoyage",
+      "hostLabel": "__MISSING__:Host",
+      "collectionLabel": "__MISSING__:Collection"
     },
     "rerank": {
       "enableLabel": "Activer le Rerank",
@@ -8133,7 +8140,13 @@
     "routingJsonEditorImportExport": "Importer / exporter du JSON",
     "routingJsonEditorLabel": "JSON (modifiez et appliquez, ou collez pour importer)",
     "routingApplyJson": "Appliquer le JSON",
-    "routingTransformsFootnote": "Toutes les opérations de transformation sont idempotentes lors d’une nouvelle exécution. Les modifications prennent effet immédiatement à la requête suivante."
+    "routingTransformsFootnote": "Toutes les opérations de transformation sont idempotentes lors d’une nouvelle exécution. Les modifications prennent effet immédiatement à la requête suivante.",
+    "cliproxyapiUnknown": "__MISSING__:Unknown",
+    "cliproxyapiVersion": "__MISSING__:Version",
+    "cliproxyapiHealth": "__MISSING__:Health",
+    "cliproxyapiPort": "__MISSING__:Port",
+    "qdrantHost": "__MISSING__:Host",
+    "qdrantCollection": "__MISSING__:Collection"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8540,7 +8553,8 @@
     "enableDescription": "S'exécute en dernier dans la pile (après que RTK/Caveman a nettoyé le texte, OmniGlyph convertit le reste en images) et s'exécute également de manière autonome via le mode <code>omniglyph</code>. Il s'agit d'une version préliminaire qui reste désactivée par défaut jusqu'à ce que la validation de bout en bout soit terminée.",
     "saved": "Enregistré.",
     "saveFailed": "Impossible d'enregistrer.",
-    "enableAria": "Activer le moteur OmniGlyph"
+    "enableAria": "Activer le moteur OmniGlyph",
+    "title": "__MISSING__:OmniGlyph"
   },
   "embeddedServices": {
     "title": "Services intégrés",
@@ -9629,7 +9643,23 @@
     "traeAuthorizationSuccess": "Autorisation Trae ✓",
     "traeAuthorizationFailed": "Échec de l’autorisation Trae",
     "closeAuthorizationWindow": "Vous pouvez fermer cette fenêtre.",
-    "returnToDashboard": "Retournez au tableau de bord."
+    "returnToDashboard": "Retournez au tableau de bord.",
+    "resetViaAppData": "__MISSING__:Reset via App Data",
+    "deleteSettingsToReset": "__MISSING__:Delete the settings file from the app data directory to reset your password:",
+    "quitAppCompletely": "__MISSING__:Quit the OmniRoute desktop app completely",
+    "navigateToAppData": "__MISSING__:Navigate to the app data directory",
+    "checkAppDataFolder": "__MISSING__:Check your system app data folder",
+    "deleteSettingsJson": "__MISSING__:Delete",
+    "relaunchAppFresh": "__MISSING__:Relaunch the OmniRoute desktop app — it will start fresh setup",
+    "alternativeSetPassword": "__MISSING__:Alternative: Set New Password",
+    "setNewPasswordViaEnv": "__MISSING__:Set a new initial password via the server environment file:",
+    "openServerEnv": "__MISSING__:Open",
+    "inDataDirectory": "__MISSING__:in the data directory",
+    "addOrUpdate": "__MISSING__:Add or update",
+    "deleteAndRelaunch": "__MISSING__:Delete",
+    "settingsJson": "__MISSING__:settings.json",
+    "fromDataDir": "__MISSING__:from the data directory",
+    "relaunchApp": "__MISSING__:Relaunch the OmniRoute desktop app"
   },
   "landing": {
     "brandName": "OmniRoute",
@@ -10484,8 +10514,7 @@
     "gitlabDuoSetupTitle": "Configuration OAuth de GitLab Duo",
     "gitlabDuoSetupMessage": "GitLab Duo OAuth n’est pas configuré. Enregistrez une application OAuth à l’adresse {applicationsUrl} avec l’URI de redirection {redirectUri} et les scopes « {scopes} », puis définissez {clientIdEnv} (et éventuellement {clientSecretEnv}) et redémarrez.",
     "gitlabDuoSetupDescription": "Après l’enregistrement de l’application et la définition des variables d’environnement sur cette instance OmniRoute, cliquez sur Continuer pour démarrer la connexion OAuth.",
-    "continue": "Continuer",
-    "googleOAuthWarning": "__MISSING__:Remote access + Google OAuth: bundled credentials only accept loopback redirects like <code>127.0.0.1</code>. The browser that approves Google must be able to reach OmniRoute on that local port, usually by opening OmniRoute locally or using an SSH/local-forward tunnel. Recommended for remote installs: on your own computer run <code>npx omniroute login antigravity</code> and paste the credential blob it prints into the field below. For fully remote use without this local callback, <a>configure your own OAuth credentials</a>."
+    "continue": "Continuer"
   },
   "cursorAuthModal": {
     "title": "Connecter l'IDE du curseur",
@@ -12827,7 +12856,9 @@
       "avoid": "Restreint par les CGU — examiner les conditions",
       "caution": "Attention — clauses d'utilisation personnelle / proxy",
       "ok": "Généralement permissif"
-    }
+    },
+    "allProviders": "__MISSING__:All providers",
+    "noApiKeyRequired": "__MISSING__:No API key required"
   },
   "providerHealthAutopilot": {
     "title": "Pilote automatique de l'état des fournisseurs",
@@ -13576,5 +13607,13 @@
     "sttFailed": "__MISSING__:Transcription failed (check the STT model/provider)",
     "ttsFailed": "__MISSING__:Speech synthesis failed (check the TTS model/provider)",
     "micDenied": "__MISSING__:Microphone unavailable or permission denied"
+  },
+  "cliproxyProviderExposure": {
+    "title": "__MISSING__:Provider Exposure",
+    "description": "__MISSING__:Expose CLIProxyAPI models as a routing target under the <prefix>cliproxyapi/</prefix> prefix.",
+    "label": "__MISSING__:Expose as <prefix>cliproxyapi/...</prefix>",
+    "hint": "__MISSING__:When enabled, discovered models appear in provider selects across OmniRoute.",
+    "updateFailed": "__MISSING__:Failed to update (HTTP {status})",
+    "networkError": "__MISSING__:Network error — could not update provider exposure setting"
   }
 }

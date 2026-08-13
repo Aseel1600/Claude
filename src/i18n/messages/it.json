@@ -1289,7 +1289,8 @@
       "navigate": "__MISSING__:navigate",
       "open": "__MISSING__:open",
       "close": "__MISSING__:close"
-    }
+    },
+    "noResults": "__MISSING__:No results"
   },
   "webhooks": {
     "title": "Webhook",
@@ -2187,7 +2188,8 @@
     "searchAnalyticsEmptyDescription": "__MISSING__:Use <code>POST /v1/search</code> to start routing web searches.",
     "searchAnalyticsFreeTier": "__MISSING__:<strong>Free tier available:</strong> Serper (2,500/mo), Brave (2,000/mo), Exa (1,000/mo), Tavily (1,000/mo) — total 6,500+ free searches/month with automatic failover.",
     "autoRoutingNoDataAvailable": "__MISSING__:No auto-routing analytics available. Make requests using the auto/ prefix to see metrics.",
-    "defaultVariantLabel": "__MISSING__:Default"
+    "defaultVariantLabel": "__MISSING__:Default",
+    "freeTierAvailable": "__MISSING__:Free tier available"
   },
   "apiManager": {
     "title": "Chiavi API",
@@ -2476,7 +2478,9 @@
     "providerCount": "{count} provider",
     "imageToTextBridgeAvailable": "Il Modality Bridge può ora descrivere immagini per modelli solo testo. Il playground inline sarà disponibile quando <code>/api/v1/images/understanding</code> sarà implementato.",
     "imageToTextBridgeCta": "Configura il ponte Immagine→Testo nelle impostazioni del Modality Bridge",
-    "sttBridgeCta": "Configura il ponte Speech→Text nelle impostazioni del Modality Bridge"
+    "sttBridgeCta": "Configura il ponte Speech→Text nelle impostazioni del Modality Bridge",
+    "existingConnection": "__MISSING__:Existing connection",
+    "openrouterSttDescription": "__MISSING__:OpenRouter speech-to-text models use your configured OpenRouter connection. No separate credential is required."
   },
   "search": {
     "searchQuery": "Search Query",
@@ -3708,7 +3712,8 @@
     "errorTitle": "__MISSING__:Failed to load combos",
     "errorDescription": "__MISSING__:We could not load combo data right now. Check your connection and try again.",
     "errorId": "__MISSING__:Error ID: {id}",
-    "errorRetry": "__MISSING__:Try Again"
+    "errorRetry": "__MISSING__:Try Again",
+    "comboLabel": "__MISSING__:Combo"
   },
   "costs": {
     "title": "Costi",
@@ -4438,7 +4443,9 @@
       "cleaning": "Pulizia in corso...",
       "cleanNow": "Pulisci ora",
       "cleanupSuccess": "{count} punto/i rimosso/i",
-      "cleanupFailed": "Pulizia non riuscita"
+      "cleanupFailed": "Pulizia non riuscita",
+      "hostLabel": "__MISSING__:Host",
+      "collectionLabel": "__MISSING__:Collection"
     },
     "rerank": {
       "enableLabel": "Abilita Rerank",
@@ -8133,7 +8140,13 @@
     "routingJsonEditorImportExport": "__MISSING__:Import / export JSON",
     "routingJsonEditorLabel": "__MISSING__:JSON (edit and apply, or paste to import)",
     "routingApplyJson": "__MISSING__:Apply JSON",
-    "routingTransformsFootnote": "__MISSING__:All transform ops are idempotent on re-run. Changes take effect immediately on the next request."
+    "routingTransformsFootnote": "__MISSING__:All transform ops are idempotent on re-run. Changes take effect immediately on the next request.",
+    "cliproxyapiUnknown": "__MISSING__:Unknown",
+    "cliproxyapiVersion": "__MISSING__:Version",
+    "cliproxyapiHealth": "__MISSING__:Health",
+    "cliproxyapiPort": "__MISSING__:Port",
+    "qdrantHost": "__MISSING__:Host",
+    "qdrantCollection": "__MISSING__:Collection"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8540,7 +8553,8 @@
     "enableDescription": "Viene eseguito per ultimo nello stack (dopo che RTK/Caveman ha pulito il testo, OmniGlyph converte il resto in immagini) e funziona anche in modalità autonoma tramite la modalità <code>omniglyph</code>. Questa è un'anteprima e rimane disattivata per impostazione predefinita fino al completamento della convalida end-to-end.",
     "saved": "Salvato.",
     "saveFailed": "Impossibile salvare.",
-    "enableAria": "Abilita il motore OmniGlyph"
+    "enableAria": "Abilita il motore OmniGlyph",
+    "title": "__MISSING__:OmniGlyph"
   },
   "embeddedServices": {
     "title": "Servizi integrati",
@@ -9629,7 +9643,23 @@
     "traeAuthorizationSuccess": "__MISSING__:Trae authorization ✓",
     "traeAuthorizationFailed": "__MISSING__:Trae authorization failed",
     "closeAuthorizationWindow": "__MISSING__:You can close this window.",
-    "returnToDashboard": "__MISSING__:Return to the dashboard."
+    "returnToDashboard": "__MISSING__:Return to the dashboard.",
+    "resetViaAppData": "__MISSING__:Reset via App Data",
+    "deleteSettingsToReset": "__MISSING__:Delete the settings file from the app data directory to reset your password:",
+    "quitAppCompletely": "__MISSING__:Quit the OmniRoute desktop app completely",
+    "navigateToAppData": "__MISSING__:Navigate to the app data directory",
+    "checkAppDataFolder": "__MISSING__:Check your system app data folder",
+    "deleteSettingsJson": "__MISSING__:Delete",
+    "relaunchAppFresh": "__MISSING__:Relaunch the OmniRoute desktop app — it will start fresh setup",
+    "alternativeSetPassword": "__MISSING__:Alternative: Set New Password",
+    "setNewPasswordViaEnv": "__MISSING__:Set a new initial password via the server environment file:",
+    "openServerEnv": "__MISSING__:Open",
+    "inDataDirectory": "__MISSING__:in the data directory",
+    "addOrUpdate": "__MISSING__:Add or update",
+    "deleteAndRelaunch": "__MISSING__:Delete",
+    "settingsJson": "__MISSING__:settings.json",
+    "fromDataDir": "__MISSING__:from the data directory",
+    "relaunchApp": "__MISSING__:Relaunch the OmniRoute desktop app"
   },
   "landing": {
     "brandName": "OmniRoute",
@@ -10484,8 +10514,7 @@
     "gitlabDuoSetupTitle": "__MISSING__:GitLab Duo OAuth setup",
     "gitlabDuoSetupMessage": "__MISSING__:GitLab Duo OAuth is not configured. Register an OAuth application at {applicationsUrl} with redirect URI {redirectUri} and scopes \"{scopes}\", then set {clientIdEnv} (and optionally {clientSecretEnv}) and restart.",
     "gitlabDuoSetupDescription": "__MISSING__:After the application is registered and the env vars are set on this OmniRoute instance, click Continue to start the OAuth login.",
-    "continue": "__MISSING__:Continue",
-    "googleOAuthWarning": "__MISSING__:Remote access + Google OAuth: bundled credentials only accept loopback redirects like <code>127.0.0.1</code>. The browser that approves Google must be able to reach OmniRoute on that local port, usually by opening OmniRoute locally or using an SSH/local-forward tunnel. Recommended for remote installs: on your own computer run <code>npx omniroute login antigravity</code> and paste the credential blob it prints into the field below. For fully remote use without this local callback, <a>configure your own OAuth credentials</a>."
+    "continue": "__MISSING__:Continue"
   },
   "cursorAuthModal": {
     "title": "Connetti l'IDE del cursore",
@@ -12827,7 +12856,9 @@
       "avoid": "Limitato dai ToS — consulta i termini",
       "caution": "Attenzione — clausole per uso personale / proxy",
       "ok": "Generalmente permissivo"
-    }
+    },
+    "allProviders": "__MISSING__:All providers",
+    "noApiKeyRequired": "__MISSING__:No API key required"
   },
   "providerHealthAutopilot": {
     "title": "Autopilot integrità provider",
@@ -13576,5 +13607,13 @@
     "sttFailed": "__MISSING__:Transcription failed (check the STT model/provider)",
     "ttsFailed": "__MISSING__:Speech synthesis failed (check the TTS model/provider)",
     "micDenied": "__MISSING__:Microphone unavailable or permission denied"
+  },
+  "cliproxyProviderExposure": {
+    "title": "__MISSING__:Provider Exposure",
+    "description": "__MISSING__:Expose CLIProxyAPI models as a routing target under the <prefix>cliproxyapi/</prefix> prefix.",
+    "label": "__MISSING__:Expose as <prefix>cliproxyapi/...</prefix>",
+    "hint": "__MISSING__:When enabled, discovered models appear in provider selects across OmniRoute.",
+    "updateFailed": "__MISSING__:Failed to update (HTTP {status})",
+    "networkError": "__MISSING__:Network error — could not update provider exposure setting"
   }
 }

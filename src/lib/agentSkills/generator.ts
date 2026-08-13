@@ -204,9 +204,9 @@ export function buildSkillMarkdown(
   const bodyLines =
     skill.category === "api"
       ? buildApiBody(skill, sources)
-      : skill.category === "cli"
-        ? buildCliBody(skill, sources)
-        : ""; // external: content lives in the custom block below
+      : skill.category === "external"
+        ? "" // external: content lives in the custom block below
+        : buildCliBody(skill, sources); // cli + config share the CLI-shaped body
 
   // Re-inject custom block if present in existing content
   let customBlock = "";
