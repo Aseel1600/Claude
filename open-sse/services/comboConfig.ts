@@ -126,7 +126,12 @@ const DEFAULT_COMBO_CONFIG = {
   resetAwareWeeklyWeight: 0.65,
   resetAwareTieBandPercent: 5,
   resetAwareExhaustionGuardPercent: 10,
-  failoverBeforeRetry: true,
+  // Opt-in (#2417/#10217): when unset, transient errors retry the same model
+  // up to maxRetries before falling over to the next target — the historical
+  // default. Defaulting this to true silently flipped that behavior for every
+  // combo that never touched the setting, breaking same-model retry semantics
+  // (round 4 base-red bisect: 06f41cda63 vs d2fd88dfbc).
+  failoverBeforeRetry: false,
   // Feature 4985: configurable response-body validation predicate (per-combo). When set,
   // a 200 OK whose body fails the predicate fails over to the next target.
   responseValidation: undefined as ResponseValidationConfig | undefined,
