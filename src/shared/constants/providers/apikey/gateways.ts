@@ -612,7 +612,8 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     textIcon: "DA",
     website: "https://inference.dahl.global",
     hasFree: true,
-    freeNote: "Free — MiniMax M2.7, Kimi K2.6. Click 'Add Account' to auto-generate a token, or add your own API key.",
+    freeNote:
+      "Free — MiniMax M2.7, Kimi K2.6. Click 'Add Account' to auto-generate a token, or add your own API key.",
     authHint: "Click 'Add Account' to auto-generate a token, or add a manual API key.",
     apiHint: "Auto-generate a token or paste your own API key.",
     apiKeyUrl: "https://inference.dahl.global/tokens",
@@ -621,20 +622,6 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     notice: {
       text: "Dahl auto-generates tokens via https://inference.dahl.global/tokens. No signup needed. Rate limits apply. You can also add your own API key.",
     },
-  },
-  puter: {
-    id: "puter",
-    alias: "pu",
-    name: "Puter AI",
-    icon: "cloud_circle",
-    color: "#6366F1",
-    textIcon: "PU",
-    website: "https://puter.com",
-    hasFree: true,
-    freeNote:
-      "500+ models (GPT-5, Claude Opus 4, Gemini 3 Pro, Grok 4, DeepSeek V3...) — Users pay via free Puter account",
-    passthroughModels: true,
-    authHint: "Get token at puter.com/dashboard → Copy Auth Token",
   },
   uncloseai: {
     id: "uncloseai",
@@ -1227,7 +1214,36 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     freeNote:
       "Free models include Nemotron 3 Ultra (free) and Llama 3.3 70B Instruct (Free). Paid models require credits. Google/GitHub/Discord signup.",
     passthroughModels: true,
-    authHint:
-      "Get API key at naga.ac — Google/GitHub/Discord signup available.",
+    authHint: "Get API key at naga.ac — Google/GitHub/Discord signup available.",
+  },
+  "void-ai": {
+    id: "void-ai",
+    alias: "void-ai",
+    name: "Void AI",
+    icon: "science",
+    color: "#111827",
+    textIcon: "VA",
+    passthroughModels: true,
+    website: "https://voidai.app",
+    hasFree: true,
+    freeNote:
+      "The public model catalog marks some models with a free plan requirement, but access is conditional and no numeric quota is confirmed.",
+    apiHint:
+      "Use https://api.voidai.app/v1 only after confirming authentication, account eligibility and terms. Treat this integration as experimental until the blocked documentation becomes public.",
+  },
+  helixmind: {
+    id: "helixmind",
+    alias: "helixmind",
+    name: "HelixMind",
+    icon: "hub",
+    color: "#4F46E5",
+    textIcon: "HM",
+    passthroughModels: true,
+    website: "https://helixmind.online",
+    hasFree: false,
+    freeNote:
+      "Previously circulated 3 RPM/50 RPD and no-card claims were not confirmed during the 2026-08-02 audit; current quota and billing require account verification.",
+    apiHint:
+      "Create a helix- key and use https://helixmind.online/v1. OpenAI requests use Bearer authentication; the Anthropic-compatible messages endpoint accepts x-api-key.",
   },
 };

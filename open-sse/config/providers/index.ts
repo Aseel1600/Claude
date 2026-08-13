@@ -12,7 +12,6 @@ import { adapta_webProvider } from "./registry/adapta-web/index.ts";
 import { notion_webProvider } from "./registry/notion-web/index.ts";
 import { anthropicProvider } from "./registry/anthropic/index.ts";
 import { sambanovaProvider } from "./registry/sambanova/index.ts";
-import { puterProvider } from "./registry/puter/index.ts";
 import { deepaiProvider } from "./registry/deepai/index.ts";
 import { upstageProvider } from "./registry/upstage/index.ts";
 import { nebiusProvider } from "./registry/nebius/index.ts";
@@ -152,7 +151,7 @@ import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
 import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
 import { regoloProvider } from "./registry/regolo/index.ts";
-import { windsurfProvider } from "./registry/windsurf/index.ts";
+import { devin_desktopProvider } from "./registry/devin-desktop/index.ts";
 import { zed_hostedProvider } from "./registry/zed-hosted/index.ts";
 import { nanogptProvider } from "./registry/nanogpt/index.ts";
 import { scalewayProvider } from "./registry/scaleway/index.ts";
@@ -257,7 +256,8 @@ import { nagaAiProvider } from "./registry/naga-ai/index.ts";
 import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
 import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
-
+import { voidAiProvider } from "./registry/void-ai/index.ts";
+import { helixmindProvider } from "./registry/helixmind/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -270,7 +270,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "notion-web": notion_webProvider,
   anthropic: anthropicProvider,
   sambanova: sambanovaProvider,
-  puter: puterProvider,
   upstage: upstageProvider,
   deepai: deepaiProvider,
   nebius: nebiusProvider,
@@ -410,7 +409,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "command-code": command_codeProvider,
   novita: novitaProvider,
   regolo: regoloProvider,
-  windsurf: windsurfProvider,
+  "devin-desktop": devin_desktopProvider,
   "zed-hosted": zed_hostedProvider,
   nanogpt: nanogptProvider,
   scaleway: scalewayProvider,
@@ -517,5 +516,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "chat-oripe": chatOripeProvider,
   freeinference: freeinferenceProvider,
   "free-ai": freeAiProvider,
-
+  "void-ai": voidAiProvider,
+  helixmind: helixmindProvider,
 };
