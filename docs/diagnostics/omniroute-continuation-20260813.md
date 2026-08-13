@@ -251,6 +251,8 @@ Initial push: CONFIRMED. At this point `git rev-parse HEAD == git rev-parse
 @{u}` is YES. This report update is the final follow-up commit and must also be
 pushed without force.
 
+Report update commit preceding this finalization: `d2c31f2b4`.
+
 Final status for this continuation: `B — PARTIAL_PUSHED`.
 
 Shutdown authorized after commit, push confirmation, report preservation,
