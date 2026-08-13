@@ -23,11 +23,9 @@ test("XaiExecutor is registered under the 'xai' key and set as the registry exec
 test("XaiExecutor can target the separate xAI OAuth provider config", () => {
   const executor = new XaiExecutor("xai-oauth");
   assert.equal(executor.getProvider(), "xai-oauth");
-  // a367bf62f5 (#9994) scoped model-level targetFormat to the DECLARING provider's
-  // catalog: xai-oauth's own catalog lists grok-4.5 without a targetFormat tag, so
-  // it stays on /v1/chat/completions instead of importing a global entry's
-  // openai-responses tag (the transient #9612 global-fallback behavior).
-  assert.equal(executor.buildUrl("grok-4.5", false), "https://api.x.ai/v1/chat/completions");
+  // #10170 declares grok-4.5 as a native Responses model in xai-oauth's own
+  // catalog, so provider-scoped target-format resolution must select that URL.
+  assert.equal(executor.buildUrl("grok-4.5", false), "https://api.x.ai/v1/responses");
 });
 
 test("strips a -{level} suffix from an allow-listed model and sets reasoning_effort", () => {
@@ -88,7 +86,7 @@ test("strips reasoning_effort for the explicit -non-reasoning variant (already e
   assert.equal(out.reasoning_effort, undefined);
 });
 
-test("leaves a plain, unlisted model id and body unchanged (no suffix, not allow/deny listed)", () => {
+test("converts a Responses-tagged model while leaving its unclassified reasoning state alone", () => {
   const executor = new XaiExecutor();
   const body = { model: "grok-4.20-multi-agent-0309", messages: [{ role: "user", content: "hi" }] };
   const out = executor.transformRequest(
@@ -100,7 +98,13 @@ test("leaves a plain, unlisted model id and body unchanged (no suffix, not allow
 
   assert.equal(out.model, "grok-4.20-multi-agent-0309");
   assert.equal(out.reasoning_effort, undefined);
-  assert.deepEqual(out.messages, body.messages);
+  assert.equal(out.messages, undefined);
+  assert.deepEqual(out.input, [
+    {
+      role: "user",
+      content: [{ type: "input_text", text: "hi" }],
+    },
+  ]);
 });
 
 // Port of decolua/9router#2439 (author: @ryanngit): xAI ships a native
