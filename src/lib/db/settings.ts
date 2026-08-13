@@ -153,7 +153,7 @@ export async function getSettings() {
     providerStrategies: {},
     // Per-operator quota row visibility (dashboard usage tab). Keyed by
     // provider id → { hidden: [<quota visibility key>] }. Independent of the
-    // model catalog's isHidden/isDeleted flags (collectHiddenQuotaModelIds in
+    // model catalog's isHidden flag (collectHiddenQuotaModelIds in
     // ProviderLimits/utils.tsx) — this is a personal view preference, not an
     // admin model-catalog edit. Ported from upstream decolua/9router#2371.
     quotaVisibility: {},

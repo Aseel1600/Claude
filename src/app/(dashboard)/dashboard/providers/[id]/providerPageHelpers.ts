@@ -85,7 +85,6 @@ export type CompatModelRow = {
   normalizeToolCallId?: boolean;
   preserveOpenAIDeveloperRole?: boolean;
   isHidden?: boolean;
-  isDeleted?: boolean;
   upstreamHeaders?: Record<string, string>;
   compatByProtocol?: CompatByProtocolMap;
   /** #2905: per-model upstream wire-format override. */ targetFormat?: string;
@@ -167,7 +166,9 @@ export function evaluateTestAllEntry(
   autoHideFailed: boolean
 ): TestAllModelOutcome {
   const ok = entry?.status === "ok";
-  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient, entry?.isQuota].some(Boolean);
+  const transient = [entry?.rateLimited, entry?.isTimeout, entry?.isTransient, entry?.isQuota].some(
+    Boolean
+  );
   return {
     status: ok ? "ok" : "error",
     // #9511: quota errors (isQuota) are surfaced on the icon but kept visible
@@ -502,7 +503,7 @@ export function getDisplayModelAlias(modelId: string, alias?: string | null): st
 }
 
 function readActiveHiddenFlag(row: CompatModelRow | undefined): boolean | undefined {
-  if (!row || row.isDeleted === true) return undefined;
+  if (!row) return undefined;
   if (Object.prototype.hasOwnProperty.call(row, "isHidden")) {
     return Boolean(row.isHidden);
   }
