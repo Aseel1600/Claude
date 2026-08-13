@@ -122,9 +122,17 @@ test("OAuth modal Desktop branch gives honest import guidance without public Win
     new URL("../../src/shared/components/OAuthModal.tsx", import.meta.url),
     "utf8"
   );
+  // #9245 (7ca73697b0) localized the hardcoded modal copy: the guidance now
+  // lives in the i18n catalog under `devinDesktopPasteDescription` and the
+  // modal renders it via t(). Assert both halves of that contract.
+  const enMessages = await readFile(
+    new URL("../../src/i18n/messages/en.json", import.meta.url),
+    "utf8"
+  );
 
-  assert.match(source, /Paste an existing Devin API key/);
-  assert.match(source, /vary by Devin version and account/);
+  assert.match(source, /devinDesktopPasteDescription/);
+  assert.match(enMessages, /Paste an existing Devin API key/);
+  assert.match(enMessages, /vary by Devin version and account/);
   assert.doesNotMatch(source, /Devin: Copy API Key to Clipboard/);
   assert.doesNotMatch(source, /provider === ["']windsurf["']/);
 });
