@@ -1,7 +1,6 @@
 /** POST a server-side Radar Intel sync. The browser never receives the supporter key. */
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 
 import { buildErrorBody, sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
@@ -9,11 +8,10 @@ import { syncRadarIntel } from "@/lib/radar/intelSync";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
+import { radarSyncBodyError, validateRadarSyncBody } from "../../syncRequest";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-const SyncBodySchema = z.object({}).strict().optional();
 
 export async function OPTIONS() {
   return handleCorsOptions();
@@ -33,15 +31,10 @@ export async function POST(request: Request) {
     });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = undefined;
-  }
-  if (!SyncBodySchema.safeParse(body).success) {
-    return NextResponse.json(buildErrorBody(400, "Invalid request body"), {
-      status: 400,
+  const bodyError = radarSyncBodyError(await validateRadarSyncBody(request));
+  if (bodyError) {
+    return NextResponse.json(buildErrorBody(bodyError.status, bodyError.message), {
+      status: bodyError.status,
       headers: CORS_HEADERS,
     });
   }

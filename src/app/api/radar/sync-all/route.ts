@@ -11,6 +11,7 @@ import { syncRadar } from "@/lib/radar/sync";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
+import { radarSyncBodyError, validateRadarSyncBody } from "../syncRequest";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,6 +30,13 @@ export async function POST(request: Request) {
   if (!(await isAuthenticated(request))) {
     return NextResponse.json(buildErrorBody(401, "Unauthorized"), {
       status: 401,
+      headers: CORS_HEADERS,
+    });
+  }
+  const bodyError = radarSyncBodyError(await validateRadarSyncBody(request));
+  if (bodyError) {
+    return NextResponse.json(buildErrorBody(bodyError.status, bodyError.message), {
+      status: bodyError.status,
       headers: CORS_HEADERS,
     });
   }

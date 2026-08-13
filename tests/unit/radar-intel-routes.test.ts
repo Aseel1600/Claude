@@ -105,3 +105,52 @@ test("Radar status is read-only and aggregate sync reports each feed separately"
     intel: { status: "opt_out" },
   });
 });
+
+test("aggregate sync rejects an arbitrary JSON body before invoking any feed", async () => {
+  resetStorage();
+  process.env.RADAR_ENABLED = "true";
+  const syncAllRoute = await import("../../src/app/api/radar/sync-all/route.ts");
+  const response = await syncAllRoute.POST(
+    new Request("http://localhost:20128/api/radar/sync-all", {
+      method: "POST",
+      headers: { ...(await authHeaders()), "content-type": "application/json" },
+      body: JSON.stringify({ unexpected: true }),
+    })
+  );
+
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), {
+    error: { message: "Invalid request body", type: "invalid_request_error", code: "bad_request" },
+  });
+});
+
+test("aggregate sync returns sanitized errors for oversized and failed body streams", async () => {
+  resetStorage();
+  process.env.RADAR_ENABLED = "true";
+  const syncAllRoute = await import("../../src/app/api/radar/sync-all/route.ts");
+  const headers = await authHeaders();
+  const oversized = await syncAllRoute.POST(
+    new Request("http://localhost:20128/api/radar/sync-all", {
+      method: "POST",
+      headers,
+      body: " ".repeat(1025),
+    })
+  );
+  const failedStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error("transport-secret"));
+    },
+  });
+  const failed = await syncAllRoute.POST(
+    new Request("http://localhost:20128/api/radar/sync-all", {
+      method: "POST",
+      headers,
+      body: failedStream,
+      duplex: "half",
+    } as RequestInit & { duplex: "half" })
+  );
+
+  assert.equal(oversized.status, 413);
+  assert.equal(failed.status, 400);
+  assert.doesNotMatch(JSON.stringify(await failed.json()), /transport-secret|stack/i);
+});
