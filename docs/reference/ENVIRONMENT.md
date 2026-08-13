@@ -1495,3 +1495,12 @@ Used by `open-sse/services/combo.ts` and `src/lib/quota/quotaScheduler.ts` for p
 | Variable                          | Default  | Source File                       | Description                                                                                                      |
 | --------------------------------- | -------- | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `OMNIROUTE_QUOTA_AWARE_ROUTING`   | `0`      | `open-sse/services/combo.ts`      | When `1`, skip connections whose per-window token budget (`rateLimitOverrides.tpm`, table `provider_quota_state`) cannot afford the estimated request cost before dispatch. Fail-open when no budget configured. |
+
+## Auto-update (source installs)
+
+Custom-fork builds self-update via git + pnpm (never `npm install -g`, which would replace the linked fork with the stock npm package). Source: `src/lib/system/autoUpdate.ts`, `bin/cli/commands/update.mjs`.
+
+| Variable | Default | Source File | Description |
+| --- | --- | --- | --- |
+| `AUTO_UPDATE_GIT_REMOTE` | `origin` | `src/lib/system/autoUpdate.ts` | Git remote whose release tags are fetched during update (`git fetch --tags <remote>`). |
+| `AUTO_UPDATE_PATCH_COMMITS` | _(empty)_ | `src/lib/system/autoUpdate.ts` | Space/comma-separated commit SHAs re-applied after each release pull (the custom fix patch). Empty = pure upstream + pnpm. |
