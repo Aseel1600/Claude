@@ -158,11 +158,11 @@ Husky hooks 位于 `.husky/` 目录，在 git 操作时自动运行。
 
 仓库使用三个不同的输出目录 — 切勿混淆：
 
-| 目录       | 用途                                                     | 是否追踪？      |
-| ---------- | -------------------------------------------------------- | --------------- |
-| `src/`     | 应用源码（TypeScript / TSX）                              | 是              |
-| `.build/`  | 构建中间产物 — `next build` 输出（`distDir`）             | 否（gitignored） |
-| `dist/`    | 可分发的 npm 包 — 由 `assembleStandalone` 组装            | 否（gitignored） |
+| 目录      | 用途                                           | 是否追踪？       |
+| --------- | ---------------------------------------------- | ---------------- |
+| `src/`    | 应用源码（TypeScript / TSX）                   | 是               |
+| `.build/` | 构建中间产物 — `next build` 输出（`distDir`）  | 否（gitignored） |
+| `dist/`   | 可分发的 npm 包 — 由 `assembleStandalone` 组装 | 否（gitignored） |
 
 > **运维说明：** 远程 VPS 镜像目录仍为 `/usr/lib/node_modules/omniroute/app/`。
 > 仅**仓库内**的构建输出路径有变化（`app/` → `dist/`）。部署技能将 `dist/` 内容

@@ -117,12 +117,12 @@ If you changed the credential contract (new storage key, new cookie name, change
 
 ## Troubleshooting
 
-| Symptom                          | Likely cause                                 | Fix                                                       |
-| -------------------------------- | -------------------------------------------- | --------------------------------------------------------- |
-| Cookie not in Cookie Editor      | Signed out / not HttpOnly-visible            | Sign in; enable HttpOnly display in options               |
-| Token missing from live request  | Request is not authenticated                  | Sign in and send a chat message first                     |
-| 401 after Test Connection passed | Expired or rotated session                    | Re-copy from a fresh live request                         |
-| Chunked token fails              | Only one chunk pasted                        | Select all `__Secure-next-auth.session-token.*` chunks    |
+| Symptom                          | Likely cause                      | Fix                                                    |
+| -------------------------------- | --------------------------------- | ------------------------------------------------------ |
+| Cookie not in Cookie Editor      | Signed out / not HttpOnly-visible | Sign in; enable HttpOnly display in options            |
+| Token missing from live request  | Request is not authenticated      | Sign in and send a chat message first                  |
+| 401 after Test Connection passed | Expired or rotated session        | Re-copy from a fresh live request                      |
+| Chunked token fails              | Only one chunk pasted             | Select all `__Secure-next-auth.session-token.*` chunks |
 
 ---
 

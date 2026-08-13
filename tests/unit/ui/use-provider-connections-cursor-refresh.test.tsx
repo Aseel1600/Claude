@@ -195,7 +195,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     });
     const getResult = await mountHook("cursor");
     const getCallsBefore = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
 
     await act(async () => {
@@ -206,7 +207,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     expect(notify.info).not.toHaveBeenCalled();
     expect(notify.error).not.toHaveBeenCalled();
     const getCallsAfter = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
     expect(getCallsAfter).toBeGreaterThan(getCallsBefore); // fetchConnections() re-ran
   });
@@ -224,7 +226,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     });
     const getResult = await mountHook("cursor");
     const getCallsBefore = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
 
     await act(async () => {
@@ -235,7 +238,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     expect(notify.success).not.toHaveBeenCalled();
     expect(notify.error).not.toHaveBeenCalled();
     const getCallsAfter = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
     expect(getCallsAfter).toBe(getCallsBefore); // fetchConnections() must NOT re-run
   });
@@ -250,7 +254,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     });
     const getResult = await mountHook("cursor");
     const getCallsBefore = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
 
     await act(async () => {
@@ -263,7 +268,8 @@ describe("useProviderConnections — handleRefreshToken Cursor branching (Task 6
     expect(notify.success).not.toHaveBeenCalled();
     expect(notify.info).not.toHaveBeenCalled();
     const getCallsAfter = calls.filter(
-      (c) => (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
+      (c) =>
+        (c.url === "/api/providers" || c.url.startsWith("/api/providers?")) && c.method === "GET"
     ).length;
     expect(getCallsAfter).toBe(getCallsBefore); // fetchConnections() must NOT re-run
   });

@@ -10,7 +10,9 @@ function getToolsGroup() {
   assert.ok(omniProxySection, "expected omni-proxy section to exist");
 
   const toolsGroup = omniProxySection.children.find(
-    (child): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
+    (
+      child
+    ): child is (typeof sidebarVisibility.SIDEBAR_SECTIONS)[number]["children"][number] & {
       type: "group";
     } =>
       "type" in child &&

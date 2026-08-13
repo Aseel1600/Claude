@@ -320,7 +320,7 @@ For enhver ikke-trivial ændring, læs den matchende dybdegående først:
 | Repo navigation                                            | `docs/architecture/REPOSITORY_MAP.md`                             |
 | Arkitektur                                                 | `docs/architecture/ARCHITECTURE.md`                               |
 | Ingeniør reference                                         | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
-| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md` |
+| Auto-Combo (13-factor scoring, 19 public strategies)       | `docs/routing/AUTO-COMBO.md`                                      |
 | Resiliens (3 mekanismer)                                   | `docs/architecture/RESILIENCE_GUIDE.md`                           |
 | Reasoning replay                                           | `docs/routing/REASONING_REPLAY.md`                                |
 | Færdigheder rammeværk                                      | `docs/frameworks/SKILLS.md`                                       |

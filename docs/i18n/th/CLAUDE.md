@@ -290,31 +290,31 @@ baseCooldownMs * 2 ** failureIndex;
 
 สำหรับการเปลี่ยนแปลงที่ไม่ธรรมดา ให้อ่านเอกสารเชิงลึกที่ตรงกันก่อน:
 
-| พื้นที่                                         | เอกสาร                                                            |
-| ----------------------------------------------- | ----------------------------------------------------------------- |
-| การนำทางใน Repo                                 | `docs/architecture/REPOSITORY_MAP.md`                             |
-| สถาปัตยกรรม                                     | `docs/architecture/ARCHITECTURE.md`                               |
-| เอกสารอ้างอิงด้านวิศวกรรม                       | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
-| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md` |
-| ความยืดหยุ่น (กลไก 3 ประการ)                    | `docs/architecture/RESILIENCE_GUIDE.md`                           |
-| การเล่นซ้ำการให้เหตุผล                          | `docs/routing/REASONING_REPLAY.md`                                |
-| กรอบทักษะ                                       | `docs/frameworks/SKILLS.md`                                       |
-| ระบบหน่วยความจำ (FTS5 + Qdrant)                 | `docs/frameworks/MEMORY.md`                                       |
-| ตัวแทนคลาวด์                                    | `docs/frameworks/CLOUD_AGENT.md`                                  |
-| รั้วป้องกัน (PII / การฉีด / วิสัยทัศน์)         | `docs/security/GUARDRAILS.md`                                     |
-| ข้อมูลประจำตัวสาธารณะจาก upstream (Gemini/etc.) | `docs/security/PUBLIC_CREDS.md`                                   |
-| การทำความสะอาดข้อความแสดงข้อผิดพลาด             | `docs/security/ERROR_SANITIZATION.md`                             |
-| การประเมินผล                                    | `docs/frameworks/EVALS.md`                                        |
-| การปฏิบัติตาม / การตรวจสอบ                      | `docs/security/COMPLIANCE.md`                                     |
-| Webhooks                                        | `docs/frameworks/WEBHOOKS.md`                                     |
-| ท่อการอนุญาต                                    | `docs/architecture/AUTHZ_GUIDE.md`                                |
-| การซ่อนตัว (TLS / ลายนิ้วมือ)                   | `docs/security/STEALTH_GUIDE.md`                                  |
-| โปรโตคอลตัวแทน (A2A / ACP / Cloud)              | `docs/frameworks/AGENT_PROTOCOLS_GUIDE.md`                        |
-| เซิร์ฟเวอร์ MCP                                 | `docs/frameworks/MCP-SERVER.md`                                   |
-| เซิร์ฟเวอร์ A2A                                 | `docs/frameworks/A2A-SERVER.md`                                   |
-| เอกสารอ้างอิง API + OpenAPI                     | `docs/reference/API_REFERENCE.md` + `docs/reference/openapi.yaml` |
-| แคตตาล็อกผู้ให้บริการ (สร้างโดยอัตโนมัติ)       | `docs/reference/PROVIDER_REFERENCE.md`                            |
-| กระบวนการปล่อย                                  | `docs/ops/RELEASE_CHECKLIST.md`                                   |
+| พื้นที่                                              | เอกสาร                                                            |
+| ---------------------------------------------------- | ----------------------------------------------------------------- |
+| การนำทางใน Repo                                      | `docs/architecture/REPOSITORY_MAP.md`                             |
+| สถาปัตยกรรม                                          | `docs/architecture/ARCHITECTURE.md`                               |
+| เอกสารอ้างอิงด้านวิศวกรรม                            | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
+| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md`                                      |
+| ความยืดหยุ่น (กลไก 3 ประการ)                         | `docs/architecture/RESILIENCE_GUIDE.md`                           |
+| การเล่นซ้ำการให้เหตุผล                               | `docs/routing/REASONING_REPLAY.md`                                |
+| กรอบทักษะ                                            | `docs/frameworks/SKILLS.md`                                       |
+| ระบบหน่วยความจำ (FTS5 + Qdrant)                      | `docs/frameworks/MEMORY.md`                                       |
+| ตัวแทนคลาวด์                                         | `docs/frameworks/CLOUD_AGENT.md`                                  |
+| รั้วป้องกัน (PII / การฉีด / วิสัยทัศน์)              | `docs/security/GUARDRAILS.md`                                     |
+| ข้อมูลประจำตัวสาธารณะจาก upstream (Gemini/etc.)      | `docs/security/PUBLIC_CREDS.md`                                   |
+| การทำความสะอาดข้อความแสดงข้อผิดพลาด                  | `docs/security/ERROR_SANITIZATION.md`                             |
+| การประเมินผล                                         | `docs/frameworks/EVALS.md`                                        |
+| การปฏิบัติตาม / การตรวจสอบ                           | `docs/security/COMPLIANCE.md`                                     |
+| Webhooks                                             | `docs/frameworks/WEBHOOKS.md`                                     |
+| ท่อการอนุญาต                                         | `docs/architecture/AUTHZ_GUIDE.md`                                |
+| การซ่อนตัว (TLS / ลายนิ้วมือ)                        | `docs/security/STEALTH_GUIDE.md`                                  |
+| โปรโตคอลตัวแทน (A2A / ACP / Cloud)                   | `docs/frameworks/AGENT_PROTOCOLS_GUIDE.md`                        |
+| เซิร์ฟเวอร์ MCP                                      | `docs/frameworks/MCP-SERVER.md`                                   |
+| เซิร์ฟเวอร์ A2A                                      | `docs/frameworks/A2A-SERVER.md`                                   |
+| เอกสารอ้างอิง API + OpenAPI                          | `docs/reference/API_REFERENCE.md` + `docs/reference/openapi.yaml` |
+| แคตตาล็อกผู้ให้บริการ (สร้างโดยอัตโนมัติ)            | `docs/reference/PROVIDER_REFERENCE.md`                            |
+| กระบวนการปล่อย                                       | `docs/ops/RELEASE_CHECKLIST.md`                                   |
 
 ## การทดสอบ
 

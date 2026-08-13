@@ -980,7 +980,7 @@ All other providers (including custom compatible nodes) use the `DefaultExecutor
 | KIE               | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Devin Desktop     | openai           | Imported API key      | ✅ (Connect→SSE) | ✅         | ❌            | ⚠️ Per request     |
 | GitLab Duo        | openai           | OAuth (GitLab)        | ✅               | ✅         | ✅            | ❌                 |
-| Devin CLI | openai | Local CLI login | ✅ | ✅ | ❌ | ✅ Task API |
+| Devin CLI         | openai           | Local CLI login       | ✅               | ✅         | ❌            | ✅ Task API        |
 | Codex Cloud       | openai-responses | OAuth                 | ✅               | ❌         | ✅            | ✅ Rate limits     |
 | Jules             | openai           | OAuth                 | ✅               | ✅         | ✅            | ✅ Task API        |
 | AgentRouter       | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |

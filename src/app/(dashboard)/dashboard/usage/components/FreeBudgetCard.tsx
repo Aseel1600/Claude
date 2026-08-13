@@ -429,9 +429,7 @@ export function FreeBudgetView({
             <span className="material-symbols-outlined text-[14px] text-emerald-500">
               lock_open
             </span>
-            <span className="text-[11px] font-semibold text-emerald-500">
-              {labels.noApiKey}
-            </span>
+            <span className="text-[11px] font-semibold text-emerald-500">{labels.noApiKey}</span>
             <span className="text-[10.5px] text-text-muted">
               ({keylessModels.length}个模型 · {keylessProviders.length}个提供者)
             </span>

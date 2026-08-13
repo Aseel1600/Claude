@@ -319,7 +319,7 @@ Für jede nicht triviale Änderung lesen Sie zuerst das entsprechende Deep-Dive:
 | Repo-Navigation                                         | `docs/architecture/REPOSITORY_MAP.md`                             |
 | Architektur                                             | `docs/architecture/ARCHITECTURE.md`                               |
 | Ingenieureferenzen                                      | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
-| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md` |
+| Auto-Combo (13-factor scoring, 19 public strategies)    | `docs/routing/AUTO-COMBO.md`                                      |
 | Resilienz (3 Mechanismen)                               | `docs/architecture/RESILIENCE_GUIDE.md`                           |
 | Reasoning Replay                                        | `docs/routing/REASONING_REPLAY.md`                                |
 | Fähigkeiten-Rahmen                                      | `docs/frameworks/SKILLS.md`                                       |

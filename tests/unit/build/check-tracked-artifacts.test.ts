@@ -114,7 +114,11 @@ test("checkTrackedArtifacts: docs/superpowers/ prefix is flagged", () => {
 });
 
 test("checkTrackedArtifacts: .eslintcache family is flagged", () => {
-  const result = checkTrackedArtifacts([".eslintcache", ".eslintcache-complexity", ".eslintcache-probe"]);
+  const result = checkTrackedArtifacts([
+    ".eslintcache",
+    ".eslintcache-complexity",
+    ".eslintcache-probe",
+  ]);
   assert.equal(result.length, 3);
 });
 

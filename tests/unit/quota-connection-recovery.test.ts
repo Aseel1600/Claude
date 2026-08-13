@@ -70,7 +70,10 @@ describe("connectionRecovery — credits_exhausted reprobe", () => {
       [activeTransient, expiredCredits, freshCredits],
       nowMs
     );
-    assert.deepEqual(selected.map((c) => c.id), ["t-1", "c-1"]);
+    assert.deepEqual(
+      selected.map((c) => c.id),
+      ["t-1", "c-1"]
+    );
   });
 
   it("runConnectionRecoveryTick calls clearConnectionError for reprobe candidates", async () => {

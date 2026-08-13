@@ -34,12 +34,14 @@ interface ApikeyMetaShape {
 
 const { REGISTRY } = await import("../../open-sse/config/providerRegistry.ts");
 const { getExecutor, DefaultExecutor } = await import("../../open-sse/executors/index.ts");
-const { AGGREGATOR_PROVIDER_IDS, providerAllowsOptionalApiKey } = await import(
-  "../../src/shared/constants/providers.ts"
-);
+const { AGGREGATOR_PROVIDER_IDS, providerAllowsOptionalApiKey } =
+  await import("../../src/shared/constants/providers.ts");
 const { APIKEY_PROVIDERS } = await import("../../src/shared/constants/providers/apikey/index.ts");
 
-const PROVIDERS: Record<string, { id: string; authType: string; baseUrl: string; website: string }> = {
+const PROVIDERS: Record<
+  string,
+  { id: string; authType: string; baseUrl: string; website: string }
+> = {
   "naga-ac": {
     id: "naga-ac",
     authType: "optional",
@@ -77,10 +79,7 @@ for (const [id, info] of Object.entries(PROVIDERS)) {
   });
 
   test(`#6674 ${id} is classified as an aggregator/gateway provider`, () => {
-    assert.ok(
-      AGGREGATOR_PROVIDER_IDS.has(id),
-      `${id} must be listed in AGGREGATOR_PROVIDER_IDS`
-    );
+    assert.ok(AGGREGATOR_PROVIDER_IDS.has(id), `${id} must be listed in AGGREGATOR_PROVIDER_IDS`);
   });
 
   test(`#6674 ${id} has provider metadata with free-tier info`, () => {

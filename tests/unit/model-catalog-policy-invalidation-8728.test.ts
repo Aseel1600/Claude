@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 
 const TEST_DATA_DIR = fs.mkdtempSync(
-  path.join(os.tmpdir(), "omniroute-model-catalog-policy-8728-"),
+  path.join(os.tmpdir(), "omniroute-model-catalog-policy-8728-")
 );
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
@@ -108,7 +108,7 @@ test("isModelAllowedForKey cache recomputes after custom model visibility change
     "Catalog cache repro",
     "manual",
     "chat-completions",
-    ["chat"],
+    ["chat"]
   );
 
   assert.equal(await apiKeys.isModelAllowedForKey(key.key, modelId), true);

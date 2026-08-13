@@ -679,7 +679,7 @@ the stale-enforcement added in Fase 6A.3.
     causa-raiz de DOIS wipes (2026-08-08 e 2026-08-10: `git reset --hard` materializou o
     symlink rastreado por cima do diretório real e o git apagou todo o conteúdo ignorado sem
     aviso); (c) após qualquer escrita relevante, `git -C _tasks add -A && git -C _tasks commit
-    && git -C _tasks push` — o push frequente é o backup real; (d) repetir esta proibição
+&& git -C _tasks push` — o push frequente é o backup real; (d) repetir esta proibição
     VERBATIM no prompt de todo subagente que toque git; (e) se `_tasks` aparecer como symlink
     quebrado, NÃO commitar nada — restaurar do remote e avisar o operador. O gate
     `check:tracked-artifacts` (pre-commit + CI) bloqueia `_tasks` rastreado em qualquer forma.

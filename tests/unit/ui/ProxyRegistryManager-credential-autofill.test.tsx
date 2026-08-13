@@ -117,54 +117,58 @@ afterEach(() => {
 });
 
 describe("ProxyRegistryManager credential autofill regression #8855", () => {
-  it("keeps Edit → close → Add credentials blank and isolates both fields from autofill", { timeout: 60000 }, async () => {
-    const { default: ProxyRegistryManager } =
-      await import("@/app/(dashboard)/dashboard/settings/components/ProxyRegistryManager");
+  it(
+    "keeps Edit → close → Add credentials blank and isolates both fields from autofill",
+    { timeout: 60000 },
+    async () => {
+      const { default: ProxyRegistryManager } =
+        await import("@/app/(dashboard)/dashboard/settings/components/ProxyRegistryManager");
 
-    await act(async () => {
-      root.render(<ProxyRegistryManager />);
-    });
-    await waitFor(() => expect(container.textContent).toContain(SEEDED_PROXY.name));
+      await act(async () => {
+        root.render(<ProxyRegistryManager />);
+      });
+      await waitFor(() => expect(container.textContent).toContain(SEEDED_PROXY.name));
 
-    await click(findButton("edit"));
-    const editUsername = findCredentialInput("labelUsername");
-    const editPassword = findCredentialInput("labelPassword");
-    expect(editUsername.value).toBe("");
-    expect(editPassword.value).toBe("");
+      await click(findButton("edit"));
+      const editUsername = findCredentialInput("labelUsername");
+      const editPassword = findCredentialInput("labelPassword");
+      expect(editUsername.value).toBe("");
+      expect(editPassword.value).toBe("");
 
-    setInputValue(editUsername, "edit-user-sentinel");
-    setInputValue(editPassword, "edit-password-sentinel");
-    await click(container.querySelector<HTMLButtonElement>('button[aria-label="close"]')!);
-    await click(
-      container.querySelector<HTMLButtonElement>('[data-testid="proxy-registry-open-create"]')!
-    );
+      setInputValue(editUsername, "edit-user-sentinel");
+      setInputValue(editPassword, "edit-password-sentinel");
+      await click(container.querySelector<HTMLButtonElement>('button[aria-label="close"]')!);
+      await click(
+        container.querySelector<HTMLButtonElement>('[data-testid="proxy-registry-open-create"]')!
+      );
 
-    const createUsername = findCredentialInput("labelUsername");
-    const createPassword = findCredentialInput("labelPassword");
-    expect(createUsername.value).toBe("");
-    expect(createPassword.value).toBe("");
+      const createUsername = findCredentialInput("labelUsername");
+      const createPassword = findCredentialInput("labelPassword");
+      expect(createUsername.value).toBe("");
+      expect(createPassword.value).toBe("");
 
-    expect.soft(createUsername.getAttribute("autocomplete")).toBe("off");
-    expect.soft(createPassword.getAttribute("autocomplete")).toBe("new-password");
-    for (const input of [createUsername, createPassword]) {
-      expect.soft(input.getAttribute("data-1p-ignore")).toBe("true");
-      expect.soft(input.getAttribute("data-lpignore")).toBe("true");
+      expect.soft(createUsername.getAttribute("autocomplete")).toBe("off");
+      expect.soft(createPassword.getAttribute("autocomplete")).toBe("new-password");
+      for (const input of [createUsername, createPassword]) {
+        expect.soft(input.getAttribute("data-1p-ignore")).toBe("true");
+        expect.soft(input.getAttribute("data-lpignore")).toBe("true");
+      }
+
+      setInputValue(
+        container.querySelector<HTMLInputElement>('[data-testid="proxy-registry-name-input"]')!,
+        "New proxy"
+      );
+      setInputValue(
+        container.querySelector<HTMLInputElement>('[data-testid="proxy-registry-host-input"]')!,
+        "proxy.example.test"
+      );
+      await click(findButton("save"));
+      await waitFor(() => expect(postBody).toBeDefined());
+
+      expect([undefined, ""]).toContain(postBody?.username);
+      expect([undefined, ""]).toContain(postBody?.password);
+      expect(postBody?.username).not.toBe("edit-user-sentinel");
+      expect(postBody?.password).not.toBe("edit-password-sentinel");
     }
-
-    setInputValue(
-      container.querySelector<HTMLInputElement>('[data-testid="proxy-registry-name-input"]')!,
-      "New proxy"
-    );
-    setInputValue(
-      container.querySelector<HTMLInputElement>('[data-testid="proxy-registry-host-input"]')!,
-      "proxy.example.test"
-    );
-    await click(findButton("save"));
-    await waitFor(() => expect(postBody).toBeDefined());
-
-    expect([undefined, ""]).toContain(postBody?.username);
-    expect([undefined, ""]).toContain(postBody?.password);
-    expect(postBody?.username).not.toBe("edit-user-sentinel");
-    expect(postBody?.password).not.toBe("edit-password-sentinel");
-  });
+  );
 });

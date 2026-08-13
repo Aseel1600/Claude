@@ -146,7 +146,6 @@ test("free-tier gate passes when a file carries no headline at all", () => {
   assert.equal(checkHeadline("no figures here", TOTALS).ok, true);
 });
 
-
 // --- Generic numeric-claim gate (engines / MCP tools / scopes / CLI) --------
 // Extends the same drift guard to the counts that silently drifted in v3.8.49:
 // 11→12 engines, 94→107 MCP tools, 30→32 scopes, 26→33 CLI tools.

@@ -110,7 +110,11 @@ export function stripEmptyOptionalToolArgs(value, toolName, schema) {
     // supplied (schema-aware normalization is not restricted to the allowlist).
     // "Agent" also passes without a schema: isDroppableNullEntry drops its null
     // omission sentinels even when the strict schema snapshot is unavailable (#9423).
-    if (!hasUsableSchema(schema) && !STRIPPABLE_EMPTY_ARG_TOOLS.has(toolName) && toolName !== "Agent") {
+    if (
+      !hasUsableSchema(schema) &&
+      !STRIPPABLE_EMPTY_ARG_TOOLS.has(toolName) &&
+      toolName !== "Agent"
+    ) {
       return value;
     }
     try {

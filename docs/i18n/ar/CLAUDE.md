@@ -296,31 +296,31 @@ baseCooldownMs * 2 ** failureIndex;
 
 لأي تغيير غير تافه، اقرأ الغوص العميق المطابق أولاً:
 
-| المجال                                    | الوثيقة                                                           |
-| ----------------------------------------- | ----------------------------------------------------------------- |
-| تنقل المستودع                             | `docs/architecture/REPOSITORY_MAP.md`                             |
-| الهندسة                                   | `docs/architecture/ARCHITECTURE.md`                               |
-| مرجع الهندسة                              | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
-| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md` |
-| المرونة (3 آليات)                         | `docs/architecture/RESILIENCE_GUIDE.md`                           |
-| إعادة تشغيل التفكير                       | `docs/routing/REASONING_REPLAY.md`                                |
-| إطار المهارات                             | `docs/frameworks/SKILLS.md`                                       |
-| نظام الذاكرة (FTS5 + Qdrant)              | `docs/frameworks/MEMORY.md`                                       |
-| وكلاء السحابة                             | `docs/frameworks/CLOUD_AGENT.md`                                  |
-| حواجز الأمان (PII / حقن / رؤية)           | `docs/security/GUARDRAILS.md`                                     |
-| بيانات اعتماد عامة (Gemini/إلخ.)          | `docs/security/PUBLIC_CREDS.md`                                   |
-| تطهير رسائل الخطأ                         | `docs/security/ERROR_SANITIZATION.md`                             |
-| التقييمات                                 | `docs/frameworks/EVALS.md`                                        |
-| الامتثال / التدقيق                        | `docs/security/COMPLIANCE.md`                                     |
-| Webhooks                                  | `docs/frameworks/WEBHOOKS.md`                                     |
-| خط أنابيب التفويض                         | `docs/architecture/AUTHZ_GUIDE.md`                                |
-| التخفي (TLS / بصمة)                       | `docs/security/STEALTH_GUIDE.md`                                  |
-| بروتوكولات الوكلاء (A2A / ACP / سحابة)    | `docs/frameworks/AGENT_PROTOCOLS_GUIDE.md`                        |
-| خادم MCP                                  | `docs/frameworks/MCP-SERVER.md`                                   |
-| خادم A2A                                  | `docs/frameworks/A2A-SERVER.md`                                   |
-| مرجع API + OpenAPI                        | `docs/reference/API_REFERENCE.md` + `docs/reference/openapi.yaml` |
-| كتالوج المزودين (تم إنشاؤه تلقائيًا)      | `docs/reference/PROVIDER_REFERENCE.md`                            |
-| تدفق الإصدار                              | `docs/ops/RELEASE_CHECKLIST.md`                                   |
+| المجال                                               | الوثيقة                                                           |
+| ---------------------------------------------------- | ----------------------------------------------------------------- |
+| تنقل المستودع                                        | `docs/architecture/REPOSITORY_MAP.md`                             |
+| الهندسة                                              | `docs/architecture/ARCHITECTURE.md`                               |
+| مرجع الهندسة                                         | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
+| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md`                                      |
+| المرونة (3 آليات)                                    | `docs/architecture/RESILIENCE_GUIDE.md`                           |
+| إعادة تشغيل التفكير                                  | `docs/routing/REASONING_REPLAY.md`                                |
+| إطار المهارات                                        | `docs/frameworks/SKILLS.md`                                       |
+| نظام الذاكرة (FTS5 + Qdrant)                         | `docs/frameworks/MEMORY.md`                                       |
+| وكلاء السحابة                                        | `docs/frameworks/CLOUD_AGENT.md`                                  |
+| حواجز الأمان (PII / حقن / رؤية)                      | `docs/security/GUARDRAILS.md`                                     |
+| بيانات اعتماد عامة (Gemini/إلخ.)                     | `docs/security/PUBLIC_CREDS.md`                                   |
+| تطهير رسائل الخطأ                                    | `docs/security/ERROR_SANITIZATION.md`                             |
+| التقييمات                                            | `docs/frameworks/EVALS.md`                                        |
+| الامتثال / التدقيق                                   | `docs/security/COMPLIANCE.md`                                     |
+| Webhooks                                             | `docs/frameworks/WEBHOOKS.md`                                     |
+| خط أنابيب التفويض                                    | `docs/architecture/AUTHZ_GUIDE.md`                                |
+| التخفي (TLS / بصمة)                                  | `docs/security/STEALTH_GUIDE.md`                                  |
+| بروتوكولات الوكلاء (A2A / ACP / سحابة)               | `docs/frameworks/AGENT_PROTOCOLS_GUIDE.md`                        |
+| خادم MCP                                             | `docs/frameworks/MCP-SERVER.md`                                   |
+| خادم A2A                                             | `docs/frameworks/A2A-SERVER.md`                                   |
+| مرجع API + OpenAPI                                   | `docs/reference/API_REFERENCE.md` + `docs/reference/openapi.yaml` |
+| كتالوج المزودين (تم إنشاؤه تلقائيًا)                 | `docs/reference/PROVIDER_REFERENCE.md`                            |
+| تدفق الإصدار                                         | `docs/ops/RELEASE_CHECKLIST.md`                                   |
 
 ## الاختبار
 

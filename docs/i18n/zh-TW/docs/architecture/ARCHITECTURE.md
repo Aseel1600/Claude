@@ -901,7 +901,7 @@ flowchart LR
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                          | 無需 API 金鑰、速率限制請求                                |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                 | PAT 與 OAuth 支援、多模型免費方案                          |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                         | 服務帳戶驗證、基於區域的端點                               |
-| `DevinDesktopExecutor` | Devin Desktop | 匯入的 API 金鑰 + Connect-protobuf 聊天串流 |
+| `DevinDesktopExecutor`   | Devin Desktop                                                                                                                                            | 匯入的 API 金鑰 + Connect-protobuf 聊天串流                |
 
 所有其他提供者（包括自訂相容節點）使用 `DefaultExecutor`。
 
@@ -953,9 +953,9 @@ flowchart LR
 | GLMT（預設）       | claude           | API 金鑰              | ✅               | ✅     | ❌       | ⚠️ 每次請求      |
 | Kimi Coding        | openai           | OAuth / API 金鑰      | ✅               | ✅     | ✅       | ❌               |
 | KIE                | openai           | API 金鑰              | ✅               | ✅     | ❌       | ❌               |
-| Devin Desktop | openai | 匯入的 API 金鑰 | ✅ (Connect→SSE) | ✅ | ❌ | ⚠️ 每次請求 |
+| Devin Desktop      | openai           | 匯入的 API 金鑰       | ✅ (Connect→SSE) | ✅     | ❌       | ⚠️ 每次請求      |
 | GitLab Duo         | openai           | OAuth（GitLab）       | ✅               | ✅     | ✅       | ❌               |
-| Devin CLI | openai | 本機 CLI 登入 | ✅ | ✅ | ❌ | ✅ 任務 API |
+| Devin CLI          | openai           | 本機 CLI 登入         | ✅               | ✅     | ❌       | ✅ 任務 API      |
 | Codex Cloud        | openai-responses | OAuth                 | ✅               | ❌     | ✅       | ✅ 速率限制      |
 | Jules              | openai           | OAuth                 | ✅               | ✅     | ✅       | ✅ 任務 API      |
 | AgentRouter        | openai           | API 金鑰              | ✅               | ✅     | ❌       | ❌               |

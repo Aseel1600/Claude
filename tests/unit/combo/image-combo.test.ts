@@ -220,7 +220,10 @@ test("non-combo bare model names pass through model resolution unchanged", async
   assert.equal(response.status, 400);
   const body = await response.json();
   const bodyStr = JSON.stringify(body);
-  assert.ok(bodyStr.includes("not found") || bodyStr.includes("not a valid"), "Combo not found error");
+  assert.ok(
+    bodyStr.includes("not found") || bodyStr.includes("not a valid"),
+    "Combo not found error"
+  );
 });
 
 test("provider/model format (with slash) is not treated as a combo name", async () => {

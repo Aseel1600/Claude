@@ -347,10 +347,7 @@ function sanitizeTransportError(
     typeof source.code === "string" && /^[A-Z0-9_:-]{1,64}$/.test(source.code)
       ? source.code
       : fallbackCode;
-  if (
-    typeof source.errorCode === "string" &&
-    /^[a-zA-Z0-9_:-]{1,64}$/.test(source.errorCode)
-  ) {
+  if (typeof source.errorCode === "string" && /^[a-zA-Z0-9_:-]{1,64}$/.test(source.errorCode)) {
     sanitized.errorCode = source.errorCode;
   }
   if (typeof source.statusCode === "number" && Number.isFinite(source.statusCode)) {
@@ -543,10 +540,7 @@ export function resolveProxyForRequest(targetUrl) {
  * Dependency-internal TimeoutError/AbortError values are transport failures and
  * retain the normal safe-method fallback behavior.
  */
-function isCallerAbort(
-  _error: unknown,
-  signal: AbortSignal | null | undefined
-): boolean {
+function isCallerAbort(_error: unknown, signal: AbortSignal | null | undefined): boolean {
   return signal?.aborted === true;
 }
 
@@ -569,8 +563,7 @@ export async function runWithProxyContext(
   // sentinel must remain direct without being mistaken for a proxy config.
   const currentContext = proxyContext.getStore();
   const inheritsDirect = currentContext === DIRECT_PROXY_CONTEXT && !proxyConfig;
-  const effectiveProxyConfig =
-    proxyConfig || (inheritsDirect ? null : currentContext) || null;
+  const effectiveProxyConfig = proxyConfig || (inheritsDirect ? null : currentContext) || null;
   const contextValue = inheritsDirect ? DIRECT_PROXY_CONTEXT : effectiveProxyConfig;
 
   const resolvedProxyUrl = effectiveProxyConfig ? proxyConfigToUrl(effectiveProxyConfig) : null;
@@ -1128,9 +1121,7 @@ async function patchedFetch(
       );
       const sanitized = sanitizeTransportError(
         error,
-        originalMsg
-          ? `Proxy request failed: ${originalMsg}`
-          : "Proxy request failed",
+        originalMsg ? `Proxy request failed: ${originalMsg}` : "Proxy request failed",
         "PROXY_REQUEST_FAILED"
       );
       console.error(
@@ -1185,8 +1176,7 @@ export async function runWithTlsTracking<T>(
   providerOrIdentityOrFn: string | null | undefined | TlsTrackingIdentity | (() => T),
   maybeFn?: () => T
 ): Promise<{ result: Awaited<T>; tlsFingerprintUsed: boolean }> {
-  const legacyFn =
-    typeof providerOrIdentityOrFn === "function" ? providerOrIdentityOrFn : maybeFn;
+  const legacyFn = typeof providerOrIdentityOrFn === "function" ? providerOrIdentityOrFn : maybeFn;
   if (typeof legacyFn !== "function") {
     throw new TypeError("runWithTlsTracking requires a callback function");
   }
@@ -1196,8 +1186,7 @@ export async function runWithTlsTracking<T>(
     typeof providerOrIdentityOrFn !== "function"
       ? providerOrIdentityOrFn
       : {
-          provider:
-            typeof providerOrIdentityOrFn === "string" ? providerOrIdentityOrFn : undefined,
+          provider: typeof providerOrIdentityOrFn === "string" ? providerOrIdentityOrFn : undefined,
         };
   const store: TlsFingerprintStore = {
     used: false,
@@ -1209,10 +1198,7 @@ export async function runWithTlsTracking<T>(
 }
 
 /** Check whether TLS fingerprint transport is enabled for this route identity. */
-export function isTlsFingerprintActive(
-  provider?: string | null,
-  proxied = false
-): boolean {
+export function isTlsFingerprintActive(provider?: string | null, proxied = false): boolean {
   return (
     isTlsFingerprintEnabled() &&
     activeTlsClient.available &&

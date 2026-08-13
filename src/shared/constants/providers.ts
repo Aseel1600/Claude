@@ -54,7 +54,6 @@ export function supportsDualAuthProvider(providerId: unknown): boolean {
 
 // Web / Cookie Providers
 
-
 // API Key Providers
 
 // Sub-categories within APIKEY_PROVIDERS (used by dashboard and catalog views).
@@ -122,8 +121,7 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "free-ai",
   "void-ai",
   "helixmind",
-
-]);;
+]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
   "azure-openai",

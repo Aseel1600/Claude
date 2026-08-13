@@ -294,7 +294,7 @@ Herhangi bir önemsiz değişiklik için, önce ilgili derinlemesine incelemeyi 
 | Repo navigasyonu                                         | `docs/architecture/REPOSITORY_MAP.md`                             |
 | Mimari                                                   | `docs/architecture/ARCHITECTURE.md`                               |
 | Mühendislik referansı                                    | `docs/architecture/CODEBASE_DOCUMENTATION.md`                     |
-| Auto-Combo (13-factor scoring, 19 public strategies) | `docs/routing/AUTO-COMBO.md` |
+| Auto-Combo (13-factor scoring, 19 public strategies)     | `docs/routing/AUTO-COMBO.md`                                      |
 | Dayanıklılık (3 mekanizma)                               | `docs/architecture/RESILIENCE_GUIDE.md`                           |
 | Akıl yürütme tekrarları                                  | `docs/routing/REASONING_REPLAY.md`                                |
 | Yetenekler çerçevesi                                     | `docs/frameworks/SKILLS.md`                                       |
