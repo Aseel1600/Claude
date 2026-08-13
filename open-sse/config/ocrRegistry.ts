@@ -94,8 +94,8 @@ export const AZURE_DI_TRANSFORMATION: OcrTransformation = {
       analyzeResult?: { content?: string; pages?: unknown[] };
     };
     const pageCount = r.analyzeResult?.pages?.length ?? 1;
-    // Azure devolve o markdown do documento inteiro em content; espelhamos no shape
-    // Mistral com uma "página" agregada por padrão (índice 0), preservando pageCount.
+    // Azure returns the whole-document markdown in `content`; we mirror it into the
+    // Mistral shape as a single aggregated "page" (index 0), preserving pageCount.
     return {
       pages: [{ index: 0, markdown: r.analyzeResult?.content ?? "" }],
       model: "prebuilt-read",
