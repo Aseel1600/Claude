@@ -267,12 +267,15 @@ process.on("exit", () => {
   if (outputVal === "json" || outputVal === "jsonl" || outputVal === "csv") return;
   if (process.argv.some((a) => a.startsWith("--output=json") || a.startsWith("--output=jsonl") || a.startsWith("--output=csv"))) return;
   if (_notifier.update) {
+    const isSource = existsSync(join(ROOT, ".git"));
     _notifier.notify({
       defer: false,
       isGlobal: true,
       message:
         `Update available: ${_notifier.update.current} → ${_notifier.update.latest}\n` +
-        "Run `npm install -g omniroute` or `omniroute update --apply`",
+        (isSource
+          ? "Run `omniroute update --apply` (git + pnpm source install — never `npm install -g`)"
+          : "Run `npm install -g omniroute` or `omniroute update --apply`"),
     });
   }
 });

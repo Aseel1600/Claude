@@ -306,14 +306,14 @@ export function buildSourceUpdateScript(latest: string, gitRemote = "origin"): s
     "fi",
     'backup_branch="pre-update/$(git rev-parse --short HEAD)-$(date +%Y%m%d-%H%M%S)"',
     'git branch "$backup_branch" 2>/dev/null || true',
-    `git checkout "${targetTag}"`,
-    "npm install --include=optional --legacy-peer-deps",
+    `git checkout -B "autoupdate/${targetTag.replace(/^v/, "")}" "${targetTag}"`,
+    "pnpm install --prefer-offline",
     "node scripts/dev/sync-env.mjs 2>/dev/null || true",
-    "npm run build",
+    "pnpm run build",
     "if command -v pm2 >/dev/null 2>&1; then",
     "  pm2 restart omniroute --update-env || true",
     "fi",
-    `echo "[AutoUpdate] Successfully updated to ${targetTag}."`,
+    `echo "[AutoUpdate] Successfully updated to ${targetTag}. Custom patch application is a separate manual step (see DOCUMENTATION.md)."`,
   ].join("\n");
 }
 

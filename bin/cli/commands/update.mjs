@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { existsSync } from "node:fs";
 import { t } from "../i18n.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -14,6 +15,28 @@ const execFileAsync = promisify(execFile);
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = path.resolve(SCRIPT_DIR, "..", "..", "..");
 const BIN_DIR = path.join(PKG_ROOT, "bin");
+
+/**
+ * True when the running install is a git source checkout (the custom fork) rather
+ * than a stock npm global package. In that case `npm install -g omniroute` would
+ * clobber the link/fork, so update must go through git + pnpm instead.
+ */
+export function isSourceInstall(root = PKG_ROOT) {
+  return existsSync(path.join(root, ".git"));
+}
+
+/** Parse AUTO_UPDATE_PATCH_COMMITS (space/comma-separated SHAs) — the custom fix patch. */
+export function getPatchCommits(env = process.env) {
+  return (env.AUTO_UPDATE_PATCH_COMMITS || "")
+    .split(/[\s,]+/)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/** Shell-quote a value for embedding in a POSIX script. */
+function shellQuote(value) {
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+}
 
 export async function getCurrentVersion() {
   try {
@@ -146,7 +169,17 @@ export async function runUpdateCommand(opts = {}) {
   }
 
   if (dryRun) {
-    console.log("\n  [DRY RUN] Would run: npm install -g omniroute@latest --include=optional");
+    if (isSourceInstall()) {
+      console.log(
+        "\n  [DRY RUN] Source install — would run: git fetch --tags && git checkout <tag> && pnpm install && pnpm build"
+      );
+      console.log(
+        "  [DRY RUN] Would then re-apply custom patch commits (AUTO_UPDATE_PATCH_COMMITS) via Hermes"
+      );
+      console.log("  [DRY RUN] Would restart via: pm2 restart omniroute --update-env");
+    } else {
+      console.log("\n  [DRY RUN] Would run: npm install -g omniroute@latest --include=optional");
+    }
     if (!skipBackup) console.log("  [DRY RUN] Would create backup in ~/.omniroute/backups/");
     return 0;
   }
@@ -178,6 +211,46 @@ export async function runUpdateCommand(opts = {}) {
   printInfo("Updating OmniRoute...");
   try {
     const { execSync } = await import("child_process");
+    if (isSourceInstall()) {
+      // Custom fork / linked install: NEVER `npm install -g omniroute` — that
+      // clobbers the link with the stock npm package. Pull the latest release
+      // tag from git, then hand off the custom fix patch to Hermes (manual
+      // step, see DOCUMENTATION.md), then build with pnpm and restart via PM2.
+      const gitRemote = process.env.AUTO_UPDATE_GIT_REMOTE || "origin";
+      const targetTag = latest.startsWith("v") ? latest : `v${latest}`;
+      const script = [
+        "set -eu",
+        "git stash --include-untracked 2>/dev/null || true",
+        `git fetch --tags ${shellQuote(gitRemote)}`,
+        `if ! git rev-parse -q --verify "refs/tags/${targetTag}" >/dev/null 2>&1; then`,
+        `  echo "[AutoUpdate] Tag ${targetTag} not found." >&2`,
+        "  exit 1",
+        "fi",
+        'backup_branch="pre-update/$(git rev-parse --short HEAD)-$(date +%Y%m%d-%H%M%S)"',
+        'git branch "$backup_branch" 2>/dev/null || true',
+        `git checkout -B "autoupdate/${targetTag.replace(/^v/, "")}" "${targetTag}"`,
+        "pnpm install --prefer-offline",
+        "pnpm run build",
+        "if command -v pm2 >/dev/null 2>&1; then",
+        "  pm2 restart omniroute --update-env || true",
+        "fi",
+      ].join("\n");
+      execSync(script, { stdio: "inherit", cwd: PKG_ROOT });
+      printSuccess(`Updated to version ${latest} (source install, git + pnpm)`);
+      const patchCommits = getPatchCommits();
+      if (patchCommits.length > 0) {
+        printInfo(
+          `Custom patch commits (${patchCommits.join(", ")}) must be re-applied by Hermes — see DOCUMENTATION.md.`
+        );
+      } else {
+        printInfo(
+          "No custom patch commits configured (AUTO_UPDATE_PATCH_COMMITS empty) — pure upstream + pnpm."
+        );
+      }
+      return 0;
+    }
+
+    // Genuine npm global install: keep the upstream behavior.
     // --include=optional keeps the optionalDependencies (better-sqlite3, keytar,
     // tls-client, llmlingua SLM stack) on update so an omit=optional config can't drop them.
     execSync("npm install -g omniroute@latest --include=optional", { stdio: "inherit" });

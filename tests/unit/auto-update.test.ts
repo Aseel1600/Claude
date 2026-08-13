@@ -258,9 +258,13 @@ test("auto update script builders generate npm, source, and docker-compose scrip
   const sourceScript = autoUpdate.buildSourceUpdateScript("3.6.0", "upstream");
   assert.match(sourceScript, /git fetch --tags 'upstream'/);
   assert.match(sourceScript, /git stash --include-untracked/);
-  assert.match(sourceScript, /npm install --include=optional --legacy-peer-deps/);
+  assert.match(sourceScript, /pnpm install --prefer-offline/);
   assert.match(sourceScript, /node scripts\/dev\/sync-env\.mjs 2>\/dev\/null \|\| true/);
+  assert.match(sourceScript, /pnpm run build/);
+  assert.match(sourceScript, /pm2 restart omniroute --update-env/);
   assert.match(sourceScript, /Successfully updated to v3\.6\.0/);
+  // Custom patch application is a manual (Hermes) step — never auto-cherry-picked.
+  assert.doesNotMatch(sourceScript, /cherry-pick/);
 
   const dockerScript = autoUpdate.buildDockerComposeUpdateScript({
     latest: "3.6.0",

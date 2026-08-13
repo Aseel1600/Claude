@@ -83,7 +83,10 @@ export async function GET(req: NextRequest) {
   const serialized = JSON.stringify(body);
   const etag = `"${createHash("sha256").update(serialized).digest("base64url")}"`;
   const headers = { "Cache-Control": "private, no-cache, must-revalidate", ETag: etag };
-  const validators = req.headers.get("If-None-Match")?.split(",").map((value) => value.trim());
+  const validators = req.headers
+    .get("If-None-Match")
+    ?.split(",")
+    .map((value) => value.trim());
   if (validators?.some((value) => value === etag || value === `W/${etag}`)) {
     return new NextResponse(null, { status: 304, headers });
   }
@@ -220,22 +223,29 @@ export async function POST(req: NextRequest) {
             // Backup branch is best-effort only.
           }
 
-          await execFileAsync("git", ["checkout", resolvedTargetTag], {
+          // Check out the release on a named branch (not detached HEAD) so a
+          // custom fix patch can be applied on top afterwards.
+          const updateBranch = `autoupdate/${resolvedTargetTag.replace(/^v/, "")}`;
+          await execFileAsync("git", ["checkout", "-B", updateBranch, resolvedTargetTag], {
             timeout: 30_000,
             cwd: PROJECT_ROOT,
           });
           send({ step: "install", status: "done", message: `Checked out ${resolvedTargetTag}` });
+
+          // NOTE: the custom fix patch is applied by Hermes as a separate manual
+          // step (see DOCUMENTATION.md) — never auto-cherry-picked here. The
+          // patch commits (AUTO_UPDATE_PATCH_COMMITS) are re-applied after the
+          // pull, and dropped entirely once the upstream PRs merge.
 
           send({
             step: "rebuild",
             status: "running",
             message: "Installing dependencies...",
           });
-          await execFileAsync(
-            "npm",
-            ["install", "--legacy-peer-deps"],
-            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 300_000 })
-          );
+          await execFileAsync("pnpm", ["install", "--prefer-offline"], {
+            cwd: PROJECT_ROOT,
+            timeout: 300_000,
+          });
           send({ step: "rebuild", status: "done", message: "Dependencies installed" });
 
           try {
@@ -252,11 +262,7 @@ export async function POST(req: NextRequest) {
             status: "running",
             message: "Building application...",
           });
-          await execFileAsync(
-            "npm",
-            ["run", "build"],
-            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 600_000 })
-          );
+          await execFileAsync("pnpm", ["run", "build"], { cwd: PROJECT_ROOT, timeout: 600_000 });
           send({ step: "rebuild", status: "done", message: "Build complete" });
 
           send({ step: "restart", status: "running", message: "Restarting service..." });
@@ -320,11 +326,11 @@ export async function POST(req: NextRequest) {
           return;
         }
         send({ step: "install", status: "running", message: `Installing omniroute@${latest}...` });
-          await execFileAsync(
-            "npm",
-            ["install", "-g", `omniroute@${latest}`, "--ignore-scripts", "--legacy-peer-deps"],
-            buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 300_000 })
-          );
+        await execFileAsync(
+          "npm",
+          ["install", "-g", `omniroute@${latest}`, "--ignore-scripts", "--legacy-peer-deps"],
+          buildNpmExecOptions(process.platform, { cwd: PROJECT_ROOT, timeoutMs: 300_000 })
+        );
         send({ step: "install", status: "done", message: `Installed omniroute@${latest}` });
 
         // Step 2: Rebuild native modules (critical for better-sqlite3)
@@ -343,20 +349,20 @@ export async function POST(req: NextRequest) {
 
         // Step 3: Restart PM2
         send({ step: "restart", status: "running", message: "Restarting service via PM2..." });
-          try {
-            await execFileAsync("pm2", ["restart", "omniroute", "--update-env"], {
-              timeout: 30000,
-              cwd: PROJECT_ROOT,
-            });
-            send({ step: "restart", status: "done", message: "Service restarted" });
-          } catch {
-            // PM2 may not be available (Docker/manual setups)
-            send({
-              step: "restart",
-              status: "skipped",
-              message: "PM2 not available — manual restart needed",
-            });
-          }
+        try {
+          await execFileAsync("pm2", ["restart", "omniroute", "--update-env"], {
+            timeout: 30000,
+            cwd: PROJECT_ROOT,
+          });
+          send({ step: "restart", status: "done", message: "Service restarted" });
+        } catch {
+          // PM2 may not be available (Docker/manual setups)
+          send({
+            step: "restart",
+            status: "skipped",
+            message: "PM2 not available — manual restart needed",
+          });
+        }
 
         clearLatestVersionCache();
         send({
