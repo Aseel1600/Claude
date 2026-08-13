@@ -1,8 +1,4 @@
-import {
-  generateSignature,
-  getCachedResponse,
-  isCacheableForRead,
-} from "@/lib/semanticCache";
+import { generateSignature, getCachedResponse, isCacheableForRead } from "@/lib/semanticCache";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { trackPendingRequest } from "@/lib/usageDb";
 import { synthesizeOpenAiSseFromJson } from "../../utils/jsonToSse.ts";
@@ -25,6 +21,7 @@ export async function checkSemanticCache({
   persistAttemptLogs,
   apiKeyId,
   cacheDefaultMode,
+  callerBodyHash,
 }: {
   semanticCacheEnabled: boolean;
   // Only the fields this read path actually touches are named; everything else
@@ -42,6 +39,14 @@ export async function checkSemanticCache({
   persistAttemptLogs: (args: unknown) => void;
   apiKeyId?: string | null;
   cacheDefaultMode?: "legacy" | "bypass" | null;
+  /**
+   * When provided (combo-dispatched calls), this hash of the original un-translated
+   * caller body is folded into the cache signature to prevent cross-caller cache hits:
+   * two concurrent callers with different source payloads that translate to the same
+   * provider body will get distinct cache keys and independent responses
+   * (#concurrent-combo-isolation).
+   */
+  callerBodyHash?: string | null;
 }) {
   // Per-key bypass: skip cache lookup entirely when the API key opts out.
   if (cacheDefaultMode === "bypass") return null;
@@ -51,7 +56,8 @@ export async function checkSemanticCache({
       body.messages ?? body.input,
       body.temperature,
       body.top_p,
-      apiKeyId ?? undefined
+      apiKeyId ?? undefined,
+      callerBodyHash ?? undefined
     );
     const cached = getCachedResponse(signature);
     if (cached) {

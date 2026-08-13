@@ -50,6 +50,12 @@ export function storeSemanticCacheResponse(
     apiKeyId?: string;
     usage?: UsageLike;
     log?: LoggerLike;
+    /**
+     * When provided (combo-dispatched calls), scopes the cache key to the
+     * original un-translated caller body so read/write signatures match
+     * (#concurrent-combo-isolation).
+     */
+    callerBodyHash?: string | null;
   },
   deps: SemanticCacheStoreDeps = DEFAULT_DEPS
 ): void {
@@ -65,7 +71,8 @@ export function storeSemanticCacheResponse(
     args.body.messages ?? args.body.input,
     args.body.temperature,
     args.body.top_p,
-    args.apiKeyId ?? undefined
+    args.apiKeyId ?? undefined,
+    args.callerBodyHash ?? undefined
   );
   const tokensSaved = args.usage?.prompt_tokens + args.usage?.completion_tokens || 0;
   deps.setCachedResponse(signature, args.model, args.translatedResponse, tokensSaved);

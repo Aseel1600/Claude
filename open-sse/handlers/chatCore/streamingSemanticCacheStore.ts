@@ -49,6 +49,12 @@ interface StreamingCacheArgs {
   apiKeyId?: string;
   streamUsage?: Record<string, unknown> | null;
   log?: LoggerLike;
+  /**
+   * When provided (combo-dispatched calls), scopes the cache key to the original
+   * un-translated caller body so read/write signatures match
+   * (#concurrent-combo-isolation).
+   */
+  callerBodyHash?: string | null;
 }
 
 function streamTokensSaved(streamUsage: Record<string, unknown> | null | undefined): number {
@@ -69,7 +75,8 @@ function writeStreamingCacheEntry(
       args.body.messages ?? args.body.input,
       args.body.temperature,
       args.body.top_p,
-      args.apiKeyId ?? undefined
+      args.apiKeyId ?? undefined,
+      args.callerBodyHash ?? undefined
     );
     const tokensSaved = streamTokensSaved(args.streamUsage);
     deps.setCachedResponse(sig, args.model, cleanBody, tokensSaved);

@@ -101,7 +101,12 @@ import { resolveAgentGoalPolicy } from "../utils/agentGoalPolicy.ts";
 import { createStreamController } from "../utils/streamHandler.ts";
 import * as streamFailure from "../utils/streamFailureFinalization.ts";
 import { createSseHeartbeatTransform, shapeForClientFormat } from "../utils/sseHeartbeat.ts";
-import { addBufferToUsage, filterUsageForFormat, estimateUsage, sanitizeUsagePayloadForRequest } from "../utils/usageTracking.ts";
+import {
+  addBufferToUsage,
+  filterUsageForFormat,
+  estimateUsage,
+  sanitizeUsagePayloadForRequest,
+} from "../utils/usageTracking.ts";
 import {
   refreshWithRetry,
   isUnrecoverableRefreshError,
@@ -144,7 +149,11 @@ import {
   getExplicitModelOutputCap,
   resolveInputTokenCapForGate,
 } from "@/lib/modelCapabilities.ts";
-import { checkRequestCapabilityFit, deriveRequestCapabilityRequirements, buildCapabilityMismatchMessage } from "@/shared/constants/capabilities/capabilityFilter.ts";
+import {
+  checkRequestCapabilityFit,
+  deriveRequestCapabilityRequirements,
+  buildCapabilityMismatchMessage,
+} from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
 import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
@@ -234,7 +243,10 @@ import {
   normalizeOpenAIToolFinishReasons,
   restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
-import { createDisabledCompressionConfig, resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
+import {
+  createDisabledCompressionConfig,
+  resolveCompressionSettings,
+} from "./chatCore/compressionSettings.ts";
 import type { EnforceDecision } from "@/lib/quota/types";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
 import {
@@ -1056,6 +1068,24 @@ export async function handleChatCore({
   // one, producing 0% hit rate. (#cache-signature-asymmetry)
   const bodyForCacheWrite = body;
 
+  // When this handleChatCore call originates from a combo dispatch, compute a
+  // short hash of the original caller body BEFORE any provider translation.
+  // This is threaded into the semantic cache signature so two concurrent callers
+  // with different source payloads that translate to the same provider body
+  // receive independent cache entries rather than cross-contaminating
+  // (#concurrent-combo-isolation).
+  // computeRequestHash is already imported from requestDedup.ts (same module)
+  // and runs synchronously — no async needed.
+  const callerBodyHash: string | null = isCombo
+    ? (() => {
+        try {
+          return computeRequestHash(body);
+        } catch {
+          return null;
+        }
+      })()
+    : null;
+
   // ── Phase 9.1: Semantic cache check (temp=0, any streaming mode) ──
   const cacheHit = await checkSemanticCache({
     semanticCacheEnabled,
@@ -1073,6 +1103,7 @@ export async function handleChatCore({
     apiKeyId: apiKeyInfo?.id ?? undefined,
     cacheDefaultMode: (apiKeyInfo as { cacheDefaultMode?: "legacy" | "bypass" } | null)
       ?.cacheDefaultMode,
+    callerBodyHash,
   });
   if (cacheHit) {
     return cacheHit;
@@ -1795,7 +1826,11 @@ export async function handleChatCore({
     // engines (Caveman/RTK). Codex Desktop / Responses clients need this path even
     // when those engines are off, otherwise multi-turn image sessions hard-reject
     // at the budget check below (#8560).
-    if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && estimatedTokens > threshold) {
+    if (
+      reactiveContextCompactionEnabled &&
+      !nativeCodexPassthrough &&
+      estimatedTokens > threshold
+    ) {
       log?.info?.(
         "CONTEXT",
         `Proactive compression triggered: ${estimatedTokens} tokens > ${threshold} threshold (${contextLimit} limit)`
@@ -1865,7 +1900,12 @@ export async function handleChatCore({
 
   // Last-resort compaction against the concrete input budget (not the 70% threshold).
   // Covers cases where the proactive pass was skipped or still left the request oversized (#8560).
-  if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && finalEstimatedInputTokens >= finalContextLimit && body) {
+  if (
+    reactiveContextCompactionEnabled &&
+    !nativeCodexPassthrough &&
+    finalEstimatedInputTokens >= finalContextLimit &&
+    body
+  ) {
     const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
     const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
     const lastResortResult = compressContext(lastResortAdapter.body, {
@@ -2637,8 +2677,11 @@ export async function handleChatCore({
   }
   // === /Quota Share enforcement PRE-hook ===
   if (isFeatureFlagEnabled("CAPABILITY_FILTER_ENABLED")) {
-    const fit = checkRequestCapabilityFit(getResolvedModelCapabilities({ provider, model: effectiveModel }),
-      deriveRequestCapabilityRequirements(body as Record<string, unknown>), provider);
+    const fit = checkRequestCapabilityFit(
+      getResolvedModelCapabilities({ provider, model: effectiveModel }),
+      deriveRequestCapabilityRequirements(body as Record<string, unknown>),
+      provider
+    );
     if (!fit.compatible) {
       const msg = buildCapabilityMismatchMessage(fit.terminalReason!, provider, effectiveModel);
       log?.warn?.("CAPABILITY", msg);
@@ -3185,6 +3228,17 @@ export async function handleChatCore({
       }
       return materializeDeduplicatedExecutionResult(dedupResult.result);
     }
+    // DEDUP_COMBO_SKIPPED: dedup is intentionally suppressed for combo-dispatched
+    // calls (isCombo === true). Each combo target invocation is an independent
+    // per-caller request — sharing an in-flight Promise across callers with
+    // different original payloads would deliver the first caller's response to
+    // other callers, causing response cross-contamination (#concurrent-combo-isolation).
+    if (isCombo && dedupEnabled && dedupHash) {
+      log?.debug?.(
+        "DEDUP",
+        `DEDUP_COMBO_SKIPPED: dedup suppressed for combo request hash=${dedupHash} — each combo call is independent`
+      );
+    }
 
     return execute();
   };
@@ -3283,7 +3337,11 @@ export async function handleChatCore({
   let claudePromptCacheLogMeta = null;
 
   try {
-    const result = await executeProviderRequest(effectiveModel, true);
+    // allowDedup=!isCombo: dedup is safe for direct single-model calls but must be
+    // suppressed for combo-dispatched calls to prevent concurrent requests with
+    // different payloads from receiving the same upstream response
+    // (#concurrent-combo-isolation).
+    const result = await executeProviderRequest(effectiveModel, !isCombo);
 
     providerResponse = result.response;
     providerUrl = result.url;
@@ -4292,7 +4350,11 @@ export async function handleChatCore({
           }
         : responseBody
     );
-    sanitizeUsagePayloadForRequest(responseBody, finalBody || translatedBody || body, responsePayloadFormat);
+    sanitizeUsagePayloadForRequest(
+      responseBody,
+      finalBody || translatedBody || body,
+      responsePayloadFormat
+    );
     effectiveServiceTier = resolveReportedServiceTier(responseBody) ?? effectiveServiceTier;
     // Notify success - caller can clear error status if needed
     if (onRequestSuccess) {
@@ -4430,9 +4492,14 @@ export async function handleChatCore({
     // #8331: keep the client-visible metering fields real everywhere except Claude-Code-compatible
     // providers, where Claude Code's own context accounting relies on the buffered number — see
     // clientUsageBuffer.ts module docstring.
-    applyClientUsageBuffer(translatedResponse, finalBody || translatedBody || body, clientResponseFormat, {
-      preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
-    });
+    applyClientUsageBuffer(
+      translatedResponse,
+      finalBody || translatedBody || body,
+      clientResponseFormat,
+      {
+        preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
+      }
+    );
 
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
       const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
@@ -4600,6 +4667,7 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       usage,
       log,
+      callerBodyHash: isCombo ? callerBodyHash : null,
     });
 
     // ── Phase 9.2: Save for idempotency ──
@@ -4953,6 +5021,7 @@ export async function handleChatCore({
       apiKeyId: apiKeyInfo?.id ?? undefined,
       streamUsage,
       log,
+      callerBodyHash: isCombo ? callerBodyHash : null,
     });
 
     // Plugin onStreamComplete hook — fire-and-forget, fail-open (#9571)

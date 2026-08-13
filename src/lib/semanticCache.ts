@@ -121,13 +121,19 @@ export function generateSignature(
   conversation,
   temperature = 0,
   topP = 1,
-  apiKeyId?: string
+  apiKeyId?: string,
+  callerBodyHash?: string
 ) {
   const payload = JSON.stringify({
     model,
     messages: normalizeConversation(conversation),
     temperature,
     top_p: topP,
+    // When present, callerBodyHash scopes the signature to the original caller's
+    // un-translated request body, preventing cross-caller cache contamination in
+    // combo requests where two different source payloads may translate to the same
+    // provider body (#concurrent-combo-isolation).
+    ...(callerBodyHash ? { callerBodyHash } : {}),
   });
   const digest = crypto.createHash("sha256").update(payload).digest("hex");
   // Per-key cache isolation (#3740) namespaces the signature with the apiKeyId as a
