@@ -11,6 +11,8 @@ import {
   findMissingArtifactPaths,
   findUnexpectedArtifactPaths,
   normalizeArtifactPath,
+  parseJsonArrayOutput,
+  parseJsonValuesOutput,
 } from "../../scripts/build/pack-artifact-policy.ts";
 
 test("normalizeArtifactPath normalizes slashes and leading relative markers", () => {
@@ -18,6 +20,39 @@ test("normalizeArtifactPath normalizes slashes and leading relative markers", ()
     normalizeArtifactPath("./app\\scripts\\ad-hoc\\test.js"),
     "app/scripts/ad-hoc/test.js"
   );
+});
+
+test("parseJsonArrayOutput extracts the first valid array from mixed command output", () => {
+  const output = [
+    "notice [not-json]",
+    '[{"path":"src/[literal].ts","files":[["nested"]]}]',
+    "notice [second-array]",
+  ].join("\n");
+  assert.deepEqual(parseJsonArrayOutput(output), [
+    { path: "src/[literal].ts", files: [["nested"]] },
+  ]);
+});
+
+test("parseJsonArrayOutput can skip valid arrays that are not the target payload", () => {
+  const output = `[]
+[{"filename":"omniroute.tgz","files":[{"path":"src/index.ts"}]}]`;
+  assert.deepEqual(
+    parseJsonArrayOutput(output, (candidate) =>
+      candidate.some(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          Array.isArray((entry as { files?: unknown }).files)
+      )
+    ),
+    [{ filename: "omniroute.tgz", files: [{ path: "src/index.ts" }] }]
+  );
+});
+
+test("parseJsonValuesOutput extracts object reports as well as arrays", () => {
+  assert.deepEqual(parseJsonValuesOutput('notice\n{"files":[{"path":"src/index.ts"}]}'), [
+    { files: [{ path: "src/index.ts" }] },
+  ]);
 });
 
 test("findUnexpectedArtifactPaths flags staged app files outside the allowlist", () => {

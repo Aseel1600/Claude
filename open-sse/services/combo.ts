@@ -1908,7 +1908,23 @@ export async function handleComboChat({
             !isTokenLimitBreach &&
             !scopedFailure &&
             [408, 429, 500, 502, 503, 504].includes(result.status);
-          if (retry < maxRetries && isTransient && !providerExhausted) {
+          // failoverBeforeRetry means what it says: prefer the next sibling
+          // target over hammering this one again. Without this check, a
+          // transient error always re-hit the SAME model up to maxRetries
+          // times regardless of the setting — config.failoverBeforeRetry was
+          // threaded through to skipUpstreamRetry (a different, lower-level
+          // retry mechanism) but never consulted here, so a rate-limited
+          // model got maxRetries+1 back-to-back attempts on itself before
+          // this loop's own fallback-to-next-target ever ran (#2417). Only
+          // skip the same-model retry when `nextTarget` (computed above)
+          // actually gives us somewhere to fail over to — with no sibling
+          // left, skipping just burns the last attempt for nothing.
+          if (
+            retry < maxRetries &&
+            isTransient &&
+            !providerExhausted &&
+            (!config.failoverBeforeRetry || !nextTarget)
+          ) {
             if (
               !protectedPriorityTarget &&
               provider &&
@@ -1996,6 +2012,24 @@ export async function handleComboChat({
             strategy,
             target: toRecordedTarget(target),
           });
+          // LKGP (#919) mirror of the success-path set below: a just-failed target
+          // must not keep re-pinning itself as the "last known good" choice for the
+          // *next* separate request. Circuit breaker / model lockout deliberately
+          // don't react to request-scoped failure classes (see scopedFailure below),
+          // so nothing else clears this stale pin.
+          void (async () => {
+            try {
+              const { clearLKGP } = await import("../../src/lib/localDb");
+              await Promise.all([
+                clearLKGP(combo.name, target.executionKey),
+                clearLKGP(combo.name, combo.id || combo.name),
+              ]);
+            } catch (err) {
+              log.warn("COMBO", "Failed to clear Last Known Good Provider. This is non-fatal.", {
+                err,
+              });
+            }
+          })();
           recordedAttempts++;
           lastError = errorText || String(result.status);
           comboErrors.push({
@@ -2626,7 +2660,8 @@ async function handleRoundRobinCombo({
         filteredTargets,
         // #7270: normalize both wire shapes (.messages / Responses-API .input) so RR
         // stickiness engages on the /v1/responses surface, not just Chat Completions.
-        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown })
+        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown }),
+        combo.name
       );
   const rrAffinity = applyPromptCacheAffinity(
     filteredTargets,
@@ -3123,7 +3158,18 @@ async function handleRoundRobinCombo({
           !isTokenLimitBreach &&
           !scopedFailure &&
           [408, 429, 500, 502, 503, 504].includes(result.status);
-        if (retry < maxRetries && isTransient && !providerExhausted) {
+        // See the same guard's comment in the "auto" strategy loop above —
+        // failoverBeforeRetry must prevent this same-model retry too, not
+        // just the lower-level skipUpstreamRetry mechanism. Only skip when
+        // `offset + 1 < modelCount` means a sibling target is actually left
+        // in this rotation; with none left, skipping just wastes the attempt.
+        const hasNextRrTarget = offset + 1 < modelCount;
+        if (
+          retry < maxRetries &&
+          isTransient &&
+          !providerExhausted &&
+          (!config.failoverBeforeRetry || !hasNextRrTarget)
+        ) {
           continue;
         }
 
@@ -3135,6 +3181,22 @@ async function handleRoundRobinCombo({
           strategy: "round-robin",
           target: toRecordedTarget(target),
         });
+        // LKGP (#919) mirror of handleComboChat's failure-path clear above — see
+        // that comment for why this must happen (nothing else clears a pin left
+        // by a request-scoped failure class like a stream-readiness timeout).
+        void (async () => {
+          try {
+            const { clearLKGP } = await import("../../src/lib/localDb");
+            await Promise.all([
+              clearLKGP(combo.name, target.executionKey),
+              clearLKGP(combo.name, combo.id || combo.name),
+            ]);
+          } catch (err) {
+            log.warn("COMBO-RR", "Failed to clear Last Known Good Provider. This is non-fatal.", {
+              err,
+            });
+          }
+        })();
         recordedAttempts++;
         lastError = errorText || String(result.status);
         lastStatus = result.status;

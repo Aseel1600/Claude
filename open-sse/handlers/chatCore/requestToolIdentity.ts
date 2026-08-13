@@ -1,4 +1,25 @@
-type NamespaceIdentity = { namespace: string; name: string };
+export type NamespaceIdentity = { namespace: string; name: string };
+
+/**
+ * Return a string-valued copy only when the complete map is an alias ledger.
+ *
+ * The legacy `_toolNameMap` side channel can carry either response aliases or
+ * namespace identities. Checking every value before copying keeps those two
+ * contracts separate and gives callers a real `Map<string, string>` instead of
+ * asserting an identity map into the alias shape.
+ */
+export function toToolNameAliasMap(
+  map: ReadonlyMap<string, unknown> | null
+): Map<string, string> | null {
+  if (!map || map.size === 0) return null;
+
+  const aliases = new Map<string, string>();
+  for (const [wireName, originalName] of map) {
+    if (typeof originalName !== "string") return null;
+    aliases.set(wireName, originalName);
+  }
+  return aliases;
+}
 
 /**
  * Extract the #7936 request-tool identity map from the translated body and
