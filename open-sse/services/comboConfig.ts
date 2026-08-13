@@ -345,7 +345,13 @@ export function resolveComboConfig(
  * Get the default combo config (used when no overrides exist)
  */
 export function getDefaultComboConfig() {
-  return { ...DEFAULT_COMBO_CONFIG };
+  return {
+    ...DEFAULT_COMBO_CONFIG,
+    // Mirror resolveComboConfig's opt-in flag so a deepEqual against the
+    // default stays consistent (#10217 round-4 fix). With no cascade layer
+    // setting the flag, it is a genuine non-opt-in → false.
+    failoverBeforeRetryExplicit: false,
+  };
 }
 
 /**
