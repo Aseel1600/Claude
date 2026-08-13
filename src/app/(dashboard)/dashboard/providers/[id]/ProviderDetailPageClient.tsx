@@ -2,7 +2,7 @@
 
 // Issue #3501 strangler-fig decomposition — Phase 1t (final push)
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Card, Button, CardSkeleton } from "@/shared/components";
@@ -63,6 +63,7 @@ import NoAuthProviderControls from "./components/NoAuthProviderControls";
 
 export default function ProviderDetailPageClient() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const providerId = params.id as string;
 
   // ── UI-only modal state (not owned by hooks) ─────────────────────────────
@@ -362,6 +363,10 @@ export default function ProviderDetailPageClient() {
     }
     setShowAddApiKeyModal(true);
   }, [providerId]);
+
+  useEffect(() => {
+    if (searchParams.get("action") === "add-api-key") gateConnectionFlow(openApiKeyAddFlow);
+  }, [searchParams, gateConnectionFlow, openApiKeyAddFlow]);
 
   const openPrimaryAddFlow = useCallback(() => {
     if (providerId === "kimi-coding") return setShowKimiAuthMethodModal(true);
