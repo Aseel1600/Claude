@@ -199,7 +199,7 @@ export function queryGovernorTelemetryRows(limit = 100): GovernorTelemetry[] {
       id: number;
       timestamp: number;
       correlation_id: string;
-      governor_mode: "off" | "shadow";
+      governor_mode: GovernorTelemetry["governorMode"];
       actual_provider: string | null;
       actual_model: string | null;
       actual_routing_strategy: string | null;

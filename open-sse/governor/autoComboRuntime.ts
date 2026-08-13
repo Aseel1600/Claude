@@ -319,12 +319,11 @@ export async function applyGovernorToAutoComboOrder(
     };
   }
 
-  // Shadow and simulate stay on the late observation hook in chatCore. Active
-  // modes must evaluate before dispatch because only they can change target order.
-  // This separation avoids double Governor decisions without altering the existing
-  // observation lifecycle.
+  // Shadow stays on the late observation hook in chatCore. Simulate must evaluate
+  // here as well so it receives the same factual Auto Combo pool as active mode;
+  // it still returns before any target order mutation.
   const mode = getGovernorMode();
-  if (mode === "off" || mode === "shadow" || mode === "simulate") {
+  if (mode === "off" || mode === "shadow") {
     return {
       orderedTargets: input.orderedTargets,
       context: null,
@@ -399,6 +398,15 @@ export async function applyGovernorToAutoComboOrder(
     },
     counterfactualInput
   );
+
+  if (mode === "simulate") {
+    return {
+      orderedTargets: input.orderedTargets,
+      context,
+      selectedExecutionKey: null,
+      applied: false,
+    };
+  }
 
   const breaker = getGovernorActiveBreaker();
   context.breakerState = breaker.getState();
