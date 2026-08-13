@@ -689,9 +689,19 @@ test("chat pipeline applies Codex CLI fingerprint to OAuth responses requests", 
   assert.equal(call.headers.Version, getCodexClientVersion());
   assert.equal(call.headers["Openai-Beta"], "responses=experimental");
   assert.equal(call.headers["X-Codex-Beta-Features"], "responses_websockets");
-  assert.equal(call.headers["User-Agent"], "codex-cli/0.144.1 (Windows 10.0.26200; x64)");
+  // Derive from the same source the code reads (see getCodexClientVersion() two
+  // lines above) instead of pinning the literal — #9323's version bump to 0.146.0
+  // broke this assertion while the rest of the test kept passing.
+  assert.equal(
+    call.headers["User-Agent"],
+    `codex-cli/${getCodexClientVersion()} (Windows 10.0.26200; x64)`
+  );
+  // Session convergence derives a fresh session/thread id instead of passing the
+  // client's raw conversation_id straight through, so the window id must be derived
+  // from the (converged) request id header, not the original client-supplied literal.
   assert.notEqual(call.headers["session_id"], "conv_codex_fingerprint");
   assert.equal(call.headers["x-codex-window-id"], `${call.headers["x-client-request-id"]}:0`);
+  assert.ok(call.headers["x-client-request-id"], "expected Codex request id header");
   assert.ok(call.headers["x-codex-turn-metadata"], "expected Codex turn metadata header");
 
   const headerOrder = Object.keys(call.headers);

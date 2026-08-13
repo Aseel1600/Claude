@@ -1,4 +1,5 @@
 import { getUpstreamTimeoutConfig } from "@/shared/utils/runtimeTimeouts";
+import { resolvePublicCred } from "../utils/publicCreds.ts";
 import type { LegacyProvider } from "./providerRegistry.ts";
 import { loadProviderCredentials } from "./credentialLoader.ts";
 import { generateLegacyProviders } from "./providerRegistry.ts";
@@ -17,6 +18,15 @@ export const FETCH_TIMEOUT_MS = upstreamTimeouts.fetchTimeoutMs;
 // can fail fast and trigger fallback. After startup, it closes streams that go
 // idle for this duration. Override with STREAM_IDLE_TIMEOUT_MS env var.
 export const STREAM_IDLE_TIMEOUT_MS = upstreamTimeouts.streamIdleTimeoutMs;
+
+// Grace period (ms) a client-disconnect finalization waits for the stream's own
+// completion bookkeeping to land before persisting a 499. See #9653 — a client
+// that closes right after reading a fully-completed SSE stream can otherwise
+// race OmniRoute's own completion callback, resulting in a false 499 with zero
+// token usage for a request that actually delivered its full response. Set
+// STREAM_DISCONNECT_GRACE_PERIOD_MS=0 to disable and restore the old
+// immediate-fail behavior.
+export const STREAM_DISCONNECT_GRACE_PERIOD_MS = upstreamTimeouts.streamDisconnectGracePeriodMs;
 
 // Timeout for the first non-ping SSE event. Inherits REQUEST_TIMEOUT_MS when
 // set, unless STREAM_READINESS_TIMEOUT_MS is specified directly. This must stay
@@ -65,27 +75,27 @@ export const PROVIDERS: Record<string, LegacyProvider> = new Proxy(
   {} as Record<string, LegacyProvider>,
   {
     get(_, prop) {
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === "symbol") return undefined;
       return Reflect.get(initProviders(), prop, _providers);
     },
     has(_, prop) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       return Reflect.has(initProviders(), prop);
     },
     ownKeys() {
       return Reflect.ownKeys(initProviders());
     },
     getOwnPropertyDescriptor(_, prop) {
-      if (typeof prop === 'symbol') return undefined;
+      if (typeof prop === "symbol") return undefined;
       return Object.getOwnPropertyDescriptor(initProviders(), prop);
     },
     set(_, prop, value) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       (initProviders() as Record<string, LegacyProvider>)[prop] = value;
       return true;
     },
     deleteProperty(_, prop) {
-      if (typeof prop === 'symbol') return false;
+      if (typeof prop === "symbol") return false;
       return Reflect.deleteProperty(initProviders(), prop);
     },
   }
@@ -124,6 +134,11 @@ export const OAUTH_ENDPOINTS = {
     auth: "https://github.com/login/oauth/authorize",
     deviceCode: "https://github.com/login/device/code",
   },
+  openference: {
+    token: "https://openference.com/oauth/token",
+    auth: "https://openference.com/app/oauth/authorize",
+    clientId: resolvePublicCred("openference_id"),
+  },
 };
 
 // Cache TTLs (seconds)
@@ -157,6 +172,7 @@ export const HTTP_STATUS = {
   NOT_FOUND: 404,
   NOT_ACCEPTABLE: 406,
   REQUEST_TIMEOUT: 408,
+  GONE: 410,
   RATE_LIMITED: 429,
   SERVER_ERROR: 500,
   BAD_GATEWAY: 502,
@@ -213,13 +229,13 @@ export const PROVIDER_PROFILES = {
     circuitBreakerThreshold: envInt("OMNIROUTE_CIRCUIT_BREAKER_OAUTH_THRESHOLD", 8),
     circuitBreakerReset: envInt("OMNIROUTE_CIRCUIT_BREAKER_OAUTH_RESET_MS", 60000),
     // Provider-level circuit breaker (entire provider cooldown after repeated failures)
-    providerFailureThreshold: 10, // Scaled for 500+ connections (was 3)
-    providerFailureWindowMs: 900000, // 15min window (was 10min)
-    providerCooldownMs: 300000, // 5min cooldown when threshold reached
+    providerFailureThreshold: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_FAILURE_THRESHOLD", 10), // Scaled for 500+ connections (was 3)
+    providerFailureWindowMs: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_FAILURE_WINDOW_MS", 900000), // 15min window (was 10min)
+    providerCooldownMs: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_COOLDOWN_MS", 300000), // 5min cooldown when threshold reached
     // Adaptive circuit breaker v2 settings
-    degradationThreshold: 5, // Enter DEGRADED at this many failures
-    maxBackoffMultiplier: 8, // Max 8x resetTimeout escalation
-    backoffEscalationCount: 2, // Escalate after 2 open cycles
+    degradationThreshold: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_DEGRADATION_THRESHOLD", 5), // Enter DEGRADED at this many failures
+    maxBackoffMultiplier: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_MAX_BACKOFF_MULTIPLIER", 8), // Max 8x resetTimeout escalation
+    backoffEscalationCount: envInt("OMNIROUTE_PROVIDER_BREAKER_OAUTH_BACKOFF_ESCALATION_COUNT", 2), // Escalate after 2 open cycles
   },
   apikey: {
     transientCooldown: 3000, // 3s (API providers recover faster)
@@ -228,12 +244,12 @@ export const PROVIDER_PROFILES = {
     circuitBreakerThreshold: envInt("OMNIROUTE_CIRCUIT_BREAKER_API_KEY_THRESHOLD", 12),
     circuitBreakerReset: envInt("OMNIROUTE_CIRCUIT_BREAKER_API_KEY_RESET_MS", 30000),
     // Provider-level circuit breaker (entire provider cooldown after repeated failures)
-    providerFailureThreshold: 15, // Scaled for 500+ connections (was 5)
-    providerFailureWindowMs: 1800000, // 30min window (was 20min)
-    providerCooldownMs: 600000, // 10min cooldown when threshold reached
-    degradationThreshold: 7,
-    maxBackoffMultiplier: 4,
-    backoffEscalationCount: 3,
+    providerFailureThreshold: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_FAILURE_THRESHOLD", 15), // Scaled for 500+ connections (was 5)
+    providerFailureWindowMs: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_FAILURE_WINDOW_MS", 1800000), // 30min window (was 20min)
+    providerCooldownMs: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_COOLDOWN_MS", 600000), // 10min cooldown when threshold reached
+    degradationThreshold: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_DEGRADATION_THRESHOLD", 7),
+    maxBackoffMultiplier: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_MAX_BACKOFF_MULTIPLIER", 4),
+    backoffEscalationCount: envInt("OMNIROUTE_PROVIDER_BREAKER_API_KEY_BACKOFF_ESCALATION_COUNT", 3),
   },
   // Local providers (localhost inference backends like Ollama, LM Studio, oMLX).
   // Not yet wired into getProviderProfile() — will be used when local provider_nodes
@@ -245,9 +261,9 @@ export const PROVIDER_PROFILES = {
     circuitBreakerThreshold: envInt("OMNIROUTE_CIRCUIT_BREAKER_LOCAL_THRESHOLD", 2),
     circuitBreakerReset: envInt("OMNIROUTE_CIRCUIT_BREAKER_LOCAL_RESET_MS", 15000),
     // Provider-level circuit breaker (entire provider cooldown after repeated failures)
-    providerFailureThreshold: 2, // 2 failures trigger provider cooldown
-    providerFailureWindowMs: 300000, // 5min window for counting failures
-    providerCooldownMs: 60000, // 1min cooldown when threshold reached
+    providerFailureThreshold: envInt("OMNIROUTE_PROVIDER_BREAKER_LOCAL_FAILURE_THRESHOLD", 2), // 2 failures trigger provider cooldown
+    providerFailureWindowMs: envInt("OMNIROUTE_PROVIDER_BREAKER_LOCAL_FAILURE_WINDOW_MS", 300000), // 5min window for counting failures
+    providerCooldownMs: envInt("OMNIROUTE_PROVIDER_BREAKER_LOCAL_COOLDOWN_MS", 60000), // 1min cooldown when threshold reached
   },
 };
 
@@ -314,4 +330,16 @@ export const STREAM_RECOVERY = {
   HOLDBACK_MS: 750,
   BUFFER_MAX_BYTES: 65536,
   EARLY_RETRY_MAX: 4,
+} as const;
+
+/**
+ * Active-stream quality watchdog defaults (#9709). This is separate from the
+ * idle timeout (no chunks) and the absolute upstream-attempt deadline: it only
+ * evaluates useful assistant output after warm-up plus one complete window.
+ */
+export const STREAM_THROUGHPUT_WATCHDOG = {
+  WARMUP_MS: 30_000,
+  WINDOW_MS: 30_000,
+  MIN_USEFUL_BYTES_PER_SECOND: 4,
+  MIN_USEFUL_BYTES: 1,
 } as const;
