@@ -13,6 +13,7 @@ allowBuilds:
   koffi: true
   libxmljs2: true
   onnxruntime-node: true
+  opencode-ai: true
   protobufjs: true
   sharp: true
   tls-client-node: true
@@ -27,6 +28,7 @@ onlyBuiltDependencies:
   - "koffi"
   - "libxmljs2"
   - "onnxruntime-node"
+  - "opencode-ai"
   - "omniroute"
   - "protobufjs"
   - "sharp"

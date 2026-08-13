@@ -87,7 +87,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
-import { getCachedProviderConnectionById } from "../../src/lib/localDb.js";
+import { getCachedProviderConnectionById } from "@/lib/localDb";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
 /**
@@ -1151,20 +1151,6 @@ export async function handleComboChat({
             );
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
-          }
-
-          // Concurrency gate: fail-fast skip when connection is at max_concurrent capacity (e.g. Featherless 1/1)
-          const maxConcurrentCap = await lookupPositiveCap(connectionId);
-          if (
-            maxConcurrentCap &&
-            isAccountSemaphoreFull(provider, connectionId, maxConcurrentCap)
-          ) {
-            log.info(
-              "COMBO",
-              `Skipping ${modelStr} — connection ${connectionId} is at max concurrency cap (${maxConcurrentCap})`
-            );
-            if (i > 0) fallbackCount++;
-            return null;
           }
         }
 
