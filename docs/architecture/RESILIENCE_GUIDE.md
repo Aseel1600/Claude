@@ -308,10 +308,13 @@ event.
   per-provider list of rules (`{id, fromStatuses, toStatus, textMarkers,
 excludeMarkers, defaultRetryAfterMs}`), matched via `applyStatusRestatement()`.
 - Call site: the `providerFailure:` block in `open-sse/handlers/chatCore.ts`
-  (around line 3654), right after the upstream error is parsed — both the
-  HTTP-error path and the error-hidden-in-a-200-SSE-stream path converge
-  there before `applyStatusRestatement()` runs, so every downstream consumer
-  sees the corrected status.
+  (around line 3654), right after `parseUpstreamError()` parses an upstream
+  response with an error HTTP status (`!providerResponse.ok`), and before any
+  classification runs, so every downstream consumer sees the corrected
+  status. Errors embedded inside a `200` SSE stream follow a separate,
+  later stream-parsing path and are **not** covered by this hook today — a
+  known limitation, not yet needed for agentrouter's misstatus (which
+  surfaces as an error HTTP status).
 - Retry eligibility: `429` is in `RETRY_AFTER_ELIGIBLE_STATUSES`
   (`open-sse/services/combo/unavailableRetryGate.ts`), so a restated error
   carries a real retry window instead of surfacing as a dead `403`.

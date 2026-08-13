@@ -8,11 +8,15 @@
  * fallback engine classifies it as AUTH_ERROR instead of a quota event.
  *
  * applyStatusRestatement() is called from exactly ONE place — the
- * `providerFailure:` block in open-sse/handlers/chatCore.ts, right after the
- * upstream error is parsed (both the HTTP-error path and the error-hidden-in-
- * a-200-SSE-stream path converge there) — so every downstream consumer
- * (checkFallbackError, combo aggregation, the client response) sees the
- * corrected status. 429 is Retry-After-eligible in
+ * `providerFailure:` block in open-sse/handlers/chatCore.ts, right after
+ * parseUpstreamError() parses an upstream response with an error HTTP status
+ * (!providerResponse.ok), and before any classification runs — so every
+ * downstream consumer (checkFallbackError, combo aggregation, the client
+ * response) sees the corrected status. Errors embedded inside a 200 SSE
+ * stream follow a separate, later stream-parsing path and are NOT covered by
+ * this hook today (known limitation; not yet needed for agentrouter's
+ * misstatus, which surfaces as an error HTTP status). 429 is
+ * Retry-After-eligible in
  * open-sse/services/combo/unavailableRetryGate.ts, so the client also gets a
  * retry window instead of a dead 403.
  *
