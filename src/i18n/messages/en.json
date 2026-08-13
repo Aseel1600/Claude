@@ -1289,7 +1289,8 @@
       "navigate": "navigate",
       "open": "open",
       "close": "close"
-    }
+    },
+    "noResults": "No results"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -2187,7 +2188,8 @@
     "searchAnalyticsEmptyDescription": "Use <code>POST /v1/search</code> to start routing web searches.",
     "searchAnalyticsFreeTier": "<strong>Free tier available:</strong> Serper (2,500/mo), Brave (2,000/mo), Exa (1,000/mo), Tavily (1,000/mo) — total 6,500+ free searches/month with automatic failover.",
     "autoRoutingNoDataAvailable": "No auto-routing analytics available. Make requests using the auto/ prefix to see metrics.",
-    "defaultVariantLabel": "Default"
+    "defaultVariantLabel": "Default",
+    "freeTierAvailable": "Free tier available"
   },
   "apiManager": {
     "title": "API Keys",
@@ -2476,7 +2478,9 @@
     "providerCount": "{count} providers",
     "imageToTextBridgeAvailable": "Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configure the Image→Text bridge in Modality Bridge settings",
-    "sttBridgeCta": "Configure the Speech→Text bridge in Modality Bridge settings"
+    "sttBridgeCta": "Configure the Speech→Text bridge in Modality Bridge settings",
+    "existingConnection": "Existing connection",
+    "openrouterSttDescription": "OpenRouter speech-to-text models use your configured OpenRouter connection. No separate credential is required."
   },
   "search": {
     "searchQuery": "Search Query",
@@ -3708,7 +3712,8 @@
     "errorTitle": "Failed to load combos",
     "errorDescription": "We could not load combo data right now. Check your connection and try again.",
     "errorId": "Error ID: {id}",
-    "errorRetry": "Try Again"
+    "errorRetry": "Try Again",
+    "comboLabel": "Combo"
   },
   "costs": {
     "title": "Costs",
@@ -4438,7 +4443,9 @@
       "cleaning": "Cleaning...",
       "cleanNow": "Clean now",
       "cleanupSuccess": "{count} point(s) removed",
-      "cleanupFailed": "Cleanup failed"
+      "cleanupFailed": "Cleanup failed",
+      "hostLabel": "Host",
+      "collectionLabel": "Collection"
     },
     "rerank": {
       "enableLabel": "Enable Rerank",
@@ -6765,7 +6772,7 @@
     "denoRelayOrgDomainRequired": "Organization domain is required",
     "denoRelayDeployFailed": "Deno Deploy failed",
     "denoRelayTokenHint": "Organization token (prefix ddo_) from console.deno.com → Organization → Settings → Organization Tokens. Used once for deploy and never stored.",
-    "denoRelayOrgDomainHint": "Your Deno Deploy organization's default domain (e.g. acme.deno.net). The relay will be reachable at https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Your Deno Deploy organization's default domain (e.g. acme.deno.net). The relay will be reachable at https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filter by protocol",
     "proxyFreePoolProtocol": "Protocol",
     "proxyFreePoolCountryPlaceholder": "Country (e.g. US)",
@@ -7904,9 +7911,9 @@
     "resilienceEnableServerWaitDesc": "When enabled, OmniRoute waits for the first cooldown to expire and retries automatically.",
     "resilienceMaxAttempts": "Maximum attempts",
     "resilienceMaxWaitPerAttempt": "Maximum wait per attempt",
-    "resilienceComboCooldownWaitTitle": "Quota-share combo cooldown wait",
-    "resilienceComboCooldownWaitDesc": "For quota-share combos only: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
-    "resilienceComboCooldownWaitToggleDesc": "Quota-share combos only; never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitTitle": "Combo cooldown wait",
+    "resilienceComboCooldownWaitDesc": "For all combo strategies: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitToggleDesc": "All combo strategies; never waits on quota_exhausted.",
     "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
     "resilienceComboCooldownBudgetMs": "Total wait budget",
     "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
@@ -8133,7 +8140,13 @@
     "routingJsonEditorImportExport": "Import / export JSON",
     "routingJsonEditorLabel": "JSON (edit and apply, or paste to import)",
     "routingApplyJson": "Apply JSON",
-    "routingTransformsFootnote": "All transform ops are idempotent on re-run. Changes take effect immediately on the next request."
+    "routingTransformsFootnote": "All transform ops are idempotent on re-run. Changes take effect immediately on the next request.",
+    "cliproxyapiUnknown": "Unknown",
+    "cliproxyapiVersion": "Version",
+    "cliproxyapiHealth": "Health",
+    "cliproxyapiPort": "Port",
+    "qdrantHost": "Host",
+    "qdrantCollection": "Collection"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8540,7 +8553,8 @@
     "enableDescription": "Runs last in the stack (after RTK/Caveman cleans the text, OmniGlyph converts the remainder to images) and also runs standalone through <code>omniglyph</code> mode. This is a preview and remains off by default until end-to-end validation is complete.",
     "saved": "Saved.",
     "saveFailed": "Could not save.",
-    "enableAria": "Enable the OmniGlyph engine"
+    "enableAria": "Enable the OmniGlyph engine",
+    "title": "OmniGlyph"
   },
   "embeddedServices": {
     "title": "Embedded Services",
@@ -9629,7 +9643,23 @@
     "traeAuthorizationSuccess": "Trae authorization ✓",
     "traeAuthorizationFailed": "Trae authorization failed",
     "closeAuthorizationWindow": "You can close this window.",
-    "returnToDashboard": "Return to the dashboard."
+    "returnToDashboard": "Return to the dashboard.",
+    "resetViaAppData": "Reset via App Data",
+    "deleteSettingsToReset": "Delete the settings file from the app data directory to reset your password:",
+    "quitAppCompletely": "Quit the OmniRoute desktop app completely",
+    "navigateToAppData": "Navigate to the app data directory",
+    "checkAppDataFolder": "Check your system app data folder",
+    "deleteSettingsJson": "Delete",
+    "relaunchAppFresh": "Relaunch the OmniRoute desktop app — it will start fresh setup",
+    "alternativeSetPassword": "Alternative: Set New Password",
+    "setNewPasswordViaEnv": "Set a new initial password via the server environment file:",
+    "openServerEnv": "Open",
+    "inDataDirectory": "in the data directory",
+    "addOrUpdate": "Add or update",
+    "deleteAndRelaunch": "Delete",
+    "settingsJson": "settings.json",
+    "fromDataDir": "from the data directory",
+    "relaunchApp": "Relaunch the OmniRoute desktop app"
   },
   "landing": {
     "brandName": "OmniRoute",
@@ -10484,8 +10514,7 @@
     "gitlabDuoSetupTitle": "GitLab Duo OAuth setup",
     "gitlabDuoSetupMessage": "GitLab Duo OAuth is not configured. Register an OAuth application at {applicationsUrl} with redirect URI {redirectUri} and scopes \"{scopes}\", then set {clientIdEnv} (and optionally {clientSecretEnv}) and restart.",
     "gitlabDuoSetupDescription": "After the application is registered and the env vars are set on this OmniRoute instance, click Continue to start the OAuth login.",
-    "continue": "Continue",
-    "googleOAuthWarning": "Remote access + Google OAuth: bundled credentials only accept loopback redirects like <code>127.0.0.1</code>. The browser that approves Google must be able to reach OmniRoute on that local port, usually by opening OmniRoute locally or using an SSH/local-forward tunnel. Recommended for remote installs: on your own computer run <code>npx omniroute login antigravity</code> and paste the credential blob it prints into the field below. For fully remote use without this local callback, <a>configure your own OAuth credentials</a>."
+    "continue": "Continue"
   },
   "cursorAuthModal": {
     "title": "Connect Cursor IDE",
@@ -12827,7 +12856,9 @@
       "avoid": "ToS-restricted — review terms",
       "caution": "Caution — personal-use / proxy clauses",
       "ok": "Generally permissive"
-    }
+    },
+    "allProviders": "All providers",
+    "noApiKeyRequired": "No API key required"
   },
   "providerHealthAutopilot": {
     "title": "Provider Health Autopilot",
@@ -13576,5 +13607,13 @@
     "sttFailed": "Transcription failed (check the STT model/provider)",
     "ttsFailed": "Speech synthesis failed (check the TTS model/provider)",
     "micDenied": "Microphone unavailable or permission denied"
+  },
+  "cliproxyProviderExposure": {
+    "title": "Provider Exposure",
+    "description": "Expose CLIProxyAPI models as a routing target under the <prefix>cliproxyapi/</prefix> prefix.",
+    "label": "Expose as <prefix>cliproxyapi/...</prefix>",
+    "hint": "When enabled, discovered models appear in provider selects across OmniRoute.",
+    "updateFailed": "Failed to update (HTTP {status})",
+    "networkError": "Network error — could not update provider exposure setting"
   }
 }

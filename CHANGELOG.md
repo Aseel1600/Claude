@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+---
+
 ## [3.8.50] — TBD
 
 _Living section — regenerated 2026-08-12 from all cycle commits (cycle open `ed2db6cb19` → tip). Bullets carry the merged PR and its author; direct pushes listed separately._

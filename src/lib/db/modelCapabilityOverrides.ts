@@ -76,7 +76,8 @@ export function getModelCapabilityOverride(
   if (!target || !isSupportedKey(key)) return null;
 
   if (bulkMaxTokenOverrides) {
-    if (key !== "max_output_tokens") return null;
+    // The caller pairs the bulk map with the key it was built for
+    // (max_output_tokens or max_input_tokens in the #9199 snapshot).
     return bulkMaxTokenOverrides.get(target.provider)?.get(target.modelId) ?? null;
   }
 
