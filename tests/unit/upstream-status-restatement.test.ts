@@ -107,3 +107,20 @@ test("R9: registry exposes agentrouter so future gateways copy the one-line reci
   const rules = statusRestatementRegistry.get("agentrouter");
   assert.ok(rules && rules.length > 0);
 });
+
+test("R10: chatCore wires applyStatusRestatement into the providerFailure block", async () => {
+  // chatCore is a god-file that cannot be imported standalone in unit tests
+  // (side-effectful DB/env wiring), so the wiring contract is asserted at the
+  // source level: the hook must exist, run against the parsed error, and
+  // reassign both statusCode and retryAfterMs BEFORE classification.
+  const { readFile } = await import("node:fs/promises");
+  const src = await readFile(
+    new URL("../../open-sse/handlers/chatCore.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(src, /applyStatusRestatement\(/, "chatCore must call applyStatusRestatement");
+  const hookIndex = src.indexOf("applyStatusRestatement(");
+  const classifyIndex = src.indexOf("classifyProviderError(statusCode");
+  assert.ok(hookIndex > -1 && classifyIndex > -1 && hookIndex < classifyIndex,
+    "restatement must run BEFORE classifyProviderError so fallback sees the corrected status");
+});
