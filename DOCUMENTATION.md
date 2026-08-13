@@ -143,6 +143,32 @@ is pulled, these must be re-applied on top.
   (`240000 !== 80000`). Fails identically on the clean quota branch. Fix
   upstream in the PR (pattern: `tests/unit/db-webhooks.test.ts`).
 
+### pnpm-specific fixes (upstream packaging gaps exposed by pnpm isolation)
+
+- `package.json`: declared `playwright-core` + `remark-gfm` as direct deps
+  (npm's flat hoisting had masked them; both are directly imported in source).
+  `esbuild` added as a devDependency (the prepublish script shells out to it).
+- `scripts/build/prepublish.ts`: the ChatGPT-Web (Codex) MCP bridge bundle used
+  raw `npx esbuild` → status 127 under pnpm's isolated node_modules. Switched
+  to `runBuildTool()` (local-bin resolver).
+- `scripts/build/assembleStandalone.mjs`: removed pre-existing destination
+  symlinks before recursive copy (`ERR_FS_CP_DIR_TO_NON_DIR` with pnpm's
+  symlinked layout).
+- `pnpm-workspace.yaml`: fixed `allowBuilds` placeholders + added
+  `opencode-ai` (release-base dep).
+- `pnpm-lock.yaml`: regenerated for pnpm (includes the `omniroute: link:`
+  override from `pnpm link .`). `package-lock.json` stays untouched — pnpm is
+  the package manager for this fork.
+
+### Runtime fixes (verified live)
+
+- `resolveProjectRoot` prefers a `.git` checkout over a package.json-only dir,
+  and handles the Next.js standalone `/ROOT` placeholder (bundled chunks
+  replace the project root with `/ROOT` — the compiled default startDir does
+  not exist at runtime, so the walk restarts from `process.cwd()`). Without
+  this, `/api/system/version` reported `autoUpdateSupported:false, "Not a git
+repository"` on the linked install.
+
 ---
 
 ## 5. Update procedure (when "Update Available" appears)
