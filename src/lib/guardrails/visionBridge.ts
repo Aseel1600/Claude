@@ -405,7 +405,11 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         const description = cached ?? (await callVision(imagePart.imageUrl, describeConfig));
         if (cached === undefined && key && cache) cache.set(key, description);
         recordBridgeUse("vision", { cacheHit: cached !== undefined });
-        return `[Image ${i + 1}]: ${description}`;
+        const capped =
+          runtime.maxChars > 0 && description.length > runtime.maxChars
+            ? description.slice(0, runtime.maxChars) + "…"
+            : description;
+        return `[Image ${i + 1}]: ${capped}`;
       })
     );
 
