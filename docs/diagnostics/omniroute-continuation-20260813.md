@@ -244,11 +244,14 @@ altered.
 Files modified in this continuation are the three files listed under Fixes.
 No runtime artifacts or secrets are staged.
 
-The next commit should be explicit about the confirmed cleanup fix and the
-remaining credential-blocked runtime investigation. Push without force and
-confirm `git rev-parse HEAD == git rev-parse @{u}`.
+Commit created: `690d161a0e57c50aad9994594c60656971bad366` with message
+`fix(db): make compression telemetry cleanup self-healing`.
 
-Final status for this continuation: `B — PARTIAL_PUSHED` pending commit/push.
+Initial push: CONFIRMED. At this point `git rev-parse HEAD == git rev-parse
+@{u}` is YES. This report update is the final follow-up commit and must also be
+pushed without force.
+
+Final status for this continuation: `B — PARTIAL_PUSHED`.
 
 Shutdown authorized after commit, push confirmation, report preservation,
 server/listener check, and a clean working tree: YES.
