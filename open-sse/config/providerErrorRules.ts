@@ -180,7 +180,13 @@ function buildOpenrouterRules(): ProviderErrorRule[] {
 // agentrouter.org misstates temporary quota exhaustion as 403/400 with a
 // Chinese body. upstreamStatusRestatement.ts rewrites the status to 429
 // BEFORE classification, so rules here accept both the raw 403/400 and the
-// restated 429 (text is the real discriminator either way).
+// restated 429 (text is the real discriminator either way). In production,
+// the raw 403 path is what actually matters here: checkFallbackError's
+// apikey-category FORBIDDEN branch (~line 1699) returns EARLY for a plain
+// 403, before these rules are ever consulted — these rules fire on the
+// RESTATED 429 (chatCore's upstreamStatusRestatement hook runs first) via
+// resolveRuleMatchBody, which is the only path in checkFallbackError that
+// hands these rules the full error text instead of just {code, type}.
 //  - "额度不足": account-wide temporary quota → quota_exhausted, scope
 //    "connection" (mirror of the Opencode account-wide rationale above).
 //  - "无权访问模型": this key permanently lacks access to ONE model → lock only
@@ -226,6 +232,34 @@ export const providerRuleRegistry = new Map<string, ProviderErrorRule[]>([
   ["openrouter", buildOpenrouterRules()],
   ["agentrouter", buildAgentrouterRules()],
 ]);
+
+/**
+ * Providers whose rules match on the FULL upstream error text.
+ * checkFallbackError's rule lookup normally passes only the structured
+ * error ({code, type} — message stripped by the combo callers), which is
+ * enough for header/status/code rules but blind to body-text markers like
+ * agentrouter's "额度不足". Providers in this set get the raw error text as
+ * the match body instead. EXCLUSIVE allowlist by owner decision (2026-08-13):
+ * adding a provider here is an explicit opt-in — the default path for every
+ * other provider must remain byte-for-byte unchanged.
+ */
+const FULL_TEXT_RULE_PROVIDERS = new Set(["agentrouter"]);
+
+/**
+ * Resolve the body handed to getProviderErrorRuleMatch inside
+ * checkFallbackError: full error text for FULL_TEXT_RULE_PROVIDERS,
+ * the structured error for everyone else.
+ */
+export function resolveRuleMatchBody(
+  provider: string | null | undefined,
+  structuredError: unknown,
+  errorText: string | null | undefined
+): unknown {
+  if (provider && FULL_TEXT_RULE_PROVIDERS.has(provider.toLowerCase()) && errorText) {
+    return errorText;
+  }
+  return structuredError ?? null;
+}
 
 /**
  * Returns the first matching rule for a provider, or null if none match.

@@ -58,15 +58,29 @@ test("A5: classifyError integration — quota text wins over the 403→AUTH_ERRO
   assert.equal(reason, RateLimitReason.QUOTA_EXHAUSTED);
 });
 
-test("A6: guard — restated quota error is retryable, never terminal", () => {
+test("A6: guard — restated quota error is retryable, never terminal, and now actually classified as quota_exhausted", () => {
+  // Status 429 (post-restatement) reaches checkFallbackError's provider-rule
+  // lookup. resolveRuleMatchBody() hands agentrouter the full error text
+  // (instead of just the stripped {code, type} structuredError every other
+  // provider gets), so the "额度不足" rule actually fires here — this is the
+  // production path the restatement hook (Task 2) feeds into.
   const result = checkFallbackError(429, "用户额度不足", 0, null, "agentrouter", null);
   assert.equal(result.shouldFallback, true);
+  assert.equal(result.reason, "quota_exhausted");
   assert.ok(!result.permanent, "quota misstatus must never be permanent");
   assert.ok(!result.creditsExhausted, "must not trip CREDITS_EXHAUSTED_SIGNALS");
   assert.ok(result.cooldownMs > 0, "must carry a real cooldown");
 });
 
 test("A7: guard — raw 403 quota (hook bypassed) is still not account-deactivation", () => {
+  // A raw (pre-restatement) 403 never actually reaches the agentrouter provider
+  // rules in production: checkFallbackError's apikey-category FORBIDDEN branch
+  // (status === 403 && getProviderCategory(provider) === "apikey") returns
+  // EARLY via resolveApiKeyForbiddenFallback before the provider-rule lookup
+  // is ever consulted. In the real pipeline, chatCore's upstreamStatusRestatement
+  // hook (Task 2) already converts 403→429 before checkFallbackError ever sees
+  // it, so this early-return path is what a hook-bypassed raw 403 hits — and it
+  // must still not be misclassified as permanent account deactivation.
   const result = checkFallbackError(403, "用户额度不足", 0, null, "agentrouter", null);
   assert.equal(result.shouldFallback, true);
   assert.ok(!result.permanent);
@@ -75,4 +89,40 @@ test("A7: guard — raw 403 quota (hook bypassed) is still not account-deactivat
 test("A8: plain agentrouter 403 (no quota text) keeps the default apikey auth path", () => {
   const match = getProviderErrorRuleMatch("agentrouter", 403, {}, "Invalid API key");
   assert.equal(match, null);
+});
+
+test("A9: resolveRuleMatchBody hands full text ONLY to allowlisted providers", async () => {
+  const { resolveRuleMatchBody } = await import(
+    "../../open-sse/config/providerErrorRules.ts"
+  );
+  const structured = { code: "rate_limited", type: "requests" };
+  assert.equal(resolveRuleMatchBody("agentrouter", structured, "用户额度不足"), "用户额度不足");
+  assert.equal(resolveRuleMatchBody("opencode", structured, "monthly usage limit reached"), structured);
+  assert.equal(resolveRuleMatchBody("openrouter", null, "some error text"), null);
+  assert.equal(resolveRuleMatchBody("agentrouter", structured, ""), structured);
+});
+
+test("A10: other providers' checkFallbackError behavior is unchanged (exclusivity)", () => {
+  // opencode's body-text rule ("organization_quota_exceeded") must still NOT
+  // fire through checkFallbackError — the allowlist is agentrouter-only, so
+  // opencode keeps getting only the stripped structuredError as the match
+  // body (null here, since no structuredError arg is passed), same as before
+  // this fix. Baseline captured on the pre-fix code with this exact input:
+  //   { shouldFallback: true, cooldownMs: 3000, baseCooldownMs: 3000,
+  //     newBackoffLevel: 1, usedUpstreamRetryHint: false,
+  //     reason: "rate_limit_exceeded" }
+  // i.e. it falls through to the generic 429 configured rule, NOT the
+  // opencode-quota-exhausted-body provider rule — asserting `reason` here is
+  // exactly what proves the allowlist didn't leak to opencode.
+  const result = checkFallbackError(
+    429,
+    '{"error":{"message":"organization_quota_exceeded"}}',
+    0,
+    null,
+    "opencode",
+    null
+  );
+  assert.ok(result.shouldFallback);
+  assert.equal(result.reason, "rate_limit_exceeded");
+  assert.equal(result.cooldownMs, 3000);
 });
