@@ -303,6 +303,26 @@ export default function AntigravityToolCard({
 
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-border flex flex-col gap-4">
+          {/* Agent Bridge vs Token Import distinction notice */}
+          <div className="flex items-start gap-2.5 p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs text-text-muted">
+            <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">
+              info
+            </span>
+            <div className="flex flex-col gap-1">
+              <span className="font-semibold text-text-main">
+                Agent Bridge Interception (IDE & agy CLI)
+              </span>
+              <p>
+                Intercepts live network traffic from running <strong>Antigravity IDE</strong> or{" "}
+                <strong>agy CLI</strong> processes and routes model calls through OmniRoute.
+              </p>
+              <p className="text-[11px] text-text-muted">
+                Looking to import saved OAuth tokens instead? Use the standalone{" "}
+                <strong>agy provider</strong> in <em>Settings → Providers</em>.
+              </p>
+            </div>
+          </div>
+
           {/* Start/Stop Button - always on top */}
           <div className="flex items-center gap-2">
             {isRunning ? (

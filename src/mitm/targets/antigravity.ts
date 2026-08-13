@@ -1,5 +1,5 @@
 /**
- * Antigravity IDE target descriptor.
+ * Antigravity IDE and agy CLI target descriptor.
  *
  * Provides:
  *  - `ANTIGRAVITY_TARGET`: canonical `MitmTarget` per F1 contract (§3.1).
@@ -28,12 +28,12 @@ const INSTRUCTIONS = [
   "1. Install OmniRoute's root certificate",
   "2. Start the MITM proxy via Dashboard or CLI",
   "3. Configure model mappings in Dashboard → AgentBridge → Antigravity",
-  "4. Open Antigravity IDE — API calls will be routed through OmniRoute",
+  "4. Open Antigravity IDE or run agy CLI — API calls will be routed through OmniRoute",
 ];
 
 export const ANTIGRAVITY_TARGET: MitmTarget = {
   id: "antigravity",
-  name: "Antigravity IDE",
+  name: "Antigravity (IDE & agy CLI)",
   icon: "rocket_launch",
   color: "#4F46E5",
   hosts: HOSTS,
@@ -42,7 +42,7 @@ export const ANTIGRAVITY_TARGET: MitmTarget = {
   defaultModels: [],
   setupTutorial: {
     steps: INSTRUCTIONS,
-    detection: { command: "which antigravity", platform: "all" },
+    detection: { command: "which antigravity || which agy", platform: "all" },
   },
   handler: () =>
     import("../handlers/antigravity").then((m) => ({
@@ -73,7 +73,7 @@ export const ANTIGRAVITY_MITM_PROFILE: MitmTarget & {
 } = {
   ...ANTIGRAVITY_TARGET,
   description:
-    "Intercepts Antigravity IDE requests to cloudcode-pa.googleapis.com and routes them through OmniRoute.",
+    "Intercepts Antigravity IDE and agy CLI requests to cloudcode-pa.googleapis.com and routes them through OmniRoute.",
   targetHost: HOSTS[0],
   targetPort: 443,
   localPort: 443,
