@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Badge, Input, Modal, Toggle, Select } from "@/shared/components";
 import {
@@ -38,10 +38,9 @@ import {
   getWebSessionCredentialCheckLabel,
   getLocalProviderMetadata,
   normalizeAndValidateHttpBaseUrl,
-  CODEX_REASONING_STRENGTH_OPTIONS,
-  CODEX_ACCOUNT_SERVICE_TIER_VALUES,
-  getCodexServiceTierLabel,
+  getCodexFingerprintMode,
   getCodexRequestDefaults,
+  type CodexFingerprintModeValue,
   getClaudeCodeCompatibleRequestDefaults,
   providerText,
   ERROR_TYPE_LABELS,
@@ -51,6 +50,7 @@ import { getWebSessionCredentialRequirement } from "../../webSessionCredentials"
 import { useOpenRouterPresetControl } from "../OpenRouterPresetInput";
 import WebSessionCredentialGuide from "../WebSessionCredentialGuide";
 import CcCompatibleRequestDefaultsFields from "./CcCompatibleRequestDefaultsFields";
+import { CodexConnectionFields } from "./CodexFingerprintFields";
 import { assignEditApiKeyProviderSpecificData } from "./connectionProviderSpecificData";
 import { isM365TierCapableProvider, normalizeM365TierValue, type M365TierValue } from "./m365Tier";
 import ProviderTierField from "./ProviderTierField";
@@ -126,6 +126,7 @@ export default function EditConnectionModal({
     accountId: "",
     codexReasoningEffort: "medium",
     codexServiceTier: "default" as CodexServiceTier,
+    codexFingerprintMode: "session" as CodexFingerprintModeValue,
     codexOpenaiStoreEnabled: false,
     consoleApiKey: "",
     newApiUserId: "",
@@ -229,15 +230,6 @@ export default function EditConnectionModal({
       : apiKeyOptional
         ? t("apiKeyOptionalHint")
         : t("leaveBlankKeepCurrentApiKey");
-  const codexAccountServiceTierOptions = useMemo(
-    () =>
-      CODEX_ACCOUNT_SERVICE_TIER_VALUES.map((value) => ({
-        value,
-        label: getCodexServiceTierLabel(t, value),
-      })),
-    [t]
-  );
-
   useEffect(() => {
     if (isOpen && connection) {
       const effectiveProvider = connection.provider || providerId;
@@ -311,6 +303,7 @@ export default function EditConnectionModal({
         accountId: existingAccountId,
         codexReasoningEffort: codexRequestDefaults.reasoningEffort,
         codexServiceTier: codexRequestDefaults.serviceTier ?? "default",
+        codexFingerprintMode: getCodexFingerprintMode(connection.providerSpecificData),
         codexOpenaiStoreEnabled: connection.providerSpecificData?.openaiStoreEnabled === true,
         consoleApiKey: existingConsoleApiKey,
         newApiUserId: existingNewApiUserId,
@@ -580,6 +573,7 @@ export default function EditConnectionModal({
           };
           updates.providerSpecificData.openaiStoreEnabled =
             formData.codexOpenaiStoreEnabled === true;
+          updates.providerSpecificData.codexFingerprintMode = formData.codexFingerprintMode;
         }
         if (isAntigravityFamily) {
           updates.providerSpecificData.projectId = trimmedCloudCodeProjectId || null;
@@ -666,37 +660,14 @@ export default function EditConnectionModal({
           hint={t("excludedModelsHint")}
         />
         {isCodex && (
-          <div className="flex flex-col gap-4 rounded-lg border border-border/50 bg-surface/20 p-4">
-            <Select
-              label={t("defaultThinkingStrengthLabel")}
-              value={formData.codexReasoningEffort}
-              options={CODEX_REASONING_STRENGTH_OPTIONS}
-              onChange={(e) => setFormData({ ...formData, codexReasoningEffort: e.target.value })}
-              hint={t("defaultThinkingStrengthHint")}
-            />
-            <Select
-              label={providerText(t, "codexServiceTierLabel", "Codex service tier")}
-              value={formData.codexServiceTier}
-              options={codexAccountServiceTierOptions}
-              onChange={(event) =>
-                setFormData({
-                  ...formData,
-                  codexServiceTier: event.target.value as CodexServiceTier,
-                })
-              }
-              hint={providerText(
-                t,
-                "codexServiceTierDescription",
-                "Default uses the normal Codex tier. Priority shows as Fast; Flex uses the flex service tier when available."
-              )}
-            />
-            <Toggle
-              checked={formData.codexOpenaiStoreEnabled}
-              onChange={(checked) => setFormData({ ...formData, codexOpenaiStoreEnabled: checked })}
-              label={t("openaiResponsesStoreLabel")}
-              description={t("openaiResponsesStoreDescription")}
-            />
-          </div>
+          <CodexConnectionFields
+            t={t}
+            reasoningEffort={formData.codexReasoningEffort}
+            serviceTier={formData.codexServiceTier}
+            fingerprintMode={formData.codexFingerprintMode}
+            openaiStoreEnabled={formData.codexOpenaiStoreEnabled}
+            onChange={(patch) => setFormData({ ...formData, ...patch })}
+          />
         )}
         {isClaude && (
           <div className="flex flex-col gap-4 rounded-lg border border-border/50 bg-surface/20 p-4">

@@ -32,6 +32,7 @@ type FormData = QuotaScrapingFieldValues &
     routingTags: string;
     tag?: string;
     validationModelId?: string;
+    codexFingerprintMode?: string;
   };
 type ProviderSpecificData = Record<string, unknown>;
 
@@ -146,5 +147,8 @@ export function assignEditApiKeyProviderSpecificData(options: {
       o.target.requestDefaults,
       o.formData
     );
+  }
+  if (o.provider === "codex" && o.formData.codexFingerprintMode) {
+    o.target.codexFingerprintMode = o.formData.codexFingerprintMode;
   }
 }
