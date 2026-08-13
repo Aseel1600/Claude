@@ -296,3 +296,108 @@ describe("omniroute_web_search handler (via MCP dispatch)", () => {
     expect(result.isError).toBe(true);
   });
 });
+
+// ── omniroute_get_health: handler dispatch tests ──────────────────────────────
+// These tests use InMemoryTransport + Client to exercise the actual registered
+// handler (not mockFetch directly), so they catch the real bug the original
+// mock-only tests above (lines 39-56) could never catch: process.uptime()
+// returns a *number*, and a naive toString() guard silently discards it.
+
+describe("omniroute_get_health handler (via MCP dispatch)", () => {
+  let client: Client;
+
+  beforeEach(async () => {
+    mockFetch.mockReset();
+
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createMcpServer();
+    await server.connect(serverTransport);
+    client = new Client({ name: "test-client", version: "1.0.0" });
+    await client.connect(clientTransport);
+  });
+
+  afterEach(async () => {
+    await client.close();
+  });
+
+  function mockHealthSources(opts: {
+    health?: unknown;
+    healthError?: Error;
+    resilience?: unknown;
+    resilienceError?: Error;
+    rateLimits?: unknown;
+    rateLimitsError?: Error;
+  }) {
+    mockFetch.mockImplementation(async (url: string) => {
+      if (url.includes("/api/monitoring/health")) {
+        if (opts.healthError) throw opts.healthError;
+        return { ok: true, json: async () => opts.health ?? {} };
+      }
+      if (url.includes("/api/resilience")) {
+        if (opts.resilienceError) throw opts.resilienceError;
+        return { ok: true, json: async () => opts.resilience ?? {} };
+      }
+      if (url.includes("/api/rate-limits")) {
+        if (opts.rateLimitsError) throw opts.rateLimitsError;
+        return { ok: true, json: async () => opts.rateLimits ?? {} };
+      }
+      throw new Error(`unexpected fetch: ${url}`);
+    });
+  }
+
+  it("should render a real numeric uptime as a string, not fall back to unknown", async () => {
+    mockHealthSources({
+      health: {
+        uptime: 4731.9817064,
+        version: "3.8.50",
+        memoryUsage: { heapUsed: 746337096, heapTotal: 765358080 },
+      },
+      resilience: { circuitBreakers: [] },
+      rateLimits: { limits: [] },
+    });
+
+    const result = await client.callTool({ name: "omniroute_get_health", arguments: {} });
+
+    expect(result.isError).toBeFalsy();
+    const content = result.content as Array<{ type: string; text: string }>;
+    const data = JSON.parse(content[0].text);
+    expect(data.uptime).toBe("4731.9817064");
+    expect(data.version).toBe("3.8.50");
+  });
+
+  it("should surface a degraded entry when one source fetch fails, instead of silently faking success", async () => {
+    mockHealthSources({
+      health: { uptime: 100, version: "3.8.50" },
+      resilience: { circuitBreakers: [] },
+      rateLimitsError: new Error("connect ECONNREFUSED 127.0.0.1:20128"),
+    });
+
+    const result = await client.callTool({ name: "omniroute_get_health", arguments: {} });
+
+    expect(result.isError).toBeFalsy();
+    const content = result.content as Array<{ type: string; text: string }>;
+    const data = JSON.parse(content[0].text);
+    // The two healthy sources still come through untouched.
+    expect(data.uptime).toBe("100");
+    expect(data.rateLimits).toEqual([]);
+    // But the failure is visible instead of being indistinguishable from "no rate limits".
+    expect(Array.isArray(data.degraded)).toBe(true);
+    expect(data.degraded).toHaveLength(1);
+    expect(data.degraded[0].source).toBe("rateLimits");
+    expect(data.degraded[0].error).toContain("ECONNREFUSED");
+  });
+
+  it("should omit degraded entirely when every source succeeds", async () => {
+    mockHealthSources({
+      health: { uptime: 1, version: "3.8.50" },
+      resilience: { circuitBreakers: [] },
+      rateLimits: { limits: [] },
+    });
+
+    const result = await client.callTool({ name: "omniroute_get_health", arguments: {} });
+
+    const content = result.content as Array<{ type: string; text: string }>;
+    const data = JSON.parse(content[0].text);
+    expect(data.degraded).toBeUndefined();
+  });
+});

@@ -48,19 +48,16 @@ test("lint-guard carries the quality-ratchet engine (collect → ratchet → req
 
 test("fast-gates carries the deterministic ratchets and security scanners from the main rail", () => {
   const block = jobBlock("fast-gates");
+  // #8542: all gates run inside a single aggregation step's bash loop.
+  // Check that the gate names appear in the arrays or the loop body.
   for (const needle of [
-    "npm run check:cycles",
-    "npm run check:lockfile",
-    "npm run check:duplication",
-    "npm run check:dead-code",
-    "npm run check:type-coverage",
-    "npm run check:compression-budget",
-    "npm run check:secrets -- --ratchet",
-    "npm run check:vuln-ratchet -- --ratchet",
-    "npm run check:workflows -- --ratchet",
-    "npm run check:openapi-breaking -- --ratchet",
+    "cycles lockfile duplication dead-code type-coverage compression-budget",
+    "secrets vuln-ratchet workflows openapi-breaking",
+    "typecheck:core",
+    "check:dashboard-typecheck",
+    "check:ts7-diagnostics-ratchet",
   ]) {
-    assert.ok(block.includes(needle), `fast-gates must run "${needle}"`);
+    assert.ok(block.includes(needle), `fast-gates must contain "${needle}"`);
   }
   assert.ok(
     block.includes(
@@ -86,8 +83,30 @@ test("fast-gates carries the deterministic ratchets and security scanners from t
 
 test("the complexity ratchet stays on the release rail (G0's written validation criterion)", () => {
   assert.ok(
-    jobBlock("fast-gates").includes("npm run check:complexity-ratchets"),
+    jobBlock("fast-gates").includes("complexity-ratchets"),
     "a complexity regression in a PR→release/** must be blocked by fast-gates"
+  );
+});
+
+test("the TS7 shadow and zero-new-diagnostics ratchet use one pinned compiler and core scope", () => {
+  const block = jobBlock("fast-gates");
+  assert.match(block, /typescript@7\.0\.2/, "TS7 diagnostics must use the reviewed compiler");
+  // The ratchet is folded into the non-fail-fast aggregation step (#8542 — a
+  // separate blocking step would let an earlier red gate mask it), so its base
+  // ref arrives via that step's PR_BASE_SHA env binding.
+  assert.match(
+    block,
+    /PR_BASE_SHA:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
+    "the ratchet must compare against the exact pull-request base commit"
+  );
+  assert.match(
+    block,
+    /check:ts7-diagnostics-ratchet -- --base-ref "\$PR_BASE_SHA"/,
+    "the ratchet invocation must consume the pull-request base sha"
+  );
+  assert.ok(
+    block.includes("tsconfig.typecheck-core.json"),
+    "the advisory shadow must use the same core scope as the blocking ratchet"
   );
 });
 

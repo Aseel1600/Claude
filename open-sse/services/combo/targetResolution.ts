@@ -113,6 +113,8 @@ export interface ResolveComboTargetPipelineDeps {
    */
   buildAutoCandidates: ResolveAutoStrategyDeps["buildAutoCandidates"];
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
+  clientManagedResponsesContext?: boolean;
 }
 
 export interface ResolvedComboTargetPipeline {
@@ -160,6 +162,12 @@ async function isTargetSelectableForWeighted(
     isModelLocked(target.provider, target.connectionId || "", rawModel)
   ) {
     return false;
+  }
+  if (target.provider && rawModel && target.connectionId) {
+    const { isAlibabaFreeTierModelRoutable } = await import("../alibabaFreeTier.ts");
+    if (!(await isAlibabaFreeTierModelRoutable(target.provider, target.connectionId, rawModel))) {
+      return false;
+    }
   }
   return isModelAvailable ? await isModelAvailable(target.modelStr, target) : true;
 }
@@ -446,6 +454,7 @@ async function orderByStrategy(
     body,
     log,
     apiKeyAllowedConnections: deps.apiKeyAllowedConnections,
+    sessionKey: deps.relayOptions?.sessionId,
   });
   return { orderedTargets, autoUsedExplicitRouter: false };
 }
@@ -658,10 +667,25 @@ async function applyPromptCacheStage(
     promptCacheAffinityEnabled && resolvePromptCacheAffinityKey(body)
       ? await expandPromptCacheAffinityTargets(orderedTargets)
       : orderedTargets;
+
+  // Determine affinity scope: restrict to model-level for deterministic strategies
+  // to preserve operator-defined model order; keep global for cross-model
+  // strategies. Per #8370, lkgp/auto/cache-optimized explicitly support promoting
+  // a previously-successful model ahead of the declared order, so they must stay
+  // cross-model ("global") rather than be locked into a single model step.
+  const modelOrderPreservingStrategies = new Set<string>([
+    "priority",
+    "weighted",
+    "fill-first",
+    "quota-share",
+  ]);
+  const isDeterministicStrategy = modelOrderPreservingStrategies.has(strategy);
   const promptCacheAffinity = applyPromptCacheAffinity(
     promptCacheAffinityTargets,
     body,
-    promptCacheAffinityEnabled
+    promptCacheAffinityEnabled,
+    isDeterministicStrategy ? "model" : "global",
+    deps.relayOptions?.sessionId
   );
   if (!promptCacheAffinity.applied) return orderedTargets;
   const protectedOriginal =
@@ -703,7 +727,9 @@ export async function resolveComboTargetPipeline(
 
   orderedTargets = await applyRequestTagRouting(orderedTargets, body, log);
 
-  const overflow = getKnownContextOverflow(orderedTargets, body);
+  const overflow = getKnownContextOverflow(orderedTargets, body, {
+    clientManagedResponsesContext: deps.clientManagedResponsesContext,
+  });
   if (overflow) {
     return { earlyResponse: buildContextOverflowResponse(overflow, orderedTargets, log) };
   }

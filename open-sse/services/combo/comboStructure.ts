@@ -18,6 +18,7 @@ import { getHiddenModelsByProvider } from "../../../src/lib/db/models";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
 import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
+import { containsMediaKind } from "../../utils/mediaParts.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel, stripContextWindowSuffix } from "../model.ts";
 import { dedupeTargetsByExecutionKey, isRecord } from "./comboData.ts";
@@ -114,6 +115,7 @@ function normalizeRuntimeStep(
       comboName: step.comboName,
       weight,
       label,
+      ...(step.fallbackOnlyOnQuotaExhaustion ? { fallbackOnlyOnQuotaExhaustion: true } : {}),
     };
   }
 
@@ -140,6 +142,9 @@ function normalizeRuntimeStep(
     // `prompt` is a per-step pipeline input and only exists on a model step —
     // #8894 widened the union with ComboProviderWildcardStep, which has no prompt.
     prompt: (step.kind === "model" ? step.prompt : null) || null,
+    ...(step.kind === "model" && step.fallbackOnlyOnQuotaExhaustion
+      ? { fallbackOnlyOnQuotaExhaustion: true }
+      : {}),
   } satisfies ResolvedComboTarget;
 }
 
@@ -483,21 +488,8 @@ function estimateRequestInputTokens(body: Record<string, unknown>): number {
   return Object.keys(estimatePayload).length > 0 ? estimateTokens(estimatePayload) : 0;
 }
 
-function valueContainsImagePart(value: unknown, depth = 0): boolean {
-  if (depth > 8 || value === null || value === undefined) return false;
-  if (typeof value === "string") return value.startsWith("data:image/");
-  if (Array.isArray(value)) return value.some((entry) => valueContainsImagePart(entry, depth + 1));
-  if (!isRecord(value)) return false;
-
-  const type = typeof value.type === "string" ? value.type.toLowerCase() : null;
-  if (type === "image" || type === "image_url" || type === "input_image") return true;
-  if ("image_url" in value || "input_image" in value) return true;
-
-  const source = isRecord(value.source) ? value.source : null;
-  const mediaType = typeof source?.media_type === "string" ? source.media_type.toLowerCase() : "";
-  if (mediaType.startsWith("image/")) return true;
-
-  return Object.values(value).some((entry) => valueContainsImagePart(entry, depth + 1));
+function valueContainsImagePart(value: unknown): boolean {
+  return containsMediaKind([{ content: [value] }], "image");
 }
 
 export function deriveRequestCompatibilityRequirements(
@@ -620,6 +612,10 @@ export type CompatFilterOptions = {
   failOpen?: boolean;
 };
 
+export function hasHardCapabilityFailure(reasons: string[]): boolean {
+  return reasons.some((reason) => HARD_COMPAT_REASONS.has(reason));
+}
+
 /**
  * Summarize a capability-filter exhaustion for a 400-class combo error (#8488).
  * Returns null when the empty pool is not attributable to hard requirements.
@@ -723,9 +719,7 @@ export function filterTargetsByRequestCompatibility(
 
   if (compatible.length === targets.length) return targets;
   if (compatible.length === 0) {
-    const hardRejected = rejected.some((entry) =>
-      entry.reasons.some((r) => HARD_COMPAT_REASONS.has(r))
-    );
+    const hardRejected = rejected.some((entry) => hasHardCapabilityFailure(entry.reasons));
     const failOpen = options?.failOpen === true;
 
     log.debug?.(

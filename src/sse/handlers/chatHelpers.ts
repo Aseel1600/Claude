@@ -17,6 +17,7 @@ import {
   providerCircuitOpenResponse,
   unavailableResponse,
 } from "@omniroute/open-sse/utils/error.ts";
+import { inheritTrustedLocalRateLimitResponse } from "@omniroute/open-sse/services/rateLimitManager/errors.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import {
   runWithProxyContext,
@@ -445,6 +446,12 @@ export async function executeChatWithBreaker({
         runWithProxyContext(proxyInfo?.proxy || null, () =>
           (handleChatCore as any)({
             body: { ...body, model: `${provider}/${model}` },
+            // #2905-followup: forward the already-resolved custom-model targetFormat
+            // override through as modelInfo.targetFormat. Without this, chatCore.ts's
+            // own resolveChatCoreRequestSetup() reads customModelTargetFormat off THIS
+            // modelInfo object (not the one resolveModelOrError computed it from) and
+            // finds nothing, silently re-deriving targetFormat from the static registry
+            // / provider default and discarding the DB override a second time.
             modelInfo: {
               provider,
               model,
@@ -529,6 +536,15 @@ export async function executeChatWithBreaker({
         )
       );
 
+    const tlsTrackingIdentity = {
+      provider,
+      sessionScope: credentials.connectionId,
+    };
+    // Track whenever direct TLS is possible. proxyFetch decides against wreq only
+    // after resolving NO_PROXY/local bypasses, so predicting from proxyInfo here
+    // would drop the account scope when a configured proxy resolves to direct.
+    const tlsFingerprintActive = isTlsFingerprintActive(provider);
+
     if (isShadowTraffic) {
       if (!bypassCircuitBreaker && breaker && !breaker.canExecute()) {
         const retryAfterMs = breaker.getRetryAfterMs();
@@ -542,8 +558,8 @@ export async function executeChatWithBreaker({
         };
       }
 
-      if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-        const tracked = await runWithTlsTracking(chatFn);
+      if (tlsFingerprintActive) {
+        const tracked = await runWithTlsTracking(tlsTrackingIdentity, chatFn);
         return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
       }
 
@@ -552,8 +568,8 @@ export async function executeChatWithBreaker({
     }
 
     if (bypassCircuitBreaker) {
-      if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-        const tracked = await runWithTlsTracking(chatFn);
+      if (tlsFingerprintActive) {
+        const tracked = await runWithTlsTracking(tlsTrackingIdentity, chatFn);
         return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
       }
 
@@ -561,8 +577,10 @@ export async function executeChatWithBreaker({
       return { result, tlsFingerprintUsed: false };
     }
 
-    if (!proxyInfo?.proxy && isTlsFingerprintActive()) {
-      const tracked = await breaker.execute(async () => runWithTlsTracking(chatFn));
+    if (tlsFingerprintActive) {
+      const tracked = await breaker.execute(async () =>
+        runWithTlsTracking(tlsTrackingIdentity, chatFn)
+      );
       return { result: tracked.result, tlsFingerprintUsed: tracked.tlsFingerprintUsed };
     }
 
@@ -887,7 +905,7 @@ export function withSessionHeader(response: Response, sessionId: string | null):
       headers: response.headers,
     });
     cloned.headers.set("X-OmniRoute-Session-Id", sessionId);
-    return cloned;
+    return inheritTrustedLocalRateLimitResponse(response, cloned);
   }
 }
 
@@ -904,6 +922,31 @@ export function withCorrelationId(response: Response, correlationId: string | nu
       headers: response.headers,
     });
     cloned.headers.set("X-Correlation-Id", correlationId);
+    return inheritTrustedLocalRateLimitResponse(response, cloned);
+  }
+}
+
+/**
+ * Modality Bridge transparency (PR-1 Task 9): stamp the
+ * `x-omniroute-modality-bridge` header on responses whose request payload was
+ * transparently transformed (e.g. image→text describe). `value` comes from
+ * buildModalityBridgeHeader(); null (untouched/rerouted request) is a no-op.
+ * Same try-set/clone-fallback shape as withSessionHeader — the clone reuses
+ * `response.body`, so SSE streams pass through untouched.
+ */
+export function withModalityBridgeHeader(response: Response, value: string | null): Response {
+  if (!response || !value) return response;
+
+  try {
+    response.headers.set("x-omniroute-modality-bridge", value);
+    return response;
+  } catch {
+    const cloned = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    cloned.headers.set("x-omniroute-modality-bridge", value);
     return cloned;
   }
 }
@@ -924,6 +967,6 @@ export function withSelectedConnectionHeader(
       headers: response.headers,
     });
     cloned.headers.set("X-OmniRoute-Selected-Connection-Id", connectionId);
-    return cloned;
+    return inheritTrustedLocalRateLimitResponse(response, cloned);
   }
 }
