@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { Button, Badge, Input, Modal, Toggle, Select } from "@/shared/components";
@@ -58,7 +57,6 @@ import AgentrouterConsoleFields from "./AgentrouterConsoleFields";
 import QuotaScrapingFields, { EMPTY_QUOTA_SCRAPING_FIELDS } from "./QuotaScrapingFields";
 import GlmTeamQuotaFields, { EMPTY_GLM_TEAM_QUOTA_FIELDS } from "./GlmTeamQuotaFields";
 import ProviderRegionField, { getProviderRegionConfig } from "./AlibabaProviderRegionField";
-
 export interface EditConnectionModalConnection {
   id?: string;
   name?: string;
@@ -70,10 +68,10 @@ export interface EditConnectionModalConnection {
   provider?: string;
   apiKey?: string;
   providerSpecificData?: Record<string, unknown>;
+  defaultModel?: string | null;
   healthCheckInterval?: number;
   projectId?: string | null;
 }
-
 export interface EditConnectionModalProps {
   isOpen: boolean;
   connection: EditConnectionModalConnection | null;
@@ -84,9 +82,7 @@ export interface EditConnectionModalProps {
   onResyncModels?: (connectionId: string) => void | Promise<void>;
   onClose: () => void;
 }
-
 const stringField = (value: unknown) => (typeof value === "string" ? value : "");
-
 export default function EditConnectionModal({
   isOpen,
   connection,
@@ -119,6 +115,7 @@ export default function EditConnectionModal({
     region: "",
     apiRegion: "international",
     validationModelId: "",
+    defaultModel: "",
     tag: "",
     routingTags: "",
     excludedModels: "",
@@ -126,9 +123,12 @@ export default function EditConnectionModal({
     accountId: "",
     codexReasoningEffort: "medium",
     codexServiceTier: "default" as CodexServiceTier,
-    codexOpenaiStoreEnabled: false,
+    openaiResponsesStoreEnabled: false,
+    preserveEncryptedReasoning: false,
     consoleApiKey: "",
     newApiUserId: "",
+    newApiAggregatorBalance: false,
+    quotaPerUnit: "",
     ...EMPTY_GLM_TEAM_QUOTA_FIELDS,
     ...EMPTY_QUOTA_SCRAPING_FIELDS,
     ccCompatibleContext1m: false,
@@ -143,12 +143,20 @@ export default function EditConnectionModal({
     passthroughModels: connectionProviderSpecificData?.passthroughModels === true,
     disableCooling: connectionProviderSpecificData?.disableCooling === true,
     importFreeModelsOnly: connectionProviderSpecificData?.importFreeModelsOnly === true,
+    tunnelId: stringField(connectionProviderSpecificData?.tunnelId),
+    runtimeKey: "",
+    connectorName: stringField(connectionProviderSpecificData?.connectorName) || "OmniRoute Codex",
     m365Tier: normalizeM365TierValue(connectionProviderSpecificData?.tier) as M365TierValue,
   });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+  const [validatedProviderSpecificData, setValidatedProviderSpecificData] = useState<
+    Record<string, unknown> | undefined
+  >();
+  const [doctorStatus, setDoctorStatus] = useState<Record<string, any> | null>(null);
+  const [doctorLoading, setDoctorLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [extraApiKeys, setExtraApiKeys] = useState<string[]>([]);
@@ -167,7 +175,6 @@ export default function EditConnectionModal({
   >({});
   const [showAdvanced, setShowAdvanced] = useState(false);
   const showEmail = useEmailPrivacyStore((state) => state.emailsVisible);
-
   // #6147 — built-in providers can opt in to an advanced base-URL override.
   // OAuth connections are excluded: their save path does not persist
   // providerSpecificData.baseUrl.
@@ -191,11 +198,19 @@ export default function EditConnectionModal({
   const openRouterPreset = useOpenRouterPresetControl(provider, t);
   const setOpenRouterPreset = openRouterPreset.setValue;
   const isCodex = provider === "codex";
+  const isResponsesConnection =
+    isCodex ||
+    provider === "openai" ||
+    (isOpenAICompatibleProvider(provider) &&
+      (provider.startsWith("openai-compatible-responses-") ||
+        connectionProviderSpecificData?.apiType === "responses" ||
+        formData.targetFormat === "openai-responses"));
   const isClaude = provider === "claude";
   const isAntigravityFamily = provider === "antigravity" || provider === "agy";
   const localProviderMetadata = getLocalProviderMetadata(provider);
   const isLocalSelfHostedProvider = !!localProviderMetadata;
   const isGooglePse = provider === "google-pse-search";
+  const isChatGptWebCodex = provider === "chatgpt-web-codex";
   const isM365TierCapable = isM365TierCapableProvider(provider);
   const webSessionCredential = getWebSessionCredentialRequirement(provider);
   const isNoAuthWebSessionCredential = webSessionCredential?.kind === "none";
@@ -237,7 +252,6 @@ export default function EditConnectionModal({
       })),
     [t]
   );
-
   useEffect(() => {
     if (isOpen && connection) {
       const effectiveProvider = connection.provider || providerId;
@@ -266,6 +280,10 @@ export default function EditConnectionModal({
       );
       const existingConsoleApiKey = stringField(connection.providerSpecificData?.consoleApiKey);
       const existingNewApiUserId = stringField(connection.providerSpecificData?.newApiUserId);
+      const existingQuotaPerUnit =
+        connection.providerSpecificData?.quotaPerUnit != null
+          ? String(connection.providerSpecificData.quotaPerUnit)
+          : "";
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
@@ -301,6 +319,7 @@ export default function EditConnectionModal({
         region: existingRegion || (showsRegion ? defaultRegion : ""),
         apiRegion: (connection.providerSpecificData?.apiRegion as string) || "international",
         validationModelId: (connection.providerSpecificData?.validationModelId as string) || "",
+        defaultModel: (connection.defaultModel as string) || "",
         tag: (connection.providerSpecificData?.tag as string) || "",
         routingTags: formatRoutingTagsInput(connection.providerSpecificData?.tags),
         excludedModels: formatExcludedModelsInput(
@@ -311,14 +330,22 @@ export default function EditConnectionModal({
         accountId: existingAccountId,
         codexReasoningEffort: codexRequestDefaults.reasoningEffort,
         codexServiceTier: codexRequestDefaults.serviceTier ?? "default",
-        codexOpenaiStoreEnabled: connection.providerSpecificData?.openaiStoreEnabled === true,
+        openaiResponsesStoreEnabled: connection.providerSpecificData?.openaiStoreEnabled === true,
+        preserveEncryptedReasoning:
+          connection.providerSpecificData?.preserveEncryptedReasoning === true,
         consoleApiKey: existingConsoleApiKey,
         newApiUserId: existingNewApiUserId,
+        newApiAggregatorBalance: connection.providerSpecificData?.newApiAggregatorBalance === true,
+        quotaPerUnit: existingQuotaPerUnit,
         glmOrganizationId: existingGlmOrganizationId,
         glmProjectId: existingGlmProjectId,
         opencodeGoWorkspaceId: existingOpenCodeGoWorkspaceId,
         opencodeGoAuthCookie: "",
         ollamaCloudUsageCookie: "",
+        alibabaConsoleCookie: stringField(connection.providerSpecificData?.alibabaConsoleCookie),
+        alibabaConsoleSecToken: stringField(
+          connection.providerSpecificData?.alibabaConsoleSecToken
+        ),
         ccCompatibleContext1m: ccRequestDefaults.context1m,
         ccCompatibleRedactThinking: ccRequestDefaults.redactThinking,
         ccCompatibleSummarizeThinking: ccRequestDefaults.summarizeThinking,
@@ -334,6 +361,10 @@ export default function EditConnectionModal({
         passthroughModels: connection?.providerSpecificData?.passthroughModels === true,
         disableCooling: connection?.providerSpecificData?.disableCooling === true,
         importFreeModelsOnly: connection?.providerSpecificData?.importFreeModelsOnly === true,
+        tunnelId: stringField(connection.providerSpecificData?.tunnelId),
+        runtimeKey: "",
+        connectorName:
+          stringField(connection.providerSpecificData?.connectorName) || "OmniRoute Codex",
         m365Tier: normalizeM365TierValue(connection.providerSpecificData?.tier) as M365TierValue,
       });
       const existing = connection.providerSpecificData?.extraApiKeys;
@@ -359,6 +390,7 @@ export default function EditConnectionModal({
       );
       setTestResult(null);
       setValidationResult(null);
+      setValidatedProviderSpecificData(undefined);
       setSaveError(null);
     }
   }, [
@@ -370,7 +402,6 @@ export default function EditConnectionModal({
     defaultRegion,
     setOpenRouterPreset,
   ]);
-
   const handleTest = async () => {
     if (!provider) return;
     setTesting(true);
@@ -399,7 +430,6 @@ export default function EditConnectionModal({
       setTesting(false);
     }
   };
-
   const handleValidate = async () => {
     if (
       !provider ||
@@ -422,17 +452,26 @@ export default function EditConnectionModal({
           baseUrl: formData.baseUrl.trim() || undefined,
           region: showsRegion ? formData.region.trim() || defaultRegion : undefined,
           cx: formData.cx.trim() || undefined,
+          runtimeKey: isChatGptWebCodex ? formData.runtimeKey.trim() || undefined : undefined,
+          tunnelId: isChatGptWebCodex ? formData.tunnelId.trim() || undefined : undefined,
+          connectorName: isChatGptWebCodex ? formData.connectorName.trim() || undefined : undefined,
         }),
       });
       const data = await res.json();
       setValidationResult(data.valid ? "success" : "failed");
+      if (
+        data.valid &&
+        data.providerSpecificData &&
+        typeof data.providerSpecificData === "object"
+      ) {
+        setValidatedProviderSpecificData(data.providerSpecificData);
+      }
     } catch {
       setValidationResult("failed");
     } finally {
       setValidating(false);
     }
   };
-
   const handleAddParsedExtraKeys = (raw: string) => {
     const { added, duplicates } = parseExtraApiKeys(raw, extraApiKeys);
     if (added.length > 0) {
@@ -443,7 +482,6 @@ export default function EditConnectionModal({
       notify.warning(t("bulkPasteDuplicatesIgnored", { count: duplicates }));
     }
   };
-
   const handleSubmit = async () => {
     setSaving(true);
     setSaveError(null);
@@ -459,14 +497,12 @@ export default function EditConnectionModal({
         }
         parsedMaxConcurrent = numericMaxConcurrent;
       }
-
       const updates: any = {
         name: formData.name,
         priority: formData.priority,
         maxConcurrent: parsedMaxConcurrent,
         healthCheckInterval: formData.healthCheckInterval,
       };
-
       const overrides: Record<string, number> = {};
       if (formData.rpm.trim()) overrides.rpm = Number(formData.rpm);
       if (formData.tpm.trim()) overrides.tpm = Number(formData.tpm);
@@ -475,17 +511,15 @@ export default function EditConnectionModal({
       if (formData.rateLimitMaxConcurrent.trim())
         overrides.maxConcurrent = Number(formData.rateLimitMaxConcurrent);
       updates.rateLimitOverrides = Object.keys(overrides).length > 0 ? overrides : null;
-
       if (isAntigravityFamily) {
         updates.projectId = trimmedCloudCodeProjectId || null;
       }
-
       if (isGooglePse && !formData.cx.trim()) {
         setSaveError(t("searchEngineIdRequired"));
         return;
       }
-
       let validatedBaseUrl = null;
+      let validationPsd = validatedProviderSpecificData;
       if (usesBaseUrl) {
         // #6147 — an opt-in override left blank clears it (no default to fall
         // back to). Configurable providers keep their existing default-fallback.
@@ -500,9 +534,7 @@ export default function EditConnectionModal({
           validatedBaseUrl = checked.value;
         }
       }
-
       if (!isOAuth && formData.apiKey) {
-        updates.apiKey = formData.apiKey;
         let isValid = validationResult === "success";
         if (!isValid) {
           try {
@@ -519,11 +551,24 @@ export default function EditConnectionModal({
                 baseUrl: formData.baseUrl.trim() || undefined,
                 region: showsRegion ? formData.region.trim() || defaultRegion : undefined,
                 cx: formData.cx.trim() || undefined,
+                runtimeKey: isChatGptWebCodex ? formData.runtimeKey.trim() || undefined : undefined,
+                tunnelId: isChatGptWebCodex ? formData.tunnelId.trim() || undefined : undefined,
+                connectorName: isChatGptWebCodex
+                  ? formData.connectorName.trim() || undefined
+                  : undefined,
               }),
             });
             const data = await res.json();
             isValid = !!data.valid;
             setValidationResult(isValid ? "success" : "failed");
+            if (
+              isValid &&
+              data.providerSpecificData &&
+              typeof data.providerSpecificData === "object"
+            ) {
+              setValidatedProviderSpecificData(data.providerSpecificData);
+              validationPsd = data.providerSpecificData;
+            }
           } catch {
             setValidationResult("failed");
           } finally {
@@ -531,6 +576,13 @@ export default function EditConnectionModal({
           }
         }
         if (isValid) {
+          updates.apiKey = isChatGptWebCodex
+            ? JSON.stringify({
+                version: 1,
+                cookie: formData.apiKey.trim().replace(/^cookie\s*:\s*/i, ""),
+                ...(formData.runtimeKey.trim() ? { runtimeKey: formData.runtimeKey.trim() } : {}),
+              })
+            : formData.apiKey;
           updates.testStatus = "active";
           updates.lastError = null;
           updates.lastErrorAt = null;
@@ -541,8 +593,12 @@ export default function EditConnectionModal({
         }
       }
       if (!isOAuth) {
+        if (isCompatible) {
+          updates.defaultModel = formData.defaultModel.trim() || null;
+        }
         updates.providerSpecificData = {
           ...(connection.providerSpecificData || {}),
+          ...(validationPsd || {}),
         };
         assignEditApiKeyProviderSpecificData({
           provider,
@@ -578,8 +634,6 @@ export default function EditConnectionModal({
               ? { serviceTier: formData.codexServiceTier }
               : {}),
           };
-          updates.providerSpecificData.openaiStoreEnabled =
-            formData.codexOpenaiStoreEnabled === true;
         }
         if (isAntigravityFamily) {
           updates.providerSpecificData.projectId = trimmedCloudCodeProjectId || null;
@@ -602,6 +656,12 @@ export default function EditConnectionModal({
         if (showProtocolSelector) {
           updates.providerSpecificData.targetFormat = formData.targetFormat || null;
         }
+      }
+      if (isResponsesConnection && updates.providerSpecificData) {
+        updates.providerSpecificData.preserveEncryptedReasoning =
+          formData.preserveEncryptedReasoning === true;
+        updates.providerSpecificData.openaiStoreEnabled =
+          formData.openaiResponsesStoreEnabled === true;
       }
       const freeOnlyChanged =
         showFreeModelsToggle &&
@@ -626,15 +686,34 @@ export default function EditConnectionModal({
       setSaving(false);
     }
   };
-
   if (!connection) return null;
-
   const isOAuth = connection.authType === "oauth";
   const testErrorMeta =
     !testResult?.valid && testResult?.diagnosis?.type
       ? ERROR_TYPE_LABELS[testResult.diagnosis.type] || null
       : null;
-
+  const preserveEncryptedReasoningToggle = isResponsesConnection ? (
+    <Toggle
+      checked={formData.preserveEncryptedReasoning}
+      onChange={(checked) => setFormData({ ...formData, preserveEncryptedReasoning: checked })}
+      label={providerText(t, "preserveEncryptedReasoningLabel", "Preserve encrypted reasoning")}
+      description={providerText(
+        t,
+        "preserveEncryptedReasoningDescription",
+        "Forward encrypted Responses reasoning items supplied by the client."
+      )}
+    />
+  ) : null;
+  const openaiResponsesStoreToggle = isResponsesConnection ? (
+    <Toggle
+      checked={formData.openaiResponsesStoreEnabled}
+      onChange={(checked) =>
+        setFormData({ ...formData, openaiResponsesStoreEnabled: checked })
+      }
+      label={t("openaiResponsesStoreLabel")}
+      description={t("openaiResponsesStoreDescription")}
+    />
+  ) : null;
   return (
     <Modal isOpen={isOpen} title={t("editConnection")} onClose={onClose}>
       <div className="flex flex-col gap-4">
@@ -690,12 +769,6 @@ export default function EditConnectionModal({
                 "Default uses the normal Codex tier. Priority shows as Fast; Flex uses the flex service tier when available."
               )}
             />
-            <Toggle
-              checked={formData.codexOpenaiStoreEnabled}
-              onChange={(checked) => setFormData({ ...formData, codexOpenaiStoreEnabled: checked })}
-              label={t("openaiResponsesStoreLabel")}
-              description={t("openaiResponsesStoreDescription")}
-            />
           </div>
         )}
         {isClaude && (
@@ -728,6 +801,8 @@ export default function EditConnectionModal({
               description={t("importFreeModelsOnlyHint")}
             />
           )}
+          {preserveEncryptedReasoningToggle}
+          {openaiResponsesStoreToggle}
           <Toggle
             checked={formData.disableCooling}
             onChange={(checked) => setFormData({ ...formData, disableCooling: checked })}
@@ -872,6 +947,83 @@ export default function EditConnectionModal({
                 </div>
               </div>
             )}
+            {isChatGptWebCodex && (
+              <div className="space-y-3 rounded-lg border border-border bg-surface/40 p-3">
+                <p className="text-sm font-medium text-text-main">Codex-Toolverbindung</p>
+                <Input
+                  label="Tunnel-ID"
+                  value={formData.tunnelId}
+                  onChange={(event) => setFormData({ ...formData, tunnelId: event.target.value })}
+                  placeholder="tunnel_0123456789abcdef0123456789abcdef"
+                />
+                <Input
+                  label="Neuer Tunnel Runtime-Key"
+                  type="password"
+                  value={formData.runtimeKey}
+                  onChange={(event) => setFormData({ ...formData, runtimeKey: event.target.value })}
+                  hint="Nur zusammen mit einem frischen Cookie eingeben. Der Wert wird verschlüsselt gespeichert."
+                  autoComplete="off"
+                />
+                <Input
+                  label="ChatGPT-Custom-Connector"
+                  value={formData.connectorName}
+                  onChange={(event) =>
+                    setFormData({ ...formData, connectorName: event.target.value })
+                  }
+                />
+                <Button
+                  variant="secondary"
+                  disabled={doctorLoading || !connection.id}
+                  onClick={async () => {
+                    if (!connection.id) return;
+                    setDoctorLoading(true);
+                    try {
+                      const response = await fetch(
+                        `/api/providers/${connection.id}/chatgpt-web-codex-doctor`
+                      );
+                      const payload = await response.json();
+                      setDoctorStatus(response.ok ? payload.status : { error: payload.error });
+                    } finally {
+                      setDoctorLoading(false);
+                    }
+                  }}
+                >
+                  {doctorLoading ? "Status wird geprüft …" : "Doctor-Status prüfen"}
+                </Button>
+                {doctorStatus && (
+                  <div className="grid grid-cols-2 gap-2 text-xs text-text-muted">
+                    {[
+                      ["Browser", doctorStatus.browser?.ready],
+                      ["Storage-State", doctorStatus.storageState?.ready],
+                      ["ChatGPT-Anmeldung", doctorStatus.login?.ready],
+                      ["Temporary Chat", doctorStatus.temporaryChats?.ready],
+                      ["Tunnel-Binary", doctorStatus.tunnelBinary?.ready],
+                      ["Tunnel", doctorStatus.tunnel?.ready],
+                      ["Connector", doctorStatus.connector?.ready],
+                      ["Tool-Roundtrip", doctorStatus.toolRoundtrip?.ready],
+                      ["Aktive Turns", doctorStatus.runtime?.activeTurns],
+                      ["Wartende Turns", doctorStatus.runtime?.waitingTurns],
+                    ].map(([label, ready]) => (
+                      <div key={String(label)}>
+                        {label}:{" "}
+                        {typeof ready === "number" ? ready : ready ? "bereit" : "nicht bereit"}
+                      </div>
+                    ))}
+                    {doctorStatus.recovery?.interactiveLoginRequired && (
+                      <div className="col-span-2 text-warning">
+                        Interaktive Anmeldung erforderlich. Nutze den geschützten
+                        Browser-/VNC-Recovery-Pfad.
+                      </div>
+                    )}
+                    {doctorStatus.lastError && (
+                      <div className="col-span-2 break-words text-danger">
+                        Letzter Fehler: {String(doctorStatus.lastError)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {isGooglePse && (
               <Input
                 label={t("searchEngineIdLabel")}
@@ -1008,6 +1160,20 @@ export default function EditConnectionModal({
                 </div>
               </div>
             )}
+            {isCompatible && (
+              <Input
+                label={t("compatibleDefaultModelLabel")}
+                value={formData.defaultModel}
+                onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })}
+                placeholder={
+                  isAnthropicCompatibleProvider(provider)
+                    ? "claude-3-5-sonnet-latest"
+                    : "gpt-4o-mini"
+                }
+                hint={t("compatibleDefaultModelHint")}
+                data-testid="compat-default-model-input"
+              />
+            )}
             <Input
               label={t("validationModelIdLabel")}
               placeholder={t("validationModelIdPlaceholder")}
@@ -1017,7 +1183,6 @@ export default function EditConnectionModal({
             />
           </>
         )}
-
         {/* #6147 — opt-in "Advanced → override base URL" for eligible built-ins */}
         {!usesBaseUrl && isBaseUrlOverrideEligible && (
           <button
@@ -1028,7 +1193,6 @@ export default function EditConnectionModal({
             {providerText(t, "overrideBaseUrlAdvanced", "Advanced: override base URL")}
           </button>
         )}
-
         {usesBaseUrl && (
           <Input
             label={t("baseUrlLabel")}
@@ -1047,7 +1211,6 @@ export default function EditConnectionModal({
             }
           />
         )}
-
         {showProtocolSelector && (
           <Select
             label={providerText(t, "apiProtocolLabel", "API protocol")}
@@ -1067,13 +1230,11 @@ export default function EditConnectionModal({
             )}
           />
         )}
-
         <ProviderRegionField
           provider={provider}
           value={formData.region}
           onChange={(region) => setFormData({ ...formData, region })}
         />
-
         {isCloudflare && (
           <Input
             label={t("accountIdLabel")}
@@ -1083,7 +1244,6 @@ export default function EditConnectionModal({
             hint={t("accountIdHint")}
           />
         )}
-
         {isGlm && (
           <div className="flex flex-col gap-3">
             <div>
@@ -1107,7 +1267,6 @@ export default function EditConnectionModal({
             />
           </div>
         )}
-
         {!isOAuth && connection?.apiKey && (
           <div className="flex flex-col gap-2">
             <label className="text-sm font-medium text-text-main">{t("apiKeyHealthLabel")}</label>

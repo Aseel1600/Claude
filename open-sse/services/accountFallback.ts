@@ -31,6 +31,7 @@ import {
   looksLikeQuotaExhausted,
   type FailureKind,
 } from "../../src/shared/utils/classify429";
+import { recordProviderSuccess as resetCooldownFailureCount } from "./providerCooldownTracker.ts";
 import { resolveProviderId } from "../../src/shared/constants/providers";
 import { resolveUseUpstream429BreakerHints } from "../../src/shared/utils/providerHints";
 import { getCodexModelScope } from "../config/codexQuotaScopes.ts";
@@ -58,6 +59,7 @@ import { evictLockoutOverflow } from "./accountFallback/lockoutEviction.ts";
 export { MODEL_LOCKOUT_EVICTION_CAP } from "./accountFallback/lockoutEviction.ts";
 import { capScaledCooldownMs } from "./accountFallback/cooldownCap.ts";
 import { resolveApiKeyForbiddenFallback } from "./accountFallback/nonRetryableUpstream.ts";
+import * as exactModelLock from "./accountFallback/exactModelLock.ts";
 export type ProviderProfile = {
   baseCooldownMs: number;
   useUpstreamRetryHints: boolean;
@@ -124,6 +126,15 @@ const CONNECTION_FAILURE_DEDUP_MS = 5000;
 const MAX_CONNECTION_FAILURE_DEDUP_ENTRIES = 10_000;
 const lastConnectionFailure = new Map<string, number>();
 
+// Per-provider network-error dedup: several combo targets on the SAME provider can
+// fail the same single network event (a VPN blip) in the same request. Without this,
+// each target counts once and one transient blip opens the whole-provider breaker
+// while the provider is healthy. A genuinely dead proxy persists ACROSS requests
+// (past the window) and still accumulates to its threshold.
+const NETWORK_ERROR_DEDUP_MS = 10_000;
+const MAX_NETWORK_ERROR_DEDUP_ENTRIES = 1000;
+const lastNetworkErrorByProvider = new Map<string, number>();
+
 function pruneConnectionFailureDedupeEntries(): void {
   while (lastConnectionFailure.size > MAX_CONNECTION_FAILURE_DEDUP_ENTRIES) {
     const oldestKey = lastConnectionFailure.keys().next().value;
@@ -183,6 +194,12 @@ export const CREDITS_EXHAUSTED_SIGNALS = [
   "out of credits",
   "payment required",
   "free tier of the model has been exhausted",
+  // #8631: narrower than a bare "has been exhausted" — that generic phrase also
+  // appears in Gemini's transient RPM/TPM 429 body ("Resource has been exhausted
+  // (e.g. check quota)."), which must stay RATE_LIMIT_EXCEEDED, not terminal.
+  // Anchoring on "tier" keeps free-tier depletion wording matched while excluding
+  // Gemini's "resource has been exhausted" rate-limit phrasing.
+  "tier has been exhausted",
   // #5239: providers (e.g. DeepSeek/GLM-style) return "Insufficient account balance"
   // on a depleted key. 402 is already terminalized by status, but catch non-402
   // out-of-credit bodies here too.
@@ -442,6 +459,12 @@ function getModelLockKey(
   return `${canonicalProvider}:${connectionId}:${lockModel}`;
 }
 
+const buildExactKey = exactModelLock.buildExactModelLockKey; // see exactModelLock.ts
+const getModelLockKeys = exactModelLock.createGetModelLockKeys(
+  getModelLockKey,
+  getCanonicalLockProvider
+);
+
 function getFailureWindowMs(profile: ProviderProfile | null = null, fallbackMs = 30 * 60 * 1000) {
   const configured = profile?.resetTimeoutMs;
   return typeof configured === "number" && configured > 0 ? configured : fallbackMs;
@@ -559,6 +582,14 @@ export function lockModel(
   });
 }
 
+// Lock only this exact provider/account/model tuple, never a quota family — see exactModelLock.ts.
+export const lockExactModel = exactModelLock.createLockExactModel(
+  modelLockouts,
+  ensureCleanupTimer,
+  cleanupModelLockKey,
+  getCanonicalLockProvider
+);
+
 /**
  * Pick the `exactCooldownMs` to apply to a model lockout (#1308).
  *
@@ -591,6 +622,7 @@ export function recordModelLockoutFailure(
   options: {
     exactCooldownMs?: number | null;
     maxCooldownMs?: number;
+    scope?: "exact" | "quota_family";
     /**
      * #6863 vs #7940: set true only when `exactCooldownMs` came from an actual
      * upstream signal (Retry-After header, X-RateLimit-Reset, or a reset parsed
@@ -606,7 +638,10 @@ export function recordModelLockoutFailure(
   } = {}
 ) {
   ensureCleanupTimer();
-  const key = getModelLockKey(provider, connectionId, model, reason, status);
+  const key =
+    options.scope === "exact"
+      ? buildExactKey(getCanonicalLockProvider(provider), connectionId, model)
+      : getModelLockKey(provider, connectionId, model, reason, status);
   const now = Date.now();
   cleanupModelLockKey(key, now);
 
@@ -656,7 +691,8 @@ export function recordModelLockoutFailure(
     lastCooldownMs: cooldownMs,
   });
 
-  lockModel(provider, connectionId, model, reason, cooldownMs, {
+  const lockFn = options.scope === "exact" ? lockExactModel : lockModel;
+  lockFn(provider, connectionId, model, reason, cooldownMs, {
     failureCount,
     lastFailureAt: now,
     resetAfterMs,
@@ -675,16 +711,11 @@ export function clearModelLock(
   model: string | null | undefined
 ): boolean {
   if (!model) return false;
-  const familyKey = getModelLockKey(provider, connectionId, model);
-  const exactKey = `${getCanonicalLockProvider(provider)}:${connectionId}:${model}`;
-
-  const hadLock1 = modelLockouts.delete(familyKey);
-  const hadFailure1 = modelFailureState.delete(familyKey);
-
-  const hadLock2 = modelLockouts.delete(exactKey);
-  const hadFailure2 = modelFailureState.delete(exactKey);
-
-  return hadLock1 || hadFailure1 || hadLock2 || hadFailure2;
+  return exactModelLock.clearMultiKeyLock(
+    modelLockouts,
+    modelFailureState,
+    getModelLockKeys(provider, connectionId, model)
+  );
 }
 
 /**
@@ -708,8 +739,10 @@ export function hasPerModelQuota(
     return connectionPassthroughModels;
   }
   if (!provider) return false;
+  if (getCanonicalLockProvider(provider) === "antigravity") return true;
   if (getCanonicalLockProvider(provider) === "codex") return true;
   if (provider === "gemini" || provider === "github") return true;
+  if (provider === "antigravity" || provider === "agy") return true;
   if (getPassthroughProviders().has(provider)) return true;
   if (isCompatibleProvider(provider)) return true;
   return false;
@@ -731,7 +764,8 @@ export function lockModelIfPerModelQuota(
   // Skip model-level lock if the entire provider is in circuit-breaker cooldown.
   // The provider cooldown already prevents all requests, so a model lock is redundant.
   if (isProviderInCooldown(provider)) return false;
-  lockModel(provider, connectionId, model, reason, cooldownMs);
+  const lockFn = getCanonicalLockProvider(provider) === "antigravity" ? lockExactModel : lockModel;
+  lockFn(provider, connectionId, model, reason, cooldownMs);
   return true;
 }
 
@@ -800,14 +834,11 @@ export function isModelLocked(
   model: string | null | undefined
 ): boolean {
   if (!model) return false;
-
-  const exactKey = `${getCanonicalLockProvider(provider)}:${connectionId}:${model}`;
-  cleanupModelLockKey(exactKey);
-  if (modelLockouts.has(exactKey)) return true;
-
-  const familyKey = getModelLockKey(provider, connectionId, model);
-  cleanupModelLockKey(familyKey);
-  return modelLockouts.has(familyKey);
+  return exactModelLock.isAnyKeyLocked(
+    modelLockouts,
+    cleanupModelLockKey,
+    getModelLockKeys(provider, connectionId, model)
+  );
 }
 
 /**
@@ -819,32 +850,18 @@ export function getModelLockoutInfo(
   model: string | null | undefined
 ) {
   if (!model) return null;
-
-  const exactKey = `${getCanonicalLockProvider(provider)}:${connectionId}:${model}`;
-  cleanupModelLockKey(exactKey);
-  const exactEntry = modelLockouts.get(exactKey);
-  if (exactEntry) {
-    return {
-      reason: exactEntry.reason,
-      remainingMs: exactEntry.until - Date.now(),
-      lockedAt: new Date(exactEntry.lockedAt).toISOString(),
-      failureCount: exactEntry.failureCount,
-    };
-  }
-
-  const familyKey = getModelLockKey(provider, connectionId, model);
-  cleanupModelLockKey(familyKey);
-  const familyEntry = modelLockouts.get(familyKey);
-  if (familyEntry) {
-    return {
-      reason: familyEntry.reason,
-      remainingMs: familyEntry.until - Date.now(),
-      lockedAt: new Date(familyEntry.lockedAt).toISOString(),
-      failureCount: familyEntry.failureCount,
-    };
-  }
-
-  return null;
+  const entry = exactModelLock.findLatestLockEntry(
+    modelLockouts,
+    cleanupModelLockKey,
+    getModelLockKeys(provider, connectionId, model)
+  );
+  if (!entry) return null;
+  return {
+    reason: entry.reason,
+    remainingMs: entry.until - Date.now(),
+    lockedAt: new Date(entry.lockedAt).toISOString(),
+    failureCount: entry.failureCount,
+  };
 }
 
 export type ModelLockoutInfo = {
@@ -966,9 +983,30 @@ export function recordProviderFailure(
   provider: string | null | undefined,
   log?: { warn?: (...args: unknown[]) => void },
   connectionId?: string | null,
-  profile?: ProviderBreakerProfile | null
+  profile?: ProviderBreakerProfile | null,
+  opts?: { isQueueTimeout?: boolean; isNetworkError?: boolean }
 ): void {
   if (!provider) return;
+  // OmniRoute's own rate-limit queue timeout is backpressure we applied, not a
+  // provider failure — the provider never saw the request, so it must not count
+  // toward the provider breaker.
+  if (opts?.isQueueTimeout) return;
+
+  // Network-layer errors (proxy_unreachable) get a separate SAME-PROVIDER dedup, so a
+  // single transient network event is not counted once per combo target (see the
+  // declaration). A dead proxy persists across requests and still accumulates.
+  if (opts?.isNetworkError) {
+    const now = Date.now();
+    const last = lastNetworkErrorByProvider.get(provider);
+    if (last && now - last < NETWORK_ERROR_DEDUP_MS) return;
+    lastNetworkErrorByProvider.delete(provider);
+    lastNetworkErrorByProvider.set(provider, now);
+    while (lastNetworkErrorByProvider.size > MAX_NETWORK_ERROR_DEDUP_ENTRIES) {
+      const oldestKey = lastNetworkErrorByProvider.keys().next().value;
+      if (typeof oldestKey !== "string") break;
+      lastNetworkErrorByProvider.delete(oldestKey);
+    }
+  }
 
   // Deduplicate rapid-fire failures from the same connection
   if (connectionId) {
@@ -993,6 +1031,47 @@ export function recordProviderFailure(
   if (!breaker.canExecute()) {
     log?.warn?.(`[ProviderFailure] ${provider}: circuit breaker opened after repeated failures`);
   }
+}
+
+/**
+ * Record a successful request for a provider.
+ * Symmetric counterpart of recordProviderFailure:
+ * - Resets cooldown failureCount (exponential backoff) for all non-OPEN states.
+ * - HALF_OPEN -> CLOSED (probe success), CLOSED/DEGRADED -> decay failureCount.
+ *
+ * When the breaker is OPEN (provider is failing), this is a no-op -- the
+ * cooldown stays intact and the breaker keeps its cooldown period.
+ *
+ * Matches execute()'s behavior: _onSuccess() is called for all non-OPEN states.
+ */
+export function recordProviderSuccess(
+  provider: string | null | undefined,
+  connectionId?: string | null
+): void {
+  if (!provider || provider === "unknown") return;
+
+  const breaker = getProviderBreaker(provider);
+  if (!breaker) return;
+  const breakerState = breaker.getStatus().state;
+
+  // When breaker is OPEN, the provider is failing -- do not reset cooldown
+  // even if one request slipped through (dispatched before the open).
+  // The cooldown resets when the breaker reaches HALF_OPEN and the probe
+  // succeeds below.
+  if (breakerState === "OPEN") return;
+
+  // Reset cooldown failureCount (exponential backoff) -- symmetric with
+  // recordProviderCooldown which increments it on each failure.
+  resetCooldownFailureCount(provider, connectionId ?? undefined);
+
+  // Clear failure-dedup window so the next genuine failure is not suppressed.
+  if (connectionId) {
+    lastConnectionFailure.delete(`${provider}:${connectionId}`);
+  }
+
+  // Transition breaker on success, matching execute()'s behavior:
+  // HALF_OPEN -> CLOSED (probe success), CLOSED/DEGRADED -> decay failureCount.
+  breaker._onSuccess();
 }
 
 /**
@@ -1625,7 +1704,11 @@ export function checkFallbackError(
       !errorStr.toLowerCase().includes("hour quota") &&
       !errorStr.toLowerCase().includes("quota has been exceeded")
     ) {
-      return resolveApiKeyForbiddenFallback(errorStr, buildRetryableFallback, RateLimitReason.AUTH_ERROR);
+      return resolveApiKeyForbiddenFallback(
+        errorStr,
+        buildRetryableFallback,
+        RateLimitReason.AUTH_ERROR
+      );
     }
   }
 
@@ -1946,6 +2029,8 @@ export function applyErrorState<T extends AccountState | null | undefined>(
 
   return nextState;
 }
+
+export { isAccountSemaphoreFull } from "./accountSemaphore.ts";
 
 /**
  * Get account health score (0-100) for P2C selection (Phase 9)
