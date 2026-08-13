@@ -206,6 +206,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         // some targets may NOT support vision. In that case, the vision
         // bridge must process images so combo targets can describe them.
         if (comboVisionBridgeDecision !== "process") {
+          context.log?.debug?.("VISION_BRIDGE", "Skipping: target model supports vision natively");
           return { block: false };
         }
         // Combo mapping found — fall through to process images
