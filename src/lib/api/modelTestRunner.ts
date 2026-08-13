@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { POST as postChatCompletion } from "@/app/api/v1/chat/completions/route";
+import { POST as postAudioTranscription } from "@/app/api/v1/audio/transcriptions/route";
 import { handleValidatedEmbeddingRequestBody } from "@/app/api/v1/embeddings/route";
 import { POST as postRerank } from "@/app/api/v1/rerank/route";
 import {
@@ -8,15 +9,22 @@ import {
   extractComboTestStreamResult,
 } from "@/lib/combos/testHealth";
 import { getCustomModels } from "@/lib/localDb";
+import { getProviderNodeById } from "@/lib/db/providers";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { withRateLimit } from "@omniroute/open-sse/services/rateLimitManager";
+import {
+  isCreditsExhausted,
+  isDailyQuotaExhausted,
+} from "@omniroute/open-sse/services/accountFallback";
+import { looksLikeQuotaExhausted } from "@/shared/utils/classify429";
+import { getTrustedLocalRateLimitError } from "@omniroute/open-sse/services/rateLimitManager/errors";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
 export const DEFAULT_MODEL_TEST_TIMEOUT_MS = 30_000;
 const DOLA_PRO_TEST_TIMEOUT_MS = 90_000;
-const GITHUB_PHI_REASONING_TEST_TIMEOUT_MS = 60_000;
 const DOUBAO_WEB_PROVIDER_ID = "doubao-web";
-const GITHUB_MODELS_PROVIDER_ID = "github-models";
+const ZAI_WEB_PROVIDER_ID = "zai-web";
+const ZAI_WEB_TEST_TIMEOUT_MS = 60_000;
 const SLOW_WEB_TEST_MODELS = new Set(["dola-pro"]);
 const STREAMING_CHAT_TEST_MAX_TOKENS = 64;
 
@@ -32,6 +40,12 @@ function getErrorMessage(error: unknown): string {
 
 function getErrorName(error: unknown): string {
   return error instanceof Error ? error.name : "";
+}
+
+export function createModelTestTimeoutError(timeoutMs: number): Error {
+  const error = new Error(`Model test deadline exceeded after ${timeoutMs}ms`);
+  error.name = "TimeoutError";
+  return error;
 }
 
 function extractUpstreamDetailMessage(value: unknown): string | null {
@@ -97,8 +111,8 @@ export function resolveModelTestTimeoutMs(
     return Math.max(requestedTimeoutMs, DOLA_PRO_TEST_TIMEOUT_MS);
   }
 
-  if (normalizedProviderId === GITHUB_MODELS_PROVIDER_ID && modelLeafId === "phi-4-reasoning") {
-    return Math.max(requestedTimeoutMs, GITHUB_PHI_REASONING_TEST_TIMEOUT_MS);
+  if (normalizedProviderId === ZAI_WEB_PROVIDER_ID) {
+    return Math.max(requestedTimeoutMs, ZAI_WEB_TEST_TIMEOUT_MS);
   }
 
   return requestedTimeoutMs;
@@ -121,6 +135,18 @@ async function findCustomModelMetadata(providerId: string, modelId: string) {
     );
   } catch {
     return null;
+  }
+}
+
+// The apiType configured on the provider node ("the account"), used as the fallback
+// signal in detectTestKind. Non-node providers (e.g. "openai") simply have no row —
+// resolve to undefined and let the model-level heuristics decide.
+async function findProviderNodeApiType(providerId: string): Promise<string | undefined> {
+  try {
+    const node = (await getProviderNodeById(providerId)) as { apiType?: unknown } | null;
+    return typeof node?.apiType === "string" ? node.apiType : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -167,26 +193,77 @@ export function buildInternalRerankRequest(
   });
 }
 
-export function detectTestKind(modelStr: string, customModel: any) {
+function buildTinyWavFile(): File {
+  return new File(
+    [
+      new Uint8Array([
+        0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x41, 0x56, 0x45, 0x66, 0x6d, 0x74,
+        0x20, 0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x40, 0x1f, 0x00, 0x00, 0x80, 0x3e,
+        0x00, 0x00, 0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61, 0x00, 0x00, 0x00, 0x00,
+      ]),
+    ],
+    "omniroute-model-test.wav",
+    { type: "audio/wav" }
+  );
+}
+
+export function buildInternalAudioTranscriptionRequest(
+  model: string,
+  signal: AbortSignal,
+  connectionId?: string
+) {
+  const formData = new FormData();
+  formData.set("model", model);
+  formData.set("file", buildTinyWavFile());
+
+  return new Request(`${INTERNAL_ORIGIN}/v1/audio/transcriptions`, {
+    method: "POST",
+    headers: {
+      "X-Internal-Test": "combo-health-check",
+      "X-OmniRoute-No-Cache": "true",
+      "X-OmniRoute-Compression": "off",
+      "X-Request-Id": `model-test-${randomUUID()}`,
+      ...(connectionId ? { "X-OmniRoute-Connection": connectionId } : {}),
+    },
+    body: formData,
+    signal,
+  });
+}
+
+export function detectTestKind(modelStr: string, customModel: any, nodeApiType?: string) {
   const supportedEndpoints = Array.isArray(customModel?.supportedEndpoints)
     ? customModel.supportedEndpoints
     : [];
   const apiFormat = typeof customModel?.apiFormat === "string" ? customModel.apiFormat : "";
+  // Imported/synced models carry no per-model metadata — they come straight from the
+  // upstream /models list and are often opaque ids. The provider node's configured
+  // apiType is then the only signal for which endpoint may be probed; without it an
+  // audio-only node gets tested against /chat/completions and fails with
+  // "All AI backends exhausted for chat".
+  const nodeType = typeof nodeApiType === "string" ? nodeApiType : "";
   const lowerModel = modelStr.toLowerCase();
+  const isAudioTranscription =
+    apiFormat === "audio-transcriptions" ||
+    nodeType === "audio-transcriptions" ||
+    supportedEndpoints.includes("audio-transcriptions");
   const isRerank =
-    apiFormat === "rerank" ||
-    supportedEndpoints.includes("rerank") ||
-    lowerModel.includes("rerank");
+    !isAudioTranscription &&
+    (apiFormat === "rerank" ||
+      nodeType === "rerank" ||
+      supportedEndpoints.includes("rerank") ||
+      lowerModel.includes("rerank"));
   const isEmbedding =
+    !isAudioTranscription &&
     !isRerank &&
     (apiFormat === "embeddings" ||
+      nodeType === "embeddings" ||
       supportedEndpoints.includes("embeddings") ||
       lowerModel.includes("embedding") ||
       lowerModel.includes("bge-") ||
       lowerModel.includes("text-embed") ||
       lowerModel.includes("jina-clip") ||
       lowerModel.includes("colbert"));
-  return { isRerank, isEmbedding };
+  return { isRerank, isEmbedding, isAudioTranscription };
 }
 
 /**
@@ -229,6 +306,7 @@ export interface SingleModelTestResult {
   error?: string;
   rateLimited?: boolean;
   isTransient?: boolean;
+  isQuota?: boolean;
   isTimeout?: boolean;
   retryAfter?: number;
 }
@@ -237,6 +315,16 @@ export type ModelTestResponseText = {
   text: string;
   error?: { message: string; statusCode?: number };
 };
+
+export function classifyModelTestOutput(
+  timedOut: boolean,
+  responseText: string,
+  allowsEmptyOutput: boolean
+): "ok" | "empty" | "timeout" {
+  if (timedOut) return "timeout";
+  if (!responseText && !allowsEmptyOutput) return "empty";
+  return "ok";
+}
 
 export async function extractModelTestResponseText(
   response: Response,
@@ -255,6 +343,43 @@ function isRateLimitMessage(message: string): boolean {
 
 function isBotBlockMessage(message: string): boolean {
   return /cloudflare|bot management|recaptcha|cf-chl|just a moment/i.test(message);
+}
+
+/**
+ * Classify an error message for quota signals (#9511).
+ *
+ * Distinguishes three outcomes:
+ * 1. Daily-quota exhausted → isQuota + isTransient (resets tomorrow)
+ * 2. Credits/balance exhausted → isQuota only (needs top-up, not transient)
+ * 3. Other errors → no quota flags (still auto-hidable)
+ *
+ * Reuses the routing path's existing quota vocabulary from accountFallback.ts
+ * and classify429.ts instead of inventing a new vocabulary.
+ */
+export function classifyTestErrorQuota(
+  errorText: string
+): { isQuota?: boolean; isTransient?: boolean } {
+  const trimmed = typeof errorText === "string" ? errorText.trim() : "";
+  if (!trimmed) return {};
+
+  // Check daily-quota FIRST — it's the more specific (transient) classification
+  // and should win over credits-exhausted if both match.
+  if (isDailyQuotaExhausted(trimmed)) {
+    return { isQuota: true, isTransient: true };
+  }
+
+  // Credits-exhausted is terminal — isQuota but NOT isTransient.
+  if (isCreditsExhausted(trimmed)) {
+    return { isQuota: true };
+  }
+
+  // Broad quota wording from classify429 (catches patterns not in the
+  // accountFallback signals, e.g. "quota exceeded", "billing cap").
+  if (looksLikeQuotaExhausted(trimmed)) {
+    return { isQuota: true };
+  }
+
+  return {};
 }
 
 /**
@@ -281,8 +406,15 @@ export async function runSingleModelTest(
   const effectiveTimeoutMs = resolveModelTestTimeoutMs(providerId, fullModelStr, timeoutMs);
 
   const startTime = Date.now();
-  const customModel = await findCustomModelMetadata(providerId, fullModelStr);
-  const { isRerank, isEmbedding } = detectTestKind(fullModelStr, customModel);
+  const [customModel, nodeApiType] = await Promise.all([
+    findCustomModelMetadata(providerId, fullModelStr),
+    findProviderNodeApiType(providerId),
+  ]);
+  const { isRerank, isEmbedding, isAudioTranscription } = detectTestKind(
+    fullModelStr,
+    customModel,
+    nodeApiType
+  );
 
   const testBody = isRerank
     ? {
@@ -295,10 +427,12 @@ export async function runSingleModelTest(
         top_n: 1,
         return_documents: false,
       }
-    : buildComboTestRequestBody(fullModelStr, isEmbedding, {
-        stream: !isEmbedding && streamChat,
-        maxTokens: !isEmbedding && streamChat ? STREAMING_CHAT_TEST_MAX_TOKENS : undefined,
-      });
+    : isAudioTranscription
+      ? { model: fullModelStr }
+      : buildComboTestRequestBody(fullModelStr, isEmbedding, {
+          stream: !isEmbedding && streamChat,
+          maxTokens: !isEmbedding && streamChat ? STREAMING_CHAT_TEST_MAX_TOKENS : undefined,
+        });
 
   // Per-model AbortController. We track whether the timeout fired so we can
   // distinguish "rate-limit queue aborted" (withRateLimit threw AbortError
@@ -307,7 +441,7 @@ export async function runSingleModelTest(
   let timedOut = false;
   const timeoutHandle = setTimeout(() => {
     timedOut = true;
-    controller.abort();
+    controller.abort(createModelTestTimeoutError(effectiveTimeoutMs));
   }, effectiveTimeoutMs);
 
   const runInner = async (signal: AbortSignal): Promise<Response> => {
@@ -319,6 +453,11 @@ export async function runSingleModelTest(
     }
     if (isRerank) {
       return postRerank(buildInternalRerankRequest(testBody, signal, connectionId));
+    }
+    if (isAudioTranscription) {
+      return postAudioTranscription(
+        buildInternalAudioTranscriptionRequest(fullModelStr, signal, connectionId)
+      );
     }
     return postChatCompletion(buildInternalChatRequest(testBody, signal, connectionId));
   };
@@ -340,17 +479,17 @@ export async function runSingleModelTest(
     clearTimeout(timeoutHandle);
     const latencyMs = Date.now() - startTime;
     const errorName = getErrorName(error);
+    if (timedOut) {
+      return {
+        modelId: fullModelStr,
+        status: "slow",
+        latencyMs,
+        httpStatus: 504,
+        error: `No model output within ${Math.round(effectiveTimeoutMs / 1000)}s`,
+        isTimeout: true,
+      };
+    }
     if (errorName === "AbortError") {
-      if (timedOut) {
-        return {
-          modelId: fullModelStr,
-          status: "slow",
-          latencyMs,
-          httpStatus: 504,
-          error: `No model output within ${Math.round(effectiveTimeoutMs / 1000)}s`,
-          isTimeout: true,
-        };
-      }
       // AbortError without timeout = withRateLimit queue rejection / abort.
       // Surface as rate_limited so the batch endpoint can stop the loop.
       return {
@@ -362,12 +501,14 @@ export async function runSingleModelTest(
         rateLimited: true,
       };
     }
+    const localRateLimitFailure = getTrustedLocalRateLimitError(error);
     return {
       modelId: fullModelStr,
-      status: "error",
+      status: localRateLimitFailure?.status === 429 ? "rate_limited" : "error",
       latencyMs,
-      httpStatus: 500,
+      httpStatus: localRateLimitFailure?.status ?? 500,
       error: getErrorMessage(error),
+      ...(localRateLimitFailure?.status === 429 ? { rateLimited: true } : {}),
     };
   }
   let latencyMs = Date.now() - startTime;
@@ -427,7 +568,11 @@ export async function runSingleModelTest(
     if (streamError) {
       const error = sanitizeErrorMessage(streamError.message) || "Upstream stream failed";
       const rateLimited = streamError.statusCode === 429 || isRateLimitMessage(error);
-      const isBotBlock = streamError.statusCode === 403 || isBotBlockMessage(error);
+      // #9511: Check quota BEFORE bot-block — 403 with quota wording is a quota
+      // error, not a bot-block. A bare 403 status without quota/bot wording still
+      // falls through to the generic error branch.
+      const quotaFlags = classifyTestErrorQuota(error);
+      const isBotBlock = !quotaFlags.isQuota && (streamError.statusCode === 403 || isBotBlockMessage(error));
       return {
         modelId: fullModelStr,
         status: rateLimited ? "rate_limited" : "error",
@@ -436,10 +581,16 @@ export async function runSingleModelTest(
         httpStatus: streamError.statusCode ?? 502,
         error,
         ...(rateLimited ? { rateLimited: true } : {}),
-        ...(rateLimited || isBotBlock ? { isTransient: true } : {}),
+        ...(rateLimited || isBotBlock || quotaFlags.isTransient ? { isTransient: true } : {}),
+        ...(quotaFlags.isQuota ? { isQuota: true } : {}),
       };
     }
-    if (timedOut && !responseText) {
+    const outputState = classifyModelTestOutput(timedOut, responseText, isEmbedding || isRerank);
+    // A streaming response can yield partial text just as the test timeout
+    // aborts the underlying request. Partial output does not make an aborted
+    // request healthy: the call log correctly records that race as 499, so
+    // the model-test result must remain a timeout instead of turning green.
+    if (outputState === "timeout") {
       return {
         modelId: fullModelStr,
         status: "slow",
@@ -458,7 +609,7 @@ export async function runSingleModelTest(
         responseText: "[Rerank completed successfully]",
       };
     }
-    if (!responseText && !isEmbedding) {
+    if (outputState === "empty") {
       return {
         modelId: fullModelStr,
         status: "error",
@@ -486,6 +637,10 @@ export async function runSingleModelTest(
   } finally {
     clearTimeout(timeoutHandle);
   }
+  // #9511: classify quota signals on the generic error branch so that
+  // 401/402/403 "insufficient balance" / "quota exhausted" errors are
+  // NOT auto-hidden by Test All.
+  const quotaFlags = classifyTestErrorQuota(errorMsg);
   return {
     modelId: fullModelStr,
     status: "error",
@@ -493,5 +648,7 @@ export async function runSingleModelTest(
     statusCode: res.status,
     httpStatus: res.status,
     error: errorMsg,
+    ...(quotaFlags.isTransient ? { isTransient: true } : {}),
+    ...(quotaFlags.isQuota ? { isQuota: true } : {}),
   };
 }
