@@ -96,7 +96,7 @@ import { orderTargetsByEvalScores } from "./evalRouting.ts";
  * keeps the previously recorded limit (or 0 for a fresh row, meaning "no
  * budget enforced").
  */
-function resolveTargetTokenLimit(target: { connectionId?: string }): number | undefined {
+function resolveTargetTokenLimit(target: { connectionId?: string | null }): number | undefined {
   const connectionId = target?.connectionId;
   if (!connectionId) return undefined;
   try {
@@ -1153,19 +1153,6 @@ export async function handleComboChat({
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
 
-          // Concurrency gate: fail-fast skip when connection is at max_concurrent capacity (e.g. Featherless 1/1)
-          const maxConcurrentCap = await lookupPositiveCap(connectionId);
-          if (
-            maxConcurrentCap &&
-            isAccountSemaphoreFull(provider, connectionId, maxConcurrentCap)
-          ) {
-            log.info(
-              "COMBO",
-              `Skipping ${modelStr} — connection ${connectionId} is at max concurrency cap (${maxConcurrentCap})`
-            );
-            if (i > 0) fallbackCount++;
-            return null;
-          }
         }
 
         // Retry loop for transient errors

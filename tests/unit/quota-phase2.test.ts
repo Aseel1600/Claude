@@ -1,9 +1,39 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseProviderQuotaHeaders, applyQuotaHeadersToState } from "../../src/lib/quota/quotaAdapters";
-import { getQuotaAnalyticsSummary } from "../../src/lib/quota/quotaAnalytics";
-import { getActiveQuotaResetItems, resetExpiredQuotaWindows } from "../../src/lib/quota/quotaResetTimers";
-import { recordProviderQuotaUsage, getProviderQuota } from "../../src/lib/quota/providerQuotaState";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omni-quota-phase2-"));
+process.env.DATA_DIR = TEST_DATA_DIR;
+
+const coreDb = await import("../../src/lib/db/core.ts");
+const { parseProviderQuotaHeaders, applyQuotaHeadersToState } = await import(
+  "../../src/lib/quota/quotaAdapters"
+);
+const { getQuotaAnalyticsSummary } = await import("../../src/lib/quota/quotaAnalytics");
+const { getActiveQuotaResetItems, resetExpiredQuotaWindows } = await import(
+  "../../src/lib/quota/quotaResetTimers"
+);
+const { recordProviderQuotaUsage, getProviderQuota } = await import(
+  "../../src/lib/quota/providerQuotaState"
+);
+const { getDbInstance } = coreDb;
+
+async function resetStorage() {
+  coreDb.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+}
+
+test.beforeEach(async () => {
+  await resetStorage();
+});
+
+test.after(() => {
+  coreDb.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+});
 
 test("parseProviderQuotaHeaders: parses OpenAI rate limit headers", () => {
   const headers = new Headers({
@@ -58,9 +88,23 @@ test("quotaResetTimers: tracks active reset items and purges expired windows", (
   const connId = "test-conn-expired";
   const model = "claude-sonnet-4-6";
   const now = Date.now();
-  
-  // Record already expired window
-  recordProviderQuotaUsage(connId, model, 5000, 5000, now - 10000, now - 1000);
+
+  // Seed an already-expired window directly (recordProviderQuotaUsage always
+  // computes windows from Date.now(), so it cannot create a past window).
+  const db = getDbInstance();
+  db.prepare(
+    `INSERT OR REPLACE INTO provider_quota_state
+     (connection_id, model, tokens_used, token_limit, window_start, window_reset, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    connId,
+    model,
+    5000,
+    5000,
+    now - 10_000,
+    now - 1_000,
+    new Date().toISOString()
+  );
 
   const expiredCount = resetExpiredQuotaWindows();
   assert.ok(expiredCount >= 1);

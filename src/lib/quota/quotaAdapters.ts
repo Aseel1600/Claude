@@ -121,5 +121,8 @@ export function applyQuotaHeadersToState(
   const tokenLimit = parsed.tokenLimit ?? 0;
   const tokensUsed = parsed.tokensUsed ?? (parsed.tokenLimit && parsed.tokensRemaining ? parsed.tokenLimit - parsed.tokensRemaining : 0);
 
-  recordProviderQuotaUsage(connectionId, model, tokensUsed, tokenLimit, now, windowReset);
+  recordProviderQuotaUsage(connectionId, model, tokensUsed, {
+    tokenLimit,
+    windowMs: Math.max(0, windowReset - now),
+  });
 }
