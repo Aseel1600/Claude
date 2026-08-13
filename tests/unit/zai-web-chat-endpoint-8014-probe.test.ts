@@ -55,14 +55,19 @@ test("#8014: ZaiWebExecutor must POST to the current chat.z.ai v2 chat-completio
     assert.ok(requested.length > 0, "the direct path must actually reach fetch");
 
     assert.ok(
-      !requested.includes(STALE_URL),
+      // Exact-URL match (not a substring test): `requested` holds whole URLs.
+      !requested.some((url) => url === STALE_URL),
       `zai-web executor POSTed to the stale endpoint — matches #8014's model-independent 404 "Not Found"`
     );
 
     // The executor also probes the homepage for the frontend version and calls
     // /api/v1/chats/new first, so pick the completions request by its path.
     const completions = requested.filter((u) => new URL(u).pathname.endsWith("/chat/completions"));
-    assert.equal(completions.length, 1, `expected exactly one completions request, got ${requested}`);
+    assert.equal(
+      completions.length,
+      1,
+      `expected exactly one completions request, got ${requested}`
+    );
     assert.equal(
       new URL(completions[0]).pathname,
       "/api/v2/chat/completions",

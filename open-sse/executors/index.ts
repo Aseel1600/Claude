@@ -12,7 +12,6 @@ import { GlmExecutor } from "./glm.ts";
 import { PollinationsExecutor } from "./pollinations.ts";
 import { CloudflareAIExecutor } from "./cloudflare-ai.ts";
 import { OpencodeExecutor } from "./opencode.ts";
-import { PuterExecutor } from "./puter.ts";
 import { VertexExecutor } from "./vertex.ts";
 import { CliproxyapiExecutor } from "./cliproxyapi.ts";
 import { DarioExecutor } from "./dario.ts";
@@ -108,8 +107,6 @@ const executors = {
   "opencode-zen": new OpencodeExecutor("opencode-zen"),
   "opencode-go": new OpencodeExecutor("opencode-go"),
   opencode: new OpencodeExecutor("opencode-zen"), // Alias for opencode-zen
-  puter: new PuterExecutor(),
-  pu: new PuterExecutor(), // Alias
   vertex: new VertexExecutor(),
   "vertex-partner": new VertexExecutor(),
   cliproxyapi: new CliproxyapiExecutor(),
@@ -261,7 +258,6 @@ export { GlmExecutor } from "./glm.ts";
 export { PollinationsExecutor } from "./pollinations.ts";
 export { CloudflareAIExecutor } from "./cloudflare-ai.ts";
 export { OpencodeExecutor } from "./opencode.ts";
-export { PuterExecutor } from "./puter.ts";
 export { CliproxyapiExecutor } from "./cliproxyapi.ts";
 export { DarioExecutor } from "./dario.ts";
 export { NineRouterExecutor } from "./ninerouter.ts";

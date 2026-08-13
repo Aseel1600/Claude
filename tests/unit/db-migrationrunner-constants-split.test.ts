@@ -113,7 +113,8 @@ describe("migrationRunner/constants — large-table integrity", () => {
         "144",
       ]
     );
-    assert.ok(devin.every((e) => e.toVersion === "147"));
+    // 147 collided with 147_api_keys_model_access_mode — renumbered to 151 in #8228
+    assert.ok(devin.every((e) => e.toVersion === "151"));
     assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-2), {
       fromVersion: "134",
       fromName: "ccr_blocks",

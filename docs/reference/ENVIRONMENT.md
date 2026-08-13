@@ -1015,6 +1015,7 @@ changing them requires a code edit, not an env var:
 | `CURSOR_TOKEN`                   | _(unset)_           | `scripts/ad-hoc/cursor-tap.cjs`            | Direct Cursor bearer token used by developer tooling.                                        |
 | `OMNIROUTE_LOG_REQUEST_SHAPE`    | disabled (opt-in via `"1"`) | `src/app/api/v1/chat/completions/route.ts` | Log content-type/length markers for large chat payloads when `"1"` is set. Off by default to reduce log noise. |
 | `DEBUG_RESPONSES_SSE_TO_JSON`    | _(unset)_           | `open-sse/handlers/responseTranslator.ts`  | Set `true` to log Responses API SSE→JSON translation details.                                |
+| `DEBUG_CLAUDE_NONSTREAM`         | _(unset)_           | `open-sse/handlers/responseTranslator.ts`  | Set `true` to surface empty textContent chunks in the Claude response translation path (debug only). |
 | `NEXT_PUBLIC_OMNIROUTE_E2E_MODE` | _(unset)_           | E2E test harness                           | Set `true` to enable E2E test mode (relaxed auth, test hooks).                               |
 
 ---
@@ -1484,3 +1485,5 @@ Long-lived SSE consumer that mirrors OmniConductor hub tasks into the local A2A 
 | --------------------- | ---------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `CONDUCTOR_HUB_URL`   | _(empty)_  | `src/lib/conductor/boot.ts`  | Base URL of the OmniConductor hub (e.g. `http://127.0.0.1:7910`). Unset = bridge disabled.               |
 | `CONDUCTOR_HUB_TOKEN` | _(empty)_  | `src/lib/conductor/boot.ts`  | Hub credential for the SSE feed — emit a `spokesperson`-kind peer on the hub (`POST /v1/peers`, admin).  |
+| `CONDUCTOR_ORCHESTRATOR_TOKEN` | _(empty)_ | `src/lib/conductor/hubProxy.ts` | Credential for inbound A2A→hub task delegation (`POST /v1/tasks`); falls back to `CONDUCTOR_HUB_TOKEN` when unset. |
+| `CONDUCTOR_SPOKESPERSON_URL` | `http://127.0.0.1:7920` | `src/lib/conductor/faroProxy.ts` | Base URL of the spokesperson (Faro) service behind the dashboard chat proxy (`/api/conductor/ask`). |

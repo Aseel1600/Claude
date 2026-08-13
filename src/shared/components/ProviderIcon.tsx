@@ -185,7 +185,6 @@ const KNOWN_SVGS = new Set([
   "pollinations",
   "poolside",
   "publicai",
-  "puter",
   "qianfan",
   "qiniu",
   "qwen",

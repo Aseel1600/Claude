@@ -924,7 +924,6 @@ Każdy dostawca ma wyspecjalizowany executor rozszerzający `BaseExecutor` (w `o
 | `PerplexityWebExecutor`  | Perplexity web                                                                                                                                              | Reverse sesji web dla kontynuacji czatu                                    |
 | `PetalsExecutor`         | Petals distributed inference                                                                                                                                | Zdecentralizowany routing swarm                                            |
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                             | Klucz API niewymagany, żądania z rate limitem                              |
-| `PuterExecutor`          | Puter                                                                                                                                                       | Integracja dostawcy oparta na przeglądarce                                 |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                    | Wsparcie PAT i OAuth, darmowy tier multi-model                             |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                            | Auth service account, endpointy oparte na regionie                         |
 | `DevinDesktopExecutor`   | Devin Desktop | Importowany klucz API + strumieniowanie czatu Connect-protobuf |
@@ -974,7 +973,6 @@ Wszystkie pozostałe dostawcy (w tym niestandardowe węzły kompatybilne) używa
 | SiliconFlow       | openai           | API Key                 | ✅               | ✅         | ❌            | ❌                 |
 | Hyperbolic        | openai           | API Key                 | ✅               | ✅         | ❌            | ❌                 |
 | Vertex AI         | gemini           | Service Account         | ✅               | ✅         | ✅            | ⚠️ Cloud Console   |
-| Puter             | openai           | API Key                 | ✅               | ✅         | ❌            | ❌                 |
 | Command Code      | openai           | OAuth                   | ✅               | ✅         | ✅            | ⚠️ Per żądanie     |
 | Z.AI / GLM        | openai           | API Key / OAuth         | ✅               | ✅         | ❌            | ❌                 |
 | GLMT (preset)     | claude           | API Key                 | ✅               | ✅         | ❌            | ⚠️ Per żądanie     |

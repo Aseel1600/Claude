@@ -342,6 +342,10 @@ export default function EditConnectionModal({
         opencodeGoWorkspaceId: existingOpenCodeGoWorkspaceId,
         opencodeGoAuthCookie: "",
         ollamaCloudUsageCookie: "",
+        alibabaConsoleCookie: stringField(connection.providerSpecificData?.alibabaConsoleCookie),
+        alibabaConsoleSecToken: stringField(
+          connection.providerSpecificData?.alibabaConsoleSecToken
+        ),
         ccCompatibleContext1m: ccRequestDefaults.context1m,
         ccCompatibleRedactThinking: ccRequestDefaults.redactThinking,
         ccCompatibleSummarizeThinking: ccRequestDefaults.summarizeThinking,
@@ -515,6 +519,7 @@ export default function EditConnectionModal({
         return;
       }
       let validatedBaseUrl = null;
+      let validationPsd = validatedProviderSpecificData;
       if (usesBaseUrl) {
         // #6147 — an opt-in override left blank clears it (no default to fall
         // back to). Configurable providers keep their existing default-fallback.
@@ -530,7 +535,6 @@ export default function EditConnectionModal({
         }
       }
       if (!isOAuth && formData.apiKey) {
-        let validationPsd = validatedProviderSpecificData;
         let isValid = validationResult === "success";
         if (!isValid) {
           try {

@@ -8,7 +8,7 @@ lastUpdated: 2026-06-28
 
 > Model Context Protocol server with 105 tools across routing, cache, compression, memory, skills, proxy, pool, and context source operations.
 >
-> Source of truth: `open-sse/mcp-server/server.ts` computes **104 unique tools** with `countUniqueMcpTools()`: 42 canonical definitions (including the six CCR lifecycle tools and the agent-skills trio), plus memory (3), skills (4), GitHub skills (3), pool (6), gamification (8), plugins (8), Notion (6), Obsidian (22), and two RTK-only compression tools.
+> Source of truth: `open-sse/mcp-server/server.ts` computes **105 unique tools** with `countUniqueMcpTools()`: 42 canonical definitions (including the six CCR lifecycle tools and the agent-skills trio), plus memory (3), skills (4), GitHub skills (3), pool (6), gamification (8), plugins (8), Notion (6), Obsidian (22), and two RTK-only compression tools.
 
 ## Installation
 
@@ -227,7 +227,7 @@ See [AGENT-SKILLS.md](./AGENT-SKILLS.md) for the full catalog and how external a
 
 ## Related Frameworks (v3.8.0)
 
-The MCP tool inventory above (104 unique tools, computed by `countUniqueMcpTools()`) is intentionally
+computed = 105, computed by `countUniqueMcpTools()`) is intentionally
 scoped to runtime routing/cache/compression/memory/skills/proxy/context-source operations. Two adjacent
 frameworks ship alongside the MCP server in v3.8.0 and are documented separately:
 

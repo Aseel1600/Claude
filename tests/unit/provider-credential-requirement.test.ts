@@ -67,7 +67,7 @@ test("providers that reject anonymous calls are never advertised as key-free", (
   // freeType: "keyless" in the catalog (meaning "not token-quantifiable"), so a
   // UI section built on that field would invite users to call providers that
   // reject them. This is the regression guard for that bug.
-  for (const id of ["blackbox", "friendliai", "iflytek", "sparkdesk", "puter", "muse-spark-web"]) {
+  for (const id of ["blackbox", "friendliai", "iflytek", "sparkdesk", "muse-spark-web"]) {
     assert.equal(
       worksWithoutCredential(getCredentialRequirement(id)),
       false,
