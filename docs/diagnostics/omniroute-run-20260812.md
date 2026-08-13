@@ -213,8 +213,7 @@ partial work. No unrelated S3 change was made.
 
 ## Final status
 
-FINAL STATUS: pending commit/push; expected `B — PARTIAL_PUSHED` if the report
-and preserved code are pushed successfully, otherwise `D — FAILED_LOCAL_ONLY`.
+FINAL STATUS: `B — PARTIAL_PUSHED`.
 
 Repository: `C:\Users\in9midia\Downloads\OmniRoute-S3`
 
@@ -222,19 +221,21 @@ Branch: `feature/s3-intelligence-governor-prework-20260810`
 
 Starting HEAD: `a8e281e70aee79942f03e7ccc2704d7cf2b49eb9`
 
-Final HEAD: pending commit.
+Final HEAD: `b4d7af7bd` preservation commit; this final report update is the
+following commit on the same pushed branch.
 
-Commit created: pending.
+Commit created: YES.
 
-Commit hash: pending.
+Commit hash: `b4d7af7bd` (preservation commit); final report commit follows.
 
-Push attempted: pending.
+Push attempted: YES.
 
-Push confirmed: pending.
+Push confirmed: YES for `b4d7af7bd`.
 
-Local == upstream: pending.
+Local == upstream: YES at the first push; must be re-confirmed after this final
+report commit.
 
-Git bundle: NONE unless push fails.
+Git bundle: NONE; push succeeded.
 
 Tests: 44/44 focused tests passed; core typecheck passed; diff check passed.
 
