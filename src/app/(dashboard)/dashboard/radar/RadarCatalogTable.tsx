@@ -19,7 +19,12 @@ export interface RadarMergedEntry {
   origin: "baseline" | "radar" | "local";
   disabledBy?: "radar";
   contextWindow?: number | null;
-  capabilities?: { tools: boolean; vision: boolean; thinking: boolean };
+  capabilities?: {
+    tools: boolean | null;
+    vision: boolean | null;
+    thinking: boolean | null;
+  };
+  metadataEvidenceUrls?: string[];
   budget?: { kind: string; tokensPerMonth?: number; poolId?: string };
   limits?: { rpm: number | null; rpd: number | null; tpm: number | null; tpd: number | null };
   setup?: { keyUrl: string | null; steps: string[] } | null;
@@ -53,6 +58,21 @@ function budgetLabel(entry: RadarMergedEntry): string {
   }
   if (entry.budget?.kind === "rate_only" || entry.monthlyTokens === 0) return "rate-only";
   return `${formatTokens(entry.monthlyTokens)}/mo`;
+}
+
+function capabilityBadge(label: string, value: boolean | null | undefined, trueClass: string) {
+  const state = value === true ? "✓" : value === false ? "✕" : "?";
+  const stateClass =
+    value === true
+      ? trueClass
+      : value === false
+        ? "bg-red-500/10 text-red-400"
+        : "bg-gray-500/10 text-gray-400";
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded ${stateClass}`}>
+      {label} {state}
+    </span>
+  );
 }
 
 export function RadarCatalogTable({ entries, refreshCatalog, onError }: RadarCatalogTableProps) {
@@ -227,21 +247,21 @@ export function RadarCatalogTable({ entries, refreshCatalog, onError }: RadarCat
                       {entry.contextWindow ? `${(entry.contextWindow / 1000).toFixed(0)}K` : "—"}
                     </td>
                     <td className="py-3">
-                      <div className="flex gap-1">
-                        {entry.capabilities?.tools && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400">
-                            {t("capTools")}
-                          </span>
+                      <div className="flex flex-wrap gap-1">
+                        {capabilityBadge(
+                          t("capTools"),
+                          entry.capabilities?.tools,
+                          "bg-blue-500/10 text-blue-400"
                         )}
-                        {entry.capabilities?.vision && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400">
-                            {t("capVision")}
-                          </span>
+                        {capabilityBadge(
+                          t("capVision"),
+                          entry.capabilities?.vision,
+                          "bg-purple-500/10 text-purple-400"
                         )}
-                        {entry.capabilities?.thinking && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
-                            {t("capThinking")}
-                          </span>
+                        {capabilityBadge(
+                          t("capThinking"),
+                          entry.capabilities?.thinking,
+                          "bg-amber-500/10 text-amber-400"
                         )}
                       </div>
                     </td>

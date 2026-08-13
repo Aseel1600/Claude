@@ -105,8 +105,10 @@ Opt-in false  → { status: "opt_out" }    — no network call
 
 When both are on, the sync path is:
 
-1. `GET <feed base URL>/v1/catalog/latest` with an optional `Authorization: Bearer
-<supporter key>` header (see below).
+1. `GET <feed base URL>/v1/catalog/latest` with `x-omniroute-radar-schema: 2` and an optional
+   `Authorization: Bearer <supporter key>` header (see below). Servers default to the separately
+   signed v1 transition artifact when the schema header is absent, so older installed clients keep
+   receiving updates.
 2. Nothing about the request, the operator, or their traffic is uploaded — it is a
    plain, unauthenticated-by-default GET. OmniRoute never posts usage data, provider
    configuration, or model traffic to the feed service.
@@ -333,6 +335,16 @@ The dashboard exposes four local actions:
 
 A feed `enabled: false` remains the safety exception: it wins over a stale local
 `enabled: true`, keeps the merged entry disabled, and records `disabledBy: "radar"`.
+
+Catalog publications use `schemaVersion: 2`. `contextWindow` and each of `tools`, `vision`, and
+`thinking` are independently `number | null` / `boolean | null`: `null` means unknown, while
+`false` means a D16-confirmed official provider source explicitly says the capability is absent.
+Internal OmniRoute registry/model-spec flags are never promoted directly to feed facts. The client
+still accepts v1 snapshots; because the old builder used `false` as an absence placeholder, v1 `false` is
+normalized to unknown while v1 `true` remains factual. Unknown schema versions fail closed and the
+last valid cache remains available. Every v2 model with a non-null context/capability must carry a
+credential-free HTTPS `metadataEvidenceUrls[]`; otherwise schema validation fails and the cache is
+not replaced. The catalog table renders all three states as `✓`, `✕`, and `?`.
 
 ### Guided combos and MCP access
 
@@ -619,8 +631,9 @@ service without touching client code:
 
 1. Serve a `GET /v1/catalog/latest` endpoint returning a JSON body that satisfies
    `RadarFeedSchema` (`src/lib/radar/feedSchema.ts`) — top-level `feed:
-"omniroute-radar"`, `schemaVersion: 1`, `version`, `tier`, `providers`, `models`,
-   `quirks`, and `totals`.
+"omniroute-radar"`, `schemaVersion: 2`, `version`, `tier`, `providers`, `models`,
+   `quirks`, and `totals`. Honor `x-omniroute-radar-schema: 2`; a transition-compatible server
+   should default requests without it to a separately signed v1 artifact.
 2. Sign the exact response bytes with an Ed25519 key pair and return the base64
    signature in the `x-omniroute-feed-signature` response header.
 3. Set `RADAR_FEED_URL` to the new base URL and `RADAR_FEED_PUBKEY` to the matching

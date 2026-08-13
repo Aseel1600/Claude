@@ -64,10 +64,12 @@ export interface MergedEntry {
   contextWindow?: number | null;
   /** Capability flags reported by the feed. Undefined for baseline-only entries. */
   capabilities?: {
-    tools: boolean;
-    vision: boolean;
-    thinking: boolean;
+    tools: boolean | null;
+    vision: boolean | null;
+    thinking: boolean | null;
   };
+  /** Credential-free HTTPS evidence for non-null context/capability facts. */
+  metadataEvidenceUrls?: string[];
   /** Rate/quota limits reported by the feed. Undefined for baseline-only entries. */
   limits?: {
     rpm: number | null;
@@ -104,10 +106,11 @@ export interface FeedModel {
   };
   contextWindow: number | null;
   capabilities: {
-    tools: boolean;
-    vision: boolean;
-    thinking: boolean;
+    tools: boolean | null;
+    vision: boolean | null;
+    thinking: boolean | null;
   };
+  metadataEvidenceUrls?: string[];
   trainsOnPrompts: boolean | null;
   tosRisk: MergedEntry["tos"];
   setup: {
@@ -288,6 +291,10 @@ function mergeOne(
   if (!overriddenKeys.has("capabilities")) {
     result.capabilities = feed.capabilities;
   }
+  result.metadataEvidenceUrls =
+    overriddenKeys.has("contextWindow") || overriddenKeys.has("capabilities")
+      ? []
+      : (feed.metadataEvidenceUrls ?? []);
   if (!overriddenKeys.has("limits")) {
     result.limits = feed.limits;
   }
@@ -332,6 +339,9 @@ function feedModelToMerged(
   feed: FeedModel,
   overrides: Partial<MergedEntry> | undefined
 ): MergedEntry {
+  const metadataOverridden =
+    overrides !== undefined &&
+    (Object.hasOwn(overrides, "contextWindow") || Object.hasOwn(overrides, "capabilities"));
   const entry: MergedEntry = {
     provider: feed.provider,
     modelId: feed.modelId,
@@ -345,8 +355,15 @@ function feedModelToMerged(
     trainsOnPrompts: overrides?.trainsOnPrompts ?? feed.trainsOnPrompts ?? undefined,
     enabled: feed.enabled ? (overrides?.enabled ?? true) : false,
     origin: overrides ? "local" : "radar",
-    contextWindow: overrides?.contextWindow ?? feed.contextWindow,
-    capabilities: overrides?.capabilities ?? feed.capabilities,
+    contextWindow:
+      overrides !== undefined && Object.hasOwn(overrides, "contextWindow")
+        ? (overrides.contextWindow ?? null)
+        : feed.contextWindow,
+    capabilities:
+      overrides !== undefined && Object.hasOwn(overrides, "capabilities")
+        ? (overrides.capabilities ?? feed.capabilities)
+        : feed.capabilities,
+    metadataEvidenceUrls: metadataOverridden ? [] : (feed.metadataEvidenceUrls ?? []),
     limits: overrides?.limits ?? feed.limits,
     setup: overrides?.setup ?? feed.setup,
   };
