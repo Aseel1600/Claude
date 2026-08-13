@@ -1,13 +1,13 @@
 ---
 title: "Radar Free-Model Catalog"
 version: 3.8.50
-lastUpdated: 2026-08-09
+lastUpdated: 2026-08-13
 ---
 
 # Radar Free-Model Catalog
 
 > **Source of truth:** `src/lib/radar/`, `src/lib/db/radar.ts`, `src/app/api/radar/`
-> **Last updated:** 2026-08-09 — v3.8.50
+> **Last updated:** 2026-08-13 — v3.8.50
 
 Radar is an **optional add-on** that overlays a signed, freshly-curated free-model
 catalog on top of the release baseline (`FREE_MODEL_BUDGETS` in
@@ -30,16 +30,16 @@ The following status distinguishes what this OSS release implements from later R
 workstreams. It is a code-level status, not a promise that a particular hosted deployment
 or external integration is currently available.
 
-| Area                             | Status in this release                                                                                                                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Signed catalog client            | Implemented behind `RADAR_ENABLED`, with separate opt-in, Ed25519 verification, local encrypted settings/cache, persistent display/enabled overrides, reversible tombstones, scheduler, and dashboard.                 |
-| Contributor activation           | The dashboard links to the server-hosted GitHub claim flow and accepts an existing `omr_…` key. Contributor eligibility is resolved by the private service; the OSS client contains no GitHub token or issuance logic. |
-| Supporter-key activation         | Implemented. The raw key is validated, encrypted at rest, masked on reads, and sent only by server-side sync. Changing or clearing the key invalidates all four entitlement-sensitive feed caches.                     |
-| Referral links                   | Implemented as a separately signed, hourly-refreshed feed. Fixed links are available to the community tier immediately; limited campaigns remain live-tier data.                                                       |
-| Supporter offers                 | Implemented as a separate signed, live-only feed and dashboard page. The client revalidates the closed benefit schema, preserves the last good cache, filters expired entries, and labels partner offers explicitly.   |
-| Intel and supporter recognition  | Implemented as a strict signed live-only feed with Radar-owned ELO, factual catalog freshness/trend, a verified local supporter badge, dashboard page, and local-only CLI status/sync commands.                        |
-| Payments and transactional email | Not implemented in the OSS client. Purchase, donation, receipt review, and mail delivery belong to the private service and its later operational workstream.                                                           |
-| Research-agent workstream        | Not part of this client release. Curated feed contents remain server-side data; no autonomous research agent runs in an OmniRoute installation.                                                                        |
+| Area                             | Status in this release                                                                                                                                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Signed catalog client            | Implemented behind `RADAR_ENABLED`, with separate opt-in, Ed25519 verification, local encrypted settings/cache, persistent display/enabled overrides, reversible tombstones, scheduler, and dashboard.                   |
+| Contributor activation           | The dashboard links to the server-hosted GitHub claim flow and accepts an existing `omr_…` key. Contributor eligibility is resolved by the private service; the OSS client contains no GitHub token or issuance logic.   |
+| Supporter-key activation         | Implemented. The raw key is validated, encrypted at rest, masked on reads, and sent only by server-side sync. Changing or clearing the key invalidates all four entitlement-sensitive feed caches.                       |
+| Referral links                   | Implemented as a separately signed, hourly-refreshed feed. Fixed links are available to the community tier immediately; limited campaigns remain live-tier data.                                                         |
+| Supporter offers                 | Implemented as a separate signed, live-only feed and dashboard page. The client revalidates the closed benefit schema, preserves the last good cache, filters expired entries, and labels partner offers explicitly.     |
+| Intel and supporter recognition  | Implemented as a strict signed live-only feed with Radar-owned ELO, factual catalog freshness/trend, a verified local supporter badge, dashboard page, and local-only CLI status/sync commands.                          |
+| Payments and transactional email | Not implemented in the OSS client. Purchase, donation, receipt review, recovery, and mail delivery belong to the private service; hosted availability still depends on its supervised deploy and provider configuration. |
+| Research-agent workstream        | Not part of this client release. Curated feed contents remain server-side data; no autonomous research agent runs in an OmniRoute installation.                                                                          |
 
 ---
 
@@ -158,6 +158,29 @@ client component never reads `process.env` itself.
 | `RADAR_CONTRIBUTOR_CLAIM_URL` | Overrides the contributor-claim URL (default `https://radar.omniroute.online/auth/github`). |
 | `RADAR_SUPPORTER_PLANS_URL`   | Overrides the supporter-plans URL (default `https://radar.omniroute.online/planos`).        |
 
+### Recovering a lost supporter key
+
+The hosted service's recovery entry point is `https://radar.omniroute.online/recover`; it is also
+linked from the plans page. Recovery remains entirely outside the OSS client because the local
+installation never receives the purchaser/contributor e-mail and cannot reconstruct a raw key from
+its encrypted settings.
+
+1. Submit the e-mail associated with the key. The service returns the same accepted page whether a
+   recoverable license exists or not, so the form does not enumerate accounts.
+2. If eligible, the delivery worker sends a short-lived, one-use link. Opening it immediately moves
+   the token into a transient encrypted `HttpOnly`/`Secure` cookie and redirects to the clean
+   `/recover` URL; the page contains no token, e-mail, old key, or replacement key.
+3. Confirm the revocation. The private service revokes the prior key, creates the replacement with
+   the same plan/expiration, and queues it for e-mail in one transaction. The replacement is never
+   returned to the browser.
+4. Paste the replacement into `/dashboard/radar`. The old key must now degrade to `community`; the
+   replacement must produce a verified `live` sync. Reopening the same recovery link must fail with
+   a generic invalid/expired response.
+
+The hosted recovery route and mail worker can be present in code while still unavailable in a given
+deployment. Do not call the flow production-ready until the server has been deployed, the delivery
+provider has been configured with a controlled recipient, and the full one-use link has been tested.
+
 Once a visitor has a key (`omr_` + 40 hex chars), the activation screen
 (`src/app/(dashboard)/dashboard/radar/page.tsx`) has a paste-key input as the primary
 path: pasting a key and submitting sends `POST /api/radar/settings`
@@ -177,9 +200,9 @@ The private feed service and this OSS client have a deliberately narrow boundary
 issues and validates the supporter key, while the local OmniRoute installation encrypts the key,
 syncs signed artifacts server-side, and guides provider setup. The assisted validation order is:
 
-1. Obtain a newly issued key from the contributor claim, plans/checkout, or an authorized private
-   server operator. Do not paste the raw key into logs, screenshots, issue comments, or command-line
-   arguments.
+1. Obtain a newly issued or recovered key from the contributor claim, plans/checkout, recovery
+   journey, or an authorized private server operator. Do not paste the raw key into logs,
+   screenshots, issue comments, or command-line arguments.
 2. Enable the `RADAR_ENABLED` feature flag on the local OmniRoute installation. This exposes the UI
    but remains network-inert until the separate opt-in is saved.
 3. Open `/dashboard/radar`, paste the key, and activate. The browser sends one local
