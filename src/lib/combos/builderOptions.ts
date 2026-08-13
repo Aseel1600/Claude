@@ -457,6 +457,55 @@ function buildModelOptions(
     });
   }
 
+  // #9485: static registry models can declare provider-specific effort tiers even
+  // when a connection's synced row does not include supportedThinkingEfforts.
+  // Feed those declarations through the same catalog variant utility, while
+  // copying the merged base option so aliases retain its metadata and source.
+  const staticCatalogShaped = builtInModels
+    .filter(
+      (m): m is RegistryModel & { supportedThinkingEfforts: readonly string[] } =>
+        typeof m.id === "string" &&
+        Array.isArray(m.supportedThinkingEfforts) &&
+        m.supportedThinkingEfforts.length > 0
+    )
+    .map((m) => ({
+      id: `${providerId}/${m.id}`,
+      owned_by: providerId,
+      root: m.id,
+      name: m.name,
+      capabilities: { effort_tiers: m.supportedThinkingEfforts },
+    }));
+  if (staticCatalogShaped.length > 0) {
+    const baseRawIdByVariantId = new Map<string, string>();
+    for (const shaped of staticCatalogShaped) {
+      for (const tier of shaped.capabilities.effort_tiers) {
+        if (typeof tier === "string" && tier.length > 0) {
+          baseRawIdByVariantId.set(`${shaped.id}-${tier}`, shaped.root);
+        }
+      }
+    }
+
+    const withVariants = appendSyncedEffortVariants(staticCatalogShaped);
+    for (const variant of withVariants) {
+      if (typeof variant.id !== "string") continue;
+      const rawId = variant.id.startsWith(`${providerId}/`)
+        ? variant.id.slice(providerId.length + 1)
+        : variant.id;
+      if (modelMap.has(rawId)) continue;
+      const baseId = baseRawIdByVariantId.get(variant.id) ?? rawId;
+      const base = modelMap.get(baseId);
+      addModelOption(modelMap, providerId, {
+        id: rawId,
+        name: base ? `${base.name} (${rawId.slice(baseId.length + 1)})` : rawId,
+        source: base?.source ?? "system",
+        supportedEndpoints: base?.supportedEndpoints,
+        contextLength: base?.contextLength ?? null,
+        outputTokenLimit: base?.outputTokenLimit ?? null,
+        supportsThinking: base?.supportsThinking,
+      });
+    }
+  }
+
   for (const model of customModels) {
     if (model.isHidden === true) continue;
     const source = ["api-sync", "auto-sync", "imported"].includes(
@@ -505,6 +554,17 @@ function buildModelOptions(
 
   disambiguateCollidingModelNames(modelMap);
   return modelMap;
+}
+
+function rewriteQualifiedModelPrefix(
+  modelMap: Map<string, ComboBuilderModelOption>,
+  providerId: string,
+  routingPrefix: string
+): void {
+  if (routingPrefix === providerId) return;
+  for (const option of modelMap.values()) {
+    option.qualifiedModel = `${routingPrefix}/${option.id}`;
+  }
 }
 
 /**
@@ -635,6 +695,12 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
       customModels
     );
 
+    // #2901 follow-up: a configured OpenCode connection shadows the no-auth
+    // entry below, so it must receive the same `oc/` routing prefix. The raw
+    // `opencode/` prefix is reserved by model parsing for the api-key tier.
+    const routingPrefix = providerId === "opencode" ? providerVisual.alias : providerId;
+    rewriteQualifiedModelPrefix(modelMap, providerId, routingPrefix);
+
     const normalizedConnections =
       expandConnectionOptions(providerConnections).sort(compareConnections);
 
@@ -700,11 +766,7 @@ export async function getComboBuilderOptions(): Promise<ComboBuilderOptionsPaylo
     // (manual ALIAS_TO_PROVIDER_ID override), while "oc/<model>" resolves to the
     // no-auth "opencode" provider. Rewrite qualifiedModel to the alias prefix.
     const routingPrefix = noAuthProvider.alias || providerId;
-    if (routingPrefix !== providerId) {
-      for (const opt of modelMap.values()) {
-        opt.qualifiedModel = `${routingPrefix}/${opt.id}`;
-      }
-    }
+    rewriteQualifiedModelPrefix(modelMap, providerId, routingPrefix);
 
     const displayName = (providerEntryName(providerId) ||
       getProviderDisplayName(providerId, null) ||
