@@ -31,3 +31,22 @@ test("downscales a large PNG to the long-edge cap when sharp is available", asyn
   const meta = await sharp(out.buffer).metadata();
   assert.equal(meta.width, 2048);
 });
+
+test("downscales a height-dominant PNG to the long-edge cap on the height axis", async (t) => {
+  let sharp: typeof import("sharp");
+  try {
+    sharp = (await import("sharp")).default as never;
+  } catch {
+    t.skip("sharp not installed");
+    return;
+  }
+  const tall = await sharp({
+    create: { width: 100, height: 4096, channels: 3, background: "#fff" },
+  })
+    .png()
+    .toBuffer();
+  const out = await normalizeImageBuffer(tall, { maxLongEdge: 2048 });
+  assert.equal(out.resized, true);
+  const meta = await sharp(out.buffer).metadata();
+  assert.equal(meta.height, 2048);
+});
