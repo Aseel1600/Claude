@@ -171,6 +171,40 @@ paste a new one — the raw key is never redisplayed. The two claim/plans button
 remain the way to _obtain_ a key in the first place; this input is where an operator
 who already has one activates it.
 
+### End-to-end activation and guided setup
+
+The private feed service and this OSS client have a deliberately narrow boundary: the service
+issues and validates the supporter key, while the local OmniRoute installation encrypts the key,
+syncs signed artifacts server-side, and guides provider setup. The assisted validation order is:
+
+1. Obtain a newly issued key from the contributor claim, plans/checkout, or an authorized private
+   server operator. Do not paste the raw key into logs, screenshots, issue comments, or command-line
+   arguments.
+2. Enable the `RADAR_ENABLED` feature flag on the local OmniRoute installation. This exposes the UI
+   but remains network-inert until the separate opt-in is saved.
+3. Open `/dashboard/radar`, paste the key, and activate. The browser sends one local
+   `POST /api/radar/settings` with `{ optIn: true, supporterKey }`; the key is encrypted locally and
+   the response contains only `omr_****<last4>`.
+4. Let the activation screen run its catalog sync, or select **Sync now**. Confirm that the page
+   reports `live`, a feed version, and a fetch time. For an authenticated local diagnostic,
+   `GET /api/radar/status` reports opt-in/key presence and the four cache states without returning
+   the key. `POST /api/radar/sync-all` can refresh catalog, referrals, offers, and Intel explicitly.
+5. Open `/dashboard/radar/setup?provider=<provider>`. Follow the provider-owned credential URL,
+   select **Add API key**, save through the real provider form, return to the guide, and run
+   **Test connection**. The guide uses the normal `/api/providers` and
+   `/api/providers/<connection-id>/test` routes; it does not create a parallel Radar credential.
+6. Open `/dashboard/radar/combos` after at least two compatible provider connections are active.
+   Review the suggested family and create the combo through the existing combo API. Offers and
+   Intel remain separate live-only signed caches and can be checked on their dedicated Radar pages.
+7. Reload `/dashboard/radar` and the setup page. The opt-in, masked-key state, verified cache, saved
+   provider connection, and test action must survive the reload. Capture evidence only after the
+   raw key and provider credential are no longer visible.
+
+Saving a key is not itself proof of live entitlement. The proof is the combination of the private
+service's `GET /v1/license/check` result, the OSS catalog's served `live` tier, a verified signed
+cache, and the real provider connection/test flow. An invalid, expired, or revoked key safely
+degrades the catalog to `community`; it must not be reported as a successful live-key validation.
+
 ### Private admin-panel link
 
 `RADAR_ADMIN_URL` optionally adds **Radar Admin ↗** immediately after the user-facing

@@ -1290,7 +1290,8 @@ flag toggled via Settings/DB, not an env var; see
 The first four variables below are optional overrides for a self-hosted or forked feed and
 supporter-key flows. The fifth, `RADAR_ADMIN_URL`, is a separate default-free link to the owner's
 private operations panel. See [docs/frameworks/RADAR.md](../frameworks/RADAR.md) for the full
-module doc.
+module doc and its
+[end-to-end activation and guided-setup sequence](../frameworks/RADAR.md#end-to-end-activation-and-guided-setup).
 
 The generic Home/Changelog announcement reader is not configured by an environment
 variable and does not depend on the RADAR_ENABLED feature flag. It reads the public repository
