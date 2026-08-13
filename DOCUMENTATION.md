@@ -116,6 +116,20 @@ is pulled, these must be re-applied on top.
   `bun`) that made `pnpm install` inside the build fail with
   `ERR_PNPM_IGNORED_BUILDS`.
 
+### Build-blocker fixes (base completeness — required for `pnpm run build`)
+
+- **Cherry-picked upstream `7b8055c7f`** (#9251, STREAM_EARLY_EOF breaker fix)
+  onto the branch: the quota-aware scheduling commits reference
+  `isStreamEarlyEofErrorBody`, which only exists in that upstream commit. The
+  local branch base predates it, so the build failed with
+  "requested export doesn't exist". Commit `cbd1f98f3` on `custom/main`.
+- **Added `clearProviderQuotaState(connectionId, model)`** to
+  `src/lib/quota/providerQuotaState.ts`: the Phase-2 dashboard route
+  (`/api/settings/quota/state`) imports it, but the PR branch only defined
+  `clearProviderQuota(connectionId)`. Model-scoped delete on the
+  `(connection_id, model)` keyed table. (Also a bug in open PR #10126 — worth
+  flagging upstream.)
+
 ---
 
 ## 5. Update procedure (when "Update Available" appears)

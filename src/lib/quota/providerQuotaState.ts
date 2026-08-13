@@ -199,3 +199,19 @@ export function clearProviderQuota(connectionId: string): void {
     // best-effort
   }
 }
+
+/**
+ * Delete quota state for a specific (connection, model) pair — the dashboard
+ * "clear connection state" action in /api/settings/quota/state. Model-scoped
+ * so clearing one model's window leaves the rest of the connection intact.
+ */
+export function clearProviderQuotaState(connectionId: string, model: string): void {
+  if (!connectionId || !model) return;
+  try {
+    getDbInstance()
+      .prepare("DELETE FROM provider_quota_state WHERE connection_id = ? AND model = ?")
+      .run(connectionId, model);
+  } catch {
+    // best-effort
+  }
+}
