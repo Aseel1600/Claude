@@ -387,6 +387,12 @@ import {
   isRpmExhausted,
 } from "../services/geminiRateLimitTracker.ts";
 import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
+
+type ChatCoreExecutorResult = ReturnType<typeof normalizeExecutorResult> & {
+  _executionCredentials?: Record<string, unknown>;
+  _accountSemaphoreRelease?: () => void;
+};
+
 /**
  * Core chat handler - shared between SSE and Worker
  * Returns { success, response, status, error } for caller to handle fallback
@@ -2731,7 +2737,7 @@ export async function handleChatCore({
 
       let releaseRawResultAccountSemaphore = () => {};
       try {
-        const rawResult = await (async () => {
+        const rawResult: ChatCoreExecutorResult = await (async () => {
           let attempts = 0;
           const isModelScopeForRequest = isModelScope();
           const maxAttempts = isModelScopeForRequest ? 3 : provider === "codex" ? 3 : 1;
@@ -3550,22 +3556,24 @@ export async function handleChatCore({
       // stay aligned if this block ever runs after a path that mutates body.model (e.g. fallback).
       try {
         const retryModelId = String(translatedBody.model || effectiveModel);
-        const retryResult = await runWithCapture(providerRequestCapture, () =>
-          executor.execute({
-            model: retryModelId,
-            body: translatedBody,
-            stream: upstreamStream,
-            credentials: getExecutionCredentials(),
-            signal: streamController.signal,
-            log,
-            extendedContext,
-            upstreamExtraHeaders: buildUpstreamHeadersForExecute(retryModelId),
-            clientHeaders: buildExecutorClientHeaders(clientRawRequest?.headers, userAgent),
-            clientResponseFormat,
-            onCredentialsRefreshed,
-            skipUpstreamRetry: isCombo,
-            contextEditing: { enabled: contextEditingEnabled },
-          })
+        const retryResult = normalizeExecutorResult(
+          await runWithCapture(providerRequestCapture, () =>
+            executor.execute({
+              model: retryModelId,
+              body: translatedBody,
+              stream: upstreamStream,
+              credentials: getExecutionCredentials(),
+              signal: streamController.signal,
+              log,
+              extendedContext,
+              upstreamExtraHeaders: buildUpstreamHeadersForExecute(retryModelId),
+              clientHeaders: buildExecutorClientHeaders(clientRawRequest?.headers, userAgent),
+              clientResponseFormat,
+              onCredentialsRefreshed,
+              skipUpstreamRetry: isCombo,
+              contextEditing: { enabled: contextEditingEnabled },
+            })
+          )
         );
 
         if (retryResult.response.ok) {
