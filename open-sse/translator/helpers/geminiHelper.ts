@@ -21,6 +21,12 @@ export const GEMINI_UNSUPPORTED_SCHEMA_KEYS = new Set([
   // do this by default). Gemini's function_declarations schema doesn't recognize
   // it and 400s the same way ("Unknown name \"strict\" ... Cannot find field").
   "strict",
+  // Codex's multi-agent collaboration tools (spawn_agent / send_message /
+  // followup_task) mark their `message` parameter schema with a non-standard
+  // `encrypted: true` annotation (JsonSchema::with_encrypted). Gemini's
+  // function_declarations schema doesn't recognize it and 400s the same way
+  // ("Unknown name \"encrypted\" ... Cannot find field").
+  "encrypted",
   // NOTE: `pattern` is intentionally NOT in this set. Antigravity (Gemini-derived
   // surface) accepts `pattern` on string constraints, and glob/grep/file-search
   // tools depend on it to express their argument regex. Removing it produced
@@ -685,6 +691,36 @@ export function cleanJSONSchemaForAntigravity(schema: unknown): unknown {
   }
 
   addPlaceholders(cleaned);
+
+  // Phase 7: Recursive type:"object" injection for nested schemas (#9268).
+  // Gemini/Vertex requires every node with properties/required to have an explicit
+  // `type: "object"`. Some clients (e.g. Composio-exported tools) emit nested
+  // schemas with `properties` but no `type`, causing a Gemini 400. Follow the
+  // `removeUnsupportedKeywords()`/`addPlaceholders()` visitor pattern.
+  function injectObjectType(obj: unknown): void {
+    if (!obj || typeof obj !== "object") return;
+
+    if (Array.isArray(obj)) {
+      for (const item of obj) {
+        injectObjectType(item);
+      }
+      return;
+    }
+
+    const record = obj as JsonRecord;
+    if (!record.type && (record.properties !== undefined || record.required !== undefined)) {
+      record.type = "object";
+    }
+
+    // Recurse into remaining values.
+    for (const value of Object.values(record)) {
+      if (value && typeof value === "object") {
+        injectObjectType(value);
+      }
+    }
+  }
+
+  injectObjectType(cleaned);
 
   return cleaned;
 }

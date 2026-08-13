@@ -43,6 +43,19 @@ if (isVersionFastPath(process.argv)) {
   process.exit(0);
 }
 
+// MCP stdio transport uses stdout exclusively for JSON-RPC messages. Redirect
+// console.log/warn to stderr before anything else runs — including the tsx/esm and
+// polyfill imports below, since those (and their transitive module graphs, e.g. DB
+// init) can themselves log during evaluation. Redirecting after those imports let
+// early output leak straight into the JSON-RPC stream and corrupt it client-side
+// (e.g. Claude Desktop: "Unexpected token 'D', \"[DB] Changi\"... is not valid JSON").
+if (process.argv.includes("--mcp")) {
+  const { Console } = await import("node:console");
+  const stderrConsole = new Console({ stdout: process.stderr, stderr: process.stderr });
+  console.log = stderrConsole.log.bind(stderrConsole);
+  console.warn = stderrConsole.warn.bind(stderrConsole);
+}
+
 // Register tsx so dynamic imports of .ts source files (referenced as .js per
 // TypeScript conventions) resolve correctly. The build never emits .js for
 // src/lib/cli-helper/, so tsx handles the .ts → .js resolution at runtime.
@@ -57,16 +70,6 @@ await import("../open-sse/utils/setupPolyfill.ts");
 // (paths already resolve via tsconfig) and when ROOT has no `src/` dir.
 const { registerAliasResolver } = await import("./aliasResolver.mjs");
 await registerAliasResolver(ROOT);
-
-// MCP stdio transport uses stdout exclusively for JSON-RPC messages.
-// Redirect console.log/warn to stderr early (before loadEnvFile and DB init)
-// so no startup output corrupts the protocol.
-if (process.argv.includes("--mcp")) {
-  const { Console } = await import("node:console");
-  const stderrConsole = new Console({ stdout: process.stderr, stderr: process.stderr });
-  console.log = stderrConsole.log.bind(stderrConsole);
-  console.warn = stderrConsole.warn.bind(stderrConsole);
-}
 
 // Electron persists secrets (JWT_SECRET, API_KEY_SECRET, STORAGE_ENCRYPTION_KEY) to
 // `<DATA_DIR>/server.env` (electron/main.js), never `.env`. Migrating an existing
@@ -88,6 +91,28 @@ function migrateElectronServerEnv(dataDir) {
   } catch {
     // Ignore errors migrating server.env — fall back to normal env loading below.
   }
+}
+
+/**
+ * Parse a `.env` value with dotenv-compatible comment handling.
+ *
+ * Without this, `KEY=value  # note` stored the comment text as part of the
+ * value. The shipped .env ships exactly such a line for QUOTA_STORE_DRIVER, and
+ * consumers compare it with `===`, so annotating a variable inline silently
+ * disabled it (#10100).
+ *
+ * Quoted values are returned verbatim — a `#` inside quotes is data. For
+ * unquoted values a `#` *preceded by whitespace* starts a comment, so
+ * `pass#word` is preserved.
+ */
+function parseEnvValue(raw) {
+  const value = String(raw).trim();
+
+  const quoted = value.match(/^(['"])([\s\S]*)\1\s*(?:#.*)?$/);
+  if (quoted) return quoted[2];
+
+  const commentIdx = value.search(/\s#/);
+  return (commentIdx === -1 ? value : value.slice(0, commentIdx)).trim();
 }
 
 function loadEnvFile() {
@@ -125,9 +150,8 @@ function loadEnvFile() {
           const eqIdx = trimmed.indexOf("=");
           if (eqIdx > 0) {
             const key = trimmed.slice(0, eqIdx).trim();
-            const value = trimmed.slice(eqIdx + 1).trim();
             if (process.env[key] === undefined) {
-              process.env[key] = value.replace(/^["']|["']$/g, "");
+              process.env[key] = parseEnvValue(trimmed.slice(eqIdx + 1));
             }
           }
         }

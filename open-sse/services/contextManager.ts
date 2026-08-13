@@ -6,7 +6,10 @@
  */
 
 import { REGISTRY } from "../config/providerRegistry.ts";
-import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import {
+  getModelContextLimit,
+  type ModelCapabilityResolutionSnapshot,
+} from "../../src/lib/modelCapabilities.ts";
 import { parseModel } from "./model.ts";
 import { jsonLength } from "../utils/jsonSize.ts";
 
@@ -254,7 +257,7 @@ function extractImageTokens(node: unknown, seen: Set<unknown>): { node: unknown;
  * budget instead of measuring its base64 payload as raw text, then the
  * remainder of the structure is measured normally via the char/4 heuristic.
  */
-export function estimateTokens(text: string | object | null | undefined): number {
+export function estimateTokens(text: unknown): number {
   if (!text) return 0;
   if (typeof text === "string") {
     return Math.ceil(text.length / CHARS_PER_TOKEN);
@@ -270,8 +273,12 @@ export function estimateTokens(text: string | object | null | undefined): number
  * Get token limit for a provider/model combination
  * Priority: Env override > models.dev DB > Registry defaultContextLength > DEFAULT_LIMITS
  */
-export function getTokenLimit(provider: string, model: string | null = null): number {
-  return resolveTokenLimit(provider, model).limit;
+export function getTokenLimit(
+  provider: string,
+  model: string | null = null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number {
+  return resolveTokenLimit(provider, model, snapshot).limit;
 }
 
 /**
@@ -310,7 +317,8 @@ export function getComboTargetTokenLimit(options: {
  */
 function resolveTokenLimit(
   provider: string,
-  model: string | null = null
+  model: string | null = null,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
 ): { limit: number; specific: boolean } {
   // 1. Check environment variable override first
   const envOverride = getEnvOverride(provider);
@@ -320,7 +328,7 @@ function resolveTokenLimit(
 
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
-    const dbLimit = getModelContextLimit(provider, model);
+    const dbLimit = getModelContextLimit(provider, model, snapshot);
     if (dbLimit && dbLimit > 0) return { limit: dbLimit, specific: true };
   }
 
