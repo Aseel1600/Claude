@@ -333,7 +333,7 @@ const runProcess = (
     // is true (.cmd/.bat on Windows), Node quotes the command for cmd.exe itself.
     const child = spawn(command, args, {
       windowsHide: true,
-      env,
+      env: env as NodeJS.ProcessEnv,
       stdio: ["ignore", "pipe", "pipe"],
       // On Windows, npm installs CLI wrappers as .cmd/.bat scripts. Those still
       // need cmd.exe, but direct .exe paths must avoid the shell so paths with
@@ -352,11 +352,11 @@ const runProcess = (
       resolve(result);
     };
 
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
     });
 
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
     });
 
@@ -527,9 +527,6 @@ const getExpectedParentPaths = (): string[] => {
     npmPrefix,
   ].filter(Boolean);
 };
-
-// Cache expected parent paths at module startup (avoid recalculation on every checkKnownPath call)
-const EXPECTED_PARENT_PATHS = getExpectedParentPaths();
 
 const getExtraPaths = () =>
   String(process.env.CLI_EXTRA_PATHS || "")
@@ -820,7 +817,7 @@ export const checkKnownPath = async (commandPath: string) => {
     const isWithinExpected = await isLocationTrusted(
       commandPath,
       realPath,
-      EXPECTED_PARENT_PATHS,
+      getExpectedParentPaths(),
       isPathWithin,
       fs.realpath
     );

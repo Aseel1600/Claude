@@ -1,6 +1,7 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { CLAUDE_OAUTH_TOOL_PREFIX } from "../request/openai-to-claude.ts";
+import { caseInsensitiveToolNameLookup } from "../helpers/toolCallHelper.ts";
 import { hasToolCallShim, applyToolCallShimToBuffer } from "../helpers/toolCallShim.ts";
 import { appendToolCallArgumentDelta } from "../../utils/toolCallArguments.ts";
 import { isAbortFinishReason } from "../../utils/finishReason.ts";
@@ -8,11 +9,7 @@ import {
   isInternalReasoningPlaceholder,
   stripInternalReasoningPlaceholder,
 } from "../../utils/reasoningPlaceholder.ts";
-import { REVERSE_MAP } from "../../services/claudeCodeToolRemapper.ts";
-
-function normalizeToolName(name: string): string {
-  return REVERSE_MAP[name] ?? name;
-}
+import { restoreClaudeToolName } from "../../services/claudeCodeToolRemapper.ts";
 
 interface XmlToolCall {
   id: string;
@@ -284,6 +281,7 @@ export function openaiToClaudeResponse(chunk, state) {
       // Strip the Claude OAuth prefix from an incoming tool name (if any).
       const incomingName = (() => {
         let n = tc.function?.name || "";
+        n = caseInsensitiveToolNameLookup(n, state.toolNameMap) ?? n;
         if (n.startsWith(CLAUDE_OAUTH_TOOL_PREFIX)) n = n.slice(CLAUDE_OAUTH_TOOL_PREFIX.length);
         return n;
       })();
@@ -430,7 +428,12 @@ export function openaiToClaudeResponse(chunk, state) {
         content_block: {
           type: "tool_use",
           id: tc.id,
-          name: normalizeToolName(tc.name),
+          // #9008: prefer request-side original casing; REVERSE_MAP only when
+          // no map entry exists (#7926 XML TitleCase → lowercase clients).
+          name: restoreClaudeToolName(
+            tc.name,
+            state.toolNameMap instanceof Map ? state.toolNameMap : null
+          ),
           input: tc.args,
         },
       });
