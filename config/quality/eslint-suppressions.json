@@ -34,24 +34,24 @@
       "count": 7
     }
   },
-  "open-sse/executors/puter.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
     }
   },
-  "open-sse/executors/vertex.ts": {
+  "open-sse/executors/tinycms.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore.ts": {
-    "no-restricted-imports": {
+  "open-sse/executors/tinycmsSigner.ts": {
+    "@typescript-eslint/no-explicit-any": {
       "count": 1
+    }
+  },
+  "open-sse/executors/vertex.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "open-sse/handlers/chatCore/codexFailover.ts": {
@@ -81,7 +81,7 @@
   },
   "open-sse/handlers/search.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 33
     }
   },
   "open-sse/handlers/sseParser.ts": {
@@ -248,11 +248,6 @@
       "count": 1
     }
   },
-  "open-sse/services/rateLimitManager.ts": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "open-sse/services/taskAwareRouter.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 4
@@ -408,11 +403,6 @@
       "count": 1
     }
   },
-  "src/app/api/combos/[id]/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/combos/reorder/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -559,11 +549,6 @@
     }
   },
   "src/app/api/providers/[id]/login/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -903,17 +888,7 @@
       "count": 1
     }
   },
-  "src/app/api/v1/audio/speech/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/audio/transcriptions/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/v1/audio/translations/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -961,11 +936,6 @@
   "src/app/api/v1/images/edits/route.ts": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/api/v1/images/generations/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/app/api/v1/management/proxies/assignments/route.ts": {
@@ -1376,21 +1346,8 @@
       "count": 1
     }
   },
-  "src/sse/handlers/chat.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/sse/handlers/chatHelpers.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/sse/services/auth.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -1706,7 +1663,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 48
+      "count": 6
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -1821,7 +1778,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 31
     }
   },
   "tests/unit/chatgpt-web-tools-5240.test.ts": {
@@ -2069,11 +2026,6 @@
       "count": 3
     }
   },
-  "tests/unit/codebuddy-cn-provider.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
   "tests/unit/codex-banked-reset-credits-5199.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 7
@@ -2095,11 +2047,6 @@
     }
   },
   "tests/unit/combo-builder-options-route.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
-    }
-  },
-  "tests/unit/combo-cache-invalidation.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
     }
@@ -3229,7 +3176,7 @@
   },
   "tests/unit/translator-claude-to-gemini.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 17
+      "count": 15
     }
   },
   "tests/unit/translator-claude-to-openai.test.ts": {
@@ -3343,11 +3290,6 @@
     }
   },
   "tests/unit/vertex-express-apikey.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
-    }
-  },
-  "tests/unit/vertex-functioncall-id-3440.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
     }

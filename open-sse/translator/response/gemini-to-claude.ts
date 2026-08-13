@@ -1,15 +1,11 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { isAbortFinishReason } from "../../utils/finishReason.ts";
-import { REVERSE_MAP } from "../../services/claudeCodeToolRemapper.ts";
+import { restoreClaudeToolName } from "../../services/claudeCodeToolRemapper.ts";
 import {
   buildGeminiThoughtSignatureKey,
   storeGeminiThoughtSignature,
 } from "../../services/geminiThoughtSignatureStore.ts";
-
-function normalizeToolName(name: string): string {
-  return REVERSE_MAP[name] ?? name;
-}
 
 /**
  * Direct Gemini → Claude response translator.
@@ -60,13 +56,9 @@ export function geminiToClaudeResponse(chunk, state) {
       const hasThoughtSig = part.thoughtSignature || part.thought_signature;
       const isThought = part.thought === true;
 
-      // Gemini/Antigravity can emit thoughtSignature as a standalone part
-      // immediately before the functionCall part, or co-located on the same
-      // part. Keep it pending so the functionCall handler below can persist
-      // it keyed to the tool_use id — otherwise the next turn has no real
-      // signature to re-attach and historical tool calls must be degraded
-      // to inert text (or rejected outright by strict Gemini 3+ validation).
-      if (hasThoughtSig && typeof hasThoughtSig === "string") {
+      // Capture thoughtSignature so the next functionCall (or same-part call)
+      // can persist it for Claude→Gemini follow-up turns (#8979 / #2504 parity).
+      if (typeof hasThoughtSig === "string" && hasThoughtSig.length > 0) {
         state.pendingThoughtSignature = hasThoughtSig;
       }
 
@@ -92,6 +84,17 @@ export function geminiToClaudeResponse(chunk, state) {
         continue;
       }
 
+      // Standalone thoughtSignature part (no text / no functionCall): keep
+      // pending and wait for the following functionCall — do not emit to Claude.
+      if (
+        typeof hasThoughtSig === "string" &&
+        hasThoughtSig.length > 0 &&
+        (part.text === undefined || part.text === "") &&
+        !part.functionCall
+      ) {
+        continue;
+      }
+
       // Function call → tool_use block
       if (part.functionCall) {
         // Close any open text block first
@@ -101,14 +104,26 @@ export function geminiToClaudeResponse(chunk, state) {
         }
         const fc = part.functionCall;
         const rawToolName = fc.name;
-        const restoredToolName = normalizeToolName(state.toolNameMap?.get(rawToolName) || rawToolName);
+        // #9008: honor the request's original casing via toolNameMap before any
+        // REVERSE_MAP lowercase fallback (#7926). Blind REVERSE_MAP broke Claude
+        // Code (Read/WebSearch → read/websearch → "No such tool available").
+        const restoredToolName = restoreClaudeToolName(
+          typeof rawToolName === "string" ? rawToolName : "",
+          state.toolNameMap instanceof Map ? state.toolNameMap : null
+        );
         const idx = state.contentBlockIndex++;
         const toolId = fc.id || `toolu_${Date.now()}_${idx}`;
 
-        if (state.pendingThoughtSignature) {
+        const signatureForToolCall =
+          (typeof hasThoughtSig === "string" && hasThoughtSig.length > 0 ? hasThoughtSig : null) ||
+          (typeof state.pendingThoughtSignature === "string" &&
+          state.pendingThoughtSignature.length > 0
+            ? state.pendingThoughtSignature
+            : null);
+        if (signatureForToolCall) {
           storeGeminiThoughtSignature(
             buildGeminiThoughtSignatureKey(state.signatureNamespace, toolId),
-            state.pendingThoughtSignature
+            signatureForToolCall
           );
           state.pendingThoughtSignature = null;
         }

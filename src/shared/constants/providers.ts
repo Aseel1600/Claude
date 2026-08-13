@@ -33,10 +33,6 @@ export const FREE_APIKEY_PROVIDER_IDS = new Set([
   "mimocode",
   "opencode",
   "dahl",
-  // codebuddy-cn is OAuth-primary but the Tencent gateway also accepts a direct
-  // API key (Authorization: Bearer). Admit it through the same managed-provider
-  // gate so POST /api/providers accepts the dual-auth shape.
-  "codebuddy-cn",
   // auggie is a fully local, credential-less CLI passthrough (auth handled by
   // `auggie login` outside OmniRoute). Admitted here purely so POST /api/providers
   // accepts an optional connection row for display/priority/testStatus tracking —
@@ -48,7 +44,16 @@ export function supportsApiKeyOnFreeProvider(providerId: unknown): boolean {
   return typeof providerId === "string" && FREE_APIKEY_PROVIDER_IDS.has(providerId);
 }
 
+// OAuth-primary providers that also accept a direct API key. Keep these out of
+// FREE_APIKEY_PROVIDER_IDS so the dashboard's primary action remains OAuth.
+const DUAL_AUTH_PROVIDER_IDS = new Set(["clinepass", "codebuddy-cn"]);
+
+export function supportsDualAuthProvider(providerId: unknown): boolean {
+  return typeof providerId === "string" && DUAL_AUTH_PROVIDER_IDS.has(providerId);
+}
+
 // Web / Cookie Providers
+
 
 // API Key Providers
 
@@ -62,6 +67,7 @@ export const IMAGE_ONLY_PROVIDER_IDS = new Set([
   "topaz",
   "segmind",
   "freepik",
+  "deepai",
 ]);
 
 export const AGGREGATOR_PROVIDER_IDS = new Set([
@@ -74,6 +80,7 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "getgoapi",
   "laozhang",
   "vercel-ai-gateway",
+  "unorouter",
   "agentrouter",
   "thebai",
   "fenayai",
@@ -87,7 +94,36 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "g4f-pollinations",
   "g4f-ollama",
   "g4f-nvidia",
-]);
+  "naga-ac",
+  "chatanywhere",
+  "zylo-api",
+  "fastrouter",
+  "anyapi",
+  "electronhub",
+  "llmgateway",
+  "llm-kiwi",
+  "literouter",
+  "mnn-ai",
+  "meganova-ai",
+  "mixlayer",
+  "speka",
+  "tokenreply",
+  "yolo-auto",
+  "dxnt",
+  "cloudcode-one",
+  "ofoxai",
+  "zerolimitai",
+  "helyxai",
+  "auriko",
+  "poixe-ai",
+  "naga-ai",
+  "chat-oripe",
+  "freeinference",
+  "free-ai",
+  "void-ai",
+  "helixmind",
+
+]);;
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
   "azure-openai",
@@ -107,6 +143,7 @@ export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
 ]);
 
 export const VIDEO_PROVIDER_IDS = new Set([
+  "agnes",
   "runwayml",
   "veoaifree-web",
   "pollinations",
@@ -122,7 +159,7 @@ export const VIDEO_PROVIDER_IDS = new Set([
 // IDE Providers: editors with built-in AI subscription (separate section in UI).
 // These providers live in OAUTH_PROVIDERS but render under "IDE Providers"
 // instead of "OAuth Providers" to avoid visual duplication.
-export const IDE_PROVIDER_IDS = new Set(["cursor", "zed", "trae"]);
+export const IDE_PROVIDER_IDS = new Set(["cursor", "zed", "trae", "raycast"]);
 
 export const EMBEDDING_RERANK_PROVIDER_IDS = new Set(["voyage-ai", "jina-ai"]);
 
@@ -178,6 +215,7 @@ export function isSelfHostedChatProvider(providerId: unknown): boolean {
 // cyclomatic complexity flat as this list grows — see g4f.space (#6650).
 const EXPLICIT_OPTIONAL_APIKEY_PROVIDER_IDS = new Set([
   "searxng-search",
+  "firecrawl",
   "pollinations",
   "copilot-web",
   "hackclub",
@@ -189,6 +227,7 @@ const EXPLICIT_OPTIONAL_APIKEY_PROVIDER_IDS = new Set([
   "huggingchat",
   "gitlawb",
   "gitlawb-gmi",
+  "naga-ac",
 ]);
 
 export function providerAllowsOptionalApiKey(providerId: unknown): boolean {
@@ -457,6 +496,10 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "grok-cli",
   // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
+  // Command Code credits + 5h/weekly rolling windows
+  "command-code",
+  "conol-web",
+  "cnl",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

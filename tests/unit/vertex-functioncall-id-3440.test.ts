@@ -11,19 +11,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { openaiToGeminiRequest } = await import(
-  "../../open-sse/translator/request/openai-to-gemini.ts"
-);
-const { claudeToGeminiRequest } = await import(
-  "../../open-sse/translator/request/claude-to-gemini.ts"
-);
-const { storeGeminiThoughtSignature } = await import(
-  "../../open-sse/services/geminiThoughtSignatureStore.ts"
-);
+const { openaiToGeminiRequest } =
+  await import("../../open-sse/translator/request/openai-to-gemini.ts");
+const { claudeToGeminiRequest } =
+  await import("../../open-sse/translator/request/claude-to-gemini.ts");
+const { buildGeminiThoughtSignatureKey, storeGeminiThoughtSignature } =
+  await import("../../open-sse/services/geminiThoughtSignatureStore.ts");
 
 type UnknownRecord = Record<string, unknown>;
 
-function findFunctionCall(result: any): UnknownRecord | undefined {
+/** Shape of the translated Gemini request the three finders below walk. */
+interface GeminiRequestLike {
+  contents?: Array<{ parts?: UnknownRecord[] }>;
+}
+
+const CLAUDE_SIGNATURE_NAMESPACE = "regression-3440";
+
+function seedClaudeThoughtSignature() {
+  storeGeminiThoughtSignature(
+    buildGeminiThoughtSignatureKey(CLAUDE_SIGNATURE_NAMESPACE, "tu_weather_1"),
+    "SIG_3440"
+  );
+}
+
+function findFunctionCall(result: GeminiRequestLike): UnknownRecord | undefined {
   for (const content of result.contents ?? []) {
     for (const part of content.parts ?? []) {
       if (part?.functionCall) return part.functionCall as UnknownRecord;
@@ -32,7 +43,16 @@ function findFunctionCall(result: any): UnknownRecord | undefined {
   return undefined;
 }
 
-function findFunctionResponse(result: any): UnknownRecord | undefined {
+function findFunctionCallPart(result: GeminiRequestLike): UnknownRecord | undefined {
+  for (const content of result.contents ?? []) {
+    for (const part of content.parts ?? []) {
+      if (part?.functionCall) return part as UnknownRecord;
+    }
+  }
+  return undefined;
+}
+
+function findFunctionResponse(result: GeminiRequestLike): UnknownRecord | undefined {
   for (const content of result.contents ?? []) {
     for (const part of content.parts ?? []) {
       if (part?.functionResponse) return part.functionResponse as UnknownRecord;
@@ -129,23 +149,43 @@ test("#3440 OpenAI->Gemini: no provider hint PRESERVES id (default, non-vertex)"
 });
 
 test("#3440 Claude->Gemini: vertex provider omits id from functionCall and functionResponse", () => {
+  seedClaudeThoughtSignature();
   const result = claudeToGeminiRequest("gemini-2.5-pro", CLAUDE_TOOL_BODY, false, {
     _provider: "vertex",
+    _signatureNamespace: CLAUDE_SIGNATURE_NAMESPACE,
   });
-  assert.equal(findFunctionCall(result)?.id, undefined, "functionCall.id must be omitted for Vertex");
+  assert.equal(
+    findFunctionCall(result)?.id,
+    undefined,
+    "functionCall.id must be omitted for Vertex"
+  );
   assert.equal(
     findFunctionResponse(result)?.id,
     undefined,
     "functionResponse.id must be omitted for Vertex"
   );
+
+  const vertexPart = findFunctionCallPart(result);
+  assert.ok(vertexPart, "expected a functionCall part");
+  assert.equal(
+    vertexPart.thoughtSignature,
+    "SIG_3440",
+    "thoughtSignature must be replayed even for Vertex (only id is stripped)"
+  );
 });
 
 test("#3440 Claude->Gemini: no provider hint PRESERVES id (default, non-vertex)", () => {
-  // gemini-2.5-pro requires a real thoughtSignature on historical tool_use
-  // parts; without one the fix in claude-to-gemini.ts downgrades the call to
-  // inert text (never a bare functionCall part) to avoid a strict 400. Prime
-  // a signature so this id-preservation assertion stays isolated from that.
-  storeGeminiThoughtSignature("tu_weather_1", "sig-weather-1");
-  const result = claudeToGeminiRequest("gemini-2.5-pro", CLAUDE_TOOL_BODY, false);
+  seedClaudeThoughtSignature();
+  const result = claudeToGeminiRequest("gemini-2.5-pro", CLAUDE_TOOL_BODY, false, {
+    _signatureNamespace: CLAUDE_SIGNATURE_NAMESPACE,
+  });
   assert.equal(findFunctionCall(result)?.id, "tu_weather_1");
+
+  const nonVertexPart = findFunctionCallPart(result);
+  assert.ok(nonVertexPart, "expected a functionCall part");
+  assert.equal(
+    nonVertexPart.thoughtSignature,
+    "SIG_3440",
+    "thoughtSignature must be replayed for direct Claude->Gemini path"
+  );
 });
