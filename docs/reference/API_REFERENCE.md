@@ -128,7 +128,7 @@ Content-Type: application/json
 }
 ```
 
-Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, **GitHub Models**.
+Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**.
 
 Registry models that advertise multimodal support also accept up to 32 provider-neutral structured
 items. Media item types are `text`, `image`, `audio`, `video`, and `document`. Their media `source`
@@ -481,6 +481,42 @@ Response example:
 }
 ```
 
+### Latency impact
+
+A semantic cache HIT serves the response from cache **without an upstream
+call**, so the reported `X-OmniRoute-Response-Latency` is near-zero
+(regardless of the original upstream latency). Latency-sensitive clients
+(benchmarking, p50/p99 monitoring) should check the
+`X-OmniRoute-Cache-Latency` response header:
+
+| Value | Meaning |
+|-------|---------|
+| `synthetic` | Response served from cache; latency is not real upstream time |
+| *(absent)* | Response from real upstream call |
+
+### Per-key cache bypass
+
+API keys can opt out of semantic cache reads via `cacheDefaultMode`:
+
+| Value | Behavior |
+|-------|----------|
+| `legacy` | Normal cache behavior (default) |
+| `bypass` | Skip cache lookup entirely; always hit upstream |
+
+Set at key creation (`POST /api/keys`) or update (`PATCH /api/keys/[id]`):
+
+```json
+{ "cacheDefaultMode": "bypass" }
+```
+
+### Per-request bypass
+
+Any request can bypass the cache regardless of key settings:
+
+```
+X-OmniRoute-No-Cache: true
+```
+
 ---
 
 ## Dashboard & Management
@@ -532,6 +568,8 @@ Response example:
 | `/api/usage/request-logs`   | GET             | Request-level logs              |
 | `/api/usage/[connectionId]` | GET             | Per-connection usage            |
 | `/api/usage/token-limits`   | GET/POST/DELETE | Per-API-key token-limit budgets |
+| `/api/usage/model-latency-stats` | GET        | Rolling per-provider/model latency aggregate (avg/p50/p95/p99, success rate); filters: `windowHours`/`minSamples`/`maxRows`/`provider`/`model` (#6873) |
+| `/api/usage/cache-health`   | GET             | Prompt-cache health summary over `call_logs` — write/read ratio, p50/p90/p99 write-size distribution, heavy-write concentration, per-model split, and a `healthy`/`degraded`/`thrash`/`no-data` verdict; query params `range` (`1h`\|`24h`\|`7d`\|`30d`, default `24h`) and optional `model` (#8827) |
 
 ### Settings
 
@@ -571,6 +609,7 @@ Response example:
 | `/api/rate-limits`       | GET        | Per-account rate limits                                                                              |
 | `/api/monitoring/health` | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`) |
 | `/api/cache/stats`       | GET/DELETE | Cache stats / clear                                                                                  |
+| `/api/modality-bridge/stats` | GET    | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
 
 ### Backup & Export/Import
 

@@ -187,6 +187,14 @@ test("getComboFromData and getComboModelsFromData resolve combos from array and 
   assert.deepEqual(models, ["openai/gpt-4o-mini", "claude/sonnet"]);
 });
 
+test("getComboModelsFromData strips context-window tags before matching a combo", () => {
+  const combos = [{ name: "alpha", models: ["openai/gpt-4o-mini"] }];
+
+  assert.deepEqual(getComboModelsFromData("alpha[500k]", combos), ["openai/gpt-4o-mini"]);
+  assert.deepEqual(getComboModelsFromData("alpha[1M]", combos), ["openai/gpt-4o-mini"]);
+  assert.equal(getComboModelsFromData("alpha[beta]", combos), null);
+});
+
 test("validateComboDAG rejects circular references and resolveNestedComboModels expands nested combos", () => {
   const combos = [
     { name: "root", models: ["child-a", "openai/gpt-4o-mini"] },
@@ -2310,7 +2318,7 @@ test("handleComboChat returns a 503 when every model is unavailable before execu
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  assert.equal(payload.error.code, "ALL_ACCOUNTS_INACTIVE");
+  assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
 test("handleComboChat treats provider circuit breaker responses as ordinary target failures", async () => {
@@ -2532,8 +2540,57 @@ test("handleComboChat standalone lkgp strategy updates LKGP after a successful c
   }
 
   assert.equal(result.ok, true);
-  // getLKGP now returns LKGPRecord | null — source: src/lib/db/settings.ts getLKGP()
   assert.equal(persistedProvider?.provider, "openai");
+});
+
+test("handleComboChat standalone lkgp strategy clears LKGP after the last-known-good target fails", async () => {
+  // A prior successful request pinned "openai" as the last known good provider —
+  // exactly the state left behind by the previous (success) test's own scenario.
+  await settingsDb.setLKGP("standalone-lkgp-clear", "standalone-lkgp-clear", "openai");
+
+  const calls: string[] = [];
+  const result = await handleComboChat({
+    body: {},
+    combo: {
+      id: "standalone-lkgp-clear",
+      name: "standalone-lkgp-clear",
+      strategy: "lkgp",
+      // maxRetries: 0 below means this single target is tried exactly once,
+      // then the combo loop gives up on it (and on the whole combo, since it's
+      // the only model) — the exact "Done retrying this model" failure path.
+      models: ["openai/gpt-4o-mini"],
+      config: { maxRetries: 0 },
+    },
+    handleSingleModel: async (_body: Record<string, unknown>, modelStr: string) => {
+      calls.push(modelStr);
+      return errorResponse(504, "Stream produced no non-ping SSE event within 95000ms");
+    },
+    isModelAvailable: async () => true,
+    log: createLog(),
+    settings: null,
+    relayOptions: null,
+    allCombos: null,
+  });
+
+  // Give the async fire-and-forget LKGP clear a chance to execute
+  let persistedProvider: Awaited<ReturnType<typeof settingsDb.getLKGP>> = null;
+  for (let i = 0; i < 20; i++) {
+    persistedProvider = await settingsDb.getLKGP("standalone-lkgp-clear", "standalone-lkgp-clear");
+    if (persistedProvider === null) {
+      break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  assert.equal(result.ok, false, "the only target failed, so the whole combo call fails");
+  assert.deepEqual(calls, ["openai/gpt-4o-mini"]);
+  // The bug this guards: without clearing, a *separate* subsequent request would
+  // keep re-selecting "openai" via LKGP reordering even though it just failed.
+  assert.equal(
+    persistedProvider,
+    null,
+    "LKGP must be cleared after its target fails, not left pointing at a just-failed provider"
+  );
 });
 
 test("handleComboChat auto strategy falls back to the full pool when tool filtering empties candidates", async () => {
@@ -2839,7 +2896,7 @@ test("handleComboChat round-robin resolves nested combos and returns inactive wh
 
   const payload = (await result.json()) as any;
   assert.equal(result.status, 503);
-  assert.equal(payload.error.code, "ALL_ACCOUNTS_INACTIVE");
+  assert.equal(payload.error.code, "ALL_TARGETS_SKIPPED");
 });
 
 test("handleComboChat round-robin treats provider circuit breaker responses as ordinary target failures", async () => {
@@ -3136,8 +3193,8 @@ test("#3587 reasoning model gets max_tokens buffer applied", async () => {
 
   assert.equal(result.ok, true);
   assert.equal(bodies.length, 1, "should have called handleSingleModel once");
-  // 4096 * 1.5 = 6144; max(4096+1000, 6144) = 6144
-  assert.equal(bodies[0].max_tokens, 6144, "max_tokens should be buffered for reasoning model");
+  // #9507: buffer never enlarges an explicit client max_tokens; pass-through 4096.
+  assert.equal(bodies[0].max_tokens, 4096, "max_tokens forwarded verbatim (#9507)");
 });
 
 test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds model cap", async () => {
@@ -3154,8 +3211,8 @@ test("#3587 reasoning buffer preserves max_tokens when the full buffer exceeds m
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "4096"),
-    6144,
-    "numeric string max_tokens should be normalized before applying a safe buffer"
+    4096,
+    "numeric string max_tokens is normalized and forwarded verbatim (#9507)"
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/gemini-high-cap", "not-a-number"),
@@ -3218,8 +3275,8 @@ test("#3587 reasoning buffer is disabled without explicit model capability data"
   );
   assert.equal(
     resolveReasoningBufferedMaxTokens("openai/default-cap-reasoning", 300),
-    1300,
-    "explicit default-sized caps are treated as real capability data"
+    300,
+    "explicit default-sized caps are treated as real capability data, forwarded verbatim (#9507)"
   );
 });
 
@@ -3302,7 +3359,7 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
   // Two reasoning models in a round-robin combo. The first fails (400) so the
   // loop falls through to the second. The buffer must be computed from the
   // ORIGINAL max_tokens for each attempt — never from an already-buffered value —
-  // so both attempts see 6144 (4096 * 1.5), not [6144, 9216, ...]. Regression for
+  // so both attempts see the original 4096 (no enlargement per #9507), not a compounded value. Regression for
   // the shared-`body` mutation that compounded the buffer on every RR iteration.
   saveModelsDevCapabilities({
     openai: {
@@ -3345,12 +3402,12 @@ test("#3587 round-robin buffer does NOT compound across reasoning models", async
 
   assert.equal(result.status, 200);
   assert.equal(seen.length, 2, "both reasoning models should have been attempted");
-  // Each attempt buffers from the original 4096 → 6144. No compounding.
-  assert.equal(seen[0].maxTokens, 6144, "first reasoning model buffered from original");
+  // #9507: buffer never enlarges, so each attempt sees the original 4096; no compounding.
+  assert.equal(seen[0].maxTokens, 4096, "first reasoning model forwards original (#9507)");
   assert.equal(
     seen[1].maxTokens,
-    6144,
-    "second reasoning model must ALSO buffer from original 4096, not 6144"
+    4096,
+    "second reasoning model must ALSO forward original 4096, not a buffered value (#9507)"
   );
 });
 

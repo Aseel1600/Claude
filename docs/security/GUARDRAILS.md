@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.50
+lastUpdated: 2026-08-08
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-06-28 — v3.8.40 (injection-guard coverage + 16 KB scan bound + red-team)
+> **Last updated:** 2026-08-08 — v3.8.50 (Modality Bridge PR-3: Audio Bridge runtime and functional Audio settings tab)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -20,41 +20,210 @@ request. Blocking is an explicit decision (`block: true`), never an accident.
 
 ## Built-in Guardrails
 
-The registry auto-loads three guardrails in priority order on import
+The registry auto-loads five guardrails in priority order on import
 (see `registry.ts` → `registerDefaultGuardrails()`):
 
-| Priority | Name               | Stage(s)       | File                 |
-| -------- | ------------------ | -------------- | -------------------- |
-| `5`      | `vision-bridge`    | `preCall`      | `visionBridge.ts`    |
-| `10`     | `pii-masker`       | `pre` + `post` | `piiMasker.ts`       |
-| `20`     | `prompt-injection` | `preCall`      | `promptInjection.ts` |
+| Priority | Name                | Stage(s)       | File                  |
+| -------- | ------------------- | -------------- | --------------------- |
+| `5`      | `vision-bridge`     | `preCall`      | `visionBridge.ts`     |
+| `6`      | `audio-bridge`      | `preCall`      | `audioBridge.ts`      |
+| `10`     | `pii-masker`        | `pre` + `post` | `piiMasker.ts`        |
+| `20`     | `prompt-injection`  | `preCall`      | `promptInjection.ts`  |
+| `95`     | `credential-masker` | `pre` + `post` | `credentialMasker.ts` |
 
 Lower priority numbers run **first**.
 
-### Vision Bridge (`visionBridge.ts`)
+### Vision Bridge (`visionBridge.ts`) — Modality Bridge PR-1
 
-Intercepts image-bearing requests aimed at **non-vision models** and replaces
-the image parts with text descriptions produced by a configurable vision model
-before the upstream call. This lets text-only providers transparently handle
+Intercepts image-bearing requests aimed at **non-vision models** and either
+reroutes the whole request to a vision-capable model or replaces the image
+parts with text descriptions produced by a configurable vision model before
+the upstream call. This lets text-only providers transparently handle
 multimodal payloads.
 
 Flow:
 
 1. Skip if the target model already supports vision (unless it appears in the
    forced-bridge list `isVisionBridgeForcedModel`).
-2. Extract image parts via `extractImageParts(messages)`. Skip if none.
-3. Load runtime config from `getSettings()` (`visionBridgeEnabled`,
-   `visionBridgeModel`, `visionBridgePrompt`, `visionBridgeTimeout`,
-   `visionBridgeMaxImages`).
-4. Cap images at `maxImages`, call the vision model **in parallel**
-   (`Promise.allSettled`), and inject `[Image N]: <description>` text parts
-   in their place — failed images become `[Image N]: (unavailable)`.
-5. Return `modifiedPayload` + meta (`imagesProcessed`, `processingTimeMs`,
-   `visionModel`).
+2. Extract image parts via `extractImageParts(messages)`
+   (`visionBridgeHelpers.ts`), which delegates to the **unified media
+   detector** `detectMediaParts()` in `open-sse/utils/mediaParts.ts` — the
+   single source of truth shared with the combo compatibility filter.
+   Extraction is allowlisted to top-level parts of the shapes
+   `replaceImageParts` can splice back (the extract↔replace contract): OpenAI
+   `image_url`, Anthropic base64 `source.type:"base64"`, Anthropic URL
+   `source.type:"url"`, and Responses API `input_image`. Nested hits and
+   indicator-only shapes are combo-filter material and are never extracted.
+   Skip if none found.
+3. Resolve runtime config via `resolveVisionBridgeRuntimeSettings()`
+   (`src/shared/constants/modalityBridgeDefaults.ts`): new `modalityBridge*`
+   settings keys win; legacy `visionBridge*` keys remain a **one-cycle
+   fallback** (rollback window). Skip before any media traversal when the
+   bridge is disabled.
+4. Mode selector (`modalityBridgeVisionMode`, see table below) decides
+   reroute vs describe. Reroute returns `modifiedPayload` with only `model`
+   swapped, plus meta `{ rerouted, fromModel, toModel, imagesKept }`.
+5. Describe path: cap images at `maxImages`, compose the task-aware prompt,
+   consult the describe cache, call the vision model **in parallel**
+   (`Promise.allSettled`), and inject `[Image N]: <description>` text parts in
+   their place. A failed describe yields `null` and the original image part is
+   **preserved** (#4012) — except on the combo describe path when every
+   describe failed, where a confirmed non-vision upstream gets an
+   `(unavailable — no vision-capable provider connected)` stub instead (#8430).
+6. Return `modifiedPayload` + meta (`imagesProcessed`, `descriptions`,
+   `processingTimeMs`, `visionModel`).
 
-Defaults live in `src/shared/constants/visionBridgeDefaults.ts`. The guardrail
-exposes a `deps` constructor option so tests can inject fake `getSettings` and
+#### Mode selector (`modalityBridgeVisionMode`)
+
+| Mode       | Default | Behavior                                                                                                                                                                                                                                                |
+| ---------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auto`     | ✔       | Legacy heuristic, untouched (#6640/#7204): non-combo/`auto/` models reroute to the best vision model unless the original model already has usable credentials (then describe); combo targets always describe.                                           |
+| `describe` |         | Always describe — the reroute block is skipped entirely; the user's chosen model always answers.                                                                                                                                                        |
+| `reroute`  |         | Force reroute: the keep-credentialed-model guard is bypassed. The reroute-**target** credential guard still applies — when no usable vision target exists, the request falls through to describe so raw images never reach a text-only backend (#8430). |
+
+Forced modes short-circuit **before** the auto heuristic runs; `auto` behavior
+is byte-identical to the pre-PR-1 guardrail.
+
+#### Task-aware describe prompt (`modalityBridgeVisionTaskAware`)
+
+Default **true**. `composeVisionPrompt()` (`visionBridgeHelpers.ts`) appends
+the text of the **last user message** (truncated to 500 chars) to the base
+describe prompt, steering the description toward what the user actually asked
+(codex-vision-proxy pattern) and asking the vision model to transcribe visible
+text. With the flag off — or no user text — the base prompt is used unchanged.
+
+#### Describe cache (`modalityBridge/bridgeCache.ts`)
+
+In-memory LRU + TTL cache for describe outputs, shared process-wide.
+Key = `sha256(imageRef + composedPrompt + configuredBridgeModel)` with
+length-prefix framing (no field-boundary collisions). The model component is
+the **configured** bridge model, not the model that actually answered —
+`callVisionModel` may fall back internally, and keying per attempt would
+fragment the cache. Failed describes are never cached. Settings:
+
+| Key                             | Default | Range   |
+| ------------------------------- | ------- | ------- |
+| `modalityBridgeCacheEnabled`    | `true`  | —       |
+| `modalityBridgeCacheTtlMinutes` | `60`    | 1–1440  |
+| `modalityBridgeCacheMaxEntries` | `200`   | 10–5000 |
+
+#### Settings schema + migration
+
+The new `modalityBridge*` keys are Zod-validated in `updateSettingsSchema`
+(`src/shared/validation/settingsSchemas.ts`): `modalityBridgeVisionEnabled`,
+`modalityBridgeVisionMode`, `modalityBridgeVisionModel`,
+`modalityBridgeVisionTaskAware`, `modalityBridgeVisionPrompt`,
+`modalityBridgeVisionTimeout`, `modalityBridgeVisionMaxImages`, the
+`modalityBridgeCache*` trio, and the `modalityBridgeAudio*` group used by the
+Audio Bridge. Migration `141_modality_bridge_settings.sql` copies existing legacy
+`visionBridge*` values to the matching new keys (idempotent, never overwrites
+an operator-set `modalityBridge*` value); the legacy keys stay accepted as a
+read fallback for one release cycle.
+
+#### Transparency header + stats
+
+Describe-transformed responses carry
+`x-omniroute-modality-bridge: image->text;model=<visionModel>;parts=<n>`
+(built by `buildModalityBridgeHeader()` in `modalityBridge/bridgeStats.ts`,
+stamped by `withModalityBridgeHeader()` in `src/sse/handlers/chatHelpers.ts`).
+Rerouted requests get **no** header — the payload was untouched and the model
+swap is already visible in the response body's `model` field.
+
+`GET /api/modality-bridge/stats` (management auth, same tier as
+`GET /api/settings`) returns the in-memory per-modality counters
+`{ bridged, cacheHits, failures, lastUsedAt }` for `vision` and `audio`.
+Counters reset on process restart by design
+(telemetry, not accounting).
+
+#### Dashboard configuration
+
+The dedicated dashboard page is
+`/dashboard/settings/modality-bridge`. Its URL-addressable `Vision`, `Audio`,
+and `Video` tabs preserve query parameters while switching the `tab` value.
+The Vision tab exposes enablement, mode, model selection (including the automatic
+default), task-aware prompting, advanced timeout/image/cache limits, runtime
+counters, and a guarded sample request. The Audio tab is also live: it exposes
+enablement, an STT-only model picker with Auto, timeout/max-clip limits, audio
+counters, and an `input_audio` sample test. Video remains the explicit placeholder
+tracked in issue `#9760`.
+
+The former Vision Bridge card under AI settings is a compatibility link to the
+new page; it no longer owns a second copy of the form. Media Providers also
+links Image-to-Text and Speech-to-Text workflows to the corresponding Modality
+Bridge tabs without removing the existing Speech-to-Text playground.
+
+**Self-loop admission bypass:** when the describe call routes through OmniRoute's
+own `/v1` self-loop (non-standard provider model), the sub-request sends
+`x-omniroute-admission-bypass: internal` and is authenticated with the resolved
+self-loop credential — the local `sk_omniroute` sentinel in local mode, or the
+operator-configured `OMNIROUTE_API_KEY` / `ROUTER_API_KEY` env key (#1350) so
+`REQUIRE_API_KEY=true` deployments can still run the describe call. The bypass
+is only honored for those exact credentials, so external clients cannot use the
+header to skip admission.
+
+Legacy defaults live in `src/shared/constants/visionBridgeDefaults.ts`; the
+new mode/task-aware/cache defaults and the settings resolver live in
+`src/shared/constants/modalityBridgeDefaults.ts`. The guardrail exposes a
+`deps` constructor option so tests can inject fake `getSettings` and
 `callVisionModel` implementations.
+
+### Audio Bridge (`audioBridge.ts`) — Modality Bridge PR-3
+
+Intercepts audio-bearing chat requests before they reach a target that is not
+known to accept audio input. It never reroutes the chat request: audio parts are
+transcribed through the existing OpenAI-compatible multipart endpoint and the
+chosen chat model continues with text transcripts.
+
+Flow:
+
+1. Resolve `supportsAudio` through `getResolvedModelCapabilities()`. Explicit
+   provider-registry metadata wins, then static model metadata, then synced
+   `modalities_input`. A declared input list without `audio` is `false`; no
+   capability evidence remains `null`. Both `false` and `null` activate the
+   conservative bridge, while `true` bypasses it.
+2. Resolve `modalityBridgeAudio*` settings and extract spliceable top-level
+   audio parts from every message through the shared `detectMediaParts()`
+   detector. Supported wire shapes are OpenAI `input_audio`, `audio_url`, and
+   `source.media_type: "audio/*"`. Nested audio is detected for routing but not
+   removed by the splice path. Work is capped by `modalityBridgeAudioMaxClips`;
+   later parts stay untouched.
+3. Honor a configured `provider/model`, or let `selectAudioBridgeModel()` walk
+   `AUDIO_TRANSCRIPTION_PROVIDERS` in stable catalog order and select the first
+   model with a usable active provider credential.
+4. `callAudioTranscription()` converts base64/data-URI audio to a multipart
+   `file`, or downloads a remote `audio_url` through the public-only outbound
+   guard with DNS pinning and a 25 MB bound. It then POSTs the file and selected
+   model to the local `/v1/audio/transcriptions` self-loop, authenticated with
+   `resolveSelfLoopBearer()`. The existing transcription route performs normal
+   credential lookup, cooldown/rate-limit handling, and provider dispatch.
+5. Successful calls replace their parts with `[Audio N]: <transcript>`. Calls
+   run with `Promise.allSettled`: an individual failure preserves that original
+   audio part (#4012 contract). If every call fails and the target is proven
+   `supportsAudio === false`, the parts become
+   `[Audio N]: (unavailable — no STT provider connected)` (#8430 contract). For
+   an unknown target (`null`), an all-failure result stays untouched. A proven
+   text-only target with no usable STT credential receives the same explicit
+   stub without issuing a network call.
+
+Successful transcripts use the process-wide Modality Bridge LRU/TTL cache. The
+key combines the audio reference, the stable `audio-transcription` operation
+label, and selected STT model; failures are never cached. Audio attempts update
+the shared `bridged`, `cacheHits`, `failures`, and `lastUsedAt` counters.
+Transformed responses carry
+`x-omniroute-modality-bridge: audio->text;model=<sttModel>;parts=<n>`; untouched
+requests do not receive an Audio Bridge segment.
+
+Runtime settings are DB-backed and Zod-validated:
+
+| Key                           | Default | Range          |
+| ----------------------------- | ------- | -------------- |
+| `modalityBridgeAudioEnabled`  | `true`  | —              |
+| `modalityBridgeAudioModel`    | `""`    | Auto or STT ID |
+| `modalityBridgeAudioTimeout`  | `60000` | 1000–300000    |
+| `modalityBridgeAudioMaxClips` | `3`     | 1–10           |
+
+The shared cache remains controlled by `modalityBridgeCacheEnabled`,
+`modalityBridgeCacheTtlMinutes`, and `modalityBridgeCacheMaxEntries`.
 
 ### PII Masker (`piiMasker.ts`)
 
@@ -81,11 +250,11 @@ Detects adversarial structures in user-supplied content and enforces the
 configured policy. Behavior is driven by environment variables and constructor
 options:
 
-| Setting         | Env var                                         | Default | Effect                                  |
-| --------------- | ----------------------------------------------- | ------- | --------------------------------------- |
-| Enabled         | `INPUT_SANITIZER_ENABLED`                       | `true`  | When `false`, guardrail short-circuits. |
-| Mode            | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE` | `warn`  | Injection policy: `block`, `warn`, or `log`. (`redact` is accepted for back-compat but does **not** strip injection text; request PII rewrite is controlled by `PII_REDACTION_ENABLED`.) |
-| Block threshold | `blockThreshold` option / `INPUT_SANITIZER_BLOCK_THRESHOLD` (alias `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high`  | Minimum severity required to block. Medium is observe-only at default. |
+| Setting         | Env var                                                                                               | Default | Effect                                                                                                                                                                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enabled         | `INPUT_SANITIZER_ENABLED`                                                                             | `true`  | When `false`, guardrail short-circuits.                                                                                                                                                  |
+| Mode            | `INJECTION_GUARD_MODE` / `INPUT_SANITIZER_MODE`                                                       | `warn`  | Injection policy: `block`, `warn`, or `log`. (`redact` is accepted for back-compat but does **not** strip injection text; request PII rewrite is controlled by `PII_REDACTION_ENABLED`.) |
+| Block threshold | `blockThreshold` option / `INPUT_SANITIZER_BLOCK_THRESHOLD` (alias `INJECTION_GUARD_BLOCK_THRESHOLD`) | `high`  | Minimum severity required to block. Medium is observe-only at default.                                                                                                                   |
 
 **Mode precedence** (`getMode`): caller `options.mode` →
 `INJECTION_GUARD_MODE` **DB feature-flag override** (Dashboard → Settings →
@@ -117,6 +286,36 @@ joined prompt text — `MAX_INJECTION_SCAN_BYTES = 16 * 1024` (16 384 bytes) in
 the pattern loop. Injection directives sit near the top of an input, so this
 caps regex CPU/GC on multi-hundred-KB payloads without weakening detection (cf.
 #3932, #4041).
+
+### Credential Masker (`credentialMasker.ts`)
+
+Runs on **both** stages, last in the default chain (priority `95`). Redacts
+well-known API-key / secret-token patterns from the outbound payload (message
+content, tool-call arguments, tool results) **and** the provider response, so a
+credential pasted into a prompt (or echoed back by a tool result) is not leaked
+to the upstream provider or back to the client.
+
+- **Opt-in only**, same convention as PII redaction (Hard Rule #20-adjacent):
+  disabled unless `settings.credentialRedactionEnabled === true` **or**
+  `CREDENTIAL_REDACTION_ENABLED=true`. With it off, the guardrail is a no-op —
+  it never blocks and never rewrites.
+- `redactCredentials()` walks the full payload/response tree (`walkValue()`,
+  prototype-pollution-safe, cycle-safe via `WeakSet`) and replaces matches with
+  a `[REDACTED:<type>]` placeholder, cloning only the branches that actually
+  changed.
+- `CREDENTIAL_PATTERNS` covers LLM provider keys (OpenAI, OpenAI-proj,
+  Anthropic, Google, Hugging Face, Replicate), VCS/SaaS tokens (GitHub, Slack,
+  Linear, Notion, npm, Postman, Discord), payment keys (Stripe, Square), cloud
+  keys (AWS access key, Twilio, SendGrid, Mailgun), private keys / JWTs,
+  credential-bearing connection strings (`mongodb://user:pass@...`, etc.), and
+  a generic `Authorization`/`x-api-key`/`api-key`/`apikey` header-value
+  pattern. Header-shaped keys (`authorization`, `x-api-key`, `api-key`,
+  `apikey`) are redacted structurally (value only, scheme prefix like
+  `Bearer `/`Basic ` preserved) rather than via the generic text regex.
+- The guardrail never blocks; it only rewrites (`modifiedPayload` /
+  `modifiedResponse`) and annotates (`meta.credentialsRedacted`, `meta.count`).
+
+Regression guard: `tests/unit/credential-masker-guardrail.test.ts`.
 
 ## Base Contract (`base.ts`)
 
@@ -221,20 +420,32 @@ Guardrails that throw are recorded with `error: <message>` and logged via
 
 Environment variables read by the built-in guardrails:
 
-| Variable                              | Used by                          | Effect                                                                                           |
-| ------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `INPUT_SANITIZER_ENABLED`             | `prompt-injection`               | Set `false` to disable detection entirely.                                                       |
-| `INPUT_SANITIZER_MODE`                | `prompt-injection`               | Injection policy: `warn`, `block`, or `log`. Legacy value `redact` does not rewrite injection text. |
-| `INJECTION_GUARD_MODE`                | `prompt-injection`               | Mode for the injection guard; also a DB feature flag that **overrides** the env vars (DB > ENV). |
-| `INPUT_SANITIZER_BLOCK_THRESHOLD`     | `prompt-injection`               | Minimum severity that `MODE=block` rejects: `high` (default), `medium`, or `low`.                |
-| `INJECTION_GUARD_BLOCK_THRESHOLD`     | `prompt-injection`               | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`.                                              |
-| `PII_REDACTION_ENABLED`               | `pii-masker`                     | When `true`, request PII is redacted (independent of injection mode).                            |
-| `PII_RESPONSE_SANITIZATION` / `_MODE` | `pii-masker` (downstream)        | Controls response-side masker behavior.                                                          |
+| Variable                              | Used by                   | Effect                                                                                              |
+| ------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------- |
+| `INPUT_SANITIZER_ENABLED`             | `prompt-injection`        | Set `false` to disable detection entirely.                                                          |
+| `INPUT_SANITIZER_MODE`                | `prompt-injection`        | Injection policy: `warn`, `block`, or `log`. Legacy value `redact` does not rewrite injection text. |
+| `INJECTION_GUARD_MODE`                | `prompt-injection`        | Mode for the injection guard; also a DB feature flag that **overrides** the env vars (DB > ENV).    |
+| `INPUT_SANITIZER_BLOCK_THRESHOLD`     | `prompt-injection`        | Minimum severity that `MODE=block` rejects: `high` (default), `medium`, or `low`.                   |
+| `INJECTION_GUARD_BLOCK_THRESHOLD`     | `prompt-injection`        | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`.                                                 |
+| `PII_REDACTION_ENABLED`               | `pii-masker`              | When `true`, request PII is redacted (independent of injection mode).                               |
+| `PII_RESPONSE_SANITIZATION` / `_MODE` | `pii-masker` (downstream) | Controls response-side masker behavior.                                                             |
 
-The Vision Bridge reads runtime config from the DB-backed settings store
-(`getSettings()`), not env vars: `visionBridgeEnabled`, `visionBridgeModel`,
-`visionBridgePrompt`, `visionBridgeTimeout`, `visionBridgeMaxImages`. Defaults
-live in `src/shared/constants/visionBridgeDefaults.ts`.
+The Modality Bridge guardrails read runtime config from the DB-backed settings
+store (`getSettings()`), not env vars. Vision's primary keys are
+`modalityBridgeVisionEnabled`, `modalityBridgeVisionMode`,
+`modalityBridgeVisionModel`, `modalityBridgeVisionTaskAware`,
+`modalityBridgeVisionPrompt`, `modalityBridgeVisionTimeout`,
+`modalityBridgeVisionMaxImages`, `modalityBridgeCacheEnabled`,
+`modalityBridgeCacheTtlMinutes`, and `modalityBridgeCacheMaxEntries`. The legacy
+`visionBridge*` keys are accepted only as the documented one-cycle read
+fallback; dashboard writes use the primary keys. Defaults and the fallback
+resolver live in `src/shared/constants/modalityBridgeDefaults.ts`, with legacy
+constants retained in `src/shared/constants/visionBridgeDefaults.ts`.
+
+Audio uses `modalityBridgeAudioEnabled`, `modalityBridgeAudioModel`,
+`modalityBridgeAudioTimeout`, and `modalityBridgeAudioMaxClips`, plus the shared
+`modalityBridgeCache*` settings. Audio has no legacy-key fallback because these
+keys were introduced with the Modality Bridge schema.
 
 ## Custom Guardrails
 
@@ -273,9 +484,11 @@ Steps:
 
 Use `resetGuardrailsForTests()` between tests to start from a known state.
 Pass `{ registerDefaults: false }` to start with an empty registry and
-register only the guardrails under test. The Vision Bridge guardrail accepts
-dependency injection (`deps.getSettings`, `deps.callVisionModel`) so tests can
-exercise the full flow without DB or network access.
+register only the guardrails under test. Vision Bridge accepts dependency
+injection (`deps.getSettings`, `deps.callVisionModel`); Audio Bridge exposes the
+equivalent seams for settings, capabilities, STT model selection, credential
+checks, and transcription. Tests can therefore exercise both flows without DB
+or network access.
 
 ## See Also
 
@@ -284,6 +497,7 @@ exercise the full flow without DB or network access.
   prompt-injection and PII masking
 - `src/shared/constants/visionBridgeDefaults.ts` — Vision Bridge defaults and
   forced-bridge model list
+- `src/shared/constants/modalityBridgeDefaults.ts` — shared Vision/Audio runtime defaults
 - `docs/architecture/RESILIENCE_GUIDE.md` — orthogonal layer (circuit breaker, cooldowns)
 - `docs/reference/ENVIRONMENT.md` — full env var reference
 

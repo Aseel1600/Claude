@@ -1,15 +1,6 @@
 /**
- * Issue #8887 — deleting a provider connection must invalidate the LKGP pins
- * that point at it.
- *
- * `setLKGP()` persists `{ provider, connectionId }` under the `lkgp` namespace of
- * `key_value`, but none of the three delete paths in `src/lib/db/providers.ts`
- * touch that namespace. The pin therefore survives the connection it references
- * and becomes unbounded stale state.
- *
- * These tests drive only shipped public API (`setLKGP` / `getLKGP` /
- * `deleteProviderConnection*`) against the real modules — no mocking of the
- * module under test.
+ * Issue #8887 — deleting a provider connection must invalidate LKGP pins that
+ * reference it without disturbing surviving, provider-level, or legacy pins.
  */
 
 import test from "node:test";
@@ -24,169 +15,155 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const lkgpDb = await import("../../src/lib/db/settings/lkgp.ts");
+const readCache = await import("../../src/lib/db/readCache.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
 
   for (let attempt = 0; attempt < 10; attempt++) {
     try {
-      if (fs.existsSync(TEST_DATA_DIR)) {
-        fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-      }
+      fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
       break;
     } catch (error: unknown) {
-      const code = (error as NodeJS.ErrnoException | null)?.code;
+      const code =
+        error && typeof error === "object" && "code" in error
+          ? String((error as { code?: unknown }).code)
+          : "";
+
       if ((code === "EBUSY" || code === "EPERM") && attempt < 9) {
         await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)));
-      } else {
-        throw error;
+        continue;
       }
+
+      throw error;
     }
   }
 
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
 }
 
+async function createConnection(provider: string, name: string): Promise<string> {
+  const connection = await providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    name,
+    apiKey: `test-key-${name}`,
+  });
+
+  assert.equal(typeof connection.id, "string", "provider fixture must return a connection id");
+  return connection.id as string;
+}
+
 test.beforeEach(async () => {
   await resetStorage();
 });
 
-test.after(async () => {
+test.after(() => {
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("deleteProviderConnection drops the LKGP pin for that connection and keeps others", async () => {
-  const doomed = await providersDb.createProviderConnection({
+test("#8887: single delete removes only the matching LKGP pin", async () => {
+  const doomedId = await createConnection("berry", "single-doomed");
+  const survivorId = await createConnection("berry", "single-survivor");
+
+  await lkgpDb.setLKGP("single-doomed", "model-x", "berry", doomedId);
+  await lkgpDb.setLKGP("single-survivor", "model-y", "berry", survivorId);
+
+  assert.equal(await providersDb.deleteProviderConnection(doomedId), true);
+
+  assert.equal(await lkgpDb.getLKGP("single-doomed", "model-x"), null);
+  assert.deepEqual(await lkgpDb.getLKGP("single-survivor", "model-y"), {
     provider: "berry",
-    authType: "apikey",
-    name: "Doomed",
-    apiKey: "sk-doomed",
+    connectionId: survivorId,
   });
-  const survivor = await providersDb.createProviderConnection({
+});
+
+test("#8887: single delete invalidates a warmed LKGP read-cache entry", async () => {
+  const doomedId = await createConnection("berry", "cached-doomed");
+
+  await lkgpDb.setLKGP("cached-doomed", "model-x", "berry", doomedId);
+
+  assert.deepEqual(await readCache.getCachedLKGP("cached-doomed", "model-x"), {
     provider: "berry",
-    authType: "apikey",
-    name: "Survivor",
-    apiKey: "sk-survivor",
+    connectionId: doomedId,
   });
 
-  await lkgpDb.setLKGP("combo-a", "model-x", "berry", (doomed as { id: string }).id);
-  await lkgpDb.setLKGP("combo-b", "model-y", "berry", (survivor as { id: string }).id);
-
-  assert.equal(await providersDb.deleteProviderConnection((doomed as { id: string }).id), true);
+  assert.equal(await providersDb.deleteProviderConnection(doomedId), true);
 
   assert.equal(
-    await lkgpDb.getLKGP("combo-a", "model-x"),
+    await readCache.getCachedLKGP("cached-doomed", "model-x"),
     null,
-    "pin for the deleted connection must be gone"
-  );
-  assert.deepEqual(
-    await lkgpDb.getLKGP("combo-b", "model-y"),
-    { provider: "berry", connectionId: (survivor as { id: string }).id },
-    "pin for a surviving connection must be untouched"
+    "deleted LKGP pins must not survive in the 5s read cache"
   );
 });
 
-test("deleteProviderConnections drops every LKGP pin it deleted a connection for", async () => {
-  const a = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Alpha",
-    apiKey: "sk-alpha",
-  });
-  const b = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Beta",
-    apiKey: "sk-beta",
-  });
-  const keep = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Keep",
-    apiKey: "sk-keep",
-  });
+test("#8887: bulk delete removes every matching LKGP pin", async () => {
+  const doomedA = await createConnection("berry", "bulk-doomed-a");
+  const doomedB = await createConnection("berry", "bulk-doomed-b");
+  const survivorId = await createConnection("berry", "bulk-survivor");
 
-  await lkgpDb.setLKGP("combo-a", "model-x", "berry", (a as { id: string }).id);
-  await lkgpDb.setLKGP("combo-b", "model-y", "berry", (b as { id: string }).id);
-  await lkgpDb.setLKGP("combo-c", "model-z", "berry", (keep as { id: string }).id);
+  await lkgpDb.setLKGP("bulk-a", "model-x", "berry", doomedA);
+  await lkgpDb.setLKGP("bulk-b", "model-y", "berry", doomedB);
+  await lkgpDb.setLKGP("bulk-survivor", "model-z", "berry", survivorId);
 
-  assert.equal(
-    await providersDb.deleteProviderConnections([
-      (a as { id: string }).id,
-      (b as { id: string }).id,
-    ]),
-    2
-  );
+  assert.equal(await providersDb.deleteProviderConnections([doomedA, doomedB]), 2);
 
-  assert.equal(await lkgpDb.getLKGP("combo-a", "model-x"), null);
-  assert.equal(await lkgpDb.getLKGP("combo-b", "model-y"), null);
-  assert.deepEqual(await lkgpDb.getLKGP("combo-c", "model-z"), {
+  assert.equal(await lkgpDb.getLKGP("bulk-a", "model-x"), null);
+  assert.equal(await lkgpDb.getLKGP("bulk-b", "model-y"), null);
+  assert.deepEqual(await lkgpDb.getLKGP("bulk-survivor", "model-z"), {
     provider: "berry",
-    connectionId: (keep as { id: string }).id,
+    connectionId: survivorId,
   });
 });
 
-test("deleteProviderConnectionsByProvider drops that provider's LKGP pins only", async () => {
-  const berry = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Berry One",
-    apiKey: "sk-berry",
-  });
-  const cherry = await providersDb.createProviderConnection({
-    provider: "cherry",
-    authType: "apikey",
-    name: "Cherry One",
-    apiKey: "sk-cherry",
-  });
+test("#8887: provider-wide delete removes that provider's LKGP pins only", async () => {
+  const berryId = await createConnection("berry", "provider-doomed");
+  const cherryId = await createConnection("cherry", "provider-survivor");
 
-  await lkgpDb.setLKGP("combo-a", "model-x", "berry", (berry as { id: string }).id);
-  await lkgpDb.setLKGP("combo-b", "model-y", "cherry", (cherry as { id: string }).id);
+  await lkgpDb.setLKGP("provider-doomed", "model-x", "berry", berryId);
+  await lkgpDb.setLKGP("provider-survivor", "model-y", "cherry", cherryId);
 
   assert.equal(await providersDb.deleteProviderConnectionsByProvider("berry"), 1);
 
-  assert.equal(await lkgpDb.getLKGP("combo-a", "model-x"), null);
-  assert.deepEqual(await lkgpDb.getLKGP("combo-b", "model-y"), {
+  assert.equal(await lkgpDb.getLKGP("provider-doomed", "model-x"), null);
+  assert.deepEqual(await lkgpDb.getLKGP("provider-survivor", "model-y"), {
     provider: "cherry",
-    connectionId: (cherry as { id: string }).id,
+    connectionId: cherryId,
   });
 });
 
-test("an LKGP pin without a connectionId is left alone by a connection delete", async () => {
-  const connection = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Bare",
-    apiKey: "sk-bare",
-  });
+test("#8887: provider-level LKGP pins without connectionId are preserved", async () => {
+  const doomedId = await createConnection("berry", "provider-level");
 
-  await lkgpDb.setLKGP("combo-bare", "model-x", "berry");
+  await lkgpDb.setLKGP("provider-level", "model-x", "berry");
 
-  assert.equal(await providersDb.deleteProviderConnection((connection as { id: string }).id), true);
-
-  assert.deepEqual(await lkgpDb.getLKGP("combo-bare", "model-x"), { provider: "berry" });
+  assert.equal(await providersDb.deleteProviderConnection(doomedId), true);
+  assert.deepEqual(await lkgpDb.getLKGP("provider-level", "model-x"), { provider: "berry" });
 });
 
-test("deleting a connection with no LKGP pins is a no-op and does not throw", async () => {
-  const connection = await providersDb.createProviderConnection({
-    provider: "berry",
-    authType: "apikey",
-    name: "Unpinned",
-    apiKey: "sk-unpinned",
-  });
-  const other = await providersDb.createProviderConnection({
-    provider: "cherry",
-    authType: "apikey",
-    name: "Other",
-    apiKey: "sk-other",
-  });
-  await lkgpDb.setLKGP("combo-other", "model-y", "cherry", (other as { id: string }).id);
+test("#8887: legacy LKGP values are preserved during connection cleanup", async () => {
+  const doomedId = await createConnection("berry", "legacy");
+  const db = core.getDbInstance();
 
-  assert.equal(await providersDb.deleteProviderConnection((connection as { id: string }).id), true);
+  db.prepare("INSERT OR REPLACE INTO key_value (namespace, key, value) VALUES ('lkgp', ?, ?)").run(
+    "legacy:model-x",
+    "berry"
+  );
 
-  assert.deepEqual(await lkgpDb.getLKGP("combo-other", "model-y"), {
+  assert.equal(await providersDb.deleteProviderConnection(doomedId), true);
+  assert.deepEqual(await lkgpDb.getLKGP("legacy", "model-x"), { provider: "berry" });
+});
+
+test("#8887: deleting an unpinned connection does not disturb unrelated LKGP state", async () => {
+  const doomedId = await createConnection("berry", "unpinned");
+  const survivorId = await createConnection("cherry", "unrelated");
+
+  await lkgpDb.setLKGP("unrelated", "model-y", "cherry", survivorId);
+
+  assert.equal(await providersDb.deleteProviderConnection(doomedId), true);
+  assert.deepEqual(await lkgpDb.getLKGP("unrelated", "model-y"), {
     provider: "cherry",
-    connectionId: (other as { id: string }).id,
+    connectionId: survivorId,
   });
 });
