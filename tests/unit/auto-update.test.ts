@@ -426,3 +426,37 @@ test("resolveProjectRoot walks up from start dir to nearest package.json or .git
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("resolveProjectRoot prefers .git source checkout over package.json-only dir (linked install)", () => {
+  // A source install's standalone `dist/` ships its own package.json. The root
+  // walk must keep going to the parent that has .git so the git-based
+  // auto-update resolves PROJECT_ROOT to the checkout, not dist/.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-gitroot-"));
+  const distDir = path.join(tempRoot, "dist");
+  fs.mkdirSync(distDir, { recursive: true });
+  fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "omniroute" }));
+  fs.writeFileSync(path.join(distDir, "package.json"), JSON.stringify({ name: "omniroute" }));
+  fs.mkdirSync(path.join(tempRoot, ".git"));
+
+  try {
+    assert.equal(autoUpdate.resolveProjectRoot("/fallback", distDir), tempRoot);
+    assert.equal(autoUpdate.resolveProjectRoot("/fallback", tempRoot), tempRoot);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("resolveProjectRoot ignores synthetic standalone package.json without a name field", () => {
+  // The Next.js standalone writes {"type":"commonjs"} — not a valid project root.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-synth-"));
+  const standaloneDir = path.join(tempRoot, ".build", "next");
+  fs.mkdirSync(standaloneDir, { recursive: true });
+  fs.writeFileSync(path.join(standaloneDir, "package.json"), JSON.stringify({ type: "commonjs" }));
+  fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "omniroute" }));
+
+  try {
+    assert.equal(autoUpdate.resolveProjectRoot("/fallback", standaloneDir), tempRoot);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});

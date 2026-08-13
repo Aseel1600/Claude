@@ -34,14 +34,22 @@ export function resolveProjectRoot(
   startDir: string = typeof __dirname !== "undefined" ? __dirname : process.cwd()
 ): string {
   let dir = path.resolve(startDir);
+  let firstPackageDir: string | null = null;
   while (true) {
-    if (existsSync(path.join(dir, ".git"))) return dir;
-    if (existsSync(path.join(dir, "package.json")) && isValidPackageMarker(dir)) return dir;
+    const hasGit = existsSync(path.join(dir, ".git"));
+    const hasPackage = isValidPackageMarker(dir);
+    // Prefer a git source checkout over a package.json-only dir: a linked/source
+    // install's standalone `dist/` ships its own package.json, so stopping at the
+    // first package.json would resolve PROJECT_ROOT to dist/ and break the
+    // git-based auto-update (".git not found"). Remember the first valid
+    // package.json dir as a fallback in case no .git exists anywhere above.
+    if (hasGit) return dir;
+    if (hasPackage && firstPackageDir === null) firstPackageDir = dir;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return fallback;
+  return firstPackageDir ?? fallback;
 }
 
 const FALLBACK_CWD = process.env.HOME || homedir() || "/tmp";
