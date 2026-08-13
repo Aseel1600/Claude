@@ -342,9 +342,10 @@ import {
   scheduleL0Capture,
   evaluateL0CaptureGate,
   shouldCaptureComboResult,
-  createInMemoryL0Store,
   type L0CaptureController,
 } from "@/memory/integration/l0Capture.ts";
+import { getProductionL0MessageStore } from "@/memory/integration/runtime.ts";
+import { PRODUCTION_L1_TASK_ENQUEUER } from "@/memory/integration/distillationQueue.ts";
 import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
 import { getClaudeCodeCompatibleRequestDefaults } from "@/lib/providers/requestDefaults";
 import {
@@ -398,32 +399,23 @@ import { isSmallEnoughForSemanticCache } from "../utils/estimateSize.ts";
 // extractSystemRoleMessages extracted to chatCore/claudeSystemRole.ts (#3501); re-exported above so
 // existing importers (e.g. tests/unit/system-role-extraction.test.ts) keep resolving it from here.
 
-// Shared L0 capture controller builder. The store defaults to an in-memory
-// implementation so the pipeline never blocks on a missing storage layer
-// (the future Tencent / distillation storage layer will register a real store
-// via `setL0MessageStore`). The L1 enqueue stays a no-op until the distillation
-// worker is wired in.
-function buildL0CaptureController(args: {
+// Shared L0 capture controller builder. L0 writes and the downstream L1
+// distillation task both use the standalone memory.db runtime.
+export function buildL0CaptureController(args: {
   ownerId: string;
   sessionId: string;
   correlationId: string | null;
   comboExecutionKey: string | null;
   provider: string | null;
   model: string | null;
-  log: { debug?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void } | null | undefined;
+  log:
+    | { debug?: (...args: unknown[]) => void; warn?: (...args: unknown[]) => void }
+    | null
+    | undefined;
 }): L0CaptureController {
-  // The store is resolved lazily at schedule time so that a future registered
-  // store wins over the default. We keep a tiny in-memory fallback in the
-  // closure so the pipeline never crashes when no store is registered.
-  const fallback = createInMemoryL0Store();
-  void args; // owner/session/etc. are intentionally unused here — the store is registered separately.
   return {
-    store: fallback,
-    enqueueL1: {
-      enqueueL1Task() {
-        /* no-op until the L1 distillation worker is wired in */
-      },
-    },
+    store: getProductionL0MessageStore(),
+    enqueueL1: PRODUCTION_L1_TASK_ENQUEUER,
     log: args.log,
   };
 }
@@ -4917,11 +4909,7 @@ export async function handleChatCore({
     });
     // === /Quota Share POST-hook streaming ===
 
-    if (
-      memoryOwnerId &&
-      memorySettings?.captureEnabled &&
-      streamStatus === 200
-    ) {
+    if (memoryOwnerId && memorySettings?.captureEnabled && streamStatus === 200) {
       const gate = evaluateL0CaptureGate({
         ownerId: memoryOwnerId,
         isInternal: false,

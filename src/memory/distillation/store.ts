@@ -48,6 +48,11 @@ export interface DistillationTask {
   version: number;
 }
 
+export interface DistillationTaskResult {
+  payload: unknown;
+  fallbackEvidence: Array<{ kind: string; match: string }>;
+}
+
 export interface DistillationUsageRecord {
   taskId: string;
   scope: string;
@@ -109,7 +114,15 @@ export interface DistillationStore {
   ): Promise<boolean>;
 
   markRunning(taskId: string, ownerId: string): Promise<void>;
-  markSucceeded(taskId: string, ownerId: string): Promise<void>;
+  /** Extend the claimed/running task lease while long model calls are in flight. */
+  renewTaskLease(taskId: string, ownerId: string, leaseMs: number): Promise<boolean>;
+  /** Apply the structured result and transition to succeeded as one storage commit. */
+  completeTask(
+    task: DistillationTask,
+    ownerId: string,
+    result: DistillationTaskResult,
+    usage?: DistillationUsageRecord
+  ): Promise<void>;
   markRetry(
     taskId: string,
     ownerId: string,
@@ -123,6 +136,7 @@ export interface DistillationStore {
     reason: string,
     failureKind: DistillationDLQEntry["failureKind"]
   ): Promise<void>;
+  moveToDLQ(taskId: string, ownerId: string, entry: DistillationDLQEntry): Promise<void>;
   markSkippedBreaker(
     taskId: string,
     ownerId: string,
@@ -157,6 +171,7 @@ export class InMemoryDistillationStore implements DistillationStore {
   private readonly tasks = new Map<string, DistillationTask>();
   private readonly dlq: DistillationDLQEntry[] = [];
   private readonly usage: DistillationUsageRecord[] = [];
+  private readonly results = new Map<string, DistillationTaskResult>();
   private readonly locks = new Map<string, DistillationLock>();
 
   /** Test helper. */
@@ -169,11 +184,13 @@ export class InMemoryDistillationStore implements DistillationStore {
     tasks: DistillationTask[];
     dlq: DistillationDLQEntry[];
     usage: DistillationUsageRecord[];
+    results: Array<{ taskId: string; result: DistillationTaskResult }>;
   } {
     return {
       tasks: Array.from(this.tasks.values()).map((t) => ({ ...t })),
       dlq: [...this.dlq],
       usage: [...this.usage],
+      results: Array.from(this.results, ([taskId, result]) => ({ taskId, result })),
     };
   }
 
@@ -210,13 +227,30 @@ export class InMemoryDistillationStore implements DistillationStore {
     const t = this.tasks.get(taskId);
     if (!t) return;
     t.status = "running";
+    t.version += 1;
   }
 
-  async markSucceeded(taskId: string, _ownerId: string): Promise<void> {
-    const t = this.tasks.get(taskId);
-    if (!t) return;
-    t.status = "succeeded";
-    t.lastError = null;
+  async renewTaskLease(taskId: string, _ownerId: string, _leaseMs: number): Promise<boolean> {
+    const task = this.tasks.get(taskId);
+    return task?.status === "claimed" || task?.status === "running";
+  }
+
+  async completeTask(
+    task: DistillationTask,
+    _ownerId: string,
+    result: DistillationTaskResult,
+    usage?: DistillationUsageRecord
+  ): Promise<void> {
+    const current = this.tasks.get(task.id);
+    if (!current) throw new Error(`[memory.distillation] task not found: ${task.id}`);
+    if (current.status !== "claimed" && current.status !== "running") {
+      throw new Error(`[memory.distillation] task is not claimed: ${task.id}`);
+    }
+    current.status = "succeeded";
+    current.lastError = null;
+    current.version += 1;
+    this.results.set(task.id, result);
+    if (usage) this.recordUsageOnce(usage);
   }
 
   async markRetry(
@@ -245,6 +279,12 @@ export class InMemoryDistillationStore implements DistillationStore {
     if (!t) return;
     t.status = "failed_dlq";
     t.lastError = reason;
+    t.version += 1;
+  }
+
+  async moveToDLQ(taskId: string, ownerId: string, entry: DistillationDLQEntry): Promise<void> {
+    await this.markDLQ(taskId, ownerId, entry.error, entry.failureKind);
+    await this.appendDLQ(entry);
   }
 
   async markSkippedBreaker(
@@ -259,6 +299,7 @@ export class InMemoryDistillationStore implements DistillationStore {
     // so the same task is not re-claimed until the breaker can recover.
     t.notBefore = Math.max(t.notBefore, notBeforeMs);
     t.status = "queued";
+    t.version += 1;
   }
 
   async appendDLQ(entry: DistillationDLQEntry): Promise<void> {
@@ -286,6 +327,11 @@ export class InMemoryDistillationStore implements DistillationStore {
   }
 
   async recordUsage(record: DistillationUsageRecord): Promise<void> {
+    this.recordUsageOnce(record);
+  }
+
+  private recordUsageOnce(record: DistillationUsageRecord): void {
+    if (this.usage.some((existing) => existing.taskId === record.taskId)) return;
     this.usage.push(record);
   }
 
@@ -301,19 +347,10 @@ export class InMemoryDistillationStore implements DistillationStore {
 }
 
 /**
- * Default factory. The "real" adapter the repository agent ships is
- * dynamically imported at first use so the worker boots cleanly even if
- * the storage layer is incomplete — the failure mode is a structured
- * `StoreUnavailable` error on every claim, which the worker treats as
- * "no task available" and never crashes.
- *
- * Expected real-export surface (the repository agent should publish
- * `createDistillationStore` from `@/memory/db/repositories/distillation.ts`):
- *
- *   export function createDistillationStore(): Promise<DistillationStore>;
- *
- * If the dynamic import fails (module missing / throws on init) we fall
- * back to the in-memory adapter so dev mode is never broken.
+ * Default production-store factory. The worker is restart-recoverable by
+ * contract, so production must never silently fall back to process memory.
+ * Tests that need an ephemeral store instantiate `InMemoryDistillationStore`
+ * explicitly.
  */
 export interface DistillationStoreUnavailableError extends Error {
   readonly code: "DISTILLATION_STORE_UNAVAILABLE";
@@ -340,28 +377,26 @@ export function makeStoreUnavailable(message: string): DistillationStoreUnavaila
  */
 export async function createDefaultDistillationStore(): Promise<DistillationStore> {
   try {
-    const mod = (await import("@/memory/db/repositories/distillation.ts" as string).catch(
-      () => null
-    )) as { createDistillationStore?: () => Promise<DistillationStore> | DistillationStore } | null;
-    if (mod?.createDistillationStore) {
-      const result = await mod.createDistillationStore();
-      if (result) return result;
-    }
-  } catch {
-    /* fallthrough */
-  }
-  try {
-    const mod = (await import("@/memory/db/tasks/settings.ts" as string).catch(() => null)) as {
+    const mod = (await import("@/memory/db/repositories/distillation.ts" as string)) as {
       createDistillationStore?: () => Promise<DistillationStore> | DistillationStore;
-    } | null;
-    if (mod?.createDistillationStore) {
-      const result = await mod.createDistillationStore();
-      if (result) return result;
+    };
+    if (typeof mod.createDistillationStore !== "function") {
+      throw makeStoreUnavailable("Persistent distillation store factory is missing");
     }
-  } catch {
-    /* fallthrough */
+    const store = await mod.createDistillationStore();
+    if (!store) throw makeStoreUnavailable("Persistent distillation store factory returned empty");
+    return store;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      (error as { code?: unknown }).code === "DISTILLATION_STORE_UNAVAILABLE"
+    ) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw makeStoreUnavailable(`Persistent distillation store unavailable: ${message}`);
   }
-  return new InMemoryDistillationStore();
 }
 
 /** Test-only helper to wipe global state — never used in production. */

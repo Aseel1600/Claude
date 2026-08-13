@@ -150,4 +150,5 @@ export {
   __resetDistillationWorkerForTests,
   type StartDeps,
   type StopOptions,
+  type WorkerRuntimeOptions,
 } from "./worker.ts";

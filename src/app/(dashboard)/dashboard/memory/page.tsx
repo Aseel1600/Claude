@@ -9,7 +9,7 @@
  * removes `lineage` from the URL.
  */
 
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { AppleButton, AppleSurface } from "@/shared/components";
@@ -31,6 +31,11 @@ const TAB_LABEL_KEY: Record<TabId, string> = {
   settings: "tabs.settings",
 };
 
+interface MemoryOwnerOption {
+  id: string;
+  name: string;
+}
+
 function parseLineageFilter(raw: string | null): string[] | null {
   if (!raw) return null;
   const ids = raw
@@ -45,12 +50,78 @@ function MemoryPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawTab = searchParams.get("tab") ?? "";
+  const requestedOwnerApiKeyId = searchParams.get("apiKeyId") ?? "";
+  const [ownerOptions, setOwnerOptions] = useState<MemoryOwnerOption[]>([]);
+  const [ownersLoading, setOwnersLoading] = useState(true);
+  const [ownersError, setOwnersError] = useState(false);
   const activeTab: TabId = (TAB_IDS as readonly string[]).includes(rawTab)
     ? (rawTab as TabId)
     : "l0";
-  const lineage = useMemo(
-    () => parseLineageFilter(searchParams.get("lineage")),
-    [searchParams]
+  const lineage = useMemo(() => parseLineageFilter(searchParams.get("lineage")), [searchParams]);
+  const ownerApiKeyId = useMemo(() => {
+    if (ownerOptions.some((option) => option.id === requestedOwnerApiKeyId)) {
+      return requestedOwnerApiKeyId;
+    }
+    return ownerOptions[0]?.id ?? "";
+  }, [ownerOptions, requestedOwnerApiKeyId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/keys?limit=100", {
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("api_key_list_failed");
+        return response.json() as Promise<{ keys?: unknown[] }>;
+      })
+      .then((payload) => {
+        if (controller.signal.aborted) return;
+        const rows = Array.isArray(payload?.keys) ? payload.keys : [];
+        setOwnerOptions(
+          rows.flatMap((value): MemoryOwnerOption[] => {
+            if (!value || typeof value !== "object") return [];
+            const row = value as {
+              id?: unknown;
+              name?: unknown;
+              isActive?: unknown;
+              isBanned?: unknown;
+            };
+            if (typeof row.id !== "string" || row.isActive === false || row.isBanned === true) {
+              return [];
+            }
+            return [{ id: row.id, name: typeof row.name === "string" ? row.name : row.id }];
+          })
+        );
+        setOwnersError(false);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setOwnerOptions([]);
+          setOwnersError(true);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setOwnersLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    if (!ownerApiKeyId || requestedOwnerApiKeyId === ownerApiKeyId) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("apiKeyId", ownerApiKeyId);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [ownerApiKeyId, requestedOwnerApiKeyId, router, searchParams]);
+
+  const setOwner = useCallback(
+    (apiKeyId: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("apiKeyId", apiKeyId);
+      params.delete("lineage");
+      router.replace(`?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
   );
 
   const setTab = useCallback(
@@ -77,7 +148,51 @@ function MemoryPageContent() {
     <div className="space-y-6">
       <MemoryConceptCard />
 
-      <AppleSurface className="p-1.5 w-fit" role="tablist" aria-label={t("tabs.tablist")}>
+      <AppleSurface className="p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <label htmlFor="memory-owner-select" className="text-sm font-medium text-text-main">
+              API key owner
+            </label>
+            <p className="mt-1 text-xs text-text-muted">
+              Memory is isolated per API key. Select the owner to inspect and manage.
+            </p>
+          </div>
+          {ownersLoading ? (
+            <p className="text-xs text-text-muted" role="status">
+              {t("common.loading")}
+            </p>
+          ) : ownersError ? (
+            <p className="text-xs text-red-500" role="alert">
+              Failed to load API keys
+            </p>
+          ) : ownerOptions.length === 0 ? (
+            <p className="text-xs text-text-muted" data-testid="memory-owner-empty">
+              No active API keys are available.
+            </p>
+          ) : (
+            <select
+              id="memory-owner-select"
+              data-testid="memory-owner-select"
+              value={ownerApiKeyId}
+              onChange={(event) => setOwner(event.target.value)}
+              className="min-w-[14rem] max-w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
+            >
+              {ownerOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name} · {option.id}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </AppleSurface>
+
+      <AppleSurface
+        className="p-1.5 w-fit max-w-full"
+        role="tablist"
+        aria-label={t("tabs.tablist")}
+      >
         <div className="flex gap-1 flex-wrap">
           {TAB_IDS.map((tab) => (
             <button
@@ -89,8 +204,8 @@ function MemoryPageContent() {
               onClick={() => setTab(tab)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors ${
                 activeTab === tab
-                ? "bg-primary text-white shadow-sm"
-                : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-text-muted hover:text-text-main hover:bg-black/5 dark:hover:bg-white/5"
               }`}
             >
               {t(TAB_LABEL_KEY[tab])}
@@ -118,13 +233,19 @@ function MemoryPageContent() {
         </AppleSurface>
       )}
 
-      <div role="tabpanel" data-testid={`tabpanel-${activeTab}`}>
-        {activeTab === "l0" && <L0Tab initialSessionId={lineage?.[0] ?? null} />}
-        {activeTab === "l1" && <L1Tab lineageFilter={lineage} onClearLineage={clearLineage} />}
-        {activeTab === "l2" && <L2Tab />}
-        {activeTab === "l3" && <L3Tab />}
-        {activeTab === "settings" && <DistillationSettingsTab />}
-      </div>
+      {ownerApiKeyId ? (
+        <div role="tabpanel" data-testid={`tabpanel-${activeTab}`}>
+          {activeTab === "l0" && (
+            <L0Tab initialSessionId={lineage?.[0] ?? null} apiKeyId={ownerApiKeyId} />
+          )}
+          {activeTab === "l1" && (
+            <L1Tab lineageFilter={lineage} onClearLineage={clearLineage} apiKeyId={ownerApiKeyId} />
+          )}
+          {activeTab === "l2" && <L2Tab apiKeyId={ownerApiKeyId} />}
+          {activeTab === "l3" && <L3Tab apiKeyId={ownerApiKeyId} />}
+          {activeTab === "settings" && <DistillationSettingsTab apiKeyId={ownerApiKeyId} />}
+        </div>
+      ) : null}
     </div>
   );
 }

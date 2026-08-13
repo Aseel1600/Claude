@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { validatedJsonBody } from "@/shared/validation/helpers";
 import { DistillationPutSchema } from "@/shared/schemas/memoryFourLayer";
 import { createErrorResponse } from "@/lib/api/errorResponse";
+import { ownerFromApiKeyId } from "@/memory/integration/runtime";
 
 import {
   audit,
@@ -60,7 +61,16 @@ export async function GET(request: Request) {
 
   try {
     const service = getService();
-    const selector = await service.getDistillationSelector(actor, effectiveApiKeyId);
+    const selector = await service.getDistillationSelector(
+      effectiveApiKeyId
+        ? {
+            actor,
+            ownerApiKeyId: effectiveApiKeyId,
+            owner: ownerFromApiKeyId(effectiveApiKeyId),
+          }
+        : { actor },
+      effectiveApiKeyId
+    );
     return NextResponse.json({ data: selector });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "memory four-layer storage not wired") {
@@ -121,7 +131,18 @@ export async function PUT(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.setDistillationSelector(actor, body.data);
+    const targetApiKeyId =
+      body.data.scope === "self" ? (body.data.apiKeyId ?? actor.apiKeyId) : null;
+    const result = await service.setDistillationSelector(
+      targetApiKeyId
+        ? {
+            actor,
+            ownerApiKeyId: targetApiKeyId,
+            owner: ownerFromApiKeyId(targetApiKeyId),
+          }
+        : { actor },
+      body.data
+    );
     await audit({
       action: "memory.distillation_model.set",
       actor: actor,
@@ -184,10 +205,17 @@ export async function DELETE(request: Request) {
 
   try {
     const service = getService();
+    const targetApiKeyId = scope === "self" ? (apiKeyHint ?? actor.apiKeyId) : null;
     const ok = await service.deleteDistillationSelector(
-      actor,
+      targetApiKeyId
+        ? {
+            actor,
+            ownerApiKeyId: targetApiKeyId,
+            owner: ownerFromApiKeyId(targetApiKeyId),
+          }
+        : { actor },
       scope,
-      scope === "self" ? actor.apiKeyId : null
+      targetApiKeyId
     );
     if (!ok) {
       return createErrorResponse({

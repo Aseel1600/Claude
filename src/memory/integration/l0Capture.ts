@@ -89,6 +89,8 @@ export interface L1TaskEnqueuer {
     sessionId: string;
     correlationId: string | null;
     capturedAt: string;
+    /** The exact records that were committed successfully to L0. */
+    records: readonly L0MessageRecord[];
   }): void | Promise<void>;
 }
 
@@ -209,7 +211,9 @@ const NON_USER_INPUT_TYPES = new Set([
  * Read the last visible text from a chat-style `messages` array. NO tools,
  * NO system, NO reasoning — visible text only.
  */
-export function extractLastVisibleUserText(body: Record<string, unknown> | null | undefined): string {
+export function extractLastVisibleUserText(
+  body: Record<string, unknown> | null | undefined
+): string {
   if (!body || typeof body !== "object") return "";
   const messages = Array.isArray(body.messages) ? body.messages : null;
   if (messages) {
@@ -256,7 +260,13 @@ export function extractLastVisibleAssistantText(
     if (Array.isArray(content)) {
       const text = (content as Record<string, unknown>[])
         .filter((p) => USER_CONTENT_TYPES.has(typeof p?.type === "string" ? p.type : ""))
-        .map((p) => (typeof p?.text === "string" ? p.text : typeof p?.input_text === "string" ? p.input_text : ""))
+        .map((p) =>
+          typeof p?.text === "string"
+            ? p.text
+            : typeof p?.input_text === "string"
+              ? p.input_text
+              : ""
+        )
         .filter(Boolean)
         .join("\n");
       if (text) return text;
@@ -292,7 +302,12 @@ function readVisibleText(content: unknown): string {
       const pp = p as Record<string, unknown>;
       const ptype = typeof pp.type === "string" ? pp.type : "";
       if (ptype && !USER_CONTENT_TYPES.has(ptype)) continue;
-      const t = typeof pp.text === "string" ? pp.text : typeof pp.input_text === "string" ? pp.input_text : "";
+      const t =
+        typeof pp.text === "string"
+          ? pp.text
+          : typeof pp.input_text === "string"
+            ? pp.input_text
+            : "";
       if (t) parts.push(t);
     }
   }
@@ -352,7 +367,9 @@ export async function stripCodeBlocks(text: string): Promise<StripResult> {
 }
 
 let _tencentModulePromise: Promise<unknown> | null = null;
-async function importTencentStripCodeBlocks(): Promise<{ stripCodeBlocks: (input: string) => unknown } | null> {
+async function importTencentStripCodeBlocks(): Promise<{
+  stripCodeBlocks: (input: string) => unknown;
+} | null> {
   if (_tencentModulePromise === null) {
     _tencentModulePromise = import(
       // tencentDB agent memory snapshot helper — wired dynamically so the
@@ -360,7 +377,7 @@ async function importTencentStripCodeBlocks(): Promise<{ stripCodeBlocks: (input
       // does not ship it), the dynamic import rejects and we fall back.
       // The path is intentionally a constant so tree-shaking does not bundle
       // the optional helper into the chat pipeline.
-      "../../../src/memory/tencent/stripCodeBlocks.ts"
+      "../tencent/text/sanitize.ts"
     ).catch(() => null);
   }
   const mod = await _tencentModulePromise;
@@ -556,6 +573,7 @@ export function scheduleL0Capture(
               sessionId: first.sessionId,
               correlationId: first.metadata.correlation_id,
               capturedAt: first.createdAt,
+              records: finalRecords,
             })
           );
         } catch (err) {

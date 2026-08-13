@@ -50,15 +50,16 @@ export const DEFAULT_DISTILLATION_MAX_TOKENS = 8192;
 export const DEFAULT_DISTILLATION_SECRET_BYTES = 32;
 
 declare global {
-   
   var __omnirouteDistillationSecret: Uint8Array | undefined;
 }
 
 function parsePositiveInt(raw: string | undefined, fallback: number, max: number): number {
   if (raw === undefined) return fallback;
   const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  const clamped = Math.min(Math.max(Math.floor(n), 1), max);
+  // `0` is not a positive integer — treat it as unset so the caller falls
+  // back to the default (e.g. a concurrency of `0` must not silently become 1).
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  const clamped = Math.min(Math.floor(n), max);
   return clamped;
 }
 
@@ -193,6 +194,7 @@ export function isWorkerStartAllowed(
   if (isBuildPhaseFlag) return false;
   if (isCloudFlag) return false;
   if (isAutomatedTestFlag) return false;
-  if (env.OMNIROUTE_DISABLE_BACKGROUND_SERVICES?.toLowerCase() === "true") return false;
+  const disabled = env.OMNIROUTE_DISABLE_BACKGROUND_SERVICES?.trim().toLowerCase();
+  if (disabled && new Set(["1", "true", "yes", "on"]).has(disabled)) return false;
   return true;
 }

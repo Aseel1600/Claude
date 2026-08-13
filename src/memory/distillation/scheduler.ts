@@ -12,7 +12,7 @@
  *   Idle back-off when there is no work:
  *     90s after the last successful poll.
  *   L2 (scene) scheduling:
- *     delay 90s after the underlying conversation closes
+ *     delay 10s after successful L1 distillation
  *     minimum 15min debounce between two scene distillations for the same scope
  *     maximum 60min hard cap; further scene requests fall into the L1 stream.
  *   L3 (persona): immediate — no debounce; persona drift is unbounded.
@@ -23,14 +23,33 @@
 
 import type { DistillationTaskKind } from "./store.ts";
 
+export const L1_IDLE_TIMEOUT_MS = 10 * 60_000;
+export const L1_MAX_CONVERSATION_THRESHOLD = 5;
+export const L1_READY_DELAY_MS = 1_000;
 export const WARMUP_RAMP_MS: readonly number[] = Object.freeze([1000, 2000, 4000, 5000]);
 export const IDLE_BACKOFF_MS = 90_000;
-export const L2_INITIAL_DELAY_MS = 90_000;
+export const L2_INITIAL_DELAY_MS = 10_000;
 export const L2_MIN_DEBOUNCE_MS = 15 * 60_000;
 export const L2_MAX_DEBOUNCE_MS = 60 * 60_000;
 export const L3_IMMEDIATE_DELAY_MS = 0;
 export const RETRY_BACKOFF_MS: readonly number[] = Object.freeze([5_000, 15_000, 45_000]);
 export const MAX_RETRY_ATTEMPTS = RETRY_BACKOFF_MS.length;
+
+export function nextL1ConversationThreshold(completedRuns: number): number {
+  const completed = Math.max(0, Math.floor(completedRuns));
+  return Math.min(L1_MAX_CONVERSATION_THRESHOLD, 2 ** completed);
+}
+
+export function nextL1ScheduleMs(input: {
+  roundsSinceLast: number;
+  completedRuns: number;
+  now: number;
+}): number {
+  const threshold = nextL1ConversationThreshold(input.completedRuns);
+  return input.roundsSinceLast >= threshold
+    ? input.now + L1_READY_DELAY_MS
+    : input.now + L1_IDLE_TIMEOUT_MS;
+}
 
 export function nextWarmupDelayMs(consecutiveSuccesses: number): number {
   const idx = Math.min(Math.max(consecutiveSuccesses, 0), WARMUP_RAMP_MS.length - 1);
@@ -74,6 +93,10 @@ export function nextSceneScheduleMs(lastSceneFiredAtMs: number, now: number): nu
   if (!lastSceneFiredAtMs || lastSceneFiredAtMs <= 0) return now + L2_INITIAL_DELAY_MS;
   const earliestAllowed = lastSceneFiredAtMs + L2_MIN_DEBOUNCE_MS;
   const hardCap = lastSceneFiredAtMs + L2_MAX_DEBOUNCE_MS;
+  // Once the hard cap has elapsed, the scene is already due. Return `now`
+  // rather than a timestamp in the past so callers get an explicit
+  // "run immediately" schedule.
+  if (hardCap <= now) return now;
   return Math.min(Math.max(earliestAllowed, now + L2_INITIAL_DELAY_MS), hardCap);
 }
 

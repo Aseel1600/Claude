@@ -20,6 +20,7 @@ import {
 } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
+  appendOwnerQuery,
   deleteJson,
   postJson,
   putJson,
@@ -29,12 +30,17 @@ import {
 } from "../../hooks/useMemoryLayersApi";
 
 interface EditState {
-  id: string | null;
+  id: string;
   summary: string;
   content: string;
+  expectedVersion: number;
 }
 
-export default function L2Tab() {
+interface Props {
+  apiKeyId?: string | null;
+}
+
+export default function L2Tab({ apiKeyId }: Props) {
   const t = useTranslations("memory");
   const tCommon = useTranslations("memory.common");
   const notify = useNotificationStore();
@@ -43,19 +49,28 @@ export default function L2Tab() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
 
-  const scenes = useL2Scenes({ query: search });
+  const scenes = useL2Scenes({ query: search }, { apiKeyId });
   const items = useMemo(() => scenes.data ?? [], [scenes.data]);
 
-  const openEdit = (s: L2Scene) =>
-    setEditState({ id: s.id, summary: s.summary, content: s.content });
+  const openEdit = (scene: L2Scene) =>
+    setEditState({
+      id: scene.id,
+      summary: scene.summary,
+      content: scene.content,
+      expectedVersion: scene.version,
+    });
 
   const handleSave = async () => {
     if (!editState?.id) return;
     setBusy(true);
-    const ok = await putJson(`/api/memory/l2/scenes/${encodeURIComponent(editState.id)}`, {
-      summary: editState.summary,
-      content: editState.content,
-    });
+    const ok = await putJson(
+      appendOwnerQuery(`/api/memory/l2/${encodeURIComponent(editState.id)}`, apiKeyId),
+      {
+        summary: editState.summary,
+        content: editState.content,
+        expectedVersion: editState.expectedVersion,
+      }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(tCommon("saveFailed"));
@@ -68,7 +83,10 @@ export default function L2Tab() {
 
   const handleDelete = async (id: string) => {
     setBusy(true);
-    const ok = await deleteJson(`/api/memory/l2/scenes/${encodeURIComponent(id)}`);
+    const ok = await deleteJson(
+      appendOwnerQuery(`/api/memory/l2/${encodeURIComponent(id)}`, apiKeyId),
+      { mode: "soft" }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(tCommon("deleteFailed"));
@@ -80,7 +98,10 @@ export default function L2Tab() {
   };
 
   const handleRegenerate = async (id: string) => {
-    const ok = await postJson(`/api/memory/l2/scenes/${encodeURIComponent(id)}/regenerate`, {});
+    const ok = await postJson(
+      appendOwnerQuery(`/api/memory/l2/${encodeURIComponent(id)}/regenerate`, apiKeyId),
+      {}
+    );
     if (ok == null) {
       notify.error(tCommon("regenerateFailed"));
       return;
@@ -130,7 +151,7 @@ export default function L2Tab() {
                 key={s.id}
                 className="py-3"
                 data-testid={`l2-scene-${s.id}`}
-                data-status={s.status}
+                data-status={s.deletedAt ? "deleted" : "active"}
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0 space-y-1.5">
@@ -140,53 +161,44 @@ export default function L2Tab() {
                         {t("l2.heat")}: {s.heat.toFixed(2)}
                       </span>
                       <span className="text-text-muted">
-                        {t("l2.times")}: {s.times}
+                        {s.sceneName}
+                        {s.groupKey ? ` / ${s.groupKey}` : ""}
                       </span>
                       <span className="text-text-muted">
                         {tCommon("version")}: {s.version}
                       </span>
                       <span className="text-text-muted">
-                        {t("l2.modifier")}: {s.modifier}
+                        {t("l2.modifier")}: {s.lastModifiedBy}
                       </span>
-                      {s.status === "pending" && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 font-medium">
-                          {t("l2.pending")}
-                        </span>
-                      )}
                     </div>
-                    {s.summary && (
-                      <p className="text-sm font-medium text-text-main">{s.summary}</p>
-                    )}
+                    {s.summary && <p className="text-sm font-medium text-text-main">{s.summary}</p>}
                     <p className="text-xs text-text-muted whitespace-pre-wrap break-words">
                       {s.content}
                     </p>
-                    {(s.atomIds?.length ?? 0) > 0 && (
-                      <a
-                        className="text-[11px] text-primary hover:underline"
-                        href={`?tab=l1&lineage=${encodeURIComponent((s.atomIds ?? []).join(","))}`}
-                        data-testid={`l2-atoms-${s.id}`}
-                      >
-                        {t("l2.atoms")} ({s.atomIds?.length ?? 0})
-                      </a>
-                    )}
-                    {s.personaId && (
-                      <a
-                        className="ml-2 text-[11px] text-primary hover:underline"
-                        href={`?tab=l1&lineage=${encodeURIComponent(s.personaId)}`}
-                        data-testid={`l2-persona-${s.id}`}
-                      >
-                        {t("l2.persona")}
-                      </a>
-                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    <AppleButton size="sm" variant="secondary" onClick={() => openEdit(s)} data-testid={`l2-edit-${s.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => openEdit(s)}
+                      data-testid={`l2-edit-${s.id}`}
+                    >
                       {tCommon("edit")}
                     </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => handleRegenerate(s.id)} data-testid={`l2-regenerate-${s.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="tertiary"
+                      onClick={() => handleRegenerate(s.id)}
+                      data-testid={`l2-regenerate-${s.id}`}
+                    >
                       {tCommon("regenerate")}
                     </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => setDeleteId(s.id)} data-testid={`l2-delete-${s.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="tertiary"
+                      onClick={() => setDeleteId(s.id)}
+                      data-testid={`l2-delete-${s.id}`}
+                    >
                       {tCommon("delete")}
                     </AppleButton>
                   </div>
@@ -206,7 +218,13 @@ export default function L2Tab() {
             <AppleButton variant="tertiary" onClick={() => setEditState(null)} disabled={busy}>
               {tCommon("cancel")}
             </AppleButton>
-            <AppleButton variant="primary" loading={busy} disabled={!editState?.summary.trim()} onClick={handleSave} data-testid="l2-save">
+            <AppleButton
+              variant="primary"
+              loading={busy}
+              disabled={!editState?.summary.trim()}
+              onClick={handleSave}
+              data-testid="l2-save"
+            >
               {tCommon("save")}
             </AppleButton>
           </>

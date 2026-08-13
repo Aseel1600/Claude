@@ -10,15 +10,10 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  AppleButton,
-  AppleCard,
-  AppleField,
-  AppleSurface,
-  Modal,
-} from "@/shared/components";
+import { AppleButton, AppleCard, AppleField, AppleSurface, Modal } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
+  appendOwnerQuery,
   deleteJson,
   postJson,
   putJson,
@@ -29,7 +24,11 @@ import {
 
 const MAX_LEN = 2000;
 
-export default function L3Tab() {
+interface Props {
+  apiKeyId?: string | null;
+}
+
+export default function L3Tab({ apiKeyId }: Props) {
   const t = useTranslations("memory");
   const tCommon = useTranslations("memory.common");
   const notify = useNotificationStore();
@@ -37,7 +36,7 @@ export default function L3Tab() {
   const [clearId, setClearId] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
 
-  const prompts = useL3Prompts();
+  const prompts = useL3Prompts({ apiKeyId });
   const items = useMemo(() => prompts.data ?? [], [prompts.data]);
 
   const handleSave = async () => {
@@ -47,10 +46,14 @@ export default function L3Tab() {
       return;
     }
     setBusy(true);
-    const ok = await putJson(`/api/memory/l3/prompts/${encodeURIComponent(editState.id)}`, {
-      mode: editState.mode,
-      content: editState.content,
-    });
+    const ok = await putJson(
+      appendOwnerQuery(`/api/memory/l3/${encodeURIComponent(editState.id)}`, apiKeyId),
+      {
+        promptMode: editState.promptMode,
+        content: editState.content,
+        expectedVersion: editState.version,
+      }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(tCommon("saveFailed"));
@@ -63,7 +66,10 @@ export default function L3Tab() {
 
   const handleClear = async (id: string) => {
     setBusy(true);
-    const ok = await deleteJson(`/api/memory/l3/prompts/${encodeURIComponent(id)}`);
+    const ok = await deleteJson(
+      appendOwnerQuery(`/api/memory/l3/${encodeURIComponent(id)}`, apiKeyId),
+      { mode: "soft" }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(tCommon("deleteFailed"));
@@ -74,8 +80,8 @@ export default function L3Tab() {
     prompts.reload();
   };
 
-  const handleRegenerate = async (id: string) => {
-    const ok = await postJson(`/api/memory/l3/prompts/${encodeURIComponent(id)}/regenerate`, {});
+  const handleRegenerate = async () => {
+    const ok = await postJson(appendOwnerQuery("/api/memory/l3", apiKeyId), {});
     if (ok == null) {
       notify.error(t("l3.regenerateFailed"));
       return;
@@ -113,20 +119,20 @@ export default function L3Tab() {
                 key={p.id}
                 className="py-3"
                 data-testid={`l3-prompt-${p.id}`}
-                data-mode={p.mode}
+                data-mode={p.promptMode}
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2 text-[11px]">
                       <span className="font-mono text-text-muted">{truncId(p.id)}</span>
                       <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">
-                        {t(p.mode === "chat" ? "l3.modeChat" : "l3.modeCode")}
+                        {t(p.promptMode === "chat" ? "l3.modeChat" : "l3.modeCode")}
                       </span>
                       <span className="text-text-muted">
                         {tCommon("version")}: {p.version}
                       </span>
                       <span className="text-text-muted">
-                        {t("l3.modifier")}: {p.modifier}
+                        {t("l3.modifier")}: {p.lastModifiedBy}
                       </span>
                       <span className="text-text-muted">
                         {t("l3.characterCount", { count: p.content.length })}
@@ -135,33 +141,30 @@ export default function L3Tab() {
                     <p className="text-sm text-text-main whitespace-pre-wrap break-words font-mono bg-surface/40 p-3 rounded-lg">
                       {p.content}
                     </p>
-                    {(p.lineage?.l1Ids?.length ?? 0) > 0 && (
-                      <a
-                        className="text-[11px] text-primary hover:underline"
-                        href={`?tab=l1&lineage=${encodeURIComponent((p.lineage?.l1Ids ?? []).join(","))}`}
-                        data-testid={`l3-lineage-l1-${p.id}`}
-                      >
-                        {t("l3.viewL1")} ({(p.lineage?.l1Ids ?? []).length})
-                      </a>
-                    )}
-                    {(p.lineage?.l2Ids?.length ?? 0) > 0 && (
-                      <a
-                        className="ml-2 text-[11px] text-primary hover:underline"
-                        href={`?tab=l2&lineage=${encodeURIComponent((p.lineage?.l2Ids ?? []).join(","))}`}
-                        data-testid={`l3-lineage-l2-${p.id}`}
-                      >
-                        {t("l3.viewL2")} ({(p.lineage?.l2Ids ?? []).length})
-                      </a>
-                    )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    <AppleButton size="sm" variant="secondary" onClick={() => setEditState(p)} data-testid={`l3-edit-${p.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setEditState(p)}
+                      data-testid={`l3-edit-${p.id}`}
+                    >
                       {tCommon("edit")}
                     </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => handleRegenerate(p.id)} data-testid={`l3-regenerate-${p.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="tertiary"
+                      onClick={handleRegenerate}
+                      data-testid={`l3-regenerate-${p.id}`}
+                    >
                       {tCommon("regenerate")}
                     </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => setClearId(p.id)} data-testid={`l3-clear-${p.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="tertiary"
+                      onClick={() => setClearId(p.id)}
+                      data-testid={`l3-clear-${p.id}`}
+                    >
                       {tCommon("clear")}
                     </AppleButton>
                   </div>
@@ -197,7 +200,7 @@ export default function L3Tab() {
           <div className="space-y-3">
             <AppleField id="l3-edit-mode" label={t("l3.mode")}>
               <span className="text-xs px-2 py-1 rounded-full bg-surface border border-border text-text-muted">
-                {editState.mode === "chat" ? t("l3.modeChat") : t("l3.modeCode")}
+                {editState.promptMode === "chat" ? t("l3.modeChat") : t("l3.modeCode")}
               </span>
             </AppleField>
             <AppleField

@@ -50,6 +50,7 @@ export class UsageBatcher {
   private readonly sched: IntervalScheduler;
   private pending: DistillationUsageRecord[] = [];
   private timer: ReturnType<IntervalScheduler["setInterval"]> | null = null;
+  private flushInFlight: Promise<number> | null = null;
 
   constructor(store: DistillationStore, options: UsageBatcherOptions = {}) {
     this.store = store;
@@ -85,18 +86,29 @@ export class UsageBatcher {
   }
 
   async flush(): Promise<number> {
+    // Auto-flush and explicit flush may race. Join the active batch instead of
+    // reporting 0 while the store write is still in progress.
+    if (this.flushInFlight) return this.flushInFlight;
     if (this.pending.length === 0) return 0;
     const drained = this.pending;
     this.pending = [];
-    for (const record of drained) {
-      try {
-        await this.store.recordUsage(record);
-      } catch {
-        // Re-queue at the head so a transient store failure does not lose data.
-        this.pending.unshift(record);
+    const run = (async () => {
+      for (const record of drained) {
+        try {
+          await this.store.recordUsage(record);
+        } catch {
+          // Re-queue at the head so a transient store failure does not lose data.
+          this.pending.unshift(record);
+        }
       }
+      return drained.length;
+    })();
+    this.flushInFlight = run;
+    try {
+      return await run;
+    } finally {
+      if (this.flushInFlight === run) this.flushInFlight = null;
     }
-    return drained.length;
   }
 
   async stop(): Promise<number> {
@@ -104,7 +116,10 @@ export class UsageBatcher {
       this.sched.clearInterval(this.timer);
       this.timer = null;
     }
-    return this.flush();
+    let flushed = 0;
+    if (this.flushInFlight) flushed += await this.flushInFlight;
+    flushed += await this.flush();
+    return flushed;
   }
 
   /** Test-only. */

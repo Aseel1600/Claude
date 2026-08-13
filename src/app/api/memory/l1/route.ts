@@ -58,8 +58,8 @@ export async function GET(request: Request) {
     const service = getService();
     const isSearch = Boolean(parsed.data.q && parsed.data.q.trim().length > 0);
     const result = isSearch
-      ? await service.searchL1(owner.actor, parsed.data)
-      : await service.listL1(owner.actor, parsed.data);
+      ? await service.searchL1(owner, parsed.data)
+      : await service.listL1(owner, parsed.data);
     return NextResponse.json({
       data: result.data,
       pagination: buildPagination({
@@ -83,23 +83,9 @@ export async function POST(request: Request) {
   const body = await validatedJsonBody(request, L1CreateSchema);
   if (!body.success) return body.response;
 
-  // Self callers may only create against their own key.
-  if (owner.actor.actor === "apiKey" && !owner.actor.isManagement) {
-    if (body.data.apiKeyId && body.data.apiKeyId !== owner.actor.apiKeyId) {
-      return createErrorResponse({
-        status: 403,
-        message: "Self API key cannot create on behalf of another key",
-        type: "invalid_request",
-      });
-    }
-  }
-
   try {
     const service = getService();
-    const entry = await service.createL1(owner.actor, {
-      ...body.data,
-      apiKeyId: body.data.apiKeyId ?? owner.ownerApiKeyId ?? undefined,
-    });
+    const entry = await service.createL1(owner, body.data);
     await audit({
       action: "memory.l1.create",
       actor: owner.actor,

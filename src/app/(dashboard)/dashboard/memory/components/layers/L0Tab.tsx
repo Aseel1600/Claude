@@ -10,33 +10,29 @@
  * restore / permanent-delete flows are double-confirmed.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  AppleButton,
-  AppleCard,
-  AppleSurface,
-  Modal,
-} from "@/shared/components";
+import { AppleButton, AppleCard, AppleSurface, Modal } from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
+  appendOwnerQuery,
   deleteJson,
   postJson,
   truncId,
   useL0Messages,
   useL0RecycleBin,
   type L0Message,
+  type L0RecycleBinEntry,
 } from "../../hooks/useMemoryLayersApi";
 
 interface Props {
   initialSessionId?: string | null;
+  apiKeyId?: string | null;
 }
 
 const ROLE_TONE: Record<L0Message["role"], string> = {
   user: "bg-blue-500/15 text-blue-500",
   assistant: "bg-emerald-500/15 text-emerald-500",
-  system: "bg-amber-500/15 text-amber-500",
-  tool: "bg-violet-500/15 text-violet-500",
 };
 
 function formatTimestamp(iso: string): string {
@@ -48,7 +44,7 @@ function formatTimestamp(iso: string): string {
   }
 }
 
-export default function L0Tab({ initialSessionId }: Props) {
+export default function L0Tab({ initialSessionId, apiKeyId }: Props) {
   const t = useTranslations("memory");
   const tCommon = useTranslations("memory.common");
   const notify = useNotificationStore();
@@ -69,14 +65,16 @@ export default function L0Tab({ initialSessionId }: Props) {
     [sessionFilter, roleFilter]
   );
 
-  const messages = useL0Messages(filter);
-  const recycleBin = useL0RecycleBin();
+  const messages = useL0Messages(filter, { apiKeyId });
+  const recycleBin = useL0RecycleBin({ apiKeyId });
 
-  useEffect(() => {
-    if (initialSessionId && initialSessionId !== sessionFilter) {
-      setSessionFilter(initialSessionId);
-    }
-  }, [initialSessionId, sessionFilter]);
+  // Sync the URL-derived initial session id into the filter only when the
+  // prop itself changes (render-time adjustment, not setState-in-effect).
+  const [prevInitialSessionId, setPrevInitialSessionId] = useState(initialSessionId);
+  if (initialSessionId && initialSessionId !== prevInitialSessionId) {
+    setPrevInitialSessionId(initialSessionId);
+    setSessionFilter(initialSessionId);
+  }
 
   const toggleExpand = (id: string) => {
     setExpanded((prev) => {
@@ -94,7 +92,10 @@ export default function L0Tab({ initialSessionId }: Props) {
 
   const handleSoftDelete = async (m: L0Message) => {
     setBusy(true);
-    const ok = await deleteJson(`/api/memory/l0/messages/${encodeURIComponent(m.id)}`);
+    const ok = await deleteJson(
+      appendOwnerQuery(`/api/memory/l0/${encodeURIComponent(m.id)}`, apiKeyId),
+      { mode: "soft" }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(t("l0.deleteMessage") + " — failed");
@@ -107,7 +108,10 @@ export default function L0Tab({ initialSessionId }: Props) {
   };
 
   const handleRestore = async (id: string) => {
-    const ok = await postJson(`/api/memory/l0/messages/${encodeURIComponent(id)}/restore`, {});
+    const ok = await postJson(
+      appendOwnerQuery(`/api/memory/l0/${encodeURIComponent(id)}?op=restore`, apiKeyId),
+      {}
+    );
     if (ok == null) {
       notify.error(t("l0.restoreFailed"));
       return;
@@ -119,7 +123,8 @@ export default function L0Tab({ initialSessionId }: Props) {
 
   const handlePermDelete = async (id: string) => {
     const ok = await deleteJson(
-      `/api/memory/l0/messages/${encodeURIComponent(id)}/permanent`
+      appendOwnerQuery(`/api/memory/l0/${encodeURIComponent(id)}`, apiKeyId),
+      { mode: "permanent" }
     );
     if (ok == null) {
       notify.error(t("l0.permanentDeleteFailed"));
@@ -165,8 +170,6 @@ export default function L0Tab({ initialSessionId }: Props) {
               <option value="all">{t("l0.allRoles")}</option>
               <option value="user">{t("l0.roleUser")}</option>
               <option value="assistant">{t("l0.roleAssistant")}</option>
-              <option value="system">{t("l0.roleSystem")}</option>
-              <option value="tool">{t("l0.roleTool")}</option>
             </select>
             {(sessionFilter || roleFilter !== "all") && (
               <AppleButton
@@ -218,9 +221,7 @@ export default function L0Tab({ initialSessionId }: Props) {
                         <span className="font-mono text-text-muted">
                           {t("l0.sessionLabel", { id: truncId(m.sessionId) })}
                         </span>
-                        <span className="text-text-muted">
-                          {formatTimestamp(m.timestamp)}
-                        </span>
+                        <span className="text-text-muted">{formatTimestamp(m.timestamp)}</span>
                         {m.provider ? (
                           <span className="text-text-muted">
                             {t("l0.provider")}: {m.provider}

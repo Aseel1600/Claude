@@ -14,7 +14,7 @@ import {
   audit,
   getService,
   jsonErrorFromUnknown,
-  resolveAuthSubject,
+  resolveOwner,
   serviceUnavailableResponse,
 } from "@/memory/api/handlers/_lib";
 
@@ -24,14 +24,8 @@ const DLQ_STATUSES = ["pending", "running", "failed", "succeeded"] as const;
 type DlqStatus = (typeof DLQ_STATUSES)[number];
 
 export async function GET(request: Request) {
-  const actor = await resolveAuthSubject(request);
-  if (!actor) {
-    return createErrorResponse({
-      status: 401,
-      message: "Authentication required",
-      type: "invalid_request",
-    });
-  }
+  const owner = await resolveOwner(request);
+  if ("errorResponse" in owner) return owner.errorResponse;
 
   const url = new URL(request.url);
   const rawLimit = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
@@ -44,7 +38,7 @@ export async function GET(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.listDistillationDlq(actor, {
+    const result = await service.listDistillationDlq(owner, {
       limit,
       statuses: rawStatuses.length > 0 ? rawStatuses : ["pending", "running", "failed"],
     });
@@ -65,14 +59,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const actor = await resolveAuthSubject(request);
-  if (!actor) {
-    return createErrorResponse({
-      status: 401,
-      message: "Authentication required",
-      type: "invalid_request",
-    });
-  }
+  const owner = await resolveOwner(request);
+  if ("errorResponse" in owner) return owner.errorResponse;
 
   const url = new URL(request.url);
   if (url.searchParams.get("op") !== "retry") {
@@ -88,10 +76,10 @@ export async function POST(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.retryDistillationDlq(actor, body.data);
+    const result = await service.retryDistillationDlq(owner, body.data);
     await audit({
       action: "memory.distillation_model.dlq.retry",
-      actor: actor,
+      actor: owner.actor,
       target: "distillation-dlq",
       resourceType: "distillation_dlq",
       details: { retried: result.retried, skipped: result.skipped, all: body.data.all ?? false },

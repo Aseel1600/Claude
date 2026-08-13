@@ -14,9 +14,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { AppleButton, AppleCard, AppleField, AppleInput, AppleSelect, AppleSurface, Modal } from "@/shared/components";
+import {
+  AppleButton,
+  AppleCard,
+  AppleField,
+  AppleInput,
+  AppleSelect,
+  AppleSurface,
+  Modal,
+} from "@/shared/components";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
+  appendOwnerQuery,
   deleteJson,
   postJson,
   putJson,
@@ -29,36 +38,37 @@ import {
 interface Props {
   lineageFilter?: string[] | null;
   onClearLineage?: () => void;
+  apiKeyId?: string | null;
 }
 
 const TYPE_CHIPS: L1Type[] = [
-  "factual",
+  "persona",
   "episodic",
-  "procedural",
-  "semantic",
-  "user_profile",
-  "preference",
-  "constraint",
+  "instruction",
+  "work_fact",
+  "work_task",
+  "work_method",
+  "work_artifact",
 ];
 
 const TYPE_TONE: Record<L1Type, string> = {
-  factual: "bg-blue-500/15 text-blue-500",
+  persona: "bg-rose-500/15 text-rose-500",
   episodic: "bg-emerald-500/15 text-emerald-500",
-  procedural: "bg-amber-500/15 text-amber-500",
-  semantic: "bg-violet-500/15 text-violet-500",
-  user_profile: "bg-rose-500/15 text-rose-500",
-  preference: "bg-cyan-500/15 text-cyan-500",
-  constraint: "bg-orange-500/15 text-orange-500",
+  instruction: "bg-orange-500/15 text-orange-500",
+  work_fact: "bg-blue-500/15 text-blue-500",
+  work_task: "bg-cyan-500/15 text-cyan-500",
+  work_method: "bg-amber-500/15 text-amber-500",
+  work_artifact: "bg-violet-500/15 text-violet-500",
 };
 
 interface EditState {
-  id: string | null;
-  type: L1Type;
+  id: string;
   priority: number;
   content: string;
+  expectedVersion: number;
 }
 
-export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
+export default function L1Tab({ lineageFilter, onClearLineage, apiKeyId }: Props) {
   const t = useTranslations("memory");
   const tCommon = useTranslations("memory.common");
   const notify = useNotificationStore();
@@ -70,11 +80,14 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
   const [softDeleteId, setSoftDeleteId] = useState<string | null>(null);
   const [busy, setBusy] = useState<boolean>(false);
 
-  const memories = useL1Memories({
-    type: typeFilter,
-    minPriority,
-    query: search,
-  });
+  const memories = useL1Memories(
+    {
+      type: typeFilter,
+      minPriority,
+      query: search,
+    },
+    { apiKeyId }
+  );
 
   const items = useMemo(() => {
     const base = memories.data ?? [];
@@ -92,17 +105,25 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lineageFilter?.join(",")]);
 
-  const openEdit = (m: L1Memory) =>
-    setEditState({ id: m.id, type: m.type, priority: m.priority, content: m.content });
+  const openEdit = (memory: L1Memory) =>
+    setEditState({
+      id: memory.id,
+      priority: memory.priority,
+      content: memory.content,
+      expectedVersion: memory.version,
+    });
 
   const handleSave = async () => {
     if (!editState || !editState.id) return;
     setBusy(true);
-    const ok = await putJson(`/api/memory/l1/memories/${encodeURIComponent(editState.id)}`, {
-      type: editState.type,
-      priority: editState.priority,
-      content: editState.content,
-    });
+    const ok = await putJson(
+      appendOwnerQuery(`/api/memory/l1/${encodeURIComponent(editState.id)}`, apiKeyId),
+      {
+        priority: editState.priority,
+        content: editState.content,
+        expectedVersion: editState.expectedVersion,
+      }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(t("l1.loadFailed"));
@@ -115,7 +136,10 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
 
   const handleSoftDelete = async (id: string) => {
     setBusy(true);
-    const ok = await deleteJson(`/api/memory/l1/memories/${encodeURIComponent(id)}`);
+    const ok = await deleteJson(
+      appendOwnerQuery(`/api/memory/l1/${encodeURIComponent(id)}`, apiKeyId),
+      { mode: "soft" }
+    );
     setBusy(false);
     if (ok == null) {
       notify.error(tCommon("deleteFailed"));
@@ -129,7 +153,8 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
   const handlePermDelete = async (id: string) => {
     setBusy(true);
     const ok = await deleteJson(
-      `/api/memory/l1/memories/${encodeURIComponent(id)}/permanent`
+      appendOwnerQuery(`/api/memory/l1/${encodeURIComponent(id)}`, apiKeyId),
+      { mode: "permanent" }
     );
     setBusy(false);
     if (ok == null) {
@@ -142,7 +167,10 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
   };
 
   const handleRestore = async (id: string) => {
-    const ok = await postJson(`/api/memory/l1/memories/${encodeURIComponent(id)}/restore`, {});
+    const ok = await postJson(
+      appendOwnerQuery(`/api/memory/l1/${encodeURIComponent(id)}?op=restore`, apiKeyId),
+      {}
+    );
     if (ok == null) {
       notify.error(tCommon("restoreFailed"));
       return;
@@ -166,7 +194,12 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
               {tCommon("lineage")}: {lineageFilter.length}
             </span>
             {onClearLineage && (
-              <AppleButton size="sm" variant="tertiary" onClick={onClearLineage} data-testid="l1-clear-lineage">
+              <AppleButton
+                size="sm"
+                variant="tertiary"
+                onClick={onClearLineage}
+                data-testid="l1-clear-lineage"
+              >
                 {t("clearFilters")}
               </AppleButton>
             )}
@@ -231,7 +264,7 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
                 key={m.id}
                 className="py-3"
                 data-testid={`l1-memory-${m.id}`}
-                data-edited={m.edited ? "true" : "false"}
+                data-edited={m.editedByUser ? "true" : "false"}
               >
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div className="flex-1 min-w-0 space-y-1.5">
@@ -251,45 +284,63 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
                       <span className="text-text-muted">
                         {tCommon("lastModifiedBy")}: {m.lastModifiedBy}
                       </span>
-                      {m.edited && (
+                      {m.editedByUser && (
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-500 font-medium">
                           {t("l1.editedMarker")}
                         </span>
                       )}
-                      {typeof m.score === "number" && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-surface text-text-muted font-mono">
-                          {tCommon("score")}: {m.score.toFixed(3)}
-                        </span>
-                      )}
+                      <span className="text-text-muted">{m.sceneName}</span>
                     </div>
-                    <p className="text-sm text-text-main whitespace-pre-wrap break-words">{m.content}</p>
-                    {m.sceneId && (
+                    <p className="text-sm text-text-main whitespace-pre-wrap break-words">
+                      {m.content}
+                    </p>
+                    {m.sourceMessageIds.length > 0 && (
                       <a
                         className="text-[11px] text-primary hover:underline"
-                        href={`?tab=l2&lineage=${encodeURIComponent(m.sceneId)}`}
+                        href={`?tab=l0&lineage=${encodeURIComponent(m.sourceMessageIds[0]!)}`}
                         data-testid={`l1-view-scene-${m.id}`}
                       >
-                        {t("l1.viewScene")}: {truncId(m.sceneId)}
+                        {t("l1.viewSource")}: {truncId(m.sourceMessageIds[0]!)}
                       </a>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-1 shrink-0">
-                    {m.sceneId && (
-                      <AppleButton size="sm" variant="tertiary" data-testid={`l1-view-source-${m.id}`}>
-                        {t("l1.viewSource")}
+                    {m.deletedAt ? (
+                      <AppleButton
+                        size="sm"
+                        variant="tertiary"
+                        onClick={() => handleRestore(m.id)}
+                        data-testid={`l1-restore-${m.id}`}
+                      >
+                        {tCommon("restore")}
                       </AppleButton>
+                    ) : (
+                      <>
+                        <AppleButton
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openEdit(m)}
+                          data-testid={`l1-edit-${m.id}`}
+                        >
+                          {tCommon("edit")}
+                        </AppleButton>
+                        <AppleButton
+                          size="sm"
+                          variant="tertiary"
+                          onClick={() => setSoftDeleteId(m.id)}
+                          data-testid={`l1-soft-delete-${m.id}`}
+                        >
+                          {tCommon("softDelete")}
+                        </AppleButton>
+                      </>
                     )}
-                    <AppleButton size="sm" variant="secondary" onClick={() => openEdit(m)} data-testid={`l1-edit-${m.id}`}>
-                      {tCommon("edit")}
-                    </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => setSoftDeleteId(m.id)} data-testid={`l1-soft-delete-${m.id}`}>
-                      {tCommon("softDelete")}
-                    </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => setPermDeleteId(m.id)} data-testid={`l1-perm-delete-${m.id}`}>
+                    <AppleButton
+                      size="sm"
+                      variant="tertiary"
+                      onClick={() => setPermDeleteId(m.id)}
+                      data-testid={`l1-perm-delete-${m.id}`}
+                    >
                       {tCommon("permanentDelete")}
-                    </AppleButton>
-                    <AppleButton size="sm" variant="tertiary" onClick={() => handleRestore(m.id)} data-testid={`l1-restore-${m.id}`}>
-                      {tCommon("restore")}
                     </AppleButton>
                   </div>
                 </div>
@@ -323,21 +374,6 @@ export default function L1Tab({ lineageFilter, onClearLineage }: Props) {
       >
         {editState && (
           <div className="space-y-3">
-            <AppleField id="l1-edit-type" label={tCommon("source")}>
-              <AppleSelect
-                id="l1-edit-type"
-                value={editState.type}
-                onChange={(e) =>
-                  setEditState({ ...editState, type: e.target.value as L1Type })
-                }
-              >
-                {TYPE_CHIPS.map((tp) => (
-                  <option key={tp} value={tp}>
-                    {tp}
-                  </option>
-                ))}
-              </AppleSelect>
-            </AppleField>
             <AppleField id="l1-edit-priority" label={t("l1.priority")}>
               <AppleInput
                 id="l1-edit-priority"

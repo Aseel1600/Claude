@@ -1,40 +1,11 @@
-/**
- * OmniRoute MCP Memory Tools — four-layer read surface.
- *
- * Layers:
- *   L0 — vector (semantic) search   (omniroute_memory_l0_search)
- *   L1 — full-text (FTS5) search    (omniroute_memory_l1_search)
- *   L2 — scene/pod read by id       (omniroute_memory_l2_read)
- *   L3 — current persona read       (omniroute_memory_l3_read)
- *   list — cross-layer summary      (omniroute_memory_list)
- *
- * Owner-scoping: the caller's API-key principal id (`extra.authInfo.clientId`
- * via `resolveCallerScopeContext` — falling back to the env-derived principal
- * from `resolveMcpCallerApiKeyId()`) is the only owner accepted. Any
- * `apiKeyId`/`ownerId` argument that disagrees with the principal is rejected
- * (closed-by-default) — see `assertCallerOwner`.
- *
- * Errors: every catch routes through `sanitizeErrorMessage` from
- * `open-sse/utils/error.ts` so HTTP/SSE/executor responses never expose raw
- * `err.stack` or absolute source paths (Hard Rule #12).
- *
- * Transport: HTTP fetch against the new `/api/memory/*` REST surface. The
- * fetch helper (`memoryFetch`) mirrors the auth/header chain from
- * `server.ts::omniRouteFetch` so we do not import from `server.ts` and avoid
- * a circular import (`server.ts` → `memoryTools.ts`). Storage layer is
- * out-of-scope for this file, so missing REST routes surface as a sanitized
- * 404/501 — the schema, validation, scope mapping, and ownership guard all
- * work even when the backing storage is unimplemented (the tools stay
- * catalog-discoverable and scope-enforced; runtime calls fail closed with a
- * safe message).
- */
-
 import { z } from "zod";
-import { resolveCallerScopeContext, type McpToolExtraLike } from "../scopeEnforcement.ts";
-import { resolveMcpCallerApiKeyId } from "../mcpCallerIdentity.ts";
-import { sanitizeErrorMessage } from "../../utils/error.ts";
+
 import { resolveOmniRouteBaseUrl } from "@/shared/utils/resolveOmniRouteBaseUrl.ts";
+
 import { getMcpHttpAuthHeadersForInternalFetch } from "../httpAuthContext.ts";
+import { resolveMcpCallerApiKeyId } from "../mcpCallerIdentity.ts";
+import { resolveCallerScopeContext, type McpToolExtraLike } from "../scopeEnforcement.ts";
+import { sanitizeErrorMessage } from "../../utils/error.ts";
 
 const MAX_LIMIT = 100;
 const MIN_LIMIT = 1;
@@ -62,24 +33,44 @@ const safeScene = z
   .string()
   .max(MAX_ID_LEN)
   .optional()
-  .describe("Optional scene key filter (max 256 chars)");
+  .describe("Optional scene name filter (max 256 chars)");
 
-const safeId = z.string().min(1).max(MAX_ID_LEN).describe("Scene or pod id (1-256 chars)");
+const safeId = z.string().min(1).max(MAX_ID_LEN).describe("Memory id (1-256 chars)");
 
-/**
- * Internal fetch for the new memory REST surface. Mirrors the auth/header
- * chain in `server.ts::omniRouteFetch` without importing from `server.ts` —
- * `server.ts` registers `memoryTools`, so a top-level import there would be
- * a circular import. The chain matches the public tool surface exactly:
- *   - per-request HTTP auth headers via the AsyncLocalStorage context
- *     (`withMcpHttpAuthContext` in the transport);
- *   - the static `OMNIROUTE_API_KEY` env var as a fallback.
- * Throws an Error with the response status + sanitized body so callers can
- * branch on it via `safeCall` below.
- */
+type JsonRecord = Record<string, unknown>;
+
+class MemoryApiError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "MemoryApiError";
+    this.status = status;
+  }
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function dataItems(payload: unknown): unknown[] {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) return [];
+  return payload.data;
+}
+
+function detailData(payload: unknown): unknown | undefined {
+  if (!isRecord(payload) || !("data" in payload)) return undefined;
+  return payload.data;
+}
+
+function paginationTotal(payload: unknown, fallback: number): number {
+  if (!isRecord(payload) || !isRecord(payload.pagination)) return fallback;
+  const total = payload.pagination.total;
+  return typeof total === "number" && Number.isFinite(total) ? total : fallback;
+}
+
 async function memoryFetch(path: string, options: RequestInit = {}): Promise<unknown> {
   const baseUrl = resolveOmniRouteBaseUrl();
-  const url = `${baseUrl}${path}`;
   const apiKey = process.env.OMNIROUTE_API_KEY || "";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -89,25 +80,34 @@ async function memoryFetch(path: string, options: RequestInit = {}): Promise<unk
     ...((options.headers as Record<string, string>) || {}),
   };
   const signal = options.signal || AbortSignal.timeout(10000);
-  const response = await fetch(url, { ...options, headers, signal });
+
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, { ...options, headers, signal });
+  } catch (error: unknown) {
+    throw new Error(
+      `OmniRoute memory API request failed: ${sanitizeErrorMessage(error) || "network error"}`
+    );
+  }
+
   if (!response.ok) {
     const errorText = await response.text().catch(() => "Unknown error");
-    throw new Error(
+    throw new MemoryApiError(
+      response.status,
       `OmniRoute memory API error [${response.status}]: ${sanitizeErrorMessage(errorText)}`
     );
   }
-  return response.json();
+
+  try {
+    return await response.json();
+  } catch {
+    throw new MemoryApiError(
+      response.status,
+      `OmniRoute memory API error [${response.status}]: invalid JSON response`
+    );
+  }
 }
 
-/**
- * Resolve the caller's API-key principal id. Falls back across three layers:
- *   1. Per-request HTTP auth context (SSE/Streamable HTTP transport — see
- *      httpAuthContext + mcpCallerIdentity.resolveMcpCallerApiKeyId).
- *   2. The `callerId` from `resolveCallerScopeContext` (authInfo.clientId or
- *      sessionId; "anonymous" is rejected).
- *   3. `undefined` — caller has no resolvable owner and the tool must fail
- *      closed.
- */
 async function resolveCallerOwner(
   extra: McpToolExtraLike | undefined
 ): Promise<string | undefined> {
@@ -120,12 +120,6 @@ async function resolveCallerOwner(
   return undefined;
 }
 
-/**
- * Reject any request whose explicit `apiKeyId`/`ownerId` arg does not match the
- * caller's principal id. Stops cross-tenant IDOR before a single byte of
- * memory data crosses the wire. Returns the validated owner (always
- * `principal`) so the adapter does not have to re-resolve.
- */
 async function assertCallerOwner(
   extra: McpToolExtraLike | undefined,
   args: { apiKeyId?: unknown; ownerId?: unknown }
@@ -153,17 +147,6 @@ type MemoryToolDefinition<Input extends z.ZodTypeAny, Output> = {
 type MemoryToolRecord = {
   [K in string]: MemoryToolDefinition<z.ZodTypeAny, unknown>;
 };
-
-type SafeResult<T> = { success: true; data: T } | { success: false; error: string };
-
-async function safeCall<T>(fn: () => Promise<T>): Promise<SafeResult<T>> {
-  try {
-    const data = await fn();
-    return { success: true, data };
-  } catch (err) {
-    return { success: false, error: sanitizeErrorMessage(err) };
-  }
-}
 
 const l0SearchInput = z.object({
   query: safeQuery,
@@ -203,95 +186,92 @@ const listInput = z.object({
   ownerId: z.string().optional(),
 });
 
+function listingParams(args: {
+  query?: string;
+  sessionId?: string;
+  scene?: string;
+  limit?: number;
+}): URLSearchParams {
+  const params = new URLSearchParams();
+  if (args.query) params.set("q", args.query);
+  if (args.sessionId) params.set("sessionId", args.sessionId);
+  if (args.scene) params.set("sceneName", args.scene);
+  if (args.limit) params.set("limit", String(args.limit));
+  return params;
+}
+
+function collectionPath(layer: "l0" | "l1" | "l2" | "l3", params: URLSearchParams): string {
+  const query = params.toString();
+  return `/api/memory/${layer}${query ? `?${query}` : ""}`;
+}
+
 async function handleL0Search(
   args: z.infer<typeof l0SearchInput>,
   extra?: McpToolExtraLike
-): Promise<{ layer: "L0"; items: unknown[]; count: number; total?: number }> {
-  const principal = await assertCallerOwner(extra, args);
-  const params = new URLSearchParams();
-  params.set("q", args.query);
-  params.set("owner", principal);
-  params.set("layer", "l0");
-  if (args.sessionId) params.set("sessionId", args.sessionId);
-  if (args.scene) params.set("scene", args.scene);
-  if (args.limit) params.set("limit", String(args.limit));
-  const result = await safeCall(
-    async () =>
-      (await memoryFetch(`/api/memory/l0/search?${params.toString()}`)) as {
-        items?: unknown[];
-        total?: number;
-      }
-  );
-  if (!result.success) {
-    return { layer: "L0", items: [], count: 0, total: 0 };
-  }
-  const items = Array.isArray(result.data?.items) ? result.data.items : [];
-  return { layer: "L0", items, count: items.length, total: result.data?.total ?? items.length };
+): Promise<{ layer: "L0"; items: unknown[]; count: number; total: number }> {
+  await assertCallerOwner(extra, args);
+  const payload = await memoryFetch(collectionPath("l0", listingParams(args)));
+  const items = dataItems(payload);
+  return {
+    layer: "L0",
+    items,
+    count: items.length,
+    total: paginationTotal(payload, items.length),
+  };
 }
 
 async function handleL1Search(
   args: z.infer<typeof l1SearchInput>,
   extra?: McpToolExtraLike
-): Promise<{ layer: "L1"; items: unknown[]; count: number; total?: number }> {
-  const principal = await assertCallerOwner(extra, args);
-  const params = new URLSearchParams();
-  params.set("q", args.query);
-  params.set("owner", principal);
-  params.set("layer", "l1");
-  if (args.sessionId) params.set("sessionId", args.sessionId);
-  if (args.scene) params.set("scene", args.scene);
-  if (args.limit) params.set("limit", String(args.limit));
-  const result = await safeCall(
-    async () =>
-      (await memoryFetch(`/api/memory/l1/search?${params.toString()}`)) as {
-        items?: unknown[];
-        total?: number;
-      }
-  );
-  if (!result.success) {
-    return { layer: "L1", items: [], count: 0, total: 0 };
-  }
-  const items = Array.isArray(result.data?.items) ? result.data.items : [];
-  return { layer: "L1", items, count: items.length, total: result.data?.total ?? items.length };
+): Promise<{ layer: "L1"; items: unknown[]; count: number; total: number }> {
+  await assertCallerOwner(extra, args);
+  const payload = await memoryFetch(collectionPath("l1", listingParams(args)));
+  const items = dataItems(payload);
+  return {
+    layer: "L1",
+    items,
+    count: items.length,
+    total: paginationTotal(payload, items.length),
+  };
 }
 
 async function handleL2Read(
   args: z.infer<typeof l2ReadInput>,
   extra?: McpToolExtraLike
 ): Promise<{ layer: "L2"; id: string; found: boolean; scene?: unknown }> {
-  const principal = await assertCallerOwner(extra, args);
-  const result = await safeCall(
-    async () =>
-      (await memoryFetch(
-        `/api/memory/l2/${encodeURIComponent(args.id)}?owner=${encodeURIComponent(principal)}`
-      )) as { scene?: unknown }
-  );
-  if (!result.success) {
-    return { layer: "L2", id: args.id, found: false };
+  await assertCallerOwner(extra, args);
+  try {
+    const payload = await memoryFetch(`/api/memory/l2/${encodeURIComponent(args.id)}`);
+    const scene = detailData(payload);
+    return scene === undefined
+      ? { layer: "L2", id: args.id, found: false }
+      : { layer: "L2", id: args.id, found: true, scene };
+  } catch (error: unknown) {
+    if (error instanceof MemoryApiError && error.status === 404) {
+      return { layer: "L2", id: args.id, found: false };
+    }
+    throw error;
   }
-  return { layer: "L2", id: args.id, found: true, scene: result.data?.scene };
 }
 
 async function handleL3Read(
   args: z.infer<typeof l3ReadInput>,
   extra?: McpToolExtraLike
 ): Promise<{ layer: "L3"; sessionId?: string; found: boolean; persona?: unknown }> {
-  const principal = await assertCallerOwner(extra, args);
-  const params = new URLSearchParams();
-  params.set("owner", principal);
-  if (args.sessionId) params.set("sessionId", args.sessionId);
-  const result = await safeCall(
-    async () => (await memoryFetch(`/api/memory/l3?${params.toString()}`)) as { persona?: unknown }
-  );
-  if (!result.success) {
-    return { layer: "L3", found: false, sessionId: args.sessionId };
-  }
-  return {
-    layer: "L3",
-    sessionId: args.sessionId,
-    found: true,
-    persona: result.data?.persona,
-  };
+  await assertCallerOwner(extra, args);
+  const params = listingParams({ sessionId: args.sessionId, limit: 1 });
+  const payload = await memoryFetch(collectionPath("l3", params));
+  const persona = dataItems(payload)[0];
+  return persona === undefined
+    ? { layer: "L3", sessionId: args.sessionId, found: false }
+    : { layer: "L3", sessionId: args.sessionId, found: true, persona };
+}
+
+const LAYERS = ["L0", "L1", "L2", "L3"] as const;
+type LayerName = (typeof LAYERS)[number];
+
+function tagLayerItem(item: unknown, layer: LayerName): JsonRecord {
+  return isRecord(item) ? { ...item, layer } : { value: item, layer };
 }
 
 async function handleList(
@@ -299,30 +279,27 @@ async function handleList(
   extra?: McpToolExtraLike
 ): Promise<{
   owner: string;
-  layers: { L0: number; L1: number; L2: number; L3: number };
-  items: unknown[];
+  layers: Record<LayerName, number>;
+  items: JsonRecord[];
   count: number;
 }> {
   const principal = await assertCallerOwner(extra, args);
-  const params = new URLSearchParams();
-  params.set("owner", principal);
-  if (args.sessionId) params.set("sessionId", args.sessionId);
-  if (args.scene) params.set("scene", args.scene);
-  if (args.limit) params.set("limit", String(args.limit));
-  const result = await safeCall(
-    async () =>
-      (await memoryFetch(`/api/memory/list?${params.toString()}`)) as {
-        items?: unknown[];
-        layers?: Partial<{ L0: number; L1: number; L2: number; L3: number }>;
-      }
+  const params = listingParams(args);
+  const payloads = await Promise.all(
+    LAYERS.map((layer) =>
+      memoryFetch(collectionPath(layer.toLowerCase() as Lowercase<LayerName>, params))
+    )
   );
-  const layers = {
-    L0: result.success ? Number(result.data?.layers?.L0 ?? 0) : 0,
-    L1: result.success ? Number(result.data?.layers?.L1 ?? 0) : 0,
-    L2: result.success ? Number(result.data?.layers?.L2 ?? 0) : 0,
-    L3: result.success ? Number(result.data?.layers?.L3 ?? 0) : 0,
-  };
-  const items = result.success && Array.isArray(result.data?.items) ? result.data.items : [];
+
+  const layers = { L0: 0, L1: 0, L2: 0, L3: 0 };
+  const items: JsonRecord[] = [];
+  payloads.forEach((payload, index) => {
+    const layer = LAYERS[index];
+    const layerItems = dataItems(payload);
+    layers[layer] = paginationTotal(payload, layerItems.length);
+    items.push(...layerItems.map((item) => tagLayerItem(item, layer)));
+  });
+
   return { owner: principal, layers, items, count: items.length };
 }
 
@@ -330,7 +307,7 @@ export const memoryTools: MemoryToolRecord = {
   omniroute_memory_l0_search: {
     name: "omniroute_memory_l0_search",
     description:
-      "Layer-0 (vector/semantic) memory search. Owner-scoped to the calling API key; cross-tenant owner ids in args are rejected.",
+      "Search owner-scoped Layer-0 raw conversation traces through the live four-layer memory API.",
     scopes: ["read:memory"],
     inputSchema: l0SearchInput,
     handler: (args, extra) =>
@@ -339,7 +316,7 @@ export const memoryTools: MemoryToolRecord = {
   omniroute_memory_l1_search: {
     name: "omniroute_memory_l1_search",
     description:
-      "Layer-1 (full-text/FTS5) memory search. Owner-scoped to the calling API key; cross-tenant owner ids in args are rejected.",
+      "Search owner-scoped Layer-1 typed curated memories through the live four-layer memory API.",
     scopes: ["read:memory"],
     inputSchema: l1SearchInput,
     handler: (args, extra) =>
@@ -348,7 +325,7 @@ export const memoryTools: MemoryToolRecord = {
   omniroute_memory_l2_read: {
     name: "omniroute_memory_l2_read",
     description:
-      "Layer-2 (scene/pod) memory read by id. Owner-scoped to the calling API key; cross-tenant owner ids in args are rejected.",
+      "Read one owner-scoped Layer-2 navigation scene by id through the live four-layer memory API.",
     scopes: ["read:memory"],
     inputSchema: l2ReadInput,
     handler: (args, extra) =>
@@ -357,7 +334,7 @@ export const memoryTools: MemoryToolRecord = {
   omniroute_memory_l3_read: {
     name: "omniroute_memory_l3_read",
     description:
-      "Layer-3 (current persona) memory read. Owner-scoped to the calling API key; cross-tenant owner ids in args are rejected.",
+      "Read the current owner-scoped Layer-3 working context through the live four-layer memory API.",
     scopes: ["read:memory"],
     inputSchema: l3ReadInput,
     handler: (args, extra) =>
@@ -366,7 +343,7 @@ export const memoryTools: MemoryToolRecord = {
   omniroute_memory_list: {
     name: "omniroute_memory_list",
     description:
-      "Cross-layer memory listing (L0+L1+L2+L3) for the calling API key. Owner-scoped; cross-tenant owner ids in args are rejected.",
+      "Aggregate owner-scoped entries from the live L0, L1, L2, and L3 collection routes.",
     scopes: ["read:memory"],
     inputSchema: listInput,
     handler: (args, extra) =>

@@ -87,12 +87,12 @@ export function createMemory(input: L1CreateInput): L1Memory {
     db.prepare(
       `INSERT INTO l1_memories (
         id, version, owner_key, team_id, user_id, agent_id,
-        type, priority, scene_name, source_message_ids, metadata,
+        type, priority, scene_name, source_message_ids, metadata, pipeline_key,
         content, last_modified_by, edited_by_user, created_at, updated_at,
         tombstone
       ) VALUES (
         @id, 1, @owner_key, @team_id, @user_id, @agent_id,
-        @type, @priority, @scene_name, @source_message_ids, @metadata,
+        @type, @priority, @scene_name, @source_message_ids, @metadata, @pipeline_key,
         @content, @last_modified_by, @edited_by_user, @created_at, @updated_at,
         0
       )`
@@ -107,6 +107,7 @@ export function createMemory(input: L1CreateInput): L1Memory {
       scene_name: input.sceneName,
       source_message_ids: JSON.stringify(input.sourceMessageIds ?? []),
       metadata: JSON.stringify(input.metadata ?? {}),
+      pipeline_key: input.pipelineKey ?? null,
       content: input.content,
       last_modified_by: input.lastModifiedBy,
       edited_by_user: input.editedByUser ? 1 : 0,
@@ -126,6 +127,7 @@ export function createMemory(input: L1CreateInput): L1Memory {
     sceneName: input.sceneName,
     sourceMessageIds: input.sourceMessageIds ?? [],
     metadata: input.metadata ?? {},
+    pipelineKey: input.pipelineKey ?? null,
     content: input.content,
     version: 1,
     createdAt: now,
@@ -137,47 +139,65 @@ export function createMemory(input: L1CreateInput): L1Memory {
   };
 }
 
-export function updateMemory(id: string, owner: Owner, update: L1UpdateInput): L1Memory {
+export class MemoryVersionConflictError extends Error {
+  readonly current: L1Memory;
+
+  constructor(current: L1Memory) {
+    super(`[memory.l1] version conflict: expected an older version, current=${current.version}`);
+    this.name = "MemoryVersionConflictError";
+    this.current = current;
+  }
+}
+
+export function updateMemory(
+  id: string,
+  owner: Owner,
+  update: L1UpdateInput,
+  expectedVersion?: number
+): L1Memory {
   const db = getMemoryDbInstance();
   const key = ownerKey(owner);
+  let result: L1Memory | null = null;
 
-  // Load the latest live (non-deleted) version for this id within the owner scope.
-  const current = db
-    .prepare(
-      `SELECT * FROM l1_memories WHERE id = ? AND owner_key = ? AND deleted_at IS NULL
-       ORDER BY version DESC LIMIT 1`
-    )
-    .get(id, key) as L1Row | undefined;
-  if (!current) {
-    throw new Error(`[memory.l1] memory not found or owner mismatch: id=${id} owner=${key}`);
-  }
-  const nextVersion = current.version + 1;
-  const now = new Date().toISOString();
-
-  const merged = {
-    content: update.content ?? current.content,
-    priority: (update.priority ?? current.priority) as MemoryPriority,
-    sceneName: update.sceneName ?? current.scene_name,
-    sourceMessageIds: update.sourceMessageIds ?? parseJsonArray(current.source_message_ids),
-    metadata: update.metadata ?? parseJsonObject(current.metadata),
-    lastModifiedBy: update.lastModifiedBy ?? current.last_modified_by,
-    editedByUser: update.editedByUser ?? current.edited_by_user === 1,
-  };
-
-  if (
-    typeof merged.priority !== "number" ||
-    !Number.isFinite(merged.priority) ||
-    merged.priority < 0 ||
-    merged.priority > 100
-  ) {
-    throw new Error("[memory.l1] priority must be 0..100");
-  }
-  if (merged.lastModifiedBy !== "user" && merged.lastModifiedBy !== "pipeline") {
-    throw new Error("[memory.l1] lastModifiedBy must be user|pipeline");
-  }
-
-  // Mark previous live row as tombstoned (soft-superseded) — keeps history.
   db.transaction(() => {
+    const current = db
+      .prepare(
+        `SELECT * FROM l1_memories WHERE id = ? AND owner_key = ? AND deleted_at IS NULL
+         ORDER BY version DESC LIMIT 1`
+      )
+      .get(id, key) as L1Row | undefined;
+    if (!current) {
+      throw new Error(`[memory.l1] memory not found or owner mismatch: id=${id} owner=${key}`);
+    }
+    if (expectedVersion !== undefined && current.version !== expectedVersion) {
+      throw new MemoryVersionConflictError(rowToMemory(current));
+    }
+
+    const nextVersion = current.version + 1;
+    const now = new Date().toISOString();
+    const merged = {
+      content: update.content ?? current.content,
+      priority: (update.priority ?? current.priority) as MemoryPriority,
+      sceneName: update.sceneName ?? current.scene_name,
+      sourceMessageIds: update.sourceMessageIds ?? parseJsonArray(current.source_message_ids),
+      metadata: update.metadata ?? parseJsonObject(current.metadata),
+      pipelineKey: update.pipelineKey !== undefined ? update.pipelineKey : current.pipeline_key,
+      lastModifiedBy: update.lastModifiedBy ?? current.last_modified_by,
+      editedByUser: update.editedByUser ?? current.edited_by_user === 1,
+    };
+
+    if (
+      typeof merged.priority !== "number" ||
+      !Number.isFinite(merged.priority) ||
+      merged.priority < 0 ||
+      merged.priority > 100
+    ) {
+      throw new Error("[memory.l1] priority must be 0..100");
+    }
+    if (merged.lastModifiedBy !== "user" && merged.lastModifiedBy !== "pipeline") {
+      throw new Error("[memory.l1] lastModifiedBy must be user|pipeline");
+    }
+
     db.prepare(
       `UPDATE l1_memories SET tombstone = 1, deleted_at = COALESCE(deleted_at, datetime('now'))
        WHERE id = ? AND version = ? AND owner_key = ?`
@@ -186,12 +206,12 @@ export function updateMemory(id: string, owner: Owner, update: L1UpdateInput): L
     db.prepare(
       `INSERT INTO l1_memories (
         id, version, owner_key, team_id, user_id, agent_id,
-        type, priority, scene_name, source_message_ids, metadata,
+        type, priority, scene_name, source_message_ids, metadata, pipeline_key,
         content, last_modified_by, edited_by_user, created_at, updated_at,
         tombstone
       ) VALUES (
         @id, @version, @owner_key, @team_id, @user_id, @agent_id,
-        @type, @priority, @scene_name, @source_message_ids, @metadata,
+        @type, @priority, @scene_name, @source_message_ids, @metadata, @pipeline_key,
         @content, @last_modified_by, @edited_by_user, @created_at, @updated_at,
         0
       )`
@@ -207,34 +227,22 @@ export function updateMemory(id: string, owner: Owner, update: L1UpdateInput): L
       scene_name: merged.sceneName,
       source_message_ids: JSON.stringify(merged.sourceMessageIds),
       metadata: JSON.stringify(merged.metadata),
+      pipeline_key: merged.pipelineKey,
       content: merged.content,
       last_modified_by: merged.lastModifiedBy,
       edited_by_user: merged.editedByUser ? 1 : 0,
       created_at: current.created_at,
       updated_at: now,
     });
+
+    result = rowToMemory(
+      db
+        .prepare("SELECT * FROM l1_memories WHERE id = ? AND version = ?")
+        .get(id, nextVersion) as L1Row
+    );
   })();
 
-  return {
-    id,
-    ownerKey: key,
-    teamId: current.team_id,
-    userId: current.user_id,
-    agentId: current.agent_id,
-    type: current.type as L1Type,
-    priority: merged.priority,
-    sceneName: merged.sceneName,
-    sourceMessageIds: merged.sourceMessageIds,
-    metadata: merged.metadata,
-    content: merged.content,
-    version: nextVersion,
-    createdAt: current.created_at,
-    updatedAt: now,
-    lastModifiedBy: merged.lastModifiedBy,
-    editedByUser: merged.editedByUser,
-    deletedAt: null,
-    tombstone: false,
-  };
+  return result!;
 }
 
 export function getMemoryById(id: string, owner: Owner): L1Memory | null {
@@ -246,6 +254,23 @@ export function getMemoryById(id: string, owner: Owner): L1Memory | null {
        ORDER BY version DESC LIMIT 1`
     )
     .get(id, key) as L1Row | undefined;
+  return row ? rowToMemory(row) : null;
+}
+
+export function getMemoryByPipelineKey(
+  pipelineKey: string,
+  owner: Owner,
+  options: { includeDeleted?: boolean } = {}
+): L1Memory | null {
+  const key = ownerKey(owner);
+  const deletedClause = options.includeDeleted ? "" : "AND deleted_at IS NULL AND tombstone = 0";
+  const row = getMemoryDbInstance()
+    .prepare(
+      `SELECT * FROM l1_memories
+       WHERE owner_key = ? AND pipeline_key = ? ${deletedClause}
+       ORDER BY version DESC LIMIT 1`
+    )
+    .get(key, pipelineKey) as L1Row | undefined;
   return row ? rowToMemory(row) : null;
 }
 
@@ -331,8 +356,11 @@ export function softDeleteMemory(id: string, owner: Owner): void {
   const key = ownerKey(owner);
   db.transaction(() => {
     db.prepare(
-      `UPDATE l1_memories SET deleted_at = datetime('now'), tombstone = 1
-       WHERE id = ? AND owner_key = ? AND deleted_at IS NULL`
+      `UPDATE l1_memories
+     SET deleted_at = datetime('now'), tombstone = 1,
+         last_modified_by = 'user', edited_by_user = 1,
+         updated_at = datetime('now')
+     WHERE id = ? AND owner_key = ? AND deleted_at IS NULL`
     ).run(id, key);
   })();
 }
@@ -366,6 +394,7 @@ interface L1Row {
   scene_name: string;
   source_message_ids: string;
   metadata: string;
+  pipeline_key: string | null;
   content: string;
   last_modified_by: "user" | "pipeline";
   edited_by_user: number;
@@ -387,6 +416,7 @@ function rowToMemory(r: L1Row): L1Memory {
     sceneName: r.scene_name,
     sourceMessageIds: parseJsonArray(r.source_message_ids),
     metadata: parseJsonObject(r.metadata),
+    pipelineKey: r.pipeline_key,
     content: r.content,
     version: r.version,
     createdAt: r.created_at,

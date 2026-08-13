@@ -30,7 +30,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const entry = await service.getL2(owner.actor, id);
+    const entry = await service.getL2(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,
@@ -57,16 +57,24 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const entry = await service.updateL2(owner.actor, id, body.data);
+    const result = await service.updateL2(owner, id, body.data);
+    if (result.conflict) {
+      return createErrorResponse({
+        status: 409,
+        message: "Optimistic version conflict — refetch and retry",
+        type: "conflict",
+        details: { expectedVersion: body.data.expectedVersion },
+      });
+    }
     await audit({
       action: "memory.l2.update",
       actor: owner.actor,
       target: `l2:${id}`,
       resourceType: "memory_l2",
-      details: { newVersion: entry.version },
+      details: { newVersion: result.entry.version },
       request,
     });
-    return NextResponse.json({ data: entry });
+    return NextResponse.json({ data: result.entry });
   } catch (err: unknown) {
     if (err instanceof Error && err.message === "memory four-layer storage not wired") {
       return serviceUnavailableResponse();
@@ -96,7 +104,7 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
 
   try {
     const service = getService();
-    const ok = await service.deleteL2(owner.actor, id, mode);
+    const ok = await service.deleteL2(owner, id, mode);
     if (!ok) {
       return createErrorResponse({
         status: 404,
@@ -139,7 +147,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   try {
     const service = getService();
-    const entry = await service.restoreL2(owner.actor, id);
+    const entry = await service.restoreL2(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,

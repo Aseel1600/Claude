@@ -20,6 +20,7 @@
  */
 
 import type { DistillationTask } from "./store.ts";
+import { L1_TYPES, type L1Type } from "../types.ts";
 
 export interface HandlerCallArgs {
   task: DistillationTask;
@@ -70,6 +71,7 @@ function defineHandler(
 }
 
 const JSON_BLOCK_RE = /```(?:json)?\s*([\s\S]+?)```/i;
+const JSON_FIRST_ARRAY_RE = /\[[\s\S]*\]/;
 const JSON_FIRST_OBJECT_RE = /\{[\s\S]*\}/;
 
 function safeParseJson(raw: string): unknown | null {
@@ -89,12 +91,13 @@ function safeParseJson(raw: string): unknown | null {
       /* fallthrough */
     }
   }
-  const first = trimmed.match(JSON_FIRST_OBJECT_RE);
-  if (first && first[0]) {
+  for (const pattern of [JSON_FIRST_ARRAY_RE, JSON_FIRST_OBJECT_RE]) {
+    const first = trimmed.match(pattern);
+    if (!first?.[0]) continue;
     try {
       return JSON.parse(first[0]);
     } catch {
-      /* fallthrough */
+      /* try next shape */
     }
   }
   return null;
@@ -110,6 +113,102 @@ function capMessages(
   return messages;
 }
 void capMessages;
+
+const VALID_L1_TYPES: ReadonlySet<string> = new Set(L1_TYPES);
+const L1_TYPE_ALIASES: Readonly<Record<string, L1Type>> = {
+  episode: "episodic",
+  instruct: "instruction",
+  preference: "persona",
+};
+const DEFAULT_SCENE_NAME = "未知情境";
+
+export interface ExtractedL1Memory {
+  content: string;
+  type: L1Type;
+  priority: number;
+  sourceMessageIds: string[];
+  metadata: Record<string, unknown>;
+}
+
+export interface ExtractedL1Scene {
+  sceneName: string;
+  messageIds: string[];
+  memories: ExtractedL1Memory[];
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.length > 0)
+    : [];
+}
+
+function normalizeL1Type(value: unknown): L1Type | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (VALID_L1_TYPES.has(normalized)) return normalized as L1Type;
+  return L1_TYPE_ALIASES[normalized] ?? null;
+}
+
+function normalizePriority(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
+    : 50;
+}
+
+function normalizeMemory(value: unknown): ExtractedL1Memory | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const content = typeof record.content === "string" ? record.content.trim() : "";
+  const type = normalizeL1Type(record.type ?? record.category);
+  if (!content || !type) return null;
+  return {
+    content,
+    type,
+    priority: normalizePriority(record.priority),
+    sourceMessageIds: stringArray(record.source_message_ids ?? record.sourceMessageIds),
+    metadata: asRecord(record.metadata) ?? {},
+  };
+}
+
+function normalizeL1Scenes(parsed: unknown): ExtractedL1Scene[] {
+  const legacy = asRecord(parsed);
+  const rawScenes = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(legacy?.facts)
+      ? [
+          {
+            scene_name: DEFAULT_SCENE_NAME,
+            memories: legacy.facts,
+          },
+        ]
+      : [];
+  const scenes: ExtractedL1Scene[] = [];
+  for (const rawScene of rawScenes) {
+    const scene = asRecord(rawScene);
+    if (!scene) continue;
+    const memories = Array.isArray(scene.memories)
+      ? scene.memories
+          .map(normalizeMemory)
+          .filter((item): item is ExtractedL1Memory => item !== null)
+      : [];
+    if (memories.length === 0) continue;
+    scenes.push({
+      sceneName:
+        typeof scene.scene_name === "string" && scene.scene_name.trim()
+          ? scene.scene_name.trim()
+          : DEFAULT_SCENE_NAME,
+      messageIds: stringArray(scene.message_ids),
+      memories,
+    });
+  }
+  return scenes;
+}
 
 /**
  * Generic cap-then-truncate helper. The prompt is the primary cost driver
@@ -167,18 +266,21 @@ async function loadTencentPrompt(kind: string): Promise<string> {
   switch (kind) {
     case "L1_extract":
       return [
-        "You extract durable, decision-grade facts from a conversation.",
-        "Output JSON: { facts: [{ key, content, category }] }. No prose.",
+        "Extract durable memories from the conversation.",
+        "Output a strict JSON array of scenes. Each scene has scene_name, message_ids, and memories.",
+        "Each memory has content, type, priority, source_message_ids, and metadata.",
+        `Allowed types: ${L1_TYPES.join("|")}. No prose.`,
       ].join("\n");
     case "L2_scene":
       return [
-        "You summarise a closed conversation as one paragraph + 3 bullet scene tags.",
-        "Output JSON: { summary, tags: [string] }.",
+        "Update one durable scene from the supplied memories and existing scene context.",
+        "Output JSON: { summary, tags: [string], content, heat, persona_update_requested }.",
+        "heat must be a number from 0 to 1. No prose.",
       ].join("\n");
     case "L3_persona":
       return [
-        "You classify user persona from conversation excerpts.",
-        "Output JSON: { persona, evidence: [string] }.",
+        "Synthesize the supplied scenes into durable persona or operating-doctrine content.",
+        "Output JSON: { content, prompt_mode }. No prose.",
       ].join("\n");
     case "L0_chunk_embed":
       return [
@@ -220,13 +322,17 @@ export const L1ExtractHandler: DistillationHandler = defineHandler(
         error: { kind: "parse_failed", message: "L1_extract: response was not JSON" },
       };
     }
-    const facts = Array.isArray((parsed as { facts?: unknown }).facts)
-      ? ((parsed as { facts: unknown[] }).facts as unknown[]).slice(0, 32)
-      : [];
+    const scenes = normalizeL1Scenes(parsed);
+    if (scenes.length === 0) {
+      return {
+        ok: false,
+        error: { kind: "semantic_invalid", message: "L1_extract: no valid memories" },
+      };
+    }
     return {
       ok: true,
       result: {
-        payload: { facts },
+        payload: { scenes },
         fallbackEvidence: regexFallback(conversation),
         promptTokens: response.promptTokens,
         completionTokens: response.completionTokens,
@@ -263,13 +369,27 @@ export const L2SceneHandler: DistillationHandler = defineHandler(
         error: { kind: "parse_failed", message: "L2_scene: response was not JSON" },
       };
     }
+    const parsedRecord = parsed as Record<string, unknown>;
     const summary =
-      typeof (parsed as { summary?: unknown }).summary === "string"
-        ? ((parsed as { summary: string }).summary as string).slice(0, 1200)
-        : "";
-    const tags = Array.isArray((parsed as { tags?: unknown }).tags)
-      ? ((parsed as { tags: unknown[] }).tags as unknown[]).map(String).slice(0, 8)
+      typeof parsedRecord.summary === "string" ? parsedRecord.summary.trim().slice(0, 1200) : "";
+    const tags = Array.isArray(parsedRecord.tags)
+      ? parsedRecord.tags
+          .filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+          .map((tag) => tag.trim().slice(0, 100))
+          .slice(0, 8)
       : [];
+    const content =
+      typeof parsedRecord.content === "string" ? parsedRecord.content.trim().slice(0, 32_000) : "";
+    const heat = parsedRecord.heat;
+    if (
+      heat !== undefined &&
+      (typeof heat !== "number" || !Number.isFinite(heat) || heat < 0 || heat > 1)
+    ) {
+      return {
+        ok: false,
+        error: { kind: "semantic_invalid", message: "L2_scene: heat must be in 0..1" },
+      };
+    }
     if (!summary && tags.length === 0) {
       return {
         ok: false,
@@ -279,7 +399,13 @@ export const L2SceneHandler: DistillationHandler = defineHandler(
     return {
       ok: true,
       result: {
-        payload: { summary, tags },
+        payload: {
+          summary,
+          tags,
+          ...(content ? { content } : {}),
+          ...(typeof heat === "number" ? { heat } : {}),
+          personaUpdateRequested: parsedRecord.persona_update_requested === true,
+        },
         fallbackEvidence: [],
         promptTokens: response.promptTokens,
         completionTokens: response.completionTokens,
@@ -315,10 +441,31 @@ export const L3PersonaHandler: DistillationHandler = defineHandler(
         error: { kind: "parse_failed", message: "L3_persona: response was not JSON" },
       };
     }
+    const parsedRecord = parsed as Record<string, unknown>;
+    const content =
+      typeof parsedRecord.content === "string"
+        ? parsedRecord.content.trim()
+        : typeof parsedRecord.persona === "string"
+          ? parsedRecord.persona.trim()
+          : "";
+    if (!content) {
+      return {
+        ok: false,
+        error: { kind: "semantic_invalid", message: "L3_persona: empty content" },
+      };
+    }
+    const requestedMode = parsedRecord.prompt_mode ?? parsedRecord.promptMode;
+    const payloadMode = (args.task.payload as { promptMode?: unknown } | null)?.promptMode;
+    const promptMode =
+      requestedMode === "code" || requestedMode === "chat"
+        ? requestedMode
+        : payloadMode === "code" || payloadMode === "chat"
+          ? payloadMode
+          : "chat";
     return {
       ok: true,
       result: {
-        payload: parsed,
+        payload: { content: content.slice(0, 64_000), promptMode },
         fallbackEvidence: [],
         promptTokens: response.promptTokens,
         completionTokens: response.completionTokens,

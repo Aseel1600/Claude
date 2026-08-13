@@ -50,7 +50,7 @@ export async function GET(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.listL3(owner.actor, parsed.data);
+    const result = await service.listL3(owner, parsed.data);
     return NextResponse.json({
       data: result.data,
       pagination: buildPagination({
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.regenerateL3(owner.actor, body.data);
+    const result = await service.regenerateL3(owner, body.data);
     if (result.rejected) {
       return createErrorResponse({
         status: 409,

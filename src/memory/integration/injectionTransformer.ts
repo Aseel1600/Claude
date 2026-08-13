@@ -36,7 +36,7 @@ import { detector } from "./promptInjectionGuard.ts";
 import {
   providerSupportsSystemMessage,
   systemMessageMustBeFirst,
-} from "@/lib/memory/injection.ts";
+} from "@/shared/utils/providerSystemMessages.ts";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -100,7 +100,10 @@ export function resolveTotalBudget(maxTokens: number | undefined, configured: nu
 export function truncate(text: string, budget: number): { text: string; truncated: boolean } {
   if (budget <= 0) return { text: "", truncated: text.length > 0 };
   if (text.length <= budget) return { text, truncated: false };
-  return { text: text.slice(0, Math.max(0, budget - TRUNCATION_SUFFIX.length)) + TRUNCATION_SUFFIX, truncated: true };
+  return {
+    text: text.slice(0, Math.max(0, budget - TRUNCATION_SUFFIX.length)) + TRUNCATION_SUFFIX,
+    truncated: true,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -181,7 +184,10 @@ export function isCacheSafeContext(ctx: InjectionContext): boolean {
  * Detect the message array on the body. OpenAI / Anthropic use `messages[]`;
  * Gemini uses `contents[]`; Responses API uses `input[]`.
  */
-export function detectMessageArrayKey(body: Record<string, unknown>, targetFormat?: string): string {
+export function detectMessageArrayKey(
+  body: Record<string, unknown>,
+  targetFormat?: string
+): string {
   if (targetFormat?.toLowerCase() === "gemini") return "contents";
   if (Array.isArray(body.messages)) return "messages";
   if (Array.isArray(body.input)) return "input";
@@ -201,7 +207,9 @@ export function renderLayeredInjection(
 ): RenderResult {
   // Step 1: detect provider-specific message/key
   const messageKey = detectMessageArrayKey(body, ctx.targetFormat);
-  const messages = Array.isArray(body[messageKey]) ? [...((body[messageKey] as unknown[]) as Record<string, unknown>[])] : [];
+  const messages = Array.isArray(body[messageKey])
+    ? [...(body[messageKey] as unknown[] as Record<string, unknown>[])]
+    : [];
   const provider = ctx.provider;
 
   // Step 2: resolve system role support
@@ -214,19 +222,22 @@ export function renderLayeredInjection(
   const l2Text = renderL2Nav(layers.l2, budgets.l2CharBudget);
   const toolsGuide = layers.toolsGuide || "";
 
-  let systemSuffix = [l3Text, l2Text, toolsGuide]
-    .filter((p) => p.length > 0)
-    .join("\n\n");
+  let systemSuffix = [l3Text, l2Text, toolsGuide].filter((p) => p.length > 0).join("\n\n");
   if (systemSuffix.length > 0) {
     const totalBudget = budgets.totalCharBudget;
     const totalSoFar = systemSuffix.length;
     if (totalSoFar > totalBudget) {
-      systemSuffix = systemSuffix.slice(0, Math.max(0, totalBudget - TRUNCATION_SUFFIX.length)) + TRUNCATION_SUFFIX;
+      systemSuffix =
+        systemSuffix.slice(0, Math.max(0, totalBudget - TRUNCATION_SUFFIX.length)) +
+        TRUNCATION_SUFFIX;
     }
   }
 
   // Step 4: render L1 dynamic <relevant-memories>
-  const l1Text = renderL1Memories(layers.l1, Math.min(budgets.l1CharBudget, budgets.totalCharBudget));
+  const l1Text = renderL1Memories(
+    layers.l1,
+    Math.min(budgets.l1CharBudget, budgets.totalCharBudget)
+  );
   const hasL1 = l1Text.length > 0;
 
   // Step 5: render final body
@@ -281,12 +292,15 @@ export function renderLayeredInjection(
       if (isCacheSafe && !mustBeFirst) {
         const lastUserIdx = findLastUserIndex(newBody[messageKey] as Record<string, unknown>[]);
         if (lastUserIdx >= 0) {
-          const next = [...((newBody[messageKey] as unknown[]) as Record<string, unknown>[])];
+          const next = [...(newBody[messageKey] as unknown[] as Record<string, unknown>[])];
           next.splice(lastUserIdx, 0, l1UserMsg);
           newBody[messageKey] = next;
           l1Placement = "pre-last-user";
         } else {
-          newBody[messageKey] = [l1UserMsg, ...((newBody[messageKey] as unknown[]) as Record<string, unknown>[])];
+          newBody[messageKey] = [
+            l1UserMsg,
+            ...(newBody[messageKey] as unknown[] as Record<string, unknown>[]),
+          ];
           l1Placement = "leading-user";
         }
       } else {
@@ -294,16 +308,19 @@ export function renderLayeredInjection(
         // message just before the existing first user turn.
         const firstUserIdx = findFirstUserIndex(newBody[messageKey] as Record<string, unknown>[]);
         if (firstUserIdx > 0) {
-          const next = [...((newBody[messageKey] as unknown[]) as Record<string, unknown>[])];
+          const next = [...(newBody[messageKey] as unknown[] as Record<string, unknown>[])];
           next.splice(firstUserIdx, 0, l1UserMsg);
           newBody[messageKey] = next;
           l1Placement = "pre-last-user";
         } else if (firstUserIdx === 0) {
-          newBody[messageKey] = [l1UserMsg, ...((newBody[messageKey] as unknown[]) as Record<string, unknown>[])];
+          newBody[messageKey] = [
+            l1UserMsg,
+            ...(newBody[messageKey] as unknown[] as Record<string, unknown>[]),
+          ];
           l1Placement = "leading-user";
         } else {
           // No user message at all — append L1 as a trailing user reference.
-          const arr = [...((newBody[messageKey] as unknown[]) as Record<string, unknown>[])];
+          const arr = [...(newBody[messageKey] as unknown[] as Record<string, unknown>[])];
           arr.push(l1UserMsg);
           newBody[messageKey] = arr;
           l1Placement = "leading-user";

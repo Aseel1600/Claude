@@ -14,9 +14,8 @@
  *  - Audit / task enqueue / provider-model validation are all DI'd so the
  *    unit tests can replace them with fakes.
  */
-import { createRequire } from "node:module";
-
-import type { z } from "zod";
+import { createFourLayerService } from "../db/service.ts";
+import type { Owner } from "../types.ts";
 
 import type {
   L0Import,
@@ -36,79 +35,83 @@ import type {
   DistillationDlqRetry,
 } from "@/shared/schemas/memoryFourLayer";
 
-/**
- * Lightweight `require` for runtime ESM — used to *optionally* resolve
- * `src/memory/db/service.ts` at runtime. If the file is absent (which it is
- * at the time of writing — the storage repo lives in a separate branch),
- * the default no-op service is used so the API surface still exists.
- */
-type NodeRequire = ReturnType<typeof createRequire>;
+// ────────────────────────────── Domain entities ──────────────────────────────
 
-let _require: NodeRequire | null = null;
-function safeRequire(): NodeRequire | null {
-  if (_require) return _require;
-  try {
-    _require = createRequire(`${process.cwd()}/package.json`);
-  } catch {
-    return null;
-  }
-  return _require;
+export interface MemoryRequestScope {
+  actor: AuthSubject;
+  ownerApiKeyId: string;
+  owner: Owner;
 }
 
-// ────────────────────────────── Domain entities ──────────────────────────────
+export interface MemoryServiceContext {
+  actor: AuthSubject;
+  ownerApiKeyId?: string;
+  owner?: Owner;
+}
 
 export interface MemoryL0 {
   id: string;
   ownerApiKeyId: string;
-  sessionId: string;
-  sourceId: string | null;
-  sceneName: string | null;
-  payload: Record<string, unknown>;
-  occurredAt: string;
-  createdAt: string;
+  sessionKey: string;
+  sessionId: string | null;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  recordedAt: string;
+  source: "user" | "assistant" | "imported";
+  correlationId: string | null;
+  comboExecutionKey: string | null;
+  isInternal: boolean;
+  provider: string | null;
+  model: string | null;
+  truncated: boolean;
+  idempotencyKey: string;
   deletedAt: string | null;
 }
 
 export interface MemoryL1 {
   id: string;
   ownerApiKeyId: string;
-  type: string;
+  type: L1Create["type"];
   priority: number;
   content: string;
   sceneName: string;
   metadata: Record<string, unknown>;
-  sourceId: string | null;
+  sourceMessageIds: string[];
   version: number;
   createdAt: string;
   updatedAt: string;
+  lastModifiedBy: "user" | "pipeline";
+  editedByUser: boolean;
   deletedAt: string | null;
 }
 
 export interface MemoryL2 {
   id: string;
   ownerApiKeyId: string;
-  sessionId: string | null;
-  sourceId: string | null;
-  sceneName: string | null;
+  sceneName: string;
+  groupKey: string | null;
+  summary: string;
+  heat: number;
   content: string;
-  metadata: Record<string, unknown>;
   version: number;
   createdAt: string;
   updatedAt: string;
+  lastModifiedBy: "user" | "pipeline";
+  editedByUser: boolean;
   deletedAt: string | null;
-  errorCount: number;
 }
 
 export interface MemoryL3 {
   id: string;
   ownerApiKeyId: string;
-  sourceLayer: "l0" | "l1" | "l2";
-  sourceId: string | null;
   content: string;
-  metadata: Record<string, unknown>;
+  promptMode: "chat" | "code";
   version: number;
   createdAt: string;
   updatedAt: string;
+  lastModifiedBy: "user" | "pipeline";
+  editedByUser: boolean;
   deletedAt: string | null;
 }
 
@@ -152,6 +155,13 @@ export interface L1ListingQuery {
   includeDeleted?: "active" | "deleted" | "any";
 }
 
+export class MemoryOptimisticConflictError extends Error {
+  constructor(message = "Memory optimistic version conflict") {
+    super(message);
+    this.name = "MemoryOptimisticConflictError";
+  }
+}
+
 export interface RegenerateEnqueueResult {
   enqueued: number;
   /** When the call was rejected because the rolling error count exceeded the cap. */
@@ -162,76 +172,82 @@ export interface RegenerateEnqueueResult {
 
 /**
  * The strongly-typed storage contract. Every route handler depends on this
- * interface only — never on `@/lib/db/*` or `@/lib/memory/db/*`. Adapters
- * for the real storage live under `src/memory/db/` (TencentDB integration
- * branch); when that module is absent the default no-op adapter is used.
+ * interface only. The production adapter lives under `src/memory/db/`; tests
+ * can replace it through the dependency registry above.
  */
 export interface MemoryFourLayerService {
   // L0
-  importL0(input: { actor: AuthSubject; data: L0Import }): Promise<{ importedIds: string[] }>;
-  listL0(actor: AuthSubject, query: L1ListingQuery): Promise<ListResult<MemoryL0>>;
-  getL0(actor: AuthSubject, id: string): Promise<MemoryL0 | null>;
-  deleteL0(actor: AuthSubject, id: string, mode: L0DeleteBody["mode"]): Promise<boolean>;
+  importL0(scope: MemoryRequestScope, data: L0Import): Promise<{ importedIds: string[] }>;
+  listL0(scope: MemoryRequestScope, query: L1ListingQuery): Promise<ListResult<MemoryL0>>;
+  getL0(scope: MemoryRequestScope, id: string): Promise<MemoryL0 | null>;
+  deleteL0(scope: MemoryRequestScope, id: string, mode: L0DeleteBody["mode"]): Promise<boolean>;
   deleteL0Session(
-    actor: AuthSubject,
+    scope: MemoryRequestScope,
     sessionId: string,
     mode: L0DeleteAll["mode"]
   ): Promise<{ deleted: number }>;
-  restoreL0(actor: AuthSubject, id: string): Promise<MemoryL0 | null>;
+  restoreL0(scope: MemoryRequestScope, id: string): Promise<MemoryL0 | null>;
 
   // L1
-  createL1(actor: AuthSubject, data: L1Create): Promise<MemoryL1>;
-  listL1(actor: AuthSubject, query: L1ListingQuery): Promise<ListResult<MemoryL1>>;
-  searchL1(actor: AuthSubject, query: L1ListingQuery): Promise<ListResult<MemoryL1>>;
-  getL1(actor: AuthSubject, id: string): Promise<MemoryL1 | null>;
+  createL1(scope: MemoryRequestScope, data: L1Create): Promise<MemoryL1>;
+  listL1(scope: MemoryRequestScope, query: L1ListingQuery): Promise<ListResult<MemoryL1>>;
+  searchL1(scope: MemoryRequestScope, query: L1ListingQuery): Promise<ListResult<MemoryL1>>;
+  getL1(scope: MemoryRequestScope, id: string): Promise<MemoryL1 | null>;
   updateL1(
-    actor: AuthSubject,
+    scope: MemoryRequestScope,
     id: string,
     data: L1Update
   ): Promise<{ entry: MemoryL1; conflict: boolean }>;
-  deleteL1(actor: AuthSubject, id: string, mode: L1DeleteBody["mode"]): Promise<boolean>;
-  restoreL1(actor: AuthSubject, id: string): Promise<MemoryL1 | null>;
+  deleteL1(scope: MemoryRequestScope, id: string, mode: L1DeleteBody["mode"]): Promise<boolean>;
+  restoreL1(scope: MemoryRequestScope, id: string): Promise<MemoryL1 | null>;
 
   // L2
-  createL2(actor: AuthSubject, data: L2Create): Promise<MemoryL2>;
-  listL2(actor: AuthSubject, query: L1ListingQuery): Promise<ListResult<MemoryL2>>;
-  getL2(actor: AuthSubject, id: string): Promise<MemoryL2 | null>;
-  updateL2(actor: AuthSubject, id: string, data: L2Update): Promise<MemoryL2>;
-  deleteL2(actor: AuthSubject, id: string, mode: L2DeleteBody["mode"]): Promise<boolean>;
-  restoreL2(actor: AuthSubject, id: string): Promise<MemoryL2 | null>;
+  createL2(scope: MemoryRequestScope, data: L2Create): Promise<MemoryL2>;
+  listL2(scope: MemoryRequestScope, query: L1ListingQuery): Promise<ListResult<MemoryL2>>;
+  getL2(scope: MemoryRequestScope, id: string): Promise<MemoryL2 | null>;
+  updateL2(
+    scope: MemoryRequestScope,
+    id: string,
+    data: L2Update
+  ): Promise<{ entry: MemoryL2; conflict: boolean }>;
+  deleteL2(scope: MemoryRequestScope, id: string, mode: L2DeleteBody["mode"]): Promise<boolean>;
+  restoreL2(scope: MemoryRequestScope, id: string): Promise<MemoryL2 | null>;
   regenerateL2(
-    actor: AuthSubject,
+    scope: MemoryRequestScope,
     id: string,
     data: L2Regenerate
   ): Promise<RegenerateEnqueueResult>;
 
   // L3
-  listL3(actor: AuthSubject, query: L1ListingQuery): Promise<ListResult<MemoryL3>>;
-  getL3(actor: AuthSubject, id: string): Promise<MemoryL3 | null>;
-  upsertL3(actor: AuthSubject, data: L3Upsert): Promise<MemoryL3>;
-  deleteL3(actor: AuthSubject, id: string, mode: L3DeleteBody["mode"]): Promise<boolean>;
-  restoreL3(actor: AuthSubject, id: string): Promise<MemoryL3 | null>;
-  regenerateL3(actor: AuthSubject, data: L3Regenerate): Promise<RegenerateEnqueueResult>;
+  listL3(scope: MemoryRequestScope, query: L1ListingQuery): Promise<ListResult<MemoryL3>>;
+  getL3(scope: MemoryRequestScope, id: string): Promise<MemoryL3 | null>;
+  upsertL3(scope: MemoryRequestScope, data: L3Upsert): Promise<MemoryL3>;
+  deleteL3(scope: MemoryRequestScope, id: string, mode: L3DeleteBody["mode"]): Promise<boolean>;
+  restoreL3(scope: MemoryRequestScope, id: string): Promise<MemoryL3 | null>;
+  regenerateL3(scope: MemoryRequestScope, data: L3Regenerate): Promise<RegenerateEnqueueResult>;
 
   // Distillation-model
   getDistillationSelector(
-    actor: AuthSubject,
-    apiKeyId: string | null
+    context: MemoryServiceContext,
+    apiKeyId?: string | null
   ): Promise<DistillationSelector>;
-  setDistillationSelector(actor: AuthSubject, data: DistillationPut): Promise<DistillationSelector>;
+  setDistillationSelector(
+    context: MemoryServiceContext,
+    data: DistillationPut
+  ): Promise<DistillationSelector>;
   deleteDistillationSelector(
-    actor: AuthSubject,
-    scope: DistillationPut["scope"],
-    apiKeyId: string | null
+    context: MemoryServiceContext,
+    selectorScope: DistillationPut["scope"],
+    apiKeyId?: string | null
   ): Promise<boolean>;
 
   // Distillation DLQ
   listDistillationDlq(
-    actor: AuthSubject,
+    scope: MemoryRequestScope,
     options: { limit: number; statuses: DistillationDlqEntry["status"][] }
   ): Promise<{ entries: DistillationDlqEntry[]; statusCounts: Record<string, number> }>;
   retryDistillationDlq(
-    actor: AuthSubject,
+    scope: MemoryRequestScope,
     data: DistillationDlqRetry
   ): Promise<{ retried: number; skipped: number }>;
 }
@@ -387,8 +403,8 @@ class NotImplementedService implements MemoryFourLayerService {
 
 // ────────────────────────────── Registry & defaults ──────────────────────────────
 
-const _noImpl = new NotImplementedService();
-let _service: MemoryFourLayerService = _noImpl;
+const _productionService = createFourLayerService();
+let _service: MemoryFourLayerService = _productionService;
 let _validator: ProviderModelValidator = defaultValidator;
 let _audit: AuditWriter = defaultAuditWriter;
 let _enqueuer: TaskEnqueuer = defaultTaskEnqueuer;
@@ -402,7 +418,7 @@ export function setFourLayerServiceForTesting(svc: MemoryFourLayerService): void
 }
 
 export function resetFourLayerServiceForTesting(): void {
-  _service = _noImpl;
+  _service = _productionService;
 }
 
 export function getProviderModelValidator(): ProviderModelValidator {
@@ -504,5 +520,5 @@ async function defaultTaskEnqueuer(): Promise<{ taskId: string }> {
 // ────────────────────────────── Helpers ──────────────────────────────
 
 export function isNoOpService(): boolean {
-  return _service === _noImpl;
+  return _service instanceof NotImplementedService;
 }

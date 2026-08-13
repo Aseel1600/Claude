@@ -23,7 +23,12 @@
 export interface InternalMarkerParts {
   /** Always "true". Public signal — declared in headers as `X-Omniroute-No-Memory`. */
   flag: "true";
-  /** Base64url HMAC. Public to all internal callers; useless without secret. */
+  /**
+   * Composite `<payload>.<mac>` (base64url of `issuedAtMs.nonce.depth.calls`
+   * plus the HMAC over that exact payload). The payload travels with the
+   * signature so the verifier can recompute the MAC without a server-side
+   * nonce store; the MAC is what makes it unforgeable.
+   */
   signature: string;
   /** Epoch ms when the marker was minted (so the consumer can enforce TTL). */
   issuedAtMs: number;
@@ -218,8 +223,8 @@ export function signInternalMarker(
   const depth = Math.max(0, Math.floor(options.depth ?? 0));
   const callsRemaining = Math.max(0, Math.floor(options.callsRemaining ?? 0));
   const payload = `${issuedAtMs}.${nonce}.${depth}.${callsRemaining}`;
-  const sig = hmacSha256(secret, payload);
-  const signature = bytesToBase64Url(sig);
+  const mac = hmacSha256(secret, payload);
+  const signature = `${encodePayload(payload)}.${bytesToBase64Url(mac)}`;
   const parts: InternalMarkerParts = {
     flag: "true",
     signature,
@@ -273,11 +278,15 @@ export function verifyInternalMarker(
   const callsRaw = readHeader(headers, INTERNAL_CALLS_HEADER);
   if (!flag || flag !== "true") return { ok: false, reason: "missing" };
   if (!signature) return { ok: false, reason: "missing" };
-  const issuedAtMs = parseIssuedAtFromSignature(signature);
-  if (issuedAtMs === null) return { ok: false, reason: "bad_format" };
+
+  // The signature is `<payload>.<mac>` — parse the payload to recover
+  // issuedAtMs + nonce (they are NOT derivable from the HMAC bytes alone).
+  const decoded = decodeSignature(signature);
+  if (!decoded) return { ok: false, reason: "bad_format" };
+
   const nowMs = options.nowMs ?? Date.now();
   const ttl = options.ttlMs ?? MARKER_TTL_MS;
-  if (nowMs - issuedAtMs > ttl) return { ok: false, reason: "expired" };
+  if (nowMs - decoded.issuedAtMs > ttl) return { ok: false, reason: "expired" };
 
   const depth = depthRaw ? Number(depthRaw) : 0;
   const callsRemaining = callsRaw ? Number(callsRaw) : 0;
@@ -290,13 +299,13 @@ export function verifyInternalMarker(
     if (depth > 0) return { ok: false, reason: "calls_exhausted" };
   }
 
-  // We need the nonce + depth + callsRemaining to recompute the HMAC. The
-  // signed payload is encoded in the signature header itself, so we round-trip
-  // by parsing it out below.
-  const roundtrip = reconstructPayload(signature, headers);
-  if (!roundtrip) return { ok: false, reason: "bad_format" };
-  const expected = hmacSha256(secret, roundtrip);
-  const presented = base64UrlToBytes(signature);
+  // Cross-check the header fields against the signed payload so a MITM cannot
+  // weaken the depth/calls bounds while keeping a valid MAC over the old ones.
+  if (decoded.depth !== depth) return { ok: false, reason: "bad_signature" };
+  if (decoded.callsRemaining !== callsRemaining) return { ok: false, reason: "bad_signature" };
+
+  const expected = hmacSha256(secret, decoded.payload);
+  const presented = decoded.mac;
   if (presented.length !== expected.length) return { ok: false, reason: "bad_signature" };
   // Constant-time compare.
   let diff = 0;
@@ -315,42 +324,55 @@ function readHeader(
 }
 
 /**
- * The signature alone does not carry the nonce/depth/calls-remaining — those
- * are sent as separate headers and the HMAC is computed over the canonical
- * tuple. To keep the contract test-friendly we encode the issued-at + nonce
- * prefix inside the base64url payload (first 12 bytes of signature = 8-byte
- * issued-at + 4-byte nonce-prefix). That gives us everything we need to
- * recompute the HMAC without a server-side nonce store.
+ * The signature header carries the signed payload alongside the MAC:
+ * `<payload>.<mac>`, where `payload` is the base64url of the canonical
+ * `issuedAtMs.nonce.depth.calls` tuple and `mac` is the HMAC-SHA256 of that
+ * exact payload string. Encoding the payload in-band (rather than trying to
+ * derive issued-at/nonce from the MAC bytes, which is impossible) lets the
+ * verifier recompute the HMAC without a server-side nonce store.
  */
-function parseIssuedAtFromSignature(signature: string): number | null {
-  try {
-    const bytes = base64UrlToBytes(signature);
-    if (bytes.length < 12) return null;
-    return (
-      ((bytes[0] ?? 0) << 24) | ((bytes[1] ?? 0) << 16) | ((bytes[2] ?? 0) << 8) | (bytes[3] ?? 0)
-    );
-  } catch {
-    return null;
-  }
+function encodePayload(payload: string): string {
+  const bytes = new TextEncoder().encode(payload);
+  return bytesToBase64Url(bytes);
 }
 
-function reconstructPayload(
-  signature: string,
-  headers: Record<string, string | string[] | undefined>
-): string | null {
+interface DecodedSignature {
+  payload: string;
+  issuedAtMs: number;
+  nonce: string;
+  depth: number;
+  callsRemaining: number;
+  mac: Uint8Array;
+}
+
+function decodeSignature(signature: string): DecodedSignature | null {
+  const dot = signature.lastIndexOf(".");
+  if (dot <= 0 || dot === signature.length - 1) return null;
+  const payloadB64 = signature.slice(0, dot);
+  const macB64 = signature.slice(dot + 1);
+  let payload: string;
+  let mac: Uint8Array;
   try {
-    const bytes = base64UrlToBytes(signature);
-    if (bytes.length < 12) return null;
-    const issuedAtMs =
-      ((bytes[0] ?? 0) << 24) | ((bytes[1] ?? 0) << 16) | ((bytes[2] ?? 0) << 8) | (bytes[3] ?? 0);
-    const noncePrefix = bytesToHex(bytes.subarray(4, 12));
-    const depth = Number(readHeader(headers, INTERNAL_DEPTH_HEADER) ?? "0");
-    const callsRemaining = Number(readHeader(headers, INTERNAL_CALLS_HEADER) ?? "0");
-    if (!Number.isFinite(depth) || !Number.isFinite(callsRemaining)) return null;
-    return `${issuedAtMs}.${noncePrefix}.${depth}.${callsRemaining}`;
+    payload = new TextDecoder().decode(base64UrlToBytes(payloadB64));
+    mac = base64UrlToBytes(macB64);
   } catch {
     return null;
   }
+  // Split the payload exactly like the signer built it: issuedAt.nonce.depth.calls.
+  const sep = payload.indexOf(".");
+  if (sep <= 0) return null;
+  const issuedAtMs = Number(payload.slice(0, sep));
+  if (!Number.isFinite(issuedAtMs) || issuedAtMs <= 0) return null;
+  const tail = payload.slice(sep + 1);
+  const fields = tail.split(".");
+  if (fields.length !== 3) return null;
+  const [nonce, depthStr, callsStr] = fields;
+  if (!nonce) return null;
+  const depth = Number(depthStr);
+  const callsRemaining = Number(callsStr);
+  if (!Number.isFinite(depth) || !Number.isFinite(callsRemaining)) return null;
+  if (depth < 0 || callsRemaining < 0) return null;
+  return { payload, issuedAtMs, nonce, depth, callsRemaining, mac };
 }
 
 function base64UrlToBytes(b64: string): Uint8Array {

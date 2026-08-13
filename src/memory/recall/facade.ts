@@ -26,6 +26,7 @@
  */
 
 import { logger } from "../../../open-sse/utils/logger.ts";
+import { PRODUCTION_RECALL_PROVIDER } from "../integration/runtime.ts";
 
 const log = logger("MEMORY_RECALL");
 
@@ -69,11 +70,7 @@ export interface RecallProvider {
   /** Navigation index, ≤ 15. */
   fetchL2(input: { ownerId: string; sessionId: string }): Promise<L2NavItem[]>;
   /** Top-5 dynamic results for the query. */
-  fetchL1(input: {
-    ownerId: string;
-    sessionId: string;
-    query: string;
-  }): Promise<L1RecallItem[]>;
+  fetchL1(input: { ownerId: string; sessionId: string; query: string }): Promise<L1RecallItem[]>;
 }
 
 export interface RecallFacadeOptions {
@@ -108,7 +105,7 @@ export const L1_TOP_K = 5;
 // Provider registry (injectable)
 // ──────────────────────────────────────────────────────────────────────────────
 
-let _provider: RecallProvider = NOOP_RECALL_PROVIDER;
+let _provider: RecallProvider = PRODUCTION_RECALL_PROVIDER;
 
 export function setRecallProvider(provider: RecallProvider): void {
   _provider = provider;
@@ -119,7 +116,7 @@ export function getRecallProvider(): RecallProvider {
 }
 
 export function resetRecallProviderForTests(): void {
-  _provider = NOOP_RECALL_PROVIDER;
+  _provider = PRODUCTION_RECALL_PROVIDER;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -201,10 +198,7 @@ async function runWithStructuredTimeout<T>(
     }, timeoutMs);
   });
   try {
-    const value = await Promise.race([
-      Promise.resolve().then(fn),
-      timeoutPromise,
-    ]);
+    const value = await Promise.race([Promise.resolve().then(fn), timeoutPromise]);
     if (timeoutHandle) clearTimeout(timeoutHandle);
     return { ok: true, value: value as T, timedOut: false, error: null };
   } catch (err) {

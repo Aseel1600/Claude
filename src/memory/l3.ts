@@ -29,7 +29,17 @@ function validate(input: L3UpsertInput): void {
   }
 }
 
-export function upsertPersona(input: L3UpsertInput): L3Persona {
+export class PersonaVersionConflictError extends Error {
+  readonly current: L3Persona;
+
+  constructor(current: L3Persona) {
+    super(`[memory.l3] version conflict: current=${current.version}`);
+    this.name = "PersonaVersionConflictError";
+    this.current = current;
+  }
+}
+
+export function upsertPersona(input: L3UpsertInput, expectedVersion?: number): L3Persona {
   validate(input);
   const db = getMemoryDbInstance();
   const key = ownerKey(input.owner);
@@ -40,21 +50,34 @@ export function upsertPersona(input: L3UpsertInput): L3Persona {
 
   const now = new Date().toISOString();
   if (existing) {
+    if (expectedVersion !== undefined && existing.version !== expectedVersion) {
+      throw new PersonaVersionConflictError(rowToPersona(existing));
+    }
     const nextVersion = existing.version + 1;
-    db.prepare(
-      `UPDATE l3_personas
+    const changed = db
+      .prepare(
+        `UPDATE l3_personas
        SET content = ?, prompt_mode = ?, version = ?,
            last_modified_by = ?, edited_by_user = ?, updated_at = ?
-       WHERE persona_id = ?`
-    ).run(
-      input.content,
-      input.promptMode,
-      nextVersion,
-      input.lastModifiedBy,
-      input.editedByUser ? 1 : 0,
-      now,
-      existing.persona_id
-    );
+       WHERE persona_id = ? AND version = ? AND deleted_at IS NULL`
+      )
+      .run(
+        input.content,
+        input.promptMode,
+        nextVersion,
+        input.lastModifiedBy,
+        input.editedByUser ? 1 : 0,
+        now,
+        existing.persona_id,
+        existing.version
+      );
+    if (changed.changes !== 1) {
+      const current = db
+        .prepare("SELECT * FROM l3_personas WHERE owner_key = ? AND deleted_at IS NULL LIMIT 1")
+        .get(key) as L3Row | undefined;
+      if (current) throw new PersonaVersionConflictError(rowToPersona(current));
+      throw new Error("[memory.l3] persona disappeared during update");
+    }
     const after = db
       .prepare("SELECT * FROM l3_personas WHERE persona_id = ?")
       .get(existing.persona_id) as L3Row;
@@ -148,7 +171,10 @@ export function clearPersona(owner: Owner): void {
   const db = getMemoryDbInstance();
   const key = ownerKey(owner);
   db.prepare(
-    "UPDATE l3_personas SET deleted_at = datetime('now') WHERE owner_key = ? AND deleted_at IS NULL"
+    `UPDATE l3_personas
+     SET deleted_at = datetime('now'), last_modified_by = 'user', edited_by_user = 1,
+         updated_at = datetime('now')
+     WHERE owner_key = ? AND deleted_at IS NULL`
   ).run(key);
 }
 

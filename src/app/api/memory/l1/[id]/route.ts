@@ -30,7 +30,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const entry = await service.getL1(owner.actor, id);
+    const entry = await service.getL1(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,
@@ -57,7 +57,7 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const result = await service.updateL1(owner.actor, id, body.data);
+    const result = await service.updateL1(owner, id, body.data);
     if (result.conflict) {
       return createErrorResponse({
         status: 409,
@@ -104,7 +104,7 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
 
   try {
     const service = getService();
-    const ok = await service.deleteL1(owner.actor, id, mode);
+    const ok = await service.deleteL1(owner, id, mode);
     if (!ok) {
       return createErrorResponse({
         status: 404,
@@ -147,7 +147,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   try {
     const service = getService();
-    const entry = await service.restoreL1(owner.actor, id);
+    const entry = await service.restoreL1(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,

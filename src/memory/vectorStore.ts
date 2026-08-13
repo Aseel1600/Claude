@@ -12,9 +12,8 @@
  * authoritative retrieval surface — it MUST always work, independent of this
  * store. See retrieval/rrf.ts for the pure fusion primitive.
  *
- * NOTE: This is the standalone memory-core vector store (l0_vec/l1_vec-style).
- * It is independent from src/lib/memory/vectorStore.ts (the existing main-DB
- * memory vector store) and uses the standalone memory.db connection.
+ * This store uses the standalone memory.db connection and never touches the
+ * main application database.
  */
 
 import { createRequire } from "node:module";

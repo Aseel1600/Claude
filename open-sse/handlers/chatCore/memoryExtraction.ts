@@ -133,10 +133,4 @@ export function resolveMemoryOwnerId(apiKeyInfo: Record<string, unknown> | null)
   return null;
 }
 
-/**
- * Re-export the log-only intentional no-op logger to silence the unused-import
- * lint under the hard cutover. The legacy `extractFacts` import is removed
- * from the pipeline; tests that need it can import from
- * `@/lib/memory/extraction` directly.
- */
 export const _pipelineLog = log;

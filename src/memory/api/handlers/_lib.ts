@@ -23,12 +23,16 @@ import { getApiKeyMetadata } from "@/lib/db/apiKeys";
 import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { hasManageScope } from "@/shared/constants/managementScopes";
 
+import { ownerFromApiKeyId } from "@/memory/integration/runtime";
+
 import {
   type AuditWriter,
   type AuthSubject,
+  type MemoryRequestScope,
   getAuditWriter,
   getFourLayerService,
-} from "./dependencies";
+  getProviderModelValidator,
+} from "../dependencies.ts";
 
 export const DASHBOARD_ACTOR = "dashboard";
 
@@ -90,9 +94,7 @@ export async function resolveAuthSubject(request: Request): Promise<AuthSubject 
  * `paramName` lets the caller pass in a non-default query/body field name
  * (e.g. for `apiKeyId` reads). The default reads the URL query.
  */
-export interface OwnerResolution {
-  actor: AuthSubject;
-  ownerApiKeyId: string | null;
+export interface OwnerResolution extends MemoryRequestScope {
   /** True when the caller is management AND the override was honored. */
   ownerOverride: boolean;
 }
@@ -143,16 +145,31 @@ export async function resolveOwner(
     allowManagementOverride &&
     (actor.actor === "dashboard" || actor.actor === "apiKey")
   ) {
-    return { actor, ownerApiKeyId: fromQuery, ownerOverride: true };
+    return {
+      actor,
+      ownerApiKeyId: fromQuery,
+      owner: ownerFromApiKeyId(fromQuery),
+      ownerOverride: true,
+    };
   }
 
   // No override → fall back to the calling key
-  if (actor.actor === "apiKey") {
-    return { actor, ownerApiKeyId: actor.apiKeyId, ownerOverride: false };
+  if (actor.actor === "apiKey" && actor.apiKeyId) {
+    return {
+      actor,
+      ownerApiKeyId: actor.apiKeyId,
+      owner: ownerFromApiKeyId(actor.apiKeyId),
+      ownerOverride: false,
+    };
   }
 
-  // Dashboard session without explicit override → null (caller needs to set apiKeyId).
-  return { actor, ownerApiKeyId: null, ownerOverride: false };
+  return {
+    errorResponse: createErrorResponse({
+      status: 400,
+      message: "apiKeyId is required for dashboard memory requests",
+      type: "invalid_request",
+    }),
+  };
 }
 
 export function requireManagementActor(actor: AuthSubject | null): Response | null {
@@ -211,6 +228,8 @@ export function buildPagination(input: { page: number; limit: number; total: num
   const totalPages = input.limit > 0 ? Math.ceil(input.total / input.limit) : 0;
   return { page: input.page, limit: input.limit, total: input.total, totalPages };
 }
+
+export { getProviderModelValidator };
 
 export function getService() {
   return getFourLayerService();

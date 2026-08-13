@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.listL2(owner.actor, parsed.data);
+    const result = await service.listL2(owner, parsed.data);
     return NextResponse.json({
       data: result.data,
       pagination: buildPagination({
@@ -76,28 +76,15 @@ export async function POST(request: Request) {
   const body = await validatedJsonBody(request, L2CreateSchema);
   if (!body.success) return body.response;
 
-  if (owner.actor.actor === "apiKey" && !owner.actor.isManagement) {
-    if (body.data.apiKeyId && body.data.apiKeyId !== owner.actor.apiKeyId) {
-      return createErrorResponse({
-        status: 403,
-        message: "Self API key cannot create on behalf of another key",
-        type: "invalid_request",
-      });
-    }
-  }
-
   try {
     const service = getService();
-    const entry = await service.createL2(owner.actor, {
-      ...body.data,
-      apiKeyId: body.data.apiKeyId ?? owner.ownerApiKeyId ?? undefined,
-    });
+    const entry = await service.createL2(owner, body.data);
     await audit({
       action: "memory.l2.create",
       actor: owner.actor,
       target: `l2:${entry.id}`,
       resourceType: "memory_l2",
-      details: { sourceId: entry.sourceId },
+      details: { sceneName: entry.sceneName, groupKey: entry.groupKey },
       request,
     });
     return NextResponse.json({ data: entry }, { status: 201 });

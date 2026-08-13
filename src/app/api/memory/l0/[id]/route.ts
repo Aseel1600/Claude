@@ -31,7 +31,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const entry = await service.getL0(owner.actor, id);
+    const entry = await service.getL0(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,
@@ -72,7 +72,7 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
 
   try {
     const service = getService();
-    const ok = await service.deleteL0(owner.actor, id, mode);
+    const ok = await service.deleteL0(owner, id, mode);
     if (!ok) {
       return createErrorResponse({
         status: 404,
@@ -115,7 +115,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   try {
     const service = getService();
-    const entry = await service.restoreL0(owner.actor, id);
+    const entry = await service.restoreL0(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,

@@ -62,6 +62,8 @@ export interface L0Message {
 }
 
 export interface L0InsertInput {
+  /** Internal capture may preserve its stable record id as the canonical row id. */
+  id?: string;
   owner: Owner;
   sessionKey: string;
   sessionId: string | null;
@@ -119,6 +121,8 @@ export interface L1Memory {
   sceneName: string;
   sourceMessageIds: string[];
   metadata: Record<string, unknown>;
+  /** Stable identity for pipeline-owned records; null for user-created records. */
+  pipelineKey: string | null;
   content: string;
   version: number;
   createdAt: string;
@@ -136,6 +140,7 @@ export interface L1CreateInput {
   sceneName: string;
   sourceMessageIds: string[];
   metadata: Record<string, unknown>;
+  pipelineKey?: string | null;
   content: string;
   lastModifiedBy: "user" | "pipeline";
   editedByUser: boolean;
@@ -147,6 +152,7 @@ export interface L1UpdateInput {
   sceneName?: string;
   sourceMessageIds?: string[];
   metadata?: Record<string, unknown>;
+  pipelineKey?: string | null;
   lastModifiedBy?: "user" | "pipeline";
   editedByUser?: boolean;
 }

@@ -6,12 +6,9 @@
  *     imports and calls. The new 4-layer recall facade
  *     (`src/memory/recall/facade.ts`) and injection transformer
  *     (`src/memory/integration/injectionTransformer.ts`) take their place.
- *   - Per-API-key `injectionEnabled` resolves from
- *     `resolveMemoryPipelineSettings(ownerId)`. The legacy `memoryEnabled`
- *     is preserved ONLY as an explicit migration path (returned via
- *     `migratedFromLegacy` for diagnostics) — it NEVER defaults to true.
- *   - Skills branch is unchanged — it still delegates to
- *     `injectSkills` and returns the merged tools.
+ *   - Per-owner `captureEnabled` / `injectionEnabled` resolve from
+ *     `resolveMemoryPipelineSettings(ownerId)` and default to false.
+ *   - Skills remain independent and delegate to `injectSkills`.
  *
  * The function returns the body + a `memorySettings` shape that callers
  * (chatCore.ts) use to decide whether to schedule L0 capture at the
@@ -19,6 +16,7 @@
  */
 
 import { injectSkills } from "@/lib/skills/injection";
+import { getSettings } from "@/lib/db/settings";
 import { FORMATS } from "../../translator/formats.ts";
 import { detectCachingContext } from "../../services/compression/cachingAware.ts";
 import {
@@ -42,9 +40,7 @@ export interface MemorySettingsForPipeline {
   captureEnabled: boolean;
   /** True when the new 4-layer recall/injection path is enabled. */
   injectionEnabled: boolean;
-  /** When true, the legacy `memoryEnabled` was true and migrated the new flags true. */
-  migratedFromLegacy: boolean;
-  /** Token budget for legacy maxTokens check (kept so callers don't break). */
+  /** Token budget for the maxTokens compatibility check. */
   maxTokens: number;
   /** Skills branch — unchanged. */
   skillsEnabled: boolean;
@@ -52,7 +48,9 @@ export interface MemorySettingsForPipeline {
   pipeline: MemoryPipelineSettings;
 }
 
-export function getSkillsProviderForFormat(format: string): "openai" | "anthropic" | "google" | "other" {
+export function getSkillsProviderForFormat(
+  format: string
+): "openai" | "anthropic" | "google" | "other" {
   switch (format) {
     case FORMATS.CLAUDE:
       return "anthropic";
@@ -96,7 +94,6 @@ export function buildMemorySettingsForPipeline(
     enabled: pipeline.injectionEnabled,
     captureEnabled: pipeline.captureEnabled,
     injectionEnabled: pipeline.injectionEnabled,
-    migratedFromLegacy: pipeline.migratedFromLegacy,
     maxTokens: pipeline.l1CharBudget,
     skillsEnabled: legacySkillsEnabled,
     pipeline,
@@ -152,6 +149,15 @@ export function extractLastUserQuery(body: Record<string, unknown>): string {
   return "";
 }
 
+async function resolveSkillsEnabled(): Promise<boolean> {
+  try {
+    const settings = await getSettings();
+    return settings.skillsEnabled !== false;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Hard cutover entry point. The function NEVER throws on memory failure —
  * failures are swallowed and the body is returned unchanged.
@@ -168,13 +174,13 @@ export async function injectMemoryAndSkills({
 }: InjectMemoryAndSkillsArgs): Promise<InjectMemoryAndSkillsResult> {
   // Resolve pipeline settings per API key (default OFF).
   const pipelineSettings = memoryOwnerId
-    ? await resolveMemoryPipelineSettings(memoryOwnerId).catch(() => DEFAULT_MEMORY_PIPELINE_SETTINGS)
+    ? await resolveMemoryPipelineSettings(memoryOwnerId).catch(
+        () => DEFAULT_MEMORY_PIPELINE_SETTINGS
+      )
     : DEFAULT_MEMORY_PIPELINE_SETTINGS;
 
-  // Skills branch — unchanged. Independent of the new pipeline flags.
-  const legacySkillsEnabled = pipelineSettings.injectionEnabled || true;
-
-  const memorySettings = buildMemorySettingsForPipeline(pipelineSettings, legacySkillsEnabled);
+  const skillsEnabled = await resolveSkillsEnabled();
+  const memorySettings = buildMemorySettingsForPipeline(pipelineSettings, skillsEnabled);
 
   if (!memoryOwnerId) {
     return { body, memorySettings: null };
@@ -190,7 +196,7 @@ export async function injectMemoryAndSkills({
       recall = await recallLayeredContext(
         {
           ownerId: memoryOwnerId,
-          sessionId: pipelineSettings.migratedFromLegacy ? "shared" : "shared",
+          sessionId: "shared",
           query,
         },
         { timeoutMs: pipelineSettings.recallTimeoutMs }
@@ -243,7 +249,7 @@ export async function injectMemoryAndSkills({
   }
 
   // ── Skills branch — unchanged ────────────────────────────────────────────
-  if (memoryOwnerId && legacySkillsEnabled) {
+  if (memoryOwnerId && skillsEnabled) {
     const existingTools = Array.isArray(body.tools) ? body.tools : [];
     const mergedTools = injectSkills({
       provider: getSkillsProviderForFormat(sourceFormat),

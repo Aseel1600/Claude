@@ -85,16 +85,30 @@ export function getMemoryDbInstance(): SqliteAdapter {
   return opened;
 }
 
-export function resetMemoryDbInstance(): void {
-  if (_instance) {
-    try {
-      _instance.close();
-    } catch {
-      /* ignore */
-    }
-  }
+export function closeMemoryDbInstance(): boolean {
+  if (!_instance) return false;
+  const current = _instance;
   _instance = null;
   _instancePath = null;
+  try {
+    if (current.open && !isCloud && !isBuildPhase) {
+      try {
+        current.pragma("wal_checkpoint(TRUNCATE)");
+      } catch (error: unknown) {
+        const message = sanitizeErrorMessage(
+          error instanceof Error ? error.message : String(error)
+        );
+        console.warn("[memory.db] WAL checkpoint failed during close:", message);
+      }
+    }
+  } finally {
+    if (current.open) current.close();
+  }
+  return true;
+}
+
+export function resetMemoryDbInstance(): void {
+  closeMemoryDbInstance();
 }
 
 function applyPragmas(db: SqliteAdapter, filePath: string): void {
@@ -106,7 +120,7 @@ function applyPragmas(db: SqliteAdapter, filePath: string): void {
     // pragma failures are non-fatal (e.g. some cloud drivers reject WAL)
     if (!/not supported|not allowed/i.test(safe)) {
       // rethrow only if it is not a known-benign message
-       
+
       console.debug(`[memory.db] journal_mode pragma failed: ${safe}`);
     }
   }
@@ -229,9 +243,36 @@ function isSchemaAlreadyApplied(
         hasTable(db, "memory_settings") &&
         hasTable(db, "embedding_meta")
       );
+    case "distillation_store":
+      return (
+        hasTable(db, "task_queue") &&
+        hasTable(db, "task_lock") &&
+        hasTable(db, "task_dlq") &&
+        hasTable(db, "distillation_usage")
+      );
+    case "distillation_idempotency":
+      return hasColumn(db, "task_queue", "idempotency_key");
+    case "distillation_apply":
+      return (
+        hasColumn(db, "l1_memories", "pipeline_key") && hasColumn(db, "task_queue", "coalesce_key")
+      );
+    case "distillation_usage_idempotency":
+      return hasIndex(db, "idx_distillation_usage_task");
     default:
       return false;
   }
+}
+
+function hasColumn(db: SqliteAdapter, tableName: string, columnName: string): boolean {
+  const rows = db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name?: string }>;
+  return rows.some((row) => row.name === columnName);
+}
+
+function hasIndex(db: SqliteAdapter, indexName: string): boolean {
+  const row = db
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .get(indexName) as { name?: string } | undefined;
+  return Boolean(row?.name);
 }
 
 function hasTable(db: SqliteAdapter, tableName: string): boolean {

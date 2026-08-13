@@ -58,9 +58,12 @@ export interface ExecutorDeps {
     messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
     maxTokens: number;
     isInternal: true;
+    /** Signed no-memory/internal-call headers minted by the worker. */
+    internalHeaders: Readonly<Record<string, string>>;
   }): Promise<ExecutorResult>;
-  /** Adapter for the credentials resolver. */
-  resolveCredentials(provider: string): Promise<DistillationCredentials | null>;
+  /** Adapter for the credentials resolver. The selected model is required so
+   *  account selection honors per-model lockouts and quota windows. */
+  resolveCredentials(provider: string, model: string): Promise<DistillationCredentials | null>;
   /** Adapter for the circuit breaker. */
   breaker: ExecutorBreakerHook;
   /** Optional override clock (tests only). */
@@ -87,9 +90,10 @@ export async function executeDistillationTask(args: {
   model: string;
   messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
   maxTokens: number;
+  internalHeaders: Readonly<Record<string, string>>;
   deps: ExecutorDeps;
 }): Promise<ExecutorRunOutcome> {
-  const { task, provider, model, messages, maxTokens, deps } = args;
+  const { task, provider, model, messages, maxTokens, internalHeaders, deps } = args;
 
   // 1. Breaker check — never call the underlying executor when the provider
   //    breaker is OPEN. The worker re-queues without burning an attempt.
@@ -103,7 +107,7 @@ export async function executeDistillationTask(args: {
 
   // 2. Credentials — same shape as the rest of the proxy. Null is a
   //    credentials_invalid failure, not a retryable error.
-  const creds = await deps.resolveCredentials(provider);
+  const creds = await deps.resolveCredentials(provider, model);
   if (!creds || !creds.credentials) {
     return {
       status: "credentials_invalid",
@@ -122,6 +126,7 @@ export async function executeDistillationTask(args: {
       messages,
       maxTokens,
       isInternal: true,
+      internalHeaders,
     });
     return {
       status: "ok",

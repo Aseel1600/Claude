@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { validatedJsonBody } from "@/shared/validation/helpers";
 import { L3DeleteBodySchema, L3UpsertSchema } from "@/shared/schemas/memoryFourLayer";
 import { createErrorResponse } from "@/lib/api/errorResponse";
+import { MemoryOptimisticConflictError } from "@/memory/api/dependencies";
 
 import {
   audit,
@@ -30,7 +31,7 @@ export async function GET(request: Request, props: { params: Promise<{ id: strin
 
   try {
     const service = getService();
-    const entry = await service.getL3(owner.actor, id);
+    const entry = await service.getL3(owner, id);
     if (!entry) {
       return createErrorResponse({
         status: 404,
@@ -55,32 +56,27 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
   const body = await validatedJsonBody(request, L3UpsertSchema);
   if (!body.success) return body.response;
 
-  if (owner.actor.actor === "apiKey" && !owner.actor.isManagement) {
-    if (body.data.apiKeyId && body.data.apiKeyId !== owner.actor.apiKeyId) {
-      return createErrorResponse({
-        status: 403,
-        message: "Self API key cannot write on behalf of another key",
-        type: "invalid_request",
-      });
-    }
-  }
-
   try {
     const service = getService();
-    const entry = await service.upsertL3(owner.actor, {
-      ...body.data,
-      apiKeyId: body.data.apiKeyId ?? owner.ownerApiKeyId ?? undefined,
-    });
+    const entry = await service.upsertL3(owner, body.data);
     await audit({
       action: "memory.l3.upsert",
       actor: owner.actor,
       target: `l3:${id}`,
       resourceType: "memory_l3",
-      details: { sourceLayer: entry.sourceLayer, version: entry.version },
+      details: { promptMode: entry.promptMode, version: entry.version },
       request,
     });
     return NextResponse.json({ data: entry });
   } catch (err: unknown) {
+    if (err instanceof MemoryOptimisticConflictError) {
+      return createErrorResponse({
+        status: 409,
+        message: "Optimistic version conflict — refetch and retry",
+        type: "conflict",
+        details: { expectedVersion: body.data.expectedVersion },
+      });
+    }
     if (err instanceof Error && err.message === "memory four-layer storage not wired") {
       return serviceUnavailableResponse();
     }
@@ -111,10 +107,10 @@ export async function DELETE(request: Request, props: { params: Promise<{ id: st
     const service = getService();
     let ok: boolean;
     if (mode === "restore") {
-      const restored = await service.restoreL3(owner.actor, id);
+      const restored = await service.restoreL3(owner, id);
       ok = Boolean(restored);
     } else {
-      ok = await service.deleteL3(owner.actor, id, mode);
+      ok = await service.deleteL3(owner, id, mode);
     }
     if (!ok) {
       return createErrorResponse({

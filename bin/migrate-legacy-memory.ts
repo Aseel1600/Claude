@@ -3,15 +3,17 @@
  * bin/migrate-legacy-memory.ts — legacy memory importer (placeholder).
  *
  * This is a placeholder/export script kept behind the four-layer surface
- * until the real migration lands on the storage branch. It MUST stay
+ * until a real legacy-data migration is implemented. It MUST stay
  * runtime-safe (no throwing on import) so the bin/ build does not break.
  *
  * Usage (future):
  *   node bin/migrate-legacy-memory.ts \
  *     --from <legacyDbPath> --to <storageBackend> [--dryRun]
  *
- * What it will do once the storage branch is merged:
- *  - read `memories` rows from the legacy DB (src/lib/memory/store.ts);
+ * What it will do once implemented:
+ *  - read legacy `memories` rows directly from an operator-supplied legacy
+ *    SQLite DB (the v3 `src/lib/memory/` store was removed by the four-layer
+ *    hard cutover, so rows must be read raw, not via the old module);
  *  - classify each row into the four layers:
  *      L0   — raw lineage rows (legacy `memories` with type in
  *             {factual, episodic, procedural, semantic} created by the engine);
@@ -20,9 +22,8 @@
  *      L3   — operator-visible distilled rows (legacy `distillation_log`).
  *  - emit a JSON report on stdout and exit 0 (dry-run) or 1 (failure).
  *
- * When invoked BEFORE the storage repo is merged, the script prints
- * "not implemented" and exits 2 — letting operators discover it without
- * surprising them with a hard crash.
+ * The script prints "not implemented" and exits 2 — letting operators
+ * discover it without surprising them with a hard crash.
  */
 
 import process from "node:process";

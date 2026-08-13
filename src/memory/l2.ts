@@ -180,6 +180,77 @@ export function upsertScene(input: L2UpsertInput): L2UpsertResult {
   return { scene: created, created: true };
 }
 
+export class SceneVersionConflictError extends Error {
+  readonly current: L2Scene;
+
+  constructor(current: L2Scene) {
+    super(`[memory.l2] version conflict: current=${current.version}`);
+    this.name = "SceneVersionConflictError";
+    this.current = current;
+  }
+}
+
+export function updateScene(
+  id: string,
+  owner: Owner,
+  update: Partial<Pick<L2Scene, "sceneName" | "groupKey" | "summary" | "heat" | "content">>,
+  expectedVersion: number
+): L2Scene {
+  const db = getMemoryDbInstance();
+  const key = ownerKey(owner);
+  let result: L2Scene | null = null;
+
+  db.transaction(() => {
+    const current = db
+      .prepare("SELECT * FROM l2_scenes WHERE id = ? AND owner_key = ? AND deleted_at IS NULL")
+      .get(id, key) as L2Row | undefined;
+    if (!current) {
+      throw new Error(`[memory.l2] scene not found or owner mismatch: id=${id}`);
+    }
+    if (current.version !== expectedVersion) {
+      throw new SceneVersionConflictError(rowToScene(current));
+    }
+
+    const sceneName = update.sceneName ?? current.scene_name;
+    const groupKey = update.groupKey !== undefined ? update.groupKey : current.group_key;
+    const summary = update.summary ?? current.summary;
+    const heat = update.heat ?? current.heat;
+    const content = update.content ?? current.content;
+    validate({
+      owner,
+      sceneName,
+      groupKey,
+      summary,
+      heat,
+      content,
+      lastModifiedBy: "user",
+      editedByUser: true,
+    });
+    const now = new Date().toISOString();
+    const changed = db
+      .prepare(
+        `UPDATE l2_scenes
+         SET scene_name = ?, group_key = ?, summary = ?, heat = ?, content = ?,
+             version = version + 1, last_modified_by = 'user', edited_by_user = 1,
+             updated_at = ?
+         WHERE id = ? AND owner_key = ? AND version = ? AND deleted_at IS NULL`
+      )
+      .run(sceneName, groupKey, summary, heat, content, now, id, key, expectedVersion);
+    if (changed.changes !== 1) {
+      const latest = db
+        .prepare("SELECT * FROM l2_scenes WHERE id = ? AND owner_key = ? AND deleted_at IS NULL")
+        .get(id, key) as L2Row | undefined;
+      if (latest) throw new SceneVersionConflictError(rowToScene(latest));
+      throw new Error(`[memory.l2] scene not found or owner mismatch: id=${id}`);
+    }
+    result = rowToScene(
+      db.prepare("SELECT * FROM l2_scenes WHERE id = ? AND owner_key = ?").get(id, key) as L2Row
+    );
+  })();
+
+  return result!;
+}
+
 export function getSceneById(id: string, owner: Owner): L2Scene | null {
   const db = getMemoryDbInstance();
   const key = ownerKey(owner);
@@ -215,11 +286,29 @@ export function listScenesOrderedByHeat(filter: L2ListFilter): L2Scene[] {
   return rows.map(rowToScene);
 }
 
-export function softDeleteScene(id: string, owner: Owner): void {
+export function softDeleteScene(
+  id: string,
+  owner: Owner,
+  lastModifiedBy: "user" | "pipeline" = "user"
+): void {
   const db = getMemoryDbInstance();
   const key = ownerKey(owner);
   db.prepare(
-    "UPDATE l2_scenes SET deleted_at = datetime('now') WHERE id = ? AND owner_key = ? AND deleted_at IS NULL"
+    `UPDATE l2_scenes
+     SET deleted_at = datetime('now'), tombstone = 1,
+         last_modified_by = ?, edited_by_user = ?, updated_at = datetime('now')
+     WHERE id = ? AND owner_key = ? AND deleted_at IS NULL`
+  ).run(lastModifiedBy, lastModifiedBy === "user" ? 1 : 0, id, key);
+}
+
+export function restoreScene(id: string, owner: Owner): void {
+  const db = getMemoryDbInstance();
+  const key = ownerKey(owner);
+  if (countActive(key) >= L2_MAX_ACTIVE_PER_OWNER) {
+    throw new Error(`[memory.l2] max active scenes per owner reached (${L2_MAX_ACTIVE_PER_OWNER})`);
+  }
+  db.prepare(
+    "UPDATE l2_scenes SET deleted_at = NULL, tombstone = 0 WHERE id = ? AND owner_key = ?"
   ).run(id, key);
 }
 

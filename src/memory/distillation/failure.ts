@@ -34,6 +34,7 @@ export type FailureKind =
   | "retry_429"
   | "retry_5xx"
   | "retry_network"
+  | "retry_storage"
   | "no_retry_4xx"
   | "parse_failed"
   | "semantic_invalid"
@@ -219,12 +220,12 @@ export function sanitizeMessage(raw: string): string {
   // Drop stack frames ("at /workspace/…", "at fn (file.ts:1:1)").
   s = s.replace(/\s+at\s+[^\n]+/g, " ");
   // Drop credentials-looking fragments. Conservative — better to over-strip
-  // than leak a key into the DLQ.
+  // than leak a key into the DLQ. `authorization` is deliberately NOT in the
+  // assignment group: "Authorization: Bearer …" is handled by the Bearer
+  // regex above, and including it here would swallow "Bearer" itself after
+  // the value regex consumed the token.
   s = s.replace(/\bBearer\s+[A-Za-z0-9._\-+/=]+/g, "Bearer <redacted>");
-  s = s.replace(
-    /\b(api[_-]?key|access[_-]?token|authorization)\s*[:=]\s*["']?[^\s"',;]+/gi,
-    "$1=<redacted>"
-  );
+  s = s.replace(/\b(api[_-]?key|access[_-]?token)\s*[:=]\s*["']?[^\s"',;]+/gi, "$1=<redacted>");
   // Drop filesystem paths.
   s = s.replace(/(?:\/|[A-Za-z]:\\)[\w./\\-]+/g, "<path>");
   // Collapse whitespace.
@@ -279,6 +280,7 @@ function mapDlqKind(kind: FailureKind): DistillationDLQEntry["failureKind"] {
     case "retry_429":
     case "retry_5xx":
     case "retry_network":
+    case "retry_storage":
       return "retry_exhausted";
     case "no_retry_4xx":
       return "no_retry";

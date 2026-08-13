@@ -62,7 +62,7 @@ export async function GET(request: Request) {
 
   try {
     const service = getService();
-    const result = await service.listL0(owner.actor, parsed.data);
+    const result = await service.listL0(owner, parsed.data);
     return NextResponse.json({
       data: result.data,
       pagination: buildPagination({
@@ -95,23 +95,9 @@ export async function POST(request: Request) {
   const body = await validatedJsonBody(request, L0ImportSchema);
   if (!body.success) return body.response;
 
-  // Self callers MUST import against their own key.
-  if (owner.actor.actor === "apiKey" && !owner.actor.isManagement) {
-    if (body.data.apiKeyId !== owner.actor.apiKeyId) {
-      return createErrorResponse({
-        status: 403,
-        message: "Self API key cannot import on behalf of another key",
-        type: "invalid_request",
-      });
-    }
-  }
-
   try {
     const service = getService();
-    const result = await service.importL0({
-      actor: owner.actor,
-      data: { ...body.data, apiKeyId: owner.ownerApiKeyId ?? body.data.apiKeyId },
-    });
+    const result = await service.importL0(owner, body.data);
     await audit({
       action: "memory.l0.import",
       actor: owner.actor,
@@ -149,7 +135,7 @@ async function l0SessionDelete(request: Request, sessionId: string) {
 
   try {
     const service = getService();
-    const result = await service.deleteL0Session(owner.actor, sessionId, body.data.mode);
+    const result = await service.deleteL0Session(owner, sessionId, body.data.mode);
     await audit({
       action: "memory.l0.delete_session",
       actor: owner.actor,

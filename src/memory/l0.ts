@@ -37,6 +37,9 @@ function validate(input: L0InsertInput): void {
   if (!input.idempotencyKey || typeof input.idempotencyKey !== "string") {
     throw new Error("[memory.l0] idempotencyKey is required");
   }
+  if (input.id !== undefined && (!input.id.trim() || input.id.length > 256)) {
+    throw new Error("[memory.l0] explicit id must be 1..256 characters");
+  }
   if (!input.owner || !input.owner.teamId || !input.owner.userId || !input.owner.agentId) {
     throw new Error("[memory.l0] owner must include teamId, userId, agentId");
   }
@@ -58,7 +61,7 @@ export function insertMessage(input: L0InsertInput): L0InsertResult {
     return { id: existing.id, inserted: false };
   }
 
-  const id = randomUUID();
+  const id = input.id?.trim() || randomUUID();
   const timestamp = input.timestamp ?? new Date().toISOString();
 
   db.prepare(
@@ -127,6 +130,42 @@ export function listMessages(filter: L0ListFilter): L0Message[] {
   const sql = `SELECT * FROM l0_messages WHERE ${clauses.join(" AND ")} ORDER BY recorded_at ASC`;
   const rows = db.prepare(sql).all(...params) as L0Row[];
   return rows.map(rowToMessage);
+}
+
+export interface L0DistillationMessage extends L0Message {
+  cursorRowId: number;
+}
+
+export interface L0DistillationCursor {
+  recordedAt: string;
+  rowId: number;
+}
+
+export function listMessagesForDistillation(input: {
+  owner: Owner;
+  sessionId: string;
+  after?: L0DistillationCursor | null;
+  limit?: number;
+}): L0DistillationMessage[] {
+  const db = getMemoryDbInstance();
+  const key = ownerKey(input.owner);
+  const limit = Math.min(100, Math.max(1, Math.floor(input.limit ?? 20)));
+  const after = input.after ?? { recordedAt: "", rowId: 0 };
+  const rows = db
+    .prepare(
+      `SELECT rowid AS cursor_row_id, * FROM l0_messages
+       WHERE owner_key = ? AND session_id = ? AND deleted_at IS NULL
+         AND is_internal = 0
+         AND (recorded_at > ? OR (recorded_at = ? AND rowid > ?))
+       ORDER BY recorded_at ASC, rowid ASC LIMIT ?`
+    )
+    .all(key, input.sessionId, after.recordedAt, after.recordedAt, after.rowId, limit) as Array<
+    L0Row & { cursor_row_id: number }
+  >;
+  return rows.map((row) => ({
+    ...rowToMessage(row),
+    cursorRowId: Number(row.cursor_row_id),
+  }));
 }
 
 export function searchMessages(args: { owner: Owner; query: string }): L0Message[] {

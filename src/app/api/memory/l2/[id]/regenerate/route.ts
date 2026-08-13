@@ -32,7 +32,7 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
 
   try {
     const service = getService();
-    const result = await service.regenerateL2(owner.actor, id, body.data);
+    const result = await service.regenerateL2(owner, id, body.data);
     if (result.rejected) {
       return createErrorResponse({
         status: 409,

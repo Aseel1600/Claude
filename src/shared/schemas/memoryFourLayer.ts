@@ -21,13 +21,13 @@ import { z } from "zod";
  * owner-managed memory slots.
  */
 export const L1_TYPE_VALUES = [
-  "factual",
+  "persona",
   "episodic",
-  "procedural",
-  "semantic",
-  "preference",
-  "constraint",
-  "glossary",
+  "instruction",
+  "work_fact",
+  "work_task",
+  "work_method",
+  "work_artifact",
 ] as const;
 
 export const L1TypeSchema = z.enum(L1_TYPE_VALUES);
@@ -67,16 +67,18 @@ export type MemoryListingQuery = z.infer<typeof memoryListingQuerySchema>;
  */
 export const L0ImportSchema = z
   .object({
-    apiKeyId: z.string().min(1),
     sessionId: z.string().min(1),
     items: z
       .array(
         z
           .object({
-            sourceId: z.string().optional(),
-            sceneName: z.string().optional(),
-            payload: z.record(z.string(), z.unknown()),
-            occurredAt: z.coerce.date().optional(),
+            idempotencyKey: z.string().min(1).max(256),
+            role: z.enum(["user", "assistant"]),
+            content: z.string().min(1),
+            timestamp: z.coerce.date().optional(),
+            correlationId: z.string().optional(),
+            provider: z.string().optional(),
+            model: z.string().optional(),
           })
           .strict()
       )
@@ -114,20 +116,18 @@ export const L1CreateSchema = z
     content: z.string().min(1),
     sceneName: z.string().min(1),
     metadata: z.record(z.string(), z.unknown()).default({}),
-    sourceId: z.string().optional(),
-    apiKeyId: z.string().optional(),
+    sourceMessageIds: z.array(z.string().min(1)).max(500).default([]),
   })
   .strict();
 
 export const L1UpdateSchema = z
   .object({
-    type: L1TypeSchema.optional(),
     priority: z.number().int().min(0).max(100).optional(),
     content: z.string().min(1).optional(),
     sceneName: z.string().min(1).optional(),
     metadata: z.record(z.string(), z.unknown()).optional(),
-    /** Optimistic concurrency. Required on PUT. */
-    expectedVersion: z.number().int().min(0),
+    sourceMessageIds: z.array(z.string().min(1)).max(500).optional(),
+    expectedVersion: z.number().int().min(1),
   })
   .strict();
 
@@ -147,20 +147,22 @@ export type L1DeleteBody = z.infer<typeof L1DeleteBodySchema>;
  */
 export const L2CreateSchema = z
   .object({
+    sceneName: z.string().min(1),
+    groupKey: z.string().nullable().optional(),
+    summary: z.string(),
+    heat: z.number().min(0).max(1),
     content: z.string().min(1),
-    apiKeyId: z.string().optional(),
-    sessionId: z.string().optional(),
-    sourceId: z.string().optional(),
-    sceneName: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).default({}),
   })
   .strict();
 
 export const L2UpdateSchema = z
   .object({
+    sceneName: z.string().min(1).optional(),
+    groupKey: z.string().nullable().optional(),
+    summary: z.string().optional(),
+    heat: z.number().min(0).max(1).optional(),
     content: z.string().min(1).optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-    expectedVersion: z.number().int().min(0),
+    expectedVersion: z.number().int().min(1),
   })
   .strict();
 
@@ -173,7 +175,6 @@ export const L2DeleteBodySchema = z
 /** Regenerate body — enqueue a task. 409 if >15 errors within the rolling window. */
 export const L2RegenerateSchema = z
   .object({
-    apiKeyId: z.string().optional(),
     reason: z.string().max(200).optional(),
   })
   .strict()
@@ -190,11 +191,8 @@ export type L2Regenerate = z.infer<typeof L2RegenerateSchema>;
 export const L3UpsertSchema = z
   .object({
     content: z.string().min(1),
-    sourceLayer: z.enum(["l0", "l1", "l2"]).default("l2"),
-    sourceId: z.string().optional(),
-    apiKeyId: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).default({}),
-    expectedVersion: z.number().int().min(0).optional(),
+    promptMode: z.enum(["chat", "code"]),
+    expectedVersion: z.number().int().min(1).optional(),
   })
   .strict();
 
@@ -207,7 +205,6 @@ export const L3DeleteBodySchema = z
 /** Same regenerate contract as L2 */
 export const L3RegenerateSchema = z
   .object({
-    apiKeyId: z.string().optional(),
     reason: z.string().max(200).optional(),
   })
   .strict()
@@ -237,11 +234,7 @@ export const DistillationPutSchema = z
     scope: DistillationScopeSchema,
     apiKeyId: z.string().min(1).optional(),
   })
-  .strict()
-  .refine((v) => v.scope === "global" || typeof v.apiKeyId === "string", {
-    message: "apiKeyId is required when scope='self'",
-    path: ["apiKeyId"],
-  });
+  .strict();
 
 export type DistillationPut = z.infer<typeof DistillationPutSchema>;
 
