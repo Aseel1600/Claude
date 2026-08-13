@@ -14,29 +14,30 @@ export const freeaiapikeyProvider: RegistryEntry = {
   authType: "apikey",
   authHeader: "bearer",
   defaultContextLength: 128000,
+  // Catalog synced 2026-08-13 against GET https://api.freeaiapikey.com/v1/models (200).
+  // That response carries only id/object/created/owned_by — upstream publishes no
+  // context window — so models added from it declare no contextLength and inherit
+  // `defaultContextLength` above rather than an invented figure. The two pre-existing
+  // contextLength values are left exactly as they were: nothing in this sweep confirms
+  // or refutes them, and rewriting them would be the same guesswork in reverse.
   models: [
-    { id: "openai/gpt-5", name: "GPT-5 (via FreeAIAPIKey)", contextLength: 400000 },
     { id: "openai/gpt-4o", name: "GPT-4o (via FreeAIAPIKey)" },
-    { id: "openai/gpt-5.2-codex", name: "GPT-5.2 Codex (via FreeAIAPIKey)" },
+    { id: "openai/gpt-5.4", name: "GPT-5.4 (via FreeAIAPIKey)" },
+    { id: "openai/gpt-5.5", name: "GPT-5.5 (via FreeAIAPIKey)" },
+    { id: "openai/gpt-5.6-sol", name: "GPT-5.6 Sol (via FreeAIAPIKey)" },
     {
       id: "anthropic/claude-opus-4.6",
       name: "Claude Opus 4.6 (via FreeAIAPIKey)",
       contextLength: 1000000,
     },
+    { id: "anthropic/claude-opus-4.7", name: "Claude Opus 4.7 (via FreeAIAPIKey)" },
+    { id: "anthropic/claude-opus-4.8", name: "Claude Opus 4.8 (via FreeAIAPIKey)" },
+    { id: "anthropic/claude-opus-5", name: "Claude Opus 5 (via FreeAIAPIKey)" },
     {
       id: "anthropic/claude-sonnet-4.6",
       name: "Claude Sonnet 4.6 (via FreeAIAPIKey)",
       contextLength: 1000000,
     },
-    {
-      id: "Alibaba/qwen3.5",
-      name: "Qwen 3.5 (via FreeAIAPIKey)",
-      contextLength: 128000,
-    },
-    {
-      id: "Alibaba/qwen3-vl:235b",
-      name: "Qwen 3 VL 235B (via FreeAIAPIKey)",
-      contextLength: 128000,
-    },
+    { id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5 (via FreeAIAPIKey)" },
   ],
 };

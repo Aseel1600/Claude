@@ -26,6 +26,25 @@ import { freeaiapikeyProvider } from "../../open-sse/config/providers/registry/f
  */
 const LIVE_API_BASE = "https://api.freeaiapikey.com/v1";
 
+/**
+ * Every model id returned by GET https://api.freeaiapikey.com/v1/models on 2026-08-13.
+ * The response carries only id/object/created/owned_by — upstream publishes no context
+ * window, so models catalogued from it declare no contextLength and inherit the entry's
+ * defaultContextLength rather than an invented number.
+ */
+const LIVE_MODEL_IDS = [
+  "openai/gpt-4o",
+  "openai/gpt-5.4",
+  "openai/gpt-5.5",
+  "openai/gpt-5.6-sol",
+  "anthropic/claude-opus-4.6",
+  "anthropic/claude-opus-4.7",
+  "anthropic/claude-opus-4.8",
+  "anthropic/claude-sonnet-4.6",
+  "anthropic/claude-sonnet-5",
+  "anthropic/claude-opus-5",
+];
+
 test("freeaiapikey targets the live api. host (upstream 410 endpoint_moved)", () => {
   assert.equal(
     freeaiapikeyProvider.baseUrl,
@@ -51,4 +70,35 @@ test("freeaiapikey keeps no endpoint on the retired freeaiapikey.com apex host",
       `${field} still targets the apex host, which answers 410 endpoint_moved`
     );
   }
+});
+
+test("freeaiapikey catalogs exactly the models upstream serves", () => {
+  const declared = freeaiapikeyProvider.models.map((model) => model.id);
+  assert.deepEqual(
+    [...declared].sort(),
+    [...LIVE_MODEL_IDS].sort(),
+    "registry catalog must match the ids returned by the live /v1/models"
+  );
+});
+
+test("freeaiapikey declares no duplicate model ids", () => {
+  const declared = freeaiapikeyProvider.models.map((model) => model.id);
+  assert.equal(new Set(declared).size, declared.length, "model ids must be unique");
+});
+
+test("freeaiapikey gives every catalogued model a display name", () => {
+  for (const model of freeaiapikeyProvider.models) {
+    assert.equal(typeof model.name, "string", `${model.id} must declare a name`);
+    assert.ok(model.name.length > 0, `${model.id} must declare a non-empty name`);
+  }
+});
+
+test("freeaiapikey keeps a provider-wide default for unpublished context windows", () => {
+  // Upstream reports no context windows, so the models added from its catalog carry
+  // no contextLength of their own; this default is what they fall back to.
+  assert.equal(
+    typeof freeaiapikeyProvider.defaultContextLength,
+    "number",
+    "entry must keep a defaultContextLength for models with no upstream-published window"
+  );
 });
