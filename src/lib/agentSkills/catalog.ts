@@ -1,5 +1,5 @@
 /**
- * catalog.ts — single source of truth for the 45-entry Agent Skills catalog.
+ * catalog.ts — single source of truth for the 46-entry Agent Skills catalog.
  *
  * Consumers: REST routes (/api/agent-skills/*), MCP tools, A2A skill, Generator.
  * Do NOT import this from UI components directly — use the REST API instead.
@@ -125,7 +125,7 @@ export function filterCatalog(opts: {
 }
 
 /**
- * Computes coverage stats: filesystem has SKILL.md vs the 45-entry catalog.
+ * Computes coverage stats: filesystem has SKILL.md vs the 46-entry catalog.
  * Reads `skills/` relative to the project root (CWD).
  */
 export function computeCoverage(): SkillCoverage {
