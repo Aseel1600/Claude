@@ -1144,6 +1144,7 @@ test("isCreditsExhausted returns true for actual credits-exhausted signals", () 
   // #5239: "Insufficient account balance" out-of-credit bodies
   assert.equal(isCreditsExhausted("Insufficient account balance"), true);
   assert.equal(isCreditsExhausted("insufficient_balance"), true);
+  assert.equal(isCreditsExhausted("Insufficient credit balance"), true);
   // Command Code returns 400 "You have insufficient credits to make this
   // request. Please purchase more credits to continue using the service."
   // when the account's billing credits run out. Without this signal the

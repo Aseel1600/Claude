@@ -206,6 +206,7 @@ export const CREDITS_EXHAUSTED_SIGNALS = [
   "insufficient balance",
   "insufficient_balance",
   "insufficient account balance",
+  "insufficient credit balance",
   // Command Code returns 400 "You have insufficient credits to make this
   // request. Please purchase more credits to continue using the service."
   // when the account's billing credits run out. Without this signal the
