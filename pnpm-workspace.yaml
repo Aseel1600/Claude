@@ -34,3 +34,5 @@ onlyBuiltDependencies:
   - "sharp"
   - "tls-client-node"
   - "unrs-resolver"
+overrides:
+  omniroute: "link:"

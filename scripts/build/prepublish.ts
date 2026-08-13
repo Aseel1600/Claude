@@ -361,10 +361,13 @@ const chatGptWebCodexMcpDestFile = join(
 if (existsSync(chatGptWebCodexMcpSrcFile)) {
   console.log("  🔨 Bundling ChatGPT Web (Codex) MCP bridge...");
   mkdirSync(dirname(chatGptWebCodexMcpDestFile), { recursive: true });
-  execFileSync(
-    NPX_BIN,
+  // Use runBuildTool (resolves the local esbuild bin) instead of raw `npx` —
+  // under pnpm's isolated node_modules `npx esbuild` fails with status 127
+  // (command not found) because the bin is not hoisted to the PATH.
+  runBuildTool(
+    "esbuild",
+    "esbuild",
     [
-      "esbuild",
       "open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/mcp-server.ts",
       "--bundle",
       "--platform=node",

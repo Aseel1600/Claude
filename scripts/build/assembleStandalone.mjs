@@ -543,14 +543,26 @@ function copyStaticAndPublic({ distDir, relDistDir, projectRoot, resolvedOutDir 
  * @param {string} resolvedOutDir
  */
 function copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir) {
+  // pnpm installs wire packages via symlinks into the store. cpSync refuses to
+  // overwrite a destination SYMLINK with a real directory (ERR_FS_CP_DIR_TO_NON_DIR),
+  // and the Next standalone tree already contains symlinked copies of these
+  // packages. Remove a pre-existing symlink at the destination first so the
+  // recursive copy lands as a real directory (matches npm's flat layout).
+  const copyOver = (src, dest, label) => {
+    if (fsSync.existsSync(dest) && fsSync.lstatSync(dest).isSymbolicLink()) {
+      fsSync.rmSync(dest, { recursive: true, force: true });
+    }
+    fsSync.cpSync(src, dest, { recursive: true, force: true, dereference: true });
+    console.log(`[assembleStandalone] ${label}`);
+  };
+
   for (const asset of NATIVE_ASSET_ENTRIES) {
     const src = path.join(projectRoot, ...asset.src);
     if (!fsSync.existsSync(src)) continue;
     const dest = path.join(resolvedOutDir, ...asset.dest);
     if (path.resolve(src) === path.resolve(dest)) continue;
     fsSync.mkdirSync(path.dirname(dest), { recursive: true });
-    fsSync.cpSync(src, dest, { recursive: true, force: true });
-    console.log(`[assembleStandalone] Copied native asset: ${asset.label}`);
+    copyOver(src, dest, `Copied native asset: ${asset.label}`);
   }
 
   for (const mod of EXTRA_MODULE_ENTRIES) {
@@ -559,8 +571,7 @@ function copyNativeAssetsAndExtraModules(projectRoot, resolvedOutDir) {
     const dest = path.join(resolvedOutDir, ...mod.dest);
     if (path.resolve(src) === path.resolve(dest)) continue;
     fsSync.mkdirSync(path.dirname(dest), { recursive: true });
-    fsSync.cpSync(src, dest, { recursive: true, force: true });
-    console.log(`[assembleStandalone] Synced module: ${mod.label}`);
+    copyOver(src, dest, `Synced module: ${mod.label}`);
   }
 }
 
