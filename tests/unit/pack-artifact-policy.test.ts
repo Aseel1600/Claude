@@ -11,6 +11,8 @@ import {
   findMissingArtifactPaths,
   findUnexpectedArtifactPaths,
   normalizeArtifactPath,
+  parseJsonArrayOutput,
+  parseJsonValuesOutput,
 } from "../../scripts/build/pack-artifact-policy.ts";
 
 test("normalizeArtifactPath normalizes slashes and leading relative markers", () => {
@@ -18,6 +20,39 @@ test("normalizeArtifactPath normalizes slashes and leading relative markers", ()
     normalizeArtifactPath("./app\\scripts\\ad-hoc\\test.js"),
     "app/scripts/ad-hoc/test.js"
   );
+});
+
+test("parseJsonArrayOutput extracts the first valid array from mixed command output", () => {
+  const output = [
+    "notice [not-json]",
+    '[{"path":"src/[literal].ts","files":[["nested"]]}]',
+    "notice [second-array]",
+  ].join("\n");
+  assert.deepEqual(parseJsonArrayOutput(output), [
+    { path: "src/[literal].ts", files: [["nested"]] },
+  ]);
+});
+
+test("parseJsonArrayOutput can skip valid arrays that are not the target payload", () => {
+  const output = `[]
+[{"filename":"omniroute.tgz","files":[{"path":"src/index.ts"}]}]`;
+  assert.deepEqual(
+    parseJsonArrayOutput(output, (candidate) =>
+      candidate.some(
+        (entry) =>
+          typeof entry === "object" &&
+          entry !== null &&
+          Array.isArray((entry as { files?: unknown }).files)
+      )
+    ),
+    [{ filename: "omniroute.tgz", files: [{ path: "src/index.ts" }] }]
+  );
+});
+
+test("parseJsonValuesOutput extracts object reports as well as arrays", () => {
+  assert.deepEqual(parseJsonValuesOutput('notice\n{"files":[{"path":"src/index.ts"}]}'), [
+    { files: [{ path: "src/index.ts" }] },
+  ]);
 });
 
 test("findUnexpectedArtifactPaths flags staged app files outside the allowlist", () => {
@@ -97,6 +132,21 @@ test("package.json files[] excludes nested node_modules from the published packa
   );
 });
 
+test("build-next-isolated sibling imports are allowed in the published package", () => {
+  const buildDependencies = [
+    "scripts/build/assembleStandalone.mjs",
+    "scripts/build/backendOnlyPages.mjs",
+    "scripts/build/build-tproxy-native.mjs",
+  ];
+
+  const unexpectedPaths = findUnexpectedArtifactPaths(buildDependencies, {
+    exactPaths: PACK_ARTIFACT_ALLOWED_EXACT_PATHS,
+    prefixPaths: PACK_ARTIFACT_ALLOWED_PATH_PREFIXES,
+  });
+
+  assert.deepEqual(unexpectedPaths, []);
+});
+
 test("webdav-handler.mjs is allowed in staging dist/ (server-ws.mjs dependency, missed in 3.8.22 build)", () => {
   const unexpectedPaths = findUnexpectedArtifactPaths(["webdav-handler.mjs"], {
     exactPaths: APP_STAGING_ALLOWED_EXACT_PATHS,
@@ -161,6 +211,7 @@ test("findMissingArtifactPaths flags missing root runtime files in the tarball",
     "dist/main-server-timeouts.mjs",
     "dist/open-sse/services/compression/engines/rtk/filters/generic-output.json",
     "dist/open-sse/services/compression/rules/en/filler.json",
+    "dist/open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/mcp-server.js",
     "dist/peer-stamp.mjs",
     "dist/responses-ws-proxy.mjs",
     "dist/server-ws.mjs",

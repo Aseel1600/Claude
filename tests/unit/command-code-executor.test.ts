@@ -11,9 +11,17 @@ const { REGISTRY, getRegistryEntry } = await import("../../open-sse/config/provi
 const { CommandCodeExecutor, COMMAND_CODE_VERSION } =
   await import("../../open-sse/executors/commandCode.ts");
 const { getExecutor, hasSpecializedExecutor } = await import("../../open-sse/executors/index.ts");
+const { createResponsesApiTransformStream } =
+  await import("../../open-sse/transformer/responsesTransformer.ts");
 const core = await import("../../src/lib/db/core.ts");
 
 const originalFetch = globalThis.fetch;
+
+type JsonRecord = Record<string, unknown>;
+type ResponsesEvent = {
+  event: string;
+  data: { response: JsonRecord & { usage?: unknown; output?: JsonRecord[] } };
+};
 
 const PINNED_COMMAND_CODE_MODELS = [
   "claude-opus-4-7",
@@ -58,6 +66,27 @@ function parseSsePayloads(sse: string) {
     .map((line) => line.slice(6).trim())
     .filter((line) => line && line !== "[DONE]")
     .map((line) => JSON.parse(line));
+}
+
+async function responsesFromChatSse(sse: string): Promise<ResponsesEvent[]> {
+  const input = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(sse));
+      controller.close();
+    },
+  });
+  const transformed = await new Response(
+    input.pipeThrough(createResponsesApiTransformStream(null, 60_000))
+  ).text();
+
+  return transformed
+    .split("\n\n")
+    .map((part) => {
+      const event = part.match(/^event:\s*(.+)$/m)?.[1];
+      const data = part.match(/^data:\s*(.+)$/m)?.[1];
+      return event && data ? ({ event, data: JSON.parse(data) } as ResponsesEvent) : null;
+    })
+    .filter((entry): entry is ResponsesEvent => entry !== null);
 }
 
 test.afterEach(() => {
@@ -270,7 +299,9 @@ test("Command Code data: SSE lines aggregate into non-stream ChatCompletion JSON
   assert.equal(json.choices[0].finish_reason, "length");
   assert.deepEqual(json.usage, {
     prompt_tokens: 3,
+    prompt_tokens_details: { cached_tokens: 2 },
     completion_tokens: 5,
+    completion_tokens_details: { reasoning_tokens: 0 },
     total_tokens: 8,
     cache_read_input_tokens: 2,
   });
@@ -466,7 +497,9 @@ test("Command Code stream emits a usage-only chunk with actual tokens before [DO
   assert.ok(usageChunk, "expected a usage-only chunk (choices: []) in the stream");
   assert.deepEqual(usageChunk.usage, {
     prompt_tokens: 10,
+    prompt_tokens_details: { cached_tokens: 4 },
     completion_tokens: 6,
+    completion_tokens_details: { reasoning_tokens: 1 },
     total_tokens: 16,
     cache_read_input_tokens: 4,
     reasoning_tokens: 1,
@@ -506,9 +539,165 @@ test("Command Code non-stream usage keeps inputTokens as prompt_tokens and repor
   const json = await response.json();
   assert.deepEqual(json.usage, {
     prompt_tokens: 5,
+    prompt_tokens_details: { cached_tokens: 3 },
     completion_tokens: 2,
+    completion_tokens_details: { reasoning_tokens: 0 },
     total_tokens: 7,
     cache_read_input_tokens: 3,
     no_cache_tokens: 2,
+  });
+});
+
+test("Command Code preserves finish-step usage through a finish without totalUsage", async () => {
+  globalThis.fetch = async () =>
+    commandCodeStream([
+      { type: "text-delta", text: "Hi" },
+      {
+        type: "finish-step",
+        usage: {
+          inputTokens: 7308,
+          inputTokenDetails: { noCacheTokens: 27, cacheReadTokens: 7281 },
+          outputTokens: 177,
+          outputTokenDetails: { textTokens: 12, reasoningTokens: 165 },
+          totalTokens: 7485,
+        },
+      },
+      { type: "finish", finishReason: "stop", totalUsage: null },
+    ]);
+
+  const { response } = await getExecutor("command-code").execute({
+    model: "gpt-5.4-mini",
+    stream: true,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Hi" }] },
+  });
+  const sse = await response.text();
+  const chunks = parseSsePayloads(sse);
+  const usageChunk = chunks.find(
+    (chunk) => Array.isArray(chunk.choices) && chunk.choices.length === 0
+  );
+
+  assert.deepEqual(usageChunk?.usage, {
+    prompt_tokens: 7308,
+    prompt_tokens_details: { cached_tokens: 7281 },
+    completion_tokens: 177,
+    completion_tokens_details: { reasoning_tokens: 165 },
+    total_tokens: 7485,
+    cache_read_input_tokens: 7281,
+    no_cache_tokens: 27,
+    reasoning_tokens: 165,
+  });
+
+  const completed = (await responsesFromChatSse(sse)).find(
+    (event) => event.event === "response.completed"
+  );
+  assert.deepEqual(completed?.data.response.usage, {
+    input_tokens: 7308,
+    input_tokens_details: { cached_tokens: 7281 },
+    output_tokens: 177,
+    output_tokens_details: { reasoning_tokens: 165 },
+    total_tokens: 7485,
+  });
+});
+
+test("Command Code accepts OpenAI-style usage aliases with absent optional details", async () => {
+  globalThis.fetch = async () =>
+    commandCodeStream([
+      {
+        type: "finish-step",
+        usage: {
+          prompt_tokens: 11,
+          prompt_tokens_details: { cached_tokens: 4 },
+          completion_tokens: 5,
+          completion_tokens_details: { reasoning_tokens: 2 },
+          total_tokens: 16,
+        },
+      },
+      { type: "finish", finishReason: "stop" },
+    ]);
+
+  const { response } = await getExecutor("command-code").execute({
+    model: "gpt-5.4-mini",
+    stream: true,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Hi" }] },
+  });
+  const sse = await response.text();
+  const usageChunk = parseSsePayloads(sse).find(
+    (chunk) => Array.isArray(chunk.choices) && chunk.choices.length === 0
+  );
+  assert.deepEqual(usageChunk?.usage, {
+    prompt_tokens: 11,
+    prompt_tokens_details: { cached_tokens: 4 },
+    completion_tokens: 5,
+    completion_tokens_details: { reasoning_tokens: 2 },
+    total_tokens: 16,
+    cache_read_input_tokens: 4,
+    reasoning_tokens: 2,
+  });
+
+  globalThis.fetch = async () =>
+    commandCodeStream([
+      { type: "finish-step", usage: { inputTokens: 4, outputTokens: 3, totalTokens: 7 } },
+      { type: "finish", finishReason: "stop", totalUsage: null },
+    ]);
+  const fallback = await getExecutor("command-code").execute({
+    model: "gpt-5.4-mini",
+    stream: true,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Hi" }] },
+  });
+  const fallbackSse = await fallback.response.text();
+  const completed = (await responsesFromChatSse(fallbackSse)).find(
+    (event) => event.event === "response.completed"
+  );
+  assert.deepEqual(completed?.data.response.usage, {
+    input_tokens: 4,
+    input_tokens_details: { cached_tokens: 0 },
+    output_tokens: 3,
+    output_tokens_details: { reasoning_tokens: 0 },
+    total_tokens: 7,
+  });
+});
+
+test("Command Code preserves tool-call streaming while finalizing finish-step usage", async () => {
+  globalThis.fetch = async () =>
+    commandCodeStream([
+      {
+        type: "tool-call",
+        toolCallId: "call_1",
+        toolName: "lookup",
+        input: { query: "hello" },
+      },
+      { type: "finish-step", usage: { inputTokens: 3, outputTokens: 2, totalTokens: 5 } },
+      { type: "finish", finishReason: "tool-calls" },
+    ]);
+
+  const { response } = await getExecutor("command-code").execute({
+    model: "gpt-5.4-mini",
+    stream: true,
+    credentials: { apiKey: "cc_test_key" },
+    body: { messages: [{ role: "user", content: "Hi" }] },
+  });
+  const sse = await response.text();
+  assert.ok(
+    parseSsePayloads(sse).some(
+      (chunk) => chunk.choices?.[0]?.delta?.tool_calls?.[0]?.id === "call_1"
+    )
+  );
+
+  const completed = (await responsesFromChatSse(sse)).find(
+    (event) => event.event === "response.completed"
+  );
+  assert.equal(
+    completed?.data.response.output?.some((item) => item.type === "function_call"),
+    true
+  );
+  assert.deepEqual(completed?.data.response.usage, {
+    input_tokens: 3,
+    input_tokens_details: { cached_tokens: 0 },
+    output_tokens: 2,
+    output_tokens_details: { reasoning_tokens: 0 },
+    total_tokens: 5,
   });
 });

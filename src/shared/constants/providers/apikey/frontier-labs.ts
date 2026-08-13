@@ -63,7 +63,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     website: "https://aistudio.google.com",
     hasFree: true,
     freeNote:
-      "Free forever: 1,500 req/day for Gemini 2.5 Flash — no credit card, get key at aistudio.google.com",
+      "Free tier available through Google AI Studio; current per-model quotas and regional limits apply",
   },
   groq: {
     id: "groq",
@@ -85,7 +85,8 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     textIcon: "BB",
     website: "https://blackbox.ai",
     hasFree: true,
-    freeNote: "Free tier: unlimited basic chat plus Minimax-M2.5, no credit card required",
+    freeNote:
+      "Limited free access is available through Blackbox; model availability and account limits apply",
   },
   xai: {
     id: "xai",
@@ -273,6 +274,21 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     website: "https://dev.writer.com",
     apiHint:
       "Writer Palmyra is OpenAI-compatible at https://api.writer.com/v1. palmyra-x5 offers a 1M-token context window.",
+    hasFree: false,
+  },
+  "muse-code": {
+    id: "muse-code",
+    alias: "mc",
+    name: "Muse Code (Meta)",
+    icon: "auto_awesome",
+    color: "#0866FF",
+    textIcon: "MC",
+    website: "https://github.com/meta-llama/llama-stack",
+    authHint:
+      "Use your META_API_KEY env var as a Bearer token. Muse Code CLI uses the OpenAI Responses API wire format (POST /responses).",
+    apiHint:
+      "Muse Code is OpenAI-compatible. OmniRoute routes chat traffic through the Responses API and exposes the proprietary model catalog at /v1/muse-code/models.",
+    passthroughModels: true,
     hasFree: false,
   },
 };

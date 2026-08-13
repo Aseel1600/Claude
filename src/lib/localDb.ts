@@ -94,7 +94,7 @@ export * from "./db/compressionCacheStats";
 export * from "./db/compressionCombos";
 export * from "./db/compressionContextBudget";
 export * from "./db/compressionRunTelemetry";
-export * from "./db/connectionRuntimeState";
+export * from "./db/jobRegistryDb";
 export * from "./db/modelContextOverrides";
 
 export {
@@ -144,6 +144,7 @@ export {
   // LKGP (Last Known Good Provider) (#919)
   getLKGP,
   setLKGP,
+  clearLKGP,
 
   // Pricing
   getPricing,
@@ -818,7 +819,6 @@ export {
   getRadarSettings,
   setRadarOptIn,
   setRadarKey,
-  getRadarReferralsCache,
-  setRadarReferralsCache,
 } from "./db/radar";
-export type { RadarCache, RadarSettings, RadarReferralsCache } from "./db/radar";
+export type { RadarCache, RadarSettings } from "./db/radar";
+export * from "./db/conductorBridge"; // OmniConductor hub mirror — SSE cursor (PRD Conductor RF1)

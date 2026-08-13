@@ -247,6 +247,17 @@ export const AUDIO_TRANSCRIPTION_PROVIDERS: Record<string, AudioProvider> = {
     format: "speechmatics",
     models: [{ id: "enhanced", name: "Enhanced" }],
   },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/audio/transcriptions",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "whisper-1", name: "Whisper 1" },
+      { id: "gpt-4o-transcription", name: "GPT-4o Transcription" },
+    ],
+  },
 };
 
 /**
@@ -570,6 +581,17 @@ export const AUDIO_SPEECH_PROVIDERS: Record<string, AudioProvider> = {
       { id: "mimo-v2.5-tts-voiceclone", name: "MiMo V2.5 Voice Clone" },
     ],
   },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/audio/speech",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      { id: "tts-1-hd", name: "TTS 1 HD" },
+      { id: "tts-1", name: "TTS 1" },
+    ],
+  },
 };
 
 /**
@@ -603,7 +625,7 @@ export interface ProviderNodeRow {
 }
 
 /** Hosts reachable only from the operator's machine/Docker network. */
-function isLoopbackNodeHost(baseUrl: string): boolean {
+export function isLoopbackNodeHost(baseUrl: string): boolean {
   try {
     const hostname = new URL(baseUrl).hostname;
     return (

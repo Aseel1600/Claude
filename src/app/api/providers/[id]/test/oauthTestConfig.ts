@@ -147,6 +147,13 @@ export const OAUTH_TEST_CONFIG = {
     // connectivity is proven by every chat/completions request.
     checkExpiry: true,
   },
+  "devin-desktop": {
+    // Devin Desktop authentication is import-only: the copied API key has no
+    // refresh token or known expiry. Validate token presence here; real
+    // connectivity is exercised by chat requests.
+    checkExpiry: true,
+    refreshable: false,
+  },
   "grok-cli": {
     // #7610: was entirely absent from OAUTH_TEST_CONFIG, so "Test Connection"
     // always fell through to the generic "Provider test not supported" branch
@@ -171,5 +178,23 @@ export const OAUTH_TEST_CONFIG = {
     authPrefix: "Bearer ",
     extraHeaders: { "User-Agent": "OmniRoute", Accept: "application/vnd.github+json" },
     refreshable: true,
+  },
+  // Openference: first-party OAuth gateway — list models to verify the JWT without
+  // consuming inference quota. 402 (no active plan) still means auth succeeded.
+  openference: {
+    url: "https://api.openference.com/v1/models",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    refreshable: true,
+    acceptStatuses: [402],
+  },
+  of: {
+    url: "https://api.openference.com/v1/models",
+    method: "GET",
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    refreshable: true,
+    acceptStatuses: [402],
   },
 };

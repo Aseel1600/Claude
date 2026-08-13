@@ -464,12 +464,17 @@ function openaiToGeminiBase(
 
             // Gemini expects the signature on the functionCall part itself.
             // If we are in a mode where missing signatures cause 400s (and we couldn't find one),
-            // safely default to the bypass string to protect against 400s.
+            // safely default to the bypass string to protect against 400s. The bypass sentinel is
+            // an audit-trail risk (a magic validator-bypass string upstream could log/flag), so
+            // operators can disable it via ANTIGRAVITY_ALLOW_SIGNATURE_BYPASS=0 — real signatures
+            // are always preferred; the sentinel only fills the gap when none is available.
+            const signatureBypassEnabled =
+              toolNameOptions.supportsSignatureBypass &&
+              signaturelessToolCallMode !== "text" &&
+              process.env.ANTIGRAVITY_ALLOW_SIGNATURE_BYPASS !== "0";
             const finalSignature =
               embeddedThoughtSignature ||
-              (toolNameOptions.supportsSignatureBypass && signaturelessToolCallMode !== "text"
-                ? "skip_thought_signature_validator"
-                : undefined);
+              (signatureBypassEnabled ? "skip_thought_signature_validator" : undefined);
             parts.push({
               ...(finalSignature ? { thoughtSignature: finalSignature } : {}),
               functionCall: {
