@@ -50,7 +50,7 @@ For full test matrix, see `CONTRIBUTING.md` → "Running Tests". For deep archit
 | MCP Server    | `open-sse/mcp-server/`  | 104 tools (42 base + memory/skill/agentSkill/pool/notion/obsidian/gamification/plugin modules), 3 transports (stdio / SSE / Streamable HTTP), 31 scopes                                                           |
 | A2A Server    | `src/lib/a2a/`          | JSON-RPC 2.0 agent protocol                                                                                                                                                                                       |
 | Skills        | `src/lib/skills/`       | Extensible skill framework                                                                                                                                                                                        |
-| Memory        | `src/lib/memory/`       | Four-layer memory (L0 raw / L1 typed / L2 navigation / L3 working) on a standalone `memory.db`; off by default, per-API-key capture/injection, no Redis/Qdrant/AI SDK. Fork-specific (not upstream contribution). |
+| Memory        | `src/memory/`           | Four-layer memory (L0 raw / L1 typed / L2 navigation / L3 working) on a standalone `memory.db`; off by default, per-API-key capture/injection, no Redis/Qdrant/AI SDK. Fork-specific (not upstream contribution). |
 
 Monorepo: `src/` (Next.js 16 app), `open-sse/` (streaming engine workspace), `electron/` (desktop app), `tests/`, `bin/` (CLI entry point).
 
