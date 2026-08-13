@@ -460,3 +460,25 @@ test("resolveProjectRoot ignores synthetic standalone package.json without a nam
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
 });
+
+test("resolveProjectRoot falls back to cwd when the bundled /ROOT placeholder start dir does not exist", () => {
+  // Next.js standalone chunks replace the project root with the /ROOT
+  // placeholder; that path does not exist at runtime, so the walk must restart
+  // from process.cwd() (server.js chdirs there) and still find the checkout.
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-rootfallback-"));
+  fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ name: "omniroute" }));
+  fs.mkdirSync(path.join(tempRoot, ".git"));
+  const prevCwd = process.cwd();
+  try {
+    process.chdir(tempRoot);
+    // macOS /tmp → /private/tmp: compare via fs.realpathSync to normalize.
+    const resolved = fs.realpathSync(tempRoot);
+    assert.equal(
+      fs.realpathSync(autoUpdate.resolveProjectRoot("/fallback", "/ROOT/src/lib/system")),
+      resolved
+    );
+  } finally {
+    process.chdir(prevCwd);
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});

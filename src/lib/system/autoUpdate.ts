@@ -34,6 +34,11 @@ export function resolveProjectRoot(
   startDir: string = typeof __dirname !== "undefined" ? __dirname : process.cwd()
 ): string {
   let dir = path.resolve(startDir);
+  // The Next.js standalone build replaces the project root with the `/ROOT`
+  // placeholder (outputFileTracingRoot) in bundled chunks. That path does not
+  // exist at runtime; server.js chdir()s to the real standalone dir first, so
+  // walk up from cwd when the compiled default is the unreachable placeholder.
+  if (dir.startsWith(path.sep + "ROOT") && !existsSync(dir)) dir = process.cwd();
   let firstPackageDir: string | null = null;
   while (true) {
     const hasGit = existsSync(path.join(dir, ".git"));
