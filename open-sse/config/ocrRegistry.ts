@@ -16,11 +16,50 @@ export interface OcrProvider {
   authType: string;
   authHeader: string;
   models: OcrModel[];
+  transformation?: OcrTransformation;
 }
 
 export interface ParsedOcrModel {
   provider: string | null;
   model: string | null;
+}
+
+export interface OcrResponseShape {
+  pages: Array<{ index: number; markdown: string }>;
+  model: string;
+  usage_info?: Record<string, unknown>;
+}
+
+export interface OcrTransformation {
+  buildRequest(args: {
+    baseUrl: string;
+    token: string;
+    body: Record<string, unknown>;
+    modelId: string;
+  }): { url: string; init: RequestInit };
+  parseResponse(raw: unknown): OcrResponseShape;
+  /** Async providers (Azure DI): return the poll URL from the first response, else null. */
+  pollUrl?(res: Response): string | null;
+}
+
+export const MISTRAL_PASSTHROUGH: OcrTransformation = {
+  buildRequest({ baseUrl, token, body, modelId }) {
+    return {
+      url: baseUrl,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ ...body, model: modelId }),
+      },
+    };
+  },
+  parseResponse(raw) {
+    return raw as OcrResponseShape;
+  },
+};
+
+export function getOcrTransformation(providerId: string): OcrTransformation {
+  return OCR_PROVIDERS[providerId]?.transformation ?? MISTRAL_PASSTHROUGH;
 }
 
 export const OCR_PROVIDERS: Record<string, OcrProvider> = {
