@@ -212,3 +212,60 @@ test("v1 model catalog projects a compatible provider prefix override stored und
     "the public catalog row must read the override stored under the internal provider node id"
   );
 });
+
+test("v1 model catalog overlays same-id custom metadata before final overrides", async () => {
+  const providerId = "openai-compatible-chat-custom-precedence";
+  const prefix = "custom-precedence";
+  const modelId = "shared-model";
+  await providers.createProviderNode({
+    id: providerId,
+    type: "openai-compatible",
+    prefix,
+    name: "Custom Precedence",
+    apiType: "chat",
+    baseUrl: "https://example.com/v1",
+  });
+  const connection = await providers.createProviderConnection({
+    provider: providerId,
+    authType: "api_key",
+    name: "custom-precedence-catalog",
+    apiKey: "sk-test",
+  });
+  await models.replaceSyncedAvailableModelsForConnection(providerId, connection.id as string, [
+    {
+      id: modelId,
+      name: "Discovered name",
+      source: "imported",
+      inputTokenLimit: 128000,
+      supportsVision: true,
+    },
+  ]);
+  await models.addCustomModel(
+    providerId,
+    modelId,
+    "Operator name",
+    "manual",
+    "chat-completions",
+    ["chat"],
+    undefined,
+    { outputTokenLimit: 32000 },
+    false
+  );
+  assert.equal(
+    capabilityOverrides.setModelCapabilityOverride(
+      `${prefix}/${modelId}`,
+      "max_output_tokens",
+      64000
+    ),
+    true
+  );
+  assert.equal(contextOverrides.setModelContextOverride(providerId, modelId, 500000), true);
+
+  const projected = await getModel(`${prefix}/${modelId}`);
+  assert.ok(projected);
+  assert.equal(projected.name, "Operator name");
+  assert.equal(projected.context_length, 500000);
+  assert.equal(projected.max_output_tokens, 64000);
+  assert.equal((projected.capabilities as Record<string, unknown>)?.vision, false);
+  assert.deepEqual(projected.input_modalities, ["text"]);
+});
