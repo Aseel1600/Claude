@@ -104,7 +104,13 @@ import { resolveAgentGoalPolicy } from "../utils/agentGoalPolicy.ts";
 import { createStreamController } from "../utils/streamHandler.ts";
 import * as streamFailure from "../utils/streamFailureFinalization.ts";
 import { createSseHeartbeatTransform, shapeForClientFormat } from "../utils/sseHeartbeat.ts";
-import { addBufferToUsage, filterUsageForFormat, estimateUsage, sanitizeUsagePayloadForRequest } from "../utils/usageTracking.ts";
+import {
+  addBufferToUsage,
+  filterUsageForFormat,
+  estimateUsage,
+  normalizeUsage,
+  sanitizeUsagePayloadForRequest,
+} from "../utils/usageTracking.ts";
 import {
   refreshWithRetry,
   isUnrecoverableRefreshError,
@@ -271,7 +277,10 @@ import {
   appendNonStreamingSseTerminalSignal,
   type NonStreamingSseTerminalState,
 } from "./chatCore/nonStreamingSse.ts";
-import { parseNonStreamingResponseBody } from "./chatCore/nonStreamingResponseParse.ts";
+import {
+  isJsonRecord,
+  parseNonStreamingResponseBody,
+} from "./chatCore/nonStreamingResponseParse.ts";
 import { unwrapClinepassEnvelope } from "../utils/clinepassEnvelope.ts";
 import { recordNonStreamingUsageStats } from "./chatCore/nonStreamingUsageStats.ts";
 import {
@@ -4218,6 +4227,12 @@ export async function handleChatCore({
         trackPendingRequest(model, provider, connectionId, false);
         return createErrorResult(HTTP_STATUS.BAD_GATEWAY, envError.message);
       }
+      if (!isJsonRecord(unwrapped)) {
+        const invalidEnvelopeMessage = "Invalid JSON response from provider";
+        persistFailureUsage(HTTP_STATUS.BAD_GATEWAY, "clinepass_envelope_error");
+        trackPendingRequest(model, provider, connectionId, false);
+        return createErrorResult(HTTP_STATUS.BAD_GATEWAY, invalidEnvelopeMessage);
+      }
       responseBody = unwrapped;
     }
     responseBody = unwrapClineNonStreamingEnvelope(provider, responseBody);
@@ -4504,13 +4519,14 @@ export async function handleChatCore({
     );
     translatedResponse = postCallGuardrails.response;
 
-    const responseUsage =
-      (usage && typeof usage === "object" ? usage : null) ||
-      (translatedResponse?.usage && typeof translatedResponse.usage === "object"
+    const responseUsage = isJsonRecord(usage)
+      ? usage
+      : isJsonRecord(translatedResponse.usage)
         ? translatedResponse.usage
-        : null);
-    const estimatedCost = responseUsage
-      ? await calculateCost(provider, model, responseUsage, { serviceTier: effectiveServiceTier })
+        : null;
+    const costUsage = normalizeUsage(responseUsage);
+    const estimatedCost = costUsage
+      ? await calculateCost(provider, model, costUsage, { serviceTier: effectiveServiceTier })
       : 0;
 
     if (postCallGuardrails.blocked) {
