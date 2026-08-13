@@ -4,6 +4,7 @@ import {
   createProviderConnection,
   updateProviderConnection,
 } from "@/lib/localDb";
+import { CLAUDE_CODE_CLIENT_VERSION } from "@/shared/constants/claudeCodeClient";
 import { ClaudeAuthFileError } from "@/lib/oauth/utils/claudeAuthFile";
 
 type JsonRecord = Record<string, unknown>;
@@ -120,7 +121,7 @@ export async function enrichWithBootstrap(
         Authorization: `Bearer ${parsed.accessToken}`,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
-        "User-Agent": "claude-cli/1.0.0 (external, cli)",
+        "User-Agent": `claude-cli/${CLAUDE_CODE_CLIENT_VERSION} (external, cli)`,
         "anthropic-beta": "oauth-2025-04-20",
       },
       signal: controller.signal,
