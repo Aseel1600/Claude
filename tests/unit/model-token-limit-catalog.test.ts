@@ -13,6 +13,7 @@ const capabilityOverrides = await import("../../src/lib/db/modelCapabilityOverri
 const models = await import("../../src/lib/db/models.ts");
 const providers = await import("../../src/lib/db/providers.ts");
 const catalog = await import("../../src/app/api/v1/models/catalog.ts");
+const overrideRoute = await import("../../src/app/api/model-capability-overrides/route.ts");
 
 const TARGET = "openai/gpt-5.6";
 const LIMITS = { context: 372000, input: 353400, output: 128000 };
@@ -160,5 +161,54 @@ test("v1 model catalog projects an exact raw-alias context override", async () =
     (await getModel(target))?.context_length,
     333333,
     "the catalog entry keeps its raw alias and must project that exact override"
+  );
+});
+
+test("v1 model catalog projects a compatible provider prefix override stored under its node id", async () => {
+  const nodeId = "openai-compatible-chat-context-override";
+  const prefix = "wawapi-openai";
+  const modelId = "grok-4.6";
+  const contextWindow = 500000;
+  await providers.createProviderNode({
+    id: nodeId,
+    type: "openai-compatible",
+    prefix,
+    name: "WawAPI (OpenAI)",
+    apiType: "chat",
+    baseUrl: "https://example.com/v1",
+  });
+  const connection = await providers.createProviderConnection({
+    provider: nodeId,
+    authType: "api_key",
+    name: "compatible-provider-token-limit-catalog",
+    apiKey: "sk-test",
+  });
+  assert.equal(typeof connection.id, "string");
+  await models.replaceSyncedAvailableModelsForConnection(nodeId, connection.id as string, [
+    { id: modelId, name: modelId, source: "imported" },
+  ]);
+
+  const patch = await overrideRoute.PATCH(
+    new Request("http://localhost/api/model-capability-overrides", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        target: `${prefix}/${modelId}`,
+        key: "context_length",
+        value: contextWindow,
+      }),
+    })
+  );
+  assert.equal(patch.status, 200);
+  assert.equal(
+    contextOverrides.getModelContextOverrideRecord(nodeId, modelId)?.realContext,
+    contextWindow,
+    "the public prefix target must persist under the internal provider node id"
+  );
+
+  assert.equal(
+    (await getModel(`${prefix}/${modelId}`))?.context_length,
+    contextWindow,
+    "the public catalog row must read the override stored under the internal provider node id"
   );
 });

@@ -1646,7 +1646,12 @@ async function buildUnifiedModelsResponseCore(
       } catch {
         // Pricing lookup is optional; hardcoded defaults still enrich the response.
       }
-      enrichmentSnapshot = { modelsDevPricing };
+      enrichmentSnapshot = {
+        modelsDevPricing,
+        providerNodeIdsByPrefix: Object.fromEntries(
+          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
+        ),
+      };
       // The production profile identified pricing snapshot construction as the last
       // dominant synchronous stage. Let already-queued health checks run before the
       // remaining in-memory enrichment and JSON serialization.

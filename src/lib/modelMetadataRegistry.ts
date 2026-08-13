@@ -38,6 +38,7 @@ type JsonRecord = Record<string, unknown>;
 
 export interface CatalogEnrichmentSnapshot {
   modelsDevPricing: PricingByProvider | null;
+  providerNodeIdsByPrefix?: Readonly<Record<string, string>>;
 }
 
 interface CatalogDiagnosticsOptions {
@@ -403,9 +404,11 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   input?: { provider?: string | null; model?: string | null },
   snapshot?: CatalogEnrichmentSnapshot
 ): T {
-  const provider =
+  const publicProvider =
     input?.provider ||
     (typeof entry.owned_by === "string" && entry.owned_by !== "combo" ? entry.owned_by : null);
+  const provider =
+    (publicProvider && snapshot?.providerNodeIdsByPrefix?.[publicProvider]) || publicProvider;
   const model =
     input?.model ||
     asNonEmptyString(entry.root) ||
@@ -428,6 +431,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   const authoritativeContextWindow =
     getAuthoritativeProviderContextWindow(metadata.provider, metadata.model) ??
     getAuthoritativeProviderContextWindow(provider, model) ??
+    getAuthoritativeProviderContextWindow(publicProvider, model) ??
     getAuthoritativeContextWindow(metadata.model) ??
     getAuthoritativeContextWindow(model);
   const specialtySurface = isNonChatCatalogSurface(entry.type);
