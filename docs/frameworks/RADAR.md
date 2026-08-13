@@ -169,6 +169,23 @@ paste a new one — the raw key is never redisplayed. The two claim/plans button
 remain the way to _obtain_ a key in the first place; this input is where an operator
 who already has one activates it.
 
+### Private admin-panel link
+
+`RADAR_ADMIN_URL` optionally adds **Radar Admin ↗** immediately after the user-facing
+Radar item in the Costs sidebar section. It has deliberately no default: when the variable is
+unset or invalid, the static sidebar, command palette, and sidebar-customization screen contain no
+admin item and no private URL.
+
+The value is resolved server-side and relayed through the management-authenticated
+`GET /api/settings` response only to an authenticated dashboard session, or to the trusted
+loopback owner during a local no-login bootstrap. CLI, internal-service, and manage-scope API-key
+authentication do not receive it. The browser validates the response again before materializing
+the external link, which opens with `noopener noreferrer`.
+
+Use a credential-free HTTPS tunnel/tailnet URL. Plain HTTP is accepted only for a loopback SSH
+forward such as `http://127.0.0.1:9351`; other schemes, embedded credentials, malformed URLs, and
+remote HTTP destinations fail closed and leave navigation inert.
+
 ---
 
 ## Security model
