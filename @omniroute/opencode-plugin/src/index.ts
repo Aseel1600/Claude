@@ -2930,10 +2930,7 @@ export function passesModelAllowlist(
  * filter is set, all combos pass. Combos with zero resolvable members pass
  * (mirrors `isUsableCombo` semantics).
  */
-export function passesComboAllowlist(
-  combo: OmniRouteRawCombo,
-  visible?: ModelListFilter
-): boolean {
+export function passesComboAllowlist(combo: OmniRouteRawCombo, visible?: ModelListFilter): boolean {
   if (!visible) return true;
   const steps = Array.isArray(combo.models) ? combo.models : [];
   if (steps.length === 0) return true;
@@ -5342,7 +5339,8 @@ export function createOmniRouteConfigHook(
           warmSnapshot = snapshotResult;
           // Log snapshot age (accept any age — instant beats empty).
           const age = (snapshotResult as { writtenAt?: number }).writtenAt;
-          const ageLabel = typeof age === "number" ? `${Math.round((Date.now() - age) / 3_600_000)}h` : "unknown";
+          const ageLabel =
+            typeof age === "number" ? `${Math.round((Date.now() - age) / 3_600_000)}h` : "unknown";
           logAt(
             "warn",
             `config shim: warm startup from disk snapshot (${snapshotResult.rawModels.length} models, age ${ageLabel})`
@@ -5415,7 +5413,11 @@ export function createOmniRouteConfigHook(
         const doCompression = async (): Promise<void> => {
           if (!wantCompressionMeta) return;
           try {
-            localRawCompressionCombos = await compressionMetaFetcher(baseURL, managementReadToken, 10_000);
+            localRawCompressionCombos = await compressionMetaFetcher(
+              baseURL,
+              managementReadToken,
+              10_000
+            );
           } catch (err) {
             logAt(
               "error",
@@ -5477,7 +5479,6 @@ export function createOmniRouteConfigHook(
           rawCompressionCombos: localRawCompressionCombos,
           rawConnections: localRawConnections,
           expiresAt: now() + resolved.modelCacheTtl,
-        });
         });
 
         // Startup diagnostics (file-based) — fires at startup via config hook
