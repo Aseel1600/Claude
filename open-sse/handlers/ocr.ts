@@ -135,6 +135,10 @@ async function pollOcrOperation({ pollUrl, authHeader, fetchImpl, sleepImpl }) {
       method: "GET",
       headers: authHeader,
     });
+    if (!pollRes.ok) {
+      console.error("[OCR] poll error", pollRes.status);
+      return errorResponse(502, "OCR analysis failed");
+    }
     const json = await pollRes.json();
     if (json.status === "succeeded") {
       return json;

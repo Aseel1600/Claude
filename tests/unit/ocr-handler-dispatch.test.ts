@@ -90,3 +90,44 @@ test("azure DI poll returns failed status maps to 502", async () => {
   const body = await res.json();
   assert.ok(!body.error.message.includes("at /"));
 });
+
+test("azure DI poll returns a non-ok response (401) and fails fast without exhausting the loop", async () => {
+  const { impl, calls } = fetchStub([
+    { status: 202, headers: { "Operation-Location": "https://poll/op/1" } },
+    { status: 401, json: { error: "unauthorized" } },
+  ]);
+  const res = await handleOcr({
+    body: {
+      model: "azure-document-intelligence/prebuilt-read",
+      document: { type: "document_url", document_url: "https://x/d.pdf" },
+    },
+    credentials: { apiKey: "azkey", baseUrl: "https://r.cognitiveservices.azure.com" },
+    fetchImpl: impl,
+    sleepImpl: noSleep,
+  });
+  assert.equal(res.status, 502);
+  // 1 initial POST + 1 poll: the loop stopped immediately, it did not run all 30 attempts.
+  assert.equal(calls.length, 2);
+  const body = await res.json();
+  assert.ok(!body.error.message.includes("at /"));
+});
+
+test("azure DI poll never resolves and times out after 30 attempts with a 504", async () => {
+  const script = [{ status: 202, headers: { "Operation-Location": "https://poll/op/1" } }];
+  for (let i = 0; i < 30; i++) {
+    script.push({ status: 200, json: { status: "running" } });
+  }
+  const { impl, calls } = fetchStub(script);
+  const res = await handleOcr({
+    body: {
+      model: "azure-document-intelligence/prebuilt-read",
+      document: { type: "document_url", document_url: "https://x/d.pdf" },
+    },
+    credentials: { apiKey: "azkey", baseUrl: "https://r.cognitiveservices.azure.com" },
+    fetchImpl: impl,
+    sleepImpl: noSleep,
+  });
+  assert.equal(res.status, 504);
+  // 1 initial POST + 30 poll attempts (the max cap), no more.
+  assert.equal(calls.length, 31);
+});
