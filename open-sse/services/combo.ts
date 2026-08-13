@@ -1427,15 +1427,6 @@ export async function handleComboChat({
               });
             }
 
-            if (clientManagedResponsesContext && effectiveConnectionId) {
-              pinNativeCodexTurn({
-                body,
-                comboName: combo.name,
-                target,
-                connectionId: effectiveConnectionId,
-              });
-            }
-
             // Success decay: a healthy response walks the model's lockout failure
             // count back down (and eventually clears an expired lockout entirely).
             if (provider && rawModel) {
