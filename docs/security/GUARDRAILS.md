@@ -107,6 +107,26 @@ fragment the cache. Failed describes are never cached. Settings:
 | `modalityBridgeCacheTtlMinutes` | `60`    | 1–1440  |
 | `modalityBridgeCacheMaxEntries` | `200`   | 10–5000 |
 
+#### Remote image normalization (self-loop describe/base64 fetch)
+
+When the bridge fetches a **remote** image itself — the Anthropic describe
+self-call and the claude-wire-format base64 conversion
+(`ensureBase64ImagesForClaudeWire`), both via
+`fetchRemoteImageAsDataUri()` in `visionBridgeHelpers.ts` — the resulting data
+URI is passed through `normalizeDataUri()`
+(`open-sse/utils/imageNormalize.ts`) before being embedded in the vision-model
+request. Oversized images are downscaled to a **2048px long edge** (matching
+the resize cap OpenAI/Anthropic already apply server-side), which cuts
+upload bytes/latency without changing what the vision model sees. Resizing
+uses `sharp`, loaded via dynamic import: on a platform where its native
+binary fails to load, `normalizeDataUri()` **never throws** — it falls back
+to a passthrough of the original bytes, so the describe/base64-conversion
+path always keeps working. Non-image bytes (a fetch that did not return a
+decodable image) are also passed through untouched. This normalization is
+scoped to images the bridge fetches for its own self-call — it is never
+applied to the caller's raw passthrough payload, consistent with the
+opt-in-only mutation principle (Hard Rule #20).
+
 #### Settings schema + migration
 
 The new `modalityBridge*` keys are Zod-validated in `updateSettingsSchema`
