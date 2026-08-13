@@ -861,7 +861,10 @@ test("chatCore preserves Opus 5 mid-conversation system cache breakpoints", asyn
     call.body.messages.map((message: { role: string }) => message.role),
     ["user", "assistant", "system", "user"]
   );
-  assert.deepEqual(call.body.messages[2].content[0].cache_control, { type: "ephemeral" });
+  assert.deepEqual(call.body.messages[2].content[0].cache_control, {
+    type: "ephemeral",
+    ttl: "1h",
+  });
   assert.equal(
     call.body.system.some((block: { text?: string }) => block.text === "compact continuation"),
     false
@@ -1037,7 +1040,10 @@ test("chatCore preserves cache_control automatically for Claude Code single-mode
   assert.equal(hasCacheControl(call.body), true);
   // system[0] and system[1] are now the billing line and sentinel injected by base.ts for Claude Code
   assert.deepEqual(call.body.system[2].cache_control, { type: "ephemeral", ttl: "5m" });
-  assert.deepEqual(call.body.messages[0].content[0].cache_control, { type: "ephemeral" });
+  assert.deepEqual(call.body.messages[0].content[0].cache_control, {
+    type: "ephemeral",
+    ttl: "1h",
+  });
   // base.ts executor explicitly strips cache_control from tools for Claude Code clients
   assert.equal(call.body.tools[0].cache_control, undefined);
 });
@@ -1083,7 +1089,10 @@ test("chatCore supplements a missing message cache breakpoint for native Claude 
     responseFormat: "claude",
   });
 
-  assert.deepEqual(call.body.messages[2].content[0].cache_control, { type: "ephemeral" });
+  assert.deepEqual(call.body.messages[2].content[0].cache_control, {
+    type: "ephemeral",
+    ttl: "1h",
+  });
   assert.equal(call.body.tools[0].cache_control, undefined);
 });
 test("chatCore auto cache policy becomes false for nondeterministic combos", async () => {
@@ -1171,7 +1180,10 @@ test("chatCore disables raw Claude passthrough when cache preservation is off an
     true
   );
   // Cache preservation is on for native Claude, so cache markers are intact
-  assert.deepEqual(call.body.messages[0].content[0].cache_control, { type: "ephemeral" });
+  assert.deepEqual(call.body.messages[0].content[0].cache_control, {
+    type: "ephemeral",
+    ttl: "1h",
+  });
   // Tools disable flag is applied
   assert.equal("_disableToolPrefix" in call.body, false);
 });
@@ -1314,7 +1326,7 @@ test("chatCore strips unsupported reasoning params and caps provider token field
   assert.equal(call.body.max_tokens, undefined);
   assert.equal(call.body.max_completion_tokens, 16384);
 });
-test("chatCore preserves reasoning_effort for assistant-prefill OpenAI-compatible requests", async () => {
+test("chatCore downgrades unsupported xhigh effort for assistant-prefill OpenAI-compatible requests", async () => {
   const { call, result } = await invokeChatCore({
     provider: "openai-compatible-aio",
     model: "glm-5.1",
@@ -1333,7 +1345,7 @@ test("chatCore preserves reasoning_effort for assistant-prefill OpenAI-compatibl
 
   assert.equal(result.success, true);
   assert.equal(call.body.model, "glm-5.1");
-  assert.equal(call.body.reasoning_effort, "xhigh");
+  assert.equal(call.body.reasoning_effort, "high");
 });
 test("chatCore logs chat completions endpoint as OpenAI protocol", async () => {
   const { call, result } = await invokeChatCore({
