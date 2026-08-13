@@ -129,6 +129,19 @@ is pulled, these must be re-applied on top.
   `clearProviderQuota(connectionId)`. Model-scoped delete on the
   `(connection_id, model)` keyed table. (Also a bug in open PR #10126 — worth
   flagging upstream.)
+- **Rebased the custom branch onto `origin/release/v3.8.50`**: the quota
+  commits were authored against the release base (PR #10098 was opened with
+  `base=release/v3.8.50`), but the local branch sat on `origin/main`, which
+  lacks release-only symbols (`isAccountSemaphoreFull`, STREAM_EARLY_EOF
+  predicates, newer `handleComboChat` signature). The rebase put the branch on
+  the base the quota code was written for. `custom/main` now = release/v3.8.50
+  - 3 quota commits + auto-update feature + quota fixes.
+- **Known pre-existing test issue (open PR #10126, not caused by this fork)**:
+  `tests/unit/quota-phase2.test.ts` does not isolate `DATA_DIR` (no
+  `mkdtemp` + `resetDbInstance()`), so `applyQuotaHeadersToState` accumulates
+  into the real `~/.omniroute` DB across runs — `tokensUsed` grows 3× per run
+  (`240000 !== 80000`). Fails identically on the clean quota branch. Fix
+  upstream in the PR (pattern: `tests/unit/db-webhooks.test.ts`).
 
 ---
 
