@@ -62,6 +62,48 @@ export function getOcrTransformation(providerId: string): OcrTransformation {
   return OCR_PROVIDERS[providerId]?.transformation ?? MISTRAL_PASSTHROUGH;
 }
 
+const AZURE_DI_API_VERSION = "2024-11-30";
+
+function azureDiSource(document: Record<string, unknown> | undefined): Record<string, string> {
+  if (!document) return {};
+  const url = String(document.document_url ?? document.image_url ?? "");
+  if (url.startsWith("data:")) {
+    const comma = url.indexOf(",");
+    return { base64Source: comma >= 0 ? url.slice(comma + 1) : "" };
+  }
+  return url ? { urlSource: url } : {};
+}
+
+export const AZURE_DI_TRANSFORMATION: OcrTransformation = {
+  buildRequest({ baseUrl, token, body, modelId }) {
+    const root = baseUrl.replace(/\/+$/, "");
+    return {
+      url: `${root}/documentintelligence/documentModels/${modelId}:analyze?api-version=${AZURE_DI_API_VERSION}&outputContentFormat=markdown`,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Ocp-Apim-Subscription-Key": token },
+        body: JSON.stringify(azureDiSource(body.document as Record<string, unknown>)),
+      },
+    };
+  },
+  pollUrl(res) {
+    return res.headers.get("Operation-Location");
+  },
+  parseResponse(raw) {
+    const r = raw as {
+      analyzeResult?: { content?: string; pages?: unknown[] };
+    };
+    const pageCount = r.analyzeResult?.pages?.length ?? 1;
+    // Azure devolve o markdown do documento inteiro em content; espelhamos no shape
+    // Mistral com uma "página" agregada por padrão (índice 0), preservando pageCount.
+    return {
+      pages: [{ index: 0, markdown: r.analyzeResult?.content ?? "" }],
+      model: "prebuilt-read",
+      usage_info: { pages_processed: pageCount },
+    };
+  },
+};
+
 export const OCR_PROVIDERS: Record<string, OcrProvider> = {
   mistral: {
     id: "mistral",
@@ -69,6 +111,14 @@ export const OCR_PROVIDERS: Record<string, OcrProvider> = {
     authType: "apikey",
     authHeader: "bearer",
     models: [{ id: "mistral-ocr-latest", name: "Mistral OCR" }],
+  },
+  "azure-document-intelligence": {
+    id: "azure-document-intelligence",
+    baseUrl: "",
+    authType: "apikey",
+    authHeader: "Ocp-Apim-Subscription-Key",
+    models: [{ id: "prebuilt-read", name: "Azure Document Intelligence (Read)" }],
+    transformation: AZURE_DI_TRANSFORMATION,
   },
 };
 
