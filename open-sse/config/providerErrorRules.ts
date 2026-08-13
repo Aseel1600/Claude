@@ -176,6 +176,41 @@ function buildOpenrouterRules(): ProviderErrorRule[] {
   ];
 }
 
+// ─── AgentRouter ────────────────────────────────────────────────────────────
+// agentrouter.org misstates temporary quota exhaustion as 403/400 with a
+// Chinese body. upstreamStatusRestatement.ts rewrites the status to 429
+// BEFORE classification, so rules here accept both the raw 403/400 and the
+// restated 429 (text is the real discriminator either way).
+//  - "额度不足": account-wide temporary quota → quota_exhausted, scope
+//    "connection" (mirror of the Opencode account-wide rationale above).
+//  - "无权访问模型": this key permanently lacks access to ONE model → lock only
+//    the model so the connection keeps serving the rest (Model Lockout tier).
+function buildAgentrouterRules(): ProviderErrorRule[] {
+  const AGENTROUTER_ERROR_STATUSES = new Set([400, 403, 429]);
+  return [
+    {
+      id: "agentrouter-user-quota-exhausted",
+      match: ({ status, body }) => {
+        if (!AGENTROUTER_ERROR_STATUSES.has(status)) return null;
+        const text = JSON.stringify(body ?? "").toLowerCase();
+        if (!text.includes("额度不足")) return null;
+        return { reason: "quota_exhausted", scope: "connection" };
+      },
+    },
+    {
+      id: "agentrouter-model-access-denied",
+      match: ({ status, body }) => {
+        if (status !== 403) return null;
+        const text = JSON.stringify(body ?? "").toLowerCase();
+        if (!text.includes("无权访问模型")) return null;
+        // 6h: effectively "until the operator fixes the key's model grants",
+        // without being an unrecoverable terminal state.
+        return { reason: "auth_error", scope: "model", cooldownMs: 6 * 60 * 60 * 1000 };
+      },
+    },
+  ];
+}
+
 /**
  * Global registry. Provider name → ordered list of rules (first match wins).
  * Add new providers here; the matcher in classifyError will pick them up
@@ -189,6 +224,7 @@ export const providerRuleRegistry = new Map<string, ProviderErrorRule[]>([
   ["minimax-passthrough", buildMinimaxRules()],
   ["cloudflare-ai", buildCloudflareAiRules()],
   ["openrouter", buildOpenrouterRules()],
+  ["agentrouter", buildAgentrouterRules()],
 ]);
 
 /**
