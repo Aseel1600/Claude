@@ -95,6 +95,7 @@ export const LOCAL_ONLY_API_PREFIXES: ReadonlyArray<string> = [
  */
 export const LOCAL_ONLY_API_PATTERNS: ReadonlyArray<RegExp> = [
   /^\/api\/providers\/[^/]+\/login\/?$/,
+  /^\/api\/providers\/volcengine-plan\/connect\/?$/,
   /^\/api\/providers\/[^/]+\/refresh-cursor\/?$/,
   /^\/api\/providers\/[^/]+\/chatgpt-web-codex-doctor\/?$/,
 ];
