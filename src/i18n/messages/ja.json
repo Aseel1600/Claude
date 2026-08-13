@@ -13055,7 +13055,7 @@
   },
   "kimiSponsorBanner": {
     "foundingFriendTitle": "Kimi（Moonshot AI）はOmniRouteの創設オープンソースフレンドです",
-    "description": "公式Kimi APIを通じてOmniRouteでKimi K3を使えます。最先端の知能をより低コストで。",
+    "description": "新規ユーザーは初回チャージでAPIクレジットが15%増量。公式Kimi APIを通じてOmniRouteでKimi K3を使えます。",
     "cta": "Kimi APIキーを取得",
     "partnerLinkNote": "パートナーリンク",
     "dismissAriaLabel": "閉じる"
