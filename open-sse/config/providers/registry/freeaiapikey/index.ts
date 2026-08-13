@@ -5,8 +5,12 @@ export const freeaiapikeyProvider: RegistryEntry = {
   alias: "faik",
   format: "openai",
   executor: "default",
-  baseUrl: "https://freeaiapikey.com/v1/chat/completions",
-  modelsUrl: "https://freeaiapikey.com/v1/models",
+  // 2026-08-13: the apex host answers 410 `endpoint_moved` on every /v1 route and
+  // names its own replacement — "Please update your base_url to
+  // https://api.freeaiapikey.com/v1". The api. host serves /v1/models (200) and
+  // /v1/chat/completions (405 on GET, i.e. POST-only as expected).
+  baseUrl: "https://api.freeaiapikey.com/v1/chat/completions",
+  modelsUrl: "https://api.freeaiapikey.com/v1/models",
   authType: "apikey",
   authHeader: "bearer",
   defaultContextLength: 128000,
