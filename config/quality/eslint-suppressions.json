@@ -1491,11 +1491,6 @@
       "count": 1
     }
   },
-  "tests/integration/mimocode-proxy.integration.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 13
-    }
-  },
   "tests/integration/obsidian-plugin-e2e.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 12
@@ -2562,11 +2557,6 @@
   "tests/unit/memory-summarization.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "tests/unit/mimocode-executor.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 58
     }
   },
   "tests/unit/minimax-tts-1043.test.ts": {
