@@ -21,6 +21,8 @@ import {
   ANTIGRAVITY_MODEL_ALIASES,
   ANTIGRAVITY_REVERSE_MODEL_ALIASES,
 } from "@omniroute/open-sse/config/antigravityModelAliases.ts";
+import { filterChatSelectableModels } from "@omniroute/open-sse/services/modelEndpointPolicy.ts";
+import { filterSelectableModels } from "@omniroute/open-sse/services/modelLifecycle.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -96,11 +98,9 @@ function normalizeImportedModel(model: JsonRecord): ManagedImportedModel {
 }
 
 function normalizeImportedModels(
-  fetchedModels: unknown,
-  providerId: string
+  discoveredModels: readonly SyncedAvailableModel[]
 ): ManagedImportedModel[] {
-  const discovered = normalizeDiscoveredModels(fetchedModels, providerId);
-  return discovered.map((model) => normalizeImportedModel(model as JsonRecord));
+  return discoveredModels.map((model) => normalizeImportedModel(model as JsonRecord));
 }
 
 function isImportedSource(source: unknown): boolean {
@@ -253,8 +253,11 @@ export async function importManagedModels({
   const previousSyncedAvailableModels =
     previousSyncedAvailableModelsInput ??
     (await getSyncedAvailableModelsForConnection(providerId, connectionId));
-  const discoveredModels = normalizeDiscoveredModels(fetchedModels, providerId);
-  const candidateImportedModels = normalizeImportedModels(fetchedModels, providerId);
+  const discoveredModels = filterChatSelectableModels(
+    providerId,
+    filterSelectableModels(providerId, normalizeDiscoveredModels(fetchedModels, providerId))
+  );
+  const candidateImportedModels = normalizeImportedModels(discoveredModels);
   const importedIds = new Set(candidateImportedModels.map((model) => model.id));
   const discoveredIds = new Set(discoveredModels.map((model) => model.id));
 
