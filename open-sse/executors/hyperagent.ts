@@ -748,11 +748,12 @@ export async function parseHyperAgentSseStream(
     } catch (err) {
       retryCount++;
       if (retryCount >= maxRetries) {
-        throw new Error(`SSE stream failed after ${maxRetries} retries: ${err.message}`);
+        throw new Error(
+          `SSE stream failed after ${maxRetries} retries: ${err instanceof Error ? err.message : String(err)}`
+        );
       }
-      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
+      await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
     }
-  }
   }
   if (buffer.trim()) {
     const t = buffer.trim();

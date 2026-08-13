@@ -107,6 +107,10 @@ export function buildAddProviderSpecificData(options: {
       data.quotaPerUnit = parsedQuotaPerUnit;
     }
   }
+  if (provider === "chatgpt-web-codex") {
+    if (formData.tunnelId.trim()) data.tunnelId = formData.tunnelId.trim();
+    if (formData.connectorName.trim()) data.connectorName = formData.connectorName.trim();
+  }
   return Object.keys(data).length > 0 ? data : undefined;
 }
 
@@ -176,5 +180,9 @@ export function assignEditApiKeyProviderSpecificData(options: {
   } else {
     o.target.newApiAggregatorBalance = undefined;
     o.target.quotaPerUnit = undefined;
+  }
+  if (o.provider === "chatgpt-web-codex") {
+    o.target.tunnelId = o.formData.tunnelId.trim() || undefined;
+    o.target.connectorName = o.formData.connectorName.trim() || undefined;
   }
 }

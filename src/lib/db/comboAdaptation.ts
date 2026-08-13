@@ -97,7 +97,7 @@ function nextLearnedScore(previous: number, success: boolean): number {
 }
 
 const QUALITY_SELECT = `id, learned_score, request_count, success_count, failures,
-        consecutive_failures, avg_latency_ms, quality_failures,
+        consecutive_failures, avg_latency_ms, cooldown_until, quality_failures,
         empty_responses, tool_calls, tool_call_successes, total_tokens,
         first_pass_successes, first_pass_total`;
 
@@ -121,6 +121,7 @@ export function recordComboAdaptationOutcome(
         failures: number;
         consecutive_failures: number;
         avg_latency_ms: number | null;
+        cooldown_until: string | null;
         quality_failures: number;
         empty_responses: number;
         tool_calls: number;
@@ -157,7 +158,7 @@ export function recordComboAdaptationOutcome(
   const learnedScore = nextLearnedScore(existing?.learned_score ?? 0.5, outcome.success);
 
   // Quality failures never extend the cooldown ladder; successes clear it.
-  let cooldownUntil = existing?.cooldownUntil ?? null;
+  let cooldownUntil = existing?.cooldown_until ?? null;
   if (outcome.success) {
     cooldownUntil = null;
   } else if (isInfraFailure) {

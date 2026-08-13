@@ -68,6 +68,7 @@ export interface EditConnectionModalConnection {
   provider?: string;
   apiKey?: string;
   providerSpecificData?: Record<string, unknown>;
+  defaultModel?: string | null;
   healthCheckInterval?: number;
   projectId?: string | null;
 }
@@ -114,6 +115,7 @@ export default function EditConnectionModal({
     region: "",
     apiRegion: "international",
     validationModelId: "",
+    defaultModel: "",
     tag: "",
     routingTags: "",
     excludedModels: "",
@@ -121,7 +123,7 @@ export default function EditConnectionModal({
     accountId: "",
     codexReasoningEffort: "medium",
     codexServiceTier: "default" as CodexServiceTier,
-    codexOpenaiStoreEnabled: false,
+    openaiResponsesStoreEnabled: false,
     preserveEncryptedReasoning: false,
     consoleApiKey: "",
     newApiUserId: "",
@@ -317,6 +319,7 @@ export default function EditConnectionModal({
         region: existingRegion || (showsRegion ? defaultRegion : ""),
         apiRegion: (connection.providerSpecificData?.apiRegion as string) || "international",
         validationModelId: (connection.providerSpecificData?.validationModelId as string) || "",
+        defaultModel: (connection.defaultModel as string) || "",
         tag: (connection.providerSpecificData?.tag as string) || "",
         routingTags: formatRoutingTagsInput(connection.providerSpecificData?.tags),
         excludedModels: formatExcludedModelsInput(
@@ -327,7 +330,7 @@ export default function EditConnectionModal({
         accountId: existingAccountId,
         codexReasoningEffort: codexRequestDefaults.reasoningEffort,
         codexServiceTier: codexRequestDefaults.serviceTier ?? "default",
-        codexOpenaiStoreEnabled: connection.providerSpecificData?.openaiStoreEnabled === true,
+        openaiResponsesStoreEnabled: connection.providerSpecificData?.openaiStoreEnabled === true,
         preserveEncryptedReasoning:
           connection.providerSpecificData?.preserveEncryptedReasoning === true,
         consoleApiKey: existingConsoleApiKey,
@@ -339,6 +342,10 @@ export default function EditConnectionModal({
         opencodeGoWorkspaceId: existingOpenCodeGoWorkspaceId,
         opencodeGoAuthCookie: "",
         ollamaCloudUsageCookie: "",
+        alibabaConsoleCookie: stringField(connection.providerSpecificData?.alibabaConsoleCookie),
+        alibabaConsoleSecToken: stringField(
+          connection.providerSpecificData?.alibabaConsoleSecToken
+        ),
         ccCompatibleContext1m: ccRequestDefaults.context1m,
         ccCompatibleRedactThinking: ccRequestDefaults.redactThinking,
         ccCompatibleSummarizeThinking: ccRequestDefaults.summarizeThinking,
@@ -512,6 +519,7 @@ export default function EditConnectionModal({
         return;
       }
       let validatedBaseUrl = null;
+      let validationPsd = validatedProviderSpecificData;
       if (usesBaseUrl) {
         // #6147 — an opt-in override left blank clears it (no default to fall
         // back to). Configurable providers keep their existing default-fallback.
@@ -527,7 +535,6 @@ export default function EditConnectionModal({
         }
       }
       if (!isOAuth && formData.apiKey) {
-        let validationPsd = validatedProviderSpecificData;
         let isValid = validationResult === "success";
         if (!isValid) {
           try {
@@ -586,6 +593,9 @@ export default function EditConnectionModal({
         }
       }
       if (!isOAuth) {
+        if (isCompatible) {
+          updates.defaultModel = formData.defaultModel.trim() || null;
+        }
         updates.providerSpecificData = {
           ...(connection.providerSpecificData || {}),
           ...(validationPsd || {}),
@@ -624,8 +634,6 @@ export default function EditConnectionModal({
               ? { serviceTier: formData.codexServiceTier }
               : {}),
           };
-          updates.providerSpecificData.openaiStoreEnabled =
-            formData.codexOpenaiStoreEnabled === true;
         }
         if (isAntigravityFamily) {
           updates.providerSpecificData.projectId = trimmedCloudCodeProjectId || null;
@@ -652,6 +660,8 @@ export default function EditConnectionModal({
       if (isResponsesConnection && updates.providerSpecificData) {
         updates.providerSpecificData.preserveEncryptedReasoning =
           formData.preserveEncryptedReasoning === true;
+        updates.providerSpecificData.openaiStoreEnabled =
+          formData.openaiResponsesStoreEnabled === true;
       }
       const freeOnlyChanged =
         showFreeModelsToggle &&
@@ -692,6 +702,16 @@ export default function EditConnectionModal({
         "preserveEncryptedReasoningDescription",
         "Forward encrypted Responses reasoning items supplied by the client."
       )}
+    />
+  ) : null;
+  const openaiResponsesStoreToggle = isResponsesConnection ? (
+    <Toggle
+      checked={formData.openaiResponsesStoreEnabled}
+      onChange={(checked) =>
+        setFormData({ ...formData, openaiResponsesStoreEnabled: checked })
+      }
+      label={t("openaiResponsesStoreLabel")}
+      description={t("openaiResponsesStoreDescription")}
     />
   ) : null;
   return (
@@ -749,12 +769,6 @@ export default function EditConnectionModal({
                 "Default uses the normal Codex tier. Priority shows as Fast; Flex uses the flex service tier when available."
               )}
             />
-            <Toggle
-              checked={formData.codexOpenaiStoreEnabled}
-              onChange={(checked) => setFormData({ ...formData, codexOpenaiStoreEnabled: checked })}
-              label={t("openaiResponsesStoreLabel")}
-              description={t("openaiResponsesStoreDescription")}
-            />
           </div>
         )}
         {isClaude && (
@@ -788,6 +802,7 @@ export default function EditConnectionModal({
             />
           )}
           {preserveEncryptedReasoningToggle}
+          {openaiResponsesStoreToggle}
           <Toggle
             checked={formData.disableCooling}
             onChange={(checked) => setFormData({ ...formData, disableCooling: checked })}
@@ -1144,6 +1159,20 @@ export default function EditConnectionModal({
                   </div>
                 </div>
               </div>
+            )}
+            {isCompatible && (
+              <Input
+                label={t("compatibleDefaultModelLabel")}
+                value={formData.defaultModel}
+                onChange={(e) => setFormData({ ...formData, defaultModel: e.target.value })}
+                placeholder={
+                  isAnthropicCompatibleProvider(provider)
+                    ? "claude-3-5-sonnet-latest"
+                    : "gpt-4o-mini"
+                }
+                hint={t("compatibleDefaultModelHint")}
+                data-testid="compat-default-model-input"
+              />
             )}
             <Input
               label={t("validationModelIdLabel")}

@@ -39,6 +39,7 @@ import {
 import {
   validateMuseSparkWebProvider,
   validateAdaptaWebProvider,
+  validateTinyCmsWebProvider,
   validateClaudeWebProvider,
   validateGeminiWebProvider,
   validateCopilotM365WebProvider,
@@ -258,6 +259,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     "muse-spark-web": validateMuseSparkWebProvider,
     "inner-ai": validateInnerAiProvider,
     "adapta-web": validateAdaptaWebProvider,
+    "tinycms-web": validateTinyCmsWebProvider,
     "claude-web": validateClaudeWebProvider,
     "gemini-web": validateGeminiWebProvider,
     "notion-web": validateNotionWebProvider,

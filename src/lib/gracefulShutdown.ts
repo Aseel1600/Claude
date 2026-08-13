@@ -147,7 +147,7 @@ async function cleanup(): Promise<void> {
       stopBackgroundRefresh();
       console.log("[Shutdown] Quota cache background refresh stopped.");
     } catch (err) {
-      console.warn(`[Shutdown] Failed to stop quota cache: ${err.message}`);
+      console.warn(`[Shutdown] Failed to stop quota cache: ${(err as Error).message}`);
     }
   } catch (err) {
     console.error("[Shutdown] Error during cleanup:", (err as Error).message);

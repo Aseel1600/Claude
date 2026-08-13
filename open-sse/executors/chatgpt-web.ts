@@ -441,7 +441,7 @@ function configuredProPollIntervalMs(): number {
 
 async function setUserThinkingEffort(
   modelSlug: string,
-  effort: "standard" | "extended",
+  effort: "standard" | "extended" | "max",
   accessToken: string,
   accountId: string | null,
   sessionId: string,
@@ -984,7 +984,7 @@ function buildConversationBody(
     // chatgpt.com history. Disable Temporary Chat only when ChatGPT needs a
     // durable image conversation (image generation/editing).
     persistConversation: boolean;
-    thinkingEffort: "standard" | "extended" | null;
+    thinkingEffort: "standard" | "extended" | "max" | null;
     continuation?: ChatGptImageConversationContext | null;
   }
 ): Record<string, unknown> {
@@ -1139,34 +1139,34 @@ async function* readChatGptSseEvents(
           const rawLine = buffer.slice(0, idx);
           buffer = buffer.slice(idx + 1);
           const line = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
+
+          if (line === "") {
+            const parsed = flush();
+            if (parsed === "done") return;
+            if (parsed) yield parsed;
+            continue;
+          }
+          if (line.startsWith("event:")) {
+            eventName = line.slice(6).trim();
+          } else if (line.startsWith("data:")) {
+            dataLines.push(line.slice(5).trimStart());
+          }
+        }
         if (lineCount >= maxLines) {
           console.warn(`chatgpt-web: max lines (${maxLines}) reached, possible infinite loop`);
-          break;
         }
-        if (line === "") {
-          const parsed = flush();
-          if (parsed === "done") return;
-          if (parsed) yield parsed;
-          continue;
+      } catch (err) {
+        retryCount++;
+        if (retryCount >= maxRetries) {
+          throw new Error(
+            `SSE stream failed after ${maxRetries} retries: ${err instanceof Error ? err.message : String(err)}`
+          );
         }
-      }
-    } catch (err) {
-      retryCount++;
-      if (retryCount >= maxRetries) {
-        throw new Error(`SSE stream failed after ${maxRetries} retries: ${err.message}`);
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-    }
-        if (line.startsWith("event:")) {
-          eventName = line.slice(6).trim();
-        } else if (line.startsWith("data:")) {
-          dataLines.push(line.slice(5).trimStart());
-        }
+        await new Promise((resolve) => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
       }
     }
 
-    const chunk = decoder.decode(value, { stream: true });
-    buffer += chunk;
+    buffer += decoder.decode();
     if (buffer.trim().startsWith("data:")) {
       dataLines.push(buffer.trim().slice(5).trimStart());
     }

@@ -296,7 +296,11 @@ export async function resolveAutoStrategyOrder(
     resetWindowConfig,
     autoCandidateResilienceSettings
   );
-  const cacheAffinityScores = calculatePromptCacheAffinityScores(candidates, body);
+  const cacheAffinityScores = calculatePromptCacheAffinityScores(
+    candidates,
+    body,
+    relayOptions?.sessionId
+  );
   for (const candidate of candidates) {
     candidate.cacheAffinity = cacheAffinityScores.get(promptCacheTargetIdentity(candidate)) ?? 0;
   }

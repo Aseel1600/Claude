@@ -366,43 +366,14 @@ export function scoreAutoTargets(
   manifestHint?: RoutingHint | null
 ) {
   const targetByExecutionKey = new Map(targets.map((target) => [target.executionKey, target]));
-  // Filter by capabilities before scoring
-  const requiredCapabilities = {
-    tools: request?.tools && request.tools.length > 0,
-    vision: request?.messages?.some((msg) => msg.role === "user" && msg.content.some((c) => c.type === "image_url")),
-  };
   const activeCandidates = candidates.filter((candidate) => candidate.quotaCutoffBlocked !== true);
   // Computed once per scoring pass, not per candidate — see computePoolMaxima's
   // doc comment (scoring.ts) for the O(n^2) OOM this avoids on large auto-combo
   // candidate pools (#OOM incident, zero-config auto combo expanding to 1000s
   // of provider/model targets).
   const poolMaxima = computePoolMaxima(activeCandidates as unknown as ProviderCandidate[]);
-  const filteredCandidates = filterTargetsByCapabilities(
-    activeCandidates.map((c) => {
-      const baseTarget = targets.find(
-        (target) =>
-          target.stepId === candidate.stepId ||
-          (target.provider === candidate.provider && target.modelStr === candidate.modelStr)
-      );
-      if (!baseTarget) return null;
-      return {
-        ...baseTarget,
-        stepId: candidate.stepId,
-        executionKey: candidate.executionKey,
-        modelStr: candidate.modelStr,
-        provider: candidate.provider,
-        connectionId: candidate.connectionId ?? baseTarget.connectionId,
-      };
-    }).filter(Boolean) as ResolvedComboTarget[],
-    requiredCapabilities
-  ).map((target) => activeCandidates.find((c) => {
-    return (
-      c.stepId === target.stepId ||
-      (c.provider === target.provider && c.modelStr === target.modelStr)
-    );
-  })!).filter(Boolean);
 
-  return filteredCandidates
+  return activeCandidates
     .map((candidate) => {
       const baseTarget =
         targetByExecutionKey.get(candidate.executionKey) ||

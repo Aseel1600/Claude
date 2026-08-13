@@ -139,7 +139,7 @@ export const WEB_COOKIE_PROVIDERS = {
     textIcon: "CP",
     website: "https://copilot.microsoft.com",
     authHint:
-      "Paste your access_token from copilot.microsoft.com (or export a .har file from DevTools while logged in)",
+      "Paste the access_token from an authenticated copilot.microsoft.com request (DevTools → Network → Authorization), or export a HAR while logged in",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
   },
@@ -393,20 +393,35 @@ export const WEB_COOKIE_PROVIDERS = {
     authHint:
       "Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days.",
   },
+  "tinycms-web": {
+    id: "tinycms-web",
+    alias: "tcw",
+    name: "TinyCMS Web (Free/Sub)",
+    icon: "layers",
+    color: "#ED8936",
+    textIcon: "TC",
+    website: "https://site.tinycms.xyz",
+    hasFree: true,
+    freeNote:
+      "Free tier has access to GPT 5.4, Gemini 3.5, and Grok 4.20 models. No login required. Subscription grants 300 requests/day for advanced models.",
+    authHint:
+      "Go to site.tinycms.xyz, open DevTools → Application → Local Storage, copy the value of 'app-config-uuid' (starts with 'R'), and paste it here.",
+  },
   "zai-web": {
     id: "zai-web",
     alias: "zw",
-    name: "Z.ai Web (Free)",
+    name: "Z.ai Web",
     icon: "auto_awesome",
     color: "#2563EB",
     textIcon: "ZW",
     website: "https://chat.z.ai",
     hasFree: true,
     freeNote:
-      "Free consumer web session — GLM chat models via chat.z.ai. Distinct from the API-key zai/glm providers. No subscription required.",
+      "Consumer web session for the four models currently visible in chat.z.ai. Distinct from the API-key zai/glm providers.",
     subscriptionRisk: true,
     riskNoticeVariant: "webCookie",
-    authHint: "Paste the full Cookie header from chat.z.ai (must include the token=<JWT> cookie)",
+    authHint:
+      'Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport.',
   },
   promptql: {
     id: "promptql",
@@ -465,6 +480,19 @@ export const WEB_COOKIE_PROVIDERS = {
     riskNoticeVariant: "webCookie",
     authHint:
       "Paste the full Cookie header from hyperagent.com (DevTools → Network → any request → Request Headers → Cookie). Session cookies power chat + billing usage.",
+  },
+  "conol-web": {
+    id: "conol-web",
+    alias: "cnl",
+    name: "Conol (Unofficial/Experimental)",
+    icon: "auto_awesome",
+    color: "#F6C945",
+    textIcon: "CO",
+    website: "https://conol.ai",
+    subscriptionRisk: true,
+    riskNoticeVariant: "webCookie",
+    authHint:
+      "Use browser sign-in, or paste the full Cookie header from conol.ai. The __Secure-better-auth.session_token cookie is required.",
   },
 };
 

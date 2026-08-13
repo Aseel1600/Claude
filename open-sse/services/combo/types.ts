@@ -114,10 +114,7 @@ export type HandleComboChatOptions = {
   clientManagedResponsesContext?: boolean;
 };
 
-export type HandleRoundRobinOptions = Omit<
-  HandleComboChatOptions,
-  "relayOptions" | "apiKeyAllowedConnections"
->;
+export type HandleRoundRobinOptions = Omit<HandleComboChatOptions, "apiKeyAllowedConnections">;
 
 export type HistoricalLatencyStatsEntry = {
   totalRequests?: number;
@@ -167,6 +164,7 @@ export type ResolvedComboTarget = {
   executionKey: string;
   modelStr: string;
   provider: string;
+  authType?: string | null;
   providerId: string | null;
   connectionId: string | null;
   allowedConnectionIds?: string[] | null;
@@ -174,6 +172,7 @@ export type ResolvedComboTarget = {
   label: string | null;
   prompt?: string | null;
   failoverBeforeRetry?: unknown;
+  fallbackOnlyOnQuotaExhaustion?: boolean;
   trafficType?: "production" | "shadow";
   /**
    * Fingerprint-based account pin resolved from a combo builder composite
@@ -200,6 +199,7 @@ export type ResolvedComboRefTarget = {
   comboName: string;
   weight: number;
   label: string | null;
+  fallbackOnlyOnQuotaExhaustion?: boolean;
 };
 
 export type ResolvedComboUnit = ResolvedComboTarget | ResolvedComboRefTarget;

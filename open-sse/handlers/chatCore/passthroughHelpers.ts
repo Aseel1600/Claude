@@ -23,7 +23,11 @@ export function shouldUseNativeCodexPassthrough({
 }): boolean {
   if (provider !== "codex" && provider !== "chatgpt-web-codex") return false;
   if (sourceFormat !== FORMATS.OPENAI_RESPONSES) return false;
-  return isResponsesEndpointPath(endpointPath);
+  let normalizedEndpoint = String(endpointPath || "");
+  while (normalizedEndpoint.endsWith("/")) normalizedEndpoint = normalizedEndpoint.slice(0, -1);
+  const segments = normalizedEndpoint.split("/");
+  if (!segments.includes("responses")) return false;
+  return provider === "codex" || isVerifiedNativeCodexRequest(body, headers);
 }
 
 export function shouldUseNativeXaiResponsesPassthrough({
