@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Avancé",
     "modalityBridgeTimeoutMs": "Délai d'attente (ms)",
     "modalityBridgeMaxImages": "Nombre maximal d'images par requête",
+    "visionMaxCharsLabel": "Caractères maximum pour la description",
+    "visionMaxCharsHint": "Limitez la longueur de la description du modèle de vision. 0 = illimité — augmentez pour des tâches OCR riches en détails.",
     "modalityBridgeCacheEnabled": "Descriptions de cache",
     "modalityBridgeCacheEnabledDesc": "Réutiliser les descriptions pour les images identiques (clé SHA-256, en mémoire).",
     "modalityBridgeCacheTtlMinutes": "Durée de vie du cache (minutes)",

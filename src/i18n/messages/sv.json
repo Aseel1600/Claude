@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Avancerad",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max bilder per begäran",
+    "visionMaxCharsLabel": "Max antal tecken för beskrivning",
+    "visionMaxCharsHint": "Begränsa längden på beskrivningen av visionsmodellen. 0 = obegränsad — höj för detaljrika OCR-uppgifter.",
     "modalityBridgeCacheEnabled": "Cache-beskrivningar",
     "modalityBridgeCacheEnabledDesc": "Återanvänd beskrivningar för identiska bilder (SHA-256 nycklade, i minnet).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuter)",

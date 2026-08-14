@@ -16,6 +16,25 @@ import {
 } from "@/app/api/v1/_shared/rateLimit";
 
 /**
+ * Custom-endpoint providers (e.g. azure-document-intelligence) store the
+ * connection's resource endpoint under providerSpecificData.baseUrl, not as
+ * a top-level credentials field — mirror the convention used across
+ * src/lib/providers/validation/* (see e.g. urlHelpers.ts). handleOcr reads
+ * credentials.baseUrl, so surface it here. An existing top-level baseUrl
+ * always wins (kept for tests/callers that pass it directly).
+ */
+export function resolveOcrCredentials<
+  T extends { baseUrl?: string; providerSpecificData?: Record<string, unknown> },
+>(credentials: T): T {
+  if (credentials?.baseUrl) return credentials;
+  const providerSpecificBaseUrl = credentials?.providerSpecificData?.baseUrl;
+  if (typeof providerSpecificBaseUrl === "string" && providerSpecificBaseUrl.trim()) {
+    return { ...credentials, baseUrl: providerSpecificBaseUrl };
+  }
+  return credentials;
+}
+
+/**
  * Handle CORS preflight
  */
 export async function OPTIONS() {
@@ -66,7 +85,9 @@ async function postHandler(request, context) {
     return rateLimitedProviderResponse(resolvedProvider, credentials);
   }
 
-  const response = await handleOcr({ body: { ...body, model }, credentials });
+  const ocrCredentials = resolveOcrCredentials(credentials);
+
+  const response = await handleOcr({ body: { ...body, model }, credentials: ocrCredentials });
   if (response?.ok) {
     await clearRecoveredProviderState(credentials);
   }

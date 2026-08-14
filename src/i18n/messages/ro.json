@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Avansat",
     "modalityBridgeTimeoutMs": "Timp de expirare (ms)",
     "modalityBridgeMaxImages": "Maxim de imagini pe cerere",
+    "visionMaxCharsLabel": "Max caractere descriere",
+    "visionMaxCharsHint": "Limitați lungimea descrierii modelului de viziune. 0 = nelimitat — creșteți pentru sarcini OCR bogate în detalii.",
     "modalityBridgeCacheEnabled": "Descrieri cache",
     "modalityBridgeCacheEnabledDesc": "Reutilizați descrierile pentru imagini identice (cheie SHA-256, în memorie).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minute)",

@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Juu",
     "modalityBridgeTimeoutMs": "Muda wa Kukatika (ms)",
     "modalityBridgeMaxImages": "Picha nyingi zaidi kwa ombi",
+    "visionMaxCharsLabel": "Max wahusika wa maelezo",
+    "visionMaxCharsHint": "Punguza urefu wa maelezo ya mfano wa maono. 0 = isiyo na kikomo — pandisha kwa kazi za OCR zenye maelezo mengi.",
     "modalityBridgeCacheEnabled": "Maelezo ya cache",
     "modalityBridgeCacheEnabledDesc": "Tumia maelezo tena kwa picha sawa (SHA-256 iliyofungiwa, katika kumbukumbu).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (dakika)",
