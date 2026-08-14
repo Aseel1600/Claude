@@ -528,6 +528,43 @@ test("chatCore honors providerSpecificData.apiType for legacy openai-compatible 
   assert.equal("messages" in call.body, false);
   assert.equal(payload.choices[0].message.content, "ok");
 });
+test("chatCore translates a streaming Responses upstream for a Chat client", async () => {
+  const { call, result } = await invokeChatCore({
+    provider: "openai-compatible-sp-openai",
+    model: "gpt-5.4",
+    endpoint: "/v1/chat/completions",
+    accept: "text/event-stream",
+    credentials: {
+      apiKey: "sk-test",
+      providerSpecificData: {
+        apiType: "responses",
+        baseUrl: "https://proxy.example.com/v1",
+        prefix: "sp-openai",
+      },
+    },
+    body: {
+      model: "gpt-5.4",
+      stream: true,
+      messages: [{ role: "user", content: "Reply with OK only." }],
+    },
+    responseFactory: () =>
+      new Response(
+        [
+          'data: {"type":"response.output_text.delta","delta":"ok"}',
+          "",
+          'data: {"type":"response.completed","response":{"id":"resp_stream","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}',
+          "",
+        ].join("\n"),
+        { status: 200, headers: { "Content-Type": "text/event-stream" } }
+      ),
+  });
+
+  assert.equal(result.success, true);
+  assert.match(call.url, /\/responses$/);
+  const streamed = await result.response.text();
+  assert.match(streamed, /"content":"ok"/);
+  assert.match(streamed, /data: \[DONE\]/);
+});
 test("chatCore applies Responses input policy to openai-compatible targets", async () => {
   const reasoningItems = [
     { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
