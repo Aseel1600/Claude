@@ -787,7 +787,7 @@ async function handleChatImplementation(
           ...(bypassProviderQuotaPolicy ? { bypassQuotaPolicy: true } : {}),
         }
       );
-      if (!creds || creds.allRateLimited) return false;
+      if (!creds || !("authType" in creds)) return false;
 
       // OAuth selection must happen atomically with occupancy reservation in the
       // actual dispatch. Availability preflight may finish well before a combo
