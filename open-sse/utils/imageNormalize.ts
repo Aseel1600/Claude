@@ -11,7 +11,9 @@
 
 const DEFAULT_MAX_LONG_EDGE = 2048;
 
-type SharpModule = typeof import("sharp");
+// The callable factory is sharp's default export; `typeof import("sharp")` is the
+// module namespace and is not callable under this tsconfig (TS2349).
+type SharpModule = (typeof import("sharp"))["default"];
 let sharpPromise: Promise<SharpModule | null> | null = null;
 
 async function loadSharp(): Promise<SharpModule | null> {
