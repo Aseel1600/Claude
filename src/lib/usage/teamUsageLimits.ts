@@ -84,6 +84,13 @@ async function getCommittedTeamEstimatedListCostUsd(
     )
     .all({ teamId, windowStartIso, resetAtIso }) as CostRow[];
 
+  // Team budgets are rolling 1d/7d/30d windows. The durable rollup stores one
+  // aggregate per UTC day, so a non-midnight boundary cannot be reconstructed
+  // exactly after raw rows have been removed. Include only complete daily buckets
+  // and intentionally undercount partial boundary days rather than charging usage
+  // from outside the configured window. This keeps phase-1 soft enforcement honest.
+  const windowStartDate = windowStartIso.slice(0, 10);
+  const resetDate = resetAtIso.slice(0, 10);
   const summaryRows = db
     .prepare(
       `SELECT
@@ -97,10 +104,20 @@ async function getCommittedTeamEstimatedListCostUsd(
          COALESCE(SUM(successful_reasoning_tokens), 0) as reasoningTokens
        FROM daily_team_usage_summary
        WHERE team_id = @teamId
-         AND date >= DATE(@windowStartIso) AND date < DATE(@resetAtIso)
+         AND date >= @completeSummaryStartDate
+         AND date < @completeSummaryEndDateExclusive
        GROUP BY LOWER(provider), LOWER(model), serviceTier`
     )
-    .all({ teamId, windowStartIso, resetAtIso }) as CostRow[];
+    .all({
+      teamId,
+      completeSummaryStartDate:
+        windowStartIso === `${windowStartDate}T00:00:00.000Z`
+          ? windowStartDate
+          : new Date(Date.parse(`${windowStartDate}T00:00:00.000Z`) + 86_400_000)
+              .toISOString()
+              .slice(0, 10),
+      completeSummaryEndDateExclusive: resetDate,
+    }) as CostRow[];
 
   return roundUsd((await calculateRows(rawRows)) + (await calculateRows(summaryRows)));
 }

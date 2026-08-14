@@ -28,7 +28,7 @@ For subscription-backed providers, `estimatedListCostUsd` is useful for allocati
 
 When usage is written, OmniRoute resolves the API key's active billing Team at the request timestamp and stores that Team ID on the usage row. Reassigning a key affects future usage only; it does not rewrite historical ownership.
 
-Before raw usage retention cleanup, Team usage is rolled into `daily_team_usage_summary`, preserving Team, API key, provider, model, service tier, token classes, and successful-request counters.
+Before raw usage retention cleanup, Team usage is rolled into `daily_team_usage_summary`, preserving Team, API key, provider, model, service tier, token classes, and successful-request counters. The retention rollup is one bucket per UTC day. For an arbitrary timestamp range that cuts through an already rolled-up day, phase 1 excludes that whole boundary bucket rather than attributing usage outside the requested range; complete UTC-day reports remain exact.
 
 ## Shared budget behavior
 
@@ -37,7 +37,7 @@ A Team may define:
 - `maxBudgetUsd`
 - `budgetDuration`: `1d`, `7d`, or `30d`
 
-Phase 1 enforcement mode is explicitly `soft_committed_usage`. Before a request, OmniRoute sums committed successful usage in the active Team window using `estimatedListCostUsd` and rejects new traffic after the cap is reached.
+Phase 1 enforcement mode is explicitly `soft_committed_usage`. Before a request, OmniRoute sums committed successful usage in the active Team window using `estimatedListCostUsd` and rejects new traffic after the cap is reached. Budget windows begin when the Team budget is created or changed, so they are not generally aligned to UTC midnight. After raw rows age out, only complete UTC-day rollup buckets contained inside that rolling window are counted; partial boundary days are conservatively omitted because a daily bucket cannot be split without fabricating precision.
 
 This is not a strict no-overshoot financial ledger. Concurrent requests can pass the preflight check before either request commits usage. Strict enforcement would require an atomic, idempotent request ledger:
 

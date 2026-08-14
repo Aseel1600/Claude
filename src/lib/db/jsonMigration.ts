@@ -45,6 +45,7 @@ export interface LegacyJsonData {
   domainBudgets?: Record<string, unknown>[];
   teams?: Record<string, unknown>[];
   apiKeyBillingTeamHistory?: Record<string, unknown>[];
+  dailyTeamUsageSummary?: Record<string, unknown>[];
 }
 
 /**
@@ -66,6 +67,7 @@ export function runJsonMigration(
   domainBudgets: number;
   teams: number;
   apiKeyBillingTeamHistory: number;
+  dailyTeamUsageSummary: number;
 } {
   const insertConn = db.prepare(`
     INSERT OR REPLACE INTO provider_connections (
@@ -123,6 +125,21 @@ export function runJsonMigration(
     INSERT OR REPLACE INTO api_key_billing_team_history (
       id, api_key_id, team_id, valid_from, valid_to, created_at
     ) VALUES (@id, @apiKeyId, @teamId, @validFrom, @validTo, @createdAt)
+  `);
+  const insertDailyTeamUsage = db.prepare(`
+    INSERT OR REPLACE INTO daily_team_usage_summary (
+      team_id, api_key_id, api_key_name, provider, model, service_tier, date,
+      total_requests, successful_requests, total_input_tokens, total_output_tokens,
+      total_cache_read_tokens, total_cache_creation_tokens, total_reasoning_tokens,
+      successful_input_tokens, successful_output_tokens, successful_cache_read_tokens,
+      successful_cache_creation_tokens, successful_reasoning_tokens
+    ) VALUES (
+      @team_id, @api_key_id, @api_key_name, @provider, @model, @service_tier, @date,
+      @total_requests, @successful_requests, @total_input_tokens, @total_output_tokens,
+      @total_cache_read_tokens, @total_cache_creation_tokens, @total_reasoning_tokens,
+      @successful_input_tokens, @successful_output_tokens, @successful_cache_read_tokens,
+      @successful_cache_creation_tokens, @successful_reasoning_tokens
+    )
   `);
 
   const migrate = db.transaction(() => {
@@ -278,6 +295,33 @@ export function runJsonMigration(
         createdAt: binding.createdAt ?? binding.validFrom,
       });
     }
+    for (const row of data.dailyTeamUsageSummary ?? []) {
+      insertDailyTeamUsage.run({
+        team_id: row.team_id ?? row.teamId,
+        api_key_id: row.api_key_id ?? row.apiKeyId,
+        api_key_name: row.api_key_name ?? row.apiKeyName ?? null,
+        provider: row.provider,
+        model: row.model,
+        service_tier: row.service_tier ?? row.serviceTier ?? "standard",
+        date: row.date,
+        total_requests: row.total_requests ?? row.totalRequests ?? 0,
+        successful_requests: row.successful_requests ?? row.successfulRequests ?? 0,
+        total_input_tokens: row.total_input_tokens ?? row.totalInputTokens ?? 0,
+        total_output_tokens: row.total_output_tokens ?? row.totalOutputTokens ?? 0,
+        total_cache_read_tokens: row.total_cache_read_tokens ?? row.totalCacheReadTokens ?? 0,
+        total_cache_creation_tokens:
+          row.total_cache_creation_tokens ?? row.totalCacheCreationTokens ?? 0,
+        total_reasoning_tokens: row.total_reasoning_tokens ?? row.totalReasoningTokens ?? 0,
+        successful_input_tokens: row.successful_input_tokens ?? row.successfulInputTokens ?? 0,
+        successful_output_tokens: row.successful_output_tokens ?? row.successfulOutputTokens ?? 0,
+        successful_cache_read_tokens:
+          row.successful_cache_read_tokens ?? row.successfulCacheReadTokens ?? 0,
+        successful_cache_creation_tokens:
+          row.successful_cache_creation_tokens ?? row.successfulCacheCreationTokens ?? 0,
+        successful_reasoning_tokens:
+          row.successful_reasoning_tokens ?? row.successfulReasoningTokens ?? 0,
+      });
+    }
     // 8. Usage History
     if (data.usageHistory && data.usageHistory.length > 0) {
       const importedConnections = new Map(
@@ -286,13 +330,14 @@ export function runJsonMigration(
       const insertUsageHistory = db.prepare(`
         INSERT OR REPLACE INTO usage_history (
           id, provider, model, connection_id, account_key, account_label, account_label_priority,
-          api_key_id, api_key_name, billing_team_id, tokens_input, tokens_output, tokens_cache_read,
-          tokens_cache_creation, tokens_reasoning, status, success, latency_ms, ttft_ms,
-          error_code, combo_strategy, timestamp
+          api_key_id, api_key_name, billing_team_id, team_rollup_processed_at,
+          tokens_input, tokens_output, tokens_cache_read, tokens_cache_creation, tokens_reasoning,
+          service_tier, status, success, latency_ms, ttft_ms, error_code, combo_strategy, timestamp
         ) VALUES (
           @id, @provider, @model, @connection_id, @account_key, @account_label,
-          @account_label_priority, @api_key_id, @api_key_name, @billing_team_id, @tokens_input, @tokens_output,
-          @tokens_cache_read, @tokens_cache_creation, @tokens_reasoning, @status, @success,
+          @account_label_priority, @api_key_id, @api_key_name, @billing_team_id,
+          @team_rollup_processed_at, @tokens_input, @tokens_output, @tokens_cache_read,
+          @tokens_cache_creation, @tokens_reasoning, @service_tier, @status, @success,
           @latency_ms, @ttft_ms, @error_code, @combo_strategy, @timestamp
         )
       `);
@@ -312,13 +357,16 @@ export function runJsonMigration(
           account_label: identity.accountLabel,
           account_label_priority: identity.accountLabelPriority,
           api_key_id: row.api_key_id ?? null,
-          api_key_name: row.api_key_name ?? null,
+          api_key_name: row.api_key_name ?? row.apiKeyName ?? null,
           billing_team_id: row.billing_team_id ?? row.billingTeamId ?? null,
-          tokens_input: row.tokens_input ?? 0,
-          tokens_output: row.tokens_output ?? 0,
-          tokens_cache_read: row.tokens_cache_read ?? 0,
-          tokens_cache_creation: row.tokens_cache_creation ?? 0,
-          tokens_reasoning: row.tokens_reasoning ?? 0,
+          team_rollup_processed_at:
+            row.team_rollup_processed_at ?? row.teamRollupProcessedAt ?? null,
+          tokens_input: row.tokens_input ?? row.tokensInput ?? 0,
+          tokens_output: row.tokens_output ?? row.tokensOutput ?? 0,
+          tokens_cache_read: row.tokens_cache_read ?? row.tokensCacheRead ?? 0,
+          tokens_cache_creation: row.tokens_cache_creation ?? row.tokensCacheCreation ?? 0,
+          tokens_reasoning: row.tokens_reasoning ?? row.tokensReasoning ?? 0,
+          service_tier: row.service_tier ?? row.serviceTier ?? "standard",
           status: row.status ?? null,
           success: row.success ?? 1,
           latency_ms: row.latency_ms ?? 0,
@@ -391,5 +439,6 @@ export function runJsonMigration(
     domainBudgets: (data.domainBudgets ?? []).length,
     teams: (data.teams ?? []).length,
     apiKeyBillingTeamHistory: (data.apiKeyBillingTeamHistory ?? []).length,
+    dailyTeamUsageSummary: (data.dailyTeamUsageSummary ?? []).length,
   };
 }

@@ -56,7 +56,11 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Re
     return NextResponse.json({ assignment });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to assign API key";
-    const status = /not found/i.test(message) ? 404 : /assignment time/i.test(message) ? 409 : 500;
+    const status = /not found/i.test(message)
+      ? 404
+      : /assignment time|changed concurrently/i.test(message)
+        ? 409
+        : 500;
     return NextResponse.json(buildErrorBody(status, message), { status });
   }
 }
@@ -91,7 +95,7 @@ export async function DELETE(request: Request, { params }: RouteParams): Promise
     return NextResponse.json({ success: true });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to unassign API key";
-    const status = /assignment time/i.test(message) ? 409 : 500;
+    const status = /assignment time|changed concurrently/i.test(message) ? 409 : 500;
     return NextResponse.json(buildErrorBody(status, message), { status });
   }
 }

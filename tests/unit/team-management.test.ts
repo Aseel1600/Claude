@@ -15,6 +15,7 @@ const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const aggregateHistory = await import("../../src/lib/usage/aggregateHistory.ts");
 const localDb = await import("../../src/lib/localDb.ts");
 const teamBudgets = await import("../../src/lib/usage/teamUsageLimits.ts");
+const teamAnalytics = await import("../../src/lib/db/teamUsageAnalytics.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -186,6 +187,73 @@ test("team shared budget uses committed estimated list cost and is explicit abou
   assert.match(JSON.stringify(await rejection?.json()), /team.*usage quota/i);
 });
 
+test("soft budget excludes rolled-up UTC buckets that only partially overlap the rolling window", async () => {
+  await localDb.updatePricing({
+    openai: {
+      "gpt-team-boundary": { input: 1, cached: 1, output: 1, reasoning: 1 },
+    },
+  });
+  const key = await apiKeys.createApiKey("agent-boundary", "machine-team-boundary");
+  const team = teams.createTeam({
+    name: "Boundary budget team",
+    maxBudgetUsd: 1,
+    budgetDuration: "1d",
+  });
+  teams.assignApiKeyBillingTeam(key.id, team.id);
+  const db = core.getDbInstance();
+  db.prepare("UPDATE teams SET budget_reset_at = ? WHERE id = ?").run(
+    "2026-08-15T12:00:00.000Z",
+    team.id
+  );
+  db.prepare(
+    `INSERT INTO daily_team_usage_summary (
+      team_id, api_key_id, provider, model, service_tier, date,
+      total_requests, successful_requests, total_input_tokens, successful_input_tokens
+    ) VALUES (?, ?, ?, ?, 'standard', ?, 1, 1, 1000000, 1000000)`
+  ).run(team.id, key.id, "openai", "gpt-team-boundary", "2026-08-14");
+
+  const status = await teamBudgets.getTeamUsageLimitStatusForApiKey(
+    key.id,
+    Date.parse("2026-08-15T11:00:00.000Z")
+  );
+  assert.equal(status?.windowStartIso, "2026-08-14T12:00:00.000Z");
+  assert.equal(status?.estimatedListCostUsd, 0);
+  assert.equal(status?.exceeded, false);
+});
+
+test("team usage reports do not charge rolled-up partial boundary days", async () => {
+  await localDb.updatePricing({
+    openai: {
+      "gpt-team-report-boundary": { input: 1, cached: 1, output: 1, reasoning: 1 },
+    },
+  });
+  const key = await apiKeys.createApiKey("agent-report", "machine-team-report");
+  const team = teams.createTeam({ name: "Boundary report team" });
+  teams.assignApiKeyBillingTeam(key.id, team.id);
+  core
+    .getDbInstance()
+    .prepare(
+      `INSERT INTO daily_team_usage_summary (
+        team_id, api_key_id, provider, model, service_tier, date,
+        total_requests, successful_requests, total_input_tokens, successful_input_tokens
+      ) VALUES (?, ?, ?, ?, 'standard', ?, 1, 1, 1000000, 1000000)`
+    )
+    .run(team.id, key.id, "openai", "gpt-team-report-boundary", "2026-08-14");
+
+  const partial = await teamAnalytics.getTeamUsageReport(team.id, {
+    startIso: "2026-08-14T12:00:00.000Z",
+    endIso: "2026-08-15T12:00:00.000Z",
+  });
+  assert.equal(partial.summary.requests, 0);
+
+  const full = await teamAnalytics.getTeamUsageReport(team.id, {
+    startIso: "2026-08-14T00:00:00.000Z",
+    endIso: "2026-08-14T23:59:59.999Z",
+  });
+  assert.equal(full.summary.requests, 1);
+  assert.equal(full.summary.estimatedListCostUsd, 1);
+});
+
 test("JSON export/import preserves teams, temporal billing bindings, and usage snapshots", async () => {
   const key = await apiKeys.createApiKey("agent-json", "machine-team-json");
   const team = teams.createTeam({ name: "JSON Team", maxBudgetUsd: 3, budgetDuration: "7d" });
@@ -206,6 +274,20 @@ test("JSON export/import preserves teams, temporal billing bindings, and usage s
     teams: teams.listTeams({ includeArchived: true }),
     apiKeyBillingTeamHistory: teams.listAllApiKeyBillingHistory(),
     usageHistory: db.prepare("SELECT * FROM usage_history WHERE api_key_id = ?").all(key.id),
+    dailyTeamUsageSummary: [
+      {
+        team_id: team.id,
+        api_key_id: key.id,
+        provider: "openai",
+        model: "gpt-json",
+        service_tier: "priority",
+        date: "2026-08-10",
+        total_requests: 2,
+        successful_requests: 2,
+        total_input_tokens: 8,
+        successful_input_tokens: 8,
+      },
+    ],
   };
   db.prepare("DELETE FROM usage_history").run();
   db.prepare("DELETE FROM api_key_billing_team_history").run();
@@ -216,11 +298,16 @@ test("JSON export/import preserves teams, temporal billing bindings, and usage s
   const counts = jsonMigration.runJsonMigration(db, exported as never);
   assert.equal(counts.teams, 1);
   assert.equal(counts.apiKeyBillingTeamHistory, 1);
+  assert.equal(counts.dailyTeamUsageSummary, 1);
   assert.equal(teams.getActiveBillingTeamForApiKey(key.id)?.id, team.id);
   const usage = db
     .prepare("SELECT billing_team_id FROM usage_history WHERE api_key_id = ?")
     .get(key.id) as { billing_team_id: string };
   assert.equal(usage.billing_team_id, team.id);
+  const summary = db
+    .prepare("SELECT service_tier, total_requests FROM daily_team_usage_summary WHERE team_id = ?")
+    .get(team.id) as { service_tier: string; total_requests: number };
+  assert.deepEqual(summary, { service_tier: "priority", total_requests: 2 });
 });
 
 test("archiving a team closes active assignments but preserves historical usage", async () => {

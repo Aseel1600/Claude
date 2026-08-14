@@ -69,8 +69,22 @@ export async function getTeamUsageReport(
     teamId,
     startIso: options.startIso || "0000-01-01T00:00:00.000Z",
     endIso: options.endIso || "9999-12-31T23:59:59.999Z",
-    startDate: (options.startIso || "0000-01-01").slice(0, 10),
-    endDate: (options.endIso || "9999-12-31").slice(0, 10),
+    completeSummaryStartDate: (() => {
+      const start = options.startIso;
+      if (!start) return "0000-01-01";
+      const date = start.slice(0, 10);
+      return start === `${date}T00:00:00.000Z`
+        ? date
+        : new Date(Date.parse(`${date}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10);
+    })(),
+    completeSummaryEndDateExclusive: (() => {
+      const end = options.endIso;
+      if (!end) return "9999-12-31";
+      const date = end.slice(0, 10);
+      return end === `${date}T23:59:59.999Z`
+        ? new Date(Date.parse(`${date}T00:00:00.000Z`) + 86_400_000).toISOString().slice(0, 10)
+        : date;
+    })(),
   };
 
   const rawRows = db
@@ -112,7 +126,9 @@ export async function getTeamUsageReport(
          COALESCE(SUM(total_cache_creation_tokens), 0) as cacheCreationTokens,
          COALESCE(SUM(total_reasoning_tokens), 0) as reasoningTokens
        FROM daily_team_usage_summary
-       WHERE team_id = @teamId AND date >= @startDate AND date <= @endDate
+       WHERE team_id = @teamId
+         AND date >= @completeSummaryStartDate
+         AND date < @completeSummaryEndDateExclusive
        GROUP BY api_key_id, LOWER(provider), LOWER(model), serviceTier`
     )
     .all(bind) as TeamUsageCostRow[];

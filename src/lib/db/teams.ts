@@ -73,6 +73,9 @@ const BUDGET_DURATION_MS: Record<TeamBudgetDuration, number> = {
   "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
+const CONCURRENT_ASSIGNMENT_ERROR =
+  "API key billing team changed concurrently; retry the assignment";
+
 function normalizeIso(value: string | undefined = undefined): string {
   const date = value ? new Date(value) : new Date();
   if (!Number.isFinite(date.getTime())) throw new Error("Invalid effective timestamp");
@@ -273,10 +276,12 @@ export function assignApiKeyBillingTeam(
       if (when <= current.valid_from) {
         throw new Error("Assignment time must be after the active assignment start");
       }
-      db.prepare("UPDATE api_key_billing_team_history SET valid_to = ? WHERE id = ?").run(
-        when,
-        current.id
-      );
+      const closed = db
+        .prepare(
+          "UPDATE api_key_billing_team_history SET valid_to = ? WHERE id = ? AND valid_to IS NULL"
+        )
+        .run(when, current.id);
+      if (closed.changes !== 1) throw new Error(CONCURRENT_ASSIGNMENT_ERROR);
     }
 
     const row: BillingRow = {
@@ -287,11 +292,18 @@ export function assignApiKeyBillingTeam(
       valid_to: null,
       created_at: when,
     };
-    db.prepare(
-      `INSERT INTO api_key_billing_team_history
-        (id, api_key_id, team_id, valid_from, valid_to, created_at)
-       VALUES (?, ?, ?, ?, NULL, ?)`
-    ).run(row.id, row.api_key_id, row.team_id, row.valid_from, row.created_at);
+    try {
+      db.prepare(
+        `INSERT INTO api_key_billing_team_history
+          (id, api_key_id, team_id, valid_from, valid_to, created_at)
+         VALUES (?, ?, ?, ?, NULL, ?)`
+      ).run(row.id, row.api_key_id, row.team_id, row.valid_from, row.created_at);
+    } catch (error) {
+      if (/unique constraint/i.test(error instanceof Error ? error.message : "")) {
+        throw new Error(CONCURRENT_ASSIGNMENT_ERROR);
+      }
+      throw error;
+    }
     result = rowToBillingHistory(row);
   });
   assign();
@@ -315,7 +327,9 @@ export function unassignApiKeyBillingTeam(
     throw new Error("Unassignment time must be after assignment start");
   return (
     db
-      .prepare("UPDATE api_key_billing_team_history SET valid_to = ? WHERE id = ?")
+      .prepare(
+        "UPDATE api_key_billing_team_history SET valid_to = ? WHERE id = ? AND valid_to IS NULL"
+      )
       .run(when, current.id).changes > 0
   );
 }

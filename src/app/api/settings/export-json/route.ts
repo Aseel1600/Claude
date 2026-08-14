@@ -7,6 +7,7 @@ import { getApiKeys } from "@/lib/db/apiKeys";
 import { listAllApiKeyBillingHistory, listTeams } from "@/lib/db/teams";
 import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
 import {
+  getAllDailyTeamUsageSummary,
   getAllUsageHistory,
   getAllDomainCostHistory,
   getAllDomainBudgets,
@@ -100,6 +101,7 @@ export async function GET(request: Request) {
     // thousands of rows and make the config backup grow to many MBs.
     if (includeHistory) {
       exportData.usageHistory = getAllUsageHistory();
+      exportData.dailyTeamUsageSummary = getAllDailyTeamUsageSummary();
       exportData.domainCostHistory = getAllDomainCostHistory();
       exportData.domainBudgets = getAllDomainBudgets();
     }
