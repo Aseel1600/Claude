@@ -23,7 +23,7 @@ import {
 import { getCombo, getComboForModel, getModelInfo } from "../services/model";
 import { stripContextWindowSuffix } from "@omniroute/open-sse/services/model.ts";
 import { resolveBareModelToConnectionDefault } from "@omniroute/open-sse/services/model.ts";
-import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
+import { attachInternalRawErrorMessage, errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { getImageModelEntry } from "@omniroute/open-sse/config/imageRegistry.ts";
 import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.ts";
 import { applyNoThinkingAlias } from "@omniroute/open-sse/utils/noThinkingAlias.ts";
@@ -1732,6 +1732,9 @@ async function handleSingleModelChat(
         return execution.localResourcePressureResult.response;
       }
       const { result, tlsFingerprintUsed } = execution;
+      if (!result.success && typeof result.rawMessage === "string") {
+        attachInternalRawErrorMessage(result.response, result.rawMessage);
+      }
 
       const proxyLatency = Date.now() - proxyStartTime;
       const providerAlias = PROVIDER_ID_TO_ALIAS[provider] || provider;
@@ -1938,9 +1941,13 @@ async function handleSingleModelChat(
           `Account ${accountId}... at local concurrency cap, trying fallback account`
         );
         excludedConnectionIds.add(credentials.connectionId);
-        lastError = result.error;
+        // Preserve the complete internal classification text across the
+        // account-fallback boundary. The client response remains sanitized by
+        // errorResponse(), while combo orchestration still needs provider-wide
+        // quota markers such as OpenRouter's free-models-per-day signal.
+        lastError = errorStr;
         lastStatus = result.status;
-        requestRetryLastError = result.error;
+        requestRetryLastError = errorStr;
         requestRetryLastStatus = result.status;
         continue;
       }

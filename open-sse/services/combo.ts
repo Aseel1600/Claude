@@ -25,6 +25,7 @@ import {
   errorResponse,
   unavailableResponse,
   errorResponseWithComboDiagnostics,
+  getInternalRawErrorMessage,
 } from "../utils/error.ts";
 import type { ComboDiagnostics } from "../utils/error.ts";
 import {
@@ -1619,7 +1620,12 @@ export async function handleComboChat({
                       : undefined,
                 }
               : undefined;
-          const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
+          const classificationErrorText = getInternalRawErrorMessage(result) ?? errorText;
+          const scopedFailure = isScopedFailure(
+            result.status,
+            classificationErrorText,
+            structuredError
+          );
 
           // #8375: input-bound request-scoped failures (context_length_exceeded) are
           // deterministic for the same input — retrying on other accounts of the same
@@ -1655,7 +1661,7 @@ export async function handleComboChat({
           }
           const fallbackResult = checkFallbackError(
             result.status,
-            errorText,
+            classificationErrorText,
             0,
             null,
             provider,
@@ -1696,7 +1702,7 @@ export async function handleComboChat({
           const providerExhausted = applyComboTargetExhaustion(targetWithConnection, {
             result,
             fallbackResult,
-            errorText,
+            errorText: classificationErrorText,
             rawModel,
             isTokenLimitBreach,
             allAccountsRateLimited: false,
@@ -2862,10 +2868,15 @@ async function handleRoundRobinCombo({
                     : undefined,
               }
             : undefined;
-        const scopedFailure = isScopedFailure(result.status, errorText, structuredError);
+        const classificationErrorText = getInternalRawErrorMessage(result) ?? errorText;
+        const scopedFailure = isScopedFailure(
+          result.status,
+          classificationErrorText,
+          structuredError
+        );
         const fallbackResult = checkFallbackError(
           result.status,
-          errorText,
+          classificationErrorText,
           0,
           null,
           provider,
@@ -2897,7 +2908,7 @@ async function handleRoundRobinCombo({
         const providerExhausted = applyComboTargetExhaustion(targetWithConnection, {
           result,
           fallbackResult,
-          errorText,
+          errorText: classificationErrorText,
           rawModel: parseModel(modelStr).model || modelStr,
           isTokenLimitBreach,
           allAccountsRateLimited: isAllAccountsRateLimited,

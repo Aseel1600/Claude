@@ -1319,6 +1319,7 @@ export function isDailyQuotaExhausted(errorText: string): boolean {
   return (
     lower.includes("today's quota") ||
     lower.includes("daily quota") ||
+    lower.includes("free-models-per-day") ||
     lower.includes("try again tomorrow")
   );
 }
