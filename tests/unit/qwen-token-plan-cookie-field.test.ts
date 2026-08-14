@@ -60,6 +60,26 @@ test("a blank cookie does not overwrite the stored one", () => {
   );
 });
 
+test("a form object without the newer cookie fields does not throw", () => {
+  // Regression: adding bailian-coding-plan to the qwen branch made older callers
+  // (which build a partial form object) reach code that assumed the fields exist.
+  const target: Record<string, unknown> = {};
+  const partial = { ...EMPTY_QUOTA_SCRAPING_FIELDS } as Record<string, string>;
+  delete partial.qwenCloudCookie;
+  delete partial.qwenCloudSecToken;
+
+  for (const provider of ["bailian-coding-plan", "qwen-cloud-token-plan"]) {
+    assert.doesNotThrow(() =>
+      assignQuotaScrapingProviderData(
+        provider,
+        partial as unknown as typeof EMPTY_QUOTA_SCRAPING_FIELDS,
+        target
+      )
+    );
+  }
+  assert.equal(Object.hasOwn(target, "qwenCloudCookie"), false);
+});
+
 test("providerSpecificData validation guards the qwen cookie fields", () => {
   const ok = updateProviderConnectionSchema.safeParse({
     providerSpecificData: { qwenCloudCookie: "token=abc", qwenCloudSecToken: "sec-tok" },
