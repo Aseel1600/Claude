@@ -298,7 +298,9 @@ severe / drift / head_sha / build_sha`.
   `drift=1` = unbuilt commits) fires the agent with the diff as context.
 - Signals: `crashes`/`severe`/`restarts` are monotonic counters that ride in
   the line — historical baselines never trip ISSUE; only an INCREASE fires it.
-  `drift=1` means `dist/BUILD_SHA` is behind `git HEAD` (commits never built).
+  `drift=1` means commits touching NON-doc files exist in `git HEAD` that were
+  never built into `dist/` (docs-only commits are filtered out — they cannot
+  affect the runtime bundle, so they never trigger a rebuild cycle).
 
 **The healing agent's pipeline (encoded in the cron prompt):**
 
