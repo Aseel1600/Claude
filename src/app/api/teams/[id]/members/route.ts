@@ -32,6 +32,13 @@ export async function PUT(request: Request, { params }: RouteParams): Promise<Re
   if (authError) return authError;
   try {
     const { id } = await params;
+    const team = getTeam(id);
+    if (!team) return NextResponse.json(buildErrorBody(404, "Team not found"), { status: 404 });
+    if (team.status === "archived") {
+      return NextResponse.json(buildErrorBody(409, "Archived teams cannot accept API keys"), {
+        status: 409,
+      });
+    }
     const parsed = TeamMemberAssignmentSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) {
       return NextResponse.json(buildErrorBody(400, parsed.error.message), { status: 400 });
