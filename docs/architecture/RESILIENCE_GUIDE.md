@@ -318,14 +318,44 @@ excludeMarkers, defaultRetryAfterMs}`), matched via `applyStatusRestatement()`.
 - Retry eligibility: `429` is in `RETRY_AFTER_ELIGIBLE_STATUSES`
   (`open-sse/services/combo/unavailableRetryGate.ts`), so a restated error
   carries a real retry window instead of surfacing as a dead `403`.
+- The synthetic `60s` `defaultRetryAfterMs` (`upstreamStatusRestatement.ts`)
+  is only what the restated response tells the **client**; it is not itself
+  the connection's internal cooldown/lockout duration — that is governed
+  separately by whichever mechanism actually handles the restated error
+  (Connection Cooldown's escalating backoff, §2, base `3s` for API-key
+  providers; or Model Lockout, §3, for per-model-quota providers like
+  agentrouter). The router can become eligible to retry internally sooner
+  than the 60s window it advertises to the client — intentional headroom,
+  not a bug.
 
 Permanent errors (agentrouter's `无权访问模型` — no access to this model) are
 NEVER restated: `excludeMarkers` vetoes the rule even when `textMarkers` hit,
 so the error keeps its original status and nothing retries it forever. A
 separate provider classification rule
 (`agentrouter-model-access-denied` in `open-sse/config/providerErrorRules.ts`)
-locks only the affected model instead (Model Lockout, §3), so the connection
-keeps serving other models.
+declares an `auth_error`/scope-`model` match for this text, but it does not
+fire on the live production path today: the rule only matches `status ===
+403`, and `checkFallbackError`'s apikey-category `FORBIDDEN` branch
+(`open-sse/services/accountFallback.ts`) returns early for a plain 403
+*before* the provider-rule lookup ever runs. In practice a `无权访问模型` 403
+is handled the same way as the base apikey-provider 403 path (see Connection
+Cooldown, §2), not as a 6h model lockout. The rule still exists as a
+declarative classification consumable by future callers of `classifyError`
+with context — wiring it into the production `checkFallbackError` path is
+tracked as a follow-up, not yet done.
+
+Restated quota errors (`额度不足`) do reach a provider rule in production
+(`agentrouter-user-quota-exhausted`, scope `"connection"`), but `scope` on
+`ProviderErrorRuleMatch` is currently informational — the persistence path
+(`checkFallbackError` → `combo.ts`) only consumes `reason` and `cooldownMs`,
+never `scope`. What actually happens for agentrouter (`passthroughModels:
+true` → `hasPerModelQuota()` returns `true`) is a **per-model** lockout via
+`recordModelLockoutFailure()`: the connection itself is never cooled down for
+this error (`combo.ts` skips `recordProviderCooldown` for 429 when
+`hasPerModelQuota` is true), so other models on the same account keep being
+tried — each one burns one call and its own lockout before combo routing
+moves on. Honoring `scope` end-to-end (so a `"connection"` match actually
+locks the connection) is tracked as a follow-up.
 
 ### Two-stage design: status restatement, then classification
 

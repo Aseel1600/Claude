@@ -29,7 +29,15 @@ export type ProviderErrorRule = {
 
 export type ProviderErrorRuleMatch = {
   reason: ConfiguredErrorReason;
-  /** Default "provider" — lock the whole connection so other providers take over. */
+  /**
+   * Intended lock scope. NOTE: this field is currently INFORMATIONAL — no
+   * consumer of `getProviderErrorRuleMatch` (checkFallbackError, combo.ts)
+   * reads `scope` today; only `reason` and `cooldownMs` are consulted. The
+   * actual lock scope applied at runtime is decided independently by each
+   * call site (e.g. `hasPerModelQuota()` deciding model- vs connection-level
+   * lockout). Honoring this field end-to-end is tracked as a follow-up —
+   * see `docs/architecture/RESILIENCE_GUIDE.md` §7.
+   */
   scope: "model" | "provider" | "connection";
   /** Optional explicit cooldown; falls back to the existing per-reason defaults. */
   cooldownMs?: number;
@@ -189,8 +197,22 @@ function buildOpenrouterRules(): ProviderErrorRule[] {
 // hands these rules the full error text instead of just {code, type}.
 //  - "额度不足": account-wide temporary quota → quota_exhausted, scope
 //    "connection" (mirror of the Opencode account-wide rationale above).
-//  - "无权访问模型": this key permanently lacks access to ONE model → lock only
-//    the model so the connection keeps serving the rest (Model Lockout tier).
+//    NOTE: `scope` on ProviderErrorRuleMatch is currently informational —
+//    checkFallbackError/combo.ts only consume `reason` and `cooldownMs`, not
+//    `scope`. For agentrouter specifically (passthroughModels: true →
+//    hasPerModelQuota() is true), this quota_exhausted match actually
+//    resolves to a PER-MODEL lockout (recordModelLockoutFailure), not a
+//    connection-wide lock — other models on the same account keep being
+//    tried by combo routing (each burning one call) until they lock out
+//    individually. Honoring `scope` end-to-end is tracked as a follow-up.
+//  - "无权访问模型": declares auth_error/scope "model" (intent: lock only the
+//    model so the connection keeps serving the rest — Model Lockout tier).
+//    This rule does NOT fire on the production path today: it only matches
+//    `status === 403`, but checkFallbackError's apikey FORBIDDEN branch
+//    returns early for a plain 403 before this rule is ever consulted (see
+//    the note above). A live `无权访问模型` 403 is handled like the base
+//    apikey-provider 403 today. Wiring this rule into that path is tracked
+//    as a follow-up.
 function buildAgentrouterRules(): ProviderErrorRule[] {
   const AGENTROUTER_ERROR_STATUSES = new Set([400, 403, 429]);
   return [

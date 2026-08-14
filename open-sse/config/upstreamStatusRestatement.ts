@@ -29,6 +29,14 @@
  * "insufficient_quota" are in CREDITS_EXHAUSTED_SIGNALS
  * (accountFallback.ts) and would flip the connection into a terminal
  * credits_exhausted state — never use them as markers here.
+ *
+ * Accepted trade-off: matching only on response body text means a
+ * legitimate 400 whose body ECHOES user-supplied content containing a
+ * marker (e.g. a prompt that itself contains "额度不足") would be restated to
+ * 429 and lose the combo's 400 stop-guard. This is treated as an acceptable
+ * risk because these markers are rare outside a genuine upstream error;
+ * keeping markers short, provider-specific, and non-generic (as above)
+ * minimizes false-positive restatement.
  */
 
 export type UpstreamStatusRestatementRule = {
