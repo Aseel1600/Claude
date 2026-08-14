@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Gelişmiş",
     "modalityBridgeTimeoutMs": "Zaman Aşımı (ms)",
     "modalityBridgeMaxImages": "İstek başına maksimum resim sayısı",
+    "visionMaxCharsLabel": "Maksimum açıklama karakteri",
+    "visionMaxCharsHint": "Görüş modelinin açıklama uzunluğunu sınırlayın. 0 = sınırsız — detaylı OCR görevleri için artırın.",
     "modalityBridgeCacheEnabled": "Önbellek açıklamaları",
     "modalityBridgeCacheEnabledDesc": "Aynı görüntüler için tanımları yeniden kullanın (SHA-256 anahtarlı, bellekte).",
     "modalityBridgeCacheTtlMinutes": "Önbellek TTL (dakika)",

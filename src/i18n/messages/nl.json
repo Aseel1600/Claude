@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Geavanceerd",
     "modalityBridgeTimeoutMs": "Time-out (ms)",
     "modalityBridgeMaxImages": "Max afbeeldingen per verzoek",
+    "visionMaxCharsLabel": "Max beschrijvingstekens",
+    "visionMaxCharsHint": "Beperk de beschrijvingslengte van het visiemodel. 0 = onbeperkt — verhoog voor detailrijke OCR-taken.",
     "modalityBridgeCacheEnabled": "Cache beschrijvingen",
     "modalityBridgeCacheEnabledDesc": "Herbruik beschrijvingen voor identieke afbeeldingen (SHA-256-gekeyed, in het geheugen).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuten)",

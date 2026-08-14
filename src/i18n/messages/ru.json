@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Расширенный",
     "modalityBridgeTimeoutMs": "Таймаут (мс)",
     "modalityBridgeMaxImages": "Максимальное количество изображений на запрос",
+    "visionMaxCharsLabel": "Максимальное количество символов в описании",
+    "visionMaxCharsHint": "Ограничьте длину описания модели зрения. 0 = неограниченно — увеличьте для задач OCR с большим количеством деталей.",
     "modalityBridgeCacheEnabled": "Описание кэша",
     "modalityBridgeCacheEnabledDesc": "Повторное использование описаний для идентичных изображений (с ключом SHA-256, в памяти).",
     "modalityBridgeCacheTtlMinutes": "Кэш TTL (минуты)",

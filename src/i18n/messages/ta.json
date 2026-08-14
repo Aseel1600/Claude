@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "மேம்பட்டது",
     "modalityBridgeTimeoutMs": "காலாவதி (மி.செ)",
     "modalityBridgeMaxImages": "ஒரு கோரிக்கைக்கு அதிகபட்சமாக உள்ள படங்கள்",
+    "visionMaxCharsLabel": "அதிகபட்ச விளக்கம் எழுத்துக்கள்",
+    "visionMaxCharsHint": "கண்ணோட்ட மாதிரியின் விளக்கத்தின் நீளத்தை கட்டுப்படுத்தவும். 0 = எல்லாம் அனுமதிக்கப்பட்டது — விவரமாக நிறைந்த OCR பணிகளுக்காக உயர்த்தவும்.",
     "modalityBridgeCacheEnabled": "கேஷ் விளக்கங்கள்",
     "modalityBridgeCacheEnabledDesc": "ஒரே மாதிரியான படங்களுக்கு (SHA-256 விசையுடன், நினைவகத்தில்) விளக்கங்களை மறுசுழற்சி செய்யவும்.",
     "modalityBridgeCacheTtlMinutes": "கேஷ் TTL (நிமிடங்கள்)",
