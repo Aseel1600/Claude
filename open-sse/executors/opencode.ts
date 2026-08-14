@@ -267,7 +267,14 @@ export class OpencodeExecutor extends BaseExecutor {
       }
 
       const { log } = input;
-      let lastResult: Awaited<ReturnType<BaseExecutor["execute"]>> | null = null;
+      // This loop only ever dispatches through super.execute() (the HTTP request
+      // path), which always resolves the object-shaped arm of ExecutorExecuteResult
+      // — the bare-Response arm belongs to web/scraping executors only (base.ts:290).
+      type HttpExecuteResult = Extract<
+        Awaited<ReturnType<BaseExecutor["execute"]>>,
+        { response: Response }
+      >;
+      let lastResult: HttpExecuteResult | null = null;
 
       for (let attempt = 0; attempt < this.accounts.length; attempt++) {
         const account = this.pickAccount();
@@ -287,21 +294,35 @@ export class OpencodeExecutor extends BaseExecutor {
         // Pin egress to this account's proxy for the whole BaseExecutor dispatch
         // (incl. its intra-URL 429 retries). skipUpstreamRetry lets THIS loop own
         // the cross-account 429 fallback instead of BaseExecutor's same-key retry.
-        let result;
+        let result: HttpExecuteResult;
         try {
-          result = await runWithProxyContext(account.proxy, () =>
+          // super.execute() here always dispatches the HTTP path (opencode is an
+          // OpenAI-compatible API, never the web/scraping bare-Response arm) —
+          // see base.ts:290-294.
+          result = (await runWithProxyContext(account.proxy, () =>
             super.execute({ ...input, skipUpstreamRetry: true })
-          );
+          )) as HttpExecuteResult;
         } catch (err) {
-          // A network exception (timeout, connection refused/reset) on ONE account
-          // must not abort the whole request when other accounts remain — symmetric
-          // to the existing 429 handling above. Never swallowed silently: logged
-          // before rotating so operators can see which account failed and why.
+          // A network exception (timeout, connection refused/reset) is only
+          // account-scoped when this account has its OWN egress (a configured
+          // proxy) — that's the case a dead/unreachable proxy justifies rotating
+          // away from. Without a proxy, accounts share the same network egress:
+          // the failure isn't attributable to this account, and rotating would
+          // just retry the same outage against every other account while
+          // poisoning their cooldowns for a cause that isn't theirs. Never
+          // swallowed silently either way: logged before rotating or rethrowing.
+          if (!account.proxy) {
+            log?.warn?.(
+              "OPENCODE",
+              `network error on account ${masked} (no dedicated proxy, shared egress) — not rotating`
+            );
+            throw err;
+          }
           this.markCooldown(account);
           const reason = err instanceof Error ? err.message : String(err);
           log?.warn?.(
             "OPENCODE",
-            `network error on account ${masked}, rotating to next… (${reason})`,
+            `network error on account ${masked}, rotating to next… (${reason})`
           );
           continue;
         }

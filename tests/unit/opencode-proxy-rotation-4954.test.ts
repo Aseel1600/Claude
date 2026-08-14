@@ -90,7 +90,8 @@ describe("OpencodeExecutor per-account proxy + rotation (#4954)", () => {
   function installFetchStub(statuses: number[]) {
     let call = 0;
     globalThis.fetch = (async (input: any) => {
-      const url = typeof input === "string" ? input : input?.url || String(input);
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const resolved = resolveProxyForRequest(url);
       let host: string | null = null;
       let port: string | null = null;
@@ -175,7 +176,8 @@ describe("OpencodeExecutor per-account proxy + rotation (#4954)", () => {
     let call = 0;
     const originalFetchForThrow = globalThis.fetch;
     globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
-      const url = typeof input === "string" ? input : input?.url || String(input);
+      const url =
+        typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
       const resolved = resolveProxyForRequest(url);
       observed.push({
         source: resolved.source,
@@ -205,16 +207,13 @@ describe("OpencodeExecutor per-account proxy + rotation (#4954)", () => {
       assert.strictEqual(
         (result as { response: { status: number } }).response.status,
         200,
-        "a throw on account A must not abort the request — account B must be tried",
+        "a throw on account A must not abort the request — account B must be tried"
       );
-      assert.ok(
-        observed.length >= 2,
-        "should have retried on a second account after the throw",
-      );
+      assert.ok(observed.length >= 2, "should have retried on a second account after the throw");
       assert.notStrictEqual(
         observed[0].port,
         observed[1].port,
-        "rotation must switch to a different account/proxy after a throw",
+        "rotation must switch to a different account/proxy after a throw"
       );
     } finally {
       globalThis.fetch = originalFetchForThrow;
@@ -255,10 +254,52 @@ describe("OpencodeExecutor per-account proxy + rotation (#4954)", () => {
       });
 
       assert.ok(
-        warnCalls.some(
-          (c) => c.tag === "OPENCODE" && /network error/i.test(c.msg),
-        ),
-        `expected a warn-level "network error" log; got=${JSON.stringify(warnCalls)}`,
+        warnCalls.some((c) => c.tag === "OPENCODE" && /network error/i.test(c.msg)),
+        `expected a warn-level "network error" log; got=${JSON.stringify(warnCalls)}`
+      );
+    } finally {
+      globalThis.fetch = originalFetchForThrow;
+    }
+  });
+
+  it("propagates a network throw when no account has a configured proxy (shared egress, P6 scope)", async () => {
+    const exec = new OpencodeExecutor("opencode-zen");
+    let call = 0;
+    const originalFetchForThrow = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      call++;
+      throw new Error("ETIMEDOUT");
+    }) as typeof globalThis.fetch;
+
+    try {
+      await assert.rejects(
+        () =>
+          exec.execute({
+            model: "deepseek-v4-flash-free",
+            body: { messages: [{ role: "user", content: "hi" }], stream: false },
+            stream: false,
+            signal: null,
+            credentials: {
+              apiKey: null,
+              accessToken: null,
+              connectionId: "noauth",
+              providerSpecificData: {
+                fingerprints: [ACCOUNT_A, ACCOUNT_B],
+                // No accountProxies configured — both accounts share the same
+                // network egress. A throw here is not account-scoped: rotating
+                // would just retry the same failure N times against a healthy
+                // account's cooldown, so it must propagate like before P6.
+              },
+            } as any,
+            log,
+          }),
+        /ETIMEDOUT/,
+        "a network throw on a proxy-less account must propagate, not be swallowed into rotation"
+      );
+      assert.strictEqual(
+        call,
+        1,
+        "must not retry against another account when no proxy isolates egress"
       );
     } finally {
       globalThis.fetch = originalFetchForThrow;
