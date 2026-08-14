@@ -244,7 +244,7 @@ export const updateSettingsSchema = z.object({
   promptCacheAffinityEnabled: z.boolean().optional(),
   /**
    * Per-operator quota row visibility on the usage dashboard, keyed by
-   * provider id. Independent of the model catalog's isHidden/isDeleted flags.
+   * provider id. Independent of the model catalog's isHidden flag.
    * Ported from upstream decolua/9router#2371.
    */
   quotaVisibility: z
