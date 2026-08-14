@@ -29,6 +29,7 @@ test("team routes validate mutations and expose CRUD, assignment, and usage oper
   const usage = readFileSync(join(ROOT, paths[3]), "utf8");
   assert.match(list, /TeamCreateSchema/);
   assert.match(detail, /TeamUpdateSchema/);
+  assert.match(detail, /archived teams cannot be updated/i);
   assert.match(members, /TeamMemberAssignmentSchema/);
   assert.match(list, /export async function GET/);
   assert.match(list, /export async function POST/);
