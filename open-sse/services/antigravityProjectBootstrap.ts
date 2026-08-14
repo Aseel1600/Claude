@@ -20,7 +20,10 @@ import {
 } from "./antigravityHeaders.ts";
 import { extractCodeAssistOnboardTierId } from "./codeAssistSubscription.ts";
 import type { AntigravityClientProfile } from "./antigravityClientProfile.ts";
-import { ANTIGRAVITY_BOOTSTRAP_BASE_URLS, getAntigravityOnboardUrls } from "../config/antigravityUpstream.ts";
+import {
+  ANTIGRAVITY_BOOTSTRAP_BASE_URLS,
+  getAntigravityOnboardUrls,
+} from "../config/antigravityUpstream.ts";
 
 const LOAD_CODE_ASSIST_PATH = "/v1internal:loadCodeAssist";
 const BOOTSTRAP_TIMEOUT_MS = 8_000;
@@ -174,15 +177,37 @@ async function tryOnboardUser(
   return false;
 }
 
-/** Per-token memoization for accounts we already tried onboarding (avoid repeated calls). */
-const onboardAttemptedCache = new Set<string>();
+/**
+ * Per-token failure backoff for the onboardUser creation path.
+ *
+ * A FAILED onboard attempt must never be memoized as "done": a transient
+ * upstream/network error would otherwise poison the account for the whole
+ * process lifetime, so every later request 422s with "Missing Google
+ * projectId" even though onboarding would succeed on retry. Instead we record
+ * WHEN a failure happened and only skip re-attempts while the short backoff
+ * window is open — the account heals itself on the next request after it
+ * expires. Successful discoveries are memoized in `projectCache` (with LRU
+ * eviction) and clear any pending failure marker.
+ */
+const onboardFailureAt = new Map<string, number>();
+const ONBOARD_RETRY_BACKOFF_MS = 5 * 60 * 1000;
 
-function addToOnboardAttemptedCache(key: string): void {
-  if (onboardAttemptedCache.size >= MAX_CACHE_SIZE) {
-    const oldest = onboardAttemptedCache.values().next().value;
-    if (oldest !== undefined) onboardAttemptedCache.delete(oldest);
+function markOnboardFailure(key: string): void {
+  if (onboardFailureAt.size >= MAX_CACHE_SIZE) {
+    const oldest = onboardFailureAt.keys().next().value;
+    if (oldest !== undefined) onboardFailureAt.delete(oldest);
   }
-  onboardAttemptedCache.add(key);
+  onboardFailureAt.set(key, Date.now());
+}
+
+function isOnboardOnBackoff(key: string): boolean {
+  const failedAt = onboardFailureAt.get(key);
+  if (failedAt === undefined) return false;
+  if (Date.now() - failedAt >= ONBOARD_RETRY_BACKOFF_MS) {
+    onboardFailureAt.delete(key);
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -212,30 +237,39 @@ export async function ensureAntigravityProjectAssigned(
   }
 
   const { projectId: initialProjectId, tierId } = await tryLoadCodeAssist(
-    accessToken, fetchImpl, clientProfile, signal
+    accessToken,
+    fetchImpl,
+    clientProfile,
+    signal
   );
 
   let projectId = initialProjectId;
 
   // loadCodeAssist is read-only — if the account was never onboarded, it returns
   // empty. Call onboardUser to create the project, then retry discovery.
-  if (!projectId && !onboardAttemptedCache.has(cacheKey)) {
+  // Re-attempts are bounded by a short failure backoff (not a permanent memo),
+  // so a transient onboard failure heals on the next request.
+  if (!projectId && !isOnboardOnBackoff(cacheKey)) {
     // Per-key lock: concurrent calls for the same token share one onboard attempt.
     let lock = onboardLocks.get(cacheKey);
     if (!lock) {
       lock = (async () => {
         let aborted = false;
+        let succeeded = false;
         try {
           const onboarded = await tryOnboardUser(
-            accessToken, fetchImpl, clientProfile, tierId, signal
+            accessToken,
+            fetchImpl,
+            clientProfile,
+            tierId,
+            signal
           );
           if (onboarded) {
-            const retry = await tryLoadCodeAssist(
-              accessToken, fetchImpl, clientProfile, signal
-            );
+            const retry = await tryLoadCodeAssist(accessToken, fetchImpl, clientProfile, signal);
             if (retry.projectId) {
               evictOldest(projectCache);
               projectCache.set(cacheKey, retry.projectId);
+              succeeded = true;
               return true;
             }
           }
@@ -245,7 +279,10 @@ export async function ensureAntigravityProjectAssigned(
           return false;
         } finally {
           onboardLocks.delete(cacheKey);
-          if (!aborted) addToOnboardAttemptedCache(cacheKey);
+          if (!aborted) {
+            if (succeeded) onboardFailureAt.delete(cacheKey);
+            else markOnboardFailure(cacheKey);
+          }
         }
       })();
       onboardLocks.set(cacheKey, lock);
@@ -268,8 +305,14 @@ export async function ensureAntigravityProjectAssigned(
 /** Exported for tests. */
 export function clearAntigravityProjectCache(): void {
   projectCache.clear();
-  onboardAttemptedCache.clear();
+  onboardFailureAt.clear();
   onboardLocks.clear();
+}
+
+/** Test-only: clear the onboard failure backoff (simulates backoff expiry). */
+export function clearAntigravityOnboardBackoff(key?: string): void {
+  if (key) onboardFailureAt.delete(key);
+  else onboardFailureAt.clear();
 }
 
 /** Exported for tests — inspect cache state. */
