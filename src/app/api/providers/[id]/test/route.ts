@@ -463,6 +463,7 @@ export async function testOAuthConnection(
       signal: AbortSignal.timeout(timeoutMs),
     };
     // Port of decolua/9router#347: providers like Codex must send a body so the
+    // upstream returns 400 (auth ok) instead of 405/415.
     if (config.body && !builtProbe) fetchInit.body = config.body;
     if (builtProbe?.body) fetchInit.body = builtProbe.body;
     const res = await fetch(url, fetchInit);
