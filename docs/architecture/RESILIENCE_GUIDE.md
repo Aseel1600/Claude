@@ -224,12 +224,16 @@ rate limit. Bounded by `comboCooldownWait` (`enabled`, `maxWaitMs`, `maxAttempts
 **Scope**: the local per-provider+connection rate-limit queue (`open-sse/services/rateLimitManager.ts`,
 backed by Bottleneck), one layer below the three mechanisms above.
 
-**`maxWaitMs` default lowered 120s → 15s.** `resilienceSettings.requestQueue.maxWaitMs`
-bounds how long a request may wait in the local queue before it is dropped
-(`code: "RATE_LIMIT_QUEUE_TIMEOUT"`, #4165). The factory default fell from 120000ms to
-15000ms so a saturated queue fails fast instead of holding a caller for two
-minutes; override via `RATE_LIMIT_MAX_WAIT_MS` (env) or the dashboard
-(**Settings → Resilience**, 1–30000ms UI ceiling).
+**`maxWaitMs` is a legacy persisted name for execution expiration.**
+`resilienceSettings.requestQueue.maxWaitMs` is passed to Bottleneck as a job
+`expiration`, whose timer starts only after dispatch. It therefore bounds
+limiter-managed execution, not time spent in the local queue. Expiration is
+surfaced as trusted local `code: "RATE_LIMIT_EXECUTION_TIMEOUT"` (HTTP 504);
+the former queue-timeout code name is accepted only for trusted internal
+backward compatibility. The default is 15000ms; override via
+`RATE_LIMIT_MAX_WAIT_MS` (env) or the dashboard (**Settings → Resilience**,
+1–30000ms UI ceiling). Queue residence has no time deadline; use
+`maxQueueDepth` below to bound queued callers.
 
 **`maxQueueDepth` — opt-in admission cap (new).** `resilienceSettings.requestQueue.maxQueueDepth`
 bounds how many requests may sit queued (not yet dispatched) for one
@@ -252,11 +256,153 @@ it is unit-testable without a real Bottleneck limiter.
 > around the `resolveCompressionSettings`/`selectCompressionStrategy` block),
 > not HTTP response compression on synthesized 429 bodies — there is no
 > matching code path for a literal bypass flag. That prompt-compression step
-> also currently runs *before* `withRateLimit()` in the request pipeline, so
+> also currently runs _before_ `withRateLimit()` in the request pipeline, so
 > reordering to skip it on a queue-full rejection is a separate, larger
 > change than this issue's scope; it was intentionally **not** implemented
 > here and is left as a follow-up if the CPU-saving win is worth the
 > reordering risk.
+
+---
+
+## 6. Slow-stream throughput watchdog (#9709)
+
+The optional `resilienceSettings.streamRecovery.throughputWatchdog` guard detects
+an upstream that is still sending chunks but producing assistant output below the
+configured useful-output rate. It is deliberately distinct from the idle timeout:
+heartbeats and metadata reset neither timer and do not count as progress. It is also
+distinct from the hard attempt deadline (#9153), which remains an absolute safety
+ceiling regardless of output quality.
+
+The watchdog requires a warm-up period followed by a complete rolling window before
+it can abort. It counts text deltas from Chat Completions and Responses API output
+events (a conservative UTF-8 byte proxy), ignores usage-only and empty events, and
+suspends judgement while tool-call or reasoning events are in flight. It is disabled
+by default and can be enabled with `STREAM_THROUGHPUT_WATCHDOG_ENABLED=true`; the
+window, warm-up, minimum rate, and minimum measurable output are bounded by the
+normal resilience-settings normalization layer.
+
+When enabled, a watchdog abort is applied only to the active upstream attempt. Before
+any client-visible bytes, the existing same-account early-recovery path may reopen
+the attempt. After commit, the stream is never blindly replayed; only the existing
+safe mid-stream continuation contract can stitch a suffix. Finalization remains
+single-shot, so usage accounting and semaphore release are not duplicated.
+
+---
+
+## 7. Upstream Status Restatement (misstated quota errors)
+
+**Scope:** one upstream gateway that reports temporary quota exhaustion with the wrong HTTP status.
+
+**Purpose:** correct a misleading status BEFORE classification, so downstream consumers (fallback engine, combo aggregation, the client-facing response) see the true retryable nature of the failure.
+
+Some gateways signal TEMPORARY quota exhaustion with a non-retryable HTTP
+status. `agentrouter.org` returns `403` (sometimes `400`) with a Chinese body
+(`用户额度不足` / `额度不足`) instead of the standard `429`. Clients like Claude
+Code treat `403` as permanent and abort the session, and without correction
+the fallback engine would classify it as `AUTH_ERROR` instead of a quota
+event.
+
+**Implementation:**
+
+- Registry + matcher: `open-sse/config/upstreamStatusRestatement.ts` — a
+  per-provider list of rules (`{id, fromStatuses, toStatus, textMarkers,
+excludeMarkers, defaultRetryAfterMs}`), matched via `applyStatusRestatement()`.
+- Call site: the `providerFailure:` block in `open-sse/handlers/chatCore.ts`
+  (around line 3654), right after `parseUpstreamError()` parses an upstream
+  response with an error HTTP status (`!providerResponse.ok`), and before any
+  classification runs, so every downstream consumer sees the corrected
+  status. Errors embedded inside a `200` SSE stream follow a separate,
+  later stream-parsing path and are **not** covered by this hook today — a
+  known limitation, not yet needed for agentrouter's misstatus (which
+  surfaces as an error HTTP status).
+- Retry eligibility: `429` is in `RETRY_AFTER_ELIGIBLE_STATUSES`
+  (`open-sse/services/combo/unavailableRetryGate.ts`), so a restated error
+  carries a real retry window instead of surfacing as a dead `403`.
+- The synthetic `60s` `defaultRetryAfterMs` (`upstreamStatusRestatement.ts`)
+  is only what the restated response tells the **client**; it is not itself
+  the connection's internal cooldown/lockout duration — that is governed
+  separately by whichever mechanism actually handles the restated error
+  (Connection Cooldown's escalating backoff, §2, base `3s` for API-key
+  providers; or Model Lockout, §3, for per-model-quota providers like
+  agentrouter). The router can become eligible to retry internally sooner
+  than the 60s window it advertises to the client — intentional headroom,
+  not a bug.
+
+Permanent errors (agentrouter's `无权访问模型` — no access to this model) are
+NEVER restated: `excludeMarkers` vetoes the rule even when `textMarkers` hit,
+so the error keeps its original status and nothing retries it forever. A
+separate provider classification rule
+(`agentrouter-model-access-denied` in `open-sse/config/providerErrorRules.ts`)
+declares an `auth_error`/scope-`model` match for this text, but it does not
+fire on the live production path today: the rule only matches `status ===
+403`, and `checkFallbackError`'s apikey-category `FORBIDDEN` branch
+(`open-sse/services/accountFallback.ts`) returns early for a plain 403
+*before* the provider-rule lookup ever runs. In practice a `无权访问模型` 403
+is handled the same way as the base apikey-provider 403 path (see Connection
+Cooldown, §2), not as a 6h model lockout. The rule still exists as a
+declarative classification consumable by future callers of `classifyError`
+with context — wiring it into the production `checkFallbackError` path is
+tracked as a follow-up, not yet done.
+
+Restated quota errors (`额度不足`) do reach a provider rule in production
+(`agentrouter-user-quota-exhausted`, scope `"connection"`), but `scope` on
+`ProviderErrorRuleMatch` is currently informational — the persistence path
+(`checkFallbackError` → `combo.ts`) only consumes `reason` and `cooldownMs`,
+never `scope`. What actually happens for agentrouter (`passthroughModels:
+true` → `hasPerModelQuota()` returns `true`) is a **per-model** lockout via
+`recordModelLockoutFailure()`: the connection itself is never cooled down for
+this error (`combo.ts` skips `recordProviderCooldown` for 429 when
+`hasPerModelQuota` is true), so other models on the same account keep being
+tried — each one burns one call and its own lockout before combo routing
+moves on. Honoring `scope` end-to-end (so a `"connection"` match actually
+locks the connection) is tracked as a follow-up.
+
+### Two-stage design: status restatement, then classification
+
+Status restatement (`upstreamStatusRestatement.ts`) and provider
+classification rules (`open-sse/config/providerErrorRules.ts`,
+`providerRuleRegistry`) are separate registries that both key on provider id
+and text markers, but they run in different places and serve different
+purposes: restatement rewrites the HTTP status early in `chatCore.ts`;
+classification rules pick the fallback `reason` and lock `scope`
+(`model` / `provider` / `connection`) inside `checkFallbackError()`
+(`open-sse/services/accountFallback.ts`).
+
+Classification rules only see full error **text** (needed to match body
+markers like `额度不足`) for providers listed in the `FULL_TEXT_RULE_PROVIDERS`
+allowlist in `providerErrorRules.ts` — currently only `"agentrouter"`. For
+every other provider, `checkFallbackError` hands `getProviderErrorRuleMatch`
+only the structured error (`{code, type}`), which is enough for
+header/status/code-based rules but blind to body-text markers. The helper
+`resolveRuleMatchBody()` performs this selection: full error text for
+allowlisted providers, the structured error otherwise. Adding a provider to
+`FULL_TEXT_RULE_PROVIDERS` is an explicit per-provider opt-in — it exists so
+that the default path for every provider not on the list stays
+byte-for-byte unchanged.
+
+### Adding a new quota-misstating gateway
+
+1. Register one rule array in `statusRestatementRegistry`
+   (`open-sse/config/upstreamStatusRestatement.ts`). Keep `textMarkers`
+   provider-specific; never reuse generic English phrases that collide with
+   `CREDITS_EXHAUSTED_SIGNALS` (`open-sse/services/accountFallback.ts`).
+2. Optionally register classification rules in
+   `open-sse/config/providerErrorRules.ts` (`providerRuleRegistry`) to pick
+   the right lock scope (`connection` for account-wide quota, `model` for
+   per-model errors). This step only takes effect in production for
+   providers whose rules need the full error text (body markers): add the
+   provider id to `FULL_TEXT_RULE_PROVIDERS` in the same file — otherwise
+   `checkFallbackError` only ever hands the rule the structured
+   `{code, type}` error and a body-text rule will never match live traffic.
+   Rules that match purely on `status`/`headers` (like Opencode's or
+   Minimax's) do not need this opt-in.
+3. Add unit tests mirroring `tests/unit/upstream-status-restatement.test.ts`
+   and `tests/unit/agentrouter-error-rules.test.ts` (including the
+   not-permanent / not-creditsExhausted guards, and — if the provider needs
+   the allowlist — a test asserting `resolveRuleMatchBody()` returns the
+   full text only for that provider).
+
+No changes to `chatCore.ts`, `classifyError`, or combo are needed.
 
 ---
 
@@ -306,4 +452,4 @@ default `test:integration`, chaos and heap self-skip (without `RUN_CHAOS_INT`/`-
 
 - [Architecture Guide](./ARCHITECTURE.md) — System architecture and internals
 - [User Guide](../guides/USER_GUIDE.md) — Providers, combos, CLI integration
-- [Auto-Combo Engine](../routing/AUTO-COMBO.md) — 12-factor scoring, mode packs
+- [Auto-Combo Engine](../routing/AUTO-COMBO.md) — 13-factor scoring, mode packs

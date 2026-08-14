@@ -9,6 +9,10 @@ import { withSettingsFallback } from "./cliInstallFallback";
 import { GROK_BUILD_RUNTIME_ENTRY, AMP_RUNTIME_ENTRY } from "./cliRuntimeGrokBuild";
 import { isLocationTrusted, findKnownPathMatch } from "./cliRuntimeKnownPath";
 import { buildHealthcheckPath } from "./cliRuntimeHealthcheckPath";
+import {
+  resolveOpencodeConfigDir as resolveOpenCodeConfigDir,
+  resolveOpencodeConfigPath as resolveOpenCodeConfigPath,
+} from "./opencodeConfigPath";
 const VALID_RUNTIME_MODES = new Set(["auto", "host", "container"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
 
@@ -333,7 +337,7 @@ const runProcess = (
     // is true (.cmd/.bat on Windows), Node quotes the command for cmd.exe itself.
     const child = spawn(command, args, {
       windowsHide: true,
-      env,
+      env: env as NodeJS.ProcessEnv,
       stdio: ["ignore", "pipe", "pipe"],
       // On Windows, npm installs CLI wrappers as .cmd/.bat scripts. Those still
       // need cmd.exe, but direct .exe paths must avoid the shell so paths with
@@ -352,11 +356,11 @@ const runProcess = (
       resolve(result);
     };
 
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
     });
 
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
     });
 
@@ -979,15 +983,14 @@ export const resolveOpencodeConfigDir = (
   // `%APPDATA%`. Writing to %APPDATA% on Windows put the file where OpenCode
   // never looks, so dashboard-saved config silently had no effect. `_platform`
   // is kept in the signature for call-site/test compatibility.
-  const xdgConfigHome = String(env.XDG_CONFIG_HOME || "").trim();
-  return xdgConfigHome || path.join(homeDir, ".config");
+  return path.dirname(resolveOpenCodeConfigDir(env, homeDir));
 };
 
 export const resolveOpencodeConfigPath = (
-  platform = process.platform,
+  _platform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
   homeDir = os.homedir()
-) => path.join(resolveOpencodeConfigDir(platform, env, homeDir), "opencode", "opencode.json");
+) => resolveOpenCodeConfigPath(env, homeDir);
 
 export const getOpenCodeConfigPath = () => resolveOpencodeConfigPath();
 
