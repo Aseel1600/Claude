@@ -1363,7 +1363,18 @@ async function buildUnifiedModelsResponseCore(
                 ? { max_output_tokens: model.outputTokenLimit }
                 : {}),
               ...(visionFields || {}),
-              custom: true,
+              // #10248 regressed this to unconditionally stamp `custom: true` on the
+              // merge, even when `existingIndex !== -1` means the custom row is just a
+              // metadata overlay on top of an entry that already exists in the catalog
+              // (a built-in PROVIDER_MODELS row, a synced/discovered model, or an
+              // earlier custom row for the same id). That mislabeled a duplicate custom
+              // row for an operator's already-active built-in model (e.g. a token-limit
+              // override on openai/gpt-4o) as "custom: true" in the public catalog, even
+              // though the model is the standard built-in one. Omit `custom` from the
+              // overlay so `mergeCustomModelMetadata` preserves `existing.custom`
+              // instead: an entry that already owed its existence to a custom row keeps
+              // `custom: true`, and a built-in/synced entry merely overlaid with custom
+              // metadata stays classified as non-custom.
             });
             continue;
           }
