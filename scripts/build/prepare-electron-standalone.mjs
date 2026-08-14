@@ -7,6 +7,7 @@ import { spawnSync } from "node:child_process";
 import { assembleStandalone } from "./assembleStandalone.mjs";
 import { buildRebuildSpawnPlan } from "./electronRebuildPlan.mjs";
 import { pruneElectronRuntimeDocs } from "./electronRuntimeDocs.mjs";
+import { stageOptionalPacks } from "./optionalPackStaging.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -237,6 +238,18 @@ assertNoStaleHashedNatives(join(ELECTRON_STANDALONE_DIR, NEXT_DIST_DIR, "node_mo
   "better-sqlite3",
   "keytar",
 ]);
+
+// Stage 7 (issue #10321): move the optional ML/browser dependency closure out of
+// the desktop bundle into checksummed, versioned packs under
+// `.build/optional-packs/` (+ tarballs) and emit `optional-packs.index.json` at
+// the bundle root. Runs after the native-module steps so it only ever sees the
+// final staging tree. Fail-open per member (see optionalPackStaging.mjs).
+const OPTIONAL_PACKS_OUT_DIR = join(ROOT, ".build", "optional-packs");
+await stageOptionalPacks({
+  stagingRoot: ELECTRON_STANDALONE_DIR,
+  packsOutDir: OPTIONAL_PACKS_OUT_DIR,
+  log: (msg) => console.log(msg.replace(/^\[optional-packs\]/, "[electron]")),
+});
 
 console.log(
   `[electron] prepared standalone bundle: ${relative(ROOT, ELECTRON_STANDALONE_DIR) || "."}`
