@@ -43,10 +43,15 @@ function windowToQuota(
 export async function getQwenTokenPlanUsage(
   connectionId: string,
   apiKey: string,
-  providerSpecificData?: Record<string, unknown>
+  providerSpecificData?: Record<string, unknown>,
+  provider = "qwen-cloud-token-plan"
 ) {
   try {
-    const quota = await fetchQwenTokenPlanQuota(connectionId, { apiKey, providerSpecificData });
+    const quota = await fetchQwenTokenPlanQuota(connectionId, {
+      apiKey,
+      providerSpecificData,
+      provider,
+    });
 
     if (!quota) {
       return {
@@ -79,9 +84,10 @@ export async function getQwenTokenPlanUsage(
     if (weekly) quotas.weekly = weekly;
 
     const specCode = tokenPlanQuota.specCode;
+    const brand = tokenPlanQuota.consoleSite === "ALIYUN" ? "Alibaba" : "Qwen";
     const plan = specCode
-      ? `Qwen Token Plan (${specCode.charAt(0).toUpperCase()}${specCode.slice(1)})`
-      : "Qwen Token Plan";
+      ? `${brand} Token Plan (${specCode.charAt(0).toUpperCase()}${specCode.slice(1)})`
+      : `${brand} Token Plan`;
 
     return { plan, quotas };
   } catch (error) {

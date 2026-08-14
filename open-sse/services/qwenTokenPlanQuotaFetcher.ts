@@ -33,6 +33,55 @@ import { throttleQuotaFetch } from "./quotaFetchThrottle.ts";
 
 const DEFAULT_GATEWAY_HOST = "https://cs-data.qwencloud.com";
 const DEFAULT_DASHBOARD_URL = "https://home.qwencloud.com/";
+
+/**
+ * The same personal Token Plan is sold through two consoles that share one backend.
+ * The gateway validates the browser session against the console identity sent in the
+ * request, so an Alibaba cookie paired with the QwenCloud identity is rejected with
+ * `BailianGateway.Login.NotLogined` (verified live 2026-08-14).
+ */
+export interface TokenPlanConsoleSite {
+  consoleSite: "QWENCLOUD" | "ALIYUN";
+  domain: string;
+  gatewayHost: string;
+  dashboardUrl: string;
+  origin: string;
+}
+
+const CONSOLE_SITES: Record<"qwencloud" | "aliyun", TokenPlanConsoleSite> = {
+  qwencloud: {
+    consoleSite: "QWENCLOUD",
+    domain: "home.qwencloud.com",
+    gatewayHost: DEFAULT_GATEWAY_HOST,
+    dashboardUrl: DEFAULT_DASHBOARD_URL,
+    origin: "https://home.qwencloud.com",
+  },
+  aliyun: {
+    consoleSite: "ALIYUN",
+    domain: "modelstudio.console.alibabacloud.com",
+    gatewayHost: "https://bailian-singapore-cs.alibabacloud.com",
+    dashboardUrl: "https://modelstudio.console.alibabacloud.com/",
+    origin: "https://modelstudio.console.alibabacloud.com",
+  },
+};
+
+/** Providers served by the Alibaba (Model Studio) console rather than QwenCloud. */
+const ALIYUN_CONSOLE_PROVIDERS = new Set(["bailian-coding-plan", "alibaba", "alibaba-cn"]);
+
+/**
+ * Pick the console identity for a cookie: the login ticket names its console
+ * (`login_aliyunid_ticket` vs `login_qwencloud_ticket`). Unmarked cookies fall back to
+ * the provider, then to QwenCloud.
+ */
+export function resolveConsoleSite(
+  cookie: string,
+  provider: string | undefined
+): TokenPlanConsoleSite {
+  if (/login_aliyunid_ticket=/.test(cookie)) return CONSOLE_SITES.aliyun;
+  if (/login_qwencloud_ticket=/.test(cookie)) return CONSOLE_SITES.qwencloud;
+  if (provider && ALIYUN_CONSOLE_PROVIDERS.has(provider)) return CONSOLE_SITES.aliyun;
+  return CONSOLE_SITES.qwencloud;
+}
 const GATEWAY_REGION = "ap-southeast-1";
 const GATEWAY_PRODUCT = "sfm_bailian";
 const GATEWAY_ACTION = "IntlBroadScopeAspnGateway";
@@ -54,6 +103,8 @@ const WINDOW_FIELD_MAP: Record<string, string> = {
 
 export interface QwenTokenPlanQuota extends QuotaInfo {
   windows: Record<string, { percentUsed: number; resetAt: string | null }>;
+  /** Which console served the quota — drives the plan label shown in the dashboard. */
+  consoleSite: TokenPlanConsoleSite["consoleSite"];
   /** Subscription tier (e.g. "pro") or null when the subscription call failed. */
   specCode: string | null;
   /** Credit limits of the active tier (from quota-config), when resolvable. */
@@ -129,14 +180,14 @@ function getConfiguredSecToken(providerSpecificData: Record<string, unknown> | u
   return process.env.QWEN_CLOUD_SEC_TOKEN?.trim() || "";
 }
 
-function getGatewayHost(): string {
+function getGatewayHost(site: TokenPlanConsoleSite): string {
   const configured = process.env.QWEN_TOKEN_PLAN_HOST?.trim();
-  if (!configured) return DEFAULT_GATEWAY_HOST;
+  if (!configured) return site.gatewayHost;
   return /^https?:\/\//i.test(configured) ? configured : `https://${configured}`;
 }
 
-function getDashboardUrl(): string {
-  return process.env.QWEN_TOKEN_PLAN_DASHBOARD_URL?.trim() || DEFAULT_DASHBOARD_URL;
+function getDashboardUrl(site: TokenPlanConsoleSite): string {
+  return process.env.QWEN_TOKEN_PLAN_DASHBOARD_URL?.trim() || site.dashboardUrl;
 }
 
 /** Extract the console `SEC_TOKEN: "…"` embedded in the logged-in dashboard HTML. */
@@ -145,14 +196,18 @@ export function extractQwenSecToken(html: string): string | null {
   return match ? match[1] : null;
 }
 
-async function resolveSecToken(connectionId: string, cookie: string): Promise<string> {
+async function resolveSecToken(
+  connectionId: string,
+  cookie: string,
+  site: TokenPlanConsoleSite
+): Promise<string> {
   const cached = secTokenCache.get(connectionId);
   if (cached && Date.now() - cached.fetchedAt < TIER_CACHE_TTL_MS) {
     return cached.token;
   }
 
   try {
-    const response = await fetch(getDashboardUrl(), {
+    const response = await fetch(getDashboardUrl(site), {
       method: "GET",
       headers: {
         Cookie: cookie,
@@ -180,10 +235,11 @@ async function resolveSecToken(connectionId: string, cookie: string): Promise<st
 async function callGateway(
   endpoint: string,
   cookie: string,
-  secToken: string
+  secToken: string,
+  site: TokenPlanConsoleSite
 ): Promise<unknown | null> {
   const api = `${TOKEN_PLAN_API_PREFIX}${endpoint}`;
-  const url = `${getGatewayHost()}/data/api.json?product=${GATEWAY_PRODUCT}&action=${GATEWAY_ACTION}&api=${encodeURIComponent(api)}`;
+  const url = `${getGatewayHost(site)}/data/api.json?product=${GATEWAY_PRODUCT}&action=${GATEWAY_ACTION}&api=${encodeURIComponent(api)}`;
 
   const params = JSON.stringify({
     Api: api,
@@ -192,8 +248,8 @@ async function callGateway(
       commodityCode: COMMODITY_CODE,
       cornerstoneParam: {
         console: "ONE_CONSOLE",
-        consoleSite: "QWENCLOUD",
-        domain: "home.qwencloud.com",
+        consoleSite: site.consoleSite,
+        domain: site.domain,
         productCode: "p_efm",
         protocol: "V2",
         xsp_lang: "en-US",
@@ -218,8 +274,8 @@ async function callGateway(
         Cookie: cookie,
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        Origin: "https://home.qwencloud.com",
-        Referer: "https://home.qwencloud.com/",
+        Origin: site.origin,
+        Referer: `${site.origin}/`,
       },
       body: body.toString(),
       signal: AbortSignal.timeout(8_000),
@@ -266,7 +322,8 @@ function parseUsageWindows(
 async function resolveTierInfo(
   connectionId: string,
   cookie: string,
-  secToken: string
+  secToken: string,
+  site: TokenPlanConsoleSite
 ): Promise<TierCacheEntry> {
   const cached = tierCache.get(connectionId);
   if (cached && Date.now() - cached.fetchedAt < TIER_CACHE_TTL_MS) {
@@ -274,8 +331,8 @@ async function resolveTierInfo(
   }
 
   const [quotaConfig, subscription] = await Promise.all([
-    callGateway("quota-config", cookie, secToken),
-    callGateway("subscription", cookie, secToken),
+    callGateway("quota-config", cookie, secToken, site),
+    callGateway("subscription", cookie, secToken, site),
   ]);
 
   const specCode = toTrimmedString(toRecord(subscription)["specCode"]) || null;
@@ -319,10 +376,16 @@ export async function fetchQwenTokenPlanQuota(
   const cookie = getCookie(providerSpecificData);
   if (!cookie) return null;
 
-  const secToken =
-    getConfiguredSecToken(providerSpecificData) || (await resolveSecToken(connectionId, cookie));
+  const site = resolveConsoleSite(
+    cookie,
+    typeof connection?.provider === "string" ? connection.provider : undefined
+  );
 
-  const usagePayload = await callGateway("usage", cookie, secToken);
+  const secToken =
+    getConfiguredSecToken(providerSpecificData) ||
+    (await resolveSecToken(connectionId, cookie, site));
+
+  const usagePayload = await callGateway("usage", cookie, secToken, site);
   if (usagePayload === null) return null;
 
   const windows = parseUsageWindows(usagePayload);
@@ -331,7 +394,7 @@ export async function fetchQwenTokenPlanQuota(
 
   const worst = windowEntries.reduce((max, w) => (w.percentUsed > max.percentUsed ? w : max));
 
-  const tier = await resolveTierInfo(connectionId, cookie, secToken);
+  const tier = await resolveTierInfo(connectionId, cookie, secToken, site);
   const total = tier.tierLimits.weekly ?? 100;
 
   const quota: QwenTokenPlanQuota = {
@@ -340,6 +403,7 @@ export async function fetchQwenTokenPlanQuota(
     percentUsed: worst.percentUsed,
     resetAt: worst.resetAt,
     windows,
+    consoleSite: site.consoleSite,
     specCode: tier.specCode,
     tierLimits: tier.tierLimits,
     limitReached: worst.percentUsed >= 1,
