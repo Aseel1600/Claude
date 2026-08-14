@@ -49,3 +49,9 @@ test("OpenAPI defines every Team schema referenced by Team routes", () => {
     assert.match(openapi, new RegExp(`#/components/schemas/${schema}`));
   }
 });
+
+test("JSON export uses the same Management Session Auth gate as Team APIs", () => {
+  const source = readFileSync(join(ROOT, "src/app/api/settings/export-json/route.ts"), "utf8");
+  assert.match(source, /requireManagementAuth/);
+  assert.match(source, /if \(authError\) return authError/);
+});

@@ -5,7 +5,7 @@ import { getCachedProviderNodes } from "@/lib/db/readCache";
 import { getCombos } from "@/lib/db/combos";
 import { getApiKeys } from "@/lib/db/apiKeys";
 import { listAllApiKeyBillingHistory, listTeams } from "@/lib/db/teams";
-import { isAuthRequired, isAuthenticated } from "@/shared/utils/apiAuth";
+import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import {
   getAllDailyTeamUsageSummary,
   getAllUsageHistory,
@@ -49,12 +49,8 @@ export function filterPaidComboSteps<T extends { models?: unknown }>(combos: T[]
  * Exports a legacy OmniRoute-compatible JSON backup.
  */
 export async function GET(request: Request) {
-  if (await isAuthRequired(request)) {
-    if (!(await isAuthenticated(request))) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-  }
-
+  const authError = await requireManagementAuth(request);
+  if (authError) return authError;
   try {
     const url = new URL(request.url);
     // Telemetry/history tables grow indefinitely and inflate backups.
