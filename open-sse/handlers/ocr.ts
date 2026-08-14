@@ -14,11 +14,82 @@ import {
 import { errorResponse } from "../utils/error.ts";
 import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
 import { generateRequestId } from "@/shared/utils/requestId";
+import {
+  getAccessToken,
+  looksLikeServiceAccountJson,
+  parseSAFromApiKey,
+} from "../executors/vertex.ts";
 
 const OCR_POLL_MAX_ATTEMPTS = 30;
 const OCR_POLL_INTERVAL_MS = 1000;
 
 const defaultSleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+export const VERTEX_DEEPSEEK_OCR_PROVIDER_ID = "vertex-deepseek-ocr";
+const VERTEX_OCR_DEFAULT_REGION = "us-central1";
+
+/**
+ * Resolve the Vertex AI project id backing a vertex-deepseek-ocr connection: an explicit
+ * providerSpecificData.project always wins; otherwise fall back to the project_id embedded in
+ * the Service Account JSON credential (the same source VertexExecutor.buildUrl uses for the
+ * chat/image pipeline — open-sse/executors/vertex.ts). Returns null when neither is available.
+ * Kept in this handler (rather than the route) because routes may not import executors
+ * directly (see EXECUTOR_IMPORT_RESTRICTION in eslint.config.mjs) — this stays behind the
+ * open-sse handler boundary and is re-exported for the route to call.
+ */
+function resolveVertexOcrProject(credentials: {
+  apiKey?: string;
+  providerSpecificData?: Record<string, unknown>;
+}): string | null {
+  const explicitProject = credentials.providerSpecificData?.project;
+  if (typeof explicitProject === "string" && explicitProject.trim()) return explicitProject;
+  if (credentials.apiKey && looksLikeServiceAccountJson(credentials.apiKey)) {
+    try {
+      const projectId = parseSAFromApiKey(credentials.apiKey).project_id;
+      return typeof projectId === "string" && projectId.trim() ? projectId : null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Builds the full Vertex AI DeepSeek OCR endpoint URL (the generic Vertex
+ * "openapi/chat/completions" partner endpoint — see VERTEX_DEEPSEEK_TRANSFORMATION in
+ * open-sse/config/ocrRegistry.ts) from the resolved project + region, or null when the
+ * project cannot be resolved (handleOcr then surfaces the standard "No base URL configured"
+ * error, since OCR_PROVIDERS["vertex-deepseek-ocr"].baseUrl is intentionally empty).
+ */
+export function resolveVertexOcrBaseUrl(credentials: {
+  apiKey?: string;
+  providerSpecificData?: Record<string, unknown>;
+}): string | null {
+  const project = resolveVertexOcrProject(credentials);
+  if (!project) return null;
+  const region = credentials.providerSpecificData?.region;
+  const resolvedRegion =
+    typeof region === "string" && region.trim() ? region : VERTEX_OCR_DEFAULT_REGION;
+  return `https://aiplatform.googleapis.com/v1/projects/${project}/locations/${resolvedRegion}/endpoints/openapi/chat/completions`;
+}
+
+/**
+ * Mint a short-lived Vertex AI OAuth access token for vertex-deepseek-ocr connections that
+ * authenticate with a Service Account JSON credential, reusing the exact JWT-bearer exchange
+ * the chat/image executor already uses (open-sse/executors/vertex.ts::getAccessToken) — no new
+ * OAuth flow. A raw (non-JSON) apiKey is treated as an already-minted OAuth access token and
+ * used as-is (matches the Vertex provider's "Service Account JSON or OAuth access_token"
+ * authHint), and an existing credentials.accessToken always wins.
+ */
+export async function resolveVertexOcrAccessToken<
+  T extends { apiKey?: string; accessToken?: string },
+>(providerId: string, credentials: T): Promise<T> {
+  if (providerId !== VERTEX_DEEPSEEK_OCR_PROVIDER_ID) return credentials;
+  if (credentials.accessToken || !credentials.apiKey) return credentials;
+  if (!looksLikeServiceAccountJson(credentials.apiKey)) return credentials;
+  const accessToken = await getAccessToken(parseSAFromApiKey(credentials.apiKey));
+  return { ...credentials, accessToken };
+}
 
 /**
  * Handle OCR request
@@ -59,7 +130,11 @@ export async function handleOcr({
     );
   }
 
-  const token = credentials?.apiKey || credentials?.accessToken;
+  // accessToken wins when both are present: providers like vertex-deepseek-ocr resolve a
+  // short-lived OAuth token from a Service Account JSON apiKey (see resolveVertexOcrAccessToken
+  // in src/app/api/v1/ocr/route.ts) while keeping the original apiKey around for other
+  // resolution steps (e.g. deriving the project id) — the minted token must be the one sent.
+  const token = credentials?.accessToken || credentials?.apiKey;
   if (!token) {
     return errorResponse(401, `No credentials for OCR provider: ${providerId}`);
   }

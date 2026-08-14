@@ -104,6 +104,80 @@ export const AZURE_DI_TRANSFORMATION: OcrTransformation = {
   },
 };
 
+/**
+ * Vertex AI DeepSeek OCR (deepseek-ai/deepseek-ocr-maas), served through Vertex's generic
+ * OpenAI-compatible partner endpoint ("openapi/chat/completions"). Modeled on litellm's
+ * VertexAIDeepSeekOCRConfig (litellm/llms/vertex_ai/ocr/deepseek_transformation.py):
+ *   - request: OpenAI chat-completions shape, model prefixed with "deepseek-ai/", the OCR
+ *     document sent as a single image_url content part (document_url documents are mapped to
+ *     the same image_url shape — Vertex accepts both gs:// and https:// URLs there).
+ *   - response: an OpenAI chat-completions body whose choices[0].message.content is either a
+ *     JSON string already in the canonical {pages,model,usage_info} shape, or plain markdown
+ *     text — both are normalized into OcrResponseShape.
+ *
+ * The full project/location endpoint URL is resolved into credentials.baseUrl upstream (see
+ * resolveOcrCredentials in src/app/api/v1/ocr/route.ts, the same pattern Azure DI uses for its
+ * resource endpoint) — buildRequest treats baseUrl as the complete URL, exactly like Mistral.
+ */
+function vertexDeepseekOcrContent(document: Record<string, unknown> | undefined): {
+  type: string;
+  image_url: string;
+} {
+  const url = String(document?.document_url ?? document?.image_url ?? "");
+  return { type: "image_url", image_url: url };
+}
+
+export const VERTEX_DEEPSEEK_TRANSFORMATION: OcrTransformation = {
+  buildRequest({ baseUrl, token, body, modelId }) {
+    return {
+      url: baseUrl,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          model: `deepseek-ai/${modelId}`,
+          messages: [
+            {
+              role: "user",
+              content: [vertexDeepseekOcrContent(body.document as Record<string, unknown>)],
+            },
+          ],
+        }),
+      },
+    };
+  },
+  parseResponse(raw) {
+    const r = raw as {
+      model?: string;
+      choices?: Array<{ message?: { content?: unknown } }>;
+      usage?: Record<string, unknown>;
+    };
+    const model = r.model ?? "deepseek-ocr-maas";
+    const content = r.choices?.[0]?.message?.content;
+
+    if (typeof content === "string") {
+      const trimmed = content.trim();
+      if (trimmed.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(trimmed) as Partial<OcrResponseShape>;
+          if (Array.isArray(parsed.pages)) {
+            return {
+              pages: parsed.pages,
+              model: parsed.model ?? model,
+              usage_info: parsed.usage_info ?? r.usage,
+            };
+          }
+        } catch {
+          // Not JSON after all — fall through and treat it as plain markdown.
+        }
+      }
+      return { pages: [{ index: 0, markdown: content }], model, usage_info: r.usage };
+    }
+
+    return { pages: [{ index: 0, markdown: "" }], model, usage_info: r.usage };
+  },
+};
+
 export const OCR_PROVIDERS: Record<string, OcrProvider> = {
   mistral: {
     id: "mistral",
@@ -119,6 +193,14 @@ export const OCR_PROVIDERS: Record<string, OcrProvider> = {
     authHeader: "Ocp-Apim-Subscription-Key",
     models: [{ id: "prebuilt-read", name: "Azure Document Intelligence (Read)" }],
     transformation: AZURE_DI_TRANSFORMATION,
+  },
+  "vertex-deepseek-ocr": {
+    id: "vertex-deepseek-ocr",
+    baseUrl: "",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [{ id: "deepseek-ocr-maas", name: "DeepSeek OCR (Vertex AI MaaS)" }],
+    transformation: VERTEX_DEEPSEEK_TRANSFORMATION,
   },
 };
 

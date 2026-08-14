@@ -500,6 +500,10 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "command-code",
   "conol-web",
   "cnl",
+  // Alibaba Coding Plan triple-window quota (#9603 UI gap — fetcher existed, list entry missing)
+  "bailian-coding-plan",
+  // Qwen Cloud / Model Studio personal Token Plan (cookie-authenticated console gateway)
+  "qwen-cloud-token-plan",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──
