@@ -75,7 +75,7 @@ test("agentrouter 429 account quota exhausted -> connection cooldown, never term
   assert.notEqual(after.testStatus, "credits_exhausted");
   assert.ok(after.rateLimitedUntil, "connection must carry a rateLimitedUntil");
   assert.ok(
-    new Date(after.rateLimitedUntil).getTime() > Date.now(),
+    new Date(String(after.rateLimitedUntil)).getTime() > Date.now(),
     "rateLimitedUntil must be in the future"
   );
 });
@@ -548,13 +548,42 @@ test("guard: a credits-exhausted agentrouter fallbackResult with scope connectio
 // set with the SAME key — the two paths are set-equivalent for agentrouter on
 // this status, so this is not a behavior change, just documenting which
 // branch actually runs.
+//
+// Fix round 2 finding: the Set-content assertions alone (exhausted===true,
+// the connection key present, the other two sets empty) do NOT discriminate
+// which branch ran — markAuthLevelExhaustion (the 401/403 branch below)
+// produces the byte-identical Set effects for a 403 with a connectionId (same
+// key, same untouched sibling sets, same `true` return), so deleting the new
+// branch entirely would leave this test green. Use a log spy — the one real
+// observable difference between the two paths — to prove the NEW branch
+// actually fired: its message is tagged `#10334` / "account quota exhausted"
+// (markAgentrouterConnectionQuotaExhaustion), never `#8133` / "auth failure"
+// (markAuthLevelExhaustion).
+function makeLogSpy() {
+  const calls: { level: string; tag: string; message: string }[] = [];
+  const record = (level: string) => (tag: string, message: string) => {
+    calls.push({ level, tag, message });
+  };
+  return {
+    calls,
+    log: {
+      info: record("info"),
+      warn: record("warn"),
+      error: record("error"),
+      debug: record("debug"),
+    },
+  };
+}
+
 test("combo in-request skip: a RAW 403 with connection-scope quota also takes this branch (not markAuthLevelExhaustion)", () => {
   const sets = comboSets();
+  const spy = makeLogSpy();
   const exhausted = applyComboTargetExhaustion(comboTarget(), {
     ...comboBaseOpts,
     result: { status: 403 },
     fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
     sets,
+    log: spy.log,
   });
   assert.equal(exhausted, true);
   assert.ok(
@@ -566,6 +595,24 @@ test("combo in-request skip: a RAW 403 with connection-scope quota also takes th
     sets.transientRateLimitedProviders.size,
     0,
     "same suppression as the 429 case — must not force-allow reusing this connection"
+  );
+  // The discriminant: prove the NEW (#10334) branch emitted the log, not
+  // markAuthLevelExhaustion's (#8133) — the Set assertions above cannot tell
+  // the two apart on their own.
+  assert.equal(spy.calls.length, 1, "exactly one log call expected for this failure");
+  assert.match(
+    spy.calls[0].message,
+    /#10334/,
+    "must be markAgentrouterConnectionQuotaExhaustion's log line, not markAuthLevelExhaustion's"
+  );
+  assert.ok(
+    /account quota exhausted/.test(spy.calls[0].message),
+    "must carry the new branch's wording, not markAuthLevelExhaustion's 'auth failure'"
+  );
+  assert.doesNotMatch(
+    spy.calls[0].message,
+    /#8133/,
+    "must NOT be markAuthLevelExhaustion's log line"
   );
 });
 
