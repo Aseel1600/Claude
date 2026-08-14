@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Sopistikado",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max na mga larawan bawat kahilingan",
+    "visionMaxCharsLabel": "Max na mga karakter sa paglalarawan",
+    "visionMaxCharsHint": "I-cap ang haba ng paglalarawan ng modelo ng bisyon. 0 = walang limitasyon — itaas para sa mga detalyadong gawain ng OCR.",
     "modalityBridgeCacheEnabled": "Mga paglalarawan ng cache",
     "modalityBridgeCacheEnabledDesc": "Gamitin muli ang mga paglalarawan para sa mga magkaparehong larawan (SHA-256 na nakabatay, nasa memorya).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuto)",

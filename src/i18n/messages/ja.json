@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "高度な",
     "modalityBridgeTimeoutMs": "タイムアウト (ms)",
     "modalityBridgeMaxImages": "リクエストごとの最大画像数",
+    "visionMaxCharsLabel": "最大説明文字数",
+    "visionMaxCharsHint": "ビジョンモデルの説明の長さを制限します。0 = 無制限 — 詳細が多いOCRタスクの場合は増やしてください。",
     "modalityBridgeCacheEnabled": "キャッシュの説明",
     "modalityBridgeCacheEnabledDesc": "同一の画像に対して説明を再利用します（SHA-256キー付き、メモリ内）。",
     "modalityBridgeCacheTtlMinutes": "キャッシュのTTL（分）",

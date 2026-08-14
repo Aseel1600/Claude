@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "অগ্রসর",
     "modalityBridgeTimeoutMs": "টাইমআউট (মি.সে.)",
     "modalityBridgeMaxImages": "প্রতি অনুরোধে সর্বাধিক ছবি",
+    "visionMaxCharsLabel": "সর্বাধিক বর্ণনা অক্ষর",
+    "visionMaxCharsHint": "দৃষ্টি মডেলের বর্ণনার দৈর্ঘ্য সীমাবদ্ধ করুন। 0 = অসীম — বিস্তারিত-ভিত্তিক OCR কাজের জন্য বাড়ান।",
     "modalityBridgeCacheEnabled": "ক্যাশের বর্ণনা",
     "modalityBridgeCacheEnabledDesc": "একই চিত্রের জন্য বর্ণনা পুনরায় ব্যবহার করুন (SHA-256 কীযুক্ত, মেমরিতে)।",
     "modalityBridgeCacheTtlMinutes": "ক্যাশে TTL (মিনিট)",

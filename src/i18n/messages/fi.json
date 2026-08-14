@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Edistynyt",
     "modalityBridgeTimeoutMs": "Aikakatkaisu (ms)",
     "modalityBridgeMaxImages": "Maksimi kuvat per pyyntö",
+    "visionMaxCharsLabel": "Maksimi kuvauksen merkit",
+    "visionMaxCharsHint": "Rajoita vision-mallin kuvauksen pituutta. 0 = rajoittamaton — nosta yksityiskohtaisille OCR-tehtäville.",
     "modalityBridgeCacheEnabled": "Välimuistin kuvaukset",
     "modalityBridgeCacheEnabledDesc": "Käytä kuvien kuvauksia uudelleen (SHA-256 avaimella, muistissa).",
     "modalityBridgeCacheTtlMinutes": "Välimuistin TTL (minuutit)",

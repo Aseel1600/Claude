@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "고급",
     "modalityBridgeTimeoutMs": "타임아웃 (ms)",
     "modalityBridgeMaxImages": "요청당 최대 이미지 수",
+    "visionMaxCharsLabel": "최대 설명 문자 수",
+    "visionMaxCharsHint": "비전 모델의 설명 길이를 제한합니다. 0 = 무제한 — 세부 정보가 많은 OCR 작업에 대해 늘리세요.",
     "modalityBridgeCacheEnabled": "캐시 설명",
     "modalityBridgeCacheEnabledDesc": "동일한 이미지에 대한 설명 재사용 (SHA-256 키 기반, 메모리 내).",
     "modalityBridgeCacheTtlMinutes": "캐시 TTL (분)",

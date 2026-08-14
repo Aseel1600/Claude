@@ -29,7 +29,15 @@ export type ProviderErrorRule = {
 
 export type ProviderErrorRuleMatch = {
   reason: ConfiguredErrorReason;
-  /** Default "provider" — lock the whole connection so other providers take over. */
+  /**
+   * Intended lock scope. NOTE: this field is currently INFORMATIONAL — no
+   * consumer of `getProviderErrorRuleMatch` (checkFallbackError, combo.ts)
+   * reads `scope` today; only `reason` and `cooldownMs` are consulted. The
+   * actual lock scope applied at runtime is decided independently by each
+   * call site (e.g. `hasPerModelQuota()` deciding model- vs connection-level
+   * lockout). Honoring this field end-to-end is tracked as a follow-up —
+   * see `docs/architecture/RESILIENCE_GUIDE.md` §7.
+   */
   scope: "model" | "provider" | "connection";
   /** Optional explicit cooldown; falls back to the existing per-reason defaults. */
   cooldownMs?: number;
@@ -176,6 +184,61 @@ function buildOpenrouterRules(): ProviderErrorRule[] {
   ];
 }
 
+// ─── AgentRouter ────────────────────────────────────────────────────────────
+// agentrouter.org misstates temporary quota exhaustion as 403/400 with a
+// Chinese body. upstreamStatusRestatement.ts rewrites the status to 429
+// BEFORE classification, so rules here accept both the raw 403/400 and the
+// restated 429 (text is the real discriminator either way). In production,
+// the raw 403 path is what actually matters here: checkFallbackError's
+// apikey-category FORBIDDEN branch (~line 1699) returns EARLY for a plain
+// 403, before these rules are ever consulted — these rules fire on the
+// RESTATED 429 (chatCore's upstreamStatusRestatement hook runs first) via
+// resolveRuleMatchBody, which is the only path in checkFallbackError that
+// hands these rules the full error text instead of just {code, type}.
+//  - "额度不足": account-wide temporary quota → quota_exhausted, scope
+//    "connection" (mirror of the Opencode account-wide rationale above).
+//    NOTE: `scope` on ProviderErrorRuleMatch is currently informational —
+//    checkFallbackError/combo.ts only consume `reason` and `cooldownMs`, not
+//    `scope`. For agentrouter specifically (passthroughModels: true →
+//    hasPerModelQuota() is true), this quota_exhausted match actually
+//    resolves to a PER-MODEL lockout (recordModelLockoutFailure), not a
+//    connection-wide lock — other models on the same account keep being
+//    tried by combo routing (each burning one call) until they lock out
+//    individually. Honoring `scope` end-to-end is tracked as a follow-up.
+//  - "无权访问模型": declares auth_error/scope "model" (intent: lock only the
+//    model so the connection keeps serving the rest — Model Lockout tier).
+//    This rule does NOT fire on the production path today: it only matches
+//    `status === 403`, but checkFallbackError's apikey FORBIDDEN branch
+//    returns early for a plain 403 before this rule is ever consulted (see
+//    the note above). A live `无权访问模型` 403 is handled like the base
+//    apikey-provider 403 today. Wiring this rule into that path is tracked
+//    as a follow-up.
+function buildAgentrouterRules(): ProviderErrorRule[] {
+  const AGENTROUTER_ERROR_STATUSES = new Set([400, 403, 429]);
+  return [
+    {
+      id: "agentrouter-user-quota-exhausted",
+      match: ({ status, body }) => {
+        if (!AGENTROUTER_ERROR_STATUSES.has(status)) return null;
+        const text = JSON.stringify(body ?? "").toLowerCase();
+        if (!text.includes("额度不足")) return null;
+        return { reason: "quota_exhausted", scope: "connection" };
+      },
+    },
+    {
+      id: "agentrouter-model-access-denied",
+      match: ({ status, body }) => {
+        if (status !== 403) return null;
+        const text = JSON.stringify(body ?? "").toLowerCase();
+        if (!text.includes("无权访问模型")) return null;
+        // 6h: effectively "until the operator fixes the key's model grants",
+        // without being an unrecoverable terminal state.
+        return { reason: "auth_error", scope: "model", cooldownMs: 6 * 60 * 60 * 1000 };
+      },
+    },
+  ];
+}
+
 /**
  * Global registry. Provider name → ordered list of rules (first match wins).
  * Add new providers here; the matcher in classifyError will pick them up
@@ -189,7 +252,36 @@ export const providerRuleRegistry = new Map<string, ProviderErrorRule[]>([
   ["minimax-passthrough", buildMinimaxRules()],
   ["cloudflare-ai", buildCloudflareAiRules()],
   ["openrouter", buildOpenrouterRules()],
+  ["agentrouter", buildAgentrouterRules()],
 ]);
+
+/**
+ * Providers whose rules match on the FULL upstream error text.
+ * checkFallbackError's rule lookup normally passes only the structured
+ * error ({code, type} — message stripped by the combo callers), which is
+ * enough for header/status/code rules but blind to body-text markers like
+ * agentrouter's "额度不足". Providers in this set get the raw error text as
+ * the match body instead. EXCLUSIVE allowlist by owner decision (2026-08-13):
+ * adding a provider here is an explicit opt-in — the default path for every
+ * other provider must remain byte-for-byte unchanged.
+ */
+const FULL_TEXT_RULE_PROVIDERS = new Set(["agentrouter"]);
+
+/**
+ * Resolve the body handed to getProviderErrorRuleMatch inside
+ * checkFallbackError: full error text for FULL_TEXT_RULE_PROVIDERS,
+ * the structured error for everyone else.
+ */
+export function resolveRuleMatchBody(
+  provider: string | null | undefined,
+  structuredError: unknown,
+  errorText: string | null | undefined
+): unknown {
+  if (provider && FULL_TEXT_RULE_PROVIDERS.has(provider.toLowerCase()) && errorText) {
+    return errorText;
+  }
+  return structuredError ?? null;
+}
 
 /**
  * Returns the first matching rule for a provider, or null if none match.

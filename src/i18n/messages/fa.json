@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "پیشرفته",
     "modalityBridgeTimeoutMs": "زمان‌سنجی (میلی‌ثانیه)",
     "modalityBridgeMaxImages": "حداکثر تصاویر در هر درخواست",
+    "visionMaxCharsLabel": "حداکثر کاراکترهای توضیحات",
+    "visionMaxCharsHint": "طول توضیحات مدل بینایی را محدود کنید. 0 = نامحدود — برای وظایف OCR با جزئیات زیاد افزایش دهید.",
     "modalityBridgeCacheEnabled": "توضیحات کش",
     "modalityBridgeCacheEnabledDesc": "توصیف‌ها را برای تصاویر یکسان (کلیددار با SHA-256، در حافظه) دوباره استفاده کنید.",
     "modalityBridgeCacheTtlMinutes": "مدت زمان نگهداری کش (دقیقه)",
