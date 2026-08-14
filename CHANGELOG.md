@@ -167,6 +167,7 @@ _Living section — regenerated 2026-08-12 from all cycle commits (cycle open `e
 
 ### 🐛 Bug Fixes
 
+- **providers**: honor `PATCH /api/providers/[id]` so `omniroute providers rotate` stops 405ing (the OpenAPI spec and CLI already use PATCH) (PR #10366)
 - **executors**: fix internal timeout misclassified as client disconnect (499) for 7 niche executors — pass TimeoutError reason to controller.abort() (#8197 side-finding)
 - test(combo): guard auto/best-free never leaks the combo name as a model (#7754)
 - fix(vision-bridge): describe-model no longer returns unreachable "openai/gpt-4o-mini" when every vision-capable provider is unreachable on the instance — returns null instead and surfaces a clear error (#8430)
