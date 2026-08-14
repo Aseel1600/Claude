@@ -43,6 +43,8 @@ export interface LegacyJsonData {
   usageHistory?: Record<string, unknown>[];
   domainCostHistory?: Record<string, unknown>[];
   domainBudgets?: Record<string, unknown>[];
+  teams?: Record<string, unknown>[];
+  apiKeyBillingTeamHistory?: Record<string, unknown>[];
 }
 
 /**
@@ -62,6 +64,8 @@ export function runJsonMigration(
   usageHistory: number;
   domainCostHistory: number;
   domainBudgets: number;
+  teams: number;
+  apiKeyBillingTeamHistory: number;
 } {
   const insertConn = db.prepare(`
     INSERT OR REPLACE INTO provider_connections (
@@ -105,6 +109,20 @@ export function runJsonMigration(
     ) VALUES (
       @id, @name, @key, @machineId, @modelAccessMode, @allowedModels, @noLog, @createdAt
     )
+  `);
+  const insertTeam = db.prepare(`
+    INSERT OR REPLACE INTO teams (
+      id, name, description, status, max_budget_usd, budget_duration,
+      budget_reset_at, created_at, updated_at, archived_at
+    ) VALUES (
+      @id, @name, @description, @status, @maxBudgetUsd, @budgetDuration,
+      @budgetResetAt, @createdAt, @updatedAt, @archivedAt
+    )
+  `);
+  const insertBillingHistory = db.prepare(`
+    INSERT OR REPLACE INTO api_key_billing_team_history (
+      id, api_key_id, team_id, valid_from, valid_to, created_at
+    ) VALUES (@id, @apiKeyId, @teamId, @validFrom, @validTo, @createdAt)
   `);
 
   const migrate = db.transaction(() => {
@@ -235,7 +253,32 @@ export function runJsonMigration(
         createdAt: apiKey.createdAt ?? new Date().toISOString(),
       });
     }
-    // 7. Usage History
+    // 7. Teams and temporal API-key billing ownership
+    for (const team of data.teams ?? []) {
+      insertTeam.run({
+        id: team.id,
+        name: team.name,
+        description: team.description ?? "",
+        status: team.status === "archived" ? "archived" : "active",
+        maxBudgetUsd: team.maxBudgetUsd ?? null,
+        budgetDuration: team.budgetDuration ?? null,
+        budgetResetAt: team.budgetResetAt ?? null,
+        createdAt: team.createdAt ?? new Date().toISOString(),
+        updatedAt: team.updatedAt ?? team.createdAt ?? new Date().toISOString(),
+        archivedAt: team.archivedAt ?? null,
+      });
+    }
+    for (const binding of data.apiKeyBillingTeamHistory ?? []) {
+      insertBillingHistory.run({
+        id: binding.id,
+        apiKeyId: binding.apiKeyId,
+        teamId: binding.teamId,
+        validFrom: binding.validFrom,
+        validTo: binding.validTo ?? null,
+        createdAt: binding.createdAt ?? binding.validFrom,
+      });
+    }
+    // 8. Usage History
     if (data.usageHistory && data.usageHistory.length > 0) {
       const importedConnections = new Map(
         (data.providerConnections ?? []).map((connection) => [connection.id, connection])
@@ -243,12 +286,12 @@ export function runJsonMigration(
       const insertUsageHistory = db.prepare(`
         INSERT OR REPLACE INTO usage_history (
           id, provider, model, connection_id, account_key, account_label, account_label_priority,
-          api_key_id, api_key_name, tokens_input, tokens_output, tokens_cache_read,
+          api_key_id, api_key_name, billing_team_id, tokens_input, tokens_output, tokens_cache_read,
           tokens_cache_creation, tokens_reasoning, status, success, latency_ms, ttft_ms,
           error_code, combo_strategy, timestamp
         ) VALUES (
           @id, @provider, @model, @connection_id, @account_key, @account_label,
-          @account_label_priority, @api_key_id, @api_key_name, @tokens_input, @tokens_output,
+          @account_label_priority, @api_key_id, @api_key_name, @billing_team_id, @tokens_input, @tokens_output,
           @tokens_cache_read, @tokens_cache_creation, @tokens_reasoning, @status, @success,
           @latency_ms, @ttft_ms, @error_code, @combo_strategy, @timestamp
         )
@@ -270,6 +313,7 @@ export function runJsonMigration(
           account_label_priority: identity.accountLabelPriority,
           api_key_id: row.api_key_id ?? null,
           api_key_name: row.api_key_name ?? null,
+          billing_team_id: row.billing_team_id ?? row.billingTeamId ?? null,
           tokens_input: row.tokens_input ?? 0,
           tokens_output: row.tokens_output ?? 0,
           tokens_cache_read: row.tokens_cache_read ?? 0,
@@ -345,5 +389,7 @@ export function runJsonMigration(
     usageHistory: (data.usageHistory ?? []).length,
     domainCostHistory: (data.domainCostHistory ?? []).length,
     domainBudgets: (data.domainBudgets ?? []).length,
+    teams: (data.teams ?? []).length,
+    apiKeyBillingTeamHistory: (data.apiKeyBillingTeamHistory ?? []).length,
   };
 }
