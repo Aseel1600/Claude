@@ -654,6 +654,7 @@ type AnonymousFallbackProviderDefinition = {
   noAuth?: boolean;
 };
 function buildSyntheticNoAuthCredentials(providerSpecificData: JsonRecord = {}): {
+  authType: "none";
   apiKey: null;
   accessToken: null;
   refreshToken: null;
@@ -676,6 +677,7 @@ function buildSyntheticNoAuthCredentials(providerSpecificData: JsonRecord = {}):
   retryAfterHuman?: never;
 } {
   return {
+    authType: "none",
     apiKey: null,
     accessToken: null,
     refreshToken: null,
