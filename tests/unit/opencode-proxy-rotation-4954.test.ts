@@ -2,6 +2,7 @@ import { describe, it, beforeEach, afterEach, before, after } from "node:test";
 import assert from "node:assert";
 import net from "node:net";
 import { OpencodeExecutor } from "../../open-sse/executors/opencode.ts";
+import type { ExecutorLog } from "../../open-sse/executors/base.ts";
 import {
   resolveProxyForRequest,
   runWithAppliedProxyCapture,
@@ -166,6 +167,101 @@ describe("OpencodeExecutor per-account proxy + rotation (#4954)", () => {
     );
     for (const p of observed) {
       assert.strictEqual(p.source, "context", "every dispatch must egress through a proxy context");
+    }
+  });
+
+  it("rotates to the next account on a network throw (not just 429)", async () => {
+    const exec = new OpencodeExecutor("opencode-zen");
+    let call = 0;
+    const originalFetchForThrow = globalThis.fetch;
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = typeof input === "string" ? input : input?.url || String(input);
+      const resolved = resolveProxyForRequest(url);
+      observed.push({
+        source: resolved.source,
+        host: resolved.proxyUrl ? new URL(resolved.proxyUrl).hostname : null,
+        port: resolved.proxyUrl ? new URL(resolved.proxyUrl).port : null,
+      });
+      call++;
+      if (call === 1) {
+        throw new Error("ECONNRESET: connection reset by peer");
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof globalThis.fetch;
+
+    try {
+      const result = await exec.execute({
+        model: "deepseek-v4-flash-free",
+        body: { messages: [{ role: "user", content: "hi" }], stream: false },
+        stream: false,
+        signal: null,
+        credentials: credentialsWithProxies(),
+        log,
+      });
+
+      assert.strictEqual(
+        (result as { response: { status: number } }).response.status,
+        200,
+        "a throw on account A must not abort the request — account B must be tried",
+      );
+      assert.ok(
+        observed.length >= 2,
+        "should have retried on a second account after the throw",
+      );
+      assert.notStrictEqual(
+        observed[0].port,
+        observed[1].port,
+        "rotation must switch to a different account/proxy after a throw",
+      );
+    } finally {
+      globalThis.fetch = originalFetchForThrow;
+    }
+  });
+
+  it("logs a network-error rotation and does not swallow it silently", async () => {
+    const exec = new OpencodeExecutor("opencode-zen");
+    let call = 0;
+    const originalFetchForThrow = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      call++;
+      if (call === 1) throw new Error("ETIMEDOUT");
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof globalThis.fetch;
+
+    const warnCalls: Array<{ tag: unknown; msg: string }> = [];
+    const spyLog: ExecutorLog = {
+      debug() {},
+      info() {},
+      warn: (tag, msg) => {
+        warnCalls.push({ tag, msg });
+      },
+      error() {},
+    };
+
+    try {
+      await exec.execute({
+        model: "deepseek-v4-flash-free",
+        body: { messages: [{ role: "user", content: "hi" }], stream: false },
+        stream: false,
+        signal: null,
+        credentials: credentialsWithProxies(),
+        log: spyLog,
+      });
+
+      assert.ok(
+        warnCalls.some(
+          (c) => c.tag === "OPENCODE" && /network error/i.test(c.msg),
+        ),
+        `expected a warn-level "network error" log; got=${JSON.stringify(warnCalls)}`,
+      );
+    } finally {
+      globalThis.fetch = originalFetchForThrow;
     }
   });
 

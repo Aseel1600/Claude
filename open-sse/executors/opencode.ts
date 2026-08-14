@@ -287,9 +287,24 @@ export class OpencodeExecutor extends BaseExecutor {
         // Pin egress to this account's proxy for the whole BaseExecutor dispatch
         // (incl. its intra-URL 429 retries). skipUpstreamRetry lets THIS loop own
         // the cross-account 429 fallback instead of BaseExecutor's same-key retry.
-        const result = await runWithProxyContext(account.proxy, () =>
-          super.execute({ ...input, skipUpstreamRetry: true })
-        );
+        let result;
+        try {
+          result = await runWithProxyContext(account.proxy, () =>
+            super.execute({ ...input, skipUpstreamRetry: true })
+          );
+        } catch (err) {
+          // A network exception (timeout, connection refused/reset) on ONE account
+          // must not abort the whole request when other accounts remain — symmetric
+          // to the existing 429 handling above. Never swallowed silently: logged
+          // before rotating so operators can see which account failed and why.
+          this.markCooldown(account);
+          const reason = err instanceof Error ? err.message : String(err);
+          log?.warn?.(
+            "OPENCODE",
+            `network error on account ${masked}, rotating to next… (${reason})`,
+          );
+          continue;
+        }
         lastResult = result;
 
         const status = result.response.status;
