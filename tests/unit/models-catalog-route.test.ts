@@ -1399,7 +1399,11 @@ test("v1 models catalog skips duplicate built-ins and custom models from inactiv
 
   assert.equal(response.status, 200);
   assert.equal(duplicateBuiltins.length, 1);
-  assert.equal(duplicateBuiltins[0].custom === true, false);
+  // #10248: a custom row sharing a built-in id is the operator-owned overlay —
+  // the catalog keeps one deduped entry, flags it custom, and applies the
+  // custom row's explicitly-stored fields (here: the display name).
+  assert.equal(duplicateBuiltins[0].custom, true);
+  assert.equal(duplicateBuiltins[0].name, "Duplicate Builtin");
   assert.equal(
     body.data.some((item) => item.id === "cl/inactive-only" || item.id === "cline/inactive-only"),
     false
