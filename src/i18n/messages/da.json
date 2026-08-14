@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Avanceret",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Maks billeder pr. anmodning",
+    "visionMaxCharsLabel": "Maksimalt antal tegn i beskrivelsen",
+    "visionMaxCharsHint": "Begræns længden af beskrivelsen af visionsmodellen. 0 = ubegrænset — hæv for detaljerede OCR-opgaver.",
     "modalityBridgeCacheEnabled": "Cache beskrivelser",
     "modalityBridgeCacheEnabledDesc": "Genbrug beskrivelser for identiske billeder (SHA-256 nøgle, i hukommelsen).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minutter)",

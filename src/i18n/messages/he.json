@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "מתקדם",
     "modalityBridgeTimeoutMs": "זמן פסק (מילישניות)",
     "modalityBridgeMaxImages": "מקסימום תמונות לכל בקשה",
+    "visionMaxCharsLabel": "מקסימום תווים לתיאור",
+    "visionMaxCharsHint": "קבע את אורך התיאור של מודל הראייה. 0 = ללא הגבלה — הגדל עבור משימות OCR עשירות בפרטים.",
     "modalityBridgeCacheEnabled": "תיאורי מטמון",
     "modalityBridgeCacheEnabledDesc": "שימוש חוזר בתיאורים עבור תמונות זהות (מפתח SHA-256, בזיכרון).",
     "modalityBridgeCacheTtlMinutes": "TTL במטמון (דקות)",

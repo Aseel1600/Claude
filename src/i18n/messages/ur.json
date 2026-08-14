@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "ایڈوانسڈ",
     "modalityBridgeTimeoutMs": "ٹائم آؤٹ (ملی سیکنڈ)",
     "modalityBridgeMaxImages": "ہر درخواست میں زیادہ سے زیادہ تصاویر",
+    "visionMaxCharsLabel": "زیادہ سے زیادہ وضاحت کے کردار",
+    "visionMaxCharsHint": "ویژن ماڈل کی وضاحت کی لمبائی کو محدود کریں۔ 0 = لامحدود — تفصیل سے بھرپور OCR کاموں کے لیے بڑھائیں۔",
     "modalityBridgeCacheEnabled": "کیچ کی تفصیلات",
     "modalityBridgeCacheEnabledDesc": "ہم شکلوں کے لیے ایک جیسی تفصیلات دوبارہ استعمال کریں (SHA-256 کی کنجی، میموری میں)۔",
     "modalityBridgeCacheTtlMinutes": "کیچ TTL (منٹ)",
