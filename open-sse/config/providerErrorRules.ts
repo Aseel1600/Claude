@@ -231,8 +231,15 @@ function buildAgentrouterRules(): ProviderErrorRule[] {
         if (status !== 403) return null;
         const text = JSON.stringify(body ?? "").toLowerCase();
         if (!text.includes("无权访问模型")) return null;
-        // 6h: effectively "until the operator fixes the key's model grants",
-        // without being an unrecoverable terminal state.
+        // Declares a 6h cooldown, but the effective cooldown is NOT 6h: the
+        // model-lockout persistence layer (recordModelLockoutFailure, called from
+        // markAccountUnavailable) clamps every base cooldown — this one included —
+        // to the configured model-lockout maxCooldownMs, which defaults to
+        // 1_800_000ms / 30min (src/lib/resilience/modelLockoutSettings.ts,
+        // DEFAULT_MODEL_LOCKOUT_SETTINGS.maxCooldownMs). So in practice this is
+        // "locked for ~30min by default (up to 6h if an operator raises the model-
+        // lockout cap in settings)", not "until the operator fixes the key's model
+        // grants" — it is a recoverable window, not a real fix-driven unlock.
         return { reason: "auth_error", scope: "model", cooldownMs: 6 * 60 * 60 * 1000 };
       },
     },
