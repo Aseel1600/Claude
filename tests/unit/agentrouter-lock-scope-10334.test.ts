@@ -434,6 +434,19 @@ test("combo in-request skip: agentrouter connection-scope quota marks exhaustedC
     0,
     "must NOT exhaust the whole provider — sibling agentrouter connections keep their own quota"
   );
+  // Important finding (review round 1): unlike markConnectionLevelExhaustion's
+  // path, this branch must NEVER populate transientRateLimitedProviders. That
+  // set drives combo.ts's `allowRateLimitedConnection` force-allow
+  // (open-sse/services/combo.ts:1005-1013 and :2734-2738), which bypasses the
+  // `rateLimitedUntil` filter in credential selection (src/sse/services/auth.ts:1238)
+  // for the provider's remaining legs this request. Marking it here would
+  // silently re-open the very connection Task 2's markAccountUnavailable (and
+  // this branch) just cooled down.
+  assert.equal(
+    sets.transientRateLimitedProviders.size,
+    0,
+    "must NOT mark transientRateLimitedProviders — that would force-allow reusing the connection this branch just exhausted"
+  );
 });
 
 test("combo in-request skip: no connectionId falls back to whole-provider exhaustion", () => {
@@ -522,6 +535,38 @@ test("guard: a credits-exhausted agentrouter fallbackResult with scope connectio
   assert.equal(exhausted, false);
   assert.equal(sets.exhaustedConnections.has("agentrouter:conn-agentrouter-1"), false);
   assert.equal(sets.exhaustedProviders.size, 0);
+});
+
+// Minor finding (review round 1): the connection-scope branch is NOT
+// 429-only. The "额度不足" rule (buildAgentrouterRules, providerErrorRules.ts)
+// matches statuses {400, 403, 429}, and Task 1's FORBIDDEN pre-check
+// (accountFallback.ts ~1729-1751, gated on honorsRuleLockScope) surfaces
+// `ruleScope: "connection"` for a RAW 403 carrying that body too — before the
+// generic apikey FORBIDDEN early-return, and before markAuthLevelExhaustion
+// below ever sees it. Pin that a raw 403 with this shape takes the SAME
+// connection-scope branch (not markAuthLevelExhaustion) and lands in the SAME
+// set with the SAME key — the two paths are set-equivalent for agentrouter on
+// this status, so this is not a behavior change, just documenting which
+// branch actually runs.
+test("combo in-request skip: a RAW 403 with connection-scope quota also takes this branch (not markAuthLevelExhaustion)", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(comboTarget(), {
+    ...comboBaseOpts,
+    result: { status: 403 },
+    fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
+    sets,
+  });
+  assert.equal(exhausted, true);
+  assert.ok(
+    sets.exhaustedConnections.has("agentrouter:conn-agentrouter-1"),
+    "a raw 403 carrying ruleScope=connection must exhaust the connection just like the restated-429 case"
+  );
+  assert.equal(sets.exhaustedProviders.size, 0);
+  assert.equal(
+    sets.transientRateLimitedProviders.size,
+    0,
+    "same suppression as the 429 case — must not force-allow reusing this connection"
+  );
 });
 
 // ─── Invariant sentinel ─────────────────────────────────────────────────

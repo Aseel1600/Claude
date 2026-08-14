@@ -377,12 +377,28 @@ never `creditsExhausted` — a defense against a future rule pairing scope
   see the code comment above the branch).
 - **Same-request combo routing** (`applyComboTargetExhaustion()`,
   `open-sse/services/combo/targetExhaustion.ts`): the same guard marks the
-  connection into the in-memory `exhaustedConnections` set so remaining
-  same-connection targets are skipped for the rest of the *current* request —
-  not just future requests. Without this, a combo with several legs on the
-  same exhausted agentrouter account would burn one upstream call per
-  remaining leg before the persisted cooldown above ever took effect on the
-  next request.
+  connection into the in-memory `exhaustedConnections` set, keyed
+  `${provider}:${connectionId}`. This only skips a remaining SAME-REQUEST
+  target that *itself already carries that exact `connectionId`* on its own
+  target object (`getExhaustedTargetSkipReason()`,
+  `open-sse/services/combo/comboPredicates.ts`, `if (provider &&
+connectionId)` before the `exhaustedConnections` lookup) — a plain
+  model-list combo, where sibling targets carry no pinned `connectionId` of
+  their own and one is only resolved per-dispatch from the response's
+  `X-OmniRoute-Selected-Connection-Id` header, never hits that key match. For
+  that common case, the real protection against a remaining leg reusing the
+  just-exhausted account is NOT this Set — it is the persistence layer above
+  (the connection's `rateLimitedUntil` is now in the future) combined with
+  this same guard suppressing `transientRateLimitedProviders` for the
+  failure (see "Two-stage design" and the code comment on the
+  `isAgentrouterConnectionQuotaScope` branch in `targetExhaustion.ts`): with
+  that Set left unmarked, `combo.ts`'s `allowRateLimitedConnection` force-allow
+  (`open-sse/services/combo.ts:1005-1013`, `:2734-2738`) does NOT kick in for
+  the provider's remaining legs, so credential selection's `rateLimitedUntil`
+  filter (`src/sse/services/auth.ts:1238`) is honored normally and a
+  remaining leg either picks a different, still-eligible agentrouter
+  connection or fails with no credentials available — it does not force its
+  way back onto the connection this branch just cooled down.
 
 ### Two-stage design: status restatement, then classification
 
