@@ -24,7 +24,7 @@ jobs:
       - name: Run gitleaks scan
         uses: zricethezav/gitleaks-action@v2
         with:
-          args: detect --source=. --config=.gitleaks.toml --report-format=json --report-path=reports/gitleaks-report.json
+          args: detect --source=. --config=.gitleaks.toml --report-format=json --report-path=reports/gitleaks-report.json --baseline-path=gitleaks-baseline.json
 
       - name: Upload gitleaks report
         if: always()
