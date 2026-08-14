@@ -21,6 +21,10 @@ const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const auth = await import("../../src/sse/services/auth.ts");
 const accountFallback = await import("../../open-sse/services/accountFallback.ts");
+const { applyComboTargetExhaustion } = await import(
+  "../../open-sse/services/combo/targetExhaustion.ts"
+);
+const { classifyProviderError } = await import("../../open-sse/services/errorClassifier.ts");
 
 const QUOTA_EXHAUSTED_429 = '{"error":{"message":"账户额度不足，请充值后重试"}}';
 const MODEL_ACCESS_DENIED_403 = '{"error":{"message":"无权访问模型 claude-opus-5"}}';
@@ -352,5 +356,191 @@ test("disableCooling=true skips the connection-scope branch and falls back to pe
   assert.ok(
     lockout,
     "expected a per-model lockout when disableCooling bypasses the connection branch"
+  );
+});
+
+// ─── Task 3 (#10334): combo skips the exhausted agentrouter connection
+// WITHIN THE SAME REQUEST ──────────────────────────────────────────────────
+// The tests above pin markAccountUnavailable's PERSISTED connection cooldown
+// — that only protects the NEXT request. applyComboTargetExhaustion (the
+// #1731/#1731v2 shared classifier both combo dispatchers call after every
+// target's upstream error — open-sse/services/combo/targetExhaustion.ts) is
+// what decides whether remaining targets of the CURRENT request are skipped.
+// Without a matching gate there, a combo with 5 legs on the same exhausted
+// agentrouter account would still burn all 5 upstream calls before the
+// persisted cooldown from the tests above ever kicks in.
+
+function comboSets() {
+  return {
+    exhaustedProviders: new Set<string>(),
+    exhaustedConnections: new Set<string>(),
+    transientRateLimitedProviders: new Set<string>(),
+  };
+}
+
+function comboTarget(overrides: Record<string, unknown> = {}) {
+  return {
+    kind: "model",
+    executionKey: "ek",
+    modelStr: "agentrouter/claude-opus-5",
+    provider: "agentrouter",
+    providerId: null,
+    connectionId: "conn-agentrouter-1",
+    ...overrides,
+  } as Parameters<typeof applyComboTargetExhaustion>[0];
+}
+
+const comboLog = { info() {}, warn() {}, error() {}, debug() {} };
+
+const comboBaseOpts = {
+  errorText: QUOTA_EXHAUSTED_429,
+  rawModel: "claude-opus-5",
+  isTokenLimitBreach: false,
+  allAccountsRateLimited: false,
+  requestScopedFailure: false,
+  log: comboLog,
+  tag: "COMBO",
+  exhaustedLogLevel: "info" as const,
+};
+
+// The real shape checkFallbackError surfaces for agentrouter's restated 429
+// (open-sse/config/providerErrorRules.ts's "agentrouter-user-quota-exhausted"
+// rule: reason "quota_exhausted", scope "connection") — same shape pinned by
+// isAgentrouterConnectionQuotaScope's own tests above.
+const CONNECTION_SCOPE_FALLBACK_RESULT = {
+  ruleScope: "connection" as const,
+  reason: "quota_exhausted",
+};
+
+test("combo in-request skip: agentrouter connection-scope quota marks exhaustedConnections (#10334)", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(comboTarget(), {
+    ...comboBaseOpts,
+    result: { status: 429 },
+    fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
+    sets,
+  });
+  assert.equal(
+    exhausted,
+    true,
+    "combo must treat this like an exhausted target — no same-target retry"
+  );
+  assert.ok(
+    sets.exhaustedConnections.has("agentrouter:conn-agentrouter-1"),
+    "the exhausted account's connection must be marked so remaining same-connection targets are skipped this request"
+  );
+  assert.equal(
+    sets.exhaustedProviders.size,
+    0,
+    "must NOT exhaust the whole provider — sibling agentrouter connections keep their own quota"
+  );
+});
+
+test("combo in-request skip: no connectionId falls back to whole-provider exhaustion", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(comboTarget({ connectionId: null }), {
+    ...comboBaseOpts,
+    result: { status: 429 },
+    fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
+    sets,
+  });
+  assert.equal(exhausted, true);
+  assert.ok(
+    sets.exhaustedProviders.has("agentrouter"),
+    "no connectionId to scope to — must fall back to whole-provider, mirroring markAuthLevelExhaustion"
+  );
+  assert.equal(sets.exhaustedConnections.size, 0);
+});
+
+test("exclusivity: an equivalent connection-scope-shaped result for ollama-cloud marks nothing (#10334 is agentrouter-only)", () => {
+  const sets = comboSets();
+  // Synthetic: production never actually produces ruleScope for a
+  // non-allowlisted provider (honorsRuleLockScope gates it upstream inside
+  // checkFallbackError) — feeding it here directly proves
+  // applyComboTargetExhaustion ALSO re-checks the provider via
+  // isAgentrouterConnectionQuotaScope rather than trusting whatever shape
+  // it is handed.
+  const exhausted = applyComboTargetExhaustion(
+    comboTarget({ provider: "ollama-cloud", connectionId: "conn-ollama-1" }),
+    {
+      ...comboBaseOpts,
+      result: { status: 429 },
+      fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
+      sets,
+    }
+  );
+  assert.equal(
+    exhausted,
+    false,
+    "ollama-cloud must fall through to today's per-model-quota behavior unchanged"
+  );
+  assert.equal(sets.exhaustedConnections.size, 0);
+  assert.equal(sets.exhaustedProviders.size, 0);
+});
+
+test("exclusivity: vertex with the same synthetic connection-scope result marks nothing", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(
+    comboTarget({ provider: "vertex", connectionId: "conn-vertex-1" }),
+    {
+      ...comboBaseOpts,
+      result: { status: 429 },
+      fallbackResult: CONNECTION_SCOPE_FALLBACK_RESULT,
+      sets,
+    }
+  );
+  assert.equal(exhausted, false);
+  assert.equal(sets.exhaustedConnections.size, 0);
+  assert.equal(sets.exhaustedProviders.size, 0);
+});
+
+test("guard: a permanent agentrouter fallbackResult with scope connection does NOT mark the connection exhausted here either", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(comboTarget(), {
+    ...comboBaseOpts,
+    result: { status: 429 },
+    fallbackResult: { ruleScope: "connection" as const, reason: "auth_error", permanent: true },
+    sets,
+  });
+  assert.equal(exhausted, false);
+  assert.equal(sets.exhaustedConnections.has("agentrouter:conn-agentrouter-1"), false);
+  assert.equal(sets.exhaustedProviders.size, 0);
+});
+
+test("guard: a credits-exhausted agentrouter fallbackResult with scope connection does NOT mark the connection exhausted here either", () => {
+  const sets = comboSets();
+  const exhausted = applyComboTargetExhaustion(comboTarget(), {
+    ...comboBaseOpts,
+    result: { status: 429 },
+    fallbackResult: {
+      ruleScope: "connection" as const,
+      reason: "quota_exhausted",
+      creditsExhausted: true,
+    },
+    sets,
+  });
+  assert.equal(exhausted, false);
+  assert.equal(sets.exhaustedConnections.has("agentrouter:conn-agentrouter-1"), false);
+  assert.equal(sets.exhaustedProviders.size, 0);
+});
+
+// ─── Invariant sentinel ─────────────────────────────────────────────────
+// classifyProviderError (open-sse/services/errorClassifier.ts) must NEVER
+// classify agentrouter's restated 429 body ("用户额度不足") as quota_exhausted.
+// If it ever does, open-sse/handlers/chatCore.ts's providerFailure handling
+// (~line 3835-3856) can reach the terminal `else` branch
+// (`testStatus: "credits_exhausted"`) for agentrouter whenever
+// lockModelIfPerModelQuota does not itself claim the failure — turning a
+// transient, self-recovering account-quota window into a connection that
+// requires a manual operator reset. agentrouter is an apikey-category
+// provider (not oauth), so shouldPreserveQuotaSignalsFor429 in
+// errorClassifier.ts returns false for it and the 429 branch falls through
+// to RATE_LIMITED instead — pin that this stays true.
+test("sentinel: classifyProviderError never returns quota_exhausted for agentrouter's restated 429 body", () => {
+  const classification = classifyProviderError(429, "用户额度不足", "agentrouter");
+  assert.notEqual(
+    classification,
+    "quota_exhausted",
+    "a quota_exhausted classification here would route agentrouter's transient account quota into chatCore's terminal credits_exhausted branch (~chatCore.ts:3849)"
   );
 });
