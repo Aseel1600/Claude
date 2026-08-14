@@ -45,6 +45,7 @@ import {
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
+import { honorsRuleLockScope } from "@omniroute/open-sse/config/providerErrorRules.ts";
 import {
   preflightQuota,
   isQuotaPreflightEnabled,
@@ -2101,6 +2102,39 @@ export async function markAccountUnavailable(
     const disableCooling = connProviderSpecificData.disableCooling === true;
 
     const isPerModelQuotaProvider = hasPerModelQuota(provider, model, connectionPassthroughModels);
+
+    // #10334 — agentrouter EXCLUSIVE: the matched provider rule declared scope
+    // "connection" for account-wide quota exhaustion ("额度不足"). agentrouter is
+    // a passthroughModels provider (isPerModelQuotaProvider === true), so without
+    // this branch the next `if` would treat it like any other passthrough 429 and
+    // lock a SINGLE model — leaving combo routing to burn one upstream call per
+    // remaining model of the same exhausted account. Must run BEFORE that block.
+    // Deliberately ignores persistUnavailableState/isCombo: for combo the caller
+    // downgrades persistUnavailableState to false, and the generic path further
+    // below would then lock per MODEL instead of cooling the connection — exactly
+    // what this scope must override. NEVER sets a terminal status: this is a
+    // renewing quota window, not "credits_exhausted"/"banned"/"expired".
+    const ruleScopeIsConnection =
+      honorsRuleLockScope(provider) && fallbackResult.ruleScope === "connection";
+    if (ruleScopeIsConnection && provider && !disableCooling) {
+      const connectionCooldownMs =
+        fallbackResult.cooldownMs > 0 ? fallbackResult.cooldownMs : COOLDOWN_MS.rateLimit;
+      await updateProviderConnection(connectionId, {
+        lastErrorType: fallbackResult.reason || RateLimitReason.QUOTA_EXHAUSTED,
+        lastError: `Account quota exhausted (${provider})`,
+        lastErrorAt: new Date().toISOString(),
+        errorCode: status,
+        backoffLevel: fallbackResult.newBackoffLevel ?? backoffLevel,
+        rateLimitedUntil: getUnavailableUntil(connectionCooldownMs),
+        testStatus: "unavailable",
+      });
+      log.info(
+        "AUTH",
+        `Connection-scoped cooldown for ${provider}:${connectionId.slice(0, 8)} — ${status} ${fallbackResult.reason} ${Math.ceil(connectionCooldownMs / 1000)}s (rule scope=connection, overrides per-model lockout)`
+      );
+      return { shouldFallback: true, cooldownMs: connectionCooldownMs };
+    }
+
     const isNvidiaModelGone = provider === "nvidia" && status === 410;
     const modelLockoutOptions = { maxCooldownMs: effectiveProviderProfile?.maxCooldownMs };
     if (
