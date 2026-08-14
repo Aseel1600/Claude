@@ -98,17 +98,7 @@ export function getExecutorTimeoutMs(executor: unknown, provider?: string, model
   return resolveProviderTimeoutMs(executor);
 }
 
-export function normalizeExecutorResult(
-  result:
-    | Response
-    | {
-        response: Response;
-        url?: string;
-        headers?: Record<string, string>;
-        transformedBody?: unknown;
-        transport?: string;
-      }
-): {
+export function normalizeExecutorResult(result: unknown): {
   response: Response;
   url: string;
   headers: Record<string, string>;
@@ -118,12 +108,27 @@ export function normalizeExecutorResult(
   if (result instanceof Response) {
     return { response: result, url: "", headers: {}, transformedBody: null };
   }
+  if (
+    !result ||
+    typeof result !== "object" ||
+    !("response" in result) ||
+    !(result.response instanceof Response)
+  ) {
+    throw new TypeError("Executor result must contain a Response");
+  }
+  const normalized = result as {
+    response: Response;
+    url?: string;
+    headers?: Record<string, string>;
+    transformedBody?: unknown;
+    transport?: string;
+  };
   return {
-    response: result.response,
-    url: result.url || "",
-    headers: result.headers || {},
-    transformedBody: result.transformedBody ?? null,
-    transport: result.transport,
+    response: normalized.response,
+    url: normalized.url || "",
+    headers: normalized.headers || {},
+    transformedBody: normalized.transformedBody ?? null,
+    transport: normalized.transport,
   };
 }
 
