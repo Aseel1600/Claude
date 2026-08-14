@@ -191,13 +191,17 @@ export default function QuotaScrapingFields({
           type="password"
           value={values.qwenCloudCookie}
           onChange={(e) => onChange({ qwenCloudCookie: e.target.value })}
-          placeholder="token=..."
+          placeholder="cna=...; login_qwencloud_ticket=...; ..."
           hint={providerText(
             t,
             "qwenCloudCookieHint",
-            editMode
-              ? "Leave blank to keep the stored cookie. Required for Token Plan quota — the inference API key cannot read it. Paste the full Cookie header from home.qwencloud.com (or the Model Studio console)."
-              : "Required for Token Plan quota — the inference API key cannot read it. Paste the full Cookie header from home.qwencloud.com (or the Model Studio console)."
+            (editMode ? "Leave blank to keep the stored cookie. " : "") +
+              "Required for Token Plan quota — the inference API key cannot read it. " +
+              "How to get it: open home.qwencloud.com › Billing › Subscription while logged in, " +
+              "press F12 › Network, reload the page, filter by api.json, click any request to " +
+              "cs-data.qwencloud.com, then under Request Headers copy the WHOLE Cookie value " +
+              "(it contains login_qwencloud_ticket). It expires with the browser session — " +
+              "re-paste it when the quota reports an expired session."
           )}
           autoComplete="off"
           spellCheck={false}

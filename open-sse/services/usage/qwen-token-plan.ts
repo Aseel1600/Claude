@@ -51,9 +51,13 @@ export async function getQwenTokenPlanUsage(
     if (!quota) {
       return {
         message:
-          "Qwen Token Plan connected. Quota requires a console session cookie " +
-          "(qwenCloudCookie in the connection settings or QWEN_CLOUD_COOKIE env) — " +
-          "the inference API key cannot read it. Refresh the cookie if it expired.",
+          "Qwen Token Plan connected. Quota needs a console session cookie — the inference " +
+          "API key cannot read it. Get it at home.qwencloud.com › Billing › Subscription " +
+          "(logged in): F12 › Network, reload, filter by api.json, click a request to " +
+          "cs-data.qwencloud.com and copy the whole Cookie value from Request Headers " +
+          "(it contains login_qwencloud_ticket). Paste it into the connection's " +
+          "'Qwen / Model Studio console cookie' field, or set QWEN_CLOUD_COOKIE. " +
+          "The cookie expires with the browser session — re-paste it when this message returns.",
       };
     }
 
