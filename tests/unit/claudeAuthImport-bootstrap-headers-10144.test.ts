@@ -2,9 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 
-// Same version source the two working bootstrap call-sites use
-// (open-sse/executors/claudeIdentity.ts, src/lib/oauth/providers/claude.ts).
-const CLAUDE_CODE_CLIENT_VERSION = "2.1.220";
+// Canonical wire-identity source of truth — imported, never re-typed, so a
+// version bump in claudeCodeClient.ts can't silently desync this test
+// (guarded repo-wide by tests/unit/claude-codex-identity-version-sync.test.ts).
+import { getClaudeCodeUserAgent } from "../../src/shared/constants/claudeCodeClient.ts";
 
 // #10143 / #10144: the claude-auth import bootstrap call was missing the
 // `User-Agent` and `anthropic-beta` headers that the two other callers of
@@ -79,7 +80,7 @@ async function enrichWithBootstrap(parsed: ParsedClaudeAuth): Promise<EnrichedCl
         Authorization: `Bearer ${parsed.accessToken}`,
         "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
-        "User-Agent": `claude-cli/${CLAUDE_CODE_CLIENT_VERSION} (external, cli)`,
+        "User-Agent": getClaudeCodeUserAgent("cli"),
         "anthropic-beta": "oauth-2025-04-20",
       },
       signal: controller.signal,
@@ -201,10 +202,10 @@ test("enrichWithBootstrap sends User-Agent and anthropic-beta CLI headers on the
     assert.equal(captured.url, "https://api.anthropic.com/api/claude_cli/bootstrap");
     // Same header set the two working call-sites send (claudeIdentity.ts and
     // oauth/providers/claude.ts): a claude-cli User-Agent + the OAuth beta.
-    assert.match(
+    assert.equal(
       captured.headers["User-Agent"],
-      /^claude-cli\//,
-      "User-Agent must identify as the real CLI"
+      getClaudeCodeUserAgent("cli"),
+      "User-Agent must be byte-for-byte the canonical claude-cli UA"
     );
     assert.equal(
       captured.headers["anthropic-beta"],
