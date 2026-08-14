@@ -41,3 +41,11 @@ test("team routes validate mutations and expose CRUD, assignment, and usage oper
   assert.match(members, /export async function DELETE/);
   assert.match(usage, /getTeamUsageReport/);
 });
+
+test("OpenAPI defines every Team schema referenced by Team routes", () => {
+  const openapi = readFileSync(join(ROOT, "public/openapi.yaml"), "utf8");
+  for (const schema of ["TeamCreate", "TeamUpdate"]) {
+    assert.match(openapi, new RegExp(`^    ${schema}:`, "m"));
+    assert.match(openapi, new RegExp(`#/components/schemas/${schema}`));
+  }
+});

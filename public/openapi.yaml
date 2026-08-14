@@ -5328,7 +5328,7 @@ paths:
         "400": { description: Invalid request }
         "401": { description: Unauthorized }
         "404": { description: Team not found }
-        "409": { description: Team name already exists }
+        "409": { description: Team name already exists or the Team is archived }
     delete:
       tags: [Teams]
       summary: Archive a billing team and close its active key assignments
@@ -5511,6 +5511,28 @@ components:
             requestId: 0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
 
   schemas:
+    TeamCreate:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+        maxBudgetUsd: { type: number, exclusiveMinimum: 0, nullable: true }
+        budgetDuration: { type: string, enum: [1d, 7d, 30d], nullable: true }
+      description: maxBudgetUsd and budgetDuration must be configured or cleared together.
+
+    TeamUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 2000 }
+        maxBudgetUsd: { type: number, exclusiveMinimum: 0, nullable: true }
+        budgetDuration: { type: string, enum: [1d, 7d, 30d], nullable: true }
+      description: Send both budget fields to set a budget, or both as null to clear it.
+
     PlaygroundPreset:
       type: object
       required:
