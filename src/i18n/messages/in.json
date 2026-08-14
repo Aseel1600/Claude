@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Lanjutan",
     "modalityBridgeTimeoutMs": "Waktu Habis (ms)",
     "modalityBridgeMaxImages": "Maksimal gambar per permintaan",
+    "visionMaxCharsLabel": "Karakter deskripsi maksimum",
+    "visionMaxCharsHint": "Batasi panjang deskripsi model visi. 0 = tidak terbatas — tingkatkan untuk tugas OCR yang kaya detail.",
     "modalityBridgeCacheEnabled": "Deskripsi cache",
     "modalityBridgeCacheEnabledDesc": "Gunakan deskripsi yang sama untuk gambar yang identik (berbasis SHA-256, di memori).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (menit)",

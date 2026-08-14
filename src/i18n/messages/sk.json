@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Pokročilé",
     "modalityBridgeTimeoutMs": "Časový limit (ms)",
     "modalityBridgeMaxImages": "Max obrázkov na požiadavku",
+    "visionMaxCharsLabel": "Max počet znakov v popise",
+    "visionMaxCharsHint": "Obmedzte dĺžku popisu modelu vízie. 0 = neobmedzené — zvýšte pre úlohy OCR s vysokým detailom.",
     "modalityBridgeCacheEnabled": "Popisy vyrovnávacej pamäte",
     "modalityBridgeCacheEnabledDesc": "Znovu použiť popisy pre identické obrázky (kľúčované SHA-256, v pamäti).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minúty)",

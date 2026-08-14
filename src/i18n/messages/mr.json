@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "उन्नत",
     "modalityBridgeTimeoutMs": "टाइमआउट (मिलीसेकंद)",
     "modalityBridgeMaxImages": "प्रत्येक विनंतीसाठी कमाल प्रतिमा",
+    "visionMaxCharsLabel": "कमाल वर्णन अक्षरे",
+    "visionMaxCharsHint": "दृश्य मॉडेलच्या वर्णनाची लांबी मर्यादित करा. 0 = अमर्यादित — तपशील-गडद OCR कार्यांसाठी वाढवा.",
     "modalityBridgeCacheEnabled": "कॅश वर्णनं",
     "modalityBridgeCacheEnabledDesc": "समान प्रतिमांसाठी वर्णनांचे पुनर्वापर करा (SHA-256 कीद, मेमरीमध्ये).",
     "modalityBridgeCacheTtlMinutes": "कॅश TTL (मिनिटे)",
