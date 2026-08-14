@@ -281,3 +281,52 @@ silences the CLI update banner.
 - [ ] `pnpm --version` ≥ 11; store on /Volumes/External
 - [ ] `AUTO_UPDATE_MODE=source` in `~/.omniroute/.env`
 - [ ] upstream PR states checked at each update (see §3 table)
+
+## 10. Self-healing cron (Hermes watchdog, added 2026-08-14)
+
+A Hermes cron job named **`omniroute-selfheal`** watches the gateway every 30
+minutes and fixes issues automatically, with a strict **test-before-deploy**
+gate. This is the automation behind §5/§6.
+
+**How it works** (hash-gated — zero token cost when healthy):
+
+- `~/.hermes/scripts/omniroute-health-monitor.sh` runs each tick and prints a
+  STABLE fingerprint line: `status / restarts / login_http / crashes /
+severe / drift / head_sha / build_sha`.
+- The cron hashes that output. **Unchanged = silent tick (no agent).** Any
+  change (process errored, login ≠ 200, crash counter up, new severe error,
+  `drift=1` = unbuilt commits) fires the agent with the diff as context.
+- Signals: `crashes`/`severe`/`restarts` are monotonic counters that ride in
+  the line — historical baselines never trip ISSUE; only an INCREASE fires it.
+  `drift=1` means `dist/BUILD_SHA` is behind `git HEAD` (commits never built).
+
+**The healing agent's pipeline (encoded in the cron prompt):**
+
+1. **Diagnose** — read the monitor diff, tail
+   `~/.pm2/logs/omniroute-error.log`, check `/login` + `/v1/models` + version
+   API, classify: env/config vs crash loop vs core code bug.
+2. **Fix** — env/config fixes go to DB/.env/combo members then
+   `pm2 restart omniroute --update-env`. Core code bugs get fixed in the fork
+   on a branch.
+3. **Test BEFORE deploy (mandatory CD/CI gate)** — targeted unit tests
+   (`node --import tsx/esm --test tests/unit/<affected>.test.ts`), env-doc-sync
+   / route-validation checks when applicable, then
+   `pnpm run build && pnpm run build:cli && node scripts/build/write-build-sha.mjs`
+   — the global is updated (`pm2 restart`) ONLY after tests + build pass.
+4. **Upstream PR** — when the bug is core OmniRoute code (not fork config), the
+   agent opens a PR to `diegosouzapw/OmniRoute` from the fork per
+   `github-issue-to-pr` (regression test proven to fail first, provider-neutral
+   framing, honest CI state), and reports the PR URL.
+5. **Report** — what changed → root cause → fixes → gates run → deploy
+   verification → PR URL, or the exact blocker if unfixable.
+
+**Ops notes:**
+
+- Manage: `cronjob list` / `cronjob update` / `cronjob remove` (Hermes tools).
+- The monitor script is at `~/.hermes/scripts/omniroute-health-monitor.sh`
+  (chmod +x; runs standalone: `~/.hermes/scripts/omniroute-health-monitor.sh`).
+- pm2 `jlist` prefixes a non-JSON "PM2 out-of-date" banner — the monitor strips
+  everything before the first `[` before parsing (keep that if editing).
+- After any fork commit, the next tick flags `drift=1` until a build+deploy
+  clears it — that is by design (unbuilt commits are detected, not missed).
+- The cron never runs `npm install -g omniroute`; pnpm only.
