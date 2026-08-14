@@ -9,10 +9,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+// Imports the UI-free module on purpose: pulling the .tsx would drag in
+// `@/shared/components` → untranspiled ESM (@lobehub/icons) that node:test
+// cannot parse ("SyntaxError: Unexpected token 'export'").
 import {
   EMPTY_QUOTA_SCRAPING_FIELDS,
   assignQuotaScrapingProviderData,
-} from "../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/QuotaScrapingFields";
+} from "../../src/app/(dashboard)/dashboard/providers/[id]/components/modals/quotaScrapingFieldValues.ts";
 const { updateProviderConnectionSchema } = await import("../../src/shared/validation/schemas.ts");
 
 test("qwen-cloud-token-plan persists the console cookie and optional sec_token", () => {
