@@ -15,7 +15,7 @@ import {
   serviceSupervisorCooldown,
   isNimFunctionDegraded,
 } from "../config/errorConfig.ts";
-import { getProviderErrorRuleMatch } from "../config/providerErrorRules.ts";
+import { getProviderErrorRuleMatch, resolveRuleMatchBody } from "../config/providerErrorRules.ts";
 import * as rot from "./rotationConfig.ts";
 import { getPassthroughProviders, getProviderCategory } from "../config/providerRegistry.ts";
 import {
@@ -1743,7 +1743,12 @@ export function checkFallbackError(
       // specific configured reasons (e.g. 503 → SERVER_ERROR would be
       // shadowed by 503 → MODEL_CAPACITY).
       const providerMatch = provider
-        ? getProviderErrorRuleMatch(provider, status, headers, structuredError ?? null)
+        ? getProviderErrorRuleMatch(
+            provider,
+            status,
+            headers,
+            resolveRuleMatchBody(provider, structuredError ?? null, errorStr)
+          )
         : null;
       const reason = providerMatch
         ? providerMatch.reason
@@ -1776,7 +1781,12 @@ export function checkFallbackError(
     // generic zero-cooldown default. Mirror the backoff branch above so
     // provider rules win on cooldown/reason regardless of `backoff`.
     const providerMatch = provider
-      ? getProviderErrorRuleMatch(provider, status, headers, structuredError ?? null)
+      ? getProviderErrorRuleMatch(
+          provider,
+          status,
+          headers,
+          resolveRuleMatchBody(provider, structuredError ?? null, errorStr)
+        )
       : null;
     const cooldownMs = providerMatch?.cooldownMs ?? configuredRule.cooldownMs ?? 0;
     return {

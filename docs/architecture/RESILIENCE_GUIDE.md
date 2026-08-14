@@ -289,6 +289,123 @@ single-shot, so usage accounting and semaphore release are not duplicated.
 
 ---
 
+## 7. Upstream Status Restatement (misstated quota errors)
+
+**Scope:** one upstream gateway that reports temporary quota exhaustion with the wrong HTTP status.
+
+**Purpose:** correct a misleading status BEFORE classification, so downstream consumers (fallback engine, combo aggregation, the client-facing response) see the true retryable nature of the failure.
+
+Some gateways signal TEMPORARY quota exhaustion with a non-retryable HTTP
+status. `agentrouter.org` returns `403` (sometimes `400`) with a Chinese body
+(`用户额度不足` / `额度不足`) instead of the standard `429`. Clients like Claude
+Code treat `403` as permanent and abort the session, and without correction
+the fallback engine would classify it as `AUTH_ERROR` instead of a quota
+event.
+
+**Implementation:**
+
+- Registry + matcher: `open-sse/config/upstreamStatusRestatement.ts` — a
+  per-provider list of rules (`{id, fromStatuses, toStatus, textMarkers,
+excludeMarkers, defaultRetryAfterMs}`), matched via `applyStatusRestatement()`.
+- Call site: the `providerFailure:` block in `open-sse/handlers/chatCore.ts`
+  (around line 3654), right after `parseUpstreamError()` parses an upstream
+  response with an error HTTP status (`!providerResponse.ok`), and before any
+  classification runs, so every downstream consumer sees the corrected
+  status. Errors embedded inside a `200` SSE stream follow a separate,
+  later stream-parsing path and are **not** covered by this hook today — a
+  known limitation, not yet needed for agentrouter's misstatus (which
+  surfaces as an error HTTP status).
+- Retry eligibility: `429` is in `RETRY_AFTER_ELIGIBLE_STATUSES`
+  (`open-sse/services/combo/unavailableRetryGate.ts`), so a restated error
+  carries a real retry window instead of surfacing as a dead `403`.
+- The synthetic `60s` `defaultRetryAfterMs` (`upstreamStatusRestatement.ts`)
+  is only what the restated response tells the **client**; it is not itself
+  the connection's internal cooldown/lockout duration — that is governed
+  separately by whichever mechanism actually handles the restated error
+  (Connection Cooldown's escalating backoff, §2, base `3s` for API-key
+  providers; or Model Lockout, §3, for per-model-quota providers like
+  agentrouter). The router can become eligible to retry internally sooner
+  than the 60s window it advertises to the client — intentional headroom,
+  not a bug.
+
+Permanent errors (agentrouter's `无权访问模型` — no access to this model) are
+NEVER restated: `excludeMarkers` vetoes the rule even when `textMarkers` hit,
+so the error keeps its original status and nothing retries it forever. A
+separate provider classification rule
+(`agentrouter-model-access-denied` in `open-sse/config/providerErrorRules.ts`)
+declares an `auth_error`/scope-`model` match for this text, but it does not
+fire on the live production path today: the rule only matches `status ===
+403`, and `checkFallbackError`'s apikey-category `FORBIDDEN` branch
+(`open-sse/services/accountFallback.ts`) returns early for a plain 403
+*before* the provider-rule lookup ever runs. In practice a `无权访问模型` 403
+is handled the same way as the base apikey-provider 403 path (see Connection
+Cooldown, §2), not as a 6h model lockout. The rule still exists as a
+declarative classification consumable by future callers of `classifyError`
+with context — wiring it into the production `checkFallbackError` path is
+tracked as a follow-up, not yet done.
+
+Restated quota errors (`额度不足`) do reach a provider rule in production
+(`agentrouter-user-quota-exhausted`, scope `"connection"`), but `scope` on
+`ProviderErrorRuleMatch` is currently informational — the persistence path
+(`checkFallbackError` → `combo.ts`) only consumes `reason` and `cooldownMs`,
+never `scope`. What actually happens for agentrouter (`passthroughModels:
+true` → `hasPerModelQuota()` returns `true`) is a **per-model** lockout via
+`recordModelLockoutFailure()`: the connection itself is never cooled down for
+this error (`combo.ts` skips `recordProviderCooldown` for 429 when
+`hasPerModelQuota` is true), so other models on the same account keep being
+tried — each one burns one call and its own lockout before combo routing
+moves on. Honoring `scope` end-to-end (so a `"connection"` match actually
+locks the connection) is tracked as a follow-up.
+
+### Two-stage design: status restatement, then classification
+
+Status restatement (`upstreamStatusRestatement.ts`) and provider
+classification rules (`open-sse/config/providerErrorRules.ts`,
+`providerRuleRegistry`) are separate registries that both key on provider id
+and text markers, but they run in different places and serve different
+purposes: restatement rewrites the HTTP status early in `chatCore.ts`;
+classification rules pick the fallback `reason` and lock `scope`
+(`model` / `provider` / `connection`) inside `checkFallbackError()`
+(`open-sse/services/accountFallback.ts`).
+
+Classification rules only see full error **text** (needed to match body
+markers like `额度不足`) for providers listed in the `FULL_TEXT_RULE_PROVIDERS`
+allowlist in `providerErrorRules.ts` — currently only `"agentrouter"`. For
+every other provider, `checkFallbackError` hands `getProviderErrorRuleMatch`
+only the structured error (`{code, type}`), which is enough for
+header/status/code-based rules but blind to body-text markers. The helper
+`resolveRuleMatchBody()` performs this selection: full error text for
+allowlisted providers, the structured error otherwise. Adding a provider to
+`FULL_TEXT_RULE_PROVIDERS` is an explicit per-provider opt-in — it exists so
+that the default path for every provider not on the list stays
+byte-for-byte unchanged.
+
+### Adding a new quota-misstating gateway
+
+1. Register one rule array in `statusRestatementRegistry`
+   (`open-sse/config/upstreamStatusRestatement.ts`). Keep `textMarkers`
+   provider-specific; never reuse generic English phrases that collide with
+   `CREDITS_EXHAUSTED_SIGNALS` (`open-sse/services/accountFallback.ts`).
+2. Optionally register classification rules in
+   `open-sse/config/providerErrorRules.ts` (`providerRuleRegistry`) to pick
+   the right lock scope (`connection` for account-wide quota, `model` for
+   per-model errors). This step only takes effect in production for
+   providers whose rules need the full error text (body markers): add the
+   provider id to `FULL_TEXT_RULE_PROVIDERS` in the same file — otherwise
+   `checkFallbackError` only ever hands the rule the structured
+   `{code, type}` error and a body-text rule will never match live traffic.
+   Rules that match purely on `status`/`headers` (like Opencode's or
+   Minimax's) do not need this opt-in.
+3. Add unit tests mirroring `tests/unit/upstream-status-restatement.test.ts`
+   and `tests/unit/agentrouter-error-rules.test.ts` (including the
+   not-permanent / not-creditsExhausted guards, and — if the provider needs
+   the allowlist — a test asserting `resolveRuleMatchBody()` returns the
+   full text only for that provider).
+
+No changes to `chatCore.ts`, `classifyError`, or combo are needed.
+
+---
+
 ## Other Resilience Features
 
 - **19 routing strategies** (priority, weighted, round-robin, context-relay, fill-first, p2c, random, least-used, cost-optimized, reset-aware, reset-window, headroom, strict-random, auto, lkgp, context-optimized, cache-optimized, fusion, pipeline) — see [AUTO-COMBO.md](../routing/AUTO-COMBO.md).
