@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
-import { AUTO_COMBO_TEMPLATES } from "@/domain/assessment/types";
+import { AUTO_COMBO_TEMPLATES, type AutoComboTemplate } from "@/domain/assessment/types";
 
 // Informational catalog of zero-config auto-routing combos.
 // Auto combos are resolved at request time by the chat handler based on the
@@ -22,7 +22,7 @@ export default function AutoComboCatalog({
   const [duplicatingName, setDuplicatingName] = useState<string | null>(null);
 
   const handleDuplicateTemplate = useCallback(
-    async (template: (typeof AUTO_COMBO_TEMPLATES)[0]) => {
+    async (template: AutoComboTemplate) => {
       if (
         !confirm(
           `${t("duplicateAutoComboConfirm", { name: template.name })}\n\n${t("duplicateAutoComboSnapshotMsg")}`
