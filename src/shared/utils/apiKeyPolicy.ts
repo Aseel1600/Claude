@@ -466,7 +466,11 @@ async function validateKeyScheduleAndUsage(context: PolicyContext): Promise<Resp
       return errorResponse(HTTP_STATUS.SERVICE_UNAVAILABLE, "API key usage limit unavailable");
     }
   }
+  return null;
+}
 
+async function validateTeamUsage(context: PolicyContext): Promise<Response | null> {
+  const { request, apiKeyInfo } = context;
   try {
     return await buildTeamUsageLimitPolicyRejection(request, apiKeyInfo.id);
   } catch (error) {
@@ -686,6 +690,9 @@ export async function enforceApiKeyPolicy(
   if (scheduleRejection) return { apiKey, apiKeyInfo, rejection: scheduleRejection };
   const endpointRejection = validateEndpointAccess(context);
   if (endpointRejection) return { apiKey, apiKeyInfo, rejection: endpointRejection };
+
+  const teamUsageRejection = await validateTeamUsage(context);
+  if (teamUsageRejection) return { apiKey, apiKeyInfo, rejection: teamUsageRejection };
 
   const quotaRejection = await validateQuotaAccess(context);
   if (quotaRejection) return { apiKey, apiKeyInfo, rejection: quotaRejection };
