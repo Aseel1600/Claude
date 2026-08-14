@@ -600,7 +600,7 @@ export interface UsageEntry {
   connectionId?: string | null;
   apiKeyId?: string | null;
   apiKeyName?: string | null;
-  /** Immutable billing owner snapshot. Usually resolved from apiKeyId at write time. */
+  /** Immutable row-level billing owner snapshot, resolved from apiKeyId and timestamp at write time. */
   billingTeamId?: string | null;
   serviceTier?: string | null;
   /** @deprecated legacy snake_case fallback, read only if `serviceTier` is unset. */
