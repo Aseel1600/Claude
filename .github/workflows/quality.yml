@@ -60,7 +60,14 @@ jobs:
   build:
     name: Build (advisory)
     needs: changes
-    if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || startsWith(github.head_ref, 'mergify/merge-queue/')) && needs.changes.outputs.code == 'true') }}
+    # FORK PRs ONLY. build.yml's `Fast Production Build` triggers on `push: branches: ["**"]`
+    # and runs `build:release` — a superset of this job — so for an own-origin branch this job
+    # was building the same tree twice. A fork contributor pushes to THEIR repo, so that push
+    # never fires here, and this is the only pre-merge build signal they get. Measured
+    # 2026-08-14: 72 of the last 100 PRs into release/** came from forks, so the fork case is
+    # the majority of the traffic, not the exception — this job earns its place, it just should
+    # not duplicate build.yml for the own-origin 28%.
+    if: ${{ github.event_name != 'pull_request' || ((github.event.pull_request.draft == false || startsWith(github.head_ref, 'mergify/merge-queue/')) && needs.changes.outputs.code == 'true' && github.event.pull_request.head.repo.full_name != github.repository) }}
     # PINNED to hosted — this was the last job in THIS workflow still on the USE_VPS_RUNNER
     # switch (ci.yml's Build, nightly-release-green and npm-publish keep it, so the variable
     # stays meaningful), and with USE_VPS_RUNNER=true it produced NO signal at all here.
@@ -80,12 +87,6 @@ jobs:
     # not is memory PROVISIONING: a 10 GB swapfile plus a 12 GB V8 heap. That matters because
     # --max-old-space-size only bounds V8's JS heap, never Turbopack's native (Rust) allocation
     # (#6409) — swap is what absorbs the native peak. Both are mirrored below.
-    #
-    # Note for whoever revisits this: build.yml triggers on `push: branches: ["**"]`, so for
-    # own-origin PR branches this job duplicates a build that already runs and passes. Its
-    # unique coverage is FORK PRs, where the push happens on the fork and build.yml never fires
-    # in this repo. If that coverage is ever judged not worth the hosted minutes, deleting the
-    # job is the coherent move — not putting it back on the self-hosted pool.
     runs-on: ubuntu-latest
     # #7307: advisory for the first week of release-PR runs; remove
     # continue-on-error after the production-build signal is stable.

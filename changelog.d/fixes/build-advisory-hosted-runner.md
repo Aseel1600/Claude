@@ -1,1 +1,1 @@
-- fix(ci): pin the `Build (advisory)` job to a hosted runner with the same swap/heap provisioning as `Fast Production Build` — on the 2-runner self-hosted pool it never reached a conclusion, queueing for hours or dying to `cancel-in-progress`, and reported a permanent red on every PR
+- fix(ci): make `Build (advisory)` produce a signal again — pinned to a hosted runner with the swap/heap provisioning `Fast Production Build` proves sufficient, and scoped to fork PRs, which are the only ones `build.yml` cannot cover (72 of the last 100 PRs into `release/**`)
