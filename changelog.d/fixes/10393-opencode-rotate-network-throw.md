@@ -1,0 +1,1 @@
+- **fix(executors):** OpencodeExecutor now rotates to the next account on network exceptions (timeout, connection refused/reset), not only on 429 — a throw on one account no longer fails the whole request when other accounts remain ([#10393](https://github.com/diegosouzapw/OmniRoute/pull/10393))
