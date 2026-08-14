@@ -187,6 +187,25 @@ test("team shared budget uses committed estimated list cost and is explicit abou
   assert.match(JSON.stringify(await rejection?.json()), /team.*usage quota/i);
 });
 
+test("a non-budget update advances an expired budget window instead of resetting its cadence", async () => {
+  const team = teams.createTeam({
+    name: "Stable cadence team",
+    maxBudgetUsd: 5,
+    budgetDuration: "7d",
+  });
+  const staleResetAt = "2026-01-08T00:00:00.000Z";
+  core
+    .getDbInstance()
+    .prepare("UPDATE teams SET budget_reset_at = ? WHERE id = ?")
+    .run(staleResetAt, team.id);
+
+  const updated = teams.updateTeam(team.id, { description: "metadata only" });
+  assert.ok(updated?.budgetResetAt);
+  assert.ok(Date.parse(updated.budgetResetAt) > Date.now());
+  assert.notEqual(updated.budgetResetAt, staleResetAt);
+  assert.equal(updated.description, "metadata only");
+});
+
 test("soft budget excludes rolled-up UTC buckets that only partially overlap the rolling window", async () => {
   await localDb.updatePricing({
     openai: {

@@ -223,6 +223,10 @@ export function updateTeam(id: string, input: TeamUpdateInput): Team | null {
     params.budgetResetAt = budget.budgetResetAt;
   }
   db.prepare(`UPDATE teams SET ${updates.join(", ")} WHERE id = @id`).run(params);
+  const updated = getTeam(id);
+  if (updated?.maxBudgetUsd && updated.budgetDuration && updated.budgetResetAt) {
+    advanceTeamBudgetWindow(updated, Date.now());
+  }
   return getTeam(id);
 }
 
@@ -402,10 +406,16 @@ export function advanceTeamBudgetWindow(team: Team, nowMs = Date.now()): Team {
   const elapsedWindows = Math.floor((nowMs - resetAtMs) / durationMs) + 1;
   resetAtMs += elapsedWindows * durationMs;
   const nextReset = new Date(resetAtMs).toISOString();
-  getDbInstance()
-    .prepare("UPDATE teams SET budget_reset_at = ?, updated_at = ? WHERE id = ?")
-    .run(nextReset, new Date(nowMs).toISOString(), team.id);
-  return { ...team, budgetResetAt: nextReset, updatedAt: new Date(nowMs).toISOString() };
+  const updatedAt = new Date(nowMs).toISOString();
+  const result = getDbInstance()
+    .prepare(
+      `UPDATE teams
+       SET budget_reset_at = ?, updated_at = ?
+       WHERE id = ? AND budget_reset_at = ?`
+    )
+    .run(nextReset, updatedAt, team.id, team.budgetResetAt);
+  if (result.changes !== 1) return getTeam(team.id) ?? team;
+  return { ...team, budgetResetAt: nextReset, updatedAt };
 }
 
 export function getTeamBudgetWindowStart(team: Team): string | null {
