@@ -680,6 +680,7 @@ REQUEST_TIMEOUT_MS (global override)
 | `API_BRIDGE_SERVER_SOCKET_TIMEOUT_MS`     | `0`                  | Raw socket timeout (0 = disabled).                                                                                                                              |
 | `SHUTDOWN_TIMEOUT_MS`                     | `30000`              | Grace period on SIGTERM/SIGINT before force-exit.                                                                                                               |
 | `OMNIROUTE_DEFAULT_FETCH_TIMEOUT_MS`      | `120000`             | Fallback used by `src/shared/utils/fetchTimeout.ts` when `FETCH_TIMEOUT_MS` is unset.                                                                           |
+| `OMNIROUTE_PROVIDER_PROBE_TIMEOUT_MS`     | `8000`               | Timeout (ms) for the `validationRead` and `modelsProbe` presets in `src/shared/network/safeOutboundFetch.ts`. Raise for slow endpoints (Cerebras, Cloudflare AI, Groq) to prevent flapping between active/error in the dashboard. Falls back to 8000ms for invalid (<1000) or non-numeric values. |
 | `OMNIROUTE_RELAY_FETCH_TIMEOUT_MS`        | `25000`               | Relay-specific fetch timeout in `open-sse/utils/proxyFetch.ts` (#9158). A hung relay must fail before the client/agent timeout (~30s) so callers see a relay-specific failure instead of a generic upstream timeout. Capped at `29000` so it always fires first. |
 | `OMNIROUTE_RETRY_BACKOFF_MS`              | `10`                  | Shared retry backoff for the direct/relay/proxy retry-once paths in `open-sse/utils/proxyFetch.ts` (#9158). `0` = retry immediately.                            |
 | `OMNIROUTE_CHATGPT_TLS_TIMEOUT_MS`        | `60000`              | Wire-level timeout for the bogdanfinn/tls-client koffi binding (`chatgptTlsClient.ts`).                                                                         |
@@ -714,6 +715,21 @@ Provider-level circuit breaker tuning. Defaults reflect the scaled values used s
 | `OMNIROUTE_CIRCUIT_BREAKER_API_KEY_RESET_MS`  | `30000` | `open-sse/config/constants.ts` | Reset window (ms) for API-key provider breaker.                                                                        |
 | `OMNIROUTE_CIRCUIT_BREAKER_LOCAL_THRESHOLD`   | `2`     | `open-sse/config/constants.ts` | Consecutive failure threshold for local providers (Ollama, LM Studio, ...).                                            |
 | `OMNIROUTE_CIRCUIT_BREAKER_LOCAL_RESET_MS`    | `15000` | `open-sse/config/constants.ts` | Reset window (ms) for local provider breaker.                                                                          |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_FAILURE_THRESHOLD` | `10` | `open-sse/config/constants.ts` | Provider-level breaker: failures within the window before the entire OAuth provider enters cooldown. |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_FAILURE_WINDOW_MS` | `900000` | `open-sse/config/constants.ts` | Provider-level breaker: rolling failure-count window (ms) for OAuth providers. |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_COOLDOWN_MS` | `300000` | `open-sse/config/constants.ts` | Provider-level breaker: cooldown (ms) once the OAuth provider threshold is reached. |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_DEGRADATION_THRESHOLD` | `5` | `open-sse/config/constants.ts` | OAuth provider enters DEGRADED at this many failures. |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_MAX_BACKOFF_MULTIPLIER` | `8` | `open-sse/config/constants.ts` | OAuth provider max resetTimeout escalation multiplier. |
+| `OMNIROUTE_PROVIDER_BREAKER_OAUTH_BACKOFF_ESCALATION_COUNT` | `2` | `open-sse/config/constants.ts` | OAuth provider escalates after this many open cycles. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_FAILURE_THRESHOLD` | `15` | `open-sse/config/constants.ts` | Provider-level breaker: failures within the window before the entire API-key provider enters cooldown. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_FAILURE_WINDOW_MS` | `1800000` | `open-sse/config/constants.ts` | Provider-level breaker: rolling failure-count window (ms) for API-key providers. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_COOLDOWN_MS` | `600000` | `open-sse/config/constants.ts` | Provider-level breaker: cooldown (ms) once the API-key provider threshold is reached. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_DEGRADATION_THRESHOLD` | `7` | `open-sse/config/constants.ts` | API-key provider enters DEGRADED at this many failures. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_MAX_BACKOFF_MULTIPLIER` | `4` | `open-sse/config/constants.ts` | API-key provider max resetTimeout escalation multiplier. |
+| `OMNIROUTE_PROVIDER_BREAKER_API_KEY_BACKOFF_ESCALATION_COUNT` | `3` | `open-sse/config/constants.ts` | API-key provider escalates after this many open cycles. |
+| `OMNIROUTE_PROVIDER_BREAKER_LOCAL_FAILURE_THRESHOLD` | `2` | `open-sse/config/constants.ts` | Provider-level breaker: failures before the entire local provider enters cooldown. |
+| `OMNIROUTE_PROVIDER_BREAKER_LOCAL_FAILURE_WINDOW_MS` | `300000` | `open-sse/config/constants.ts` | Provider-level breaker: rolling failure-count window (ms) for local providers. |
+| `OMNIROUTE_PROVIDER_BREAKER_LOCAL_COOLDOWN_MS` | `60000` | `open-sse/config/constants.ts` | Provider-level breaker: cooldown (ms) once the local provider threshold is reached. |
 | `PIN_DROP_BACKOFF_LEVEL`                      | `2`     | `open-sse/services/combo.ts`   | Backoff depth at which a context-cache pin's provider is deemed durably unhealthy and the pin is dropped for failover. |
 | `PIN_DROP_GRACE_MS`                           | `20000` | `open-sse/services/combo.ts`   | Anti-flap window (ms) tolerating brief transient cooldowns before dropping a context-cache pin.                        |
 
@@ -753,6 +769,7 @@ The logging system writes to both stdout and rotated log files. All configuratio
 | `CHAT_LOG_ARRAY_TAIL_ITEMS`               | `128`                      | Number of array items retained from the tail when truncating chat log payloads.   |
 | `CHAT_LOG_MAX_DEPTH`                      | `6`                        | Max nesting depth before chat log payloads are truncated.                         |
 | `CHAT_LOG_MAX_OBJECT_KEYS`                | `80`                       | Max object keys retained in chat log payloads (0 = unlimited).                    |
+| `CHAT_LOG_MAX_BODY_KB`                    | `1024`                     | Whole request/response body size (KB) before it's replaced by a bare summary instead of the full clone. Raise this if long agentic conversations show a placeholder instead of the real messages in the dashboard. |
 | `CHAT_DEBUG_FILE`                         | `false`                    | When true, `serializeArtifactForStorage` skips size-based truncation. Debug only. |
 
 ---
@@ -1446,7 +1463,6 @@ These settings were introduced after the previous environment-contract snapshot.
 | `OMNIROUTE_CHAT_VIRTUAL_TTL_MS` | `60000` (60 s) | `src/shared/middleware/chatBodyAdmission.ts` | Per-connection virtual admission lanes (#9654): idle-lane eviction TTL. |
 | `OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS` | `64` | `src/shared/middleware/chatBodyAdmission.ts` | Per-connection virtual admission lanes (#9654): max concurrent sessions (lanes). |
 | `OMNIROUTE_RUNNOW_TIMEOUT_MS` | `30000` | `src/app/api/jobs/[id]/run-now/route.ts` | Bounds how long a run-now call waits for an in-flight job before starting the queued run. |
-| `CHAT_LOG_MAX_BODY_KB` | `1024` | `src/lib/logEnv.ts` | Maximum request or response body size before log summarization, in KiB. |
 | `ADOBE_FIREFLY_BROWSER_REFRESH` | enabled | `open-sse/services/adobeFireflySession.ts` | Keeps IMS and browser-risk state fresh through account-scoped Chrome CDP sessions; set `0` to disable. |
 | `ADOBE_FIREFLY_SESSION_DISK` | enabled | `open-sse/services/adobeFireflySession.ts` | Persists repaired Adobe sessions under `DATA_DIR`; set `0` for memory-only state. |
 | `ADOBE_FIREFLY_MIN_SUBMIT_GAP_MS` | `12000` | `open-sse/services/adobeFireflySession.ts` | Minimum spacing between Adobe Firefly generate submissions. |

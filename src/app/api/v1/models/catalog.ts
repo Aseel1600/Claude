@@ -48,6 +48,7 @@ import {
   providerUsesExclusiveSyncedListing,
 } from "@/lib/providers/modelListingCapability";
 import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
+import { mergeCustomModelMetadata } from "@/lib/providers/modelMetadataPrecedence";
 import { getOpenRouterCatalog } from "@/lib/catalog/openrouterCatalog";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import {
@@ -1326,28 +1327,44 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
 
-          // Skip if already added as built-in. When the custom entry has an explicit
-          // supportsVision flag, merge vision fields into the existing synced entry
-          // instead of skipping (#9195).
+          // A custom row is the operator-owned overlay for the same provider/model.
+          // Preserve catalog identity and discovered metadata, but let every field
+          // explicitly stored on the custom row determine the effective metadata.
           const aliasId = `${alias}/${modelId}`;
           const existingIndex = models.findIndex((m) => m.id === aliasId);
           if (existingIndex !== -1) {
-            if (typeof model.supportsVision === "boolean") {
-              const mergeVisionFields = getCustomVisionCapabilityFields(model, aliasId, modelId);
-              if (mergeVisionFields) {
-                const existing = models[existingIndex] as Record<string, unknown>;
-                existing.capabilities = {
-                  ...((existing.capabilities as Record<string, unknown>) || {}),
-                  ...mergeVisionFields.capabilities,
-                };
-                if (mergeVisionFields.input_modalities) {
-                  existing.input_modalities = mergeVisionFields.input_modalities;
-                }
-                if (mergeVisionFields.output_modalities) {
-                  existing.output_modalities = mergeVisionFields.output_modalities;
-                }
-              }
-            }
+            const existing = models[existingIndex] as Record<string, unknown> & { id: string };
+            const endpoints = Array.isArray(model.supportedEndpoints)
+              ? model.supportedEndpoints
+              : undefined;
+            const apiFormat = typeof model.apiFormat === "string" ? model.apiFormat : undefined;
+            const visionFields =
+              typeof model.supportsVision === "boolean"
+                ? model.supportsVision
+                  ? getCustomVisionCapabilityFields(model, aliasId, modelId)
+                  : {
+                      capabilities: {
+                        ...((existing.capabilities as Record<string, unknown>) || {}),
+                        vision: false,
+                      },
+                      input_modalities: ["text"],
+                      output_modalities: ["text"],
+                    }
+                : null;
+            models[existingIndex] = mergeCustomModelMetadata(existing, {
+              id: aliasId,
+              ...(typeof model.name === "string" ? { name: model.name } : {}),
+              ...(apiFormat ? { api_format: apiFormat } : {}),
+              ...(endpoints ? { supported_endpoints: endpoints } : {}),
+              ...(typeof model.inputTokenLimit === "number"
+                ? { context_length: model.inputTokenLimit }
+                : {}),
+              ...(typeof model.outputTokenLimit === "number"
+                ? { max_output_tokens: model.outputTokenLimit }
+                : {}),
+              ...(visionFields || {}),
+              custom: true,
+            });
             continue;
           }
 
@@ -1646,7 +1663,12 @@ async function buildUnifiedModelsResponseCore(
       } catch {
         // Pricing lookup is optional; hardcoded defaults still enrich the response.
       }
-      enrichmentSnapshot = { modelsDevPricing };
+      enrichmentSnapshot = {
+        modelsDevPricing,
+        providerNodeIdsByPrefix: Object.fromEntries(
+          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
+        ),
+      };
       // The production profile identified pricing snapshot construction as the last
       // dominant synchronous stage. Let already-queued health checks run before the
       // remaining in-memory enrichment and JSON serialization.

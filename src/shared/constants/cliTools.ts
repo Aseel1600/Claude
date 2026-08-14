@@ -281,7 +281,7 @@ export const CLI_TOOLS: Record<string, CliCatalogEntry> = {
     notes: [
       {
         type: "warning",
-        text: "Config path: ~/.config/opencode/opencode.json on all platforms (Windows: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.json)",
+        text: "Config paths: ~/.config/opencode/opencode.jsonc (preferred when present) or opencode.json on all platforms (Windows: %USERPROFILE%\\\\.config\\\\opencode\\\\opencode.jsonc or opencode.json)",
       },
       {
         type: "warning",
