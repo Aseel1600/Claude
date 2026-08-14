@@ -117,6 +117,13 @@ test("extractApiKey parses bearer headers and isValidApiKey validates persisted 
   assert.equal(await auth.isValidApiKey(""), false);
 });
 
+test("getProviderCredentials identifies synthetic no-auth credentials", async () => {
+  const credentials = await auth.getProviderCredentials("opencode");
+
+  assert.equal(credentials?.connectionId, "noauth");
+  assert.equal(credentials?.authType, "none");
+});
+
 test("getProviderCredentials reports rate limiting when only inactive suppressed records remain", async () => {
   const retryAfter = futureIso();
   await seedConnection("openai", {
