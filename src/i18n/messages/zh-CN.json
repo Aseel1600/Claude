@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "高级",
     "modalityBridgeTimeoutMs": "超时 (毫秒)",
     "modalityBridgeMaxImages": "每个请求的最大图像数",
+    "visionMaxCharsLabel": "最大描述字符数",
+    "visionMaxCharsHint": "限制视觉模型的描述长度。0 = 无限 — 对于细节丰富的OCR任务，请提高。",
     "modalityBridgeCacheEnabled": "缓存描述",
     "modalityBridgeCacheEnabledDesc": "重用相同图像的描述（SHA-256 键控，内存中）。",
     "modalityBridgeCacheTtlMinutes": "缓存 TTL（分钟）",

@@ -82,6 +82,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://openrouter.ai",
     hasFree: true,
     freeNote: "Free models at $0/token with :free suffix - 20 RPM / 200 RPD",
+    serviceKinds: ["llm", "imageToText"],
   },
   requesty: {
     id: "requesty",

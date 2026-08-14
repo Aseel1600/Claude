@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "İrəliləmiş",
     "modalityBridgeTimeoutMs": "Vaxt bitməsi (ms)",
     "modalityBridgeMaxImages": "Tələb başına maksimum şəkil sayı",
+    "visionMaxCharsLabel": "Maksimum təsvir simvolları",
+    "visionMaxCharsHint": "Görmə modelinin təsvir uzunluğunu məhdudlaşdırın. 0 = limitsiz — detallı OCR tapşırıqları üçün artırın.",
     "modalityBridgeCacheEnabled": "Keş təsvirləri",
     "modalityBridgeCacheEnabledDesc": "Eyniləşən şəkillər üçün təsvirləri yenidən istifadə edin (SHA-256 açarına əsaslanan, yaddaşda).",
     "modalityBridgeCacheTtlMinutes": "Keş TTL (dəqiqə)",

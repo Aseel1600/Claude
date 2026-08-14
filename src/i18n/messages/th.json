@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "ขั้นสูง",
     "modalityBridgeTimeoutMs": "เวลาหมดอายุ (มิลลิวินาที)",
     "modalityBridgeMaxImages": "สูงสุดของภาพต่อคำขอ",
+    "visionMaxCharsLabel": "จำนวนตัวอักษรสูงสุดในคำอธิบาย",
+    "visionMaxCharsHint": "จำกัดความยาวคำอธิบายของโมเดลวิสัยทัศน์ 0 = ไม่จำกัด — เพิ่มขึ้นสำหรับงาน OCR ที่มีรายละเอียดมาก",
     "modalityBridgeCacheEnabled": "คำอธิบายแคช",
     "modalityBridgeCacheEnabledDesc": "ใช้คำอธิบายซ้ำสำหรับภาพที่เหมือนกัน (ใช้ SHA-256 เป็นกุญแจ, ในหน่วยความจำ).",
     "modalityBridgeCacheTtlMinutes": "เวลาเก็บข้อมูลในแคช (นาที)",

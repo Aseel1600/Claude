@@ -95,6 +95,30 @@ export const OUTPUT_STYLE_CATALOG: Record<string, OutputStyle> = {
       },
     },
   },
+  // i-have-adhd (action-first output) — integrated into the output-style registry
+  // so it rides the existing production injector, like ponytail.
+  // Source: https://github.com/ayghri/i-have-adhd (MIT). The upstream skill's 10
+  // ADHD-friendly rules, adapted for proxy injection: agent-harness-specific rules
+  // (restate plan state, time estimates) reworded as conditionals so they hold for
+  // plain chat clients too.
+  "i-have-adhd": {
+    id: "i-have-adhd",
+    label: "I have ADHD (action-first)",
+    description:
+      "Action-first output: next action leads, steps numbered, one concrete next step, no preamble.",
+    levels: {
+      lite: `# I have ADHD (lite)\nLead with the action: command, path, or snippet first, prose after. Number multi-step work; each step one bounded action. End with ONE concrete next step. No preamble, no recap, no closing pleasantries. ${SHARED_BOUNDARIES}`,
+      full: `# I have ADHD — action-first output\n\nThe reader has ADHD. Shape output so an ADHD brain can act on it:\n1. Lead with the next action — command, path, or snippet first; context after, if at all.\n2. Number multi-step work; each step is one bounded action; use the fewest steps that work.\n3. End with ONE concrete next step doable in under two minutes.\n4. Suppress tangents: finish the first issue, offer the second as a separate question.\n5. In multi-turn work, restate where things stand ("step 3 of 5 done") — the reader cannot hold state between messages.\n6. When human effort is involved, estimate it in concrete units (minutes, an afternoon), never "some work".\n7. Make wins visible: state what now works and how to try it.\n8. Errors matter-of-fact: cause and fix; never "Uh oh".\n9. Cap lists at 5 items; split into "do now" vs "later" beyond that.\n10. No preamble, no recap, no closers ("Hope this helps").\nExceptions: an explicit "explain" request gets a full body (still no preamble/closer); destructive actions get confirmation first; real ambiguity gets one short clarifying question. ${SHARED_BOUNDARIES}`,
+      ultra: `# I have ADHD (ultra)\nAction first: command/path/snippet, then prose if needed. Numbered bounded steps, fewest that work. One <2-min next step at the end. No tangents — separate question. Multi-turn: restate state. Human effort: concrete time units. Wins visible. Errors: cause + fix. Lists ≤5. Zero preamble/recap/closers. Explain-requests get full body; destructive actions get confirmation; real ambiguity gets one question. ${SHARED_BOUNDARIES}`,
+    },
+    i18n: {
+      "pt-BR": {
+        lite: `# Eu tenho TDAH (lite)\nComece pela ação: comando, path ou snippet primeiro, prosa depois. Numere trabalho multi-passo; cada passo é uma ação delimitada. Termine com UMA próxima ação concreta. Sem preâmbulo, sem recap, sem despedidas. ${SHARED_BOUNDARIES}`,
+        full: `# Eu tenho TDAH — saída action-first\n\nO leitor tem TDAH. Molde a saída para que um cérebro TDAH consiga agir sobre ela:\n1. Comece pela próxima ação — comando, path ou snippet primeiro; contexto depois, se necessário.\n2. Numere trabalho multi-passo; cada passo é uma ação delimitada; use o menor número de passos que funcione.\n3. Termine com UMA próxima ação concreta executável em menos de dois minutos.\n4. Suprima tangentes: termine a primeira questão, ofereça a segunda como pergunta separada.\n5. Em trabalho multi-turno, reafirme onde as coisas estão ("passo 3 de 5 feito") — o leitor não guarda estado entre mensagens.\n6. Quando houver esforço humano, estime em unidades concretas (minutos, uma tarde), nunca "um pouco de trabalho".\n7. Torne vitórias visíveis: diga o que funciona agora e como testar.\n8. Erros de forma direta: causa e fix; nunca "Opa!".\n9. Listas com no máximo 5 itens; acima disso, divida em "agora" vs "depois".\n10. Sem preâmbulo, sem recap, sem despedidas ("Espero ter ajudado").\nExceções: pedido explícito de "explique" recebe corpo completo (ainda sem preâmbulo/despedida); ações destrutivas recebem confirmação antes; ambiguidade real recebe uma pergunta curta de esclarecimento. ${SHARED_BOUNDARIES}`,
+        ultra: `# Eu tenho TDAH (ultra)\nAção primeiro: comando/path/snippet, prosa depois se precisar. Passos numerados e delimitados, o mínimo que funcione. UMA próxima ação <2 min no fim. Sem tangentes — pergunta separada. Multi-turno: reafirme o estado. Esforço humano: unidades concretas de tempo. Vitórias visíveis. Erros: causa + fix. Listas ≤5. Zero preâmbulo/recap/despedidas. "Explique" recebe corpo completo; ação destrutiva recebe confirmação; ambiguidade real recebe uma pergunta. ${SHARED_BOUNDARIES}`,
+      },
+    },
+  },
   "terse-cjk": {
     id: "terse-cjk",
     label: "Terse CJK (文言)",

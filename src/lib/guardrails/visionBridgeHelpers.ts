@@ -2,6 +2,7 @@
  * Vision Bridge helper functions for image processing.
  */
 import { detectMediaParts, type MediaPart } from "@omniroute/open-sse/utils/mediaParts";
+import { normalizeDataUri } from "@omniroute/open-sse/utils/imageNormalize";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveSelfLoopBearer } from "@/shared/middleware/chatBodyAdmission";
@@ -314,7 +315,12 @@ async function fetchRemoteImageAsDataUri(
     fetchImpl,
   });
   const mediaType = remoteImage.contentType.split(";")[0]?.trim() || "image/png";
-  return `data:${mediaType};base64,${remoteImage.buffer.toString("base64")}`;
+  const dataUri = `data:${mediaType};base64,${remoteImage.buffer.toString("base64")}`;
+  // Downscale to the long-edge cap before handing the image to the vision
+  // model self-call — scoped to this bridge-fetched image only, never the
+  // user's raw passthrough payload (opt-in principle, HR#20).
+  // `normalizeDataUri` never throws and is a passthrough for non-image bytes.
+  return normalizeDataUri(dataUri);
 }
 
 async function normalizeVisionImageInput(

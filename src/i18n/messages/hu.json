@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Haladó",
     "modalityBridgeTimeoutMs": "Időtúllépés (ms)",
     "modalityBridgeMaxImages": "Max képek kérésenként",
+    "visionMaxCharsLabel": "Max leírás karakterek",
+    "visionMaxCharsHint": "Korlátozza a látásmodell leírásának hosszát. 0 = korlátlan — növelje részletes OCR feladatokhoz.",
     "modalityBridgeCacheEnabled": "Gyorsítótár leírások",
     "modalityBridgeCacheEnabledDesc": "Az azonos képek (SHA-256 kulcsú, memóriában) leírásainak újrafelhasználása.",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (perc)",
