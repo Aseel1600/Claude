@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "అధిక నిపుణత",
     "modalityBridgeTimeoutMs": "టైమ్‌ఔట్ (మి)",
     "modalityBridgeMaxImages": "ప్రతి అభ్యర్థనకు గరిష్ట చిత్రాలు",
+    "visionMaxCharsLabel": "గరిష్ట వివరణ అక్షరాలు",
+    "visionMaxCharsHint": "దృష్టి మోడల్ యొక్క వివరణ పొడవును పరిమితం చేయండి. 0 = పరిమితి లేదు — వివరాల పుష్కలమైన OCR పనుల కోసం పెంచండి.",
     "modalityBridgeCacheEnabled": "కాష్ వివరణలు",
     "modalityBridgeCacheEnabledDesc": "ఒకే చిత్రాలకు (SHA-256 కీడ్, మెమరీలో) సమానమైన వివరణలను పునఃఉపయోగించండి.",
     "modalityBridgeCacheTtlMinutes": "కాష్ TTL (నిమిషాలు)",

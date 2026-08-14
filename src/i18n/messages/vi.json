@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "Nâng Cao",
     "modalityBridgeTimeoutMs": "Thời Gian Chờ (ms)",
     "modalityBridgeMaxImages": "Số hình ảnh tối đa mỗi yêu cầu",
+    "visionMaxCharsLabel": "Số ký tự mô tả tối đa",
+    "visionMaxCharsHint": "Giới hạn độ dài mô tả của mô hình thị giác. 0 = không giới hạn — tăng lên cho các tác vụ OCR nhiều chi tiết.",
     "modalityBridgeCacheEnabled": "Mô tả bộ nhớ đệm",
     "modalityBridgeCacheEnabledDesc": "Tái sử dụng mô tả cho các hình ảnh giống hệt nhau (khóa SHA-256, trong bộ nhớ).",
     "modalityBridgeCacheTtlMinutes": "Thời Gian Sống Bộ Nhớ Đệm (phút)",

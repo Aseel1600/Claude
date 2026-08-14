@@ -8040,6 +8040,8 @@
     "modalityBridgeAdvanced": "ઉન્નત",
     "modalityBridgeTimeoutMs": "ટાઈમઆઉટ (મિલિસેકન્ડ)",
     "modalityBridgeMaxImages": "પ્રતિ વિનંતી મહત્તમ છબીઓ",
+    "visionMaxCharsLabel": "મહત્તમ વર્ણન અક્ષરો",
+    "visionMaxCharsHint": "વિઝન મોડેલના વર્ણનની લંબાઈને મર્યાદિત કરો. 0 = અનલિમિટેડ — વિગતભર્યા OCR કાર્ય માટે વધારવા માટે.",
     "modalityBridgeCacheEnabled": "કેશ વર્ણનો",
     "modalityBridgeCacheEnabledDesc": "એકસરખા છબીઓ માટે વર્ણનો પુનઃઉપયોગ કરો (SHA-256 કીવાળા, મેમરીમાં).",
     "modalityBridgeCacheTtlMinutes": "કેશ TTL (મિનિટ)",
