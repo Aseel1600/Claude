@@ -1,0 +1,1 @@
+- fix(ci): pin the `Build (advisory)` job to a hosted runner with the same swap/heap provisioning as `Fast Production Build` — on the 2-runner self-hosted pool it never reached a conclusion, queueing for hours or dying to `cancel-in-progress`, and reported a permanent red on every PR
