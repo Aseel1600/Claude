@@ -323,6 +323,16 @@ severe / drift / head_sha / build_sha`.
 **Ops notes:**
 
 - Manage: `cronjob list` / `cronjob update` / `cronjob remove` (Hermes tools).
+- ⚠️ **Model pin is REQUIRED** (verified 2026-08-14): cron jobs default to the
+  config-level model (`model.provider: google-antigravity`,
+  `gemini-3.5-flash-low`), which 429s with `RESOURCE_EXHAUSTED` on the large
+  self-heal prompt (full skill + monitor context) — the job failed on its
+  first run with 0 API calls. The job is pinned to
+  `hermes cron edit <id> --model gsd-gemini-claude-gpt --provider omniroute`
+  (the custom fork's 199-member weighted combo — fallback-safe). If the job
+  ever loses the pin (edit/import), re-apply it or the job will fail again.
+  Note: `cronjob(action='run')` marks a job `completed`+disabled — `resume`
+  re-arms it.
 - The monitor script is at `~/.hermes/scripts/omniroute-health-monitor.sh`
   (chmod +x; runs standalone: `~/.hermes/scripts/omniroute-health-monitor.sh`).
 - pm2 `jlist` prefixes a non-JSON "PM2 out-of-date" banner — the monitor strips
