@@ -3,12 +3,17 @@
 import { Input } from "@/shared/components";
 import { providerText, type ProviderMessageTranslator } from "../../providerPageHelpers";
 
+/** Providers whose quota lives behind the Qwen/Model Studio console gateway (#9603). */
+const QWEN_TOKEN_PLAN_PROVIDERS = new Set(["qwen-cloud-token-plan", "bailian-coding-plan"]);
+
 export type QuotaScrapingFieldValues = {
   opencodeGoWorkspaceId: string;
   opencodeGoAuthCookie: string;
   ollamaCloudUsageCookie: string;
   alibabaConsoleCookie: string;
   alibabaConsoleSecToken: string;
+  qwenCloudCookie: string;
+  qwenCloudSecToken: string;
 };
 
 export const EMPTY_QUOTA_SCRAPING_FIELDS: QuotaScrapingFieldValues = {
@@ -17,6 +22,8 @@ export const EMPTY_QUOTA_SCRAPING_FIELDS: QuotaScrapingFieldValues = {
   ollamaCloudUsageCookie: "",
   alibabaConsoleCookie: "",
   alibabaConsoleSecToken: "",
+  qwenCloudCookie: "",
+  qwenCloudSecToken: "",
 };
 
 export function assignQuotaScrapingProviderData(
@@ -38,6 +45,11 @@ export function assignQuotaScrapingProviderData(
     target.alibabaConsoleCookie = values.alibabaConsoleCookie.trim();
     if (values.alibabaConsoleSecToken.trim()) {
       target.alibabaConsoleSecToken = values.alibabaConsoleSecToken.trim();
+    }
+  } else if (QWEN_TOKEN_PLAN_PROVIDERS.has(provider ?? "") && values.qwenCloudCookie.trim()) {
+    target.qwenCloudCookie = values.qwenCloudCookie.trim();
+    if (values.qwenCloudSecToken.trim()) {
+      target.qwenCloudSecToken = values.qwenCloudSecToken.trim();
     }
   }
 }
@@ -161,6 +173,47 @@ export default function QuotaScrapingFields({
             t,
             "alibabaConsoleSecTokenHint",
             "Optional. Copy sec_token from the Free Quota network request if cookie-only sync fails."
+          )}
+          autoComplete="off"
+          spellCheck={false}
+          autoCapitalize="off"
+        />
+      </div>
+    );
+  }
+
+  if (QWEN_TOKEN_PLAN_PROVIDERS.has(provider ?? "")) {
+    return (
+      <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-surface/20 p-4">
+        <Input
+          label={providerText(t, "qwenCloudCookieLabel", "Qwen / Model Studio console cookie")}
+          name="qwenCloudCookie"
+          type="password"
+          value={values.qwenCloudCookie}
+          onChange={(e) => onChange({ qwenCloudCookie: e.target.value })}
+          placeholder="token=..."
+          hint={providerText(
+            t,
+            "qwenCloudCookieHint",
+            editMode
+              ? "Leave blank to keep the stored cookie. Required for Token Plan quota — the inference API key cannot read it. Paste the full Cookie header from home.qwencloud.com (or the Model Studio console)."
+              : "Required for Token Plan quota — the inference API key cannot read it. Paste the full Cookie header from home.qwencloud.com (or the Model Studio console)."
+          )}
+          autoComplete="off"
+          spellCheck={false}
+          autoCapitalize="off"
+        />
+        <Input
+          label={providerText(t, "qwenCloudSecTokenLabel", "Qwen console sec_token (optional)")}
+          name="qwenCloudSecToken"
+          type="password"
+          value={values.qwenCloudSecToken}
+          onChange={(e) => onChange({ qwenCloudSecToken: e.target.value })}
+          placeholder="GjRV..."
+          hint={providerText(
+            t,
+            "qwenCloudSecTokenHint",
+            "Optional — resolved automatically from the dashboard. Set it only if quota sync reports a permission error."
           )}
           autoComplete="off"
           spellCheck={false}
