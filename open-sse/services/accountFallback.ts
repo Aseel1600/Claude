@@ -1,5 +1,6 @@
 import {
   BACKOFF_STEPS_MS,
+  EXECUTOR_CONTRACT_VIOLATION_CODE,
   PROVIDER_PROFILES,
   RateLimitReason,
   HTTP_STATUS,
@@ -14,7 +15,7 @@ import {
   serviceSupervisorCooldown,
   isNimFunctionDegraded,
 } from "../config/errorConfig.ts";
-import { getProviderErrorRuleMatch } from "../config/providerErrorRules.ts";
+import { getProviderErrorRuleMatch, resolveRuleMatchBody } from "../config/providerErrorRules.ts";
 import * as rot from "./rotationConfig.ts";
 import { getPassthroughProviders, getProviderCategory } from "../config/providerRegistry.ts";
 import {
@@ -1458,6 +1459,21 @@ export function checkFallbackError(
    * caller can persist an explicit reset window instead of the engine's scaled cooldown. */
   configuredCooldownMs?: number;
 } {
+  // #10360: an executor-result contract violation is OUR bug, not the provider's.
+  // Retrying reproduces it verbatim, and cooling the connection down (or tripping
+  // the provider breaker) punishes a healthy account for an internal defect. Must
+  // run before every other classification — the surfaced status is a plain 500,
+  // which the retryable set below would otherwise treat as a transient upstream
+  // failure and hand a backoff cooldown.
+  if (structuredError?.code === EXECUTOR_CONTRACT_VIOLATION_CODE) {
+    return {
+      shouldFallback: false,
+      cooldownMs: 0,
+      reason: EXECUTOR_CONTRACT_VIOLATION_CODE,
+      skipProviderBreaker: true,
+    };
+  }
+
   const svc = serviceSupervisorCooldown(status, headers);
   if (svc) return svc;
   const rg = rot.gateFor(status, rotation?.account);
@@ -1727,7 +1743,12 @@ export function checkFallbackError(
       // specific configured reasons (e.g. 503 → SERVER_ERROR would be
       // shadowed by 503 → MODEL_CAPACITY).
       const providerMatch = provider
-        ? getProviderErrorRuleMatch(provider, status, headers, structuredError ?? null)
+        ? getProviderErrorRuleMatch(
+            provider,
+            status,
+            headers,
+            resolveRuleMatchBody(provider, structuredError ?? null, errorStr)
+          )
         : null;
       const reason = providerMatch
         ? providerMatch.reason
@@ -1760,7 +1781,12 @@ export function checkFallbackError(
     // generic zero-cooldown default. Mirror the backoff branch above so
     // provider rules win on cooldown/reason regardless of `backoff`.
     const providerMatch = provider
-      ? getProviderErrorRuleMatch(provider, status, headers, structuredError ?? null)
+      ? getProviderErrorRuleMatch(
+          provider,
+          status,
+          headers,
+          resolveRuleMatchBody(provider, structuredError ?? null, errorStr)
+        )
       : null;
     const cooldownMs = providerMatch?.cooldownMs ?? configuredRule.cooldownMs ?? 0;
     return {
