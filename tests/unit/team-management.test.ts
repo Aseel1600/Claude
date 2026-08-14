@@ -186,6 +186,43 @@ test("team shared budget uses committed estimated list cost and is explicit abou
   assert.match(JSON.stringify(await rejection?.json()), /team.*usage quota/i);
 });
 
+test("JSON export/import preserves teams, temporal billing bindings, and usage snapshots", async () => {
+  const key = await apiKeys.createApiKey("agent-json", "machine-team-json");
+  const team = teams.createTeam({ name: "JSON Team", maxBudgetUsd: 3, budgetDuration: "7d" });
+  teams.assignApiKeyBillingTeam(key.id, team.id, "2026-08-10T00:00:00.000Z");
+  await usageHistory.saveRequestUsage({
+    provider: "openai",
+    model: "gpt-json",
+    apiKeyId: key.id,
+    apiKeyName: key.name,
+    billingTeamId: team.id,
+    tokens: { input: 3, output: 2 },
+    timestamp: "2026-08-11T00:00:00.000Z",
+  });
+
+  const db = core.getDbInstance();
+  const exported = {
+    apiKeys: db.prepare("SELECT * FROM api_keys WHERE id = ?").all(key.id),
+    teams: teams.listTeams({ includeArchived: true }),
+    apiKeyBillingTeamHistory: teams.listAllApiKeyBillingHistory(),
+    usageHistory: db.prepare("SELECT * FROM usage_history WHERE api_key_id = ?").all(key.id),
+  };
+  db.prepare("DELETE FROM usage_history").run();
+  db.prepare("DELETE FROM api_key_billing_team_history").run();
+  db.prepare("DELETE FROM teams").run();
+  db.prepare("DELETE FROM api_keys WHERE id = ?").run(key.id);
+
+  const jsonMigration = await import("../../src/lib/db/jsonMigration.ts");
+  const counts = jsonMigration.runJsonMigration(db, exported as never);
+  assert.equal(counts.teams, 1);
+  assert.equal(counts.apiKeyBillingTeamHistory, 1);
+  assert.equal(teams.getActiveBillingTeamForApiKey(key.id)?.id, team.id);
+  const usage = db
+    .prepare("SELECT billing_team_id FROM usage_history WHERE api_key_id = ?")
+    .get(key.id) as { billing_team_id: string };
+  assert.equal(usage.billing_team_id, team.id);
+});
+
 test("archiving a team closes active assignments but preserves historical usage", async () => {
   const key = await apiKeys.createApiKey("agent-e", "machine-team-05");
   const team = teams.createTeam({ name: "Archive team" });
