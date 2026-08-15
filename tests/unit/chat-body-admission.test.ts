@@ -36,7 +36,12 @@ test("small known body is admitted without consuming heavyweight capacity", asyn
 test("a byte-light request above the message threshold acquires heavyweight capacity", async () => {
   const controller = new ChatAdmissionController(1);
   const result = await admitChatStructure(
-    { messages: [{ role: "user", content: "one" }, { role: "user", content: "two" }] },
+    {
+      messages: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
     null,
     { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
   );
@@ -58,7 +63,14 @@ test("a byte-light request above the tool threshold is rejected when heavy capac
     // maxWaitMs: 0 mantém o contrato que este teste sempre fixou — rejeição imediata
     // com a capacidade ocupada. Enfileirar é comportamento novo, coberto em
     // chat-admission-queue-wait.test.ts; sem isto o teste passa a esperar o orçamento.
-    { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 2, heavyTokens: 10_000, maxWaitMs: 0 }
+    {
+      controller,
+      maxMessages: 10,
+      heavyMessages: 10,
+      heavyTools: 2,
+      heavyTokens: 10_000,
+      maxWaitMs: 0,
+    }
   );
 
   assert.equal(result.admit, false);
@@ -83,6 +95,11 @@ test("a request above the hard history cap returns structured compact-required 4
   const payload = await result.response.json();
   assert.equal(payload.error.code, "chat_history_too_large");
   assert.equal(payload.error.reason, "message_limit");
+  assert.equal(payload.error.limit, 2);
+  assert.equal(payload.error.received, 3);
+  assert.equal(payload.error.action, "compact_or_new_chat");
+  assert.match(payload.error.message, /OmniRoute/);
+  assert.match(payload.error.message, /3\/2/);
   assert.equal(controller.activeHeavy, 0);
 });
 
@@ -154,11 +171,13 @@ test("non-ASCII strings use a conservative UTF-8 token estimate", async () => {
 test("wide objects exhaust bounded inspection without materializing all property values", async () => {
   const controller = new ChatAdmissionController(1);
   const wide = Object.fromEntries(Array.from({ length: 10_001 }, (_, index) => [`k${index}`, 0]));
-  const result = await admitChatStructure(
-    { messages: [{ role: "user", content: wide }] },
-    null,
-    { controller, maxMessages: 10, heavyMessages: 10, heavyTools: 10, heavyTokens: 10_000 }
-  );
+  const result = await admitChatStructure({ messages: [{ role: "user", content: wide }] }, null, {
+    controller,
+    maxMessages: 10,
+    heavyMessages: 10,
+    heavyTools: 10,
+    heavyTokens: 10_000,
+  });
 
   assert.equal(result.admit, true);
   assert.equal(controller.activeHeavy, 1);
@@ -171,7 +190,12 @@ test("an existing byte-heavy lease is reused for structure-heavy admission", asy
   assert.ok(lease);
 
   const result = await admitChatStructure(
-    { messages: [{ role: "user", content: "one" }, { role: "user", content: "two" }] },
+    {
+      messages: [
+        { role: "user", content: "one" },
+        { role: "user", content: "two" },
+      ],
+    },
     lease,
     { controller, maxMessages: 10, heavyMessages: 2, heavyTools: 10, heavyTokens: 10_000 }
   );

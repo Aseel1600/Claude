@@ -86,11 +86,7 @@ export interface ChatAdmissionLease {
  * triggers fire after the body is fully parsed.
  */
 export type ChatAdmissionTrigger =
-  | "content-length"
-  | "streamed-bytes"
-  | "tools"
-  | "messages"
-  | "tokens";
+  "content-length" | "streamed-bytes" | "tools" | "messages" | "tokens";
 
 /**
  * Capacity rejections are invisible without this. They are produced before the chat
@@ -234,8 +230,7 @@ export class ChatAdmissionController {
       };
 
       const waiter: ChatAdmissionWaiter = {
-        grant: () =>
-          settle({ lease: this.#createLease(), waitedMs: Date.now() - enqueuedAt }),
+        grant: () => settle({ lease: this.#createLease(), waitedMs: Date.now() - enqueuedAt }),
       };
 
       const drop = (reason: ChatAdmissionFailureReason) => {
@@ -321,7 +316,11 @@ function rejectionResponse(status: 413 | 503, hardMaxBytes: number): Response {
   );
 }
 
-function structuralRejectionResponse(status: 413 | 503, maxMessages: number): Response {
+function structuralRejectionResponse(
+  status: 413 | 503,
+  maxMessages: number,
+  details: { messageCount?: number; toolCount?: number } = {}
+): Response {
   const historyLimit = status === 413;
   const headers: Record<string, string> = {
     ...CORS_HEADERS,
@@ -329,15 +328,23 @@ function structuralRejectionResponse(status: 413 | 503, maxMessages: number): Re
   };
   if (!historyLimit) headers["Retry-After"] = "1";
 
+  const messageCount = details.messageCount;
+  const countLabel =
+    typeof messageCount === "number" ? `${messageCount}/${maxMessages}` : `limite ${maxMessages}`;
+
   return new Response(
     JSON.stringify({
       error: {
         message: historyLimit
-          ? `Chat history exceeds the ${maxMessages}-message limit; compact the conversation and retry.`
-          : "Structurally heavy chat request capacity is busy; retry shortly.",
+          ? `[OmniRoute] Histórico muito longo (${countLabel} mensagens). Compacte a conversa no VS Code/Autopilot ou abra um chat novo e tente de novo. | Chat history too long (${countLabel} messages). Compact the conversation or start a new chat, then retry.`
+          : "[OmniRoute] Capacidade temporariamente ocupada para request pesado (muitas mensagens/tools). Aguarde 1–2s e tente de novo. | Heavy chat capacity busy; retry shortly.",
         type: historyLimit ? "payload_too_large" : "server_error",
         code: historyLimit ? "chat_history_too_large" : "chat_admission_busy",
         reason: historyLimit ? "message_limit" : "structure_limit",
+        limit: maxMessages,
+        ...(typeof messageCount === "number" ? { received: messageCount } : {}),
+        ...(typeof details.toolCount === "number" ? { tools: details.toolCount } : {}),
+        action: historyLimit ? "compact_or_new_chat" : "retry_shortly",
       },
     }),
     { status, headers }
@@ -414,7 +421,13 @@ export async function admitChatStructure(
   const tools = Array.isArray(record.tools) ? record.tools : [];
   const maxMessages = options.maxMessages ?? CHAT_HARD_MAX_MESSAGES;
   if (messages.length > maxMessages) {
-    return { admit: false, response: structuralRejectionResponse(413, maxMessages) };
+    return {
+      admit: false,
+      response: structuralRejectionResponse(413, maxMessages, {
+        messageCount: messages.length,
+        toolCount: tools.length,
+      }),
+    };
   }
 
   const heavyMessages = options.heavyMessages ?? CHAT_HEAVY_MESSAGE_COUNT;
@@ -449,7 +462,10 @@ export async function admitChatStructure(
     tools.length >= heavyTools ? "tools" : messages.length >= heavyMessages ? "messages" : "tokens";
   return {
     admit: false,
-    response: structuralRejectionResponse(503, maxMessages),
+    response: structuralRejectionResponse(503, maxMessages, {
+      messageCount: messages.length,
+      toolCount: tools.length,
+    }),
     rejection: capacityRejection(trigger, controller, acquired, {
       messages: messages.length,
       tools: tools.length,
