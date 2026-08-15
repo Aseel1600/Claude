@@ -9,6 +9,7 @@ import { withSettingsFallback } from "./cliInstallFallback";
 import { GROK_BUILD_RUNTIME_ENTRY, AMP_RUNTIME_ENTRY } from "./cliRuntimeGrokBuild";
 import { isLocationTrusted, findKnownPathMatch } from "./cliRuntimeKnownPath";
 import { buildHealthcheckPath } from "./cliRuntimeHealthcheckPath";
+import { resolveOpencodeConfigPath as resolveOpenCodeConfigPath } from "./opencodeConfigPath";
 const VALID_RUNTIME_MODES = new Set(["auto", "host", "container"]);
 const FALSE_VALUES = new Set(["0", "false", "no", "off"]);
 
@@ -969,25 +970,11 @@ export const getCliConfigHome = () => {
   return normalized;
 };
 
-export const resolveOpencodeConfigDir = (
+export const resolveOpencodeConfigPath = (
   _platform = process.platform,
   env: NodeJS.ProcessEnv = process.env,
   homeDir = os.homedir()
-) => {
-  // #3330: OpenCode reads its config from XDG `~/.config/opencode/` on ALL
-  // platforms — including Windows, where it uses `%USERPROFILE%\.config`, NOT
-  // `%APPDATA%`. Writing to %APPDATA% on Windows put the file where OpenCode
-  // never looks, so dashboard-saved config silently had no effect. `_platform`
-  // is kept in the signature for call-site/test compatibility.
-  const xdgConfigHome = String(env.XDG_CONFIG_HOME || "").trim();
-  return xdgConfigHome || path.join(homeDir, ".config");
-};
-
-export const resolveOpencodeConfigPath = (
-  platform = process.platform,
-  env: NodeJS.ProcessEnv = process.env,
-  homeDir = os.homedir()
-) => path.join(resolveOpencodeConfigDir(platform, env, homeDir), "opencode", "opencode.json");
+) => resolveOpenCodeConfigPath(env, homeDir);
 
 export const getOpenCodeConfigPath = () => resolveOpencodeConfigPath();
 

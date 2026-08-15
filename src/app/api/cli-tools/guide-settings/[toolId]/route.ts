@@ -64,7 +64,7 @@ export async function POST(request, { params }) {
         return await saveContinueConfig({ baseUrl, apiKey, model });
       case "opencode":
         // (#524) OpenCode config was never saved because only 'continue' was handled here.
-        // OpenCode reads ~/.config/opencode/opencode.json — write the OmniRoute settings there.
+        // OpenCode reads opencode.jsonc/opencode.json — update the active native config.
         return await saveOpenCodeConfig({ baseUrl, apiKey, model, models, modelLabels });
       case "hermes":
         return await saveHermesConfig({ baseUrl, apiKey, model });
@@ -161,7 +161,7 @@ async function saveContinueConfig({ baseUrl, apiKey, model }) {
 }
 
 /**
- * Save OpenCode config to ~/.config/opencode/opencode.json on ALL platforms
+ * Save OpenCode config to the active opencode.jsonc/opencode.json on ALL platforms
  * (XDG_CONFIG_HOME aware). OpenCode uses XDG `~/.config` even on Windows
  * (%USERPROFILE%\.config), NOT %APPDATA% (#3330).
  *
@@ -182,8 +182,9 @@ async function saveOpenCodeConfig({ baseUrl, apiKey, model, models, modelLabels 
   let existingConfigText = "";
   try {
     existingConfigText = await fs.readFile(configPath, "utf-8");
-  } catch {
-    // File doesn't exist — start fresh
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    // File doesn't exist — start fresh.
   }
 
   const nextConfigText = mergeOpenCodeConfigText(existingConfigText, {

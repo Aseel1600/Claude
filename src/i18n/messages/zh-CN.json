@@ -6821,8 +6821,17 @@
     "chars": "{count} 字符",
     "thinkingBudgetTitle": "思考预算",
     "thinkingBudgetDesc": "控制所有请求中 AI 推理令牌的使用",
+    "thinkingBudgetIndependenceHint": "压缩、路由和令牌限制功能在每种模式下都能正常工作。自动并不意味着“自动显示思维”——它会剥离客户端推理字段。",
     "passthrough": "直通",
     "passthroughDesc": "没有变化——客户控制思维预算",
+    "thinkingModePassthrough": "直通",
+    "thinkingModePassthroughDesc": "保持客户端推理不变（努力、摘要、思维块）。Codex/Desktop 可见思维所需。默认。",
+    "thinkingModeAuto": "自动（剥离）",
+    "thinkingModeAutoDesc": "剥离所有客户端思考/推理字段（reasoning, reasoning_effort, Claude thinking, Gemini thinking_config），让提供者自行设定默认值。可以隐藏思考面板并中断客户端摘要请求。",
+    "thinkingModeCustom": "自定义",
+    "thinkingModeCustomDesc": "用您在下面设置的固定思维令牌预算覆盖每个请求。",
+    "thinkingModeAdaptive": "自适应",
+    "thinkingModeAdaptiveDesc": "根据消息数量、工具和提示长度，从基础工作量扩展思维预算。",
     "auto": "自动",
     "autoDesc": "丢弃所有思考配置，由提供者自行决定",
     "custom": "定制",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "高级",
     "modalityBridgeTimeoutMs": "超时 (毫秒)",
     "modalityBridgeMaxImages": "每个请求的最大图像数",
+    "visionMaxCharsLabel": "最大描述字符数",
+    "visionMaxCharsHint": "限制视觉模型的描述长度。0 = 无限 — 对于细节丰富的OCR任务，请提高。",
     "modalityBridgeCacheEnabled": "缓存描述",
     "modalityBridgeCacheEnabledDesc": "重用相同图像的描述（SHA-256 键控，内存中）。",
     "modalityBridgeCacheTtlMinutes": "缓存 TTL（分钟）",
@@ -8146,16 +8157,7 @@
     "cliproxyapiHealth": "健康",
     "cliproxyapiPort": "端口",
     "qdrantHost": "主机",
-    "qdrantCollection": "集合",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "集合"
   },
   "contextRtk": {
     "title": "命令输出过滤引擎",
@@ -13124,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "提供者设置",
@@ -13239,17 +13255,17 @@
     "pollErrorLocalOnly": "此页面仅可从 localhost 或局域网访问 (LOCAL_ONLY)。",
     "pollErrorStopped": "轮询已停止:服务器拒绝了请求 (404/403)。",
     "pollErrorTransient": "获取数据出错:将自动重试。",
-    "degraded": "部分数据:不可用的数据源: {sources}",
-    "degraded.source.database": "数据库",
-    "degraded.source.circuitBreaker": "断路器",
-    "degraded.source.modelLockouts": "模型锁定",
-    "degraded.source.count": "连接数"
+    "degraded": {
+      "message": "部分数据:不可用的数据源: {sources}",
+      "source": {
+        "database": "数据库",
+        "circuitBreaker": "断路器",
+        "modelLockouts": "模型锁定",
+        "count": "连接数"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "在目标模型缺少所需能力（视觉、工具、结构化输出、上下文窗口）时，拒绝调度前的请求。保护绕过组合层兼容性过滤器的直接单一提供者请求。",
-  "capabilityFilter.visionMismatch": "提供者不支持此图像请求的视觉效果",
-  "capabilityFilter.toolsMismatch": "提供者不支持工具调用",
-  "capabilityFilter.structuredOutputMismatch": "提供者不支持结构化输出",
-  "capabilityFilter.contextWindowMismatch": "请求超出提供者上下文窗口",
   "publicSystem": {
     "notFound": {
       "title": "页面未找到",
@@ -13624,5 +13640,49 @@
     "hint": "启用后，发现的模型会出现在 OmniRoute 的提供者选择中。",
     "updateFailed": "更新失败 (HTTP {status})",
     "networkError": "网络错误 — 无法更新提供者曝光设置"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "提供者不支持此图像请求的视觉效果",
+    "toolsMismatch": "提供者不支持工具调用",
+    "structuredOutputMismatch": "提供者不支持结构化输出",
+    "contextWindowMismatch": "请求超出提供者上下文窗口"
   }
 }
