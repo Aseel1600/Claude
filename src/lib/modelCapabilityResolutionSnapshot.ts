@@ -10,7 +10,11 @@
  */
 import { listModelCapabilityOverrides } from "@/lib/db/modelCapabilityOverrides";
 import { listModelContextOverrides } from "@/lib/db/modelContextOverrides";
-import { listCustomModelVisionOverrides, type CustomModelVisionOverrideMap } from "@/lib/db/models";
+import {
+  listCustomModelVisionOverrides,
+  type CustomModelVisionOverrideMap,
+  type CustomModelVisionOverrideReadOptions,
+} from "@/lib/db/models";
 import {
   loadAllSyncedCapabilitiesUncached,
   type CapabilitiesByProvider,
@@ -25,6 +29,10 @@ export interface ModelCapabilityResolutionSnapshot {
   readonly maxInputTokenOverrides: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
   readonly customVisionOverrides: CustomModelVisionOverrideMap;
+}
+
+export interface ModelCapabilityResolutionSnapshotOptions {
+  customModelVision?: CustomModelVisionOverrideReadOptions;
 }
 
 function setNestedOverride(
@@ -46,7 +54,9 @@ function setNestedOverride(
  * Callers must not yield between the bulk reads if they need a coherent view;
  * existing catalog generation guards remain authoritative across later yields.
  */
-export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolutionSnapshot {
+export function createModelCapabilityResolutionSnapshot(
+  options: ModelCapabilityResolutionSnapshotOptions = {}
+): ModelCapabilityResolutionSnapshot {
   const synced = loadAllSyncedCapabilitiesUncached();
 
   const maxTokenOverrides = new Map<string, Map<string, number>>();
@@ -69,6 +79,6 @@ export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolu
     maxTokenOverrides,
     maxInputTokenOverrides,
     contextOverrides,
-    customVisionOverrides: listCustomModelVisionOverrides(),
+    customVisionOverrides: listCustomModelVisionOverrides(options.customModelVision),
   };
 }

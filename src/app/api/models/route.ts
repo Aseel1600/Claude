@@ -11,8 +11,12 @@ import {
 } from "@/lib/modelCapabilities";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 
+interface GetModelsDependencies {
+  createCapabilitySnapshot?: typeof createModelCapabilityResolutionSnapshot;
+}
+
 // GET /api/models - Get models with aliases (only from active providers by default)
-export async function GET(request: Request) {
+export async function handleGetModels(request: Request, dependencies: GetModelsDependencies = {}) {
   try {
     const { searchParams } = new URL(request.url);
     const showAll = searchParams.get("all") === "true";
@@ -100,7 +104,9 @@ export async function GET(request: Request) {
         (providerHasFreeModels(model.provider) && isFreeModel(model.provider, { id: model.model }))
       );
     });
-    const capabilitySnapshot = createModelCapabilityResolutionSnapshot();
+    const capabilitySnapshot = (
+      dependencies.createCapabilitySnapshot ?? createModelCapabilityResolutionSnapshot
+    )();
     const models = candidates.map((m: any) => {
       const fullModel = `${m.provider}/${m.model}`;
       const available = !activeProviders || activeProviders.has(m.provider);
@@ -120,6 +126,10 @@ export async function GET(request: Request) {
     console.log("Error fetching models:", error);
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });
   }
+}
+
+export async function GET(request: Request) {
+  return handleGetModels(request);
 }
 
 // PUT /api/models - Update model alias

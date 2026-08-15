@@ -17,6 +17,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const settingsDb = await import("../../src/lib/db/settings.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
+const customModelsDb = await import("../../src/lib/db/models.ts");
+const modelCapabilities = await import("../../src/lib/modelCapabilities.ts");
 const modelsRoute = await import("../../src/app/api/models/route.ts");
 
 async function fetchModels(): Promise<
@@ -80,6 +82,105 @@ test("/api/models retains genuine resolved vision capability for the Video Bridg
     customModelReads,
     1,
     "one request-level capability snapshot must bulk-read custom vision overrides once"
+  );
+});
+
+test("custom-model vision DB failures fail open through point, bulk, snapshot, and route reads", async () => {
+  const failure = new Error("private sqlite failure");
+  const pointFactories: Array<() => unknown> = [
+    () => {
+      throw failure;
+    },
+    () => ({
+      prepare() {
+        throw failure;
+      },
+    }),
+    () => ({
+      prepare() {
+        return {
+          get() {
+            throw failure;
+          },
+        };
+      },
+    }),
+  ];
+  for (const getDatabase of pointFactories) {
+    assert.equal(
+      customModelsDb.getCustomModelVisionOverride("openai", "gpt-4o", undefined, {
+        getDatabase,
+      }),
+      null
+    );
+  }
+
+  const bulkFactories: Array<() => unknown> = [
+    ...pointFactories.slice(0, 2),
+    () => ({
+      prepare() {
+        return {
+          all() {
+            throw failure;
+          },
+        };
+      },
+    }),
+    () => ({
+      prepare() {
+        return {
+          all() {
+            return [
+              {
+                get key() {
+                  throw failure;
+                },
+                value: "[]",
+              },
+            ];
+          },
+        };
+      },
+    }),
+  ];
+  for (const getDatabase of bulkFactories) {
+    const overrides = customModelsDb.listCustomModelVisionOverrides({ getDatabase });
+    assert.equal(overrides.size, 0);
+  }
+
+  const customDbFailure = {
+    getDatabase: () => {
+      throw failure;
+    },
+  };
+  const snapshot = modelCapabilities.createModelCapabilityResolutionSnapshot({
+    customModelVision: customDbFailure,
+  });
+  assert.equal(snapshot.customVisionOverrides.size, 0);
+  assert.equal(
+    modelCapabilities.getResolvedModelCapabilities("openai/gpt-4o-mini", undefined, snapshot)
+      .supportsVision,
+    true,
+    "ordinary static capability fallback must survive the optional DB read"
+  );
+
+  const response = await modelsRoute.handleGetModels(
+    new Request("http://localhost/api/models?all=true"),
+    {
+      createCapabilitySnapshot: () =>
+        modelCapabilities.createModelCapabilityResolutionSnapshot({
+          customModelVision: customDbFailure,
+        }),
+    }
+  );
+  assert.equal(response.status, 200);
+  const body = (await response.json()) as {
+    models: Array<{ provider: string; model: string; supportsVision?: boolean }>;
+  };
+  assert.equal(
+    body.models.find((model) => model.provider === "openai" && model.model === "gpt-4o-mini")
+      ?.supportsVision,
+    true
   );
 });
 
