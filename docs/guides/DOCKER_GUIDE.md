@@ -269,8 +269,10 @@ prefix). Traefik should route `PathPrefix(`/omniroute`)` to the container withou
 `StripPrefix`, so Next.js receives `/omniroute/...` and serves assets from
 `/omniroute/_next/...`.
 
-The Docker healthcheck probes `/api/monitoring/health` prefixed with the active
-`OMNIROUTE_BASE_PATH`.
+The Docker healthcheck probes the lightweight `/healthz` lifecycle endpoint prefixed
+with the active `OMNIROUTE_BASE_PATH`. `/api/monitoring/health` remains available for
+human/dashboard diagnostics; to point the container HEALTHCHECK back at it (for example
+for deep health enforcement), set `OMNIROUTE_HEALTHCHECK_PATH=/api/monitoring/health`.
 
 ## Docker Compose with Caddy (HTTPS Auto-TLS)
 
