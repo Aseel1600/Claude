@@ -210,6 +210,39 @@ test("preCall: zero-vision combo falls back to describe when reroute target is u
   assert.equal(visionCallCount, 1);
 });
 
+test("preCall: no-vision combo, unusable reroute target AND describe failure -> stub text", async () => {
+  resetGuardrailsForTests({ registerDefaults: false });
+  await createCombo("text-only-combo", [{ provider: "google", model: TEXT_MODEL_A }]);
+  visionCallCount = 0;
+  // Double failure: the reroute target has no usable credentials AND the
+  // describe call fails for every image. The allNull stub fallback must fire
+  // for "no-vision" too — otherwise the raw images stay in the payload, the
+  // combo capability filter rejects every target, and the original
+  // capability_mismatch recurs.
+  const guardrail = createGuardrail(
+    {
+      hasUsableCredentials: async () => false,
+      callVisionModel: async () => {
+        visionCallCount++;
+        throw new Error("no vision-capable provider connected");
+      },
+    },
+    "Describe the double-failure image."
+  );
+  const result = await guardrail.preCall(IMAGE_PAYLOAD, {});
+
+  assert.equal(result.block, false);
+  assert.equal(result.meta.rerouted, undefined);
+  // Combo model kept; raw image replaced with the stub text.
+  assert.equal(asModifiedBody(result).model, "text-only-combo");
+  assert.equal(hasImagePart(asModifiedBody(result).messages), false);
+  assert.match(
+    JSON.stringify(asModifiedBody(result).messages),
+    /\(unavailable — no vision-capable provider connected\)/
+  );
+  assert.equal(visionCallCount, 1);
+});
+
 test("preCall: zero-vision combo with no images is left untouched", async () => {
   resetGuardrailsForTests({ registerDefaults: false });
   await createCombo("text-only-combo", [{ provider: "google", model: TEXT_MODEL_A }]);

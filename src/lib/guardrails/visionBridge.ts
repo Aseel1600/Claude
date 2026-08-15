@@ -458,8 +458,15 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // is safe here because the upstream can only handle text. The original #4012
     // preserve-raw behavior only applies to paths where the upstream might still
     // be vision-capable (reroute path / unknown capability).
+    // "no-vision" combos are included for the same reason: with ZERO
+    // vision-capable targets, the combo capability filter rejects raw images
+    // outright (capability_mismatch), so stub text is strictly better than
+    // preserving bytes no combo target can consume.
     const allNull = descriptions.every((d) => d === null);
-    if (allNull && comboVisionBridgeDecision === "process") {
+    if (
+      allNull &&
+      (comboVisionBridgeDecision === "process" || comboVisionBridgeDecision === "no-vision")
+    ) {
       for (let i = 0; i < descriptions.length; i++) {
         descriptions[i] = `[Image ${i + 1}]: (unavailable — no vision-capable provider connected)`;
       }
