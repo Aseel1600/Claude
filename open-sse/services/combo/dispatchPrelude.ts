@@ -76,6 +76,10 @@ type PreludeBaseOptionArgs = {
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
   clientManagedResponsesContext?: boolean;
+  /** #10225 — defer the hard context-overflow preflight when compression is enabled. */
+  deferContextOverflowWhenCompressible?: boolean;
+  /** Server-side compression exclusions (#8034). */
+  compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
 };
 
 /** Rebuild handleComboChat's option bag verbatim for a recursive dispatch. */
@@ -93,6 +97,8 @@ function buildBaseOptions(a: PreludeBaseOptionArgs): HandleComboChatOptions {
     apiKeyAllowedConnections: a.apiKeyAllowedConnections,
     hiddenModelsByProvider: a.hiddenModelsByProvider,
     clientManagedResponsesContext: a.clientManagedResponsesContext,
+    deferContextOverflowWhenCompressible: a.deferContextOverflowWhenCompressible,
+    compressionExclusions: a.compressionExclusions,
   };
 }
 
@@ -366,6 +372,8 @@ export async function tryFusionDispatch(args: {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  deferContextOverflowWhenCompressible?: boolean;
+  compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
   runCombo: RunCombo;
 }): Promise<Response | null> {
   const { cfg, combo, config, strategy, log } = args;
@@ -589,6 +597,8 @@ export async function tryRuntimeUnitDispatch(args: {
   signal?: AbortSignal | null;
   apiKeyAllowedConnections?: string[] | null;
   hiddenModelsByProvider?: HiddenModelsByProvider;
+  deferContextOverflowWhenCompressible?: boolean;
+  compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
   runCombo: RunCombo;
 }): Promise<Response | null> {
   const { body, combo, config, strategy, allCombos, log, settings } = args;

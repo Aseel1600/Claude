@@ -115,6 +115,10 @@ export interface ResolveComboTargetPipelineDeps {
   hiddenModelsByProvider?: HiddenModelsByProvider;
   /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
   clientManagedResponsesContext?: boolean;
+  /** #10225 — defer the hard context-overflow preflight when compression is enabled for this request. */
+  deferContextOverflowWhenCompressible?: boolean;
+  /** Server-side compression exclusions (#8034) — which targets can run compression. */
+  compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
 }
 
 export interface ResolvedComboTargetPipeline {
@@ -730,6 +734,8 @@ export async function resolveComboTargetPipeline(
 
   const overflow = getKnownContextOverflow(orderedTargets, body, {
     clientManagedResponsesContext: deps.clientManagedResponsesContext,
+    deferContextOverflowWhenCompressible: deps.deferContextOverflowWhenCompressible,
+    compressionExclusions: deps.compressionExclusions,
   });
   if (overflow) {
     return { earlyResponse: buildContextOverflowResponse(overflow, orderedTargets, log) };

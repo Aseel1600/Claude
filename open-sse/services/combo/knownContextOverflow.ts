@@ -17,6 +17,7 @@
  */
 
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
+import { isCompressionExcluded, type CompressionExclusions } from "../compression/exclusions.ts";
 import { deriveRequestCompatibilityRequirements } from "./comboStructure.ts";
 import type { ResolvedComboTarget } from "./types.ts";
 
@@ -26,6 +27,19 @@ export type KnownContextOverflow = {
   requiredContextTokens: number;
   maxKnownContextTokens: number;
   targetCount: number;
+};
+
+export type KnownContextOverflowOptions = {
+  clientManagedResponsesContext?: boolean;
+  /**
+   * When prompt compression is enabled for this request (global compression switch
+   * AND not API-key opted-out), defer the hard preflight so chatCore's compression
+   * pipeline runs before the final context gate — instead of a raw-body estimate
+   * rejecting a compressible request up front. (#10225)
+   */
+  deferContextOverflowWhenCompressible?: boolean;
+  /** Server-side compression exclusions (#8034) — targets matching one cannot run compression. */
+  compressionExclusions?: CompressionExclusions;
 };
 
 // #7177: an empty array/object (e.g. a default `messages: []` some combo entrypoints inject
@@ -69,7 +83,7 @@ export function getKnownContextLimit(
 export function getKnownContextOverflow(
   targets: ResolvedComboTarget[],
   body: Record<string, unknown>,
-  options: { clientManagedResponsesContext?: boolean } = {}
+  options: KnownContextOverflowOptions = {}
 ): KnownContextOverflow | null {
   if (targets.length === 0) return null;
   // Native Codex Responses clients compact their own item history. Let the concrete
@@ -81,6 +95,31 @@ export function getKnownContextOverflow(
     options.clientManagedResponsesContext === true &&
     targets.every(
       (target) => target.provider === "codex" || target.provider === "chatgpt-web-codex"
+    )
+  ) {
+    return null;
+  }
+  // #10225: a conservative raw-body context estimate must not be treated as proof
+  // that a compression-enabled request cannot fit. When compression is available
+  // for this request AND at least one target can actually run it, defer the hard
+  // rejection so handleChatCore runs proactive compression (chatCore.ts) and its
+  // post-compression enforceOutputTokenBudget becomes the final context gate —
+  // returning a local `context_length_exceeded` only if the compressed body still
+  // cannot fit (no upstream dispatch). Each excluded/native-codex-passthrough
+  // target is skipped; if no target can compress, the fast preflight is kept.
+  if (
+    options.deferContextOverflowWhenCompressible === true &&
+    targets.some(
+      (target) =>
+        !isCompressionExcluded(
+          {
+            provider: target.provider,
+            model: target.modelStr.includes("/")
+              ? target.modelStr.split("/").slice(1).join("/")
+              : target.modelStr,
+          },
+          options.compressionExclusions
+        )
     )
   ) {
     return null;

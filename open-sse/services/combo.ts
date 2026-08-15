@@ -591,6 +591,8 @@ export async function handleComboChat({
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
   clientManagedResponsesContext = false,
+  deferContextOverflowWhenCompressible = false,
+  compressionExclusions,
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
@@ -651,6 +653,8 @@ export async function handleComboChat({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    deferContextOverflowWhenCompressible,
+    compressionExclusions,
     runCombo: handleComboChat,
   });
   if (fusionDispatch) return fusionDispatch;
@@ -700,6 +704,8 @@ export async function handleComboChat({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    deferContextOverflowWhenCompressible,
+    compressionExclusions,
     runCombo: handleComboChat,
   });
   if (runtimeUnitDispatch) return runtimeUnitDispatch;
@@ -723,6 +729,8 @@ export async function handleComboChat({
       signal,
       hiddenModelsByProvider,
       clientManagedResponsesContext,
+      deferContextOverflowWhenCompressible,
+      compressionExclusions,
       relayOptions,
     });
   }
@@ -750,6 +758,8 @@ export async function handleComboChat({
     buildAutoCandidates,
     hiddenModelsByProvider,
     clientManagedResponsesContext,
+    deferContextOverflowWhenCompressible,
+    compressionExclusions,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -2441,6 +2451,8 @@ async function handleRoundRobinCombo({
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
   clientManagedResponsesContext,
+  deferContextOverflowWhenCompressible = false,
+  compressionExclusions,
   relayOptions,
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
@@ -2498,6 +2510,8 @@ async function handleRoundRobinCombo({
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
   const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body, {
     clientManagedResponsesContext,
+    deferContextOverflowWhenCompressible,
+    compressionExclusions,
   });
   if (knownContextOverflow) {
     return errorResponseWithComboDiagnostics(

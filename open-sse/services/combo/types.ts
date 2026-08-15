@@ -6,6 +6,7 @@
  * — logic unchanged, re-exported from combo.ts for backward compatibility.
  */
 
+import type { CompressionExclusions } from "../compression/exclusions.ts";
 import type { ProviderCandidate } from "../autoCombo/scoring.ts";
 
 export const RESET_WINDOW_NAMES = ["weekly", "session", "monthly"] as const;
@@ -112,6 +113,15 @@ export type HandleComboChatOptions = {
   hiddenModelsByProvider?: HiddenModelsByProvider;
   /** Native Responses clients (for example Codex CLI/Desktop) manage compaction themselves. */
   clientManagedResponsesContext?: boolean;
+  /**
+   * #10225: request-scoped flag — prompt compression is enabled for this request
+   * (global compression switch ON and not opted-out by the API key). When set, the
+   * combo preflight defers its hard context-overflow rejection so chatCore's
+   * compression runs before the final context gate.
+   */
+  deferContextOverflowWhenCompressible?: boolean;
+  /** Server-side compression exclusions (#8034) — used to check which targets can run compression. */
+  compressionExclusions?: CompressionExclusions;
 };
 
 export type HandleRoundRobinOptions = Omit<HandleComboChatOptions, "apiKeyAllowedConnections">;
