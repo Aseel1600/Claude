@@ -27,6 +27,11 @@ interface RuntimeStatus {
   ffmpegVersion: string | null;
   ffprobeVersion: string | null;
   reason?: string;
+  restricted?: boolean;
+}
+
+interface ModalityBridgeVideoTabProps {
+  runtimeHostname?: string;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -46,6 +51,14 @@ function fromApi(value: unknown): VideoState {
 
 function parseRuntimeStatus(value: unknown): RuntimeStatus | null {
   const record = asRecord(value);
+  if (record.restricted === true) {
+    return {
+      available: false,
+      ffmpegVersion: null,
+      ffprobeVersion: null,
+      restricted: true,
+    };
+  }
   if (typeof record.available !== "boolean") return null;
   return {
     available: record.available,
@@ -55,12 +68,24 @@ function parseRuntimeStatus(value: unknown): RuntimeStatus | null {
   };
 }
 
+function isLoopbackDashboardHost(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
 function clampNumber(raw: string, min: number, max: number, fallback: number): number {
   const parsed = Number.parseInt(raw, 10);
   return Math.min(max, Math.max(min, Number.isFinite(parsed) ? parsed : fallback));
 }
 
-export default function ModalityBridgeVideoTab() {
+export default function ModalityBridgeVideoTab({
+  runtimeHostname,
+}: ModalityBridgeVideoTabProps = {}) {
   const t = useTranslations("settings");
   const tRoot = useTranslations();
   const [settings, setSettings] = useState<VideoState | null>(null);
@@ -71,14 +96,18 @@ export default function ModalityBridgeVideoTab() {
 
   useEffect(() => {
     let cancelled = false;
+    const hostname = runtimeHostname ?? window.location.hostname;
+    const runtimeStatusRequest = isLoopbackDashboardHost(hostname)
+      ? fetch("/api/modality-bridge/video/runtime")
+          .then((response) => (response.ok ? response.json() : null))
+          .catch(() => null)
+      : Promise.resolve({ restricted: true });
     void Promise.all([
       fetch("/api/settings").then((response) => {
         if (!response.ok) throw new Error("settings load failed");
         return response.json();
       }),
-      fetch("/api/modality-bridge/video/runtime")
-        .then((response) => (response.ok ? response.json() : null))
-        .catch(() => null),
+      runtimeStatusRequest,
     ])
       .then(([settingsValue, runtimeValue]: [unknown, unknown]) => {
         if (cancelled) return;
@@ -94,7 +123,7 @@ export default function ModalityBridgeVideoTab() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [runtimeHostname]);
 
   const update = async (patch: Partial<VideoState>) => {
     setErrorState(null);
@@ -168,6 +197,11 @@ export default function ModalityBridgeVideoTab() {
               <div className="mt-1 text-xs">
                 FFmpeg {runtime.ffmpegVersion} · ffprobe {runtime.ffprobeVersion}
               </div>
+            </>
+          ) : runtime?.restricted ? (
+            <>
+              <strong>{t("authz.badge.strict")}</strong>
+              <div className="mt-1 text-xs">{tRoot("endpoint.badgeLoopbackTooltip")}</div>
             </>
           ) : (
             <>
