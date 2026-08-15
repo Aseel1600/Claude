@@ -44,6 +44,11 @@ export interface RemoteImageFetchResult {
   url: string;
 }
 
+/** Generic aliases for non-image callers that need the same SSRF/bounds policy. */
+export type RemoteMediaLookup = RemoteImageLookup;
+export type RemoteMediaFetchOptions = RemoteImageFetchOptions;
+export type RemoteMediaFetchResult = RemoteImageFetchResult;
+
 function validateRemoteImageUrl(input: string | URL, guard: OutboundUrlGuardMode) {
   return guard === "public-only" ? parseAndValidatePublicUrl(input) : parseOutboundUrl(input);
 }
@@ -166,10 +171,10 @@ async function readResponseBuffer(response: Response, maxBytes: number) {
   return Buffer.concat(chunks, totalBytes);
 }
 
-export async function fetchRemoteImage(
+export async function fetchRemoteMedia(
   input: string | URL,
-  options: RemoteImageFetchOptions = {}
-): Promise<RemoteImageFetchResult> {
+  options: RemoteMediaFetchOptions = {}
+): Promise<RemoteMediaFetchResult> {
   const injectedFetch = options.fetchImpl;
   // Default off: production callers that need connection pinning opt in. This keeps
   // globalThis.fetch mockable for image-generation tests and preserves the previous
@@ -221,4 +226,12 @@ export async function fetchRemoteImage(
   }
 
   throw new Error(`Remote image exceeded ${maxRedirects} redirect limit`);
+}
+
+/** Backward-compatible image-specific entry point. */
+export async function fetchRemoteImage(
+  input: string | URL,
+  options: RemoteImageFetchOptions = {}
+): Promise<RemoteImageFetchResult> {
+  return fetchRemoteMedia(input, options);
 }
