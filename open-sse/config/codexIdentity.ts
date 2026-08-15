@@ -37,26 +37,15 @@ function nonEmptyString(value: unknown): string | null {
   return normalized || null;
 }
 
-/**
- * Keep the historical installation-id layout so existing accounts stay stable.
- * CodeQL: not password hashing — this derives a deterministic installation UUID
- * from an account seed, never verified against a stored credential. Same
- * false-positive class as src/lib/db/apiKeys.ts::hashKey.
- * lgtm[js/insufficient-password-hash]
- */
+/** Keep the historical installation-id layout so existing accounts stay stable. */
 function uuidFromLegacyInstallationValue(value: string): string {
-  const hash = createHash("sha256").update(value).digest("hex"); // nosemgrep: insufficient-password-hash
+  const hash = createHash("sha256").update(value).digest("hex");
   return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
 }
 
-/**
- * RFC4122 v4 from SHA-256. Same seed → same UUID.
- * CodeQL: not password hashing — deterministic ID derivation from an account
- * seed, never verified against a stored credential.
- * lgtm[js/insufficient-password-hash]
- */
+/** RFC4122 v4 from SHA-256. Same seed → same UUID. */
 export function deriveStableUUIDv4(seed: string): string {
-  const digest = createHash("sha256").update(seed).digest(); // nosemgrep: insufficient-password-hash
+  const digest = createHash("sha256").update(seed).digest();
   const bytes = Buffer.from(digest.subarray(0, 16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
