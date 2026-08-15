@@ -6821,8 +6821,17 @@
     "chars": "{count} tekens",
     "thinkingBudgetTitle": "Denkbudget",
     "thinkingBudgetDesc": "Beheer het gebruik van AI-redeneringstokens voor alle verzoeken",
+    "thinkingBudgetIndependenceHint": "Compressie-, routerings- en tokenlimietfuncties blijven in elke modus werken. Auto betekent niet “auto-show denken” — het verwijdert de redeneervelden van de client.",
     "passthrough": "Doorvoer",
     "passthroughDesc": "Geen wijzigingen – de klant bepaalt het denkbudget",
+    "thinkingModePassthrough": "Doorvoer",
+    "thinkingModePassthroughDesc": "Laat de reden van de cliënt ongewijzigd (inspanningen, samenvatting, denkblokken). Vereist voor Codex/Desktop zichtbare gedachten. Standaard.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Verwijder alle velden voor klantdenken/redenering (redenering, redenering_inspanning, Claude denken, Gemini denken_config) en laat de provider standaardwaarden verzinnen. Kan denkpanelen verbergen en klant samenvattingsverzoeken onderbreken.",
+    "thinkingModeCustom": "Aangepast",
+    "thinkingModeCustomDesc": "Overschrijf elke aanvraag met een vast denk-tokenbudget dat je hieronder instelt.",
+    "thinkingModeAdaptive": "Adaptief",
+    "thinkingModeAdaptiveDesc": "Schaal het denkbudget vanaf een basisinspanningen met behulp van het aantal berichten, tools en de lengte van de prompt.",
     "auto": "Automatisch",
     "autoDesc": "Verwijder alle denkconfiguraties – laat de provider beslissen",
     "custom": "Aangepast",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "Geavanceerd",
     "modalityBridgeTimeoutMs": "Time-out (ms)",
     "modalityBridgeMaxImages": "Max afbeeldingen per verzoek",
+    "visionMaxCharsLabel": "Max beschrijvingstekens",
+    "visionMaxCharsHint": "Beperk de beschrijvingslengte van het visiemodel. 0 = onbeperkt — verhoog voor detailrijke OCR-taken.",
     "modalityBridgeCacheEnabled": "Cache beschrijvingen",
     "modalityBridgeCacheEnabledDesc": "Herbruik beschrijvingen voor identieke afbeeldingen (SHA-256-gekeyed, in het geheugen).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuten)",
@@ -8146,16 +8157,7 @@
     "cliproxyapiHealth": "Gezondheid",
     "cliproxyapiPort": "Haven",
     "qdrantHost": "Host",
-    "qdrantCollection": "Verzameling",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Verzameling"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -13124,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "Leverancier Configuratie",
@@ -13239,17 +13255,17 @@
     "pollErrorLocalOnly": "Deze pagina is alleen toegankelijk vanaf localhost of LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Polling gestopt: de server heeft het verzoek geweigerd (404/403).",
     "pollErrorTransient": "Fout bij ophalen van gegevens: automatisch opnieuw proberen.",
-    "degraded": "Gedeeltelijke gegevens: niet-beschikbare bronnen: {sources}",
-    "degraded.source.database": "Database",
-    "degraded.source.circuitBreaker": "Circuit Breaker",
-    "degraded.source.modelLockouts": "Modelvergrendelingen",
-    "degraded.source.count": "Aantal Verbindingen"
+    "degraded": {
+      "message": "Gedeeltelijke gegevens: niet-beschikbare bronnen: {sources}",
+      "source": {
+        "database": "Database",
+        "circuitBreaker": "Circuit Breaker",
+        "modelLockouts": "Modelvergrendelingen",
+        "count": "Aantal Verbindingen"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Weiger verzoeken vóór verzending wanneer het doellmodel ontbrekende vereiste mogelijkheden heeft (zicht, tools, gestructureerde output, contextvenster). Beschermt directe verzoeken van een enkele aanbieder die de compatibiliteitsfilter van de comb-laag omzeilen.",
-  "capabilityFilter.visionMismatch": "Provider ondersteunt geen visie voor dit afbeeldingsverzoek",
-  "capabilityFilter.toolsMismatch": "Provider ondersteunt het aanroepen van tools niet",
-  "capabilityFilter.structuredOutputMismatch": "Provider ondersteunt geen gestructureerde uitvoer",
-  "capabilityFilter.contextWindowMismatch": "Verzoek overschrijdt de contextvenster van de provider",
   "publicSystem": {
     "notFound": {
       "title": "Pagina niet gevonden",
@@ -13624,5 +13640,49 @@
     "hint": "Wanneer ingeschakeld, verschijnen ontdekte modellen in providerselecties in OmniRoute.",
     "updateFailed": "Kon niet bijwerken (HTTP {status})",
     "networkError": "Netwerkfout — kon de blootstellingsinstelling van de provider niet bijwerken"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Provider ondersteunt geen visie voor dit afbeeldingsverzoek",
+    "toolsMismatch": "Provider ondersteunt het aanroepen van tools niet",
+    "structuredOutputMismatch": "Provider ondersteunt geen gestructureerde uitvoer",
+    "contextWindowMismatch": "Verzoek overschrijdt de contextvenster van de provider"
   }
 }
