@@ -305,6 +305,12 @@ export class PlaywrightCfTransport implements CfTransport {
       await page.exposeFunction("__cfpPush", (raw: string) => {
         this.push(raw);
       });
+      // Bundlers (esbuild/webpack keepNames) inject a `__name` helper call into
+      // serialized function bodies; define it in the page context so
+      // page.evaluate(openPlaygroundSession) doesn't throw ReferenceError.
+      await page.evaluate(() => {
+        (window as unknown as { __name?: unknown }).__name = (fn: unknown) => fn;
+      });
       await page.evaluate(openPlaygroundSession, {
         ...config,
         chatId: this.chatId,
