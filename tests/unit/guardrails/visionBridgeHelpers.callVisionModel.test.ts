@@ -93,6 +93,35 @@ test("callVisionModel returns description on success", async () => {
   }
 });
 
+test("callVisionModel can route a catalog model through the OmniRoute self-loop", async () => {
+  let capturedUrl = "";
+  let capturedBody: Record<string, unknown> = {};
+  let capturedHeaders: Record<string, string> = {};
+  const fetchImpl: typeof fetch = async (input, init) => {
+    capturedUrl = String(input);
+    capturedBody = JSON.parse(String(init?.body));
+    capturedHeaders = (init?.headers ?? {}) as Record<string, string>;
+    return Response.json({ choices: [{ message: { content: "GREEN_SCENE_2" } }] });
+  };
+
+  const result = await callVisionModel("data:image/png;base64,iVBORw0KGgo", {
+    model: "openai/gpt-4o-mini",
+    prompt: "Describe this frame",
+    timeoutMs: 30000,
+    maxImages: 1,
+    routeThroughOmniRoute: true,
+    fetchImpl,
+  });
+
+  const url = new URL(capturedUrl);
+  assert.equal(url.hostname, "localhost");
+  assert.equal(url.pathname, "/v1/chat/completions");
+  assert.equal(capturedBody.model, "openai/gpt-4o-mini");
+  assert.equal(capturedHeaders["x-omniroute-admission-bypass"], "internal");
+  assert.match(capturedHeaders["x-omniroute-disabled-guardrails"], /video-bridge/);
+  assert.equal(result, "GREEN_SCENE_2");
+});
+
 test("callVisionModel throws on HTTP error", async () => {
   const mockResponse = {
     ok: false,

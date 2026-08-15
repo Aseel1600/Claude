@@ -240,6 +240,8 @@ test("maxVideos preserves excess raw video only when target video support is unk
 test("empty Video and Vision model settings use the Vision auto-router and report the effective model", async () => {
   let selectedFixedModel: string | undefined;
   let calledModel = "";
+  let routedThroughOmniRoute = false;
+  let injectedFetch = false;
   const bridge = new VideoBridgeGuardrail({
     deps: {
       getSettings: async () => ({
@@ -259,6 +261,8 @@ test("empty Video and Vision model settings use the Vision auto-router and repor
       }),
       callVisionModel: async (_image, config) => {
         calledModel = config.model;
+        routedThroughOmniRoute = config.routeThroughOmniRoute === true;
+        injectedFetch = typeof config.fetchImpl === "function";
         return "a safe observation";
       },
     },
@@ -266,6 +270,8 @@ test("empty Video and Vision model settings use the Vision auto-router and repor
   const result = await bridge.preCall(payload(), {});
   assert.equal(selectedFixedModel, undefined);
   assert.equal(calledModel, "google/gemini-2.5-flash");
+  assert.equal(routedThroughOmniRoute, true);
+  assert.equal(injectedFetch, true);
   assert.equal(result.meta?.videoModel, "google/gemini-2.5-flash");
   assert.ok(result.modifiedPayload);
 });
@@ -347,10 +353,10 @@ test("real primary failure reports and caches the successful fallback model iden
   const fetchImpl: typeof fetch = async (_input, init) => {
     const body = JSON.parse(String(init?.body)) as { model: string };
     attemptedModels.push(body.model);
-    if (body.model === "gpt-4o-mini") {
+    if (body.model === primary) {
       return new Response("primary unavailable", { status: 503 });
     }
-    return Response.json({ content: [{ type: "text", text: "fallback observation" }] });
+    return Response.json({ choices: [{ message: { content: "fallback observation" } }] });
   };
   const bridge = new VideoBridgeGuardrail({
     deps: {
@@ -384,7 +390,7 @@ test("real primary failure reports and caches the successful fallback model iden
   const first = await bridge.preCall(payload(), {});
   const second = await bridge.preCall(payload(), {});
 
-  assert.deepEqual(attemptedModels, ["gpt-4o-mini", "claude-fable-5"]);
+  assert.deepEqual(attemptedModels, [primary, fallback]);
   assert.equal(first.meta?.videoModel, fallback, "meta must name the successful fallback");
   assert.equal(second.meta?.videoModel, fallback, "cache hit must retain the producer identity");
   assert.equal(second.meta?.cacheHits, 1);
