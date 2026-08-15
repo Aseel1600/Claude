@@ -349,6 +349,9 @@ export const updateSettingsSchema = z.object({
   modalityBridgeVisionPrompt: z.string().max(5000).optional(),
   modalityBridgeVisionTimeout: z.number().int().min(1000).max(300000).optional(),
   modalityBridgeVisionMaxImages: z.number().int().min(1).max(20).optional(),
+  modalityBridgeVisionMaxChars: z
+    .union([z.literal(0), z.number().int().min(100).max(50000)])
+    .optional(),
   modalityBridgeAudioEnabled: z.boolean().optional(),
   modalityBridgeAudioModel: z.string().max(200).optional(),
   modalityBridgeAudioTimeout: z.number().int().min(1000).max(300000).optional(),
