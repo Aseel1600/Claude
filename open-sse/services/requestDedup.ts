@@ -36,12 +36,19 @@ const inflight = new Map<string, Promise<unknown>>();
  * Compute a deterministic hash for a request body.
  * Includes: model, messages, temperature, tools, tool_choice, max_tokens, response_format
  * Excludes: stream, user, metadata (don't affect LLM output)
+ *
+ * The prompt content can live under different keys depending on the target
+ * provider format the body has already been translated to: OpenAI-style
+ * bodies use `messages`, Gemini-translated bodies use `contents`, and
+ * Responses-API-translated bodies use `input`. Falling back to only
+ * `messages` made every non-OpenAI-format body hash the prompt as `null`,
+ * colliding different prompts onto the same dedup hash (#10249).
  */
 export function computeRequestHash(requestBody: unknown): string {
   const body = requestBody as Record<string, unknown>;
   const canonical = {
     model: body.model ?? null,
-    messages: body.messages ?? null,
+    messages: body.messages ?? body.contents ?? body.input ?? null,
     temperature: typeof body.temperature === "number" ? body.temperature : 1.0,
     tools: body.tools ?? null,
     tool_choice: body.tool_choice ?? null,
