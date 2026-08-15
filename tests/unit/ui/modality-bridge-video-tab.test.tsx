@@ -195,7 +195,7 @@ describe("ModalityBridgeVideoTab", () => {
     failSettingsLoad = true;
     const element = await renderWithoutWaiting();
     await waitFor(() => element.querySelector('[role="alert"]') !== null, "load error");
-    expect(element.textContent).toContain("errorPage.title");
+    expect(element.textContent).toContain("publicSystem.error.title");
     expect(element.querySelector('[data-testid="modality-bridge-video-frame-count"]')).toBeNull();
   });
 

@@ -117,7 +117,7 @@ export default function ModalityBridgeVideoTab() {
   };
 
   if (errorState === "load") {
-    return <div role="alert">{tRoot("errorPage.title")}</div>;
+    return <div role="alert">{tRoot("publicSystem.error.title")}</div>;
   }
   if (!settings) return null;
 
