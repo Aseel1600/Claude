@@ -1,0 +1,1 @@
+- fix(sse): prioritize Codex quota headers (x-codex-*) in the 768-byte forwarded-header budget (#10310)

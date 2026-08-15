@@ -54,8 +54,70 @@ export const MAX_FORWARDED_UPSTREAM_RESPONSE_HEADER_BYTES = resolveForwardedHead
 const MAX_LOGGED_DROPPED_RESPONSE_HEADERS = 20;
 const responseHeaderEncoder = new TextEncoder();
 
+// Warn-once-per-dropped-name-set frequency control for the drop-warning path
+// (#10315). The module-level set persists for the process lifetime (and across
+// test cases in one process), so a budget/config change that flips which names
+// drop yields a new fingerprint and warns again — intended.
+const warnedDropFingerprints = new Set<string>();
+
+/**
+ * Stable identity for a dropped-header set, using only header NAMES (not values/
+ * bytes) so two payloads dropping the SAME names share one warn. Sorted so the
+ * identification is order-independent.
+ */
+function droppedHeadersFingerprint(dropped: Array<{ name: string }>): string {
+  return dropped
+    .map((h) => h.name)
+    .sort()
+    .join("\n");
+}
+
+/**
+ * Test-only isolation helper. The fingerprint cache persists in this process;
+ * tests that reuse a dropped-set fingerprint must clear it to keep cases
+ * order-independent. Never used in production paths.
+ */
+export function resetDroppedHeadersWarningCache(): void {
+  warnedDropFingerprints.clear();
+}
+
+/**
+ * Emit the drop-warning path for headers that exceeded the forwarding budget.
+ * Warns once per process per dropped-name set, then degrades to debug for
+ * repeats so a chronic over-budget response set cannot become a warn storm
+ * that buries real errors (see regression guard #10315).
+ */
+function logDroppedResponseHeaders(
+  droppedHeaders: Array<{ name: string; bytes: number }>,
+  forwardedBytes: number,
+  log: ResponseHeaderLogger
+): void {
+  if (droppedHeaders.length === 0) return;
+  const fingerprint = droppedHeadersFingerprint(droppedHeaders);
+  if (!warnedDropFingerprints.has(fingerprint)) {
+    warnedDropFingerprints.add(fingerprint);
+    log?.warn?.("HTTP", "Dropped upstream response headers that exceeded forwarding budget", {
+      budgetBytes: MAX_FORWARDED_UPSTREAM_RESPONSE_HEADER_BYTES,
+      forwardedBytes,
+      droppedCount: droppedHeaders.length,
+      droppedHeaders: droppedHeaders.slice(0, MAX_LOGGED_DROPPED_RESPONSE_HEADERS),
+    });
+  } else {
+    log?.debug?.(
+      "HTTP",
+      "Dropped upstream response headers exceeded forwarding budget (repeated; see first warn for header list)",
+      {
+        budgetBytes: MAX_FORWARDED_UPSTREAM_RESPONSE_HEADER_BYTES,
+        forwardedBytes,
+        droppedCount: droppedHeaders.length,
+      }
+    );
+  }
+}
+
 type ResponseHeaderLogger = {
   warn?: (tag: string, message: string, data?: Record<string, unknown>) => void;
+  debug?: (tag: string, message: string, data?: Record<string, unknown>) => void;
 } | null;
 
 function responseHeaderWireBytes(name: string, value: string): number {
@@ -64,6 +126,36 @@ function responseHeaderWireBytes(name: string, value: string): number {
 
 function isOmniRouteInternalHeader(headerName: string): boolean {
   return headerName.toLowerCase().startsWith("x-omniroute-");
+}
+
+/**
+ * Codex quota vocabulary (`x-codex-primary/secondary-* used/reset`,
+ * `x-codex-credits-*`) carries usage/limit/reset data the client needs. Treat
+ * it as the same priority class as rate-limit headers so a tight forwarding
+ * budget never silently strips it (#10310).
+ */
+function isCodexQuotaHeader(normalized: string): boolean {
+  return (
+    normalized.startsWith("x-codex-") &&
+    (normalized.includes("used") || normalized.includes("reset") || normalized.includes("credits"))
+  );
+}
+
+/**
+ * Known bulky, non-quota response headers (Cloudflare edge family, Codex turn
+ * state, CSP, `date`, etc.) that can be tens-to-hundreds of bytes. They are
+ * assigned the LAST priority tier so they are the first dropped when the budget
+ * is tight, rather than evicting more valuable quota/rate-limit data.
+ */
+function isForcedLastPriorityHeader(normalized: string): boolean {
+  return (
+    normalized.startsWith("cf-") ||
+    normalized === "x-codex-turn-state" ||
+    normalized === "fireworks-sampling-options" ||
+    normalized === "content-security-policy" ||
+    normalized === "date" ||
+    normalized === "x-robots-tag"
+  );
 }
 
 function getForwardingPriority(headerName: string): number {
@@ -78,7 +170,14 @@ function getForwardingPriority(headerName: string): number {
     return 0;
   }
   if (normalized === "retry-after") return 1;
-  if (normalized.includes("ratelimit") || normalized.includes("rate-limit")) return 2;
+  if (
+    normalized.includes("ratelimit") ||
+    normalized.includes("rate-limit") ||
+    isCodexQuotaHeader(normalized)
+  ) {
+    return 2;
+  }
+  if (isForcedLastPriorityHeader(normalized)) return 4;
   return 3;
 }
 
@@ -181,14 +280,7 @@ export function buildStreamingResponseHeaders(
     }
   }
 
-  if (droppedHeaders.length > 0) {
-    log?.warn?.("HTTP", "Dropped upstream response headers that exceeded forwarding budget", {
-      budgetBytes: MAX_FORWARDED_UPSTREAM_RESPONSE_HEADER_BYTES,
-      forwardedBytes,
-      droppedCount: droppedHeaders.length,
-      droppedHeaders: droppedHeaders.slice(0, MAX_LOGGED_DROPPED_RESPONSE_HEADERS),
-    });
-  }
+  logDroppedResponseHeaders(droppedHeaders, forwardedBytes, log);
 
   const responseHeaders: Record<string, string> = {
     ...Object.fromEntries(forwardedHeaders),

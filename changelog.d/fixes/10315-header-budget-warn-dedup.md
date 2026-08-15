@@ -1,0 +1,1 @@
+- fix(sse): dedupe forwarded-header drop warns by dropped-name fingerprint (warn once, then debug) (#10315)
