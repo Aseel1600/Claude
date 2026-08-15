@@ -23,21 +23,30 @@ test("providers [id] route exports a PATCH handler (CLI rotate 405 regression)",
 
 test("PATCH handler delegates to PUT (same partial-update semantics)", async () => {
   const route = await loadRoute();
-  // The PATCH export delegates to PUT; both share the same update logic. They
-  // are distinct function references (wrapper), so assert both exist and that
-  // invoking PATCH returns whatever PUT would (mock auth rejects first, so a
-  // delegation error surfaces as the PUT auth error, not a 405/undefined).
+  // The PATCH export delegates to PUT; both share the same update logic and
+  // are distinct function references (wrapper). A fixed status expectation is
+  // environment-dependent: management auth is enforced on dev (PUT returns 401
+  // without a credential) but NOT in the CI unit-test env, where the flow
+  // falls through to "Connection not found" (404) for an unknown id. So assert
+  // on delegation equivalence instead: PATCH must never 405 (the regression)
+  // and must return the exact same status as PUT for the same input.
   const request = new Request("http://localhost/api/providers/test-id", {
     method: "PATCH",
     body: JSON.stringify({ name: "x" }),
   });
   const ctx = { params: Promise.resolve({ id: "test-id" }) };
   const patchResult = await route.PATCH(request, ctx);
+  const putResult = await route.PUT(request, ctx);
   assert.ok(patchResult, "PATCH should return a response, not 405");
+  assert.notEqual(
+    patchResult.status,
+    405,
+    "PATCH must be routed — before the fix Next.js returned 405 Method Not Allowed"
+  );
   assert.equal(
     patchResult.status,
-    401,
-    "delegation reaches the shared auth path (PUT's auth error)"
+    putResult.status,
+    "PATCH must delegate to PUT's handler (identical status for the same input)"
   );
 });
 
