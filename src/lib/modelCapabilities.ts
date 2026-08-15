@@ -597,15 +597,19 @@ function getCapabilityOverride(
     : null;
 }
 
-function getContextOverride(resolved: {
-  provider: string | null;
-  model: string | null;
-  rawModel: string | null;
-}): number | null {
-  const canonical = getModelContextOverride(resolved.provider, resolved.model);
+function getContextOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
+  const bulk = snapshot?.contextOverrides ?? null;
+  const canonical = getModelContextOverride(resolved.provider, resolved.model, bulk);
   if (canonical !== null) return canonical;
   return resolved.rawModel && resolved.rawModel !== resolved.model
-    ? getModelContextOverride(resolved.provider, resolved.rawModel)
+    ? getModelContextOverride(resolved.provider, resolved.rawModel, bulk)
     : null;
 }
 
@@ -651,6 +655,27 @@ function getMaxTokenCapabilityOverride(
     getModelCapabilityOverride(resolved.provider, resolved.model, "max_output_tokens", bulk) ??
     (resolved.rawModel && resolved.rawModel !== resolved.model
       ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_output_tokens", bulk)
+      : null)
+  );
+}
+
+/**
+ * Bulk-load friendly max_input_tokens override lookup (#9199): resolves from the
+ * snapshot's preloaded map instead of a per-model SQLite read.
+ */
+function getMaxInputTokenCapabilityOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot: ModelCapabilityResolutionSnapshot
+): number | null {
+  const bulk = snapshot.maxInputTokenOverrides;
+  return (
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_input_tokens", bulk) ??
+    (resolved.rawModel && resolved.rawModel !== resolved.model
+      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_input_tokens", bulk)
       : null)
   );
 }
@@ -743,7 +768,7 @@ export function getResolvedModelCapabilities(
   // reflects the real *total* window and wins over every static/synced source.
   // `maxInputTokens` still follows its own precedence chain; only when that
   // chain has no narrower source does it naturally fall back to this window.
-  const persistedContextWindow = usePersistedOverrides ? getContextOverride(resolved) : null;
+  const persistedContextWindow = usePersistedOverrides ? getContextOverride(resolved, snapshot) : null;
   const contextWindow =
     persistedContextWindow ??
     authoritativeContextWindow ??
@@ -752,7 +777,11 @@ export function getResolvedModelCapabilities(
     spec?.contextWindow ??
     null;
 
-  const maxInputOverride = usePersistedOverrides ? getInputTokenCapabilityOverride(resolved) : null;
+  const maxInputOverride = !usePersistedOverrides
+    ? null
+    : snapshot
+      ? getMaxInputTokenCapabilityOverride(resolved, snapshot)
+      : getInputTokenCapabilityOverride(resolved);
   const maxTokenOverride = snapshot
     ? getMaxTokenCapabilityOverride(resolved, snapshot)
     : usePersistedOverrides

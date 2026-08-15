@@ -21,6 +21,7 @@ export type NestedOverrideMap = ReadonlyMap<string, ReadonlyMap<string, number>>
 export interface ModelCapabilityResolutionSnapshot {
   readonly synced: CapabilitiesByProvider;
   readonly maxTokenOverrides: NestedOverrideMap;
+  readonly maxInputTokenOverrides: NestedOverrideMap;
   readonly contextOverrides: NestedOverrideMap;
 }
 
@@ -47,9 +48,13 @@ export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolu
   const synced = loadAllSyncedCapabilitiesUncached();
 
   const maxTokenOverrides = new Map<string, Map<string, number>>();
+  const maxInputTokenOverrides = new Map<string, Map<string, number>>();
   for (const entry of listModelCapabilityOverrides()) {
-    if (entry.key !== "max_output_tokens") continue;
-    setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
+    if (entry.key === "max_output_tokens") {
+      setNestedOverride(maxTokenOverrides, entry.provider, entry.modelId, entry.value);
+    } else if (entry.key === "max_input_tokens") {
+      setNestedOverride(maxInputTokenOverrides, entry.provider, entry.modelId, entry.value);
+    }
   }
 
   const contextOverrides = new Map<string, Map<string, number>>();
@@ -60,6 +65,7 @@ export function createModelCapabilityResolutionSnapshot(): ModelCapabilityResolu
   return {
     synced,
     maxTokenOverrides,
+    maxInputTokenOverrides,
     contextOverrides,
   };
 }

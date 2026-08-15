@@ -114,7 +114,11 @@ function extractLastUserText(messages: unknown[]): string | undefined {
     if (Array.isArray(message.content)) {
       for (const part of message.content) {
         const p = part as { type?: unknown; text?: unknown } | null | undefined;
-        if (p?.type === "text" && typeof p.text === "string" && p.text.trim()) {
+        if (
+          (p?.type === "text" || p?.type === "input_text") &&
+          typeof p.text === "string" &&
+          p.text.trim()
+        ) {
           return p.text;
         }
       }
@@ -202,6 +206,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         // some targets may NOT support vision. In that case, the vision
         // bridge must process images so combo targets can describe them.
         if (comboVisionBridgeDecision !== "process") {
+          context.log?.debug?.("VISION_BRIDGE", "Skipping: target model supports vision natively");
           return { block: false };
         }
         // Combo mapping found — fall through to process images
@@ -211,10 +216,16 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
     // remains undefined, which makes the reroute check on line ~189 treat it
     // like a non-combo model — exactly what we want: reroute to a vision model.
 
-    // 5. Get body and check for messages
+    // 5. Get body and normalize Chat Completions `messages` vs Responses `input`.
+    // Both containers carry role/content items and are supported by the shared
+    // media detector. Preserve the original wire container in modifiedPayload.
     const body = payload as Record<string, unknown>;
-    const messages = body?.messages;
-    if (!Array.isArray(messages) || messages.length === 0) {
+    const messages = Array.isArray(body?.messages)
+      ? body.messages
+      : Array.isArray(body?.input)
+        ? body.input
+        : null;
+    if (!messages || messages.length === 0) {
       return { block: false };
     }
 
@@ -394,7 +405,11 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         const description = cached ?? (await callVision(imagePart.imageUrl, describeConfig));
         if (cached === undefined && key && cache) cache.set(key, description);
         recordBridgeUse("vision", { cacheHit: cached !== undefined });
-        return `[Image ${i + 1}]: ${description}`;
+        const capped =
+          runtime.maxChars > 0 && description.length > runtime.maxChars
+            ? description.slice(0, runtime.maxChars) + "…"
+            : description;
+        return `[Image ${i + 1}]: ${capped}`;
       })
     );
 
