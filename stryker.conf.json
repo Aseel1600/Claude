@@ -354,6 +354,7 @@
       "tests/unit/usage-service-hardening.test.ts",
       "tests/unit/validate-response-quality.test.ts",
       "tests/unit/vertex-passthrough-model-lockout.test.ts",
+      "tests/unit/video-bridge-route-security.test.ts",
       "tests/unit/xai-agent-tools-passthrough.test.ts"
     ],
     "nodeArgs": [
