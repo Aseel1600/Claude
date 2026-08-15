@@ -428,7 +428,11 @@ function startHeartbeat(server: WebSocketServer): void {
         clients.delete(clientId);
         continue;
       }
-      // Send ping
+      // Send ping. Also refresh liveness on our own outbound heartbeat (defense in
+      // depth, #10319): lastActivity was previously inbound-only, so a client that
+      // never sends { type: "ping" } (e.g. a third-party/bespoke client) would still
+      // get force-terminated even though the connection is healthy.
+      client.lastActivity = now;
       sendTo(client.ws, { type: "pong" } as WsServerMessage);
     }
   }, HEARTBEAT_INTERVAL_MS);
