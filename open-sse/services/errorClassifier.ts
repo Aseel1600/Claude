@@ -163,6 +163,7 @@ function isGeoBlockEligibleProvider(provider?: string | null): boolean {
   // Registry-driven fallback: any provider whose upstream surface is the Cloud
   // Code API (executor/format "antigravity") or the Gemini API (format
   // "gemini") stays eligible even when a new provider id is added later.
+  if (!provider) return false;
   const entry = getRegistryEntry(provider);
   if (!entry) return false;
   const surface = `${entry.executor || ""} ${entry.format || ""}`.toLowerCase();
