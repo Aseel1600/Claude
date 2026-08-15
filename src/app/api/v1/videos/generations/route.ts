@@ -88,6 +88,19 @@ async function postHandler(request, context) {
   const policy = await enforceApiKeyPolicy(request, body.model);
   if (policy.rejection) return policy.rejection;
 
+  // Detect a combo name and divert to full video combo execution, mirroring
+  // the images route. Checks before the provider lookup so a combo name is
+  // never rejected as an invalid `provider/model` id — /v1/models advertises
+  // these names, so refusing them here made the catalogue dishonest.
+  if (body.model && typeof body.model === "string" && !body.model.includes("/")) {
+    const { getComboByName } = await import("@/lib/db/combos");
+    const combo = await getComboByName(body.model);
+    if (combo) {
+      const { executeVideoCombo } = await import("@omniroute/open-sse/services/videoCombo");
+      return executeVideoCombo(body.model, body, { request, policy }, startTime, log);
+    }
+  }
+
   // Parse model to get provider
   let { provider, model: requestedModel } = parsedModel;
   let isCustomModel = false;
