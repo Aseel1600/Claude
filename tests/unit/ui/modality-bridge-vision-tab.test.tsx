@@ -154,6 +154,10 @@ describe("ModalityBridgeVisionTab", () => {
 
     await waitFor(() => el.textContent?.includes("3 modalityBridgeStatsBridged") ?? false, "stats");
     expect(el.textContent).toContain("1 modalityBridgeStatsCacheHits");
+    expect(el.textContent).toContain("3 requestlogger.attempts");
+    expect(el.textContent).toContain("trafficInspector.timingTotalLatency: —");
+    expect(el.textContent).toContain("avgLatency: —");
+    expect(el.textContent).not.toContain("0 ms");
   });
 
   it("clamps advanced numeric settings to the schema bounds before PATCHing", async () => {

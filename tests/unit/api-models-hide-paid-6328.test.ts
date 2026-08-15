@@ -38,15 +38,49 @@ test.after(() => {
 
 test("/api/models retains genuine resolved vision capability for the Video Bridge picker", async () => {
   await settingsDb.updateSettings({ hidePaidModels: false });
-  const models = await fetchModels();
+  const db = core.getDbInstance();
+  db.prepare(
+    "INSERT OR REPLACE INTO key_value (namespace, key, value) " + "VALUES ('customModels', ?, ?)"
+  ).run("openai", JSON.stringify([{ id: "gpt-4o", supportsVision: false }]));
+  const originalPrepare = db.prepare;
+  const callPrepare = originalPrepare.bind(db);
+  let customModelReads = 0;
+  (db as unknown as { prepare: typeof db.prepare }).prepare = ((sql: string) => {
+    const normalized = String(sql).replace(/\s+/g, " ").trim();
+    if (normalized.includes("FROM key_value WHERE namespace = 'customModels'")) {
+      customModelReads++;
+    }
+    return callPrepare(sql);
+  }) as typeof db.prepare;
+
+  let models: Awaited<ReturnType<typeof fetchModels>>;
+  try {
+    models = await fetchModels();
+  } finally {
+    (db as unknown as { prepare: typeof db.prepare }).prepare = originalPrepare;
+  }
   const vision = models.find(
     (model) => model.provider === "openai" && model.model === "gpt-4o-mini"
   );
   const textOnly = models.find((model) => model.provider === "deepgram");
+  const explicitlyDowngraded = models.find(
+    (model) => model.provider === "openai" && model.model === "gpt-4o"
+  );
 
   assert.ok(vision, "known static vision model must be present in the real producer response");
   assert.equal(vision.supportsVision, true);
   if (textOnly) assert.notEqual(textOnly.supportsVision, true);
+  assert.ok(explicitlyDowngraded, "custom-overridden model must remain in the real producer");
+  assert.equal(
+    explicitlyDowngraded.supportsVision,
+    false,
+    "request snapshot must preserve the explicit custom supportsVision override"
+  );
+  assert.equal(
+    customModelReads,
+    1,
+    "one request-level capability snapshot must bulk-read custom vision overrides once"
+  );
 });
 
 test("#6328 /api/models removes paid models when hidePaidModels is on", async () => {

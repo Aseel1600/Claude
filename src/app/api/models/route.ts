@@ -5,7 +5,10 @@ import { updateModelAliasSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import { getSettings } from "@/lib/db/settings";
-import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
+import {
+  createModelCapabilityResolutionSnapshot,
+  getResolvedModelCapabilities,
+} from "@/lib/modelCapabilities";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 
 // GET /api/models - Get models with aliases (only from active providers by default)
@@ -77,18 +80,6 @@ export async function GET(request: Request) {
       }
     }
 
-    const models = AI_MODELS.map((m: any) => {
-      const fullModel = `${m.provider}/${m.model}`;
-      const available = !activeProviders || activeProviders.has(m.provider);
-      return {
-        ...m,
-        fullModel,
-        alias: modelAliases[fullModel] || m.model,
-        available,
-        supportsVision: getResolvedModelCapabilities(fullModel).supportsVision === true,
-      };
-    }).filter((m: any) => showAll || m.available);
-
     // #6328 (follow-up to #6495): REMOVE — not just hide — paid models from the
     // dashboard model picker when the operator opts into hidePaidModels. Mirrors
     // the `shouldHidePaid` guard in `src/app/api/v1/models/catalog.ts` (public
@@ -98,14 +89,33 @@ export async function GET(request: Request) {
       const settings = await getSettings();
       hidePaid = settings?.hidePaidModels === true;
     } catch {}
-    const filtered = hidePaid
-      ? models.filter(
-          (m: { provider: string; model: string }) =>
-            providerHasFreeModels(m.provider) && isFreeModel(m.provider, { id: m.model })
-        )
-      : models;
 
-    return NextResponse.json({ models: filtered });
+    // Filter before capability resolution so unavailable/paid rows cannot trigger
+    // needless capability work. One request-local snapshot supplies all persisted
+    // capability and custom-vision rows to the remaining resolutions.
+    const candidates = AI_MODELS.filter((model: any) => {
+      if (!showAll && activeProviders && !activeProviders.has(model.provider)) return false;
+      return (
+        !hidePaid ||
+        (providerHasFreeModels(model.provider) && isFreeModel(model.provider, { id: model.model }))
+      );
+    });
+    const capabilitySnapshot = createModelCapabilityResolutionSnapshot();
+    const models = candidates.map((m: any) => {
+      const fullModel = `${m.provider}/${m.model}`;
+      const available = !activeProviders || activeProviders.has(m.provider);
+      return {
+        ...m,
+        fullModel,
+        alias: modelAliases[fullModel] || m.model,
+        available,
+        supportsVision:
+          getResolvedModelCapabilities(fullModel, undefined, capabilitySnapshot).supportsVision ===
+          true,
+      };
+    });
+
+    return NextResponse.json({ models });
   } catch (error) {
     console.log("Error fetching models:", error);
     return NextResponse.json({ error: "Failed to fetch models" }, { status: 500 });

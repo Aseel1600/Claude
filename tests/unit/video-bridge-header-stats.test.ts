@@ -41,8 +41,20 @@ test("tracks attempts, successes, failures, cache hits, and latency without coun
   assert.equal(after.cacheHits - before.cacheHits, 2);
   assert.equal(after.failures - before.failures, 1);
   assert.equal(after.totalLatencyMs - before.totalLatencyMs, 200);
-  assert.equal(after.averageLatencyMs, after.totalLatencyMs / after.attempts);
+  assert.equal(after.latencySamples - before.latencySamples, 2);
+  assert.equal(after.averageLatencyMs, after.totalLatencyMs / after.latencySamples);
   assert.match(after.lastUsedAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("Vision and Audio attempts without timing do not fabricate zero-millisecond samples", () => {
+  for (const kind of ["vision", "audio"] as const) {
+    const before = getBridgeStats()[kind];
+    recordBridgeUse(kind, { cacheHit: true });
+    const after = getBridgeStats()[kind];
+    assert.equal(after.attempts - before.attempts, 1);
+    assert.equal(after.latencySamples, before.latencySamples);
+    assert.equal(after.totalLatencyMs, before.totalLatencyMs);
+  }
 });
 
 test("video header is omitted when every attempted video failed", () => {

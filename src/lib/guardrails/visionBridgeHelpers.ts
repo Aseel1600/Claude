@@ -350,6 +350,8 @@ export interface VisionModelConfig {
   signal?: AbortSignal;
   /** Injectable fetch (tests). Defaults to undici fetch to bypass the runtime's hooked global fetch. */
   fetchImpl?: typeof fetch;
+  /** Receives the actual successful model while the public return value remains a string. */
+  onModelUsed?: (model: string) => void;
 }
 
 /** Task-aware focus hint (codex-vision-proxy pattern): steer the description
@@ -416,6 +418,11 @@ export async function callVisionModel(
         apiKey
       );
       recordLatency(currentModel, Date.now() - attemptStart, true);
+      try {
+        config.onModelUsed?.(currentModel);
+      } catch {
+        // Observability callbacks must never turn a successful caption into a retry.
+      }
       return result;
     } catch (error) {
       recordLatency(currentModel, Date.now() - attemptStart, false);

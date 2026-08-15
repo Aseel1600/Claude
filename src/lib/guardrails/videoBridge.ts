@@ -30,6 +30,12 @@ type VideoBridgeBody = {
   [key: string]: unknown;
 };
 
+function combineModelIdentities(models: ReadonlySet<string>, fallback: string): string {
+  if (models.size === 0) return fallback;
+  if (models.size === 1) return models.values().next().value ?? fallback;
+  return "mixed";
+}
+
 export interface VideoBridgeDependencies {
   getSettings?: () => Promise<Record<string, unknown>>;
   getCapabilities?: (model: string) => { supportsVideo: boolean | null };
@@ -83,7 +89,8 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
 
     const visionRuntime = resolveVisionBridgeRuntimeSettings(persisted);
     const configuredModel = runtime.model.trim() || visionRuntime.model.trim();
-    let effectiveVideoModel = configuredModel || "auto";
+    const routingPlanModel = configuredModel || "auto";
+    const successfulModels = new Set<string>();
     let selectedModelPromise: Promise<string | null> | null = null;
     const selectVideoModel = (): Promise<string | null> => {
       if (!selectedModelPromise) {
@@ -119,7 +126,7 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
               context.signal
             );
         if (context.signal?.aborted) throw new Error("Video Bridge processing was aborted");
-        if (described.modelUsed) effectiveVideoModel = described.modelUsed;
+        if (described.modelUsed) successfulModels.add(described.modelUsed);
         const videoCacheHits = described.cacheHits ?? 0;
         descriptions.push(described.description);
         totalFramesRequested += described.framesRequested;
@@ -181,7 +188,7 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
         framesUsed: totalFramesUsed,
         processingTimeMs: Date.now() - startedAt,
         attempts: attemptedParts.length,
-        videoModel: effectiveVideoModel,
+        videoModel: combineModelIdentities(successfulModels, routingPlanModel),
         videosProcessed,
         videosReplaced,
       },
@@ -201,6 +208,7 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
     const cache = runtime.cacheEnabled ? getSharedBridgeCacheFor(runtime) : null;
     const callVisionModel = this.deps.callVisionModel ?? defaultCallVisionModel;
     let cacheHits = 0;
+    const successfulModels = new Set<string>();
     const described = await defaultDescribeVideoPart(
       part,
       {
@@ -213,23 +221,33 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
         const key = cache
           ? bridgeCacheKey(frameDataUri, `${prompt}@${timestampSeconds.toFixed(3)}`, selectedModel)
           : null;
-        const cached = key && cache ? cache.get(key) : undefined;
-        if (cached !== undefined) {
+        const cached = key && cache ? cache.getEntry(key) : undefined;
+        if (cached) {
           cacheHits += 1;
-          return cached;
+          successfulModels.add(cached.producerModel ?? selectedModel);
+          return cached.value;
         }
+        let producerModel = selectedModel;
         const caption = await callVisionModel(frameDataUri, {
           maxImages: 1,
           model: selectedModel,
+          onModelUsed: (model) => {
+            producerModel = model;
+          },
           prompt,
           signal,
           timeoutMs: runtime.timeoutMs,
         });
-        if (key && cache) cache.set(key, caption);
+        successfulModels.add(producerModel);
+        if (key && cache) cache.setEntry(key, { value: caption, producerModel });
         return caption;
       },
       { extractFrames: this.deps.extractFrames }
     );
-    return { ...described, cacheHits, modelUsed: selectedModel };
+    return {
+      ...described,
+      cacheHits,
+      modelUsed: combineModelIdentities(successfulModels, selectedModel),
+    };
   }
 }

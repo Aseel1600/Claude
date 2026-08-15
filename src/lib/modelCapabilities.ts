@@ -14,8 +14,7 @@ import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
 import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
-import { getDbInstance } from "@/lib/db/core";
-import { getKeyValue } from "@/lib/db/models/shared";
+import { getCustomModelVisionOverride } from "@/lib/db/models";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
 
@@ -462,31 +461,6 @@ function modalitiesDeclareVision(modalities: readonly string[]): boolean {
   });
 }
 
-/**
- * #9195: Read the customModels supportsVision override for a given provider/model
- * pair from the database. Returns true/false when an explicit override exists, or
- * null if no custom model entry or no explicit flag. Sync read (better-sqlite3).
- */
-function getCustomModelVisionOverride(provider: string, model: string): boolean | null {
-  try {
-    const db = getDbInstance();
-    const row = db
-      .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
-      .get(provider);
-    if (!row) return null;
-    const parsed = getKeyValue(row);
-    if (!parsed.value) return null;
-    const models: Array<{ id: string; supportsVision?: boolean }> = JSON.parse(parsed.value);
-    const entry = models.find((m) => m.id === model);
-    if (entry && typeof entry.supportsVision === "boolean") {
-      return entry.supportsVision;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function resolveVisionCapability(
   spec: ModelSpec | undefined,
   registryModel: { supportsVision?: boolean } | null,
@@ -782,7 +756,11 @@ export function getResolvedModelCapabilities(
   // dashboard "Vision capable" toggle affects Combo routing.
   const customVisionOverride =
     resolved.provider && resolved.model
-      ? getCustomModelVisionOverride(resolved.provider, resolved.model)
+      ? getCustomModelVisionOverride(
+          resolved.provider,
+          resolved.model,
+          snapshot?.customVisionOverrides
+        )
       : null;
 
   const supportsVision = resolveVisionCapability(

@@ -18,6 +18,7 @@ export interface BridgeModalityStats {
   cacheHits: number;
   failures: number;
   lastUsedAt: string | null;
+  latencySamples: number;
   successes: number;
   totalLatencyMs: number;
 }
@@ -38,6 +39,7 @@ function emptyStats(): BridgeModalityStats {
     cacheHits: 0,
     failures: 0,
     lastUsedAt: null,
+    latencySamples: 0,
     successes: 0,
     totalLatencyMs: 0,
   };
@@ -64,8 +66,9 @@ export function recordBridgeUse(
   s.cacheHits += cacheHits;
   if (typeof opts.latencyMs === "number" && Number.isFinite(opts.latencyMs)) {
     s.totalLatencyMs += Math.max(0, opts.latencyMs);
+    s.latencySamples += 1;
   }
-  s.averageLatencyMs = s.attempts > 0 ? s.totalLatencyMs / s.attempts : 0;
+  s.averageLatencyMs = s.latencySamples > 0 ? s.totalLatencyMs / s.latencySamples : 0;
   s.lastUsedAt = new Date().toISOString();
 }
 

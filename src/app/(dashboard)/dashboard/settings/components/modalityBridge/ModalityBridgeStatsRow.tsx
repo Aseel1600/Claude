@@ -12,6 +12,7 @@ interface BridgeStats {
   cacheHits: number;
   failures: number;
   lastUsedAt: string | null;
+  latencySamples: number;
   successes: number;
   totalLatencyMs: number;
 }
@@ -36,6 +37,19 @@ function parseStats(value: unknown): BridgeStats | null {
     typeof record.attempts === "number" ? record.attempts : record.bridged + record.failures;
   const averageLatencyMs =
     typeof record.averageLatencyMs === "number" ? record.averageLatencyMs : 0;
+  const totalLatencyMs =
+    typeof record.totalLatencyMs === "number" ? record.totalLatencyMs : averageLatencyMs * attempts;
+  // Compatibility with pre-latencySamples servers: positive latency data was
+  // sampled, while the legacy all-zero shape means timing was never recorded.
+  const latencySamples =
+    typeof record.latencySamples === "number"
+      ? Math.max(0, Math.floor(record.latencySamples))
+      : totalLatencyMs > 0
+        ? Math.max(
+            1,
+            averageLatencyMs > 0 ? Math.round(totalLatencyMs / averageLatencyMs) : attempts
+          )
+        : 0;
   return {
     attempts,
     averageLatencyMs,
@@ -43,11 +57,9 @@ function parseStats(value: unknown): BridgeStats | null {
     cacheHits: record.cacheHits,
     failures: record.failures,
     lastUsedAt: typeof lastUsedAt === "string" ? lastUsedAt : null,
+    latencySamples,
     successes: typeof record.successes === "number" ? record.successes : record.bridged,
-    totalLatencyMs:
-      typeof record.totalLatencyMs === "number"
-        ? record.totalLatencyMs
-        : averageLatencyMs * attempts,
+    totalLatencyMs,
   };
 }
 
@@ -82,7 +94,7 @@ export default function ModalityBridgeStatsRow({ kind }: ModalityBridgeStatsRowP
   return (
     <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text-muted" aria-live="polite">
       <span>
-        {stats.attempts} {tProviderStats("requests").toLowerCase()}
+        {stats.attempts} {tRoot("requestLogger.attempts").toLowerCase()}
       </span>
       <span>
         {stats.successes} {t("modalityBridgeStatsBridged")}
@@ -94,10 +106,12 @@ export default function ModalityBridgeStatsRow({ kind }: ModalityBridgeStatsRowP
         {stats.failures} {t("modalityBridgeStatsFailures")}
       </span>
       <span>
-        {tRoot("trafficInspector.timingTotalLatency")}: {Math.round(stats.totalLatencyMs)} ms
+        {tRoot("trafficInspector.timingTotalLatency")}:{" "}
+        {stats.latencySamples > 0 ? `${Math.round(stats.totalLatencyMs)} ms` : "—"}
       </span>
       <span>
-        {tProviderStats("avgLatency")}: {Math.round(stats.averageLatencyMs)} ms
+        {tProviderStats("avgLatency")}:{" "}
+        {stats.latencySamples > 0 ? `${Math.round(stats.averageLatencyMs)} ms` : "—"}
       </span>
       <span>
         {t("modalityBridgeStatsLastUsed")}: {lastUsed}

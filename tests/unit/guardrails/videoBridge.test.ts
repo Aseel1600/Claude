@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { VideoBridgeGuardrail } from "../../../src/lib/guardrails/videoBridge.ts";
+import { callVisionModel } from "../../../src/lib/guardrails/visionBridgeHelpers.ts";
 import {
   buildModalityBridgeHeader,
   getBridgeStats,
@@ -337,6 +338,60 @@ test("real Video Bridge cache hit avoids a second model call and records the hit
   assert.equal(modelCalls, 1);
   assert.equal(first.meta?.cacheHits, 0);
   assert.equal(second.meta?.cacheHits, 1);
+});
+
+test("real primary failure reports and caches the successful fallback model identity", async () => {
+  const primary = "openai/gpt-4o-mini";
+  const fallback = "anthropic/claude-fable-5";
+  const attemptedModels: string[] = [];
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    const body = JSON.parse(String(init?.body)) as { model: string };
+    attemptedModels.push(body.model);
+    if (body.model === "gpt-4o-mini") {
+      return new Response("primary unavailable", { status: 503 });
+    }
+    return Response.json({ content: [{ type: "text", text: "fallback observation" }] });
+  };
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoModel: primary,
+        modalityBridgeVisionPrompt: "fallback identity integration 9760",
+        modalityBridgeCacheEnabled: true,
+        modalityBridgeCacheTtlMinutes: 62,
+        modalityBridgeCacheMaxEntries: 52,
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      selectVisionModel: async () => primary,
+      extractFrames: async () => ({
+        durationSeconds: 1,
+        frames: [{ timestampSeconds: 0.5, dataUri: "data:image/jpeg;base64,FALLBACK9760" }],
+      }),
+      callVisionModel: (image, config) =>
+        callVisionModel(
+          image,
+          { ...config, fetchImpl },
+          "sk-fallback-test",
+          { maxFallbackAttempts: 2 },
+          {
+            hasUsableCredentials: async (model) => model === primary || model === fallback,
+          }
+        ),
+    },
+  });
+
+  const first = await bridge.preCall(payload(), {});
+  const second = await bridge.preCall(payload(), {});
+
+  assert.deepEqual(attemptedModels, ["gpt-4o-mini", "claude-fable-5"]);
+  assert.equal(first.meta?.videoModel, fallback, "meta must name the successful fallback");
+  assert.equal(second.meta?.videoModel, fallback, "cache hit must retain the producer identity");
+  assert.equal(second.meta?.cacheHits, 1);
+  assert.equal(
+    buildModalityBridgeHeader([{ guardrail: "video-bridge", meta: second.meta }]),
+    `video->text;model=${fallback};parts=1`
+  );
 });
 
 test("cache keys miss on timestamp, prompt, and effective model changes; failures are not cached", async () => {
