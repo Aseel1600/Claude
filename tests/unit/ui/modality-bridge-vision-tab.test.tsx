@@ -187,6 +187,37 @@ describe("ModalityBridgeVisionTab", () => {
     );
   });
 
+  it("renders the max description characters field, accepts a value, and PATCHes it", async () => {
+    const el = await render();
+    const maxChars = el.querySelector(
+      '[data-testid="modality-bridge-max-chars"]'
+    ) as HTMLInputElement | null;
+    expect(maxChars).toBeTruthy();
+
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setter?.call(maxChars, "2000");
+      maxChars?.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      maxChars?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await waitFor(
+      () =>
+        fetchMock.mock.calls.some(([, init]) => {
+          if ((init as RequestInit | undefined)?.method !== "PATCH") return false;
+          const body = JSON.parse(String((init as RequestInit).body)) as Record<string, unknown>;
+          return body.modalityBridgeVisionMaxChars === 2000;
+        }),
+      "maxChars PATCH"
+    );
+  });
+
   it("runs the guardrail self-test with an image and renders the bridge result", async () => {
     const el = await render();
     const button = Array.from(el.querySelectorAll("button")).find((candidate) =>
