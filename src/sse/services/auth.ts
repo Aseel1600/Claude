@@ -81,6 +81,7 @@ import {
   WEB_COOKIE_PROVIDERS,
 } from "@/shared/constants/providers";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import { isFreeModel } from "@/shared/utils/freeModels";
 import {
   applySessionAffinityPin,
   formatSessionKeyForLog,
@@ -338,6 +339,31 @@ function normalizeStatus(value: string | null): string {
 function isTerminalConnectionStatus(connection: ProviderConnectionView): boolean {
   const status = normalizeStatus(connection.testStatus);
   return status === "credits_exhausted" || status === "banned" || status === "expired";
+}
+
+// OpenRouter's paid balance and its `:free`-suffixed models are billed
+// separately — a 402 from a paid model call correctly locks the whole
+// connection as credits_exhausted (see openrouter-quota-6842.test.ts), but
+// that lock must not also block :free model requests on the same
+// connection, or combo failover to the user's configured free models never
+// fires. Scoped to provider === "openrouter" + status === credits_exhausted
+// only; every other terminal status (banned, expired) and every other
+// provider keep the unconditional exclusion.
+function isTerminalConnectionStatusForModel(
+  connection: ProviderConnectionView,
+  provider: string,
+  requestedModel: string | null
+): boolean {
+  if (!isTerminalConnectionStatus(connection)) return false;
+  if (
+    provider === "openrouter" &&
+    normalizeStatus(connection.testStatus) === "credits_exhausted" &&
+    requestedModel &&
+    isFreeModel("openrouter", { id: requestedModel })
+  ) {
+    return false;
+  }
+  return true;
 }
 
 // #8200: cookie-auth providers (perplexity-web, grok-web, ...) use a rotating browser
@@ -1239,7 +1265,7 @@ export async function getProviderCredentials(
           connectionFilterStatus.set(c.id, "rateLimited");
           return false;
         }
-        if (isTerminalConnectionStatus(c)) {
+        if (isTerminalConnectionStatusForModel(c, provider, requestedModel)) {
           connectionFilterStatus.set(c.id, "terminalStatus");
           return false;
         }
