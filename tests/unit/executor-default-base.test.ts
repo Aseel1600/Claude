@@ -1088,7 +1088,10 @@ test("DefaultExecutor.transformRequest strips response_format for kilocode (Deep
 
   const result = executor.transformRequest("deepseek/deepseek-v4-flash", body, true, {
     providerSpecificData: { baseUrl: "https://api.kilo.ai/v1" },
-  }) as any;
+  }) as unknown as {
+    response_format?: { type?: string };
+    messages: Array<{ role: string; content: string }>;
+  };
 
   // response_format is REMOVED entirely (kilocode rejects json_object too).
   assert.equal(result.response_format, undefined);
@@ -1098,7 +1101,7 @@ test("DefaultExecutor.transformRequest strips response_format for kilocode (Deep
   assert.equal(result.messages[1].role, "user");
   assert.equal(result.messages[1].content, "give me JSON");
   // Original body is not mutated.
-  assert.equal((body as any).response_format.type, "json_schema");
+  assert.equal(body.response_format.type, "json_schema");
   assert.equal(body.messages.length, 1);
 });
 
@@ -1112,7 +1115,10 @@ test("DefaultExecutor.transformRequest strips response_format for kilocode json_
 
   const result = executor.transformRequest("deepseek/deepseek-v4-flash", body, true, {
     providerSpecificData: { baseUrl: "https://api.kilo.ai/v1" },
-  }) as any;
+  }) as unknown as {
+    response_format?: { type?: string };
+    messages: Array<{ role: string; content: string }>;
+  };
 
   assert.equal(result.response_format, undefined);
   assert.equal(result.messages[0].role, "system");
