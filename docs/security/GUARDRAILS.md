@@ -7,7 +7,7 @@ lastUpdated: 2026-08-14
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-14 — v3.8.50 (Video Bridge frame sampling and captioning)
+> **Last updated:** 2026-08-15 — v3.8.50 (Video Bridge broker confinement)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -173,7 +173,10 @@ swap is already visible in the response body's `model` field.
 
 `GET /api/modality-bridge/stats` (management auth, same tier as
 `GET /api/settings`) returns the in-memory per-modality counters
-`{ bridged, cacheHits, failures, lastUsedAt }` for `vision`, `audio`, and `video`.
+`{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs,
+averageLatencyMs, lastUsedAt }` for `vision`, `audio`, and `video`. `bridged`
+remains the backward-compatible alias for successful conversions; failed
+attempts do not increment it.
 Counters reset on process restart by design
 (telemetry, not accounting).
 
@@ -277,23 +280,45 @@ Supported shapes are `input_video`, `video_url`, `video_source`, HTTPS URLs,
 and `data:video/*;base64,...` data URIs. Plain filenames in text are not treated
 as video.
 
-The server downloads or decodes the input under a 50 MiB bound before invoking
-any process. Remote downloads use the public-only outbound guard with DNS
-pinning; FFmpeg never receives a URL. `ffprobe` reads the local duration (maximum
-600 seconds), and `ffmpeg` samples 1–16 JPEG frames at uniform segment
-midpoints. Both executables are resolved from `PATH` and invoked without a
-shell using fixed argument arrays, `-nostdin`, a per-video timeout, and a
-private temporary directory removed in `finally`. OmniRoute does not bundle an
-FFmpeg binary and does not accept a user-configurable executable path.
+The public `/v1` request path never imports or invokes a subprocess. It downloads
+or decodes the input under a 50 MiB bound, requires HTTPS on the initial URL and
+every redirect, and uses the existing public-only outbound guard with DNS
+pinning. The bytes then cross the exact internal
+`POST /api/modality-bridge/video/extract` broker boundary. That route is both
+`LOCAL_ONLY` and `SPAWN_CAPABLE`, accepts only a per-process authenticated,
+trusted-loopback request, and never accepts a URL, filesystem path, executable,
+or argument list. Its bounded queue runs one extraction at a time, allows four
+pending jobs, and caps pending input at 100 MiB.
 
-Frames are captioned sequentially with the configured Video model, falling
-back to the Vision Bridge model when the Video override is empty. Successful
-captions replace the original part with
-`[Video description: frame@t=MM:SS.mmm ...]`. Frame-caption cache keys include
-the JPEG bytes, prompt, timestamp, and model. If conversion fails for a target
-with `supportsVideo === false`, the binary part is replaced by an explicit safe
-text marker; when capability is unknown, the original part is preserved.
-Targets with `supportsVideo === true` bypass the bridge.
+Inside the broker, `ffprobe` reads a private local file and rejects playlist,
+manifest, and reference-bearing containers through a fixed format allowlist.
+Both `ffprobe` and `ffmpeg` use the `file`-only protocol whitelist, one thread,
+fixed argument arrays, no shell, and executables resolved from `PATH`. Videos
+are limited to 600 seconds, 8,192 pixels per dimension, and 33,554,432 source
+pixels. FFmpeg samples 1–16 midpoint JPEG frames, scales down the long edge to
+at most 1,024 pixels without upscaling smaller inputs, and never receives a URL.
+Each frame is limited to 4 MiB, all raw frames together to 23 MiB, and the
+serialized broker response to 32 MiB. A private temporary directory is removed
+in `finally`. OmniRoute does not bundle FFmpeg and does not accept a custom
+executable path.
+
+Frames are captioned sequentially with the configured Video model. An empty
+Video override inherits the Vision setting; if both are empty, the Vision
+auto-router selects the effective vision-capable model. Successful captions
+replace the original part with a stable `[Video description:` prefix that also
+marks the text as an untrusted media-derived observation and tells downstream
+models not to follow instructions found in the media. Frame-caption cache keys
+include the JPEG bytes, prompt, timestamp, and effective model; only successful
+captions are cached.
+
+The guardrail extracts every supported video part but describes no more than
+`modalityBridgeVideoMaxVideos`. For a target proven to have
+`supportsVideo === false`, failed and over-limit videos become explicit safe
+text markers so no raw video survives. When capability is unknown, those parts
+remain untouched. Targets with `supportsVideo === true` bypass the bridge.
+The client request abort signal propagates through download, broker queue,
+subprocesses, and caption calls; aborts stop between videos and never fail open
+to raw media.
 
 Runtime settings are DB-backed and Zod-validated:
 
@@ -305,9 +330,11 @@ Runtime settings are DB-backed and Zod-validated:
 | `modalityBridgeVideoMaxVideos`  | `1`      | 1–4                             |
 | `modalityBridgeVideoTimeout`    | `120000` | 1000–300000 ms                  |
 
-`GET /api/modality-bridge/video/runtime` requires management auth and returns
-only `available`, sanitized FFmpeg/ffprobe versions, and a fixed reason when the
-runtime is unavailable. Converted responses add
+`GET /api/modality-bridge/video/runtime` is loopback-only, requires management
+auth, and returns only `available`, sanitized FFmpeg/ffprobe versions, and a
+fixed reason when the runtime is unavailable. The internal extraction endpoint
+is not a public upload API and is documented as loopback-only. Converted
+responses add
 `video->text;model=<visionModel>;parts=<videos>` to the central
 `x-omniroute-modality-bridge` header without removing Vision or Audio segments.
 

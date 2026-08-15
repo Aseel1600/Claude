@@ -665,14 +665,15 @@ X-OmniRoute-No-Cache: true
 
 ### Monitoring
 
-| Endpoint                             | Method     | Description                                                                                                                                   |
-| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`                      | GET        | Active session tracking                                                                                                                       |
-| `/api/rate-limits`                   | GET        | Per-account rate limits                                                                                                                       |
-| `/api/monitoring/health`             | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                          |
-| `/api/cache/stats`                   | GET/DELETE | Cache stats / clear                                                                                                                           |
-| `/api/modality-bridge/stats`         | GET        | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
-| `/api/modality-bridge/video/runtime` | GET        | Sanitized FFmpeg/ffprobe availability and versions for Video Bridge (management auth; no-store)                                               |
+| Endpoint                             | Method     | Description                                                                                                                                                 |
+| ------------------------------------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Active session tracking                                                                                                                                     |
+| `/api/rate-limits`                   | GET        | Per-account rate limits                                                                                                                                     |
+| `/api/monitoring/health`             | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                                        |
+| `/api/cache/stats`                   | GET/DELETE | Cache stats / clear                                                                                                                                         |
+| `/api/modality-bridge/stats`         | GET        | In-memory Modality Bridge attempts, successes/`bridged`, failures, cache hits, total/average latency, and last-use time (reset on restart; management auth) |
+| `/api/modality-bridge/video/runtime` | GET        | Loopback-only sanitized FFmpeg/ffprobe availability and versions for Video Bridge (management auth; no-store)                                               |
+| `/api/modality-bridge/video/extract` | POST       | Internal loopback-only Video Bridge byte broker; fixed frame-count contract, per-process token, bounded queue/output, not a public upload API               |
 
 ### Backup & Export/Import
 

@@ -1,1 +1,1 @@
-- feat(modality-bridge): sample bounded video frames with optional system FFmpeg, caption them through the configured vision model, and expose runtime status plus a functional Video settings tab (#9760)
+- feat(modality-bridge): bridge Chat and Responses video parts through a loopback-only, quota-bounded FFmpeg broker; enforce HTTPS/SSRF and format/protocol/pixel/frame limits, propagate client aborts, auto-select/cache the effective vision model, expose accurate latency/success telemetry, and ship the localized Video settings UI (#9760)
