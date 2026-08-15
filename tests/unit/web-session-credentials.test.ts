@@ -99,6 +99,8 @@ test("web session credential metadata identifies cookie, token, and no-auth prov
     credentialName: "__Secure-better-auth.session_token",
     placeholder: "__Secure-better-auth.session_token=... or full Cookie header from conol.ai",
     acceptsFullCookieHeader: true,
+    // #8974 defines storageKeys on the conol-web entry (src/shared/providers/webSessionCredentials.ts)
+    storageKeys: ["cookie", "__Secure-better-auth.session_token"],
   });
 });
 

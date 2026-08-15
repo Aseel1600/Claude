@@ -46,22 +46,22 @@ Repository map and Reference Documentation sections below.
 
 ## Project at a Glance
 
-**OmniRoute** — unified AI proxy/router. One endpoint, 338 LLM providers, auto-fallback.
+**OmniRoute** — unified AI proxy/router. One endpoint, 340 LLM providers, auto-fallback.
 
-| Layer         | Location                | Purpose                                                                                                                                                 |
-| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| API Routes    | `src/app/api/v1/`       | Next.js App Router — entry points                                                                                                                       |
-| Handlers      | `open-sse/handlers/`    | Request processing (chat, embeddings, etc)                                                                                                              |
-| Executors     | `open-sse/executors/`   | Provider-specific HTTP dispatch                                                                                                                         |
-| Translators   | `open-sse/translator/`  | Format conversion (OpenAI↔Claude↔Gemini)                                                                                                                |
-| Transformer   | `open-sse/transformer/` | Responses API ↔ Chat Completions                                                                                                                        |
-| Services      | `open-sse/services/`    | Combo routing, rate limits, caching, etc                                                                                                                |
-| Database      | `src/lib/db/`           | SQLite domain modules (145 migrations)                                                                                                                  |
-| Domain/Policy | `src/domain/`           | Policy engine, cost rules, fallback logic                                                                                                               |
-| MCP Server    | `open-sse/mcp-server/`  | 105 tools (43 base + memory/skill/agentSkill/pool/notion/obsidian/gamification/plugin modules), 3 transports (stdio / SSE / Streamable HTTP), 31 scopes |
-| A2A Server    | `src/lib/a2a/`          | JSON-RPC 2.0 agent protocol                                                                                                                             |
-| Skills        | `src/lib/skills/`       | Extensible skill framework                                                                                                                              |
-| Memory        | `src/lib/memory/`       | Persistent conversational memory                                                                                                                        |
+| Layer         | Location                | Purpose                                                                                                                                                                   |
+| ------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| API Routes    | `src/app/api/v1/`       | Next.js App Router — entry points                                                                                                                                         |
+| Handlers      | `open-sse/handlers/`    | Request processing (chat, embeddings, etc)                                                                                                                                |
+| Executors     | `open-sse/executors/`   | Provider-specific HTTP dispatch                                                                                                                                           |
+| Translators   | `open-sse/translator/`  | Format conversion (OpenAI↔Claude↔Gemini)                                                                                                                                  |
+| Transformer   | `open-sse/transformer/` | Responses API ↔ Chat Completions                                                                                                                                          |
+| Services      | `open-sse/services/`    | Combo routing, rate limits, caching, etc                                                                                                                                  |
+| Database      | `src/lib/db/`           | SQLite domain modules (148 migrations)                                                                                                                                    |
+| Domain/Policy | `src/domain/`           | Policy engine, cost rules, fallback logic                                                                                                                                 |
+| MCP Server    | `open-sse/mcp-server/`  | 109 tools (44 canonical + memory/skill/GitHub/pool/gamification/plugin/Notion/Obsidian/local-corpus/RTK modules), 3 transports (stdio / SSE / Streamable HTTP), 33 scopes |
+| A2A Server    | `src/lib/a2a/`          | JSON-RPC 2.0 agent protocol                                                                                                                                               |
+| Skills        | `src/lib/skills/`       | Extensible skill framework                                                                                                                                                |
+| Memory        | `src/lib/memory/`       | Persistent conversational memory                                                                                                                                          |
 
 Monorepo: `src/` (Next.js 16 app), `open-sse/` (streaming engine workspace), `electron/` (desktop app), `tests/`, `bin/` (CLI entry point).
 
@@ -118,11 +118,18 @@ upstream/service level, so one unhealthy provider does not slow down every reque
 - `HALF_OPEN`: reset timeout has elapsed; allow a probe request. Success closes the
   breaker, failure opens it again.
 
-**Defaults** (`open-sse/config/constants.ts`):
+**Defaults** (`open-sse/config/constants.ts` → `PROVIDER_PROFILES`). Two thresholds live side by
+side — do not confuse them:
 
-- OAuth providers: threshold `3`, reset timeout `60s`.
-- API-key providers: threshold `5`, reset timeout `30s`.
-- Local providers: threshold `2`, reset timeout `15s`.
+| Profile | `providerFailureThreshold` (whole provider) | `providerCooldownMs` | `circuitBreakerThreshold` (one connection) | `circuitBreakerReset` |
+| ------- | ------------------------------------------: | -------------------: | -----------------------------------------: | --------------------: |
+| OAuth   |                                        `10` |               `5min` |                                        `8` |                 `60s` |
+| API key |                                        `15` |              `10min` |                                       `12` |                 `30s` |
+| Local   |                                         `2` |               `1min` |                                        `2` |                 `15s` |
+
+The provider-level thresholds were scaled up for deployments with 500+ connections (OAuth was
+`3`, API key was `5`); every default is overridable through the `OMNIROUTE_PROVIDER_BREAKER_*`
+and `OMNIROUTE_CIRCUIT_BREAKER_*` env vars.
 
 Only provider-level failure statuses should trip the provider breaker:
 
@@ -434,16 +441,16 @@ For any non-trivial change, read the matching deep-dive first:
 
 ## Testing
 
-| What                    | Command                                                                     |
-| ----------------------- | --------------------------------------------------------------------------- |
-| Unit tests              | `npm run test:unit`                                                         |
-| Single file             | `node --import tsx/esm --test tests/unit/your-file.test.ts`                 |
-| Vitest (MCP, autoCombo) | `npm run test:vitest`                                                       |
-| E2E (Playwright)        | `npm run test:e2e`                                                          |
-| Protocol E2E (MCP+A2A)  | `npm run test:protocols:e2e`                                                |
-| Ecosystem               | `npm run test:ecosystem`                                                    |
-| Coverage gate           | `npm run test:coverage` (60/60/60/60 — statements/lines/functions/branches) |
-| Coverage report         | `npm run coverage:report`                                                   |
+| What                    | Command                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| Unit tests              | `npm run test:unit`                                                           |
+| Single file             | `node --import tsx/esm --test tests/unit/your-file.test.ts`                   |
+| Vitest (MCP, autoCombo) | `npm run test:vitest`                                                         |
+| E2E (Playwright)        | `npm run test:e2e`                                                            |
+| Protocol E2E (MCP+A2A)  | `npm run test:protocols:e2e` (CI job `test-protocols-e2e`, advisory — #10049) |
+| Ecosystem               | `npm run test:ecosystem` (CI job `test-ecosystem`, blocking)                  |
+| Coverage gate           | `npm run test:coverage` (60/60/60/60 — statements/lines/functions/branches)   |
+| Coverage report         | `npm run coverage:report`                                                     |
 
 **PR rule**: If you change production code in `src/`, `open-sse/`, `electron/`, or `bin/`, you must include or update tests in the same PR.
 
@@ -679,7 +686,7 @@ the stale-enforcement added in Fase 6A.3.
     causa-raiz de DOIS wipes (2026-08-08 e 2026-08-10: `git reset --hard` materializou o
     symlink rastreado por cima do diretório real e o git apagou todo o conteúdo ignorado sem
     aviso); (c) após qualquer escrita relevante, `git -C _tasks add -A && git -C _tasks commit
-    && git -C _tasks push` — o push frequente é o backup real; (d) repetir esta proibição
+&& git -C _tasks push` — o push frequente é o backup real; (d) repetir esta proibição
     VERBATIM no prompt de todo subagente que toque git; (e) se `_tasks` aparecer como symlink
     quebrado, NÃO commitar nada — restaurar do remote e avisar o operador. O gate
     `check:tracked-artifacts` (pre-commit + CI) bloqueia `_tasks` rastreado em qualquer forma.

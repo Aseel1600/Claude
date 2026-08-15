@@ -15,6 +15,8 @@ export const MODALITY_BRIDGE_DEFAULTS = {
   cacheEnabled: true,
   cacheTtlMinutes: 60,
   cacheMaxEntries: 200,
+  // 0 = no cap (existing behavior, description is passed through in full).
+  visionMaxChars: 0,
   audioEnabled: true,
   audioModel: "",
   audioTimeoutMs: 60000,
@@ -29,6 +31,7 @@ export interface VisionBridgeRuntimeSettings {
   prompt: string;
   timeoutMs: number;
   maxImages: number;
+  maxChars: number;
   cacheEnabled: boolean;
   cacheTtlMinutes: number;
   cacheMaxEntries: number;
@@ -85,6 +88,7 @@ export function resolveVisionBridgeRuntimeSettings(
     maxImages:
       pickNumber(s.modalityBridgeVisionMaxImages, s.visionBridgeMaxImages) ??
       VISION_BRIDGE_DEFAULTS.maxImagesPerRequest,
+    maxChars: pickNumber(s.modalityBridgeVisionMaxChars) ?? MODALITY_BRIDGE_DEFAULTS.visionMaxChars,
     cacheEnabled:
       pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
     cacheTtlMinutes:

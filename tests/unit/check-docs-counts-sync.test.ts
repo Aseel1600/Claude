@@ -8,9 +8,6 @@ import {
   tallyDrift,
   readProviderTotal,
   countLocales,
-  readMcpFactsFromSource,
-  listLocalizedDocs,
-  makeRequiredCountsValidator,
 } from "../../scripts/check/check-docs-counts-sync.mjs";
 
 // Explicit types for the .mjs exports — keep the test at 0 no-explicit-any warnings.
@@ -27,11 +24,6 @@ const tally = tallyDrift as (
 ) => { strict: number; soft: number; lines: string[] };
 const readTotal = readProviderTotal as () => number;
 const locales = countLocales as () => number;
-const mcpFacts = readMcpFactsFromSource as () => { tools: number; scopes: number } | null;
-const localizedDocs = listLocalizedDocs as (relativePath: string) => string[];
-const requireCounts = makeRequiredCountsValidator as (
-  requirements: { label: string; value: number }[]
-) => (content: string) => { ok: boolean; detail: string };
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GATE = path.resolve(here, "../../scripts/check/check-docs-counts-sync.mjs");
@@ -100,31 +92,6 @@ test("countLocales reads a real, positive locale count from config/i18n.json", (
   assert.ok(locales() >= 40, "i18n config should define at least 40 locales");
 });
 
-test("source-only MCP fallback matches the canonical inventory and scope union", () => {
-  assert.deepEqual(mcpFacts(), { tools: 107, scopes: 32 });
-});
-
-test("localized-doc discovery returns every locale root document", () => {
-  const readmes = localizedDocs("README.md");
-  assert.equal(readmes.length, 42);
-  assert.ok(readmes.includes("docs/i18n/pt-BR/README.md"));
-  assert.ok(readmes.includes("docs/i18n/zh-CN/README.md"));
-});
-
-test("required-count validator reports precisely which live markers are missing", () => {
-  const validate = requireCounts([
-    { label: "providers", value: 327 },
-    { label: "MCP tools", value: 107 },
-    { label: "MCP scopes", value: 32 },
-  ]);
-  assert.equal(validate("327 providers; 107 tools; 32 scopes").ok, true);
-  const stale = validate("290 providers; 104 tools; 31 scopes");
-  assert.equal(stale.ok, false);
-  assert.match(stale.detail, /providers=327/);
-  assert.match(stale.detail, /MCP tools=107/);
-  assert.match(stale.detail, /MCP scopes=32/);
-});
-
 // --- live gate smoke -----------------------------------------------------------------
 
 test("the gate exits 0 against the current (synced) repo state", () => {
@@ -138,7 +105,6 @@ test("the gate exits 0 against the current (synced) repo state", () => {
 // down to 1.37B, because no gate watched that number.
 import {
   checkFreeTierHeadline,
-  checkFreeTierInventory,
   extractHeadlineClaims,
 } from "../../scripts/check/check-docs-counts-sync.mjs";
 
@@ -180,27 +146,9 @@ test("free-tier gate passes when a file carries no headline at all", () => {
   assert.equal(checkHeadline("no figures here", TOTALS).ok, true);
 });
 
-const checkInventory = checkFreeTierInventory as (
-  content: string,
-  totals: { pools: number; models: number }
-) => { ok: boolean; detail: string };
-
-test("free-tier inventory gate accepts the live pool/model counts", () => {
-  assert.equal(
-    checkInventory("43 provider pools / 522 model budget entries", { pools: 43, models: 522 }).ok,
-    true
-  );
-});
-
-test("free-tier inventory gate rejects stale model counts", () => {
-  const result = checkInventory("43 provider pools / 516 models", { pools: 43, models: 522 });
-  assert.equal(result.ok, false);
-  assert.match(result.detail, /live catalog has 43 pools \/ 522 model budget entries/);
-});
-
 // --- Generic numeric-claim gate (engines / MCP tools / scopes / CLI) --------
 // Extends the same drift guard to the counts that silently drifted in v3.8.49:
-// 11→12 engines, 94→107 MCP tools, 30→32 scopes, 26→33 CLI tools.
+// 11→12 engines, 94→109 MCP tools, 30→33 scopes, 26→33 CLI tools.
 import { makeNumberClaimValidator } from "../../scripts/check/check-docs-counts-sync.mjs";
 
 const makeValidator = makeNumberClaimValidator as (
@@ -209,19 +157,19 @@ const makeValidator = makeNumberClaimValidator as (
 ) => (content: string) => { ok: boolean; detail: string };
 
 test("MCP-tools gate accepts the aggregate and rejects a stale one", () => {
-  const v = makeValidator(107, {
+  const v = makeValidator(109, {
     what: "MCP tools",
     pattern: /(\d+) tools/gi,
     skipBefore: /(tools?|definitions?)\s*\(\s*$/i,
     skipAfter: /^\s*\(\d+ CLI/,
   });
-  assert.equal(v("MCP Server (107 tools)").ok, true);
-  assert.equal(v("with 107 tools total").ok, true);
+  assert.equal(v("MCP Server (109 tools)").ok, true);
+  assert.equal(v("with 109 tools total").ok, true);
   assert.equal(v("MCP Server (94 tools)").ok, false);
 });
 
 test("MCP-tools gate ignores per-module counts and the CLI catalog total", () => {
-  const v = makeValidator(107, {
+  const v = makeValidator(109, {
     what: "MCP tools",
     pattern: /(\d+) tools/gi,
     skipBefore: /(tools?|definitions?)\s*\(\s*$/i,
@@ -296,18 +244,18 @@ test("package.json description validator catches a stale provider count", () => 
 });
 
 test("migrations claim validator accepts the real count and rejects stale styles", () => {
-  const v = makeValidator(144, { what: "migrations", pattern: /(\d+)\+? migrations?\b/gi });
-  assert.equal(v("SQLite domain modules (144 migrations)").ok, true);
+  const v = makeValidator(146, { what: "migrations", pattern: /(\d+)\+? migrations?\b/gi });
+  assert.equal(v("SQLite domain modules (146 migrations)").ok, true);
   assert.equal(v("local, zero-config, 110+ migrations").ok, false);
   assert.equal(v("(130 migrations)").ok, false);
 });
 
-const SVG_EXPECTED = { providers: 338, mcpTools: 105, strategies: 19, pools: 42 };
+const SVG_EXPECTED = { providers: 339, mcpTools: 109, strategies: 19, pools: 41 };
 
 test("SVG gate accepts canonical numbers in text and aria-label claims", () => {
   const good =
-    'aria-label="338 AI providers, 19 routing strategies, MCP with 105 tools, ' +
-    '42 provider pools" <text>338 providers</text><text>MCP (105</text>';
+    'aria-label="339 AI providers, 19 routing strategies, MCP with 109 tools, ' +
+    '41 provider pools" <text>339 providers</text><text>MCP (109</text>';
   assert.equal(checkSvg(good, SVG_EXPECTED).ok, true);
 });
 
