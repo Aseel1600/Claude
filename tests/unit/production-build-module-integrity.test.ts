@@ -120,6 +120,14 @@ test("conolDiscovery resolves getProviderOutboundGuard from the policy module (#
     path.join(repoRoot, "src/shared/network/outboundUrlGuard.ts"),
     "utf8"
   );
+  // Positive anchor: prove we are still reading the real guard module — a stable
+  // top-level export — so the negative guard below cannot rot into a vacuous pass
+  // against an empty/moved file (source-scanner-guards rule).
+  assert.match(
+    guardSource,
+    /export class OutboundUrlGuardError extends Error/,
+    "outboundUrlGuard.ts moved or was emptied — re-anchor this guard before trusting it"
+  );
   assert.doesNotMatch(
     guardSource,
     /^\s*(import|export)[^\n]*from\s+["']@\//m,

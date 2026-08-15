@@ -89,7 +89,8 @@ async function resolveZaiBrowserAttachments(
   { attachments: ZaiBrowserAttachments } | { errorResult: ReturnType<typeof makeErrorResult> }
 > {
   try {
-    const images = await resolveCursorImages(imageUrls);
+    // Browser-page upload: keep the original bytes/mimeType (no Cursor wire prep).
+    const images = await resolveCursorImages(imageUrls, { prepareForWire: false });
     return {
       attachments: images.map((image, index) => ({
         name: zaiImageFileName(image.mimeType, index),

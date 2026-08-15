@@ -255,7 +255,7 @@ export async function importManagedModels({
     (await getSyncedAvailableModelsForConnection(providerId, connectionId));
   const discoveredModels = filterChatSelectableModels(
     providerId,
-    filterSelectableModels(providerId, normalizeDiscoveredModels(fetchedModels))
+    filterSelectableModels(providerId, normalizeDiscoveredModels(fetchedModels, providerId))
   );
   const candidateImportedModels = normalizeImportedModels(discoveredModels);
   const importedIds = new Set(candidateImportedModels.map((model) => model.id));

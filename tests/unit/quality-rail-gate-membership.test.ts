@@ -91,10 +91,18 @@ test("the complexity ratchet stays on the release rail (G0's written validation 
 test("the TS7 shadow and zero-new-diagnostics ratchet use one pinned compiler and core scope", () => {
   const block = jobBlock("fast-gates");
   assert.match(block, /typescript@7\.0\.2/, "TS7 diagnostics must use the reviewed compiler");
+  // The ratchet is folded into the non-fail-fast aggregation step (#8542 — a
+  // separate blocking step would let an earlier red gate mask it), so its base
+  // ref arrives via that step's PR_BASE_SHA env binding.
   assert.match(
     block,
-    /TS7_BASE_REF:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
+    /PR_BASE_SHA:\s*\$\{\{ github\.event\.pull_request\.base\.sha \}\}/,
     "the ratchet must compare against the exact pull-request base commit"
+  );
+  assert.match(
+    block,
+    /check:ts7-diagnostics-ratchet -- --base-ref "\$PR_BASE_SHA"/,
+    "the ratchet invocation must consume the pull-request base sha"
   );
   assert.ok(
     block.includes("tsconfig.typecheck-core.json"),

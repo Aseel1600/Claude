@@ -29,6 +29,7 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
+const modelDiscovery = await import("../../src/lib/providerModels/modelDiscovery.ts");
 const { getComboBuilderOptions } = await import("../../src/lib/combos/builderOptions.ts");
 
 test.after(() => {
@@ -169,4 +170,35 @@ test("#9485 static DeepSeek effort aliases appear when synced rows omit supporte
     assert.deepEqual(alias!.supportedEndpoints, base.supportedEndpoints);
     assert.equal(alias!.supportsThinking, base.supportsThinking);
   }
+});
+test("#9485 Crof synced effort aliases appear exactly in the Combo Builder picker", async () => {
+  const connection = await providersDb.createProviderConnection({
+    provider: "crof",
+    authType: "apikey",
+    name: "crof-9485-effort",
+    apiKey: "crof-key-9485",
+    isActive: true,
+    testStatus: "active",
+  });
+  const modelId = "crof-combo-reasoning-model";
+
+  await modelDiscovery.persistDiscoveredModels("crof", connection.id, [
+    { id: modelId, name: "Crof Combo Reasoning Model", reasoning_effort: true },
+  ]);
+
+  const payload = await getComboBuilderOptions();
+  const provider = payload.providers.find((p) => p.providerId === "crof");
+  assert.ok(provider, "crof provider must appear in the combo builder output");
+
+  const expectedAliases = new Set([
+    `${modelId}-none`,
+    `${modelId}-low`,
+    `${modelId}-medium`,
+    `${modelId}-high`,
+    `${modelId}-max`,
+  ]);
+  const actualAliases = new Set(
+    provider!.models.map((model) => model.id).filter((id) => id.startsWith(`${modelId}-`))
+  );
+  assert.deepEqual(actualAliases, expectedAliases);
 });
