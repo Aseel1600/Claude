@@ -50,7 +50,39 @@ function evictOldest(cache: Map<string, unknown>): void {
 const projectCache = new Map<string, string>();
 
 /** Per-key lock to prevent concurrent onboard attempts for the same token. */
-const onboardLocks = new Map<string, Promise<boolean>>();
+const onboardLocks = new Map<string, Promise<void>>();
+
+/**
+ * Sentinel returned by ensureAntigravityProjectAssigned when Google's
+ * onboardUser completed but did NOT return a project id — Google has
+ * deprecated automatic project creation for standard-tier (personal)
+ * accounts and requires a user-defined GCP project (BYOP, #2934). The
+ * caller must fail fast with a clear "enter your GCP project id" error
+ * instead of retrying (a fabricated id gets a delayed 429 RESOURCE_EXHAUSTED).
+ */
+export const ANTIGRAVITY_REQUIRES_MANUAL_PROJECT = "__REQUIRES_GCP_PROJECT__";
+
+/**
+ * Per-token cache of accounts Google told us to Bring Your Own Project.
+ * Permanent for the process lifetime (LRU-capped): re-running onboardUser
+ * for such an account is a pointless ~18s quota-check round-trip that
+ * always comes back empty. Cleared by clearAntigravityProjectCache(); a
+ * manually-entered project id (stored on the connection) short-circuits
+ * before this is consulted.
+ */
+const requiresManualProjectCache = new Set<string>();
+
+function markRequiresManualProject(key: string): void {
+  if (requiresManualProjectCache.size >= MAX_CACHE_SIZE) {
+    const oldest = requiresManualProjectCache.values().next().value;
+    if (oldest !== undefined) requiresManualProjectCache.delete(oldest);
+  }
+  requiresManualProjectCache.add(key);
+}
+
+/** Outcome of an onboardUser attempt — three-way so the caller can distinguish
+ * "transient failure (retry later)" from "Google says bring your own project". */
+type AntigravityOnboardStatus = "onboarded" | "requires_manual_project" | "failed";
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -141,7 +173,7 @@ async function tryOnboardUser(
   clientProfile: AntigravityClientProfile,
   tierId: string,
   signal?: AbortSignal
-): Promise<boolean> {
+): Promise<AntigravityOnboardStatus> {
   const urls = getAntigravityOnboardUrls();
   const headers = getAntigravityContentHeaders(clientProfile, accessToken);
 
@@ -160,7 +192,20 @@ async function tryOnboardUser(
       });
 
       if (response.ok) {
-        return true;
+        // Google deprecated automatic project creation for standard-tier
+        // (personal) accounts (#2934): onboardUser completes without returning
+        // a project id and the account is expected to Bring Your Own Project.
+        // Detect that so we can fail fast with a clear instruction instead of
+        // retrying forever or fabricating an id that Google later rejects with
+        // a delayed 429 RESOURCE_EXHAUSTED.
+        const body = await response.text().catch(() => "");
+        if (body && !/cloudaicompanionProject/.test(body)) {
+          console.warn(
+            `[models] antigravity onboardUser done but no project in response at ${url} — Google BYOP (user-defined GCP project) required`
+          );
+          return "requires_manual_project";
+        }
+        return "onboarded";
       }
 
       console.warn(
@@ -174,7 +219,7 @@ async function tryOnboardUser(
       console.warn(`[models] antigravity onboardUser threw for ${url}: ${msg} — trying next`);
     }
   }
-  return false;
+  return "failed";
 }
 
 /**
@@ -245,10 +290,17 @@ export async function ensureAntigravityProjectAssigned(
 
   let projectId = initialProjectId;
 
+  // Google told us this account must Bring Its Own Project — fail fast with
+  // the sentinel instead of repeating the pointless ~18s onboard round-trip.
+  if (!projectId && requiresManualProjectCache.has(cacheKey)) {
+    return ANTIGRAVITY_REQUIRES_MANUAL_PROJECT;
+  }
+
   // loadCodeAssist is read-only — if the account was never onboarded, it returns
   // empty. Call onboardUser to create the project, then retry discovery.
   // Re-attempts are bounded by a short failure backoff (not a permanent memo),
-  // so a transient onboard failure heals on the next request.
+  // so a transient onboard failure heals on the next request. Accounts Google
+  // marks BYOP are cached permanently and short-circuit above.
   if (!projectId && !isOnboardOnBackoff(cacheKey)) {
     // Per-key lock: concurrent calls for the same token share one onboard attempt.
     let lock = onboardLocks.get(cacheKey);
@@ -256,30 +308,35 @@ export async function ensureAntigravityProjectAssigned(
       lock = (async () => {
         let aborted = false;
         let succeeded = false;
+        let requiresManual = false;
         try {
-          const onboarded = await tryOnboardUser(
+          const status = await tryOnboardUser(
             accessToken,
             fetchImpl,
             clientProfile,
             tierId,
             signal
           );
-          if (onboarded) {
+          if (status === "requires_manual_project") {
+            markRequiresManualProject(cacheKey);
+            requiresManual = true;
+            return;
+          }
+          if (status === "onboarded") {
             const retry = await tryLoadCodeAssist(accessToken, fetchImpl, clientProfile, signal);
             if (retry.projectId) {
               evictOldest(projectCache);
               projectCache.set(cacheKey, retry.projectId);
               succeeded = true;
-              return true;
+              return;
             }
           }
-          return false;
         } catch (e) {
           aborted = signal?.aborted === true;
-          return false;
+          return;
         } finally {
           onboardLocks.delete(cacheKey);
-          if (!aborted) {
+          if (!aborted && !requiresManual) {
             if (succeeded) onboardFailureAt.delete(cacheKey);
             else markOnboardFailure(cacheKey);
           }
@@ -287,11 +344,9 @@ export async function ensureAntigravityProjectAssigned(
       })();
       onboardLocks.set(cacheKey, lock);
     }
-    const success = await lock;
-    if (success) {
-      const cached = projectCache.get(cacheKey);
-      if (cached) return cached;
-    }
+    await lock;
+    if (projectCache.has(cacheKey)) return projectCache.get(cacheKey);
+    if (requiresManualProjectCache.has(cacheKey)) return ANTIGRAVITY_REQUIRES_MANUAL_PROJECT;
   }
 
   if (projectId) {
@@ -306,6 +361,7 @@ export async function ensureAntigravityProjectAssigned(
 export function clearAntigravityProjectCache(): void {
   projectCache.clear();
   onboardFailureAt.clear();
+  requiresManualProjectCache.clear();
   onboardLocks.clear();
 }
 

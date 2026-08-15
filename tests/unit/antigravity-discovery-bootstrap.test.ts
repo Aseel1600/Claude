@@ -24,6 +24,7 @@ import {
   clearAntigravityOnboardBackoff,
   getAntigravityProjectFromCache,
   getAntigravityLoadCodeAssistUrls,
+  ANTIGRAVITY_REQUIRES_MANUAL_PROJECT,
 } from "../../open-sse/services/antigravityProjectBootstrap.ts";
 
 // Reset the module-level memoization cache between tests.
@@ -262,10 +263,15 @@ describe("onboardUser fallback", () => {
       }
       if (url.endsWith(":onboardUser")) {
         onboardCalls++;
-        return new Response(JSON.stringify({ done: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        // Google's LRO returns the created project inside the response — a body
+        // WITHOUT cloudaicompanionProject means BYOP (manual project required).
+        return new Response(
+          JSON.stringify({ done: true, cloudaicompanionProject: "proj-onboarded" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
       return new Response("Not Found", { status: 404 });
     };
@@ -307,8 +313,10 @@ describe("onboardUser fallback", () => {
       }
       if (url.endsWith(":onboardUser")) {
         onboardCalls++;
-        return new Response(JSON.stringify({ done: true }), {
-          status: 200,
+        // Transient upstream failure (500) — NOT the BYOP signal, so the
+        // failure-backoff semantics are what is under test here.
+        return new Response("Upstream error", {
+          status: 500,
           headers: { "Content-Type": "application/json" },
         });
       }
@@ -340,15 +348,26 @@ describe("onboardUser fallback", () => {
       }
       if (url.endsWith(":onboardUser")) {
         onboardCalls++;
-        return new Response(JSON.stringify({ done: true }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        });
+        if (onboardCalls === 1) {
+          // First attempt: transient upstream failure -> failure backoff.
+          return new Response("Upstream error", {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        // Second (healed) attempt: Google returns the created project.
+        return new Response(
+          JSON.stringify({ done: true, cloudaicompanionProject: "proj-healed-onboard" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
       }
       return new Response("Not Found", { status: 404 });
     };
 
-    // First attempt: onboard succeeds but discovery still empty -> failure recorded.
+    // First attempt: onboard fails transiently -> failure recorded.
     const first = await ensureAntigravityProjectAssigned("heal-token", mockFetch);
     assert.equal(first, undefined);
     assert.equal(onboardCalls, 1);
@@ -363,6 +382,38 @@ describe("onboardUser fallback", () => {
     const healed = await ensureAntigravityProjectAssigned("heal-token", mockFetch);
     assert.equal(healed, "proj-healed");
     assert.equal(onboardCalls, 2, "onboardUser must be retried after backoff expiry");
+  });
+
+  test("returns the BYOP sentinel when onboardUser completes without a project (Google #2934)", async () => {
+    let onboardCalls = 0;
+
+    const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {
+      if (url.endsWith(":loadCodeAssist")) {
+        return new Response(JSON.stringify({}), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith(":onboardUser")) {
+        onboardCalls++;
+        // 200 done WITHOUT cloudaicompanionProject = BYOP: Google deprecated
+        // automatic project creation for standard-tier personal accounts.
+        return new Response(JSON.stringify({ done: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response("Not Found", { status: 404 });
+    };
+
+    const first = await ensureAntigravityProjectAssigned("byop-token", mockFetch);
+    assert.equal(first, ANTIGRAVITY_REQUIRES_MANUAL_PROJECT);
+
+    // The account is cached as BYOP — a second call must NOT re-run the
+    // pointless ~18s onboard round-trip (no extra fetch, same sentinel).
+    const second = await ensureAntigravityProjectAssigned("byop-token", mockFetch);
+    assert.equal(second, ANTIGRAVITY_REQUIRES_MANUAL_PROJECT);
+    assert.equal(onboardCalls, 1, "onboardUser must not be re-attempted for a cached BYOP account");
   });
 
   test("skips onboardUser when loadCodeAssist succeeds on first try", async () => {

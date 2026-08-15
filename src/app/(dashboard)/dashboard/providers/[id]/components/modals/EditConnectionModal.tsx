@@ -512,6 +512,12 @@ export default function EditConnectionModal({
       updates.rateLimitOverrides = Object.keys(overrides).length > 0 ? overrides : null;
       if (isAntigravityFamily) {
         updates.projectId = trimmedCloudCodeProjectId || null;
+        // A manually-entered project id must not be overwritten by
+        // auto-discovery (loadCodeAssist) on later token refreshes.
+        updates.providerSpecificData = {
+          ...(validatedProviderSpecificData || {}),
+          isProjectIdManual: !!trimmedCloudCodeProjectId,
+        };
       }
       if (isGooglePse && !formData.cx.trim()) {
         setSaveError(t("searchEngineIdRequired"));

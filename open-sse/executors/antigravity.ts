@@ -28,7 +28,10 @@ import {
   resolveAntigravityOutputCap,
 } from "./antigravityOutputCap.ts";
 export { MAX_ANTIGRAVITY_OUTPUT_TOKENS } from "./antigravityOutputCap.ts";
-import { ensureAntigravityProjectAssigned } from "../services/antigravityProjectBootstrap.ts";
+import {
+  ensureAntigravityProjectAssigned,
+  ANTIGRAVITY_REQUIRES_MANUAL_PROJECT,
+} from "../services/antigravityProjectBootstrap.ts";
 import { persistDiscoveredAntigravityProjectId } from "../services/antigravityProjectPersist.ts";
 import { markAntigravityMissingCloudCodeProject } from "../services/antigravityProjectPersistence.ts";
 import {
@@ -535,6 +538,7 @@ export class AntigravityExecutor extends BaseExecutor {
     // its Google account already owns a Cloud Code project (the OAuth-time loadCodeAssist
     // returned empty/transiently failed). Mirror the Cloud Code bootstrap to recover it
     // here — the helper memoizes per access-token, so this is a one-time round-trip.
+    let requiresManualProject = false;
     if (!projectId && credentials?.accessToken) {
       const discovered = await ensureAntigravityProjectAssigned(
         credentials.accessToken,
@@ -542,7 +546,7 @@ export class AntigravityExecutor extends BaseExecutor {
         getAntigravityClientProfile(credentials),
         signal
       );
-      if (discovered) {
+      if (discovered && discovered !== ANTIGRAVITY_REQUIRES_MANUAL_PROJECT) {
         projectId = discovered;
         // #8491: persist the recovered id so it survives the next token refresh
         // or process restart instead of being silently rediscovered every time.
@@ -552,10 +556,34 @@ export class AntigravityExecutor extends BaseExecutor {
           credentials.providerSpecificData
         );
       }
+      requiresManualProject = discovered === ANTIGRAVITY_REQUIRES_MANUAL_PROJECT;
     }
 
     if (!projectId) {
       markAntigravityMissingCloudCodeProject(credentials?.connectionId);
+      if (requiresManualProject) {
+        // Google deprecated automatic project creation for standard-tier
+        // accounts (#2934): fail fast with a clear instruction instead of the
+        // generic 422 — a fabricated/omitted id only earns a delayed 429
+        // RESOURCE_EXHAUSTED from Google's quota check.
+        const errorBody = {
+          error: {
+            message:
+              "GCP_PROJECT_REQUIRED: Google Antigravity now requires a free GCP Project ID. " +
+              "Create one at console.cloud.google.com and enter it in Providers → Antigravity " +
+              "(connection settings → Project ID). Automatic project creation is no longer " +
+              "available for personal accounts.",
+            type: "gcp_project_required",
+            code: "gcp_project_required",
+          },
+        };
+        const resp = new Response(JSON.stringify(errorBody), {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        });
+        // Returning a Response object signals the executor to stop and forward it
+        return resp as unknown as never;
+      }
       // (#489) Return a structured error instead of throwing — gives the client a clear signal
       // to show a "Reconnect OAuth" prompt rather than an opaque "Internal Server Error".
       const errorMsg =
