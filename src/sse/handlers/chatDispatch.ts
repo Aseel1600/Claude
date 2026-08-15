@@ -40,7 +40,7 @@ type DispatchRuntimeOptions = {
 export async function dispatchChatWithAffinityEviction(
   args: DispatchArgs,
   runtimeOptions: DispatchRuntimeOptions
-): Promise<{ result: any; tlsFingerprintUsed: boolean }> {
+): Promise<Awaited<ReturnType<typeof executeChatWithBreaker>>> {
   const evict = () =>
     evictSessionAffinityOnComboTimeout({
       sessionKey: runtimeOptions.sessionAffinityKey,
@@ -49,7 +49,7 @@ export async function dispatchChatWithAffinityEviction(
       modelAbortSignal: runtimeOptions.modelAbortSignal,
     });
 
-  let dispatched: { result: any; tlsFingerprintUsed: boolean };
+  let dispatched: Awaited<ReturnType<typeof executeChatWithBreaker>>;
   try {
     dispatched = await executeChatWithBreaker({
       ...args,
@@ -62,6 +62,10 @@ export async function dispatchChatWithAffinityEviction(
     evict();
     throw dispatchErr;
   }
+
+  // A resource-pressure short-circuit (no upstream dispatch happened) is not a
+  // combo per-model timeout — never treat it as one.
+  if ("localResourcePressureResult" in dispatched) return dispatched;
 
   if (!dispatched.result?.success) evict();
   return dispatched;
