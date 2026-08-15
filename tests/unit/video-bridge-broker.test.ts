@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createServer } from "node:http";
 import test from "node:test";
 
 import {
@@ -79,8 +80,63 @@ test("broker client sends only bounded bytes and fixed parameters to the pinned 
     (requestedInit?.headers as Record<string, string>)["Content-Type"],
     "application/octet-stream"
   );
+  assert.equal(
+    (requestedInit?.headers as Record<string, string>)["Content-Length"],
+    undefined,
+    "the Fetch implementation must calculate Content-Length for the Buffer body"
+  );
   assert.deepEqual(Buffer.from(requestedInit?.body as Uint8Array), Buffer.from("safe-video"));
   assert.equal(response.frames.length, 2);
+});
+
+test("default broker transport lets Node calculate the Buffer content length", async () => {
+  const previousPort = process.env.PORT;
+  const previousOmniRoutePort = process.env.OMNIROUTE_PORT;
+  const previousDashboardPort = process.env.DASHBOARD_PORT;
+  const videoBytes = Buffer.from("safe-video");
+  let receivedBody = Buffer.alloc(0);
+  let receivedLength = "";
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      receivedBody = Buffer.concat(chunks);
+      receivedLength = request.headers["content-length"] ?? "";
+      response.setHeader("Content-Type", "application/json");
+      response.end(
+        JSON.stringify({
+          durationSeconds: 1,
+          frames: [{ timestampSeconds: 0.5, dataUri: "data:image/jpeg;base64,QQ==" }],
+        })
+      );
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  assert.ok(address && typeof address === "object");
+  delete process.env.OMNIROUTE_PORT;
+  delete process.env.DASHBOARD_PORT;
+  process.env.PORT = String(address.port);
+
+  try {
+    const result = await extractVideoFramesViaBroker(videoBytes, {
+      frameCount: 1,
+      timeoutMs: 5_000,
+    });
+    assert.equal(result.frames.length, 1);
+    assert.deepEqual(receivedBody, videoBytes);
+    assert.equal(receivedLength, String(videoBytes.byteLength));
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
+    if (previousPort === undefined) delete process.env.PORT;
+    else process.env.PORT = previousPort;
+    if (previousOmniRoutePort === undefined) delete process.env.OMNIROUTE_PORT;
+    else process.env.OMNIROUTE_PORT = previousOmniRoutePort;
+    if (previousDashboardPort === undefined) delete process.env.DASHBOARD_PORT;
+    else process.env.DASHBOARD_PORT = previousDashboardPort;
+  }
 });
 
 test("broker client cancels an unbounded response stream before it can exceed the cap", async () => {

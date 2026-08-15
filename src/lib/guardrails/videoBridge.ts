@@ -1,3 +1,5 @@
+import { fetch as undiciFetch } from "undici";
+
 import { getSettings as defaultGetSettings } from "@/lib/db/settings";
 import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import {
@@ -235,8 +237,10 @@ export class VideoBridgeGuardrail extends BaseGuardrail {
             producerModel = model;
           },
           prompt,
+          routeThroughOmniRoute: true,
           signal,
           timeoutMs: runtime.timeoutMs,
+          fetchImpl: undiciFetch as unknown as typeof fetch,
         });
         successfulModels.add(producerModel);
         if (key && cache) cache.setEntry(key, { value: caption, producerModel });
