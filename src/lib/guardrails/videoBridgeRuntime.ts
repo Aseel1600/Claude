@@ -185,7 +185,7 @@ export async function probeLocalVideo(
       "-threads",
       "1",
       "-show_entries",
-      "format=duration,format_name:stream=index,codec_type,width,height",
+      "format=duration,format_name:stream=index,codec_type,width,height:stream_disposition=default,attached_pic",
       "-of",
       "json",
       inputPath,
@@ -198,11 +198,13 @@ export async function probeLocalVideo(
   let height = Number.NaN;
   let streamIndex = Number.NaN;
   let allVideoStreamsSafe = false;
+  let playableVideoStreamCount = 0;
   try {
     const parsed = JSON.parse(result.stdout) as {
       format?: { duration?: unknown; format_name?: unknown };
       streams?: Array<{
         codec_type?: unknown;
+        disposition?: unknown;
         height?: unknown;
         index?: unknown;
         width?: unknown;
@@ -211,9 +213,21 @@ export async function probeLocalVideo(
     durationSeconds = Number(parsed.format?.duration);
     formatName = typeof parsed.format?.format_name === "string" ? parsed.format.format_name : "";
     const videoStreams = parsed.streams?.filter((stream) => stream.codec_type === "video") ?? [];
+    const dispositionFlag = (stream: (typeof videoStreams)[number], key: string): boolean => {
+      const disposition = stream.disposition;
+      if (!disposition || typeof disposition !== "object" || Array.isArray(disposition)) {
+        return false;
+      }
+      const value = (disposition as Record<string, unknown>)[key];
+      return value === 1 || value === "1";
+    };
+    const playableVideoStreams = videoStreams.filter(
+      (stream) => !dispositionFlag(stream, "attached_pic")
+    );
+    playableVideoStreamCount = playableVideoStreams.length;
     allVideoStreamsSafe =
-      videoStreams.length > 0 &&
-      !videoStreams.some((stream) => {
+      playableVideoStreams.length > 0 &&
+      !playableVideoStreams.some((stream) => {
         const streamWidth = Number(stream.width);
         const streamHeight = Number(stream.height);
         const candidateIndex = Number(stream.index);
@@ -229,12 +243,16 @@ export async function probeLocalVideo(
           streamWidth * streamHeight > VIDEO_MAX_PIXELS
         );
       });
-    const selectedStream = [...videoStreams].sort(
-      (left, right) => Number(left.index) - Number(right.index)
-    )[0];
-    streamIndex = Number(selectedStream.index);
-    width = Number(selectedStream.width);
-    height = Number(selectedStream.height);
+    const selectedStream = [...playableVideoStreams].sort((left, right) => {
+      const defaultPreference =
+        Number(dispositionFlag(right, "default")) - Number(dispositionFlag(left, "default"));
+      return defaultPreference || Number(left.index) - Number(right.index);
+    })[0];
+    if (selectedStream) {
+      streamIndex = Number(selectedStream.index);
+      width = Number(selectedStream.width);
+      height = Number(selectedStream.height);
+    }
   } catch {
     // The stable error below deliberately excludes raw ffprobe output.
   }
@@ -252,8 +270,11 @@ export async function probeLocalVideo(
   if (formats.length === 0 || formats.some((entry) => !SAFE_FORMATS.has(entry))) {
     throw new Error("Video container format is not allowed");
   }
+  if (playableVideoStreamCount === 0) {
+    throw new Error("Video container has no playable video stream");
+  }
   if (!allVideoStreamsSafe) {
-    throw new Error("Video dimensions exceed the safe processing limit");
+    throw new Error("Video stream metadata or dimensions exceed the safe processing limit");
   }
   return { durationSeconds, formatName, height, streamIndex, width };
 }

@@ -66,6 +66,10 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
   );
   assert.ok(calls[0].args.includes("-format_whitelist"));
   assert.equal(
+    calls[0].args[calls[0].args.indexOf("-show_entries") + 1],
+    "format=duration,format_name:stream=index,codec_type,width,height:stream_disposition=default,attached_pic"
+  );
+  assert.equal(
     calls.slice(1).every((call) => call.executable === "ffmpeg"),
     true
   );
@@ -241,6 +245,113 @@ test("selects the lowest validated video stream index and maps it explicitly in 
   const ffmpegArgs = calls.find((call) => call.executable === "ffmpeg")?.args ?? [];
   const mapIndex = ffmpegArgs.indexOf("-map");
   assert.deepEqual(ffmpegArgs.slice(mapIndex, mapIndex + 2), ["-map", "0:1"]);
+});
+
+test("ignores an attached cover and maps the preferred playable default stream", async () => {
+  const calls: Array<{ executable: string; args: string[] }> = [];
+  const runner: VideoCommandRunner = async (executable, args) => {
+    calls.push({ executable, args: [...args] });
+    return executable === "ffprobe"
+      ? {
+          stdout: JSON.stringify({
+            format: { duration: "4", format_name: "mp4" },
+            streams: [
+              {
+                index: 0,
+                codec_type: "video",
+                width: 20000,
+                height: 20000,
+                disposition: { attached_pic: 1, default: 0 },
+              },
+              {
+                index: 1,
+                codec_type: "video",
+                width: 640,
+                height: 360,
+                disposition: { attached_pic: 0, default: 0 },
+              },
+              {
+                index: 2,
+                codec_type: "video",
+                width: 1280,
+                height: 720,
+                disposition: { attached_pic: 0, default: 1 },
+              },
+            ],
+          }),
+          stderr: "",
+        }
+      : { stdout: "", stderr: "" };
+  };
+
+  const metadata = await probeLocalVideo("/tmp/cover-and-video.mp4", { runner });
+  await extractFramesFromLocalVideo("/tmp/cover-and-video.mp4", "/tmp/frames", {
+    durationSeconds: metadata.durationSeconds,
+    frameCount: 1,
+    runner,
+    streamIndex: metadata.streamIndex,
+  });
+
+  assert.equal(metadata.streamIndex, 2);
+  assert.equal(metadata.width, 1280);
+  assert.equal(metadata.height, 720);
+  const ffmpegArgs = calls.find((call) => call.executable === "ffmpeg")?.args ?? [];
+  const mapIndex = ffmpegArgs.indexOf("-map");
+  assert.deepEqual(ffmpegArgs.slice(mapIndex, mapIndex + 2), ["-map", "0:2"]);
+});
+
+test("rejects a container whose only video stream is an attached picture", async () => {
+  const runner: VideoCommandRunner = async () => ({
+    stdout: JSON.stringify({
+      format: { duration: "4", format_name: "mp4" },
+      streams: [
+        { index: 0, codec_type: "audio" },
+        {
+          index: 1,
+          codec_type: "video",
+          width: 600,
+          height: 600,
+          disposition: { attached_pic: 1, default: 1 },
+        },
+      ],
+    }),
+    stderr: "",
+  });
+
+  await assert.rejects(
+    () => probeLocalVideo("/tmp/audio-with-cover.mp4", { runner }),
+    /playable video stream/
+  );
+});
+
+test("malformed playable stream disposition or index fails closed without selecting a cover", async () => {
+  const runner: VideoCommandRunner = async () => ({
+    stdout: JSON.stringify({
+      format: { duration: "4", format_name: "mp4" },
+      streams: [
+        {
+          index: 0,
+          codec_type: "video",
+          width: 300,
+          height: 300,
+          disposition: { attached_pic: "1", default: "not-a-flag" },
+        },
+        {
+          index: "bad",
+          codec_type: "video",
+          width: 1280,
+          height: 720,
+          disposition: { attached_pic: 0, default: 1 },
+        },
+      ],
+    }),
+    stderr: "",
+  });
+
+  await assert.rejects(
+    () => probeLocalVideo("/tmp/malformed-stream.mp4", { runner }),
+    /dimensions|stream metadata/
+  );
 });
 
 test("runtime status exposes sanitized versions and a sanitized unavailable reason", async () => {
