@@ -74,7 +74,7 @@ export function parseCfFrame(raw: string): CfChatFrame | null {
 }
 
 export interface CfStreamEvent {
-  type: "role" | "content" | "finish";
+  type: "role" | "content" | "reasoning" | "finish";
   value?: string;
 }
 
@@ -88,6 +88,7 @@ export class CfStreamParser {
   readonly chatId: string;
   done = false;
   text = "";
+  reasoningText = "";
   finishReason: string | null = null;
   error: { status: number; message: string } | null = null;
   private seenStart = false;
@@ -126,6 +127,12 @@ export class CfStreamParser {
         if (this.seenStart) return null;
         this.seenStart = true;
         return { type: "role" };
+      case "reasoning-delta": {
+        const delta = typeof body.delta === "string" ? body.delta : "";
+        if (!delta) return null;
+        this.reasoningText += delta;
+        return { type: "reasoning", value: delta };
+      }
       case "text-delta": {
         const delta = typeof body.delta === "string" ? body.delta : "";
         if (!delta) return null;
@@ -139,7 +146,7 @@ export class CfStreamParser {
         return { type: "finish", value: reason };
       }
       default:
-        // reasoning-start/delta/end, start-step, finish-step, text-start/end, heartbeat — ignored.
+        // reasoning-start/end, start-step, finish-step, text-start/end, heartbeat — ignored.
         return null;
     }
   }
@@ -448,6 +455,10 @@ export class CloudflarePlaygroundExecutor extends BaseExecutor {
           return makeErrorResult(504, "Cloudflare Playground timed out", body, PLAYGROUND_URL);
         }
         const text = parser.text;
+        const messagePayload: Record<string, unknown> = { role: "assistant", content: text };
+        if (parser.reasoningText) {
+          messagePayload.reasoning_content = parser.reasoningText;
+        }
         return {
           response: new Response(
             JSON.stringify({
@@ -458,13 +469,13 @@ export class CloudflarePlaygroundExecutor extends BaseExecutor {
               choices: [
                 {
                   index: 0,
-                  message: { role: "assistant", content: text },
+                  message: messagePayload,
                   finish_reason: parser.finishReason ?? "stop",
                 },
               ],
               usage: {
                 prompt_tokens: 0,
-                completion_tokens: Math.ceil(text.length / 4),
+                completion_tokens: Math.ceil((text.length + parser.reasoningText.length) / 4),
                 total_tokens: 0,
               },
             }),
@@ -497,6 +508,8 @@ export class CloudflarePlaygroundExecutor extends BaseExecutor {
                 if (event.type === "role" && !roleSent) {
                   enqueue({ delta: { role: "assistant" }, finish_reason: null });
                   roleSent = true;
+                } else if (event.type === "reasoning") {
+                  enqueue({ delta: { reasoning_content: event.value }, finish_reason: null });
                 } else if (event.type === "content") {
                   enqueue({ delta: { content: event.value }, finish_reason: null });
                 } else if (event.type === "finish") {

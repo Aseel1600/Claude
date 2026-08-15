@@ -182,11 +182,12 @@ test("CfStreamParser translates a real captured stream (decoys ignored)", () => 
     if (event) events += 1;
   }
   assert.equal(parser.text, "Hello world!");
+  assert.equal(parser.reasoningText, "thinking about it...");
   assert.equal(parser.finishReason, "stop");
   assert.equal(parser.done, true);
   assert.equal(parser.error, null);
-  // role + 2 content + 1 finish
-  assert.equal(events, 4);
+  // role + 1 reasoning + 2 content + 1 finish
+  assert.equal(events, 5);
 });
 
 test("CfStreamParser ignores done:true frames that belong to other ids/RPCs", () => {
@@ -257,11 +258,14 @@ test("executor streams OpenAI SSE chunks from captured frames", async () => {
     .split("\n")
     .filter((line) => line.startsWith("data: ") && line !== "data: [DONE]")
     .map((line) => JSON.parse(line.slice(6)));
-  assert.ok(chunks.length >= 4, `expected several chunks, got ${chunks.length}`);
+  assert.ok(chunks.length >= 5, `expected several chunks, got ${chunks.length}`);
 
   const first = chunks[0];
   assert.equal(first.choices[0].delta.role, "assistant");
   assert.equal(first.choices[0].finish_reason, null);
+
+  const reasoningChunk = chunks.find((c) => c.choices?.[0]?.delta?.reasoning_content);
+  assert.equal(reasoningChunk?.choices?.[0]?.delta?.reasoning_content, "thinking about it...");
 
   const content = chunks
     .filter((c) => c.choices?.[0]?.delta?.content)
@@ -287,10 +291,14 @@ test("executor returns JSON for non-streaming requests", async () => {
   assert.match(response.headers.get("content-type") ?? "", /application\/json/);
 
   const parsed = JSON.parse(await response.text()) as {
-    choices: Array<{ message: { content: string }; finish_reason: string }>;
+    choices: Array<{
+      message: { content: string; reasoning_content?: string };
+      finish_reason: string;
+    }>;
     model: string;
   };
   assert.equal(parsed.choices[0].message.content, "Hello world!");
+  assert.equal(parsed.choices[0].message.reasoning_content, "thinking about it...");
   assert.equal(parsed.choices[0].finish_reason, "stop");
   assert.equal(parsed.model, "moonshotai/kimi-k2.6");
 });
