@@ -397,9 +397,10 @@ function sanitizeAntigravityGeminiRequest(
  * `"assistant"`). Mirrors the trailing-strip pop-loop already used for Mistral
  * (#3396), Copilot (#5802), and the CC-bridge in `claudeCodeCompatible.ts`.
  *
- * Scoped strictly to the Claude path by the caller (`isClaude` branch only) — native
- * Gemini models via Antigravity must be unaffected, since Vertex-Claude is the only
- * documented rejection surface.
+ * Wired in by the caller for both the Claude path (`isClaude`) and native Gemini
+ * models (`isGemini`, #10104) — newer Gemini endpoints reject a trailing `model` turn
+ * with the same "ending with a model turn" class of 400 that Claude hits via Vertex.
+ * Other model families routed through Antigravity are left untouched.
  *
  * Guard: never strip `contents` down to empty — an empty `contents` array is itself
  * an invalid request, so at least one entry (even a lone trailing "model" turn) is
@@ -597,6 +598,14 @@ export class AntigravityExecutor extends BaseExecutor {
 
     const upstreamModel = await cleanModelName(model, modelIdOverride);
     const isClaude = upstreamModel.toLowerCase().includes("claude");
+    // #10104: newer Gemini endpoints reject a request ending on a `model` turn with
+    // HTTP 400 "Requests ending with a model turn are not supported" — the same
+    // rejection surface Claude hits via Vertex (see stripTrailingAntigravityAssistantTurn's
+    // doc comment above). Native Gemini models routed through Antigravity (`agy/gemini-*`,
+    // e.g. the Gemini 3.x Flash/Pro tiers from PR #8013's catalog) need the same guarded
+    // strip. Scoped to models whose id names Gemini so unrelated model families are
+    // untouched; the strip itself never empties `contents` (see the guard above).
+    const isGemini = upstreamModel.toLowerCase().includes("gemini");
     const baseBody = bodyRecord;
     const normalizedBody = shouldStripCloudCodeThinking(this.provider, upstreamModel)
       ? stripCloudCodeThinkingConfig(baseBody)
@@ -660,11 +669,16 @@ export class AntigravityExecutor extends BaseExecutor {
           : normalizedRequest?.toolConfig,
     };
 
+    // Note: sanitizeAntigravityGeminiRequest() applies a Claude-only field whitelist
+    // (dropping fields native Gemini requests may legitimately carry), so the Gemini
+    // branch only runs the trailing-turn strip — never the sanitize/whitelist step.
     const transformedRequest = isClaude
       ? stripTrailingAntigravityAssistantTurn(
           sanitizeAntigravityGeminiRequest(rawTransformedRequest)
         )
-      : rawTransformedRequest;
+      : isGemini
+        ? stripTrailingAntigravityAssistantTurn(rawTransformedRequest)
+        : rawTransformedRequest;
 
     applyAntigravityGenerationDefaults(transformedRequest, upstreamModel);
 
