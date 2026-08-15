@@ -143,8 +143,8 @@ test("POST /api/combos/duplicate returns valid combo with correct naming and wei
       `Combo name should start with 'static-', got: ${body.name}`
     );
     assert.ok(
-      /copy(\s+\d+)?$/.test(body.name),
-      `Combo name should end with 'copy' or 'copy N', got: ${body.name}`
+      /^static-[\w-]+(\s+\d+)?$/.test(body.name),
+      `Combo name should be 'static-<template>' optionally followed by a numeric suffix, got: ${body.name}`
     );
 
     // --- Default strategy is "priority" ---
@@ -236,7 +236,7 @@ test("POST /api/combos/duplicate created combo has sourceAutoCombo, weightPack i
 test("POST /api/combos/duplicate generates unique name when duplicate exists", async () => {
   await settingsDb.updateSettings({ requireLogin: false });
 
-  // Create two duplicates — second should have a different name ("copy 1")
+  // Create two duplicates — second should have a different name (numeric suffix)
   const req1 = makePostRequest("http://localhost/api/combos/duplicate", {
     name: "auto/best-coding",
   });
@@ -257,10 +257,10 @@ test("POST /api/combos/duplicate generates unique name when duplicate exists", a
         body1.name !== body2.name,
         `duplicate combo should get a unique name. Both got: ${body1.name}`
       );
-      // Second one ends with "copy 1" or higher
+      // Second one ends with a numeric suffix (e.g. " 2") to disambiguate
       assert.ok(
-        /copy\s+[\d]+$/.test(body2.name),
-        `second duplicate should end with 'copy N', got: ${body2.name}`
+        /\s+[\d]+$/.test(body2.name),
+        `second duplicate should end with a numeric suffix, got: ${body2.name}`
       );
     } else if (res2.status === 422) {
       ok(); // no models matched for second call either

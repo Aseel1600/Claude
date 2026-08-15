@@ -124,14 +124,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // Generate a unique combo name using "{old name} copy" convention (same as static combos).
+    // Generate a unique combo name based on the template (no "copy" appellation).
     const baseName = `static-${name.replace("auto/", "")}`;
     const existingNames = new Set(allCombos.map((c: any) => c.name));
-    let newName = `${baseName} copy`;
+    let newName = baseName;
     let counter = 1;
     while (existingNames.has(newName)) {
       counter++;
-      newName = `${baseName} copy ${counter}`;
+      newName = `${baseName} ${counter}`;
     }
 
     // Capture the mode-pack weights from the virtual combo config so the snapshot
