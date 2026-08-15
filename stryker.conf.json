@@ -273,6 +273,7 @@
       "tests/unit/observability-payloads.test.ts",
       "tests/unit/ollama-cloud-weekly-quota-cooldown-3709.test.ts",
       "tests/unit/openapi-security-tiers.test.ts",
+      "tests/unit/openrouter-free-model-credits-exhausted.test.ts",
       "tests/unit/openrouter-passthrough-models.test.ts",
       "tests/unit/openrouter-quota-6842.test.ts",
       "tests/unit/persist-429-cooldown-account-fallback.test.ts",
@@ -354,6 +355,7 @@
       "tests/unit/usage-service-hardening.test.ts",
       "tests/unit/validate-response-quality.test.ts",
       "tests/unit/vertex-passthrough-model-lockout.test.ts",
+      "tests/unit/video-bridge-route-security.test.ts",
       "tests/unit/xai-agent-tools-passthrough.test.ts"
     ],
     "nodeArgs": [
