@@ -42,6 +42,13 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie"],
   },
+  "tencent-aistudio-web": {
+    kind: "cookie",
+    credentialName: "Cookie header (full)",
+    placeholder: "paste the full Cookie header from aistudio.tencent.ai",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie"],
+  },
   "tinycms-web": {
     kind: "token",
     credentialName: "app-config-uuid",

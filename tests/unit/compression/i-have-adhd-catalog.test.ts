@@ -70,6 +70,37 @@ describe("i-have-adhd output style", () => {
     assert.ok(/preâmbulo/.test(pt.full), "pt-BR.full mentions preâmbulo");
   });
 
+  it("has i18n maps for pt-BR, vi, ja and id (parity with ponytail)", () => {
+    assert.ok(ADHD.i18n, "i18n must be defined");
+    for (const lang of ["pt-BR", "vi", "ja", "id"]) {
+      const levels = ADHD.i18n[lang];
+      assert.ok(levels, `${lang} must exist`);
+      assertString(levels.lite, `${lang}.lite`);
+      assertString(levels.full, `${lang}.full`);
+      assertString(levels.ultra, `${lang}.ultra`);
+      assert.ok(
+        levels.full.includes("Code blocks"),
+        `${lang}.full must keep the shared boundaries clause`
+      );
+    }
+  });
+
+  it("each translation is written in its own language, not copied English", () => {
+    // Native-script / native-word anchors: a level that merely duplicated the
+    // English text would pass the structural checks above but fail here.
+    const anchors: Record<string, RegExp> = {
+      vi: /hành động/, // "action"
+      ja: /[぀-ヿ]/, // kana — Japanese-exclusive
+      id: /aksi|langkah/, // "action" / "step"
+    };
+    for (const [lang, pattern] of Object.entries(anchors)) {
+      const levels = ADHD.i18n?.[lang];
+      assert.ok(levels, `${lang} i18n must exist`);
+      assert.ok(pattern.test(levels.full), `${lang}.full must use ${lang} vocabulary`);
+      assert.ok(pattern.test(levels.ultra), `${lang}.ultra must use ${lang} vocabulary`);
+    }
+  });
+
   it("carries no locale gate", () => {
     assert.equal(outputStyleMeta("i-have-adhd").locale, undefined);
   });
