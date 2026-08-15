@@ -113,7 +113,7 @@ export default function RadarPage() {
       if (showLoading) setLoading(true);
       setError("");
       try {
-        const res = await fetch("/api/radar/catalog");
+        const res = await fetch("/api/radar/catalog", { cache: "no-store" });
         if (res.status === 404) {
           // Flag off — treat as not found
           setOptIn(false);
@@ -159,7 +159,7 @@ export default function RadarPage() {
   // the activation screen on every reload).
   const fetchSettings = useCallback(async () => {
     try {
-      const settingsRes = await fetch("/api/radar/settings");
+      const settingsRes = await fetch("/api/radar/settings", { cache: "no-store" });
       if (settingsRes.status === 404) {
         // Flag off
         setOptIn(false);
