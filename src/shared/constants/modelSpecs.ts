@@ -173,25 +173,9 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     thinkingBudgetCap: 0,
   },
 
-  // ── Gemini 3.7 Flash (Antigravity tiers) ───────────────────────
-  "gemini-3.7-flash-high": {
-    ...GEMINI_35_FLASH_MODEL_SPEC,
-    defaultThinkingBudget: 32768,
-    thinkingBudgetCap: 65536,
-    supportsThinking: true,
-  },
-  "gemini-3.7-flash-medium": {
-    ...GEMINI_35_FLASH_MODEL_SPEC,
-    defaultThinkingBudget: 8192,
-    thinkingBudgetCap: 32768,
-    supportsThinking: true,
-  },
-  "gemini-3.7-flash-low": {
-    ...GEMINI_35_FLASH_MODEL_SPEC,
-    defaultThinkingBudget: 1024,
-    thinkingBudgetCap: 8192,
-    supportsThinking: true,
-  },
+  // ── Gemini 3.7 Flash (Antigravity) ─────────────────────────────
+  // Upstream exposes a single `gemini-3.7-flash-tiered` id; the display tiers
+  // (high/medium/low) are collapsed into this one callable model (#3696).
   "gemini-3.7-flash": {
     ...GEMINI_35_FLASH_MODEL_SPEC,
     defaultThinkingBudget: 8192,

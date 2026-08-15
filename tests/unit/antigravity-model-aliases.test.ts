@@ -17,9 +17,7 @@ function getPublicModel(id: string) {
 }
 
 const EXPECTED_FLASH_TIERS = [
-  ["gemini-3.7-flash-low", "Gemini 3.7 Flash (Low)"],
-  ["gemini-3.7-flash-medium", "Gemini 3.7 Flash (Medium)"],
-  ["gemini-3.7-flash-high", "Gemini 3.7 Flash (High)"],
+  ["gemini-3.7-flash", "Gemini 3.7 Flash"],
   ["gemini-3.6-flash-low", "Gemini 3.6 Flash (Low)"],
   ["gemini-3.6-flash-medium", "Gemini 3.6 Flash (Medium)"],
   ["gemini-3.6-flash-high", "Gemini 3.6 Flash (High)"],
