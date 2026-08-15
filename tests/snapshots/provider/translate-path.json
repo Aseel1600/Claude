@@ -5391,6 +5391,29 @@
       "stream": "https://api.hunyuan.cloud.tencent.com/v1/chat/completions"
     }
   },
+  "tencent-aistudio-web": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://aistudio.tencent.ai/api/chat",
+      "stream": "https://aistudio.tencent.ai/api/chat"
+    }
+  },
   "theoldllm": {
     "format": "openai",
     "headers": {
