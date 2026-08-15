@@ -74,6 +74,7 @@ interface AccessSchedule {
 export interface ApiKeyMetadata {
   id: string;
   name?: string;
+  modelAccessMode?: "all" | "restricted";
   allowedModels?: string[];
   allowedCombos?: string[];
   allowedConnections?: string[];
@@ -98,6 +99,7 @@ export interface ApiKeyMetadata {
   usageLimitEnabled?: boolean;
   dailyUsageLimitUsd?: number | null;
   weeklyUsageLimitUsd?: number | null;
+  compressionEnabled?: boolean;
 }
 
 /**
@@ -320,7 +322,8 @@ async function validateStandardRoutingTarget(
   }
 
   const hasModelRestrictions =
-    (apiKeyInfo.allowedModels && apiKeyInfo.allowedModels.length > 0) ||
+    apiKeyInfo.modelAccessMode === "restricted" ||
+    Boolean(apiKeyInfo.allowedModels?.length) ||
     apiKeyInfo.disableNonPublicModels === true;
   if (!requestedComboName && hasModelRestrictions && modelStr.startsWith("auto/")) {
     requestedComboName = modelStr;
@@ -526,7 +529,9 @@ async function validateModelAccess(context: PolicyContext): Promise<Response | n
   let requestedComboName = comboAccess.comboName;
 
   const hasModelRestrictions =
-    Boolean(apiKeyInfo.allowedModels?.length) || apiKeyInfo.disableNonPublicModels === true;
+    apiKeyInfo.modelAccessMode === "restricted" ||
+    Boolean(apiKeyInfo.allowedModels?.length) ||
+    apiKeyInfo.disableNonPublicModels === true;
   if (!requestedComboName && hasModelRestrictions) {
     if (modelStr.startsWith("auto/") || modelStr.startsWith("qtSd/")) {
       requestedComboName = modelStr;
