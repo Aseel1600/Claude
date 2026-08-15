@@ -118,7 +118,6 @@ export async function extractVideoFramesViaBroker(
       body: Buffer.from(bytes),
       headers: {
         "Content-Type": "application/octet-stream",
-        "Content-Length": String(bytes.byteLength),
         ...buildVideoBridgeBrokerHeaders(),
       },
       redirect: "error",

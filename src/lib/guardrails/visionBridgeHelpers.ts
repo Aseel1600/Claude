@@ -346,6 +346,8 @@ export interface VisionModelConfig {
   prompt: string;
   timeoutMs: number;
   maxImages: number;
+  /** Route catalog models through OmniRoute so provider connections remain authoritative. */
+  routeThroughOmniRoute?: boolean;
   /** Optional parent deadline/abort propagated by multi-step media bridges. */
   signal?: AbortSignal;
   /** Injectable fetch (tests). Defaults to undici fetch to bypass the runtime's hooked global fetch. */
@@ -655,7 +657,8 @@ async function callVisionModelSingle(
   // body reaches the backend as a data URI (the OpenAI→claude translator only
   // preserves data URIs as base64; remote URLs become source.url which these
   // backends reject).
-  const isAnthropic = config.model.startsWith("anthropic/");
+  const routeThroughOmniRoute = config.routeThroughOmniRoute === true;
+  const isAnthropic = !routeThroughOmniRoute && config.model.startsWith("anthropic/");
   const requiresBase64 = isAnthropic || isClaudeWireFormatModel(config.model);
 
   try {
@@ -721,15 +724,18 @@ async function callVisionModelSingle(
       // VISION_BRIDGE_BASE_URL so the vision-bridge call can be routed through
       // OmniRoute itself or any other OpenAI-compatible endpoint instead of
       // hardcoded api.openai.com.
-      const baseUrl = resolveVisionBridgeBaseUrl(config.model);
+      const baseUrl = routeThroughOmniRoute
+        ? `http://localhost:${getRuntimePorts().port}/v1`
+        : resolveVisionBridgeBaseUrl(config.model);
 
       // When routing through the OmniRoute self-loop (non-standard provider),
       // keep the full provider-prefixed model ID so OmniRoute can resolve the
       // correct provider backend. Only strip the prefix for direct OpenAI calls.
       const useFullModelId =
-        baseUrl.startsWith("http://localhost") &&
-        config.model.includes("/") &&
-        !config.model.startsWith("openai/");
+        routeThroughOmniRoute ||
+        (baseUrl.startsWith("http://localhost") &&
+          config.model.includes("/") &&
+          !config.model.startsWith("openai/"));
       const requestModel = useFullModelId ? config.model : modelName;
 
       // Build headers with optional recursion guard for self-loop calls.
@@ -749,7 +755,9 @@ async function callVisionModelSingle(
         Authorization: `Bearer ${selfLoopApiKey}`,
       };
       if (useFullModelId) {
-        headers["x-omniroute-disabled-guardrails"] = "vision-bridge";
+        headers["x-omniroute-disabled-guardrails"] = routeThroughOmniRoute
+          ? "vision-bridge,video-bridge"
+          : "vision-bridge";
         // Internal self-loop sub-request: the parent request already holds the
         // single heavyweight admission lease (`CHAT_MAX_HEAVY_IN_FLIGHT=1`), so a
         // large base64-image describe body would be rejected with 503
