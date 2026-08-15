@@ -1,0 +1,1 @@
+- Fix: wire AgentRouter's existing console balance fetcher into the Dashboard Quota UI (visibility gate + provider-limits data path + background sync) so its wallet balance renders instead of falling back to "Usage API not implemented" (#10078)

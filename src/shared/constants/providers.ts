@@ -504,6 +504,8 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "bailian-coding-plan",
   // Qwen Cloud / Model Studio personal Token Plan (cookie-authenticated console gateway)
   "qwen-cloud-token-plan",
+  // AgentRouter (New-API) console balance quota (consoleApiKey + newApiUserId)
+  "agentrouter",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──
