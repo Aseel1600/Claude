@@ -4,7 +4,7 @@
  * and the combo compatibility filter (open-sse/) — the two previously kept
  * divergent copies (guardrail missed input_image; combo saw it).
  */
-export type MediaKind = "image" | "audio";
+export type MediaKind = "image" | "audio" | "video";
 
 export interface MediaPart {
   kind: MediaKind;
@@ -36,6 +36,9 @@ export interface MediaPart {
     | "audio_url"
     /** Audio detected via `source.media_type: audio/*` (no explicit type). */
     | "audio_source"
+    | "input_video"
+    | "video_url"
+    | "video_source"
     /**
      * Combo-parity indicator: the value looks like an image part (image-ish
      * `type` in any casing, a bare `image_url`/`input_image` key, or a
@@ -149,6 +152,48 @@ function inspectAudioShapes(
   return false;
 }
 
+/** Strict video shapes with an extractable URL, data URI, or base64 ref. */
+function inspectVideoShapes(
+  obj: Record<string, unknown>,
+  type: string | undefined,
+  mediaType: unknown,
+  ctx: DetectCtx,
+  depth: number
+): boolean {
+  if (type === "input_video") {
+    const ref = urlFrom(obj.video_url ?? obj.input_video ?? obj.url);
+    if (ref) {
+      pushPart(ctx, "video", ref, "input_video", depth);
+      return true;
+    }
+  }
+  if (type === "video_url") {
+    const ref = urlFrom(obj.video_url);
+    if (ref) {
+      pushPart(ctx, "video", ref, "video_url", depth);
+      return true;
+    }
+  }
+  const source = obj.source as Record<string, unknown> | undefined;
+  if (
+    (type === "video_source" ||
+      (typeof mediaType === "string" && mediaType.toLowerCase().startsWith("video/"))) &&
+    source
+  ) {
+    if (typeof source.data === "string") {
+      const mime = typeof mediaType === "string" ? mediaType : "video/mp4";
+      pushPart(ctx, "video", `data:${mime};base64,${source.data}`, "video_source", depth);
+      return true;
+    }
+    const ref = urlFrom(source.url);
+    if (ref) {
+      pushPart(ctx, "video", ref, "video_source", depth);
+      return true;
+    }
+  }
+  return false;
+}
+
 /**
  * Combo-parity image indicators: the legacy valueContainsImagePart
  * (comboStructure) matched image-ish `type` names case-insensitively, bare
@@ -182,6 +227,7 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
   if (ctx.found || depth > MAX_DEPTH || value == null) return;
   if (typeof value === "string") {
     if (value.startsWith("data:image/")) pushPart(ctx, "image", value, "data_uri_string", depth);
+    if (value.startsWith("data:video/")) pushPart(ctx, "video", value, "data_uri_string", depth);
     return;
   }
   if (Array.isArray(value)) {
@@ -203,6 +249,7 @@ function inspect(value: unknown, ctx: DetectCtx, depth: number): void {
   // matched) or nest image parts inside its payload.
   inspectAudioShapes(obj, type, mediaType, ctx, depth);
   if (ctx.found) return;
+  if (inspectVideoShapes(obj, type, mediaType, ctx, depth)) return;
   if (inspectImageIndicators(obj, type, mediaType, ctx, depth)) return;
   for (const nested of Object.values(obj)) {
     inspect(nested, ctx, depth + 1);
