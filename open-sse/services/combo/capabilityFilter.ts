@@ -3,6 +3,7 @@
 
 import type { ResolvedComboTarget } from "./types.ts";
 import { REGISTRY } from "../../config/providerRegistry.ts";
+import { parseModel } from "../model.ts";
 
 interface RequestCapabilities {
   tools?: boolean;
@@ -23,7 +24,8 @@ export function filterTargetsByCapabilities(
     const provider = REGISTRY[target.provider];
     if (!provider) return false;
 
-    const model = provider.models.find((m) => m.id === target.model);
+    const modelId = parseModel(target.modelStr).model;
+    const model = provider.models.find((m) => m.id === modelId);
     if (!model) return false;
 
     // Check toolCalling capability

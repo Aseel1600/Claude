@@ -1120,7 +1120,9 @@ async function* readChatGptSseEvents(
   let retryCount = 0;
   const maxRetries = 10;
   const timeoutMs = 30000;
-  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("SSE stream timeout")), timeoutMs));
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("SSE stream timeout")), timeoutMs)
+  );
 
   try {
     while (retryCount < maxRetries) {

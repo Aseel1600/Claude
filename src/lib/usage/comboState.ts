@@ -144,16 +144,6 @@ function parseSqliteTimestamp(value: unknown): number | null {
   return Number.isFinite(ms) ? ms : null;
 }
 
-function formatAge(ms: number | null): string {
-  if (ms === null) return "-";
-  const totalMinutes = Math.floor(ms / 60_000);
-  if (totalMinutes < 1) return "just now";
-  if (totalMinutes < 60) return `${totalMinutes}m ago`;
-  const hours = Math.floor(totalMinutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ${hours % 24}h ago`;
-}
-
 // ── Data sources ────────────────────────────────────────────────────────────
 
 type PinRow = {
@@ -498,4 +488,4 @@ export async function buildComboStateResponse(opts: {
   };
 }
 
-export { formatAge, parseSqliteTimestamp };
+export { parseSqliteTimestamp };
