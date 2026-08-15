@@ -665,13 +665,14 @@ X-OmniRoute-No-Cache: true
 
 ### Monitoring
 
-| Endpoint                     | Method     | Description                                                                                                                                   |
-| ---------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`              | GET        | Active session tracking                                                                                                                       |
-| `/api/rate-limits`           | GET        | Per-account rate limits                                                                                                                       |
-| `/api/monitoring/health`     | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                          |
-| `/api/cache/stats`           | GET/DELETE | Cache stats / clear                                                                                                                           |
-| `/api/modality-bridge/stats` | GET        | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
+| Endpoint                             | Method     | Description                                                                                                                                   |
+| ------------------------------------ | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Active session tracking                                                                                                                       |
+| `/api/rate-limits`                   | GET        | Per-account rate limits                                                                                                                       |
+| `/api/monitoring/health`             | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                          |
+| `/api/cache/stats`                   | GET/DELETE | Cache stats / clear                                                                                                                           |
+| `/api/modality-bridge/stats`         | GET        | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
+| `/api/modality-bridge/video/runtime` | GET        | Sanitized FFmpeg/ffprobe availability and versions for Video Bridge (management auth; no-store)                                               |
 
 ### Backup & Export/Import
 

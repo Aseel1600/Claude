@@ -1,0 +1,1 @@
+- feat(modality-bridge): sample bounded video frames with optional system FFmpeg, caption them through the configured vision model, and expose runtime status plus a functional Video settings tab (#9760)

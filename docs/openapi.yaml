@@ -5473,7 +5473,20 @@ paths:
         - ManagementSessionAuth: []
       responses:
         "200":
-          description: Per-modality bridge stats (vision, audio)
+          description: Per-modality bridge stats (vision, audio, video)
+        "401":
+          description: Unauthorized
+
+  /api/modality-bridge/video/runtime:
+    get:
+      tags: [System]
+      summary: Get Video Bridge runtime status
+      description: Returns sanitized FFmpeg and ffprobe availability and versions. The response never contains commands, paths, or stderr.
+      security:
+        - ManagementSessionAuth: []
+      responses:
+        "200":
+          description: Video Bridge runtime availability
         "401":
           description: Unauthorized
 

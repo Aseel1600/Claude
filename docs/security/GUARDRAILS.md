@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
 version: 3.8.50
-lastUpdated: 2026-08-08
+lastUpdated: 2026-08-14
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-08 — v3.8.50 (Modality Bridge PR-3: Audio Bridge runtime and functional Audio settings tab)
+> **Last updated:** 2026-08-14 — v3.8.50 (Video Bridge frame sampling and captioning)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -20,13 +20,14 @@ request. Blocking is an explicit decision (`block: true`), never an accident.
 
 ## Built-in Guardrails
 
-The registry auto-loads five guardrails in priority order on import
+The registry auto-loads six guardrails in priority order on import
 (see `registry.ts` → `registerDefaultGuardrails()`):
 
 | Priority | Name                | Stage(s)       | File                  |
 | -------- | ------------------- | -------------- | --------------------- |
 | `5`      | `vision-bridge`     | `preCall`      | `visionBridge.ts`     |
 | `6`      | `audio-bridge`      | `preCall`      | `audioBridge.ts`      |
+| `7`      | `video-bridge`      | `preCall`      | `videoBridge.ts`      |
 | `10`     | `pii-masker`        | `pre` + `post` | `piiMasker.ts`        |
 | `20`     | `prompt-injection`  | `preCall`      | `promptInjection.ts`  |
 | `95`     | `credential-masker` | `pre` + `post` | `credentialMasker.ts` |
@@ -172,7 +173,7 @@ swap is already visible in the response body's `model` field.
 
 `GET /api/modality-bridge/stats` (management auth, same tier as
 `GET /api/settings`) returns the in-memory per-modality counters
-`{ bridged, cacheHits, failures, lastUsedAt }` for `vision` and `audio`.
+`{ bridged, cacheHits, failures, lastUsedAt }` for `vision`, `audio`, and `video`.
 Counters reset on process restart by design
 (telemetry, not accounting).
 
@@ -186,8 +187,9 @@ default), task-aware prompting, advanced timeout/image/description-length/cache
 limits, runtime
 counters, and a guarded sample request. The Audio tab is also live: it exposes
 enablement, an STT-only model picker with Auto, timeout/max-clip limits, audio
-counters, and an `input_audio` sample test. Video remains the explicit placeholder
-tracked in issue `#9760`.
+counters, and an `input_audio` sample test. The Video tab is functional: it reports
+the FFmpeg/ffprobe runtime state, persists enable/model/frame/video/timeout limits,
+filters the model picker to vision-capable models, and exposes video counters.
 
 The former Vision Bridge card under AI settings is a compatibility link to the
 new page; it no longer owns a second copy of the form. Media Providers also
@@ -266,6 +268,48 @@ Runtime settings are DB-backed and Zod-validated:
 
 The shared cache remains controlled by `modalityBridgeCacheEnabled`,
 `modalityBridgeCacheTtlMinutes`, and `modalityBridgeCacheMaxEntries`.
+
+### Video Bridge (`videoBridge.ts`)
+
+Intercepts top-level video parts in Chat Completions `messages` and Responses
+API `input` before a target without known native video support is called.
+Supported shapes are `input_video`, `video_url`, `video_source`, HTTPS URLs,
+and `data:video/*;base64,...` data URIs. Plain filenames in text are not treated
+as video.
+
+The server downloads or decodes the input under a 50 MiB bound before invoking
+any process. Remote downloads use the public-only outbound guard with DNS
+pinning; FFmpeg never receives a URL. `ffprobe` reads the local duration (maximum
+600 seconds), and `ffmpeg` samples 1–16 JPEG frames at uniform segment
+midpoints. Both executables are resolved from `PATH` and invoked without a
+shell using fixed argument arrays, `-nostdin`, a per-video timeout, and a
+private temporary directory removed in `finally`. OmniRoute does not bundle an
+FFmpeg binary and does not accept a user-configurable executable path.
+
+Frames are captioned sequentially with the configured Video model, falling
+back to the Vision Bridge model when the Video override is empty. Successful
+captions replace the original part with
+`[Video description: frame@t=MM:SS.mmm ...]`. Frame-caption cache keys include
+the JPEG bytes, prompt, timestamp, and model. If conversion fails for a target
+with `supportsVideo === false`, the binary part is replaced by an explicit safe
+text marker; when capability is unknown, the original part is preserved.
+Targets with `supportsVideo === true` bypass the bridge.
+
+Runtime settings are DB-backed and Zod-validated:
+
+| Key                             | Default  | Range / behavior                |
+| ------------------------------- | -------- | ------------------------------- |
+| `modalityBridgeVideoEnabled`    | `false`  | Optional runtime, opt-in        |
+| `modalityBridgeVideoModel`      | `""`     | Inherit the Vision Bridge model |
+| `modalityBridgeVideoFrameCount` | `8`      | 1–16                            |
+| `modalityBridgeVideoMaxVideos`  | `1`      | 1–4                             |
+| `modalityBridgeVideoTimeout`    | `120000` | 1000–300000 ms                  |
+
+`GET /api/modality-bridge/video/runtime` requires management auth and returns
+only `available`, sanitized FFmpeg/ffprobe versions, and a fixed reason when the
+runtime is unavailable. Converted responses add
+`video->text;model=<visionModel>;parts=<videos>` to the central
+`x-omniroute-modality-bridge` header without removing Vision or Audio segments.
 
 ### PII Masker (`piiMasker.ts`)
 
@@ -489,6 +533,12 @@ Audio uses `modalityBridgeAudioEnabled`, `modalityBridgeAudioModel`,
 `modalityBridgeAudioTimeout`, and `modalityBridgeAudioMaxClips`, plus the shared
 `modalityBridgeCache*` settings. Audio has no legacy-key fallback because these
 keys were introduced with the Modality Bridge schema.
+
+Video uses `modalityBridgeVideoEnabled`, `modalityBridgeVideoModel`,
+`modalityBridgeVideoFrameCount`, `modalityBridgeVideoMaxVideos`, and
+`modalityBridgeVideoTimeout`, plus the shared `modalityBridgeCache*` settings.
+It is disabled by default because FFmpeg/ffprobe are optional operational
+dependencies and frame captioning adds latency and model cost.
 
 ## Custom Guardrails
 
