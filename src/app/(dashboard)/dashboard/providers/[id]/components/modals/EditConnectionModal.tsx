@@ -279,7 +279,6 @@ export default function EditConnectionModal({
         connection.providerSpecificData?.quotaPerUnit != null
           ? String(connection.providerSpecificData.quotaPerUnit)
           : "";
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- form hydration from the connection prop when the edit modal opens
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
