@@ -20,7 +20,6 @@ import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapab
 
 export type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 export { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
-export { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { getUnsupportedParams } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {

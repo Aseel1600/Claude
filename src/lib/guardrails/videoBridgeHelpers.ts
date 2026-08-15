@@ -13,7 +13,6 @@ export const VIDEO_BRIDGE_MAX_BYTES = 50 * 1024 * 1024;
 // messages and framing. Reserve 14 MiB for that envelope; remote downloads and
 // the loopback broker retain the independent 50 MiB binary limit.
 export const VIDEO_BRIDGE_INLINE_MAX_BYTES = 36 * 1024 * 1024;
-export const VIDEO_BRIDGE_MAX_DURATION_SECONDS = 600;
 
 type VideoContainer = "messages" | "input";
 type VideoMessage = { role?: string; content?: unknown };

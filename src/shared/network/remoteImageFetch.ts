@@ -47,7 +47,6 @@ export interface RemoteImageFetchResult {
 }
 
 /** Generic aliases for non-image callers that need the same SSRF/bounds policy. */
-export type RemoteMediaLookup = RemoteImageLookup;
 export type RemoteMediaFetchOptions = RemoteImageFetchOptions;
 export type RemoteMediaFetchResult = RemoteImageFetchResult;
 
