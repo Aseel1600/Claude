@@ -273,6 +273,7 @@
       "tests/unit/observability-payloads.test.ts",
       "tests/unit/ollama-cloud-weekly-quota-cooldown-3709.test.ts",
       "tests/unit/openapi-security-tiers.test.ts",
+      "tests/unit/openrouter-free-model-credits-exhausted.test.ts",
       "tests/unit/openrouter-passthrough-models.test.ts",
       "tests/unit/openrouter-quota-6842.test.ts",
       "tests/unit/persist-429-cooldown-account-fallback.test.ts",
