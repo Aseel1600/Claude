@@ -172,7 +172,7 @@ assert_eq(output_a, output_b)   // byte-in-byte, 100% required
 
 ## 8. Fallback Strategy (for OmniRoute integration)
 
-- New env: `OMNIROUTE_COMPRESSION_SIDECAR` (optional, off by default) or N-API availability check.
+- Proposed new env: `OMNIROUTE_COMPRESSION_SIDECAR` (not yet implemented; optional, off by default) or N-API availability check.
 - Node code stays untouched; a client wrapper (`src/lib/compression-rust/`) tries Rust → falls back to existing JS path (`applyRtkCompression`, `applyCompression`).
 - Zero risk to the current deployment.
 
