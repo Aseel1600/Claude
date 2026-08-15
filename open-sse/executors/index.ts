@@ -12,7 +12,6 @@ import { GlmExecutor } from "./glm.ts";
 import { PollinationsExecutor } from "./pollinations.ts";
 import { CloudflareAIExecutor } from "./cloudflare-ai.ts";
 import { OpencodeExecutor } from "./opencode.ts";
-import { PuterExecutor } from "./puter.ts";
 import { VertexExecutor } from "./vertex.ts";
 import { CliproxyapiExecutor } from "./cliproxyapi.ts";
 import { DarioExecutor } from "./dario.ts";
@@ -20,6 +19,7 @@ import { NineRouterExecutor } from "./ninerouter.ts";
 import { PerplexityWebExecutor } from "./perplexity-web.ts";
 import { GrokWebExecutor } from "./grok-web.ts";
 import { GeminiWebExecutor } from "./gemini-web.ts";
+import { TencentAIStudioWebExecutor } from "./tencent-aistudio-web.ts";
 import { GeminiBusinessExecutor } from "./gemini-business.ts";
 import { ChatGptWebExecutor } from "./chatgpt-web.ts";
 import { ChatGptWebCodexExecutor } from "./chatgpt-web-codex.ts";
@@ -30,7 +30,7 @@ import { AzureAiExecutor } from "./azure-ai.ts";
 import { CommandCodeExecutor } from "./commandCode.ts";
 import { GitlabExecutor } from "./gitlab.ts";
 import { NlpCloudExecutor } from "./nlpcloud.ts";
-import { WindsurfExecutor } from "./windsurf.ts";
+import { DevinDesktopExecutor } from "./devin-desktop.ts";
 import { ZedHostedExecutor } from "./zed-hosted.ts";
 import { DevinCliExecutor } from "./devin-cli.ts";
 import { DevinCliAgenticExecutor } from "./devin-cli-agentic.ts";
@@ -108,8 +108,6 @@ const executors = {
   "opencode-zen": new OpencodeExecutor("opencode-zen"),
   "opencode-go": new OpencodeExecutor("opencode-go"),
   opencode: new OpencodeExecutor("opencode-zen"), // Alias for opencode-zen
-  puter: new PuterExecutor(),
-  pu: new PuterExecutor(), // Alias
   vertex: new VertexExecutor(),
   "vertex-partner": new VertexExecutor(),
   cliproxyapi: new CliproxyapiExecutor(),
@@ -133,8 +131,7 @@ const executors = {
   "bb-web": new BlackboxWebExecutor(), // Alias
   "muse-spark-web": new MuseSparkWebExecutor(),
   "ms-web": new MuseSparkWebExecutor(), // Alias
-  windsurf: new WindsurfExecutor(),
-  ws: new WindsurfExecutor(), // Alias
+  "devin-desktop": new DevinDesktopExecutor(),
   "zed-hosted": new ZedHostedExecutor(),
   "devin-cli": new DevinCliExecutor(),
   "devin-cli-agentic": new DevinCliAgenticExecutor(),
@@ -163,6 +160,8 @@ const executors = {
   huggingchat: new HuggingChatExecutor(),
   hc: new HuggingChatExecutor(), // Alias
   "yuanbao-web": new YuanbaoWebExecutor(),
+  "tencent-aistudio-web": new TencentAIStudioWebExecutor(),
+  tasw: new TencentAIStudioWebExecutor(),
   ybw: new YuanbaoWebExecutor(), // Alias
   "poe-web": new PoeWebExecutor(),
   // #8969: do NOT alias canonical `poe` (API-key / api.poe.com) to PoeWebExecutor.
@@ -262,7 +261,6 @@ export { GlmExecutor } from "./glm.ts";
 export { PollinationsExecutor } from "./pollinations.ts";
 export { CloudflareAIExecutor } from "./cloudflare-ai.ts";
 export { OpencodeExecutor } from "./opencode.ts";
-export { PuterExecutor } from "./puter.ts";
 export { CliproxyapiExecutor } from "./cliproxyapi.ts";
 export { DarioExecutor } from "./dario.ts";
 export { NineRouterExecutor } from "./ninerouter.ts";
@@ -279,7 +277,7 @@ export { AzureAiExecutor } from "./azure-ai.ts";
 export { CommandCodeExecutor } from "./commandCode.ts";
 export { GitlabExecutor } from "./gitlab.ts";
 export { NlpCloudExecutor } from "./nlpcloud.ts";
-export { WindsurfExecutor } from "./windsurf.ts";
+export { DevinDesktopExecutor } from "./devin-desktop.ts";
 export { ZedHostedExecutor } from "./zed-hosted.ts";
 export { DevinCliExecutor } from "./devin-cli.ts";
 export { DevinCliAgenticExecutor } from "./devin-cli-agentic.ts";
