@@ -33,16 +33,14 @@ test("batch setup creates missing providers, skips existing ones, and is retry-s
 
   assert.deepEqual(first.results, [
     { providerId: "opencode", status: "skipped", reason: "already-configured" },
-    { providerId: "opencode", status: "skipped", reason: "already-configured" },
     { providerId: "theoldllm", status: "created", connectionId: "created-theoldllm" },
   ]);
   assert.deepEqual(second.results, [
     { providerId: "opencode", status: "skipped", reason: "already-configured" },
-    { providerId: "opencode", status: "skipped", reason: "already-configured" },
     { providerId: "theoldllm", status: "skipped", reason: "already-configured" },
   ]);
   assert.deepEqual(existing, [{ provider: "opencode", name: "My customized OpenCode" }]);
-  assert.deepEqual(created, [{ provider: "theoldllm", name: "TheOldLLM" }]);
+  assert.deepEqual(created, [{ provider: "theoldllm", name: "The Old LLM (Free)" }]);
 });
 
 test("batch setup rejects unknown or ineligible IDs before creating anything", async () => {
@@ -82,11 +80,9 @@ test("partial failures are reported per provider and can be retried", async () =
 
   assert.deepEqual(first.results, [
     { providerId: "opencode", status: "created", connectionId: "created-opencode" },
-    { providerId: "opencode", status: "created", connectionId: "created-opencode" },
     { providerId: "theoldllm", status: "failed", reason: "Failed to create provider" },
   ]);
   assert.deepEqual(retry.results, [
-    { providerId: "opencode", status: "skipped", reason: "already-configured" },
     { providerId: "opencode", status: "skipped", reason: "already-configured" },
     { providerId: "theoldllm", status: "created", connectionId: "created-theoldllm" },
   ]);
