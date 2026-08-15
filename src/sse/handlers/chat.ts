@@ -536,6 +536,7 @@ async function handleChatImplementation(
     log,
     method: request.method,
     model: modelStr,
+    signal: request.signal,
     stream: body?.stream === true,
   });
   if (preCallGuardrails.blocked) {
