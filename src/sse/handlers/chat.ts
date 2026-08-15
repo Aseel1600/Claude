@@ -1139,6 +1139,10 @@ async function handleSingleModelChat(
   );
   if (resolved.error) return resolved.error;
 
+  // Bound once so every gate below (including the safety-net combo gate) can
+  // reference it without TDZ issues.
+  const attemptReceiptStrict = runtimeOptions.attemptReceiptStrict ?? null;
+
   // Runstead receipt-v1: a safety-net combo redirect breaks the exact
   // provider/model proof — fail closed before any model POST.
   if (attemptReceiptStrict && (resolved as any).combo) {
@@ -1235,7 +1239,6 @@ async function handleSingleModelChat(
   })();
   const forceLiveComboTest = runtimeOptions.forceLiveComboTest === true;
   const bypassProviderQuotaPolicy = hasProviderQuotaBypassScope(apiKeyInfo?.scopes);
-  const attemptReceiptStrict = runtimeOptions.attemptReceiptStrict ?? null;
   if (attemptReceiptStrict && resolvedProvider !== "chatgpt-web") {
     log.warn(
       "RUNSTEAD",
