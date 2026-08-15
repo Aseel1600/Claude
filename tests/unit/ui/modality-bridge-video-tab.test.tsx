@@ -87,11 +87,11 @@ describe("ModalityBridgeVideoTab", () => {
     vi.unstubAllGlobals();
   });
 
-  async function render(): Promise<HTMLDivElement> {
+  async function render(props: { runtimeHostname?: string } = {}): Promise<HTMLDivElement> {
     const element = document.createElement("div");
     document.body.appendChild(element);
     const root = createRoot(element);
-    await act(async () => root.render(<ModalityBridgeVideoTab />));
+    await act(async () => root.render(<ModalityBridgeVideoTab {...props} />));
     roots.push({ root, element });
     await waitFor(
       () => element.querySelector('[data-testid="modality-bridge-video-frame-count"]') !== null,
@@ -125,6 +125,20 @@ describe("ModalityBridgeVideoTab", () => {
     expect(element.textContent).toContain("trafficInspector.timingTotalLatency: 400 ms");
     expect(element.textContent).toContain("avgLatency: 100 ms");
     expect(element.textContent).not.toContain("modalityBridgeVideoComingSoon");
+  });
+
+  it("labels runtime status as strict loopback without probing it from a LAN dashboard", async () => {
+    const element = await render({ runtimeHostname: "192.168.0.15" });
+
+    expect(element.textContent).toContain("authz.badge.strict");
+    expect(element.textContent).toContain("endpoint.badgeLoopbackTooltip");
+    expect(element.textContent).not.toContain("modalityBridgeVideoRuntimeUnavailable");
+    expect(element.textContent).not.toContain("modalityBridgeVideoRuntimeInstall");
+    expect(
+      fetchMock.mock.calls.some(([input]) =>
+        String(input).includes("/api/modality-bridge/video/runtime")
+      )
+    ).toBe(false);
   });
 
   it("persists the enable toggle and clamps frame count to 16", async () => {
