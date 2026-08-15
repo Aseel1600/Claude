@@ -22,8 +22,7 @@ const LOCAL_DB_IMPORT_RESTRICTION = {
 
 const EXECUTOR_IMPORT_RESTRICTION = {
   regex: "^(?:@omniroute/)?open-sse/executors(?:/|$)",
-  message:
-    "Executor implementations must stay behind an open-sse handler or service boundary.",
+  message: "Executor implementations must stay behind an open-sse handler or service boundary.",
 };
 
 const PROP_TYPES_RESTRICTION = {
@@ -63,6 +62,10 @@ const eslintConfig = [
       "no-implied-eval": "error",
       "no-new-func": "error",
       "no-restricted-imports": ["error", IMPORT_BOUNDARY_RESTRICTIONS],
+      // New rule shipped by the eslint-config-next bump (#10043); flags 6 pre-existing
+      // window.location.href navigations, several of which are deliberate full-page
+      // reloads (login/logout state reset). Off pending per-case review — issue #10292.
+      "@next/next/no-location-assign-relative-destination": "off",
     },
   },
   // G14: DB internals may use the compatibility barrel while it is decomposed; all
@@ -165,6 +168,14 @@ const eslintConfig = [
       // their files move mid-scan, so never lint them from the main checkout.
       ".claude/**",
       ".omnivscodeagent/**",
+      // _tasks/ — planning/handoff/research artifacts (gitignored, external code)
+      "_tasks/**",
+      // .agents/ — skill definitions + their helper scripts (gitignored; the
+      // canonical copy lives here and is symlinked into .claude/).
+      ".agents/**",
+      // .source/ — fumadocs codegen output (@ts-nocheck + bundler-only import
+      // query params like `?collection=docs`, which are not valid TS on their own).
+      ".source/**",
       // VS Code extension and its large test fixtures
       "vscode-extension/**",
       "_references/**",

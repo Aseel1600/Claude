@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { getSettings, getSettingsRevision, updateSettings } from "@/lib/localDb";
 import { SettingsRevisionConflictError } from "@/lib/db/settings";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { updateSettingsSchema } from "@/shared/validation/settingsSchemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
 import {
   validateProxyUrl,
@@ -23,10 +25,16 @@ import {
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { isPaidModelTarget } from "@/shared/utils/freeModels";
 import { getAuditRequestContext, logAuditEvent } from "@/lib/compliance";
-import { isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
+import { isAuthRequired, isDashboardSessionAuthenticated } from "@/shared/utils/apiAuth";
 import { isCliTokenAuthValid } from "@/lib/middleware/cliTokenAuth";
 import { extractApiKey } from "@/sse/services/auth";
 import { getApiKeyMetadata } from "@/lib/db/apiKeys";
+import { getRadarAdminUrl } from "@/lib/radar/links";
+import {
+  AUTHZ_HEADER_AUTH_ID,
+  AUTHZ_HEADER_AUTH_KIND,
+  AUTHZ_HEADER_PEER_LOCALITY,
+} from "@/server/authz/headers";
 
 /**
  * Force this route to run dynamically per-request and never be cached/prerendered.
@@ -46,6 +54,27 @@ function settingsResponseHeaders(settingsRevision: number): Record<string, strin
     ...SETTINGS_RESPONSE_HEADERS,
     ETag: String(settingsRevision),
   };
+}
+
+const RadarAdminOwnerSubjectSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("dashboard_session"), id: z.literal("dashboard") }).strict(),
+  z.object({ kind: z.literal("anonymous"), id: z.literal("anonymous") }).strict(),
+]);
+
+export async function resolveOwnerRadarAdminUrl(request: Request): Promise<string | null> {
+  const subject = RadarAdminOwnerSubjectSchema.safeParse({
+    kind: request.headers.get(AUTHZ_HEADER_AUTH_KIND),
+    id: request.headers.get(AUTHZ_HEADER_AUTH_ID),
+  });
+  if (!subject.success) return null;
+  if (subject.data.kind === "dashboard_session") return getRadarAdminUrl();
+
+  // Fresh local installs can intentionally run without login. In that mode,
+  // only the pipeline's non-forgeable loopback verdict represents the owner;
+  // CLI/internal/manage-scope credentials must not receive the private URL.
+  if (request.headers.get(AUTHZ_HEADER_PEER_LOCALITY) !== "loopback") return null;
+  if (await isAuthRequired(request)) return null;
+  return getRadarAdminUrl();
 }
 
 /** Parse opt-in CAS token from If-Match (preferred) or PATCH body. */
@@ -154,10 +183,7 @@ function attemptedKeysOf(body: Record<string, unknown> | null | undefined): stri
   if (!body || typeof body !== "object") return [];
   return Object.keys(body).filter(
     (k) =>
-      k !== "currentPassword" &&
-      k !== "newPassword" &&
-      k !== "password" &&
-      k !== "expectedRevision"
+      k !== "currentPassword" && k !== "newPassword" && k !== "password" && k !== "expectedRevision"
   );
 }
 
@@ -220,6 +246,15 @@ export async function GET(request: Request) {
         cloudConfigured: Boolean(cloudUrl),
         cloudUrl,
         machineId,
+        // Sidebar.tsx has no server-side feature-flag access (client component);
+        // this piggy-backs the RADAR_ENABLED gate onto the settings payload the
+        // sidebar already fetches on mount, so the "radar" item can hide itself
+        // without a dedicated round trip. See sidebarVisibility.ts's
+        // `isSidebarItemVisibleForFlags()`.
+        radarEnabled: isFeatureFlagEnabled("RADAR_ENABLED"),
+        // Owner-only operational link. This route is management-authenticated;
+        // the URL has no public default and is omitted from static client code.
+        radarAdminUrl: await resolveOwnerRadarAdminUrl(request),
         ...(cliproxyapiModelMapping !== null
           ? { cliproxyapi_model_mapping: cliproxyapiModelMapping }
           : {}),
@@ -319,7 +354,12 @@ export async function PATCH(request: Request) {
       // honoured before T-011 — when no password is configured yet AND login
       // is currently disabled, allow the first write to set policy (incl.
       // the password itself). Once a hash exists the gate always fires.
-      const isColdBoot = !storedPasswordHash && passwordState.settings.requireLogin === false;
+      // #8950: also treat the request as cold boot when newPassword is present
+      // without a stored hash, so the Security tab's two-step flow (enable
+      // requireLogin first, then set password) does not deadlock.
+      const isColdBoot =
+        !storedPasswordHash &&
+        (passwordState.settings.requireLogin === false || Boolean(body.newPassword));
       if (!isColdBoot) {
         if (!body.currentPassword) {
           emitSettingsFailureAudit(request, actor, "PASSWORD_REQUIRED", attemptedKeys);

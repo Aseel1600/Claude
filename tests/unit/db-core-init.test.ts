@@ -420,6 +420,13 @@ test("local sqlite configuration enables WAL and sane pragmas", serial, async ()
       // 6s liveness probe — see src/lib/db/core.ts.
       assert.equal(db.pragma("busy_timeout", { simple: true }), 2000);
       assert.equal(db.pragma("synchronous", { simple: true }), 1);
+      // cache_size/mmap_size are settings-driven (migration 046 seeds cacheSize=16384 KiB;
+      // mmap falls back to 256MiB) — operators with RAM to spare raise them via the
+      // database settings, the default stays conservative for small-VPS installs
+      // (owner decision 2026-08-05 on #9467; see also #9471).
+      assert.equal(db.pragma("cache_size", { simple: true }), -16384);
+      assert.equal(db.pragma("mmap_size", { simple: true }), 268435456);
+      assert.equal(db.pragma("temp_store", { simple: true }), 2);
       assert.equal(core.closeDbInstance({ checkpointMode: null }), true);
     });
   } finally {
@@ -457,6 +464,11 @@ test(
           HOME: fakeHome,
           USERPROFILE: fakeHome,
           APPDATA: undefined,
+          // #10428: this pins the SERVER fallback (home data dir). The test-context guard
+          // would otherwise redirect this DATA_DIR-less process to a temp dir — correct for
+          // real test runs, but it would turn this assertion into a test of the guard rather
+          // than of the home-dir fallback. `fakeHome` already keeps the real DB out of reach.
+          OMNIROUTE_ALLOW_DEFAULT_DATA_DIR: "1",
         },
         async () => {
           const core = await importFresh("src/lib/db/core.ts");
