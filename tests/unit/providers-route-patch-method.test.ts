@@ -30,13 +30,22 @@ test("PATCH handler delegates to PUT (same partial-update semantics)", async () 
   // falls through to "Connection not found" (404) for an unknown id. So assert
   // on delegation equivalence instead: PATCH must never 405 (the regression)
   // and must return the exact same status as PUT for the same input.
-  const request = new Request("http://localhost/api/providers/test-id", {
+  const ctx = { params: Promise.resolve({ id: "test-id" }) };
+  // Fresh Request per invocation: PUT reads the body via request.json(),
+  // which consumes the body stream — reusing one Request for both calls would
+  // give the second call an empty body (400 validation) vs the first (404
+  // not-found), a false mismatch. Identical inputs must produce identical
+  // statuses.
+  const patchRequest = new Request("http://localhost/api/providers/test-id", {
     method: "PATCH",
     body: JSON.stringify({ name: "x" }),
   });
-  const ctx = { params: Promise.resolve({ id: "test-id" }) };
-  const patchResult = await route.PATCH(request, ctx);
-  const putResult = await route.PUT(request, ctx);
+  const putRequest = new Request("http://localhost/api/providers/test-id", {
+    method: "PUT",
+    body: JSON.stringify({ name: "x" }),
+  });
+  const patchResult = await route.PATCH(patchRequest, ctx);
+  const putResult = await route.PUT(putRequest, ctx);
   assert.ok(patchResult, "PATCH should return a response, not 405");
   assert.notEqual(
     patchResult.status,
