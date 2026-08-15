@@ -565,8 +565,8 @@
       }
     },
     "url": {
-      "nonStream": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1",
-      "stream": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1"
+      "nonStream": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1",
+      "stream": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1"
     }
   },
   "baseten": {
@@ -5366,6 +5366,29 @@
     "url": {
       "nonStream": "https://api.hunyuan.cloud.tencent.com/v1/chat/completions",
       "stream": "https://api.hunyuan.cloud.tencent.com/v1/chat/completions"
+    }
+  },
+  "tencent-aistudio-web": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://aistudio.tencent.ai/api/chat",
+      "stream": "https://aistudio.tencent.ai/api/chat"
     }
   },
   "theoldllm": {

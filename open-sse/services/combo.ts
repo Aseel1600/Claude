@@ -1908,7 +1908,30 @@ export async function handleComboChat({
             !isTokenLimitBreach &&
             !scopedFailure &&
             [408, 429, 500, 502, 503, 504].includes(result.status);
-          if (retry < maxRetries && isTransient && !providerExhausted) {
+          // failoverBeforeRetry means what it says: prefer the next sibling
+          // target over hammering this one again. Without this check, a
+          // transient error always re-hit the SAME model up to maxRetries
+          // times regardless of the setting — config.failoverBeforeRetry was
+          // threaded through to skipUpstreamRetry (a different, lower-level
+          // retry mechanism) but never consulted here, so a rate-limited
+          // model got maxRetries+1 back-to-back attempts on itself before
+          // this loop's own fallback-to-next-target ever ran (#2417). Only
+          // skip the same-model retry when `nextTarget` (computed above)
+          // actually gives us somewhere to fail over to — with no sibling
+          // left, skipping just burns the last attempt for nothing.
+          //
+          // #10217 round-4 fix: this guard reads `failoverBeforeRetryExplicit`
+          // (opt-in only), NOT `config.failoverBeforeRetry` — that field
+          // defaults to true for the separate skipUpstreamRetry mechanism
+          // (see DEFAULT_COMBO_CONFIG comment in comboConfig.ts) and reading
+          // it here would silently skip the same-model retry for every combo,
+          // not just ones that explicitly opted in.
+          if (
+            retry < maxRetries &&
+            isTransient &&
+            !providerExhausted &&
+            (!config.failoverBeforeRetryExplicit || !nextTarget)
+          ) {
             if (
               !protectedPriorityTarget &&
               provider &&
@@ -2422,7 +2445,15 @@ async function handleRoundRobinCombo({
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
-    : { ...getDefaultComboConfig(), ...(combo.config || {}) };
+    : {
+        ...getDefaultComboConfig(),
+        ...(combo.config || {}),
+        // See resolveComboConfig's failoverBeforeRetryExplicit comment in
+        // comboConfig.ts (no `settings` here, so only the combo's own config
+        // can opt in).
+        failoverBeforeRetryExplicit:
+          (combo.config as Record<string, unknown> | undefined)?.failoverBeforeRetry === true,
+      };
   // #9158: clamp combo-level concurrency to a sane bound — a config carrying a
   // huge or negative value would otherwise open an unbounded semaphore and
   // flood targets (or deadlock at 0).
@@ -2644,7 +2675,8 @@ async function handleRoundRobinCombo({
         filteredTargets,
         // #7270: normalize both wire shapes (.messages / Responses-API .input) so RR
         // stickiness engages on the /v1/responses surface, not just Chat Completions.
-        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown })
+        normalizeStickinessMessages(body as { messages?: unknown; input?: unknown }),
+        combo.name
       );
   const rrAffinity = applyPromptCacheAffinity(
     filteredTargets,
@@ -3141,7 +3173,20 @@ async function handleRoundRobinCombo({
           !isTokenLimitBreach &&
           !scopedFailure &&
           [408, 429, 500, 502, 503, 504].includes(result.status);
-        if (retry < maxRetries && isTransient && !providerExhausted) {
+        // See the same guard's comment in the "auto" strategy loop above —
+        // failoverBeforeRetry must prevent this same-model retry too, not
+        // just the lower-level skipUpstreamRetry mechanism. Only skip when
+        // `offset + 1 < modelCount` means a sibling target is actually left
+        // in this rotation; with none left, skipping just wastes the attempt.
+        // #10217 round-4 fix: opt-in only — read failoverBeforeRetryExplicit,
+        // not config.failoverBeforeRetry (see comboConfig.ts comment).
+        const hasNextRrTarget = offset + 1 < modelCount;
+        if (
+          retry < maxRetries &&
+          isTransient &&
+          !providerExhausted &&
+          (!config.failoverBeforeRetryExplicit || !hasNextRrTarget)
+        ) {
           continue;
         }
 

@@ -69,7 +69,11 @@ export async function clearLKGP(comboName: string, modelId: string): Promise<voi
 
 /**
  * Delete persisted LKGP pins whose connectionId references a removed provider
- * connection. Provider-level pins and legacy/unparseable values are preserved.
+ * connection (#8887). A pin persisted by `setLKGP()` carries the connection it
+ * was learned from, so deleting that connection leaves the pin pointing at a
+ * row that no longer exists; provider-connection delete paths call this so
+ * the pin dies with its connection instead of becoming unbounded stale state.
+ * Provider-level pins and legacy/unparseable values are preserved.
  */
 export async function deleteLKGPByConnectionIds(connectionIds: string[]): Promise<number> {
   if (connectionIds.length === 0) return 0;

@@ -6821,8 +6821,17 @@
     "chars": "{count} tecken",
     "thinkingBudgetTitle": "Tänkande budget",
     "thinkingBudgetDesc": "Kontrollera användningen av AI-resonemangstoken över alla förfrågningar",
+    "thinkingBudgetIndependenceHint": "Komprimering, routing och token-gränsfunktioner fortsätter att fungera i varje läge. Auto betyder inte \"auto-visar tänkande\" — det tar bort klientens resonemangsfält.",
     "passthrough": "Genomgång",
     "passthroughDesc": "Inga förändringar – kunden styr tankebudgeten",
+    "thinkingModePassthrough": "Genomgång",
+    "thinkingModePassthroughDesc": "Lämna klientens resonemang oförändrat (insats, sammanfattning, tankeblock). Krävs för Codex/Stationär synlighet. Standard.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Ta bort alla fält för klientens tänkande/resonemang (resonemang, resonemang_insats, Claude tänkande, Gemini tänkande_config) och låt leverantören uppfinna standarder. Kan dölja tänkande paneler och bryta klientens sammanfattningsförfrågningar.",
+    "thinkingModeCustom": "Anpassad",
+    "thinkingModeCustomDesc": "Överskriv varje begäran med en fast tänkande tokenbudget som du ställer in nedan.",
+    "thinkingModeAdaptive": "Adaptiv",
+    "thinkingModeAdaptiveDesc": "Skala tänkande budget från en grundinsats med hjälp av meddelandekvot, verktyg och längd på uppmaning.",
     "auto": "Auto",
     "autoDesc": "Ta bort alla tankeinställningar – låt leverantören bestämma",
     "custom": "Anpassad",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "Avancerad",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max bilder per begäran",
+    "visionMaxCharsLabel": "Max antal tecken för beskrivning",
+    "visionMaxCharsHint": "Begränsa längden på beskrivningen av visionsmodellen. 0 = obegränsad — höj för detaljrika OCR-uppgifter.",
     "modalityBridgeCacheEnabled": "Cache-beskrivningar",
     "modalityBridgeCacheEnabledDesc": "Återanvänd beskrivningar för identiska bilder (SHA-256 nycklade, i minnet).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuter)",
@@ -13115,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "Leverantörsinstallation",
@@ -13230,17 +13255,17 @@
     "pollErrorLocalOnly": "Denna sida är endast åtkomlig från localhost eller LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Pollning stoppad: servern avvisade förfrågan (404/403).",
     "pollErrorTransient": "Fel vid hämtning av data: försöker automatiskt igen.",
-    "degraded": "Partiell data: otillgängliga källor: {sources}",
-    "degraded.source.database": "Databas",
-    "degraded.source.circuitBreaker": "Kretsbrytare",
-    "degraded.source.modelLockouts": "Modellåsningar",
-    "degraded.source.count": "Antal Anslutningar"
+    "degraded": {
+      "message": "Partiell data: otillgängliga källor: {sources}",
+      "source": {
+        "database": "Databas",
+        "circuitBreaker": "Kretsbrytare",
+        "modelLockouts": "Modellåsningar",
+        "count": "Antal Anslutningar"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Avvisa förfrågningar innan de skickas när målmodellen saknar nödvändiga funktioner (vision, verktyg, strukturerad utdata, kontextfönster). Skyddar direkta förfrågningar från en enda leverantör som kringgår kompatibilitetsfiltret för kombinationslager.",
-  "capabilityFilter.visionMismatch": "Leverantören stöder inte vision för denna bildförfrågan",
-  "capabilityFilter.toolsMismatch": "Leverantören stöder inte verktygsanrop.",
-  "capabilityFilter.structuredOutputMismatch": "Leverantören stöder inte strukturerad utdata",
-  "capabilityFilter.contextWindowMismatch": "Begäran överskrider leverantörens kontextfönster",
   "publicSystem": {
     "notFound": {
       "title": "Sidan kunde inte hittas",
@@ -13615,5 +13640,49 @@
     "hint": "När den är aktiverad visas upptäckta modeller i leverantörsvalen över hela OmniRoute.",
     "updateFailed": "Misslyckades med att uppdatera (HTTP {status})",
     "networkError": "Nätverksfel — kunde inte uppdatera leverantörens exponeringinställning"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Leverantören stöder inte vision för denna bildförfrågan",
+    "toolsMismatch": "Leverantören stöder inte verktygsanrop.",
+    "structuredOutputMismatch": "Leverantören stöder inte strukturerad utdata",
+    "contextWindowMismatch": "Begäran överskrider leverantörens kontextfönster"
   }
 }
