@@ -384,7 +384,7 @@ describe("onboardUser fallback", () => {
     assert.equal(onboardCalls, 2, "onboardUser must be retried after backoff expiry");
   });
 
-  test("returns the BYOP sentinel when onboardUser completes without a project (Google #2934)", async () => {
+  test("returns the BYOP sentinel when onboardUser completes without a project (Google #8491)", async () => {
     let onboardCalls = 0;
 
     const mockFetch = async (url: string, _init?: RequestInit): Promise<Response> => {

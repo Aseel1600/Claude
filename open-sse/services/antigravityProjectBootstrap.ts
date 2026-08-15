@@ -54,9 +54,9 @@ const onboardLocks = new Map<string, Promise<void>>();
 
 /**
  * Sentinel returned by ensureAntigravityProjectAssigned when Google's
- * onboardUser completed but did NOT return a project id — Google has
- * deprecated automatic project creation for standard-tier (personal)
- * accounts and requires a user-defined GCP project (BYOP, #2934). The
+ * onboardUser completed but did NOT return a project id — no automatic
+ * project creation for standard-tier (personal) accounts (tracked in #8491),
+ * so Google requires a user-defined GCP project (BYOP). The
  * caller must fail fast with a clear "enter your GCP project id" error
  * instead of retrying (a fabricated id gets a delayed 429 RESOURCE_EXHAUSTED).
  */
@@ -192,12 +192,12 @@ async function tryOnboardUser(
       });
 
       if (response.ok) {
-        // Google deprecated automatic project creation for standard-tier
-        // (personal) accounts (#2934): onboardUser completes without returning
-        // a project id and the account is expected to Bring Your Own Project.
-        // Detect that so we can fail fast with a clear instruction instead of
-        // retrying forever or fabricating an id that Google later rejects with
-        // a delayed 429 RESOURCE_EXHAUSTED.
+        // Accounts Google expects to Bring Their Own Project: onboardUser
+        // returns 200 without a `cloudaicompanionProject` in the body — no
+        // automatic project creation for standard-tier/personal accounts
+        // (tracked in #8491). Detect that so we can fail fast with a clear
+        // instruction instead of retrying forever or fabricating an id that
+        // Google later rejects with a delayed 429 RESOURCE_EXHAUSTED.
         const body = await response.text().catch(() => "");
         if (body && !/cloudaicompanionProject/.test(body)) {
           console.warn(

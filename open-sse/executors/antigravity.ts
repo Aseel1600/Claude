@@ -562,10 +562,10 @@ export class AntigravityExecutor extends BaseExecutor {
     if (!projectId) {
       markAntigravityMissingCloudCodeProject(credentials?.connectionId);
       if (requiresManualProject) {
-        // Google deprecated automatic project creation for standard-tier
-        // accounts (#2934): fail fast with a clear instruction instead of the
-        // generic 422 — a fabricated/omitted id only earns a delayed 429
-        // RESOURCE_EXHAUSTED from Google's quota check.
+        // Google no longer auto-creates GCP projects for standard-tier
+        // accounts (tracked in #8491): fail fast with a clear instruction
+        // instead of the generic 422 — a fabricated/omitted id only earns a
+        // delayed 429 RESOURCE_EXHAUSTED from Google's quota check.
         const errorBody = {
           error: {
             message:
@@ -577,8 +577,14 @@ export class AntigravityExecutor extends BaseExecutor {
             code: "gcp_project_required",
           },
         };
+        // 422, not 403: chatCore's generic "401/403 → refresh credentials and
+        // retry" path would otherwise hit Google's OAuth token endpoint on
+        // every request from an affected account — pointless, since refreshing
+        // the token cannot create a GCP project. 422 also matches the sibling
+        // missing_project_id error, which the client already maps to a clear
+        // "action needed" prompt.
         const resp = new Response(JSON.stringify(errorBody), {
-          status: 403,
+          status: 422,
           headers: { "Content-Type": "application/json" },
         });
         // Returning a Response object signals the executor to stop and forward it

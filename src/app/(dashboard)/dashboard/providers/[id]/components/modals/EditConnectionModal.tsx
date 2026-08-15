@@ -279,6 +279,7 @@ export default function EditConnectionModal({
         connection.providerSpecificData?.quotaPerUnit != null
           ? String(connection.providerSpecificData.quotaPerUnit)
           : "";
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- form hydration from the connection prop when the edit modal opens
       setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
@@ -512,12 +513,6 @@ export default function EditConnectionModal({
       updates.rateLimitOverrides = Object.keys(overrides).length > 0 ? overrides : null;
       if (isAntigravityFamily) {
         updates.projectId = trimmedCloudCodeProjectId || null;
-        // A manually-entered project id must not be overwritten by
-        // auto-discovery (loadCodeAssist) on later token refreshes.
-        updates.providerSpecificData = {
-          ...(validatedProviderSpecificData || {}),
-          isProjectIdManual: !!trimmedCloudCodeProjectId,
-        };
       }
       if (isGooglePse && !formData.cx.trim()) {
         setSaveError(t("searchEngineIdRequired"));
@@ -655,6 +650,12 @@ export default function EditConnectionModal({
           clientProfile: normalizeAntigravityClientProfileSetting(
             formData.antigravityClientProfile
           ),
+          // A manually-entered project id must not be overwritten by
+          // auto-discovery (loadCodeAssist) on later token refreshes. This
+          // merge is the single surviving write of providerSpecificData for
+          // antigravity (both OAuth and API-key branches rebuild the object
+          // above), so the flag has to land here to actually persist.
+          isProjectIdManual: !!trimmedCloudCodeProjectId,
         };
       }
       if (updates.providerSpecificData) {

@@ -85,7 +85,7 @@ test("Antigravity missing-project 422 stays fail-closed without account cooldown
   assert.match(String(persisted?.lastError), /Missing Google projectId/);
 });
 
-test("Antigravity BYOP account (onboardUser done, no project) returns fast 403 GCP_PROJECT_REQUIRED", async () => {
+test("Antigravity BYOP account (onboardUser done, no project) returns fast 422 GCP_PROJECT_REQUIRED", async () => {
   const connection = await providersDb.createProviderConnection({
     provider: "antigravity",
     authType: "oauth",
@@ -122,8 +122,8 @@ test("Antigravity BYOP account (onboardUser done, no project) returns fast 403 G
     }
     if (request.url.endsWith(":onboardUser")) {
       onboardCalls += 1;
-      // 200 done WITHOUT cloudaicompanionProject — Google BYOP (#2934):
-      // automatic project creation deprecated for standard-tier accounts.
+      // 200 done WITHOUT cloudaicompanionProject — Google BYOP (#8491):
+      // no automatic project creation for standard-tier accounts.
       return new Response(JSON.stringify({ done: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
@@ -137,7 +137,7 @@ test("Antigravity BYOP account (onboardUser done, no project) returns fast 403 G
       body: {
         model: "antigravity/gemini-2.5-flash",
         stream: false,
-        messages: [{ role: "user", content: "BYOP account must fail fast with a clear 403" }],
+        messages: [{ role: "user", content: "BYOP account must fail fast with a clear 422" }],
       },
     })
   );
@@ -145,9 +145,9 @@ test("Antigravity BYOP account (onboardUser done, no project) returns fast 403 G
     error?: { code?: string; type?: string; message?: string };
   };
 
-  assert.equal(response.status, 403);
-  // chatCore classifies the 403 as a project-routing error and rebuilds the
-  // body (code becomes generic) — the actionable message must survive.
+  assert.equal(response.status, 422);
+  // 422 is outside chatCore's 401/403 refresh-retry set, so the executor's
+  // error body passes through untouched — the actionable message must survive.
   assert.match(String(payload.error?.message), /GCP_PROJECT_REQUIRED/);
   assert.match(String(payload.error?.message), /console\.cloud\.google\.com/);
   assert.equal(onboardCalls, 1, "onboardUser must be attempted exactly once (BYOP is cached)");

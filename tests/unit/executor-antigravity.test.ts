@@ -281,11 +281,11 @@ test("AntigravityExecutor.transformRequest auto-discovers a missing projectId vi
   }
 });
 
-// #2334/#2934: when loadCodeAssist also finds no project and Google marks the
-// account BYOP (automatic project creation deprecated for standard-tier
-// accounts), the fast 403 GCP_PROJECT_REQUIRED must be returned so the
-// dashboard can prompt the user to enter a GCP Project ID.
-test("AntigravityExecutor.transformRequest fast-403s with GCP_PROJECT_REQUIRED when loadCodeAssist finds no project (#2334)", async () => {
+// #8491: when loadCodeAssist also finds no project and Google marks the
+// account BYOP (no automatic project creation for standard-tier accounts),
+// the fast 422 GCP_PROJECT_REQUIRED must be returned so the dashboard can
+// prompt the user to enter a GCP Project ID.
+test("AntigravityExecutor.transformRequest fast-422s with GCP_PROJECT_REQUIRED when loadCodeAssist finds no project (#8491)", async () => {
   clearAntigravityProjectCache();
   seedAntigravityIdeVersionCache("2.1.1");
   const executor = new AntigravityExecutor();
@@ -304,8 +304,8 @@ test("AntigravityExecutor.transformRequest fast-403s with GCP_PROJECT_REQUIRED w
       true,
       { accessToken: "no-project-token-2334" }
     );
-    if (!(result instanceof Response)) throw new Error("Expected a 403 Response");
-    assert.equal(result.status, 403);
+    if (!(result instanceof Response)) throw new Error("Expected a 422 Response");
+    assert.equal(result.status, 422);
     const payload = (await result.json()) as ErrorPayload;
     assert.equal(payload.error.code, "gcp_project_required");
     assert.match(payload.error.message, /GCP_PROJECT_REQUIRED/);
