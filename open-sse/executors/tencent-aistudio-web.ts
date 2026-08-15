@@ -32,23 +32,34 @@ export class TencentAIStudioWebExecutor extends BaseExecutor {
     super("tencent-aistudio-web", { id: "tencent-aistudio-web", baseUrl: AISTUDIO_BASE });
   }
 
-  async execute(input: ExecuteInput): Promise<Response> {
+  async execute(input: ExecuteInput): Promise<{
+    response: Response;
+    url: string;
+    headers: Record<string, string>;
+    transformedBody: unknown;
+  }> {
     const { model, body, credentials, signal } = input;
     const targetModelId = model || "hy3-g";
+    const chatUrl = `${AISTUDIO_BASE}/api/chat/${MODEL_MAP[targetModelId] || "HunyuanDefault"}`;
 
     let cookie = credentials.apiKey || "";
     if (!cookie) {
-      return new Response(
-        JSON.stringify(
-          buildErrorBody(
-            401,
-            "Tencent AI Studio Cookie is required. Log in to aistudio.tencent.ai and paste your Cookie header.",
-            null,
-            { type: "invalid_request_error", code: "missing_cookie" }
-          )
+      return {
+        response: new Response(
+          JSON.stringify(
+            buildErrorBody(
+              401,
+              "Tencent AI Studio Cookie is required. Log in to aistudio.tencent.ai and paste your Cookie header.",
+              null,
+              { type: "invalid_request_error", code: "missing_cookie" }
+            )
+          ),
+          { status: 401, headers: { "Content-Type": "application/json" } }
         ),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
+        url: chatUrl,
+        headers: {},
+        transformedBody: body,
+      };
     }
     cookie = stripCookieInputPrefix(cookie);
 
@@ -56,7 +67,6 @@ export class TencentAIStudioWebExecutor extends BaseExecutor {
     const chatBody = body as ChatBody;
     const messages = chatBody.messages || [];
 
-    const chatUrl = `${AISTUDIO_BASE}/api/chat/${targetModel}`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       Cookie: cookie,
@@ -74,9 +84,9 @@ export class TencentAIStudioWebExecutor extends BaseExecutor {
     const mergedSignal = mergeAbortSignals(primary, controller.signal);
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    let response: Response;
+    let upstream: Response;
     try {
-      response = await fetch(chatUrl, {
+      upstream = await fetch(chatUrl, {
         method: "POST",
         headers,
         body: upstreamBody,
@@ -86,7 +96,16 @@ export class TencentAIStudioWebExecutor extends BaseExecutor {
       clearTimeout(timeout);
     }
 
-    return response;
+    return {
+      response: new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: upstream.headers,
+      }),
+      url: chatUrl,
+      headers,
+      transformedBody: upstreamBody,
+    };
   }
 }
 
