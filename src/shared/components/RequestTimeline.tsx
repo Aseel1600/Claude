@@ -31,10 +31,7 @@ import {
 } from "@/shared/components/RequestTimeline.utils";
 
 export type { TimelineLog } from "@/shared/components/RequestTimeline.utils";
-export {
-  allocateLanes,
-  CONVERSATION_LANE_REUSE_STORAGE_KEY,
-} from "@/shared/components/RequestTimeline.utils";
+export { allocateLanes } from "@/shared/components/RequestTimeline.utils";
 
 export default function RequestTimeline({
   initialSelectedId,
