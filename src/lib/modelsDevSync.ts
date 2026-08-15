@@ -89,12 +89,7 @@ export function readModelsDevSyncEnvFlag(
   if (normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on") {
     return "true";
   }
-  if (
-    normalized === "0" ||
-    normalized === "false" ||
-    normalized === "no" ||
-    normalized === "off"
-  ) {
+  if (normalized === "0" || normalized === "false" || normalized === "no" || normalized === "off") {
     return "false";
   }
   return "unset";
@@ -241,7 +236,7 @@ let pricingMemoVersion = -1; // -1: never equals a real cacheVersion (starts at 
  * Results are memoized until `saveModelsDevPricing` / `clearModelsDevPricing`.
  */
 export function getModelsDevPricing(): PricingByProvider {
-// Kill switch: skip the SQL + JSON.parse scan entirely so a leftover
+  // Kill switch: skip the SQL + JSON.parse scan entirely so a leftover
   // models_dev_pricing namespace cannot pin the event loop (#9685 / #10052).
   if (isModelsDevSyncEnvDisabled()) {
     return {};
@@ -268,7 +263,7 @@ export function getModelsDevPricing(): PricingByProvider {
       console.warn(`[MODELS_DEV] Corrupted pricing data for provider "${key}", skipping`);
     }
   }
-pricingMemo = synced;
+  pricingMemo = synced;
   pricingMemoVersion = currentVersion;
   return synced;
 }
@@ -778,7 +773,7 @@ export async function initModelsDevSync(): Promise<void> {
   const { getSettings } = await import("./localDb");
   const settings = await getSettings();
 
-if (!isModelsDevSyncEnvForcedOn() && settings.modelsDevSyncEnabled !== true) {
+  if (!isModelsDevSyncEnvForcedOn() && settings.modelsDevSyncEnabled !== true) {
     console.log("[MODELS_DEV] Disabled (enable via Settings > AI or MODELS_DEV_SYNC_ENABLED=1)");
     return;
   }
