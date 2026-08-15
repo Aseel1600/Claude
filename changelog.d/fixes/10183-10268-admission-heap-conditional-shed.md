@@ -1,0 +1,1 @@
+- fix(sse): gate structural chat admission shedding on real heap pressure instead of unconditional capacity (#10183, #10268)
