@@ -1,0 +1,1 @@
+Fix docker image tags (bifrost v1.6.11, cliproxyapi on Docker Hub) and make the runtime `OMNIROUTE_BASE_PATH` subpath patch complete for Next 16 standalone (assetPrefix + client env + baked asset URLs) so prebuilt images respect the webpath env var.
