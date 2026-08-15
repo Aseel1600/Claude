@@ -22,8 +22,8 @@ async function runTests() {
   } as unknown as Parameters<typeof executor.execute>[0];
 
   const res = await executor.execute(input);
-  assert.strictEqual(res.status, 401);
-  const data = await res.json();
+  assert.strictEqual(res.response.status, 401);
+  const data = await res.response.json();
   assert(data.error.message.includes("Cookie"));
 
   console.log("All Tencent AI Studio Web tests passed!");
