@@ -280,15 +280,20 @@ Supported shapes are `input_video`, `video_url`, `video_source`, HTTPS URLs,
 and `data:video/*;base64,...` data URIs. Plain filenames in text are not treated
 as video.
 
-The public `/v1` request path never imports or invokes a subprocess. It downloads
-or decodes the input under a 50 MiB bound, requires HTTPS on the initial URL and
-every redirect, and uses the existing public-only outbound guard with DNS
-pinning. The bytes then cross the exact internal
+The public `/v1` request path never imports or invokes a subprocess. Remote
+videos are downloaded under a 50 MiB bound; inline base64 videos have a
+conservative 36 MiB decoded per-video cap so the model/messages/framing envelope
+can remain inside the public JSON request admission limit of 50 MiB. Inline
+length and decoded-size estimates are checked before allocation. HTTPS is
+required on the initial remote URL and every redirect, using the existing
+public-only outbound guard with DNS pinning. The bytes then cross the exact internal
 `POST /api/modality-bridge/video/extract` broker boundary. That route is both
 `LOCAL_ONLY` and `SPAWN_CAPABLE`, accepts only a per-process authenticated,
 trusted-loopback request, and never accepts a URL, filesystem path, executable,
-or argument list. Its bounded queue runs one extraction at a time, allows four
-pending jobs, and caps pending input at 100 MiB.
+or argument list. The API body-size pipeline and the handler's incremental body
+reader independently enforce a 50 MiB broker input cap. Its bounded queue runs
+one extraction at a time, allows four pending jobs, and caps pending input at
+100 MiB.
 
 Inside the broker, `ffprobe` reads a private local file and rejects playlist,
 manifest, and reference-bearing containers through a fixed format allowlist.
@@ -309,7 +314,10 @@ replace the original part with a stable `[Video description:` prefix that also
 marks the text as an untrusted media-derived observation and tells downstream
 models not to follow instructions found in the media. Frame-caption cache keys
 include the JPEG bytes, prompt, timestamp, and effective model; only successful
-captions are cached.
+captions are cached. Cache entries retain the actual successful producer model,
+including a fallback model; the bridge reports `mixed` when different frames
+were produced by different models. A cache hit reuses that producer identity
+instead of relabeling it as the requested routing plan.
 
 The guardrail extracts every supported video part but describes no more than
 `modalityBridgeVideoMaxVideos`. For a target proven to have
@@ -328,13 +336,16 @@ Runtime settings are DB-backed and Zod-validated:
 | `modalityBridgeVideoModel`      | `""`     | Inherit the Vision Bridge model |
 | `modalityBridgeVideoFrameCount` | `8`      | 1–16                            |
 | `modalityBridgeVideoMaxVideos`  | `1`      | 1–4                             |
-| `modalityBridgeVideoTimeout`    | `120000` | 1000–300000 ms                  |
+| `modalityBridgeVideoTimeout`    | `120000` | 1000–120000 ms                  |
 
-`GET /api/modality-bridge/video/runtime` is loopback-only, requires management
-auth, and returns only `available`, sanitized FFmpeg/ffprobe versions, and a
-fixed reason when the runtime is unavailable. The internal extraction endpoint
-is not a public upload API and is documented as loopback-only. Converted
-responses add
+Legacy persisted Video timeout values above 120 seconds are clamped to the
+broker deadline; new settings writes above that limit are rejected.
+`GET /api/modality-bridge/video/runtime` requires trusted stamped loopback
+locality before authentication or runtime probing, then requires management
+auth. It returns only `available`, sanitized FFmpeg/ffprobe versions, and a fixed
+reason when the runtime is unavailable. The internal extraction endpoint is not
+a public upload API: queue saturation returns `503` plus `Retry-After`, a caller
+disconnect returns `499`, and the fixed broker deadline returns `504`. Converted responses add
 `video->text;model=<visionModel>;parts=<videos>` to the central
 `x-omniroute-modality-bridge` header without removing Vision or Audio segments.
 
@@ -462,6 +473,7 @@ interface GuardrailContext {
   method?: string | null;
   model?: string | null;
   provider?: string | null;
+  signal?: AbortSignal;
   sourceFormat?: string | null;
   stream?: boolean;
   targetFormat?: string | null;
@@ -471,6 +483,7 @@ interface GuardrailContext {
 A guardrail signals "no change" by returning either `void`, `{}`, or
 `{ block: false }`. Returning a `modifiedPayload`/`modifiedResponse` replaces
 the value flowing through the chain for downstream guardrails.
+`signal?: AbortSignal` carries the caller lifecycle into guardrails. A request abort is the deliberate fail-open exception: media bridges stop work and cleanup without restoring raw media to a target known not to support it.
 
 ## Registry (`registry.ts`)
 
