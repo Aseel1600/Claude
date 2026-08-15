@@ -1919,11 +1919,18 @@ export async function handleComboChat({
           // skip the same-model retry when `nextTarget` (computed above)
           // actually gives us somewhere to fail over to — with no sibling
           // left, skipping just burns the last attempt for nothing.
+          //
+          // #10217 round-4 fix: this guard reads `failoverBeforeRetryExplicit`
+          // (opt-in only), NOT `config.failoverBeforeRetry` — that field
+          // defaults to true for the separate skipUpstreamRetry mechanism
+          // (see DEFAULT_COMBO_CONFIG comment in comboConfig.ts) and reading
+          // it here would silently skip the same-model retry for every combo,
+          // not just ones that explicitly opted in.
           if (
             retry < maxRetries &&
             isTransient &&
             !providerExhausted &&
-            (!config.failoverBeforeRetry || !nextTarget)
+            (!config.failoverBeforeRetryExplicit || !nextTarget)
           ) {
             if (
               !protectedPriorityTarget &&
@@ -2438,7 +2445,15 @@ async function handleRoundRobinCombo({
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
-    : { ...getDefaultComboConfig(), ...(combo.config || {}) };
+    : {
+        ...getDefaultComboConfig(),
+        ...(combo.config || {}),
+        // See resolveComboConfig's failoverBeforeRetryExplicit comment in
+        // comboConfig.ts (no `settings` here, so only the combo's own config
+        // can opt in).
+        failoverBeforeRetryExplicit:
+          (combo.config as Record<string, unknown> | undefined)?.failoverBeforeRetry === true,
+      };
   // #9158: clamp combo-level concurrency to a sane bound — a config carrying a
   // huge or negative value would otherwise open an unbounded semaphore and
   // flood targets (or deadlock at 0).
@@ -3163,12 +3178,14 @@ async function handleRoundRobinCombo({
         // just the lower-level skipUpstreamRetry mechanism. Only skip when
         // `offset + 1 < modelCount` means a sibling target is actually left
         // in this rotation; with none left, skipping just wastes the attempt.
+        // #10217 round-4 fix: opt-in only — read failoverBeforeRetryExplicit,
+        // not config.failoverBeforeRetry (see comboConfig.ts comment).
         const hasNextRrTarget = offset + 1 < modelCount;
         if (
           retry < maxRetries &&
           isTransient &&
           !providerExhausted &&
-          (!config.failoverBeforeRetry || !hasNextRrTarget)
+          (!config.failoverBeforeRetryExplicit || !hasNextRrTarget)
         ) {
           continue;
         }

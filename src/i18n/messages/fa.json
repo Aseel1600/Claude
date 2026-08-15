@@ -6821,8 +6821,17 @@
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
     "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetIndependenceHint": "ویژگی‌های فشرده‌سازی، مسیریابی و محدودیت توکن در هر حالت کار می‌کنند. حالت خودکار به معنای \"نمایش خودکار تفکر\" نیست - این حالت فیلدهای استدلال کلاینت را حذف می‌کند.",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "عبور از طریق",
+    "thinkingModePassthroughDesc": "دلایل مشتری را بدون تغییر بگذارید (تلاش، خلاصه، بلوک‌های تفکر). برای تفکر قابل مشاهده Codex/Desktop الزامی است. پیش‌فرض.",
+    "thinkingModeAuto": "خودکار (حذف)",
+    "thinkingModeAutoDesc": "تمام فیلدهای تفکر/استدلال مشتری (استدلال، تلاش استدلال، تفکر کلود، پیکربندی تفکر جمنای) را حذف کنید و اجازه دهید ارائه‌دهنده پیش‌فرض‌ها را اختراع کند. می‌توان پنل‌های تفکر را پنهان کرد و درخواست‌های خلاصه مشتری را مختل کرد.",
+    "thinkingModeCustom": "سفارشی",
+    "thinkingModeCustomDesc": "هر درخواست را با یک بودجه توکن تفکر ثابت که در زیر تعیین کرده‌اید، بازنویسی کنید.",
+    "thinkingModeAdaptive": "سازگار",
+    "thinkingModeAdaptiveDesc": "مقیاس تفکر بودجه از یک تلاش پایه با استفاده از تعداد پیام، ابزارها و طول پیام.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "پیشرفته",
     "modalityBridgeTimeoutMs": "زمان‌سنجی (میلی‌ثانیه)",
     "modalityBridgeMaxImages": "حداکثر تصاویر در هر درخواست",
+    "visionMaxCharsLabel": "حداکثر کاراکترهای توضیحات",
+    "visionMaxCharsHint": "طول توضیحات مدل بینایی را محدود کنید. 0 = نامحدود — برای وظایف OCR با جزئیات زیاد افزایش دهید.",
     "modalityBridgeCacheEnabled": "توضیحات کش",
     "modalityBridgeCacheEnabledDesc": "توصیف‌ها را برای تصاویر یکسان (کلیددار با SHA-256، در حافظه) دوباره استفاده کنید.",
     "modalityBridgeCacheTtlMinutes": "مدت زمان نگهداری کش (دقیقه)",
@@ -8146,16 +8157,7 @@
     "cliproxyapiHealth": "سلامت",
     "cliproxyapiPort": "پورت",
     "qdrantHost": "میزبان",
-    "qdrantCollection": "مجموعه",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "مجموعه"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -13124,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "راه‌اندازی تأمین‌کننده",
@@ -13239,17 +13255,17 @@
     "pollErrorLocalOnly": "این صفحه فقط از localhost یا LAN قابل دسترسی است (LOCAL_ONLY).",
     "pollErrorStopped": "نظرسنجی متوقف شد: سرور درخواست را رد کرد (404/403).",
     "pollErrorTransient": "خطا در دریافت داده: تلاش مجدد خودکار.",
-    "degraded": "داده ناقص: منابع در دسترس نیست: {sources}",
-    "degraded.source.database": "پایگاه داده",
-    "degraded.source.circuitBreaker": "قطع‌کننده مدار",
-    "degraded.source.modelLockouts": "قفل‌های مدل",
-    "degraded.source.count": "تعداد اتصالات"
+    "degraded": {
+      "message": "داده ناقص: منابع در دسترس نیست: {sources}",
+      "source": {
+        "database": "پایگاه داده",
+        "circuitBreaker": "قطع‌کننده مدار",
+        "modelLockouts": "قفل‌های مدل",
+        "count": "تعداد اتصالات"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "درخواست‌ها را قبل از ارسال رد کنید زمانی که مدل هدف قابلیت‌های مورد نیاز (بینایی، ابزارها، خروجی ساختاریافته، پنجره زمینه) را ندارد. از درخواست‌های مستقیم تک‌تأمین‌کننده که فیلتر سازگاری لایه ترکیبی را دور می‌زنند، محافظت می‌کند.",
-  "capabilityFilter.visionMismatch": "ارائه‌دهنده برای این درخواست تصویر از بینایی پشتیبانی نمی‌کند",
-  "capabilityFilter.toolsMismatch": "ارائه‌دهنده از فراخوانی ابزار پشتیبانی نمی‌کند",
-  "capabilityFilter.structuredOutputMismatch": "ارائه‌دهنده خروجی ساختاریافته را پشتیبانی نمی‌کند",
-  "capabilityFilter.contextWindowMismatch": "درخواست از حد مجاز پنجره زمینه ارائه‌دهنده فراتر می‌رود",
   "publicSystem": {
     "notFound": {
       "title": "صفحه پیدا نشد",
@@ -13624,5 +13640,49 @@
     "hint": "زمانی که فعال شود، مدل‌های کشف‌شده در انتخاب‌های ارائه‌دهنده در سرتاسر OmniRoute ظاهر می‌شوند.",
     "updateFailed": "به‌روزرسانی ناموفق بود (HTTP {status})",
     "networkError": "خطای شبکه — نمی‌توان تنظیمات نمایان‌سازی ارائه‌دهنده را به‌روزرسانی کرد"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "ارائه‌دهنده برای این درخواست تصویر از بینایی پشتیبانی نمی‌کند",
+    "toolsMismatch": "ارائه‌دهنده از فراخوانی ابزار پشتیبانی نمی‌کند",
+    "structuredOutputMismatch": "ارائه‌دهنده خروجی ساختاریافته را پشتیبانی نمی‌کند",
+    "contextWindowMismatch": "درخواست از حد مجاز پنجره زمینه ارائه‌دهنده فراتر می‌رود"
   }
 }
