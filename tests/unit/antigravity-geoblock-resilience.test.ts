@@ -7,7 +7,8 @@
  * it only probed the (non-geo-restricted) OAuth userinfo endpoint.
  *
  * Coverage:
- * 1. classifyProviderError maps the geo refusal to GEO_BLOCKED (non-terminal).
+ * 1. classifyProviderError maps the geo refusal to GEO_BLOCKED (non-terminal),
+ *    scoped to the Google AI surfaces that emit it (Cloud Code / Gemini API).
  * 2. isGeoBlockedError recognizes the real Google wording and rejects lookalikes.
  * 3. classify429 keeps Google's RESOURCE_EXHAUSTED-per-minute as rate_limited
  *    (established repo behavior — guards against future regressions here).
@@ -63,6 +64,47 @@ test("429 stays RATE_LIMITED (geo classification is status-scoped)", () => {
   assert.equal(
     classifyProviderError(429, GEO_BODY, "antigravity"),
     PROVIDER_ERROR_TYPES.RATE_LIMITED
+  );
+});
+
+// ── 1b. provider scoping of GEO_BLOCKED ──────────────────────────────────────
+
+test("geo refusal from Gemini API / Vertex providers -> GEO_BLOCKED", () => {
+  assert.equal(
+    classifyProviderError(400, GEO_BODY, "gemini"),
+    PROVIDER_ERROR_TYPES.GEO_BLOCKED
+  );
+  assert.equal(
+    classifyProviderError(400, GEO_BODY, "vertex"),
+    PROVIDER_ERROR_TYPES.GEO_BLOCKED
+  );
+  assert.equal(
+    classifyProviderError(400, GEO_BODY, "gemini-cli"),
+    PROVIDER_ERROR_TYPES.GEO_BLOCKED
+  );
+});
+
+test("geo-looking body from a non-Google provider does NOT classify as GEO_BLOCKED", () => {
+  // Falls through to the generic path (null for an unclassified 400): the 24h
+  // non-terminal exclusion is reserved for egress-fixable Google blocks — an
+  // unrelated provider's region wording may mean a permanent block.
+  assert.equal(classifyProviderError(400, GEO_BODY, "openai"), null);
+  assert.equal(classifyProviderError(400, GEO_BODY, "anthropic"), null);
+  assert.equal(classifyProviderError(400, GEO_BODY, "g4f-gemini"), null);
+  assert.equal(
+    classifyProviderError(400, "The API is not available in your region.", "mistral"),
+    null
+  );
+});
+
+test("geo body with no provider does NOT classify as GEO_BLOCKED", () => {
+  assert.equal(classifyProviderError(400, GEO_BODY, undefined), null);
+});
+
+test("403 geo refusal stays GEO_BLOCKED for eligible providers", () => {
+  assert.equal(
+    classifyProviderError(403, GEO_BODY, "antigravity"),
+    PROVIDER_ERROR_TYPES.GEO_BLOCKED
   );
 });
 

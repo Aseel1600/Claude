@@ -139,6 +139,36 @@ export function isGeoBlockedError(errorMessage: string): boolean {
   return GEO_BLOCK_SIGNALS.some((signal) => lower.includes(signal));
 }
 
+// Providers whose upstream surface emits Google's regional-availability
+// refusal (GEO_BLOCK_SIGNALS above): Cloud Code / Gemini Code Assist — the
+// antigravity executor (antigravity, agy) — and the Gemini Developer API
+// (generativelanguage.googleapis.com; gemini, vertex). The gate matters
+// because classifyProviderError is shared across every provider: an unrelated
+// upstream returning a lookalike "not available in your region" must NOT be
+// classified as an egress-fixable geo block, or it would get the non-terminal
+// 24h exclusion treatment instead of that provider's own (possibly terminal)
+// path.
+function isGeoBlockEligibleProvider(provider?: string | null): boolean {
+  const p = (provider || "").toLowerCase();
+  if (
+    p === "antigravity" ||
+    p === "agy" ||
+    p === "gemini" ||
+    p === "gemini-cli" ||
+    p === "vertex"
+  ) {
+    return true;
+  }
+  if (p.includes("cloudcode") || p.includes("cloud-code")) return true;
+  // Registry-driven fallback: any provider whose upstream surface is the Cloud
+  // Code API (executor/format "antigravity") or the Gemini API (format
+  // "gemini") stays eligible even when a new provider id is added later.
+  const entry = getRegistryEntry(provider);
+  if (!entry) return false;
+  const surface = `${entry.executor || ""} ${entry.format || ""}`.toLowerCase();
+  return surface.includes("antigravity") || surface.includes("gemini");
+}
+
 // Cloudflare 1010 "Access denied ... blocked based on your browser's signature" —
 // a fingerprint/browser-like rejection issued by the CDN in front of an upstream
 // (e.g. opencode.ai/zen/v1), carrying error_code 1010 or error_name
@@ -269,13 +299,19 @@ export function classifyProviderError(
   if (statusCode === 402) return PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED;
 
   // Google regional-availability refusal (400 FAILED_PRECONDITION "... location
-  // is not supported ..."). Account-independent: every credential egresses from
-  // the same server region, so fallback to another account cannot succeed — but
-  // the connection must be cached as excluded so routing does not re-select it
-  // on every request and surface a cryptic generic 400. Non-terminal, like
-  // PROJECT_ROUTE_ERROR: the account becomes usable again once egress is routed
-  // through a supported-region proxy.
-  if ((statusCode === 400 || statusCode === 403) && isGeoBlockedError(bodyStr)) {
+  // is not supported ..."), scoped to the Google AI surfaces that emit it
+  // (Cloud Code / Gemini Code Assist + Gemini Developer API — see
+  // isGeoBlockEligibleProvider). Account-independent: every credential egresses
+  // from the same server region, so fallback to another account cannot succeed
+  // — but the connection must be cached as excluded so routing does not
+  // re-select it on every request and surface a cryptic generic 400.
+  // Non-terminal, like PROJECT_ROUTE_ERROR: the account becomes usable again
+  // once egress is routed through a supported-region proxy.
+  if (
+    (statusCode === 400 || statusCode === 403) &&
+    isGeoBlockEligibleProvider(provider) &&
+    isGeoBlockedError(bodyStr)
+  ) {
     return PROVIDER_ERROR_TYPES.GEO_BLOCKED;
   }
 
