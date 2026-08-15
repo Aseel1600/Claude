@@ -340,6 +340,8 @@ export default function EditConnectionModal({
         opencodeGoAuthCookie: "",
         ollamaCloudUsageCookie: "",
         alibabaConsoleCookie: stringField(connection.providerSpecificData?.alibabaConsoleCookie),
+        qwenCloudCookie: stringField(connection.providerSpecificData?.qwenCloudCookie),
+        qwenCloudSecToken: stringField(connection.providerSpecificData?.qwenCloudSecToken),
         alibabaConsoleSecToken: stringField(
           connection.providerSpecificData?.alibabaConsoleSecToken
         ),
