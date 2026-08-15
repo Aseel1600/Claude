@@ -26,11 +26,6 @@ const SENTINEL_PATHS = [
 
 let cached: string | null | undefined;
 
-/** Reset the memoized value. Tests only — the SHA cannot change within a live process. */
-export function resetRunningBuildShaCache(): void {
-  cached = undefined;
-}
-
 export function readRunningBuildSha(cwd: string = process.cwd()): string | null {
   if (cached !== undefined) return cached;
 
