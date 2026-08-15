@@ -21,7 +21,7 @@
 import { getDbInstance } from "./core";
 import { readCallArtifact } from "../usage/callLogArtifacts";
 
-export type ResponsesContinuationState = {
+type ResponsesContinuationState = {
   input: unknown[];
   output: unknown[];
 };
