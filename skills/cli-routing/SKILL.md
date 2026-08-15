@@ -89,3 +89,18 @@ Delete a routing combo
 ```bash
 omniroute combo delete <name>
 ```
+
+### `combo health [name]`
+
+Explain live routing state for a combo (pins, cooldown, warm, scores)
+
+**Flags:**
+
+- `--range <range>`
+- `--json`
+
+**Example:**
+
+```bash
+omniroute combo health [name]
+```
