@@ -8,7 +8,7 @@ export function getActiveSearchProviders(): [string, ...string[]] {
   const activeProviders = Object.values(SEARCH_PROVIDERS)
     .filter((provider) => !provider.disabled)
     .map((provider) => provider.id);
-    
+
   if (activeProviders.length === 0) {
     return ["none_available"];
   }

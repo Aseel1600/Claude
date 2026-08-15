@@ -20,6 +20,7 @@ import { randomUUID } from "crypto";
 import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
+import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -304,7 +305,10 @@ function buildSerperRequest(
     url: `${config.baseUrl}${endpoint}`,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(params.token ? { "X-API-Key": params.token } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "X-API-Key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -322,7 +326,10 @@ function buildBraveRequest(
     url: `${config.baseUrl}${endpoint}?${qp}`,
     init: {
       method: "GET",
-      headers: { Accept: "application/json", ...(params.token ? { "X-Subscription-Token": params.token } : {}) },
+      headers: {
+        Accept: "application/json",
+        ...(params.token ? { "X-Subscription-Token": params.token } : {}),
+      },
     },
   };
 }
@@ -348,7 +355,10 @@ function buildExaRequest(
     url: config.baseUrl,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(params.token ? { "x-api-key": params.token } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "x-api-key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -597,13 +607,18 @@ function buildOllamaRequest(
   };
 }
 
-const requestBuilders: Record<string, any> = {
+type SearchRequestBuilder = (
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+) => { url: string; init: RequestInit };
+
+const requestBuilders: Record<string, SearchRequestBuilder> = {
   "serper-search": buildSerperRequest,
   "brave-search": buildBraveRequest,
   "perplexity-search": buildPerplexityRequest,
   "exa-search": buildExaRequest,
   "tavily-search": buildTavilyRequest,
-  "firecrawl": fcSearch.buildFirecrawlSearchRequest,
+  firecrawl: fcSearch.buildFirecrawlSearchRequest,
   "google-pse-search": buildGooglePseRequest,
   "linkup-search": buildLinkupRequest,
   "searchapi-search": buildSearchApiRequest,
@@ -618,7 +633,7 @@ function buildRequest(
 ): { url: string; init: RequestInit } {
   const builder = requestBuilders[config.id];
   if (builder) return builder(config, params);
-  
+
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -1167,13 +1182,20 @@ async function tryZaiMCPProvider(
   }
 }
 
-  const responseNormalizers: Record<string, any> = {
+type SearchResponseNormalizer = (
+  data: unknown,
+  query: string,
+  searchType: string
+) => { results: SearchResult[]; totalResults: number | null };
+
+const responseNormalizers: Record<string, SearchResponseNormalizer> = {
   "serper-search": normalizeSerperResponse,
   "brave-search": normalizeBraveResponse,
   "perplexity-search": normalizePerplexityResponse,
   "exa-search": normalizeExaResponse,
   "tavily-search": normalizeTavilyResponse,
-  "firecrawl": (data: any, q: string, st: string) => fcSearch.normalizeFirecrawlSearchResponse(data, st, makeResult),
+  firecrawl: (data: FirecrawlSearchEnvelope, _query: string, searchType: string) =>
+    fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult),
   "google-pse-search": normalizeGooglePseResponse,
   "linkup-search": normalizeLinkupResponse,
   "searchapi-search": normalizeSearchApiResponse,
@@ -1190,7 +1212,7 @@ function normalizeResponse(
 ): { results: SearchResult[]; totalResults: number | null } {
   const normalizer = responseNormalizers[providerId];
   if (normalizer) return normalizer(data, query, searchType);
-  
+
   return { results: [], totalResults: null };
 }
 

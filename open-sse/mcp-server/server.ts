@@ -598,7 +598,7 @@ async function handleWebSearch(args: {
   query: string;
   max_results?: number;
   search_type?: "web" | "news";
-  provider?:string ;
+  provider?: string;
 }) {
   const start = Date.now();
   try {
