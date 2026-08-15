@@ -8,6 +8,7 @@ import { PIIMaskerGuardrail } from "./piiMasker";
 import { PromptInjectionGuardrail } from "./promptInjection";
 import { VisionBridgeGuardrail } from "./visionBridge";
 import { AudioBridgeGuardrail } from "./audioBridge";
+import { VideoBridgeGuardrail } from "./videoBridge";
 import { CredentialMaskerGuardrail } from "./credentialMasker";
 
 /**
@@ -288,6 +289,7 @@ export function registerDefaultGuardrails() {
 
   guardrailRegistry.register(new VisionBridgeGuardrail());
   guardrailRegistry.register(new AudioBridgeGuardrail());
+  guardrailRegistry.register(new VideoBridgeGuardrail());
   guardrailRegistry.register(new PIIMaskerGuardrail());
   guardrailRegistry.register(new CredentialMaskerGuardrail());
   guardrailRegistry.register(new PromptInjectionGuardrail());

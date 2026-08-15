@@ -1,10 +1,10 @@
 /**
  * Modality Bridge stats + response transparency header (PR-1 Task 9).
  *
- * In-memory, process-global counters for bridge activity ("vision" today,
- * "audio" reserved for PR-3) plus the builder for the
+ * In-memory, process-global counters for vision, audio, and video bridge
+ * activity plus the builder for the
  * `x-omniroute-modality-bridge` response header, which tells clients that
- * their request payload was transparently transformed (image→text describe).
+ * their request payload was transparently transformed into text.
  * Reroutes do NOT get a header — the payload was untouched, only the model
  * changed, and that is already visible in the response body's `model` field.
  *
@@ -18,13 +18,16 @@ export interface BridgeModalityStats {
   lastUsedAt: string | null;
 }
 
-const stats: Record<"vision" | "audio", BridgeModalityStats> = {
+export type BridgeModality = "vision" | "audio" | "video";
+
+const stats: Record<BridgeModality, BridgeModalityStats> = {
   vision: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
   audio: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
+  video: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
 };
 
 export function recordBridgeUse(
-  kind: "vision" | "audio",
+  kind: BridgeModality,
   opts: { cacheHit?: boolean; failure?: boolean } = {}
 ): void {
   const s = stats[kind];
@@ -34,7 +37,7 @@ export function recordBridgeUse(
   s.lastUsedAt = new Date().toISOString();
 }
 
-export function getBridgeStats(): Record<"vision" | "audio", BridgeModalityStats> {
+export function getBridgeStats(): Record<BridgeModality, BridgeModalityStats> {
   return structuredClone(stats);
 }
 
@@ -75,6 +78,15 @@ export function buildModalityBridgeHeader(results: GuardrailMetaEntry[]): string
     ) {
       segments.push(
         `audio->text;model=${headerModelToken(meta.sttModel)};parts=${meta.clipsProcessed}`
+      );
+    }
+    if (
+      r.guardrail === "video-bridge" &&
+      typeof meta.videosProcessed === "number" &&
+      !meta.rerouted
+    ) {
+      segments.push(
+        `video->text;model=${headerModelToken(meta.videoModel)};parts=${meta.videosProcessed}`
       );
     }
   }
