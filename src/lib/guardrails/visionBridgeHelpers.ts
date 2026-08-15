@@ -346,8 +346,12 @@ export interface VisionModelConfig {
   prompt: string;
   timeoutMs: number;
   maxImages: number;
+  /** Optional parent deadline/abort propagated by multi-step media bridges. */
+  signal?: AbortSignal;
   /** Injectable fetch (tests). Defaults to undici fetch to bypass the runtime's hooked global fetch. */
   fetchImpl?: typeof fetch;
+  /** Receives the actual successful model while the public return value remains a string. */
+  onModelUsed?: (model: string) => void;
 }
 
 /** Task-aware focus hint (codex-vision-proxy pattern): steer the description
@@ -375,6 +379,10 @@ export async function callVisionModel(
   routerConfig?: Partial<import("./visionBridgeRouter").VisionBridgeRouterConfig>,
   deps?: import("./visionBridgeRouter").VisionBridgeRouterDeps
 ): Promise<string> {
+  if (config.signal?.aborted) {
+    throw new Error("Vision model call aborted");
+  }
+
   // Auto-select the best vision model. `deps` is the router's existing
   // injectable credential-check seam — without forwarding it, tests (and any
   // embedder) cannot keep model selection away from the live connections DB.
@@ -398,6 +406,9 @@ export async function callVisionModel(
   const maxAttempts = Math.min(modelsToTry.length, routerConfig?.maxFallbackAttempts ?? 3);
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (config.signal?.aborted) {
+      throw lastError ?? new Error("Vision model call aborted");
+    }
     const currentModel = modelsToTry[attempt];
     const attemptStart = Date.now();
     try {
@@ -407,10 +418,18 @@ export async function callVisionModel(
         apiKey
       );
       recordLatency(currentModel, Date.now() - attemptStart, true);
+      try {
+        config.onModelUsed?.(currentModel);
+      } catch {
+        // Observability callbacks must never turn a successful caption into a retry.
+      }
       return result;
     } catch (error) {
       recordLatency(currentModel, Date.now() - attemptStart, false);
       lastError = error instanceof Error ? error : new Error(String(error));
+      if (config.signal?.aborted) {
+        throw lastError;
+      }
       // Continue to next model on failure
     }
   }
@@ -620,6 +639,9 @@ async function callVisionModelSingle(
 ): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
+  const signal = config.signal
+    ? AbortSignal.any([config.signal, controller.signal])
+    : controller.signal;
 
   // Resolve API key based on provider
   const resolvedApiKey = resolveProviderApiKey(config.model, apiKey);
@@ -642,7 +664,7 @@ async function callVisionModelSingle(
     const normalizedImageInput = await normalizeVisionImageInput(
       imageDataUri,
       requiresBase64,
-      controller.signal,
+      signal,
       fetchImpl
     );
 
@@ -664,7 +686,7 @@ async function callVisionModelSingle(
 
       response = await fetchImpl(`${anthropicBaseUrl}/v1/messages`, {
         method: "POST",
-        signal: controller.signal,
+        signal,
         headers: {
           "x-api-key": resolvedApiKey,
           "anthropic-version": "2023-06-01",
@@ -748,7 +770,7 @@ async function callVisionModelSingle(
 
       response = await fetchImpl(`${baseUrl}/chat/completions`, {
         method: "POST",
-        signal: controller.signal,
+        signal,
         headers,
         body: JSON.stringify({
           model: requestModel,
@@ -813,7 +835,9 @@ async function callVisionModelSingle(
     clearTimeout(timeoutId);
 
     if (error instanceof Error && error.name === "AbortError") {
-      throw new Error("Vision model call timed out");
+      throw new Error(
+        config.signal?.aborted ? "Vision model call aborted" : "Vision model call timed out"
+      );
     }
 
     throw error;
