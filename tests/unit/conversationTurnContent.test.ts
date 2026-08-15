@@ -6,7 +6,7 @@ import path from "node:path";
 
 // conversationTurnContent.ts resolves a conversation_turn_nodes row's actual
 // display text/tool-call shape on demand from the call-log artifact its
-// last_correlation_id points at (migration 154 dropped the old stored
+// last_correlation_id points at (migration 156 dropped the old stored
 // text_preview/block_kind/tool_name columns -- see conversationTracker.ts).
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-conv-turn-content-"));

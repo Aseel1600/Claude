@@ -2,7 +2,7 @@
  * conversationTurnContent.ts — resolves a conversation_turn_nodes row's
  * actual display text/tool-call shape on demand, instead of storing it.
  *
- * conversation_turn_nodes (migration 154) is identity-only: id/parent/
+ * conversation_turn_nodes (migration 156) is identity-only: id/parent/
  * content_hash, no turn text. Every node's originating request is already
  * fully captured by the call-log pipeline artifact its `last_correlation_id`
  * points at (call_logs.artifact_relpath, behind call_log_pipeline_enabled),

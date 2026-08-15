@@ -30,7 +30,7 @@ function nextCorrelationId(): string {
 }
 
 // conversation_turn_nodes stores identity only (content_hash), never display
-// text — see migration 154 and conversationTurnContent.ts. Tests that need
+// text — see migration 156 and conversationTurnContent.ts. Tests that need
 // to assert WHICH turns ended up on a chain compare content hashes instead
 // of stored text.
 function hashOfPlainTextTurn(role: "user" | "assistant" | "system" | "tool", text: string): string {
@@ -635,6 +635,6 @@ test("resolveConversationId: client-supplied X-Omniroute-Session-Id wins outrigh
 
 // The old 8000-char text_preview truncation (and the JSON-validity-after-
 // truncation concern it required) no longer applies: conversation_turn_nodes
-// stores identity only, never turn text (migration 154) — display content is
+// stores identity only, never turn text (migration 156) — display content is
 // always resolved fresh, full and untruncated, from the call-log artifact
 // (see conversationTurnContent.test.ts).
