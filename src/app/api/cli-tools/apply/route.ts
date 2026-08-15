@@ -17,7 +17,6 @@ const applySchema = z.object({
 const TOOL_CONFIG_PATHS: Record<string, string> = {
   claude: path.join(os.homedir(), ".claude", "settings.json"),
   codex: path.join(os.homedir(), ".codex", "config.yaml"),
-  opencode: path.join(os.homedir(), ".config", "opencode", "opencode.json"),
   cline: path.join(os.homedir(), ".cline", "data", "globalState.json"),
   kilocode: path.join(os.homedir(), ".config", "kilocode", "settings.json"),
   continue: path.join(os.homedir(), ".continue", "config.yaml"),
@@ -65,7 +64,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const configPath = TOOL_CONFIG_PATHS[toolId];
+    const configPath = toolId === "opencode" ? result.configPath : TOOL_CONFIG_PATHS[toolId];
     if (!configPath) {
       return NextResponse.json({ error: `Unknown tool: ${toolId}` }, { status: 400 });
     }

@@ -13,7 +13,6 @@ import { adapta_webProvider } from "./registry/adapta-web/index.ts";
 import { notion_webProvider } from "./registry/notion-web/index.ts";
 import { anthropicProvider } from "./registry/anthropic/index.ts";
 import { sambanovaProvider } from "./registry/sambanova/index.ts";
-import { puterProvider } from "./registry/puter/index.ts";
 import { deepaiProvider } from "./registry/deepai/index.ts";
 import { upstageProvider } from "./registry/upstage/index.ts";
 import { nebiusProvider } from "./registry/nebius/index.ts";
@@ -76,6 +75,7 @@ import { g4f_pollinationsProvider } from "./registry/g4f-pollinations/index.ts";
 import { g4f_ollamaProvider } from "./registry/g4f-ollama/index.ts";
 import { g4f_nvidiaProvider } from "./registry/g4f-nvidia/index.ts";
 import { tencentProvider } from "./registry/tencent/index.ts";
+import { tencent_aistudio_webProvider } from "./registry/tencent-aistudio-web/index.ts";
 import { cozeProvider } from "./registry/coze/index.ts";
 import { ai21Provider } from "./registry/ai21/index.ts";
 import { publicaiProvider } from "./registry/publicai/index.ts";
@@ -259,7 +259,8 @@ import { nagaAiProvider } from "./registry/naga-ai/index.ts";
 import { chatOripeProvider } from "./registry/chat-oripe/index.ts";
 import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
-
+import { voidAiProvider } from "./registry/void-ai/index.ts";
+import { helixmindProvider } from "./registry/helixmind/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -272,7 +273,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "notion-web": notion_webProvider,
   anthropic: anthropicProvider,
   sambanova: sambanovaProvider,
-  puter: puterProvider,
   upstage: upstageProvider,
   deepai: deepaiProvider,
   nebius: nebiusProvider,
@@ -421,6 +421,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   zai: zaiProvider,
   huggingchat: huggingchatProvider,
   "yuanbao-web": yuanbao_webProvider,
+  "tencent-aistudio-web": tencent_aistudio_webProvider,
   galadriel: galadrielProvider,
   qianfan: qianfanProvider,
   "meta-llama": meta_llamaProvider,
@@ -521,5 +522,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "chat-oripe": chatOripeProvider,
   freeinference: freeinferenceProvider,
   "free-ai": freeAiProvider,
-
+  "void-ai": voidAiProvider,
+  helixmind: helixmindProvider,
 };

@@ -1289,7 +1289,8 @@
       "navigate": "navigate",
       "open": "open",
       "close": "close"
-    }
+    },
+    "noResults": "No results"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1735,6 +1736,8 @@
     "quotaShare": "Quota Share",
     "discovery": "Discovery",
     "freeProviderRankings": "Free Provider Rankings",
+    "radar": "Radar",
+    "setup": "Setup",
     "freeTiers": "Free Tiers",
     "gamification": "Gamification",
     "leaderboard": "Leaderboard",
@@ -2187,7 +2190,8 @@
     "searchAnalyticsEmptyDescription": "Use <code>POST /v1/search</code> to start routing web searches.",
     "searchAnalyticsFreeTier": "<strong>Free tier available:</strong> Serper (2,500/mo), Brave (2,000/mo), Exa (1,000/mo), Tavily (1,000/mo) — total 6,500+ free searches/month with automatic failover.",
     "autoRoutingNoDataAvailable": "No auto-routing analytics available. Make requests using the auto/ prefix to see metrics.",
-    "defaultVariantLabel": "Default"
+    "defaultVariantLabel": "Default",
+    "freeTierAvailable": "Free tier available"
   },
   "apiManager": {
     "title": "API Keys",
@@ -2476,7 +2480,9 @@
     "providerCount": "{count} providers",
     "imageToTextBridgeAvailable": "Modality Bridge can describe images for text-only models now. The inline playground will be available when <code>/api/v1/images/understanding</code> is implemented.",
     "imageToTextBridgeCta": "Configure the Image→Text bridge in Modality Bridge settings",
-    "sttBridgeCta": "Configure the Speech→Text bridge in Modality Bridge settings"
+    "sttBridgeCta": "Configure the Speech→Text bridge in Modality Bridge settings",
+    "existingConnection": "Existing connection",
+    "openrouterSttDescription": "OpenRouter speech-to-text models use your configured OpenRouter connection. No separate credential is required."
   },
   "search": {
     "searchQuery": "Search Query",
@@ -3708,7 +3714,8 @@
     "errorTitle": "Failed to load combos",
     "errorDescription": "We could not load combo data right now. Check your connection and try again.",
     "errorId": "Error ID: {id}",
-    "errorRetry": "Try Again"
+    "errorRetry": "Try Again",
+    "comboLabel": "Combo"
   },
   "costs": {
     "title": "Costs",
@@ -4438,7 +4445,9 @@
       "cleaning": "Cleaning...",
       "cleanNow": "Clean now",
       "cleanupSuccess": "{count} point(s) removed",
-      "cleanupFailed": "Cleanup failed"
+      "cleanupFailed": "Cleanup failed",
+      "hostLabel": "Host",
+      "collectionLabel": "Collection"
     },
     "rerank": {
       "enableLabel": "Enable Rerank",
@@ -6129,7 +6138,6 @@
       "poe": "Poe exposes OpenAI-compatible chat and responses on https://api.poe.com/v1, with authenticated balance checks on /usage/current_balance.",
       "pollinations": "Free keyless tier: openai, openai-fast, openai-large, qwen-coder, mistral, deepseek, grok, gemini-flash-lite-3.1, perplexity-fast, perplexity-reasoning. Premium models (claude, gemini, midijourney) require a Pollinations API key from enter.pollinations.ai.",
       "publicai": "Requires an API key — one-time signup credit, then paid",
-      "puter": "Get token at puter.com/dashboard → Copy Auth Token",
       "qiniu": "Create a Qiniu AI inference API key at https://portal.qiniu.com/ai-inference/api-key, then paste it here as a Bearer token. OpenAI-compatible endpoint at https://api.qnaigc.com/v1, proxying DeepSeek, Claude, Kimi and more behind one key.",
       "recraft": "Connect Recraft with an API key.",
       "reka": "Reka Chat is OpenAI-compatible on /v1. OmniRoute probes /v1/models and routes chat traffic to /v1/chat/completions.",
@@ -6766,7 +6774,7 @@
     "denoRelayOrgDomainRequired": "Organization domain is required",
     "denoRelayDeployFailed": "Deno Deploy failed",
     "denoRelayTokenHint": "Organization token (prefix ddo_) from console.deno.com → Organization → Settings → Organization Tokens. Used once for deploy and never stored.",
-    "denoRelayOrgDomainHint": "Your Deno Deploy organization's default domain (e.g. acme.deno.net). The relay will be reachable at https://<app-name>.<org-slug>.deno.net.",
+    "denoRelayOrgDomainHint": "Your Deno Deploy organization's default domain (e.g. acme.deno.net). The relay will be reachable at https://&lt;app-name&gt;.&lt;org-slug&gt;.deno.net.",
     "proxyFreePoolFilterProtocol": "Filter by protocol",
     "proxyFreePoolProtocol": "Protocol",
     "proxyFreePoolCountryPlaceholder": "Country (e.g. US)",
@@ -6814,9 +6822,18 @@
     "afterPromptPlaceholder": "Instructions inserted after agent/provider prompt...",
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
-    "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetDesc": "Controls whether OmniRoute rewrites client thinking/reasoning parameters before requests go upstream. This is separate from compression, prompt cache, and API-key token limits.",
+    "thinkingBudgetIndependenceHint": "Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "Passthrough",
+    "thinkingModePassthroughDesc": "Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
+    "thinkingModeCustom": "Custom",
+    "thinkingModeCustomDesc": "Overwrite every request with a fixed thinking token budget you set below.",
+    "thinkingModeAdaptive": "Adaptive",
+    "thinkingModeAdaptiveDesc": "Scale thinking budget from a base effort using message count, tools, and prompt length.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -6830,7 +6847,7 @@
     "tokenBudget": "Token Budget",
     "tokens": "tokens",
     "baseEffortLevel": "Base Effort Level",
-    "adaptiveHint": "Adaptive mode scales from this base level based on message count, tool usage, and prompt length.",
+    "adaptiveHint": "Adaptive mode scales from this base level based on message count, tool usage, and prompt length. Does not decrypt provider encrypted reasoning blobs.",
     "requireLogin": "Require login",
     "requireLoginDesc": "When ON, dashboard requires password. When OFF, access without login.",
     "currentPassword": "Current Password",
@@ -7905,9 +7922,9 @@
     "resilienceEnableServerWaitDesc": "When enabled, OmniRoute waits for the first cooldown to expire and retries automatically.",
     "resilienceMaxAttempts": "Maximum attempts",
     "resilienceMaxWaitPerAttempt": "Maximum wait per attempt",
-    "resilienceComboCooldownWaitTitle": "Quota-share combo cooldown wait",
-    "resilienceComboCooldownWaitDesc": "For quota-share combos only: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
-    "resilienceComboCooldownWaitToggleDesc": "Quota-share combos only; never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitTitle": "Combo cooldown wait",
+    "resilienceComboCooldownWaitDesc": "For all combo strategies: wait out a short transient cooldown and re-dispatch instead of returning a 429 immediately. Never waits on quota_exhausted.",
+    "resilienceComboCooldownWaitToggleDesc": "All combo strategies; never waits on quota_exhausted.",
     "resilienceComboCooldownMaxWaitMs": "Maximum wait per attempt",
     "resilienceComboCooldownBudgetMs": "Total wait budget",
     "resilienceQuotaShareConcurrencyTitle": "Quota-share per-connection concurrency",
@@ -8003,7 +8020,7 @@
     "enableCredentialRedactionDesc": "Scrubs API keys, tokens, private keys, and JWTs from messages, tool calls, and responses.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Bridge multimodal content to text before it reaches text-only models. Vision is live; Audio arrives with the AudioBridge; Video is on the roadmap.",
+    "modalityBridgeIntro": "Bridge multimodal content to text before it reaches text-only models. Vision, Audio, and Video bridges are available and configurable.",
     "modalityBridgeVisionTab": "Vision",
     "modalityBridgeAudioTab": "Audio",
     "modalityBridgeVideoTab": "Video",
@@ -8025,6 +8042,8 @@
     "modalityBridgeAdvanced": "Advanced",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max images per request",
+    "visionMaxCharsLabel": "Max description characters",
+    "visionMaxCharsHint": "Cap the vision model's description length. 0 = unlimited — raise for detail-heavy OCR tasks.",
     "modalityBridgeCacheEnabled": "Cache descriptions",
     "modalityBridgeCacheEnabledDesc": "Reuse descriptions for identical images (SHA-256 keyed, in-memory).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minutes)",
@@ -8041,7 +8060,6 @@
     "modalityBridgeTestNoop": "Bridge did not activate (model may support vision natively or bridge is disabled)",
     "modalityBridgeTestError": "Test failed: {message}",
     "modalityBridgeAudioComingSoon": "The Audio bridge (speech → text via /v1/audio/transcriptions) ships in the next release. Its settings keys are already reserved.",
-    "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) is on the backlog — see issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge moved",
     "modalityBridgeMovedBody": "Vision Bridge settings now live in the dedicated Modality Bridge page.",
     "modalityBridgeMovedCta": "Open Modality Bridge settings",
@@ -8057,6 +8075,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) transcribed by {model}",
     "modalityBridgeAudioTestNoop": "Audio Bridge did not activate (the target may support audio, no STT provider is connected, or the bridge is disabled)",
     "modalityBridgeAudioTestError": "Audio test failed: {message}",
+    "modalityBridgeVideoTitle": "Video Bridge",
+    "modalityBridgeVideoDesc": "Sample video frames, describe them with a vision model, and continue with the chosen text model.",
+    "modalityBridgeVideoRuntimeReady": "Runtime ready",
+    "modalityBridgeVideoRuntimeUnavailable": "Runtime unavailable",
+    "modalityBridgeVideoRuntimeInstall": "Install FFmpeg and ffprobe on the server PATH to enable video extraction.",
+    "modalityBridgeVideoEnabled": "Enable Video Bridge",
+    "modalityBridgeVideoEnabledDesc": "Replace video parts with timestamped frame descriptions when the target model cannot process video.",
+    "modalityBridgeVideoModel": "Frame description model",
+    "modalityBridgeVideoModelInherited": "Inherit the Vision Bridge model",
+    "modalityBridgeVideoFrameCount": "Frames per video",
+    "modalityBridgeVideoMaxVideos": "Max videos per request",
     "modelRoutingDescriptionPlaceholder": "Route Opus models to frontier combo",
     "cliproxyapiFallbackCodes": "Cliproxyapi Fallback Codes",
     "cliproxyapiFallbackDescription": "Cliproxyapi Fallback Description",
@@ -8134,7 +8163,13 @@
     "routingJsonEditorImportExport": "Import / export JSON",
     "routingJsonEditorLabel": "JSON (edit and apply, or paste to import)",
     "routingApplyJson": "Apply JSON",
-    "routingTransformsFootnote": "All transform ops are idempotent on re-run. Changes take effect immediately on the next request."
+    "routingTransformsFootnote": "All transform ops are idempotent on re-run. Changes take effect immediately on the next request.",
+    "cliproxyapiUnknown": "Unknown",
+    "cliproxyapiVersion": "Version",
+    "cliproxyapiHealth": "Health",
+    "cliproxyapiPort": "Port",
+    "qdrantHost": "Host",
+    "qdrantCollection": "Collection"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8541,7 +8576,8 @@
     "enableDescription": "Runs last in the stack (after RTK/Caveman cleans the text, OmniGlyph converts the remainder to images) and also runs standalone through <code>omniglyph</code> mode. This is a preview and remains off by default until end-to-end validation is complete.",
     "saved": "Saved.",
     "saveFailed": "Could not save.",
-    "enableAria": "Enable the OmniGlyph engine"
+    "enableAria": "Enable the OmniGlyph engine",
+    "title": "OmniGlyph"
   },
   "embeddedServices": {
     "title": "Embedded Services",
@@ -8744,7 +8780,7 @@
     "featureMissingToolResponse": "Tool Response Injection",
     "featureMissingToolResponseDesc": "Injects empty tool_result messages when clients send tool_calls without corresponding responses.",
     "featureThinkingBudget": "Thinking Budget",
-    "featureThinkingBudgetDesc": "Automatically manages thinking config. Removes thinking parameters when the last message is not from the user.",
+    "featureThinkingBudgetDesc": "Proxy-level control of thinking/reasoning request fields: passthrough (client controls), auto (strip all thinking params), custom (fixed budget), or adaptive (scale by complexity). Independent of compression and routing. Does not decrypt encrypted reasoning content.",
     "featureDirectPaths": "Direct Translation Paths",
     "featureDirectPathsDesc": "Some format pairs (Claude→Gemini) have direct translators that bypass the OpenAI hub, producing more accurate output.",
     "featureImageMapping": "Image Size Mapping",
@@ -9630,7 +9666,23 @@
     "traeAuthorizationSuccess": "Trae authorization ✓",
     "traeAuthorizationFailed": "Trae authorization failed",
     "closeAuthorizationWindow": "You can close this window.",
-    "returnToDashboard": "Return to the dashboard."
+    "returnToDashboard": "Return to the dashboard.",
+    "resetViaAppData": "Reset via App Data",
+    "deleteSettingsToReset": "Delete the settings file from the app data directory to reset your password:",
+    "quitAppCompletely": "Quit the OmniRoute desktop app completely",
+    "navigateToAppData": "Navigate to the app data directory",
+    "checkAppDataFolder": "Check your system app data folder",
+    "deleteSettingsJson": "Delete",
+    "relaunchAppFresh": "Relaunch the OmniRoute desktop app — it will start fresh setup",
+    "alternativeSetPassword": "Alternative: Set New Password",
+    "setNewPasswordViaEnv": "Set a new initial password via the server environment file:",
+    "openServerEnv": "Open",
+    "inDataDirectory": "in the data directory",
+    "addOrUpdate": "Add or update",
+    "deleteAndRelaunch": "Delete",
+    "settingsJson": "settings.json",
+    "fromDataDir": "from the data directory",
+    "relaunchApp": "Relaunch the OmniRoute desktop app"
   },
   "landing": {
     "brandName": "OmniRoute",
@@ -10485,8 +10537,7 @@
     "gitlabDuoSetupTitle": "GitLab Duo OAuth setup",
     "gitlabDuoSetupMessage": "GitLab Duo OAuth is not configured. Register an OAuth application at {applicationsUrl} with redirect URI {redirectUri} and scopes \"{scopes}\", then set {clientIdEnv} (and optionally {clientSecretEnv}) and restart.",
     "gitlabDuoSetupDescription": "After the application is registered and the env vars are set on this OmniRoute instance, click Continue to start the OAuth login.",
-    "continue": "Continue",
-    "googleOAuthWarning": "Remote access + Google OAuth: bundled credentials only accept loopback redirects like <code>127.0.0.1</code>. The browser that approves Google must be able to reach OmniRoute on that local port, usually by opening OmniRoute locally or using an SSH/local-forward tunnel. Recommended for remote installs: on your own computer run <code>npx omniroute login antigravity</code> and paste the credential blob it prints into the field below. For fully remote use without this local callback, <a>configure your own OAuth credentials</a>."
+    "continue": "Continue"
   },
   "cursorAuthModal": {
     "title": "Connect Cursor IDE",
@@ -12388,6 +12439,11 @@
       "rare": "Rare achievements"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "Radar Supporter",
+        "description": "Verified a live OmniRoute Radar supporter feed",
+        "criteria": "Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "First Token",
         "description": "Made your first API request",
@@ -12828,7 +12884,9 @@
       "avoid": "ToS-restricted — review terms",
       "caution": "Caution — personal-use / proxy clauses",
       "ok": "Generally permissive"
-    }
+    },
+    "allProviders": "All providers",
+    "noApiKeyRequired": "No API key required"
   },
   "providerHealthAutopilot": {
     "title": "Provider Health Autopilot",
@@ -13024,9 +13082,9 @@
     "testFailed": "Test failed"
   },
   "kimiSponsorBanner": {
-    "title": "Kimi (Moonshot AI) is now an official sponsor of OmniRoute",
-    "description": "Kimi K3 brings a 1M-token context window and frontier coding performance to OmniRoute at a fraction of the cost.",
-    "cta": "Get Kimi Code",
+    "foundingFriendTitle": "Kimi (Moonshot AI) is OmniRoute's founding Open Source Friend",
+    "description": "New users get 15% extra API credits on their first top-up. Use Kimi K3 in OmniRoute through the official Kimi API.",
+    "cta": "Get a Kimi API Key",
     "partnerLinkNote": "Partner link",
     "dismissAriaLabel": "Dismiss"
   },
@@ -13085,7 +13143,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Provider Setup",
@@ -13200,17 +13290,17 @@
     "pollErrorLocalOnly": "This page is only accessible from localhost or LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Polling stopped: the server rejected the request (404/403).",
     "pollErrorTransient": "Error fetching data: retrying automatically.",
-    "degraded": "Partial data: unavailable sources: {sources}",
-    "degraded.source.database": "Database",
-    "degraded.source.circuitBreaker": "Circuit Breaker",
-    "degraded.source.modelLockouts": "Model Lockouts",
-    "degraded.source.count": "Connection Count"
+    "degraded": {
+      "message": "Partial data: unavailable sources: {sources}",
+      "source": {
+        "database": "Database",
+        "circuitBreaker": "Circuit Breaker",
+        "modelLockouts": "Model Lockouts",
+        "count": "Connection Count"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Reject requests before dispatch when the target model lacks required capabilities (vision, tools, structured output, context window). Protects direct single-provider requests that bypass the combo-layer compatibility filter.",
-  "capabilityFilter.visionMismatch": "Provider does not support vision for this image request",
-  "capabilityFilter.toolsMismatch": "Provider does not support tool calling",
-  "capabilityFilter.structuredOutputMismatch": "Provider does not support structured output",
-  "capabilityFilter.contextWindowMismatch": "Request exceeds provider context window",
   "publicSystem": {
     "notFound": {
       "title": "Page not found",
@@ -13577,5 +13667,73 @@
     "sttFailed": "Transcription failed (check the STT model/provider)",
     "ttsFailed": "Speech synthesis failed (check the TTS model/provider)",
     "micDenied": "Microphone unavailable or permission denied"
+  },
+  "cliproxyProviderExposure": {
+    "title": "Provider Exposure",
+    "description": "Expose CLIProxyAPI models as a routing target under the <prefix>cliproxyapi/</prefix> prefix.",
+    "label": "Expose as <prefix>cliproxyapi/...</prefix>",
+    "hint": "When enabled, discovered models appear in provider selects across OmniRoute.",
+    "updateFailed": "Failed to update (HTTP {status})",
+    "networkError": "Network error — could not update provider exposure setting"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "Radar Intel",
+    "subtitle": "Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading Intel...",
+    "refresh": "Refresh Intel",
+    "syncing": "Refreshing...",
+    "loadFailed": "We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "No verified Intel snapshot is available yet.",
+    "supporterBadge": "Radar Supporter",
+    "methodology": "Methodology",
+    "eloMethod": "ELO, initial {initial}, K={factor}",
+    "freshness": "Catalog freshness",
+    "ageDays": "{days, plural, one {# day old} other {# days old}}",
+    "trend": "Catalog trend",
+    "modelDelta": "{current} models, +{added} / -{removed}",
+    "ranking": "Model ranking",
+    "noRankings": "No confirmed comparisons are available yet.",
+    "model": "Model",
+    "category": "Category",
+    "rating": "Rating",
+    "matches": "Matches",
+    "freshnessValues": {
+      "fresh": "Fresh",
+      "aging": "Aging",
+      "stale": "Stale"
+    },
+    "trendValues": {
+      "growing": "Growing",
+      "stable": "Stable",
+      "shrinking": "Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Provider does not support vision for this image request",
+    "toolsMismatch": "Provider does not support tool calling",
+    "structuredOutputMismatch": "Provider does not support structured output",
+    "contextWindowMismatch": "Request exceeds provider context window"
   }
 }

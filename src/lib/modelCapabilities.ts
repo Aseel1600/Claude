@@ -14,12 +14,13 @@ import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
 import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
-import { getDbInstance } from "@/lib/db/core";
-import { getKeyValue } from "@/lib/db/models/shared";
+import { getCustomModelVisionOverride } from "@/lib/db/models";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
 
 export type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 export { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+export { resolveAudioCapability } from "@/lib/modelCapabilityModalities";
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { getUnsupportedParams } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {
@@ -126,6 +127,7 @@ export interface ResolvedModelCapabilities {
   supportsTools: boolean | null;
   supportsVision: boolean | null;
   supportsAudio: boolean | null;
+  supportsVideo: boolean | null;
   supportsMaxTokens: boolean;
   attachment: boolean | null;
   structuredOutput: boolean | null;
@@ -459,31 +461,6 @@ function modalitiesDeclareVision(modalities: readonly string[]): boolean {
   });
 }
 
-/**
- * #9195: Read the customModels supportsVision override for a given provider/model
- * pair from the database. Returns true/false when an explicit override exists, or
- * null if no custom model entry or no explicit flag. Sync read (better-sqlite3).
- */
-function getCustomModelVisionOverride(provider: string, model: string): boolean | null {
-  try {
-    const db = getDbInstance();
-    const row = db
-      .prepare("SELECT value FROM key_value WHERE namespace = 'customModels' AND key = ?")
-      .get(provider);
-    if (!row) return null;
-    const parsed = getKeyValue(row);
-    if (!parsed.value) return null;
-    const models: Array<{ id: string; supportsVision?: boolean }> = JSON.parse(parsed.value);
-    const entry = models.find((m) => m.id === model);
-    if (entry && typeof entry.supportsVision === "boolean") {
-      return entry.supportsVision;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function resolveVisionCapability(
   spec: ModelSpec | undefined,
   registryModel: { supportsVision?: boolean } | null,
@@ -549,25 +526,6 @@ function resolveVisionCapability(
 }
 
 /**
- * Resolve whether a chat model accepts audio input.
- *
- * Explicit catalog metadata wins. Synced input modalities are authoritative
- * only when they contain at least one declared modality; an empty list means
- * that no source knows the answer and remains `null` so Audio Bridge can act
- * conservatively.
- */
-export function resolveAudioCapability(
-  spec: Pick<ModelSpec, "supportsAudio"> | undefined,
-  registryModel: { supportsAudio?: boolean } | null,
-  modalitiesInput: readonly string[]
-): boolean | null {
-  if (typeof registryModel?.supportsAudio === "boolean") return registryModel.supportsAudio;
-  if (typeof spec?.supportsAudio === "boolean") return spec.supportsAudio;
-  if (modalitiesInput.length === 0) return null;
-  return modalitiesInput.some((entry) => String(entry).toLowerCase().includes("audio"));
-}
-
-/**
  * Issue #6524: an operator-set `max_output_tokens` capability override (see
  * `src/lib/db/modelCapabilityOverrides.ts`) is the manual escape hatch for a
  * wrong/stale synced `limit_output` value (e.g. a provider's models.dev catalog
@@ -597,15 +555,19 @@ function getCapabilityOverride(
     : null;
 }
 
-function getContextOverride(resolved: {
-  provider: string | null;
-  model: string | null;
-  rawModel: string | null;
-}): number | null {
-  const canonical = getModelContextOverride(resolved.provider, resolved.model);
+function getContextOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
+  const bulk = snapshot?.contextOverrides ?? null;
+  const canonical = getModelContextOverride(resolved.provider, resolved.model, bulk);
   if (canonical !== null) return canonical;
   return resolved.rawModel && resolved.rawModel !== resolved.model
-    ? getModelContextOverride(resolved.provider, resolved.rawModel)
+    ? getModelContextOverride(resolved.provider, resolved.rawModel, bulk)
     : null;
 }
 
@@ -648,9 +610,30 @@ function getMaxTokenCapabilityOverride(
 ): number | null {
   const bulk = snapshot?.maxTokenOverrides ?? null;
   return (
-    getModelCapabilityOverride(resolved.provider, resolved.model, "max_token", bulk) ??
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_output_tokens", bulk) ??
     (resolved.rawModel && resolved.rawModel !== resolved.model
-      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_token", bulk)
+      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_output_tokens", bulk)
+      : null)
+  );
+}
+
+/**
+ * Bulk-load friendly max_input_tokens override lookup (#9199): resolves from the
+ * snapshot's preloaded map instead of a per-model SQLite read.
+ */
+function getMaxInputTokenCapabilityOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot: ModelCapabilityResolutionSnapshot
+): number | null {
+  const bulk = snapshot.maxInputTokenOverrides;
+  return (
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_input_tokens", bulk) ??
+    (resolved.rawModel && resolved.rawModel !== resolved.model
+      ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_input_tokens", bulk)
       : null)
   );
 }
@@ -743,7 +726,9 @@ export function getResolvedModelCapabilities(
   // reflects the real *total* window and wins over every static/synced source.
   // `maxInputTokens` still follows its own precedence chain; only when that
   // chain has no narrower source does it naturally fall back to this window.
-  const persistedContextWindow = usePersistedOverrides ? getContextOverride(resolved) : null;
+  const persistedContextWindow = usePersistedOverrides
+    ? getContextOverride(resolved, snapshot)
+    : null;
   const contextWindow =
     persistedContextWindow ??
     authoritativeContextWindow ??
@@ -752,7 +737,11 @@ export function getResolvedModelCapabilities(
     spec?.contextWindow ??
     null;
 
-  const maxInputOverride = usePersistedOverrides ? getInputTokenCapabilityOverride(resolved) : null;
+  const maxInputOverride = !usePersistedOverrides
+    ? null
+    : snapshot
+      ? getMaxInputTokenCapabilityOverride(resolved, snapshot)
+      : getInputTokenCapabilityOverride(resolved);
   const maxTokenOverride = snapshot
     ? getMaxTokenCapabilityOverride(resolved, snapshot)
     : usePersistedOverrides
@@ -767,7 +756,11 @@ export function getResolvedModelCapabilities(
   // dashboard "Vision capable" toggle affects Combo routing.
   const customVisionOverride =
     resolved.provider && resolved.model
-      ? getCustomModelVisionOverride(resolved.provider, resolved.model)
+      ? getCustomModelVisionOverride(
+          resolved.provider,
+          resolved.model,
+          snapshot?.customVisionOverrides
+        )
       : null;
 
   const supportsVision = resolveVisionCapability(
@@ -780,6 +773,7 @@ export function getResolvedModelCapabilities(
     customVisionOverride
   );
   const supportsAudio = resolveAudioCapability(spec, registryModel, modalitiesInput);
+  const supportsVideo = resolveVideoCapability(spec, registryModel, modalitiesInput);
 
   // #8250: when resolve promoted vision over a contradictory attachment=false,
   // expose attachment=true so catalog / Vision Bridge / clients see one verdict.
@@ -798,6 +792,7 @@ export function getResolvedModelCapabilities(
     supportsTools,
     supportsVision,
     supportsAudio,
+    supportsVideo,
     supportsMaxTokens: heuristicMaxTokens(lookupKey),
     attachment,
     structuredOutput: synced?.structured_output ?? null,
@@ -962,7 +957,11 @@ export function getModelContextLimit(
 ): number | null {
   const resolved =
     typeof providerOrInput === "string" && modelId !== undefined
-      ? getResolvedModelCapabilities({ provider: providerOrInput, model: modelId }, undefined, snapshot)
+      ? getResolvedModelCapabilities(
+          { provider: providerOrInput, model: modelId },
+          undefined,
+          snapshot
+        )
       : getResolvedModelCapabilities(providerOrInput, undefined, snapshot);
   // Feature 5004: a persisted override (operator-set or auto-discovered) wins over the
   // static catalog / models.dev sync. `getResolvedModelCapabilities` stays override-free

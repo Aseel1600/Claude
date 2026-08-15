@@ -34,11 +34,6 @@
       "count": 7
     }
   },
-  "open-sse/executors/puter.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
@@ -404,11 +399,6 @@
     }
   },
   "src/app/api/cli/connect/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/combos/[id]/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1709,11 +1699,6 @@
   "tests/unit/call-log-cap.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 43
-    }
-  },
-  "tests/unit/call-log-file-rotation.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "tests/unit/call-log-startup.test.ts": {

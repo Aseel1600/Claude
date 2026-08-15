@@ -9,7 +9,10 @@
  */
 
 import Bottleneck from "bottleneck";
-import { applyBottleneckDoExpirePatch } from "./bottleneckPatch.ts";
+import {
+  applyBottleneckDoExpirePatch,
+  applyBottleneckHeartbeatPatch,
+} from "./bottleneckPatch.ts";
 import { parseRetryAfterFromBody } from "./accountFallback.ts";
 import { getAntigravityQuotaFamily } from "./antigravityQuotaFamily.ts";
 import { getProviderCategory } from "../config/providerRegistry.ts";
@@ -323,6 +326,7 @@ export async function initializeRateLimits() {
   initialized = true;
   // Fix Bottleneck v2.19.5 doExpire bug before any limiter is created.
   applyBottleneckDoExpirePatch();
+  applyBottleneckHeartbeatPatch();
 
   try {
     const { getCachedProviderConnections, getSettings } = await import("@/lib/localDb");
@@ -467,6 +471,10 @@ function getLimiter(provider, connectionId, model = null) {
   const key = getLimiterKey(provider, connectionId, model);
 
   if (!limiters.has(key)) {
+    // Idempotent — covers callers (and tests) that reach limiter creation
+    // without going through initializeRateLimits().
+    applyBottleneckDoExpirePatch();
+    applyBottleneckHeartbeatPatch();
     const preserved = preservedReplacementSettings.get(key);
     let options: Bottleneck.ConstructorOptions;
     if (preserved) {

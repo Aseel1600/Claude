@@ -899,7 +899,6 @@ flowchart LR
 | `PerplexityWebExecutor`  | Perplexity 網頁                                                                                                                                          | 用於聊天延續的網頁工作階段反向                             |
 | `PetalsExecutor`         | Petals 分散式推理                                                                                                                                        | 去中心化群組路由                                           |
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                          | 無需 API 金鑰、速率限制請求                                |
-| `PuterExecutor`          | Puter                                                                                                                                                    | 基於瀏覽器的提供者整合                                     |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                 | PAT 與 OAuth 支援、多模型免費方案                          |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                         | 服務帳戶驗證、基於區域的端點                               |
 | `DevinDesktopExecutor` | Devin Desktop | 匯入的 API 金鑰 + Connect-protobuf 聊天串流 |
@@ -949,7 +948,6 @@ flowchart LR
 | SiliconFlow        | openai           | API 金鑰              | ✅               | ✅     | ❌       | ❌               |
 | Hyperbolic         | openai           | API 金鑰              | ✅               | ✅     | ❌       | ❌               |
 | Vertex AI          | gemini           | 服務帳戶              | ✅               | ✅     | ✅       | ⚠️ Cloud Console |
-| Puter              | openai           | API 金鑰              | ✅               | ✅     | ❌       | ❌               |
 | Command Code       | openai           | OAuth                 | ✅               | ✅     | ✅       | ⚠️ 每次請求      |
 | Z.AI / GLM         | openai           | API 金鑰 / OAuth      | ✅               | ✅     | ❌       | ❌               |
 | GLMT（預設）       | claude           | API 金鑰              | ✅               | ✅     | ❌       | ⚠️ 每次請求      |
