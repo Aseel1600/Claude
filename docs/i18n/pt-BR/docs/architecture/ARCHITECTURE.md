@@ -905,7 +905,6 @@ Cada provedor tem um executor especializado que estende `BaseExecutor` (em `open
 | `PerplexityWebExecutor`  | Perplexity web                                                                                                                                              | Reversão de sessão web para continuidade de chat                                     |
 | `PetalsExecutor`         | Inferência distribuída Petals                                                                                                                               | Roteamento de enxame descentralizado                                                 |
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                             | Nenhuma chave de API necessária, requisições limitadas por taxa                      |
-| `PuterExecutor`          | Puter                                                                                                                                                       | Integração de provedor baseada em navegador                                          |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                    | Suporte a PAT e OAuth, nível gratuito multi-modelo                                   |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                            | Autenticação de conta de serviço, endpoints baseados em região                       |
 | `DevinDesktopExecutor` | Devin Desktop | Chave de API importada + streaming de chat Connect-protobuf |
@@ -956,7 +955,6 @@ Todos os outros provedores (incluindo nós compatíveis personalizados) usam o `
 | SiliconFlow       | openai           | Chave de API               | ✅               | ✅         | ❌                   | ❌                   |
 | Hyperbolic        | openai           | Chave de API               | ✅               | ✅         | ❌                   | ❌                   |
 | Vertex AI         | gemini           | Conta de Serviço           | ✅               | ✅         | ✅                   | ⚠️ Console da Nuvem  |
-| Puter             | openai           | Chave de API               | ✅               | ✅         | ❌                   | ❌                   |
 | Command Code      | openai           | OAuth                      | ✅               | ✅         | ✅                   | ⚠️ Por solicitação   |
 | Z.AI / GLM        | openai           | Chave de API / OAuth       | ✅               | ✅         | ❌                   | ❌                   |
 | GLMT (preset)     | claude           | Chave de API               | ✅               | ✅         | ❌                   | ⚠️ Por solicitação   |

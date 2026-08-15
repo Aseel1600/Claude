@@ -281,13 +281,12 @@ export default function ProviderDetailPageClient() {
       providerId,
       registryModels,
       syncedModels: syncedAvailableModels,
-      customModels: (modelMeta.customModels || []).map(
-        (cm: { id: string; name?: string; source?: string }) => ({
-          id: cm.id,
-          name: cm.name || cm.id,
-          source: normalizeModelCatalogSource(cm.source) === "imported" ? "imported" : "custom",
-        })
-      ),
+      customModels: (modelMeta.customModels || []).map((cm) => ({
+        ...cm,
+        id: cm.id,
+        name: cm.name || cm.id,
+        source: normalizeModelCatalogSource(cm.source) === "imported" ? "imported" : "custom",
+      })),
       usesCuratedModelsOnly,
     });
   }, [

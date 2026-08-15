@@ -17,7 +17,7 @@ It provides a single OpenAI-compatible endpoint (`/v1/*`) and routes traffic acr
 
 Core capabilities:
 
-- OpenAI-compatible API surface for CLI/tools (271 providers, 89 executors)
+- OpenAI-compatible API surface for CLI/tools (338 providers, 100 executors)
 - Request/response translation across provider formats
 - Model combo fallback (multi-model sequence)
 - Structured combo steps (`provider + model + connection`) with runtime ordering by `compositeTiers`
@@ -365,7 +365,7 @@ relying on a static combo definition. It powers the `auto/*` model prefix family
 
 Key capabilities:
 
-- **17 routing strategies** (priority, weighted, fill-first, round-robin, P2C, random,
+- **19 routing strategies** (priority, weighted, fill-first, round-robin, P2C, random,
   least-used, cost-optimized, reset-aware, reset-window, headroom, strict-random,
   **auto**, lkgp, context-optimized, context-relay, **fusion**, plus a fallback path) —
   auto is the headline addition in v3.8.0; `fusion` (panel fan-out + judge synthesis,
@@ -924,7 +924,6 @@ Each provider has a specialized executor extending `BaseExecutor` (in `open-sse/
 | `PerplexityWebExecutor`  | Perplexity web                                                                                                                                              | Web-session reverse for chat continuation                            |
 | `PetalsExecutor`         | Petals distributed inference                                                                                                                                | Decentralized swarm routing                                          |
 | `PollinationsExecutor`   | Pollinations AI                                                                                                                                             | No API key required, rate-limited requests                           |
-| `PuterExecutor`          | Puter                                                                                                                                                       | Browser-based provider integration                                   |
 | `QoderExecutor`          | Qoder AI                                                                                                                                                    | PAT and OAuth support, multi-model free tier                         |
 | `VertexExecutor`         | Google Vertex AI                                                                                                                                            | Service account auth, region-based endpoints                         |
 | `DevinDesktopExecutor`   | Devin Desktop                                                                                                                                               | Imported API key + Connect-protobuf chat streaming                   |
@@ -974,7 +973,6 @@ All other providers (including custom compatible nodes) use the `DefaultExecutor
 | SiliconFlow       | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Hyperbolic        | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Vertex AI         | gemini           | Service Account       | ✅               | ✅         | ✅            | ⚠️ Cloud Console   |
-| Puter             | openai           | API Key               | ✅               | ✅         | ❌            | ❌                 |
 | Command Code      | openai           | OAuth                 | ✅               | ✅         | ✅            | ⚠️ Per request     |
 | Z.AI / GLM        | openai           | API Key / OAuth       | ✅               | ✅         | ❌            | ❌                 |
 | GLMT (preset)     | claude           | API Key               | ✅               | ✅         | ❌            | ⚠️ Per request     |
