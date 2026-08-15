@@ -24,6 +24,10 @@ import { getCombo, getComboForModel, getModelInfo } from "../services/model";
 import { stripContextWindowSuffix } from "@omniroute/open-sse/services/model.ts";
 import { resolveBareModelToConnectionDefault } from "@omniroute/open-sse/services/model.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
+import {
+  parseRunsteadStrictOptIn,
+  type RunsteadStrictContext,
+} from "@omniroute/open-sse/services/runsteadAttemptReceipts.ts";
 import { getImageModelEntry } from "@omniroute/open-sse/config/imageRegistry.ts";
 import { acceptHeaderForcesStream } from "@omniroute/open-sse/utils/aiSdkCompat.ts";
 import { applyNoThinkingAlias } from "@omniroute/open-sse/utils/noThinkingAlias.ts";
@@ -430,6 +434,26 @@ async function handleChatImplementation(
     modelStr = ccAliasStrip.model;
   }
 
+  // ── Runstead attempt-receipt v1 opt-in ────────────────────────────────────
+  // The strict mode activates ONLY on an exact `X-Runstead-Attempt-Receipts:
+  // v1` header. Every validation failure below fails closed with a 4xx BEFORE
+  // any model POST and carries no receipt. Requests without the opt-in keep
+  // OmniRoute's normal behavior byte-for-byte.
+  let strictRunsteadContext: RunsteadStrictContext | null = null;
+  const strictOptIn = parseRunsteadStrictOptIn({
+    requestHeaders: request.headers,
+    body,
+    modelStr,
+  });
+  if (strictOptIn.kind === "rejected") {
+    log.warn("RUNSTEAD", `receipt-v1 opt-in rejected: ${strictOptIn.message}`);
+    return errorResponse(strictOptIn.status, strictOptIn.message);
+  }
+  if (strictOptIn.kind === "active") {
+    strictRunsteadContext = strictOptIn.context;
+    log.debug("RUNSTEAD", `receipt-v1 opt-in for ${strictRunsteadContext.canonicalModel}`);
+  }
+
   // Freeze the client-facing model and reasoning intent before automatic routers
   // mutate the working request. Reasoning policies always match this stable input.
   const reasoningIntent = extractReasoningIntent(modelStr, body);
@@ -699,6 +723,22 @@ async function handleChatImplementation(
   const virtualCombo = await createVirtualAutoCombo(autoRouting, combo, apiKeyInfo?.id);
   if (virtualCombo instanceof Response) return virtualCombo;
   combo = virtualCombo;
+
+  // ── Runstead receipt-v1: fail closed on any routing layer ──────────────────
+  // Combo/auto-routing/virtual combos, task-aware reroutes, web-search routes,
+  // reasoning reroutes and guardrail/hook model overrides all break the exact
+  // provider/model/connection proof. The strict lane requires the final routing
+  // model to be byte-identical to the requested canonical model and no combo.
+  if (strictRunsteadContext) {
+    if (combo || resolvedModelStr !== strictRunsteadContext.canonicalModel) {
+      log.warn("RUNSTEAD", "receipt-v1 rejected: combo/auto-routing or model reroute detected");
+      return errorResponse(
+        HTTP_STATUS.BAD_REQUEST,
+        "X-Runstead-Attempt-Receipts: v1 rejects combo routing, auto routing and model rerouting"
+      );
+    }
+  }
+
   if (combo) {
     if (reasoningDecision) {
       const filtered = filterReasoningCombo(combo, reasoningDecision);
@@ -1030,6 +1070,7 @@ async function handleChatImplementation(
       reasoningDecision,
       reasoningIntent,
       reasoningRequestTags: requestRoutingTags.tags,
+      attemptReceiptStrict: strictRunsteadContext,
     },
     null,
     false
@@ -1073,6 +1114,12 @@ async function handleSingleModelChat(
     reasoningIntent?: ExtractedReasoningIntent | null;
     reasoningRequestTags?: string[];
     /**
+     * Runstead attempt-receipt v1 strict context (chatgpt-web lane only). When
+     * present the request must prove provider/model/connection exactly and is
+     * never retried, rotated, fallbacked or re-executed.
+     */
+    attemptReceiptStrict?: RunsteadStrictContext | null;
+    /**
      * Per-target abort signal from combo.ts's targetTimeoutRunner
      * (comboTargetTimeoutMs) — see the #7360 follow-up comment at the
      * handleSingleModel call site above for why this must be merged into
@@ -1091,6 +1138,16 @@ async function handleSingleModelChat(
     clientRawRequest?.headers
   );
   if (resolved.error) return resolved.error;
+
+  // Runstead receipt-v1: a safety-net combo redirect breaks the exact
+  // provider/model proof — fail closed before any model POST.
+  if (attemptReceiptStrict && (resolved as any).combo) {
+    log.warn("RUNSTEAD", "receipt-v1 rejected: auto-combo resolution returned a combo");
+    return errorResponse(
+      HTTP_STATUS.BAD_REQUEST,
+      "X-Runstead-Attempt-Receipts: v1 rejects combo routing"
+    );
+  }
 
   // Safety net: if auto-combo resolution returned a combo object, redirect
   // to combo flow. This handles the case where the auto-fuzzy match in
@@ -1178,6 +1235,17 @@ async function handleSingleModelChat(
   })();
   const forceLiveComboTest = runtimeOptions.forceLiveComboTest === true;
   const bypassProviderQuotaPolicy = hasProviderQuotaBypassScope(apiKeyInfo?.scopes);
+  const attemptReceiptStrict = runtimeOptions.attemptReceiptStrict ?? null;
+  if (attemptReceiptStrict && resolvedProvider !== "chatgpt-web") {
+    log.warn(
+      "RUNSTEAD",
+      `receipt-v1 rejected: resolved provider "${resolvedProvider}" is not chatgpt-web`
+    );
+    return errorResponse(
+      HTTP_STATUS.BAD_REQUEST,
+      "X-Runstead-Attempt-Receipts: v1 is only available for the chatgpt-web provider"
+    );
+  }
   const hasForcedConnection =
     typeof runtimeOptions.forcedConnectionId === "string" &&
     runtimeOptions.forcedConnectionId.trim().length > 0;
@@ -1269,7 +1337,8 @@ async function handleSingleModelChat(
     provider === "claude-web" ||
       isCombo ||
       forceLiveComboTest ||
-      runtimeOptions.emergencyFallbackTried === true
+      runtimeOptions.emergencyFallbackTried === true ||
+      attemptReceiptStrict !== null // Runstead receipt-v1: a cooldown replay would be a second attempt
   );
   const requestSignal = request?.signal ?? null;
   // Cumulative cap across all waits for this request (#7360 follow-up) — mirrors
@@ -1437,6 +1506,24 @@ async function handleSingleModelChat(
       const accountId = credentials.connectionId.slice(0, 8);
       const releaseOAuthSession = credentials.releaseOAuthSession ?? (() => {});
       log.info("AUTH", `Using ${provider} account: ${accountId}...`);
+
+      // Runstead receipt-v1: the connection that will execute must be EXACTLY
+      // the pinned one (session-affinity pins or exclusion logic must never
+      // swap it). Any mismatch fails closed before a model POST.
+      if (
+        attemptReceiptStrict &&
+        credentials.connectionId !== attemptReceiptStrict.pinnedConnectionId
+      ) {
+        releaseOAuthSession();
+        log.warn(
+          "RUNSTEAD",
+          `receipt-v1 rejected: selected connection ${String(credentials.connectionId).slice(0, 8)}... != pinned ${String(attemptReceiptStrict.pinnedConnectionId).slice(0, 8)}...`
+        );
+        return errorResponse(
+          HTTP_STATUS.BAD_REQUEST,
+          "X-Runstead-Attempt-Receipts: v1 requires the pinned connection to be the selected connection"
+        );
+      }
       // #474: when the request used a bare model name (no "/" — e.g. an alias
       // that resolved to "auto") and the selected connection declares a
       // defaultModel, resolve the bare name to that real model ID before the
@@ -1569,6 +1656,7 @@ async function handleSingleModelChat(
           modelPinned: runtimeOptions?.modelPinned ?? false,
           routingComboId: runtimeOptions?.routingComboId ?? null,
           sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
+          attemptReceiptStrict,
         });
       } catch (error) {
         releaseOAuthSession();
@@ -1803,7 +1891,7 @@ async function handleSingleModelChat(
       // Combo targets never emergency-hop: the combo is the operator's fallback policy
       // (target-level orchestration plus the global fallback #689 after it), and a
       // per-target hop burns extra upstream calls against exhausted providers (#1731).
-      if (!runtimeOptions.emergencyFallbackTried && !comboName) {
+      if (!runtimeOptions.emergencyFallbackTried && !comboName && !attemptReceiptStrict) {
         const fallbackDecision = shouldUseFallback(
           Number(result.status || 0),
           String(result.error || ""),

@@ -203,6 +203,17 @@ export type ExecuteInput = {
    * `context_management.clear_tool_uses` strategy so the provider clears stale
    * tool-use blocks server-side. Honored only on the genuine `claude` path. */
   contextEditing?: { enabled: boolean } | null;
+  /**
+   * Runstead attempt-receipt v1 strict mode (chatgpt-web only). When present,
+   * the executor must emit exactly one receipt at the physical model-send
+   * boundary, must not retry/resend, and must reject incompatible paths before
+   * any model POST. Only the chatgpt-web lane sets this.
+   */
+  attemptReceiptStrict?: {
+    clientRequestId: string;
+    pinnedConnectionId: string;
+    canonicalModel: string;
+  } | null;
 };
 
 export type CountTokensInput = {

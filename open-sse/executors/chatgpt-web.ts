@@ -23,9 +23,16 @@ import { createHash, randomUUID, randomBytes } from "node:crypto";
 import { sha3_512Hex } from "../utils/sha3-512.ts";
 import {
   tlsFetchChatGpt,
+  TlsClientHangError,
   TlsClientUnavailableError,
   type TlsFetchResult,
 } from "../services/chatgptTlsClient.ts";
+import {
+  type AttemptOutcome,
+  buildRunsteadAttemptReceiptSet,
+  attemptOutcomeForHttpStatus,
+  withAttemptReceiptsHeader,
+} from "../services/runsteadAttemptReceipts.ts";
 import {
   storeChatGptImage,
   getChatGptImageConversationContext,
@@ -2162,6 +2169,33 @@ function errorResponse(status: number, message: string, code?: string): Response
   );
 }
 
+/**
+ * Error response for the Runstead strict lane. Carries the receipt header only
+ * when a physical model POST actually happened; pre-POST rejections pass null.
+ */
+function strictErrorResponse(
+  status: number,
+  message: string,
+  receiptSet: string | null,
+  code?: string
+): Response {
+  const res = errorResponse(status, message, code);
+  return receiptSet ? withAttemptReceiptsHeader(res, receiptSet) : res;
+}
+
+/**
+ * Conservative outcome for a throw around the physical POST. Timeouts map to
+ * "timeout", client/upstream-start aborts to "cancelled", and any other
+ * transport failure to "transport_error" — the schema never claims upstream
+ * certainly did not receive the request.
+ */
+function strictAttemptOutcome(err: unknown, signal?: AbortSignal | null): AttemptOutcome {
+  if (err instanceof TlsClientHangError) return "timeout";
+  if (err instanceof Error && err.name === "TimeoutError") return "timeout";
+  if (signal?.aborted || (err instanceof Error && err.name === "AbortError")) return "cancelled";
+  return "transport_error";
+}
+
 function normalizePublicBaseUrl(value?: string | null): string | null {
   const trimmed = value?.trim();
   if (!trimmed) return null;
@@ -2804,6 +2838,7 @@ export class ChatGptWebExecutor extends BaseExecutor {
     log,
     onCredentialsRefreshed,
     clientHeaders,
+    attemptReceiptStrict,
   }: ExecuteInput) {
     const messages = (body as Record<string, unknown> | null)?.messages as
       Array<Record<string, unknown>> | undefined;
@@ -2824,6 +2859,44 @@ export class ChatGptWebExecutor extends BaseExecutor {
       (body || {}) as Record<string, unknown>,
       messages as Array<{ role: string; content: unknown }>
     );
+
+    // Runstead receipt-v1 strict mode: reject every incompatible path BEFORE
+    // any model POST. These responses carry no receipt — no attempt happened.
+    const strictReceiptCtx = attemptReceiptStrict ?? null;
+    if (strictReceiptCtx) {
+      if (stream) {
+        return {
+          response: errorResponse(
+            400,
+            "Runstead receipt-v1 is text-only and non-streaming (stream must be false)"
+          ),
+          url: CONV_URL,
+          headers: {},
+          transformedBody: body,
+        };
+      }
+      if (hasTools) {
+        return {
+          response: errorResponse(400, "Runstead receipt-v1 rejects tool calls (text-only)"),
+          url: CONV_URL,
+          headers: {},
+          transformedBody: body,
+        };
+      }
+      const strictConnectionId =
+        typeof credentials?.connectionId === "string" ? credentials.connectionId : "";
+      if (!strictConnectionId || strictConnectionId !== strictReceiptCtx.pinnedConnectionId) {
+        return {
+          response: errorResponse(
+            400,
+            "Runstead receipt-v1 requires the pinned connection to be the selected connection"
+          ),
+          url: CONV_URL,
+          headers: {},
+          transformedBody: body,
+        };
+      }
+    }
 
     if (!credentials.apiKey) {
       return {
@@ -3024,6 +3097,17 @@ export class ChatGptWebExecutor extends BaseExecutor {
     const imageEdit = looksLikeImageEditRequest(parsed);
     const continuation = imageEdit ? parsed.latestImageContext : null;
     const forImageGen = looksLikeImageGenRequest(parsed) || imageEdit;
+    if (strictReceiptCtx && forImageGen) {
+      return {
+        response: errorResponse(
+          400,
+          "Runstead receipt-v1 is text-only: image generation/edit is not supported"
+        ),
+        url: CONV_URL,
+        headers: {},
+        transformedBody: body,
+      };
+    }
     const persistConversation = forImageGen || !!continuation;
     if (forImageGen) {
       log?.debug?.(
@@ -3061,6 +3145,29 @@ export class ChatGptWebExecutor extends BaseExecutor {
 
     log?.info?.("CGPT-WEB", `Conversation request → ${modelSlug} (pow=${!!proofToken})`);
 
+    // The receipt is born at this physical model-send boundary. started_at is
+    // stamped immediately before the POST; completed_at when that POST returns
+    // or throws an observable error. Nothing before this point can produce a
+    // receipt, and every path after it must attach exactly one. An already
+    // aborted signal means the POST never went out — no receipt.
+    const strictReceiptTimer =
+      strictReceiptCtx && !signal?.aborted ? { startedAt: new Date() } : null;
+    const finalizeStrictReceipt = (outcome: AttemptOutcome): string | null => {
+      if (!strictReceiptCtx || !strictReceiptTimer) return null;
+      return buildRunsteadAttemptReceiptSet({
+        clientRequestId: strictReceiptCtx.clientRequestId,
+        model: strictReceiptCtx.canonicalModel,
+        connectionId: String(credentials.connectionId ?? ""),
+        outcome,
+        startedAt: strictReceiptTimer.startedAt,
+        completedAt: new Date(),
+      });
+    };
+    const withStrictReceipt = (response: Response, outcome: AttemptOutcome): Response => {
+      const receiptSet = finalizeStrictReceipt(outcome);
+      return receiptSet ? withAttemptReceiptsHeader(response, receiptSet) : response;
+    };
+
     let response: TlsFetchResult;
     try {
       response = await tlsFetchChatGpt(CONV_URL, {
@@ -3078,10 +3185,18 @@ export class ChatGptWebExecutor extends BaseExecutor {
     } catch (err) {
       log?.error?.("CGPT-WEB", `Fetch failed: ${err instanceof Error ? err.message : String(err)}`);
       const code = err instanceof TlsClientUnavailableError ? "TLS_UNAVAILABLE" : undefined;
+      // TLS-unavailable fails before any request was issued: never fabricate a
+      // receipt claiming an attempt. Any other throw happens around a POST that
+      // may have reached upstream, so it maps to a conservative schema outcome.
+      const receiptSet =
+        err instanceof TlsClientUnavailableError
+          ? null
+          : finalizeStrictReceipt(strictAttemptOutcome(err, signal));
       return {
-        response: errorResponse(
+        response: strictErrorResponse(
           502,
           `ChatGPT connection failed: ${err instanceof Error ? err.message : String(err)}`,
+          receiptSet,
           code
         ),
         url: CONV_URL,
@@ -3102,7 +3217,12 @@ export class ChatGptWebExecutor extends BaseExecutor {
       }
       log?.warn?.("CGPT-WEB", errMsg);
       return {
-        response: errorResponse(status, errMsg, `HTTP_${status}`),
+        response: strictErrorResponse(
+          status,
+          errMsg,
+          finalizeStrictReceipt(attemptOutcomeForHttpStatus(status)),
+          `HTTP_${status}`
+        ),
         url: CONV_URL,
         headers,
         transformedBody: cgptBody,
@@ -3120,7 +3240,11 @@ export class ChatGptWebExecutor extends BaseExecutor {
       bodyStream = stringToStream(response.text);
     } else {
       return {
-        response: errorResponse(502, "ChatGPT returned empty response body"),
+        response: strictErrorResponse(
+          502,
+          "ChatGPT returned empty response body",
+          finalizeStrictReceipt("empty_response")
+        ),
         url: CONV_URL,
         headers,
         transformedBody: cgptBody,
@@ -3205,7 +3329,13 @@ export class ChatGptWebExecutor extends BaseExecutor {
       }
     }
 
-    return { response: finalResponse, url: CONV_URL, headers, transformedBody: cgptBody };
+    // A 2xx conversation POST completed: exactly one success receipt.
+    return {
+      response: withStrictReceipt(finalResponse, "success"),
+      url: CONV_URL,
+      headers,
+      transformedBody: cgptBody,
+    };
   }
 }
 

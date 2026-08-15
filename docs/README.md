@@ -71,6 +71,7 @@ How the system is put together — read these to understand the runtime, code la
 - [ROUTER_BACKENDS.md](architecture/ROUTER_BACKENDS.md) — router backends & embedded services architecture contract (ADR).
 - [admission-lanes.md](architecture/admission-lanes.md) — the two admission-lane systems and what gates each.
 - [persistence-backend-boundary.md](architecture/persistence-backend-boundary.md) — pluggable persistence boundary (ADR).
+- [ATTEMPT_RECEIPTS.md](architecture/ATTEMPT_RECEIPTS.md) — Runstead attempt receipts v1 (strict ChatGPT Web lane).
 
 ## reference/
 

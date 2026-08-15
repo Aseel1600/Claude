@@ -29,6 +29,12 @@ import { assembleStreamingPipeline } from "./chatCore/streamingPipeline.ts";
 import { sanitizeChatRequestBody } from "./chatCore/sanitization.ts";
 import { applyResponsesInputPolicy } from "../services/responsesInputPolicy.ts";
 import {
+  OMNIROUTE_ATTEMPT_RECEIPTS_RESPONSE_HEADER,
+  getAttemptReceiptsHeader,
+  validateRunsteadStrictLane,
+  withAttemptReceiptsHeader,
+} from "../services/runsteadAttemptReceipts.ts";
+import {
   getHeaderValueCaseInsensitive,
   isNoMemoryRequested,
   resolveCompressionHeader,
@@ -248,7 +254,10 @@ import {
   normalizeOpenAIToolFinishReasons,
   restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
-import { createDisabledCompressionConfig, resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
+import {
+  createDisabledCompressionConfig,
+  resolveCompressionSettings,
+} from "./chatCore/compressionSettings.ts";
 import type { EnforceDecision } from "@/lib/quota/types";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
 import {
@@ -450,6 +459,7 @@ export async function handleChatCore({
   correlationId = null,
   modelPinned = false,
   skipResourcePressureGuard = false,
+  attemptReceiptStrict = null,
 }) {
   let { provider, model, extendedContext } = modelInfo;
   if (!skipResourcePressureGuard) {
@@ -640,7 +650,9 @@ export async function handleChatCore({
     startTime,
     log,
   });
-  if (idempotencyHit) {
+  // Runstead receipt-v1 never replays a cached response: the receipt must
+  // correspond to THIS request's own physical attempt (or be absent).
+  if (idempotencyHit && !attemptReceiptStrict) {
     return idempotencyHit;
   }
   // T07: Inject connectionId into credentials so executors can rotate API keys
@@ -767,6 +779,25 @@ export async function handleChatCore({
     effectiveModel = effortVariant.effectiveModel;
     if (effortVariant.log) {
       log?.info?.("PARAMS", effortVariant.log);
+    }
+  }
+
+  // ── Runstead receipt-v1 strict lane ──────────────────────────────────────
+  // Structural fail-closed gate, evaluated BEFORE any upstream work: the lane
+  // must be exactly chatgpt-web + the requested canonical model + the pinned
+  // connection. Any reroute/fallback/rotation that reached this point makes
+  // the exact connection unprovable, so the request is rejected without a
+  // receipt (Runstead accounts conservatively for a missing receipt).
+  if (attemptReceiptStrict) {
+    const strictLaneError = validateRunsteadStrictLane({
+      context: attemptReceiptStrict,
+      provider,
+      effectiveModel,
+      selectedConnectionId: getCurrentConnectionId(),
+    });
+    if (strictLaneError) {
+      log?.warn?.("RUNSTEAD", `receipt-v1 lane rejected: ${strictLaneError}`);
+      return createErrorResult(HTTP_STATUS.BAD_REQUEST, strictLaneError);
     }
   }
 
@@ -1085,23 +1116,27 @@ export async function handleChatCore({
   const bodyForCacheWrite = body;
 
   // ── Phase 9.1: Semantic cache check (temp=0, any streaming mode) ──
-  const cacheHit = await checkSemanticCache({
-    semanticCacheEnabled,
-    body,
-    clientRawRequest,
-    model,
-    provider,
-    stream: !!stream,
-    reqLogger,
-    effectiveServiceTier,
-    connectionId,
-    startTime,
-    log,
-    persistAttemptLogs,
-    apiKeyId: apiKeyInfo?.id ?? undefined,
-    cacheDefaultMode: (apiKeyInfo as { cacheDefaultMode?: "legacy" | "bypass" } | null)
-      ?.cacheDefaultMode,
-  });
+  // Runstead receipt-v1 never serves a cached response: the receipt must
+  // correspond to THIS request's own physical attempt (or be absent).
+  const cacheHit = attemptReceiptStrict
+    ? null
+    : await checkSemanticCache({
+        semanticCacheEnabled,
+        body,
+        clientRawRequest,
+        model,
+        provider,
+        stream: !!stream,
+        reqLogger,
+        effectiveServiceTier,
+        connectionId,
+        startTime,
+        log,
+        persistAttemptLogs,
+        apiKeyId: apiKeyInfo?.id ?? undefined,
+        cacheDefaultMode: (apiKeyInfo as { cacheDefaultMode?: "legacy" | "bypass" } | null)
+          ?.cacheDefaultMode,
+      });
   if (cacheHit) {
     return cacheHit;
   }
@@ -1823,7 +1858,11 @@ export async function handleChatCore({
     // engines (Caveman/RTK). Codex Desktop / Responses clients need this path even
     // when those engines are off, otherwise multi-turn image sessions hard-reject
     // at the budget check below (#8560).
-    if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && estimatedTokens > threshold) {
+    if (
+      reactiveContextCompactionEnabled &&
+      !nativeCodexPassthrough &&
+      estimatedTokens > threshold
+    ) {
       log?.info?.(
         "CONTEXT",
         `Proactive compression triggered: ${estimatedTokens} tokens > ${threshold} threshold (${contextLimit} limit)`
@@ -1893,7 +1932,12 @@ export async function handleChatCore({
 
   // Last-resort compaction against the concrete input budget (not the 70% threshold).
   // Covers cases where the proactive pass was skipped or still left the request oversized (#8560).
-  if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && finalEstimatedInputTokens >= finalContextLimit && body) {
+  if (
+    reactiveContextCompactionEnabled &&
+    !nativeCodexPassthrough &&
+    finalEstimatedInputTokens >= finalContextLimit &&
+    body
+  ) {
     const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
     const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
     const lastResortResult = compressContext(lastResortAdapter.body, {
@@ -2722,7 +2766,9 @@ export async function handleChatCore({
   });
 
   const dedupRequestBody = { ...translatedBody, model: `${provider}/${model}`, stream };
-  const dedupEnabled = shouldDeduplicate(dedupRequestBody);
+  // Runstead receipt-v1 never joins an in-flight request: the receipt must be
+  // this request's own physical attempt.
+  const dedupEnabled = attemptReceiptStrict ? false : shouldDeduplicate(dedupRequestBody);
   const dedupHash = dedupEnabled ? computeRequestHash(dedupRequestBody) : null;
 
   const executeProviderRequest = async (modelToCall = effectiveModel, allowDedup = false) => {
@@ -2834,6 +2880,7 @@ export async function handleChatCore({
                           onCredentialsRefreshed,
                           skipUpstreamRetry,
                           contextEditing: { enabled: contextEditingEnabled },
+                          attemptReceiptStrict,
                         })
                       ),
                   });
@@ -3489,10 +3536,14 @@ export async function handleChatCore({
   }
 
   // Handle 401/403 - try token refresh using executor
+  // Runstead receipt-v1 never refreshes-and-re-executes: the 401/403 already
+  // produced exactly one physical attempt and one receipt; a second model POST
+  // would amplify the attempt count.
   if (
     (providerResponse.status === HTTP_STATUS.UNAUTHORIZED ||
       providerResponse.status === HTTP_STATUS.FORBIDDEN) &&
-    !hadStreamOptions // Skip refresh if failure may be from stream_options removal, not auth
+    !hadStreamOptions && // Skip refresh if failure may be from stream_options removal, not auth
+    !attemptReceiptStrict
   ) {
     // Fix A: wrap refreshCredentials in runWithOnPersist so the persist callback
     // executes INSIDE the per-connection mutex held by getAccessToken. This makes
@@ -3687,6 +3738,28 @@ export async function handleChatCore({
         "STATUS_RESTATE",
         `${provider} ${restatement.fromStatus}→${statusCode} (${restatement.ruleId})`
       );
+    }
+
+    // ── Runstead receipt-v1: no recovery, no fallback, no re-execution ────────
+    // The physical POST already happened and produced exactly one receipt.
+    // Every recovery below (thinking-signature retry, T5 family fallback,
+    // context-overflow fallback, credential refresh) would issue additional
+    // model POSTs or swap the model, so the strict lane surfaces the observed
+    // error unchanged, carrying that single receipt.
+    if (attemptReceiptStrict) {
+      const strictResult = createErrorResult(
+        statusCode,
+        message,
+        retryAfterMs,
+        upstreamErrorCode,
+        upstreamErrorType,
+        upstreamErrorBody
+      );
+      const receiptValue = getAttemptReceiptsHeader(providerResponse);
+      if (receiptValue) {
+        strictResult.response = withAttemptReceiptsHeader(strictResult.response, receiptValue);
+      }
+      return strictResult;
     }
 
     const signatureRecovery = await recoverAnthropicThinkingSignature({
@@ -4349,7 +4422,11 @@ export async function handleChatCore({
           }
         : responseBody
     );
-    sanitizeUsagePayloadForRequest(responseBody, finalBody || translatedBody || body, responsePayloadFormat);
+    sanitizeUsagePayloadForRequest(
+      responseBody,
+      finalBody || translatedBody || body,
+      responsePayloadFormat
+    );
     effectiveServiceTier = resolveReportedServiceTier(responseBody) ?? effectiveServiceTier;
     // Notify success - caller can clear error status if needed
     if (onRequestSuccess) {
@@ -4494,9 +4571,14 @@ export async function handleChatCore({
     // #8331: keep the client-visible metering fields real everywhere except Claude-Code-compatible
     // providers, where Claude Code's own context accounting relies on the buffered number — see
     // clientUsageBuffer.ts module docstring.
-    applyClientUsageBuffer(translatedResponse, finalBody || translatedBody || body, clientResponseFormat, {
-      preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
-    });
+    applyClientUsageBuffer(
+      translatedResponse,
+      finalBody || translatedBody || body,
+      clientResponseFormat,
+      {
+        preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
+      }
+    );
 
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
       const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
@@ -4722,6 +4804,15 @@ export async function handleChatCore({
       compressionResponseMeta,
       comboStrategy,
     });
+    // Runstead receipt-v1: forward ONLY the attempt-receipt header produced at
+    // the physical POST boundary. Nothing else from the executor/upstream is
+    // passed through on this path.
+    if (attemptReceiptStrict) {
+      const receiptValue = getAttemptReceiptsHeader(providerResponse);
+      if (receiptValue) {
+        responseHeaders[OMNIROUTE_ATTEMPT_RECEIPTS_RESPONSE_HEADER] = receiptValue;
+      }
+    }
     // #6426: align response body `model` with the `X-OmniRoute-Model` header
     // (both must be the resolved backend model). Some upstreams (notably legacy
     // /v1/completions text-completion path) return a body `model` field that
