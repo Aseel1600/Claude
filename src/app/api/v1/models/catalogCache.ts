@@ -12,6 +12,8 @@
  * Auth rejection is NOT handled here and must stay in the caller: it depends on
  * live per-request state (dashboard cookie, API key) and must never be cached.
  */
+import { createHash } from "node:crypto";
+
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
 import { extractApiKey } from "@/sse/services/auth";
 
@@ -92,11 +94,18 @@ function buildCatalogCacheKey(
   const url = new URL(request.url);
   const prefix = url.searchParams.get("prefix") || "";
   const apiKey = extractApiKey(request) || "";
+  // #10313: NEVER embed the raw bearer secret into the Map key — it lives in process
+  // heap for the cache TTL and would leak the full credential in a heap dump /
+  // --inspect session / debug log. Hash it instead (the established repo idiom:
+  // `hashKey` in apiKeys.ts — intentionally SHA-256, NOT password hashing; API keys
+  // are high-entropy random tokens needing fast O(1) comparison).
+  // lgtm[js/insufficient-password-hash]
+  const apiKeyFingerprint = apiKey ? createHash("sha256").update(apiKey).digest("hex") : ""; // nosemgrep: insufficient-password-hash
   const isCodex = isCodexModelCatalogClient(request) ? "1" : "0";
   const configuredOnly = url.searchParams.get("configuredOnly") === "true" ? "1" : "0";
   const hideAuto = catalogSettings?.hideAutoCombos ? "1" : "0";
   const hideNoThink = catalogSettings?.hideNoThinkVariants ? "1" : "0";
-  return `${prefix}|${isCodex}|${apiKey}|${configuredOnly}|${hideAuto}|${hideNoThink}`;
+  return `${prefix}|${isCodex}|${apiKeyFingerprint}|${configuredOnly}|${hideAuto}|${hideNoThink}`;
 }
 
 // Tracks the model-catalog cache version (src/lib/db/readCache.ts) as of the last
