@@ -7,8 +7,8 @@ import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { normalizeOpenAICompatibleTools } from "./chatCore/openAICompatibleTools.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
 import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
-import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
-export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
+import { extractSystemRoleMessages, relocateDirectiveOnlyMessages } from "./chatCore/claudeSystemRole.ts";
+export { extractSystemRoleMessages, relocateDirectiveOnlyMessages } from "./chatCore/claudeSystemRole.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import { checkLifecycle, resolveLifecycle } from "./chatCore/modelLifecyclePolicy.ts";
@@ -2132,6 +2132,12 @@ export async function handleChatCore({
           !shouldUseMidConversationSystem(translatedBody, effectiveModel)
         ) {
           extractSystemRoleMessages(translatedBody);
+        } else {
+          // The mid-conversation-system path keeps system-role messages inside
+          // messages[], but a directive-only message (content: [] +
+          // output_config) at messages[0] is rejected by Anthropic. Move it past
+          // the first real turn; Anthropic accepts the form at any other position.
+          relocateDirectiveOnlyMessages(translatedBody);
         }
         if (Array.isArray(translatedBody.messages)) {
           translatedBody.messages = splitMisplacedToolResults(
