@@ -29,14 +29,30 @@ test("composes vision, audio, and video bridge header segments in deterministic 
   );
 });
 
-test("tracks video bridge totals, failures, and cache hits independently", () => {
+test("tracks attempts, successes, failures, cache hits, and latency without counting failures as bridged", () => {
   const before = getBridgeStats().video;
-  recordBridgeUse("video", { cacheHit: true });
-  recordBridgeUse("video", { failure: true });
+  recordBridgeUse("video", { cacheHits: 2, latencyMs: 120 });
+  recordBridgeUse("video", { failure: true, latencyMs: 80 });
   const after = getBridgeStats().video;
 
-  assert.equal(after.bridged - before.bridged, 2);
-  assert.equal(after.cacheHits - before.cacheHits, 1);
+  assert.equal(after.attempts - before.attempts, 2);
+  assert.equal(after.successes - before.successes, 1);
+  assert.equal(after.bridged - before.bridged, 1);
+  assert.equal(after.cacheHits - before.cacheHits, 2);
   assert.equal(after.failures - before.failures, 1);
+  assert.equal(after.totalLatencyMs - before.totalLatencyMs, 200);
+  assert.equal(after.averageLatencyMs, after.totalLatencyMs / after.attempts);
   assert.match(after.lastUsedAt ?? "", /^\d{4}-\d{2}-\d{2}T/);
+});
+
+test("video header is omitted when every attempted video failed", () => {
+  assert.equal(
+    buildModalityBridgeHeader([
+      {
+        guardrail: "video-bridge",
+        meta: { videoModel: "auto", videosProcessed: 0, videosReplaced: 1, failures: 1 },
+      },
+    ]),
+    null
+  );
 });

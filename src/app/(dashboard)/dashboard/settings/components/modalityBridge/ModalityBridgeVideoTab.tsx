@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Card, ModelSelectField, Toggle } from "@/shared/components";
@@ -60,44 +60,63 @@ function clampNumber(raw: string, min: number, max: number, fallback: number): n
 
 export default function ModalityBridgeVideoTab() {
   const t = useTranslations("settings");
+  const tRoot = useTranslations();
   const [settings, setSettings] = useState<VideoState | null>(null);
   const [runtime, setRuntime] = useState<RuntimeStatus | null>(null);
+  const [errorState, setErrorState] = useState<"load" | "save" | null>(null);
+  const persistedSettings = useRef<VideoState | null>(null);
   const isVisionModel = useCallback((model: ApiModel) => model.supportsVision === true, []);
 
   useEffect(() => {
     let cancelled = false;
     void Promise.all([
-      fetch("/api/settings")
-        .then((response) => (response.ok ? response.json() : {}))
-        .catch(() => ({})),
+      fetch("/api/settings").then((response) => {
+        if (!response.ok) throw new Error("settings load failed");
+        return response.json();
+      }),
       fetch("/api/modality-bridge/video/runtime")
         .then((response) => (response.ok ? response.json() : null))
         .catch(() => null),
-    ]).then(([settingsValue, runtimeValue]: [unknown, unknown]) => {
-      if (cancelled) return;
-      setSettings(fromApi(settingsValue));
-      setRuntime(parseRuntimeStatus(runtimeValue));
-    });
+    ])
+      .then(([settingsValue, runtimeValue]: [unknown, unknown]) => {
+        if (cancelled) return;
+        const loadedSettings = fromApi(settingsValue);
+        persistedSettings.current = loadedSettings;
+        setSettings(loadedSettings);
+        setRuntime(parseRuntimeStatus(runtimeValue));
+        setErrorState(null);
+      })
+      .catch(() => {
+        if (!cancelled) setErrorState("load");
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
   const update = async (patch: Partial<VideoState>) => {
+    setErrorState(null);
     try {
       const response = await fetch("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
-      if (response.ok) {
-        setSettings((previous) => (previous ? { ...previous, ...patch } : previous));
-      }
-    } catch (error) {
-      console.error("Failed to update Video Bridge settings:", error);
+      if (!response.ok) throw new Error("settings save failed");
+      const saved = persistedSettings.current
+        ? { ...persistedSettings.current, ...patch }
+        : persistedSettings.current;
+      persistedSettings.current = saved;
+      setSettings((previous) => (previous ? { ...previous, ...patch } : previous));
+    } catch {
+      setSettings(persistedSettings.current);
+      setErrorState("save");
     }
   };
 
+  if (errorState === "load") {
+    return <div role="alert">{tRoot("errorPage.title")}</div>;
+  }
   if (!settings) return null;
 
   const setLocal = (patch: Partial<VideoState>) => {
@@ -125,6 +144,14 @@ export default function ModalityBridgeVideoTab() {
       icon="movie"
     >
       <div className="space-y-4">
+        {errorState === "save" ? (
+          <div
+            role="alert"
+            className="rounded-control border border-danger/30 p-3 text-sm text-danger"
+          >
+            {t("modalityBridgeTestError", { message: tRoot("common.error") })}
+          </div>
+        ) : null}
         <div
           className={`rounded-control border p-3 text-sm ${
             runtime?.available

@@ -5,6 +5,7 @@ import { updateModelAliasSchema } from "@/shared/validation/schemas";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import { getSettings } from "@/lib/db/settings";
+import { getResolvedModelCapabilities } from "@/lib/modelCapabilities";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 
 // GET /api/models - Get models with aliases (only from active providers by default)
@@ -84,6 +85,7 @@ export async function GET(request: Request) {
         fullModel,
         alias: modelAliases[fullModel] || m.model,
         available,
+        supportsVision: getResolvedModelCapabilities(fullModel).supportsVision === true,
       };
     }).filter((m: any) => showAll || m.available);
 
@@ -98,7 +100,8 @@ export async function GET(request: Request) {
     } catch {}
     const filtered = hidePaid
       ? models.filter(
-          (m: { provider: string; model: string }) => providerHasFreeModels(m.provider) && isFreeModel(m.provider, { id: m.model })
+          (m: { provider: string; model: string }) =>
+            providerHasFreeModels(m.provider) && isFreeModel(m.provider, { id: m.model })
         )
       : models;
 

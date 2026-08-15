@@ -12,28 +12,60 @@
  */
 
 export interface BridgeModalityStats {
+  attempts: number;
+  averageLatencyMs: number;
   bridged: number;
   cacheHits: number;
   failures: number;
   lastUsedAt: string | null;
+  successes: number;
+  totalLatencyMs: number;
 }
 
 export type BridgeModality = "vision" | "audio" | "video";
 
 const stats: Record<BridgeModality, BridgeModalityStats> = {
-  vision: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
-  audio: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
-  video: { bridged: 0, cacheHits: 0, failures: 0, lastUsedAt: null },
+  vision: emptyStats(),
+  audio: emptyStats(),
+  video: emptyStats(),
 };
+
+function emptyStats(): BridgeModalityStats {
+  return {
+    attempts: 0,
+    averageLatencyMs: 0,
+    bridged: 0,
+    cacheHits: 0,
+    failures: 0,
+    lastUsedAt: null,
+    successes: 0,
+    totalLatencyMs: 0,
+  };
+}
 
 export function recordBridgeUse(
   kind: BridgeModality,
-  opts: { cacheHit?: boolean; failure?: boolean } = {}
+  opts: { cacheHit?: boolean; cacheHits?: number; failure?: boolean; latencyMs?: number } = {}
 ): void {
   const s = stats[kind];
-  s.bridged += 1;
-  if (opts.cacheHit) s.cacheHits += 1;
-  if (opts.failure) s.failures += 1;
+  s.attempts += 1;
+  if (opts.failure) {
+    s.failures += 1;
+  } else {
+    s.bridged += 1;
+    s.successes += 1;
+  }
+  const cacheHits =
+    typeof opts.cacheHits === "number" && Number.isFinite(opts.cacheHits)
+      ? Math.max(0, Math.floor(opts.cacheHits))
+      : opts.cacheHit
+        ? 1
+        : 0;
+  s.cacheHits += cacheHits;
+  if (typeof opts.latencyMs === "number" && Number.isFinite(opts.latencyMs)) {
+    s.totalLatencyMs += Math.max(0, opts.latencyMs);
+  }
+  s.averageLatencyMs = s.attempts > 0 ? s.totalLatencyMs / s.attempts : 0;
   s.lastUsedAt = new Date().toISOString();
 }
 
@@ -65,6 +97,7 @@ export function buildModalityBridgeHeader(results: GuardrailMetaEntry[]): string
     if (
       r.guardrail === "vision-bridge" &&
       typeof meta.imagesProcessed === "number" &&
+      meta.imagesProcessed > 0 &&
       !meta.rerouted
     ) {
       segments.push(
@@ -74,6 +107,7 @@ export function buildModalityBridgeHeader(results: GuardrailMetaEntry[]): string
     if (
       r.guardrail === "audio-bridge" &&
       typeof meta.clipsProcessed === "number" &&
+      meta.clipsProcessed > 0 &&
       !meta.rerouted
     ) {
       segments.push(
@@ -83,6 +117,7 @@ export function buildModalityBridgeHeader(results: GuardrailMetaEntry[]): string
     if (
       r.guardrail === "video-bridge" &&
       typeof meta.videosProcessed === "number" &&
+      meta.videosProcessed > 0 &&
       !meta.rerouted
     ) {
       segments.push(

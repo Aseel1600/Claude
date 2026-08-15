@@ -19,7 +19,9 @@ const settingsDb = await import("../../src/lib/db/settings.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsRoute = await import("../../src/app/api/models/route.ts");
 
-async function fetchModels(): Promise<Array<{ provider: string; model: string }>> {
+async function fetchModels(): Promise<
+  Array<{ provider: string; model: string; supportsVision?: boolean }>
+> {
   const res = await modelsRoute.GET(new Request("http://localhost/api/models?all=true"));
   const body = (await res.json()) as { models: Array<{ provider: string; model: string }> };
   return body.models;
@@ -32,6 +34,19 @@ test.after(() => {
   } catch {
     /* best-effort */
   }
+});
+
+test("/api/models retains genuine resolved vision capability for the Video Bridge picker", async () => {
+  await settingsDb.updateSettings({ hidePaidModels: false });
+  const models = await fetchModels();
+  const vision = models.find(
+    (model) => model.provider === "openai" && model.model === "gpt-4o-mini"
+  );
+  const textOnly = models.find((model) => model.provider === "deepgram");
+
+  assert.ok(vision, "known static vision model must be present in the real producer response");
+  assert.equal(vision.supportsVision, true);
+  if (textOnly) assert.notEqual(textOnly.supportsVision, true);
 });
 
 test("#6328 /api/models removes paid models when hidePaidModels is on", async () => {
@@ -47,7 +62,11 @@ test("#6328 /api/models removes paid models when hidePaidModels is on", async ()
     list.some((m) => m.provider === "openai" && /^gpt-/.test(m.model));
 
   await settingsDb.updateSettings({ hidePaidModels: false });
-  assert.equal(hasPaidOpenAi(await fetchModels()), true, "paid OpenAI models visible when toggle is off");
+  assert.equal(
+    hasPaidOpenAi(await fetchModels()),
+    true,
+    "paid OpenAI models visible when toggle is off"
+  );
 
   await settingsDb.updateSettings({ hidePaidModels: true });
   assert.equal(

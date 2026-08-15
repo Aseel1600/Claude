@@ -21,9 +21,13 @@ async function waitFor(predicate: () => boolean, label: string): Promise<void> {
 
 describe("ModalityBridgeVideoTab", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let failPatch = false;
+  let failSettingsLoad = false;
 
   beforeEach(() => {
     (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    failPatch = false;
+    failSettingsLoad = false;
     fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/api/modality-bridge/video/runtime")) {
@@ -35,7 +39,16 @@ describe("ModalityBridgeVideoTab", () => {
       }
       if (url.includes("/api/modality-bridge/stats")) {
         return Response.json({
-          video: { bridged: 3, cacheHits: 1, failures: 0, lastUsedAt: null },
+          video: {
+            attempts: 4,
+            successes: 3,
+            bridged: 3,
+            cacheHits: 1,
+            failures: 1,
+            totalLatencyMs: 400,
+            averageLatencyMs: 100,
+            lastUsedAt: null,
+          },
         });
       }
       if (url.includes("/api/models")) {
@@ -47,7 +60,12 @@ describe("ModalityBridgeVideoTab", () => {
         });
       }
       if (url.includes("/api/settings")) {
-        if (init?.method === "PATCH") return Response.json({});
+        if (init?.method === "PATCH") {
+          return failPatch
+            ? Response.json({ error: "sanitized" }, { status: 500 })
+            : Response.json({});
+        }
+        if (failSettingsLoad) return Response.json({ error: "sanitized" }, { status: 500 });
         return Response.json({
           modalityBridgeVideoEnabled: false,
           modalityBridgeVideoModel: "openai/gpt-4o-mini",
@@ -82,6 +100,15 @@ describe("ModalityBridgeVideoTab", () => {
     return element;
   }
 
+  async function renderWithoutWaiting(): Promise<HTMLDivElement> {
+    const element = document.createElement("div");
+    document.body.appendChild(element);
+    const root = createRoot(element);
+    await act(async () => root.render(<ModalityBridgeVideoTab />));
+    roots.push({ root, element });
+    return element;
+  }
+
   it("shows ready runtime versions, video stats, and only vision-capable models", async () => {
     const element = await render();
     await waitFor(() => element.textContent?.includes("6.1.1") ?? false, "runtime status");
@@ -92,7 +119,11 @@ describe("ModalityBridgeVideoTab", () => {
     const options = Array.from(element.querySelectorAll("option")).map((option) => option.value);
     expect(options).toContain("openai/gpt-4o-mini");
     expect(options).not.toContain("example/text-only");
+    expect(element.textContent).toContain("4 requests");
     expect(element.textContent).toContain("3 modalityBridgeStatsBridged");
+    expect(element.textContent).toContain("1 modalityBridgeStatsFailures");
+    expect(element.textContent).toContain("trafficInspector.timingTotalLatency: 400 ms");
+    expect(element.textContent).toContain("avgLatency: 100 ms");
     expect(element.textContent).not.toContain("modalityBridgeVideoComingSoon");
   });
 
@@ -129,5 +160,35 @@ describe("ModalityBridgeVideoTab", () => {
       .filter(([, init]) => init?.method === "PATCH")
       .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
     expect(patches).toContainEqual({ modalityBridgeVideoEnabled: true });
+  });
+
+  it("shows a load error instead of silently applying defaults", async () => {
+    failSettingsLoad = true;
+    const element = await renderWithoutWaiting();
+    await waitFor(() => element.querySelector('[role="alert"]') !== null, "load error");
+    expect(element.textContent).toContain("errorPage.title");
+    expect(element.querySelector('[data-testid="modality-bridge-video-frame-count"]')).toBeNull();
+  });
+
+  it("shows a save error and rolls an optimistic numeric edit back after failed PATCH", async () => {
+    const element = await render();
+    failPatch = true;
+    const frameCount = element.querySelector(
+      '[data-testid="modality-bridge-video-frame-count"]'
+    ) as HTMLInputElement;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setter?.call(frameCount, "12");
+      frameCount.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      frameCount.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(() => element.querySelector('[role="alert"]') !== null, "save error");
+    expect(frameCount.value).toBe("8");
   });
 });

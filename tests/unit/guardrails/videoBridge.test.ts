@@ -167,3 +167,249 @@ test("default registry includes Video Bridge after Vision and Audio", () => {
   assert.deepEqual(names, ["5:vision-bridge", "6:audio-bridge", "7:video-bridge"]);
   resetGuardrailsForTests();
 });
+
+test("maxVideos describes only the first video and removes every excess raw video for text-only targets", async () => {
+  const body = payload();
+  body.messages[0].content.splice(1, 0, {
+    type: "video_url",
+    video_url: "data:video/mp4;base64,REVG",
+  });
+  let calls = 0;
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoMaxVideos: 1,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      describePart: async () => {
+        calls += 1;
+        return {
+          description: "[Video description: untrusted media-derived observation: first]",
+          durationSeconds: 1,
+          framesRequested: 1,
+          framesExtracted: 1,
+          framesUsed: 1,
+        };
+      },
+    },
+  });
+  const result = await bridge.preCall(body, {});
+  const content = (result.modifiedPayload as typeof body).messages[0].content;
+  assert.equal(calls, 1);
+  assert.equal(
+    content.some((part) => "video_url" in part),
+    false
+  );
+  assert.match(String((content[1] as { text?: string }).text), /not processed.*limit/i);
+  assert.equal(result.meta?.attempts, 1);
+  assert.equal(result.meta?.videosProcessed, 1);
+  assert.equal(result.meta?.videosReplaced, 2);
+});
+
+test("maxVideos preserves excess raw video only when target video support is unknown", async () => {
+  const body = payload();
+  body.messages[0].content.splice(1, 0, {
+    type: "video_url",
+    video_url: "data:video/mp4;base64,REVG",
+  });
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoMaxVideos: 1,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+      }),
+      getCapabilities: () => ({ supportsVideo: null }),
+      describePart: async () => ({
+        description: "[Video description: untrusted media-derived observation: first]",
+        durationSeconds: 1,
+        framesRequested: 1,
+        framesExtracted: 1,
+        framesUsed: 1,
+      }),
+    },
+  });
+  const result = await bridge.preCall(body, {});
+  const content = (result.modifiedPayload as typeof body).messages[0].content;
+  assert.equal("video_url" in content[1], true);
+});
+
+test("empty Video and Vision model settings use the Vision auto-router and report the effective model", async () => {
+  let selectedFixedModel: string | undefined;
+  let calledModel = "";
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoModel: "",
+        modalityBridgeVisionModel: "",
+        modalityBridgeCacheEnabled: false,
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      selectVisionModel: async (fixedModel) => {
+        selectedFixedModel = fixedModel;
+        return "google/gemini-2.5-flash";
+      },
+      extractFrames: async () => ({
+        durationSeconds: 1,
+        frames: [{ timestampSeconds: 0.5, dataUri: "data:image/jpeg;base64,AUTO9760" }],
+      }),
+      callVisionModel: async (_image, config) => {
+        calledModel = config.model;
+        return "a safe observation";
+      },
+    },
+  });
+  const result = await bridge.preCall(payload(), {});
+  assert.equal(selectedFixedModel, undefined);
+  assert.equal(calledModel, "google/gemini-2.5-flash");
+  assert.equal(result.meta?.videoModel, "google/gemini-2.5-flash");
+  assert.ok(result.modifiedPayload);
+});
+
+test("client abort between videos stops processing and never stubs or falls back", async () => {
+  const body = payload();
+  body.messages[0].content.splice(1, 0, {
+    type: "video_url",
+    video_url: "data:video/mp4;base64,REVG",
+  });
+  const controller = new AbortController();
+  let calls = 0;
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoMaxVideos: 2,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      describePart: async () => {
+        calls += 1;
+        controller.abort();
+        return {
+          description: "[Video description: untrusted media-derived observation: first]",
+          durationSeconds: 1,
+          framesRequested: 1,
+          framesExtracted: 1,
+          framesUsed: 1,
+        };
+      },
+    },
+  });
+  await assert.rejects(() => bridge.preCall(body, { signal: controller.signal }), /aborted/);
+  assert.equal(calls, 1);
+  assert.equal(
+    body.messages[0].content.some(
+      (part) => "text" in part && /unavailable/.test(String(part.text))
+    ),
+    false
+  );
+});
+
+test("real Video Bridge cache hit avoids a second model call and records the hit", async () => {
+  let modelCalls = 0;
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+        modalityBridgeVisionPrompt: "cache integration 9760",
+        modalityBridgeCacheEnabled: true,
+        modalityBridgeCacheTtlMinutes: 60,
+        modalityBridgeCacheMaxEntries: 50,
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      selectVisionModel: async () => "openai/gpt-4o-mini",
+      extractFrames: async () => ({
+        durationSeconds: 1,
+        frames: [{ timestampSeconds: 0.5, dataUri: "data:image/jpeg;base64,CACHE9760" }],
+      }),
+      callVisionModel: async () => {
+        modelCalls += 1;
+        return "cached observation";
+      },
+    },
+  });
+  const first = await bridge.preCall(payload(), {});
+  const second = await bridge.preCall(payload(), {});
+  assert.equal(modelCalls, 1);
+  assert.equal(first.meta?.cacheHits, 0);
+  assert.equal(second.meta?.cacheHits, 1);
+});
+
+test("cache keys miss on timestamp, prompt, and effective model changes; failures are not cached", async () => {
+  let timestamp = 0.25;
+  let prompt = "prompt-a-9760";
+  let selectedModel = "openai/gpt-4o-mini";
+  let modelCalls = 0;
+  let fail = true;
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoModel: selectedModel,
+        modalityBridgeVisionPrompt: prompt,
+        modalityBridgeCacheEnabled: true,
+        modalityBridgeCacheTtlMinutes: 61,
+        modalityBridgeCacheMaxEntries: 51,
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      selectVisionModel: async () => selectedModel,
+      extractFrames: async () => ({
+        durationSeconds: 1,
+        frames: [{ timestampSeconds: timestamp, dataUri: "data:image/jpeg;base64,MISS9760" }],
+      }),
+      callVisionModel: async () => {
+        modelCalls += 1;
+        if (fail) throw new Error("model failure");
+        return "observation";
+      },
+    },
+  });
+
+  await bridge.preCall(payload(), {});
+  fail = false;
+  await bridge.preCall(payload(), {});
+  assert.equal(modelCalls, 2, "failed captions must not be cached");
+  timestamp = 0.5;
+  await bridge.preCall(payload(), {});
+  prompt = "prompt-b-9760";
+  await bridge.preCall(payload(), {});
+  selectedModel = "google/gemini-2.5-flash";
+  await bridge.preCall(payload(), {});
+  assert.equal(modelCalls, 5);
+});
+
+test("FFmpeg ENOENT is sanitized and counts only as a failed attempt, never a bridged success", async () => {
+  const before = getBridgeStats().video;
+  const warnings: Array<{ message: string; meta?: Record<string, unknown> }> = [];
+  const error = Object.assign(new Error("spawn /private/operator/ffmpeg ENOENT"), {
+    code: "ENOENT",
+  });
+  const bridge = new VideoBridgeGuardrail({
+    deps: {
+      getSettings: async () => ({
+        modalityBridgeVideoEnabled: true,
+        modalityBridgeVideoModel: "openai/gpt-4o-mini",
+      }),
+      getCapabilities: () => ({ supportsVideo: false }),
+      describePart: async () => {
+        throw error;
+      },
+    },
+  });
+  const result = await bridge.preCall(payload(), {
+    log: { warn: (_tag, message, meta) => warnings.push({ message, meta }) },
+  });
+  const after = getBridgeStats().video;
+  assert.equal(after.attempts - before.attempts, 1);
+  assert.equal(after.successes - before.successes, 0);
+  assert.equal(after.bridged - before.bridged, 0);
+  assert.equal(after.failures - before.failures, 1);
+  assert.equal(result.meta?.videosProcessed, 0);
+  assert.ok(result.modifiedPayload, "proven text-only input still needs a safe stub");
+  assert.equal(JSON.stringify(warnings).includes("/private/operator"), false);
+  assert.equal(buildModalityBridgeHeader([{ guardrail: "video-bridge", meta: result.meta }]), null);
+});
