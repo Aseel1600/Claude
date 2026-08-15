@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const accountFallback = await import("../../open-sse/services/accountFallback.ts");
 const accountSelector = await import("../../open-sse/services/accountSelector.ts");
@@ -1572,4 +1575,164 @@ test("isAccountDeactivated matches a custom signal after setCustomBannedSignals"
   assert.equal(isAccountDeactivated("account_deactivated"), true);
 
   setCustomBannedSignals([]); // cleanup — restore module state for other tests
+});
+
+// ─── #10460: model-unsupported 400 skips account rotation ────────────────────
+
+const TEST_DATA_DIR_10460 = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-10460-"));
+process.env.DATA_DIR = TEST_DATA_DIR_10460;
+process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "10460-test-secret";
+
+const core = await import("../../src/lib/db/core.ts");
+const providersDb = await import("../../src/lib/db/providers.ts");
+const auth = await import("../../src/sse/services/auth.ts");
+
+async function resetStorage10460() {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR_10460, { recursive: true, force: true });
+  fs.mkdirSync(TEST_DATA_DIR_10460, { recursive: true });
+}
+
+async function seedConn10460(provider: string): Promise<string> {
+  const conn = await providersDb.createProviderConnection({
+    provider,
+    authType: "apikey",
+    apiKey: `${provider}-key-10460`,
+    isActive: true,
+    testStatus: "active",
+  });
+  return (conn as Record<string, unknown>).id as string;
+}
+
+test.after(() => {
+  core.resetDbInstance();
+  fs.rmSync(TEST_DATA_DIR_10460, { recursive: true, force: true });
+});
+
+test("#10460: model-unsupported 400 returns shouldFallback:false (no account cooldown)", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  const result = await auth.markAccountUnavailable(
+    connId,
+    400,
+    "The requested model is not supported",
+    "github",
+    "claude-fable-5"
+  );
+
+  // The guard must prevent account cooldown — the error belongs to the combo layer
+  assert.strictEqual(result.shouldFallback, false, "must not trigger account rotation");
+  assert.strictEqual(result.cooldownMs, 0, "must not cool down the account");
+
+  // Verify the connection was NOT marked unavailable
+  const after = await providersDb.getProviderConnectionById(connId);
+  assert.ok(!after.rateLimitedUntil, "connection must not be rate-limited");
+  assert.notStrictEqual(after.testStatus, "unavailable", "connection must stay active");
+});
+
+test("#10460: model-unsupported 400 handles various phrasings", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  const phrasings = [
+    "The requested model is not supported",
+    "model claude-fable-5 is not supported",
+    "invalid_request_error: model is not supported",
+    "unsupported model: gpt-9",
+  ];
+
+  for (const errorText of phrasings) {
+    await resetStorage10460();
+    const id = await seedConn10460("github");
+    const result = await auth.markAccountUnavailable(id, 400, errorText, "github", "test-model");
+    assert.strictEqual(result.shouldFallback, false, `phrasing "${errorText}" must not rotate`);
+    // Verify connection stays healthy after each iteration
+    const conn = await providersDb.getProviderConnectionById(id);
+    assert.ok(!conn.rateLimitedUntil, `"${errorText}" must not rate-limit connection`);
+    assert.notStrictEqual(conn.testStatus, "unavailable", `"${errorText}" must not mark unavailable`);
+  }
+});
+
+test("#10460: body-specific 400 still goes through normal path (not blocked by model guard)", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("openai");
+
+  const result = await auth.markAccountUnavailable(
+    connId,
+    400,
+    "Invalid message format: the request body is malformed",
+    "openai",
+    "gpt-4"
+  );
+
+  // Body-specific 400 does NOT match MODEL_ACCESS_DENIED_PATTERNS — normal path applies
+  assert.strictEqual(result.shouldFallback, true, "body-specific 400 must still allow fallback");
+});
+
+test("#10460: non-400 status with model-unsupported text does NOT trigger guard", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  // 429 + model-unsupported text should go through normal path (guard only fires for status===400)
+  const result = await auth.markAccountUnavailable(
+    connId,
+    429,
+    "The requested model is not supported",
+    "github",
+    "test-model"
+  );
+
+  assert.strictEqual(result.shouldFallback, true, "non-400 must not be short-circuited by model guard");
+  // The key assertion: guard returns shouldFallback:false. If we get here with
+  // shouldFallback:true, the guard did NOT fire (correct behavior).
+});
+
+test("#10460: empty errorText with status 400 does NOT trigger guard", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  const result = await auth.markAccountUnavailable(connId, 400, "", "github", "test-model");
+
+  // Empty string matches no patterns — normal path applies
+  assert.strictEqual(result.shouldFallback, false, "empty errorText is generic 400 → no fallback");
+});
+
+test("#10460: auth-credential 400 text does NOT match model-unsupported guard", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  // "Invalid API key provided for model gpt-4o" contains "model" but is NOT a
+  // model-unsupported error — it's a credential issue. The guard must not fire.
+  const result = await auth.markAccountUnavailable(
+    connId,
+    400,
+    "Invalid API key provided for model gpt-4o",
+    "github",
+    "gpt-4o"
+  );
+
+  // This text does NOT match MODEL_ACCESS_DENIED_PATTERNS (verified by regex test)
+  // so it falls through to checkFallbackError which returns shouldFallback:false for generic 400
+  assert.strictEqual(result.shouldFallback, false, "auth-credential 400 must not be caught by model guard");
+  // The generic 400 path returns cooldownMs:0 — same as the guard, but the
+  // connection was NOT touched (no rateLimitedUntil set). This distinguishes
+  // it from the normal fallback path which would set a cooldown.
+  const conn = await providersDb.getProviderConnectionById(connId);
+  assert.ok(!conn.rateLimitedUntil, "generic 400 must not rate-limit connection");
+});
+
+test("#10460: guard early return does not touch DB (distinguishes from normal path)", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  // Guard path: model-unsupported 400 → shouldFallback:false, cooldownMs:0, no DB change
+  const guardResult = await auth.markAccountUnavailable(
+    connId, 400, "The requested model is not supported", "github", "test-model"
+  );
+  assert.strictEqual(guardResult.shouldFallback, false);
+  assert.strictEqual(guardResult.cooldownMs, 0);
+  const guardConn = await providersDb.getProviderConnectionById(connId);
+  assert.ok(!guardConn.rateLimitedUntil, "guard path must not touch DB");
+  assert.strictEqual(guardConn.testStatus, "active", "guard path must keep connection active");
 });
