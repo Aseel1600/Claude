@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Tämä palveluntarjoaja on poistettu käytöstä",
     "riskNotice": {
       "title": "Ennen jatkamista",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Tarjoaja, jolla on käyttöä koskevia huomautuksia — napsauta nähdäksesi lisätiedot",
       "oauth": "Tämä tarjoaja käyttää virallista tuote-istuntoasi/OAuthia, jota ei ole valtuutettu välityspalvelin-/reititinkäyttöön. Emme suosittele intensiivistä autonomisten agenttien käyttöä (OpenCloud-tyyliset, pitkät monivaiheiset työnkulut, suuret erät) — ylävirta saattaa reagoida rajoittamalla tiliä tai estämällä sen. Käyttö omalla vastuulla.",
       "webCookie": "Tämä tarjoaja todennetaan verkkosessiosi evästeiden kautta. Ylävirran palvelu voi mitätöidä istunnon milloin tahansa, jolloin sinun on kirjauduttava uudelleen sisään. Ei suositella pitkiin valvomattomiin toimintoihin. Käyttö omalla vastuulla.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Älä näytä tätä uudelleen tälle tarjoajalle",
       "understand": "Ymmärrän, jatka",
       "cancel": "Peruuta"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Ei käytössä",
     "enableProvider": "Ota palveluntarjoaja käyttöön",

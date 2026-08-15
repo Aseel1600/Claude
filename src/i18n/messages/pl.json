@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Ten provider jest przestarzały",
     "riskNotice": {
       "title": "Przed kontynuowaniem",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provider z zastrzeżeniami dotyczącymi użytkowania — kliknij, aby uzyskać szczegóły",
       "oauth": "Ten provider korzysta z oficjalnej sesji produktu/OAuth, która nie jest autoryzowana do użytku jako proxy/router. Nie zalecamy intensywnego korzystania z autonomicznych agentów (w stylu OpenCloud, długich wieloetapowych przepływów, dużych partii) — upstream może zareagować ograniczeniem lub zablokowaniem konta. Użycie na własne ryzyko.",
       "webCookie": "Ten provider uwierzytelnia się za pomocą plików cookie sesji internetowej. Usługa upstream może unieważnić sesję w dowolnym momencie, co będzie wymagać ponownego zalogowania. Opcja ta nie jest zalecana do długich operacji bez nadzoru. Użycie na własne ryzyko.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Nie pokazuj tego ponownie dla tego provider",
       "understand": "Rozumiem, kontynuuj",
       "cancel": "Anuluj"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Wyłączone",
     "enableProvider": "Włącz provider",

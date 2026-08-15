@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Този доставчик е отхвърлен",
     "riskNotice": {
       "title": "Преди да продължите",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Доставчик с предупреждения за употреба — щракнете за подробности",
       "oauth": "Този доставчик използва вашата официална продуктова сесия/OAuth, която не е оторизирана за използване като прокси/рутер. Не препоръчваме интензивно използване на автономни агенти (в стил OpenCloud, дълги многостъпкови процеси, големи партиди) — upstream услугата може да реагира чрез ограничаване или блокиране на акаунта. Използвайте на свой собствен риск.",
       "webCookie": "Този доставчик се удостоверява чрез бисквитките на вашата уеб сесия. Upstream услугата може да анулира сесията по всяко време, което ще изисква да се влезете отново. Не се препоръчва за дълги операции без надзор. Използвайте на свой собствен риск.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Не показвай това отново за този доставчик",
       "understand": "Разбирам, продължи",
       "cancel": "Отказ"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Забранено",
     "enableProvider": "Активиране на доставчика",

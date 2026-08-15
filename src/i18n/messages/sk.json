@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Podpora tohto poskytovateľa bola ukončená",
     "riskNotice": {
       "title": "Pred pokračovaním",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Poskytovateľ s obmedzeniami používania — kliknutím zobrazíte podrobnosti",
       "oauth": "Tento poskytovateľ používa vašu oficiálnu reláciu produktu/OAuth, ktorá nie je autorizovaná na použitie ako proxy/smerovač. Neodporúčame intenzívne používanie autonómnych agentov (v štýle OpenCloud, dlhé viacstupňové toky, veľké dávky) — upstream môže reagovať obmedzením alebo zablokovaním účtu. Používajte na vlastné riziko.",
       "webCookie": "Tento poskytovateľ sa autentifikuje prostredníctvom súborov cookie vašej webovej relácie. Služba upstream môže reláciu kedykoľvek zneplatniť, čo si vyžiada opätovné prihlásenie. Neodporúča sa pre dlhé operácie bez dozoru. Používajte na vlastné riziko.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Nezobrazovať znova pre tohto poskytovateľa",
       "understand": "Rozumiem, pokračovať",
       "cancel": "Zrušiť"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Zakázané",
     "enableProvider": "Povoliť poskytovateľa",

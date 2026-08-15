@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Nhà cung cấp này đã không còn được hỗ trợ",
     "riskNotice": {
       "title": "Trước khi tiếp tục",
+      "detailsTitle": "Lưu ý khi sử dụng",
       "tooltip": "Nhà cung cấp có lưu ý về mức sử dụng — nhấp để xem chi tiết",
       "oauth": "Nhà cung cấp này sử dụng phiên đăng nhập/OAuth chính thức của sản phẩm, vốn không được cấp phép để dùng làm proxy/bộ định tuyến. Chúng tôi không khuyến khích sử dụng tác nhân tự trị cường độ cao (kiểu OpenCloud, luồng nhiều bước kéo dài, các lô lớn) — dịch vụ ngược dòng có thể phản ứng bằng cách hạn chế hoặc cấm tài khoản. Tự chịu rủi ro khi sử dụng.",
       "webCookie": "Nhà cung cấp này xác thực thông qua cookie phiên web của bạn. Dịch vụ ngược dòng có thể vô hiệu hóa phiên bất kỳ lúc nào, yêu cầu bạn phải đăng nhập lại. Không khuyến khích cho các hoạt động dài hạn không có sự giám sát. Tự chịu rủi ro khi sử dụng.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Không hiển thị lại thông báo này cho nhà cung cấp này",
       "understand": "Tôi đã hiểu, tiếp tục",
       "cancel": "Hủy"
+    },
+    "warningNotice": {
+      "tooltip": "{count} kết nối bị gắn cờ — tối đa {maxFailures} lỗi gần đây{lastFailureSuffix}. Nhấp để xem tình trạng kết nối.",
+      "lastFailureSuffix": " (lỗi gần nhất lúc {time})",
+      "ariaLabel": "Xem chi tiết tình trạng kết nối, {count} cảnh báo"
     },
     "disabled": "Đã tắt",
     "enableProvider": "Bật nhà cung cấp",

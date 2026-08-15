@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "ఈ ప్రొవైడర్ నిలిపివేయబడింది",
     "riskNotice": {
       "title": "కొనసాగడానికి ముందు",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "వినియోగ హెచ్చరికలు ఉన్న ప్రొవైడర్ — వివరాల కోసం క్లిక్ చేయండి",
       "oauth": "ఈ ప్రొవైడర్ మీ అధికారిక ప్రోడక్ట్ సెషన్/OAuthని ఉపయోగిస్తుంది, ఇది ప్రాక్సీ/రూటర్ వినియోగానికి అనుమతించబడలేదు. మేము తీవ్రమైన అటానమస్ ఏజెంట్ వినియోగాన్ని (OpenCloud-శైలి, సుదీర్ఘ బహుళ-దశల ఫ్లోలు, పెద్ద బ్యాచ్‌లు) సిఫార్సు చేయము — అప్‌స్ట్రీమ్ ఖాతాను పరిమితం చేయడం లేదా నిషేధించడం ద్వారా ప్రతిస్పందించవచ్చు. మీ స్వంత పూచీకత్తుపై ఉపయోగించండి.",
       "webCookie": "ఈ ప్రొవైడర్ మీ వెబ్ సెషన్ కుకీల ద్వారా ప్రామాణీకరిస్తుంది. అప్‌స్ట్రీమ్ సేవ ఎప్పుడైనా సెషన్‌ను చెల్లనిదిగా చేయవచ్చు, దీని వలన మీరు మళ్లీ లాగిన్ అవ్వాల్సి ఉంటుంది. ఎక్కువసేపు పర్యవేక్షణ లేని ఆపరేషన్ల కోసం సిఫార్సు చేయబడదు. మీ స్వంత పూచీకత్తుపై ఉపయోగించండి.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "ఈ ప్రొవైడర్ కోసం దీన్ని మళ్లీ చూపవద్దు",
       "understand": "నాకు అర్థమైంది, కొనసాగించు",
       "cancel": "రద్దు చేయండి"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",

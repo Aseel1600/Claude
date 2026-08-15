@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Denne leverandøren er avviklet",
     "riskNotice": {
       "title": "Før du fortsetter",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Leverandør med forbehold om bruk — klikk for detaljer",
       "oauth": "Denne leverandøren bruker din offisielle produktøkt/OAuth, som ikke er autorisert for proxy-/rutingsbruk. Vi anbefaler ikke intensiv bruk av autonome agenter (OpenCloud-stil, lange flertrinnsflyter, store batcher) — oppstrømmen kan reagere med å begrense eller utestenge kontoen. Bruk på egen risiko.",
       "webCookie": "Denne leverandøren autentiserer via informasjonskapsler (cookies) fra nettøkten din. Oppstrømstjenesten kan ugyldiggjøre økten når som helst, noe som krever at du logger inn på nytt. Anbefales ikke for lange uovervåkede operasjoner. Bruk på egen risiko.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Ikke vis dette igjen for denne leverandøren",
       "understand": "Jeg forstår, fortsett",
       "cancel": "Avbryt"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Deaktivert",
     "enableProvider": "Aktiver leverandør",

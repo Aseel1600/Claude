@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "ספק זה הוצא משימוש",
     "riskNotice": {
       "title": "לפני שממשיכים",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "ספק עם סייגי שימוש — לחץ לפרטים",
       "oauth": "ספק זה משתמש בסשן המוצר הרשמי/OAuth שלך, שאינו מורשה לשימוש בפרוקסי/נתב. איננו ממליצים על שימוש אינטנסיבי בסוכנים אוטונומיים (בסגנון OpenCloud, תהליכים ארוכים מרובי שלבים, אצוות גדולות) — ספק ה-upstream עלול להגיב בהגבלת החשבון או בחסימתו. השימוש הוא על אחריותך בלבד.",
       "webCookie": "ספק זה מבצע אימות באמצעות עוגיות סשן הדפדפן שלך. שירות ה-upstream עלול לבטל את תוקף הסשן בכל עת, מה שידרוש ממך להתחבר מחדש. לא מומלץ לפעולות ארוכות ללא השגחה. השימוש הוא על אחריותך בלבד.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "אל תציג זאת שוב עבור ספק זה",
       "understand": "הבנתי, המשך",
       "cancel": "ביטול"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "מושבת",
     "enableProvider": "הפעל ספק",

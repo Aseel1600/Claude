@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "इस प्रदाता को अस्वीकृत कर दिया गया है",
     "riskNotice": {
       "title": "जारी रखने से पहले",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "उपयोग संबंधी चेतावनियों वाला प्रदाता — विवरण के लिए क्लिक करें",
       "oauth": "यह प्रदाता आपके आधिकारिक उत्पाद सत्र/OAuth का उपयोग करता है, जो प्रॉक्सी/राउटर उपयोग के लिए अधिकृत नहीं है। हम गहन स्वायत्त एजेंट उपयोग (OpenCloud-शैली, लंबे बहु-चरणीय प्रवाह, बड़े बैच) की अनुशंसा नहीं करते हैं — अपस्ट्रीम खाते को प्रतिबंधित या ब्लॉक करके प्रतिक्रिया दे सकता है। अपने जोखिम पर उपयोग करें।",
       "webCookie": "यह प्रदाता आपके वेब सत्र कुकीज़ के माध्यम से प्रमाणित करता है। अपस्ट्रीम सेवा किसी भी समय सत्र को अमान्य कर सकती है, जिससे आपको फिर से लॉग इन करने की आवश्यकता होगी। लंबे समय तक बिना निगरानी वाले संचालन के लिए अनुशंसित नहीं है। अपने जोखिम पर उपयोग करें।",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "इस प्रदाता के लिए इसे दोबारा न दिखाएं",
       "understand": "मैं समझ गया, जारी रखें",
       "cancel": "रद्द करें"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "विकलांग",
     "enableProvider": "प्रदाता सक्षम करें",

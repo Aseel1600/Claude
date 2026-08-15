@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "اس فراہم کنندہ کو فرسودہ کر دیا گیا ہے۔",
     "riskNotice": {
       "title": "جاری رکھنے سے پہلے",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "استعمال کے انتباہات والا فراہم کنندہ — تفصیلات کے لیے کلک کریں",
       "oauth": "یہ فراہم کنندہ آپ کے آفیشل پروڈکٹ سیشن/OAuth کا استعمال کرتا ہے، جو پراکسی/راؤٹر کے استعمال کے لیے مجاز نہیں ہے۔ ہم خود مختار ایجنٹ کے زیادہ استعمال (OpenCloud طرز، طویل کثیر مرحلہ جاتی فلو، بڑے بیچز) کی سفارش نہیں کرتے ہیں — اپ اسٹریم اکاؤنٹ کو محدود یا بین کر کے ردعمل ظاہر کر سکتا ہے۔ اپنے خطرے پر استعمال کریں۔",
       "webCookie": "یہ فراہم کنندہ آپ کے ویب سیشن کوکیز کے ذریعے توثیق کرتا ہے۔ اپ اسٹریم سروس کسی بھی وقت سیشن کو باطل کر سکتی ہے، جس کے لیے آپ کو دوبارہ لاگ ان کرنے کی ضرورت ہوگی۔ طویل غیر حاضر کارروائیوں کے لیے تجویز نہیں کی جاتی ہے۔ اپنے خطرے پر استعمال کریں۔",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "اس فراہم کنندہ کے لیے یہ دوبارہ نہ دکھائیں",
       "understand": "میں سمجھ گیا، جاری رکھیں",
       "cancel": "منسوخ کریں"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",

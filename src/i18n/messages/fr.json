@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Ce fournisseur est obsolète",
     "riskNotice": {
       "title": "Avant de continuer",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Fournisseur avec des restrictions d'utilisation — cliquez pour plus de détails",
       "oauth": "Ce fournisseur utilise votre session produit officielle/OAuth, ce qui n'est pas autorisé pour une utilisation via proxy/routeur. Nous ne recommandons pas une utilisation intensive par des agents autonomes (style OpenCloud, flux longs à étapes multiples, lots volumineux) — le service amont pourrait réagir en restreignant ou en bannissant le compte. À utiliser à vos risques et périls.",
       "webCookie": "Ce fournisseur s'authentifie via les cookies de votre session web. Le service amont peut invalider la session à tout moment, vous obligeant à vous reconnecter. Non recommandé pour les opérations longues sans surveillance. À utiliser à vos risques et périls.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Ne plus afficher cela pour ce fournisseur",
       "understand": "Je comprends, continuer",
       "cancel": "Annuler"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Désactivé",
     "enableProvider": "Activer le fournisseur",

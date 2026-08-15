@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Bu sağlayıcı kullanımdan kaldırıldı",
     "riskNotice": {
       "title": "Devam etmeden önce",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Kullanım uyarıları olan sağlayıcı — ayrıntılar için tıklayın",
       "oauth": "Bu sağlayıcı, proxy/yönlendirici kullanımı için yetkilendirilmemiş resmi ürün oturumunuzu/OAuth'unuzu kullanır. Yoğun otonom ajan kullanımını (OpenCloud tarzı, uzun çok adımlı akışlar, büyük toplu işlemler) önermiyoruz — üst sağlayıcı hesabı kısıtlayarak veya yasaklayarak tepki verebilir. Kullanım riski size aittir.",
       "webCookie": "Bu sağlayıcı, web oturumu çerezleriniz aracılığıyla kimlik doğrulaması yapar. Üst servis oturumu istediği zaman geçersiz kılabilir ve tekrar giriş yapmanızı gerektirebilir. Uzun süreli gözetimsiz işlemler için önerilmez. Kullanım riski size aittir.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Bu sağlayıcı için bunu bir daha gösterme",
       "understand": "Anladım, devam et",
       "cancel": "İptal"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Devre dışı",
     "enableProvider": "Sağlayıcıyı etkinleştir",

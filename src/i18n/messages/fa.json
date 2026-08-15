@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "این ارائه دهنده منسوخ شده است",
     "riskNotice": {
       "title": "قبل از ادامه",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "ارائه‌دهنده با هشدارهای استفاده — برای جزئیات کلیک کنید",
       "oauth": "این ارائه‌دهنده از نشست/OAuth رسمی محصول شما استفاده می‌کند که برای استفاده از پروکسی/روتر مجاز نیست. ما استفاده فشرده از عامل‌های خودکار (به سبک OpenCloud، جریان‌های چندمرحله‌ای طولانی، دسته‌های بزرگ) را توصیه نمی‌کنیم — ممکن است سرویس بالادستی با محدود کردن یا مسدود کردن حساب واکنش نشان دهد. با مسئولیت خودتان استفاده کنید.",
       "webCookie": "این ارائه‌دهنده از طریق کوکی‌های نشست وب شما احراز هویت می‌کند. سرویس بالادستی ممکن است در هر زمان نشست را باطل کند و شما را ملزم به ورود مجدد نماید. برای عملیات طولانی بدون نظارت توصیه نمی‌شود. با مسئولیت خودتان استفاده کنید.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "این را دیگر برای این ارائه‌دهنده نشان نده",
       "understand": "متوجه شدم، ادامه بده",
       "cancel": "لغو"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",

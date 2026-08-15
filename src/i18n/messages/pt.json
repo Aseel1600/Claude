@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Este provedor foi descontinuado",
     "riskNotice": {
       "title": "Antes de continuar",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provedor com advertências de utilização — clique para detalhes",
       "oauth": "Este provedor utiliza a sua sessão oficial do produto/OAuth, que não está autorizada para utilização de proxy/router. Não recomendamos a utilização intensiva de agentes autónomos (estilo OpenCloud, fluxos longos de vários passos, grandes lotes) — o upstream pode reagir restringindo ou banindo a conta. Utilize por sua conta e risco.",
       "webCookie": "Este provedor autentica-se através dos cookies da sua sessão web. O serviço upstream pode invalidar a sessão a qualquer momento, exigindo que inicie sessão novamente. Não recomendado para operações longas sem supervisão. Utilize por sua conta e risco.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Não mostrar isto novamente para este provedor",
       "understand": "Compreendo, continuar",
       "cancel": "Cancelar"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Desativado",
     "enableProvider": "Habilitar provedor",

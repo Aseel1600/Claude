@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "এই প্রদানকারীকে অবমূল্যায়ন করা হয়েছে",
     "riskNotice": {
       "title": "এগিয়ে যাওয়ার আগে",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "ব্যবহারের সতর্কতা সহ প্রদানকারী — বিস্তারিত জানতে ক্লিক করুন",
       "oauth": "এই প্রদানকারীটি আপনার অফিসিয়াল প্রোডাক্ট সেশন/OAuth ব্যবহার করে, যা প্রক্সি/রাউটার ব্যবহারের জন্য অনুমোদিত নয়। আমরা নিবিড় স্বায়ত্তশাসিত এজেন্ট ব্যবহার (OpenCloud-স্টাইল, দীর্ঘ বহু-ধাপের ফ্লো, বড় ব্যাচ) সুপারিশ করি না — আপস্ট্রিম অ্যাকাউন্টটি সীমাবদ্ধ বা নিষিদ্ধ করে প্রতিক্রিয়া জানাতে পারে। নিজের ঝুঁকিতে ব্যবহার করুন।",
       "webCookie": "এই প্রদানকারীটি আপনার ওয়েব সেশন কুকিজের মাধ্যমে প্রমাণীকরণ করে। আপস্ট্রিম পরিষেবাটি যেকোনো সময় সেশনটি বাতিল করতে পারে, যার ফলে আপনাকে আবার লগ ইন করতে হবে। দীর্ঘ সময় ধরে অযত্নে রেখে কাজ চালানোর জন্য প্রস্তাবিত নয়। নিজের ঝুঁকিতে ব্যবহার করুন।",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "এই প্রদানকারীর জন্য এটি আর দেখাবেন না",
       "understand": "আমি বুঝতে পেরেছি, চালিয়ে যান",
       "cancel": "বাতিল করুন"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",

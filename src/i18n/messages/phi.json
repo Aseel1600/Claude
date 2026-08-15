@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Ang provider na ito ay hindi na ginagamit",
     "riskNotice": {
       "title": "Bago magpatuloy",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provider na may mga paalala sa paggamit — i-click para sa mga detalye",
       "oauth": "Gumagamit ang provider na ito ng iyong opisyal na session ng produkto/OAuth, na hindi awtorisado para sa paggamit ng proxy/router. Hindi namin inirerekomenda ang masinsinang paggamit ng autonomous agent (estilong OpenCloud, mahabang multi-step na flow, malalaking batch) — maaaring tumugon ang upstream sa pamamagitan ng paghihigpit o pag-ban sa account. Gamitin sa sarili mong panganib.",
       "webCookie": "Nagpapatotoo ang provider na ito sa pamamagitan ng iyong mga cookie sa web session. Maaaring pawalang-bisa ng upstream na serbisyo ang session anumang oras, na nangangailangan sa iyong mag-log in muli. Hindi inirerekomenda para sa mahabang operasyon na walang bantay. Gamitin sa sarili mong panganib.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Huwag nang ipakita ito muli para sa provider na ito",
       "understand": "Naiintindihan ko, magpatuloy",
       "cancel": "Kanselahin"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Hindi pinagana",
     "enableProvider": "Paganahin ang provider",

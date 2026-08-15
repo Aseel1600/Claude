@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "このプロバイダーは廃止されました",
     "riskNotice": {
       "title": "続行する前に",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "使用上の注意点があるプロバイダー — クリックして詳細を表示",
       "oauth": "このプロバイダーは、プロキシ/ルーターでの使用が許可されていない公式製品のセッション/OAuthを使用します。自律型エージェントの集中的な使用（OpenCloudスタイル、長いマルチステップフロー、大量のバッチ処理）は推奨されません。アップストリームがアカウントを制限または禁止する可能性があります。自己責任でご利用ください。",
       "webCookie": "このプロバイダーは、Webセッションクッキーを使用して認証します。アップストリームサービスはいつでもセッションを無効化する可能性があり、その場合は再ログインが必要になります。長時間の無人運用には推奨されません。自己責任でご利用ください。",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "このプロバイダーでこれを再表示しない",
       "understand": "理解した上で続行",
       "cancel": "キャンセル"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "障害者",
     "enableProvider": "プロバイダーを有効にする",

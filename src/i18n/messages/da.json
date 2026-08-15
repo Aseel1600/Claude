@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Denne udbyder er blevet udfaset",
     "riskNotice": {
       "title": "Før du fortsætter",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Udbyder med forbehold for brug — klik for detaljer",
       "oauth": "Denne udbyder bruger din officielle produktsession/OAuth, som ikke er godkendt til proxy-/routerbrug. Vi anbefaler ikke intensiv brug af autonome agenter (OpenCloud-stil, lange flertrinsforløb, store batches) — upstream-tjenesten kan reagere ved at begrænse eller spærre kontoen. Brug på eget ansvar.",
       "webCookie": "Denne udbyder godkender via dine websessionscookies. Upstream-tjenesten kan til enhver tid gøre sessionen ugyldig, hvilket kræver, at du logger ind igen. Anbefales ikke til lange uovervågede handlinger. Brug på eget ansvar.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Vis ikke dette igen for denne udbyder",
       "understand": "Jeg forstår, fortsæt",
       "cancel": "Annuller"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Deaktiveret",
     "enableProvider": "Aktiver udbyder",

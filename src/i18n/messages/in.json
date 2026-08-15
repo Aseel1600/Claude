@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Penyedia ini sudah tidak digunakan lagi",
     "riskNotice": {
       "title": "Sebelum melanjutkan",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Penyedia dengan peringatan penggunaan — klik untuk detail",
       "oauth": "Penyedia ini menggunakan sesi produk/OAuth resmi Anda, yang tidak diizinkan untuk penggunaan proksi/router. Kami tidak menyarankan penggunaan agen otonom yang intensif (gaya OpenCloud, alur multi-langkah yang panjang, batch besar) — upstream mungkin bereaksi dengan membatasi atau memblokir akun. Gunakan dengan risiko Anda sendiri.",
       "webCookie": "Penyedia ini mengautentikasi melalui kuki sesi web Anda. Layanan upstream dapat membatalkan sesi kapan saja, mengharuskan Anda untuk masuk kembali. Tidak disarankan untuk operasi jangka panjang tanpa pengawasan. Gunakan dengan risiko Anda sendiri.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Jangan tunjukkan ini lagi untuk penyedia ini",
       "understand": "Saya mengerti, lanjutkan",
       "cancel": "Batal"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",

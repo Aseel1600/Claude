@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Ez a szolgáltató elavult",
     "riskNotice": {
       "title": "Mielőtt folytatná",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Használati figyelmeztetésekkel rendelkező szolgáltató — kattintson a részletekért",
       "oauth": "Ez a szolgáltató a hivatalos termékmunkamenetet/OAuth-ot használja, amely nem engedélyezett proxy/router használatra. Nem javasoljuk az intenzív autonóm ágens használatot (OpenCloud-stílusú, hosszú, többlépéses folyamatok, nagy kötegek) — az upstream szolgáltató a fiók korlátozásával vagy kitiltásával reagálhat. Saját felelősségre használja.",
       "webCookie": "Ez a szolgáltató a webes munkamenet-sütik segítségével hitelesít. Az upstream szolgáltatás bármikor érvénytelenítheti a munkamenetet, ami újbóli bejelentkezést igényel. Hosszú, felügyelet nélküli műveletekhez nem ajánlott. Saját felelősségre használja.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Ne jelenjen meg újra ennél a szolgáltatónál",
       "understand": "Megértettem, folytatás",
       "cancel": "Mégse"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Letiltva",
     "enableProvider": "Szolgáltató engedélyezése",

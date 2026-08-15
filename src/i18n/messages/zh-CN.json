@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "此提供者已弃用",
     "riskNotice": {
       "title": "继续之前",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "该提供者有使用注意事项 —— 点击查看详情",
       "oauth": "此提供者使用你官方产品的会话 / OAuth,这并未被授权用于代理或路由用途。 不建议进行高强度的自主代理使用(OpenCloud 风格、长链路多步流程、大批量请求)—— 上游可能因此限制甚至封禁账号。 使用风险自负。",
       "webCookie": "此提供者通过你的网页会话 Cookie 进行鉴权。上游服务可能随时让会话失效,届时你需要重新登录。不建议用于长时间无人值守的操作。 使用风险自负。",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "对此提供者不再显示此提示",
       "understand": "我已了解,继续",
       "cancel": "取消"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "已禁用",
     "enableProvider": "启用提供者",

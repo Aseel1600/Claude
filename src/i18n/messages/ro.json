@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Acest furnizor a fost retras",
     "riskNotice": {
       "title": "Înainte de a continua",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Furnizor cu avertismente de utilizare — faceți clic pentru detalii",
       "oauth": "Acest furnizor utilizează sesiunea oficială a produsului/OAuth, care nu este autorizată pentru utilizarea ca proxy/router. Nu recomandăm utilizarea intensivă a agenților autonomi (stil OpenCloud, fluxuri lungi cu mai mulți pași, loturi mari) — upstream-ul poate reacționa prin restricționarea sau blocarea contului. Utilizați pe propriul risc.",
       "webCookie": "Acest furnizor se autentifică prin cookie-urile sesiunii web. Serviciul upstream poate invalida sesiunea în orice moment, solicitându-vă să vă autentificați din nou. Nu este recomandat pentru operațiuni lungi nesupravegheate. Utilizați pe propriul risc.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Nu mai afișa acest mesaj pentru acest furnizor",
       "understand": "Am înțeles, continuă",
       "cancel": "Anulează"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Dezactivat",
     "enableProvider": "Activați furnizorul",

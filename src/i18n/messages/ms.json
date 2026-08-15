@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Pembekal ini telah ditamatkan",
     "riskNotice": {
       "title": "Sebelum meneruskan",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Penyedia dengan kekangan penggunaan — klik untuk butiran",
       "oauth": "Penyedia ini menggunakan sesi produk/OAuth rasmi anda, yang tidak dibenarkan untuk penggunaan proksi/penghala. Kami tidak mengesyorkan penggunaan ejen autonomi yang intensif (gaya OpenCloud, aliran berbilang langkah yang panjang, kelompok besar) — upstream mungkin bertindak balas dengan menyekat atau mengharamkan akaun tersebut. Gunakan atas risiko anda sendiri.",
       "webCookie": "Penyedia ini mengesahkan melalui kuki sesi web anda. Perkhidmatan upstream mungkin membatalkan sesi pada bila-bila masa, memerlukan anda untuk log masuk semula. Tidak disyorkan untuk operasi tanpa pengawasan yang lama. Gunakan atas risiko anda sendiri.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Jangan tunjukkan ini lagi untuk penyedia ini",
       "understand": "Saya faham, teruskan",
       "cancel": "Batal"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Dilumpuhkan",
     "enableProvider": "Dayakan pembekal",

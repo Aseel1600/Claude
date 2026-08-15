@@ -5092,6 +5092,7 @@
     "deprecatedProvider": "Deze aanbieder is beëindigd",
     "riskNotice": {
       "title": "Voordat je doorgaat",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provider met gebruiksvoorbehouden — klik voor details",
       "oauth": "Deze provider gebruikt je officiële productsessie/OAuth, die niet is geautoriseerd voor proxy-/routergebruik. We raden intensief gebruik van autonome agenten (OpenCloud-stijl, lange stappenreeksen, grote batches) af — de upstream kan reageren door het account te beperken of te blokkeren. Gebruik op eigen risico.",
       "webCookie": "Deze provider authenticeert via je websessiecookies. De upstream-dienst kan de sessie op elk moment ongeldig maken, waardoor je opnieuw moet inloggen. Niet aanbevolen voor langdurig onbeheerd gebruik. Gebruik op eigen risico.",
@@ -5099,6 +5100,11 @@
       "dontShowAgain": "Dit niet meer tonen voor deze provider",
       "understand": "Ik begrijp het, doorgaan",
       "cancel": "Annuleren"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Uitgeschakeld",
     "enableProvider": "Aanbieder inschakelen",
