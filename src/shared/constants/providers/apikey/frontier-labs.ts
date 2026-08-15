@@ -11,6 +11,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     color: "#10A37F",
     textIcon: "OA",
     website: "https://platform.openai.com",
+    serviceKinds: ["llm", "imageToText"],
   },
   reka: {
     id: "reka",
@@ -52,6 +53,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     color: "#D97757",
     textIcon: "AN",
     website: "https://platform.claude.com",
+    serviceKinds: ["llm", "imageToText"],
   },
   gemini: {
     id: "gemini",
@@ -64,6 +66,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     hasFree: true,
     freeNote:
       "Free tier available through Google AI Studio; current per-model quotas and regional limits apply",
+    serviceKinds: ["llm", "imageToText"],
   },
   groq: {
     id: "groq",
@@ -75,6 +78,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     website: "https://groq.com",
     hasFree: true,
     freeNote: "Free tier: 30 RPM / 14.4K RPD — no credit card",
+    serviceKinds: ["llm", "imageToText"],
   },
   blackbox: {
     id: "blackbox",
@@ -96,6 +100,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     color: "#1DA1F2",
     textIcon: "XA",
     website: "https://x.ai",
+    serviceKinds: ["llm", "imageToText"],
   },
   mistral: {
     id: "mistral",
@@ -107,6 +112,7 @@ export const APIKEY_PROVIDERS_FRONTIER = {
     website: "https://mistral.ai",
     hasFree: true,
     freeNote: "Free Experiment tier: rate-limited access to all models, no credit card required",
+    serviceKinds: ["llm", "imageToText"],
   },
   perplexity: {
     id: "perplexity",

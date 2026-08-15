@@ -206,6 +206,7 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         // some targets may NOT support vision. In that case, the vision
         // bridge must process images so combo targets can describe them.
         if (comboVisionBridgeDecision !== "process") {
+          context.log?.debug?.("VISION_BRIDGE", "Skipping: target model supports vision natively");
           return { block: false };
         }
         // Combo mapping found — fall through to process images
@@ -404,7 +405,11 @@ export class VisionBridgeGuardrail extends BaseGuardrail {
         const description = cached ?? (await callVision(imagePart.imageUrl, describeConfig));
         if (cached === undefined && key && cache) cache.set(key, description);
         recordBridgeUse("vision", { cacheHit: cached !== undefined });
-        return `[Image ${i + 1}]: ${description}`;
+        const capped =
+          runtime.maxChars > 0 && description.length > runtime.maxChars
+            ? description.slice(0, runtime.maxChars) + "…"
+            : description;
+        return `[Image ${i + 1}]: ${capped}`;
       })
     );
 

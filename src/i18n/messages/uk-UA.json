@@ -6821,8 +6821,17 @@
     "chars": "{count} символів",
     "thinkingBudgetTitle": "Мислення про бюджет",
     "thinkingBudgetDesc": "Контролюйте використання маркера міркування AI для всіх запитів",
+    "thinkingBudgetIndependenceHint": "Функції стиснення, маршрутизації та обмеження токенів продовжують працювати в кожному режимі. Авто не означає \"авто-показ думок\" — він видаляє поля міркувань клієнта.",
     "passthrough": "Прохідний",
     "passthroughDesc": "Без змін — клієнт контролює бюджет мислення",
+    "thinkingModePassthrough": "Пропускний режим",
+    "thinkingModePassthroughDesc": "Залишити обґрунтування клієнта незмінним (зусилля, резюме, блоки мислення). Обов'язково для видимого мислення Codex/Desktop. За замовчуванням.",
+    "thinkingModeAuto": "Авто (стрічка)",
+    "thinkingModeAutoDesc": "Видалити всі поля мислення/міркування клієнта (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) і дозволити постачальнику вигадати значення за замовчуванням. Можна приховати панелі мислення та зламати запити на підсумок клієнта.",
+    "thinkingModeCustom": "Користувацький",
+    "thinkingModeCustomDesc": "Перезапишіть кожен запит з фіксованим бюджетом токенів на мислення, який ви встановили нижче.",
+    "thinkingModeAdaptive": "Адаптивний",
+    "thinkingModeAdaptiveDesc": "Масштабуйте бюджет на роздуми з базовими зусиллями, використовуючи кількість повідомлень, інструменти та довжину запиту.",
     "auto": "Авто",
     "autoDesc": "Видаліть усі конфігурації мислення — дозвольте постачальнику вирішувати",
     "custom": "Custom",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "Розширений",
     "modalityBridgeTimeoutMs": "Тайм-аут (мс)",
     "modalityBridgeMaxImages": "Максимум зображень на запит",
+    "visionMaxCharsLabel": "Максимальна кількість символів у описі",
+    "visionMaxCharsHint": "Обмежте довжину опису моделі зору. 0 = без обмежень — підвищте для завдань OCR з великою кількістю деталей.",
     "modalityBridgeCacheEnabled": "Опис кешу",
     "modalityBridgeCacheEnabledDesc": "Повторне використання описів для ідентичних зображень (з ключем SHA-256, в пам'яті).",
     "modalityBridgeCacheTtlMinutes": "Час життя кешу (хвилини)",
@@ -8146,16 +8157,7 @@
     "cliproxyapiHealth": "Здоров'я",
     "cliproxyapiPort": "Порт",
     "qdrantHost": "Хост",
-    "qdrantCollection": "Колекція",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Колекція"
   },
   "contextRtk": {
     "title": "Двигун RTK",
@@ -13124,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "Налаштування постачальника",
@@ -13239,17 +13255,17 @@
     "pollErrorLocalOnly": "Ця сторінка доступна лише з localhost або LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Опитування зупинено: сервер відхилив запит (404/403).",
     "pollErrorTransient": "Помилка отримання даних: автоматичний повтор.",
-    "degraded": "Часткові дані: недоступні джерела: {sources}",
-    "degraded.source.database": "База Даних",
-    "degraded.source.circuitBreaker": "Автоматичний Вимикач",
-    "degraded.source.modelLockouts": "Блокування Моделі",
-    "degraded.source.count": "Кількість З'єднань"
+    "degraded": {
+      "message": "Часткові дані: недоступні джерела: {sources}",
+      "source": {
+        "database": "База Даних",
+        "circuitBreaker": "Автоматичний Вимикач",
+        "modelLockouts": "Блокування Моделі",
+        "count": "Кількість З'єднань"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Відхиляйте запити перед відправкою, коли цільова модель не має необхідних можливостей (зір, інструменти, структурований вихід, контекстне вікно). Захищає прямі запити від одного постачальника, які обходять фільтр сумісності комбінаційного шару.",
-  "capabilityFilter.visionMismatch": "Постачальник не підтримує візуалізацію для цього запиту зображення",
-  "capabilityFilter.toolsMismatch": "Постачальник не підтримує виклик інструментів",
-  "capabilityFilter.structuredOutputMismatch": "Постачальник не підтримує структурований вивід",
-  "capabilityFilter.contextWindowMismatch": "Запит перевищує контекстне вікно постачальника",
   "publicSystem": {
     "notFound": {
       "title": "Сторінку не знайдено",
@@ -13624,5 +13640,49 @@
     "hint": "Коли увімкнено, виявлені моделі з'являються у виборах постачальника в OmniRoute.",
     "updateFailed": "Не вдалося оновити (HTTP {status})",
     "networkError": "Помилка мережі — не вдалося оновити налаштування експозиції провайдера"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Постачальник не підтримує візуалізацію для цього запиту зображення",
+    "toolsMismatch": "Постачальник не підтримує виклик інструментів",
+    "structuredOutputMismatch": "Постачальник не підтримує структурований вивід",
+    "contextWindowMismatch": "Запит перевищує контекстне вікно постачальника"
   }
 }

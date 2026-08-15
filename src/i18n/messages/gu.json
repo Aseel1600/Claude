@@ -6821,8 +6821,17 @@
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
     "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetIndependenceHint": "સંકોચન, માર્ગદર્શન, અને ટોકન-મર્યાદા સુવિધાઓ દરેક મોડમાં કાર્યરત રહે છે. ઓટોનો અર્થ “ઓટો-શો વિચારો” નથી — તે ક્લાયન્ટની વિચારણા ક્ષેત્રોને દૂર કરે છે.",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "પાસથ્રૂ",
+    "thinkingModePassthroughDesc": "ક્લાયન્ટનું કારણ બદલવા નહી (પ્રયાસ, સારાંશ, વિચાર બ્લોક). Codex/Desktop દૃશ્યમાન વિચાર માટે જરૂરી. ડિફોલ્ટ.",
+    "thinkingModeAuto": "ઓટો (સ્ટ્રિપ)",
+    "thinkingModeAutoDesc": "બધા ક્લાયન્ટ વિચારણા/વિચારણા ક્ષેત્રો (વિચારણા, વિચારણા_પ્રયાસ, ક્લોડ વિચારણા, જેમિની વિચારણા_કન્ફિગ) દૂર કરો અને પ્રદાતા ડિફોલ્ટ્સ શોધવા દો. વિચારણા પેનલ છુપાવી શકાય છે અને ક્લાયન્ટ સારાંશ વિનંતીઓને તોડે છે.",
+    "thinkingModeCustom": "કસ્ટમ",
+    "thinkingModeCustomDesc": "તમારા દ્વારા નીચે નિર્ધારિત કરેલા સ્થિર વિચાર ટોકન બજેટ સાથે દરેક વિનંતીને ઓવરરાઇટ કરો.",
+    "thinkingModeAdaptive": "અનુકૂળ",
+    "thinkingModeAdaptiveDesc": "સંદેશા સંખ્યા, સાધનો, અને પ્રોમ્પ્ટ લંબાઈનો ઉપયોગ કરીને આધાર પ્રયાસમાંથી વિચારધારા બજેટને સ્કેલ કરો.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "ઉન્નત",
     "modalityBridgeTimeoutMs": "ટાઈમઆઉટ (મિલિસેકન્ડ)",
     "modalityBridgeMaxImages": "પ્રતિ વિનંતી મહત્તમ છબીઓ",
+    "visionMaxCharsLabel": "મહત્તમ વર્ણન અક્ષરો",
+    "visionMaxCharsHint": "વિઝન મોડેલના વર્ણનની લંબાઈને મર્યાદિત કરો. 0 = અનલિમિટેડ — વિગતભર્યા OCR કાર્ય માટે વધારવા માટે.",
     "modalityBridgeCacheEnabled": "કેશ વર્ણનો",
     "modalityBridgeCacheEnabledDesc": "એકસરખા છબીઓ માટે વર્ણનો પુનઃઉપયોગ કરો (SHA-256 કીવાળા, મેમરીમાં).",
     "modalityBridgeCacheTtlMinutes": "કેશ TTL (મિનિટ)",
@@ -8146,16 +8157,7 @@
     "cliproxyapiHealth": "આરોગ્ય",
     "cliproxyapiPort": "પોર્ટ",
     "qdrantHost": "હોસ્ટ",
-    "qdrantCollection": "સંગ્રહ",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "સંગ્રહ"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -13124,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "પ્રદાતા સેટઅપ",
@@ -13239,17 +13255,17 @@
     "pollErrorLocalOnly": "આ પૃષ્ઠ ફક્ત localhost અથવા LAN પરથી જ ઍક્સેસિબલ છે (LOCAL_ONLY).",
     "pollErrorStopped": "પોલિંગ બંધ: સર્વરે વિનંતી નકારી (404/403).",
     "pollErrorTransient": "ડેટા મેળવવામાં ભૂલ: આપમેળે ફરી પ્રયાસ કરી રહ્યાં છીએ.",
-    "degraded": "આંશિક ડેટા: અનુપલબ્ધ સ્રોત: {sources}",
-    "degraded.source.database": "ડેટાબેઝ",
-    "degraded.source.circuitBreaker": "સર્કિટ બ્રેકર",
-    "degraded.source.modelLockouts": "મોડેલ લોકઆઉટ",
-    "degraded.source.count": "કનેક્શન ગણતરી"
+    "degraded": {
+      "message": "આંશિક ડેટા: અનુપલબ્ધ સ્રોત: {sources}",
+      "source": {
+        "database": "ડેટાબેઝ",
+        "circuitBreaker": "સર્કિટ બ્રેકર",
+        "modelLockouts": "મોડેલ લોકઆઉટ",
+        "count": "કનેક્શન ગણતરી"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "જ્યારે લક્ષ્ય મોડેલમાં જરૂરી ક્ષમતાઓ (દૃષ્ટિ, સાધનો, રચિત આઉટપુટ, સંદર્ભ વિન્ડો) નથી ત્યારે વિતરણ પહેલાં વિનંતીઓને નકારી નાખો. કોમ્બો-લેયર સુસંગતતા ફિલ્ટરને બાયપાસ કરતી સીધી એકલ-પ્રદાતા વિનંતિઓને સુરક્ષિત કરે છે.",
-  "capabilityFilter.visionMismatch": "આ છબીની વિનંતી માટે પ્રદાતા દ્રષ્ટિનું સમર્થન નથી આપતું",
-  "capabilityFilter.toolsMismatch": "પ્રદાતા ટૂલ કોલિંગને સપોર્ટ કરતો નથી",
-  "capabilityFilter.structuredOutputMismatch": "પ્રદાતા સંરચિત આઉટપુટને સમર્થન આપતો નથી",
-  "capabilityFilter.contextWindowMismatch": "વિનંતી પ્રદાતા સંદર્ભ વિન્ડોને પાર કરે છે",
   "publicSystem": {
     "notFound": {
       "title": "પૃષ્ઠ મળ્યું નથી",
@@ -13624,5 +13640,49 @@
     "hint": "જ્યારે સક્રિય કરવામાં આવે છે, ત્યારે શોધાયેલા મોડલ્સ ઓમ્નીરૂટમાં પ્રદાતા પસંદગીઓમાં દેખાય છે.",
     "updateFailed": "અપડેટ કરવામાં નિષ્ફળ (HTTP {status})",
     "networkError": "નેટવર્ક ભૂલ — પ્રદાતા એક્સપોઝર સેટિંગને અપડેટ કરી શકતા નથી"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "આ છબીની વિનંતી માટે પ્રદાતા દ્રષ્ટિનું સમર્થન નથી આપતું",
+    "toolsMismatch": "પ્રદાતા ટૂલ કોલિંગને સપોર્ટ કરતો નથી",
+    "structuredOutputMismatch": "પ્રદાતા સંરચિત આઉટપુટને સમર્થન આપતો નથી",
+    "contextWindowMismatch": "વિનંતી પ્રદાતા સંદર્ભ વિન્ડોને પાર કરે છે"
   }
 }
