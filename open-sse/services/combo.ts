@@ -93,6 +93,13 @@ import {
   expandPromptCacheAffinityTargetsFromConnections,
   resolvePromptCacheAffinityKey,
 } from "./combo/promptCacheAffinity.ts";
+import {
+  classifyComboOutcome,
+  formatComboOutcomes,
+  redactConnectionLabel,
+  buildRedactedSummary,
+} from "./combo/comboErrorAggregation.ts";
+import type { ComboErrorEntry } from "./combo/comboErrorAggregation.ts";
 import type { CompressionMode } from "./compression/types.ts";
 import { getCachedProviderConnections } from "../../src/lib/db/readCache";
 import { isProviderInCooldown, recordProviderCooldown } from "./providerCooldownTracker.ts";
@@ -853,7 +860,7 @@ export async function handleComboChat({
   let comboExpired = false;
   // Accumulator for per-model error details across targets in the current set try.
   // Reset at the start of each set retry (same lifecycle as lastError/recordedAttempts).
-  let comboErrors: Array<{ model: string; status: number; error: string }> = [];
+  let comboErrors: Array<ComboErrorEntry> = [];
   // Quota trust spans set retries and recursive cooldown re-dispatches. Once any
   // failure is non-quota, a nested caller must never treat this dispatch as quota-only.
   let observedFailure = false;
@@ -1343,6 +1350,15 @@ export async function handleComboChat({
               // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
               lastError = `Upstream response failed quality validation: ${quality.reason}`;
               lastStatus = 502;
+              // #10314: record quality failures as a FIRST-CLASS per-target outcome
+              // so a quality reason is never silently dropped from the aggregated
+              // terminal message when a later sibling overwrites lastError.
+              comboErrors.push({
+                model: modelStr,
+                status: 502,
+                error: quality.reason || "upstream response failed quality validation",
+                kind: "quality",
+              });
               if (i > 0) fallbackCount++;
               if (provider && rawModel) {
                 const mlSettings = resolveModelLockoutSettings(settings);
@@ -1850,6 +1866,7 @@ export async function handleComboChat({
               model: modelStr,
               status: result.status,
               error: errorText || String(result.status),
+              kind: classifyComboOutcome(result.status, errorText),
             });
             lastStatus = result.status;
             if (i > 0) fallbackCount++;
@@ -2043,6 +2060,7 @@ export async function handleComboChat({
             model: modelStr,
             status: result.status,
             error: errorText || String(result.status),
+            kind: classifyComboOutcome(result.status, errorText),
           });
           lastStatus = result.status;
           if (i > 0) fallbackCount++;
@@ -2197,15 +2215,10 @@ export async function handleComboChat({
 
       // Global combo timeout: return aggregated error immediately, skipping set retries.
       if (comboExpired) {
-        const summary = comboErrors
-          .slice(0, 5)
-          .map((e) => `${e.model} (${e.status})`)
-          .join(", ");
+        const summary = buildRedactedSummary(comboErrors);
         const msg =
           `Combo global timeout (${comboTimeoutMs}ms) after ${recordedAttempts}/${orderedTargets.length} targets` +
-          (comboErrors.length > 0
-            ? ` | tried: ${summary}${comboErrors.length > 5 ? `... (+${comboErrors.length - 5})` : ""}`
-            : "");
+          (comboErrors.length > 0 ? ` | tried: ${summary}` : "");
         const latencyMs = Date.now() - startTime;
         if (recordedAttempts === 0) {
           recordComboRequest(combo.name, null, {
@@ -2276,18 +2289,12 @@ export async function handleComboChat({
       }
 
       const status = lastStatus;
-      // Build aggregated error message with per-model failure details for diagnostics.
-      const comboErrorSummary =
-        comboErrors.length > 0
-          ? " [" +
-            comboErrors
-              .slice(0, 5)
-              .map((e) => `${e.model} (${e.status})`)
-              .join(", ") +
-            (comboErrors.length > 5 ? `... (+${comboErrors.length - 5})` : "") +
-            "]"
-          : "";
-      const msg = (lastError || "All combo models unavailable") + comboErrorSummary;
+      // #10314: build the terminal message from the structured per-target
+      // outcomes (each distinct class+reason listed separately) instead of
+      // mashing a single lastError with raw `[model (status)]` markers. Connection
+      // identifiers are redacted. Falls back to lastError when no target recorded
+      // a structured outcome.
+      const msg = formatComboOutcomes(comboErrors) || lastError || "All combo models unavailable";
 
       // Cooldown-aware retry: instead of crystallizing a transient failure, wait
       // out a SHORT cooldown and re-run the whole set loop. Guarded by the helper
@@ -2715,6 +2722,10 @@ async function handleRoundRobinCombo({
   let globalAttempts = 0;
   let fallbackCount = 0;
   let recordedAttempts = 0;
+  // #10314: per-target outcome accumulator for the round-robin twin so the
+  // terminal message lists each distinct reason separately (see the quality path
+  // and the "Done with this model" path below), mirroring handleComboChat.
+  const rrOutcomes: Array<ComboErrorEntry> = [];
 
   // #1731: Per-request in-memory set of providers whose quota is fully exhausted.
   // When a target returns a quota-exhausted 429, remaining targets from the same
@@ -2911,6 +2922,12 @@ async function handleRoundRobinCombo({
             // misleading ALL_ACCOUNTS_INACTIVE when the real issue is quality.
             lastError = `Upstream response failed quality validation: ${quality.reason}`;
             lastStatus = 502;
+            rrOutcomes.push({
+              model: modelStr,
+              status: 502,
+              error: quality.reason || "upstream response failed quality validation",
+              kind: "quality",
+            });
             if (offset > 0) fallbackCount++;
             break; // move to next model
           }
@@ -3217,6 +3234,12 @@ async function handleRoundRobinCombo({
         recordedAttempts++;
         lastError = errorText || String(result.status);
         lastStatus = result.status;
+        rrOutcomes.push({
+          model: modelStr,
+          status: result.status,
+          error: errorText || String(result.status),
+          kind: classifyComboOutcome(result.status, errorText),
+        });
         if (offset > 0) fallbackCount++;
         log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
 
@@ -3337,7 +3360,10 @@ async function handleRoundRobinCombo({
   }
 
   const status = lastStatus;
-  const msg = lastError || "All round-robin combo models unavailable";
+  // #10314: same structured per-target aggregation as handleComboChat — list each
+  // distinct reason separately (redacted), fall back to lastError when no outcome.
+  const msg =
+    formatComboOutcomes(rrOutcomes) || lastError || "All round-robin combo models unavailable";
 
   if (earliestRetryAfter && isRetryAfterEligibleStatus(status)) {
     const retryHuman = formatRetryAfter(toRetryAfterDisplayValue(earliestRetryAfter));
