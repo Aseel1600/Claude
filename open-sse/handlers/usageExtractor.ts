@@ -26,7 +26,8 @@ export function extractUsageFromResponse(responseBody, provider) {
         responseBody.usage.prompt_tokens_details?.cached_tokens ??
         responseBody.usage.input_tokens_details?.cached_tokens ??
         responseBody.usage.prompt_cache_hit_tokens ??
-        responseBody.usage.cached_tokens,
+        responseBody.usage.cached_tokens ??
+        responseBody.usage.cache_read_input_tokens,
       reasoning_tokens:
         responseBody.usage.completion_tokens_details?.reasoning_tokens ??
         responseBody.usage.output_tokens_details?.reasoning_tokens ??
@@ -63,6 +64,9 @@ export function extractUsageFromResponse(responseBody, provider) {
       completion_tokens: responseBody.usage.output_tokens || 0,
       cache_read_input_tokens: cacheRead,
       cache_creation_input_tokens: cacheCreation,
+      ...(typeof responseBody.usage.output_tokens_details?.thinking_tokens === "number"
+        ? { reasoning_tokens: responseBody.usage.output_tokens_details.thinking_tokens }
+        : {}),
     };
   }
 
@@ -91,10 +95,13 @@ export function extractUsageFromResponse(responseBody, provider) {
 
   // Gemini format
   if (responseBody.usageMetadata && typeof responseBody.usageMetadata === "object") {
+    // Gemini reports thoughts outside candidates. Fold them into completion so
+    // every provider keeps reasoning as a subset of completion tokens.
+    const thoughts = responseBody.usageMetadata.thoughtsTokenCount || 0;
     return {
       prompt_tokens: responseBody.usageMetadata.promptTokenCount || 0,
-      completion_tokens: responseBody.usageMetadata.candidatesTokenCount || 0,
-      reasoning_tokens: responseBody.usageMetadata.thoughtsTokenCount,
+      completion_tokens: (responseBody.usageMetadata.candidatesTokenCount || 0) + thoughts,
+      reasoning_tokens: thoughts,
     };
   }
 

@@ -219,11 +219,92 @@ curl https://localhost:20128/api/v1/providers/{provider}/models \
   -H "Authorization: Bearer $OMNIROUTE_TOKEN"
 ```
 
+### GET /api/v1/management/proxy-subscriptions
+
+List proxy subscriptions
+
+Lists all operator-supplied proxy subscription links. Also starts the background auto-refresh scheduler (idempotent) so enabled subscriptions stay in sync. Credentials embedded in `url` are redacted in the response.
+
+```bash
+curl https://localhost:20128/api/v1/management/proxy-subscriptions \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+```
+
+### POST /api/v1/management/proxy-subscriptions
+
+Create a proxy subscription
+
+Creates a subscription record. If `mode` is `rule`, at least one entry in `ruleProviders` is required. `updateIntervalMinutes` defaults to 60 and `enabled` defaults to `false` when omitted or not exactly `true`.
+
+```bash
+curl -X POST https://localhost:20128/api/v1/management/proxy-subscriptions \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### GET /api/v1/management/proxy-subscriptions/{id}
+
+Get a proxy subscription
+
+```bash
+curl https://localhost:20128/api/v1/management/proxy-subscriptions/{id} \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+```
+
+### PATCH /api/v1/management/proxy-subscriptions/{id}
+
+Update a proxy subscription
+
+Partial update — only fields present in the body are changed (name/url/mode/ruleProviders/localCoreEndpoint/updateIntervalMinutes/enabled).
+
+```bash
+curl -X PATCH https://localhost:20128/api/v1/management/proxy-subscriptions/{id} \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+### DELETE /api/v1/management/proxy-subscriptions/{id}
+
+Delete a proxy subscription
+
+Removes the subscription record and unbinds/drops its synced proxy_registry rows.
+
+```bash
+curl -X DELETE https://localhost:20128/api/v1/management/proxy-subscriptions/{id} \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+```
+
+### GET /api/v1/management/proxy-subscriptions/{id}/nodes
+
+Get a subscription's last-parsed node summary
+
+Returns the last-parsed node list without re-fetching the (possibly slow) subscription URL.
+
+```bash
+curl https://localhost:20128/api/v1/management/proxy-subscriptions/{id}/nodes \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+```
+
+### POST /api/v1/management/proxy-subscriptions/{id}/refresh
+
+Refresh a proxy subscription
+
+Re-fetches and re-parses the subscription URL, syncs its nodes into `proxy_registry`, and (re)binds the pool.
+
+```bash
+curl -X POST https://localhost:20128/api/v1/management/proxy-subscriptions/{id}/refresh \
+  -H "Authorization: Bearer $OMNIROUTE_TOKEN"
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
 ### POST /api/v1/ocr
 
 Document OCR
 
-Mistral OCR–compatible document OCR endpoint. Accepts a JSON body referencing a document/image and returns extracted text. Success responses carry the `X-OmniRoute-*` cost-telemetry headers.
+Multi-provider document OCR endpoint (Mistral OCR–compatible request and response shape). Accepts a JSON body referencing a document/image and returns extracted text. `model` selects the provider via a `provider/model` prefix (e.g. `mistral/mistral-ocr-latest`, `azure-document-intelligence/prebuilt-read`, `vertex-deepseek-ocr/deepseek-ocr-maas`); a bare model id (e.g. `mistral-ocr-latest`) resolves to its registered provider, and an omitted `model` defaults to Mistral. Azure Document Intelligence is asynchronous upstream — the handler polls the returned operation until it succeeds or fails before responding, so this endpoint can take longer to return for that provider. Success responses carry the `X-OmniRoute-*` cost-telemetry headers.
 
 ```bash
 curl -X POST https://localhost:20128/api/v1/ocr \

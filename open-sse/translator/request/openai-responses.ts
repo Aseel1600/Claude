@@ -20,6 +20,7 @@ import {
   RESPONSES_STORE_MARKER,
   COPILOT_REASONING_SUMMARY_MARKER,
   WEB_SEARCH_TOOL_TYPES,
+  X_SEARCH_TOOL_TYPES,
   TOOL_SEARCH_TOOL_TYPES,
   IMAGE_GENERATION_TOOL_TYPES,
   toRecord,
@@ -72,6 +73,19 @@ function toolOutputContentToString(output: unknown): string {
   return parts.join("\n");
 }
 
+function getReasoningSummaryText(item: JsonRecord): string {
+  if (!Array.isArray(item.summary)) return "";
+  return item.summary
+    .map((part) => toString(toRecord(part).text))
+    .filter((text) => text.length > 0)
+    .join("\n\n");
+}
+
+function appendReasoningContent(current: unknown, next: string): string {
+  const existing = typeof current === "string" ? current : "";
+  return existing ? `${existing}\n\n${next}` : next;
+}
+
 /**
  * Convert OpenAI Responses API request to OpenAI Chat Completions format
  */
@@ -82,13 +96,13 @@ export function openaiResponsesToOpenAIRequest(
   credentials: unknown
 ): unknown {
   void stream;
-  void credentials;
   const collapseToPlainString = requiresPlainStringContent(extractProviderHint(model));
 
   const root = toRecord(body);
   if (root.input === undefined) return body;
   const credentialRecord = toRecord(credentials);
   const storeEnabled = isOpenAIResponsesStoreEnabled(credentialRecord.providerSpecificData);
+  const preserveReasoningContent = credentialRecord._preserveReasoningContent === true;
   const rawInputItems = normalizeResponsesInputForChat(root.input);
 
   // Tools may be declared at the Responses top level or in one or more
@@ -103,7 +117,7 @@ export function openaiResponsesToOpenAIRequest(
       // namespace tools (MCP tool groups used by Codex/OpenAI Responses API), and web_search server tools
       // (Anthropic versioned: web_search_20250305, web_search_20250101, etc. — or plain web_search).
       // tool_search is a Responses API built-in sent by newer Codex clients; silently skip it here
-      // (it will be filtered out during tools conversion below).
+      // (it will be filtered out during tools conversion below). x_search (#8964) same pattern.
       if (
         toolType &&
         toolType !== "function" &&
@@ -112,6 +126,7 @@ export function openaiResponsesToOpenAIRequest(
         toolType !== "namespace" &&
         toolType !== "local_shell" &&
         !WEB_SEARCH_TOOL_TYPES.test(toolType) &&
+        !X_SEARCH_TOOL_TYPES.test(toolType) &&
         !TOOL_SEARCH_TOOL_TYPES.test(toolType) &&
         !IMAGE_GENERATION_TOOL_TYPES.test(toolType) &&
         !tool.function
@@ -202,6 +217,7 @@ export function openaiResponsesToOpenAIRequest(
   // Group items by conversation turn
   let currentAssistantMsg: JsonRecord | null = null;
   let pendingToolResults: JsonRecord[] = [];
+  let pendingReasoningContent = "";
 
   // Upstream providers reject messages:[] with "400: at least one message is required".
   // When the client sends input:[] (empty), inject a placeholder user message — mirrors
@@ -218,13 +234,24 @@ export function openaiResponsesToOpenAIRequest(
     const itemType = toString(item.type) || (item.role ? "message" : "");
 
     if (itemType === "message") {
-      // Flush pending assistant message with tool calls
-      if (currentAssistantMsg) {
-        messages.push(currentAssistantMsg);
-        currentAssistantMsg = null;
+      const role = toString(item.role);
+
+      if (role !== "assistant") {
+        if (currentAssistantMsg) {
+          messages.push(currentAssistantMsg);
+          currentAssistantMsg = null;
+        }
+        if (pendingReasoningContent) {
+          messages.push({
+            role: "assistant",
+            content: null,
+            reasoning_content: pendingReasoningContent,
+          });
+          pendingReasoningContent = "";
+        }
       }
 
-      // Flush pending tool results
+      // Flush pending tool results before the next explicit message boundary.
       if (pendingToolResults.length > 0) {
         for (const toolResult of pendingToolResults) {
           messages.push(toolResult);
@@ -267,7 +294,29 @@ export function openaiResponsesToOpenAIRequest(
           })
         : item.content;
 
-      messages.push({ role: toString(item.role), content });
+      if (role === "assistant") {
+        if (!currentAssistantMsg) {
+          currentAssistantMsg = { role, content };
+        } else if (currentAssistantMsg.content == null && content != null) {
+          currentAssistantMsg.content = content;
+        } else if (content != null) {
+          const existingContent = currentAssistantMsg.content;
+          currentAssistantMsg.content = [
+            ...(Array.isArray(existingContent) ? existingContent : [existingContent]),
+            ...(Array.isArray(content) ? content : [content]),
+          ];
+        }
+        if (pendingReasoningContent) {
+          currentAssistantMsg.reasoning_content = appendReasoningContent(
+            currentAssistantMsg.reasoning_content,
+            pendingReasoningContent
+          );
+          pendingReasoningContent = "";
+        }
+        continue;
+      }
+
+      messages.push({ role, content });
       continue;
     }
 
@@ -292,6 +341,10 @@ export function openaiResponsesToOpenAIRequest(
           content: null,
           tool_calls: [],
         };
+        if (pendingReasoningContent) {
+          currentAssistantMsg.reasoning_content = pendingReasoningContent;
+          pendingReasoningContent = "";
+        }
       }
 
       const toolCalls = Array.isArray(currentAssistantMsg.tool_calls)
@@ -351,6 +404,10 @@ export function openaiResponsesToOpenAIRequest(
           content: null,
           tool_calls: [],
         };
+        if (pendingReasoningContent) {
+          currentAssistantMsg.reasoning_content = pendingReasoningContent;
+          pendingReasoningContent = "";
+        }
       }
       const toolCalls = Array.isArray(currentAssistantMsg.tool_calls)
         ? currentAssistantMsg.tool_calls
@@ -399,7 +456,21 @@ export function openaiResponsesToOpenAIRequest(
     }
 
     if (itemType === "reasoning") {
-      // Skip reasoning items - they are display-only metadata
+      // Responses reasoning summaries are normally display metadata. Preserve them only
+      // when the routed upstream explicitly requires prior reasoning to continue a turn.
+      if (preserveReasoningContent) {
+        const reasoning = getReasoningSummaryText(item);
+        if (reasoning) {
+          if (currentAssistantMsg) {
+            currentAssistantMsg.reasoning_content = appendReasoningContent(
+              currentAssistantMsg.reasoning_content,
+              reasoning
+            );
+          } else {
+            pendingReasoningContent = appendReasoningContent(pendingReasoningContent, reasoning);
+          }
+        }
+      }
       continue;
     }
 
@@ -427,6 +498,13 @@ export function openaiResponsesToOpenAIRequest(
   // Flush remainder
   if (currentAssistantMsg) {
     messages.push(currentAssistantMsg);
+  }
+  if (pendingReasoningContent) {
+    messages.push({
+      role: "assistant",
+      content: null,
+      reasoning_content: pendingReasoningContent,
+    });
   }
   if (pendingToolResults.length > 0) {
     for (const toolResult of pendingToolResults) {
@@ -530,6 +608,9 @@ export function openaiResponsesToOpenAIRequest(
         // Anthropic-style web_search_YYYYMMDD naming receive the exact name they expect.
         if (WEB_SEARCH_TOOL_TYPES.test(toolType)) {
           return toolValue;
+        }
+        if (X_SEARCH_TOOL_TYPES.test(toolType)) {
+          return [];
         }
         // local_shell is a Responses API built-in (Codex CLI injects it for shell
         // execution). Non-OpenAI upstreams (Kiro/Claude) have no local_shell type,
@@ -719,7 +800,7 @@ export function openaiResponsesToOpenAIRequest(
     const reasoningRec = toRecord(root.reasoning);
     const effort = toString(reasoningRec.effort);
     if (effort && result.reasoning_effort === undefined) {
-      result.reasoning_effort = normalizeResponsesReasoningEffort(effort);
+      result.reasoning_effort = normalizeResponsesReasoningEffort(effort, model ?? root.model);
     }
     if (
       credentialRecord._copilotClient === true &&
@@ -747,8 +828,19 @@ export function openaiResponsesToOpenAIRequest(
   delete result.prompt_cache_retention;
 
   if (namespaceToolIdentityMap.size > 0) {
-    // chatCore extracts and deletes this transient side channel before dispatch.
+    // chatCore extracts and deletes these transient side channels before dispatch.
     // Non-enumerability keeps internal request metadata off the upstream wire.
+    //
+    // Two properties on purpose (#9780): `_toolNameMap` is also the alias
+    // channel for openai-to-claude/gemini, which overwrite it on a pivot, so
+    // the identity map needs a name of its own. `_toolNameMap` stays populated
+    // for the existing consumers (executors/base.ts, cliproxyapi, antigravity).
+    Object.defineProperty(result, "_namespaceToolIdentityMap", {
+      value: namespaceToolIdentityMap,
+      enumerable: false,
+      configurable: true,
+      writable: true,
+    });
     Object.defineProperty(result, "_toolNameMap", {
       value: namespaceToolIdentityMap,
       enumerable: false,
