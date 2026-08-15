@@ -42,6 +42,36 @@ test("provider schemas reject non-boolean openaiStoreEnabled values", () => {
   assert.equal(updated.success, false);
 });
 
+test("provider schemas accept boolean preserveEncryptedReasoning in providerSpecificData", () => {
+  const created = createProviderSchema.safeParse({
+    provider: "codex",
+    apiKey: "token",
+    name: "Codex",
+    providerSpecificData: { preserveEncryptedReasoning: true },
+  });
+  const updated = updateProviderConnectionSchema.safeParse({
+    providerSpecificData: { preserveEncryptedReasoning: false },
+  });
+
+  assert.equal(created.success, true);
+  assert.equal(updated.success, true);
+});
+
+test("provider schemas reject non-boolean preserveEncryptedReasoning values", () => {
+  const created = createProviderSchema.safeParse({
+    provider: "codex",
+    apiKey: "token",
+    name: "Codex",
+    providerSpecificData: { preserveEncryptedReasoning: "yes" },
+  });
+  const updated = updateProviderConnectionSchema.safeParse({
+    providerSpecificData: { preserveEncryptedReasoning: 1 },
+  });
+
+  assert.equal(created.success, false);
+  assert.equal(updated.success, false);
+});
+
 test("provider schemas accept boolean CC-compatible request defaults", () => {
   const created = createProviderSchema.safeParse({
     provider: "anthropic-compatible-cc-demo",
@@ -131,6 +161,27 @@ test("provider schemas accept max but reject ultra as a server-side Codex defaul
 
   assert.equal(max.success, true);
   assert.equal(ultra.success, false);
+});
+
+test("provider schemas accept Codex fingerprint modes and reject unknown values", () => {
+  for (const mode of ["off", "device", "session", "full"]) {
+    const created = createProviderSchema.safeParse({
+      provider: "codex",
+      apiKey: "token",
+      name: "Codex",
+      providerSpecificData: { codexFingerprintMode: mode },
+    });
+    const updated = updateProviderConnectionSchema.safeParse({
+      providerSpecificData: { codexFingerprintMode: mode },
+    });
+    assert.equal(created.success, true, mode);
+    assert.equal(updated.success, true, mode);
+  }
+
+  const rejected = updateProviderConnectionSchema.safeParse({
+    providerSpecificData: { codexFingerprintMode: "aggressive" },
+  });
+  assert.equal(rejected.success, false);
 });
 
 test("provider schemas reject unknown Codex service tiers", () => {

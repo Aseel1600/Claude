@@ -72,6 +72,19 @@ function ensureTelemetryTable(): void {
   `);
 }
 
+test.beforeEach(() => {
+  ensureTelemetryTable();
+  const db = getDbInstance()!;
+  for (const table of [
+    "domain_cost_history",
+    "compression_cache_stats",
+    "xp_audit_log",
+    "compression_run_telemetry",
+  ]) {
+    db.exec(`DELETE FROM ${table}`);
+  }
+});
+
 // ─── Tests ───────────────────────────────────────────────────────────────
 
 test("#6848 cleanupDomainCostHistory: deletes rows older than retention window", async () => {
@@ -147,14 +160,15 @@ test("#6848 cleanupXpAuditLog: deletes rows older than retention window", async 
 test("#6848 cleanupCompressionRunTelemetry: deletes rows older than retention window", async () => {
   ensureTelemetryTable();
   const db = getDbInstance()!;
-  const now = Math.floor(Date.now() / 1000);
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
   const insert = db.prepare(
     "INSERT INTO compression_run_telemetry (timestamp, tokens_before, tokens_after) VALUES (?, ?, ?)"
   );
 
-  insert.run(now - 40 * DAY_SECONDS, 1000, 500);
-  insert.run(now - 40 * DAY_SECONDS, 2000, 800);
-  insert.run(now - 5 * DAY_SECONDS, 1500, 600);
+  insert.run(nowSeconds - 40 * DAY_SECONDS, 1000, 500);
+  insert.run(nowSeconds - 40 * DAY_SECONDS, 2000, 800);
+  insert.run(nowSeconds - 5 * DAY_SECONDS, 1500, 600);
 
   const result = await cleanupCompressionRunTelemetry();
 

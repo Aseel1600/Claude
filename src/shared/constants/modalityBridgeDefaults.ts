@@ -15,6 +15,8 @@ export const MODALITY_BRIDGE_DEFAULTS = {
   cacheEnabled: true,
   cacheTtlMinutes: 60,
   cacheMaxEntries: 200,
+  // 0 = no cap (existing behavior, description is passed through in full).
+  visionMaxChars: 0,
   audioEnabled: true,
   audioModel: "",
   audioTimeoutMs: 60000,
@@ -29,6 +31,17 @@ export interface VisionBridgeRuntimeSettings {
   prompt: string;
   timeoutMs: number;
   maxImages: number;
+  maxChars: number;
+  cacheEnabled: boolean;
+  cacheTtlMinutes: number;
+  cacheMaxEntries: number;
+}
+
+export interface AudioBridgeRuntimeSettings {
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxClips: number;
   cacheEnabled: boolean;
   cacheTtlMinutes: number;
   cacheMaxEntries: number;
@@ -75,6 +88,26 @@ export function resolveVisionBridgeRuntimeSettings(
     maxImages:
       pickNumber(s.modalityBridgeVisionMaxImages, s.visionBridgeMaxImages) ??
       VISION_BRIDGE_DEFAULTS.maxImagesPerRequest,
+    maxChars: pickNumber(s.modalityBridgeVisionMaxChars) ?? MODALITY_BRIDGE_DEFAULTS.visionMaxChars,
+    cacheEnabled:
+      pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
+    cacheTtlMinutes:
+      pickNumber(s.modalityBridgeCacheTtlMinutes) ?? MODALITY_BRIDGE_DEFAULTS.cacheTtlMinutes,
+    cacheMaxEntries:
+      pickNumber(s.modalityBridgeCacheMaxEntries) ?? MODALITY_BRIDGE_DEFAULTS.cacheMaxEntries,
+  };
+}
+
+/** Resolve persisted Audio Bridge settings with the shared PR-1 defaults. */
+export function resolveAudioBridgeRuntimeSettings(
+  settings: Record<string, unknown> | null | undefined
+): AudioBridgeRuntimeSettings {
+  const s = settings ?? {};
+  return {
+    enabled: pickBoolean(s.modalityBridgeAudioEnabled) ?? MODALITY_BRIDGE_DEFAULTS.audioEnabled,
+    model: pickString(s.modalityBridgeAudioModel) ?? MODALITY_BRIDGE_DEFAULTS.audioModel,
+    timeoutMs: pickNumber(s.modalityBridgeAudioTimeout) ?? MODALITY_BRIDGE_DEFAULTS.audioTimeoutMs,
+    maxClips: pickNumber(s.modalityBridgeAudioMaxClips) ?? MODALITY_BRIDGE_DEFAULTS.audioMaxClips,
     cacheEnabled:
       pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
     cacheTtlMinutes:

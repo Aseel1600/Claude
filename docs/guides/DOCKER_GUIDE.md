@@ -203,11 +203,11 @@ The prod stack runs in parallel with the dev compose (different container names,
 
 The repository ships a multi-stage Dockerfile (`Dockerfile`). Three stages are exposed; pick the right `target` for your use case.
 
-| Stage         | Base image                 | Purpose                                                                                                                                                            |
-| ------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `builder`     | `node:24.15.0-trixie-slim` | Installs deps (`npm ci --legacy-peer-deps`) and runs `npm run build -- --webpack`                                                                                  |
-| `runner-base` | `node:24.15.0-trixie-slim` | Production runtime with the Next.js standalone output. **No provider CLIs bundled.**                                                                               |
-| `runner-cli`  | `runner-base`              | Adds `git`, `docker.io`, `docker-compose` and global CLIs: `@openai/codex`, `@anthropic-ai/claude-code`, `droid`, `openclaw`. **Pick this for agentic workflows.** |
+| Stage         | Base image            | Purpose                                                                                                                                                            |
+| ------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `builder`     | `node:26-trixie-slim` | Installs deps (`npm ci --legacy-peer-deps`) and runs `npm run build` (Turbopack by default — see Build-time resources below)                                       |
+| `runner-base` | `node:26-trixie-slim` | Production runtime with the Next.js standalone output. **No provider CLIs bundled.**                                                                               |
+| `runner-cli`  | `runner-base`         | Adds `git`, `docker.io`, `docker-compose` and global CLIs: `@openai/codex`, `@anthropic-ai/claude-code`, `droid`, `openclaw`. **Pick this for agentic workflows.** |
 
 Build a specific target manually:
 
@@ -216,14 +216,50 @@ docker build --target runner-base -t omniroute:base .
 docker build --target runner-cli  -t omniroute:cli  .
 ```
 
-Defaults exported by `runner-base`: `PORT=20128`, `HOSTNAME=0.0.0.0`, `NODE_OPTIONS=--max-old-space-size=512`, `DATA_DIR=/app/data`, `OMNIROUTE_MIGRATIONS_DIR=/app/migrations`.
+### Build-time resources
+
+Two build args control what the `builder` stage costs. They are build-time only —
+`OMNIROUTE_MEMORY_MB` (below) is a separate, runtime knob.
+
+| Build arg                   | Default | Effect                                                                 |
+| --------------------------- | ------- | ---------------------------------------------------------------------- |
+| `OMNIROUTE_USE_TURBOPACK`   | `1`     | `0` builds with webpack instead. Lower peak memory, slower.            |
+| `OMNIROUTE_BUILD_MEMORY_MB` | `4096`  | V8 heap ceiling (`--max-old-space-size`) for the spawned `next build`. |
+
+Turbopack compiles in native Rust memory that lives **outside** the V8 heap, so
+`OMNIROUTE_BUILD_MEMORY_MB` does not bound it. On a host with a memory ceiling the
+build is then SIGKILLed by the OOM killer with no error text at all — it simply
+stops mid-`Creating an optimized production build`, which reads like a hang rather
+than an out-of-memory. If the build host is constrained, switch bundlers:
+
+```bash
+docker build --target runner-base \
+  --build-arg OMNIROUTE_USE_TURBOPACK=0 \
+  -t omniroute:base .
+```
+
+`webpackBuildWorker` is enabled, so `next build` runs a parent **and** a worker
+process and each honours `OMNIROUTE_BUILD_MEMORY_MB` separately. Size the container
+ceiling above roughly twice that value, not once.
+
+Measured on this tree (`--target runner-base`, `OMNIROUTE_BUILD_MEMORY_MB=6144`):
+
+| Bundler   | Container ceiling | Result                        |
+| --------- | ----------------- | ----------------------------- |
+| Turbopack | 8 GiB / 16 GiB    | OOM-killed at both, silently  |
+| webpack   | 8 GiB             | build worker SIGKILLed        |
+| webpack   | 12 GiB            | succeeded, peaked at 11.1 GiB |
+
+### Runtime defaults
+
+Defaults exported by `runner-base`: `PORT=20128`, `HOSTNAME=0.0.0.0`, `OMNIROUTE_MEMORY_MB=1024`, `NODE_OPTIONS=--max-old-space-size=1024`, `DATA_DIR=/app/data`, `OMNIROUTE_MIGRATIONS_DIR=/app/migrations`.
 
 Memory behavior in Docker:
 
-- `NODE_OPTIONS=--max-old-space-size=512` is baked into the image as a fallback.
+- The image sets `OMNIROUTE_MEMORY_MB=1024` and derives `NODE_OPTIONS=--max-old-space-size=1024` from it.
 - The actual server process is started by the standalone launcher, which reads `OMNIROUTE_MEMORY_MB` and appends `--max-old-space-size=<OMNIROUTE_MEMORY_MB>`.
 - Node uses the last repeated `--max-old-space-size` value, so setting `OMNIROUTE_MEMORY_MB` controls the effective Docker heap limit.
-- If `OMNIROUTE_MEMORY_MB` is unset, the launcher uses `512`.
+- Because the image always sets it, the launcher's own RAM-calibrated fallback never applies under Docker. Raise it explicitly (`-e OMNIROUTE_MEMORY_MB=2048`) on a host with headroom.
 
 ## Critical Environment Variables
 
@@ -236,7 +272,7 @@ Beyond the defaults documented in [ENVIRONMENT.md](../reference/ENVIRONMENT.md),
 | `REDIS_PORT`                  | Host-side port for the bundled Redis container                                                      | `6379`                   |
 | `REDIS_BIND_HOST`             | Host interface the bundled Redis port is published on (loopback unless you add AUTH)                | `127.0.0.1`              |
 | `AUTO_UPDATE_HOST_REPO_DIR`   | Host path mounted into `cli` profile at `/workspace/omniroute` for self-update workflows            | `.` (current directory)  |
-| `OMNIROUTE_MEMORY_MB`         | Runtime Node heap ceiling for the Docker standalone server; overrides the image fallback above      | `512`                    |
+| `OMNIROUTE_MEMORY_MB`         | Runtime Node heap ceiling for the Docker standalone server; overrides the image default above       | `1024`                   |
 | `DASHBOARD_PORT` / `API_PORT` | Override exposed ports for dashboard (20128) and API (20129)                                        | `20128` / `20129`        |
 | `OMNIROUTE_BASE_PATH`         | URL subpath when the app is published behind a reverse proxy (e.g. `/omniroute`)                    | _(empty = root)_         |
 | `NEXT_PUBLIC_BASE_URL`        | Public browser origin including the subpath (e.g. `https://host/omniroute`)                         | unset                    |
@@ -355,6 +391,57 @@ Endpoint tunnel panels (Cloudflare, Tailscale, ngrok) can be shown or hidden fro
 | `diegosouzapw/omniroute` | `3.8.0`  | ~250MB | Current version       |
 
 Multi-platform manifest: `linux/amd64` + `linux/arm64` native (Apple Silicon, AWS Graviton, Raspberry Pi). Docker selects the matching architecture automatically; pass `--platform linux/amd64` if you need to force AMD64 emulation on ARM hosts.
+
+### Release Channels
+
+OmniRoute publishes separate Docker channels for stable releases, active release-branch testing, and development builds.
+
+| Channel                         | Source                              | Mutability                  | Recommended use                                                                                 |
+| ------------------------------- | ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
+| `:<version>` / `:<version>-web` | Signed/versioned release            | Immutable                   | Production deployments that pin an exact release                                                |
+| `:latest` / `:latest-web`       | Highest stable release              | Mutable stable pointer      | Production deployments that intentionally follow stable releases                                |
+| `:next` / `:next-web`           | Current default `release/v*` branch | Mutable pre-release pointer | Testing fixes that have landed on the active release branch but are not yet in a stable release |
+| `:main` / `:main-web`           | `main` branch                       | Mutable development pointer | Development and integration testing only                                                        |
+
+#### Using the pre-release channel
+
+The `next` channel is rebuilt on every push to the current default `release/v*` branch and is published for both AMD64 and ARM64. Older maintenance branches cannot overwrite it. The channel provides a pullable image for fixes that have merged into the active release branch before the next stable tag is cut.
+
+```bash
+docker pull diegosouzapw/omniroute:next
+docker pull diegosouzapw/omniroute:next-web
+```
+
+For Docker Compose, override the image tag used by the selected profile, then pull and recreate the service:
+
+```yaml
+services:
+  omniroute:
+    image: diegosouzapw/omniroute:next
+```
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+#### Safety and rollback
+
+`next` is a floating pre-release channel. It may change on any push to the active release branch and is **not supported for production use**. Pin the image digest while evaluating a specific build:
+
+```bash
+docker pull diegosouzapw/omniroute:next
+docker image inspect diegosouzapw/omniroute:next --format '{{index .RepoDigests 0}}'
+```
+
+Before testing, back up the OmniRoute data volume or bind-mounted data directory. To roll back, restore the previously used stable version or digest and recreate the container:
+
+```bash
+docker pull diegosouzapw/omniroute:<stable-version>
+docker compose up -d
+```
+
+A release-branch build can never move `latest`; only an eligible stable semantic version may promote the stable pointer. The `next` images retain the release image inspection and blocking CRITICAL-vulnerability gate.
 
 ## Important Notes
 

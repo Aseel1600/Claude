@@ -193,6 +193,18 @@ export function normalizeProviderSpecificData(
     delete normalized.openaiStoreEnabled;
   }
 
+  if (provider === "codex") {
+    if (normalized.codexFingerprintMode === null) delete normalized.codexFingerprintMode;
+    if (normalized.codex_fingerprint_mode === null) delete normalized.codex_fingerprint_mode;
+  }
+
+  if (
+    "preserveEncryptedReasoning" in normalized &&
+    typeof normalized.preserveEncryptedReasoning !== "boolean"
+  ) {
+    delete normalized.preserveEncryptedReasoning;
+  }
+
   if ("blockExtraUsage" in normalized && typeof normalized.blockExtraUsage !== "boolean") {
     delete normalized.blockExtraUsage;
   }
@@ -302,6 +314,9 @@ export function sanitizeProviderSpecificDataForResponse(value: unknown): JsonRec
   delete sanitized.ollamaCloudUsageCookie;
   delete sanitized.ollamaCloudCookie;
   delete sanitized.usageCookie;
+  delete sanitized.runtimeKey;
+  delete sanitized.validationId;
+  if (sanitized.browserCdpEndpoint) sanitized.browserCdpEndpoint = "configured";
   return sanitized;
 }
 

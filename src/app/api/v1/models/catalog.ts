@@ -14,7 +14,7 @@ import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView"
 import { extractAliasBackedModels } from "./aliasBackedModels";
 import {
   buildSyncedModelIdsByCanonicalProvider,
-  shouldSuppressStaticModelBySyncedCoverage,
+  shouldSuppressStaticModelForExclusiveListing,
 } from "./catalogSyncedCoverage";
 import { buildSyncedCapabilities, mergeSyncedCapabilities } from "./syncedCapabilities";
 import { getAllEmbeddingModels } from "@omniroute/open-sse/config/embeddingRegistry";
@@ -29,27 +29,35 @@ import { getAllVideoModels } from "@omniroute/open-sse/config/videoRegistry";
 import { getAllMusicModels } from "@omniroute/open-sse/config/musicRegistry";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
 import { CODEX_NATIVE_UNPREFIXED_MODELS } from "@omniroute/open-sse/services/model";
+import { isModelSelectable } from "@omniroute/open-sse/services/modelLifecycle";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
 import {
   AUTO_TEMPLATE_VARIANTS,
   AUTO_SUFFIX_VARIANTS,
   AUTO_FAMILY_IDS,
   createBuiltinAutoCombo,
+  prepareBuiltinAutoComboInputs,
   isPaidTierAutoId,
 } from "@omniroute/open-sse/services/autoCombo/builtinCatalog";
 import type { SyncedAvailableModel } from "@/lib/db/models";
 import { getAllActiveSyncedModels } from "@/lib/db/models/activeSyncedCatalog";
 import { getModelCatalogCacheVersion } from "@/lib/db/readCache";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
-import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
+import {
+  providerUsesCuratedModelsOnly,
+  providerUsesExclusiveSyncedListing,
+} from "@/lib/providers/modelListingCapability";
+import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
+import { mergeCustomModelMetadata } from "@/lib/providers/modelMetadataPrecedence";
 import { getOpenRouterCatalog } from "@/lib/catalog/openrouterCatalog";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import {
   INTERNAL_PROXY_ERROR,
   getCanonicalModelMetadata,
   getCatalogDiagnosticsHeaders,
+  type CatalogEnrichmentSnapshot,
 } from "@/lib/modelMetadataRegistry";
-import { getSyncedCapability } from "@/lib/modelsDevSync";
+import { getModelsDevPricing, getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { getModelsCatalogPrefixMode } from "@/shared/utils/featureFlags";
 import { applyCatalogPostFilters, finalizeCatalogResponse } from "./catalogResponse";
@@ -95,6 +103,7 @@ import {
   isCcDiscoveryModelCatalogClient,
 } from "./catalogRequest";
 import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
+import { isUnifiedChatSourceModelSelectable } from "./catalogModelPolicy";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
@@ -122,6 +131,12 @@ export {
   __forceCatalogInFlightRejectionForTest,
 } from "./catalogCache";
 export type { CachedCatalog } from "./catalogCache";
+
+const BUILTIN_AUTO_YIELD_INTERVAL = 8;
+
+function yieldCatalogBuildTurn(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
 
 /**
  * Build unified OpenAI-compatible model catalog response.
@@ -595,51 +610,63 @@ async function buildUnifiedModelsResponseCore(
     // #4164 entry is emitted instead, so the id is never dropped.
     // #4235 Phase B: also advertise the curated `auto/<category>[:<tier>]` combos.
     // #6453: also advertise the `auto/<family>` combos (auto/glm, auto/minimax, ...).
-    // #9418: skip the entire loop when hideAutoCombos is on — the ids are still
-    // routable when sent explicitly, just not advertised in the catalog.
-    if (!hideAuto) {
-      for (const autoId of [
-        ...Object.keys(AUTO_TEMPLATE_VARIANTS),
-        ...AUTO_SUFFIX_VARIANTS,
-        ...AUTO_FAMILY_IDS,
-      ]) {
-        if (blockedProviders.has("auto") || listedIds.has(autoId)) continue; // #5192
-        // #6328 (follow-up to #6495 / #6512): REMOVE — not just hide — paid-tier
-        // auto/* ids (auto/pro-* + auto/*:pro) from the advertised catalog when the
-        // operator opts into hidePaidModels. The candidate-pool filter in
-        // virtualFactory (#6512) still gates request-time routing for the rest.
-        if (hidePaid && isPaidTierAutoId(autoId)) continue;
-        listedIds.add(autoId);
-        const baseAutoEntry = {
-          id: autoId,
-          object: "model",
-          created: timestamp,
-          owned_by: "combo",
-          permission: [],
-          root: autoId,
-          parent: null,
-        };
-        try {
-          const suffix = autoId.replace(/^auto\/?/, "");
-          const virtualCombo = await createBuiltinAutoCombo(autoId, suffix);
-          const contextLength = virtualCombo.advertisedContextLength || 128000;
-          const maxOutputTokens = virtualCombo.advertisedMaxOutputTokens || 8192;
-          models.push({
-            ...baseAutoEntry,
-            context_length: contextLength,
-            max_input_tokens: contextLength,
-            max_output_tokens: maxOutputTokens,
-            capabilities: {
-              tool_calling: true,
-              reasoning: true,
-              thinking: true,
-              temperature: true,
-            },
-          });
-        } catch (err) {
-          console.log(`[catalog] Could not materialize built-in auto model ${autoId}:`, err);
-          models.push(baseAutoEntry);
+    // #9199: prepare the shared connection/settings/registry candidate snapshot once for this
+    // catalog build. Runtime auto routing still prepares fresh request-scoped inputs.
+    let preparedAutoInputs: Awaited<ReturnType<typeof prepareBuiltinAutoComboInputs>> | undefined;
+    let materializedAutoCount = 0;
+    for (const autoId of [
+      ...Object.keys(AUTO_TEMPLATE_VARIANTS),
+      ...AUTO_SUFFIX_VARIANTS,
+      ...AUTO_FAMILY_IDS,
+    ]) {
+      // #9418: skip the entire loop when hideAutoCombos is on — the ids are still
+      // routable when sent explicitly, just not advertised in the catalog.
+      if (hideAuto) break;
+      if (blockedProviders.has("auto") || listedIds.has(autoId)) continue; // #5192
+      // #6328 (follow-up to #6495 / #6512): REMOVE — not just hide — paid-tier
+      // auto/* ids (auto/pro-* + auto/*:pro) from the advertised catalog when the
+      // operator opts into hidePaidModels. The candidate-pool filter in
+      // virtualFactory (#6512) still gates request-time routing for the rest.
+      if (hidePaid && isPaidTierAutoId(autoId)) continue;
+      listedIds.add(autoId);
+      const baseAutoEntry = {
+        id: autoId,
+        object: "model",
+        created: timestamp,
+        owned_by: "combo",
+        permission: [],
+        root: autoId,
+        parent: null,
+      };
+      try {
+        const suffix = autoId.replace(/^auto\/?/, "");
+        if (!preparedAutoInputs) {
+          preparedAutoInputs = await prepareBuiltinAutoComboInputs();
+          await yieldCatalogBuildTurn();
         }
+        const virtualCombo = await createBuiltinAutoCombo(autoId, suffix, preparedAutoInputs);
+        const contextLength = virtualCombo.advertisedContextLength || 128000;
+        const maxOutputTokens = virtualCombo.advertisedMaxOutputTokens || 8192;
+        models.push({
+          ...baseAutoEntry,
+          context_length: contextLength,
+          max_input_tokens: contextLength,
+          max_output_tokens: maxOutputTokens,
+          capabilities: {
+            tool_calling: true,
+            reasoning: true,
+            thinking: true,
+            temperature: true,
+          },
+        });
+      } catch (err) {
+        console.log(`[catalog] Could not materialize built-in auto model ${autoId}:`, err);
+        models.push(baseAutoEntry);
+      }
+
+      materializedAutoCount++;
+      if (materializedAutoCount % BUILTIN_AUTO_YIELD_INTERVAL === 0) {
+        await yieldCatalogBuildTurn();
       }
     }
 
@@ -686,7 +713,10 @@ async function buildUnifiedModelsResponseCore(
       Object.keys(syncedModelsByProvider).filter((pid) => {
         if (providerUsesCuratedModelsOnly(pid)) return false;
         const models = syncedModelsByProvider[pid];
-        return Array.isArray(models) && models.length > 0;
+        return (
+          Array.isArray(models) &&
+          models.some((model) => isUnifiedChatSourceModelSelectable(pid, model))
+        );
       })
     );
     const isRegisteredEffortVariant = (
@@ -737,16 +767,29 @@ async function buildUnifiedModelsResponseCore(
         // `deepseek/deepseek-v4-flash` which its discovery never lists). Before
         // the fix, a provider with any synced model silently dropped ALL its
         // static models.
+        //
+        // Cursor exclusive listing: when an active synced catalog exists, drop
+        // ALL static rows (including effort variants) so Test All / clients only
+        // see live AvailableModels + injected auto*.
         const syncedForProvider = syncedModelIdsByCanonicalProvider.get(canonicalProviderId);
+        const exclusiveListing = providerUsesExclusiveSyncedListing(canonicalProviderId);
+        const providerHasSynced = syncedForProvider !== undefined && syncedForProvider.size > 0;
+        const coveredBySynced = shouldSuppressStaticModelForExclusiveListing({
+          exclusiveListing,
+          providerHasSynced,
+          staticModelId: model.id,
+          syncedModelIds: syncedForProvider ? [...syncedForProvider] : [],
+        });
+        const hasDeclaredEffortTiers =
+          Array.isArray(model.supportedThinkingEfforts) &&
+          model.supportedThinkingEfforts.length > 0;
         if (
-          shouldSuppressStaticModelBySyncedCoverage({
-            providerHasSynced: syncedForProvider !== undefined && syncedForProvider.size > 0,
-            staticModelId: model.id,
-            syncedModelIds: syncedForProvider ? [...syncedForProvider] : [],
-          }) &&
-          !isRegisteredEffortVariant(providerModels, model.id)
+          coveredBySynced &&
+          (exclusiveListing ||
+            (!isRegisteredEffortVariant(providerModels, model.id) && !hasDeclaredEffortTiers))
         )
           continue;
+        if (!isModelSelectable(canonicalProviderId, model.id)) continue;
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
         const aliasId = `${alias}/${model.id}`;
         if (getModelIsHidden(canonicalProviderId, model.id)) continue;
@@ -755,6 +798,18 @@ async function buildUnifiedModelsResponseCore(
 
         const visionFields =
           getVisionCapabilityFields(aliasId) || getVisionCapabilityFields(model.id);
+        const thinkingFields = getThinkingCapabilityFields(
+          canonicalProviderId,
+          model.id,
+          model.supportsReasoning,
+          model.supportedThinkingEfforts,
+          // Skip the canonical fallback for static models without declared tiers —
+          // otherwise the catalog synthesizes unresolvable `<prefix>/<model>-{tier}`
+          // ids for every static reasoning model across all providers (#9485 review).
+          !hasDeclaredEffortTiers
+        );
+        const thinkingCapabilities =
+          Object.keys(thinkingFields).length > 0 ? { capabilities: thinkingFields } : {};
         if (includeAlias) {
           models.push({
             id: aliasId,
@@ -765,6 +820,8 @@ async function buildUnifiedModelsResponseCore(
             root: model.id,
             parent: null,
             ...(visionFields || {}),
+            ...thinkingFields,
+            ...thinkingCapabilities,
           });
         }
         if (
@@ -785,6 +842,8 @@ async function buildUnifiedModelsResponseCore(
             root: model.id,
             parent: includeAlias ? aliasId : null,
             ...(providerVisionFields || {}),
+            ...thinkingFields,
+            ...thinkingCapabilities,
           });
         }
       }
@@ -838,7 +897,17 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        for (const sm of syncedModels) {
+        for (const sm of providerUsesExclusiveSyncedListing(providerId)
+          ? ensureCursorAutoCatalogEntry(
+              syncedModels.map((row) => ({
+                ...row,
+                id: row.id,
+                name: row.name || row.id,
+                owned_by: "cursor",
+              }))
+            )
+          : syncedModels) {
+          if (!isUnifiedChatSourceModelSelectable(canonicalProviderId, sm)) continue;
           if (!providerSupportsModel(canonicalProviderId, sm.id)) continue;
           if (canonicalProviderId === "codex" && isCodexDiscoveryModelExcluded(sm)) {
             continue;
@@ -1073,9 +1142,7 @@ async function buildUnifiedModelsResponseCore(
     // here would discard all but the last segment and miss stored flags for
     // providers whose model IDs carry a sub-path (e.g. OpenRouter scoped models).
     const getSpecialtyModelRelativeId = (modelId: string, provider: string): string =>
-      modelId.startsWith(`${provider}/`)
-        ? modelId.slice(provider.length + 1)
-        : modelId;
+      modelId.startsWith(`${provider}/`) ? modelId.slice(provider.length + 1) : modelId;
 
     // Add embedding models (filtered by active providers)
     for (const embModel of getAllEmbeddingModels()) {
@@ -1113,6 +1180,7 @@ async function buildUnifiedModelsResponseCore(
         input_modalities: imgModel.inputModalities || ["text"],
         output_modalities: ["image"],
         ...(imgModel.description ? { description: imgModel.description } : {}),
+        ...(imgModel.mediaCapabilities ? { media_capabilities: imgModel.mediaCapabilities } : {}),
       });
     }
 
@@ -1178,6 +1246,12 @@ async function buildUnifiedModelsResponseCore(
         created: timestamp,
         owned_by: videoModel.provider,
         type: "video",
+        supported_sizes: videoModel.supportedSizes,
+        input_modalities: ["text"],
+        output_modalities: ["video"],
+        ...(videoModel.mediaCapabilities
+          ? { media_capabilities: videoModel.mediaCapabilities }
+          : {}),
       });
     }
 
@@ -1229,6 +1303,8 @@ async function buildUnifiedModelsResponseCore(
         for (const model of providerCustomModels) {
           const modelId = typeof model.id === "string" ? model.id : null;
           if (!modelId) continue;
+          if (!isUnifiedChatSourceModelSelectable(canonicalProviderId, { ...model, id: modelId }))
+            continue;
           if (model.isHidden === true) continue;
           if (getModelIsHidden(canonicalProviderId, modelId)) continue;
           // #6328: apply hidePaidModels to user-defined custom rows too.
@@ -1251,28 +1327,44 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
 
-          // Skip if already added as built-in. When the custom entry has an explicit
-          // supportsVision flag, merge vision fields into the existing synced entry
-          // instead of skipping (#9195).
+          // A custom row is the operator-owned overlay for the same provider/model.
+          // Preserve catalog identity and discovered metadata, but let every field
+          // explicitly stored on the custom row determine the effective metadata.
           const aliasId = `${alias}/${modelId}`;
           const existingIndex = models.findIndex((m) => m.id === aliasId);
           if (existingIndex !== -1) {
-            if (typeof model.supportsVision === "boolean") {
-              const mergeVisionFields = getCustomVisionCapabilityFields(model, aliasId, modelId);
-              if (mergeVisionFields) {
-                const existing = models[existingIndex] as Record<string, unknown>;
-                existing.capabilities = {
-                  ...((existing.capabilities as Record<string, unknown>) || {}),
-                  ...mergeVisionFields.capabilities,
-                };
-                if (mergeVisionFields.input_modalities) {
-                  existing.input_modalities = mergeVisionFields.input_modalities;
-                }
-                if (mergeVisionFields.output_modalities) {
-                  existing.output_modalities = mergeVisionFields.output_modalities;
-                }
-              }
-            }
+            const existing = models[existingIndex] as Record<string, unknown> & { id: string };
+            const endpoints = Array.isArray(model.supportedEndpoints)
+              ? model.supportedEndpoints
+              : undefined;
+            const apiFormat = typeof model.apiFormat === "string" ? model.apiFormat : undefined;
+            const visionFields =
+              typeof model.supportsVision === "boolean"
+                ? model.supportsVision
+                  ? getCustomVisionCapabilityFields(model, aliasId, modelId)
+                  : {
+                      capabilities: {
+                        ...((existing.capabilities as Record<string, unknown>) || {}),
+                        vision: false,
+                      },
+                      input_modalities: ["text"],
+                      output_modalities: ["text"],
+                    }
+                : null;
+            models[existingIndex] = mergeCustomModelMetadata(existing, {
+              id: aliasId,
+              ...(typeof model.name === "string" ? { name: model.name } : {}),
+              ...(apiFormat ? { api_format: apiFormat } : {}),
+              ...(endpoints ? { supported_endpoints: endpoints } : {}),
+              ...(typeof model.inputTokenLimit === "number"
+                ? { context_length: model.inputTokenLimit }
+                : {}),
+              ...(typeof model.outputTokenLimit === "number"
+                ? { max_output_tokens: model.outputTokenLimit }
+                : {}),
+              ...(visionFields || {}),
+              custom: true,
+            });
             continue;
           }
 
@@ -1563,10 +1655,36 @@ async function buildUnifiedModelsResponseCore(
       return modelId ? getTokenLimit(canonicalId, modelId) : getTokenLimit(canonicalId);
     };
 
-    return finalizeCatalogResponse(request, finalModels, getDefaultContextFallback, {
-      ...corsHeaders,
-      ...diagnosticHeaders,
-    });
+    let enrichmentSnapshot: CatalogEnrichmentSnapshot | undefined;
+    if (finalModels.some((model) => model.owned_by !== "combo")) {
+      let modelsDevPricing: ReturnType<typeof getModelsDevPricing> | null = null;
+      try {
+        modelsDevPricing = getModelsDevPricing();
+      } catch {
+        // Pricing lookup is optional; hardcoded defaults still enrich the response.
+      }
+      enrichmentSnapshot = {
+        modelsDevPricing,
+        providerNodeIdsByPrefix: Object.fromEntries(
+          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
+        ),
+      };
+      // The production profile identified pricing snapshot construction as the last
+      // dominant synchronous stage. Let already-queued health checks run before the
+      // remaining in-memory enrichment and JSON serialization.
+      await yieldCatalogBuildTurn();
+    }
+
+    return finalizeCatalogResponse(
+      request,
+      finalModels,
+      getDefaultContextFallback,
+      {
+        ...corsHeaders,
+        ...diagnosticHeaders,
+      },
+      enrichmentSnapshot
+    );
   } catch (error) {
     console.log("Error fetching models:", error);
     // Hard rule #12 — this is the realistically reachable 500 for the endpoint
