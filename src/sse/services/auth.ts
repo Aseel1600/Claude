@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from "crypto";
+import { nodeTypeFromId } from "@/lib/db/providerNodeSelect";
 import { extractGoogApiKeyHeader } from "./googApiKeyAuth.ts";
 import {
   getCachedRawProviderConnections,
@@ -967,13 +968,32 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
       const nodeRecord = asRecord(node);
       const nodePrefix = typeof nodeRecord.prefix === "string" ? nodeRecord.prefix.trim() : "";
       const nodeId = typeof nodeRecord.id === "string" ? nodeRecord.id.trim() : "";
-      if (!nodePrefix || !nodeId) continue;
+      if (!nodeId) continue;
       if (
-        nodePrefix === provider ||
-        nodePrefix === canonicalProvider ||
-        nodePrefix === canonicalAlias
+        nodePrefix &&
+        (nodePrefix === provider || nodePrefix === canonicalProvider || nodePrefix === canonicalAlias)
       ) {
         searchPool.add(nodeId);
+      }
+
+      // #10085: bridge the concrete uuid node id (what the chat path resolves,
+      // "<generic-type>-<uuid>") to the GENERIC derived type id (what
+      // resolveProviderNodeForConnection also accepts for connection creation,
+      // #4421) -- and back. A connection created via the bare generic type
+      // (e.g. "openai-compatible-chat") must still be found when the chat path
+      // looks up the concrete node id, and vice versa.
+      const derivedType = nodeTypeFromId(nodeId);
+      if (derivedType && derivedType !== nodeId) {
+        if (nodeId === provider || nodeId === canonicalProvider || nodeId === canonicalAlias) {
+          searchPool.add(derivedType);
+        }
+        if (
+          derivedType === provider ||
+          derivedType === canonicalProvider ||
+          derivedType === canonicalAlias
+        ) {
+          searchPool.add(nodeId);
+        }
       }
     }
   } catch {
