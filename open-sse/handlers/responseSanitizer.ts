@@ -266,6 +266,14 @@ export interface SanitizeOpenAIResponseOptions {
 }
 
 export function sanitizeOpenAIResponse(
+  body: JsonRecord,
+  options?: SanitizeOpenAIResponseOptions
+): JsonRecord;
+export function sanitizeOpenAIResponse(
+  body: unknown,
+  options?: SanitizeOpenAIResponseOptions
+): unknown;
+export function sanitizeOpenAIResponse(
   body: unknown,
   options: SanitizeOpenAIResponseOptions = {}
 ): unknown {
@@ -318,6 +326,8 @@ export function sanitizeOpenAIResponse(
   return sanitized;
 }
 
+export function sanitizeResponsesApiResponse(body: JsonRecord): JsonRecord;
+export function sanitizeResponsesApiResponse(body: unknown): unknown;
 export function sanitizeResponsesApiResponse(body: unknown): unknown {
   const bodyRecord = toRecord(body);
   if (!bodyRecord) return body;

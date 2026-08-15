@@ -171,6 +171,22 @@ codex -c model_reasoning_effort=low "rename variable x to count"
 codex -c model_reasoning_effort=xhigh "design the auth module"
 ```
 
+Also set a reasoning **summary** so Desktop can render thinking text (not only encrypted blobs):
+
+```toml
+# ~/.codex/config.toml
+model_reasoning_effort = "xhigh"   # or ultra when supported
+model_reasoning_summary = "detailed"  # auto | concise | detailed | none
+```
+
+### OmniRoute Thinking Budget (server setting)
+
+On the OmniRoute host, **Settings → AI → Thinking Budget** must be **`passthrough`** for Codex effort/summary to reach upstream. Mode **`auto` strips** all client `reasoning` / `reasoning_effort` fields and will empty thinking panels even when Codex is configured correctly.
+
+Full guide: [THINKING_BUDGET.md](./THINKING_BUDGET.md).
+
+Compression and prompt cache are independent and keep working under `passthrough`.
+
 ---
 
 ## Profiles — named configurations per model/workflow

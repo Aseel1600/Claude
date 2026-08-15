@@ -6821,8 +6821,17 @@
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
     "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetIndependenceHint": "సంకోచన, మార్గనిర్దేశం, మరియు టోకెన్-సరిహద్దు లక్షణాలు ప్రతి మోడ్‌లో పనిచేస్తున్నాయి. ఆటో అంటే \"ఆటో-చెప్పే ఆలోచన\" కాదు — ఇది క్లయింట్ తర్కం ఫీల్డ్స్‌ను తొలగిస్తుంది.",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "పాస్‌త్రూ",
+    "thinkingModePassthroughDesc": "క్లయింట్ కారణాలను మార్చకండి (ప్రయత్నం, సారాంశం, ఆలోచన బ్లాక్లు). కోడెక్స్/డెస్క్‌టాప్ దృశ్య ఆలోచనకు అవసరం. డిఫాల్ట్.",
+    "thinkingModeAuto": "ఆటో (స్ట్రిప్)",
+    "thinkingModeAutoDesc": "అన్ని క్లయింట్ ఆలోచన/సంగ్రహణ ఫీల్డ్స్ (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) తొలగించండి మరియు ప్రొవైడర్ డిఫాల్ట్స్‌ను ఆవిష్కరించనివ్వండి. ఆలోచన ప్యానెల్‌లను దాచవచ్చు మరియు క్లయింట్ సారాంశ అభ్యర్థనలను విరామం చేయవచ్చు.",
+    "thinkingModeCustom": "అనుకూలమైన",
+    "thinkingModeCustomDesc": "మీరు క్రింద సెట్ చేసిన స్థిరమైన ఆలోచన టోకెన్ బడ్జెట్‌తో ప్రతి అభ్యర్థనను మళ్లీ రాయండి.",
+    "thinkingModeAdaptive": "అనుకూలమైన",
+    "thinkingModeAdaptiveDesc": "సందేశాల సంఖ్య, సాధనాలు, మరియు ప్రాంప్ట్ పొడవు ఉపయోగించి ప్రాథమిక శ్రమ నుండి ఆలోచన బడ్జెట్‌ను స్కేల్ చేయండి.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -8031,6 +8040,8 @@
     "modalityBridgeAdvanced": "అధిక నిపుణత",
     "modalityBridgeTimeoutMs": "టైమ్‌ఔట్ (మి)",
     "modalityBridgeMaxImages": "ప్రతి అభ్యర్థనకు గరిష్ట చిత్రాలు",
+    "visionMaxCharsLabel": "గరిష్ట వివరణ అక్షరాలు",
+    "visionMaxCharsHint": "దృష్టి మోడల్ యొక్క వివరణ పొడవును పరిమితం చేయండి. 0 = పరిమితి లేదు — వివరాల పుష్కలమైన OCR పనుల కోసం పెంచండి.",
     "modalityBridgeCacheEnabled": "కాష్ వివరణలు",
     "modalityBridgeCacheEnabledDesc": "ఒకే చిత్రాలకు (SHA-256 కీడ్, మెమరీలో) సమానమైన వివరణలను పునఃఉపయోగించండి.",
     "modalityBridgeCacheTtlMinutes": "కాష్ TTL (నిమిషాలు)",
@@ -13115,7 +13126,21 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers"
   },
   "radarSetupPage": {
     "title": "ప్రొవైడర్ సెటప్",
@@ -13230,17 +13255,17 @@
     "pollErrorLocalOnly": "ఈ పేజీ localhost లేదా LAN నుండి మాత్రమే యాక్సెస్ చేయబడుతుంది (LOCAL_ONLY).",
     "pollErrorStopped": "పోలింగ్ ఆగింది: సర్వర్ అభ్యర్థనను తిరస్కరించింది (404/403).",
     "pollErrorTransient": "డేటాను పొందడంలో లోపం: స్వయంచాలకంగా మళ్లీ ప్రయత్నిస్తోంది.",
-    "degraded": "పాక్షిక డేటా: అందుబాటులో లేని మూలాలు: {sources}",
-    "degraded.source.database": "డేటాబేస్",
-    "degraded.source.circuitBreaker": "సర్క్యూట్ బ్రేకర్",
-    "degraded.source.modelLockouts": "మోడల్ లాక్‌అవుట్‌లు",
-    "degraded.source.count": "కనెక్షన్ల సంఖ్య"
+    "degraded": {
+      "message": "పాక్షిక డేటా: అందుబాటులో లేని మూలాలు: {sources}",
+      "source": {
+        "database": "డేటాబేస్",
+        "circuitBreaker": "సర్క్యూట్ బ్రేకర్",
+        "modelLockouts": "మోడల్ లాక్‌అవుట్‌లు",
+        "count": "కనెక్షన్ల సంఖ్య"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "ప్రయోజనాలు అవసరమైన సామర్థ్యాలు (దృష్టి, సాధనాలు, నిర్మిత అవుట్‌పుట్, సందర్భం విండో) లేని లక్ష్య మోడల్ ముందు పంపిణీకి అభ్యర్థనలను తిరస్కరించండి. కాంబో-లేయర్ అనుకూలత ఫిల్టర్‌ను దాటించే ప్రత్యక్ష సింగిల్-ప్రొవైడర్ అభ్యర్థనలను రక్షిస్తుంది.",
-  "capabilityFilter.visionMismatch": "ఈ చిత్రం అభ్యర్థనకు ప్రొవైడర్ దృష్టిని మద్దతు ఇవ్వడం లేదు",
-  "capabilityFilter.toolsMismatch": "ప్రొవైడర్ టూల్ కాలింగ్‌ను మద్దతు ఇవ్వదు",
-  "capabilityFilter.structuredOutputMismatch": "ప్రొవైడర్ నిర్మిత అవుట్‌పుట్‌ను మద్దతు ఇవ్వదు",
-  "capabilityFilter.contextWindowMismatch": "అనువర్తన ప్రదాత యొక్క సందర్భం కిటికీని మించు కోరింపు",
   "publicSystem": {
     "notFound": {
       "title": "పేజీ కనుగొనబడలేదు",
@@ -13615,5 +13640,49 @@
     "hint": "చాలా సులభంగా, కనుగొనబడిన మోడల్స్ OmniRoute లో ప్రొవైడర్ ఎంపికలలో కనిపిస్తాయి.",
     "updateFailed": "అప్‌డేట్ చేయడంలో విఫలమైంది (HTTP {status})",
     "networkError": "నెట్‌వర్క్ లోపం — ప్రొవైడర్ ఎక్స్‌పోజర్ సెటింగ్‌ను నవీకరించలేకపోయింది"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "capabilityFilter": {
+    "visionMismatch": "ఈ చిత్రం అభ్యర్థనకు ప్రొవైడర్ దృష్టిని మద్దతు ఇవ్వడం లేదు",
+    "toolsMismatch": "ప్రొవైడర్ టూల్ కాలింగ్‌ను మద్దతు ఇవ్వదు",
+    "structuredOutputMismatch": "ప్రొవైడర్ నిర్మిత అవుట్‌పుట్‌ను మద్దతు ఇవ్వదు",
+    "contextWindowMismatch": "అనువర్తన ప్రదాత యొక్క సందర్భం కిటికీని మించు కోరింపు"
   }
 }

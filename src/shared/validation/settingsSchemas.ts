@@ -244,7 +244,7 @@ export const updateSettingsSchema = z.object({
   promptCacheAffinityEnabled: z.boolean().optional(),
   /**
    * Per-operator quota row visibility on the usage dashboard, keyed by
-   * provider id. Independent of the model catalog's isHidden/isDeleted flags.
+   * provider id. Independent of the model catalog's isHidden flag.
    * Ported from upstream decolua/9router#2371.
    */
   quotaVisibility: z
@@ -349,6 +349,9 @@ export const updateSettingsSchema = z.object({
   modalityBridgeVisionPrompt: z.string().max(5000).optional(),
   modalityBridgeVisionTimeout: z.number().int().min(1000).max(300000).optional(),
   modalityBridgeVisionMaxImages: z.number().int().min(1).max(20).optional(),
+  modalityBridgeVisionMaxChars: z
+    .union([z.literal(0), z.number().int().min(100).max(50000)])
+    .optional(),
   modalityBridgeAudioEnabled: z.boolean().optional(),
   modalityBridgeAudioModel: z.string().max(200).optional(),
   modalityBridgeAudioTimeout: z.number().int().min(1000).max(300000).optional(),
