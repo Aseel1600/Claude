@@ -13,6 +13,7 @@
     "@modelcontextprotocol/sdk",
     "@monaco-editor/react",
     "@ngrok/ngrok",
+    "@omniroute/open-sse",
     "@opencode-ai/plugin",
     "@playwright/test",
     "@size-limit/file",

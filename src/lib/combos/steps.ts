@@ -356,7 +356,7 @@ export function normalizeComboStep(
     };
   }
 
-  const rawModel = toTrimmedString(value.model);
+  const rawModel = extractModelField(value);
   if (!rawModel) return null;
   const isExplicitModel = value.kind === "model";
 

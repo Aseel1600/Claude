@@ -58,7 +58,7 @@ test("USE_VPS_RUNNER never governs a test-like job", () => {
     offenders.map((j) => `${j.file}:${j.job}`),
     [],
     "self-hosted is strictly worse for these — setup-node measured 20m06s there vs 16s hosted, " +
-      "while the tests themselves tie. Pin the job to ubuntu-26.04 instead of switching it."
+      "while the tests themselves tie. Pin the job to ubuntu-latest instead of switching it."
   );
 });
 
@@ -81,5 +81,5 @@ test("fast-gates specifically stays hosted", () => {
   const block = wf.split(/^ {2}fast-gates:\s*$/m)[1] ?? "";
   const runsOn = /^ {4}runs-on:\s*(.+)$/m.exec(block);
   assert.ok(runsOn, "fast-gates must declare runs-on");
-  assert.match(runsOn[1].trim(), /^ubuntu-26\.04$/, "fast-gates must be pinned, not switched");
+  assert.match(runsOn[1].trim(), /^ubuntu-latest$/, "fast-gates must be pinned, not switched");
 });

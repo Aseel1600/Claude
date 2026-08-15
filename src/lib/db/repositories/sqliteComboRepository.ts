@@ -86,7 +86,15 @@ function normalizeStoredCombo(
 function parseComboRow(row: unknown): JsonRecord | null {
   const payload = getSerializedData(row);
   if (!payload) return null;
-  const parsed = withRowId(payload, asRecord(row));
+  let parsed: JsonRecord;
+  try {
+    parsed = withRowId(payload, asRecord(row));
+  } catch {
+    // Malformed JSON in the stored `data` blob (hand-edited SQLite row, corrupted
+    // write, etc.) — never crash the WebUI/API; treat this row as absent instead
+    // of propagating a JSON.parse SyntaxError up through getCombos/getComboById.
+    return null;
+  }
   // Merge deduplicated column values back into the record
   const record = asRecord(row);
   if (record.context_cache_protection !== undefined && record.context_cache_protection !== null) {

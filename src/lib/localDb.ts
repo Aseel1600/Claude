@@ -707,6 +707,11 @@ export {
 
 export type { ModelIntelligenceEntry } from "./db/modelIntelligence";
 
+export * from "./db/adaptiveLearning"; // Adaptive-learning periodic flush (source/TTL/interval + flushAdaptiveLearning)
+export * from "./db/comboAdaptation"; // Combo adaptation v2: per-model backoff/cooldown state (combo_adaptation_state)
+export * from "./db/modelLearning"; // Per-model/task-type learning signals (confidence, first-pass success)
+export * from "./db/pinEffectiveness"; // Context-cache pin keep/invalid/repin effectiveness stats
+
 export {
   getProviderMetrics,
   getSearchProviderStats,

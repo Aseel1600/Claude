@@ -4269,6 +4269,29 @@
       "stream": "https://ollama.com/v1/chat/completions"
     }
   },
+  "ollama-local": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "http://localhost:11434/v1/chat/completions",
+      "stream": "http://localhost:11434/v1/chat/completions"
+    }
+  },
   "openadapter": {
     "format": "openai",
     "headers": {
