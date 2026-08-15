@@ -48,6 +48,16 @@ export const GLM_SHARED_MODELS = Object.freeze([
     supportsReasoning: true,
   },
   {
+    // Explicit alias for the upstream default (max) — pins reasoning_effort so
+    // the tier survives an upstream default change, and mirrors glm-5.2-max UX.
+    id: "glm-5.3-max",
+    name: "GLM 5.3 Max",
+    contextLength: 1000000,
+    maxOutputTokens: 131072,
+    toolCalling: true,
+    supportsReasoning: true,
+  },
+  {
     id: "glm-5.2",
     name: "GLM 5.2",
     contextLength: 1000000,

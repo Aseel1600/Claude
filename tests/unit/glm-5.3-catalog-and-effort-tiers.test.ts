@@ -21,7 +21,7 @@ const { GlmExecutor } = await import("../../open-sse/executors/glm.ts");
 const { MODEL_SPECS } = await import("../../src/shared/constants/modelSpecs.ts");
 const { GLM_PRICING } = await import("../../src/shared/constants/pricing/shared-tiers.ts");
 
-const GLM_5_3_IDS = ["glm-5.3", "glm-5.3-high", "glm-5.3-low"] as const;
+const GLM_5_3_IDS = ["glm-5.3", "glm-5.3-high", "glm-5.3-low", "glm-5.3-max"] as const;
 
 // transformForTransport returns an opaque body; surface only the fields asserted below.
 type TransformedRequest = {
@@ -60,7 +60,7 @@ for (const provider of ["glm", "glm-cn", "glmt"]) {
 test("zai advertises the GLM-5.3 base model only (DefaultExecutor sends ids verbatim)", () => {
   const ids = modelIds("zai");
   assert.ok(ids.includes("glm-5.3"), `zai should advertise glm-5.3; got ${ids.join(", ")}`);
-  for (const alias of ["glm-5.3-high", "glm-5.3-low"]) {
+  for (const alias of ["glm-5.3-high", "glm-5.3-low", "glm-5.3-max"]) {
     assert.ok(
       !ids.includes(alias),
       `zai must not list ${alias}: GlmExecutor-only alias, unknown upstream on the Anthropic endpoint`
@@ -115,6 +115,21 @@ test("GlmExecutor resolves glm-5.3-low to reasoning_effort=low with thinking ena
 
   assert.equal(transformed.model, "glm-5.3");
   assert.equal(transformed.reasoning_effort, "low");
+  assert.equal(transformed.thinking?.type, "enabled");
+});
+
+test("GlmExecutor resolves glm-5.3-max to an explicit reasoning_effort=max (pins the tier even if the upstream default changes)", () => {
+  const executor = new GlmExecutor("glm");
+  const transformed = executor.transformForTransport(
+    "glm-5.3-max",
+    { messages: [{ role: "user", content: "hi" }] },
+    false,
+    { apiKey: "glm-key" },
+    "openai"
+  ) as TransformedRequest;
+
+  assert.equal(transformed.model, "glm-5.3");
+  assert.equal(transformed.reasoning_effort, "max");
   assert.equal(transformed.thinking?.type, "enabled");
 });
 
