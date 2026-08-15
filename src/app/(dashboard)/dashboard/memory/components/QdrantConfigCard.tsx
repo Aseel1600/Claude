@@ -123,6 +123,16 @@ export default function QdrantConfigCard() {
     }
   }, []);
 
+  // Auto-check on mount once settings load: without this the status badge
+  // renders red after a page refresh because `health` starts as null and the
+  // old code treated "not checked yet" the same as "failed". The Test
+  // connection button still drives the same check manually.
+  useEffect(() => {
+    if (!loading && qdrant.enabled && health === null) {
+      void checkHealth();
+    }
+  }, [loading, qdrant.enabled, health, checkHealth]);
+
   const runSearch = useCallback(async () => {
     const q = searchQuery.trim();
     if (!q) return;
@@ -185,18 +195,32 @@ export default function QdrantConfigCard() {
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-            qdrant.enabled ? (health?.ok ? "text-emerald-500" : "text-red-500") : "text-text-muted"
+            !qdrant.enabled
+              ? "text-text-muted"
+              : health === null
+                ? "text-text-muted"
+                : health.ok
+                  ? "text-emerald-500"
+                  : "text-red-500"
           }`}
         >
           <span
             className={`inline-block w-2.5 h-2.5 rounded-full ${
-              qdrant.enabled ? (health?.ok ? "bg-emerald-500" : "bg-red-500") : "bg-border"
+              !qdrant.enabled
+                ? "bg-border"
+                : health === null
+                  ? "bg-border"
+                  : health.ok
+                    ? "bg-emerald-500"
+                    : "bg-red-500"
             }`}
           />
           {qdrant.enabled
-            ? health?.ok
-              ? t("qdrant.statusActive")
-              : t("qdrant.statusError")
+            ? health === null
+              ? t("qdrant.testing")
+              : health.ok
+                ? t("qdrant.statusActive")
+                : t("qdrant.statusError")
             : t("qdrant.statusDisabled")}
         </span>
       </div>
