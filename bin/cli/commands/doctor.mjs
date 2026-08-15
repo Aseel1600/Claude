@@ -5,6 +5,7 @@ import path from "node:path";
 import { createDecipheriv, scryptSync } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { resolveDataDir, resolveStoragePath } from "../data-dir.mjs";
+import { getCliToken, CLI_TOKEN_HEADER } from "../utils/cliToken.mjs";
 import { printHeading } from "../io.mjs";
 import { t } from "../i18n.mjs";
 import { readDatabaseHealth, readEncryptedCredentialSamples } from "../sqlite.mjs";
@@ -378,11 +379,11 @@ function checkMemory() {
   });
 }
 
-async function fetchWithTimeout(url) {
+async function fetchWithTimeout(url, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { ...options, signal: controller.signal });
   } finally {
     clearTimeout(timeout);
   }
@@ -471,6 +472,85 @@ async function checkServerLiveness(options = {}) {
   );
 }
 
+export async function checkMachineTokenAuth(options = {}) {
+  if (process.env.OMNIROUTE_DISABLE_CLI_TOKEN === "true") {
+    return warn("CLI machine token", "CLI machine-token authentication is disabled", {
+      derived: false,
+      accepted: false,
+      disabled: true,
+      tokenExposed: false,
+    });
+  }
+
+  const token = await getCliToken();
+  if (!token) {
+    return fail(
+      "CLI machine token",
+      "Could not derive a machine token; verify the node-machine-id runtime is installed",
+      { derived: false, accepted: false, tokenExposed: false }
+    );
+  }
+
+  let url;
+  try {
+    const parsed = new URL(resolveLivenessUrl(options));
+    parsed.pathname = "/api/cli/whoami";
+    parsed.search = "";
+    parsed.hash = "";
+    url = parsed.toString();
+  } catch {
+    return warn("CLI machine token", "Could not resolve the management endpoint", {
+      derived: true,
+      accepted: false,
+      tokenExposed: false,
+    });
+  }
+
+  try {
+    const response = await fetchWithTimeout(url, {
+      headers: { [CLI_TOKEN_HEADER]: token },
+    });
+    if (response.ok) {
+      return ok("CLI machine token", "Server accepted the local machine token", {
+        url,
+        status: response.status,
+        derived: true,
+        accepted: true,
+        tokenExposed: false,
+      });
+    }
+    if (response.status === 401 || response.status === 403) {
+      return warn(
+        "CLI machine token",
+        "Server rejected the local machine token; if the CLI and server are on different hosts or container boundaries, run `omniroute connect <host> --key <oma_live_...>`",
+        {
+          url,
+          status: response.status,
+          derived: true,
+          accepted: false,
+          containerBoundaryLikely: true,
+          tokenExposed: false,
+        }
+      );
+    }
+    return warn("CLI machine token", `Machine-token probe returned HTTP ${response.status}`, {
+      url,
+      status: response.status,
+      derived: true,
+      accepted: false,
+      tokenExposed: false,
+    });
+  } catch {
+    return warn("CLI machine token", "Machine-token endpoint could not be reached", {
+      url,
+      status: 0,
+      derived: true,
+      accepted: false,
+      tokenExposed: false,
+    });
+  }
+}
+
 export async function collectDoctorChecks(context = {}, options = {}) {
   const rootDir =
     context.rootDir || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -488,6 +568,7 @@ export async function collectDoctorChecks(context = {}, options = {}) {
 
   if (!options.skipLiveness) {
     checks.push(await checkServerLiveness(options));
+    checks.push(await checkMachineTokenAuth(options));
   }
 
   // CLI tool health checks

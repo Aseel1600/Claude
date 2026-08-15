@@ -73,6 +73,7 @@ function isPrivateLanRequest(ctx: PolicyContext): boolean {
 }
 
 function hasValidCliToken(ctx: PolicyContext): boolean {
+  if (process.env.OMNIROUTE_DISABLE_CLI_TOKEN === "true") return false;
   if (!isLoopbackRequest(ctx)) return false;
   const headers = ctx.request.headers;
   const provided = headers.get(CLI_TOKEN_HEADER);

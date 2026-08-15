@@ -85,8 +85,8 @@ function buildApiBody(skill: AgentSkill, sources: BuildSources): string {
 
   lines.push("## Authentication\n");
   lines.push(
-    "All requests require a valid Bearer token or session cookie. " +
-      "Obtain a token via `POST /api/auth/login` or configure `REQUIRE_API_KEY=false` for local development."
+    "Remote API requests use a Bearer credential. Dashboard login is different: " +
+      "`POST /api/auth/login` accepts a management password and returns an `auth_token` session cookie."
   );
   lines.push("");
 
@@ -105,14 +105,32 @@ function buildApiBody(skill: AgentSkill, sources: BuildSources): string {
         lines.push(op.description);
         lines.push("");
       }
-      // Minimal curl example
-      const curlMethod = op.method === "GET" ? "" : `-X ${op.method} `;
+      // Minimal curl example. Dashboard login is the only public password-to-session
+      // exchange; the other auth routes consume the resulting cookie. Mutating
+      // cookie-authenticated routes additionally require a CSRF token.
       lines.push("```bash");
-      lines.push(`curl ${curlMethod}https://localhost:20128${op.path} \\`);
-      lines.push('  -H "Authorization: Bearer $OMNIROUTE_TOKEN"');
-      if (["POST", "PUT", "PATCH"].includes(op.method)) {
+      if (op.path === "/api/auth/login" && op.method === "POST") {
+        lines.push(`curl -X POST https://localhost:20128${op.path} \\`);
         lines.push('  -H "Content-Type: application/json" \\');
-        lines.push("  -d '{}'");
+        lines.push("  -c cookie.jar \\");
+        lines.push('  -d \'{"password":"<management-password>"}\'');
+      } else {
+        const curlMethod = op.method === "GET" ? "" : `-X ${op.method} `;
+        if (op.method === "GET") {
+          lines.push(`curl ${curlMethod}https://localhost:20128${op.path} \\`);
+          lines.push("  -b cookie.jar");
+        } else {
+          lines.push(
+            "CSRF_TOKEN=$(curl -s https://localhost:20128/api/auth/csrf -b cookie.jar | jq -r .token)"
+          );
+          lines.push(`curl ${curlMethod}https://localhost:20128${op.path} \\`);
+          lines.push("  -b cookie.jar \\");
+          lines.push('  -H "x-omniroute-csrf: $CSRF_TOKEN"');
+          if (["POST", "PUT", "PATCH"].includes(op.method)) {
+            lines.push('  -H "Content-Type: application/json" \\');
+            lines.push("  -d '{}'");
+          }
+        }
       }
       lines.push("```");
       lines.push("");

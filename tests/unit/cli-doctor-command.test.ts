@@ -15,6 +15,8 @@ const ORIGINAL_STORAGE_ENCRYPTION_KEY = process.env.STORAGE_ENCRYPTION_KEY;
 interface DoctorCheck {
   name: string;
   status: string;
+  message?: string;
+  details?: Record<string, unknown>;
 }
 
 interface DoctorResult {
@@ -108,4 +110,71 @@ test("doctor fails when encrypted credentials exist without storage key", async 
 
     assert.equal(getCheck(result, "Storage/encryption")?.status, "fail");
   });
+});
+
+test("doctor probes the real machine-token endpoint without exposing the token", async () => {
+  await withDoctorEnv(async () => {
+    const originalFetch = globalThis.fetch;
+    let observedToken = "";
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      assert.match(url, /\/api\/cli\/whoami$/);
+      observedToken = new Headers(init?.headers).get("x-omniroute-cli-token") || "";
+      return new Response(JSON.stringify({ authenticated: true }), {
+        status: observedToken ? 200 : 401,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+
+    try {
+      const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+      const check = await checkMachineTokenAuth({
+        livenessUrl: "http://127.0.0.1:21999/api/health/degradation",
+      });
+
+      assert.equal(check.status, "ok");
+      assert.match(observedToken, /^[0-9a-f]{64}$/);
+      assert.ok(
+        !JSON.stringify(check).includes(observedToken),
+        "doctor output must never expose token"
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
+
+test("doctor gives connect guidance when the server rejects a machine token", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async () => new Response(null, { status: 401 })) as typeof fetch;
+  try {
+    const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+    const check = await checkMachineTokenAuth({
+      livenessUrl: "http://127.0.0.1:21999/api/health/degradation",
+    });
+    assert.equal(check.status, "warn");
+    assert.match(check.message || "", /omniroute connect/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("doctor reports explicitly disabled machine-token auth without probing", async () => {
+  const previous = process.env.OMNIROUTE_DISABLE_CLI_TOKEN;
+  const originalFetch = globalThis.fetch;
+  process.env.OMNIROUTE_DISABLE_CLI_TOKEN = "true";
+  globalThis.fetch = (async () => {
+    throw new Error("fetch should not run");
+  }) as typeof fetch;
+  try {
+    const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+    const check = await checkMachineTokenAuth();
+    assert.equal(check.status, "warn");
+    assert.equal(check.details?.disabled, true);
+    assert.match(check.message || "", /disabled/i);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (previous === undefined) delete process.env.OMNIROUTE_DISABLE_CLI_TOKEN;
+    else process.env.OMNIROUTE_DISABLE_CLI_TOKEN = previous;
+  }
 });

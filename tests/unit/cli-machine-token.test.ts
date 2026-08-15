@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import http from "node:http";
 
 test("cliToken.mjs pode ser importado sem erro", async () => {
   const mod = await import("../../bin/cli/utils/cliToken.mjs");
@@ -9,12 +10,35 @@ test("cliToken.mjs pode ser importado sem erro", async () => {
   assert.equal(mod.CLI_TOKEN_HEADER, "x-omniroute-cli-token");
 });
 
-test("getCliToken retorna string de 32 chars ou string vazia", async () => {
-  const { getCliToken } = await import("../../bin/cli/utils/cliToken.mjs");
-  const token = await getCliToken();
-  assert.ok(typeof token === "string");
-  // Pode ser "" se node-machine-id falhar, ou 32 chars se funcionar.
-  assert.ok(token === "" || token.length === 32, `expected 0 or 32 chars, got ${token.length}`);
+test("packaged CLI derives the same current machine token as the server", async () => {
+  const salt = `cli-machine-token-${process.pid}`;
+  const previousSalt = process.env.OMNIROUTE_CLI_SALT;
+  process.env.OMNIROUTE_CLI_SALT = salt;
+  try {
+    const { getCliToken } = await import(`../../bin/cli/utils/cliToken.mjs?current=${Date.now()}`);
+    const { getMachineTokenSync } = await import("../../src/lib/machineToken.ts");
+    const token = await getCliToken();
+
+    assert.match(token, /^[0-9a-f]{64}$/, "CLI token must be a non-empty HMAC-SHA256 digest");
+    assert.equal(token, getMachineTokenSync(salt));
+  } finally {
+    if (previousSalt === undefined) delete process.env.OMNIROUTE_CLI_SALT;
+    else process.env.OMNIROUTE_CLI_SALT = previousSalt;
+  }
+});
+
+test("getCliToken returns an empty string when machine-id derivation is unavailable", async () => {
+  const { deriveCliToken } = await import("../../bin/cli/utils/cliToken.mjs");
+  assert.equal(deriveCliToken({}, "test-salt"), "");
+  assert.equal(deriveCliToken({ default: { machineIdSync: () => "" } }, "test-salt"), "");
+  const throwingModule = {
+    default: {
+      machineIdSync: () => {
+        throw new Error("unavailable");
+      },
+    },
+  };
+  assert.equal(deriveCliToken(throwingModule, "test-salt"), "");
 });
 
 test("getCliToken retorna mesmo valor em chamadas repetidas (cache)", async () => {
@@ -24,12 +48,10 @@ test("getCliToken retorna mesmo valor em chamadas repetidas (cache)", async () =
   assert.equal(t1, t2);
 });
 
-test("getCliToken produz apenas hex lowercase se não-vazio", async () => {
+test("getCliToken produces only lowercase hex", async () => {
   const { getCliToken } = await import("../../bin/cli/utils/cliToken.mjs");
   const token = await getCliToken();
-  if (token.length > 0) {
-    assert.match(token, /^[0-9a-f]{32}$/);
-  }
+  assert.match(token, /^[0-9a-f]{64}$/);
 });
 
 test("OMNIROUTE_CLI_TOKEN env sobrescreve token gerado em apiFetch", async () => {
@@ -41,6 +63,124 @@ test("OMNIROUTE_CLI_TOKEN env sobrescreve token gerado em apiFetch", async () =>
   } finally {
     if (orig === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
     else process.env.OMNIROUTE_CLI_TOKEN = orig;
+  }
+});
+
+test("apiFetch never sends an implicit machine token to remote contexts", async () => {
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+  const originalOverride = process.env.OMNIROUTE_CLI_TOKEN;
+  process.env.OMNIROUTE_BASE_URL = "https://remote.example.test";
+  delete process.env.OMNIROUTE_CLI_TOKEN;
+  try {
+    const { buildHeaders } = await import(`../../bin/cli/api.mjs?remote=${Date.now()}`);
+    const headers = await buildHeaders({});
+    assert.equal(headers.has("x-omniroute-cli-token"), false);
+  } finally {
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+    if (originalOverride === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
+    else process.env.OMNIROUTE_CLI_TOKEN = originalOverride;
+  }
+});
+
+test("apiFetch sends the implicit machine token only to loopback destinations", async () => {
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+  const originalOverride = process.env.OMNIROUTE_CLI_TOKEN;
+  process.env.OMNIROUTE_BASE_URL = "http://127.0.0.1:20128";
+  delete process.env.OMNIROUTE_CLI_TOKEN;
+  try {
+    const [{ buildHeaders, isLoopbackUrl }, { getCliToken }] = await Promise.all([
+      import(`../../bin/cli/api.mjs?loopback=${Date.now()}`),
+      import("../../bin/cli/utils/cliToken.mjs"),
+    ]);
+    assert.equal(isLoopbackUrl("http://localhost:20128"), true);
+    assert.equal(isLoopbackUrl("http://127.0.0.42:20128"), true);
+    assert.equal(isLoopbackUrl("http://[::1]:20128"), true);
+    assert.equal(isLoopbackUrl("https://remote.example.test"), false);
+    const headers = await buildHeaders({});
+    assert.equal(headers.get("x-omniroute-cli-token"), await getCliToken());
+  } finally {
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+    if (originalOverride === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
+    else process.env.OMNIROUTE_CLI_TOKEN = originalOverride;
+  }
+});
+
+test("CLI-token overrides are also suppressed for remote contexts", async () => {
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+  const originalOverride = process.env.OMNIROUTE_CLI_TOKEN;
+  process.env.OMNIROUTE_BASE_URL = "https://remote.example.test";
+  process.env.OMNIROUTE_CLI_TOKEN = "must-not-leave-loopback";
+  try {
+    const { buildHeaders } = await import(`../../bin/cli/api.mjs?override=${Date.now()}`);
+    const headers = await buildHeaders({ cliToken: "also-local-only" });
+    assert.equal(headers.has("x-omniroute-cli-token"), false);
+  } finally {
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+    if (originalOverride === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
+    else process.env.OMNIROUTE_CLI_TOKEN = originalOverride;
+  }
+});
+
+test("absolute remote URLs cannot inherit a local context machine token", async () => {
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+  const originalOverride = process.env.OMNIROUTE_CLI_TOKEN;
+  const originalFetch = globalThis.fetch;
+  process.env.OMNIROUTE_BASE_URL = "http://127.0.0.1:20128";
+  process.env.OMNIROUTE_CLI_TOKEN = "must-stay-local";
+  let receivedHeaders: Headers | null = null;
+  globalThis.fetch = (async (_url, init) => {
+    receivedHeaders = new Headers(init?.headers);
+    return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  try {
+    const { apiFetch } = await import(`../../bin/cli/api.mjs?absolute=${Date.now()}`);
+    await apiFetch("https://remote.example.test/probe", { retry: false });
+    assert.equal(receivedHeaders?.has("x-omniroute-cli-token"), false);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+    if (originalOverride === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
+    else process.env.OMNIROUTE_CLI_TOKEN = originalOverride;
+  }
+});
+
+test("apiFetch refuses redirects while carrying a local machine token", async () => {
+  const originalBaseUrl = process.env.OMNIROUTE_BASE_URL;
+  const originalOverride = process.env.OMNIROUTE_CLI_TOKEN;
+  let redirectedRequests = 0;
+  const destination = http.createServer((_request, response) => {
+    redirectedRequests += 1;
+    response.end("unexpected");
+  });
+  const redirector = http.createServer((_request, response) => {
+    const destinationAddress = destination.address();
+    assert.ok(destinationAddress && typeof destinationAddress === "object");
+    response.writeHead(302, { location: `http://127.0.0.1:${destinationAddress.port}/target` });
+    response.end();
+  });
+  await new Promise<void>((resolve) => destination.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => redirector.listen(0, "127.0.0.1", resolve));
+  const redirectorAddress = redirector.address();
+  assert.ok(redirectorAddress && typeof redirectorAddress === "object");
+  process.env.OMNIROUTE_BASE_URL = `http://127.0.0.1:${redirectorAddress.port}`;
+  process.env.OMNIROUTE_CLI_TOKEN = "redirect-secret";
+  try {
+    const { apiFetch } = await import(`../../bin/cli/api.mjs?redirect=${Date.now()}`);
+    await assert.rejects(() => apiFetch("/redirect", { retry: false }), /fetch failed/i);
+    assert.equal(redirectedRequests, 0);
+  } finally {
+    await Promise.all([
+      new Promise<void>((resolve) => redirector.close(() => resolve())),
+      new Promise<void>((resolve) => destination.close(() => resolve())),
+    ]);
+    if (originalBaseUrl === undefined) delete process.env.OMNIROUTE_BASE_URL;
+    else process.env.OMNIROUTE_BASE_URL = originalBaseUrl;
+    if (originalOverride === undefined) delete process.env.OMNIROUTE_CLI_TOKEN;
+    else process.env.OMNIROUTE_CLI_TOKEN = originalOverride;
   }
 });
 
