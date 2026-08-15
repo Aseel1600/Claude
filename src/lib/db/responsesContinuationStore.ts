@@ -13,7 +13,7 @@
  * request/response payloads, already gated by `call_log_pipeline_enabled`
  * and already retained/cleaned up by the existing call-log lifecycle)
  * instead of duplicating conversation content into a second store. Only a
- * lightweight `call_logs.response_id` index (153_call_logs_response_id.sql)
+ * lightweight `call_logs.response_id` index (154_call_logs_response_id.sql)
  * is new. Every lookup is scoped by `api_key_id` -- one client can never
  * resolve another client's stored conversation.
  */
