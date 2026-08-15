@@ -212,4 +212,8 @@ test("public docs describe the exact Video Bridge quota, deadline, and abort con
   assert.match(guardrails, /`signal\?: AbortSignal`/);
   assert.match(guardrails, /request abort[^\n]*fail-open exception/i);
   assert.doesNotMatch(guardrails, /modalityBridgeVideoTimeout`[^\n]*300000/);
+  assert.match(guardrails, /latencySamples/);
+  assert.match(guardrails, /averageLatencyMs[\s\S]{0,160}latencySamples/);
+  assert.doesNotMatch(guardrails, /reference-bearing containers/);
+  assert.match(guardrails, /external MOV data references[\s\S]{0,160}disabled by default/i);
 });

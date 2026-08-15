@@ -174,9 +174,11 @@ swap is already visible in the response body's `model` field.
 `GET /api/modality-bridge/stats` (management auth, same tier as
 `GET /api/settings`) returns the in-memory per-modality counters
 `{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs,
-averageLatencyMs, lastUsedAt }` for `vision`, `audio`, and `video`. `bridged`
-remains the backward-compatible alias for successful conversions; failed
-attempts do not increment it.
+latencySamples, averageLatencyMs, lastUsedAt }` for `vision`, `audio`, and
+`video`. `averageLatencyMs` uses `latencySamples`, not all attempts, as its
+denominator; an operation without timing does not fabricate a zero-millisecond
+sample. `bridged` remains the backward-compatible alias for successful
+conversions; failed attempts do not increment it.
 Counters reset on process restart by design
 (telemetry, not accounting).
 
@@ -295,13 +297,18 @@ reader independently enforce a 50 MiB broker input cap. Its bounded queue runs
 one extraction at a time, allows four pending jobs, and caps pending input at
 100 MiB.
 
-Inside the broker, `ffprobe` reads a private local file and rejects playlist,
-manifest, and reference-bearing containers through a fixed format allowlist.
-Both `ffprobe` and `ffmpeg` use the `file`-only protocol whitelist, one thread,
-fixed argument arrays, no shell, and executables resolved from `PATH`. Videos
-are limited to 600 seconds, 8,192 pixels per dimension, and 33,554,432 source
-pixels. FFmpeg samples 1–16 midpoint JPEG frames, scales down the long edge to
-at most 1,024 pixels without upscaling smaller inputs, and never receives a URL.
+Inside the broker, `ffprobe` reads a private local file; the fixed format
+allowlist excludes playlist and manifest formats. For allowed MOV-family
+containers, external MOV data references remain disabled by default, and the
+fixed command does not opt in to them. Both `ffprobe` and `ffmpeg` use the
+`file`-only protocol whitelist, one thread, fixed argument arrays, no shell,
+and executables resolved from `PATH`. Attached-picture cover streams are not
+playable candidates. All playable streams must satisfy the limits, and an
+explicit default stream is preferred before the deterministic lowest-index
+fallback. Videos are limited to 600 seconds, 8,192 pixels per dimension, and
+33,554,432 source pixels. FFmpeg samples 1–16 midpoint JPEG frames, scales down
+the long edge to at most 1,024 pixels without upscaling smaller inputs, and
+never receives a URL.
 Each frame is limited to 4 MiB, all raw frames together to 23 MiB, and the
 serialized broker response to 32 MiB. A private temporary directory is removed
 in `finally`. OmniRoute does not bundle FFmpeg and does not accept a custom
