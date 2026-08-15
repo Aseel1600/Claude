@@ -1,4 +1,4 @@
--- Migration 153: lightweight Team / billing cost-center layer (#687)
+-- Migration 154: lightweight Team / billing cost-center layer (#687)
 --
 -- Key groups remain many-to-many authorization ACLs. Billing ownership is a
 -- separate temporal relation with one active Team per API key. Usage rows carry
