@@ -80,6 +80,7 @@ export default function RadarPage() {
   const [meta, setMeta] = useState<RadarMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [featureAvailable, setFeatureAvailable] = useState<boolean | null>(null);
   const [optIn, setOptIn] = useState<boolean | null>(null);
   const [activating, setActivating] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -116,13 +117,14 @@ export default function RadarPage() {
         const res = await fetch("/api/radar/catalog", { cache: "no-store" });
         if (res.status === 404) {
           // Flag off — treat as not found
-          setOptIn(false);
+          setFeatureAvailable(false);
           setEntries([]);
           setMeta(null);
           if (showLoading) setLoading(false);
           return;
         }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setFeatureAvailable(true);
         const data = await res.json();
         setEntries(data.entries || []);
         setMeta(data.meta || null);
@@ -162,11 +164,13 @@ export default function RadarPage() {
       const settingsRes = await fetch("/api/radar/settings", { cache: "no-store" });
       if (settingsRes.status === 404) {
         // Flag off
-        setOptIn(false);
+        setFeatureAvailable(false);
+        setOptIn(null);
         return;
       }
       if (!settingsRes.ok) throw new Error(`HTTP ${settingsRes.status}`);
       const settingsData = await settingsRes.json();
+      setFeatureAvailable(true);
       setOptIn(settingsData.optIn === true);
       setHasSupporterKey(settingsData.hasSupporterKey === true);
       setSupporterKeyMasked(
@@ -295,16 +299,16 @@ export default function RadarPage() {
     }
   }, [keyInput, t, handleSync]);
 
-  // Determine effective state
-  const flagOn = optIn !== false || entries.length > 0 || meta !== null;
+  // Feature availability and privacy opt-in are independent states. A successful
+  // settings response with `optIn: false` means "show activation", not "flag off".
   const pageState = resolveRadarPageState(
-    optIn !== false, // if we got a 404, optIn=false => flag off
+    featureAvailable !== false,
     optIn === true,
     meta !== null
   );
 
   // Flag off — render not-found
-  if (pageState === "flag_off" && !loading) {
+  if (featureAvailable === false && !loading) {
     notFound();
   }
 

@@ -9,6 +9,9 @@ import { VISION_BRIDGE_DEFAULTS } from "./visionBridgeDefaults";
 
 export type VisionBridgeMode = "auto" | "describe" | "reroute";
 
+export const VIDEO_BRIDGE_TIMEOUT_MIN_MS = 1_000;
+export const VIDEO_BRIDGE_TIMEOUT_MAX_MS = 120_000;
+
 export const MODALITY_BRIDGE_DEFAULTS = {
   visionMode: "auto" as VisionBridgeMode,
   visionTaskAware: true,
@@ -21,6 +24,11 @@ export const MODALITY_BRIDGE_DEFAULTS = {
   audioModel: "",
   audioTimeoutMs: 60000,
   audioMaxClips: 3,
+  videoEnabled: false,
+  videoModel: "",
+  videoFrameCount: 8,
+  videoMaxVideos: 1,
+  videoTimeoutMs: 120000,
 } as const;
 
 export interface VisionBridgeRuntimeSettings {
@@ -42,6 +50,17 @@ export interface AudioBridgeRuntimeSettings {
   model: string;
   timeoutMs: number;
   maxClips: number;
+  cacheEnabled: boolean;
+  cacheTtlMinutes: number;
+  cacheMaxEntries: number;
+}
+
+export interface VideoBridgeRuntimeSettings {
+  enabled: boolean;
+  model: string;
+  frameCount: number;
+  maxVideos: number;
+  timeoutMs: number;
   cacheEnabled: boolean;
   cacheTtlMinutes: number;
   cacheMaxEntries: number;
@@ -108,6 +127,34 @@ export function resolveAudioBridgeRuntimeSettings(
     model: pickString(s.modalityBridgeAudioModel) ?? MODALITY_BRIDGE_DEFAULTS.audioModel,
     timeoutMs: pickNumber(s.modalityBridgeAudioTimeout) ?? MODALITY_BRIDGE_DEFAULTS.audioTimeoutMs,
     maxClips: pickNumber(s.modalityBridgeAudioMaxClips) ?? MODALITY_BRIDGE_DEFAULTS.audioMaxClips,
+    cacheEnabled:
+      pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
+    cacheTtlMinutes:
+      pickNumber(s.modalityBridgeCacheTtlMinutes) ?? MODALITY_BRIDGE_DEFAULTS.cacheTtlMinutes,
+    cacheMaxEntries:
+      pickNumber(s.modalityBridgeCacheMaxEntries) ?? MODALITY_BRIDGE_DEFAULTS.cacheMaxEntries,
+  };
+}
+
+/** Resolve persisted Video Bridge settings with safe, bounded defaults. */
+export function resolveVideoBridgeRuntimeSettings(
+  settings: Record<string, unknown> | null | undefined
+): VideoBridgeRuntimeSettings {
+  const s = settings ?? {};
+  return {
+    enabled: pickBoolean(s.modalityBridgeVideoEnabled) ?? MODALITY_BRIDGE_DEFAULTS.videoEnabled,
+    model: pickString(s.modalityBridgeVideoModel) ?? MODALITY_BRIDGE_DEFAULTS.videoModel,
+    frameCount:
+      pickNumber(s.modalityBridgeVideoFrameCount) ?? MODALITY_BRIDGE_DEFAULTS.videoFrameCount,
+    maxVideos:
+      pickNumber(s.modalityBridgeVideoMaxVideos) ?? MODALITY_BRIDGE_DEFAULTS.videoMaxVideos,
+    timeoutMs: Math.min(
+      VIDEO_BRIDGE_TIMEOUT_MAX_MS,
+      Math.max(
+        VIDEO_BRIDGE_TIMEOUT_MIN_MS,
+        pickNumber(s.modalityBridgeVideoTimeout) ?? MODALITY_BRIDGE_DEFAULTS.videoTimeoutMs
+      )
+    ),
     cacheEnabled:
       pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
     cacheTtlMinutes:
