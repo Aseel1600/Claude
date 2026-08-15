@@ -16,7 +16,7 @@ type Platform = "linux" | "darwin" | "windows" | "freebsd";
 type Arch = "amd64" | "arm64";
 
 function detectPlatform(): Platform {
-  const p = process.platform;
+  const p = os.platform();
   if (p === "linux") return "linux";
   if (p === "darwin") return "darwin";
   if (p === "win32") return "windows";
@@ -24,7 +24,7 @@ function detectPlatform(): Platform {
 }
 
 function detectArch(): Arch {
-  const a = process.arch;
+  const a = os.arch();
   if (a === "x64") return "amd64";
   if (a === "arm64") return "arm64";
   return "amd64";

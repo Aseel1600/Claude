@@ -1,4 +1,4 @@
-import { describe, it, afterEach, after } from "node:test";
+import { describe, it, afterEach, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
@@ -62,6 +62,22 @@ describe("binaryManager", () => {
       const { platform, arch } = mod.getTargetPlatform();
       assert.ok(["linux", "darwin", "windows"].includes(platform));
       assert.ok(["amd64", "arm64"].includes(arch));
+    });
+
+    it("should read platform/arch at runtime from os (anti build-folding guard) (#10244)", () => {
+      // Regression guard for #10244/#10293: detectPlatform/detectArch must read
+      // os.platform()/os.arch() at call time, NOT the build-machine foldable
+      // process.platform/process.arch constants. Turbopack `next build` running
+      // on Linux constant-folds `process.platform` and prunes every Windows/arm64
+      // branch from the published npm artifact. Simulate a Windows arm64 host via
+      // the runtime os.* functions; the Windows/arm64 branch must be reachable.
+      mock.method(os, "platform", () => "win32");
+      mock.method(os, "arch", () => "arm64");
+      assert.deepEqual(mod.getTargetPlatform(), { platform: "windows", arch: "arm64" });
+      assert.equal(
+        mod.getAssetName(),
+        "CLIProxyAPI_{version}_windows_arm64.zip"
+      );
     });
   });
 
