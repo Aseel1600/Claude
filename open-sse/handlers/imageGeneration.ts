@@ -70,6 +70,7 @@ import {
   extractMarkdownImageUrls,
   CHATGPT_WEB_IMAGE_ID_RE,
 } from "./imageGeneration/providers/chatgptWeb.ts";
+import { handleGeminiWebImageGeneration } from "./imageGeneration/providers/geminiWeb.ts";
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
 import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmind.ts";
 import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
@@ -489,6 +490,19 @@ export async function handleImageGeneration({
 
   if (providerConfig.format === "chatgpt-web") {
     return handleChatGptWebImageGeneration({
+      model,
+      provider,
+      body,
+      credentials,
+      log,
+      signal,
+      clientHeaders,
+    });
+  }
+
+  // #10466: Gemini Web session image generation (Nano Banana)
+  if (providerConfig.format === "gemini-web") {
+    return handleGeminiWebImageGeneration({
       model,
       provider,
       body,
