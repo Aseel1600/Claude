@@ -1,0 +1,1 @@
+- **fix(memory):** auto-check Qdrant health on mount and stop the false-red status badge on `/dashboard/memory?tab=engine` — the badge treated "not yet checked" (`health === null`) as a failure, so a healthy Qdrant showed red after every page refresh until "Test connection" was clicked ([#10489](https://github.com/diegosouzapw/OmniRoute/pull/10489))
