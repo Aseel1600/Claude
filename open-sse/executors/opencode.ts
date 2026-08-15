@@ -393,6 +393,11 @@ export class OpencodeExecutor extends BaseExecutor {
     if (clientHeaders || cliDefaults) {
       forwardOpencodeClientHeaders(headers, clientHeaders ?? {}, {
         synthesizeRequestId: true,
+        // Derive a conversation-stable x-opencode-session from the upstream
+        // connection id (prompt-cache friendly; mirrors 9router#3321's
+        // connection-scoped session id). Client-supplied session headers still
+        // win; no connectionId → fresh UUID per request (previous behavior).
+        sessionSeed: credentials?.connectionId,
         cliDefaults,
       });
     }

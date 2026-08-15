@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { setUserAgentHeader } from "../executors/base.ts";
 
 /**
@@ -43,6 +43,11 @@ function findHeader(headers: Record<string, string>, name: string): string | und
  * @param options.synthesizeRequestId - When true (OpencodeExecutor only), maps
  *   x-session-affinity / x-session-id to x-opencode-session when the latter is
  *   missing, and synthesizes a UUID for x-opencode-request if also missing.
+ * @param options.sessionSeed - When provided (OpencodeExecutor only), the
+ *   synthesized x-opencode-session is derived from this stable seed
+ *   (UUID-shaped hash) instead of a fresh random UUID, so consecutive requests
+ *   of the same upstream connection reuse one session id (prompt-cache
+ *   friendly). Client-supplied session headers still win.
  * @param options.cliDefaults - When provided (OpencodeExecutor only), synthesize
  *   the OpenCode CLI identity headers that Cloudflare requires on VPS egress
  *   (User-Agent, x-opencode-client, x-opencode-project) plus fresh request/session
@@ -57,6 +62,7 @@ export function forwardOpencodeClientHeaders(
   clientHeaders: Record<string, string>,
   options?: {
     synthesizeRequestId?: boolean;
+    sessionSeed?: string;
     cliDefaults?: { userAgent: string; client: string; project: string };
   }
 ): void {
@@ -98,8 +104,23 @@ export function forwardOpencodeClientHeaders(
   // 4. OpencodeExecutor-only: synthesize the OpenCode CLI identity Cloudflare expects
   //    on VPS egress, for any key the client did not supply (#5997).
   if (options?.cliDefaults) {
-    applyCliDefaults(headers, options.cliDefaults);
+    applyCliDefaults(headers, options.cliDefaults, options.sessionSeed);
   }
+}
+
+/**
+ * Derive a conversation-stable OpenCode session id from a stable seed, shaped
+ * as a UUID so existing consumers (and the session/request regex assertions in
+ * the #5997 regression tests) keep working. The same seed always yields the
+ * same id — consecutive requests of one upstream connection therefore reuse a
+ * single session id (prompt-cache friendly) instead of burning a fresh random
+ * UUID per call. Falls back to `randomUUID()` when no seed is available (the
+ * previous behavior, unchanged).
+ */
+function stableSessionId(seed: string | undefined): string {
+  if (!seed) return randomUUID();
+  const hex = createHash("sha256").update(seed).digest("hex").slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 /**
@@ -113,7 +134,8 @@ export function forwardOpencodeClientHeaders(
  */
 function applyCliDefaults(
   headers: Record<string, string>,
-  cliDefaults: { userAgent: string; client: string; project: string }
+  cliDefaults: { userAgent: string; client: string; project: string },
+  sessionSeed?: string
 ): void {
   const existingUa = headers["User-Agent"] || headers["user-agent"];
   const clientUaIsCliLike =
@@ -124,5 +146,5 @@ function applyCliDefaults(
   headers["x-opencode-client"] ||= cliDefaults.client;
   headers["x-opencode-project"] ||= cliDefaults.project;
   headers["x-opencode-request"] ||= randomUUID();
-  headers["x-opencode-session"] ||= randomUUID();
+  headers["x-opencode-session"] ||= stableSessionId(sessionSeed);
 }

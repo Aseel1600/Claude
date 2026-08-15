@@ -91,6 +91,40 @@ test("forwardOpencodeClientHeaders: without cliDefaults, no synthesis (DefaultEx
   assert.equal(headers["x-opencode-project"], undefined);
 });
 
+test("forwardOpencodeClientHeaders: sessionSeed makes x-opencode-session stable per connection (UUID-shaped)", () => {
+  // Same seed → same session id (prompt-cache friendly), still UUID-shaped.
+  const a: Record<string, string> = {};
+  const b: Record<string, string> = {};
+  forwardOpencodeClientHeaders(a, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" });
+  forwardOpencodeClientHeaders(b, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" });
+  assert.match(a["x-opencode-session"] ?? "", UUID_RE);
+  assert.equal(a["x-opencode-session"], b["x-opencode-session"]);
+
+  // Different seed → different session; request id stays fresh per request.
+  const c: Record<string, string> = {};
+  forwardOpencodeClientHeaders(c, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-2" });
+  assert.notEqual(a["x-opencode-session"], c["x-opencode-session"]);
+  assert.notEqual(a["x-opencode-request"], c["x-opencode-request"]);
+
+  // No seed → fresh UUID per call (previous behavior, unchanged).
+  const d: Record<string, string> = {};
+  const e: Record<string, string> = {};
+  forwardOpencodeClientHeaders(d, {}, { cliDefaults: CLI_DEFAULTS });
+  forwardOpencodeClientHeaders(e, {}, { cliDefaults: CLI_DEFAULTS });
+  assert.match(d["x-opencode-session"] ?? "", UUID_RE);
+  assert.notEqual(d["x-opencode-session"], e["x-opencode-session"]);
+});
+
+test("forwardOpencodeClientHeaders: client-supplied session always beats sessionSeed", () => {
+  const headers: Record<string, string> = {};
+  forwardOpencodeClientHeaders(
+    headers,
+    { "x-opencode-session": "sess-from-client" },
+    { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" }
+  );
+  assert.equal(headers["x-opencode-session"], "sess-from-client");
+});
+
 test("OpencodeExecutor.buildHeaders: synthesizes CLI defaults BY DEFAULT (flag unset) [#5997]", () => {
   withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", undefined, () => {
     const executor = new OpencodeExecutor("opencode-go");
