@@ -4,8 +4,10 @@ import { getModelInfo } from "@/sse/services/model";
 import { getModelAliases } from "@/lib/db/models";
 import {
   getResolvedModelCapabilities,
+  getResolvedModelContextOverride,
   isNonChatCatalogSurface,
 } from "@/lib/modelCapabilities";
+import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import {
   getAuthoritativeContextWindow,
   getAuthoritativeProviderContextWindow,
@@ -14,7 +16,13 @@ import {
 } from "@/shared/constants/modelSpecs";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { PROVIDER_ID_TO_ALIAS, PROVIDER_MODELS } from "@/shared/constants/models";
-import { getSyncStatus, getSyncedCapability, getModelsDevPricing } from "@/lib/modelsDevSync";
+import {
+  getSyncStatus,
+  getSyncedCapability,
+  getModelsDevPricing,
+  type PricingByProvider,
+} from "@/lib/modelsDevSync";
+import { getSyncedPricing } from "@/lib/pricingSync";
 import { getPricingForModel as getDefaultPricingForModel } from "@/shared/constants/pricing";
 import {
   CANONICAL_EFFORT_VALUES,
@@ -28,6 +36,11 @@ export const MODEL_NOT_MAPPED = "MODEL_NOT_MAPPED";
 export const INTERNAL_PROXY_ERROR = "INTERNAL_PROXY_ERROR";
 
 type JsonRecord = Record<string, unknown>;
+
+export interface CatalogEnrichmentSnapshot {
+  modelsDevPricing: PricingByProvider | null;
+  providerNodeIdsByPrefix?: Readonly<Record<string, string>>;
+}
 
 interface CatalogDiagnosticsOptions {
   request?: Request | null;
@@ -261,34 +274,94 @@ export function getCanonicalModelMetadata(input: {
   };
 }
 
+// #8697 second bottleneck (after getModelsDevPricing memoization above): findInsensitive
+// rebuilt a full Object.entries() scan on every miss, twice per model (provider lookup +
+// model lookup) — ~6091 models × ~180-210 entries ≈ 1.2-1.3M allocations per catalog
+// rebuild. Replaced with a lowercase-key index built once per distinct object and cached
+// by identity (WeakMap) — getModelsDevPricing() returns the same object reference while
+// its cache is warm, so the index is reused across every resolveCatalogPricing() call in
+// a rebuild instead of rebuilt per lookup.
+const lowercaseIndexCache = new WeakMap<object, Map<string, unknown>>();
+
+function findInsensitive<T>(obj: Record<string, T> | null | undefined, key: string): T | undefined {
+  if (!obj || !key) return undefined;
+  if (key in obj) return obj[key];
+  let index = lowercaseIndexCache.get(obj);
+  if (!index) {
+    index = new Map();
+    for (const [k, v] of Object.entries(obj)) {
+      const lowerKey = k.toLowerCase();
+      // Warn once at index-build time (not per-lookup) if two keys collide
+      // case-insensitively — a real data-quality signal from an upstream sync (e.g.
+      // models.dev returning both "OpenAI" and "openai" as distinct provider keys).
+      // Matches the pre-fix scan's silent first-match-wins behavior, just surfaced
+      // instead of swallowed.
+      if (index.has(lowerKey)) {
+        console.warn(
+          `[modelMetadataRegistry] findInsensitive: case-insensitive key collision on "${lowerKey}" — keeping first-seen value, later one discarded`
+        );
+        continue;
+      }
+      index.set(lowerKey, v);
+    }
+    lowercaseIndexCache.set(obj, index);
+  }
+  return index.get(key.toLowerCase()) as T | undefined;
+}
+
 function resolveCatalogPricing(
   provider: string | null,
-  model: string | null
+  model: string | null,
+  snapshot?: CatalogEnrichmentSnapshot
 ): Record<string, number> | null {
   if (!provider || !model) return null;
 
-  const findInsensitive = <T>(
-    obj: Record<string, T> | null | undefined,
-    key: string
-  ): T | undefined => {
-    if (!obj || !key) return undefined;
-    if (key in obj) return obj[key];
-    const lower = key.toLowerCase();
-    for (const [k, v] of Object.entries(obj)) {
-      if (k.toLowerCase() === lower) return v;
-    }
-    return undefined;
-  };
-
   // Prefer models.dev synced pricing when present; fall back to hardcoded defaults.
   try {
-    const modelsDev = getModelsDevPricing() as Record<
+    const modelsDev = (
+      snapshot ? snapshot.modelsDevPricing || {} : getModelsDevPricing()
+    ) as Record<string, Record<string, Record<string, number>>>;
+    const providerPricing =
+      findInsensitive(modelsDev, provider) ||
+      findInsensitive(modelsDev, provider.replace(/-cn$/, ""));
+    if (providerPricing) {
+      const modelPricing =
+        findInsensitive(providerPricing, model) ||
+        findInsensitive(providerPricing, model.replace(/\./g, "-")) ||
+        findInsensitive(
+          providerPricing,
+          model.includes("/") ? model.split("/").pop() || model : model
+        );
+      if (modelPricing && typeof modelPricing === "object") {
+        const input = modelPricing.input;
+        const output = modelPricing.output;
+        if (typeof input === "number" || typeof output === "number") {
+          const pricing: Record<string, number> = {};
+          if (typeof input === "number") pricing.input = input;
+          if (typeof output === "number") pricing.output = output;
+          if (typeof modelPricing.cached === "number") pricing.cached = modelPricing.cached;
+          if (typeof modelPricing.cache_creation === "number") {
+            pricing.cache_creation = modelPricing.cache_creation;
+          }
+          return pricing;
+        }
+      }
+    }
+  } catch {
+    // pricing lookup must never break catalog assembly
+  }
+
+  // LiteLLM-synced pricing (`pricing_synced` namespace) — Layer 3 in the
+  // documented resolution order (user > models.dev > LiteLLM > defaults).
+  // Consulted only when models.dev returned nothing, matching the order
+  // already implemented in db/settings/pricing.ts::getPricing().
+  try {
+    const litellm = getSyncedPricing() as unknown as Record<
       string,
       Record<string, Record<string, number>>
     >;
     const providerPricing =
-      findInsensitive(modelsDev, provider) ||
-      findInsensitive(modelsDev, provider.replace(/-cn$/, ""));
+      findInsensitive(litellm, provider) || findInsensitive(litellm, provider.replace(/-cn$/, ""));
     if (providerPricing) {
       const modelPricing =
         findInsensitive(providerPricing, model) ||
@@ -329,11 +402,14 @@ function resolveCatalogPricing(
 
 export function enrichCatalogModelEntry<T extends JsonRecord>(
   entry: T,
-  input?: { provider?: string | null; model?: string | null }
+  input?: { provider?: string | null; model?: string | null },
+  snapshot?: CatalogEnrichmentSnapshot
 ): T {
-  const provider =
+  const publicProvider =
     input?.provider ||
     (typeof entry.owned_by === "string" && entry.owned_by !== "combo" ? entry.owned_by : null);
+  const provider =
+    (publicProvider && snapshot?.providerNodeIdsByPrefix?.[publicProvider]) || publicProvider;
   const model =
     input?.model ||
     asNonEmptyString(entry.root) ||
@@ -346,15 +422,21 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
 
   const metadata = getCanonicalModelMetadata({ provider, model });
   if (!metadata) return entry;
+  const registryModel = getRegistryModel(
+    metadata.providerAlias || metadata.provider,
+    metadata.model
+  );
 
   const nextEntry: JsonRecord = { ...entry };
   const existingName = asNonEmptyString(entry.name);
   const authoritativeContextWindow =
     getAuthoritativeProviderContextWindow(metadata.provider, metadata.model) ??
     getAuthoritativeProviderContextWindow(provider, model) ??
+    getAuthoritativeProviderContextWindow(publicProvider, model) ??
     getAuthoritativeContextWindow(metadata.model) ??
     getAuthoritativeContextWindow(model);
   const specialtySurface = isNonChatCatalogSurface(entry.type);
+  const persistedContextWindow = getResolvedModelContextOverride({ provider, model });
   const capabilityFields = {
     ...(typeof metadata.capabilities.vision === "boolean"
       ? { vision: metadata.capabilities.vision }
@@ -382,11 +464,15 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
           supportsThinking: metadata.capabilities.supportsThinking,
           ...(metadata.capabilities.supportsThinking
             ? {
-                effort_tiers: extendCodexGpt56EffortValues(
-                  metadata.provider,
-                  metadata.model,
-                  CANONICAL_EFFORT_VALUES
-                ),
+                effort_tiers:
+                  registryModel?.supportedThinkingEfforts &&
+                  registryModel.supportedThinkingEfforts.length > 0
+                    ? [...registryModel.supportedThinkingEfforts]
+                    : extendCodexGpt56EffortValues(
+                        metadata.provider,
+                        metadata.model,
+                        CANONICAL_EFFORT_VALUES
+                      ),
               }
             : {}),
         }
@@ -419,16 +505,21 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
 
   if (
     !specialtySurface &&
-    (typeof nextEntry.context_length !== "number" || authoritativeContextWindow !== null) &&
+    (typeof nextEntry.context_length !== "number" ||
+      authoritativeContextWindow !== null ||
+      persistedContextWindow !== null) &&
     typeof metadata.limits.contextWindow === "number"
   ) {
     nextEntry.context_length = metadata.limits.contextWindow;
+  } else if (specialtySurface && persistedContextWindow !== null) {
+    // Exact persisted overrides are authoritative for every surface of the model.
+    nextEntry.context_length = persistedContextWindow;
   } else if (
     specialtySurface &&
     authoritativeContextWindow !== null &&
     typeof authoritativeContextWindow === "number"
   ) {
-    // Only authoritative static windows may decorate specialty rows.
+    // Only authoritative static windows may otherwise decorate specialty rows.
     nextEntry.context_length = authoritativeContextWindow;
   } else if (specialtySurface && typeof nextEntry.context_length === "number") {
     // Keep an explicit source-provided context if the emitter already set one.
@@ -436,7 +527,18 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     delete nextEntry.context_length;
   }
 
-  if (typeof metadata.limits.maxOutputTokens === "number" && metadata.limits.maxOutputTokens > 0) {
+  const persistedOutputLimit =
+    getModelCapabilityOverride(provider, model, "max_output_tokens") ??
+    getModelCapabilityOverride(provider, model, "max_token") ??
+    getModelCapabilityOverride(publicProvider, model, "max_output_tokens") ??
+    getModelCapabilityOverride(publicProvider, model, "max_token");
+  if (persistedOutputLimit !== null) {
+    nextEntry.max_output_tokens = persistedOutputLimit;
+  } else if (
+    typeof nextEntry.max_output_tokens !== "number" &&
+    typeof metadata.limits.maxOutputTokens === "number" &&
+    metadata.limits.maxOutputTokens > 0
+  ) {
     nextEntry.max_output_tokens = metadata.limits.maxOutputTokens;
   }
 
@@ -461,7 +563,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   if (nextEntry.pricing == null) {
-    const pricing = resolveCatalogPricing(provider, model);
+    const pricing = resolveCatalogPricing(provider, model, snapshot);
     if (pricing) nextEntry.pricing = pricing;
   }
 
