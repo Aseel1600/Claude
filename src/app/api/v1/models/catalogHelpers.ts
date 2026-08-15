@@ -6,6 +6,7 @@
 import {
   CANONICAL_EFFORT_VALUES,
   extendCodexGpt56EffortValues,
+  extendDeepSeekEffortValues,
 } from "@/shared/reasoning/effortStandardization";
 
 export interface CustomModelEntry {
@@ -15,6 +16,7 @@ export interface CustomModelEntry {
   apiFormat?: string;
   supportedEndpoints?: string[];
   inputTokenLimit?: number;
+  outputTokenLimit?: number;
   isHidden?: boolean;
   // User-set "vision-capable" flag (persisted by addCustomModel / replaceCustomModels
   // in src/lib/db/models.ts). Surfaced into `/v1/models` via
@@ -93,8 +95,7 @@ export function getThinkingCapabilityFields(
 ): Record<string, boolean | string[]> {
   const supportsThinking = resolvedThinking;
   if (typeof supportsThinking !== "boolean") return {};
-  const hasDeclaredTiers =
-    supportedThinkingEfforts && supportedThinkingEfforts.length > 0;
+  const hasDeclaredTiers = supportedThinkingEfforts && supportedThinkingEfforts.length > 0;
   return {
     thinking: supportsThinking,
     supportsThinking,
@@ -102,7 +103,11 @@ export function getThinkingCapabilityFields(
       ? {
           effort_tiers: hasDeclaredTiers
             ? [...supportedThinkingEfforts!]
-            : extendCodexGpt56EffortValues(providerId, modelId, CANONICAL_EFFORT_VALUES),
+            : extendDeepSeekEffortValues(
+                providerId,
+                modelId,
+                extendCodexGpt56EffortValues(providerId, modelId, CANONICAL_EFFORT_VALUES)
+              ),
         }
       : {}),
   };

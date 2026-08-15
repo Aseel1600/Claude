@@ -29,6 +29,7 @@ import { getAllVideoModels } from "@omniroute/open-sse/config/videoRegistry";
 import { getAllMusicModels } from "@omniroute/open-sse/config/musicRegistry";
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
 import { CODEX_NATIVE_UNPREFIXED_MODELS } from "@omniroute/open-sse/services/model";
+import { isModelSelectable } from "@omniroute/open-sse/services/modelLifecycle";
 import { resolveNestedComboTargets } from "@omniroute/open-sse/services/combo";
 import {
   AUTO_TEMPLATE_VARIANTS,
@@ -47,6 +48,7 @@ import {
   providerUsesExclusiveSyncedListing,
 } from "@/lib/providers/modelListingCapability";
 import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
+import { mergeCustomModelMetadata } from "@/lib/providers/modelMetadataPrecedence";
 import { getOpenRouterCatalog } from "@/lib/catalog/openrouterCatalog";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import {
@@ -101,6 +103,7 @@ import {
   isCcDiscoveryModelCatalogClient,
 } from "./catalogRequest";
 import { incrementCcDiscoveryHitCount } from "@/lib/db/ccDiscoveryMetrics";
+import { isUnifiedChatSourceModelSelectable } from "./catalogModelPolicy";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
@@ -116,25 +119,18 @@ export { getCustomVisionCapabilityFields };
 // lives in ./catalogCache. Re-exported here because the existing tests import the
 // hooks from this module, and CATALOG_STALE_WHILE_REVALIDATE_MS is part of the
 // documented behavior of this endpoint.
-import {
-  CATALOG_CACHE_TTL_MS_DEFAULT,
-  resolveCachedCatalogResponse,
-  type CatalogCachePolicy,
-} from "./catalogCache";
+import { CATALOG_CACHE_TTL_MS_DEFAULT, resolveCachedCatalogResponse } from "./catalogCache";
 
 export {
   CATALOG_STALE_WHILE_REVALIDATE_MS,
-  getCatalogStaleWhileRevalidateMs,
   __resetCatalogBuilderRunsForTest,
   __getCatalogBuilderRunsForTest,
   __expireCatalogCacheForTest,
   __setCatalogCacheEntryForTest,
   __flushCatalogBackgroundRefreshForTest,
   __forceCatalogInFlightRejectionForTest,
-  __setCatalogStaleWhileRevalidateAccessorForTest,
-  __setCatalogStaleWhileRevalidateMsForTest,
 } from "./catalogCache";
-export type { CachedCatalog, CatalogCachePolicy } from "./catalogCache";
+export type { CachedCatalog } from "./catalogCache";
 
 const BUILTIN_AUTO_YIELD_INTERVAL = 8;
 
@@ -148,8 +144,7 @@ function yieldCatalogBuildTurn(): Promise<void> {
  */
 export async function getUnifiedModelsResponse(
   request: Request,
-  corsHeaders: Record<string, string> = {},
-  cachePolicy: CatalogCachePolicy = {}
+  corsHeaders: Record<string, string> = {}
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
 
@@ -182,7 +177,6 @@ export async function getUnifiedModelsResponse(
       request,
       { corsHeaders, diagnosticHeaders },
       buildCatalogPayload,
-      cachePolicy,
       {
         hideAutoCombos: settingsForAuth?.hideAutoCombos === true,
         hideNoThinkVariants: settingsForAuth?.hideNoThinkVariants === true,
@@ -719,7 +713,10 @@ async function buildUnifiedModelsResponseCore(
       Object.keys(syncedModelsByProvider).filter((pid) => {
         if (providerUsesCuratedModelsOnly(pid)) return false;
         const models = syncedModelsByProvider[pid];
-        return Array.isArray(models) && models.length > 0;
+        return (
+          Array.isArray(models) &&
+          models.some((model) => isUnifiedChatSourceModelSelectable(pid, model))
+        );
       })
     );
     const isRegisteredEffortVariant = (
@@ -792,6 +789,7 @@ async function buildUnifiedModelsResponseCore(
             (!isRegisteredEffortVariant(providerModels, model.id) && !hasDeclaredEffortTiers))
         )
           continue;
+        if (!isModelSelectable(canonicalProviderId, model.id)) continue;
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
         const aliasId = `${alias}/${model.id}`;
         if (getModelIsHidden(canonicalProviderId, model.id)) continue;
@@ -909,6 +907,7 @@ async function buildUnifiedModelsResponseCore(
               }))
             )
           : syncedModels) {
+          if (!isUnifiedChatSourceModelSelectable(canonicalProviderId, sm)) continue;
           if (!providerSupportsModel(canonicalProviderId, sm.id)) continue;
           if (canonicalProviderId === "codex" && isCodexDiscoveryModelExcluded(sm)) {
             continue;
@@ -1304,6 +1303,8 @@ async function buildUnifiedModelsResponseCore(
         for (const model of providerCustomModels) {
           const modelId = typeof model.id === "string" ? model.id : null;
           if (!modelId) continue;
+          if (!isUnifiedChatSourceModelSelectable(canonicalProviderId, { ...model, id: modelId }))
+            continue;
           if (model.isHidden === true) continue;
           if (getModelIsHidden(canonicalProviderId, modelId)) continue;
           // #6328: apply hidePaidModels to user-defined custom rows too.
@@ -1326,28 +1327,44 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
 
-          // Skip if already added as built-in. When the custom entry has an explicit
-          // supportsVision flag, merge vision fields into the existing synced entry
-          // instead of skipping (#9195).
+          // A custom row is the operator-owned overlay for the same provider/model.
+          // Preserve catalog identity and discovered metadata, but let every field
+          // explicitly stored on the custom row determine the effective metadata.
           const aliasId = `${alias}/${modelId}`;
           const existingIndex = models.findIndex((m) => m.id === aliasId);
           if (existingIndex !== -1) {
-            if (typeof model.supportsVision === "boolean") {
-              const mergeVisionFields = getCustomVisionCapabilityFields(model, aliasId, modelId);
-              if (mergeVisionFields) {
-                const existing = models[existingIndex] as Record<string, unknown>;
-                existing.capabilities = {
-                  ...((existing.capabilities as Record<string, unknown>) || {}),
-                  ...mergeVisionFields.capabilities,
-                };
-                if (mergeVisionFields.input_modalities) {
-                  existing.input_modalities = mergeVisionFields.input_modalities;
-                }
-                if (mergeVisionFields.output_modalities) {
-                  existing.output_modalities = mergeVisionFields.output_modalities;
-                }
-              }
-            }
+            const existing = models[existingIndex] as Record<string, unknown> & { id: string };
+            const endpoints = Array.isArray(model.supportedEndpoints)
+              ? model.supportedEndpoints
+              : undefined;
+            const apiFormat = typeof model.apiFormat === "string" ? model.apiFormat : undefined;
+            const visionFields =
+              typeof model.supportsVision === "boolean"
+                ? model.supportsVision
+                  ? getCustomVisionCapabilityFields(model, aliasId, modelId)
+                  : {
+                      capabilities: {
+                        ...((existing.capabilities as Record<string, unknown>) || {}),
+                        vision: false,
+                      },
+                      input_modalities: ["text"],
+                      output_modalities: ["text"],
+                    }
+                : null;
+            models[existingIndex] = mergeCustomModelMetadata(existing, {
+              id: aliasId,
+              ...(typeof model.name === "string" ? { name: model.name } : {}),
+              ...(apiFormat ? { api_format: apiFormat } : {}),
+              ...(endpoints ? { supported_endpoints: endpoints } : {}),
+              ...(typeof model.inputTokenLimit === "number"
+                ? { context_length: model.inputTokenLimit }
+                : {}),
+              ...(typeof model.outputTokenLimit === "number"
+                ? { max_output_tokens: model.outputTokenLimit }
+                : {}),
+              ...(visionFields || {}),
+              custom: true,
+            });
             continue;
           }
 
@@ -1646,7 +1663,12 @@ async function buildUnifiedModelsResponseCore(
       } catch {
         // Pricing lookup is optional; hardcoded defaults still enrich the response.
       }
-      enrichmentSnapshot = { modelsDevPricing };
+      enrichmentSnapshot = {
+        modelsDevPricing,
+        providerNodeIdsByPrefix: Object.fromEntries(
+          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
+        ),
+      };
       // The production profile identified pricing snapshot construction as the last
       // dominant synchronous stage. Let already-queued health checks run before the
       // remaining in-memory enrichment and JSON serialization.
