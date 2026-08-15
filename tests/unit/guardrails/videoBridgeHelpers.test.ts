@@ -2,10 +2,38 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  VIDEO_BRIDGE_INLINE_MAX_BYTES,
+  decodeVideoDataUri,
   describeVideoPart,
+  estimateDecodedBase64Bytes,
   extractVideoParts,
   replaceVideoParts,
 } from "../../../src/lib/guardrails/videoBridgeHelpers.ts";
+
+test("inline base64 is size-estimated and rejected before allocation", () => {
+  assert.equal(VIDEO_BRIDGE_INLINE_MAX_BYTES, 36 * 1024 * 1024);
+  assert.equal(estimateDecodedBase64Bytes("QUJDRA=="), 4);
+  assert.equal(estimateDecodedBase64Bytes("QUJD\nRA=="), 4);
+
+  let decodeCalls = 0;
+  assert.throws(
+    () =>
+      decodeVideoDataUri("data:video/mp4;base64,QUJDRA==", 3, (base64) => {
+        decodeCalls += 1;
+        return Buffer.from(base64, "base64");
+      }),
+    /maximum size/
+  );
+  assert.equal(decodeCalls, 0, "oversized inline payload must fail before Buffer.from");
+  assert.deepEqual(
+    decodeVideoDataUri("data:video/mp4;base64,QUJDRA==", 4, (base64) => {
+      decodeCalls += 1;
+      return Buffer.from(base64, "base64");
+    }),
+    Buffer.from("ABCD")
+  );
+  assert.equal(decodeCalls, 1);
+});
 
 test("extracts and replaces video parts in Chat and Responses payloads without shifting siblings", () => {
   const chatBody = {
@@ -247,7 +275,7 @@ test("extracts Anthropic type:video base64 and URL sources and replaces them in 
           { type: "text", text: "middle" },
           {
             type: "video",
-            source: { type: "url", media_type: "video/webm", url: "https://cdn.example/a.webm" },
+            source: { type: "url", url: "https://cdn.example/a.webm" },
           },
         ],
       },

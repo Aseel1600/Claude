@@ -28,7 +28,7 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
       return {
         stdout: JSON.stringify({
           format: { duration: "8.0", format_name: "mov,mp4,m4a,3gp,3g2,mj2" },
-          streams: [{ codec_type: "video", width: 1920, height: 1080 }],
+          streams: [{ index: 0, codec_type: "video", width: 1920, height: 1080 }],
         }),
         stderr: "",
       };
@@ -45,6 +45,7 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
     durationSeconds: metadata.durationSeconds,
     frameCount: 4,
     runner,
+    streamIndex: metadata.streamIndex,
     timeoutMs: 10_000,
   });
 
@@ -107,7 +108,7 @@ test("rejects remote process inputs and videos beyond the duration bound", async
   const runner: VideoCommandRunner = async () => ({
     stdout: JSON.stringify({
       format: { duration: "601", format_name: "mp4" },
-      streams: [{ codec_type: "video", width: 1280, height: 720 }],
+      streams: [{ index: 0, codec_type: "video", width: 1280, height: 720 }],
     }),
     stderr: "private upstream details",
   });
@@ -128,7 +129,7 @@ test("rejects reference-bearing formats before extraction and confines both tool
     return {
       stdout: JSON.stringify({
         format: { duration: "10", format_name: "hls" },
-        streams: [{ codec_type: "video", width: 640, height: 360 }],
+        streams: [{ index: 0, codec_type: "video", width: 640, height: 360 }],
       }),
       stderr: "http://169.254.169.254/latest/meta-data",
     };
@@ -149,39 +150,97 @@ test("rejects reference-bearing formats before extraction and confines both tool
   );
 });
 
-test("rejects embedded network and traversal references before invoking either process", async () => {
-  let calls = 0;
-  const runner: VideoCommandRunner = async () => {
-    calls += 1;
+test("safe containers may contain URL or traversal-like compressed bytes without false rejection", async () => {
+  const calls: string[] = [];
+  const runner: VideoCommandRunner = async (executable, args) => {
+    calls.push(executable);
+    if (executable === "ffprobe") {
+      return {
+        stdout: JSON.stringify({
+          format: { duration: "2", format_name: "mp4" },
+          streams: [{ index: 0, codec_type: "video", width: 640, height: 360 }],
+        }),
+        stderr: "",
+      };
+    }
+    await writeFile(args.at(-1) ?? "", Buffer.from([0xff, 0xd8, 0xff, 0xd9]));
     return { stdout: "", stderr: "" };
   };
-  for (const bytes of [
-    Buffer.from("#EXTM3U\nhttp://127.0.0.1/private.ts"),
-    Buffer.from("file:../../etc/passwd"),
-  ]) {
-    await assert.rejects(
-      () =>
-        extractVideoFramesFromBytes(bytes, {
-          frameCount: 1,
-          maxDurationSeconds: 600,
-          runner,
-          timeoutMs: 5_000,
-        }),
-      /media reference/
-    );
-  }
-  assert.equal(calls, 0);
+  const validContainerBytes = Buffer.concat([
+    Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]),
+    Buffer.from("compressed-chunk:http://127.0.0.1/../not-a-reference"),
+  ]);
+
+  const result = await extractVideoFramesFromBytes(validContainerBytes, {
+    frameCount: 1,
+    maxDurationSeconds: 600,
+    runner,
+    timeoutMs: 5_000,
+  });
+
+  assert.deepEqual(calls, ["ffprobe", "ffmpeg"]);
+  assert.equal(result.frames.length, 1);
 });
 
 test("rejects oversized dimensions and pixel counts from sanitized probe metadata", async () => {
   const runner: VideoCommandRunner = async () => ({
     stdout: JSON.stringify({
       format: { duration: "2", format_name: "mp4" },
-      streams: [{ codec_type: "video", width: 16384, height: 16384 }],
+      streams: [{ index: 0, codec_type: "video", width: 16384, height: 16384 }],
     }),
     stderr: "private path",
   });
   await assert.rejects(() => probeLocalVideo("/tmp/oversized.mp4", { runner }), /dimensions/);
+});
+
+test("rejects a container when any video stream exceeds dimension or pixel limits", async () => {
+  const runner: VideoCommandRunner = async () => ({
+    stdout: JSON.stringify({
+      format: { duration: "2", format_name: "mp4" },
+      streams: [
+        { index: 0, codec_type: "video", width: 640, height: 360 },
+        { index: 1, codec_type: "video", width: 16384, height: 16384 },
+      ],
+    }),
+    stderr: "",
+  });
+
+  await assert.rejects(
+    () => probeLocalVideo("/tmp/multiple-streams.mp4", { runner }),
+    /dimensions/
+  );
+});
+
+test("selects the lowest validated video stream index and maps it explicitly in ffmpeg", async () => {
+  const calls: Array<{ executable: string; args: string[] }> = [];
+  const runner: VideoCommandRunner = async (executable, args) => {
+    calls.push({ executable, args: [...args] });
+    return executable === "ffprobe"
+      ? {
+          stdout: JSON.stringify({
+            format: { duration: "4", format_name: "mp4" },
+            streams: [
+              { index: 3, codec_type: "video", width: 1280, height: 720 },
+              { index: 1, codec_type: "video", width: 640, height: 360 },
+            ],
+          }),
+          stderr: "",
+        }
+      : { stdout: "", stderr: "" };
+  };
+
+  const metadata = await probeLocalVideo("/tmp/multiple-safe.mp4", { runner });
+  await extractFramesFromLocalVideo("/tmp/multiple-safe.mp4", "/tmp/frames", {
+    durationSeconds: metadata.durationSeconds,
+    frameCount: 1,
+    runner,
+    streamIndex: metadata.streamIndex,
+  });
+
+  assert.equal(metadata.streamIndex, 1);
+  const ffmpegArgs = calls.find((call) => call.executable === "ffmpeg")?.args ?? [];
+  const mapIndex = ffmpegArgs.indexOf("-map");
+  assert.deepEqual(ffmpegArgs.slice(mapIndex, mapIndex + 2), ["-map", "0:1"]);
 });
 
 test("runtime status exposes sanitized versions and a sanitized unavailable reason", async () => {

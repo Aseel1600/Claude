@@ -33,6 +33,7 @@ export interface VideoProbeMetadata {
   durationSeconds: number;
   formatName: string;
   height: number;
+  streamIndex: number;
   width: number;
 }
 
@@ -76,26 +77,6 @@ const defaultRunner: VideoCommandRunner = async (executable, args, options) => {
 function assertLocalPath(filePath: string): void {
   if (!isAbsolute(filePath) || filePath.includes("\0") || filePath.includes("://")) {
     throw new Error("Video runtime requires a local path");
-  }
-}
-
-function assertNoEmbeddedMediaReferences(bytes: Uint8Array): void {
-  const buffer = Buffer.from(bytes);
-  const blockedMarkers = [
-    "http:",
-    "https:",
-    "ftp:",
-    "file:",
-    "concat:",
-    "tcp:",
-    "udp:",
-    "../",
-    "..\\",
-    "#EXTM3U",
-    "ffconcat version",
-  ];
-  if (blockedMarkers.some((marker) => buffer.includes(Buffer.from(marker)))) {
-    throw new Error("Video content contains an external or traversing media reference");
   }
 }
 
@@ -204,7 +185,7 @@ export async function probeLocalVideo(
       "-threads",
       "1",
       "-show_entries",
-      "format=duration,format_name:stream=codec_type,width,height",
+      "format=duration,format_name:stream=index,codec_type,width,height",
       "-of",
       "json",
       inputPath,
@@ -215,16 +196,45 @@ export async function probeLocalVideo(
   let formatName = "";
   let width = Number.NaN;
   let height = Number.NaN;
+  let streamIndex = Number.NaN;
+  let allVideoStreamsSafe = false;
   try {
     const parsed = JSON.parse(result.stdout) as {
       format?: { duration?: unknown; format_name?: unknown };
-      streams?: Array<{ codec_type?: unknown; width?: unknown; height?: unknown }>;
+      streams?: Array<{
+        codec_type?: unknown;
+        height?: unknown;
+        index?: unknown;
+        width?: unknown;
+      }>;
     };
     durationSeconds = Number(parsed.format?.duration);
     formatName = typeof parsed.format?.format_name === "string" ? parsed.format.format_name : "";
-    const videoStream = parsed.streams?.find((stream) => stream.codec_type === "video");
-    width = Number(videoStream?.width);
-    height = Number(videoStream?.height);
+    const videoStreams = parsed.streams?.filter((stream) => stream.codec_type === "video") ?? [];
+    allVideoStreamsSafe =
+      videoStreams.length > 0 &&
+      !videoStreams.some((stream) => {
+        const streamWidth = Number(stream.width);
+        const streamHeight = Number(stream.height);
+        const candidateIndex = Number(stream.index);
+        return (
+          !Number.isInteger(candidateIndex) ||
+          candidateIndex < 0 ||
+          !Number.isInteger(streamWidth) ||
+          !Number.isInteger(streamHeight) ||
+          streamWidth < 1 ||
+          streamHeight < 1 ||
+          streamWidth > VIDEO_MAX_DIMENSION ||
+          streamHeight > VIDEO_MAX_DIMENSION ||
+          streamWidth * streamHeight > VIDEO_MAX_PIXELS
+        );
+      });
+    const selectedStream = [...videoStreams].sort(
+      (left, right) => Number(left.index) - Number(right.index)
+    )[0];
+    streamIndex = Number(selectedStream.index);
+    width = Number(selectedStream.width);
+    height = Number(selectedStream.height);
   } catch {
     // The stable error below deliberately excludes raw ffprobe output.
   }
@@ -242,18 +252,10 @@ export async function probeLocalVideo(
   if (formats.length === 0 || formats.some((entry) => !SAFE_FORMATS.has(entry))) {
     throw new Error("Video container format is not allowed");
   }
-  if (
-    !Number.isInteger(width) ||
-    !Number.isInteger(height) ||
-    width < 1 ||
-    height < 1 ||
-    width > VIDEO_MAX_DIMENSION ||
-    height > VIDEO_MAX_DIMENSION ||
-    width * height > VIDEO_MAX_PIXELS
-  ) {
+  if (!allVideoStreamsSafe) {
     throw new Error("Video dimensions exceed the safe processing limit");
   }
-  return { durationSeconds, formatName, height, width };
+  return { durationSeconds, formatName, height, streamIndex, width };
 }
 
 export async function extractFramesFromLocalVideo(
@@ -264,12 +266,16 @@ export async function extractFramesFromLocalVideo(
     frameCount: number;
     runner?: VideoCommandRunner;
     signal?: AbortSignal;
+    streamIndex: number;
     timeoutMs?: number;
   }
 ): Promise<VideoFrameFile[]> {
   assertLocalPath(inputPath);
   assertLocalPath(outputDirectory);
   const timestamps = calculateFrameTimestamps(options.durationSeconds, options.frameCount);
+  if (!Number.isInteger(options.streamIndex) || options.streamIndex < 0) {
+    throw new Error("Video stream index is invalid");
+  }
   const runner = options.runner ?? defaultRunner;
   const frames: VideoFrameFile[] = [];
 
@@ -295,6 +301,8 @@ export async function extractFramesFromLocalVideo(
         timestampSeconds.toFixed(3),
         "-i",
         inputPath,
+        "-map",
+        `0:${options.streamIndex}`,
         "-vf",
         "scale=w='min(1024,iw)':h='min(1024,ih)':force_original_aspect_ratio=decrease",
         "-frames:v",
@@ -352,7 +360,6 @@ export async function extractVideoFramesFromBytes(
     timeoutMs: number;
   }
 ): Promise<{ durationSeconds: number; frames: ExtractedVideoFrame[] }> {
-  assertNoEmbeddedMediaReferences(bytes);
   const temporaryDirectory = await mkdtemp(join(tmpdir(), "omniroute-video-broker-"));
   try {
     if (options.signal?.aborted) throw new Error("Video extraction request aborted");
@@ -371,6 +378,7 @@ export async function extractVideoFramesFromBytes(
       frameCount: options.frameCount,
       runner: options.runner,
       signal: options.signal,
+      streamIndex: metadata.streamIndex,
       timeoutMs: options.timeoutMs,
     });
     const frameBytes = await readBoundedExtractedFrames(frameFiles);

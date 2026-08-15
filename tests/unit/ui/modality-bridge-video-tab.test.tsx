@@ -119,7 +119,7 @@ describe("ModalityBridgeVideoTab", () => {
     const options = Array.from(element.querySelectorAll("option")).map((option) => option.value);
     expect(options).toContain("openai/gpt-4o-mini");
     expect(options).not.toContain("example/text-only");
-    expect(element.textContent).toContain("4 requests");
+    expect(element.textContent).toContain("4 requestlogger.attempts");
     expect(element.textContent).toContain("3 modalityBridgeStatsBridged");
     expect(element.textContent).toContain("1 modalityBridgeStatsFailures");
     expect(element.textContent).toContain("trafficInspector.timingTotalLatency: 400 ms");
@@ -160,6 +160,35 @@ describe("ModalityBridgeVideoTab", () => {
       .filter(([, init]) => init?.method === "PATCH")
       .map(([, init]) => JSON.parse(String(init?.body)) as Record<string, unknown>);
     expect(patches).toContainEqual({ modalityBridgeVideoEnabled: true });
+  });
+
+  it("caps the configurable timeout at the broker's 120 second hard deadline", async () => {
+    const element = await render();
+    const timeout = element.querySelector(
+      '[data-testid="modality-bridge-video-timeout"]'
+    ) as HTMLInputElement;
+    expect(timeout.max).toBe("120000");
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        "value"
+      )?.set;
+      setter?.call(timeout, "180000");
+      timeout.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      timeout.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await waitFor(
+      () =>
+        fetchMock.mock.calls.some(([, init]) => {
+          if (init?.method !== "PATCH") return false;
+          const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+          return body.modalityBridgeVideoTimeout === 120_000;
+        }),
+      "clamped timeout PATCH"
+    );
   });
 
   it("shows a load error instead of silently applying defaults", async () => {

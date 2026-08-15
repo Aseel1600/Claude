@@ -9,6 +9,10 @@ import {
 } from "./videoBridgeBrokerClient";
 
 export const VIDEO_BRIDGE_MAX_BYTES = 50 * 1024 * 1024;
+// Inline base64 shares the public 50 MiB JSON admission budget with model,
+// messages and framing. Reserve 14 MiB for that envelope; remote downloads and
+// the loopback broker retain the independent 50 MiB binary limit.
+export const VIDEO_BRIDGE_INLINE_MAX_BYTES = 36 * 1024 * 1024;
 export const VIDEO_BRIDGE_MAX_DURATION_SECONDS = 600;
 
 type VideoContainer = "messages" | "input";
@@ -107,9 +111,40 @@ export interface DescribedVideo {
   modelUsed?: string;
 }
 
-function decodeVideoDataUri(ref: string): Buffer | null {
+function normalizeBase64(base64: string): string {
+  const normalized = base64.replace(/\s/g, "");
+  if (
+    normalized.length === 0 ||
+    normalized.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)
+  ) {
+    throw new Error("Video data URI contains invalid base64");
+  }
+  return normalized;
+}
+
+function estimateNormalizedBase64Bytes(normalized: string): number {
+  const padding = normalized.endsWith("==") ? 2 : normalized.endsWith("=") ? 1 : 0;
+  return (normalized.length / 4) * 3 - padding;
+}
+
+export function estimateDecodedBase64Bytes(base64: string): number {
+  return estimateNormalizedBase64Bytes(normalizeBase64(base64));
+}
+
+export function decodeVideoDataUri(
+  ref: string,
+  maxBytes = VIDEO_BRIDGE_INLINE_MAX_BYTES,
+  decode: (base64: string) => Buffer = (base64) => Buffer.from(base64, "base64")
+): Buffer | null {
   const match = /^data:video\/[A-Za-z0-9.+-]+;base64,([A-Za-z0-9+/=\s]+)$/i.exec(ref);
-  return match ? Buffer.from(match[1].replace(/\s/g, ""), "base64") : null;
+  if (!match) return null;
+  const normalized = normalizeBase64(match[1]);
+  const estimatedBytes = estimateNormalizedBase64Bytes(normalized);
+  if (estimatedBytes > maxBytes) {
+    throw new Error("Inline video exceeds the maximum size");
+  }
+  return decode(normalized);
 }
 
 async function loadVideoBytes(
@@ -120,7 +155,7 @@ async function loadVideoBytes(
   deps: DescribeVideoDependencies
 ): Promise<Buffer> {
   if (signal.aborted) throw new Error("Video Bridge processing timed out or was aborted");
-  const dataBytes = decodeVideoDataUri(part.ref);
+  const dataBytes = decodeVideoDataUri(part.ref, Math.min(maxBytes, VIDEO_BRIDGE_INLINE_MAX_BYTES));
   let bytes: Buffer;
   if (dataBytes) {
     bytes = dataBytes;

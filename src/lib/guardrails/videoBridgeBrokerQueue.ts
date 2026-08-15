@@ -15,8 +15,20 @@ export interface VideoExtractionQueue {
   ): Promise<T>;
 }
 
-function abortError(): Error {
-  return new Error("Video extraction request aborted");
+export type VideoExtractionQueueErrorCode = "CLIENT_ABORTED" | "QUEUE_CAPACITY";
+
+export class VideoExtractionQueueError extends Error {
+  constructor(
+    readonly code: VideoExtractionQueueErrorCode,
+    message: string
+  ) {
+    super(message);
+    this.name = "VideoExtractionQueueError";
+  }
+}
+
+function abortError(): VideoExtractionQueueError {
+  return new VideoExtractionQueueError("CLIENT_ABORTED", "Video extraction request aborted");
 }
 
 export function createVideoExtractionQueue(options: {
@@ -59,7 +71,12 @@ export function createVideoExtractionQueue(options: {
       }
       if (signal?.aborted) return Promise.reject(abortError());
       if (pending.length >= options.maxPending || queuedBytes + byteSize > options.maxQueuedBytes) {
-        return Promise.reject(new Error("Video extraction queue capacity exceeded"));
+        return Promise.reject(
+          new VideoExtractionQueueError(
+            "QUEUE_CAPACITY",
+            "Video extraction queue capacity exceeded"
+          )
+        );
       }
       return new Promise<T>((resolve, reject) => {
         const item: QueueItem<T> = { byteSize, execute, reject, resolve, signal };

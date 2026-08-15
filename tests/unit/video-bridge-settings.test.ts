@@ -45,12 +45,26 @@ test("Video Bridge settings schema rejects values outside extraction bounds", ()
   for (const [field, value] of Object.entries({
     modalityBridgeVideoFrameCount: 17,
     modalityBridgeVideoMaxVideos: 0,
-    modalityBridgeVideoTimeout: 300_001,
+    modalityBridgeVideoTimeout: 120_001,
   })) {
     assert.equal(
       updateSettingsSchema.safeParse({ [field]: value }).success,
       false,
       `${field}=${value} should be rejected`
+    );
+  }
+});
+
+test("persisted legacy Video Bridge timeouts clamp to the broker's 120 second deadline", () => {
+  for (const timeoutMs of [180_000, 300_000]) {
+    assert.equal(
+      resolveVideoBridgeRuntimeSettings({ modalityBridgeVideoTimeout: timeoutMs }).timeoutMs,
+      120_000
+    );
+    assert.equal(
+      updateSettingsSchema.safeParse({ modalityBridgeVideoTimeout: timeoutMs }).success,
+      false,
+      `new writes must reject ${timeoutMs}ms instead of exceeding the broker deadline`
     );
   }
 });

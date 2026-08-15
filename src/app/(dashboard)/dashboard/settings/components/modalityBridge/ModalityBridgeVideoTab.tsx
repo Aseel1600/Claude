@@ -7,6 +7,8 @@ import { Card, ModelSelectField, Toggle } from "@/shared/components";
 import type { ApiModel } from "@/shared/components/ModelSelectField";
 import {
   MODALITY_BRIDGE_DEFAULTS,
+  VIDEO_BRIDGE_TIMEOUT_MAX_MS,
+  VIDEO_BRIDGE_TIMEOUT_MIN_MS,
   resolveVideoBridgeRuntimeSettings,
 } from "@/shared/constants/modalityBridgeDefaults";
 
@@ -236,16 +238,16 @@ export default function ModalityBridgeVideoTab() {
             <NumberField
               testId="modality-bridge-video-timeout"
               label={t("modalityBridgeTimeoutMs")}
-              min={1000}
-              max={300000}
+              min={VIDEO_BRIDGE_TIMEOUT_MIN_MS}
+              max={VIDEO_BRIDGE_TIMEOUT_MAX_MS}
               value={settings.modalityBridgeVideoTimeout}
               onChange={(value) => setLocal({ modalityBridgeVideoTimeout: value })}
               onBlur={(raw) =>
                 commitNumber(
                   "modalityBridgeVideoTimeout",
                   raw,
-                  1000,
-                  300000,
+                  VIDEO_BRIDGE_TIMEOUT_MIN_MS,
+                  VIDEO_BRIDGE_TIMEOUT_MAX_MS,
                   MODALITY_BRIDGE_DEFAULTS.videoTimeoutMs
                 )
               }

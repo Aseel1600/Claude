@@ -9,6 +9,9 @@ import { VISION_BRIDGE_DEFAULTS } from "./visionBridgeDefaults";
 
 export type VisionBridgeMode = "auto" | "describe" | "reroute";
 
+export const VIDEO_BRIDGE_TIMEOUT_MIN_MS = 1_000;
+export const VIDEO_BRIDGE_TIMEOUT_MAX_MS = 120_000;
+
 export const MODALITY_BRIDGE_DEFAULTS = {
   visionMode: "auto" as VisionBridgeMode,
   visionTaskAware: true,
@@ -145,7 +148,13 @@ export function resolveVideoBridgeRuntimeSettings(
       pickNumber(s.modalityBridgeVideoFrameCount) ?? MODALITY_BRIDGE_DEFAULTS.videoFrameCount,
     maxVideos:
       pickNumber(s.modalityBridgeVideoMaxVideos) ?? MODALITY_BRIDGE_DEFAULTS.videoMaxVideos,
-    timeoutMs: pickNumber(s.modalityBridgeVideoTimeout) ?? MODALITY_BRIDGE_DEFAULTS.videoTimeoutMs,
+    timeoutMs: Math.min(
+      VIDEO_BRIDGE_TIMEOUT_MAX_MS,
+      Math.max(
+        VIDEO_BRIDGE_TIMEOUT_MIN_MS,
+        pickNumber(s.modalityBridgeVideoTimeout) ?? MODALITY_BRIDGE_DEFAULTS.videoTimeoutMs
+      )
+    ),
     cacheEnabled:
       pickBoolean(s.modalityBridgeCacheEnabled) ?? MODALITY_BRIDGE_DEFAULTS.cacheEnabled,
     cacheTtlMinutes:

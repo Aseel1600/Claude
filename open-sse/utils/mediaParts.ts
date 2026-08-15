@@ -175,18 +175,18 @@ function inspectVideoShapes(
     }
   }
   const source = obj.source as Record<string, unknown> | undefined;
-  if (
-    (type === "video_source" ||
-      (typeof mediaType === "string" && mediaType.toLowerCase().startsWith("video/"))) &&
-    source
-  ) {
-    if (typeof source.data === "string") {
-      const mime = typeof mediaType === "string" ? mediaType : "video/mp4";
-      pushPart(ctx, "video", `data:${mime};base64,${source.data}`, "video_source", depth);
+  if (source) {
+    const videoMediaType =
+      typeof mediaType === "string" && mediaType.toLowerCase().startsWith("video/");
+    // Base64 must carry an explicit video MIME. This prevents a type:video wrapper
+    // from relabelling arbitrary base64 content as MP4.
+    if (videoMediaType && typeof source.data === "string") {
+      pushPart(ctx, "video", `data:${mediaType};base64,${source.data}`, "video_source", depth);
       return true;
     }
     const ref = urlFrom(source.url);
-    if (ref) {
+    const explicitAnthropicUrl = type === "video" && source.type === "url";
+    if (ref && (explicitAnthropicUrl || type === "video_source" || videoMediaType)) {
       pushPart(ctx, "video", ref, "video_source", depth);
       return true;
     }

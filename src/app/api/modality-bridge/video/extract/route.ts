@@ -3,24 +3,31 @@ import {
   VIDEO_BRIDGE_BROKER_PATH,
   isVideoBridgeBrokerInternalRequest,
 } from "@/lib/guardrails/videoBridgeBrokerAuth";
-import { createVideoExtractionQueue } from "@/lib/guardrails/videoBridgeBrokerQueue";
+import {
+  createVideoExtractionQueue,
+  type VideoExtractionQueue,
+  VideoExtractionQueueError,
+} from "@/lib/guardrails/videoBridgeBrokerQueue";
 import { extractVideoFramesFromBytes } from "@/lib/guardrails/videoBridgeRuntime";
 import { resolveModelSyncInternalBaseUrl } from "@/shared/services/modelSyncScheduler";
+import { VIDEO_BRIDGE_TIMEOUT_MAX_MS } from "@/shared/constants/modalityBridgeDefaults";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const MAX_INPUT_BYTES = 50 * 1024 * 1024;
 const MAX_DURATION_SECONDS = 600;
-const BROKER_TIMEOUT_MS = 120_000;
+export const BROKER_TIMEOUT_MS = VIDEO_BRIDGE_TIMEOUT_MAX_MS;
 const extractionQueue = createVideoExtractionQueue({
   concurrency: 1,
   maxPending: 4,
   maxQueuedBytes: 100 * 1024 * 1024,
 });
 
-function invalid(message: string, status = 400): Response {
-  return createErrorResponse({ status, message, type: "invalid_request" });
+function invalid(message: string, status = 400, headers?: Record<string, string>): Response {
+  const response = createErrorResponse({ status, message, type: "invalid_request" });
+  for (const [name, value] of Object.entries(headers ?? {})) response.headers.set(name, value);
+  return response;
 }
 
 function parseFrameCount(url: URL): number | null {
@@ -60,7 +67,16 @@ export async function readBoundedVideoBrokerBody(
   );
 }
 
-export async function POST(request: Request): Promise<Response> {
+interface VideoExtractionBrokerRouteDependencies {
+  deadlineSignal?: AbortSignal;
+  extractFrames?: typeof extractVideoFramesFromBytes;
+  queue?: VideoExtractionQueue;
+}
+
+export async function handleVideoExtractionBrokerRequest(
+  request: Request,
+  dependencies: VideoExtractionBrokerRouteDependencies = {}
+): Promise<Response> {
   const url = new URL(request.url);
   if (request.method !== "POST" || url.pathname !== expectedBrokerPath()) {
     return invalid("Invalid Video Bridge broker request", 404);
@@ -100,13 +116,15 @@ export async function POST(request: Request): Promise<Response> {
     return invalid("Video Bridge input exceeds the byte limit", 413);
   }
 
-  const deadline = AbortSignal.timeout(BROKER_TIMEOUT_MS);
+  const deadline = dependencies.deadlineSignal ?? AbortSignal.timeout(BROKER_TIMEOUT_MS);
   const signal = AbortSignal.any([request.signal, deadline]);
+  const queue = dependencies.queue ?? extractionQueue;
+  const extractFrames = dependencies.extractFrames ?? extractVideoFramesFromBytes;
   try {
-    const result = await extractionQueue.run(
+    const result = await queue.run(
       bytes.byteLength,
       () =>
-        extractVideoFramesFromBytes(bytes, {
+        extractFrames(bytes, {
           frameCount,
           maxDurationSeconds: MAX_DURATION_SECONDS,
           signal,
@@ -118,14 +136,36 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     const unavailable =
       error && typeof error === "object" && "code" in error && error.code === "ENOENT";
+    const queueCapacity =
+      error instanceof VideoExtractionQueueError && error.code === "QUEUE_CAPACITY";
+    const clientAborted = request.signal.aborted;
+    const deadlineExceeded = !clientAborted && deadline.aborted;
     console.warn("[VideoBridgeBroker] extraction failed", {
-      aborted: signal.aborted,
-      code: unavailable ? "RUNTIME_UNAVAILABLE" : "EXTRACTION_FAILED",
+      aborted: clientAborted,
+      code: clientAborted
+        ? "CLIENT_ABORTED"
+        : queueCapacity
+          ? "QUEUE_CAPACITY"
+          : deadlineExceeded
+            ? "DEADLINE_EXCEEDED"
+            : unavailable
+              ? "RUNTIME_UNAVAILABLE"
+              : "EXTRACTION_FAILED",
       frameCount,
       inputBytes: bytes.byteLength,
     });
-    if (signal.aborted) return invalid("Video extraction was aborted", 499);
+    if (clientAborted) return invalid("Video extraction was aborted", 499);
+    if (deadlineExceeded) return invalid("Video extraction deadline exceeded", 504);
+    if (queueCapacity) {
+      return invalid("Video extraction capacity is temporarily unavailable", 503, {
+        "Retry-After": "1",
+      });
+    }
     if (unavailable) return invalid("Video extraction runtime is unavailable", 503);
     return invalid("Video extraction failed", 422);
   }
+}
+
+export async function POST(request: Request): Promise<Response> {
+  return handleVideoExtractionBrokerRequest(request);
 }
