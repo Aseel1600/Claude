@@ -148,6 +148,7 @@ import {
   registerCodexQuotaFetcher,
 } from "@omniroute/open-sse/services/codexQuotaFetcher.ts";
 import { registerBailianCodingPlanQuotaFetcher } from "@omniroute/open-sse/services/bailianQuotaFetcher.ts";
+import { registerQwenTokenPlanQuotaFetcher } from "@omniroute/open-sse/services/qwenTokenPlanQuotaFetcher.ts";
 import { registerCrofUsageFetcher } from "@omniroute/open-sse/services/crofUsageFetcher.ts";
 import { registerDeepseekQuotaFetcher } from "@omniroute/open-sse/services/deepseekQuotaFetcher.ts";
 import { registerOpenrouterQuotaFetcher } from "@omniroute/open-sse/services/openrouterQuotaFetcher.ts";
@@ -170,6 +171,11 @@ registerCodexQuotaFetcher();
 // This hooks into the quotaPreflight + quotaMonitor systems so that combos
 // can proactively switch accounts before quota is exhausted.
 registerBailianCodingPlanQuotaFetcher();
+
+// Register the Qwen Cloud / Model Studio personal Token Plan fetcher (#9603).
+// Cookie-authenticated console gateway — 5-hour + weekly sliding windows.
+// Runs before registerGenericQuotaFetchers so the bespoke fetcher wins.
+registerQwenTokenPlanQuotaFetcher();
 
 // Register CrofAI usage fetcher (subscription requests + credits balance).
 // Surfaces usable_requests + credits in the monitor and only blocks (preflight
