@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
-type BridgeKind = "vision" | "audio";
+type BridgeKind = "vision" | "audio" | "video";
 
 interface BridgeStats {
   bridged: number;
