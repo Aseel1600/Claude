@@ -23,6 +23,8 @@ export type RemoteImageLookup = (
 ) => Promise<Array<{ address: string; family: number }>>;
 
 export interface RemoteImageFetchOptions {
+  /** Require HTTPS for the initial URL and every redirect hop. Default false for compatibility. */
+  enforceHttps?: boolean;
   fetchImpl?: typeof fetch;
   /** Pin the network connection to a DNS answer that passed validation. */
   pinDns?: boolean;
@@ -51,6 +53,13 @@ export type RemoteMediaFetchResult = RemoteImageFetchResult;
 
 function validateRemoteImageUrl(input: string | URL, guard: OutboundUrlGuardMode) {
   return guard === "public-only" ? parseAndValidatePublicUrl(input) : parseOutboundUrl(input);
+}
+
+function requireHttps(url: URL, enabled: boolean): URL {
+  if (enabled && url.protocol !== "https:") {
+    throw new Error("Remote media requires HTTPS at every redirect hop");
+  }
+  return url;
 }
 
 const defaultLookup: RemoteImageLookup = (hostname) => dns.promises.lookup(hostname, { all: true });
@@ -186,7 +195,10 @@ export async function fetchRemoteMedia(
   const signal = combineSignals(options.signal, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const lookup = options.lookup ?? defaultLookup;
 
-  let currentUrl = validateRemoteImageUrl(input, guard);
+  let currentUrl = requireHttps(
+    validateRemoteImageUrl(input, guard),
+    options.enforceHttps === true
+  );
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
     // DNS-rebinding guard: validate every hop's hostname against its resolved
     // IPs before issuing the request (GHSA-cmhj-wh2f-9cgx).
@@ -210,7 +222,10 @@ export async function fetchRemoteMedia(
       if (redirectCount >= maxRedirects) {
         throw new Error(`Remote image exceeded ${maxRedirects} redirect limit`);
       }
-      currentUrl = validateRemoteImageUrl(new URL(location, currentUrl), guard);
+      currentUrl = requireHttps(
+        validateRemoteImageUrl(new URL(location, currentUrl), guard),
+        options.enforceHttps === true
+      );
       continue;
     }
 

@@ -186,6 +186,9 @@ export class GuardrailRegistry {
           };
         }
       } catch (error) {
+        if (context.signal?.aborted) {
+          throw new Error("Guardrail processing aborted");
+        }
         const message = error instanceof Error ? error.message : String(error);
         results.push({
           blocked: false,
@@ -259,6 +262,9 @@ export class GuardrailRegistry {
           };
         }
       } catch (error) {
+        if (context.signal?.aborted) {
+          throw new Error("Guardrail processing aborted");
+        }
         const message = error instanceof Error ? error.message : String(error);
         results.push({
           blocked: false,

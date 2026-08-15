@@ -14,6 +14,7 @@ export interface GuardrailContext {
   method?: string | null;
   model?: string | null;
   provider?: string | null;
+  signal?: AbortSignal;
   sourceFormat?: string | null;
   stream?: boolean;
   targetFormat?: string | null;

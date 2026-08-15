@@ -1,11 +1,16 @@
 import assert from "node:assert/strict";
+import { access, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 
 import {
   calculateFrameTimestamps,
   extractFramesFromLocalVideo,
+  extractVideoFramesFromBytes,
   probeLocalVideo,
   probeVideoRuntime,
+  readBoundedExtractedFrames,
   resetVideoRuntimeProbeCacheForTests,
   type VideoCommandRunner,
 } from "../../../src/lib/guardrails/videoBridgeRuntime.ts";
@@ -20,7 +25,13 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
   const runner: VideoCommandRunner = async (executable, args, options) => {
     calls.push({ executable, args: [...args], timeoutMs: options.timeoutMs });
     if (executable === "ffprobe") {
-      return { stdout: JSON.stringify({ format: { duration: "8.0" } }), stderr: "" };
+      return {
+        stdout: JSON.stringify({
+          format: { duration: "8.0", format_name: "mov,mp4,m4a,3gp,3g2,mj2" },
+          streams: [{ codec_type: "video", width: 1920, height: 1080 }],
+        }),
+        stderr: "",
+      };
     }
     return { stdout: "", stderr: "" };
   };
@@ -42,17 +53,48 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
     frames.map((frame) => frame.timestampSeconds),
     [1, 3, 5, 7]
   );
-  assert.deepEqual(calls[0], {
-    executable: "ffprobe",
-    args: ["-v", "error", "-show_entries", "format=duration", "-of", "json", "/tmp/input.mp4"],
-    timeoutMs: 5_000,
-  });
+  assert.equal(calls[0].executable, "ffprobe");
+  assert.equal(calls[0].timeoutMs, 5_000);
+  assert.deepEqual(calls[0].args.slice(-2), ["json", "/tmp/input.mp4"]);
+  assert.deepEqual(
+    calls[0].args.slice(
+      calls[0].args.indexOf("-protocol_whitelist"),
+      calls[0].args.indexOf("-protocol_whitelist") + 2
+    ),
+    ["-protocol_whitelist", "file"]
+  );
+  assert.ok(calls[0].args.includes("-format_whitelist"));
   assert.equal(
     calls.slice(1).every((call) => call.executable === "ffmpeg"),
     true
   );
   assert.equal(
     calls.slice(1).every((call) => call.args.includes("-nostdin")),
+    true
+  );
+  assert.equal(
+    calls.slice(1).every((call) => call.args.includes("-protocol_whitelist")),
+    true
+  );
+  assert.equal(
+    calls.slice(1).every((call) => call.args.includes("-format_whitelist")),
+    true
+  );
+  assert.equal(
+    calls.slice(1).every((call) => call.args.includes("-threads") && call.args.includes("1")),
+    true
+  );
+  assert.equal(
+    calls
+      .slice(1)
+      .every((call) =>
+        call.args.some(
+          (arg) =>
+            arg.includes("min(1024,iw)") &&
+            arg.includes("min(1024,ih)") &&
+            arg.includes("force_original_aspect_ratio=decrease")
+        )
+      ),
     true
   );
   assert.equal(
@@ -63,7 +105,10 @@ test("probes and extracts a local video using shell-free bounded commands", asyn
 
 test("rejects remote process inputs and videos beyond the duration bound", async () => {
   const runner: VideoCommandRunner = async () => ({
-    stdout: JSON.stringify({ format: { duration: "601" } }),
+    stdout: JSON.stringify({
+      format: { duration: "601", format_name: "mp4" },
+      streams: [{ codec_type: "video", width: 1280, height: 720 }],
+    }),
     stderr: "private upstream details",
   });
   await assert.rejects(
@@ -74,6 +119,69 @@ test("rejects remote process inputs and videos beyond the duration bound", async
     () => probeLocalVideo("/tmp/input.mp4", { maxDurationSeconds: 600, runner }),
     /maximum duration/
   );
+});
+
+test("rejects reference-bearing formats before extraction and confines both tools to local files", async () => {
+  const calls: Array<{ executable: string; args: string[] }> = [];
+  const runner: VideoCommandRunner = async (executable, args) => {
+    calls.push({ executable, args: [...args] });
+    return {
+      stdout: JSON.stringify({
+        format: { duration: "10", format_name: "hls" },
+        streams: [{ codec_type: "video", width: 640, height: 360 }],
+      }),
+      stderr: "http://169.254.169.254/latest/meta-data",
+    };
+  };
+
+  await assert.rejects(() => probeLocalVideo("/tmp/malicious.m3u8", { runner }), /format/);
+  assert.equal(calls.length, 1, "a rejected manifest must never reach ffmpeg");
+  assert.deepEqual(
+    calls[0].args.slice(
+      calls[0].args.indexOf("-protocol_whitelist"),
+      calls[0].args.indexOf("-protocol_whitelist") + 2
+    ),
+    ["-protocol_whitelist", "file"]
+  );
+  assert.equal(
+    calls[0].args.some((arg) => arg.includes("169.254.169.254")),
+    false
+  );
+});
+
+test("rejects embedded network and traversal references before invoking either process", async () => {
+  let calls = 0;
+  const runner: VideoCommandRunner = async () => {
+    calls += 1;
+    return { stdout: "", stderr: "" };
+  };
+  for (const bytes of [
+    Buffer.from("#EXTM3U\nhttp://127.0.0.1/private.ts"),
+    Buffer.from("file:../../etc/passwd"),
+  ]) {
+    await assert.rejects(
+      () =>
+        extractVideoFramesFromBytes(bytes, {
+          frameCount: 1,
+          maxDurationSeconds: 600,
+          runner,
+          timeoutMs: 5_000,
+        }),
+      /media reference/
+    );
+  }
+  assert.equal(calls, 0);
+});
+
+test("rejects oversized dimensions and pixel counts from sanitized probe metadata", async () => {
+  const runner: VideoCommandRunner = async () => ({
+    stdout: JSON.stringify({
+      format: { duration: "2", format_name: "mp4" },
+      streams: [{ codec_type: "video", width: 16384, height: 16384 }],
+    }),
+    stderr: "private path",
+  });
+  await assert.rejects(() => probeLocalVideo("/tmp/oversized.mp4", { runner }), /dimensions/);
 });
 
 test("runtime status exposes sanitized versions and a sanitized unavailable reason", async () => {
@@ -122,4 +230,58 @@ test("runtime probe uses its short cache instead of spawning on every status rea
   const second = await probeVideoRuntime({ cacheTtlMs: 30_000, runner });
   assert.deepEqual(second, first);
   assert.equal(calls, 2, "one ffmpeg + one ffprobe process should serve both reads");
+});
+
+test("checks individual and aggregate frame byte caps before returning broker output", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "video-frame-caps-"));
+  const first = join(directory, "first.jpg");
+  const second = join(directory, "second.jpg");
+  await writeFile(first, Buffer.alloc(3));
+  await writeFile(second, Buffer.alloc(3));
+  const frames = [
+    { path: first, timestampSeconds: 1 },
+    { path: second, timestampSeconds: 2 },
+  ];
+  try {
+    await assert.rejects(
+      () => readBoundedExtractedFrames(frames, { maxFrameBytes: 2, maxTotalBytes: 8 }),
+      /frame byte limit/
+    );
+    await assert.rejects(
+      () => readBoundedExtractedFrames(frames, { maxFrameBytes: 4, maxTotalBytes: 5 }),
+      /total frame byte limit/
+    );
+    const result = await readBoundedExtractedFrames(frames, {
+      maxFrameBytes: 4,
+      maxTotalBytes: 6,
+    });
+    assert.equal(result.length, 2);
+    assert.equal(
+      result.reduce((sum, frame) => sum + frame.byteLength, 0),
+      6
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("byte extraction removes its private temporary tree after a subprocess failure", async () => {
+  let temporaryInput = "";
+  const runner: VideoCommandRunner = async (_executable, args) => {
+    temporaryInput = args.at(-1) ?? "";
+    throw Object.assign(new Error("private ffprobe path"), { code: "ENOENT" });
+  };
+
+  await assert.rejects(
+    () =>
+      extractVideoFramesFromBytes(Buffer.from("video"), {
+        frameCount: 1,
+        maxDurationSeconds: 600,
+        runner,
+        timeoutMs: 5_000,
+      }),
+    /private ffprobe path/
+  );
+  assert.notEqual(temporaryInput, "");
+  await assert.rejects(() => access(temporaryInput));
 });
