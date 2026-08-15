@@ -175,10 +175,15 @@ function readCodeFacts() {
     "for(const x of (t?.scopes||[]))sc.add(x);",
     "const t=computeFreeModelTotals();const cli=Object.values(CLI_TOOLS);",
     "const by=(c)=>cli.filter(x=>x.category===c).length;",
+    // "Free forever" = every provider whose free access renews or needs no key at all.
+    // one-time-initial (signup credits) and discontinued pools are excluded on purpose.
+    "const FOREVER=new Set(['recurring-monthly','recurring-daily','recurring-uncapped',",
+    "'recurring-credit','keyless']);",
+    "const ff=new Set();for(const m of t.perModel)if(FOREVER.has(m.freeType))ff.add(m.provider);",
     'console.log("@@"+JSON.stringify({freeSteady:t.steadyRecurringTokens,',
     "freeFirst:t.firstMonthRealisticTokens,freePools:t.poolCount,engines:ENGINE_IDS.length,",
     "cliTotal:cli.length,cliCode:by('code'),cliAgent:by('agent'),",
-    "mcpTools:countUniqueMcpTools(cols),mcpScopes:sc.size,providers:pids.size}));",
+    "mcpTools:countUniqueMcpTools(cols),mcpScopes:sc.size,providers:pids.size,freeForever:ff.size}));",
   ].join("");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "docs-counts-"));
   try {
@@ -460,6 +465,10 @@ export function buildChecks() {
         ),
         claim(f.mcpScopes, "MCP scopes", { pattern: /(\d+) scopes/gi }, ["README.md", "AGENTS.md"]),
         claim(f.cliTotal, "CLI tools", { pattern: /(\d+) tools(?=\s*\(\d+ CLI)/gi }, ["README.md"]),
+        claim(f.freeForever, "free-forever providers", { pattern: /(\d+) free forever/gi }, [
+          "README.md",
+          "docs/diagrams/promise-pillars.svg",
+        ]),
       ];
     })(),
     {
