@@ -192,6 +192,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   // tests/unit/pack-artifact-entrypoint-closures.test.ts).
   "bin/cli/data-dir.mjs",
   "bin/cli/utils/ensureAndroidCacheDir.mjs",
+  "bin/cli/utils/parseEnvValue.mjs",
   "bin/cli/utils/storageKeyProvision.mjs",
   "bin/cli/utils/versionFastPath.mjs",
   "bin/mcp-server.mjs",
@@ -226,6 +227,59 @@ export function normalizeArtifactPath(filePath: string): string {
     .replace(/^\.\//, "")
     .replace(/^\/+/, "")
     .replace(/\/{2,}/g, "/");
+}
+
+/** Extract complete JSON values from npm's mixed stdout/stderr-style output. */
+export function parseJsonValuesOutput(output: string): unknown[] {
+  const values: unknown[] = [];
+  for (let start = 0; start < output.length; start++) {
+    if (output[start] !== "[" && output[start] !== "{") continue;
+
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+    for (let end = start; end < output.length; end++) {
+      const char = output[end];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') {
+        inString = true;
+      } else if (char === "[" || char === "{") {
+        stack.push(char);
+      } else if (char === "]" || char === "}") {
+        const expectedOpen = char === "]" ? "[" : "{";
+        if (stack.at(-1) !== expectedOpen) break;
+        stack.pop();
+        if (stack.length === 0) {
+          try {
+            const parsed: unknown = JSON.parse(output.slice(start, end + 1));
+            values.push(parsed);
+            start = end;
+          } catch {
+            // This bracket pair was not a complete JSON value; continue scanning.
+          }
+          break;
+        }
+      }
+    }
+  }
+  return values;
+}
+
+/** Extract the first matching JSON array from npm's mixed stdout/stderr-style output. */
+export function parseJsonArrayOutput(
+  output: string,
+  matches: (parsed: unknown[]) => boolean = () => true
+): unknown[] {
+  const parsed = parseJsonValuesOutput(output).find(
+    (value): value is unknown[] => Array.isArray(value) && matches(value)
+  );
+  if (!parsed) throw new Error("Expected a valid JSON array in command output.");
+  return parsed;
 }
 
 /**

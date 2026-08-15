@@ -7,6 +7,7 @@ import {
   getResolvedModelContextOverride,
   isNonChatCatalogSurface,
 } from "@/lib/modelCapabilities";
+import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import {
   getAuthoritativeContextWindow,
   getAuthoritativeProviderContextWindow,
@@ -38,6 +39,7 @@ type JsonRecord = Record<string, unknown>;
 
 export interface CatalogEnrichmentSnapshot {
   modelsDevPricing: PricingByProvider | null;
+  providerNodeIdsByPrefix?: Readonly<Record<string, string>>;
 }
 
 interface CatalogDiagnosticsOptions {
@@ -403,9 +405,11 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   input?: { provider?: string | null; model?: string | null },
   snapshot?: CatalogEnrichmentSnapshot
 ): T {
-  const provider =
+  const publicProvider =
     input?.provider ||
     (typeof entry.owned_by === "string" && entry.owned_by !== "combo" ? entry.owned_by : null);
+  const provider =
+    (publicProvider && snapshot?.providerNodeIdsByPrefix?.[publicProvider]) || publicProvider;
   const model =
     input?.model ||
     asNonEmptyString(entry.root) ||
@@ -428,6 +432,7 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   const authoritativeContextWindow =
     getAuthoritativeProviderContextWindow(metadata.provider, metadata.model) ??
     getAuthoritativeProviderContextWindow(provider, model) ??
+    getAuthoritativeProviderContextWindow(publicProvider, model) ??
     getAuthoritativeContextWindow(metadata.model) ??
     getAuthoritativeContextWindow(model);
   const specialtySurface = isNonChatCatalogSurface(entry.type);
@@ -522,7 +527,18 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     delete nextEntry.context_length;
   }
 
-  if (typeof metadata.limits.maxOutputTokens === "number" && metadata.limits.maxOutputTokens > 0) {
+  const persistedOutputLimit =
+    getModelCapabilityOverride(provider, model, "max_output_tokens") ??
+    getModelCapabilityOverride(provider, model, "max_token") ??
+    getModelCapabilityOverride(publicProvider, model, "max_output_tokens") ??
+    getModelCapabilityOverride(publicProvider, model, "max_token");
+  if (persistedOutputLimit !== null) {
+    nextEntry.max_output_tokens = persistedOutputLimit;
+  } else if (
+    typeof nextEntry.max_output_tokens !== "number" &&
+    typeof metadata.limits.maxOutputTokens === "number" &&
+    metadata.limits.maxOutputTokens > 0
+  ) {
     nextEntry.max_output_tokens = metadata.limits.maxOutputTokens;
   }
 

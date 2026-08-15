@@ -2,6 +2,7 @@
  * Vision Bridge helper functions for image processing.
  */
 import { detectMediaParts, type MediaPart } from "@omniroute/open-sse/utils/mediaParts";
+import { normalizeDataUri } from "@omniroute/open-sse/utils/imageNormalize";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import { getRuntimePorts } from "@/lib/runtime/ports";
 import { resolveSelfLoopBearer } from "@/shared/middleware/chatBodyAdmission";
@@ -161,7 +162,9 @@ export interface RequestMessage {
 
 export type RequestContentPart =
   | { type: "text"; text: string }
+  | { type: "input_text"; text: string }
   | { type: "image_url"; image_url: { url: string; detail?: string } }
+  | { type: "input_image"; image_url: string; detail?: string }
   | {
       type: "image";
       source: { type: "base64"; media_type: string; data: string } | { type: "url"; url: string };
@@ -312,7 +315,12 @@ async function fetchRemoteImageAsDataUri(
     fetchImpl,
   });
   const mediaType = remoteImage.contentType.split(";")[0]?.trim() || "image/png";
-  return `data:${mediaType};base64,${remoteImage.buffer.toString("base64")}`;
+  const dataUri = `data:${mediaType};base64,${remoteImage.buffer.toString("base64")}`;
+  // Downscale to the long-edge cap before handing the image to the vision
+  // model self-call — scoped to this bridge-fetched image only, never the
+  // user's raw passthrough payload (opt-in principle, HR#20).
+  // `normalizeDataUri` never throws and is a passthrough for non-image bytes.
+  return normalizeDataUri(dataUri);
 }
 
 async function normalizeVisionImageInput(
@@ -815,6 +823,7 @@ async function callVisionModelSingle(
 export interface RequestBody {
   model?: string;
   messages?: RequestMessage[];
+  input?: RequestMessage[];
   [key: string]: unknown;
 }
 
@@ -834,14 +843,23 @@ export function replaceImageParts(
 
   const result = structuredClone(body) as RequestBody;
 
-  if (!Array.isArray(result.messages)) {
+  const usesResponsesInput = !Array.isArray(result.messages) && Array.isArray(result.input);
+  const requestMessages = Array.isArray(result.messages)
+    ? result.messages
+    : usesResponsesInput
+      ? result.input
+      : null;
+
+  if (!requestMessages) {
     return result;
   }
 
+  const replacementTextType: "text" | "input_text" = usesResponsesInput ? "input_text" : "text";
+
   let descriptionIndex = 0;
 
-  for (let msgIdx = 0; msgIdx < result.messages.length; msgIdx++) {
-    const message = result.messages[msgIdx];
+  for (let msgIdx = 0; msgIdx < requestMessages.length; msgIdx++) {
+    const message = requestMessages[msgIdx];
     if (!message || !Array.isArray(message.content)) {
       continue;
     }
@@ -863,7 +881,10 @@ export function replaceImageParts(
             // image so a vision-capable upstream can still process it.
             newContent.push(part as RequestContentPart);
           } else {
-            newContent.push({ type: "text", text: description });
+            newContent.push({
+              type: replacementTextType,
+              text: description,
+            } as RequestContentPart);
           }
         }
       } else {
