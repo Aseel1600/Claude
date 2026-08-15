@@ -640,13 +640,24 @@ async function handleChatImplementation(
   // every attempt for this request shares the same id and the
   // agentic_conversations row is only touched once.
   const clientConversationHeader = request.headers.get("x-omniroute-session-id")?.trim() || null;
-  const { conversationId } = await resolveConversationId({
-    body: body as Record<string, unknown>,
-    model: modelStr,
-    apiKeyId: apiKeyInfo?.id ?? null,
-    clientSessionIdHeader: clientConversationHeader,
-    correlationId: reqId,
-  });
+  let conversationId: string | null = null;
+  try {
+    ({ conversationId } = await resolveConversationId({
+      body: body as Record<string, unknown>,
+      model: modelStr,
+      apiKeyId: apiKeyInfo?.id ?? null,
+      clientSessionIdHeader: clientConversationHeader,
+      correlationId: reqId,
+    }));
+  } catch (error) {
+    // Best-effort tracking: a DB hiccup here must not turn an otherwise-working
+    // chat request into a hard failure. Downstream conversationId consumers
+    // already treat null/undefined as "untracked" (see withConversationId).
+    log.warn("CHAT", "resolveConversationId failed, continuing without conversation tracking", {
+      correlationId: reqId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // T08: per-key active session limit (0 = unlimited).
   if (apiKeyInfo?.id && sessionId) {

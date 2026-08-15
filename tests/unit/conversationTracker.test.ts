@@ -21,7 +21,7 @@ process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "conversation-tracker
 // and the module would resolve the real host DATA_DIR instead of the temp dir.
 const { extractCanonicalTurns, computeFingerprintHash, resolveConversationId, hashTurnContent } =
   await import("../../open-sse/services/conversationTracker.ts");
-const { getConversationTurnTree } = await import("../../src/lib/db/agenticConversations.ts");
+const { getConversationTurnPage } = await import("../../src/lib/db/agenticConversations.ts");
 
 let correlationCounter = 0;
 function nextCorrelationId(): string {
@@ -269,7 +269,7 @@ test("resolveConversationId: an edited/duplicated mid-history turn mints its own
   assert.equal(request2.isNewConversation, true);
 
   // request1's chain is completely untouched: still exactly its own 9 turns.
-  const tree1 = getConversationTurnTree(request1.conversationId);
+  const tree1 = getConversationTurnPage(request1.conversationId, { limit: 500 }).nodes;
   assert.equal(tree1.length, 9);
   assert.deepEqual(
     tree1.map((n) => n.contentHash).sort(),
@@ -290,7 +290,7 @@ test("resolveConversationId: an edited/duplicated mid-history turn mints its own
   // including its OWN copies of "a" and "b" (different node ids than
   // request1's, since each conversation's chain hashing is scoped to its
   // own conversation id), not references into request1's chain.
-  const tree2 = getConversationTurnTree(request2.conversationId);
+  const tree2 = getConversationTurnPage(request2.conversationId, { limit: 500 }).nodes;
   assert.equal(tree2.length, 12);
   assert.deepEqual(
     tree2.map((n) => n.contentHash).sort(),
@@ -402,7 +402,7 @@ test("resolveConversationId: continuation is detected even when the system promp
   assert.equal(turn2.isNewConversation, false);
 
   // The regenerated system prompt must never appear as a chain node.
-  const tree = getConversationTurnTree(turn1.conversationId);
+  const tree = getConversationTurnPage(turn1.conversationId, { limit: 500 }).nodes;
   for (const node of tree) {
     assert.notEqual(node.role, "system");
   }
@@ -532,7 +532,7 @@ test("resolveConversationId: continuation is detected even when the reconnect tu
   );
   assert.equal(turn2.isNewConversation, false);
 
-  const tree = getConversationTurnTree(turn1.conversationId);
+  const tree = getConversationTurnPage(turn1.conversationId, { limit: 500 }).nodes;
   assert.equal(
     tree.length,
     9,
@@ -605,7 +605,7 @@ test("resolveConversationId: a byte-identical repeat of a single-turn request co
   assert.equal(second.conversationId, first.conversationId);
   assert.equal(second.isNewConversation, false);
 
-  const tree = getConversationTurnTree(first.conversationId);
+  const tree = getConversationTurnPage(first.conversationId, { limit: 500 }).nodes;
   assert.equal(tree.length, 1);
 });
 

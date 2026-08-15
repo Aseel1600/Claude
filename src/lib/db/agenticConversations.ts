@@ -223,20 +223,6 @@ export function insertConversationTurnNodes(
   insertMany(nodes);
 }
 
-/** All turn nodes for a conversation, in order — for tests and any caller
- * that genuinely needs the whole chain in one shot. The dashboard itself
- * uses the paginated getConversationTurnPage below instead, since a long
- * real OpenClaw conversation can run to hundreds of turns. */
-export function getConversationTurnTree(conversationId: string): ConversationTurnNode[] {
-  const db = getDbInstance();
-  const rows = db
-    .prepare(
-      `SELECT * FROM conversation_turn_nodes WHERE conversation_id = ? ORDER BY first_seen_at ASC`
-    )
-    .all(conversationId);
-  return rows.map(toTurnNode);
-}
-
 export interface ConversationTurnNodeWithSeq extends ConversationTurnNode {
   /** SQLite rowid — a stable, monotonically-increasing insertion-order
    * cursor for pagination (first_seen_at can tie within the same request's

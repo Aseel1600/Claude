@@ -26,7 +26,6 @@ const {
   listMultiTurnConversations,
   getConversationTurnIndex,
   insertConversationTurnNodes,
-  getConversationTurnTree,
   getConversationTurnPage,
   resolveCallLogIdsByCorrelationIds,
 } = await import("../../src/lib/db/agenticConversations.ts");
@@ -119,11 +118,11 @@ test("insertConversationTurnNodes is idempotent for already-existing node ids (I
     { id: "node-dup", parentId: null, role: "user", contentHash: "hash-dup" },
   ]);
 
-  const tree = getConversationTurnTree(row.id);
+  const tree = getConversationTurnPage(row.id, { limit: 500 }).nodes;
   assert.equal(tree.length, 1);
 });
 
-test("getConversationTurnTree returns nodes with parent/child structure and content hash", () => {
+test("getConversationTurnPage returns the full chain with parent/child structure and content hash", () => {
   const row = createAgenticConversation({ apiKeyId: "key-tree", fingerprintHash: "fp-tree" });
 
   insertConversationTurnNodes(row.id, "corr-tree", [
@@ -135,7 +134,7 @@ test("getConversationTurnTree returns nodes with parent/child structure and cont
     { id: "sibling-turn", parentId: "root-turn", role: "assistant", contentHash: "hash-hey" },
   ]);
 
-  const tree = getConversationTurnTree(row.id);
+  const tree = getConversationTurnPage(row.id, { limit: 500 }).nodes;
   assert.equal(tree.length, 3);
 
   const root = tree.find((n) => n.id === "root-turn");
