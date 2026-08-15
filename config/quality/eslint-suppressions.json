@@ -54,16 +54,6 @@
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "open-sse/handlers/chatCore/codexFailover.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "open-sse/handlers/chatCore/comboContextCache.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -408,11 +398,6 @@
       "count": 1
     }
   },
-  "src/app/api/combos/[id]/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/combos/reorder/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -559,11 +544,6 @@
     }
   },
   "src/app/api/providers/[id]/login/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -903,17 +883,7 @@
       "count": 1
     }
   },
-  "src/app/api/v1/audio/speech/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/audio/transcriptions/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/v1/audio/translations/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -961,11 +931,6 @@
   "src/app/api/v1/images/edits/route.ts": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "src/app/api/v1/images/generations/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "src/app/api/v1/management/proxies/assignments/route.ts": {
@@ -1291,11 +1256,6 @@
       "count": 1
     }
   },
-  "src/lib/usage/providerLimits.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/lib/usage/providerWindowCosts.ts": {
     "no-restricted-syntax": {
       "count": 1
@@ -1377,11 +1337,6 @@
     }
   },
   "src/sse/handlers/autoRouting.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/sse/handlers/chat.ts": {
     "no-restricted-imports": {
       "count": 1
     }
