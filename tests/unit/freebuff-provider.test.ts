@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { FreebuffExecutor } from "../../open-sse/executors/freebuff.ts";
+import type { ExecuteInput } from "../../open-sse/executors/base.ts";
 import { freebuffProvider } from "../../open-sse/config/providers/registry/freebuff/index.ts";
 import { APIKEY_PROVIDERS_GATEWAYS } from "../../src/shared/constants/providers/apikey/gateways.ts";
 import { validateFreebuffProvider } from "../../src/lib/providers/validation.ts";
@@ -18,7 +19,7 @@ test("FreebuffExecutor: returns 401 response when credentials are missing", asyn
     body: { messages: [{ role: "user", content: "hello" }] },
     stream: false,
     credentials: { apiKey: "" },
-  } as any);
+  } as unknown as ExecuteInput);
 
   assert.equal(res.response.status, 401);
   const data = (await res.response.json()) as { error: { message: string } };
