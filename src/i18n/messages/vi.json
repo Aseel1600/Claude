@@ -13088,6 +13088,13 @@
     "partnerLinkNote": "Partner link",
     "dismissAriaLabel": "Dismiss"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute giờ đây chạy ngay trong VS Code Copilot Chat",
+    "description": "Cài đặt tiện ích mở rộng OmniCopilot miễn phí và mọi mô hình OmniRoute sẽ xuất hiện ngay trong bộ chọn mô hình Copilot Chat mà bạn đang dùng.",
+    "cta": "Nhận tiện ích mở rộng",
+    "secondaryNote": "Cũng có trên Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Đóng"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Công bố các id phản chiếu &lt;gateway-alias&gt;/&lt;model&gt; trên /v1/models cho các mô hình có chủ sở hữu chuẩn không có thông tin xác thực hoạt động nhưng một cổng chuyển tiếp có thông tin xác thực hoạt động định tuyến được chúng. Cảnh báo: khi bật, số mục trong danh mục tăng lên với mọi client.",
   "radarPage": {
     "title": "Danh mục Radar",

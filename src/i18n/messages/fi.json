@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Kumppanilinkki",
     "dismissAriaLabel": "Sulje"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute toimii nyt suoraan VS Code Copilot Chatissa",
+    "description": "Asenna ilmainen OmniCopilot-laajennus, niin kaikki OmniRoute-mallit näkyvät suoraan siinä Copilot Chatin mallivalitsimessa, jota jo käytät.",
+    "cta": "Hanki laajennus",
+    "secondaryNote": "Myös Open VSX:ssä (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Sulje"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Mainosta <gateway-alias>/<model> peilid tunnuksia /v1/models -osoitteessa malleille, joiden kanoninen omistaja ei omaa aktiivista tunnistetta, mutta ohjaa niitä aktiivisella tunnisteella varustettu ohitusportti. Varoitus: lisää luettelo-merkintöjä kaikille asiakkaille, kun se on otettu käyttöön globaalisti.",
   "radarPage": {
     "title": "Radar-katalogi",

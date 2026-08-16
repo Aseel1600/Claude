@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Partnerhivatkozás",
     "dismissAriaLabel": "Elvetés"
   },
+  "vscodeCopilotBanner": {
+    "title": "Az OmniRoute mostantól fut a VS Code Copilot Chatben",
+    "description": "Telepítsd az ingyenes OmniCopilot bővítményt, és minden OmniRoute modell megjelenik a Copilot Chat modellválasztójában, amit már használsz.",
+    "cta": "Bővítmény letöltése",
+    "secondaryNote": "Elérhető az Open VSX-en is (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Elvetés"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Hirdesse a <gateway-alias>/<model> tükör azonosítókat a /v1/models-on olyan modellekhez, amelyek kanonikus tulajdonosa nem rendelkezik aktív hitelesítő adatokkal, de egy átjáró, amelynek aktív hitelesítő adatai vannak, irányítja őket. Figyelmeztetés: globális engedélyezés esetén a katalógus bejegyzéseket ad hozzá az összes klienshez.",
   "radarPage": {
     "title": "Radar Katalógus",

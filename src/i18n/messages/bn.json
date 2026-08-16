@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "পার্টনার লিঙ্ক",
     "dismissAriaLabel": "খারিজ করুন"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute এখন VS Code Copilot Chat-এর ভেতরে চলে",
+    "description": "বিনামূল্যের OmniCopilot এক্সটেনশন ইনস্টল করুন এবং আপনার ইতিমধ্যে ব্যবহৃত Copilot Chat মডেল পিকারেই সব OmniRoute মডেল দেখা যাবে।",
+    "cta": "এক্সটেনশনটি নিন",
+    "secondaryNote": "Open VSX-এও পাওয়া যায় (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "খারিজ করুন"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> মিরর আইডি গুলি /v1/models এ বিজ্ঞাপন দিন তাদের জন্য মডেল যাদের ক্যানোনিকাল মালিকের কোনো সক্রিয় শংসাপত্র নেই কিন্তু একটি পাসথ্রু গেটওয়ে তাদের সক্রিয় শংসাপত্র দ্বারা রাউট করে। সতর্কতা: এটি বিশ্বব্যাপী সক্ষম হলে সমস্ত ক্লায়েন্টের জন্য ক্যাটালগ এন্ট্রি যোগ করে।",
   "radarPage": {
     "title": "রাডার ক্যাটালগ",
