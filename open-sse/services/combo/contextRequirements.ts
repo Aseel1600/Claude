@@ -14,6 +14,43 @@ export interface ContextRequirements {
 }
 
 /**
+ * Fold a per-request `X-OmniRoute-Min-Context` value into a combo's stored
+ * context requirements.
+ *
+ * The per-request value can only TIGHTEN, never loosen: the effective floor is
+ * the larger of the two. A combo's stored `minContextWindow` is an operator
+ * policy, and a header travelling with client traffic must not be able to
+ * weaken it — otherwise any caller could opt out of a routing constraint the
+ * operator put there on purpose. Raising it is safe by the same reasoning: the
+ * caller is asking for less headroom risk than the operator required, never
+ * more.
+ *
+ * Returns the original object untouched when there is nothing to fold in, so
+ * the overwhelming majority of requests (no header) allocate nothing and reach
+ * `applyContextRequirements` byte-identically.
+ */
+export function mergeRequestMinContext(
+  requirements: ContextRequirements | undefined,
+  requestMinContextWindow: number | null | undefined
+): ContextRequirements | undefined {
+  if (
+    typeof requestMinContextWindow !== "number" ||
+    !Number.isFinite(requestMinContextWindow) ||
+    requestMinContextWindow <= 0
+  ) {
+    return requirements;
+  }
+
+  const stored = requirements?.minContextWindow;
+  const effective =
+    typeof stored === "number" && stored > requestMinContextWindow
+      ? stored
+      : requestMinContextWindow;
+
+  return { ...(requirements ?? {}), minContextWindow: effective };
+}
+
+/**
  * Get context window size for a target model.
  * Returns null if unknown.
  */

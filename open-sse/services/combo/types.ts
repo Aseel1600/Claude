@@ -82,6 +82,12 @@ export type ComboRelayOptions = {
   budgetCap?: number | null;
   /** Per-request X-OmniRoute-Budget-Fallback value ("cheapest" | "strict") — #3470. */
   budgetFallback?: "cheapest" | "strict" | null;
+  /**
+   * Per-request X-OmniRoute-Min-Context floor in tokens. Folded into
+   * `contextRequirements.minContextWindow` and can only tighten it, never
+   * loosen — see `mergeRequestMinContext`.
+   */
+  minContextWindow?: number | null;
   [key: string]: unknown;
 };
 

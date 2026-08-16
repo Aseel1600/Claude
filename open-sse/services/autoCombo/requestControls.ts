@@ -71,11 +71,7 @@ export function resolveRequestModePack(input: unknown): RequestModePack {
  */
 export function parseRequestBudgetCap(input: unknown): number | undefined {
   const n =
-    typeof input === "number"
-      ? input
-      : typeof input === "string"
-        ? Number(input.trim())
-        : NaN;
+    typeof input === "number" ? input : typeof input === "string" ? Number(input.trim()) : NaN;
   if (!Number.isFinite(n) || n <= 0) return undefined;
   return n;
 }
@@ -96,11 +92,34 @@ export function parseRequestBudgetFallback(input: unknown): RequestBudgetFallbac
   return undefined;
 }
 
+/**
+ * Parse `X-OmniRoute-Min-Context` into a per-request context floor (tokens).
+ *
+ * Unlike the other controls here, this one is NOT auto-combo specific: it folds
+ * into `contextRequirements.minContextWindow`, which every combo strategy
+ * honours. It lives alongside them because it is resolved from the same header
+ * pass and threaded through the same `relayOptions` object.
+ *
+ * Returns `undefined` for anything non-positive or unparseable, so a malformed
+ * header is ignored rather than silently narrowing (or widening) the pool — a
+ * typo'd value must never change routing.
+ */
+export function parseRequestMinContext(input: unknown): number | undefined {
+  if (typeof input !== "string") return undefined;
+  const raw = input.trim();
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.floor(parsed);
+}
+
 /** Aggregated per-request auto-combo overrides resolved from request headers (#3470). */
 export interface PerRequestAutoControls {
   mode?: string;
   budgetCap?: number;
   budgetFallback?: RequestBudgetFallback;
+  /** Per-request `X-OmniRoute-Min-Context` floor, folded into contextRequirements. */
+  minContextWindow?: number;
 }
 
 /**
@@ -116,14 +135,17 @@ export function resolveRequestAutoControls(headers: {
   const modeHeader = headers.get("x-omniroute-mode")?.trim() || null;
   const budgetHeader = headers.get("x-omniroute-budget")?.trim() || null;
   const budgetFallbackHeader = headers.get("x-omniroute-budget-fallback")?.trim() || null;
+  const minContextHeader = headers.get("x-omniroute-min-context")?.trim() || null;
 
   const mode = resolveRequestModePack(modeHeader);
   const budgetCap = parseRequestBudgetCap(budgetHeader);
   const budgetFallback = parseRequestBudgetFallback(budgetFallbackHeader);
+  const minContextWindow = parseRequestMinContext(minContextHeader);
 
   return {
     ...(mode.override && modeHeader ? { mode: modeHeader } : {}),
     ...(budgetCap !== undefined ? { budgetCap } : {}),
     ...(budgetFallback !== undefined ? { budgetFallback } : {}),
+    ...(minContextWindow !== undefined ? { minContextWindow } : {}),
   };
 }

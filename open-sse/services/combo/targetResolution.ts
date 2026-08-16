@@ -51,7 +51,7 @@ import {
   resolveWeightedStepGroups,
   resolveWeightedTargets,
 } from "./comboStructure.ts";
-import { applyContextRequirements } from "./contextRequirements.ts";
+import { applyContextRequirements, mergeRequestMinContext } from "./contextRequirements.ts";
 import { recordComboFailure } from "./failureTracker.ts";
 import { getKnownContextOverflow } from "./knownContextOverflow.ts";
 import { buildEmptyComboTargetsPayload, buildRecoveryHint } from "./pinRecovery.ts";
@@ -523,7 +523,13 @@ async function applyContinuityFilters(
   // #8786: capture pre-filter pool so a strict/minContextWindow wipe can
   // surface context_requirements_exhausted instead of a generic 404.
   const preContextTargets = orderedTargets;
-  orderedTargets = applyContextRequirements(orderedTargets, config.contextRequirements, log);
+  // Fold the per-request X-OmniRoute-Min-Context floor into the combo's stored
+  // requirements. Tighten-only: a header cannot weaken an operator's policy.
+  const effectiveContextRequirements = mergeRequestMinContext(
+    config.contextRequirements,
+    relayOptions?.minContextWindow as number | null | undefined
+  );
+  orderedTargets = applyContextRequirements(orderedTargets, effectiveContextRequirements, log);
   if (orderedTargets.length === 0 && preContextTargets.length > 0) {
     const effectiveSessionId: string | null = combo.context_cache_protection
       ? (relayOptions?.sessionId ?? null)
@@ -531,7 +537,9 @@ async function applyContinuityFilters(
     recordComboFailure(effectiveSessionId, combo.name);
     const { message, diagnostics } = buildEmptyComboTargetsPayload(
       preContextTargets,
-      config.contextRequirements?.minContextWindow
+      // Report the floor that actually emptied the pool, not the stored one —
+      // otherwise the recovery hint names a threshold the caller never set.
+      effectiveContextRequirements?.minContextWindow
     );
     return {
       earlyResponse: errorResponseWithComboDiagnostics(404, message, diagnostics, {
