@@ -7732,6 +7732,10 @@
         "label": "马尾辫（懒人高级开发）",
         "description": "懒人高级开发原则：遵循 YAGNI 阶梯，修复根因，最小可行差异。"
       },
+      "i-have-adhd": {
+        "label": "我有 ADHD（行动优先）",
+        "description": "行动优先输出：先给出下一步操作，步骤编号，只提供一个具体的后续步骤，不加开场白。"
+      },
       "terse-cjk": {
         "label": "精简 CJK (文言)",
         "description": "文言文极简风格 (仅适用于中文)。"
@@ -8012,6 +8016,10 @@
     "disableSessionStickinessDesc": "轮询和随机组合在每次请求时都会轮换到不同的连接，而不是通过首条消息的哈希将整个对话固定在单个连接上。保持关闭以保留多轮对话的提示词缓存命中率。每个组合的覆盖设置优先。",
     "promptCacheAffinity": "提示缓存局部性路由",
     "promptCacheAffinityDesc": "在保持健康检查和配额故障转移的同时，优先使用同一提供者账户匹配提示缓存键。",
+    "reasoningTokenBuffer": "推理令牌缓冲",
+    "reasoningTokenBufferDesc": "仅当完整缓冲空间不超过已知输出上限时，才允许组合路由为已知推理模型增加 max_tokens 余量。",
+    "zeroLatencyOptimizations": "零延迟优化",
+    "zeroLatencyOptimizationsDesc": "选择启用对冲、预测性 TTFT 跳过和主动压缩回退请求。保持关闭可避免这些延迟优化功能竞速多个目标或压缩回退请求。",
     "credentialRedaction": "凭据脱敏",
     "credentialRedactionDesc": "对发送给提供者的上下文以及响应中的 API 密钥、令牌和机密信息进行脱敏。",
     "enableCredentialRedaction": "启用凭据脱敏",

@@ -7734,6 +7734,10 @@
         "label": "Ponytail (lazy senior dev)",
         "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
       },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
+      },
       "terse-cjk": {
         "label": "Terse CJK (文言)",
         "description": "Classical-Chinese ultra-terse style (available only for Chinese)."
@@ -8014,6 +8018,10 @@
     "disableSessionStickinessDesc": "Round-robin and random combos rotate to a different connection on every request instead of pinning a whole conversation to one connection by the first-message hash. Leave off to preserve prompt-cache hits for multi-turn chats. Per-combo overrides take precedence.",
     "promptCacheAffinity": "Prompt-cache locality routing",
     "promptCacheAffinityDesc": "Prefer the same provider account for matching prompt-cache keys while preserving health and quota failover.",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests.",
     "credentialRedaction": "Credential Redaction",
     "credentialRedactionDesc": "Redact API keys, tokens, and secrets from context sent to providers and from responses.",
     "enableCredentialRedaction": "Enable credential redaction",
