@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "パートナーリンク",
     "dismissAriaLabel": "閉じる"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRouteがVS Code Copilot Chat内で動作するようになりました",
+    "description": "無料のOmniCopilot拡張機能をインストールすると、すでに使っているCopilot Chatのモデル選択画面にすべてのOmniRouteモデルが表示されます。",
+    "cta": "拡張機能を入手",
+    "secondaryNote": "Open VSXでも利用可能（Cursor、Windsurf、VSCodiumなど）",
+    "dismissAriaLabel": "閉じる"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> ミラー ID を /v1/models で広告します。これは、正規の所有者にアクティブな資格情報がないが、パススルーゲートウェイがアクティブな資格情報でルーティングされるモデルに適用されます。警告: グローバルに有効にすると、すべてのクライアントにカタログエントリが追加されます。",
   "radarPage": {
     "title": "レーダーカタログ",

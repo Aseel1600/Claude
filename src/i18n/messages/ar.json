@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "رابط شريك",
     "dismissAriaLabel": "تجاهل"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute يعمل الآن داخل VS Code Copilot Chat",
+    "description": "ثبّت امتداد OmniCopilot المجاني وستظهر جميع نماذج OmniRoute مباشرة في منتقي النماذج في Copilot Chat الذي تستخدمه بالفعل.",
+    "cta": "احصل على الامتداد",
+    "secondaryNote": "متوفر أيضًا على Open VSX (Cursor، Windsurf، VSCodium…)",
+    "dismissAriaLabel": "تجاهل"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "قم بالإعلان عن معرفات المرايا <gateway-alias>/<model> على /v1/models للنماذج التي ليس لديها مالك قانوني لديه بيانات اعتماد نشطة ولكن بوابة تمرير مع بيانات اعتماد نشطة توجهها. تحذير: يضيف إدخالات الكتالوج لجميع العملاء عند تمكينه عالميًا.",
   "radarPage": {
     "title": "كتالوج الرادار",

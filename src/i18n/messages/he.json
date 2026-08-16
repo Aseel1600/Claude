@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "קישור שותף",
     "dismissAriaLabel": "התעלם"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute פועל כעת ישירות בתוך VS Code Copilot Chat",
+    "description": "התקינו את התוסף החינמי OmniCopilot וכל מודלי OmniRoute יופיעו ישירות בבורר המודלים של Copilot Chat שאתם כבר משתמשים בו.",
+    "cta": "קבלו את התוסף",
+    "secondaryNote": "זמין גם ב-Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "התעלם"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "פרסם את מזהי המראה של <gateway-alias>/<model> ב-/v1/models עבור מודלים שבעליהם הקנוניים אין להם אישור פעיל אך שער העברת נתונים עם אישור פעיל מנתב אותם. אזהרה: מוסיף רשומות קטלוג לכל הלקוחות כאשר זה מופעל באופן גלובלי.",
   "radarPage": {
     "title": "קטלוג רדאר",

@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "ลิงก์พันธมิตร",
     "dismissAriaLabel": "ปิด"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute ทำงานภายใน VS Code Copilot Chat แล้ว",
+    "description": "ติดตั้งส่วนขยาย OmniCopilot ฟรี แล้วทุกโมเดลของ OmniRoute จะปรากฏในตัวเลือกโมเดลของ Copilot Chat ที่คุณใช้อยู่แล้วทันที",
+    "cta": "รับส่วนขยาย",
+    "secondaryNote": "มีให้ใช้งานบน Open VSX ด้วย (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "ปิด"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "โฆษณา <gateway-alias>/<model> รหัสกระจกบน /v1/models สำหรับโมเดลที่เจ้าของตามกฎหมายไม่มีข้อมูลรับรองที่ใช้งานอยู่ แต่มีเกตเวย์แบบผ่านที่มีข้อมูลรับรองที่ใช้งานอยู่ทำการส่งต่อพวกเขา เตือน: จะเพิ่มรายการในแคตตาล็อกสำหรับลูกค้าทั้งหมดเมื่อเปิดใช้งานทั่วโลก.",
   "radarPage": {
     "title": "แคตตาล็อกเรดาร์",

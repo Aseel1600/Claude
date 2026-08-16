@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "پارٹنر لنک",
     "dismissAriaLabel": "خارج کریں"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute اب VS Code Copilot Chat کے اندر چلتا ہے",
+    "description": "مفت OmniCopilot ایکسٹینشن انسٹال کریں اور ہر OmniRoute ماڈل اسی Copilot Chat ماڈل پکر میں نظر آئے گا جسے آپ پہلے سے استعمال کرتے ہیں۔",
+    "cta": "ایکسٹینشن حاصل کریں",
+    "secondaryNote": "Open VSX پر بھی دستیاب ہے (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "خارج کریں"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> کی عکاسی کے IDs کو /v1/models پر اشتہار دیں ان ماڈلز کے لیے جن کے حقیقی مالک کے پاس کوئی فعال سند نہیں ہے لیکن ایک پاس تھرو گیٹ وے جس کے پاس ایک فعال سند ہے انہیں روٹ کرتا ہے۔ انتباہ: جب عالمی طور پر فعال کیا جائے تو یہ تمام کلائنٹس کے لیے کیٹلاگ کی اندراجات شامل کرتا ہے۔",
   "radarPage": {
     "title": "ریڈار کیٹلاگ",
