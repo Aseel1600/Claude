@@ -1,5 +1,9 @@
 import { getProviderAlias } from "@/shared/constants/providers";
-import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
+import {
+  isOmniRouteContextSource,
+  OMNIROUTE_RESPONSE_HEADERS,
+  type OmniRouteContextSource,
+} from "@/shared/constants/headers";
 import { APP_CONFIG } from "@/shared/constants/appConfig";
 
 type UsageLike = Record<string, unknown> | null | undefined;
@@ -114,6 +118,10 @@ export function buildOmniRouteDecisionHeaderValue({
 
 export function buildOmniRouteResponseMetaHeaders({
   cacheHit = false,
+  contextMaxInput = undefined,
+  contextMaxOutput = undefined,
+  contextSource = null,
+  contextWindow = undefined,
   costUsd = 0,
   costSavedUsd = undefined,
   fallbackAttempts = 0,
@@ -125,6 +133,27 @@ export function buildOmniRouteResponseMetaHeaders({
   usage = null,
 }: {
   cacheHit?: boolean;
+  /**
+   * Input-token ceiling of the resolved target. Distinct from `contextWindow`
+   * whenever the provider reserves part of the window for output — reporting the
+   * total here is what made auto-compaction never fire in #6191.
+   */
+  contextMaxInput?: unknown;
+  /** Output-token ceiling of the resolved target. */
+  contextMaxOutput?: unknown;
+  /**
+   * Where the context figures came from. Callers that cannot establish the
+   * provenance should omit this rather than guess: a missing header is honest,
+   * a wrong one is worse than none.
+   */
+  contextSource?: OmniRouteContextSource | null;
+  /**
+   * Total context window of the target that actually served the request.
+   *
+   * Emitted only when supplied, so responses from callers that do not resolve a
+   * window keep their exact existing header shape.
+   */
+  contextWindow?: unknown;
   costUsd?: unknown;
   /**
    * Cost the cache AVOIDED. A semantic-cache HIT serves at ≈0 incremental cost
@@ -179,6 +208,32 @@ export function buildOmniRouteResponseMetaHeaders({
   const attempts = toNonNegativeInteger(fallbackAttempts);
   if (attempts > 0) {
     headers[OMNIROUTE_RESPONSE_HEADERS.fallbackAttempts] = toHeaderValue(String(attempts));
+  }
+
+  // Context capacity of the resolved target. Each field is emitted only when the
+  // caller supplies a positive value, mirroring the costSavedUsd/fallbackAttempts
+  // pattern above — a response whose caller resolves no window is byte-identical
+  // to before this block existed.
+  //
+  // A client schedules compaction against these numbers, so a zero/absent value
+  // must stay absent rather than be reported as "0", which would read as "no room
+  // at all" and force an immediate needless compaction pass.
+  for (const [headerName, rawValue] of [
+    [OMNIROUTE_RESPONSE_HEADERS.contextWindow, contextWindow],
+    [OMNIROUTE_RESPONSE_HEADERS.contextMaxInput, contextMaxInput],
+    [OMNIROUTE_RESPONSE_HEADERS.contextMaxOutput, contextMaxOutput],
+  ] as const) {
+    const tokens = toNonNegativeInteger(rawValue);
+    if (tokens > 0) {
+      headers[headerName] = toHeaderValue(String(tokens));
+    }
+  }
+
+  // Closed enum (see OMNIROUTE_CONTEXT_SOURCES): an unrecognised value is dropped
+  // rather than forwarded, so this header can never carry a free-form internal
+  // string into the response.
+  if (isOmniRouteContextSource(contextSource)) {
+    headers[OMNIROUTE_RESPONSE_HEADERS.contextSource] = toHeaderValue(contextSource);
   }
 
   const decisionValue = buildOmniRouteDecisionHeaderValue({ strategy, provider, latencyMs });

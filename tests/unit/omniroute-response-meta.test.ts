@@ -9,7 +9,11 @@ import {
   getOmniRouteTokenCounts,
 } from "../../src/domain/omnirouteResponseMeta.ts";
 import { APP_CONFIG } from "../../src/shared/constants/appConfig.ts";
-import { OMNIROUTE_RESPONSE_HEADERS } from "../../src/shared/constants/headers.ts";
+import {
+  OMNIROUTE_CONTEXT_SOURCES,
+  OMNIROUTE_RESPONSE_HEADERS,
+  type OmniRouteContextSource,
+} from "../../src/shared/constants/headers.ts";
 
 test("getOmniRouteTokenCounts normalizes common usage shapes", () => {
   assert.deepEqual(
@@ -196,4 +200,86 @@ test("attachOmniRouteMetaHeaders forwards costSavedUsd onto a Headers bag", () =
   });
   assert.equal(headers.get(OMNIROUTE_RESPONSE_HEADERS.responseCost), "0.0000000000");
   assert.equal(headers.get(OMNIROUTE_RESPONSE_HEADERS.costSaved), "0.0125000000");
+});
+
+test("buildOmniRouteResponseMetaHeaders omits every context header when none is supplied", () => {
+  // Inertness guard: a caller that resolves no context window must produce the
+  // exact header set it produced before the context headers existed.
+  const headers = buildOmniRouteResponseMetaHeaders({
+    provider: "openai",
+    model: "gpt-4o",
+    usage: { prompt_tokens: 10, completion_tokens: 2 },
+  });
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextWindow], undefined);
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxInput], undefined);
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxOutput], undefined);
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextSource], undefined);
+});
+
+test("buildOmniRouteResponseMetaHeaders emits context capacity when supplied", () => {
+  const headers = buildOmniRouteResponseMetaHeaders({
+    provider: "openai",
+    model: "gpt-5.5",
+    contextWindow: 400_000,
+    contextMaxInput: 272_000,
+    contextMaxOutput: 128_000,
+    contextSource: "override:manual",
+  });
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextWindow], "400000");
+  // #6191: max input is NOT the total window when the provider reserves output.
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxInput], "272000");
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxOutput], "128000");
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextSource], "override:manual");
+});
+
+test("buildOmniRouteResponseMetaHeaders drops non-positive context values instead of reporting 0", () => {
+  // "0" would read as "no room at all" and trigger a needless compaction pass.
+  const headers = buildOmniRouteResponseMetaHeaders({
+    contextWindow: 0,
+    contextMaxInput: -5,
+    contextMaxOutput: "not-a-number",
+  });
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextWindow], undefined);
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxInput], undefined);
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextMaxOutput], undefined);
+});
+
+test("buildOmniRouteResponseMetaHeaders accepts every declared context source", () => {
+  for (const source of OMNIROUTE_CONTEXT_SOURCES) {
+    const headers = buildOmniRouteResponseMetaHeaders({ contextSource: source });
+    assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextSource], source);
+  }
+});
+
+test("buildOmniRouteResponseMetaHeaders rejects a context source outside the closed set", () => {
+  const headers = buildOmniRouteResponseMetaHeaders({
+    // Deliberately outside OMNIROUTE_CONTEXT_SOURCES — must never reach the wire.
+    contextSource: "internal-table:model_context_overrides" as unknown as OmniRouteContextSource,
+  });
+  assert.equal(headers[OMNIROUTE_RESPONSE_HEADERS.contextSource], undefined);
+});
+
+test("buildOmniRouteSseMetadataComment carries the context headers into the SSE preamble", () => {
+  const comment = buildOmniRouteSseMetadataComment({
+    provider: "deepseek",
+    model: "deepseek-v4",
+    contextWindow: 1_000_000,
+    contextSource: "catalog",
+  });
+  assert.match(comment, /^: x-omniroute-context-window=1000000$/m);
+  assert.match(comment, /^: x-omniroute-context-source=catalog$/m);
+});
+
+test("attachOmniRouteMetaHeaders forwards context capacity onto a Headers bag", () => {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  attachOmniRouteMetaHeaders(headers, {
+    provider: "deepseek",
+    model: "deepseek-v4",
+    contextWindow: 1_000_000,
+    contextMaxInput: 960_000,
+    contextSource: "override:auto",
+  });
+  assert.equal(headers.get(OMNIROUTE_RESPONSE_HEADERS.contextWindow), "1000000");
+  assert.equal(headers.get(OMNIROUTE_RESPONSE_HEADERS.contextMaxInput), "960000");
+  assert.equal(headers.get(OMNIROUTE_RESPONSE_HEADERS.contextSource), "override:auto");
 });
