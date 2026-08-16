@@ -79,6 +79,7 @@ import { registerConfigure } from "./configure.mjs";
 import { registerApiCommands } from "../api-commands/registry.mjs";
 import { registerPlugin } from "./plugin.mjs";
 import { registerRadar } from "./radar.mjs";
+import { registerPacks } from "./packs.mjs";
 
 export function registerCommands(program) {
   registerMemory(program);
@@ -163,4 +164,5 @@ export function registerCommands(program) {
   registerApiCommands(program);
   registerPlugin(program);
   registerRadar(program);
+  registerPacks(program);
 }
