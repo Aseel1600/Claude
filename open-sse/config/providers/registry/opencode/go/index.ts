@@ -141,7 +141,12 @@ export const opencode_goProvider: RegistryEntry = {
     },
     { id: "deepseek-v4-pro-high", name: "DeepSeek V4 Pro (high effort)", supportsReasoning: true },
     { id: "deepseek-v4-pro-max", name: "DeepSeek V4 Pro (max effort)", supportsReasoning: true },
-    { id: "deepseek-v4-flash", name: "DeepSeek V4 Flash", supportsReasoning: true },
+    {
+      id: "deepseek-v4-flash",
+      name: "DeepSeek V4 Flash",
+      supportsReasoning: true,
+      supportedThinkingEfforts: ["high", "max"],
+    },
     // #8353: DeepSeek V4 Flash effort tiers from the OpenCode Go registry.
     {
       id: "deepseek-v4-flash-high",
