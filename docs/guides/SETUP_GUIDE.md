@@ -54,8 +54,9 @@ The [AUR package](https://aur.archlinux.org/packages/omniroute-bin) installs Omn
 ```bash
 npm install
 PORT=20128 DASHBOARD_PORT=20129 NEXT_PUBLIC_BASE_URL=http://localhost:20129 npm run dev
-If %USERPROFILE%\.omniroute does not exist yet, commands that rename or reset this directory will return “The system cannot find the file specified.” This can be normal on a fresh installation because OmniRoute may not have created its configuration directory yet. Start OmniRoute once, then verify the directory exists before attempting a reset or rename.
 ```
+
+> **Windows note:** By default, OmniRoute uses `%APPDATA%\omniroute` when the legacy `%USERPROFILE%\.omniroute` directory is not present. Set `DATA_DIR` to choose a different data-directory location.
 
 > **Note:** `npm install` auto-generates `.env` from `.env.example` on first run. Subsequent installs will not overwrite an existing `.env`, so customizations are preserved. To re-seed, delete `.env` before re-running.
 
