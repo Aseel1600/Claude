@@ -1502,7 +1502,10 @@ async function handleSingleModelChat(
 
       const accountId = credentials.connectionId.slice(0, 8);
       const releaseOAuthSession = credentials.releaseOAuthSession ?? (() => {});
-      log.info("AUTH", `Using ${provider} account: ${accountId}...`);
+      // #10348: redact account prefix by default — only show in debugMode
+      const settings = await getCachedSettings().catch(() => null);
+      const debug = (settings as Record<string, unknown>)?.debugMode === true;
+      log.info("AUTH", `Using ${provider} account: ${debug ? accountId : "***"}...`);
       // #474: when the request used a bare model name (no "/" — e.g. an alias
       // that resolved to "auto") and the selected connection declares a
       // defaultModel, resolve the bare name to that real model ID before the
