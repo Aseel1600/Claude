@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Partnerský odkaz",
     "dismissAriaLabel": "Zavřít"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute nyní běží přímo ve VS Code Copilot Chat",
+    "description": "Nainstalujte si bezplatné rozšíření OmniCopilot a všechny modely OmniRoute se objeví přímo ve výběru modelů Copilot Chat, který už používáte.",
+    "cta": "Získat rozšíření",
+    "secondaryNote": "Také na Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Zavřít"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Inzerujte <gateway-alias>/<model> zrcadlové ID na /v1/models pro modely, jejichž kanonický vlastník nemá aktivní pověření, ale passtrhough brána s aktivním pověřením je směruje. Upozornění: při globálním povolení přidává katalogové položky pro všechny klienty.",
   "radarPage": {
     "title": "Radar katalog",

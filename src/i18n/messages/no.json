@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Partnerlenke",
     "dismissAriaLabel": "Avvis"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute kjører nå inne i VS Code Copilot Chat",
+    "description": "Installer den gratis OmniCopilot-utvidelsen, så vises hver OmniRoute-modell rett i Copilot Chat-modellvelgeren du allerede bruker.",
+    "cta": "Last ned utvidelsen",
+    "secondaryNote": "Også på Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Avvis"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Reklamer <gateway-alias>/<model> speil-id-er på /v1/models for modeller hvis kanoniske eier ikke har aktive legitimasjoner, men en passthrough-gateway med aktive legitimasjoner ruter dem. Advarsel: legger til katalogoppføringer for alle klienter når det er aktivert globalt.",
   "radarPage": {
     "title": "Radar Katalog",

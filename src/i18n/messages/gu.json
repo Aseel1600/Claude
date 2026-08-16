@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "પાર્ટનર લિંક",
     "dismissAriaLabel": "બંધ કરો"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute હવે VS Code Copilot Chat અંદર ચાલે છે",
+    "description": "મફત OmniCopilot એક્સટેન્શન ઇન્સ્ટોલ કરો અને તમે પહેલેથી ઉપયોગ કરો છો તે Copilot Chat મોડલ પિકરમાં જ બધા OmniRoute મોડલ દેખાશે.",
+    "cta": "એક્સટેન્શન મેળવો",
+    "secondaryNote": "Open VSX પર પણ ઉપલબ્ધ (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "બંધ કરો"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> મિરર આઈડીઓને /v1/models પર જાહેરાત આપો તે મોડલ્સ માટે જેમના કૅનોનિકલ માલિક પાસે કોઈ સક્રિય પ્રમાણપત્ર નથી પરંતુ એક પાસથ્રૂ ગેટવે સાથે સક્રિય પ્રમાણપત્ર તેમને માર્ગદર્શિત કરે છે. ચેતવણી: વૈશ્વિક રીતે સક્રિય કરવામાં આવે ત્યારે તમામ ક્લાયન્ટ્સ માટે કૅટલોગ એન્ટ્રીઓ ઉમેરે છે.",
   "radarPage": {
     "title": "રેડાર કેટલોગ",

@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "合作伙伴链接",
     "dismissAriaLabel": "关闭"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute 现已可在 VS Code Copilot Chat 中运行",
+    "description": "安装免费的 OmniCopilot 扩展，每个 OmniRoute 模型都会直接出现在你已经在用的 Copilot Chat 模型选择器中。",
+    "cta": "获取扩展",
+    "secondaryNote": "同样支持 Open VSX（Cursor、Windsurf、VSCodium…）",
+    "dismissAriaLabel": "关闭"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "在/v1/models上为那些规范所有者没有活动凭证但通过一个具有活动凭证的通道网关路由的模型宣传<gateway-alias>/<model>镜像ID。警告：当全局启用时，会为所有客户端添加目录条目。",
   "radarPage": {
     "title": "雷达目录",
