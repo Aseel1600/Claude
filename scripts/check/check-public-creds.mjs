@@ -92,6 +92,7 @@ const ENV_KEY_RE = /(clientId|clientSecret|apiKey)Env\s*:/;
 export const KNOWN_LITERAL_CREDS = new Set([
   "open-sse/services/usage/minimax.ts:213:minimax", // TODO(6A.8): pre-existing FP — TS fn-param type, not a credential (getMiniMaxUsage signature)
   "open-sse/services/usage/minimax.ts:213:minimax-cn", // TODO(6A.8): pre-existing FP — TS fn-param type, not a credential (getMiniMaxUsage signature)
+  "open-sse/executors/zcodeProtocol.ts:302:omniroute-${process.pid}", // pre-existing FP — clientId identifier, not a credential (ZCode handshake client name)
 ]);
 
 /**
