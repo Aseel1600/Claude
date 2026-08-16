@@ -155,8 +155,6 @@ import { registerOpencodeQuotaFetcher } from "@omniroute/open-sse/services/openc
 import { registerGrokWebQuotaFetcher } from "@omniroute/open-sse/services/grokQuotaFetcher.ts";
 import { registerGenericQuotaFetchers } from "@omniroute/open-sse/services/genericQuotaFetcher.ts";
 import { registerLocalEstimateQuotaFetchers } from "@omniroute/open-sse/services/localEstimateQuotaFetcher.ts";
-import { registerCloudflareAiQuotaFetcher } from "@omniroute/open-sse/services/cloudflareAiQuotaFetcher.ts";
-import { registerByteplusQuotaFetcher } from "@omniroute/open-sse/services/byteplusQuotaFetcher.ts";
 import "@omniroute/open-sse/services/quotaTrackersBatch.ts";
 import {
   disableCooldownAwareRetry,
@@ -202,21 +200,15 @@ registerGrokWebQuotaFetcher();
 // enforce thresholds for Claude / GLM / Cursor / etc., not just Codex.
 registerGenericQuotaFetchers();
 
-// Register hybrid quota fetchers for providers with a best-effort upstream
-// endpoint probe (Cloudflare AI Workers AI limits, BytePlus Ark usage): the
-// probe runs first, and on failure/404/401 the registered fetcher falls back
-// to the local estimate (see localEstimateQuotaFetcher.ts). These register
-// BEFORE registerLocalEstimateQuotaFetchers so they own their provider keys.
-registerCloudflareAiQuotaFetcher();
-registerByteplusQuotaFetcher();
-
-// Register the generic LOCAL-ESTIMATE quota fetcher for the remaining pool
-// providers that have no public usage/quota endpoint (cerebras, gemini,
-// mistral, nvidia, nous-research). It computes remaining quota per window from
-// seeded free-tier limits (or provider_plans overrides) minus locally recorded
-// usage_history, so the reset-window / reset-aware combo strategies can rank
-// daily-refreshed providers ahead of weekly-quota and paid ones. Providers
-// already registered above (or by any bespoke fetcher) are skipped.
+// Register the generic LOCAL-ESTIMATE quota fetcher for pool providers that
+// have no public usage/quota endpoint but a known free-tier limit (cerebras,
+// gemini, mistral, nvidia, nous-research). It computes remaining quota per
+// window from seeded free-tier limits (or provider_plans overrides) minus
+// locally recorded usage_history, so the reset-window / reset-aware combo
+// strategies can rank daily-refreshed providers ahead of weekly-quota and paid
+// ones. Providers with no endpoint at all (Cloudflare Workers AI, BytePlus)
+// are intentionally NOT registered — their exhaustion is detected from the
+// upstream 429 (quota_exhausted → cooldown), see localEstimateQuotaFetcher.ts.
 registerLocalEstimateQuotaFetchers();
 let combosCachePromise: Promise<unknown[]> | null = null;
 let combosCacheTs = 0;

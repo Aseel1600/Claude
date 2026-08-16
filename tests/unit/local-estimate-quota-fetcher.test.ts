@@ -21,10 +21,11 @@ const {
   fetchLocalEstimateQuota,
   getWindowBounds,
   registerLocalEstimateQuotaFetchers,
-  registerHybridQuotaFetcher,
   LOCAL_ESTIMATE_GAP_PROVIDERS,
 } = await import("../../open-sse/services/localEstimateQuotaFetcher.ts");
-const { getQuotaFetcher } = await import("../../open-sse/services/quotaPreflight.ts");
+const { getQuotaFetcher, registerQuotaFetcher } = await import(
+  "../../open-sse/services/quotaPreflight.ts"
+);
 
 function resetStorage(): void {
   core.resetDbInstance();
@@ -151,42 +152,26 @@ describe("fetchLocalEstimateQuota", () => {
 describe("registration", () => {
   it("registerLocalEstimateQuotaFetchers registers gap providers", () => {
     assert.ok(Array.isArray(LOCAL_ESTIMATE_GAP_PROVIDERS));
-    assert.ok(LOCAL_ESTIMATE_GAP_PROVIDERS.length >= 7);
+    assert.ok(LOCAL_ESTIMATE_GAP_PROVIDERS.length >= 5);
     registerLocalEstimateQuotaFetchers(["cerebras"]);
     assert.ok(getQuotaFetcher("cerebras"), "cerebras fetcher registered");
   });
 
-  it("skips providers that already have a fetcher (bespoke precedence)", async () => {
-    const { registerCloudflareAiQuotaFetcher } = await import(
-      "../../open-sse/services/cloudflareAiQuotaFetcher.ts"
-    );
-    registerCloudflareAiQuotaFetcher();
-    // Register the whole gap list — cloudflare-ai must keep the hybrid fetcher.
+  it("skips providers that already have a fetcher (bespoke precedence)", () => {
+    registerQuotaFetcher("mistral", async () => null);
     registerLocalEstimateQuotaFetchers();
-    assert.ok(getQuotaFetcher("cloudflare-ai"), "hybrid cloudflare fetcher stays");
+    // mistral keeps the bespoke fetcher; the remaining gaps get the estimate.
+    const mistralFetcher = getQuotaFetcher("mistral");
+    assert.ok(mistralFetcher, "mistral keeps its already-registered fetcher");
+    assert.equal(mistralFetcher, getQuotaFetcher("mistral"), "not replaced");
     assert.ok(getQuotaFetcher("cerebras"), "local-estimate fills the remaining gaps");
   });
 
-  it("hybrid fetcher returns the probe result when the probe succeeds", async () => {
-    registerHybridQuotaFetcher("hybrid-probe", async () => ({
-      used: 1,
-      total: 2,
-      percentUsed: 0.5,
-      resetAt: "2026-08-16T00:00:00.000Z",
-    }));
-    const fetcher = getQuotaFetcher("hybrid-probe");
-    assert.ok(fetcher);
-    const quota = await fetcher!("conn-h");
-    assert.equal(quota!.percentUsed, 0.5);
-  });
-
-  it("hybrid fetcher falls back to the local estimate when the probe returns null", async () => {
-    // cerebras has a seeded daily window → the fallback returns a real window.
-    registerHybridQuotaFetcher("cerebras", async () => null);
-    const fetcher = getQuotaFetcher("cerebras");
-    assert.ok(fetcher);
-    const quota = await fetcher!("conn-i");
-    assert.ok(quota);
-    assert.ok(quota!.windows.daily, "local estimate produced the daily window");
+  it("no quota fetcher is registered for providers without an endpoint (429-disabling)", () => {
+    // cloudflare-ai and byteplus expose no quota API — they must NOT get a
+    // local-estimate fetcher; exhaustion is detected from the upstream 429.
+    registerLocalEstimateQuotaFetchers();
+    assert.equal(getQuotaFetcher("cloudflare-ai"), undefined);
+    assert.equal(getQuotaFetcher("byteplus"), undefined);
   });
 });

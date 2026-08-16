@@ -5,8 +5,8 @@
  * OmniRoute's `reset-window` / `reset-aware` combo strategies rank targets by
  * quota reset proximity (daily ≤24h → weekly ≤7d → monthly ≤30d → paid/unknown
  * last). They only work for providers with a registered `QuotaFetcher`. Many
- * providers (Cerebras, Cloudflare AI, Gemini API, Mistral, NVIDIA NIM, …) expose
- * no public usage endpoint, so this module estimates remaining quota from:
+ * providers (Cerebras, Gemini API, Mistral, NVIDIA NIM, …) expose no public
+ * usage endpoint, so this module estimates remaining quota from:
  *
  *   1. the operator's `provider_plans` dimensions for the connection (source of
  *      truth when set — `unit: requests|tokens`, `window: daily|weekly|monthly`);
@@ -18,10 +18,12 @@
  * limit reports no windows (0% used) rather than a wrong number, so routing
  * never breaks — it just doesn't rank that provider by quota.
  *
- * Registration: `registerLocalEstimateQuotaFetchers()` (once at server startup,
- * AFTER the bespoke fetchers so they keep precedence) registers the gaps;
- * `registerHybridQuotaFetcher()` composes a bespoke upstream probe with the
- * local estimate as its fallback (probe first, estimate on null/error).
+ * Providers with NO public usage endpoint (Cloudflare Workers AI, BytePlus
+ * ModelArk, …) are deliberately NOT registered here — there is no endpoint to
+ * probe and no honest estimate, so quota exhaustion is detected purely from the
+ * upstream 429 (classified as quota_exhausted → connection cooldown → the combo
+ * falls to the next target). Registration: `registerLocalEstimateQuotaFetchers()`
+ * once at server startup, AFTER the bespoke fetchers so they keep precedence.
  */
 
 import {
@@ -52,12 +54,10 @@ const WINDOW_KEYS: readonly EstimateWindowKind[] = ["daily", "weekly", "monthly"
  */
 export const SEEDED_ESTIMATE_LIMITS: Record<string, EstimateLimit[]> = {
   cerebras: [{ window: "daily", unit: "tokens", limit: 1_000_000 }], // free tier ~30M tok/mo pool → ~1M/day
-  "cloudflare-ai": [{ window: "daily", unit: "tokens", limit: 10_000 }], // Workers AI free ~10k neurons/day
   gemini: [{ window: "daily", unit: "requests", limit: 1_000 }], // AI Studio free-tier RPD (flash-class)
   mistral: [{ window: "monthly", unit: "tokens", limit: 1_000_000_000 }], // 1B tok/mo free tier
   nvidia: [], // NIM free = 40 req/s, unlimited rpd → uncapped, never exhausts
   "nous-research": [], // credit-based → plan override only
-  byteplus: [], // metered → plan override only
   // OpenCode Zen free tier (200 req/day) and OpenCode Go weekly/monthly caps.
   // Go's true caps are USD ($30/wk, $60/mo) but there's no catalog pricing for
   // Go models, so the fallback seeds request-count windows from the official Go
@@ -266,15 +266,18 @@ function makeFetcher(provider: string): QuotaFetcher {
 
 // ─── Registration ─────────────────────────────────────────────────────────────
 
-/** The 9 pool providers that had no quota/usage fetcher (2026-08-15). */
+/**
+ * Pool providers that had no quota/usage fetcher and DO expose no public usage
+ * endpoint worth estimating (2026-08-15). Providers with no endpoint at all
+ * (Cloudflare Workers AI, BytePlus) are intentionally NOT listed — their quota
+ * exhaustion is detected from the upstream 429 instead.
+ */
 export const LOCAL_ESTIMATE_GAP_PROVIDERS = [
   "cerebras",
-  "cloudflare-ai",
   "gemini",
   "mistral",
   "nvidia",
   "nous-research",
-  "byteplus",
 ] as const;
 
 /**
@@ -289,25 +292,4 @@ export function registerLocalEstimateQuotaFetchers(
     if (getQuotaFetcher(provider)) continue; // bespoke fetcher already registered — leave it alone
     registerQuotaFetcher(provider, makeFetcher(provider));
   }
-}
-
-/**
- * Register a HYBRID fetcher for a provider: try the upstream probe first, fall
- * back to the local estimate when it returns null / throws. Used by bespoke
- * endpoint fetchers (Cloudflare AI, BytePlus) that are best-effort.
- */
-export function registerHybridQuotaFetcher(
-  provider: string,
-  upstreamProbe: QuotaFetcher
-): void {
-  const estimateFetcher = makeFetcher(provider);
-  registerQuotaFetcher(provider, async (connectionId, connection) => {
-    try {
-      const upstream = await upstreamProbe(connectionId, connection);
-      if (upstream) return upstream;
-    } catch {
-      // probe failed — fall through to the local estimate
-    }
-    return estimateFetcher(connectionId, connection);
-  });
 }
