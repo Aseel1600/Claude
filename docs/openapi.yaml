@@ -1532,6 +1532,82 @@ paths:
             cost-telemetry headers (see `POST /api/v1/chat/completions`);
             moderations are always cost `0` (free).
 
+  /api/v1/route/preview:
+    post:
+      tags: [Routing]
+      summary: Preview routing capacity
+      description: >-
+        Resolve which target(s) would serve `model` and how much input room each
+        would have, WITHOUT executing the request. Contacts no upstream, consumes
+        no quota and is not billable. Lets a client decide whether to compact
+        before calling instead of compacting blindly against the smallest window
+        it might hit. Reports capacity only, never live quota/cooldown/breaker
+        state: availability changes between the preview and the real call, so a
+        preview is not a reservation.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [model]
+              additionalProperties: false
+              properties:
+                model:
+                  type: string
+                  description: Model id or combo name, exactly as it would be sent to chat/completions.
+      responses:
+        "200":
+          description: Resolved chain and its capacity.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  model:
+                    type: string
+                  isCombo:
+                    type: boolean
+                  strategy:
+                    type: string
+                    nullable: true
+                  chain:
+                    type: array
+                    description: Targets in the order they would be attempted.
+                    items:
+                      type: object
+                      properties:
+                        provider: { type: string }
+                        model: { type: string }
+                        contextWindow: { type: integer, nullable: true }
+                        maxInput:
+                          type: integer
+                          nullable: true
+                          description: Input ceiling when narrower than the total window.
+                        maxOutput: { type: integer, nullable: true }
+                        contextSource:
+                          type: string
+                          description: >-
+                            Provenance of the window, most to least trustworthy -
+                            env, override:manual, override:auto, catalog, registry,
+                            heuristic, default. `heuristic` and `default` are guesses.
+                          enum:
+                            [env, "override:manual", "override:auto", catalog, registry, heuristic, default]
+                  narrowestInput:
+                    type: integer
+                    nullable: true
+                    description: >-
+                      Tightest input budget across the whole chain. A request that
+                      fits this survives every fallback hop without a mid-flight
+                      compaction. Null when no hop has a known window.
+                  unknownCapacityHops:
+                    type: integer
+                    description: Hops whose capacity is unknown and cannot be budgeted against.
+        "400":
+          description: Invalid JSON body or failed schema validation.
+
   /api/v1/rerank:
     post:
       tags: [Rerank]

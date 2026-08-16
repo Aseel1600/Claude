@@ -254,6 +254,7 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 | POST   | `/v1/moderations`                         | OpenAI Moderations               |
 | GET    | `/v1/models`                              | OpenAI                           |
 | POST   | `/v1/messages/count_tokens`               | Anthropic                        |
+| POST   | `/v1/route/preview`                       | OmniRoute (routing pre-flight)   |
 | GET    | `/v1beta/models`                          | Gemini                           |
 | POST   | `/v1beta/models/{...path}`                | Gemini generateContent           |
 | POST   | `/v1/api/chat`                            | Ollama                           |
@@ -274,6 +275,24 @@ POST /v1/rerank      { "model": "cohere/rerank-3", "query": "...", "documents": 
 
 # Moderations
 POST /v1/moderations { "model": "omni-moderation-latest", "input": "..." }
+
+POST /v1/route/preview { "model": "my-combo" }
+# Resolves the target chain WITHOUT executing: no upstream call, no quota, not billable.
+# -> { model, isCombo, strategy, chain:[{provider, model, contextWindow, maxInput,
+#      maxOutput, contextSource}], narrowestInput, unknownCapacityHops }
+#
+# narrowestInput is the tightest input budget across the whole chain: a request that
+# fits it survives every fallback hop without a mid-flight compaction, so a client can
+# compact once (or not at all) instead of re-compacting per degraded hop. The first
+# target's window answers nothing, because a single fallback invalidates it.
+#
+# contextSource rates how much the window can be trusted, most to least: env,
+# override:manual, override:auto, catalog, registry, heuristic, default. The last two
+# are inferred (from the model NAME, or from nothing at all) and still return a
+# plausible-looking number - budget conservatively against them.
+#
+# Capacity only: live quota / cooldown / breaker state is deliberately NOT reported,
+# because it changes between the preview and the real call. A preview is not a reservation.
 
 # TTS — returns audio/mpeg (or requested format) body
 POST /v1/audio/speech { "model": "openai/tts-1", "input": "Hello", "voice": "alloy" }
