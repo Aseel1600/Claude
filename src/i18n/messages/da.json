@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Diriger budgetudtømte anmodninger til den gratis nød-fallback-udbyder/-model.",
   "featureFlagArenaEloSyncEnabledDescription": "Aktivér periodisk ELO-synkronisering fra Arena AI-førertavlen til rangering af modelintelligens.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Reklamer claude/&lt;provider&gt;/&lt;model&gt; spejl-id'er på /v1/models, så Claude Code gateway modelopdagelse viser ikke-Claude modeller. Advarsel: fordobler katalogposter for alle klienter, når det er aktiveret globalt.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Aktivér adaptive virtuelle adgangsbaner pr. tenant til providerudlevering (#9654): en tenants burst giver ikke længere en anden 503. Miljøvariablen OMNIROUTE_CHAT_VIRTUAL_LANES har forrang over denne dashboard-indstilling; ændringer træder i kraft ved genstart af serveren.",
   "sidebar": {
     "home": "Hjem",
     "dashboard": "Dashboard",
