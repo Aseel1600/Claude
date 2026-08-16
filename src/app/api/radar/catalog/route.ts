@@ -29,15 +29,15 @@ export async function GET(request: Request) {
   if (!isFeatureFlagEnabled("RADAR_ENABLED")) {
     return NextResponse.json(buildErrorBody(404, "Not found"), {
       status: 404,
-      headers: CORS_HEADERS,
+      headers: { ...CORS_HEADERS, "Cache-Control": "no-store" },
     });
   }
 
   if (!(await isAuthenticated(request))) {
-    return NextResponse.json(
-      buildErrorBody(401, "Unauthorized"),
-      { status: 401, headers: CORS_HEADERS },
-    );
+    return NextResponse.json(buildErrorBody(401, "Unauthorized"), {
+      status: 401,
+      headers: CORS_HEADERS,
+    });
   }
 
   try {

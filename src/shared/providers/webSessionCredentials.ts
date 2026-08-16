@@ -42,6 +42,13 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie"],
   },
+  "tencent-aistudio-web": {
+    kind: "cookie",
+    credentialName: "Cookie header (full)",
+    placeholder: "paste the full Cookie header from aistudio.tencent.ai",
+    acceptsFullCookieHeader: true,
+    storageKeys: ["cookie"],
+  },
   "tinycms-web": {
     kind: "token",
     credentialName: "app-config-uuid",
@@ -349,8 +356,7 @@ export const WEB_SESSION_CREDENTIAL_REQUIREMENTS = {
   "conol-web": {
     kind: "cookie",
     credentialName: "__Secure-better-auth.session_token",
-    placeholder:
-      "__Secure-better-auth.session_token=... or full Cookie header from conol.ai",
+    placeholder: "__Secure-better-auth.session_token=... or full Cookie header from conol.ai",
     acceptsFullCookieHeader: true,
     storageKeys: ["cookie", "__Secure-better-auth.session_token"],
   },

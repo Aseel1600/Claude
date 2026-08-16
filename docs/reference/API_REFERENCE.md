@@ -220,12 +220,13 @@ Content-Type: application/json
 `mistral-ocr-latest`) resolves to its registered provider, and an omitted `model` defaults to
 Mistral (`mistral-ocr-latest`). Registered providers (`open-sse/config/ocrRegistry.ts`):
 
-| Provider id                   | Model id             | `model` value                                               | Notes                                                                          |
-| ----------------------------- | -------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `mistral`                     | `mistral-ocr-latest` | `mistral/mistral-ocr-latest` (or bare `mistral-ocr-latest`) | Synchronous — the response is returned directly from the single upstream call. |
-| `azure-document-intelligence` | `prebuilt-read`      | `azure-document-intelligence/prebuilt-read`                 | Asynchronous upstream (`analyze` + poll) — see below.                          |
+| Provider id                   | Model id             | `model` value                                               | Notes                                                                                              |
+| ----------------------------- | -------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `mistral`                     | `mistral-ocr-latest` | `mistral/mistral-ocr-latest` (or bare `mistral-ocr-latest`) | Synchronous — the response is returned directly from the single upstream call.                     |
+| `azure-document-intelligence` | `prebuilt-read`      | `azure-document-intelligence/prebuilt-read`                 | Asynchronous upstream (`analyze` + poll) — see below.                                              |
+| `vertex-deepseek-ocr`         | `deepseek-ocr-maas`  | `vertex-deepseek-ocr/deepseek-ocr-maas`                     | Synchronous, via Vertex AI's `openapi/chat/completions` partner endpoint — see below for auth/URL. |
 
-Both providers respond in the same Mistral-shaped body:
+All three providers respond in the same Mistral-shaped body:
 
 ```json
 {
@@ -244,6 +245,19 @@ not keep polling) on a non-`ok` poll response or a `"failed"` status, and return
 operation is still running after the attempt budget is exhausted. The final Azure response is
 normalized into the same `pages`/`markdown` shape used by Mistral before being returned to the
 caller, so client code does not need to special-case the provider.
+
+### Vertex AI DeepSeek OCR auth and endpoint resolution
+
+`vertex-deepseek-ocr` reuses the same Vertex AI authentication OmniRoute already supports for
+chat/image traffic (`open-sse/executors/vertex.ts`): the connection's API key is either a
+Service Account JSON credential (exchanged for a short-lived OAuth access token via the JWT-bearer
+flow) or an already-minted OAuth access token used as-is. The upstream endpoint URL is Vertex's
+generic `openapi/chat/completions` partner endpoint, built from the connection's project and
+region — an explicit `providerSpecificData.project`/`providerSpecificData.region` always wins;
+otherwise the project is derived from the Service Account JSON's `project_id` and the region
+defaults to `us-central1`. Both resolutions happen in `open-sse/handlers/ocr.ts`
+(`resolveVertexOcrAccessToken`, `resolveVertexOcrBaseUrl`), consumed by
+`src/app/api/v1/ocr/route.ts` before dispatching to `handleOcr`.
 
 ---
 
@@ -651,13 +665,15 @@ X-OmniRoute-No-Cache: true
 
 ### Monitoring
 
-| Endpoint                     | Method     | Description                                                                                                                                   |
-| ---------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`              | GET        | Active session tracking                                                                                                                       |
-| `/api/rate-limits`           | GET        | Per-account rate limits                                                                                                                       |
-| `/api/monitoring/health`     | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                          |
-| `/api/cache/stats`           | GET/DELETE | Cache stats / clear                                                                                                                           |
-| `/api/modality-bridge/stats` | GET        | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
+| Endpoint                             | Method     | Description                                                                                                                                                                                       |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Active session tracking                                                                                                                                                                           |
+| `/api/rate-limits`                   | GET        | Per-account rate limits                                                                                                                                                                           |
+| `/api/monitoring/health`             | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                                                                              |
+| `/api/cache/stats`                   | GET/DELETE | Cache stats / clear                                                                                                                                                                               |
+| `/api/modality-bridge/stats`         | GET        | In-memory `attempts`, successes/`bridged`, failures, cache hits, `totalLatencyMs`, `latencySamples`, sample-denominated `averageLatencyMs`, and last-use time (reset on restart; management auth) |
+| `/api/modality-bridge/video/runtime` | GET        | Strict trusted-loopback check before management auth/probe; sanitized FFmpeg/ffprobe availability and versions (no-store)                                                                         |
+| `/api/modality-bridge/video/extract` | POST       | Internal authenticated trusted-loopback byte broker; 50 MiB input, bounded queue/32 MiB output, `503` capacity, `499` disconnect, `504` deadline; not a public upload API                         |
 
 ### Backup & Export/Import
 

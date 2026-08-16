@@ -10,18 +10,15 @@
  */
 
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { isAuthenticated } from "@/shared/utils/apiAuth";
 import { syncRadar } from "@/lib/radar/sync";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
+import { radarSyncBodyError, validateRadarSyncBody } from "../syncRequest";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-// Empty body — sync has no user-configurable parameters
-const SyncBodySchema = z.object({}).strict().optional();
 
 export async function OPTIONS() {
   return handleCorsOptions();
@@ -37,24 +34,16 @@ export async function POST(request: Request) {
   }
 
   if (!(await isAuthenticated(request))) {
-    return NextResponse.json(
-      buildErrorBody(401, "Unauthorized"),
-      { status: 401, headers: CORS_HEADERS },
-    );
+    return NextResponse.json(buildErrorBody(401, "Unauthorized"), {
+      status: 401,
+      headers: CORS_HEADERS,
+    });
   }
 
-  // Validate body (must be empty or absent)
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    body = undefined;
-  }
-
-  const parsed = SyncBodySchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(buildErrorBody(400, "Invalid request body"), {
-      status: 400,
+  const bodyError = radarSyncBodyError(await validateRadarSyncBody(request));
+  if (bodyError) {
+    return NextResponse.json(buildErrorBody(bodyError.status, bodyError.message), {
+      status: bodyError.status,
       headers: CORS_HEADERS,
     });
   }

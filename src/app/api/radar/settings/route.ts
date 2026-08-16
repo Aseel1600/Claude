@@ -64,15 +64,15 @@ export async function GET(request: Request) {
   if (!isFeatureFlagEnabled("RADAR_ENABLED")) {
     return NextResponse.json(buildErrorBody(404, "Not found"), {
       status: 404,
-      headers: CORS_HEADERS,
+      headers: { ...CORS_HEADERS, "Cache-Control": "no-store" },
     });
   }
 
   if (!(await isAuthenticated(request))) {
-    return NextResponse.json(
-      buildErrorBody(401, "Unauthorized"),
-      { status: 401, headers: CORS_HEADERS },
-    );
+    return NextResponse.json(buildErrorBody(401, "Unauthorized"), {
+      status: 401,
+      headers: CORS_HEADERS,
+    });
   }
 
   try {
@@ -85,13 +85,13 @@ export async function GET(request: Request) {
         contributorClaimUrl: getContributorClaimUrl(),
         supporterPlansUrl: getSupporterPlansUrl(),
       },
-      { headers: { ...CORS_HEADERS, "Cache-Control": "no-store" } },
+      { headers: { ...CORS_HEADERS, "Cache-Control": "no-store" } }
     );
   } catch (err: unknown) {
     const { sanitizeErrorMessage } = await import("@omniroute/open-sse/utils/error");
     return NextResponse.json(
       buildErrorBody(500, sanitizeErrorMessage(err) || "Failed to load Radar settings"),
-      { status: 500, headers: CORS_HEADERS },
+      { status: 500, headers: CORS_HEADERS }
     );
   }
 }
@@ -99,17 +99,17 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   // Flag gate — MUST run before auth (byte-identical flag-off inertia).
   if (!isFeatureFlagEnabled("RADAR_ENABLED")) {
-    return NextResponse.json(
-      buildErrorBody(404, "Not found"),
-      { status: 404, headers: CORS_HEADERS },
-    );
+    return NextResponse.json(buildErrorBody(404, "Not found"), {
+      status: 404,
+      headers: CORS_HEADERS,
+    });
   }
 
   if (!(await isAuthenticated(request))) {
-    return NextResponse.json(
-      buildErrorBody(401, "Unauthorized"),
-      { status: 401, headers: CORS_HEADERS },
-    );
+    return NextResponse.json(buildErrorBody(401, "Unauthorized"), {
+      status: 401,
+      headers: CORS_HEADERS,
+    });
   }
 
   let body: unknown;

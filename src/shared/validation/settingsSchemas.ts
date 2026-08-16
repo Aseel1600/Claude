@@ -12,6 +12,10 @@ import { HIDEABLE_SIDEBAR_GROUP_IDS } from "@/shared/constants/sidebarGroupVisib
 import { HIDEABLE_SIDEBAR_ITEM_IDS, SIDEBAR_SECTIONS } from "@/shared/constants/sidebarVisibility";
 import { ACCOUNT_FALLBACK_STRATEGY_VALUES } from "@/shared/constants/routingStrategies";
 import { RESPONSES_PREVIOUS_RESPONSE_ID_MODES } from "@/shared/constants/responsesPreviousResponseId";
+import {
+  VIDEO_BRIDGE_TIMEOUT_MAX_MS,
+  VIDEO_BRIDGE_TIMEOUT_MIN_MS,
+} from "@/shared/constants/modalityBridgeDefaults";
 // Import from the server-free constants leaf, NOT from `@/server/authz/routeGuard`:
 // this schema is reachable from client components (dashboard onboarding wizard), and
 // routeGuard drags in server runtime (→ ioredis) that breaks the client/CLI build.
@@ -356,6 +360,16 @@ export const updateSettingsSchema = z.object({
   modalityBridgeAudioModel: z.string().max(200).optional(),
   modalityBridgeAudioTimeout: z.number().int().min(1000).max(300000).optional(),
   modalityBridgeAudioMaxClips: z.number().int().min(1).max(10).optional(),
+  modalityBridgeVideoEnabled: z.boolean().optional(),
+  modalityBridgeVideoModel: z.string().max(200).optional(),
+  modalityBridgeVideoFrameCount: z.number().int().min(1).max(16).optional(),
+  modalityBridgeVideoMaxVideos: z.number().int().min(1).max(4).optional(),
+  modalityBridgeVideoTimeout: z
+    .number()
+    .int()
+    .min(VIDEO_BRIDGE_TIMEOUT_MIN_MS)
+    .max(VIDEO_BRIDGE_TIMEOUT_MAX_MS)
+    .optional(),
   modalityBridgeCacheEnabled: z.boolean().optional(),
   modalityBridgeCacheTtlMinutes: z.number().int().min(1).max(1440).optional(),
   modalityBridgeCacheMaxEntries: z.number().int().min(10).max(5000).optional(),
