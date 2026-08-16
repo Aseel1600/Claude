@@ -1,0 +1,5 @@
+[build]
+  base = "open-sse"
+  command = "npm ci && npm run build"
+  publish = ".next"
+  functions = "netlify/functions"
