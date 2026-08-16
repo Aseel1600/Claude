@@ -431,18 +431,52 @@ export function hasUsableQuota(usage: JsonRecord): boolean {
   return false;
 }
 
+// A window "still blocks" recovery when it governs quota and is either still
+// exhausted with a real reset that hasn't passed yet, or exhausted with no
+// parseable real reset at all (unknown-reset windows stay locked, matching
+// the pre-existing kimi-coding partial-refresh semantics).
+function windowStillExhaustedAfterRealReset(value: unknown, nowMs: number): boolean {
+  if (!isRecord(value)) return false;
+  if (value.unlimited === true) return false;
+  const remaining =
+    typeof value.remaining === "number"
+      ? value.remaining
+      : typeof value.remainingPercentage === "number"
+        ? value.remainingPercentage
+        : null;
+  if (remaining !== null && remaining > 0) return false;
+  if (value.resetAt == null) return true;
+  const resetMs = Date.parse(String(value.resetAt));
+  if (Number.isNaN(resetMs)) return true;
+  return resetMs > nowMs;
+}
+
 export async function maybeClearRecoveredQuotaState(
   connection: ProviderConnectionLike,
   usage: JsonRecord
 ): Promise<ProviderConnectionLike> {
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
-  if (
-    connection.lastErrorType === "quota_exhausted" &&
-    connection.rateLimitedUntil &&
-    new Date(connection.rateLimitedUntil).getTime() > Date.now()
-  ) {
-    return connection;
+  if (connection.lastErrorType === "quota_exhausted") {
+    const quotas = usage?.quotas;
+    if (isRecord(quotas)) {
+      // Honor the REAL per-window resetAt from the freshly fetched quota
+      // instead of the synthetic cooldown persisted at failure time (e.g.
+      // Claude's flat 1h SUBSCRIPTION_QUOTA_COOLDOWN_MS when no upstream
+      // reset was parseable). Only stay locked if some window that governs
+      // this connection's quota is still demonstrably exhausted.
+      const anyStillBlocking = Object.values(quotas).some((value) =>
+        windowStillExhaustedAfterRealReset(value, Date.now())
+      );
+      if (anyStillBlocking) return connection;
+    } else if (
+      connection.rateLimitedUntil &&
+      new Date(connection.rateLimitedUntil).getTime() > Date.now()
+    ) {
+      // No quota object at all (degraded/failed fetch shape) — fall back to
+      // the previous synthetic-cooldown guard.
+      return connection;
+    }
   }
 
   const hasTransientState =
