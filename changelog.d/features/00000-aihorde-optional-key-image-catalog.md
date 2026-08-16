@@ -1,0 +1,1 @@
+- **feat(providers):** AI Horde accepts an optional registered API key and advertises only live image models that currently have workers

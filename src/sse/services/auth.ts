@@ -96,6 +96,7 @@ import {
 } from "./noAuthProviderSettings";
 import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
+import { loadOptionalNoAuthApiKeyCredentials } from "./noAuthOptionalApiKey";
 import { getResource404Bypass } from "./requestResourceHealth";
 import { isVertexConnectionWidePermissionDenied } from "./vertexErrorClassifier";
 import * as log from "../utils/logger";
@@ -1048,6 +1049,15 @@ export async function getProviderCredentials(
         excludeConnectionId,
         options.excludeConnectionIds
       );
+      const optionalKey = await loadOptionalNoAuthApiKeyCredentials(resolvedId, excludedForNoAuth);
+      if (
+        optionalKey &&
+        (!allowedConnections ||
+          allowedConnections.length === 0 ||
+          allowedConnections.includes(optionalKey.connectionId))
+      ) {
+        return optionalKey;
+      }
       // #9057: when allowedConnections is set, the synthetic "noauth" connection
       // is never in the explicit allowlist, so we must NOT return it — fall through
       // to the normal connection-selection path so the connection allowlist is
