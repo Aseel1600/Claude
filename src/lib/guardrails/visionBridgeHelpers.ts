@@ -791,7 +791,7 @@ async function callVisionModelSingle(
                   type: "image_url",
                   image_url: {
                     url: normalizedImageInput,
-                    detail: "low",
+                    detail: "high",
                   },
                 },
                 { type: "text", text: config.prompt },
