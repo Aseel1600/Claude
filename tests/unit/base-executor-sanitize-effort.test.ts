@@ -779,11 +779,10 @@ test("sanitizeReasoningEffortForProvider: OpenRouter DeepSeek still preserves xh
   assert.equal((result as Record<string, unknown>).reasoning_effort, "xhigh");
 });
 
-// ── opencode-go DeepSeek V4 Pro effort variants (#4647) ──────────────────────
-// opencode-go proxies DeepSeek with the native DeepSeek API contract, which
-// accepts {high, max} literally. The OpencodeExecutor's transformRequest sets
-// reasoning_effort to the variant suffix (low|medium|high|max), and the
-// sanitizer must NOT rewrite `max` → `xhigh` for this provider+model combo.
+// ── opencode-go DeepSeek V4 effort variants (#4647) ──────────────────────────
+// opencode-go proxies DeepSeek with the native DeepSeek API contract. Both V4
+// models advertise none/low/high/max, and the sanitizer must preserve those
+// literal values rather than rewriting `max` to `xhigh`.
 
 test("sanitizeReasoningEffortForProvider: opencode-go DeepSeek V4 Pro preserves max", () => {
   const body = {
@@ -796,24 +795,26 @@ test("sanitizeReasoningEffortForProvider: opencode-go DeepSeek V4 Pro preserves 
   assert.equal((result as Record<string, unknown>).reasoning_effort, "max");
 });
 
-test("sanitizeReasoningEffortForProvider: opencode-go DeepSeek V4 Pro preserves variant suffix levels", () => {
-  for (const level of ["low", "medium", "high", "max"]) {
-    const body = {
-      model: `deepseek-v4-pro-${level}`,
-      reasoning_effort: level,
-      messages: [],
-    };
-    const result = sanitizeReasoningEffortForProvider(
-      body,
-      "opencode-go",
-      `deepseek-v4-pro-${level}`,
-      null
-    );
-    assert.equal(
-      (result as Record<string, unknown>).reasoning_effort,
-      level,
-      `opencode-go deepseek-v4-pro-${level} preserves reasoning_effort=${level}`
-    );
+test("sanitizeReasoningEffortForProvider: opencode-go preserves both V4 models' tiers", () => {
+  for (const model of ["deepseek-v4-pro", "deepseek-v4-flash"]) {
+    for (const level of ["none", "low", "high", "max"]) {
+      const body = {
+        model: `${model}-${level}`,
+        reasoning_effort: level,
+        messages: [],
+      };
+      const result = sanitizeReasoningEffortForProvider(
+        body,
+        "opencode-go",
+        `${model}-${level}`,
+        null
+      );
+      assert.equal(
+        (result as Record<string, unknown>).reasoning_effort,
+        level,
+        `opencode-go ${model}-${level} preserves reasoning_effort=${level}`
+      );
+    }
   }
 });
 
