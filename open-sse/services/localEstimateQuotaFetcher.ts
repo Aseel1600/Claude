@@ -58,6 +58,18 @@ export const SEEDED_ESTIMATE_LIMITS: Record<string, EstimateLimit[]> = {
   nvidia: [], // NIM free = 40 req/s, unlimited rpd → uncapped, never exhausts
   "nous-research": [], // credit-based → plan override only
   byteplus: [], // metered → plan override only
+  // OpenCode Zen free tier (200 req/day) and OpenCode Go weekly/monthly caps.
+  // Go's true caps are USD ($30/wk, $60/mo) but there's no catalog pricing for
+  // Go models, so the fallback seeds request-count windows from the official Go
+  // usage table (Kimi K3: 250 req/wk, 490 req/mo — the operator's primary Go
+  // model). These give reset-window the right RANKING (weekly tier) while the
+  // live /zen/go/v1/usage endpoint supplies real percentages once deployed.
+  opencode: [{ window: "daily", unit: "requests", limit: 200 }],
+  "opencode-zen": [{ window: "daily", unit: "requests", limit: 200 }],
+  "opencode-go": [
+    { window: "weekly", unit: "requests", limit: 250 },
+    { window: "monthly", unit: "requests", limit: 490 },
+  ],
 };
 
 // ─── Fixed window boundaries (UTC) ────────────────────────────────────────────
@@ -195,6 +207,7 @@ export async function getPlanEstimateLimits(
 
 export interface LocalEstimateQuota extends QuotaInfo {
   windows: Record<string, { percentUsed: number; resetAt: string | null }>;
+  limitReached: boolean;
 }
 
 function clamp01(value: number): number {

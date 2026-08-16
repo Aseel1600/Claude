@@ -1,5 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+// Temp DATA_DIR so the local-estimate fallback never touches the real ~/.omniroute DB.
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-ocq-test-"));
+process.env.DATA_DIR = TEST_DATA_DIR;
+
+const core = await import("../../src/lib/db/core.ts");
 
 import {
   fetchOpencodeQuota,
@@ -23,6 +32,15 @@ test.afterEach(() => {
   clearSessions();
 });
 
+test.after(() => {
+  core.resetDbInstance();
+  try {
+    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+});
+
 // ─── null / missing credentials ──────────────────────────────────────────────
 
 test("fetchOpencodeQuota returns null when no API key is provided", async () => {
@@ -37,13 +55,16 @@ test("fetchOpencodeQuota returns null when connection has empty apiKey", async (
 
 // ─── non-200 responses (fail-open) ───────────────────────────────────────────
 
-test("fetchOpencodeQuota returns null on 404 response", async () => {
+test("fetchOpencodeQuota falls back to the local estimate on 404 (endpoint not deployed)", async () => {
   const connectionId = `oc-404-${Date.now()}`;
 
   globalThis.fetch = async () => new Response(null, { status: 404 });
 
   const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
-  assert.equal(quota, null);
+  assert.ok(quota, "404 should fall back to the local estimate");
+  assert.ok(quota!.windows, "estimate exposes windows");
+  assert.ok(quota!.windows!["weekly"], "opencode-go estimate has a weekly window");
+  assert.ok(quota!.windows!["monthly"], "opencode-go estimate has a monthly window");
 
   invalidateOpencodeQuotaCache(connectionId);
 });
@@ -66,18 +87,19 @@ test("fetchOpencodeQuota returns null on 403 (forbidden)", async () => {
   assert.equal(quota, null);
 });
 
-test("fetchOpencodeQuota returns null on 500 server error", async () => {
+test("fetchOpencodeQuota falls back to the local estimate on 500 server error", async () => {
   const connectionId = `oc-500-${Date.now()}`;
 
   globalThis.fetch = async () => new Response(null, { status: 500 });
 
   const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
-  assert.equal(quota, null);
+  assert.ok(quota, "5xx should fall back to the local estimate");
+  assert.ok(quota!.windows!["weekly"], "estimate weekly window present");
 
   invalidateOpencodeQuotaCache(connectionId);
 });
 
-test("fetchOpencodeQuota returns null on network error (fail-open)", async () => {
+test("fetchOpencodeQuota falls back to the local estimate on network error", async () => {
   const connectionId = `oc-net-${Date.now()}`;
 
   globalThis.fetch = async () => {
@@ -85,10 +107,11 @@ test("fetchOpencodeQuota returns null on network error (fail-open)", async () =>
   };
 
   const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
-  assert.equal(quota, null);
+  assert.ok(quota, "network error should fall back to the local estimate");
+  assert.ok(quota!.windows!["weekly"], "estimate weekly window present");
 });
 
-test("fetchOpencodeQuota returns null on timeout (fail-open)", async () => {
+test("fetchOpencodeQuota falls back to the local estimate on timeout", async () => {
   const connectionId = `oc-timeout-${Date.now()}`;
 
   globalThis.fetch = async () => {
@@ -97,7 +120,8 @@ test("fetchOpencodeQuota returns null on timeout (fail-open)", async () => {
   };
 
   const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
-  assert.equal(quota, null);
+  assert.ok(quota, "timeout should fall back to the local estimate");
+  assert.ok(quota!.windows!["weekly"], "estimate weekly window present");
 });
 
 // ─── 3-window parsing ($12/5h, $30/wk, $60/mo) ───────────────────────────────
@@ -277,7 +301,7 @@ test("fetchOpencodeQuota sets limitReached when any window is exhausted", async 
   invalidateOpencodeQuotaCache(connectionId);
 });
 
-test("fetchOpencodeQuota returns null when quota object is absent from response", async () => {
+test("fetchOpencodeQuota falls back to the local estimate when the response has no quota windows", async () => {
   const connectionId = `oc-no-quota-${Date.now()}`;
 
   globalThis.fetch = async () =>
@@ -287,7 +311,8 @@ test("fetchOpencodeQuota returns null when quota object is absent from response"
     });
 
   const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
-  assert.equal(quota, null);
+  assert.ok(quota, "unparseable 200 should fall back to the local estimate");
+  assert.ok(quota!.windows!["weekly"], "estimate weekly window present");
 
   invalidateOpencodeQuotaCache(connectionId);
 });

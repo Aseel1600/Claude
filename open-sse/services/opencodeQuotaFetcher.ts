@@ -44,6 +44,7 @@
 import { registerQuotaFetcher, registerQuotaWindows, type QuotaInfo } from "./quotaPreflight.ts";
 import { registerMonitorFetcher } from "./quotaMonitor.ts";
 import { throttleQuotaFetch } from "./quotaFetchThrottle.ts";
+import { fetchLocalEstimateQuota } from "./localEstimateQuotaFetcher.ts";
 
 // OpenCode Go usage endpoint — same key works across opencode, opencode-go, opencode-zen.
 // Live upstream since anomalyco/opencode#16513 (merged 2026-08-11): GET /zen/go/v1/usage.
@@ -257,15 +258,43 @@ function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | 
 // ─── Core Fetcher ─────────────────────────────────────────────────────────────
 
 /**
+ * Fall back to the local-estimate quota (seeded OpenCode Go/Zen limits minus
+ * locally recorded usage) when the upstream /zen/go/v1/usage endpoint is
+ * unavailable (404 / 5xx / parse failure / network error). Auth failures
+ * (401/403) and missing credentials do NOT fall back — they return null so a
+ * broken connection is not masked by an estimate.
+ */
+async function estimateFallback(
+  connectionId: string,
+  connection?: Record<string, unknown>
+): Promise<OpencodeTripleWindowQuota | null> {
+  try {
+    const provider = String(connection?.provider ?? "opencode-go").toLowerCase();
+    const estimate = await fetchLocalEstimateQuota(provider, connectionId, connection);
+    if (!estimate) return null;
+    const w = estimate.windows ?? {};
+    return {
+      ...estimate,
+      window5h: w["window_5h"] ?? { percentUsed: 0, resetAt: null },
+      windowWeekly: w["weekly"] ?? w["window_weekly"] ?? { percentUsed: 0, resetAt: null },
+      windowMonthly: w["monthly"] ?? w["window_monthly"] ?? { percentUsed: 0, resetAt: null },
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Fetch current quota for an OpenCode connection.
  * Returns percentUsed = max(5h%, weekly%, monthly%) — worst-case across all windows.
  *
- * Defensive implementation: returns null on any non-200 / parse failure (fail-open).
- * See module-level JSDoc for upstream API stability note.
+ * Falls back to the local estimate when the upstream endpoint is unavailable
+ * (404/5xx/parse/network); returns null only for missing credentials or 401/403.
+ * See module-level JSDoc for upstream API status.
  *
  * @param connectionId - Connection ID from the DB (used for cache keying)
  * @param connection - Optional connection snapshot with apiKey
- * @returns OpencodeTripleWindowQuota or null if fetch fails / no credentials
+ * @returns OpencodeTripleWindowQuota or null if auth fails / no credentials
  */
 export async function fetchOpencodeQuota(
   connectionId: string,
@@ -274,9 +303,10 @@ export async function fetchOpencodeQuota(
   // Check cache first
   const cached = quotaCache.get(connectionId);
   if (cached) {
-    // 404 sentinel — use longer TTL to avoid hammering a non-existent endpoint
+    // 404 sentinel — use longer TTL to avoid hammering a non-deployed endpoint;
+    // serve the local estimate while the sentinel is warm.
     if (cached.noEndpoint && Date.now() - cached.fetchedAt < NO_ENDPOINT_TTL_MS) {
-      return null;
+      return estimateFallback(connectionId, connection);
     }
     if (cached.quota !== null && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
       return cached.quota;
@@ -324,31 +354,32 @@ export async function fetchOpencodeQuota(
           fetchedAt: Date.now(),
           noEndpoint: true,
         });
-        return null;
+        return estimateFallback(connectionId, connection);
       }
       if (response.status === 401 || response.status === 403) {
         quotaCache.delete(connectionId);
+        return null; // auth problem — don't mask a broken connection with an estimate
       }
-      return null;
+      return estimateFallback(connectionId, connection);
     }
 
     let data: unknown;
     try {
       data = await response.json();
     } catch {
-      // Malformed JSON — fail open
-      return null;
+      // Malformed JSON — fall back to the local estimate
+      return estimateFallback(connectionId, connection);
     }
 
     const quota = parseOpencodeQuotaResponse(data);
-    if (!quota) return null;
+    if (!quota) return estimateFallback(connectionId, connection);
 
     // Store in cache
     quotaCache.set(connectionId, { quota, fetchedAt: Date.now() });
     return quota;
   } catch {
-    // Network error, timeout, etc. — fail open
-    return null;
+    // Network error, timeout, etc. — fall back to the local estimate
+    return estimateFallback(connectionId, connection);
   }
 }
 
