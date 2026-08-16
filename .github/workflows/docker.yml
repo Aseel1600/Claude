@@ -27,15 +27,6 @@ on:
           - "runner-base"
           - "runner-web"
           - "runner-cli"
-      custom_tag:
-        description: "Custom extra tag (optional, e.g. test-1, custom-build)"
-        required: false
-        type: string
-      tag_latest:
-        description: "Tag as latest"
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -69,34 +60,24 @@ jobs:
           VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "latest")
           SHORT_SHA=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +'%Y%m%d')
-          BUILD_TIME=$(date -u +'%Y%m%d-%H%M%S')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
           echo "build_date=${BUILD_DATE}" >> "$GITHUB_OUTPUT"
-          echo "build_time=${BUILD_TIME}" >> "$GITHUB_OUTPUT"
 
-      - name: Docker metadata (multi-tag strategy)
+      - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
           flavor: |
-            latest=${{ github.event_name == 'workflow_dispatch' && inputs.tag_latest || (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')) }}
+            latest=true
           tags: |
-            # 1. 基础版本 (如 3.8.50)
+            # 1. version (如 3.8.50)
             type=raw,value=${{ steps.vars.outputs.version }}
-            # 2. 精确版本 + 日期 + Commit SHA (如 3.8.50-20260816-8209b33，长期同一版本也不冲突)
-            type=raw,value=${{ steps.vars.outputs.version }}-${{ steps.vars.outputs.build_date }}-${{ steps.vars.outputs.short_sha }}
-            # 3. 版本 + Commit SHA (如 3.8.50-8209b33)
+            # 2. version + date (如 3.8.50-20260816)
+            type=raw,value=${{ steps.vars.outputs.version }}-${{ steps.vars.outputs.build_date }}
+            # 3. version + git short sha (如 3.8.50-8209b33)
             type=raw,value=${{ steps.vars.outputs.version }}-${{ steps.vars.outputs.short_sha }}
-            # 4. 纯 Commit SHA (如 sha-8209b33)
-            type=sha,prefix=sha-
-            # 5. 分支名 (如 release-v3.8.50)
-            type=ref,event=branch
-            # 6. Git Tag (如 v3.8.50)
-            type=ref,event=tag
-            # 7. 手动指定的自定义 Tag (如果输入了的话)
-            type=raw,value=${{ inputs.custom_tag }},enable=${{ inputs.custom_tag != '' }}
 
       - name: Set up QEMU (arm64 & amd64 only)
         uses: docker/setup-qemu-action@v3
