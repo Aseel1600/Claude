@@ -5,6 +5,7 @@ import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import { getCombos } from "@/lib/db/combos";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
+import { enforceClientApiRouteAuth } from "@/shared/utils/clientApiRouteAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 
 /**
@@ -33,6 +34,15 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: Request) {
+  // Authenticate exactly like the sibling /v1 handlers before reading anything.
+  // Without this the preview answers anonymous callers while /v1/models rejects
+  // them — and a preview enumerates which models and combos exist and how large
+  // they are, which is precisely the inventory an unauthenticated caller should
+  // not get. Uses the shared guard so this route can never drift stricter or
+  // looser than the pipeline that fronts it.
+  const authFailure = await enforceClientApiRouteAuth(request);
+  if (authFailure) return authFailure;
+
   let rawBody: unknown;
   try {
     rawBody = await request.json();
