@@ -6,7 +6,12 @@
  */
 
 import { REGISTRY } from "../config/providerRegistry.ts";
-import { getModelContextLimit } from "../../src/lib/modelCapabilities.ts";
+import {
+  getModelContextLimit,
+  getResolvedModelCapabilities,
+} from "../../src/lib/modelCapabilities.ts";
+import { getModelContextOverrideRecord } from "../../src/lib/db/modelContextOverrides.ts";
+import type { OmniRouteContextSource } from "../../src/shared/constants/headers.ts";
 import { parseModel } from "./model.ts";
 import { jsonLength } from "../utils/jsonSize.ts";
 
@@ -311,29 +316,35 @@ export function getComboTargetTokenLimit(options: {
 function resolveTokenLimit(
   provider: string,
   model: string | null = null
-): { limit: number; specific: boolean } {
+): { limit: number; specific: boolean; source: OmniRouteContextSource } {
   // 1. Check environment variable override first
   const envOverride = getEnvOverride(provider);
-  if (envOverride) return { limit: envOverride, specific: true };
+  if (envOverride) return { limit: envOverride, specific: true, source: "env" };
 
   const lowerModel = (model || "").toLowerCase();
 
   // 2. Check models.dev synced DB for per-model context limit
   if (model) {
     const dbLimit = getModelContextLimit(provider, model);
-    if (dbLimit && dbLimit > 0) return { limit: dbLimit, specific: true };
+    if (dbLimit && dbLimit > 0) {
+      return { limit: dbLimit, specific: true, source: resolveModelLimitSource(provider, model) };
+    }
   }
 
   // 3. Check registry for provider default
   const registryEntry = REGISTRY[provider];
   if (registryEntry?.defaultContextLength) {
-    return { limit: registryEntry.defaultContextLength, specific: true };
+    return { limit: registryEntry.defaultContextLength, specific: true, source: "registry" };
   }
 
   // 4. Check if model name hints at a known limit
   if (model) {
-    if (lowerModel.includes("claude")) return { limit: DEFAULT_LIMITS.claude, specific: true };
-    if (lowerModel.includes("gemini")) return { limit: DEFAULT_LIMITS.gemini, specific: true };
+    if (lowerModel.includes("claude")) {
+      return { limit: DEFAULT_LIMITS.claude, specific: true, source: "heuristic" };
+    }
+    if (lowerModel.includes("gemini")) {
+      return { limit: DEFAULT_LIMITS.gemini, specific: true, source: "heuristic" };
+    }
     if (
       lowerModel.includes("gpt") ||
       lowerModel.includes("o1") ||
@@ -341,12 +352,84 @@ function resolveTokenLimit(
       lowerModel.includes("o4") ||
       lowerModel.includes("codex")
     )
-      return { limit: DEFAULT_LIMITS.codex, specific: true };
+      return { limit: DEFAULT_LIMITS.codex, specific: true, source: "heuristic" };
   }
 
-  // 5. Fallback to DEFAULT_LIMITS or default
-  if (DEFAULT_LIMITS[provider]) return { limit: DEFAULT_LIMITS[provider], specific: true };
-  return { limit: DEFAULT_LIMITS.default, specific: false };
+  // 5. Fallback to DEFAULT_LIMITS or default.
+  // A per-provider entry still carries a provider signal (same trust tier as the
+  // registry default); only the catch-all is a figure with no signal at all.
+  if (DEFAULT_LIMITS[provider]) {
+    return { limit: DEFAULT_LIMITS[provider], specific: true, source: "registry" };
+  }
+  return { limit: DEFAULT_LIMITS.default, specific: false, source: "default" };
+}
+
+/**
+ * Provenance of the limit that step 2 of {@link resolveTokenLimit} returned.
+ *
+ * `getModelContextLimit` is exactly `persistedOverride ?? catalogWindow`, so the
+ * split below is a faithful decomposition of that expression rather than a
+ * parallel re-implementation of the precedence chain — the two cannot drift
+ * apart without `getModelContextLimit` itself changing shape.
+ */
+function resolveModelLimitSource(provider: string, model: string): OmniRouteContextSource {
+  const override = getModelContextOverrideRecord(provider, model);
+  if (override) {
+    return override.source === "manual" ? "override:manual" : "override:auto";
+  }
+  return "catalog";
+}
+
+/** Context capacity of a resolved target, together with how trustworthy it is. */
+export interface ResolvedContextCapacity {
+  /** Total context window, or `null` when nothing could be resolved. */
+  contextWindow: number | null;
+  /**
+   * Input-token ceiling. Differs from `contextWindow` whenever the provider
+   * reserves part of the window for output (#6191) — a client that schedules
+   * compaction must budget against THIS number, not the total.
+   */
+  maxInput: number | null;
+  /** Output-token ceiling. */
+  maxOutput: number | null;
+  /** Where `contextWindow` came from. See `OMNIROUTE_CONTEXT_SOURCES`. */
+  source: OmniRouteContextSource;
+}
+
+/**
+ * Resolve the full context capacity of a provider/model pair for reporting.
+ *
+ * The window follows the same chain `getTokenLimit` uses (so the number a client
+ * is told matches the number routing decisions are made against), while
+ * `maxInput` / `maxOutput` come from the capability resolver, which owns their
+ * own narrower precedence. `maxInput` is reported only when the resolver has a
+ * genuinely narrower figure than the window: echoing the total back as the input
+ * ceiling is what let auto-compaction sail past the real limit in #6191.
+ */
+export function resolveContextCapacity(
+  provider: string,
+  model: string | null = null
+): ResolvedContextCapacity {
+  const { limit, source } = resolveTokenLimit(provider, model);
+  const contextWindow = limit > 0 ? limit : null;
+
+  if (!model) {
+    return { contextWindow, maxInput: null, maxOutput: null, source };
+  }
+
+  const capabilities = getResolvedModelCapabilities({ provider, model });
+  const rawMaxInput = capabilities.maxInputTokens;
+  const maxInput =
+    typeof rawMaxInput === "number" &&
+    rawMaxInput > 0 &&
+    (contextWindow === null || rawMaxInput < contextWindow)
+      ? rawMaxInput
+      : null;
+
+  const rawMaxOutput = capabilities.maxOutputTokens;
+  const maxOutput = typeof rawMaxOutput === "number" && rawMaxOutput > 0 ? rawMaxOutput : null;
+
+  return { contextWindow, maxInput, maxOutput, source };
 }
 
 /**
