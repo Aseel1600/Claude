@@ -106,6 +106,7 @@ import {
   bytezValidationResultFromStatus,
   validateBytezProvider,
 } from "./validation/webCookie";
+import { validateAiHordeProvider } from "./validation/aihorde";
 import {
   validateV0VercelProvider,
   validateAuggieProvider,
@@ -182,6 +183,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     // for parity with the "jules" cloud-agent entry above — see #6142.
     devin: validateDevinCloudAgentProvider,
     auggie: validateAuggieProvider,
+    aihorde: validateAiHordeProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,
     "command-code": validateCommandCodeProvider,
