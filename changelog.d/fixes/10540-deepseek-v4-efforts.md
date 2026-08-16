@@ -1,0 +1,1 @@
+- **fix(deepseek):** Align V4 reasoning effort metadata and mixed-combo advertisement with the official provider capabilities ([#10540](https://github.com/diegosouzapw/OmniRoute/pull/10540)) — thanks @jackjinke
