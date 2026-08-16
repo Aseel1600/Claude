@@ -27,7 +27,7 @@ function generateClientSessionId(): string {
 
 export class FreebuffExecutor extends BaseExecutor {
   constructor() {
-    super("freebuff", (PROVIDERS as any).freebuff || "freebuff");
+    super("freebuff", (PROVIDERS as Record<string, unknown>).freebuff as string || "freebuff");
   }
 
   override async execute(input: ExecuteInput) {
@@ -67,7 +67,7 @@ export class FreebuffExecutor extends BaseExecutor {
         signal,
       });
       if (sessionRes.ok) {
-        const data = (await sessionRes.json()) as any;
+        const data = (await sessionRes.json()) as { instanceId?: string };
         instanceId = data.instanceId || "";
       } else {
         const errText = await sessionRes.text();
@@ -78,10 +78,11 @@ export class FreebuffExecutor extends BaseExecutor {
           ),
         };
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
       return {
         response: new Response(
-          JSON.stringify({ error: { message: `Freebuff session network error: ${e.message}`, type: "upstream_error" } }),
+          JSON.stringify({ error: { message: `Freebuff session network error: ${msg}`, type: "upstream_error" } }),
           { status: 502, headers: { "Content-Type": "application/json" } }
         ),
       };
@@ -96,7 +97,7 @@ export class FreebuffExecutor extends BaseExecutor {
         signal,
       });
       if (runRes.ok) {
-        const runData = (await runRes.json()) as any;
+        const runData = (await runRes.json()) as { runId?: string };
         runId = runData.runId || "";
       }
     } catch {}
@@ -127,7 +128,7 @@ export class FreebuffExecutor extends BaseExecutor {
         cost_mode: "free",
         client_id: clientSessionId,
         freebuff_instance_id: instanceId,
-        ...(body?.codebuff_metadata || {}),
+        ...((body as Record<string, unknown>)?.codebuff_metadata as Record<string, unknown> || {}),
       },
     };
 
@@ -152,7 +153,7 @@ export class FreebuffExecutor extends BaseExecutor {
 
     // 5. Finish agent run (background)
     if (runId) {
-      fetch("https://www.codebuff.com/api/v1/agent-runs", {
+      void fetch("https://www.codebuff.com/api/v1/agent-runs", {
         method: "POST",
         headers: authHeaders,
         body: JSON.stringify({

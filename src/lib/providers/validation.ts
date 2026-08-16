@@ -161,8 +161,9 @@ export async function validateFreebuffProvider({ apiKey }: { apiKey: string }) {
     }
     const errText = await res.text().catch(() => "");
     return { valid: false, error: `Freebuff validation returned ${res.status}: ${errText.slice(0, 100)}`, unsupported: false };
-  } catch (err: any) {
-    return { valid: false, error: `Freebuff validation network error: ${err.message}`, unsupported: false };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { valid: false, error: `Freebuff validation network error: ${msg}`, unsupported: false };
   }
 }
 

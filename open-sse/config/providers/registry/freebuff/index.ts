@@ -30,6 +30,7 @@ export const freebuffProvider: RegistryEntry = {
     {
       id: "minimax/minimax-m3",
       name: "MiniMax M3",
+      supportsVision: true,
       supportsReasoning: true,
       contextLength: 131_072,
     },
