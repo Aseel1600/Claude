@@ -11,6 +11,7 @@ process.env.API_KEY_SECRET ||= "combo-metadata-test-secret";
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const combosDb = await import("../../src/lib/db/combos.ts");
+const contextOverrides = await import("../../src/lib/db/modelContextOverrides.ts");
 const catalog = await import("../../src/app/api/v1/models/catalog.ts");
 
 test.after(() => {
@@ -53,6 +54,43 @@ test("single-target combo preserves its direct model metadata", async () => {
     "capabilities",
   ]) {
     assert.deepEqual(combo[field], direct[field], field);
+  }
+});
+
+test("single-target Codex combo advertises a larger model context override", async () => {
+  const modelId = "gpt-5.6-terra";
+  const contextWindow = 500000;
+  assert.equal(contextOverrides.setModelContextOverride("codex", modelId, contextWindow), true);
+
+  try {
+    await providersDb.createProviderConnection({
+      provider: "codex",
+      authType: "oauth",
+      name: "codex-gpt-5.6-context-override-combo",
+      accessToken: "codex-test-token",
+      isActive: true,
+      testStatus: "active",
+      providerSpecificData: {},
+    });
+    await combosDb.createCombo({
+      name: "gpt-5.6-context-override-combo",
+      strategy: "auto",
+      models: [`codex/${modelId}`],
+    });
+
+    const response = await catalog.getUnifiedModelsResponse(
+      new Request("http://localhost/api/v1/models")
+    );
+    const body = (await response.json()) as { data: Array<Record<string, unknown>> };
+    const direct = body.data.find((item) => item.id === `cx/${modelId}`);
+    const combo = body.data.find((item) => item.id === "gpt-5.6-context-override-combo");
+
+    assert.equal(response.status, 200);
+    assert.equal(direct?.context_length, contextWindow);
+    assert.equal(combo?.context_length, contextWindow);
+    assert.equal(combo?.max_input_tokens, 272000);
+  } finally {
+    contextOverrides.removeModelContextOverride("codex", modelId);
   }
 });
 

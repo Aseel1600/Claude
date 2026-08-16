@@ -279,8 +279,8 @@ export const GPT_5_6_CODEX_CAPABILITIES = {
   supportsReasoning: true,
   supportsVision: true,
   supportsXHighEffort: true,
-  contextLength: 1050000,
-  maxInputTokens: 922000,
+  contextLength: 272000,
+  maxInputTokens: 272000,
   maxOutputTokens: 128000,
 } as const;
 
