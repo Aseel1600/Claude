@@ -3,7 +3,7 @@ import { z } from "zod";
 import { buildRoutePreview, type ComboLike } from "@omniroute/open-sse/handlers/routePreview.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
-import { getCombos } from "@/lib/db/combos";
+import { getComboByName } from "@/lib/db/combos";
 import { enforceApiKeyPolicy } from "@/shared/utils/apiKeyPolicy";
 import { enforceClientApiRouteAuth } from "@/shared/utils/clientApiRouteAuth";
 import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
@@ -61,20 +61,24 @@ export async function POST(request: Request) {
   const policy = await enforceApiKeyPolicy(request, model);
   if (policy.rejection) return policy.rejection;
 
-  let combos: ComboLike[] = [];
+  // Resolve combos exactly the way chatCore does (getComboByName, plus the
+  // optional `combo:` prefix) — a preview that resolves a name differently from
+  // the request path would describe a target the request would never reach,
+  // which is worse than no preview at all.
+  let combo: ComboLike | null = null;
   try {
-    combos = (await getCombos()) as ComboLike[];
+    combo =
+      ((await getComboByName(model)) as ComboLike | null) ??
+      (model.startsWith("combo:")
+        ? ((await getComboByName(model.substring(6))) as ComboLike | null)
+        : null);
   } catch {
     // A combo lookup failure must not fail the preview: a single model still
-    // resolves without it, and reporting it as a single model is accurate for
-    // every non-combo id.
-    combos = [];
+    // resolves without it, and that answer is accurate for every non-combo id.
+    combo = null;
   }
 
-  const preview = buildRoutePreview(
-    model,
-    (requested) => combos.find((combo) => combo?.name === requested) ?? null
-  );
+  const preview = buildRoutePreview(model, () => combo);
 
   return new Response(JSON.stringify(preview), {
     status: HTTP_STATUS.OK,
