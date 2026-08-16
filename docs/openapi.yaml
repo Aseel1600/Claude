@@ -1371,6 +1371,38 @@ paths:
             cost is computed per modality when pricing is available, otherwise
             `0` (fail-open).
 
+  /api/v1/multimodal-embeddings:
+    post:
+      tags: [Embeddings]
+      summary: Create embeddings (Jina multimodal-embeddings alias)
+      description: >-
+        Same handler as `POST /api/v1/embeddings`. Provided so Jina-compatible
+        clients that call `/v1/multimodal-embeddings` do not receive HTTP 404
+        `unknown_route`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [input, model]
+              additionalProperties: true
+      responses:
+        "200":
+          description: Embedding vectors (same contract as POST /api/v1/embeddings).
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    get:
+      tags: [Embeddings]
+      summary: List embedding models (Jina multimodal-embeddings alias)
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Embedding model catalog (same as GET /api/v1/embeddings).
+
   /api/v1/providers/{provider}/embeddings:
     post:
       tags: [Embeddings]
