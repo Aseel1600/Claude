@@ -136,6 +136,36 @@ export { validateWebCookieProvider, bytezValidationResultFromStatus };
 // validateKiroApiKeyRuntimeProbe now live in ./validation/webCookie and ./validation/kiro.
 // They are re-exported above to preserve the historical public surface.
 
+export async function validateFreebuffProvider({ apiKey }: { apiKey: string }) {
+  if (!apiKey) {
+    return { valid: false, error: "Freebuff Auth Token required", unsupported: false };
+  }
+  try {
+    const res = await fetch("https://www.codebuff.com/api/v1/freebuff/session", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "User-Agent": "codebuff/0.1.0 (darwin-arm64)",
+        "x-freebuff-model": "deepseek/deepseek-v4-flash",
+      },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok || res.status === 409) {
+      return { valid: true, error: null };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { valid: false, error: "Invalid or expired Freebuff Auth Token", unsupported: false };
+    }
+    const errText = await res.text().catch(() => "");
+    return { valid: false, error: `Freebuff validation returned ${res.status}: ${errText.slice(0, 100)}`, unsupported: false };
+  } catch (err: any) {
+    return { valid: false, error: `Freebuff validation network error: ${err.message}`, unsupported: false };
+  }
+}
+
 export async function validateProviderApiKey({ provider, apiKey, providerSpecificData = {} }: any) {
   const requiresApiKey = !providerAllowsOptionalApiKey(provider);
   const isLocal = isLocalProvider(provider);
@@ -184,6 +214,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     auggie: validateAuggieProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,
+    freebuff: validateFreebuffProvider,
     "command-code": validateCommandCodeProvider,
     huggingface: validateHuggingFaceProvider,
     // #5422: auth-only probe — Bytez 404s on every chat model until the account adds it to
