@@ -68,11 +68,21 @@ test("embeddingRegistry curated openrouter catalog carries the refreshed lineup 
     "baai/bge-m3",
     "mistralai/mistral-embed-2312",
     "google/gemini-embedding-001",
+    "google/gemini-embedding-2",
+    "google/gemini-embedding-2-preview",
   ]) {
     assert.ok(ids.includes(expected), `expected curated id ${expected}; got ${ids.join(", ")}`);
     const dim = config!.models.find((m) => m.id === expected)?.dimensions;
     assert.equal(typeof dim, "number", `${expected} must carry a dimensions value`);
   }
+  assert.equal(
+    config!.models.find((m) => m.id === "google/gemini-embedding-2")?.dimensions,
+    3072
+  );
+  assert.equal(
+    config!.models.find((m) => m.id === "google/gemini-embedding-2-preview")?.dimensions,
+    3072
+  );
 });
 
 test("getStaticModelsForProvider(openrouter) folds the curated embeddings into the specialty catalog (#6976)", () => {
