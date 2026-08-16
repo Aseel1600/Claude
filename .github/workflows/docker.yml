@@ -80,6 +80,9 @@ jobs:
           tags: ${{ steps.image.outputs.name }}
           cache-from: type=gha,scope=docker-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=docker-${{ matrix.arch }}
+          build-args: |
+            OMNIROUTE_BUILD_MEMORY_MB=8192
+            OMNIROUTE_USE_TURBOPACK=0
 
       - name: Export digest
         run: |
