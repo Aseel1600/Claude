@@ -378,7 +378,9 @@ export class OpencodeExecutor extends BaseExecutor {
     credentials: ProviderCredentials | null,
     stream = true,
     clientHeaders?: Record<string, string> | null,
-    model?: string
+    model?: string,
+    _health?: Record<string, unknown>,
+    body?: unknown
   ) {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     // #8467: honor Extra API Keys rotation via BaseExecutor.resolveEffectiveKey.
@@ -403,16 +405,12 @@ export class OpencodeExecutor extends BaseExecutor {
       headers["Accept"] = "text/event-stream";
     }
 
-    // Opt-in (#5997): synthesize OpenCode CLI identity headers the client did not send.
-    // Cloudflare in front of opencode.ai/zen/go 403s server-side (VPS) requests lacking
-    // CLI identity, but the forward-only default is deliberate — fabricating a WRONG
-    // value risks upstream rejection (#5720 regressed with "opencode/local"), and this
-    // is deployment-specific. So it stays OFF by default and the VPS operator enables it
-    // with OPENCODE_SYNTHESIZE_CLI_HEADERS=true (values env-overridable). Client-supplied
-    // headers take precedence, EXCEPT User-Agent: a non-CLI client UA (curl/SDK) is
-    // replaced with the synthesized CLI UA because opencode.ai's free tier rejects
-    // generic client UAs from datacenter IPs (FreeUsageLimitError 429).
-    const synthesizeCli = /^(1|true|yes|on)$/i.test(
+    // Synthesize OpenCode CLI identity headers by default so Cloudflare in front of
+    // opencode.ai/zen doesn't 429 VPS requests lacking CLI identity. Opt-out via
+    // OPENCODE_SYNTHESIZE_CLI_HEADERS=false. Client-supplied headers always win;
+    // User-Agent is replaced with the CLI UA unless the client already sends one that
+    // looks like the OpenCode CLI. Default values match 9router's proven defaults.
+    const synthesizeCli = !/^(0|false|no|off)$/i.test(
       process.env.OPENCODE_SYNTHESIZE_CLI_HEADERS?.trim() ?? ""
     );
     const cliDefaults = synthesizeCli
@@ -423,17 +421,30 @@ export class OpencodeExecutor extends BaseExecutor {
             userAgent:
               process.env[envUAKey]?.trim() ||
               process.env.OPENCODE_USER_AGENT?.trim() ||
-              "opencode-cli/1.0.0",
-            client: process.env.OPENCODE_CLIENT?.trim() || "cli",
-            project: process.env.OPENCODE_PROJECT?.trim() || "default",
+              "opencode",
+            client: process.env.OPENCODE_CLIENT?.trim() || "desktop",
+            project: process.env.OPENCODE_PROJECT?.trim() || "global",
           };
         })()
       : undefined;
 
     if (clientHeaders || cliDefaults) {
+      const b = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
       forwardOpencodeClientHeaders(headers, clientHeaders ?? {}, {
         synthesizeRequestId: true,
         cliDefaults,
+        sessionBody: b
+          ? {
+              model: typeof b.model === "string" ? b.model : undefined,
+              system: b.system,
+              messages: Array.isArray(b.messages)
+                ? (b.messages as Array<{ role?: string; content?: unknown }>)
+                : undefined,
+              tools: Array.isArray(b.tools)
+                ? (b.tools as Array<{ name?: string; function?: { name?: string } }>)
+                : undefined,
+            }
+          : undefined,
       });
     }
 

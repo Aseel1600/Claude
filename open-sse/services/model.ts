@@ -645,6 +645,19 @@ async function resolveModelByProviderInference(modelId: string, extendedContext:
     }
   }
 
+  // Opencode free-tier models always route to opencode when active — prevents
+  // prefix inference from misrouting -free names to other providers when the
+  // live catalog is temporarily unreachable.
+  if (
+    (modelId === "big-pickle" || modelId.endsWith("-free")) &&
+    activeProviders?.has("opencode")
+  ) {
+    const candidates = MODEL_TO_PROVIDERS.get(modelId) || [];
+    if (candidates.includes("opencode")) {
+      return { provider: "opencode", model: modelId, extendedContext };
+    }
+  }
+
   const candidateProviders = getInferredProvidersForModel(modelId, activeSyncedProviders);
   const { providers, excludedProviders } = await reconcileInferredProvidersWithActiveCatalog(
     candidateProviders,

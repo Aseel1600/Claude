@@ -480,7 +480,8 @@ export class BaseExecutor {
     stream = true,
     clientHeaders?: Record<string, string> | null,
     model?: string,
-    health?: Record<string, KeyHealth>
+    health?: Record<string, KeyHealth>,
+    body?: unknown
   ): Record<string, string> {
     void clientHeaders;
     void model;
@@ -799,7 +800,7 @@ export class BaseExecutor {
         activeCredentials
       );
       const url = this.buildUrl(model, stream, urlIndex, requestCredentials);
-      const headers = this.buildHeaders(requestCredentials, stream, clientHeaders, model);
+      const headers = this.buildHeaders(requestCredentials, stream, clientHeaders, model, undefined, body);
       applyConfiguredUserAgent(headers, requestCredentials?.providerSpecificData);
 
       // Strip OpenAI SDK (X-Stainless-*) metadata + normalize SDK-derived User-Agent

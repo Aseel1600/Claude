@@ -159,6 +159,7 @@ import {
   buildCapabilityMismatchMessage,
 } from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
+import { isNoAuthProviderKey } from "@/shared/utils/noAuthProviders.ts";
 import {
   REASONING_BUFFER_MIN_TRIGGER,
   buildReasoningProbeTruncatedResponse,
@@ -878,12 +879,23 @@ export async function handleChatCore({
   const isCodexResponsesEcho =
     (isResponsesEndpoint || sourceFormat === FORMATS.OPENAI_RESPONSES) &&
     isCodexOriginatedHeaders(clientRawRequest?.headers);
-  const echoModel =
+  let echoModel =
     (settings.echoRequestedModelName === true || isCodexResponsesEcho) &&
     typeof requestedModel === "string" &&
     requestedModel
       ? requestedModel
       : null;
+  // Auto-echo the listing-valid form for bare requests to noAuth catalog
+  // providers so clients validating response.model against /v1/models don't warn.
+  if (
+    typeof requestedModel === "string" &&
+    requestedModel &&
+    !requestedModel.includes("/") &&
+    isNoAuthProviderKey(provider)
+  ) {
+    const alias = REGISTRY[provider]?.alias || provider;
+    echoModel = `${alias}/${requestedModel}`;
+  }
   const detailedLoggingEnabled =
     !noLogEnabled &&
     (settings.call_log_pipeline_enabled === true ||
