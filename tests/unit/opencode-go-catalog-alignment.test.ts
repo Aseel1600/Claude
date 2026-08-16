@@ -53,8 +53,8 @@ test("opencode-go preserves the pre-existing minimax-m3 and qwen routing via tar
   assert.equal(byId.get("qwen3.7-max")?.targetFormat, "claude");
 });
 
-test("opencode-go hy3 variants expose their context window to combo compatibility filtering", () => {
-  for (const modelId of ["hy3", "hy3-none", "hy3-low", "hy3-high"]) {
+test("opencode-go active hy3 variants expose their context window to combo compatibility filtering", () => {
+  for (const modelId of ["hy3", "hy3-low", "hy3-high"]) {
     assert.equal(
       getResolvedModelCapabilities(`opencode-go/${modelId}`).contextWindow,
       256000,

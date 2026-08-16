@@ -876,7 +876,7 @@ test("provider models route honors autoFetchModels=false and skips remote discov
   assert.equal(body.source, "local_catalog");
   assert.match(body.warning, /auto-fetch disabled/i);
   assert.equal(called, false);
-  assert.ok(body.models.some((model) => model.id === "glm-5"));
+  assert.ok(body.models.some((model) => model.id === "glm-5.3"));
 });
 
 test("provider models route uses synced models as the authoritative local catalog (#3148)", async () => {

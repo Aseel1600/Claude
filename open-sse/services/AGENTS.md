@@ -1,6 +1,6 @@
 # open-sse/services/ — Routing Engine & Cross-Cutting Services
 
-**Purpose**: 134 service modules (top-level) powering request routing, rate limiting, quota management, token refresh, fallback strategies, and runtime state. The combo routing engine (`combo.ts`) is the core; supporting services handle resilience, accounting, and decision-making.
+**Purpose**: 212 service modules (top-level) powering request routing, rate limiting, quota management, token refresh, fallback strategies, and runtime state. The combo routing engine (`combo.ts`) is the core; supporting services handle resilience, accounting, and decision-making.
 
 Live count: `ls open-sse/services/*.ts | wc -l` (currently 134). More including sub-dirs like `autoCombo/` and `compression/`.
 
@@ -18,6 +18,7 @@ Live count: `ls open-sse/services/*.ts | wc -l` (currently 134). More including 
 
 - **`rateLimitManager.ts`** — Token bucket per API key + provider combo. Rejects before dispatch.
 - **`usage.ts`** — Per-request token/cost consumption tracking.
+- **`openCodeGoPricing.ts`** — Official OpenCode Go token rates, dynamic tiers, and budget caps.
 - **`quotaCache.ts`** — In-memory quota snapshots, pre-loaded at startup.
 
 ### Account & Token Management

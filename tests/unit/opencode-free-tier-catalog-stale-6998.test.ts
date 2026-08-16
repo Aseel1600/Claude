@@ -16,13 +16,15 @@ const DELISTED_FREE_MODELS = [
   "trinity-large-preview-free",
   "nemotron-3-super-free",
   "qwen3.6-plus-free",
+  "north-mini-code-free",
 ];
 
 const LIVE_FREE_MODELS_MISSING_FROM_CATALOG = [
   "mimo-v2.5-free",
   "hy3-free",
   "nemotron-3-ultra-free",
-  "north-mini-code-free",
+  "nemotron-3.5-lightning-free",
+  "laguna-s-2.1-free",
 ];
 
 test("issue #6998: oc registry does not advertise delisted free-tier models", () => {

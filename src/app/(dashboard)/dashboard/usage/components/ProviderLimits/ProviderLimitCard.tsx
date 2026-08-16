@@ -161,6 +161,7 @@ export default function ProviderLimitCard({
                 resetTime={quota.resetAt}
                 staleAfterReset={quota.staleAfterReset === true}
                 showUsageCount={shouldShowQuotaUsageCount(quota)}
+                currency={quota.currency}
               />
             );
           })}

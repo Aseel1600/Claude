@@ -6,7 +6,7 @@ const { OpencodeExecutor } = await import("../../open-sse/executors/opencode.ts"
 /**
  * Regression test for upstream decolua/9router#1442:
  *
- * OpenCode upstreams (e.g. kimi-k2.6 via opencode-go) reject the
+ * OpenCode upstreams (e.g. kimi-k3 via opencode-go) reject the
  * `client_metadata` passthrough field (an OpenAI-Codex/Claude-CLI artifact)
  * with 400 "Extra inputs are not permitted, field: 'client_metadata'".
  * DefaultExecutor strips it only for cerebras/mistral, and OpencodeExecutor
@@ -19,7 +19,7 @@ describe("OpencodeExecutor — strips client_metadata (#1442)", () => {
 
   function body() {
     return {
-      model: "oc/kimi-k2.6",
+      model: "oc/kimi-k3",
       stream: true,
       client_metadata: { user_id: "abc" },
       messages: [{ role: "user", content: "hi" }],
@@ -27,7 +27,7 @@ describe("OpencodeExecutor — strips client_metadata (#1442)", () => {
   }
 
   it("removes client_metadata from the forwarded body", () => {
-    const out = executor.transformRequest("oc/kimi-k2.6", body(), true, CREDENTIALS) as Record<
+    const out = executor.transformRequest("oc/kimi-k3", body(), true, CREDENTIALS) as Record<
       string,
       unknown
     >;
@@ -42,7 +42,7 @@ describe("OpencodeExecutor — strips client_metadata (#1442)", () => {
   it("is a no-op when client_metadata is absent", () => {
     const b = body();
     delete (b as Record<string, unknown>).client_metadata;
-    const out = executor.transformRequest("oc/kimi-k2.6", b, true, CREDENTIALS) as Record<
+    const out = executor.transformRequest("oc/kimi-k3", b, true, CREDENTIALS) as Record<
       string,
       unknown
     >;

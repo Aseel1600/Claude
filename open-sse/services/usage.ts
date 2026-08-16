@@ -194,7 +194,7 @@ export async function getUsageForProvider(
         ...(provider === "glm-cn" ? { apiRegion: "china" } : {}),
       });
     case "opencode-go":
-      return await getOpenCodeGoUsage(apiKey || "", providerSpecificData);
+      return await getOpenCodeGoUsage(id || "", apiKey || "", providerSpecificData);
     case "ollama-cloud":
       return await getOllamaCloudUsage(providerSpecificData);
     case "minimax":

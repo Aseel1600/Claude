@@ -75,6 +75,7 @@ export default function QuotaProgressBar({
   resetTime = null,
   staleAfterReset = false,
   showUsageCount = true,
+  currency = null,
 }) {
   const t = useTranslations("usage");
   const colors = getColorClasses(percentage);
@@ -84,6 +85,17 @@ export default function QuotaProgressBar({
   // percentage is already remaining percentage (from ProviderLimitCard)
   const remaining = percentage;
   const remainingPercentage = Math.round(Math.max(0, Math.min(100, remaining)));
+  const formatUsd = (value) =>
+    new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }).format(value);
+  const usageCount =
+    currency === "USD"
+      ? `${formatUsd(used)} / ${formatUsd(total)}`
+      : `${used.toLocaleString()} / ${total.toLocaleString()} requests`;
 
   return (
     <div className="space-y-2">
@@ -113,7 +125,7 @@ export default function QuotaProgressBar({
       {/* Usage details and countdown */}
       <div className="flex items-center justify-between text-xs text-text-muted">
         <span>
-          {showUsageCount ? `${used.toLocaleString()} / ${total.toLocaleString()} requests` : null}
+          {showUsageCount ? usageCount : null}
         </span>
         {staleAfterReset ? (
           <div className="flex items-center gap-1">

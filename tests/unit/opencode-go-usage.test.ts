@@ -10,6 +10,7 @@ const ORIGINAL_OPENCODE_GO_QUOTA_URL = process.env.OMNIROUTE_OPENCODE_GO_QUOTA_U
 process.env.OMNIROUTE_OPENCODE_GO_QUOTA_URL = "https://api.z.ai/api/monitor/usage/quota/limit";
 
 const usage = await import("../../open-sse/services/usage.ts");
+const usageHistory = await import("../../src/lib/usage/usageHistory.ts");
 const { USAGE_SUPPORTED_PROVIDERS } = await import("../../src/shared/constants/providers.ts");
 
 after(() => {
@@ -148,6 +149,98 @@ test("getUsageForProvider exposes OpenCode Go 5h, weekly, and monthly quotas", a
     assert.equal(result.quotas!.mcp_monthly.remainingPercentage, 90);
     assert.equal(result.quotas!.mcp_monthly.resetAt, new Date(resetMonthly).toISOString());
     assert.deepEqual(result.quotas!.mcp_monthly.details, [{ name: "search-prime", used: 3 }]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getUsageForProvider keeps upstream quota authoritative and adds a local priced ledger", async () => {
+  const originalFetch = globalThis.fetch;
+  const connectionId = "opencode-go-local-ledger";
+  const now = Date.now();
+  await usageHistory.saveRequestUsage({
+    provider: "opencode-go",
+    model: "kimi-k3-max",
+    connectionId,
+    tokens: { input: 1_000_000, output: 0 },
+    timestamp: new Date(now - 60 * 60 * 1000).toISOString(),
+  });
+  globalThis.fetch = async () =>
+    Response.json({
+      code: 200,
+      success: true,
+      data: {
+        level: "pro",
+        limits: [
+          { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 25 },
+          { type: "TOKENS_LIMIT", unit: 6, number: 1, percentage: 50 },
+          { type: "TIME_LIMIT", percentage: 10, currentValue: 6 },
+        ],
+      },
+    });
+
+  try {
+    const result = (await usage.getUsageForProvider({
+      id: connectionId,
+      provider: "opencode-go",
+      apiKey: "opencode-go-key",
+    })) as {
+      usageSource?: string;
+      quotas?: Record<string, { used: number }>;
+      localEstimate?: {
+        pricingRevision: string;
+        quotas: Record<string, { used: number }>;
+        modelMonthly: Array<{ model: string; used: number; total: number }>;
+      };
+    };
+
+    assert.equal(result.usageSource, "upstream");
+    assert.equal(result.quotas?.session.used, 3, "upstream 25% of $12 remains authoritative");
+    assert.equal(result.localEstimate?.pricingRevision, "2026-08-17");
+    assert.equal(result.localEstimate?.quotas.session.used, 3);
+    assert.deepEqual(result.localEstimate?.modelMonthly, [
+      {
+        model: "kimi-k3",
+        used: 3,
+        total: 15,
+        remaining: 12,
+        remainingPercentage: 80,
+        effectiveRemainingUsd: 9,
+      },
+    ]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("getUsageForProvider falls back to the local priced ledger when upstream is unavailable", async () => {
+  const originalFetch = globalThis.fetch;
+  const connectionId = "opencode-go-local-fallback";
+  await usageHistory.saveRequestUsage({
+    provider: "opencode-go",
+    model: "grok-4.5-high",
+    connectionId,
+    tokens: { input: 1_000_000, output: 0 },
+    timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  });
+  globalThis.fetch = async () => {
+    throw new Error("upstream offline");
+  };
+
+  try {
+    const result = (await usage.getUsageForProvider({
+      id: connectionId,
+      provider: "opencode-go",
+      apiKey: "opencode-go-key",
+    })) as {
+      usageSource?: string;
+      warning?: string;
+      quotas?: Record<string, { used: number }>;
+    };
+
+    assert.equal(result.usageSource, "localUsageHistory");
+    assert.match(result.warning ?? "", /upstream offline/);
+    assert.equal(result.quotas?.session.used, 2);
   } finally {
     globalThis.fetch = originalFetch;
   }

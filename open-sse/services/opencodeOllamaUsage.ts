@@ -1,4 +1,13 @@
+import {
+  getOpenCodeGoLocalUsage,
+  type OpenCodeGoLocalUsage,
+} from "@/lib/usage/openCodeGoWindowLedger";
+
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import {
+  OPENCODE_GO_PRICING_REVISION,
+  OPENCODE_GO_WINDOW_LIMITS_USD,
+} from "./openCodeGoPricing.ts";
 
 type JsonRecord = Record<string, unknown>;
 type UsageQuota = {
@@ -22,7 +31,11 @@ type UsageQuota = {
 const OPENCODE_GO_QUOTA_URL = process.env.OMNIROUTE_OPENCODE_GO_QUOTA_URL?.trim() || "";
 const OPENCODE_GO_DASHBOARD_BASE_URL =
   process.env.OMNIROUTE_OPENCODE_GO_DASHBOARD_URL ?? "https://opencode.ai/workspace";
-const OPENCODE_GO_QUOTA_TOTALS = { session: 12, weekly: 30, mcp_monthly: 60 } as const;
+const OPENCODE_GO_QUOTA_TOTALS = {
+  session: OPENCODE_GO_WINDOW_LIMITS_USD.session,
+  weekly: OPENCODE_GO_WINDOW_LIMITS_USD.weekly,
+  mcp_monthly: OPENCODE_GO_WINDOW_LIMITS_USD.monthly,
+} as const;
 const OPENCODE_GO_QUOTA_ORDER = ["session", "weekly", "mcp_monthly"] as const;
 const OPENCODE_GO_SCRAPED_NUMBER = String.raw`(-?\d+(?:\.\d+)?)`;
 const OLLAMA_CLOUD_USAGE_URL =
@@ -194,6 +207,79 @@ function orderOpenCodeGoQuotas(quotas: Record<string, UsageQuota>): Record<strin
   return ordered;
 }
 
+function windowStartFromReset(resetAt: string | null | undefined, durationMs: number) {
+  const resetMs = resetAt ? Date.parse(resetAt) : Number.NaN;
+  return Number.isFinite(resetMs) && resetMs > Date.now() ? resetMs - durationMs : undefined;
+}
+
+function readOpenCodeGoLocalUsage(
+  connectionId: string,
+  observedQuotas?: Record<string, UsageQuota>
+): OpenCodeGoLocalUsage | null {
+  if (!connectionId) return null;
+  try {
+    return getOpenCodeGoLocalUsage({
+      connectionId,
+      windowStarts: {
+        weekly: windowStartFromReset(observedQuotas?.weekly?.resetAt, 7 * 24 * 60 * 60 * 1000),
+        monthly: windowStartFromReset(
+          observedQuotas?.mcp_monthly?.resetAt,
+          30 * 24 * 60 * 60 * 1000
+        ),
+      },
+      windowResets: {
+        session: observedQuotas?.session?.resetAt,
+        weekly: observedQuotas?.weekly?.resetAt,
+        monthly: observedQuotas?.mcp_monthly?.resetAt,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+function hasOpenCodeGoLocalEvidence(estimate: OpenCodeGoLocalUsage | null): boolean {
+  return Boolean(
+    estimate && (estimate.requestsPriced > 0 || estimate.unknownModels.length > 0)
+  );
+}
+
+function localEstimateQuotas(estimate: OpenCodeGoLocalUsage): Record<string, UsageQuota> {
+  return orderOpenCodeGoQuotas({
+    session: estimate.quotas.session,
+    weekly: estimate.quotas.weekly,
+    mcp_monthly: estimate.quotas.monthly,
+  });
+}
+
+function buildOpenCodeGoObservedUsage(
+  connectionId: string,
+  plan: string | null,
+  quotas: Record<string, UsageQuota>
+) {
+  const localEstimate = readOpenCodeGoLocalUsage(connectionId, quotas);
+  return {
+    plan,
+    quotas: orderOpenCodeGoQuotas(quotas),
+    usageSource: "upstream" as const,
+    pricingRevision: OPENCODE_GO_PRICING_REVISION,
+    ...(localEstimate ? { localEstimate } : {}),
+  };
+}
+
+function buildOpenCodeGoLocalFallback(connectionId: string, warning: string) {
+  const localEstimate = readOpenCodeGoLocalUsage(connectionId);
+  if (!hasOpenCodeGoLocalEvidence(localEstimate)) return { message: warning };
+  return {
+    plan: "OpenCode Go",
+    quotas: localEstimateQuotas(localEstimate as OpenCodeGoLocalUsage),
+    usageSource: "localUsageHistory" as const,
+    pricingRevision: OPENCODE_GO_PRICING_REVISION,
+    localEstimate,
+    warning,
+  };
+}
+
 function parseOpenCodeGoSsrWindow(html: string, field: string): DashboardWindow | null {
   for (const candidate of [
     {
@@ -301,18 +387,26 @@ async function fetchOpenCodeGoDashboardUsage(
   };
 }
 
-export async function getOpenCodeGoUsage(apiKey: string, providerSpecificData?: JsonRecord) {
+export async function getOpenCodeGoUsage(
+  connectionId: string,
+  apiKey: string,
+  providerSpecificData?: JsonRecord
+) {
   const dashboardConfig = resolveOpenCodeGoDashboardConfig(providerSpecificData);
   if (dashboardConfig.state === "incomplete") {
-    return {
-      message: `OpenCode Go dashboard quota config is incomplete. Missing ${dashboardConfig.missing}.`,
-    };
+    return buildOpenCodeGoLocalFallback(
+      connectionId,
+      `OpenCode Go dashboard quota config is incomplete. Missing ${dashboardConfig.missing}.`
+    );
   }
   if (dashboardConfig.state === "configured") {
     try {
       const dashboard = await fetchOpenCodeGoDashboardUsage(dashboardConfig);
       if (!dashboard.usage) {
-        return { message: dashboard.message || "OpenCode Go dashboard quota data unavailable." };
+        return buildOpenCodeGoLocalFallback(
+          connectionId,
+          dashboard.message || "OpenCode Go dashboard quota data unavailable."
+        );
       }
       const quotas: Record<string, UsageQuota> = {};
       for (const quotaName of OPENCODE_GO_QUOTA_ORDER) {
@@ -325,28 +419,31 @@ export async function getOpenCodeGoUsage(apiKey: string, providerSpecificData?: 
           );
         }
       }
-      return { plan: "OpenCode Go", quotas: orderOpenCodeGoQuotas(quotas) };
+      return buildOpenCodeGoObservedUsage(connectionId, "OpenCode Go", quotas);
     } catch (error) {
-      return { message: `OpenCode Go dashboard quota error: ${sanitizeErrorMessage(error)}` };
+      return buildOpenCodeGoLocalFallback(
+        connectionId,
+        `OpenCode Go dashboard quota error: ${sanitizeErrorMessage(error)}`
+      );
     }
   }
 
   const token = apiKey.trim().replace(/^Bearer\s+/i, "");
   if (!token) {
-    return {
-      message:
-        "OpenCode Go quota requires OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE. " +
-        "The API key can be used for chat/models, but OpenCode Go does not expose quota via API key.",
-    };
+    return buildOpenCodeGoLocalFallback(
+      connectionId,
+      "OpenCode Go quota requires OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE. " +
+        "The API key can be used for chat/models, but OpenCode Go does not expose quota via API key."
+    );
   }
 
   if (!OPENCODE_GO_QUOTA_URL) {
-    return {
-      message:
-        "OpenCode Go does not expose a public quota API. " +
+    return buildOpenCodeGoLocalFallback(
+      connectionId,
+      "OpenCode Go does not expose a public quota API. " +
         "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE to enable dashboard quota scraping, " +
-        "or set OMNIROUTE_OPENCODE_GO_QUOTA_URL to opt in to an explicit quota endpoint.",
-    };
+        "or set OMNIROUTE_OPENCODE_GO_QUOTA_URL to opt in to an explicit quota endpoint."
+    );
   }
 
   try {
@@ -360,26 +457,29 @@ export async function getOpenCodeGoUsage(apiKey: string, providerSpecificData?: 
     });
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
-        return {
-          message:
-            "OpenCode Go API key is valid for chat/models but cannot read quota from the configured " +
+        return buildOpenCodeGoLocalFallback(
+          connectionId,
+          "OpenCode Go API key is valid for chat/models but cannot read quota from the configured " +
             "OMNIROUTE_OPENCODE_GO_QUOTA_URL endpoint. " +
-            "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE to enable dashboard quota scraping.",
-        };
+            "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE to enable dashboard quota scraping."
+        );
       }
-      return {
-        message:
-          `OpenCode Go quota API error (${res.status}). ` +
+      return buildOpenCodeGoLocalFallback(
+        connectionId,
+        `OpenCode Go quota API error (${res.status}). ` +
           "Set OMNIROUTE_OPENCODE_GO_QUOTA_URL to a working endpoint, or follow " +
-          "https://github.com/anomalyco/opencode/issues/16017 for upstream status.",
-      };
+          "https://github.com/anomalyco/opencode/issues/16017 for upstream status."
+      );
     }
 
     let json: unknown;
     try {
       json = await res.json();
     } catch {
-      return { message: "OpenCode Go quota response parsing failed." };
+      return buildOpenCodeGoLocalFallback(
+        connectionId,
+        "OpenCode Go quota response parsing failed."
+      );
     }
     const root = toRecord(json);
     if (
@@ -387,12 +487,12 @@ export async function getOpenCodeGoUsage(apiKey: string, providerSpecificData?: 
       toNumber(root.code, 200) === 403 ||
       root.success === false
     ) {
-      return {
-        message:
-          "OpenCode Go API key is valid for chat/models but cannot read quota from the configured " +
+      return buildOpenCodeGoLocalFallback(
+        connectionId,
+        "OpenCode Go API key is valid for chat/models but cannot read quota from the configured " +
           "OMNIROUTE_OPENCODE_GO_QUOTA_URL endpoint. " +
-          "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE to enable dashboard quota scraping.",
-      };
+          "Set OPENCODE_GO_WORKSPACE_ID and OPENCODE_GO_AUTH_COOKIE to enable dashboard quota scraping."
+      );
     }
 
     const data = toRecord(root.data);
@@ -444,16 +544,20 @@ export async function getOpenCodeGoUsage(apiKey: string, providerSpecificData?: 
           ? data.level
           : "";
     const planLabel = toTitleCase(levelRaw.replace(/\s*plan$/i, ""));
-    return {
-      plan: planLabel
+    return buildOpenCodeGoObservedUsage(
+      connectionId,
+      planLabel
         ? /^opencode\s+go\b/i.test(planLabel)
           ? planLabel
           : `OpenCode Go ${planLabel}`
         : null,
-      quotas: orderOpenCodeGoQuotas(quotas),
-    };
+      quotas
+    );
   } catch (error) {
-    return { message: `OpenCode Go quota API error: ${sanitizeErrorMessage(error)}` };
+    return buildOpenCodeGoLocalFallback(
+      connectionId,
+      `OpenCode Go quota API error: ${sanitizeErrorMessage(error)}`
+    );
   }
 }
 

@@ -3,7 +3,7 @@
  *
  * OpenCode's local Go registry exposes effort-tier aliases that OmniRoute did
  * not register or resolve. These tests cover:
- *  1. Catalog exposure on opencode-go (and absence on opencode-zen)
+ *  1. Catalog exposure on opencode-go (and alias absence on opencode-zen)
  *  2. parseEffortLevel → base + effort for every listed alias
  *  3. transformRequest rewrite + reasoning_effort injection
  *  4. MiniMax M3 stays out of the effort-alias path
@@ -40,12 +40,9 @@ const ISSUE_ALIASES: ReadonlyArray<{ alias: string; base: string; effort: string
   { alias: "grok-4.5-low", base: "grok-4.5", effort: "low" },
   { alias: "grok-4.5-medium", base: "grok-4.5", effort: "medium" },
   { alias: "grok-4.5-high", base: "grok-4.5", effort: "high" },
-  { alias: "hy3-none", base: "hy3", effort: "none" },
   { alias: "hy3-low", base: "hy3", effort: "low" },
   { alias: "hy3-high", base: "hy3", effort: "high" },
   { alias: "kimi-k3-max", base: "kimi-k3", effort: "max" },
-  { alias: "qwen3.6-plus-high", base: "qwen3.6-plus", effort: "high" },
-  { alias: "qwen3.6-plus-max", base: "qwen3.6-plus", effort: "max" },
   { alias: "qwen3.7-max-high", base: "qwen3.7-max", effort: "high" },
   { alias: "qwen3.7-max-max", base: "qwen3.7-max", effort: "max" },
   { alias: "qwen3.7-plus-high", base: "qwen3.7-plus", effort: "high" },
@@ -82,10 +79,10 @@ test("#8353 catalog: new base models are registered on opencode-go", () => {
   }
 });
 
-test("#8353 catalog: hy3 base is distinct from hy3-preview", () => {
+test("#8353 catalog: hy3 base remains while retired hy3-preview stays hidden", () => {
   const ids = new Set(goModelIds());
   assert.ok(ids.has("hy3"), "hy3 Go-tier base must exist");
-  assert.ok(ids.has("hy3-preview"), "hy3-preview must remain");
+  assert.equal(ids.has("hy3-preview"), false, "retired hy3-preview must stay hidden");
   assert.equal(
     parseEffortLevel("hy3-preview"),
     null,
@@ -98,16 +95,11 @@ test("#8353 catalog: aliases are NOT synthesized on opencode-zen", () => {
   for (const { alias } of ISSUE_ALIASES) {
     assert.equal(zenIds.has(alias), false, `opencode-zen must not expose ${alias}`);
   }
-  for (const base of NEW_BASES) {
-    assert.equal(zenIds.has(base), false, `opencode-zen must not expose base ${base}`);
-  }
 });
 
 test("#8353 catalog: qwen effort aliases keep Claude targetFormat", () => {
   const models = REGISTRY["opencode-go"]?.models ?? [];
   for (const id of [
-    "qwen3.6-plus-high",
-    "qwen3.6-plus-max",
     "qwen3.7-max-high",
     "qwen3.7-max-max",
     "qwen3.7-plus-high",
@@ -157,7 +149,7 @@ const CREDENTIALS = { apiKey: "k" } as Record<string, unknown>;
 const TRANSFORM_SAMPLES = [
   { alias: "deepseek-v4-flash-high", base: "deepseek-v4-flash", effort: "high" },
   { alias: "grok-4.5-medium", base: "grok-4.5", effort: "medium" },
-  { alias: "hy3-none", base: "hy3", effort: "none" },
+  { alias: "hy3-high", base: "hy3", effort: "high" },
   { alias: "kimi-k3-max", base: "kimi-k3", effort: "max" },
   { alias: "qwen3.7-plus-max", base: "qwen3.7-plus", effort: "max" },
   { alias: "qwen3.7-max-high", base: "qwen3.7-max", effort: "high" },

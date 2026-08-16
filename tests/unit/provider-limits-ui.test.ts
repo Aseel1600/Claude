@@ -171,6 +171,24 @@ test("percentage-only quotas hide redundant usage counts while counted quotas ke
   assert.equal(providerLimitUtils.shouldShowQuotaUsageCount(counted[0]), true);
 });
 
+test("OpenCode Go quotas preserve their USD unit instead of being labeled as requests", () => {
+  const parsed = providerLimitUtils.parseQuotaData("opencode-go", {
+    quotas: {
+      session: {
+        used: 3,
+        total: 12,
+        remaining: 9,
+        remainingPercentage: 75,
+        currency: "USD",
+      },
+    },
+  });
+
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].currency, "USD");
+  assert.equal(providerLimitUtils.shouldShowQuotaUsageCount(parsed[0]), true);
+});
+
 test("Firecrawl over-plan quota displays remaining credits against the plan baseline", () => {
   const parsed = providerLimitUtils.parseQuotaData("firecrawl", {
     quotas: {

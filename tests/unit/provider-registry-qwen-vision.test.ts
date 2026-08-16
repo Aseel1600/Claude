@@ -1,8 +1,8 @@
 /**
  * Issue #2822 — qwen3.7-max (opencode-go) retorna 500 em inputs com imagem.
  *
- * qwen3.7-max, qwen3.6-plus e qwen3.5-plus nos providers opencode-go e
- * opencode-zen não possuíam supportsVision: false. Isso fazia com que
+ * Qwen models on opencode-go and opencode-zen did not declare
+ * supportsVision: false. Isso fazia com que
  * blocos de imagem chegassem ao upstream (que não suporta visão),
  * gerando 500s que esgotavam todo o orçamento de retentativas.
  *
@@ -48,18 +48,18 @@ test("#2822 opencode-go/qwen3.7-max deve ter supportsVision !== true", () => {
   );
 });
 
-test("#2822 opencode-go/qwen3.6-plus deve ter supportsVision !== true", () => {
-  const model = getModel("opencode-go", "qwen3.6-plus");
-  assert.ok(model, "qwen3.6-plus deve estar registrado em opencode-go");
+test("#2822 opencode-go/qwen3.7-plus deve ter supportsVision !== true", () => {
+  const model = getModel("opencode-go", "qwen3.7-plus");
+  assert.ok(model, "qwen3.7-plus deve estar registrado em opencode-go");
   assert.notEqual(
     model.supportsVision,
     true,
-    "opencode-go/qwen3.6-plus não suporta visão — supportsVision deve ser false ou ausente"
+    "opencode-go/qwen3.7-plus não suporta visão — supportsVision deve ser false ou ausente"
   );
   assert.strictEqual(
     model.supportsVision,
     false,
-    "opencode-go/qwen3.6-plus deve ter supportsVision: false explícito para bloquear seleção em combo com imagens"
+    "opencode-go/qwen3.7-plus deve ter supportsVision: false explícito para bloquear seleção em combo com imagens"
   );
 });
 
@@ -77,18 +77,18 @@ test("#6998 opencode/minimax-m3-free não deve mais estar registrado (deslistado
   );
 });
 
-test("#2822 opencode-go/qwen3.5-plus deve ter supportsVision !== true", () => {
-  const model = getModel("opencode-go", "qwen3.5-plus");
-  assert.ok(model, "qwen3.5-plus deve estar registrado em opencode-go");
+test("#2822 opencode-go/qwen3.8-max deve ter supportsVision !== true", () => {
+  const model = getModel("opencode-go", "qwen3.8-max");
+  assert.ok(model, "qwen3.8-max deve estar registrado em opencode-go");
   assert.notEqual(
     model.supportsVision,
     true,
-    "opencode-go/qwen3.5-plus não suporta visão — supportsVision deve ser false ou ausente"
+    "opencode-go/qwen3.8-max não suporta visão — supportsVision deve ser false ou ausente"
   );
   assert.strictEqual(
     model.supportsVision,
     false,
-    "opencode-go/qwen3.5-plus deve ter supportsVision: false explícito para bloquear seleção em combo com imagens"
+    "opencode-go/qwen3.8-max deve ter supportsVision: false explícito para bloquear seleção em combo com imagens"
   );
 });
 

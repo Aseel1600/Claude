@@ -7,6 +7,8 @@
  * @module lib/usage/costCalculator
  */
 
+import { calculateOpenCodeGoCost } from "@omniroute/open-sse/services/openCodeGoPricing.ts";
+
 import { isFlatRateProvider } from "./flatRateProviders";
 
 /**
@@ -28,6 +30,7 @@ export type CostCalculationOptions = {
   provider?: string | null;
   model?: string | null;
   serviceTier?: string | null;
+  timestamp?: string | number | Date;
   /**
    * When true, return $0 for flat-rate (subscription / cookie-web) providers
    * instead of the per-token estimate (#5552). Opt-in so only analytics/display
@@ -185,6 +188,21 @@ export async function calculateCost(
   // cost is present (currently xAI's `cost_in_usd_ticks` — see extractExactCostUsd).
   const exactCostUsd = extractExactCostUsd(tokens);
   if (exactCostUsd !== null) return exactCostUsd;
+
+  if (normalizeServiceTier(provider) === "opencode-go") {
+    return (
+      calculateOpenCodeGoCost({
+        model,
+        inputTokens: tokens.input ?? tokens.prompt_tokens ?? tokens.input_tokens ?? 0,
+        outputTokens: tokens.output ?? tokens.completion_tokens ?? tokens.output_tokens ?? 0,
+        cacheReadTokens:
+          tokens.cacheRead ?? tokens.cached_tokens ?? tokens.cache_read_input_tokens ?? 0,
+        cacheCreationTokens:
+          tokens.cacheCreation ?? tokens.cache_creation_input_tokens ?? 0,
+        timestamp: options.timestamp,
+      })?.costUsd ?? 0
+    );
+  }
 
   try {
     const { getPricingForModel } = await import("@/lib/localDb");

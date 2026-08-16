@@ -573,7 +573,7 @@ async function getUsageRowCostUsd(
       cacheCreation: toNumber(row.cacheCreationTokens),
       reasoning: toNumber(row.reasoningTokens),
     },
-    { serviceTier: row.serviceTier }
+    { serviceTier: row.serviceTier, timestamp: row.timestamp }
   );
 }
 

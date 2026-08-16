@@ -70,6 +70,7 @@ function normalizeQuotaEntry(name: string, quota: any = {}, extras: any = {}) {
       : {}),
     ...(quota?.overPlan !== undefined ? { overPlan: quota.overPlan === true } : {}),
     ...(quota?.displayName !== undefined ? { displayName: String(quota.displayName) } : {}),
+    ...(quota?.currency !== undefined ? { currency: String(quota.currency) } : {}),
     ...(quota?.isPercentageOnly !== undefined
       ? { isPercentageOnly: quota.isPercentageOnly === true }
       : {}),

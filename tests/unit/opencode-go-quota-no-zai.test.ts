@@ -16,7 +16,11 @@ test("getOpenCodeGoUsage does not send the user's OpenCode Go API key to api.z.a
   }) as typeof fetch;
 
   try {
-    const result = await getOpenCodeGoUsage("sk-fake-opencode-go-key", undefined);
+    const result = await getOpenCodeGoUsage(
+      "opencode-go-no-zai",
+      "sk-fake-opencode-go-key",
+      undefined
+    );
     assert.notStrictEqual(calledHost, "api.z.ai");
     assert.strictEqual(calledHost, null);
     assert.ok(

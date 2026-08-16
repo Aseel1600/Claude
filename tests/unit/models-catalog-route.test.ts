@@ -874,7 +874,6 @@ test("v1 models catalog retains registered effort aliases beside synced OpenCode
 
   assert.equal(response.status, 200);
   assert.ok(ids.includes("opencode-go/hy3"));
-  assert.ok(ids.includes("opencode-go/hy3-none"));
   assert.ok(ids.includes("opencode-go/hy3-low"));
   assert.ok(ids.includes("opencode-go/hy3-high"));
 });
