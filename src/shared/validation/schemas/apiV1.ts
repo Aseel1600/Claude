@@ -20,6 +20,7 @@ import {
 } from "@/shared/reasoning/effortStandardization";
 
 import { modelIdSchema, nonEmptyStringSchema } from "./misc.ts";
+import { normalizeJinaNativeEmbeddingInput } from "../jinaNativeEmbeddingInput.ts";
 
 export const embeddingTokenArraySchema = z
   .array(z.number().int().min(0))
@@ -127,13 +128,16 @@ const embeddingMultimodalInputSchema = z
     }
   });
 
-export const embeddingInputSchema = z.union([
-  nonEmptyStringSchema,
-  z.array(nonEmptyStringSchema).min(1, "input must contain at least one item"),
-  embeddingTokenArraySchema,
-  z.array(embeddingTokenArraySchema).min(1, "input must contain at least one item"),
-  embeddingMultimodalInputSchema,
-]);
+export const embeddingInputSchema = z.preprocess(
+  normalizeJinaNativeEmbeddingInput,
+  z.union([
+    nonEmptyStringSchema,
+    z.array(nonEmptyStringSchema).min(1, "input must contain at least one item"),
+    embeddingTokenArraySchema,
+    z.array(embeddingTokenArraySchema).min(1, "input must contain at least one item"),
+    embeddingMultimodalInputSchema,
+  ])
+);
 
 export type EmbeddingMultimodalItem = z.infer<typeof embeddingMultimodalItemSchema>;
 

@@ -1,0 +1,1 @@
+- **fix(api):** accept Jina/Memorix native multimodal embedding items (`{image: "data:..."}`, `{text}`, `{pdf}`) on `POST /v1/embeddings` and normalize them to the canonical `{type,source}` contract — thanks @RaviTharuma
