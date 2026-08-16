@@ -199,6 +199,8 @@ export function getEffectiveMode(
 /** Adaptive (Sub-project C) inputs + telemetry sink for selectCompressionPlan. */
 export interface AdaptiveSelectOptions {
   modelContextLimit?: number | null;
+  /** Known input ceiling of the target, when narrower than the total window (#6191). */
+  modelMaxInputTokens?: number | null;
   requestMaxTokens?: number | null;
   onAdaptive?: (telemetry: AdaptiveTelemetry) => void;
 }
@@ -222,6 +224,7 @@ export function selectCompressionPlan(
       basePlan: plan,
       estimatedTokens,
       modelContextLimit: adaptiveOptions?.modelContextLimit ?? null,
+      modelMaxInputTokens: adaptiveOptions?.modelMaxInputTokens ?? null,
       requestMaxTokens: adaptiveOptions?.requestMaxTokens ?? null,
       config: config.contextBudget,
     });

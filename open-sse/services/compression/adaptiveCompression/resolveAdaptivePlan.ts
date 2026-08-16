@@ -7,6 +7,18 @@ export interface ResolveAdaptiveInput {
   basePlan: DerivedPlan;
   estimatedTokens: number;
   modelContextLimit: number | null;
+  /**
+   * The target's KNOWN input ceiling, when the catalog has one narrower than the
+   * total window. Optional: absent means "no narrower figure known", not zero.
+   *
+   * `reserve-output` approximates the input ceiling by subtracting a CONFIGURED
+   * reserve from the total window. That is the right estimate when nothing
+   * better exists, but when the catalog states the real ceiling the estimate can
+   * land above it — a 400k window minus a 4k reserve targets 396k on a model
+   * whose actual input limit is 272k (#6191), and compression then "succeeds"
+   * into an upstream rejection.
+   */
+  modelMaxInputTokens?: number | null;
   requestMaxTokens: number | null;
   config: ContextBudgetConfig;
   /**
@@ -26,6 +38,28 @@ const defaultEstimate = (prior: number, stage: LadderStage): number =>
   Math.round(prior * expectedReductionFactor(stage.engine));
 
 /**
+ * Clamp a computed budget to the target's known input ceiling.
+ *
+ * A CAP, never a second subtraction: `maxInputTokens` already excludes whatever
+ * the provider reserves for output, so re-applying the output reserve on top of
+ * it would double-count the reserve and shrink the usable prompt — the same
+ * mistake #7039 fixed in the combo context gate. Lowering the target is the only
+ * safe direction, so a ceiling WIDER than the computed budget changes nothing.
+ */
+export function capToInputCeiling(
+  target: number,
+  modelMaxInputTokens: number | null | undefined
+): number {
+  // Number.isFinite, not a bare `typeof === "number"`: NaN passes the type check
+  // and `NaN <= 0` is false, so it would reach Math.min and poison the budget
+  // with NaN — every downstream comparison then reads as "does not fit".
+  if (!Number.isFinite(modelMaxInputTokens as number) || (modelMaxInputTokens as number) <= 0) {
+    return target;
+  }
+  return Math.min(target, Math.floor(modelMaxInputTokens as number));
+}
+
+/**
  * Pure adaptive resolver (design §4.2). Floors/escalates a base plan so the (estimated)
  * compressed prompt fits the context budget. Never drops content: if the ladder is
  * exhausted while still over target, returns the best-effort plan with fit=false.
@@ -42,7 +76,10 @@ export function resolveAdaptivePlan(input: ResolveAdaptiveInput): ResolveAdaptiv
     return { plan: basePlan, telemetry: null }; // unknown limit → skip (D-C / §6)
   }
 
-  const target = computeTarget(config.policy, modelContextLimit, requestMaxTokens, config);
+  const target = capToInputCeiling(
+    computeTarget(config.policy, modelContextLimit, requestMaxTokens, config),
+    input.modelMaxInputTokens
+  );
   const headroomBefore = target - estimatedTokens;
 
   // replace-autotrigger only acts on a bare Default/off base plan; an explicit choice wins.
@@ -50,7 +87,14 @@ export function resolveAdaptivePlan(input: ResolveAdaptiveInput): ResolveAdaptiv
   if (config.mode === "replace-autotrigger" && baseRank > aggressivenessOf("off")) {
     return {
       plan: basePlan,
-      telemetry: { policy: config.policy, target, headroomBefore, stagesApplied: [], headroomAfter: headroomBefore, fit: headroomBefore >= 0 },
+      telemetry: {
+        policy: config.policy,
+        target,
+        headroomBefore,
+        stagesApplied: [],
+        headroomAfter: headroomBefore,
+        fit: headroomBefore >= 0,
+      },
     };
   }
 
@@ -58,12 +102,22 @@ export function resolveAdaptivePlan(input: ResolveAdaptiveInput): ResolveAdaptiv
   if (headroomBefore >= 0) {
     return {
       plan: basePlan,
-      telemetry: { policy: config.policy, target, headroomBefore, stagesApplied: [], headroomAfter: headroomBefore, fit: true },
+      telemetry: {
+        policy: config.policy,
+        target,
+        headroomBefore,
+        stagesApplied: [],
+        headroomAfter: headroomBefore,
+        fit: true,
+      },
     };
   }
 
   // Escalation: start just ABOVE the base plan's aggressiveness (floor escalates beyond it).
-  const ladder = config.ladderOverride && config.ladderOverride.length > 0 ? config.ladderOverride : DEFAULT_LADDER;
+  const ladder =
+    config.ladderOverride && config.ladderOverride.length > 0
+      ? config.ladderOverride
+      : DEFAULT_LADDER;
   const startTier = config.mode === "floor" ? baseRank : aggressivenessOf("off");
   const stages = ladder.filter((s) => aggressivenessOf(s.engine) > startTier);
 
@@ -97,8 +151,7 @@ export function resolveAdaptivePlan(input: ResolveAdaptiveInput): ResolveAdaptiv
  */
 function planFromStages(basePlan: DerivedPlan, applied: LadderStage[]): DerivedPlan {
   if (applied.length === 0) return basePlan;
-  const basePipeline =
-    basePlan.mode === "stacked" ? basePlan.stackedPipeline : [];
+  const basePipeline = basePlan.mode === "stacked" ? basePlan.stackedPipeline : [];
   const stackedPipeline = [...basePipeline, ...applied];
   return { mode: "stacked", stackedPipeline };
 }

@@ -320,6 +320,7 @@ import {
   estimateTokens,
   getTokenLimit,
   getComboTargetTokenLimit,
+  resolveContextCapacity,
   resolveComboContextLimit,
 } from "../services/contextManager.ts";
 import { resolveBackgroundTaskRedirect } from "./chatCore/backgroundRedirect.ts";
@@ -1401,6 +1402,14 @@ export async function handleChatCore({
       // the budget target. getTokenLimit is already imported; provider/effectiveModel resolved above.
       const adaptiveModelContextLimit =
         provider && effectiveModel ? getTokenLimit(provider, effectiveModel) : null;
+      // #6191: the total window is not the prompt budget when the provider
+      // reserves part of it for output. When the catalog states a narrower input
+      // ceiling, the adaptive budget is capped to it (never re-subtracting the
+      // output reserve — see capToInputCeiling).
+      const adaptiveModelMaxInputTokens =
+        provider && effectiveModel
+          ? resolveContextCapacity(provider, effectiveModel).maxInput
+          : null;
       const requestMaxTokens =
         typeof (compressionInputBody as Record<string, unknown>)?.max_tokens === "number"
           ? ((compressionInputBody as Record<string, unknown>).max_tokens as number)
@@ -1418,6 +1427,7 @@ export async function handleChatCore({
         compressionHeader,
         {
           modelContextLimit: adaptiveModelContextLimit,
+          modelMaxInputTokens: adaptiveModelMaxInputTokens,
           requestMaxTokens: requestMaxTokens,
           onAdaptive: (t) => {
             adaptiveTelemetry = t;
