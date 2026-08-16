@@ -2128,8 +2128,8 @@
       }
     },
     "url": {
-      "nonStream": "https://www.codebuff.com/api/v1/chat/completions",
-      "stream": "https://www.codebuff.com/api/v1/chat/completions"
+      "nonStream": "https://www.codebuff.com/api/v1",
+      "stream": "https://www.codebuff.com/api/v1"
     }
   },
   "freemodel-dev": {
