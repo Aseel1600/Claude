@@ -117,3 +117,37 @@ test("single-target combo reflects unblocked Antigravity Gemini reasoning", asyn
   assert.equal(capabilities.supportsThinking, true);
   assert.equal(Object.hasOwn(capabilities, "effort_tiers"), true);
 });
+
+test("mixed DeepSeek combo advertises the efforts accepted by every target", async () => {
+  await providersDb.createProviderConnection({
+    provider: "deepseek",
+    authType: "apikey",
+    name: "deepseek-v4-flash-combo",
+    apiKey: "deepseek-test-key",
+    isActive: true,
+    testStatus: "active",
+  });
+  await providersDb.createProviderConnection({
+    provider: "opencode-go",
+    authType: "apikey",
+    name: "opencode-go-deepseek-v4-flash-combo",
+    apiKey: "opencode-go-test-key",
+    isActive: true,
+    testStatus: "active",
+  });
+  await combosDb.createCombo({
+    name: "deepseek-v4-flash-combo",
+    strategy: "auto",
+    models: ["deepseek/deepseek-v4-flash", "opencode-go/deepseek-v4-flash"],
+  });
+
+  const response = await catalog.getUnifiedModelsResponse(
+    new Request("http://localhost/api/v1/models")
+  );
+  const body = (await response.json()) as { data: Array<Record<string, unknown>> };
+  const combo = body.data.find((item) => item.id === "deepseek-v4-flash-combo");
+
+  assert.equal(response.status, 200);
+  assert.ok(combo);
+  assert.deepEqual((combo.capabilities as Record<string, unknown>).effort_tiers, ["high", "max"]);
+});

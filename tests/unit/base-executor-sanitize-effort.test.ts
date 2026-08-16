@@ -676,11 +676,9 @@ test("sanitizeReasoningEffortForProvider: NVIDIA GLM-5.2 mapping is narrowly sco
 });
 
 // ── Native DeepSeek (api.deepseek.com) ───────────────────────────────────────
-// DeepSeek V4 thinking mode accepts reasoning_effort ONLY as {high, max}. The
-// internal OmniRoute scale (low|medium|high|xhigh, xhigh = top) must be mapped
-// onto DeepSeek's native vocabulary so the client's requested effort is honored
-// instead of silently dropped to the default. This is the INVERSE of the
-// OpenRouter-DeepSeek path, whose normalized API expects xhigh, not max.
+// DeepSeek V4 thinking mode accepts reasoning_effort as {low, high, max}.
+// The internal OmniRoute scale maps medium → high and xhigh → max so the client's
+// requested effort is honored instead of silently dropped to the default.
 
 test("sanitizeReasoningEffortForProvider: native deepseek maps xhigh → max", () => {
   const log = makeLog();
@@ -716,19 +714,14 @@ test("sanitizeReasoningEffortForProvider: native deepseek preserves max", () => 
   assert.equal(log.messages.length, 0);
 });
 
-test("sanitizeReasoningEffortForProvider: native deepseek clamps low → high", () => {
+test("sanitizeReasoningEffortForProvider: native deepseek preserves low", () => {
   const body = {
     model: "deepseek-v4-pro",
     reasoning_effort: "low",
     messages: [{ role: "user", content: "hi" }],
   };
   const result = sanitizeReasoningEffortForProvider(body, "deepseek", "deepseek-v4-pro", null);
-  assert.notEqual(result, body, "must return a new object when mutating");
-  assert.equal(
-    (result as Record<string, unknown>).reasoning_effort,
-    "high",
-    "below the {high, max} floor → high"
-  );
+  assert.equal(result, body, "low is already valid — passes through unchanged");
 });
 
 test("sanitizeReasoningEffortForProvider: native deepseek clamps medium → high", () => {
