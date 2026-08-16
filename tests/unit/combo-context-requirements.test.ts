@@ -60,6 +60,7 @@ describe("Combo Context Requirements", () => {
 
       const valid = [
         { contextRequirements: { contextFilterMode: "strict" } },
+        { contextRequirements: { contextFilterMode: "strict-hard" } },
         { contextRequirements: { contextFilterMode: "lenient" } },
         { contextRequirements: {} },
       ];

@@ -22,9 +22,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../../src/lib/db/core.ts");
 const { getModelContextLimit } = await import("../../../src/lib/modelCapabilities.ts");
-const { applyContextRequirements } = await import(
-  "../../../open-sse/services/combo/contextRequirements.ts"
-);
+const { applyContextRequirements } =
+  await import("../../../open-sse/services/combo/contextRequirements.ts");
 
 test.after(() => {
   core.resetDbInstance();
@@ -170,4 +169,91 @@ test("#8786: lenient mode still includes unknowns (unchanged)", () => {
     noopLog
   );
   assert.equal(result.length, 2);
+});
+
+// --- contextFilterMode: "strict-hard" -------------------------------------
+// Same exclusion rule as "strict", minus the #8786 rescue above. Exists so a
+// caller pinning a session to a context tier gets "never below N" as a floor
+// rather than a preference. Each case below is the strict counterpart asserted
+// in the opposite direction, so the two modes can never silently converge.
+
+test("strict-hard: ALL-unknown targets empty the pool instead of failing open", () => {
+  const warnings: string[] = [];
+  const log = {
+    ...noopLog,
+    warn(_tag: string, msg: string) {
+      warnings.push(msg);
+    },
+  };
+
+  const result = applyContextRequirements(
+    UNKNOWN_TARGETS,
+    {
+      minContextWindow: 372000,
+      preferLargeContext: true,
+      contextFilterMode: "strict-hard",
+    },
+    log
+  );
+
+  assert.equal(result.length, 0, "strict-hard must NOT resurrect unknown-context targets");
+  assert.ok(
+    !warnings.some((w) => /failing open/i.test(w)),
+    "strict-hard must not log a fail-open warning — it never fails open"
+  );
+});
+
+test("strict-hard: known-below + unknowns still empties the pool", () => {
+  // The exact input where strict rescues the unknown target; strict-hard must not.
+  const small = target("openai", "gpt-4o"); // 128k < 372k
+  const unknown = target("custom-unknown-8786", "maybe-large-model");
+
+  const result = applyContextRequirements(
+    [small, unknown],
+    {
+      minContextWindow: 372000,
+      contextFilterMode: "strict-hard",
+    },
+    noopLog
+  );
+
+  assert.equal(result.length, 0);
+});
+
+test("strict-hard: keeps known-good targets exactly like strict", () => {
+  // Only the rescue differs — the admission rule itself must stay identical, or
+  // strict-hard becomes a second filter semantics instead of a stricter one.
+  const knownOk = target("openai", "gpt-4o");
+  const unknown = target("custom-unknown-8786", "ghost-model");
+
+  const strict = applyContextRequirements(
+    [knownOk, unknown],
+    { minContextWindow: 32000, contextFilterMode: "strict" },
+    noopLog
+  );
+  const strictHard = applyContextRequirements(
+    [knownOk, unknown],
+    { minContextWindow: 32000, contextFilterMode: "strict-hard" },
+    noopLog
+  );
+
+  assert.deepEqual(
+    strictHard.map((t) => t.modelStr),
+    strict.map((t) => t.modelStr),
+    "with a known-good target present, strict and strict-hard must agree"
+  );
+  assert.deepEqual(
+    strictHard.map((t) => t.modelStr),
+    [knownOk.modelStr]
+  );
+});
+
+test("strict-hard: excludes unknowns under maxContextWindow too", () => {
+  const unknown = target("custom-unknown-8786", "ghost-model");
+  const result = applyContextRequirements(
+    [unknown],
+    { maxContextWindow: 200000, contextFilterMode: "strict-hard" },
+    noopLog
+  );
+  assert.equal(result.length, 0, "unknown capacity is not admissible under a max bound either");
 });

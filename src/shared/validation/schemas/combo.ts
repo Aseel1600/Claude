@@ -240,12 +240,15 @@ export const comboRuntimeConfigSchema = z
     // Context window requirements for combo target filtering and sorting.
     // minContextWindow: filters out models with context windows below this threshold.
     // preferLargeContext: sorts remaining targets by context size (descending).
-    // contextFilterMode: "strict" excludes unknown-context models, "lenient" includes them.
+    // contextFilterMode: how unknown-context models are treated.
+    //   "lenient"     includes them.
+    //   "strict"      excludes them, but fails open to them rather than emptying the pool (#8786).
+    //   "strict-hard" excludes them with no fail-open — the pool is allowed to empty.
     contextRequirements: z
       .object({
         minContextWindow: z.coerce.number().int().min(0).max(10_000_000).optional(),
         preferLargeContext: z.boolean().optional(),
-        contextFilterMode: z.enum(["strict", "lenient"]).optional(),
+        contextFilterMode: z.enum(["strict", "strict-hard", "lenient"]).optional(),
       })
       .strict()
       .optional(),

@@ -51,7 +51,7 @@ export function buildRecoveryHint(
       return {
         action: "switch-combo",
         next_step:
-          "Strict context requirements removed every target (known context windows are below minContextWindow). Lower minContextWindow, switch contextFilterMode to lenient, or add larger-context models.",
+          "Strict context requirements removed every target (known context windows are below minContextWindow). Lower minContextWindow, relax contextFilterMode (strict-hard -> strict -> lenient), or add larger-context models.",
       };
     default:
       return {

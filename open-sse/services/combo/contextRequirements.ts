@@ -10,7 +10,7 @@ import type { ComboLogger, ResolvedComboTarget } from "./types.ts";
 export interface ContextRequirements {
   minContextWindow?: number;
   preferLargeContext?: boolean;
-  contextFilterMode?: "strict" | "lenient";
+  contextFilterMode?: "strict" | "strict-hard" | "lenient";
 }
 
 /**
@@ -29,11 +29,22 @@ function getTargetContextWindow(target: ResolvedComboTarget): number | null {
  * - If minContextWindow is set, filters out models below that threshold
  * - contextFilterMode determines handling of unknown context limits:
  *   - "strict": excludes models with unknown context limits
+ *   - "strict-hard": same exclusion, but never fails open (see below)
  *   - "lenient": includes models with unknown context limits
  * - #8786 fail-open: when "strict" would empty the pool and at least one
  *   unknown-context target exists, restore those unknowns instead of returning
  *   [] (which becomes a false 404 "no executable targets"). Known-too-small
  *   targets are never resurrected.
+ *
+ * Why "strict-hard" exists: the #8786 fail-open makes "strict" a best-effort
+ * preference, not a floor — a target whose window the catalog simply does not
+ * know is admitted precisely when the pool would otherwise be empty. That is the
+ * right default (a missing catalog entry should not manufacture a 404), but it
+ * is the wrong contract for a caller that pins a session to a context tier and
+ * needs "never below N" to mean it. "strict-hard" keeps the same exclusion rule
+ * and drops only the rescue, so an exhausted pool surfaces as the dedicated
+ * `context_requirements_exhausted` failure instead of silently routing to a
+ * target of unknown capacity.
  *
  * Sorting logic:
  * - If preferLargeContext is true, sorts remaining targets by context size (descending)
@@ -83,6 +94,9 @@ export function applyContextRequirements(
     // pool solely because the capability catalog lacks context metadata. When
     // no known-good target survives, fail open to the unknown-context set
     // (same spirit as the request-compat context fail-open path).
+    //
+    // Deliberately matches "strict" exactly: "strict-hard" opts out of this
+    // rescue, which is the entire difference between the two modes.
     if (filtered.length === 0 && beforeFilterCount > 0 && contextFilterMode === "strict") {
       const unknowns = classified
         .filter(({ contextWindow }) => contextWindow === null)

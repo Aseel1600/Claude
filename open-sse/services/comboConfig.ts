@@ -172,7 +172,7 @@ const DEFAULT_COMBO_CONFIG = {
     | {
         minContextWindow?: number;
         preferLargeContext?: boolean;
-        contextFilterMode?: "strict" | "lenient";
+        contextFilterMode?: "strict" | "strict-hard" | "lenient";
       }
     | undefined,
 };
