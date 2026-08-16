@@ -9,28 +9,26 @@
  *   - Weekly:            $30 of usage
  *   - Monthly:           $60 of usage
  *
- * Upstream endpoint (defensive — no public API exists yet):
- *   GET https://opencode.ai/zen/go/v1/quota
+ * Upstream endpoint (live as of anomalyco/opencode#16513, merged 2026-08-11):
+ *   GET https://opencode.ai/zen/go/v1/usage
  *   Authorization: Bearer <apiKey>
  *
- * Expected response shape:
+ * Expected response shape (Subscription.analyze* helpers, packages/console/core):
  *   {
- *     quota: {
- *       window_5h:      { used: number, limit: number, reset_at: number | null },
- *       window_weekly:  { used: number, limit: number, reset_at: number | null },
- *       window_monthly: { used: number, limit: number, reset_at: number | null }
- *     }
+ *     useBalance: boolean,
+ *     rollingUsage: { status: "ok" | "rate-limited", resetInSec: number, usagePercent: number },
+ *     weeklyUsage:  { status: "ok" | "rate-limited", resetInSec: number, usagePercent: number },
+ *     monthlyUsage: { status: "ok" | "rate-limited", resetInSec: number, usagePercent: number }
  *   }
+ *   usagePercent is 0-100 of the micro-cents limit; resetInSec is seconds until
+ *   the window resets; status "rate-limited" means the window is exhausted.
  *
- * NOTE: As of 2026, no public quota API exists for OpenCode Go / OpenCode Zen
- * (tracked upstream in anomalyco/opencode#16017, #18648, #31084). The default
- * endpoint currently returns HTTP 404. This fetcher is implemented defensively
- * so that the dashboard shows "No quota data" gracefully rather than crashing,
- * and so that when an endpoint is finally published, only the URL constant
- * needs to change.
+ * If the upstream server is still on an older build (endpoint not deployed yet)
+ * it may return HTTP 404 — this fetcher is implemented defensively so that the
+ * dashboard shows "No quota data" gracefully rather than crashing.
  *
  * On a 404 response we log ONE console.warn (latched per process — not per
- * request) pointing at the upstream tracking issues, then cache the
+ * request) pointing at the upstream deployment status, then cache the
  * "endpoint unavailable" result for 5 minutes to avoid hammering. On any other
  * non-200 / parse failure we return null (fail-open) silently. The first
  * call from each server boot is what the operator is most likely to see, so
@@ -38,9 +36,7 @@
  *
  * Cache: in-memory TTL (60s for success, 5 min for 404).
  *
- * Override: set OMNIROUTE_OPENCODE_QUOTA_URL to a working endpoint. If
- * OpenCode ships a public endpoint (likely in the form of the merged PR
- * #16513), the maintainer can update the default.
+ * Override: set OMNIROUTE_OPENCODE_QUOTA_URL to point at a different endpoint.
  *
  * Registration: call registerOpencodeQuotaFetcher() once at server startup.
  */
@@ -49,11 +45,11 @@ import { registerQuotaFetcher, registerQuotaWindows, type QuotaInfo } from "./qu
 import { registerMonitorFetcher } from "./quotaMonitor.ts";
 import { throttleQuotaFetch } from "./quotaFetchThrottle.ts";
 
-// OpenCode quota endpoint — same key works across opencode, opencode-go, opencode-zen
-// Default points at /zen/go/v1/quota which returns 404 today (no public quota API yet,
-// tracked in anomalyco/opencode#16017).  Set OMNIROUTE_OPENCODE_QUOTA_URL to override.
+// OpenCode Go usage endpoint — same key works across opencode, opencode-go, opencode-zen.
+// Live upstream since anomalyco/opencode#16513 (merged 2026-08-11): GET /zen/go/v1/usage.
+// Set OMNIROUTE_OPENCODE_QUOTA_URL to override.
 const OPENCODE_QUOTA_URL =
-  process.env.OMNIROUTE_OPENCODE_QUOTA_URL ?? "https://opencode.ai/zen/go/v1/quota";
+  process.env.OMNIROUTE_OPENCODE_QUOTA_URL ?? "https://opencode.ai/zen/go/v1/usage";
 
 // Cache TTL — matches Codex / DeepSeek / Bailian pattern (60s)
 const CACHE_TTL_MS = 60_000;
@@ -159,11 +155,81 @@ function parseWindowPercent(window: Record<string, unknown>): number {
 
 // ─── Response Parser ──────────────────────────────────────────────────────────
 
+/**
+ * Parse a single OpenCode usage window: `{ status, resetInSec, usagePercent }`
+ * (usagePercent 0-100 of the micro-cents limit, resetInSec = seconds until
+ * reset). Returns null when the window is structurally absent.
+ */
+function parseUsageWindow(
+  window: unknown
+): { percentUsed: number; resetAt: string | null } | null {
+  const w = toRecord(window);
+  const usagePercent = toNumber(w.usagePercent, NaN);
+  if (!Number.isFinite(usagePercent)) return null;
+  const percentUsed = Math.max(0, Math.min(1, usagePercent / 100));
+  const resetInSec = toNumber(w.resetInSec, 0);
+  const resetAt = resetInSec > 0 ? new Date(Date.now() + resetInSec * 1000).toISOString() : null;
+  return { percentUsed, resetAt };
+}
+
+function buildTripleWindowQuota(
+  window5h: { percentUsed: number; resetAt: string | null } | null,
+  windowWeekly: { percentUsed: number; resetAt: string | null } | null,
+  windowMonthly: { percentUsed: number; resetAt: string | null } | null,
+  extraLimitReached: boolean
+): OpencodeTripleWindowQuota | null {
+  const has5h = window5h !== null;
+  const hasWeekly = windowWeekly !== null;
+  const hasMonthly = windowMonthly !== null;
+  if (!has5h && !hasWeekly && !hasMonthly) return null;
+
+  const percent5h = window5h?.percentUsed ?? 0;
+  const percentWeekly = windowWeekly?.percentUsed ?? 0;
+  const percentMonthly = windowMonthly?.percentUsed ?? 0;
+  const worstPercent = Math.max(percent5h, percentWeekly, percentMonthly);
+
+  // Dominant reset: pick the window with the worst usage
+  let dominantResetAt: string | null = null;
+  if (worstPercent === percent5h) {
+    dominantResetAt = window5h?.resetAt ?? windowWeekly?.resetAt ?? windowMonthly?.resetAt ?? null;
+  } else if (worstPercent === percentWeekly) {
+    dominantResetAt = windowWeekly?.resetAt ?? window5h?.resetAt ?? windowMonthly?.resetAt ?? null;
+  } else {
+    dominantResetAt = windowMonthly?.resetAt ?? windowWeekly?.resetAt ?? window5h?.resetAt ?? null;
+  }
+
+  const windows: Record<string, { percentUsed: number; resetAt: string | null }> = {};
+  if (has5h) windows[OPENCODE_WINDOW_5H] = window5h!;
+  if (hasWeekly) windows[OPENCODE_WINDOW_WEEKLY] = windowWeekly!;
+  if (hasMonthly) windows[OPENCODE_WINDOW_MONTHLY] = windowMonthly!;
+
+  return {
+    used: worstPercent * 100,
+    total: 100,
+    percentUsed: worstPercent,
+    resetAt: dominantResetAt,
+    windows,
+    window5h: window5h ?? { percentUsed: 0, resetAt: null },
+    windowWeekly: windowWeekly ?? { percentUsed: 0, resetAt: null },
+    windowMonthly: windowMonthly ?? { percentUsed: 0, resetAt: null },
+    limitReached: extraLimitReached || worstPercent >= 1,
+  };
+}
+
 function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | null {
   const obj = toRecord(data);
-  const quotaObj = toRecord(obj["quota"] ?? obj["data"] ?? obj["usage"]);
 
-  // Look for windows under various possible keys
+  // ── Primary: the live /zen/go/v1/usage shape (anomalyco/opencode#16513) ──
+  const primary = buildTripleWindowQuota(
+    parseUsageWindow(obj.rollingUsage),
+    parseUsageWindow(obj.weeklyUsage),
+    parseUsageWindow(obj.monthlyUsage),
+    false
+  );
+  if (primary) return primary;
+
+  // ── Fallback: legacy guessed `{ quota: { window_5h: { used, limit, reset_at } } }` shape ──
+  const quotaObj = toRecord(obj["quota"] ?? obj["data"] ?? obj["usage"]);
   const w5h = toRecord(
     quotaObj[OPENCODE_WINDOW_5H] ?? quotaObj["5h"] ?? quotaObj["hourly"] ?? quotaObj["short"]
   );
@@ -173,56 +239,19 @@ function parseOpencodeQuotaResponse(data: unknown): OpencodeTripleWindowQuota | 
   const wMonthly = toRecord(
     quotaObj[OPENCODE_WINDOW_MONTHLY] ?? quotaObj["monthly"] ?? quotaObj["month"] ?? quotaObj["mo"]
   );
-
-  const has5h = Object.keys(w5h).length > 0;
-  const hasWeekly = Object.keys(wWeekly).length > 0;
-  const hasMonthly = Object.keys(wMonthly).length > 0;
-
-  // Need at least one window to be meaningful
-  if (!has5h && !hasWeekly && !hasMonthly) return null;
-
-  const percent5h = has5h ? parseWindowPercent(w5h) : 0;
-  const percentWeekly = hasWeekly ? parseWindowPercent(wWeekly) : 0;
-  const percentMonthly = hasMonthly ? parseWindowPercent(wMonthly) : 0;
-
-  const resetAt5h = has5h ? parseWindowResetAt(w5h) : null;
-  const resetAtWeekly = hasWeekly ? parseWindowResetAt(wWeekly) : null;
-  const resetAtMonthly = hasMonthly ? parseWindowResetAt(wMonthly) : null;
-
-  const worstPercent = Math.max(percent5h, percentWeekly, percentMonthly);
-  const limitReached =
-    Boolean(obj["limit_reached"] ?? quotaObj["limit_reached"]) || worstPercent >= 1;
-
-  // Dominant reset: pick the window with the worst usage
-  let dominantResetAt: string | null = null;
-  if (worstPercent === percent5h) {
-    dominantResetAt = resetAt5h ?? resetAtWeekly ?? resetAtMonthly;
-  } else if (worstPercent === percentWeekly) {
-    dominantResetAt = resetAtWeekly ?? resetAt5h ?? resetAtMonthly;
-  } else {
-    dominantResetAt = resetAtMonthly ?? resetAtWeekly ?? resetAt5h;
-  }
-
-  const window5h = { percentUsed: percent5h, resetAt: resetAt5h };
-  const windowWeekly = { percentUsed: percentWeekly, resetAt: resetAtWeekly };
-  const windowMonthly = { percentUsed: percentMonthly, resetAt: resetAtMonthly };
-
-  const windows: Record<string, { percentUsed: number; resetAt: string | null }> = {};
-  if (has5h) windows[OPENCODE_WINDOW_5H] = window5h;
-  if (hasWeekly) windows[OPENCODE_WINDOW_WEEKLY] = windowWeekly;
-  if (hasMonthly) windows[OPENCODE_WINDOW_MONTHLY] = windowMonthly;
-
-  return {
-    used: worstPercent * 100,
-    total: 100,
-    percentUsed: worstPercent,
-    resetAt: dominantResetAt,
-    windows,
-    window5h,
-    windowWeekly,
-    windowMonthly,
-    limitReached,
-  };
+  const legacyLimitReached = Boolean(obj["limit_reached"] ?? quotaObj["limit_reached"]);
+  return buildTripleWindowQuota(
+    Object.keys(w5h).length > 0
+      ? { percentUsed: parseWindowPercent(w5h), resetAt: parseWindowResetAt(w5h) }
+      : null,
+    Object.keys(wWeekly).length > 0
+      ? { percentUsed: parseWindowPercent(wWeekly), resetAt: parseWindowResetAt(wWeekly) }
+      : null,
+    Object.keys(wMonthly).length > 0
+      ? { percentUsed: parseWindowPercent(wMonthly), resetAt: parseWindowResetAt(wMonthly) }
+      : null,
+    legacyLimitReached
+  );
 }
 
 // ─── Core Fetcher ─────────────────────────────────────────────────────────────
@@ -279,16 +308,15 @@ export async function fetchOpencodeQuota(
 
     if (!response.ok) {
       if (response.status === 404) {
-        // Upstream doesn't expose this endpoint. Warn once per URL per process so
-        // operators know the dashboard will be empty for opencode-go connections.
-        // Cache a 404 sentinel for NO_ENDPOINT_TTL_MS to avoid hammering.
-        // See opencode issues #10448, #16017, #18648, #31084.
+        // The endpoint shipped upstream (anomalyco/opencode#16513, merged 2026-08-11);
+        // a 404 now usually means the deployed opencode.ai server hasn't rolled it out
+        // yet. Warn once per URL per process, cache a 404 sentinel for
+        // NO_ENDPOINT_TTL_MS to avoid hammering.
         if (!_warned404Urls.has(OPENCODE_QUOTA_URL)) {
           _warned404Urls.add(OPENCODE_QUOTA_URL);
           console.warn(
-            `[opencodeQuotaFetcher] ${OPENCODE_QUOTA_URL} returned 404 — opencode-go usage API is not yet public. ` +
-              `Set OMNIROUTE_OPENCODE_QUOTA_URL to a working endpoint, or follow ` +
-              `https://github.com/anomalyco/opencode/issues/16017 for upstream status.`
+            `[opencodeQuotaFetcher] ${OPENCODE_QUOTA_URL} returned 404 — the opencode-go usage endpoint shipped in anomalyco/opencode#16513 may not be deployed yet. ` +
+              `Set OMNIROUTE_OPENCODE_QUOTA_URL to a working endpoint if yours differs.`
           );
         }
         quotaCache.set(connectionId, {

@@ -159,6 +159,69 @@ test("fetchOpencodeQuota parses three-window quota response", async () => {
   invalidateOpencodeQuotaCache(connectionId);
 });
 
+test("fetchOpencodeQuota parses the live /zen/go/v1/usage shape (anomalyco/opencode#16513)", async () => {
+  const connectionId = `oc-usage-${Date.now()}`;
+  const resetInSec = 3600; // 1h
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        useBalance: false,
+        rollingUsage: { status: "ok", resetInSec, usagePercent: 33 }, // 33% of $12/5h
+        weeklyUsage: { status: "ok", resetInSec: resetInSec * 24, usagePercent: 50 }, // 50% of $30/wk
+        monthlyUsage: { status: "ok", resetInSec: resetInSec * 72, usagePercent: 20 }, // 20% of $60/mo
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
+
+  assert.ok(quota !== null, "should parse the live usage shape");
+  assert.ok(
+    Math.abs((quota!.windows!["window_5h"].percentUsed as number) - 0.33) < 0.01,
+    "window_5h should be ~0.33"
+  );
+  assert.ok(
+    Math.abs((quota!.windows!["window_weekly"].percentUsed as number) - 0.5) < 0.001,
+    "window_weekly should be 0.5"
+  );
+  assert.ok(
+    Math.abs((quota!.windows!["window_monthly"].percentUsed as number) - 0.2) < 0.001,
+    "window_monthly should be 0.2"
+  );
+  assert.ok(Math.abs(quota!.percentUsed - 0.5) < 0.001, "worst window = weekly 50%");
+  assert.equal(quota!.limitReached, false);
+
+  // resetAt derived from resetInSec (seconds → future ISO)
+  const reset5h = quota!.windows!["window_5h"].resetAt;
+  assert.ok(typeof reset5h === "string", "window_5h resetAt should be ISO");
+  assert.ok(new Date(reset5h as string).getTime() > Date.now(), "resetAt should be in the future");
+
+  invalidateOpencodeQuotaCache(connectionId);
+});
+
+test("fetchOpencodeQuota marks a rate-limited window as 100% used", async () => {
+  const connectionId = `oc-rate-limited-${Date.now()}`;
+
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        rollingUsage: { status: "rate-limited", resetInSec: 60, usagePercent: 100 },
+        weeklyUsage: { status: "ok", resetInSec: 3600, usagePercent: 10 },
+        monthlyUsage: { status: "ok", resetInSec: 7200, usagePercent: 5 },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+
+  const quota = await fetchOpencodeQuota(connectionId, { apiKey: "test-key" });
+
+  assert.ok(quota !== null);
+  assert.equal(quota!.percentUsed, 1, "rate-limited rolling window should read 100%");
+  assert.equal(quota!.limitReached, true);
+
+  invalidateOpencodeQuotaCache(connectionId);
+});
+
 test("fetchOpencodeQuota parses reset_at timestamps in windows", async () => {
   const connectionId = `oc-reset-${Date.now()}`;
   const futureTs = Math.floor((Date.now() + 3_600_000) / 1000); // +1h unix seconds
