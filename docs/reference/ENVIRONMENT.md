@@ -83,6 +83,11 @@ OmniRoute uses **SQLite** (via `better-sqlite3`) for all persistence. These vari
 | Variable                               | Default              | Source File                                           | Description                                                                                                                                                                                                                                     |
 | -------------------------------------- | -------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATA_DIR`                             | `~/.omniroute/`      | `src/lib/db/core.ts`                                  | Root directory for SQLite DB, backups, and data files. Override for Docker volumes or custom paths.                                                                                                                                             |
+| `OMNIROUTE_ALLOW_DEFAULT_DATA_DIR`      | _(unset)_            | `src/lib/dataPaths.ts`                                | Escape hatch for the test-context DATA_DIR guard (#10428). Test runs with no `DATA_DIR` are redirected to a throwaway temp dir so they cannot open the operator's real database; set to `1` to opt back in to the real directory.                  |
+| `OMNIROUTE_BUILD_SHA`                   | _(unset)_            | `src/lib/monitoring/buildSha.ts`                      | Git SHA of the running artifact. Stamped by `npm run build:release`; injectable in containers that ship without the `dist/BUILD_SHA` sentinel. Surfaced as `system.buildSha` on `/api/monitoring/health`.                                          |
+| `OMNIROUTE_RELEASE_REF`                 | `origin/main`        | `scripts/build/buildProvenance.ts`                    | Ref the pack-artifact provenance gate checks the build SHA against (#10427).                                                                                                                                                                     |
+| `OMNIROUTE_ALLOW_CANARY_BUILD`          | _(unset)_            | `scripts/build/buildProvenance.ts`                    | Set to `1` to allow packing a build whose SHA is not on the release line, recording it as a deliberate canary instead of failing the gate (#10427).                                                                                               |
+| `OMNIROUTE_SMOKE_API_KEY`               | _(unset)_            | `scripts/ops/deploy-canary.mjs`                       | API key for the canary-deploy smoke probe, sent as `Authorization: Bearer` on `/v1/chat/completions`. Only used by the deploy script (#10429), never by the server.                                                                               |
 | `OMNIROUTE_DATA_DIR`                   | _(unset)_            | `open-sse/executors/promptql/threadSticky.ts`         | **Fallback alias** for `DATA_DIR`, checked only when `DATA_DIR` is unset. Used to locate the PromptQL executor's on-disk thread-sticky session cache (`<dir>/promptql-thread-sessions.json`); if neither var is set, the cache stays in-memory only (not persisted across restarts).                                                                                                                                             |
 | `STORAGE_ENCRYPTION_KEY`               | _(empty = disabled)_ | `src/lib/db/encryption.ts`                            | AES key for full SQLite database encryption at rest. Generate with `openssl rand -hex 32`.                                                                                                                                                      |
 | `STORAGE_ENCRYPTION_KEY_VERSION`       | `v1`                 | `scripts/build/bootstrap-env.mjs`, `electron/main.js` | Version label for the encryption key. Increment when performing key rotation to support decryption of old backups.                                                                                                                              |
@@ -371,7 +376,7 @@ Controls how OmniRoute discovers and launches CLI sidecars (Claude Code, Codex, 
 | ------------------------- | ----------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CLI_MODE`                | `auto`      | `src/shared/services/cliRuntime.ts`                 | `auto` = search system PATH; `manual` = use explicit paths only.                                                                                                               |
 | `CLI_EXTRA_PATHS`         | _(unset)_   | `src/shared/services/cliRuntime.ts`                 | Additional PATH entries for CLI binary discovery (colon-separated).                                                                                                            |
-| `CLI_CONFIG_HOME`         | _(unset)_   | `src/shared/services/cliRuntime.ts`                 | Override home directory for reading CLI configs (`~/.claude`, `~/.codex`).                                                                                                     |
+| `CLI_CONFIG_HOME`         | _(unset)_   | `src/shared/services/cliRuntime.ts`                 | Override home directory for reading CLI configs (`~/.claude`, `~/.codex`). Must be absolute and inside the process home — **or**, in a container, a bind-mounted path (that is how `/host-home` works). Anything else falls back to the home dir. |
 | `CLI_ALLOW_CONFIG_WRITES` | `false`     | `src/shared/services/cliRuntime.ts`                 | Allow OmniRoute to write CLI config files (token refresh, session data).                                                                                                       |
 | `CLI_CLAUDE_BIN`          | `claude`    | `src/shared/services/cliRuntime.ts`                 | Custom path to Claude CLI binary.                                                                                                                                              |
 | `CLI_CODEX_BIN`           | `codex`     | `src/shared/services/cliRuntime.ts`                 | Custom path to Codex CLI binary.                                                                                                                                               |
@@ -395,6 +400,17 @@ Controls how OmniRoute discovers and launches CLI sidecars (Claude Code, Codex, 
 | `DEVIN_BRIDGE_SUBAGENT_MODEL` | `DEVIN_BRIDGE_MODEL` | `docker/devin-bridge/compose.yml` | Isolated bridge alias used for Claude Code subagents. |
 | `AUGGIE_BIN`              | `auggie`    | `open-sse/executors/auggie.ts`                      | Absolute-path override for the Augment (Auggie) CLI binary used by the local `auggie` provider. Falls back to `CLI_AUGGIE_BIN`, then a PATH lookup.                            |
 | `CLI_AUGGIE_BIN`          | `auggie`    | `open-sse/executors/auggie.ts`                      | Alias override for the Augment (Auggie) CLI binary path (checked after `AUGGIE_BIN`).                                                                                          |
+| `ZCODE_BIN`               | `zcode`     | `open-sse/executors/zcode.ts`                       | Binary used for the local `zcode` provider's stdio client. Falls back to `zcode` on PATH.                                                                                     |
+| `ZCODE_ARGS`              | —           | `open-sse/executors/zcode.ts`                       | JSON array (≤16 strings) of extra arguments passed to the `zcode` binary when launched via `cliTools`.                                                                          |
+| `ZCODE_CWD`               | `process.cwd()` | `open-sse/executors/zcode.ts`                   | Working directory for the ZCode app-server subprocess.                                                                                                                        |
+| `ZCODE_PROVIDER_ID`       | `builtin:zai-coding-plan` | `open-sse/executors/zcode.ts`            | Override for the provider id sent to the app-server.                                                                                                                          |
+| `ZCODE_SERVER_RUNTIME_ROOT` | `~/.zcode/server` | `open-sse/executors/zcode.ts`                  | Root of the ZCode app-server runtime (where the bundled `node` and `zcode-server.cjs` live).                                                                                  |
+| `ZCODE_SERVER_NODE`       | `<runtimeRoot>/node` | `open-sse/executors/zcode.ts`                | Node executable used to host the ZCode app-server.                                                                                                                            |
+| `ZCODE_SERVER_ENTRY`      | `<runtimeRoot>/zcode-server.cjs` | `open-sse/executors/zcode.ts`          | App-server entry script used to host the ZCode server.                                                                                                                        |
+| `ZCODE_STARTUP_TIMEOUT_MS` | `10000`    | `open-sse/executors/zcode.ts`                       | Startup timeout (ms) before a ZCode app-server launch is considered failed.                                                                                                   |
+| `ZCODE_RPC_TIMEOUT_MS`    | `30000`     | `open-sse/executors/zcode.ts`                       | Per-request RPC timeout (ms) for a ZCode app-server call.                                                                                                                     |
+| `ZCODE_TURN_TIMEOUT_MS`   | `120000`    | `open-sse/executors/zcode.ts`                       | Maximum duration (ms) of one ZCode turn before the supervisor times it out.                                                                                                    |
+| `ZCODE_POLL_INTERVAL_MS`  | `250`       | `open-sse/executors/zcode.ts`                       | Polling interval (ms) for ZCode turn completion.                                                                                                                              |
 | `HERMES_HOME`             | `~/.hermes` | `src/lib/cli-helper/config-generator/hermesHome.ts` | Hermes Agent home directory where OmniRoute reads/writes the Hermes CLI config. Matches the env var the Hermes PowerShell installer sets on Windows (`%LOCALAPPDATA%\hermes`). |
 
 ### CLI Profile Auto-Sync
@@ -412,10 +428,24 @@ the CLI Code dashboard.
 ```bash
 # Mount host binaries into the container and tell OmniRoute where they are:
 CLI_EXTRA_PATHS=/host-cli/bin
-CLI_CONFIG_HOME=/root
+CLI_CONFIG_HOME=/host-home
 CLI_ALLOW_CONFIG_WRITES=true
 CLI_CLAUDE_BIN=/host-cli/bin/claude
 ```
+
+`CLI_CONFIG_HOME` only takes effect when the path is actually bind-mounted from
+the host — pair it with mounts like `~/.codex:/host-home/.codex:rw` (see the
+`host` profile in `docker-compose.yml`). A path that is neither inside the
+container user's home nor a bind mount is ignored, because writing there would
+be discarded when the container is recreated.
+
+The image runs as `USER node`, so an unmounted `/root` is **not** a valid
+override.
+
+| Variable                                 | Default | Source File                          | Description                                                                                                                                    |
+| ---------------------------------------- | ------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OMNIROUTE_CONTAINER`                    | _(auto)_ | `src/shared/utils/containerEnv.ts`  | Force container detection on (`1`/`true`) or off (`0`/`false`). Only needed on runtimes the auto-detection misses.                             |
+| `OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE` | `false` | `src/shared/services/cliRuntime.ts`  | Allow CLI-tool config writes into an unmounted container path anyway. The CLI equivalent is `--allow-container-write`.                         |
 
 ### CLI Binary (`omniroute`) helpers
 
@@ -1471,9 +1501,9 @@ These settings were introduced after the previous environment-contract snapshot.
 | Variable | Default | Source File | Description |
 | --- | --- | --- | --- |
 | `OMNIROUTE_CHAT_ADMISSION_QUEUE_MS` | `2000` | `src/shared/middleware/chatBodyAdmission.ts` | Maximum wait for a heavyweight chat admission slot before a retryable `503`; a short bounded wait serializes agent bursts instead of an instant `503`. `0` restores immediate rejection. |
-| `OMNIROUTE_CHAT_ADMISSION_MAX_QUEUED_BYTES` | `4194304` (4 MB) | `src/shared/middleware/chatBodyAdmission.ts` | Queued-bytes budget for the admission wait (#9654): bounds total buffered body bytes parked per lane so the wait cannot amplify the heap (#4380). Over-budget waits receive a retryable `503` immediately. |
-| `OMNIROUTE_CHAT_VIRTUAL_TTL_MS` | `60000` (60 s) | `src/shared/middleware/chatBodyAdmission.ts` | Per-connection virtual admission lanes (#9654): idle-lane eviction TTL. |
-| `OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS` | `64` | `src/shared/middleware/chatBodyAdmission.ts` | Per-connection virtual admission lanes (#9654): max concurrent sessions (lanes). |
+| `OMNIROUTE_CHAT_ADMISSION_MAX_QUEUED_BYTES` | `4194304` (4 MB) | `src/shared/middleware/chatBodyAdmission.ts` | Queued-bytes budget for the admission wait: bounds total buffered body bytes parked process-wide so the wait cannot amplify the heap (#4380). Over-budget waits receive a retryable `503` immediately. |
+| `OMNIROUTE_CHAT_VIRTUAL_TTL_MS` | `60000` (60 s) | `src/shared/middleware/chatBodyAdmission.ts` | Deprecated no-op since #10110: per-session admission lanes were removed in favor of one process-wide budget. Accepted for configuration compatibility; ignored. |
+| `OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS` | `64` | `src/shared/middleware/chatBodyAdmission.ts` | Deprecated no-op since #10110: per-session admission lanes were removed in favor of one process-wide budget. Accepted for configuration compatibility; ignored. |
 | `OMNIROUTE_RUNNOW_TIMEOUT_MS` | `30000` | `src/app/api/jobs/[id]/run-now/route.ts` | Bounds how long a run-now call waits for an in-flight job before starting the queued run. |
 | `ADOBE_FIREFLY_BROWSER_REFRESH` | enabled | `open-sse/services/adobeFireflySession.ts` | Keeps IMS and browser-risk state fresh through account-scoped Chrome CDP sessions; set `0` to disable. |
 | `ADOBE_FIREFLY_SESSION_DISK` | enabled | `open-sse/services/adobeFireflySession.ts` | Persists repaired Adobe sessions under `DATA_DIR`; set `0` for memory-only state. |
@@ -1491,6 +1521,7 @@ These settings were introduced after the previous environment-contract snapshot.
 | `TELEGRAM_DEFAULT_MODEL` | `auto/chat` | `src/lib/telegram/chatProxy.ts` | Model used for Telegram chat replies. |
 | `TELEGRAM_BOT_API_BASE` | `https://api.telegram.org` | `src/lib/telegram/config.ts` | Bot API base URL override for proxies or self-hosted Bot API servers. |
 | `TELEGRAM_WEBHOOK_TIMEOUT_MS` | `60000` | `src/lib/telegram/config.ts` | Timeout in milliseconds for outbound Bot API calls. |
+| `OMNIROUTE_OPTIONAL_PACK_TAR` | `1` (enabled) | `scripts/build/optionalPackStaging.mjs` | Set `0` to skip emitting `.tar.gz` tarballs while staging optional ML/browser packs for the Electron standalone tree (pack directories and `optional-packs.index.json` are still produced). Used by the desktop release workflow to trim artifact upload size. |
 ### ChatGPT Web (Codex)
 
 Globale Defaults für den headless Browser und den ausgehenden Tool-Tunnel. Im Dashboard gesetzte Connection-Werte haben Vorrang.
