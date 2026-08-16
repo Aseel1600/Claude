@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "合作夥伴連結",
     "dismissAriaLabel": "關閉"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute 現已可在 VS Code Copilot Chat 中運作",
+    "description": "安裝免費的 OmniCopilot 擴充功能，每個 OmniRoute 模型都會直接出現在你已經在用的 Copilot Chat 模型選擇器中。",
+    "cta": "取得擴充功能",
+    "secondaryNote": "同樣支援 Open VSX（Cursor、Windsurf、VSCodium…）",
+    "dismissAriaLabel": "關閉"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "在 /v1/models 上廣告 <gateway-alias>/<model> 鏡像 ID，針對那些其正規擁有者沒有有效憑證但有一個通過網關且有有效憑證路由它們的模型。警告：當全域啟用時，會為所有客戶端添加目錄條目。",
   "radarPage": {
     "title": "雷達目錄",

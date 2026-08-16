@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Link partner",
     "dismissAriaLabel": "Ignora"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute ora funziona dentro VS Code Copilot Chat",
+    "description": "Installa l'estensione gratuita OmniCopilot e ogni modello OmniRoute comparirà direttamente nel selettore di modelli di Copilot Chat che già usi.",
+    "cta": "Ottieni l'estensione",
+    "secondaryNote": "Disponibile anche su Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Ignora"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Mostra gli id specchio <gateway-alias>/<model> su /v1/models per i modelli il cui proprietario canonico non ha credenziali attive ma un gateway di transito con una credenziale attiva li instrada. Attenzione: aggiunge voci nel catalogo per tutti i client quando abilitato globalmente.",
   "radarPage": {
     "title": "Catalogo Radar",

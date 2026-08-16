@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "பங்குதாரர் இணைப்பு",
     "dismissAriaLabel": "நிராகரி"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute இப்போது VS Code Copilot Chat-க்குள் இயங்குகிறது",
+    "description": "இலவச OmniCopilot நீட்டிப்பை நிறுவவும், நீங்கள் ஏற்கெனவே பயன்படுத்தும் Copilot Chat மாடல் தேர்வியில் ஒவ்வொரு OmniRoute மாடலும் நேரடியாகத் தோன்றும்.",
+    "cta": "நீட்டிப்பைப் பெறுங்கள்",
+    "secondaryNote": "Open VSX (Cursor, Windsurf, VSCodium…) இலும் கிடைக்கிறது",
+    "dismissAriaLabel": "நிராகரி"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> மின்னூட்ட அடையாளங்களை /v1/models இல் விளம்பரம் செய்கிறது, அதன் கானோனிக்கல் உரிமையாளருக்கு செயல்பாட்டில் உள்ள சான்றிதழ் இல்லை ஆனால் ஒரு பாஸ்த்ரூ கேட்வே செயல்பாட்டில் உள்ள சான்றிதழ் அவற்றை வழிநடத்துகிறது. எச்சரிக்கை: உலகளாவியமாக செயல்படுத்தப்படும் போது அனைத்து கிளையன்டுகளுக்கான பட்டியல் பதிவுகளைச் சேர்க்கிறது.",
   "radarPage": {
     "title": "ரேடார் பட்டியல்",

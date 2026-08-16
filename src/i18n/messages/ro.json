@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Link de partener",
     "dismissAriaLabel": "Închide"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute rulează acum în VS Code Copilot Chat",
+    "description": "Instalează extensia gratuită OmniCopilot și fiecare model OmniRoute apare direct în selectorul de modele din Copilot Chat pe care îl folosești deja.",
+    "cta": "Obține extensia",
+    "secondaryNote": "Disponibil și pe Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Închide"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Publica ID-urile oglinzii <gateway-alias>/<model> pe /v1/models pentru modelele al căror proprietar canonical nu are un acreditiv activ, dar un gateway passthrough cu un acreditiv activ le rotește. Atenție: adaugă intrări în catalog pentru toți clienții când este activat global.",
   "radarPage": {
     "title": "Catalog Radar",

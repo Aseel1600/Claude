@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Link partnerski",
     "dismissAriaLabel": "Odrzuć"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute działa teraz w VS Code Copilot Chat",
+    "description": "Zainstaluj darmowe rozszerzenie OmniCopilot, a każdy model OmniRoute pojawi się od razu w selektorze modeli Copilot Chat, którego już używasz.",
+    "cta": "Pobierz rozszerzenie",
+    "secondaryNote": "Dostępne również na Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Odrzuć"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Reklamuj identyfikatory luster <gateway-alias>/<model> na /v1/models dla modeli, których kanoniczny właściciel nie ma aktywnego poświadczenia, ale brama passthrough z aktywnym poświadczeniem je kieruje. Uwaga: dodaje wpisy katalogu dla wszystkich klientów, gdy jest włączone globalnie.",
   "radarPage": {
     "title": "Katalog Radar",

@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Партнерская ссылка",
     "dismissAriaLabel": "Закрыть"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute теперь работает внутри VS Code Copilot Chat",
+    "description": "Установите бесплатное расширение OmniCopilot, и каждая модель OmniRoute появится прямо в выборе моделей Copilot Chat, которым вы уже пользуетесь.",
+    "cta": "Получить расширение",
+    "secondaryNote": "Также доступно на Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Закрыть"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Рекламируйте <gateway-alias>/<model> идентификаторы зеркал на /v1/models для моделей, у которых канонический владелец не имеет активной учетной записи, но шлюз с пропуском с активной учетной записью маршрутизирует их. Внимание: добавляет записи каталога для всех клиентов при глобальном включении.",
   "radarPage": {
     "title": "Каталог Радар",

@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Pautan rakan kongsi",
     "dismissAriaLabel": "Tutup"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute kini berfungsi dalam VS Code Copilot Chat",
+    "description": "Pasang sambungan OmniCopilot percuma dan setiap model OmniRoute akan muncul terus dalam pemilih model Copilot Chat yang anda sudah gunakan.",
+    "cta": "Dapatkan Sambungan",
+    "secondaryNote": "Juga di Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Tutup"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Iklankan <gateway-alias>/<model> mirror ids pada /v1/models untuk model yang pemilik kanoniknya tiada kelayakan aktif tetapi gateway passthrough dengan kelayakan aktif mengarahkannya. Amaran: menambah entri katalog untuk semua klien apabila diaktifkan secara global.",
   "radarPage": {
     "title": "Katalog Radar",
