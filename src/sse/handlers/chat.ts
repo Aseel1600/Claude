@@ -62,6 +62,7 @@ import {
   evictSessionAccountAffinityForConnection,
   getSessionAccountAffinity,
 } from "@/lib/db/sessionAccountAffinity";
+import { dispatchChatWithAffinityEviction } from "./chatDispatch";
 import { getCachedSettings, getCombosCacheVersion } from "@/lib/db/readCache";
 import { getCombos } from "@/lib/db/combos";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
@@ -1535,42 +1536,41 @@ async function handleSingleModelChat(
       const proxyStartTime = Date.now();
       // 4. Execute chat via core after breaker gate checks (with optional TLS tracking)
       if (telemetry) telemetry.startPhase("connect");
-      const dispatchClientRawRequest = resolveDispatchClientRawRequest(
-        clientRawRequest,
-        runtimeOptions.modelAbortSignal
-      );
-      let execution: Awaited<ReturnType<typeof executeChatWithBreaker>>;
+      let execution: Awaited<ReturnType<typeof dispatchChatWithAffinityEviction>>;
       try {
-        execution = await executeChatWithBreaker({
-          bypassCircuitBreaker: forceLiveComboTest || hasForcedConnection,
-          breaker,
-          body: requestBody,
-          provider,
-          model: effectiveModel,
-          refreshedCredentials,
-          proxyInfo,
-          appliedProxySink,
-          log,
-          clientRawRequest: dispatchClientRawRequest,
-          credentials,
-          apiKeyInfo,
-          userAgent,
-          comboName,
-          comboStrategy,
-          isCombo,
-          comboStepId: runtimeOptions.comboStepId ?? null,
-          comboExecutionKey: runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
-          extendedContext,
-          modelApiFormat: apiFormat,
-          modelTargetFormat: targetFormat,
-          providerProfile,
-          cachedSettings: runtimeOptions.cachedSettings,
-          skipUpstreamRetry: runtimeOptions.skipUpstreamRetry ?? false,
-          correlationId: runtimeOptions?.correlationId ?? null,
-          modelPinned: runtimeOptions?.modelPinned ?? false,
-          routingComboId: runtimeOptions?.routingComboId ?? null,
-          sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
-        });
+        execution = await dispatchChatWithAffinityEviction(
+          {
+            bypassCircuitBreaker: forceLiveComboTest || hasForcedConnection,
+            breaker,
+            body: requestBody,
+            provider,
+            model: effectiveModel,
+            refreshedCredentials,
+            proxyInfo,
+            appliedProxySink,
+            log,
+            clientRawRequest,
+            credentials,
+            apiKeyInfo,
+            userAgent,
+            comboName,
+            comboStrategy,
+            isCombo,
+            comboStepId: runtimeOptions.comboStepId ?? null,
+            comboExecutionKey: runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
+            extendedContext,
+            modelApiFormat: apiFormat,
+            modelTargetFormat: targetFormat,
+            providerProfile,
+            cachedSettings: runtimeOptions.cachedSettings,
+            skipUpstreamRetry: runtimeOptions.skipUpstreamRetry ?? false,
+            correlationId: runtimeOptions?.correlationId ?? null,
+            modelPinned: runtimeOptions?.modelPinned ?? false,
+            routingComboId: runtimeOptions?.routingComboId ?? null,
+            sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
+          },
+          runtimeOptions
+        );
       } catch (error) {
         releaseOAuthSession();
         throw error;
