@@ -12,10 +12,19 @@ import {
 } from "@/shared/constants/modelSpecs";
 import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
-import { getModelContextOverrideRecord } from "@/lib/db/modelContextOverrides";
+import {
+  getModelContextOverride,
+  getModelContextOverrideRecord,
+  type ModelContextOverride,
+} from "@/lib/db/modelContextOverrides";
 import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
 import { getCustomModelVisionOverride } from "@/lib/db/models";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
+import {
+  isResolutionSnapshot,
+  resolveClampedMaxInputLimit,
+  type ResolvedLimitSource,
+} from "@/lib/modelCapabilityLimits";
 import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
 import {
   isResolutionSnapshot,
@@ -114,6 +123,8 @@ type SyncedCapabilities = ReturnType<typeof getSyncedCapability>;
  */
 export interface ResolveModelCapabilitiesOptions {
   persistedOverrides?: boolean;
+  /** Optional build-local bulk view for catalog preparation (#9199). */
+  snapshot?: ModelCapabilityResolutionSnapshot | null;
 }
 
 export interface ResolvedModelCapabilities {
@@ -564,14 +575,30 @@ function getCapabilityOverride(
 }
 
 function getContextOverrideRecord(
-  resolved: { provider: string | null; model: string | null; rawModel: string | null },
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
   snapshot?: ModelCapabilityResolutionSnapshot | null
-) {
+): ModelContextOverride | null {
   const lookup = (model: string | null) => {
     if (!resolved.provider || !model) return null;
-    return snapshot
-      ? (snapshot.contextOverrideRecords.get(resolved.provider)?.get(model) ?? null)
-      : getModelContextOverrideRecord(resolved.provider, model);
+    if (!snapshot) return getModelContextOverrideRecord(resolved.provider, model);
+
+    const record = snapshot.contextOverrideRecords?.get(resolved.provider)?.get(model);
+    if (record) return record;
+
+    const legacyContext = snapshot.contextOverrides.get(resolved.provider)?.get(model);
+    return legacyContext === undefined
+      ? null
+      : {
+          provider: resolved.provider,
+          modelId: model,
+          realContext: legacyContext,
+          source: "manual" as const,
+          refreshedAt: "",
+        };
   };
   const canonical = lookup(resolved.model);
   if (canonical) return canonical;
@@ -598,7 +625,10 @@ function getContextOverride(
  * `snapshot` is the #9147 build-local bulk load; when supplied the on-demand
  * SQLite read is skipped and the preloaded nested map is used instead.
  */
-export function getResolvedModelContextOverride(input: CapabilityInput, snapshot?: ModelCapabilityResolutionSnapshot | null): number | null {
+export function getResolvedModelContextOverride(
+  input: CapabilityInput,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
   return getContextOverride(resolveCapabilityInput(input), snapshot);
 }
 
@@ -606,14 +636,41 @@ function getInputTokenCapabilityOverride(
   resolved: { provider: string | null; model: string | null; rawModel: string | null },
   snapshot?: ModelCapabilityResolutionSnapshot | null
 ): number | null {
-  return getCapabilityOverride(resolved, "max_input_tokens", snapshot?.inputTokenOverrides);
+  return getCapabilityOverride(
+    resolved,
+    "max_input_tokens",
+    snapshot ? (snapshot.maxInputTokenOverrides ?? new Map()) : undefined
+  );
 }
 
 function getOutputTokenCapabilityOverride(
   resolved: { provider: string | null; model: string | null; rawModel: string | null },
   snapshot?: ModelCapabilityResolutionSnapshot | null
 ): number | null {
-  return getCapabilityOverride(resolved, "max_output_tokens", snapshot?.maxTokenOverrides);
+  if (!snapshot) return getCapabilityOverride(resolved, "max_output_tokens");
+
+  const current = snapshot.maxTokenOverrides ?? new Map();
+  const historical = snapshot.maxOutputTokenOverrides ?? new Map();
+  const canonical =
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_output_tokens", current) ??
+    getModelCapabilityOverride(resolved.provider, resolved.model, "max_output_tokens", historical);
+  if (canonical !== null) return canonical;
+
+  if (!resolved.rawModel || resolved.rawModel === resolved.model) return null;
+  return (
+    getModelCapabilityOverride(
+      resolved.provider,
+      resolved.rawModel,
+      "max_output_tokens",
+      current
+    ) ??
+    getModelCapabilityOverride(
+      resolved.provider,
+      resolved.rawModel,
+      "max_output_tokens",
+      historical
+    )
+  );
 }
 
 export function getExplicitModelOutputCap(
@@ -646,7 +703,10 @@ export function getResolvedModelCapabilities(
 ): ResolvedModelCapabilities {
   const options = isResolutionSnapshot(optionsOrSnapshot) ? undefined : optionsOrSnapshot;
   const resolutionSnapshot =
-    snapshot ?? (isResolutionSnapshot(optionsOrSnapshot) ? optionsOrSnapshot : null);
+    snapshot ??
+    (isResolutionSnapshot(optionsOrSnapshot)
+      ? optionsOrSnapshot
+      : (optionsOrSnapshot?.snapshot ?? null));
   // Reconciliation / auto-discovery needs the override-free catalog view so a
   // persisted override never feeds back into the comparison that (re)writes it.
   const usePersistedOverrides = options?.persistedOverrides !== false;
@@ -755,7 +815,7 @@ export function getResolvedModelCapabilities(
       ? getCustomModelVisionOverride(
           resolved.provider,
           resolved.model,
-          snapshot?.customVisionOverrides
+          resolutionSnapshot ? (resolutionSnapshot.customVisionOverrides ?? new Map()) : undefined
         )
       : null;
 
