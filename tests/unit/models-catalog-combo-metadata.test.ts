@@ -118,11 +118,11 @@ test("single-target combo respects resolved reasoning deny patterns", async () =
   assert.equal(Object.hasOwn(capabilities, "effort_tiers"), false);
 });
 
-test("mixed DeepSeek combo advertises the efforts accepted by every target", async () => {
+test("mixed DeepSeek combos advertise the efforts accepted by every V4 target", async () => {
   await providersDb.createProviderConnection({
     provider: "deepseek",
     authType: "apikey",
-    name: "deepseek-v4-flash-combo",
+    name: "deepseek-v4-combos",
     apiKey: "deepseek-test-key",
     isActive: true,
     testStatus: "active",
@@ -130,24 +130,33 @@ test("mixed DeepSeek combo advertises the efforts accepted by every target", asy
   await providersDb.createProviderConnection({
     provider: "opencode-go",
     authType: "apikey",
-    name: "opencode-go-deepseek-v4-flash-combo",
+    name: "opencode-go-deepseek-v4-combos",
     apiKey: "opencode-go-test-key",
     isActive: true,
     testStatus: "active",
   });
-  await combosDb.createCombo({
-    name: "deepseek-v4-flash-combo",
-    strategy: "auto",
-    models: ["deepseek/deepseek-v4-flash", "opencode-go/deepseek-v4-flash"],
-  });
+  for (const modelId of ["deepseek-v4-flash", "deepseek-v4-pro"]) {
+    await combosDb.createCombo({
+      name: `${modelId}-combo`,
+      strategy: "auto",
+      models: [`deepseek/${modelId}`, `opencode-go/${modelId}`],
+    });
+  }
 
   const response = await catalog.getUnifiedModelsResponse(
     new Request("http://localhost/api/v1/models")
   );
   const body = (await response.json()) as { data: Array<Record<string, unknown>> };
-  const combo = body.data.find((item) => item.id === "deepseek-v4-flash-combo");
 
   assert.equal(response.status, 200);
-  assert.ok(combo);
-  assert.deepEqual((combo.capabilities as Record<string, unknown>).effort_tiers, ["high", "max"]);
+  for (const modelId of ["deepseek-v4-flash", "deepseek-v4-pro"]) {
+    const combo = body.data.find((item) => item.id === `${modelId}-combo`);
+    assert.ok(combo);
+    assert.deepEqual((combo.capabilities as Record<string, unknown>).effort_tiers, [
+      "none",
+      "low",
+      "high",
+      "max",
+    ]);
+  }
 });

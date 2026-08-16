@@ -78,19 +78,25 @@ describe("OpencodeExecutor", () => {
       assert.equal(model.supportsReasoning, true);
     });
 
-    it("exposes DeepSeek V4 Pro effort variants on opencode-go only", () => {
+    it("declares V4 effort tiers on OpenCode Go base models only", () => {
       const goModels = PROVIDER_MODELS["opencode-go"] || [];
       const zenModels = PROVIDER_MODELS["opencode-zen"] || [];
-      const variants = ["low", "medium", "high", "max"].map((level) => `deepseek-v4-pro-${level}`);
-      for (const variant of variants) {
-        const model = goModels.find((m) => m.id === variant);
-        assert.ok(model, `${variant} should be in opencode-go model list`);
-        assert.equal(model?.supportsReasoning, true);
-        assert.equal(
-          zenModels.some((m) => m.id === variant),
-          false,
-          `${variant} should not be exposed on opencode-zen`
-        );
+      const efforts = ["none", "low", "high", "max"];
+
+      for (const modelId of ["deepseek-v4-pro", "deepseek-v4-flash"]) {
+        const base = goModels.find((model) => model.id === modelId);
+        assert.deepEqual(base?.supportedThinkingEfforts, efforts);
+        for (const effort of efforts) {
+          const variant = `${modelId}-${effort}`;
+          assert.equal(
+            goModels.some((model) => model.id === variant),
+            false
+          );
+          assert.equal(
+            zenModels.some((model) => model.id === variant),
+            false
+          );
+        }
       }
     });
 
@@ -544,7 +550,7 @@ describe("OpencodeExecutor", () => {
     });
   });
 
-  describe("DeepSeek V4 Pro reasoning-effort variants", () => {
+  describe("DeepSeek V4 reasoning-effort variants", () => {
     function baseBody(model) {
       return {
         model,
@@ -554,17 +560,19 @@ describe("OpencodeExecutor", () => {
       };
     }
 
-    const levels = ["low", "medium", "high", "max"];
-    for (const level of levels) {
-      it(`maps deepseek-v4-pro-${level} to base id + reasoning_effort=${level}`, () => {
-        const variant = `deepseek-v4-pro-${level}`;
-        const out = goExecutor.transformRequest(variant, baseBody(variant), false, {
-          apiKey: "test-key",
+    const levels = ["none", "low", "high", "max"];
+    for (const model of ["deepseek-v4-pro", "deepseek-v4-flash"]) {
+      for (const level of levels) {
+        it(`maps ${model}-${level} to base id + reasoning_effort=${level}`, () => {
+          const variant = `${model}-${level}`;
+          const out = goExecutor.transformRequest(variant, baseBody(variant), false, {
+            apiKey: "test-key",
+          });
+          assert.equal(out.model, model);
+          assert.equal(out.reasoning_effort, level);
+          assert.ok(!String(out.model).endsWith(`-${level}`));
         });
-        assert.equal(out.model, "deepseek-v4-pro");
-        assert.equal(out.reasoning_effort, level);
-        assert.ok(!String(out.model).endsWith(`-${level}`));
-      });
+      }
     }
 
     it("preserves explicit reasoning_effort over the variant suffix", () => {

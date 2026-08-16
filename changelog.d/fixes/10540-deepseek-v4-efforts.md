@@ -1,1 +1,1 @@
-- **fix(deepseek):** Align V4 reasoning effort metadata and mixed-combo advertisement with the official provider capabilities ([#10540](https://github.com/diegosouzapw/OmniRoute/pull/10540)) — thanks @jackjinke
+- **fix(deepseek):** Advertise `none`, `low`, `high`, and `max` for V4 Pro and Flash on DeepSeek and OpenCode Go, deriving effort aliases from base-model metadata ([#10540](https://github.com/diegosouzapw/OmniRoute/pull/10540)) — thanks @jackjinke
