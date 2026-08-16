@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Kiungo cha mshirika",
     "dismissAriaLabel": "Ondoa"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute sasa inafanya kazi ndani ya VS Code Copilot Chat",
+    "description": "Sakinisha kiendelezi cha bure cha OmniCopilot na kila mfano wa OmniRoute utaonekana moja kwa moja kwenye kichagua-mfano cha Copilot Chat unachotumia tayari.",
+    "cta": "Pata Kiendelezi",
+    "secondaryNote": "Pia kwenye Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Ondoa"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Tangaza <gateway-alias>/<model> vitambulisho vya kioo kwenye /v1/models kwa ajili ya mifano ambayo mmiliki wake wa kanuni hana akreditivu hai lakini lango la kupitisha lenye akreditivu hai linaelekeza kwao. Onyo: inaongeza orodha za katalogi kwa wateja wote inapowezeshwa kimataifa.",
   "radarPage": {
     "title": "Radar Katalog",

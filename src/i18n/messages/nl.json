@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Partnerlink",
     "dismissAriaLabel": "Sluiten"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute draait nu binnen VS Code Copilot Chat",
+    "description": "Installeer de gratis OmniCopilot-extensie en elk OmniRoute-model verschijnt direct in de Copilot Chat-modelkiezer die je al gebruikt.",
+    "cta": "Extensie downloaden",
+    "secondaryNote": "Ook op Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Sluiten"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Adverteer <gateway-alias>/<model> mirror-id's op /v1/models voor modellen waarvan de canonieke eigenaar geen actieve referentie heeft, maar een passthrough-gateway met een actieve referentie ze doorstuurt. Waarschuwing: voegt catalogusvermeldingen toe voor alle klanten wanneer wereldwijd ingeschakeld.",
   "radarPage": {
     "title": "Radar Catalogus",

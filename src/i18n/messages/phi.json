@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Link ng kasosyo",
     "dismissAriaLabel": "I-dismiss"
   },
+  "vscodeCopilotBanner": {
+    "title": "Ang OmniRoute ay gumagana na ngayon sa loob ng VS Code Copilot Chat",
+    "description": "I-install ang libreng OmniCopilot extension at lalabas ang bawat OmniRoute model diretso sa Copilot Chat model picker na ginagamit mo na.",
+    "cta": "Kunin ang Extension",
+    "secondaryNote": "Nasa Open VSX din (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "I-dismiss"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "I-anunsyo ang <gateway-alias>/<model> mirror ids sa /v1/models para sa mga modelong ang canonical owner ay walang aktibong credential ngunit may passthrough gateway na may aktibong credential na nagruruta sa kanila. Babala: nagdadagdag ng mga entry sa katalogo para sa lahat ng kliyente kapag pinagana nang globally.",
   "radarPage": {
     "title": "Radar Catalog",

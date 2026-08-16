@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "Ortaklık bağlantısı",
     "dismissAriaLabel": "Kapat"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute artık VS Code Copilot Chat içinde çalışıyor",
+    "description": "Ücretsiz OmniCopilot uzantısını yükleyin ve zaten kullandığınız Copilot Chat model seçicisinde her OmniRoute modeli görünsün.",
+    "cta": "Uzantıyı Al",
+    "secondaryNote": "Open VSX'te de mevcut (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Kapat"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> ayna kimliklerini /v1/models üzerinde, kanonik sahibi aktif bir kimliğe sahip olmayan ancak aktif bir kimliğe sahip bir geçiş geçidi tarafından yönlendirilen modeller için tanıtın. Uyarı: Küresel olarak etkinleştirildiğinde tüm istemciler için katalog girişleri ekler.",
   "radarPage": {
     "title": "Radar Kataloğu",

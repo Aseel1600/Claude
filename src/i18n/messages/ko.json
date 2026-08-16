@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "파트너 링크",
     "dismissAriaLabel": "닫기"
   },
+  "vscodeCopilotBanner": {
+    "title": "이제 OmniRoute가 VS Code Copilot Chat 안에서 실행됩니다",
+    "description": "무료 OmniCopilot 확장 프로그램을 설치하면 이미 사용 중인 Copilot Chat 모델 선택기에 모든 OmniRoute 모델이 바로 나타납니다.",
+    "cta": "확장 프로그램 받기",
+    "secondaryNote": "Open VSX(Cursor, Windsurf, VSCodium 등)에서도 이용 가능",
+    "dismissAriaLabel": "닫기"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> 미러 ID를 /v1/models에서 광고합니다. 이는 정식 소유자가 활성 자격 증명이 없지만 패스스루 게이트웨이가 활성 자격 증명으로 라우팅하는 모델에 해당합니다. 경고: 전역적으로 활성화되면 모든 클라이언트에 대한 카탈로그 항목이 추가됩니다.",
   "radarPage": {
     "title": "레이더 카탈로그",

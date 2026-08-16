@@ -13081,6 +13081,13 @@
     "partnerLinkNote": "భాగస్వామి లింక్",
     "dismissAriaLabel": "తీసివేయి"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute ఇప్పుడు VS Code Copilot Chatలో నడుస్తుంది",
+    "description": "ఉచిత OmniCopilot పొడిగింపును ఇన్‌స్టాల్ చేయండి, మీరు ఇప్పటికే ఉపయోగిస్తున్న Copilot Chat మోడల్ పికర్‌లో ప్రతి OmniRoute మోడల్ నేరుగా కనిపిస్తుంది.",
+    "cta": "పొడిగింపును పొందండి",
+    "secondaryNote": "Open VSX (Cursor, Windsurf, VSCodium…)లో కూడా అందుబాటులో ఉంది",
+    "dismissAriaLabel": "తీసివేయి"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> మిర్రర్ ఐడీలను /v1/models లో ప్రచారం చేయండి, కానోనికల్ యజమాని యాక్టివ్ క్రెడెన్షియల్ లేకపోతే కానీ యాక్టివ్ క్రెడెన్షియల్ రూట్ చేసే పాస్త్రూ గేట్వే ఉన్న మోడల్స్ కోసం. హెచ్చరిక: ఇది గ్లోబల్‌గా ఎనేబుల్ చేసినప్పుడు అన్ని క్లయింట్ల కోసం కాటలాగ్ ఎంట్రీలను జోడిస్తుంది.",
   "radarPage": {
     "title": "రాడార్ కాటలాగ్",
