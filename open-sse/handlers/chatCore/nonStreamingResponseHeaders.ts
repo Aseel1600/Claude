@@ -10,6 +10,7 @@
  */
 import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
 import { attachOmniRouteMetaHeaders as defaultAttachMeta } from "@/domain/omnirouteResponseMeta";
+import { buildContextCapacityMeta } from "./contextCapacityMeta.ts";
 
 export function buildNonStreamingResponseHeaders(
   args: {
@@ -40,6 +41,7 @@ export function buildNonStreamingResponseHeaders(
     costUsd: args.estimatedCost,
     requestId: args.requestId,
     strategy: args.comboStrategy ?? "single",
+    ...buildContextCapacityMeta(args.provider, args.model),
   });
   if (args.compressionResponseMeta) {
     responseHeaders[OMNIROUTE_RESPONSE_HEADERS.compression] = args.compressionResponseMeta;

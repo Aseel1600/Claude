@@ -397,6 +397,50 @@ export interface ResolvedContextCapacity {
 }
 
 /**
+ * Bounded memo for {@link resolveContextCapacity}.
+ *
+ * Measured at ~810us per uncached call (5000-call loop on a warm process): the
+ * chain walks the capability resolver and the override table, both of which read
+ * SQLite. That is affordable once per routing decision and NOT affordable once
+ * per response on the hot path, which is what reporting capacity on every reply
+ * would make it.
+ *
+ * A short TTL rather than explicit invalidation: capacity changes only when an
+ * operator writes an override or the 24h reconciler runs, so bounded staleness
+ * is the right trade — and it keeps this memo from having to know about every
+ * write path that could touch a window.
+ */
+const CONTEXT_CAPACITY_TTL_MS = 60_000;
+const MAX_CONTEXT_CAPACITY_ENTRIES = 2_000;
+const contextCapacityMemo = new Map<
+  string,
+  { value: ResolvedContextCapacity; expiresAt: number }
+>();
+
+/** Drop every memoised capacity. Exposed for tests that mutate overrides. */
+export function clearContextCapacityCache(): void {
+  contextCapacityMemo.clear();
+}
+
+function readContextCapacityMemo(key: string, now: number): ResolvedContextCapacity | null {
+  const hit = contextCapacityMemo.get(key);
+  if (!hit) return null;
+  if (hit.expiresAt <= now) {
+    contextCapacityMemo.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function writeContextCapacityMemo(key: string, value: ResolvedContextCapacity, now: number): void {
+  if (!contextCapacityMemo.has(key) && contextCapacityMemo.size >= MAX_CONTEXT_CAPACITY_ENTRIES) {
+    const oldest = contextCapacityMemo.keys().next().value;
+    if (oldest !== undefined) contextCapacityMemo.delete(oldest);
+  }
+  contextCapacityMemo.set(key, { value, expiresAt: now + CONTEXT_CAPACITY_TTL_MS });
+}
+
+/**
  * Resolve the full context capacity of a provider/model pair for reporting.
  *
  * The window follows the same chain `getTokenLimit` uses (so the number a client
@@ -405,10 +449,25 @@ export interface ResolvedContextCapacity {
  * own narrower precedence. `maxInput` is reported only when the resolver has a
  * genuinely narrower figure than the window: echoing the total back as the input
  * ceiling is what let auto-compaction sail past the real limit in #6191.
+ *
+ * Memoised — see {@link CONTEXT_CAPACITY_TTL_MS}.
  */
 export function resolveContextCapacity(
   provider: string,
   model: string | null = null
+): ResolvedContextCapacity {
+  const memoKey = `${provider} ${model ?? ""}`;
+  const now = Date.now();
+  const cached = readContextCapacityMemo(memoKey, now);
+  if (cached) return cached;
+  const resolved = resolveContextCapacityUncached(provider, model);
+  writeContextCapacityMemo(memoKey, resolved, now);
+  return resolved;
+}
+
+function resolveContextCapacityUncached(
+  provider: string,
+  model: string | null
 ): ResolvedContextCapacity {
   const { limit, source } = resolveTokenLimit(provider, model);
   const contextWindow = limit > 0 ? limit : null;

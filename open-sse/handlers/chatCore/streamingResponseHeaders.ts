@@ -10,6 +10,7 @@
  */
 import { OMNIROUTE_RESPONSE_HEADERS } from "@/shared/constants/headers";
 import { buildStreamingResponseHeaders as defaultBuildStreaming } from "./responseHeaders.ts";
+import { buildContextCapacityMeta } from "./contextCapacityMeta.ts";
 
 export function assembleStreamingResponseHeaders(
   args: {
@@ -31,6 +32,7 @@ export function assembleStreamingResponseHeaders(
       usage: null,
       costUsd: 0,
       strategy: args.comboStrategy ?? "single",
+      ...buildContextCapacityMeta(args.provider, args.model),
     }),
     "x-omniroute-request-id": args.pendingRequestId,
   };
