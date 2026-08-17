@@ -964,7 +964,17 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
   // internal provider ids like openai-compatible-responses-<uuid>.
   try {
     const providerNodes = await getCachedProviderNodes();
-    for (const node of Array.isArray(providerNodes) ? providerNodes : []) {
+    const compatibleNodes = Array.isArray(providerNodes) ? providerNodes : [];
+    const nodeTypes = new Map<string, number>();
+    for (const node of compatibleNodes) {
+      const nodeRecord = asRecord(node);
+      const nodeId = typeof nodeRecord.id === "string" ? nodeRecord.id.trim() : "";
+      if (!nodeId) continue;
+      const derivedType = nodeTypeFromId(nodeId);
+      nodeTypes.set(derivedType, (nodeTypes.get(derivedType) || 0) + 1);
+    }
+
+    for (const node of compatibleNodes) {
       const nodeRecord = asRecord(node);
       const nodePrefix = typeof nodeRecord.prefix === "string" ? nodeRecord.prefix.trim() : "";
       const nodeId = typeof nodeRecord.id === "string" ? nodeRecord.id.trim() : "";
@@ -984,8 +994,9 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
       // looks up the concrete node id, and vice versa.
       const derivedType = nodeTypeFromId(nodeId);
       if (derivedType && derivedType !== nodeId) {
+        const typeIsUnambiguous = nodeTypes.get(derivedType) === 1;
         if (nodeId === provider || nodeId === canonicalProvider || nodeId === canonicalAlias) {
-          searchPool.add(derivedType);
+          if (typeIsUnambiguous) searchPool.add(derivedType);
         }
         if (
           derivedType === provider ||

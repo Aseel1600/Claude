@@ -29,6 +29,7 @@ const auth = await import("../../src/sse/services/auth.ts");
 
 const NODE_PREFIX = "my-compat-10085";
 const NODE_ID = `openai-compatible-chat-458d982b-0000-4000-8000-000000000000`;
+const NODE_B_ID = `openai-compatible-chat-558d982b-0000-4000-8000-000000000000`;
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -49,6 +50,17 @@ async function seedNode() {
     prefix: NODE_PREFIX,
     apiType: "chat",
     baseUrl: "https://example.test/v1",
+  });
+}
+
+async function seedSecondNode() {
+  await nodesDb.createProviderNode({
+    id: NODE_B_ID,
+    type: "openai-compatible",
+    name: "My Compat B",
+    prefix: "my-compat-10085-b",
+    apiType: "chat",
+    baseUrl: "https://example-b.test/v1",
   });
 }
 
@@ -96,6 +108,34 @@ test("the bridge works in the other direction too: a uuid-stored connection is r
     creds,
     `a connection stored under the uuid node id "${NODE_ID}" must also be reachable via ` +
       `a lookup using the bare generic type id "openai-compatible-chat"`
+  );
+});
+
+test("a concrete second node does not inherit the first node's generic credentials", async () => {
+  await resetStorage();
+  await seedNode();
+  await seedSecondNode();
+  await providersDb.createProviderConnection({
+    provider: "openai-compatible-chat",
+    authType: "apikey",
+    apiKey: "sk-test-10085-node-a",
+    name: "test-compat-node-a",
+    isActive: true,
+    testStatus: "active",
+    priority: 1,
+    providerSpecificData: {
+      nodeId: NODE_ID,
+      prefix: NODE_PREFIX,
+      baseUrl: "https://example-a.test/v1",
+    },
+  });
+
+  const creds = await auth.getProviderCredentials(NODE_B_ID);
+
+  assert.equal(
+    creds,
+    null,
+    "node B must not receive node A's generic connection when both nodes share a type"
   );
 });
 
