@@ -1,13 +1,14 @@
 /**
  * Auto-disable on permanent ban signals.
  *
- * Subscription / OAuth accounts can be locked by the upstream if OmniRoute
- * keeps retrying after a ToS / "verify your account" 403. Prepaid API keys
- * do not have that failure mode: a 429 is a cooldown and an empty wallet is
- * a failover, not a reason to flip isActive=false.
+ * Login seats (paid subscriptions and free accounts) can be locked by the
+ * upstream if OmniRoute keeps retrying after a ToS / "verify your account"
+ * 403. Paid prepaid API keys do not have that failure mode: a 429 is a
+ * cooldown and an empty wallet is a failover, not a reason to flip
+ * isActive=false.
  *
- * Per-provider overrides are the durable design. This helper is the global
- * first cut: all connections vs subscription-style connections only.
+ * Per-provider and per-account overrides are the durable design. This helper
+ * is the global first cut: all connections vs login-style connections only.
  */
 
 export const AUTO_DISABLE_BANNED_SCOPES = ["all", "subscription"] as const;

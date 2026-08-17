@@ -92,9 +92,11 @@ Antigravity). An API-key provider will only trip the detector if its error body
 literally contains one of the substrings.
 
 `autoDisableBannedScope` (`all` | `subscription`, default `all`) controls whether
-a match also flips `isActive=false`. `subscription` still records `testStatus=banned`
-for prepaid keys but leaves them in the routing pool. The durable design is a
-per-provider override; the global enum is the first cut.
+a match also flips `isActive=false`. `subscription` means login-style seats
+(paid subscriptions and free accounts, including web-cookie sessions). It still
+records `testStatus=banned` for prepaid API keys but leaves them in the routing
+pool. The durable design is a per-provider and per-account override; the global
+enum is the first cut.
 
 ## Custom banned keywords
 
