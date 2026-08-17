@@ -8015,7 +8015,7 @@
     "disableSessionStickiness": "停用工作階段黏性",
     "disableSessionStickinessDesc": "輪詢和隨機組合在每個請求輪換到不同的連線，而不是根據第一則訊息的雜湊將整個對話固定到一個連線。關閉以保留多輪聊天的提示快取命中。各組合的覆寫設定優先。",
     "promptCacheAffinity": "提示詞快取區域性路由",
-    "promptCacheAffinityDesc": "在維持健康檢查與配額容錯移轉的同時，針對相符的提示詞快取鍵，優先使用相同的供應商帳戶。",
+    "promptCacheAffinityDesc": "在維持健康檢查與配額容錯移轉的同時，針對相符的提示詞快取鍵，優先使用相同的提供者帳戶。",
     "reasoningTokenBuffer": "推理權杖緩衝區",
     "reasoningTokenBufferDesc": "僅在完整緩衝區不超過已知輸出上限時，才允許組合路由為已知的推理模型增加 max_tokens 預留空間。",
     "zeroLatencyOptimizations": "零延遲最佳化",
