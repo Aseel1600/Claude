@@ -30,7 +30,7 @@ const STREAMING_RESPONSE_HEADER_DENYLIST = new Set([
   "x-accel-buffering",
 ]);
 
-const DEFAULT_FORWARDED_HEADER_BUDGET_BYTES = 768;
+const DEFAULT_FORWARDED_HEADER_BUDGET_BYTES = 2048;
 
 /**
  * Resolve the forwarded upstream response-header budget from an optional string value
@@ -92,6 +92,19 @@ function isOmniRouteInternalHeader(headerName: string): boolean {
   return headerName.toLowerCase().startsWith("x-omniroute-");
 }
 
+/**
+ * Noise headers that should never evict operationally useful headers.
+ * Lowest priority (4) — dropped first when the forwarding budget is tight.
+ */
+const LOW_PRIORITY_NOISE_HEADERS = new Set([
+  "x-codex-turn-state",
+  "cf-ray",
+  "cf-cache-status",
+  "content-security-policy",
+  "date",
+  "x-robots-tag",
+]);
+
 function getForwardingPriority(headerName: string): number {
   const normalized = headerName.toLowerCase();
   if (
@@ -104,7 +117,18 @@ function getForwardingPriority(headerName: string): number {
     return 0;
   }
   if (normalized === "retry-after") return 1;
+  // Standard rate-limit headers (OpenAI, Anthropic, generic)
   if (normalized.includes("ratelimit") || normalized.includes("rate-limit")) return 2;
+  // Codex quota surface — names lack the "ratelimit" substring but carry the same semantics
+  if (
+    normalized.startsWith("x-codex-") &&
+    (normalized.includes("-used-") ||
+      normalized.includes("-reset-") ||
+      normalized.startsWith("x-codex-credits"))
+  ) {
+    return 2;
+  }
+  if (LOW_PRIORITY_NOISE_HEADERS.has(normalized)) return 4;
   return 3;
 }
 
