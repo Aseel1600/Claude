@@ -3,10 +3,10 @@ name: Build and Publish Docker Image to GHCR
 on:
   push:
     branches:
-      - main
-      - "release/**"
+      - "**"
     tags:
       - "v*"
+      - "**"
   workflow_dispatch:
     inputs:
       target:
