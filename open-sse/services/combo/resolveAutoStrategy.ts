@@ -19,6 +19,7 @@ import type { RoutingHint } from "../manifestAdapter";
 import { parseModel } from "../model.ts";
 import { supportsToolCalling } from "../modelCapabilities.ts";
 import type { ResilienceSettings } from "../../../src/lib/resilience/settings";
+import { areContextWindowChecksDisabled } from "../../../src/shared/utils/featureFlags";
 import { parseAutoConfig } from "./autoConfig.ts";
 import { dedupeTargetsByExecutionKey } from "./comboData.ts";
 import {
@@ -168,43 +169,45 @@ export async function resolveAutoStrategyOrder(
       : []
   );
   if (estimatedInputTokens > 0) {
-    const filteredByContext = eligibleTargets.filter((target) => {
-      const limit = getModelContextLimitForModelString(target.modelStr);
-      if (limit === null || limit === undefined) return true; // unknown — include to be safe
-      return limit >= estimatedInputTokens;
-    });
-    if (filteredByContext.length > 0) {
-      log.debug?.(
-        "COMBO",
-        `Auto strategy: context-window filter kept ${filteredByContext.length}/${eligibleTargets.length} candidates (est. ${estimatedInputTokens} tokens)`
-      );
-      eligibleTargets = filteredByContext;
-    } else if (compatFilterFailOpen) {
-      log.warn(
-        "COMBO",
-        `Auto strategy: all candidates filtered by context-window policy (est. ${estimatedInputTokens} tokens), falling back to full pool (compatFilterFailOpen)`
-      );
-    } else {
-      // #8488: every candidate has a known limit below the estimate — surface
-      // context_length_exceeded rather than dispatching oversized targets.
-      return {
-        earlyResponse: errorResponseWithComboDiagnostics(
-          400,
-          `Request requires approximately ${estimatedInputTokens} tokens, but every auto-strategy candidate in combo ${combo.name} has a smaller known context limit`,
-          {
-            poolSize: eligibleTargets.length,
-            attempted: 0,
-            excluded: eligibleTargets.map((target) => ({
-              provider: target.provider,
-              model: target.modelStr,
-              reason: "context_window",
-            })),
-            attemptOrder: [],
-            terminalReason: "context_length_exceeded",
-          },
-          { code: "context_length_exceeded", type: "invalid_request_error" }
-        ),
-      };
+    if (!areContextWindowChecksDisabled()) {
+      const filteredByContext = eligibleTargets.filter((target) => {
+        const limit = getModelContextLimitForModelString(target.modelStr);
+        if (limit === null || limit === undefined) return true; // unknown — include to be safe
+        return limit >= estimatedInputTokens;
+      });
+      if (filteredByContext.length > 0) {
+        log.debug?.(
+          "COMBO",
+          `Auto strategy: context-window filter kept ${filteredByContext.length}/${eligibleTargets.length} candidates (est. ${estimatedInputTokens} tokens)`
+        );
+        eligibleTargets = filteredByContext;
+      } else if (compatFilterFailOpen) {
+        log.warn(
+          "COMBO",
+          `Auto strategy: all candidates filtered by context-window policy (est. ${estimatedInputTokens} tokens), falling back to full pool (compatFilterFailOpen)`
+        );
+      } else {
+        // #8488: every candidate has a known limit below the estimate — surface
+        // context_length_exceeded rather than dispatching oversized targets.
+        return {
+          earlyResponse: errorResponseWithComboDiagnostics(
+            400,
+            `Request requires approximately ${estimatedInputTokens} tokens, but every auto-strategy candidate in combo ${combo.name} has a smaller known context limit`,
+            {
+              poolSize: eligibleTargets.length,
+              attempted: 0,
+              excluded: eligibleTargets.map((target) => ({
+                provider: target.provider,
+                model: target.modelStr,
+                reason: "context_window",
+              })),
+              attemptOrder: [],
+              terminalReason: "context_length_exceeded",
+            },
+            { code: "context_length_exceeded", type: "invalid_request_error" }
+          ),
+        };
+      }
     }
 
     eligibleTargets = await expandAutoComboCandidatePool(eligibleTargets, combo);

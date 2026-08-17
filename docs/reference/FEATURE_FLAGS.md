@@ -1,7 +1,7 @@
 ---
 title: "Feature Flags"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.50
+lastUpdated: 2026-08-17
 ---
 
 # Feature Flags
@@ -9,8 +9,7 @@ lastUpdated: 2026-06-28
 > Runtime toggles that change OmniRoute's behavior **without a redeploy**.
 > Every flag listed here is defined in
 > [`src/shared/constants/featureFlagDefinitions.ts`](../../src/shared/constants/featureFlagDefinitions.ts)
-> — the single source of truth. The dashboard and the REST API both read from
-> that file, so the table below is generated to match it 1:1.
+> — the complete single source of truth used by both the dashboard and REST API.
 
 ---
 
@@ -46,22 +45,24 @@ A boolean flag is considered **enabled** when its effective value is `"true"`,
 
 ## Flag Catalog
 
-38 flags across 6 categories. **Default** is the definition default — the value
-used when neither a DB override nor an environment variable is present.
+The tables below document the core operator-facing flags. The live registry in
+`featureFlagDefinitions.ts` contains the complete catalog. **Default** is the
+definition default used when neither a DB override nor an environment variable
+is present.
 
 ### Security (7)
 
-| Key                              | Type    | Default  | Description                                                                   |
-| -------------------------------- | ------- | -------- | ----------------------------------------------------------------------------- |
-| `REQUIRE_API_KEY`                | boolean | `false`  | Require an API key for all incoming requests.                                 |
-| `INPUT_SANITIZER_ENABLED`        | boolean | `true`   | Enable input sanitization for all requests.                                   |
-| `INJECTION_GUARD_MODE`           | enum    | `off`    | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.        |
-| `INPUT_SANITIZER_BLOCK_THRESHOLD` | enum    | `high`   | Minimum severity blocked when mode is `block` (`high`/`medium`/`low`). Medium families are observe-only at default. |
-| `INJECTION_GUARD_BLOCK_THRESHOLD` | enum    | _(unset)_ | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`. |
-| `PII_REDACTION_ENABLED`          | boolean | `false`  | Redact PII from requests (independent of `INPUT_SANITIZER_MODE`).              |
-| `PII_RESPONSE_SANITIZATION`      | boolean | `false`  | Sanitize PII from provider responses.                                         |
-| `PII_RESPONSE_SANITIZATION_MODE` | enum    | `redact` | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`. |
-| `OUTBOUND_SSRF_GUARD_ENABLED`    | boolean | `true`   | Block outbound requests to private/internal IP ranges.                        |
+| Key                               | Type    | Default   | Description                                                                                                         |
+| --------------------------------- | ------- | --------- | ------------------------------------------------------------------------------------------------------------------- |
+| `REQUIRE_API_KEY`                 | boolean | `false`   | Require an API key for all incoming requests.                                                                       |
+| `INPUT_SANITIZER_ENABLED`         | boolean | `true`    | Enable input sanitization for all requests.                                                                         |
+| `INJECTION_GUARD_MODE`            | enum    | `off`     | Prompt injection guard mode. Values: `off`, `warn`, `block`, `redact`.                                              |
+| `INPUT_SANITIZER_BLOCK_THRESHOLD` | enum    | `high`    | Minimum severity blocked when mode is `block` (`high`/`medium`/`low`). Medium families are observe-only at default. |
+| `INJECTION_GUARD_BLOCK_THRESHOLD` | enum    | _(unset)_ | Legacy alias for `INPUT_SANITIZER_BLOCK_THRESHOLD`.                                                                 |
+| `PII_REDACTION_ENABLED`           | boolean | `false`   | Redact PII from requests (independent of `INPUT_SANITIZER_MODE`).                                                   |
+| `PII_RESPONSE_SANITIZATION`       | boolean | `false`   | Sanitize PII from provider responses.                                                                               |
+| `PII_RESPONSE_SANITIZATION_MODE`  | enum    | `redact`  | Mode for PII response sanitization. Values: `redact`, `warn`, `block`, `off`.                                       |
+| `OUTBOUND_SSRF_GUARD_ENABLED`     | boolean | `true`    | Block outbound requests to private/internal IP ranges.                                                              |
 
 ### Network (8)
 
@@ -76,29 +77,30 @@ used when neither a DB override nor an environment variable is present.
 | `OMNIROUTE_ALLOW_LOCAL_PROVIDER_URLS`           | boolean | `true`  |         | Allow adding/validating providers on local/private addresses (127.0.0.1, localhost, LAN). On by default (local-first); disable for strict public-only blocking. Cloud-metadata stays blocked. |
 | `ENABLE_CC_COMPATIBLE_PROVIDER`                 | boolean | `false` | ✓       | Enable Claude Code compatible provider mode.                                                                                                                                                  |
 
-### Policies (3)
+### Policies (4 shown)
 
-| Key                                       | Type    | Default    | Restart | Description                                                            |
-| ----------------------------------------- | ------- | ---------- | ------- | ---------------------------------------------------------------------- |
-| `TOOL_POLICY_MODE`                        | enum    | `disabled` |         | Tool-use policy enforcement mode. Values: `disabled`, `warn`, `block`. |
-| `RATE_LIMIT_AUTO_ENABLE`                  | boolean | `false`    |         | Automatically enable rate limiting based on usage patterns.            |
-| `ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE` | boolean | `false`    | ✓       | Allow multiple connections per compatibility node.                     |
+| Key                                       | Type    | Default    | Restart | Description                                                                                                                         |
+| ----------------------------------------- | ------- | ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `TOOL_POLICY_MODE`                        | enum    | `disabled` |         | Tool-use policy enforcement mode. Values: `disabled`, `warn`, `block`.                                                              |
+| `RATE_LIMIT_AUTO_ENABLE`                  | boolean | `false`    |         | Automatically enable rate limiting based on usage patterns.                                                                         |
+| `ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE` | boolean | `false`    | ✓       | Allow multiple connections per compatibility node.                                                                                  |
+| `DISABLE_CONTEXT_WINDOW_CHECKS`           | boolean | `false`    |         | Skip OmniRoute's local context-window and max-input-token checks for direct and combo-routed requests. Upstream limits still apply. |
 
 ### Runtime (11)
 
-| Key                                         | Type    | Default | Restart | Description                                                                                                                                         |
-| ------------------------------------------- | ------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key                                         | Type    | Default | Restart | Description                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------- | ------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `EXPOSE_CC_DISCOVERY_ALIASES`               | boolean | `false` |         | Advertise `claude/<provider>/<model>` mirror ids on `/v1/models` so Claude Code gateway model discovery lists non-Claude models. Global level of the three-level gate (env wins over the dashboard override). See [Claude Code configuration](../guides/CLAUDE-CODE-CONFIGURATION.md#discovery-aliases--surface-non-claude-models-in-the-model-picker). |
-| `OMNIROUTE_MCP_ENFORCE_SCOPES`              | boolean | `true`  |         | Enforce scope restrictions on MCP tool access.                                                                                                      |
-| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`       | boolean | `false` |         | Compress MCP tool descriptions to reduce token usage.                                                                                               |
-| `OMNIROUTE_ENABLE_RUNTIME_BACKGROUND_TASKS` | boolean | `false` |         | Enable background task processing at runtime.                                                                                                       |
-| `OMNIROUTE_DISABLE_BACKGROUND_SERVICES`     | boolean | `false` | ✓       | Disable all background services (quota refresh, sync, etc).                                                                                         |
-| `OMNIROUTE_RTK_TRUST_PROJECT_FILTERS`       | boolean | `false` |         | Trust project-level RTK filters without validation.                                                                                                 |
-| `OMNIROUTE_ENABLE_LIVE_WS`                  | boolean | `true`  | ✓       | Start the real-time dashboard WebSocket server on import (port 20129 by default).                                                                   |
-| `OMNIROUTE_CODEX_WS_ENABLED`                | boolean | `true`  |         | Allow Codex to use the Responses-over-WebSocket transport. When off, Codex falls back to HTTP Responses.                                            |
-| `OMNIROUTE_EMERGENCY_FALLBACK`              | boolean | `true`  |         | Route budget-exhausted requests to the emergency free fallback provider/model. (See [Emergency Budget Fallback](#emergency-budget-fallback) below.) |
-| `MODEL_CATALOG_INCLUDE_NAMES`               | boolean | `true`  |         | Include display-friendly name fields in `/v1/models` responses. Disable for clients that expect model IDs only.                                     |
-| `ARENA_ELO_SYNC_ENABLED`                    | boolean | `true`  |         | Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.                                                                      |
+| `OMNIROUTE_MCP_ENFORCE_SCOPES`              | boolean | `true`  |         | Enforce scope restrictions on MCP tool access.                                                                                                                                                                                                                                                                                                          |
+| `OMNIROUTE_MCP_COMPRESS_DESCRIPTIONS`       | boolean | `false` |         | Compress MCP tool descriptions to reduce token usage.                                                                                                                                                                                                                                                                                                   |
+| `OMNIROUTE_ENABLE_RUNTIME_BACKGROUND_TASKS` | boolean | `false` |         | Enable background task processing at runtime.                                                                                                                                                                                                                                                                                                           |
+| `OMNIROUTE_DISABLE_BACKGROUND_SERVICES`     | boolean | `false` | ✓       | Disable all background services (quota refresh, sync, etc).                                                                                                                                                                                                                                                                                             |
+| `OMNIROUTE_RTK_TRUST_PROJECT_FILTERS`       | boolean | `false` |         | Trust project-level RTK filters without validation.                                                                                                                                                                                                                                                                                                     |
+| `OMNIROUTE_ENABLE_LIVE_WS`                  | boolean | `true`  | ✓       | Start the real-time dashboard WebSocket server on import (port 20129 by default).                                                                                                                                                                                                                                                                       |
+| `OMNIROUTE_CODEX_WS_ENABLED`                | boolean | `true`  |         | Allow Codex to use the Responses-over-WebSocket transport. When off, Codex falls back to HTTP Responses.                                                                                                                                                                                                                                                |
+| `OMNIROUTE_EMERGENCY_FALLBACK`              | boolean | `true`  |         | Route budget-exhausted requests to the emergency free fallback provider/model. (See [Emergency Budget Fallback](#emergency-budget-fallback) below.)                                                                                                                                                                                                     |
+| `MODEL_CATALOG_INCLUDE_NAMES`               | boolean | `true`  |         | Include display-friendly name fields in `/v1/models` responses. Disable for clients that expect model IDs only.                                                                                                                                                                                                                                         |
+| `ARENA_ELO_SYNC_ENABLED`                    | boolean | `true`  |         | Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.                                                                                                                                                                                                                                                                          |
 
 ### CLI (3)
 
@@ -115,6 +117,13 @@ used when neither a DB override nor an environment variable is present.
 | `OMNIROUTE_DISABLE_LOCAL_HEALTHCHECK` | boolean | `false` | Disable the local instance health check endpoint.        |
 | `OMNIROUTE_DISABLE_TOKEN_HEALTHCHECK` | boolean | `false` | Disable the token validation health check.               |
 | `SKILLS_SANDBOX_NETWORK_ENABLED`      | boolean | `false` | Enable network access in the skills sandbox environment. |
+
+> [!CAUTION]
+> `DISABLE_CONTEXT_WINDOW_CHECKS=true` only disables OmniRoute's local request-size
+> decisions. It does not increase a model's real context window, and an upstream
+> provider can still reject the request. Prompt compression, model output caps,
+> tool/vision/structured-output checks, and explicit combo settings such as
+> `minContextWindow`, `maxContextWindow`, and explicit context ordering stay active.
 
 > [!NOTE]
 > The `Restart` column marks flags with `requiresRestart: true` — the value is
@@ -169,12 +178,12 @@ Returns every flag with its effective value, source, and a summary.
       "requiresRestart": false,
       "warningLevel": "caution",
     },
-    // ... all 33 flags
+    // ... all 49 flags
   ],
   "summary": {
-    "total": 33,
-    "active": 0,
-    "inactive": 0,
+    "total": 49,
+    "active": 12,
+    "inactive": 37,
     "overriddenByDb": 0,
     "overriddenByEnv": 0,
   },

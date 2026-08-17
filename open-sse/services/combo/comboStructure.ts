@@ -17,6 +17,7 @@ import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getHiddenModelsByProvider } from "../../../src/lib/db/models";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
 import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
+import { areContextWindowChecksDisabled } from "../../../src/shared/utils/featureFlags.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { containsMediaKind } from "../../utils/mediaParts.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
@@ -520,8 +521,10 @@ function exceedsKnownOutputLimit(
 
 function hasKnownCompatibleContextLimit(
   target: ResolvedComboTarget,
-  requirements: RequestCompatibilityRequirements
+  requirements: RequestCompatibilityRequirements,
+  contextWindowChecksDisabled: boolean
 ): boolean {
+  if (contextWindowChecksDisabled) return true;
   if (requirements.requiredContextTokens <= 0) return false;
   const capabilities = getResolvedModelCapabilities(target.modelStr);
   return evaluateContextLimit(capabilities, requirements, target.modelStr) === true;
@@ -563,7 +566,8 @@ export function computeCompatRejectedTargets(
 
 function getTargetCompatibilityFailures(
   target: ResolvedComboTarget,
-  requirements: RequestCompatibilityRequirements
+  requirements: RequestCompatibilityRequirements,
+  contextWindowChecksDisabled: boolean
 ): string[] {
   const capabilities = getResolvedModelCapabilities(target.modelStr);
   const failures: string[] = [];
@@ -595,9 +599,11 @@ function getTargetCompatibilityFailures(
     failures.push("output_tokens");
   }
 
-  const contextVerdict = evaluateContextLimit(capabilities, requirements, target.modelStr);
-  if (requirements.requiredContextTokens > 0 && contextVerdict === false) {
-    failures.push("context_window");
+  if (!contextWindowChecksDisabled) {
+    const contextVerdict = evaluateContextLimit(capabilities, requirements, target.modelStr);
+    if (requirements.requiredContextTokens > 0 && contextVerdict === false) {
+      failures.push("context_window");
+    }
   }
 
   return failures;
@@ -632,9 +638,10 @@ export function describeCapabilityFilterExhaustion(
 } | null {
   if (targets.length === 0) return null;
   const requirements = deriveRequestCompatibilityRequirements(body);
+  const contextWindowChecksDisabled = areContextWindowChecksDisabled();
   const rejected = targets.map((target) => ({
     target,
-    reasons: getTargetCompatibilityFailures(target, requirements),
+    reasons: getTargetCompatibilityFailures(target, requirements, contextWindowChecksDisabled),
   }));
   const unmet = Array.from(
     new Set(rejected.flatMap((entry) => entry.reasons.filter((r) => HARD_COMPAT_REASONS.has(r))))
@@ -678,17 +685,23 @@ export function filterTargetsByRequestCompatibility(
 ): ResolvedComboTarget[] {
   if (targets.length === 0) return targets;
   const requirements = deriveRequestCompatibilityRequirements(body);
+  const contextWindowChecksDisabled = areContextWindowChecksDisabled();
   const needsFiltering =
     requirements.requiresTools ||
     requirements.requiresVision ||
     requirements.requiresStructuredOutput ||
-    requirements.requiredContextTokens > 0;
+    requirements.requestedOutputTokens > 0 ||
+    (!contextWindowChecksDisabled && requirements.requiredContextTokens > 0);
   if (!needsFiltering) return targets;
 
   const rejected: Array<{ target: ResolvedComboTarget; reasons: string[] }> = [];
   const targetReasons = new Map<ResolvedComboTarget, string[]>();
   for (const target of targets) {
-    const reasons = getTargetCompatibilityFailures(target, requirements);
+    const reasons = getTargetCompatibilityFailures(
+      target,
+      requirements,
+      contextWindowChecksDisabled
+    );
     targetReasons.set(target, reasons);
     if (reasons.length > 0) rejected.push({ target, reasons });
   }
@@ -709,7 +722,7 @@ export function filterTargetsByRequestCompatibility(
     compatible.length > 1
   ) {
     const knownContextCompatible = compatible.filter((target) =>
-      hasKnownCompatibleContextLimit(target, requirements)
+      hasKnownCompatibleContextLimit(target, requirements, contextWindowChecksDisabled)
     );
     if (knownContextCompatible.length > 0 && knownContextCompatible.length < compatible.length) {
       const knownSet = new Set(knownContextCompatible);

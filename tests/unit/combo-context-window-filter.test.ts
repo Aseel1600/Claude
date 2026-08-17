@@ -19,6 +19,8 @@ const { filterTargetsByRequestCompatibility, getKnownContextOverflow, handleComb
   await import("../../open-sse/services/combo.ts");
 const { setModelContextOverride, removeModelContextOverride } =
   await import("../../src/lib/db/modelContextOverrides.ts");
+const { setFeatureFlagOverride, removeFeatureFlagOverride } =
+  await import("../../src/lib/db/featureFlags.ts");
 
 test.after(() => {
   core.resetDbInstance();
@@ -32,6 +34,7 @@ test.after(() => {
 
 test.beforeEach(() => {
   clearModelsDevCapabilities();
+  removeFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS");
 });
 
 function capabilityEntry(limitContext: number | null) {
@@ -212,6 +215,27 @@ test("output-token limits remain a hard compatibility requirement", () => {
   );
 });
 
+test("DISABLE_CONTEXT_WINDOW_CHECKS keeps combo output-token limits active", () => {
+  saveModelsDevCapabilities({
+    "unit-output-limit": {
+      insufficient: capabilityEntryWithLimits(128_000, 128_000, 128),
+      sufficient: capabilityEntryWithLimits(128_000, 128_000, 4_096),
+    },
+  });
+  setFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS", "true");
+
+  const out = filterTargetsByRequestCompatibility(
+    [target("unit-output-limit/insufficient"), target("unit-output-limit/sufficient")],
+    { messages: [{ role: "user", content: "hello" }], max_tokens: 512 },
+    noopLog
+  );
+
+  assert.deepEqual(
+    out.map((entry) => entry.modelStr),
+    ["unit-output-limit/sufficient"]
+  );
+});
+
 test("known context overflow reports the largest target limit", () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
@@ -296,6 +320,44 @@ test("combo rejects a known oversized request before upstream dispatch", async (
   assert.equal(body.error.code, "context_length_exceeded");
   assert.equal(body.diagnostics.terminalReason, "context_length_exceeded");
   assert.equal(body.diagnostics.attempted, 0);
+});
+
+test("DISABLE_CONTEXT_WINDOW_CHECKS lets an oversized combo request reach its target", async () => {
+  saveModelsDevCapabilities({
+    "unit-known-context": {
+      tiny: capabilityEntry(8_000),
+      small: capabilityEntry(16_000),
+    },
+  });
+  setFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS", "true");
+  let dispatches = 0;
+
+  const response = await handleComboChat({
+    body: largeContextBody(),
+    combo: {
+      name: "disabled-context-checks",
+      strategy: "priority",
+      models: ["unit-known-context/tiny", "unit-known-context/small"],
+    },
+    handleSingleModel: async () => {
+      dispatches += 1;
+      return new Response(
+        JSON.stringify({ choices: [{ message: { role: "assistant", content: "ok" } }] }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    },
+    log: noopLog,
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(dispatches, 1);
+  assert.equal(
+    getKnownContextOverflow(
+      [target("unit-known-context/tiny"), target("unit-known-context/small")],
+      largeContextBody()
+    ),
+    null
+  );
 });
 
 test("native Responses context bypasses catalog overflow only for all-Codex pools (#8932)", () => {

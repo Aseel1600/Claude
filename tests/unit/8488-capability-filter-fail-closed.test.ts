@@ -12,6 +12,8 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 
 const core = await import("../../src/lib/db/core.ts");
 const { saveModelsDevCapabilities } = await import("../../src/lib/modelsDevSync.ts");
+const { setFeatureFlagOverride, removeFeatureFlagOverride } =
+  await import("../../src/lib/db/featureFlags.ts");
 const {
   filterTargetsByRequestCompatibility,
   describeCapabilityFilterExhaustion,
@@ -19,6 +21,8 @@ const {
 } = await import("../../open-sse/services/combo/comboStructure.ts");
 const { resolveAutoStrategyOrder } =
   await import("../../open-sse/services/combo/resolveAutoStrategy.ts");
+const { checkRequestCapabilityFit } =
+  await import("../../src/shared/constants/capabilities/capabilityFilter.ts");
 
 function capabilityEntry(limit_context: number, overrides: Record<string, unknown> = {}) {
   return {
@@ -68,6 +72,7 @@ test.beforeEach(() => {
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+  removeFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS");
 });
 
 test.after(() => {
@@ -129,10 +134,7 @@ test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#52
   assert.equal(providerSupportsEmulatedToolCalling("openai"), false);
 
   const kept = filterTargetsByRequestCompatibility(
-    [
-      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
-      target("chatgpt-web", "chatgpt-web/o3"),
-    ],
+    [target("chatgpt-web", "chatgpt-web/gpt-5.5"), target("chatgpt-web", "chatgpt-web/o3")],
     {
       messages: [{ role: "user", content: "Use a tool." }],
       tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
@@ -146,10 +148,7 @@ test("#8488 filter: chatgpt-web emulation providers stay eligible for tools (#52
   );
 
   const exhaustion = describeCapabilityFilterExhaustion(
-    [
-      target("chatgpt-web", "chatgpt-web/gpt-5.5"),
-      target("chatgpt-web", "chatgpt-web/o3"),
-    ],
+    [target("chatgpt-web", "chatgpt-web/gpt-5.5"), target("chatgpt-web", "chatgpt-web/o3")],
     {
       messages: [{ role: "user", content: "Use a tool." }],
       tools: [{ type: "function", function: { name: "lookup", parameters: {} } }],
@@ -175,7 +174,10 @@ test("#8488 auto: chatgpt-web emulation survives tool pre-filter (#5240)", async
     buildAutoCandidates: (async () => []) as never,
   });
 
-  assert.ok(!("earlyResponse" in result), "must not 400 capability_mismatch for emulation providers");
+  assert.ok(
+    !("earlyResponse" in result),
+    "must not 400 capability_mismatch for emulation providers"
+  );
   if ("orderedTargets" in result) {
     assert.equal(result.orderedTargets.length, 1);
     assert.equal(result.orderedTargets[0].modelStr, "chatgpt-web/gpt-5.5");
@@ -313,4 +315,59 @@ test("#8488 auto: context pre-filter fail closed when all known limits too small
     const body = await result.earlyResponse.json();
     assert.equal(body?.error?.code, "context_length_exceeded");
   }
+});
+
+test("DISABLE_CONTEXT_WINDOW_CHECKS bypasses the auto-strategy context pre-filter", async () => {
+  saveModelsDevCapabilities({
+    openai: {
+      tiny: capabilityEntry(100, { tool_call: true }),
+    },
+  });
+  setFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS", "true");
+
+  const result = await resolveAutoStrategyOrder({
+    orderedTargets: [target("openai", "openai/tiny")] as never,
+    body: { messages: [{ role: "user", content: "x".repeat(4000) }] },
+    combo: { id: "c1", name: "auto-ctx-disabled", config: {} } as never,
+    settings: null,
+    config: {},
+    relayOptions: null,
+    resilienceSettings: { quotaPreflight: { enabled: false } } as never,
+    log: log as never,
+    buildAutoCandidates: (async () => []) as never,
+  });
+
+  assert.ok(!("earlyResponse" in result));
+  if ("orderedTargets" in result) {
+    assert.equal(result.orderedTargets.length, 1);
+    assert.equal(result.orderedTargets[0].modelStr, "openai/tiny");
+  }
+});
+
+test("DISABLE_CONTEXT_WINDOW_CHECKS bypasses only direct context capability failures", () => {
+  setFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS", "true");
+
+  const result = checkRequestCapabilityFit(
+    {
+      supportsTools: false,
+      toolCalling: false,
+      supportsVision: null,
+      structuredOutput: null,
+      contextWindow: 100,
+      maxInputTokens: 100,
+      maxOutputTokens: null,
+    },
+    {
+      requiresTools: true,
+      requiresVision: false,
+      requiresStructuredOutput: false,
+      requiredContextTokens: 1_000,
+      toolCount: 1,
+    },
+    "openai"
+  );
+
+  assert.equal(result.compatible, false);
+  assert.deepEqual(result.failures, ["tools"]);
+  assert.equal(result.terminalReason, "tools");
 });
