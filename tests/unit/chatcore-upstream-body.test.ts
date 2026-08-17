@@ -50,7 +50,7 @@ test("leaves the model untouched when it already matches", async () => {
   assert.equal(out.model, "model-a");
 });
 
-test("defaults OpenAI image inputs to high detail without overriding explicit detail", async () => {
+test("defaults OpenAI image inputs to high detail for OpenCode clients without overriding explicit detail", async () => {
   const out = await prepareUpstreamBody({
     translatedBody: {
       model: "model-a",
@@ -72,6 +72,7 @@ test("defaults OpenAI image inputs to high detail without overriding explicit de
     provider: "opencode-zen",
     targetFormat: FORMATS.OPENAI,
     credentials: null,
+    isOpencodeClient: true,
   });
 
   const content = (
@@ -81,7 +82,7 @@ test("defaults OpenAI image inputs to high detail without overriding explicit de
   assert.equal(content[2].image_url?.detail, "low");
 });
 
-test("defaults Responses input images to high detail", async () => {
+test("defaults Responses input images to high detail for OpenCode clients", async () => {
   const out = await prepareUpstreamBody({
     translatedBody: {
       model: "model-a",
@@ -96,10 +97,34 @@ test("defaults Responses input images to high detail", async () => {
     provider: "opencode-zen",
     targetFormat: FORMATS.OPENAI_RESPONSES,
     credentials: null,
+    isOpencodeClient: true,
   });
 
   const content = (out.input as Array<{ content: Array<{ detail?: string }> }>)[0].content;
   assert.equal(content[0].detail, "high");
+});
+
+test("leaves image detail untouched for non-OpenCode clients on the same provider", async () => {
+  const out = await prepareUpstreamBody({
+    translatedBody: {
+      model: "model-a",
+      messages: [
+        {
+          role: "user",
+          content: [{ type: "image_url", image_url: { url: "data:image/png;base64,test" } }],
+        },
+      ],
+    },
+    modelToCall: "model-a",
+    provider: "opencode-zen",
+    targetFormat: FORMATS.OPENAI,
+    credentials: null,
+  });
+
+  const content = (
+    out.messages as Array<{ content: Array<{ image_url?: { detail?: string } }> }>
+  )[0].content;
+  assert.equal(content[0].image_url?.detail, undefined);
 });
 
 test("strips Codex GPT-5 verbosity after routing resolves to opencode-go/GLM", async () => {

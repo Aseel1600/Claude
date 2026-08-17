@@ -87,9 +87,14 @@ function truncateToolList(
   return bodyToSend;
 }
 
-// OpenCode's AI SDK file-part serializer omits `image_url.detail`, which makes
-// wide, text-dense screenshots fall back to low-detail vision sampling upstream.
-function defaultImageDetail(bodyToSend: Body): Body {
+// OpenCode's AI SDK file-part serializer omits `image_url.detail`, which makes wide, text-dense
+// screenshots fall back to low-detail vision sampling upstream. Gated on `isOpencodeClient` (the
+// request's User-Agent / `x-opencode-*` header signal, not the `provider` field — `provider` is
+// the upstream target and can be anything regardless of which client sent the request) so this
+// override doesn't change the detail default for non-OpenCode callers on any provider.
+function defaultImageDetail(bodyToSend: Body, isOpencodeClient: boolean): Body {
+  if (!isOpencodeClient) return bodyToSend;
+
   let nextBody = bodyToSend;
 
   if (Array.isArray(bodyToSend.messages)) {
@@ -182,6 +187,7 @@ export async function prepareUpstreamBody(opts: {
   targetFormat: string;
   credentials: CredentialsLike;
   bypassDefaultToolLimit?: boolean;
+  isOpencodeClient?: boolean;
   log?: LoggerLike;
 }): Promise<Body> {
   const {
@@ -191,6 +197,7 @@ export async function prepareUpstreamBody(opts: {
     targetFormat,
     credentials,
     bypassDefaultToolLimit = false,
+    isOpencodeClient = false,
     log,
   } = opts;
 
@@ -222,7 +229,7 @@ export async function prepareUpstreamBody(opts: {
     model: payloadRuleModel,
     log,
   });
-  bodyToSend = defaultImageDetail(bodyToSend);
+  bodyToSend = defaultImageDetail(bodyToSend, isOpencodeClient);
   bodyToSend = truncateToolList(bodyToSend, provider, bypassDefaultToolLimit ?? false, log);
   const connectionCacheOverride = resolveConnectionCacheOverride(credentials?.providerSpecificData);
   bodyToSend = await injectPromptCacheKey(
