@@ -182,6 +182,22 @@ With Stacked:        10K-2.5K tokens sent     (78-95% eligible RTK+Caveman range
 
 ---
 
+## Output Styles
+
+Output styles inject a system prompt instruction to steer the model's writing style. They are defined in the output style catalog and support multiple languages and intensity levels (`lite`, `full`, `ultra`). 
+
+| Style | Description | Supported Languages | Levels |
+| --- | --- | --- | --- |
+| `terse-prose` | Drop filler/articles/hedging; keep technical substance exact. | `en`, `pt-BR`, `ja`, `id`, `vi` | `lite`, `full`, `ultra` |
+| `less-code` | YAGNI ladder: smallest working change, no unrequested abstractions. | `en`, `pt-BR`, `vi`, `ja`, `id` | `lite`, `full`, `ultra` |
+| `ponytail` | Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff. | `en`, `pt-BR`, `vi`, `ja`, `id` | `lite`, `full`, `ultra` |
+| `i-have-adhd` | Action-first output: next action leads, steps numbered, one concrete next step, no preamble. | `en`, `pt-BR`, `vi`, `ja`, `id` | `lite`, `full`, `ultra` |
+| `terse-cjk` | Classical-Chinese ultra-terse style (locale-gated to zh). | `zh` | `lite`, `full`, `ultra` |
+
+Each level appends a shared boundary clause ensuring that code blocks, URLs, file paths, commands, and identifiers remain verbatim.
+
+---
+
 ## Configuration
 
 ### Dashboard
