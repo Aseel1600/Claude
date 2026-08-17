@@ -18,6 +18,7 @@ import {
 } from "@omniroute/open-sse/services/accountFallback";
 import { looksLikeQuotaExhausted } from "@/shared/utils/classify429";
 import { getTrustedLocalRateLimitError } from "@omniroute/open-sse/services/rateLimitManager/errors";
+import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
 export const DEFAULT_MODEL_TEST_TIMEOUT_MS = 30_000;
@@ -399,6 +400,17 @@ export async function runSingleModelTest(
     timeoutMs = DEFAULT_MODEL_TEST_TIMEOUT_MS,
     streamChat = true,
   } = options;
+
+  if (connectionId && (await isConnectionUnavailableToAuxiliaryActivity(connectionId))) {
+    const fullModelId = modelId.includes("/") ? modelId : `${providerId}/${modelId}`;
+    return {
+      modelId: fullModelId,
+      status: "error",
+      latencyMs: 0,
+      httpStatus: 409,
+      error: "Model tests are unavailable for managed lease connections",
+    };
+  }
 
   let fullModelStr = modelId;
   if (!fullModelStr.includes("/")) {

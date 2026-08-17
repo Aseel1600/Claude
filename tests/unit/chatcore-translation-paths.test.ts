@@ -309,6 +309,8 @@ async function invokeChatCore({
   onCredentialsRefreshed = null,
   onRequestSuccess = null,
   sessionAffinityKey = null,
+  managedLease = null,
+  cachedSettings = null,
 }: any = {}) {
   const calls: any[] = [];
 
@@ -355,6 +357,8 @@ async function invokeChatCore({
       sessionAffinityKey,
       isCombo,
       comboStrategy,
+      managedLease,
+      cachedSettings,
       onCredentialsRefreshed,
       onRequestSuccess,
     } as any);
@@ -607,10 +611,8 @@ test("chatCore applies Responses input policy to openai-compatible targets", asy
 });
 
 test("chatCore replays no-tool reasoning across public Responses turns", async () => {
-  // Direct DeepSeek now speaks Responses upstream. Keep this regression on a
-  // Chat-compatible DeepSeek host so it continues to exercise the Responses-to-Chat replay path.
   saveModelsDevCapabilities({
-    siliconflow: {
+    deepseek: {
       "deepseek-v4-pro": {
         ...capabilityEntry(128_000),
         reasoning: true,
@@ -642,7 +644,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
     );
 
   const first = await invokeChatCore({
-    provider: "siliconflow",
+    provider: "deepseek",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -658,7 +660,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
   assert.equal(first.result.success, true);
 
   const second = await invokeChatCore({
-    provider: "siliconflow",
+    provider: "deepseek",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -689,7 +691,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
 });
 test("chatCore captures streaming no-tool reasoning for Responses replay", async () => {
   saveModelsDevCapabilities({
-    siliconflow: {
+    deepseek: {
       "deepseek-v4-pro": {
         ...capabilityEntry(128_000),
         reasoning: true,
@@ -732,7 +734,7 @@ test("chatCore captures streaming no-tool reasoning for Responses replay", async
     );
 
   const first = await invokeChatCore({
-    provider: "siliconflow",
+    provider: "deepseek",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -750,7 +752,7 @@ test("chatCore captures streaming no-tool reasoning for Responses replay", async
   await flushAsyncSideEffects();
 
   const second = await invokeChatCore({
-    provider: "siliconflow",
+    provider: "deepseek",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {

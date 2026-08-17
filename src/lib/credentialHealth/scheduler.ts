@@ -122,6 +122,9 @@ async function testConnection(
   try {
     const result = await testSingleConnection(connectionId);
 
+    // A deliberate lease skip must not rewrite the health cache.
+    if (result.skipped === true) return;
+
     const latencyMs = Date.now() - startTime;
     const state = getSchedulerState();
 

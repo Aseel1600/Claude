@@ -56,6 +56,8 @@ tags:
       background scheduler tick.
   - name: API Keys
     description: API key management
+  - name: Session Leases
+    description: Client-neutral exclusive managed session connection leases
   - name: Combos
     description: Routing combo management
   - name: Settings
@@ -103,6 +105,76 @@ tags:
       See docs/frameworks/TRAFFIC_INSPECTOR.md.
 
 paths:
+  /api/v1/session-leases:
+    post:
+      tags:
+        - Session Leases
+      summary: Acquire, renew, or release an exclusive managed connection lease
+      description: |
+        Requires an API key with `lease:exclusive` and an explicit non-empty
+        `allowedConnections` policy. The opaque owner is bound to the authenticated API key;
+        the lease owns an eligible connection, not a provider or model. Managed inference
+        requests present the owner and exact generation headers. Temporary foreign occupancy
+        returns 429 `WAITING_FOR_CAPACITY` with `Retry-After`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: X-OmniRoute-Lease-Owner
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: ^vlo_[A-Za-z0-9_-]{43}$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [action, model]
+                  properties:
+                    action: { type: string, const: acquire }
+                    model: { type: string, minLength: 1, maxLength: 512 }
+                - type: object
+                  required: [action, generation]
+                  properties:
+                    action: { type: string, const: renew }
+                    generation: { type: integer, minimum: 1 }
+                - type: object
+                  required: [action, generation]
+                  properties:
+                    action: { type: string, const: release }
+                    generation: { type: integer, minimum: 1 }
+                    reason:
+                      type: string
+                      enum: [OWNER_EXIT, CLIENT_CANCELLED]
+      responses:
+        "200":
+          description: Lease lifecycle state without connection or credential disclosure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExclusiveConnectionLeaseLifecycle"
+        "400":
+          description: Missing or invalid lease context/action
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: Managed lease scope or key configuration required
+        "409":
+          description: Stale generation, missing binding, or connection fence rejection
+        "415":
+          description: Lifecycle mutations require application/json
+        "429":
+          description: Eligible managed connections are held by foreign active leases
+          headers:
+            Retry-After:
+              schema: { type: integer, minimum: 1, maximum: 3600 }
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExclusiveConnectionLeaseCapacity"
   # --- Playground + Search Tools (plans 17+18) ---
   /api/playground/improve-prompt:
     post:
@@ -5468,77 +5540,14 @@ paths:
     get:
       tags: [System]
       summary: Get Modality Bridge telemetry
-      description: In-memory per-modality bridge counters (attempts, successes, bridged, cacheHits, failures, totalLatencyMs, latencySamples, averageLatencyMs, lastUsedAt). The bridged field is the backward-compatible success count. Latency averages include sampled operations only; an unsampled Vision or Audio operation does not fabricate a zero-millisecond sample. Counters reset on process restart.
+      description: In-memory per-modality bridge counters (bridged, cacheHits, failures, lastUsedAt). Counters reset on process restart.
       security:
         - ManagementSessionAuth: []
       responses:
         "200":
-          description: Per-modality bridge stats (vision, audio, video)
+          description: Per-modality bridge stats (vision, audio)
         "401":
           description: Unauthorized
-
-  /api/modality-bridge/video/runtime:
-    get:
-      x-loopback-only: true
-      tags: [System]
-      summary: Get Video Bridge runtime status
-      description: Requires trusted loopback locality before authentication or probing, then management authentication. Returns sanitized FFmpeg and ffprobe availability and versions. The response never contains commands, paths, or stderr.
-      security:
-        - ManagementSessionAuth: []
-      responses:
-        "200":
-          description: Video Bridge runtime availability
-        "401":
-          description: Unauthorized
-        "403":
-          description: Localhost access required
-
-  /api/modality-bridge/video/extract:
-    post:
-      x-loopback-only: true
-      tags: [System]
-      summary: Extract bounded Video Bridge frames through the internal broker
-      description: Internal per-process-authenticated trusted-loopback broker. Accepts at most 50 MiB of video bytes; URLs, paths, executable names, and command arguments are not part of the contract. The body pipeline and streamed handler reader both enforce the input cap. The broker applies fixed FFmpeg/ffprobe confinement, a single extraction slot with four pending jobs/100 MiB queued input, a 4 MiB per-frame cap, and a 32 MiB total response cap. This is not a public upload API.
-      security: []
-      parameters:
-        - in: query
-          name: frames
-          required: true
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 16
-      requestBody:
-        required: true
-        content:
-          application/octet-stream:
-            schema:
-              type: string
-              format: binary
-              maxLength: 52428800
-      responses:
-        "200":
-          description: Sanitized duration and bounded JPEG data-URI frames
-        "400":
-          description: Invalid fixed broker contract
-        "403":
-          description: Authenticated trusted-loopback broker identity required
-        "413":
-          description: Input exceeds the 50 MiB byte limit
-        "422":
-          description: Media rejected or extraction failed
-        "499":
-          description: Client request aborted
-        "503":
-          description: Queue capacity is exhausted, or FFmpeg/ffprobe is unavailable on PATH
-          headers:
-            Retry-After:
-              description: Present with value 1 when queue capacity is exhausted
-              schema:
-                type: integer
-                minimum: 1
-        "504":
-          description: Fixed 120-second broker extraction deadline exceeded
 
   /api/cache/stats:
     get:
@@ -7215,6 +7224,31 @@ components:
             requestId: 0a1b2c3d-4e5f-6a7b-8c9d-0e1f2a3b4c5d
 
   schemas:
+    ExclusiveConnectionLeaseLifecycle:
+      type: object
+      required: [state, generation, acquiredAt, renewedAt, expiresAt]
+      properties:
+        state: { type: string, enum: [ACTIVE, RELEASED] }
+        generation: { type: integer, minimum: 1 }
+        acquiredAt: { type: string, format: date-time }
+        renewedAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+    ExclusiveConnectionLeaseCapacity:
+      type: object
+      required: [state, error, reason, retryAfter, eligibleCount, freeCount]
+      properties:
+        state: { type: string, const: WAITING_FOR_CAPACITY }
+        error:
+          type: object
+          required: [type, code, message]
+          properties:
+            type: { type: string, const: lease_error }
+            code: { type: string, const: LEASE_CAPACITY_UNAVAILABLE }
+            message: { type: string }
+        reason: { type: string, const: NO_FREE_ELIGIBLE_CONNECTION }
+        retryAfter: { type: integer, minimum: 1, maximum: 3600 }
+        eligibleCount: { type: integer, minimum: 0 }
+        freeCount: { type: integer, minimum: 0 }
     EmbeddingMultimodalItem:
       oneOf:
         - type: object

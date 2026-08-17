@@ -22,10 +22,9 @@ import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { isGitLabDirectAccessDisabled } from "@/lib/oauth/gitlab";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { classifyAmbiguousOrAuthError, type ClassifyFailureArgs } from "./mistralAmbiguousAuth";
-import { buildApiKeyConnectionTestResult } from "./apiKeyTestResult";
 import { OAUTH_TEST_CONFIG } from "./oauthTestConfig";
-import { isGeoBlockedError } from "@omniroute/open-sse/services/errorClassifier.ts";
 
 // Bound the OAuth probe so a hung upstream can't block the connection-test queue
 // forever (#1449). Mirrors the 30s timeout the API-key path uses via validateProviderApiKey.
@@ -439,34 +438,20 @@ export async function testOAuthConnection(
 
   // Call test endpoint
   try {
-    // Provider-specific probe builders (e.g. antigravity) construct the full
-    // request — url/method/headers/body — because the real surface needs
-    // dynamic headers (client profile) that the static config cannot express.
-    const builtProbe =
-      typeof config.buildProbe === "function"
-        ? await config.buildProbe(connection, accessToken)
-        : null;
-    const headers = builtProbe
-      ? builtProbe.headers
-      : {
-          [config.authHeader]: `${config.authPrefix}${accessToken}`,
-          ...config.extraHeaders,
-        };
+    const headers = {
+      [config.authHeader]: `${config.authPrefix}${accessToken}`,
+      ...config.extraHeaders,
+    };
 
-    const url = builtProbe
-      ? builtProbe.url
-      : typeof config.getUrl === "function"
-        ? config.getUrl(connection)
-        : config.url;
+    const url = typeof config.getUrl === "function" ? config.getUrl(connection) : config.url;
     const fetchInit: RequestInit = {
-      method: builtProbe?.method ?? config.method,
+      method: config.method,
       headers,
       signal: AbortSignal.timeout(timeoutMs),
     };
     // Port of decolua/9router#347: providers like Codex must send a body so the
     // upstream returns 400 (auth ok) instead of 405/415.
-    if (config.body && !builtProbe) fetchInit.body = config.body;
-    if (builtProbe?.body) fetchInit.body = builtProbe.body;
+    if (config.body) fetchInit.body = config.body;
     const res = await fetch(url, fetchInit);
 
     // Port of decolua/9router#347: some providers (Codex) intentionally trigger a
@@ -512,20 +497,14 @@ export async function testOAuthConnection(
       if (tokens) {
         // Retry with new token
         const retryInit: RequestInit = {
-          method: builtProbe?.method ?? config.method,
-          headers: builtProbe
-            ? {
-                ...builtProbe.headers,
-                Authorization: `Bearer ${tokens.accessToken ?? accessToken}`,
-              }
-            : {
-                ...headers,
-                [config.authHeader]: `${config.authPrefix}${tokens.accessToken ?? accessToken}`,
-              },
+          method: config.method,
+          headers: {
+            [config.authHeader]: `${config.authPrefix}${tokens.accessToken}`,
+            ...config.extraHeaders,
+          },
           signal: AbortSignal.timeout(timeoutMs),
         };
-        if (builtProbe?.body) retryInit.body = builtProbe.body;
-        else if (config.body) retryInit.body = config.body;
+        if (config.body) retryInit.body = config.body;
         const retryRes = await fetch(url, retryInit);
 
         const retryAccepted =
@@ -567,25 +546,16 @@ export async function testOAuthConnection(
 
     // #1444: read a 401/403 body so a deactivated account is labeled distinctly from a
     // revoked token. (The body is unread here for non-gitlab providers; the guard keeps
-    // it safe if it was already consumed.) antigravity/agy read any failure body so a
-    // geo-blocked egress location is labeled with an actionable message instead of a
-    // generic "API returned 400".
+    // it safe if it was already consumed.)
     const bodyText =
-      res.status === 401 ||
-      res.status === 403 ||
-      connection.provider === "antigravity" ||
-      connection.provider === "agy"
-        ? await res.text().catch(() => "")
-        : "";
-    const error = isGeoBlockedError(bodyText)
-      ? "Egress location blocked by Google (User location is not supported). The Cloud Code API is not offered from this server's proxy exit region — route antigravity/agy through a proxy in a supported region (e.g. US/EU) or use a different provider. This is NOT an account problem."
-      : isAccountDeactivatedMessage(bodyText)
-        ? "Account deactivated by the provider"
-        : res.status === 401
-          ? "Token invalid or revoked"
-          : res.status === 403
-            ? "Access denied"
-            : `API returned ${res.status}`;
+      res.status === 401 || res.status === 403 ? await res.text().catch(() => "") : "";
+    const error = isAccountDeactivatedMessage(bodyText)
+      ? "Account deactivated by the provider"
+      : res.status === 401
+        ? "Token invalid or revoked"
+        : res.status === 403
+          ? "Access denied"
+          : `API returned ${res.status}`;
 
     return {
       valid: false,
@@ -645,7 +615,15 @@ async function testApiKeyConnection(connection: any) {
     ? makeDiagnosis("ok", "upstream", null, null)
     : classifyFailure({ error, statusCode: result.statusCode, provider: connection.provider });
 
-  return buildApiKeyConnectionTestResult(result, error, diagnosis);
+  return {
+    valid: !!result.valid,
+    error,
+    warning: result.warning || null,
+    diagnosis,
+    ...(Array.isArray((result as any).deployments)
+      ? { deployments: (result as any).deployments }
+      : {}),
+  };
 }
 
 /**
@@ -659,6 +637,17 @@ export async function testSingleConnection(connectionId: string, validationModel
 
   if (!connection) {
     return { valid: false, error: "Connection not found", diagnosis: null, latencyMs: 0 };
+  }
+
+  if (await isConnectionUnavailableToAuxiliaryActivity(connectionId)) {
+    const error = "Connection test deferred while an exclusive session lease is active";
+    return {
+      valid: false,
+      skipped: true,
+      error,
+      diagnosis: makeDiagnosis("lease_active", "local", error, "exclusive_lease_active"),
+      latencyMs: 0,
+    };
   }
 
   const provider = typeof connection.provider === "string" ? connection.provider : "";
