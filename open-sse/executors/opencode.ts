@@ -421,9 +421,9 @@ export class OpencodeExecutor extends BaseExecutor {
             userAgent:
               process.env[envUAKey]?.trim() ||
               process.env.OPENCODE_USER_AGENT?.trim() ||
-              "opencode",
+              "opencode/latest/1.18.18/cli",
             client: process.env.OPENCODE_CLIENT?.trim() || "desktop",
-            project: process.env.OPENCODE_PROJECT?.trim() || "global",
+            project: process.env.OPENCODE_PROJECT?.trim() || "/opencode",
           };
         })()
       : undefined;
