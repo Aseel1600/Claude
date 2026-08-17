@@ -339,50 +339,6 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-/**
- * Known competing-agent identity sentences that Antigravity's server-side
- * filter flags, answering with a 429 RESOURCE_EXHAUSTED (port of
- * decolua/9router b566b20, generalized). Only the identity sentence is
- * removed — surrounding instruction text is untouched.
- */
-const COMPETITIVE_AGENT_PROMPT_PATTERNS: RegExp[] = [
-  /\byou are a claude agent\b[^\n]*/i,
-  /\bbuilt on anthropic's claude agent sdk\b[^\n]*/i,
-  /\byou are claude code\b[^\n]*/i,
-  /\byou are an ai assistant created by anthropic\b[^\n]*/i,
-];
-
-/**
- * Strip competing-agent identity sentences from systemInstruction.parts.
- * Returns the original reference when nothing matched (no allocation).
- */
-export function stripCompetitiveAgentPrompts(systemInstruction: unknown): unknown {
-  const record = asRecord(systemInstruction);
-  const parts = Array.isArray(record?.parts)
-    ? (record.parts as Array<Record<string, unknown>>)
-    : [];
-  if (parts.length === 0) return systemInstruction;
-
-  let changed = false;
-  const newParts = parts.map((part) => {
-    if (typeof part.text !== "string" || part.text.length === 0) return part;
-    let text = part.text;
-    for (const pattern of COMPETITIVE_AGENT_PROMPT_PATTERNS) {
-      const stripped = text
-        .replace(pattern, "")
-        .replace(/\n{3,}/g, "\n\n")
-        .trimStart();
-      if (stripped !== text) {
-        changed = true;
-        text = stripped;
-      }
-    }
-    return text === part.text ? part : { ...part, text };
-  });
-
-  return changed ? { ...record, parts: newParts } : systemInstruction;
-}
-
 function getAntigravitySafetySettings(safetySettings: unknown): unknown[] | undefined {
   if (!Array.isArray(safetySettings)) return undefined;
 
@@ -402,10 +358,7 @@ function sanitizeAntigravityGeminiRequest(
   }
 
   if (asRecord(request.systemInstruction)) {
-    // #10420: strip competing-agent identity sentences (e.g. "You are a
-    // Claude agent, built on Anthropic's Claude Agent SDK.") that Antigravity
-    // flags and answers with 429 RESOURCE_EXHAUSTED.
-    clean.systemInstruction = stripCompetitiveAgentPrompts(request.systemInstruction);
+    clean.systemInstruction = request.systemInstruction;
   }
 
   clean.generationConfig = asRecord(request.generationConfig)
@@ -521,6 +474,17 @@ type AntigravityAttemptOutcome =
 export class AntigravityExecutor extends BaseExecutor {
   constructor() {
     super("antigravity", PROVIDERS.antigravity);
+  }
+
+  override shouldRetry(status: number, urlIndex: number): boolean {
+    return (
+      (status === HTTP_STATUS.RATE_LIMITED ||
+        status === HTTP_STATUS.NOT_FOUND ||
+        status === HTTP_STATUS.BAD_GATEWAY ||
+        status === HTTP_STATUS.SERVICE_UNAVAILABLE ||
+        status === HTTP_STATUS.GATEWAY_TIMEOUT) &&
+      urlIndex + 1 < this.getFallbackCount()
+    );
   }
 
   buildUrl(model: string, _stream: boolean, urlIndex = 0): string {
