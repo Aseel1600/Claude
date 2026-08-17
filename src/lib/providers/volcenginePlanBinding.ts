@@ -6,7 +6,7 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 
-const CONSOLE_TOP_BASE = "https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01";
+export const CONSOLE_TOP_BASE = "https://console.volcengine.com/api/top/ark/cn-beijing/2024-01-01";
 const CODING_PLAN_PROVIDER = "volcengine-coding-plan";
 const AGENT_PLAN_PROVIDER = "volcengine-agent-plan";
 
@@ -15,6 +15,8 @@ const PLAN_CONFIG = {
     provider: CODING_PLAN_PROVIDER,
     name: "Volcano Ark Coding Plan",
     usageAction: "GetCodingPlanUsage",
+    listModelAction: "ListArkCodeLatestModel",
+    listModelPayload: {},
     referer: "https://console.volcengine.com/ark/region:cn-beijing/subscription/coding-plan",
     listApiKeysPayload: { ProjectName: "default" },
   },
@@ -22,6 +24,8 @@ const PLAN_CONFIG = {
     provider: AGENT_PLAN_PROVIDER,
     name: "Volcano Ark Agent Plan",
     usageAction: "GetAgentPlanAFPUsage",
+    listModelAction: "GetAgentPlanModelMappingMeta",
+    listModelPayload: { Edition: "agent_plan_personal" },
     referer: "https://console.volcengine.com/ark/region:cn-beijing/subscription/agent-plan",
     listApiKeysPayload: {
       ProjectName: "default",
@@ -32,18 +36,18 @@ const PLAN_CONFIG = {
 
 type PlanKind = keyof typeof PLAN_CONFIG;
 
-interface ConsoleApiResult {
+export interface ConsoleApiResult {
   ok: boolean;
   status: number;
   json: JsonRecord;
   error: string | null;
 }
 
-function stringField(value: unknown): string {
+export function stringField(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function record(value: unknown): JsonRecord {
+export function record(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
 
@@ -67,7 +71,7 @@ function extractCsrf(credentials: JsonRecord, cookieHeader: string): string {
   return cookieHeader.match(/(?:^|;\s*)csrfToken=([^;]+)/)?.[1]?.trim() || "";
 }
 
-async function callConsoleApi(
+export async function callConsoleApi(
   action: string,
   payload: JsonRecord,
   cookieHeader: string,
@@ -104,7 +108,7 @@ async function callConsoleApi(
   };
 }
 
-async function detectPlan(
+export async function detectPlan(
   kind: PlanKind,
   cookieHeader: string,
   csrfToken: string
@@ -184,6 +188,8 @@ async function upsertConnection(
     volcApiKeyId: apiKeyId,
     volcPlanKind: kind,
     volcLastUsage: usage,
+    // Enable 24h model auto-sync (modelSyncScheduler picks up autoSync:true).
+    autoSync: true,
   };
 
   const existing = (await getProviderConnections({ provider: cfg.provider })).find(
