@@ -12,7 +12,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { act } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ProviderCard from "../ProviderCard";
+import ProviderCard from "../../../../../src/app/(dashboard)/dashboard/providers/components/ProviderCard";
 
 vi.mock("@/shared/components/ProviderTestSlideOver", () => ({ default: () => null }));
 vi.mock("@/shared/components/ProviderIcon", () => ({ default: () => null }));
