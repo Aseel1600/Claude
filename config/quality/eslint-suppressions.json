@@ -34,24 +34,24 @@
       "count": 7
     }
   },
+  "open-sse/executors/puter.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 4
+    }
+  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
     }
   },
-  "open-sse/executors/tinycms.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "open-sse/executors/tinycmsSigner.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 1
-    }
-  },
   "open-sse/executors/vertex.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
+    }
+  },
+  "open-sse/handlers/chatCore.ts": {
+    "no-restricted-imports": {
+      "count": 1
     }
   },
   "open-sse/handlers/chatCore/codexFailover.ts": {
@@ -403,7 +403,17 @@
       "count": 1
     }
   },
+  "src/app/api/combos/[id]/route.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "src/app/api/combos/reorder/route.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/app/api/combos/route.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -544,6 +554,11 @@
     }
   },
   "src/app/api/providers/[id]/login/route.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -958,6 +973,11 @@
       "count": 1
     }
   },
+  "src/app/api/v1/models/catalog.ts": {
+    "no-restricted-imports": {
+      "count": 1
+    }
+  },
   "src/app/api/v1/rerank/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1030,6 +1050,11 @@
   },
   "src/lib/combos/builderOptions.ts": {
     "no-restricted-imports": {
+      "count": 1
+    }
+  },
+  "src/lib/combos/controlCenter.ts": {
+    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -1263,11 +1288,6 @@
   },
   "src/models/index.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/shared/components/CursorAuthModal.tsx": {
-    "react-hooks/exhaustive-deps": {
       "count": 1
     }
   },
@@ -1648,7 +1668,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 6
+      "count": 48
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -1684,6 +1704,11 @@
   "tests/unit/call-log-cap.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 43
+    }
+  },
+  "tests/unit/call-log-file-rotation.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 5
     }
   },
   "tests/unit/call-log-startup.test.ts": {
@@ -1758,7 +1783,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 31
+      "count": 34
     }
   },
   "tests/unit/chatgpt-web-tools-5240.test.ts": {
@@ -2006,6 +2031,11 @@
       "count": 3
     }
   },
+  "tests/unit/codebuddy-cn-provider.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
+    }
+  },
   "tests/unit/codex-banked-reset-credits-5199.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 7
@@ -2029,6 +2059,11 @@
   "tests/unit/combo-builder-options-route.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
+    }
+  },
+  "tests/unit/combo-context-length.test.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 2
     }
   },
   "tests/unit/combo-health-route.test.ts": {

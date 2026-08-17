@@ -7,9 +7,9 @@
 // cross-provider plumbing. The provider-module split was originally proposed
 // by KooshaPari in PR #7338, whose base was too old to merge as-is; this is an
 // independent implementation of the same idea against the current tip, not a
-// reuse of that diff. Supported provider refresh exports are re-exported below so
+// reuse of that diff. All previously-public exports are re-exported below so existing
 // importers (open-sse/index.ts, executors, src/sse/services/tokenRefresh.ts,
-// tests) keep a stable surface.
+// tests) are unaffected.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { PROVIDERS } from "../config/constants.ts";
 import { runWithProxyContext } from "../utils/proxyFetch.ts";
@@ -38,6 +38,7 @@ import {
   getCircuitBreakerStatus,
   refreshWithRetry,
 } from "./tokenRefresh/circuitBreaker.ts";
+import { refreshWindsurfToken } from "./tokenRefresh/providers/windsurf.ts";
 import { refreshCodebuddyCnToken } from "./tokenRefresh/providers/codebuddyCn.ts";
 import { refreshClineToken } from "./tokenRefresh/providers/cline.ts";
 import { refreshKimiCodingToken } from "./tokenRefresh/providers/kimiCoding.ts";
@@ -47,13 +48,14 @@ import { refreshGoogleToken } from "./tokenRefresh/providers/google.ts";
 import { ensureAntigravityProjectAssigned } from "./antigravityProjectBootstrap.ts";
 import { persistDiscoveredAntigravityProjectId } from "./antigravityProjectPersist.ts";
 import { refreshCodexToken } from "./tokenRefresh/providers/codex.ts";
-import { refreshOpenferenceToken } from "./tokenRefresh/providers/openference.ts";
+import { refreshCursorToken } from "./tokenRefresh/providers/cursor.ts";
 import { refreshKiroToken } from "./tokenRefresh/providers/kiro.ts";
 import { refreshQoderToken } from "./tokenRefresh/providers/qoder.ts";
 import { refreshGitHubToken } from "./tokenRefresh/providers/github.ts";
 import { refreshCopilotToken } from "./tokenRefresh/providers/copilot.ts";
 
 export {
+  refreshWindsurfToken,
   refreshCodebuddyCnToken,
   refreshClineToken,
   refreshKimiCodingToken,
@@ -61,7 +63,7 @@ export {
   refreshClaudeOAuthToken,
   refreshGoogleToken,
   refreshCodexToken,
-  refreshOpenferenceToken,
+  refreshCursorToken,
   refreshKiroToken,
   refreshQoderToken,
   refreshGitHubToken,
@@ -374,8 +376,11 @@ async function _getAccessTokenInternal(provider, credentials, log, proxyConfig: 
     case "codex":
       return await refreshCodexToken(credentials.refreshToken, log, proxyConfig);
 
-    case "openference":
-      return await refreshOpenferenceToken(credentials.refreshToken, log, proxyConfig);
+    case "cursor":
+      if (!credentials.refreshToken) {
+        return { error: "unrecoverable_refresh_error", code: "no_refresh_token" };
+      }
+      return await refreshCursorToken(credentials.refreshToken, log, proxyConfig);
 
     case "qoder":
       return await refreshQoderToken(credentials.refreshToken, log, proxyConfig);
@@ -412,6 +417,15 @@ async function _getAccessTokenInternal(provider, credentials, log, proxyConfig: 
         proxyConfig
       );
 
+    case "windsurf":
+    case "devin-cli":
+      return await refreshWindsurfToken(
+        credentials.refreshToken,
+        credentials.providerSpecificData,
+        log,
+        proxyConfig
+      );
+
     case "codebuddy-cn":
       return await refreshCodebuddyCnToken(credentials.refreshToken, log, proxyConfig);
 
@@ -431,20 +445,21 @@ export function supportsTokenRefresh(provider) {
     "agy",
     "claude",
     "codex",
-    "openference",
     "qoder",
     "github",
     "kiro",
     "amazon-q",
     "cline",
     "kimi-coding",
-    // Devin auth is not refreshable here: devin-desktop accepts an imported API
-    // key (#8228), while devin-cli is local-CLI owned via `devin auth login`
-    // (#8407). Neither connection carries a refresh token, so listing either
-    // provider would make tokenHealthCheck force a healthy connection to
-    // testStatus="expired" / errorCode="no_refresh_token".
+    "windsurf",
+    // #8407: do NOT list "devin-cli" here. It is import-token / local-CLI owned
+    // (`devin auth login`); connections never carry a refresh token. Leaving it
+    // in this set made tokenHealthCheck treat it as refresh-capable and force
+    // testStatus="expired" / errorCode="no_refresh_token". Keep it out of the
+    // explicit set (same idea as not listing non-refresh local-CLI providers).
     "gitlab-duo",
     "codebuddy-cn",
+    "cursor",
   ]);
   if (explicitlySupported.has(provider)) return true;
   const config = PROVIDERS[provider];
