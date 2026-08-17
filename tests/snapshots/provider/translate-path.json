@@ -6293,5 +6293,28 @@
       "nonStream": "https://api.zyloai.net/v1/chat/completions",
       "stream": "https://api.zyloai.net/v1/chat/completions"
     }
+  },
+  "cloudflare-playground": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://playground.ai.cloudflare.com",
+      "stream": "https://playground.ai.cloudflare.com"
+    }
   }
 }
