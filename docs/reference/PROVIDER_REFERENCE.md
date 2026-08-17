@@ -1,16 +1,16 @@
 ---
 title: "Provider Reference"
 version: 3.8.50
-lastUpdated: 2026-08-16
+lastUpdated: 2026-08-17
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-08-16
+> **Last generated:** 2026-08-17
 
-Total providers: **341**. See category breakdown below.
+Total providers: **342**. See category breakdown below.
 
 ## Categories
 
@@ -120,7 +120,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (228)
+## API Key Providers (paid / paid-with-free-credits) (229)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -191,6 +191,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `fireworks` | `fireworks` | Fireworks AI | API key | [link](https://fireworks.ai) | $1 free starter credits on signup for API testing |
 | `free-ai` | `free-ai` | Free.ai | API key, aggregator | [link](https://free.ai) | 30,000 tokens/day cover self-hosted models after email verification. Usage beyond the pool can bill at raw cost, and premium external models are paid. |
 | `freeaiapikey` | `faik` | FreeAIAPIKey | API key | [link](https://freeaiapikey.com) | — |
+| `freebuff` | `freebuff` | Freebuff | API key | [link](https://freebuff.com) | Enter Freebuff / Codebuff Auth Token (obtained via CLI login or automated harvester). |
 | `freeinference` | `freeinference` | FreeInference | API key, aggregator | [link](https://freeinference.org) | Free research access without a card; non-Harvard applicants require manual approval and no numeric quota is publicly guaranteed. |
 | `freemodel-dev` | `fmd` | FreeModel.dev | API key | [link](https://freemodel.dev) | $300 free credits on signup — no credit card required. Access GPT-5.4 and GPT-5.5 (OpenAI's latest flagship models) through an OpenAI-compatible API. |
 | `freepik` | `fpk` | Freepik (Mystic) | API key, image | [link](https://freepik.com) | Get API key at freepik.com/developers (Mystic image endpoint) |
@@ -429,7 +430,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (104 implementations)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (105 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also

@@ -1,0 +1,1 @@
+- **feat(providers):** native Freebuff AI gateway support — new `freebuff` provider (executor + registry) routes through the Codebuff session API with agent-run lifecycle tracking, Buffy system-prompt injection, model→agent mapping, and a connection validator; add Freebuff to the API-key gateway catalog, provider icons, and the Add API Key modal. (#10531)
