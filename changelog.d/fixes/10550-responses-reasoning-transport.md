@@ -1,1 +1,1 @@
-- Preserve target-compatible reasoning across Chat Completions and Responses routes, including DeepSeek plaintext continuations and provider-generated opaque Responses state, without replaying unsupported reasoning into fallback targets. (#10550)
+- Preserve target-compatible reasoning across Chat Completions and Responses routes, including DeepSeek plaintext continuations and provider-generated opaque Responses state, without replaying unsupported reasoning into fallback targets or showing redundant encrypted-reasoning controls for providers handled automatically. (#10550)
