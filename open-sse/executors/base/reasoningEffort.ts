@@ -297,12 +297,19 @@ export function sanitizeReasoningEffortForProvider(
     return writeEffortValue(b, "max", c);
   }
 
-  // Native DeepSeek (api.deepseek.com) — V4 Pro and Flash both use the native
-  // {low, high, max} vocabulary. OmniRoute's internal top tier xhigh maps to
-  // DeepSeek's literal max, while compatibility-only medium maps to high.
-  // `none` is already the OpenAI no-thinking carrier and passes through unchanged.
+  // Native DeepSeek (api.deepseek.com) — V4 Pro and Flash use the native
+  // {low, high, max} vocabulary, while other model ids retain the {high, max}
+  // floor. OmniRoute's internal top tier xhigh maps to DeepSeek's literal max,
+  // while compatibility-only medium maps to high. `none` is already the OpenAI
+  // no-thinking carrier and passes through unchanged.
   if (provider === "deepseek") {
-    const mapped = effortStr === "xhigh" ? "max" : effortStr === "medium" ? "high" : null;
+    const isV4 = modelStr.toLowerCase().startsWith("deepseek-v4-");
+    const mapped =
+      effortStr === "xhigh"
+        ? "max"
+        : effortStr === "medium" || (effortStr === "low" && !isV4)
+          ? "high"
+          : null;
     if (mapped && mapped !== effortStr) {
       log?.info?.(
         "REASONING_SANITIZE",

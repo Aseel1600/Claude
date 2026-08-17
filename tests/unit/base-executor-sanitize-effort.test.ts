@@ -724,6 +724,17 @@ test("sanitizeReasoningEffortForProvider: native deepseek preserves low", () => 
   assert.equal(result, body, "low is already valid — passes through unchanged");
 });
 
+test("sanitizeReasoningEffortForProvider: native non-V4 deepseek clamps low → high", () => {
+  const body = {
+    model: "deepseek-chat",
+    reasoning_effort: "low",
+    messages: [{ role: "user", content: "hi" }],
+  };
+  const result = sanitizeReasoningEffortForProvider(body, "deepseek", "deepseek-chat", null);
+  assert.notEqual(result, body, "must return a new object when mutating");
+  assert.equal((result as Record<string, unknown>).reasoning_effort, "high");
+});
+
 test("sanitizeReasoningEffortForProvider: native deepseek clamps medium → high", () => {
   const body = {
     model: "deepseek-v4-pro",
