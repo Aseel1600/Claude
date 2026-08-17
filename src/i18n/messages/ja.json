@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "エージェント用のツールフィルター正規表現",
     "agentFeaturesContextCacheHint": "エージェント ツールのインコンテキスト キャッシュを有効にする",
     "agentFeaturesContextCacheProtection": "エージェントツールの突然変異からキャッシュを保護する",
-    "agentFeaturesContextLength": "コンテキストの長さ",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "例: 128000",
-    "agentFeaturesContextLengthHint": "/v1/models でこのコンボのコンテキスト ウィンドウを定義します。",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "コンテキストの長さは有効な整数である必要があります",
     "agentFeaturesContextLengthErrorRange": "コンテキストの長さは 1000 ～ 2000000 でなければなりません",
     "compressionOverride": "圧縮オーバーライド",
@@ -3713,12 +3717,7 @@
     "errorDescription": "現在、コンボデータを読み込むことができません。接続を確認して、再試行してください。",
     "errorId": "エラー ID: {id}",
     "errorRetry": "もう一度試してください",
-    "comboLabel": "コンボ",
-    "duplicateAutoComboConfirm": "\"{name}\"から静的コンボを作成しますか？",
-    "duplicateAutoComboSnapshotMsg": "このテンプレートに一致する現在接続されているプロバイダー/モデルを編集可能なコンボとしてスナップショットします。",
-    "duplicateAutoComboFailedPrefix": "オートコンボの複製に失敗しました：",
-    "duplicateAutoComboUnknownError": "不明なエラー",
-    "duplicateAutoComboTitle": "{name}から静的コンボを作成"
+    "comboLabel": "コンボ"
   },
   "costs": {
     "title": "コスト",
@@ -12809,6 +12808,28 @@
     "unknown": "不明",
     "unknownProvider": "不明なプロバイダー",
     "unknownModel": "不明なモデル",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} 成功 · {latency} · クォータ {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "新規ユーザーは初回チャージでAPIクレジットが15%増量。公式Kimi APIを通じてOmniRouteでKimi K3を使えます。",
     "cta": "Kimi APIキーを取得",
     "partnerLinkNote": "パートナーリンク",
-    "dismissAriaLabel": "閉じる"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRouteがVS Code Copilot Chat内で動作するようになりました",
-    "description": "無料のOmniCopilot拡張機能をインストールすると、すでに使っているCopilot Chatのモデル選択画面にすべてのOmniRouteモデルが表示されます。",
-    "cta": "拡張機能を入手",
-    "secondaryNote": "Open VSXでも利用可能（Cursor、Windsurf、VSCodiumなど）",
     "dismissAriaLabel": "閉じる"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> ミラー ID を /v1/models で広告します。これは、正規の所有者にアクティブな資格情報がないが、パススルーゲートウェイがアクティブな資格情報でルーティングされるモデルに適用されます。警告: グローバルに有効にすると、すべてのクライアントにカタログエントリが追加されます。",

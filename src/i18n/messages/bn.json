@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "প্রসঙ্গ দৈর্ঘ্য",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "যেমন 128000",
-    "agentFeaturesContextLengthHint": "/v1/মডেলে এই কম্বোর জন্য প্রসঙ্গ উইন্ডো সংজ্ঞায়িত করে।",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "প্রসঙ্গ দৈর্ঘ্য একটি বৈধ পূর্ণসংখ্যা হতে হবে",
     "agentFeaturesContextLengthErrorRange": "প্রসঙ্গ দৈর্ঘ্য 1000 এবং 2000000 এর মধ্যে হতে হবে",
     "compressionOverride": "কম্প্রেশন ওভাররাইড",
@@ -3713,12 +3717,7 @@
     "errorDescription": "আমরা এখন কম্বো ডেটা লোড করতে পারিনি। আপনার সংযোগ পরীক্ষা করুন এবং আবার চেষ্টা করুন।",
     "errorId": "ত্রুটি আইডি: {id}",
     "errorRetry": "পুনরায় চেষ্টা করুন",
-    "comboLabel": "কম্বো",
-    "duplicateAutoComboConfirm": "\"{name}\" থেকে একটি স্ট্যাটিক কম্বো তৈরি করবেন?",
-    "duplicateAutoComboSnapshotMsg": "এটি এই টেমপ্লেটের সাথে মিলে যায় এমন বর্তমান সংযুক্ত প্রদানকারী/মডেলগুলিকে একটি সম্পাদনযোগ্য কম্বোতে স্ন্যাপশট নেবে।",
-    "duplicateAutoComboFailedPrefix": "অটোকম্বো ডুপ্লিকেশন ব্যর্থ:",
-    "duplicateAutoComboUnknownError": "অজানা ত্রুটি",
-    "duplicateAutoComboTitle": "{name} থেকে একটি স্ট্যাটিক কম্বো তৈরি করুন"
+    "comboLabel": "কম্বো"
   },
   "costs": {
     "title": "Costs",
@@ -12809,6 +12808,28 @@
     "unknown": "অজানা",
     "unknownProvider": "অজানা প্রোভাইডার",
     "unknownModel": "অজানা মডেল",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} সফল · {latency} · কোটা {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "নতুন ব্যবহারকারীরা প্রথম রিচার্জে 15% অতিরিক্ত API ক্রেডিট পান। অফিসিয়াল Kimi API-এর মাধ্যমে OmniRoute-এ Kimi K3 ব্যবহার করুন।",
     "cta": "Kimi API কী নিন",
     "partnerLinkNote": "পার্টনার লিঙ্ক",
-    "dismissAriaLabel": "খারিজ করুন"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute এখন VS Code Copilot Chat-এর ভেতরে চলে",
-    "description": "বিনামূল্যের OmniCopilot এক্সটেনশন ইনস্টল করুন এবং আপনার ইতিমধ্যে ব্যবহৃত Copilot Chat মডেল পিকারেই সব OmniRoute মডেল দেখা যাবে।",
-    "cta": "এক্সটেনশনটি নিন",
-    "secondaryNote": "Open VSX-এও পাওয়া যায় (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "খারিজ করুন"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> মিরর আইডি গুলি /v1/models এ বিজ্ঞাপন দিন তাদের জন্য মডেল যাদের ক্যানোনিকাল মালিকের কোনো সক্রিয় শংসাপত্র নেই কিন্তু একটি পাসথ্রু গেটওয়ে তাদের সক্রিয় শংসাপত্র দ্বারা রাউট করে। সতর্কতা: এটি বিশ্বব্যাপী সক্ষম হলে সমস্ত ক্লায়েন্টের জন্য ক্যাটালগ এন্ট্রি যোগ করে।",

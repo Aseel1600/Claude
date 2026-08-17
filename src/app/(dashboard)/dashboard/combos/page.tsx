@@ -64,6 +64,10 @@ import {
 import { getComboStepTarget } from "@/lib/combos/steps";
 import { resolveServerErrorMessage } from "@/lib/api/serverErrorMessage";
 import { useTranslations } from "next-intl";
+import {
+  ComboContextAggregationField,
+  type ComboContextAggregation,
+} from "./ComboContextAggregationField";
 
 const ModelSelectModal = dynamic(() => import("@/shared/components/ModelSelectModal"), {
   ssr: false,
@@ -877,15 +881,6 @@ export default function CombosPage() {
     }
   };
 
-  const handleComboCreated = async (comboId: string) => {
-    await fetchData();
-    // Wait for React to re-render the new card, then scroll it into view.
-    setTimeout(() => {
-      const el = document.querySelector(`[data-testid="combo-card-${comboId}"]`);
-      if (el) el.scrollIntoView({ behavior: "auto", block: "center" });
-    }, 0);
-  };
-
   const handleDelete = async (id) => {
     if (!confirm(t("deleteConfirm"))) return;
     try {
@@ -1111,7 +1106,7 @@ export default function CombosPage() {
         </div>
       </div>
 
-      <AutoComboCatalog onComboCreated={handleComboCreated} />
+      <AutoComboCatalog />
 
       <KimiComboPresetCard
         alreadyCreated={hasKimiCodingPreset(combos)}
@@ -2007,6 +2002,9 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   const [contextLength, setContextLength] = useState<number | undefined>(
     combo?.context_length || undefined
   );
+  const [contextLengthAggregation, setContextLengthAggregation] = useState<ComboContextAggregation>(
+    combo?.context_length_aggregation === "max" ? "max" : "min"
+  );
   const [contextLengthError, setContextLengthError] = useState<string>("");
   const comboBuilderStages = useMemo(() => getComboBuilderStages({ strategy }), [strategy]);
   const visibleStageMeta = useMemo(
@@ -2042,6 +2040,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
       setAgentToolFilter(nextCombo?.tool_filter_regex || "");
       setAgentContextCache(!!nextCombo?.context_cache_protection);
       setContextLength(nextCombo?.context_length || undefined);
+      setContextLengthAggregation(nextCombo?.context_length_aggregation === "max" ? "max" : "min");
     },
     [isExpertMode, setAgentContextCache, setContextLength]
   );
@@ -2842,6 +2841,8 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
     else delete saveData.tool_filter_regex;
     if (agentContextCache) saveData.context_cache_protection = true;
     else delete saveData.context_cache_protection;
+
+    saveData.context_length_aggregation = contextLengthAggregation;
 
     // Validate and save context_length
     if (contextLength !== undefined && contextLength !== null) {
@@ -4407,54 +4408,26 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
               </div>
 
               {/* Context Length */}
-              <div>
-                <label className="text-[11px] font-medium text-text-muted block mb-0.5">
-                  {getI18nOrFallback(t, "agentFeaturesContextLength", "Context length")}
-                </label>
-                <input
-                  type="number"
-                  min="1000"
-                  max="2000000"
-                  step="1000"
-                  value={contextLength || ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setContextLengthError("");
-                    if (value === "") {
-                      setContextLength(undefined);
-                      return;
-                    }
-                    const num = Number(value);
-                    if (isNaN(num) || !Number.isInteger(num)) {
-                      setContextLengthError(t("agentFeaturesContextLengthErrorInteger"));
-                      // Keep the raw input value so the user can correct it
-                    } else if (num < 1000 || num > 2000000) {
-                      setContextLengthError(t("agentFeaturesContextLengthErrorRange"));
-                      setContextLength(num);
-                    } else {
-                      setContextLength(num);
-                    }
-                  }}
-                  placeholder={getI18nOrFallback(
-                    t,
-                    "agentFeaturesContextLengthPlaceholder",
-                    "e.g. 128000"
-                  )}
-                  className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-transparent focus:border-primary focus:outline-none"
-                />
-                {contextLengthError && (
-                  <p className="text-[10px] text-red-500 mt-0.5">{contextLengthError}</p>
-                )}
-                {!contextLengthError && !isExpertMode && (
-                  <p className="text-[10px] text-text-muted mt-0.5">
-                    {getI18nOrFallback(
-                      t,
-                      "agentFeaturesContextLengthHint",
-                      "Defines the context window for this combo in /v1/models."
-                    )}
-                  </p>
-                )}
-              </div>
+              <ComboContextAggregationField
+                value={contextLengthAggregation}
+                onChange={setContextLengthAggregation}
+                manualValue={contextLength}
+                onManualValueChange={(value) => {
+                  setContextLengthError("");
+                  if (
+                    value !== undefined &&
+                    (!Number.isInteger(value) || value < 1000 || value > 2000000)
+                  ) {
+                    setContextLengthError(
+                      !Number.isInteger(value)
+                        ? t("agentFeaturesContextLengthErrorInteger")
+                        : t("agentFeaturesContextLengthErrorRange")
+                    );
+                  }
+                  setContextLength(value);
+                }}
+                error={contextLengthError}
+              />
             </div>
           )}
 

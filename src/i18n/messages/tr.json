@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Aracılar için araç filtresi normal ifadesi",
     "agentFeaturesContextCacheHint": "Aracı araçları için bağlam içi önbelleği etkinleştirin",
     "agentFeaturesContextCacheProtection": "Önbelleği aracı aracı mutasyonlarından koruyun",
-    "agentFeaturesContextLength": "Bağlam uzunluğu",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "örneğin 128000",
-    "agentFeaturesContextLengthHint": "/v1/models'de bu birleşimin bağlam penceresini tanımlar.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Bağlam uzunluğu geçerli bir tam sayı olmalıdır",
     "agentFeaturesContextLengthErrorRange": "Bağlam uzunluğu 1000 ile 2000000 arasında olmalıdır",
     "compressionOverride": "Sıkıştırmayı Geçersiz Kılma",
@@ -3713,12 +3717,7 @@
     "errorDescription": "Şu anda kombinasyon verilerini yükleyemedik. Bağlantınızı kontrol edin ve tekrar deneyin.",
     "errorId": "Hata Kimliği: {id}",
     "errorRetry": "Tekrar Dene",
-    "comboLabel": "Kombinasyon",
-    "duplicateAutoComboConfirm": "\"{name}\"-den statik bir kombinasyon oluşturulsun mu?",
-    "duplicateAutoComboSnapshotMsg": "Bu, bu şablona uygun olarak şu anda bağlı olan sağlayıcıları/modelleri düzenlenebilir bir kombinasyonda yakalayacaktır.",
-    "duplicateAutoComboFailedPrefix": "Otomatik kombinasyon kopyalanamadı:",
-    "duplicateAutoComboUnknownError": "Bilinmeyen hata",
-    "duplicateAutoComboTitle": "{name}-den statik bir kombinasyon oluştur"
+    "comboLabel": "Kombinasyon"
   },
   "costs": {
     "title": "Maliyetler",
@@ -12809,6 +12808,28 @@
     "unknown": "bilinmeyen",
     "unknownProvider": "bilinmeyen sağlayıcı",
     "unknownModel": "bilinmeyen model",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} istek · {success} başarılı · {latency} · kota {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "Yeni kullanıcılar ilk bakiye yüklemesinde %15 ekstra API kredisi kazanır. Resmî Kimi API üzerinden OmniRoute'ta Kimi K3 kullanın.",
     "cta": "Kimi API Anahtarı Alın",
     "partnerLinkNote": "Ortaklık bağlantısı",
-    "dismissAriaLabel": "Kapat"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute artık VS Code Copilot Chat içinde çalışıyor",
-    "description": "Ücretsiz OmniCopilot uzantısını yükleyin ve zaten kullandığınız Copilot Chat model seçicisinde her OmniRoute modeli görünsün.",
-    "cta": "Uzantıyı Al",
-    "secondaryNote": "Open VSX'te de mevcut (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "Kapat"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> ayna kimliklerini /v1/models üzerinde, kanonik sahibi aktif bir kimliğe sahip olmayan ancak aktif bir kimliğe sahip bir geçiş geçidi tarafından yönlendirilen modeller için tanıtın. Uyarı: Küresel olarak etkinleştirildiğinde tüm istemciler için katalog girişleri ekler.",

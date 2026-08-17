@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "طول زمینه",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "به عنوان مثال 128000",
-    "agentFeaturesContextLengthHint": "پنجره زمینه را برای این ترکیب در /v1/models تعریف می کند.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "طول زمینه باید یک عدد صحیح معتبر باشد",
     "agentFeaturesContextLengthErrorRange": "طول متن باید بین 1000 تا 2000000 باشد",
     "compressionOverride": "لغو فشرده سازی",
@@ -3713,12 +3717,7 @@
     "errorDescription": "در حال حاضر نمی‌توانیم داده‌های ترکیبی را بارگذاری کنیم. اتصال خود را بررسی کنید و دوباره تلاش کنید.",
     "errorId": "شناسه خطا: {id}",
     "errorRetry": "دوباره تلاش کنید",
-    "comboLabel": "ترکیب",
-    "duplicateAutoComboConfirm": "ایجاد یک ترکیب ثابت از \"{name}\"؟",
-    "duplicateAutoComboSnapshotMsg": "این ارائه‌دهندگان/مدل‌های متصل فعلی که با این قالب مطابقت دارند را در یک ترکیب قابل ویرایش ذخیره می‌کند.",
-    "duplicateAutoComboFailedPrefix": "تکرار ترکیب خودکار ناموفق بود:",
-    "duplicateAutoComboUnknownError": "خطای ناشناخته",
-    "duplicateAutoComboTitle": "ایجاد یک ترکیب ثابت از {name}"
+    "comboLabel": "ترکیب"
   },
   "costs": {
     "title": "Costs",
@@ -12809,6 +12808,28 @@
     "unknown": "ناشناخته",
     "unknownProvider": "ارائه‌دهنده ناشناخته",
     "unknownModel": "مدل ناشناخته",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} درخواست · {success} موفق · {latency} · سهمیه {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "کاربران جدید در اولین شارژ حساب 15% اعتبار API اضافی دریافت می‌کنند. از Kimi K3 در OmniRoute از طریق API رسمی Kimi استفاده کنید.",
     "cta": "دریافت کلید Kimi API",
     "partnerLinkNote": "لینک همکاری",
-    "dismissAriaLabel": "بستن"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute اکنون درون VS Code Copilot Chat اجرا می‌شود",
-    "description": "افزونه رایگان OmniCopilot را نصب کنید تا همه مدل‌های OmniRoute مستقیماً در انتخابگر مدل Copilot Chat که از قبل استفاده می‌کنید نمایش داده شوند.",
-    "cta": "دریافت افزونه",
-    "secondaryNote": "همچنین در Open VSX (Cursor، Windsurf، VSCodium…)",
     "dismissAriaLabel": "بستن"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "آگهی <gateway-alias>/<model> شناسه‌های آینه‌ای در /v1/models برای مدل‌هایی که مالک قانونی آن‌ها هیچ اعتبار فعالی ندارد اما یک دروازه عبوری با اعتبار فعال آن‌ها را مسیریابی می‌کند. هشدار: در صورت فعال‌سازی جهانی، ورودی‌های کاتالوگ را برای تمام مشتریان اضافه می‌کند.",

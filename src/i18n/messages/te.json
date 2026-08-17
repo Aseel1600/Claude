@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "సందర్భ నిడివి",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "ఉదా 128000",
-    "agentFeaturesContextLengthHint": "/v1/మోడల్స్‌లో ఈ కాంబో కోసం సందర్భ విండోను నిర్వచిస్తుంది.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "సందర్భం పొడవు తప్పనిసరిగా చెల్లుబాటు అయ్యే పూర్ణాంకం అయి ఉండాలి",
     "agentFeaturesContextLengthErrorRange": "సందర్భ నిడివి తప్పనిసరిగా 1000 మరియు 2000000 మధ్య ఉండాలి",
     "compressionOverride": "కంప్రెషన్ ఓవర్‌రైడ్",
@@ -3713,12 +3717,7 @@
     "errorDescription": "మేము ప్రస్తుతం కాంబో డేటాను లోడ్ చేయలేకపోయాము. మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.",
     "errorId": "లోపం ID: {id}",
     "errorRetry": "మరలా ప్రయత్నించండి",
-    "comboLabel": "కాంబో",
-    "duplicateAutoComboConfirm": "\"{name}\" నుండి స్థిర కంబో సృష్టించాలా?",
-    "duplicateAutoComboSnapshotMsg": "ఈ టెంప్లేట్‌తో సరిపోయే ప్రస్తుత కనెక్ట్ చేసిన ప్రొవైడర్లు/మోడల్‌లను ఎడిటబుల్ కంబోలో స్నాప్‌షాట్ తీసుకుంటుంది.",
-    "duplicateAutoComboFailedPrefix": "ఆటోకంబో డూప్లికేట్ చేయడంలో విఫలమైంది:",
-    "duplicateAutoComboUnknownError": "తెలియని దోషం",
-    "duplicateAutoComboTitle": "{name} నుండి స్థిర కంబో సృష్టించండి"
+    "comboLabel": "కాంబో"
   },
   "costs": {
     "title": "Costs",
@@ -12809,6 +12808,28 @@
     "unknown": "తెలియదు",
     "unknownProvider": "తెలియని ప్రొవైడర్",
     "unknownModel": "తెలియని మోడల్",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} విజయం · {latency} · కోటా {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "కొత్త వినియోగదారులు మొదటి టాప్-అప్‌లో 15% అదనపు API క్రెడిట్ పొందుతారు. అధికారిక Kimi API ద్వారా OmniRouteలో Kimi K3ని ఉపయోగించండి.",
     "cta": "Kimi API కీ పొందండి",
     "partnerLinkNote": "భాగస్వామి లింక్",
-    "dismissAriaLabel": "తీసివేయి"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute ఇప్పుడు VS Code Copilot Chatలో నడుస్తుంది",
-    "description": "ఉచిత OmniCopilot పొడిగింపును ఇన్‌స్టాల్ చేయండి, మీరు ఇప్పటికే ఉపయోగిస్తున్న Copilot Chat మోడల్ పికర్‌లో ప్రతి OmniRoute మోడల్ నేరుగా కనిపిస్తుంది.",
-    "cta": "పొడిగింపును పొందండి",
-    "secondaryNote": "Open VSX (Cursor, Windsurf, VSCodium…)లో కూడా అందుబాటులో ఉంది",
     "dismissAriaLabel": "తీసివేయి"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> మిర్రర్ ఐడీలను /v1/models లో ప్రచారం చేయండి, కానోనికల్ యజమాని యాక్టివ్ క్రెడెన్షియల్ లేకపోతే కానీ యాక్టివ్ క్రెడెన్షియల్ రూట్ చేసే పాస్త్రూ గేట్వే ఉన్న మోడల్స్ కోసం. హెచ్చరిక: ఇది గ్లోబల్‌గా ఎనేబుల్ చేసినప్పుడు అన్ని క్లయింట్ల కోసం కాటలాగ్ ఎంట్రీలను జోడిస్తుంది.",

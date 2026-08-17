@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Regex de filtro de herramientas para agentes",
     "agentFeaturesContextCacheHint": "Habilite el caché en contexto para las herramientas del agente",
     "agentFeaturesContextCacheProtection": "Proteger el caché de las mutaciones de la herramienta del agente",
-    "agentFeaturesContextLength": "Longitud del contexto",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "por ej. 128000",
-    "agentFeaturesContextLengthHint": "Define la ventana de contexto para este combo en /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "La longitud del contexto debe ser un número entero válido.",
     "agentFeaturesContextLengthErrorRange": "La longitud del contexto debe estar entre 1000 y 2000000",
     "compressionOverride": "Anulación de compresión",
@@ -3713,12 +3717,7 @@
     "errorDescription": "No pudimos cargar los datos del combo en este momento. Verifica tu conexión y vuelve a intentarlo.",
     "errorId": "Error ID: {id}",
     "errorRetry": "Inténtalo de nuevo",
-    "comboLabel": "Combo",
-    "duplicateAutoComboConfirm": "¿Crear una combinación estática de \"{name}\"?",
-    "duplicateAutoComboSnapshotMsg": "Esto capturará los proveedores/modelos conectados actualmente que coincidan con esta plantilla en una combinación editable.",
-    "duplicateAutoComboFailedPrefix": "Error al duplicar la combinación automática:",
-    "duplicateAutoComboUnknownError": "Error desconocido",
-    "duplicateAutoComboTitle": "Crear una combinación estática de {name}"
+    "comboLabel": "Combo"
   },
   "costs": {
     "title": "Costos",
@@ -12809,6 +12808,28 @@
     "unknown": "unknown",
     "unknownProvider": "unknown provider",
     "unknownModel": "unknown model",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} success · {latency} · quota {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "Los usuarios nuevos reciben un 15% de crédito de API extra en su primera recarga. Usa Kimi K3 en OmniRoute a través de la API oficial de Kimi.",
     "cta": "Obtener una clave de API de Kimi",
     "partnerLinkNote": "Enlace de socio",
-    "dismissAriaLabel": "Descartar"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute ahora funciona dentro de VS Code Copilot Chat",
-    "description": "Instala la extensión gratuita OmniCopilot y todos los modelos de OmniRoute aparecerán directamente en el selector de modelos de Copilot Chat que ya usas.",
-    "cta": "Obtener la extensión",
-    "secondaryNote": "También en Open VSX (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "Descartar"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Anunciar los IDs de espejo <gateway-alias>/<model> en /v1/models para modelos cuyo propietario canónico no tiene credenciales activas, pero un gateway de paso con credenciales activas los enruta. Advertencia: añade entradas de catálogo para todos los clientes cuando se habilita globalmente.",

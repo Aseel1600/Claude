@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "एजेंटों के लिए टूल फ़िल्टर रेगेक्स",
     "agentFeaturesContextCacheHint": "एजेंट टूल के लिए इन-संदर्भ कैश सक्षम करें",
     "agentFeaturesContextCacheProtection": "एजेंट टूल म्यूटेशन से कैश को सुरक्षित रखें",
-    "agentFeaturesContextLength": "प्रसंग की लंबाई",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "जैसे 128000",
-    "agentFeaturesContextLengthHint": "/v1/मॉडल में इस कॉम्बो के लिए संदर्भ विंडो को परिभाषित करता है।",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "संदर्भ लंबाई एक वैध पूर्णांक होनी चाहिए",
     "agentFeaturesContextLengthErrorRange": "प्रसंग की लंबाई 1000 और 2000000 के बीच होनी चाहिए",
     "compressionOverride": "संपीड़न ओवरराइड",
@@ -3713,12 +3717,7 @@
     "errorDescription": "हम अभी कॉम्बो डेटा लोड नहीं कर सके। कृपया अपनी कनेक्शन की जांच करें और फिर से प्रयास करें।",
     "errorId": "त्रुटि आईडी: {id}",
     "errorRetry": "फिर से प्रयास करें",
-    "comboLabel": "कॉम्बो",
-    "duplicateAutoComboConfirm": "\"{name}\" से एक स्थैतिक कॉम्बो बनाएं?",
-    "duplicateAutoComboSnapshotMsg": "यह इस टेम्पलेट से मेल खाने वाले वर्तमान जुड़े प्रदाताओं/मॉडल को संपादन योग्य कॉम्बो में स्नैपशॉट लेगा।",
-    "duplicateAutoComboFailedPrefix": "ऑटोकॉम्बो डुप्लिकेट करने में विफल:",
-    "duplicateAutoComboUnknownError": "अज्ञात त्रुटि",
-    "duplicateAutoComboTitle": "{name} से एक स्थैतिक कॉम्बो बनाएं"
+    "comboLabel": "कॉम्बो"
   },
   "costs": {
     "title": "लागत",
@@ -12809,6 +12808,28 @@
     "unknown": "अज्ञात",
     "unknownProvider": "अज्ञात प्रदाता",
     "unknownModel": "अज्ञात मॉडल",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} सफल · {latency} · कोटा {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "नए उपयोगकर्ताओं को पहले टॉप-अप पर 15% अतिरिक्त API क्रेडिट मिलता है। आधिकारिक Kimi API के ज़रिए OmniRoute में Kimi K3 इस्तेमाल करें।",
     "cta": "Kimi API कुंजी प्राप्त करें",
     "partnerLinkNote": "पार्टनर लिंक",
-    "dismissAriaLabel": "खारिज करें"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute अब VS Code Copilot Chat के अंदर चलता है",
-    "description": "मुफ़्त OmniCopilot एक्सटेंशन इंस्टॉल करें और सभी OmniRoute मॉडल सीधे उसी Copilot Chat मॉडल पिकर में दिखेंगे जिसे आप पहले से इस्तेमाल करते हैं।",
-    "cta": "एक्सटेंशन प्राप्त करें",
-    "secondaryNote": "Open VSX पर भी उपलब्ध (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "खारिज करें"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> मिरर आईडी को /v1/models पर विज्ञापित करें उन मॉडलों के लिए जिनके कैनोनिकल मालिक के पास कोई सक्रिय क्रेडेंशियल नहीं है लेकिन एक पासथ्रू गेटवे के साथ सक्रिय क्रेडेंशियल उन्हें रूट करता है। चेतावनी: जब वैश्विक रूप से सक्षम किया जाता है तो सभी क्लाइंट्स के लिए कैटलॉग प्रविष्टियाँ जोड़ता है।",

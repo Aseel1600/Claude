@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "에이전트에 대한 도구 필터 정규식",
     "agentFeaturesContextCacheHint": "에이전트 도구에 대한 컨텍스트 내 캐시 활성화",
     "agentFeaturesContextCacheProtection": "에이전트 도구 변형으로부터 캐시를 보호하세요.",
-    "agentFeaturesContextLength": "컨텍스트 길이",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "예를 들어 128000",
-    "agentFeaturesContextLengthHint": "/v1/models에서 이 콤보에 대한 컨텍스트 창을 정의합니다.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "컨텍스트 길이는 유효한 정수여야 합니다.",
     "agentFeaturesContextLengthErrorRange": "컨텍스트 길이는 1000에서 2000000 사이여야 합니다.",
     "compressionOverride": "압축 재정의",
@@ -3713,12 +3717,7 @@
     "errorDescription": "현재 콤보 데이터를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.",
     "errorId": "오류 ID: {id}",
     "errorRetry": "다시 시도해 주세요",
-    "comboLabel": "콤보",
-    "duplicateAutoComboConfirm": "\"{name}\"에서 정적 콤보를 만드시겠습니까?",
-    "duplicateAutoComboSnapshotMsg": "이 템플릿과 일치하는 현재 연결된 제공자/모델을 편집 가능한 콤보로 스냅샷합니다.",
-    "duplicateAutoComboFailedPrefix": "자동 콤보 복제 실패:",
-    "duplicateAutoComboUnknownError": "알 수 없는 오류",
-    "duplicateAutoComboTitle": "{name}에서 정적 콤보 만들기"
+    "comboLabel": "콤보"
   },
   "costs": {
     "title": "비용",
@@ -12809,6 +12808,28 @@
     "unknown": "알 수 없음",
     "unknownProvider": "알 수 없는 제공업체",
     "unknownModel": "알 수 없는 모델",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} 요청 · {success} 성공 · {latency} · 할당량 {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "신규 사용자는 첫 충전 시 API 크레딧을 15% 추가로 받습니다. 공식 Kimi API를 통해 OmniRoute에서 Kimi K3를 사용하세요.",
     "cta": "Kimi API 키 받기",
     "partnerLinkNote": "파트너 링크",
-    "dismissAriaLabel": "닫기"
-  },
-  "vscodeCopilotBanner": {
-    "title": "이제 OmniRoute가 VS Code Copilot Chat 안에서 실행됩니다",
-    "description": "무료 OmniCopilot 확장 프로그램을 설치하면 이미 사용 중인 Copilot Chat 모델 선택기에 모든 OmniRoute 모델이 바로 나타납니다.",
-    "cta": "확장 프로그램 받기",
-    "secondaryNote": "Open VSX(Cursor, Windsurf, VSCodium 등)에서도 이용 가능",
     "dismissAriaLabel": "닫기"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "<gateway-alias>/<model> 미러 ID를 /v1/models에서 광고합니다. 이는 정식 소유자가 활성 자격 증명이 없지만 패스스루 게이트웨이가 활성 자격 증명으로 라우팅하는 모델에 해당합니다. 경고: 전역적으로 활성화되면 모든 클라이언트에 대한 카탈로그 항목이 추가됩니다.",
