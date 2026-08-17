@@ -36,6 +36,7 @@ const TOOL_RENAME_MAP: Record<string, string> = {
   notebookread: "NotebookRead",
   lsp: "Lsp",
   apply_patch: "ApplyPatch",
+  applypatch: "ApplyPatch",
   bashoutput: "BashOutput",
   killshell: "KillShell",
   killbash: "KillBash",
