@@ -280,5 +280,6 @@ export const updateAutoDisableAccountsSchema = z
   .object({
     enabled: z.boolean(),
     threshold: z.number().int().min(1).max(10).optional(),
+    scope: z.enum(["all", "subscription"]).optional(),
   })
   .strict();

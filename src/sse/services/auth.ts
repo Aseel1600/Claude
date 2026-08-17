@@ -98,6 +98,7 @@ import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
 import { getResource404Bypass } from "./requestResourceHealth";
 import { isVertexConnectionWidePermissionDenied } from "./vertexErrorClassifier";
+import { maybeAutoDisableBannedAccount } from "./autoDisableBannedAccount";
 import * as log from "../utils/logger";
 import { fisherYatesShuffle, getNextFromDeckSync } from "@/shared/utils/shuffleDeck";
 import { readHeaderValue, type AuthRequestHeaders } from "./headerReader.ts";
@@ -2541,27 +2542,14 @@ export async function markAccountUnavailable(
       });
     }
 
-    // T-AUTODISABLE: If auto-disable setting is enabled and error is permanent/terminal,
-    // mark account as inactive so it is never retried again.
-    // Uses getCachedSettings() to avoid DB overhead on hot error path.
-    // NOTE: For permanent bans we disable immediately — no threshold needed,
-    // because a permanent ban (403 "Verify your account" / ToS violation) will
-    // NEVER recover, so retrying is pointless regardless of attempt count.
-    if ((result as { permanent?: boolean }).permanent) {
-      try {
-        const settings = await getCachedSettings();
-        const autoDisableEnabled = settings.autoDisableBannedAccounts ?? false;
-        if (autoDisableEnabled) {
-          await updateProviderConnection(connectionId, { isActive: false });
-          log.info(
-            "AUTH",
-            `Auto-disabled ${connectionId.slice(0, 8)} — permanent ban detected (autoDisableBannedAccounts=true)`
-          );
-        }
-      } catch (e) {
-        log.info("AUTH", `Auto-disable check failed (non-fatal): ${e}`);
-      }
-    }
+    // T-AUTODISABLE: permanent bans disable immediately when the setting allows it.
+    await maybeAutoDisableBannedAccount({
+      connectionId,
+      provider,
+      authType: conn?.authType,
+      connectionProvider: conn?.provider,
+      permanent: Boolean((result as { permanent?: boolean }).permanent),
+    });
 
     if (provider && status && errorMsg) {
       console.error(`❌ ${provider} [${status}]: ${errorMsg}`);
