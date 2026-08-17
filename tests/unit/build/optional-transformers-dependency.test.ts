@@ -15,7 +15,8 @@ test("@huggingface/transformers is a regular dependency so npm ci never skips it
   // pin dragged onnxruntime-node@1.21.0 whose NAN build no longer compiles), which
   // broke `npm ci`/`next build` with "Can't resolve @huggingface/transformers"
   // (lazy import in src/lib/memory/embedding/transformersLocal.ts). As a regular
-  // dep with onnxruntime-node@~1.27.0 (napi prebuilds, no node-gyp) it stays
+  // dep with onnxruntime-node@~1.24.3 (the version @huggingface/transformers
+  // requires, napi prebuilds, no node-gyp) it stays
   // installable and the memory embedding path requires() cleanly.
   const pkg = readJson<{
     dependencies?: Record<string, string>;
@@ -38,7 +39,7 @@ test("transformers + onnxruntime-node are regular dependencies (not optional)", 
 
   assert.equal(
     pkg.dependencies?.["onnxruntime-node"],
-    "~1.27.0",
+    "~1.24.3",
     "onnxruntime-node is a regular dep (napi prebuilds, installable on Node 24/26)"
   );
   assert.equal(pkg.optionalDependencies?.["onnxruntime-node"], undefined);
