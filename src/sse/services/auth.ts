@@ -14,6 +14,7 @@ import {
 } from "@/lib/db/providers";
 import { validateApiKey } from "@/lib/db/apiKeys";
 import { getSettings } from "@/lib/db/settings";
+import { buildJinaEnvCredentials } from "@/lib/providers/jina";
 import { toNumber } from "@/shared/utils/numeric";
 import {
   createLazyConnectionView,
@@ -966,6 +967,12 @@ const PROVIDER_SEARCH_PAIRS: string[][] = [
   // The model layer canonicalizes `agy/` to `antigravity`, but the Antigravity
   // CLI card stores its connection under `agy`. Same account, either id serves.
   ["antigravity", "agy"],
+  // One Jina token works on api.jina.ai, r.jina.ai, and s.jina.ai.
+  // Requested id stays first so embed/rerank do not silently pick a
+  // Reader-only row when both cards are filled. jina-search has no
+  // dashboard card — it must still see jina-ai / jina-reader keys
+  // before falling through to JINA_AI_API_KEY.
+  ["jina-ai", "jina-reader", "jina-search"],
 ];
 /**
  * Resolve provider aliases (e.g., nvidia -> nvidia_nim) for DB lookup
@@ -974,8 +981,8 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
   const canonicalProvider = resolveProviderId(provider);
   const canonicalAlias = getProviderAlias(canonicalProvider);
 
-  const pair = PROVIDER_SEARCH_PAIRS.find((aliases) => aliases.includes(provider));
-  if (pair) return pair[0] === provider ? pair : [pair[1], pair[0]];
+  const group = PROVIDER_SEARCH_PAIRS.find((aliases) => aliases.includes(provider));
+  if (group) return [provider, ...group.filter((id) => id !== provider)];
 
   const searchPool = new Set([provider, canonicalProvider, canonicalAlias].filter(Boolean));
 
@@ -1229,6 +1236,15 @@ export async function getProviderCredentials(
         allowedConnections
       );
       if (syntheticFallback) return syntheticFallback;
+      const jinaEnvCredentials = buildJinaEnvCredentials(resolvedId, {
+        forcedConnectionId,
+        allowedConnections,
+        excludedConnectionIds,
+      });
+      if (jinaEnvCredentials) {
+        log.info("AUTH", `${provider} | using ${jinaEnvCredentials.connectionId} env fallback`);
+        return jinaEnvCredentials;
+      }
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;
     }

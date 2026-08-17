@@ -1159,6 +1159,21 @@ test("getProviderCredentials resolves the antigravity / agy alias pool", async (
   assert.equal(selected.connectionId, connection.id);
 });
 
+test("getProviderCredentials shares one Jina token across foundation, reader, and search", async () => {
+  const connection = await seedConnection("jina-ai", {
+    name: "jina-foundation-key",
+    apiKey: "jina-dashboard-key",
+  });
+
+  const viaSearch = await auth.getProviderCredentials("jina-search");
+  const viaReader = await auth.getProviderCredentials("jina-reader");
+
+  assert.ok(viaSearch && !("allExpired" in viaSearch));
+  assert.ok(viaReader && !("allExpired" in viaReader));
+  assert.equal(viaSearch.connectionId, connection.id);
+  assert.equal(viaReader.connectionId, connection.id);
+});
+
 test("getProviderCredentials exposes copilotToken when present in providerSpecificData", async () => {
   const connection = await seedConnection("codex", {
     authType: "oauth",

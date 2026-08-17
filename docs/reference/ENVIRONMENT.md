@@ -652,12 +652,16 @@ Recognized pattern: `{PROVIDER_ID}_API_KEY`
 | ------------------ | ---------- |
 | `DEEPSEEK_API_KEY` | DeepSeek   |
 | `NVIDIA_API_KEY`   | NVIDIA NIM |
+| `JINA_AI_API_KEY`  | Jina AI (Foundation API + Reader fallback) |
+| `JINA_API_KEY`     | Jina AI (alias for `JINA_AI_API_KEY`) |
 
 > [!NOTE]
 > Static `${PROVIDER}_API_KEY` entries for Groq, xAI, Mistral, Perplexity, Together AI, Fireworks, Cerebras, Cohere, Nebius, and Qianfan were removed in v3.8.0 because the runtime no longer reads them — those providers rely exclusively on Dashboard / `data/provider-credentials.json` / the encrypted DB. See the _Audit: Removed / Dead Variables_ section at the bottom of this document for the migration path.
 
 > [!TIP]
 > Keys set via the Dashboard are stored encrypted in SQLite and take precedence over environment variables.
+>
+> **Jina:** `jina-ai/…` embeddings, rerank, classify, segment, and `jina-search` do **not** bill a cluster env key when a dashboard `jina-ai` (or shared `jina-reader`) connection exists — `getProviderCredentials` is fill-first. `JINA_AI_API_KEY` / `JINA_API_KEY` are used only when no usable dashboard key exists. Call logs attribute the env fallback as `connection_id=env:JINA_AI_API_KEY`. The Reader card (`jina-reader`, `r.jina.ai`) never serves `/v1/embeddings` or `/v1/rerank`.
 
 ---
 

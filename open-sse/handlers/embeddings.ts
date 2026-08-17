@@ -32,10 +32,15 @@ import { stripTrailingSlashes } from "../utils/urlSanitize.ts";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import {
   hasStructuredEmbeddingInput,
+  prepareJinaMixedEmbeddingInput,
   prepareStructuredEmbeddingRequest,
 } from "./embeddingStructuredInput.ts";
 import { MAX_EMBEDDING_INLINE_ITEM_BYTES } from "@/shared/validation/schemas/apiV1";
 import { markAccountUnavailable } from "../../src/sse/services/auth.ts";
+import {
+  collectJinaNativeModalities,
+  isJinaNativeEmbeddingInput,
+} from "@/shared/validation/jinaNativeEmbeddingInput";
 
 interface ClientRawRequest {
   endpoint: string;
@@ -171,7 +176,10 @@ export async function handleEmbedding({
           typeof item === "object" && item !== null && "type" in item
       )
     : [];
-  if (structuredItems.length > 0) {
+  const nativeModalities = isJinaNativeEmbeddingInput(body.input)
+    ? collectJinaNativeModalities(body.input).filter((modality) => modality !== "text")
+    : [];
+  if (structuredItems.length > 0 || nativeModalities.length > 0) {
     const supportedModalities = getEmbeddingModelModalities(providerConfig, model);
     if (!supportedModalities) {
       return {
@@ -180,12 +188,24 @@ export async function handleEmbedding({
         error: `Embedding model ${body.model} does not advertise structured embedding input support`,
       };
     }
-    const unsupported = structuredItems.find((item) => !supportedModalities.includes(item.type));
-    if (unsupported) {
+    const unsupportedCanonical = structuredItems.find(
+      (item) => !supportedModalities.includes(item.type)
+    );
+    if (unsupportedCanonical) {
       return {
         success: false,
         status: 400,
-        error: `Embedding model ${body.model} does not support ${unsupported.type} input`,
+        error: `Embedding model ${body.model} does not support ${unsupportedCanonical.type} input`,
+      };
+    }
+    const unsupportedNative = nativeModalities.find(
+      (modality) => !supportedModalities.includes(modality)
+    );
+    if (unsupportedNative) {
+      return {
+        success: false,
+        status: 400,
+        error: `Embedding model ${body.model} does not support ${unsupportedNative} input`,
       };
     }
   }
@@ -278,7 +298,29 @@ export async function handleEmbedding({
     };
   }
 
-  if (hasStructuredEmbeddingInput(body.input)) {
+  // Jina v5 Omni native docs ({ text }, { image: url|base64 }, { content: [...] })
+  // must reach api.jina.ai unchanged. Do not fetch those image URLs or collapse
+  // to string[]. Canonical { type, source } items still go through the translator.
+  const jinaNative = isJinaNativeEmbeddingInput(body.input);
+  const canonicalStructured = hasStructuredEmbeddingInput(body.input);
+  const passThroughJinaNative =
+    providerConfig.structuredInputProtocol === "jina-v1" && jinaNative && !canonicalStructured;
+
+  if (providerConfig.structuredInputProtocol === "jina-v1" && jinaNative && canonicalStructured) {
+    try {
+      const mixed = Array.isArray(body.input) ? body.input : [body.input];
+      upstreamBody.input = await prepareJinaMixedEmbeddingInput(mixed, async (url) => {
+        const result = await fetchRemoteImage(url, {
+          guard: "public-only",
+          maxBytes: MAX_EMBEDDING_INLINE_ITEM_BYTES,
+          pinDns: true,
+        });
+        return { buffer: result.buffer, contentType: result.contentType || null };
+      });
+    } catch (error) {
+      return { success: false, status: 400, error: sanitizeErrorMessage(error) };
+    }
+  } else if (!passThroughJinaNative && canonicalStructured) {
     if (!model) {
       return {
         success: false,

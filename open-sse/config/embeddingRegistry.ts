@@ -405,6 +405,21 @@ const EMBEDDING_PROVIDER_ALIASES: Record<string, string> = {
   voyage: "voyage-ai",
 };
 
+/** Family name used by clients; Jina's public SKU is omni-small. */
+const EMBEDDING_MODEL_ALIASES: Record<string, string> = {
+  "jina-embeddings-v5-omni": "jina-embeddings-v5-omni-small",
+};
+
+function applyEmbeddingModelAliases(modelStr: string): string {
+  for (const [alias, canonical] of Object.entries(EMBEDDING_MODEL_ALIASES)) {
+    if (modelStr === alias) return canonical;
+    if (modelStr.endsWith(`/${alias}`)) {
+      return `${modelStr.slice(0, -alias.length)}${canonical}`;
+    }
+  }
+  return modelStr;
+}
+
 function resolveEmbeddingProviderId(providerId: string): string {
   return EMBEDDING_PROVIDER_ALIASES[providerId] || providerId;
 }
@@ -442,6 +457,7 @@ export function parseEmbeddingModel(
   dynamicProviders?: EmbeddingProvider[]
 ): { provider: string | null; model: string | null } {
   if (!modelStr) return { provider: null, model: null };
+  modelStr = applyEmbeddingModelAliases(modelStr);
 
   // Check for "provider/model" format
   const slashIdx = modelStr.indexOf("/");

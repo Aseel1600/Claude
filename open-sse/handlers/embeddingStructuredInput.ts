@@ -1,6 +1,10 @@
 import { MAX_EMBEDDING_INLINE_TOTAL_BYTES } from "@/shared/validation/schemas/apiV1";
 import type { EmbeddingMultimodalItem } from "@/shared/validation/schemas/apiV1";
 import type { EmbeddingProvider } from "../config/embeddingRegistry.ts";
+import {
+  isCanonicalEmbeddingItem,
+  isJinaNativeEmbeddingItem,
+} from "@/shared/validation/jinaNativeEmbeddingInput";
 
 const AGGREGATE_SIZE_ERROR = "decoded inline media must not exceed 16 MiB per request";
 
@@ -99,6 +103,33 @@ async function prepareJinaInput(
     const key = item.type === "document" ? "pdf" : item.type;
     return { [key]: `data:${inline!.mediaType};base64,${inline!.data}` };
   });
+}
+
+/**
+ * Mixed batches: keep Jina-native docs / strings intact and only translate
+ * OmniRoute canonical `{ type, source }` items into Jina ImageDoc/TextDoc.
+ */
+export async function prepareJinaMixedEmbeddingInput(
+  input: unknown[],
+  fetchMedia: StructuredEmbeddingFetchOptions["fetchMedia"]
+): Promise<unknown[]> {
+  const out: unknown[] = [];
+  for (const item of input) {
+    if (typeof item === "string" || isJinaNativeEmbeddingItem(item)) {
+      out.push(item);
+      continue;
+    }
+    if (isCanonicalEmbeddingItem(item)) {
+      const [translated] = await prepareJinaInput(
+        [item as EmbeddingMultimodalItem],
+        fetchMedia
+      );
+      out.push(translated);
+      continue;
+    }
+    out.push(item);
+  }
+  return out;
 }
 
 function mapGeminiTaskType(value: unknown): unknown {

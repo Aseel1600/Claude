@@ -225,8 +225,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `inception` | `inception` | Inception | API key | [link](https://docs.inceptionlabs.ai) | 10M free tokens on signup, no credit card required. |
 | `inference-net` | `inet` | Inference.net | API key | [link](https://inference.net) | $25 free credits on signup plus research grants available |
 | `internlm` | `internlm` | InternLM (Intern-S1) | API key | [link](https://internlm.intern-ai.org.cn/) | Free monthly quota ~1M input / 3M output tokens (~10 RPM) |
-| `jina-ai` | `jina` | Jina AI | API key, embed/rerank | [link](https://jina.ai) | Bearer API key for the Jina AI rerank API. |
-| `jina-reader` | `jr` | Jina Reader | API key | [link](https://jina.ai/reader) | — |
+| `jina-ai` | `jina` | Jina AI (Foundation API) | API key, embed/rerank | [link](https://jina.ai) | Bearer API key for api.jina.ai — embeddings, rerank, classify, segment, and search. Dashboard keys take precedence over JINA_AI_API_KEY. This is not the Reader / r.jina.ai card and does not fetch URLs. |
+| `jina-reader` | `jr` | Jina Reader (r.jina.ai) | API key | [link](https://jina.ai/reader) | Bearer API key for r.jina.ai URL-to-markdown (/v1/web/fetch only). Does not serve /v1/embeddings or /v1/rerank. The same Jina token as Foundation API works; OmniRoute reuses a jina-ai dashboard key or JINA_AI_API_KEY when this card is empty. |
 | `kenari` | `kenari` | Kenari | API key | [link](https://kenari.id) | Use your Kenari API key (kn-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://kenari.id/v1. |
 | `kie` | `kie` | KIE.AI | API key | [link](https://kie.ai) | — |
 | `kilo-gateway` | `kg` | Kilo Gateway | API key, aggregator | [link](https://kilo.ai) | — |
