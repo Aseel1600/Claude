@@ -196,6 +196,7 @@ const REQUEST_SCOPED_UPSTREAM_ERROR_CODES = new Set([
   "upstream_response_failed",
   // Local combo per-target timer (targetTimeoutRunner) — not a connection health signal.
   "combo_target_timeout",
+  "combo_global_timeout",
 ]);
 
 /** Request/model-specific failures must not poison provider-wide resilience state. */

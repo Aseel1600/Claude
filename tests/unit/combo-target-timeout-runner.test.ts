@@ -85,3 +85,27 @@ test("hedge do parent já abortado propaga o abort ao filho", async () => {
   await runner({}, "m", parentTarget);
   assert.equal(sawAbort, true);
 });
+
+test("deadline global usa o saldo restante e emite classificação do roteador", async () => {
+  let aborted = false;
+  const runner = buildTargetTimeoutRunner({
+    handleSingleModel: (_b, _m, target) =>
+      new Promise<Response>((resolve) => {
+        const sig = target?.modelAbortSignal;
+        sig?.addEventListener("abort", () => {
+          aborted = true;
+          resolve(new Response(null, { status: 599 }));
+        });
+      }),
+    comboTargetTimeoutMs: 1000,
+    globalDeadlineAtMs: Date.now() + 20,
+    log: noopLog,
+  });
+
+  const res = await runner({}, "slow-model");
+  assert.equal(res.status, 504);
+  assert.equal(res.headers.get("x-omniroute-combo-timeout"), "combo_global_timeout");
+  assert.equal(aborted, true);
+  const body = await res.json();
+  assert.equal(body?.error?.code, "combo_global_timeout");
+});

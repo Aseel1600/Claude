@@ -34,7 +34,11 @@ import {
   recordComboFailure,
 } from "./combo/failureTracker.ts";
 import { buildNoUpstreamResponseDiagnostics, buildRecoveryHint } from "./combo/pinRecovery.ts";
-import { buildTargetTimeoutRunner } from "./combo/targetTimeoutRunner.ts";
+import {
+  buildTargetTimeoutRunner,
+  COMBO_GLOBAL_TIMEOUT_CODE,
+  COMBO_TIMEOUT_HEADER,
+} from "./combo/targetTimeoutRunner.ts";
 import { recordComboRequest, recordComboShadowRequest, getComboMetrics } from "./comboMetrics.ts";
 import {
   resolveComboConfig,
@@ -589,6 +593,7 @@ export async function handleComboChat({
     clientRequestedStream,
     config,
     comboTargetTimeoutMs,
+    comboTimeoutMs,
     reasoningTokenBufferEnabled,
   } = phaseComboSetup(comboCtx);
   body = comboCtx.body;
@@ -808,13 +813,22 @@ export async function handleComboChat({
   let comboCooldownAttempt = 0;
   let comboCooldownBudgetLeftMs = resilienceSettings.comboCooldownWait.budgetMs;
 
-  // Global combo timeout: when set (>0), limits total wall-clock time the combo
-  // spends iterating through targets. After each target completes, if elapsed time
-  // exceeds comboTimeoutMs, remaining targets are skipped and a 504 with aggregated
-  // error diagnostics is returned. 0 = disabled (backward-compatible, unlimited).
-  const comboTimeoutMs = config.comboTimeoutMs || 0;
+  // Global combo timeout: when set (>0), bounds the remaining fallback work. The
+  // per-target runner receives the remaining budget so an active target is aborted
+  // at the combo deadline instead of consuming its full target timeout first.
+  // Zero remains disabled for backward compatibility.
   const comboStartTime = Date.now();
+  const comboDeadlineAtMs = comboTimeoutMs > 0 ? comboStartTime + comboTimeoutMs : null;
   let comboExpired = false;
+  const handleFallbackTargetWithTimeout = buildTargetTimeoutRunner({
+    handleSingleModel,
+    comboTargetTimeoutMs,
+    globalDeadlineAtMs: comboDeadlineAtMs,
+    globalTimeoutCode: COMBO_GLOBAL_TIMEOUT_CODE,
+    log,
+  });
+  const getRemainingComboBudgetMs = (): number | null =>
+    comboDeadlineAtMs === null ? null : Math.max(0, comboDeadlineAtMs - Date.now());
   // Accumulator for per-model error details across targets in the current set try.
   // Reset at the start of each set retry (same lifecycle as lastError/recordedAttempts).
   let comboErrors: Array<{ model: string; status: number; error: string }> = [];
@@ -1091,12 +1105,21 @@ export async function handleComboChat({
           }
 
           if (retry > 0) {
+            const remainingComboBudgetMs = getRemainingComboBudgetMs();
+            if (remainingComboBudgetMs !== null && remainingComboBudgetMs <= 0) {
+              comboExpired = true;
+              return null;
+            }
+            const effectiveRetryDelayMs =
+              remainingComboBudgetMs === null
+                ? retryDelayMs
+                : Math.min(retryDelayMs, remainingComboBudgetMs);
             log.info(
               "COMBO",
-              `Retrying ${modelStr} in ${retryDelayMs}ms (attempt ${retry + 1}/${maxRetries + 1})`
+              `Retrying ${modelStr} in ${effectiveRetryDelayMs}ms (attempt ${retry + 1}/${maxRetries + 1})`
             );
             await new Promise((resolve) => {
-              const timer = setTimeout(resolve, retryDelayMs);
+              const timer = setTimeout(resolve, effectiveRetryDelayMs);
               signal?.addEventListener(
                 "abort",
                 () => {
@@ -1202,11 +1225,18 @@ export async function handleComboChat({
               }
             }
           }
-          const result = await handleSingleModelWithTimeout(attemptBody, modelStr, {
+          const result = await handleFallbackTargetWithTimeout(attemptBody, modelStr, {
             ...targetForAttempt,
             effectiveComboStrategy: strategy,
             failoverBeforeRetry: config.failoverBeforeRetry,
           });
+
+          // A combo-wide deadline is router-owned. Do not feed its synthetic 504
+          // into provider, connection, model-lockout, or Governor health paths.
+          if (result.headers.get(COMBO_TIMEOUT_HEADER) === COMBO_GLOBAL_TIMEOUT_CODE) {
+            comboExpired = true;
+            return null;
+          }
 
           if (
             target.governorSelected === true &&
@@ -1932,10 +1962,18 @@ export async function handleComboChat({
             fallbackDelayMs > 0 && cooldownMs > 0 && cooldownMs <= MAX_FALLBACK_WAIT_MS
               ? Math.min(cooldownMs, fallbackDelayMs)
               : 0;
-          if ([502, 503, 504].includes(result.status) && fallbackWaitMs > 0) {
-            log.debug?.("COMBO", `Waiting ${fallbackWaitMs}ms before fallback to next model`);
+          const remainingComboBudgetMs = getRemainingComboBudgetMs();
+          const effectiveFallbackWaitMs =
+            remainingComboBudgetMs === null
+              ? fallbackWaitMs
+              : Math.min(fallbackWaitMs, remainingComboBudgetMs);
+          if ([502, 503, 504].includes(result.status) && effectiveFallbackWaitMs > 0) {
+            log.debug?.(
+              "COMBO",
+              `Waiting ${effectiveFallbackWaitMs}ms before fallback to next model`
+            );
             await new Promise((resolve) => {
-              const timer = setTimeout(resolve, fallbackWaitMs);
+              const timer = setTimeout(resolve, effectiveFallbackWaitMs);
               signal?.addEventListener(
                 "abort",
                 () => {
@@ -1951,6 +1989,11 @@ export async function handleComboChat({
             }
           }
 
+          const postWaitRemainingComboBudgetMs = getRemainingComboBudgetMs();
+          if (postWaitRemainingComboBudgetMs !== null && postWaitRemainingComboBudgetMs <= 0) {
+            comboExpired = true;
+          }
+
           return null;
         }
         return null;
@@ -1958,6 +2001,11 @@ export async function handleComboChat({
 
       for (let i = 0; i < orderedTargets.length; i++) {
         if (anySuccess || comboExpired) break;
+        if (comboDeadlineAtMs !== null && Date.now() >= comboDeadlineAtMs) {
+          comboExpired = true;
+          log.info("COMBO", "Combo global timeout reached before starting the next target");
+          break;
+        }
 
         const abortController = new AbortController();
         abortControllers.set(i, abortController);
@@ -2003,8 +2051,8 @@ export async function handleComboChat({
           await Promise.race([task, globalPromise]);
         }
 
-        // Global combo timeout check: after each target completes, stop trying
-        // further targets if the total elapsed time exceeds comboTimeoutMs.
+        // Safety check for loop/hedge races: stop trying further targets if the
+        // sequential fallback deadline has elapsed without a successful response.
         if (!anySuccess && comboTimeoutMs > 0 && Date.now() - comboStartTime >= comboTimeoutMs) {
           comboExpired = true;
           log.info(
@@ -2067,7 +2115,24 @@ export async function handleComboChat({
       }
 
       // Retry the entire set if more attempts remain
-      if (setTry < maxSetRetries) continue;
+      if (setTry < maxSetRetries) {
+        const remainingComboBudgetMs = getRemainingComboBudgetMs();
+        if (
+          remainingComboBudgetMs !== null &&
+          remainingComboBudgetMs <= Math.max(0, setRetryDelayMs)
+        ) {
+          const timeoutMessage =
+            `Combo global timeout (${comboTimeoutMs}ms) after ` +
+            `${recordedAttempts}/${orderedTargets.length} targets`;
+          return errorResponseWithComboDiagnostics(
+            504,
+            timeoutMessage,
+            buildComboDiag("combo_timeout"),
+            { code: "COMBO_TIMEOUT", type: "server_error" }
+          );
+        }
+        continue;
+      }
 
       // All set retries exhausted — return the final error
       if (!lastStatus) {
@@ -2147,6 +2212,18 @@ export async function handleComboChat({
         });
 
         if (decision.wait) {
+          const remainingComboBudgetMs = getRemainingComboBudgetMs();
+          if (remainingComboBudgetMs !== null && decision.waitMs >= remainingComboBudgetMs) {
+            const timeoutMessage =
+              `Combo global timeout (${comboTimeoutMs}ms) after ` +
+              `${recordedAttempts}/${orderedTargets.length} targets`;
+            return errorResponseWithComboDiagnostics(
+              504,
+              timeoutMessage,
+              buildComboDiag("combo_timeout"),
+              { code: "COMBO_TIMEOUT", type: "server_error" }
+            );
+          }
           log.info(
             "COMBO",
             `${strategy} cooldown wait: ${msg} — waiting ${Math.ceil(
