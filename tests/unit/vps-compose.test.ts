@@ -53,10 +53,10 @@ test("VPS compose requires an explicitly pinned image and production secrets", (
   );
 });
 
-test("VPS environment example uses a stable tag rather than a floating channel", () => {
+test("VPS environment example uses a versioned image rather than a floating channel", () => {
   const env = fs.readFileSync(ENV_EXAMPLE_PATH, "utf8");
 
-  assert.match(env, /^OMNIROUTE_IMAGE=docker\.io\/diegosouzapw\/omniroute:\d+\.\d+\.\d+$/m);
+  assert.match(env, /^OMNIROUTE_IMAGE=[^\s:]+:\d+\.\d+\.\d+(?:-[a-z0-9.-]+)?$/m);
   assert.doesNotMatch(env, /^OMNIROUTE_IMAGE=.*:(?:latest|next)$/m);
   assert.match(env, /^REQUIRE_API_KEY=true$/m);
 });

@@ -18,7 +18,17 @@ building from source, bundled provider CLIs, or the Playwright/Chromium image.
 
 ## Install
 
-Run these commands from the repository root:
+Build the headless server image from the exact release checkout. Building it
+locally avoids assuming that a matching version tag has already been published
+to a container registry:
+
+```bash
+git switch --detach release/v3.8.50
+test "$(node -p "require('./package.json').version")" = "3.8.50"
+docker build --target runner-base --tag omniroute:3.8.50-vps .
+```
+
+Then initialize the deployment from the repository root:
 
 ```bash
 cd contrib/vps
@@ -36,8 +46,9 @@ openssl rand -base64 24  # INITIAL_PASSWORD
 ```
 
 Do not reuse these values across installations. Keep `REQUIRE_API_KEY=true`.
-Pin `OMNIROUTE_IMAGE` to a stable version tag or an immutable digest; do not use
-the floating `latest` or `next` tags for unattended production.
+Keep `OMNIROUTE_IMAGE` on the locally built version tag, or replace it with an
+immutable registry digest; do not use the floating `latest` or `next` tags for
+unattended production.
 
 Validate and start the stack:
 
