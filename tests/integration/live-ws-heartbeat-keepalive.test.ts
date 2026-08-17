@@ -1,10 +1,8 @@
-// Integration test for #10319: a healthy, subscribed-but-otherwise-silent LiveWS
-// client must never be terminated by the server's heartbeat sweep. Uses the same
-// spawn-the-real-server harness pattern as tests/integration/live-ws-startup.test.ts
-// (serial, --test-concurrency=1 integration runner — this test needs a ~50s window
-// to cross the server's HEARTBEAT_TIMEOUT_MS, which is intentionally NOT inflated
-// here; do not shrink this test's window to "make it fast" — that would stop
-// exercising the real timeout).
+// Integration test for #10452: a server-emitted application-level pong must not
+// keep a half-open client alive. Uses the real server harness from
+// tests/integration/live-ws-startup.test.ts (serial, --test-concurrency=1
+// integration runner — this test needs a ~50s window to cross the server's
+// HEARTBEAT_TIMEOUT_MS, which is intentionally NOT inflated here).
 import assert from "node:assert/strict";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import net from "node:net";
@@ -73,8 +71,10 @@ function waitForStartup(
 }
 
 test(
-  "LiveWS keeps a subscribed-but-silent client connected past the heartbeat timeout (#10319)",
-  { timeout: 65_000 },
+  "LiveWS removes a silent socket but keeps one answering protocol heartbeats (#10452)",
+  // A fresh DATA_DIR can spend up to the server-startup allowance running the
+  // complete migration set before the 50s heartbeat observation window.
+  { timeout: 95_000 },
   async () => {
     const port = await getFreePort();
     const apiKey = "test-live-ws-heartbeat-key";
@@ -108,58 +108,67 @@ test(
     try {
       await waitForStartup(child, () => output);
 
-      let closed = false;
-      let closeCode: number | undefined;
-
-      const welcomeReceived = new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error(`Timed out waiting for welcome. Output:\n${output}`));
-        }, 5_000);
-
+      const connect = (answerHeartbeat: boolean) => {
         const ws = new WebSocket(`ws://127.0.0.1:${port}/live-ws`, {
           headers: { Authorization: `Bearer ${apiKey}`, Origin: origin },
         });
+        let heartbeat: NodeJS.Timeout | undefined;
+        const welcome = new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error(`Timed out waiting for welcome. Output:\n${output}`));
+          }, 5_000);
 
-        ws.once("open", () => {
-          ws.send(JSON.stringify({ type: "subscribe", channels: ["requests"] }));
-        });
+          ws.once("open", () => {
+            ws.send(JSON.stringify({ type: "subscribe", channels: ["requests"] }));
+            if (answerHeartbeat) {
+              heartbeat = setInterval(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: "ping" }));
+                }
+              }, 10_000);
+            }
+          });
 
-        ws.on("message", (data) => {
-          const msg = JSON.parse(data.toString());
-          if (msg.type === "welcome") {
+          ws.on("message", (data) => {
+            if (JSON.parse(data.toString()).type === "welcome") {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+
+          ws.once("error", (error) => {
             clearTimeout(timeout);
-            resolve();
-          }
+            reject(new Error(`LiveWS client failed: ${error.message}. Output:\n${output}`));
+          });
         });
 
-        ws.once("close", (code) => {
-          closed = true;
-          closeCode = code;
-        });
+        return { ws, welcome, stop: () => clearInterval(heartbeat) };
+      };
 
-        ws.once("error", (error) => {
-          clearTimeout(timeout);
-          reject(new Error(`LiveWS client failed: ${error.message}. Output:\n${output}`));
-        });
+      const silent = connect(false);
+      const responsive = connect(true);
+      await Promise.all([silent.welcome, responsive.welcome]);
 
-        // Deliberately stay silent after subscribing — this models the buggy
-        // client (never pings). The FIX under test lives server-side: the
-        // server's own outbound heartbeat pong now refreshes lastActivity, so
-        // even a silent client must not be terminated.
-      });
-
-      await welcomeReceived;
-
-      // Wait past HEARTBEAT_TIMEOUT_MS (35s) + a full HEARTBEAT_INTERVAL_MS (15s)
-      // margin so at least one heartbeat sweep has had the chance to (wrongly)
-      // terminate an idle-but-healthy connection.
+      // Wait past HEARTBEAT_TIMEOUT_MS (35s) plus one heartbeat interval (15s).
+      // The server emits application-level pong frames during this period, but
+      // only the responsive client sends the inbound { type: "ping" } signal.
       await new Promise((resolve) => setTimeout(resolve, 50_000));
 
       assert.equal(
-        closed,
-        false,
-        `Silent-but-subscribed client was terminated (closeCode=${closeCode}) — #10319 regressed. Output:\n${output}`
+        silent.ws.readyState,
+        WebSocket.CLOSED,
+        `Silent socket remained alive after timeout — server pong renewed lastActivity. Output:\n${output}`
       );
+      assert.notEqual(
+        responsive.ws.readyState,
+        WebSocket.CLOSED,
+        `Protocol-heartbeat client was terminated. Output:\n${output}`
+      );
+
+      silent.stop();
+      responsive.stop();
+      silent.ws.close();
+      responsive.ws.close();
     } finally {
       terminateTree(child);
     }
