@@ -376,4 +376,71 @@ describe("QdrantConfigCard", () => {
     expect(container.textContent).toContain("qdrant.statusActive");
     expect(container.textContent).not.toContain("qdrant.statusError");
   });
+
+  it("re-checks health after a successful save so a stale optimistic-window result cannot leave the badge red (enable ordering)", async () => {
+    let healthFetchCount = 0;
+    const fetchMock = vi.fn().mockImplementation((url: string, opts?: { method?: string }) => {
+      if (url === "/api/settings/qdrant" && opts?.method === "PUT") {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ ...MOCK_QDRANT_SETTINGS, enabled: true }),
+        });
+      }
+      if (url === "/api/settings/qdrant") {
+        return Promise.resolve({ ok: true, json: async () => MOCK_QDRANT_SETTINGS });
+      }
+      if (url === "/api/settings/qdrant/embedding-models") {
+        return Promise.resolve({ ok: true, json: async () => ({ models: [] }) });
+      }
+      if (url === "/api/settings/qdrant/health") {
+        healthFetchCount += 1;
+        // The first GET races the settings PUT and sees the OLD persisted
+        // config (enabled=false) -> not_configured. Post-PUT checks see a
+        // healthy Qdrant.
+        if (healthFetchCount === 1) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ ok: false, latencyMs: 0, error: "not configured" }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: async () => ({ ok: true, latencyMs: 2 }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    });
+    globalThis.fetch = fetchMock;
+
+    const { default: QdrantConfigCard } =
+      await import("../../../src/app/(dashboard)/dashboard/memory/components/QdrantConfigCard");
+    const container = makeContainer();
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(<QdrantConfigCard />);
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // Enable Qdrant: save() optimistically flips the switch and starts the
+    // PUT while the mount effect immediately GETs health against the OLD
+    // persisted settings (returned as not_configured above).
+    const toggleBtn = container.querySelector(
+      "[data-testid='qdrant-enabled-switch']"
+    ) as HTMLButtonElement | null;
+    expect(toggleBtn).toBeTruthy();
+    await act(async () => {
+      toggleBtn?.click();
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 50));
+    });
+
+    // The stale first check must not be the last word: a fresh health GET must
+    // be scheduled after the PUT succeeds so the badge ends green.
+    const allHealthCalls = fetchMock.mock.calls.filter(
+      (c: [string]) => typeof c[0] === "string" && c[0] === "/api/settings/qdrant/health"
+    );
+    expect(allHealthCalls.length).toBeGreaterThanOrEqual(2);
+    expect(container.textContent).toContain("qdrant.statusActive");
+    expect(container.textContent).not.toContain("qdrant.statusError");
+  });
 });
