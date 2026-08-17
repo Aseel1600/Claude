@@ -181,7 +181,6 @@ export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
   { provider: "gemini", modelId: "gemini-2.5-flash-lite", displayName: "Gemini 2.5 Flash-Lite", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-daily", poolKey: "gemini-free", tos: "caution" },
   { provider: "gemini", modelId: "gemini-3-flash-preview", displayName: "Gemini 3 Flash Preview", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-daily", poolKey: "gemini-free", tos: "caution" },
   { provider: "gemini", modelId: "gemini-3.1-flash-lite", displayName: "Gemini 3.1 Flash-Lite", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-daily", poolKey: "gemini-free", tos: "caution" },
-  { provider: "gemini", modelId: "gemini-3.5-flash", displayName: "Gemini 3.5 Flash", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-daily", poolKey: "gemini-free", tos: "caution" },
   { provider: "glm-cn", modelId: "glm-4-flash", displayName: "GLM-4-Flash", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "zhipu-flash-free", tos: "ok" },
   { provider: "glm-cn", modelId: "glm-4.5-flash", displayName: "GLM-4.5-Flash", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "zhipu-flash-free", tos: "ok" },
   { provider: "glm-cn", modelId: "glm-4.7-flash", displayName: "GLM-4.7-Flash", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "zhipu-flash-free", tos: "ok" },
