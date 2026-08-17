@@ -853,12 +853,9 @@ test("provider models route clears cached discovery when a refresh returns no re
   assert.deepEqual(cachedModels, []);
 });
 
-test("provider models route honors autoFetchModels=false and skips remote discovery", async () => {
+test("provider models route keeps upstream discovery off until autoFetchModels is explicitly enabled", async () => {
   const connection = await seedConnection("opencode-go", {
     apiKey: "opencode-go-key",
-    providerSpecificData: {
-      autoFetchModels: false,
-    },
   });
   let called = false;
 

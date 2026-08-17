@@ -315,13 +315,16 @@ export default function ProviderDetailPageClient() {
     showImportModal,
     importProgress,
     togglingAutoSync,
+    togglingAutoFetchModels,
     canImportModels,
     isAutoSyncEnabled,
+    isAutoFetchModelsEnabled,
     setShowImportModal,
     setImportProgress,
     handleImportModels,
     handleCompatibleImportWithProgress,
     handleToggleAutoSync,
+    handleToggleAutoFetchModels,
   } = useModelImportHandlers({
     providerId,
     models,
@@ -733,6 +736,9 @@ export default function ProviderDetailPageClient() {
             isAutoSyncEnabled={isAutoSyncEnabled}
             togglingAutoSync={togglingAutoSync}
             handleToggleAutoSync={handleToggleAutoSync}
+            isAutoFetchModelsEnabled={isAutoFetchModelsEnabled}
+            togglingAutoFetchModels={togglingAutoFetchModels}
+            handleToggleAutoFetchModels={handleToggleAutoFetchModels}
             handleCompatibleImportWithProgress={handleCompatibleImportWithProgress}
             compatSavingModelId={compatSavingModelId}
             togglingModelId={togglingModelId}
@@ -770,6 +776,7 @@ export default function ProviderDetailPageClient() {
             copied={copied}
             onCopy={copy}
             onModelsChanged={fetchProviderModelMeta}
+            syncedModelIds={syncedAvailableModels.map((model) => model.id)}
           />
         </Card>
       )}
