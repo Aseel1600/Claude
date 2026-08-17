@@ -174,7 +174,7 @@ describe("ProviderModelsSection visibility-toggle key (alias !== id)", () => {
     );
 
     const toggle = Array.from(document.querySelectorAll("button")).find((button) => {
-      return button.textContent?.includes("autoFetchModels");
+      return button.textContent?.includes("Auto-fetch upstream models");
     });
     expect(toggle).toBeDefined();
     act(() => toggle?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
