@@ -254,13 +254,13 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
       {
         id: "gemini-embedding-2",
         name: "Gemini Embedding 2",
-        dimensions: 768,
+        dimensions: 3072,
         modalities: ["text", "image", "audio", "video", "document"],
       },
       {
         id: "gemini-embedding-2-preview",
         name: "Gemini Embedding 2 Preview",
-        dimensions: 768,
+        dimensions: 3072,
         modalities: ["text", "image", "audio", "video", "document"],
       },
       { id: "gemini-embedding-001", name: "Gemini Embedding 001", dimensions: 768 },
@@ -408,12 +408,19 @@ const EMBEDDING_PROVIDER_ALIASES: Record<string, string> = {
 /** Family name used by clients; Jina's public SKU is omni-small. */
 const EMBEDDING_MODEL_ALIASES: Record<string, string> = {
   "jina-embeddings-v5-omni": "jina-embeddings-v5-omni-small",
+  // Live native catalog is gemini/gemini-embedding-2. Clients that send the
+  // OpenRouter-style google/ prefix still resolve to the Gemini provider —
+  // do not steal a custom provider_node whose prefix is `google`.
+  "google/gemini-embedding-2": "gemini/gemini-embedding-2",
+  "google/gemini-embedding-2-preview": "gemini/gemini-embedding-2-preview",
 };
 
 function applyEmbeddingModelAliases(modelStr: string): string {
   for (const [alias, canonical] of Object.entries(EMBEDDING_MODEL_ALIASES)) {
     if (modelStr === alias) return canonical;
-    if (modelStr.endsWith(`/${alias}`)) {
+    // Slash-containing aliases are exact-match only so
+    // openrouter/google/gemini-embedding-2 stays on OpenRouter.
+    if (!alias.includes("/") && modelStr.endsWith(`/${alias}`)) {
       return `${modelStr.slice(0, -alias.length)}${canonical}`;
     }
   }

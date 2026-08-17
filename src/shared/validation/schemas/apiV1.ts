@@ -24,6 +24,7 @@ import {
   isCanonicalEmbeddingItem,
   JINA_NATIVE_MEDIA_KEYS,
 } from "../jinaNativeEmbeddingInput.ts";
+import { isGeminiNativeEmbeddingItem } from "../geminiNativeEmbeddingInput.ts";
 
 export const embeddingTokenArraySchema = z
   .array(z.number().int().min(0))
@@ -142,6 +143,20 @@ function decodedInlineBytesFromEmbeddingItem(item: unknown): number {
       0
     );
   }
+  if (record.content && typeof record.content === "object" && !Array.isArray(record.content)) {
+    return decodedInlineBytesFromEmbeddingItem(record.content);
+  }
+  if (Array.isArray(record.parts)) {
+    return record.parts.reduce(
+      (total, chunk) => total + decodedInlineBytesFromEmbeddingItem(chunk),
+      0
+    );
+  }
+  const inline = record.inline_data ?? record.inlineData;
+  if (inline && typeof inline === "object") {
+    const data = (inline as { data?: unknown }).data;
+    if (typeof data === "string") return decodedBase64Bytes(data);
+  }
   return 0;
 }
 
@@ -254,6 +269,89 @@ export const jinaMergedContentGroupSchema = z
   })
   .passthrough();
 
+const geminiInlineBlobSchema = z
+  .object({
+    mime_type: z.string().trim().min(1).max(MAX_MEDIA_TYPE_LENGTH).optional(),
+    mimeType: z.string().trim().min(1).max(MAX_MEDIA_TYPE_LENGTH).optional(),
+    data: z.string().min(1),
+  })
+  .passthrough()
+  .superRefine((value, context) => {
+    if (!value.mime_type && !value.mimeType) {
+      context.addIssue({ code: "custom", message: "Gemini inline_data requires mime_type" });
+    }
+    const data = value.data;
+    if (
+      data.length > MAX_EMBEDDING_INLINE_ITEM_BASE64_LENGTH ||
+      decodedBase64Bytes(data) > MAX_EMBEDDING_INLINE_ITEM_BYTES
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "decoded inline media must not exceed 8 MiB",
+      });
+    }
+  });
+
+const geminiFileUriSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(MAX_EMBEDDING_URL_LENGTH)
+  .superRefine((value, context) => {
+    if (value.startsWith("files/")) return;
+    try {
+      const url = parseAndValidatePublicUrl(value);
+      if (url.protocol !== "https:") {
+        context.addIssue({ code: "custom", message: "media URLs must use HTTPS" });
+      }
+    } catch {
+      context.addIssue({ code: "custom", message: "media URL must be a safe public HTTPS URL" });
+    }
+  });
+
+const geminiFileDataSchema = z
+  .object({
+    mime_type: z.string().trim().min(1).max(MAX_MEDIA_TYPE_LENGTH).optional(),
+    mimeType: z.string().trim().min(1).max(MAX_MEDIA_TYPE_LENGTH).optional(),
+    file_uri: geminiFileUriSchema.optional(),
+    fileUri: geminiFileUriSchema.optional(),
+  })
+  .passthrough()
+  .refine((value) => Boolean(value.file_uri || value.fileUri), {
+    message: "Gemini file_data requires file_uri",
+  });
+
+export const geminiNativePartSchema = z
+  .object({
+    text: z.string().trim().min(1).max(MAX_EMBEDDING_TEXT_LENGTH).optional(),
+    inline_data: geminiInlineBlobSchema.optional(),
+    inlineData: geminiInlineBlobSchema.optional(),
+    file_data: geminiFileDataSchema.optional(),
+    fileData: geminiFileDataSchema.optional(),
+  })
+  .passthrough()
+  .refine((value) => isGeminiNativeEmbeddingItem(value) && !("parts" in value) && !("content" in value), {
+    message: "Gemini part must be { text }, { inline_data }, or { file_data }",
+  });
+
+export const geminiNativeContentSchema = z
+  .object({
+    parts: z.array(geminiNativePartSchema).min(1, "parts must contain at least one part"),
+  })
+  .passthrough();
+
+export const geminiNativeEmbedRequestSchema = z
+  .object({
+    content: geminiNativeContentSchema,
+  })
+  .passthrough();
+
+export const geminiNativeItemSchema = z.union([
+  geminiNativePartSchema,
+  geminiNativeContentSchema,
+  geminiNativeEmbedRequestSchema,
+]);
+
 const jinaNativeOrCanonicalArraySchema = z
   .array(
     z.union([
@@ -261,6 +359,7 @@ const jinaNativeOrCanonicalArraySchema = z
       embeddingMultimodalItemSchema,
       jinaNativeDocSchema,
       jinaMergedContentGroupSchema,
+      geminiNativeItemSchema,
     ])
   )
   .min(1, "input must contain at least one item")
@@ -286,6 +385,7 @@ export const embeddingInputSchema = z.union([
   embeddingMultimodalInputSchema,
   jinaNativeDocSchema,
   jinaMergedContentGroupSchema,
+  geminiNativeItemSchema,
   jinaNativeOrCanonicalArraySchema,
 ]);
 

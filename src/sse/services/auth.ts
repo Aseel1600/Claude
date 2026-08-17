@@ -15,6 +15,7 @@ import {
 import { validateApiKey } from "@/lib/db/apiKeys";
 import { getSettings } from "@/lib/db/settings";
 import { buildJinaEnvCredentials } from "@/lib/providers/jina";
+import { buildGeminiEnvCredentials } from "@/lib/providers/gemini";
 import { toNumber } from "@/shared/utils/numeric";
 import {
   createLazyConnectionView,
@@ -1244,6 +1245,15 @@ export async function getProviderCredentials(
       if (jinaEnvCredentials) {
         log.info("AUTH", `${provider} | using ${jinaEnvCredentials.connectionId} env fallback`);
         return jinaEnvCredentials;
+      }
+      const geminiEnvCredentials = buildGeminiEnvCredentials(resolvedId, {
+        forcedConnectionId,
+        allowedConnections,
+        excludedConnectionIds,
+      });
+      if (geminiEnvCredentials) {
+        log.info("AUTH", `${provider} | using ${geminiEnvCredentials.connectionId} env fallback`);
+        return geminiEnvCredentials;
       }
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;

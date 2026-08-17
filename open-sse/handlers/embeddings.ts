@@ -41,6 +41,11 @@ import {
   collectJinaNativeModalities,
   isJinaNativeEmbeddingInput,
 } from "@/shared/validation/jinaNativeEmbeddingInput";
+import {
+  collectGeminiNativeModalities,
+  isGeminiEmbedding2Family,
+  isGeminiNativeEmbeddingInput,
+} from "@/shared/validation/geminiNativeEmbeddingInput";
 
 interface ClientRawRequest {
   endpoint: string;
@@ -176,9 +181,14 @@ export async function handleEmbedding({
           typeof item === "object" && item !== null && "type" in item
       )
     : [];
-  const nativeModalities = isJinaNativeEmbeddingInput(body.input)
-    ? collectJinaNativeModalities(body.input).filter((modality) => modality !== "text")
-    : [];
+  const nativeModalities = [
+    ...(isJinaNativeEmbeddingInput(body.input)
+      ? collectJinaNativeModalities(body.input)
+      : []),
+    ...(isGeminiNativeEmbeddingInput(body.input)
+      ? collectGeminiNativeModalities(body.input)
+      : []),
+  ].filter((modality) => modality !== "text");
   if (structuredItems.length > 0 || nativeModalities.length > 0) {
     const supportedModalities = getEmbeddingModelModalities(providerConfig, model);
     if (!supportedModalities) {
@@ -302,9 +312,19 @@ export async function handleEmbedding({
   // must reach api.jina.ai unchanged. Do not fetch those image URLs or collapse
   // to string[]. Canonical { type, source } items still go through the translator.
   const jinaNative = isJinaNativeEmbeddingInput(body.input);
+  const geminiNative = isGeminiNativeEmbeddingInput(body.input);
   const canonicalStructured = hasStructuredEmbeddingInput(body.input);
   const passThroughJinaNative =
     providerConfig.structuredInputProtocol === "jina-v1" && jinaNative && !canonicalStructured;
+  // gemini-embedding-2 aggregates a string[] on Google's OpenAI shim into one
+  // vector. Always use embedContent / batchEmbedContents so N input items
+  // become N embeddings. Native multimodal parts take the same path.
+  const useGeminiNativeTransport =
+    providerConfig.structuredInputProtocol === "gemini-embed-content" &&
+    (isGeminiEmbedding2Family(model) ||
+      canonicalStructured ||
+      geminiNative ||
+      jinaNative);
 
   if (providerConfig.structuredInputProtocol === "jina-v1" && jinaNative && canonicalStructured) {
     try {
@@ -320,7 +340,7 @@ export async function handleEmbedding({
     } catch (error) {
       return { success: false, status: 400, error: sanitizeErrorMessage(error) };
     }
-  } else if (!passThroughJinaNative && canonicalStructured) {
+  } else if (useGeminiNativeTransport || (!passThroughJinaNative && canonicalStructured)) {
     if (!model) {
       return {
         success: false,
