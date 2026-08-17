@@ -34,6 +34,11 @@ describe("Claude Code Tool Name Casing Fixes", () => {
     assert.equal(restoreClaudeToolName("unknown_third_party", null), "unknown_third_party");
   });
 
+  it("restoreClaudeToolName covers apply_patch and applypatch variants", () => {
+    assert.equal(restoreClaudeToolName("apply_patch"), "ApplyPatch");
+    assert.equal(restoreClaudeToolName("applypatch"), "ApplyPatch");
+  });
+
   it("restoreClaudeToolName covers the tools the 7-entry map missed", () => {
     assert.equal(restoreClaudeToolName("todowrite"), "TodoWrite");
     assert.equal(restoreClaudeToolName("glob"), "Glob");
