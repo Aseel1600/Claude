@@ -91,7 +91,7 @@ test("T28: lmarena registry seeds Direct-chat Text/search; image models in IMAGE
   // Chat registry: Text + Search only (not Image thrash)
   assert.ok(lmarenaIds.length >= 40 && lmarenaIds.length < 60);
   assert.ok(lmarenaIds.includes("gemini-3.1-pro-preview"));
-  assert.ok(lmarenaIds.includes("gemini-3.5-flash-high"));
+  assert.ok(lmarenaIds.includes("gemini-3.6-flash"));
   assert.ok(lmarenaIds.includes("claude-sonnet-5"));
   assert.ok(!lmarenaIds.includes("flux-2-pro"), "image models must not live in chat registry");
 

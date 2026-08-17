@@ -10,7 +10,6 @@ import { SEGMIND_IMAGE_PROVIDER } from "./providers/registry/segmind/imageModels
 import { KIE_IMAGE_MODELS } from "./providers/registry/kie/imageModels.ts";
 import { FREEPIK_IMAGE_PROVIDER } from "./providers/registry/freepik/index.ts";
 import { STABILITY_AI_IMAGE_MODELS } from "./providers/registry/stability-ai/imageModels.ts";
-import { GEMINI_IMAGEN_PROVIDER } from "./providers/registry/gemini/imageModels.ts";
 import { CHEAPERINFERENCE_IMAGE_PROVIDER } from "./providers/registry/cheaperinference/imageModels.ts";
 import {
   ADOBE_FIREFLY_IMAGE_ROUTING_ALIASES,
@@ -377,10 +376,6 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     models: [{ id: "gemini-3.1-flash-image", name: "Gemini 3.1 Flash Image" }],
     supportedSizes: ["1024x1024"],
   },
-
-  // Google AI Studio Imagen family — dedicated :predict endpoint, not generateContent.
-  // See providers/registry/gemini/imageModels.ts for the full rationale.
-  gemini: GEMINI_IMAGEN_PROVIDER,
 
   //Curruntly no models serving
   nebius: {

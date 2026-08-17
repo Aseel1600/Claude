@@ -41,7 +41,6 @@ import { handleHyperbolicImageGeneration } from "./imageGeneration/providers/hyp
 import { handleHuggingFaceImageGeneration } from "./imageGeneration/providers/huggingface.ts";
 import { handleComfyUIImageGeneration } from "./imageGeneration/providers/comfyUI.ts";
 import { handleImagen3ImageGeneration } from "./imageGeneration/providers/imagen3.ts";
-import { handleGoogleImagenGeneration } from "./imageGeneration/providers/googleImagen.ts";
 import { handleIdeogramImageGeneration } from "./imageGeneration/providers/ideogram.ts";
 import { handleHaiperImageGeneration } from "./imageGeneration/providers/haiper.ts";
 import { handleLeonardoImageGeneration } from "./imageGeneration/providers/leonardo.ts";
@@ -374,17 +373,6 @@ export async function handleImageGeneration({
 
   if (providerConfig.format === "imagen3") {
     return handleImagen3ImageGeneration({
-      model,
-      provider,
-      providerConfig,
-      body,
-      credentials,
-      log,
-    });
-  }
-
-  if (providerConfig.format === "google-imagen") {
-    return handleGoogleImagenGeneration({
       model,
       provider,
       providerConfig,
