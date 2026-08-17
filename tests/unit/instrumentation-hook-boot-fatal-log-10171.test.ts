@@ -78,7 +78,15 @@ test("#10171: a non-Error throw during instrumentation-hook boot is still logged
   };
 
   try {
-    await assert.rejects(() => register(fakeRegisterNodejs));
+    await assert.rejects(
+      () => register(fakeRegisterNodejs),
+      (err: unknown) => {
+        assert.ok(err instanceof Error, "register() must rethrow a real Error instance");
+        err.message += " (augmented by Next)";
+        assert.equal(err.message, "raw string boot failure (augmented by Next)");
+        return true;
+      }
+    );
 
     const fatalLine = captured.find(
       (line) => line.includes("[STARTUP] Fatal:") && line.includes("raw string boot failure")

@@ -34,9 +34,10 @@ export async function register(registerNodejsFn?: () => Promise<void>) {
       // up while every DB-touching route 500s forever with a permanently
       // empty app.log. This guarantees stdout/app.log is never silently
       // empty on a failed boot, regardless of platform or which step threw.
-      const message = err instanceof Error ? err.message : String(err);
+      const normalizedError = err instanceof Error ? err : new Error(String(err));
+      const message = normalizedError.message;
       console.error("[STARTUP] Fatal: instrumentation hook failed during boot:", message);
-      throw err;
+      throw normalizedError;
     }
   }
 }
