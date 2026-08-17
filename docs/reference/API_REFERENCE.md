@@ -808,7 +808,10 @@ Authorization: Bearer your-api-key
 Content-Type: multipart/form-data
 ```
 
-Transcribe audio files using Deepgram or AssemblyAI.
+Transcribe audio files using any configured STT provider. The first path
+segment selects the native provider (`openai/…`, `deepgram/…`). Gateways that
+re-export another vendor's model use a qualified id
+(`openrouter/deepgram/nova-3`).
 
 **Request:**
 
@@ -816,7 +819,7 @@ Transcribe audio files using Deepgram or AssemblyAI.
 curl -X POST http://localhost:20128/v1/audio/transcriptions \
   -H "Authorization: Bearer your-api-key" \
   -F "file=@recording.mp3" \
-  -F "model=deepgram/nova-3"
+  -F "model=openai/whisper-1"
 ```
 
 **Response:**
@@ -830,7 +833,10 @@ curl -X POST http://localhost:20128/v1/audio/transcriptions \
 }
 ```
 
-**Supported providers:** `deepgram/nova-3`, `assemblyai/best`.
+**Example model ids:** `openai/whisper-1` (requires an OpenAI key),
+`openrouter/deepgram/nova-3` (requires an OpenRouter key),
+`deepgram/nova-3` (requires a native Deepgram key). A bare
+`deepgram/nova-3` request does **not** use OpenRouter.
 
 **Supported formats:** `mp3`, `wav`, `m4a`, `flac`, `ogg`, `webm`.
 
