@@ -115,6 +115,7 @@ const KNOWN_SVGS = new Set([
   "fal",
   "fireworks",
   "freeaiapikey",
+  "freebuff",
   "freemodel-dev",
   "friendli",
   "galadriel",

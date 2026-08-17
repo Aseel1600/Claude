@@ -190,12 +190,13 @@ export function resolveNextBuildEnv(baseEnv = process.env, platform = process.pl
   // #6283. On memory-constrained machines, set OMNIROUTE_USE_TURBOPACK=0 (webpack
   // fallback) instead of raising this heap value; see docs/reference/ENVIRONMENT.md.
   if (!/--max-old-space-size/.test(env.NODE_OPTIONS || "")) {
-    // Default 8 GB (was 4 GB): the clean module graph peaks ~3.9 GB during the webpack
-    // production pass, which brushed the old 4 GB ceiling on a borderline OOM. 8 GB gives
-    // headroom without risk. NOTE: heap size does NOT fix a poisoned scope — if the build
-    // OOMs/livelocks far above this, check for worktrees/cruft leaking into the tsconfig
-    // scope (run `npm run check:build-scope`), not for "more heap". See incident 2026-06-25.
-    const heapMb = Number(baseEnv.OMNIROUTE_BUILD_MEMORY_MB) || 8192;
+    // Default 8 GB (capped by 75% of physical memory, minimum 4 GB): the clean module graph peaks
+    // ~3.9 GB during the webpack production pass. On memory-constrained CI runners (e.g. 7 GB ubuntu-latest),
+    // bounding to physical RAM allows V8 GC to engage before tripping the host OOM watchdog.
+    const totalMemMb = Math.floor(os.totalmem() / 1024 / 1024);
+    const defaultHeapMb =
+      totalMemMb > 0 ? Math.min(8192, Math.max(4096, Math.floor(totalMemMb * 0.75))) : 4096;
+    const heapMb = Number(baseEnv.OMNIROUTE_BUILD_MEMORY_MB) || defaultHeapMb;
     env.NODE_OPTIONS = `${env.NODE_OPTIONS || ""} --max-old-space-size=${heapMb}`.trim();
   }
 

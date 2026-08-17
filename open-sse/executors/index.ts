@@ -12,6 +12,8 @@ import { BedrockExecutor } from "./bedrock.ts";
 import { GlmExecutor } from "./glm.ts";
 import { PollinationsExecutor } from "./pollinations.ts";
 import { CloudflareAIExecutor } from "./cloudflare-ai.ts";
+import { FreebuffExecutor } from "./freebuff.ts";
+import { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 import { OpencodeExecutor } from "./opencode.ts";
 import { VertexExecutor } from "./vertex.ts";
 import { CliproxyapiExecutor } from "./cliproxyapi.ts";
@@ -72,7 +74,6 @@ import { MimocodeExecutor } from "./mimocode.ts";
 import { GrokCliExecutor } from "./grok-cli.ts";
 import { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 import { ZenmuxFreeExecutor } from "./zenmux-free.ts";
-import { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 import { TinyCmsExecutor } from "./tinycms.ts";
 import { HyperAgentExecutor } from "./hyperagent.ts";
 import { XaiExecutor } from "./xai.ts";
@@ -108,6 +109,10 @@ const executors = {
   pol: new PollinationsExecutor(), // Alias
   "cloudflare-ai": new CloudflareAIExecutor(),
   cf: new CloudflareAIExecutor(), // Alias
+  "cloudflare-playground": new CloudflarePlaygroundExecutor(),
+  cfp: new CloudflarePlaygroundExecutor(), // Alias
+  freebuff: new FreebuffExecutor(),
+  fb: new FreebuffExecutor(), // Alias
   "opencode-zen": new OpencodeExecutor("opencode-zen"),
   "opencode-go": new OpencodeExecutor("opencode-go"),
   opencode: new OpencodeExecutor("opencode-zen"), // Alias for opencode-zen
@@ -208,8 +213,6 @@ const executors = {
   "codebuddy-cn": new CodeBuddyCnExecutor(),
   cbcn: new CodeBuddyCnExecutor(), // Alias for codebuddy-cn
   "zenmux-free": new ZenmuxFreeExecutor(),
-  "cloudflare-playground": new CloudflarePlaygroundExecutor(),
-  cfp: new CloudflarePlaygroundExecutor(), // Alias for cloudflare-playground
   "tinycms-web": new TinyCmsExecutor(),
   tcw: new TinyCmsExecutor(), // Alias
   hyperagent: new HyperAgentExecutor(),
