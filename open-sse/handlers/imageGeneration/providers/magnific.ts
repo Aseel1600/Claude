@@ -1,4 +1,4 @@
-// Freepik (Magnific Mystic) image generation adapter.
+// Magnific Mystic image generation adapter.
 // Async submit->poll flow modeled on leonardo.ts's generationId pattern:
 // POST /v1/ai/mystic returns { data: { task_id, status } }, then
 // GET /v1/ai/mystic/{task_id} is polled until status is COMPLETED/FAILED.
@@ -20,33 +20,33 @@ function normalizePositiveNumber(value: unknown, fallback: number): number {
   return Math.floor(n);
 }
 
-interface FreepikProviderConfig {
+interface MagnificProviderConfig {
   baseUrl: string;
   statusUrl?: string;
   authHeader?: string;
 }
 
-interface FreepikCredentials {
+interface MagnificCredentials {
   apiKey?: string;
 }
 
-interface FreepikGenerationParams {
+interface MagnificGenerationParams {
   model: string;
   provider: string;
-  providerConfig: FreepikProviderConfig;
+  providerConfig: MagnificProviderConfig;
   body: Record<string, unknown>;
-  credentials: FreepikCredentials;
+  credentials: MagnificCredentials;
   log?: { info: (tag: string, msg: string) => void; error: (tag: string, msg: string) => void };
 }
 
-interface FreepikImageResult {
+interface MagnificImageResult {
   success: boolean;
   status?: number;
   error?: string;
   data?: { created: number; data: Array<{ b64_json: string }> };
 }
 
-function freepikAuthHeader(providerConfig: FreepikProviderConfig, token: string) {
+function magnificAuthHeader(providerConfig: MagnificProviderConfig, token: string) {
   const headerName = providerConfig.authHeader || "x-magnific-api-key";
   return { [headerName]: token };
 }
@@ -57,7 +57,7 @@ async function logAndFail(params: {
   startTime: number;
   status: number;
   error: string;
-}): Promise<FreepikImageResult> {
+}): Promise<MagnificImageResult> {
   const { provider, model, startTime, status, error } = params;
   const sanitized = sanitizeErrorMessage(error);
   saveCallLog({
@@ -73,7 +73,7 @@ async function logAndFail(params: {
 }
 
 async function submitMysticTask(params: {
-  providerConfig: FreepikProviderConfig;
+  providerConfig: MagnificProviderConfig;
   token: string;
   model: string;
   prompt: string;
@@ -84,7 +84,7 @@ async function submitMysticTask(params: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...freepikAuthHeader(providerConfig, token),
+      ...magnificAuthHeader(providerConfig, token),
     },
     body: JSON.stringify({
       prompt,
@@ -96,14 +96,14 @@ async function submitMysticTask(params: {
 }
 
 async function pollMysticTask(params: {
-  providerConfig: FreepikProviderConfig;
+  providerConfig: MagnificProviderConfig;
   token: string;
   taskId: string;
 }): Promise<{ status: string; imageUrl?: string }> {
   const { providerConfig, token, taskId } = params;
   const statusBase = providerConfig.statusUrl || providerConfig.baseUrl;
   const res = await fetch(`${statusBase}/${taskId}`, {
-    headers: { ...freepikAuthHeader(providerConfig, token) },
+    headers: { ...magnificAuthHeader(providerConfig, token) },
   });
   const json = await res.json();
   const task = json?.data || json;
@@ -132,7 +132,7 @@ async function resolveCompletedResult(params: {
   model: string;
   startTime: number;
   imageUrl?: string;
-}): Promise<FreepikImageResult> {
+}): Promise<MagnificImageResult> {
   const { provider, model, startTime, imageUrl } = params;
   if (!imageUrl) {
     return logAndFail({
@@ -140,7 +140,7 @@ async function resolveCompletedResult(params: {
       model,
       startTime,
       status: 502,
-      error: "Freepik Mystic completed without a generated image URL",
+      error: "Magnific Mystic completed without a generated image URL",
     });
   }
   const downloaded = await downloadGeneratedImage(imageUrl);
@@ -162,7 +162,7 @@ async function resolveCompletedResult(params: {
 }
 
 async function pollUntilDone(params: {
-  providerConfig: FreepikProviderConfig;
+  providerConfig: MagnificProviderConfig;
   token: string;
   taskId: string;
   provider: string;
@@ -170,7 +170,7 @@ async function pollUntilDone(params: {
   startTime: number;
   pollIntervalMs: number;
   pollTimeoutMs: number;
-}): Promise<FreepikImageResult> {
+}): Promise<MagnificImageResult> {
   const {
     providerConfig,
     token,
@@ -196,7 +196,7 @@ async function pollUntilDone(params: {
         model,
         startTime,
         status: 502,
-        error: "Freepik Mystic image generation failed",
+        error: "Magnific Mystic image generation failed",
       });
     }
   }
@@ -206,19 +206,19 @@ async function pollUntilDone(params: {
     model,
     startTime,
     status: 504,
-    error: "Freepik Mystic image generation timed out",
+    error: "Magnific Mystic image generation timed out",
   });
 }
 
 async function submitAndGetTaskId(params: {
-  providerConfig: FreepikProviderConfig;
+  providerConfig: MagnificProviderConfig;
   token: string;
   model: string;
   prompt: string;
   body: Record<string, unknown>;
   provider: string;
   startTime: number;
-}): Promise<{ taskId: string } | { failed: FreepikImageResult }> {
+}): Promise<{ taskId: string } | { failed: MagnificImageResult }> {
   const { providerConfig, token, model, prompt, body, provider, startTime } = params;
   const res = await submitMysticTask({ providerConfig, token, model, prompt, body });
   if (!res.ok) {
@@ -243,21 +243,21 @@ async function submitAndGetTaskId(params: {
         model,
         startTime,
         status: 502,
-        error: "Freepik Mystic did not return a task_id",
+        error: "Magnific Mystic did not return a task_id",
       }),
     };
   }
   return { taskId };
 }
 
-export async function handleFreepikImageGeneration({
+export async function handleMagnificImageGeneration({
   model,
   provider,
   providerConfig,
   body,
   credentials,
   log,
-}: FreepikGenerationParams): Promise<FreepikImageResult> {
+}: MagnificGenerationParams): Promise<MagnificImageResult> {
   const startTime = Date.now();
   const token = credentials?.apiKey || "";
   const prompt = typeof body.prompt === "string" ? body.prompt : String(body.prompt ?? "");
@@ -266,7 +266,7 @@ export async function handleFreepikImageGeneration({
   if (log) {
     log.info(
       "IMAGE",
-      `${provider}/${model} (freepik-mystic) | prompt: "${prompt.slice(0, 60)}..."`
+      `${provider}/${model} (magnific-mystic) | prompt: "${prompt.slice(0, 60)}..."`
     );
   }
 
@@ -294,7 +294,7 @@ export async function handleFreepikImageGeneration({
     });
   } catch (err) {
     const message = (err as Error)?.message || String(err);
-    if (log) log.error("IMAGE", `${provider} freepik error: ${sanitizeErrorMessage(message)}`);
+    if (log) log.error("IMAGE", `${provider} magnific error: ${sanitizeErrorMessage(message)}`);
     return logAndFail({
       provider,
       model,

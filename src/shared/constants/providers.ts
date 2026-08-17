@@ -70,6 +70,10 @@ export const PROVIDER_CONNECTION_FAMILY_ALIASES: Readonly<Record<string, readonl
   alibaba: ["alibaba-cn"],
   "kimi-coding": ["kimi-coding-apikey"],
   xai: ["xai-oauth", "xao"],
+  // magnific is the canonical (post-rebrand) slug; freepik stays a legacy
+  // alias so old URLs and pre-migration connection rows keep working.
+  magnific: ["freepik"],
+  freepik: ["magnific"],
 };
 
 export function getProviderConnectionFamilyIds(providerId: unknown): readonly string[] {
@@ -90,7 +94,7 @@ export const IMAGE_ONLY_PROVIDER_IDS = new Set([
   "recraft",
   "topaz",
   "segmind",
-  "freepik",
+  "magnific",
   "deepai",
 ]);
 

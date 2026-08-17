@@ -74,12 +74,12 @@ test("hailuo-web resolves to its own id/alias and does not collide with minimax"
   assert.equal(resolveProviderId("minimax-cn"), "minimax-cn");
 });
 
-test("magnific is the Freepik Mystic alias, not a second provider id", () => {
-  assert.equal(resolveProviderId("magnific"), "freepik");
-  assert.equal(resolveProviderId("freepik"), "freepik");
-  assert.equal(getProviderAlias("freepik"), "magnific");
-  assert.ok("freepik" in APIKEY_PROVIDERS);
-  assert.ok(!("magnific" in APIKEY_PROVIDERS));
+test("freepik is the Magnific Mystic legacy alias, not a second provider id", () => {
+  assert.equal(resolveProviderId("freepik"), "magnific");
+  assert.equal(resolveProviderId("magnific"), "magnific");
+  assert.equal(getProviderAlias("magnific"), "freepik");
+  assert.ok("magnific" in APIKEY_PROVIDERS);
+  assert.ok(!("freepik" in APIKEY_PROVIDERS));
 });
 
 test("no provider id is registered in both the API-key and web-cookie catalogs", () => {

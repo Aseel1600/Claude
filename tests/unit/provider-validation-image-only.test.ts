@@ -35,10 +35,10 @@ const imageOnlyProviders = {
     header: "X-API-Key",
     value: "topaz-key",
   },
-  freepik: {
+  magnific: {
     url: "https://api.magnific.com/v1/ai/mystic",
     header: "x-magnific-api-key",
-    value: "freepik-key",
+    value: "magnific-key",
   },
 };
 
@@ -101,16 +101,16 @@ for (const provider of Object.keys(imageOnlyProviders)) {
   }
 }
 
-test("magnific alias validates through the Freepik Magnific Mystic endpoint", async () => {
+test("freepik alias validates through the Magnific Mystic endpoint", async () => {
   let fetchCalled = false;
   globalThis.fetch = async (url, init = {}) => {
     fetchCalled = true;
     assert.equal(String(url), "https://api.magnific.com/v1/ai/mystic");
-    assert.equal((init.headers as Record<string, string>)["x-magnific-api-key"], "magnific-key");
+    assert.equal((init.headers as Record<string, string>)["x-magnific-api-key"], "legacy-key");
     return new Response(JSON.stringify({ data: [] }), { status: 200 });
   };
 
-  const result = await validateProviderApiKey({ provider: "magnific", apiKey: "magnific-key" });
+  const result = await validateProviderApiKey({ provider: "freepik", apiKey: "legacy-key" });
 
   assert.equal(result.valid, true);
   assert.equal(result.error, null);

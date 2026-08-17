@@ -85,10 +85,10 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
     website: "https://ideogram.ai",
     authHint: "Get API key at ideogram.ai/docs/api",
   },
-  freepik: {
-    id: "freepik",
-    alias: "magnific",
-    name: "Magnific (Freepik)",
+  magnific: {
+    id: "magnific",
+    alias: "freepik",
+    name: "Magnific",
     icon: "image",
     color: "#1B9E7F",
     textIcon: "MG",

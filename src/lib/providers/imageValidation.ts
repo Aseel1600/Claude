@@ -28,7 +28,7 @@ const IMAGE_PROVIDER_VALIDATION_ENDPOINTS: Record<
   topaz: {
     path: "/account/v1/credits/balance",
   },
-  freepik: {
+  magnific: {
     // GET /v1/ai/mystic lists tasks and does not start a paid generation.
     baseUrl: "https://api.magnific.com",
     path: "/v1/ai/mystic",
@@ -120,7 +120,9 @@ export async function validateImageProviderApiKey({
   providerSpecificData = {},
 }: any) {
   const imageProvider = getImageProvider(provider);
-  const validationConfig = IMAGE_PROVIDER_VALIDATION_ENDPOINTS[provider];
+  const validationConfig =
+    IMAGE_PROVIDER_VALIDATION_ENDPOINTS[imageProvider?.id] ||
+    IMAGE_PROVIDER_VALIDATION_ENDPOINTS[provider];
 
   if (!imageProvider || !validationConfig) {
     return { valid: false, error: "Provider validation not supported", unsupported: true };
