@@ -168,13 +168,6 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getErrorStatusCode(error: unknown): number {
-  const errorName =
-    error && typeof error === "object" && typeof (error as { name?: unknown }).name === "string"
-      ? (error as { name: string }).name
-      : "";
-  if (errorName === "TimeoutError" || errorName === "BodyTimeoutError") {
-    return 504;
-  }
   if (error && typeof error === "object" && "statusCode" in error) {
     const statusCode = Number((error as { statusCode?: unknown }).statusCode);
     if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode <= 599) {
@@ -182,13 +175,6 @@ function getErrorStatusCode(error: unknown): number {
     }
   }
   return 502;
-}
-
-function isDeadlineAbortReason(reason: unknown): reason is Error {
-  return (
-    reason instanceof Error &&
-    (reason.name === "TimeoutError" || reason.name === "BodyTimeoutError")
-  );
 }
 
 function hasClientTerminalSseMarker(text: string, clientResponseFormat?: string | null): boolean {
@@ -383,15 +369,6 @@ export function createStreamController({
 
   if (clientAbortSignal && typeof clientAbortSignal.addEventListener === "function") {
     const handleClientAbort = () => {
-      const reason = clientAbortSignal.reason;
-      if (isDeadlineAbortReason(reason)) {
-        // An AbortSignal can represent an OmniRoute-owned deadline as well as
-        // a caller disconnect. Preserve deadline failures as 504; classifying
-        // them as client disconnects writes a misleading 499 to the call log.
-        abortController.abort(reason);
-        controller.handleError(reason);
-        return;
-      }
       controller.handleDisconnect(getClientAbortReason());
     };
     if (clientAbortSignal.aborted) {
@@ -506,7 +483,10 @@ export function createNoopAbortWritable(): {
  *   streaming twin of the non-streaming `isEmptyContentResponse` check. Only
  *   applies to bodies that actually looked like SSE, and terminal states where
  *   emptiness is legitimate (length / tool_calls / content_filter / max_tokens /
- *   tool_use) are excluded by the watcher.
+ *   tool_use) are excluded by the watcher. If the stream already carried a
+ *   substantive SSE `error` / `response.failed` / Claude `event:error`, stand
+ *   down — same spirit as Claude #3685 `lifecycle.hasError` and readiness #8972
+ *   (do not invent empty content on top of an actionable error).
  */
 function resolveSilentCloseReason(input: {
   bytesWereForwarded: boolean;
@@ -521,6 +501,7 @@ function resolveSilentCloseReason(input: {
   }
 
   const watcher = input.contentWatcher;
+  if (watcher.sawError()) return null;
   if (watcher.sawSseFrame() && !watcher.sawContent() && !watcher.sawLegitEmptyTerminal()) {
     return "Provider returned empty content";
   }

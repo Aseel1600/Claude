@@ -121,7 +121,9 @@ export function applyNativeCodexTurnPin(
   return ordered.map((target) => ({
     ...target,
     // Allow only connections for the pinned provider+model
-    allowedConnectionIds: compatible.map((t) => t.connectionId),
+    allowedConnectionIds: compatible
+      .map((t) => t.connectionId)
+      .filter((id): id is string => typeof id === "string"),
   }));
 }
 
