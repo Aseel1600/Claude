@@ -1,0 +1,1 @@
+- **fix(providers):** Freepik Mystic now uses the Magnific API (`api.magnific.com` + `x-magnific-api-key`) and dashboard Test Connection validates keys without starting a paid generation ([#10594](https://github.com/diegosouzapw/OmniRoute/pull/10594))
