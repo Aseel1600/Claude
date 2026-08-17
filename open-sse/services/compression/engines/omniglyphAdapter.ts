@@ -123,7 +123,7 @@ async function applyOmniglyph(
         : wireFormat === "openai"
           ? await transformOpenAIChatCompletions(encoded)
           : await transformOpenAIResponses(encoded);
-    const applied = wireFormat === "claude" ? result.applied : result.info.compressed;
+    const applied = "applied" in result ? result.applied : result.info.compressed;
     if (!applied) return skip(body, result.info?.reason ?? "not_profitable");
     outBody = JSON.parse(new TextDecoder().decode(result.body)) as Record<string, unknown>;
   } catch {
