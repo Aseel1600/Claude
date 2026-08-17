@@ -408,11 +408,6 @@
       "count": 1
     }
   },
-  "src/app/api/combos/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/combos/test/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -963,11 +958,6 @@
       "count": 1
     }
   },
-  "src/app/api/v1/models/catalog.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/v1/rerank/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1040,11 +1030,6 @@
   },
   "src/lib/combos/builderOptions.ts": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/lib/combos/controlCenter.ts": {
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -2044,11 +2029,6 @@
   "tests/unit/combo-builder-options-route.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 5
-    }
-  },
-  "tests/unit/combo-context-length.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 2
     }
   },
   "tests/unit/combo-health-route.test.ts": {

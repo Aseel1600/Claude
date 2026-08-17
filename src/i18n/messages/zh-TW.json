@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "只有名稱匹配此正則的工具才會轉發給提供者。留空則轉發所有工具。",
     "agentFeaturesContextCacheHint": "跨輪次鎖定提供者/模型以保持快取會話。內部標籤在轉發給提供者前會被移除。",
     "agentFeaturesContextCacheProtection": "上下文快取保護",
-    "agentFeaturesContextLength": "上下文長度",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "例如128000",
-    "agentFeaturesContextLengthHint": "在 /v1/models 中定義此組合的上下文視窗。",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "上下文長度必須是有效整數",
     "agentFeaturesContextLengthErrorRange": "上下文長度必須介於 1000 到 2000000 之間",
     "compressionOverride": "壓縮覆蓋",
@@ -3713,12 +3717,7 @@
     "errorDescription": "目前無法加載組合數據。請檢查您的連接並重試。",
     "errorId": "錯誤 ID: {id}",
     "errorRetry": "再試一次",
-    "comboLabel": "組合",
-    "duplicateAutoComboConfirm": "從\"{name}\"建立靜態組合？",
-    "duplicateAutoComboSnapshotMsg": "這將把與此模板匹配的目前連線提供者/模型快照到可編輯的組合中。",
-    "duplicateAutoComboFailedPrefix": "複製自動組合失敗：",
-    "duplicateAutoComboUnknownError": "未知錯誤",
-    "duplicateAutoComboTitle": "從{name}建立靜態組合"
+    "comboLabel": "組合"
   },
   "costs": {
     "title": "成本",
@@ -12809,6 +12808,28 @@
     "unknown": "未知",
     "unknownProvider": "未知提供者",
     "unknownModel": "未知模型",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} 請求 · {success} 成功 · {latency} · 配額 {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "新用戶首次儲值可獲得 15% 額外 API 額度。透過官方 Kimi API 在 OmniRoute 中使用 Kimi K3。",
     "cta": "取得 Kimi API 金鑰",
     "partnerLinkNote": "合作夥伴連結",
-    "dismissAriaLabel": "關閉"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute 現已可在 VS Code Copilot Chat 中運作",
-    "description": "安裝免費的 OmniCopilot 擴充功能，每個 OmniRoute 模型都會直接出現在你已經在用的 Copilot Chat 模型選擇器中。",
-    "cta": "取得擴充功能",
-    "secondaryNote": "同樣支援 Open VSX（Cursor、Windsurf、VSCodium…）",
     "dismissAriaLabel": "關閉"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "在 /v1/models 上廣告 <gateway-alias>/<model> 鏡像 ID，針對那些其正規擁有者沒有有效憑證但有一個通過網關且有有效憑證路由它們的模型。警告：當全域啟用時，會為所有客戶端添加目錄條目。",

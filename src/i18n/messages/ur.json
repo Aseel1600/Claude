@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Tool filter regex for agents",
     "agentFeaturesContextCacheHint": "Enable in-context cache for agent tools",
     "agentFeaturesContextCacheProtection": "Protect cache from agent tool mutations",
-    "agentFeaturesContextLength": "سیاق و سباق کی لمبائی",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "جیسے 128000",
-    "agentFeaturesContextLengthHint": "/v1/models میں اس کومبو کے لیے سیاق و سباق کی ونڈو کی وضاحت کرتا ہے۔",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "سیاق و سباق کی لمبائی ایک درست عددی ہونا ضروری ہے۔",
     "agentFeaturesContextLengthErrorRange": "سیاق و سباق کی لمبائی 1000 اور 2000000 کے درمیان ہونی چاہیے۔",
     "compressionOverride": "کمپریشن اوور رائڈ",
@@ -3713,12 +3717,7 @@
     "errorDescription": "ہم اس وقت کومبو ڈیٹا لوڈ نہیں کر سکے۔ اپنی کنکشن چیک کریں اور دوبارہ کوشش کریں۔",
     "errorId": "خرابی کی شناخت: {id}",
     "errorRetry": "پھر کوشش کریں",
-    "comboLabel": "کمبو",
-    "duplicateAutoComboConfirm": "\"{name}\" سے ایک جامد کمبو بنائیں؟",
-    "duplicateAutoComboSnapshotMsg": "یہ اس ٹیمپلیٹ سے ملنے والے موجودہ منسلک فراہم کنندگان/ماڈلز کو ایڈیٹ ایبل کمبو میں اسنیپ شاট لے گا۔",
-    "duplicateAutoComboFailedPrefix": "آٹو کمبو ڈپلیکیٹ کرنے میں ناکام:",
-    "duplicateAutoComboUnknownError": "نامعلوم خرابی",
-    "duplicateAutoComboTitle": "{name} سے ایک جامد کمبو بنائیں"
+    "comboLabel": "کمبو"
   },
   "costs": {
     "title": "Costs",
@@ -12809,6 +12808,28 @@
     "unknown": "نامعلوم",
     "unknownProvider": "نامعلوم فراہم کنندہ",
     "unknownModel": "نامعلوم ماڈل",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} کامیابی · {latency} · کوٹہ {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "نئے صارفین کو پہلی ٹاپ اپ پر 15% اضافی API کریڈٹ ملتا ہے۔ سرکاری Kimi API کے ذریعے OmniRoute میں Kimi K3 استعمال کریں۔",
     "cta": "Kimi API کلید حاصل کریں",
     "partnerLinkNote": "پارٹنر لنک",
-    "dismissAriaLabel": "خارج کریں"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute اب VS Code Copilot Chat کے اندر چلتا ہے",
-    "description": "مفت OmniCopilot ایکسٹینشن انسٹال کریں اور ہر OmniRoute ماڈل اسی Copilot Chat ماڈل پکر میں نظر آئے گا جسے آپ پہلے سے استعمال کرتے ہیں۔",
-    "cta": "ایکسٹینشن حاصل کریں",
-    "secondaryNote": "Open VSX پر بھی دستیاب ہے (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "خارج کریں"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> کی عکاسی کے IDs کو /v1/models پر اشتہار دیں ان ماڈلز کے لیے جن کے حقیقی مالک کے پاس کوئی فعال سند نہیں ہے لیکن ایک پاس تھرو گیٹ وے جس کے پاس ایک فعال سند ہے انہیں روٹ کرتا ہے۔ انتباہ: جب عالمی طور پر فعال کیا جائے تو یہ تمام کلائنٹس کے لیے کیٹلاگ کی اندراجات شامل کرتا ہے۔",

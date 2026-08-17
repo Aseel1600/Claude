@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Regex ng filter ng tool para sa mga ahente",
     "agentFeaturesContextCacheHint": "Paganahin ang in-context cache para sa mga tool ng ahente",
     "agentFeaturesContextCacheProtection": "Protektahan ang cache mula sa mga mutasyon ng tool ng ahente",
-    "agentFeaturesContextLength": "Haba ng konteksto",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "hal. 128000",
-    "agentFeaturesContextLengthHint": "Tinutukoy ang window ng konteksto para sa combo na ito sa /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Ang haba ng konteksto ay dapat na isang wastong integer",
     "agentFeaturesContextLengthErrorRange": "Ang haba ng konteksto ay dapat nasa pagitan ng 1000 at 2000000",
     "compressionOverride": "Override sa Compression",
@@ -3713,12 +3717,7 @@
     "errorDescription": "Hindi namin ma-load ang combo data sa ngayon. Suriin ang iyong koneksyon at subukan muli.",
     "errorId": "Error ID: {id}",
     "errorRetry": "Subukan Muli",
-    "comboLabel": "Kumbinasyon",
-    "duplicateAutoComboConfirm": "Gumawa ng static combo mula sa \"{name}\"?",
-    "duplicateAutoComboSnapshotMsg": "Ito ay kukuha ng snapshot ng kasalukuyang nakakonektang mga provider/model na tugma sa template na ito sa isang editable na combo.",
-    "duplicateAutoComboFailedPrefix": "Nabigo ang pag-duplicate ng auto-combo:",
-    "duplicateAutoComboUnknownError": "Hindi alam na error",
-    "duplicateAutoComboTitle": "Gumawa ng static combo mula sa {name}"
+    "comboLabel": "Kumbinasyon"
   },
   "costs": {
     "title": "Mga gastos",
@@ -12809,6 +12808,28 @@
     "unknown": "hindi kilala",
     "unknownProvider": "hindi kilalang provider",
     "unknownModel": "hindi kilalang modelo",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} req · {success} tagumpay · {latency} · quota {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "Ang mga bagong user ay makakakuha ng 15% dagdag na API credits sa unang top-up. Gamitin ang Kimi K3 sa OmniRoute sa pamamagitan ng opisyal na Kimi API.",
     "cta": "Kumuha ng Kimi API Key",
     "partnerLinkNote": "Link ng kasosyo",
-    "dismissAriaLabel": "I-dismiss"
-  },
-  "vscodeCopilotBanner": {
-    "title": "Ang OmniRoute ay gumagana na ngayon sa loob ng VS Code Copilot Chat",
-    "description": "I-install ang libreng OmniCopilot extension at lalabas ang bawat OmniRoute model diretso sa Copilot Chat model picker na ginagamit mo na.",
-    "cta": "Kunin ang Extension",
-    "secondaryNote": "Nasa Open VSX din (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "I-dismiss"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "I-anunsyo ang <gateway-alias>/<model> mirror ids sa /v1/models para sa mga modelong ang canonical owner ay walang aktibong credential ngunit may passthrough gateway na may aktibong credential na nagruruta sa kanila. Babala: nagdadagdag ng mga entry sa katalogo para sa lahat ng kliyente kapag pinagana nang globally.",

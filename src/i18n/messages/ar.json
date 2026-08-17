@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "نمط regex لتصفية أدوات الوكلاء",
     "agentFeaturesContextCacheHint": "تمكين التخزين المؤقت للسياق لأدوات الوكيل",
     "agentFeaturesContextCacheProtection": "حماية التخزين المؤقت للسياق من طفرات استدعاءات الأدوات",
-    "agentFeaturesContextLength": "طول السياق",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "على سبيل المثال 128000",
-    "agentFeaturesContextLengthHint": "يحدد نافذة السياق لهذه المجموعة في /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "يجب أن يكون طول السياق عددًا صحيحًا صالحًا",
     "agentFeaturesContextLengthErrorRange": "يجب أن يتراوح طول السياق بين 1000 و2000000",
     "compressionOverride": "تخصيص الضغط",
@@ -3713,12 +3717,7 @@
     "errorDescription": "لم نتمكن من تحميل بيانات المجموعة في الوقت الحالي. تحقق من اتصالك وحاول مرة أخرى.",
     "errorId": "معرّف الخطأ: {id}",
     "errorRetry": "حاول مرة أخرى",
-    "comboLabel": "كومبو",
-    "duplicateAutoComboConfirm": "إنشاء مجموعة ثابتة من \"{name}\"؟",
-    "duplicateAutoComboSnapshotMsg": "سيؤدي هذا إلى التقاط المزودين/النماذج المتصلة حاليًا التي تطابق هذا القالب في مجموعة قابلة للتحرير.",
-    "duplicateAutoComboFailedPrefix": "فشل تكرار المجموعة التلقائية:",
-    "duplicateAutoComboUnknownError": "خطأ غير معروف",
-    "duplicateAutoComboTitle": "إنشاء مجموعة ثابتة من {name}"
+    "comboLabel": "كومبو"
   },
   "costs": {
     "title": "التكاليف",
@@ -12809,6 +12808,28 @@
     "unknown": "غير معروف",
     "unknownProvider": "مزود غير معروف",
     "unknownModel": "نموذج غير معروف",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} طلب · {success} نجاح · {latency} · حصة {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "المستخدمون الجدد يحصلون على 15% رصيد API إضافي عند أول شحن. استخدم Kimi K3 في OmniRoute عبر واجهة Kimi API الرسمية.",
     "cta": "احصل على مفتاح Kimi API",
     "partnerLinkNote": "رابط شريك",
-    "dismissAriaLabel": "تجاهل"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute يعمل الآن داخل VS Code Copilot Chat",
-    "description": "ثبّت امتداد OmniCopilot المجاني وستظهر جميع نماذج OmniRoute مباشرة في منتقي النماذج في Copilot Chat الذي تستخدمه بالفعل.",
-    "cta": "احصل على الامتداد",
-    "secondaryNote": "متوفر أيضًا على Open VSX (Cursor، Windsurf، VSCodium…)",
     "dismissAriaLabel": "تجاهل"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "قم بالإعلان عن معرفات المرايا <gateway-alias>/<model> على /v1/models للنماذج التي ليس لديها مالك قانوني لديه بيانات اعتماد نشطة ولكن بوابة تمرير مع بيانات اعتماد نشطة توجهها. تحذير: يضيف إدخالات الكتالوج لجميع العملاء عند تمكينه عالميًا.",

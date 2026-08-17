@@ -3693,9 +3693,13 @@
     "agentFeaturesToolFilterHint": "Регулярное выражение фильтра инструментов для агентов",
     "agentFeaturesContextCacheHint": "Включить контекстное кэширование для инструментов агента",
     "agentFeaturesContextCacheProtection": "Защита кэша от мутаций инструментов агента",
-    "agentFeaturesContextLength": "Длина контекста",
+    "agentFeaturesContextLength": "__MISSING__:Manual context length",
     "agentFeaturesContextLengthPlaceholder": "например 128000",
-    "agentFeaturesContextLengthHint": "Определяет контекстное окно для этого комбо в /v1/models.",
+    "contextAggregationLabel": "__MISSING__:Context aggregation",
+    "contextAggregationMin": "__MISSING__:Minimum (safe default)",
+    "contextAggregationMax": "__MISSING__:Maximum",
+    "contextAggregationWarning": "__MISSING__:Maximum may exceed smaller targets; input/output limits remain conservative.",
+    "agentFeaturesContextLengthHint": "__MISSING__:Manual value overrides target aggregation.",
     "agentFeaturesContextLengthErrorInteger": "Длина контекста должна быть допустимым целым числом.",
     "agentFeaturesContextLengthErrorRange": "Длина контекста должна быть от 1000 до 2000000.",
     "compressionOverride": "Переопределение сжатия",
@@ -3713,12 +3717,7 @@
     "errorDescription": "Мы не смогли загрузить данные комбо в данный момент. Проверьте ваше соединение и попробуйте снова.",
     "errorId": "Идентификатор ошибки: {id}",
     "errorRetry": "Попробуйте снова",
-    "comboLabel": "Комбо",
-    "duplicateAutoComboConfirm": "Создать статическое комбо из \"{name}\"?",
-    "duplicateAutoComboSnapshotMsg": "Это создаст снимок текущих подключенных провайдеров/моделей, соответствующих этому шаблону, в редактируемом комбо.",
-    "duplicateAutoComboFailedPrefix": "Не удалось дублировать автоматическое комбо:",
-    "duplicateAutoComboUnknownError": "Неизвестная ошибка",
-    "duplicateAutoComboTitle": "Создать статическое комбо из {name}"
+    "comboLabel": "Комбо"
   },
   "costs": {
     "title": "Затраты",
@@ -12809,6 +12808,28 @@
     "unknown": "неизвестно",
     "unknownProvider": "неизвестный провайдер",
     "unknownModel": "неизвестная модель",
+    "contextDiagnostics": {
+      "title": "__MISSING__:Context diagnostics",
+      "summary": "__MISSING__:{mode} · {source} · effective {effective} · {count} known · min {min} · max {max}",
+      "mode": { "min": "__MISSING__:Minimum", "max": "__MISSING__:Maximum" },
+      "sources": {
+        "manual": "__MISSING__:Manual",
+        "aggregated": "__MISSING__:Aggregated",
+        "unknown": "__MISSING__:Unknown"
+      },
+      "providerModel": "__MISSING__:Provider/model",
+      "context": "__MISSING__:Context",
+      "input": "__MISSING__:Input",
+      "output": "__MISSING__:Output",
+      "sourceHeader": "__MISSING__:Source",
+      "noTargets": "__MISSING__:No resolved targets.",
+      "unknownReason": {
+        "target-unresolved": "__MISSING__:Target unresolved",
+        "metadata-unresolved": "__MISSING__:Metadata unresolved",
+        "metadata-source-unknown": "__MISSING__:Metadata source unknown",
+        "context-limit-unknown": "__MISSING__:Context limit unknown"
+      }
+    },
     "resolvedTargetMetrics": "{requests} запр. · {success} усп. · {latency} · квота {quota}"
   },
   "usageLimits": {
@@ -13084,13 +13105,6 @@
     "description": "Новые пользователи получают 15% дополнительных API-кредитов при первом пополнении. Используйте Kimi K3 в OmniRoute через официальный Kimi API.",
     "cta": "Получить ключ Kimi API",
     "partnerLinkNote": "Партнерская ссылка",
-    "dismissAriaLabel": "Закрыть"
-  },
-  "vscodeCopilotBanner": {
-    "title": "OmniRoute теперь работает внутри VS Code Copilot Chat",
-    "description": "Установите бесплатное расширение OmniCopilot, и каждая модель OmniRoute появится прямо в выборе моделей Copilot Chat, которым вы уже пользуетесь.",
-    "cta": "Получить расширение",
-    "secondaryNote": "Также доступно на Open VSX (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "Закрыть"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Рекламируйте <gateway-alias>/<model> идентификаторы зеркал на /v1/models для моделей, у которых канонический владелец не имеет активной учетной записи, но шлюз с пропуском с активной учетной записью маршрутизирует их. Внимание: добавляет записи каталога для всех клиентов при глобальном включении.",
