@@ -302,7 +302,7 @@ export const MODEL_ACCESS_DENIED_PATTERNS = [
 // across every target, masking the real "fix your credential" error. When the
 // text clearly indicates a bad credential, the regex-based model-access detection
 // is suppressed (structured codes/types like model_not_found are unaffected).
-const AUTH_CREDENTIAL_ERROR_PATTERNS = [
+export const AUTH_CREDENTIAL_ERROR_PATTERNS = [
   /\b(?:invalid|incorrect|expired|missing|revoked)\s+api[\s_-]?key\b/i,
   /\bapi[\s_-]?key\s+(?:is\s+)?(?:invalid|incorrect|expired|missing|revoked|not\s+valid)\b/i,
   /\bauthentication\s+(?:failed|error|required)\b/i,

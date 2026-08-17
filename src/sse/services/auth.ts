@@ -43,6 +43,7 @@ import {
   getRuntimeProviderProfile,
   recordModelLockoutFailure,
   MODEL_ACCESS_DENIED_PATTERNS,
+  AUTH_CREDENTIAL_ERROR_PATTERNS,
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
@@ -2140,17 +2141,14 @@ export async function markAccountUnavailable(
     // upstream call because all accounts share the same model catalog. Return
     // shouldFallback: false so the error propagates to the combo layer, which already
     // has isModelScoped400() (combo.ts:1827) to advance to the next combo target.
-    // AUTH_CREDENTIAL_ERROR_PATTERNS is not exported, but "invalid api key for model X"
-    // matches MODEL_ACCESS_DENIED_PATTERNS too — however, auth-credential 400s are
-    // already caught earlier by the terminal-status and credential-refresh paths, so
-    // reaching here with a genuine auth error is unlikely. The pragmatic guard is
-    // status === 400 + MODEL_ACCESS_DENIED match; false positives are safe because
-    // the worst case is skipping one account rotation that would have yielded the
-    // same error on every sibling account anyway.
-    if (status === 400 && MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(errorText))) {
+    // Exclude auth-credential errors (e.g. "invalid api key for model X") which also
+    // match MODEL_ACCESS_DENIED_PATTERNS — disambiguate the same way checkFallbackError
+    // does with the AUTH_CREDENTIAL_ERROR_PATTERNS guard.
+    const isAuthCredential = AUTH_CREDENTIAL_ERROR_PATTERNS.some((p) => p.test(errorText));
+    if (status === 400 && !isAuthCredential && MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(errorText))) {
       log.info(
         "AUTH",
-        `${connectionId.slice(0, 8)} model-unsupported 400 (${provider}/${model ?? "n/a"}) — skipping account cooldown, letting combo advance`
+        `${connectionId.slice(0, 8)} provider_model_unsupported 400 (${provider}/${model ?? "n/a"}) — skipping account cooldown, letting combo advance`
       );
       return { shouldFallback: false, cooldownMs: 0 };
     }
