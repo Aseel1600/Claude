@@ -645,7 +645,7 @@ describe("Reasoning Replay Cache — Translator Replay", () => {
         input: [
           {
             type: "reasoning",
-            summary: [{ type: "summary_text", text: "Client DeepSeek reasoning" }],
+            content: [{ type: "reasoning_text", text: "Client DeepSeek reasoning" }],
           },
           {
             type: "message",
