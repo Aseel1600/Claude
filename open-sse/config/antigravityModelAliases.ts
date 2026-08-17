@@ -1,26 +1,4 @@
 export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
-  // Gemini 3.7 Flash tiers listed by the current official Antigravity model catalog
-  // alongside the existing Gemini 3.6 tiers. Keep the upstream model ids unchanged so
-  // discovery and execution address the same models selected by the native client.
-  {
-    id: "gemini-3.7-flash-high",
-    name: "Gemini 3.7 Flash (High)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  {
-    id: "gemini-3.7-flash-medium",
-    name: "Gemini 3.7 Flash (Medium)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  // Gemini 3.6 Flash tiers retained alongside the newer Gemini 3.7 tiers.
   {
     id: "gemini-3.6-flash-high",
     name: "Gemini 3.6 Flash (High)",
@@ -124,6 +102,18 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     supportsVision: true,
     toolCalling: true,
   },
+  // Gemini 3.7 Flash: single callable public model (upstream exposes only
+  // gemini-3.7-flash-tiered; suffixed tier ids 404). One entry so it does not
+  // collide under the #3696 public-id uniqueness invariant.
+  {
+    id: "gemini-3.7-flash",
+    name: "Gemini 3.7 Flash",
+    contextLength: 1048576,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
+    toolCalling: true,
+  },
   {
     id: "gemini-3.1-flash-lite",
     name: "Gemini 3.1 Flash Lite",
@@ -163,6 +153,9 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
 ]);
 
 export const ANTIGRAVITY_MODEL_ALIASES = Object.freeze({
+  // Gemini 3.7 Flash: the live catalog exposes a single upstream id `gemini-3.7-flash-tiered`; the agy CLI maps all
+  // display tiers to it. Verified 200 OK. The suffixed ids 404 upstream.
+  "gemini-3.7-flash": "gemini-3.7-flash-tiered",
   // gemini-3.1-pro-low is not aliased: the upstream accepts it verbatim.
   // gemini-3.1-pro-high: the discovery slot returns HTTP 400 on v1internal;
   // the live upstream id is gemini-pro-agent (see ANTIGRAVITY_PUBLIC_MODELS).
