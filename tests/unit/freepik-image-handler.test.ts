@@ -3,8 +3,12 @@ import assert from "node:assert/strict";
 import dns from "node:dns";
 
 import { handleImageGeneration } from "../../open-sse/handlers/imageGeneration.ts";
-import { IMAGE_PROVIDERS } from "../../open-sse/config/imageRegistry.ts";
-import { APIKEY_PROVIDERS } from "../../src/shared/constants/providers.ts";
+import {
+  IMAGE_PROVIDERS,
+  getImageProvider,
+  parseImageModel,
+} from "../../open-sse/config/imageRegistry.ts";
+import { APIKEY_PROVIDERS, resolveProviderId } from "../../src/shared/constants/providers.ts";
 import { IMAGE_ONLY_PROVIDER_IDS } from "../../src/shared/constants/providers.ts";
 
 // Stub DNS for fetchRemoteImage/direct-fetch DNS-rebinding guards, mirroring
@@ -30,20 +34,29 @@ test("freepik provider is registered (registry shape)", () => {
   assert.ok(provider, "freepik should be in IMAGE_PROVIDERS");
   assert.equal(provider.format, "freepik-image");
   assert.equal(provider.authType, "apikey");
-  assert.equal(provider.authHeader, "x-freepik-api-key");
+  assert.equal(provider.authHeader, "x-magnific-api-key");
+  assert.equal(provider.baseUrl, "https://api.magnific.com/v1/ai/mystic");
+  assert.equal(provider.alias, "magnific");
   assert.ok(provider.models.some((m) => m.id === "realism"));
   assert.ok(provider.models.some((m) => m.id === "fluid"));
+  assert.equal(APIKEY_PROVIDERS.freepik.alias, "magnific");
+  assert.equal(resolveProviderId("magnific"), "freepik");
+  assert.equal(getImageProvider("magnific")?.id, "freepik");
+  assert.deepEqual(parseImageModel("magnific/realism"), { provider: "freepik", model: "realism" });
 });
 
 test("handleImageGeneration(freepik): async submit+poll returns b64_json payload", async () => {
   const originalFetch = globalThis.fetch;
   let pollCount = 0;
 
-  globalThis.fetch = (async (url: string, options: { headers?: Record<string, string>; body?: string } = {}) => {
+  globalThis.fetch = (async (
+    url: string,
+    options: { headers?: Record<string, string>; body?: string } = {}
+  ) => {
     const u = String(url);
 
-    if (u === "https://api.freepik.com/v1/ai/mystic") {
-      assert.equal(options.headers?.["x-freepik-api-key"], "test-key");
+    if (u === "https://api.magnific.com/v1/ai/mystic") {
+      assert.equal(options.headers?.["x-magnific-api-key"], "test-key");
       const parsed = JSON.parse(options.body as string);
       assert.equal(parsed.prompt, "a red panda astronaut");
       assert.equal(parsed.model, "realism");
@@ -53,7 +66,7 @@ test("handleImageGeneration(freepik): async submit+poll returns b64_json payload
       );
     }
 
-    if (u === "https://api.freepik.com/v1/ai/mystic/task-freepik-1") {
+    if (u === "https://api.magnific.com/v1/ai/mystic/task-freepik-1") {
       pollCount += 1;
       if (pollCount < 2) {
         return new Response(
@@ -105,13 +118,13 @@ test("handleImageGeneration(freepik): FAILED status returns sanitized 502 error"
 
   globalThis.fetch = (async (url: string) => {
     const u = String(url);
-    if (u === "https://api.freepik.com/v1/ai/mystic") {
+    if (u === "https://api.magnific.com/v1/ai/mystic") {
       return new Response(JSON.stringify({ data: { task_id: "task-fail", status: "CREATED" } }), {
         status: 200,
         headers: { "content-type": "application/json" },
       });
     }
-    if (u === "https://api.freepik.com/v1/ai/mystic/task-fail") {
+    if (u === "https://api.magnific.com/v1/ai/mystic/task-fail") {
       return new Response(JSON.stringify({ data: { task_id: "task-fail", status: "FAILED" } }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -157,6 +170,54 @@ test("handleImageGeneration(freepik): submit error response is sanitized, not ra
     assert.equal(result.success, false);
     assert.equal(result.status, 500);
     assert.ok(!result.error.includes("/srv/app/handlers/mystic.ts"));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("handleImageGeneration(magnific/realism): alias routes to the Magnific Mystic adapter", async () => {
+  const originalFetch = globalThis.fetch;
+  let sawSubmit = false;
+
+  globalThis.fetch = (async (
+    url: string,
+    options: { headers?: Record<string, string>; body?: string } = {}
+  ) => {
+    const u = String(url);
+    if (u === "https://api.magnific.com/v1/ai/mystic") {
+      sawSubmit = true;
+      assert.equal(options.headers?.["x-magnific-api-key"], "test-key");
+      return new Response(JSON.stringify({ data: { task_id: "task-alias", status: "CREATED" } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }
+    if (u === "https://api.magnific.com/v1/ai/mystic/task-alias") {
+      return new Response(
+        JSON.stringify({
+          data: {
+            task_id: "task-alias",
+            status: "COMPLETED",
+            generated: ["https://cdn.example.com/freepik-result.png"],
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (u === "https://cdn.example.com/freepik-result.png") {
+      return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), { status: 200 });
+    }
+    throw new Error(`Unexpected URL: ${u}`);
+  }) as typeof fetch;
+
+  try {
+    const result = await handleImageGeneration({
+      body: { model: "magnific/realism", prompt: "alias probe", poll_interval_ms: 1 },
+      credentials: { apiKey: "test-key" },
+      log: null,
+    });
+    assert.equal(result.success, true);
+    assert.equal(sawSubmit, true);
   } finally {
     globalThis.fetch = originalFetch;
   }

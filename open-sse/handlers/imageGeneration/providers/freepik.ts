@@ -2,11 +2,10 @@
 // Async submit->poll flow modeled on leonardo.ts's generationId pattern:
 // POST /v1/ai/mystic returns { data: { task_id, status } }, then
 // GET /v1/ai/mystic/{task_id} is polled until status is COMPLETED/FAILED.
-// Docs: https://docs.magnific.com/api-reference/mystic (Freepik rebranded to
-// Magnific in April 2026; both `api.freepik.com` and the newer
-// `api.magnific.com` domain/header pair are in circulation during the
-// transition, so the base URL and auth header both come from providerConfig
-// rather than being hardcoded here).
+// Docs: https://docs.magnific.com/api-reference/mystic
+// Official host/header: api.magnific.com + x-magnific-api-key.
+// Both come from providerConfig so a local override can still use the
+// legacy api.freepik.com / x-freepik-api-key pair if needed.
 
 import { saveCallLog } from "@/lib/usageDb";
 import { sleep } from "../../../utils/sleep.ts";
@@ -48,7 +47,7 @@ interface FreepikImageResult {
 }
 
 function freepikAuthHeader(providerConfig: FreepikProviderConfig, token: string) {
-  const headerName = providerConfig.authHeader || "x-freepik-api-key";
+  const headerName = providerConfig.authHeader || "x-magnific-api-key";
   return { [headerName]: token };
 }
 
@@ -113,9 +112,9 @@ async function pollMysticTask(params: {
   return { status, imageUrl: typeof generated[0] === "string" ? generated[0] : undefined };
 }
 
-async function downloadGeneratedImage(imageUrl: string): Promise<
-  { state: "ok"; b64: string } | { state: "failed"; status: number; error: string }
-> {
+async function downloadGeneratedImage(
+  imageUrl: string
+): Promise<{ state: "ok"; b64: string } | { state: "failed"; status: number; error: string }> {
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) {
     return {
@@ -172,8 +171,16 @@ async function pollUntilDone(params: {
   pollIntervalMs: number;
   pollTimeoutMs: number;
 }): Promise<FreepikImageResult> {
-  const { providerConfig, token, taskId, provider, model, startTime, pollIntervalMs, pollTimeoutMs } =
-    params;
+  const {
+    providerConfig,
+    token,
+    taskId,
+    provider,
+    model,
+    startTime,
+    pollIntervalMs,
+    pollTimeoutMs,
+  } = params;
   const deadline = Date.now() + pollTimeoutMs;
 
   while (Date.now() < deadline) {
@@ -216,7 +223,15 @@ async function submitAndGetTaskId(params: {
   const res = await submitMysticTask({ providerConfig, token, model, prompt, body });
   if (!res.ok) {
     const errorText = await res.text();
-    return { failed: await logAndFail({ provider, model, startTime, status: res.status, error: errorText }) };
+    return {
+      failed: await logAndFail({
+        provider,
+        model,
+        startTime,
+        status: res.status,
+        error: errorText,
+      }),
+    };
   }
 
   const submitJson = await res.json();
@@ -249,7 +264,10 @@ export async function handleFreepikImageGeneration({
   const pollIntervalMs = normalizePositiveNumber(body.poll_interval_ms, DEFAULT_POLL_INTERVAL_MS);
   const pollTimeoutMs = normalizePositiveNumber(body.poll_timeout_ms, DEFAULT_POLL_TIMEOUT_MS);
   if (log) {
-    log.info("IMAGE", `${provider}/${model} (freepik-mystic) | prompt: "${prompt.slice(0, 60)}..."`);
+    log.info(
+      "IMAGE",
+      `${provider}/${model} (freepik-mystic) | prompt: "${prompt.slice(0, 60)}..."`
+    );
   }
 
   try {

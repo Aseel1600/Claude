@@ -865,7 +865,12 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
  * Get image provider config by ID
  */
 export function getImageProvider(providerId) {
-  return IMAGE_PROVIDERS[providerId] || null;
+  if (IMAGE_PROVIDERS[providerId]) return IMAGE_PROVIDERS[providerId];
+  if (!providerId) return null;
+  for (const config of Object.values(IMAGE_PROVIDERS)) {
+    if (config.alias === providerId) return config;
+  }
+  return null;
 }
 
 /**

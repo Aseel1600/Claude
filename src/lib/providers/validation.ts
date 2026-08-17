@@ -141,6 +141,7 @@ export { validateWebCookieProvider, bytezValidationResultFromStatus };
 // They are re-exported above to preserve the historical public surface.
 
 export async function validateProviderApiKey({ provider, apiKey, providerSpecificData = {} }: any) {
+  provider = typeof provider === "string" ? resolveProviderId(provider) : provider;
   const requiresApiKey = !providerAllowsOptionalApiKey(provider);
   const isLocal = isLocalProvider(provider);
 
@@ -214,6 +215,8 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
       validateImageProviderApiKey({ provider: "recraft", apiKey, providerSpecificData }),
     topaz: ({ apiKey, providerSpecificData }: any) =>
       validateImageProviderApiKey({ provider: "topaz", apiKey, providerSpecificData }),
+    freepik: ({ apiKey, providerSpecificData }: any) =>
+      validateImageProviderApiKey({ provider: "freepik", apiKey, providerSpecificData }),
     elevenlabs: validateElevenLabsProvider,
     inworld: validateInworldProvider,
     kie: validateKieProvider,

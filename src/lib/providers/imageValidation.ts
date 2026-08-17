@@ -28,6 +28,11 @@ const IMAGE_PROVIDER_VALIDATION_ENDPOINTS: Record<
   topaz: {
     path: "/account/v1/credits/balance",
   },
+  freepik: {
+    // GET /v1/ai/mystic lists tasks and does not start a paid generation.
+    baseUrl: "https://api.magnific.com",
+    path: "/v1/ai/mystic",
+  },
 };
 
 function normalizeBaseUrl(baseUrl: string) {
@@ -86,9 +91,15 @@ function buildImageProviderValidationHeaders(
         break;
       case "none":
         break;
-      default:
-        headers.Authorization = `Bearer ${apiKey}`;
+      default: {
+        const headerName = String(imageProvider?.authHeader || "").trim();
+        if (headerName.toLowerCase().startsWith("x-")) {
+          headers[headerName] = apiKey;
+        } else {
+          headers.Authorization = `Bearer ${apiKey}`;
+        }
         break;
+      }
     }
   }
 

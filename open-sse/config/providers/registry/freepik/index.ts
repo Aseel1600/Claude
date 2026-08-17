@@ -5,14 +5,15 @@
  */
 export const FREEPIK_IMAGE_PROVIDER = {
   id: "freepik",
-  // Freepik rebranded its API docs to Magnific in April 2026; the Mystic
-  // endpoint itself still lives under api.freepik.com as of this writing
-  // (docs.freepik.com redirects to docs.magnific.com, but the API host
-  // has not moved). Re-verify against live docs if this ever 404s.
-  baseUrl: "https://api.freepik.com/v1/ai/mystic",
-  statusUrl: "https://api.freepik.com/v1/ai/mystic",
+  // Freepik's developer API rebranded to Magnific. Official host/header are
+  // api.magnific.com + x-magnific-api-key (docs.magnific.com). The legacy
+  // api.freepik.com / x-freepik-api-key pair still accepts the same keys
+  // during the transition, but new integrations should use Magnific.
+  alias: "magnific",
+  baseUrl: "https://api.magnific.com/v1/ai/mystic",
+  statusUrl: "https://api.magnific.com/v1/ai/mystic",
   authType: "apikey",
-  authHeader: "x-freepik-api-key",
+  authHeader: "x-magnific-api-key",
   format: "freepik-image", // custom: async submit task_id, then poll GET /{task_id}
   models: [
     { id: "realism", name: "Mystic Realism" },
