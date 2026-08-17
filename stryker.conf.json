@@ -109,6 +109,7 @@
       "tests/unit/chat-route-edge-cases.test.ts",
       "tests/unit/chatcore-compression-integration.test.ts",
       "tests/unit/chatcore-executor-helpers.test.ts",
+      "tests/unit/chatcore-header-drop-warn-dedupe-10315.test.ts",
       "tests/unit/chatcore-executor-proxy.test.ts",
       "tests/unit/chatcore-extracted-modules-3821.test.ts",
       "tests/unit/chatcore-headers.test.ts",

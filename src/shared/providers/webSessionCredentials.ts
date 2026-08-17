@@ -375,6 +375,12 @@ export function getWebSessionCredentialRequirement(
   );
 }
 
+export function canUpdateProviderApiKey(authType: unknown, providerId: unknown): boolean {
+  if (authType === "apikey") return true;
+  if (authType !== "cookie") return false;
+  return getWebSessionCredentialRequirement(providerId)?.kind === "token";
+}
+
 export function requiresWebSessionCredential(providerId: unknown): boolean {
   const requirement = getWebSessionCredentialRequirement(providerId);
   return !!requirement && requirement.kind !== "none";

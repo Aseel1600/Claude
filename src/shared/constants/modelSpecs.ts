@@ -229,8 +229,16 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
   },
 
   // ── Gemini 3.5 Flash ─────────────────────────────────────────────
+  // #10286: the base Google AI Studio model DOES support reasoning (it has
+  // an effort-tier alias gemini-3.5-flash-high) — override the shared spec's
+  // supportsThinking:false here only. Do NOT flip GEMINI_35_FLASH_MODEL_SPEC
+  // itself: it is also spread into the Antigravity flash-tier aliases
+  // (gemini-3.5-flash-low/-extra-low, gemini-3-flash-agent, gemini-3.6-flash-*)
+  // which reject client-supplied thinking params because the model id itself
+  // selects the reasoning tier upstream.
   "gemini-3.5-flash": {
     ...GEMINI_35_FLASH_MODEL_SPEC,
+    supportsThinking: true,
     aliases: ["gemini-3.5-flash-high"],
   },
 
