@@ -98,7 +98,12 @@ test("#8353 catalog: aliases are NOT synthesized on opencode-zen", () => {
   for (const { alias } of ISSUE_ALIASES) {
     assert.equal(zenIds.has(alias), false, `opencode-zen must not expose ${alias}`);
   }
+  // kimi-k3 became a live zen model in the 2026-08-17 registry sync (present in
+  // https://opencode.ai/zen/v1/models) — only the remaining Go-tier-only bases
+  // must stay absent from zen. The effort alias kimi-k3-max is still Go-only
+  // and remains covered by the ISSUE_ALIASES loop above.
   for (const base of NEW_BASES) {
+    if (base === "kimi-k3") continue;
     assert.equal(zenIds.has(base), false, `opencode-zen must not expose base ${base}`);
   }
 });
