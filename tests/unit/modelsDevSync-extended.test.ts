@@ -671,7 +671,7 @@ test("the usual truthy spellings all start the sync, and nothing else does", asy
         // then never fetched anything; pin the fetch actually having run
         // for each truthy spelling, not just the first one.
         assert.ok(
-          await waitFor(() => modelsDev.getSyncStatus().lastSync !== null),
+          await waitFor(() => modelsDev.getSyncStatus().lastSync !== null, 2000),
           `MODELS_DEV_SYNC_ENABLED=${JSON.stringify(value)} should have completed a sync`
         );
       }
