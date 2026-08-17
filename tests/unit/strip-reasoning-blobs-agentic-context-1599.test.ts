@@ -83,6 +83,61 @@ test("DeepSeek rejects plaintext reasoning carrying opaque provider state", () =
   }
 });
 
+test("drop fallback removes all reasoning when any active transport is incompatible", () => {
+  const plaintextReasoning = {
+    id: "rs_plaintext",
+    type: "reasoning",
+    content: [{ type: "reasoning_text", text: "inspect first" }],
+  };
+  const opaqueReasoning = {
+    id: "rs_opaque",
+    type: "reasoning",
+    encrypted_content: "provider-state",
+  };
+  const body: Record<string, unknown> = {
+    input: [
+      plaintextReasoning,
+      opaqueReasoning,
+      { id: "fc_call", type: "function_call", call_id: "call_1", name: "search" },
+    ],
+  };
+
+  const result = applyResponsesInputPolicy(body, {
+    provider: "deepseek",
+    onIncompatibleReasoning: "drop",
+  });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.input, [{ type: "function_call", call_id: "call_1", name: "search" }]);
+  assert.equal(plaintextReasoning.id, "rs_plaintext");
+  assert.equal(opaqueReasoning.id, "rs_opaque");
+});
+
+test("drop fallback preserves reasoning when its transport is compatible", () => {
+  const body: Record<string, unknown> = {
+    input: [
+      {
+        id: "rs_plaintext",
+        type: "reasoning",
+        content: [{ type: "reasoning_text", text: "inspect first" }],
+      },
+    ],
+  };
+
+  const result = applyResponsesInputPolicy(body, {
+    provider: "deepseek",
+    onIncompatibleReasoning: "drop",
+  });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.input, [
+    {
+      type: "reasoning",
+      content: [{ type: "reasoning_text", text: "inspect first" }],
+    },
+  ]);
+});
+
 test("known opaque targets preserve a cloned complete provider-generated reasoning item", () => {
   const opaqueReasoning = {
     id: "rs_encrypted123",

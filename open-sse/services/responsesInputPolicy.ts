@@ -15,6 +15,7 @@ for (const [id, entry] of Object.entries(REGISTRY)) {
 export interface ResponsesInputPolicyOptions {
   provider?: string | null;
   preserveEncryptedReasoning?: boolean;
+  onIncompatibleReasoning?: "reject" | "drop";
 }
 
 export interface ResponsesInputPolicyResult {
@@ -65,11 +66,26 @@ export function hasOpaqueReasoningState(record: JsonRecord): boolean {
   );
 }
 
+function isIncompatibleReasoningRecord(
+  record: JsonRecord,
+  transport: ResponsesReasoningTransport | null
+): boolean {
+  if (record.type !== "reasoning") return false;
+  const plaintext = hasPlaintextReasoning(record);
+  const opaque = hasOpaqueReasoningState(record);
+  if (!plaintext && !opaque) return false;
+  return !(
+    (transport === "plaintext" && plaintext && !opaque) ||
+    (transport === "opaque" && opaque && !plaintext)
+  );
+}
+
 /**
  * Removes Responses state that is not portable to the selected upstream.
  * Plaintext reasoning and provider-generated opaque reasoning are separate
- * transports; unknown targets receive neither. Retained input items are cloned
- * before server IDs are removed so Combo fallback attempts cannot mutate each other.
+ * transports; unknown targets receive neither. The optional drop action removes
+ * all reasoning when any active item is incompatible. Retained items are cloned
+ * so Combo attempts cannot mutate each other's fallback input.
  */
 export function applyResponsesInputPolicy(
   body: Record<string, unknown>,
@@ -91,6 +107,13 @@ export function applyResponsesInputPolicy(
     options.provider,
     options.preserveEncryptedReasoning
   );
+  const dropAllReasoning =
+    options.onIncompatibleReasoning === "drop" &&
+    body.input.some((item) => {
+      const record =
+        item && typeof item === "object" && !Array.isArray(item) ? (item as JsonRecord) : null;
+      return record ? isIncompatibleReasoningRecord(record, transport) : false;
+    });
   let incompatibleReasoning = false;
   const filtered: unknown[] = [];
 
@@ -113,6 +136,7 @@ export function applyResponsesInputPolicy(
     }
 
     if (record.type === "reasoning") {
+      if (dropAllReasoning) continue;
       const plaintext = hasPlaintextReasoning(record);
       const opaque = hasOpaqueReasoningState(record);
       if (plaintext || opaque) {

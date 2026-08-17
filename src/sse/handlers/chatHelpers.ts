@@ -421,6 +421,7 @@ export async function executeChatWithBreaker({
   correlationId = null,
   modelPinned = false,
   routingComboId = null,
+  reasoningTransportFallback = "skip",
   sessionAffinityKey = null,
 }: ExecuteChatWithBreakerOptions): Promise<ExecuteChatWithBreakerResult> {
   let tlsFingerprintUsed = false;
@@ -478,6 +479,7 @@ export async function executeChatWithBreaker({
             modelPinned,
             routingComboId,
             sessionAffinityKey,
+            reasoningTransportFallback,
             skipResourcePressureGuard: true,
             onCredentialsRefreshed: async (newCreds: any) => {
               await updateProviderCredentials(credentials.connectionId, {

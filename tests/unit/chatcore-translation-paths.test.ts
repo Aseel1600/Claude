@@ -309,6 +309,7 @@ async function invokeChatCore({
   onCredentialsRefreshed = null,
   onRequestSuccess = null,
   sessionAffinityKey = null,
+  reasoningTransportFallback = "skip",
 }: any = {}) {
   const calls: any[] = [];
 
@@ -355,6 +356,7 @@ async function invokeChatCore({
       sessionAffinityKey,
       isCombo,
       comboStrategy,
+      reasoningTransportFallback,
       onCredentialsRefreshed,
       onRequestSuccess,
     } as any);
@@ -622,6 +624,40 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
     false
   );
   assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
+});
+
+test("chatCore can drop incompatible reasoning for an opted-in Combo attempt", async () => {
+  const dropped = await invokeChatCore({
+    provider: "openai-compatible-sp-openai",
+    model: "gpt-5.4",
+    endpoint: "/v1/responses",
+    credentials: {
+      apiKey: "sk-test",
+      providerSpecificData: {
+        apiType: "responses",
+        baseUrl: "https://proxy.example.com/v1",
+        prefix: "sp-openai",
+      },
+    },
+    body: {
+      model: "gpt-5.4",
+      stream: false,
+      input: [
+        { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+        { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] },
+      ],
+    },
+    responseFormat: "openai-responses",
+    isCombo: true,
+    reasoningTransportFallback: "drop",
+  });
+
+  assert.equal(dropped.result.success, true);
+  assert.equal(dropped.calls.length, 1);
+  assert.equal(
+    dropped.call.body.input.some((item) => item.type === "reasoning"),
+    false
+  );
 });
 
 test("chatCore carries Chat reasoning_content into official DeepSeek Responses input", async () => {

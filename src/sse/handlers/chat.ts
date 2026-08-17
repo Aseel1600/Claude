@@ -877,6 +877,8 @@ async function handleChatImplementation(
     ]);
     const relayConfig =
       combo.strategy === "context-relay" ? resolveComboConfig(combo, settings) : null;
+    const reasoningTransportFallback =
+      combo.config?.reasoningTransportFallback === "drop" ? "drop" : "skip";
     // Per-request Auto-Combo controls (#6023 / #6024 / #6025 / #3470): steer an
     // `auto` combo on this single request without mutating its stored config.
     const perRequestAutoControls = resolveRequestAutoControls(request.headers);
@@ -940,6 +942,7 @@ async function handleChatImplementation(
             providerId: target?.providerId ?? null,
             correlationId: reqId,
             modelPinned: (target as any)?.modelPinned ?? false,
+            reasoningTransportFallback,
             reasoningDecision,
             reasoningIntent,
             reasoningRequestTags: requestRoutingTags.tags,
@@ -1138,6 +1141,7 @@ async function handleSingleModelChat(
     reasoningDecision?: ReasoningRuleDecision | null;
     reasoningIntent?: ExtractedReasoningIntent | null;
     reasoningRequestTags?: string[];
+    reasoningTransportFallback?: "skip" | "drop";
     /**
      * Per-target abort signal from combo.ts's targetTimeoutRunner
      * (comboTargetTimeoutMs) — see the #7360 follow-up comment at the
@@ -1199,6 +1203,8 @@ async function handleSingleModelChat(
             allowRateLimitedConnection: resolvedTarget?.allowRateLimitedConnection === true,
             providerId: resolvedTarget?.providerId ?? null,
             correlationId: runtimeOptions?.correlationId ?? null,
+            reasoningTransportFallback:
+              redirectCombo.config?.reasoningTransportFallback === "drop" ? "drop" : "skip",
             // #7360 follow-up — see the primary handleSingleModel closure above.
             modelAbortSignal: target?.modelAbortSignal ?? null,
           },
@@ -1621,7 +1627,8 @@ async function handleSingleModelChat(
             comboStrategy,
             isCombo,
             comboStepId: runtimeOptions.comboStepId ?? null,
-            comboExecutionKey: runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
+            comboExecutionKey:
+              runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
             extendedContext,
             modelApiFormat: apiFormat,
             modelTargetFormat: targetFormat,
@@ -1632,6 +1639,7 @@ async function handleSingleModelChat(
             modelPinned: runtimeOptions?.modelPinned ?? false,
             routingComboId: runtimeOptions?.routingComboId ?? null,
             sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
+            reasoningTransportFallback: runtimeOptions.reasoningTransportFallback ?? "skip",
           },
           runtimeOptions
         );

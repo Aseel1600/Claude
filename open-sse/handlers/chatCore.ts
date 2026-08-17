@@ -465,6 +465,7 @@ export async function handleChatCore({
   correlationId = null,
   modelPinned = false,
   skipResourcePressureGuard = false,
+  reasoningTransportFallback = "skip",
 }) {
   let { provider, model, extendedContext } = modelInfo;
   if (!skipResourcePressureGuard) {
@@ -1126,6 +1127,7 @@ export async function handleChatCore({
       provider,
       preserveEncryptedReasoning:
         credentials?.providerSpecificData?.preserveEncryptedReasoning === true,
+      onIncompatibleReasoning: reasoningTransportFallback === "drop" ? "drop" : "reject",
     });
     if (policy.incompatibleReasoning) {
       trackPendingRequest(model, provider, connectionId, false);

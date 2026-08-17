@@ -188,6 +188,8 @@ const ADVANCED_FIELD_HELP_FALLBACK = {
     "Delay between set-level retry attempts, giving transient issues time to resolve.",
   nestedComboMode:
     "How references to other combos are handled. Flatten expands a combo ref into this combo's target list (legacy). Execute treats a combo ref as a black-box target: the parent strategy selects the child combo, then the child runs its own strategy and retries.",
+  reasoningTransportFallback:
+    "What to do when the next combo target cannot accept the original reasoning transport. Skip leaves the request body untouched and falls through to the next target; Drop removes reasoning state and tries the target anyway.",
 };
 
 const LEGACY_COMBO_RESILIENCE_KEYS = new Set([
@@ -3795,6 +3797,58 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                     </div>
                     <div className="col-span-2">
                       <ReasoningTokenBufferToggle config={config} setConfig={setConfig} t={t} />
+                    </div>
+                    <div>
+                      <FieldLabelWithHelp
+                        label={getI18nOrFallback(
+                          t,
+                          "reasoningTransportFallback",
+                          "Reasoning transport fallback"
+                        )}
+                        help={getI18nOrFallback(
+                          t,
+                          "advancedHelp.reasoningTransportFallback",
+                          ADVANCED_FIELD_HELP_FALLBACK.reasoningTransportFallback
+                        )}
+                        showHelp={!isExpertMode}
+                        htmlFor="combo-reasoning-transport-fallback"
+                      />
+                      <select
+                        id="combo-reasoning-transport-fallback"
+                        value={config.reasoningTransportFallback === "drop" ? "drop" : "skip"}
+                        onChange={(e) =>
+                          setConfig({
+                            ...config,
+                            reasoningTransportFallback:
+                              e.target.value === "drop" ? "drop" : undefined,
+                          })
+                        }
+                        className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
+                      >
+                        <option value="skip">
+                          {getI18nOrFallback(
+                            t,
+                            "reasoningTransportFallbackSkip",
+                            "Skip incompatible target (fall through)"
+                          )}
+                        </option>
+                        <option value="drop">
+                          {getI18nOrFallback(
+                            t,
+                            "reasoningTransportFallbackDrop",
+                            "Drop reasoning and try target"
+                          )}
+                        </option>
+                      </select>
+                      {config.reasoningTransportFallback === "drop" && (
+                        <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-1">
+                          {getI18nOrFallback(
+                            t,
+                            "reasoningTransportFallbackDropWarning",
+                            "May lose continuation context or cause tool-call continuations to fail."
+                          )}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <FieldLabelWithHelp
