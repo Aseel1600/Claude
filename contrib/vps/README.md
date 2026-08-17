@@ -54,7 +54,6 @@ Validate and start the stack:
 
 ```bash
 docker compose config --quiet
-docker compose pull
 docker compose up -d
 docker compose ps
 ```
@@ -126,17 +125,19 @@ docker image inspect "$(docker compose images -q omniroute)" \
   --format '{{index .RepoDigests 0}}'
 ```
 
-Set `OMNIROUTE_IMAGE` in `.env` to the new version or digest, then run:
+Build the new local version tag first, or set `OMNIROUTE_IMAGE` in `.env` to a
+new immutable registry digest. Pull only when the selected image is remote,
+then recreate the application container:
 
 ```bash
-docker compose pull omniroute
+# Registry images only: docker compose pull omniroute
 docker compose up -d --no-deps omniroute
 docker compose ps
 curl --fail --silent http://127.0.0.1:20128/healthz
 ```
 
 To roll back the application image, restore the previous value of
-`OMNIROUTE_IMAGE` and repeat the same `pull` and `up` commands. Restore the data
+`OMNIROUTE_IMAGE` and repeat the applicable `pull` and `up` commands. Restore the data
 archive only when a migration changed the persisted data and image rollback
 alone is insufficient. Keep the stack stopped while restoring the volume.
 
