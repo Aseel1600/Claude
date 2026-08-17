@@ -82,7 +82,7 @@ export function buildExtractZipCommand(
 }
 
 async function extractZip(archivePath: string, destDir: string): Promise<void> {
-  const { command, args } = buildExtractZipCommand(process.platform, archivePath, destDir);
+  const { command, args } = buildExtractZipCommand(os.platform(), archivePath, destDir);
   await execFileAsync(command, args);
 }
 
@@ -165,7 +165,7 @@ export async function installVersion(version: string, dataDir?: string): Promise
   try {
     await fs.unlink(symlinkPath);
   } catch {}
-  if (process.platform === "win32") {
+  if (os.platform() === "win32") {
     await fs.copyFile(binary, symlinkPath);
   } else {
     await fs.symlink(binary, symlinkPath);
@@ -219,7 +219,7 @@ export async function rollbackVersion(dataDir?: string): Promise<string | null> 
   try {
     await fs.unlink(symlinkPath);
   } catch {}
-  if (process.platform === "win32") {
+  if (os.platform() === "win32") {
     await fs.copyFile(oldBinary, symlinkPath);
   } else {
     await fs.symlink(oldBinary, symlinkPath);

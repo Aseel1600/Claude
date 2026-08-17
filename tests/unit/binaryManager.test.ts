@@ -71,13 +71,15 @@ describe("binaryManager", () => {
       // on Linux constant-folds `process.platform` and prunes every Windows/arm64
       // branch from the published npm artifact. Simulate a Windows arm64 host via
       // the runtime os.* functions; the Windows/arm64 branch must be reachable.
-      mock.method(os, "platform", () => "win32");
-      mock.method(os, "arch", () => "arm64");
-      assert.deepEqual(mod.getTargetPlatform(), { platform: "windows", arch: "arm64" });
-      assert.equal(
-        mod.getAssetName(),
-        "CLIProxyAPI_{version}_windows_arm64.zip"
-      );
+      const platformMock = mock.method(os, "platform", () => "win32");
+      const archMock = mock.method(os, "arch", () => "arm64");
+      try {
+        assert.deepEqual(mod.getTargetPlatform(), { platform: "windows", arch: "arm64" });
+        assert.equal(mod.getAssetName(), "CLIProxyAPI_{version}_windows_arm64.zip");
+      } finally {
+        platformMock.mock.restore();
+        archMock.mock.restore();
+      }
     });
   });
 
@@ -153,6 +155,74 @@ describe("binaryManager", () => {
       } else {
         const real = fs.realpathSync(path.join(binDir, "cliproxyapi"));
         assert.ok(real.includes("1.0.0"));
+      }
+    });
+
+    it("should use the runtime Windows path for extraction, install, and rollback", async () => {
+      const binDir = path.join(tmpDir, "bin");
+      const fakePowerShellDir = path.join(tmpDir, "fake-powershell");
+      const extractedDir = path.join(binDir, "cliproxyapi-1.0.0");
+      const commandLog = path.join(tmpDir, "powershell-command.txt");
+      const originalPath = process.env.PATH;
+      const originalFetch = globalThis.fetch;
+
+      fs.mkdirSync(fakePowerShellDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(fakePowerShellDir, "powershell"),
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$OMNI_TEST_COMMAND_LOG\"\n"
+          + "mkdir -p \"$OMNI_TEST_EXTRACT_DIR\"\nprintf 'installed-binary' > \"$OMNI_TEST_EXTRACT_DIR/cli-proxy-api\"\n"
+      );
+      fs.chmodSync(path.join(fakePowerShellDir, "powershell"), 0o755);
+      process.env.PATH = `${fakePowerShellDir}:${originalPath || ""}`;
+      process.env.OMNI_TEST_COMMAND_LOG = commandLog;
+      process.env.OMNI_TEST_EXTRACT_DIR = extractedDir;
+
+      globalThis.fetch = async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/releases/tags/")) {
+          return new Response(
+            JSON.stringify({
+              tag_name: "v1.0.0",
+              published_at: "2026-01-01T00:00:00Z",
+              assets: [
+                {
+                  name: "CLIProxyAPI_1.0.0_windows_amd64.zip",
+                  browser_download_url: "https://example.test/cliproxy.zip",
+                  size: 3,
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        if (url.endsWith("checksums.txt")) return new Response("", { status: 404 });
+        return new Response("zip", { status: 200 });
+      };
+
+      const platformMock = mock.method(os, "platform", () => "win32");
+      const archMock = mock.method(os, "arch", () => "x64");
+      try {
+        const installedPath = await mod.installVersion("1.0.0", tmpDir);
+        assert.equal(fs.readFileSync(installedPath, "utf8"), "installed-binary");
+        assert.equal(fs.lstatSync(installedPath).isSymbolicLink(), false);
+
+        const command = fs.readFileSync(commandLog, "utf8");
+        assert.match(command, /Expand-Archive -LiteralPath/);
+        assert.doesNotMatch(command, /unzip/);
+
+        const previousDir = path.join(binDir, "cliproxyapi-0.9.0");
+        fs.mkdirSync(previousDir, { recursive: true });
+        fs.writeFileSync(path.join(previousDir, "cli-proxy-api"), "rollback-binary");
+        assert.equal(await mod.rollbackVersion(tmpDir), "0.9.0");
+        assert.equal(fs.readFileSync(installedPath, "utf8"), "rollback-binary");
+        assert.equal(fs.lstatSync(installedPath).isSymbolicLink(), false);
+      } finally {
+        platformMock.mock.restore();
+        archMock.mock.restore();
+        globalThis.fetch = originalFetch;
+        process.env.PATH = originalPath;
+        delete process.env.OMNI_TEST_COMMAND_LOG;
+        delete process.env.OMNI_TEST_EXTRACT_DIR;
       }
     });
   });
