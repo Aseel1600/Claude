@@ -424,6 +424,20 @@ function stripTrailingAntigravityAssistantTurn(
   return request;
 }
 
+/**
+ * Newer Antigravity Gemini chat families reject a request ending on a model turn.
+ * Keep this explicit rather than matching every model containing "gemini": image
+ * generation has a separate request contract, and the older 2.5 family is not part
+ * of the rejection evidence for #10104.
+ */
+function isAntigravityGeminiChatModel(upstreamModel: string): boolean {
+  const normalizedModel = upstreamModel.toLowerCase();
+  if (/(?:^|-)image(?:-|$)/.test(normalizedModel)) {
+    return false;
+  }
+  return /^gemini-(?:3(?:\.\d+)?(?:-[a-z0-9-]+)?|pro-agent)$/.test(normalizedModel);
+}
+
 // Test-only export so the unit suite can exercise the strip logic directly.
 export const __test_stripTrailingAntigravityAssistantTurn = stripTrailingAntigravityAssistantTurn;
 
@@ -605,7 +619,7 @@ export class AntigravityExecutor extends BaseExecutor {
     // e.g. the Gemini 3.x Flash/Pro tiers from PR #8013's catalog) need the same guarded
     // strip. Scoped to models whose id names Gemini so unrelated model families are
     // untouched; the strip itself never empties `contents` (see the guard above).
-    const isGemini = upstreamModel.toLowerCase().includes("gemini");
+    const isGemini = isAntigravityGeminiChatModel(upstreamModel);
     const baseBody = bodyRecord;
     const normalizedBody = shouldStripCloudCodeThinking(this.provider, upstreamModel)
       ? stripCloudCodeThinkingConfig(baseBody)

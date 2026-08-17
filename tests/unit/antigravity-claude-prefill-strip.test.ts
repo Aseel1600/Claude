@@ -58,14 +58,28 @@ test("(b) strips a trailing model turn for native Gemini models too (#10104)", a
   assert.equal(contents.at(-1)?.role, "user", "transformed native Gemini request must end on user");
 });
 
-test("(b2) native Gemini agent tier (gemini-3-flash-agent, #10104) also gets the strip", async () => {
-  const request = await transform("antigravity/gemini-3-flash-agent", [
-    { role: "user", parts: [{ text: "Hello" }] },
-    { role: "model", parts: [{ text: "Hi there" }] }, // trailing model turn -> 400 source
-  ]);
-  const contents = request.contents as Array<{ role: string }>;
-  assert.equal(contents.length, 1, "trailing model turn should be stripped for native Gemini");
-  assert.equal(contents.at(-1)?.role, "user", "transformed native Gemini request must end on user");
+test("(b2) native Gemini 3.6 Flash tiers get the strip (#10104)", async () => {
+  for (const tier of ["high", "medium", "low"]) {
+    const request = await transform(`antigravity/gemini-3.6-flash-${tier}`, [
+      { role: "user", parts: [{ text: "Hello" }] },
+      { role: "model", parts: [{ text: "Hi there" }] }, // trailing model turn -> 400 source
+    ]);
+    const contents = request.contents as Array<{ role: string }>;
+    assert.equal(contents.length, 1, `${tier}: trailing model turn should be stripped`);
+    assert.equal(contents.at(-1)?.role, "user", `${tier}: request must end on user`);
+  }
+});
+
+test("(b3) image and older Gemini families keep their separate request contract", async () => {
+  for (const model of ["antigravity/gemini-3.1-flash-image", "antigravity/gemini-2.5-flash"]) {
+    const request = await transform(model, [
+      { role: "user", parts: [{ text: "Hello" }] },
+      { role: "model", parts: [{ text: "Hi there" }] },
+    ]);
+    const contents = request.contents as Array<{ role: string }>;
+    assert.equal(contents.length, 2, `${model}: non-target family must be unchanged`);
+    assert.equal(contents.at(-1)?.role, "model", `${model}: model turn must be preserved`);
+  }
 });
 
 test("(c) a Claude conversation already ending on user is unchanged", async () => {
