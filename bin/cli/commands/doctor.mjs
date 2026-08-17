@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createDecipheriv, scryptSync } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { isLoopbackUrl } from "../api.mjs";
 import { resolveDataDir, resolveStoragePath } from "../data-dir.mjs";
 import { getCliToken, CLI_TOKEN_HEADER } from "../utils/cliToken.mjs";
 import { printHeading } from "../io.mjs";
@@ -482,6 +483,33 @@ export async function checkMachineTokenAuth(options = {}) {
     });
   }
 
+  let url;
+  try {
+    const parsed = new URL(resolveLivenessUrl(options));
+    if (
+      !["http:", "https:"].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password ||
+      !isLoopbackUrl(parsed.toString())
+    ) {
+      return warn(
+        "CLI machine token",
+        "Machine-token probes are limited to HTTP(S) loopback endpoints",
+        { derived: false, accepted: false, tokenExposed: false }
+      );
+    }
+    parsed.pathname = "/api/cli/whoami";
+    parsed.search = "";
+    parsed.hash = "";
+    url = parsed.toString();
+  } catch {
+    return warn("CLI machine token", "Could not resolve the management endpoint", {
+      derived: false,
+      accepted: false,
+      tokenExposed: false,
+    });
+  }
+
   const token = await getCliToken();
   if (!token) {
     return fail(
@@ -491,24 +519,10 @@ export async function checkMachineTokenAuth(options = {}) {
     );
   }
 
-  let url;
-  try {
-    const parsed = new URL(resolveLivenessUrl(options));
-    parsed.pathname = "/api/cli/whoami";
-    parsed.search = "";
-    parsed.hash = "";
-    url = parsed.toString();
-  } catch {
-    return warn("CLI machine token", "Could not resolve the management endpoint", {
-      derived: true,
-      accepted: false,
-      tokenExposed: false,
-    });
-  }
-
   try {
     const response = await fetchWithTimeout(url, {
       headers: { [CLI_TOKEN_HEADER]: token },
+      redirect: "error",
     });
     if (response.ok) {
       return ok("CLI machine token", "Server accepted the local machine token", {

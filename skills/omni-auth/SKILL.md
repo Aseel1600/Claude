@@ -33,7 +33,7 @@ Log out
 CSRF_TOKEN=$(curl -s https://localhost:20128/api/auth/csrf -b cookie.jar | jq -r .token)
 curl -X POST https://localhost:20128/api/auth/logout \
   -b cookie.jar \
-  -H "x-omniroute-csrf: $CSRF_TOKEN"
+  -H "x-omniroute-csrf: $CSRF_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
 ```

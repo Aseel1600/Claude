@@ -119,6 +119,7 @@ test("doctor probes the real machine-token endpoint without exposing the token",
     globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
       const url = String(input);
       assert.match(url, /\/api\/cli\/whoami$/);
+      assert.equal(init?.redirect, "error");
       observedToken = new Headers(init?.headers).get("x-omniroute-cli-token") || "";
       return new Response(JSON.stringify({ authenticated: true }), {
         status: observedToken ? 200 : 401,
@@ -142,6 +143,97 @@ test("doctor probes the real machine-token endpoint without exposing the token",
       globalThis.fetch = originalFetch;
     }
   });
+});
+
+test("doctor only sends the machine token to supported loopback URL shapes", async () => {
+  const originalFetch = globalThis.fetch;
+  const observedUrls: string[] = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    observedUrls.push(String(input));
+    assert.equal(init?.redirect, "error");
+    assert.match(new Headers(init?.headers).get("x-omniroute-cli-token") || "", /^[0-9a-f]{64}$/);
+    return new Response(null, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+    const loopbackUrls = [
+      "http://localhost:21999/health",
+      "http://127.0.0.42:21999/health",
+      "http://[::1]:21999/health",
+      "http://[::ffff:127.0.0.1]:21999/health",
+    ];
+
+    for (const livenessUrl of loopbackUrls) {
+      const check = await checkMachineTokenAuth({ livenessUrl });
+      assert.equal(check.status, "ok", livenessUrl);
+    }
+    assert.equal(observedUrls.length, loopbackUrls.length);
+    assert.ok(observedUrls.every((url) => url.endsWith("/api/cli/whoami")));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("doctor refuses remote, deceptive, credential-bearing, and unsupported probe URLs", async () => {
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return new Response(null, { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+    const rejectedUrls = [
+      "https://remote.example.test/health",
+      "http://localhost.example.test/health",
+      "http://127.0.0.1.example.test/health",
+      "http://localhost@remote.example.test/health",
+      "http://token-user:credential-sentinel@127.0.0.1:21999/health",
+      "ftp://localhost:21999/health",
+      "http://0.0.0.0:21999/health",
+      "http://[::2]:21999/health",
+    ];
+
+    for (const livenessUrl of rejectedUrls) {
+      const check = await checkMachineTokenAuth({ livenessUrl });
+      assert.equal(check.status, "warn", livenessUrl);
+      assert.equal(check.details?.accepted, false);
+      assert.equal(check.details?.tokenExposed, false);
+      assert.ok(!JSON.stringify(check).includes("credential-sentinel"));
+    }
+    assert.equal(fetchCalls, 0, "rejected targets must never receive a fetch call");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("doctor never follows a machine-token redirect to another origin", async () => {
+  const originalFetch = globalThis.fetch;
+  let crossOriginRequests = 0;
+  let crossOriginTokenObserved = false;
+  globalThis.fetch = (async (_input: string | URL | Request, init?: RequestInit) => {
+    if (init?.redirect !== "error") {
+      crossOriginRequests += 1;
+      crossOriginTokenObserved = new Headers(init?.headers).has("x-omniroute-cli-token");
+      return new Response(null, { status: 200 });
+    }
+    throw new TypeError("redirect blocked");
+  }) as typeof fetch;
+
+  try {
+    const { checkMachineTokenAuth } = await import("../../bin/cli/commands/doctor.mjs");
+    const check = await checkMachineTokenAuth({
+      livenessUrl: "http://127.0.0.1:21999/redirect-to-other-origin",
+    });
+
+    assert.equal(check.status, "warn");
+    assert.equal(crossOriginRequests, 0);
+    assert.equal(crossOriginTokenObserved, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("doctor gives connect guidance when the server rejects a machine token", async () => {

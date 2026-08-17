@@ -206,6 +206,57 @@ test("apply mode writes SKILL.md for an API skill with correct sections", async 
       content.indexOf("### POST /api/auth/logout")
     );
     assert.ok(!loginExample.includes("Authorization: Bearer"));
+    const logoutExample = content.slice(
+      content.indexOf("### POST /api/auth/logout"),
+      content.indexOf("### GET /api/auth/oidc/login")
+    );
+    assert.ok(logoutExample.includes("-b cookie.jar"));
+    assert.ok(logoutExample.includes("x-omniroute-csrf"));
+    assert.ok(!logoutExample.includes("Authorization: Bearer"));
+  } finally {
+    rmTmpDir(tmpDir);
+  }
+});
+
+test("generic API skill GET and mutation examples use standalone Bearer auth", async () => {
+  const tmpDir = mkTmpDir();
+  try {
+    refreshCatalog();
+    const report = await generateAgentSkills({
+      dryRun: false,
+      prune: false,
+      outputDir: tmpDir,
+      onlyIds: ["omni-providers", "omni-settings"],
+    });
+
+    assert.equal(report.errors.length, 0, `Errors: ${JSON.stringify(report.errors)}`);
+    for (const id of ["omni-providers", "omni-settings"]) {
+      const content = fs.readFileSync(path.join(tmpDir, id, "SKILL.md"), "utf-8");
+      assert.ok(content.includes('  -H "Authorization: Bearer $OMNIROUTE_TOKEN"'));
+      assert.ok(!content.includes("cookie.jar"), `${id} must not assume a session cookie`);
+      assert.ok(!content.includes("CSRF_TOKEN"), `${id} must not assume a CSRF token`);
+    }
+
+    const providers = fs.readFileSync(path.join(tmpDir, "omni-providers", "SKILL.md"), "utf-8");
+    const providersGet = providers.slice(
+      providers.indexOf("### GET /api/providers"),
+      providers.indexOf("### POST /api/providers")
+    );
+    const providersPost = providers.slice(
+      providers.indexOf("### POST /api/providers"),
+      providers.indexOf("### GET /api/providers/{id}")
+    );
+    assert.ok(providersGet.includes('  -H "Authorization: Bearer $OMNIROUTE_TOKEN"'));
+    assert.ok(providersPost.includes('  -H "Authorization: Bearer $OMNIROUTE_TOKEN" \\\n'));
+    assert.ok(providersPost.includes('  -H "Content-Type: application/json" \\\n'));
+
+    const settings = fs.readFileSync(path.join(tmpDir, "omni-settings", "SKILL.md"), "utf-8");
+    const settingsPatch = settings.slice(
+      settings.indexOf("### PATCH /api/settings"),
+      settings.indexOf("### POST /api/settings/purge-request-history")
+    );
+    assert.ok(settingsPatch.includes('  -H "Authorization: Bearer $OMNIROUTE_TOKEN" \\\n'));
+    assert.ok(settingsPatch.includes('  -H "Content-Type: application/json" \\\n'));
   } finally {
     rmTmpDir(tmpDir);
   }
