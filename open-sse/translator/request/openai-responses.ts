@@ -9,6 +9,10 @@ import { FORMATS } from "../formats.ts";
 import { register } from "../registry.ts";
 import { normalizeResponsesInputForChat } from "../../utils/responsesInputNormalization.ts";
 import {
+  createReasoningTransportIncompatibleError,
+  hasOpaqueReasoningState,
+} from "../../services/responsesInputPolicy.ts";
+import {
   getRegisteredProviders,
   requiresPlainStringContent,
 } from "../../config/providerRegistry.ts";
@@ -73,10 +77,14 @@ function toolOutputContentToString(output: unknown): string {
   return parts.join("\n");
 }
 
-function getReasoningSummaryText(item: JsonRecord): string {
-  if (!Array.isArray(item.summary)) return "";
-  return item.summary
-    .map((part) => toString(toRecord(part).text))
+function getReasoningContentText(item: JsonRecord): string {
+  if (hasOpaqueReasoningState(item)) return "";
+  if (!Array.isArray(item.content)) return "";
+  return item.content
+    .map((part) => {
+      const record = toRecord(part);
+      return record.type === "reasoning_text" ? toString(record.text) : "";
+    })
     .filter((text) => text.length > 0)
     .join("\n\n");
 }
@@ -456,10 +464,13 @@ export function openaiResponsesToOpenAIRequest(
     }
 
     if (itemType === "reasoning") {
-      // Responses reasoning summaries are normally display metadata. Preserve them only
-      // when the routed upstream explicitly requires prior reasoning to continue a turn.
+      // Only genuine plaintext reasoning can cross into Chat reasoning_content.
+      // Opaque encrypted state and its display summary have no Chat replay form.
+      if (preserveReasoningContent && hasOpaqueReasoningState(item)) {
+        throw createReasoningTransportIncompatibleError();
+      }
       if (preserveReasoningContent) {
-        const reasoning = getReasoningSummaryText(item);
+        const reasoning = getReasoningContentText(item);
         if (reasoning) {
           if (currentAssistantMsg) {
             currentAssistantMsg.reasoning_content = appendReasoningContent(

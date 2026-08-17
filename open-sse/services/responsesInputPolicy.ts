@@ -1,17 +1,80 @@
+import { REGISTRY } from "../config/providerRegistry.ts";
+import type { ResponsesReasoningTransport } from "../config/providerRegistry.ts";
+
 type JsonRecord = Record<string, unknown>;
 
-const SERVER_ITEM_ID_PATTERN = /^(rs|fc|resp|msg)_/;
+const REASONING_TRANSPORTS = new Map<string, ResponsesReasoningTransport>();
+for (const [id, entry] of Object.entries(REGISTRY)) {
+  if (!entry.responsesReasoningTransport) continue;
+  REASONING_TRANSPORTS.set(id.toLowerCase(), entry.responsesReasoningTransport);
+  if (entry.alias) {
+    REASONING_TRANSPORTS.set(entry.alias.toLowerCase(), entry.responsesReasoningTransport);
+  }
+}
+
+export interface ResponsesInputPolicyOptions {
+  provider?: string | null;
+  preserveEncryptedReasoning?: boolean;
+}
+
+export interface ResponsesInputPolicyResult {
+  incompatibleReasoning: boolean;
+}
+
+export function resolveResponsesReasoningTransport(
+  provider: string | null | undefined,
+  preserveEncryptedReasoning = false
+): ResponsesReasoningTransport | null {
+  const normalized = typeof provider === "string" ? provider.trim().toLowerCase() : "";
+  const transport = REASONING_TRANSPORTS.get(normalized);
+  return transport ?? (preserveEncryptedReasoning ? "opaque" : null);
+}
+
+export function createReasoningTransportIncompatibleError(): Error & {
+  statusCode: number;
+  errorType: string;
+} {
+  const error = new Error(
+    "Reasoning continuation is not compatible with the selected target"
+  ) as Error & { statusCode: number; errorType: string };
+  error.statusCode = 400;
+  error.errorType = "reasoning_transport_incompatible";
+  return error;
+}
+
+function hasPlaintextReasoning(record: JsonRecord): boolean {
+  return (
+    Array.isArray(record.content) &&
+    record.content.some((part) => {
+      const value =
+        part && typeof part === "object" && !Array.isArray(part) ? (part as JsonRecord) : null;
+      return (
+        value?.type === "reasoning_text" &&
+        typeof value.text === "string" &&
+        value.text.trim().length > 0
+      );
+    })
+  );
+}
+
+export function hasOpaqueReasoningState(record: JsonRecord): boolean {
+  return (
+    (typeof record.encrypted_content === "string" && record.encrypted_content.trim().length > 0) ||
+    record.signature !== undefined ||
+    record.format !== undefined
+  );
+}
 
 /**
- * Applies the persistence-independent policy for replayed Responses input items.
- * Stored references can only be resolved by the upstream that created them, so
- * they are always removed. Self-contained encrypted reasoning is retained only
- * when the selected connection explicitly opts in.
+ * Removes Responses state that is not portable to the selected upstream.
+ * Plaintext reasoning and provider-generated opaque reasoning are separate
+ * transports; unknown targets receive neither. Retained input items are cloned
+ * before server IDs are removed so Combo fallback attempts cannot mutate each other.
  */
 export function applyResponsesInputPolicy(
   body: Record<string, unknown>,
-  preserveEncryptedReasoning = false
-): void {
+  options: ResponsesInputPolicyOptions = {}
+): ResponsesInputPolicyResult {
   if (Array.isArray(body.input) && body.input.length === 0) {
     body.input = [
       {
@@ -22,34 +85,60 @@ export function applyResponsesInputPolicy(
     ];
   }
 
-  if (!Array.isArray(body.input)) return;
+  if (!Array.isArray(body.input)) return { incompatibleReasoning: false };
 
-  body.input = body.input.filter((item) => {
-    if (typeof item === "string" && SERVER_ITEM_ID_PATTERN.test(item)) {
-      return false;
+  const transport = resolveResponsesReasoningTransport(
+    options.provider,
+    options.preserveEncryptedReasoning
+  );
+  let incompatibleReasoning = false;
+  const filtered: unknown[] = [];
+
+  for (const item of body.input) {
+    // Array-form Responses input contains item objects. Bare strings are stored
+    // provider references and are not portable across concrete targets.
+    if (typeof item === "string") {
+      continue;
     }
 
     const record =
       item && typeof item === "object" && !Array.isArray(item) ? (item as JsonRecord) : null;
-    if (!record) return true;
+    if (!record) {
+      filtered.push(item);
+      continue;
+    }
 
     if (record.type === "item_reference") {
-      return false;
+      continue;
     }
 
-    if (
-      record.type === "reasoning" &&
-      (!preserveEncryptedReasoning ||
-        typeof record.encrypted_content !== "string" ||
-        record.encrypted_content.trim().length === 0)
-    ) {
-      return false;
+    if (record.type === "reasoning") {
+      const plaintext = hasPlaintextReasoning(record);
+      const opaque = hasOpaqueReasoningState(record);
+      if (plaintext || opaque) {
+        const compatible =
+          (transport === "plaintext" && plaintext && !opaque) ||
+          (transport === "opaque" && opaque && !plaintext);
+        if (!compatible) {
+          incompatibleReasoning = true;
+          continue;
+        }
+        if (transport === "opaque") {
+          filtered.push({ ...record });
+          continue;
+        }
+      } else {
+        continue;
+      }
     }
 
-    if (typeof record.id === "string" && SERVER_ITEM_ID_PATTERN.test(record.id)) {
-      delete record.id;
+    const cloned = { ...record };
+    if (typeof cloned.id === "string") {
+      delete cloned.id;
     }
+    filtered.push(cloned);
+  }
 
-    return true;
-  });
+  body.input = filtered;
+  return { incompatibleReasoning };
 }

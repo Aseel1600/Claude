@@ -4,6 +4,11 @@
  * Extracted verbatim from openai-responses.ts. Registration stays in the host.
  */
 import { isOpenAIResponsesStoreEnabled } from "@/lib/providers/requestDefaults";
+import {
+  createReasoningTransportIncompatibleError,
+  resolveResponsesReasoningTransport,
+} from "../../../services/responsesInputPolicy.ts";
+import { isInternalReasoningPlaceholder } from "../../../utils/reasoningPlaceholder.ts";
 import { generateToolCallId } from "../../helpers/toolCallHelper.ts";
 import {
   JsonRecord,
@@ -86,6 +91,11 @@ export function openaiToOpenAIResponsesRequest(
   const root = toRecord(body);
   const credentialRecord = toRecord(credentials);
   const storeEnabled = isOpenAIResponsesStoreEnabled(credentialRecord.providerSpecificData);
+  const providerSpecificData = toRecord(credentialRecord.providerSpecificData);
+  const reasoningTransport = resolveResponsesReasoningTransport(
+    toString(credentialRecord._provider),
+    providerSpecificData.preserveEncryptedReasoning === true
+  );
   const result: JsonRecord = {
     model,
     input: [],
@@ -192,12 +202,23 @@ export function openaiToOpenAIResponsesRequest(
 
     // Convert assistant messages
     if (role === "assistant") {
-      // Skip reasoning_content — OpenAI Responses API requires server-generated
-      // rs_* IDs for reasoning items. Synthesizing client-side IDs (e.g. reasoning_N)
-      // causes 400 errors from Responses-compatible upstreams. (#224)
+      const reasoning =
+        typeof msg.reasoning_content === "string" ? msg.reasoning_content.trim() : "";
+      if (reasoning && !isInternalReasoningPlaceholder(reasoning)) {
+        if (reasoningTransport === "plaintext") {
+          // DeepSeek accepts genuine plaintext reasoning without a synthetic rs_* ID.
+          // Keep it immediately before the assistant items it belongs to.
+          input.push({
+            type: "reasoning",
+            content: [{ type: "reasoning_text", text: reasoning }],
+          });
+        } else if (Array.isArray(msg.tool_calls) || msg.function_call) {
+          throw createReasoningTransportIncompatibleError();
+        }
+      }
 
-      // Skip thinking blocks in array content — same rs_* ID constraint applies
-
+      // Thinking blocks remain display-only here. They do not prove that the
+      // selected target accepts their provider-specific replay representation.
       // Build assistant output content
       const outputContent: unknown[] = [];
       if (typeof msg.content === "string" && msg.content) {

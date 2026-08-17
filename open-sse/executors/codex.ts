@@ -225,7 +225,6 @@ function convertSystemToDeveloperRole(body: Record<string, unknown>): void {
   }
 }
 
-
 function stripOrphanedCodexFunctionCallOutputs(body: Record<string, unknown>): void {
   if (!Array.isArray(body.input)) return;
   const input = body.input;
@@ -1381,10 +1380,11 @@ export class CodexExecutor extends BaseExecutor {
     delete body.session_id;
     delete body.conversation_id;
 
-    applyResponsesInputPolicy(
-      body,
-      credentials?.providerSpecificData?.preserveEncryptedReasoning === true
-    );
+    applyResponsesInputPolicy(body, {
+      provider: "codex",
+      preserveEncryptedReasoning:
+        credentials?.providerSpecificData?.preserveEncryptedReasoning === true,
+    });
 
     if (nativeCodexPassthrough) {
       return body;

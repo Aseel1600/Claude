@@ -565,7 +565,7 @@ test("chatCore translates a streaming Responses upstream for a Chat client", asy
   assert.match(streamed, /"content":"ok"/);
   assert.match(streamed, /data: \[DONE\]/);
 });
-test("chatCore applies Responses input policy to openai-compatible targets", async () => {
+test("chatCore rejects opaque reasoning for unknown Responses targets unless explicitly enabled", async () => {
   const reasoningItems = [
     { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
     { type: "reasoning", encrypted_content: "" },
@@ -574,36 +574,99 @@ test("chatCore applies Responses input policy to openai-compatible targets", asy
     { id: "fc_call", type: "function_call", call_id: "call_1", name: "search", arguments: "{}" },
   ];
 
-  for (const preserveEncryptedReasoning of [false, true]) {
-    const { call, result } = await invokeChatCore({
-      provider: "openai-compatible-sp-openai",
-      model: "gpt-5.4",
-      endpoint: "/v1/responses",
-      credentials: {
-        apiKey: "sk-test",
-        providerSpecificData: {
-          apiType: "responses",
-          baseUrl: "https://proxy.example.com/v1",
-          prefix: "sp-openai",
-          preserveEncryptedReasoning,
-        },
+  const rejected = await invokeChatCore({
+    provider: "openai-compatible-sp-openai",
+    model: "gpt-5.4",
+    endpoint: "/v1/responses",
+    credentials: {
+      apiKey: "sk-test",
+      providerSpecificData: {
+        apiType: "responses",
+        baseUrl: "https://proxy.example.com/v1",
+        prefix: "sp-openai",
       },
-      body: { model: "gpt-5.4", stream: false, input: reasoningItems },
-      responseFormat: "openai-responses",
-    });
+    },
+    body: { model: "gpt-5.4", stream: false, input: reasoningItems },
+    responseFormat: "openai-responses",
+  });
 
-    assert.equal(result.success, true);
-    const input = call.body.input as Array<Record<string, unknown>>;
-    assert.deepEqual(
-      input.filter((item) => item.type === "reasoning"),
-      preserveEncryptedReasoning ? [{ type: "reasoning", encrypted_content: "encrypted-blob" }] : []
-    );
-    assert.equal(
-      input.some((item) => item.type === "item_reference"),
-      false
-    );
-    assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
-  }
+  assert.equal(rejected.result.success, false);
+  assert.equal(rejected.result.status, 400);
+  assert.equal(rejected.calls.length, 0);
+
+  const enabled = await invokeChatCore({
+    provider: "openai-compatible-sp-openai",
+    model: "gpt-5.4",
+    endpoint: "/v1/responses",
+    credentials: {
+      apiKey: "sk-test",
+      providerSpecificData: {
+        apiType: "responses",
+        baseUrl: "https://proxy.example.com/v1",
+        prefix: "sp-openai",
+        preserveEncryptedReasoning: true,
+      },
+    },
+    body: { model: "gpt-5.4", stream: false, input: reasoningItems },
+    responseFormat: "openai-responses",
+  });
+
+  assert.equal(enabled.result.success, true);
+  const input = enabled.call.body.input as Array<Record<string, unknown>>;
+  assert.deepEqual(
+    input.filter((item) => item.type === "reasoning"),
+    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" }]
+  );
+  assert.equal(
+    input.some((item) => item.type === "item_reference"),
+    false
+  );
+  assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
+});
+
+test("chatCore carries Chat reasoning_content into official DeepSeek Responses input", async () => {
+  const { call, result } = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-pro",
+    endpoint: "/v1/chat/completions",
+    body: {
+      model: "deepseek-v4-pro",
+      stream: false,
+      messages: [
+        {
+          role: "assistant",
+          content: null,
+          reasoning_content: "Inspect before calling the tool",
+          tool_calls: [
+            {
+              id: "call_1",
+              type: "function",
+              function: { name: "search", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: "call_1", content: "found" },
+      ],
+    },
+    responseFormat: "openai-responses",
+  });
+
+  assert.equal(result.success, true);
+  assert.match(call.url, /\/responses$/);
+  assert.deepEqual(call.body.input.slice(0, 3), [
+    {
+      type: "reasoning",
+      content: [{ type: "reasoning_text", text: "Inspect before calling the tool" }],
+    },
+    {
+      type: "function_call",
+      call_id: "call_1",
+      name: "search",
+      arguments: "{}",
+      status: "completed",
+    },
+    { type: "function_call_output", call_id: "call_1", output: "found", status: "completed" },
+  ]);
 });
 
 test("chatCore replays no-tool reasoning across public Responses turns", async () => {
@@ -779,14 +842,14 @@ test("chatCore captures streaming no-tool reasoning for Responses replay", async
   assert.equal(second.result.success, true);
   assert.equal(second.call.body.messages[1].reasoning_content, "Authentic streaming reasoning");
 });
-test("chatCore preserves opted-in encrypted reasoning for Codex", async () => {
+test("chatCore automatically preserves provider-generated opaque reasoning for Codex", async () => {
   const { call, result } = await invokeChatCore({
     provider: "codex",
     model: "gpt-5.1-codex",
     endpoint: "/v1/responses",
     credentials: {
       accessToken: "codex-token",
-      providerSpecificData: { preserveEncryptedReasoning: true },
+      providerSpecificData: {},
     },
     body: {
       model: "gpt-5.1-codex",
@@ -804,7 +867,7 @@ test("chatCore preserves opted-in encrypted reasoning for Codex", async () => {
   assert.equal(result.success, true);
   assert.deepEqual(
     call.body.input.filter((item) => item.type === "reasoning"),
-    [{ type: "reasoning", encrypted_content: "encrypted-blob" }]
+    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" }]
   );
   assert.equal(
     call.body.input.some((item) => item.type === "item_reference"),
