@@ -88,6 +88,22 @@ test("scope=subscription still deactivates OAuth and cookie accounts", () => {
     }),
     true
   );
+  assert.equal(
+    shouldAutoDisableBannedConnection({
+      enabled: true,
+      scope: "subscription",
+      authType: "session",
+    }),
+    true
+  );
+  assert.equal(
+    shouldAutoDisableBannedConnection({
+      enabled: true,
+      scope: "subscription",
+      authType: "web",
+    }),
+    true
+  );
 });
 
 test("scope=subscription treats web-cookie providers as subscriptions even when authType is apikey", () => {

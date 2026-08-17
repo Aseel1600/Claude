@@ -22,15 +22,22 @@ export async function maybeAutoDisableBannedAccount(input: {
   if (!input.permanent) return;
   try {
     const settings = await getCachedSettings();
+    const scope = settings.autoDisableBannedScope;
     if (
       !shouldAutoDisableBannedConnection({
         enabled: Boolean(settings.autoDisableBannedAccounts),
-        scope: settings.autoDisableBannedScope,
+        scope,
         authType: input.authType,
         providerId: resolveProviderId(input.provider || input.connectionProvider || ""),
         webCookieProviderIds: WEB_COOKIE_PROVIDERS,
       })
     ) {
+      if (settings.autoDisableBannedAccounts) {
+        log.info(
+          "AUTH",
+          `Skipped auto-disable for ${input.connectionId.slice(0, 8)} — permanent ban recorded, scope=${scope || "all"} authType=${input.authType || "unknown"}`
+        );
+      }
       return;
     }
     await updateProviderConnection(input.connectionId, { isActive: false });

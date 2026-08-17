@@ -5,6 +5,7 @@ import { Card, Button, Input } from "@/shared/components";
 import { useTranslations } from "next-intl";
 import { useNotificationStore } from "@/store/notificationStore";
 import {
+  AUTO_DISABLE_BANNED_SCOPES,
   normalizeAutoDisableBannedScope,
   type AutoDisableBannedScope,
 } from "@/shared/utils/autoDisableBanned";
@@ -76,7 +77,7 @@ export default function AutoDisableCard() {
   if (loading) return null;
 
   const current = editMode ? draft : data;
-  const scopes: AutoDisableBannedScope[] = ["all", "subscription"];
+  const scopes = AUTO_DISABLE_BANNED_SCOPES;
 
   return (
     <Card className="p-0 overflow-hidden">
