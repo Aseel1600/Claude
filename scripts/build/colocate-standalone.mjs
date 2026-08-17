@@ -8,7 +8,7 @@
  *   - does NOT bundle `open-sse/services/compression/engines/llmlingua/onnxWorker.js`
  *     (dynamically spawned via worker_threads — untraceable by webpack), and
  *   - does NOT include the optional SLM deps (`@atjsh/llmlingua-2`,
- *     `@tensorflow/tfjs`, `js-tiktoken`) — they are optionalDependencies and are
+ *     `js-tiktoken`) — they are optionalDependencies and are
  *     only installed at the ROOT `node_modules`.
  *
  * Result: after every plain `npm run build`, the LLMLingua engine silently
