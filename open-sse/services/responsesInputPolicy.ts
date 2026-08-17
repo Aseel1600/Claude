@@ -58,6 +58,28 @@ function hasPlaintextReasoning(record: JsonRecord): boolean {
   );
 }
 
+/**
+ * Returns only provider-authentic plaintext continuation state. Display summaries
+ * are excluded, and a record carrying opaque state is never cross-converted.
+ */
+export function extractReplayableResponsesReasoningText(value: unknown): string {
+  const record =
+    value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
+  if (!record || record.type !== "reasoning" || hasOpaqueReasoningState(record)) return "";
+  if (!Array.isArray(record.content)) return "";
+
+  return record.content
+    .map((part) => {
+      const content =
+        part && typeof part === "object" && !Array.isArray(part) ? (part as JsonRecord) : null;
+      return content?.type === "reasoning_text" && typeof content.text === "string"
+        ? content.text
+        : "";
+    })
+    .filter((text) => text.trim().length > 0)
+    .join("\n\n");
+}
+
 export function hasOpaqueReasoningState(record: JsonRecord): boolean {
   return (
     (typeof record.encrypted_content === "string" && record.encrypted_content.trim().length > 0) ||

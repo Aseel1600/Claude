@@ -11,6 +11,7 @@ import { normalizeResponsesInputForChat } from "../../utils/responsesInputNormal
 import {
   createReasoningTransportIncompatibleError,
   hasOpaqueReasoningState,
+  extractReplayableResponsesReasoningText,
 } from "../../services/responsesInputPolicy.ts";
 import {
   getRegisteredProviders,
@@ -75,18 +76,6 @@ function toolOutputContentToString(output: unknown): string {
     }
   }
   return parts.join("\n");
-}
-
-function getReasoningContentText(item: JsonRecord): string {
-  if (hasOpaqueReasoningState(item)) return "";
-  if (!Array.isArray(item.content)) return "";
-  return item.content
-    .map((part) => {
-      const record = toRecord(part);
-      return record.type === "reasoning_text" ? toString(record.text) : "";
-    })
-    .filter((text) => text.length > 0)
-    .join("\n\n");
 }
 
 function appendReasoningContent(current: unknown, next: string): string {
@@ -470,7 +459,7 @@ export function openaiResponsesToOpenAIRequest(
         throw createReasoningTransportIncompatibleError();
       }
       if (preserveReasoningContent) {
-        const reasoning = getReasoningContentText(item);
+        const reasoning = extractReplayableResponsesReasoningText(item);
         if (reasoning) {
           if (currentAssistantMsg) {
             currentAssistantMsg.reasoning_content = appendReasoningContent(

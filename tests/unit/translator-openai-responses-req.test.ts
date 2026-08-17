@@ -153,6 +153,25 @@ test("Responses -> Chat replays plaintext reasoning_text instead of a display su
   assert.equal(result.messages[0].reasoning_content, "Use the indexed result");
 });
 
+test("Responses -> Chat keeps summary-only reasoning out of continuation state", () => {
+  const result = openaiResponsesToOpenAIRequest(
+    "deepseek-v4-pro",
+    {
+      input: [
+        {
+          type: "reasoning",
+          summary: [{ type: "summary_text", text: "Display-only summary" }],
+        },
+        { type: "function_call", call_id: "call_1", name: "search", arguments: "{}" },
+      ],
+    },
+    false,
+    { _preserveReasoningContent: true }
+  ) as { messages: Array<Record<string, unknown>> };
+
+  assert.equal(result.messages[0].reasoning_content, undefined);
+});
+
 test("Responses -> Chat rejects opaque reasoning instead of replaying its plaintext companion", () => {
   assert.throws(
     () =>
@@ -466,6 +485,35 @@ test("Chat -> DeepSeek Responses emits ID-less plaintext reasoning before its fu
     },
     { type: "function_call_output", call_id: "call_1", output: "found", status: "completed" },
   ]);
+});
+
+test("Chat -> DeepSeek Responses accepts the plaintext reasoning alias", () => {
+  const result = openaiToOpenAIResponsesRequest(
+    "deepseek-v4-pro",
+    {
+      messages: [
+        {
+          role: "assistant",
+          content: null,
+          reasoning: "Alias plaintext reasoning",
+          tool_calls: [
+            {
+              id: "call_alias",
+              type: "function",
+              function: { name: "search", arguments: "{}" },
+            },
+          ],
+        },
+      ],
+    },
+    false,
+    { _provider: "deepseek" }
+  ) as { input: Array<Record<string, unknown>> };
+
+  assert.deepEqual(result.input[0], {
+    type: "reasoning",
+    content: [{ type: "reasoning_text", text: "Alias plaintext reasoning" }],
+  });
 });
 
 test("Chat -> Responses rejects tool continuation for an incompatible target", () => {

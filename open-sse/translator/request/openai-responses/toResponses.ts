@@ -9,6 +9,7 @@ import {
   resolveResponsesReasoningTransport,
 } from "../../../services/responsesInputPolicy.ts";
 import { isInternalReasoningPlaceholder } from "../../../utils/reasoningPlaceholder.ts";
+import { getReadableReasoningValue } from "../../../utils/reasoningFields.ts";
 import { generateToolCallId } from "../../helpers/toolCallHelper.ts";
 import {
   JsonRecord,
@@ -202,8 +203,7 @@ export function openaiToOpenAIResponsesRequest(
 
     // Convert assistant messages
     if (role === "assistant") {
-      const reasoning =
-        typeof msg.reasoning_content === "string" ? msg.reasoning_content.trim() : "";
+      const reasoning = getReadableReasoningValue(msg).trim();
       if (reasoning && !isInternalReasoningPlaceholder(reasoning)) {
         if (reasoningTransport === "plaintext") {
           // DeepSeek accepts genuine plaintext reasoning without a synthetic rs_* ID.

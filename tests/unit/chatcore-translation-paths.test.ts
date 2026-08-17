@@ -211,6 +211,64 @@ function buildResponsesResponse(text = "ok") {
   );
 }
 
+function buildDeepSeekResponsesToolResponse({
+  stream,
+  callId,
+  reasoning,
+}: {
+  stream: boolean;
+  callId: string;
+  reasoning: string;
+}) {
+  const reasoningItem = {
+    id: "rs_deepseek_tool",
+    type: "reasoning",
+    status: "completed",
+    summary: [],
+    content: [{ type: "reasoning_text", text: reasoning }],
+  };
+  const functionCall = {
+    id: "fc_deepseek_tool",
+    type: "function_call",
+    status: "completed",
+    call_id: callId,
+    name: "inspect",
+    arguments: "{}",
+  };
+  const response = {
+    id: "resp_deepseek_tool",
+    object: "response",
+    status: "completed",
+    model: "deepseek-v4-flash",
+    output: [reasoningItem, functionCall],
+    usage: { input_tokens: 4, output_tokens: 2, total_tokens: 6 },
+  };
+
+  if (!stream) {
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const events = [
+    {
+      type: "response.created",
+      response: { id: response.id, model: response.model, status: "in_progress" },
+    },
+    { type: "response.output_item.done", output_index: 0, item: reasoningItem },
+    { type: "response.output_item.done", output_index: 1, item: functionCall },
+    { type: "response.completed", response },
+  ];
+  return new Response(
+    `${events.map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}`).join("\n\n")}\n\ndata: [DONE]\n\n`,
+    {
+      status: 200,
+      headers: { "Content-Type": "text/event-stream" },
+    }
+  );
+}
+
 function capabilityEntry(limitContext) {
   return {
     tool_call: true,
@@ -703,6 +761,127 @@ test("chatCore carries Chat reasoning_content into official DeepSeek Responses i
     },
     { type: "function_call_output", call_id: "call_1", output: "found", status: "completed" },
   ]);
+});
+
+test("chatCore replays nonstream DeepSeek Responses reasoning across a Chat tool turn", async () => {
+  const callId = "call_deepseek_nonstream_replay";
+  const reasoning = "Authentic nonstream DeepSeek reasoning";
+  const apiKeyInfo = { id: "deepseek-nonstream-chat-key" };
+  const first = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    endpoint: "/v1/chat/completions",
+    body: {
+      model: "deepseek-v4-flash",
+      stream: false,
+      reasoning_effort: "high",
+      messages: [{ role: "user", content: "Inspect the repository" }],
+      tools: [
+        {
+          type: "function",
+          function: { name: "inspect", description: "Inspect", parameters: { type: "object" } },
+        },
+      ],
+    },
+    apiKeyInfo,
+    responseFactory: () => buildDeepSeekResponsesToolResponse({ stream: false, callId, reasoning }),
+  });
+
+  assert.equal(first.result.success, true);
+  const firstPayload = (await first.result.response.json()) as {
+    choices: Array<{ message: Record<string, unknown> & { reasoning_content?: string } }>;
+  };
+  assert.equal(firstPayload.choices[0].message.reasoning_content, reasoning);
+  const assistant = structuredClone(firstPayload.choices[0].message);
+  delete assistant.reasoning_content;
+
+  const second = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    endpoint: "/v1/chat/completions",
+    body: {
+      model: "deepseek-v4-flash",
+      stream: false,
+      reasoning_effort: "high",
+      messages: [
+        { role: "user", content: "Inspect the repository" },
+        assistant,
+        { role: "tool", tool_call_id: callId, content: "inspection complete" },
+      ],
+    },
+    apiKeyInfo,
+    responseFactory: () => buildResponsesResponse("done"),
+  });
+
+  assert.equal(second.result.success, true);
+  assert.deepEqual(
+    second.call.body.input.find((item) => item.type === "reasoning"),
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+  );
+});
+
+test("chatCore replays streamed DeepSeek Responses reasoning across a Chat tool turn", async () => {
+  const callId = "call_deepseek_stream_replay";
+  const reasoning = "Authentic streamed DeepSeek reasoning";
+  const apiKeyInfo = { id: "deepseek-stream-chat-key" };
+  const first = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    endpoint: "/v1/chat/completions",
+    body: {
+      model: "deepseek-v4-flash",
+      stream: true,
+      reasoning_effort: "high",
+      messages: [{ role: "user", content: "Inspect the repository" }],
+      tools: [
+        {
+          type: "function",
+          function: { name: "inspect", description: "Inspect", parameters: { type: "object" } },
+        },
+      ],
+    },
+    apiKeyInfo,
+    responseFactory: () => buildDeepSeekResponsesToolResponse({ stream: true, callId, reasoning }),
+  });
+
+  assert.equal(first.result.success, true);
+  const streamed = await first.result.response.text();
+  assert.match(streamed, new RegExp(reasoning));
+  await flushAsyncSideEffects();
+
+  const second = await invokeChatCore({
+    provider: "deepseek",
+    model: "deepseek-v4-flash",
+    endpoint: "/v1/chat/completions",
+    body: {
+      model: "deepseek-v4-flash",
+      stream: false,
+      reasoning_effort: "high",
+      messages: [
+        { role: "user", content: "Inspect the repository" },
+        {
+          role: "assistant",
+          content: null,
+          tool_calls: [
+            {
+              id: callId,
+              type: "function",
+              function: { name: "inspect", arguments: "{}" },
+            },
+          ],
+        },
+        { role: "tool", tool_call_id: callId, content: "inspection complete" },
+      ],
+    },
+    apiKeyInfo,
+    responseFactory: () => buildResponsesResponse("done"),
+  });
+
+  assert.equal(second.result.success, true);
+  assert.deepEqual(
+    second.call.body.input.find((item) => item.type === "reasoning"),
+    { type: "reasoning", content: [{ type: "reasoning_text", text: reasoning }] }
+  );
 });
 
 test("chatCore replays no-tool reasoning across public Responses turns", async () => {
