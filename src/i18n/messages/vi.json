@@ -8574,6 +8574,27 @@
     },
     "enableTitle": "Bật bộ máy",
     "enableDescription": "Chạy cuối cùng trong ngăn xếp (sau khi RTK/Caveman làm sạch văn bản, OmniGlyph chuyển phần còn lại thành hình ảnh) và cũng có thể chạy độc lập qua chế độ <code>omniglyph</code>. Đây là bản xem trước và mặc định vẫn tắt cho đến khi hoàn tất kiểm thử đầu cuối.",
+    "profileTitle": "Hồ sơ nén",
+    "profileDescription": "Hồ sơ là giới hạn trên, không phải giới hạn dưới: một hồ sơ chặt chẽ hơn không thể bị mở lại bằng ghi đè ở từng bước. Đo trên chính mã nguồn này: với coding-safe hoặc balanced, một phiên chưa tích lũy lịch sử sẽ không nén gì cả, vì cả hai đều nâng ngưỡng số ký tự tối thiểu và giữ nguyên system prompt, lược đồ công cụ và kết quả công cụ.",
+    "profiles": {
+      "aggressive": {
+        "label": "Tích cực (mặc định)",
+        "description": "Chính sách mà các biên nhận đã công bố đo được. Kết xuất system prompt, tài liệu công cụ và lịch sử dày đặc thành ảnh."
+      },
+      "balanced": {
+        "label": "Cân bằng",
+        "description": "Giữ nguyên trạng thái đang hoạt động và bảo vệ 8 lượt gần nhất; chỉ gộp lịch sử cũ đã khép lại."
+      },
+      "codingSafe": {
+        "label": "An toàn cho lập trình",
+        "description": "Giữ nguyên thẩm quyền, lược đồ công cụ và đầu ra công cụ đang hoạt động, bảo vệ 12 lượt gần nhất. Không nén gì cho đến khi phiên tích lũy lịch sử."
+      },
+      "passthrough": {
+        "label": "Không biến đổi",
+        "description": "Chỉ định tuyến. Engine bị bỏ qua và yêu cầu được chuyển tiếp nguyên vẹn."
+      }
+    },
+    "profileAria": "Chọn hồ sơ nén của OmniGlyph",
     "saved": "Đã lưu.",
     "saveFailed": "Không thể lưu.",
     "enableAria": "Bật bộ máy OmniGlyph",
