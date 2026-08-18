@@ -1736,6 +1736,8 @@
     "quotaShare": "Compartilhamento de Cota",
     "discovery": "Descoberta",
     "freeProviderRankings": "Ranking de Provedores Gratuitos",
+    "radar": "Radar",
+    "setup": "Configuração",
     "freeTiers": "Níveis Gratuitos",
     "gamification": "Gamification",
     "leaderboard": "Leaderboard",
@@ -1753,9 +1755,7 @@
     "tools": "Ferramentas",
     "agentBridge": "Agent Bridge",
     "trafficInspector": "Inspector de Tráfego",
-    "usage": "Uso",
-    "radar": "Radar",
-    "setup": "Configuração"
+    "usage": "Uso"
   },
   "home": {
     "quickStart": "Início Rápido",
@@ -6556,6 +6556,12 @@
     "autoDisableDescription": "Marca permanentemente conexões de provedor como desativadas quando retornam sinais terminais de banimento (ex.: HTTP 403 'verify your account'). Isso remove a conexão da rotação de combos.",
     "autoDisableThreshold": "Limite de banimento",
     "autoDisableThresholdDesc": "Quantidade de sinais consecutivos de banimento antes da desativação permanente.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Palavras-Chave Proibidas",
     "customBannedSignalsDesc": "Palavras-chave adicionais que acionam a detecção de banimento permanente da conta. Palavras-chave integradas sempre se aplicam.",
     "customBannedSignalsPlaceholder": "chave da API revogada",
@@ -12439,6 +12445,11 @@
       "rare": "Conquistas raras"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "Apoiador do Radar",
+        "description": "Verificou um feed ativo de apoiador do OmniRoute Radar",
+        "criteria": "Verifique um feed ativo e assinado de apoiador do Radar."
+      },
       "first-token": {
         "name": "Primeiro Token",
         "description": "Fez sua primeira solicitação de API",
@@ -12548,11 +12559,6 @@
         "name": "???",
         "description": "Uma conquista oculta espera...",
         "criteria": "Complete a conquista oculta para revelar este emblema."
-      },
-      "radar-supporter": {
-        "name": "Apoiador do Radar",
-        "description": "Verificou um feed ativo de apoiador do OmniRoute Radar",
-        "criteria": "Verifique um feed ativo e assinado de apoiador do Radar."
       }
     }
   },

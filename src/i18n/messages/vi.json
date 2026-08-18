@@ -13173,6 +13173,23 @@
     "offers": "Offers",
     "intel": "Thông tin chuyên sâu"
   },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
   "radarSetupPage": {
     "title": "Thiết lập nhà cung cấp",
     "setupTitle": "Thiết lập: {provider}",
@@ -13672,22 +13689,26 @@
     "updateFailed": "Cập nhật không thành công (HTTP {status})",
     "networkError": "Lỗi mạng — không thể cập nhật cài đặt hiển thị nhà cung cấp"
   },
-  "radarCombosPage": {
-    "title": "Radar guided combos",
-    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
     "backToRadar": "Back to Radar",
-    "loading": "Loading combo suggestions...",
-    "familyLabel": "Model family",
-    "modelsLabel": "Priority order",
-    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
-    "generateButton": "Generate combo",
-    "generating": "Generating...",
-    "alreadyCreated": "Already created",
-    "created": "Combo created",
-    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
-    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
-    "loadFailed": "Failed to load Radar combo suggestions.",
-    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
   },
   "radarIntelPage": {
     "title": "Thông tin chuyên sâu Radar",
@@ -13721,27 +13742,6 @@
       "stable": "Ổn định",
       "shrinking": "Đang giảm"
     }
-  },
-  "radarOffersPage": {
-    "title": "Supporter offers",
-    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
-    "backToRadar": "Back to Radar",
-    "loading": "Loading offers...",
-    "refresh": "Refresh offers",
-    "refreshing": "Refreshing...",
-    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
-    "empty": "No active offers are available right now.",
-    "keyRequiredTitle": "A supporter key is required",
-    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
-    "contributorButton": "I'm a contributor",
-    "supporterButton": "Support the project",
-    "partnerBadge": "Partner",
-    "officialBadge": "Official",
-    "conditionsLabel": "Conditions:",
-    "validUntil": "Valid until {date}",
-    "noExpiry": "No announced expiry",
-    "openOffer": "View offer",
-    "trialDays": "{days, plural, one {# day} other {# days}}"
   },
   "capabilityFilter": {
     "visionMismatch": "Nhà cung cấp không hỗ trợ thị giác cho yêu cầu hình ảnh này",
