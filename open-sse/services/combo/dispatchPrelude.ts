@@ -80,6 +80,10 @@ type PreludeBaseOptionArgs = {
   deferContextOverflowWhenCompressible?: boolean;
   /** Server-side compression exclusions (#8034). */
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
+  /** #10503 — request-shape facts for the target-aware deferral check (see knownContextOverflow.ts). */
+  sourceFormat?: string | null;
+  endpointPath?: string | null;
+  requestHeaders?: Headers | Record<string, unknown> | null;
 };
 
 /** Rebuild handleComboChat's option bag verbatim for a recursive dispatch. */
@@ -99,6 +103,9 @@ function buildBaseOptions(a: PreludeBaseOptionArgs): HandleComboChatOptions {
     clientManagedResponsesContext: a.clientManagedResponsesContext,
     deferContextOverflowWhenCompressible: a.deferContextOverflowWhenCompressible,
     compressionExclusions: a.compressionExclusions,
+    sourceFormat: a.sourceFormat,
+    endpointPath: a.endpointPath,
+    requestHeaders: a.requestHeaders,
   };
 }
 
@@ -374,6 +381,9 @@ export async function tryFusionDispatch(args: {
   hiddenModelsByProvider?: HiddenModelsByProvider;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
+  sourceFormat?: string | null;
+  endpointPath?: string | null;
+  requestHeaders?: Headers | Record<string, unknown> | null;
   runCombo: RunCombo;
 }): Promise<Response | null> {
   const { cfg, combo, config, strategy, log } = args;
@@ -599,6 +609,9 @@ export async function tryRuntimeUnitDispatch(args: {
   hiddenModelsByProvider?: HiddenModelsByProvider;
   deferContextOverflowWhenCompressible?: boolean;
   compressionExclusions?: import("../compression/exclusions.ts").CompressionExclusions;
+  sourceFormat?: string | null;
+  endpointPath?: string | null;
+  requestHeaders?: Headers | Record<string, unknown> | null;
   runCombo: RunCombo;
 }): Promise<Response | null> {
   const { body, combo, config, strategy, allCombos, log, settings } = args;

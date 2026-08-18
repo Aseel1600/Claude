@@ -593,6 +593,9 @@ export async function handleComboChat({
   clientManagedResponsesContext = false,
   deferContextOverflowWhenCompressible = false,
   compressionExclusions,
+  sourceFormat = null,
+  endpointPath = null,
+  requestHeaders = null,
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
@@ -655,6 +658,9 @@ export async function handleComboChat({
     hiddenModelsByProvider,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
+    sourceFormat,
+    endpointPath,
+    requestHeaders,
     runCombo: handleComboChat,
   });
   if (fusionDispatch) return fusionDispatch;
@@ -706,6 +712,9 @@ export async function handleComboChat({
     hiddenModelsByProvider,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
+    sourceFormat,
+    endpointPath,
+    requestHeaders,
     runCombo: handleComboChat,
   });
   if (runtimeUnitDispatch) return runtimeUnitDispatch;
@@ -731,6 +740,9 @@ export async function handleComboChat({
       clientManagedResponsesContext,
       deferContextOverflowWhenCompressible,
       compressionExclusions,
+      sourceFormat,
+      endpointPath,
+      requestHeaders,
       relayOptions,
     });
   }
@@ -760,6 +772,9 @@ export async function handleComboChat({
     clientManagedResponsesContext,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
+    sourceFormat,
+    endpointPath,
+    requestHeaders,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -2453,6 +2468,9 @@ async function handleRoundRobinCombo({
   clientManagedResponsesContext,
   deferContextOverflowWhenCompressible = false,
   compressionExclusions,
+  sourceFormat = null,
+  endpointPath = null,
+  requestHeaders = null,
   relayOptions,
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
@@ -2512,6 +2530,9 @@ async function handleRoundRobinCombo({
     clientManagedResponsesContext,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
+    sourceFormat,
+    endpointPath,
+    requestHeaders,
   });
   if (knownContextOverflow) {
     return errorResponseWithComboDiagnostics(

@@ -122,6 +122,16 @@ export type HandleComboChatOptions = {
   deferContextOverflowWhenCompressible?: boolean;
   /** Server-side compression exclusions (#8034) — used to check which targets can run compression. */
   compressionExclusions?: CompressionExclusions;
+  /**
+   * #10503: request-shape facts (mirroring chatCore.ts's own resolution) threaded
+   * down to getKnownContextOverflow so the deferral decision can be target-aware —
+   * a native-Codex-Responses-passthrough target must never count as "compressible"
+   * (chatCore disables compression for it unconditionally). See
+   * knownContextOverflow.ts::KnownContextOverflowOptions for the full rationale.
+   */
+  sourceFormat?: string | null;
+  endpointPath?: string | null;
+  requestHeaders?: Headers | Record<string, unknown> | null;
 };
 
 export type HandleRoundRobinOptions = Omit<HandleComboChatOptions, "apiKeyAllowedConnections">;

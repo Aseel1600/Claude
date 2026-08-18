@@ -858,6 +858,13 @@ async function handleChatImplementation(
       combo,
       deferContextOverflowWhenCompressible,
       compressionExclusions,
+      // #10503: same request-shape facts chatCore.ts resolves for itself
+      // (resolveChatCoreRequestFormat), so getKnownContextOverflow's target-aware
+      // deferral check can never drift from chatCore's own native-codex-passthrough
+      // decision. See knownContextOverflow.ts::KnownContextOverflowOptions.
+      sourceFormat,
+      endpointPath: new URL(request.url).pathname,
+      requestHeaders: request.headers,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
         new URL(request.url).pathname.split("/").includes("responses") &&
@@ -1136,13 +1143,20 @@ async function handleSingleModelChat(
     log.info("ROUTING", `Auto-combo redirect to combo flow for "${modelStr}"`);
     const { defer: sNetDefer, exclusions: sNetExclusions } =
       await resolveComboContextOverflowDeferral(log, apiKeyInfo);
+    // #10503: same request-shape facts chatCore.ts resolves for itself — threaded
+    // down so getKnownContextOverflow's target-aware deferral check can never drift
+    // from chatCore's own native-codex-passthrough decision.
+    const sNetSourceFormat = detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "");
     return handleComboChat({
       body,
       combo: redirectCombo,
       deferContextOverflowWhenCompressible: sNetDefer,
       compressionExclusions: sNetExclusions,
+      sourceFormat: sNetSourceFormat,
+      endpointPath: clientRawRequest?.endpoint || "",
+      requestHeaders: clientRawRequest?.headers,
       clientManagedResponsesContext:
-        detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "") === "openai-responses" &&
+        sNetSourceFormat === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
           .split("/")
           .includes("responses") &&

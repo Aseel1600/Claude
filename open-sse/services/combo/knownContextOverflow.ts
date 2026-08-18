@@ -18,6 +18,7 @@
 
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { isCompressionExcluded, type CompressionExclusions } from "../compression/exclusions.ts";
+import { shouldUseNativeCodexPassthrough } from "../../handlers/chatCore/passthroughHelpers.ts";
 import { deriveRequestCompatibilityRequirements } from "./comboStructure.ts";
 import type { ResolvedComboTarget } from "./types.ts";
 
@@ -40,6 +41,16 @@ export type KnownContextOverflowOptions = {
   deferContextOverflowWhenCompressible?: boolean;
   /** Server-side compression exclusions (#8034) — targets matching one cannot run compression. */
   compressionExclusions?: CompressionExclusions;
+  /**
+   * #10503: the exact request-shape facts chatCore.ts uses to decide
+   * `shouldUseNativeCodexPassthrough` (open-sse/handlers/chatCore/passthroughHelpers.ts) —
+   * threaded down so the deferral decision below can be target-aware instead of
+   * relying on the looser `clientManagedResponsesContext` proxy. Reused verbatim
+   * (not re-derived) so the combo-layer decision can never drift from chatCore's own.
+   */
+  sourceFormat?: string | null;
+  endpointPath?: string | null;
+  requestHeaders?: Headers | Record<string, unknown> | null;
 };
 
 // #7177: an empty array/object (e.g. a default `messages: []` some combo entrypoints inject
@@ -99,28 +110,52 @@ export function getKnownContextOverflow(
   ) {
     return null;
   }
-  // #10225: a conservative raw-body context estimate must not be treated as proof
-  // that a compression-enabled request cannot fit. When compression is available
-  // for this request AND at least one target can actually run it, defer the hard
-  // rejection so handleChatCore runs proactive compression (chatCore.ts) and its
-  // post-compression enforceOutputTokenBudget becomes the final context gate —
-  // returning a local `context_length_exceeded` only if the compressed body still
-  // cannot fit (no upstream dispatch). Each excluded/native-codex-passthrough
-  // target is skipped; if no target can compress, the fast preflight is kept.
+  // #10225 / #10499-sweep #10503: a conservative raw-body context estimate must not
+  // be treated as proof that a compression-enabled request cannot fit. When
+  // compression is available for this request AND at least one target can actually
+  // run it, defer the hard rejection so handleChatCore runs proactive compression
+  // (chatCore.ts) and its post-compression enforceOutputTokenBudget becomes the
+  // final context gate — returning a local `context_length_exceeded` only if the
+  // compressed body still cannot fit (no upstream dispatch).
+  //
+  // Target-awareness is load-bearing here: a target is only a valid reason to defer
+  // when handleChatCore will ACTUALLY attempt compression for it. Two classes are
+  // excluded from "can compress" even though `isCompressionExcluded` (operator
+  // exclusions) says nothing about them:
+  //   - Operator-excluded targets (#8034, existing `isCompressionExcluded` check).
+  //   - Native Codex Responses passthrough targets: chatCore.ts unconditionally sets
+  //     `compressionExcluded = nativeCodexPassthrough || ...` for these, computed via
+  //     `shouldUseNativeCodexPassthrough()` (chatCore/passthroughHelpers.ts) — called
+  //     here with the SAME request-shape facts (sourceFormat/endpointPath/headers)
+  //     chatCore itself uses, reused verbatim rather than re-derived from the looser
+  //     `clientManagedResponsesContext` flag (which always requires a VERIFIED native
+  //     client; chatCore's own gate does NOT for provider==="codex" — see
+  //     shouldUseNativeCodexPassthrough's `provider === "codex" || isVerifiedNativeCodexRequest`
+  //     short-circuit). Deferring on such a target's account would let an oversized
+  //     body sail straight through to `fetch()` uncompressed instead of being caught
+  //     by either preflight — silently defeating the whole point of this feature.
+  // If NO target can compress, the fast raw-body preflight is kept (unchanged).
   if (
     options.deferContextOverflowWhenCompressible === true &&
-    targets.some(
-      (target) =>
-        !isCompressionExcluded(
-          {
-            provider: target.provider,
-            model: target.modelStr.includes("/")
-              ? target.modelStr.split("/").slice(1).join("/")
-              : target.modelStr,
-          },
-          options.compressionExclusions
-        )
-    )
+    targets.some((target) => {
+      const isNativeCodexPassthroughTarget = shouldUseNativeCodexPassthrough({
+        provider: target.provider,
+        sourceFormat: options.sourceFormat,
+        endpointPath: options.endpointPath,
+        body,
+        headers: options.requestHeaders,
+      });
+      if (isNativeCodexPassthroughTarget) return false;
+      return !isCompressionExcluded(
+        {
+          provider: target.provider,
+          model: target.modelStr.includes("/")
+            ? target.modelStr.split("/").slice(1).join("/")
+            : target.modelStr,
+        },
+        options.compressionExclusions
+      );
+    })
   ) {
     return null;
   }
