@@ -10,6 +10,15 @@ Complete guide for using the Codex CLI pointed at OmniRoute as an OpenAI-compati
 
 ---
 
+> **TOML is the only effective format.** Modern Codex reads `~/.codex/config.toml`
+> exclusively (verified against codex-cli 0.147.0: `codex --help` documents
+> `-c/--config` overrides "loaded from `~/.codex/config.toml`"). The old
+> `~/.codex/config.yaml` belonged to the legacy npm CLI and is silently ignored.
+> The dashboard generator (`/api/cli-tools/apply`, tool `codex`) writes TOML with a
+> conservative merge — existing keys and other provider blocks are preserved, the
+> API key stays in `OMNIROUTE_API_KEY` (never in the file), and a leftover legacy
+> `config.yaml` is reported as a migration note without being touched.
+
 ## Ready-to-paste config.toml
 
 Replace `<YOUR_HOST>` and `<YOUR_KEY>` with your values:
