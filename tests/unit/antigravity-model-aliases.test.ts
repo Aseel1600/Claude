@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ANTIGRAVITY_PUBLIC_MODELS,
   getClientVisibleAntigravityModelName,
+  isDiscoverableAntigravityModelId,
   isUserCallableAntigravityModelId,
   resolveAntigravityModelId,
   toClientAntigravityModelId,
@@ -18,6 +19,8 @@ function getPublicModel(id: string) {
 
 const EXPECTED_FLASH_TIERS = [
   ["gemini-3.7-flash", "Gemini 3.7 Flash"],
+  ["gemini-3.7-flash-high", "Gemini 3.7 Flash (High)"],
+  ["gemini-3.7-flash-medium", "Gemini 3.7 Flash (Medium)"],
   ["gemini-3.6-flash-low", "Gemini 3.6 Flash (Low)"],
   ["gemini-3.6-flash-medium", "Gemini 3.6 Flash (Medium)"],
   ["gemini-3.6-flash-high", "Gemini 3.6 Flash (High)"],
@@ -47,9 +50,10 @@ test("toClientAntigravityQuotaModelId preserves upstream Gemini Flash bucket IDs
 test("resolveAntigravityModelId maps the documented Antigravity aliases to upstream IDs", () => {
   assert.equal(resolveAntigravityModelId("gemini-3-pro-image-preview"), "gemini-3-pro-image");
   for (const [modelId] of EXPECTED_FLASH_TIERS) {
-    // 3.7 tiers collapse to the single live upstream id gemini-3.7-flash-tiered;
-    // 3.6/3.5 tiers pass through verbatim.
-    const expected = modelId.startsWith("gemini-3.7-") ? "gemini-3.7-flash-tiered" : modelId;
+    // Only the collapsed gemini-3.7-flash id is aliased to the live upstream
+    // gemini-3.7-flash-tiered id; the suffixed gemini-3.7-flash-high/medium tier ids
+    // (like the 3.6/3.5 tiers) have no alias entry and pass through verbatim.
+    const expected = modelId === "gemini-3.7-flash" ? "gemini-3.7-flash-tiered" : modelId;
     assert.equal(resolveAntigravityModelId(modelId), expected);
   }
   assert.equal(resolveAntigravityModelId("gemini-claude-sonnet-4-5"), "claude-sonnet-4-6");
@@ -98,6 +102,18 @@ test("isUserCallableAntigravityModelId only allows public chat-capable model IDs
   assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-low"), true);
   assert.equal(isUserCallableAntigravityModelId("tab_flash_lite_preview"), false);
   assert.equal(isUserCallableAntigravityModelId("unknown-model"), false);
+});
+
+test("isDiscoverableAntigravityModelId accepts new live chat models without a static catalog entry", () => {
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.8-flash-high"), true);
+  assert.equal(isDiscoverableAntigravityModelId("claude-sonnet-5"), true);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-new-live-tier"), true);
+
+  assert.equal(isDiscoverableAntigravityModelId("tab_flash_lite_preview"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.1-flash-image"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.1-flash-tts-preview"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-2.5-flash-preview-tts"), false);
+  assert.equal(isDiscoverableAntigravityModelId(""), false);
 });
 
 test("ANTIGRAVITY_PUBLIC_MODELS exposes current live names and capabilities", () => {

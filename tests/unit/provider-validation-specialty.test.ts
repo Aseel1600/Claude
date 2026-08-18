@@ -1451,7 +1451,9 @@ test("specialty validators cover remaining status branches for Deepgram, Assembl
     if (target.match(/inworld/i)) {
       throw new Error("inworld offline");
     }
-    if (target.match(/dashscope\.aliyuncs\.com/i)) {
+    // Alibaba-family hosts: dashscope.aliyuncs.com (pay-as-you-go / AIGC) and
+    // *.maas.aliyuncs.com (Token Plan).
+    if (target.match(/(?:dashscope|maas)\.aliyuncs\.com/i)) {
       return new Response(JSON.stringify({ error: "server" }), { status: 500 });
     }
     if (target.match(/longcat/i)) {
@@ -1468,7 +1470,7 @@ test("specialty validators cover remaining status branches for Deepgram, Assembl
     provider: "bailian-coding-plan",
     apiKey: "bailian-key",
     providerSpecificData: {
-      baseUrl: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1/messages",
+      baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages",
     },
   });
   const longcatInvalid = await validateProviderApiKey({ provider: "longcat", apiKey: "lc-key" });
