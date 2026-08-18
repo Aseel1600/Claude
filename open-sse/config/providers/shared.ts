@@ -752,3 +752,20 @@ export function buildAntigravityUrl(base: string, model: string, stream: boolean
   const path = stream ? "/v1internal:streamGenerateContent?alt=sse" : "/v1internal:generateContent";
   return `${base}${path}`;
 }
+
+/**
+ * Rota `generateContent` do protocolo Gemini: o modelo entra no path, nao no corpo.
+ *
+ * Compartilhado porque o formato tem dois consumidores: o provedor `gemini` nativo
+ * (urlBuilder de RegistryEntry) e gateways que expoem Gemini como protocolo
+ * alternativo (urlBuilder de AlternateFormat, ver alternateFormats.ts). Uma copia por
+ * consumidor deixaria o sufixo `?alt=sse` do streaming livre para divergir.
+ */
+export function buildGeminiGenerateContentUrl(
+  base: string,
+  model: string,
+  stream: boolean
+): string {
+  const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
+  return `${base}/${model}:${action}`;
+}
