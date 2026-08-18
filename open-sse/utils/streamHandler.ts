@@ -168,6 +168,13 @@ function getErrorMessage(error: unknown): string {
 }
 
 function getErrorStatusCode(error: unknown): number {
+  const errorName =
+    error && typeof error === "object" && typeof (error as { name?: unknown }).name === "string"
+      ? (error as { name: string }).name
+      : "";
+  if (errorName === "TimeoutError" || errorName === "BodyTimeoutError") {
+    return 504;
+  }
   if (error && typeof error === "object" && "statusCode" in error) {
     const statusCode = Number((error as { statusCode?: unknown }).statusCode);
     if (Number.isFinite(statusCode) && statusCode >= 400 && statusCode <= 599) {
@@ -175,6 +182,13 @@ function getErrorStatusCode(error: unknown): number {
     }
   }
   return 502;
+}
+
+function isDeadlineAbortReason(reason: unknown): reason is Error {
+  return (
+    reason instanceof Error &&
+    (reason.name === "TimeoutError" || reason.name === "BodyTimeoutError")
+  );
 }
 
 function hasClientTerminalSseMarker(text: string, clientResponseFormat?: string | null): boolean {
@@ -194,6 +208,14 @@ function hasClientTerminalSseMarker(text: string, clientResponseFormat?: string 
       /(?:^|\r?\n)event:\s*message_stop\s*(?:\r?\n|$)/.test(text) ||
       /"type"\s*:\s*"message_stop"/.test(text)
     );
+  }
+
+  // OpenAI chat completions: some providers omit `data: [DONE]` (already
+  // matched above) and terminate with a finish_reason chunk instead. A
+  // non-null finish_reason value is that terminal signal — a bare
+  // `finish_reason: null` delta chunk must NOT count (#10443).
+  if (clientResponseFormat === FORMATS.OPENAI) {
+    return /"finish_reason"\s*:\s*"[^"]+"/.test(text);
   }
 
   return false;
@@ -369,6 +391,15 @@ export function createStreamController({
 
   if (clientAbortSignal && typeof clientAbortSignal.addEventListener === "function") {
     const handleClientAbort = () => {
+      const reason = clientAbortSignal.reason;
+      if (isDeadlineAbortReason(reason)) {
+        // An AbortSignal can represent an OmniRoute-owned deadline as well as
+        // a caller disconnect. Preserve deadline failures as 504; classifying
+        // them as client disconnects writes a misleading 499 to the call log.
+        abortController.abort(reason);
+        controller.handleError(reason);
+        return;
+      }
       controller.handleDisconnect(getClientAbortReason());
     };
     if (clientAbortSignal.aborted) {
@@ -493,8 +524,22 @@ function resolveSilentCloseReason(input: {
 }): string | null {
   if (!input.bytesWereForwarded) return null;
 
-  if (!input.clientTerminalSeen && input.clientResponseFormat === FORMATS.CLAUDE) {
-    return "Upstream stream ended without a terminal marker";
+  if (!input.clientTerminalSeen) {
+    if (input.clientResponseFormat === FORMATS.CLAUDE) {
+      return "Upstream stream ended without a terminal marker";
+    }
+    // #10443: every known path that produces OpenAI chat chunks emits a
+    // terminal — the response translators (gemini/claude/kiro/cursor-to-openai)
+    // all emit a finish_reason chunk, the non-standard executors (kiro, cursor,
+    // nlpcloud, poe-web, copilot-m365-web, chatgpt-web, chipotle, gitlab)
+    // enqueue `data: [DONE]` themselves, and standard OpenAI-compatible
+    // upstreams end with finish_reason + [DONE] per spec. So a close that
+    // forwarded content but no terminal marker is an upstream drop, not a
+    // legitimate end. Guard on sawContent() so the #8649 empty-content
+    // verdict below keeps its more precise shape for content-free closes.
+    if (input.clientResponseFormat === FORMATS.OPENAI && input.contentWatcher.sawContent()) {
+      return "Upstream stream ended without a terminal marker";
+    }
   }
 
   const watcher = input.contentWatcher;
