@@ -754,12 +754,12 @@ export function buildAntigravityUrl(base: string, model: string, stream: boolean
 }
 
 /**
- * Rota `generateContent` do protocolo Gemini: o modelo entra no path, nao no corpo.
+ * Gemini protocol `generateContent` route: the model goes in the path, not the body.
  *
- * Compartilhado porque o formato tem dois consumidores: o provedor `gemini` nativo
- * (urlBuilder de RegistryEntry) e gateways que expoem Gemini como protocolo
- * alternativo (urlBuilder de AlternateFormat, ver alternateFormats.ts). Uma copia por
- * consumidor deixaria o sufixo `?alt=sse` do streaming livre para divergir.
+ * Shared because the format has two consumers: the native `gemini` provider
+ * (RegistryEntry.urlBuilder) and gateways that expose Gemini as an alternate
+ * protocol (AlternateFormat.urlBuilder, see alternateFormats.ts). One copy per
+ * consumer would leave the streaming `?alt=sse` suffix free to diverge.
  */
 export function buildGeminiGenerateContentUrl(
   base: string,
