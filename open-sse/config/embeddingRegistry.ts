@@ -287,36 +287,6 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     ],
   },
 
-  "github-models": {
-    id: "github-models",
-    baseUrl: "https://models.github.ai/inference/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
-    models: [
-      {
-        id: "openai/text-embedding-3-large",
-        name: "OpenAI Text Embedding 3 (large)",
-        dimensions: 3_072,
-      },
-      {
-        id: "openai/text-embedding-3-small",
-        name: "OpenAI Text Embedding 3 (small)",
-        dimensions: 1_536,
-      },
-    ],
-  },
-
-  github: {
-    id: "github",
-    baseUrl: "https://models.inference.ai.azure.com/embeddings",
-    authType: "apikey",
-    authHeader: "bearer",
-    models: [
-      { id: "text-embedding-3-small", name: "Text Embedding 3 Small (GitHub)", dimensions: 1536 },
-      { id: "text-embedding-3-large", name: "Text Embedding 3 Large (GitHub)", dimensions: 3072 },
-    ],
-  },
-
   "jina-ai": {
     id: "jina-ai",
     structuredInputProtocol: "jina-v1",
@@ -372,6 +342,21 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
     models: [],
   },
 
+  // Ollama Local — OpenAI-compatible embeddings endpoint. Ollama exposes its
+  // own model catalog, but these common embedding models are useful defaults
+  // for model selection and validation.
+  "ollama-local": {
+    id: "ollama-local",
+    baseUrl: "http://localhost:11434/v1/embeddings",
+    authType: "none",
+    authHeader: "none",
+    models: [
+      { id: "embeddinggemma", name: "EmbeddingGemma" },
+      { id: "nomic-embed-text", name: "Nomic Embed Text" },
+      { id: "bge-m3", name: "BGE M3" },
+    ],
+  },
+
   // Issue #6660: Mixedbread AI — OpenAI-compatible /v1/embeddings, free tier
   // available (API key via signup, no card required). Model ids are the
   // upstream-qualified "mixedbread-ai/<model>" form, mirroring how `together`/
@@ -391,6 +376,25 @@ export const EMBEDDING_PROVIDERS: Record<string, EmbeddingProvider> = {
         id: "mixedbread-ai/mxbai-embed-2d-large-v1",
         name: "Mixedbread Embed 2D Large v1",
         dimensions: 1024,
+      },
+    ],
+  },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/v1/embeddings",
+    authType: "apikey",
+    authHeader: "bearer",
+    models: [
+      {
+        id: "text-embedding-3-small",
+        name: "Text Embedding 3 Small",
+        dimensions: 1536,
+      },
+      {
+        id: "text-embedding-3-large",
+        name: "Text Embedding 3 Large",
+        dimensions: 3072,
       },
     ],
   },

@@ -1451,7 +1451,9 @@ test("specialty validators cover remaining status branches for Deepgram, Assembl
     if (target.match(/inworld/i)) {
       throw new Error("inworld offline");
     }
-    if (target.match(/dashscope\.aliyuncs\.com/i)) {
+    // Alibaba-family hosts: dashscope.aliyuncs.com (pay-as-you-go / AIGC) and
+    // *.maas.aliyuncs.com (Token Plan).
+    if (target.match(/(?:dashscope|maas)\.aliyuncs\.com/i)) {
       return new Response(JSON.stringify({ error: "server" }), { status: 500 });
     }
     if (target.match(/longcat/i)) {
@@ -1468,7 +1470,7 @@ test("specialty validators cover remaining status branches for Deepgram, Assembl
     provider: "bailian-coding-plan",
     apiKey: "bailian-key",
     providerSpecificData: {
-      baseUrl: "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1/messages",
+      baseUrl: "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1/messages",
     },
   });
   const longcatInvalid = await validateProviderApiKey({ provider: "longcat", apiKey: "lc-key" });
@@ -2415,7 +2417,12 @@ test("claude-web validator: 401 → invalid session cookie", async () => {
   __setClaudeTlsFetchOverride(null);
 });
 
-test("claude-web validator: 429 → valid (rate limited means auth passed)", async () => {
+// #9406 inverted this contract: a 429 session shows as UNHEALTHY (valid:false)
+// so the dashboard stops painting rate-limited sessions green. The dedicated
+// repro (tests/unit/repro-9406-claude-web-429-valid.test.ts) owns the full
+// contract incl. Retry-After forwarding; this sibling keeps the validator-level
+// assertion aligned with it.
+test("claude-web validator: 429 → invalid (rate limited session is not healthy, #9406)", async () => {
   __setClaudeTlsFetchOverride(async () =>
     makeClaudeTlsResponse(429, JSON.stringify({ error: "rate limited" }))
   );
@@ -2425,7 +2432,7 @@ test("claude-web validator: 429 → valid (rate limited means auth passed)", asy
     apiKey: "sessionKey=sk-ant-sid02-good-key",
   });
 
-  assert.equal(result.valid, true);
+  assert.equal(result.valid, false);
   __setClaudeTlsFetchOverride(null);
 });
 
@@ -2569,7 +2576,7 @@ test("copilot-web validator: cookie with access_token= is extracted", async () =
 
   await validateProviderApiKey({
     provider: "copilot-web",
-    apiKey: "access_token=eyJhbGciOiJIUzI1NiJ9.payload.sig; other_cookie=foo",
+    apiKey: `${"padding=value; ".repeat(12)}access_token=eyJhbGciOiJIUzI1NiJ9.payload.sig; other_cookie=foo`,
   });
   assert.equal(capturedAuth, "Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig");
 });

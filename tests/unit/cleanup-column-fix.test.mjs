@@ -82,23 +82,31 @@ test("cleanup: scheduler is wired into server-init.ts", () => {
 
 test("cleanup: mcp_tool_audit uses correct table name (not 'mcp_audit_log')", () => {
   assert.ok(
-    source.includes("DELETE FROM mcp_tool_audit WHERE"),
-    "must use correct table name mcp_tool_audit"
+    source.includes("DELETE FROM mcp_tool_audit WHERE created_at < ?"),
+    "mcp_tool_audit cleanup must use its created_at column"
   );
   assert.ok(
     !source.includes("DELETE FROM mcp_audit_log WHERE"),
     "must NOT use non-existent table name mcp_audit_log"
   );
+  assert.ok(
+    !source.includes("DELETE FROM mcp_tool_audit WHERE timestamp"),
+    "must NOT use timestamp for mcp_tool_audit"
+  );
 });
 
 test("cleanup: a2a_task_events uses correct table name (not 'a2a_events')", () => {
   assert.ok(
-    source.includes("DELETE FROM a2a_task_events WHERE"),
-    "must use correct table name a2a_task_events"
+    source.includes("DELETE FROM a2a_task_events WHERE created_at < ?"),
+    "a2a_task_events cleanup must use its created_at column"
   );
   assert.ok(
     !source.includes("DELETE FROM a2a_events WHERE"),
     "must NOT use non-existent table name a2a_events"
+  );
+  assert.ok(
+    !source.includes("DELETE FROM a2a_task_events WHERE timestamp"),
+    "must NOT use timestamp for a2a_task_events"
   );
 });
 
@@ -110,5 +118,31 @@ test("cleanup: memories uses correct table name (not 'memory_entries')", () => {
   assert.ok(
     !source.includes("DELETE FROM memory_entries WHERE"),
     "must NOT use non-existent table name memory_entries"
+  );
+});
+
+test("cleanup: mcp_tool_audit prunes by created_at (existing column), not timestamp", () => {
+  // mcp_tool_audit has created_at (see 002_mcp_a2a_tables.sql); timestamp does
+  // not exist, so WHERE timestamp < ? raised SqliteError "no such column" at
+  // every boot-time cleanup and the retention pruning never ran.
+  assert.ok(
+    source.includes("DELETE FROM mcp_tool_audit WHERE created_at < ?"),
+    "mcp_tool_audit cleanup must use created_at column"
+  );
+  assert.ok(
+    !source.includes("DELETE FROM mcp_tool_audit WHERE timestamp"),
+    "must NOT use timestamp for mcp_tool_audit (column doesn't exist)"
+  );
+});
+
+test("cleanup: a2a_task_events prunes by created_at (existing column), not timestamp", () => {
+  // Same schema fact for a2a_task_events (created_at, no timestamp column).
+  assert.ok(
+    source.includes("DELETE FROM a2a_task_events WHERE created_at < ?"),
+    "a2a_task_events cleanup must use created_at column"
+  );
+  assert.ok(
+    !source.includes("DELETE FROM a2a_task_events WHERE timestamp"),
+    "must NOT use timestamp for a2a_task_events (column doesn't exist)"
   );
 });

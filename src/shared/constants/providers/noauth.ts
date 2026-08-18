@@ -3,6 +3,24 @@
  * Pure data literal; re-exported by the providers.ts barrel. No behavior change.
  */
 export const NOAUTH_PROVIDERS = {
+  "devin-cli-agentic": {
+    id: "devin-cli-agentic",
+    alias: "dva",
+    name: "Devin CLI Agentic Bridge",
+    icon: "terminal",
+    color: "#635BFF",
+    textIcon: "DV",
+    website: "https://docs.devin.ai/work-with-devin/devin-cli",
+    noAuth: true,
+    hasFree: false,
+    serviceKinds: ["llm"],
+    isLocalCli: true,
+    toolCalling: "emulated",
+    authHint: "Authentication is owned by the official Devin CLI in its isolated bridge volume.",
+    notice: {
+      text: "This provider accepts only the official Devin CLI over local ACP stdio and never falls back to another provider.",
+    },
+  },
   opencode: {
     id: "opencode",
     alias: "oc",
@@ -137,6 +155,24 @@ export const NOAUTH_PROVIDERS = {
       "No API key stored by OmniRoute. Install the Auggie CLI and run `auggie login` on this machine, then OmniRoute spawns it locally for each request.",
     notice: {
       text: "Augment (Auggie CLI) requires the `auggie` binary installed and authenticated locally (`auggie login`). OmniRoute spawns it as a subprocess and never sees or stores your Augment credentials.",
+    },
+  },
+  zcode: {
+    id: "zcode",
+    alias: "zc",
+    name: "ZCode (GLM Coding Plan)",
+    icon: "terminal",
+    color: "#3B82F6",
+    textIcon: "ZC",
+    website: "https://zcode.z.ai",
+    noAuth: true,
+    hasFree: false,
+    serviceKinds: ["llm"],
+    isLocalCli: true,
+    authHint:
+      "No API key stored by OmniRoute. The local ZCode app-server uses the existing builtin:zai-coding-plan login.",
+    notice: {
+      text: "ZCode runs locally through its native app-server. OmniRoute never receives or stores the Z.ai credential.",
     },
   },
   aihorde: {

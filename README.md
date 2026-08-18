@@ -7,19 +7,19 @@
 
 # 🚀 OmniRoute — The Free AI Gateway
 
-<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 290 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with auto-fallback. RTK + Caveman stacked compression saves 15–95% tokens (~89% avg) — never hit limits. 290 AI providers · 90+ free tiers · ~1.53B free tokens/mo · 19 routing strategies · $0 to start."/>
+<img src="./docs/diagrams/readme-hero.svg" width="100%" alt="OmniRoute — Never stop coding. Every AI tool → 341 providers — 90+ free — through one endpoint. Claude Code, Codex, Cursor, Cline, Copilot & Antigravity into FREE Claude / GPT / Gemini with auto-fallback. RTK + Caveman stacked compression saves 15–95% tokens (~89% avg) — never hit limits. 341 AI providers · 90+ free tiers · ~1.51B free tokens/mo · 19 routing strategies · $0 to start."/>
 
 </div>
 
 <div align="center">
 
-## 💰 ~1.53B Free Tokens / Month
+## 💰 ~1.51B Free Tokens / Month
 
 </div>
 
-> Stacking free tiers by hand is painful — dozens of SDKs, dozens of rate limits, and no idea how much you actually have. OmniRoute aggregates the **documented** free tiers of **43 provider pools / 516 models** into one honest number and shows it live on the dashboard (`/dashboard/free-tiers`).
+> Stacking free tiers by hand is painful — dozens of SDKs, dozens of rate limits, and no idea how much you actually have. OmniRoute aggregates the **documented** free tiers of **42 provider pools / 495 models** into one honest number and shows it live on the dashboard (`/dashboard/free-tiers`).
 
-<img src="./docs/diagrams/free-tier-budget.svg" width="100%" alt="OmniRoute free-tier budget card: ~1.53B free tokens per month steady, up to ~2.15B in the first month with signup credits, from the documented free tiers of 43 provider pools / 516 models behind one endpoint. Honest pool-deduped math — each shared pool counted once (counting every rate limit 24/7 would read ~10B; not published), 15 providers ToS-flagged so you decide. Budget bar of the countable free pools with per-model grid (Mistral Large 3 1B, GPT-4o mini 150M, Gemini 2.5 Flash 60M … Claude Sonnet 4.5 25K), one-time first-month signup credits (vertex 300M, agentrouter 200M, predibase 25M, together 25M, glm-cn 20M, doubao 15M, ai21 10M, longcat 10M, deepseek 5M, hyperbolic 5M, nscale 5M), plus permanently-free no-token-cap providers (SiliconFlow, Z.AI GLM-Flash, Kilo, OpenCode Zen, baidu …) and a $10 OpenRouter top-up unlocking +24M/mo — surfaced separately so they never inflate the headline. Live used/remaining on /dashboard/free-tiers."/>
+<img src="./docs/diagrams/free-tier-budget.svg" width="100%" alt="OmniRoute free-tier budget card: ~1.51B free tokens per month steady, up to ~2.13B in the first month with signup credits, from the documented free tiers of 42 provider pools / 495 models behind one endpoint. Honest pool-deduped math — each shared pool counted once (counting every rate limit 24/7 would read ~10B; not published), 15 providers ToS-flagged so you decide. Budget bar of the countable free pools with per-model grid (Mistral Large 3 1B, GPT-4o mini 150M, Gemini 2.5 Flash 60M … Claude Sonnet 4.5 25K), one-time first-month signup credits (vertex 300M, agentrouter 200M, predibase 25M, together 25M, glm-cn 20M, doubao 15M, ai21 10M, longcat 10M, deepseek 5M, hyperbolic 5M, nscale 5M), plus permanently-free no-token-cap providers (SiliconFlow, Z.AI GLM-Flash, Kilo, OpenCode Zen, baidu …) and a $10 OpenRouter top-up unlocking +24M/mo — surfaced separately so they never inflate the headline. Live used/remaining on /dashboard/free-tiers."/>
 
 > Animated summary of the live `/dashboard/free-tiers` page. Full methodology (pool dedupe, credit tiers, provider terms): **[docs/reference/FREE_TIERS.md](docs/reference/FREE_TIERS.md)**.
 >
@@ -38,6 +38,7 @@
 [![Stars](https://img.shields.io/github/stars/diegosouzapw/OmniRoute?style=social)](https://github.com/diegosouzapw/OmniRoute)
 <a href="https://trendshift.io/repositories/23589" target="_blank"><img src="https://trendshift.io/api/badge/repositories/23589" alt="diegosouzapw%2FOmniRoute | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 [![Star History Rank](https://api.star-history.com/badge?repo=diegosouzapw/OmniRoute&theme=dark)](https://www.star-history.com/diegosouzapw/omniroute)
+[![olud.ai](https://olud.ai/badge.php?tool=diegosouzapw-omniroute)](https://olud.ai/project/diegosouzapw-omniroute.html)
 
 ### 💬 Join the community
 
@@ -53,6 +54,25 @@
 [![Website](https://img.shields.io/badge/Website-omniroute.online-blue?logo=google-chrome&logoColor=white)](https://omniroute.online)
 
 **Questions, provider tips, roadmap & support → [Discord](https://discord.gg/U47eFqAXCn) · [Telegram](https://t.me/omnirouteOficial) · WhatsApp [🌍 Global](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t) / [🇧🇷 Brasil](https://chat.whatsapp.com/LTSpdFhXTxjH4R6CCNiKWz)**
+
+<br/>
+
+## 📈 The Gateway Keeps Growing
+
+<div align="center">
+
+|                           | v3.8.49 | **v3.8.50** | `v3.8.51+`  |
+| ------------------------- | :-----: | :---------: | :---------: |
+| 🌐 Providers              |   290   |   **341**   | more queued |
+| 🧠 Documented models      |  1185   |  **1202**   |      —      |
+| 🖼️ Modality Bridge        |    —    |  🆕 vision  |    video    |
+| 📡 Radar free catalog     |    —    |  🆕 opt-in  |      —      |
+| ⚖️ Quota-aware scheduling |    —    |      —      |   🔭 next   |
+| 📊 Quota telemetry        |    —    |      —      |   🔭 next   |
+
+**→ [Roadmap](ROADMAP.md) — riding the rail to `v3.9.0 LTS`**
+
+</div>
 
 <br/>
 
@@ -81,7 +101,7 @@
   <tr>
     <td align="right"><b>⚙️ Features</b></td>
     <td align="center"><a href="#-combos--the-flagship">🎯 Combos</a></td>
-    <td align="center"><a href="#-290-ai-providers--90-free">🌐 Providers</a></td>
+    <td align="center"><a href="#-341-ai-providers--90-free">🌐 Providers</a></td>
     <td align="center"><a href="#-full-cli--a2a--mcp">🔌 CLI &amp; MCP</a></td>
   </tr>
   <tr>
@@ -180,6 +200,8 @@ curl http://localhost:20128/v1/chat/completions \
 
 <sub>Prefer a specific free backend? Call it directly, e.g. `oc/…` (OpenCode Free) or `felo/…` (Felo). Then graduate to `auto` and let OmniRoute pick.</sub>
 
+<sub>📦 Copy-paste quickstart scripts for **Python, Node.js, PHP, and cURL** → [`examples/quickstart/`](examples/quickstart/)</sub>
+
 <br/>
 
 <div align="center">
@@ -188,7 +210,7 @@ curl http://localhost:20128/v1/chat/completions \
 
 </div>
 
-<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint. 290 providers. Never stop building — OmniRoute picks the cheapest one that works. Six pillars: Never hit limits (auto-fallback across 290 providers in milliseconds, zero downtime) · Save up to 95% tokens (RTK + Caveman stacked compression cuts 15–95%, ~89% avg on tool-heavy sessions) · $0 to start (90+ free tiers, 40+ free forever — no card needed) · Every tool works (33 coding agents through one config) · One endpoint (OpenAI ↔ Claude ↔ Gemini ↔ Responses API at /v1) · Production-grade (circuit breakers, TLS stealth, MCP 104 tools, A2A, memory, guardrails, evals — 25,000+ tests)."/>
+<img src="./docs/diagrams/promise-pillars.svg" width="100%" alt="The Promise — One endpoint. 341 providers. Never stop building — OmniRoute picks the cheapest one that works. Six pillars: Never hit limits (auto-fallback across 341 providers in milliseconds, zero downtime) · Save up to 95% tokens (RTK + Caveman stacked compression cuts 15–95%, ~89% avg on tool-heavy sessions) · $0 to start (90+ free tiers, 56 free forever — no card needed) · Every tool works (33 coding agents through one config) · One endpoint (OpenAI ↔ Claude ↔ Gemini ↔ Responses API at /v1) · Production-grade (circuit breakers, TLS stealth, MCP 109 tools, A2A, memory, guardrails, evals — 25,000+ tests)."/>
 
 <br/>
 <br/>
@@ -216,7 +238,7 @@ curl http://localhost:20128/v1/chat/completions \
 </div>
 
 <p align="center">
-  <a href="https://www.kimi.com/code?aff=omniroute">
+  <a href="https://platform.kimi.ai?track_id=track-8197581fdd7d4139a0f562e4a03c3798&aff=omniroute">
     <img src="public/sponsors/kimi-k3-banner.png" width="100%" alt="Kimi K3 — Open Frontier Intelligence · 2.8T parameters · 1M-token context"/>
   </a>
 </p>
@@ -226,7 +248,7 @@ curl http://localhost:20128/v1/chat/completions \
 <table>
   <tr>
     <td align="center" width="150">
-      <a href="https://www.kimi.com/code?aff=omniroute">
+      <a href="https://platform.kimi.ai?track_id=track-8197581fdd7d4139a0f562e4a03c3798&aff=omniroute">
         <picture>
           <source media="(prefers-color-scheme: dark)" srcset="public/providers/kimi-logomark-dark.svg">
           <img src="public/providers/kimi-logomark-light.svg" width="64" alt="Kimi (Moonshot AI)"/>
@@ -238,12 +260,12 @@ curl http://localhost:20128/v1/chat/completions \
     <td>
       Thanks to <b>Kimi (Moonshot AI)</b>, our founding Open Source Friend, for backing this project! Kimi is the AI lab behind the open-weight K2 and K3 model families — <b>Kimi K3</b> delivers a 1M-token context window, native vision and frontier-level coding at a fraction of closed-model prices, and works out of the box with Claude Code, Codex and every coding tool OmniRoute serves.
       <br/><br/>
-      <b>What Kimi's support powers:</b> Kimi's API credits power OmniRoute's AI-validated release pipeline — the <i>merge validation powered by Kimi K3</i> stage that reviews every pull request before it ships — plus day-to-day feature development. First-class Kimi support ships on both rails: the direct <a href="https://platform.kimi.ai?aff=omniroute">Kimi API</a> (<code>kimi-k3</code>) and the <a href="https://www.kimi.com/code?aff=omniroute">Kimi Code coding plan</a> (OAuth and API key). OmniRoute is also the first Brazilian open-source project in Kimi's support program. <a href="https://platform.kimi.ai?aff=omniroute"><b>Get a Kimi API key →</b></a>
+      <b>What Kimi's support powers:</b> Kimi's API credits power OmniRoute's AI-validated release pipeline — the <i>merge validation powered by Kimi K3</i> stage that reviews every pull request before it ships — plus day-to-day feature development. First-class Kimi support ships on both rails: the direct <a href="https://platform.kimi.ai?track_id=track-8197581fdd7d4139a0f562e4a03c3798&aff=omniroute">Kimi API</a> (<code>kimi-k3</code>) and the <a href="https://www.kimi.com/code?aff=omniroute">Kimi Code coding plan</a> (OAuth and API key). OmniRoute is also the first Brazilian open-source project in Kimi's support program. <a href="https://platform.kimi.ai?track_id=track-8197581fdd7d4139a0f562e4a03c3798&aff=omniroute"><b>Get a Kimi API key with 15% extra credits →</b></a>
     </td>
   </tr>
   <tr>
     <td align="center" width="150">
-      <a href="https://cheaperinference.com">
+      <a href="https://cheaperinference.com/?utm_source=omniroute">
         <img src="public/providers/cheaperinference.svg" width="64" alt="Cheaper Inference"/>
       </a>
       <br/><b>Cheaper Inference</b><br/><sub>cheaperinference.com</sub><br/><br/>
@@ -252,7 +274,7 @@ curl http://localhost:20128/v1/chat/completions \
     <td>
       Thanks to <b>Cheaper Inference</b>, an OmniRoute Open Source Friend, for backing this project! Cheaper Inference is a cost-ranked gateway that resells 42 frontier models — Claude, GPT-5.x, Gemini, Kimi K3, GLM, DeepSeek, Grok and MiniMax — behind one OpenAI-compatible endpoint, routing each request to the cheapest eligible provider without ever charging above the model maker's list price.
       <br/><br/>
-      <b>First-class support in OmniRoute:</b> Chat Completions, the native <code>/v1/responses</code> endpoint, vision, tool calling and 3 image models (<code>grok-imagine</code>, <code>nano-banana-pro</code>, <code>nano-banana-2</code>, reachable as <code>cheaperinference/&lt;model&gt;</code>). <a href="https://cheaperinference.com"><b>Get an API key →</b></a>
+      <b>First-class support in OmniRoute:</b> Chat Completions, the native <code>/v1/responses</code> endpoint, vision, tool calling and 3 image models (<code>grok-imagine</code>, <code>nano-banana-pro</code>, <code>nano-banana-2</code>, reachable as <code>cheaperinference/&lt;model&gt;</code>). <a href="https://cheaperinference.com/?utm_source=omniroute"><b>Get an API key →</b></a>
     </td>
   </tr>
 </table>
@@ -407,7 +429,7 @@ All **19** strategies — mix & match per combo step:
   <tr>
     <td align="center">17</td>
     <td nowrap><code>auto</code></td>
-    <td>12-factor live scoring across every connection 🤖</td>
+    <td>14-factor live scoring across every connection 🤖</td>
   </tr>
   <tr>
     <td align="center">18</td>
@@ -421,13 +443,13 @@ All **19** strategies — mix & match per combo step:
   </tr>
 </table>
 
-<sub>The Auto-Combo engine scores every candidate on **12 factors** (health, quota, cost, latency, success rate, freshness…) — see [`docs/routing/AUTO-COMBO.md`](docs/routing/AUTO-COMBO.md).</sub>
+<sub>The Auto-Combo engine scores every candidate on **14 factors** (health, quota, cost, latency, success rate, freshness…) — see [`docs/routing/AUTO-COMBO.md`](docs/routing/AUTO-COMBO.md).</sub>
 
 ##
 
 ### 🧱 Resilience is built in (3 independent layers)
 
-<img src="./docs/diagrams/resilience-layers.svg" width="100%" alt="OmniRoute resilience — 3 independent self-healing layers, the right layer for the right failure. Layer 1 provider circuit breaker (whole provider): trips only on 408/5xx, thresholds OAuth 3× / API-key 5× / local 2×, resets 60s/30s/15s into a HALF-OPEN probe, lazy recovery; while OPEN the combo reroutes to the next provider. Layer 2 connection cooldown (one key/account): base 5s OAuth / 3s API-key, exponential ×2 backoff with anti-thundering-herd guard, 429 honors Retry-After, success clears all error state; one cooling key is skipped while sibling keys keep serving. Layer 3 model lockout (one model): per-model 429, local 404 or mode denials lock just that model — never the whole connection. Terminal states (banned, expired, credits exhausted) are for the operator, not cooldowns."/>
+<img src="./docs/diagrams/resilience-layers.svg" width="100%" alt="OmniRoute resilience — 3 independent self-healing layers, the right layer for the right failure. Layer 1 provider circuit breaker (whole provider): trips only on 408/5xx, thresholds OAuth 10× / API-key 15× / local 2×, resets 60s/30s/15s into a HALF-OPEN probe, lazy recovery; while OPEN the combo reroutes to the next provider. Layer 2 connection cooldown (one key/account): base 5s OAuth / 3s API-key, exponential ×2 backoff with anti-thundering-herd guard, 429 honors Retry-After, success clears all error state; one cooling key is skipped while sibling keys keep serving. Layer 3 model lockout (one model): per-model 429, local 404 or mode denials lock just that model — never the whole connection. Terminal states (banned, expired, credits exhausted) are for the operator, not cooldowns."/>
 
 <sub>📖 [Auto-Combo Engine](docs/routing/AUTO-COMBO.md) · [Resilience Guide](docs/architecture/RESILIENCE_GUIDE.md)</sub>
 
@@ -439,7 +461,7 @@ All **19** strategies — mix & match per combo step:
 
 </div>
 
-<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — comparison table vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 290 providers, 90+ free providers built-in, 19 routing strategies, 12-engine token compression, built-in MCP server with 104 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA, 43 i18n UI locales, 100% MIT self-hosted. OmniRoute is the only one with the full set; competitors show a mix of checks, partials and crosses. Verified from each project&apos;s docs."/>
+<img src="./docs/diagrams/comparison-table.svg" width="100%" alt="What sets OmniRoute apart — comparison table vs 9router, OpenRouter, CLIProxyAPI and LiteLLM across 13 capabilities. OmniRoute: 341 providers, 90+ free providers built-in, 19 routing strategies, 12-engine token compression, built-in MCP server with 109 tools, A2A agent protocol, persistent memory, guardrails, cloud agents, TLS fingerprint stealth, Desktop/Termux/PWA, 43 i18n UI locales, 100% MIT self-hosted. OmniRoute is the only one with the full set; competitors show a mix of checks, partials and crosses. Verified from each project&apos;s docs."/>
 
 <sub>📊 Full methodology &amp; per-feature detail vs 9router, OpenRouter, CLIProxyAPI &amp; LiteLLM → [`docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md`](docs/comparison/OMNIROUTE_VS_ALTERNATIVES.md)</sub>
 
@@ -452,7 +474,6 @@ OmniRoute is MIT-licensed and maintained in the open. If it saves you time or mo
 <table>
   <tr><td nowrap>⭐ <b>Star the repo</b></td><td>Free — genuinely helps visibility</td><td><a href="https://github.com/diegosouzapw/OmniRoute">Star OmniRoute</a></td></tr>
   <tr><td nowrap>🐙 <b>GitHub Sponsors</b></td><td>One-off or monthly · zero platform fee</td><td><a href="https://github.com/sponsors/diegosouzapw">github.com/sponsors/diegosouzapw</a></td></tr>
-  <tr><td nowrap>🏢 <b>Open Collective</b></td><td><b>Companies</b> — issues an invoice/receipt · transparent books</td><td><a href="https://opencollective.com/omniroute">opencollective.com/omniroute</a></td></tr>
   <tr><td nowrap>☕ <b>Ko-fi</b></td><td>Quick one-off tip, no signup for the donor</td><td><a href="https://ko-fi.com/diegosouzapw">ko-fi.com/diegosouzapw</a></td></tr>
   <tr><td nowrap>🧋 <b>Buy Me a Coffee</b></td><td>Small, informal gesture</td><td><a href="https://www.buymeacoffee.com/diegosouzapw">buymeacoffee.com/diegosouzapw</a></td></tr>
   <tr><td nowrap>🖐 <b>Liberapay</b></td><td>Recurring · non-profit · open source</td><td><a href="https://liberapay.com/diegosouzapw">liberapay.com/diegosouzapw</a></td></tr>
@@ -492,14 +513,38 @@ Pix copia-e-cola:
 
 <br/>
 
+<p><strong>Developer notes:</strong> The project may generate a local <code>.env</code> file during npm install/postinstall for developer convenience. This file is intentionally ignored via <code>.gitignore</code> (see <code>.gitignore</code>) and must never be committed — if accidentally committed, rotate any exposed secrets and remove the file from history. See <a href="docs/DEVELOPER-ENVIRONMENT.md">docs/DEVELOPER-ENVIRONMENT.md</a> for guidance on managing local environment files and secrets.</p>
+
+## 📡 OmniRoute Radar
+
+The main free-tier headline remains **~1.53B tokens/month** from the documented,
+pool-deduplicated catalog above. Temporary provider signup credits can separately lift the first
+month to **~2.15B**. Radar is an optional, signed catalog overlay for people who want fresher
+free-model availability between OmniRoute releases; the community catalog and every existing free
+feature remain free.
+
+Supporters can receive the live catalog and additional provider opportunities. Its separate,
+mutable ceiling is **approximately 3B tokens/month at most**, depending on provider availability.
+That ceiling is not a guarantee: providers can change quotas, eligibility, models, or regions at
+any time.
+
+Radar is opt-in and GET-only. The OmniRoute client does not upload prompts, traffic, provider
+configuration, usage telemetry, or local announcement-dismiss state. Learn about eligibility and
+the current catalog at **[radar.omniroute.online/planos](https://radar.omniroute.online/planos)**.
+
+<br/>
+
 <div align="center">
 
 ## ✨ What's New
 
 </div>
 
-> Recent highlights from **v3.8.20 → v3.8.49**. Full history in [`CHANGELOG.md`](CHANGELOG.md).
+> Recent highlights from **v3.8.20 → v3.8.50**. Full history in [`CHANGELOG.md`](CHANGELOG.md).
 
+- **🎛️ OmniConductor** — inbound A2A delegation to your agent fleet, Conductor skills on the Agent Card, and a dashboard panel with Faro push-to-talk voice chat. → [A2A Server](docs/frameworks/A2A-SERVER.md)
+- **🛂 Adaptive admission & overload protection** — heavyweight chat requests queue instead of 503ing, with atomic RPM rolling leases per connection. → [Resilience Guide](docs/architecture/RESILIENCE_GUIDE.md)
+- **🗂️ Canonical `/v1/models` ordering** — one contiguous provider-grouped block per provider (combos pinned first), stable across every catalog source. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🗜️ Compression hardening** — default-on inflation guard, Caveman packs for DE / FR / JA + Chinese (wényán), RTK filters for Gradle & .NET. → [Compression](docs/compression/COMPRESSION_ENGINES.md)
 - **💸 Honest flat-rate cost** — subscription / coding-plan providers read **$0** in cost analytics; budget, quota & routing keep estimating. → [API Reference](docs/reference/API_REFERENCE.md)
 - **⚖️ Quota-Share routing** — split a shared account's quota fairly across pooled keys, work-conserving so idle slices are lent out. → [Resilience Guide](docs/architecture/RESILIENCE_GUIDE.md)
@@ -514,7 +559,7 @@ Pix copia-e-cola:
 - **🖼️ New endpoints** — `/v1/ocr` (Mistral OCR) and `/v1/audio/translations` (Whisper-style) round out the media surface. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🎨 Image / video / audio generation** — one API for media: xAI Grok Imagine & Novita AI video, ComfyUI, Freepik, Adobe Firefly, Microsoft Designer, Google Imagen, Segmind, EdgeTTS. → [API Reference](docs/reference/API_REFERENCE.md)
 - **🌍 Deployment & ops** — reverse-proxy `basePath`, browser-language auto-detect, per-key device tracking, root-less MITM trust, zh-TW localization. → [Environment](docs/reference/ENVIRONMENT.md)
-- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **290-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
+- **🤝 More providers & agents** — Cursor Cloud Agent, Grok Build (xAI) with browser + OAuth login, Ollama first-class card, Claude Opus 5 & Sonnet 5, Kimi official partnership (Code/Web/Moonshot), Zed, Requesty, SenseNova, Yuanbao, Agnes AI… and a refreshed **341-provider catalog**. → [Providers](docs/reference/PROVIDER_REFERENCE.md)
 - **📡 Routing transparency** — every response carries an `X-OmniRoute-Decision` header naming the strategy/provider/latency that served it, a new `cache-optimized` combo strategy + Auto-Combo `cacheAffinity` factor route repeat requests back to the connection holding the cached prefix, and a read-only `/v1/auto-combo/{channel}/candidates` endpoint exposes an `auto/*` channel's live candidate pool. → [Auto-Combo](docs/routing/AUTO-COMBO.md)
 - **⚡ Local performance & infra** — one-click local Redis, Cloudflare Workers / Deno Deploy relay deployers, Bifrost & Mux as supervised embedded services. → [Embedded Services](docs/frameworks/EMBEDDED-SERVICES.md)
 
@@ -533,7 +578,7 @@ Pix copia-e-cola:
     <td align="center" width="76"><a href="https://github.com/openai/codex"><img src="./public/providers/codex.svg" width="40" alt="Codex CLI"/><br/><sub><b>Codex CLI</b></sub><br/><sub>                           </sub></a></td>
     <td align="center" width="76"><picture><source media="(prefers-color-scheme:dark)" srcset="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-png@1.91.0/dark/cline.png"/><img src="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.91.0/icons/cline.svg" width="40" alt="Cline"/></picture><br/><sub><b>Cline</b></sub><br/><sub>                           </sub></td>
     <td align="center" width="76"><a href="https://github.com/Kilo-Org/kilocode"><img src="./public/providers/kilocode.svg" width="40" alt="Kilo Code"/><br/><sub><b>Kilo Code</b></sub><br/><sub>                           </sub></a></td>
-    <td align="center" width="76"><img src="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-png@1.91.0/dark/roocode.png#gh-dark-mode-only" width="40" alt="Roo Code"/><img src="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.91.0/icons/roocode.svg#gh-light-mode-only" width="40" alt="Roo Code"/><br/><sub><b>Roo Code</b></sub><br/><sub>                           </sub></td>
+    <td align="center" width="76"><a href="https://github.com/Zoo-Code-Org/Zoo-Code"><img src="./public/providers/zoocode.png" width="40" alt="Zoo Code"/><br/><sub><b>Zoo Code</b></sub><br/><sub>                           </sub></a></td>
     <td align="center" width="76"><img src="./public/providers/continue.svg" width="40" alt="Continue"/><br/><sub><b>Continue</b></sub><br/><sub>                           </sub></td>
   </tr>
   <tr>
@@ -567,7 +612,7 @@ Pix copia-e-cola:
 <b>＋ also works with</b> · Kiro · Command Code · Antigravity · Windsurf · AMP · <b>any OpenAI-compatible tool</b>
 </div>
 
-<sub>📖 Per-tool setup for all 33 tools (25 CLI Code's + 8 CLI Agents) → [`docs/reference/CLI-TOOLS.md`](docs/reference/CLI-TOOLS.md) · 🧩 OpenCode plugin → [`@omniroute/opencode-provider`](https://www.npmjs.com/package/@omniroute/opencode-provider)</sub>
+<sub>📖 Per-tool setup for all 34 tools (26 CLI Code's + 8 CLI Agents) → [`docs/reference/CLI-TOOLS.md`](docs/reference/CLI-TOOLS.md) · 🧩 OpenCode plugin → [`@omniroute/opencode-provider`](https://www.npmjs.com/package/@omniroute/opencode-provider)</sub>
 
 </div>
 
@@ -575,11 +620,11 @@ Pix copia-e-cola:
 
 <div align="center">
 
-## 🌐 290 AI Providers — 90+ Free
+## 🌐 341 AI Providers — 90+ Free
 
 </div>
 
-> The most complete catalog of any open-source router: **290 providers**, **90+ with a free tier**, **40+ free forever**.
+> The most complete catalog of any open-source router: **341 providers**, **90+ with a free tier**, **56 free forever**.
 
 <div align="center">
 
@@ -659,10 +704,40 @@ Pix copia-e-cola:
   <tr><td align="left" nowrap>📱 <b>Android (Termux)</b></td><td align="left" nowrap><code>pkg install nodejs && npx -y omniroute</code></td><td align="left">Runs <b>on your phone</b>, 24/7, no root</td></tr>
   <tr><td align="left" nowrap>📲 <b>PWA</b></td><td align="left" nowrap>"Add to Home Screen"</td><td align="left">Fullscreen, offline, installable from browser</td></tr>
   <tr><td align="left" nowrap>🧩 <b>OpenCode plugin</b></td><td align="left" nowrap><code>@omniroute/opencode-provider</code></td><td align="left">Native OpenCode integration</td></tr>
+  <tr><td align="left" nowrap>🤖 <b>VS Code Copilot Chat</b></td><td align="left" nowrap>install <b>OmniCopilot</b> extension</td><td align="left">Every OmniRoute model in the native Copilot Chat picker — stable &amp; Insiders</td></tr>
   <tr><td align="left" nowrap>🛠️ <b>From source</b></td><td align="left" nowrap><code>npm install && npm run dev</code></td><td align="left">Hack on it, contribute</td></tr>
 </table>
 
 <sub>📖 [Docker Guide](docs/guides/DOCKER_GUIDE.md) · [Desktop](electron/README.md) · [Termux](docs/guides/TERMUX_GUIDE.md) · [PWA](docs/guides/PWA_GUIDE.md) · [OpenCode](docs/frameworks/OPENCODE.md)</sub>
+
+<br/>
+
+<div align="center">
+
+### 🧩 New: OmniRoute inside VS Code's native Copilot Chat
+
+</div>
+
+> No new sidebar, no new chat UI — every model OmniRoute serves shows up right in the
+> **Copilot Chat model picker you already use**. Since VS Code 1.122, provider models work
+> without a GitHub sign-in or a Copilot subscription — agent mode, tool calling and vision, for
+> free.
+
+Install the **[OmniCopilot](https://github.com/diegosouzapw/OmniCopilot)** extension, point it
+at your OmniRoute server (defaults to `localhost:20128`), then open Copilot Chat → model picker
+→ **Manage Models…** → **OmniRoute**.
+
+<table>
+  <tr><th align="left">Store</th><th align="left">Link</th><th align="left">Works with</th></tr>
+  <tr><td align="left" nowrap>🧩 <b>VS Code Marketplace</b></td><td align="left"><a href="https://marketplace.visualstudio.com/items?itemName=diegosouzapw.omnicopilot">Install →</a></td><td align="left">VS Code — stable &amp; Insiders</td></tr>
+  <tr><td align="left" nowrap>🔓 <b>Open VSX Registry</b></td><td align="left"><a href="https://open-vsx.org/extension/diegosouzapw/omnicopilot">Install →</a></td><td align="left">Cursor, Windsurf, VSCodium, Theia, code-server, Gitpod, Antigravity, Kiro…</td></tr>
+</table>
+
+From inside the editor: open the **Extensions** view, search **"OmniRoute"**, click **Install**
+— works the same way on both stores. Source, issues and the publishing runbook live at
+[diegosouzapw/OmniCopilot](https://github.com/diegosouzapw/OmniCopilot).
+
+<sub>📖 [VS Code Copilot Chat guide](docs/guides/VSCODE-COPILOT.md) — setup, what the picker shows, dashboard-in-a-tab, troubleshooting</sub>
 
 <br/>
 
@@ -724,7 +799,7 @@ Expose OmniRoute over **MCP**, **A2A**, a **REST API**, **webhooks** or a **remo
 <table>
   <tr><th align="left">Interface</th><th align="left">Endpoint / command</th><th align="left">Use it for</th></tr>
   <tr><td align="left" nowrap>🧰 <b>MCP (stdio)</b></td><td align="left" nowrap><code>omniroute --mcp</code></td><td align="left">Plug into Claude Desktop, Cursor, any MCP client</td></tr>
-  <tr><td align="left" nowrap>🌊 <b>MCP (HTTP)</b></td><td align="left" nowrap><code>/api/mcp/stream</code></td><td align="left">Remote MCP — <b>104 tools</b>, 31 scopes, full audit trail</td></tr>
+  <tr><td align="left" nowrap>🌊 <b>MCP (HTTP)</b></td><td align="left" nowrap><code>/api/mcp/stream</code></td><td align="left">Remote MCP — <b>109 tools</b>, 33 scopes, full audit trail</td></tr>
   <tr><td align="left" nowrap>📡 <b>MCP (SSE)</b></td><td align="left" nowrap><code>/api/mcp/sse</code></td><td align="left">Streaming MCP transport</td></tr>
   <tr><td align="left" nowrap>🤝 <b>A2A</b></td><td align="left" nowrap><code>/.well-known/agent.json</code></td><td align="left">Agent-to-agent, <b>JSON-RPC 2.0</b> + SSE, 6 skills</td></tr>
   <tr><td align="left" nowrap>🌐 <b>REST API</b></td><td align="left" nowrap><code>/v1/*</code></td><td align="left">OpenAI-compatible — chat, embeddings, images, audio, OCR</td></tr>
@@ -843,7 +918,7 @@ npm install -g omniroute
 omniroute
 ```
 
-> 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/getting-started/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
+> 💡 See `npm warn ERESOLVE` or peer-dep warnings? [They're harmless](docs/guides/TROUBLESHOOTING.md#npm-install-warnings-eresolve--peer--deprecated).
 
 Dashboard at `http://localhost:20128` · API at `http://localhost:20128/v1`.
 
@@ -890,6 +965,12 @@ Use these only for clients that cannot attach `Authorization: Bearer ...`. Heade
 docker run -d --name omniroute --restart unless-stopped --stop-timeout 40 \
   -p 127.0.0.1:20128:20128 -v omniroute-data:/app/data diegosouzapw/omniroute:latest
 ```
+
+> **Pre-release Docker channel:** `diegosouzapw/omniroute:next` and
+> `diegosouzapw/omniroute:next-web` follow the current default `release/v*`
+> branch. These mutable tags are intended only for testing unreleased fixes and
+> are **not supported for production**. See
+> [Docker Release Channels](docs/guides/DOCKER_GUIDE.md#release-channels).
 
 **🛠️ From source**
 
@@ -969,31 +1050,69 @@ same process on one port, so there is no separate CLI-only package today.
 
 </div>
 
+## 📹 Video Guides
+
 <div align="center">
+
+<sub>Dados de cobertura social em 2026-08-17 · YT: 741 | TT: 137 | IG: 124 · Frescor (dias): YT 0 · TT 14 · IG 15</sub>
+
 <table>
   <tr>
-    <td align="center" width="264">
-      <a href="https://www.youtube.com/watch?v=Rxdc36yUyOQ"><img src="https://img.youtube.com/vi/Rxdc36yUyOQ/maxresdefault.jpg" alt="Guia em Português" width="260"/></a><br/>
-      <b>🇧🇷 Português</b><br/><sub>Guia completo</sub>
+    <td align="center" width="320">
+      <a href="https://www.instagram.com/reel/Da8ZthUPK98/">
+        <img src="https://placehold.co/320x180/111827/FFFFFF?text=Instagram+Reel+%7C+nick_saraev&font=montserrat&bold=true" alt="Instagram Reel" width="300"/>
+      </a><br/>
+      <b>🎬 #1 — Instagram</b><br/>
+      <sub>nick_saraev — 1,628,910 views</sub>
     </td>
-    <td align="center" width="264">
-      <a href="https://www.youtube.com/watch?v=CMzyOiUyEVc"><img src="https://img.youtube.com/vi/CMzyOiUyEVc/maxresdefault.jpg" alt="English Guide" width="260"/></a><br/>
-      <b>🇺🇸 English</b><br/><sub>Complete walkthrough</sub>
+    <td align="center" width="320">
+      <a href="https://www.youtube.com/watch?v=QucgvbO5gsM">
+        <img src="https://img.youtube.com/vi/QucgvbO5gsM/maxresdefault.jpg" alt="YouTube — Vaibhav Sisinty" width="300"/>
+      </a><br/>
+      <b>🎬 #2 — YouTube</b><br/>
+      <sub>Vaibhav Sisinty — 373,084 views</sub>
     </td>
-    <td align="center" width="264">
-      <a href="https://www.youtube.com/watch?v=il_5Ii6v4-Y"><img src="https://img.youtube.com/vi/il_5Ii6v4-Y/maxresdefault.jpg" alt="Руководство" width="260"/></a><br/>
-      <b>🇷🇺 Русский</b><br/><sub>Полное руководство</sub>
+    <td align="center" width="320">
+      <a href="https://www.youtube.com/shorts/fZIBK_4fKq8">
+        <img src="https://img.youtube.com/vi/fZIBK_4fKq8/maxresdefault.jpg" alt="YouTube Shorts" width="300"/>
+      </a><br/>
+      <b>🎬 #3 — YouTube Shorts</b><br/>
+      <sub>Nick Automates — 207,714 views</sub>
+    </td>
+    <td align="center" width="320">
+      <a href="https://www.tiktok.com/@milesreevesai/video/7667980059189366019">
+        <img src="https://placehold.co/320x180/111827/FFFFFF?text=TikTok+Top+1&font=montserrat&bold=true" alt="TikTok Thumbnail" width="300"/>
+      </a><br/>
+      <b>🎬 #4 — TikTok</b><br/>
+      <sub>milesreevesai — 620,400 views</sub>
+    </td>
+    <td align="center" width="320">
+      <a href="https://www.youtube.com/watch?v=LkP6ocAoQkk">
+        <img src="https://img.youtube.com/vi/LkP6ocAoQkk/maxresdefault.jpg" alt="Valency Labs" width="300"/>
+      </a><br/>
+      <b>🎬 #5 — YouTube</b><br/>
+      <sub>Valency Labs — 135,974 views</sub>
     </td>
   </tr>
 </table>
+
 </div>
 
-<div align="center">
+**Ranking completo (`v > 0`, maior alcance):**
+
+| #1                                                                                     | #2                                                                                                      | #3                                                                                     | #4                                                                                          | #5                                                                                          |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| [nick_saraev — Instagram](https://www.instagram.com/reel/Da8ZthUPK98/) — **1,628,910** | [milesreevesai — TikTok](https://www.tiktok.com/@milesreevesai/video/7667980059189366019) — **620,400** | [Vaibhav Sisinty — YouTube](https://www.youtube.com/watch?v=QucgvbO5gsM) — **373,084** | [Nick Automates — YouTube Shorts](https://www.youtube.com/shorts/fZIBK_4fKq8) — **207,714** | [midudev — TikTok](https://www.tiktok.com/@midudev/video/7664636453544152342) — **177,800** |
+
+| #6                                                                                    | #7                                                                                                  | #8                                                                                  | #9                                                                           | #10                                                                                    |
+| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| [theopenstack — Instagram](https://www.instagram.com/reel/DaSs65mMrHk/) — **155,453** | [t.ghoush.ai — TikTok](https://www.tiktok.com/@t.ghoush.ai/video/7669497680527248656) — **152,800** | [Valency Labs — YouTube](https://www.youtube.com/watch?v=LkP6ocAoQkk) — **135,974** | [Asati — YouTube](https://www.youtube.com/watch?v=JjPtJcqwhqg) — **126,130** | [Vaibhav Sisinty — YouTube](https://www.youtube.com/watch?v=NuNDpeZYQ28) — **122,672** |
+
+Métricas de validação: 1002 vídeos rastreados · 7,069,190 visualizações conhecidas · 595 perfis/canais · 13+ idiomas · 13+ criadores.
 
 > 🎬 **Made a video about OmniRoute?** Open an [issue](https://github.com/diegosouzapw/OmniRoute/issues/new) or [discussion](https://github.com/diegosouzapw/OmniRoute/discussions) with the link — we'll feature it here.
 
 <br/>
-</div>
 
 <div align="center">
 
@@ -1031,7 +1150,7 @@ same process on one port, so there is no separate CLI-only package today.
   <tr><td nowrap><b>Runtime</b></td><td>Node.js 22.x / 24.x LTS — <code>&gt;=22.22.2 &lt;23 || &gt;=24.0.0 &lt;27</code></td></tr>
   <tr><td nowrap><b>Language</b></td><td>TypeScript 6.0 — <b>100% TypeScript</b> across <code>src/</code> and <code>open-sse/</code> (zero <code>any</code> in core since v2.0)</td></tr>
   <tr><td nowrap><b>Framework</b></td><td>Next.js 16 + React 19 + Tailwind CSS 4</td></tr>
-  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 95 domain modules, 110 migrations</td></tr>
+  <tr><td nowrap><b>Database</b></td><td>better-sqlite3 (SQLite, WAL journaling) + LowDB (JSON legacy) — 117 domain modules, 150 migrations</td></tr>
   <tr><td nowrap><b>Memory</b></td><td>SQLite FTS5 full-text + int8-quantized vector embeddings, typed decay</td></tr>
   <tr><td nowrap><b>Schemas</b></td><td>Zod 4 — MCP tool I/O validation + API contracts</td></tr>
   <tr><td nowrap><b>Protocols</b></td><td>MCP (stdio / HTTP / SSE) + A2A v0.3 (JSON-RPC 2.0 + SSE)</td></tr>
@@ -1092,9 +1211,9 @@ same process on one port, so there is no separate CLI-only package today.
   <tr><td nowrap><b><a href="docs/compression/COMPRESSION_RULES_FORMAT.md">Compression Rules Format</a></b></td><td>JSON rule-pack schemas for Caveman and RTK filters</td></tr>
   <tr><td nowrap><b><a href="docs/compression/COMPRESSION_LANGUAGE_PACKS.md">Compression Language Packs</a></b></td><td>Language detection and Caveman rule-pack authoring</td></tr>
   <tr><td nowrap><b><a href="docs/architecture/RESILIENCE_GUIDE.md">Resilience Guide</a></b></td><td>Circuit breakers, cooldowns, queue, anti-thundering herd, TLS spoofing</td></tr>
-  <tr><td nowrap><b><a href="docs/routing/AUTO-COMBO.md">Auto-Combo Engine</a></b></td><td>12-factor scoring, mode packs, self-healing</td></tr>
+  <tr><td nowrap><b><a href="docs/routing/AUTO-COMBO.md">Auto-Combo Engine</a></b></td><td>14-factor scoring, mode packs, self-healing</td></tr>
   <tr><td nowrap><b><a href="docs/ops/PROXY_GUIDE.md">Proxy Guide</a></b></td><td>3-level proxy system, 1proxy marketplace, registry CRUD</td></tr>
-  <tr><td nowrap><b><a href="docs/reference/FREE_TIERS.md">Free Tiers</a></b></td><td>25+ free API providers consolidated directory</td></tr>
+  <tr><td nowrap><b><a href="docs/reference/FREE_TIERS.md">Free Tiers</a></b></td><td>90+ free providers consolidated directory (42 documented token pools / 495 models)</td></tr>
   <tr><td nowrap><b><a href="docs/guides/FEATURES.md">Features Gallery</a></b></td><td>Visual dashboard tour with screenshots</td></tr>
   <tr><td nowrap><b><a href="docs/architecture/CODEBASE_DOCUMENTATION.md">Codebase Documentation</a></b></td><td>Beginner-friendly codebase walkthrough</td></tr>
 </table>
@@ -1105,7 +1224,7 @@ same process on one port, so there is no separate CLI-only package today.
   <tr><th align="left">Document</th><th align="left">Description</th></tr>
   <tr><td nowrap><b><a href="docs/reference/API_REFERENCE.md">API Reference</a></b></td><td>All endpoints with examples</td></tr>
   <tr><td nowrap><b><a href="docs/openapi.yaml">OpenAPI Spec</a></b></td><td>OpenAPI 3.0 specification</td></tr>
-  <tr><td nowrap><b><a href="open-sse/mcp-server/README.md">MCP Server</a></b></td><td>104 MCP tools, IDE configs, Python/TS/Go clients</td></tr>
+  <tr><td nowrap><b><a href="open-sse/mcp-server/README.md">MCP Server</a></b></td><td>109 MCP tools, IDE configs, Python/TS/Go clients</td></tr>
   <tr><td nowrap><b><a href="docs/frameworks/MCP-SERVER.md">MCP Server Guide</a></b></td><td>MCP installation, transports, and tool reference</td></tr>
   <tr><td nowrap><b><a href="src/lib/a2a/README.md">A2A Server</a></b></td><td>JSON-RPC 2.0 protocol, skills, streaming, task mgmt</td></tr>
   <tr><td nowrap><b><a href="docs/frameworks/A2A-SERVER.md">A2A Server Guide</a></b></td><td>A2A agent card, tasks, skills, and streaming</td></tr>
@@ -1119,7 +1238,7 @@ same process on one port, so there is no separate CLI-only package today.
   <tr><td nowrap><b><a href="docs/ops/BRANCHING_MODEL.md">Branching & Release Model</a></b></td><td>Where PRs target (<code>release/*</code>), what <code>main</code> and tags mean</td></tr>
   <tr><td nowrap><b><a href="CHANGELOG.md">Changelog</a></b></td><td>Full per-version release history</td></tr>
   <tr><td nowrap><b><a href="SECURITY.md">Security Policy</a></b></td><td>Vulnerability reporting and security practices</td></tr>
-  <tr><td nowrap><b><a href="docs/guides/I18N.md">i18n Guide</a></b></td><td>40+ language support, translation workflow, RTL</td></tr>
+  <tr><td nowrap><b><a href="docs/guides/I18N.md">i18n Guide</a></b></td><td>43-language support, translation workflow, RTL</td></tr>
   <tr><td nowrap><b><a href="docs/ops/RELEASE_CHECKLIST.md">Release Checklist</a></b></td><td>Pre-release validation steps</td></tr>
   <tr><td nowrap><b><a href="docs/ops/COVERAGE_PLAN.md">Coverage Plan</a></b></td><td>Test coverage strategy and 25,000+ test suite</td></tr>
 </table>
@@ -1262,7 +1381,7 @@ A heartfelt thank-you to the people who fund OmniRoute out of their own pocket �
 
 <div align="center">
 
-## 👥 500+ Contributors
+## 👥 320+ Contributors
 
 </div>
 

@@ -17,7 +17,6 @@ import { CLI_TOOLS } from "../../src/shared/constants/cliTools.ts";
 
 const RETIRED_PUBLIC_MODELS = [
   "gemini-3-pro-preview",
-  "gemini-3.1-pro-high",
   "gemini-2.5-pro",
   "gemini-2.5-computer-use-preview-10-2025",
 ] as const;
@@ -35,6 +34,12 @@ const EXPECTED_LEADING_MODEL_ORDER = [
   "gemini-3.5-flash-extra-low",
 ] as const;
 
+const EXPECTED_ANTIGRAVITY_LEADING_MODEL_ORDER = [
+  "gemini-3.7-flash-high",
+  "gemini-3.7-flash-medium",
+  ...EXPECTED_LEADING_MODEL_ORDER,
+] as const;
+
 const ACTIVE_FLASH_MODEL_IDS = [
   "gemini-3-flash-agent",
   "gemini-3.5-flash-low",
@@ -47,15 +52,15 @@ const CURRENT_36_FLASH_MODEL_IDS = [
   "gemini-3.6-flash-low",
 ] as const;
 
-test("Antigravity and AGY place the live Gemini 3.6 default tiers first", () => {
-  for (const [provider, models] of [
-    ["antigravity", ANTIGRAVITY_PUBLIC_MODELS],
-    ["agy", AGY_PUBLIC_MODELS],
+test("Antigravity and AGY place their live Gemini Flash tiers first", () => {
+  for (const [provider, models, expectedOrder] of [
+    ["antigravity", ANTIGRAVITY_PUBLIC_MODELS, EXPECTED_ANTIGRAVITY_LEADING_MODEL_ORDER],
+    ["agy", AGY_PUBLIC_MODELS, EXPECTED_LEADING_MODEL_ORDER],
   ] as const) {
     assert.deepEqual(
-      models.slice(0, EXPECTED_LEADING_MODEL_ORDER.length).map((model) => model.id),
-      EXPECTED_LEADING_MODEL_ORDER,
-      `${provider} public catalog must place the live Gemini 3.6 default tiers first`
+      models.slice(0, expectedOrder.length).map((model) => model.id),
+      expectedOrder,
+      `${provider} public catalog must place its live Gemini Flash tiers first`
     );
   }
 });
@@ -82,7 +87,7 @@ test("AGY free-model metadata excludes unavailable Gemini 2.5 Pro", () => {
   );
 });
 
-test("Antigravity and AGY expose gemini-pro-agent as the only Gemini 3.1 Pro High id", () => {
+test("Antigravity and AGY expose gemini-pro-agent and gemini-3.1-pro-high as callable Gemini 3.1 Pro High ids", () => {
   const antigravityModels = new Map(
     ANTIGRAVITY_PUBLIC_MODELS.map((model) => [model.id, model.name])
   );
@@ -91,7 +96,7 @@ test("Antigravity and AGY expose gemini-pro-agent as the only Gemini 3.1 Pro Hig
 
   assert.equal(antigravityModels.has("gemini-3.1-pro-high"), false);
   assert.equal(agyModels.has("gemini-3.1-pro-high"), false);
-  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-high"), false);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-high"), true);
   assert.equal(isUserCallableAgyModelId("gemini-3.1-pro-high"), false);
   assert.deepEqual(getAntigravityModelFallbacks("gemini-3.1-pro-high"), []);
   assert.equal(

@@ -1,13 +1,13 @@
-import path from "node:path";
-import os from "node:os";
 import fs from "node:fs";
+import { applyEdits, modify, parse, printParseErrorCode, type ParseError } from "jsonc-parser";
 import {
   parseOutboundUrl,
   isCloudMetadataHost,
   OutboundUrlGuardError,
 } from "../../../shared/network/outboundUrlGuard";
+import { resolveOpencodeConfigPath } from "../../../shared/services/opencodeConfigPath";
 
-const CONFIG_PATH = path.join(os.homedir(), ".config", "opencode", "opencode.json");
+const JSON_FORMATTING_OPTIONS = { insertSpaces: true, tabSize: 2 } as const;
 
 /**
  * SSRF guard for the catalog fetch (CodeQL js/request-forgery #326). The catalog
@@ -21,10 +21,11 @@ const CONFIG_PATH = path.join(os.homedir(), ".config", "opencode", "opencode.jso
 export function assertSafeCatalogUrl(rawUrl: string): URL {
   const url = parseOutboundUrl(rawUrl); // throws on bad protocol / embedded creds
   if (isCloudMetadataHost(url.hostname)) {
-    throw new OutboundUrlGuardError(
-      "Blocked cloud-metadata catalog URL (SSRF protection)",
-      { code: "OUTBOUND_URL_GUARD_BLOCKED", url: url.toString(), hostname: url.hostname }
-    );
+    throw new OutboundUrlGuardError("Blocked cloud-metadata catalog URL (SSRF protection)", {
+      code: "OUTBOUND_URL_GUARD_BLOCKED",
+      url: url.toString(),
+      hostname: url.hostname,
+    });
   }
   // Return the re-parsed URL so callers fetch the validated value (a `new URL()`
   // round-trip is a recognized request-forgery barrier — clears CodeQL #326).
@@ -53,6 +54,9 @@ interface CatalogModelEntry {
     tool_calling?: boolean;
     vision?: boolean;
   };
+  /** OpenAI-compatible modality arrays; some upstreams return these. */
+  input_modalities?: string[];
+  output_modalities?: string[];
 }
 
 /** Per-model override carried over from the user's existing opencode.json. */
@@ -127,9 +131,7 @@ export async function fetchOmniRouteCatalog(
       signal: controller.signal,
     });
     if (!response.ok) {
-      throw new Error(
-        `OmniRoute /v1/models returned ${response.status} ${response.statusText}`
-      );
+      throw new Error(`OmniRoute /v1/models returned ${response.status} ${response.statusText}`);
     }
     const body = (await response.json()) as unknown;
     const list: unknown[] = Array.isArray(body)
@@ -167,6 +169,65 @@ export async function fetchOmniRouteCatalog(
  * window. The user can override per-model via `limit.context` in their
  * existing opencode.json, or fix the upstream catalog.
  */
+/**
+ * Map catalog capabilities/modalities to OpenCode model capability fields.
+ * Preserves explicit user-set booleans (including `false`) over any catalog
+ * value -- a deliberate local restriction must never be overwritten.
+ *
+ * Mapping rules per field:
+ *  - `attachment`: explicit user flag; then catalog `capabilities.attachment`;
+ *    then `capabilities.vision`; then `input_modalities` containing `image`.
+ *  - `reasoning`: explicit user flag; then `capabilities.reasoning`.
+ *  - `temperature`: explicit user flag; then `capabilities.temperature`.
+ *  - `tool_call`: explicit user flag; then `capabilities.tool_calling`.
+ */
+function deriveOpenCodeCapabilities(
+  catalog: CatalogModelEntry | undefined,
+  existing: ExistingModelEntry | undefined
+): Pick<ExistingModelEntry, "attachment" | "reasoning" | "temperature" | "tool_call"> {
+  const result: Pick<ExistingModelEntry, "attachment" | "reasoning" | "temperature" | "tool_call"> =
+    {};
+
+  // attachment: explicit user flag wins, then catalog attachment, then vision, then image modality.
+  if (typeof existing?.attachment === "boolean") {
+    result.attachment = existing.attachment;
+  } else if (catalog?.capabilities) {
+    if (typeof catalog.capabilities.attachment === "boolean") {
+      result.attachment = catalog.capabilities.attachment;
+    } else if (catalog.capabilities.vision === true) {
+      result.attachment = true;
+    } else if (
+      Array.isArray(catalog.input_modalities) &&
+      catalog.input_modalities.includes("image")
+    ) {
+      result.attachment = true;
+    }
+  }
+
+  // reasoning: explicit user flag wins, then catalog reasoning.
+  if (typeof existing?.reasoning === "boolean") {
+    result.reasoning = existing.reasoning;
+  } else if (catalog?.capabilities?.reasoning === true) {
+    result.reasoning = true;
+  }
+
+  // temperature: explicit user flag wins, then catalog temperature.
+  if (typeof existing?.temperature === "boolean") {
+    result.temperature = existing.temperature;
+  } else if (catalog?.capabilities?.temperature === true) {
+    result.temperature = true;
+  }
+
+  // tool_call: explicit user flag wins, then catalog tool_calling.
+  if (typeof existing?.tool_call === "boolean") {
+    result.tool_call = existing.tool_call;
+  } else if (catalog?.capabilities?.tool_calling === true) {
+    result.tool_call = true;
+  }
+
+  return result;
+}
+
 function resolveContextLength(entry: CatalogModelEntry): number | undefined {
   const candidates = [entry.context_length, entry.max_context_window_tokens];
   for (const c of candidates) {
@@ -196,11 +257,15 @@ function buildModelEntry(
 
   const entry: ExistingModelEntry = { name };
 
-  // Round-trip capability flags from the existing config (if any).
-  for (const flag of ["attachment", "reasoning", "temperature", "tool_call"] as const) {
-    const value = existing?.[flag];
-    if (typeof value === "boolean") entry[flag] = value;
-  }
+  // Derive capability flags from the catalog, preserving explicit user overrides.
+  // Explicit user booleans (including `false`) always win; catalog capabilities
+  // fill in missing values so newly discovered models are not presented as
+  // text-only to OpenCode clients.
+  const caps = deriveOpenCodeCapabilities(catalog, existing);
+  if (typeof caps.attachment === "boolean") entry.attachment = caps.attachment;
+  if (typeof caps.reasoning === "boolean") entry.reasoning = caps.reasoning;
+  if (typeof caps.temperature === "boolean") entry.temperature = caps.temperature;
+  if (typeof caps.tool_call === "boolean") entry.tool_call = caps.tool_call;
 
   // Preserve any extra top-level keys the user set (variants, headers, etc.)
   // that we don't model explicitly.
@@ -219,10 +284,7 @@ function buildModelEntry(
   // (OpenCode v1 defaults to 128K when `limit.context` is missing.)
   const userLimit = existing?.limit?.context;
   const catalogLimit = catalog ? resolveContextLength(catalog) : undefined;
-  const context =
-    typeof userLimit === "number" && userLimit > 0
-      ? userLimit
-      : catalogLimit;
+  const context = typeof userLimit === "number" && userLimit > 0 ? userLimit : catalogLimit;
 
   // `limit.output` is REQUIRED by OpenCode's v1 provider schema (configV1).
   // Use the catalog's max_output_tokens when available; otherwise fall
@@ -237,21 +299,18 @@ function buildModelEntry(
       ? catalog.max_output_tokens
       : undefined;
   const output =
-    typeof userOutput === "number" && userOutput > 0
-      ? userOutput
-      : catalogOutput ?? 8_192;
+    typeof userOutput === "number" && userOutput > 0 ? userOutput : (catalogOutput ?? 8_192);
 
   // Emit `limit` only if we have at least one of context/output. We never
   // emit a half-baked limit block with only an `output` (would be misleading).
-  if (typeof context === "number" || typeof userOutput === "number" || typeof catalogOutput === "number") {
+  if (
+    typeof context === "number" ||
+    typeof userOutput === "number" ||
+    typeof catalogOutput === "number"
+  ) {
     const limit: { context?: number; input?: number; output?: number } = {};
     if (typeof context === "number") limit.context = context;
-    if (typeof userOutput === "number" || typeof catalogOutput === "number") {
-      limit.output =
-        typeof userOutput === "number" && userOutput > 0
-          ? userOutput
-          : catalogOutput ?? 8_192;
-    }
+    limit.output = output;
     const userInput = existing?.limit?.input;
     if (typeof userInput === "number" && userInput > 0) {
       limit.input = userInput;
@@ -266,26 +325,81 @@ function buildModelEntry(
 }
 
 /**
- * Load the user's current opencode.json (if any) so we can preserve names,
- * capability flags, and explicit `limit.context` overrides. JSONC comments
- * are not supported — we parse as plain JSON. If parsing fails, we fall
- * back to an empty config; the resulting write will lose comments, but
- * that matches the existing CLI behavior of `config set opencode`.
+ * Load the user's current OpenCode config so we can preserve names,
+ * capability flags, explicit `limit.context` overrides, and JSONC source text.
+ * Existing invalid files are a hard stop: replacing one with a regenerated
+ * document would silently lose comments, unrelated providers, and settings.
  */
-function loadExistingConfig(): ExistingConfig {
+function loadExistingConfig(configPath: string): { config: ExistingConfig; source: string | null } {
+  if (!fs.existsSync(configPath)) return { config: {}, source: null };
+
+  let source: string;
   try {
-    if (!fs.existsSync(CONFIG_PATH)) return {};
-    const raw = fs.readFileSync(CONFIG_PATH, "utf8");
-    return JSON.parse(raw) as ExistingConfig;
-  } catch {
-    return {};
+    source = fs.readFileSync(configPath, "utf8");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read existing OpenCode config at ${configPath}: ${message}`);
   }
+
+  const errors: ParseError[] = [];
+  const parsed = parse(source, errors, { allowTrailingComma: true, disallowComments: false });
+  if (errors.length > 0 || !parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    const detail = errors[0] ? printParseErrorCode(errors[0].error) : "root must be an object";
+    throw new Error(
+      `Existing OpenCode config at ${configPath} is invalid JSONC (${detail}); refusing to overwrite it.`
+    );
+  }
+
+  return { config: parsed as ExistingConfig, source };
+}
+
+/**
+ * Patch the generated values into an existing JSONC document without replacing
+ * its comments or unrelated keys. The generated object is authoritative for
+ * the fields the generator manages; everything else remains byte-for-byte
+ * unless jsonc-parser must adjust nearby whitespace for an edit.
+ */
+function mergeGeneratedConfigText(
+  existingSource: string | null,
+  existingConfig: ExistingConfig,
+  generatedConfig: Record<string, unknown>,
+  providerId: string
+): string {
+  if (existingSource === null) return JSON.stringify(generatedConfig, null, 2);
+
+  let nextText = existingSource;
+  const schemaEdits = modify(nextText, ["$schema"], generatedConfig.$schema, {
+    formattingOptions: JSON_FORMATTING_OPTIONS,
+  });
+  nextText = applyEdits(nextText, schemaEdits);
+
+  const generatedProvider = (
+    generatedConfig.provider as Record<string, ExistingProviderEntry> | undefined
+  )?.[providerId];
+  const providerEdits = modify(nextText, ["provider", providerId], generatedProvider, {
+    formattingOptions: JSON_FORMATTING_OPTIONS,
+  });
+  nextText = applyEdits(nextText, providerEdits);
+
+  if (generatedConfig.model !== existingConfig.model) {
+    const modelEdits = modify(nextText, ["model"], generatedConfig.model, {
+      formattingOptions: JSON_FORMATTING_OPTIONS,
+    });
+    nextText = applyEdits(nextText, modelEdits);
+  }
+
+  return nextText;
 }
 
 export interface GenerateOpencodeOptions {
   baseUrl: string;
   apiKey: string;
   model?: string;
+  /**
+   * Pre-resolved destination used by the API generator/apply pipeline so the
+   * file read for merging is guaranteed to be the file later written.
+   */
+  configPath?: string;
   /**
    * Override the default `provider.id` used in the generated config.
    * Defaults to `"omniroute"`.
@@ -324,15 +438,15 @@ export interface GenerateOpencodeOptions {
  *  - Throws if the catalog fetch fails — the user must fix the upstream
  *    before we can generate a reliable opencode.json.
  */
-export async function generateOpencodeConfig(
-  options: GenerateOpencodeOptions
-): Promise<string> {
+export async function generateOpencodeConfig(options: GenerateOpencodeOptions): Promise<string> {
   const cleanBase = options.baseUrl.replace(/\/+$/, "");
   const baseURL = cleanBase.endsWith("/v1") ? cleanBase : `${cleanBase}/v1`;
 
   const providerId = options.providerId?.trim() || "omniroute";
   const fetchCatalog = options.fetchCatalog !== false;
   const timeoutMs = options.catalogTimeoutMs ?? 5_000;
+  const configPath = options.configPath ?? resolveOpencodeConfigPath();
+  const { config: existing, source: existingSource } = loadExistingConfig(configPath);
 
   // Fetch live catalog. The catalog is the source of truth — if it fails,
   // we refuse to write an opencode.json that could mislead OpenCode into
@@ -351,7 +465,6 @@ export async function generateOpencodeConfig(
 
   // Load existing config so we preserve names, capability flags, and any
   // explicit `limit.context` overrides the user has set.
-  const existing = loadExistingConfig();
   const existingProvider = existing.provider?.[providerId];
   const existingModels = (existingProvider?.models ?? {}) as Record<string, ExistingModelEntry>;
 
@@ -409,7 +522,7 @@ export async function generateOpencodeConfig(
     config.small_model = existing.small_model;
   }
 
-  return JSON.stringify(config, null, 2);
+  return mergeGeneratedConfigText(existingSource, existing, config, providerId);
 }
 
 /**

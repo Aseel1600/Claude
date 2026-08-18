@@ -29,6 +29,7 @@ test("system sidebar items: monitoring has activity at top then logs/audit/syste
       "audit-a2a",
       "health",
       "runtime",
+      "resilience-connections",
     ]
   );
 });
@@ -64,6 +65,7 @@ test("primary sidebar items place limits after cache", () => {
       "cli-agents",
       "acp-agents",
       "cloud-agents",
+      "conductor",
       "agent-bridge",
       "traffic-inspector",
       "discovery",

@@ -28,17 +28,44 @@ import { getCallLogPipelineCaptureStreamChunks } from "@/lib/logEnv";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { stripStaleEncodingHeaders } from "../utils/upstreamResponseHeaders.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { stripTrailingSlashes } from "../utils/urlSanitize.ts";
 import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
 import {
   hasStructuredEmbeddingInput,
   prepareStructuredEmbeddingRequest,
 } from "./embeddingStructuredInput.ts";
 import { MAX_EMBEDDING_INLINE_ITEM_BYTES } from "@/shared/validation/schemas/apiV1";
+import { markAccountUnavailable } from "../../src/sse/services/auth.ts";
 
 interface ClientRawRequest {
   endpoint: string;
   body: Record<string, unknown>;
   headers: Record<string, string>;
+}
+
+/**
+ * Flatten a single embedding item's vector to the OpenAI-spec `number[]` shape.
+ *
+ * Some OpenAI-compatible embedding backends — notably a llama.cpp
+ * `llama-server --embedding --pooling ...` instance — return each vector wrapped in one
+ * extra array level: `[[...floats]]` instead of `[...floats]` for a single input. That
+ * extra level is silently spec-breaking, since a standard OpenAI-SDK consumer reading
+ * `response.data[i].embedding` gets a length-1 array holding the real vector instead of
+ * the vector itself. Unwrap only that single redundant level; vectors that are already
+ * flat (or genuinely multi-row) are left untouched. See issue #9089.
+ */
+function flattenSingleRowEmbedding(item: unknown): void {
+  if (!item || typeof item !== "object" || !("embedding" in item)) return;
+  const record = item as { embedding: unknown };
+  const embedding = record.embedding;
+  if (
+    Array.isArray(embedding) &&
+    embedding.length === 1 &&
+    Array.isArray(embedding[0]) &&
+    typeof embedding[0][0] === "number"
+  ) {
+    record.embedding = embedding[0];
+  }
 }
 
 /**
@@ -59,7 +86,11 @@ export async function handleEmbedding({
   connectionId = null,
 }: {
   body: Record<string, unknown>;
-  credentials: { apiKey?: string | null; accessToken?: string | null } | null;
+  credentials: {
+    apiKey?: string | null;
+    accessToken?: string | null;
+    providerSpecificData?: Record<string, unknown> | null;
+  } | null;
   log?: { info: (...args: unknown[]) => void; error: (...args: unknown[]) => void };
   resolvedProvider?: EmbeddingProvider | null;
   resolvedModel?: string | null;
@@ -205,6 +236,23 @@ export async function handleEmbedding({
   }
 
   let upstreamUrl = providerConfig.baseUrl;
+  if (provider === "ollama-local") {
+    const configuredBaseUrl = credentials?.providerSpecificData?.baseUrl;
+    const rawBaseUrl =
+      typeof configuredBaseUrl === "string" && configuredBaseUrl.trim().length > 0
+        ? configuredBaseUrl
+        : providerConfig.baseUrl;
+    // Use the shared O(n) helper instead of `/\/+$/` — that regex is
+    // vulnerable to polynomial backtracking on adversarial input
+    // (CodeQL js/polynomial-redos) since baseUrl is operator-configured
+    // per-connection data. See open-sse/utils/urlSanitize.ts.
+    const normalizedBaseUrl = stripTrailingSlashes(rawBaseUrl.trim());
+    const ollamaHost = normalizedBaseUrl
+      .replace(/\/v1\/(?:chat\/completions|embeddings)$/i, "")
+      .replace(/\/api\/chat$/i, "")
+      .replace(/\/v1$/i, "");
+    upstreamUrl = `${ollamaHost}/v1/embeddings`;
+  }
   let normalizeProviderResponse:
     ((data: Record<string, unknown>) => Record<string, unknown>) | null = null;
 
@@ -342,6 +390,28 @@ export async function handleEmbedding({
         connectionId,
       }).catch(() => {});
 
+      // #10347 — persist a connection-level failure marker on a hard upstream failure so
+      // the dead account is not re-selected and re-hit on the next embed request (chat
+      // parity). markAccountUnavailable classifies the status via checkFallbackError: a
+      // payment-required 402 becomes the TERMINAL state credits_exhausted (the terminal
+      // marker excludes the account from selection until an operator resets it), benign
+      // 4xx are a no-op, and terminal statuses are never overwritten. honors per-connection
+      // disableCooling. The write must never break the error response path, so it is
+      // best-effort.
+      if (connectionId) {
+        try {
+          await markAccountUnavailable(
+            connectionId,
+            response.status,
+            errorText,
+            provider,
+            model
+          );
+        } catch {
+          // swallow — the upstream error response takes priority
+        }
+      }
+
       return {
         success: false,
         status: response.status,
@@ -358,6 +428,19 @@ export async function handleEmbedding({
 
     // Log provider response
     reqLogger.logProviderResponse(response.status, "", response.headers, data);
+
+    // OpenAI-spec compliance (#9089): each item's `embedding` must be a flat number[].
+    // Some OpenAI-compatible backends (e.g. a llama.cpp `llama-server --embedding`
+    // instance) return the vector wrapped in one extra array level — `[[...floats]]`
+    // instead of `[...floats]` — for a single input, which silently breaks any standard
+    // OpenAI-SDK consumer doing `response.data[i].embedding`. Flatten that one redundant
+    // level without touching providers that already return flat vectors.
+    const responseItems = data.data || data;
+    if (Array.isArray(responseItems)) {
+      for (const item of responseItems) {
+        flattenSingleRowEmbedding(item);
+      }
+    }
 
     // Normalize response to OpenAI format
     const normalizedResponse = {

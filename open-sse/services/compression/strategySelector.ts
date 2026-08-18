@@ -7,7 +7,11 @@ import type {
 import { applyHardBudget } from "./hardBudget.ts";
 import { type FidelityGateConfig } from "./fidelityGate.ts";
 import { gateAdvance } from "./fidelityGateStep.ts";
-import type { CompressionEngineApplyOptions } from "./engines/types.ts";
+import type {
+  CompressionEngineApplyOptions,
+  CompressionStage,
+  CompressionWireFormat,
+} from "./engines/types.ts";
 import { applyLiteCompression } from "./lite.ts";
 import { cavemanCompress } from "./caveman.ts";
 import { compressAggressive } from "./aggressive.ts";
@@ -215,6 +219,10 @@ export function selectCompressionPlan(
 ): DerivedPlan {
   let plan = resolveBasePlan(config, comboId, estimatedTokens, combos, header);
 
+  // The master switch is a hard kill. In particular, adaptive context-budget planning must
+  // never turn compression back on after resolveBasePlan() has selected the disabled plan.
+  if (!config.enabled) return plan;
+
   // Adaptive context-budget floor/escalation (D-C4): after the base plan, replacing the
   // (now-bypassed) auto-trigger branch. Pure resolver; chatCore supplies the model limit.
   if (adaptiveEnabled(config) && config.contextBudget) {
@@ -258,6 +266,9 @@ export function applyCompression(
   options?: {
     model?: string;
     supportsVision?: boolean | null;
+    sourceFormat?: CompressionWireFormat;
+    targetFormat?: CompressionWireFormat;
+    compressionStage?: CompressionStage;
     config?: CompressionConfig;
     principalId?: string;
     /**
@@ -281,6 +292,9 @@ function runCompression(
   options?: {
     model?: string;
     supportsVision?: boolean | null;
+    sourceFormat?: CompressionWireFormat;
+    targetFormat?: CompressionWireFormat;
+    compressionStage?: CompressionStage;
     config?: CompressionConfig;
     principalId?: string;
     bailout?: BailoutConfig;
@@ -349,6 +363,7 @@ function runCompression(
     const result = applyLiteCompression(compressionBody, {
       ...options,
       preserveSystemPrompt: options?.config?.preserveSystemPrompt !== false,
+      ...options?.config?.lite,
     });
     return adapter.adapted ? { ...result, body: adapter.restore(result.body) } : result;
   }
@@ -464,6 +479,9 @@ export async function applyCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    sourceFormat?: CompressionWireFormat;
+    targetFormat?: CompressionWireFormat;
+    compressionStage?: CompressionStage;
     config?: CompressionConfig;
     principalId?: string;
     onEngineStep?: (step: StackedCompressionStep) => void;
@@ -483,6 +501,9 @@ async function runCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    sourceFormat?: CompressionWireFormat;
+    targetFormat?: CompressionWireFormat;
+    compressionStage?: CompressionStage;
     config?: CompressionConfig;
     principalId?: string;
     onEngineStep?: (step: StackedCompressionStep) => void;
@@ -518,10 +539,15 @@ async function runCompressionAsync(
   // Single-mode omniglyph (async-only) — resolution lives in engines/omniglyphSingleMode.ts.
   if (mode === "omniglyph") return applyOmniglyphSingleMode(body, options);
   if (mode === "stacked") {
-    const adapter = adaptBodyForCompression(
-      body,
-      options?.config?.codexResponsesConfig?.preserveToolNames
-    );
+    // Post-translation format-sensitive engines (currently OmniGlyph) must see
+    // the native provider wire shape. The generic adapter would turn Responses
+    // `input[]` into Chat `messages[]` before the engine gets a chance to use its
+    // native Responses transformer. Pre-translation callers retain the legacy
+    // adapter path for the text engines.
+    const adapter =
+      options?.compressionStage === "post-translation"
+        ? { body, adapted: false, restore: (next: Record<string, unknown>) => next }
+        : adaptBodyForCompression(body, options?.config?.codexResponsesConfig?.preserveToolNames);
     const result = await applyStackedCompressionAsync(
       adapter.body,
       options?.config?.stackedPipeline,
@@ -667,6 +693,9 @@ interface StackOptions {
   supportsVision?: boolean | null;
   /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
   providerTransport?: "direct" | "aggregator";
+  sourceFormat?: CompressionWireFormat;
+  targetFormat?: CompressionWireFormat;
+  compressionStage?: CompressionStage;
   config?: CompressionConfig;
   compressionComboId?: string | null;
   /** TV1 bail-out discipline (opt-in, default disabled). */
@@ -759,6 +788,20 @@ function buildStepOptions(
     principalId: options?.principalId,
     stepConfig,
   };
+}
+
+/**
+ * Engines that were not authored for the provider-shaped post-translation body
+ * stay in the legacy pre-translation lane. Format-sensitive engines opt into
+ * both lanes explicitly and perform their own wire-format gate.
+ */
+function canRunAtCompressionStage(
+  engine: NonNullable<ReturnType<typeof getCompressionEngine>>,
+  stage: CompressionStage | undefined
+): boolean {
+  const effectiveStage = stage ?? "pre-translation";
+  const stages = engine.metadata.executionStages;
+  return stages ? stages.includes(effectiveStage) : effectiveStage === "pre-translation";
 }
 
 function finalizeStackedResult(
@@ -889,6 +932,12 @@ function runStackedCompression(
       acc.validationErrors.add(`Unknown compression engine: "${step.engine}"`);
       continue;
     }
+    if (!canRunAtCompressionStage(engine, options?.compressionStage)) {
+      acc.validationWarnings.add(
+        `${step.engine}: skipped (stage ${options?.compressionStage ?? "pre-translation"})`
+      );
+      continue;
+    }
     // Respect the registry enabled flag: a step naming a disabled engine is skipped, so an
     // operator can turn an engine off (setEngineEnabled) without editing every pipeline.
     if (getEngineEntry(step.engine)?.enabled === false) {
@@ -993,6 +1042,12 @@ async function runStackedCompressionAsync(
     const engine = getCompressionEngine(step.engine);
     if (!engine) {
       acc.validationErrors.add(`Unknown compression engine: "${step.engine}"`);
+      continue;
+    }
+    if (!canRunAtCompressionStage(engine, options?.compressionStage)) {
+      acc.validationWarnings.add(
+        `${step.engine}: skipped (stage ${options?.compressionStage ?? "pre-translation"})`
+      );
       continue;
     }
     // Respect the registry enabled flag (same as the sync loop) — keep both in lockstep.
