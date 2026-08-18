@@ -25,7 +25,8 @@ export function sumUsageTokensThisMonth(db: SqliteAdapter = getDbInstance()): nu
            COALESCE((
              SELECT SUM(tokens_input + tokens_output)
              FROM usage_history
-             WHERE substr(timestamp, 1, 7) = strftime('%Y-%m', 'now')
+             WHERE timestamp >= strftime('%Y-%m-01T00:00:00.000Z','now')
+               AND timestamp < strftime('%Y-%m-01T00:00:00.000Z','now','+1 month')
            ), 0) +
            COALESCE((
              SELECT SUM(total_input_tokens + total_output_tokens)
