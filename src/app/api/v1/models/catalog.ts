@@ -241,17 +241,22 @@ async function buildUnifiedModelsResponseCore(
       await yieldCatalogBuildTurn();
     }
   };
-  // #9147: `getModelIsHidden()` is a SQLite read per call (custom row + compat list)
-  // and the build consults it ~16× per entry. Bulk-load the hidden-model map once
-  // (one query — `getHiddenModelsByProvider`) and resolve from memory for the whole
-  // build. A provider absent from the map has no hidden models at all — `false`,
-  // no on-demand fallback (that would reintroduce the per-call SQLite reads).
-  const hiddenModelsByProvider = getHiddenModelsByProvider();
-  const isModelHiddenBulk = (providerId: string, modelId: string): boolean => {
-    const hiddenSet = hiddenModelsByProvider.get(providerId);
-    return hiddenSet ? hiddenSet.has(modelId) : false;
-  };
   try {
+    // #9147: `getModelIsHidden()` is a SQLite read per call (custom row + compat list)
+    // and the build consults it ~16× per entry. Bulk-load the hidden-model map once
+    // (one query — `getHiddenModelsByProvider`) and resolve from memory for the whole
+    // build. A provider absent from the map has no hidden models at all — `false`,
+    // no on-demand fallback (that would reintroduce the per-call SQLite reads).
+    // Deliberately kept INSIDE this try block (not hoisted above it): the builder's
+    // own catch below is what converts a build-time failure into a sanitized 500
+    // Response instead of a rejected promise — hoisting this bulk read above the
+    // try would let a crash here propagate as an unhandled rejection instead
+    // (catalogCache.ts's in-flight coalescing does not fully consume rejections).
+    const hiddenModelsByProvider = getHiddenModelsByProvider();
+    const isModelHiddenBulk = (providerId: string, modelId: string): boolean => {
+      const hiddenSet = hiddenModelsByProvider.get(providerId);
+      return hiddenSet ? hiddenSet.has(modelId) : false;
+    };
     let settings: Record<string, any> = {};
     try {
       settings = await getSettings();
