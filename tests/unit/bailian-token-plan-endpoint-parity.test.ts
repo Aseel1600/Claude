@@ -42,18 +42,22 @@ test("validation resolves the same host the inference registry dispatches to", (
 
 test("no default endpoint still points at the Coding Plan host", () => {
   // The catalog entry is a TOKEN Plan; Coding Plan keys are a different product and the
-  // legacy host rejects Token Plan keys outright.
-  assert.ok(
-    !PROVIDER_ENDPOINTS["bailian-coding-plan"].includes(LEGACY_CODING_PLAN_HOST),
+  // legacy host rejects Token Plan keys outright. Compare parsed hostnames, not URL
+  // substrings (CodeQL js/incomplete-url-substring-sanitization).
+  assert.notEqual(
+    new URL(PROVIDER_ENDPOINTS["bailian-coding-plan"]).hostname,
+    LEGACY_CODING_PLAN_HOST,
     "PROVIDER_ENDPOINTS still defaults to the legacy Coding Plan host"
   );
-  assert.ok(
-    !DEFAULT_PROVIDER_BASE_URLS["bailian-coding-plan"].includes(LEGACY_CODING_PLAN_HOST),
+  assert.notEqual(
+    new URL(DEFAULT_PROVIDER_BASE_URLS["bailian-coding-plan"]).hostname,
+    LEGACY_CODING_PLAN_HOST,
     "the dashboard base-URL placeholder still shows the legacy Coding Plan host"
   );
   for (const region of ["global-sg", "china-beijing"] as const) {
-    assert.ok(
-      !ALIBABA_PROVIDER_ENDPOINTS["bailian-coding-plan"][region].includes(LEGACY_CODING_PLAN_HOST),
+    assert.notEqual(
+      new URL(ALIBABA_PROVIDER_ENDPOINTS["bailian-coding-plan"][region]).hostname,
+      LEGACY_CODING_PLAN_HOST,
       `region ${region} still maps to the legacy Coding Plan host`
     );
   }
