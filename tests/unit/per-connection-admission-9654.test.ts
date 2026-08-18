@@ -205,7 +205,11 @@ test("admitChatStructure with different sessionId shares the global budget", asy
   assert.ok(occupied);
 
   // Session B must NOT get independent capacity (pre-#10110 it did — that was
-  // the defect): it shares the one process-wide slot and must be rejected.
+  // the defect): it shares the one process-wide slot and must be rejected —
+  // under real heap pressure. #10183/#10268 layered a heap-conditional gate on
+  // top of this shed path (a healthy heap now gets a bounded headroom slot
+  // instead of an outright 503), so this test forces genuine pressure to keep
+  // exercising the #10110 shared-budget invariant it targets.
   const result = await admitChatStructure(
     {
       messages: Array.from({ length: 500 }, () => ({ role: "user", content: "x" })),
@@ -217,6 +221,7 @@ test("admitChatStructure with different sessionId shares the global budget", asy
       heavyMessages: 200,
       heavyTools: 64,
       heavyTokens: 32_000,
+      heapPressureCheck: () => true,
     }
   );
   assert.equal(result.admit, false);
