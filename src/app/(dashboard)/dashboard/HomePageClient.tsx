@@ -2,8 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
-import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardSkeleton, Button, Modal } from "@/shared/components";
@@ -20,8 +19,6 @@ import { getProviderDisplayLabel } from "@/shared/utils/providerDisplayLabel";
 import { useIsElectron, useOpenExternal } from "@/shared/hooks/useElectron";
 import { HomeProviderTopologySection } from "./HomeProviderTopologySection";
 import { shouldShowProviderTopologyOnHome } from "./homeAppearance";
-
-const ProviderQuotaWidget = dynamic(() => import("../home/ProviderQuotaWidget"), { ssr: false });
 
 type UpdateStep = {
   step: string;
@@ -202,13 +199,10 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
   const [updatePhase, setUpdatePhase] = useState<"idle" | "running" | "done" | "failed">("idle");
 
   // Appearance settings for home page pinning
-  const [pinProviderQuotaToHome, setPinProviderQuotaToHome] = useState(false);
   const [showQuickStartOnHome, setShowQuickStartOnHome] = useState(true); // default on
   // #4596: default hidden until appearance settings load, so the live-WS
   // topology connection is never opened before we know the user wants it.
   const [showProviderTopologyOnHome, setShowProviderTopologyOnHome] = useState(false);
-  const [autoRefreshProviderQuota, setAutoRefreshProviderQuota] = useState(false);
-  const [autoRefreshProviderQuotaInterval, setAutoRefreshProviderQuotaInterval] = useState(180);
   const [appearanceSettingsLoaded, setAppearanceSettingsLoaded] = useState(false);
 
   useEffect(() => {
@@ -217,9 +211,6 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => {
         if (data) {
-          if (typeof data.pinProviderQuotaToHome === "boolean") {
-            setPinProviderQuotaToHome(data.pinProviderQuotaToHome);
-          }
           if (typeof data.showQuickStartOnHome === "boolean") {
             setShowQuickStartOnHome(data.showQuickStartOnHome);
           }
@@ -232,12 +223,6 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
           setShowProviderTopologyOnHome(
             shouldShowProviderTopologyOnHome(data.showProviderTopologyOnHome)
           );
-          if (typeof data.autoRefreshProviderQuota === "boolean") {
-            setAutoRefreshProviderQuota(data.autoRefreshProviderQuota);
-          }
-          if (typeof data.autoRefreshProviderQuotaInterval === "number") {
-            setAutoRefreshProviderQuotaInterval(data.autoRefreshProviderQuotaInterval);
-          }
         }
       })
       .catch(() => {
@@ -1046,15 +1031,6 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
               )}
           </div>
         </div>
-      )}
-
-      {/* Pinned Provider Quota Limits */}
-      {pinProviderQuotaToHome && (
-        <Suspense fallback={<CardSkeleton />}>
-          <ProviderQuotaWidget
-            autoRefreshInterval={autoRefreshProviderQuota ? autoRefreshProviderQuotaInterval : 0}
-          />
-        </Suspense>
       )}
 
       {/* Quick Start (controlled by Appearance setting, default on) */}

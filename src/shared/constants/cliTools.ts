@@ -85,6 +85,25 @@ export const CLI_TOOLS: Record<string, CliCatalogEntry> = {
     baseUrlSupport: "full",
     defaultCommand: "codex",
   },
+  zcode: {
+    id: "zcode",
+    name: "ZCode (GLM Coding Plan)",
+    color: "#3B82F6",
+    description: "Local ZCode app-server backend; auth remains in the user's ZCode profile",
+    docsUrl: "https://zcode.z.ai",
+    configType: "custom",
+    category: "code",
+    vendor: "Z.ai",
+    // ZCode's app-server is a native length-prefixed protocol, not ACP. The
+    // zcode provider executor owns its lifecycle instead of ACP spawning it.
+    acpSpawnable: false,
+    baseUrlSupport: "none",
+    defaultCommand: "zcode",
+    notes: [
+      { type: "info", text: "Uses the local ZCode app-server and its existing builtin:zai-coding-plan login." },
+      { type: "warning", text: "The response is buffered until the ZCode turn completes." },
+    ],
+  },
   droid: {
     id: "droid",
     name: "Factory Droid",
@@ -220,6 +239,7 @@ export const CLI_TOOLS: Record<string, CliCatalogEntry> = {
     acpSpawnable: false,
     baseUrlSupport: "none",
     modelAliases: [
+      "gemini-3.7-flash",
       "gemini-3.6-flash-high",
       "gemini-3.6-flash-medium",
       "gemini-3.6-flash-low",
@@ -233,6 +253,7 @@ export const CLI_TOOLS: Record<string, CliCatalogEntry> = {
       "gpt-oss-120b-medium",
     ],
     defaultModels: [
+      createCliModel("gemini-3.7-flash", "Gemini 3.7 Flash"),
       createCliModel("gemini-3.6-flash-high", "Gemini 3.6 Flash High"),
       createCliModel("gemini-3.6-flash-medium", "Gemini 3.6 Flash Medium"),
       createCliModel("gemini-3.6-flash-low", "Gemini 3.6 Flash Low"),

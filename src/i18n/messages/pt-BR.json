@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Roteie solicitações com orçamento esgotado para o provedor/modelo de fallback gratuito de emergência.",
   "featureFlagArenaEloSyncEnabledDescription": "Ativar a sincronização periódica do ELO do leaderboard da Arena AI para classificações de inteligência do modelo.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Divulgar ids espelho claude/&lt;provider&gt;/&lt;model&gt; em /v1/models para que a descoberta de modelos do gateway Claude Code liste modelos não-Claude. Atenção: duplica as entradas do catálogo para todos os clientes quando ativado globalmente.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Ative faixas de admissão virtuais adaptativas por tenant para o despacho de provedores (#9654): o pico de um tenant não gera mais 503 para outro. A variável de ambiente OMNIROUTE_CHAT_VIRTUAL_LANES tem precedência sobre esta configuração do painel; as alterações entram em vigor ao reiniciar o servidor.",
   "sidebar": {
     "home": "Início",
     "dashboard": "Painel",
@@ -1281,6 +1282,8 @@
     "resilienceConnectionsSubtitle": "Cooldown, disjuntor, estado de bloqueio",
     "settingsModalityBridge": "Ponte de Modalidade",
     "settingsModalityBridgeSubtitle": "Fallback de imagem/áudio → texto para modelos apenas de texto",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "commandPalette": {
       "title": "Paleta de Comandos",
       "searchPlaceholder": "Pesquisar páginas, configurações, ferramentas...",
@@ -1736,6 +1739,8 @@
     "quotaShare": "Compartilhamento de Cota",
     "discovery": "Descoberta",
     "freeProviderRankings": "Ranking de Provedores Gratuitos",
+    "radar": "Radar",
+    "setup": "Configuração",
     "freeTiers": "Níveis Gratuitos",
     "gamification": "Gamification",
     "leaderboard": "Leaderboard",
@@ -1753,9 +1758,7 @@
     "tools": "Ferramentas",
     "agentBridge": "Agent Bridge",
     "trafficInspector": "Inspector de Tráfego",
-    "usage": "Uso",
-    "radar": "Radar",
-    "setup": "Configuração"
+    "usage": "Uso"
   },
   "home": {
     "quickStart": "Início Rápido",
@@ -5094,6 +5097,7 @@
     "deprecatedProvider": "Este provedor foi descontinuado",
     "riskNotice": {
       "title": "Antes de continuar",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provider com restrições de uso — clique para detalhes",
       "oauth": "Este provider usa sua sessão/OAuth oficial do produto, que não autoriza uso em proxy/router. Não recomendamos uso intensivo em agentes autônomos (estilo OpenCloud, multi-passos longos, batches grandes) — o upstream pode reagir restringindo ou banindo a conta. Use por sua conta e risco.",
       "webCookie": "Este provider autentica através dos cookies da sua sessão web. O serviço upstream pode invalidar a sessão a qualquer momento, exigindo re-login. Não recomendado para operações longas e não-supervisionadas. Use por sua conta e risco.",
@@ -5101,6 +5105,11 @@
       "dontShowAgain": "Não mostrar de novo para este provider",
       "understand": "Entendi, continuar",
       "cancel": "Cancelar"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Desativado",
     "enableProvider": "Ativar provedor",
@@ -6337,7 +6346,18 @@
     "savedModelEndpointSettings": "Configurações do endpoint do modelo salvo",
     "searchByModelAria": "Pesquisar por modelo",
     "selectSupportedEndpoint": "Selecione pelo menos um endpoint suportado",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Modelo upstream de auto-busca habilitado",
+    "autoFetchModelsDisabled": "Busca automática do modelo upstream desativada",
+    "autoFetchModels": "Buscar automaticamente modelos upstream",
+    "autoFetchModelsTooltip": "Busque e armazene em cache os modelos upstream quando necessário",
+    "autoFetchModelsToggleFailed": "Falha ao alternar a busca automática do modelo upstream",
+    "overridesUpstreamModel": "Substitui upstream",
+    "autoFetchModelsPartialFailure": "Algumas conexões foram atualizadas, mas a busca automática do modelo upstream não foi alterada em todos os lugares",
+    "overridesUpstreamModelHint": "Suas configurações substituem este modelo upstream",
+    "resetToUpstreamDefaults": "Restaurar padrões do upstream",
+    "resetToUpstreamDefaultsFailed": "Falha ao restaurar as configurações padrão do modelo upstream",
+    "resetToUpstreamDefaultsSuccess": "Restaurados os padrões do modelo upstream"
   },
   "settings": {
     "title": "Configurações",
@@ -6556,6 +6576,12 @@
     "autoDisableDescription": "Marca permanentemente conexões de provedor como desativadas quando retornam sinais terminais de banimento (ex.: HTTP 403 'verify your account'). Isso remove a conexão da rotação de combos.",
     "autoDisableThreshold": "Limite de banimento",
     "autoDisableThresholdDesc": "Quantidade de sinais consecutivos de banimento antes da desativação permanente.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Palavras-Chave Proibidas",
     "customBannedSignalsDesc": "Palavras-chave adicionais que acionam a detecção de banimento permanente da conta. Palavras-chave integradas sempre se aplicam.",
     "customBannedSignalsPlaceholder": "chave da API revogada",
@@ -8020,7 +8046,7 @@
     "enableCredentialRedactionDesc": "Remove as chaves da API, tokens, chaves privadas e JWTs de mensagens, chamadas de ferramentas e respostas.",
     "pricingAutoSyncDisabled": "Sincronização automática desativada",
     "pricingAutoSyncEnabled": "Sincronização automática ativada",
-    "modalityBridgeIntro": "Conecte conteúdo multimodal ao texto antes que ele chegue a modelos apenas de texto. A visão está ativa; o áudio chega com o AudioBridge; o vídeo está no roadmap.",
+    "modalityBridgeIntro": "Converta conteúdo multimodal em texto antes que ele chegue a modelos apenas de texto. As pontes de visão, áudio e vídeo estão disponíveis e podem ser configuradas.",
     "modalityBridgeVisionTab": "Visão",
     "modalityBridgeAudioTab": "Áudio",
     "modalityBridgeVideoTab": "Vídeo",
@@ -8060,7 +8086,6 @@
     "modalityBridgeTestNoop": "A ponte não foi ativada (o modelo pode suportar visão nativamente ou a ponte está desativada)",
     "modalityBridgeTestError": "Teste falhou: {message}",
     "modalityBridgeAudioComingSoon": "A ponte de áudio (fala → texto via /v1/audio/transcriptions) será lançada na próxima versão. As chaves de configuração já estão reservadas.",
-    "modalityBridgeVideoComingSoon": "A ponte de vídeo (amostragem de quadros + legendagem) está no backlog — veja a issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge movido",
     "modalityBridgeMovedBody": "As configurações do Vision Bridge agora estão na página dedicada do Modality Bridge.",
     "modalityBridgeMovedCta": "Abra as configurações do Modality Bridge",
@@ -8076,6 +8101,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clipe(s) transcrito(s) por {model}",
     "modalityBridgeAudioTestNoop": "O Audio Bridge não foi ativado (o destino pode suportar áudio, nenhum provedor de STT está conectado ou a ponte está desativada)",
     "modalityBridgeAudioTestError": "Teste de áudio falhou: {message}",
+    "modalityBridgeVideoTitle": "Ponte de vídeo",
+    "modalityBridgeVideoDesc": "Faça uma amostragem dos quadros do vídeo, descreva-os com um modelo de visão e continue com o modelo de texto escolhido.",
+    "modalityBridgeVideoRuntimeReady": "Ambiente de execução pronto",
+    "modalityBridgeVideoRuntimeUnavailable": "Ambiente de execução indisponível",
+    "modalityBridgeVideoRuntimeInstall": "Instale o FFmpeg e o ffprobe no PATH do servidor para habilitar a extração de vídeo.",
+    "modalityBridgeVideoEnabled": "Ativar Ponte de vídeo",
+    "modalityBridgeVideoEnabledDesc": "Substitua as partes de vídeo por descrições de quadros com marcação de tempo quando o modelo de destino não puder processar vídeo.",
+    "modalityBridgeVideoModel": "Modelo de descrição de quadros",
+    "modalityBridgeVideoModelInherited": "Herdar o modelo da Ponte de visão",
+    "modalityBridgeVideoFrameCount": "Quadros por vídeo",
+    "modalityBridgeVideoMaxVideos": "Máximo de vídeos por solicitação",
     "modelRoutingDescriptionPlaceholder": "Roteie os modelos Opus para a combinação frontier",
     "cliproxyapiFallbackCodes": "Códigos de Fallback do Cliproxyapi",
     "cliproxyapiFallbackDescription": "Descrição de Fallback do Cliproxyapi",
@@ -11037,7 +11073,8 @@
       "compressed": "Compressão",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",
@@ -12429,6 +12466,11 @@
       "rare": "Conquistas raras"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "Apoiador do Radar",
+        "description": "Verificou um feed ativo de apoiador do OmniRoute Radar",
+        "criteria": "Verifique um feed ativo e assinado de apoiador do Radar."
+      },
       "first-token": {
         "name": "Primeiro Token",
         "description": "Fez sua primeira solicitação de API",
@@ -12538,11 +12580,6 @@
         "name": "???",
         "description": "Uma conquista oculta espera...",
         "criteria": "Complete a conquista oculta para revelar este emblema."
-      },
-      "radar-supporter": {
-        "name": "Apoiador do Radar",
-        "description": "Verificou um feed ativo de apoiador do OmniRoute Radar",
-        "criteria": "Verifique um feed ativo e assinado de apoiador do Radar."
       }
     }
   },
@@ -13076,6 +13113,13 @@
     "description": "Usuários novos ganham 15% de créditos de API extras na primeira recarga. Use o Kimi K3 no OmniRoute pela API oficial da Kimi.",
     "cta": "Obter uma chave de API da Kimi",
     "partnerLinkNote": "Link de parceria",
+    "dismissAriaLabel": "Dispensar"
+  },
+  "vscodeCopilotBanner": {
+    "title": "O OmniRoute agora funciona dentro do VS Code Copilot Chat",
+    "description": "Instale a extensão gratuita OmniCopilot e cada modelo do OmniRoute aparece direto no seletor de modelos do Copilot Chat que você já usa.",
+    "cta": "Baixar a Extensão",
+    "secondaryNote": "Também disponível na Open VSX (Cursor, Windsurf, VSCodium…)",
     "dismissAriaLabel": "Dispensar"
   },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Anuncie os IDs de espelho <gateway-alias>/<model> em /v1/models para modelos cujo proprietário canônico não possui credenciais ativas, mas um gateway de passagem com credenciais ativas os roteia. Aviso: adiciona entradas de catálogo para todos os clientes quando ativado globalmente.",

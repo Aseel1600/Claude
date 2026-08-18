@@ -78,6 +78,7 @@ import {
   caseInsensitiveToolNameLookup,
   restoreOpenAIToolNames,
 } from "../translator/helpers/toolCallHelper.ts";
+import { restoreClaudeToolName } from "../services/claudeCodeToolRemapper.ts";
 import { normalizeFinalOpenAIStreamChunk } from "./openAIStreamChunk.ts";
 import { collectClaudeDelta } from "./streamClaudeDelta.ts";
 
@@ -576,17 +577,16 @@ function getOpenAIIntermediateChunks(value: unknown): unknown[] {
   return Array.isArray(candidate) ? candidate : [];
 }
 
-function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: unknown): boolean {
-  if (!(toolNameMap instanceof Map)) return false;
-  if (!parsed || typeof parsed !== "object") return false;
-
+export function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: unknown): boolean {
   const block =
     parsed.content_block && typeof parsed.content_block === "object"
       ? (parsed.content_block as JsonRecord)
       : null;
   if (!block || block.type !== "tool_use" || typeof block.name !== "string") return false;
 
-  const restoredName = caseInsensitiveToolNameLookup(block.name, toolNameMap) ?? block.name;
+  const map = toolNameMap instanceof Map ? toolNameMap : null;
+  const restoredName = restoreClaudeToolName(block.name, map);
+
   if (restoredName === block.name) return false;
   block.name = restoredName;
   return true;
@@ -830,7 +830,15 @@ export function createSSEStream(options: StreamOptions = {}) {
   let idleTimer: ReturnType<typeof setInterval> | null = null;
   let streamTimedOut = false;
   const claudeEmptyResponseLifecycle = createClaudeEmptyResponseLifecycle();
-  const passthroughEventPrefix = createSSEEventPrefixBuffer();
+  // `event:` framing is only part of the SSE protocol for OpenAI Responses API
+  // and Claude Messages API passthrough; a plain OpenAI Chat-Completions-format
+  // client has no `event:` field at all, so it is dropped to stop upstream
+  // control lines (`id:`/`event:`/`retry:`/`:` comments) leaking to the client
+  // (#10017).
+  const passthroughEventPrefix = createSSEEventPrefixBuffer({
+    forwardEvent:
+      clientResponseFormat === FORMATS.OPENAI_RESPONSES || clientResponseFormat === FORMATS.CLAUDE,
+  });
   const multilineSseDataLineNormalizer = createSSEDataLineNormalizer();
 
   const clearIdleTimer = () => {
@@ -1881,7 +1889,6 @@ export function createSSEStream(options: StreamOptions = {}) {
                     passthroughSawFinishReason = true;
                   }
 
-
                   if (isFinishChunk && passthroughHasToolCalls) {
                     toolFinishTime = now;
                     try {
@@ -2220,7 +2227,8 @@ export function createSSEStream(options: StreamOptions = {}) {
               },
               pushProviderPayload: (payload: unknown) => providerPayloadCollector.push(payload),
               pushClientPayload: (payload: unknown) => clientPayloadCollector.push(payload),
-              sanitizeUsagePayload: (payload: unknown) => sanitizeUsagePayloadForRequest(payload, body, clientResponseFormat),
+              sanitizeUsagePayload: (payload: unknown) =>
+                sanitizeUsagePayloadForRequest(payload, body, clientResponseFormat),
               setPassthroughResponsesId: (value: string) => {
                 passthroughResponsesId = value;
               },
@@ -2281,7 +2289,8 @@ export function createSSEStream(options: StreamOptions = {}) {
               const bufferedPayload = parseSSELine(bufferedLine);
               if (bufferedPayload) {
                 providerPayloadCollector.push(bufferedPayload);
-                if (sanitizeUsagePayloadForRequest(bufferedPayload, body, clientResponseFormat)) output = `data: ${JSON.stringify(bufferedPayload)}\n\n`;
+                if (sanitizeUsagePayloadForRequest(bufferedPayload, body, clientResponseFormat))
+                  output = `data: ${JSON.stringify(bufferedPayload)}\n\n`;
                 if (
                   shouldInjectClaudeEmptyResponseBeforeCurrentEvent(
                     claudeEmptyResponseLifecycle,

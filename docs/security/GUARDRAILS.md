@@ -1,13 +1,13 @@
 ---
 title: "Guardrails"
 version: 3.8.50
-lastUpdated: 2026-08-08
+lastUpdated: 2026-08-14
 ---
 
 # Guardrails
 
 > **Source of truth:** `src/lib/guardrails/`
-> **Last updated:** 2026-08-08 — v3.8.50 (Modality Bridge PR-3: Audio Bridge runtime and functional Audio settings tab)
+> **Last updated:** 2026-08-15 — v3.8.50 (Video Bridge broker confinement)
 
 Guardrails enforce safety, policy, and content transformations at the boundary
 between OmniRoute and upstream providers. Each guardrail can inspect (and
@@ -20,13 +20,14 @@ request. Blocking is an explicit decision (`block: true`), never an accident.
 
 ## Built-in Guardrails
 
-The registry auto-loads five guardrails in priority order on import
+The registry auto-loads six guardrails in priority order on import
 (see `registry.ts` → `registerDefaultGuardrails()`):
 
 | Priority | Name                | Stage(s)       | File                  |
 | -------- | ------------------- | -------------- | --------------------- |
 | `5`      | `vision-bridge`     | `preCall`      | `visionBridge.ts`     |
 | `6`      | `audio-bridge`      | `preCall`      | `audioBridge.ts`      |
+| `7`      | `video-bridge`      | `preCall`      | `videoBridge.ts`      |
 | `10`     | `pii-masker`        | `pre` + `post` | `piiMasker.ts`        |
 | `20`     | `prompt-injection`  | `preCall`      | `promptInjection.ts`  |
 | `95`     | `credential-masker` | `pre` + `post` | `credentialMasker.ts` |
@@ -91,6 +92,19 @@ the text of the **last user message** (truncated to 500 chars) to the base
 describe prompt, steering the description toward what the user actually asked
 (codex-vision-proxy pattern) and asking the vision model to transcribe visible
 text. With the flag off — or no user text — the base prompt is used unchanged.
+
+The describe self-loop's own OpenAI-compatible request (`callVisionModelSingle()`
+in `visionBridgeHelpers.ts`) always requests `image_url.detail: "high"` —
+unconditionally, for every caller/provider, not gated on any client signal.
+Low-detail sampling degrades OCR accuracy for exactly the text-transcription
+task this prompt asks for, so the describe call itself always asks for high
+detail regardless of what detail level the original inbound request used. This
+only affects the internal describe request body; it does not change how
+OmniRoute forwards the caller's own `image_url.detail` on the primary request —
+that default is applied separately, and only for detected OpenCode clients, in
+`defaultImageDetail()` (`open-sse/handlers/chatCore/upstreamBody.ts`). The
+Anthropic wire-format branch of the describe self-loop has no `detail` field
+and is unaffected by either default.
 
 #### Describe output cap (`modalityBridgeVisionMaxChars`)
 
@@ -172,7 +186,12 @@ swap is already visible in the response body's `model` field.
 
 `GET /api/modality-bridge/stats` (management auth, same tier as
 `GET /api/settings`) returns the in-memory per-modality counters
-`{ bridged, cacheHits, failures, lastUsedAt }` for `vision` and `audio`.
+`{ attempts, successes, bridged, cacheHits, failures, totalLatencyMs,
+latencySamples, averageLatencyMs, lastUsedAt }` for `vision`, `audio`, and
+`video`. `averageLatencyMs` uses `latencySamples`, not all attempts, as its
+denominator; an operation without timing does not fabricate a zero-millisecond
+sample. `bridged` remains the backward-compatible alias for successful
+conversions; failed attempts do not increment it.
 Counters reset on process restart by design
 (telemetry, not accounting).
 
@@ -186,8 +205,9 @@ default), task-aware prompting, advanced timeout/image/description-length/cache
 limits, runtime
 counters, and a guarded sample request. The Audio tab is also live: it exposes
 enablement, an STT-only model picker with Auto, timeout/max-clip limits, audio
-counters, and an `input_audio` sample test. Video remains the explicit placeholder
-tracked in issue `#9760`.
+counters, and an `input_audio` sample test. The Video tab is functional: it reports
+the FFmpeg/ffprobe runtime state, persists enable/model/frame/video/timeout limits,
+filters the model picker to vision-capable models, and exposes video counters.
 
 The former Vision Bridge card under AI settings is a compatibility link to the
 new page; it no longer owns a second copy of the form. Media Providers also
@@ -266,6 +286,153 @@ Runtime settings are DB-backed and Zod-validated:
 
 The shared cache remains controlled by `modalityBridgeCacheEnabled`,
 `modalityBridgeCacheTtlMinutes`, and `modalityBridgeCacheMaxEntries`.
+
+### Video Bridge (`videoBridge.ts`)
+
+Intercepts top-level video parts in Chat Completions `messages` and Responses
+API `input` before a target without known native video support is called.
+Supported shapes are `input_video`, `video_url`, `video_source`, HTTPS URLs,
+and `data:video/*;base64,...` data URIs. Plain filenames in text are not treated
+as video.
+
+The public `/v1` request path never imports or invokes a subprocess. Remote
+videos are downloaded under a 50 MiB bound; inline base64 videos have a
+conservative 36 MiB decoded per-video cap so the model/messages/framing envelope
+can remain inside the public JSON request admission limit of 50 MiB. Inline
+length and decoded-size estimates are checked before allocation. HTTPS is
+required on the initial remote URL and every redirect, using the existing
+public-only outbound guard with DNS pinning. The bytes then cross the exact internal
+`POST /api/modality-bridge/video/extract` broker boundary. That route is both
+`LOCAL_ONLY` and `SPAWN_CAPABLE`, accepts only a per-process authenticated,
+trusted-loopback request, and never accepts a URL, filesystem path, executable,
+or argument list. The API body-size pipeline and the handler's incremental body
+reader independently enforce a 50 MiB broker input cap. Its bounded queue runs
+one extraction at a time, allows four pending jobs, and caps pending input at
+100 MiB.
+
+Inside the broker, `ffprobe` reads a private local file; the fixed format
+allowlist excludes playlist and manifest formats. For allowed MOV-family
+containers, external MOV data references remain disabled by default, and the
+fixed command does not opt in to them. Both `ffprobe` and `ffmpeg` use the
+`file`-only protocol whitelist, one thread, fixed argument arrays, no shell,
+and executables resolved from `PATH`. Attached-picture cover streams are not
+playable candidates. All playable streams must satisfy the limits, and an
+explicit default stream is preferred before the deterministic lowest-index
+fallback. Videos are limited to 600 seconds, 8,192 pixels per dimension, and
+33,554,432 source pixels. FFmpeg samples 1–16 midpoint JPEG frames, scales down
+the long edge to at most 1,024 pixels without upscaling smaller inputs, and
+never receives a URL. Sampling is `uniform` by default. The optional
+`scene_aware` and experimental `segment_aware` policies perform one additional
+fixed FFmpeg pass over the already validated local stream, select bounded
+`showinfo` scene timestamps, and fall back deterministically to the same
+uniform midpoints on detector failure, timeout, malformed output, or an empty
+candidate set. Segment-aware mode allocates midpoint samples proportionally to
+the validated scene intervals. The hard 16-frame cap is
+applied after selection in every policy. A caller may optionally provide a
+finite focus window (`start`/`end` seconds); bounds are clamped to the media
+duration, reversed or non-finite windows are rejected, and all sampling
+policies are performed only inside the normalized interval. The resulting
+window is included in sampling metadata and in the untrusted description
+prefix so downstream models can distinguish a focused excerpt from the full
+timeline.
+Each frame is limited to 4 MiB, all raw frames together to 23 MiB, and the
+serialized broker response to 32 MiB. A private temporary directory is removed
+in `finally`. OmniRoute does not bundle FFmpeg and does not accept a custom
+executable path. Before captioning, the bridge applies a conservative visual
+deduplication pass: each JPEG is reduced to a 16×16 grayscale buffer and is
+compared only with the last frame retained, using a fixed similarity threshold
+of 0.04 — a deliberate constant chosen for predictability, not a runtime
+setting. The first and final timeline frames
+are always retained; comparator or decoder errors fail open and keep coverage.
+The output metadata reports how many frames were dropped.
+
+An explicitly marked video part may request a timestamped contact sheet. The
+bridge builds at most a 4-column, 16-frame JPEG grid and labels the resulting
+observation with every source timestamp. If `sharp` cannot decode or compose
+the grid, the bridge falls back to the individual JPEG frames; a client abort
+still propagates through the sheet operation.
+
+Callers may attach an optional `transcript.cues` array to a supported video
+part when they already possess aligned text. Each cue must carry `text`, a
+finite `start`/`end` interval inside the probed duration, and a whitelisted
+`source` (`client`, `embedded`, or `audio-bridge`); `confidence` defaults to
+`1` and must remain between `0` and `1`. Exact duplicate cues are collapsed.
+OmniRoute never starts transcription from this metadata: validated cues are
+copied into the described result with source, confidence, and interval, and
+are rendered as untrusted observations alongside the frame captions. Invalid,
+out-of-range, or provenance-free text is rejected rather than mixed into the
+caption stream.
+
+An advanced caller may provide an already-authorized `audioTranscript` track
+for the same video. The fusion seam runs visual and audio observations under
+one deadline and abort signal, orders them on a common timeline, collapses
+exact duplicates, and reports a partial result when only one side succeeds.
+An invalid `audioTranscript` degrades to that partial result — the visual
+description is kept and the audio branch records a sanitized failure code —
+instead of failing the whole video. Per-branch availability, the partial flag,
+and the sanitized failure codes are preserved in the described result, in the
+guardrail metadata (`audioFusionRuns`/`audioFusionPartials`/
+`audioFusionFailureCodes`), in the result-cache metadata, and in the bridge
+fusion counters. The default Video Bridge path does not invoke speech-to-text
+or download a second media copy; without that explicit track, it remains
+video-only.
+
+The internal `/api/modality-bridge/video/drilldown` lifecycle is a separate,
+loopback/token-authenticated cache. It stores at most 16 JPEG frames per entry,
+keeps entries isolated by session and video reference, expires them after ten
+minutes, and supports bounded `start`/`end` reads or explicit session deletion.
+Besides the per-entry limits, the cache enforces a global 256 MiB decoded-byte
+budget: least-recently-used entries are evicted until new content fits, and an
+entry larger than the whole budget is rejected outright.
+It only slices materialized frames and cannot increase the cost of the primary
+video request.
+
+Frames are captioned sequentially with the configured Video model. An empty
+Video override inherits the Vision setting; if both are empty, the Vision
+auto-router selects the effective vision-capable model. Successful captions
+replace the original part with a stable `[Video description:` prefix that also
+marks the text as an untrusted media-derived observation and tells downstream
+models not to follow instructions found in the media. Frame-caption cache keys
+include the JPEG bytes, prompt, timestamp, and effective model; only successful
+captions are cached. Cache entries retain the actual successful producer model,
+including a fallback model; the bridge reports `mixed` when different frames
+were produced by different models. A cache hit reuses that producer identity
+instead of relabeling it as the requested routing plan. The whole-video result
+cache is keyed on every input that changes the output — prompt, effective
+model, sampling policy, frame count, focus window, `transcript`,
+`audioTranscript`, and the contact-sheet flag — so changing any of those
+dimensions is a cache miss, never a stale reuse.
+
+The guardrail extracts every supported video part but describes no more than
+`modalityBridgeVideoMaxVideos`. For a target proven to have
+`supportsVideo === false`, failed and over-limit videos become explicit safe
+text markers so no raw video survives. When capability is unknown, those parts
+remain untouched. Targets with `supportsVideo === true` bypass the bridge.
+The client request abort signal propagates through download, broker queue,
+subprocesses, and caption calls; aborts stop between videos and never fail open
+to raw media.
+
+Runtime settings are DB-backed and Zod-validated:
+
+| Key                                 | Default     | Range / behavior                                                                                    |
+| ----------------------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
+| `modalityBridgeVideoEnabled`        | `false`     | Optional runtime, opt-in                                                                            |
+| `modalityBridgeVideoModel`          | `""`        | Inherit the Vision Bridge model                                                                     |
+| `modalityBridgeVideoFrameCount`     | `8`         | 1–16                                                                                                |
+| `modalityBridgeVideoSamplingPolicy` | `"uniform"` | `uniform`, `scene_aware`, or proportional `segment_aware`; detector failure falls back to `uniform` |
+| `modalityBridgeVideoMaxVideos`      | `1`         | 1–4                                                                                                 |
+| `modalityBridgeVideoTimeout`        | `120000`    | 1000–120000 ms                                                                                      |
+
+Legacy persisted Video timeout values above 120 seconds are clamped to the
+broker deadline; new settings writes above that limit are rejected.
+`GET /api/modality-bridge/video/runtime` requires trusted stamped loopback
+locality before authentication or runtime probing, then requires management
+auth. It returns only `available`, sanitized FFmpeg/ffprobe versions, and a fixed
+reason when the runtime is unavailable. The internal extraction endpoint is not
+a public upload API: queue saturation returns `503` plus `Retry-After`, a caller
+disconnect returns `499`, and the fixed broker deadline returns `504`. Converted responses add
+`video->text;model=<visionModel>;parts=<videos>` to the central
+`x-omniroute-modality-bridge` header without removing Vision or Audio segments.
 
 ### PII Masker (`piiMasker.ts`)
 
@@ -391,6 +558,7 @@ interface GuardrailContext {
   method?: string | null;
   model?: string | null;
   provider?: string | null;
+  signal?: AbortSignal;
   sourceFormat?: string | null;
   stream?: boolean;
   targetFormat?: string | null;
@@ -400,6 +568,7 @@ interface GuardrailContext {
 A guardrail signals "no change" by returning either `void`, `{}`, or
 `{ block: false }`. Returning a `modifiedPayload`/`modifiedResponse` replaces
 the value flowing through the chain for downstream guardrails.
+`signal?: AbortSignal` carries the caller lifecycle into guardrails. A request abort is the deliberate fail-open exception: media bridges stop work and cleanup without restoring raw media to a target known not to support it.
 
 ## Registry (`registry.ts`)
 
@@ -489,6 +658,13 @@ Audio uses `modalityBridgeAudioEnabled`, `modalityBridgeAudioModel`,
 `modalityBridgeAudioTimeout`, and `modalityBridgeAudioMaxClips`, plus the shared
 `modalityBridgeCache*` settings. Audio has no legacy-key fallback because these
 keys were introduced with the Modality Bridge schema.
+
+Video uses `modalityBridgeVideoEnabled`, `modalityBridgeVideoModel`,
+`modalityBridgeVideoFrameCount`, `modalityBridgeVideoSamplingPolicy`,
+`modalityBridgeVideoMaxVideos`, and
+`modalityBridgeVideoTimeout`, plus the shared `modalityBridgeCache*` settings.
+It is disabled by default because FFmpeg/ffprobe are optional operational
+dependencies and frame captioning adds latency and model cost.
 
 ## Custom Guardrails
 
