@@ -649,6 +649,12 @@ export default function EditConnectionModal({
           clientProfile: normalizeAntigravityClientProfileSetting(
             formData.antigravityClientProfile
           ),
+          // A manually-entered project id must not be overwritten by
+          // auto-discovery (loadCodeAssist) on later token refreshes. This
+          // merge is the single surviving write of providerSpecificData for
+          // antigravity (both OAuth and API-key branches rebuild the object
+          // above), so the flag has to land here to actually persist.
+          isProjectIdManual: !!trimmedCloudCodeProjectId,
         };
       }
       if (updates.providerSpecificData) {
