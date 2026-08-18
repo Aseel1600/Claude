@@ -24,8 +24,8 @@ test("Alibaba-family endpoint matrix keeps product and region boundaries distinc
       "china-beijing": "https://dashscope.aliyuncs.com/compatible-mode/v1",
     },
     "bailian-coding-plan": {
-      "global-sg": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic/v1",
-      "china-beijing": "https://coding.dashscope.aliyuncs.com/apps/anthropic/v1",
+      "global-sg": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/apps/anthropic/v1",
+      "china-beijing": "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1",
     },
     "qwen-cloud": {
       "global-sg": "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
@@ -92,7 +92,7 @@ test("DefaultExecutor applies the regional endpoint to normal requests", () => {
     codingPlan.buildUrl("qwen3.7-plus", true, 0, {
       providerSpecificData: { region: "china-beijing" },
     }),
-    "https://coding.dashscope.aliyuncs.com/apps/anthropic/v1/messages"
+    "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1/messages"
   );
 
   const qwenCloud = new DefaultExecutor("qwen-cloud");
@@ -133,7 +133,11 @@ test("provider validation probes the selected Coding Plan region", async () => {
       },
     });
     assert.equal(result.valid, true);
-    assert.deepEqual(urls, ["https://coding.dashscope.aliyuncs.com/apps/anthropic/v1/messages"]);
+    // The stored URL is a RETIRED preset, so it must not pin the connection: the
+    // china-beijing selector still wins and routes to the Token Plan CN host.
+    assert.deepEqual(urls, [
+      "https://token-plan.cn-beijing.maas.aliyuncs.com/apps/anthropic/v1/messages",
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
   }
