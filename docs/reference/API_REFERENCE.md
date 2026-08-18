@@ -270,6 +270,31 @@ Authorization: Bearer your-api-key
 → Returns all chat, embedding, and image models + combos in OpenAI format
 ```
 
+### Model id prefixes (`?prefix=`)
+
+Most models are advertised under a **provider prefix**. Which prefix you get is controlled by
+the `MODELS_CATALOG_PREFIX_MODE` feature flag, and can be overridden **per request** with a
+query parameter — useful for a client that wants a clean list without changing the server-wide
+setting for everyone else:
+
+```bash
+GET /v1/models?prefix=alias        # one id per model — the short alias prefix
+GET /v1/models?prefix=dual         # both forms (server default)
+GET /v1/models?prefix=canonical    # only the full provider-id prefix
+```
+
+| Mode | Emits | Notes |
+| --- | --- | --- |
+| `dual` | `cc/claude-sonnet-4-6` **and** `claude/claude-sonnet-4-6` | **Default.** Both ids route to the same model; kept so client configs that hardcoded either form keep working. Roughly doubles the catalog. |
+| `alias` | `cc/claude-sonnet-4-6` | One entry per model. Providers without a distinct alias still emit their entry, so nothing is lost. |
+| `canonical` | `claude/claude-sonnet-4-6` | ⚠️ The canonical row is only emitted when the canonical provider id **differs** from the alias, so providers without a distinct alias emit nothing in this mode. Prefer `alias` for a de-duplicated list. |
+
+A `dual`-mode mirror can also be recognised without the query parameter: it carries a `parent`
+field pointing at the primary id.
+
+Clients that render a model picker should request `?prefix=alias` — this is what the
+[OmniCopilot VS Code extension](../guides/VSCODE-COPILOT.md) does.
+
 ### No-thinking model variants
 
 For thinking-capable Claude models, `/v1/models` also advertises a **no-thinking** variant whose id is prefixed with `claude-3-omniroute-no-thinking/`:
@@ -665,13 +690,15 @@ X-OmniRoute-No-Cache: true
 
 ### Monitoring
 
-| Endpoint                     | Method     | Description                                                                                                                                   |
-| ---------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/sessions`              | GET        | Active session tracking                                                                                                                       |
-| `/api/rate-limits`           | GET        | Per-account rate limits                                                                                                                       |
-| `/api/monitoring/health`     | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                          |
-| `/api/cache/stats`           | GET/DELETE | Cache stats / clear                                                                                                                           |
-| `/api/modality-bridge/stats` | GET        | In-memory Modality Bridge telemetry — per-modality `bridged`/`cacheHits`/`failures`/`lastUsedAt` counters (reset on restart; management auth) |
+| Endpoint                             | Method     | Description                                                                                                                                                                                       |
+| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/sessions`                      | GET        | Active session tracking                                                                                                                                                                           |
+| `/api/rate-limits`                   | GET        | Per-account rate limits                                                                                                                                                                           |
+| `/api/monitoring/health`             | GET        | Health check + provider summary (`catalogCount`, `configuredCount`, `activeCount`, `monitoredCount`)                                                                                              |
+| `/api/cache/stats`                   | GET/DELETE | Cache stats / clear                                                                                                                                                                               |
+| `/api/modality-bridge/stats`         | GET        | In-memory `attempts`, successes/`bridged`, failures, cache hits, `totalLatencyMs`, `latencySamples`, sample-denominated `averageLatencyMs`, and last-use time (reset on restart; management auth) |
+| `/api/modality-bridge/video/runtime` | GET        | Strict trusted-loopback check before management auth/probe; sanitized FFmpeg/ffprobe availability and versions (no-store)                                                                         |
+| `/api/modality-bridge/video/extract` | POST       | Internal authenticated trusted-loopback byte broker; 50 MiB input, bounded queue/32 MiB output, `503` capacity, `499` disconnect, `504` deadline; not a public upload API                         |
 
 ### Backup & Export/Import
 
