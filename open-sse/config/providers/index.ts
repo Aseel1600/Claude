@@ -3,7 +3,6 @@ import { unorouterProvider } from "./registry/unorouter/index.ts";
 
 import { aimlapiProvider } from "./registry/aimlapi/index.ts";
 import { byteplusProvider } from "./registry/byteplus/index.ts";
-import { mimocodeProvider } from "./registry/mimocode/index.ts";
 import { ollama_cloudProvider } from "./registry/ollama-cloud/index.ts";
 import { syntheticProvider } from "./registry/synthetic/index.ts";
 import { ideogramProvider } from "./registry/ideogram/index.ts";
@@ -32,6 +31,7 @@ import { difyProvider } from "./registry/dify/index.ts";
 import { ovhcloudProvider } from "./registry/ovhcloud/index.ts";
 import { claudeProvider } from "./registry/claude/index.ts";
 import { claude_webProvider } from "./registry/claude/web/index.ts";
+import { cloudflarePlaygroundProvider } from "./registry/cloudflare-playground/index.ts";
 import { bedrockProvider } from "./registry/bedrock/index.ts";
 import { inner_aiProvider } from "./registry/inner-ai/index.ts";
 import { qoderProvider } from "./registry/qoder/index.ts";
@@ -145,8 +145,7 @@ import { vertex_partnerProvider } from "./registry/vertex/partner/index.ts";
 import { vertexProvider } from "./registry/vertex/index.ts";
 import { duckduckgo_webProvider } from "./registry/duckduckgo-web/index.ts";
 import { felo_webProvider } from "./registry/felo-web/index.ts";
-import { xaiProvider } from "./registry/xai/index.ts";
-import { xai_oauthProvider } from "./registry/xai-oauth/index.ts";
+import { xaiProvider, xai_oauthProvider } from "./registry/xai/index.ts";
 import { morphProvider } from "./registry/morph/index.ts";
 import { siliconflowProvider } from "./registry/siliconflow/index.ts";
 import { gitlab_duoProvider } from "./registry/gitlab-duo/index.ts";
@@ -154,6 +153,7 @@ import { command_codeProvider } from "./registry/command-code/index.ts";
 import { novitaProvider } from "./registry/novita/index.ts";
 import { regoloProvider } from "./registry/regolo/index.ts";
 import { devin_desktopProvider } from "./registry/devin-desktop/index.ts";
+import { zcodeProvider } from "./registry/zcode/index.ts";
 import { zed_hostedProvider } from "./registry/zed-hosted/index.ts";
 import { nanogptProvider } from "./registry/nanogpt/index.ts";
 import { scalewayProvider } from "./registry/scaleway/index.ts";
@@ -291,6 +291,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   ovhcloud: ovhcloudProvider,
   claude: claudeProvider,
   "claude-web": claude_webProvider,
+  "cloudflare-playground": cloudflarePlaygroundProvider,
   bedrock: bedrockProvider,
   "inner-ai": inner_aiProvider,
   qoder: qoderProvider,
@@ -412,6 +413,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   novita: novitaProvider,
   regolo: regoloProvider,
   "devin-desktop": devin_desktopProvider,
+  zcode: zcodeProvider,
   "zed-hosted": zed_hostedProvider,
   nanogpt: nanogptProvider,
   scaleway: scalewayProvider,
@@ -469,7 +471,6 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   venice: veniceProvider,
   kiro: kiroProvider,
   byteplus: byteplusProvider,
-  mimocode: mimocodeProvider,
   wafer: waferProvider,
   openadapter: openadapterProvider,
   dit: ditProvider,

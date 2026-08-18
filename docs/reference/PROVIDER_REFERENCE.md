@@ -1,14 +1,14 @@
 ---
 title: "Provider Reference"
 version: 3.8.50
-lastUpdated: 2026-08-15
+lastUpdated: 2026-08-18
 ---
 
 # Provider Reference
 
 > **Auto-generated** from `src/shared/constants/providers.ts` — do not edit by hand.
 > Regenerate with: `npm run gen:provider-reference`
-> **Last generated:** 2026-08-15
+> **Last generated:** 2026-08-18
 
 Total providers: **340**. See category breakdown below.
 
@@ -44,10 +44,10 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `devin-cli-agentic` | `dva` | Devin CLI Agentic Bridge | No-auth | [link](https://docs.devin.ai/work-with-devin/devin-cli) | Authentication is owned by the official Devin CLI in its isolated bridge volume. | emulated |
 | `duckduckgo-web` | `ddgw` | DuckDuckGo AI Chat | No-auth | [link](https://duckduckgo.com/duckchat) | No credentials required — DuckDuckGo AI Chat is anonymous and free. | emulated |
 | `felo-web` | `felo` | Felo | No-auth | [link](https://felo.ai) | No credentials required — Felo is a free, no-signup chat/search aggregator. | — |
-| `mimocode` | `mcode` | MiMoCode (Free) | No-auth | [link](https://mimo.mi.com) | No API key required. The executor auto-generates JWT tokens via device fingerprint bootstrap. | — |
 | `opencode` | `oc` | OpenCode Free | No-auth | [link](https://opencode.ai) | No API key required — uses OpenCode's public free endpoint. | — |
 | `theoldllm` | `tllm` | The Old LLM (Free) | No-auth | [link](https://theoldllm.vercel.app) | No credentials required. The executor auto-generates access tokens via an embedded Playwright browser instance. | — |
 | `veoaifree-web` | `veo-free` | Veo AI Free | No-auth, video | [link](https://veoaifree.com) | No auth required. Rate limited to 6 requests/hour per IP. | — |
+| `zcode` | `zc` | ZCode (GLM Coding Plan) | No-auth | [link](https://zcode.z.ai) | No API key stored by OmniRoute. The local ZCode app-server uses the existing builtin:zai-coding-plan login. | — |
 
 ## OAuth Providers (25)
 
@@ -224,8 +224,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `inception` | `inception` | Inception | API key | [link](https://docs.inceptionlabs.ai) | 10M free tokens on signup, no credit card required. |
 | `inference-net` | `inet` | Inference.net | API key | [link](https://inference.net) | $25 free credits on signup plus research grants available |
 | `internlm` | `internlm` | InternLM (Intern-S1) | API key | [link](https://internlm.intern-ai.org.cn/) | Free monthly quota ~1M input / 3M output tokens (~10 RPM) |
-| `jina-ai` | `jina` | Jina AI | API key, embed/rerank | [link](https://jina.ai) | Bearer API key for the Jina AI rerank API. |
-| `jina-reader` | `jr` | Jina Reader | API key | [link](https://jina.ai/reader) | — |
+| `jina-ai` | `jina` | Jina AI (Foundation API) | API key, embed/rerank | [link](https://jina.ai) | Bearer API key for api.jina.ai — embeddings, rerank, classify, segment, and search. Dashboard keys take precedence over JINA_AI_API_KEY. This is not the Reader / r.jina.ai card and does not fetch URLs. |
+| `jina-reader` | `jr` | Jina Reader (r.jina.ai) | API key | [link](https://jina.ai/reader) | Bearer API key for r.jina.ai URL-to-markdown (/v1/web/fetch only). Does not serve /v1/embeddings or /v1/rerank. The same Jina token as Foundation API works; OmniRoute reuses a jina-ai dashboard key or JINA_AI_API_KEY when this card is empty. |
 | `kenari` | `kenari` | Kenari | API key | [link](https://kenari.id) | Use your Kenari API key (kn-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://kenari.id/v1. |
 | `kie` | `kie` | KIE.AI | API key | [link](https://kie.ai) | — |
 | `kilo-gateway` | `kg` | Kilo Gateway | API key, aggregator | [link](https://kilo.ai) | — |
@@ -252,7 +252,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `mnn-ai` | `mnn-ai` | MNN AI | API key, aggregator | [link](https://mnnai.ru) | Free plan: $1 monthly credits, 10 RPM and access only to models marked Free. |
 | `modal` | `mdl` | Modal | API key, enterprise | [link](https://modal.com/docs) | Use the bearer token that protects your Modal deployment, if enabled. Base URL should point to your OpenAI-compatible Modal app, for example https://<workspace>--<app>.modal.run/v1. |
 | `modelscope` | `ms` | ModelScope | API key | [link](https://modelscope.cn) | Free tier via ModelScope API-Inference — Alibaba account required. |
-| `monsterapi` | `monster` | MonsterAPI | API key | [link](https://monsterapi.ai) | Get API key at monsterapi.ai |
+| `monsterapi` | `monster` | MonsterAPI | API key | [link](https://monsterapi.ai) | ⚠️ **DEPRECATED.** Monster API shuttered operations on 2026-06-30. Use alternative OpenAI-compatible providers. |
 | `moonshot` | `moonshot` | Kimi | API key | [link](https://platform.kimi.ai?aff=omniroute) | — |
 | `morph` | `morph` | Morph | API key | [link](https://morphllm.com) | Free tier: 250K credits/month, $0 |
 | `muse-code` | `mc` | Muse Code (Meta) | API key | [link](https://github.com/meta-llama/llama-stack) | Use your META_API_KEY env var as a Bearer token. Muse Code CLI uses the OpenAI Responses API wire format (POST /responses). |
@@ -342,7 +342,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `watsonx` | `watsonx` | IBM watsonx.ai Gateway | API key, enterprise | [link](https://www.ibm.com/products/watsonx-ai) | Use your watsonx bearer token. Base URL can be https://<region>.ml.cloud.ibm.com/ml/gateway/v1/ or a self-managed /ml/gateway/v1 endpoint. |
 | `writer` | `writer` | Writer | API key | [link](https://dev.writer.com) | — |
 | `x5lab` | `x5lab` | X5Lab | API key | [link](https://x5lab.dev) | Use your X5Lab API key (x5-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://api.x5lab.dev/v1. |
-| `xai` | `xai` | xAI (Grok) | API key | [link](https://x.ai) | — |
+| `xai` | `xai` | xAI (Grok) | API key | [link](https://x.ai) | Use an official xAI API key, or sign in with xAI OAuth. Grok Build JWT sessions remain a separate provider. |
 | `xiaomi-mimo` | `mimo` | Xiaomi MiMo | API key | [link](https://mimo.mi.com) | — |
 | `xiaomi-mimo-token-plan` | `mimotp` | Xiaomi MiMo Token Plan | API key | [link](https://mimo.mi.com) | — |
 | `yi` | `yi` | Yi (01.AI) | API key | [link](https://01.ai) | Get API key at platform.lingyiwanwu.com |
@@ -428,7 +428,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 
 - Catalog: [`src/shared/constants/providers.ts`](../../src/shared/constants/providers.ts)
 - Registry (per-model details): [`open-sse/config/providerRegistry.ts`](../../open-sse/config/providerRegistry.ts)
-- Executors: [`open-sse/executors/`](../../open-sse/executors/) (101 implementations)
+- Executors: [`open-sse/executors/`](../../open-sse/executors/) (103 implementations)
 - Translators: [`open-sse/translator/`](../../open-sse/translator/)
 
 ## See Also

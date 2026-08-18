@@ -1196,6 +1196,29 @@
       "stream": "https://api.cloudflare.com/client/v4/accounts"
     }
   },
+  "cloudflare-playground": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://playground.ai.cloudflare.com",
+      "stream": "https://playground.ai.cloudflare.com"
+    }
+  },
   "clova-studio": {
     "format": "openai",
     "headers": {
@@ -1604,7 +1627,7 @@
     }
   },
   "deepseek": {
-    "format": "openai",
+    "format": "openai-responses",
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -1622,8 +1645,8 @@
       }
     },
     "url": {
-      "nonStream": "https://api.deepseek.com/v1/chat/completions",
-      "stream": "https://api.deepseek.com/v1/chat/completions"
+      "nonStream": "https://api.deepseek.com/responses",
+      "stream": "https://api.deepseek.com/responses"
     }
   },
   "deepseek-web": {
@@ -2082,8 +2105,8 @@
       }
     },
     "url": {
-      "nonStream": "https://freeaiapikey.com/v1/chat/completions",
-      "stream": "https://freeaiapikey.com/v1/chat/completions"
+      "nonStream": "https://api.freeaiapikey.com/v1/chat/completions",
+      "stream": "https://api.freeaiapikey.com/v1/chat/completions"
     }
   },
   "freeinference": {
@@ -3623,29 +3646,6 @@
     "url": {
       "nonStream": "https://api.llama.com/compat/v1/chat/completions",
       "stream": "https://api.llama.com/compat/v1/chat/completions"
-    }
-  },
-  "mimocode": {
-    "format": "openai",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "nonStream": {
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      }
-    },
-    "url": {
-      "nonStream": "https://api.xiaomimimo.com",
-      "stream": "https://api.xiaomimimo.com"
     }
   },
   "minimax": {
@@ -6154,6 +6154,29 @@
     "url": {
       "nonStream": "https://chat.z.ai",
       "stream": "https://chat.z.ai"
+    }
+  },
+  "zcode": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "zcode://app-server/stdio",
+      "stream": "zcode://app-server/stdio"
     }
   },
   "zed-hosted": {

@@ -12,7 +12,7 @@ export interface FeatureFlagDefinition {
 }
 
 export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
-  // ──────────────── Security (9) ────────────────
+  // ──────────────── Security (10) ────────────────
   {
     key: "REQUIRE_API_KEY",
     label: "Require API Key",
@@ -105,6 +105,20 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     requiresRestart: false,
     warningLevel: "danger",
   },
+  {
+    key: "AUTH_LOG_INCLUDE_ACCOUNT_ID",
+    label: "Log Account IDs",
+    description:
+      "Include the account ID prefix in AUTH log lines (e.g. \"Using <provider> account: abc12345...\"). " +
+      "Disabled by default so the account identifier is redacted in shared/multi-tenant process logs. " +
+      "Independent of Debug Mode — flipping Debug Mode on does not reveal this.",
+    descriptionI18nKey: "featureFlagAuthLogIncludeAccountIdDescription",
+    category: "security",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
   // ──────────────── Network (7) ────────────────
   {
     key: "ENABLE_TLS_FINGERPRINT",
@@ -163,6 +177,18 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     type: "boolean",
     requiresRestart: false,
     warningLevel: "danger",
+  },
+  {
+    key: "NETWORK_ROTATION_SHARED_EGRESS_GUARD",
+    label: "Network Rotation Shared-Egress Guard",
+    description:
+      "On a network exception (timeout, connection refused/reset) for a multi-account rotation executor, when the failing account has no dedicated proxy, apply a short cooldown and skip other proxy-less accounts for the rest of the request instead of retrying each one. On by default (safe: no egress IP change, only reduces latency/cooldown risk on shared-egress accounts). Disable to restore immediate propagation on the first proxy-less throw.",
+    descriptionI18nKey: "featureFlagNetworkRotationSharedEgressGuardDescription",
+    category: "network",
+    defaultValue: "true",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
   },
   {
     key: "MITM_DISABLE_TLS_VERIFY",
@@ -443,6 +469,18 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     defaultValue: "false",
     type: "boolean",
     requiresRestart: false,
+    warningLevel: "info",
+  },
+  {
+    key: "OMNIROUTE_CHAT_VIRTUAL_LANES",
+    label: "Adaptive Virtual Admission Lanes",
+    description:
+      "Enable per-tenant adaptive virtual admission lanes for provider dispatch (#9654): one tenant's burst no longer 503s another. The OMNIROUTE_CHAT_VIRTUAL_LANES env var wins over this dashboard override; changes take effect at server restart.",
+    descriptionI18nKey: "featureFlagChatVirtualLanesEnabledDescription",
+    category: "runtime",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: true,
     warningLevel: "info",
   },
   {
