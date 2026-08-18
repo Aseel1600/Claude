@@ -271,7 +271,15 @@ omniroute configure codex
 
 # non-interactive
 omniroute configure codex --provider glm --model glm/glm-5.2 --name glm52
+
+# keep a frequently used model at the top of the interactive picker
+omniroute configure codex --provider glm --model glm/glm-5.2 --favorite --yes
 ```
+
+The picker keeps only model IDs (never URLs or credentials) in the local
+`model-preferences.json` file, scoped by context and CLI target. Favorites are
+shown before recent selections; use `--unfavorite` to remove a selected model
+from that context/target list.
 
 The written profile references the inference key by env var
 (`OMNIROUTE_API_KEY`) — the secret is never written to disk. For the one-time
@@ -360,13 +368,19 @@ omniroute contexts remove stg --yes
 > revoke the token on the server with `omniroute tokens revoke <id>` to actually
 > kill access.
 
-**Export / import** contexts (e.g. to move them between machines — secrets included,
-so handle the file carefully):
+**Export / import** contexts (e.g. to move them between machines). New contexts persist
+only a keychain reference; credentials are not copied into the export when the OS
+keychain is available:
 
 ```bash
 omniroute contexts export --out contexts.json     # default: stdout
 omniroute contexts import contexts.json            # overwrite; --merge to keep existing
+omniroute contexts migrate --yes                  # move legacy plaintext tokens to keychain
 ```
+
+On headless systems without a usable OS keychain, the CLI falls back to
+`config.json` with mode `0600` and prints a one-time warning. Treat exports from
+that fallback (and any legacy config before migration) as secret material.
 
 ---
 
@@ -409,8 +423,12 @@ omniroute contexts remove 192-168-0-15 --yes   # drop the local context (even if
 - `omniroute connect` reuses the login brute-force lockout + audit logging.
 - Prefer HTTPS or a Tailnet for the transport; a bare host defaults to `http://`
   for LAN/Tailscale convenience — pass a full `https://…` URL for TLS.
-- The local context file is `~/.omniroute/config.json` (`chmod 600`); tokens are
-  never printed in logs (masked to a prefix).
+- The preferred local context file is `~/.omniroute/config.json` (`chmod 600`)
+  containing only a `credentialRef`; the token itself is stored in the OS
+  keychain (`keytar`) and is never printed in logs. Headless installs without a
+  working native keychain use the same `0600` file as an explicit fallback and
+  emit a warning once. Use `omniroute contexts migrate --yes` after installing a
+  keychain backend.
 
 ---
 
