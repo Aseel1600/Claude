@@ -158,6 +158,7 @@ export default function QdrantConfigCard() {
   // connection button still drives the same check manually.
   useEffect(() => {
     if (!loading && qdrant.enabled && health === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- async health fetch gated on settings load/enable, not a raw setState
       void checkHealth();
     }
   }, [loading, qdrant.enabled, health, checkHealth]);
