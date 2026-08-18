@@ -117,6 +117,7 @@ import { getComboFailureLogError } from "./comboFailureLogging";
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
 import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextCooldowns.ts";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
 import { resolveForcedConnectionForCredentialPool } from "../services/sessionAffinityPin.ts";
@@ -1502,10 +1503,22 @@ async function handleSingleModelChat(
 
       const accountId = credentials.connectionId.slice(0, 8);
       const releaseOAuthSession = credentials.releaseOAuthSession ?? (() => {});
-      // #10348: redact account prefix by default — only show in debugMode
-      const settings = await getCachedSettings().catch(() => null);
-      const debug = (settings as Record<string, unknown>)?.debugMode === true;
-      log.info("AUTH", `Using ${provider} account: ${debug ? accountId : "***"}...`);
+      // #10348: redact the account prefix by default. Gated on the narrow
+      // AUTH_LOG_INCLUDE_ACCOUNT_ID flag (default off) rather than the broad
+      // `debugMode` setting — `debugMode` is a general dashboard-visibility
+      // toggle unrelated to log privacy (its own default has changed
+      // independently for unrelated reasons, see #10312/#10372), so deriving
+      // redaction from it would make log leakage depend on an unrelated
+      // setting. resolveFeatureFlag() reads straight from SQLite on every
+      // call (no stale cache to invalidate) and fails safe (redacted) if the
+      // lookup throws.
+      let includeAccountId = false;
+      try {
+        includeAccountId = isFeatureFlagEnabled("AUTH_LOG_INCLUDE_ACCOUNT_ID");
+      } catch {
+        includeAccountId = false;
+      }
+      log.info("AUTH", `Using ${provider} account: ${includeAccountId ? accountId : "***"}...`);
       // #474: when the request used a bare model name (no "/" — e.g. an alias
       // that resolved to "auto") and the selected connection declares a
       // defaultModel, resolve the bare name to that real model ID before the
