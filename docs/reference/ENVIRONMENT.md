@@ -1532,6 +1532,7 @@ These settings were introduced after the previous environment-contract snapshot.
 | `ADOBE_FIREFLY_LOGIN_WAIT_MS` | context-dependent | `open-sse/services/adobeFireflyChromeRuntime.ts` | Interactive-login wait budget: `0` on background renewal and `300000` on the explicit login flow unless overridden. |
 | `ADOBE_FIREFLY_FORTER_WAIT_MS` | `45000` | `open-sse/services/adobeFireflyChromeRuntime.ts` | Maximum wait for a fresh Forter token during session renewal. |
 | `CHROME_PATH` | auto-detect | `open-sse/services/adobeFireflyChromeRuntime.ts` | Optional absolute Chrome executable used when platform auto-detection is insufficient. |
+| `CLOUDFLARE_PLAYGROUND_CHROME_PATH` | auto-detect (Playwright bundled Chromium) | `open-sse/executors/cloudflare-playground.ts` | Full desktop Chrome/Chromium binary to use when Playwright's bundled Chromium is blocked by the Cloudflare AI Playground's "Attention Required" fingerprint challenge. |
 | `TELEGRAM_BOT_TOKEN` | _(unset)_ | `src/lib/telegram/config.ts` | BotFather token that enables the inbound webhook and signs Mini App `initData`. |
 | `TELEGRAM_DEFAULT_MODEL` | `auto/chat` | `src/lib/telegram/chatProxy.ts` | Model used for Telegram chat replies. |
 | `TELEGRAM_BOT_API_BASE` | `https://api.telegram.org` | `src/lib/telegram/config.ts` | Bot API base URL override for proxies or self-hosted Bot API servers. |
