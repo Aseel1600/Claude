@@ -675,13 +675,57 @@ test("chatCore rejects opaque reasoning for unknown Responses targets unless exp
   const input = enabled.call.body.input as Array<Record<string, unknown>>;
   assert.deepEqual(
     input.filter((item) => item.type === "reasoning"),
-    [{ id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" }]
+    [
+      { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
+      { type: "reasoning", summary: [{ text: "not self-contained" }] },
+    ]
   );
   assert.equal(
     input.some((item) => item.type === "item_reference"),
     false
   );
   assert.equal(input.find((item) => item.type === "function_call")?.id, undefined);
+});
+
+test("chatCore applies Chat reasoning compatibility before stream mode diverges", async () => {
+  for (const stream of [false, true]) {
+    const rejected = await invokeChatCore({
+      provider: "openai-compatible-sp-openai",
+      model: "gpt-5.4",
+      endpoint: "/v1/chat/completions",
+      credentials: {
+        apiKey: "sk-test",
+        providerSpecificData: {
+          apiType: "openai",
+          baseUrl: "https://proxy.example.com/v1",
+          prefix: "sp-openai",
+        },
+      },
+      body: {
+        model: "gpt-5.4",
+        stream,
+        messages: [
+          {
+            role: "assistant",
+            content: null,
+            reasoning_details: [{ type: "reasoning.encrypted", data: "provider-state" }],
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: { name: "search", arguments: "{}" },
+              },
+            ],
+          },
+          { role: "tool", tool_call_id: "call_1", content: "result" },
+        ],
+      },
+    });
+
+    assert.equal(rejected.result.success, false, `stream=${stream}`);
+    assert.equal(rejected.result.status, 400, `stream=${stream}`);
+    assert.equal(rejected.calls.length, 0, `stream=${stream}`);
+  }
 });
 
 test("chatCore can drop incompatible reasoning for an opted-in Combo attempt", async () => {

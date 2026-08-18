@@ -7,7 +7,7 @@ export const openaiProvider: RegistryEntry = {
   format: "openai",
   executor: "default",
   baseUrl: "https://api.openai.com/v1/chat/completions",
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   authType: "apikey",
   authHeader: "bearer",
   defaultContextLength: 128000,

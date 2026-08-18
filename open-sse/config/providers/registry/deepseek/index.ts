@@ -6,7 +6,6 @@ export const deepseekProvider: RegistryEntry = {
   format: "openai-responses",
   executor: "default",
   baseUrl: "https://api.deepseek.com/responses",
-  responsesReasoningTransport: "plaintext",
   authType: "apikey",
   authHeader: "bearer",
   alternateFormats: [

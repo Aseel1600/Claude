@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { applyResponsesInputPolicy } from "../../open-sse/services/responsesInputPolicy.ts";
+import { applyReasoningInputPolicy } from "../../open-sse/services/reasoningInputPolicy.ts";
 import { filterToOpenAIFormat } from "../../open-sse/translator/helpers/openaiHelper.ts";
 import { omitEncryptedReasoningForLog } from "../../src/lib/logPayloads.ts";
 
 // Responses reasoning replay is target-scoped. Plaintext DeepSeek state and
 // provider-generated opaque state are never interchangeable.
 
-test("unknown Responses targets drop reasoning and report incompatibility", () => {
+test("unknown Responses targets reject opaque reasoning and ignore display summaries", () => {
   const body: Record<string, unknown> = {
     input: [
       { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
@@ -24,19 +24,14 @@ test("unknown Responses targets drop reasoning and report incompatibility", () =
     ],
   };
 
-  const result = applyResponsesInputPolicy(body);
-  const input = body.input as Array<Record<string, unknown>>;
+  const originalInput = structuredClone(body.input);
+  const result = applyReasoningInputPolicy(body, "responses");
 
   assert.equal(result.incompatibleReasoning, true);
-  assert.equal(
-    input.some((item) => item.type === "reasoning"),
-    false
-  );
-  assert.equal(input.length, 2);
-  assert.equal(input[1].id, undefined, "fc_ server id stripped, item kept");
+  assert.deepEqual(body.input, originalInput, "rejection must not mutate the request");
 });
 
-test("DeepSeek preserves plaintext Responses reasoning without synthetic IDs", () => {
+test("unannotated targets preserve plaintext Responses reasoning without synthetic IDs", () => {
   const body: Record<string, unknown> = {
     input: [
       {
@@ -48,7 +43,7 @@ test("DeepSeek preserves plaintext Responses reasoning without synthetic IDs", (
     ],
   };
 
-  const result = applyResponsesInputPolicy(body, { provider: "deepseek" });
+  const result = applyReasoningInputPolicy(body, "responses", { provider: "opencode-go" });
 
   assert.equal(result.incompatibleReasoning, false);
   assert.deepEqual(body.input, [
@@ -57,6 +52,83 @@ test("DeepSeek preserves plaintext Responses reasoning without synthetic IDs", (
       content: [{ type: "reasoning_text", text: "inspect first" }],
     },
     { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] },
+  ]);
+});
+
+test("display summaries coexist with plaintext continuation without affecting compatibility", () => {
+  const body: Record<string, unknown> = {
+    input: [
+      {
+        id: "rs_plaintext_summary",
+        type: "reasoning",
+        content: [{ type: "reasoning_text", text: "inspect first" }],
+        summary: [{ type: "summary_text", text: "display only" }],
+      },
+    ],
+  };
+
+  const result = applyReasoningInputPolicy(body, "responses", { provider: "opencode-go" });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.input, [
+    {
+      type: "reasoning",
+      content: [{ type: "reasoning_text", text: "inspect first" }],
+      summary: [{ type: "summary_text", text: "display only" }],
+    },
+  ]);
+});
+
+test("unannotated targets preserve Chat plaintext and ignore display summaries", () => {
+  const body: Record<string, unknown> = {
+    messages: [
+      {
+        role: "assistant",
+        content: null,
+        reasoning_content: "inspect first",
+        summary_text: "display only",
+      },
+      { role: "user", content: "continue" },
+    ],
+  };
+  const originalMessages = body.messages;
+
+  const result = applyReasoningInputPolicy(body, "chat", { provider: "opencode-go" });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.equal(body.messages, originalMessages, "compatible Chat history should not be cloned");
+});
+
+test("Chat drop removes opaque state while preserving plaintext and summary details", () => {
+  const body: Record<string, unknown> = {
+    messages: [
+      {
+        role: "assistant",
+        content: null,
+        reasoning_content: "inspect first",
+        reasoning_details: [
+          { type: "reasoning.encrypted", data: "provider-state" },
+          { type: "reasoning.summary", text: "display only" },
+        ],
+      },
+      { role: "user", content: "continue" },
+    ],
+  };
+
+  const result = applyReasoningInputPolicy(body, "chat", {
+    provider: "opencode-go",
+    onIncompatibleReasoning: "drop",
+  });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.messages, [
+    {
+      role: "assistant",
+      content: null,
+      reasoning_content: "inspect first",
+      reasoning_details: [{ type: "reasoning.summary", text: "display only" }],
+    },
+    { role: "user", content: "continue" },
   ]);
 });
 
@@ -74,16 +146,22 @@ test("DeepSeek rejects plaintext reasoning carrying opaque provider state", () =
       ],
     };
 
-    const result = applyResponsesInputPolicy(body, { provider: "deepseek" });
+    const result = applyReasoningInputPolicy(body, "responses", { provider: "deepseek" });
 
     assert.equal(result.incompatibleReasoning, true, opaqueField);
     assert.deepEqual(body.input, [
+      {
+        id: "rs_mixed123",
+        type: "reasoning",
+        content: [{ type: "reasoning_text", text: "untrusted companion" }],
+        [opaqueField]: "provider-state",
+      },
       { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] },
     ]);
   }
 });
 
-test("drop fallback removes all reasoning when any active transport is incompatible", () => {
+test("drop fallback removes only the incompatible active transport and preserves summaries", () => {
   const plaintextReasoning = {
     id: "rs_plaintext",
     type: "reasoning",
@@ -93,6 +171,7 @@ test("drop fallback removes all reasoning when any active transport is incompati
     id: "rs_opaque",
     type: "reasoning",
     encrypted_content: "provider-state",
+    summary: [{ type: "summary_text", text: "display only" }],
   };
   const body: Record<string, unknown> = {
     input: [
@@ -102,15 +181,22 @@ test("drop fallback removes all reasoning when any active transport is incompati
     ],
   };
 
-  const result = applyResponsesInputPolicy(body, {
+  const result = applyReasoningInputPolicy(body, "responses", {
     provider: "deepseek",
     onIncompatibleReasoning: "drop",
   });
 
   assert.equal(result.incompatibleReasoning, false);
-  assert.deepEqual(body.input, [{ type: "function_call", call_id: "call_1", name: "search" }]);
+  assert.deepEqual(body.input, [
+    {
+      type: "reasoning",
+      content: [{ type: "reasoning_text", text: "inspect first" }],
+    },
+    { type: "reasoning", summary: [{ type: "summary_text", text: "display only" }] },
+    { type: "function_call", call_id: "call_1", name: "search" },
+  ]);
   assert.equal(plaintextReasoning.id, "rs_plaintext");
-  assert.equal(opaqueReasoning.id, "rs_opaque");
+  assert.equal(opaqueReasoning.encrypted_content, "provider-state");
 });
 
 test("drop fallback preserves reasoning when its transport is compatible", () => {
@@ -124,7 +210,7 @@ test("drop fallback preserves reasoning when its transport is compatible", () =>
     ],
   };
 
-  const result = applyResponsesInputPolicy(body, {
+  const result = applyReasoningInputPolicy(body, "responses", {
     provider: "deepseek",
     onIncompatibleReasoning: "drop",
   });
@@ -158,7 +244,7 @@ test("known opaque targets preserve a cloned complete provider-generated reasoni
     ],
   };
 
-  const result = applyResponsesInputPolicy(body, { provider: "openai" });
+  const result = applyReasoningInputPolicy(body, "responses", { provider: "openai" });
   assert.notEqual(
     (body.input as Array<Record<string, unknown>>)[0],
     opaqueReasoning,
@@ -185,7 +271,7 @@ test("explicit custom target opt-in remains an opaque transport override", () =>
     input: [{ type: "reasoning", encrypted_content: "encrypted-blob" }],
   };
 
-  const result = applyResponsesInputPolicy(body, { preserveEncryptedReasoning: true });
+  const result = applyReasoningInputPolicy(body, "responses", { preserveEncryptedReasoning: true });
 
   assert.equal(result.incompatibleReasoning, false);
   assert.deepEqual(body.input, [{ type: "reasoning", encrypted_content: "encrypted-blob" }]);
@@ -196,14 +282,14 @@ test("preserved opaque reasoning remains redacted from log copies", () => {
     input: [{ type: "reasoning", encrypted_content: "provider-secret-blob" }],
   };
 
-  applyResponsesInputPolicy(body, { provider: "xai" });
+  applyReasoningInputPolicy(body, "responses", { provider: "xai" });
   const logged = omitEncryptedReasoningForLog(body) as typeof body;
 
   assert.equal(body.input[0].encrypted_content, "provider-secret-blob");
   assert.equal(logged.input[0].encrypted_content, "[omitted: encrypted reasoning, 20 chars]");
 });
 
-test("summary-only reasoning is omitted for every transport", () => {
+test("summary-only reasoning is preserved independently of active transport", () => {
   const body: Record<string, unknown> = {
     input: [
       { id: "rs_summary123", type: "reasoning", summary: [{ text: "thinking..." }] },
@@ -212,10 +298,11 @@ test("summary-only reasoning is omitted for every transport", () => {
     ],
   };
 
-  const result = applyResponsesInputPolicy(body, { provider: "openai" });
+  const result = applyReasoningInputPolicy(body, "responses", { provider: "openai" });
 
   assert.equal(result.incompatibleReasoning, false);
   assert.deepEqual(body.input, [
+    { type: "reasoning", summary: [{ text: "thinking..." }] },
     { type: "message", role: "user", content: [{ type: "input_text", text: "hi" }] },
   ]);
 });

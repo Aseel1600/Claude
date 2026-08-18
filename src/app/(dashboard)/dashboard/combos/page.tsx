@@ -189,7 +189,7 @@ const ADVANCED_FIELD_HELP_FALLBACK = {
   nestedComboMode:
     "How references to other combos are handled. Flatten expands a combo ref into this combo's target list (legacy). Execute treats a combo ref as a black-box target: the parent strategy selects the child combo, then the child runs its own strategy and retries.",
   reasoningTransportFallback:
-    "What to do when the next combo target cannot accept the original reasoning transport. Skip leaves the request body untouched and falls through to the next target; Drop removes reasoning state and tries the target anyway.",
+    "What to do when the next combo target cannot accept the original reasoning transport. Drop is the default: it removes reasoning state and tries the target. Skip leaves the request body untouched and falls through.",
 };
 
 const LEGACY_COMBO_RESILIENCE_KEYS = new Set([
@@ -3815,12 +3815,12 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                       />
                       <select
                         id="combo-reasoning-transport-fallback"
-                        value={config.reasoningTransportFallback === "drop" ? "drop" : "skip"}
+                        value={config.reasoningTransportFallback === "skip" ? "skip" : "drop"}
                         onChange={(e) =>
                           setConfig({
                             ...config,
                             reasoningTransportFallback:
-                              e.target.value === "drop" ? "drop" : undefined,
+                              e.target.value === "skip" ? "skip" : undefined,
                           })
                         }
                         className="w-full text-xs py-1.5 px-2 rounded border border-black/10 dark:border-white/10 bg-surface-1 focus:border-primary focus:outline-none"
@@ -3840,7 +3840,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
                           )}
                         </option>
                       </select>
-                      {config.reasoningTransportFallback === "drop" && (
+                      {config.reasoningTransportFallback !== "skip" && (
                         <p className="text-[10px] text-amber-600 dark:text-amber-300 mt-1">
                           {getI18nOrFallback(
                             t,

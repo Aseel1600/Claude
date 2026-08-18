@@ -4,10 +4,6 @@
  * Extracted verbatim from openai-responses.ts. Registration stays in the host.
  */
 import { isOpenAIResponsesStoreEnabled } from "@/lib/providers/requestDefaults";
-import {
-  createReasoningTransportIncompatibleError,
-  resolveResponsesReasoningTransport,
-} from "../../../services/responsesInputPolicy.ts";
 import { isInternalReasoningPlaceholder } from "../../../utils/reasoningPlaceholder.ts";
 import { getReadableReasoningValue } from "../../../utils/reasoningFields.ts";
 import { generateToolCallId } from "../../helpers/toolCallHelper.ts";
@@ -92,11 +88,6 @@ export function openaiToOpenAIResponsesRequest(
   const root = toRecord(body);
   const credentialRecord = toRecord(credentials);
   const storeEnabled = isOpenAIResponsesStoreEnabled(credentialRecord.providerSpecificData);
-  const providerSpecificData = toRecord(credentialRecord.providerSpecificData);
-  const reasoningTransport = resolveResponsesReasoningTransport(
-    toString(credentialRecord._provider),
-    providerSpecificData.preserveEncryptedReasoning === true
-  );
   const result: JsonRecord = {
     model,
     input: [],
@@ -205,16 +196,12 @@ export function openaiToOpenAIResponsesRequest(
     if (role === "assistant") {
       const reasoning = getReadableReasoningValue(msg).trim();
       if (reasoning && !isInternalReasoningPlaceholder(reasoning)) {
-        if (reasoningTransport === "plaintext") {
-          // DeepSeek accepts genuine plaintext reasoning without a synthetic rs_* ID.
-          // Keep it immediately before the assistant items it belongs to.
-          input.push({
-            type: "reasoning",
-            content: [{ type: "reasoning_text", text: reasoning }],
-          });
-        } else if (Array.isArray(msg.tool_calls) || msg.function_call) {
-          throw createReasoningTransportIncompatibleError();
-        }
+        // Compatibility is decided before protocol translation; this adapter
+        // only encodes the surviving portable plaintext state.
+        input.push({
+          type: "reasoning",
+          content: [{ type: "reasoning_text", text: reasoning }],
+        });
       }
 
       // Thinking blocks remain display-only here. They do not prove that the

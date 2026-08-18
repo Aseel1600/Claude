@@ -14,7 +14,7 @@ export const muse_codeProvider: RegistryEntry = buildOpenAiCompatibleRegistryEnt
   id: "muse-code",
   alias: "mc",
   passthroughModels: true,
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   defaultContextLength: 200000,
   models: [
     {

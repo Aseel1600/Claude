@@ -878,7 +878,7 @@ async function handleChatImplementation(
     const relayConfig =
       combo.strategy === "context-relay" ? resolveComboConfig(combo, settings) : null;
     const reasoningTransportFallback =
-      combo.config?.reasoningTransportFallback === "drop" ? "drop" : "skip";
+      combo.config?.reasoningTransportFallback === "skip" ? "skip" : "drop";
     // Per-request Auto-Combo controls (#6023 / #6024 / #6025 / #3470): steer an
     // `auto` combo on this single request without mutating its stored config.
     const perRequestAutoControls = resolveRequestAutoControls(request.headers);
@@ -1204,7 +1204,7 @@ async function handleSingleModelChat(
             providerId: resolvedTarget?.providerId ?? null,
             correlationId: runtimeOptions?.correlationId ?? null,
             reasoningTransportFallback:
-              redirectCombo.config?.reasoningTransportFallback === "drop" ? "drop" : "skip",
+              redirectCombo.config?.reasoningTransportFallback === "skip" ? "skip" : "drop",
             // #7360 follow-up — see the primary handleSingleModel closure above.
             modelAbortSignal: target?.modelAbortSignal ?? null,
           },

@@ -33,7 +33,7 @@ import {
 } from "../config/codexIdentity.ts";
 import { getAccessToken } from "../services/tokenRefresh.ts";
 import { sanitizeResponsesInputItems } from "../services/responsesInputSanitizer.ts";
-import { applyResponsesInputPolicy } from "../services/responsesInputPolicy.ts";
+import { applyReasoningInputPolicy } from "../services/reasoningInputPolicy.ts";
 import { normalizeCodexVerbosity } from "../services/codexVerbosity.ts";
 import { getThinkingBudgetConfig, ThinkingMode } from "../services/thinkingBudget.ts";
 import { CORS_HEADERS } from "../utils/cors.ts";
@@ -1380,10 +1380,11 @@ export class CodexExecutor extends BaseExecutor {
     delete body.session_id;
     delete body.conversation_id;
 
-    applyResponsesInputPolicy(body, {
+    applyReasoningInputPolicy(body, "responses", {
       provider: "codex",
       preserveEncryptedReasoning:
         credentials?.providerSpecificData?.preserveEncryptedReasoning === true,
+      onIncompatibleReasoning: "drop",
     });
 
     if (nativeCodexPassthrough) {

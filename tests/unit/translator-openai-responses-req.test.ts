@@ -447,9 +447,9 @@ test("Chat -> Responses clamps call_id to 64 chars and keeps the pair matched (p
   );
 });
 
-test("Chat -> DeepSeek Responses emits ID-less plaintext reasoning before its function call", () => {
+test("Chat -> Responses defaults unannotated targets to plaintext reasoning", () => {
   const result = openaiToOpenAIResponsesRequest(
-    "deepseek-v4-pro",
+    "deepseek-v4-flash",
     {
       messages: [
         {
@@ -468,7 +468,7 @@ test("Chat -> DeepSeek Responses emits ID-less plaintext reasoning before its fu
       ],
     },
     false,
-    { _provider: "deepseek" }
+    { _provider: "opencode-go" }
   ) as { input: Array<Record<string, unknown>> };
 
   assert.deepEqual(result.input, [
@@ -514,33 +514,6 @@ test("Chat -> DeepSeek Responses accepts the plaintext reasoning alias", () => {
     type: "reasoning",
     content: [{ type: "reasoning_text", text: "Alias plaintext reasoning" }],
   });
-});
-
-test("Chat -> Responses rejects tool continuation for an incompatible target", () => {
-  assert.throws(
-    () =>
-      openaiToOpenAIResponsesRequest(
-        "gpt-5.4-pro",
-        {
-          messages: [
-            {
-              role: "assistant",
-              reasoning_content: "Provider plaintext",
-              tool_calls: [
-                {
-                  id: "call_1",
-                  type: "function",
-                  function: { name: "search", arguments: "{}" },
-                },
-              ],
-            },
-          ],
-        },
-        false,
-        { _provider: "openai" }
-      ),
-    /Reasoning continuation is not compatible/
-  );
 });
 
 test("Chat -> Responses never promotes OmniRoute's internal reasoning placeholder", () => {

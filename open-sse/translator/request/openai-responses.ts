@@ -12,7 +12,7 @@ import {
   createReasoningTransportIncompatibleError,
   hasOpaqueReasoningState,
   extractReplayableResponsesReasoningText,
-} from "../../services/responsesInputPolicy.ts";
+} from "../../services/reasoningInputPolicy.ts";
 import {
   getRegisteredProviders,
   requiresPlainStringContent,

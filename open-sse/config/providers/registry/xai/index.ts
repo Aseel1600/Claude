@@ -12,7 +12,7 @@ export const xaiProvider: RegistryEntry = {
   // XaiExecutor.buildUrl (open-sse/executors/xai.ts) for models tagged
   // targetFormat: "openai-responses" below.
   responsesBaseUrl: "https://api.x.ai/v1/responses",
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   authType: "apikey",
   authHeader: "bearer",
   models: [
@@ -55,7 +55,7 @@ export const xai_oauthProvider: RegistryEntry = {
   executor: "xai-oauth",
   baseUrl: xaiProvider.baseUrl,
   responsesBaseUrl: xaiProvider.responsesBaseUrl,
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   authType: "oauth",
   authHeader: xaiProvider.authHeader,
   passthroughModels: true,

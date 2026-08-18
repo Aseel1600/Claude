@@ -12,7 +12,7 @@ import {
   isInternalReasoningPlaceholder,
   stripInternalReasoningPlaceholder,
 } from "../../utils/reasoningPlaceholder.ts";
-import { extractReplayableResponsesReasoningText } from "../../services/responsesInputPolicy.ts";
+import { extractReplayableResponsesReasoningText } from "../../services/reasoningInputPolicy.ts";
 import {
   normalizeToolName,
   stripEmptyOptionalToolArgs,

@@ -14,7 +14,7 @@ export const chatgpt_web_codexProvider: RegistryEntry = {
   format: "openai-responses",
   executor: "chatgpt-web-codex",
   baseUrl: "https://chatgpt.com",
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   authType: "apikey",
   authHeader: "cookie",
   forceStream: true,

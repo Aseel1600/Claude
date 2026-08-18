@@ -12,7 +12,7 @@ export const codexProvider: RegistryEntry = {
   format: "openai-responses",
   executor: "codex",
   baseUrl: "https://chatgpt.com/backend-api/codex/responses",
-  responsesReasoningTransport: "opaque",
+  reasoningTransport: "opaque",
   authType: "oauth",
   authHeader: "bearer",
   defaultContextLength: 400000,

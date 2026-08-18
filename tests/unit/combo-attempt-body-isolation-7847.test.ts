@@ -22,8 +22,8 @@ const ORIGINAL_DATA_DIR = process.env.DATA_DIR;
 process.env.DATA_DIR = TEST_DATA_DIR;
 
 const { handleComboChat } = await import("../../open-sse/services/combo.ts");
-const { applyResponsesInputPolicy } =
-  await import("../../open-sse/services/responsesInputPolicy.ts");
+const { applyReasoningInputPolicy } =
+  await import("../../open-sse/services/reasoningInputPolicy.ts");
 const core = await import("../../src/lib/db/core.ts");
 const { resetAllComboMetrics } = await import("../../open-sse/services/comboMetrics.ts");
 const { resetAllCircuitBreakers } = await import("../../src/shared/utils/circuitBreaker.ts");
@@ -193,8 +193,11 @@ test("incompatible reasoning skips a target without mutating the fallback attemp
       attempts++;
       const input = received.input as Array<Record<string, unknown>>;
       if (attempts === 1) {
-        const policy = applyResponsesInputPolicy(received, { provider: "openai" });
-        assert.equal(policy.incompatibleReasoning, true);
+        const policy = applyReasoningInputPolicy(received, "responses", {
+          provider: "openai",
+          onIncompatibleReasoning: "drop",
+        });
+        assert.equal(policy.incompatibleReasoning, false);
         assert.equal(
           (received.input as Array<Record<string, unknown>>).some(
             (item) => item.type === "reasoning"
@@ -216,7 +219,9 @@ test("incompatible reasoning skips a target without mutating the fallback attemp
         "fc_shared",
         "the first target's nested input rewrite leaked into the fallback"
       );
-      const policy = applyResponsesInputPolicy(received, { provider: "deepseek" });
+      const policy = applyReasoningInputPolicy(received, "responses", {
+        provider: "deepseek",
+      });
       assert.equal(policy.incompatibleReasoning, false);
       assert.equal(
         (received.input as Array<Record<string, unknown>>)[0].type,

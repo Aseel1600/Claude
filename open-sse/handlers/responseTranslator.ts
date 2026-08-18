@@ -10,7 +10,7 @@ import {
   caseInsensitiveToolNameLookup,
   restoreOpenAIToolNames,
 } from "../translator/helpers/toolCallHelper.ts";
-import { extractReplayableResponsesReasoningText } from "../services/responsesInputPolicy.ts";
+import { extractReplayableResponsesReasoningText } from "../services/reasoningInputPolicy.ts";
 
 type JsonRecord = Record<string, unknown>;
 

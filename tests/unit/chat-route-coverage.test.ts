@@ -316,7 +316,7 @@ test("handleChat keeps protected combo fallback separate from Global Fallback Mo
   assert.equal(json.choices[0].message.content, "Global fallback answered");
 });
 
-test("handleChat applies a Combo's drop fallback to incompatible reasoning transport", async () => {
+test("handleChat defaults a Combo's incompatible reasoning fallback to drop", async () => {
   await seedConnection("deepseek", { apiKey: "sk-deepseek-reasoning-drop" });
   await combosDb.createCombo({
     name: "reasoning-transport-drop",
@@ -324,7 +324,6 @@ test("handleChat applies a Combo's drop fallback to incompatible reasoning trans
     config: {
       maxRetries: 0,
       retryDelayMs: 0,
-      reasoningTransportFallback: "drop",
     },
     models: ["deepseek/deepseek-v4-flash"],
   });
