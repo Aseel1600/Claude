@@ -1,0 +1,1 @@
+- **fix(opencode-go):** Route DeepSeek V4 Pro and Flash through native Responses to preserve replayable reasoning across function-call continuations ([#10643](https://github.com/diegosouzapw/OmniRoute/pull/10643)) — thanks @jackjinke
