@@ -1,16 +1,23 @@
 /**
  * Wrap a single-model dispatch with a per-target timeout that aborts and falls back.
  *
- * Verbatim extraction of handleComboChat's `handleSingleModelWithTimeout` closure
- * (combo.ts). Behavior is byte-identical; the only change is that the closed-over locals
- * (`handleSingleModel`, `comboTargetTimeoutMs`, `log`) became explicit factory params.
+ * Extracted from handleComboChat's `handleSingleModelWithTimeout` closure (combo.ts).
+ * A locally expired timer aborts that target and returns a typed 504 response so the Combo
+ * can fall back without treating OmniRoute's own deadline as a provider-connection failure.
  * The per-model abort signal still comes from the target (`target.modelAbortSignal`), so
  * the outer request signal is intentionally NOT a dependency here.
  *
  * See _tasks/superpowers/plans/2026-07-03-blocoJ-combo-hotpath-decomposition.md (Task 1).
  */
-import { errorResponse } from "../../utils/error.ts";
+import { buildErrorBody, errorResponse, sanitizeErrorMessage } from "../../utils/error.ts";
+import {
+  COMBO_HEDGE_CANCELLED_REASON,
+  COMBO_PER_MODEL_TIMEOUT_REASON,
+} from "./comboAbortReasons.ts";
 import type { HandleSingleModel, SingleModelTarget, ComboLogger } from "./types.ts";
+
+/** Stable internal classification for OmniRoute's own combo per-target timer. */
+export const COMBO_TARGET_TIMEOUT_CODE = "combo_target_timeout";
 
 export function buildTargetTimeoutRunner(deps: {
   handleSingleModel: HandleSingleModel;
@@ -43,12 +50,24 @@ export function buildTargetTimeoutRunner(deps: {
           "COMBO",
           `Model ${modelStr} exceeded ${comboTargetTimeoutMs}ms timeout — falling back`
         );
-        timeoutController.abort(new Error("combo-per-model-timeout"));
+        timeoutController.abort(new Error(COMBO_PER_MODEL_TIMEOUT_REASON));
+        // HTTP 504 (not proprietary 524): this is OmniRoute's own per-target timer.
+        // Typed as combo_target_timeout so request-scoped classification can keep the
+        // connection eligible for fallback instead of treating it like Cloudflare 524
+        // or a genuine upstream gateway timeout.
         resolve(
-          new Response(JSON.stringify({ error: { message: `Model ${modelStr} timed out` } }), {
-            status: 524,
-            headers: { "Content-Type": "application/json" },
-          })
+          new Response(
+            JSON.stringify(
+              buildErrorBody(504, sanitizeErrorMessage(`Model ${modelStr} timed out`), undefined, {
+                type: COMBO_TARGET_TIMEOUT_CODE,
+                code: COMBO_TARGET_TIMEOUT_CODE,
+              })
+            ),
+            {
+              status: 504,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
         );
       }, comboTargetTimeoutMs);
     });
@@ -60,10 +79,10 @@ export function buildTargetTimeoutRunner(deps: {
     let onParentHedgeAbort: (() => void) | null = null;
     if (parentHedgeSignal) {
       if (parentHedgeSignal.aborted) {
-        timeoutController.abort(new Error("hedge-cancelled"));
+        timeoutController.abort(new Error(COMBO_HEDGE_CANCELLED_REASON));
       } else {
         onParentHedgeAbort = () => {
-          timeoutController.abort(new Error("hedge-cancelled"));
+          timeoutController.abort(new Error(COMBO_HEDGE_CANCELLED_REASON));
         };
         parentHedgeSignal.addEventListener("abort", onParentHedgeAbort, { once: true });
       }
@@ -72,7 +91,7 @@ export function buildTargetTimeoutRunner(deps: {
       return await Promise.race([
         handleSingleModel(b, modelStr, targetWithSignal).catch((err) => {
           if (timedOut) {
-            // Inner call rejected because we aborted it. The synthetic 524 from
+            // Inner call rejected because we aborted it. The synthetic 504 from
             // timeoutPromise already wins the race; return an empty response so
             // the loser branch resolves cleanly without leaking err.message.
             return new Response(null, { status: 599 });

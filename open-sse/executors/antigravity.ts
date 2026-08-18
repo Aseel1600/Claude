@@ -13,6 +13,7 @@ import {
   getAntigravityOAuthUserAgent,
 } from "../services/antigravityHeaders.ts";
 import { classify429, decide429, type Decision } from "../services/antigravity429Engine.ts";
+import { lockExactModel } from "../services/accountFallback.ts";
 import {
   shouldRetryWithCredits,
   shouldUseCreditsFirst,
@@ -22,8 +23,17 @@ import {
 import { persistCreditBalance, getAllPersistedCreditBalances } from "@/lib/db/creditBalance";
 import { setConnectionRateLimitUntil } from "@/lib/db/providers";
 import { getMitmAlias } from "@/lib/db/models";
-import { ensureAntigravityProjectAssigned } from "../services/antigravityProjectBootstrap.ts";
+import {
+  MAX_ANTIGRAVITY_OUTPUT_TOKENS,
+  resolveAntigravityOutputCap,
+} from "./antigravityOutputCap.ts";
+export { MAX_ANTIGRAVITY_OUTPUT_TOKENS } from "./antigravityOutputCap.ts";
+import {
+  ensureAntigravityProjectAssigned,
+  ANTIGRAVITY_REQUIRES_MANUAL_PROJECT,
+} from "../services/antigravityProjectBootstrap.ts";
 import { persistDiscoveredAntigravityProjectId } from "../services/antigravityProjectPersist.ts";
+import { markAntigravityMissingCloudCodeProject } from "../services/antigravityProjectPersistence.ts";
 import {
   resolveAntigravityModelId,
   getAntigravityModelFallbacks,
@@ -278,18 +288,10 @@ async function cleanModelName(model: string, modelIdOverride?: string): Promise<
   return clean;
 }
 
-/**
- * Hard ceiling on `generationConfig.maxOutputTokens` for Antigravity Cloud Code.
- *
- * Ports decolua/9router#779 (lukmanfauzie): VS Code GitHub Copilot Chat in
- * Agent mode regularly requests 32K–65K output tokens, which the Antigravity
- * backend rejects with HTTP 400 "Invalid Argument". 16384 matches the
- * upstream-accepted ceiling confirmed via successful 200 OK runs with
- * claude-sonnet-4-6 and gemini-pro-agent across both Ask and Agent modes.
- */
-export const MAX_ANTIGRAVITY_OUTPUT_TOKENS = 16384;
-
-function applyAntigravityGenerationDefaults(request: Record<string, unknown>): void {
+function applyAntigravityGenerationDefaults(
+  request: Record<string, unknown>,
+  modelId?: string | null
+): void {
   const generationConfig =
     request.generationConfig && typeof request.generationConfig === "object"
       ? (request.generationConfig as Record<string, unknown>)
@@ -321,9 +323,10 @@ function applyAntigravityGenerationDefaults(request: Record<string, unknown>): v
   // (32K–65K) that trigger upstream 400 "Invalid Argument". Clamp silently
   // — the cap is provider-driven, not client-driven, and only matters when
   // the request would otherwise be rejected outright.
+  const cap = resolveAntigravityOutputCap(modelId);
   const finalMax = Number(generationConfig.maxOutputTokens);
-  if (Number.isFinite(finalMax) && finalMax > MAX_ANTIGRAVITY_OUTPUT_TOKENS) {
-    generationConfig.maxOutputTokens = MAX_ANTIGRAVITY_OUTPUT_TOKENS;
+  if (Number.isFinite(finalMax) && finalMax > cap) {
+    generationConfig.maxOutputTokens = cap;
   }
 
   request.generationConfig = generationConfig;
@@ -337,6 +340,45 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+/**
+ * Known competing-agent identity sentences that Antigravity's server-side
+ * filter flags, answering with a 429 RESOURCE_EXHAUSTED (port of
+ * decolua/9router b566b20, generalized). Only the identity sentence is
+ * removed — surrounding instruction text is untouched.
+ */
+const COMPETITIVE_AGENT_PROMPT_PATTERNS: RegExp[] = [
+  /\byou are a claude agent\b[^\n]*/i,
+  /\bbuilt on anthropic's claude agent sdk\b[^\n]*/i,
+  /\byou are claude code\b[^\n]*/i,
+  /\byou are an ai assistant created by anthropic\b[^\n]*/i,
+];
+
+/**
+ * Strip competing-agent identity sentences from systemInstruction.parts.
+ * Returns the original reference when nothing matched (no allocation).
+ */
+export function stripCompetitiveAgentPrompts(systemInstruction: unknown): unknown {
+  const record = asRecord(systemInstruction);
+  const parts = Array.isArray(record?.parts) ? (record.parts as Array<Record<string, unknown>>) : [];
+  if (parts.length === 0) return systemInstruction;
+
+  let changed = false;
+  const newParts = parts.map((part) => {
+    if (typeof part.text !== "string" || part.text.length === 0) return part;
+    let text = part.text;
+    for (const pattern of COMPETITIVE_AGENT_PROMPT_PATTERNS) {
+      const stripped = text.replace(pattern, "").replace(/\n{3,}/g, "\n\n").trimStart();
+      if (stripped !== text) {
+        changed = true;
+        text = stripped;
+      }
+    }
+    return text === part.text ? part : { ...part, text };
+  });
+
+  return changed ? { ...record, parts: newParts } : systemInstruction;
 }
 
 function getAntigravitySafetySettings(safetySettings: unknown): unknown[] | undefined {
@@ -358,7 +400,10 @@ function sanitizeAntigravityGeminiRequest(
   }
 
   if (asRecord(request.systemInstruction)) {
-    clean.systemInstruction = request.systemInstruction;
+    // #10420: strip competing-agent identity sentences (e.g. "You are a
+    // Claude agent, built on Anthropic's Claude Agent SDK.") that Antigravity
+    // flags and answers with 429 RESOURCE_EXHAUSTED.
+    clean.systemInstruction = stripCompetitiveAgentPrompts(request.systemInstruction);
   }
 
   clean.generationConfig = asRecord(request.generationConfig)
@@ -535,6 +580,7 @@ export class AntigravityExecutor extends BaseExecutor {
     // its Google account already owns a Cloud Code project (the OAuth-time loadCodeAssist
     // returned empty/transiently failed). Mirror the Cloud Code bootstrap to recover it
     // here — the helper memoizes per access-token, so this is a one-time round-trip.
+    let requiresManualProject = false;
     if (!projectId && credentials?.accessToken) {
       const discovered = await ensureAntigravityProjectAssigned(
         credentials.accessToken,
@@ -542,7 +588,7 @@ export class AntigravityExecutor extends BaseExecutor {
         getAntigravityClientProfile(credentials),
         signal
       );
-      if (discovered) {
+      if (discovered && discovered !== ANTIGRAVITY_REQUIRES_MANUAL_PROJECT) {
         projectId = discovered;
         // #8491: persist the recovered id so it survives the next token refresh
         // or process restart instead of being silently rediscovered every time.
@@ -552,9 +598,40 @@ export class AntigravityExecutor extends BaseExecutor {
           credentials.providerSpecificData
         );
       }
+      requiresManualProject = discovered === ANTIGRAVITY_REQUIRES_MANUAL_PROJECT;
     }
 
     if (!projectId) {
+      markAntigravityMissingCloudCodeProject(credentials?.connectionId);
+      if (requiresManualProject) {
+        // Google no longer auto-creates GCP projects for standard-tier
+        // accounts (tracked in #8491): fail fast with a clear instruction
+        // instead of the generic 422 — a fabricated/omitted id only earns a
+        // delayed 429 RESOURCE_EXHAUSTED from Google's quota check.
+        const errorBody = {
+          error: {
+            message:
+              "GCP_PROJECT_REQUIRED: Google Antigravity now requires a free GCP Project ID. " +
+              "Create one at console.cloud.google.com and enter it in Providers → Antigravity " +
+              "(connection settings → Project ID). Automatic project creation is no longer " +
+              "available for personal accounts.",
+            type: "gcp_project_required",
+            code: "gcp_project_required",
+          },
+        };
+        // 422, not 403: chatCore's generic "401/403 → refresh credentials and
+        // retry" path would otherwise hit Google's OAuth token endpoint on
+        // every request from an affected account — pointless, since refreshing
+        // the token cannot create a GCP project. 422 also matches the sibling
+        // missing_project_id error, which the client already maps to a clear
+        // "action needed" prompt.
+        const resp = new Response(JSON.stringify(errorBody), {
+          status: 422,
+          headers: { "Content-Type": "application/json" },
+        });
+        // Returning a Response object signals the executor to stop and forward it
+        return resp as unknown as never;
+      }
       // (#489) Return a structured error instead of throwing — gives the client a clear signal
       // to show a "Reconnect OAuth" prompt rather than an opaque "Internal Server Error".
       const errorMsg =
@@ -665,7 +742,7 @@ export class AntigravityExecutor extends BaseExecutor {
         )
       : rawTransformedRequest;
 
-    applyAntigravityGenerationDefaults(transformedRequest);
+    applyAntigravityGenerationDefaults(transformedRequest, upstreamModel);
 
     const {
       project: _project,
@@ -1341,7 +1418,7 @@ export class AntigravityExecutor extends BaseExecutor {
    * the last url with no more retries left) fall through with the resolved retryMs
    * so the caller can still embed a long Retry-After in the final response body.
    */
-  private async handleAntigravityRateLimit(
+  async handleAntigravityRateLimit(
     ctx: AntigravityRateLimitContext
   ): Promise<AntigravityRateLimitOutcome> {
     const { response, log, urlIndex, retryAttemptsByUrl, fallbackCount } = ctx;
@@ -1350,10 +1427,12 @@ export class AntigravityExecutor extends BaseExecutor {
     let retryMs: number | null = this.parseRetryHeaders(response.headers);
 
     // If no retry time in headers, try to parse from error message body
+    let switchAuth = false;
     if (!retryMs) {
       const resolved = await this.tryResolveRetryFromErrorBody(ctx);
       if (resolved.kind === "return") return { action: "return", result: resolved.result };
       retryMs = resolved.retryMs;
+      switchAuth = resolved.switchAuth;
     }
 
     // Bounded short-retry: a non-null retryAfterMs ≤ 60s covers nearly every
@@ -1364,6 +1443,7 @@ export class AntigravityExecutor extends BaseExecutor {
     if (
       retryMs &&
       retryMs <= LONG_RETRY_THRESHOLD_MS &&
+      !switchAuth &&
       retryAttemptsByUrl[urlIndex] < MAX_AUTO_RETRIES
     ) {
       retryAttemptsByUrl[urlIndex]++;
@@ -1419,11 +1499,13 @@ export class AntigravityExecutor extends BaseExecutor {
   private async tryResolveRetryFromErrorBody(
     ctx: AntigravityRateLimitContext
   ): Promise<
-    { kind: "return"; result: SsePassthroughResult } | { kind: "resolved"; retryMs: number | null }
+    | { kind: "return"; result: SsePassthroughResult }
+    | { kind: "resolved"; retryMs: number | null; switchAuth: boolean }
   > {
     const {
       response,
       url,
+      model,
       headers,
       transformedBody,
       credentials,
@@ -1443,10 +1525,9 @@ export class AntigravityExecutor extends BaseExecutor {
       // 1. Try to parse explicit retry time from message
       const parsedRetryMs = this.parseRetryFromErrorMessage(errorMessage);
 
-      // 2. Classify 429, then decide the final retry time BEFORE the credits
-      //    retry so that full_quota_exhausted can skip the credits attempt
-      //    entirely (avoids ~41s hold on an already-exhausted account) and
-      //    persist the cooldown to DB for post-restart routing.
+      // 2. Classify 429, then decide the final retry time BEFORE the credits retry so
+      //    full_quota_exhausted can skip the credits attempt entirely (avoids ~41s hold
+      //    on an already-exhausted account) and locks only this exact model.
       const category = classify429(errorMessage);
       const decision: Decision = decide429(category, parsedRetryMs);
       const retryMs = decision.retryAfterMs;
@@ -1460,10 +1541,9 @@ export class AntigravityExecutor extends BaseExecutor {
         !creditsRetryState.attempted &&
         shouldRetryWithCredits(credentials?.accessToken || "", creditsMode);
 
-      // Retry mode gets one credits attempt before the account cooldown is persisted.
-      // All other full-quota paths fail closed immediately.
+      // Retry mode gets one credits attempt before the exact-model lock is persisted.
       if (decision.kind === "full_quota_exhausted" && retryMs && !creditsRetryEligible) {
-        markConnectionQuotaExhausted(accountId, retryMs);
+        lockExactModel(this.provider, accountId, model, "quota_exhausted", retryMs);
       }
 
       if (category === "quota_exhausted" && creditsAlreadyInjected) {
@@ -1490,13 +1570,17 @@ export class AntigravityExecutor extends BaseExecutor {
         if (retryMs) markConnectionQuotaExhausted(accountId, retryMs);
       }
 
-      return { kind: "resolved", retryMs };
+      return {
+        kind: "resolved",
+        retryMs,
+        switchAuth: decision.kind === "short_cooldown_switch_auth",
+      };
     } catch (error) {
       if (signal?.aborted || isAbortError(error)) {
         throw signal?.reason ?? error;
       }
       // Ignore parse errors, will fall back to exponential backoff
-      return { kind: "resolved", retryMs: null };
+      return { kind: "resolved", retryMs: null, switchAuth: false };
     }
   }
 

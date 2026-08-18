@@ -8,6 +8,7 @@
  */
 import { v4 as uuidv4 } from "uuid";
 import { getDbInstance, isCloud, isBuildPhase } from "./db/core";
+import { ensureProxyLogsColumns } from "./db/schemaColumns";
 
 const shouldPersistToDisk = !isCloud && !isBuildPhase;
 
@@ -64,6 +65,9 @@ function loadFromDb() {
   if (!shouldPersistToDisk) return;
   try {
     const db = getDbInstance();
+    // Self-heal the proxy_logs schema before reading/writing (migration 134
+    // guarantees egress_ip on every migrated DB; this covers restored/odd states).
+    ensureProxyLogsColumns(db);
     const rows = db
       .prepare("SELECT * FROM proxy_logs ORDER BY timestamp DESC LIMIT ?")
       .all(MAX_IN_MEMORY_ENTRIES) as any[];
@@ -101,6 +105,45 @@ function loadFromDb() {
 
 loadFromDb();
 
+// Default-off override that restores the verbose [ProxyEgress] console line (raw
+// client/egress IPs + account prefix). Kept OFF by default so the process log leaks
+// neither IPs nor the account prefix. Deliberately NOT coupled to debugMode
+// (src/lib/db/settings.ts defaults debugMode to true) — this verbosity is opt-in only.
+// Storage (in-memory ring buffer + SQLite) is untouched and always keeps full IPs.
+const PROXY_LOG_INCLUDE_IPS =
+  process.env.PROXY_LOG_INCLUDE_IPS === "true" ||
+  process.env.PROXY_LOG_INCLUDE_IPS === "1";
+
+/**
+ * Pure formatter for the [ProxyEgress] process-log line (#10348). At the default level it
+ * emits a short, IP/prefix-free summary; when details are opted in it restores the full
+ * verbose line including client/egress IPs and the account. Extracted as a separate
+ * function so it is unit-testable without patching console.log and so the change never
+ * grows logProxyEvent itself.
+ */
+export function formatProxyEgressConsoleLine(params: {
+  provider: string | null;
+  account: string | null;
+  clientIp: string | null;
+  egressIp: string | null;
+  level: string;
+  proxyHost: string | null | undefined;
+  status: string;
+  includeDetails?: boolean;
+}): string {
+  const provider = params.provider || "-";
+  const status = params.status;
+  if (!params.includeDetails) {
+    return `[ProxyEgress] ${provider} status=${status}`;
+  }
+  const proxy = params.proxyHost ? `:${params.proxyHost}` : "";
+  return (
+    `[ProxyEgress] ${provider}/${params.account || "-"} ` +
+    `in=${params.clientIp || "?"} out=${params.egressIp || "?"} ` +
+    `proxy=${params.level}${proxy} status=${status}`
+  );
+}
+
 // ──────────────── Log a proxy event ────────────────
 
 export function logProxyEvent(entry: ProxyLogInput) {
@@ -127,9 +170,16 @@ export function logProxyEvent(entry: ProxyLogInput) {
   // IP each account is entering (clientIp) and leaving (egressIp) by.
   if (log.proxy || log.egressIp) {
     console.log(
-      `[ProxyEgress] ${log.provider || "-"}/${log.account || "-"} ` +
-        `in=${log.clientIp || "?"} out=${log.egressIp || "?"} ` +
-        `proxy=${log.level}${log.proxy ? `:${log.proxy.host}` : ""} status=${log.status}`
+      formatProxyEgressConsoleLine({
+        provider: log.provider,
+        account: log.account,
+        clientIp: log.clientIp,
+        egressIp: log.egressIp,
+        level: log.level,
+        proxyHost: log.proxy?.host,
+        status: log.status,
+        includeDetails: PROXY_LOG_INCLUDE_IPS,
+      })
     );
   }
 
@@ -145,10 +195,10 @@ export function logProxyEvent(entry: ProxyLogInput) {
       const db = getDbInstance();
       db.prepare(
         `INSERT INTO proxy_logs (id, timestamp, status, proxy_type, proxy_host, proxy_port,
-          level, level_id, provider, target_url, public_ip, latency_ms, error,
+          level, level_id, provider, target_url, public_ip, egress_ip, latency_ms, error,
           connection_id, combo_id, account, tls_fingerprint)
         VALUES (@id, @timestamp, @status, @proxyType, @proxyHost, @proxyPort,
-          @level, @levelId, @provider, @targetUrl, @clientIp, @latencyMs, @error,
+          @level, @levelId, @provider, @targetUrl, @clientIp, @egressIp, @latencyMs, @error,
           @connectionId, @comboId, @account, @tlsFingerprint)`
       ).run({
         id: log.id,
@@ -162,6 +212,7 @@ export function logProxyEvent(entry: ProxyLogInput) {
         provider: log.provider,
         targetUrl: log.targetUrl,
         clientIp: log.clientIp,
+        egressIp: log.egressIp,
         latencyMs: log.latencyMs,
         error: log.error,
         connectionId: log.connectionId,
@@ -214,6 +265,7 @@ export function getProxyLogs(filters: ProxyLogFilters = {}) {
         (l.provider || "").toLowerCase().includes(q) ||
         (l.targetUrl || "").toLowerCase().includes(q) ||
         (l.clientIp || "").toLowerCase().includes(q) ||
+        (l.egressIp || "").toLowerCase().includes(q) ||
         (l.level || "").toLowerCase().includes(q) ||
         (l.error || "").toLowerCase().includes(q) ||
         (l.account || "").toLowerCase().includes(q)

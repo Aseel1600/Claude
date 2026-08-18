@@ -288,18 +288,44 @@ async function checkNodeRuntime(rootDir) {
   }
 }
 
+/**
+ * Name of the prebuilt binary better-sqlite3 ships for this platform, e.g.
+ * `linux-x64.node`. Musl-based Linux uses a distinct `linuxmusl-` prefix.
+ * Mirrors the lookup `prebuild-install`/`node-gyp-build` perform at require time.
+ */
+export function prebuiltBinaryName(
+  platform = process.platform,
+  arch = process.arch,
+  report = process.report
+) {
+  let prefix = platform;
+  if (platform === "linux") {
+    let isMusl = false;
+    try {
+      // glibc builds expose `glibcVersionRuntime`; musl builds do not.
+      isMusl = !report?.getReport?.()?.header?.glibcVersionRuntime;
+    } catch {
+      isMusl = false;
+    }
+    prefix = isMusl ? "linuxmusl" : "linux";
+  }
+  return `${prefix}-${arch}.node`;
+}
+
 async function checkNativeBinary(rootDir) {
+  // node-gyp layout — present only when better-sqlite3 was compiled locally.
+  const buildRoots = [
+    path.join(rootDir, "app", "node_modules", "better-sqlite3"),
+    path.join(rootDir, "dist", "node_modules", "better-sqlite3"),
+    path.join(rootDir, "node_modules", "better-sqlite3"),
+  ];
+  const prebuildName = prebuiltBinaryName();
   const candidates = [
-    path.join(
-      rootDir,
-      "app",
-      "node_modules",
-      "better-sqlite3",
-      "build",
-      "Release",
-      "better_sqlite3.node"
-    ),
-    path.join(rootDir, "node_modules", "better-sqlite3", "build", "Release", "better_sqlite3.node"),
+    ...buildRoots.map((root) => path.join(root, "build", "Release", "better_sqlite3.node")),
+    // Prebuilt layout — what `npm i -g omniroute` actually installs. Without
+    // these, doctor warns on every prebuilt install even though the binary is
+    // present and loading fine.
+    ...buildRoots.map((root) => path.join(root, "prebuilds", prebuildName)),
   ];
   const binaryPath = candidates.find((candidate) => fs.existsSync(candidate));
   if (!binaryPath) {
@@ -395,7 +421,10 @@ async function checkServerLiveness(options = {}) {
   // First attempt: configured health endpoint (may require auth token).
   const primary = await probeUrl(url);
   if (primary.ok) {
-    return ok("Server liveness", "Server health endpoint is reachable", { url, status: primary.status });
+    return ok("Server liveness", "Server health endpoint is reachable", {
+      url,
+      status: primary.status,
+    });
   }
 
   // #6162: /api/health and /api/health/degradation require a management token.
@@ -426,7 +455,12 @@ async function checkServerLiveness(options = {}) {
     return ok(
       "Server liveness",
       `Server reachable (health endpoint returned ${primary.status}, likely requires MANAGEMENT_TOKEN)`,
-      { primaryUrl: url, primaryStatus: primary.status, fallbackUrl, fallbackStatus: fallback.status }
+      {
+        primaryUrl: url,
+        primaryStatus: primary.status,
+        fallbackUrl,
+        fallbackStatus: fallback.status,
+      }
     );
   }
 
@@ -439,8 +473,7 @@ async function checkServerLiveness(options = {}) {
 
 export async function collectDoctorChecks(context = {}, options = {}) {
   const rootDir =
-    context.rootDir ||
-    path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+    context.rootDir || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
   const dataDir = resolveDataDir();
   const dbPath = resolveStoragePath(dataDir);
 

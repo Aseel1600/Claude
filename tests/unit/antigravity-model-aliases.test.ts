@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   ANTIGRAVITY_PUBLIC_MODELS,
   getClientVisibleAntigravityModelName,
+  isDiscoverableAntigravityModelId,
   isUserCallableAntigravityModelId,
   resolveAntigravityModelId,
   toClientAntigravityModelId,
@@ -17,6 +18,8 @@ function getPublicModel(id: string) {
 }
 
 const EXPECTED_FLASH_TIERS = [
+  ["gemini-3.7-flash-high", "Gemini 3.7 Flash (High)"],
+  ["gemini-3.7-flash-medium", "Gemini 3.7 Flash (Medium)"],
   ["gemini-3.6-flash-low", "Gemini 3.6 Flash (Low)"],
   ["gemini-3.6-flash-medium", "Gemini 3.6 Flash (Medium)"],
   ["gemini-3.6-flash-high", "Gemini 3.6 Flash (High)"],
@@ -89,11 +92,23 @@ test("isUserCallableAntigravityModelId only allows public chat-capable model IDs
   assert.equal(isUserCallableAntigravityModelId("claude-sonnet-4-6"), true);
   assert.equal(isUserCallableAntigravityModelId("claude-sonnet-5"), false);
   // The advertised pro-high discovery slot rejects content requests; use pro-agent High.
-  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-high"), false);
+  assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-high"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-pro-agent"), true);
   assert.equal(isUserCallableAntigravityModelId("gemini-3.1-pro-low"), true);
   assert.equal(isUserCallableAntigravityModelId("tab_flash_lite_preview"), false);
   assert.equal(isUserCallableAntigravityModelId("unknown-model"), false);
+});
+
+test("isDiscoverableAntigravityModelId accepts new live chat models without a static catalog entry", () => {
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.8-flash-high"), true);
+  assert.equal(isDiscoverableAntigravityModelId("claude-sonnet-5"), true);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-new-live-tier"), true);
+
+  assert.equal(isDiscoverableAntigravityModelId("tab_flash_lite_preview"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.1-flash-image"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-3.1-flash-tts-preview"), false);
+  assert.equal(isDiscoverableAntigravityModelId("gemini-2.5-flash-preview-tts"), false);
+  assert.equal(isDiscoverableAntigravityModelId(""), false);
 });
 
 test("ANTIGRAVITY_PUBLIC_MODELS exposes current live names and capabilities", () => {
@@ -209,10 +224,16 @@ test("AntigravityExecutor.transformRequest sends Claude through Gemini-compatibl
   if (result instanceof Response) throw new Error("Unexpected Response from transformRequest");
   const request = result.request as any;
   assert.deepEqual(request.contents, [{ role: "user", parts: [{ text: "Hello" }] }]);
-  // Capped to MAX_ANTIGRAVITY_OUTPUT_TOKENS (16384) by the executor (#4636) to avoid
-  // the Antigravity Cloud Code 400 on maxOutputTokens > 16384, overriding the
-  // thinkingBudget+1 bump (which would otherwise be 32769).
-  assert.equal(request.generationConfig.maxOutputTokens, 16384);
+  // The thinkingBudget+1 bump lands on 32769 and survives, because this model
+  // declares a limit above it. Asserting the declared limit first means a
+  // catalogue change fails here with the reason rather than with a bare number
+  // mismatch. The old fallback of 16384 (#4636) now applies only to models the
+  // catalogue does not know, which is the case the Antigravity 400 was about.
+  const declared = ANTIGRAVITY_PUBLIC_MODELS.find(
+    (m) => m.id === "claude-opus-4-6-thinking"
+  )?.maxOutputTokens;
+  assert.equal(declared, 65536, "claude-opus-4-6-thinking's declared output limit moved");
+  assert.equal(request.generationConfig.maxOutputTokens, 32769);
   assert.equal(request.generationConfig.temperature, 0.5);
   assert.equal(request.generationConfig.topK, 40);
   assert.equal(request.generationConfig.topP, 1);

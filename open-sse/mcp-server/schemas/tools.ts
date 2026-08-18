@@ -1,5 +1,5 @@
 /**
- * MCP Tool Schemas — Contracts for all 23 core and advanced OmniRoute MCP tools.
+ * MCP Tool Schemas — Contracts for the canonical OmniRoute MCP tools.
  *
  * Defines input/output Zod schemas, descriptions, scopes, and audit levels
  * for both essential (Phase 1) and advanced (Phase 2) MCP tools.
@@ -12,12 +12,13 @@
 import { z } from "zod";
 import { toolSearchTool } from "./toolSearch.ts";
 import { pickFastestModelTool } from "./pickFastestModel.ts";
+import { getActiveSearchProviders } from "./providerEnums";
 import { CCR_MCP_TOOLS } from "./ccrTools.ts";
+import { radarCatalogTool } from "./radarCatalog.ts";
 import {
   AUTO_ROUTING_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
 } from "../../../src/shared/constants/routingStrategies.ts";
-
 // ============ Shared Types ============
 // AuditLevel + McpToolDefinition live in the leaf ./toolDefinition.ts so that
 // toolSearch.ts can import the type without forming a tools.ts ↔ toolSearch.ts cycle.
@@ -26,8 +27,7 @@ export type { AuditLevel, McpToolDefinition } from "./toolDefinition.ts";
 import type { McpToolDefinition } from "./toolDefinition.ts";
 export { pickFastestModelInput, pickFastestModelOutput } from "./pickFastestModel.ts";
 export * from "./ccrTools.ts";
-
-// ============ Phase 1: Essential Tools (8) ============
+// ============ Phase 1: Essential Tools ============
 
 // --- Tool 1: omniroute_get_health ---
 export const getHealthInput = z.object({}).describe("No parameters required");
@@ -68,12 +68,20 @@ export const getHealthOutput = z.object({
       provider: z.string(),
     })
     .optional(),
+  degraded: z
+    .array(
+      z.object({
+        source: z.enum(["health", "resilience", "rateLimits"]),
+        error: z.string(),
+      })
+    )
+    .optional(),
 });
 
 export const getHealthTool: McpToolDefinition<typeof getHealthInput, typeof getHealthOutput> = {
   name: "omniroute_get_health",
   description:
-    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics.",
+    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics. If an underlying source (health/resilience/rate-limits) could not be reached, it is listed in `degraded` instead of being silently reported as empty/zero.",
   inputSchema: getHealthInput,
   outputSchema: getHealthOutput,
   scopes: ["read:health"],
@@ -186,6 +194,53 @@ export const switchComboTool: McpToolDefinition<typeof switchComboInput, typeof 
       "Activates or deactivates a combo. When deactivated, requests will not be routed through this combo. Use to toggle between different routing strategies.",
     inputSchema: switchComboInput,
     outputSchema: switchComboOutput,
+    scopes: ["write:combos"],
+    auditLevel: "full",
+    phase: 1,
+    sourceEndpoints: ["/api/combos"],
+  };
+
+// --- Tool 4b: omniroute_create_combo ---
+export const createComboInput = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(100)
+    .describe("Unique combo name (letters, numbers, spaces, -, _, /, ., [ and ])"),
+  description: z.string().max(2000).optional().describe("Optional human-readable description"),
+  strategy: z
+    .enum(ROUTING_STRATEGY_VALUES)
+    .optional()
+    .describe("Routing strategy (default: priority)"),
+  models: z
+    .array(
+      z.object({
+        provider: z.string().describe("Provider name (e.g., 'claude', 'gemini')"),
+        model: z.string().describe("Model ID for that provider"),
+      })
+    )
+    .min(1)
+    .describe("Ordered model chain; order defines priority"),
+});
+
+export const createComboOutput = z.object({
+  success: z.boolean(),
+  combo: z.object({
+    id: z.string(),
+    name: z.string(),
+    strategy: z.string(),
+    enabled: z.boolean(),
+  }),
+});
+
+export const createComboTool: McpToolDefinition<typeof createComboInput, typeof createComboOutput> =
+  {
+    name: "omniroute_create_combo",
+    description:
+      "Registers a new combo (model chain) with a name, ordered model list, and optional routing strategy. Full validation (name collisions, nested-combo DAG, composite tiers) is enforced by the combos API.",
+    inputSchema: createComboInput,
+    outputSchema: createComboOutput,
     scopes: ["write:combos"],
     auditLevel: "full",
     phase: 1,
@@ -385,7 +440,7 @@ export const listModelsCatalogTool: McpToolDefinition<
   sourceEndpoints: ["/api/models/catalog", "/v1/models"],
 };
 
-// --- Tool 9: omniroute_web_search ---
+// --- Tool 10: omniroute_web_search ---
 export const webSearchInput = z.object({
   query: z
     .string()
@@ -401,17 +456,7 @@ export const webSearchInput = z.object({
     .describe("Maximum number of search results to return"),
   search_type: z.enum(["web", "news"]).default("web").describe("Type of search to perform"),
   provider: z
-    .enum([
-      "serper-search",
-      "brave-search",
-      "perplexity-search",
-      "exa-search",
-      "tavily-search",
-      "google-pse-search",
-      "linkup-search",
-      "searchapi-search",
-      "searxng-search",
-    ])
+    .enum(getActiveSearchProviders())
     .optional()
     .describe("Specific search provider to use"),
 });
@@ -1336,11 +1381,9 @@ export const oneproxyStatsTool: McpToolDefinition<
   sourceEndpoints: ["/api/settings/oneproxy"],
 };
 
-// ============ Agent Skills Tools ============
-
 // --- omniroute_agent_skills_list ---
 export const agentSkillsListInput = z.object({
-  category: z.enum(["api", "cli"]).optional().describe("Filter by category: 'api' or 'cli'"),
+  category: z.enum(["api", "cli", "config"]).optional().describe("Filter: api, cli, or config"),
   area: z.string().optional().describe("Filter by area (e.g. 'providers', 'models', 'cli-serve')"),
 });
 
@@ -1350,7 +1393,7 @@ export const agentSkillsListOutput = z.object({
       id: z.string(),
       name: z.string(),
       description: z.string(),
-      category: z.enum(["api", "cli"]),
+      category: z.enum(["api", "cli", "config"]),
       area: z.string(),
       endpoints: z.array(z.string()).optional(),
       cliCommands: z.array(z.string()).optional(),
@@ -1363,8 +1406,9 @@ export const agentSkillsListOutput = z.object({
   ),
   count: z.number(),
   coverage: z.object({
-    api: z.object({ have: z.number(), total: z.literal(22) }),
-    cli: z.object({ have: z.number(), total: z.literal(20) }),
+    api: z.object({ have: z.number(), total: z.literal(23) }),
+    cli: z.object({ have: z.number(), total: z.literal(21) }),
+    config: z.object({ have: z.number(), total: z.literal(1) }),
     totalSkills: z.number(),
     generatedAt: z.string(),
   }),
@@ -1376,7 +1420,7 @@ export const agentSkillsListTool: McpToolDefinition<
 > = {
   name: "omniroute_agent_skills_list",
   description:
-    "List OmniRoute agent skills with optional filtering by category (api/cli) or area. Returns skill metadata including id, name, description, endpoints/commands, and URLs.",
+    "List OmniRoute agent skills with optional filtering by category (api/cli/config) or area. Returns skill metadata including id, name, description, endpoints/commands, and URLs.",
   inputSchema: agentSkillsListInput,
   outputSchema: agentSkillsListOutput,
   scopes: ["read:catalog"],
@@ -1394,7 +1438,7 @@ export const agentSkillsGetOutput = z.object({
   id: z.string(),
   name: z.string(),
   description: z.string(),
-  category: z.enum(["api", "cli"]),
+  category: z.enum(["api", "cli", "config"]),
   area: z.string(),
   endpoints: z.array(z.string()).optional(),
   cliCommands: z.array(z.string()).optional(),
@@ -1427,12 +1471,12 @@ export const agentSkillsGetTool: McpToolDefinition<
   sourceEndpoints: ["/api/agent-skills/:id", "/api/agent-skills/:id/raw"],
 };
 
-// --- omniroute_agent_skills_coverage ---
 export const agentSkillsCoverageInput = z.object({}).describe("No parameters required");
 
 export const agentSkillsCoverageOutput = z.object({
-  api: z.object({ have: z.number(), total: z.literal(22) }),
-  cli: z.object({ have: z.number(), total: z.literal(20) }),
+  api: z.object({ have: z.number(), total: z.literal(23) }),
+  cli: z.object({ have: z.number(), total: z.literal(21) }),
+  config: z.object({ have: z.number(), total: z.literal(1) }),
   totalSkills: z.number(),
   generatedAt: z.string(),
 });
@@ -1443,7 +1487,7 @@ export const agentSkillsCoverageTool: McpToolDefinition<
 > = {
   name: "omniroute_agent_skills_coverage",
   description:
-    "Returns the current SKILL.md coverage stats: how many of the 22 API skills and 20 CLI skills have generated SKILL.md files on the filesystem vs the catalog total.",
+    "Returns the current SKILL.md coverage stats: how many of the 23 API, 21 CLI, and 1 config skill have generated SKILL.md files on the filesystem vs the catalog total.",
   inputSchema: agentSkillsCoverageInput,
   outputSchema: agentSkillsCoverageOutput,
   scopes: ["read:catalog"],
@@ -1460,10 +1504,12 @@ export const MCP_TOOLS = [
   listCombosTool,
   getComboMetricsTool,
   switchComboTool,
+  createComboTool,
   checkQuotaTool,
   routeRequestTool,
   costReportTool,
   listModelsCatalogTool,
+  radarCatalogTool,
   webSearchTool,
   webFetchTool,
   simulateRouteTool,
