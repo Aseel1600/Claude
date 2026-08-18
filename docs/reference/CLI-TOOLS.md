@@ -83,6 +83,17 @@ actually meant; `OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE=true` does the same for
 the server. See
 [Docker Guide → Configuring host CLI tools](../guides/DOCKER_GUIDE.md#configuring-host-cli-tools-when-omniroute-runs-in-docker).
 
+The dashboard's **apply endpoint** (`POST /api/cli-tools/apply`) enforces the
+same guard: in a container, a write whose target is not bind-mounted from the
+host answers **`422`** with `containerEphemeralTarget: true`, the safe error
+text and a `hostSetupCommand` (e.g. `omniroute setup-opencode`) to run on the
+host instead — nothing is written. `dryRun: true` keeps working in container
+mode and returns the generated content + target path without touching disk, so
+you can preview from the dashboard and apply on the host. This behavior is
+intentional and regression-guarded by
+`tests/unit/api/cli-tools/apply-container-guard.test.ts` — never "fix" a 422
+by removing the guard.
+
 ---
 
 ## Source of Truth
@@ -101,6 +112,26 @@ Each entry has these fields (defined in `src/shared/schemas/cliCatalog.ts`):
 | `id`, `name`, `color`, `description`, `docsUrl` | standard                                                     | Core display fields                                    |
 
 Entries with `baseUrlSupport: "none"` are **not shown** in the dashboard pages — they are registered in the MITM backlog for plan 11 (see `_tasks/features-v3.8.6/refactorpages/_orchestration/_plan11-mitm-backlog.md`).
+
+### Capability tiers (cataloged × detectable × configurable × launchable)
+
+Not every cataloged tool is detectable, configurable or launchable. Each tier has one
+declaring source, and a drift test keeps them aligned:
+
+| Tier             | Meaning                                                            | Declared in                                                       |
+| ---------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| **Cataloged**    | Appears in the dashboard catalog (name, vendor, docs, config type) | `src/shared/constants/cliTools.ts` (`CLI_TOOLS`)                  |
+| **Detectable**   | Binary/config detection, health checks, config paths               | `src/shared/services/cliRuntime.ts` (`CLI_TOOLS` runtime catalog) |
+| **Configurable** | Supported by `omniroute configure <cli>` (setup recipe exists)     | `bin/cli/cli-manifest.mjs` (`configure: true`)                    |
+| **Launchable**   | Supported by `omniroute run <target>` (env/args injection defined) | `bin/cli/cli-manifest.mjs` (`run: true`)                          |
+
+`bin/cli/cli-manifest.mjs` is the canonical executable manifest for the CLI command
+surfaces: `run`, `configure` and the shell-completion generators all derive their
+target lists, alias resolution (for example `kilocode`/`kilo-code`/`kilo_cli` → `kilo`)
+and `--model` flag wiring from it. The drift guard
+`tests/unit/cli/cli-manifest-drift.test.ts` asserts that the manifest, the runtime
+catalog, the UI catalog and every consumer surface stay in sync — a target added to
+one surface without the others fails the suite instead of drifting silently.
 
 ---
 
@@ -384,13 +415,25 @@ Use the unified Anthropic gateway root for Claude Code. Do not append `/v1` here
 
 #### OpenAI Codex
 
+Modern Codex (v0.137+) reads `~/.codex/config.toml` only — the old
+`config.yaml` belongs to the legacy npm CLI and is silently ignored. The API
+key stays in the `OMNIROUTE_API_KEY` environment variable (`env_key`), never
+inside the file:
+
 ```bash
-mkdir -p ~/.codex && cat > ~/.codex/config.yaml << EOF
-model: auto
-apiKey: sk-your-omniroute-key
-apiBaseUrl: http://localhost:20128/v1
+mkdir -p ~/.codex && cat > ~/.codex/config.toml << EOF
+model_provider = "omniroute"
+
+[model_providers.omniroute]
+name                 = "OmniRoute"
+base_url             = "http://localhost:20128/v1"
+env_key              = "OMNIROUTE_API_KEY"
+requires_openai_auth = false
 EOF
+export OMNIROUTE_API_KEY="sk-your-omniroute-key"
 ```
+
+Full reference (profiles, `wire_api`, context windows): [CODEX-CLI-CONFIGURATION.md](../guides/CODEX-CLI-CONFIGURATION.md).
 
 **Test:** `codex "what is 2+2?"`
 
@@ -613,10 +656,19 @@ omniroute providers list --json
 omniroute providers test <id|name>                  # Test one configured connection
 omniroute providers test-all                        # Test every active connection
 omniroute providers validate                        # Local-only structural validation
+omniroute providers add <provider> --credential-env PROVIDER_KEY
+omniroute providers import ./providers.json --dry-run --json
+omniroute providers auth <provider>                 # Existing OAuth flow
+omniroute providers edit <id|name> --default-model <model>
+omniroute providers remove <id|name> --yes
 ```
 
-> `providers available` reads the OmniRoute catalog; `providers list/test/test-all/validate`
-> read the local SQLite database directly and do not require the server to be running.
+`providers add/import/auth/edit/remove` are API-first and therefore work against
+the active local or remote context. Credential input should use
+`--credential-stdin` or `--credential-env`; `--dry-run --json` reports only
+redacted presence/shape. `providers available` reads the OmniRoute catalog;
+`providers list/test/test-all/validate` retain their local SQLite behavior and
+do not require the server to be running.
 
 ### Recovery & Reset
 

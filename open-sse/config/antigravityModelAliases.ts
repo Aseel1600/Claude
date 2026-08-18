@@ -124,6 +124,18 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     supportsVision: true,
     toolCalling: true,
   },
+  // Gemini 3.7 Flash: Antigravity's live catalog exposes a single upstream id
+  // gemini-3.7-flash-tiered; the suffixed tier ids 404 upstream. Kept as one
+  // callable public model so it does not collide with the #3696 uniqueness invariant.
+  {
+    id: "gemini-3.7-flash",
+    name: "Gemini 3.7 Flash",
+    contextLength: 1048576,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
+    toolCalling: true,
+  },
   {
     id: "gemini-3.1-flash-lite",
     name: "Gemini 3.1 Flash Lite",
@@ -163,6 +175,12 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
 ]);
 
 export const ANTIGRAVITY_MODEL_ALIASES = Object.freeze({
+  // Gemini 3.7 Flash: the live catalog (fetchAvailableModels on daily-cloudcode-pa)
+  // exposes a single upstream id `gemini-3.7-flash-tiered`; the agy CLI maps all
+  // display tiers (high/medium/low) to it. Verified 200 OK with thinking_level and
+  // thinkingBudget configs. The suffixed ids 404 upstream ("Requested entity was not found").
+  // Exposed as ONE callable model (see #3696: public ids must be unique upstream ids).
+  "gemini-3.7-flash": "gemini-3.7-flash-tiered",
   // gemini-3.1-pro-low is not aliased: the upstream accepts it verbatim.
   // gemini-3.1-pro-high: the discovery slot returns HTTP 400 on v1internal;
   // the live upstream id is gemini-pro-agent (see ANTIGRAVITY_PUBLIC_MODELS).
