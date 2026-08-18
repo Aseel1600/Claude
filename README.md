@@ -737,6 +737,8 @@ From inside the editor: open the **Extensions** view, search **"OmniRoute"**, cl
 — works the same way on both stores. Source, issues and the publishing runbook live at
 [diegosouzapw/OmniCopilot](https://github.com/diegosouzapw/OmniCopilot).
 
+<sub>📖 [VS Code Copilot Chat guide](docs/guides/VSCODE-COPILOT.md) — setup, what the picker shows, dashboard-in-a-tab, troubleshooting</sub>
+
 <br/>
 
 <div align="center">

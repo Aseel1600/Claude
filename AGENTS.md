@@ -433,6 +433,7 @@ For any non-trivial change, read the matching deep-dive first:
 | Provider catalog (auto-generated)             | `docs/reference/PROVIDER_REFERENCE.md`                  |
 | Tunnels                                       | `docs/ops/TUNNELS_GUIDE.md`                             |
 | Electron desktop app                          | `docs/guides/ELECTRON_GUIDE.md`                         |
+| VS Code Copilot Chat (OmniCopilot extension)  | `docs/guides/VSCODE-COPILOT.md`                         |
 | Release flow                                  | `docs/ops/RELEASE_CHECKLIST.md`                         |
 | Embedded services                             | `docs/frameworks/EMBEDDED-SERVICES.md`                  |
 | Quality gates (~80 scripts, allowlist policy) | `docs/architecture/QUALITY_GATES.md`                    |
