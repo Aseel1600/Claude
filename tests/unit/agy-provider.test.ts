@@ -15,6 +15,7 @@ import {
   isUserCallableAgyModelId,
   getClientVisibleAgyModelName,
 } from "../../open-sse/config/agyModels.ts";
+import { ANTIGRAVITY_PUBLIC_MODELS } from "../../open-sse/config/antigravityModelAliases.ts";
 
 test("agy is registered as an OAuth provider in the UI catalog", () => {
   const agy = AI_PROVIDERS.agy;
@@ -51,6 +52,12 @@ test("agy ships its own live callable model catalog", () => {
   const ids = REGISTRY.agy.models.map((m) => m.id);
   assert.ok(ids.includes("claude-opus-4-6-thinking"), "must expose Claude Opus 4.6 Thinking");
   assert.ok(ids.includes("claude-sonnet-4-6"), "must expose Claude Sonnet 4.6");
+  assert.ok(ids.includes("gemini-3.7-flash-high"), "must expose Gemini 3.7 Flash High");
+  assert.ok(ids.includes("gemini-3.7-flash-medium"), "must expose Gemini 3.7 Flash Medium");
+  assert.ok(
+    !ids.includes("gemini-3.7-flash-low"),
+    "3.7 Low has no upstream id verified callable — must stay out of the public catalog"
+  );
   assert.ok(ids.includes("gemini-3.6-flash-low"), "must expose Gemini 3.6 Flash Low");
   assert.ok(ids.includes("gemini-3.6-flash-medium"), "must expose Gemini 3.6 Flash Medium");
   assert.ok(ids.includes("gemini-3.6-flash-high"), "must expose Gemini 3.6 Flash High");
@@ -72,12 +79,32 @@ test("agy ships its own live callable model catalog", () => {
   assert.equal(ids.length, AGY_PUBLIC_MODELS.length);
 });
 
+test("agy exposes the same Gemini 3.7 Flash tiers as the shared antigravity catalog", () => {
+  // Both providers front the identical Antigravity backend, so a 3.7 tier callable through
+  // `antigravity` must be callable through `agy` too. Guards against the catalogs drifting
+  // apart again the way they did when 3.7 landed for `antigravity` only.
+  const tiersOf = (models: readonly { id: string }[]) =>
+    models
+      .map((m) => m.id)
+      .filter((id) => id.startsWith("gemini-3.7-flash"))
+      .sort();
+
+  const antigravityTiers = tiersOf(ANTIGRAVITY_PUBLIC_MODELS);
+  assert.ok(antigravityTiers.length > 0, "antigravity catalog must list Gemini 3.7 Flash tiers");
+  assert.deepEqual(tiersOf(AGY_PUBLIC_MODELS), antigravityTiers);
+});
+
 test("agy model helpers resolve catalog ids and display names", () => {
   assert.equal(isUserCallableAgyModelId("claude-opus-4-6-thinking"), true);
   assert.equal(isUserCallableAgyModelId("gemini-2.5-pro"), false);
   assert.equal(isUserCallableAgyModelId("gemini-2.5-flash"), true);
   assert.equal(isUserCallableAgyModelId("gemini-3.1-pro-high"), false);
   assert.equal(isUserCallableAgyModelId("gemini-pro-agent"), true);
+  assert.equal(isUserCallableAgyModelId("gemini-3.7-flash-high"), true);
+  assert.equal(isUserCallableAgyModelId("gemini-3.7-flash-medium"), true);
+  // The Antigravity client surfaces a 3.7 Low tier, but no Low id is verified callable against
+  // the pinned upstream catalog, so it must not be advertised as user-callable.
+  assert.equal(isUserCallableAgyModelId("gemini-3.7-flash-low"), false);
   assert.equal(isUserCallableAgyModelId("gemini-3.6-flash-low"), true);
   assert.equal(isUserCallableAgyModelId("gemini-3.6-flash-medium"), true);
   assert.equal(isUserCallableAgyModelId("gemini-3.6-flash-high"), true);
@@ -94,6 +121,11 @@ test("agy model helpers resolve catalog ids and display names", () => {
     "Claude Opus 4.6 (Thinking)"
   );
   assert.equal(getClientVisibleAgyModelName("gemini-pro-agent"), "Gemini 3.1 Pro (High)");
+  assert.equal(getClientVisibleAgyModelName("gemini-3.7-flash-high"), "Gemini 3.7 Flash (High)");
+  assert.equal(
+    getClientVisibleAgyModelName("gemini-3.7-flash-medium"),
+    "Gemini 3.7 Flash (Medium)"
+  );
   assert.equal(
     getClientVisibleAgyModelName("gemini-3.5-flash-extra-low"),
     "Gemini 3.5 Flash (Low)"

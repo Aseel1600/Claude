@@ -21,7 +21,11 @@ const RETIRED_PUBLIC_MODELS = [
   "gemini-2.5-computer-use-preview-10-2025",
 ] as const;
 
+// Both providers front the identical Antigravity backend and now advertise the identical
+// leading Flash order, so one expectation covers both catalogs.
 const EXPECTED_LEADING_MODEL_ORDER = [
+  "gemini-3.7-flash-high",
+  "gemini-3.7-flash-medium",
   "gemini-3.6-flash-high",
   "gemini-3.6-flash-medium",
   "gemini-3.6-flash-low",
@@ -32,12 +36,6 @@ const EXPECTED_LEADING_MODEL_ORDER = [
   "gemini-3-flash-agent",
   "gemini-3.5-flash-low",
   "gemini-3.5-flash-extra-low",
-] as const;
-
-const EXPECTED_ANTIGRAVITY_LEADING_MODEL_ORDER = [
-  "gemini-3.7-flash-high",
-  "gemini-3.7-flash-medium",
-  ...EXPECTED_LEADING_MODEL_ORDER,
 ] as const;
 
 const ACTIVE_FLASH_MODEL_IDS = [
@@ -54,7 +52,7 @@ const CURRENT_36_FLASH_MODEL_IDS = [
 
 test("Antigravity and AGY place their live Gemini Flash tiers first", () => {
   for (const [provider, models, expectedOrder] of [
-    ["antigravity", ANTIGRAVITY_PUBLIC_MODELS, EXPECTED_ANTIGRAVITY_LEADING_MODEL_ORDER],
+    ["antigravity", ANTIGRAVITY_PUBLIC_MODELS, EXPECTED_LEADING_MODEL_ORDER],
     ["agy", AGY_PUBLIC_MODELS, EXPECTED_LEADING_MODEL_ORDER],
   ] as const) {
     assert.deepEqual(

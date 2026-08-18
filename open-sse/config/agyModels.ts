@@ -2,8 +2,8 @@
 //
 // These models are pinned from the live `:fetchAvailableModels` endpoint
 // (https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels) using a
-// real `agy` consumer-OAuth token. The public catalog exposes the upstream Gemini 3.6
-// and 3.5 Flash ids verbatim; the shared Antigravity executor dispatches them unchanged.
+// real `agy` consumer-OAuth token. The public catalog exposes the upstream Gemini 3.7,
+// 3.6 and 3.5 Flash ids verbatim; the shared Antigravity executor dispatches them unchanged.
 //
 // The `agy` provider reuses the `antigravity` executor/translator (identical backend),
 // but keeps its own catalog so the CLI and IDE model surfaces can evolve independently.
@@ -12,6 +12,32 @@
 // they are not chat-callable.
 
 export const AGY_PUBLIC_MODELS = Object.freeze([
+  // Gemini 3.7 Flash tiers, mirrored from ANTIGRAVITY_PUBLIC_MODELS (antigravityModelAliases.ts)
+  // where these upstream ids were pinned from the official Antigravity catalog in #10422. `agy`
+  // shares that backend, executor, translator and OAuth client (see agy-provider.test.ts), so the
+  // same ids dispatch unchanged — only the catalog surface differed. Two tiers, matching exactly
+  // what the `antigravity` catalog advertises. The Antigravity client also surfaces a 3.7 Low
+  // tier, but no Low id has been verified callable against the pinned upstream ids, so it stays
+  // out of both catalogs — the same treatment the advertised-but-rejected `gemini-3.1-pro-high`
+  // discovery slot gets in antigravityModelAliases.ts.
+  {
+    id: "gemini-3.7-flash-high",
+    name: "Gemini 3.7 Flash (High)",
+    contextLength: 1048576,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
+    toolCalling: true,
+  },
+  {
+    id: "gemini-3.7-flash-medium",
+    name: "Gemini 3.7 Flash (Medium)",
+    contextLength: 1048576,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
+    toolCalling: true,
+  },
   // Gemini 3.6 Flash tiers. The live endpoint selects High by default and advertises
   // all three ids to both the IDE 2.1.1 and CLI 1.1.x clients.
   {
