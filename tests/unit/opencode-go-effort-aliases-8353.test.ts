@@ -1,9 +1,8 @@
 /**
  * Issue #8353 — Missing OpenCode Go reasoning variants.
  *
- * OpenCode's local Go registry exposes effort-tier aliases that OmniRoute did
- * not register or resolve. These tests cover:
- *  1. Catalog exposure on opencode-go (and absence on opencode-zen)
+ * These tests cover:
+ *  1. Static registry metadata for aliases that have not migrated to derived variants
  *  2. parseEffortLevel → base + effort for every listed alias
  *  3. transformRequest rewrite + reasoning_effort injection
  *  4. MiniMax M3 stays out of the effort-alias path
@@ -12,19 +11,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { parseEffortLevel, OpencodeExecutor } = (await import(
-  "../../open-sse/executors/opencode.ts"
-)) as {
-  parseEffortLevel: (model: string) => { baseModel: string; effort: string } | null;
-  OpencodeExecutor: new (provider: string) => {
-    transformRequest: (
-      model: string,
-      body: Record<string, unknown>,
-      stream: boolean,
-      credentials: unknown
-    ) => Record<string, unknown>;
+const { parseEffortLevel, OpencodeExecutor } =
+  (await import("../../open-sse/executors/opencode.ts")) as {
+    parseEffortLevel: (model: string) => { baseModel: string; effort: string } | null;
+    OpencodeExecutor: new (provider: string) => {
+      transformRequest: (
+        model: string,
+        body: Record<string, unknown>,
+        stream: boolean,
+        credentials: unknown
+      ) => Record<string, unknown>;
+    };
   };
-};
 
 const { REGISTRY } = (await import("../../open-sse/config/providerRegistry.ts")) as {
   REGISTRY: Record<
@@ -33,8 +31,10 @@ const { REGISTRY } = (await import("../../open-sse/config/providerRegistry.ts"))
   >;
 };
 
-/** Exact alias set from #8353 (MiniMax M3 intentionally excluded). */
+/** Exact alias set from #8353, plus the newly declared DeepSeek tiers. */
 const ISSUE_ALIASES: ReadonlyArray<{ alias: string; base: string; effort: string }> = [
+  { alias: "deepseek-v4-flash-none", base: "deepseek-v4-flash", effort: "none" },
+  { alias: "deepseek-v4-flash-low", base: "deepseek-v4-flash", effort: "low" },
   { alias: "deepseek-v4-flash-high", base: "deepseek-v4-flash", effort: "high" },
   { alias: "deepseek-v4-flash-max", base: "deepseek-v4-flash", effort: "max" },
   { alias: "grok-4.5-low", base: "grok-4.5", effort: "low" },
@@ -68,10 +68,10 @@ function zenModelIds(): string[] {
 
 // ─── Catalog exposure ──────────────────────────────────────────────────────
 
-test("#8353 catalog: every listed alias is registered on opencode-go", () => {
+test("#8353 catalog: DeepSeek aliases are derived instead of registered as duplicate rows", () => {
   const ids = new Set(goModelIds());
-  for (const { alias } of ISSUE_ALIASES) {
-    assert.ok(ids.has(alias), `opencode-go must expose ${alias}`);
+  for (const { alias, base } of ISSUE_ALIASES) {
+    assert.equal(ids.has(alias), base !== "deepseek-v4-flash", alias);
   }
 });
 
@@ -128,7 +128,7 @@ for (const { alias, base, effort } of ISSUE_ALIASES) {
 }
 
 test("#8353 parseEffortLevel: unsupported tiers stay null", () => {
-  assert.equal(parseEffortLevel("deepseek-v4-flash-low"), null);
+  assert.equal(parseEffortLevel("deepseek-v4-flash-medium"), null);
   assert.equal(parseEffortLevel("grok-4.5-max"), null);
   assert.equal(parseEffortLevel("hy3-max"), null);
   assert.equal(parseEffortLevel("kimi-k3-high"), null);
@@ -155,7 +155,7 @@ test("#8353 parseEffortLevel: MiniMax M3 has no effort-tier aliases", () => {
 const CREDENTIALS = { apiKey: "k" } as Record<string, unknown>;
 
 const TRANSFORM_SAMPLES = [
-  { alias: "deepseek-v4-flash-high", base: "deepseek-v4-flash", effort: "high" },
+  { alias: "deepseek-v4-flash-low", base: "deepseek-v4-flash", effort: "low" },
   { alias: "grok-4.5-medium", base: "grok-4.5", effort: "medium" },
   { alias: "hy3-none", base: "hy3", effort: "none" },
   { alias: "kimi-k3-max", base: "kimi-k3", effort: "max" },

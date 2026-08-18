@@ -18,6 +18,7 @@ function getPublicModel(id: string) {
 }
 
 const EXPECTED_FLASH_TIERS = [
+  ["gemini-3.7-flash", "Gemini 3.7 Flash"],
   ["gemini-3.7-flash-high", "Gemini 3.7 Flash (High)"],
   ["gemini-3.7-flash-medium", "Gemini 3.7 Flash (Medium)"],
   ["gemini-3.6-flash-low", "Gemini 3.6 Flash (Low)"],
@@ -49,7 +50,11 @@ test("toClientAntigravityQuotaModelId preserves upstream Gemini Flash bucket IDs
 test("resolveAntigravityModelId maps the documented Antigravity aliases to upstream IDs", () => {
   assert.equal(resolveAntigravityModelId("gemini-3-pro-image-preview"), "gemini-3-pro-image");
   for (const [modelId] of EXPECTED_FLASH_TIERS) {
-    assert.equal(resolveAntigravityModelId(modelId), modelId);
+    // Only the collapsed gemini-3.7-flash id is aliased to the live upstream
+    // gemini-3.7-flash-tiered id; the suffixed gemini-3.7-flash-high/medium tier ids
+    // (like the 3.6/3.5 tiers) have no alias entry and pass through verbatim.
+    const expected = modelId === "gemini-3.7-flash" ? "gemini-3.7-flash-tiered" : modelId;
+    assert.equal(resolveAntigravityModelId(modelId), expected);
   }
   assert.equal(resolveAntigravityModelId("gemini-claude-sonnet-4-5"), "claude-sonnet-4-6");
   assert.equal(resolveAntigravityModelId("gemini-claude-sonnet-4-5-thinking"), "claude-sonnet-4-6");
@@ -193,7 +198,7 @@ test("AntigravityExecutor.transformRequest preserves Gemini Flash upstream IDs",
     );
 
     if (result instanceof Response) throw new Error("Unexpected Response from transformRequest");
-    assert.equal(result.model, modelId);
+    assert.equal(result.model, resolveAntigravityModelId(modelId));
     assert.deepEqual(result.request.contents, [{ role: "user", parts: [{ text: "Hello" }] }]);
   }
 });

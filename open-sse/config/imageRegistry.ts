@@ -16,6 +16,7 @@ import {
   ADOBE_FIREFLY_IMAGE_ROUTING_ALIASES,
   toRegistryImageModels,
 } from "../services/adobeFireflyModels.ts";
+import { AI_HORDE_IMAGE_PROVIDER } from "./providers/registry/aihorde/imageModels.ts";
 
 interface ImageModelEntry {
   id: string;
@@ -244,6 +245,26 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     authHeader: "cookie",
     format: "chatgpt-web",
     models: [{ id: "gpt-5.5", name: "GPT-5.5 Instant (ChatGPT Web Image)" }],
+    supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
+  },
+
+  // #10466: Gemini Web session image generation (Nano Banana). Same
+  // web-cookie transport as the gemini-web chat provider — the handler
+  // drives the session executor in image mode and extracts the generated
+  // asset URLs from the StreamGenerate frames.
+  "gemini-web": {
+    id: "gemini-web",
+    alias: "gweb",
+    baseUrl: "https://gemini.google.com/app",
+    authType: "apikey",
+    authHeader: "cookie",
+    format: "gemini-web",
+    // `-web` suffix on purpose: the bare `nano-banana` id is owned by
+    // adobe-firefly (operator decision 2026-07-31, pinned by the
+    // cheaperinference-image-models guard). parseImageModel's bare-model scan
+    // walks providers in insertion order, so a bare `nano-banana` here would
+    // steal that resolution. Keep this id distinct.
+    models: [{ id: "nano-banana-web", name: "Nano Banana (Gemini Web Image)" }],
     supportedSizes: ["1024x1024", "1024x1536", "1536x1024"],
   },
 
@@ -841,6 +862,7 @@ export const IMAGE_PROVIDERS: Record<string, ImageProviderConfig> = {
     // still pass supported 4K dimensions through the permissive request schema.
     supportedSizes: ["1024x1024", "2048x2048"],
   },
+  aihorde: AI_HORDE_IMAGE_PROVIDER,
 };
 
 /**
