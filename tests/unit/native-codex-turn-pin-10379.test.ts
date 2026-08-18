@@ -17,7 +17,17 @@ const BODY = {
 };
 
 function makeTarget(connectionId: string, model = "gpt-5.6-sol", provider = "codex") {
-  return { connectionId, modelStr: model, provider, executionKey: `ek-${connectionId}` } as any;
+  return {
+    kind: "model" as const,
+    stepId: `step-${connectionId}`,
+    executionKey: `ek-${connectionId}`,
+    modelStr: model,
+    provider,
+    providerId: null,
+    connectionId,
+    weight: 1,
+    label: null,
+  };
 }
 
 test("pinned connection is preferred but siblings are included as fallback", () => {
