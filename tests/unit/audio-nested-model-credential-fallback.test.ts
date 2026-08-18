@@ -37,8 +37,17 @@ test("findAlternateAudioProvider maps native Deepgram nova-3 to OpenRouter", () 
 });
 
 test("findAlternateAudioProvider maps bare whisper-1 to OpenRouter when OpenAI has no creds", () => {
+  // Scoped to a 2-provider registry (rather than the live, growing
+  // AUDIO_TRANSCRIPTION_PROVIDERS) so this stays a deterministic test of the
+  // *qualified*-alias fallback branch (`${failedProvider}/${resolvedModel}`)
+  // regardless of future providers that also list a bare "whisper-1" id
+  // (e.g. nanogpt) and would otherwise intercept on the first candidate.
+  const scopedRegistry = {
+    openai: AUDIO_TRANSCRIPTION_PROVIDERS.openai,
+    openrouter: AUDIO_TRANSCRIPTION_PROVIDERS.openrouter,
+  };
   const candidates = audioModelAliasCandidates("whisper-1", "openai", "whisper-1");
-  const alternate = findAlternateAudioProvider(AUDIO_TRANSCRIPTION_PROVIDERS, "openai", candidates);
+  const alternate = findAlternateAudioProvider(scopedRegistry, "openai", candidates);
   assert.ok(alternate);
   assert.equal(alternate?.provider, "openrouter");
   assert.equal(alternate?.model, "openai/whisper-1");
