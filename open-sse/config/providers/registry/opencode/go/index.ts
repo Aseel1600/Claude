@@ -136,12 +136,14 @@ export const opencode_goProvider: RegistryEntry = {
       name: "DeepSeek V4 Pro",
       supportsReasoning: true,
       supportedThinkingEfforts: ["none", "low", "high", "max"],
+      targetFormat: "openai-responses",
     },
     {
       id: "deepseek-v4-flash",
       name: "DeepSeek V4 Flash",
       supportsReasoning: true,
       supportedThinkingEfforts: ["none", "low", "high", "max"],
+      targetFormat: "openai-responses",
     },
   ],
 };
