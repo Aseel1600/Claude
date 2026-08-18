@@ -87,7 +87,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
-import { getCachedProviderConnectionById } from "../../src/lib/localDb.js";
+import { getCachedProviderConnectionById } from "../../src/lib/localDb.ts";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
 /**
@@ -1190,7 +1190,6 @@ export async function handleComboChat({
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
-
         }
 
         // #9654 Wave 2: per-target lane-aware admission probe. With virtual
