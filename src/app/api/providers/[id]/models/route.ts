@@ -27,7 +27,7 @@ import {
   getProviderOutboundGuard,
   getProviderValidationGuard,
 } from "@/shared/network/outboundUrlGuardPolicy";
-import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
+import { errorResponse, sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { getStaticQoderModels } from "@omniroute/open-sse/services/qoderCli.ts";
 import { deriveConfigFromRegistryModelsUrl } from "./discoveryConfig";
 import { resolveZedModels } from "@omniroute/open-sse/shared/zedAuth.ts";
@@ -91,6 +91,7 @@ import {
   type GeminiDiscoveryModel,
 } from "@/lib/providerModels/geminiModelsParser";
 import { getSyncedAvailableModels, getCustomModels } from "@/lib/db/models";
+import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { fetchCursorAgentModels } from "@/lib/providerModels/cursorAgent";
 import { fetchCursorAvailableModels } from "@/lib/providerModels/cursorAvailableModels";
 import { fetchRaycastModels } from "@omniroute/open-sse/services/raycast.ts";
@@ -258,6 +259,9 @@ export async function GET(
     if (!connection) {
       return NextResponse.json({ error: "Connection not found" }, { status: 404 });
     }
+
+    if (await isConnectionUnavailableToAuxiliaryActivity(id))
+      return errorResponse(409, "Model discovery deferred for managed connection");
 
     // #6148 — short-circuit when a stored credential is encrypted but no longer
     // decrypts (STORAGE_ENCRYPTION_KEY changed/unset). Otherwise the null key is
@@ -1846,8 +1850,8 @@ export async function GET(
 
       // Vertex AI lists models from the Generative Language `v1beta/models` endpoint, which both
       // Express-mode API keys (via ?key=) and Service Account JSON (via a minted OAuth Bearer
-      // token) can reach. This surfaces the full live catalog — including image models
-      // (imagen-*, gemini-*-image) absent from the static registry list.
+      // token) can reach. This surfaces the live catalog, including gemini-*-image models
+      // absent from the static registry list.
       const credential = (apiKey || "").trim();
       let queryKey: string | null = null;
       let bearerToken: string | null = null;

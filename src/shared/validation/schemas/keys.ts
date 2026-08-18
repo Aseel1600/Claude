@@ -18,13 +18,9 @@ import { accessScheduleSchema } from "./misc.ts";
 
 // ──── API Key Schemas ────
 
-const requireExclusiveLeaseConnections = (
-  value: {
-    scopes?: string[];
-    allowedConnections?: string[];
-  },
-  ctx: z.RefinementCtx
-) => {
+const requireExclusiveLeaseConnections = (value: {
+  scopes?: string[]; allowedConnections?: string[];
+}, ctx: z.RefinementCtx) => {
   if (value.scopes?.includes("lease:exclusive") && !value.allowedConnections?.length)
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

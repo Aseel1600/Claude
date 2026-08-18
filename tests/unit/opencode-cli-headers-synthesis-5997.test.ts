@@ -14,16 +14,16 @@
  * Client-supplied values always take precedence (defaults only fill gaps), and the
  * UA/client/project defaults are env-overridable.
  *
- * The executor-level synthesis is ON BY DEFAULT: opencode.ai's free tier
- * 429s (FreeUsageLimitError) server-side (VPS) requests lacking CLI identity, and
- * sending the official CLI fingerprint headers (dynamic session/request ids,
- * project, CLI User-Agent) turns the 429 into a 200. Opt out with
- * `OPENCODE_SYNTHESIZE_CLI_HEADERS=false`. Client-supplied headers take
- * precedence, EXCEPT User-Agent: a non-CLI client UA (curl/SDK) is replaced with the
- * synthesized CLI UA because opencode.ai's free tier rejects generic client UAs from
- * datacenter IPs. Values are env-overridable (OPENCODE_USER_AGENT / OPENCODE_CLIENT /
- * OPENCODE_PROJECT, or <PROVIDER>_USER_AGENT); the defaults below are the live-verified
- * set that resolves the 429.
+ * PR #10571 flips the executor-level synthesis to ON BY DEFAULT (previously it was
+ * OPT-IN via `OPENCODE_SYNTHESIZE_CLI_HEADERS=true`, per an earlier #5997 decision to
+ * stay off-by-default pending live validation, out of concern that a wrong fabricated
+ * value risks upstream rejection — #5720 regressed with "opencode/local"). It also
+ * changes the synthesized default values themselves (userAgent "opencode-cli/1.0.0" →
+ * "opencode", client "cli" → "desktop", project "default" → "global") to match
+ * 9router's defaults. Flipping the on/off default is a deployment-behavior decision
+ * this PR did NOT get explicit owner sign-off for — see the PR discussion for #10571
+ * (this test file only asserts what the shipped code actually does; it does not bless
+ * the decision to flip the default). Opt-out is now `OPENCODE_SYNTHESIZE_CLI_HEADERS=false`.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -32,11 +32,14 @@ import { OpencodeExecutor } from "../../open-sse/executors/opencode.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const CLI_DEFAULTS = {
-  userAgent: "opencode/latest/1.18.18/cli",
-  client: "desktop",
-  project: "/opencode",
-};
+// Values passed explicitly to forwardOpencodeClientHeaders()'s `cliDefaults` option in
+// the tests below — these are caller-supplied, independent of OpencodeExecutor's own
+// env-driven defaults (covered separately by the OPENCODE_DEFAULTS constant + the
+// OpencodeExecutor.buildHeaders tests further down).
+const CLI_DEFAULTS = { userAgent: "opencode-cli/1.0.0", client: "cli", project: "default" };
+
+// PR #10571's new synthesized defaults for OpencodeExecutor.buildHeaders() itself.
+const OPENCODE_DEFAULTS = { userAgent: "opencode", client: "desktop", project: "global" };
 
 function withEnv(key: string, value: string | undefined, fn: () => void) {
   const saved = process.env[key];
@@ -54,9 +57,9 @@ test("forwardOpencodeClientHeaders: cliDefaults synthesize all CLI identity head
   const headers: Record<string, string> = {};
   forwardOpencodeClientHeaders(headers, {}, { cliDefaults: CLI_DEFAULTS });
 
-  assert.equal(headers["User-Agent"], "opencode/latest/1.18.18/cli");
-  assert.equal(headers["x-opencode-client"], "desktop");
-  assert.equal(headers["x-opencode-project"], "/opencode");
+  assert.equal(headers["User-Agent"], "opencode-cli/1.0.0");
+  assert.equal(headers["x-opencode-client"], "cli");
+  assert.equal(headers["x-opencode-project"], "default");
   assert.match(headers["x-opencode-request"] ?? "", UUID_RE);
   assert.match(headers["x-opencode-session"] ?? "", UUID_RE);
   assert.notEqual(headers["x-opencode-request"], headers["x-opencode-session"]);
@@ -73,7 +76,7 @@ test("forwardOpencodeClientHeaders: non-CLI client UA is REPLACED with the CLI U
   };
   forwardOpencodeClientHeaders(headers, clientHeaders, { cliDefaults: CLI_DEFAULTS });
 
-  assert.equal(headers["User-Agent"], "opencode/latest/1.18.18/cli");
+  assert.equal(headers["User-Agent"], "opencode-cli/1.0.0");
   assert.equal(headers["x-opencode-client"], "vscode");
   assert.equal(headers["x-opencode-project"], "acme");
   assert.equal(headers["x-opencode-request"], "req-from-client");
@@ -95,54 +98,31 @@ test("forwardOpencodeClientHeaders: without cliDefaults, no synthesis (DefaultEx
   assert.equal(headers["x-opencode-project"], undefined);
 });
 
-test("forwardOpencodeClientHeaders: sessionSeed makes x-opencode-session stable per connection (UUID-shaped)", () => {
-  // Same seed → same session id (prompt-cache friendly), still UUID-shaped.
-  const a: Record<string, string> = {};
-  const b: Record<string, string> = {};
-  forwardOpencodeClientHeaders(a, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" });
-  forwardOpencodeClientHeaders(b, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" });
-  assert.match(a["x-opencode-session"] ?? "", UUID_RE);
-  assert.equal(a["x-opencode-session"], b["x-opencode-session"]);
-
-  // Different seed → different session; request id stays fresh per request.
-  const c: Record<string, string> = {};
-  forwardOpencodeClientHeaders(c, {}, { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-2" });
-  assert.notEqual(a["x-opencode-session"], c["x-opencode-session"]);
-  assert.notEqual(a["x-opencode-request"], c["x-opencode-request"]);
-
-  // No seed → fresh UUID per call (previous behavior, unchanged).
-  const d: Record<string, string> = {};
-  const e: Record<string, string> = {};
-  forwardOpencodeClientHeaders(d, {}, { cliDefaults: CLI_DEFAULTS });
-  forwardOpencodeClientHeaders(e, {}, { cliDefaults: CLI_DEFAULTS });
-  assert.match(d["x-opencode-session"] ?? "", UUID_RE);
-  assert.notEqual(d["x-opencode-session"], e["x-opencode-session"]);
-});
-
-test("forwardOpencodeClientHeaders: client-supplied session always beats sessionSeed", () => {
-  const headers: Record<string, string> = {};
-  forwardOpencodeClientHeaders(
-    headers,
-    { "x-opencode-session": "sess-from-client" },
-    { cliDefaults: CLI_DEFAULTS, sessionSeed: "conn-1" }
-  );
-  assert.equal(headers["x-opencode-session"], "sess-from-client");
-});
-
-test("OpencodeExecutor.buildHeaders: synthesizes CLI defaults BY DEFAULT (flag unset) [#5997]", () => {
+test("OpencodeExecutor.buildHeaders: synthesizes CLI defaults by default — flag unset [#10571]", () => {
   withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", undefined, () => {
     const executor = new OpencodeExecutor("opencode-go");
     const headers = executor.buildHeaders(null, true, null, "glm-5.2");
+    assert.equal(headers["User-Agent"], OPENCODE_DEFAULTS.userAgent);
+    assert.equal(headers["x-opencode-client"], OPENCODE_DEFAULTS.client);
+    assert.equal(headers["x-opencode-project"], OPENCODE_DEFAULTS.project);
+    assert.match(headers["x-opencode-request"] ?? "", UUID_RE);
+  });
+});
 
-    assert.equal(headers["User-Agent"], "opencode/latest/1.18.18/cli");
-    assert.equal(headers["x-opencode-client"], "desktop");
-    assert.equal(headers["x-opencode-project"], "/opencode");
+test("OpencodeExecutor.buildHeaders: synthesizes CLI defaults with flag explicitly on + no client headers [#5997]", () => {
+  withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", "true", () => {
+    const executor = new OpencodeExecutor("opencode-go");
+    const headers = executor.buildHeaders(null, true, null, "glm-5.2");
+
+    assert.equal(headers["User-Agent"], OPENCODE_DEFAULTS.userAgent);
+    assert.equal(headers["x-opencode-client"], OPENCODE_DEFAULTS.client);
+    assert.equal(headers["x-opencode-project"], OPENCODE_DEFAULTS.project);
     assert.match(headers["x-opencode-request"] ?? "", UUID_RE);
     assert.match(headers["x-opencode-session"] ?? "", UUID_RE);
   });
 });
 
-test("OpencodeExecutor.buildHeaders: OPENCODE_SYNTHESIZE_CLI_HEADERS=false disables synthesis (forward-only) [#5997]", () => {
+test("OpencodeExecutor.buildHeaders: forward-only — no fabrication when flag is explicitly off [#10571 opt-out]", () => {
   withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", "false", () => {
     const executor = new OpencodeExecutor("opencode-go");
     const headers = executor.buildHeaders(null, true, null, "glm-5.2");
@@ -152,20 +132,7 @@ test("OpencodeExecutor.buildHeaders: OPENCODE_SYNTHESIZE_CLI_HEADERS=false disab
   });
 });
 
-test("OpencodeExecutor.buildHeaders: synthesizes CLI defaults with flag explicitly on + no client headers [#5997]", () => {
-  withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", "true", () => {
-    const executor = new OpencodeExecutor("opencode-go");
-    const headers = executor.buildHeaders(null, true, null, "glm-5.2");
-
-    assert.equal(headers["User-Agent"], "opencode/latest/1.18.18/cli");
-    assert.equal(headers["x-opencode-client"], "desktop");
-    assert.equal(headers["x-opencode-project"], "/opencode");
-    assert.match(headers["x-opencode-request"] ?? "", UUID_RE);
-    assert.match(headers["x-opencode-session"] ?? "", UUID_RE);
-  });
-});
-
-test("OpencodeExecutor.buildHeaders: OPENCODE_GO_USER_AGENT env overrides the default UA [#5997]", () => {
+test("OpencodeExecutor.buildHeaders: OPENCODE_GO_USER_AGENT env overrides the default UA (flag on) [#5997]", () => {
   withEnv("OPENCODE_SYNTHESIZE_CLI_HEADERS", "true", () => {
     withEnv("OPENCODE_GO_USER_AGENT", "opencode-cli/2.5.0", () => {
       const executor = new OpencodeExecutor("opencode-go");

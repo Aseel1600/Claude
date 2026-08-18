@@ -1,7 +1,10 @@
 export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
+  // Gemini 3.7 Flash tiers listed by the current official Antigravity model catalog.
+  // Keep the upstream model ids unchanged so discovery and execution address the same
+  // models selected by the native client.
   {
-    id: "gemini-3.6-flash-high",
-    name: "Gemini 3.6 Flash (High)",
+    id: "gemini-3.7-flash-high",
+    name: "Gemini 3.7 Flash (High)",
     contextLength: 1048576,
     maxOutputTokens: 65536,
     supportsReasoning: true,
@@ -9,8 +12,8 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     toolCalling: true,
   },
   {
-    id: "gemini-3.6-flash-medium",
-    name: "Gemini 3.6 Flash (Medium)",
+    id: "gemini-3.7-flash-medium",
+    name: "Gemini 3.7 Flash (Medium)",
     contextLength: 1048576,
     maxOutputTokens: 65536,
     supportsReasoning: true,
@@ -18,31 +21,8 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     toolCalling: true,
   },
   {
-    id: "gemini-3.6-flash-low",
-    name: "Gemini 3.6 Flash (Low)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  // Claude (Antigravity backend). The `agy` provider already ships these from the live
-  // :fetchAvailableModels probe (see agyModels.ts) and discussion #3184 confirmed they
-  // are user-callable through the `antigravity` OAuth provider too — same backend.
-  // `antigravity/claude-opus-4-6-thinking` and `antigravity/claude-sonnet-4-6` both work.
-  // They are upstream IDs, so no alias remapping is required.
-  {
-    id: "claude-opus-4-6-thinking",
-    name: "Claude Opus 4.6 (Thinking)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  {
-    id: "claude-sonnet-4-6",
-    name: "Claude Sonnet 4.6 (Thinking)",
+    id: "gemini-3.7-flash-low",
+    name: "Gemini 3.7 Flash (Low)",
     contextLength: 1048576,
     maxOutputTokens: 65536,
     supportsReasoning: true,
@@ -70,50 +50,6 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     supportsVision: true,
     toolCalling: true,
   },
-  // Gemini 3.5 Flash tiers exposed by Antigravity's model selector. Public ids match
-  // fetchAvailableModels and are forwarded upstream unchanged:
-  //   High   -> gemini-3-flash-agent       (displayName: Gemini 3.5 Flash (High))
-  //   Medium -> gemini-3.5-flash-low       (displayName: Gemini 3.5 Flash (Medium))
-  //   Low    -> gemini-3.5-flash-extra-low (displayName: Gemini 3.5 Flash (Low))
-  {
-    id: "gemini-3-flash-agent",
-    name: "Gemini 3.5 Flash (High)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  {
-    id: "gemini-3.5-flash-low",
-    name: "Gemini 3.5 Flash (Medium)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  {
-    id: "gemini-3.5-flash-extra-low",
-    name: "Gemini 3.5 Flash (Low)",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
-  // Gemini 3.7 Flash: single callable public model (upstream exposes only
-  // gemini-3.7-flash-tiered; suffixed tier ids 404). One entry so it does not
-  // collide under the #3696 public-id uniqueness invariant.
-  {
-    id: "gemini-3.7-flash",
-    name: "Gemini 3.7 Flash",
-    contextLength: 1048576,
-    maxOutputTokens: 65536,
-    supportsReasoning: true,
-    supportsVision: true,
-    toolCalling: true,
-  },
   {
     id: "gemini-3.1-flash-lite",
     name: "Gemini 3.1 Flash Lite",
@@ -121,25 +57,27 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
     maxOutputTokens: 65535,
     toolCalling: true,
   },
+  // Claude (Antigravity backend). The `agy` provider already ships these from the live
+  // :fetchAvailableModels probe (see agyModels.ts) and discussion #3184 confirmed they
+  // are user-callable through the `antigravity` OAuth provider too — same backend.
+  // `antigravity/claude-opus-4-6-thinking` and `antigravity/claude-sonnet-4-6` both work.
+  // They are upstream IDs, so no alias remapping is required.
   {
-    id: "gemini-2.5-flash-thinking",
-    name: "Gemini 2.5 Flash Thinking",
+    id: "claude-opus-4-6-thinking",
+    name: "Claude Opus 4.6 (Thinking)",
     contextLength: 1048576,
-    maxOutputTokens: 65535,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
     toolCalling: true,
   },
   {
-    id: "gemini-2.5-flash",
-    name: "Gemini 2.5 Flash",
+    id: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6 (Thinking)",
     contextLength: 1048576,
-    maxOutputTokens: 65535,
-    toolCalling: true,
-  },
-  {
-    id: "gemini-2.5-flash-lite",
-    name: "Gemini 2.5 Flash Lite",
-    contextLength: 1048576,
-    maxOutputTokens: 65535,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
     toolCalling: true,
   },
   {
@@ -153,9 +91,6 @@ export const ANTIGRAVITY_PUBLIC_MODELS = Object.freeze([
 ]);
 
 export const ANTIGRAVITY_MODEL_ALIASES = Object.freeze({
-  // Gemini 3.7 Flash: the live catalog exposes a single upstream id `gemini-3.7-flash-tiered`; the agy CLI maps all
-  // display tiers to it. Verified 200 OK. The suffixed ids 404 upstream.
-  "gemini-3.7-flash": "gemini-3.7-flash-tiered",
   // gemini-3.1-pro-low is not aliased: the upstream accepts it verbatim.
   // gemini-3.1-pro-high: the discovery slot returns HTTP 400 on v1internal;
   // the live upstream id is gemini-pro-agent (see ANTIGRAVITY_PUBLIC_MODELS).
@@ -224,10 +159,19 @@ const ANTIGRAVITY_NON_CHAT_MODEL_IDS = new Set([
 const ANTIGRAVITY_RETIRED_MODEL_IDS = new Set([
   "gemini-3-pro-preview",
   "gemini-3.1-pro",
+  "gemini-3.6-flash-high",
+  "gemini-3.6-flash-medium",
+  "gemini-3.6-flash-low",
+  "gemini-3-flash-agent",
+  "gemini-3.5-flash-extra-low",
+  "gemini-3.5-flash-low",
   "gemini-3.5-flash-high",
   "gemini-3.5-flash-medium",
   "gemini-3.5-flash-preview",
   "gemini-2.5-pro",
+  "gemini-2.5-flash-thinking",
+  "gemini-2.5-flash",
+  "gemini-2.5-flash-lite",
   "gemini-2.5-computer-use-preview-10-2025",
 ]);
 
@@ -256,7 +200,12 @@ const ANTIGRAVITY_DROPPED_QUOTA_BUCKETS = new Set<string>([
  */
 export function toClientAntigravityQuotaModelId(modelId: string): string | null {
   if (!modelId) return null;
-  if (ANTIGRAVITY_DROPPED_QUOTA_BUCKETS.has(modelId)) return null;
+  if (
+    ANTIGRAVITY_DROPPED_QUOTA_BUCKETS.has(modelId) ||
+    ANTIGRAVITY_RETIRED_MODEL_IDS.has(modelId)
+  ) {
+    return null;
+  }
   return toClientAntigravityModelId(modelId);
 }
 

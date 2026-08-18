@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from "crypto";
+import { nodeTypeFromId } from "@/lib/db/providerNodeSelect";
 import { extractGoogApiKeyHeader } from "./googApiKeyAuth.ts";
 import {
   getCachedRawProviderConnections,
@@ -19,6 +20,8 @@ import {
   type ExclusiveConnectionLease,
 } from "@/lib/db/exclusiveConnectionLeases";
 import { getSettings } from "@/lib/db/settings";
+import { buildJinaEnvCredentials } from "@/lib/providers/jina";
+import { buildGeminiEnvCredentials } from "@/lib/providers/gemini";
 import { toNumber } from "@/shared/utils/numeric";
 import {
   createLazyConnectionView,
@@ -47,6 +50,7 @@ import {
   hasPerModelQuota,
   getRuntimeProviderProfile,
   recordModelLockoutFailure,
+  isProviderModelUnsupported400,
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
@@ -86,6 +90,7 @@ import {
   WEB_COOKIE_PROVIDERS,
 } from "@/shared/constants/providers";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import { isFreeModel } from "@/shared/utils/freeModels";
 import {
   applySessionAffinityPin,
   formatSessionKeyForLog,
@@ -101,8 +106,10 @@ import {
 } from "./noAuthProviderSettings";
 import { resolveAccountProxiesFromRegistry } from "./noAuthProxyResolution";
 import { getNoAuthHydrationProviderIds } from "./noAuthProviderSiblings";
+import { loadOptionalNoAuthApiKeyCredentials } from "./noAuthOptionalApiKey";
 import { getResource404Bypass } from "./requestResourceHealth";
 import { isVertexConnectionWidePermissionDenied } from "./vertexErrorClassifier";
+import { maybeAutoDisableBannedAccount } from "./autoDisableBannedAccount";
 import * as log from "../utils/logger";
 import {
   fisherYatesShuffle,
@@ -368,6 +375,31 @@ function isTerminalConnectionStatus(connection: ProviderConnectionView): boolean
   return status === "credits_exhausted" || status === "banned" || status === "expired";
 }
 
+// OpenRouter's paid balance and its `:free`-suffixed models are billed
+// separately — a 402 from a paid model call correctly locks the whole
+// connection as credits_exhausted (see openrouter-quota-6842.test.ts), but
+// that lock must not also block :free model requests on the same
+// connection, or combo failover to the user's configured free models never
+// fires. Scoped to provider === "openrouter" + status === credits_exhausted
+// only; every other terminal status (banned, expired) and every other
+// provider keep the unconditional exclusion.
+function isTerminalConnectionStatusForModel(
+  connection: ProviderConnectionView,
+  provider: string,
+  requestedModel: string | null
+): boolean {
+  if (!isTerminalConnectionStatus(connection)) return false;
+  if (
+    provider === "openrouter" &&
+    normalizeStatus(connection.testStatus) === "credits_exhausted" &&
+    requestedModel &&
+    isFreeModel("openrouter", { id: requestedModel })
+  ) {
+    return false;
+  }
+  return true;
+}
+
 // #8200: cookie-auth providers (perplexity-web, grok-web, ...) use a rotating browser
 // session, not a static API key — a 401 means "session needs a refresh", not "dead".
 function isRecoverableCookieAuth401(
@@ -389,6 +421,7 @@ function resolveTerminalConnectionStatus(
   if (result.creditsExhausted || status === 402) return "credits_exhausted";
   if (
     providerErrorType === PROVIDER_ERROR_TYPES.PROJECT_ROUTE_ERROR ||
+    providerErrorType === PROVIDER_ERROR_TYPES.GEO_BLOCKED ||
     providerErrorType === PROVIDER_ERROR_TYPES.OAUTH_INVALID_TOKEN ||
     // #1010: Cloudflare fingerprint rejection is the CDN refusing the CLIENT's
     // signature, not the account's credentials — never a terminal account state.
@@ -968,6 +1001,12 @@ const PROVIDER_SEARCH_PAIRS: string[][] = [
   // The model layer canonicalizes `agy/` to `antigravity`, but the Antigravity
   // CLI card stores its connection under `agy`. Same account, either id serves.
   ["antigravity", "agy"],
+  // One Jina token works on api.jina.ai, r.jina.ai, and s.jina.ai.
+  // Requested id stays first so embed/rerank do not silently pick a
+  // Reader-only row when both cards are filled. jina-search has no
+  // dashboard card — it must still see jina-ai / jina-reader keys
+  // before falling through to JINA_AI_API_KEY.
+  ["jina-ai", "jina-reader", "jina-search"],
 ];
 /**
  * Resolve provider aliases (e.g., nvidia -> nvidia_nim) for DB lookup
@@ -976,8 +1015,8 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
   const canonicalProvider = resolveProviderId(provider);
   const canonicalAlias = getProviderAlias(canonicalProvider);
 
-  const pair = PROVIDER_SEARCH_PAIRS.find((aliases) => aliases.includes(provider));
-  if (pair) return pair[0] === provider ? pair : [pair[1], pair[0]];
+  const group = PROVIDER_SEARCH_PAIRS.find((aliases) => aliases.includes(provider));
+  if (group) return [provider, ...group.filter((id) => id !== provider)];
 
   const searchPool = new Set([provider, canonicalProvider, canonicalAlias].filter(Boolean));
 
@@ -993,17 +1032,63 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
   // internal provider ids like openai-compatible-responses-<uuid>.
   try {
     const providerNodes = await getCachedProviderNodes();
-    for (const node of Array.isArray(providerNodes) ? providerNodes : []) {
+    const compatibleNodes = Array.isArray(providerNodes) ? providerNodes : [];
+    const nodeTypes = new Map<string, number>();
+    for (const node of compatibleNodes) {
+      const nodeRecord = asRecord(node);
+      const nodeId = typeof nodeRecord.id === "string" ? nodeRecord.id.trim() : "";
+      if (!nodeId) continue;
+      const derivedType = nodeTypeFromId(nodeId);
+      nodeTypes.set(derivedType, (nodeTypes.get(derivedType) || 0) + 1);
+    }
+
+    for (const node of compatibleNodes) {
       const nodeRecord = asRecord(node);
       const nodePrefix = typeof nodeRecord.prefix === "string" ? nodeRecord.prefix.trim() : "";
       const nodeId = typeof nodeRecord.id === "string" ? nodeRecord.id.trim() : "";
-      if (!nodePrefix || !nodeId) continue;
+      if (!nodeId) continue;
       if (
-        nodePrefix === provider ||
-        nodePrefix === canonicalProvider ||
-        nodePrefix === canonicalAlias
+        nodePrefix &&
+        (nodePrefix === provider || nodePrefix === canonicalProvider || nodePrefix === canonicalAlias)
       ) {
         searchPool.add(nodeId);
+      }
+
+      // #10085: bridge the concrete uuid node id (what the chat path resolves,
+      // "<generic-type>-<uuid>") to the GENERIC derived type id (what
+      // resolveProviderNodeForConnection also accepts for connection creation,
+      // #4421) -- and back. A connection created via the bare generic type
+      // (e.g. "openai-compatible-chat") must still be found when the chat path
+      // looks up the concrete node id, and vice versa.
+      //
+      // #10434: both bridging directions MUST require the derived type to be
+      // unambiguous (exactly one provider node of that type) before falling
+      // back to a generic-type match -- an explicit ownership check, not just
+      // a string-format coincidence. This mirrors the exact rule already
+      // enforced by selectProviderNodeForConnection() for connection CREATION
+      // (src/lib/db/providerNodeSelect.ts, #4421): "only when exactly one such
+      // node exists, so an ambiguous type never silently picks the wrong
+      // node". Without this guard on the generic->concrete direction, a bare
+      // generic-type lookup would pool in EVERY node sharing that derived
+      // type, including a connection scoped (via its own providerSpecificData
+      // baseUrl/headers) to one specific node -- leaking that node's
+      // credentials/upstream URL into a lookup for a different, unrelated
+      // node of the same generic type.
+      const derivedType = nodeTypeFromId(nodeId);
+      if (derivedType && derivedType !== nodeId) {
+        const typeIsUnambiguous = nodeTypes.get(derivedType) === 1;
+        if (typeIsUnambiguous) {
+          if (nodeId === provider || nodeId === canonicalProvider || nodeId === canonicalAlias) {
+            searchPool.add(derivedType);
+          }
+          if (
+            derivedType === provider ||
+            derivedType === canonicalProvider ||
+            derivedType === canonicalAlias
+          ) {
+            searchPool.add(nodeId);
+          }
+        }
       }
     }
   } catch {
@@ -1120,6 +1205,15 @@ export async function getProviderCredentials(
         excludeConnectionId,
         options.excludeConnectionIds
       );
+      const optionalKey = await loadOptionalNoAuthApiKeyCredentials(resolvedId, excludedForNoAuth);
+      if (
+        optionalKey &&
+        (!allowedConnections ||
+          allowedConnections.length === 0 ||
+          allowedConnections.includes(optionalKey.connectionId))
+      ) {
+        return optionalKey;
+      }
       // #9057: when allowedConnections is set, the synthetic "noauth" connection
       // is never in the explicit allowlist, so we must NOT return it — fall through
       // to the normal connection-selection path so the connection allowlist is
@@ -1313,6 +1407,24 @@ export async function getProviderCredentials(
         allowedConnections
       );
       if (syntheticFallback) return syntheticFallback;
+      const jinaEnvCredentials = buildJinaEnvCredentials(resolvedId, {
+        forcedConnectionId,
+        allowedConnections,
+        excludedConnectionIds,
+      });
+      if (jinaEnvCredentials) {
+        log.info("AUTH", `${provider} | using ${jinaEnvCredentials.connectionId} env fallback`);
+        return jinaEnvCredentials;
+      }
+      const geminiEnvCredentials = buildGeminiEnvCredentials(resolvedId, {
+        forcedConnectionId,
+        allowedConnections,
+        excludedConnectionIds,
+      });
+      if (geminiEnvCredentials) {
+        log.info("AUTH", `${provider} | using ${geminiEnvCredentials.connectionId} env fallback`);
+        return geminiEnvCredentials;
+      }
       invalidateManagedLease(options, "CONNECTION_INELIGIBLE");
       log.warn("AUTH", `No credentials for ${provider}`);
       return null;
@@ -1351,7 +1463,7 @@ export async function getProviderCredentials(
           connectionFilterStatus.set(c.id, "rateLimited");
           return false;
         }
-        if (isTerminalConnectionStatus(c)) {
+        if (isTerminalConnectionStatusForModel(c, provider, requestedModel)) {
           connectionFilterStatus.set(c.id, "terminalStatus");
           return false;
         }
@@ -2078,7 +2190,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
     }
 
     const hasConnectionOverrides = Object.keys(perConnectionWindowOverrides).length > 0;
-    const legacyForceEnable = isQuotaPreflightEnabled(credentials);
+    const legacyForceEnable = isQuotaPreflightEnabled(credentials as Record<string, unknown>);
     if (
       !hasConnectionOverrides &&
       !providerHasDefaults &&
@@ -2116,10 +2228,15 @@ export async function getProviderCredentialsWithQuotaPreflight(
       requestedModel && modelAwarePreflight ? { ...credentials, requestedModel } : credentials;
     let preflight;
     try {
-      preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
-        resolveMinRemainingPercent,
-        resolveWarnRemainingPercent: () => warnThresholdPercent,
-      });
+      preflight = await preflightQuota(
+        provider,
+        connectionId,
+        preflightCredentials as Record<string, unknown>,
+        {
+          resolveMinRemainingPercent,
+          resolveWarnRemainingPercent: () => warnThresholdPercent,
+        }
+      );
     } catch (error) {
       selectedCredentials.releaseOAuthSession?.();
       throw error;
@@ -2280,6 +2397,26 @@ export async function markAccountUnavailable(
           cooldownMs: new Date(scopeRateLimitedUntil).getTime() - Date.now(),
         };
       }
+    }
+
+    // #10460: model-unsupported 400 — the PROVIDER does not serve this model, not
+    // this account. Cooling down the account and rotating to the next one wastes an
+    // upstream call because all accounts share the same model catalog. Return
+    // shouldFallback: false so the error propagates to the combo layer, which already
+    // has isModelScoped400() (combo.ts:1827) to advance to the next combo target.
+    // Uses isProviderModelUnsupported400() — the SAME disambiguation
+    // (AUTH_CREDENTIAL_ERROR_PATTERNS exclusion) checkFallbackError's 400 branch
+    // applies, narrowed further to exclude the broader/ambiguous
+    // MODEL_ACCESS_DENIED_PATTERNS access-/permission-phrased matches (e.g. "does not
+    // have permission to access this model"), which can be an ACCOUNT-scoped
+    // entitlement gap (PRO vs free tier) rather than a provider-wide unsupported
+    // model — those must keep rotating to other accounts normally.
+    if (isProviderModelUnsupported400(status, errorText)) {
+      log.info(
+        "AUTH",
+        `${connectionId.slice(0, 8)} provider_model_unsupported 400 (${provider}/${model ?? "n/a"}) — skipping account cooldown, letting combo advance`
+      );
+      return { shouldFallback: false, cooldownMs: 0, reason: "provider_model_unsupported" };
     }
 
     const effectiveProviderProfile =
@@ -2689,27 +2826,14 @@ export async function markAccountUnavailable(
       });
     }
 
-    // T-AUTODISABLE: If auto-disable setting is enabled and error is permanent/terminal,
-    // mark account as inactive so it is never retried again.
-    // Uses getCachedSettings() to avoid DB overhead on hot error path.
-    // NOTE: For permanent bans we disable immediately — no threshold needed,
-    // because a permanent ban (403 "Verify your account" / ToS violation) will
-    // NEVER recover, so retrying is pointless regardless of attempt count.
-    if ((result as { permanent?: boolean }).permanent) {
-      try {
-        const settings = await getCachedSettings();
-        const autoDisableEnabled = settings.autoDisableBannedAccounts ?? false;
-        if (autoDisableEnabled) {
-          await updateProviderConnection(connectionId, { isActive: false });
-          log.info(
-            "AUTH",
-            `Auto-disabled ${connectionId.slice(0, 8)} — permanent ban detected (autoDisableBannedAccounts=true)`
-          );
-        }
-      } catch (e) {
-        log.info("AUTH", `Auto-disable check failed (non-fatal): ${e}`);
-      }
-    }
+    // T-AUTODISABLE: permanent bans disable immediately when the setting allows it.
+    await maybeAutoDisableBannedAccount({
+      connectionId,
+      provider,
+      authType: conn?.authType,
+      connectionProvider: conn?.provider,
+      permanent: Boolean((result as { permanent?: boolean }).permanent),
+    });
 
     if (provider && status && errorMsg) {
       console.error(`❌ ${provider} [${status}]: ${errorMsg}`);

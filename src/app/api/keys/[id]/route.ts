@@ -162,13 +162,10 @@ export async function PATCH(request, { params }) {
     });
   } catch (error) {
     if (error instanceof ApiKeyPolicyInvariantError) {
-      return NextResponse.json(
-        buildErrorBody(400, error.message, null, {
-          type: "lease_error",
-          code: error.code,
-        }),
-        { status: 400 }
-      );
+      return NextResponse.json(buildErrorBody(400, error.message, null, {
+        type: "lease_error",
+        code: error.code,
+      }), { status: 400 });
     }
     log.error("keys", "Error updating key permissions", error);
     return NextResponse.json({ error: "Failed to update permissions" }, { status: 500 });

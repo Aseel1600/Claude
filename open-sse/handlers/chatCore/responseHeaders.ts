@@ -28,9 +28,12 @@ const STREAMING_RESPONSE_HEADER_DENYLIST = new Set([
   "x-amz-security-token",
   "x-auth-token",
   "x-accel-buffering",
+  // 314-byte Codex session blob. It is not a client rate-limit signal and
+  // alone ate ~40% of the old 768-byte budget, evicting x-codex-*-used-percent.
+  "x-codex-turn-state",
 ]);
 
-const DEFAULT_FORWARDED_HEADER_BUDGET_BYTES = 2048;
+const DEFAULT_FORWARDED_HEADER_BUDGET_BYTES = 768;
 
 /**
  * Resolve the forwarded upstream response-header budget from an optional string value
@@ -92,19 +95,6 @@ function isOmniRouteInternalHeader(headerName: string): boolean {
   return headerName.toLowerCase().startsWith("x-omniroute-");
 }
 
-/**
- * Noise headers that should never evict operationally useful headers.
- * Lowest priority (4) — dropped first when the forwarding budget is tight.
- */
-const LOW_PRIORITY_NOISE_HEADERS = new Set([
-  "x-codex-turn-state",
-  "cf-ray",
-  "cf-cache-status",
-  "content-security-policy",
-  "date",
-  "x-robots-tag",
-]);
-
 function getForwardingPriority(headerName: string): number {
   const normalized = headerName.toLowerCase();
   if (
@@ -117,18 +107,31 @@ function getForwardingPriority(headerName: string): number {
     return 0;
   }
   if (normalized === "retry-after") return 1;
-  // Standard rate-limit headers (OpenAI, Anthropic, generic)
   if (normalized.includes("ratelimit") || normalized.includes("rate-limit")) return 2;
-  // Codex quota surface — names lack the "ratelimit" substring but carry the same semantics
+  // Codex quota / reset / credits do not contain "ratelimit" in the name,
+  // so they used to fall through to priority 3 and lose to date/csp/cf-ray.
   if (
     normalized.startsWith("x-codex-") &&
-    (normalized.includes("-used-") ||
-      normalized.includes("-reset-") ||
-      normalized.startsWith("x-codex-credits"))
+    (normalized.includes("used-percent") ||
+      normalized.includes("reset") ||
+      normalized.includes("window") ||
+      normalized.includes("credits") ||
+      normalized.includes("over-secondary") ||
+      normalized.includes("plan-type"))
   ) {
     return 2;
   }
-  if (LOW_PRIORITY_NOISE_HEADERS.has(normalized)) return 4;
+  if (
+    normalized === "date" ||
+    normalized === "vary" ||
+    normalized === "x-robots-tag" ||
+    normalized === "content-security-policy" ||
+    normalized.startsWith("cf-") ||
+    normalized.endsWith("-organization-id") ||
+    normalized.endsWith("-workspace-id")
+  ) {
+    return 4;
+  }
   return 3;
 }
 
