@@ -1,0 +1,1 @@
+- **feat(credential-health):** pace the credential health sweep per connection via `provider_connections.healthCheckInterval` (minutes, 0 = never), with `CREDENTIAL_HEALTH_CHECK_INTERVAL` as the global default ([#8443](https://github.com/diegosouzapw/OmniRoute/issues/8443))
