@@ -8,6 +8,8 @@
  * @see https://nextjs.org/docs/app/building-your-application/optimizing/instrumentation
  */
 
+import { normalizeBootError } from "@/lib/instrumentationBootError";
+
 /**
  * `registerNodejsFn` is only for tests to inject a fake without module-mocking
  * (`node:test` does not support `mock.module` reliably here) — mirrors the
@@ -34,7 +36,12 @@ export async function register(registerNodejsFn?: () => Promise<void>) {
       // up while every DB-touching route 500s forever with a permanently
       // empty app.log. This guarantees stdout/app.log is never silently
       // empty on a failed boot, regardless of platform or which step threw.
-      const normalizedError = err instanceof Error ? err : new Error(String(err));
+      // Reuses the same normalizeBootError() helper as ensureDbReadyForBoot
+      // (./instrumentation-node) — imported from a dependency-free module so
+      // this file, which also loads under the Edge runtime, never has to pull
+      // in Node-only code (or risk a second failing dynamic import of
+      // ./instrumentation-node itself) just to normalize the caught value.
+      const normalizedError = normalizeBootError(err);
       const message = normalizedError.message;
       console.error("[STARTUP] Fatal: instrumentation hook failed during boot:", message);
       throw normalizedError;
