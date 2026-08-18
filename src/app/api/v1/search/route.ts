@@ -7,6 +7,7 @@ import {
 import {
   getAllSearchProviders,
   getSearchProvider,
+  resolveSearchProvider,
   selectProvider,
   supportsSearchType,
   SEARCH_PROVIDERS,
@@ -129,7 +130,7 @@ async function postHandler(request: Request, context: unknown) {
 
   // Resolve provider and credentials
   if (body.provider) {
-    const explicitProvider = getSearchProvider(body.provider);
+    const explicitProvider = resolveSearchProvider(body.provider);
     if (!explicitProvider) {
       return errorResponse(HTTP_STATUS.BAD_REQUEST, `Unknown search provider: ${body.provider}`);
     }
@@ -300,6 +301,8 @@ async function postHandler(request: Request, context: unknown) {
         alternateProvider: alternateProviderId,
         alternateCredentials,
         log,
+        connectionId: credentials?.connectionId || undefined,
+        apiKeyId: policy.apiKeyInfo?.id || undefined,
       });
 
       if (!result.success) {

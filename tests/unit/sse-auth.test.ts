@@ -15,6 +15,7 @@ const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const auth = await import("../../src/sse/services/auth.ts");
 const quotaCache = await import("../../src/domain/quotaCache.ts");
 const fallback = await import("../../open-sse/services/accountFallback.ts");
+const oauthOccupancy = await import("../../open-sse/services/oauthSessionOccupancy.ts");
 
 async function resetStorage() {
   core.resetDbInstance();
@@ -64,6 +65,7 @@ async function flushWrites() {
 }
 
 test.beforeEach(async () => {
+  oauthOccupancy._clearOAuthSessionOccupancyForTest();
   await resetStorage();
 });
 
@@ -113,6 +115,13 @@ test("extractApiKey parses bearer headers and isValidApiKey validates persisted 
   assert.equal(await auth.isValidApiKey(created.key), true);
   assert.equal(await auth.isValidApiKey("sk-missing"), false);
   assert.equal(await auth.isValidApiKey(""), false);
+});
+
+test("getProviderCredentials identifies synthetic no-auth credentials", async () => {
+  const credentials = await auth.getProviderCredentials("opencode");
+
+  assert.equal(credentials?.connectionId, "noauth");
+  assert.equal(credentials?.authType, "none");
 });
 
 test("getProviderCredentials reports rate limiting when only inactive suppressed records remain", async () => {
@@ -525,6 +534,45 @@ test("getProviderCredentials keeps separate codex affinity per session", async (
   assert.equal(sessionB2.connectionId, second.id);
 });
 
+test("concurrent OAuth selections reserve different available accounts atomically", async () => {
+  await settingsDb.updateSettings({
+    fallbackStrategy: "fill-first",
+    codexSessionAffinityTtlMs: 0,
+  });
+  const first = await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-occupancy-a",
+    priority: 1,
+  });
+  const second = await seedConnection("codex", {
+    authType: "oauth",
+    name: "codex-occupancy-b",
+    priority: 1,
+  });
+  assert.ok(second.priority <= first.priority + 1);
+
+  const [sessionA, sessionB] = await Promise.all([
+    auth.getProviderCredentials("codex", null, null, "gpt-5.5", {
+      sessionKey: "occupancy-session-a",
+      reserveOAuthSession: true,
+    }),
+    auth.getProviderCredentials("codex", null, null, "gpt-5.5", {
+      sessionKey: "occupancy-session-b",
+      reserveOAuthSession: true,
+    }),
+  ]);
+
+  assert.equal(sessionA.authType, "oauth");
+  assert.equal(typeof sessionA.releaseOAuthSession, "function");
+  assert.equal(
+    oauthOccupancy.getForeignOAuthSessionCount(sessionA.connectionId, "occupancy-session-b"),
+    1
+  );
+  assert.notEqual(sessionA.connectionId, sessionB.connectionId);
+  sessionA.releaseOAuthSession?.();
+  sessionB.releaseOAuthSession?.();
+});
+
 test("getProviderCredentials rebinds codex session when affinity connection is excluded", async () => {
   await settingsDb.updateSettings({
     fallbackStrategy: "round-robin",
@@ -717,7 +765,12 @@ test("getProviderCredentials intersects forcedConnectionId with allowedConnectio
     }
   );
 
-  assert.equal(selected, null);
+  // #8893: a forced pin outside the eligible pool is DROPPED (not honored) so a
+  // stale reset-aware pin cannot brick the request — selection falls back to the
+  // policy-allowed pool. The policy-blocked connection must never be selected.
+  assert.equal(selected.connectionId, allowedConn.id);
+  assert.equal(selected.apiKey, "sk-allowed");
+  assert.notEqual(selected.connectionId, blockedConn.id);
 });
 
 test("getProviderCredentials retains rate-limited accounts when allowSuppressedConnections is enabled", async () => {
@@ -1094,6 +1147,31 @@ test("getProviderCredentials resolves the nvidia special alias pool", async () =
   const selected = await auth.getProviderCredentials("nvidia");
 
   assert.equal(selected.connectionId, connection.id);
+});
+
+test("getProviderCredentials resolves the antigravity / agy alias pool", async () => {
+  const connection = await seedConnection("agy", {
+    name: "antigravity-alias-connection",
+  });
+
+  const selected = await auth.getProviderCredentials("antigravity");
+
+  assert.equal(selected.connectionId, connection.id);
+});
+
+test("getProviderCredentials shares one Jina token across foundation, reader, and search", async () => {
+  const connection = await seedConnection("jina-ai", {
+    name: "jina-foundation-key",
+    apiKey: "jina-dashboard-key",
+  });
+
+  const viaSearch = await auth.getProviderCredentials("jina-search");
+  const viaReader = await auth.getProviderCredentials("jina-reader");
+
+  assert.ok(viaSearch && !("allExpired" in viaSearch));
+  assert.ok(viaReader && !("allExpired" in viaReader));
+  assert.equal(viaSearch.connectionId, connection.id);
+  assert.equal(viaReader.connectionId, connection.id);
 });
 
 test("getProviderCredentials exposes copilotToken when present in providerSpecificData", async () => {
@@ -1496,6 +1574,56 @@ test("markAccountUnavailable auto-disables permanently banned accounts when the 
     "Verify your account to continue",
     "openai",
     "gpt-4o"
+  );
+  const updated = await providersDb.getProviderConnectionById(connection.id);
+
+  assert.equal(result.shouldFallback, true);
+  assert.equal(updated.isActive, false);
+  assert.equal(updated.testStatus, "banned");
+});
+
+test("markAccountUnavailable keeps prepaid API keys active when auto-disable scope is subscription", async () => {
+  await settingsDb.updateSettings({
+    autoDisableBannedAccounts: true,
+    autoDisableBannedScope: "subscription",
+  });
+  const connection = await seedConnection("openai", {
+    name: "prepaid-key-stays-on",
+    authType: "apikey",
+  });
+
+  const result = await auth.markAccountUnavailable(
+    connection.id,
+    401,
+    "Verify your account to continue",
+    "openai",
+    "gpt-4o"
+  );
+  const updated = await providersDb.getProviderConnectionById(connection.id);
+
+  assert.equal(result.shouldFallback, true);
+  assert.equal(updated.isActive, true);
+  assert.equal(updated.testStatus, "banned");
+});
+
+test("markAccountUnavailable still auto-disables OAuth accounts when scope is subscription", async () => {
+  await settingsDb.updateSettings({
+    autoDisableBannedAccounts: true,
+    autoDisableBannedScope: "subscription",
+  });
+  const connection = await seedConnection("claude", {
+    name: "oauth-subscription-ban",
+    authType: "oauth",
+    accessToken: "oauth-access-token",
+    refreshToken: "oauth-refresh-token",
+  });
+
+  const result = await auth.markAccountUnavailable(
+    connection.id,
+    401,
+    "Verify your account to continue",
+    "claude",
+    "claude-sonnet"
   );
   const updated = await providersDb.getProviderConnectionById(connection.id);
 

@@ -6,7 +6,8 @@ import { randomUUID } from "crypto";
  * Routes to search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
  *   firecrawl, google-pse-search, linkup-search, searchapi-search,
- *   youcom-search, searxng-search, ollama-search, zai-search, duckduckgo-free
+ *   youcom-search, searxng-search, ollama-search, zai-search, jina-search,
+ *   duckduckgo-free
  *
  * Request format:
  * {
@@ -20,6 +21,8 @@ import { randomUUID } from "crypto";
 import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
+import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
+import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -27,6 +30,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
 
 export interface SearchResult {
   title: string;
@@ -96,6 +100,9 @@ interface SearchHandlerOptions {
   alternateProvider?: string;
   alternateCredentials?: Record<string, any> | null;
   log?: any;
+  /** Connection ID (proxy resolution + call-log attribution) and API key ID (per-key proxy). */
+  connectionId?: string;
+  apiKeyId?: string;
 }
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -300,7 +307,10 @@ function buildSerperRequest(
     url: `${config.baseUrl}${endpoint}`,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-API-Key": params.token },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "X-API-Key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -318,7 +328,10 @@ function buildBraveRequest(
     url: `${config.baseUrl}${endpoint}?${qp}`,
     init: {
       method: "GET",
-      headers: { Accept: "application/json", "X-Subscription-Token": params.token },
+      headers: {
+        Accept: "application/json",
+        ...(params.token ? { "X-Subscription-Token": params.token } : {}),
+      },
     },
   };
 }
@@ -332,8 +345,10 @@ function buildExaRequest(
     query: params.query,
     numResults: params.maxResults,
     type: "auto",
-    text: true,
-    highlights: true,
+    contents: {
+      text: true,
+      highlights: true,
+    },
   };
   if (includes.length) body.includeDomains = includes;
   if (excludes.length) body.excludeDomains = excludes;
@@ -342,7 +357,10 @@ function buildExaRequest(
     url: config.baseUrl,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": params.token },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "x-api-key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -591,22 +609,34 @@ function buildOllamaRequest(
   };
 }
 
+type SearchRequestBuilder = (
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+) => { url: string; init: RequestInit };
+
+const requestBuilders: Record<string, SearchRequestBuilder> = {
+  "serper-search": buildSerperRequest,
+  "brave-search": buildBraveRequest,
+  "perplexity-search": buildPerplexityRequest,
+  "exa-search": buildExaRequest,
+  "tavily-search": buildTavilyRequest,
+  firecrawl: fcSearch.buildFirecrawlSearchRequest,
+  "google-pse-search": buildGooglePseRequest,
+  "linkup-search": buildLinkupRequest,
+  "searchapi-search": buildSearchApiRequest,
+  "youcom-search": buildYouComRequest,
+  "searxng-search": buildSearxngRequest,
+  "ollama-search": buildOllamaRequest,
+  "jina-search": buildJinaSearchRequest,
+};
+
 function buildRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
 ): { url: string; init: RequestInit } {
-  if (config.id === "serper-search") return buildSerperRequest(config, params);
-  if (config.id === "brave-search") return buildBraveRequest(config, params);
-  if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
-  if (config.id === "exa-search") return buildExaRequest(config, params);
-  if (config.id === "tavily-search") return buildTavilyRequest(config, params);
-  if (config.id === "firecrawl") return fcSearch.buildFirecrawlSearchRequest(config, params);
-  if (config.id === "google-pse-search") return buildGooglePseRequest(config, params);
-  if (config.id === "linkup-search") return buildLinkupRequest(config, params);
-  if (config.id === "searchapi-search") return buildSearchApiRequest(config, params);
-  if (config.id === "youcom-search") return buildYouComRequest(config, params);
-  if (config.id === "searxng-search") return buildSearxngRequest(config, params);
-  if (config.id === "ollama-search") return buildOllamaRequest(config, params);
+  const builder = requestBuilders[config.id];
+  if (builder) return builder(config, params);
+
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -1155,29 +1185,65 @@ async function tryZaiMCPProvider(
   }
 }
 
+type SearchResponseNormalizer = (
+  data: unknown,
+  query: string,
+  searchType: string
+) => { results: SearchResult[]; totalResults: number | null };
+
+const responseNormalizers: Record<string, SearchResponseNormalizer> = {
+  "serper-search": normalizeSerperResponse,
+  "brave-search": normalizeBraveResponse,
+  "perplexity-search": normalizePerplexityResponse,
+  "exa-search": normalizeExaResponse,
+  "tavily-search": normalizeTavilyResponse,
+  firecrawl: (data: FirecrawlSearchEnvelope, _query: string, searchType: string) =>
+    fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult),
+  "google-pse-search": normalizeGooglePseResponse,
+  "linkup-search": normalizeLinkupResponse,
+  "searchapi-search": normalizeSearchApiResponse,
+  "youcom-search": normalizeYouComResponse,
+  "searxng-search": normalizeSearxngResponse,
+  "ollama-search": normalizeOllamaResponse,
+  "jina-search": normalizeJinaSearchResponse,
+};
+
 function normalizeResponse(
   providerId: string,
   data: any,
   query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
-  if (providerId === "serper-search") return normalizeSerperResponse(data, query, searchType);
-  if (providerId === "brave-search") return normalizeBraveResponse(data, query, searchType);
-  if (providerId === "perplexity-search")
-    return normalizePerplexityResponse(data, query, searchType);
-  if (providerId === "exa-search") return normalizeExaResponse(data, query, searchType);
-  if (providerId === "tavily-search") return normalizeTavilyResponse(data, query, searchType);
-  if (providerId === "firecrawl")
-    return fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult);
-  if (providerId === "google-pse-search")
-    return normalizeGooglePseResponse(data, query, searchType);
-  if (providerId === "linkup-search") return normalizeLinkupResponse(data, query, searchType);
-  if (providerId === "searchapi-search") return normalizeSearchApiResponse(data, query, searchType);
-  if (providerId === "youcom-search") return normalizeYouComResponse(data, query, searchType);
-  if (providerId === "searxng-search") return normalizeSearxngResponse(data, query, searchType);
-  if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
+  const normalizer = responseNormalizers[providerId];
+  if (normalizer) return normalizer(data, query, searchType);
+
   return { results: [], totalResults: null };
 }
+
+function normalizeJinaSearchResponse(
+  data: unknown,
+  _query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const items = extractJinaSearchItems(data);
+  const results = items.map((item, idx) =>
+    makeResult(
+      "jina-search",
+      {
+        title: item.title,
+        url: item.url,
+        snippet: item.description || item.snippet || "",
+        full_text: item.content || item.text,
+        text_format: "markdown",
+      },
+      idx,
+      now
+    )
+  );
+  return { results, totalResults: results.length };
+}
+
 export async function handleSearch(options: SearchHandlerOptions): Promise<SearchHandlerResult> {
   const {
     query,
@@ -1195,6 +1261,8 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     alternateProvider,
     alternateCredentials,
     log,
+    connectionId,
+    apiKeyId,
   } = options;
   const startTime = Date.now();
 
@@ -1211,6 +1279,13 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       success: false,
       status: 400,
       error: `Unknown search provider: ${providerId}`,
+    };
+  }
+  if (primaryConfig.disabled) {
+    return {
+      success: false,
+      status: 403,
+      error: `Search provider '${providerId}' is currently disabled.`,
     };
   }
 
@@ -1238,7 +1313,15 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
   }
 
   // 4. Try primary provider
-  const result = await tryProvider(primaryConfig, requestParams, credentials, startTime, log);
+  const result = await tryProvider(
+    primaryConfig,
+    requestParams,
+    credentials,
+    startTime,
+    log,
+    connectionId,
+    apiKeyId
+  );
 
   if (result.success) return result;
 
@@ -1256,12 +1339,15 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       );
     }
 
+    // Resolve alternate connection proxy independently so primary context never leaks
     const fallbackResult = await tryProvider(
       alternateConfig,
       requestParams,
       alternateCredentials,
       startTime,
-      log
+      log,
+      alternateCredentials?.connectionId,
+      apiKeyId
     );
 
     if (fallbackResult.success) return fallbackResult;
@@ -1374,7 +1460,9 @@ async function tryProvider(
   params: Omit<SearchRequestParams, "token">,
   credentials: Record<string, any>,
   globalStartTime: number,
-  log?: any
+  log?: any,
+  connectionId?: string,
+  apiKeyId?: string
 ): Promise<SearchHandlerResult> {
   const startTime = Date.now();
   const providerSpecificData =
@@ -1421,6 +1509,10 @@ async function tryProvider(
     };
   }
 
+  // Resolve proxy for the selected connection (see search/searchProxy.ts for the
+  // resolveProxyForConnection precedence chain: per-key, account, provider, combo, global).
+  const { proxy, proxyLevel } = await resolveSearchProxy(connectionId, apiKeyId, config.id);
+
   // Timeout: min of provider timeout and remaining global timeout
   const remainingGlobal = GLOBAL_TIMEOUT_MS - (Date.now() - globalStartTime);
   const timeout = Math.min(config.timeoutMs, Math.max(remainingGlobal, 1000));
@@ -1431,105 +1523,22 @@ async function tryProvider(
     log.info("SEARCH", `${config.id} | query: "${query.slice(0, 80)}" | type: ${searchType}`);
   }
 
-  try {
-    const response = await fetch(url, { ...init, signal: controller.signal });
-    clearTimeout(timer);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      if (log) {
-        log.error("SEARCH", `${config.id} error ${response.status}: ${errorText.slice(0, 200)}`);
-      }
-
-      saveCallLog({
-        method: config.method,
-        path: "/v1/search",
-        status: response.status,
-        model: config.id,
-        provider: config.id,
-        duration: Date.now() - startTime,
-        requestType: "search",
-        error: errorText.slice(0, 500),
-        requestBody: {
-          query: query.slice(0, 200),
-          search_type: searchType,
-          max_results: maxResults,
-        },
-      }).catch(() => {
-        /* non-critical — logging must not block search response */
-      });
-
-      return {
-        success: false,
-        status: response.status,
-        error: `Search provider ${config.id} returned ${response.status}`,
-      };
-    }
-
-    const data = await response.json();
-    const normalized = normalizeResponse(config.id, data, query, searchType);
-    // Enforce max_results — some providers return more than requested
-    const results = normalized.results.slice(0, maxResults);
-    const totalResults = normalized.totalResults;
-    const duration = Date.now() - startTime;
-
-    saveCallLog({
-      method: config.method,
-      path: "/v1/search",
-      status: 200,
-      model: config.id,
-      provider: config.id,
-      duration,
-      requestType: "search",
-      tokens: { prompt_tokens: 0, completion_tokens: 0 },
-      requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
-      responseBody: { results_count: results.length, cached: false },
-    }).catch(() => {
-      /* non-critical — logging must not block search response */
-    });
-
-    return {
-      success: true,
-      data: {
-        provider: config.id,
-        query,
-        results,
-        answer: null,
-        usage: { queries_used: 1, search_cost_usd: config.costPerQuery },
-        metrics: {
-          response_time_ms: duration,
-          upstream_latency_ms: duration,
-          total_results_available: totalResults,
-        },
-        errors: [],
-      },
-    };
-  } catch (err: any) {
-    clearTimeout(timer);
-
-    const isTimeout = err.name === "AbortError";
-    if (log) {
-      log.error("SEARCH", `${config.id} ${isTimeout ? "timeout" : "fetch error"}: ${err.message}`);
-    }
-
-    saveCallLog({
-      method: config.method,
-      path: "/v1/search",
-      status: isTimeout ? 504 : 502,
-      model: config.id,
-      provider: config.id,
-      duration: Date.now() - startTime,
-      requestType: "search",
-      error: err.message,
-      requestBody: { query: query.slice(0, 200), search_type: searchType, max_results: maxResults },
-    }).catch(() => {
-      /* non-critical — logging must not block search response */
-    });
-
-    return {
-      success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
-    };
-  }
+  // Delegate the fetch + response handling (proxy fetch, call-log, sanitized
+  // proxy event, result shaping) to the shared chokepoint in searchProxy.ts.
+  return executeProviderFetch({
+    config,
+    url,
+    init,
+    controller,
+    timer,
+    query,
+    searchType,
+    maxResults,
+    startTime,
+    connectionId,
+    proxy,
+    proxyLevel,
+    log,
+    normalize: normalizeResponse,
+  });
 }

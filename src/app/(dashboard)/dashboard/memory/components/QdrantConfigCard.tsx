@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { Card } from "@/shared/components";
 
@@ -34,7 +34,7 @@ export default function QdrantConfigCard() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"" | "saved" | "error">("");
   const [health, setHealth] = useState<{ ok: boolean; latencyMs: number; error?: string } | null>(
-    null,
+    null
   );
   const [checking, setChecking] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -46,6 +46,12 @@ export default function QdrantConfigCard() {
   const [cleanupMsg, setCleanupMsg] = useState("");
   const [embeddingOptions, setEmbeddingOptions] = useState<EmbeddingModelOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Generation counter for health checks. Bumping it invalidates any in-flight
+  // or already-resolved check so a stale result (for example one that raced a
+  // settings save and read the pre-save configuration) can never be applied
+  // out of order.
+  const healthSeqRef = useRef(0);
 
   useEffect(() => {
     Promise.all([
@@ -65,10 +71,40 @@ export default function QdrantConfigCard() {
       .finally(() => setLoading(false));
   }, []);
 
+  const checkHealth = useCallback(async () => {
+    const seq = ++healthSeqRef.current;
+    setChecking(true);
+    try {
+      const res = await fetch("/api/settings/qdrant/health");
+      if (res.ok) {
+        const data = await res.json();
+        // Drop the result if a newer save/check invalidated this one.
+        if (healthSeqRef.current !== seq) return;
+        setHealth(data);
+      } else {
+        if (healthSeqRef.current !== seq) return;
+        setHealth({ ok: false, latencyMs: 0, error: "HTTP error" });
+      }
+    } catch (e) {
+      if (healthSeqRef.current !== seq) return;
+      setHealth({
+        ok: false,
+        latencyMs: 0,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      if (healthSeqRef.current === seq) setChecking(false);
+    }
+  }, []);
+
   const save = useCallback(
     async (updates: Partial<QdrantSettings> & { apiKey?: string }) => {
       const prev = qdrant;
       const next = { ...qdrant, ...updates };
+      // Settings are changing, so any prior health result is stale: drop it and
+      // invalidate in-flight checks so they cannot overwrite the new state.
+      healthSeqRef.current += 1;
+      setHealth(null);
       setQdrant(next);
       setSaving(true);
       setSaveStatus("");
@@ -91,6 +127,16 @@ export default function QdrantConfigCard() {
           setQdrant(data);
           setApiKeyInput("");
           setSaveStatus("saved");
+          // A health check started during the optimistic window (enabled just
+          // flipped and health was null) can race the PUT and read the OLD
+          // persisted settings -> not_configured/failed. Invalidate it and
+          // schedule a fresh check against the just-persisted settings. This
+          // must be explicit: if health was still null the mount effect bails
+          // on the setHealth(null) no-op, so a healthy Qdrant would stay red
+          // until a manual test.
+          healthSeqRef.current += 1;
+          setHealth(null);
+          void checkHealth();
           setTimeout(() => setSaveStatus(""), 2000);
         } else {
           setQdrant(prev);
@@ -103,25 +149,18 @@ export default function QdrantConfigCard() {
         setSaving(false);
       }
     },
-    [qdrant],
+    [qdrant, checkHealth]
   );
 
-  const checkHealth = useCallback(async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/settings/qdrant/health");
-      if (res.ok) setHealth(await res.json());
-      else setHealth({ ok: false, latencyMs: 0, error: "HTTP error" });
-    } catch (e) {
-      setHealth({
-        ok: false,
-        latencyMs: 0,
-        error: e instanceof Error ? e.message : String(e),
-      });
-    } finally {
-      setChecking(false);
+  // Auto-check on mount once settings load: without this the status badge
+  // renders red after a page refresh because `health` starts as null and the
+  // old code treated "not checked yet" the same as "failed". The Test
+  // connection button still drives the same check manually.
+  useEffect(() => {
+    if (!loading && qdrant.enabled && health === null) {
+      void checkHealth();
     }
-  }, []);
+  }, [loading, qdrant.enabled, health, checkHealth]);
 
   const runSearch = useCallback(async () => {
     const q = searchQuery.trim();
@@ -185,22 +224,32 @@ export default function QdrantConfigCard() {
         </div>
         <span
           className={`inline-flex items-center gap-1.5 text-xs font-medium ${
-            qdrant.enabled
-              ? health?.ok
-                ? "text-emerald-500"
-                : "text-red-500"
-              : "text-text-muted"
+            !qdrant.enabled
+              ? "text-text-muted"
+              : health === null
+                ? "text-text-muted"
+                : health.ok
+                  ? "text-emerald-500"
+                  : "text-red-500"
           }`}
         >
           <span
             className={`inline-block w-2.5 h-2.5 rounded-full ${
-              qdrant.enabled ? (health?.ok ? "bg-emerald-500" : "bg-red-500") : "bg-border"
+              !qdrant.enabled
+                ? "bg-border"
+                : health === null
+                  ? "bg-border"
+                  : health.ok
+                    ? "bg-emerald-500"
+                    : "bg-red-500"
             }`}
           />
           {qdrant.enabled
-            ? health?.ok
-              ? t("qdrant.statusActive")
-              : t("qdrant.statusError")
+            ? health === null
+              ? t("qdrant.testing")
+              : health.ok
+                ? t("qdrant.statusActive")
+                : t("qdrant.statusError")
             : t("qdrant.statusDisabled")}
         </span>
       </div>
@@ -269,7 +318,7 @@ export default function QdrantConfigCard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
         <div className="p-3 rounded-lg bg-surface/30 border border-border/30">
-          <label className="text-xs font-medium block mb-1.5">Host</label>
+          <label className="text-xs font-medium block mb-1.5">{t("qdrant.hostLabel")}</label>
           <input
             value={qdrant.host}
             onChange={(e) => setQdrant((s) => ({ ...s, host: e.target.value }))}
@@ -284,14 +333,17 @@ export default function QdrantConfigCard() {
             value={qdrant.port}
             type="number"
             onChange={(e) =>
-              setQdrant((s) => ({ ...s, port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)) }))
+              setQdrant((s) => ({
+                ...s,
+                port: Math.max(1, Math.min(65535, Number(e.target.value) || 1)),
+              }))
             }
             placeholder="6333"
             className="w-full px-3 py-2 rounded-lg bg-background border border-border text-sm font-mono focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
         <div className="p-3 rounded-lg bg-surface/30 border border-border/30">
-          <label className="text-xs font-medium block mb-1.5">Collection</label>
+          <label className="text-xs font-medium block mb-1.5">{t("qdrant.collectionLabel")}</label>
           <input
             value={qdrant.collection}
             onChange={(e) => setQdrant((s) => ({ ...s, collection: e.target.value }))}
@@ -355,9 +407,7 @@ export default function QdrantConfigCard() {
               </button>
             )}
             <button
-              onClick={() =>
-                save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})
-              }
+              onClick={() => save(apiKeyInput.trim() ? { apiKey: apiKeyInput } : {})}
               disabled={saving}
               className="px-4 py-2 text-sm font-medium rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50"
             >

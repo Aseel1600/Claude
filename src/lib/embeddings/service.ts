@@ -11,12 +11,21 @@ import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import * as log from "@/sse/utils/logger";
 import { toJsonErrorPayload } from "@/shared/utils/upstreamError";
 import { getProviderCredentials, clearRecoveredProviderState } from "@/sse/services/auth";
-import { getCachedProviderNodes, getComboByName, getCombos, getDatabaseSettings } from "@/lib/localDb";
+import {
+  getCachedProviderNodes,
+  getComboByName,
+  getCombos,
+  getDatabaseSettings,
+} from "@/lib/localDb";
 import { resolveProxyForConnection } from "@/lib/db/settings";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import { handleComboChat } from "@omniroute/open-sse/services/combo.ts";
 import { resolveBareModelToConnectionDefault } from "@omniroute/open-sse/services/model.ts";
 import { findEmbeddingComboDimensionConflict } from "./familyGuard";
+import {
+  formatMissingEmbeddingCredentialsError,
+  formatUnknownEmbeddingProviderError,
+} from "./errors";
 import { isPrivateHost, isCloudMetadataHost } from "@/shared/network/outboundUrlGuard";
 import { calculateCost } from "@/lib/usage/costCalculator";
 import { attachOmniRouteMetaHeaders } from "@/domain/omnirouteResponseMeta";
@@ -45,6 +54,8 @@ export interface EmbeddingHandlerOptions {
   apiKeyId?: string | null;
   apiKeyName?: string | null;
   connectionId?: string | null;
+  resolvedProvider?: EmbeddingProvider | null;
+  resolvedModel?: string | null;
 }
 
 export async function createEmbeddingResponse(
@@ -68,10 +79,7 @@ export async function createEmbeddingResponse(
         // different models are not comparable). The generic combo engine has no
         // notion of embedding families, so reject loudly here before dispatch.
         // See _tasks/features-v3.8.12/01-embeddings-combo-family-guard.plan.md.
-        const dimConflict = findEmbeddingComboDimensionConflict(
-          combo as any,
-          allCombos as any
-        );
+        const dimConflict = findEmbeddingComboDimensionConflict(combo as any, allCombos as any);
         if (dimConflict.conflict) {
           return errorResponse(
             HTTP_STATUS.BAD_REQUEST,
@@ -149,7 +157,13 @@ export async function createEmbeddingResponse(
     log.error("EMBED", `Failed to load provider_nodes for embeddings: ${err}`);
   }
 
-  const { provider, model: resolvedModel } = parseEmbeddingModel(body.model, dynamicProviders);
+  const parsedModel = options.resolvedProvider
+    ? {
+        provider: options.resolvedProvider.id,
+        model: options.resolvedModel ?? body.model,
+      }
+    : parseEmbeddingModel(body.model, dynamicProviders);
+  const { provider, model: resolvedModel } = parsedModel;
   if (!provider) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
@@ -158,7 +172,10 @@ export async function createEmbeddingResponse(
   }
 
   let providerConfig: EmbeddingProvider | null =
-    dynamicProviders.find((dp) => dp.id === provider) || getEmbeddingProvider(provider) || null;
+    options.resolvedProvider ||
+    dynamicProviders.find((dp) => dp.id === provider) ||
+    getEmbeddingProvider(provider) ||
+    null;
   let credentialsProviderId = provider;
 
   if (!providerConfig) {
@@ -204,7 +221,7 @@ export async function createEmbeddingResponse(
   if (!providerConfig) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
-      `Unknown embedding provider: ${provider}. No matching hardcoded or local provider found.`
+      formatUnknownEmbeddingProviderError(provider, resolvedModel)
     );
   }
 
@@ -214,7 +231,7 @@ export async function createEmbeddingResponse(
     if (!credentials) {
       return errorResponse(
         HTTP_STATUS.BAD_REQUEST,
-        `No credentials for embedding provider: ${provider}`
+        formatMissingEmbeddingCredentialsError(provider)
       );
     }
     if ("allRateLimited" in credentials && credentials.allRateLimited) {
@@ -224,6 +241,19 @@ export async function createEmbeddingResponse(
         credentials.retryAfter,
         credentials.retryAfterHuman
       );
+    }
+  } else if (provider === "ollama-local") {
+    // Ollama is keyless, but a configured connection can still provide a
+    // custom local host. Hydrate that optional connection without imposing an
+    // authentication requirement, then keep the static localhost default when
+    // no connection exists.
+    const localCredentials = await getProviderCredentials(credentialsProviderId);
+    if (
+      localCredentials &&
+      !("allRateLimited" in localCredentials) &&
+      !("allExpired" in localCredentials)
+    ) {
+      credentials = localCredentials;
     }
   }
 
@@ -259,18 +289,30 @@ export async function createEmbeddingResponse(
   const runEmbedding = () =>
     handleEmbedding({
       body:
-        effectiveModel !== resolvedModel ? { ...body, model: `${provider}/${effectiveModel}` } : body,
+        effectiveModel !== resolvedModel
+          ? { ...body, model: `${provider}/${effectiveModel}` }
+          : body,
       // getProviderCredentials returns a richer connection object; handleEmbedding
-      // only reads apiKey/accessToken, both present at runtime. Bridge the wider
+      // reads auth plus the optional local baseUrl override. Bridge the wider
       // selection type to the handler's narrow credential shape.
-      credentials: credentials as { apiKey?: string; accessToken?: string } | null,
+      credentials: credentials as {
+        apiKey?: string;
+        accessToken?: string;
+        providerSpecificData?: Record<string, unknown> | null;
+      } | null,
       log,
       resolvedProvider: providerConfig,
       resolvedModel: effectiveModel,
       clientRawRequest: options.clientRawRequest || null,
       apiKeyId: options.apiKeyId || null,
       apiKeyName: options.apiKeyName || null,
-      connectionId: options.connectionId || null,
+      // #10347 — thread the selected connection id so handleEmbedding can cool the
+      // account on a hard upstream failure (previously always null on /v1/embeddings).
+      connectionId:
+        ((credentials as { connectionId?: string } | null)?.connectionId) ||
+        options.connectionId ||
+        connectionIdForProxy ||
+        null,
     });
 
   const result = connectionIdForProxy

@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { getCliToken, CLI_TOKEN_HEADER } from "./utils/cliToken.mjs";
-import { resolveActiveContext } from "./contexts.mjs";
+import { resolveActiveContext, resolveActiveContextAsync } from "./contexts.mjs";
 
 export const RETRY_DEFAULTS = Object.freeze({
   maxAttempts: 3,
@@ -77,7 +77,7 @@ export async function buildHeaders(opts) {
   let auth = explicitKey;
   if (!auth) {
     try {
-      const ctx = resolveActiveContext(opts.context ?? process.env.OMNIROUTE_CONTEXT);
+      const ctx = await resolveActiveContextAsync(opts.context ?? process.env.OMNIROUTE_CONTEXT);
       auth = ctx?.accessToken || ctx?.apiKey || null;
     } catch {
       // No context credential available — fall through to the ambient fallback.
@@ -137,6 +137,21 @@ export function shouldRetryError(err, opts = {}) {
   if (err?.code && codes.includes(err.code)) return true;
   if (err?.name === "AbortError" || /timeout|abort/i.test(err?.message || "")) return true;
   return false;
+}
+
+/**
+ * True when a non-2xx status means "this server does not serve this route"
+ * rather than "your request was wrong".
+ *
+ * Commands that keep a local SQLite fallback must not treat these as fatal:
+ * a CLI newer (or older) than the server it is talking to will hit routes that
+ * simply are not mounted, and aborting there strands the user with an
+ * unactionable `HTTP 404` even though the local path would have worked.
+ * Genuine client errors (400/401/403/409/422 …) stay fatal — retrying them
+ * locally would paper over a real problem.
+ */
+export function isRouteUnavailableStatus(status) {
+  return status === 404 || status === 405 || status === 501;
 }
 
 export function statusToExitCode(status) {

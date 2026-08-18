@@ -30,22 +30,51 @@ export const FREE_PROVIDERS = {};
 
 export const FREE_APIKEY_PROVIDER_IDS = new Set([
   "qoder",
-  "mimocode",
   "opencode",
   "dahl",
-  // codebuddy-cn is OAuth-primary but the Tencent gateway also accepts a direct
-  // API key (Authorization: Bearer). Admit it through the same managed-provider
-  // gate so POST /api/providers accepts the dual-auth shape.
-  "codebuddy-cn",
   // auggie is a fully local, credential-less CLI passthrough (auth handled by
   // `auggie login` outside OmniRoute). Admitted here purely so POST /api/providers
   // accepts an optional connection row for display/priority/testStatus tracking —
   // no apiKey is ever required or sent upstream.
   "auggie",
+  // zcode is a local app-server backend; auth stays in the ZCode profile.
+  "zcode",
+  // AI Horde works anonymously (`0000000000`) and also accepts a free registered
+  // key for higher queue priority. The no-auth page still enables the provider;
+  // this flag admits an optional apikey connection so that stored key is used.
+  "aihorde",
 ]);
 
 export function supportsApiKeyOnFreeProvider(providerId: unknown): boolean {
   return typeof providerId === "string" && FREE_APIKEY_PROVIDER_IDS.has(providerId);
+}
+
+// Providers presented as one dashboard card with OAuth as the primary action
+// and a direct API-key alternative. Keep these out of FREE_APIKEY_PROVIDER_IDS.
+const DUAL_AUTH_PROVIDER_IDS = new Set(["clinepass", "codebuddy-cn", "xai"]);
+
+export function supportsDualAuthProvider(providerId: unknown): boolean {
+  return typeof providerId === "string" && DUAL_AUTH_PROVIDER_IDS.has(providerId);
+}
+
+/**
+ * Backend provider IDs that are managed from one dashboard provider family.
+ *
+ * Family members intentionally remain distinct in the registry and database:
+ * the xAI OAuth ID has different token-refresh and quota semantics from the
+ * API-key ID. Consumers that need to list or test every connection for a
+ * family should use getProviderConnectionFamilyIds() rather than duplicating
+ * this compatibility map.
+ */
+export const PROVIDER_CONNECTION_FAMILY_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  alibaba: ["alibaba-cn"],
+  "kimi-coding": ["kimi-coding-apikey"],
+  xai: ["xai-oauth", "xao"],
+};
+
+export function getProviderConnectionFamilyIds(providerId: unknown): readonly string[] {
+  if (typeof providerId !== "string" || providerId.length === 0) return [];
+  return [providerId, ...(PROVIDER_CONNECTION_FAMILY_ALIASES[providerId] || [])];
 }
 
 // Web / Cookie Providers
@@ -62,6 +91,7 @@ export const IMAGE_ONLY_PROVIDER_IDS = new Set([
   "topaz",
   "segmind",
   "freepik",
+  "deepai",
 ]);
 
 export const AGGREGATOR_PROVIDER_IDS = new Set([
@@ -74,6 +104,7 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "getgoapi",
   "laozhang",
   "vercel-ai-gateway",
+  "unorouter",
   "agentrouter",
   "thebai",
   "fenayai",
@@ -87,7 +118,36 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "g4f-pollinations",
   "g4f-ollama",
   "g4f-nvidia",
-]);
+  "naga-ac",
+  "chatanywhere",
+  "zylo-api",
+  "fastrouter",
+  "anyapi",
+  "electronhub",
+  "llmgateway",
+  "llm-kiwi",
+  "literouter",
+  "mnn-ai",
+  "meganova-ai",
+  "mixlayer",
+  "speka",
+  "tokenreply",
+  "yolo-auto",
+  "dxnt",
+  "cloudcode-one",
+  "ofoxai",
+  "zerolimitai",
+  "helyxai",
+  "auriko",
+  "poixe-ai",
+  "naga-ai",
+  "chat-oripe",
+  "freeinference",
+  "free-ai",
+  "void-ai",
+  "helixmind",
+
+]);;
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
   "azure-openai",
@@ -107,6 +167,7 @@ export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
 ]);
 
 export const VIDEO_PROVIDER_IDS = new Set([
+  "agnes",
   "runwayml",
   "veoaifree-web",
   "pollinations",
@@ -122,7 +183,7 @@ export const VIDEO_PROVIDER_IDS = new Set([
 // IDE Providers: editors with built-in AI subscription (separate section in UI).
 // These providers live in OAUTH_PROVIDERS but render under "IDE Providers"
 // instead of "OAuth Providers" to avoid visual duplication.
-export const IDE_PROVIDER_IDS = new Set(["cursor", "zed", "trae"]);
+export const IDE_PROVIDER_IDS = new Set(["cursor", "zed", "trae", "raycast"]);
 
 export const EMBEDDING_RERANK_PROVIDER_IDS = new Set(["voyage-ai", "jina-ai"]);
 
@@ -178,6 +239,7 @@ export function isSelfHostedChatProvider(providerId: unknown): boolean {
 // cyclomatic complexity flat as this list grows — see g4f.space (#6650).
 const EXPLICIT_OPTIONAL_APIKEY_PROVIDER_IDS = new Set([
   "searxng-search",
+  "firecrawl",
   "pollinations",
   "copilot-web",
   "hackclub",
@@ -189,6 +251,7 @@ const EXPLICIT_OPTIONAL_APIKEY_PROVIDER_IDS = new Set([
   "huggingchat",
   "gitlawb",
   "gitlawb-gmi",
+  "naga-ac",
 ]);
 
 export function providerAllowsOptionalApiKey(providerId: unknown): boolean {
@@ -453,8 +516,20 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   // xAI OAuth (Grok) weekly quota (id + public alias, same pattern as ha/agy)
   "xai-oauth",
   "xao",
+  // Grok Build subscription, billing credits, and auto top-up status
+  "grok-cli",
   // Firecrawl team credits (GET /v2/team/credit-usage)
   "firecrawl",
+  // Command Code credits + 5h/weekly rolling windows
+  "command-code",
+  "conol-web",
+  "cnl",
+  // Alibaba Coding Plan triple-window quota (#9603 UI gap — fetcher existed, list entry missing)
+  "bailian-coding-plan",
+  // Qwen Cloud / Model Studio personal Token Plan (cookie-authenticated console gateway)
+  "qwen-cloud-token-plan",
+  // AgentRouter (New-API) console balance quota (consoleApiKey + newApiUserId)
+  "agentrouter",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

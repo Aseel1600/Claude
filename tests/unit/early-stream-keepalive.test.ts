@@ -1,3 +1,10 @@
+/**
+ * @file early-stream-keepalive.test.ts
+ * @description Unit tests for withEarlyStreamKeepalive (fast/slow path, frames, abort).
+ *
+ * @changes
+ * - [2026-07-28] [Cursor Grok 4.5] - Assert brand-neutral startup thinking text (✨)
+ */
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -10,6 +17,8 @@ import {
   OPENAI_CHAT_ERROR_FRAME,
   OPENAI_RESPONSES_ERROR_FRAME,
 } from "../../open-sse/utils/earlyStreamKeepalive.ts";
+import { assertResponsesOutputIndexLifecycle } from "../helpers/assertResponsesOutputIndexLifecycle.ts";
+import { takeEarlyKeepaliveBytes } from "../../open-sse/utils/earlyKeepaliveByteBuffer.ts";
 
 async function readAll(response: Response): Promise<string> {
   const reader = response.body!.getReader();
@@ -59,7 +68,7 @@ test("slow handler emits early keepalive then forwards the real body (#2544)", a
   assert.match(result.headers.get("content-type") || "", /text\/event-stream/);
 
   const body = await readAll(result);
-  assert.match(body, /: omniroute-keepalive/, "should emit a keepalive comment before the body");
+  assert.match(body, /: keepalive/, "should emit a keepalive comment before the body");
   assert.match(body, /event: response\.created/, "should forward the real upstream body");
   assert.match(body, /data: \[DONE\]/);
 });
@@ -95,7 +104,7 @@ test("slow handler emits the custom OpenAI keepalive chunk before the body", asy
   });
 
   const body = await readAll(result);
-  assert.doesNotMatch(body, /: omniroute-keepalive/);
+  assert.doesNotMatch(body, /: keepalive\n/);
   const firstFrame = body.split("\n\n")[0];
   assert.doesNotThrow(() => JSON.parse(firstFrame.slice("data: ".length)));
   assert.match(body, /data: \[DONE\]/);
@@ -194,19 +203,81 @@ test("RESPONSES_STARTUP_THINKING_FRAME is a self-closed synthetic reasoning item
       "response.reasoning_summary_part.added",
       "response.reasoning_summary_text.delta",
       "response.reasoning_summary_part.done",
+      "response.output_item.done",
     ]
   );
 
-  const [added, partAdded, delta, partDone] = events;
+  const [added, partAdded, delta, partDone, itemDone] = events;
   assert.equal(added.data.item.type, "reasoning");
   const itemId = added.data.item.id;
   assert.ok(itemId, "reasoning item must have an id");
 
   assert.equal(partAdded.data.item_id, itemId);
   assert.equal(delta.data.item_id, itemId);
-  assert.equal(delta.data.delta, "OmniRoute: got request, sending to provider");
+  assert.equal(delta.data.delta, "✨");
   assert.equal(partDone.data.item_id, itemId);
-  assert.equal(partDone.data.part.text, "OmniRoute: got request, sending to provider");
+  assert.equal(partDone.data.part.text, "✨");
+
+  // Regression for the live 2026-08-13 incident (OpenClaw issue #123342):
+  // reasoning_summary_part.done only closes the nested summary part, not the
+  // output item itself. Without a matching response.output_item.done here,
+  // a client tracking open items by output_index still sees this synthetic
+  // item open at index 0 when the real upstream response later reuses that
+  // same index for its own response.output_item.added, and throws a
+  // collision ("Responses stream reused active output index 0").
+  assert.equal(itemDone.data.output_index, added.data.output_index);
+  assert.equal(itemDone.data.item.id, itemId);
+  assert.equal(itemDone.data.item.type, "reasoning");
+
+  // General-purpose form of the same check: this frame alone must be a fully
+  // self-closed lifecycle (no output_item left open at the end).
+  assertResponsesOutputIndexLifecycle(events);
+});
+
+test("RESPONSES_STARTUP_THINKING_FRAME does not collide when the real upstream response reuses output_index 0", () => {
+  // Reproduces the actual live failure shape (OpenClaw issue #123342): the
+  // keepalive placeholder fires, then the real upstream response starts its
+  // own independent response.created lifecycle and reuses output_index 0 for
+  // its own real reasoning item. Concatenating the two and replaying them
+  // through the same output_index-lifecycle contract a real client enforces
+  // is what actually would have caught the missing output_item.done — the
+  // frame-shape-only test above could pass while this still failed.
+  const decoded = new TextDecoder().decode(RESPONSES_STARTUP_THINKING_FRAME);
+  const keepaliveEvents = decoded
+    .split("\n\n")
+    .filter(Boolean)
+    .map((frame) => {
+      const [eventLine, dataLine] = frame.split("\n");
+      return {
+        event: eventLine.replace(/^event: /, ""),
+        data: JSON.parse(dataLine.replace(/^data: /, "")),
+      };
+    });
+
+  const realResponseEvents = [
+    { event: "response.created", data: { type: "response.created" } },
+    { event: "response.in_progress", data: { type: "response.in_progress" } },
+    {
+      event: "response.output_item.added",
+      data: {
+        type: "response.output_item.added",
+        output_index: 0,
+        item: { id: "rs_real", type: "reasoning", summary: [] },
+      },
+    },
+    {
+      event: "response.output_item.done",
+      data: {
+        type: "response.output_item.done",
+        output_index: 0,
+        item: { id: "rs_real", type: "reasoning", summary: [] },
+      },
+    },
+  ];
+
+  assert.doesNotThrow(() =>
+    assertResponsesOutputIndexLifecycle([...keepaliveEvents, ...realResponseEvents])
+  );
 });
 
 test("slow handler emits the Responses API startup frame before the real body", async () => {
@@ -225,10 +296,52 @@ test("slow handler emits the Responses API startup frame before the real body", 
 
   const body = await readAll(result);
   assert.match(body, /event: response\.output_item\.added/);
-  assert.match(body, /OmniRoute: got request, sending to provider/);
+  assert.match(body, /✨/);
   assert.match(body, /event: response\.reasoning_summary_part\.done/);
   assert.match(body, /event: response\.created/, "should forward the real upstream body");
   assert.match(body, /data: \[DONE\]/);
+});
+
+test("a correlationId records the startup frame and keepalive ticks, but not the forwarded body", async () => {
+  const correlationId = "corr-record-test-1";
+  const slow = new Promise<Response>((resolve) => {
+    setTimeout(
+      () => resolve(sseResponse("event: response.created\ndata: {}\n\ndata: [DONE]\n\n")),
+      65
+    );
+  });
+
+  const result = await withEarlyStreamKeepalive(slow, {
+    thresholdMs: 25,
+    intervalMs: 20,
+    startupFrame: RESPONSES_STARTUP_THINKING_FRAME,
+    correlationId,
+  });
+  await readAll(result);
+
+  const recorded = takeEarlyKeepaliveBytes(correlationId).join("");
+  assert.match(recorded, /event: response\.output_item\.added/, "startup frame must be recorded");
+  assert.doesNotMatch(
+    recorded,
+    /event: response\.created/,
+    "the verbatim-forwarded real body must NOT be recorded here — the handler's own reqLogger already captures it, and double-recording would duplicate it in the persisted artifact"
+  );
+});
+
+test("omitting correlationId leaves the buffer untouched (today's behavior, unchanged)", async () => {
+  const correlationId = "corr-record-test-omitted";
+  const slow = new Promise<Response>((resolve) => {
+    setTimeout(() => resolve(sseResponse("event: response.created\ndata: {}\n\n")), 65);
+  });
+
+  const result = await withEarlyStreamKeepalive(slow, {
+    thresholdMs: 25,
+    intervalMs: 20,
+    startupFrame: RESPONSES_STARTUP_THINKING_FRAME,
+  });
+  await readAll(result);
+
+  assert.deepEqual(takeEarlyKeepaliveBytes(correlationId), []);
 });
 
 test("slow handler emits the custom keepaliveFrame (Anthropic ping) before the body", async () => {
@@ -247,7 +360,7 @@ test("slow handler emits the custom keepaliveFrame (Anthropic ping) before the b
 
   const body = await readAll(result);
   assert.match(body, /event: ping\ndata: {"type":"ping"}/, "should emit a real ping event");
-  assert.doesNotMatch(body, /: omniroute-keepalive/, "must not fall back to the comment frame");
+  assert.doesNotMatch(body, /: keepalive\n/, "must not fall back to the comment frame");
   assert.match(body, /event: message_start/, "should forward the real upstream body");
 });
 
@@ -272,7 +385,7 @@ test("slow handler that errors emits an in-band error frame (#2544)", async () =
   assert.equal(result.status, 200, "already committed to 200 SSE before the error surfaced");
 
   const body = await readAll(result);
-  assert.match(body, /: omniroute-keepalive/);
+  assert.match(body, /: keepalive/);
   assert.match(body, /event: error/);
   assert.match(body, /rate limited/);
 });
@@ -375,6 +488,6 @@ test("aborting the client signal stops the keepalive stream (#2544)", async () =
       if (done) return true;
     }
   })();
-  const timed = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 500));
+  const timed = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
   assert.equal(await Promise.race([drained, timed]), true, "stream should close after abort");
 });

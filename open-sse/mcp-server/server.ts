@@ -12,6 +12,7 @@ import {
   listCombosInput,
   getComboMetricsInput,
   switchComboInput,
+  createComboInput,
   checkQuotaInput,
   routeRequestInput,
   costReportInput,
@@ -46,6 +47,7 @@ import {
   type McpToolExtraLike,
 } from "./scopeEnforcement.ts";
 import { getMcpHttpAuthHeadersForInternalFetch } from "./httpAuthContext.ts";
+import { getInternalServiceAuthHeaders } from "../../src/lib/api/internalServiceAuth.ts";
 import {
   handleSimulateRoute,
   handleSetBudgetGuard,
@@ -91,6 +93,8 @@ import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
+import { registerRadarCatalogTool } from "./radarCatalog.ts";
+import type { TextToolResult } from "./toolResult.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
@@ -144,11 +148,6 @@ function readMcpAccessibilityConfig(): McpAccessibilityConfig {
   }
 }
 
-type TextToolResult = {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-};
-
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
@@ -163,6 +162,12 @@ function toString(value: unknown, fallback = ""): string {
 
 function toNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+// Mirrors the runtime's env convention for lane flags ("1" | "true" are on) so a
+// future string serialization can never silently invert a boolean lane report.
+function isLaneFlagOn(value: unknown): boolean {
+  return value === true || value === "1" || value === "true";
 }
 
 function toStringArray(value: unknown, fallback: string[] = []): string[] {
@@ -203,6 +208,9 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
     ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     ...getMcpHttpAuthHeadersForInternalFetch(),
     ...((options.headers as Record<string, string>) || {}),
+    // Authenticate only the server-to-server hop. This does not replace or
+    // weaken the caller identity forwarded above.
+    ...getInternalServiceAuthHeaders(),
   };
 
   const signal = options.signal || AbortSignal.timeout(10000);
@@ -265,6 +273,15 @@ function withScopeEnforcement(
   };
 }
 
+// process.uptime() (the source of health.uptime) returns a number, not a string;
+// the shared toString() helper only passes through actual strings, so a naive
+// toString(health.uptime, "unknown") silently discarded every real uptime value.
+function toUptimeString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "unknown";
+}
+
 async function handleGetHealth() {
   const start = Date.now();
   try {
@@ -281,9 +298,40 @@ async function handleGetHealth() {
     const cacheStatsRaw = toRecord(health.cacheStats);
     const resilienceCircuitBreakers = toArray(resilience.circuitBreakers);
     const rateLimitEntries = toArray(rateLimits.limits);
+    const adaptiveAdmissionRaw = toRecord(health.adaptiveAdmission);
+    // Curated lane subset: top lanes by queued cost so a congested tenant is
+    // visible first without shipping the whole admission snapshot to agents.
+    const laneTenants = toArray(adaptiveAdmissionRaw.laneTenants)
+      .map((tenant) => {
+        const record = toRecord(tenant);
+        return {
+          tenantKey: toString(record.tenantKey),
+          queuedCount: toNumber(record.queuedCount, 0),
+          queuedCost: toNumber(record.queuedCost, 0),
+        };
+      })
+      .sort((a, b) => b.queuedCost - a.queuedCost)
+      .slice(0, 10);
+
+    // Surface fetch failures instead of letting Promise.allSettled's {} fallback
+    // masquerade as genuine zero/empty data (indistinguishable "no data" vs.
+    // "couldn't reach the source" was the actual root confusion this fixes).
+    const degradedSources: Array<{ source: string; settled: PromiseSettledResult<unknown> }> = [
+      { source: "health", settled: healthRaw },
+      { source: "resilience", settled: resilienceRaw },
+      { source: "rateLimits", settled: rateLimitsRaw },
+    ];
+    const degraded = degradedSources
+      .filter(({ settled }) => settled.status === "rejected")
+      .map(({ source, settled }) => ({
+        source,
+        error: sanitizeErrorMessage(
+          settled.status === "rejected" ? (settled as PromiseRejectedResult).reason : undefined
+        ),
+      }));
 
     const result = {
-      uptime: toString(health.uptime, "unknown"),
+      uptime: toUptimeString(health.uptime),
       version: toString(health.version, "unknown"),
       memoryUsage: {
         heapUsed: toNumber(memoryUsageRaw.heapUsed, 0),
@@ -305,6 +353,23 @@ async function handleGetHealth() {
             provider: toString(toRecord(health.cryptography).provider, "unknown"),
           }
         : undefined,
+      adaptiveAdmission:
+        Object.keys(adaptiveAdmissionRaw).length > 0
+          ? {
+              virtualLanes: isLaneFlagOn(adaptiveAdmissionRaw.virtualLanes),
+              pressure: toString(adaptiveAdmissionRaw.pressure),
+              utilization: toNumber(adaptiveAdmissionRaw.utilization, 0),
+              laneCount: toNumber(adaptiveAdmissionRaw.laneCount, 0),
+              laneQueuedCount: toNumber(adaptiveAdmissionRaw.laneQueuedCount, 0),
+              laneQueuedCost: toNumber(adaptiveAdmissionRaw.laneQueuedCost, 0),
+              laneTenants,
+              admittedCount: toNumber(adaptiveAdmissionRaw.admittedCount, 0),
+              rejectedCount: toNumber(adaptiveAdmissionRaw.rejectedCount, 0),
+              wouldRejectCount: toNumber(adaptiveAdmissionRaw.wouldRejectCount, 0),
+              shutdown: isLaneFlagOn(adaptiveAdmissionRaw.shutdown),
+            }
+          : undefined,
+      degraded: degraded.length > 0 ? degraded : undefined,
     };
 
     await logToolCall("omniroute_get_health", {}, result, Date.now() - start, true);
@@ -385,6 +450,27 @@ async function handleSwitchCombo(args: { comboId: string; active: boolean }) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await logToolCall("omniroute_switch_combo", args, null, Date.now() - start, false, msg);
+    return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
+  }
+}
+
+async function handleCreateCombo(args: {
+  name: string;
+  description?: string;
+  strategy?: string;
+  models: { provider: string; model: string }[];
+}) {
+  const start = Date.now();
+  try {
+    const result = await omniRouteFetch("/api/combos", {
+      method: "POST",
+      body: JSON.stringify(args),
+    });
+    await logToolCall("omniroute_create_combo", args, result, Date.now() - start, true);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await logToolCall("omniroute_create_combo", args, null, Date.now() - start, false, msg);
     return { content: [{ type: "text" as const, text: `Error: ${msg}` }], isError: true };
   }
 }
@@ -548,16 +634,7 @@ async function handleWebSearch(args: {
   query: string;
   max_results?: number;
   search_type?: "web" | "news";
-  provider?:
-    | "serper-search"
-    | "brave-search"
-    | "perplexity-search"
-    | "exa-search"
-    | "tavily-search"
-    | "google-pse-search"
-    | "linkup-search"
-    | "searchapi-search"
-    | "searxng-search";
+  provider?: string;
 }) {
   const start = Date.now();
   try {
@@ -735,6 +812,17 @@ export function createMcpServer(): McpServer {
   );
 
   server.registerTool(
+    "omniroute_create_combo",
+    {
+      description: "Registers a new combo (model chain) with name, models, and strategy",
+      inputSchema: createComboInput,
+    },
+    withScopeEnforcement("omniroute_create_combo", (args) =>
+      handleCreateCombo(createComboInput.parse(args))
+    )
+  );
+
+  server.registerTool(
     "omniroute_check_quota",
     {
       description: "Checks remaining API quota for one or all providers",
@@ -777,6 +865,8 @@ export function createMcpServer(): McpServer {
       handleListModelsCatalog(listModelsCatalogInput.parse(args))
     )
   );
+
+  registerRadarCatalogTool(server, withScopeEnforcement);
 
   server.registerTool(
     "omniroute_simulate_route",
@@ -1366,6 +1456,10 @@ export function createMcpServer(): McpServer {
  * Called when `omniroute --mcp` is used.
  */
 export async function startMcpStdio(): Promise<void> {
+  // Stdout is reserved for JSON-RPC — bin/mcpStdioConsoleGuard.mjs is preloaded via
+  // `node --import` (see bin/mcp-server.mjs) so console.log/warn already redirect to
+  // stderr before this module's own imports evaluate (DB init happens as a side effect of
+  // createMcpServer()'s tool registration, earlier than any code placed here could catch).
   const server = createMcpServer();
   const transport = new StdioServerTransport();
   const version = process.env.npm_package_version || "1.8.1";

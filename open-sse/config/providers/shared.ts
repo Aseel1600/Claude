@@ -48,7 +48,10 @@ export interface RegistryModel {
   aliases?: readonly string[];
   toolCalling?: boolean;
   supportsReasoning?: boolean;
+  supportedThinkingEfforts?: readonly string[];
   supportsVision?: boolean;
+  supportsAudio?: boolean;
+  supportsVideo?: boolean;
   supportsXHighEffort?: boolean;
   maxOutputTokens?: number;
   targetFormat?: string;
@@ -138,8 +141,19 @@ export interface RegistryEntry {
   clientVersion?: string;
   timeoutMs?: number;
   passthroughModels?: boolean;
+  /**
+   * Whether a non-empty synchronized live model list is exhaustive enough
+   * to reject static registry IDs that it omits.
+   *
+   * Defaults to true. Set this explicitly to false for providers whose
+   * discovery endpoint is known to return only a partial subset of the models
+   * that the provider can route.
+   */
+  liveCatalogAuthoritative?: boolean;
   /** Default context window for all models in this provider (can be overridden per-model) */
   defaultContextLength?: number;
+  /** Maximum OpenAI-compatible function name length accepted by this provider. */
+  toolNameMaxLength?: number;
   /** Optional session pool config for rate limit management */
   poolConfig?: Record<string, unknown>;
   /**
@@ -176,6 +190,12 @@ export interface RegistryEntry {
    * standard OpenAI array-shaped content untouched (see openai-responses.ts).
    */
   requiresPlainStringContent?: boolean;
+  /**
+   * Anthropic-compatible providers that omit the required `signature` field
+   * from streamed thinking block starts. The passthrough stream adds only an
+   * empty placeholder; later provider `signature_delta` events remain intact.
+   */
+  ensureThinkingSignature?: boolean;
   /**
    * Protocolos alternativos que este provedor aceita (ex.: um endpoint
    * Anthropic-compatible alem do OpenAI-compatible padrao). A conexao escolhe
@@ -253,8 +273,6 @@ export const GPT_5_6_API_CAPABILITIES = {
   maxOutputTokens: 128000,
 } as const;
 
-// Codex's live catalog reports a 272K input context window for GPT-5.6.
-// Keep the input and output limits explicit for catalog consumers that expose them separately.
 export const GPT_5_6_CODEX_CAPABILITIES = {
   targetFormat: "openai-responses",
   toolCalling: true,
@@ -645,12 +663,6 @@ export const CHAT_OPENAI_COMPAT_MODELS: Record<string, RegistryModel[]> = {
     "mistralai/Mistral-7B-Instruct-v0.3",
     "Qwen/Qwen2.5-72B-Instruct",
   ]),
-  // Restored after the registry modularization (#3993) dropped the mimocode key
-  // referenced by the mimocode provider plugin. Source of truth: pre-#3993
-  // providerRegistry.ts (commit 1ed01dd90^).
-  mimocode: [
-    { id: "mimo-auto", name: "MiMo Auto", contextLength: 1000000, maxOutputTokens: 128000 },
-  ],
 };
 
 export function mapStainlessOs() {

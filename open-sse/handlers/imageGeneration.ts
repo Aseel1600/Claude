@@ -1,20 +1,5 @@
 import { randomUUID } from "crypto";
-/**
- * Image Generation Handler
- *
- * Handles POST /v1/images/generations requests.
- * Proxies to upstream image generation providers using OpenAI-compatible format.
- *
- * Request format (OpenAI-compatible):
- * {
- *   "model": "openai/gpt-image-2",
- *   "prompt": "a beautiful sunset over mountains",
- *   "n": 1,
- *   "size": "1024x1024",
- *   "quality": "standard",       // optional: "standard" | "hd"
- *   "response_format": "url"     // optional: "url" | "b64_json"
- * }
- */
+/** Image generation handler for POST /v1/images/generations (OpenAI-compatible). */
 
 import { getImageProvider, parseImageModel } from "../config/imageRegistry.ts";
 import { HTTP_STATUS } from "../config/constants.ts";
@@ -51,10 +36,6 @@ import {
 } from "@/shared/utils/fetchTimeout";
 import { sanitizeErrorMessage, sanitizeUpstreamDetails } from "../utils/error.ts";
 
-// --- Per-provider handlers (extracted to co-located files in PR-#4582-batch) ---
-// Imported locally so internal callers (handleImageGeneration / handleImageEdit)
-// resolve to a real binding. extractMarkdownImageUrls + CHATGPT_WEB_IMAGE_ID_RE
-// are still used by handleImageEdit below, so they are imported (not re-defined).
 import { handleSDWebUIImageGeneration } from "./imageGeneration/providers/sdWebUI.ts";
 import { handleHyperbolicImageGeneration } from "./imageGeneration/providers/hyperbolic.ts";
 import { handleHuggingFaceImageGeneration } from "./imageGeneration/providers/huggingface.ts";
@@ -76,6 +57,7 @@ import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/de
 import { handleMinimaxImageGeneration } from "./imageGeneration/providers/minimax.ts";
 import { handleAdobeFireflyImageGeneration } from "./imageGeneration/providers/adobeFirefly.ts";
 import { handleAlibabaImageGeneration } from "./imageGeneration/providers/alibabaImage.ts";
+import { handleAiHordeImageGeneration } from "./imageGeneration/providers/aihorde.ts";
 import {
   applyPollinationsAnonymousFallback,
   reportPollinationsAnonOutcome,
@@ -373,6 +355,18 @@ export async function handleImageGeneration({
     });
   }
 
+  if (providerConfig.format === "aihorde") {
+    return handleAiHordeImageGeneration({
+      model,
+      provider,
+      providerConfig,
+      body,
+      credentials,
+      log,
+      signal,
+    });
+  }
+
   if (providerConfig.format === "gemini-image") {
     return handleGeminiImageGeneration({ model, providerConfig, body, credentials, log });
   }
@@ -628,6 +622,17 @@ export async function handleImageGeneration({
   }
 
   if (
+    providerConfig.format === "agnes-image" &&
+    (typeof body.size !== "string" || body.size.trim().length === 0)
+  ) {
+    return {
+      success: false,
+      status: 400,
+      error: "Size is required for Agnes Image 2.1 Flash",
+    };
+  }
+
+  if (
     providerConfig.format === "alibaba-image" ||
     providerConfig.format === "qwen-cloud-image" ||
     providerConfig.format === "qwen-token-plan-image" ||
@@ -719,7 +724,7 @@ async function handleKieImageGeneration({
     baseUrl = `${providerConfig.baseUrl.replace(/\/$/, "")}/api/v1/jobs/createTask`;
     const input: Record<string, unknown> = {
       prompt,
-      aspect_ratio: mapImageSize(size, "1:1"),
+      aspect_ratio: mapImageSize(size),
     };
     if (imageUrl) {
       input.image_url = imageUrl;
@@ -737,7 +742,7 @@ async function handleKieImageGeneration({
 
     payload = {
       prompt,
-      size: mapImageSize(size, "1:1"),
+      size: mapImageSize(size),
       nVariants: body.n || 1,
     };
   }
@@ -1017,6 +1022,33 @@ async function handleGeminiImageGeneration({ model, providerConfig, body, creden
 /**
  * Handle OpenAI-compatible image generation (standard providers + Nebius fallback)
  */
+function buildAgnesImageRequestBody(model, body) {
+  const upstreamBody: Record<string, unknown> = {
+    model,
+    prompt: body.prompt,
+  };
+
+  if (body.size !== undefined) upstreamBody.size = body.size;
+  if (body.ratio !== undefined) {
+    upstreamBody.ratio = body.ratio;
+  } else if (body.aspect_ratio !== undefined) {
+    upstreamBody.ratio = body.aspect_ratio;
+  }
+  if (body.return_base64 !== undefined) upstreamBody.return_base64 = body.return_base64;
+
+  const explicitExtraBody =
+    body.extra_body && typeof body.extra_body === "object" && !Array.isArray(body.extra_body)
+      ? body.extra_body
+      : {};
+  const extraBody: Record<string, unknown> = { ...explicitExtraBody };
+  const { imageUrls } = extractImageInputs(body);
+  if (imageUrls.length > 0) extraBody.image = imageUrls;
+  if (body.response_format !== undefined) extraBody.response_format = body.response_format;
+  if (Object.keys(extraBody).length > 0) upstreamBody.extra_body = extraBody;
+
+  return upstreamBody;
+}
+
 async function handleOpenAIImageGeneration({
   model,
   provider,
@@ -1040,21 +1072,26 @@ async function handleOpenAIImageGeneration({
   };
 
   // Build upstream request (OpenAI-compatible format)
-  const upstreamBody: Record<string, unknown> = {
-    model: model,
-    prompt: body.prompt,
-  };
+  const upstreamBody: Record<string, unknown> =
+    providerConfig.format === "agnes-image"
+      ? buildAgnesImageRequestBody(model, body)
+      : {
+          model,
+          prompt: body.prompt,
+        };
 
-  // Pass optional parameters
-  if (body.n !== undefined) upstreamBody.n = body.n;
-  if (body.size !== undefined) upstreamBody.size = body.size;
-  if (body.quality !== undefined) upstreamBody.quality = body.quality;
-  if (body.response_format !== undefined) upstreamBody.response_format = body.response_format;
-  if (body.style !== undefined) upstreamBody.style = body.style;
+  if (providerConfig.format !== "agnes-image") {
+    // Pass optional parameters for ordinary OpenAI-compatible providers.
+    if (body.n !== undefined) upstreamBody.n = body.n;
+    if (body.size !== undefined) upstreamBody.size = body.size;
+    if (body.quality !== undefined) upstreamBody.quality = body.quality;
+    if (body.response_format !== undefined) upstreamBody.response_format = body.response_format;
+    if (body.style !== undefined) upstreamBody.style = body.style;
 
-  const { imageUrl } = extractImageInputs(body);
-  if (imageUrl && OPENAI_IMAGE_TO_IMAGE_MODELS.has(model)) {
-    upstreamBody.image_url = imageUrl;
+    const { imageUrl } = extractImageInputs(body);
+    if (imageUrl && OPENAI_IMAGE_TO_IMAGE_MODELS.has(model)) {
+      upstreamBody.image_url = imageUrl;
+    }
   }
 
   // Build headers
@@ -1455,6 +1492,7 @@ async function handleFalAIImageGeneration({
 }) {
   const startTime = Date.now();
   const token = credentials.apiKey || credentials.accessToken;
+  const falModel = model.startsWith("fal-ai/") ? model : `fal-ai/${model}`;
   const { imageUrl, imageUrls } = extractImageInputs(body);
   const upstreamBody: Record<string, unknown> = {
     prompt: body.prompt,
@@ -1500,7 +1538,7 @@ async function handleFalAIImageGeneration({
   }
 
   try {
-    const response = await fetch(`${providerConfig.baseUrl.replace(/\/$/, "")}/${model}`, {
+    const response = await fetch(`${providerConfig.baseUrl.replace(/\/$/, "")}/${falModel}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1524,7 +1562,7 @@ async function handleFalAIImageGeneration({
     }
 
     const payload = await response.json();
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "b64_json");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1714,7 +1752,7 @@ async function handleStabilityAIImageGeneration({
       payload = { image: buffer.toString("base64") };
     }
 
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "b64_json");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1833,7 +1871,7 @@ async function handleBlackForestLabsImageGeneration({
         })
       : initialPayload;
 
-    const images = await normalizeProviderImagePayload(finalPayload, body, log);
+    const images = await normalizeProviderImagePayload(finalPayload, body, log, "url");
     return saveImageSuccessResult({
       provider,
       model,
@@ -1908,7 +1946,7 @@ async function handleRecraftImageGeneration({
     }
 
     const payload = await response.json();
-    const images = await normalizeProviderImagePayload(payload, body, log);
+    const images = await normalizeProviderImagePayload(payload, body, log, "url");
     return saveImageSuccessResult({
       provider,
       model,
@@ -2149,7 +2187,7 @@ function parseSizeToDimensions(size, fallback = 1024) {
   };
 }
 
-function normalizeRequestedImageFormat(
+export function normalizeRequestedImageFormat(
   body,
   fallback = "png",
   allowedFormats = ["jpeg", "png", "webp"]
@@ -2169,7 +2207,7 @@ function normalizeRequestedImageFormat(
   return fallback;
 }
 
-function mapFalImageSize(size, fallback = "square_hd") {
+export function mapFalImageSize(size, fallback = "square_hd") {
   if (typeof size !== "string") return fallback;
   if (FAL_PRESET_SIZES[size]) return FAL_PRESET_SIZES[size];
   if (size.includes("x")) {
@@ -2200,7 +2238,7 @@ function shouldIncludeStabilityMask(model) {
   ]).has(model);
 }
 
-async function normalizeProviderImagePayload(payload, body, log) {
+export async function normalizeProviderImagePayload(payload, body, log, defaultFormat) {
   const candidates = [];
 
   const pushCandidate = (value) => {
@@ -2226,7 +2264,7 @@ async function normalizeProviderImagePayload(payload, body, log) {
 
   const normalized = [];
   for (const candidate of candidates) {
-    const item = await normalizeProviderImageCandidate(candidate, body);
+    const item = await normalizeProviderImageCandidate(candidate, body, defaultFormat);
     if (item) normalized.push(item);
   }
 
@@ -2240,8 +2278,8 @@ async function normalizeProviderImagePayload(payload, body, log) {
   return normalized;
 }
 
-async function normalizeProviderImageCandidate(candidate, body) {
-  const wantsBase64 = body?.response_format === "b64_json";
+async function normalizeProviderImageCandidate(candidate, body, defaultFormat) {
+  const wantsBase64 = body?.response_format === "b64_json" || defaultFormat === "b64_json";
   let url = null;
   let b64 = null;
 

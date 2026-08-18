@@ -4,6 +4,7 @@ import * as defaultLog from "@/sse/utils/logger";
 import {
   getAllSearchProviders,
   getSearchProvider,
+  resolveSearchProvider,
   selectProvider,
   supportsSearchType,
   SEARCH_CREDENTIAL_FALLBACKS,
@@ -121,7 +122,7 @@ export async function executeWebSearch(
   const searchType = input.search_type || "web";
 
   if (input.provider) {
-    const explicitProvider = getSearchProvider(input.provider);
+    const explicitProvider = resolveSearchProvider(input.provider);
     if (!explicitProvider) {
       throw new WebSearchExecutionError(`Unknown search provider: ${input.provider}`, 400);
     }
@@ -173,6 +174,25 @@ export async function executeWebSearch(
     credentials = await resolveSearchCredentials(providerConfig.id);
 
     if (!credentials) {
+      const fallbackProviders = Object.values(SEARCH_PROVIDERS)
+        .filter((provider) => provider.fallbackOnly && supportsSearchType(provider, searchType))
+        .sort((a, b) => a.costPerQuery - b.costPerQuery);
+
+      for (const fallbackProvider of fallbackProviders) {
+        providerConfig = fallbackProvider;
+        if (fallbackProvider.id === "duckduckgo-free") {
+          credentials = {};
+          break;
+        }
+        const fallbackCredentials = await resolveSearchCredentials(fallbackProvider.id);
+        if (fallbackCredentials) {
+          credentials = fallbackCredentials;
+          break;
+        }
+      }
+    }
+
+    if (!credentials) {
       const sortedIds = Object.values(SEARCH_PROVIDERS)
         .filter((provider) => supportsSearchType(provider, searchType))
         .sort((a, b) => a.costPerQuery - b.costPerQuery)
@@ -203,7 +223,7 @@ export async function executeWebSearch(
       .filter((provider) => supportsSearchType(provider, searchType))
       .sort((a, b) => a.costPerQuery - b.costPerQuery)
       .map((provider) => provider.id)
-      .filter((providerId) => providerId !== providerConfig.id);
+      .filter((providerId) => providerId !== providerConfig!.id);
 
     for (const providerId of otherIds) {
       const creds = await resolveSearchCredentials(providerId);
@@ -249,6 +269,8 @@ export async function executeWebSearch(
       alternateProvider: alternateProviderId,
       alternateCredentials,
       log,
+      connectionId: credentials?.connectionId || undefined,
+      apiKeyId: input.apiKeyId || undefined,
     });
 
     if (!result.success || !result.data) {

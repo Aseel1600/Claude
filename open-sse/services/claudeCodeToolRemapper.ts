@@ -21,16 +21,43 @@ const TOOL_RENAME_MAP: Record<string, string> = {
   glob: "Glob",
   grep: "Grep",
   task: "Task",
+  agent: "Agent",
   webfetch: "WebFetch",
   websearch: "WebSearch",
   todowrite: "TodoWrite",
   todoread: "TodoRead",
   question: "Question",
+  askuserquestion: "AskUserQuestion",
   skill: "Skill",
+  slashcommand: "SlashCommand",
   multiedit: "MultiEdit",
   notebook: "Notebook",
+  notebookedit: "NotebookEdit",
+  notebookread: "NotebookRead",
   lsp: "Lsp",
   apply_patch: "ApplyPatch",
+  applypatch: "ApplyPatch",
+  bashoutput: "BashOutput",
+  killshell: "KillShell",
+  killbash: "KillBash",
+  enterplanmode: "EnterPlanMode",
+  exitplanmode: "ExitPlanMode",
+  enterworktree: "EnterWorktree",
+  exitworktree: "ExitWorktree",
+  artifact: "Artifact",
+  designsync: "DesignSync",
+  monitor: "Monitor",
+  sendmessage: "SendMessage",
+  listagents: "ListAgents",
+  pushnotification: "PushNotification",
+  reportfindings: "ReportFindings",
+  schedulewakeup: "ScheduleWakeup",
+  croncreate: "CronCreate",
+  crondelete: "CronDelete",
+  cronlist: "CronList",
+  taskoutput: "TaskOutput",
+  taskstop: "TaskStop",
+  workflow: "Workflow",
 };
 
 const REVERSE_MAP: Record<string, string> = {};
@@ -160,7 +187,6 @@ export function remapToolNamesInResponse(
 ): string {
   if (!forceLowercase) return text;
 
-  // Replace TitleCase tool names back to lowercase in SSE chunks
   if (toolNameMap?.size) {
     for (const [mapped, original] of toolNameMap.entries()) {
       text = text.replaceAll(`"name":"${mapped}"`, `"name":"${original}"`);
@@ -173,6 +199,49 @@ export function remapToolNamesInResponse(
     text = text.replaceAll(`"name": "${titleCase}"`, `"name": "${lower}"`);
   }
   return text;
+}
+
+/**
+ * Restore a tool name for Claude-format clients (#9008).
+ *
+ * Preference order:
+ * 1. Exact `_toolNameMap` hit (sanitized → original)
+ * 2. Case-insensitive match against map keys/values (Gemini/Antigravity may
+ *    echo a lowercased name for a PascalCase Claude Code tool)
+ * 3. REVERSE_MAP TitleCase → lowercase fallback for clients with no request map
+ *    (#7926 XML / OpenCode-style lowercase tools)
+ *
+ * Never apply REVERSE_MAP after a request-side original is known — that is what
+ * turned Claude Code's `Read`/`WebSearch` into `read`/`websearch`.
+ */
+export function restoreClaudeToolName(
+  rawName: string,
+  toolNameMap?: Map<string, string> | null
+): string {
+  if (!rawName) return rawName;
+
+  const exact = toolNameMap?.get(rawName);
+  if (typeof exact === "string") return exact;
+
+  if (toolNameMap?.size) {
+    const lower = rawName.toLowerCase();
+    for (const [sanitized, original] of toolNameMap.entries()) {
+      if (sanitized.toLowerCase() === lower || original.toLowerCase() === lower) {
+        return original;
+      }
+    }
+  }
+
+  // When no request toolNameMap is provided (e.g. non-Claude client):
+  // If rawName is already TitleCase, apply REVERSE_MAP for #7926 backward compatibility (Bash → bash).
+  if (!toolNameMap && REVERSE_MAP[rawName]) {
+    return REVERSE_MAP[rawName];
+  }
+
+  const canonical = TOOL_RENAME_MAP[rawName.toLowerCase()];
+  if (canonical) return canonical;
+
+  return REVERSE_MAP[rawName] ?? rawName;
 }
 
 export { TOOL_RENAME_MAP, REVERSE_MAP };
