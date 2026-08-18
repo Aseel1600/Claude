@@ -6,6 +6,7 @@
 import { z } from "zod";
 import { installCertResult, uninstallCert, checkCertInstalled } from "@/mitm/cert/install";
 import { resolveMitmDataDir } from "@/mitm/dataDir";
+import { resolveMitmCertPath } from "@/mitm/cert/migration";
 import { getCachedPassword, setCachedPassword } from "@/mitm/manager";
 import {
   isMitmSudoPasswordRequired,
@@ -14,6 +15,8 @@ import {
 } from "@/mitm/sudoGate";
 import path from "path";
 import fs from "fs";
+import { ALL_TARGETS } from "@/mitm/targets/index";
+import { upsertAgentBridgeState } from "@/lib/db/agentBridgeState";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import { createErrorResponse } from "@/lib/api/errorResponse";
 
@@ -24,7 +27,7 @@ export const CertTrustBodySchema = z.object({
 });
 
 function certPath(): string {
-  return path.join(resolveMitmDataDir(), "mitm", "server.crt");
+  return resolveMitmCertPath();
 }
 
 export async function GET(): Promise<Response> {
@@ -68,6 +71,11 @@ export async function POST(request: Request): Promise<Response> {
         setCachedPassword(suppliedPassword);
       }
       const trusted = await checkCertInstalled(crtPath);
+      if (trusted) {
+        ALL_TARGETS.forEach((t) => {
+          upsertAgentBridgeState({ agent_id: t.id, cert_trusted: true });
+        });
+      }
       return Response.json({ ok: true, trusted });
     }
     if (result.reason === "canceled") {
@@ -123,6 +131,11 @@ export async function DELETE(request: Request): Promise<Response> {
       setCachedPassword(suppliedPassword);
     }
     const trusted = await checkCertInstalled(crtPath);
+    if (!trusted) {
+      ALL_TARGETS.forEach((t) => {
+        upsertAgentBridgeState({ agent_id: t.id, cert_trusted: false });
+      });
+    }
     return Response.json({ ok: true, trusted });
   } catch (err) {
     const msg = sanitizeErrorMessage(err instanceof Error ? err.message : String(err));

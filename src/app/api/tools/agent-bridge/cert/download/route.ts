@@ -4,17 +4,19 @@
  * LOCAL_ONLY: registered in routeGuard.ts
  */
 import { resolveMitmDataDir } from "@/mitm/dataDir";
+import { resolveMitmCertPath } from "@/mitm/cert/migration";
 import path from "path";
 import fs from "fs";
 import { createErrorResponse } from "@/lib/api/errorResponse";
 
 export async function GET(): Promise<Response> {
-  const crtPath = path.join(resolveMitmDataDir(), "mitm", "server.crt");
+  const crtPath = resolveMitmCertPath();
 
   if (!fs.existsSync(crtPath)) {
     return createErrorResponse({
       status: 404,
-      message: "Certificate not found. Generate one first via POST /api/tools/agent-bridge/cert/regenerate",
+      message:
+        "Certificate not found. Generate one first via POST /api/tools/agent-bridge/cert/regenerate",
     });
   }
 

@@ -49,6 +49,26 @@ export type CatalogPayload = {
  */
 export const CATALOG_STALE_WHILE_REVALIDATE_MS = 30_000;
 
+let catalogStaleWhileRevalidateMs = CATALOG_STALE_WHILE_REVALIDATE_MS;
+let catalogStaleWhileRevalidateAccessor: (() => number) | null = null;
+
+export function getCatalogStaleWhileRevalidateMs(): number {
+  if (catalogStaleWhileRevalidateAccessor) {
+    return catalogStaleWhileRevalidateAccessor();
+  }
+  return catalogStaleWhileRevalidateMs;
+}
+
+export function __setCatalogStaleWhileRevalidateMsForTest(ms: number): void {
+  catalogStaleWhileRevalidateMs = ms;
+}
+
+export function __setCatalogStaleWhileRevalidateAccessorForTest(
+  accessor: (() => number) | null
+): void {
+  catalogStaleWhileRevalidateAccessor = accessor;
+}
+
 /**
  * Fallback memoization window; overridden by `settings.cache.modelCatalogCacheTtlMs`.
  *
@@ -265,7 +285,7 @@ export async function resolveCachedCatalogResponse(
   if (
     cached &&
     cached.status === 200 &&
-    now - cached.expiresAt <= CATALOG_STALE_WHILE_REVALIDATE_MS
+    now - cached.expiresAt <= getCatalogStaleWhileRevalidateMs()
   ) {
     scheduleBackgroundRefresh(cacheKey, request, buildPayload);
     return new Response(cached.body, {

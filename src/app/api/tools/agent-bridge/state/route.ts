@@ -16,9 +16,11 @@ import { getAllBypassPatterns } from "@/lib/db/agentBridgeBypass";
 import { getMappingsForAgent } from "@/lib/db/agentBridgeMappings";
 import { checkCertInstalled } from "@/mitm/cert/install";
 import { resolveMitmDataDir } from "@/mitm/dataDir";
+import { resolveMitmCertPath } from "@/mitm/cert/migration";
 import { ALL_TARGETS } from "@/mitm/targets/index";
 import path from "path";
 import fs from "fs";
+import os from "os";
 
 export async function GET(): Promise<Response> {
   try {
@@ -44,7 +46,7 @@ export async function GET(): Promise<Response> {
 
     // Compute REAL certTrusted (OS trust store check, not just file exists)
     const certDir = path.join(resolveMitmDataDir(), "mitm");
-    const certPath = path.join(certDir, "server.crt");
+    const certPath = resolveMitmCertPath(certDir);
     const certExists = fs.existsSync(certPath);
     const certTrusted = certExists ? await checkCertInstalled(certPath) : false;
 
@@ -54,7 +56,7 @@ export async function GET(): Promise<Response> {
       agentStates.length > 0 &&
       agentStates.some((s) => s.dns_enabled && checkDNSEntryForAgent(s.agent_id));
 
-    const isWin = process.platform === "win32";
+    const isWin = os.platform() === "win32";
     const hasCachedPassword = !!getCachedPassword();
     const needsSudoPassword = !isWin && !hasCachedPassword && isSudoPasswordRequired();
 
@@ -69,13 +71,27 @@ export async function GET(): Promise<Response> {
       isWin,
     };
 
+    // Build enriched agent states: ensure all registered targets are represented
+    // and cert_trusted reflects the global CA certificate trust state.
+    const enrichedAgentStates = ALL_TARGETS.map((t) => {
+      const existing = agentStates.find((s) => s.agent_id === t.id);
+      return {
+        agent_id: t.id,
+        dns_enabled: existing?.dns_enabled ?? false,
+        cert_trusted: (existing?.cert_trusted ?? false) || certTrusted,
+        setup_completed: existing?.setup_completed ?? false,
+        last_started_at: existing?.last_started_at ?? null,
+        last_error: existing?.last_error ?? null,
+      };
+    });
+
     return Response.json({
       // Legacy keys for backward compat (integration tests + settings/mitm depend on these)
       server: enrichedServer,
       agents,
       // New keys the UI actually reads (fix #8656)
       serverState: enrichedServer,
-      agentStates,
+      agentStates: enrichedAgentStates,
       bypassPatterns: bypassPatterns.map((b) => b.pattern),
       mappings,
     });

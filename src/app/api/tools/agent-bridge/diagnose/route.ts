@@ -20,6 +20,7 @@ import { createErrorResponse } from "@/lib/api/errorResponse";
 import { getMitmStatus } from "@/mitm/manager";
 import { checkCertInstalled } from "@/mitm/cert/install";
 import { resolveMitmDataDir } from "@/mitm/dataDir";
+import { resolveMitmCertPath } from "@/mitm/cert/migration";
 import { summarizeDiagnostics } from "@/mitm/inspector/diagnostics";
 import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState";
 import { checkDNSEntryForAgent } from "@/mitm/dns/dnsConfig";
@@ -46,7 +47,7 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const agentId = new URL(request.url).searchParams.get("agentId") ?? undefined;
     const status = await getMitmStatus(agentId);
-    const certPath = path.join(resolveMitmDataDir(), "mitm", "server.crt");
+    const certPath = resolveMitmCertPath();
     const certExists = fs.existsSync(certPath);
     const certTrusted = certExists ? await checkCertInstalled(certPath) : false;
     const port =

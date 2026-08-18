@@ -135,6 +135,14 @@ export async function POST(request) {
     try {
       parsedBody = await request.json().catch(() => null);
       if (parsedBody) {
+        console.error("[DEBUG-REQUEST] Incoming chat request:");
+        console.error("  Method:", request.method);
+        console.error("  URL:", request.url);
+        console.error(
+          "  Headers:",
+          JSON.stringify(Object.fromEntries(request.headers.entries()), null, 2)
+        );
+        console.error("  Body:", JSON.stringify(parsedBody, null, 2));
         // Route-level shape gate (T06) — validates the object already parsed above; it
         // never reads the request body a second time. See chatCompletionsRouteShapeSchema
         // for why this stays scoped to record-shaped bodies and deliberately permissive.

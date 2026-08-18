@@ -52,8 +52,8 @@ export function AgentCard({
   const dnsEnabled = agentState?.dns_enabled ?? false;
   const setupCompleted = agentState?.setup_completed ?? false;
   // Fix #8656 Issue A: Use server-level cert trust as fallback
-  // (one server cert applies to all agents; agentState.cert_trusted is never written to DB)
-  const certTrusted = agentState?.cert_trusted ?? serverState.certTrusted ?? false;
+  // (one server cert applies to all agents; agentState.cert_trusted fallback to serverState.certTrusted)
+  const certTrusted = (agentState?.cert_trusted ?? false) || (serverState.certTrusted ?? false);
   const isInvestigating = target.viability === "investigating";
 
   const getStatusBadge = () => {

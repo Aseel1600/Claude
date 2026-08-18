@@ -1,5 +1,6 @@
 import fs from "fs";
 import crypto from "crypto";
+import os from "os";
 import { exec } from "child_process";
 import {
   execFileText,
@@ -9,8 +10,8 @@ import {
   runElevatedPowerShell,
 } from "../systemCommands.ts";
 
-const IS_WIN = process.platform === "win32";
-const IS_MAC = process.platform === "darwin";
+const IS_WIN = os.platform() === "win32";
+const IS_MAC = os.platform() === "darwin";
 
 const LINUX_CERT_NAME = "omniroute-mitm.crt";
 
@@ -269,7 +270,7 @@ export function classifyCertInstallError(message: string): CertInstallReason {
  */
 export function buildCertManualGuide(
   certPath: string,
-  platform: NodeJS.Platform = process.platform
+  platform: NodeJS.Platform = os.platform()
 ): CertManualGuide {
   let steps: string[];
   if (platform === "win32") {

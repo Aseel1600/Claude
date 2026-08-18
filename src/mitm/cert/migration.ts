@@ -1,5 +1,6 @@
 import path from "path";
 import fs from "fs";
+import { resolveMitmDataDir } from "../dataDir.ts";
 
 // #6684: migration gate between the legacy single self-signed leaf
 // (`cert/generate.ts` → `server.crt`/`server.key`) and the new persisted
@@ -40,4 +41,18 @@ export function decideCertMigration(
   if (hasLegacyLeaf && !hasCaPair) return "use-legacy-leaf";
 
   return "use-root-ca";
+}
+
+/**
+ * Dynamically resolve the active certificate file path (ca.crt vs. server.crt)
+ * depending on the active certificate mode (root-ca vs legacy leaf).
+ */
+export function resolveMitmCertPath(certDir?: string): string {
+  const dir = certDir || path.join(resolveMitmDataDir(), "mitm");
+  const rootCaEnabled = process.env.MITM_ROOT_CA_ENABLED === "true";
+  const migrationDecision = decideCertMigration(dir, rootCaEnabled);
+  if (migrationDecision === "use-root-ca") {
+    return path.join(dir, "ca.crt");
+  }
+  return path.join(dir, "server.crt");
 }

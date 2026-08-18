@@ -19,15 +19,21 @@ afterEach(() => {
 
 test("FALSE NEGATIVE: Claude Code host correctly spoofed, no Antigravity host present -> dnsConfigured should be true when checked for claude-code", async () => {
   const realReadFileSync = fs.readFileSync.bind(fs);
-  mock.method(fs, "readFileSync", (p: string, enc?: BufferEncoding) => {
-    if (p === "/etc/hosts") {
+  mock.method(fs, "readFileSync", (p: unknown, enc?: BufferEncoding) => {
+    const pathStr = String(p);
+    const isHostsFile =
+      pathStr === "/etc/hosts" ||
+      pathStr.includes("System32\\drivers\\etc\\hosts") ||
+      pathStr.includes("System32/drivers/etc/hosts");
+    if (isHostsFile) {
       // Claude Code target hosts = ["api.anthropic.com"] (src/mitm/targets/claudeCode.ts).
       // The user correctly spoofed it. No Antigravity host present at all.
       return "127.0.0.1 localhost\n127.0.0.1 api.anthropic.com\n::1 api.anthropic.com\n";
     }
-    return realReadFileSync(p, enc);
+    return realReadFileSync(p as string, enc);
   });
 
+  // @ts-ignore
   const { getMitmStatus } = await import("../../src/mitm/manager.ts?probe=8466-negative");
   const status = await getMitmStatus("claude-code");
 
@@ -49,6 +55,7 @@ test("FALSE POSITIVE: only a leftover Antigravity host is present, Claude Code h
     return realReadFileSync(p, enc);
   });
 
+  // @ts-ignore
   const { getMitmStatus } = await import("../../src/mitm/manager.ts?probe=8466-positive");
   const status = await getMitmStatus("claude-code");
 
@@ -76,6 +83,7 @@ test("no-agentId call sites: still Antigravity-only but Windows-aware (#8656)", 
     return realReadFileSync(p as string, enc);
   });
 
+  // @ts-ignore
   const { getMitmStatus } = await import("../../src/mitm/manager.ts?probe=8466-legacy-8656");
   const status = await getMitmStatus();
 
@@ -88,14 +96,20 @@ test("no-agentId call sites: still Antigravity-only but Windows-aware (#8656)", 
 
 test("diagnose route: threads ?agentId= query param through to getMitmStatus", async () => {
   const realReadFileSync = fs.readFileSync.bind(fs);
-  mock.method(fs, "readFileSync", (p: string, enc?: BufferEncoding) => {
-    if (p === "/etc/hosts") {
+  mock.method(fs, "readFileSync", (p: unknown, enc?: BufferEncoding) => {
+    const pathStr = String(p);
+    const isHostsFile =
+      pathStr === "/etc/hosts" ||
+      pathStr.includes("System32\\drivers\\etc\\hosts") ||
+      pathStr.includes("System32/drivers/etc/hosts");
+    if (isHostsFile) {
       return "127.0.0.1 localhost\n127.0.0.1 api.anthropic.com\n::1 api.anthropic.com\n";
     }
-    return realReadFileSync(p, enc);
+    return realReadFileSync(p as string, enc);
   });
 
   const { GET } =
+    // @ts-ignore
     await import("../../src/app/api/tools/agent-bridge/diagnose/route.ts?probe=8466-route");
   const res = await GET(
     new Request("http://localhost/api/tools/agent-bridge/diagnose?agentId=claude-code")

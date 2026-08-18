@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
+import os from "os";
 import fs from "fs";
 import { resolveMitmDataDir } from "./dataDir.ts";
 import {
@@ -230,7 +231,7 @@ export function getAllAgentsStatus(): AgentStatus[] {
 }
 const MITM_SERVER_URL = new URL("./server.cjs", import.meta.url);
 const urlPath =
-  process.platform === "win32" && MITM_SERVER_URL.pathname.startsWith("/")
+  os.platform() === "win32" && MITM_SERVER_URL.pathname.startsWith("/")
     ? decodeURIComponent(MITM_SERVER_URL.pathname.slice(1))
     : decodeURIComponent(MITM_SERVER_URL.pathname);
 
@@ -615,6 +616,7 @@ async function startMitmInternal(
     windowsHide: true,
     env: {
       ...process.env,
+      DATA_DIR: resolveMitmDataDir(),
       ROUTER_API_KEY: apiKey,
       MITM_LOCAL_PORT: String(port),
       INSPECTOR_INTERNAL_INGEST_TOKEN: ingestToken,

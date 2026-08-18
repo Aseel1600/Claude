@@ -22,10 +22,12 @@ import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
 import {
   runWithProxyContext,
   runWithAppliedProxyCapture,
+  runWithDirectEgressContext,
   runWithTlsTracking,
   isTlsFingerprintActive,
   type AppliedProxySink,
 } from "@omniroute/open-sse/utils/proxyFetch.ts";
+import { isAgentBridgeInternalRequest } from "./chatRequestMetadata.ts";
 import { resolveProxyForConnection } from "@/lib/localDb";
 import { hasBlockingProxyAssignment } from "@/lib/db/proxies";
 import {
@@ -66,16 +68,6 @@ type ExecuteChatWithBreakerOptions = {
 type ExecuteChatWithBreakerResult =
   | { result: any; tlsFingerprintUsed: boolean }
   | { localResourcePressureResult: ResourcePressureGuardResult; tlsFingerprintUsed: false };
-
-function getHeaderValue(headers: Record<string, unknown> | null | undefined, name: string) {
-  if (!headers || typeof headers !== "object") return "";
-  const lowerName = name.toLowerCase();
-  for (const [key, value] of Object.entries(headers)) {
-    if (key.toLowerCase() !== lowerName) continue;
-    return Array.isArray(value) ? value.join(",") : String(value ?? "");
-  }
-  return "";
-}
 
 function isCodexNativeResponsesRequest(
   body: any,
@@ -444,102 +436,102 @@ export async function executeChatWithBreaker({
   }
 
   try {
+    const runHandleChatCore = () =>
+      (handleChatCore as any)({
+        body: { ...body, model: `${provider}/${model}` },
+        // #2905-followup: forward the already-resolved custom-model targetFormat
+        // override through as modelInfo.targetFormat. Without this, chatCore.ts's
+        // own resolveChatCoreRequestSetup() reads customModelTargetFormat off THIS
+        // modelInfo object (not the one resolveModelOrError computed it from) and
+        // finds nothing, silently re-deriving targetFormat from the static registry
+        // / provider default and discarding the DB override a second time.
+        modelInfo: {
+          provider,
+          model,
+          extendedContext,
+          apiFormat: modelApiFormat,
+          targetFormat: modelTargetFormat,
+        },
+        credentials: refreshedCredentials,
+        log: handlerLog,
+        clientRawRequest,
+        connectionId: credentials.connectionId,
+        apiKeyInfo,
+        userAgent,
+        comboName,
+        comboStrategy,
+        isCombo,
+        comboStepId,
+        comboExecutionKey,
+        cachedSettings,
+        skipUpstreamRetry,
+        trafficType: normalizedTrafficType,
+        correlationId,
+        modelPinned,
+        routingComboId,
+        skipResourcePressureGuard: true,
+        onCredentialsRefreshed: async (newCreds: any) => {
+          await updateProviderCredentials(credentials.connectionId, {
+            accessToken: newCreds.accessToken,
+            refreshToken: newCreds.refreshToken,
+            expiresIn: newCreds.expiresIn,
+            expiresAt: newCreds.expiresAt,
+            providerSpecificData: newCreds.providerSpecificData,
+            // Cookie/session providers (chatgpt-web) rotate the stored
+            // apiKey blob mid-request — forward it so the DB credential
+            // doesn't go stale after Set-Cookie rotation.
+            apiKey: newCreds.apiKey,
+            testStatus: newCreds.testStatus ?? "active",
+            isActive: newCreds.isActive,
+          });
+        },
+        onRequestSuccess: async () => {
+          if (isShadowTraffic) return;
+          await clearAccountError(credentials.connectionId, credentials);
+        },
+        onStreamFailure: async (failure: any) => {
+          if (isShadowTraffic) return;
+          if (!credentials.connectionId) return;
+          if (
+            Number(failure?.status) === 499 ||
+            failure?.code === "client_disconnected" ||
+            failure?.type === "client_disconnected" ||
+            isLocalStreamLifecycleError(failure?.message ?? failure) // client abort, #4602
+          ) {
+            return;
+          }
+          // A3 guard: if 401 and connection has extra keys, skip connection-level disable
+          // (key-level failure already recorded in chatCore.ts via T07)
+          // Check extra keys directly from credentials for reliability across restarts
+          const extraKeys =
+            (credentials.providerSpecificData?.extraApiKeys as string[] | undefined) ?? [];
+          const hasExtraKeys =
+            extraKeys.length > 0 || connectionHasExtraKeys(credentials.connectionId);
+          const is401 = Number(failure?.status) === 401;
+          if (is401 && hasExtraKeys) {
+            log.debug(
+              "AUTH",
+              `A3 guard: skipping markAccountUnavailable for 401 with extra keys on ${credentials.connectionId.slice(0, 8)}`
+            );
+            return;
+          }
+          await markAccountUnavailable(
+            credentials.connectionId,
+            Number(failure?.status || HTTP_STATUS.BAD_GATEWAY),
+            String(failure?.message || failure?.code || "stream failure"),
+            provider,
+            model,
+            providerProfile,
+            { isCombo }
+          );
+        },
+      });
+
     const chatFn = () =>
       capture(() =>
-        runWithProxyContext(proxyInfo?.proxy || null, () =>
-          (handleChatCore as any)({
-            body: { ...body, model: `${provider}/${model}` },
-            // #2905-followup: forward the already-resolved custom-model targetFormat
-            // override through as modelInfo.targetFormat. Without this, chatCore.ts's
-            // own resolveChatCoreRequestSetup() reads customModelTargetFormat off THIS
-            // modelInfo object (not the one resolveModelOrError computed it from) and
-            // finds nothing, silently re-deriving targetFormat from the static registry
-            // / provider default and discarding the DB override a second time.
-            modelInfo: {
-              provider,
-              model,
-              extendedContext,
-              apiFormat: modelApiFormat,
-              targetFormat: modelTargetFormat,
-            },
-            credentials: refreshedCredentials,
-            log: handlerLog,
-            clientRawRequest,
-            connectionId: credentials.connectionId,
-            apiKeyInfo,
-            userAgent,
-            comboName,
-            comboStrategy,
-            isCombo,
-            comboStepId,
-            comboExecutionKey,
-            cachedSettings,
-            skipUpstreamRetry,
-            trafficType: normalizedTrafficType,
-            correlationId,
-            conversationId,
-            modelPinned,
-            routingComboId,
-            sessionAffinityKey,
-            managedLease,
-            skipResourcePressureGuard: true,
-            onCredentialsRefreshed: async (newCreds: any) => {
-              await updateProviderCredentials(credentials.connectionId, {
-                accessToken: newCreds.accessToken,
-                refreshToken: newCreds.refreshToken,
-                expiresIn: newCreds.expiresIn,
-                expiresAt: newCreds.expiresAt,
-                providerSpecificData: newCreds.providerSpecificData,
-                // Cookie/session providers (chatgpt-web) rotate the stored
-                // apiKey blob mid-request — forward it so the DB credential
-                // doesn't go stale after Set-Cookie rotation.
-                apiKey: newCreds.apiKey,
-                testStatus: newCreds.testStatus ?? "active",
-                isActive: newCreds.isActive,
-              });
-            },
-            onRequestSuccess: async () => {
-              if (isShadowTraffic) return;
-              await clearAccountError(credentials.connectionId, credentials);
-            },
-            onStreamFailure: async (failure: any) => {
-              if (isShadowTraffic) return;
-              if (!credentials.connectionId) return;
-              if (
-                Number(failure?.status) === 499 ||
-                failure?.code === "client_disconnected" ||
-                failure?.type === "client_disconnected" ||
-                isLocalStreamLifecycleError(failure?.message ?? failure) // client abort, #4602
-              ) {
-                return;
-              }
-              // A3 guard: if 401 and connection has extra keys, skip connection-level disable
-              // (key-level failure already recorded in chatCore.ts via T07)
-              // Check extra keys directly from credentials for reliability across restarts
-              const extraKeys =
-                (credentials.providerSpecificData?.extraApiKeys as string[] | undefined) ?? [];
-              const hasExtraKeys =
-                extraKeys.length > 0 || connectionHasExtraKeys(credentials.connectionId);
-              const is401 = Number(failure?.status) === 401;
-              if (is401 && hasExtraKeys) {
-                log.debug(
-                  "AUTH",
-                  `A3 guard: skipping markAccountUnavailable for 401 with extra keys on ${credentials.connectionId.slice(0, 8)}`
-                );
-                return;
-              }
-              await markAccountUnavailable(
-                credentials.connectionId,
-                Number(failure?.status || HTTP_STATUS.BAD_GATEWAY),
-                String(failure?.message || failure?.code || "stream failure"),
-                provider,
-                model,
-                providerProfile,
-                { isCombo }
-              );
-            },
-          })
-        )
+        isAgentBridgeInternalRequest(clientRawRequest?.headers)
+          ? runWithDirectEgressContext(runHandleChatCore)
+          : runWithProxyContext(proxyInfo?.proxy || null, runHandleChatCore)
       );
 
     const tlsTrackingIdentity = {

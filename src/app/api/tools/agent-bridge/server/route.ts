@@ -10,6 +10,8 @@ import { getCachedPassword, setCachedPassword } from "@/mitm/manager";
 import { installCertResult, checkCertInstalled } from "@/mitm/cert/install";
 import { generateCert } from "@/mitm/cert/generate";
 import { resolveMitmDataDir } from "@/mitm/dataDir";
+import { resolveMitmCertPath } from "@/mitm/cert/migration";
+import os from "os";
 import {
   isMitmSudoPasswordRequired,
   normalizeMitmSudoPasswordInput,
@@ -69,7 +71,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     if (action === "start") {
       const suppliedPassword =
-        typeof raw.sudoPassword === "string" ? normalizeMitmSudoPasswordInput(raw.sudoPassword) : "";
+        typeof raw.sudoPassword === "string"
+          ? normalizeMitmSudoPasswordInput(raw.sudoPassword)
+          : "";
       if (suppliedPassword) setCachedPassword(suppliedPassword);
       const apiKey = await resolveRouterApiKey(rawApiKey);
       const { startMitm } = await import("@/mitm/manager.runtime");
@@ -102,12 +106,14 @@ export async function POST(request: Request): Promise<Response> {
       if (isMitmSudoPasswordRequired(sudoPassword)) {
         return createErrorResponse({ status: 400, message: "Missing sudoPassword" });
       }
-      const certPath = path.join(resolveMitmDataDir(), "mitm", "server.crt");
+      const certPath = resolveMitmCertPath();
       const result = await installCertResult(sudoPassword, certPath);
       if (result.installed) {
         const suppliedPassword =
-          typeof raw.sudoPassword === "string" ? normalizeMitmSudoPasswordInput(raw.sudoPassword) : "";
-        if (process.platform !== "win32" && suppliedPassword) {
+          typeof raw.sudoPassword === "string"
+            ? normalizeMitmSudoPasswordInput(raw.sudoPassword)
+            : "";
+        if (os.platform() !== "win32" && suppliedPassword) {
           setCachedPassword(suppliedPassword);
         }
         const trusted = await checkCertInstalled(certPath);

@@ -4,6 +4,31 @@ import { socksDispatcher } from "fetch-socks";
 import { getUpstreamTimeoutConfig } from "@/shared/utils/runtimeTimeouts";
 import { stripIpv6Brackets, detectIpLiteralFamily, parseProxyFamily } from "./proxyFamily.ts";
 import { createSocksDispatcherWithFamily } from "./socksConnectorWithFamily.ts";
+import fs from "node:fs";
+import path from "node:path";
+import { resolveMitmDataDir } from "@/mitm/dataDir";
+
+function loadCustomCaCert(): string[] | undefined {
+  try {
+    const envPath = process.env.AGENTBRIDGE_UPSTREAM_CA_CERT;
+    let pemPath = envPath;
+    if (!pemPath) {
+      const storedPathFile = path.join(resolveMitmDataDir(), "mitm", "upstream-ca.path");
+      if (fs.existsSync(storedPathFile)) {
+        pemPath = fs.readFileSync(storedPathFile, "utf8").trim();
+      }
+    }
+    if (pemPath && fs.existsSync(pemPath)) {
+      const ca = fs.readFileSync(pemPath, "utf8");
+      if (ca) {
+        return [ca];
+      }
+    }
+  } catch {
+    // Ignore error
+  }
+  return undefined;
+}
 import {
   clearDispatcherCache,
   createRoundRobinDispatcher,
@@ -51,6 +76,8 @@ function getDispatcherOptions() {
     console.warn(`[ProxyDispatcher] ${message}`);
   });
 
+  const ca = loadCustomCaCert();
+
   return {
     headersTimeout: timeouts.fetchHeadersTimeoutMs,
     bodyTimeout: timeouts.fetchBodyTimeoutMs,
@@ -74,6 +101,7 @@ function getDispatcherOptions() {
     connect: {
       autoSelectFamily: true,
       autoSelectFamilyAttemptTimeout: 1000,
+      ...(ca ? { ca } : {}),
     } as ProxyAgent.Options["proxyTls"],
   };
 }
@@ -479,6 +507,15 @@ function buildProxyDispatcher(
   // `{ family, autoSelectFamily }` pin. At runtime undici merges these options into
   // net.connect (the uri already carries the host:port), so the partial pin is
   // valid; the cast suppresses the spurious missing-`port` error.
+  const ca = loadCustomCaCert();
+  const hasProxyTls = family !== null || ca !== undefined;
+  const proxyTls = hasProxyTls
+    ? ({
+        ...(family !== null ? { family, autoSelectFamily: false } : {}),
+        ...(ca ? { ca } : {}),
+      } as ProxyAgent.Options["proxyTls"])
+    : undefined;
+
   return new ProxyAgent({
     uri: cleanUri,
     // undici 8.6+ forwards plain-HTTP requests through the proxy as an origin
@@ -488,9 +525,7 @@ function buildProxyDispatcher(
     // undici <8.6 → silently ignored (that version already tunneled by default).
     proxyTunnel: true,
     ...options,
-    ...(family !== null
-      ? { proxyTls: { family, autoSelectFamily: false } as ProxyAgent.Options["proxyTls"] }
-      : {}),
+    ...(proxyTls ? { proxyTls } : {}),
   });
 }
 

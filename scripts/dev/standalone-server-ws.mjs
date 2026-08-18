@@ -8,6 +8,57 @@ import methodGuard from "./http-method-guard.cjs";
 import headResponseGuard from "./head-response-guard.cjs";
 import { resolveTlsOptions, createServerListener } from "./tls-options.mjs";
 import { getMainServerTimeoutConfig } from "./main-server-timeouts.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+
+// Automatically load env files exactly like the CLI/bin/omniroute.mjs launcher
+function loadEnvFiles() {
+  const envPaths = [];
+  const seen = new Set();
+  const addPath = (p) => {
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      envPaths.push(p);
+    }
+  };
+
+  const dataDir =
+    process.env.DATA_DIR ||
+    (process.platform === "win32"
+      ? path.join(process.env.APPDATA || path.join(os.homedir(), "AppData", "Roaming"), "omniroute")
+      : path.join(os.homedir(), ".omniroute"));
+
+  addPath(path.join(dataDir, ".env"));
+  addPath(path.join(os.homedir(), ".omniroute", ".env"));
+  addPath(path.join(process.cwd(), ".env"));
+
+  for (const envPath of envPaths) {
+    try {
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, "utf-8");
+        for (const line of content.split(/\r?\n/)) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const eqIdx = trimmed.indexOf("=");
+          if (eqIdx > 0) {
+            const key = trimmed.slice(0, eqIdx).trim();
+            const value = trimmed
+              .slice(eqIdx + 1)
+              .trim()
+              .replace(/^["']|["']$/g, "");
+            if (process.env[key] === undefined) {
+              process.env[key] = value;
+            }
+          }
+        }
+      }
+    } catch {
+      // Ignore
+    }
+  }
+}
+loadEnvFiles();
 
 const originalCreateServer = http.createServer.bind(http);
 const proxiesByPort = new Map();

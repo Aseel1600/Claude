@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runWithProxyContext, resolveProxyForRequest } from "../../open-sse/utils/proxyFetch.ts";
+import {
+  runWithProxyContext,
+  runWithDirectEgressContext,
+  resolveProxyForRequest,
+} from "../../open-sse/utils/proxyFetch.ts";
 
 async function withEnv(
   overrides: Record<string, string | undefined>,
@@ -55,6 +59,30 @@ test("[9551] resolveProxyForRequest: context-proxy respects NO_PROXY=*", async (
       await runWithProxyContext({ type: "http", host: "127.0.0.1", port: 7897 }, () => {
         const resolved = resolveProxyForRequest("https://api.openai.com/v1/chat/completions");
         assert.equal(resolved.source, "direct", "NO_PROXY=* should bypass context proxy");
+      });
+    }
+  );
+});
+
+test("[9551] direct egress context overrides an inherited proxy context", async () => {
+  await withEnv(
+    {
+      HTTP_PROXY: "http://127.0.0.1:443",
+      HTTPS_PROXY: "http://127.0.0.1:443",
+      ALL_PROXY: undefined,
+      NO_PROXY: undefined,
+    },
+    async () => {
+      await runWithProxyContext({ type: "http", host: "127.0.0.1", port: 7897 }, async () => {
+        await runWithDirectEgressContext(() => {
+          const resolved = resolveProxyForRequest("https://api.openai.com/v1/chat/completions");
+          assert.equal(
+            resolved.source,
+            "direct",
+            "explicit direct egress must bypass inherited proxy context"
+          );
+          assert.equal(resolved.proxyUrl, null);
+        });
       });
     }
   );

@@ -32,7 +32,7 @@ export function isRoot(): boolean {
  * never user input, and `stdio: "ignore"` so the probe is silent.
  */
 export function isSudoAvailable(): boolean {
-  if (process.platform === "win32") return false;
+  if (os.platform() === "win32") return false;
   try {
     // nosemgrep: javascript.lang.security.detect-child-process.detect-child-process
     execFileSync("sh", ["-c", "command -v sudo"], { stdio: "ignore" });

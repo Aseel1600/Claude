@@ -1,6 +1,7 @@
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
+import os from "os";
 import {
   execFileWithPassword,
   getErrorMessage,
@@ -24,7 +25,7 @@ export function resolveHostsForAgent(agentId?: string): string[] {
   return target?.hosts ?? ANTIGRAVITY_HOSTS;
 }
 
-const IS_WIN = process.platform === "win32";
+const IS_WIN = os.platform() === "win32";
 const HOSTS_FILE = IS_WIN
   ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "drivers", "etc", "hosts")
   : "/etc/hosts";

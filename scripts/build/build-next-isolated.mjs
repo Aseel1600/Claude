@@ -6,6 +6,15 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import process from "node:process";
+
+try {
+  if (typeof process.loadEnvFile === "function") {
+    process.loadEnvFile();
+  }
+} catch {
+  // Ignore if .env is missing or cannot be read
+}
 import {
   assembleStandalone,
   syncStandaloneNativeAssets as _syncNativeAssets,
@@ -154,6 +163,7 @@ export function resolveNextBuildEnv(baseEnv = process.env, platform = process.pl
   const env = {
     ...baseEnv,
     NEXT_PRIVATE_BUILD_WORKER: baseEnv.NEXT_PRIVATE_BUILD_WORKER || "0",
+    NEXT_TELEMETRY_DISABLED: "1",
   };
 
   // Windows-only: `next build`'s static-generation glob scan and framework cache

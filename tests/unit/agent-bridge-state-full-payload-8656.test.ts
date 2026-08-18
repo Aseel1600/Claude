@@ -206,3 +206,22 @@ test("GET /state: agentStates entries have expected shape (#8656)", async () => 
   assert.equal(state.last_started_at, "2026-07-27T12:00:00.000Z");
   assert.equal(state.last_error, null);
 });
+
+test("PATCH /agents/[id]: updates setup_completed flag in DB", async () => {
+  const { PATCH } = await import(
+    "../../src/app/api/tools/agent-bridge/agents/[id]/route.ts?t=" + Date.now()
+  );
+
+  const req = new Request("http://localhost/api/tools/agent-bridge/agents/antigravity", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ setup_completed: true }),
+  });
+
+  const res = await PATCH(req, { params: { id: "antigravity" } });
+  assert.equal(res.status, 200);
+
+  const body = (await res.json()) as { ok: boolean; state: { setup_completed: boolean } };
+  assert.equal(body.ok, true);
+  assert.equal(body.state.setup_completed, true);
+});
