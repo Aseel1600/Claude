@@ -18,6 +18,7 @@ import {
 } from "@omniroute/open-sse/services/accountFallback";
 import { looksLikeQuotaExhausted } from "@/shared/utils/classify429";
 import { getTrustedLocalRateLimitError } from "@omniroute/open-sse/services/rateLimitManager/errors";
+import { runAsProbe } from "@/shared/utils/probeOrigin";
 import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 
 const INTERNAL_ORIGIN = "http://omniroute.internal";
@@ -482,11 +483,14 @@ export async function runSingleModelTest(
         providerId,
         connectionId,
         fullModelStr,
-        (signal) => runInner(signal),
+        // T-PROBE: wrap the scheduled fn, not the withRateLimit call — a
+        // queued Bottleneck job executes from its own async resource and
+        // would otherwise run outside the probe context below.
+        (signal) => runAsProbe(() => runInner(signal)),
         controller.signal
       );
     } else {
-      res = await runInner(controller.signal);
+      res = await runAsProbe(() => runInner(controller.signal));
     }
   } catch (error: unknown) {
     clearTimeout(timeoutHandle);

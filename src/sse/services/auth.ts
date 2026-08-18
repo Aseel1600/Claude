@@ -116,6 +116,7 @@ import {
   getNextFromDeckSync,
   planNextFromDeckSync,
 } from "@/shared/utils/shuffleDeck";
+import { isProbeContext } from "@/shared/utils/probeOrigin";
 import {
   applyExclusiveConnectionLeasePolicy,
   invalidateManagedConnectionLease,
@@ -1049,7 +1050,9 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
       if (!nodeId) continue;
       if (
         nodePrefix &&
-        (nodePrefix === provider || nodePrefix === canonicalProvider || nodePrefix === canonicalAlias)
+        (nodePrefix === provider ||
+          nodePrefix === canonicalProvider ||
+          nodePrefix === canonicalAlias)
       ) {
         searchPool.add(nodeId);
       }
@@ -2340,6 +2343,15 @@ export async function markAccountUnavailable(
   try {
     await currentMutex;
 
+    // T-PROBE: a probe-origin failure (model test-all) must never remove the
+    // connection from the pool. Skip EVERY markAccountUnavailable branch
+    // (cooldowns, terminal status, auto-disable) — this is the third
+    // deactivation site, hit from the request path in chat.ts via
+    // markAccountUnavailable after chatCore classified the failure (#9817).
+    if (isProbeContext()) {
+      return { shouldFallback: true, cooldownMs: 0 };
+    }
+
     const resourceBypass = getResource404Bypass(status, errorText, connectionId, log);
     if (resourceBypass) return resourceBypass;
 
@@ -2435,6 +2447,27 @@ export async function markAccountUnavailable(
       null,
       effectiveProviderProfile
     );
+
+    // T-PROBE: a probe-origin failure (model test-all) must never remove the
+    // connection from the pool. Record the failure for visibility but leave
+    // ALL routing state untouched — cooldowns, terminal status, per-model
+    // lockouts (T09 codex-scope, per-model quota, agentrouter #10334) and
+    // auto-disable. Only a real request-path failure deactivates (#9817).
+    if (isProbeContext()) {
+      await updateProviderConnection(connectionId, {
+        // lastError kept RAW (full text) — maximal probe visibility; the
+        // divergence vs the normal path's slice(0,100) is intentional.
+        lastError: errorText,
+        lastErrorType: fallbackResult.reason || null,
+        errorCode: status,
+        lastErrorAt: new Date().toISOString(),
+        backoffLevel: fallbackResult.newBackoffLevel ?? backoffLevel,
+      });
+      console.warn(
+        `[T-PROBE] ${connectionId.slice(0, 8)} ${provider ?? ""} failure ${status} recorded — connection stays in the pool`
+      );
+      return { shouldFallback: true, cooldownMs: 0 };
+    }
 
     // Read passthroughModels from connection config (user-configured per-model quota)
     const connProviderSpecificData = (conn?.providerSpecificData as Record<string, unknown>) || {};
