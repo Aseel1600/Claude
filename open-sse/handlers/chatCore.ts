@@ -159,7 +159,7 @@ import {
   buildCapabilityMismatchMessage,
 } from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
-import { isNoAuthProviderKey } from "@/shared/utils/noAuthProviders.ts";
+import { resolveNoAuthEchoModel } from "./chatCore/noAuthEchoModel.ts";
 import {
   REASONING_BUFFER_MIN_TRIGGER,
   buildReasoningProbeTruncatedResponse,
@@ -887,15 +887,7 @@ export async function handleChatCore({
       : null;
   // Auto-echo the listing-valid form for bare requests to noAuth catalog
   // providers so clients validating response.model against /v1/models don't warn.
-  if (
-    typeof requestedModel === "string" &&
-    requestedModel &&
-    !requestedModel.includes("/") &&
-    isNoAuthProviderKey(provider)
-  ) {
-    const alias = REGISTRY[provider]?.alias || provider;
-    echoModel = `${alias}/${requestedModel}`;
-  }
+  echoModel = resolveNoAuthEchoModel(requestedModel, provider) ?? echoModel;
   const detailedLoggingEnabled =
     !noLogEnabled &&
     (settings.call_log_pipeline_enabled === true ||
