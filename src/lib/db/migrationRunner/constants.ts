@@ -200,6 +200,15 @@ export const SUPERSEDED_DUPLICATE_MIGRATIONS = [
     supersededByVersion: "050",
     supersededByName: "session_account_affinity",
   },
+  // The fork cherry-picked exclusive_connection_leases at slot 154 (PR #10362);
+  // upstream later shipped the identical schema at slot 157 on release/v3.8.50.
+  // 157 is canonical — ignore the duplicate 154 to avoid a version collision.
+  {
+    version: "154",
+    name: "exclusive_connection_leases",
+    supersededByVersion: "157",
+    supersededByName: "exclusive_connection_leases",
+  },
 ] as const;
 
 export const PHYSICAL_SCHEMA_SENTINELS = [

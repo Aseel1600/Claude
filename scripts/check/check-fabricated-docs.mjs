@@ -115,6 +115,12 @@ const ENV_VAR_ALLOWLIST = new Set([
   "BRANCH_LOCK_TOKEN", // release branch-protection ops token (QUALITY_GATE_PLAYBOOK.md)
   "NEXT_LOCALE", // next-intl locale cookie name (I18N.md)
   "DEPLOY_OK", // deploy-omniroute.sh's success-marker line, not an env var (ORACLE_VPS_OPERATIONS_KB.md §6)
+  // Feature flags are resolved by key at runtime — `resolveFeatureFlag()` reads
+  // `process.env[key]` (src/shared/utils/featureFlags.ts), never a literal
+  // `process.env.MODELS_CATALOG_PREFIX_MODE`, so this scan cannot see the read.
+  // The flag is real: defined in featureFlagDefinitions.ts, overridable from the
+  // dashboard or the environment. (API_REFERENCE.md, VSCODE-COPILOT.md)
+  "MODELS_CATALOG_PREFIX_MODE",
   // Telegram Mini App integration (proposal TELEGRAM-MINIAPP.md, not yet implemented): env vars named in the feasibility analysis but no code reads them yet.
   "TELEGRAM_WEBHOOK_URL", // proposal-only: Telegram webhook public endpoint (TELEGRAM-MINIAPP.md, future feature)
   "TELEGRAM_WEBHOOK_SECRET", // proposal-only: Telegram webhook HMAC secret (TELEGRAM-MINIAPP.md, future feature)

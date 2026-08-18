@@ -19,6 +19,7 @@ import { getExecutor } from "../../open-sse/executors/index.ts";
 import {
   CloudflarePlaygroundExecutor,
   CfStreamParser,
+  PlaywrightCfTransport,
   toCfMessages,
   type CfTransport,
 } from "../../open-sse/executors/cloudflare-playground.ts";
@@ -356,4 +357,170 @@ test("executor prefixes bare model ids with @cf/ (upstream convention)", async (
   );
   assert.equal(seen.length, 1);
   assert.equal(seen[0], "@cf/zai-org/glm-4.7-flash");
+});
+
+// ── #10494: browser/transport resource leak on blocked-request paths ───────
+
+test("PlaywrightCfTransport.start() closes the browser when Cloudflare Attention Required is detected", async () => {
+  const playwright = await import("playwright");
+  const originalLaunch = playwright.chromium.launch;
+  let closeCalls = 0;
+
+  playwright.chromium.launch = (async () =>
+    ({
+      newContext: async () => ({
+        newPage: async () => ({
+          goto: async () => {},
+          title: async () => "Attention Required! | Cloudflare",
+          exposeFunction: async () => {},
+          evaluate: async () => {},
+        }),
+      }),
+      close: async () => {
+        closeCalls += 1;
+      },
+    }) as unknown as ReturnType<typeof playwright.chromium.launch>) as typeof playwright.chromium.launch;
+
+  try {
+    const transport = new PlaywrightCfTransport("chat-attention-required");
+    const started = await transport.start({
+      model: "@cf/test-model",
+      messages: [],
+      temperature: 0.7,
+    });
+    assert.equal(started.ok, false);
+    if (started.ok === false) {
+      assert.equal(started.status, 502);
+    }
+    assert.equal(closeCalls, 1, "browser launched for the challenge check must be closed");
+  } finally {
+    playwright.chromium.launch = originalLaunch;
+  }
+});
+
+// ── #10494: streaming timeout must not be misreported as a clean [DONE] ────
+
+/**
+ * A transport whose frames() hangs (never yields) once its initial queue is
+ * drained, mirroring PlaywrightCfTransport's real behavior: frames() only
+ * resolves again once close() is called (real close() unblocks pending
+ * waiters with null, ending the generator). This lets tests force the
+ * executor's internal chat-timeout branch deterministically instead of
+ * waiting for CHAT_TIMEOUT_MS.
+ */
+class HangingTransport implements CfTransport {
+  closeCalls = 0;
+  private closed = false;
+  private queue: string[];
+  private waiters: Array<(frame: string | null) => void> = [];
+
+  constructor(initialFrames: string[] = []) {
+    this.queue = [...initialFrames];
+  }
+
+  async start(): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
+    return { ok: true };
+  }
+
+  async *frames(): AsyncGenerator<string> {
+    while (true) {
+      if (this.queue.length > 0) {
+        yield this.queue.shift()!;
+        continue;
+      }
+      const frame = await new Promise<string | null>((resolve) => this.waiters.push(resolve));
+      if (frame === null) return;
+      yield frame;
+    }
+  }
+
+  // Idempotent, mirroring PlaywrightCfTransport.close(): the timer callback
+  // and the streaming finally block both call close() on the timeout path.
+  async close(): Promise<void> {
+    if (this.closed) return;
+    this.closed = true;
+    this.closeCalls += 1;
+    for (const waiter of this.waiters.splice(0)) waiter(null);
+  }
+}
+
+function parseSseChunks(raw: string) {
+  return raw
+    .split("\n\n")
+    .filter((chunk) => chunk.startsWith("data: ") && chunk !== "data: [DONE]")
+    .map((chunk) => JSON.parse(chunk.slice(6)));
+}
+
+test("streaming: an empty timeout (no frames at all) emits an explicit error chunk, not a bare [DONE]", async () => {
+  const transport = new HangingTransport([]);
+  const executor = new CloudflarePlaygroundExecutor(() => transport, 20);
+  const result = await executor.execute(
+    executeArgs(
+      { model: "zai-org/glm-4.7-flash", messages: [{ role: "user", content: "hi" }] },
+      true
+    )
+  );
+  const raw = await result.response.text();
+  assert.ok(raw.endsWith("data: [DONE]\n\n"), "stream must still end with [DONE]");
+  assert.equal(transport.closeCalls, 1, "timed-out transport must be closed");
+
+  const chunks = parseSseChunks(raw);
+  assert.ok(chunks.length >= 1, "an error chunk must be emitted before [DONE]");
+  const errorChunk = chunks.find((c) => c.error);
+  assert.ok(errorChunk, "expected an explicit error chunk on timeout");
+  assert.equal(errorChunk.error.type, "timeout_error");
+  assert.equal(errorChunk.error.code, "HTTP_504");
+  assert.ok(!errorChunk.error.message.includes(" at "), "no stack-trace leak");
+});
+
+test("streaming: a partial answer followed by a timeout emits content THEN an explicit error chunk", async () => {
+  // The executor mints its own random chat id (chatcmpl-cfp-<uuid>) and only
+  // the transportFactory receives it — frames must reference that same id or
+  // CfStreamParser silently ignores them (see `msg.id !== this.chatId`
+  // above). Build the partial frames from the factory callback, exactly like
+  // buildSuccessFrames()/makeExecutor() do above.
+  let transport!: HangingTransport;
+  const executor = new CloudflarePlaygroundExecutor((chatId) => {
+    const partialFrames = [
+      JSON.stringify({
+        id: chatId,
+        type: "cf_agent_use_chat_response",
+        body: JSON.stringify({ type: "start" }),
+      }),
+      JSON.stringify({
+        id: chatId,
+        type: "cf_agent_use_chat_response",
+        body: JSON.stringify({ type: "text-delta", delta: "Hello", id: "t1" }),
+      }),
+    ];
+    transport = new HangingTransport(partialFrames);
+    return transport;
+  }, 20);
+  const result = await executor.execute(
+    executeArgs(
+      { model: "zai-org/glm-4.7-flash", messages: [{ role: "user", content: "hi" }] },
+      true
+    )
+  );
+  const raw = await result.response.text();
+  assert.ok(raw.endsWith("data: [DONE]\n\n"));
+  assert.equal(transport.closeCalls, 1);
+
+  const chunks = parseSseChunks(raw);
+  const content = chunks
+    .filter((c) => c.choices?.[0]?.delta?.content)
+    .map((c) => c.choices[0].delta.content)
+    .join("");
+  assert.equal(content, "Hello", "the partial content already streamed must not be dropped");
+
+  const errorChunk = chunks.find((c) => c.error);
+  assert.ok(errorChunk, "a partial-then-timeout stream must still surface an explicit error");
+  assert.equal(errorChunk.error.type, "timeout_error");
+
+  // The error chunk must come after the content, so a client processing the
+  // stream in order sees the partial answer followed by a clear failure —
+  // never a silent, successful-looking [DONE] right after partial content.
+  const errorIndex = chunks.indexOf(errorChunk);
+  const lastContentIndex = chunks.findLastIndex((c) => c.choices?.[0]?.delta?.content);
+  assert.ok(errorIndex > lastContentIndex, "error chunk must follow the streamed content");
 });

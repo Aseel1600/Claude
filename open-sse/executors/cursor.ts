@@ -677,12 +677,27 @@ export function processFrame(
       ctx.receivedText &&
       ctx.endReason !== "tool_calls"
     ) {
+      // Cursor short-circuits turn_ended for plain chats — kv_server_message
+      // after text means the model finished and the server is saving the
+      // turn. Phase 8 keeps both signals as defense-in-depth.
+      //
+      // Safe vs tool calls (composer family only): when the model invokes a
+      // tool, the exec_mcp event always arrives at or before this kv
+      // checkpoint (verified across many live composer-2.5 trials — a tool call
+      // never follows kv_after_text), so endReason is already "tool_calls" by
+      // the time we get here. Ending on kv_after_text therefore never truncates
+      // a pending tool call on composer.
+      //
+      // Non-composer models (cursor/grok-4.5-high, auto, ...) emit the KV
+      // checkpoint as a blob-store side-channel frame (envelope field 4,
+      // kv_get_blob/kv_set_blob) with NO turn-completion semantics, and it can
+      // arrive while the model is still streaming a long preamble BEFORE a
+      // pending exec_mcp. Ending the turn there drops that exec_mcp, leaving a
+      // narration-only finish_reason "stop" with zero tool_calls (#10215). On
+      // this family only the real terminal signals (turn_ended,
+      // tool_call_completed, server_end) decide — kvAfterTextSeen is kept purely
+      // as an observational flag, never as the turn terminator.
       ctx.kvAfterTextSeen = true;
-      // Only terminate the turn for composer models where kv_server_message
-      // after text reliably means the model finished (verified on composer-2.5).
-      // Non-composer models (e.g. grok-4.5-high) may emit this checkpoint
-      // mid-stream before tool calls are decoded — terminating early would
-      // truncate pending exec_mcp events (issue #10215).
       if (isComposerModel(ctx.model)) {
         ctx.endReason = "kv_after_text";
       }
@@ -1237,10 +1252,8 @@ export class CursorExecutor extends BaseExecutor {
     if (isToolFollowUp) {
       session = cursorSessionManager.acquire(conversationId);
       // #9029: content-based session match when client lacks conversation_id.
-      if (!session && !body.conversation_id)
-        session = cursorSessionManager.findByToolCallIds(
-          messages.filter((m) => m.role === "tool" && m.tool_call_id).map((m) => m.tool_call_id!)
-        );
+      if (!session && !body.conversation_id) session = cursorSessionManager.findByToolCallIds(
+        messages.filter(m => m.role === "tool" && m.tool_call_id).map(m => m.tool_call_id!));
     }
 
     if (session) {

@@ -66,10 +66,7 @@ export async function POST(request: Request): Promise<Response> {
       requestId: ctx.requestId,
     });
 
-    return NextResponse.json(
-      { pool, ...(ensured ? { created: ensured.created, updated: ensured.updated } : {}) },
-      { status: ensured?.created === false ? 200 : 201 }
-    );
+    return NextResponse.json({ pool, ...(ensured ? { created: ensured.created, updated: ensured.updated } : {}) }, { status: ensured?.created === false ? 200 : 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create pool";
     return NextResponse.json(buildErrorBody(500, message), { status: 500 });

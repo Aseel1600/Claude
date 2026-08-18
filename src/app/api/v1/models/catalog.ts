@@ -1,11 +1,15 @@
 import { PROVIDER_MODELS, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { NOAUTH_PROVIDERS } from "@/shared/constants/providers";
-import { getCombos } from "@/lib/db/combos";
-import { getDatabaseSettings } from "@/lib/db/databaseSettings";
-import { getAllCustomModels, getModelIsHidden } from "@/lib/db/models";
-import { getModelAliases } from "@/lib/db/models/aliases";
-import { getCachedProviderNodes, getCachedRawProviderConnections } from "@/lib/db/readCache";
-import { getSettings } from "@/lib/db/settings";
+import {
+  getCachedRawProviderConnections,
+  getCombos,
+  getAllCustomModels,
+  getSettings,
+  getCachedProviderNodes,
+  getModelIsHidden,
+  getModelAliases,
+  getDatabaseSettings,
+} from "@/lib/localDb";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
 import { extractAliasBackedModels } from "./aliasBackedModels";
 import {
@@ -18,6 +22,7 @@ import {
   getAllImageModels,
   isRegisteredImageModel,
 } from "@omniroute/open-sse/config/imageRegistry";
+import { aiHordeImageCatalog } from "@omniroute/open-sse/services/aihordeImageCatalog";
 import { getAllRerankModels } from "@omniroute/open-sse/config/rerankRegistry";
 import { getAllAudioModels } from "@omniroute/open-sse/config/audioRegistry";
 import { getAllModerationModels } from "@omniroute/open-sse/config/moderationRegistry";
@@ -103,8 +108,6 @@ import { isUnifiedChatSourceModelSelectable } from "./catalogModelPolicy";
 import { isFreeModel, providerHasFreeModels } from "@/shared/utils/freeModels";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
-import { aggregateKnownNumbers } from "@/lib/combos/comboContext";
-import { isPersistedResolvedLimitSource } from "@/lib/modelCapabilities";
 
 // Public API of this module is preserved after the catalog helper extraction:
 // `isVisionModelId` (vision-detection-consistency.test.ts) and
@@ -366,6 +369,18 @@ async function buildUnifiedModelsResponseCore(
       return collected;
     };
 
+    // Health-check exclusions (provider_specific_data.excludedModels) are enforced
+    // at request time in getProviderCredentials(); mirror the same rule in the
+    // catalog so ghost models do not appear as available. A model is hidden when
+    // the provider HAS connections but NONE of them is eligible for it.
+    const isExcludedByProviderConnections = (providerKey: string, modelId: string) => {
+      const providerId = aliasToProviderId[providerKey] || providerKey;
+      const alias = providerIdToAlias[providerId] || providerKey;
+      const providerConnections = getConnectionsForProvider(providerId, alias, providerKey);
+      if (providerConnections.length === 0) return false; // noAuth / no DB row: keep
+      return !hasEligibleConnectionForModel(providerConnections, modelId);
+    };
+
     const providerSupportsModel = (providerKey: string, modelId: string) => {
       const providerId = aliasToProviderId[providerKey] || providerKey;
       const alias = providerIdToAlias[providerId] || providerKey;
@@ -407,16 +422,7 @@ async function buildUnifiedModelsResponseCore(
       if (!canonical) return null;
 
       const source = canonical.metadata.source;
-      const hasRecognizedMetadata =
-        source.providerRegistry || source.staticSpec || source.syncedCapability;
-      const hasPersistedLimit =
-        (isPositiveFiniteNumber(canonical.limits.contextWindow) &&
-          isPersistedResolvedLimitSource(canonical.limits.contextWindowSource)) ||
-        (isPositiveFiniteNumber(canonical.limits.maxInputTokens) &&
-          isPersistedResolvedLimitSource(canonical.limits.maxInputTokensSource)) ||
-        (isPositiveFiniteNumber(canonical.limits.maxOutputTokens) &&
-          isPersistedResolvedLimitSource(canonical.limits.maxOutputTokensSource));
-      if (!hasRecognizedMetadata && !hasPersistedLimit) return null;
+      if (!source.providerRegistry && !source.staticSpec && !source.syncedCapability) return null;
 
       const providerId = canonical.provider || targetModel.providerId;
       const modelId = canonical.model || targetModel.modelId;
@@ -428,13 +434,15 @@ async function buildUnifiedModelsResponseCore(
 
       const contextLength = isPositiveFiniteNumber(canonical.limits.contextWindow)
         ? canonical.limits.contextWindow
-        : undefined;
+        : getTokenLimit(providerId, modelId) || undefined;
       const maxInputTokens = isPositiveFiniteNumber(canonical.limits.maxInputTokens)
         ? canonical.limits.maxInputTokens
-        : undefined;
-      const maxOutputTokens = isPositiveFiniteNumber(canonical.limits.maxOutputTokens)
-        ? canonical.limits.maxOutputTokens
-        : undefined;
+        : contextLength;
+      const maxOutputTokens = isPositiveFiniteNumber(synced?.limit_output)
+        ? synced.limit_output
+        : isPositiveFiniteNumber(spec?.maxOutputTokens)
+          ? spec.maxOutputTokens
+          : undefined;
 
       const syncedVision =
         typeof synced?.attachment === "boolean"
@@ -520,10 +528,7 @@ async function buildUnifiedModelsResponseCore(
       if (knownMetadata.length === 0) return baseMetadata;
       const contextLength =
         explicitContextLength ??
-        aggregateKnownNumbers(
-          knownMetadata.map((metadata) => metadata.contextLength),
-          combo.context_length_aggregation === "max" ? "max" : "min"
-        );
+        minKnownNumber(knownMetadata.map((metadata) => metadata.contextLength));
       const maxInputTokens = minKnownNumber(
         knownMetadata.map((metadata) => metadata.maxInputTokens)
       );
@@ -786,6 +791,7 @@ async function buildUnifiedModelsResponseCore(
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
         const aliasId = `${alias}/${model.id}`;
         if (getModelIsHidden(canonicalProviderId, model.id)) continue;
+        if (isExcludedByProviderConnections(canonicalProviderId, model.id)) continue;
         if (shouldHidePaid(canonicalProviderId, model.id, (model as { pricing?: unknown }).pricing))
           continue;
 
@@ -906,6 +912,7 @@ async function buildUnifiedModelsResponseCore(
             continue;
           }
           if (getModelIsHidden(providerId, sm.id)) continue;
+          if (isExcludedByProviderConnections(canonicalProviderId, sm.id)) continue;
           // #6457: some upstream discovery catalogs (e.g. HuggingFace's live
           // `/v1/models`) return image/diffusion models with no modality info,
           // so `endpoints` below would default to ["chat"] and misrepresent
@@ -1157,7 +1164,15 @@ async function buildUnifiedModelsResponseCore(
       });
     }
 
-    // Add image models (filtered by active providers)
+    // Add image models (filtered by active providers).
+    // AI Horde image workers come and go — refresh the live detector first.
+    if (isProviderActive("aihorde")) {
+      try {
+        await aiHordeImageCatalog.ensureFresh();
+      } catch {
+        // Keep the last good snapshot (or none) if Horde is unreachable.
+      }
+    }
     for (const imgModel of getAllImageModels()) {
       if (!isProviderActive(imgModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(imgModel.id, imgModel.provider);
@@ -1300,6 +1315,7 @@ async function buildUnifiedModelsResponseCore(
             continue;
           if (model.isHidden === true) continue;
           if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+          if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
           // #6328: apply hidePaidModels to user-defined custom rows too.
           // Custom entries do not carry pricing, so shouldHidePaid() decides
           // via FREE_MODEL_IDS_BY_PROVIDER — matches synced/PROVIDER_MODELS.
@@ -1480,6 +1496,7 @@ async function buildUnifiedModelsResponseCore(
         }
 
         if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to alias-backed rows too. Alias mappings
         // point at providerKey/modelId with no pricing, so shouldHidePaid()
         // decides via the FREE_MODEL_IDS_BY_PROVIDER catalog tier.
@@ -1553,6 +1570,7 @@ async function buildUnifiedModelsResponseCore(
         const modelId = typeof model.id === "string" ? model.id : null;
         if (!modelId) continue;
         if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to managed-fallback rows too. Compatible
         // provider fallbacks lack pricing; shouldHidePaid() decides via the
         // FREE_MODEL_IDS_BY_PROVIDER catalog tier.

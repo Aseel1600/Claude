@@ -273,10 +273,16 @@ test("generic lease selection is provider-neutral across GLM and OpenAI fixtures
   ] as const) {
     const connection = await seedConnection(1, { provider });
     const key = await seedManagedKey([connection.id]);
-    const selected = await auth.getProviderCredentials(provider, null, [connection.id], model, {
-      lease: { apiKeyId: key.id, context: context(OWNERS[0], 1), mode: "acquire" },
-      materializeCredentials: false,
-    });
+    const selected = await auth.getProviderCredentials(
+      provider,
+      null,
+      [connection.id],
+      model,
+      {
+        lease: { apiKeyId: key.id, context: context(OWNERS[0], 1), mode: "acquire" },
+        materializeCredentials: false,
+      }
+    );
     assert.equal(selected?.connectionId, connection.id, provider);
     leaseDb.releaseExclusiveConnectionLease({
       leaseOwnerId: OWNERS[0],

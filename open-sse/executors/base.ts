@@ -800,14 +800,7 @@ export class BaseExecutor {
         activeCredentials
       );
       const url = this.buildUrl(model, stream, urlIndex, requestCredentials);
-      const headers = this.buildHeaders(
-        requestCredentials,
-        stream,
-        clientHeaders,
-        model,
-        undefined,
-        body
-      );
+      const headers = this.buildHeaders(requestCredentials, stream, clientHeaders, model, undefined, body);
       applyConfiguredUserAgent(headers, requestCredentials?.providerSpecificData);
 
       // Strip OpenAI SDK (X-Stainless-*) metadata + normalize SDK-derived User-Agent
@@ -1188,7 +1181,12 @@ export class BaseExecutor {
               // rejected; selectBetaFlags still gates thinking/effort per #3415.
               "anthropic-beta": mergeClientAnthropicBeta(
                 selectBetaFlags(tb, null, clientAnthropicBeta),
-                clientAnthropicBeta
+                clientAnthropicBeta,
+                undefined,
+                // Gate the client-negotiated context-1m beta on the RESOLVED target:
+                // combo/fallback can route a request negotiated for a [1m] sibling onto a
+                // model that does not qualify (e.g. Haiku), which Anthropic rejects (#10119).
+                model
               ),
               "anthropic-dangerous-direct-browser-access": "true",
               "x-app": "cli",

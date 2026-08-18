@@ -4,6 +4,10 @@ import * as chatAdmission from "./chatAdmission.ts";
 import { buildClientRawRequest, resolveDispatchClientRawRequest } from "./chat/clientRawRequest.ts";
 export { buildClientRawRequest, resolveDispatchClientRawRequest };
 import { normalizeReasoningRequest } from "@/shared/reasoning/effortStandardization";
+import { isDetailedLoggingEnabled } from "@/lib/db/detailedLogs";
+import { resolvePreviousResponseState } from "@/lib/db/responsesContinuationStore";
+import { normalizeResponsesPreviousResponseIdMode } from "@omniroute/open-sse/utils/responsesStatePolicy.ts";
+import { FORMATS } from "@omniroute/open-sse/translator/formats.ts";
 import { resolveRoutingModel, RoutingModelOps } from "./resolveRoutingModel";
 import {
   getProviderCredentialsWithQuotaPreflight,
@@ -37,6 +41,8 @@ import type { ComboLike, SingleModelTarget } from "@omniroute/open-sse/services/
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
 import { isVerifiedNativeCodexRequest } from "@omniroute/open-sse/config/codexIdentity.ts";
+import { resolveCompressionSettings } from "@omniroute/open-sse/handlers/chatCore/compressionSettings.ts";
+import type { CompressionExclusions } from "@omniroute/open-sse/services/compression/exclusions.ts";
 import { resolveComboConfig } from "@omniroute/open-sse/services/comboConfig.ts";
 import { injectHandoffIntoBody } from "@omniroute/open-sse/services/contextHandoff.ts";
 import {
@@ -66,6 +72,7 @@ import {
   evictSessionAccountAffinityForConnection,
   getSessionAccountAffinity,
 } from "@/lib/db/sessionAccountAffinity";
+import { dispatchChatWithAffinityEviction } from "./chatDispatch";
 import { getCachedSettings, getCombosCacheVersion } from "@/lib/db/readCache";
 import { getCombos } from "@/lib/db/combos";
 import { resolveModelLockoutSettings } from "@/lib/resilience/modelLockoutSettings";
@@ -88,8 +95,10 @@ import {
   withSelectedConnectionHeader,
   withCorrelationId,
   withModalityBridgeHeader,
+  withConversationId,
 } from "./chatHelpers";
 import { buildModalityBridgeHeader } from "@/lib/guardrails/modalityBridge/bridgeStats";
+import { resolveConversationId } from "@omniroute/open-sse/services/conversationTracker.ts";
 import {
   isAntigravityMissingProjectError,
   isProviderBreakerFailureStatus,
@@ -116,6 +125,7 @@ import { getComboFailureLogError } from "./comboFailureLogging";
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
 import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextCooldowns.ts";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
 import { resolveForcedConnectionForCredentialPool } from "../services/sessionAffinityPin.ts";
@@ -223,6 +233,31 @@ let combosCacheTs = 0;
 let combosCacheVersionSnapshot = -1;
 const COMBOS_CACHE_TTL_MS = 10_000;
 
+/**
+ * #10225 — resolve whether this request's combo preflight should DEFER its hard
+ * context-overflow rejection so chatCore's compression runs first.
+ *
+ * Mirrors handleChatCore's own enablement determination (chatCore.ts): defer only
+ * when the global compression switch is ON and the API key has not opted out
+ * (`apiKeyInfo.compressionEnabled !== false`). Per-target applicability (server-side
+ * exclusions) is checked inside getKnownContextOverflow via the returned exclusions.
+ * Fail closed (defer=false) on any lookup error — the existing hard preflight stays.
+ */
+async function resolveComboContextOverflowDeferral(
+  logger: { warn?: (...args: unknown[]) => void } | null | undefined,
+  apiKeyInfo: { compressionEnabled?: boolean } | null | undefined
+): Promise<{ defer: boolean; exclusions: CompressionExclusions | undefined }> {
+  try {
+    const compression = await resolveCompressionSettings(logger);
+    return {
+      defer: compression.enabled && apiKeyInfo?.compressionEnabled !== false,
+      exclusions: compression.settings?.exclusions,
+    };
+  } catch {
+    return { defer: false, exclusions: undefined };
+  }
+}
+
 async function getCombosCachedForChat(): Promise<ComboLike[]> {
   const now = Date.now();
   // Explicit non-null check: we intentionally cache and return the Promise
@@ -298,11 +333,7 @@ function isManagedComboUnsupported(
 
 const managedComboRejection = () =>
   buildManagedLeaseErrorResponse(
-    new LeaseContextError(
-      409,
-      "LEASE_UNSUPPORTED_ROUTE",
-      "Managed leases do not support this route"
-    )
+    new LeaseContextError(409, "LEASE_UNSUPPORTED_ROUTE", "Managed leases do not support this route")
   );
 
 const comboPromoteDeps = { updateCombo, info: log.info, warn: log.warn };
@@ -585,6 +616,66 @@ async function handleChatImplementation(
   const bypassProviderQuotaPolicy = hasProviderQuotaBypassScope(apiKeyInfo?.scopes);
   telemetry.endPhase();
 
+  // OmniRoute-native `previous_response_id` continuation: reconstruct the
+  // full input server-side before ANY downstream validation/translation
+  // sees this request, so everything after this point (message-shape
+  // guards, token-budget checks, provider translation) treats it exactly
+  // like an ordinary full-history request. This works regardless of
+  // whether the eventually-selected upstream provider itself understands
+  // Responses-API state -- OmniRoute always forwards the full reconstructed
+  // history upstream, exactly as it does today for a non-continued request.
+  // Client<->OmniRoute traffic shrinks to the new delta; OmniRoute<->
+  // provider traffic is unchanged. See src/lib/db/responsesContinuationStore.ts.
+  //
+  // Skipped entirely when the operator has set responsesPreviousResponseIdMode
+  // to "preserve": that mode is the explicit, connection-independent contract
+  // for "never touch previous_response_id, let the upstream resolve it
+  // natively" (see applyResponsesPreviousResponseIdPolicy in chatCore.ts,
+  // which enforces it per-target once a connection is selected). Codex's own
+  // executor relies on an untouched previous_response_id to delegate history
+  // resolution upstream (stripOrphanedCodexFunctionCallOutputs in codex.ts);
+  // reconstructing and deleting the field here would make that downstream
+  // "preserve" enforcement a no-op since the field would already be gone.
+  const settingsForContinuation = await getCachedSettings().catch(
+    () => ({}) as Record<string, unknown>
+  );
+  const previousResponseIdMode = normalizeResponsesPreviousResponseIdMode(
+    (settingsForContinuation as { responsesPreviousResponseIdMode?: unknown })
+      .responsesPreviousResponseIdMode
+  );
+  if (
+    previousResponseIdMode !== "preserve" &&
+    sourceFormat === FORMATS.OPENAI_RESPONSES &&
+    typeof (body as { previous_response_id?: unknown }).previous_response_id === "string"
+  ) {
+    const previousResponseId = (body as { previous_response_id: string }).previous_response_id;
+    const detailedLoggingEnabled = await isDetailedLoggingEnabled();
+    const stored = detailedLoggingEnabled
+      ? resolvePreviousResponseState(previousResponseId, apiKeyInfo?.id ?? null)
+      : null;
+    if (!stored) {
+      // Matches OpenAI's own `previous_response_not_found` contract (missing
+      // or expired server-side state) so a client with the matching retry
+      // behavior -- resend the full request, same turn -- recovers exactly
+      // as it would against the real OpenAI backend.
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Previous response not found.",
+            type: "invalid_request_error",
+            code: "previous_response_not_found",
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const deltaInput = Array.isArray((body as { input?: unknown }).input)
+      ? (body as { input: unknown[] }).input
+      : [];
+    body = { ...body, input: [...stored.input, ...stored.output, ...deltaInput] };
+    delete (body as { previous_response_id?: unknown }).previous_response_id;
+  }
+
   const admissionRejection = await admissionContext.acquire(apiKeyInfo?.id, request, body);
   if (admissionRejection) return admissionRejection;
   clientRawRequest = chatAdmission.resolveClientRawAfterAdmission(clientRawRequest, () =>
@@ -605,6 +696,7 @@ async function handleChatImplementation(
     log,
     method: request.method,
     model: modelStr,
+    signal: request.signal,
     stream: body?.stream === true,
   });
   if (preCallGuardrails.blocked) {
@@ -635,6 +727,30 @@ async function handleChatImplementation(
   // success exits below via withModalityBridgeHeader().
   const modalityBridgeHeader = buildModalityBridgeHeader(preCallGuardrails.results);
   telemetry.endPhase();
+
+  // Agentic conversation tracking (X-ConversationId): resolved once per
+  // incoming HTTP request, before combo dispatch / credential retries, so
+  // every attempt for this request shares the same id and the
+  // agentic_conversations row is only touched once.
+  const clientConversationHeader = request.headers.get("x-omniroute-session-id")?.trim() || null;
+  let conversationId: string | null = null;
+  try {
+    ({ conversationId } = await resolveConversationId({
+      body: body as Record<string, unknown>,
+      model: modelStr,
+      apiKeyId: apiKeyInfo?.id ?? null,
+      clientSessionIdHeader: clientConversationHeader,
+      correlationId: reqId,
+    }));
+  } catch (error) {
+    // Best-effort tracking: a DB hiccup here must not turn an otherwise-working
+    // chat request into a hard failure. Downstream conversationId consumers
+    // already treat null/undefined as "untracked" (see withConversationId).
+    log.warn("CHAT", "resolveConversationId failed, continuing without conversation tracking", {
+      correlationId: reqId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   // T08: per-key active session limit (0 = unlimited).
   if (apiKeyInfo?.id && sessionId) {
@@ -900,9 +1016,20 @@ async function handleChatImplementation(
 
     // Context-relay keeps generation in combo.ts, but handoff injection lives here
     // because only this layer knows which connectionId was actually selected.
+    const { defer: deferContextOverflowWhenCompressible, exclusions: compressionExclusions } =
+      await resolveComboContextOverflowDeferral(log, apiKeyInfo);
     const response = await (handleComboChat as any)({
       body,
       combo,
+      deferContextOverflowWhenCompressible,
+      compressionExclusions,
+      // #10503: same request-shape facts chatCore.ts resolves for itself
+      // (resolveChatCoreRequestFormat), so getKnownContextOverflow's target-aware
+      // deferral check can never drift from chatCore's own native-codex-passthrough
+      // decision. See knownContextOverflow.ts::KnownContextOverflowOptions.
+      sourceFormat,
+      endpointPath: new URL(request.url).pathname,
+      requestHeaders: request.headers,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
         new URL(request.url).pathname.split("/").includes("responses") &&
@@ -949,6 +1076,7 @@ async function handleChatImplementation(
             cachedSettings: settings,
             providerId: target?.providerId ?? null,
             correlationId: reqId,
+            conversationId,
             modelPinned: (target as any)?.modelPinned ?? false,
             reasoningDecision,
             reasoningIntent,
@@ -986,6 +1114,8 @@ async function handleChatImplementation(
       relayOptions,
       signal: request?.signal ?? null,
       correlationId: reqId,
+      // #9654 Wave 2: per-target lane-aware admission probe for combo fan-out.
+      perTargetAdmission: admissionContext.createPerTargetAdmissionHook(apiKeyInfo?.id, request),
     });
 
     for (const credentials of comboPreselectedCredentials.values()) {
@@ -1020,6 +1150,7 @@ async function handleChatImplementation(
             sessionAffinityKey,
             emergencyFallbackTried: true,
             forceLiveComboTest: isComboLiveTest,
+            conversationId,
             managedLease,
           },
           combo.strategy,
@@ -1029,7 +1160,7 @@ async function handleChatImplementation(
           log.info("GLOBAL_FALLBACK", `Global fallback ${fallbackModel} succeeded`);
           recordTelemetry(telemetry);
           return withModalityBridgeHeader(
-            withSessionHeader(fallbackResponse, sessionId),
+            withConversationId(withSessionHeader(fallbackResponse, sessionId), conversationId),
             modalityBridgeHeader
           );
         }
@@ -1063,13 +1194,17 @@ async function handleChatImplementation(
           apiKeyId: apiKeyInfo?.id ?? null,
           apiKeyName: apiKeyInfo?.name ?? null,
           correlationId: reqId,
+          sessionTag: conversationId,
           startTime: telemetry?.startTime,
           requestBody: clientRawRequest?.body ?? null,
         });
       } catch {}
     }
     return withModalityBridgeHeader(
-      withCorrelationId(withSessionHeader(response, sessionId), reqId),
+      withConversationId(
+        withCorrelationId(withSessionHeader(response, sessionId), reqId),
+        conversationId
+      ),
       modalityBridgeHeader
     );
   }
@@ -1104,6 +1239,7 @@ async function handleChatImplementation(
       forceLiveComboTest: isComboLiveTest,
       forcedConnectionId: requestedConnectionId,
       correlationId: reqId,
+      conversationId,
       routingComboId,
       reasoningDecision,
       reasoningIntent,
@@ -1115,7 +1251,10 @@ async function handleChatImplementation(
   );
   recordTelemetry(telemetry);
   return withModalityBridgeHeader(
-    withCorrelationId(withSessionHeader(response, sessionId), reqId),
+    withConversationId(
+      withCorrelationId(withSessionHeader(response, sessionId), reqId),
+      conversationId
+    ),
     modalityBridgeHeader
   );
 }
@@ -1146,6 +1285,7 @@ async function handleSingleModelChat(
     cachedSettings?: any;
     providerId?: string | null;
     correlationId?: string | null;
+    conversationId?: string | null;
     routingComboId?: string | null;
     modelPinned?: boolean;
     reasoningDecision?: ReasoningRuleDecision | null;
@@ -1184,11 +1324,22 @@ async function handleSingleModelChat(
     );
     log.info("ROUTING", `Auto-combo redirect from handleSingleModelChat for "${modelStr}"`);
     log.info("ROUTING", `Auto-combo redirect to combo flow for "${modelStr}"`);
+    const { defer: sNetDefer, exclusions: sNetExclusions } =
+      await resolveComboContextOverflowDeferral(log, apiKeyInfo);
+    // #10503: same request-shape facts chatCore.ts resolves for itself — threaded
+    // down so getKnownContextOverflow's target-aware deferral check can never drift
+    // from chatCore's own native-codex-passthrough decision.
+    const sNetSourceFormat = detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "");
     return handleComboChat({
       body,
       combo: redirectCombo,
+      deferContextOverflowWhenCompressible: sNetDefer,
+      compressionExclusions: sNetExclusions,
+      sourceFormat: sNetSourceFormat,
+      endpointPath: clientRawRequest?.endpoint || "",
+      requestHeaders: clientRawRequest?.headers,
       clientManagedResponsesContext:
-        detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "") === "openai-responses" &&
+        sNetSourceFormat === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
           .split("/")
           .includes("responses") &&
@@ -1214,6 +1365,7 @@ async function handleSingleModelChat(
             allowRateLimitedConnection: resolvedTarget?.allowRateLimitedConnection === true,
             providerId: resolvedTarget?.providerId ?? null,
             correlationId: runtimeOptions?.correlationId ?? null,
+            conversationId: runtimeOptions?.conversationId ?? null,
             managedLease: runtimeOptions.managedLease ?? null,
             // #7360 follow-up — see the primary handleSingleModel closure above.
             modelAbortSignal: target?.modelAbortSignal ?? null,
@@ -1228,6 +1380,11 @@ async function handleSingleModelChat(
       allCombos: [],
       relayOptions: undefined,
       signal: request?.signal ?? null,
+      // #9654 Wave 2: safety-net redirect — same per-target probe as the primary path.
+      perTargetAdmission: chatAdmission.createPerTargetAdmissionHookForRequest(
+        apiKeyInfo?.id,
+        request
+      ),
     });
   }
 
@@ -1312,6 +1469,7 @@ async function handleSingleModelChat(
         apiKeyId: apiKeyInfo?.id ?? null,
         apiKeyName: apiKeyInfo?.name ?? null,
         correlationId: runtimeOptions?.correlationId ?? null,
+        sessionTag: runtimeOptions?.conversationId ?? null,
         startTime: telemetry?.startTime,
       });
     } catch {}
@@ -1526,7 +1684,22 @@ async function handleSingleModelChat(
 
       const accountId = credentials.connectionId.slice(0, 8);
       const releaseOAuthSession = credentials.releaseOAuthSession ?? (() => {});
-      log.info("AUTH", `Using ${provider} account: ${accountId}...`);
+      // #10348: redact the account prefix by default. Gated on the narrow
+      // AUTH_LOG_INCLUDE_ACCOUNT_ID flag (default off) rather than the broad
+      // `debugMode` setting — `debugMode` is a general dashboard-visibility
+      // toggle unrelated to log privacy (its own default has changed
+      // independently for unrelated reasons, see #10312/#10372), so deriving
+      // redaction from it would make log leakage depend on an unrelated
+      // setting. resolveFeatureFlag() reads straight from SQLite on every
+      // call (no stale cache to invalidate) and fails safe (redacted) if the
+      // lookup throws.
+      let includeAccountId = false;
+      try {
+        includeAccountId = isFeatureFlagEnabled("AUTH_LOG_INCLUDE_ACCOUNT_ID");
+      } catch {
+        includeAccountId = false;
+      }
+      log.info("AUTH", `Using ${provider} account: ${includeAccountId ? accountId : "***"}...`);
       // #474: when the request used a bare model name (no "/" — e.g. an alias
       // that resolved to "auto") and the selected connection declares a
       // defaultModel, resolve the bare name to that real model ID before the
@@ -1624,43 +1797,43 @@ async function handleSingleModelChat(
       const proxyStartTime = Date.now();
       // 4. Execute chat via core after breaker gate checks (with optional TLS tracking)
       if (telemetry) telemetry.startPhase("connect");
-      const dispatchClientRawRequest = resolveDispatchClientRawRequest(
-        clientRawRequest,
-        runtimeOptions.modelAbortSignal
-      );
-      let execution: Awaited<ReturnType<typeof executeChatWithBreaker>>;
+      let execution: Awaited<ReturnType<typeof dispatchChatWithAffinityEviction>>;
       try {
-        execution = await executeChatWithBreaker({
-          bypassCircuitBreaker: forceLiveComboTest || hasForcedConnection,
-          breaker,
-          body: requestBody,
-          provider,
-          model: effectiveModel,
-          refreshedCredentials,
-          proxyInfo,
-          appliedProxySink,
-          log,
-          clientRawRequest: dispatchClientRawRequest,
-          credentials,
-          apiKeyInfo,
-          userAgent,
-          comboName,
-          comboStrategy,
-          isCombo,
-          comboStepId: runtimeOptions.comboStepId ?? null,
-          comboExecutionKey: runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
-          extendedContext,
-          modelApiFormat: apiFormat,
-          modelTargetFormat: targetFormat,
-          providerProfile,
-          cachedSettings: runtimeOptions.cachedSettings,
-          skipUpstreamRetry: runtimeOptions.skipUpstreamRetry ?? false,
-          correlationId: runtimeOptions?.correlationId ?? null,
-          modelPinned: runtimeOptions?.modelPinned ?? false,
-          routingComboId: runtimeOptions?.routingComboId ?? null,
-          sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
-          managedLease: runtimeOptions.managedLease ?? null,
-        });
+        execution = await dispatchChatWithAffinityEviction(
+          {
+            bypassCircuitBreaker: forceLiveComboTest || hasForcedConnection,
+            breaker,
+            body: requestBody,
+            provider,
+            model: effectiveModel,
+            refreshedCredentials,
+            proxyInfo,
+            appliedProxySink,
+            log,
+            clientRawRequest,
+            credentials,
+            apiKeyInfo,
+            userAgent,
+            comboName,
+            comboStrategy,
+            isCombo,
+            comboStepId: runtimeOptions.comboStepId ?? null,
+            comboExecutionKey: runtimeOptions.comboExecutionKey ?? runtimeOptions.comboStepId ?? null,
+            extendedContext,
+            modelApiFormat: apiFormat,
+            modelTargetFormat: targetFormat,
+            providerProfile,
+            cachedSettings: runtimeOptions.cachedSettings,
+            skipUpstreamRetry: runtimeOptions.skipUpstreamRetry ?? false,
+            correlationId: runtimeOptions?.correlationId ?? null,
+            conversationId: runtimeOptions?.conversationId ?? null,
+            modelPinned: runtimeOptions?.modelPinned ?? false,
+            routingComboId: runtimeOptions?.routingComboId ?? null,
+            sessionAffinityKey: runtimeOptions.sessionAffinityKey ?? null,
+            managedLease: runtimeOptions.managedLease ?? null,
+          },
+          runtimeOptions
+        );
       } catch (error) {
         releaseOAuthSession();
         throw error;

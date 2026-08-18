@@ -66,15 +66,7 @@ const BEDROCK_CLAUDE_ALIASES = (...modelIds: string[]) => [
 // Provider discovery/sync sources can under-report GLM-5.2 IDs as 128K.
 // Keep native/bare Z.AI GLM-5.2 context authoritative, but do not blindly apply
 // it to every provider-wrapped alias: hosted providers can and do cap lower.
-const AUTHORITATIVE_CONTEXT_WINDOW_MODEL_IDS = new Set([
-  "glm-5.3",
-  "glm-5.3-high",
-  "glm-5.3-low",
-  "glm-5.3-max",
-  "glm-5.2",
-  "glm-5.2-high",
-  "glm-5.2-max",
-]);
+const AUTHORITATIVE_CONTEXT_WINDOW_MODEL_IDS = new Set(["glm-5.2", "glm-5.2-high", "glm-5.2-max"]);
 const AUTHORITATIVE_PROVIDER_CONTEXT_WINDOWS = new Map<string, number>([
   ["cloudflare-ai/@cf/zai-org/glm-5.2", 262144],
   // Hugging Face Router has 1M-capable backends, but bare routing can select
@@ -161,7 +153,7 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     aliases: ["openai/gpt-4o"],
   },
 
-  // ── Gemini 2.5 and 3.5 Flash series ──────────────────────────────
+  // ── Gemini 2.5 and provider-neutral 3.5 Flash series ─────────────
   "gemini-2.5-flash": {
     maxOutputTokens: 65536,
     contextWindow: 1048576,
@@ -182,10 +174,17 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     thinkingBudgetCap: 0,
   },
 
-  // ── Gemini 3.6 Flash (Antigravity live tiers) ───────────────────
+  // ── Gemini 3.7 Flash (current Antigravity/AGY live tiers) ─────────
   // The model id itself selects the upstream 10k/4k/1k reasoning tier. Antigravity
   // still rejects client-supplied thinking parameters, so keep the explicit-parameter
-  // capability aligned with the existing Gemini 3.5 tier ids.
+  // capability aligned with the existing Gemini Flash tier ids.
+  "gemini-3.7-flash-high": { ...GEMINI_35_FLASH_MODEL_SPEC },
+  "gemini-3.7-flash-medium": { ...GEMINI_35_FLASH_MODEL_SPEC },
+  "gemini-3.7-flash-low": { ...GEMINI_35_FLASH_MODEL_SPEC },
+
+  // Provider-neutral compatibility for providers that still serve Gemini 3.6.
+  // Antigravity/AGY availability is governed by their own provider catalogs and
+  // retirement filters; these shared specs must not be treated as an allowlist.
   "gemini-3.6-flash-high": { ...GEMINI_35_FLASH_MODEL_SPEC },
   "gemini-3.6-flash-medium": { ...GEMINI_35_FLASH_MODEL_SPEC },
   "gemini-3.6-flash-low": { ...GEMINI_35_FLASH_MODEL_SPEC },
@@ -235,8 +234,16 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
   },
 
   // ── Gemini 3.5 Flash ─────────────────────────────────────────────
+  // #10286: the base Google AI Studio model DOES support reasoning (it has
+  // an effort-tier alias gemini-3.5-flash-high) — override the shared spec's
+  // supportsThinking:false here only. Do NOT flip GEMINI_35_FLASH_MODEL_SPEC
+  // itself: it is also spread into the Antigravity flash-tier aliases
+  // (gemini-3.5-flash-low/-extra-low, gemini-3-flash-agent, gemini-3.6-flash-*)
+  // which reject client-supplied thinking params because the model id itself
+  // selects the reasoning tier upstream.
   "gemini-3.5-flash": {
     ...GEMINI_35_FLASH_MODEL_SPEC,
+    supportsThinking: true,
     aliases: ["gemini-3.5-flash-high"],
   },
 
@@ -464,6 +471,7 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsThinking: true,
     supportsTools: true,
     supportsVision: true,
+    aliases: ["qwen3.8-max"],
   },
   "qwen3.6-plus": {
     maxOutputTokens: 65536,
@@ -514,37 +522,6 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
   "mimo-v2-flash": {
     maxOutputTokens: 65536,
     contextWindow: 262144,
-    supportsTools: true,
-  },
-
-  // ── Z.AI GLM-5.3 (1M context mirrored from 5.2 — same base model; 128K max
-  // output; effort via reasoning_effort param, tiers are OmniRoute aliases) ──
-  "glm-5.3": {
-    maxOutputTokens: 131072,
-    contextWindow: 1000000,
-    thinkingBudgetCap: 38912,
-    supportsThinking: true,
-    supportsTools: true,
-  },
-  "glm-5.3-high": {
-    maxOutputTokens: 131072,
-    contextWindow: 1000000,
-    thinkingBudgetCap: 38912,
-    supportsThinking: true,
-    supportsTools: true,
-  },
-  "glm-5.3-low": {
-    maxOutputTokens: 131072,
-    contextWindow: 1000000,
-    thinkingBudgetCap: 38912,
-    supportsThinking: true,
-    supportsTools: true,
-  },
-  "glm-5.3-max": {
-    maxOutputTokens: 131072,
-    contextWindow: 1000000,
-    thinkingBudgetCap: 38912,
-    supportsThinking: true,
     supportsTools: true,
   },
 

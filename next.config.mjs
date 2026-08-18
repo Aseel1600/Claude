@@ -113,6 +113,12 @@ const nextConfig = {
   // keeps operating on un-prefixed paths — see src/server/authz/pipeline.ts for
   // the two redirect call sites that re-add it via `request.nextUrl.basePath`.
   basePath: normalizeBasePath(process.env.OMNIROUTE_BASE_PATH),
+  // Next 16 (both webpack and Turbopack) app-router renders SSR asset URLs from
+  // `assetPrefix` ALONE — basePath only affects routing/links. Without mirroring
+  // it here, a subpath build emits /_next/static shell references that 404
+  // behind a reverse proxy. The Docker runtime patcher (ensure-docker-base-path)
+  // rewrites the same knob for prebuilt root-path images.
+  assetPrefix: normalizeBasePath(process.env.OMNIROUTE_BASE_PATH) || undefined,
   // Client-visible mirror of basePath for fetch/EventSource rewriting under reverse
   // proxies (installBasePathFetch), and for client display helpers (useDisplayBaseUrl)
   // that append the subpath to window.location.origin when building curl/endpoint
