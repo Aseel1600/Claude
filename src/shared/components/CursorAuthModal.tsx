@@ -50,14 +50,22 @@ export default function CursorAuthModal({
     }
 
     pollAbortRef.current = false;
-    setTab("login");
-    setError(null);
-    setLoginUrl("");
-    setSessionId("");
-    setLoginPolling(false);
 
-    // Detect Docker-ish environments for import-tab guidance
-    setDockerHint(false);
+    // Reset modal UI state for this open. Nested in a function (like autoDetect
+    // below) rather than called directly in the effect body, since these are a
+    // response to the modal being (re)opened — not a synchronization of React
+    // state with an external system — and react-hooks/set-state-in-effect flags
+    // direct top-level setState calls in an effect.
+    const resetModalState = () => {
+      setTab("login");
+      setError(null);
+      setLoginUrl("");
+      setSessionId("");
+      setLoginPolling(false);
+      // Detect Docker-ish environments for import-tab guidance
+      setDockerHint(false);
+    };
+    resetModalState();
 
     const autoDetect = async () => {
       setAutoDetecting(true);

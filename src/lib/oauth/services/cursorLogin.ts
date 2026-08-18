@@ -6,6 +6,7 @@
 
 import { randomUUID } from "node:crypto";
 import { refreshCursorToken as refreshCursorTokenOpenSse } from "@omniroute/open-sse/services/tokenRefresh/providers/cursor.ts";
+import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error.ts";
 import { generatePKCE } from "../utils/pkce";
 import { CURSOR_CONFIG } from "../constants/oauth";
 
@@ -207,7 +208,7 @@ export async function pollCursorAuthOnce(
       return { status: "error", message: "Cursor login cancelled" };
     }
     const msg = err instanceof Error ? err.message : String(err);
-    return { status: "error", message: msg };
+    return { status: "error", message: sanitizeErrorMessage(msg) };
   }
 }
 
