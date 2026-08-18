@@ -22,10 +22,12 @@ import type { CompressionResult } from "../types.ts";
 import { createCompressionStats } from "../stats.ts";
 import {
   isOmniGlyphSupportedModelForScope,
+  mergeCompressionProfileOptions,
+  resolveCompressionProfile,
   transformAnthropicMessages,
   transformOpenAIChatCompletions,
   transformOpenAIResponses,
-  transformRequest,
+  type CompressionProfile,
   type OmniGlyphSafetyScope,
 } from "omniglyph";
 import { isModelImageable } from "omniglyph/applicability";
@@ -43,8 +45,26 @@ import { isModelImageable } from "omniglyph/applicability";
  */
 const MEASURED_MODEL_SCOPE: OmniGlyphSafetyScope = "coding-safe";
 
-/** Escopo semântico do transform. `aggressive` mantém a política medida atual. */
-const DEFAULT_TRANSFORM_SCOPE: OmniGlyphSafetyScope = "aggressive";
+/**
+ * Perfil padrão do OmniRoute.
+ *
+ * `aggressive` é a política que os recibos publicados mediram. `coding-safe` e
+ * `balanced` fixam `minCompressChars` no máximo e só colapsam histórico antigo:
+ * medido nesta base, uma sessão sem histórico acumulado fica em
+ * `below_min_chars` e a engine não faz nada — o operador veria "ligado, 0% de
+ * ganho". Ficam disponíveis como escolha explícita, não como default.
+ */
+const DEFAULT_PROFILE: OmniGlyphSafetyScope = "aggressive";
+
+/** Perfil do passo (mais específico) > perfil global > default do OmniRoute. */
+function resolveProfileName(options?: CompressionEngineApplyOptions): string {
+  const step = options?.stepConfig?.profile;
+  if (typeof step === "string" && step.trim()) return step;
+  const global = (options?.config as { omniglyph?: { profile?: unknown } } | undefined)?.omniglyph
+    ?.profile;
+  if (typeof global === "string" && global.trim()) return global;
+  return DEFAULT_PROFILE;
+}
 
 /**
  * O modelo precisa passar no teto medido E no escopo em vigor. Os dois wires
@@ -159,8 +179,30 @@ async function applyOmniglyph(
   ) {
     return skip(body, "source_format_not_openai_responses");
   }
-  if (!isModelWithinScope(model, DEFAULT_TRANSFORM_SCOPE)) {
+  let profile: CompressionProfile;
+  try {
+    profile = resolveCompressionProfile(resolveProfileName(options));
+  } catch {
+    // `resolveCompressionProfile` lança em nome desconhecido. Um perfil que o
+    // pacote não entende não pode virar "roda com a política padrão".
+    return skip(body, "invalid_profile");
+  }
+  if (profile.name === "passthrough") return skip(body, "profile_passthrough");
+  if (!isModelWithinScope(model, profile.name)) {
     return skip(body, "model_not_approved");
+  }
+  const preserveSystemPrompt =
+    (typeof options?.stepConfig?.preserveSystemPrompt === "boolean"
+      ? options.stepConfig.preserveSystemPrompt
+      : options?.config?.preserveSystemPrompt) === true;
+  // `compressSystem` só existe no transform Anthropic. Os wires OpenAI honram
+  // apenas compressTools/gptHistory/minCompressChars/reflow e sempre trocam a
+  // instrução por um ponteiro para a imagem. Imagear o system quando o OmniRoute
+  // decidiu preservá-lo queimaria o prefixo quente que a política cache-aware
+  // está protegendo — e nada no corpo devolvido denunciaria isso. Sem como
+  // honrar a política nesse wire, a engine pula.
+  if (preserveSystemPrompt && wireFormat !== "claude") {
+    return skip(body, "system_preservation_unsupported_on_wire");
   }
   // OmniGlyph 1.3.x deliberately keeps unverified families (currently Grok)
   // text-only until the operator acknowledges them via its own env gate.
@@ -175,18 +217,20 @@ async function applyOmniglyph(
     const transformBody =
       wireFormat !== "claude" && model && body.model !== model ? { ...body, model } : body;
     const encoded = new TextEncoder().encode(JSON.stringify(transformBody));
-    const preserveSystemPrompt =
-      (typeof options?.stepConfig?.preserveSystemPrompt === "boolean"
-        ? options.stepConfig.preserveSystemPrompt
-        : options?.config?.preserveSystemPrompt) === true;
+    const overrides = preserveSystemPrompt ? { compressSystem: false } : {};
+    // Só `transformAnthropicMessages` resolve o perfil por conta própria; os
+    // transformadores OpenAI recebem TransformOptions cru e ignorariam o campo.
+    const openAIOptions = mergeCompressionProfileOptions(profile, overrides);
     const result =
-      wireFormat === "claude" && preserveSystemPrompt
-        ? await transformRequest(encoded, { compressSystem: false })
-        : wireFormat === "claude"
-          ? await transformAnthropicMessages({ body: encoded, model })
-          : wireFormat === "openai"
-            ? await transformOpenAIChatCompletions(encoded)
-            : await transformOpenAIResponses(encoded);
+      wireFormat === "claude"
+        ? await transformAnthropicMessages({
+            body: encoded,
+            model,
+            options: { ...overrides, profile: profile.name },
+          })
+        : wireFormat === "openai"
+          ? await transformOpenAIChatCompletions(encoded, openAIOptions)
+          : await transformOpenAIResponses(encoded, openAIOptions);
     const applied = "applied" in result ? result.applied : result.info.compressed;
     if (!applied) return skip(body, result.info?.reason ?? "not_profitable");
     outBody = JSON.parse(new TextDecoder().decode(result.body)) as Record<string, unknown>;

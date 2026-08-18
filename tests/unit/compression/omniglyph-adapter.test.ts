@@ -229,3 +229,97 @@ test("OMNIGLYPH_PROFILE do host não amplia a allowlist de modelos do OmniRoute"
   assert.equal(r.compressed, false, "modelo sem recibo medido não pode entrar via env do host");
   assert.ok(r.stats?.techniquesUsed.includes("skip:model_not_approved"));
 });
+
+// ---------------------------------------------------------------------------
+// Perfis semânticos (OmniGlyph 1.4.0)
+//
+// `transformAnthropicMessages()` resolve e mescla o perfil sozinho, mas os
+// transformadores OpenAI recebem `TransformOptions` cru e NÃO conhecem
+// `profile`. Sem o merge explícito do host, um perfil escolhido pelo operador
+// valeria no wire Claude e seria silenciosamente ignorado no wire OpenAI.
+// ---------------------------------------------------------------------------
+
+/** Histórico longo o bastante para o colapso valer mesmo com o system nativo. */
+function claudeBodyWithHistory(): Record<string, unknown> {
+  const messages: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < 40; i++) {
+    messages.push({ role: "user", content: [{ type: "text", text: `pergunta ${i}: ${DENSE}` }] });
+    messages.push({
+      role: "assistant",
+      content: [{ type: "text", text: `resposta ${i}: ${DENSE}` }],
+    });
+  }
+  messages.push({ role: "user", content: [{ type: "text", text: "oi" }] });
+  return { model: "claude-fable-5", max_tokens: 128, system: DENSE, messages };
+}
+
+test("perfil coding-safe chega ao wire OpenAI (não só ao wrapper Anthropic)", async () => {
+  const aggressive = await omniglyphEngine.applyAsync!(openaiChatBody(), {
+    ...GPT_OK,
+    stepConfig: { profile: "aggressive" } as never,
+  });
+  assert.equal(aggressive.compressed, true, "aggressive é a política medida atual");
+
+  const codingSafe = await omniglyphEngine.applyAsync!(openaiChatBody(), {
+    ...GPT_OK,
+    stepConfig: { profile: "coding-safe" } as never,
+  });
+  assert.equal(
+    codingSafe.compressed,
+    false,
+    "coding-safe mantém system e schemas de tools nativos no wire OpenAI"
+  );
+  assert.ok(
+    codingSafe.stats?.techniquesUsed.some((t) => t.startsWith("skip:below_min_chars")),
+    `esperado skip por minCompressChars, veio ${JSON.stringify(codingSafe.stats?.techniquesUsed)}`
+  );
+});
+
+test("perfil é TETO, não piso: coding-safe mantém o system nativo mesmo sem preserveSystemPrompt", async () => {
+  const body = claudeBodyWithHistory();
+  const r = await omniglyphEngine.applyAsync!(body, {
+    ...OK,
+    stepConfig: { profile: "coding-safe", preserveSystemPrompt: false } as never,
+  });
+  assert.equal(r.compressed, true, "o histórico antigo ainda colapsa");
+  assert.equal(
+    (r.body as { system?: unknown }).system,
+    DENSE,
+    "coding-safe não deixa um override do chamador reabrir a compressão do system"
+  );
+});
+
+test("perfil passthrough desliga a engine sem tocar no corpo", async () => {
+  const body = claudeBodyWithHistory();
+  const r = await omniglyphEngine.applyAsync!(body, {
+    ...OK,
+    stepConfig: { profile: "passthrough" } as never,
+  });
+  assert.equal(r.compressed, false);
+  assert.ok(r.stats?.techniquesUsed.includes("skip:profile_passthrough"));
+  assert.deepEqual(r.body, body);
+});
+
+test("perfil inválido falha fechado, não propaga exceção", async () => {
+  const r = await omniglyphEngine.applyAsync!(claudeBody(), {
+    ...OK,
+    stepConfig: { profile: "turbo-max" } as never,
+  });
+  assert.equal(r.compressed, false);
+  assert.ok(r.stats?.techniquesUsed.includes("skip:invalid_profile"));
+});
+
+test("preserveSystemPrompt: wire OpenAI pula, porque o pacote não sabe preservar system lá", async () => {
+  // O transform OpenAI do OmniGlyph 1.4.0 honra apenas compressTools, gptHistory,
+  // minCompressChars e reflow — não existe compressSystem nesse wire, e a
+  // instrução vira sempre um ponteiro para a imagem. Imagear assim queimaria o
+  // prefixo quente que a decisão cache-aware do OmniRoute mandou preservar, e o
+  // OmniRoute não teria como saber. Sem opção de honrar a política, pula.
+  const r = await omniglyphEngine.applyAsync!(openaiChatBody(), {
+    ...GPT_OK,
+    config: { preserveSystemPrompt: true } as never,
+  });
+  assert.equal(r.compressed, false);
+  assert.ok(r.stats?.techniquesUsed.includes("skip:system_preservation_unsupported_on_wire"));
+  assert.deepEqual(r.body, openaiChatBody());
+});
