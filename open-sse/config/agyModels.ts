@@ -106,6 +106,18 @@ export const AGY_PUBLIC_MODELS = Object.freeze([
     supportsVision: true,
     toolCalling: true,
   },
+  // Gemini 3.7 Flash: single callable public model (upstream exposes only
+  // gemini-3.7-flash-tiered; suffixed tier ids 404). One entry so it does not
+  // collide under the #3696 public-id uniqueness invariant.
+  {
+    id: "gemini-3.7-flash",
+    name: "Gemini 3.7 Flash",
+    contextLength: 1048576,
+    maxOutputTokens: 65536,
+    supportsReasoning: true,
+    supportsVision: true,
+    toolCalling: true,
+  },
   {
     id: "gemini-3.1-flash-lite",
     name: "Gemini 3.1 Flash Lite",
