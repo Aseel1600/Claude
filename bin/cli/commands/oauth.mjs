@@ -302,7 +302,7 @@ export async function runOAuthStatus(opts, cmd) {
     process.exit(1);
   }
   const data = await res.json();
-  const connections = (data.providers ?? data.items ?? data).filter(
+  const connections = (data.connections ?? data.providers ?? data.items ?? data).filter(
     (c) => c.authType === "oauth" || c.authType === "oauth2"
   );
   emit(connections, globalOpts, connectionSchema);

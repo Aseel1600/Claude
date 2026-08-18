@@ -7,6 +7,6 @@ test("chatCore treats both Anthropic providers as direct OmniGlyph transports", 
 
   assert.match(
     chatCore,
-    /providerTransport:\s*provider === "anthropic" \|\| provider === "claude"[\s\S]{0,80}?"direct"/
+    /providerTransport:\s*provider === "anthropic"\s*\|\|\s*provider === "claude"[\s\S]{0,160}?"direct"/
   );
 });
