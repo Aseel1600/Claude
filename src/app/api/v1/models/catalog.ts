@@ -389,7 +389,16 @@ async function buildUnifiedModelsResponseCore(
       if ("alias" in p && typeof p.alias === "string") activeAliases.add(p.alias);
     }
 
+    // #9147 follow-up: this is called ~1-3x per model at catalog scale (providerSupportsModel,
+    // isExcludedByProviderConnections). Connections do not change mid-build, so memoize per
+    // unique (unordered) key-set instead of rescanning connectionsByProvider on every call —
+    // otherwise the O(models) hot loop regains an O(connections) cost per model and blows the
+    // single-stretch event-loop budget this file's own yield mechanism is meant to protect.
+    const connectionsForProviderCache = new Map<string, typeof connections>();
     const getConnectionsForProvider = (...keys: Array<string | null | undefined>) => {
+      const cacheKey = keys.filter((k): k is string => Boolean(k)).sort().join(" ");
+      const cached = connectionsForProviderCache.get(cacheKey);
+      if (cached) return cached;
       const seen = new Set<string>();
       const collected: typeof connections = [];
       for (const key of keys) {
@@ -400,6 +409,7 @@ async function buildUnifiedModelsResponseCore(
           collected.push(connection);
         }
       }
+      connectionsForProviderCache.set(cacheKey, collected);
       return collected;
     };
 
