@@ -39,6 +39,26 @@ export function buildGeminiWebImagePrompt(body: Record<string, unknown>): string
   return details.join("\n");
 }
 
+/**
+ * #10494: the underlying GeminiWebExecutor's browser-automation catch paths
+ * classify an expired/blocked Gemini Web session as HTTP 400 ("the session
+ * is so expired it lands on a different page" — see gemini-web.ts's
+ * Playwright selector/click-timeout branch, #9407) or HTTP 500 (its generic
+ * automation-failure catch-all, which covers a blocked/CAPTCHA/login page
+ * this handler has no further way to inspect). Both statuses previously
+ * passed straight through to executeImageWithCredentialFallback, which only
+ * advances to another account on a plain 401 — so an expired/blocked
+ * session never triggered account fallback, contrary to #10466's
+ * acceptance criteria ("Expired or blocked sessions ... can fall back
+ * normally inside an image Combo"). HTTP 503 (missing Playwright browser —
+ * a host/config problem, not a per-account issue) is intentionally excluded,
+ * as is the local 401 this handler already returns before any account is
+ * selected (missing session cookie — handled by the 401 path already).
+ */
+export function isExpiredOrBlockedGeminiWebSession(status: number): boolean {
+  return status === 400 || status === 500;
+}
+
 export async function handleGeminiWebImageGeneration({
   model,
   provider,
@@ -142,6 +162,7 @@ export async function handleGeminiWebImageGeneration({
         startTime,
         error: responseText,
         requestBody,
+        retryable: isExpiredOrBlockedGeminiWebSession(result.response.status),
       });
     }
 

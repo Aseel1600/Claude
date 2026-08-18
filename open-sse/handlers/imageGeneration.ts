@@ -2703,6 +2703,22 @@ export function saveImageErrorResult({
   error,
   requestBody = null,
   path = "/v1/images/generations",
+  // #10494: opt-in signal for executeImageWithCredentialFallback — set by a
+  // provider handler when the failure is account/session-specific (expired
+  // or blocked credentials) rather than a generic request/provider error, so
+  // the retry loop tries the next eligible account even when the upstream
+  // status isn't a plain 401. Defaults to unset (existing 401-only behavior
+  // for every other provider is unchanged).
+  retryable = undefined,
+}: {
+  provider: string;
+  model: string;
+  status: number;
+  startTime: number;
+  error: unknown;
+  requestBody?: unknown;
+  path?: string;
+  retryable?: boolean;
 }) {
   saveCallLog({
     method: "POST",
@@ -2719,6 +2735,7 @@ export function saveImageErrorResult({
     success: false,
     status,
     error,
+    ...(retryable !== undefined ? { retryable } : {}),
   };
 }
 

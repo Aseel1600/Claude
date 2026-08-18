@@ -27,6 +27,9 @@
  *   - Upstream rate limits arrive in-band as `error:true` frames. Non-streaming
  *     requests surface them as HTTP 429/502; streaming requests emit an SSE
  *     error chunk before `[DONE]` (the response status is already committed).
+ *     A server-side chat timeout follows the same rule: streaming requests
+ *     emit a `timeout_error` chunk before `[DONE]` instead of silently
+ *     completing (#10494).
  *   - Set CLOUDFLARE_PLAYGROUND_CHROME_PATH to point at a full desktop Chrome
  *     binary when Playwright's bundled Chromium gets fingerprint-blocked.
  */
@@ -307,6 +310,11 @@ export class PlaywrightCfTransport implements CfTransport {
       await page.goto(PLAYGROUND_URL, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
       const title = await page.title().catch(() => "");
       if (title.includes("Attention Required")) {
+        // #10494: this branch used to return without closing the browser it
+        // just launched, leaking a Chromium process for every blocked
+        // request. Close it on every non-success start path, same as the
+        // catch block below.
+        await this.close().catch(() => {});
         return { ok: false, status: 502, message: BLOCKED_MESSAGE };
       }
       await page.exposeFunction("__cfpPush", (raw: string) => {
@@ -407,7 +415,10 @@ function sseChunk(
 export class CloudflarePlaygroundExecutor extends BaseExecutor {
   constructor(
     private transportFactory: (chatId: string) => CfTransport = (chatId) =>
-      new PlaywrightCfTransport(chatId)
+      new PlaywrightCfTransport(chatId),
+    // Injectable so tests can force the timeout branch without waiting
+    // CHAT_TIMEOUT_MS (120s) for a real timer to fire.
+    private chatTimeoutMs: number = CHAT_TIMEOUT_MS
   ) {
     super("cloudflare-playground", { id: "cloudflare-playground", baseUrl: PLAYGROUND_URL });
   }
@@ -439,7 +450,7 @@ export class CloudflarePlaygroundExecutor extends BaseExecutor {
     const timer = setTimeout(() => {
       timedOut.current = true;
       void transport.close();
-    }, CHAT_TIMEOUT_MS);
+    }, this.chatTimeoutMs);
 
     try {
       if (!wantStream) {
@@ -533,6 +544,25 @@ export class CloudflarePlaygroundExecutor extends BaseExecutor {
           } finally {
             clearTimeout(timer);
             await transport.close().catch(() => {});
+            // #10494: a timeout used to fall straight through to a bare
+            // [DONE], so a client receiving an empty or partial stream saw
+            // an ordinary successful completion. Emit an explicit error
+            // chunk first (same shape as the parser.error branch above) so
+            // the client can distinguish a timed-out/partial answer from a
+            // real completion.
+            if (timedOut.current) {
+              try {
+                enqueue({
+                  error: {
+                    message: "Cloudflare Playground timed out",
+                    type: "timeout_error",
+                    code: "HTTP_504",
+                  },
+                });
+              } catch {
+                /* stream already torn down */
+              }
+            }
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
           }
