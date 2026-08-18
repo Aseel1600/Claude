@@ -93,6 +93,19 @@ describe prompt, steering the description toward what the user actually asked
 (codex-vision-proxy pattern) and asking the vision model to transcribe visible
 text. With the flag off — or no user text — the base prompt is used unchanged.
 
+The describe self-loop's own OpenAI-compatible request (`callVisionModelSingle()`
+in `visionBridgeHelpers.ts`) always requests `image_url.detail: "high"` —
+unconditionally, for every caller/provider, not gated on any client signal.
+Low-detail sampling degrades OCR accuracy for exactly the text-transcription
+task this prompt asks for, so the describe call itself always asks for high
+detail regardless of what detail level the original inbound request used. This
+only affects the internal describe request body; it does not change how
+OmniRoute forwards the caller's own `image_url.detail` on the primary request —
+that default is applied separately, and only for detected OpenCode clients, in
+`defaultImageDetail()` (`open-sse/handlers/chatCore/upstreamBody.ts`). The
+Anthropic wire-format branch of the describe self-loop has no `detail` field
+and is unaffected by either default.
+
 #### Describe output cap (`modalityBridgeVisionMaxChars`)
 
 | Key                            | Default | Range            |
