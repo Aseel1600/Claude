@@ -3,15 +3,13 @@
  *
  * Each model's `supportedGenerationMethods` is mapped to OmniRoute endpoints:
  *   - generateContent / generateAnswer → "chat"
- *   - predict                          → "images"  (Imagen image generation)
+ *   - predict                          → "images"
  *   - predictLongRunning               → "video"   (Veo video generation)
  *   - embedContent                     → "embeddings"
  *   - bidiGenerateContent              → "audio"   (Live real-time audio)
  *
- * Model-id heuristics refine the long-running bucket because Google exposes both
- * Imagen and Veo via long-running methods on the same endpoint:
- *   - id contains "veo"    → ensure "video"
- *   - id contains "imagen" → force "images" (never "video")
+ * Model-id heuristics refine the long-running bucket: ids containing "veo" are
+ * always treated as video. Direct Google Imagen listings are retired and excluded.
  *
  * Note: `gemini-*-image` models (e.g. gemini-3-pro-image) generate images via the
  * regular `generateContent` path, so they stay "chat" (image output is a chat
@@ -51,7 +49,7 @@ export interface GeminiDiscoveryModel {
 }
 
 export function parseGeminiModelsList(data: any): GeminiDiscoveryModel[] {
-  return (data?.models || []).map((m: Record<string, unknown>) => {
+  return (data?.models || []).flatMap((m: Record<string, unknown>) => {
     const methods: string[] = Array.isArray(m.supportedGenerationMethods)
       ? (m.supportedGenerationMethods as string[])
       : [];
@@ -65,19 +63,16 @@ export function parseGeminiModelsList(data: any): GeminiDiscoveryModel[] {
     const id = ((m.name as string) || (m.id as string) || "").replace(/^models\//, "");
     const lowerId = id.toLowerCase();
 
-    // Google exposes Imagen (image) and Veo (video) via long-running methods; the
-    // method alone can't always distinguish them, so refine by model id.
+    if (lowerId.includes("imagen")) return [];
+
+    // Google exposes Veo via long-running methods, so refine by model id.
     if (lowerId.includes("veo")) {
       endpoints.add("video");
-    }
-    if (lowerId.includes("imagen")) {
-      endpoints.delete("video");
-      endpoints.add("images");
     }
 
     if (endpoints.size === 0) endpoints.add("chat");
 
-    return {
+    return [{
       ...m,
       id,
       name: (m.displayName as string) || id,
@@ -86,6 +81,6 @@ export function parseGeminiModelsList(data: any): GeminiDiscoveryModel[] {
       ...(typeof m.outputTokenLimit === "number" ? { outputTokenLimit: m.outputTokenLimit } : {}),
       ...(typeof m.description === "string" ? { description: m.description } : {}),
       ...(m.thinking === true ? { supportsThinking: true } : {}),
-    } as GeminiDiscoveryModel;
+    } as GeminiDiscoveryModel];
   });
 }
