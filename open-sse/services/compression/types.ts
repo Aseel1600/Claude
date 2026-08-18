@@ -158,6 +158,22 @@ export interface LiveZoneConfig {
   enabled: boolean;
 }
 
+/** Perfil semântico do OmniGlyph (pacote 1.4.0+). */
+export type OmniglyphProfile = "coding-safe" | "balanced" | "aggressive" | "passthrough";
+
+/**
+ * Política do OmniGlyph escolhida pelo operador.
+ *
+ * O perfil é um TETO: `mergeCompressionProfileOptions` do pacote não deixa um
+ * override reabrir uma lane que o perfil fechou. Trocar de `aggressive` para
+ * `coding-safe` mantém system, schemas de tools e tool results nativos, ao custo
+ * medido de a engine não fazer nada até a sessão acumular histórico
+ * (`minCompressChars` vai ao máximo). Por isso o default é `aggressive`.
+ */
+export interface OmniglyphConfig {
+  profile: OmniglyphProfile;
+}
+
 /** Lite detail settings for proactive request-time transformations. */
 export interface LiteConfig {
   /** Truncate tool-result strings over 2,000 characters before provider dispatch. */
@@ -207,6 +223,8 @@ export interface CompressionConfig {
   comboOverrides: Record<string, CompressionMode>;
   compressionComboId?: string | null;
   stackedPipeline?: CompressionPipelineStep[];
+  /** Política do engine OmniGlyph (perfil semântico). */
+  omniglyph?: OmniglyphConfig;
   /** Opt-in QuantumLock cache-prefix stabilization (default off). */
   quantumLock?: QuantumLockConfig;
   /** Opt-in per-step fidelity gate (default disabled). */
@@ -467,6 +485,16 @@ export const DEFAULT_COMPRESSION_LANGUAGE_CONFIG: CompressionLanguageConfig = {
   defaultLanguage: "en",
   autoDetect: true,
   enabledPacks: ["en"],
+};
+
+/**
+ * `aggressive` é a política que os recibos publicados mediram. Medido nesta
+ * base: com `coding-safe`/`balanced`, uma sessão sem histórico acumulado para em
+ * `below_min_chars` e a engine não faz nada — como o OmniGlyph é opt-in, esse
+ * default entregaria "ligado, 0% de ganho".
+ */
+export const DEFAULT_OMNIGLYPH_CONFIG: OmniglyphConfig = {
+  profile: "aggressive",
 };
 
 export const DEFAULT_CONTEXT_EDITING_CONFIG: ContextEditingConfig = {

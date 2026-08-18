@@ -8574,6 +8574,27 @@
     },
     "enableTitle": "Ativar a engine",
     "enableDescription": "Executa por último na pilha, depois que os engines de texto limpam a solicitação, usando o wire nativo do provedor; solicitações OpenAI Chat/Responses são comprimidas depois da tradução para preservar seu formato. Também roda de forma independente pelo modo <code>omniglyph</code>. Este é um preview e permanece desativado por padrão até que a validação de ponta a ponta seja concluída.",
+    "profileTitle": "Perfil de compressão",
+    "profileDescription": "O perfil é um teto, não um piso: um perfil mais restrito não pode ser reaberto por um override de passo. Medido nesta base: com coding-safe ou balanced, uma sessão que ainda não acumulou histórico não comprime nada, porque os dois elevam o mínimo de caracteres e mantêm o system prompt, os schemas de tools e os tool results nativos.",
+    "profiles": {
+      "aggressive": {
+        "label": "Agressivo (padrão)",
+        "description": "A política que os recibos publicados mediram. Imageia o system prompt, a documentação de tools e o histórico denso."
+      },
+      "balanced": {
+        "label": "Equilibrado",
+        "description": "Mantém o estado vivo nativo e protege os últimos 8 turnos; só colapsa histórico antigo já fechado."
+      },
+      "codingSafe": {
+        "label": "Seguro para código",
+        "description": "Mantém autoridade, schemas de tools e saída de ferramenta nativos, protegendo os últimos 12 turnos. Não comprime nada até a sessão acumular histórico."
+      },
+      "passthrough": {
+        "label": "Sem transformação",
+        "description": "Só roteia. A engine é pulada e o request segue intacto."
+      }
+    },
+    "profileAria": "Selecionar o perfil de compressão do OmniGlyph",
     "saved": "Salvo.",
     "saveFailed": "Não foi possível salvar.",
     "enableAria": "Ativar a engine OmniGlyph",
