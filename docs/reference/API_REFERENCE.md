@@ -270,6 +270,31 @@ Authorization: Bearer your-api-key
 → Returns all chat, embedding, and image models + combos in OpenAI format
 ```
 
+### Model id prefixes (`?prefix=`)
+
+Most models are advertised under a **provider prefix**. Which prefix you get is controlled by
+the `MODELS_CATALOG_PREFIX_MODE` feature flag, and can be overridden **per request** with a
+query parameter — useful for a client that wants a clean list without changing the server-wide
+setting for everyone else:
+
+```bash
+GET /v1/models?prefix=alias        # one id per model — the short alias prefix
+GET /v1/models?prefix=dual         # both forms (server default)
+GET /v1/models?prefix=canonical    # only the full provider-id prefix
+```
+
+| Mode | Emits | Notes |
+| --- | --- | --- |
+| `dual` | `cc/claude-sonnet-4-6` **and** `claude/claude-sonnet-4-6` | **Default.** Both ids route to the same model; kept so client configs that hardcoded either form keep working. Roughly doubles the catalog. |
+| `alias` | `cc/claude-sonnet-4-6` | One entry per model. Providers without a distinct alias still emit their entry, so nothing is lost. |
+| `canonical` | `claude/claude-sonnet-4-6` | ⚠️ The canonical row is only emitted when the canonical provider id **differs** from the alias, so providers without a distinct alias emit nothing in this mode. Prefer `alias` for a de-duplicated list. |
+
+A `dual`-mode mirror can also be recognised without the query parameter: it carries a `parent`
+field pointing at the primary id.
+
+Clients that render a model picker should request `?prefix=alias` — this is what the
+[OmniCopilot VS Code extension](../guides/VSCODE-COPILOT.md) does.
+
 ### No-thinking model variants
 
 For thinking-capable Claude models, `/v1/models` also advertises a **no-thinking** variant whose id is prefixed with `claude-3-omniroute-no-thinking/`:

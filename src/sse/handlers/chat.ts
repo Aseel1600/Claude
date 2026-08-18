@@ -4,6 +4,10 @@ import * as chatAdmission from "./chatAdmission.ts";
 import { buildClientRawRequest, resolveDispatchClientRawRequest } from "./chat/clientRawRequest.ts";
 export { buildClientRawRequest, resolveDispatchClientRawRequest };
 import { normalizeReasoningRequest } from "@/shared/reasoning/effortStandardization";
+import { isDetailedLoggingEnabled } from "@/lib/db/detailedLogs";
+import { resolvePreviousResponseState } from "@/lib/db/responsesContinuationStore";
+import { normalizeResponsesPreviousResponseIdMode } from "@omniroute/open-sse/utils/responsesStatePolicy.ts";
+import { FORMATS } from "@omniroute/open-sse/translator/formats.ts";
 import { resolveRoutingModel, RoutingModelOps } from "./resolveRoutingModel";
 import {
   getProviderCredentialsWithQuotaPreflight,
@@ -516,6 +520,66 @@ async function handleChatImplementation(
   const apiKeyInfo = policy.apiKeyInfo;
   const bypassProviderQuotaPolicy = hasProviderQuotaBypassScope(apiKeyInfo?.scopes);
   telemetry.endPhase();
+
+  // OmniRoute-native `previous_response_id` continuation: reconstruct the
+  // full input server-side before ANY downstream validation/translation
+  // sees this request, so everything after this point (message-shape
+  // guards, token-budget checks, provider translation) treats it exactly
+  // like an ordinary full-history request. This works regardless of
+  // whether the eventually-selected upstream provider itself understands
+  // Responses-API state -- OmniRoute always forwards the full reconstructed
+  // history upstream, exactly as it does today for a non-continued request.
+  // Client<->OmniRoute traffic shrinks to the new delta; OmniRoute<->
+  // provider traffic is unchanged. See src/lib/db/responsesContinuationStore.ts.
+  //
+  // Skipped entirely when the operator has set responsesPreviousResponseIdMode
+  // to "preserve": that mode is the explicit, connection-independent contract
+  // for "never touch previous_response_id, let the upstream resolve it
+  // natively" (see applyResponsesPreviousResponseIdPolicy in chatCore.ts,
+  // which enforces it per-target once a connection is selected). Codex's own
+  // executor relies on an untouched previous_response_id to delegate history
+  // resolution upstream (stripOrphanedCodexFunctionCallOutputs in codex.ts);
+  // reconstructing and deleting the field here would make that downstream
+  // "preserve" enforcement a no-op since the field would already be gone.
+  const settingsForContinuation = await getCachedSettings().catch(
+    () => ({}) as Record<string, unknown>
+  );
+  const previousResponseIdMode = normalizeResponsesPreviousResponseIdMode(
+    (settingsForContinuation as { responsesPreviousResponseIdMode?: unknown })
+      .responsesPreviousResponseIdMode
+  );
+  if (
+    previousResponseIdMode !== "preserve" &&
+    sourceFormat === FORMATS.OPENAI_RESPONSES &&
+    typeof (body as { previous_response_id?: unknown }).previous_response_id === "string"
+  ) {
+    const previousResponseId = (body as { previous_response_id: string }).previous_response_id;
+    const detailedLoggingEnabled = await isDetailedLoggingEnabled();
+    const stored = detailedLoggingEnabled
+      ? resolvePreviousResponseState(previousResponseId, apiKeyInfo?.id ?? null)
+      : null;
+    if (!stored) {
+      // Matches OpenAI's own `previous_response_not_found` contract (missing
+      // or expired server-side state) so a client with the matching retry
+      // behavior -- resend the full request, same turn -- recovers exactly
+      // as it would against the real OpenAI backend.
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: "Previous response not found.",
+            type: "invalid_request_error",
+            code: "previous_response_not_found",
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const deltaInput = Array.isArray((body as { input?: unknown }).input)
+      ? (body as { input: unknown[] }).input
+      : [];
+    body = { ...body, input: [...stored.input, ...stored.output, ...deltaInput] };
+    delete (body as { previous_response_id?: unknown }).previous_response_id;
+  }
 
   const admissionRejection = await admissionContext.acquire(apiKeyInfo?.id, request, body);
   if (admissionRejection) return admissionRejection;

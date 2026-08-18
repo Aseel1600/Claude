@@ -31,7 +31,7 @@ test(`CLI_TOOLS has exactly ${EXPECTED_AGENT_COUNT} agent entries`, () => {
 });
 
 test("CLI_TOOLS total code entries (including none) equals 26 (21 visible + 5 none)", () => {
-  // code-none entries: zcode, antigravity, kiro, cursor (app), hermes (simple guide)
+  // code-none entries: antigravity, kiro, cursor (app), hermes, and zcode.
   const codeNone = codeAll.filter((t) => t.baseUrlSupport === "none");
   assert.equal(
     codeNone.length,
@@ -47,7 +47,7 @@ test("CLI_TOOLS total (code + agent) = 34", () => {
 
 test("All code-none entries have configType mitm OR are legacy excluded entries", () => {
   const codeNone = codeAll.filter((t) => t.baseUrlSupport === "none");
-  const allowedIds = new Set(["zcode", "antigravity", "kiro", "cursor", "hermes"]);
+  const allowedIds = new Set(["antigravity", "kiro", "cursor", "hermes", "zcode"]);
   for (const entry of codeNone) {
     assert.ok(
       allowedIds.has(entry.id),
