@@ -8,6 +8,10 @@
  */
 
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
+import {
+  setAiHordeImageCatalogEntries,
+  type AiHordeRegistryModelEntry,
+} from "../config/providers/registry/aihorde/imageModels.ts";
 
 export const AI_HORDE_API_BASE = "https://aihorde.net/api";
 export const AI_HORDE_ANONYMOUS_KEY = "0000000000";
@@ -143,6 +147,7 @@ export class HordeImageCatalog {
     } else {
       this.lastError = error;
     }
+    syncRegistrySnapshot(this);
   }
 
   /** Drop the snapshot so the next `ensureFresh` must hit Horde. */
@@ -150,6 +155,7 @@ export class HordeImageCatalog {
     this.models = new Map();
     this.updatedAt = null;
     this.lastError = null;
+    syncRegistrySnapshot(this);
   }
 
   setFetch(fetchImpl: HordeFetch): void {
@@ -174,7 +180,9 @@ export class HordeImageCatalog {
     await this.refresh(options);
   }
 
-  private async refreshOnce(options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<void> {
+  private async refreshOnce(
+    options: { timeoutMs?: number; signal?: AbortSignal } = {}
+  ): Promise<void> {
     try {
       const url = `${AI_HORDE_API_BASE}/v2/status/models?type=image`;
       const response = await this.fetchImpl(url, {
@@ -197,19 +205,13 @@ export class HordeImageCatalog {
 
 export const aiHordeImageCatalog = new HordeImageCatalog();
 
-export function resetAiHordeImageCatalog(): void {
-  aiHordeImageCatalog.clear();
-}
-
-export function getCachedAiHordeImageCatalogEntries(): Array<{
-  id: string;
-  name: string;
-  provider: string;
-  supportedSizes: string[];
-  inputModalities: string[];
-  description?: string;
-}> {
-  return aiHordeImageCatalog.listModels().map((model) => ({
+/**
+ * Map a catalog snapshot to the registry entry shape and push it into
+ * `AI_HORDE_IMAGE_PROVIDER` (see imageModels.ts). Only the module-level
+ * singleton drives the registry — injected test instances are ignored.
+ */
+function registryEntriesFrom(models: HordeImageCatalogModel[]): AiHordeRegistryModelEntry[] {
+  return models.map((model) => ({
     id: `aihorde/${model.name}`,
     name: `${model.name} (AI Horde)`,
     provider: "aihorde",
@@ -217,4 +219,17 @@ export function getCachedAiHordeImageCatalogEntries(): Array<{
     inputModalities: ["text", "image"],
     description: `${model.count} worker${model.count === 1 ? "" : "s"} online`,
   }));
+}
+
+function syncRegistrySnapshot(from: HordeImageCatalog): void {
+  if (from !== aiHordeImageCatalog) return;
+  setAiHordeImageCatalogEntries(registryEntriesFrom(from.listModels()));
+}
+
+export function resetAiHordeImageCatalog(): void {
+  aiHordeImageCatalog.clear();
+}
+
+export function getCachedAiHordeImageCatalogEntries(): AiHordeRegistryModelEntry[] {
+  return registryEntriesFrom(aiHordeImageCatalog.listModels());
 }
