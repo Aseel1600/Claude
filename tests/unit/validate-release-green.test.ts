@@ -14,6 +14,7 @@ const {
   classifyRunError,
   extractCiGates,
   FULL_CI_SKIP,
+  fullCiTimeoutFor,
 } = mod;
 
 const extract = extractCiGates as (
@@ -144,6 +145,17 @@ test("classifyRunError: a killed gate under a timeout surfaces as a visible non-
   assert.equal(r.code, 124);
   assert.match(r.out, /ceiling/);
   assert.match(r.out, /hung\/failed gate/);
+});
+
+test("classifyRunError: Node's ETIMEDOUT shape is reported as a timeout", () => {
+  const r = classifyRunError({ code: "ETIMEDOUT", signal: "SIGTERM" }, 10 * 60 * 1000);
+  assert.equal(r.code, 124);
+  assert.match(r.out, /600s ceiling/);
+});
+
+test("fullCiTimeoutFor gives test-masking enough time without weakening other gates", () => {
+  assert.equal(fullCiTimeoutFor("check:test-masking"), 30 * 60 * 1000);
+  assert.equal(fullCiTimeoutFor("check:file-size"), 10 * 60 * 1000);
 });
 
 test("classifyRunError: a normal non-zero exit keeps its status + combined output", () => {

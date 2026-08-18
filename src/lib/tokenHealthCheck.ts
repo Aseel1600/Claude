@@ -28,6 +28,7 @@ import {
 import { pickMaskedDisplayValue } from "@/shared/utils/maskEmail";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 import { refreshGithubCopilotSubTokenIfNeeded } from "@/lib/tokenHealthCheckCopilot";
+import { checkCursorConnectionIfNeeded } from "@/lib/tokenHealthCheckCursor";
 
 const LOG_PREFIX = "[HealthCheck]";
 const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
@@ -142,7 +143,16 @@ export function isInRefreshBackoff(conn: any, nowMs: number): boolean {
   return Number.isFinite(untilMs) && untilMs > nowMs;
 }
 
-export function buildRefreshFailureUpdate(conn: any, now: string) {
+export function buildRefreshFailureUpdate(
+  conn: any,
+  now: string,
+  overrides?: {
+    errorCode?: string;
+    lastError?: string;
+    lastErrorType?: string;
+    testStatus?: string;
+  }
+) {
   const wasExpired = conn.testStatus === "expired";
   const retryCount = (conn.expiredRetryCount ?? 0) + (wasExpired ? 1 : 0);
 
@@ -173,6 +183,7 @@ export function buildRefreshFailureUpdate(conn: any, now: string) {
       refreshCircuit: { streak, until: getRefreshBackoffUntil(streak, now), lastFailAt: now },
     },
     ...(wasExpired ? { expiredRetryCount: retryCount, expiredRetryAt: now } : {}),
+    ...(overrides || {}),
   };
 }
 
@@ -267,7 +278,7 @@ function isEnvFlagEnabled(name: string): boolean {
   return TRUE_ENV_VALUES.has(value.trim().toLowerCase());
 }
 
-function isHealthCheckDisabled(): boolean {
+export function isHealthCheckDisabled(): boolean {
   return (
     isEnvFlagEnabled("OMNIROUTE_DISABLE_TOKEN_HEALTHCHECK") ||
     isBuildProcess() ||
@@ -421,16 +432,18 @@ export function stopTokenHealthCheck() {
 }
 
 // ── Core sweep (batch concurrent) ──────────────────────────────────────────
-export async function sweep() {
+/** Returns the number of connections swept, which the job registry records. */
+export async function sweep(): Promise<number> {
   const state = getHCState();
   if (state.sweeping) {
-    return log(`${LOG_PREFIX} Sweep skipped — previous sweep still in progress`);
+    log(`${LOG_PREFIX} Sweep skipped — previous sweep still in progress`);
+    return 0;
   }
   state.sweeping = true;
   try {
     const connections = await getProviderConnections({ authType: "oauth" });
 
-    if (!connections || connections.length === 0) return;
+    if (!connections || connections.length === 0) return 0;
 
     const staggerMs = parseInt(process.env.HEALTHCHECK_STAGGER_MS || "3000", 10);
     const total = connections.length;
@@ -471,8 +484,10 @@ export async function sweep() {
         await new Promise((resolve) => setTimeout(resolve, 0));
       }
     }
+    return total;
   } catch (err) {
     logError(`${LOG_PREFIX} Sweep error:`, err.message);
+    return 0;
   } finally {
     state.sweeping = false;
   }
@@ -515,11 +530,24 @@ export async function checkConnection(conn) {
     conn.testStatus === "expired" &&
     conn.errorCode === "no_refresh_token" &&
     isGitHubAccessTokenOnlyConnection(conn);
+  // Cursor has no refresh_token by design — an existing REQUEST-TIME path
+  // (resolveTerminalConnectionStatus() in src/sse/services/auth.ts) can land
+  // a Cursor connection at testStatus "expired" on a live 401 before the
+  // Cursor renewal branch below ever runs. Un-terminal it so the sweep can
+  // still attempt a renewal, UNLESS the account is genuinely dead
+  // (lastErrorType "account_deactivated" is documented as permanently dead
+  // and must not be retried — doing so would repeatedly nudge cursor-agent
+  // and re-scrape against a dead account).
+  const isRecoverableCursorExpired =
+    conn.testStatus === "expired" &&
+    String(conn.provider || "").toLowerCase() === "cursor" &&
+    conn.lastErrorType !== "account_deactivated";
   const terminalStatuses = new Set(["credits_exhausted", "banned", "expired"]);
   if (
     typeof conn.testStatus === "string" &&
     terminalStatuses.has(conn.testStatus.toLowerCase()) &&
-    !isRecoverableGithubCopilotNoRefresh
+    !isRecoverableGithubCopilotNoRefresh &&
+    !isRecoverableCursorExpired
   ) {
     return;
   }
@@ -548,6 +576,30 @@ export async function checkConnection(conn) {
     log(
       `${LOG_PREFIX} ${conn.provider}/${getConnectionLogLabel(conn)} is a deprecated provider; marking expired (migrate to ${deprecation.migrateTo})`
     );
+    return;
+  }
+
+  // Cursor's refreshToken is always null (no refresh_token by design), so
+  // falling into the generic !conn.refreshToken block below was always a
+  // silent no-op for Cursor. Explicit provider dispatch here is clearer than
+  // relying on that fallthrough.
+  if (String(conn.provider || "").toLowerCase() === "cursor") {
+    const tokenExpiresAt = getEffectiveTokenExpiryMs(conn);
+    const isAboutToExpire = tokenExpiresAt > 0 && tokenExpiresAt - Date.now() < TOKEN_EXPIRY_BUFFER;
+    if (tokenExpiresAt > 0 && !isAboutToExpire) return;
+    if (isInRefreshBackoff(conn, Date.now())) return;
+
+    const now = new Date().toISOString();
+    await checkCursorConnectionIfNeeded({
+      conn,
+      now,
+      buildRefreshFailureUpdate,
+      log,
+      logWarn,
+      logError,
+      getConnectionLogLabel,
+      logPrefix: LOG_PREFIX,
+    });
     return;
   }
 
@@ -725,6 +777,7 @@ export async function checkConnection(conn) {
     "amazon-q",
     "gitlab-duo",
     "claude",
+    "openference",
   ]);
   const isRotatingProvider = ROTATING_REFRESH_PROVIDERS.has(
     String(conn.provider || "").toLowerCase()
@@ -1047,8 +1100,3 @@ export async function checkConnection(conn) {
     );
   }
 }
-
-// Auto-start when imported
-initTokenHealthCheck();
-
-export default initTokenHealthCheck;

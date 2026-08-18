@@ -30,6 +30,21 @@ interface VideoProvider {
 }
 
 export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
+  agnes: {
+    id: "agnes",
+    baseUrl: "https://apihub.agnes-ai.com",
+    statusUrl: "https://apihub.agnes-ai.com/agnesapi",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "agnes-video-job",
+    models: [
+      {
+        id: "agnes-video-v2.0",
+        name: "Agnes Video V2.0",
+      },
+    ],
+  },
+
   "qwen-cloud-token-plan": {
     id: "qwen-cloud-token-plan",
     alias: "qct",
@@ -70,6 +85,22 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
       { id: "veo-3.0-generate-001", name: "Veo 3.0 (Vertex)" },
       { id: "veo-3.0-fast-generate-001", name: "Veo 3.0 Fast (Vertex)" },
       { id: "veo-2.0-generate-001", name: "Veo 2.0 (Vertex)" },
+    ],
+  },
+
+  "fal-ai": {
+    id: "fal-ai",
+    baseUrl: "https://queue.fal.run",
+    authType: "apikey",
+    authHeader: "key",
+    format: "fal-ai-video",
+    models: [
+      { id: "veo3.1/lite", name: "Veo 3.1 Lite" },
+      { id: "google/gemini-omni-flash", name: "Gemini Omni Flash" },
+      {
+        id: "xai/grok-imagine-video/text-to-video",
+        name: "Grok Imagine Video",
+      },
     ],
   },
 
@@ -338,6 +369,15 @@ export const VIDEO_PROVIDERS: Record<string, VideoProvider> = {
     authHeader: "bearer",
     format: "adobe-firefly-video",
     models: toRegistryVideoModels(),
+  },
+
+  nanogpt: {
+    id: "nanogpt",
+    baseUrl: "https://nano-gpt.com/api/v1/video/generations",
+    authType: "apikey",
+    authHeader: "bearer",
+    format: "openai",
+    models: [{ id: "default", name: "NanoGPT Video" }],
   },
 };
 

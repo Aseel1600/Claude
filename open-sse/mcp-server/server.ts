@@ -93,6 +93,8 @@ import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
+import { registerRadarCatalogTool } from "./radarCatalog.ts";
+import type { TextToolResult } from "./toolResult.ts";
 export { getMcpModelsCatalog } from "./catalog.ts";
 
 const OMNIROUTE_BASE_URL = resolveOmniRouteBaseUrl();
@@ -145,11 +147,6 @@ function readMcpAccessibilityConfig(): McpAccessibilityConfig {
     return { ...DEFAULT_MCP_ACCESSIBILITY_CONFIG };
   }
 }
-
-type TextToolResult = {
-  content: Array<{ type: "text"; text: string }>;
-  isError?: boolean;
-};
 
 function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
@@ -270,6 +267,15 @@ function withScopeEnforcement(
   };
 }
 
+// process.uptime() (the source of health.uptime) returns a number, not a string;
+// the shared toString() helper only passes through actual strings, so a naive
+// toString(health.uptime, "unknown") silently discarded every real uptime value.
+function toUptimeString(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "unknown";
+}
+
 async function handleGetHealth() {
   const start = Date.now();
   try {
@@ -287,8 +293,25 @@ async function handleGetHealth() {
     const resilienceCircuitBreakers = toArray(resilience.circuitBreakers);
     const rateLimitEntries = toArray(rateLimits.limits);
 
+    // Surface fetch failures instead of letting Promise.allSettled's {} fallback
+    // masquerade as genuine zero/empty data (indistinguishable "no data" vs.
+    // "couldn't reach the source" was the actual root confusion this fixes).
+    const degradedSources: Array<{ source: string; settled: PromiseSettledResult<unknown> }> = [
+      { source: "health", settled: healthRaw },
+      { source: "resilience", settled: resilienceRaw },
+      { source: "rateLimits", settled: rateLimitsRaw },
+    ];
+    const degraded = degradedSources
+      .filter(({ settled }) => settled.status === "rejected")
+      .map(({ source, settled }) => ({
+        source,
+        error: sanitizeErrorMessage(
+          settled.status === "rejected" ? (settled as PromiseRejectedResult).reason : undefined
+        ),
+      }));
+
     const result = {
-      uptime: toString(health.uptime, "unknown"),
+      uptime: toUptimeString(health.uptime),
       version: toString(health.version, "unknown"),
       memoryUsage: {
         heapUsed: toNumber(memoryUsageRaw.heapUsed, 0),
@@ -310,6 +333,7 @@ async function handleGetHealth() {
             provider: toString(toRecord(health.cryptography).provider, "unknown"),
           }
         : undefined,
+      degraded: degraded.length > 0 ? degraded : undefined,
     };
 
     await logToolCall("omniroute_get_health", {}, result, Date.now() - start, true);
@@ -574,16 +598,7 @@ async function handleWebSearch(args: {
   query: string;
   max_results?: number;
   search_type?: "web" | "news";
-  provider?:
-    | "serper-search"
-    | "brave-search"
-    | "perplexity-search"
-    | "exa-search"
-    | "tavily-search"
-    | "google-pse-search"
-    | "linkup-search"
-    | "searchapi-search"
-    | "searxng-search";
+  provider?: string;
 }) {
   const start = Date.now();
   try {
@@ -814,6 +829,8 @@ export function createMcpServer(): McpServer {
       handleListModelsCatalog(listModelsCatalogInput.parse(args))
     )
   );
+
+  registerRadarCatalogTool(server, withScopeEnforcement);
 
   server.registerTool(
     "omniroute_simulate_route",

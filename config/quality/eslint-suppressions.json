@@ -34,24 +34,24 @@
       "count": 7
     }
   },
-  "open-sse/executors/puter.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "open-sse/executors/t3-chat-web.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 11
     }
   },
-  "open-sse/executors/vertex.ts": {
+  "open-sse/executors/tinycms.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore.ts": {
-    "no-restricted-imports": {
+  "open-sse/executors/tinycmsSigner.ts": {
+    "@typescript-eslint/no-explicit-any": {
       "count": 1
+    }
+  },
+  "open-sse/executors/vertex.ts": {
+    "@typescript-eslint/no-explicit-any": {
+      "count": 3
     }
   },
   "open-sse/handlers/chatCore/codexFailover.ts": {
@@ -403,11 +403,6 @@
       "count": 1
     }
   },
-  "src/app/api/combos/[id]/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/app/api/combos/reorder/route.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -554,11 +549,6 @@
     }
   },
   "src/app/api/providers/[id]/login/route.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "no-restricted-imports": {
       "count": 1
     }
@@ -1668,7 +1658,7 @@
   },
   "tests/unit/base-executor-sanitize-effort.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 48
+      "count": 6
     }
   },
   "tests/unit/batch-deletion.test.ts": {
@@ -1704,11 +1694,6 @@
   "tests/unit/call-log-cap.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 43
-    }
-  },
-  "tests/unit/call-log-file-rotation.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 5
     }
   },
   "tests/unit/call-log-startup.test.ts": {
@@ -1783,7 +1768,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 34
+      "count": 31
     }
   },
   "tests/unit/chatgpt-web-tools-5240.test.ts": {
@@ -2027,11 +2012,6 @@
     }
   },
   "tests/unit/cloudflaredTunnel-extended.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 3
-    }
-  },
-  "tests/unit/codebuddy-cn-provider.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 3
     }

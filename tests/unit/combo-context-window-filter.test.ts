@@ -192,6 +192,26 @@ test("all known-too-small context targets still fall back to strategy order", ()
   );
 });
 
+test("output-token limits remain a hard compatibility requirement", () => {
+  saveModelsDevCapabilities({
+    "unit-output-limit": {
+      insufficient: capabilityEntryWithLimits(128_000, 128_000, 128),
+      sufficient: capabilityEntryWithLimits(128_000, 128_000, 4_096),
+    },
+  });
+
+  const out = filterTargetsByRequestCompatibility(
+    [target("unit-output-limit/insufficient"), target("unit-output-limit/sufficient")],
+    { messages: [{ role: "user", content: "hello" }], max_tokens: 512 },
+    noopLog
+  );
+
+  assert.deepEqual(
+    out.map((entry) => entry.modelStr),
+    ["unit-output-limit/sufficient"]
+  );
+});
+
 test("known context overflow reports the largest target limit", () => {
   saveModelsDevCapabilities({
     "unit-known-context": {
@@ -276,6 +296,65 @@ test("combo rejects a known oversized request before upstream dispatch", async (
   assert.equal(body.error.code, "context_length_exceeded");
   assert.equal(body.diagnostics.terminalReason, "context_length_exceeded");
   assert.equal(body.diagnostics.attempted, 0);
+});
+
+test("native Responses context bypasses catalog overflow only for all-Codex pools (#8932)", () => {
+  saveModelsDevCapabilities({
+    codex: {
+      large: capabilityEntry(272_000),
+    },
+    "unit-known-context": {
+      large: capabilityEntry(272_000),
+    },
+  });
+  const body = bigContextBody(275_000);
+
+  assert.equal(
+    getKnownContextOverflow([target("codex/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    null
+  );
+  assert.equal(
+    getKnownContextOverflow([target("codex/large"), target("chatgpt-web-codex/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    null
+  );
+  assert.ok(
+    getKnownContextOverflow([target("unit-known-context/large")], body, {
+      clientManagedResponsesContext: true,
+    }),
+    "non-Codex pools must retain the catalog overflow guard"
+  );
+});
+
+test("native Responses context reaches an all-Codex target beyond its catalog hint (#8932)", async () => {
+  saveModelsDevCapabilities({
+    codex: {
+      large: capabilityEntry(272_000),
+    },
+  });
+  let dispatches = 0;
+
+  const response = await handleComboChat({
+    body: bigContextBody(275_000),
+    combo: {
+      name: "native-codex-overflow",
+      strategy: "priority",
+      models: ["codex/large"],
+    },
+    clientManagedResponsesContext: true,
+    isModelAvailable: async () => true,
+    handleSingleModel: async () => {
+      dispatches += 1;
+      return new Response("ok", { status: 200 });
+    },
+    log: noopLog,
+  });
+
+  assert.notEqual(response.status, 400);
+  assert.equal(dispatches, 1);
 });
 
 test("input-only maxInputTokens is not double-counted against the output reserve (#7039)", () => {
@@ -415,8 +494,8 @@ test("without an override the small-catalog target is ordered last for the large
       capped: capabilityEntry(8_000),
     },
   });
-  // No override: capped (8K) is genuinely too small and must be filtered out,
-  // guarding the override read-path from masking a real too-small target.
+  // No override: capped (8K) is catalog-too-small, so it stays behind the
+  // known-compatible target while remaining available as a runtime fallback.
   const out = filterTargetsByRequestCompatibility(
     [target("unit-override/capped"), target("unit-override/big")],
     largeContextBody(),
