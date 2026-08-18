@@ -98,6 +98,7 @@ import {
   formatComboOutcomes,
   redactConnectionLabel,
   buildRedactedSummary,
+  resolveComboTerminalStatus,
 } from "./combo/comboErrorAggregation.ts";
 import type { ComboErrorEntry } from "./combo/comboErrorAggregation.ts";
 import type { CompressionMode } from "./compression/types.ts";
@@ -2288,7 +2289,14 @@ export async function handleComboChat({
         );
       }
 
-      const status = lastStatus;
+      // #10501: derive the terminal HTTP status from the structured per-target
+      // outcomes instead of `lastStatus` (whichever target happened to fail
+      // LAST). A 4xx is preserved only when the request itself is genuinely
+      // invalid across every eligible target; a heterogeneous mix of failure
+      // classes (e.g. a quality failure + a sibling's 401) normalizes to a
+      // 5xx-class status reflecting an infra/provider problem, not a client
+      // error. See comboErrorAggregation.ts::resolveComboTerminalStatus.
+      const status = resolveComboTerminalStatus(comboErrors, lastStatus);
       // #10314: build the terminal message from the structured per-target
       // outcomes (each distinct class+reason listed separately) instead of
       // mashing a single lastError with raw `[model (status)]` markers. Connection
@@ -3359,7 +3367,9 @@ async function handleRoundRobinCombo({
     );
   }
 
-  const status = lastStatus;
+  // #10501: same terminal-status policy as handleComboChat — see
+  // comboErrorAggregation.ts::resolveComboTerminalStatus.
+  const status = resolveComboTerminalStatus(rrOutcomes, lastStatus);
   // #10314: same structured per-target aggregation as handleComboChat — list each
   // distinct reason separately (redacted), fall back to lastError when no outcome.
   const msg =
