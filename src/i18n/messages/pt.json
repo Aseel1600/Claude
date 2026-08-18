@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Encaminhar pedidos com orçamento esgotado para o fornecedor/modelo de contingência gratuito de emergência.",
   "featureFlagArenaEloSyncEnabledDescription": "Ativar a sincronização periódica do ELO da tabela de classificação da Arena AI para classificações de inteligência do modelo.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Anuncie os ids de espelho claude/&lt;provider&gt;/&lt;model&gt; em /v1/models para que a descoberta de modelos do gateway Claude Code liste modelos não Claude. Aviso: duplica entradas de catálogo para todos os clientes quando ativado globalmente.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Ative filas de admissão virtuais adaptativas por tenant para o encaminhamento de fornecedores (#9654): um pico de tráfego de um tenant já não gera 503 noutro. A variável de ambiente OMNIROUTE_CHAT_VIRTUAL_LANES sobrepõe-se a esta definição do painel; as alterações entram em vigor ao reiniciar o servidor.",
   "sidebar": {
     "home": "Página inicial",
     "dashboard": "Painel",
@@ -1290,7 +1291,9 @@
       "open": "abrir",
       "close": "fechar"
     },
-    "noResults": "Sem resultados"
+    "noResults": "Sem resultados",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -1736,6 +1739,8 @@
     "quotaShare": "Partilha de Quota",
     "discovery": "Descoberta",
     "freeProviderRankings": "Rankings de Fornecedores Gratuitos",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Escalões Gratuitos",
     "gamification": "Gamificação",
     "leaderboard": "Tabela de classificação",
@@ -5092,6 +5097,7 @@
     "deprecatedProvider": "Este provedor foi descontinuado",
     "riskNotice": {
       "title": "Antes de continuar",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provedor com advertências de utilização — clique para detalhes",
       "oauth": "Este provedor utiliza a sua sessão oficial do produto/OAuth, que não está autorizada para utilização de proxy/router. Não recomendamos a utilização intensiva de agentes autónomos (estilo OpenCloud, fluxos longos de vários passos, grandes lotes) — o upstream pode reagir restringindo ou banindo a conta. Utilize por sua conta e risco.",
       "webCookie": "Este provedor autentica-se através dos cookies da sua sessão web. O serviço upstream pode invalidar a sessão a qualquer momento, exigindo que inicie sessão novamente. Não recomendado para operações longas sem supervisão. Utilize por sua conta e risco.",
@@ -5099,6 +5105,11 @@
       "dontShowAgain": "Não mostrar isto novamente para este provedor",
       "understand": "Compreendo, continuar",
       "cancel": "Cancelar"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Desativado",
     "enableProvider": "Habilitar provedor",
@@ -6335,7 +6346,18 @@
     "savedModelEndpointSettings": "Definições do ponto de extremidade do modelo guardado",
     "searchByModelAria": "Pesquisar por modelo",
     "selectSupportedEndpoint": "Selecione pelo menos um endpoint suportado",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Auto-busca do modelo upstream desativada",
+    "autoFetchModelsTooltip": "Buscar e armazenar em cache modelos upstream quando necessário",
+    "autoFetchModelsEnabled": "Modelo upstream de auto-busca ativado",
+    "autoFetchModels": "Busca automática de modelos upstream",
+    "overridesUpstreamModel": "Substitui upstream",
+    "overridesUpstreamModelHint": "As suas definições substituem este modelo upstream",
+    "autoFetchModelsToggleFailed": "Falha ao alternar a busca automática do modelo upstream",
+    "autoFetchModelsPartialFailure": "Algumas ligações foram atualizadas, mas a busca automática do modelo upstream não foi alterada em todos os lugares",
+    "resetToUpstreamDefaults": "Restaurar as definições padrão do upstream",
+    "resetToUpstreamDefaultsSuccess": "Restaurados os valores padrão do modelo upstream",
+    "resetToUpstreamDefaultsFailed": "Falha ao restaurar as definições padrão do modelo upstream"
   },
   "settings": {
     "title": "Configurações",
@@ -6554,6 +6576,12 @@
     "autoDisableDescription": "Marca permanentemente conexões de provedor como desativadas quando retornam sinais terminais de banimento (ex.: HTTP 403 'verify your account'). Isso remove a conexão da rotação de combos.",
     "autoDisableThreshold": "Limite de banimento",
     "autoDisableThresholdDesc": "Quantidade de sinais consecutivos de banimento antes da desativação permanente.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Palavras-chave Proibidas",
     "customBannedSignalsDesc": "Palavras-chave adicionais que acionam a deteção de banimento permanente da conta. As palavras-chave integradas aplicam-se sempre.",
     "customBannedSignalsPlaceholder": "ex. chave de API revogada",
@@ -8018,7 +8046,7 @@
     "enableCredentialRedactionDesc": "Remove chaves de API, tokens, chaves privadas e JWTs de mensagens, chamadas de ferramentas e respostas.",
     "pricingAutoSyncDisabled": "Sincronização Automática Desativada",
     "pricingAutoSyncEnabled": "Sincronização Automática Ativada",
-    "modalityBridgeIntro": "Conecte conteúdo multimodal ao texto antes de chegar a modelos apenas de texto. A visão está ativa; o áudio chega com o AudioBridge; o vídeo está no roteiro.",
+    "modalityBridgeIntro": "Converta conteúdo multimodal em texto antes de chegar a modelos apenas de texto. As pontes de visão, áudio e vídeo estão disponíveis e podem ser configuradas.",
     "modalityBridgeVisionTab": "Visão",
     "modalityBridgeAudioTab": "Áudio",
     "modalityBridgeVideoTab": "Vídeo",
@@ -8058,7 +8086,6 @@
     "modalityBridgeTestNoop": "A ponte não foi ativada (o modelo pode suportar visão nativamente ou a ponte está desativada)",
     "modalityBridgeTestError": "Teste falhou: {message}",
     "modalityBridgeAudioComingSoon": "A ponte de áudio (fala → texto via /v1/audio/transcriptions) será lançada na próxima versão. As chaves de configuração já estão reservadas.",
-    "modalityBridgeVideoComingSoon": "A ponte de vídeo (amostragem de quadros + legendagem) está na lista de tarefas — veja o problema #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge movido",
     "modalityBridgeMovedBody": "As definições do Vision Bridge agora estão disponíveis na página dedicada do Modality Bridge.",
     "modalityBridgeMovedCta": "Abrir as definições da Ponte de Modalidade",
@@ -8074,6 +8101,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clipe(s) transcrito(s) por {model}",
     "modalityBridgeAudioTestNoop": "Audio Bridge não ativou (o destino pode suportar áudio, nenhum fornecedor de STT está conectado ou a ponte está desativada)",
     "modalityBridgeAudioTestError": "Teste de áudio falhou: {message}",
+    "modalityBridgeVideoTitle": "Ponte de vídeo",
+    "modalityBridgeVideoDesc": "Amostre fotogramas do vídeo, descreva-os com um modelo de visão e continue com o modelo de texto escolhido.",
+    "modalityBridgeVideoRuntimeReady": "Runtime pronto",
+    "modalityBridgeVideoRuntimeUnavailable": "Runtime indisponível",
+    "modalityBridgeVideoRuntimeInstall": "Instale o FFmpeg e o ffprobe no PATH do servidor para ativar a extração de vídeo.",
+    "modalityBridgeVideoEnabled": "Ativar Ponte de vídeo",
+    "modalityBridgeVideoEnabledDesc": "Substitua as partes de vídeo por descrições de fotogramas com carimbo de data/hora quando o modelo de destino não conseguir processar vídeo.",
+    "modalityBridgeVideoModel": "Modelo de descrição de fotogramas",
+    "modalityBridgeVideoModelInherited": "Herdar o modelo da Ponte de visão",
+    "modalityBridgeVideoFrameCount": "Fotogramas por vídeo",
+    "modalityBridgeVideoMaxVideos": "Máximo de vídeos por pedido",
     "modelRoutingDescriptionPlaceholder": "Roteie modelos Opus para combinação frontier",
     "cliproxyapiFallbackCodes": "Códigos de Fallback do Cliproxyapi",
     "cliproxyapiFallbackDescription": "Descrição de Fallback do Cliproxyapi",
@@ -11035,7 +11073,8 @@
       "compressed": "Compressão",
       "tps": "TPS",
       "duration": "Duração",
-      "time": "Hora"
+      "time": "Hora",
+      "conversation": "Conversa"
     },
     "loadingLogs": "A carregar registos...",
     "noLogs": "Ainda sem registos. Faz algumas chamadas de API para os veres aqui.",
@@ -12427,6 +12466,11 @@
       "rare": "Conquistas raras"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Primeiro Token",
         "description": "Fez o seu primeiro pedido de API",
@@ -13071,6 +13115,13 @@
     "partnerLinkNote": "Link de parceiro",
     "dismissAriaLabel": "Dispensar"
   },
+  "vscodeCopilotBanner": {
+    "title": "O OmniRoute agora funciona dentro do VS Code Copilot Chat",
+    "description": "Instale a extensão gratuita OmniCopilot e cada modelo do OmniRoute surge diretamente no seletor de modelos do Copilot Chat que já utiliza.",
+    "cta": "Obter a Extensão",
+    "secondaryNote": "Também disponível na Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Dispensar"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Anuncie <gateway-alias>/<model> IDs de espelho em /v1/models para modelos cujo proprietário canónico não tem credenciais ativas, mas um gateway de passagem com credenciais ativas os encaminha. Aviso: adiciona entradas de catálogo para todos os clientes quando ativado globalmente.",
   "radarPage": {
     "title": "Catálogo Radar",
@@ -13140,7 +13191,25 @@
     "modelEnabled": "Ativado localmente",
     "localStateSaveFailed": "Falha ao guardar as definições locais do Radar",
     "guidedCombos": "Guided combos",
-    "offers": "Ofertas"
+    "offers": "Ofertas",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Configuração do Fornecedor",
@@ -13256,6 +13325,7 @@
     "pollErrorStopped": "Sondagem interrompida: o servidor rejeitou o pedido (404/403).",
     "pollErrorTransient": "Erro ao obter dados: a repetir automaticamente.",
     "degraded": {
+      "message": "__MISSING__:Partial data: unavailable sources: {sources}",
       "source": {
         "database": "Base de Dados",
         "circuitBreaker": "Disjuntor",
@@ -13640,23 +13710,6 @@
     "updateFailed": "Falha ao atualizar (HTTP {status})",
     "networkError": "Erro de rede — não foi possível atualizar a configuração de exposição do fornecedor"
   },
-  "radarCombosPage": {
-    "title": "Radar guided combos",
-    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
-    "backToRadar": "Back to Radar",
-    "loading": "Loading combo suggestions...",
-    "familyLabel": "Model family",
-    "modelsLabel": "Priority order",
-    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
-    "generateButton": "Generate combo",
-    "generating": "Generating...",
-    "alreadyCreated": "Already created",
-    "created": "Combo created",
-    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
-    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
-    "loadFailed": "Failed to load Radar combo suggestions.",
-    "createFailed": "Failed to create the combo. Review your provider connections and try again."
-  },
   "radarOffersPage": {
     "title": "Ofertas para apoiadores",
     "subtitle": "Descontos, créditos, testes oficiais e benefícios de parceiros revisados pelo Radar.",
@@ -13677,6 +13730,39 @@
     "noExpiry": "Sem validade anunciada",
     "openOffer": "Ver oferta",
     "trialDays": "{days, plural, one {# dia} other {# dias}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
   },
   "capabilityFilter": {
     "visionMismatch": "Provider does not support vision for this image request",

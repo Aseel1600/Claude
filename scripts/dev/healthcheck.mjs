@@ -2,7 +2,10 @@
 
 /**
  * Docker healthcheck script for OmniRoute.
- * Probes the lightweight /healthz lifecycle endpoint on the dashboard port.
+ * Probes the lightweight /healthz endpoint on the dashboard port.
+ * /api/monitoring/health is the deep human/dashboard check (SQLite ping);
+ * using it as Docker HEALTHCHECK marks the container Unhealthy whenever the
+ * event loop is busy (#10052) and can restart the only replica mid-session.
  * Used by Dockerfile and docker-compose files.
  *
  * #10311 — the container HEALTHCHECK previously probed the heavy

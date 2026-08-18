@@ -25,6 +25,7 @@ import {
 } from "@/lib/credentialHealth/cache";
 import { emit } from "@/lib/events/eventBus";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
+import { SEARCH_VALIDATOR_CONFIGS } from "@/lib/providers/validation/searchProviders";
 
 // ── Config ────────────────────────────────────────────────────────────────
 
@@ -74,7 +75,6 @@ function isBuildProcess(): boolean {
   return typeof process !== "undefined" && process.env.NEXT_PHASE === "phase-production-build";
 }
 
-
 function isCredentialHealthCheckDisabled(): boolean {
   if (isBuildProcess() || isAutomatedTestProcess()) return true;
   const val = process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK;
@@ -122,6 +122,9 @@ async function testConnection(
   } catch {}
   try {
     const result = await testSingleConnection(connectionId);
+
+    // A deliberate lease skip must not rewrite the health cache.
+    if (result.skipped === true) return;
 
     const latencyMs = Date.now() - startTime;
     const state = getSchedulerState();
@@ -230,7 +233,13 @@ export async function sweep(): Promise<void> {
     try {
       const raw = await getProviderConnections({ isActive: true });
       connections = (Array.isArray(raw) ? raw : []).filter(
-        (conn: any) => conn && conn.id && (conn.authType === "apikey" || conn.authType === "oauth")
+        (conn: any) =>
+          conn &&
+          conn.id &&
+          (conn.authType === "apikey" || conn.authType === "oauth") &&
+          // #9970: search-provider "validation" fires a REAL billed upstream
+          // query (e.g. POST api.tavily.com/search) — never sweep these.
+          !(conn.provider in SEARCH_VALIDATOR_CONFIGS)
       ) as Array<{
         id: string;
         provider: string;

@@ -13,10 +13,7 @@ test("resolveHealthPath prefixes the health route with OMNIROUTE_BASE_PATH", () 
 });
 
 test("resolveHealthPath honors an explicit OMNIROUTE_HEALTHCHECK_PATH override", () => {
-  assert.equal(
-    resolveHealthPath(undefined, "/api/monitoring/health"),
-    "/api/monitoring/health"
-  );
+  assert.equal(resolveHealthPath(undefined, "/api/monitoring/health"), "/api/monitoring/health");
   assert.equal(
     resolveHealthPath("/omniroute", "/api/monitoring/health"),
     "/omniroute/api/monitoring/health"

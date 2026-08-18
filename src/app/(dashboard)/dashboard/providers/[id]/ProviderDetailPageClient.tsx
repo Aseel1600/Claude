@@ -31,7 +31,11 @@ import { normalizeModelCatalogSource } from "@/shared/utils/modelCatalogSearch";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import useEmailPrivacyStore from "@/store/emailPrivacyStore";
 import { useNotificationStore } from "@/store/notificationStore";
-import { resolveDashboardProviderInfo, resolveProviderHeaderLink } from "../providerPageUtils";
+import {
+  resolveDashboardProviderInfo,
+  resolveProviderHeaderLink,
+  resolveProviderOAuthBackendId,
+} from "../providerPageUtils";
 import { findDefaultReferral } from "@/lib/radar/referrals";
 import { type ConnectionRowConnection } from "./components/ConnectionRow";
 import { useProviderConnections } from "./hooks/useProviderConnections";
@@ -254,8 +258,11 @@ export default function ProviderDetailPageClient() {
     providerInfo?.website,
     referralUrl
   );
+  const oauthProviderId = resolveProviderOAuthBackendId(providerId, providerInfo);
   const providerSupportsOAuth =
-    providerInfo?.toggleAuthType === "oauth" || providerInfo?.toggleAuthType === "free";
+    providerInfo?.toggleAuthType === "oauth" ||
+    providerInfo?.toggleAuthType === "free" ||
+    oauthProviderId !== providerId;
   const subscriptionRisk = providerInfo?.subscriptionRisk === true;
 
   // ── Phase 1t.3: connection gate + risk-notice modal state ───────────────
@@ -308,13 +315,16 @@ export default function ProviderDetailPageClient() {
     showImportModal,
     importProgress,
     togglingAutoSync,
+    togglingAutoFetchModels,
     canImportModels,
     isAutoSyncEnabled,
+    isAutoFetchModelsEnabled,
     setShowImportModal,
     setImportProgress,
     handleImportModels,
     handleCompatibleImportWithProgress,
     handleToggleAutoSync,
+    handleToggleAutoFetchModels,
   } = useModelImportHandlers({
     providerId,
     models,
@@ -544,7 +554,7 @@ export default function ProviderDetailPageClient() {
           providerName={providerInfo?.name || providerId}
         />
       )}
-      {!isUpstreamProxyProvider && !isFreeNoAuth && (
+      {!isUpstreamProxyProvider && (!isFreeNoAuth || providerSupportsPat) && (
         <Card>
           <ProviderAccountRoutingCard
             providerKey={providerId}
@@ -726,6 +736,9 @@ export default function ProviderDetailPageClient() {
             isAutoSyncEnabled={isAutoSyncEnabled}
             togglingAutoSync={togglingAutoSync}
             handleToggleAutoSync={handleToggleAutoSync}
+            isAutoFetchModelsEnabled={isAutoFetchModelsEnabled}
+            togglingAutoFetchModels={togglingAutoFetchModels}
+            handleToggleAutoFetchModels={handleToggleAutoFetchModels}
             handleCompatibleImportWithProgress={handleCompatibleImportWithProgress}
             compatSavingModelId={compatSavingModelId}
             togglingModelId={togglingModelId}
@@ -763,6 +776,7 @@ export default function ProviderDetailPageClient() {
             copied={copied}
             onCopy={copy}
             onModelsChanged={fetchProviderModelMeta}
+            syncedModelIds={syncedAvailableModels.map((model) => model.id)}
           />
         </Card>
       )}
