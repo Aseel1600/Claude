@@ -9,15 +9,48 @@ import { createHash } from "node:crypto";
 
 import type { VisionBridgeRuntimeSettings } from "@/shared/constants/modalityBridgeDefaults";
 
-export function bridgeCacheKey(contentRef: string, prompt: string, model: string): string {
-  // Length-prefix framing: hashing the byte lengths first makes the field
-  // boundaries unambiguous, so ("ab","c") can never collide with ("a","bc").
-  return createHash("sha256")
-    .update(`${Buffer.byteLength(contentRef)}:${Buffer.byteLength(prompt)}:`)
-    .update(contentRef)
-    .update(prompt)
-    .update(model)
-    .digest("hex");
+export interface BridgeCacheKeyOptions {
+  kind?: string;
+  extractorVersion?: string;
+  policyVersion?: string;
+  strategy?: string;
+  frameCount?: number;
+  maxVideos?: number;
+  contactSheet?: boolean;
+  transcript?: string;
+  audioTranscript?: string;
+  focusStartSeconds?: number | null;
+  focusEndSeconds?: number | null;
+  version?: string;
+}
+
+export function bridgeCacheKey(
+  contentRef: string,
+  prompt: string,
+  model: string,
+  options: BridgeCacheKeyOptions = {}
+): string {
+  // Deterministic input structure to avoid ambiguity and silent hash drift:
+  // - keeps old call sites stable (no options)
+  // - adds explicit policy/version dimensions for future cache busting
+  const payload = {
+    contentRef,
+    kind: options.kind ?? "media-frame",
+    model,
+    prompt,
+    policyVersion: options.policyVersion,
+    extractorVersion: options.extractorVersion,
+    strategy: options.strategy,
+    frameCount: options.frameCount,
+    maxVideos: options.maxVideos,
+    contactSheet: options.contactSheet,
+    transcript: options.transcript,
+    audioTranscript: options.audioTranscript,
+    focusStartSeconds: options.focusStartSeconds,
+    focusEndSeconds: options.focusEndSeconds,
+    version: options.version,
+  };
+  return createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
 export interface BridgeCacheOptions {
@@ -27,12 +60,23 @@ export interface BridgeCacheOptions {
   now?: () => number;
 }
 
+export interface BridgeCacheEntry {
+  value: string;
+  /** Actual successful producer, which may differ from the routing-plan model after fallback. */
+  producerModel?: string;
+  metadata?: Record<string, unknown>;
+}
+
 export class BridgeCache {
-  private readonly entries = new Map<string, { value: string; expiresAt: number }>();
+  private readonly entries = new Map<string, { entry: BridgeCacheEntry; expiresAt: number }>();
 
   constructor(private readonly opts: BridgeCacheOptions) {}
 
   get(key: string): string | undefined {
+    return this.getEntry(key)?.value;
+  }
+
+  getEntry(key: string): BridgeCacheEntry | undefined {
     const hit = this.entries.get(key);
     if (!hit) return undefined;
     const now = (this.opts.now ?? Date.now)();
@@ -43,13 +87,17 @@ export class BridgeCache {
     // Map preserves insertion order — re-insert to mark as most-recently-used.
     this.entries.delete(key);
     this.entries.set(key, hit);
-    return hit.value;
+    return hit.entry;
   }
 
   set(key: string, value: string): void {
+    this.setEntry(key, { value });
+  }
+
+  setEntry(key: string, entry: BridgeCacheEntry): void {
     const now = (this.opts.now ?? Date.now)();
     this.entries.delete(key);
-    this.entries.set(key, { value, expiresAt: now + this.opts.ttlMs });
+    this.entries.set(key, { entry, expiresAt: now + this.opts.ttlMs });
     while (this.entries.size > this.opts.maxEntries) {
       const oldest = this.entries.keys().next().value;
       if (oldest === undefined) break;
@@ -59,6 +107,14 @@ export class BridgeCache {
 
   get size(): number {
     return this.entries.size;
+  }
+
+  delete(key: string): void {
+    this.entries.delete(key);
+  }
+
+  clear(): void {
+    this.entries.clear();
   }
 }
 
