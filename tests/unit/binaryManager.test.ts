@@ -26,6 +26,7 @@ describe("binaryManager", () => {
     mod = await import("../../src/lib/versionManager/binaryManager.ts");
     assert.ok(mod.getAssetName);
     assert.ok(mod.getTargetPlatform);
+    assert.ok(mod.downloadRelease);
     assert.ok(mod.installVersion);
     assert.ok(mod.getCurrentBinaryPath);
     assert.ok(mod.getInstalledVersions);
@@ -223,6 +224,77 @@ describe("binaryManager", () => {
         process.env.PATH = originalPath;
         delete process.env.OMNI_TEST_COMMAND_LOG;
         delete process.env.OMNI_TEST_EXTRACT_DIR;
+      }
+    });
+  });
+
+  describe("downloadRelease platform parameter threading (#10244/#10293)", () => {
+    it("uses an explicitly-passed Windows target without reading os.platform() at all", async () => {
+      // Closing-fix regression guard: unlike the os.platform()/os.arch() mock-based
+      // tests above (which prove the single top-level detection reaches the right
+      // place, but would still pass even if extractZip re-read os.platform() itself
+      // since the mock is global), this test proves the actual PARAMETER THREADING:
+      // downloadRelease() is called with an explicit `target` and os.platform()/
+      // os.arch() are NOT mocked at all — the real test host is Linux/darwin/etc.
+      // If downloadRelease or extractZip ever regressed to independently re-reading
+      // os.platform() instead of using the threaded `platform` value, this would
+      // resolve to the host's real (non-Windows) platform, `unzip` would run against
+      // a fake zip body, and the test would fail.
+      const binDir = path.join(tmpDir, "bin-param-thread");
+      const extractedDir = path.join(binDir, "cliproxyapi-1.0.0");
+      const fakePowerShellDir = path.join(tmpDir, "fake-powershell-param-thread");
+      const commandLog = path.join(tmpDir, "powershell-command-param-thread.txt");
+      const originalPath = process.env.PATH;
+      const originalFetch = globalThis.fetch;
+
+      fs.mkdirSync(fakePowerShellDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(fakePowerShellDir, "powershell"),
+        "#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$OMNI_TEST_COMMAND_LOG_PT\"\n"
+          + "mkdir -p \"$OMNI_TEST_EXTRACT_DIR_PT\"\nprintf 'installed-binary' > \"$OMNI_TEST_EXTRACT_DIR_PT/cli-proxy-api\"\n"
+      );
+      fs.chmodSync(path.join(fakePowerShellDir, "powershell"), 0o755);
+      process.env.PATH = `${fakePowerShellDir}:${originalPath || ""}`;
+      process.env.OMNI_TEST_COMMAND_LOG_PT = commandLog;
+      process.env.OMNI_TEST_EXTRACT_DIR_PT = extractedDir;
+
+      globalThis.fetch = async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/releases/tags/")) {
+          return new Response(
+            JSON.stringify({
+              tag_name: "v1.0.0",
+              published_at: "2026-01-01T00:00:00Z",
+              assets: [
+                {
+                  name: "CLIProxyAPI_1.0.0_windows_amd64.zip",
+                  browser_download_url: "https://example.test/cliproxy.zip",
+                  size: 3,
+                },
+              ],
+            }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          );
+        }
+        if (url.endsWith("checksums.txt")) return new Response("", { status: 404 });
+        return new Response("zip", { status: 200 });
+      };
+
+      try {
+        const binary = await mod.downloadRelease("1.0.0", binDir, undefined, {
+          platform: "windows",
+          arch: "amd64",
+        });
+        assert.equal(fs.readFileSync(binary, "utf8"), "installed-binary");
+
+        const command = fs.readFileSync(commandLog, "utf8");
+        assert.match(command, /Expand-Archive -LiteralPath/);
+        assert.doesNotMatch(command, /unzip/);
+      } finally {
+        globalThis.fetch = originalFetch;
+        process.env.PATH = originalPath;
+        delete process.env.OMNI_TEST_COMMAND_LOG_PT;
+        delete process.env.OMNI_TEST_EXTRACT_DIR_PT;
       }
     });
   });
