@@ -113,7 +113,10 @@ export async function validateEmbeddingApiProvider({
 export async function validateJinaFoundationProvider({
   apiKey,
   providerSpecificData = {},
-}: any) {
+}: {
+  apiKey: string;
+  providerSpecificData?: { validationModelId?: string; [key: string]: unknown };
+}) {
   const modelsUrl = "https://api.jina.ai/v1/models";
   const embeddingsUrl = "https://api.jina.ai/v1/embeddings";
   const embeddingsModel =
@@ -194,7 +197,7 @@ export async function validateJinaFoundationProvider({
       testedEndpoint: "POST https://api.jina.ai/v1/embeddings",
       testedModel: embeddingsModel,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     return toValidationErrorResult(error);
   }
 }

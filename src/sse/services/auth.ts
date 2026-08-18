@@ -1961,7 +1961,7 @@ export async function getProviderCredentialsWithQuotaPreflight(
     if (legacyForceDisable) return credentials;
 
     const hasConnectionOverrides = Object.keys(perConnectionWindowOverrides).length > 0;
-    const legacyForceEnable = isQuotaPreflightEnabled(credentials);
+    const legacyForceEnable = isQuotaPreflightEnabled(credentials as Record<string, unknown>);
     if (
       !hasConnectionOverrides &&
       !providerHasDefaults &&
@@ -1997,10 +1997,15 @@ export async function getProviderCredentialsWithQuotaPreflight(
       requestedModel && modelAwarePreflight ? { ...credentials, requestedModel } : credentials;
     let preflight;
     try {
-      preflight = await preflightQuota(provider, connectionId, preflightCredentials, {
-        resolveMinRemainingPercent,
-        resolveWarnRemainingPercent: () => warnThresholdPercent,
-      });
+      preflight = await preflightQuota(
+        provider,
+        connectionId,
+        preflightCredentials as Record<string, unknown>,
+        {
+          resolveMinRemainingPercent,
+          resolveWarnRemainingPercent: () => warnThresholdPercent,
+        }
+      );
     } catch (error) {
       selectedCredentials.releaseOAuthSession?.();
       throw error;
