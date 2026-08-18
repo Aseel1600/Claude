@@ -190,3 +190,54 @@ test("the bridge does not make unrelated generic types findable", async () => {
   // A different generic type (responses, not chat) must stay unrelated.
   assert.equal(await auth.getProviderCredentials("openai-compatible-responses"), null);
 });
+
+// #10434 -- the ambiguity guard added for #10085 was only applied to the
+// concrete-id -> generic-type direction (`getProviderSearchPool`'s first
+// bridging branch). The generic-type -> concrete-id direction (second
+// branch) added every node sharing the derived type to the search pool
+// UNCONDITIONALLY, with no ambiguity check. `selectProviderNodeForConnection`
+// (src/lib/db/providerNodeSelect.ts, #4421) already established the
+// project-wide rule for this exact generic-type fallback: "only when exactly
+// one such node exists, so an ambiguous type never silently picks the wrong
+// node". `getProviderSearchPool` must apply that SAME rule symmetrically in
+// both directions -- otherwise a bare generic-type lookup (e.g. resolved by
+// some caller without a concrete node id) silently pools in a connection
+// that is scoped to one specific node's baseUrl/headers, sending traffic to
+// the wrong upstream with the wrong credentials whenever a second node of
+// the same generic type exists.
+test(
+  "a bare generic-type lookup must not leak a node-scoped connection when the " +
+    "type is ambiguous across multiple nodes (#10434)",
+  async () => {
+    await resetStorage();
+    await seedNode();
+    await seedSecondNode();
+    // Connection is scoped to node A specifically (stored under A's concrete
+    // uuid id, with A's own baseUrl) -- NOT under the bare generic type.
+    await providersDb.createProviderConnection({
+      provider: NODE_ID,
+      authType: "apikey",
+      apiKey: "sk-test-10434-node-a",
+      name: "test-compat-10434-node-a",
+      isActive: true,
+      testStatus: "active",
+      priority: 1,
+      providerSpecificData: { prefix: NODE_PREFIX, baseUrl: "https://example.test/v1" },
+    });
+
+    // A lookup by the BARE generic type (no concrete node id) must not
+    // resolve to node A's connection: two nodes (A and B) share the derived
+    // type "openai-compatible-chat", so the generic type is ambiguous and
+    // must not silently pick node A's credentials/baseUrl.
+    const creds = await auth.getProviderCredentials("openai-compatible-chat");
+
+    assert.equal(
+      creds,
+      null,
+      "a bare generic-type lookup resolved to node A's node-scoped connection even " +
+        "though the type is ambiguous (node B also derives 'openai-compatible-chat') -- " +
+        "this can route a request meant for a different node through node A's baseUrl " +
+        "and credentials."
+    );
+  }
+);

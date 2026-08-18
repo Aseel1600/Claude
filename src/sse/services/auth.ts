@@ -1020,18 +1020,34 @@ async function getProviderSearchPool(provider: string): Promise<string[]> {
       // #4421) -- and back. A connection created via the bare generic type
       // (e.g. "openai-compatible-chat") must still be found when the chat path
       // looks up the concrete node id, and vice versa.
+      //
+      // #10434: both bridging directions MUST require the derived type to be
+      // unambiguous (exactly one provider node of that type) before falling
+      // back to a generic-type match -- an explicit ownership check, not just
+      // a string-format coincidence. This mirrors the exact rule already
+      // enforced by selectProviderNodeForConnection() for connection CREATION
+      // (src/lib/db/providerNodeSelect.ts, #4421): "only when exactly one such
+      // node exists, so an ambiguous type never silently picks the wrong
+      // node". Without this guard on the generic->concrete direction, a bare
+      // generic-type lookup would pool in EVERY node sharing that derived
+      // type, including a connection scoped (via its own providerSpecificData
+      // baseUrl/headers) to one specific node -- leaking that node's
+      // credentials/upstream URL into a lookup for a different, unrelated
+      // node of the same generic type.
       const derivedType = nodeTypeFromId(nodeId);
       if (derivedType && derivedType !== nodeId) {
         const typeIsUnambiguous = nodeTypes.get(derivedType) === 1;
-        if (nodeId === provider || nodeId === canonicalProvider || nodeId === canonicalAlias) {
-          if (typeIsUnambiguous) searchPool.add(derivedType);
-        }
-        if (
-          derivedType === provider ||
-          derivedType === canonicalProvider ||
-          derivedType === canonicalAlias
-        ) {
-          searchPool.add(nodeId);
+        if (typeIsUnambiguous) {
+          if (nodeId === provider || nodeId === canonicalProvider || nodeId === canonicalAlias) {
+            searchPool.add(derivedType);
+          }
+          if (
+            derivedType === provider ||
+            derivedType === canonicalProvider ||
+            derivedType === canonicalAlias
+          ) {
+            searchPool.add(nodeId);
+          }
         }
       }
     }
