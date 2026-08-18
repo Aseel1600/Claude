@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,49 +12,13 @@ const A2A_ROUTE = path.resolve(__dirname, "../../src/app/a2a/route.ts");
 
 const source = fs.readFileSync(TASKS_ROUTE, "utf-8");
 
+const { tokensMatch, authenticateA2A } = await import("../../src/app/api/a2a/tasks/route.ts");
+
 function hasImport(src: string, name: string, from: string): boolean {
   const pattern = new RegExp(
     `import\\s+\\{[^}]*\\b${name}\\b[^}]*\\}\\s+from\\s+["']${from}["']`
   );
   return pattern.test(src);
-}
-
-function extractFunction(src: string, name: string): string {
-  const start = src.search(new RegExp(`\\bfunction\\s+${name}\\s*\\(`));
-  if (start === -1) throw new Error(`function ${name} not found`);
-  let brace = 0;
-  let inString: string | null = null;
-  let i = start;
-  let foundOpen = false;
-  while (i < src.length) {
-    const ch = src[i];
-    const prev = src[i - 1];
-    if (inString) {
-      if (ch === inString && prev !== "\\") inString = null;
-    } else if (ch === '"' || ch === "'" || ch === "`") {
-      inString = ch;
-    } else if (ch === "{") {
-      foundOpen = true;
-      brace++;
-    } else if (ch === "}") {
-      brace--;
-      if (foundOpen && brace === 0) {
-        return src.slice(start, i + 1);
-      }
-    }
-    i++;
-  }
-  throw new Error(`could not extract function ${name}`);
-}
-
-function stripFunctionTypes(fnSource: string): string {
-  return fnSource.replace(
-    /\bfunction\s+(\w+)\s*\(([^)]*)\)\s*:\s*\w+\s*\{/,
-    (_match, name, params) => {
-      const stripped = params.replace(/\b(\w+)\s*:\s*[^,]+/g, "$1");
-      return `function ${name}(${stripped}) {`;
-    }
-  );
 }
 
 test("tasks route uses the same constant-time contract as src/app/a2a/route.ts", () => {
@@ -80,13 +43,6 @@ test("tasks route uses the same constant-time contract as src/app/a2a/route.ts",
 });
 
 test("tokensMatch behaves like the helper in src/app/a2a/route.ts", () => {
-  const fnSource = stripFunctionTypes(extractFunction(source, "tokensMatch"));
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const tokensMatch = new Function("timingSafeEqual", "Buffer", `return ${fnSource}`)(
-    crypto.timingSafeEqual,
-    Buffer
-  ) as (provided: string, expected: string) => boolean;
-
   assert.equal(tokensMatch("omniroute-a2a-test-key", "omniroute-a2a-test-key"), true);
   assert.equal(
     tokensMatch("x".repeat("omniroute-a2a-test-key".length), "omniroute-a2a-test-key"),
@@ -102,22 +58,9 @@ test("tokensMatch behaves like the helper in src/app/a2a/route.ts", () => {
 });
 
 test("authenticateA2A preserves the documented semantics", () => {
-  const tokensMatchSource = stripFunctionTypes(extractFunction(source, "tokensMatch"));
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const tokensMatch = new Function("timingSafeEqual", "Buffer", `return ${tokensMatchSource}`)(
-    crypto.timingSafeEqual,
-    Buffer
-  ) as (provided: string, expected: string) => boolean;
-
-  const authSource = stripFunctionTypes(extractFunction(source, "authenticateA2A"));
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
-  const authenticateA2A = new Function("tokensMatch", `return ${authSource}`)(
-    tokensMatch
-  ) as (request: { headers: { get(name: string): string | null } }) => boolean;
-
   const API_KEY = "omniroute-a2a-test-key";
 
-  function makeRequest(token?: string) {
+  function makeRequest(token?: string): Request {
     return {
       headers: {
         get(name: string) {
@@ -125,7 +68,7 @@ test("authenticateA2A preserves the documented semantics", () => {
           return token === undefined ? null : `Bearer ${token}`;
         },
       },
-    };
+    } as unknown as Request;
   }
 
   delete process.env.OMNIROUTE_API_KEY;

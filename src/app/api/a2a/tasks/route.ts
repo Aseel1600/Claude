@@ -75,16 +75,22 @@ const delegationSchema = z.object({
  * length of the shared prefix through response timing; `timingSafeEqual` does
  * not. It requires equal-length buffers, so mismatched lengths are rejected up
  * front (the length itself is not secret).
+ *
+ * Exported as a test seam only — not part of the route contract.
  */
-function tokensMatch(provided: string, expected: string): boolean {
+export function tokensMatch(provided: string, expected: string): boolean {
   const a = Buffer.from(provided);
   const b = Buffer.from(expected);
   if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
 
-/** Mesma semântica de auth do JSON-RPC A2A (src/app/a2a/route.ts): Bearer vs OMNIROUTE_API_KEY; aberto se não configurada. */
-function authenticateA2A(request: Request): boolean {
+/**
+ * Mesma semântica de auth do JSON-RPC A2A (src/app/a2a/route.ts): Bearer vs OMNIROUTE_API_KEY; aberto se não configurada.
+ *
+ * Exported as a test seam only — not part of the route contract.
+ */
+export function authenticateA2A(request: Request): boolean {
   const configuredKey = process.env.OMNIROUTE_API_KEY;
   if (!configuredKey) return true;
   const token = (request.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
