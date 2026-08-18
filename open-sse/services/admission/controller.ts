@@ -1,4 +1,5 @@
 import {
+  clampLimit,
   closeAdaptationWindow,
   createAdaptationState,
   noteLatency,
@@ -151,6 +152,11 @@ export class AdaptiveAdmissionController {
       next.maxLimit,
       Math.max(next.minLimit, this.adaptation.currentLimit)
     );
+    // #10111: the idle-recovery ceiling must track a new initialLimit (and the
+    // possibly-also-new min/maxLimit) instead of staying pinned to the value computed
+    // at construction time — otherwise a raised initialLimit can never recover past the
+    // stale ceiling, and a lowered one leaves the ceiling above the new maxLimit.
+    this.adaptation.recoveryCeiling = clampLimit(next.initialLimit, next.minLimit, next.maxLimit);
     this.adaptation.windowStartMs = this.clock.now();
     this.adaptation.windowActiveCostIntegral = 0;
     this.adaptation.windowCompleted = 0;

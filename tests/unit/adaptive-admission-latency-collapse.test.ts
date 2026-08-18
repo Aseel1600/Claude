@@ -199,3 +199,90 @@ describe("#10111 — adaptive admission latency collapse", () => {
     }
   });
 });
+
+describe("#10111 — updateConfig refreshes the idle-recovery ceiling", () => {
+  it("a larger initialLimit raises the recovery ceiling, clamped to the (possibly new) maxLimit", () => {
+    const clock = new FakeClock();
+    const controller = new AdaptiveAdmissionController(
+      shippingDefaults({ minLimit: 5, initialLimit: 20, maxLimit: 50, increaseStep: 1, maxIncreasePerWindow: 1 }),
+      { now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer }
+    );
+    try {
+      // Collapse the limit well below the original ceiling (20) via one critical hit.
+      controller.observePressure("critical"); // 20 -> floor(20 * 0.5) = 10
+      assert.equal(controller.snapshot().currentLimit, 10);
+      // Close the window the critical hit landed in — idle recovery is suppressed for a
+      // window where pressure is still critical, so the limit stays put.
+      clock.advance(1_000);
+      assert.equal(controller.snapshot().currentLimit, 10);
+
+      // Raise initialLimit far past the (unchanged) maxLimit, and widen the recovery step
+      // so a single idle window jumps straight to the new ceiling.
+      controller.updateConfig(
+        shippingDefaults({
+          minLimit: 5,
+          initialLimit: 1_000,
+          maxLimit: 50,
+          increaseStep: 1_000,
+          maxIncreasePerWindow: 1_000,
+        })
+      );
+
+      // Idle window: no active/queued work, pressure normal — idle recovery climbs
+      // straight to the recovery ceiling.
+      clock.advance(1_000);
+      assert.equal(
+        controller.snapshot().currentLimit,
+        50,
+        "recoveryCeiling must track the raised initialLimit, clamped to maxLimit (50)"
+      );
+    } finally {
+      controller.shutdown();
+    }
+  });
+
+  it("a smaller initialLimit lowers the recovery ceiling, clamped to the (possibly new) minLimit", () => {
+    const clock = new FakeClock();
+    const controller = new AdaptiveAdmissionController(
+      shippingDefaults({ minLimit: 5, initialLimit: 100, maxLimit: 200, increaseStep: 1, maxIncreasePerWindow: 1 }),
+      { now: clock.now, setTimer: clock.setTimer, clearTimer: clock.clearTimer }
+    );
+    try {
+      // Three separate critical-pressure windows collapse the limit well below the
+      // original ceiling (100): 100 -> 50 -> 25 -> 12. Each hit lands in its own window
+      // (advance closes it) so criticalDecreaseConsumed resets and the next hit re-fires.
+      controller.observePressure("critical"); // 100 -> 50
+      clock.advance(1_000);
+      controller.observePressure("critical"); // 50 -> 25
+      clock.advance(1_000);
+      controller.observePressure("critical"); // 25 -> 12
+      clock.advance(1_000);
+      assert.equal(controller.snapshot().currentLimit, 12);
+
+      // Lower initialLimit below the new minLimit, and widen the recovery step so a stale
+      // (unrefreshed) ceiling would be unmistakable: it would let idle recovery jump the
+      // limit straight back up to the old ceiling (100).
+      controller.updateConfig(
+        shippingDefaults({
+          minLimit: 5,
+          initialLimit: 1,
+          maxLimit: 200,
+          increaseStep: 1_000,
+          maxIncreasePerWindow: 1_000,
+        })
+      );
+
+      // Idle window: with the ceiling correctly refreshed to clampLimit(1, 5, 200) = 5,
+      // currentLimit (12) is already above the ceiling, so idle recovery must not grow it
+      // at all — in particular it must not climb back to the stale 100 ceiling.
+      clock.advance(1_000);
+      assert.equal(
+        controller.snapshot().currentLimit,
+        12,
+        "recoveryCeiling must track the lowered initialLimit (clamped to minLimit), not the stale higher ceiling"
+      );
+    } finally {
+      controller.shutdown();
+    }
+  });
+});
