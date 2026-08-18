@@ -143,6 +143,16 @@ describe("OpencodeExecutor", () => {
       assert.equal(fetchCalls[0].url, "https://opencode.ai/zen/v1/responses");
     });
 
+    it("routes OpenCode Go DeepSeek V4 models to the responses endpoint", async () => {
+      const models = ["deepseek-v4-pro", "deepseek-v4-flash"];
+
+      for (const [index, model] of models.entries()) {
+        const result = await goExecutor.execute(createInput(model));
+        assert.equal(result.url, "https://opencode.ai/zen/go/v1/responses");
+        assert.equal(fetchCalls[index].url, "https://opencode.ai/zen/go/v1/responses");
+      }
+    });
+
     it("routes gemini streaming requests to streamGenerateContent", async () => {
       registerModel("opencode-zen", {
         id: "gemini-2.5-pro",
