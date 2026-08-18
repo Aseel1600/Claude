@@ -117,15 +117,24 @@ async function applyOmniglyph(
   let outBody: Record<string, unknown>;
   try {
     const encoded = new TextEncoder().encode(JSON.stringify(body));
-    const result =
-      wireFormat === "claude"
-        ? await transformAnthropicMessages({ body: encoded, model })
-        : wireFormat === "openai"
+    // Branch explicitly so TS narrows each transformer's return type:
+    // the Anthropic wrapper reports `applied`, the OpenAI ones `info.compressed`.
+    let applied: boolean;
+    let transformed: { body: Uint8Array; info: { compressed: boolean; reason?: string } };
+    if (wireFormat === "claude") {
+      const result = await transformAnthropicMessages({ body: encoded, model });
+      transformed = result;
+      applied = result.applied;
+    } else {
+      const result =
+        wireFormat === "openai"
           ? await transformOpenAIChatCompletions(encoded)
           : await transformOpenAIResponses(encoded);
-    const applied = wireFormat === "claude" ? result.applied : result.info.compressed;
-    if (!applied) return skip(body, result.info?.reason ?? "not_profitable");
-    outBody = JSON.parse(new TextDecoder().decode(result.body)) as Record<string, unknown>;
+      transformed = result;
+      applied = result.info.compressed;
+    }
+    if (!applied) return skip(body, transformed.info?.reason ?? "not_profitable");
+    outBody = JSON.parse(new TextDecoder().decode(transformed.body)) as Record<string, unknown>;
   } catch {
     // Fail-open: qualquer erro no encode/transform/decode (ex.: corpo não serializável,
     // render PNG estourando, JSON decodificado malformado) vira skip, nunca propaga.
