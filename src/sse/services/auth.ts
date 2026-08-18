@@ -42,8 +42,7 @@ import {
   hasPerModelQuota,
   getRuntimeProviderProfile,
   recordModelLockoutFailure,
-  MODEL_ACCESS_DENIED_PATTERNS,
-  AUTH_CREDENTIAL_ERROR_PATTERNS,
+  isProviderModelUnsupported400,
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
@@ -2141,16 +2140,19 @@ export async function markAccountUnavailable(
     // upstream call because all accounts share the same model catalog. Return
     // shouldFallback: false so the error propagates to the combo layer, which already
     // has isModelScoped400() (combo.ts:1827) to advance to the next combo target.
-    // Exclude auth-credential errors (e.g. "invalid api key for model X") which also
-    // match MODEL_ACCESS_DENIED_PATTERNS — disambiguate the same way checkFallbackError
-    // does with the AUTH_CREDENTIAL_ERROR_PATTERNS guard.
-    const isAuthCredential = AUTH_CREDENTIAL_ERROR_PATTERNS.some((p) => p.test(errorText));
-    if (status === 400 && !isAuthCredential && MODEL_ACCESS_DENIED_PATTERNS.some((p) => p.test(errorText))) {
+    // Uses isProviderModelUnsupported400() — the SAME disambiguation
+    // (AUTH_CREDENTIAL_ERROR_PATTERNS exclusion) checkFallbackError's 400 branch
+    // applies, narrowed further to exclude the broader/ambiguous
+    // MODEL_ACCESS_DENIED_PATTERNS access-/permission-phrased matches (e.g. "does not
+    // have permission to access this model"), which can be an ACCOUNT-scoped
+    // entitlement gap (PRO vs free tier) rather than a provider-wide unsupported
+    // model — those must keep rotating to other accounts normally.
+    if (isProviderModelUnsupported400(status, errorText)) {
       log.info(
         "AUTH",
         `${connectionId.slice(0, 8)} provider_model_unsupported 400 (${provider}/${model ?? "n/a"}) — skipping account cooldown, letting combo advance`
       );
-      return { shouldFallback: false, cooldownMs: 0 };
+      return { shouldFallback: false, cooldownMs: 0, reason: "provider_model_unsupported" };
     }
 
     const effectiveProviderProfile =

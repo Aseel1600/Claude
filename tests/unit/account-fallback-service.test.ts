@@ -4,11 +4,26 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+// #10460: DATA_DIR must be assigned BEFORE any transitive DB import. The
+// accountFallback.ts import below statically imports `@/lib/db/providers`, which
+// imports `src/lib/db/core.ts`, whose `DATA_DIR` is a top-level
+// `export const DATA_DIR = resolveWritableDataDir(...)` captured once at module-load
+// time. Setting `process.env.DATA_DIR` after that first import is a no-op — the DB
+// singleton keeps whatever DATA_DIR it resolved at import time, so an isolated test
+// directory assigned later is silently never used and the #10460 tests below would
+// actually read/write the shared default DATA_DIR instead.
+const TEST_DATA_DIR_10460 = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-10460-"));
+process.env.DATA_DIR = TEST_DATA_DIR_10460;
+process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "10460-test-secret";
+
 const accountFallback = await import("../../open-sse/services/accountFallback.ts");
 const accountSelector = await import("../../open-sse/services/accountSelector.ts");
 const { RateLimitReason, COOLDOWN_MS, PROVIDER_PROFILES } =
   await import("../../open-sse/config/constants.ts");
 const { getCircuitBreaker } = await import("../../src/shared/utils/circuitBreaker.ts");
+const core = await import("../../src/lib/db/core.ts");
+const providersDb = await import("../../src/lib/db/providers.ts");
+const auth = await import("../../src/sse/services/auth.ts");
 
 const {
   isOAuthInvalidToken,
@@ -1578,14 +1593,8 @@ test("isAccountDeactivated matches a custom signal after setCustomBannedSignals"
 });
 
 // ─── #10460: model-unsupported 400 skips account rotation ────────────────────
-
-const TEST_DATA_DIR_10460 = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-10460-"));
-process.env.DATA_DIR = TEST_DATA_DIR_10460;
-process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "10460-test-secret";
-
-const core = await import("../../src/lib/db/core.ts");
-const providersDb = await import("../../src/lib/db/providers.ts");
-const auth = await import("../../src/sse/services/auth.ts");
+// TEST_DATA_DIR_10460 / DATA_DIR / core / providersDb / auth are set up at the top
+// of this file, BEFORE the accountFallback.ts import — see the comment there.
 
 async function resetStorage10460() {
   core.resetDbInstance();
@@ -1735,4 +1744,229 @@ test("#10460: guard early return does not touch DB (distinguishes from normal pa
   const guardConn = await providersDb.getProviderConnectionById(connId);
   assert.ok(!guardConn.rateLimitedUntil, "guard path must not touch DB");
   assert.strictEqual(guardConn.testStatus, "active", "guard path must keep connection active");
+});
+
+test("#10460: returned result exposes a sanitized provider_model_unsupported reason", async () => {
+  await resetStorage10460();
+  const connId = await seedConn10460("github");
+
+  const result = await auth.markAccountUnavailable(
+    connId,
+    400,
+    "The requested model is not supported",
+    "github",
+    "claude-fable-5"
+  );
+
+  assert.strictEqual(result.shouldFallback, false);
+  assert.strictEqual(
+    (result as { reason?: string }).reason,
+    "provider_model_unsupported",
+    "the canonical sanitized reason must be exposed on the returned result, not only in logs"
+  );
+});
+
+test("#10460: account-scoped permission/entitlement 400 keeps rotating (not misclassified as provider-wide unsupported)", async () => {
+  await resetStorage10460();
+  const connIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    connIds.push(await seedConn10460("github"));
+  }
+  let calls = 0;
+
+  // Phrased so it matches the broader/ambiguous MODEL_ACCESS_DENIED_PATTERNS
+  // ("permission" ... "model") but is NOT an unambiguous provider-wide "model not
+  // supported" response — it reads as an account/key entitlement gap (e.g. this
+  // key's plan doesn't include this model), where a DIFFERENT account of the same
+  // provider may still have access. Rotation through all 3 accounts must continue,
+  // unlike the unambiguous "model is not supported" case above.
+  for (const connId of connIds) {
+    calls += 1;
+    const result = await auth.markAccountUnavailable(
+      connId,
+      400,
+      "Your API key does not have permission to use model gpt-4o",
+      "github",
+      "gpt-4o"
+    );
+    if (!result.shouldFallback) break;
+  }
+
+  assert.equal(
+    calls,
+    3,
+    "an account-scoped permission/entitlement 400 must keep rotating through all accounts, " +
+      "not be short-circuited by the provider-wide model-unsupported guard"
+  );
+});
+
+test("#10460: account-scoped 401 keeps rotating through all 3 accounts (not short-circuited)", async () => {
+  await resetStorage10460();
+  const connIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    connIds.push(await seedConn10460("github"));
+  }
+  let calls = 0;
+
+  for (const connId of connIds) {
+    calls += 1;
+    const result = await auth.markAccountUnavailable(
+      connId,
+      401,
+      "Unauthorized: invalid credentials",
+      "github",
+      "claude-fable-5"
+    );
+    if (!result.shouldFallback) break;
+  }
+
+  assert.equal(
+    calls,
+    3,
+    "401 account-scoped errors must keep rotating through every account, unlike model-unsupported 400"
+  );
+});
+
+test("#10460: account-scoped 403 keeps rotating through all 3 accounts", async () => {
+  await resetStorage10460();
+  const connIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    connIds.push(await seedConn10460("github"));
+  }
+  let calls = 0;
+
+  for (const connId of connIds) {
+    calls += 1;
+    const result = await auth.markAccountUnavailable(
+      connId,
+      403,
+      "Forbidden: access denied for this account",
+      "github",
+      "claude-fable-5"
+    );
+    if (!result.shouldFallback) break;
+  }
+
+  assert.equal(calls, 3, "403 account-scoped errors must keep rotating through every account");
+});
+
+test("#10460: 429 rate limit keeps rotating through all 3 accounts", async () => {
+  await resetStorage10460();
+  const connIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    connIds.push(await seedConn10460("github"));
+  }
+  let calls = 0;
+
+  for (const connId of connIds) {
+    calls += 1;
+    const result = await auth.markAccountUnavailable(
+      connId,
+      429,
+      "Rate limit exceeded",
+      "github",
+      "claude-fable-5"
+    );
+    if (!result.shouldFallback) break;
+  }
+
+  assert.equal(calls, 3, "429 rate-limit errors must keep rotating through every account");
+});
+
+// ─── #10460 acceptance criteria: 3-account rotation + combo target advancement ─
+//
+// Reproduces the exact regression from issue #10460: a combo with a
+// (github/model, 3 accounts) target followed by a sibling target. When GitHub
+// returns an unambiguous "model not supported" 400, the account-rotation loop
+// must make exactly ONE upstream call (not one per account) and the combo must
+// advance to the next target — not just that markAccountUnavailable() in
+// isolation returns shouldFallback:false (covered above), but that a realistic
+// rotation loop wired to the REAL markAccountUnavailable()/
+// isProviderModelUnsupported400() gating actually stops after account 1 and lets
+// handleComboChat() move on.
+//
+// The inner loop below is a faithful, minimal reproduction of the account-rotation
+// contract in src/sse/handlers/chat.ts::handleSingleModelChat step 8 ("Fallback to
+// next account", ~line 1936): call markAccountUnavailable(); continue to the next
+// connection only while shouldFallback is true, otherwise stop immediately and
+// surface the failure. Reimplemented at this scope (rather than driving the full
+// handleChat()/route stack) so the test can assert on upstream-call counts and
+// per-connection DB state directly, while still exercising the real gating logic
+// that decides whether rotation continues.
+test("#10460 acceptance: unambiguous model-unsupported 400 makes exactly ONE upstream call across 3 accounts, then the combo advances to the next target", async () => {
+  await resetStorage10460();
+  const { handleComboChat } = await import("../../open-sse/services/combo.ts");
+
+  const githubConnIds: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    githubConnIds.push(await seedConn10460("github"));
+  }
+
+  let githubUpstreamCalls = 0;
+  const triedGithubConnections: string[] = [];
+  const noopLog = { info: () => {}, warn: () => {}, debug: () => {}, error: () => {} };
+
+  const handleSingleModel = async (_body: unknown, modelStr: string) => {
+    if (modelStr.startsWith("github/")) {
+      for (const connId of githubConnIds) {
+        triedGithubConnections.push(connId);
+        githubUpstreamCalls += 1;
+        const result = await auth.markAccountUnavailable(
+          connId,
+          400,
+          "The requested model is not supported",
+          "github",
+          "claude-fable-5"
+        );
+        if (result.shouldFallback) continue;
+        return new Response(
+          JSON.stringify({ error: { message: "The requested model is not supported" } }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      // A test-fixture bug (guard not firing) would otherwise silently exhaust
+      // every account and mask the regression this test exists to catch.
+      throw new Error("all 3 github accounts were tried — the guard did not fire");
+    }
+    // Second combo target (a different provider) — succeeds immediately.
+    return new Response(JSON.stringify({ id: "ok", choices: [] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  const result = await handleComboChat({
+    body: { model: "test", messages: [{ role: "user", content: "hi" }] },
+    combo: {
+      name: "test-combo-10460",
+      strategy: "priority",
+      models: [{ model: "github/claude-fable-5" }, { model: "openai/gpt-4o-mini" }],
+    },
+    handleSingleModel,
+    log: noopLog,
+    settings: {},
+    allCombos: [],
+  });
+
+  assert.equal(
+    githubUpstreamCalls,
+    1,
+    `expected exactly ONE upstream call for github/claude-fable-5 across 3 accounts, got ` +
+      `${githubUpstreamCalls} (tried: ${triedGithubConnections.join(", ")})`
+  );
+  assert.equal(triedGithubConnections.length, 1, "only the first account should have been tried");
+  assert.equal(result.status, 200, "the combo must advance to the next target and succeed");
+
+  // The two untouched accounts must remain completely unaffected — proves the
+  // guard did not just avoid an upstream call but also never cooled them down,
+  // so they stay immediately eligible for the next unrelated request.
+  for (const connId of githubConnIds.slice(1)) {
+    const conn = await providersDb.getProviderConnectionById(connId);
+    assert.ok(!conn.rateLimitedUntil, `untried account ${connId} must not be rate-limited`);
+    assert.notStrictEqual(
+      conn.testStatus,
+      "unavailable",
+      `untried account ${connId} must stay active`
+    );
+  }
 });
