@@ -8,7 +8,7 @@
  * token already captured during plan binding (see volcenginePlanBinding.ts).
  *
  *  - Agent Plan:  `GetAgentPlanModelMappingMeta` → Result.Data[]
- *      filter: PlatformAllowStatus===true && Type==="llm"
+ *      filter: platform-enabled LLMs plus API-verified canonical registry IDs
  *      id    : RespModelID (already version-suffixed, matches chat endpoint)
  *  - Coding Plan: `ListArkCodeLatestModel` → Result.Data[]
  *      id    : ModelId (version-suffixed)
@@ -22,6 +22,8 @@
  * Output shape matches SyncedAvailableModelInput so the sync-models route can
  * persist it via replaceSyncedAvailableModelsForConnection.
  */
+
+import { VOLCENGINE_AGENT_PLAN_MODELS } from "@omniroute/open-sse/config/providers/registry/volcengine/agent-plan/index.ts";
 
 import type { SyncedAvailableModelInput } from "@/lib/db/models/synced";
 
@@ -216,7 +218,14 @@ const FAMILY_CAPABILITY_MAP: Array<{
     supportsVision: false,
     supportsReasoning: true,
   },
-  // Kimi K2.7 code — 1M, multimodal
+  // Kimi K3 / K2.7 code — 1M, multimodal
+  {
+    match: "kimi-k3",
+    contextLength: 1048576,
+    toolCalling: true,
+    supportsVision: true,
+    supportsReasoning: true,
+  },
   {
     match: "kimi-k2.7-code",
     contextLength: 1048576,
@@ -276,7 +285,7 @@ function matchFamily(name: string) {
   return null;
 }
 
-function enrichModel(model: DiscoveredVolcModel): SyncedAvailableModelInput {
+export function enrichModel(model: DiscoveredVolcModel): SyncedAvailableModelInput {
   const family = matchFamily(model.name) ?? matchFamily(model.id) ?? DEFAULT_CAPABILITY;
   return {
     id: model.id,
@@ -292,23 +301,29 @@ function enrichModel(model: DiscoveredVolcModel): SyncedAvailableModelInput {
   };
 }
 
+const AGENT_PLAN_API_VERIFIED_IDS = new Set(VOLCENGINE_AGENT_PLAN_MODELS.map((model) => model.id));
+
 /**
  * Parse Agent Plan `GetAgentPlanModelMappingMeta` Result.Data[].
- * Only entries with PlatformAllowStatus===true and Type==="llm" are usable
- * for chat; others (disabled, embedding, audio, video, auto-routing) are
- * skipped.
+ *
+ * `PlatformAllowStatus` controls console platform visibility/mapping; it is
+ * NOT an API availability flag. Some canonical Agent Plan chat models (for
+ * example kimi-k3) are returned with `PlatformAllowStatus=false`, `Type` and
+ * display metadata unset, while `/api/plan/v3/chat/completions` accepts them.
+ * Keep those only when they are in the API-verified canonical registry. This
+ * avoids admitting the same response's media models, auto-router, and legacy
+ * aliases while still allowing newly platform-enabled LLMs to be discovered.
  */
-function parseAgentPlanModels(json: JsonRecord): DiscoveredVolcModel[] {
+export function parseAgentPlanModels(json: JsonRecord): DiscoveredVolcModel[] {
   const data = record(json.Result).Data;
   const arr = Array.isArray(data) ? data : [];
   const out: DiscoveredVolcModel[] = [];
   for (const raw of arr) {
     const item = record(raw);
-    const allowed = item.PlatformAllowStatus === true;
-    const type = stringField(item.Type);
+    const platformEnabledLlm =
+      item.PlatformAllowStatus === true && stringField(item.Type) === "llm";
     const id = stringField(item.RespModelID);
-    if (!allowed || !id) continue;
-    if (type && type !== "llm") continue;
+    if (!id || (!platformEnabledLlm && !AGENT_PLAN_API_VERIFIED_IDS.has(id))) continue;
     const name = stringField(item.RespModelName) || id;
     out.push({
       id,
