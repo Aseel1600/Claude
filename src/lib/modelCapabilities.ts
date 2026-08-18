@@ -47,13 +47,6 @@ const TOOL_CALLING_UNSUPPORTED_PATTERNS: string[] = [
   "stable-diffusion",
 ];
 const REASONING_UNSUPPORTED_PATTERNS = [
-  "antigravity/claude-sonnet-4-6",
-  "antigravity/claude-sonnet-4-5",
-  "antigravity/claude-sonnet-4",
-  // Non-Claude antigravity models don't support thinking params (#1361)
-  "antigravity/gemini-",
-  "antigravity/gpt-oss-",
-  "antigravity/gemini-3",
   "antigravity/tab_",
   // Specialty / non-chat surfaces (#8016)
   "whisper",
