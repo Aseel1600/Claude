@@ -7,8 +7,14 @@ import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { normalizeOpenAICompatibleTools } from "./chatCore/openAICompatibleTools.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
 import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
-import { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
-export { extractSystemRoleMessages } from "./chatCore/claudeSystemRole.ts";
+import {
+  extractSystemRoleMessages,
+  relocateDirectiveOnlyMessages,
+} from "./chatCore/claudeSystemRole.ts";
+export {
+  extractSystemRoleMessages,
+  relocateDirectiveOnlyMessages,
+} from "./chatCore/claudeSystemRole.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import { checkLifecycle, resolveLifecycle } from "./chatCore/modelLifecyclePolicy.ts";
@@ -160,7 +166,13 @@ import {
   buildCapabilityMismatchMessage,
 } from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
-import { toPositiveInteger } from "../services/reasoningTokenBuffer.ts";
+import {
+  REASONING_BUFFER_MIN_TRIGGER,
+  buildReasoningProbeTruncatedResponse,
+  isEmptyContentUpstreamFailure,
+  isTinyBudgetReasoningProbe,
+  toPositiveInteger,
+} from "../services/reasoningTokenBuffer.ts";
 import { normalizeThinkingForModel } from "@/shared/constants/modelSpecs.ts";
 import {
   buildErrorBody,
@@ -191,6 +203,7 @@ import {
   DEFAULT_MAX_TOKENS,
   STREAM_DISCONNECT_GRACE_PERIOD_MS,
 } from "../config/constants.ts";
+import { applyStatusRestatement } from "../config/upstreamStatusRestatement.ts";
 import { createRecoverableStream, makeContinuationBody } from "../services/streamRecovery.ts";
 import {
   resolveResilienceSettings,
@@ -248,7 +261,10 @@ import {
   normalizeOpenAIToolFinishReasons,
   restoreNonStreamingToolNames,
 } from "./chatCore/passthroughToolNames.ts";
-import { createDisabledCompressionConfig, resolveCompressionSettings } from "./chatCore/compressionSettings.ts";
+import {
+  createDisabledCompressionConfig,
+  resolveCompressionSettings,
+} from "./chatCore/compressionSettings.ts";
 import type { EnforceDecision } from "@/lib/quota/types";
 import { isCompressionExcluded } from "../services/compression/exclusions.ts";
 import {
@@ -1155,6 +1171,11 @@ export async function handleChatCore({
   let cavemanOutputModeIntensity: string | null = null;
   let preCompressionBody: typeof body | null = null;
   let compressionResponseMeta: string | null = null;
+  // OmniGlyph 1.3.x has native OpenAI Chat/Responses transformers. When the
+  // inbound protocol differs from the provider wire, defer only that engine to
+  // the post-translation body; the text engines still run in their legacy lane.
+  let runPostTranslationCompression:
+    ((input: Record<string, unknown>) => Promise<CompressionResult>) | null = null;
   // Delegated Context Editing (Claude only): captured at the canonical compression
   // settings read below, then threaded to executor.execute() further down. Lives at
   // function scope because the read happens inside the per-message compression block.
@@ -1542,9 +1563,15 @@ export async function handleChatCore({
           // o engine omniglyph exige 'direct' — agregadores redimensionam imagens
           // (medido 2026-07-06). OAuth 'claude' é rota direta oficial (#7863).
           providerTransport:
-            provider === "anthropic" || provider === "claude"
+            provider === "anthropic" ||
+            provider === "claude" ||
+            provider === "openai" ||
+            provider === "xai"
               ? ("direct" as const)
               : ("aggregator" as const),
+          sourceFormat,
+          targetFormat,
+          compressionStage: "pre-translation" as const,
           config: compressionConfig,
           cachingContext: cacheCtx,
           principalId: compressionPrincipalId,
@@ -1574,6 +1601,26 @@ export async function handleChatCore({
         };
         const runCompression = (input: Record<string, unknown>) =>
           applyCompressionAsync(input, mode, compressionOptions);
+        const omniglyphSelected =
+          mode === "omniglyph" ||
+          (mode === "stacked" &&
+            Array.isArray(compressionConfig.stackedPipeline) &&
+            compressionConfig.stackedPipeline.some((step) =>
+              typeof step === "string" ? step === "omniglyph" : step.engine === "omniglyph"
+            ));
+        if (
+          omniglyphSelected &&
+          (targetFormat === FORMATS.CLAUDE ||
+            targetFormat === FORMATS.OPENAI ||
+            targetFormat === FORMATS.OPENAI_RESPONSES) &&
+          !(sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE)
+        ) {
+          runPostTranslationCompression = (input) =>
+            applyCompressionAsync(input, mode, {
+              ...compressionOptions,
+              compressionStage: "post-translation" as const,
+            });
+        }
         let result: CompressionResult;
         if (compressionConfig.liveZone?.enabled === true) {
           const { applyLiveZoneCompression } = await import("../services/compression/liveZone.ts");
@@ -1833,7 +1880,11 @@ export async function handleChatCore({
     // engines (Caveman/RTK). Codex Desktop / Responses clients need this path even
     // when those engines are off, otherwise multi-turn image sessions hard-reject
     // at the budget check below (#8560).
-    if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && estimatedTokens > threshold) {
+    if (
+      reactiveContextCompactionEnabled &&
+      !nativeCodexPassthrough &&
+      estimatedTokens > threshold
+    ) {
       log?.info?.(
         "CONTEXT",
         `Proactive compression triggered: ${estimatedTokens} tokens > ${threshold} threshold (${contextLimit} limit)`
@@ -1903,7 +1954,12 @@ export async function handleChatCore({
 
   // Last-resort compaction against the concrete input budget (not the 70% threshold).
   // Covers cases where the proactive pass was skipped or still left the request oversized (#8560).
-  if (reactiveContextCompactionEnabled && !nativeCodexPassthrough && finalEstimatedInputTokens >= finalContextLimit && body) {
+  if (
+    reactiveContextCompactionEnabled &&
+    !nativeCodexPassthrough &&
+    finalEstimatedInputTokens >= finalContextLimit &&
+    body
+  ) {
     const lastResortTarget = Math.max(1, finalContextLimit - toolsReserve - 1);
     const lastResortAdapter = adaptBodyForCompression(body as Record<string, unknown>);
     const lastResortResult = compressContext(lastResortAdapter.body, {
@@ -2148,6 +2204,12 @@ export async function handleChatCore({
           !shouldUseMidConversationSystem(translatedBody, effectiveModel)
         ) {
           extractSystemRoleMessages(translatedBody);
+        } else {
+          // The mid-conversation-system path keeps system-role messages inside
+          // messages[], but a directive-only message (content: [] +
+          // output_config) at messages[0] is rejected by Anthropic. Move it past
+          // the first real turn; Anthropic accepts the form at any other position.
+          relocateDirectiveOnlyMessages(translatedBody);
         }
         if (Array.isArray(translatedBody.messages)) {
           translatedBody.messages = splitMisplacedToolResults(
@@ -2310,6 +2372,76 @@ export async function handleChatCore({
 
     trackPendingRequest(model, provider, connectionId, false);
     return createErrorResult(statusCode, message);
+  }
+
+  // The latest OmniGlyph release has protocol-native OpenAI transforms. Run
+  // the deferred stage only after translation so Chat/Responses receives the
+  // exact provider wire shape (and so a source→target conversion never embeds
+  // Anthropic image blocks into an OpenAI request, or vice versa).
+  if (runPostTranslationCompression && translatedBody && typeof translatedBody === "object") {
+    const transientFields = new Map<string, unknown>();
+    const postInput = { ...(translatedBody as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(postInput)) {
+      // Translators keep response-side aliases in Maps under private keys. They
+      // are not JSON request fields and would otherwise be stringified to `{}`
+      // by the OmniGlyph library wrapper; restore them after the wire transform.
+      if (key.startsWith("_") && value instanceof Map) {
+        transientFields.set(key, value);
+        delete postInput[key];
+      }
+    }
+    try {
+      const [{ formatCompressionAnnotation }, { trackCompressionStats }] = await Promise.all([
+        import("../services/compression/strategySelector.ts"),
+        import("../services/compression/stats.ts"),
+      ]);
+      const postResult = await runPostTranslationCompression(postInput);
+      if (postResult.compressed) {
+        translatedBody = {
+          ...(postResult.body as typeof translatedBody),
+          ...Object.fromEntries(transientFields),
+        };
+        tokensCompressed += Math.max(
+          0,
+          (postResult.stats?.originalTokens ?? 0) - (postResult.stats?.compressedTokens ?? 0)
+        );
+        if (postResult.stats) {
+          const annotation = formatCompressionAnnotation(postResult.stats);
+          if (annotation) {
+            compressionResponseMeta = compressionResponseMeta
+              ? `${compressionResponseMeta}; ${annotation}`
+              : annotation;
+          }
+          trackCompressionStats(postResult.stats);
+          compressionAnalyticsWritePromise = writeCompressionAnalytics({
+            stats: postResult.stats,
+            provider,
+            effectiveModel,
+            effectiveServiceTier,
+            comboName,
+            mode: postResult.stats.mode,
+            compressionComboId: postResult.stats.compressionComboId ?? null,
+            skillRequestId,
+            cavemanOutputModeApplied: false,
+            cavemanOutputModeIntensity: null,
+            log,
+          });
+          await compressionAnalyticsWritePromise;
+        }
+        log?.info?.(
+          "COMPRESSION",
+          `Post-translation OmniGlyph applied (${sourceFormat} → ${targetFormat})`
+        );
+      }
+    } catch (error) {
+      // Compression is deliberately fail-open. A provider-shaped transform
+      // must never turn an otherwise valid translated request into a 500.
+      log?.warn?.(
+        "COMPRESSION",
+        "Post-translation OmniGlyph skipped: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   }
 
   trace("post_translation");
@@ -3690,6 +3822,27 @@ export async function handleChatCore({
       upstreamErrorType = details.errorType as string | undefined;
     }
 
+    // Gateways like agentrouter misstate temporary quota exhaustion as 403/400,
+    // which downstream classification treats as AUTH_ERROR and clients like
+    // Claude Code treat as permanent. Restate to 429 (+ synthetic Retry-After)
+    // BEFORE any classification so both the fallback engine and the surfaced
+    // client status see a retryable error. Registry-scoped per provider.
+    const restatement = applyStatusRestatement({
+      provider,
+      status: statusCode,
+      message,
+      body: upstreamErrorBody,
+      retryAfterMs,
+    });
+    if (restatement.ruleId) {
+      statusCode = restatement.status;
+      retryAfterMs = restatement.retryAfterMs;
+      log?.info?.(
+        "STATUS_RESTATE",
+        `${provider} ${restatement.fromStatus}→${statusCode} (${restatement.ruleId})`
+      );
+    }
+
     const signatureRecovery = await recoverAnthropicThinkingSignature({
       provider,
       statusCode,
@@ -3728,6 +3881,33 @@ export async function handleChatCore({
     }
 
     if (signatureRecovery.succeeded) break providerFailure;
+
+    // #10281 — tiny-budget reasoning probes (e.g. Claude Code's `/model` check
+    // sends `max_tokens: 1`): the model burns the whole budget on thinking, and
+    // some upstreams (e.g. api.cline.bot for deepseek-v4-flash) answer the empty
+    // outcome with a 5xx ("empty response content") instead of a truncated 200.
+    // Answer such probes with a valid truncated response rather than relaying the
+    // upstream failure — which would also mark the connection unavailable and
+    // poison fallback/cooldown bookkeeping for a request that is only a probe.
+    if (
+      !stream &&
+      isTinyBudgetReasoningProbe({ model: currentModel, body: finalBody || translatedBody }) &&
+      isEmptyContentUpstreamFailure(statusCode, message)
+    ) {
+      providerResponse = buildReasoningProbeTruncatedResponse({
+        model: currentModel,
+        maxTokens: toPositiveInteger(
+          (finalBody || translatedBody)?.max_tokens ??
+            (finalBody || translatedBody)?.max_completion_tokens
+        ),
+        requestId: skillRequestId,
+      });
+      log?.warn?.(
+        "PROBE",
+        `Reasoning probe (max_tokens < ${REASONING_BUFFER_MIN_TRIGGER}) answered with truncated 200 — upstream reported "${message}"`
+      );
+      break providerFailure;
+    }
 
     // T06/T10/T36: classify provider errors and persist terminal account states.
     let errorType = classifyProviderError(statusCode, message, provider);
@@ -3881,6 +4061,28 @@ export async function handleChatCore({
           });
           console.warn(
             `[provider] Node ${errorConnectionId} project routing error (${statusCode}) — not banning`
+          );
+        } else if (errorType === PROVIDER_ERROR_TYPES.GEO_BLOCKED) {
+          // Google regional-availability refusal (e.g. "User location is not
+          // supported for the API use."). Account-independent and non-terminal:
+          // exclude the connection for the cooldown window so routing moves to
+          // other accounts instead of re-selecting this one on every request,
+          // and never mark it banned/expired. It becomes usable again once
+          // egress is routed through a supported-region proxy.
+          const geoCooldownMs = COOLDOWN_MS.geoBlocked ?? 24 * 60 * 60 * 1000;
+          await updateProviderConnection(errorConnectionId, {
+            lastErrorType: errorType,
+            lastError: message,
+            errorCode: statusCode,
+          });
+          try {
+            const { setConnectionRateLimitUntil } = await import("@/lib/db/providers");
+            setConnectionRateLimitUntil(errorConnectionId, Date.now() + geoCooldownMs);
+          } catch {
+            // DB write failure must never break the fallback loop
+          }
+          console.warn(
+            `[provider] Node ${errorConnectionId} geo-blocked (${statusCode}) — excluded for ${Math.ceil(geoCooldownMs / 1000)}s, trying other accounts`
           );
         } else if (errorType === PROVIDER_ERROR_TYPES.MODEL_NOT_FOUND) {
           // 404 — model/endpoint does not exist upstream. Lock the model so the
@@ -4350,7 +4552,11 @@ export async function handleChatCore({
           }
         : responseBody
     );
-    sanitizeUsagePayloadForRequest(responseBody, finalBody || translatedBody || body, responsePayloadFormat);
+    sanitizeUsagePayloadForRequest(
+      responseBody,
+      finalBody || translatedBody || body,
+      responsePayloadFormat
+    );
     effectiveServiceTier = resolveReportedServiceTier(responseBody) ?? effectiveServiceTier;
     // Notify success - caller can clear error status if needed
     if (onRequestSuccess) {
@@ -4495,9 +4701,14 @@ export async function handleChatCore({
     // #8331: keep the client-visible metering fields real everywhere except Claude-Code-compatible
     // providers, where Claude Code's own context accounting relies on the buffered number — see
     // clientUsageBuffer.ts module docstring.
-    applyClientUsageBuffer(translatedResponse, finalBody || translatedBody || body, clientResponseFormat, {
-      preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
-    });
+    applyClientUsageBuffer(
+      translatedResponse,
+      finalBody || translatedBody || body,
+      clientResponseFormat,
+      {
+        preserveContextBudgetInVisibleUsage: isClaudeCodeCompatible,
+      }
+    );
 
     if (memoryOwnerId && memorySettings?.enabled && memorySettings.maxTokens > 0) {
       const requestMemoryText = extractMemoryTextFromRequestBody(body as Record<string, unknown>);
