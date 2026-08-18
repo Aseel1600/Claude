@@ -187,3 +187,45 @@ test("OpenAI não roda no estágio pré-tradução", async () => {
   assert.equal(r.compressed, false);
   assert.ok(r.stats?.techniquesUsed.includes("skip:requires_post_translation"));
 });
+
+// OmniGlyph 1.4.0 introduziu escopos de segurança (`coding-safe`/`balanced`/
+// `aggressive`/`passthrough`) e passou a resolvê-los, dentro de
+// `isOmniGlyphSupportedModel()`, lendo `process.env.OMNIGLYPH_PROFILE`. Isso
+// transforma uma variável de ambiente do HOST num gate silencioso de TODO
+// request do OmniRoute: um `OMNIGLYPH_PROFILE=passthrough` exportado no shell
+// do processo desligaria a engine sem que nenhuma configuração do OmniRoute
+// tivesse mudado — e sem nenhum sinal na UI. A política é do OmniRoute; o
+// adapter tem de passar o escopo explicitamente.
+async function withEnv<T>(key: string, value: string, fn: () => Promise<T>): Promise<T> {
+  const had = Object.prototype.hasOwnProperty.call(process.env, key);
+  const previous = process.env[key];
+  process.env[key] = value;
+  try {
+    return await fn();
+  } finally {
+    if (had) process.env[key] = previous;
+    else delete process.env[key];
+  }
+}
+
+test("OMNIGLYPH_PROFILE do host não decide o gate de modelo do OmniRoute", async () => {
+  const r = await withEnv("OMNIGLYPH_PROFILE", "passthrough", () =>
+    omniglyphEngine.applyAsync!(claudeBody(), OK)
+  );
+  assert.equal(
+    r.compressed,
+    true,
+    "env do processo não pode desligar a engine: o escopo vem da config do OmniRoute"
+  );
+});
+
+test("OMNIGLYPH_PROFILE do host não amplia a allowlist de modelos do OmniRoute", async () => {
+  const body = { ...claudeBody(), model: "claude-sonnet-5" };
+  const r = await withEnv("OMNIGLYPH_PROFILE", "aggressive", () =>
+    withEnv("OMNIGLYPH_MODELS", "claude-fable-5,claude-sonnet-5", () =>
+      omniglyphEngine.applyAsync!(body, { ...OK, model: "claude-sonnet-5" })
+    )
+  );
+  assert.equal(r.compressed, false, "modelo sem recibo medido não pode entrar via env do host");
+  assert.ok(r.stats?.techniquesUsed.includes("skip:model_not_approved"));
+});

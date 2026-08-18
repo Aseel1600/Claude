@@ -21,14 +21,40 @@ import type { CompressionEngine, CompressionEngineApplyOptions } from "./types.t
 import type { CompressionResult } from "../types.ts";
 import { createCompressionStats } from "../stats.ts";
 import {
-  isOmniGlyphSupportedGptModel,
-  isOmniGlyphSupportedModel,
+  isOmniGlyphSupportedModelForScope,
   transformAnthropicMessages,
   transformOpenAIChatCompletions,
   transformOpenAIResponses,
   transformRequest,
+  type OmniGlyphSafetyScope,
 } from "omniglyph";
 import { isModelImageable } from "omniglyph/applicability";
+
+/**
+ * Teto de modelos do OmniRoute — sempre o escopo mais restrito do pacote.
+ *
+ * `isOmniGlyphSupportedModel()` resolve o escopo lendo `OMNIGLYPH_PROFILE` do
+ * processo, e a lista base sai de `OMNIGLYPH_MODELS`. Duas variáveis do HOST
+ * decidiriam, em silêncio, o gate de todo request do OmniRoute: `passthrough`
+ * desligaria a engine inteira e `OMNIGLYPH_MODELS` ADMITIRIA modelos sem
+ * recibo medido — enquanto a UI continua prometendo "Claude Fable 5 na rota
+ * direta medida". Fixar o escopo mais restrito faz o gate só poder ESTREITAR
+ * pela env, nunca alargar, e mantém a decisão na configuração do OmniRoute.
+ */
+const MEASURED_MODEL_SCOPE: OmniGlyphSafetyScope = "coding-safe";
+
+/** Escopo semântico do transform. `aggressive` mantém a política medida atual. */
+const DEFAULT_TRANSFORM_SCOPE: OmniGlyphSafetyScope = "aggressive";
+
+/**
+ * O modelo precisa passar no teto medido E no escopo em vigor. Os dois wires
+ * (Anthropic e GPT) compartilham a mesma allowlist no pacote desde 1.4.0, então
+ * uma única checagem cobre os dois.
+ */
+function isModelWithinScope(model: string, scope: OmniGlyphSafetyScope): boolean {
+  if (!isOmniGlyphSupportedModelForScope(model, MEASURED_MODEL_SCOPE)) return false;
+  return isOmniGlyphSupportedModelForScope(model, scope);
+}
 
 function skip(body: Record<string, unknown>, reason: string): CompressionResult {
   try {
@@ -133,11 +159,9 @@ async function applyOmniglyph(
   ) {
     return skip(body, "source_format_not_openai_responses");
   }
-  const supportedModel =
-    wireFormat === "claude"
-      ? isOmniGlyphSupportedModel(model)
-      : isOmniGlyphSupportedGptModel(model);
-  if (!supportedModel) return skip(body, "model_not_approved");
+  if (!isModelWithinScope(model, DEFAULT_TRANSFORM_SCOPE)) {
+    return skip(body, "model_not_approved");
+  }
   // OmniGlyph 1.3.x deliberately keeps unverified families (currently Grok)
   // text-only until the operator acknowledges them via its own env gate.
   if (!isModelImageable(model)) return skip(body, "model_not_imageable");
