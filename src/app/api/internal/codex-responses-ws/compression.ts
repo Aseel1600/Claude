@@ -88,6 +88,7 @@ export async function applyResponsesWsCompression(
     const result = await applyCompressionAsync(adapter.body, mode, {
       model: ctx.model,
       ...resolveOmniGlyphTransport(ctx.provider),
+      provider: ctx.provider,
       config: settings as CompressionConfig,
       cachingContext,
     });

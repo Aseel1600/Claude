@@ -168,3 +168,28 @@ test("Claude→OpenAI aguarda o wire alvo e não imageia o corpo fonte", async (
   assert.equal(post.compressed, true);
   assert.ok(JSON.stringify(post.body).includes('"type":"image_url"'));
 });
+
+// O `provider` é threaded explicitamente por cada camada do selector (não é um
+// spread cego), então uma camada nova pode derrubá-lo em silêncio: a
+// contabilidade cairia para `unknown` e passaria a recusar a semântica de cache
+// sem nenhum erro aparecer.
+test("provider chega do selector até a contabilidade da engine", async () => {
+  registerBuiltinCompressionEngines();
+  const r = await applyCompressionAsync(body(), "stacked", {
+    model: "claude-fable-5",
+    provider: "anthropic",
+    supportsVision: true,
+    providerTransport: "direct",
+    imageTransportFidelity: "byte-preserving",
+    config: { stackedPipeline: [{ engine: "omniglyph" }] } as never,
+  });
+  assert.equal(r.compressed, true);
+  const omniglyphStep = r.stats?.engineBreakdown?.find((e) => e.engine === "omniglyph");
+  assert.ok(omniglyphStep, "omniglyph step deveria aparecer no engineBreakdown");
+  assert.equal(
+    omniglyphStep!.omniglyph?.provider,
+    "anthropic",
+    "sem o provider a contabilidade cai para unknown e recusa a semântica de cache"
+  );
+  assert.equal(omniglyphStep!.omniglyph?.savings.evidence, "bytes-only");
+});

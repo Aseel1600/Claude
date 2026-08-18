@@ -21,6 +21,10 @@ import type { CompressionEngine, CompressionEngineApplyOptions } from "./types.t
 import type { CompressionResult } from "../types.ts";
 import { createCompressionStats } from "../stats.ts";
 import {
+  buildOmniGlyphAccounting,
+  type OmniGlyphAccounting,
+} from "../omniglyphTelemetry.ts";
+import {
   isOmniGlyphSupportedModelForScope,
   mergeCompressionProfileOptions,
   resolveCompressionProfile,
@@ -209,6 +213,7 @@ async function applyOmniglyph(
   if (!isModelImageable(model)) return skip(body, "model_not_imageable");
   const started = Date.now();
   let outBody: Record<string, unknown>;
+  let accounting: OmniGlyphAccounting | undefined;
   try {
     // The upstream OpenAI transformer resolves its billing/render profile from
     // body.model. Keep the provider body byte-compatible on output, but use the
@@ -235,24 +240,34 @@ async function applyOmniglyph(
     if (!applied) return skip(body, result.info?.reason ?? "not_profitable");
     outBody = JSON.parse(new TextDecoder().decode(result.body)) as Record<string, unknown>;
     if (transformBody !== body && body.model !== undefined) outBody.model = body.model;
+    accounting = buildOmniGlyphAccounting({
+      provider: options?.provider,
+      model,
+      originalBytes: encoded.byteLength,
+      transformedBytes: result.body.byteLength,
+      info: result.info,
+      durationMs: Date.now() - started,
+    });
   } catch {
     // Fail-open: qualquer erro no encode/transform/decode (ex.: corpo não serializável,
     // render PNG estourando, JSON decodificado malformado) vira skip, nunca propaga.
     return skip(body, "transform_error");
   }
 
-  return {
-    body: outBody,
-    compressed: true,
-    stats: createCompressionStats(
-      body,
-      outBody,
-      "stacked",
-      ["omniglyph:context-as-image"],
-      undefined,
-      Date.now() - started
-    ),
-  };
+  const stats = createCompressionStats(
+    body,
+    outBody,
+    "stacked",
+    ["omniglyph:context-as-image"],
+    undefined,
+    Date.now() - started
+  );
+  // A contabilidade só acompanha uma conversão que realmente aconteceu: um skip
+  // não tem economia para reportar, e inventar zeros ali viraria "0% de ganho"
+  // indistinguível de "a engine nem rodou".
+  if (accounting) stats.omniglyph = accounting;
+
+  return { body: outBody, compressed: true, stats };
 }
 
 export const omniglyphEngine: CompressionEngine = {

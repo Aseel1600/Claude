@@ -16,6 +16,7 @@ import type { RiskGateConfig } from "./riskGate/riskGate.ts";
 import type { PipelineCircuitBreakerConfig } from "./pipelineEngineBreaker.ts";
 import type { RiskGateStats } from "./riskGate/riskGateStep.ts";
 import type { QuantumLockConfig, QuantumLockStats } from "./quantumLock/quantumPatterns.ts";
+import type { OmniGlyphAccounting } from "./omniglyphTelemetry.ts";
 
 // Re-export so consumers that already import from this module (e.g. src/lib/db/compression.ts)
 // can get ENGINE_IDS without a second bare `@omniroute/open-sse/...engineCatalog.ts` specifier.
@@ -303,6 +304,12 @@ export interface CompressionStats {
   validationWarnings?: string[];
   validationErrors?: string[];
   fallbackApplied?: boolean;
+  /**
+   * Contabilidade física do OmniGlyph, normalizada pelo próprio pacote
+   * (`normalizeAccounting`). Só número e enum — ver `omniglyphTelemetry.ts`
+   * para a allowlist e o que nunca pode entrar aqui.
+   */
+  omniglyph?: OmniGlyphAccounting;
   riskGate?: RiskGateStats;
   /**
    * Phase 4 (B): which `ultra` tier actually ran for this request.
@@ -341,6 +348,8 @@ export interface CompressionStats {
     durationMs?: number;
     rejected?: boolean;
     rejectReason?: string;
+    /** Contabilidade física — presente só no passo omniglyph que comprimiu. */
+    omniglyph?: OmniGlyphAccounting;
   }>;
   /** Present only when QuantumLock stabilized ≥1 fragment this run. */
   quantumLock?: QuantumLockStats;

@@ -482,6 +482,8 @@ export async function applyCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    /** Provider resolvido — a contabilidade do omniglyph depende dele. */
+    provider?: string;
     imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
@@ -505,6 +507,8 @@ async function runCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    /** Provider resolvido — a contabilidade do omniglyph depende dele. */
+    provider?: string;
     imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
@@ -698,6 +702,8 @@ interface StackOptions {
   supportsVision?: boolean | null;
   /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
   providerTransport?: "direct" | "aggregator";
+  /** Provider resolvido — a contabilidade do omniglyph depende dele. */
+  provider?: string;
   imageTransportFidelity?: ImageTransportFidelity;
   sourceFormat?: CompressionWireFormat;
   targetFormat?: CompressionWireFormat;

@@ -1552,6 +1552,10 @@ export async function handleChatCore({
           // OmniGlyph uses a measured provider/image-fidelity allowlist. Direct HTTP
           // alone is not proof that a route preserves PNG bytes and dimensions.
           ...resolveOmniGlyphTransport(provider),
+          // Sem o provider, a contabilidade do OmniGlyph cai para `unknown` e
+          // recusa deduzir a semântica de cache (Anthropic usa buckets disjuntos,
+          // OpenAI reporta cached como subconjunto do input).
+          provider,
           sourceFormat,
           targetFormat,
           compressionStage: "pre-translation" as const,
