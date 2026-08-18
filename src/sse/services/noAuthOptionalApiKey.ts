@@ -9,7 +9,9 @@
  * actually has a key, then fall back to the synthetic anonymous path.
  */
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry.ts";
+import { isAccountUnavailable } from "@omniroute/open-sse/services/accountFallback.ts";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
+import type { ProviderConnectionView } from "@/lib/db/providers/lazyConnectionView";
 import { getCachedRawProviderConnections } from "@/lib/db/readCache";
 import { supportsApiKeyOnFreeProvider } from "@/shared/constants/providers";
 
@@ -21,6 +23,28 @@ export function noAuthProviderAcceptsOptionalApiKey(providerId: string): boolean
 
 function hasUsableApiKey(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// Terminal statuses stay unavailable until credentials/settings change — an
+// operator reset, not a cooldown expiry, clears them (see auth.ts's
+// isTerminalConnectionStatus, which this mirrors for the optional-key path).
+const TERMINAL_TEST_STATUSES = new Set(["credits_exhausted", "banned", "expired"]);
+
+/**
+ * A stored optional key is only usable when it passes the same connection
+ * health checks the normal credential-selection path enforces: not in an
+ * active rate-limit/cooldown window (`rateLimitedUntil`), and not parked in
+ * a terminal or transient-unavailable `testStatus`. Without this, a
+ * rate-limited or banned stored Horde key could get selected here — bypassing
+ * cooldown entirely — instead of falling back to the anonymous no-auth path
+ * or rotating to the next healthy key.
+ */
+function isConnectionHealthy(connection: ProviderConnectionView): boolean {
+  if (isAccountUnavailable(connection.rateLimitedUntil)) return false;
+  const status = (connection.testStatus || "").trim().toLowerCase();
+  if (TERMINAL_TEST_STATUSES.has(status)) return false;
+  if (status === "unavailable") return false;
+  return true;
 }
 
 export async function loadOptionalNoAuthApiKeyCredentials(
@@ -69,7 +93,10 @@ export async function loadOptionalNoAuthApiKeyCredentials(
     )
     .sort((a, b) => (a.priority || 999) - (b.priority || 999));
 
-  const connection = connections[0];
+  // Rotate past unhealthy (cooling-down/terminal) stored keys instead of
+  // handing one back regardless of health. If every candidate is unhealthy,
+  // fall through to the caller's anonymous/synthetic no-auth fallback.
+  const connection = connections.find(isConnectionHealthy);
   if (!connection || !hasUsableApiKey(connection.apiKey)) return null;
 
   const providerSpecificData =

@@ -1,9 +1,12 @@
 import { saveCallLog } from "@/lib/usageDb";
+import { fetchRemoteImage } from "@/shared/network/remoteImageFetch";
+import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
 import { sleep } from "../../../utils/sleep.ts";
 import { sanitizeErrorMessage } from "../../../utils/error.ts";
 import {
   AI_HORDE_ANONYMOUS_KEY,
   AI_HORDE_API_BASE,
+  AI_HORDE_CATALOG_FETCH_TIMEOUT_MS,
   AI_HORDE_CLIENT_AGENT,
   aiHordeImageCatalog,
 } from "../../../services/aihordeImageCatalog.ts";
@@ -15,6 +18,15 @@ import {
 
 const GENERATE_TIMEOUT_MS = 600_000;
 const POLL_INTERVAL_MS = 1_000;
+// Per-call bound for the Horde API's own submit/check/status/cancel calls
+// (a fixed, trusted host — no SSRF guard needed, just a hard timeout so a
+// hung upstream cannot stall a request indefinitely). Individual calls are
+// additionally capped to whatever remains of the overall generation deadline.
+const HORDE_API_CALL_TIMEOUT_MS = 30_000;
+// R2 image downloads point at a URL Horde's response supplies, not a fixed
+// OmniRoute-controlled host, so they get the SSRF host guard too.
+const HORDE_IMAGE_DOWNLOAD_TIMEOUT_MS = 60_000;
+const MAX_HORDE_IMAGE_BYTES = 25 * 1024 * 1024;
 
 function hordeHeaders(apiKey: string): Record<string, string> {
   return {
@@ -23,6 +35,13 @@ function hordeHeaders(apiKey: string): Record<string, string> {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
+}
+
+/** Bound to whatever is left of the overall request deadline, floored so a
+ *  near-expired deadline still gets one last bounded attempt instead of a
+ *  zero/negative timeout. */
+function boundedTimeoutMs(deadline: number, cap: number): number {
+  return Math.max(1_000, Math.min(cap, deadline - Date.now()));
 }
 
 function hordeMessage(payload: unknown, fallback: string): string {
@@ -62,25 +81,39 @@ function resolveHordeApiKey(credentials: { apiKey?: unknown } | null | undefined
 
 async function cancelHordeJob(jobId: string, apiKey: string): Promise<void> {
   try {
-    await fetch(`${AI_HORDE_API_BASE}/v2/generate/status/${jobId}`, {
+    // Best-effort cancel — deliberately not tied to the caller's (already
+    // expired/aborted) signal, and given its own short timeout so a hung
+    // cancel-DELETE cannot itself hang the cleanup path.
+    await safeOutboundFetch(`${AI_HORDE_API_BASE}/v2/generate/status/${jobId}`, {
       method: "DELETE",
       headers: hordeHeaders(apiKey),
+      guard: "none",
+      timeoutMs: HORDE_API_CALL_TIMEOUT_MS,
     });
   } catch {
     // Best-effort cancel after timeout or client disconnect.
   }
 }
 
-async function fetchHordeImageBytes(img: string): Promise<string> {
+async function fetchHordeImageBytes(
+  img: string,
+  options: { signal?: AbortSignal | null; timeoutMs: number }
+): Promise<string> {
   const value = img.trim();
   if (value.startsWith("http://") || value.startsWith("https://")) {
-    const response = await fetch(value);
-    if (!response.ok) {
-      throw new Error(`Horde R2 download failed (${response.status})`);
-    }
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length === 0) throw new Error("Horde R2 download returned an empty image");
-    return buffer.toString("base64");
+    // Horde's response supplies this URL (a signed R2 storage link), not a
+    // fixed OmniRoute-controlled host — route it through the repository's
+    // established bounded remote-image fetch (SSRF host guard + DNS-rebinding
+    // pin, streaming byte cap, redirect limit, abort-aware timeout) instead of
+    // a bare fetch(). Same helper `imageGeneration.ts` already uses for other
+    // providers' remote image URLs.
+    const remote = await fetchRemoteImage(value, {
+      timeoutMs: options.timeoutMs,
+      signal: options.signal ?? undefined,
+      maxBytes: MAX_HORDE_IMAGE_BYTES,
+    });
+    if (remote.buffer.length === 0) throw new Error("Horde R2 download returned an empty image");
+    return remote.buffer.toString("base64");
   }
   return value;
 }
@@ -92,6 +125,7 @@ export async function handleAiHordeImageGeneration({
   credentials,
   log,
   signal = null,
+  timeoutMs = GENERATE_TIMEOUT_MS,
 }: {
   model: string;
   provider: string;
@@ -103,6 +137,8 @@ export async function handleAiHordeImageGeneration({
     error: (scope: string, message: string) => void;
   } | null;
   signal?: AbortSignal | null;
+  /** Overridable for tests; production callers should rely on the default. */
+  timeoutMs?: number;
 }) {
   const startTime = Date.now();
   const hordeModel = stripHordeModelPrefix(model);
@@ -114,13 +150,20 @@ export async function handleAiHordeImageGeneration({
     size: body.size || "1024x1024",
     n: body.n || 1,
   };
+  // Deadline covers the FULL request lifecycle — catalog freshness check,
+  // job submission, polling, and image download — not just the polling
+  // loop. Every bounded fetch below is capped to whatever remains of it.
+  const deadline = startTime + timeoutMs;
 
   if (log) {
     log.info("IMAGE", `${provider}/${hordeModel} (aihorde) | prompt: "${prompt.slice(0, 60)}..."`);
   }
 
   try {
-    await aiHordeImageCatalog.ensureFresh();
+    await aiHordeImageCatalog.ensureFresh(undefined, {
+      signal: signal ?? undefined,
+      timeoutMs: boundedTimeoutMs(deadline, AI_HORDE_CATALOG_FETCH_TIMEOUT_MS),
+    });
     if (aiHordeImageCatalog.hasSnapshot() && !aiHordeImageCatalog.isServed(hordeModel)) {
       const error = `No Horde workers are currently serving ${hordeModel}`;
       saveCallLog({
@@ -138,11 +181,13 @@ export async function handleAiHordeImageGeneration({
 
     const sourceImage = extractHordeSourceB64(body);
     const payload = mapHordeGenerateRequest(body, { sourceImage });
-    const submit = await fetch(`${AI_HORDE_API_BASE}/v2/generate/async`, {
+    const submit = await safeOutboundFetch(`${AI_HORDE_API_BASE}/v2/generate/async`, {
       method: "POST",
       headers: hordeHeaders(apiKey),
       body: JSON.stringify(payload),
       signal: signal ?? undefined,
+      guard: "none",
+      timeoutMs: boundedTimeoutMs(deadline, HORDE_API_CALL_TIMEOUT_MS),
     });
     const submitBody = await safeJson(submit);
     if (submit.status !== 200 && submit.status !== 202) {
@@ -165,7 +210,6 @@ export async function handleAiHordeImageGeneration({
       return { success: false, status: 502, error: "Horde submit did not return a job id" };
     }
 
-    const deadline = Date.now() + GENERATE_TIMEOUT_MS;
     let completed = false;
     try {
       while (true) {
@@ -174,9 +218,11 @@ export async function handleAiHordeImageGeneration({
           throw Object.assign(new Error("Horde image generation timed out"), { status: 504 });
         }
         await sleep(POLL_INTERVAL_MS);
-        const checkRes = await fetch(`${AI_HORDE_API_BASE}/v2/generate/check/${jobId}`, {
+        const checkRes = await safeOutboundFetch(`${AI_HORDE_API_BASE}/v2/generate/check/${jobId}`, {
           headers: hordeHeaders(apiKey),
           signal: signal ?? undefined,
+          guard: "none",
+          timeoutMs: boundedTimeoutMs(deadline, HORDE_API_CALL_TIMEOUT_MS),
         });
         const check = await safeJson(checkRes);
         if (!checkRes.ok || !check || typeof check !== "object") {
@@ -194,9 +240,11 @@ export async function handleAiHordeImageGeneration({
         }
         if (!checkObj.done) continue;
 
-        const statusRes = await fetch(`${AI_HORDE_API_BASE}/v2/generate/status/${jobId}`, {
+        const statusRes = await safeOutboundFetch(`${AI_HORDE_API_BASE}/v2/generate/status/${jobId}`, {
           headers: hordeHeaders(apiKey),
           signal: signal ?? undefined,
+          guard: "none",
+          timeoutMs: boundedTimeoutMs(deadline, HORDE_API_CALL_TIMEOUT_MS),
         });
         const status = await safeJson(statusRes);
         if (!statusRes.ok || !status || typeof status !== "object") {
@@ -214,7 +262,22 @@ export async function handleAiHordeImageGeneration({
           if (!item || typeof item !== "object") continue;
           const img = (item as { img?: unknown }).img;
           if (typeof img !== "string" || !img) continue;
-          images.push({ b64_json: await fetchHordeImageBytes(img), revised_prompt: prompt });
+          // The polling loop's deadline check only runs once per iteration
+          // before the poll fetches — re-check here so a deadline that
+          // expires during (or immediately after) polling still aborts
+          // before an unbounded amount of image-download work starts, and
+          // so the job gets cancelled via the `finally` below rather than
+          // silently completing over-budget.
+          if (Date.now() >= deadline) {
+            throw Object.assign(new Error("Horde image generation timed out"), { status: 504 });
+          }
+          images.push({
+            b64_json: await fetchHordeImageBytes(img, {
+              signal,
+              timeoutMs: boundedTimeoutMs(deadline, HORDE_IMAGE_DOWNLOAD_TIMEOUT_MS),
+            }),
+            revised_prompt: prompt,
+          });
         }
         if (images.length === 0) throw new Error("Horde status contained no image payloads");
         completed = true;

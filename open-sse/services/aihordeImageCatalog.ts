@@ -7,10 +7,16 @@
  * (do not slugify). On poll failure the last good snapshot is kept.
  */
 
+import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
+
 export const AI_HORDE_API_BASE = "https://aihorde.net/api";
 export const AI_HORDE_ANONYMOUS_KEY = "0000000000";
 export const AI_HORDE_CLIENT_AGENT = "OmniRoute:3.8.49:https://github.com/diegosouzapw/OmniRoute";
 export const AI_HORDE_CATALOG_POLL_MS = 30_000;
+// The catalog endpoint is a fixed, trusted OmniRoute-controlled URL (not
+// user-supplied), so it does not need SSRF host validation — but it still
+// needs a hard bound so a hung upstream cannot block a request indefinitely.
+export const AI_HORDE_CATALOG_FETCH_TIMEOUT_MS = 15_000;
 
 export interface HordeImageCatalogModel {
   name: string;
@@ -27,7 +33,20 @@ export interface HordeImageCatalogSnapshot {
   lastError: string | null;
 }
 
-type HordeFetch = (input: string, init?: RequestInit) => Promise<Response>;
+type HordeFetchInit = RequestInit & { timeoutMs?: number };
+type HordeFetch = (input: string, init?: HordeFetchInit) => Promise<Response>;
+
+// Bounded default transport: fixed trusted host (guard "none"), abort-aware
+// timeout. Callers that inject a custom `fetchImpl` (tests, alternate
+// transports) opt out of this bound deliberately.
+const defaultHordeFetch: HordeFetch = (input, init) => {
+  const { timeoutMs, ...rest } = init || {};
+  return safeOutboundFetch(input, {
+    guard: "none",
+    timeoutMs: timeoutMs ?? AI_HORDE_CATALOG_FETCH_TIMEOUT_MS,
+    ...rest,
+  });
+};
 
 function asNumber(value: unknown): number | null {
   if (value === null || value === undefined) return null;
@@ -82,7 +101,7 @@ export class HordeImageCatalog {
 
   constructor(options: { pollMs?: number; fetchImpl?: HordeFetch } = {}) {
     this.pollMs = Math.max(5_000, options.pollMs ?? AI_HORDE_CATALOG_POLL_MS);
-    this.fetchImpl = options.fetchImpl ?? ((input, init) => globalThis.fetch(input, init));
+    this.fetchImpl = options.fetchImpl ?? defaultHordeFetch;
   }
 
   get snapshot(): HordeImageCatalogSnapshot {
@@ -137,27 +156,32 @@ export class HordeImageCatalog {
     this.fetchImpl = fetchImpl;
   }
 
-  async refresh(): Promise<void> {
+  async refresh(options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<void> {
     if (this.inflight) return this.inflight;
-    this.inflight = this.refreshOnce().finally(() => {
+    this.inflight = this.refreshOnce(options).finally(() => {
       this.inflight = null;
     });
     return this.inflight;
   }
 
-  async ensureFresh(maxAgeMs = this.pollMs): Promise<void> {
+  async ensureFresh(
+    maxAgeMs = this.pollMs,
+    options: { timeoutMs?: number; signal?: AbortSignal } = {}
+  ): Promise<void> {
     if (this.updatedAt !== null && Date.now() - this.updatedAt < maxAgeMs && !this.lastError) {
       return;
     }
-    await this.refresh();
+    await this.refresh(options);
   }
 
-  private async refreshOnce(): Promise<void> {
+  private async refreshOnce(options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<void> {
     try {
       const url = `${AI_HORDE_API_BASE}/v2/status/models?type=image`;
       const response = await this.fetchImpl(url, {
         method: "GET",
         headers: { Accept: "application/json", "Client-Agent": AI_HORDE_CLIENT_AGENT },
+        signal: options.signal,
+        timeoutMs: options.timeoutMs,
       });
       if (!response.ok) {
         throw new Error(`Horde catalog HTTP ${response.status}`);
