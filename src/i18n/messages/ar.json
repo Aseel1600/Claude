@@ -1736,6 +1736,8 @@
     "quotaShare": "مشاركة الحصة",
     "discovery": "الاستكشاف",
     "freeProviderRankings": "تصنيفات المزودين المجانيين",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "الفئات المجانية",
     "gamification": "التلعيب",
     "leaderboard": "لوحة الصدارة",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "لقد تم إهمال هذا المزود",
     "riskNotice": {
       "title": "قبل المتابعة",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "مزوّد له محاذير استخدام — انقر لعرض التفاصيل",
       "oauth": "يستخدم هذا المزوّد جلسة المنتج الرسمية أو OAuth، وهي غير مصرّح بها للاستخدام مع الوكيل أو الموجّه. لا نوصي بالاستخدام المكثف للوكلاء المستقلين (مثل OpenCloud والتدفقات الطويلة متعددة الخطوات والدُفعات الكبيرة)، فقد يقيّد مزوّد المنبع الحساب أو يحظره. استخدمه على مسؤوليتك.",
       "webCookie": "يصادق هذا المزوّد عبر ملفات تعريف ارتباط جلسة الويب. قد تُبطل خدمة المنبع الجلسة في أي وقت، ما يتطلب تسجيل الدخول مجددًا. لا يُنصح به للعمليات الطويلة غير المراقبة. استخدمه على مسؤوليتك.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "لا تعرض هذا مجددًا لهذا المزوّد",
       "understand": "أنا أفهم، استمر",
       "cancel": "إلغاء"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "معطل",
     "enableProvider": "تمكين المزود",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "إعدادات نقطة نهاية النموذج المحفوظ",
     "searchByModelAria": "البحث حسب الطراز",
     "selectSupportedEndpoint": "اختر نقطة نهاية مدعومة واحدة على الأقل",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "تم تعطيل جلب النموذج العلوي تلقائيًا",
+    "autoFetchModels": "جلب النماذج من المصدر تلقائيًا",
+    "autoFetchModelsEnabled": "تم تمكين جلب النموذج العلوي تلقائيًا",
+    "autoFetchModelsTooltip": "استرجاع وتخزين نماذج المصدر عند الحاجة",
+    "autoFetchModelsToggleFailed": "فشل في تبديل جلب النموذج العلوي تلقائيًا",
+    "overridesUpstreamModelHint": "إعداداتك تتجاوز هذا النموذج العلوي",
+    "overridesUpstreamModel": "يتجاوز المصدر",
+    "autoFetchModelsPartialFailure": "تم تحديث بعض الاتصالات، لكن نموذج المصدر التلقائي لم يتغير في كل مكان",
+    "resetToUpstreamDefaults": "استعادة الإعدادات الافتراضية للمصدر",
+    "resetToUpstreamDefaultsSuccess": "تم استعادة إعدادات النموذج الافتراضية من المصدر",
+    "resetToUpstreamDefaultsFailed": "فشل في استعادة إعدادات النموذج الافتراضية من المصدر"
   },
   "settings": {
     "title": "الإعدادات",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "قم بوضع علامة على اتصالات الموفر على أنها معطلة بشكل دائم إذا أعادت إشارات حظر طرفية محددة (على سبيل المثال، HTTP 403 \"التحقق من حسابك\"). يؤدي هذا إلى إزالتها من دوران التحرير والسرد.",
     "autoDisableThreshold": "عتبة الحظر",
     "autoDisableThresholdDesc": "إشارات الحظر المتتالية مطلوبة قبل التعطيل الدائم.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "الكلمات المفتاحية المحظورة",
     "customBannedSignalsDesc": "كلمات مفتاحية إضافية تؤدي إلى اكتشاف حظر الحساب الدائم. تنطبق الكلمات المفتاحية المدمجة دائمًا.",
     "customBannedSignalsPlaceholder": "على سبيل المثال: api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} حرف",
     "thinkingBudgetTitle": "ميزانية التفكير",
     "thinkingBudgetDesc": "التحكم في استخدام الرمز المميز لاستدلال الذكاء الاصطناعي عبر جميع الطلبات",
+    "thinkingBudgetIndependenceHint": "تستمر ميزات الضغط والتوجيه وحدود الرموز في العمل في كل وضع. الوضع التلقائي لا يعني \"إظهار التفكير تلقائيًا\" - بل يقوم بإزالة حقول تفكير العميل.",
     "passthrough": "العبور",
     "passthroughDesc": "لا توجد تغييرات - يتحكم العميل في ميزانية التفكير",
+    "thinkingModePassthrough": "تمرير",
+    "thinkingModePassthroughDesc": "اترك سبب العميل دون تغيير (الجهد، الملخص، كتل التفكير). مطلوب لرؤية التفكير في Codex/Desktop. افتراضي.",
+    "thinkingModeAuto": "تلقائي (شريط)",
+    "thinkingModeAutoDesc": "قم بإزالة جميع حقول تفكير/تفكير العميل (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) ودع المزود يخترع القيم الافتراضية. يمكن إخفاء لوحات التفكير وكسر طلبات ملخص العميل.",
+    "thinkingModeCustom": "مخصص",
+    "thinkingModeCustomDesc": "استبدل كل طلب بميزانية ثابتة من رموز التفكير التي تحددها أدناه.",
+    "thinkingModeAdaptive": "تكييفي",
+    "thinkingModeAdaptiveDesc": "قم بتوسيع ميزانية التفكير من جهد أساسي باستخدام عدد الرسائل، والأدوات، وطول المطالبة.",
     "auto": "تلقائي",
     "autoDesc": "قم بتجريد كل تكوينات التفكير - دع مقدم الخدمة يقرر",
     "custom": "مخصص",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "يزيل مفاتيح API والرموز المميزة والمفاتيح الخاصة وJWTs من الرسائل واستدعاءات الأدوات والاستجابات.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "قم بربط المحتوى متعدد الوسائط بالنص قبل أن يصل إلى النماذج النصية فقط. الرؤية حية؛ الصوت يصل مع AudioBridge؛ الفيديو في خارطة الطريق.",
+    "modalityBridgeIntro": "حوّل المحتوى متعدد الوسائط إلى نص قبل وصوله إلى النماذج النصية فقط. جسور الرؤية والصوت والفيديو متاحة وقابلة للتهيئة.",
     "modalityBridgeVisionTab": "رؤية",
     "modalityBridgeAudioTab": "صوت",
     "modalityBridgeVideoTab": "فيديو",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "متقدم",
     "modalityBridgeTimeoutMs": "مهلة (مللي ثانية)",
     "modalityBridgeMaxImages": "أقصى عدد من الصور لكل طلب",
+    "visionMaxCharsLabel": "أقصى عدد من أحرف الوصف",
+    "visionMaxCharsHint": "حدد طول وصف نموذج الرؤية. 0 = غير محدود — ارفع للمهام التي تتطلب تفاصيل كثيفة في OCR.",
     "modalityBridgeCacheEnabled": "وصف التخزين المؤقت",
     "modalityBridgeCacheEnabledDesc": "إعادة استخدام الأوصاف للصور المتطابقة (مفتاح SHA-256، في الذاكرة).",
     "modalityBridgeCacheTtlMinutes": "مدة صلاحية التخزين المؤقت (دقائق)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "لم يتم تفعيل الجسر (قد يدعم النموذج الرؤية بشكل أصلي أو أن الجسر معطل)",
     "modalityBridgeTestError": "فشل الاختبار: {message}",
     "modalityBridgeAudioComingSoon": "جسر الصوت (الكلام → النص عبر /v1/audio/transcriptions) سيتم شحنه في الإصدار التالي. تم حجز مفاتيح إعداداته بالفعل.",
-    "modalityBridgeVideoComingSoon": "تجسير الفيديو (عينة الإطار + الترجمة) في قائمة الانتظار - راجع المشكلة #9760.",
     "modalityBridgeMovedTitle": "تم نقل Vision Bridge",
     "modalityBridgeMovedBody": "إعدادات Vision Bridge الآن موجودة في صفحة Modality Bridge المخصصة.",
     "modalityBridgeMovedCta": "فتح إعدادات جسر الوضعية",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "جسر الصوت OK — تم نسخ {count} مقطع(ات) بواسطة {model}",
     "modalityBridgeAudioTestNoop": "لم يتم تفعيل جسر الصوت (قد يدعم الهدف الصوت، لم يتم الاتصال بمزود STT، أو أن الجسر معطل)",
     "modalityBridgeAudioTestError": "فشل اختبار الصوت: {message}",
+    "modalityBridgeVideoTitle": "جسر الفيديو",
+    "modalityBridgeVideoDesc": "خذ عينات من إطارات الفيديو وصفها باستخدام نموذج رؤية، ثم تابع باستخدام نموذج النص المحدد.",
+    "modalityBridgeVideoRuntimeReady": "بيئة التشغيل جاهزة",
+    "modalityBridgeVideoRuntimeUnavailable": "بيئة التشغيل غير متاحة",
+    "modalityBridgeVideoRuntimeInstall": "ثبّت FFmpeg وffprobe في PATH الخاص بالخادم لتمكين استخراج الفيديو.",
+    "modalityBridgeVideoEnabled": "تفعيل جسر الفيديو",
+    "modalityBridgeVideoEnabledDesc": "استبدل أجزاء الفيديو بأوصاف مؤقتة للإطارات عندما يتعذر على النموذج الهدف معالجة الفيديو.",
+    "modalityBridgeVideoModel": "نموذج وصف الإطارات",
+    "modalityBridgeVideoModelInherited": "استخدام نموذج جسر الرؤية",
+    "modalityBridgeVideoFrameCount": "الإطارات لكل فيديو",
+    "modalityBridgeVideoMaxVideos": "الحد الأقصى لمقاطع الفيديو لكل طلب",
     "modelRoutingDescriptionPlaceholder": "توجيه نماذج أوبوس إلى مجموعة الحدود",
     "cliproxyapiFallbackCodes": "رموز التراجع لـ Cliproxyapi",
     "cliproxyapiFallbackDescription": "وصف النسخة الاحتياطية لـ Cliproxyapi",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "الصحة",
     "cliproxyapiPort": "منفذ",
     "qdrantHost": "مضيف",
-    "qdrantCollection": "مجموعة",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "مجموعة"
   },
   "contextRtk": {
     "title": "محرك آر تي كيه",
@@ -12425,6 +12462,11 @@
       "rare": "إنجازات نادرة"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "الرمز الأول",
         "description": "أجريت أول طلب API لك",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "رابط شريك",
     "dismissAriaLabel": "تجاهل"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute يعمل الآن داخل VS Code Copilot Chat",
+    "description": "ثبّت امتداد OmniCopilot المجاني وستظهر جميع نماذج OmniRoute مباشرة في منتقي النماذج في Copilot Chat الذي تستخدمه بالفعل.",
+    "cta": "احصل على الامتداد",
+    "secondaryNote": "متوفر أيضًا على Open VSX (Cursor، Windsurf، VSCodium…)",
+    "dismissAriaLabel": "تجاهل"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "قم بالإعلان عن معرفات المرايا <gateway-alias>/<model> على /v1/models للنماذج التي ليس لديها مالك قانوني لديه بيانات اعتماد نشطة ولكن بوابة تمرير مع بيانات اعتماد نشطة توجهها. تحذير: يضيف إدخالات الكتالوج لجميع العملاء عند تمكينه عالميًا.",
   "radarPage": {
     "title": "كتالوج الرادار",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "إعداد المزود",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "هذه الصفحة متاحة فقط من localhost أو الشبكة المحلية (LOCAL_ONLY).",
     "pollErrorStopped": "توقف الاستطلاع: رفض الخادم الطلب (404/403).",
     "pollErrorTransient": "خطأ في جلب البيانات: إعادة المحاولة تلقائيًا.",
-    "degraded": "بيانات جزئية: مصادر غير متاحة: {sources}",
-    "degraded.source.database": "قاعدة البيانات",
-    "degraded.source.circuitBreaker": "قاطع الدائرة",
-    "degraded.source.modelLockouts": "حظر النماذج",
-    "degraded.source.count": "عدد الاتصالات"
+    "degraded": {
+      "message": "بيانات جزئية: مصادر غير متاحة: {sources}",
+      "source": {
+        "database": "قاعدة البيانات",
+        "circuitBreaker": "قاطع الدائرة",
+        "modelLockouts": "حظر النماذج",
+        "count": "عدد الاتصالات"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "رفض الطلبات قبل الإرسال عندما يفتقر النموذج المستهدف إلى القدرات المطلوبة (الرؤية، الأدوات، المخرجات المنظمة، نافذة السياق). يحمي الطلبات المباشرة من مزود واحد التي تتجاوز فلتر توافق الطبقة المجمعة.",
-  "capabilityFilter.visionMismatch": "المزود لا يدعم الرؤية لطلب الصورة هذا",
-  "capabilityFilter.toolsMismatch": "المزود لا يدعم استدعاء الأداة",
-  "capabilityFilter.structuredOutputMismatch": "المزود لا يدعم الإخراج المنظم",
-  "capabilityFilter.contextWindowMismatch": "تجاوز الطلب نافذة سياق المزود",
   "publicSystem": {
     "notFound": {
       "title": "الصفحة غير موجودة",
@@ -13624,5 +13705,65 @@
     "hint": "عند التمكين، تظهر النماذج المكتشفة في اختيارات المزود عبر OmniRoute.",
     "updateFailed": "فشل في التحديث (HTTP {status})",
     "networkError": "خطأ في الشبكة - لم يتمكن من تحديث إعدادات تعرض المزود"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "المزود لا يدعم الرؤية لطلب الصورة هذا",
+    "toolsMismatch": "المزود لا يدعم استدعاء الأداة",
+    "structuredOutputMismatch": "المزود لا يدعم الإخراج المنظم",
+    "contextWindowMismatch": "تجاوز الطلب نافذة سياق المزود"
   }
 }

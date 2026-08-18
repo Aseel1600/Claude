@@ -528,6 +528,43 @@ test("chatCore honors providerSpecificData.apiType for legacy openai-compatible 
   assert.equal("messages" in call.body, false);
   assert.equal(payload.choices[0].message.content, "ok");
 });
+test("chatCore translates a streaming Responses upstream for a Chat client", async () => {
+  const { call, result } = await invokeChatCore({
+    provider: "openai-compatible-sp-openai",
+    model: "gpt-5.4",
+    endpoint: "/v1/chat/completions",
+    accept: "text/event-stream",
+    credentials: {
+      apiKey: "sk-test",
+      providerSpecificData: {
+        apiType: "responses",
+        baseUrl: "https://proxy.example.com/v1",
+        prefix: "sp-openai",
+      },
+    },
+    body: {
+      model: "gpt-5.4",
+      stream: true,
+      messages: [{ role: "user", content: "Reply with OK only." }],
+    },
+    responseFactory: () =>
+      new Response(
+        [
+          'data: {"type":"response.output_text.delta","delta":"ok"}',
+          "",
+          'data: {"type":"response.completed","response":{"id":"resp_stream","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}',
+          "",
+        ].join("\n"),
+        { status: 200, headers: { "Content-Type": "text/event-stream" } }
+      ),
+  });
+
+  assert.equal(result.success, true);
+  assert.match(call.url, /\/responses$/);
+  const streamed = await result.response.text();
+  assert.match(streamed, /"content":"ok"/);
+  assert.match(streamed, /data: \[DONE\]/);
+});
 test("chatCore applies Responses input policy to openai-compatible targets", async () => {
   const reasoningItems = [
     { id: "rs_valid", type: "reasoning", encrypted_content: "encrypted-blob" },
@@ -570,8 +607,10 @@ test("chatCore applies Responses input policy to openai-compatible targets", asy
 });
 
 test("chatCore replays no-tool reasoning across public Responses turns", async () => {
+  // Direct DeepSeek now speaks Responses upstream. Keep this regression on a
+  // Chat-compatible DeepSeek host so it continues to exercise the Responses-to-Chat replay path.
   saveModelsDevCapabilities({
-    deepseek: {
+    siliconflow: {
       "deepseek-v4-pro": {
         ...capabilityEntry(128_000),
         reasoning: true,
@@ -603,7 +642,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
     );
 
   const first = await invokeChatCore({
-    provider: "deepseek",
+    provider: "siliconflow",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -619,7 +658,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
   assert.equal(first.result.success, true);
 
   const second = await invokeChatCore({
-    provider: "deepseek",
+    provider: "siliconflow",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -650,7 +689,7 @@ test("chatCore replays no-tool reasoning across public Responses turns", async (
 });
 test("chatCore captures streaming no-tool reasoning for Responses replay", async () => {
   saveModelsDevCapabilities({
-    deepseek: {
+    siliconflow: {
       "deepseek-v4-pro": {
         ...capabilityEntry(128_000),
         reasoning: true,
@@ -693,7 +732,7 @@ test("chatCore captures streaming no-tool reasoning for Responses replay", async
     );
 
   const first = await invokeChatCore({
-    provider: "deepseek",
+    provider: "siliconflow",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {
@@ -711,7 +750,7 @@ test("chatCore captures streaming no-tool reasoning for Responses replay", async
   await flushAsyncSideEffects();
 
   const second = await invokeChatCore({
-    provider: "deepseek",
+    provider: "siliconflow",
     model: "deepseek-v4-pro",
     endpoint: "/v1/responses",
     body: {

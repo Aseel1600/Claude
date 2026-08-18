@@ -1736,6 +1736,8 @@
     "quotaShare": "کوٹہ شیئر",
     "discovery": "دریافت",
     "freeProviderRankings": "مفت فراہم کنندگان کی درجہ بندی",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "مفت ٹیئرز",
     "gamification": "گیمیفیکیشن",
     "leaderboard": "لیڈر بورڈ",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "اس فراہم کنندہ کو فرسودہ کر دیا گیا ہے۔",
     "riskNotice": {
       "title": "جاری رکھنے سے پہلے",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "استعمال کے انتباہات والا فراہم کنندہ — تفصیلات کے لیے کلک کریں",
       "oauth": "یہ فراہم کنندہ آپ کے آفیشل پروڈکٹ سیشن/OAuth کا استعمال کرتا ہے، جو پراکسی/راؤٹر کے استعمال کے لیے مجاز نہیں ہے۔ ہم خود مختار ایجنٹ کے زیادہ استعمال (OpenCloud طرز، طویل کثیر مرحلہ جاتی فلو، بڑے بیچز) کی سفارش نہیں کرتے ہیں — اپ اسٹریم اکاؤنٹ کو محدود یا بین کر کے ردعمل ظاہر کر سکتا ہے۔ اپنے خطرے پر استعمال کریں۔",
       "webCookie": "یہ فراہم کنندہ آپ کے ویب سیشن کوکیز کے ذریعے توثیق کرتا ہے۔ اپ اسٹریم سروس کسی بھی وقت سیشن کو باطل کر سکتی ہے، جس کے لیے آپ کو دوبارہ لاگ ان کرنے کی ضرورت ہوگی۔ طویل غیر حاضر کارروائیوں کے لیے تجویز نہیں کی جاتی ہے۔ اپنے خطرے پر استعمال کریں۔",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "اس فراہم کنندہ کے لیے یہ دوبارہ نہ دکھائیں",
       "understand": "میں سمجھ گیا، جاری رکھیں",
       "cancel": "منسوخ کریں"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "محفوظ شدہ ماڈل اینڈپوائنٹ کی ترتیبات",
     "searchByModelAria": "ماڈل کے ذریعے تلاش کریں",
     "selectSupportedEndpoint": "کم از کم ایک سپورٹ کردہ اینڈپوائنٹ منتخب کریں",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "اپ اسٹریم ماڈل خودکار حاصل کرنا غیر فعال ہے",
+    "autoFetchModelsEnabled": "اپ اسٹریم ماڈل خودکار حاصل کرنا فعال ہے",
+    "autoFetchModelsTooltip": "جب ضرورت ہو تو اوپر کے ماڈلز کو حاصل کریں اور کیش کریں",
+    "autoFetchModels": "خودکار طور پر اپ اسٹریم ماڈلز حاصل کریں",
+    "autoFetchModelsToggleFailed": "اپ اسٹریم ماڈل خودکار حاصل کرنے کو تبدیل کرنے میں ناکامی",
+    "overridesUpstreamModel": "اوپر والے کو اووررائیڈ کرتا ہے",
+    "autoFetchModelsPartialFailure": "کچھ کنکشنز کو اپ ڈیٹ کیا گیا، لیکن اوپر کی طرف ماڈل خودکار طور پر ہر جگہ تبدیل نہیں ہوا",
+    "overridesUpstreamModelHint": "آپ کی ترتیبات اس اوپر کی ماڈل کو اووررائیڈ کرتی ہیں",
+    "resetToUpstreamDefaultsFailed": "اپ اسٹریم ماڈل کے ڈیفالٹس کو بحال کرنے میں ناکامی",
+    "resetToUpstreamDefaultsSuccess": "اپ اسٹریم ماڈل کے ڈیفالٹس بحال کر دیے گئے ہیں",
+    "resetToUpstreamDefaults": "اپ اسٹریم ڈیفالٹس بحال کریں"
   },
   "settings": {
     "title": "Settings",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "ممنوعہ الفاظ",
     "customBannedSignalsDesc": "اضافی الفاظ جو مستقل اکاؤنٹ پر پابندی کی شناخت کو متحرک کرتے ہیں۔ پہلے سے موجود الفاظ ہمیشہ لاگو ہوتے ہیں۔",
     "customBannedSignalsPlaceholder": "مثال کے طور پر api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
     "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetIndependenceHint": "کمپریشن، روٹنگ، اور ٹوکن-حد کی خصوصیات ہر موڈ میں کام کرتی رہتی ہیں۔ آٹو کا مطلب \"آٹو-شو سوچ\" نہیں ہے — یہ کلائنٹ کی سوچ کے شعبوں کو ہٹا دیتا ہے۔",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "پاس تھرو",
+    "thinkingModePassthroughDesc": "کلائنٹ کی وجہ کو بغیر تبدیلی کے چھوڑیں (محنت، خلاصہ، سوچنے کے بلاکس)۔ Codex/Desktop کے نظر آنے والے خیالات کے لیے ضروری۔ ڈیفالٹ۔",
+    "thinkingModeAuto": "خودکار (اسٹرپ)",
+    "thinkingModeAutoDesc": "تمام کلائنٹ سوچ/وجوہات کے شعبے (وجوہات، وجوہات کی کوشش، کلود سوچ، جمنائی سوچ_کنفیگ) کو ہٹا دیں اور فراہم کنندہ کو ڈیفالٹس تخلیق کرنے دیں۔ سوچ کے پینلز کو چھپایا جا سکتا ہے اور کلائنٹ کے خلاصے کی درخواستوں کو توڑا جا سکتا ہے۔",
+    "thinkingModeCustom": "حسب ضرورت",
+    "thinkingModeCustomDesc": "ہر درخواست کو ایک مقررہ سوچنے والے ٹوکن بجٹ کے ساتھ اووررائٹ کریں جو آپ نیچے سیٹ کرتے ہیں۔",
+    "thinkingModeAdaptive": "ایڈاپٹو",
+    "thinkingModeAdaptiveDesc": "پیغام کی تعداد، ٹولز، اور پرامپٹ کی لمبائی کا استعمال کرتے ہوئے بنیادی کوشش سے بجٹ کی پیمائش کریں۔",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "پیغامات، ٹول کالز اور جوابات سے API کیز، ٹوکنز، پرائیویٹ کیز اور JWTs کو صاف کرتا ہے۔",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "ملٹی موڈل مواد کو متن میں تبدیل کریں اس سے پہلے کہ یہ صرف متن والے ماڈلز تک پہنچے۔ بصری موجود ہے؛ آڈیو AudioBridge کے ساتھ آتا ہے؛ ویڈیو روڈ میپ پر ہے۔",
+    "modalityBridgeIntro": "ملٹی موڈل مواد کو صرف ٹیکسٹ ماڈلز تک پہنچنے سے پہلے ٹیکسٹ میں تبدیل کریں۔ وژن، آڈیو اور ویڈیو برج دستیاب اور قابل ترتیب ہیں۔",
     "modalityBridgeVisionTab": "نظریہ",
     "modalityBridgeAudioTab": "آڈیو",
     "modalityBridgeVideoTab": "ویڈیو",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "ایڈوانسڈ",
     "modalityBridgeTimeoutMs": "ٹائم آؤٹ (ملی سیکنڈ)",
     "modalityBridgeMaxImages": "ہر درخواست میں زیادہ سے زیادہ تصاویر",
+    "visionMaxCharsLabel": "زیادہ سے زیادہ وضاحت کے کردار",
+    "visionMaxCharsHint": "ویژن ماڈل کی وضاحت کی لمبائی کو محدود کریں۔ 0 = لامحدود — تفصیل سے بھرپور OCR کاموں کے لیے بڑھائیں۔",
     "modalityBridgeCacheEnabled": "کیچ کی تفصیلات",
     "modalityBridgeCacheEnabledDesc": "ہم شکلوں کے لیے ایک جیسی تفصیلات دوبارہ استعمال کریں (SHA-256 کی کنجی، میموری میں)۔",
     "modalityBridgeCacheTtlMinutes": "کیچ TTL (منٹ)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "برج فعال نہیں ہوا (ماڈل بصری کو قدرتی طور پر سپورٹ کر سکتا ہے یا برج غیر فعال ہے)",
     "modalityBridgeTestError": "ٹیسٹ ناکام: {message}",
     "modalityBridgeAudioComingSoon": "آڈیو برج (تقریر → متن /v1/audio/transcriptions کے ذریعے) اگلی ریلیز میں شامل ہوگا۔ اس کی سیٹنگز کیز پہلے ہی محفوظ ہیں۔",
-    "modalityBridgeVideoComingSoon": "ویڈیو برجنگ (فریم سیمپلنگ + کیپشننگ) بیک لاگ میں ہے — مسئلہ #9760 دیکھیں۔",
     "modalityBridgeMovedTitle": "ویژن برج منتقل ہوگیا",
     "modalityBridgeMovedBody": "ویژن برج کی ترتیبات اب مخصوص موڈالیٹی برج صفحے میں موجود ہیں۔",
     "modalityBridgeMovedCta": "موڈالیٹی برج کی ترتیبات کھولیں",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "آڈیو برج ٹھیک ہے — {count} کلپ(ز) کی نقل {model} کے ذریعے کی گئی",
     "modalityBridgeAudioTestNoop": "آڈیو برج فعال نہیں ہوا (ہو سکتا ہے کہ ہدف آڈیو کی حمایت کرتا ہو، کوئی STT فراہم کنندہ منسلک نہیں ہے، یا برج غیر فعال ہے)",
     "modalityBridgeAudioTestError": "آڈیو ٹیسٹ ناکام: {message}",
+    "modalityBridgeVideoTitle": "ویڈیو برج",
+    "modalityBridgeVideoDesc": "ویڈیو فریموں کے نمونے لیں، وژن ماڈل سے ان کی وضاحت کریں اور منتخب ٹیکسٹ ماڈل کے ساتھ جاری رکھیں۔",
+    "modalityBridgeVideoRuntimeReady": "رن ٹائم تیار ہے",
+    "modalityBridgeVideoRuntimeUnavailable": "رن ٹائم دستیاب نہیں",
+    "modalityBridgeVideoRuntimeInstall": "ویڈیو اخذ کرنے کے لیے سرور کے PATH میں FFmpeg اور ffprobe انسٹال کریں۔",
+    "modalityBridgeVideoEnabled": "ویڈیو برج فعال کریں",
+    "modalityBridgeVideoEnabledDesc": "جب ہدف ماڈل ویڈیو پر کارروائی نہ کر سکے تو ویڈیو حصوں کو وقت کی مہر والی فریم وضاحتوں سے بدلیں۔",
+    "modalityBridgeVideoModel": "فریم وضاحت ماڈل",
+    "modalityBridgeVideoModelInherited": "وژن برج ماڈل استعمال کریں",
+    "modalityBridgeVideoFrameCount": "فی ویڈیو فریم",
+    "modalityBridgeVideoMaxVideos": "فی درخواست زیادہ سے زیادہ ویڈیوز",
     "modelRoutingDescriptionPlaceholder": "روٹ اوپس ماڈلز کو فرنٹیئر کومبو پر بھیجیں",
     "cliproxyapiFallbackCodes": "Cliproxyapi متبادل کوڈز",
     "cliproxyapiFallbackDescription": "Cliproxyapi متبادل کی تفصیل",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "صحت",
     "cliproxyapiPort": "پورٹ",
     "qdrantHost": "میزبان",
-    "qdrantCollection": "اجتماع",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "اجتماع"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "نایاب کامیابیاں"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "پہلا ٹوکن",
         "description": "اپنی پہلی API درخواست کی",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "پارٹنر لنک",
     "dismissAriaLabel": "خارج کریں"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute اب VS Code Copilot Chat کے اندر چلتا ہے",
+    "description": "مفت OmniCopilot ایکسٹینشن انسٹال کریں اور ہر OmniRoute ماڈل اسی Copilot Chat ماڈل پکر میں نظر آئے گا جسے آپ پہلے سے استعمال کرتے ہیں۔",
+    "cta": "ایکسٹینشن حاصل کریں",
+    "secondaryNote": "Open VSX پر بھی دستیاب ہے (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "خارج کریں"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> کی عکاسی کے IDs کو /v1/models پر اشتہار دیں ان ماڈلز کے لیے جن کے حقیقی مالک کے پاس کوئی فعال سند نہیں ہے لیکن ایک پاس تھرو گیٹ وے جس کے پاس ایک فعال سند ہے انہیں روٹ کرتا ہے۔ انتباہ: جب عالمی طور پر فعال کیا جائے تو یہ تمام کلائنٹس کے لیے کیٹلاگ کی اندراجات شامل کرتا ہے۔",
   "radarPage": {
     "title": "ریڈار کیٹلاگ",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "فراہم کنندہ سیٹ اپ",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "یہ صفحہ صرف localhost یا LAN سے قابل رسائی ہے (LOCAL_ONLY)۔",
     "pollErrorStopped": "پولنگ روک دی گئی: سرور نے درخواست مسترد کر دی (404/403)۔",
     "pollErrorTransient": "ڈیٹا حاصل کرنے میں خرابی: خودکار طور پر دوبارہ کوشش کی جا رہی ہے۔",
-    "degraded": "جزوی ڈیٹا: غیر دستیاب ذرائع: {sources}",
-    "degraded.source.database": "ڈیٹا بیس",
-    "degraded.source.circuitBreaker": "سرکٹ بریکر",
-    "degraded.source.modelLockouts": "ماڈل لاک آؤٹس",
-    "degraded.source.count": "کنکشنز کی تعداد"
+    "degraded": {
+      "message": "جزوی ڈیٹا: غیر دستیاب ذرائع: {sources}",
+      "source": {
+        "database": "ڈیٹا بیس",
+        "circuitBreaker": "سرکٹ بریکر",
+        "modelLockouts": "ماڈل لاک آؤٹس",
+        "count": "کنکشنز کی تعداد"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "جب ہدف ماڈل میں ضروری صلاحیتیں (نظریات، ٹولز، منظم آؤٹ پٹ، سیاق و سباق کی کھڑکی) نہیں ہوتیں تو بھیجنے سے پہلے درخواستوں کو مسترد کریں۔ یہ براہ راست واحد فراہم کنندہ کی درخواستوں کی حفاظت کرتا ہے جو کمبو-لیئر کی ہم آہنگی کے فلٹر کو نظر انداز کرتی ہیں۔",
-  "capabilityFilter.visionMismatch": "فراہم کنندہ اس تصویر کی درخواست کے لیے بصیرت کی حمایت نہیں کرتا",
-  "capabilityFilter.toolsMismatch": "فراہم کنندہ ٹول کالنگ کی حمایت نہیں کرتا",
-  "capabilityFilter.structuredOutputMismatch": "پرووائیڈر ساختی آؤٹ پٹ کی حمایت نہیں کرتا",
-  "capabilityFilter.contextWindowMismatch": "درخواست فراہم کنندہ کے سیاق و سباق کی ونڈو سے تجاوز کر گئی ہے",
   "publicSystem": {
     "notFound": {
       "title": "صفحہ نہیں ملا",
@@ -13624,5 +13705,65 @@
     "hint": "جب فعال ہو تو، دریافت کردہ ماڈل OmniRoute میں فراہم کنندہ کے انتخاب میں ظاہر ہوتے ہیں۔",
     "updateFailed": "اپ ڈیٹ کرنے میں ناکامی (HTTP {status})",
     "networkError": "نیٹ ورک کی خرابی — فراہم کنندہ کی نمائش کی ترتیب کو اپ ڈیٹ نہیں کر سکا"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "فراہم کنندہ اس تصویر کی درخواست کے لیے بصیرت کی حمایت نہیں کرتا",
+    "toolsMismatch": "فراہم کنندہ ٹول کالنگ کی حمایت نہیں کرتا",
+    "structuredOutputMismatch": "پرووائیڈر ساختی آؤٹ پٹ کی حمایت نہیں کرتا",
+    "contextWindowMismatch": "درخواست فراہم کنندہ کے سیاق و سباق کی ونڈو سے تجاوز کر گئی ہے"
   }
 }

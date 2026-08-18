@@ -1736,6 +1736,8 @@
     "quotaShare": "Zdieľanie kvóty",
     "discovery": "Objavovanie",
     "freeProviderRankings": "Bezplatné rebríčky poskytovateľov",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Bezplatné úrovne",
     "gamification": "Gamifikácia",
     "leaderboard": "Rebríček",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "Podpora tohto poskytovateľa bola ukončená",
     "riskNotice": {
       "title": "Pred pokračovaním",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Poskytovateľ s obmedzeniami používania — kliknutím zobrazíte podrobnosti",
       "oauth": "Tento poskytovateľ používa vašu oficiálnu reláciu produktu/OAuth, ktorá nie je autorizovaná na použitie ako proxy/smerovač. Neodporúčame intenzívne používanie autonómnych agentov (v štýle OpenCloud, dlhé viacstupňové toky, veľké dávky) — upstream môže reagovať obmedzením alebo zablokovaním účtu. Používajte na vlastné riziko.",
       "webCookie": "Tento poskytovateľ sa autentifikuje prostredníctvom súborov cookie vašej webovej relácie. Služba upstream môže reláciu kedykoľvek zneplatniť, čo si vyžiada opätovné prihlásenie. Neodporúča sa pre dlhé operácie bez dozoru. Používajte na vlastné riziko.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Nezobrazovať znova pre tohto poskytovateľa",
       "understand": "Rozumiem, pokračovať",
       "cancel": "Zrušiť"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Zakázané",
     "enableProvider": "Povoliť poskytovateľa",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Nastavenia koncového bodu uloženého modelu",
     "searchByModelAria": "Hľadať podľa modelu",
     "selectSupportedEndpoint": "Vyberte aspoň jeden podporovaný koncový bod",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Automatické načítanie modelu upstream je povolené",
+    "autoFetchModelsDisabled": "Automatické načítanie modelu upstream je zakázané",
+    "autoFetchModelsTooltip": "Načítajte a uložte upstream modely, keď je to potrebné",
+    "autoFetchModels": "Automaticky načítať upstream modely",
+    "overridesUpstreamModel": "Prepisuje upstream",
+    "autoFetchModelsToggleFailed": "Nepodarilo sa prepnúť automatické získavanie modelu upstream",
+    "overridesUpstreamModelHint": "Vaše nastavenia prepisujú tento upstream model",
+    "autoFetchModelsPartialFailure": "Niektoré pripojenia boli aktualizované, ale automatické načítanie modelu upstream nebolo zmenené všade",
+    "resetToUpstreamDefaultsSuccess": "Obnovené predvolené nastavenia upstream modelu",
+    "resetToUpstreamDefaults": "Obnoviť predvolené nastavenia upstream",
+    "resetToUpstreamDefaultsFailed": "Obnovenie predvolených nastavení modelu upstream zlyhalo"
   },
   "settings": {
     "title": "Nastavenia",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Zakázané kľúčové slová",
     "customBannedSignalsDesc": "Ďalšie kľúčové slová, ktoré spúšťajú detekciu trvalého zablokovania účtu. Vstavané kľúčové slová platia vždy.",
     "customBannedSignalsPlaceholder": "napr. api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} znakov",
     "thinkingBudgetTitle": "Myslenie na rozpočet",
     "thinkingBudgetDesc": "Ovládajte používanie tokenu uvažovania AI vo všetkých požiadavkách",
+    "thinkingBudgetIndependenceHint": "Funkcie kompresie, smerovania a limitu tokenov fungujú vo všetkých režimoch. Auto neznamená „auto-zobrazenie myslenia“ — odstraňuje polia klientskeho uvažovania.",
     "passthrough": "Passthrough",
     "passthroughDesc": "Žiadne zmeny – klient kontroluje rozpočet",
+    "thinkingModePassthrough": "Prechod",
+    "thinkingModePassthroughDesc": "Nezmeňte dôvod klienta (úsilie, zhrnutie, myšlienkové bloky). Povinné pre Codex/Desktop viditeľné myslenie. Predvolené.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Odstráňte všetky polia myslenia/úvah klienta (úvaha, úsilie o úvahu, myslenie Claude, konfigurácia myslenia Gemini) a nechajte poskytovateľa vymyslieť predvolené hodnoty. Môžete skryť panely myslenia a prerušiť požiadavky na zhrnutie klienta.",
+    "thinkingModeCustom": "Vlastné",
+    "thinkingModeCustomDesc": "Prepisujte každú požiadavku s pevným rozpočtom na tokeny, ktorý nastavíte nižšie.",
+    "thinkingModeAdaptive": "Adaptívny",
+    "thinkingModeAdaptiveDesc": "Zvážte rozpočet na škálovanie na základe základného úsilia pomocou počtu správ, nástrojov a dĺžky výzvy.",
     "auto": "Auto",
     "autoDesc": "Odstráňte všetky konfigurácie myslenia - nechajte poskytovateľa rozhodnúť",
     "custom": "Vlastné",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Odstraňuje API kľúče, tokeny, privátne kľúče a JWT zo správ, volaní nástrojov a odpovedí.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Prepojte multimodálny obsah s textom predtým, ako sa dostane k modelom iba pre text. Vízia je aktívna; Audio prichádza s AudioBridge; Video je na pláne.",
+    "modalityBridgeIntro": "Preveďte multimodálny obsah na text skôr, než sa dostane k modelom určeným iba pre text. Mosty pre obraz, zvuk a video sú dostupné a konfigurovateľné.",
     "modalityBridgeVisionTab": "Vízia",
     "modalityBridgeAudioTab": "Zvuk",
     "modalityBridgeVideoTab": "Video",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "Pokročilé",
     "modalityBridgeTimeoutMs": "Časový limit (ms)",
     "modalityBridgeMaxImages": "Max obrázkov na požiadavku",
+    "visionMaxCharsLabel": "Max počet znakov v popise",
+    "visionMaxCharsHint": "Obmedzte dĺžku popisu modelu vízie. 0 = neobmedzené — zvýšte pre úlohy OCR s vysokým detailom.",
     "modalityBridgeCacheEnabled": "Popisy vyrovnávacej pamäte",
     "modalityBridgeCacheEnabledDesc": "Znovu použiť popisy pre identické obrázky (kľúčované SHA-256, v pamäti).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minúty)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "Most nebol aktivovaný (model môže nativne podporovať víziu alebo je most vypnutý)",
     "modalityBridgeTestError": "Test zlyhal: {message}",
     "modalityBridgeAudioComingSoon": "Audio most (reč → text cez /v1/audio/transcriptions) bude súčasťou ďalšej verzie. Jeho kľúče nastavení sú už rezervované.",
-    "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) je na backlogu — pozrite si problém #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge presunutý",
     "modalityBridgeMovedBody": "Nastavenia Vision Bridge sú teraz dostupné na samostatnej stránke Modality Bridge.",
     "modalityBridgeMovedCta": "Otvorenie nastavení Modality Bridge",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klip(y) prepisované pomocou {model}",
     "modalityBridgeAudioTestNoop": "Audio Bridge sa nepodarilo aktivovať (cieľ môže podporovať audio, žiadny poskytovateľ STT nie je pripojený, alebo je most vypnutý)",
     "modalityBridgeAudioTestError": "Test zvuku zlyhal: {message}",
+    "modalityBridgeVideoTitle": "Video most",
+    "modalityBridgeVideoDesc": "Odoberte snímky z videa, opíšte ich modelom pre spracovanie obrazu a pokračujte vybraným textovým modelom.",
+    "modalityBridgeVideoRuntimeReady": "Prostredie je pripravené",
+    "modalityBridgeVideoRuntimeUnavailable": "Prostredie nie je dostupné",
+    "modalityBridgeVideoRuntimeInstall": "Nainštalujte FFmpeg a ffprobe do PATH servera, aby ste povolili extrakciu videa.",
+    "modalityBridgeVideoEnabled": "Povoliť Video most",
+    "modalityBridgeVideoEnabledDesc": "Keď cieľový model nedokáže spracovať video, nahraďte časti videa opismi snímok s časovými značkami.",
+    "modalityBridgeVideoModel": "Model na opis snímok",
+    "modalityBridgeVideoModelInherited": "Prevziať model z Vision Bridge",
+    "modalityBridgeVideoFrameCount": "Snímky na video",
+    "modalityBridgeVideoMaxVideos": "Maximum videí na požiadavku",
     "modelRoutingDescriptionPlaceholder": "Smerovať modely Opus na kombináciu frontier",
     "cliproxyapiFallbackCodes": "Cliproxyapi Záložné Kódy",
     "cliproxyapiFallbackDescription": "Popis záložného Cliproxyapi",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Zdravie",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Host",
-    "qdrantCollection": "Zbierka",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Zbierka"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "Vzácne úspechy"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Prvý token",
         "description": "Uskutočnili ste svoju prvú API požiadavku",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Partnerský odkaz",
     "dismissAriaLabel": "Zavrieť"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute teraz beží priamo v VS Code Copilot Chat",
+    "description": "Nainštalujte si bezplatné rozšírenie OmniCopilot a každý model OmniRoute sa zobrazí priamo vo výbere modelov Copilot Chat, ktorý už používate.",
+    "cta": "Získať rozšírenie",
+    "secondaryNote": "Dostupné aj na Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Zavrieť"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Inzerujte <gateway-alias>/<model> zrkadlové ID na /v1/models pre modely, ktorých kanonický vlastník nemá aktívnu certifikáciu, ale pasívny gateway s aktívnou certifikáciou ich smeruje. Upozornenie: pri globálnom povolení pridáva záznamy do katalógu pre všetkých klientov.",
   "radarPage": {
     "title": "Radar katalóg",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Nastavenie poskytovateľa",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Táto stránka je prístupná iba z localhost alebo LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Dopytovanie zastavené: server odmietol požiadavku (404/403).",
     "pollErrorTransient": "Chyba pri načítaní dát: automatické opakovanie.",
-    "degraded": "Čiastočné dáta: nedostupné zdroje: {sources}",
-    "degraded.source.database": "Databáza",
-    "degraded.source.circuitBreaker": "Istič",
-    "degraded.source.modelLockouts": "Uzamknutia Modelu",
-    "degraded.source.count": "Počet Pripojení"
+    "degraded": {
+      "message": "Čiastočné dáta: nedostupné zdroje: {sources}",
+      "source": {
+        "database": "Databáza",
+        "circuitBreaker": "Istič",
+        "modelLockouts": "Uzamknutia Modelu",
+        "count": "Počet Pripojení"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Zamietnuť požiadavky pred odoslaním, keď cieľový model postráda požadované schopnosti (vízia, nástroje, štruktúrovaný výstup, kontextové okno). Chráni priamu požiadavku od jedného poskytovateľa, ktorá obchádza filter kompatibility kombinovanej vrstvy.",
-  "capabilityFilter.visionMismatch": "Poskytovateľ nepodporuje víziu pre tento požiadavku na obrázok",
-  "capabilityFilter.toolsMismatch": "Poskytovateľ nepodporuje volanie nástroja",
-  "capabilityFilter.structuredOutputMismatch": "Poskytovateľ nepodporuje štruktúrovaný výstup",
-  "capabilityFilter.contextWindowMismatch": "Žiadosť presahuje kontextové okno poskytovateľa",
   "publicSystem": {
     "notFound": {
       "title": "Stránka nenájdená",
@@ -13624,5 +13705,65 @@
     "hint": "Keď je povolené, objavené modely sa zobrazia v selektoroch poskytovateľa naprieč OmniRoute.",
     "updateFailed": "Nepodarilo sa aktualizovať (HTTP {status})",
     "networkError": "Chyba siete — nepodarilo sa aktualizovať nastavenie expozície poskytovateľa"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Poskytovateľ nepodporuje víziu pre tento požiadavku na obrázok",
+    "toolsMismatch": "Poskytovateľ nepodporuje volanie nástroja",
+    "structuredOutputMismatch": "Poskytovateľ nepodporuje štruktúrovaný výstup",
+    "contextWindowMismatch": "Žiadosť presahuje kontextové okno poskytovateľa"
   }
 }

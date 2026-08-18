@@ -1736,6 +1736,8 @@
     "quotaShare": "Quota Share",
     "discovery": "Discovery",
     "freeProviderRankings": "Free Provider Rankings",
+    "radar": "Radar",
+    "setup": "Setup",
     "freeTiers": "Free Tiers",
     "gamification": "Gamification",
     "leaderboard": "Leaderboard",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "This provider has been deprecated",
     "riskNotice": {
       "title": "Before continuing",
+      "detailsTitle": "Usage caveats",
       "tooltip": "Provider with usage caveats — click for details",
       "oauth": "This provider uses your official product session/OAuth, which is not authorized for proxy/router use. We don't recommend intensive autonomous agent usage (OpenCloud-style, long multi-step flows, large batches) — the upstream may react by restricting or banning the account. Use at your own risk.",
       "webCookie": "This provider authenticates through your web session cookies. The upstream service may invalidate the session at any time, requiring you to log in again. Not recommended for long unattended operations. Use at your own risk.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Don't show this again for this provider",
       "understand": "I understand, continue",
       "cancel": "Cancel"
+    },
+    "warningNotice": {
+      "tooltip": "{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": " (last failure {time})",
+      "ariaLabel": "View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",
@@ -5222,6 +5230,17 @@
     "skippingExistingModels": "Skipping {count} existing models",
     "autoSync": "Auto-Sync",
     "autoSyncShort": "Sync",
+    "autoFetchModels": "Auto-fetch upstream models",
+    "autoFetchModelsTooltip": "Fetch and cache upstream models when needed",
+    "autoFetchModelsEnabled": "Upstream model auto-fetch enabled",
+    "autoFetchModelsDisabled": "Upstream model auto-fetch disabled",
+    "autoFetchModelsToggleFailed": "Failed to toggle upstream model auto-fetch",
+    "autoFetchModelsPartialFailure": "Some connections updated, but upstream model auto-fetch was not changed everywhere",
+    "overridesUpstreamModel": "Overrides upstream",
+    "overridesUpstreamModelHint": "Your settings override this upstream model",
+    "resetToUpstreamDefaults": "Restore upstream defaults",
+    "resetToUpstreamDefaultsSuccess": "Restored upstream model defaults",
+    "resetToUpstreamDefaultsFailed": "Failed to restore upstream model defaults",
     "autoSyncTooltip": "Automatically refresh model list every 24h (configurable via MODEL_SYNC_INTERVAL_HOURS)",
     "autoSyncEnabled": "Auto-sync enabled — models will refresh periodically",
     "autoSyncDisabled": "Auto-sync disabled",
@@ -6086,8 +6105,8 @@
       "inception": "Inception Labs is OpenAI-compatible at https://api.inceptionlabs.ai/v1. mercury-2 is the first diffusion LLM (dLLM) in the catalog — 5-10x faster generation than comparable autoregressive models, with tool calling, json_mode, and structured outputs.",
       "inference-net": "$25 free credits on signup plus research grants available",
       "internlm": "Free monthly quota ~1M input / 3M output tokens (~10 RPM)",
-      "jina-ai": "Bearer API key for the Jina AI rerank API.",
-      "jina-reader": "Connect Jina Reader with an API key.",
+      "jina-ai": "Bearer API key for api.jina.ai (embeddings, rerank, classify, segment, search). Not the Reader / r.jina.ai card. Dashboard keys take precedence over JINA_AI_API_KEY.",
+      "jina-reader": "Bearer API key for r.jina.ai URL-to-markdown only. Does not serve /v1/embeddings or /v1/rerank. The same Jina token as Foundation API works.",
       "kenari": "Kenari exposes an OpenAI-compatible chat completions endpoint at https://kenari.id/v1/chat/completions, plus a live /v1/models catalog covering Claude, GPT, DeepSeek, GLM, Kimi and more. OmniRoute uses the OpenAI protocol and lists models via passthrough.",
       "kie": "Connect KIE.AI with an API key.",
       "kilo-gateway": "Connect Kilo Gateway with an API key.",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "All connections",
+    "autoDisableBannedScopeAllDesc": "Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Banned Keywords",
     "customBannedSignalsDesc": "Additional keywords that trigger permanent account ban detection. Built-in keywords always apply.",
     "customBannedSignalsPlaceholder": "e.g. api key revoked",
@@ -7732,6 +7757,10 @@
         "label": "Ponytail (lazy senior dev)",
         "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
       },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
+      },
       "terse-cjk": {
         "label": "Terse CJK (文言)",
         "description": "Classical-Chinese ultra-terse style (available only for Chinese)."
@@ -8012,13 +8041,17 @@
     "disableSessionStickinessDesc": "Round-robin and random combos rotate to a different connection on every request instead of pinning a whole conversation to one connection by the first-message hash. Leave off to preserve prompt-cache hits for multi-turn chats. Per-combo overrides take precedence.",
     "promptCacheAffinity": "Prompt-cache locality routing",
     "promptCacheAffinityDesc": "Prefer the same provider account for matching prompt-cache keys while preserving health and quota failover.",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests.",
     "credentialRedaction": "Credential Redaction",
     "credentialRedactionDesc": "Redact API keys, tokens, and secrets from context sent to providers and from responses.",
     "enableCredentialRedaction": "Enable credential redaction",
     "enableCredentialRedactionDesc": "Scrubs API keys, tokens, private keys, and JWTs from messages, tool calls, and responses.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Bridge multimodal content to text before it reaches text-only models. Vision is live; Audio arrives with the AudioBridge; Video is on the roadmap.",
+    "modalityBridgeIntro": "Bridge multimodal content to text before it reaches text-only models. Vision, Audio, and Video bridges are available and configurable.",
     "modalityBridgeVisionTab": "Vision",
     "modalityBridgeAudioTab": "Audio",
     "modalityBridgeVideoTab": "Video",
@@ -8040,6 +8073,8 @@
     "modalityBridgeAdvanced": "Advanced",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max images per request",
+    "visionMaxCharsLabel": "Max description characters",
+    "visionMaxCharsHint": "Cap the vision model's description length. 0 = unlimited — raise for detail-heavy OCR tasks.",
     "modalityBridgeCacheEnabled": "Cache descriptions",
     "modalityBridgeCacheEnabledDesc": "Reuse descriptions for identical images (SHA-256 keyed, in-memory).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minutes)",
@@ -8056,7 +8091,6 @@
     "modalityBridgeTestNoop": "Bridge did not activate (model may support vision natively or bridge is disabled)",
     "modalityBridgeTestError": "Test failed: {message}",
     "modalityBridgeAudioComingSoon": "The Audio bridge (speech → text via /v1/audio/transcriptions) ships in the next release. Its settings keys are already reserved.",
-    "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) is on the backlog — see issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge moved",
     "modalityBridgeMovedBody": "Vision Bridge settings now live in the dedicated Modality Bridge page.",
     "modalityBridgeMovedCta": "Open Modality Bridge settings",
@@ -8072,6 +8106,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) transcribed by {model}",
     "modalityBridgeAudioTestNoop": "Audio Bridge did not activate (the target may support audio, no STT provider is connected, or the bridge is disabled)",
     "modalityBridgeAudioTestError": "Audio test failed: {message}",
+    "modalityBridgeVideoTitle": "Video Bridge",
+    "modalityBridgeVideoDesc": "Sample video frames, describe them with a vision model, and continue with the chosen text model.",
+    "modalityBridgeVideoRuntimeReady": "Runtime ready",
+    "modalityBridgeVideoRuntimeUnavailable": "Runtime unavailable",
+    "modalityBridgeVideoRuntimeInstall": "Install FFmpeg and ffprobe on the server PATH to enable video extraction.",
+    "modalityBridgeVideoEnabled": "Enable Video Bridge",
+    "modalityBridgeVideoEnabledDesc": "Replace video parts with timestamped frame descriptions when the target model cannot process video.",
+    "modalityBridgeVideoModel": "Frame description model",
+    "modalityBridgeVideoModelInherited": "Inherit the Vision Bridge model",
+    "modalityBridgeVideoFrameCount": "Frames per video",
+    "modalityBridgeVideoMaxVideos": "Max videos per request",
     "modelRoutingDescriptionPlaceholder": "Route Opus models to frontier combo",
     "cliproxyapiFallbackCodes": "Cliproxyapi Fallback Codes",
     "cliproxyapiFallbackDescription": "Cliproxyapi Fallback Description",
@@ -12425,6 +12470,11 @@
       "rare": "Rare achievements"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "Radar Supporter",
+        "description": "Verified a live OmniRoute Radar supporter feed",
+        "criteria": "Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "First Token",
         "description": "Made your first API request",
@@ -13069,6 +13119,13 @@
     "partnerLinkNote": "Partner link",
     "dismissAriaLabel": "Dismiss"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute now runs inside VS Code Copilot Chat",
+    "description": "Install the free OmniCopilot extension and every OmniRoute model shows up right in the Copilot Chat model picker you already use.",
+    "cta": "Get the Extension",
+    "secondaryNote": "Also on Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Dismiss"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Advertise <gateway-alias>/<model> mirror ids on /v1/models for models whose canonical owner has no active credential but a passthrough gateway with an active credential routes them. Warning: adds catalog entries for all clients when enabled globally.",
   "radarPage": {
     "title": "Radar Catalog",
@@ -13124,7 +13181,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Provider Setup",
@@ -13239,17 +13328,17 @@
     "pollErrorLocalOnly": "This page is only accessible from localhost or LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Polling stopped: the server rejected the request (404/403).",
     "pollErrorTransient": "Error fetching data: retrying automatically.",
-    "degraded": "Partial data: unavailable sources: {sources}",
-    "degraded.source.database": "Database",
-    "degraded.source.circuitBreaker": "Circuit Breaker",
-    "degraded.source.modelLockouts": "Model Lockouts",
-    "degraded.source.count": "Connection Count"
+    "degraded": {
+      "message": "Partial data: unavailable sources: {sources}",
+      "source": {
+        "database": "Database",
+        "circuitBreaker": "Circuit Breaker",
+        "modelLockouts": "Model Lockouts",
+        "count": "Connection Count"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Reject requests before dispatch when the target model lacks required capabilities (vision, tools, structured output, context window). Protects direct single-provider requests that bypass the combo-layer compatibility filter.",
-  "capabilityFilter.visionMismatch": "Provider does not support vision for this image request",
-  "capabilityFilter.toolsMismatch": "Provider does not support tool calling",
-  "capabilityFilter.structuredOutputMismatch": "Provider does not support structured output",
-  "capabilityFilter.contextWindowMismatch": "Request exceeds provider context window",
   "publicSystem": {
     "notFound": {
       "title": "Page not found",
@@ -13624,5 +13713,65 @@
     "hint": "When enabled, discovered models appear in provider selects across OmniRoute.",
     "updateFailed": "Failed to update (HTTP {status})",
     "networkError": "Network error — could not update provider exposure setting"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "Radar Intel",
+    "subtitle": "Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading Intel...",
+    "refresh": "Refresh Intel",
+    "syncing": "Refreshing...",
+    "loadFailed": "We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "No verified Intel snapshot is available yet.",
+    "supporterBadge": "Radar Supporter",
+    "methodology": "Methodology",
+    "eloMethod": "ELO, initial {initial}, K={factor}",
+    "freshness": "Catalog freshness",
+    "ageDays": "{days, plural, one {# day old} other {# days old}}",
+    "trend": "Catalog trend",
+    "modelDelta": "{current} models, +{added} / -{removed}",
+    "ranking": "Model ranking",
+    "noRankings": "No confirmed comparisons are available yet.",
+    "model": "Model",
+    "category": "Category",
+    "rating": "Rating",
+    "matches": "Matches",
+    "freshnessValues": {
+      "fresh": "Fresh",
+      "aging": "Aging",
+      "stale": "Stale"
+    },
+    "trendValues": {
+      "growing": "Growing",
+      "stable": "Stable",
+      "shrinking": "Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Provider does not support vision for this image request",
+    "toolsMismatch": "Provider does not support tool calling",
+    "structuredOutputMismatch": "Provider does not support structured output",
+    "contextWindowMismatch": "Request exceeds provider context window"
   }
 }

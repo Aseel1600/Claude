@@ -1736,6 +1736,8 @@
     "quotaShare": "Kontingentanteil",
     "discovery": "Discovery",
     "freeProviderRankings": "Rangliste kostenloser Anbieter",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Kostenlose Tarife",
     "gamification": "Gamification",
     "leaderboard": "Bestenliste",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "Dieser Anbieter ist veraltet",
     "riskNotice": {
       "title": "Vor dem Fortfahren",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Anbieter mit Nutzungseinschränkungen — für Details klicken",
       "oauth": "Dieser Anbieter verwendet Ihre offizielle Produktsitzung/OAuth, die nicht für die Proxy-/Router-Nutzung autorisiert ist. Wir empfehlen keine intensive Nutzung durch autonome Agenten (im OpenCloud-Stil, lange mehrstufige Abläufe, große Batches) — der Upstream-Anbieter kann darauf reagieren, indem er das Konto einschränkt oder sperrt. Nutzung auf eigene Gefahr.",
       "webCookie": "Dieser Anbieter authentifiziert sich über Ihre Web-Sitzungscookies. Der Upstream-Dienst kann die Sitzung jederzeit ungültig machen, sodass Sie sich erneut anmelden müssen. Nicht empfohlen für lange unbeaufsichtigte Vorgänge. Nutzung auf eigene Gefahr.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Für diesen Anbieter nicht mehr anzeigen",
       "understand": "Ich verstehe, fortfahren",
       "cancel": "Abbrechen"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Deaktiviert",
     "enableProvider": "Anbieter aktivieren",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Einstellungen für den gespeicherten Modell-Endpunkt",
     "searchByModelAria": "Nach Modell suchen",
     "selectSupportedEndpoint": "Wählen Sie mindestens einen unterstützten Endpunkt aus",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Automatisches Abrufen von Upstream-Modellen",
+    "autoFetchModelsEnabled": "Upstream-Modell Auto-Fetch aktiviert",
+    "autoFetchModelsDisabled": "Auto-Abholung des Upstream-Modells deaktiviert",
+    "autoFetchModelsTooltip": "Abrufen und Zwischenspeichern von Upstream-Modellen bei Bedarf",
+    "overridesUpstreamModel": "Überschreibt upstream",
+    "autoFetchModelsToggleFailed": "Fehler beim Umschalten des automatischen Abrufs des Upstream-Modells",
+    "autoFetchModelsPartialFailure": "Einige Verbindungen wurden aktualisiert, aber das automatische Abrufen des upstream-Modells wurde nicht überall geändert.",
+    "overridesUpstreamModelHint": "Ihre Einstellungen überschreiben dieses übergeordnete Modell",
+    "resetToUpstreamDefaultsSuccess": "Ursprüngliche Standardwerte des Upstream-Modells wiederhergestellt",
+    "resetToUpstreamDefaults": "Ursprüngliche Standardeinstellungen wiederherstellen",
+    "resetToUpstreamDefaultsFailed": "Wiederherstellung der Standardwerte des upstream-Modells fehlgeschlagen"
   },
   "settings": {
     "title": "Einstellungen",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Gesperrte Keywords",
     "customBannedSignalsDesc": "Zusätzliche Keywords, die die Erkennung einer dauerhaften Kontosperrung auslösen. Integrierte Keywords gelten immer.",
     "customBannedSignalsPlaceholder": "z. B. api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} Zeichen",
     "thinkingBudgetTitle": "Denkendes Budget",
     "thinkingBudgetDesc": "Kontrollieren Sie die Verwendung von KI-Begründungstoken für alle Anfragen",
+    "thinkingBudgetIndependenceHint": "Kompressions-, Routing- und Token-Limit-Funktionen funktionieren in jedem Modus. Auto bedeutet nicht „Auto-Anzeige-Denken“ – es entfernt die Felder für die Client-Argumentation.",
     "passthrough": "Passthrough",
     "passthroughDesc": "Keine Änderungen – der Kunde kontrolliert das Denkbudget",
+    "thinkingModePassthrough": "Durchleitung",
+    "thinkingModePassthroughDesc": "Lassen Sie die Client-Begründung unverändert (Aufwand, Zusammenfassung, Denkblöcke). Erforderlich für Codex/Desktop sichtbares Denken. Standard.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Entfernen Sie alle Felder für das Denken/Überlegen des Clients (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) und lassen Sie den Anbieter Standardwerte erfinden. Denken-Panels können ausgeblendet werden und die Zusammenfassungsanfragen des Clients können unterbrochen werden.",
+    "thinkingModeCustom": "Benutzerdefiniert",
+    "thinkingModeCustomDesc": "Überschreibe jede Anfrage mit einem festen Denk-Token-Budget, das du unten festlegst.",
+    "thinkingModeAdaptive": "Adaptiv",
+    "thinkingModeAdaptiveDesc": "Skalieren Sie das Denkbudget von einem Basiseinsatz unter Verwendung der Nachrichtenanzahl, der Tools und der Eingabelänge.",
     "auto": "Automatisch",
     "autoDesc": "Entfernen Sie alle Denkkonfigurationen – lassen Sie den Anbieter entscheiden",
     "custom": "Benutzerdefiniert",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Bereinigt API-Schlüssel, Token, private Schlüssel und JWTs aus Nachrichten, Tool-Aufrufen und Antworten.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Bringen Sie multimodale Inhalte in Textform, bevor sie textbasierten Modellen zugeführt werden. Vision ist live; Audio kommt mit dem AudioBridge; Video steht auf der Roadmap.",
+    "modalityBridgeIntro": "Überführen Sie multimodale Inhalte in Text, bevor sie reine Textmodelle erreichen. Die Bridges für Bild, Audio und Video sind verfügbar und konfigurierbar.",
     "modalityBridgeVisionTab": "Vision",
     "modalityBridgeAudioTab": "Audio",
     "modalityBridgeVideoTab": "Video",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "Erweitert",
     "modalityBridgeTimeoutMs": "Zeitüberschreitung (ms)",
     "modalityBridgeMaxImages": "Maximale Bilder pro Anfrage",
+    "visionMaxCharsLabel": "Maximalbeschreibungszeichen",
+    "visionMaxCharsHint": "Begrenzen Sie die Länge der Beschreibung des Vision-Modells. 0 = unbegrenzt — erhöhen Sie den Wert für detailreiche OCR-Aufgaben.",
     "modalityBridgeCacheEnabled": "Cache-Beschreibungen",
     "modalityBridgeCacheEnabledDesc": "Wiederverwendung von Beschreibungen für identische Bilder (SHA-256-verschlüsselt, im Speicher).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (Minuten)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "Bridge wurde nicht aktiviert (das Modell unterstützt möglicherweise Vision nativ oder Bridge ist deaktiviert)",
     "modalityBridgeTestError": "Test fehlgeschlagen: {message}",
     "modalityBridgeAudioComingSoon": "Die Audio-Brücke (Sprache → Text über /v1/audio/transcriptions) wird in der nächsten Version ausgeliefert. Ihre Einstellungsschlüssel sind bereits reserviert.",
-    "modalityBridgeVideoComingSoon": "Video-Bridging (Frame-Sampling + Untertitelung) steht auf der Warteliste – siehe Issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge verschoben",
     "modalityBridgeMovedBody": "Die Vision Bridge-Einstellungen sind jetzt auf der speziellen Modality Bridge-Seite verfügbar.",
     "modalityBridgeMovedCta": "Modality Bridge-Einstellungen öffnen",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} Clip(s) von {model} transkribiert",
     "modalityBridgeAudioTestNoop": "Audio Bridge wurde nicht aktiviert (das Ziel unterstützt möglicherweise Audio, kein STT-Anbieter ist verbunden oder die Brücke ist deaktiviert)",
     "modalityBridgeAudioTestError": "Audiotest fehlgeschlagen: {message}",
+    "modalityBridgeVideoTitle": "Video Bridge",
+    "modalityBridgeVideoDesc": "Entnehmen Sie Videoframes, beschreiben Sie sie mit einem Bildmodell und fahren Sie mit dem ausgewählten Textmodell fort.",
+    "modalityBridgeVideoRuntimeReady": "Laufzeit bereit",
+    "modalityBridgeVideoRuntimeUnavailable": "Laufzeit nicht verfügbar",
+    "modalityBridgeVideoRuntimeInstall": "Installieren Sie FFmpeg und ffprobe im PATH des Servers, um die Videoextraktion zu aktivieren.",
+    "modalityBridgeVideoEnabled": "Video Bridge aktivieren",
+    "modalityBridgeVideoEnabledDesc": "Ersetzen Sie Videoteile durch zeitgestempelte Frame-Beschreibungen, wenn das Zielmodell keine Videos verarbeiten kann.",
+    "modalityBridgeVideoModel": "Modell für Frame-Beschreibungen",
+    "modalityBridgeVideoModelInherited": "Modell der Vision Bridge übernehmen",
+    "modalityBridgeVideoFrameCount": "Frames pro Video",
+    "modalityBridgeVideoMaxVideos": "Maximale Videos pro Anfrage",
     "modelRoutingDescriptionPlaceholder": "Route Opus-Modelle zu Frontier-Kombination",
     "cliproxyapiFallbackCodes": "Cliproxyapi Fallback-Codes",
     "cliproxyapiFallbackDescription": "Cliproxyapi Fallback-Beschreibung",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Gesundheit",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Host",
-    "qdrantCollection": "Sammlung",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Sammlung"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "Seltene Erfolge"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Erster Token",
         "description": "Deine erste API-Anfrage durchgeführt",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Partnerlink",
     "dismissAriaLabel": "Schließen"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute läuft jetzt direkt in VS Code Copilot Chat",
+    "description": "Installiere die kostenlose OmniCopilot-Erweiterung, und jedes OmniRoute-Modell erscheint direkt in der Copilot-Chat-Modellauswahl, die du bereits nutzt.",
+    "cta": "Erweiterung holen",
+    "secondaryNote": "Auch auf Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Schließen"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Bewerben Sie <gateway-alias>/<model> Spiegel-IDs auf /v1/models für Modelle, deren kanonischer Eigentümer keine aktiven Anmeldeinformationen hat, aber ein Durchgangsgateway mit aktiven Anmeldeinformationen sie weiterleitet. Warnung: Fügt Katalogeinträge für alle Clients hinzu, wenn global aktiviert.",
   "radarPage": {
     "title": "Radar-Katalog",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Angebote",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Anbieter-Einrichtung",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Diese Seite ist nur von localhost oder LAN aus zugänglich (LOCAL_ONLY).",
     "pollErrorStopped": "Abfrage gestoppt: Der Server hat die Anfrage abgelehnt (404/403).",
     "pollErrorTransient": "Fehler beim Abrufen der Daten: automatischer erneuter Versuch.",
-    "degraded": "Teildaten: nicht verfügbare Quellen: {sources}",
-    "degraded.source.database": "Datenbank",
-    "degraded.source.circuitBreaker": "Leistungsschalter",
-    "degraded.source.modelLockouts": "Modellsperren",
-    "degraded.source.count": "Verbindungsanzahl"
+    "degraded": {
+      "message": "Teildaten: nicht verfügbare Quellen: {sources}",
+      "source": {
+        "database": "Datenbank",
+        "circuitBreaker": "Leistungsschalter",
+        "modelLockouts": "Modellsperren",
+        "count": "Verbindungsanzahl"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Lehnen Sie Anfragen ab, bevor sie versendet werden, wenn das Zielmodell über die erforderlichen Funktionen (Vision, Werkzeuge, strukturierte Ausgabe, Kontextfenster) nicht verfügt. Schützt direkte Einzelanbieteranfragen, die den Kombo-Schicht-Kompatibilitätsfilter umgehen.",
-  "capabilityFilter.visionMismatch": "Der Anbieter unterstützt die Vision für diese Bildanfrage nicht",
-  "capabilityFilter.toolsMismatch": "Der Anbieter unterstützt keinen Toolaufruf",
-  "capabilityFilter.structuredOutputMismatch": "Der Anbieter unterstützt keine strukturierten Ausgaben",
-  "capabilityFilter.contextWindowMismatch": "Anfrage überschreitet das Kontextfenster des Anbieters",
   "publicSystem": {
     "notFound": {
       "title": "Seite nicht gefunden",
@@ -13624,5 +13705,65 @@
     "hint": "Wenn aktiviert, erscheinen entdeckte Modelle in den Anbieterauswahlen über OmniRoute.",
     "updateFailed": "Fehler beim Aktualisieren (HTTP {status})",
     "networkError": "Netzwerkfehler — konnte die Bereitstellungseinstellung nicht aktualisieren"
+  },
+  "radarOffersPage": {
+    "title": "Angebote für Unterstützer",
+    "subtitle": "Offizielle Rabatte, Guthaben, Testzeiträume und geprüfte Partnervorteile von Radar.",
+    "backToRadar": "Zurück zu Radar",
+    "loading": "Angebote werden geladen...",
+    "refresh": "Angebote aktualisieren",
+    "refreshing": "Wird aktualisiert...",
+    "loadFailed": "Angebote konnten nicht aktualisiert werden. Der letzte verifizierte lokale Cache bleibt erhalten.",
+    "empty": "Derzeit sind keine aktiven Angebote verfügbar.",
+    "keyRequiredTitle": "Ein Unterstützerschlüssel ist erforderlich",
+    "keyRequiredDescription": "Angebote sind ein Live-Vorteil von Radar. Hinterlege einen vorhandenen Schlüssel, bestätige deinen Beitrag oder unterstütze das Projekt, um einen zu erhalten.",
+    "contributorButton": "Ich bin Mitwirkender",
+    "supporterButton": "Projekt unterstützen",
+    "partnerBadge": "Partner",
+    "officialBadge": "Offiziell",
+    "conditionsLabel": "Bedingungen:",
+    "validUntil": "Gültig bis {date}",
+    "noExpiry": "Kein Ablaufdatum angegeben",
+    "openOffer": "Angebot ansehen",
+    "trialDays": "{days, plural, one {# Tag} other {# Tage}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Der Anbieter unterstützt die Vision für diese Bildanfrage nicht",
+    "toolsMismatch": "Der Anbieter unterstützt keinen Toolaufruf",
+    "structuredOutputMismatch": "Der Anbieter unterstützt keine strukturierten Ausgaben",
+    "contextWindowMismatch": "Anfrage überschreitet das Kontextfenster des Anbieters"
   }
 }

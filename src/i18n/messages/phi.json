@@ -1736,6 +1736,8 @@
     "quotaShare": "Quota Share",
     "discovery": "Pagtuklas",
     "freeProviderRankings": "Mga Ranggo ng Libreng Provider",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Mga Libreng Tier",
     "gamification": "Gamification",
     "leaderboard": "Leaderboard",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "Ang provider na ito ay hindi na ginagamit",
     "riskNotice": {
       "title": "Bago magpatuloy",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Provider na may mga paalala sa paggamit — i-click para sa mga detalye",
       "oauth": "Gumagamit ang provider na ito ng iyong opisyal na session ng produkto/OAuth, na hindi awtorisado para sa paggamit ng proxy/router. Hindi namin inirerekomenda ang masinsinang paggamit ng autonomous agent (estilong OpenCloud, mahabang multi-step na flow, malalaking batch) — maaaring tumugon ang upstream sa pamamagitan ng paghihigpit o pag-ban sa account. Gamitin sa sarili mong panganib.",
       "webCookie": "Nagpapatotoo ang provider na ito sa pamamagitan ng iyong mga cookie sa web session. Maaaring pawalang-bisa ng upstream na serbisyo ang session anumang oras, na nangangailangan sa iyong mag-log in muli. Hindi inirerekomenda para sa mahabang operasyon na walang bantay. Gamitin sa sarili mong panganib.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Huwag nang ipakita ito muli para sa provider na ito",
       "understand": "Naiintindihan ko, magpatuloy",
       "cancel": "Kanselahin"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Hindi pinagana",
     "enableProvider": "Paganahin ang provider",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Naka-save na mga setting ng endpoint ng modelo",
     "searchByModelAria": "Maghanap ayon sa modelo",
     "selectSupportedEndpoint": "Pumili ng hindi bababa sa isang sinusuportahang endpoint",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Naka-disable ang auto-fetch ng upstream model",
+    "autoFetchModelsTooltip": "Kunin at i-cache ang upstream models kapag kinakailangan",
+    "autoFetchModelsEnabled": "Naka-enable ang auto-fetch ng upstream model",
+    "autoFetchModels": "Awtomatikong kunin ang mga upstream na modelo",
+    "autoFetchModelsToggleFailed": "Nabigong i-toggle ang upstream model auto-fetch",
+    "overridesUpstreamModel": "Pinalitan ang upstream",
+    "overridesUpstreamModelHint": "Ang iyong mga setting ay nangingibabaw sa modelong ito mula sa upstream",
+    "resetToUpstreamDefaults": "Ibalik ang mga default ng upstream",
+    "resetToUpstreamDefaultsSuccess": "Ibinalik ang mga default ng upstream model",
+    "autoFetchModelsPartialFailure": "Ilang koneksyon ang na-update, ngunit ang auto-fetch ng upstream model ay hindi nagbago sa lahat ng lugar",
+    "resetToUpstreamDefaultsFailed": "Nabigong maibalik ang mga default ng upstream model"
   },
   "settings": {
     "title": "Mga setting",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Mga Banned na Keyword",
     "customBannedSignalsDesc": "Mga karagdagang keyword na nagti-trigger ng pagtukoy sa permanenteng pag-ban ng account. Palaging nalalapat ang mga built-in na keyword.",
     "customBannedSignalsPlaceholder": "hal. api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} character",
     "thinkingBudgetTitle": "Pag-iisip na Badyet",
     "thinkingBudgetDesc": "Kontrolin ang paggamit ng token ng pangangatwiran ng AI sa lahat ng kahilingan",
+    "thinkingBudgetIndependenceHint": "Ang mga tampok ng compression, routing, at token-limit ay patuloy na gumagana sa bawat mode. Ang Auto ay hindi nangangahulugang \"auto-show thinking\" — inaalis nito ang mga field ng pag-iisip ng kliyente.",
     "passthrough": "Passthrough",
     "passthroughDesc": "Walang pagbabago — kinokontrol ng kliyente ang pag-iisip na badyet",
+    "thinkingModePassthrough": "Passthrough",
+    "thinkingModePassthroughDesc": "Iwanang hindi nagbago ang dahilan ng kliyente (pagsisikap, buod, mga bloke ng pag-iisip). Kinakailangan para sa Codex/Desktop na nakikitang pag-iisip. Default.",
+    "thinkingModeAuto": "Auto (strip)",
+    "thinkingModeAutoDesc": "Tanggalin ang lahat ng mga patlang ng pag-iisip/pag-iisip ng kliyente (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) at hayaan ang provider na mag-imbento ng mga default. Maaaring itago ang mga panel ng pag-iisip at sirain ang mga kahilingan sa buod ng kliyente.",
+    "thinkingModeCustom": "Pasadya",
+    "thinkingModeCustomDesc": "I-override ang bawat kahilingan gamit ang isang nakatakdang badyet ng token sa pag-iisip na itinakda mo sa ibaba.",
+    "thinkingModeAdaptive": "Nababagay",
+    "thinkingModeAdaptiveDesc": "I-scale ang pag-iisip ng badyet mula sa isang pangunahing pagsisikap gamit ang bilang ng mensahe, mga tool, at haba ng prompt.",
     "auto": "Auto",
     "autoDesc": "I-strip ang lahat ng thinking config — hayaan ang provider na magpasya",
     "custom": "Custom",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Nililinis ang mga API key, token, private key, at JWT mula sa mga mensahe, tool call, at tugon.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "I-bridge ang multimodal na nilalaman sa teksto bago ito umabot sa mga text-only na modelo. Ang Vision ay live; Ang Audio ay dumarating kasama ang AudioBridge; Ang Video ay nasa roadmap.",
+    "modalityBridgeIntro": "Gawing teksto ang multimodal na nilalaman bago ito makarating sa mga modelong text-only. Available at nako-configure ang mga tulay para sa paningin, audio, at video.",
     "modalityBridgeVisionTab": "Bisyon",
     "modalityBridgeAudioTab": "Audio",
     "modalityBridgeVideoTab": "Video",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "Sopistikado",
     "modalityBridgeTimeoutMs": "Timeout (ms)",
     "modalityBridgeMaxImages": "Max na mga larawan bawat kahilingan",
+    "visionMaxCharsLabel": "Max na mga karakter sa paglalarawan",
+    "visionMaxCharsHint": "I-cap ang haba ng paglalarawan ng modelo ng bisyon. 0 = walang limitasyon — itaas para sa mga detalyadong gawain ng OCR.",
     "modalityBridgeCacheEnabled": "Mga paglalarawan ng cache",
     "modalityBridgeCacheEnabledDesc": "Gamitin muli ang mga paglalarawan para sa mga magkaparehong larawan (SHA-256 na nakabatay, nasa memorya).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (minuto)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "Hindi na-activate ang tulay (maaaring suportahan ng modelo ang bisyon nang katutubo o naka-disable ang tulay)",
     "modalityBridgeTestError": "Nabigo ang pagsubok: {message}",
     "modalityBridgeAudioComingSoon": "Ang Audio bridge (speech → text sa pamamagitan ng /v1/audio/transcriptions) ay ilalabas sa susunod na bersyon. Ang mga susi ng mga setting nito ay nakalaan na.",
-    "modalityBridgeVideoComingSoon": "Ang video bridging (frame sampling + captioning) ay nasa backlog — tingnan ang isyu #9760.",
     "modalityBridgeMovedTitle": "Inilipat ang Vision Bridge",
     "modalityBridgeMovedBody": "Ang mga setting ng Vision Bridge ay ngayon nasa nakalaang pahina ng Modality Bridge.",
     "modalityBridgeMovedCta": "Buksan ang mga setting ng Modality Bridge",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} clip(s) na na-transcribe ng {model}",
     "modalityBridgeAudioTestNoop": "Hindi na-activate ang Audio Bridge (maaaring sinusuportahan ng target ang audio, walang nakakonektang STT provider, o naka-disable ang bridge)",
     "modalityBridgeAudioTestError": "Nabigo ang pagsubok sa audio: {message}",
+    "modalityBridgeVideoTitle": "Tulay ng Video",
+    "modalityBridgeVideoDesc": "Kumuha ng mga sample na frame ng video, ilarawan ang mga ito gamit ang vision model, at magpatuloy sa napiling text model.",
+    "modalityBridgeVideoRuntimeReady": "Handa ang runtime",
+    "modalityBridgeVideoRuntimeUnavailable": "Hindi available ang runtime",
+    "modalityBridgeVideoRuntimeInstall": "I-install ang FFmpeg at ffprobe sa PATH ng server para paganahin ang pagkuha ng video.",
+    "modalityBridgeVideoEnabled": "Paganahin ang Tulay ng Video",
+    "modalityBridgeVideoEnabledDesc": "Palitan ang mga bahagi ng video ng mga paglalarawan ng frame na may timestamp kapag hindi kayang iproseso ng target na modelo ang video.",
+    "modalityBridgeVideoModel": "Modelo sa paglalarawan ng frame",
+    "modalityBridgeVideoModelInherited": "Gamitin ang modelo ng Tulay ng Paningin",
+    "modalityBridgeVideoFrameCount": "Mga frame bawat video",
+    "modalityBridgeVideoMaxVideos": "Pinakamaraming video bawat kahilingan",
     "modelRoutingDescriptionPlaceholder": "I-route ang mga modelo ng Opus sa frontier combo",
     "cliproxyapiFallbackCodes": "Cliproxyapi Fallback Codes",
     "cliproxyapiFallbackDescription": "Cliproxyapi Fallback Deskripsyon",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Kalusugan",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Host",
-    "qdrantCollection": "Koleksyon",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Koleksyon"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "Mga bihirang achievement"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Unang Token",
         "description": "Nagawa ang iyong unang API request",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Link ng kasosyo",
     "dismissAriaLabel": "I-dismiss"
   },
+  "vscodeCopilotBanner": {
+    "title": "Ang OmniRoute ay gumagana na ngayon sa loob ng VS Code Copilot Chat",
+    "description": "I-install ang libreng OmniCopilot extension at lalabas ang bawat OmniRoute model diretso sa Copilot Chat model picker na ginagamit mo na.",
+    "cta": "Kunin ang Extension",
+    "secondaryNote": "Nasa Open VSX din (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "I-dismiss"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "I-anunsyo ang <gateway-alias>/<model> mirror ids sa /v1/models para sa mga modelong ang canonical owner ay walang aktibong credential ngunit may passthrough gateway na may aktibong credential na nagruruta sa kanila. Babala: nagdadagdag ng mga entry sa katalogo para sa lahat ng kliyente kapag pinagana nang globally.",
   "radarPage": {
     "title": "Radar Catalog",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Provider Setup",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Ang pahinang ito ay maa-access lamang mula sa localhost o LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Huminto ang polling: tinanggihan ng server ang kahilingan (404/403).",
     "pollErrorTransient": "Error sa pagkuha ng data: awtomatikong sinusubukan muli.",
-    "degraded": "Bahagyang data: hindi available na pinagmulan: {sources}",
-    "degraded.source.database": "Database",
-    "degraded.source.circuitBreaker": "Circuit Breaker",
-    "degraded.source.modelLockouts": "Mga Lockout ng Modelo",
-    "degraded.source.count": "Bilang ng Koneksyon"
+    "degraded": {
+      "message": "Bahagyang data: hindi available na pinagmulan: {sources}",
+      "source": {
+        "database": "Database",
+        "circuitBreaker": "Circuit Breaker",
+        "modelLockouts": "Mga Lockout ng Modelo",
+        "count": "Bilang ng Koneksyon"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Tanggihan ang mga kahilingan bago ang pagpapadala kapag ang target na modelo ay kulang sa mga kinakailangang kakayahan (paningin, mga tool, nakabalangkas na output, bintana ng konteksto). Pinoprotektahan ang mga direktang kahilingan mula sa isang tagapagbigay na lumalampas sa filter ng pagiging tugma ng combo-layer.",
-  "capabilityFilter.visionMismatch": "Hindi sinusuportahan ng provider ang vision para sa kahilingang ito ng larawan",
-  "capabilityFilter.toolsMismatch": "Hindi sinusuportahan ng provider ang pagtawag sa tool",
-  "capabilityFilter.structuredOutputMismatch": "Hindi sinusuportahan ng provider ang nakabalangkas na output",
-  "capabilityFilter.contextWindowMismatch": "Lumampas ang kahilingan sa konteksto ng tagapagbigay",
   "publicSystem": {
     "notFound": {
       "title": "Hindi matagpuan ang pahina",
@@ -13624,5 +13705,65 @@
     "hint": "Kapag naka-enable, ang mga natuklasang modelo ay lilitaw sa mga provider select sa buong OmniRoute.",
     "updateFailed": "Nabigong i-update (HTTP {status})",
     "networkError": "Error sa Network — hindi ma-update ang setting ng provider exposure"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Hindi sinusuportahan ng provider ang vision para sa kahilingang ito ng larawan",
+    "toolsMismatch": "Hindi sinusuportahan ng provider ang pagtawag sa tool",
+    "structuredOutputMismatch": "Hindi sinusuportahan ng provider ang nakabalangkas na output",
+    "contextWindowMismatch": "Lumampas ang kahilingan sa konteksto ng tagapagbigay"
   }
 }

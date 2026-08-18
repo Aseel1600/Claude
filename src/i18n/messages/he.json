@@ -1736,6 +1736,8 @@
     "quotaShare": "שיתוף מכסה",
     "discovery": "גילוי",
     "freeProviderRankings": "דירוג ספקים חינמיים",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "מסלולים חינמיים",
     "gamification": "משחוק",
     "leaderboard": "לוח מובילים",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "ספק זה הוצא משימוש",
     "riskNotice": {
       "title": "לפני שממשיכים",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "ספק עם סייגי שימוש — לחץ לפרטים",
       "oauth": "ספק זה משתמש בסשן המוצר הרשמי/OAuth שלך, שאינו מורשה לשימוש בפרוקסי/נתב. איננו ממליצים על שימוש אינטנסיבי בסוכנים אוטונומיים (בסגנון OpenCloud, תהליכים ארוכים מרובי שלבים, אצוות גדולות) — ספק ה-upstream עלול להגיב בהגבלת החשבון או בחסימתו. השימוש הוא על אחריותך בלבד.",
       "webCookie": "ספק זה מבצע אימות באמצעות עוגיות סשן הדפדפן שלך. שירות ה-upstream עלול לבטל את תוקף הסשן בכל עת, מה שידרוש ממך להתחבר מחדש. לא מומלץ לפעולות ארוכות ללא השגחה. השימוש הוא על אחריותך בלבד.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "אל תציג זאת שוב עבור ספק זה",
       "understand": "הבנתי, המשך",
       "cancel": "ביטול"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "מושבת",
     "enableProvider": "הפעל ספק",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "הגדרות נקודת הקצה של המודל השמור",
     "searchByModelAria": "חפש לפי דגם",
     "selectSupportedEndpoint": "בחר לפחות נקודת קצה אחת נתמכת",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "איסוף אוטומטי של מודל עליון מושבת",
+    "autoFetchModelsEnabled": "מודל upstream אוטומטי להורדה מופעל",
+    "autoFetchModels": "משוך אוטומטית מודלים מהמקור",
+    "autoFetchModelsTooltip": "שחזר ושמור במטמון מודלים עליונים כשצריך",
+    "autoFetchModelsToggleFailed": "נכשל בהחלפת מצב האיסוף האוטומטי של המודל העליון",
+    "autoFetchModelsPartialFailure": "כמה חיבורים עודכנו, אך מודל העל לא שונה בכל מקום",
+    "overridesUpstreamModel": "מעלים על עליון",
+    "overridesUpstreamModelHint": "ההגדרות שלך עוקפות את המודל העליון הזה",
+    "resetToUpstreamDefaults": "שחזר את ברירות המחדל של ה-upstream",
+    "resetToUpstreamDefaultsFailed": "נכשל בשחזור ברירות המחדל של המודל העליון",
+    "resetToUpstreamDefaultsSuccess": "שוחזרו ברירות המחדל של המודל העליון"
   },
   "settings": {
     "title": "הגדרות",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "מילות מפתח חסומות",
     "customBannedSignalsDesc": "מילות מפתח נוספות שמפעילות זיהוי לחסימה קבועה של החשבון. מילות מפתח מובנות חלות תמיד.",
     "customBannedSignalsPlaceholder": "לדוגמה: api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} תווים",
     "thinkingBudgetTitle": "חשיבה תקציב",
     "thinkingBudgetDesc": "שליטה בשימוש באסימונים של AI בכל הבקשות",
+    "thinkingBudgetIndependenceHint": "תכונות דחיסה, ניתוב ומגבלת טוקנים ממשיכות לפעול בכל מצב. אוטומטי לא אומר \"הצגת חשיבה אוטומטית\" — זה מסיר את שדות ההיגיון של הלקוח.",
     "passthrough": "מעבר",
     "passthroughDesc": "ללא שינויים - הלקוח שולט בתקציב החשיבה",
+    "thinkingModePassthrough": "מעבר",
+    "thinkingModePassthroughDesc": "השאר את ההיגיון של הלקוח ללא שינוי (מאמץ, סיכום, בלוקים של חשיבה). נדרש עבור חשיבה נראית של Codex/Desktop. ברירת מחדל.",
+    "thinkingModeAuto": "אוטומטי (סטריפ)",
+    "thinkingModeAutoDesc": "מחק את כל השדות של חשיבה/הסקה של הלקוח (הסקה, מאמץ הסקה, חשיבת קלוד, תצורת חשיבת ג'מיני) ותן לספק להמציא ברירות מחדל. ניתן להסתיר פאנלים של חשיבה ולשבור בקשות סיכום של הלקוח.",
+    "thinkingModeCustom": "מותאם אישית",
+    "thinkingModeCustomDesc": "כתוב מחדש כל בקשה עם תקציב קבוע של טוקנים לחשיבה שהגדרת למטה.",
+    "thinkingModeAdaptive": "מותאם",
+    "thinkingModeAdaptiveDesc": "הגדל את תקציב החשיבה ממאמץ בסיסי באמצעות מספר הודעות, כלים ואורך ההנחיה.",
     "auto": "אוטומטי",
     "autoDesc": "הסר את כל תצורת החשיבה - תן לספק להחליט",
     "custom": "מותאם אישית",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "מנקה מפתחות API, טוקנים, מפתחות פרטיים ו-JWT מהודעות, קריאות לכלים ותגובות.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "גשר תוכן מולטימדלי לטקסט לפני שהוא מגיע למודלים טקסט-בלעדיים. הוויז'ן פעיל; האודיו מגיע עם ה-AudioBridge; הווידאו נמצא על המפת דרכים.",
+    "modalityBridgeIntro": "המירו תוכן רב־אופני לטקסט לפני שהוא מגיע למודלים שתומכים בטקסט בלבד. גשרי הראייה, השמע והווידאו זמינים וניתנים להגדרה.",
     "modalityBridgeVisionTab": "חזון",
     "modalityBridgeAudioTab": "אודיו",
     "modalityBridgeVideoTab": "וידאו",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "מתקדם",
     "modalityBridgeTimeoutMs": "זמן פסק (מילישניות)",
     "modalityBridgeMaxImages": "מקסימום תמונות לכל בקשה",
+    "visionMaxCharsLabel": "מקסימום תווים לתיאור",
+    "visionMaxCharsHint": "קבע את אורך התיאור של מודל הראייה. 0 = ללא הגבלה — הגדל עבור משימות OCR עשירות בפרטים.",
     "modalityBridgeCacheEnabled": "תיאורי מטמון",
     "modalityBridgeCacheEnabledDesc": "שימוש חוזר בתיאורים עבור תמונות זהות (מפתח SHA-256, בזיכרון).",
     "modalityBridgeCacheTtlMinutes": "TTL במטמון (דקות)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "הגשר לא הופעל (המודל עשוי לתמוך בראייה באופן מקורי או שהגשר מושבת)",
     "modalityBridgeTestError": "המבחן נכשל: {message}",
     "modalityBridgeAudioComingSoon": "הגשר האודיו (דיבור → טקסט דרך /v1/audio/transcriptions) יושק בגרסה הבאה. מפתחות ההגדרות שלו כבר שמורים.",
-    "modalityBridgeVideoComingSoon": "חיבור וידאו (דגימת פריימים + כתוביות) נמצא ברשימת המטלות — ראה בעיה #9760.",
     "modalityBridgeMovedTitle": "הגשר של Vision הוזז",
     "modalityBridgeMovedBody": "הגדרות Vision Bridge עכשיו חיות בדף Modality Bridge המוקדש.",
     "modalityBridgeMovedCta": "פתח את הגדרות גשר המודאליות",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "גשר שמע בסדר — {count} קליפ(ים) שהוקלטו על ידי {model}",
     "modalityBridgeAudioTestNoop": "Audio Bridge לא הופעל (ייתכן שהיעד תומך באודיו, אין ספק STT מחובר, או שהגשר מושבת)",
     "modalityBridgeAudioTestError": "בדיקת שמע נכשלה: {message}",
+    "modalityBridgeVideoTitle": "גשר וידאו",
+    "modalityBridgeVideoDesc": "דגמו פריימים מהווידאו, תארו אותם באמצעות מודל ראייה והמשיכו עם מודל הטקסט שנבחר.",
+    "modalityBridgeVideoRuntimeReady": "סביבת הריצה מוכנה",
+    "modalityBridgeVideoRuntimeUnavailable": "סביבת הריצה אינה זמינה",
+    "modalityBridgeVideoRuntimeInstall": "התקינו את FFmpeg ואת ffprobe ב-PATH של השרת כדי לאפשר חילוץ וידאו.",
+    "modalityBridgeVideoEnabled": "הפעלת גשר וידאו",
+    "modalityBridgeVideoEnabledDesc": "החליפו חלקי וידאו בתיאורי פריימים עם חותמות זמן כאשר מודל היעד אינו יכול לעבד וידאו.",
+    "modalityBridgeVideoModel": "מודל לתיאור פריימים",
+    "modalityBridgeVideoModelInherited": "שימוש במודל של גשר הראייה",
+    "modalityBridgeVideoFrameCount": "פריימים לכל וידאו",
+    "modalityBridgeVideoMaxVideos": "מספר מרבי של סרטונים לבקשה",
     "modelRoutingDescriptionPlaceholder": "נתב מודלים של Opus לקומבו של frontier",
     "cliproxyapiFallbackCodes": "קודי גיבוי של Cliproxyapi",
     "cliproxyapiFallbackDescription": "תיאור גיבוי של Cliproxyapi",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "בריאות",
     "cliproxyapiPort": "פורט",
     "qdrantHost": "מארח",
-    "qdrantCollection": "אוסף",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "אוסף"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "הישגים נדירים"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "טוקן ראשון",
         "description": "ביצעת את בקשת ה-API הראשונה שלך",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "קישור שותף",
     "dismissAriaLabel": "התעלם"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute פועל כעת ישירות בתוך VS Code Copilot Chat",
+    "description": "התקינו את התוסף החינמי OmniCopilot וכל מודלי OmniRoute יופיעו ישירות בבורר המודלים של Copilot Chat שאתם כבר משתמשים בו.",
+    "cta": "קבלו את התוסף",
+    "secondaryNote": "זמין גם ב-Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "התעלם"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "פרסם את מזהי המראה של <gateway-alias>/<model> ב-/v1/models עבור מודלים שבעליהם הקנוניים אין להם אישור פעיל אך שער העברת נתונים עם אישור פעיל מנתב אותם. אזהרה: מוסיף רשומות קטלוג לכל הלקוחות כאשר זה מופעל באופן גלובלי.",
   "radarPage": {
     "title": "קטלוג רדאר",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "הגדרת ספק",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "דף זה נגיש רק מ-localhost או רשת מקומית (LOCAL_ONLY).",
     "pollErrorStopped": "הסקר הופסק: השרת דחה את הבקשה (404/403).",
     "pollErrorTransient": "שגיאה באחזור נתונים: ניסיון חוזר אוטומטי.",
-    "degraded": "נתונים חלקיים: מקורות לא זמינים: {sources}",
-    "degraded.source.database": "מסד נתונים",
-    "degraded.source.circuitBreaker": "נתיק מעגל",
-    "degraded.source.modelLockouts": "נעילות מודל",
-    "degraded.source.count": "מספר חיבורים"
+    "degraded": {
+      "message": "נתונים חלקיים: מקורות לא זמינים: {sources}",
+      "source": {
+        "database": "מסד נתונים",
+        "circuitBreaker": "נתיק מעגל",
+        "modelLockouts": "נעילות מודל",
+        "count": "מספר חיבורים"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "דחה בקשות לפני שליחה כאשר המודל המטרה חסר יכולות נדרשות (חזון, כלים, פלט מובנה, חלון הקשר). מגן על בקשות ישירות מספק אחד שעוקפות את מסנן ההתאמה של שכבת הקומבו.",
-  "capabilityFilter.visionMismatch": "הספק אינו תומך בראייה עבור בקשה זו של תמונה",
-  "capabilityFilter.toolsMismatch": "הספק אינו תומך בקריאת כלים",
-  "capabilityFilter.structuredOutputMismatch": "הספק אינו תומך בפלט מובנה",
-  "capabilityFilter.contextWindowMismatch": "הבקשה חורגת מגבול ההקשר של הספק",
   "publicSystem": {
     "notFound": {
       "title": "העמוד לא נמצא",
@@ -13624,5 +13705,65 @@
     "hint": "כאשר זה מופעל, מודלים שהתגלו מופיעים בבחירות ספקים ברחבי OmniRoute.",
     "updateFailed": "נכשל בעדכון (HTTP {status})",
     "networkError": "שגיאת רשת — לא ניתן לעדכן את הגדרת החשיפה של הספק"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "הספק אינו תומך בראייה עבור בקשה זו של תמונה",
+    "toolsMismatch": "הספק אינו תומך בקריאת כלים",
+    "structuredOutputMismatch": "הספק אינו תומך בפלט מובנה",
+    "contextWindowMismatch": "הבקשה חורגת מגבול ההקשר של הספק"
   }
 }

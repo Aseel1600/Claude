@@ -1736,6 +1736,8 @@
     "quotaShare": "Kvótamegosztás",
     "discovery": "Felfedezés",
     "freeProviderRankings": "Ingyenes szolgáltatók rangsora",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Ingyenes szintek",
     "gamification": "Játékosítás",
     "leaderboard": "Ranglista",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "Ez a szolgáltató elavult",
     "riskNotice": {
       "title": "Mielőtt folytatná",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Használati figyelmeztetésekkel rendelkező szolgáltató — kattintson a részletekért",
       "oauth": "Ez a szolgáltató a hivatalos termékmunkamenetet/OAuth-ot használja, amely nem engedélyezett proxy/router használatra. Nem javasoljuk az intenzív autonóm ágens használatot (OpenCloud-stílusú, hosszú, többlépéses folyamatok, nagy kötegek) — az upstream szolgáltató a fiók korlátozásával vagy kitiltásával reagálhat. Saját felelősségre használja.",
       "webCookie": "Ez a szolgáltató a webes munkamenet-sütik segítségével hitelesít. Az upstream szolgáltatás bármikor érvénytelenítheti a munkamenetet, ami újbóli bejelentkezést igényel. Hosszú, felügyelet nélküli műveletekhez nem ajánlott. Saját felelősségre használja.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Ne jelenjen meg újra ennél a szolgáltatónál",
       "understand": "Megértettem, folytatás",
       "cancel": "Mégse"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Letiltva",
     "enableProvider": "Szolgáltató engedélyezése",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Mentett modell végpont beállításai",
     "searchByModelAria": "Keresés modell szerint",
     "selectSupportedEndpoint": "Válasszon ki legalább egy támogatott végpontot",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Felfelé irányuló modell automatikus lekérése letiltva",
+    "autoFetchModelsEnabled": "Felfelé irányuló modell automatikus lekérése engedélyezve",
+    "autoFetchModelsTooltip": "Töltse le és tárolja a feljebb lévő modelleket, amikor szükséges",
+    "autoFetchModels": "Automatikus frissítés a felfelé irányuló modellekből",
+    "autoFetchModelsToggleFailed": "Nem sikerült átkapcsolni a feljebb lévő modell automatikus lekérdezését",
+    "autoFetchModelsPartialFailure": "Néhány kapcsolat frissítve lett, de a felfelé irányuló modell automatikus lekérése nem változott meg mindenhol",
+    "overridesUpstreamModel": "Felülírja a felfelé irányuló változtatásokat",
+    "overridesUpstreamModelHint": "A beállításai felülírják ezt a fenti modellt",
+    "resetToUpstreamDefaults": "Állítsa vissza az alapértelmezett beállításokat",
+    "resetToUpstreamDefaultsSuccess": "Visszaállítottuk az upstream modell alapértelmezett beállításait",
+    "resetToUpstreamDefaultsFailed": "Nem sikerült visszaállítani a fenti modell alapértelmezett beállításait"
   },
   "settings": {
     "title": "Beállítások elemre",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Tiltott kulcsszavak",
     "customBannedSignalsDesc": "További kulcsszavak, amelyek végleges fióktiltás észlelését váltják ki. A beépített kulcsszavak mindig érvényesek.",
     "customBannedSignalsPlaceholder": "pl. api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} karakter",
     "thinkingBudgetTitle": "Gondolkodó költségvetés",
     "thinkingBudgetDesc": "Az AI érvelési jogkivonat használatának szabályozása minden kérésnél",
+    "thinkingBudgetIndependenceHint": "A tömörítési, irányítási és token-korlátozási funkciók minden módban működnek. Az automatikus nem azt jelenti, hogy „automatikus megjelenítés gondolkodás” — eltávolítja az ügyfél érvelési mezőit.",
     "passthrough": "Átjárás",
     "passthroughDesc": "Nincs változás – az ügyfél irányítja a költségvetést",
+    "thinkingModePassthrough": "Átjáró",
+    "thinkingModePassthroughDesc": "Hagyja a kliens indoklását változatlanul (erőfeszítés, összefoglaló, gondolkodási blokkok). Kötelező a Codex/Desktop látható gondolkodásához. Alapértelmezett.",
+    "thinkingModeAuto": "Automatikus (csík)",
+    "thinkingModeAutoDesc": "Törölje az összes kliens gondolkodási/érvelési mezőt (érvelés, érvelési_erőfeszítés, Claude gondolkodás, Gemini gondolkodás_beállítás) és hagyja, hogy a szolgáltató találja ki az alapértelmezetteket. Elrejtheti a gondolkodási panelek és megszakíthatja a kliens összegzési kéréseket.",
+    "thinkingModeCustom": "Egyedi",
+    "thinkingModeCustomDesc": "Felülírja az összes kérést egy rögzített gondolkodási token költségkerettel, amelyet alább állít be.",
+    "thinkingModeAdaptive": "Adaptív",
+    "thinkingModeAdaptiveDesc": "Skálázza a gondolkodási költségvetést egy alap erőfeszítésből az üzenetek számának, az eszközöknek és a prompt hosszának figyelembevételével.",
     "auto": "Auto",
     "autoDesc": "Távolítsa el az összes gondolkodó konfigurációt – hagyja, hogy a szolgáltató döntsön",
     "custom": "Egyedi",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Eltávolítja az API-kulcsokat, tokeneket, privát kulcsokat és JWT-ket az üzenetekből, eszközhívásokból és válaszokból.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Híd a multimodális tartalmat szöveggé, mielőtt elérné a csak szöveges modelleket. A látás élő; A hang az AudioBridge-en érkezik; A videó a terveink között szerepel.",
+    "modalityBridgeIntro": "Alakítsa a multimodális tartalmat szöveggé, mielőtt az csak szöveget kezelő modellekhez érne. A kép-, hang- és videóhidak elérhetők és beállíthatók.",
     "modalityBridgeVisionTab": "Látás",
     "modalityBridgeAudioTab": "Hang",
     "modalityBridgeVideoTab": "Videó",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "Haladó",
     "modalityBridgeTimeoutMs": "Időtúllépés (ms)",
     "modalityBridgeMaxImages": "Max képek kérésenként",
+    "visionMaxCharsLabel": "Max leírás karakterek",
+    "visionMaxCharsHint": "Korlátozza a látásmodell leírásának hosszát. 0 = korlátlan — növelje részletes OCR feladatokhoz.",
     "modalityBridgeCacheEnabled": "Gyorsítótár leírások",
     "modalityBridgeCacheEnabledDesc": "Az azonos képek (SHA-256 kulcsú, memóriában) leírásainak újrafelhasználása.",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (perc)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "A híd nem aktiválódott (a modell natívan támogathatja a látást, vagy a híd le van tiltva)",
     "modalityBridgeTestError": "A teszt megbukott: {message}",
     "modalityBridgeAudioComingSoon": "A Hanghíd (beszéd → szöveg a /v1/audio/transcriptions segítségével) a következő kiadásban érkezik. A beállítási kulcsai már le vannak foglalva.",
-    "modalityBridgeVideoComingSoon": "A videohíd (keretmintavételezés + feliratozás) a hátralékban van — lásd a #9760 számú problémát.",
     "modalityBridgeMovedTitle": "A Vision Bridge áthelyezve",
     "modalityBridgeMovedBody": "A Vision Bridge beállításai mostantól a dedikált Modality Bridge oldalon találhatók.",
     "modalityBridgeMovedCta": "Nyisd meg a Modalitás Híd beállításait",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klip(pek) átírása a {model} által",
     "modalityBridgeAudioTestNoop": "Az Audio Bridge nem aktiválódott (a célpont támogathatja a hangot, nincs csatlakoztatva STT szolgáltató, vagy a híd le van tiltva)",
     "modalityBridgeAudioTestError": "A hangteszt nem sikerült: {message}",
+    "modalityBridgeVideoTitle": "Videóhíd",
+    "modalityBridgeVideoDesc": "Vegyen mintát a videó képkockáiból, írassa le őket egy látásmodellel, majd folytassa a kiválasztott szövegmodellel.",
+    "modalityBridgeVideoRuntimeReady": "A futtatókörnyezet kész",
+    "modalityBridgeVideoRuntimeUnavailable": "A futtatókörnyezet nem érhető el",
+    "modalityBridgeVideoRuntimeInstall": "Telepítse az FFmpeg és az ffprobe programot a kiszolgáló PATH útvonalára a videókinyerés engedélyezéséhez.",
+    "modalityBridgeVideoEnabled": "Videóhíd engedélyezése",
+    "modalityBridgeVideoEnabledDesc": "Ha a célmodell nem tud videót feldolgozni, cserélje a videórészeket időbélyeges képkockaleírásokra.",
+    "modalityBridgeVideoModel": "Képkockaleíró modell",
+    "modalityBridgeVideoModelInherited": "A Vision Bridge modelljének öröklése",
+    "modalityBridgeVideoFrameCount": "Képkockák videónként",
+    "modalityBridgeVideoMaxVideos": "Videók maximális száma kérésenként",
     "modelRoutingDescriptionPlaceholder": "Irányítsd az Opus modelleket a frontier kombinációhoz",
     "cliproxyapiFallbackCodes": "Cliproxyapi Visszaállító Kódok",
     "cliproxyapiFallbackDescription": "Cliproxyapi Visszaállítási Leírás",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Egészség",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Gazda",
-    "qdrantCollection": "Gyűjtemény",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Gyűjtemény"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "Ritka eredmények"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Első token",
         "description": "Elküldted az első API-kérésedet",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Partnerhivatkozás",
     "dismissAriaLabel": "Elvetés"
   },
+  "vscodeCopilotBanner": {
+    "title": "Az OmniRoute mostantól fut a VS Code Copilot Chatben",
+    "description": "Telepítsd az ingyenes OmniCopilot bővítményt, és minden OmniRoute modell megjelenik a Copilot Chat modellválasztójában, amit már használsz.",
+    "cta": "Bővítmény letöltése",
+    "secondaryNote": "Elérhető az Open VSX-en is (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Elvetés"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Hirdesse a <gateway-alias>/<model> tükör azonosítókat a /v1/models-on olyan modellekhez, amelyek kanonikus tulajdonosa nem rendelkezik aktív hitelesítő adatokkal, de egy átjáró, amelynek aktív hitelesítő adatai vannak, irányítja őket. Figyelmeztetés: globális engedélyezés esetén a katalógus bejegyzéseket ad hozzá az összes klienshez.",
   "radarPage": {
     "title": "Radar Katalógus",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Szolgáltató beállítása",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Ez az oldal csak localhostról vagy LAN-ról érhető el (LOCAL_ONLY).",
     "pollErrorStopped": "Lekérdezés leállítva: a szerver elutasította a kérést (404/403).",
     "pollErrorTransient": "Hiba az adatok lekérésekor: automatikus újrapróbálkozás.",
-    "degraded": "Részleges adatok: nem elérhető források: {sources}",
-    "degraded.source.database": "Adatbázis",
-    "degraded.source.circuitBreaker": "Megszakító",
-    "degraded.source.modelLockouts": "Modell Zárolások",
-    "degraded.source.count": "Kapcsolatok Száma"
+    "degraded": {
+      "message": "Részleges adatok: nem elérhető források: {sources}",
+      "source": {
+        "database": "Adatbázis",
+        "circuitBreaker": "Megszakító",
+        "modelLockouts": "Modell Zárolások",
+        "count": "Kapcsolatok Száma"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Elutasítja a kéréseket a kiszállítás előtt, amikor a célmodell hiányzik a szükséges képességekből (látás, eszközök, strukturált kimenet, kontextusablak). Védi a közvetlen, egy szolgáltatótól érkező kéréseket, amelyek megkerülik a kombinált réteg kompatibilitási szűrőt.",
-  "capabilityFilter.visionMismatch": "A szolgáltató nem támogatja a látást ehhez a képkéréshez",
-  "capabilityFilter.toolsMismatch": "A szolgáltató nem támogatja az eszközhívást",
-  "capabilityFilter.structuredOutputMismatch": "A szolgáltató nem támogatja a strukturált kimenetet",
-  "capabilityFilter.contextWindowMismatch": "A kérés meghaladja a szolgáltató kontextusablakát",
   "publicSystem": {
     "notFound": {
       "title": "Az oldal nem található",
@@ -13624,5 +13705,65 @@
     "hint": "Ha engedélyezve van, a felfedezett modellek megjelennek a szolgáltató kiválasztásokban az OmniRoute-ban.",
     "updateFailed": "Sikertelen frissítés (HTTP {status})",
     "networkError": "Hálózati hiba — nem sikerült frissíteni a szolgáltató láthatósági beállítását"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "A szolgáltató nem támogatja a látást ehhez a képkéréshez",
+    "toolsMismatch": "A szolgáltató nem támogatja az eszközhívást",
+    "structuredOutputMismatch": "A szolgáltató nem támogatja a strukturált kimenetet",
+    "contextWindowMismatch": "A kérés meghaladja a szolgáltató kontextusablakát"
   }
 }

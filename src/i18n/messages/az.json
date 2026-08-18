@@ -1736,6 +1736,8 @@
     "quotaShare": "Kvota payı",
     "discovery": "Kəşf",
     "freeProviderRankings": "Pulsuz provayder reytinqləri",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Pulsuz səviyyələr",
     "gamification": "Oyunlaşdırma",
     "leaderboard": "Liderlər cədvəli",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "This provider has been deprecated",
     "riskNotice": {
       "title": "Davam etməzdən əvvəl",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "İstifadə xəbərdarlıqları olan provayder — ətraflı məlumat üçün klikləyin",
       "oauth": "Bu provayder proksi/router istifadəsi üçün icazə verilməyən rəsmi məhsul sessiyanızdan/OAuth-dan istifadə edir. İntensiv avtonom agent istifadəsini (OpenCloud tərzi, uzun çoxmərhələli axınlar, böyük paketlər) tövsiyə etmirik — upstream xidmət hesabı məhdudlaşdırmaqla və ya bloklamaqla reaksiya verə bilər. Riski öz üzərinizə götürərək istifadə edin.",
       "webCookie": "Bu provayder veb sessiya kukiləriniz vasitəsilə autentifikasiya edir. Upstream xidmət istənilən vaxt sessiyanı ləğv edə bilər və bu da yenidən daxil olmağınızı tələb edər. Uzunmüddətli nəzarətsiz əməliyyatlar üçün tövsiyə edilmir. Riski öz üzərinizə götürərək istifadə edin.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Bu provayder üçün bunu bir daha göstərmə",
       "understand": "Başa düşdüm, davam et",
       "cancel": "Ləğv et"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Disabled",
     "enableProvider": "Enable provider",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Saxlanmış model son nöqtəsi parametrləri",
     "searchByModelAria": "Model üzrə axtarış edin",
     "selectSupportedEndpoint": "Ən azı bir dəstəklənən son nöqtəni seçin",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Avtomatik olaraq yuxarı axın modellərini əldə et",
+    "autoFetchModelsDisabled": "Yuxarı axın modelinin avtomatik əldə edilməsi deaktivdir",
+    "autoFetchModelsTooltip": "Tələb olunduqda yuxarıdakı modelləri əldə et və keşlə.",
+    "autoFetchModelsEnabled": "Yuxarı axın modelinin avtomatik yüklənməsi aktivdir",
+    "autoFetchModelsToggleFailed": "Yuxarı axın modelinin avtomatik əldə edilməsini dəyişdirmək mümkün olmadı",
+    "overridesUpstreamModelHint": "Sizin parametrləriniz bu yuxarı axın modelini üstələyir",
+    "overridesUpstreamModel": "Yuxarıdan üstəgəl edir",
+    "autoFetchModelsPartialFailure": "Bəzi bağlantılar yeniləndi, lakin yuxarı axın modelinin avtomatik alınması hər yerdə dəyişdirilmədi",
+    "resetToUpstreamDefaults": "Yuxarı axın standartlarını bərpa et",
+    "resetToUpstreamDefaultsSuccess": "Yuxarı axın modelinin standart parametrləri bərpa edildi",
+    "resetToUpstreamDefaultsFailed": "Yuxarı axın modelinin standartlarını bərpa etmək mümkün olmadı"
   },
   "settings": {
     "title": "Settings",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Qadağan olunmuş açar sözlər",
     "customBannedSignalsDesc": "Hesabın daimi bloklanmasının aşkarlanmasını işə salan əlavə açar sözlər. Daxili açar sözlər həmişə tətbiq olunur.",
     "customBannedSignalsPlaceholder": "məs., api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} chars",
     "thinkingBudgetTitle": "Thinking Budget",
     "thinkingBudgetDesc": "Control AI reasoning token usage across all requests",
+    "thinkingBudgetIndependenceHint": "Sıxma, yönləndirmə və token-limit xüsusiyyətləri hər bir rejimdə işləməyə davam edir. Auto \"avtomatik düşüncə göstərmək\" demək deyil - bu, müştəri düşüncə sahələrini çıxarır.",
     "passthrough": "Passthrough",
     "passthroughDesc": "No changes — client controls thinking budget",
+    "thinkingModePassthrough": "Keçid",
+    "thinkingModePassthroughDesc": "Müştəri səbəblərini dəyişməz saxlayın (səy, xülasə, düşüncə blokları). Codex/Desktop görünən düşüncə üçün tələb olunur. Varsayılan.",
+    "thinkingModeAuto": "Avtomatik (zolaq)",
+    "thinkingModeAutoDesc": "Bütün müştəri düşüncə/əsaslandırma sahələrini (əsaslandırma, əsaslandırma_səy, Claude düşüncəsi, Gemini düşüncə_quraşdırması) silin və təminatçının standartları icad etməsinə icazə verin. Düşüncə panellərini gizlətmək və müştəri xülasə tələblərini pozmaq mümkündür.",
+    "thinkingModeCustom": "Xüsusi",
+    "thinkingModeCustomDesc": "Aşağıda təyin etdiyiniz sabit düşüncə token büdcəsi ilə hər bir sorğunu üst-üstə yazın.",
+    "thinkingModeAdaptive": "Uyğunlaşan",
+    "thinkingModeAdaptiveDesc": "Mesaj sayı, alətlər və təklif uzunluğundan istifadə edərək əsas səydən düşüncə büdcəsini ölçün.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "custom": "Custom",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Mesajlardan, alət çağırışlarından və cavablardan API açarlarını, tokenləri, şəxsi açarları və JWT-ləri təmizləyir.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Multimodal məzmunu mətnə köçürün, mətnə yalnız modellərə çatmadan əvvəl. Görmə aktivdir; Səs AudioBridge ilə gəlir; Video isə yol xəritəsindədir.",
+    "modalityBridgeIntro": "Multimodal məzmunu yalnız mətn modellərinə çatmazdan əvvəl mətnə çevirin. Görüntü, Audio və Video körpüləri əlçatandır və konfiqurasiya edilə bilər.",
     "modalityBridgeVisionTab": "Görmə",
     "modalityBridgeAudioTab": "Səs",
     "modalityBridgeVideoTab": "Video",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "İrəliləmiş",
     "modalityBridgeTimeoutMs": "Vaxt bitməsi (ms)",
     "modalityBridgeMaxImages": "Tələb başına maksimum şəkil sayı",
+    "visionMaxCharsLabel": "Maksimum təsvir simvolları",
+    "visionMaxCharsHint": "Görmə modelinin təsvir uzunluğunu məhdudlaşdırın. 0 = limitsiz — detallı OCR tapşırıqları üçün artırın.",
     "modalityBridgeCacheEnabled": "Keş təsvirləri",
     "modalityBridgeCacheEnabledDesc": "Eyniləşən şəkillər üçün təsvirləri yenidən istifadə edin (SHA-256 açarına əsaslanan, yaddaşda).",
     "modalityBridgeCacheTtlMinutes": "Keş TTL (dəqiqə)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "Körpü aktivləşmədi (model yerli olaraq görünüşü dəstəkləyə bilər və ya körpü deaktivdir)",
     "modalityBridgeTestError": "Test uğursuz oldu: {message}",
     "modalityBridgeAudioComingSoon": "Audio körpüsü (söz → mətn /v1/audio/transcriptions vasitəsilə) növbəti buraxılışda təqdim ediləcək. Onun parametrləri üçün açarlar artıq ayrılıb.",
-    "modalityBridgeVideoComingSoon": "Video bridging (frame sampling + captioning) arxa planda var — məsələyə baxın #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge köçürüldü",
     "modalityBridgeMovedBody": "Vision Bridge parametrləri indi xüsusi Modality Bridge səhifəsində mövcuddur.",
     "modalityBridgeMovedCta": "Modallıq Körpüsü parametrlərini açın",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} klip(ler) {model} tərəfindən transkribasiya edildi",
     "modalityBridgeAudioTestNoop": "Audio Bridge aktivləşmədi (hədəf audio dəstəkləyə bilər, STT provayderi qoşulmayıb, ya da körpü deaktivdir)",
     "modalityBridgeAudioTestError": "Səs testi uğursuz oldu: {message}",
+    "modalityBridgeVideoTitle": "Video körpüsü",
+    "modalityBridgeVideoDesc": "Video kadrlarından nümunələr götürün, onları görüntü modeli ilə təsvir edin və seçilmiş mətn modeli ilə davam edin.",
+    "modalityBridgeVideoRuntimeReady": "İcra mühiti hazırdır",
+    "modalityBridgeVideoRuntimeUnavailable": "İcra mühiti əlçatan deyil",
+    "modalityBridgeVideoRuntimeInstall": "Video çıxarışını aktivləşdirmək üçün serverin PATH mühitinə FFmpeg və ffprobe quraşdırın.",
+    "modalityBridgeVideoEnabled": "Video körpüsünü aktivləşdir",
+    "modalityBridgeVideoEnabledDesc": "Hədəf model videonu emal edə bilmədikdə video hissələrini vaxt işarəli kadr təsvirləri ilə əvəz edin.",
+    "modalityBridgeVideoModel": "Kadr təsviri modeli",
+    "modalityBridgeVideoModelInherited": "Görüntü körpüsü modelini istifadə et",
+    "modalityBridgeVideoFrameCount": "Hər video üçün kadrlar",
+    "modalityBridgeVideoMaxVideos": "Hər sorğu üçün maksimum video sayı",
     "modelRoutingDescriptionPlaceholder": "Route Opus modellərini sərhəd kombinasiyasına yönləndirin",
     "cliproxyapiFallbackCodes": "Cliproxyapi Yedək Kodları",
     "cliproxyapiFallbackDescription": "Cliproxyapi Yedək Təsviri",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Sağlamlıq",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Ev sahibi",
-    "qdrantCollection": "Kolleksiya",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Kolleksiya"
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -12425,6 +12462,11 @@
       "rare": "Nadir nailiyyətlər"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "İlk Token",
         "description": "İlk API sorğunuzu etdiniz",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Tərəfdaş linki",
     "dismissAriaLabel": "Bağla"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute artıq VS Code Copilot Chat daxilində işləyir",
+    "description": "Pulsuz OmniCopilot əlavəsini quraşdırın və bütün OmniRoute modelləri artıq istifadə etdiyiniz Copilot Chat model seçicisində görünsün.",
+    "cta": "Əlavəni əldə edin",
+    "secondaryNote": "Həmçinin Open VSX-də (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Bağla"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "/gateway-alias/<model> güzgü ID-lərini /v1/models-da reklam edin, əgər modelin kanonik sahibi aktiv etibarnaməyə malik deyilsə, lakin bir keçid qapısı aktiv etibarnamə ilə onları yönləndirirsə. Xəbərdarlıq: qlobal olaraq aktiv edildikdə bütün müştərilər üçün kataloq qeydləri əlavə edir.",
   "radarPage": {
     "title": "Radar Kataloqu",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Təchizatçı Quraşdırması",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Bu səhifə yalnız localhost və ya LAN-dan əlçatandır (LOCAL_ONLY).",
     "pollErrorStopped": "Sorğu dayandırıldı: server sorğunu rədd etdi (404/403).",
     "pollErrorTransient": "Məlumat alarkən xəta: avtomatik yenidən cəhd edilir.",
-    "degraded": "Qismən məlumat: əlçatmaz mənbələr: {sources}",
-    "degraded.source.database": "Verilənlər Bazası",
-    "degraded.source.circuitBreaker": "Dövrə Açarı",
-    "degraded.source.modelLockouts": "Model Blokları",
-    "degraded.source.count": "Bağlantı Sayı"
+    "degraded": {
+      "message": "Qismən məlumat: əlçatmaz mənbələr: {sources}",
+      "source": {
+        "database": "Verilənlər Bazası",
+        "circuitBreaker": "Dövrə Açarı",
+        "modelLockouts": "Model Blokları",
+        "count": "Bağlantı Sayı"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Tələb olunan imkanlar (görmə, alətlər, strukturlaşdırılmış çıxış, kontekst pəncərəsi) olmayan hədəf modelində göndərilmədən əvvəl tələbləri rədd edin. Kombinasiya qatının uyğunluq filtrini keçən birbaşa tək təminatçı tələblərini qoruyur.",
-  "capabilityFilter.visionMismatch": "Təchizatçı bu şəkil tələbi üçün görünüşü dəstəkləmir",
-  "capabilityFilter.toolsMismatch": "Təchizatçı alət çağırışını dəstəkləmir",
-  "capabilityFilter.structuredOutputMismatch": "Təchizatçı strukturlaşdırılmış çıxışı dəstəkləmir",
-  "capabilityFilter.contextWindowMismatch": "Sorğu təminatçının kontekst pəncərəsini aşır",
   "publicSystem": {
     "notFound": {
       "title": "Səhifə tapılmadı",
@@ -13624,5 +13705,65 @@
     "hint": "Aktiv edildikdə, aşkar edilmiş modellər OmniRoute boyunca təminatçı seçimlərində görünür.",
     "updateFailed": "Yeniləmə baş tutmadı (HTTP {status})",
     "networkError": "Şəbəkə xətası — təminatçı açıq parametrlərini yeniləmək mümkün olmadı"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Təchizatçı bu şəkil tələbi üçün görünüşü dəstəkləmir",
+    "toolsMismatch": "Təchizatçı alət çağırışını dəstəkləmir",
+    "structuredOutputMismatch": "Təchizatçı strukturlaşdırılmış çıxışı dəstəkləmir",
+    "contextWindowMismatch": "Sorğu təminatçının kontekst pəncərəsini aşır"
   }
 }

@@ -1736,6 +1736,8 @@
     "quotaShare": "Частка квоти",
     "discovery": "Дослідження",
     "freeProviderRankings": "Рейтинги безкоштовних провайдерів",
+    "radar": "__MISSING__:Radar",
+    "setup": "__MISSING__:Setup",
     "freeTiers": "Безкоштовні тарифи",
     "gamification": "Гейміфікація",
     "leaderboard": "Таблиця лідерів",
@@ -5092,6 +5094,7 @@
     "deprecatedProvider": "Цей постачальник більше не підтримується",
     "riskNotice": {
       "title": "Перед тим, як продовжити",
+      "detailsTitle": "__MISSING__:Usage caveats",
       "tooltip": "Провайдер із застереженнями щодо використання — натисніть для подробиць",
       "oauth": "Цей провайдер використовує вашу офіційну продуктову сесію/OAuth, які не авторизовані для використання у проксі/маршрутизаторі. Ми не рекомендуємо інтенсивне автономне використання агентами (стиль OpenCloud, довгі багатокрокові потоки, великі пакети) — провайдер може у відповідь обмежити або заблокувати акаунт. Використовуйте на власний ризик.",
       "webCookie": "Цей провайдер автентифікується через cookie вашої веб-сесії. Сервіс може в будь-який момент анулювати сесію, що вимагатиме повторного входу. Не рекомендовано для довгих автоматизованих операцій. Використовуйте на власний ризик.",
@@ -5099,6 +5102,11 @@
       "dontShowAgain": "Більше не показувати для цього провайдера",
       "understand": "Я розумію, продовжити",
       "cancel": "Скасувати"
+    },
+    "warningNotice": {
+      "tooltip": "__MISSING__:{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": "__MISSING__: (last failure {time})",
+      "ariaLabel": "__MISSING__:View connection health details, {count} warning(s)"
     },
     "disabled": "Вимкнено",
     "enableProvider": "Увімкнути провайдера",
@@ -6335,7 +6343,18 @@
     "savedModelEndpointSettings": "Налаштування кінцевої точки збереженої моделі",
     "searchByModelAria": "Пошук за моделлю",
     "selectSupportedEndpoint": "Виберіть принаймні одну підтримувану точку доступу",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Автоматичне отримання моделей з upstream",
+    "autoFetchModelsDisabled": "Автоматичне отримання моделі з upstream вимкнено",
+    "autoFetchModelsTooltip": "Отримати та кешувати моделі з upstream за потреби",
+    "autoFetchModelsEnabled": "Увімкнено автоматичне отримання моделі з upstream",
+    "autoFetchModelsToggleFailed": "Не вдалося перемкнути автоматичне отримання моделі upstream",
+    "overridesUpstreamModel": "Перезаписує upstream",
+    "overridesUpstreamModelHint": "Ваші налаштування переважають цю модель вгору за течією",
+    "autoFetchModelsPartialFailure": "Деякі з'єднання оновлено, але автоматичне отримання моделі з верхнього рівня не було змінено скрізь",
+    "resetToUpstreamDefaultsSuccess": "Відновлено значення за замовчуванням моделі з upstream",
+    "resetToUpstreamDefaults": "Відновити значення за замовчуванням з upstream",
+    "resetToUpstreamDefaultsFailed": "Не вдалося відновити значення за замовчуванням моделі upstream"
   },
   "settings": {
     "title": "Налаштування",
@@ -6554,6 +6573,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "__MISSING__:Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "__MISSING__:Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "__MISSING__:All connections",
+    "autoDisableBannedScopeAllDesc": "__MISSING__:Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "__MISSING__:Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "__MISSING__:Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Banned Keywords",
     "customBannedSignalsDesc": "Додаткові ключові слова, які запускають виявлення постійного блокування акаунта. Вбудовані ключові слова застосовуються завжди.",
     "customBannedSignalsPlaceholder": "наприклад, api key revoked",
@@ -6821,8 +6846,17 @@
     "chars": "{count} символів",
     "thinkingBudgetTitle": "Мислення про бюджет",
     "thinkingBudgetDesc": "Контролюйте використання маркера міркування AI для всіх запитів",
+    "thinkingBudgetIndependenceHint": "Функції стиснення, маршрутизації та обмеження токенів продовжують працювати в кожному режимі. Авто не означає \"авто-показ думок\" — він видаляє поля міркувань клієнта.",
     "passthrough": "Прохідний",
     "passthroughDesc": "Без змін — клієнт контролює бюджет мислення",
+    "thinkingModePassthrough": "Пропускний режим",
+    "thinkingModePassthroughDesc": "Залишити обґрунтування клієнта незмінним (зусилля, резюме, блоки мислення). Обов'язково для видимого мислення Codex/Desktop. За замовчуванням.",
+    "thinkingModeAuto": "Авто (стрічка)",
+    "thinkingModeAutoDesc": "Видалити всі поля мислення/міркування клієнта (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) і дозволити постачальнику вигадати значення за замовчуванням. Можна приховати панелі мислення та зламати запити на підсумок клієнта.",
+    "thinkingModeCustom": "Користувацький",
+    "thinkingModeCustomDesc": "Перезапишіть кожен запит з фіксованим бюджетом токенів на мислення, який ви встановили нижче.",
+    "thinkingModeAdaptive": "Адаптивний",
+    "thinkingModeAdaptiveDesc": "Масштабуйте бюджет на роздуми з базовими зусиллями, використовуючи кількість повідомлень, інструменти та довжину запиту.",
     "auto": "Авто",
     "autoDesc": "Видаліть усі конфігурації мислення — дозвольте постачальнику вирішувати",
     "custom": "Custom",
@@ -8009,7 +8043,7 @@
     "enableCredentialRedactionDesc": "Очищає API-ключі, токени, приватні ключі та JWT з повідомлень, викликів інструментів та відповідей.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "З'єднайте мультимедійний контент з текстом перед тим, як він потрапить до моделей лише з текстом. Зображення в режимі реального часу; Аудіо надходить з AudioBridge; Відео в планах.",
+    "modalityBridgeIntro": "Перетворюйте мультимодальний вміст на текст до його передавання моделям, що працюють лише з текстом. Мости для зображень, аудіо та відео доступні й налаштовуються.",
     "modalityBridgeVisionTab": "Візія",
     "modalityBridgeAudioTab": "Аудіо",
     "modalityBridgeVideoTab": "Відео",
@@ -8031,6 +8065,8 @@
     "modalityBridgeAdvanced": "Розширений",
     "modalityBridgeTimeoutMs": "Тайм-аут (мс)",
     "modalityBridgeMaxImages": "Максимум зображень на запит",
+    "visionMaxCharsLabel": "Максимальна кількість символів у описі",
+    "visionMaxCharsHint": "Обмежте довжину опису моделі зору. 0 = без обмежень — підвищте для завдань OCR з великою кількістю деталей.",
     "modalityBridgeCacheEnabled": "Опис кешу",
     "modalityBridgeCacheEnabledDesc": "Повторне використання описів для ідентичних зображень (з ключем SHA-256, в пам'яті).",
     "modalityBridgeCacheTtlMinutes": "Час життя кешу (хвилини)",
@@ -8047,7 +8083,6 @@
     "modalityBridgeTestNoop": "Міст не активувався (модель може підтримувати зір нативно або міст вимкнено)",
     "modalityBridgeTestError": "Тест не пройдено: {message}",
     "modalityBridgeAudioComingSoon": "Аудіо міст (мовлення → текст через /v1/audio/transcriptions) буде доступний у наступному релізі. Його ключі налаштувань вже зарезервовані.",
-    "modalityBridgeVideoComingSoon": "Відеоміст (вибірка кадрів + субтитрування) знаходиться в черзі — див. питання #9760.",
     "modalityBridgeMovedTitle": "Міст Візії переміщено",
     "modalityBridgeMovedBody": "Налаштування Vision Bridge тепер доступні на окремій сторінці Modality Bridge.",
     "modalityBridgeMovedCta": "Відкрити налаштування моста модальності",
@@ -8063,6 +8098,17 @@
     "modalityBridgeAudioTestOk": "Аудіо міст OK — {count} кліп(и) транскрибовано {model}",
     "modalityBridgeAudioTestNoop": "Аудіоміст не активувався (можливо, ціль підтримує аудіо, жоден постачальник STT не підключений, або міст вимкнено)",
     "modalityBridgeAudioTestError": "Тест аудіо не вдався: {message}",
+    "modalityBridgeVideoTitle": "Відеоміст",
+    "modalityBridgeVideoDesc": "Виберіть зразки кадрів відео, опишіть їх за допомогою моделі комп’ютерного зору та продовжте з вибраною текстовою моделлю.",
+    "modalityBridgeVideoRuntimeReady": "Середовище виконання готове",
+    "modalityBridgeVideoRuntimeUnavailable": "Середовище виконання недоступне",
+    "modalityBridgeVideoRuntimeInstall": "Встановіть FFmpeg і ffprobe у PATH сервера, щоб увімкнути видобування відео.",
+    "modalityBridgeVideoEnabled": "Увімкнути Відеоміст",
+    "modalityBridgeVideoEnabledDesc": "Якщо цільова модель не обробляє відео, замінюйте його частини описами кадрів із часовими позначками.",
+    "modalityBridgeVideoModel": "Модель опису кадрів",
+    "modalityBridgeVideoModelInherited": "Використовувати модель Мосту зору",
+    "modalityBridgeVideoFrameCount": "Кадрів на відео",
+    "modalityBridgeVideoMaxVideos": "Максимум відео на запит",
     "modelRoutingDescriptionPlaceholder": "Маршрутизувати моделі Opus до комбінації frontier",
     "cliproxyapiFallbackCodes": "Коди резервного копіювання Cliproxyapi",
     "cliproxyapiFallbackDescription": "Опис резервного копіювання Cliproxyapi",
@@ -8146,16 +8192,7 @@
     "cliproxyapiHealth": "Здоров'я",
     "cliproxyapiPort": "Порт",
     "qdrantHost": "Хост",
-    "qdrantCollection": "Колекція",
-    "thinkingBudgetIndependenceHint": "__MISSING__:Compression, routing, and token-limit features keep working in every mode. Auto does not mean “auto-show thinking” — it strips client reasoning fields.",
-    "thinkingModePassthrough": "__MISSING__:Passthrough",
-    "thinkingModePassthroughDesc": "__MISSING__:Leave client reasoning unchanged (effort, summary, thinking blocks). Required for Codex/Desktop visible thinking. Default.",
-    "thinkingModeAuto": "__MISSING__:Auto (strip)",
-    "thinkingModeAutoDesc": "__MISSING__:Strip all client thinking/reasoning fields (reasoning, reasoning_effort, Claude thinking, Gemini thinking_config) and let the provider invent defaults. Can hide thinking panels and break client summary requests.",
-    "thinkingModeCustom": "__MISSING__:Custom",
-    "thinkingModeCustomDesc": "__MISSING__:Overwrite every request with a fixed thinking token budget you set below.",
-    "thinkingModeAdaptive": "__MISSING__:Adaptive",
-    "thinkingModeAdaptiveDesc": "__MISSING__:Scale thinking budget from a base effort using message count, tools, and prompt length."
+    "qdrantCollection": "Колекція"
   },
   "contextRtk": {
     "title": "Двигун RTK",
@@ -12425,6 +12462,11 @@
       "rare": "Рідкісні досягнення"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "__MISSING__:Radar Supporter",
+        "description": "__MISSING__:Verified a live OmniRoute Radar supporter feed",
+        "criteria": "__MISSING__:Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Перший токен",
         "description": "Зроблено перший запит до API",
@@ -13069,6 +13111,13 @@
     "partnerLinkNote": "Партнерське посилання",
     "dismissAriaLabel": "Закрити"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute тепер працює всередині VS Code Copilot Chat",
+    "description": "Встановіть безкоштовне розширення OmniCopilot, і кожна модель OmniRoute з'явиться прямо в переліку моделей Copilot Chat, яким ви вже користуєтесь.",
+    "cta": "Отримати розширення",
+    "secondaryNote": "Також доступно на Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Закрити"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Рекламуйте <gateway-alias>/<model> ідентифікатори дзеркал на /v1/models для моделей, власник яких не має активних облікових даних, але шлюз з пропуском з активними обліковими даними їх маршрутизує. Увага: додає записи каталогу для всіх клієнтів, коли увімкнено глобально.",
   "radarPage": {
     "title": "Каталог Радар",
@@ -13124,7 +13173,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Offers",
+    "intel": "__MISSING__:Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Налаштування постачальника",
@@ -13239,17 +13320,17 @@
     "pollErrorLocalOnly": "Ця сторінка доступна лише з localhost або LAN (LOCAL_ONLY).",
     "pollErrorStopped": "Опитування зупинено: сервер відхилив запит (404/403).",
     "pollErrorTransient": "Помилка отримання даних: автоматичний повтор.",
-    "degraded": "Часткові дані: недоступні джерела: {sources}",
-    "degraded.source.database": "База Даних",
-    "degraded.source.circuitBreaker": "Автоматичний Вимикач",
-    "degraded.source.modelLockouts": "Блокування Моделі",
-    "degraded.source.count": "Кількість З'єднань"
+    "degraded": {
+      "message": "Часткові дані: недоступні джерела: {sources}",
+      "source": {
+        "database": "База Даних",
+        "circuitBreaker": "Автоматичний Вимикач",
+        "modelLockouts": "Блокування Моделі",
+        "count": "Кількість З'єднань"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Відхиляйте запити перед відправкою, коли цільова модель не має необхідних можливостей (зір, інструменти, структурований вихід, контекстне вікно). Захищає прямі запити від одного постачальника, які обходять фільтр сумісності комбінаційного шару.",
-  "capabilityFilter.visionMismatch": "Постачальник не підтримує візуалізацію для цього запиту зображення",
-  "capabilityFilter.toolsMismatch": "Постачальник не підтримує виклик інструментів",
-  "capabilityFilter.structuredOutputMismatch": "Постачальник не підтримує структурований вивід",
-  "capabilityFilter.contextWindowMismatch": "Запит перевищує контекстне вікно постачальника",
   "publicSystem": {
     "notFound": {
       "title": "Сторінку не знайдено",
@@ -13624,5 +13705,65 @@
     "hint": "Коли увімкнено, виявлені моделі з'являються у виборах постачальника в OmniRoute.",
     "updateFailed": "Не вдалося оновити (HTTP {status})",
     "networkError": "Помилка мережі — не вдалося оновити налаштування експозиції провайдера"
+  },
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
+  },
+  "radarIntelPage": {
+    "title": "__MISSING__:Radar Intel",
+    "subtitle": "__MISSING__:Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "__MISSING__:Back to Radar",
+    "loading": "__MISSING__:Loading Intel...",
+    "refresh": "__MISSING__:Refresh Intel",
+    "syncing": "__MISSING__:Refreshing...",
+    "loadFailed": "__MISSING__:We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "__MISSING__:No verified Intel snapshot is available yet.",
+    "supporterBadge": "__MISSING__:Radar Supporter",
+    "methodology": "__MISSING__:Methodology",
+    "eloMethod": "__MISSING__:ELO, initial {initial}, K={factor}",
+    "freshness": "__MISSING__:Catalog freshness",
+    "ageDays": "__MISSING__:{days, plural, one {# day old} other {# days old}}",
+    "trend": "__MISSING__:Catalog trend",
+    "modelDelta": "__MISSING__:{current} models, +{added} / -{removed}",
+    "ranking": "__MISSING__:Model ranking",
+    "noRankings": "__MISSING__:No confirmed comparisons are available yet.",
+    "model": "__MISSING__:Model",
+    "category": "__MISSING__:Category",
+    "rating": "__MISSING__:Rating",
+    "matches": "__MISSING__:Matches",
+    "freshnessValues": {
+      "fresh": "__MISSING__:Fresh",
+      "aging": "__MISSING__:Aging",
+      "stale": "__MISSING__:Stale"
+    },
+    "trendValues": {
+      "growing": "__MISSING__:Growing",
+      "stable": "__MISSING__:Stable",
+      "shrinking": "__MISSING__:Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Постачальник не підтримує візуалізацію для цього запиту зображення",
+    "toolsMismatch": "Постачальник не підтримує виклик інструментів",
+    "structuredOutputMismatch": "Постачальник не підтримує структурований вивід",
+    "contextWindowMismatch": "Запит перевищує контекстне вікно постачальника"
   }
 }

@@ -45,6 +45,7 @@ export const APP_STAGING_ALLOWED_EXACT_PATHS: string[] = [
   // LLMLingua ONNX worker — esbuild'd standalone .js spawned via worker_threads
   // (the Next.js bundler can't trace the computed Worker path). Kept like the MCP server.
   "open-sse/services/compression/engines/llmlingua/onnxWorker.js",
+  "src/lib/usage/callLogArtifactWorker.js",
   "package.json",
   "peer-stamp.mjs",
   "main-server-timeouts.mjs",
@@ -142,6 +143,10 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_EXACT_PATHS: string[] = [
   "scripts/build/fixPlaywrightAndroid.mjs",
   // #5227: imported at runtime by bin/cli/commands/serve.mjs (heap auto-calibration).
   "scripts/build/runtime-env.mjs",
+  // #10382: imported at runtime by bin/cli/commands/packs.mjs (optional ML/browser
+  // runtime pack management) — shipped via package.json "files", so must be allowed.
+  "scripts/packs/optionalPackInstaller.mjs",
+  "scripts/packs/optionalPackManifest.mjs",
   "scripts/build/sync-env.mjs",
   "scripts/dev/responses-ws-proxy.mjs",
   "scripts/dev/sync-env.mjs",
@@ -171,6 +176,7 @@ export const PACK_ARTIFACT_ROOT_ALLOWED_PATH_PREFIXES: string[] = [
 
 export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "dist/open-sse/services/compression/engines/rtk/filters/generic-output.json",
+  "dist/src/lib/usage/callLogArtifactWorker.js",
   "dist/open-sse/vendor/codex-chatgpt-web/adapters/chatgpt-web/mcp-server.js",
   "dist/open-sse/services/compression/rules/en/filler.json",
   "dist/server.js",
@@ -192,6 +198,7 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   // tests/unit/pack-artifact-entrypoint-closures.test.ts).
   "bin/cli/data-dir.mjs",
   "bin/cli/utils/ensureAndroidCacheDir.mjs",
+  "bin/cli/utils/parseEnvValue.mjs",
   "bin/cli/utils/storageKeyProvision.mjs",
   "bin/cli/utils/versionFastPath.mjs",
   "bin/mcp-server.mjs",
@@ -214,6 +221,10 @@ export const PACK_ARTIFACT_REQUIRED_PATHS: string[] = [
   "scripts/build/colocateOptionals.mjs",
   "scripts/build/fixTlsClientNodeBinary.mjs",
   "scripts/build/runtime-env.mjs",
+  // #10382: runtime imports of bin/cli/commands/packs.mjs (optional packs CLI) —
+  // listed REQUIRED so their absence from the tarball fails loudly.
+  "scripts/packs/optionalPackInstaller.mjs",
+  "scripts/packs/optionalPackManifest.mjs",
   "src/shared/utils/nodeRuntimeSupport.ts",
 ];
 

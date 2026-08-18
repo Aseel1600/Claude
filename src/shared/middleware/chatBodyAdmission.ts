@@ -7,19 +7,17 @@
  * local heavyweight capacity before parsing and enforces the hard limit against bytes read,
  * not an untrusted Content-Length header.
  *
- * Per-connection virtual admission lanes (#9654): each distinct API-key (or anonymous)
- * bucket gets its own FairCostQueue so one connection cannot exhaust heavyweight capacity
- * and starve others. Idle sessions are auto-evicted after a TTL.
+ * Process-wide admission budget (#10110): ALL requests — every API key, every
+ * session — contend for ONE global heavyweight budget, so the documented
+ * "in one process" bound holds against fake-credential sharding. Per-request
+ * session identity is used only as a fairness scheduling key: waiters are
+ * grouped per session and served round-robin against the shared budget, so one
+ * connection's burst cannot starve others (#9654).
  */
 
 import { CORS_HEADERS } from "../utils/cors";
 import { createHash } from "crypto";
-
-
-const OMNIROUTE_CHAT_VIRTUAL_TTL_MS = parsePositiveInt(
-  process.env.OMNIROUTE_CHAT_VIRTUAL_TTL_MS,
-  60_000
-);
+import v8 from "node:v8";
 
 function parsePositiveInt(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(String(value), 10);
@@ -83,6 +81,60 @@ export const CHAT_HEAVY_ESTIMATED_TOKENS = parsePositiveInt(
   process.env.OMNIROUTE_CHAT_HEAVY_ESTIMATED_TOKENS,
   32_000
 );
+
+/**
+ * Heap-pressure shed ratio for the structural admission gate (#10183, #10268).
+ *
+ * 3.8.48 only shed a heavy request once `heapUsed / heapLimit >= shedRatio` (0.75).
+ * 3.8.49 (#9654/#9940) replaced that heap-conditional shed with an unconditional
+ * `CHAT_MAX_HEAVY_IN_FLIGHT=1` structural lease, so a second concurrent "heavy"
+ * request (coding-agent fan-out is the common trigger) was hard-rejected with a
+ * retryable 503 even on a host with ample free RAM. This restores the heap
+ * condition as an ADDITIONAL gate layered on top of the bounded-concurrency /
+ * per-connection-lane protection from #9654 (that protection stays in force —
+ * this constant only decides whether a *busy* lease is still shed with a 503 or
+ * admitted anyway because the heap has real headroom).
+ */
+export const CHAT_ADMISSION_HEAP_SHED_RATIO = (() => {
+  const parsed = Number(process.env.OMNIROUTE_CHAT_ADMISSION_HEAP_SHED_RATIO);
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 1 ? parsed : 0.75;
+})();
+
+/**
+ * Bounded extra capacity for the "healthy heap" fast path (#10437).
+ *
+ * The #10183/#10268 fix above admits a busy heavyweight request immediately whenever
+ * `heapPressureCheck()` is false — but with no bound of its own, that path let an
+ * UNLIMITED number of "healthy heap" requests pile in ahead of the heap-pressure
+ * shed, defeating the point of admission control: a slow leak or a burst that never
+ * quite trips the heap-pressure ratio could still starve the process. This constant
+ * caps how many requests may bypass the primary `CHAT_MAX_HEAVY_IN_FLIGHT` lease via
+ * the healthy-heap path at once (tracked independently, per `ChatAdmissionController`
+ * instance — see `#activeHealthy` / `tryAcquireHealthyHeadroom`). Once this budget is
+ * also exhausted, requests fall through to the SAME bounded-wait/shed path used under
+ * real heap pressure, so there is still a real ceiling either way.
+ */
+export const CHAT_ADMISSION_HEALTHY_HEADROOM = parseNonNegativeInt(
+  process.env.OMNIROUTE_CHAT_ADMISSION_HEALTHY_HEADROOM,
+  CHAT_MAX_HEAVY_IN_FLIGHT
+);
+
+/**
+ * Live `heapUsed / heap_size_limit` pressure probe, injectable for deterministic
+ * tests (`admitChatStructure({ heapPressureCheck })`). Defaults to the real V8
+ * heap statistics. Any read failure is treated as "not under pressure" so a
+ * transient stats error never turns into a false structural shed.
+ */
+export function defaultHeapPressureCheck(): boolean {
+  try {
+    const heapUsed = process.memoryUsage().heapUsed;
+    const heapLimit = v8.getHeapStatistics().heap_size_limit;
+    if (!Number.isFinite(heapLimit) || heapLimit <= 0) return false;
+    return heapUsed / heapLimit >= CHAT_ADMISSION_HEAP_SHED_RATIO;
+  } catch {
+    return false;
+  }
+}
 /**
  * Optional per-deployment history cap. `0` (the default) disables it.
  *
@@ -109,6 +161,12 @@ export interface ChatAdmissionLease {
   release(): void;
 }
 
+/** A parked waiter, grouped by fairness key for round-robin dispatch. */
+interface AdmissionWaiter {
+  readonly key: string;
+  readonly resolve: () => void;
+}
+
 /**
  * Process-local heavyweight reservation. The capacity check and increment execute in one
  * synchronous JavaScript turn, making acquisition atomic within an OmniRoute process.
@@ -119,11 +177,26 @@ export interface ChatAdmissionLease {
 export class ChatAdmissionController {
   #activeHeavy = 0;
   #queuedBytes = 0;
-  #waiters: Array<() => void> = [];
+  /** #10437: independent counter for the bounded "healthy heap" headroom budget —
+   * separate from `#activeHeavy` so it never inflates the documented
+   * `CHAT_MAX_HEAVY_IN_FLIGHT` bound, but still a real, finite ceiling instead of
+   * the unconditional bypass this replaces. */
+  #activeHealthy = 0;
+  /** Per-key FIFOs. A key groups one client's waiters so they are served
+   * round-robin against the shared budget instead of monopolizing a strict
+   * FIFO (see #dispatchFair). */
+  #queues = new Map<string, AdmissionWaiter[]>();
+  /** Keys in creation order; #fairCursor scans them round-robin. */
+  #fairKeys: string[] = [];
+  #fairCursor = 0;
 
   constructor(
     readonly maxHeavyInFlight = 1,
-    readonly maxQueuedBytes = CHAT_ADMISSION_MAX_QUEUED_BYTES
+    readonly maxQueuedBytes = CHAT_ADMISSION_MAX_QUEUED_BYTES,
+    /** #10437: bounded extra capacity for the healthy-heap fast path. `0` disables
+     * the bypass entirely — every busy request then falls through to the same
+     * bounded-wait/shed path used under real heap pressure. */
+    readonly healthyHeadroom = CHAT_ADMISSION_HEALTHY_HEADROOM
   ) {
     if (!Number.isSafeInteger(maxHeavyInFlight) || maxHeavyInFlight < 1) {
       throw new RangeError("maxHeavyInFlight must be a positive integer");
@@ -131,15 +204,61 @@ export class ChatAdmissionController {
     if (!Number.isSafeInteger(maxQueuedBytes) || maxQueuedBytes < 0) {
       throw new RangeError("maxQueuedBytes must be a non-negative integer");
     }
+    if (!Number.isSafeInteger(healthyHeadroom) || healthyHeadroom < 0) {
+      throw new RangeError("healthyHeadroom must be a non-negative integer");
+    }
   }
 
   get activeHeavy(): number {
     return this.#activeHeavy;
   }
 
-  /** Total buffered bytes currently parked in the FIFO (heap valve accounting). */
+  /** Active leases held through the bounded healthy-heap headroom budget (#10437). */
+  get activeHealthyHeadroom(): number {
+    return this.#activeHealthy;
+  }
+
+  /**
+   * Acquire one slot from the bounded, independent healthy-heap headroom budget
+   * (#10437). Unlike `tryAcquireHeavy()`, this never contends with the primary
+   * `maxHeavyInFlight` lease — it exists ONLY to give the "heap has real
+   * headroom" fast path a finite ceiling instead of an unconditional bypass.
+   * Returns `null` once `healthyHeadroom` concurrent leases are already active,
+   * at which point the caller must fall through to the bounded-wait/shed path.
+   */
+  tryAcquireHealthyHeadroom(): ChatAdmissionLease | null {
+    if (this.#activeHealthy >= this.healthyHeadroom) return null;
+    this.#activeHealthy += 1;
+    let released = false;
+    return {
+      get released() {
+        return released;
+      },
+      release: () => {
+        if (released) return;
+        released = true;
+        this.#activeHealthy = Math.max(0, this.#activeHealthy - 1);
+      },
+    };
+  }
+
+  /** Total buffered bytes currently parked across all queues (heap valve accounting). */
   get queuedBytes(): number {
     return this.#queuedBytes;
+  }
+
+  /** Total waiters parked across all keys (diagnostics). */
+  get waitingCount(): number {
+    let total = 0;
+    for (const queue of this.#queues.values()) total += queue.length;
+    return total;
+  }
+
+  /** Per-key waiter depths (diagnostics) — opaque scheduler keys, never raw credentials. */
+  get waitersByKey(): ReadonlyArray<{ key: string; waiting: number }> {
+    const out: Array<{ key: string; waiting: number }> = [];
+    for (const [key, queue] of this.#queues) out.push({ key, waiting: queue.length });
+    return out;
   }
 
   tryAcquireHeavy(): ChatAdmissionLease | null {
@@ -154,7 +273,7 @@ export class ChatAdmissionController {
         if (released) return;
         released = true;
         this.#activeHeavy = Math.max(0, this.#activeHeavy - 1);
-        this.#waiters.shift()?.();
+        this.#dispatchFair();
       },
     };
   }
@@ -163,10 +282,14 @@ export class ChatAdmissionController {
    * Wait up to `timeoutMs` for heavyweight capacity, retrying atomically on each
    * release. Resolves `null` when the deadline expires with no capacity freed, in
    * which case the caller answers the retryable 503. `timeoutMs <= 0` is the
-   * legacy immediate-reject path. Waiters are served FIFO.
+   * legacy immediate-reject path.
+   *
+   * Waiters are grouped by `sessionKey` and served round-robin across keys
+   * (#dispatchFair), so one client's burst cannot starve another's bounded wait
+   * while every key contends for the SAME process-wide budget.
    *
    * When `signal` aborts while parked (client disconnect), the waiter is removed
-   * from the FIFO immediately and the promise resolves `null` early instead of
+   * from its queue immediately and the promise resolves `null` early instead of
    * parking for the full `timeoutMs` — the caller's 503 is dropped on the dead
    * connection, so no capacity is consumed and the freed slot never wakes a
    * waiter the client no longer needs. A signal that is already aborted never
@@ -181,7 +304,8 @@ export class ChatAdmissionController {
   async acquireHeavyWithin(
     timeoutMs: number,
     signal?: AbortSignal,
-    queuedBytes = 0
+    queuedBytes = 0,
+    sessionKey = "default"
   ): Promise<ChatAdmissionLease | null> {
     const deadline = Date.now() + Math.max(0, Math.floor(timeoutMs));
     for (;;) {
@@ -195,14 +319,26 @@ export class ChatAdmissionController {
         return null;
       }
       this.#queuedBytes += queuedBytes;
-      let resolver: (() => void) | null = null;
-      const released = new Promise<void>((resolve) => {
-        resolver = () => resolve();
-        this.#waiters.push(resolver);
+      // Park into this key's FIFO (creating the key on first use).
+      let queue = this.#queues.get(sessionKey);
+      if (!queue) {
+        queue = [];
+        this.#queues.set(sessionKey, queue);
+        this.#fairKeys.push(sessionKey);
+      }
+      const lane = queue;
+      let resolveParked: (() => void) | null = null;
+      const waiter: AdmissionWaiter = {
+        key: sessionKey,
+        resolve: () => resolveParked?.(),
+      };
+      const parked = new Promise<void>((resolve) => {
+        resolveParked = () => resolve();
+        lane.push(waiter);
       });
       let deadlineTimer: ReturnType<typeof setTimeout> | null = null;
       const races: Array<Promise<boolean>> = [
-        released.then(() => false),
+        parked.then(() => false),
         new Promise<boolean>((resolve) => {
           deadlineTimer = setTimeout(() => resolve(true), remaining);
         }),
@@ -220,16 +356,52 @@ export class ChatAdmissionController {
         );
       }
       const timedOut = await Promise.race(races);
-      // The waiter has left the FIFO (wake, abort, or timeout) — release its charge.
+      // The waiter has left its queue (wake, abort, or timeout) — release its charge.
       this.#queuedBytes = Math.max(0, this.#queuedBytes - queuedBytes);
-      if (resolver) {
-        const index = this.#waiters.indexOf(resolver);
-        if (index >= 0) this.#waiters.splice(index, 1);
-      }
+      this.#removeWaiter(waiter);
       // Cancel the deadline timer when abort/release wins; a fired timer is a no-op.
       if (deadlineTimer) clearTimeout(deadlineTimer);
       if (onAbort) signal?.removeEventListener("abort", onAbort);
       if (timedOut) return null;
+    }
+  }
+
+  /** Remove a parked waiter from its key's queue, dropping empty keys. Idempotent. */
+  #removeWaiter(waiter: AdmissionWaiter): void {
+    const queue = this.#queues.get(waiter.key);
+    if (!queue) return;
+    const index = queue.indexOf(waiter);
+    if (index >= 0) queue.splice(index, 1);
+    if (queue.length === 0) this.#removeFairKey(waiter.key);
+  }
+
+  #removeFairKey(key: string): void {
+    this.#queues.delete(key);
+    const index = this.#fairKeys.indexOf(key);
+    if (index < 0) return;
+    this.#fairKeys.splice(index, 1);
+    if (index < this.#fairCursor) this.#fairCursor -= 1;
+    if (this.#fairKeys.length === 0) this.#fairCursor = 0;
+  }
+
+  /**
+   * Round-robin dispatch across per-key queues (#9654 fairness, #10110 global
+   * budget). Called on every release; wakes exactly ONE waiter — the head of
+   * the next key in rotation — so the freed slot is claimed atomically by the
+   * woken waiter's re-loop. A strict FIFO would let one client's burst consume
+   * every freed slot; rotating the cursor gives each contending key a turn.
+   */
+  #dispatchFair(): void {
+    if (this.#fairKeys.length === 0) return;
+    for (let i = 0; i < this.#fairKeys.length; i++) {
+      const key = this.#fairKeys[this.#fairCursor % this.#fairKeys.length];
+      this.#fairCursor += 1;
+      const queue = this.#queues.get(key);
+      if (!queue || queue.length === 0) continue;
+      const waiter = queue.shift() as AdmissionWaiter;
+      if (queue.length === 0) this.#removeFairKey(key);
+      waiter.resolve();
+      return;
     }
   }
 }
@@ -237,24 +409,27 @@ export class ChatAdmissionController {
 const defaultAdmissionController = new ChatAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
 
 /**
- * Per-connection virtual admission lanes (#9654).
+ * Process-wide byte-level admission budget (#10110).
  *
- * Maps a sessionId (API-key hash or "anonymous") → ChatAdmissionController.
-   Each connection gets its own bounded heavyweight capacity so one connection
- * cannot exhaust `CHAT_MAX_HEAVY_IN_FLIGHT` and starve others at the byte-level
- * admission stage.
+ * Every request — every session, every API key — admits against ONE global
+ * ChatAdmissionController, so `CHAT_MAX_HEAVY_IN_FLIGHT` and
+ * `CHAT_ADMISSION_MAX_QUEUED_BYTES` are enforced process-wide, exactly as
+ * documented in docs/reference/ENVIRONMENT.md. The pre-#10110 design minted a
+ * per-session controller per request, multiplying the process bound by up to
+ * 64 lanes and letting unauthenticated fake credentials shard capacity.
  *
- * Idle sessions are auto-evicted after OMNIROUTE_CHAT_VIRTUAL_TTL_MS
- * (default 60s) to prevent unbounded Map growth.
+ * Per-request session identity survives ONLY as a fairness scheduling key:
+ * waiters are grouped per key and served round-robin against the shared
+ * budget (ChatAdmissionController#dispatchFair), preserving the #9654
+ * guarantee that one connection's burst cannot starve others — without any
+ * per-key capacity being allocated.
  */
-const OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS = parsePositiveInt(
-  process.env.OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS,
-  64
-);
 
 export function resolveSessionId(request: Request): string {
-  // Reuse the existing internal-bypass auth extraction: bearer token from
-  // Authorization, x-api-key (Anthropic-style), or Google API key header.
+  // Fairness scheduling key ONLY (never a capacity shard): hashed so raw key
+  // material never appears in diagnostics. Reuses the internal-bypass auth
+  // extraction: bearer token from Authorization, x-api-key (Anthropic-style),
+  // or Google API key header.
   const authHeader = request.headers.get("authorization") || "";
   const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
   if (bearerMatch) {
@@ -271,106 +446,63 @@ export function resolveSessionId(request: Request): string {
   return "anonymous";
 }
 
-interface SessionRecord {
-  controller: ChatAdmissionController;
-  lastUsedMs: number;
-}
-
 export class PerConnectionAdmissionController {
-  #sessions = new Map<string, SessionRecord>();
-  #evictionTimer: ReturnType<typeof setTimeout> | null = null;
-  readonly maxSessions: number;
-  readonly sessionTtlMs: number;
+  readonly #controller: ChatAdmissionController;
 
   constructor(
-    readonly maxHeavyPerSession: number,
-    opts?: { maxSessions?: number; sessionTtlMs?: number }
+    readonly maxHeavyInFlight = 1,
+    // Deprecated pre-#10110 lane-eviction knobs: accepted for API
+    // compatibility and ignored — there are no per-session lanes to evict.
+    _opts?: { maxSessions?: number; sessionTtlMs?: number }
   ) {
-    this.maxSessions = opts?.maxSessions ?? OMNIROUTE_CHAT_VIRTUAL_MAX_SESSIONS;
-    this.sessionTtlMs = opts?.sessionTtlMs ?? OMNIROUTE_CHAT_VIRTUAL_TTL_MS;
+    this.#controller = new ChatAdmissionController(maxHeavyInFlight);
   }
 
-  getController(sessionId: string): ChatAdmissionController {
-    this.evictIfDue();
-    const existing = this.#sessions.get(sessionId);
-    if (existing) {
-      existing.lastUsedMs = Date.now();
-      return existing.controller;
-    }
-    // Evict oldest if at capacity (LRU fallback when TTL hasn't fired).
-    if (this.#sessions.size >= this.maxSessions) {
-      const oldestKey = this.oldestKey();
-      if (oldestKey) this.#sessions.delete(oldestKey);
-    }
-    const controller = new ChatAdmissionController(this.maxHeavyPerSession);
-    this.#sessions.set(sessionId, { controller, lastUsedMs: Date.now() });
-    this.armEviction();
-    return controller;
+  /** Returns the process-global budget — the same instance for every session. */
+  getController(_sessionId: string): ChatAdmissionController {
+    return this.#controller;
   }
 
-  /** Snapshot for observability — never exposes raw API keys. */
-  snapshot(): ReadonlyArray<{ sessionId: string; activeHeavy: number; idleMs: number }> {
-    const now = Date.now();
-    const arr: Array<{ sessionId: string; activeHeavy: number; idleMs: number }> = [];
-    for (const [sessionId, record] of this.#sessions) {
-      arr.push({
-        sessionId,
-        activeHeavy: record.controller.activeHeavy,
-        idleMs: now - record.lastUsedMs,
-      });
-    }
-    return arr;
+  /**
+   * Process-wide aggregate snapshot for observability: global totals plus
+   * per-key waiter depths. Keys are opaque scheduler keys, never raw
+   * credentials.
+   */
+  snapshot(): {
+    activeHeavy: number;
+    queuedBytes: number;
+    waiting: number;
+    lanes: ReadonlyArray<{ key: string; waiting: number }>;
+  } {
+    return {
+      activeHeavy: this.#controller.activeHeavy,
+      queuedBytes: this.#controller.queuedBytes,
+      waiting: this.#controller.waitingCount,
+      lanes: this.#controller.waitersByKey,
+    };
   }
 
-  get sessionCount(): number {
-    return this.#sessions.size;
+  get activeHeavy(): number {
+    return this.#controller.activeHeavy;
   }
 
-  private oldestKey(): string | undefined {
-    let oldest: string | undefined;
-    let oldestMs = Infinity;
-    for (const [key, record] of this.#sessions) {
-      // Use <= so that for equal timestamps, later-inserted entries win,
-      // preserving LRU semantics when Date.now() returns the same value.
-      if (record.lastUsedMs <= oldestMs) {
-        oldestMs = record.lastUsedMs;
-        oldest = key;
-      }
-    }
-    return oldest;
+  get queuedBytes(): number {
+    return this.#controller.queuedBytes;
   }
 
-  private evictIfDue(): void {
-    const now = Date.now();
-    let evicted = false;
-    for (const [sessionId, record] of this.#sessions) {
-      if (now - record.lastUsedMs >= this.sessionTtlMs) {
-        this.#sessions.delete(sessionId);
-        evicted = true;
-      }
-    }
-    if (evicted) this.armEviction();
+  get waitingCount(): number {
+    return this.#controller.waitingCount;
   }
 
-  private armEviction(): void {
-    if (this.#evictionTimer !== null) return;
-    this.#evictionTimer = setTimeout(() => {
-      this.#evictionTimer = null;
-      this.evictIfDue();
-    }, this.sessionTtlMs).unref();
-  }
-
-  /** Force cleanup of all sessions (used by shutdown / tests). */
+  /** No per-session state to clean; kept for API compatibility. */
   dispose(): void {
-    this.#sessions.clear();
-    if (this.#evictionTimer !== null) {
-      clearTimeout(this.#evictionTimer);
-      this.#evictionTimer = null;
-    }
+    // Intentionally empty: the process-global controller owns no session state.
   }
 }
 
-export const perConnectionAdmissionController = new PerConnectionAdmissionController(CHAT_MAX_HEAVY_IN_FLIGHT);
+export const perConnectionAdmissionController = new PerConnectionAdmissionController(
+  CHAT_MAX_HEAVY_IN_FLIGHT
+);
 
 export type ChatRequestAdmission =
   | { admit: true; request: Request; lease: ChatAdmissionLease | null }
@@ -487,6 +619,12 @@ export async function admitChatStructure(
     heavyTokens?: number;
     queueMs?: number;
     signal?: AbortSignal;
+    /**
+     * Heap-pressure probe consulted only when heavyweight capacity is busy
+     * (#10183, #10268). Defaults to `defaultHeapPressureCheck` (live V8 heap
+     * stats). Tests inject a deterministic override.
+     */
+    heapPressureCheck?: () => boolean;
   } = {}
 ): Promise<ChatStructureAdmission> {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { admit: true, lease };
@@ -524,13 +662,42 @@ export async function admitChatStructure(
     (options.sessionId
       ? perConnectionAdmissionController.getController(options.sessionId)
       : defaultAdmissionController);
+
+  // Uncontended fast path: capacity is free, no need to consult heap pressure at all.
+  const immediate = controller.tryAcquireHeavy();
+  if (immediate) return { admit: true, lease: immediate };
+
+  // Heavyweight capacity is momentarily busy (a concurrent heavy request holds the
+  // lease). #10183 / #10268: only enter the bounded-wait / shed path — with its
+  // queued-bytes heap valve and abort handling (#9654) — when the heap is
+  // GENUINELY under pressure. This restores the 3.8.48 `heapUsed/heapLimit >=
+  // shedRatio` condition as an additional gate on top of (never a replacement
+  // for) the bounded-concurrency / per-connection-lane protection above. A
+  // healthy heap has real headroom for a second heavy request even while the
+  // single lease is momentarily busy, so admit it immediately instead of
+  // parking/shedding a request that has nothing to do with actual resource
+  // pressure.
+  const heapPressureCheck = options.heapPressureCheck ?? defaultHeapPressureCheck;
+  if (!heapPressureCheck()) {
+    // #10437: the healthy-heap fast path must still have a real ceiling — an
+    // unconditional bypass here let unlimited concurrent "healthy heap"
+    // requests pile in ahead of the heap-pressure shed, defeating admission
+    // control entirely. Reserve from a separate, bounded headroom budget
+    // instead of an unconditional no-op lease; only fall through to the
+    // bounded-wait/shed path below (identical to the real-pressure case) once
+    // that budget is also exhausted.
+    const headroomLease = controller.tryAcquireHealthyHeadroom();
+    if (headroomLease) return { admit: true, lease: headroomLease };
+  }
+
   // Structural-only waits happen on byte-light bodies (a byte-heavy body already
   // holds the byte-stage lease), so the conservative 256KB weight bounds the
   // parsed JSON the waiter keeps resident while parked.
   const acquired = await controller.acquireHeavyWithin(
     options.queueMs ?? 0,
     options.signal,
-    CHAT_LARGE_BODY_BYTES
+    CHAT_LARGE_BODY_BYTES,
+    options.sessionId
   );
   return acquired
     ? { admit: true, lease: acquired }
@@ -596,14 +763,18 @@ export function resolveSelfLoopBearer(): string {
  * gap that kept the Zoo Code / api-key describe call failing even after the byte
  * stage was bypassed. Release is a no-op; capacity was never reserved.
  */
-const NULL_LEASE: ChatAdmissionLease = {
-  get released() {
-    return true;
-  },
-  release() {
-    // No-op: the sentinel never reserved heavyweight capacity.
-  },
-};
+function createNoopLease(): ChatAdmissionLease {
+  return {
+    get released() {
+      return true;
+    },
+    release() {
+      // No-op: this sentinel never reserved heavyweight capacity.
+    },
+  };
+}
+
+const NULL_LEASE: ChatAdmissionLease = createNoopLease();
 
 /**
  * True when the request is a trusted in-process self-loop sub-request that must
@@ -700,7 +871,7 @@ export async function admitChatRequest(
   let lease: ChatAdmissionLease | null = null;
   const reserve = async (bytes = 0): Promise<boolean> => {
     if (lease) return true;
-    lease = await controller.acquireHeavyWithin(queueMs, request.signal, bytes);
+    lease = await controller.acquireHeavyWithin(queueMs, request.signal, bytes, sessionId);
     return lease !== null;
   };
 
