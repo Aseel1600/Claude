@@ -24,6 +24,12 @@
  * without DNS / the full stack. No `@/`-aliased or DB-backed imports here —
  * the `allowLocal` policy decision is made by the caller (subscriptionService,
  * which is already DB-backed) and passed in as a plain boolean.
+ *
+ * IPv6 hardening (#10416): IPv4-mapped IPv6 literals (`::ffff:a.b.c.d`) are
+ * unwrapped and re-checked against the IPv4 ranges, so a mapped IMDS/
+ * loopback/private address can't bypass the guard. Link-local detection
+ * covers the FULL `fe80::/10` range (`fe80::`-`febf:ffff:…`), not just
+ * strings literally prefixed with `fe80`.
  */
 
 /** Only these URL schemes may be used to *fetch* a subscription. */
@@ -81,12 +87,63 @@ export function isIpv4Blocked(ip: string, opts: FetchGuardOptions = {}): boolean
   return ranges.some(([base, mask]) => ((n & mask) >>> 0) === (base >>> 0));
 }
 
-/** Blocked IPv6 addresses: unspecified/link-local always; loopback/ULA only when strict. */
+// IPv4-mapped IPv6, dotted-quad tail: "::ffff:a.b.c.d" or its fully-expanded
+// "0:0:0:0:0:ffff:a.b.c.d" form. This is how the literal is typically
+// *written* (e.g. by a caller invoking `isIpv6Blocked` directly).
+const IPV4_MAPPED_DOTTED_RE =
+  /^(?:::ffff:|0:0:0:0:0:ffff:)(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i;
+
+// IPv4-mapped IPv6, hex-group tail: "::ffff:HHHH:HHHH". This is how the
+// WHATWG `URL` parser NORMALIZES a dotted-quad mapped literal (e.g.
+// `::ffff:169.254.169.254` becomes `::ffff:a9fe:a9fe`), so a URL-derived
+// hostname needs this form recognized too or the guard silently sees a
+// hostname it never resolves the mapped address for.
+const IPV4_MAPPED_HEX_RE = /^(?:::ffff:|0:0:0:0:0:ffff:)([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i;
+
+/** Extracts the mapped IPv4 address from an IPv4-mapped IPv6 literal, or null. */
+export function extractIpv4MappedAddress(ip: string): string | null {
+  const dotted = IPV4_MAPPED_DOTTED_RE.exec(ip);
+  if (dotted) return dotted[1];
+  const hex = IPV4_MAPPED_HEX_RE.exec(ip);
+  if (!hex) return null;
+  const hi = parseInt(hex[1], 16);
+  const lo = parseInt(hex[2], 16);
+  if (Number.isNaN(hi) || Number.isNaN(lo)) return null;
+  return `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+}
+
+/**
+ * True if `ip`'s first 16-bit hex group falls in `fe80`-`febf` — the full
+ * `fe80::/10` link-local range (top 10 bits `1111111010`, i.e. the low 6 bits
+ * of the first group are free). A `.startsWith("fe80")` check only matches
+ * the single `fe80` group and misses the rest of the range (e.g. `fe90::`,
+ * `febf:ffff::`); it would also wrongly match hostnames like `fe80abc::`,
+ * which this exact-group parse avoids. `fec0::/10` (deprecated site-local)
+ * is intentionally excluded — it is outside `fe80::/10`.
+ */
+function isIpv6LinkLocal(ip: string): boolean {
+  if (ip.startsWith("::")) return false; // first group is 0 — never link-local
+  const idx = ip.indexOf(":");
+  if (idx <= 0 || idx > 4) return false;
+  const group = ip.slice(0, idx);
+  const n = parseInt(group, 16);
+  if (Number.isNaN(n)) return false;
+  return n >= 0xfe80 && n <= 0xfebf;
+}
+
+/**
+ * Blocked IPv6 addresses: unspecified/link-local always; loopback/ULA only
+ * when strict. IPv4-mapped literals (`::ffff:a.b.c.d`) are unwrapped and
+ * re-checked against the IPv4 rules so a mapped IMDS/loopback/private
+ * address can't bypass the guard.
+ */
 export function isIpv6Blocked(ip: string, opts: FetchGuardOptions = {}): boolean {
   const allowLocal = opts.allowLocal ?? true;
   const h = ip.toLowerCase();
   if (h === "::") return true; // unspecified — always blocked
-  if (h.startsWith("fe80")) return true; // link-local — always blocked
+  const mapped = extractIpv4MappedAddress(h);
+  if (mapped !== null) return isIpv4Blocked(mapped, opts);
+  if (isIpv6LinkLocal(h)) return true; // fe80::/10 — always blocked
   if (allowLocal) return false;
   if (h === "::1") return true; // loopback
   if (h.startsWith("fc") || h.startsWith("fd")) return true; // unique local
@@ -96,8 +153,12 @@ export function isIpv6Blocked(ip: string, opts: FetchGuardOptions = {}): boolean
 /** Whether `host` is an IP literal (v4 or v6). Hostnames return false. */
 export function isIpLiteral(host: string): boolean {
   if (isIpv4Literal(host)) return true;
-  // IPv6 literals contain ":" and consist only of hex digits + ":".
-  return host.includes(":") && /^([0-9a-fA-F:]+)$/.test(host);
+  if (!host.includes(":")) return false;
+  // Plain IPv6 literal (hex groups + colons)...
+  if (/^([0-9a-fA-F:]+)$/.test(host)) return true;
+  // ...or an IPv4-mapped IPv6 literal, which ends in a dotted-quad tail
+  // (e.g. "::ffff:169.254.169.254") and so isn't pure hex+colons.
+  return /^[0-9a-fA-F:]+:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
 }
 
 /**

@@ -160,3 +160,77 @@ test("#10158: local (127.0.0.1) http subscription URL is allowed by default", ()
 test("#10158: IMDS / cloud-metadata pivot stays blocked even with local-first default", () => {
   assert.equal(isSubscriptionFetchUrlAllowed("http://169.254.169.254/latest/meta-data/"), false);
 });
+
+// ─────────────────── Regression: #10416 incomplete SSRF guard ───────────────────
+// The #10158 fix left two gaps in the IPv6 side of the guard: (1) IPv4-mapped
+// IPv6 literals (`::ffff:a.b.c.d`) were never unwrapped, so a mapped IMDS/
+// loopback/private address skipped IPv4 range checking entirely; (2) the
+// link-local check was a narrow `.startsWith("fe80")` string test instead of
+// the full `fe80::/10` range (`fe80::` .. `febf:ffff::…`), so e.g. `fe90::1`
+// or `febf:ffff::1` were WRONGLY ALLOWED even though they are link-local.
+
+test("#10416: IPv4-mapped IPv6 IMDS literal stays blocked unconditionally", () => {
+  assert.equal(
+    isSubscriptionFetchUrlAllowed("http://[::ffff:169.254.169.254]/latest/meta-data/"),
+    false
+  );
+  assert.equal(
+    isSubscriptionFetchUrlAllowed("http://[::ffff:169.254.169.254]/latest/meta-data/", {
+      allowLocal: false,
+    }),
+    false
+  );
+  assert.equal(isIpv6Blocked("::ffff:169.254.169.254"), true);
+});
+
+test("#10416: IPv4-mapped IPv6 loopback/private literals follow IPv4 semantics", () => {
+  for (const mapped of ["::ffff:127.0.0.1", "::ffff:10.0.0.1", "::ffff:192.168.1.1"]) {
+    // local-first default: allowed, same as the bare IPv4 form.
+    assert.equal(isSubscriptionFetchUrlAllowed(`http://[${mapped}]/x`), true, mapped);
+    assert.equal(isIpv6Blocked(mapped), false, mapped);
+    // strict mode: blocked, same as the bare IPv4 form.
+    assert.equal(
+      isSubscriptionFetchUrlAllowed(`http://[${mapped}]/x`, { allowLocal: false }),
+      false,
+      mapped
+    );
+    assert.equal(isIpv6Blocked(mapped, { allowLocal: false }), true, mapped);
+  }
+});
+
+test("#10416: full fe80::/10 link-local range is blocked, not just the fe80 prefix", () => {
+  // fe80::/10 spans fe80:: through febf:ffff:…, i.e. the top 10 bits of the
+  // first hex group are 11111110 10xxxxxx (0xfe80-0xfebf). A narrow
+  // `.startsWith("fe80")` check misses fe90/fea0/febf entirely.
+  for (const ip of ["fe80::1", "fe90::1", "fea0::1", "febf:ffff::1"]) {
+    assert.equal(isSubscriptionFetchUrlAllowed(`http://[${ip}]/x`), false, ip);
+    assert.equal(
+      isSubscriptionFetchUrlAllowed(`http://[${ip}]/x`, { allowLocal: false }),
+      false,
+      ip
+    );
+    assert.equal(isIpv6Blocked(ip), true, ip);
+  }
+  // fec0:: is OUTSIDE fe80::/10 (it was the deprecated IPv6 site-local
+  // prefix, not link-local) — must NOT be misclassified as link-local.
+  assert.equal(isIpv6Blocked("fec0::1"), false);
+});
+
+test("#10416: IPv4-mapped IPv6 literal host is recognized by isIpLiteral", () => {
+  assert.equal(isIpLiteral("::ffff:169.254.169.254"), true);
+  assert.equal(isIpLiteral("::ffff:127.0.0.1"), true);
+});
+
+// The WHATWG `URL` parser normalizes a dotted-quad IPv4-mapped IPv6 literal
+// into hex-group form (`::ffff:169.254.169.254` -> `::ffff:a9fe:a9fe`), so
+// `isSubscriptionFetchUrlAllowed` (which parses via `new URL()`) only ever
+// sees the hex-group form for a URL-supplied host — verify that form too.
+test("#10416: URL-normalized (hex-group) IPv4-mapped IPv6 literals are handled", () => {
+  assert.equal(new URL("http://[::ffff:169.254.169.254]/x").hostname, "[::ffff:a9fe:a9fe]");
+  assert.equal(isSubscriptionFetchUrlAllowed("http://[::ffff:169.254.169.254]/x"), false);
+  assert.equal(isIpv6Blocked("::ffff:a9fe:a9fe"), true); // mapped IMDS
+
+  assert.equal(isSubscriptionFetchUrlAllowed("http://[::ffff:127.0.0.1]/x"), true);
+  assert.equal(isIpv6Blocked("::ffff:7f00:1"), false); // mapped loopback, local-first default
+  assert.equal(isIpv6Blocked("::ffff:7f00:1", { allowLocal: false }), true);
+});
