@@ -800,7 +800,11 @@ function canRunAtCompressionStage(
   stage: CompressionStage | undefined
 ): boolean {
   const effectiveStage = stage ?? "pre-translation";
-  const stages = engine.metadata.executionStages;
+  // `assertValidEngine` não exige `metadata`, então uma engine registrada sem
+  // esse campo é legal — e sem a guarda derrubava o pipeline inteiro com
+  // TypeError em vez de falhar aberto. Metadata ausente é o mesmo caso de "não
+  // declarou estágio" e cai no mesmo fallback: só pre-translation.
+  const stages = engine.metadata?.executionStages;
   return stages ? stages.includes(effectiveStage) : effectiveStage === "pre-translation";
 }
 
