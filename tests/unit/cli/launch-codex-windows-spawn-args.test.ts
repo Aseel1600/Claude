@@ -13,9 +13,15 @@ import {
 
 const isWindows = process.platform === "win32";
 
-test("resolveCodexSpawn: win32 spawns codex.cmd through a shell", () => {
+// Regression guard: on Windows an npm-installed `codex` is a `.cmd` shim that
+// spawn() cannot resolve without a shell (bare "codex" -> ENOENT when shell is
+// undefined). A native/standalone Codex CLI install instead places a bare
+// `codex.exe` on PATH with no `.cmd` shim at all, so the command must NOT be
+// hardcoded to "codex.cmd" -- shell: true lets cmd.exe's normal PATHEXT
+// resolution find whichever one is actually installed.
+test("resolveCodexSpawn: win32 spawns bare codex through a shell (PATHEXT resolves .cmd or .exe)", () => {
   const { command, shell } = resolveCodexSpawn("win32");
-  assert.equal(command, "codex.cmd");
+  assert.equal(command, "codex");
   assert.equal(shell, true);
 });
 

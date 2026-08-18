@@ -20,12 +20,16 @@ const STRIPPED_CODEX_ENV_KEYS = [
 /** Placeholder so codex's `env_key` is always satisfied when the backend is open. */
 const NO_AUTH_SENTINEL = "omniroute-no-auth";
 
-// On Windows the `codex` binary is an npm `.cmd` shim that `spawn` cannot resolve
-// without a shell (bare "codex" → ENOENT). Mirror the qodercli Windows fix (#6263):
-// spawn `codex.cmd` through a shell on win32, and the bare binary elsewhere.
+// On Windows an npm-installed `codex` is a `.cmd` shim that `spawn` cannot
+// resolve without a shell (bare "codex" -> ENOENT when shell is undefined).
+// A native/standalone Codex CLI install instead places a bare `codex.exe` on
+// PATH with no `.cmd` shim at all, so the command must NOT be hardcoded to
+// "codex.cmd" -- shell: true lets cmd.exe's normal PATHEXT resolution find
+// whichever one is actually installed. Mirrors the same fix applied to
+// resolveClaudeSpawn() for the same reason (see bin/cli/commands/launch.mjs).
 export function resolveCodexSpawn(platform) {
   if (platform === "win32") {
-    return { command: "codex.cmd", shell: true };
+    return { command: "codex", shell: true };
   }
   return { command: "codex", shell: undefined };
 }
