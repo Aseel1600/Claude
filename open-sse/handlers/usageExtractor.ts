@@ -104,6 +104,7 @@ export function extractUsageFromResponse(responseBody, provider) {
     return {
       prompt_tokens: usageMetadata.promptTokenCount || 0,
       completion_tokens: (usageMetadata.candidatesTokenCount || 0) + thoughts,
+      cached_tokens: usageMetadata.cachedContentTokenCount || 0,
       reasoning_tokens: thoughts,
     };
   }

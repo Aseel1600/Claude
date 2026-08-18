@@ -1,4 +1,5 @@
 import {
+  clampLimit,
   closeAdaptationWindow,
   createAdaptationState,
   noteLatency,
@@ -151,6 +152,11 @@ export class AdaptiveAdmissionController {
       next.maxLimit,
       Math.max(next.minLimit, this.adaptation.currentLimit)
     );
+    // #10111: the idle-recovery ceiling must track a new initialLimit (and the
+    // possibly-also-new min/maxLimit) instead of staying pinned to the value computed
+    // at construction time — otherwise a raised initialLimit can never recover past the
+    // stale ceiling, and a lowered one leaves the ceiling above the new maxLimit.
+    this.adaptation.recoveryCeiling = clampLimit(next.initialLimit, next.minLimit, next.maxLimit);
     this.adaptation.windowStartMs = this.clock.now();
     this.adaptation.windowActiveCostIntegral = 0;
     this.adaptation.windowCompleted = 0;
@@ -283,6 +289,17 @@ export class AdaptiveAdmissionController {
 
     // enforce
     if (cost > limit) {
+      // #10111 solo-progress: the adaptive aggregate limit can collapse below an
+      // individually-valid request (a slow-provider turn shrinks currentLimit via the
+      // latency gradient, and no increase can fire because every path to "completed"
+      // requires an admission). A request within the healthy aggregate ceiling must never
+      // be terminally rejected as oversized while the system is otherwise idle — admit a
+      // single bounded solo request so the pipeline keeps making progress and the limit can
+      // recover. The hard per-request ceiling (maxLimit), the critical/high pressure fuse,
+      // and a busy system (active/queued work present) all take precedence over solo.
+      if (this.shouldAdmitSolo(cost)) {
+        return this.admit(cost);
+      }
       return this.reject("ADMISSION_OVERSIZED", "request cost exceeds max budget");
     }
 
@@ -329,6 +346,24 @@ export class AdaptiveAdmissionController {
     }
     this.virtualLanes.clear();
     this.clearLaneEviction();
+  }
+
+  /**
+   * #10111: whether a request that currently exceeds the temporary aggregate limit may run
+   * solo. True only when the request fits the healthy aggregate ceiling (maxLimit), the
+   * system is otherwise idle (no active/queued/lane work) and pressure is normal — so an
+   * individually-valid request is not terminally rejected as oversized just because a
+   * latency-gradient decrease collapsed the temporary limit. Under genuine load, critical
+   * pressure, or an over-ceiling request the caller falls through to the terminal reject.
+   */
+  private shouldAdmitSolo(cost: number): boolean {
+    return (
+      cost <= this.config.maxLimit &&
+      this.active.size === 0 &&
+      this.queue.size === 0 &&
+      this.laneTotalQueuedCount() === 0 &&
+      this.adaptation.pressure === "normal"
+    );
   }
 
   private resolveCost(request: AdmissionRequest): number {

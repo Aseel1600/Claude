@@ -285,8 +285,12 @@ Next.js `basePath` is compiled into the standalone bundle. OmniRoute records the
 value in a sentinel file at the app root (written during `npm run build`; read by
 `scripts/docker/ensure-docker-base-path.mjs`) and compares it with
 `OMNIROUTE_BASE_PATH` when the container starts. When they differ and the image was
-built for the domain root, the entrypoint rewrites the standalone manifests and embedded
-`basePath` literals before `node dev/run-standalone.mjs` runs.
+built for the domain root, the entrypoint rewrites the standalone manifests, the
+embedded `basePath`/`assetPrefix` literals (Next 16 renders SSR asset URLs from
+`assetPrefix` alone — the patcher mirrors the subpath into it), the baked
+`/_next/static` asset URLs (client-reference manifests, media imports, prerendered
+error pages) and the client `process.env` shim before `node dev/run-standalone.mjs`
+runs.
 
 ### Compose build (recommended)
 

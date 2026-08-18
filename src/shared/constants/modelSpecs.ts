@@ -174,6 +174,18 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     thinkingBudgetCap: 0,
   },
 
+  // ── Gemini 3.7 Flash (Antigravity) — collapsed live id ──────────
+  // Upstream (fetchAvailableModels on daily-cloudcode-pa) also serves this model as a
+  // single `gemini-3.7-flash-tiered` id via the `gemini-3.7-flash` alias in
+  // antigravityModelAliases.ts. Registered independently of the suffixed tier ids below
+  // (#3696 uniqueness invariant: each public id resolves to a distinct upstream id).
+  "gemini-3.7-flash": {
+    ...GEMINI_35_FLASH_MODEL_SPEC,
+    defaultThinkingBudget: 8192,
+    thinkingBudgetCap: 65536,
+    supportsThinking: true,
+  },
+
   // ── Gemini 3.7 / 3.6 Flash (Antigravity live tiers) ─────────────
   // The model id itself selects the upstream 10k/4k/1k reasoning tier. Antigravity
   // still rejects client-supplied thinking parameters, so keep the explicit-parameter
@@ -466,6 +478,7 @@ export const MODEL_SPECS: Record<string, ModelSpec> = {
     supportsThinking: true,
     supportsTools: true,
     supportsVision: true,
+    aliases: ["qwen3.8-max"],
   },
   "qwen3.6-plus": {
     maxOutputTokens: 65536,

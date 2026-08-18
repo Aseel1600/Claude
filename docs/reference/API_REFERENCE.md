@@ -129,18 +129,43 @@ Content-Type: application/json
 }
 ```
 
-Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**.
+Available providers: Nebius, OpenAI, Mistral, Together AI, Fireworks, NVIDIA, **OpenRouter**, Jina AI.
+
+Catalog ids are `provider/model` (example: `jina-ai/jina-embeddings-v5-omni-small`). Bare Jina model ids that appear in the registry (for example `jina-embeddings-v5-text-small`, `jina-reranker-v3.5`) also resolve. Jina embed/rerank/classify/segment use dashboard `jina-ai` credentials first; `JINA_AI_API_KEY` is a fallback only when no dashboard key exists. The `jina-reader` card is Reader / `r.jina.ai` only (`POST /v1/web/fetch`) and never serves embeddings or rerank.
 
 Registry models that advertise multimodal support also accept up to 32 provider-neutral structured
 items. Media item types are `text`, `image`, `audio`, `video`, and `document`. Their media `source`
 is either `{"type":"url","url":"https://..."}` or
 `{"type":"base64","data":"...","media_type":"..."}`.
 
+Jina v5 Omni (`jina-ai/jina-embeddings-v5-omni-small`, `jina-ai/jina-embeddings-v5-omni-nano`,
+and the family alias `jina-ai/jina-embeddings-v5-omni` → omni-small) also accepts Jina's native
+EmbeddingsV5Request docs and **forwards them intact** to `https://api.jina.ai/v1/embeddings`:
+
+```json
+{
+  "model": "jina-ai/jina-embeddings-v5-omni-small",
+  "task": "retrieval.query",
+  "normalized": true,
+  "input": [
+    { "text": "a red bicycle" },
+    { "image": "https://example.com/bike.png" },
+    { "content": [{ "text": "caption" }, { "image": "data:image/png;base64,..." }] }
+  ]
+}
+```
+
+Native `{ image | audio | video | pdf }` values may be a public HTTPS URL, a `data:` URI, or raw
+base64. OmniRoute does not stringify those objects or fetch native image URLs — Jina retrieves
+public media itself. Extra Jina fields (`task`, `normalized`, `truncate`, `embedding_type`) are
+forwarded. Text-only Jina SKUs still reject non-text docs.
+
 Security and transport bounds:
 
-- Remote media URLs must be public HTTPS. OmniRoute fetches them server-side with redirect
-  revalidation, timeout, decoded size limits, public DNS checks, and connection pinning to a
-  validated answer before the provider call. Providers never receive the original remote URL.
+- Remote media URLs must be public HTTPS. Canonical `{type,source:url}` items are fetched
+  server-side (redirect revalidation, timeout, size limits, public DNS, connection pinning) and
+  inlined before the provider call. Jina-native `{image:"https://..."}` items are forwarded as-is
+  after the same public-HTTPS check; Jina fetches the URL.
 - Inline base64 media is limited to 8 MiB decoded per item and 16 MiB decoded across the request.
 
 Provider translation (canonical items are never forwarded unchanged):
@@ -270,6 +295,31 @@ Authorization: Bearer your-api-key
 → Returns all chat, embedding, and image models + combos in OpenAI format
 ```
 
+### Model id prefixes (`?prefix=`)
+
+Most models are advertised under a **provider prefix**. Which prefix you get is controlled by
+the `MODELS_CATALOG_PREFIX_MODE` feature flag, and can be overridden **per request** with a
+query parameter — useful for a client that wants a clean list without changing the server-wide
+setting for everyone else:
+
+```bash
+GET /v1/models?prefix=alias        # one id per model — the short alias prefix
+GET /v1/models?prefix=dual         # both forms (server default)
+GET /v1/models?prefix=canonical    # only the full provider-id prefix
+```
+
+| Mode | Emits | Notes |
+| --- | --- | --- |
+| `dual` | `cc/claude-sonnet-4-6` **and** `claude/claude-sonnet-4-6` | **Default.** Both ids route to the same model; kept so client configs that hardcoded either form keep working. Roughly doubles the catalog. |
+| `alias` | `cc/claude-sonnet-4-6` | One entry per model. Providers without a distinct alias still emit their entry, so nothing is lost. |
+| `canonical` | `claude/claude-sonnet-4-6` | ⚠️ The canonical row is only emitted when the canonical provider id **differs** from the alias, so providers without a distinct alias emit nothing in this mode. Prefer `alias` for a de-duplicated list. |
+
+A `dual`-mode mirror can also be recognised without the query parameter: it carries a `parent`
+field pointing at the primary id.
+
+Clients that render a model picker should request `?prefix=alias` — this is what the
+[OmniCopilot VS Code extension](../guides/VSCODE-COPILOT.md) does.
+
 ### No-thinking model variants
 
 For thinking-capable Claude models, `/v1/models` also advertises a **no-thinking** variant whose id is prefixed with `claude-3-omniroute-no-thinking/`:
@@ -313,6 +363,8 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 | POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)               |
 | POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)  |
 | POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank       |
+| POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)    |
+| POST   | `/v1/segment`                             | Jina segmenter (`segment.jina.ai`) |
 | POST   | `/v1/moderations`                         | OpenAI Moderations               |
 | GET    | `/v1/models`                              | OpenAI                           |
 | POST   | `/v1/messages/count_tokens`               | Anthropic                        |
@@ -332,7 +384,16 @@ For clients that cannot attach `Authorization: Bearer ...`, OmniRoute also accep
 
 ```bash
 # Rerank
-POST /v1/rerank      { "model": "cohere/rerank-3", "query": "...", "documents": ["..."] }
+POST /v1/rerank      { "model": "jina-ai/jina-reranker-v3.5", "query": "...", "documents": ["..."] }
+
+# Jina classify (Foundation API credentials)
+POST /v1/classify    { "model": "jina-embeddings-v5-text-small", "input": ["..."], "labels": ["a", "b"] }
+
+# Jina segmenter
+POST /v1/segment     { "content": "...", "return_chunks": true }
+
+# Jina search (s.jina.ai; provider aliases: jina-search, jina-ai, jina)
+POST /v1/search      { "query": "...", "provider": "jina-search" }
 
 # Moderations
 POST /v1/moderations { "model": "omni-moderation-latest", "input": "..." }
@@ -808,7 +869,10 @@ Authorization: Bearer your-api-key
 Content-Type: multipart/form-data
 ```
 
-Transcribe audio files using Deepgram or AssemblyAI.
+Transcribe audio files using any configured STT provider. The first path
+segment selects the native provider (`openai/…`, `deepgram/…`). Gateways that
+re-export another vendor's model use a qualified id
+(`openrouter/deepgram/nova-3`).
 
 **Request:**
 
@@ -816,7 +880,7 @@ Transcribe audio files using Deepgram or AssemblyAI.
 curl -X POST http://localhost:20128/v1/audio/transcriptions \
   -H "Authorization: Bearer your-api-key" \
   -F "file=@recording.mp3" \
-  -F "model=deepgram/nova-3"
+  -F "model=openai/whisper-1"
 ```
 
 **Response:**
@@ -830,7 +894,10 @@ curl -X POST http://localhost:20128/v1/audio/transcriptions \
 }
 ```
 
-**Supported providers:** `deepgram/nova-3`, `assemblyai/best`.
+**Example model ids:** `openai/whisper-1` (requires an OpenAI key),
+`openrouter/deepgram/nova-3` (requires an OpenRouter key),
+`deepgram/nova-3` (requires a native Deepgram key). A bare
+`deepgram/nova-3` request does **not** use OpenRouter.
 
 **Supported formats:** `mp3`, `wav`, `m4a`, `flac`, `ogg`, `webm`.
 
