@@ -37,6 +37,8 @@ import type { SingleModelTarget } from "@omniroute/open-sse/services/combo/types
 import { mergeAbortSignals } from "@omniroute/open-sse/executors/base.ts";
 import { resolveRequestAutoControls } from "@omniroute/open-sse/services/autoCombo/requestControls.ts";
 import { isVerifiedNativeCodexRequest } from "@omniroute/open-sse/config/codexIdentity.ts";
+import { resolveCompressionSettings } from "@omniroute/open-sse/handlers/chatCore/compressionSettings.ts";
+import type { CompressionExclusions } from "@omniroute/open-sse/services/compression/exclusions.ts";
 import { resolveComboConfig } from "@omniroute/open-sse/services/comboConfig.ts";
 import { injectHandoffIntoBody } from "@omniroute/open-sse/services/contextHandoff.ts";
 import {
@@ -117,6 +119,7 @@ import { getComboFailureLogError } from "./comboFailureLogging";
 import { classify429FromError, type FailureKind } from "@/shared/utils/classify429";
 import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextCooldowns.ts";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
+import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
 import { resolveForcedConnectionForCredentialPool } from "../services/sessionAffinityPin.ts";
@@ -213,6 +216,31 @@ let combosCachePromise: Promise<unknown[]> | null = null;
 let combosCacheTs = 0;
 let combosCacheVersionSnapshot = -1;
 const COMBOS_CACHE_TTL_MS = 10_000;
+
+/**
+ * #10225 — resolve whether this request's combo preflight should DEFER its hard
+ * context-overflow rejection so chatCore's compression runs first.
+ *
+ * Mirrors handleChatCore's own enablement determination (chatCore.ts): defer only
+ * when the global compression switch is ON and the API key has not opted out
+ * (`apiKeyInfo.compressionEnabled !== false`). Per-target applicability (server-side
+ * exclusions) is checked inside getKnownContextOverflow via the returned exclusions.
+ * Fail closed (defer=false) on any lookup error — the existing hard preflight stays.
+ */
+async function resolveComboContextOverflowDeferral(
+  logger: { warn?: (...args: unknown[]) => void } | null | undefined,
+  apiKeyInfo: { compressionEnabled?: boolean } | null | undefined
+): Promise<{ defer: boolean; exclusions: CompressionExclusions | undefined }> {
+  try {
+    const compression = await resolveCompressionSettings(logger);
+    return {
+      defer: compression.enabled && apiKeyInfo?.compressionEnabled !== false,
+      exclusions: compression.settings?.exclusions,
+    };
+  } catch {
+    return { defer: false, exclusions: undefined };
+  }
+}
 
 async function getCombosCachedForChat(): Promise<unknown[]> {
   const now = Date.now();
@@ -890,9 +918,20 @@ async function handleChatImplementation(
 
     // Context-relay keeps generation in combo.ts, but handoff injection lives here
     // because only this layer knows which connectionId was actually selected.
+    const { defer: deferContextOverflowWhenCompressible, exclusions: compressionExclusions } =
+      await resolveComboContextOverflowDeferral(log, apiKeyInfo);
     const response = await (handleComboChat as any)({
       body,
       combo,
+      deferContextOverflowWhenCompressible,
+      compressionExclusions,
+      // #10503: same request-shape facts chatCore.ts resolves for itself
+      // (resolveChatCoreRequestFormat), so getKnownContextOverflow's target-aware
+      // deferral check can never drift from chatCore's own native-codex-passthrough
+      // decision. See knownContextOverflow.ts::KnownContextOverflowOptions.
+      sourceFormat,
+      endpointPath: new URL(request.url).pathname,
+      requestHeaders: request.headers,
       clientManagedResponsesContext:
         sourceFormat === "openai-responses" &&
         new URL(request.url).pathname.split("/").includes("responses") &&
@@ -1171,11 +1210,22 @@ async function handleSingleModelChat(
     );
     log.info("ROUTING", `Auto-combo redirect from handleSingleModelChat for "${modelStr}"`);
     log.info("ROUTING", `Auto-combo redirect to combo flow for "${modelStr}"`);
+    const { defer: sNetDefer, exclusions: sNetExclusions } =
+      await resolveComboContextOverflowDeferral(log, apiKeyInfo);
+    // #10503: same request-shape facts chatCore.ts resolves for itself — threaded
+    // down so getKnownContextOverflow's target-aware deferral check can never drift
+    // from chatCore's own native-codex-passthrough decision.
+    const sNetSourceFormat = detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "");
     return handleComboChat({
       body,
       combo: redirectCombo,
+      deferContextOverflowWhenCompressible: sNetDefer,
+      compressionExclusions: sNetExclusions,
+      sourceFormat: sNetSourceFormat,
+      endpointPath: clientRawRequest?.endpoint || "",
+      requestHeaders: clientRawRequest?.headers,
       clientManagedResponsesContext:
-        detectFormatFromEndpoint(body, clientRawRequest?.endpoint || "") === "openai-responses" &&
+        sNetSourceFormat === "openai-responses" &&
         String(clientRawRequest?.endpoint || "")
           .split("/")
           .includes("responses") &&
@@ -1509,7 +1559,22 @@ async function handleSingleModelChat(
 
       const accountId = credentials.connectionId.slice(0, 8);
       const releaseOAuthSession = credentials.releaseOAuthSession ?? (() => {});
-      log.info("AUTH", `Using ${provider} account: ${accountId}...`);
+      // #10348: redact the account prefix by default. Gated on the narrow
+      // AUTH_LOG_INCLUDE_ACCOUNT_ID flag (default off) rather than the broad
+      // `debugMode` setting — `debugMode` is a general dashboard-visibility
+      // toggle unrelated to log privacy (its own default has changed
+      // independently for unrelated reasons, see #10312/#10372), so deriving
+      // redaction from it would make log leakage depend on an unrelated
+      // setting. resolveFeatureFlag() reads straight from SQLite on every
+      // call (no stale cache to invalidate) and fails safe (redacted) if the
+      // lookup throws.
+      let includeAccountId = false;
+      try {
+        includeAccountId = isFeatureFlagEnabled("AUTH_LOG_INCLUDE_ACCOUNT_ID");
+      } catch {
+        includeAccountId = false;
+      }
+      log.info("AUTH", `Using ${provider} account: ${includeAccountId ? accountId : "***"}...`);
       // #474: when the request used a bare model name (no "/" — e.g. an alias
       // that resolved to "auto") and the selected connection declares a
       // defaultModel, resolve the bare name to that real model ID before the

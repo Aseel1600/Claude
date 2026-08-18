@@ -7,6 +7,7 @@
  */
 
 import { markServerReady, markServerStarting } from "@/lib/serverLifecycle";
+import { normalizeBootError } from "@/lib/instrumentationBootError";
 
 function getRandomBytes(byteLength: number): Uint8Array {
   const bytes = new Uint8Array(byteLength);
@@ -37,23 +38,13 @@ export function renameProcessTitle(currentTitle: string): string {
   return `omniroute${currentTitle.slice("next-server".length)}`;
 }
 
-/**
- * Normalize any thrown/rejected value into a real `Error` instance.
- *
- * Next.js's own `registerInstrumentation()` wrapper (see
- * `node_modules/next/dist/server/lib/router-utils/instrumentation-globals.external.js`)
- * unconditionally does `err.message = \`...${err.message}\`` on whatever our
- * `register()` export rejects with, assuming it is always an `Error`. If a raw
- * non-Error primitive bubbles up instead (e.g. sql.js's WASM adapter throws the
- * bare string `"Database closed"` — see `./lib/db/adapters/sqljsAdapter.ts`),
- * that assignment throws `TypeError: Cannot create property 'message' on
- * string '...'` in strict mode, masking the original error and crashing the
- * whole server on every boot (#6560). Normalizing before it leaves our code
- * guarantees Next always receives something `.message`-assignable.
- */
-export function normalizeBootError(err: unknown): Error {
-  return err instanceof Error ? err : new Error(String(err));
-}
+// `normalizeBootError` now lives in `@/lib/instrumentationBootError` (imported
+// above) — shared, dependency-free, and reused by `src/instrumentation.ts`'s
+// outermost boot boundary (#10171) so both boot-failure logging sites agree
+// on the same normalization instead of maintaining two copies of the same
+// one-liner. Re-exported here so existing callers/tests importing it from
+// this module keep working unchanged.
+export { normalizeBootError };
 
 // Matches sql.js's raw `throw "Database closed"` (and similarly-worded
 // variants) thrown when a query runs against an already-closed WASM handle —

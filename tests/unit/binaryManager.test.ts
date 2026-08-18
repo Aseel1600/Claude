@@ -139,6 +139,32 @@ describe("binaryManager", () => {
         assert.ok(real.includes("1.0.0"));
       }
     });
+
+    it("writes the Windows rollback artifact at the CLIProxy spawn path", async () => {
+      const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+      Object.defineProperty(process, "platform", { value: "win32", configurable: true });
+
+      try {
+        const binDir = path.join(tmpDir, "bin");
+        for (const ver of ["1.0.0", "2.0.0"]) {
+          const versionDir = path.join(binDir, `cliproxyapi-${ver}`);
+          fs.mkdirSync(versionDir, { recursive: true });
+          fs.writeFileSync(path.join(versionDir, "cli-proxy-api"), `bin-${ver}`);
+        }
+
+        assert.equal(await mod.rollbackVersion(tmpDir), "1.0.0");
+        const { resolveSpawnArgs } = await import("../../src/lib/services/installers/cliproxy.ts");
+        const spawn = resolveSpawnArgs(8317);
+
+        assert.equal(spawn.command, path.join(binDir, "cliproxyapi.exe"));
+        assert.equal(fs.existsSync(spawn.command), true);
+        assert.equal(await mod.getCurrentBinaryPath(tmpDir), spawn.command);
+      } finally {
+        if (originalPlatformDescriptor) {
+          Object.defineProperty(process, "platform", originalPlatformDescriptor);
+        }
+      }
+    });
   });
 
   describe("removeVersion", () => {
