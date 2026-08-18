@@ -177,7 +177,19 @@ test("antigravity/agy connection test probes streamGenerateContent, not userinfo
     assert.equal(probe.headers["Content-Type"], "application/json");
     assert.ok(probe.body, "probe carries a minimal generation body");
     const parsedBody = JSON.parse(probe.body as string);
-    assert.ok(Array.isArray(parsedBody.contents));
-    assert.equal(parsedBody.generationConfig.maxOutputTokens, 1);
+    // Cloud Code requires the envelope shape: { project?, model, requestId,
+    // userAgent, requestType, request: { contents, generationConfig } }. A bare
+    // { contents, generationConfig } body is rejected with HTTP 400 — the exact
+    // failure this probe shape fixes.
+    assert.ok(
+      parsedBody.request,
+      "probe body wraps the generation request in a `request` envelope"
+    );
+    assert.ok(Array.isArray(parsedBody.request.contents));
+    assert.equal(parsedBody.request.generationConfig.maxOutputTokens, 1);
+    assert.equal(parsedBody.model, "gemini-3.1-pro-low");
+    assert.equal(parsedBody.requestType, "agent");
+    assert.equal(parsedBody.userAgent, "antigravity");
+    assert.ok(typeof parsedBody.requestId === "string" && parsedBody.requestId.length > 0);
   }
 });
