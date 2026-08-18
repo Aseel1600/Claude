@@ -85,8 +85,9 @@ describe("tool_use.id sanitization", () => {
         ],
       };
 
-      const events = openaiToClaudeResponse(chunk, state);
-      const startBlock = events?.find((e: any) => e.type === "content_block_start");
+      const events = openaiToClaudeResponse(chunk, state) as Array<Record<string, unknown>>;
+      const startBlock = events?.find((e) => e.type === "content_block_start") as
+        { content_block: { id: string } } | undefined;
 
       assert.ok(startBlock, "should emit content_block_start");
       assert.equal(startBlock.content_block.id, "call_999_invalid_id_1");
@@ -120,8 +121,10 @@ describe("tool_use.id sanitization", () => {
         usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
       };
 
-      const claudeResp = translateNonStreamingResponse(response, "openai", "claude") as any;
-      const toolUseBlock = claudeResp?.content?.find((b: any) => b.type === "tool_use");
+      const claudeResp = translateNonStreamingResponse(response, "openai", "claude") as {
+        content?: Array<Record<string, unknown>>;
+      };
+      const toolUseBlock = claudeResp?.content?.find((b) => b.type === "tool_use");
 
       assert.ok(toolUseBlock, "should contain tool_use block");
       assert.equal(toolUseBlock?.id, "call_invalid_id_777_test");
