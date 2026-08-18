@@ -102,10 +102,12 @@ export function capXaiResponsesInput(
  * Cap whichever history array the body is using. No-op (same object /
  * same array refs) when already within the limit.
  */
-export function capXaiRequestHistory<T extends Record<string, unknown>>(body: T): T {
+export function capXaiRequestHistory(
+  body: Record<string, unknown>
+): Record<string, unknown> {
   if (!body || typeof body !== "object") return body;
 
-  const next: T = { ...body };
+  const next: Record<string, unknown> = { ...body };
   let changed = false;
 
   if (Array.isArray(body.messages)) {
