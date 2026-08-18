@@ -37,6 +37,17 @@ const NEW_KEYS = [
   "changeKeyButton",
 ];
 
+test("radar page: flag-gated GETs bypass cached 404 responses after enablement", () => {
+  assert.ok(
+    PAGE_SRC.includes('fetch("/api/radar/settings", { cache: "no-store" })'),
+    "settings fetch must bypass the flag-off 404 cache after RADAR_ENABLED changes"
+  );
+  assert.ok(
+    PAGE_SRC.includes('fetch("/api/radar/catalog", { cache: "no-store" })'),
+    "catalog fetch must bypass the flag-off 404 cache after RADAR_ENABLED changes"
+  );
+});
+
 test("radar page: imports and calls the shared isValidSupporterKeyFormat() helper", () => {
   assert.ok(
     PAGE_SRC.includes('from "@/lib/radar/supporterKey"'),
