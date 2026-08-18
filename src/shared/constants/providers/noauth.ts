@@ -118,25 +118,6 @@ export const NOAUTH_PROVIDERS = {
     freeNote: "Free video generation — VEO 3.1, Seedance. 6 requests/hour.",
     authHint: "No auth required. Rate limited to 6 requests/hour per IP.",
   },
-  mimocode: {
-    id: "mimocode",
-    alias: "mcode",
-    name: "MiMoCode (Free)",
-    icon: "devices",
-    color: "#FF6B35",
-    textIcon: "MC",
-    website: "https://mimo.mi.com",
-    noAuth: true,
-    hasFree: true,
-    serviceKinds: ["llm"],
-    freeNote:
-      "Free — Xiaomi MiMo models via bootstrap JWT auth. No API key required. Supports streaming.",
-    authHint:
-      "No API key required. The executor auto-generates JWT tokens via device fingerprint bootstrap.",
-    notice: {
-      text: "MiMoCode uses Xiaomi's public free AI endpoint with bootstrap-based JWT authentication. No signup needed. Rate limits apply.",
-    },
-  },
   auggie: {
     id: "auggie",
     alias: "aug",
@@ -192,7 +173,7 @@ export const NOAUTH_PROVIDERS = {
     freeNote:
       "Crowdsourced inference from volunteer GPUs. Throughput is a shared queue, not a quota: there is no RPM/RPD cap, but waits grow when the network is busy.",
     notice: {
-      text: "AI Horde routes to volunteer-run workers, so responses can take minutes and tool calling is unavailable. Model availability changes as workers come and go.",
+      text: "AI Horde routes to volunteer-run workers, so chat and image jobs can take minutes and tool calling is unavailable. Chat models come from the live oai.aihorde.net catalog. Image models are listed only while Horde reports at least one worker. An optional aihorde.net API key raises queue priority (kudos).",
     },
   },
 };

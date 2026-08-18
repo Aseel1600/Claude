@@ -7,8 +7,14 @@ import { resolveChatCoreRequestSetup } from "./chatCore/requestSetup.ts";
 import { normalizeOpenAICompatibleTools } from "./chatCore/openAICompatibleTools.ts";
 import { buildFailureUsageRecord } from "./chatCore/failureUsage.ts";
 import { estimateFinalInputTokens } from "./chatCore/contextEstimation.ts";
-import { extractSystemRoleMessages, relocateDirectiveOnlyMessages } from "./chatCore/claudeSystemRole.ts";
-export { extractSystemRoleMessages, relocateDirectiveOnlyMessages } from "./chatCore/claudeSystemRole.ts";
+import {
+  extractSystemRoleMessages,
+  relocateDirectiveOnlyMessages,
+} from "./chatCore/claudeSystemRole.ts";
+export {
+  extractSystemRoleMessages,
+  relocateDirectiveOnlyMessages,
+} from "./chatCore/claudeSystemRole.ts";
 import { checkIdempotencyCache } from "./chatCore/idempotency.ts";
 import { checkSemanticCache } from "./chatCore/semanticCache.ts";
 import { checkLifecycle, resolveLifecycle } from "./chatCore/modelLifecyclePolicy.ts";
@@ -47,6 +53,7 @@ import {
 import {
   shouldUseNativeCodexPassthrough,
   shouldUseNativeXaiResponsesPassthrough,
+  shouldUseNativeOpenAICompatibleResponsesPassthrough,
   stampNativeResponsesPassthroughBody,
   redactPassthroughThinkingSignatures,
   isClaudeCodeSemanticPassthroughRequest,
@@ -159,6 +166,7 @@ import {
   buildCapabilityMismatchMessage,
 } from "@/shared/constants/capabilities/capabilityFilter.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags.ts";
+import { resolveNoAuthEchoModel } from "./chatCore/noAuthEchoModel.ts";
 import {
   REASONING_BUFFER_MIN_TRIGGER,
   buildReasoningProbeTruncatedResponse,
@@ -302,6 +310,7 @@ import {
 } from "./chatCore/upstreamTimeouts.ts";
 import { getModelNormalizeToolCallId, getModelPreserveOpenAIDeveloperRole } from "@/lib/db/models";
 import { getProviderCredentials, extractSessionAffinityKey } from "@/sse/services/auth";
+import { assertExclusiveConnectionLeaseFence } from "@/lib/db/exclusiveConnectionLeases";
 import { deleteSessionAccountAffinity } from "@/lib/db/sessionAccountAffinity";
 import { getCacheControlSettings } from "@/lib/cacheControlSettings";
 import { guardrailRegistry } from "@/lib/guardrails";
@@ -457,8 +466,10 @@ export async function handleChatCore({
   skipUpstreamRetry = false,
   createPiiTransform = null,
   correlationId = null,
+  conversationId = null,
   modelPinned = false,
   skipResourcePressureGuard = false,
+  managedLease = null,
 }) {
   let { provider, model, extendedContext } = modelInfo;
   if (!skipResourcePressureGuard) {
@@ -503,6 +514,46 @@ export async function handleChatCore({
         ? credentials.connectionId.trim()
         : null;
     return credentialConnectionId || connectionId || null;
+  };
+  const assertManagedLeaseFence = (attemptConnectionId: string | null | undefined) => {
+    if (!managedLease) return;
+    if (!attemptConnectionId) {
+      throw Object.assign(new Error("Managed lease connection is unavailable"), {
+        code: "LEASE_CONNECTION_MISMATCH",
+        status: 409,
+      });
+    }
+    const fence = assertExclusiveConnectionLeaseFence({
+      leaseOwnerId: managedLease.context.leaseOwnerId,
+      generation: managedLease.context.generation,
+      apiKeyId: managedLease.apiKeyId,
+      connectionId: attemptConnectionId,
+    });
+    if (fence.kind === "VALID") return;
+    const code =
+      fence.kind === "REQUIRED"
+        ? "LEASE_REQUIRED"
+        : fence.kind === "STALE"
+          ? "LEASE_FENCE_STALE"
+          : fence.kind === "AUTHORIZATION_MISMATCH"
+            ? "LEASE_AUTHORIZATION_MISMATCH"
+            : "LEASE_CONNECTION_MISMATCH";
+    throw Object.assign(new Error("Managed lease request fence rejected the dispatch"), {
+      code,
+      status: 409,
+    });
+  };
+  const isManagedLeaseFenceError = (error: unknown): boolean =>
+    managedLease !== null &&
+    typeof (error as { code?: unknown })?.code === "string" &&
+    String((error as { code: string }).code).startsWith("LEASE_");
+  const managedLeaseFenceErrorResult = (error: unknown) => {
+    const code = (error as { code: string }).code;
+    return {
+      ...createErrorResult(409, "Managed lease request fence rejected the dispatch", null, code),
+      errorType: "lease_error",
+      errorCode: code,
+    };
   };
   let tokensCompressed: number | null = null;
   body = injectSystemPrompt(body);
@@ -670,6 +721,12 @@ export async function handleChatCore({
     copilotCompatibleReasoning,
     clientResponseFormat,
   } = resolveChatCoreRequestFormat({ clientRawRequest, body, provider, userAgent });
+  const nativeOpenAICompatibleResponsesPassthrough = shouldUseNativeOpenAICompatibleResponsesPassthrough({
+    provider,
+    sourceFormat,
+    endpointPath,
+    providerSpecificData: credentials?.providerSpecificData,
+  });
   const responsesInputItems = Array.isArray(body?.input) ? body.input : [];
   const customToolNames = collectCustomToolNamesForSourceFormat(
     sourceFormat,
@@ -789,8 +846,12 @@ export async function handleChatCore({
     customModelTargetFormat,
     providerSpecificData: credentials?.providerSpecificData,
     nativeXaiResponsesPassthrough,
+    nativeOpenAICompatibleResponsesPassthrough,
   });
-  const nativeResponsesPassthrough = nativeCodexPassthrough || nativeXaiResponsesPassthrough;
+  const nativeResponsesPassthrough =
+    nativeCodexPassthrough ||
+    nativeXaiResponsesPassthrough ||
+    nativeOpenAICompatibleResponsesPassthrough;
 
   const initialProviderRequest =
     body && typeof body === "object" && !Array.isArray(body)
@@ -816,6 +877,7 @@ export async function handleChatCore({
       providerRequest: initialProviderRequest,
       stage: "registered",
       correlationId,
+      sessionTag: conversationId || null,
     }) || generateRequestId();
 
   // Initialize rate limit settings from persisted DB (once, lazy)
@@ -878,12 +940,15 @@ export async function handleChatCore({
   const isCodexResponsesEcho =
     (isResponsesEndpoint || sourceFormat === FORMATS.OPENAI_RESPONSES) &&
     isCodexOriginatedHeaders(clientRawRequest?.headers);
-  const echoModel =
+  let echoModel =
     (settings.echoRequestedModelName === true || isCodexResponsesEcho) &&
     typeof requestedModel === "string" &&
     requestedModel
       ? requestedModel
       : null;
+  // Auto-echo the listing-valid form for bare requests to noAuth catalog
+  // providers so clients validating response.model against /v1/models don't warn.
+  echoModel = resolveNoAuthEchoModel(requestedModel, provider) ?? echoModel;
   const detailedLoggingEnabled =
     !noLogEnabled &&
     (settings.call_log_pipeline_enabled === true ||
@@ -945,7 +1010,11 @@ export async function handleChatCore({
       noLogEnabled,
       correlationId,
       modelPinned,
-      sessionTag: explicitSessionIdHeader,
+      // Resolved conversationId (open-sse/services/conversationTracker.ts) wins when
+      // present — it's populated for every request now, not just ones where the
+      // client explicitly sent x-omniroute-session-id. The raw header remains a
+      // fallback for any caller that somehow bypassed conversationId resolution.
+      sessionTag: conversationId || explicitSessionIdHeader,
     });
 
   // Primary path: merge client model id + alias target so config on either key applies; resolved
@@ -1154,6 +1223,11 @@ export async function handleChatCore({
   let cavemanOutputModeIntensity: string | null = null;
   let preCompressionBody: typeof body | null = null;
   let compressionResponseMeta: string | null = null;
+  // OmniGlyph 1.3.x has native OpenAI Chat/Responses transformers. When the
+  // inbound protocol differs from the provider wire, defer only that engine to
+  // the post-translation body; the text engines still run in their legacy lane.
+  let runPostTranslationCompression:
+    ((input: Record<string, unknown>) => Promise<CompressionResult>) | null = null;
   // Delegated Context Editing (Claude only): captured at the canonical compression
   // settings read below, then threaded to executor.execute() further down. Lives at
   // function scope because the read happens inside the per-message compression block.
@@ -1541,9 +1615,15 @@ export async function handleChatCore({
           // o engine omniglyph exige 'direct' — agregadores redimensionam imagens
           // (medido 2026-07-06). OAuth 'claude' é rota direta oficial (#7863).
           providerTransport:
-            provider === "anthropic" || provider === "claude"
+            provider === "anthropic" ||
+            provider === "claude" ||
+            provider === "openai" ||
+            provider === "xai"
               ? ("direct" as const)
               : ("aggregator" as const),
+          sourceFormat,
+          targetFormat,
+          compressionStage: "pre-translation" as const,
           config: compressionConfig,
           cachingContext: cacheCtx,
           principalId: compressionPrincipalId,
@@ -1573,6 +1653,26 @@ export async function handleChatCore({
         };
         const runCompression = (input: Record<string, unknown>) =>
           applyCompressionAsync(input, mode, compressionOptions);
+        const omniglyphSelected =
+          mode === "omniglyph" ||
+          (mode === "stacked" &&
+            Array.isArray(compressionConfig.stackedPipeline) &&
+            compressionConfig.stackedPipeline.some((step) =>
+              typeof step === "string" ? step === "omniglyph" : step.engine === "omniglyph"
+            ));
+        if (
+          omniglyphSelected &&
+          (targetFormat === FORMATS.CLAUDE ||
+            targetFormat === FORMATS.OPENAI ||
+            targetFormat === FORMATS.OPENAI_RESPONSES) &&
+          !(sourceFormat === FORMATS.CLAUDE && targetFormat === FORMATS.CLAUDE)
+        ) {
+          runPostTranslationCompression = (input) =>
+            applyCompressionAsync(input, mode, {
+              ...compressionOptions,
+              compressionStage: "post-translation" as const,
+            });
+        }
         let result: CompressionResult;
         if (compressionConfig.liveZone?.enabled === true) {
           const { applyLiveZoneCompression } = await import("../services/compression/liveZone.ts");
@@ -2045,13 +2145,19 @@ export async function handleChatCore({
     if (nativeResponsesPassthrough) {
       translatedBody = stampNativeResponsesPassthroughBody(
         body,
-        nativeCodexPassthrough ? "codex" : "xai"
+        nativeCodexPassthrough
+          ? "codex"
+          : nativeXaiResponsesPassthrough
+            ? "xai"
+            : "openai-compatible"
       );
       log?.debug?.(
         "FORMAT",
         nativeCodexPassthrough
           ? "native codex passthrough enabled"
-          : "native xAI Responses Agent Tools passthrough enabled"
+          : nativeXaiResponsesPassthrough
+            ? "native xAI Responses Agent Tools passthrough enabled"
+            : "native openai-compatible Responses passthrough enabled"
       );
     } else if (isClaudeCodeCompatible) {
       let normalizedForCc = { ...body };
@@ -2216,7 +2322,13 @@ export async function handleChatCore({
       //   - tools with a name → converted to function format in-place before translation
       //   - tools without a name AND without .function → dropped (unconvertible)
       // This must happen before translateRequest, which validates and throws on unknown types.
-      if (provider?.startsWith("openai-compatible-") && Array.isArray(translatedBody.tools)) {
+      // Skip normalization when we are in native openai-compatible Responses passthrough mode
+      // to preserve native tool definitions (exec with lark grammar, collaboration namespace, etc.).
+      if (
+        !nativeOpenAICompatibleResponsesPassthrough &&
+        provider?.startsWith("openai-compatible-") &&
+        Array.isArray(translatedBody.tools)
+      ) {
         const normalized = normalizeOpenAICompatibleTools(
           translatedBody.tools as Record<string, unknown>[],
           sourceFormat
@@ -2312,6 +2424,76 @@ export async function handleChatCore({
 
     trackPendingRequest(model, provider, connectionId, false);
     return createErrorResult(statusCode, message);
+  }
+
+  // The latest OmniGlyph release has protocol-native OpenAI transforms. Run
+  // the deferred stage only after translation so Chat/Responses receives the
+  // exact provider wire shape (and so a source→target conversion never embeds
+  // Anthropic image blocks into an OpenAI request, or vice versa).
+  if (runPostTranslationCompression && translatedBody && typeof translatedBody === "object") {
+    const transientFields = new Map<string, unknown>();
+    const postInput = { ...(translatedBody as Record<string, unknown>) };
+    for (const [key, value] of Object.entries(postInput)) {
+      // Translators keep response-side aliases in Maps under private keys. They
+      // are not JSON request fields and would otherwise be stringified to `{}`
+      // by the OmniGlyph library wrapper; restore them after the wire transform.
+      if (key.startsWith("_") && value instanceof Map) {
+        transientFields.set(key, value);
+        delete postInput[key];
+      }
+    }
+    try {
+      const [{ formatCompressionAnnotation }, { trackCompressionStats }] = await Promise.all([
+        import("../services/compression/strategySelector.ts"),
+        import("../services/compression/stats.ts"),
+      ]);
+      const postResult = await runPostTranslationCompression(postInput);
+      if (postResult.compressed) {
+        translatedBody = {
+          ...(postResult.body as typeof translatedBody),
+          ...Object.fromEntries(transientFields),
+        };
+        tokensCompressed += Math.max(
+          0,
+          (postResult.stats?.originalTokens ?? 0) - (postResult.stats?.compressedTokens ?? 0)
+        );
+        if (postResult.stats) {
+          const annotation = formatCompressionAnnotation(postResult.stats);
+          if (annotation) {
+            compressionResponseMeta = compressionResponseMeta
+              ? `${compressionResponseMeta}; ${annotation}`
+              : annotation;
+          }
+          trackCompressionStats(postResult.stats);
+          compressionAnalyticsWritePromise = writeCompressionAnalytics({
+            stats: postResult.stats,
+            provider,
+            effectiveModel,
+            effectiveServiceTier,
+            comboName,
+            mode: postResult.stats.mode,
+            compressionComboId: postResult.stats.compressionComboId ?? null,
+            skillRequestId,
+            cavemanOutputModeApplied: false,
+            cavemanOutputModeIntensity: null,
+            log,
+          });
+          await compressionAnalyticsWritePromise;
+        }
+        log?.info?.(
+          "COMPRESSION",
+          `Post-translation OmniGlyph applied (${sourceFormat} → ${targetFormat})`
+        );
+      }
+    } catch (error) {
+      // Compression is deliberately fail-open. A provider-shaped transform
+      // must never turn an otherwise valid translated request into a 500.
+      log?.warn?.(
+        "COMPRESSION",
+        "Post-translation OmniGlyph skipped: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   }
 
   trace("post_translation");
@@ -2743,6 +2925,8 @@ export async function handleChatCore({
     connectionId,
     clientResponseFormat,
     clientAbortSignal: clientRawRequest?.signal,
+    allowCompletedToolHandoffGrace: isCodexResponsesEcho,
+    clientDisconnectGracePeriodMs: STREAM_DISCONNECT_GRACE_PERIOD_MS,
   });
 
   const dedupRequestBody = { ...translatedBody, model: `${provider}/${model}`, stream };
@@ -2762,6 +2946,7 @@ export async function handleChatCore({
         credentials,
         log,
         bypassDefaultToolLimit: isOpencodeClient,
+        isOpencodeClient,
       });
 
       updatePendingScope(pendingScope, {
@@ -2833,6 +3018,7 @@ export async function handleChatCore({
                   updatePendingScope(pendingScope, {
                     stage: "rate_limit_slot_acquired",
                   });
+                  assertManagedLeaseFence(attemptConnectionId);
                   return executeWithUpstreamStartTimeout({
                     executor,
                     provider,
@@ -2903,6 +3089,7 @@ export async function handleChatCore({
               // Codex 429 account-rotation failover (disabled for context-relay so combo.ts can inject handoff)
               if (
                 provider === "codex" &&
+                !managedLease &&
                 comboStrategy !== "context-relay" &&
                 res.response.status === 429 &&
                 attempts < maxAttempts - 1
@@ -3065,6 +3252,7 @@ export async function handleChatCore({
                     body: unknown
                   ): Promise<ReadableStream<Uint8Array> | null> => {
                     try {
+                      assertManagedLeaseFence(attemptConnectionId);
                       const retryRaw = await executeWithUpstreamStartTimeout({
                         executor,
                         provider,
@@ -3379,6 +3567,7 @@ export async function handleChatCore({
     }
   } catch (error) {
     trackPendingRequest(model, provider, connectionId, false);
+    if (isManagedLeaseFenceError(error)) return managedLeaseFenceErrorResult(error);
     if (isSemaphoreCapacityError(error)) {
       appendRequestLog({
         model,
@@ -3590,6 +3779,7 @@ export async function handleChatCore({
       // stay aligned if this block ever runs after a path that mutates body.model (e.g. fallback).
       try {
         const retryModelId = String(translatedBody.model || effectiveModel);
+        assertManagedLeaseFence(getExecutionConnectionId(getExecutionCredentials()));
         const retryResult = normalizeExecutorResult(
           await runWithCapture(providerRequestCapture, () =>
             executor.execute({
@@ -3627,6 +3817,7 @@ export async function handleChatCore({
           upstreamErrorParsed = false; // Let it be parsed downstream
         }
       } catch (retryErr) {
+        if (isManagedLeaseFenceError(retryErr)) return managedLeaseFenceErrorResult(retryErr);
         // Refresh succeeded but the retry leg failed (network blip, AbortError,
         // executor throw). Don't swallow — the operator-visible signal "the user
         // saw 401 even though auth was actually fixed" is much more confusing

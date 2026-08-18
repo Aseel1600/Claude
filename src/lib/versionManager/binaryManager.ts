@@ -110,6 +110,10 @@ async function verifyChecksum(filePath: string, expectedSha256: string): Promise
   return hash.digest("hex").toLowerCase() === expectedSha256.toLowerCase();
 }
 
+function managedBinaryName(): string {
+  return process.platform === "win32" ? "cliproxyapi.exe" : "cliproxyapi";
+}
+
 function findBinaryInDir(dir: string): string | null {
   const candidates = ["cli-proxy-api", "cli-proxy-api.exe", "CLIProxyAPI", "CLIProxyAPI.exe"];
   for (const name of candidates) {
@@ -186,7 +190,7 @@ export async function installVersion(version: string, dataDir?: string): Promise
   const target = getTargetPlatform();
   const binary = await downloadRelease(version, binDir, undefined, target);
 
-  const symlinkPath = path.join(binDir, "cliproxyapi");
+  const symlinkPath = path.join(binDir, managedBinaryName());
   try {
     await fs.unlink(symlinkPath);
   } catch {}
@@ -201,7 +205,7 @@ export async function installVersion(version: string, dataDir?: string): Promise
 
 export async function getCurrentBinaryPath(dataDir?: string): Promise<string | null> {
   const dir = dataDir || DEFAULT_DATA_DIR;
-  const symlinkPath = path.join(dir, "bin", "cliproxyapi");
+  const symlinkPath = path.join(dir, "bin", managedBinaryName());
   try {
     const real = await fs.realpath(symlinkPath);
     return fsSync.existsSync(/* turbopackIgnore: true */ real) ? real : null;
@@ -240,7 +244,7 @@ export async function rollbackVersion(dataDir?: string): Promise<string | null> 
   const oldBinary = findBinaryInDir(path.join(binDir, `cliproxyapi-${previous}`));
   if (!oldBinary) return null;
 
-  const symlinkPath = path.join(binDir, "cliproxyapi");
+  const symlinkPath = path.join(binDir, managedBinaryName());
   try {
     await fs.unlink(symlinkPath);
   } catch {}
