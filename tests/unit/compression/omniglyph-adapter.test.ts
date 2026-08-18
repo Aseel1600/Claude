@@ -18,11 +18,17 @@ function claudeBody(): Record<string, unknown> {
     messages: [{ role: "user", content: [{ type: "text", text: "oi" }] }],
   };
 }
-const OK = { model: "claude-fable-5", supportsVision: true, providerTransport: "direct" as const };
+const OK = {
+  model: "claude-fable-5",
+  supportsVision: true,
+  providerTransport: "direct" as const,
+  imageTransportFidelity: "byte-preserving" as const,
+};
 const GPT_OK = {
   model: "gpt-5.6",
   supportsVision: true,
   providerTransport: "direct" as const,
+  imageTransportFidelity: "byte-preserving" as const,
   sourceFormat: "openai" as const,
   targetFormat: "openai" as const,
   compressionStage: "post-translation" as const,
@@ -82,6 +88,15 @@ test("skip fail-closed: sem supportsVision / transporte agregador / undefined", 
   }
 });
 
+test("skip fail-closed: rota direta sem recibo de fidelidade de imagem", async () => {
+  const r = await omniglyphEngine.applyAsync!(claudeBody(), {
+    ...OK,
+    imageTransportFidelity: "unknown",
+  });
+  assert.equal(r.compressed, false);
+  assert.ok(r.stats?.techniquesUsed.includes("skip:transport_fidelity_unknown"));
+});
+
 test("skip: modelo fora da allowlist medida", async () => {
   const body = { ...claudeBody(), model: "gpt-5.5" };
   const r = await omniglyphEngine.applyAsync!(body, { ...OK, model: "gpt-5.5" });
@@ -108,6 +123,31 @@ test("cache_control do cliente sobrevive byte a byte", async () => {
   });
   const r = await omniglyphEngine.applyAsync!(body, OK);
   assert.ok(JSON.stringify(r.body).includes('"cache_control"'));
+});
+
+test("preserveSystemPrompt mantém o sistema nativo e ainda pode comprimir tool_result", async () => {
+  const body = {
+    ...claudeBody(),
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "tool_result",
+            tool_use_id: "call_1",
+            content: DENSE,
+          },
+        ],
+      },
+    ],
+  };
+  const r = await omniglyphEngine.applyAsync!(body, {
+    ...OK,
+    config: { preserveSystemPrompt: true } as never,
+  });
+  assert.equal(r.compressed, true);
+  assert.equal((r.body as { system?: unknown }).system, DENSE);
+  assert.ok(JSON.stringify(r.body).includes('"type":"image"'));
 });
 
 test("apply síncrono é pass-through seguro (engine async-only)", () => {

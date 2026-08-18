@@ -8534,13 +8534,13 @@
   },
   "omniglyph": {
     "preview": "Visualização",
-    "description": "Compressão de contexto como imagem. Renderiza o prompt de sistema, a documentação de ferramentas e o histórico denso como páginas PNG compactas que o Claude Fable 5 lê em vez de texto. Os tokens de imagem são cobrados por dimensões em vez de caracteres, então o bloco convertido custa cerca de 10× menos. Somente na rota direta da Anthropic.",
+    "description": "Compressão de contexto como imagem. Renderiza o prompt de sistema, a documentação de ferramentas e o histórico denso como páginas PNG compactas para a rota medida do Claude Fable 5. O pacote OmniGlyph também expõe transformadores nativos para GPT 5.6, mas o OmniRoute mantém essas rotas fail-closed até existirem recibos de fidelidade do provedor e de leitura.",
     "economicsTitle": "A economia",
     "economics": {
       "fewerTokens": "menos tokens no bloco convertido",
       "savings": "economia de ponta a ponta (medida)",
       "imageTokens": "tokens de imagem para uma página de 1568×728 (cerca de 28 mil caracteres)",
-      "accuracy": "precisão de leitura no Fable 5 (n=30)"
+      "accuracy": "recibo de leitura do Fable 5 (escopo medido)"
     },
     "beforeAfterTitle": "Antes → depois",
     "blockSavings": "−{percent}% de tokens neste bloco",
@@ -8553,18 +8553,18 @@
     "gates": {
       "model": {
         "label": "Modelo",
-        "pass": "claude-fable-5",
-        "why": "Somente o Fable 5 lê páginas densas com 100% de precisão (medido, n=30). GPT-5.5 e Gemini 2.5 Flash são bloqueados."
+        "pass": "claude-fable-5 (medido); gpt-5.6 (HOLD)",
+        "why": "Somente a rota medida do Fable 5 está habilitada no OmniRoute. O GPT 5.6 tem suporte estrutural no pacote, mas continua bloqueado até seu recibo do provedor; famílias não verificadas, como Grok, permanecem em texto."
       },
       "transport": {
         "label": "Transporte",
-        "pass": "direto Anthropic",
-        "why": "Agregadores reamostram imagens e destroem a legibilidade — apenas a rota direta é confiável."
+        "pass": "provedor direto",
+        "why": "Agregadores podem reamostrar imagens e destruir a legibilidade — apenas uma rota direta do provedor é confiável."
       },
       "format": {
         "label": "Formato",
-        "pass": "Claude nativo",
-        "why": "O corpo deve usar o formato Claude e nunca colocar um papel system dentro de messages."
+        "pass": "Claude/OpenAI nativo",
+        "why": "O corpo precisa corresponder ao wire do provedor: Claude Messages, OpenAI Chat Completions ou input[] nativo do OpenAI Responses."
       },
       "profitable": {
         "label": "Rentável",
@@ -8573,7 +8573,7 @@
       }
     },
     "enableTitle": "Ativar a engine",
-    "enableDescription": "Executa por último na pilha (depois que RTK/Caveman limpa o texto, o OmniGlyph converte o restante em imagens) e também roda de forma independente pelo modo <code>omniglyph</code>. Este é um preview e permanece desativado por padrão até que a validação de ponta a ponta seja concluída.",
+    "enableDescription": "Executa por último na pilha, depois que os engines de texto limpam a solicitação, usando o wire nativo do provedor; solicitações OpenAI Chat/Responses são comprimidas depois da tradução para preservar seu formato. Também roda de forma independente pelo modo <code>omniglyph</code>. Este é um preview e permanece desativado por padrão até que a validação de ponta a ponta seja concluída.",
     "saved": "Salvo.",
     "saveFailed": "Não foi possível salvar.",
     "enableAria": "Ativar a engine OmniGlyph",

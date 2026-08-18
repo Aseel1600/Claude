@@ -88,6 +88,7 @@ import { checkResourcePressureGuard } from "../utils/resourcePressure.ts";
 import { normalizeHeaders } from "../utils/headers.ts";
 import { resolveChatCoreRequestFormat } from "./chatCore/requestFormat.ts";
 import { resolveChatCoreTargetFormat } from "./chatCore/targetFormat.ts";
+import { resolveOmniGlyphTransport } from "../services/compression/imageTransportPolicy.ts";
 import { stripStore, usesClaudeBridge } from "./chatCore/agentRouterProtocol.ts";
 import { defaultClaudeToolType } from "./chatCore/claudeToolDefaults.ts";
 import { injectSystemPrompt, injectCustomSystemPrompt } from "../services/systemPrompt.ts";
@@ -1548,16 +1549,9 @@ export async function handleChatCore({
           // models, which is intentionally NOT `false` so the gate still preserves images.
           supportsVision: getResolvedModelCapabilities({ provider, model: effectiveModel })
             .supportsVision,
-          // Rotas diretas oficiais ('anthropic' API key e 'claude' OAuth) vs agregadores:
-          // o engine omniglyph exige 'direct' — agregadores redimensionam imagens
-          // (medido 2026-07-06). OAuth 'claude' é rota direta oficial (#7863).
-          providerTransport:
-            provider === "anthropic" ||
-            provider === "claude" ||
-            provider === "openai" ||
-            provider === "xai"
-              ? ("direct" as const)
-              : ("aggregator" as const),
+          // OmniGlyph uses a measured provider/image-fidelity allowlist. Direct HTTP
+          // alone is not proof that a route preserves PNG bytes and dimensions.
+          ...resolveOmniGlyphTransport(provider),
           sourceFormat,
           targetFormat,
           compressionStage: "pre-translation" as const,

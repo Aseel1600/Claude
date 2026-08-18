@@ -11,6 +11,7 @@ import type {
   CompressionEngineApplyOptions,
   CompressionStage,
   CompressionWireFormat,
+  ImageTransportFidelity,
 } from "./engines/types.ts";
 import { applyLiteCompression } from "./lite.ts";
 import { cavemanCompress } from "./caveman.ts";
@@ -266,6 +267,7 @@ export function applyCompression(
   options?: {
     model?: string;
     supportsVision?: boolean | null;
+    imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
     compressionStage?: CompressionStage;
@@ -292,6 +294,7 @@ function runCompression(
   options?: {
     model?: string;
     supportsVision?: boolean | null;
+    imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
     compressionStage?: CompressionStage;
@@ -479,6 +482,7 @@ export async function applyCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
     compressionStage?: CompressionStage;
@@ -501,6 +505,7 @@ async function runCompressionAsync(
     supportsVision?: boolean | null;
     /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
     providerTransport?: "direct" | "aggregator";
+    imageTransportFidelity?: ImageTransportFidelity;
     sourceFormat?: CompressionWireFormat;
     targetFormat?: CompressionWireFormat;
     compressionStage?: CompressionStage;
@@ -693,6 +698,7 @@ interface StackOptions {
   supportsVision?: boolean | null;
   /** Direct-to-provider vs. aggregator transport (gates transport-sensitive engines like omniglyph). */
   providerTransport?: "direct" | "aggregator";
+  imageTransportFidelity?: ImageTransportFidelity;
   sourceFormat?: CompressionWireFormat;
   targetFormat?: CompressionWireFormat;
   compressionStage?: CompressionStage;

@@ -7,6 +7,9 @@ export type CompressionWireFormat = "claude" | "openai" | "openai-responses" | s
 
 export type CompressionStage = "pre-translation" | "post-translation";
 
+/** Whether an upstream route preserves OmniGlyph PNG bytes and dimensions. */
+export type ImageTransportFidelity = "byte-preserving" | "resizes" | "unknown";
+
 export interface EngineConfigField {
   key: string;
   type: "boolean" | "number" | "string" | "select" | "multiselect";
@@ -42,8 +45,11 @@ export interface CompressionEngineApplyOptions {
   /** Como o request chega ao provider: rota direta oficial ('direct') vs
    *  agregador que pode reprocessar imagens ('aggregator'). O engine omniglyph
    *  exige 'direct' — medição 2026-07-06: agregadores redimensionam as páginas
-   *  e destroem a legibilidade. undefined = desconhecido = skip (fail-closed). */
+   *  e destroem a legibilidade. A política de produção também informa
+   *  imageTransportFidelity; chamadas legadas sem esse campo mantêm o gate direct. */
   providerTransport?: "direct" | "aggregator";
+  /** Independent image-fidelity gate; direct HTTP does not imply byte preservation. */
+  imageTransportFidelity?: ImageTransportFidelity;
   /** Protocol shape before the current compression stage. */
   sourceFormat?: CompressionWireFormat;
   /** Protocol shape expected by the upstream provider. */

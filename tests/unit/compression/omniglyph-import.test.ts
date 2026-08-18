@@ -6,6 +6,7 @@ test("pacote omniglyph exporta a API que o adapter consome", async () => {
   assert.equal(typeof mod.transformAnthropicMessages, "function");
   assert.equal(typeof mod.transformOpenAIChatCompletions, "function");
   assert.equal(typeof mod.transformOpenAIResponses, "function");
+  assert.equal(typeof mod.transformRequest, "function");
   assert.equal(typeof mod.isOmniGlyphSupportedModel, "function");
   assert.equal(typeof mod.isOmniGlyphSupportedGptModel, "function");
   assert.equal(mod.isOmniGlyphSupportedModel("claude-fable-5"), true);
