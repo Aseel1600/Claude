@@ -20,8 +20,11 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = process.env.API_KEY_SECRET || "combo-target-timeout-std-secret";
 
 const { handleComboChat } = await import("../../../open-sse/services/combo.ts");
-const { isComboRequestScopedFailure, shouldRecordProviderBreakerFailure } =
-  await import("../../../open-sse/services/combo/comboPredicates.ts");
+const {
+  isComboRequestScopedFailure,
+  isRequestScopedUpstreamFailure,
+  shouldRecordProviderBreakerFailure,
+} = await import("../../../open-sse/services/combo/comboPredicates.ts");
 const { applyComboTargetExhaustion } =
   await import("../../../open-sse/services/combo/targetExhaustion.ts");
 const { getProviderBreakerState } = await import("../../../open-sse/services/accountFallback.ts");
@@ -125,6 +128,23 @@ test("decision seam: typed combo_global_timeout 504 is request-scoped and does n
     false,
     "router-owned global timeout must not trip the provider circuit breaker"
   );
+});
+
+test("decision seam: cancelled hedge is request-scoped and does not record provider failure", () => {
+  assert.equal(
+    isRequestScopedUpstreamFailure({
+      code: "combo_hedge_cancelled",
+      type: "combo_hedge_cancelled",
+    }),
+    true
+  );
+  const decision = decideProviderBreakerRecord({
+    status: 499,
+    errorText: "Combo hedge cancelled",
+    structuredError: { code: "combo_hedge_cancelled", type: "combo_hedge_cancelled" },
+  });
+  assert.equal(decision.requestScopedFailure, true);
+  assert.equal(decision.shouldRecord, false);
 });
 
 test("decision seam: generic upstream 504 is NOT request-scoped and still records breaker failure", () => {
