@@ -30,6 +30,7 @@ import {
   hasClaudeCodeWildcardPermission,
   matchesWildcardPattern,
 } from "./apiKeys/modelPermissions";
+import { ALL_COMBOS_ACCESS_RULE } from "@/shared/constants/comboAccess";
 import {
   parseAllowedModels,
   parseAllowedCombos,
@@ -438,7 +439,7 @@ function getPreparedStatements(db: ApiKeysDbLike): ApiKeysStatements {
       "SELECT id, name, machine_id, model_access_mode, allowed_models, blocked_models, allowed_combos, allowed_connections, allowed_quotas, no_log, auto_resolve, is_active, access_schedule, max_requests_per_day, max_requests_per_minute, throttle_delay_ms, max_sessions, revoked_at, expires_at, ip_allowlist, scopes, rate_limits, is_banned, key_hash, allowed_endpoints, stream_default_mode, cache_default_mode, disable_non_public_models, allow_usage_command, usage_limit_enabled, daily_usage_limit_usd, weekly_usage_limit_usd, chaos_mode_enabled, compression_enabled, proxy_id FROM api_keys WHERE key = ? OR key_hash = ?",
     );
     _stmtInsertKey = db.prepare(
-      "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, allowed_connections, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO api_keys (id, name, key, machine_id, allowed_models, allowed_combos, allowed_connections, no_log, created_at, key_prefix, key_hash, scopes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     _stmtDeleteKey = db.prepare("DELETE FROM api_keys WHERE id = ?");
   }
@@ -682,7 +683,7 @@ export async function createApiKey(
     machineId: machineId,
     modelAccessMode: "all" as const,
     allowedModels: [], // Empty array means all models allowed
-    allowedCombos: [], // Empty array means no explicit combo restriction
+    allowedCombos: [ALL_COMBOS_ACCESS_RULE], // Explicit wildcard means all combos allowed
     allowedConnections,
     noLog: false,
     allowUsageCommand: false,
@@ -697,6 +698,7 @@ export async function createApiKey(
     apiKey.key,
     apiKey.machineId,
     "[]",
+    JSON.stringify(apiKey.allowedCombos),
     JSON.stringify(allowedConnections),
     0,
     apiKey.createdAt,
@@ -848,7 +850,7 @@ export async function updateApiKeyPermissions(
   }
 
   if (normalized.allowedCombos !== undefined) {
-    // Empty array means no explicit combo restriction; legacy allowed_models rules still apply.
+    // Empty array denies all combos; combo/* explicitly allows all combos.
     updates.push("allowed_combos = @allowedCombos");
     params.allowedCombos = JSON.stringify(normalized.allowedCombos || []);
   }
@@ -1343,7 +1345,7 @@ export async function getApiKeyMetadata(
       modelAccessMode: "all",
       allowedModels: [],
       blockedModels: [],
-      allowedCombos: [],
+      allowedCombos: [ALL_COMBOS_ACCESS_RULE],
       allowedConnections: [],
       allowedQuotas: [],
       noLog: false,

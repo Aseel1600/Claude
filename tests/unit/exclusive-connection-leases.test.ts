@@ -49,7 +49,7 @@ test("hashes canonical owners and never persists the raw owner", () => {
 
 test("uses the live next-free migration slot without runner compatibility special cases", () => {
   const migration = fs.readFileSync(
-    new URL("../../src/lib/db/migrations/154_exclusive_connection_leases.sql", import.meta.url),
+    new URL("../../src/lib/db/migrations/155_exclusive_connection_leases.sql", import.meta.url),
     "utf8"
   );
   const runner = fs.readFileSync(
@@ -57,7 +57,7 @@ test("uses the live next-free migration slot without runner compatibility specia
     "utf8"
   );
   assert.match(migration, /CREATE TABLE IF NOT EXISTS exclusive_connection_leases/);
-  assert.doesNotMatch(runner, /case "154"/);
+  assert.doesNotMatch(runner, /case "155"/);
 });
 
 test("enforces global active owner and connection uniqueness", () => {
