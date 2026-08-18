@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Tetapan titik akhir model yang disimpan",
     "searchByModelAria": "Cari mengikut model",
     "selectSupportedEndpoint": "Pilih sekurang-kurangnya satu titik akhir yang disokong",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Model hulu auto-fetch diaktifkan",
+    "autoFetchModels": "Ambil model hulu secara automatik",
+    "autoFetchModelsTooltip": "Ambil dan simpan model hulu apabila diperlukan",
+    "autoFetchModelsToggleFailed": "Gagal untuk menghidupkan model upstream auto-fetch",
+    "autoFetchModelsDisabled": "Model hulu auto-fetch dinyahdayakan",
+    "overridesUpstreamModel": "Mengganti hulu",
+    "autoFetchModelsPartialFailure": "Beberapa sambungan telah dikemas kini, tetapi pengambilan auto model hulu tidak diubah di semua tempat",
+    "overridesUpstreamModelHint": "Tetapan anda mengatasi model hulu ini",
+    "resetToUpstreamDefaults": "Pulihkan tetapan asal upstream",
+    "resetToUpstreamDefaultsFailed": "Gagal untuk memulihkan tetapan lalai model upstream",
+    "resetToUpstreamDefaultsSuccess": "Mengembalikan tetapan lalai model upstream"
   },
   "settings": {
     "title": "tetapan",

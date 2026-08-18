@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Pengaturan endpoint model yang disimpan",
     "searchByModelAria": "Cari berdasarkan model",
     "selectSupportedEndpoint": "Pilih setidaknya satu endpoint yang didukung",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Ambil model upstream secara otomatis",
+    "autoFetchModelsDisabled": "Model upstream auto-fetch dinonaktifkan",
+    "autoFetchModelsEnabled": "Model hulu auto-fetch diaktifkan",
+    "autoFetchModelsToggleFailed": "Gagal untuk mengubah model upstream auto-fetch",
+    "overridesUpstreamModel": "Mengganti upstream",
+    "autoFetchModelsPartialFailure": "Beberapa koneksi diperbarui, tetapi pengambilan otomatis model upstream tidak berubah di mana-mana",
+    "overridesUpstreamModelHint": "Pengaturan Anda menimpa model upstream ini",
+    "resetToUpstreamDefaults": "Kembalikan pengaturan default upstream",
+    "resetToUpstreamDefaultsSuccess": "Mengembalikan pengaturan model upstream ke default",
+    "resetToUpstreamDefaultsFailed": "Gagal mengembalikan pengaturan model upstream ke default",
+    "autoFetchModelsTooltip": "Ambil dan simpan model upstream saat diperlukan"
   },
   "settings": {
     "title": "Settings",

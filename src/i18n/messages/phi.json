@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Naka-save na mga setting ng endpoint ng modelo",
     "searchByModelAria": "Maghanap ayon sa modelo",
     "selectSupportedEndpoint": "Pumili ng hindi bababa sa isang sinusuportahang endpoint",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Naka-disable ang auto-fetch ng upstream model",
+    "autoFetchModelsTooltip": "Kunin at i-cache ang upstream models kapag kinakailangan",
+    "autoFetchModelsEnabled": "Naka-enable ang auto-fetch ng upstream model",
+    "autoFetchModels": "Awtomatikong kunin ang mga upstream na modelo",
+    "autoFetchModelsToggleFailed": "Nabigong i-toggle ang upstream model auto-fetch",
+    "overridesUpstreamModel": "Pinalitan ang upstream",
+    "overridesUpstreamModelHint": "Ang iyong mga setting ay nangingibabaw sa modelong ito mula sa upstream",
+    "resetToUpstreamDefaults": "Ibalik ang mga default ng upstream",
+    "resetToUpstreamDefaultsSuccess": "Ibinalik ang mga default ng upstream model",
+    "autoFetchModelsPartialFailure": "Ilang koneksyon ang na-update, ngunit ang auto-fetch ng upstream model ay hindi nagbago sa lahat ng lugar",
+    "resetToUpstreamDefaultsFailed": "Nabigong maibalik ang mga default ng upstream model"
   },
   "settings": {
     "title": "Mga setting",

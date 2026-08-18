@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Indstillinger for gemt model endpoint",
     "searchByModelAria": "Søg efter model",
     "selectSupportedEndpoint": "Vælg mindst én understøttet endpoint",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Opstrømsmodel auto-hentning deaktiveret",
+    "autoFetchModelsTooltip": "Hent og cache upstream-modeller, når det er nødvendigt",
+    "autoFetchModels": "Auto-hent upstream modeller",
+    "autoFetchModelsEnabled": "Opstrømsmodel auto-hentning aktiveret",
+    "autoFetchModelsToggleFailed": "Mislykkedes at skifte upstream model auto-fetch",
+    "autoFetchModelsPartialFailure": "Nogle forbindelser blev opdateret, men upstream-model auto-fetch blev ikke ændret overalt",
+    "overridesUpstreamModelHint": "Dine indstillinger overskriver denne upstream-model",
+    "overridesUpstreamModel": "Overskriver upstream",
+    "resetToUpstreamDefaultsSuccess": "Gendannet upstream model standardindstillinger",
+    "resetToUpstreamDefaultsFailed": "Mislykkedes med at gendanne standardindstillinger for upstream-modellen",
+    "resetToUpstreamDefaults": "Gendan upstream standardindstillinger"
   },
   "settings": {
     "title": "Indstillinger",

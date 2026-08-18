@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "保存されたモデルエンドポイント設定",
     "searchByModelAria": "モデルで検索",
     "selectSupportedEndpoint": "サポートされているエンドポイントを少なくとも1つ選択してください",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "上流モデルの自動取得が有効になりました",
+    "autoFetchModelsTooltip": "必要に応じてアップストリームモデルを取得してキャッシュする",
+    "autoFetchModelsDisabled": "上流モデルの自動取得が無効になっています",
+    "autoFetchModels": "アップストリームモデルを自動取得",
+    "autoFetchModelsToggleFailed": "アップストリームモデルの自動取得の切り替えに失敗しました",
+    "overridesUpstreamModel": "上流をオーバーライド",
+    "autoFetchModelsPartialFailure": "いくつかの接続が更新されましたが、上流モデルの自動取得はすべての場所で変更されませんでした",
+    "overridesUpstreamModelHint": "あなたの設定がこの上流モデルを上書きします",
+    "resetToUpstreamDefaults": "アップストリームのデフォルトを復元する",
+    "resetToUpstreamDefaultsFailed": "アップストリームモデルのデフォルトを復元できませんでした",
+    "resetToUpstreamDefaultsSuccess": "アップストリームモデルのデフォルトを復元しました"
   },
   "settings": {
     "title": "設定",

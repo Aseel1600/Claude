@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Innstillinger for lagrede modellendepunkter",
     "searchByModelAria": "Søk etter modell",
     "selectSupportedEndpoint": "Velg minst ett støttet endepunkt",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsTooltip": "Hent og cache upstream-modeller når det er nødvendig",
+    "autoFetchModelsEnabled": "Oppstrømsmodell automatisk henting aktivert",
+    "autoFetchModelsDisabled": "Oppstrømsmodell automatisk henting deaktivert",
+    "autoFetchModels": "Auto-hent oppstrøms modeller",
+    "autoFetchModelsToggleFailed": "Kunne ikke aktivere automatisk henting av upstream-modell",
+    "overridesUpstreamModel": "Overstyrer upstream",
+    "autoFetchModelsPartialFailure": "Noen tilkoblinger ble oppdatert, men upstream-modellens auto-hent ble ikke endret overalt",
+    "overridesUpstreamModelHint": "Dine innstillinger overstyrer denne upstream-modellen",
+    "resetToUpstreamDefaultsSuccess": "Gjenopprettet upstream-modellinnstillinger",
+    "resetToUpstreamDefaults": "Gjenopprett upstream-standardinnstillinger",
+    "resetToUpstreamDefaultsFailed": "Kunne ikke gjenopprette standardinnstillinger for upstream-modellen"
   },
   "settings": {
     "title": "Innstillinger",

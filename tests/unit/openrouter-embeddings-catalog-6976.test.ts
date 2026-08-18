@@ -84,7 +84,9 @@ test("getStaticModelsForProvider(openrouter) folds the curated embeddings into t
 });
 
 test("live discovery merges curated embeddings into the response even when /v1/models returns none (#6976)", async () => {
-  const connection = await seedConnection("openrouter");
+  const connection = await seedConnection("openrouter", {
+    providerSpecificData: { autoFetchModels: true },
+  });
   globalThis.fetch = async () =>
     Response.json({
       data: [{ id: "anthropic/claude-sonnet-5", name: "Claude Sonnet 5" }],
@@ -110,7 +112,9 @@ test("live discovery merges curated embeddings into the response even when /v1/m
 });
 
 test("live discovery dedups: a model already present in the live catalog is not duplicated (#6976)", async () => {
-  const connection = await seedConnection("openrouter");
+  const connection = await seedConnection("openrouter", {
+    providerSpecificData: { autoFetchModels: true },
+  });
   globalThis.fetch = async () =>
     Response.json({
       // OpenRouter's live /v1/models never actually lists embedding ids today, but

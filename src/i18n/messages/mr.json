@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "सुरक्षित केलेल्या मॉडेल एंडपॉइंट सेटिंग्ज",
     "searchByModelAria": "मॉडेलद्वारे शोधा",
     "selectSupportedEndpoint": "किमान एक समर्थित एंडपॉइंट निवडा",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "ऑटो-फेच अपस्ट्रीम मॉडेल्स",
+    "autoFetchModelsDisabled": "उपधारा मॉडेल स्वयंचलित-आकर्षण अक्षम आहे",
+    "autoFetchModelsTooltip": "आवश्यकतेनुसार अपस्ट्रीम मॉडेल्स आणा आणि कॅश करा",
+    "autoFetchModelsEnabled": "उपधारा मॉडेल स्वयंचलित-आकर्षण सक्षम आहे",
+    "autoFetchModelsToggleFailed": "उपस्ट्रीम मॉडेल ऑटो-फेच टॉगल करण्यात अयशस्वी",
+    "overridesUpstreamModel": "उपधारक ओव्हरराइड्स",
+    "autoFetchModelsPartialFailure": "काही कनेक्शन अद्यतनित झाले, परंतु अपस्ट्रीम मॉडेल ऑटो-फेच सर्वत्र बदलले नाही.",
+    "overridesUpstreamModelHint": "तुमच्या सेटिंग्ज या अपस्ट्रीम मॉडेलला ओव्हरराईड करतात",
+    "resetToUpstreamDefaultsSuccess": "उपस्ट्रीम मॉडेल डिफॉल्ट्स पुनर्स्थापित केले",
+    "resetToUpstreamDefaults": "अपस्ट्रीम डिफॉल्ट्स पुनर्स्थापित करा",
+    "resetToUpstreamDefaultsFailed": "उपस्ट्रीम मॉडेल डिफॉल्ट्स पुनर्स्थापित करण्यात अयशस्वी"
   },
   "settings": {
     "title": "Settings",

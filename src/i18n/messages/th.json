@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "การตั้งค่า endpoint ของโมเดลที่บันทึกไว้",
     "searchByModelAria": "ค้นหาตามรุ่น",
     "selectSupportedEndpoint": "เลือกจุดสิ้นสุดที่รองรับอย่างน้อยหนึ่งจุด",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsTooltip": "ดึงและเก็บโมเดลจากต้นทางเมื่อจำเป็น",
+    "autoFetchModels": "ดึงโมเดลจาก upstream อัตโนมัติ",
+    "autoFetchModelsEnabled": "เปิดใช้งานการดึงข้อมูลโมเดลจากต้นทางอัตโนมัติ",
+    "autoFetchModelsDisabled": "การดึงข้อมูลโมเดลจากต้นทางถูกปิดใช้งาน",
+    "overridesUpstreamModel": "เขียนทับต้นทาง",
+    "overridesUpstreamModelHint": "การตั้งค่าของคุณจะมีผลเหนือโมเดลต้นทางนี้",
+    "autoFetchModelsToggleFailed": "ไม่สามารถเปลี่ยนการดึงข้อมูลอัตโนมัติของโมเดล upstream ได้",
+    "autoFetchModelsPartialFailure": "การเชื่อมต่อบางรายการได้รับการอัปเดต แต่การดึงข้อมูลโมเดลต้นน้ำอัตโนมัติไม่ได้เปลี่ยนแปลงในทุกที่",
+    "resetToUpstreamDefaults": "คืนค่าการตั้งค่าเริ่มต้นของ upstream",
+    "resetToUpstreamDefaultsSuccess": "กู้คืนค่าเริ่มต้นของโมเดลต้นทาง",
+    "resetToUpstreamDefaultsFailed": "ไม่สามารถกู้คืนค่าเริ่มต้นของโมเดลต้นน้ำได้"
   },
   "settings": {
     "title": "การตั้งค่า",

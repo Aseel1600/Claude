@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "הגדרות נקודת הקצה של המודל השמור",
     "searchByModelAria": "חפש לפי דגם",
     "selectSupportedEndpoint": "בחר לפחות נקודת קצה אחת נתמכת",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "איסוף אוטומטי של מודל עליון מושבת",
+    "autoFetchModelsEnabled": "מודל upstream אוטומטי להורדה מופעל",
+    "autoFetchModels": "משוך אוטומטית מודלים מהמקור",
+    "autoFetchModelsTooltip": "שחזר ושמור במטמון מודלים עליונים כשצריך",
+    "autoFetchModelsToggleFailed": "נכשל בהחלפת מצב האיסוף האוטומטי של המודל העליון",
+    "autoFetchModelsPartialFailure": "כמה חיבורים עודכנו, אך מודל העל לא שונה בכל מקום",
+    "overridesUpstreamModel": "מעלים על עליון",
+    "overridesUpstreamModelHint": "ההגדרות שלך עוקפות את המודל העליון הזה",
+    "resetToUpstreamDefaults": "שחזר את ברירות המחדל של ה-upstream",
+    "resetToUpstreamDefaultsFailed": "נכשל בשחזור ברירות המחדל של המודל העליון",
+    "resetToUpstreamDefaultsSuccess": "שוחזרו ברירות המחדל של המודל העליון"
   },
   "settings": {
     "title": "הגדרות",

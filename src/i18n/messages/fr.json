@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Saved modèles endpoint paramètres",
     "searchByModelAria": "Rechercher un modèle",
     "selectSupportedEndpoint": "Sélectionnez au moins un endpoint pris en charge",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Récupérer automatiquement les modèles en amont",
+    "autoFetchModelsEnabled": "Récupération automatique du modèle en amont activée",
+    "autoFetchModelsDisabled": "Récupération automatique du modèle en amont désactivée",
+    "autoFetchModelsTooltip": "Récupérer et mettre en cache les modèles en amont si nécessaire",
+    "autoFetchModelsToggleFailed": "Échec de l'activation de la récupération automatique du modèle en amont",
+    "overridesUpstreamModel": "Remplace les modifications en amont",
+    "overridesUpstreamModelHint": "Vos paramètres remplacent ce modèle en amont",
+    "resetToUpstreamDefaults": "Restaurer les valeurs par défaut en amont",
+    "resetToUpstreamDefaultsSuccess": "Modèles par défaut de l'amont restaurés",
+    "autoFetchModelsPartialFailure": "Certaines connexions ont été mises à jour, mais l'auto-récupération du modèle en amont n'a pas été modifiée partout",
+    "resetToUpstreamDefaultsFailed": "Échec de la restauration des paramètres par défaut du modèle en amont"
   },
   "settings": {
     "title": "Paramètres",

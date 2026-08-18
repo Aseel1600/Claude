@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Настройки на крайна точка на запазен модел",
     "searchByModelAria": "Търсене по модел",
     "selectSupportedEndpoint": "Изберете поне една поддържана крайна точка",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Автоматично извличане на upstream модели",
+    "autoFetchModelsEnabled": "Автоматично извличане на upstream модела е активирано",
+    "autoFetchModelsTooltip": "Изтеглете и кеширайте upstream модели, когато е необходимо",
+    "overridesUpstreamModel": "Презаписва upstream",
+    "autoFetchModelsToggleFailed": "Неуспешно превключване на автоматично извличане на upstream модела",
+    "autoFetchModelsPartialFailure": "Някои връзки са актуализирани, но автоматичното извличане на upstream модела не беше променено навсякъде",
+    "autoFetchModelsDisabled": "Автоматично извличане на upstream модела е деактивирано",
+    "resetToUpstreamDefaults": "Възстановяване на настройки по подразбиране на upstream",
+    "resetToUpstreamDefaultsSuccess": "Възстановени настройки по подразбиране на upstream модела",
+    "resetToUpstreamDefaultsFailed": "Неуспешно възстановяване на подразбиращите се настройки на upstream модела",
+    "overridesUpstreamModelHint": "Вашите настройки надвиват тази основна модел."
   },
   "settings": {
     "title": "Настройки",

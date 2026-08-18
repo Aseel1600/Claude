@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Kaydedilmiş model uç noktası ayarları",
     "searchByModelAria": "Model ile ara",
     "selectSupportedEndpoint": "En az bir desteklenen uç noktayı seçin",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Üst akış modeli otomatik alma devre dışı bırakıldı",
+    "autoFetchModels": "Otomatik olarak üst akış modellerini al",
+    "autoFetchModelsTooltip": "Gerekli olduğunda yukarı akış modellerini al ve önbelleğe al",
+    "autoFetchModelsEnabled": "Üst akış modeli otomatik alma etkinleştirildi",
+    "autoFetchModelsToggleFailed": "Yukarı akış model otomatik alımını değiştirme başarısız oldu",
+    "autoFetchModelsPartialFailure": "Bazı bağlantılar güncellendi, ancak yukarı akış modeli otomatik alımı her yerde değişmedi.",
+    "overridesUpstreamModel": "Üst akışı geçersiz kılar",
+    "overridesUpstreamModelHint": "Ayarlarınız bu üst modelin üzerine yazıyor.",
+    "resetToUpstreamDefaults": "Varsayılan ayarları geri yükle",
+    "resetToUpstreamDefaultsSuccess": "Yukarı akış model varsayılanları geri yüklendi",
+    "resetToUpstreamDefaultsFailed": "Üst akış model varsayılanlarını geri yükleme başarısız oldu"
   },
   "settings": {
     "title": "Ayarlar",

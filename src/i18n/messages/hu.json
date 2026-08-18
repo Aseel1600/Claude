@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Mentett modell végpont beállításai",
     "searchByModelAria": "Keresés modell szerint",
     "selectSupportedEndpoint": "Válasszon ki legalább egy támogatott végpontot",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Felfelé irányuló modell automatikus lekérése letiltva",
+    "autoFetchModelsEnabled": "Felfelé irányuló modell automatikus lekérése engedélyezve",
+    "autoFetchModelsTooltip": "Töltse le és tárolja a feljebb lévő modelleket, amikor szükséges",
+    "autoFetchModels": "Automatikus frissítés a felfelé irányuló modellekből",
+    "autoFetchModelsToggleFailed": "Nem sikerült átkapcsolni a feljebb lévő modell automatikus lekérdezését",
+    "autoFetchModelsPartialFailure": "Néhány kapcsolat frissítve lett, de a felfelé irányuló modell automatikus lekérése nem változott meg mindenhol",
+    "overridesUpstreamModel": "Felülírja a felfelé irányuló változtatásokat",
+    "overridesUpstreamModelHint": "A beállításai felülírják ezt a fenti modellt",
+    "resetToUpstreamDefaults": "Állítsa vissza az alapértelmezett beállításokat",
+    "resetToUpstreamDefaultsSuccess": "Visszaállítottuk az upstream modell alapértelmezett beállításait",
+    "resetToUpstreamDefaultsFailed": "Nem sikerült visszaállítani a fenti modell alapértelmezett beállításait"
   },
   "settings": {
     "title": "Beállítások elemre",

@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Mipangilio ya mwisho wa mfano uliohifadhiwa",
     "searchByModelAria": "Tafuta kwa mfano",
     "selectSupportedEndpoint": "Chagua angalau kiunganishi kimoja kinachoungwa mkono",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Mfano wa upstream auto-fetch umewezeshwa",
+    "autoFetchModelsDisabled": "Mfano wa upstream auto-fetch umezimwa",
+    "autoFetchModels": "Pata modeli za upstream kiotomatiki",
+    "autoFetchModelsTooltip": "Pata na kuhifadhi mifano ya juu inapohitajika",
+    "autoFetchModelsToggleFailed": "Imeshindikana kubadilisha hali ya upakuaji wa mfano wa juu.",
+    "autoFetchModelsPartialFailure": "Baadhi ya muunganisho yameboreshwa, lakini mfano wa juu wa auto-fetch haukubadilishwa kila mahali",
+    "overridesUpstreamModelHint": "Mipangilio yako inakataa mfano huu wa juu",
+    "overridesUpstreamModel": "Inazidi mwelekeo wa juu",
+    "resetToUpstreamDefaults": "Rejesha mipangilio ya msingi ya upstream",
+    "resetToUpstreamDefaultsSuccess": "Imerejeshwa mipangilio ya mfano wa upstream",
+    "resetToUpstreamDefaultsFailed": "Imeshindikana kurejesha mipangilio ya msingi ya upstream"
   },
   "settings": {
     "title": "Settings",

@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "সংরক্ষিত মডেল এন্ডপয়েন্ট সেটিংস",
     "searchByModelAria": "মডেল দ্বারা অনুসন্ধান করুন",
     "selectSupportedEndpoint": "কমপক্ষে একটি সমর্থিত এন্ডপয়েন্ট নির্বাচন করুন",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsTooltip": "প্রয়োজন হলে আপস্ট্রিম মডেলগুলি ফেচ এবং ক্যাশ করুন",
+    "autoFetchModelsEnabled": "আপস্ট্রিম মডেল স্বয়ংক্রিয়-ফেচ সক্ষম করা হয়েছে",
+    "autoFetchModelsDisabled": "আপস্ট্রিম মডেল অটো-ফেচ নিষ্ক্রিয় করা হয়েছে",
+    "autoFetchModels": "আপস্ট্রিম মডেলগুলি স্বয়ংক্রিয়ভাবে আনুন",
+    "overridesUpstreamModel": "আপস্ট্রিম ওভাররাইডস",
+    "autoFetchModelsToggleFailed": "আপস্ট্রিম মডেল অটো-ফেচ টগল করতে ব্যর্থ হয়েছে",
+    "autoFetchModelsPartialFailure": "কিছু সংযোগ আপডেট হয়েছে, কিন্তু আপস্ট্রিম মডেলের স্বয়ংক্রিয়-ফেচ সব জায়গায় পরিবর্তিত হয়নি",
+    "overridesUpstreamModelHint": "আপনার সেটিংস এই আপস্ট্রিম মডেলকে অতিক্রম করে",
+    "resetToUpstreamDefaults": "আপস্ট্রিম ডিফল্টগুলি পুনরুদ্ধার করুন",
+    "resetToUpstreamDefaultsFailed": "আপস্ট্রিম মডেল ডিফল্টগুলি পুনরুদ্ধার করতে ব্যর্থ হয়েছে",
+    "resetToUpstreamDefaultsSuccess": "আপস্ট্রিম মডেল ডিফল্টগুলি পুনরুদ্ধার করা হয়েছে"
   },
   "settings": {
     "title": "Settings",

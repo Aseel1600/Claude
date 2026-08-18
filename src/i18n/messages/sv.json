@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Inställningar för sparad modellslutpunkt",
     "searchByModelAria": "Sök efter modell",
     "selectSupportedEndpoint": "Välj minst en stödd slutpunkt",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Automatiskt hämta upstream-modeller",
+    "autoFetchModelsDisabled": "Automatisk hämtning av upstream-modell inaktiverad",
+    "autoFetchModelsEnabled": "Automatisk hämtning av upstream-modell aktiverad",
+    "autoFetchModelsTooltip": "Hämta och cacha upstream-modeller vid behov",
+    "overridesUpstreamModel": "Överskrider upstream",
+    "autoFetchModelsToggleFailed": "Misslyckades med att växla upstream-modellens automatisk hämtning",
+    "autoFetchModelsPartialFailure": "Vissa anslutningar har uppdaterats, men upstream-modellens automatisk hämtning ändrades inte överallt",
+    "overridesUpstreamModelHint": "Dina inställningar åsidosätter denna upstream-modell",
+    "resetToUpstreamDefaults": "Återställ upstream-standarder",
+    "resetToUpstreamDefaultsSuccess": "Återställda standardinställningar för upstream-modellen",
+    "resetToUpstreamDefaultsFailed": "Misslyckades med att återställa standardinställningar för upstream-modellen"
   },
   "settings": {
     "title": "Inställningar",

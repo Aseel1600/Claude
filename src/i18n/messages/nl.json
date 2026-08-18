@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Instellingen voor opgeslagen model-eindpunt",
     "searchByModelAria": "Zoeken op model",
     "selectSupportedEndpoint": "Selecteer ten minste één ondersteunde eindpunt",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "Auto-fetch van upstreammodel uitgeschakeld",
+    "autoFetchModelsTooltip": "Haal upstream-modellen op en cache ze indien nodig",
+    "autoFetchModels": "Automatisch upstream-modellen ophalen",
+    "autoFetchModelsEnabled": "Upstream model auto-fetch ingeschakeld",
+    "autoFetchModelsToggleFailed": "Kon upstream model auto-fetch niet omzetten",
+    "overridesUpstreamModelHint": "Jouw instellingen overschrijven dit upstream model",
+    "overridesUpstreamModel": "Overschrijft upstream",
+    "autoFetchModelsPartialFailure": "Sommige verbindingen zijn bijgewerkt, maar het automatisch ophalen van het upstream-model is niet overal gewijzigd",
+    "resetToUpstreamDefaults": "Herstel upstream standaardinstellingen",
+    "resetToUpstreamDefaultsSuccess": "Herstelde standaardinstellingen van upstream-model",
+    "resetToUpstreamDefaultsFailed": "Het is niet gelukt om de standaardinstellingen van het upstream-model te herstellen"
   },
   "settings": {
     "title": "Instellingen",

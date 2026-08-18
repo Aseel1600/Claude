@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Setările punctului final al modelului salvat",
     "searchByModelAria": "Caută după model",
     "selectSupportedEndpoint": "Selectați cel puțin un punct final acceptat",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Obține automat modelele upstream",
+    "autoFetchModelsDisabled": "Modelul upstream auto-fetch dezactivat",
+    "autoFetchModelsTooltip": "Recuperează și stochează modelele upstream atunci când este necesar",
+    "autoFetchModelsEnabled": "Modelul upstream auto-fetch activat",
+    "overridesUpstreamModel": "Suprascrie upstream",
+    "autoFetchModelsToggleFailed": "Nu s-a reușit comutarea automată a preluării modelului upstream",
+    "overridesUpstreamModelHint": "Setările tale suprascriu acest model de bază",
+    "autoFetchModelsPartialFailure": "Unele conexiuni au fost actualizate, dar modelul upstream auto-fetch nu a fost schimbat peste tot",
+    "resetToUpstreamDefaults": "Restabilește valorile implicite upstream",
+    "resetToUpstreamDefaultsSuccess": "Restabilite valorile implicite ale modelului upstream",
+    "resetToUpstreamDefaultsFailed": "Restaurarea valorilor implicite ale modelului upstream a eșuat"
   },
   "settings": {
     "title": "Setări",

@@ -1764,6 +1764,7 @@ test("provider models route rejects unsupported providers without a models confi
 test("provider models route uses provider-specific auth headers for Kimi Coding", async () => {
   const connection = await seedConnection("kimi-coding", {
     apiKey: "kimi-coding-key",
+    providerSpecificData: { autoFetchModels: true },
   });
 
   globalThis.fetch = async (url, init = {}) => {

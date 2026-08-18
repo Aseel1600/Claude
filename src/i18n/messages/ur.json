@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "محفوظ شدہ ماڈل اینڈپوائنٹ کی ترتیبات",
     "searchByModelAria": "ماڈل کے ذریعے تلاش کریں",
     "selectSupportedEndpoint": "کم از کم ایک سپورٹ کردہ اینڈپوائنٹ منتخب کریں",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "اپ اسٹریم ماڈل خودکار حاصل کرنا غیر فعال ہے",
+    "autoFetchModelsEnabled": "اپ اسٹریم ماڈل خودکار حاصل کرنا فعال ہے",
+    "autoFetchModelsTooltip": "جب ضرورت ہو تو اوپر کے ماڈلز کو حاصل کریں اور کیش کریں",
+    "autoFetchModels": "خودکار طور پر اپ اسٹریم ماڈلز حاصل کریں",
+    "autoFetchModelsToggleFailed": "اپ اسٹریم ماڈل خودکار حاصل کرنے کو تبدیل کرنے میں ناکامی",
+    "overridesUpstreamModel": "اوپر والے کو اووررائیڈ کرتا ہے",
+    "autoFetchModelsPartialFailure": "کچھ کنکشنز کو اپ ڈیٹ کیا گیا، لیکن اوپر کی طرف ماڈل خودکار طور پر ہر جگہ تبدیل نہیں ہوا",
+    "overridesUpstreamModelHint": "آپ کی ترتیبات اس اوپر کی ماڈل کو اووررائیڈ کرتی ہیں",
+    "resetToUpstreamDefaultsFailed": "اپ اسٹریم ماڈل کے ڈیفالٹس کو بحال کرنے میں ناکامی",
+    "resetToUpstreamDefaultsSuccess": "اپ اسٹریم ماڈل کے ڈیفالٹس بحال کر دیے گئے ہیں",
+    "resetToUpstreamDefaults": "اپ اسٹریم ڈیفالٹس بحال کریں"
   },
   "settings": {
     "title": "Settings",

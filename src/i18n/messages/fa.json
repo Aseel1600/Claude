@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "تنظیمات نقطه پایانی مدل ذخیره شده",
     "searchByModelAria": "جستجو بر اساس مدل",
     "selectSupportedEndpoint": "حداقل یک نقطه پایانی پشتیبانی شده را انتخاب کنید",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "مدل‌های بالادستی را به‌طور خودکار دریافت کنید",
+    "autoFetchModelsTooltip": "مدل‌های بالادستی را در صورت نیاز دریافت و کش کنید",
+    "autoFetchModelsDisabled": "مدل upstream بارگذاری خودکار غیرفعال است",
+    "autoFetchModelsEnabled": "مدل بالادستی بارگذاری خودکار فعال است",
+    "autoFetchModelsToggleFailed": "عدم موفقیت در تغییر حالت بارگیری خودکار مدل upstream",
+    "overridesUpstreamModel": "بازنویسی upstream",
+    "autoFetchModelsPartialFailure": "برخی اتصالات به‌روزرسانی شدند، اما مدل بالادستی auto-fetch در همه جا تغییر نکرده است",
+    "resetToUpstreamDefaults": "بازگرداندن تنظیمات پیش‌فرض upstream",
+    "overridesUpstreamModelHint": "تنظیمات شما این مدل بالادستی را نادیده می‌گیرند",
+    "resetToUpstreamDefaultsSuccess": "تنظیمات پیش‌فرض مدل بالادستی بازیابی شد",
+    "resetToUpstreamDefaultsFailed": "بازگردانی پیش‌فرض‌های مدل upstream ناموفق بود"
   },
   "settings": {
     "title": "Settings",

@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Saxlanmış model son nöqtəsi parametrləri",
     "searchByModelAria": "Model üzrə axtarış edin",
     "selectSupportedEndpoint": "Ən azı bir dəstəklənən son nöqtəni seçin",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Avtomatik olaraq yuxarı axın modellərini əldə et",
+    "autoFetchModelsDisabled": "Yuxarı axın modelinin avtomatik əldə edilməsi deaktivdir",
+    "autoFetchModelsTooltip": "Tələb olunduqda yuxarıdakı modelləri əldə et və keşlə.",
+    "autoFetchModelsEnabled": "Yuxarı axın modelinin avtomatik yüklənməsi aktivdir",
+    "autoFetchModelsToggleFailed": "Yuxarı axın modelinin avtomatik əldə edilməsini dəyişdirmək mümkün olmadı",
+    "overridesUpstreamModelHint": "Sizin parametrləriniz bu yuxarı axın modelini üstələyir",
+    "overridesUpstreamModel": "Yuxarıdan üstəgəl edir",
+    "autoFetchModelsPartialFailure": "Bəzi bağlantılar yeniləndi, lakin yuxarı axın modelinin avtomatik alınması hər yerdə dəyişdirilmədi",
+    "resetToUpstreamDefaults": "Yuxarı axın standartlarını bərpa et",
+    "resetToUpstreamDefaultsSuccess": "Yuxarı axın modelinin standart parametrləri bərpa edildi",
+    "resetToUpstreamDefaultsFailed": "Yuxarı axın modelinin standartlarını bərpa etmək mümkün olmadı"
   },
   "settings": {
     "title": "Settings",

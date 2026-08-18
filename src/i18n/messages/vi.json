@@ -6337,7 +6337,18 @@
     "savedModelEndpointSettings": "Đã lưu cài đặt endpoint mô hình",
     "searchByModelAria": "Tìm kiếm theo mô hình",
     "selectSupportedEndpoint": "Chọn ít nhất một endpoint được hỗ trợ",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Tự động lấy các mô hình upstream",
+    "autoFetchModelsDisabled": "Tự động lấy mô hình upstream đã bị vô hiệu hóa",
+    "autoFetchModelsEnabled": "Mô hình upstream tự động lấy dữ liệu đã được kích hoạt",
+    "autoFetchModelsTooltip": "Lấy và lưu trữ các mô hình upstream khi cần thiết",
+    "overridesUpstreamModel": "Ghi đè lên upstream",
+    "autoFetchModelsPartialFailure": "Một số kết nối đã được cập nhật, nhưng mô hình upstream auto-fetch không được thay đổi ở mọi nơi",
+    "overridesUpstreamModelHint": "Cài đặt của bạn ghi đè lên mô hình upstream này",
+    "autoFetchModelsToggleFailed": "Không thể chuyển đổi chế độ tự động lấy mô hình upstream",
+    "resetToUpstreamDefaults": "Khôi phục mặc định của upstream",
+    "resetToUpstreamDefaultsSuccess": "Đã khôi phục các giá trị mặc định của mô hình upstream",
+    "resetToUpstreamDefaultsFailed": "Không thể khôi phục mặc định mô hình upstream"
   },
   "settings": {
     "title": "Cài đặt",

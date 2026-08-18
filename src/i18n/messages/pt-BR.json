@@ -6337,7 +6337,18 @@
     "savedModelEndpointSettings": "Configurações do endpoint do modelo salvo",
     "searchByModelAria": "Pesquisar por modelo",
     "selectSupportedEndpoint": "Selecione pelo menos um endpoint suportado",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Modelo upstream de auto-busca habilitado",
+    "autoFetchModelsDisabled": "Busca automática do modelo upstream desativada",
+    "autoFetchModels": "Buscar automaticamente modelos upstream",
+    "autoFetchModelsTooltip": "Busque e armazene em cache os modelos upstream quando necessário",
+    "autoFetchModelsToggleFailed": "Falha ao alternar a busca automática do modelo upstream",
+    "overridesUpstreamModel": "Substitui upstream",
+    "autoFetchModelsPartialFailure": "Algumas conexões foram atualizadas, mas a busca automática do modelo upstream não foi alterada em todos os lugares",
+    "overridesUpstreamModelHint": "Suas configurações substituem este modelo upstream",
+    "resetToUpstreamDefaults": "Restaurar padrões do upstream",
+    "resetToUpstreamDefaultsFailed": "Falha ao restaurar as configurações padrão do modelo upstream",
+    "resetToUpstreamDefaultsSuccess": "Restaurados os padrões do modelo upstream"
   },
   "settings": {
     "title": "Configurações",

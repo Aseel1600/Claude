@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "إعدادات نقطة نهاية النموذج المحفوظ",
     "searchByModelAria": "البحث حسب الطراز",
     "selectSupportedEndpoint": "اختر نقطة نهاية مدعومة واحدة على الأقل",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsDisabled": "تم تعطيل جلب النموذج العلوي تلقائيًا",
+    "autoFetchModels": "جلب النماذج من المصدر تلقائيًا",
+    "autoFetchModelsEnabled": "تم تمكين جلب النموذج العلوي تلقائيًا",
+    "autoFetchModelsTooltip": "استرجاع وتخزين نماذج المصدر عند الحاجة",
+    "autoFetchModelsToggleFailed": "فشل في تبديل جلب النموذج العلوي تلقائيًا",
+    "overridesUpstreamModelHint": "إعداداتك تتجاوز هذا النموذج العلوي",
+    "overridesUpstreamModel": "يتجاوز المصدر",
+    "autoFetchModelsPartialFailure": "تم تحديث بعض الاتصالات، لكن نموذج المصدر التلقائي لم يتغير في كل مكان",
+    "resetToUpstreamDefaults": "استعادة الإعدادات الافتراضية للمصدر",
+    "resetToUpstreamDefaultsSuccess": "تم استعادة إعدادات النموذج الافتراضية من المصدر",
+    "resetToUpstreamDefaultsFailed": "فشل في استعادة إعدادات النموذج الافتراضية من المصدر"
   },
   "settings": {
     "title": "الإعدادات",

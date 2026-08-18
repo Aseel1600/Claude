@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "సేవ్ చేసిన మోడల్ ఎండ్‌పాయింట్ సెట్టింగ్స్",
     "searchByModelAria": "మోడల్ ద్వారా శోధించండి",
     "selectSupportedEndpoint": "కమిషన్ చేయబడిన కనెక్ట్ చేయబడిన ఎండ్‌పాయింట్‌లలో కనీసం ఒకటి ఎంచుకోండి",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsTooltip": "అవసరమైనప్పుడు అప్‌స్ట్రీమ్ మోడల్స్‌ను పొందండి మరియు కాష్ చేయండి",
+    "autoFetchModelsEnabled": "అప్‌స్ట్రీమ్ మోడల్ ఆటో-ఫెచ్ ప్రారంభించబడింది",
+    "autoFetchModels": "ఆటో-ఫెచ్ అప్‌స్ట్రీమ్ మోడల్స్",
+    "autoFetchModelsDisabled": "అప్‌స్ట్రీమ్ మోడల్ ఆటో-ఫెచ్ నిలిపివేయబడింది",
+    "overridesUpstreamModelHint": "మీ సెట్టింగ్స్ ఈ అప్‌స్ట్రీమ్ మోడల్‌ను అధిగమిస్తాయి",
+    "overridesUpstreamModel": "అప్‌స్ట్రీమ్‌ను ఓవర్‌రైడ్ చేయండి",
+    "autoFetchModelsToggleFailed": "అప్‌స్ట్రీమ్ మోడల్ ఆటో-ఫెచ్‌ను టోగుల్ చేయడంలో విఫలమైంది",
+    "autoFetchModelsPartialFailure": "కొన్ని కనెక్షన్లు నవీకరించబడ్డాయి, కానీ అప్‌స్ట్రీమ్ మోడల్ ఆటో-ఫెచ్ ప్రతి చోట మారలేదు",
+    "resetToUpstreamDefaultsSuccess": "అప్‌స్ట్రీమ్ మోడల్ డిఫాల్ట్స్ పునరుద్ధరించబడ్డాయి",
+    "resetToUpstreamDefaults": "అప్‌స్ట్రీమ్ డిఫాల్ట్స్‌ను పునరుద్ధరించండి",
+    "resetToUpstreamDefaultsFailed": "అప్‌స్ట్రీమ్ మోడల్ డిఫాల్ట్స్‌ను పునరుద్ధరించడంలో విఫలమైంది"
   },
   "settings": {
     "title": "Settings",

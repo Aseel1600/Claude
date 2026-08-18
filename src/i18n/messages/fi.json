@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Tallennetun mallin päätepisteen asetukset",
     "searchByModelAria": "Hae mallin mukaan",
     "selectSupportedEndpoint": "Valitse vähintään yksi tuettu päätepiste",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "Hae automaattisesti upstream-malleja",
+    "autoFetchModelsEnabled": "Ylävirran mallin automaattinen haku käytössä",
+    "autoFetchModelsTooltip": "Hae ja vältä ylösvirtaisten mallien välimuisti tarvittaessa",
+    "autoFetchModelsDisabled": "Ylöspäin suuntautuvan mallin automaattinen haku pois käytöstä",
+    "overridesUpstreamModel": "Ylikirjoittaa ylävirran",
+    "autoFetchModelsToggleFailed": "Epäonnistui ylösvirran mallin automaattihaku kytkemisessä",
+    "autoFetchModelsPartialFailure": "Joitakin yhteyksiä päivitettiin, mutta ylävirran mallin automaattista hakua ei muutettu kaikkialla",
+    "resetToUpstreamDefaults": "Palauta upstream-oletukset",
+    "resetToUpstreamDefaultsSuccess": "Palautettiin ylävirran mallin oletukset",
+    "resetToUpstreamDefaultsFailed": "Palautus upstream-mallin oletusasetuksista epäonnistui",
+    "overridesUpstreamModelHint": "Asetuksesi ohittavat tämän ylävirran mallin"
   },
   "settings": {
     "title": "Asetukset",

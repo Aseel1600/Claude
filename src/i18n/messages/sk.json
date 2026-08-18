@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "Nastavenia koncového bodu uloženého modelu",
     "searchByModelAria": "Hľadať podľa modelu",
     "selectSupportedEndpoint": "Vyberte aspoň jeden podporovaný koncový bod",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsEnabled": "Automatické načítanie modelu upstream je povolené",
+    "autoFetchModelsDisabled": "Automatické načítanie modelu upstream je zakázané",
+    "autoFetchModelsTooltip": "Načítajte a uložte upstream modely, keď je to potrebné",
+    "autoFetchModels": "Automaticky načítať upstream modely",
+    "overridesUpstreamModel": "Prepisuje upstream",
+    "autoFetchModelsToggleFailed": "Nepodarilo sa prepnúť automatické získavanie modelu upstream",
+    "overridesUpstreamModelHint": "Vaše nastavenia prepisujú tento upstream model",
+    "autoFetchModelsPartialFailure": "Niektoré pripojenia boli aktualizované, ale automatické načítanie modelu upstream nebolo zmenené všade",
+    "resetToUpstreamDefaultsSuccess": "Obnovené predvolené nastavenia upstream modelu",
+    "resetToUpstreamDefaults": "Obnoviť predvolené nastavenia upstream",
+    "resetToUpstreamDefaultsFailed": "Obnovenie predvolených nastavení modelu upstream zlyhalo"
   },
   "settings": {
     "title": "Nastavenia",

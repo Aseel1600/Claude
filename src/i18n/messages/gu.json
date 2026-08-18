@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "સાચવેલ મોડેલ અંતિમ બિંદુની સેટિંગ્સ",
     "searchByModelAria": "મોડલ દ્વારા શોધો",
     "selectSupportedEndpoint": "કમથી કમ એક સમર્થિત અંતિમ બિંદુ પસંદ કરો",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModels": "આપોઆપ અપસ્ટ્રીમ મોડલ્સ લાવો",
+    "autoFetchModelsEnabled": "અપસ્ટ્રીમ મોડલ આપોઆપ મેળવવું સક્રિય છે",
+    "autoFetchModelsDisabled": "અપસ્ટ્રીમ મોડલ આપોઆપ મેળવનાર બંધ છે",
+    "autoFetchModelsTooltip": "જરૂર પડ્યે અપસ્ટ્રીમ મોડલ્સને લાવવા અને કેશ કરવા",
+    "autoFetchModelsToggleFailed": "અપસ્ટ્રીમ મોડલ ઓટો-ફેચ ટોગલ કરવામાં નિષ્ફળ થયું",
+    "overridesUpstreamModel": "અપસ્ટ્રીમને ઓવરરાઈડ કરે છે",
+    "autoFetchModelsPartialFailure": "કેટલાક કનેક્શન અપડેટ થયા, પરંતુ ઉપરવાળા મોડેલનું ઓટો-ફેચ દરેક જગ્યાએ બદલાયું નથી",
+    "overridesUpstreamModelHint": "તમારા સેટિંગ્સ આ અપસ્ટ્રીમ મોડેલને ઓવરરાઈડ કરે છે",
+    "resetToUpstreamDefaultsSuccess": "ઉપરવાળી મોડલ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરવામાં આવ્યા",
+    "resetToUpstreamDefaults": "અપસ્ટ્રીમ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરો",
+    "resetToUpstreamDefaultsFailed": "અપસ્ટ્રીમ મોડલ ડિફોલ્ટ્સ પુનઃસ્થાપિત કરવામાં નિષ્ફળ થયું"
   },
   "settings": {
     "title": "Settings",

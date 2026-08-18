@@ -6335,7 +6335,18 @@
     "savedModelEndpointSettings": "சேமிக்கப்பட்ட மாதிரி முடிவுறுப்பு அமைப்புகள்",
     "searchByModelAria": "மாதிரியில் தேடு",
     "selectSupportedEndpoint": "குறைந்தது ஒரு ஆதரிக்கப்படும் முடிவுகளைத் தேர்ந்தெடுக்கவும்",
-    "antigravityClientProfileHarness": "Harness / CLI"
+    "antigravityClientProfileHarness": "Harness / CLI",
+    "autoFetchModelsTooltip": "தேவையான போது மேல்நிலை மாதிரிகளை பெறவும் மற்றும் கச்சே செய்யவும்",
+    "autoFetchModelsDisabled": "மேல்நிலை மாதிரி தானாகப் பெறுதல் முடக்கப்பட்டது",
+    "autoFetchModels": "உயர்தர மாதிரிகளை தானாகப் பெறவும்",
+    "autoFetchModelsEnabled": "மேல்நிலை மாதிரி தானாகப் பெறுதல் செயல்படுத்தப்பட்டது",
+    "overridesUpstreamModel": "மேல்நிலை மாற்றங்கள்",
+    "autoFetchModelsPartialFailure": "சில இணைப்புகள் புதுப்பிக்கப்பட்டன, ஆனால் மேல்மட்ட மாதிரி தானாகப் பெறுதல் எங்கும் மாற்றப்படவில்லை",
+    "autoFetchModelsToggleFailed": "மேல்தர மாதிரி தானாகப் பெறுதலை மாற்ற முடியவில்லை",
+    "overridesUpstreamModelHint": "உங்கள் அமைப்புகள் இந்த மேல்மட்ட மாதிரியை மீறுகின்றன",
+    "resetToUpstreamDefaults": "முதன்மை இயல்புகளை மீட்டமைக்கவும்",
+    "resetToUpstreamDefaultsSuccess": "மீட்டமைக்கப்பட்ட மேல்நிலை மாதிரி இயல்புகள்",
+    "resetToUpstreamDefaultsFailed": "மேல்நிலை மாதிரி இயல்புகளை மீட்டெடுக்க முடியவில்லை"
   },
   "settings": {
     "title": "Settings",
