@@ -13,7 +13,12 @@ import {
 } from "@/lib/db/providerLimits";
 import { syncToCloud } from "@/lib/cloudSync";
 import { setQuotaCache } from "@/domain/quotaCache";
-import { buildClaudeExtraUsageConnectionUpdate } from "@/lib/providers/claudeExtraUsage";
+import {
+  buildClaudeExtraUsageConnectionUpdate,
+  CLAUDE_EXTRA_USAGE_ERROR_SOURCE,
+  isClaudeExtraUsageBlockEnabled,
+  isClaudeExtraUsageQueued,
+} from "@/lib/providers/claudeExtraUsage";
 import { clearRecoveredProviderState } from "@/sse/services/auth";
 import { getMachineId } from "@/shared/utils/machine";
 import { USAGE_SUPPORTED_PROVIDERS } from "@/shared/constants/providers";
@@ -458,6 +463,20 @@ export async function maybeClearRecoveredQuotaState(
   if (!hasUsableQuota(usage)) return connection;
   if (isTerminalStatusForQuotaRecovery(connection.testStatus)) return connection;
   if (connection.lastErrorType === "quota_exhausted") {
+    if (
+      connection.lastErrorSource === CLAUDE_EXTRA_USAGE_ERROR_SOURCE &&
+      isClaudeExtraUsageBlockEnabled(connection.provider, connection.providerSpecificData) &&
+      isClaudeExtraUsageQueued(usage)
+    ) {
+      // Claude's pay-as-you-go extra-usage block is orthogonal to the
+      // session/weekly quota windows checked below: the upstream can report a
+      // fully recovered quota window while extraUsage.queued is still true.
+      // Only syncClaudeExtraUsageStateIfNeeded (buildClaudeExtraUsageConnectionUpdate)
+      // owns clearing this specific state — the general window-recovery logic
+      // below must not release it just because some quota window looks fresh.
+      return connection;
+    }
+
     const quotas = usage?.quotas;
     if (isRecord(quotas)) {
       // Honor the REAL per-window resetAt from the freshly fetched quota

@@ -435,3 +435,98 @@ test("quota recovery path does NOT overwrite a concurrent mark (TOCTOU closed)",
   assert.equal(after.backoffLevel, 3, "fresh backoff level must survive");
   assert.equal(after.lastError, "fresh concurrent 429");
 });
+
+function claudeUsageResponseWithQueuedExtraUsage() {
+  // Session/weekly windows are fully recovered (low utilization, future reset)
+  // but extra_usage.queued stays true — the two states are orthogonal upstream.
+  return new Response(
+    JSON.stringify({
+      tier: "pro",
+      five_hour: {
+        utilization: 5,
+        resets_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+      },
+      seven_day: {
+        utilization: 10,
+        resets_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      },
+      extra_usage: { queued: true },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
+}
+
+function claudeBootstrapResponseForExtraUsageTest() {
+  return new Response(
+    JSON.stringify({
+      oauth_account: {
+        account_uuid: "account-uuid-extra-usage-test",
+        account_email: "claude-extra-usage@example.test",
+        organization_uuid: "org-uuid-extra-usage-test",
+        organization_name: "Extra Usage Test Org",
+        organization_type: "pro",
+        organization_rate_limit_tier: "pro",
+      },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } }
+  );
+}
+
+test("Claude extra-usage block stays locked through the real sync chain when recovered quota windows coexist with extraUsage.queued=true", async () => {
+  // Walks the REAL call order inside fetchLiveProviderLimitsWithOptions:
+  //   syncClaudeExtraUsageStateIfNeeded  → re-asserts the extra-usage block
+  //   maybeClearRecoveredQuotaState      → must NOT undo it just because the
+  //                                        session/weekly quota windows look
+  //                                        recovered in the same fetch.
+  const created = await providersDb.createProviderConnection({
+    provider: "claude",
+    authType: "oauth",
+    name: `Claude Extra Usage ${Date.now()} ${Math.random()}`,
+    email: `claude-extra-usage-${Date.now()}@example.test`,
+    accessToken: "claude-access-token",
+    refreshToken: "claude-refresh-token",
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    testStatus: "unavailable",
+    isActive: true,
+    lastError: "Claude extra usage was detected and blocked by this connection policy.",
+    lastErrorType: "quota_exhausted",
+    lastErrorSource: "extra_usage",
+    errorCode: 429,
+    rateLimitedUntil: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    backoffLevel: 1,
+    // blockExtraUsage defaults to enabled (policy is opt-out via `=== false`).
+    providerSpecificData: {},
+  });
+  const connectionId = (created as { id: string }).id;
+
+  await withMockedFetch(
+    (async (url) => {
+      const urlText = String(url);
+      if (urlText.includes("/api/claude_cli/bootstrap")) {
+        return claudeBootstrapResponseForExtraUsageTest();
+      }
+      return claudeUsageResponseWithQueuedExtraUsage();
+    }) as typeof fetch,
+    async () => {
+      const result = await providerLimits.fetchAndPersistProviderLimits(connectionId, "manual");
+      assert.equal(
+        result.connection.testStatus,
+        "unavailable",
+        "returned snapshot must stay blocked"
+      );
+      assert.equal(result.connection.lastErrorSource, "extra_usage");
+    }
+  );
+
+  const after = (await providersDb.getProviderConnectionById(connectionId)) as Record<
+    string,
+    unknown
+  >;
+  assert.equal(after.testStatus, "unavailable", "connection must remain unavailable");
+  assert.equal(after.lastErrorType, "quota_exhausted");
+  assert.equal(
+    after.lastErrorSource,
+    "extra_usage",
+    "extra_usage marker must survive the general recovery-clearing logic"
+  );
+});
