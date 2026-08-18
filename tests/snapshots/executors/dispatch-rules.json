@@ -37,6 +37,11 @@
       "status": 400,
       "throws": true
     },
+    "jina-search": {
+      "message": "Provider \"jina-search\" is a search provider and does not support chat completions; use the /v1/search endpoint instead.",
+      "status": 400,
+      "throws": true
+    },
     "linkup-search": {
       "message": "Provider \"linkup-search\" is a search provider and does not support chat completions; use the /v1/search endpoint instead.",
       "status": 400,

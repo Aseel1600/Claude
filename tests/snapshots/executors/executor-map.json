@@ -75,6 +75,11 @@
       "configSource": "cloudflare-ai",
       "provider": "cloudflare-ai"
     },
+    "cfp": {
+      "className": "CloudflarePlaygroundExecutor",
+      "configSource": "<custom-config>",
+      "provider": "cloudflare-playground"
+    },
     "cgpt-codex": {
       "className": "ChatGptWebCodexExecutor",
       "configSource": "<custom-config>",
@@ -124,6 +129,11 @@
       "className": "CloudflareAIExecutor",
       "configSource": "cloudflare-ai",
       "provider": "cloudflare-ai"
+    },
+    "cloudflare-playground": {
+      "className": "CloudflarePlaygroundExecutor",
+      "configSource": "<custom-config>",
+      "provider": "cloudflare-playground"
     },
     "cmd": {
       "className": "CommandCodeExecutor",
@@ -405,20 +415,10 @@
       "configSource": "<custom-config>",
       "provider": "lmarena"
     },
-    "mcode": {
-      "className": "MimocodeExecutor",
-      "configSource": "<custom-config>",
-      "provider": "mimocode"
-    },
     "microsoft-designer-web": {
       "className": "MicrosoftDesignerWebExecutor",
       "configSource": "<custom-config>",
       "provider": "microsoft-designer-web"
-    },
-    "mimocode": {
-      "className": "MimocodeExecutor",
-      "configSource": "<custom-config>",
-      "provider": "mimocode"
     },
     "moonshot": {
       "className": "MoonshotExecutor",
