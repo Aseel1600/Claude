@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { queryGovernorTelemetryRows } from "../../src/lib/db/governorTelemetry.ts";
+import {
+  accountBenchmarkOperations,
+  compareObservedTarget,
+  consumeSseText,
+  createSseState,
+  evaluateQuality,
+  flushSseText,
+  isStreamComplete,
+} from "./omniroute-shadow-benchmark-core.mjs";
 
 const BASE_URL = process.env.OMNIROUTE_BASE_URL || "http://127.0.0.1:20128";
 const MAX_PAIRS = 10;
@@ -7,6 +16,8 @@ const configuredTimeout = Number(process.env.SHADOW_REQUEST_TIMEOUT_MS || 600_00
 const REQUEST_TIMEOUT_MS =
   Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 600_000;
 const smokeOnly = process.argv.includes("--smoke");
+const calibrationOnly = process.argv.includes("--calibration");
+const decisionOnly = process.argv.includes("--decision");
 const requestedPairs = Number(
   process.argv.find((arg) => arg.startsWith("--pairs="))?.split("=")[1] || MAX_PAIRS
 );
@@ -46,7 +57,7 @@ const INPUTS = [
     category: "simple-code",
     prompt:
       'Return exactly this JavaScript statement and nothing else: console.log("SHADOW-CODE-11");',
-    expected: "SHADOW-CODE-11",
+    expectedOutput: 'console.log("SHADOW-CODE-11");',
     quality: "code",
   },
   {
@@ -89,7 +100,44 @@ const startIndex =
   Number.isInteger(requestedStart) && requestedStart >= 0 && requestedStart < INPUTS.length
     ? requestedStart
     : 0;
-const selectedInputs = INPUTS.slice(startIndex, startIndex + pairCount);
+const CALIBRATION_INPUTS = [
+  {
+    id: "calibration-exact",
+    category: "exact",
+    prompt: "Respond only with 42 and nothing else.",
+    expected: "42",
+  },
+  {
+    id: "calibration-json",
+    category: "json",
+    prompt: 'Return only this JSON object: {"status":"ok","value":7}',
+    expectedJson: { status: "ok", value: 7 },
+    quality: "json",
+  },
+  {
+    id: "calibration-portuguese",
+    category: "portuguese",
+    prompt: "Responda somente com CALIBRACAO-PT-OK e nada mais.",
+    expected: "CALIBRACAO-PT-OK",
+  },
+  {
+    id: "calibration-transformation",
+    category: "transformation",
+    prompt: "Converta omni para maiúsculas. Responda somente OMNI.",
+    expected: "OMNI",
+  },
+  {
+    id: "calibration-code",
+    category: "code",
+    prompt: "Retorne exatamente esta linha JavaScript: const result = 6 * 7;",
+    expectedOutput: "const result = 6 * 7;",
+    quality: "code",
+  },
+];
+const selectedInputs = (calibrationOnly ? CALIBRATION_INPUTS : INPUTS).slice(
+  startIndex,
+  startIndex + (calibrationOnly ? Math.min(pairCount, CALIBRATION_INPUTS.length) : pairCount)
+);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -119,89 +167,8 @@ function parsePositiveInteger(value) {
   return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function normalizeUsage(usage) {
-  if (!usage || typeof usage !== "object") return null;
-  return {
-    promptTokens: usage.prompt_tokens ?? usage.input_tokens ?? null,
-    outputTokens: usage.completion_tokens ?? usage.output_tokens ?? null,
-    totalTokens: usage.total_tokens ?? null,
-  };
-}
-
-function evaluateQuality(input, content) {
-  if (!content || typeof content !== "string") return false;
-  if (input.quality === "json") {
-    try {
-      const value = JSON.parse(content);
-      return value?.status === input.expected;
-    } catch {
-      return false;
-    }
-  }
-  return content.includes(input.expected);
-}
-
-function parseSseFrame(frame, state, expected) {
-  const data = frame
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("data:"))
-    .map((line) => line.slice(5).trimStart())
-    .join("\n")
-    .trim();
-  if (!data) return;
-
-  state.eventCount += 1;
-  state.firstEventAt ??= performance.now();
-  state.lastEventAt = performance.now();
-  if (data === "[DONE]") {
-    state.sawDone = true;
-    state.doneAt ??= performance.now();
-    return;
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(data);
-  } catch {
-    state.parseError = "sse_json_parse_error";
-    return;
-  }
-
-  if (typeof payload?.model === "string") state.responseModel = payload.model;
-  if (payload?.usage) state.usage = normalizeUsage(payload.usage);
-  if (payload?.error) {
-    state.errorCode =
-      typeof payload.error.code === "string"
-        ? payload.error.code
-        : typeof payload.error.type === "string"
-          ? payload.error.type
-          : "provider_error";
-  }
-
-  const choice = payload?.choices?.[0];
-  const content = choice?.delta?.content ?? choice?.message?.content;
-  if (typeof content === "string") state.content += content;
-  if (choice?.finish_reason != null) state.sawFinishReason = true;
-  state.qualityPass = state.content.includes(expected);
-}
-
 async function readStreamingBody(response, input, started) {
-  const state = {
-    content: "",
-    eventCount: 0,
-    firstByteAt: null,
-    firstEventAt: null,
-    lastEventAt: null,
-    doneAt: null,
-    connectionClosedAt: null,
-    sawDone: false,
-    sawFinishReason: false,
-    responseModel: null,
-    usage: null,
-    errorCode: null,
-    parseError: null,
-    qualityPass: false,
-  };
+  const state = createSseState();
 
   if (!response.body) {
     state.connectionClosedAt = performance.now();
@@ -224,16 +191,18 @@ async function readStreamingBody(response, input, started) {
         const separatorLength = match?.[0].length || 2;
         const frame = buffer.slice(0, separator);
         buffer = buffer.slice(separator + separatorLength);
-        parseSseFrame(frame, state, input.expected);
+        consumeSseText("", `${frame}\n\n`, state);
       }
     }
     buffer += decoder.decode();
-    if (buffer.trim()) parseSseFrame(buffer, state, input.expected);
+    flushSseText(buffer, state);
+    state.readerCompleted = true;
   } finally {
     state.connectionClosedAt = performance.now();
     reader.releaseLock();
   }
-  state.qualityPass = evaluateQuality(input, state.content);
+  state.quality = evaluateQuality(input, state.content);
+  state.qualityPass = state.quality.pass === true;
   return state;
 }
 
@@ -257,19 +226,24 @@ async function request(model, input, armLabel) {
         messages: [{ role: "user", content: input.prompt }],
         stream: true,
         temperature: 0,
-        max_tokens: 32,
+        max_tokens: calibrationOnly || decisionOnly ? 128 : 32,
       }),
     });
     const headersAt = performance.now();
     const stream = await readStreamingBody(response, input, started);
     const responseCorrelationId = header(response, "x-correlation-id");
-    const streamCompleted = response.status === 200 && (stream.sawDone || stream.sawFinishReason);
+    const streamCompleted = isStreamComplete(response.status, stream);
+    const quality = stream.quality || evaluateQuality(input, stream.content);
     return {
       status: response.status,
       latencyMs: Math.round(performance.now() - started),
+      completionMs: stream.connectionClosedAt
+        ? Math.round(stream.connectionClosedAt - started)
+        : null,
       headersAtMs: Math.round(headersAt - started),
       firstByteMs: stream.firstByteAt ? Math.round(stream.firstByteAt - started) : null,
       firstEventMs: stream.firstEventAt ? Math.round(stream.firstEventAt - started) : null,
+      firstContentMs: stream.firstContentAt ? Math.round(stream.firstContentAt - started) : null,
       lastEventMs: stream.lastEventAt ? Math.round(stream.lastEventAt - started) : null,
       doneMs: stream.doneAt ? Math.round(stream.doneAt - started) : null,
       connectionClosedMs: stream.connectionClosedAt
@@ -285,13 +259,18 @@ async function request(model, input, armLabel) {
       responseModel: stream.responseModel,
       responseProvider: providerFromModel(stream.responseModel),
       usage: stream.usage,
+      actualOutput: quality.actualOutput,
+      outputLength: quality.outputLength,
+      outputTruncated: quality.outputTruncated,
+      qualityValidator: quality.validator,
+      qualityReason: quality.reason,
       requestId: header(response, "x-request-id") || header(response, "x-omniroute-request-id"),
       requestCorrelationId,
       responseCorrelationId,
       correlationId: responseCorrelationId,
       fallbackAttempts: parsePositiveInteger(header(response, "x-omniroute-fallback-attempts")),
       cacheStatus: header(response, "x-omniroute-cache"),
-      qualityPass: streamCompleted && stream.qualityPass,
+      qualityPass: streamCompleted && quality.pass === true,
       harnessTimeout: false,
       model,
       armLabel,
@@ -303,9 +282,11 @@ async function request(model, input, armLabel) {
     return {
       status: 0,
       latencyMs: Math.round(performance.now() - started),
+      completionMs: null,
       headersAtMs: null,
       firstByteMs: null,
       firstEventMs: null,
+      firstContentMs: null,
       lastEventMs: null,
       doneMs: null,
       connectionClosedMs: null,
@@ -316,6 +297,11 @@ async function request(model, input, armLabel) {
       responseModel: null,
       responseProvider: null,
       usage: null,
+      actualOutput: "",
+      outputLength: 0,
+      outputTruncated: false,
+      qualityValidator: input.quality || "exact",
+      qualityReason: "transport_error",
       requestId: null,
       requestCorrelationId,
       responseCorrelationId: null,
@@ -366,6 +352,33 @@ async function requestWithPlan(input, armLabel) {
   const requestResult = await request("auto/chat", input, armLabel);
   const plan = await readGovernorPlan(requestResult.correlationId);
   return { request: requestResult, plan };
+}
+
+function decorateNativeObservation(nativeArm) {
+  const firstChoiceProven = Boolean(
+    nativeArm.request.streamCompleted &&
+    nativeArm.request.fallbackAttempts === 0 &&
+    nativeArm.plan?.actualProvider &&
+    nativeArm.plan?.actualModel &&
+    compareObservedTarget(nativeArm.request.responseModel, nativeArm.plan)
+  );
+  return {
+    ...nativeArm.request,
+    plan: nativeArm.plan,
+    firstChoiceProvider: nativeArm.plan?.actualProvider || null,
+    firstChoiceModel: nativeArm.plan?.actualModel || null,
+    firstChoiceProven,
+    firstChoiceSuccess: firstChoiceProven,
+    firstChoiceSource:
+      nativeArm.request.fallbackAttempts === 0
+        ? "terminal_outcome_without_fallback"
+        : "unproven_after_fallback",
+  };
+}
+
+function nativeTargetFromObservation(native) {
+  if (!native.firstChoiceProven) return null;
+  return `${native.firstChoiceProvider}/${native.firstChoiceModel}`;
 }
 
 async function revalidateTarget(plan) {
@@ -426,7 +439,7 @@ async function runGovernorArm(input) {
 
 function summarizeArm(results, firstChoiceSuccess = false) {
   const latencies = results
-    .map((result) => result.latencyMs)
+    .map((result) => result.completionMs ?? result.latencyMs)
     .filter(Number.isFinite)
     .sort((a, b) => a - b);
   const successes = results.filter((result) => result.status === 200);
@@ -478,6 +491,110 @@ if (smokeOnly) {
   process.exit(smoke.plan ? 0 : 1);
 }
 
+async function runDecisionPair(input) {
+  const nativeObservation = decorateNativeObservation(
+    await requestWithPlan(input, "decision-native-observe")
+  );
+  const nativeTarget = nativeTargetFromObservation(nativeObservation);
+  const nativeDirect = nativeTarget
+    ? await request(nativeTarget, input, "decision-native-direct")
+    : null;
+  const governor = await runGovernorArm(input);
+  const governorTarget = governor.directTarget;
+  const governorDirect = governor.direct;
+  const targetComparison =
+    nativeTarget && governorTarget
+      ? nativeTarget === governorTarget
+        ? "AGREEMENT"
+        : "DISAGREEMENT"
+      : "UNPROVEN";
+  return {
+    pairId: input.id,
+    category: input.category,
+    benchmarkType: "A_DECISION_QUALITY",
+    nativeObservation,
+    nativeTarget,
+    nativeDirect,
+    governor: {
+      planningRequest: governor.request,
+      plan: governor.plan,
+      directTarget: governorTarget,
+      direct: governorDirect,
+      revalidation: governor.revalidation,
+    },
+    targetComparison,
+    pairwise:
+      nativeDirect && governorDirect
+        ? {
+            qualityWinner:
+              nativeDirect.qualityPass === governorDirect.qualityPass
+                ? "tie"
+                : nativeDirect.qualityPass
+                  ? "native"
+                  : "governor",
+            reliabilityWinner:
+              nativeDirect.streamCompleted && !governorDirect.streamCompleted
+                ? "native"
+                : governorDirect.streamCompleted && !nativeDirect.streamCompleted
+                  ? "governor"
+                  : "tie",
+            latencyDeltaMs:
+              (governorDirect.completionMs ?? governorDirect.latencyMs) -
+              (nativeDirect.completionMs ?? nativeDirect.latencyMs),
+          }
+        : { qualityWinner: "unjudgeable", reliabilityWinner: "unjudgeable", latencyDeltaMs: null },
+    correlation: {
+      nativeObservation: nativeObservation.correlationId,
+      nativeDirect: nativeDirect?.correlationId || null,
+      governorPlan: governor.request.correlationId,
+      governorExecution: governorDirect?.correlationId || null,
+    },
+  };
+}
+
+if (decisionOnly) {
+  const decisionPairs = [];
+  for (const input of selectedInputs) decisionPairs.push(await runDecisionPair(input));
+  const nativeDirectResults = decisionPairs.map((pair) => pair.nativeDirect).filter(Boolean);
+  const governorDirectResults = decisionPairs.map((pair) => pair.governor.direct).filter(Boolean);
+  const targetAgreement = decisionPairs.filter(
+    (pair) => pair.targetComparison === "AGREEMENT"
+  ).length;
+  const targetDisagreement = decisionPairs.filter(
+    (pair) => pair.targetComparison === "DISAGREEMENT"
+  ).length;
+  console.log(
+    JSON.stringify(
+      {
+        baseUrl: BASE_URL,
+        benchmarkType: "A_DECISION_QUALITY",
+        pairCount: decisionPairs.length,
+        executionPath:
+          "Native Auto observation -> Native direct target and Governor plan -> Governor direct target",
+        directRequestsComparable: true,
+        governor: "simulate / false / 0",
+        requestMode: "stream=true",
+        requestTimeoutMs: REQUEST_TIMEOUT_MS,
+        maxTokens: calibrationOnly || decisionOnly ? 128 : 32,
+        timingMethod:
+          "direct completionMs=reader close after SSE parsing; Auto observation timing excluded from direct comparison",
+        qualityMethod:
+          "deterministic exact/json/code validators over reconstructed content; no LLM judge",
+        targetAgreement,
+        targetDisagreement,
+        targetUnproven: decisionPairs.length - targetAgreement - targetDisagreement,
+        nativeDirect: summarizeArm(nativeDirectResults),
+        governorDirect: summarizeArm(governorDirectResults),
+        operationAccounting: accountBenchmarkOperations(decisionPairs),
+        pairs: decisionPairs,
+      },
+      null,
+      2
+    )
+  );
+  process.exit(0);
+}
+
 const pairs = [];
 for (const [index, input] of selectedInputs.entries()) {
   const governorFirst = (startIndex + index) % 2 === 1;
@@ -486,34 +603,10 @@ for (const [index, input] of selectedInputs.entries()) {
   if (governorFirst) {
     governor = await runGovernorArm(input);
     const nativeArm = await requestWithPlan(input, "native");
-    native = {
-      ...nativeArm.request,
-      plan: nativeArm.plan,
-      firstChoiceProvider: nativeArm.plan?.actualProvider || null,
-      firstChoiceModel: nativeArm.plan?.actualModel || null,
-      firstChoiceSuccess: Boolean(
-        nativeArm.request.streamCompleted &&
-        nativeArm.plan?.actualProvider &&
-        nativeArm.plan?.actualModel &&
-        nativeArm.request.responseModel ===
-          `${nativeArm.plan.actualProvider}/${nativeArm.plan.actualModel}`
-      ),
-    };
+    native = decorateNativeObservation(nativeArm);
   } else {
     const nativeArm = await requestWithPlan(input, "native");
-    native = {
-      ...nativeArm.request,
-      plan: nativeArm.plan,
-      firstChoiceProvider: nativeArm.plan?.actualProvider || null,
-      firstChoiceModel: nativeArm.plan?.actualModel || null,
-      firstChoiceSuccess: Boolean(
-        nativeArm.request.streamCompleted &&
-        nativeArm.plan?.actualProvider &&
-        nativeArm.plan?.actualModel &&
-        nativeArm.request.responseModel ===
-          `${nativeArm.plan.actualProvider}/${nativeArm.plan.actualModel}`
-      ),
-    };
+    native = decorateNativeObservation(nativeArm);
     governor = await runGovernorArm(input);
   }
 
@@ -553,7 +646,8 @@ for (const [index, input] of selectedInputs.entries()) {
               : direct.streamCompleted && !native.streamCompleted
                 ? "governor"
                 : "tie",
-          latencyDeltaMs: direct.latencyMs - native.latencyMs,
+          latencyDeltaMs:
+            (direct.completionMs ?? direct.latencyMs) - (native.completionMs ?? native.latencyMs),
         }
       : { qualityWinner: "unjudgeable", reliabilityWinner: "unjudgeable", latencyDeltaMs: null },
     correlation: {
@@ -592,10 +686,14 @@ console.log(
       baseUrl: BASE_URL,
       pairCount: pairs.length,
       executionOrder: ["native_then_governor", "governor_then_native", "native_then_governor"],
-      qualityMethod: "blind-free expected-token checks with JSON parse/schema check; no LLM judge",
+      qualityMethod:
+        "deterministic exact/json/code validators over reconstructed content; no LLM judge",
       governor: "simulate / false / 0",
       requestMode: "stream=true",
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
+      timingMethod:
+        "completionMs=reader close after SSE parsing; headers/firstByte/firstContent/done are offsets from fetch start",
+      maxTokens: calibrationOnly || decisionOnly ? 128 : 32,
       externalTimeoutClassification: "HARNESS_TIMEOUT",
       native: summarizeArm(nativeResults, nativeFirstChoiceSuccess),
       governorDirect: summarizeArm(governorResults),
@@ -603,6 +701,7 @@ console.log(
       governorExecutable: pairs.filter((pair) => pair.governor.plan?.executable === true).length,
       qualityWins: qualityCounts,
       reliabilityWins: reliabilityCounts,
+      operationAccounting: accountBenchmarkOperations(pairs),
       pairs,
     },
     null,
