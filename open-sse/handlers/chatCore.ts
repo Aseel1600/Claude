@@ -335,6 +335,7 @@ import { invalidateCodexQuotaCache } from "../services/codexQuotaFetcher.ts";
 import { translateNonStreamingResponse } from "./responseTranslator.ts";
 import { unwrapClineNonStreamingEnvelope } from "./chatCore/clineResponseEnvelope.ts";
 import { extractUsageFromResponse } from "./usageExtractor.ts";
+import { normalizeOpenAIBodyToolCallArgs } from "../utils/toolCallXmlNormalizer.ts";
 import {
   sanitizeOpenAIResponse,
   sanitizeResponsesApiResponse,
@@ -722,12 +723,13 @@ export async function handleChatCore({
     copilotCompatibleReasoning,
     clientResponseFormat,
   } = resolveChatCoreRequestFormat({ clientRawRequest, body, provider, userAgent });
-  const nativeOpenAICompatibleResponsesPassthrough = shouldUseNativeOpenAICompatibleResponsesPassthrough({
-    provider,
-    sourceFormat,
-    endpointPath,
-    providerSpecificData: credentials?.providerSpecificData,
-  });
+  const nativeOpenAICompatibleResponsesPassthrough =
+    shouldUseNativeOpenAICompatibleResponsesPassthrough({
+      provider,
+      sourceFormat,
+      endpointPath,
+      providerSpecificData: credentials?.providerSpecificData,
+    });
   const responsesInputItems = Array.isArray(body?.input) ? body.input : [];
   const customToolNames = collectCustomToolNamesForSourceFormat(
     sourceFormat,
@@ -4755,6 +4757,11 @@ export async function handleChatCore({
         stripReasoning,
         parseTextualReasoningTags: shouldParseTextualReasoningTags(provider, model),
       });
+      // #tencent-hy3: some OpenAI-format upstreams emit XML-encoded
+      // tool-call arguments (e.g. nous-research → Tencent hy3 with forced
+      // tool_choice) which breaks clients that JSON.parse `function.arguments`.
+      // Normalize the wrapper to a JSON object string (no-op for other bodies).
+      normalizeOpenAIBodyToolCallArgs(translatedResponse);
     }
 
     // #8331: keep the client-visible metering fields real everywhere except Claude-Code-compatible

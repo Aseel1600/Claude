@@ -45,6 +45,7 @@ import {
 } from "./responsesCommentaryDrop.ts";
 import { buildErrorBody } from "./error.ts";
 import { parseTextualToolCallCandidate, isValidToolCallHeaderPrefix } from "./textualToolCall.ts";
+import { normalizeXmlToolCallArgs } from "./toolCallXmlNormalizer.ts";
 import {
   formatTranslatedStreamError,
   normalizeStreamFailurePayload,
@@ -577,7 +578,10 @@ function getOpenAIIntermediateChunks(value: unknown): unknown[] {
   return Array.isArray(candidate) ? candidate : [];
 }
 
-export function restoreClaudePassthroughToolUseName(parsed: JsonRecord, toolNameMap: unknown): boolean {
+export function restoreClaudePassthroughToolUseName(
+  parsed: JsonRecord,
+  toolNameMap: unknown
+): boolean {
   const block =
     parsed.content_block && typeof parsed.content_block === "object"
       ? (parsed.content_block as JsonRecord)
@@ -707,6 +711,15 @@ export function createSSEStream(options: StreamOptions = {}) {
   /** Passthrough: accumulate tool_calls deltas for call log responseBody */
   const passthroughToolCalls = new Map<string, ToolCall>();
   let passthroughToolCallSeq = 0;
+  /** Passthrough: XML-encoded tool-call arguments buffered per tool-call key
+   * (#tencent-hy3). Some OpenAI-format upstreams emit function.arguments as an
+   * XML wrapper (split across many SSE fragments). While engaged, the raw XML
+   * fragments are withheld from the client and a single normalized JSON args
+   * delta is injected right before the finish chunk. */
+  const passthroughXmlArgsBuffers = new Map<string, string>();
+  const passthroughXmlArgsEngaged = new Set<string>();
+  /** Passthrough: a raw tool-call args fragment was withheld this chunk */
+  let xmlArgsWithheld = false;
   const allowedToolNames = extractAllowedToolNames(body);
   let skipPassthroughEvent = false;
   const thinkState = initThinkState(mode === STREAM_MODE.PASSTHROUGH, provider, model);
@@ -957,6 +970,52 @@ export function createSSEStream(options: StreamOptions = {}) {
     if (pendingRequestClearedByStream) return;
     pendingRequestClearedByStream = true;
     trackPendingRequest(model, provider, connectionId, false);
+  };
+
+  /**
+   * Emit the buffered XML-encoded tool-call arguments as normalized JSON deltas
+   * (#tencent-hy3). For every tool-call key whose raw fragments were withheld,
+   * build a synthetic chat-completion chunk carrying the full arguments:
+   *   - if the accumulated string matches the XML wrapper → normalized JSON object
+   *   - otherwise → the raw accumulated string (identical content to what would
+   *     have streamed, just delivered as one delta)
+   * Returns true when any delta was emitted.
+   */
+  const emitBufferedXmlArgsDeltas = (): boolean => {
+    if (passthroughXmlArgsEngaged.size === 0) return false;
+    let emitted = false;
+    for (const key of [...passthroughXmlArgsEngaged]) {
+      const toolCall = passthroughToolCalls.get(key);
+      const raw = passthroughXmlArgsBuffers.get(key) || "";
+      if (!toolCall || !raw) {
+        passthroughXmlArgsEngaged.delete(key);
+        passthroughXmlArgsBuffers.delete(key);
+        continue;
+      }
+      const normalized = normalizeXmlToolCallArgs(raw);
+      const finalArgs = normalized !== null ? normalized : raw;
+      const syntheticChunk = buildSyntheticChatChunk(passthroughResponsesId, model, {
+        tool_calls: [
+          {
+            index: toolCall.index,
+            id: toolCall.id != null ? String(toolCall.id) : null,
+            type: toolCall.type,
+            function: {
+              name: toolCall.function.name,
+              arguments: finalArgs,
+            },
+          },
+        ],
+      });
+      const output = `data: ${JSON.stringify(syntheticChunk)}\n\n`;
+      reqLogger?.appendConvertedChunk?.(output);
+      controller.enqueue(encoder.encode(output));
+      clientPayloadCollector.push(syntheticChunk);
+      emitted = true;
+      passthroughXmlArgsEngaged.delete(key);
+      passthroughXmlArgsBuffers.delete(key);
+    }
+    return emitted;
   };
 
   const emitClaudeEmptyStreamErrorAndAbort = (
@@ -1838,6 +1897,24 @@ export function createSSEStream(options: StreamOptions = {}) {
                           existing.function.name = tc.function.name;
                         existing.function.arguments += deltaArgs;
                       }
+                      // #tencent-hy3: some OpenAI-format upstreams emit tool-call
+                      // arguments as an XML wrapper split across many SSE fragments.
+                      // Buffer the raw fragments per key and withhold them from the
+                      // client; a single normalized JSON args delta is injected right
+                      // before the finish chunk (see finish-chunk handler below). For
+                      // normal (JSON/text) args the buffer is forwarded verbatim at
+                      // the finish, so non-XML providers see the same content — just
+                      // delivered in one delta.
+                      if (deltaArgs) {
+                        const buffered = (passthroughXmlArgsBuffers.get(key) || "") + deltaArgs;
+                        passthroughXmlArgsBuffers.set(key, buffered);
+                        passthroughXmlArgsEngaged.add(key);
+                        // Suppress the raw fragment from the forwarded chunk.
+                        if (tc?.function) {
+                          tc.function.arguments = "";
+                          xmlArgsWithheld = true; // forces reserialization
+                        }
+                      }
                     }
                   }
 
@@ -1931,12 +2008,20 @@ export function createSSEStream(options: StreamOptions = {}) {
                     idFixed ||
                     needsReserialization ||
                     toolCallIdCoerced ||
+                    xmlArgsWithheld ||
                     hadNonStringToolCallId ||
                     hadNonStringTopLevelId ||
                     restoredOpenAIToolName
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;
+                  }
+
+                  // #tencent-hy3: emit buffered XML-encoded tool-call args as
+                  // normalized JSON deltas right before the finish chunk so the
+                  // client receives valid JSON `function.arguments`.
+                  if (isFinishChunk && passthroughXmlArgsEngaged.size > 0) {
+                    emitBufferedXmlArgsDeltas();
                   }
                 }
 
@@ -2423,6 +2508,9 @@ export function createSSEStream(options: StreamOptions = {}) {
               // (pi CLI) reject the stream with "Stream ended without finish_reason".
               // Synthesize a terminal chunk when the upstream omitted one.
               if (shouldEmitDoneTerminator && !passthroughSawFinishReason) {
+                // #tencent-hy3: flush any buffered XML-encoded tool-call args as
+                // normalized JSON before the synthetic terminal chunk.
+                emitBufferedXmlArgsDeltas();
                 const syntheticFinishChunk = buildSyntheticChatChunk(
                   passthroughResponsesId,
                   model,
