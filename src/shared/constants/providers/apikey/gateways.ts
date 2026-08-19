@@ -1051,9 +1051,22 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     freeNote:
       "Free tier includes the MiniMax 3 model. Get your API key at https://tokenrouter.com.",
     authHint:
-      "Use your TokenRouter API key in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://api.tokenrouter.com/v1.",
+      "Use your TokenRouter API key in Authorization: Bearer *** Fully OpenAI-compatible. API base URL: https://api.tokenrouter.com/v1.",
     apiHint:
       "TokenRouter exposes an OpenAI-compatible chat completions endpoint at https://api.tokenrouter.com/v1/chat/completions, plus a working /v1/models catalog. OmniRoute uses the OpenAI protocol.",
+  },
+  "token-kiosk": {
+    id: "token-kiosk",
+    alias: "tk",
+    name: "Token Kiosk (GAIB)",
+    icon: "hub",
+    color: "#6366F1",
+    textIcon: "TK",
+    website: "https://agent-router.gaib.ai",
+    authHint:
+      "Use your GAIB Token Kiosk API key in Authorization: Bearer *** Fully OpenAI-compatible gateway. API base URL: https://agent-router.gaib.ai/v1.",
+    apiHint:
+      "Token Kiosk (by GAIB) is a multi-provider agent LLM routing infrastructure exposing an OpenAI-compatible endpoint at https://agent-router.gaib.ai/v1/chat/completions with auto-fallback and latency routing.",
   },
   sumopod: {
     id: "sumopod",
