@@ -75,11 +75,17 @@ All seven guardrails were `YES` in the three plans:
 ## Shadow methodology
 
 The first five-pair attempt from before the harness correction is invalid and excluded:
-server evidence showed semantic-cache hits in the direct arm. The diagnostic harness was
-then changed only to send `X-OmniRoute-No-Cache: true`, expose cache status, perform a
-health/lockout/circuit revalidation immediately before direct dispatch, and use the
-expected-token/JSON-schema quality checks. No production scoring or Governor policy was
-changed after the correction.
+server evidence showed semantic-cache hits in the direct arm. A second five-pair
+verification run after the cache correction reached upstream, but its terminal JSON was
+truncated by the tool session and is also excluded from the metrics. The diagnostic
+harness was then kept unchanged for the authoritative round: it sends
+`X-OmniRoute-No-Cache: true`, exposes cache status, performs a health/lockout/circuit
+revalidation immediately before direct dispatch, and uses the expected-token/JSON-schema
+quality checks. No production scoring or Governor policy was changed after the correction.
+
+This means 20 pair operations occurred physically during the investigation, while only
+the final 10-pair round below is treated as authoritative evidence. The two excluded
+five-pair batches contribute no success, quality, latency, or choice metrics.
 
 The authoritative round is valid:
 
