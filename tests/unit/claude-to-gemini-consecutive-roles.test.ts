@@ -125,3 +125,26 @@ test("Claude -> Gemini handles empty messages array without error", () => {
 
   assert.deepEqual(result.contents, []);
 });
+
+test("Claude -> Gemini merges consecutive assistant turns into a single model turn", () => {
+  const result = claudeToGeminiRequest(
+    "gemini-2.5-flash",
+    {
+      messages: [
+        { role: "user", content: "hello" },
+        { role: "assistant", content: "response part 1" },
+        { role: "assistant", content: [{ type: "text", text: "response part 2" }] },
+      ],
+    },
+    false
+  );
+
+  assert.equal(result.contents.length, 2);
+  assert.equal(result.contents[0].role, "user");
+  assert.deepEqual(result.contents[0].parts, [{ text: "hello" }]);
+  assert.equal(result.contents[1].role, "model");
+  assert.deepEqual(result.contents[1].parts, [
+    { text: "response part 1" },
+    { text: "response part 2" },
+  ]);
+});
