@@ -238,6 +238,20 @@ test("non-Cursor connection -> 400", async () => {
   assert.match(body.error as string, /only supports Cursor connections/);
 });
 
+test("API-key Cursor connection -> 400 (no IDE session to renew)", async () => {
+  const id = await createCursorConnection({
+    authType: "apikey",
+    apiKey: "crsr_refresh_route_test",
+    accessToken: null,
+  });
+
+  const res = await callRoute(id);
+  const body = (await res.json()) as Record<string, unknown>;
+
+  assert.equal(res.status, 400);
+  assert.match(body.error as string, /API-key Cursor connections/);
+});
+
 test("nonexistent connection -> 404", async () => {
   const res = await callRoute("does-not-exist-" + Math.random());
   const body = (await res.json()) as Record<string, unknown>;
