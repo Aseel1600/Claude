@@ -162,6 +162,7 @@ export async function getSettings() {
     antigravitySignatureCacheMode: "enabled",
     requireLogin: true,
     oidcEnabled: false,
+    oidcDisablePasswordLogin: false,
     oidcIssuer: "",
     oidcClientId: "",
     oidcClientSecret: "",
