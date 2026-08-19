@@ -167,6 +167,11 @@ export type ResolvedComboTarget = {
   allowedConnectionIds?: string[] | null;
   weight: number;
   label: string | null;
+  /**
+   * Optional step tags from the combo builder. `vision` / `vision-only` means
+   * this target is used only for image-bearing requests.
+   */
+  tags?: string[];
   failoverBeforeRetry?: unknown;
   trafficType?: "production" | "shadow";
   /**

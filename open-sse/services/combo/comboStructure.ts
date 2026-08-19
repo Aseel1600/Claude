@@ -13,10 +13,7 @@
 
 import { getModelContextLimit } from "../../../src/lib/modelCapabilities";
 import { getComboModelString, normalizeComboStep } from "../../../src/lib/combos/steps.ts";
-import {
-  getProviderByAlias,
-  getProviderById,
-} from "../../../src/shared/constants/providers.ts";
+import { getProviderByAlias, getProviderById } from "../../../src/shared/constants/providers.ts";
 import { estimateTokens } from "../contextManager.ts";
 import { getResolvedModelCapabilities } from "../modelCapabilities.ts";
 import { parseModel } from "../model.ts";
@@ -135,6 +132,7 @@ function normalizeRuntimeStep(
       : {}),
     weight,
     label,
+    ...(Array.isArray(step.tags) && step.tags.length > 0 ? { tags: step.tags } : {}),
   } satisfies ResolvedComboTarget;
 }
 
@@ -663,6 +661,47 @@ export function describeCapabilityFilterExhaustion(
   };
 }
 
+function isVisionOnlyTaggedTarget(target: ResolvedComboTarget): boolean {
+  const tags = Array.isArray(target.tags) ? target.tags : [];
+  return tags.some((tag) => {
+    const normalized = String(tag || "")
+      .trim()
+      .toLowerCase();
+    return normalized === "vision" || normalized === "vision-only";
+  });
+}
+
+/**
+ * Combo steps tagged `vision` / `vision-only` are image-only.
+ * Text requests skip them; image requests that have at least one tagged step
+ * use only those steps (so a DeepSeek flash combo does not fall through to Luna).
+ */
+function applyVisionOnlyStepPolicy(
+  targets: ResolvedComboTarget[],
+  requirements: RequestCompatibilityRequirements,
+  log: ComboLogger,
+  label: string
+): ResolvedComboTarget[] {
+  const visionOnly = targets.filter(isVisionOnlyTaggedTarget);
+  if (visionOnly.length === 0) return targets;
+  if (requirements.requiresVision) {
+    log.info(
+      "COMBO",
+      `${label}: image request restricted to ${visionOnly.length} vision-only step(s)`
+    );
+    // Operator-tagged vision steps are used as-is. Do not re-apply the
+    // conservative capability heuristic here — models like gpt-5.6-luna may
+    // not be in VISION_MODEL_ID_FRAGMENTS but are the intended image path.
+    return visionOnly;
+  }
+  const rest = targets.filter((target) => !isVisionOnlyTaggedTarget(target));
+  log.info(
+    "COMBO",
+    `${label}: excluded ${visionOnly.length} vision-only step(s) from text request`
+  );
+  return rest;
+}
+
 export function filterTargetsByRequestCompatibility(
   targets: ResolvedComboTarget[],
   body: Record<string, unknown>,
@@ -672,6 +711,12 @@ export function filterTargetsByRequestCompatibility(
 ): ResolvedComboTarget[] {
   if (targets.length === 0) return targets;
   const requirements = deriveRequestCompatibilityRequirements(body);
+  const hasVisionOnlySteps = targets.some(isVisionOnlyTaggedTarget);
+  targets = applyVisionOnlyStepPolicy(targets, requirements, log, label);
+  if (targets.length === 0) return targets;
+  // Image + explicit vision-only steps: do not let the conservative
+  // capability heuristic drop the operator-chosen image path.
+  if (requirements.requiresVision && hasVisionOnlySteps) return targets;
   const needsFiltering =
     requirements.requiresTools ||
     requirements.requiresVision ||

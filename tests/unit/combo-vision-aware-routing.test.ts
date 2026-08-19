@@ -127,6 +127,29 @@ test("text-only request: targets are untouched by the vision filter", () => {
   assert.equal(out.length, 1);
 });
 
+test("vision-only tagged step is skipped on text and used alone on images", () => {
+  const flash = { ...target("deepseek/deepseek-v4-flash"), stepId: "flash" };
+  const luna = {
+    ...target("openai-compatible-chat-f71d6553/gpt-5.6-luna"),
+    stepId: "luna",
+    tags: ["vision"],
+  };
+  const textOut = filterTargetsByRequestCompatibility(
+    [flash, luna],
+    { messages: [{ role: "user", content: "hello" }] },
+    noopLog
+  );
+  assert.deepEqual(
+    textOut.map((t) => t.modelStr),
+    ["deepseek/deepseek-v4-flash"]
+  );
+  const imageOut = filterTargetsByRequestCompatibility([flash, luna], imageBody, noopLog);
+  assert.deepEqual(
+    imageOut.map((t) => t.modelStr),
+    ["openai-compatible-chat-f71d6553/gpt-5.6-luna"]
+  );
+});
+
 test("large output request: unknown maxOutputTokens does not filter a target", () => {
   const out = filterTargetsByRequestCompatibility(
     [target("openai-compatible-local/custom-large-output-model"), target("openai/gpt-4o-mini")],
