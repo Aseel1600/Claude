@@ -1301,7 +1301,10 @@
       "open": "open",
       "close": "close"
     },
-    "noResults": "No results"
+    "noResults": "No results",
+    "organizations": "Organizations",
+    "organizationsSection": "Organizations",
+    "organizationsSubtitle": "Multi-tenant teams, members & shared routing"
   },
   "webhooks": {
     "title": "Webhooks",
