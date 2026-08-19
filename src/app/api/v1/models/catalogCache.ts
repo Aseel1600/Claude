@@ -22,7 +22,8 @@ import { isCodexModelCatalogClient } from "./catalogRequest";
 /** Fingerprint an API key for the catalog memo Map. Never store the raw secret. */
 export function fingerprintCatalogAuthKey(apiKey: string): string {
   if (!apiKey) return "";
-  return createHash("sha256").update(apiKey).digest("hex").slice(0, 16); // codeql[js/insufficient-password-hash] — memo-map cache key fingerprint, not a password/credential hash
+  // Memo-map cache key fingerprint, not a password/credential hash.
+  return createHash("sha256").update(apiKey).digest("hex").slice(0, 16); // codeql[js/insufficient-password-hash]
 }
 
 export type CachedCatalog = {

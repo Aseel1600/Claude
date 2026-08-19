@@ -200,8 +200,9 @@ export function extractCanonicalTurns(body: JsonRecord | null | undefined): Cano
 
 // ── Fingerprint (identity, O(1) regardless of history size) ─────────────
 
+// Content fingerprint for conversation identity, not a password/credential hash.
 function hashHex(text: string): string {
-  return createHash("sha256").update(text).digest("hex"); // codeql[js/insufficient-password-hash] — content fingerprint for conversation identity, not a password/credential hash
+  return createHash("sha256").update(text).digest("hex"); // codeql[js/insufficient-password-hash]
 }
 
 function extractToolNames(body: JsonRecord | null | undefined): string[] {
