@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { claudeToOpenAIRequest } from "../../open-sse/translator/request/claude-to-openai.ts";
 import { geminiToClaudeResponse } from "../../open-sse/translator/response/gemini-to-claude.ts";
 import { openaiToClaudeResponse } from "../../open-sse/translator/response/openai-to-claude.ts";
 import { restoreClaudeToolName } from "../../open-sse/services/claudeCodeToolRemapper.ts";
@@ -150,9 +151,7 @@ describe("Claude Code Tool Name Casing Fixes", () => {
       choices: [
         {
           delta: {
-            tool_calls: [
-              { index: 0, id: "call_123", function: { name: "bash", arguments: "" } },
-            ],
+            tool_calls: [{ index: 0, id: "call_123", function: { name: "bash", arguments: "" } }],
           },
         },
       ],
@@ -225,5 +224,92 @@ describe("Claude Code Tool Name Casing Fixes", () => {
     const toolNameMap = new Map([["TodoWrite", "TodoWrite"]]);
     assert.equal(restoreClaudePassthroughToolUseName(parsed, toolNameMap), false);
     assert.equal(parsed.content_block.name, "TodoWrite");
+  });
+
+  it("claudeToOpenAIRequest publishes an identity toolNameMap from request tools", () => {
+    const result = claudeToOpenAIRequest(
+      "gpt-4o",
+      {
+        messages: [{ role: "user", content: "hello" }],
+        stream: false,
+        tools: [
+          { name: "Bash", description: "run", input_schema: { type: "object", properties: {} } },
+          {
+            name: "Read",
+            description: "read file",
+            input_schema: { type: "object", properties: {} },
+          },
+          {
+            name: "mcp__fs__read",
+            description: "mcp read",
+            input_schema: { type: "object", properties: {} },
+          },
+        ],
+      },
+      false
+    );
+    const map = result._toolNameMap as Map<string, string> | undefined;
+    assert.ok(map instanceof Map, "claudeToOpenAIRequest should set an identity _toolNameMap");
+    assert.equal(map?.get("Bash"), "Bash");
+    assert.equal(map?.get("Read"), "Read");
+    assert.equal(map?.get("mcp__fs__read"), "mcp__fs__read");
+    assert.equal(map?.size, 3);
+  });
+
+  it("claudeToOpenAIRequest does not publish a toolNameMap when no tools are declared", () => {
+    const result = claudeToOpenAIRequest(
+      "gpt-4o",
+      { messages: [{ role: "user", content: "hello" }], stream: false },
+      false
+    );
+    assert.equal(result._toolNameMap, undefined);
+  });
+
+  it("openaiToClaudeResponse preserves declared PascalCase from a request identity map", () => {
+    const identity = new Map([
+      ["Bash", "Bash"],
+      ["Read", "Read"],
+      ["Write", "Write"],
+    ]);
+    const chunk = {
+      choices: [
+        {
+          delta: {
+            tool_calls: [{ index: 0, id: "c_pascal", function: { name: "Bash", arguments: "" } }],
+          },
+        },
+      ],
+    };
+    const state: TranslatorState = {
+      toolCalls: new Map(),
+      nextBlockIndex: 0,
+      toolNameMap: identity,
+    };
+    const block = firstToolUse(openaiToClaudeResponse(chunk, state) as ClaudeEvent[]);
+    assert.equal(block?.name, "Bash");
+  });
+
+  it("openaiToClaudeResponse rescues a lowercased echo via the request identity map", () => {
+    const identity = new Map([
+      ["Bash", "Bash"],
+      ["Read", "Read"],
+      ["Write", "Write"],
+    ]);
+    const chunk = {
+      choices: [
+        {
+          delta: {
+            tool_calls: [{ index: 0, id: "c_lower", function: { name: "read", arguments: "" } }],
+          },
+        },
+      ],
+    };
+    const state: TranslatorState = {
+      toolCalls: new Map(),
+      nextBlockIndex: 0,
+      toolNameMap: identity,
+    };
+    const block = firstToolUse(openaiToClaudeResponse(chunk, state) as ClaudeEvent[]);
+    assert.equal(block?.name, "Read");
   });
 });
