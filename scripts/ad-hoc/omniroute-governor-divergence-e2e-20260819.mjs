@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { queryGovernorTelemetryRows } from "../../src/lib/db/governorTelemetry.ts";
 import { getCachedProviderConnections } from "../../src/lib/db/readCache.ts";
+import { getCallLogs } from "../../src/lib/usage/callLogs.ts";
 import { getResolvedModelCapabilities } from "../../src/lib/modelCapabilities.ts";
 import { getCircuitBreaker } from "../../src/shared/utils/circuitBreaker.ts";
+import { getModelLockoutInfo } from "../../open-sse/services/accountFallback.ts";
 import { applyGovernorToAutoComboOrder } from "../../open-sse/governor/autoComboRuntime.ts";
 import { resolveGovernorPricingEvidence } from "../../open-sse/governor/autoComboRuntime.ts";
 import { estimateFinalInputTokens } from "../../open-sse/handlers/chatCore/contextEstimation.ts";
@@ -34,6 +36,7 @@ const e2eOnly = process.argv.includes("--e2e-only");
 const directOnly = process.argv.includes("--direct-only");
 const replayOnly = process.argv.includes("--replay-only");
 const e2eReplayOnly = process.argv.includes("--e2e-replay");
+const calibrationRecoveryOnly = process.argv.includes("--calibration-recovery");
 const requestedPairs = Number(
   process.argv.find((arg) => arg.startsWith("--pairs="))?.split("=")[1] || 10
 );
@@ -120,6 +123,12 @@ export const DIVERGENCE_WORKLOAD = [
   },
 ];
 
+const CALIBRATION_CASES = [
+  { caseId: "low-cost-candidate", label: "EXACT" },
+  { caseId: "structured-json", label: "JSON" },
+  { caseId: "code-reasoning", label: "ARITHMETIC" },
+];
+
 function finite(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -148,6 +157,25 @@ function targetFromResolved(target) {
     ),
     modelStr: target.modelStr,
   };
+}
+
+function resolvedTargetDescriptor(target) {
+  if (!target) return null;
+  const resolved = targetFromResolved(target);
+  return {
+    provider: resolved.provider,
+    model: resolved.model,
+    connectionId: target.connectionId || null,
+    allowedConnectionIds: Array.isArray(target.allowedConnectionIds)
+      ? target.allowedConnectionIds
+      : null,
+    target: resolved.key,
+  };
+}
+
+function callLogTarget(identity) {
+  if (!identity?.provider || !identity.model) return null;
+  return normalizeTarget(identity.provider, identity.model);
 }
 
 function safePlan(row) {
@@ -184,6 +212,32 @@ async function readGovernorPlan(correlationId) {
     const plan = safePlan(row);
     if (plan) return plan;
     await new Promise((resolve) => setTimeout(resolve, 120));
+  }
+  return null;
+}
+
+async function readCallLogIdentity(correlationIds) {
+  const ids = [
+    ...new Set((Array.isArray(correlationIds) ? correlationIds : [correlationIds]).filter(Boolean)),
+  ];
+  if (ids.length === 0) return null;
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (const correlationId of ids) {
+      const row = (await getCallLogs({ correlationId, limit: 5 })).find(
+        (entry) => entry.correlationId === correlationId
+      );
+      if (row) {
+        return {
+          provider: row.provider || null,
+          model: row.model || null,
+          requestedModel: row.requestedModel || null,
+          connectionId: row.connectionId || null,
+          status: row.status ?? null,
+          durationMs: finite(row.duration),
+        };
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return null;
 }
@@ -248,6 +302,10 @@ export async function request(model, input, armLabel) {
     const responseCorrelationId = header(response, "x-correlation-id");
     const streamCompleted = isStreamComplete(response.status, stream);
     const quality = stream.quality || evaluateQuality(input, stream.content);
+    const callLogIdentity = await readCallLogIdentity([
+      requestCorrelationId,
+      responseCorrelationId,
+    ]);
     return {
       status: response.status,
       completionMs: stream.completionMs ?? Math.round(performance.now() - started),
@@ -257,6 +315,7 @@ export async function request(model, input, armLabel) {
       firstContentMs: stream.firstContentMs,
       doneMs: stream.doneMs,
       streamCompleted,
+      readerCompleted: stream.readerCompleted,
       streamEventCount: stream.eventCount,
       responseModel: stream.responseModel,
       usage: stream.usage,
@@ -266,17 +325,22 @@ export async function request(model, input, armLabel) {
       qualityValidator: quality.validator,
       qualityReason: quality.reason,
       qualityPass: streamCompleted && quality.pass === true,
-      failureClass: streamCompleted
-        ? null
-        : response.status === 200
-          ? "INCOMPLETE_STREAM"
-          : "HTTP_ERROR",
+      failureClass: !streamCompleted
+        ? response.status === 200
+          ? "STREAM_FAILURE"
+          : "EXECUTION_HTTP_FAILURE"
+        : quality.pass === false
+          ? "MODEL_QUALITY_FAILURE"
+          : null,
       errorCode: stream.errorCode || stream.parseError,
       requestCorrelationId,
       responseCorrelationId,
       correlationId: responseCorrelationId || requestCorrelationId,
       requestId: header(response, "x-request-id") || header(response, "x-omniroute-request-id"),
       fallbackAttempts: Number(header(response, "x-omniroute-fallback-attempts")) || 0,
+      callLogIdentity,
+      executedTarget: callLogTarget(callLogIdentity),
+      executedConnectionId: callLogIdentity?.connectionId || null,
       model,
       armLabel,
       category: input.category,
@@ -292,6 +356,7 @@ export async function request(model, input, armLabel) {
       firstContentMs: null,
       doneMs: null,
       streamCompleted: false,
+      readerCompleted: false,
       streamEventCount: 0,
       responseModel: null,
       usage: null,
@@ -302,13 +367,16 @@ export async function request(model, input, armLabel) {
       qualityReason: "transport_error",
       qualityPass: false,
       failureClass:
-        name === "TimeoutError" || name === "AbortError" ? "HARNESS_TIMEOUT" : "TRANSPORT_ERROR",
+        name === "TimeoutError" || name === "AbortError" ? "HARNESS_TIMEOUT" : "HARNESS_FAILURE",
       errorCode: name,
       requestCorrelationId,
       responseCorrelationId: null,
       correlationId: requestCorrelationId,
       requestId: null,
       fallbackAttempts: null,
+      callLogIdentity: null,
+      executedTarget: null,
+      executedConnectionId: null,
       model,
       armLabel,
       category: input.category,
@@ -460,28 +528,68 @@ async function revalidateTarget(pool, provider, model) {
   const candidate = pool.candidates.find((item) => candidateKey(item) === key);
   if (!target || !candidate) return { valid: false, reason: "target_not_in_current_pool" };
   const breaker = getCircuitBreaker(provider).getStatus();
-  const connectionId = target.connectionId;
-  const connection =
-    connectionId && connectionId !== "noauth" ? pool.connectionState?.get(connectionId) : null;
-  const rateLimitedUntil = connection?.rateLimitedUntil
-    ? new Date(connection.rateLimitedUntil).getTime()
-    : 0;
-  const cooldownActive = Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now();
-  const unavailableStatus = ["unavailable", "banned", "expired", "credits_exhausted"].includes(
-    connection?.testStatus
+  const connectionIds = [
+    target.connectionId,
+    ...(Array.isArray(target.allowedConnectionIds) ? target.allowedConnectionIds : []),
+  ].filter((id) => typeof id === "string" && id !== "noauth");
+  const connectionChecks = connectionIds.map((connectionId) => {
+    const connection = pool.connectionState?.get(connectionId) || null;
+    const rateLimitedUntil = connection?.rateLimitedUntil
+      ? new Date(connection.rateLimitedUntil).getTime()
+      : 0;
+    const cooldownActive = Number.isFinite(rateLimitedUntil) && rateLimitedUntil > Date.now();
+    const unavailableStatus = ["unavailable", "banned", "expired", "credits_exhausted"].includes(
+      connection?.testStatus
+    );
+    return {
+      connectionId,
+      connection,
+      cooldownActive,
+      unavailableStatus,
+      available: connection?.active === true && !cooldownActive && !unavailableStatus,
+    };
+  });
+  const modelLockout = connectionIds.some((connectionId) =>
+    Boolean(getModelLockoutInfo(provider, connectionId, model))
   );
-  const valid =
-    breaker.state !== "OPEN" &&
-    candidate.statusPenalty !== true &&
-    candidate.quotaCutoffBlocked !== true &&
-    !cooldownActive &&
-    !unavailableStatus;
+  const connectionEligible =
+    connectionChecks.length === 0 || connectionChecks.some((check) => check.available);
+  const cooldownActive =
+    connectionChecks.length > 0 && connectionChecks.every((check) => check.cooldownActive);
+  const unavailableStatus =
+    connectionChecks.length > 0 && connectionChecks.every((check) => check.unavailableStatus);
+  const guardrails = {
+    active: true,
+    eligible: candidate.quotaCutoffBlocked !== true,
+    healthy: breaker.state !== "OPEN" && candidate.statusPenalty !== true,
+    notCooldown: !cooldownActive,
+    notLocked: !modelLockout,
+    notExhausted: !unavailableStatus,
+    circuitAllowed: breaker.state !== "OPEN",
+  };
+  const valid = Object.values(guardrails).every(Boolean) && connectionEligible;
   return {
     valid,
     providerCircuitState: breaker.state,
-    connectionState: connection || (connectionId === "noauth" ? "synthetic-noauth" : "unreported"),
+    connectionState:
+      connectionChecks.length > 0
+        ? connectionChecks.map(
+            ({ connectionId, connection, cooldownActive, unavailableStatus }) => ({
+              connectionId,
+              active: connection?.active === true,
+              testStatus: connection?.testStatus || null,
+              cooldownActive,
+              unavailableStatus,
+            })
+          )
+        : target.connectionId === "noauth"
+          ? "synthetic-noauth"
+          : "unreported",
     cooldownActive,
     unavailableStatus,
+    modelLockout,
+    connectionEligible,
+    guardrails,
     reason: valid ? null : "stale_or_ineligible_target",
   };
 }
@@ -736,25 +844,48 @@ async function runGovernorE2E(pool, input, nativeKey) {
   }
   const [provider, ...modelParts] = key.split("/");
   const model = modelParts.join("/");
+  const plannedTarget = resolvedTargetDescriptor(
+    pool.targets.find((target) => targetFromResolved(target).key === key)
+  );
   const revalidation = await revalidateTarget(pool, provider, model);
   if (!revalidation.valid) {
     return {
       caseId: input.id,
       valid: false,
       reason: "governor_target_stale",
+      failureClass: "STALE_PLAN",
       planningMs,
       e2eCompletionMs: Math.round(performance.now() - started),
       plan,
+      plannedTarget,
       revalidation,
     };
   }
   const direct = await request(modelForTarget(pool, provider, model), input, "governor-e2e-direct");
+  const executedTarget = direct.executedTarget;
+  const targetIdentity = executedTarget
+    ? executedTarget === key
+      ? "PASS"
+      : "MISMATCH"
+    : "UNKNOWN";
+  const identityFailureClass =
+    targetIdentity === "MISMATCH"
+      ? "TARGET_MISMATCH"
+      : targetIdentity === "UNKNOWN"
+        ? "HARNESS_FAILURE"
+        : null;
   return {
     caseId: input.id,
-    valid: true,
+    valid: direct.status === 200 && direct.streamCompleted && identityFailureClass === null,
+    failureClass: identityFailureClass || direct.failureClass,
     planningMs,
     e2eCompletionMs: Math.round(performance.now() - started),
     plan,
+    plannedTarget,
+    executedTarget,
+    plannedConnectionId: plannedTarget?.connectionId || null,
+    executedConnectionId: direct.executedConnectionId,
+    targetIdentity,
     revalidation,
     direct,
     selectedTarget: key,
@@ -774,14 +905,31 @@ async function runNativeE2E(input) {
             parseModel(requestResult.responseModel).model || requestResult.responseModel
           )
         : null;
+  const executedTarget = requestResult.executedTarget;
+  const targetIdentity =
+    observedTarget && executedTarget
+      ? observedTarget === executedTarget
+        ? "PASS"
+        : "MISMATCH"
+      : "UNKNOWN";
   return {
     caseId: input.id,
-    valid: requestResult.status === 200 && requestResult.streamCompleted,
+    valid:
+      requestResult.status === 200 && requestResult.streamCompleted && targetIdentity === "PASS",
+    failureClass:
+      targetIdentity === "MISMATCH"
+        ? "TARGET_MISMATCH"
+        : targetIdentity === "UNKNOWN"
+          ? "HARNESS_FAILURE"
+          : requestResult.failureClass,
     e2eCompletionMs: Math.round(performance.now() - started),
     routingOverheadMs: null,
     request: requestResult,
     plan,
     selectedTarget: observedTarget,
+    executedTarget,
+    executedConnectionId: requestResult.executedConnectionId,
+    targetIdentity,
   };
 }
 
@@ -872,42 +1020,122 @@ function summarizeE2EArm(pairs, side) {
   };
 }
 
+function compactRequest(request) {
+  if (!request) return null;
+  return {
+    status: request.status,
+    streamCompleted: request.streamCompleted,
+    readerCompleted: request.readerCompleted,
+    sawDone: request.doneMs !== null,
+    qualityPass: request.qualityPass,
+    qualityValidator: request.qualityValidator,
+    qualityReason: request.qualityReason,
+    failureClass: request.failureClass,
+    actualOutput: request.actualOutput,
+    outputLength: request.outputLength,
+    usage: request.usage,
+    headersMs: request.headersAtMs,
+    firstByteMs: request.firstByteMs,
+    firstContentMs: request.firstContentMs,
+    doneMs: request.doneMs,
+    completionMs: request.completionMs,
+    streamEventCount: request.streamEventCount,
+    responseModel: request.responseModel,
+    executedTarget: request.executedTarget,
+    executedConnectionId: request.executedConnectionId,
+  };
+}
+
 function compactE2E(pairs) {
-  return pairs.map((pair) => ({
-    caseId: pair.caseId,
-    order: pair.order,
+  return pairs.map((pair) => {
+    const input = DIVERGENCE_WORKLOAD.find((item) => item.id === pair.caseId);
+    return {
+      caseId: pair.caseId,
+      category: input?.category || null,
+      prompt: input?.prompt || null,
+      expected: input?.expectedOutput ?? input?.expected ?? input?.expectedJson ?? null,
+      order: pair.order,
+      native: {
+        valid: pair.native.valid,
+        failureClass: pair.native.failureClass || null,
+        selectedTarget: pair.native.selectedTarget,
+        executedTarget: pair.native.executedTarget || null,
+        executedConnectionId: pair.native.executedConnectionId || null,
+        targetIdentity: pair.native.targetIdentity || null,
+        e2eCompletionMs: pair.native.e2eCompletionMs,
+        request: compactRequest(pair.native.request),
+      },
+      governor: {
+        valid: pair.governor.valid,
+        failureClass: pair.governor.failureClass || null,
+        selectedTarget: pair.governor.selectedTarget,
+        plannedTarget: pair.governor.plannedTarget || null,
+        executedTarget: pair.governor.executedTarget || null,
+        plannedConnectionId: pair.governor.plannedConnectionId || null,
+        executedConnectionId: pair.governor.executedConnectionId || null,
+        targetIdentity: pair.governor.targetIdentity || null,
+        planningMs: pair.governor.planningMs,
+        e2eCompletionMs: pair.governor.e2eCompletionMs,
+        revalidation: pair.governor.revalidation || null,
+        direct: compactRequest(pair.governor.direct),
+      },
+    };
+  });
+}
+
+function calibrationRecoverySummary(pairs) {
+  const native = pairs.map((pair) => pair.native);
+  const governor = pairs.map((pair) => pair.governor);
+  const nativeRequests = native.map((arm) => arm.request).filter(Boolean);
+  const governorRequests = governor.map((arm) => arm.direct).filter(Boolean);
+  const qualityPass = (requests) =>
+    requests.filter((request) => request.qualityPass === true).length;
+  const streamPass = (requests) =>
+    requests.filter((request) => request.streamCompleted === true && request.doneMs !== null)
+      .length;
+  const targetIdentityPass = (arms) => arms.filter((arm) => arm.targetIdentity === "PASS").length;
+  const calibrationPassed =
+    pairs.length === 3 &&
+    native.every((arm) => arm.valid) &&
+    governor.every((arm) => arm.valid) &&
+    governor.every((arm) => arm.plan?.executable === true) &&
+    qualityPass(nativeRequests) === 3 &&
+    qualityPass(governorRequests) === 3 &&
+    streamPass(nativeRequests) === 3 &&
+    streamPass(governorRequests) === 3 &&
+    targetIdentityPass(native) === 3 &&
+    targetIdentityPass(governor) === 3;
+  return {
+    calibrationPassed,
+    accounting: {
+      pairs: pairs.length,
+      nativeE2ERequests: native.length,
+      governorPlanningRequests: governor.length,
+      governorDirectRequests: governorRequests.length,
+      totalArmRequests: native.length + governorRequests.length,
+    },
     native: {
-      valid: pair.native.valid,
-      selectedTarget: pair.native.selectedTarget,
-      e2eCompletionMs: pair.native.e2eCompletionMs,
-      request: pair.native.request
-        ? {
-            status: pair.native.request.status,
-            streamCompleted: pair.native.request.streamCompleted,
-            qualityPass: pair.native.request.qualityPass,
-            firstContentMs: pair.native.request.firstContentMs,
-            completionMs: pair.native.request.completionMs,
-            responseModel: pair.native.request.responseModel,
-          }
-        : null,
+      http: nativeRequests.filter((request) => request.status === 200).length,
+      stream: streamPass(nativeRequests),
+      quality: qualityPass(nativeRequests),
+      targetIdentity: targetIdentityPass(native),
     },
     governor: {
-      valid: pair.governor.valid,
-      selectedTarget: pair.governor.selectedTarget,
-      planningMs: pair.governor.planningMs,
-      e2eCompletionMs: pair.governor.e2eCompletionMs,
-      direct: pair.governor.direct
-        ? {
-            status: pair.governor.direct.status,
-            streamCompleted: pair.governor.direct.streamCompleted,
-            qualityPass: pair.governor.direct.qualityPass,
-            firstContentMs: pair.governor.direct.firstContentMs,
-            completionMs: pair.governor.direct.completionMs,
-            responseModel: pair.governor.direct.responseModel,
-          }
-        : null,
+      plans: governor.filter((arm) => Boolean(arm.plan)).length,
+      executable: governor.filter((arm) => arm.plan?.executable === true).length,
+      http: governorRequests.filter((request) => request.status === 200).length,
+      stream: streamPass(governorRequests),
+      quality: qualityPass(governorRequests),
+      targetIdentity: targetIdentityPass(governor),
     },
-  }));
+    failureClasses: pairs.flatMap((pair) =>
+      [pair.native.failureClass, pair.governor.failureClass].filter(Boolean)
+    ),
+    sse: {
+      nativeDone: streamPass(nativeRequests),
+      governorDone: streamPass(governorRequests),
+    },
+  };
 }
 
 function outputDocument(result) {
@@ -951,6 +1179,40 @@ if (directOnly || replayOnly) {
     direct,
   });
   process.exit(0);
+}
+if (calibrationRecoveryOnly) {
+  const decisions = replayLatestDecisionsFromTelemetry();
+  const byCase = new Map(decisions.map((decision) => [decision.caseId, decision]));
+  const calibrationDecisions = CALIBRATION_CASES.map(({ caseId }) => byCase.get(caseId));
+  if (calibrationDecisions.some((decision) => !decision?.nativeTarget)) {
+    outputDocument({
+      governor: "simulate / false / 0",
+      canary: 0,
+      calibration: [],
+      calibrationPassed: false,
+      stopReason: "calibration_native_target_unproven",
+      missingCases: CALIBRATION_CASES.filter(({ caseId }) => !byCase.get(caseId)?.nativeTarget).map(
+        ({ caseId }) => caseId
+      ),
+    });
+    process.exit(2);
+  }
+  const calibration = await runE2E(pool, calibrationDecisions, 3);
+  const summary = calibrationRecoverySummary(calibration);
+  outputDocument({
+    governor: "simulate / false / 0",
+    canary: 0,
+    pool: {
+      raw: pool.raw,
+      active: pool.active,
+      eligible: pool.eligible,
+      healthy: pool.healthy,
+      byProvider: pool.byProvider,
+    },
+    calibration: compactE2E(calibration),
+    summary,
+  });
+  process.exit(summary.calibrationPassed ? 0 : 2);
 }
 if (e2eReplayOnly) {
   const decisions = replayLatestDecisionsFromTelemetry();

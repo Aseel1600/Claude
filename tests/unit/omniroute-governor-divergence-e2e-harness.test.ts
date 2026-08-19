@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
+import {
+  accountBenchmarkOperations,
+  consumeSseText,
+  createSseState,
+  evaluateQuality,
+  flushSseText,
+  isStreamComplete,
+} from "../../scripts/ad-hoc/omniroute-shadow-benchmark-core.mjs";
+
 const harnessPath = new URL(
   "../../scripts/ad-hoc/omniroute-governor-divergence-e2e-20260819.mjs",
   import.meta.url
@@ -47,4 +56,66 @@ test("E2E harness measures Governor planning before direct execution and records
   assert.match(harnessSource, /const latencyWinner =/);
   assert.match(harnessSource, /winnerReason/);
   assert.match(harnessSource, /item\.pairwise\?\.winner === "governor"/);
+  assert.match(harnessSource, /--calibration-recovery/);
+  assert.match(harnessSource, /MODEL_QUALITY_FAILURE/);
+  assert.match(harnessSource, /TARGET_MISMATCH/);
+  assert.match(harnessSource, /STALE_PLAN/);
+  assert.match(harnessSource, /plannedTarget/);
+  assert.match(harnessSource, /executedTarget/);
+  assert.match(harnessSource, /calibrationRecoverySummary/);
+  assert.match(harnessSource, /headersMs/);
+  assert.match(harnessSource, /readerCompleted/);
+  assert.match(harnessSource, /streamEventCount/);
+});
+
+test("calibration validator passes exact output and classifies fenced code as model quality failure", () => {
+  const input = {
+    prompt: "Return exactly this JavaScript function and nothing else.",
+    expectedOutput: "function add(a, b) { return a + b; }",
+    quality: "code",
+  };
+  const valid = evaluateQuality(input, input.expectedOutput);
+  const fenced = evaluateQuality(input, "```javascript\nfunction add(a, b) { return a + b; }\n```");
+
+  assert.equal(valid.pass, true);
+  assert.equal(valid.reason, null);
+  assert.equal(fenced.pass, false);
+  assert.equal(fenced.reason, "exact_value_mismatch");
+});
+
+test("calibration SSE reconstruction requires finish/DONE and preserves output", () => {
+  const state = createSseState();
+  let buffer = "";
+  buffer = consumeSseText(
+    buffer,
+    'data: {"model":"model-a","choices":[{"delta":{"content":"AR"}}]}\n\n',
+    state,
+    10
+  );
+  buffer = consumeSseText(
+    buffer,
+    'data: {"choices":[{"delta":{"content":"ITH"},"finish_reason":"stop"}]}\n\n',
+    state,
+    11
+  );
+  buffer = consumeSseText(buffer, "data: [DONE]\n\n", state, 12);
+  flushSseText(buffer, state, 13);
+  state.readerCompleted = true;
+
+  assert.equal(state.content, "ARITH");
+  assert.equal(state.sawDone, true);
+  assert.equal(isStreamComplete(200, state), true);
+});
+
+test("calibration accounting keeps three pairs and six E2E arm requests explicit", () => {
+  const pairs = Array.from({ length: 3 }, () => ({
+    native: { request: {} },
+    governor: { direct: {} },
+  }));
+  const accounting = accountBenchmarkOperations(pairs);
+
+  assert.equal(accounting.pairs, 3);
+  assert.equal(accounting.clientRequests, 6);
+  assert.equal(accounting.nativeAutoRequests, 3);
+  assert.equal(accounting.governorDirectRequests, 3);
 });
