@@ -152,3 +152,25 @@ test("queued (rate-limited) test-all failure stays isolated", async () => {
   });
   ASSERT_ISOLATED(connId);
 });
+
+test("RESTORE: probe with opt-in probeCanDisable=true deactivates like real traffic", async () => {
+  const settingsDb = await import("../../src/lib/db/settings.ts");
+  await settingsDb.updateSettings({ probeCanDisable: true });
+  try {
+    const connId = await createConnection();
+    await warmUp(connId);
+    await mockUpstream(403, "SENTINEL_BLOCKED");
+    const result = await runSingleModelTest({
+      providerId: "openai",
+      modelId: "gpt-4o",
+      connectionId: connId,
+      timeoutMs: 10_000,
+    });
+    assert.equal(result.status, "error");
+    const row = readConnectionRow(connId);
+    assert.equal(row?.is_active, 0, "opt-in restores historical behavior: probe deactivates");
+    assert.equal(row?.test_status, "banned", "terminal banned status restored for probe");
+  } finally {
+    await settingsDb.updateSettings({ probeCanDisable: false });
+  }
+});
