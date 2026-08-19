@@ -437,18 +437,15 @@ export function resolveSessionId(request: Request): string {
   const authHeader = request.headers.get("authorization") || "";
   const bearerMatch = /^bearer\s+(\S+)$/i.exec(authHeader.trim());
   if (bearerMatch) {
-    // codeql[js/insufficient-password-hash]
-    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
+    return "key_" + createHash("sha256").update(bearerMatch[1]).digest("hex").slice(0, 16); // codeql[js/insufficient-password-hash] nosemgrep: insufficient-password-hash — admission-budget fingerprint only, not a password/credential hash
   }
   const xApiKey = request.headers.get("x-api-key") || "";
   if (xApiKey.trim().length > 0) {
-    // codeql[js/insufficient-password-hash]
-    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
+    return "key_" + createHash("sha256").update(xApiKey.trim()).digest("hex").slice(0, 16); // codeql[js/insufficient-password-hash] nosemgrep: insufficient-password-hash — admission-budget fingerprint only, not a password/credential hash
   }
   const xGoogApiKey = request.headers.get("x-goog-api-key") || "";
   if (xGoogApiKey.trim().length > 0) {
-    // codeql[js/insufficient-password-hash]
-    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16); // nosemgrep: insufficient-password-hash
+    return "key_" + createHash("sha256").update(xGoogApiKey.trim()).digest("hex").slice(0, 16); // codeql[js/insufficient-password-hash] nosemgrep: insufficient-password-hash — admission-budget fingerprint only, not a password/credential hash
   }
   return "anonymous";
 }
