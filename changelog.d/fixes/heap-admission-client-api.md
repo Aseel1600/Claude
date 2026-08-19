@@ -1,0 +1,1 @@
+- **fix(admission):** heap-pressure admission covers CLIENT_API mutations, `/v1/responses`, and `/v1/messages` before `withInjectionGuard` clones the body; unknown Content-Length sheds with 503 under heap pressure

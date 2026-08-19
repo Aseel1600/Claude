@@ -1,6 +1,7 @@
 import { handleChat } from "@/sse/handlers/chat";
 import { withEarlyStreamKeepalive } from "@omniroute/open-sse/utils/earlyStreamKeepalive";
 import { withInjectionGuard } from "@/middleware/promptInjectionGuard";
+import { withHeapAdmission } from "@/shared/middleware/chatBodyAdmission";
 import { resolveResponsesApiModel } from "@/app/api/internal/codex-responses-ws/modelResolution";
 import { getModelInfo } from "@/sse/services/model";
 import { getComboByName } from "@/lib/db/combos";
@@ -103,4 +104,4 @@ async function postHandler(request: any, context: any, preParsedBody: any = null
   return await handleChat(resolved, null, resolvedBody);
 }
 
-export const POST = withInjectionGuard(postHandler);
+export const POST = withHeapAdmission(withInjectionGuard(postHandler));

@@ -1,17 +1,19 @@
-// #5152: heap-pressure-aware admission for POST /v1/chat/completions.
+// Heap-pressure-aware admission for CLIENT_API mutations.
 //
 // The homelab OOM crash-loop was a per-request transient explosion — a large coding-agent
 // compact body cloned/parsed/fanned-out across a combo allocates hundreds of MB of JS
-// objects, and concurrent compacts stack past the V8 heap ceiling, OOM-crashing the whole
-// process. A fixed size cap is wrong (those bodies are legitimate); instead we shed a large
-// body with 503 only when the heap is ALREADY under pressure, and 413 only for pathological
-// bodies. These tests pin that policy and the cheap fast-path for ordinary traffic.
+// objects, and concurrent /v1/responses compacts stack past the V8 heap ceiling. A fixed
+// size cap is wrong (those bodies are legitimate); instead we shed a large or
+// unknown-length body with 503 only when the heap is ALREADY under pressure, and 413 only
+// for pathological bodies. These tests pin that policy, withHeapAdmission (runs before
+// withInjectionGuard clones), and the cheap fast-path for ordinary traffic.
 import test from "node:test";
 import assert from "node:assert/strict";
 
 const {
   evaluateChatBodyAdmission,
   checkChatAdmission,
+  withHeapAdmission,
   CHAT_LARGE_BODY_BYTES,
 } = await import("../../src/shared/middleware/chatBodyAdmission.ts");
 
@@ -27,13 +29,34 @@ test("small body is always admitted, even under heap pressure", () => {
   assert.equal(decision.admit, true);
 });
 
-test("unknown content-length is admitted", () => {
+test("unknown content-length under heap pressure is shed with 503", () => {
   const decision = evaluateChatBodyAdmission({
     contentLength: null,
     heapUsedBytes: 0.95 * HEAP_LIMIT,
     heapLimitBytes: HEAP_LIMIT,
   });
+  assert.equal(decision.admit, false);
+  assert.equal(decision.status, 503);
+  assert.equal(decision.code, "heap_pressure");
+});
+
+test("unknown content-length on a HEALTHY heap is admitted", () => {
+  const decision = evaluateChatBodyAdmission({
+    contentLength: null,
+    heapUsedBytes: 0.11 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
   assert.equal(decision.admit, true);
+});
+
+test("NaN content-length under heap pressure is shed with 503", () => {
+  const decision = evaluateChatBodyAdmission({
+    contentLength: Number.NaN,
+    heapUsedBytes: 0.95 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  assert.equal(decision.admit, false);
+  assert.equal(decision.status, 503);
 });
 
 test("large body on a HEALTHY heap is admitted (normal case — guard is invisible)", () => {
@@ -109,6 +132,28 @@ test("checkChatAdmission sheds a large body with 503 + Retry-After under injecte
   assert.ok(!String(body.error.message).includes("at /"), "must not leak a stack trace");
 });
 
+test("checkChatAdmission sheds unknown Content-Length under injected heap pressure", async () => {
+  const request = new Request("http://x/v1/responses", { method: "POST" });
+  const res = checkChatAdmission(request, {
+    heapUsedBytes: 0.9 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  assert.ok(res, "expected a 503 rejection");
+  assert.equal(res.status, 503);
+  assert.equal(res.headers.get("Retry-After"), "2");
+  const body = await res.json();
+  assert.equal(body.error.code, "heap_pressure");
+});
+
+test("checkChatAdmission admits unknown Content-Length when injected heap is healthy", () => {
+  const request = new Request("http://x/v1/responses", { method: "POST" });
+  const res = checkChatAdmission(request, {
+    heapUsedBytes: 0.1 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  assert.equal(res, null);
+});
+
 test("checkChatAdmission admits a large body when injected heap is healthy", () => {
   const request = new Request("http://x/v1/chat/completions", {
     method: "POST",
@@ -133,4 +178,58 @@ test("checkChatAdmission 413 response does not leak a stack trace", async () => 
   const body = await res.json();
   assert.equal(body.error.code, "PAYLOAD_TOO_LARGE");
   assert.ok(!String(body.error.message).includes("at /"), "must not leak a stack trace");
+});
+
+test("withHeapAdmission does not invoke the handler when admission sheds", async () => {
+  let called = false;
+  const wrapped = withHeapAdmission(async () => {
+    called = true;
+    return new Response("ok");
+  }, {
+    heapUsedBytes: 0.9 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  const request = new Request("http://x/v1/responses", {
+    method: "POST",
+    headers: { "content-length": "746578" },
+  });
+  const res = await wrapped(request);
+  assert.equal(called, false);
+  assert.ok(res);
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.error.code, "heap_pressure");
+});
+
+test("withHeapAdmission invokes the handler when a large body is admitted", async () => {
+  let called = false;
+  const wrapped = withHeapAdmission(async () => {
+    called = true;
+    return new Response("ok", { status: 200 });
+  }, {
+    heapUsedBytes: 0.1 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  const request = new Request("http://x/v1/messages", {
+    method: "POST",
+    headers: { "content-length": "746578" },
+  });
+  const res = await wrapped(request);
+  assert.equal(called, true);
+  assert.equal(res.status, 200);
+});
+
+test("withHeapAdmission sheds unknown Content-Length under heap pressure before the handler", async () => {
+  let called = false;
+  const wrapped = withHeapAdmission(async () => {
+    called = true;
+    return new Response("ok");
+  }, {
+    heapUsedBytes: 0.9 * HEAP_LIMIT,
+    heapLimitBytes: HEAP_LIMIT,
+  });
+  const request = new Request("http://x/v1/responses", { method: "POST" });
+  const res = await wrapped(request);
+  assert.equal(called, false);
+  assert.equal(res.status, 503);
 });

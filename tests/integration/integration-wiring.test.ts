@@ -162,8 +162,33 @@ describe("Pipeline Wiring — middleware proxy", () => {
     assert.match(pipelineSrc, /checkBodySize|getBodySizeLimit|bodySize/i);
   });
 
+  it("should enforce heap admission for CLIENT_API mutations in the authz pipeline", () => {
+    assert.match(pipelineSrc, /checkChatAdmission/);
+    assert.match(pipelineSrc, /from "\.\.\/\.\.\/shared\/middleware\/chatBodyAdmission"/);
+    assert.match(pipelineSrc, /routeClass === "CLIENT_API"/);
+    assert.match(pipelineSrc, /isUnsafeMutationMethod\(method\)/);
+  });
+
   it("should resolve JWT secret in the authz pipeline", () => {
     assert.match(pipelineSrc, /getJwtSecret|jwtSecret|JWT_SECRET/i);
+  });
+});
+
+describe("API Routes — heap admission wraps clone-before-parse handlers", () => {
+  it("should wrap /v1/responses POST with withHeapAdmission before withInjectionGuard", () => {
+    const src = readProjectFile("src/app/api/v1/responses/route.ts");
+    assert.ok(src, "src/app/api/v1/responses/route.ts should exist");
+    assert.match(src, /withHeapAdmission/);
+    assert.match(src, /from "@\/shared\/middleware\/chatBodyAdmission"/);
+    assert.match(src, /withHeapAdmission\(\s*withInjectionGuard\(postHandler\)\s*\)/);
+  });
+
+  it("should wrap /v1/messages POST with withHeapAdmission before withInjectionGuard", () => {
+    const src = readProjectFile("src/app/api/v1/messages/route.ts");
+    assert.ok(src, "src/app/api/v1/messages/route.ts should exist");
+    assert.match(src, /withHeapAdmission/);
+    assert.match(src, /from "@\/shared\/middleware\/chatBodyAdmission"/);
+    assert.match(src, /withHeapAdmission\(\s*withInjectionGuard\(postHandler\)\s*\)/);
   });
 });
 

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCachedSettings } from "../../lib/db/readCache";
 import { isDraining } from "../../lib/gracefulShutdown";
 import { checkBodySize, getBodySizeLimit } from "../../shared/middleware/bodySizeGuard";
+import { checkChatAdmission } from "../../shared/middleware/chatBodyAdmission";
 import { generateRequestId } from "../../shared/utils/requestId";
 import { applyCorsHeaders } from "../cors/origins";
 import { validateBrowserMutationOrigin } from "../origin/publicOrigin";
@@ -296,6 +297,19 @@ export async function runAuthzPipeline(
       stampRouteResponse(bodySizeRejection, requestId, classification.routeClass);
       applyCorsHeaders(bodySizeRejection, request, corsRelaxOrigin);
       return bodySizeRejection;
+    }
+  }
+
+  // Heap-pressure admission for CLIENT_API mutations (chat/completions, responses,
+  // messages, aliases). Runs here so a concurrent long /v1/responses body is shed
+  // before the route's withInjectionGuard clones it. Unknown Content-Length under
+  // heap pressure 503s (see evaluateChatBodyAdmission).
+  if (classification.routeClass === "CLIENT_API" && isUnsafeMutationMethod(method)) {
+    const heapRejection = checkChatAdmission(request);
+    if (heapRejection) {
+      stampRouteResponse(heapRejection, requestId, classification.routeClass);
+      applyCorsHeaders(heapRejection, request, corsRelaxOrigin);
+      return heapRejection;
     }
   }
 

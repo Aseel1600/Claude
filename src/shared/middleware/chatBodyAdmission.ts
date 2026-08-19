@@ -1,5 +1,6 @@
 /**
- * Heap-pressure-aware admission guard for POST /v1/chat/completions.
+ * Heap-pressure-aware admission guard for CLIENT_API mutations
+ * (`/v1/chat/completions`, `/v1/responses`, `/v1/messages`, and the authz pipeline).
  *
  * Root cause (homelab 3.8.40 OOM crash-loop): a forced-GC heap inspection of the live
  * pod showed a HEALTHY ~350 MB live heap — there is no baseline leak. The crash is a
@@ -7,14 +8,17 @@
  * JSON-parsed + fanned out across a round-robin combo, allocating hundreds of MB of JS
  * objects; several concurrent compacts stack those transients past the V8 heap ceiling
  * (`FATAL ERROR: Reached heap limit … heap out of memory`), which kills EVERY in-flight
- * request and restarts the pod.
+ * request and restarts the pod. Concurrent long `/v1/responses` bodies abort V8 the same
+ * way; `withInjectionGuard` clones the body before any route-local check.
  *
  * A fixed body-size cap is the wrong tool — those large compacts are LEGITIMATE traffic.
- * Instead this guard sheds a large body with a 503 (Retry-After) ONLY when the V8 heap is
- * ALREADY under pressure, converting a process-wide OOM crash into a single graceful
- * client retry. When the heap is healthy (the normal case) large bodies pass through
- * unchanged, so it is invisible to ordinary traffic. A separate hard cap rejects only
- * pathological (multi-MB) bodies before they are cloned/parsed.
+ * Instead this guard sheds a large (or unknown-length) body with a 503 (Retry-After) ONLY
+ * when the V8 heap is ALREADY under pressure, converting a process-wide OOM crash into a
+ * single graceful client retry. When the heap is healthy (the normal case) large bodies
+ * pass through unchanged, so it is invisible to ordinary traffic. A separate hard cap
+ * rejects only pathological (multi-MB) bodies before they are cloned/parsed. Missing or
+ * non-numeric Content-Length is treated as "could be huge" and is shed under pressure
+ * rather than admitted.
  *
  * @module shared/middleware/chatBodyAdmission
  */
@@ -73,12 +77,13 @@ export function evaluateChatBodyAdmission(input: {
   const hardMaxBytes = input.hardMaxBytes ?? CHAT_HARD_MAX_BODY_BYTES;
   const shedRatio = input.shedRatio ?? CHAT_HEAP_SHED_RATIO;
   const cl = input.contentLength;
+  const knownLength = cl !== null && Number.isFinite(cl);
 
-  // Unknown or small bodies: always admit (cannot cause the crash).
-  if (cl === null || !Number.isFinite(cl) || cl < largeBodyBytes) return { admit: true };
+  // Small known bodies cannot drive the transient amplification — always admit.
+  if (knownLength && cl < largeBodyBytes) return { admit: true };
 
-  // Pathological body: reject before cloning/parsing, independent of heap state.
-  if (cl > hardMaxBytes) {
+  // Pathological known body: reject before cloning/parsing, independent of heap state.
+  if (knownLength && cl > hardMaxBytes) {
     return {
       admit: false,
       status: 413,
@@ -89,8 +94,9 @@ export function evaluateChatBodyAdmission(input: {
     };
   }
 
-  // Large but legitimate body: shed with 503 only when the heap is already under pressure,
-  // so a burst of concurrent compacts degrades to per-request retries, not a pod-wide OOM.
+  // Large known body, or unknown Content-Length (chunked / omitted — could be huge):
+  // shed with 503 only when the heap is already under pressure, so a burst of concurrent
+  // long /v1/responses bodies degrades to per-request retries, not a pod-wide OOM.
   if (input.heapLimitBytes > 0 && input.heapUsedBytes / input.heapLimitBytes >= shedRatio) {
     return {
       admit: false,
@@ -108,12 +114,12 @@ const HEAP_LIMIT_BYTES = v8.getHeapStatistics().heap_size_limit;
 
 /**
  * Route-level guard. Returns a ready 413/503 Response when the request must be shed, or
- * null to proceed. Only samples the heap for large bodies, so ordinary requests pay
- * nothing. The heap figure is logged for INTERNAL telemetry only and never placed in the
- * client response (Hard Rule #12).
+ * null to proceed. Only samples the heap for large or unknown-length bodies, so ordinary
+ * small requests pay nothing. The heap figure is logged for INTERNAL telemetry only and
+ * never placed in the client response (Hard Rule #12).
  *
  * @param heapOverride test-only seam to inject heap figures; production omits it and the
- *        live heap is sampled lazily (never for small bodies).
+ *        live heap is sampled lazily (never for small known bodies).
  */
 export function checkChatAdmission(
   request: Request,
@@ -121,13 +127,11 @@ export function checkChatAdmission(
 ): Response | null {
   const clHeader = request.headers.get("content-length");
   const contentLength = clHeader ? Number.parseInt(clHeader, 10) : null;
+  const knownLength = contentLength !== null && Number.isFinite(contentLength);
 
-  // Fast path: small/unknown bodies skip the heap sample entirely.
-  if (
-    contentLength === null ||
-    !Number.isFinite(contentLength) ||
-    contentLength < CHAT_LARGE_BODY_BYTES
-  ) {
+  // Fast path: small *known* bodies skip the heap sample entirely.
+  // Unknown Content-Length must sample the heap — under pressure it 503s.
+  if (knownLength && contentLength < CHAT_LARGE_BODY_BYTES) {
     return null;
   }
 
@@ -145,8 +149,9 @@ export function checkChatAdmission(
   };
   if (decision.status === 503) {
     headers["Retry-After"] = "2";
+    const sizeLabel = knownLength ? `${contentLength}B` : "unknown Content-Length";
     console.warn(
-      `[chat-admission] shedding large body (${contentLength}B) under heap pressure: ` +
+      `[chat-admission] shedding ${sizeLabel} under heap pressure: ` +
         `heapUsed=${Math.round(heapUsedBytes / 1048576)}MB / limit=${Math.round(
           heapLimitBytes / 1048576
         )}MB`
@@ -158,4 +163,28 @@ export function checkChatAdmission(
     JSON.stringify({ error: { message: decision.message, type, code: decision.code } }),
     { status: decision.status, headers }
   );
+}
+
+type AppRouteHandler = (
+  request: Request,
+  context?: unknown,
+  ...rest: unknown[]
+) => Promise<Response> | Response;
+
+/**
+ * Route wrapper that runs {@link checkChatAdmission} *before* the inner handler.
+ * Compose as `withHeapAdmission(withInjectionGuard(postHandler))` so a large
+ * `/v1/responses` or `/v1/messages` body is shed before `request.clone()`.
+ *
+ * `heapOverride` is a test-only seam (same as {@link checkChatAdmission}).
+ */
+export function withHeapAdmission(
+  handler: AppRouteHandler,
+  heapOverride?: { heapUsedBytes: number; heapLimitBytes: number }
+): AppRouteHandler {
+  return async function heapAdmittedHandler(request, context, ...rest) {
+    const rejection = checkChatAdmission(request, heapOverride);
+    if (rejection) return rejection;
+    return handler(request, context, ...rest);
+  };
 }
