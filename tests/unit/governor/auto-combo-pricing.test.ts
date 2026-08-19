@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveGovernorPricingEvidence } from "../../../open-sse/governor/autoComboRuntime.ts";
+import {
+  resolveGovernorCandidateHealth,
+  resolveGovernorPricingEvidence,
+} from "../../../open-sse/governor/autoComboRuntime.ts";
 import {
   resolveCounterfactualPlan,
   type CounterfactualInput,
@@ -68,4 +71,22 @@ test("known free candidate can be executable in the counterfactual planner", () 
   assert.equal(plan.confidence, "HIGH");
   assert.equal(plan.executable, true);
   assert.equal(plan.unresolvedFields.includes("pricingOrUsage"), false);
+});
+
+test("observed reliability uses failureRate instead of the synthetic error default", () => {
+  assert.equal(
+    resolveGovernorCandidateHealth({
+      errorRate: 0.05,
+      failureRate: 1,
+      reliabilityObserved: true,
+    }),
+    0
+  );
+  assert.equal(
+    resolveGovernorCandidateHealth({
+      errorRate: 0.05,
+      reliabilityObserved: false,
+    }),
+    0.5
+  );
 });

@@ -70,3 +70,113 @@ test("unavailable providers are not actionable", () => {
   assert.equal(plan.executable, false);
   assert.equal(plan.estimatedSavings, null);
 });
+
+test("observed healthy candidate beats a degraded preferred tier", () => {
+  const input = base({
+    candidates: [
+      {
+        ...candidate,
+        provider: "candidate-a",
+        model: "stable-model",
+        tier: "high",
+        healthScore: 1,
+        inputPrice: 1,
+        outputPrice: 2,
+      },
+      {
+        ...candidate,
+        provider: "candidate-b",
+        model: "recently-failed-free-model",
+        tier: "low",
+        healthScore: 0,
+        inputPrice: 0,
+        outputPrice: 0,
+      },
+    ],
+  });
+  const plan = resolveCounterfactualPlan(input, new NativeOmniGovernor().decide(input));
+  assert.equal(plan.selectedProvider, "candidate-a");
+  assert.equal(plan.selectedModel, "stable-model");
+  assert.equal(plan.resolvedModelTier, "high");
+  assert.equal(plan.executable, true);
+});
+
+test("known-free healthy candidate still wins when the preferred tier is healthy", () => {
+  const input = base({
+    candidates: [
+      {
+        ...candidate,
+        provider: "candidate-a",
+        model: "stable-paid-model",
+        tier: "high",
+        healthScore: 1,
+      },
+      {
+        ...candidate,
+        provider: "candidate-b",
+        model: "stable-free-model",
+        tier: "low",
+        healthScore: 0.95,
+        inputPrice: 0,
+        outputPrice: 0,
+      },
+    ],
+  });
+  const plan = resolveCounterfactualPlan(input, new NativeOmniGovernor().decide(input));
+  assert.equal(plan.selectedProvider, "candidate-b");
+  assert.equal(plan.estimatedCounterfactualCost, 0);
+});
+
+test("missing reliability telemetry is neutral instead of optimistic-best", () => {
+  const input = base({
+    candidates: [
+      {
+        ...candidate,
+        provider: "candidate-a",
+        model: "unobserved-free-model",
+        tier: "low",
+        healthScore: undefined,
+        inputPrice: 0,
+        outputPrice: 0,
+      },
+      {
+        ...candidate,
+        provider: "candidate-b",
+        model: "observed-model",
+        tier: "high",
+        healthScore: 0.7,
+      },
+    ],
+  });
+  const plan = resolveCounterfactualPlan(input, new NativeOmniGovernor().decide(input));
+  assert.equal(plan.selectedProvider, "candidate-b");
+});
+
+test("recovered preferred candidate becomes rankable again", () => {
+  const stable = {
+    ...candidate,
+    provider: "candidate-a",
+    model: "stable-model",
+    tier: "high" as const,
+    healthScore: 1,
+  };
+  const preferred = {
+    ...candidate,
+    provider: "candidate-b",
+    model: "recovered-free-model",
+    tier: "low" as const,
+    inputPrice: 0,
+    outputPrice: 0,
+  };
+  const decision = new NativeOmniGovernor().decide(base());
+  const before = resolveCounterfactualPlan(
+    base({ candidates: [{ ...preferred, healthScore: 0 }, stable] }),
+    decision
+  );
+  const after = resolveCounterfactualPlan(
+    base({ candidates: [{ ...preferred, healthScore: 0.9 }, stable] }),
+    decision
+  );
+  assert.equal(before.selectedProvider, "candidate-a");
+  assert.equal(after.selectedProvider, "candidate-b");
+});

@@ -283,6 +283,7 @@ const DEFAULT_MODEL_P95_MS: Record<string, number> = {
   "deepseek-chat": 2000,
 };
 const MIN_HISTORY_SAMPLES = 10;
+const MIN_RELIABILITY_SAMPLES = 3;
 const OUTPUT_TOKEN_RATIO = 0.4;
 
 function calculateTargetContextAffinity(
@@ -410,6 +411,13 @@ export async function buildAutoCandidates(
       const historicalP95Latency = Number(historicalModelMetric?.p95LatencyMs);
       const historicalStdDev = Number(historicalModelMetric?.latencyStdDev);
       const historicalSuccessRate = Number(historicalModelMetric?.successRate); // 0..1
+      const reliabilityObserved =
+        Number.isFinite(historicalTotal) &&
+        historicalTotal >= MIN_RELIABILITY_SAMPLES &&
+        Number.isFinite(historicalSuccessRate) &&
+        historicalSuccessRate >= 0 &&
+        historicalSuccessRate <= 1;
+      const failureRate = reliabilityObserved ? 1 - historicalSuccessRate : undefined;
 
       const p95LatencyMs = hasHistoricalSignal
         ? Number.isFinite(historicalP95Latency) && historicalP95Latency > 0
@@ -520,6 +528,8 @@ export async function buildAutoCandidates(
         p95LatencyMs,
         latencyStdDev,
         errorRate,
+        ...(failureRate != null ? { failureRate } : {}),
+        reliabilityObserved,
         ...speedTelemetry,
         accountTier: "standard" as const,
         quotaResetIntervalSecs: 86400,

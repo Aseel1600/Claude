@@ -152,8 +152,14 @@ function mapPricingTier(provider: string, model: string, pricingKnown: boolean):
   return "preserve";
 }
 
-function candidateHealth(candidate: AutoProviderCandidate | undefined): number {
+export function resolveGovernorCandidateHealth(
+  candidate:
+    Pick<AutoProviderCandidate, "errorRate" | "failureRate" | "reliabilityObserved"> | undefined
+): number {
   if (!candidate) return 0.5;
+  if (candidate.reliabilityObserved === false) return 0.5;
+  const failureRate = toFiniteNonNegative(candidate.failureRate);
+  if (failureRate != null) return Math.max(0, Math.min(1, 1 - failureRate));
   const errorRate = toFiniteNonNegative(candidate.errorRate);
   if (errorRate == null) return 0.5;
   return Math.max(0, Math.min(1, 1 - errorRate));
@@ -279,7 +285,7 @@ async function buildCounterfactualCandidates(
       // Compression is a local OmniRoute preprocessing control, not a provider API capability.
       supportsCompression: [...LOCAL_COMPRESSION_MODES],
       quotaState: quotaState(autoCandidate),
-      healthScore: candidateHealth(autoCandidate),
+      healthScore: resolveGovernorCandidateHealth(autoCandidate),
     };
     normalized.push(candidate);
 
