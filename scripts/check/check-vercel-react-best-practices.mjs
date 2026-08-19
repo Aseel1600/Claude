@@ -30,7 +30,9 @@
 //   node scripts/check/check-vercel-react-best-practices.mjs --update   # ratcheta o baseline
 //   node scripts/check/check-vercel-react-best-practices.mjs --advisory # nunca falha (modo coletor)
 //   node scripts/check/check-vercel-react-best-practices.mjs --json     # findings como JSON
-//   node scripts/check/check-vercel-react-best-practices.mjs --quiet    # suprime detalhe
+//   node scripts/check/check-vercel-react-best-practices.mjs --quiet    # suprime detalhe (só contagens)
+//   (em CI, GITHUB_STEP_SUMMARY é detectado automaticamente e o resumo markdown
+//   com todas as violações aparece na aba Summary do run)
 
 import fs from "node:fs";
 import path from "node:path";
@@ -365,10 +367,13 @@ function main() {
       const base = baseline.metrics?.[metricKey]?.value ?? "n/a";
       console.log(`${metricKey}=${measured[rule.id]} (baseline ${base})`);
     }
-    // Detalhe das regressões (violações NOVAS)
-    for (const ruleId of regressions) {
-      console.log(`\n❌ ${ruleId} — NOVAS violações (${byRule[ruleId].length} total):`);
-      for (const f of byRule[ruleId]) {
+    // TODAS as violações encontradas nesta run, agrupadas por regra (file:line) —
+    // mesmo quando o gate está verde. --quiet suprime o detalhe.
+    for (const rule of RULES) {
+      const list = byRule[rule.id] ?? [];
+      if (list.length === 0) continue;
+      console.log(`\n${rule.id} (${list.length}):`);
+      for (const f of list) {
         console.log(`  ${f.file}:${f.line} - ${f.snippet}`);
       }
     }
@@ -378,9 +383,49 @@ function main() {
     }
   }
 
+  // Resumo para a UI do GitHub Actions (GITHUB_STEP_SUMMARY) — a visão "bonita"
+  // do run: tabela de contagens + lista completa de file:line.
+  writeStepSummary({ measured, byRule, baseline, regressions, findings });
+
   if (regressions.length > 0 && !ADVISORY) {
     console.error(`\nvercel-react gate: ${regressions.length} regra(s) regrediram. Fixe as violações novas ou rode --update se a mudança for intencional.`);
     process.exit(1);
+  }
+}
+
+function writeStepSummary({ measured, byRule, baseline, regressions, findings }) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+  if (!summaryPath || PRINT_JSON) return;
+  const total = findings.length;
+  const lines = [
+    "## Vercel React Best Practices",
+    "",
+    "| Rule | Count | Baseline | Status |",
+    "|---|---|---|---|",
+  ];
+  for (const rule of RULES) {
+    const metricKey = `vercelReact.${rule.id}`;
+    const base = baseline.metrics?.[metricKey]?.value ?? "n/a";
+    const mark = regressions.includes(rule.id) ? "❌" : "✅";
+    lines.push(`| \`${rule.id}\` | ${measured[rule.id]} | ${base} | ${mark} |`);
+  }
+  lines.push("", regressions.length > 0
+    ? `**${total} violações totais — ${regressions.length} regra(s) com NOVAS violações (red):**`
+    : `**${total} violações conhecidas (congeladas no baseline) — nenhuma regressão.**`
+  );
+  for (const rule of RULES) {
+    const list = byRule[rule.id] ?? [];
+    if (list.length === 0) continue;
+    const flag = regressions.includes(rule.id) ? "❌ " : "";
+    lines.push("", `### ${flag}${rule.id} (${list.length})`);
+    for (const f of list) {
+      lines.push(`- \`${f.file}:${f.line}\` — ${f.snippet}`);
+    }
+  }
+  try {
+    fs.appendFileSync(summaryPath, lines.join("\n") + "\n");
+  } catch {
+    // step summary indisponível (fora do Actions) — o log já cobre o detalhe.
   }
 }
 
