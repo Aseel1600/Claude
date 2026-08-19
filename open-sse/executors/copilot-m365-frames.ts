@@ -247,7 +247,7 @@ export function resolveChatInvocationOverrides(tier: string | undefined): {
  * BizChat exposes several models selected by the `tone` field of the `type:4` chat
  * invocation (#7872, values confirmed against a real enterprise tenant in #7850). Each
  * tone-selected variant is registered as its own model id; the bare `copilot-m365` id is
- * intentionally absent here so it keeps the tier default tone (`Magic` on enterprise, `""`
+ * intentionally absent here so it keeps the tier default tone (`Magic` on enterprise, `magic`
  * otherwise) resolved by {@link resolveChatInvocationOverrides}.
  */
 export const M365_MODEL_TONE_MAP: Readonly<Record<string, string>> = {
