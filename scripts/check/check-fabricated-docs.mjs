@@ -107,6 +107,12 @@ const ENV_VAR_ALLOWLIST = new Set([
   "NINEROUTER_API_KEY", // injected into the 9router subprocess at spawn (EMBEDDED-SERVICES.md)
   "CLAUDE_CODE_MAX_OUTPUT_TOKENS", // Claude Code CLI's own env var (CODEX-CLI-CONFIGURATION.md)
   "CODEX_HOME", // Codex CLI's own config-home env var (CODEX-CLI-CONFIGURATION.md)
+  // Gemini CLI's own auth-routing env vars. `omniroute run gemini` DELETES them
+  // from the spawned child's env (bin/cli/commands/run.mjs) so a stored Vertex /
+  // Code Assist session cannot override the OmniRoute-directed launch — a delete
+  // on a copied env object, never a `process.env.X` read. (CLI-INTEGRATIONS.md)
+  "GOOGLE_GENAI_USE_VERTEXAI",
+  "GOOGLE_GENAI_USE_GCA",
   "OPENAI_API_BASE", // legacy OpenAI base-URL env var some downstream tools (e.g. Aider) read (CLI-INTEGRATIONS.md)
   "PROMPTFOO_PROVIDER_KEY", // promptfoo's own provider-key env var, used by the red-team suite (GUARDRAILS.md)
   "REDIS_PORT", // docker-compose host-port override (DOCKER_GUIDE.md)
