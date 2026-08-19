@@ -1,0 +1,347 @@
+[
+  {
+    "route": "nous-research/openai/whisper-1:free",
+    "index": 21,
+    "timestamp": "2026-08-19T14:16:04.235Z",
+    "revision": "v3.8.50",
+    "executionOrder": 21,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/whisper-1:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/gpt-4o-mini:free",
+    "index": 22,
+    "timestamp": "2026-08-19T14:16:06.396Z",
+    "revision": "v3.8.50",
+    "executionOrder": 22,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/gpt-4o-mini:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/o1-mini:free",
+    "index": 23,
+    "timestamp": "2026-08-19T14:16:08.454Z",
+    "revision": "v3.8.50",
+    "executionOrder": 23,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/o1-mini:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/text-embedding-ada-002:free",
+    "index": 24,
+    "timestamp": "2026-08-19T14:16:10.510Z",
+    "revision": "v3.8.50",
+    "executionOrder": 24,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/text-embedding-ada-002:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/clip-vit:free",
+    "index": 25,
+    "timestamp": "2026-08-19T14:16:12.562Z",
+    "revision": "v3.8.50",
+    "executionOrder": 25,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/clip-vit:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-3-5-sonnet:free",
+    "index": 26,
+    "timestamp": "2026-08-19T14:16:14.617Z",
+    "revision": "v3.8.50",
+    "executionOrder": 26,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-3-5-sonnet:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-3-5-haiku:free",
+    "index": 27,
+    "timestamp": "2026-08-19T14:16:16.676Z",
+    "revision": "v3.8.50",
+    "executionOrder": 27,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-3-5-haiku:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-3-opus:free",
+    "index": 28,
+    "timestamp": "2026-08-19T14:16:18.730Z",
+    "revision": "v3.8.50",
+    "executionOrder": 28,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-3-opus:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-3-sonnet:free",
+    "index": 29,
+    "timestamp": "2026-08-19T14:16:20.789Z",
+    "revision": "v3.8.50",
+    "executionOrder": 29,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-3-sonnet:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-3-haiku:free",
+    "index": 30,
+    "timestamp": "2026-08-19T14:16:22.843Z",
+    "revision": "v3.8.50",
+    "executionOrder": 30,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-3-haiku:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-2.1:free",
+    "index": 31,
+    "timestamp": "2026-08-19T14:16:24.903Z",
+    "revision": "v3.8.50",
+    "executionOrder": 31,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-2.1:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/anthropic/claude-instant-v1:free",
+    "index": 32,
+    "timestamp": "2026-08-19T14:16:26.955Z",
+    "revision": "v3.8.50",
+    "executionOrder": 32,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'anthropic/claude-instant-v1:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/google/gemini-2.0-flash-exp:free",
+    "index": 33,
+    "timestamp": "2026-08-19T14:16:29.014Z",
+    "revision": "v3.8.50",
+    "executionOrder": 33,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'google/gemini-2.0-flash-exp:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/google/gemini-1.5-pro:free",
+    "index": 34,
+    "timestamp": "2026-08-19T14:16:31.069Z",
+    "revision": "v3.8.50",
+    "executionOrder": 34,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'google/gemini-1.5-pro:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/google/gemini-1.5-flash:free",
+    "index": 35,
+    "timestamp": "2026-08-19T14:16:33.125Z",
+    "revision": "v3.8.50",
+    "executionOrder": 35,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'google/gemini-1.5-flash:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  }
+]

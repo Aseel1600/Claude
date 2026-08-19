@@ -1,0 +1,347 @@
+[
+  {
+    "route": "nous-research/tngimg/sdxl-lightning:free",
+    "index": 6,
+    "timestamp": "2026-08-19T14:15:28.736Z",
+    "revision": "v3.8.50",
+    "executionOrder": 6,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tngimg/sdxl-lightning:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/tngimg/sdxl-base:free",
+    "index": 7,
+    "timestamp": "2026-08-19T14:15:30.907Z",
+    "revision": "v3.8.50",
+    "executionOrder": 7,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tngimg/sdxl-base:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/tngimg/dalle3:free",
+    "index": 8,
+    "timestamp": "2026-08-19T14:15:32.962Z",
+    "revision": "v3.8.50",
+    "executionOrder": 8,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tngimg/dalle3:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/tencent/hunyuan-vision:free",
+    "index": 9,
+    "timestamp": "2026-08-19T14:15:35.018Z",
+    "revision": "v3.8.50",
+    "executionOrder": 9,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tencent/hunyuan-vision:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/tencent/hunyuan-chat:free",
+    "index": 10,
+    "timestamp": "2026-08-19T14:15:37.070Z",
+    "revision": "v3.8.50",
+    "executionOrder": 10,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tencent/hunyuan-chat:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/tencent/hunyuan-embedding:free",
+    "index": 11,
+    "timestamp": "2026-08-19T14:15:39.123Z",
+    "revision": "v3.8.50",
+    "executionOrder": 11,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'tencent/hunyuan-embedding:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/qwen/qwen-vl-plus:free",
+    "index": 12,
+    "timestamp": "2026-08-19T14:15:41.183Z",
+    "revision": "v3.8.50",
+    "executionOrder": 12,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'qwen/qwen-vl-plus:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/qwen/qwen-vl-chat:free",
+    "index": 13,
+    "timestamp": "2026-08-19T14:15:43.241Z",
+    "revision": "v3.8.50",
+    "executionOrder": 13,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'qwen/qwen-vl-chat:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/qwen/qwen-turbo:free",
+    "index": 14,
+    "timestamp": "2026-08-19T14:15:45.301Z",
+    "revision": "v3.8.50",
+    "executionOrder": 14,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'qwen/qwen-turbo:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/qwen/qwen-plus:free",
+    "index": 15,
+    "timestamp": "2026-08-19T14:15:47.358Z",
+    "revision": "v3.8.50",
+    "executionOrder": 15,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'qwen/qwen-plus:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/qwen/qwen-max:free",
+    "index": 16,
+    "timestamp": "2026-08-19T14:15:49.417Z",
+    "revision": "v3.8.50",
+    "executionOrder": 16,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'qwen/qwen-max:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/gpt-4o:free",
+    "index": 17,
+    "timestamp": "2026-08-19T14:15:51.471Z",
+    "revision": "v3.8.50",
+    "executionOrder": 17,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/gpt-4o:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/o1-preview:free",
+    "index": 18,
+    "timestamp": "2026-08-19T14:15:53.532Z",
+    "revision": "v3.8.50",
+    "executionOrder": 18,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/o1-preview:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/text-embedding-3-small:free",
+    "index": 19,
+    "timestamp": "2026-08-19T14:15:55.583Z",
+    "revision": "v3.8.50",
+    "executionOrder": 19,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/text-embedding-3-small:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  },
+  {
+    "route": "nous-research/openai/text-embedding-3-large:free",
+    "index": 20,
+    "timestamp": "2026-08-19T14:15:57.642Z",
+    "revision": "v3.8.50",
+    "executionOrder": 20,
+    "gates": {
+      "gate1": "ENDPOINT_OR_MODEL_FAILURE"
+    },
+    "classification": "ENDPOINT_OR_MODEL_FAILURE",
+    "raw": {
+      "gate1": {
+        "status": 400,
+        "body": {
+          "error": {
+            "message": "Model 'openai/text-embedding-3-large:free' is not available in the active live catalog for provider 'nous-research'.",
+            "type": "invalid_request_error",
+            "code": "bad_request"
+          }
+        }
+      }
+    }
+  }
+]
