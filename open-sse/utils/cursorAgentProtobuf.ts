@@ -285,6 +285,12 @@ const CURSOR_MODEL_ALIASES: Record<string, string> = {
   "composer-2-5-fast": "composer-2.5-fast",
   "composer-2.5-sdk-fast": "composer-2.5-fast",
   "composer-latest-fast": "composer-2.5-fast",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-fast-medium": "cursor-grok-4.5-medium-fast",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "grok-4.5-fast-high": "cursor-grok-4.5-high-fast",
+  "grok-4.5-xhigh": "cursor-grok-4.5-xhigh",
+  "grok-4.5-fast-xhigh": "cursor-grok-4.5-xhigh-fast",
 };
 
 export function normalizeCursorModelId(modelId: string): string {
