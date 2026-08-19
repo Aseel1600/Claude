@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawn, spawnSync } from "node:child_process";
 
 import {
   buildNotifyMessage,
@@ -15,6 +19,58 @@ function fakeSpawn(recorder) {
     recorder.push({ binary, args, options, child });
     return child;
   };
+}
+
+function systemdNotifyAvailable() {
+  try {
+    return spawnSync("systemd-notify", ["--version"], { stdio: "ignore" }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
+function python3Available() {
+  try {
+    return spawnSync("python3", ["--version"], { stdio: "ignore" }).status === 0;
+  } catch {
+    return false;
+  }
+}
+
+// Waits for the listener to emit `expected` lines (in order), then resolves
+// with everything it saw. Fails loudly on timeout or premature exit.
+// BARRIER=1 datagrams (sd_notify synchronization emitted by the systemd-notify
+// CLI after every message) are noise for this contract and are skipped.
+function waitForLines(child, expected, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let buf = "";
+    const seen = [];
+    const timer = setTimeout(
+      () => reject(new Error(`listener timed out after ${timeoutMs}ms; got: ${seen.join(", ")}`)),
+      timeoutMs
+    );
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      buf += chunk;
+      let idx;
+      while ((idx = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, idx).trim();
+        buf = buf.slice(idx + 1);
+        if (!line || line === "BARRIER=1") continue;
+        seen.push(line);
+        if (seen.length === expected.length) {
+          clearTimeout(timer);
+          resolve([...seen]);
+        }
+      }
+    });
+    child.on("exit", () => {
+      if (seen.length < expected.length) {
+        clearTimeout(timer);
+        reject(new Error(`listener exited early; got: ${seen.join(", ")}`));
+      }
+    });
+  });
 }
 
 test("isSystemdNotifyEnabled: false without NOTIFY_SOCKET", () => {
@@ -146,3 +202,57 @@ test("watchdog interval pings repeatedly and dispose() stops it", async () => {
   await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(calls.length, before, "no ping after dispose");
 });
+
+// End-to-end handshake against the real `systemd-notify` binary: a fake
+// NOTIFY_SOCKET (AF_UNIX datagram listener on a temp path, hosted by a tiny
+// python3 helper — node:dgram only supports udp4/udp6) receives the exact
+// datagrams a real systemd would see. Skipped where the binary or python3 is
+// absent (Windows runners, minimal containers) — the spawn-level contract
+// above still applies there.
+const PY_DGRAM_LISTENER = `
+import socket, sys, os
+s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+p = sys.argv[1]
+try:
+    os.unlink(p)
+except OSError:
+    pass
+s.bind(p)
+print("LISTENING", flush=True)
+while True:
+    try:
+        print(s.recv(4096).decode(), flush=True)
+    except OSError:
+        break
+`;
+
+test(
+  "real handshake: systemd-notify delivers READY=1/WATCHDOG=1/STOPPING=1 over a fake NOTIFY_SOCKET",
+  {
+    skip:
+      (!systemdNotifyAvailable() || !python3Available()) &&
+      "systemd-notify and/or python3 unavailable",
+  },
+  async () => {
+    const sockPath = path.join(os.tmpdir(), `omniroute-sdnotify-${process.pid}.sock`);
+    const listener = spawn("python3", ["-c", PY_DGRAM_LISTENER, sockPath], {
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    try {
+      await waitForLines(listener, ["LISTENING"], 5000);
+      const notifier = createSystemdNotifier({
+        env: { NOTIFY_SOCKET: sockPath, PATH: process.env.PATH },
+      });
+      assert.equal(notifier.enabled, true);
+      notifier.ready();
+      notifier.watchdog();
+      notifier.stopping();
+      const received = await waitForLines(listener, ["READY=1", "WATCHDOG=1", "STOPPING=1"], 10000);
+      assert.deepEqual(received, ["READY=1", "WATCHDOG=1", "STOPPING=1"]);
+      notifier.dispose();
+    } finally {
+      listener.kill();
+      fs.rmSync(sockPath, { force: true });
+    }
+  }
+);
