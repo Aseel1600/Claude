@@ -419,10 +419,12 @@ export async function executeChatWithBreaker({
   skipUpstreamRetry = false,
   trafficType = "production",
   correlationId = null,
+  conversationId = null,
   modelPinned = false,
   routingComboId = null,
   reasoningTransportFallback = "skip",
   sessionAffinityKey = null,
+  managedLease = null,
 }: ExecuteChatWithBreakerOptions): Promise<ExecuteChatWithBreakerResult> {
   let tlsFingerprintUsed = false;
   const normalizedTrafficType: TrafficType =
@@ -476,10 +478,12 @@ export async function executeChatWithBreaker({
             skipUpstreamRetry,
             trafficType: normalizedTrafficType,
             correlationId,
+            conversationId,
             modelPinned,
             routingComboId,
             sessionAffinityKey,
             reasoningTransportFallback,
+            managedLease,
             skipResourcePressureGuard: true,
             onCredentialsRefreshed: async (newCreds: any) => {
               await updateProviderCredentials(credentials.connectionId, {
@@ -951,6 +955,23 @@ export function withModalityBridgeHeader(response: Response, value: string | nul
       headers: response.headers,
     });
     cloned.headers.set("x-omniroute-modality-bridge", value);
+    return cloned;
+  }
+}
+
+export function withConversationId(response: Response, conversationId: string | null): Response {
+  if (!response || !conversationId) return response;
+
+  try {
+    response.headers.set("X-ConversationId", conversationId);
+    return response;
+  } catch {
+    const cloned = new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+    cloned.headers.set("X-ConversationId", conversationId);
     return cloned;
   }
 }
