@@ -4,6 +4,14 @@ import { createFile, deleteFile } from "@/lib/db/files";
 import { GET, parseFilesListQuery } from "@/app/api/v1/files/route";
 
 describe("GET /v1/files limit validation", () => {
+  it("defaults to 20 when limit is absent", () => {
+    const parsed = parseFilesListQuery(new URLSearchParams("order=asc"));
+
+    assert.equal(parsed.ok, true);
+    if (!parsed.ok) return;
+    assert.equal(parsed.limit, 20);
+  });
+
   it("parses an explicit positive integer limit", () => {
     const parsed = parseFilesListQuery(new URLSearchParams("limit=2&order=asc&purpose=batch"));
 
