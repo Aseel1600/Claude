@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { queryGovernorTelemetryRows } from "../../src/lib/db/governorTelemetry.ts";
 
 const BASE_URL = process.env.OMNIROUTE_BASE_URL || "http://127.0.0.1:20128";
-const MAX_PAIRS = 3;
+const MAX_PAIRS = 10;
 const configuredTimeout = Number(process.env.SHADOW_REQUEST_TIMEOUT_MS || 600_000);
 const REQUEST_TIMEOUT_MS =
   Number.isFinite(configuredTimeout) && configuredTimeout > 0 ? configuredTimeout : 600_000;
@@ -17,106 +17,79 @@ const pairCount =
 
 const INPUTS = [
   {
-    id: "alpha",
-    prompt: "Reply with exactly SHADOW-ALPHA-7 and nothing else.",
-    expected: "SHADOW-ALPHA-7",
+    id: "factual",
+    category: "factual",
+    prompt: "What is 2 + 2? Reply with exactly 4 and nothing else.",
+    expected: "4",
   },
   {
-    id: "bravo",
-    prompt: "Reply with exactly SHADOW-BRAVO-8 and nothing else.",
-    expected: "SHADOW-BRAVO-8",
+    id: "instruction",
+    category: "instruction-following",
+    prompt: "Reply with exactly SHADOW-INSTRUCTION-8 and nothing else.",
+    expected: "SHADOW-INSTRUCTION-8",
   },
   {
-    id: "charlie",
-    prompt: "Reply with exactly SHADOW-CHARLIE-9 and nothing else.",
-    expected: "SHADOW-CHARLIE-9",
+    id: "json",
+    category: "json-structured",
+    prompt: 'Return only this JSON object: {"status":"SHADOW-JSON-9"}',
+    expected: "SHADOW-JSON-9",
+    quality: "json",
   },
   {
-    id: "delta",
-    prompt: "Reply with exactly SHADOW-DELTA-10 and nothing else.",
-    expected: "SHADOW-DELTA-10",
+    id: "reasoning",
+    category: "deterministic-reasoning",
+    prompt: "Compute 17 * 3. Reply with exactly 51 and nothing else.",
+    expected: "51",
   },
   {
-    id: "echo",
-    prompt: "Reply with exactly SHADOW-ECHO-11 and nothing else.",
-    expected: "SHADOW-ECHO-11",
+    id: "code",
+    category: "simple-code",
+    prompt:
+      'Return exactly this JavaScript statement and nothing else: console.log("SHADOW-CODE-11");',
+    expected: "SHADOW-CODE-11",
+    quality: "code",
   },
   {
-    id: "foxtrot",
-    prompt: "Reply with exactly SHADOW-FOXTROT-12 and nothing else.",
-    expected: "SHADOW-FOXTROT-12",
+    id: "portuguese-structured",
+    category: "portuguese-structured-instruction",
+    prompt: "Responda exatamente com SHADOW-PORTUGUESE-12 e nada mais.",
+    expected: "SHADOW-PORTUGUESE-12",
   },
   {
-    id: "golf",
-    prompt: "Reply with exactly SHADOW-GOLF-13 and nothing else.",
-    expected: "SHADOW-GOLF-13",
+    id: "english-structured",
+    category: "english-structured-instruction",
+    prompt: "Output exactly SHADOW-ENGLISH-13 and no other text.",
+    expected: "SHADOW-ENGLISH-13",
   },
   {
-    id: "hotel",
-    prompt: "Reply with exactly SHADOW-HOTEL-14 and nothing else.",
-    expected: "SHADOW-HOTEL-14",
+    id: "transformation",
+    category: "simple-transformation",
+    prompt: "Convert the word omni to uppercase. Reply with exactly OMNI and nothing else.",
+    expected: "OMNI",
   },
   {
-    id: "india",
-    prompt: "Reply with exactly SHADOW-INDIA-15 and nothing else.",
-    expected: "SHADOW-INDIA-15",
+    id: "short-reasoning",
+    category: "short-reasoning",
+    prompt: "What number comes after 98? Reply with exactly 99 and nothing else.",
+    expected: "99",
   },
   {
-    id: "juliett",
-    prompt: "Reply with exactly SHADOW-JULIETT-16 and nothing else.",
-    expected: "SHADOW-JULIETT-16",
-  },
-  {
-    id: "kilo",
-    prompt: "Reply with exactly SHADOW-KILO-17 and nothing else.",
-    expected: "SHADOW-KILO-17",
-  },
-  {
-    id: "lima",
-    prompt: "Reply with exactly SHADOW-LIMA-18 and nothing else.",
-    expected: "SHADOW-LIMA-18",
-  },
-  {
-    id: "mike",
-    prompt: "Reply with exactly SHADOW-MIKE-19 and nothing else.",
-    expected: "SHADOW-MIKE-19",
-  },
-  {
-    id: "november",
-    prompt: "Reply with exactly SHADOW-NOVEMBER-20 and nothing else.",
-    expected: "SHADOW-NOVEMBER-20",
-  },
-  {
-    id: "oscar",
-    prompt: "Reply with exactly SHADOW-OSCAR-21 and nothing else.",
-    expected: "SHADOW-OSCAR-21",
-  },
-  {
-    id: "papa",
-    prompt: "Reply with exactly SHADOW-PAPA-22 and nothing else.",
-    expected: "SHADOW-PAPA-22",
-  },
-  {
-    id: "quebec",
-    prompt: "Reply with exactly SHADOW-QUEBEC-23 and nothing else.",
-    expected: "SHADOW-QUEBEC-23",
-  },
-  {
-    id: "romeo",
-    prompt: "Reply with exactly SHADOW-ROMEO-24 and nothing else.",
-    expected: "SHADOW-ROMEO-24",
-  },
-  {
-    id: "sierra",
-    prompt: "Reply with exactly SHADOW-SIERRA-25 and nothing else.",
-    expected: "SHADOW-SIERRA-25",
-  },
-  {
-    id: "tango",
-    prompt: "Reply with exactly SHADOW-TANGO-26 and nothing else.",
-    expected: "SHADOW-TANGO-26",
+    id: "coding-data",
+    category: "small-coding-data",
+    prompt:
+      "Return the CSV header for a two-column table with columns name and value, exactly: name,value",
+    expected: "name,value",
   },
 ];
+
+const requestedStart = Number(
+  process.argv.find((arg) => arg.startsWith("--start="))?.split("=")[1] || 0
+);
+const startIndex =
+  Number.isInteger(requestedStart) && requestedStart >= 0 && requestedStart < INPUTS.length
+    ? requestedStart
+    : 0;
+const selectedInputs = INPUTS.slice(startIndex, startIndex + pairCount);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -153,6 +126,19 @@ function normalizeUsage(usage) {
     outputTokens: usage.completion_tokens ?? usage.output_tokens ?? null,
     totalTokens: usage.total_tokens ?? null,
   };
+}
+
+function evaluateQuality(input, content) {
+  if (!content || typeof content !== "string") return false;
+  if (input.quality === "json") {
+    try {
+      const value = JSON.parse(content);
+      return value?.status === input.expected;
+    } catch {
+      return false;
+    }
+  }
+  return content.includes(input.expected);
 }
 
 function parseSseFrame(frame, state, expected) {
@@ -199,7 +185,7 @@ function parseSseFrame(frame, state, expected) {
   state.qualityPass = state.content.includes(expected);
 }
 
-async function readStreamingBody(response, expected, started) {
+async function readStreamingBody(response, input, started) {
   const state = {
     content: "",
     eventCount: 0,
@@ -238,15 +224,16 @@ async function readStreamingBody(response, expected, started) {
         const separatorLength = match?.[0].length || 2;
         const frame = buffer.slice(0, separator);
         buffer = buffer.slice(separator + separatorLength);
-        parseSseFrame(frame, state, expected);
+        parseSseFrame(frame, state, input.expected);
       }
     }
     buffer += decoder.decode();
-    if (buffer.trim()) parseSseFrame(buffer, state, expected);
+    if (buffer.trim()) parseSseFrame(buffer, state, input.expected);
   } finally {
     state.connectionClosedAt = performance.now();
     reader.releaseLock();
   }
+  state.qualityPass = evaluateQuality(input, state.content);
   return state;
 }
 
@@ -261,6 +248,7 @@ async function request(model, input, armLabel) {
       headers: {
         "content-type": "application/json",
         accept: "text/event-stream",
+        "X-OmniRoute-No-Cache": "true",
         "X-Correlation-Id": requestCorrelationId,
       },
       signal: requestSignal,
@@ -273,7 +261,7 @@ async function request(model, input, armLabel) {
       }),
     });
     const headersAt = performance.now();
-    const stream = await readStreamingBody(response, input.expected, started);
+    const stream = await readStreamingBody(response, input, started);
     const responseCorrelationId = header(response, "x-correlation-id");
     const streamCompleted = response.status === 200 && (stream.sawDone || stream.sawFinishReason);
     return {
@@ -302,10 +290,12 @@ async function request(model, input, armLabel) {
       responseCorrelationId,
       correlationId: responseCorrelationId,
       fallbackAttempts: parsePositiveInteger(header(response, "x-omniroute-fallback-attempts")),
+      cacheStatus: header(response, "x-omniroute-cache"),
       qualityPass: streamCompleted && stream.qualityPass,
       harnessTimeout: false,
       model,
       armLabel,
+      category: input.category,
     };
   } catch (error) {
     const errorName = error instanceof Error ? error.name : "transport_error";
@@ -335,6 +325,7 @@ async function request(model, input, armLabel) {
       harnessTimeout,
       model,
       armLabel,
+      category: input.category,
     };
   }
 }
@@ -377,20 +368,60 @@ async function requestWithPlan(input, armLabel) {
   return { request: requestResult, plan };
 }
 
+async function revalidateTarget(plan) {
+  if (!plan?.selectedProvider || !plan?.selectedModel || plan.executable !== true) {
+    return { valid: false, reason: "plan_not_executable" };
+  }
+
+  try {
+    const response = await fetch(`${BASE_URL}/api/monitoring/health`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    const health = await response.json();
+    const breaker = Array.isArray(health.providerBreakers)
+      ? health.providerBreakers.find((item) => item?.provider === plan.selectedProvider)
+      : null;
+    const providerCircuitAllowed = !breaker || breaker.state !== "OPEN";
+    const lockoutText = JSON.stringify(health.lockouts || []).toLowerCase();
+    const targetLockout =
+      lockoutText.includes(String(plan.selectedProvider).toLowerCase()) &&
+      lockoutText.includes(String(plan.selectedModel).toLowerCase());
+    const healthReady = response.ok && health.status === "healthy";
+    const valid = healthReady && providerCircuitAllowed && !targetLockout;
+    return {
+      valid,
+      healthStatus: health.status || null,
+      healthHttpStatus: response.status,
+      providerCircuitState: breaker?.state || "UNREPORTED",
+      providerCircuitAllowed,
+      targetLockout,
+      lockoutCount: Array.isArray(health.lockouts) ? health.lockouts.length : null,
+      cooldownState: "not exposed by health endpoint; plan/provider preflight retained",
+      reason: valid ? null : "runtime_revalidation_failed",
+    };
+  } catch (error) {
+    return {
+      valid: false,
+      reason: error instanceof Error ? error.name : "runtime_revalidation_error",
+    };
+  }
+}
+
 async function runGovernorArm(input) {
   const planned = await requestWithPlan(input, "governor-plan");
+  const revalidation = await revalidateTarget(planned.plan);
   const targetValid = Boolean(
     planned.plan?.governorMode === "simulate" &&
     planned.plan.selectedProvider &&
     planned.plan.selectedModel &&
     planned.plan.executable &&
-    planned.plan.unresolvedFields.length === 0
+    revalidation.valid
   );
   const directTarget = targetValid
     ? `${planned.plan.selectedProvider}/${planned.plan.selectedModel}`
     : null;
   const direct = directTarget ? await request(directTarget, input, "governor-exec") : null;
-  return { ...planned, direct, directTarget };
+  return { ...planned, direct, directTarget, revalidation };
 }
 
 function summarizeArm(results, firstChoiceSuccess = false) {
@@ -448,8 +479,8 @@ if (smokeOnly) {
 }
 
 const pairs = [];
-for (const [index, input] of INPUTS.slice(0, pairCount).entries()) {
-  const governorFirst = index % 2 === 1;
+for (const [index, input] of selectedInputs.entries()) {
+  const governorFirst = (startIndex + index) % 2 === 1;
   let native;
   let governor;
   if (governorFirst) {
@@ -491,6 +522,7 @@ for (const [index, input] of INPUTS.slice(0, pairCount).entries()) {
   const direct = governor.direct;
   pairs.push({
     pairId: input.id,
+    category: input.category,
     executionOrder: governorFirst ? "governor_then_native" : "native_then_governor",
     native,
     governor: {
@@ -498,12 +530,14 @@ for (const [index, input] of INPUTS.slice(0, pairCount).entries()) {
       plan: governorPlan,
       directTarget: governor.directTarget,
       direct: direct ? { ...direct, attempts: 1, fallbackDepth: 0, directChoice: true } : null,
+      revalidation: governor.revalidation,
     },
     targetValidity: {
       executable: governorPlan?.executable === true,
       unresolvedFields: governorPlan?.unresolvedFields || [],
       guardrails: governorPlan?.guardrails || {},
       directTarget: governor.directTarget,
+      revalidation: governor.revalidation,
     },
     pairwise: direct
       ? {
@@ -558,7 +592,7 @@ console.log(
       baseUrl: BASE_URL,
       pairCount: pairs.length,
       executionOrder: ["native_then_governor", "governor_then_native", "native_then_governor"],
-      qualityMethod: "blind-free exact expected-token containment; no LLM judge",
+      qualityMethod: "blind-free expected-token checks with JSON parse/schema check; no LLM judge",
       governor: "simulate / false / 0",
       requestMode: "stream=true",
       requestTimeoutMs: REQUEST_TIMEOUT_MS,
