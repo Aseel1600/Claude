@@ -60,7 +60,7 @@ const BUNDLED_PLUGIN_DIR =
  *
  * @returns {{ configDir: string, dataDir: string }}
  */
-function resolveOpenCodeDirs() {
+export function resolveOpenCodeDirs() {
   const home = os.homedir();
   const xdgConfig = process.env.XDG_CONFIG_HOME;
   const xdgData = process.env.XDG_DATA_HOME;
