@@ -6,12 +6,12 @@ const { PROVIDER_ENDPOINTS } = await import("../../src/shared/constants/config.t
 const { REGISTRY: providerRegistry } = await import("../../open-sse/config/providerRegistry.ts");
 const { isNamedOpenAIStyleProvider } = await import("../../src/app/api/providers/[id]/models/discovery/providerSets.ts");
 
-test("Token Kiosk (GAIB) is registered as an API-key gateway provider", () => {
+test("Token Kiosk is registered as an API-key gateway provider", () => {
   const entry = APIKEY_PROVIDERS["token-kiosk"];
   assert.ok(entry, "APIKEY_PROVIDERS['token-kiosk'] must be defined");
   assert.equal(entry.id, "token-kiosk");
   assert.equal(entry.alias, "tk");
-  assert.equal(entry.name, "Token Kiosk (GAIB)");
+  assert.equal(entry.name, "Token Kiosk");
   assert.equal(entry.website, "https://agent-router.gaib.ai");
 });
 

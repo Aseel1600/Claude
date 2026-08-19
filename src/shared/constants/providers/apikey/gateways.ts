@@ -1058,15 +1058,15 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
   "token-kiosk": {
     id: "token-kiosk",
     alias: "tk",
-    name: "Token Kiosk (GAIB)",
+    name: "Token Kiosk",
     icon: "hub",
     color: "#6366F1",
     textIcon: "TK",
     website: "https://agent-router.gaib.ai",
     authHint:
-      "Use your GAIB Token Kiosk API key in Authorization: Bearer *** Fully OpenAI-compatible gateway. API base URL: https://agent-router.gaib.ai/v1.",
+      "Use your Token Kiosk API key in Authorization: Bearer *** Fully OpenAI-compatible gateway. API base URL: https://agent-router.gaib.ai/v1.",
     apiHint:
-      "Token Kiosk (by GAIB) is a multi-provider agent LLM routing infrastructure exposing an OpenAI-compatible endpoint at https://agent-router.gaib.ai/v1/chat/completions with auto-fallback and latency routing.",
+      "Token Kiosk is a multi-provider agent LLM routing infrastructure exposing an OpenAI-compatible endpoint at https://agent-router.gaib.ai/v1/chat/completions with auto-fallback and latency routing.",
   },
   sumopod: {
     id: "sumopod",
