@@ -1059,12 +1059,12 @@ export async function handleComboChat({
         const cb = getCircuitBreaker(provider);
         if (cb.getStatus().state === "OPEN") {
           log.info("COMBO", `Skipping ${modelStr} — circuit breaker OPEN for ${provider}`);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "circuit_open",
-    });
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "circuit_open",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Provider ${provider} circuit breaker is open`);
         }
@@ -1075,12 +1075,12 @@ export async function handleComboChat({
           isProviderInCooldown(provider, target.connectionId ?? undefined, resilienceSettings)
         ) {
           log.info("COMBO", `Skipping ${modelStr} — provider ${provider} in global cooldown`);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "provider_cooldown",
-    });
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "provider_cooldown",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Provider ${provider} is in cooldown`);
         }
@@ -1108,12 +1108,12 @@ export async function handleComboChat({
         );
         if (exhaustedSkip) {
           log.info("COMBO", exhaustedSkip);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "request_exhaustion",
-    });
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "request_exhaustion",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Target ${modelStr} is unavailable`);
         }
@@ -1121,12 +1121,12 @@ export async function handleComboChat({
         // Pre-check: skip models locked by the resilience system (model-level lockout)
         if (provider && rawModel && isModelLocked(provider, target.connectionId || "", rawModel)) {
           log.info("COMBO", `Skipping ${modelStr} — model locked by resilience (cooldown active)`);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "model_lockout",
-    });
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "model_lockout",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Model ${modelStr} is locked`);
         }
@@ -1207,12 +1207,12 @@ export async function handleComboChat({
               "COMBO",
               `Skipping ${modelStr} — no credentials available or model excluded`
             );
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "availability",
-    });
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "availability",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Model ${modelStr} is unavailable`);
           }
@@ -1224,12 +1224,12 @@ export async function handleComboChat({
           const gateResult = checkCredentialGate(connectionId, provider, modelStr);
           if (gateResult.allowed === false) {
             logCredentialSkip(log, modelStr, gateResult.reason || "Credential gate blocked");
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "credential_gate",
-    });
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "credential_gate",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Credential gate blocked ${modelStr}`);
           }
@@ -1244,12 +1244,12 @@ export async function handleComboChat({
               "COMBO",
               `Skipping ${modelStr} — connection ${connectionId} is at max concurrency cap (${maxConcurrentCap})`
             );
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "concurrency_cap",
-    });
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "concurrency_cap",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
@@ -1265,12 +1265,12 @@ export async function handleComboChat({
           !(await perTargetAdmission({ modelStr, executionKey: target.executionKey, body }))
         ) {
           log.info("COMBO", `Skipping ${modelStr} — admission lane full (#9654)`);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "admission_lane",
-    });
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "admission_lane",
+          });
           if (i > 0) fallbackCount++;
           return null;
         }
@@ -1326,13 +1326,13 @@ export async function handleComboChat({
                   "COMBO",
                   `Predictive TTFT Circuit Breaker: skipping ${modelStr} (avg ${m.avgLatencyMs}ms > max ${config.predictiveTtftMs}ms)`
                 );
+                recordComboDecision(traceInvocationId, {
+                  step: target.executionKey,
+                  target: modelStr,
+                  decision: "skipped_before_dispatch",
+                  reason: "predictive_ttft",
+                });
                 return stopProtectedPriorityTarget(`Predictive latency check rejected ${modelStr}`);
-    recordComboDecision(traceInvocationId, {
-      step: target.executionKey,
-      target: modelStr,
-      decision: "skipped_before_dispatch",
-      reason: "predictive_ttft",
-    });
               }
             }
           }
