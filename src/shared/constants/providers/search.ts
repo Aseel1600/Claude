@@ -87,6 +87,17 @@ export const SEARCH_PROVIDERS = {
     website: "https://developers.google.com/custom-search/v1/overview",
     authHint: "Requires a Google API key and your Programmable Search Engine ID (cx)",
   },
+  "nimble-search": {
+    id: "nimble-search",
+    alias: "nimble",
+    name: "Nimble Search",
+    icon: "travel_explore",
+    color: "#6D28D9",
+    textIcon: "NB",
+    website: "https://docs.nimbleway.com/nimble-sdk/web-tools/search",
+    authHint: "Bearer API key from the Nimble dashboard",
+    serviceKinds: ["webSearch", "webFetch"],
+  },
   "linkup-search": {
     id: "linkup-search",
     alias: "linkup",

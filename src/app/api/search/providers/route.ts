@@ -54,6 +54,13 @@ const FETCH_PROVIDERS: FetchProviderDef[] = [
     freeMonthlyQuota: 0,
     fetchFormats: ["markdown", "html"],
   },
+  {
+    id: "nimble-search",
+    name: "Nimble Extract",
+    costPerQuery: 0.005,
+    freeMonthlyQuota: 0,
+    fetchFormats: ["markdown", "html", "links", "screenshot"],
+  },
 ];
 
 // ---------------------------------------------------------------------------
