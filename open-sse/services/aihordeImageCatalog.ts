@@ -8,6 +8,7 @@
  */
 
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
+import { registerAiHordeCatalog } from "../config/providers/registry/aihorde/imageModels.ts";
 
 export const AI_HORDE_API_BASE = "https://aihorde.net/api";
 export const AI_HORDE_ANONYMOUS_KEY = "0000000000";
@@ -174,7 +175,9 @@ export class HordeImageCatalog {
     await this.refresh(options);
   }
 
-  private async refreshOnce(options: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<void> {
+  private async refreshOnce(
+    options: { timeoutMs?: number; signal?: AbortSignal } = {}
+  ): Promise<void> {
     try {
       const url = `${AI_HORDE_API_BASE}/v2/status/models?type=image`;
       const response = await this.fetchImpl(url, {
@@ -218,3 +221,8 @@ export function getCachedAiHordeImageCatalogEntries(): Array<{
     description: `${model.count} worker${model.count === 1 ? "" : "s"} online`,
   }));
 }
+
+// Register the catalog getter so AI_HORDE_IMAGE_PROVIDER.models resolves the
+// server-side catalog without aihorde/imageModels.ts statically importing this
+// server-only module (keeps fs/tls/child_process out of the client bundle).
+registerAiHordeCatalog(getCachedAiHordeImageCatalogEntries);
