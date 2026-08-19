@@ -82,6 +82,10 @@ export class CloudflareAIExecutor extends BaseExecutor {
     // already routes through buildErrorBody()/sanitizeErrorMessage() before it reaches
     // the client, matching the existing buildUrl() missing-accountId error above.
     const flattenContent = (content: unknown): unknown => {
+      // Cloudflare's /ai/v1/chat/completions requires `content` to be a plain string.
+      // OpenAI allows null on assistant messages that made tool calls (and sometimes
+      // on tool messages) — coerce to "" so Cloudflare doesn't reject the request (#6535).
+      if (content === null || content === undefined) return "";
       if (typeof content === "string" || !Array.isArray(content)) return content;
       return content
         .map((part) => {
@@ -98,7 +102,7 @@ export class CloudflareAIExecutor extends BaseExecutor {
     };
 
     const messages = (body.messages as Array<Record<string, unknown>>).map((msg) =>
-      msg && Array.isArray(msg.content) ? { ...msg, content: flattenContent(msg.content) } : msg
+      msg && "content" in msg ? { ...msg, content: flattenContent(msg.content) } : msg
     );
 
     return { ...body, messages };

@@ -15,42 +15,56 @@ import { URL } from "url";
 import * as fs from "fs";
 import * as path from "path";
 
+// Filtered from production DB (oracle-vps, omniroute-parallel):
+//   Active providers + :free / -free models + combo-referenced models.
+// Source: key_value namespace 'syncedAvailableModels' filtered to is_active=1
+//   providers, plus combos table model strings.
 const DEFAULT_ROUTES = [
-  "nous-research/upstage/solar-pro4:free",
-  "nous-research/meituan/longcat-2.0:free",
-  "nous-research/moonshot/kimi-k2:free",
-  "nous-research/together/deepseek-v3:free",
-  "nous-research/tngimg/midjourney-mixing:free",
-  "nous-research/tngimg/sdxl-lightning:free",
-  "nous-research/tngimg/sdxl-base:free",
-  "nous-research/tngimg/dalle3:free",
-  "nous-research/tencent/hunyuan-vision:free",
-  "nous-research/tencent/hunyuan-chat:free",
-  "nous-research/tencent/hunyuan-embedding:free",
-  "nous-research/qwen/qwen-vl-plus:free",
-  "nous-research/qwen/qwen-vl-chat:free",
-  "nous-research/qwen/qwen-turbo:free",
-  "nous-research/qwen/qwen-plus:free",
-  "nous-research/qwen/qwen-max:free",
-  "nous-research/openai/gpt-4o:free",
-  "nous-research/openai/o1-preview:free",
-  "nous-research/openai/text-embedding-3-small:free",
-  "nous-research/openai/text-embedding-3-large:free",
-  "nous-research/openai/whisper-1:free",
-  "nous-research/openai/gpt-4o-mini:free",
-  "nous-research/openai/o1-mini:free",
-  "nous-research/openai/text-embedding-ada-002:free",
-  "nous-research/openai/clip-vit:free",
-  "nous-research/anthropic/claude-3-5-sonnet:free",
-  "nous-research/anthropic/claude-3-5-haiku:free",
-  "nous-research/anthropic/claude-3-opus:free",
-  "nous-research/anthropic/claude-3-sonnet:free",
-  "nous-research/anthropic/claude-3-haiku:free",
-  "nous-research/anthropic/claude-2.1:free",
-  "nous-research/anthropic/claude-instant-v1:free",
-  "nous-research/google/gemini-2.0-flash-exp:free",
-  "nous-research/google/gemini-1.5-pro:free",
-  "nous-research/google/gemini-1.5-flash:free",
+  ...new Set([
+    // --- :free / -free models from active production providers ---
+    // command-code
+    "command-code/poolside/laguna-s-2.1-free",
+    // nous-research
+    "nous-research/meituan/longcat-2.0:free",
+    "nous-research/poolside/laguna-s-2.1:free",
+    "nous-research/poolside/laguna-xs-2.1:free",
+    "nous-research/stepfun/step-3.7-flash:free",
+    "nous-research/tencent/hy3:free",
+    "nous-research/upstage/solar-pro4:free",
+    // openai-compatible-chat (a7b11c31-aadd-42d4-91d4-4b19701451f7)
+    "openai-compatible-chat-a7b11c31-aadd-42d4-91d4-4b19701451f7/nvidia/nemotron-3-ultra-550b-a55b:free",
+    // openrouter
+    "openrouter/cohere/north-mini-code:free",
+    "openrouter/dots-studio/dots-3-note-preview:free",
+    "openrouter/google/gemma-4-26b-a4b-it:free",
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/nvidia/nemotron-3-nano-30b-a3b:free",
+    "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+    "openrouter/nvidia/nemotron-3.5-content-safety:free",
+    "openrouter/nvidia/nemotron-3.5-lightning:free",
+    "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
+    "openrouter/nvidia/nemotron-nano-9b-v2:free",
+    "openrouter/openai/gpt-oss-20b:free",
+    "openrouter/poolside/laguna-s-2.1:free",
+    "openrouter/poolside/laguna-xs-2.1:free",
+    "openrouter/z-ai/glm-5.2:free",
+    // --- Combo-referenced models (active providers not caught by :free) ---
+    // antigravity
+    "antigravity/claude-opus-4-6-thinking",
+    "antigravity/claude-sonnet-4-6",
+    "antigravity/gemini-3.5-flash-lite",
+    "antigravity/gemini-3.6-flash-medium",
+    "antigravity/gemini-3.7-flash-tiered",
+    "antigravity/gemini-2.5-flash",
+    // codex
+    "codex/gpt-5.6-luna",
+    // longcat
+    "longcat/longcat-2.0",
+    // nvidia
+    "nvidia/nvidia/nemotron-3-super-120b-a12b",
+  ]),
 ];
 
 const CONFIG = {
@@ -121,7 +135,7 @@ function makeRequest(body) {
         "Content-Length": Buffer.byteLength(data),
       },
       timeout: CONFIG.timeout,
-      rejectUnauthorized: false,
+      rejectUnauthorized: true,
     };
 
     const req = lib.request(options, (res) => {
@@ -320,6 +334,11 @@ async function probeRoute(route, index) {
     return results;
   }
 
+  // Echo gate 3's assistant message, normalizing null content so the
+  // upstream sees a string (Cloudflare /ai/v1 requires content to be a string).
+  const g4AssistantMsg = g3.body.choices[0].message;
+  if (g4AssistantMsg.content === null) g4AssistantMsg.content = "";
+
   const messagesG4 = [
     { role: "user", content: PROMPT_GATE2 },
     {
@@ -334,7 +353,7 @@ async function probeRoute(route, index) {
       ],
     },
     { role: "tool", tool_call_id: toolCall.id, content: "25" },
-    g3.body.choices[0].message,
+    g4AssistantMsg,
     { role: "tool", tool_call_id: g3ToolCall.id, content: "100" },
   ];
 

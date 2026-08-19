@@ -83,6 +83,33 @@ test("CloudflareAIExecutor.transformRequest preserves plain-string content", () 
   assert.deepEqual((out as any).messages, [{ role: "user", content: "hi" }]);
 });
 
+test("CloudflareAIExecutor.transformRequest coerces null content to empty string", () => {
+  const executor = new CloudflareAIExecutor();
+  const body = {
+    model: "@cf/openai/gpt-oss-20b",
+    messages: [
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            type: "function",
+            id: "call_x",
+            function: { name: "add", arguments: '{"a":17,"b":8}' },
+          },
+        ],
+      },
+      { role: "tool", tool_call_id: "call_x", content: "25" },
+      { role: "tool", tool_call_id: "call_y", content: null },
+    ],
+  };
+  const out = executor.transformRequest("@cf/openai/gpt-oss-20b", body, false, {} as never);
+  const msgs = (out as Record<string, unknown>).messages as Array<Record<string, unknown>>;
+  assert.equal(msgs[0].content, "");
+  assert.equal(msgs[1].content, "25");
+  assert.equal(msgs[2].content, "");
+});
+
 // Regression for #2539: Workers AI /ai/v1/chat/completions rejects OpenAI content-part
 // arrays — flatten [{type:"text", text}] to a plain string so requests don't 400.
 test("CloudflareAIExecutor.transformRequest flattens content-part arrays to strings (#2539)", () => {

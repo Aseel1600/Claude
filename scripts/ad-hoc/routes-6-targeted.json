@@ -1,0 +1,8 @@
+[
+  "cloudflare-ai/@cf/qwen/qwen3-30b-a3b-fp8",
+  "cloudflare-ai/@cf/zai-org/glm-4.7-flash",
+  "cloudflare-ai/@cf/google/gemma-4-26b-a4b-it",
+  "cloudflare-ai/@cf/openai/gpt-oss-20b",
+  "cloudflare-ai/@cf/ibm-granite/granite-4.0-h-micro",
+  "cloudflare-ai/@cf/nvidia/nemotron-3-120b-a12b"
+]
