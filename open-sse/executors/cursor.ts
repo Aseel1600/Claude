@@ -713,8 +713,8 @@ export function processFrame(
 }
 
 export class CursorExecutor extends BaseExecutor {
-  constructor() {
-    super("cursor", PROVIDERS.cursor);
+  constructor(provider: "cursor" | "cursor-api" = "cursor") {
+    super(provider, PROVIDERS[provider]);
   }
 
   buildUrl() {
@@ -858,7 +858,7 @@ export class CursorExecutor extends BaseExecutor {
    */
   private async loadLiveCatalogIds(): Promise<ReadonlySet<string> | undefined> {
     try {
-      const catalog = await getActiveSyncedCatalog("cursor");
+      const catalog = await getActiveSyncedCatalog(this.provider);
       if (!catalog.models.length) return undefined;
       return new Set(catalog.models.map((model) => model.id));
     } catch {

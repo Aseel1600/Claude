@@ -226,7 +226,7 @@ describe("cursorCliProxy: forwarded RPCs", () => {
     await flushLogs();
     assert.equal(logs.length, 1);
     assert.equal(logs[0].path, `${CURSOR_CLI_PROXY_PREFIX}/aiserver.v1.DashboardService/GetMe`);
-    assert.equal(logs[0].provider, "cursor");
+    assert.equal(logs[0].provider, "cursor-api");
     assert.equal(logs[0].connectionId, "conn-1");
     assert.equal(logs[0].status, 200);
     assert.equal(logs[0].apiKeyId, "key-1");

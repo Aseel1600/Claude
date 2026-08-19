@@ -13,10 +13,10 @@
  *      API key and hands back an OmniRoute-minted session JWT. The CLI reads
  *      `exp` from whatever JWT it receives and re-exchanges when the token is
  *      opaque or expired, so the minted token must be a real JWT with `exp`.
- *   2. Every other path verifies that JWT, resolves an active Cursor
- *      connection (API key → exchanged session token, OAuth → IDE session
- *      token), swaps the Authorization header and streams the upstream reply
- *      back unchanged. Each hop is recorded in call_logs.
+ *   2. Every other path verifies that JWT, resolves an active `cursor-api`
+ *      connection (the crsr_ key is exchanged for a session token), swaps the
+ *      Authorization header and streams the upstream reply back unchanged.
+ *      Each hop is recorded in call_logs.
  */
 
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
@@ -42,7 +42,7 @@ export const CURSOR_CLI_SESSION_AUDIENCE = "cursor-cli";
 export const CURSOR_CLI_SESSION_TTL_SECONDS = 60 * 60;
 export const CURSOR_CLI_REQUEST_TYPE = "cursor-cli";
 const ANONYMOUS_SUBJECT = "anonymous";
-const PROVIDER_ID = "cursor";
+const PROVIDER_ID = "cursor-api";
 
 const REQUEST_HEADER_DENYLIST = new Set([
   "authorization",
@@ -259,7 +259,7 @@ async function resolveUpstreamConnection(
     return connectError(
       HTTP_STATUS.SERVICE_UNAVAILABLE,
       "unavailable",
-      "No active Cursor connection configured in OmniRoute"
+      "No active Cursor API connection configured in OmniRoute"
     );
   }
   let lastError: unknown = null;

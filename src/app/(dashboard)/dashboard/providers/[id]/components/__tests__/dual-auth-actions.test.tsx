@@ -181,15 +181,6 @@ describe("dual-auth provider actions (#8882)", () => {
     expectDualAuthActions(rendered.container, rendered);
   });
 
-  it("renders OAuth Connect and Manual API key for empty Cursor", () => {
-    const rendered = renderEmptyProvider({
-      providerId: "cursor",
-      supportsDualAuth: true,
-      providerSupportsPat: false,
-    });
-    expectDualAuthActions(rendered.container, rendered);
-  });
-
   it("preserves ClinePass dual-auth actions", () => {
     const rendered = renderEmptyProvider({
       providerId: "clinepass",

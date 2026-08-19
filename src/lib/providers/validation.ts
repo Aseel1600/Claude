@@ -110,6 +110,7 @@ import { validateAiHordeProvider } from "./validation/aihorde";
 import {
   validateV0VercelProvider,
   validateAuggieProvider,
+  validateCursorApiProvider,
   validateQoderProvider,
   validateKiroProvider,
   validateGitlabProvider,
@@ -183,6 +184,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     // for parity with the "jules" cloud-agent entry above — see #6142.
     devin: validateDevinCloudAgentProvider,
     auggie: validateAuggieProvider,
+    "cursor-api": validateCursorApiProvider,
     aihorde: validateAiHordeProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,

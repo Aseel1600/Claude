@@ -30,7 +30,6 @@ function uncachedTryIdeAuth(): ReturnType<typeof tryIdeAuth> {
 interface CursorConnectionLike {
   id: string;
   provider?: string;
-  authType?: string;
   accessToken?: string;
   expiresAt?: string | null;
   providerSpecificData?: Record<string, unknown> | null;
@@ -84,16 +83,6 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     if (connection.provider !== "cursor") {
       return NextResponse.json(
         { error: "This route only supports Cursor connections" },
-        { status: 400 }
-      );
-    }
-
-    if (connection.authType !== "oauth") {
-      return NextResponse.json(
-        {
-          error:
-            "API-key Cursor connections exchange their key on demand and have no IDE session to renew",
-        },
         { status: 400 }
       );
     }
