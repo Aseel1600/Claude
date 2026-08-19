@@ -114,7 +114,6 @@ function getNextBackoff(connectionId: string): number {
 async function testConnection(
   connectionId: string,
   provider: string,
-  isOAuth: boolean,
   intervalMs: number | null
 ): Promise<void> {
   const startTime = Date.now();
@@ -296,9 +295,7 @@ export async function sweep(): Promise<void> {
 
     for (const batch of batches) {
       await Promise.allSettled(
-        batch.map((conn) =>
-          testConnection(conn.id, conn.provider, conn.authType === "oauth", getConnIntervalMs(conn))
-        )
+        batch.map((conn) => testConnection(conn.id, conn.provider, getConnIntervalMs(conn)))
       );
     }
   } finally {
