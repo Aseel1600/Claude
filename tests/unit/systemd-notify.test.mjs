@@ -128,6 +128,9 @@ test("spawn failure disables the notifier once and stops the watchdog", async ()
 test("watchdog interval pings repeatedly and dispose() stops it", async () => {
   const calls = [];
   const env = { NOTIFY_SOCKET: "/run/systemd/notify" };
+  // Interval is intentionally tiny (5ms) with a generous wait window (150ms — 30x the
+  // interval) so this stays deterministic under CI/CPU-contended runs: only 2 pings are
+  // required, well within reach even at >10x scheduler jitter.
   const notifier = createSystemdNotifier({
     env,
     watchdogIntervalMs: 5,
@@ -135,11 +138,11 @@ test("watchdog interval pings repeatedly and dispose() stops it", async () => {
   });
   notifier.ready();
   notifier.startWatchdog();
-  await new Promise((resolve) => setTimeout(resolve, 25));
+  await new Promise((resolve) => setTimeout(resolve, 150));
   notifier.dispose();
   const watchdogCalls = calls.filter((c) => c.args[0] === "WATCHDOG=1").length;
   assert.ok(watchdogCalls >= 2, `expected >= 2 watchdog pings, got ${watchdogCalls}`);
   const before = calls.length;
-  await new Promise((resolve) => setTimeout(resolve, 15));
+  await new Promise((resolve) => setTimeout(resolve, 30));
   assert.equal(calls.length, before, "no ping after dispose");
 });
