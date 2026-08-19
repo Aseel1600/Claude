@@ -205,6 +205,7 @@
     "check:pr-evidence": "node scripts/check/check-pr-evidence.mjs",
     "check:vuln-ratchet": "node scripts/check/check-vuln-ratchet.mjs",
     "check:codeql-ratchet": "node scripts/check/check-codeql-ratchet.mjs",
+    "check:vercel-react": "node scripts/check/check-vercel-react-best-practices.mjs",
     "check:secrets": "node scripts/check/check-secrets.mjs",
     "check:workflows": "node scripts/check/check-workflows.mjs",
     "quality:collect": "node scripts/quality/collect-metrics.mjs",

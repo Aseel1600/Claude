@@ -358,6 +358,61 @@
       "direction": "down",
       "eps": 0,
       "_seeded_2026_07_28": "Measured by scripts/check/check-rtl-ratchet.mjs. tests/unit/ui/rtl-logical-classes.test.tsx pins four components and states it is partial (#3541); this bounds the remainder."
+    },
+    "vercelReact.transitionAll": {
+      "value": 196,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.outlineNoneNoFocus": {
+      "value": 133,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.divOnClickNoKeyboard": {
+      "value": 43,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.imgMissingDimensions": {
+      "value": 9,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.imgMissingAlt": {
+      "value": 2,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.loadingEllipsis": {
+      "value": 2,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.toLocaleUndefined": {
+      "value": 12,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.userScalableNo": {
+      "value": 0,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.onPastePreventDefault": {
+      "value": 1,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.noReducedMotionFile": {
+      "value": 161,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
+    },
+    "vercelReact.iconButtonNoLabel": {
+      "value": 35,
+      "direction": "down",
+      "note": "Rebaseline em 2026-08-19 — vercel/react-best-practices gate (subconjunto estático)."
     }
   },
   "_coverage_note": "Pisos anti-flake ~2pt abaixo do real do CI mergeado MEDIDO COM os 135 testes religados (run 27247237268: statements 78.4 / lines 78.4 / functions 83.84 / branches 75.73). O religamento da 6A.1 HONESTIFICOU a regua: os ~82.5 anteriores eram inflados porque modulos nunca importados ficavam fora do denominador do c8. Apertar via --require-tighten na Fase 6A (2026-06-16).",
