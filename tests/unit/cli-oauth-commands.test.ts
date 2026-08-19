@@ -100,11 +100,13 @@ test("runOAuthStatus consumes the connections envelope", async () => {
   globalThis.fetch = ((url: string) => {
     assert.ok(url.includes("/api/providers"));
     return Promise.resolve(makeResp({ connections: CONNECTIONS }));
-  }) as any;
+  }) as typeof fetch;
 
   try {
     const { runOAuthStatus } = await import("../../bin/cli/commands/oauth.mjs");
-    const out = await captureStdout(() => runOAuthStatus({}, makeCmd() as any));
+    const out = await captureStdout(() =>
+      runOAuthStatus({}, makeCmd() as Parameters<typeof runOAuthStatus>[1])
+    );
     const parsed = JSON.parse(out);
     assert.deepEqual(
       parsed.map((connection: { id: string }) => connection.id),

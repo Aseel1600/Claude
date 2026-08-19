@@ -305,7 +305,10 @@ test("GitlabExecutor falls back to the public Code Suggestions endpoint when dir
       "https://gitlab.example.com/api/v4/code_suggestions/completions",
     ]);
 
-    const body = (await result.response.json()) as any;
+    const body = (await result.response.json()) as {
+      model: string;
+      choices: Array<{ message: { content: string } }>;
+    };
     assert.equal(body.model, "code-gecko");
     assert.match(body.choices[0].message.content, /monolith fallback works/i);
   } finally {
