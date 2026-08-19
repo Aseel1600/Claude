@@ -52,30 +52,20 @@ const BUNDLED_PLUGIN_DIR =
  * Resolve the OpenCode config directory. Honours XDG_CONFIG_HOME and the
  * platform-specific defaults documented at https://opencode.ai/.
  *
+ * OpenCode (Bun-based) resolves XDG-style paths on every platform, including
+ * Windows: global config at `~/.config/opencode/`, data at
+ * `~/.local/share/opencode`. Do not use %APPDATA% / %LOCALAPPDATA% — opencode
+ * never reads config from those locations, so a plugin registered there
+ * silently never loads.
+ *
  * @returns {{ configDir: string, dataDir: string }}
  */
 function resolveOpenCodeDirs() {
   const home = os.homedir();
   const xdgConfig = process.env.XDG_CONFIG_HOME;
   const xdgData = process.env.XDG_DATA_HOME;
-  const platform = process.platform;
-
-  let configDir;
-  let dataDir;
-  if (platform === "darwin") {
-    // macOS: ~/Library/Application Support/opencode
-    configDir = join(home, "Library", "Application Support", "opencode");
-    dataDir = configDir; // OC uses the same root for config + data on macOS
-  } else if (platform === "win32") {
-    const appdata = process.env.APPDATA || join(home, "AppData", "Roaming");
-    const localAppdata = process.env.LOCALAPPDATA || join(home, "AppData", "Local");
-    configDir = join(appdata, "opencode");
-    dataDir = join(localAppdata, "opencode");
-  } else {
-    // Linux + everything else: XDG-style
-    configDir = xdgConfig ? join(xdgConfig, "opencode") : join(home, ".config", "opencode");
-    dataDir = xdgData ? join(xdgData, "opencode") : join(home, ".local", "share", "opencode");
-  }
+  const configDir = xdgConfig ? join(xdgConfig, "opencode") : join(home, ".config", "opencode");
+  const dataDir = xdgData ? join(xdgData, "opencode") : join(home, ".local", "share", "opencode");
   return { configDir, dataDir };
 }
 
