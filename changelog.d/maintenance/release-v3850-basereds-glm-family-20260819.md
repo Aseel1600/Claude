@@ -1,0 +1,1 @@
+- **fix(tests):** drain the `auto/glm` base-red on the release branch — the Cloudflare AI Playground no-auth backend advertises `zai-org/glm-5.2` and `zai-org/glm-4.7-flash`, so it belongs in the glm family pool by the same rule already documented for `auggie`, `devin-cli-agentic` and `zcode`; the expectation now lists it instead of failing on a legitimate member.
