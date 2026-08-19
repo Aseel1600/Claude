@@ -8,6 +8,7 @@
 
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { handleChat } from "@/sse/handlers/chat";
+import { withHeapAdmission } from "@/shared/middleware/chatBodyAdmission";
 import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 import { getRelayTokenByHash, checkRateLimit, recordRelayUsage } from "@/lib/db/relayProxies";
 import { buildErrorBody } from "@omniroute/open-sse/utils/error";
@@ -153,7 +154,7 @@ export async function OPTIONS() {
   return handleCorsOptions();
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const startTime = Date.now();
   const clientIp = getClientIp(request);
   const userAgent = sanitizeForensicHeader(request.headers.get("user-agent"));
@@ -380,3 +381,5 @@ export async function POST(request: Request) {
     });
   }
 }
+
+export const POST = withHeapAdmission(postHandler);
