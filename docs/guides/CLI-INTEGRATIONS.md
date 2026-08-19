@@ -1,7 +1,7 @@
 ---
 title: "CLI Integrations — point any coding CLI at OmniRoute"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.50
+lastUpdated: 2026-08-18
 ---
 
 # CLI Integrations
@@ -14,9 +14,15 @@ OmniRoute (local or remote) and writes the tool's own config file on **your**
 machine. The API key is referenced by an environment variable wherever the tool
 supports it. Commands that persist a tool-local environment file are noted below.
 
-There are also two launchers — `omniroute launch` (Claude Code) and
-`omniroute launch-codex` (Codex) — that spawn the CLI with the right env injected,
-without writing any config at all.
+There is also a generic launcher — `omniroute run <target>` — that spawns
+`claude`, `codex`, `aider`, `goose`, `opencode`, `qwen` or `gemini` with the
+right env injected, without writing any config at all. Targets and their
+aliases come from the canonical manifest `bin/cli/cli-manifest.mjs`
+(`claude-code|cc|anthropic`, `codex-cli|openai-codex|openai`, `goose-cli`,
+`open-code`, `qwen-code`, `gemini-cli`), and `omniroute completion` offers the
+same manifest-derived target words. The legacy per-tool launchers —
+`omniroute launch` (Claude Code) and `omniroute launch-codex` (Codex) — remain
+available.
 
 Provider onboarding is available from the same local/remote context. The
 API-first commands below keep management authentication separate from provider
@@ -87,8 +93,21 @@ Notes on flags (verified in the command source):
   model auto-discovery: Cline, Kilo, Roo, Goose, Qwen, Aider. Those tools
   also accept `--yes` for non-interactive runs (which then requires `--model`).
   `setup-opencode` takes `--model` to set the default top-level model.
+- `--model <id>` on `omniroute run` follows the manifest's per-target wiring
+  (`bin/cli/cli-manifest.mjs`): **aider** receives `--model openai/<id>` and
+  **opencode** `--model omniroute/<id>` (the prefix is added only when the id
+  does not already carry it); **qwen** and **gemini** receive the id verbatim;
+  **claude** gets it via `ANTHROPIC_MODEL`, **goose** via `GOOSE_MODEL`, and
+  **codex** via `-c model_providers.omniroute.*` args. **Qwen is the only run
+  target that hard-requires `--model`** — `omniroute run qwen` without it exits
+  `2` with an explicit error.
 - `--port <port>` — local OmniRoute port (default `20128`, ignored when `--remote`
   is set). Present on all `setup-*` and both launchers.
+- `omniroute run` exit codes: the child CLI's own exit code is propagated
+  verbatim; `2` = invalid arguments (unsupported target, missing required
+  `--model`, container guard); `127` = the target binary is not in `PATH`;
+  `130`/`143`/`129` when the launch is ended by `SIGINT`/`SIGTERM`/`SIGHUP`;
+  `1` = other runtime launch failure.
 - The two launchers (`launch`, `launch-codex`) accept `--profile <name>` to select
   a profile written by `setup-claude` / `setup-codex`, plus pass-through args for
   the underlying `claude` / `codex` binary.
@@ -251,6 +270,11 @@ Gemini surface (`/v1beta`). `omniroute run gemini` wires that automatically:
 - a **temporary isolated `GEMINI_CLI_HOME`** whose `.gemini/settings.json`
   selects `gemini-api-key` auth, so a stored Google OAuth session (Code Assist)
   never overrides the OmniRoute-directed launch — removed after exit;
+- **env hygiene**: the child env is scrubbed of `GOOGLE_API_KEY`,
+  `GOOGLE_GENAI_USE_VERTEXAI` and `GOOGLE_GENAI_USE_GCA` (which would redirect
+  auth to Vertex/Code Assist), and `GEMINI_DEFAULT_AUTH_TYPE=gemini-api-key` is
+  set as a belt-and-suspenders fallback — the other `run` targets get the same
+  treatment for their own conflicting variables;
 - `--model <id>` injection from `--provider`/`--model`.
 
 ```bash

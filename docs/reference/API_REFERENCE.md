@@ -1,7 +1,7 @@
 ---
 title: "API Reference"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.50
+lastUpdated: 2026-08-18
 ---
 
 # API Reference
@@ -409,33 +409,33 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 
 ## Compatibility Endpoints
 
-| Method | Path                                      | Format                           |
-| ------ | ----------------------------------------- | -------------------------------- |
-| POST   | `/v1/chat/completions`                    | OpenAI                           |
-| POST   | `/v1/messages`                            | Anthropic                        |
-| POST   | `/v1/responses`                           | OpenAI Responses                 |
-| POST   | `/v1/embeddings`                          | OpenAI                           |
-| POST   | `/v1/images/generations`                  | OpenAI Images                    |
-| POST   | `/v1/images/edits`                        | OpenAI Images (edit/inpaint)     |
-| POST   | `/v1/videos/generations`                  | OpenAI-style video generation    |
-| POST   | `/v1/music/generations`                   | OpenAI-style music generation    |
-| POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)               |
-| POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)  |
-| POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank       |
-| POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)    |
+| Method | Path                                      | Format                             |
+| ------ | ----------------------------------------- | ---------------------------------- |
+| POST   | `/v1/chat/completions`                    | OpenAI                             |
+| POST   | `/v1/messages`                            | Anthropic                          |
+| POST   | `/v1/responses`                           | OpenAI Responses                   |
+| POST   | `/v1/embeddings`                          | OpenAI                             |
+| POST   | `/v1/images/generations`                  | OpenAI Images                      |
+| POST   | `/v1/images/edits`                        | OpenAI Images (edit/inpaint)       |
+| POST   | `/v1/videos/generations`                  | OpenAI-style video generation      |
+| POST   | `/v1/music/generations`                   | OpenAI-style music generation      |
+| POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)                 |
+| POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)    |
+| POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank         |
+| POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)      |
 | POST   | `/v1/segment`                             | Jina segmenter (`segment.jina.ai`) |
-| POST   | `/v1/moderations`                         | OpenAI Moderations               |
-| GET    | `/v1/models`                              | OpenAI                           |
-| POST   | `/v1/messages/count_tokens`               | Anthropic                        |
-| GET    | `/v1beta/models`                          | Gemini                           |
-| POST   | `/v1beta/models/{...path}`                | Gemini generateContent           |
-| POST   | `/v1/api/chat`                            | Ollama                           |
-| GET    | `/api/v1/vscode/{token}/`                 | OpenAI catalog alias             |
-| GET    | `/api/v1/vscode/{token}/models`           | OpenAI models alias              |
-| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias           |
-| POST   | `/api/v1/vscode/{token}/responses`        | OpenAI Responses tokenized alias |
-| POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias           |
-| GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias      |
+| POST   | `/v1/moderations`                         | OpenAI Moderations                 |
+| GET    | `/v1/models`                              | OpenAI                             |
+| POST   | `/v1/messages/count_tokens`               | Anthropic                          |
+| GET    | `/v1beta/models`                          | Gemini                             |
+| POST   | `/v1beta/models/{...path}`                | Gemini generateContent             |
+| POST   | `/v1/api/chat`                            | Ollama                             |
+| GET    | `/api/v1/vscode/{token}/`                 | OpenAI catalog alias               |
+| GET    | `/api/v1/vscode/{token}/models`           | OpenAI models alias                |
+| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias             |
+| POST   | `/api/v1/vscode/{token}/responses`        | OpenAI Responses tokenized alias   |
+| POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias             |
+| GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias        |
 
 All POST routes follow the same shape: `Bearer your-api-key` + Zod-validated JSON body (`v1RerankSchema`, `v1ModerationSchema`, `v1AudioSpeechSchema`, etc., see `src/shared/validation/schemas.ts`). 4xx is returned on schema failure.
 
