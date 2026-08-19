@@ -78,8 +78,10 @@ export function isPublicApiRoute(pathname: string, method = "GET"): boolean {
     return false;
   }
 
-  if (PUBLIC_READONLY_API_ROUTES_EXACT.has(pathname)) {
-    return true;
+  for (const route of PUBLIC_READONLY_API_ROUTES_EXACT) {
+    if (pathMatchesExactRoute(pathname, route)) {
+      return true;
+    }
   }
 
   return PUBLIC_READONLY_API_ROUTE_PREFIXES.some((route) => pathname.startsWith(route));

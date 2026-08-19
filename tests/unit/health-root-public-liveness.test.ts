@@ -21,6 +21,13 @@ describe("GET /api/health is a public liveness probe", () => {
     assert.equal(isPublicApiRoute("/api/healthzzz", "GET"), false);
   });
 
+  it("is reachable with a trailing slash, like the other exact-match public routes", () => {
+    // getRequestPathname() (src/shared/utils/apiAuth.ts) does not strip a trailing slash,
+    // unlike classify.ts's normalizePathname() — a raw Set.has() lookup would miss "/api/health/"
+    // even though it is the same probe. Same trailing-slash tolerance as PUBLIC_CLOUD_API_ROUTES.
+    assert.equal(isPublicApiRoute("/api/health/", "GET"), true);
+  });
+
   it("answers 200 with the minimum an orchestrator needs", async () => {
     const response = await GET();
     const body = (await response.json()) as Record<string, unknown>;
