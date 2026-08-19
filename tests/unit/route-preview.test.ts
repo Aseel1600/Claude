@@ -167,3 +167,44 @@ test("a combo with no usable targets yields an empty chain and no false budget",
     "an empty chain must report no budget rather than a fabricated one"
   );
 });
+
+test("reads the `models` field the database actually stores", () => {
+  // Regression: the handler originally read `combo.targets`, but
+  // normalizeComboRecord emits `{ version: 2, models: ComboStep[] }` — so every
+  // combo loaded through getComboByName arrived with `targets === undefined`
+  // and previewed as an empty chain, HTTP 200 and all. The other tests missed it
+  // because they hand-build combos in the `targets` shape, which nothing in the
+  // application ever produces.
+  const preview = buildRoutePreview("stored-shape", () => ({
+    name: "stored-shape",
+    strategy: "priority",
+    version: 2,
+    models: [
+      { id: "hop-1", kind: "model", model: "anthropic/claude-sonnet-4-5", providerId: "anthropic" },
+      { id: "hop-2", kind: "model", model: "openai/gpt-4o", providerId: "openai" },
+      // A combo-ref carries no `model`; it must be skipped, not counted as a hop
+      // of unknown capacity — combos in production do contain these.
+      { id: "hop-3", kind: "combo-ref", comboName: "other-combo" },
+    ],
+  }));
+
+  assert.equal(preview.isCombo, true);
+  assert.equal(preview.chain.length, 2, "both model hops resolve from `models`");
+  assert.equal(preview.chain[0].model, "claude-sonnet-4-5");
+  assert.equal(preview.chain[1].model, "gpt-4o");
+  assert.equal(preview.unknownCapacityHops, 0, "the combo-ref must not count as an unknown hop");
+  assert.ok(preview.narrowestInput !== null, "a resolved chain must yield a budget");
+});
+
+test("`targets` still works when `models` is absent", () => {
+  // The alternate spelling stays supported so a caller that hand-builds a combo
+  // shape keeps working; `models` simply wins when both are present.
+  const preview = buildRoutePreview("legacy-shape", () => ({
+    name: "legacy-shape",
+    strategy: "priority",
+    targets: [{ provider: "anthropic", model: "claude-sonnet-4-5" }],
+  }));
+
+  assert.equal(preview.chain.length, 1);
+  assert.equal(preview.chain[0].model, "claude-sonnet-4-5");
+});

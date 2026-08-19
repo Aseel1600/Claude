@@ -57,6 +57,16 @@ export interface RoutePreviewResult {
 export interface ComboLike {
   name?: string | null;
   strategy?: string | null;
+  /**
+   * Hops as the database actually stores them: `normalizeComboRecord` emits
+   * `{ version: 2, models: ComboStep[] }`, so this — not `targets` — is the
+   * field every combo loaded through `getComboByName` carries.
+   */
+  models?: unknown;
+  /**
+   * Alternate spelling accepted for callers that hand-build a combo shape.
+   * Read only when `models` is absent.
+   */
   targets?: unknown;
 }
 
@@ -128,7 +138,7 @@ export function buildRoutePreview(
   const combo = loadCombo(model);
 
   const chain: RoutePreviewHop[] = combo
-    ? extractComboTargets(combo.targets).map((t) => toHop(t.provider, t.model))
+    ? extractComboTargets(combo.models ?? combo.targets).map((t) => toHop(t.provider, t.model))
     : [singleModelHop(model)];
 
   let narrowestInput: number | null = null;
