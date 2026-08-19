@@ -7,13 +7,16 @@
  * top-level Ark actions, authenticated by the same console cookie + csrf
  * token already captured during plan binding (see volcenginePlanBinding.ts).
  *
- *  - Agent Plan:  `GetAgentPlanModelMappingMeta` → Result.Data[]
- *      filter: platform-enabled LLMs plus API-verified canonical registry IDs
- *      id    : RespModelID (already version-suffixed, matches chat endpoint)
+ *  - Agent Plan:  `ListAgentPlanLatestModel` → Result.Data[]
+ *      id    : ModelId (version-suffixed, matches chat endpoint)
  *  - Coding Plan: `ListArkCodeLatestModel` → Result.Data[]
  *      id    : ModelId (version-suffixed)
  *
- * The console API returns only id/name/version/description — NOT capabilities
+ * Both APIs return the same response shape (ModelId / OutputName / Enabled /
+ * Description / EnabledThinking). We keep ALL entries — the chat endpoint
+ * accepts every listed ModelId, and `Enabled` only reflects console visibility.
+ *
+ * The console API returns only id/name/description — NOT capabilities
  * (contextLength, toolCalling, vision, reasoning). We enrich each discovered
  * model from a static family→capability map keyed by the OutputName/ModelName
  * prefix, falling back to conservative defaults so new families stay usable
@@ -22,8 +25,6 @@
  * Output shape matches SyncedAvailableModelInput so the sync-models route can
  * persist it via replaceSyncedAvailableModelsForConnection.
  */
-
-import { VOLCENGINE_AGENT_PLAN_MODELS } from "@omniroute/open-sse/config/providers/registry/volcengine/agent-plan/index.ts";
 
 import type { SyncedAvailableModelInput } from "@/lib/db/models/synced";
 
@@ -128,8 +129,8 @@ const PLAN_DISCOVERY_CONFIG: Record<
   }
 > = {
   agent: {
-    action: "GetAgentPlanModelMappingMeta",
-    payload: { Edition: "agent_plan_personal" },
+    action: "ListAgentPlanLatestModel",
+    payload: {},
     referer: AGENT_PLAN_REFERER,
     requiresAccountId: false,
   },
@@ -301,48 +302,20 @@ export function enrichModel(model: DiscoveredVolcModel): SyncedAvailableModelInp
   };
 }
 
-const AGENT_PLAN_API_VERIFIED_IDS = new Set(VOLCENGINE_AGENT_PLAN_MODELS.map((model) => model.id));
-
 /**
- * Parse Agent Plan `GetAgentPlanModelMappingMeta` Result.Data[].
+ * Parse `ListAgentPlanLatestModel` / `ListArkCodeLatestModel` Result.Data[].
  *
- * `PlatformAllowStatus` controls console platform visibility/mapping; it is
- * NOT an API availability flag. Some canonical Agent Plan chat models (for
- * example kimi-k3) are returned with `PlatformAllowStatus=false`, `Type` and
- * display metadata unset, while `/api/plan/v3/chat/completions` accepts them.
- * Keep those only when they are in the API-verified canonical registry. This
- * avoids admitting the same response's media models, auto-router, and legacy
- * aliases while still allowing newly platform-enabled LLMs to be discovered.
+ * Both console APIs return the same response shape: each entry has
+ * `ModelId` (the version-suffixed ID accepted by the chat endpoint),
+ * `OutputName` / `ModelName` (the canonical family name used for capability
+ * enrichment), `Enabled` (console visibility — not API availability), and
+ * optional `Description` / `EnabledThinking`.
+ *
+ * We keep ALL entries with a non-empty `ModelId`. The chat endpoint accepts
+ * every listed model; `Enabled` only controls whether the model appears in
+ * the console's model picker, so filtering on it would hide callable models.
  */
-export function parseAgentPlanModels(json: JsonRecord): DiscoveredVolcModel[] {
-  const data = record(json.Result).Data;
-  const arr = Array.isArray(data) ? data : [];
-  const out: DiscoveredVolcModel[] = [];
-  for (const raw of arr) {
-    const item = record(raw);
-    const platformEnabledLlm =
-      item.PlatformAllowStatus === true && stringField(item.Type) === "llm";
-    const id = stringField(item.RespModelID);
-    if (!id || (!platformEnabledLlm && !AGENT_PLAN_API_VERIFIED_IDS.has(id))) continue;
-    const name = stringField(item.RespModelName) || id;
-    out.push({
-      id,
-      name,
-      ...(stringField(item.RespModelVersion)
-        ? { description: `v${stringField(item.RespModelVersion)}` }
-        : {}),
-    });
-  }
-  return out;
-}
-
-/**
- * Parse Coding Plan `ListArkCodeLatestModel` Result.Data[].
- * The API exposes every catalog entry regardless of subscription state; we
- * keep ALL of them (the chat endpoint accepts them, Enabled only reflects
- * console visibility) but surface Enabled through the description.
- */
-function parseCodingPlanModels(json: JsonRecord): DiscoveredVolcModel[] {
+export function parseLatestModelList(json: JsonRecord): DiscoveredVolcModel[] {
   const data = record(json.Result).Data;
   const arr = Array.isArray(data) ? data : [];
   const out: DiscoveredVolcModel[] = [];
@@ -412,8 +385,7 @@ export async function fetchVolcPlanModels(
     );
   }
 
-  const discovered =
-    kind === "agent" ? parseAgentPlanModels(result.json) : parseCodingPlanModels(result.json);
+  const discovered = parseLatestModelList(result.json);
   if (discovered.length === 0) {
     throw new Error(`Volcano ${kind} plan returned no usable models`);
   }
