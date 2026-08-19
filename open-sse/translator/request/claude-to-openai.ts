@@ -218,6 +218,23 @@ export function claudeToOpenAIRequest(model, body, stream, credentials: unknown 
     if (normalizedTools.length > 0) {
       result.tools = normalizedTools;
     }
+
+    // Claude Code declares PascalCase tools (Bash, Read, Write, mcp__…), and
+    // OpenAI-compatible upstreams may echo the tool-call name in either casing.
+    // Publish the declared names as an identity map on the `_toolNameMap` side
+    // channel so the response translator restores the exact declared casing
+    // (and rescues lowercased echoes) instead of the #7926 heuristic that
+    // assumes "no map ⇒ client wants lowercase" — wrong for Claude-source clients.
+    const toolIdentityMap = new Map<string, string>();
+    for (const tool of normalizedTools) {
+      const fn = (tool.function ?? {}) as JsonRecord;
+      if (typeof fn.name === "string" && fn.name.length > 0) {
+        toolIdentityMap.set(fn.name, fn.name);
+      }
+    }
+    if (toolIdentityMap.size > 0) {
+      result._toolNameMap = toolIdentityMap;
+    }
   }
 
   // Tool choice
