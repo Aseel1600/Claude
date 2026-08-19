@@ -22,9 +22,8 @@ const LOG_PATH = path.join(LOG_DIR, "app.log");
 process.env.APP_LOG_FILE_PATH = LOG_PATH;
 process.env.APP_LOG_TO_FILE = "true";
 
-const { initConsoleInterceptor, __consoleInterceptorInternals } = await import(
-  "../../src/lib/consoleInterceptor.ts"
-);
+const { initConsoleInterceptor, __consoleInterceptorInternals } =
+  await import("../../src/lib/consoleInterceptor.ts");
 
 function readEntries(): Array<Record<string, unknown>> {
   if (!fs.existsSync(LOG_PATH)) return [];
@@ -63,6 +62,32 @@ test("the interceptor keeps the component and substitutes printf formats", () =>
       .map((e) => String(e.message ?? ""))
       .find((m) => m.startsWith("plain message"));
     assert.equal(plain, 'plain message {"a":1}');
+  } finally {
+    __consoleInterceptorInternals.reset();
+    fs.rmSync(LOG_DIR, { recursive: true, force: true });
+  }
+});
+
+test("a first argument that coincidentally contains a printf token does not swallow a trailing Error", () => {
+  try {
+    initConsoleInterceptor();
+
+    // Dynamic, non-format-string content (e.g. a hook/tag name) that happens to contain "%s" —
+    // the real defect this guards: util.format() would consume `err` as the %s substitution and
+    // drop its message/stack instead of appending them.
+    const err = new Error("boom");
+    console.error('[Middleware] Failed to compile hook "handler%sname":', err);
+
+    __consoleInterceptorInternals.reset();
+
+    const entries = readEntries();
+    const entry = entries
+      .map((e) => String(e.message ?? ""))
+      .find((m) => m.includes("Failed to compile hook"));
+
+    assert.ok(entry, "entry not written");
+    assert.ok(entry.includes("boom"), "Error message was dropped");
+    assert.ok(entry.includes(err.stack || ""), "Error stack was dropped");
   } finally {
     __consoleInterceptorInternals.reset();
     fs.rmSync(LOG_DIR, { recursive: true, force: true });

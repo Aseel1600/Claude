@@ -127,10 +127,18 @@ function extractComponent(msg: string): string {
  * placeholders literal and the values trailing without their labels, so a reader had to open the
  * source to know which value was which. `util.format` appends surplus arguments exactly like the
  * join below, so calls without a format string keep their current output.
+ *
+ * Guarded against an Error in `rest`: many call sites build the first argument from dynamic,
+ * non-format-string content (e.g. `` `[TAG] Failed to compile hook "${row.name}":` ``) that can
+ * coincidentally contain a `%s`/`%d`-like substring. If a trailing arg is an Error, util.format
+ * would silently consume it as a substitution value and drop its stack — skip the printf path
+ * so that Error still gets the full `message\nstack` treatment below.
  */
 function argsToMessage(args: unknown[]): string {
   const [first, ...rest] = args;
-  if (typeof first === "string" && /%[sdifjoOc%]/.test(first)) {
+  const hasFormatString = typeof first === "string" && /%[sdifjoOc%]/.test(first);
+  const restHasError = rest.some((arg) => arg instanceof Error);
+  if (hasFormatString && !restHasError) {
     return format(first, ...rest);
   }
   return args
