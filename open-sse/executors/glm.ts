@@ -8,6 +8,7 @@ import {
   type CountTokensInput,
   type ExecuteInput,
   type ProviderCredentials,
+  type KeyHealth,
 } from "./base.ts";
 import {
   buildGlmBaseHeaders,
@@ -244,8 +245,10 @@ export class GlmExecutor extends DefaultExecutor {
     stream = true,
     _clientHeaders?: Record<string, string> | null,
     _model?: string,
-    transport: GlmTransport = getGlmTransport(credentials.providerSpecificData)
+    _health?: Record<string, KeyHealth>,
+    _body?: unknown
   ): Record<string, string> {
+    const transport: GlmTransport = getGlmTransport(credentials.providerSpecificData);
     if (transport === "openai") {
       return buildGlmCodingHeaders(getEffectiveKey(credentials), stream);
     }
@@ -446,7 +449,12 @@ export class GlmExecutor extends DefaultExecutor {
    */
   private async finalizeAnthropicTransportResult(
     input: ExecuteInput,
-    result: { response: Response; url: string; headers: Record<string, string>; transformedBody: unknown }
+    result: {
+      response: Response;
+      url: string;
+      headers: Record<string, string>;
+      transformedBody: unknown;
+    }
   ): Promise<GlmExecuteResult> {
     const { response: rawResponse, url, headers, transformedBody } = result;
     const clientHeaders = input.clientHeaders ?? {};
