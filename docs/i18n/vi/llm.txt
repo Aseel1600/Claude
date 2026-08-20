@@ -169,7 +169,7 @@ OmniRoute solves the problem of managing multiple AI provider subscriptions, quo
 │   │   └── manager.ts            # MITM proxy manager
 │   ├── shared/                   # Shared utilities, components, and constants
 │   │   ├── components/           # Reusable UI components (Card, Badge, Button, Modal, Sidebar, ProviderIcon, etc.)
-│   │   ├── constants/            # Provider definitions (342), model lists, pricing, routing strategies, MCP scopes
+│   │   ├── constants/            # Provider definitions (343), model lists, pricing, routing strategies, MCP scopes
 │   │   ├── contracts/            # Shared API contracts
 │   │   ├── hooks/                # React hooks
 │   │   ├── middleware/           # Shared middleware utilities
