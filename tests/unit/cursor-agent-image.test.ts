@@ -268,6 +268,7 @@ test("handleCursorAgentImageGeneration never forwards a flag-shaped model into C
       providerSpecificData: { agentBin: process.execPath },
     },
     spawnImpl: fakeSpawn,
+    peerLocality: "loopback",
   });
 
   assert.equal(result.success, true);
