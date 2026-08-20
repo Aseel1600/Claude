@@ -1007,12 +1007,7 @@ export function getImageModelEntry(modelStr) {
   };
 }
 
-/**
- * An image input is only MANDATORY for edit-only models — those whose modalities
- * are `["image"]` with no `"text"`. Models listing both `["text", "image"]` accept
- * an image but can also run pure text-to-image, so they must NOT be gated on an
- * image input (that gate previously blocked 41 dual-modality t2i models).
- */
+/** Image input is mandatory only for edit-only models (`["image"]`, no `"text"`). Dual-modality models also accept pure t2i. */
 export function modalitiesRequireImageInput(inputModalities) {
   const list = Array.isArray(inputModalities) ? inputModalities : ["text"];
   return list.includes("image") && !list.includes("text");
