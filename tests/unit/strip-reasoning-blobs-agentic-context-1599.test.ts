@@ -307,6 +307,32 @@ test("summary-only reasoning is preserved independently of active transport", ()
   ]);
 });
 
+test("stateless Responses input drops orphan summaries but preserves active state", () => {
+  const activeReasoning = {
+    type: "reasoning",
+    encrypted_content: "provider-state",
+    summary: [{ type: "summary_text", text: "Display summary" }],
+  };
+  const message = {
+    type: "message",
+    role: "user",
+    content: [{ type: "input_text", text: "continue" }],
+  };
+  const body: Record<string, unknown> = {
+    store: false,
+    input: [
+      { type: "reasoning", summary: [{ type: "summary_text", text: "Orphan summary" }] },
+      activeReasoning,
+      message,
+    ],
+  };
+
+  const result = applyReasoningInputPolicy(body, "responses", { provider: "codex" });
+
+  assert.equal(result.incompatibleReasoning, false);
+  assert.deepEqual(body.input, [activeReasoning, message]);
+});
+
 test("filterToOpenAIFormat strips reasoning_content from assistant+tool_calls messages", () => {
   const body = {
     messages: [

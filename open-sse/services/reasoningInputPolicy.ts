@@ -256,7 +256,8 @@ function dropIncompatibleResponsesReasoning(
 function sanitizeResponsesInput(
   input: unknown[],
   transport: ReasoningTransport,
-  dropIncompatible: boolean
+  dropIncompatible: boolean,
+  stripOrphanedSummaries: boolean
 ): unknown[] {
   const filtered: unknown[] = [];
   for (const item of input) {
@@ -275,7 +276,9 @@ function sanitizeResponsesInput(
       if (!next) continue;
       const hasPlaintext = hasPlaintextReasoning(next);
       const hasOpaque = hasOpaqueReasoningState(next);
-      if (!hasPlaintext && !hasOpaque && !hasDisplaySummary(next)) continue;
+      if (!hasPlaintext && !hasOpaque && (!hasDisplaySummary(next) || stripOrphanedSummaries)) {
+        continue;
+      }
       if (!hasOpaque && typeof next.id === "string") delete next.id;
       filtered.push(next);
       continue;
@@ -291,7 +294,7 @@ function sanitizeResponsesInput(
 /**
  * Applies one protocol-independent compatibility decision before request translation.
  * Plaintext is portable by default; opaque state requires an explicit target declaration.
- * Display summaries are neither inspected nor removed.
+ * Display summaries do not affect compatibility; stateless input drops orphan summaries.
  */
 export function applyReasoningInputPolicy(
   body: Record<string, unknown>,
@@ -326,6 +329,11 @@ export function applyReasoningInputPolicy(
     ];
   }
   if (!Array.isArray(body.input)) return { incompatibleReasoning: false };
-  body.input = sanitizeResponsesInput(body.input, transport, incompatibleReasoning);
+  body.input = sanitizeResponsesInput(
+    body.input,
+    transport,
+    incompatibleReasoning,
+    body.store === false
+  );
   return { incompatibleReasoning: false };
 }
