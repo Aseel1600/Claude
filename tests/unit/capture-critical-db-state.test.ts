@@ -142,8 +142,66 @@ test("getDbInstance returns same singleton on repeated calls", async () => {
   }
 });
 
-test.skip("resetDbInstance clears the singleton so next call creates a new DB", () => {});
+test("resetDbInstance clears the singleton so next call creates a new DB", async () => {
+  setup();
+  try {
+    const { getDbInstance, resetDbInstance } = await import("../../src/lib/db/core.ts");
+    const db1 = getDbInstance();
 
-test.skip("getDbInstance sets WAL journal mode", () => {});
+    // Write a marker row so we can prove the post-reset handle reopens the same
+    // on-disk file through a freshly opened connection (not the cached one).
+    db1.prepare("INSERT INTO key_value (namespace, key, value) VALUES (?, ?, ?)").run(
+      "reset_ns",
+      "marker",
+      JSON.stringify({ v: 1 })
+    );
 
-test.skip("getDbInstance stores schema_version in db_meta", () => {});
+    resetDbInstance();
+
+    const db2 = getDbInstance();
+    assert.notEqual(db1, db2, "reset must swap the cached singleton for a new handle");
+
+    // The new handle reopens the same DATA_DIR file, so the persisted marker
+    // survives while the object identity does not.
+    const row = db2
+      .prepare("SELECT value FROM key_value WHERE namespace = ? AND key = ?")
+      .get("reset_ns", "marker") as { value: string } | undefined;
+    assert.ok(row, "persisted row should survive a singleton reset");
+    assert.deepEqual(JSON.parse(row.value), { v: 1 });
+  } finally {
+    cleanup();
+  }
+});
+
+test("getDbInstance sets WAL journal mode", async () => {
+  setup();
+  try {
+    const { getDbInstance } = await import("../../src/lib/db/core.ts");
+    const db = getDbInstance();
+
+    const mode = db.pragma("journal_mode", { simple: true }) as string;
+    assert.equal(
+      String(mode).toLowerCase(),
+      "wal",
+      "on-disk DB should open in WAL journal mode"
+    );
+  } finally {
+    cleanup();
+  }
+});
+
+test("getDbInstance stores schema_version in db_meta", async () => {
+  setup();
+  try {
+    const { getDbInstance } = await import("../../src/lib/db/core.ts");
+    const db = getDbInstance();
+
+    const row = db
+      .prepare("SELECT value FROM db_meta WHERE key = 'schema_version'")
+      .get() as { value: string } | undefined;
+    assert.ok(row, "db_meta should hold a schema_version row after init");
+    assert.equal(row.value, "1", "schema_version should be seeded to '1'");
+  } finally {
+    cleanup();
+  }
+});
