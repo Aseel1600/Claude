@@ -73,9 +73,11 @@ describe("Electron hidden-start window lifecycle", () => {
   it("routes tray, second-instance, and macOS activation opens through the lazy helper", () => {
     const mainSource = readFileSync(join(import.meta.dirname, "../../electron/main.js"), "utf8");
 
-    assert.match(mainSource, /app\.on\("second-instance", \(\) => \{\s*showMainWindow\(\);/);
+    // #10328 added a headless guard ahead of the lazy-open call; second-instance
+    // must still route through showMainWindow() once past that guard.
+    assert.match(mainSource, /app\.on\("second-instance", \(\) => \{[\s\S]*?showMainWindow\(\);/);
     assert.match(mainSource, /label: "Open OmniRoute",\s*click: \(\) => showMainWindow\(\)/);
-    assert.match(mainSource, /tray\.on\("double-click", \(\) => \{\s*showMainWindow\(\);/);
+    assert.match(mainSource, /tray\.on\("double-click", \(\) => showMainWindow\(\)\);/);
     assert.match(mainSource, /app\.on\("activate", \(\) => \{[\s\S]*?showMainWindow\(\);/);
   });
 
