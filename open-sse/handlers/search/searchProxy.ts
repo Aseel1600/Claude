@@ -9,7 +9,7 @@
  */
 
 import { saveCallLog } from "@/lib/usageDb";
-import { sanitizeErrorMessage } from "../../utils/error.ts";
+import { formatSearchProviderFailure } from "./providerFailure.ts";
 import type { SearchProviderConfig } from "../../config/searchRegistry.ts";
 import type { SearchResult } from "../search.ts";
 
@@ -236,10 +236,6 @@ export async function executeProviderFetch(p: ExecuteProviderFetchParams): Promi
     }
     logCall({ status: isTimeout ? 504 : 502, duration: Date.now() - startTime, error: error.message });
     await emitEvent(isTimeout ? "timeout" : "error");
-    return {
-      success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(error.message)}`,
-    };
+    return formatSearchProviderFailure(config.id, error, isTimeout);
   }
 }
