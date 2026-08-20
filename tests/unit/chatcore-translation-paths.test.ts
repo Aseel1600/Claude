@@ -1413,10 +1413,12 @@ test("chatCore disables raw Claude passthrough when cache preservation is off an
     ),
     true
   );
-  // Cache preservation is on for native Claude, so cache markers are intact
+  // Cache preservation is on for native Claude, so cache markers are intact. This PR:
+  // an omitted TTL now defaults to "5m" once a "5m" boundary breakpoint (the system
+  // block above) has already appeared, instead of always defaulting to "1h".
   assert.deepEqual(call.body.messages[0].content[0].cache_control, {
     type: "ephemeral",
-    ttl: "1h",
+    ttl: "5m",
   });
   // Tools disable flag is applied
   assert.equal("_disableToolPrefix" in call.body, false);
