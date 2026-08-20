@@ -10,7 +10,7 @@ lastUpdated: 2026-08-20
 > Regenerate with: `npm run gen:provider-reference`
 > **Last generated:** 2026-08-20
 
-Total providers: **345**. See category breakdown below.
+Total providers: **346**. See category breakdown below.
 
 ## Categories
 
@@ -62,8 +62,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `clinepass` | `cp` | ClinePass | OAuth | [link](https://cline.bot/cline-pass) | ClinePass is Cline's $9.99/mo subscription bundling 10 open coding models. Sign in with your Cline account (same login as the Cline CLI/IDE), or paste a direct ClinePass API key (app.cline.bot → Settings → API Keys). A ClinePass subscription unlocks the cline-pass/* models. Reuses the Cline WorkOS OAuth flow. |
 | `codebuddy-cn` | `cbcn` | CodeBuddy CN | OAuth | [link](https://copilot.tencent.com) | Tencent CodeBuddy CN (copilot.tencent.com). Sign in via the official CLI device-code flow, or paste a direct API key (sent as Authorization: Bearer). Catalog: GLM / Kimi / MiniMax / DeepSeek / Hunyuan. |
 | `codex` | `cx` | OpenAI Codex | OAuth | — | — |
-| `cursor` | `cu` | Cursor IDE | OAuth | — | — |
-| `devin-cli` | `dv` | Devin CLI | OAuth | [link](https://cli.devin.ai) | Requires the Devin CLI binary. Run `devin auth login` to authenticate, or provide your WINDSURF_API_KEY. Install: https://cli.devin.ai |
+| `cursor` | `cu` | Cursor IDE | OAuth, image | — | Image via Agent CLI (`CURSOR_AGENT_BIN`); same seat as chat |
+| `devin-cli` | `dv` | Devin CLI (Official) | OAuth | [link](https://cli.devin.ai) | Requires the Devin CLI binary. Run `devin auth login` to authenticate, or provide your WINDSURF_API_KEY. Install: https://cli.devin.ai |
 | `devin-desktop` | — | Devin Desktop | OAuth | [link](https://devin.ai) | Paste an existing Devin API key from an authenticated Devin session. Key export availability and steps vary by Devin version and account. |
 | `ghe-copilot` | `ghe-copilot` | GitHub Enterprise Copilot | OAuth | — | Enter your GHE instance URL (e.g., https://ghe.company.com) in provider settings, then authenticate via device flow. |
 | `github` | `gh` | GitHub Copilot | OAuth | — | — |
@@ -120,7 +120,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `zai-web` | `zw` | Z.ai Web | Web cookie | [link](https://chat.z.ai) | Copy the "token" value from chat.z.ai → DevTools → Application → Local Storage. Do not copy cookies; OmniRoute handles the per-request CAPTCHA through its browser transport. | — |
 | `zenmux-free` | `zmf` | ZenMux Free (Web) | Web cookie | [link](https://zenmux.ai) | Login at zenmux.ai, then export all cookies using EditThisCookie or Cookie-Editor and paste the full Cookie header string here. Refresh every ~30 days. | — |
 
-## API Key Providers (paid / paid-with-free-credits) (230)
+## API Key Providers (paid / paid-with-free-credits) (231)
 
 | ID | Alias | Name | Tags | Website | Notes |
 |----|-------|------|------|---------|-------|
@@ -194,6 +194,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `freeaiapikey` | `faik` | FreeAIAPIKey | API key | [link](https://freeaiapikey.com) | — |
 | `freeinference` | `freeinference` | FreeInference | API key, aggregator | [link](https://freeinference.org) | Free research access without a card; non-Harvard applicants require manual approval and no numeric quota is publicly guaranteed. |
 | `freemodel-dev` | `fmd` | FreeModel.dev | API key | [link](https://freemodel.dev) | $300 free credits on signup — no credit card required. Access GPT-5.4 and GPT-5.5 (OpenAI's latest flagship models) through an OpenAI-compatible API. |
+| `freepik` | `fpk` | Freepik (Mystic) | API key, image | [link](https://freepik.com) | Get API key at freepik.com/developers (Mystic image endpoint) |
 | `freetheai` | `fta` | FreeTheAi | API key, aggregator | [link](https://freetheai.xyz) | Join the FreeTheAi Discord to get your free API key. |
 | `friendliai` | `friendli` | FriendliAI | API key | [link](https://friendli.ai) | Free tier for serverless inference — no credit card required |
 | `g4f-gemini` | `g4fgem` | g4f.space — Gemini | API key, aggregator | [link](https://g4f.space) | No auth required. Free tier is limited to 5 requests/minute — sign up at g4f.dev/members.html for higher limits. |
@@ -242,7 +243,6 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `llm7` | `llm7` | LLM7.io | API key | [link](https://llm7.io) | Use any non-empty key (for example 'unused'). If older built-in models return model_unavailable, use Available Models → Import from /models or Auto-Sync; verified live model: gemini-3.1-flash-lite. |
 | `llmgateway` | `llmgateway` | LLM Gateway | API key, aggregator | [link](https://llmgateway.io) | Hosted Free plan: free-priced models are limited to 5 requests per 10 minutes when the account has no credits. |
 | `longcat` | `lc` | LongCat AI | API key | [link](https://longcat.chat/platform/docs) | Free: one-time 10M-token grant after account signup + KYC verification (LongCat-2.0). One-time only — not a recurring daily/monthly allowance. |
-| `magnific` | `freepik` | Magnific | API key, image | [link](https://www.magnific.com) | Get an API key at magnific.com/user/api-keys (header x-magnific-api-key). Legacy Freepik developer keys still work. |
 | `maritalk` | `maritalk` | Maritalk | API key | [link](https://www.maritaca.ai) | — |
 | `meganova-ai` | `meganova-ai` | MegaNova AI | API key, aggregator | [link](https://meganova.ai) | Free signup without a card. Published Tier 1 per-model quotas total 550 requests/day; they are not a shared global pool, and paid overage can apply if enabled. |
 | `meta-llama` | `meta` | Meta Llama API | API key | [link](https://llama.developer.meta.com) | — |
@@ -319,6 +319,7 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `sumopod` | `sumopod` | SumoPod | API key | [link](https://ai.sumopod.com) | Use your SumoPod API key (sk-...) in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://ai.sumopod.com/v1. |
 | `suno` | `suno` | Suno | API key | [link](https://suno.ai) | Paste session cookie from suno.ai (Clerk auth) |
 | `synthetic` | `synthetic` | Synthetic | API key, aggregator | [link](https://synthetic.new) | — |
+| `tabitoken` | `tabitoken` | TabiToken | API key, aggregator | [link](https://tabitoken.com) | — |
 | `tencent` | `tencent` | Tencent Hunyuan | API key | [link](https://hunyuan.tencent.com) | Get API key at console.cloud.tencent.com |
 | `thebai` | `thebai` | TheB.AI | API key, aggregator | [link](https://theb.ai) | Bearer API key for the TheB.AI OpenAI-compatible gateway. |
 | `tinyfish` | `tf` | TinyFish Fetch | API key | [link](https://docs.tinyfish.ai/fetch-api) | X-API-Key from agent.tinyfish.ai/api-keys |
@@ -365,8 +366,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `llama-cpp` | `llamacpp` | llama.cpp | Local, self-hosted | [link](https://github.com/ggml-org/llama.cpp) | API key optional (use any value, e.g. sk-no-key-required). Configure the llama-server OpenAI-compatible base URL (default: http://127.0.0.1:8080/v1). Note: if Llamafile is also installed, both default to port 8080 — run only one at a time or override the port. |
 | `llamafile` | `llamafile` | Llamafile | Local, self-hosted | [link](https://github.com/Mozilla-Ocho/llamafile) | API key optional. Configure the local Llamafile OpenAI-compatible base URL (default: http://127.0.0.1:8080/v1). |
 | `lm-studio` | `lmstudio` | LM Studio | Local, self-hosted | [link](https://lmstudio.ai) | API key optional. Configure the local LM Studio OpenAI-compatible base URL (default: http://localhost:1234/v1). |
-| `mlx-gemma` | `mlx-gemma` | MLX Gemma 26B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11435. Requires uv and mlx-lm installed. Model: mlx-community/gemma-4-26B-A4B-it-qat-q4_0-mlx-aligned (~15.9GB peak memory). |
-| `mlx-qwen` | `mlx-qwen` | MLX Qwen 3.8 27B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11436. Requires uv and mlx-lm installed. Model: maglun/Qwen3.8-27B-MLX-Mixed-3.80bpw (~13.1GB peak memory). |
+| `mlx-gemma` | `mlx-gemma` | MLX Gemma 26B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11435. Requires `uv` and `mlx-lm` installed. Model: `mlx-community/gemma-4-26B-A4B-it-qat-q4_0-mlx-aligned` (~15.9GB peak memory). |
+| `mlx-qwen` | `mlx-qwen` | MLX Qwen 3.8 27B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11436. Requires `uv` and `mlx-lm` installed. Model: `maglun/Qwen3.8-27B-MLX-Mixed-3.80bpw` (~13.1GB peak memory). |
 | `ollama-local` | `ollama` | Ollama | Local, self-hosted | [link](https://ollama.com) | No API key required. Ollama runs locally — configure its OpenAI-compatible base URL (default: http://localhost:11434/v1) and make sure Ollama is running before connecting. |
 | `oobabooga` | `ooba` | oobabooga | Local, self-hosted | [link](https://github.com/oobabooga/text-generation-webui) | API key optional. Configure the local oobabooga OpenAI-compatible base URL (default: http://localhost:5000/v1). |
 | `sdwebui` | `sdwebui` | SD WebUI | Local | [link](https://github.com/AUTOMATIC1111/stable-diffusion-webui) | No API key required. Configure the local WebUI base URL (default: http://localhost:7860). |
