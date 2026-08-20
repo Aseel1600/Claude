@@ -10,7 +10,7 @@ lastUpdated: 2026-08-20
 > Regenerate with: `npm run gen:provider-reference`
 > **Last generated:** 2026-08-20
 
-Total providers: **343**. See category breakdown below.
+Total providers: **345**. See category breakdown below.
 
 ## Categories
 
@@ -62,8 +62,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `clinepass` | `cp` | ClinePass | OAuth | [link](https://cline.bot/cline-pass) | ClinePass is Cline's $9.99/mo subscription bundling 10 open coding models. Sign in with your Cline account (same login as the Cline CLI/IDE), or paste a direct ClinePass API key (app.cline.bot → Settings → API Keys). A ClinePass subscription unlocks the cline-pass/* models. Reuses the Cline WorkOS OAuth flow. |
 | `codebuddy-cn` | `cbcn` | CodeBuddy CN | OAuth | [link](https://copilot.tencent.com) | Tencent CodeBuddy CN (copilot.tencent.com). Sign in via the official CLI device-code flow, or paste a direct API key (sent as Authorization: Bearer). Catalog: GLM / Kimi / MiniMax / DeepSeek / Hunyuan. |
 | `codex` | `cx` | OpenAI Codex | OAuth | — | — |
-| `cursor` | `cu` | Cursor IDE | OAuth, image | — | Image via Agent CLI (`CURSOR_AGENT_BIN`); same seat as chat |
-| `devin-cli` | `dv` | Devin CLI (Official) | OAuth | [link](https://cli.devin.ai) | Requires the Devin CLI binary. Run `devin auth login` to authenticate, or provide your WINDSURF_API_KEY. Install: https://cli.devin.ai |
+| `cursor` | `cu` | Cursor IDE | OAuth | — | — |
+| `devin-cli` | `dv` | Devin CLI | OAuth | [link](https://cli.devin.ai) | Requires the Devin CLI binary. Run `devin auth login` to authenticate, or provide your WINDSURF_API_KEY. Install: https://cli.devin.ai |
 | `devin-desktop` | — | Devin Desktop | OAuth | [link](https://devin.ai) | Paste an existing Devin API key from an authenticated Devin session. Key export availability and steps vary by Devin version and account. |
 | `ghe-copilot` | `ghe-copilot` | GitHub Enterprise Copilot | OAuth | — | Enter your GHE instance URL (e.g., https://ghe.company.com) in provider settings, then authenticate via device flow. |
 | `github` | `gh` | GitHub Copilot | OAuth | — | — |
@@ -365,8 +365,8 @@ Use the dashboard at `/dashboard/providers` to enable, configure, and test each 
 | `llama-cpp` | `llamacpp` | llama.cpp | Local, self-hosted | [link](https://github.com/ggml-org/llama.cpp) | API key optional (use any value, e.g. sk-no-key-required). Configure the llama-server OpenAI-compatible base URL (default: http://127.0.0.1:8080/v1). Note: if Llamafile is also installed, both default to port 8080 — run only one at a time or override the port. |
 | `llamafile` | `llamafile` | Llamafile | Local, self-hosted | [link](https://github.com/Mozilla-Ocho/llamafile) | API key optional. Configure the local Llamafile OpenAI-compatible base URL (default: http://127.0.0.1:8080/v1). |
 | `lm-studio` | `lmstudio` | LM Studio | Local, self-hosted | [link](https://lmstudio.ai) | API key optional. Configure the local LM Studio OpenAI-compatible base URL (default: http://localhost:1234/v1). |
-| `mlx-gemma` | `mlx-gemma` | MLX Gemma 26B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11435. Requires `uv` and `mlx-lm` installed. Model: `mlx-community/gemma-4-26B-A4B-it-qat-q4_0-mlx-aligned` (~15.9GB peak memory). |
-| `mlx-qwen` | `mlx-qwen` | MLX Qwen 3.8 27B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11436. Requires `uv` and `mlx-lm` installed. Model: `maglun/Qwen3.8-27B-MLX-Mixed-3.80bpw` (~13.1GB peak memory). |
+| `mlx-gemma` | `mlx-gemma` | MLX Gemma 26B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11435. Requires uv and mlx-lm installed. Model: mlx-community/gemma-4-26B-A4B-it-qat-q4_0-mlx-aligned (~15.9GB peak memory). |
+| `mlx-qwen` | `mlx-qwen` | MLX Qwen 3.8 27B | Local, self-hosted | [link](https://github.com/ml-explore/mlx) | No API key required. Runs mlx-lm server locally on port 11436. Requires uv and mlx-lm installed. Model: maglun/Qwen3.8-27B-MLX-Mixed-3.80bpw (~13.1GB peak memory). |
 | `ollama-local` | `ollama` | Ollama | Local, self-hosted | [link](https://ollama.com) | No API key required. Ollama runs locally — configure its OpenAI-compatible base URL (default: http://localhost:11434/v1) and make sure Ollama is running before connecting. |
 | `oobabooga` | `ooba` | oobabooga | Local, self-hosted | [link](https://github.com/oobabooga/text-generation-webui) | API key optional. Configure the local oobabooga OpenAI-compatible base URL (default: http://localhost:5000/v1). |
 | `sdwebui` | `sdwebui` | SD WebUI | Local | [link](https://github.com/AUTOMATIC1111/stable-diffusion-webui) | No API key required. Configure the local WebUI base URL (default: http://localhost:7860). |
