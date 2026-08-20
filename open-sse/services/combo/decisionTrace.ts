@@ -77,8 +77,20 @@ export function startComboTrace(
 ): void {
   pruneExpired();
   if (traces.size >= MAX_TRACES) {
-    const oldest = [...traces.values()].sort((a, b) => a.createdAt - b.createdAt)[0];
-    if (oldest) traces.delete(oldest.invocationId);
+    // Prefer evicting a FINALIZED trace so in-flight (unfinalized) invocations
+    // survive a burst; fall back to the oldest trace overall.
+    let victim: ComboTrace | null = null;
+    for (const trace of traces.values()) {
+      if (trace.terminal !== null && (!victim || trace.createdAt < victim.createdAt)) {
+        victim = trace;
+      }
+    }
+    if (!victim) {
+      for (const trace of traces.values()) {
+        if (!victim || trace.createdAt < victim.createdAt) victim = trace;
+      }
+    }
+    if (victim) traces.delete(victim.invocationId);
   }
   if (!traces.has(invocationId)) {
     traces.set(invocationId, {

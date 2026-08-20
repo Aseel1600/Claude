@@ -239,6 +239,7 @@ import {
   createInvocationId,
   finalizeComboTrace,
   finishComboTrace,
+  getComboTrace,
   recordComboDecision,
   startComboTrace,
 } from "./combo/decisionTrace.ts";
@@ -614,7 +615,25 @@ export { pinIsDurablyUnhealthy };
 /** @param {string} errorText */
 
 /** @param {object} options */
-export async function handleComboChat({
+/**
+ * #10681 egress: every combo response carries the opaque trace id in an
+ * `X-OmniRoute-Combo-Trace` header so a post-incident lookup of the ordered
+ * per-target decisions is possible; the finalized summary is also emitted as
+ * one metadata-only log line for durability across restarts.
+ */
+export async function handleComboChat(options: HandleComboChatOptions): Promise<Response> {
+  const traceInvocationId = options.invocationId ?? createInvocationId();
+  const response = await handleComboChatInner({ ...options, invocationId: traceInvocationId });
+  response.headers.set("X-OmniRoute-Combo-Trace", traceInvocationId);
+  const trace = getComboTrace(traceInvocationId);
+  options.log.info(
+    "COMBO",
+    `combo trace ${traceInvocationId} terminal=${JSON.stringify(trace?.terminal ?? null)} decisions=${trace?.decisions.length ?? 0}`
+  );
+  return response;
+}
+
+async function handleComboChatInner({
   body,
   combo,
   handleSingleModel,

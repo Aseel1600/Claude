@@ -221,3 +221,91 @@ test("handleComboChat: pre-dispatch skip records allowlisted reason", async () =
     ]
   );
 });
+
+test("egress: every response carries X-OmniRoute-Combo-Trace (success path)", async () => {
+  const invocationId = createInvocationId();
+  const res = await handleComboChat({
+    invocationId,
+    body: { messages: [{ role: "user", content: "ping" }] },
+    combo: {
+      name: "egress-ok",
+      strategy: "priority",
+      models: ["openai/a", "openai/b"],
+      config: { maxRetries: 0, retryDelayMs: 0, fallbackDelayMs: 0 },
+    },
+    handleSingleModel: async () => okResponse("recovered"),
+    isModelAvailable: async () => true,
+    log,
+    settings: null,
+    allCombos: null,
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.headers.get("X-OmniRoute-Combo-Trace"), invocationId);
+});
+
+test("egress: header present even when every target fails", async () => {
+  const invocationId = createInvocationId();
+  const res = await handleComboChat({
+    invocationId,
+    body: { messages: [{ role: "user", content: "ping" }] },
+    combo: {
+      name: "egress-fail",
+      strategy: "priority",
+      models: ["openai/a", "openai/b"],
+      config: { maxRetries: 0, retryDelayMs: 0, fallbackDelayMs: 0 },
+    },
+    handleSingleModel: async () => rateLimitedResponse(),
+    isModelAvailable: async () => true,
+    log,
+    settings: null,
+    allCombos: null,
+  });
+  assert.notEqual(res.status, 200);
+  assert.equal(res.headers.get("X-OmniRoute-Combo-Trace"), invocationId);
+});
+
+test("egress: finalized trace is emitted as one metadata-only log line", async () => {
+  const invocationId = createInvocationId();
+  const infoCalls: string[] = [];
+  const capturingLog = {
+    info: (_cat: string, msg: string) => infoCalls.push(msg),
+    warn: noop,
+    debug: noop,
+    error: noop,
+  };
+  const res = await handleComboChat({
+    invocationId,
+    body: { messages: [{ role: "user", content: "ping" }] },
+    combo: {
+      name: "egress-log",
+      strategy: "priority",
+      models: ["openai/a", "openai/b"],
+      config: { maxRetries: 0, retryDelayMs: 0, fallbackDelayMs: 0 },
+    },
+    handleSingleModel: async () => okResponse("recovered"),
+    isModelAvailable: async () => true,
+    log: capturingLog,
+    settings: null,
+    allCombos: null,
+  });
+  assert.equal(res.status, 200);
+  const line = infoCalls.find((m) => m.includes("combo trace") && m.includes(invocationId));
+  assert.ok(line, "finalized trace log line expected");
+  assert.ok(line!.includes('"status":200'), "log line must carry the terminal status");
+  assert.ok(!line!.includes("messages"), "log line must not carry request content");
+});
+
+test("retention: in-flight traces are pinned against eviction (finalized evicted first)", () => {
+  resetComboTraceStore();
+  for (let i = 0; i < 2000; i++) {
+    startComboTrace(`combo-t-${i}`, { strategy: "priority", comboName: "x" });
+  }
+  // Only the FIRST trace is finalized; the other 1999 are still in flight.
+  finalizeComboTrace("combo-t-0", [{ executionKey: "s", modelStr: "p/m" }]);
+  // Burst beyond the cap: eviction must prefer the finalized trace.
+  startComboTrace("combo-t-2000", { strategy: "priority", comboName: "x" });
+  assert.equal(getComboTrace("combo-t-0"), null, "finalized trace is the eviction victim");
+  assert.ok(getComboTrace("combo-t-1"), "in-flight trace survives the burst");
+  assert.ok(getComboTrace("combo-t-1999"), "in-flight trace survives the burst");
+  assert.ok(getComboTrace("combo-t-2000"), "new trace is stored");
+});
