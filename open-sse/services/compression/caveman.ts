@@ -12,6 +12,7 @@ import { createCompressionStats, estimateCompressionTokens } from "./stats.ts";
 import { validateCompression } from "./validation.ts";
 import { mapTextContent } from "./messageContent.ts";
 import { detectCompressionLanguage } from "./languageDetector.ts";
+import { isCodeLikeLine } from "./toolResultCompressor.ts";
 
 interface ChatMessage {
   role: string;
@@ -214,6 +215,22 @@ function cleanupArtifacts(text: string): string {
     .replace(/\n+$/, "");
 }
 
+/**
+ * #9144: raw (unfenced) multi-line code — e.g. a Copilot `#file` reference — was
+ * getting whitespace-collapsed and sentence-recapitalized as if it were prose,
+ * corrupting keyword/identifier casing (`function`→`Function`) and indentation.
+ * Preservation only protects explicitly fenced/marked blocks; this catches the
+ * unfenced case by requiring a strong majority of lines to look like code before
+ * skipping prose normalization for the whole span — conservative on purpose
+ * (biases toward less compression, never toward destructive mutation).
+ */
+function isCodeDominantText(text: string): boolean {
+  const lines = text.split("\n").filter((line) => line.trim().length > 0);
+  if (lines.length < 3) return false;
+  const codeLikeCount = lines.filter(isCodeLikeLine).length;
+  return codeLikeCount / lines.length >= 0.3;
+}
+
 function recapitalizeSentences(text: string): string {
   return text.replace(/(^|[.!?][ \t]|\n[ \t]*)([a-z])/g, (_match, prefix: string, char: string) => {
     return `${prefix}${char.toUpperCase()}`;
@@ -367,7 +384,9 @@ export function cavemanCompress(
       const { text: rulesApplied, appliedRules } = applyRulesToText(extractedText, rules);
       allAppliedRules.push(...appliedRules);
 
-      const normalized = recapitalizeSentences(cleanupArtifacts(rulesApplied));
+      const normalized = isCodeDominantText(rulesApplied)
+        ? rulesApplied
+        : recapitalizeSentences(cleanupArtifacts(rulesApplied));
       const cleaned =
         blocks.length > 0
           ? cleanupArtifacts(restorePreservedBlocks(normalized, blocks))
