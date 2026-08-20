@@ -55,6 +55,25 @@ export const NOAUTH_PROVIDERS = {
     // #7286: tools[] is prompt-emulated via webTools.ts (parseToolCallsFromText).
     toolCalling: "emulated",
   },
+  "cloudflare-playground": {
+    id: "cloudflare-playground",
+    alias: "cfp",
+    name: "Cloudflare AI Playground",
+    icon: "cloud",
+    color: "#F38020",
+    textIcon: "CF",
+    website: "https://playground.ai.cloudflare.com",
+    noAuth: true,
+    hasFree: true,
+    serviceKinds: ["llm"],
+    freeNote:
+      "Free — Cloudflare's AI Playground: GLM 5.2, Kimi K2.7 Code, DeepSeek V4 Pro, gpt-oss-120B and 16 more. No account, no API key.",
+    authHint:
+      "No credentials required — anonymous browser sessions over a reverse-engineered cf_agent WebSocket protocol (Playwright transport).",
+    notice: {
+      text: "Cloudflare AI Playground uses a reverse-engineered anonymous WebSocket protocol (no official API). Requires Playwright with a Chromium browser on first request. Rate limits apply per IP (error 3021).",
+    },
+  },
   "felo-web": {
     id: "felo-web",
     alias: "felo",

@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Перенаправлять запросы при исчерпании бюджета на резервный бесплатный провайдер/модель.",
   "featureFlagArenaEloSyncEnabledDescription": "Включить периодическую синхронизацию ELO из таблицы лидеров Arena AI для рейтинга интеллектуальности моделей.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Публиковать claude/&lt;провайдер&gt;/&lt;модель&gt; зеркальные ID на /v1/models, чтобы Claude Code мог видеть не-Claude модели. Внимание: удваивает записи каталога для всех клиентов при глобальном включении.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Включите адаптивные виртуальные полосы допуска для каждого тенанта при маршрутизации к провайдерам (#9654): всплеск нагрузки одного тенанта больше не вызывает 503 у другого. Переменная окружения OMNIROUTE_CHAT_VIRTUAL_LANES имеет приоритет над этой настройкой в панели; изменения вступают в силу после перезапуска сервера.",
   "sidebar": {
     "home": "Главная",
     "dashboard": "Панель управления",
@@ -1290,7 +1291,9 @@
       "open": "открыть",
       "close": "закрыть"
     },
-    "noResults": "Нет результатов"
+    "noResults": "Нет результатов",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Вебхуки",
@@ -11070,7 +11073,8 @@
       "compressed": "Сжатие",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

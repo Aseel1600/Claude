@@ -41,7 +41,6 @@ import { handleHyperbolicImageGeneration } from "./imageGeneration/providers/hyp
 import { handleHuggingFaceImageGeneration } from "./imageGeneration/providers/huggingface.ts";
 import { handleComfyUIImageGeneration } from "./imageGeneration/providers/comfyUI.ts";
 import { handleImagen3ImageGeneration } from "./imageGeneration/providers/imagen3.ts";
-import { handleGoogleImagenGeneration } from "./imageGeneration/providers/googleImagen.ts";
 import { handleIdeogramImageGeneration } from "./imageGeneration/providers/ideogram.ts";
 import { handleHaiperImageGeneration } from "./imageGeneration/providers/haiper.ts";
 import { handleLeonardoImageGeneration } from "./imageGeneration/providers/leonardo.ts";
@@ -51,6 +50,7 @@ import {
   extractMarkdownImageUrls,
   CHATGPT_WEB_IMAGE_ID_RE,
 } from "./imageGeneration/providers/chatgptWeb.ts";
+import { handleGeminiWebImageGeneration } from "./imageGeneration/providers/geminiWeb.ts";
 import { handleNvidiaNimImageGeneration } from "./imageGeneration/providers/nvidiaNim.ts";
 import { handleSegmindImageGeneration } from "./imageGeneration/providers/segmind.ts";
 import { handleDesignerWebImageGeneration } from "./imageGeneration/providers/designerWeb.ts";
@@ -382,17 +382,6 @@ export async function handleImageGeneration({
     });
   }
 
-  if (providerConfig.format === "google-imagen") {
-    return handleGoogleImagenGeneration({
-      model,
-      provider,
-      providerConfig,
-      body,
-      credentials,
-      log,
-    });
-  }
-
   if (providerConfig.format === "hyperbolic") {
     return handleHyperbolicImageGeneration({
       model,
@@ -483,6 +472,19 @@ export async function handleImageGeneration({
 
   if (providerConfig.format === "chatgpt-web") {
     return handleChatGptWebImageGeneration({
+      model,
+      provider,
+      body,
+      credentials,
+      log,
+      signal,
+      clientHeaders,
+    });
+  }
+
+  // #10466: Gemini Web session image generation (Nano Banana)
+  if (providerConfig.format === "gemini-web") {
+    return handleGeminiWebImageGeneration({
       model,
       provider,
       body,
@@ -2683,6 +2685,22 @@ export function saveImageErrorResult({
   error,
   requestBody = null,
   path = "/v1/images/generations",
+  // #10494: opt-in signal for executeImageWithCredentialFallback — set by a
+  // provider handler when the failure is account/session-specific (expired
+  // or blocked credentials) rather than a generic request/provider error, so
+  // the retry loop tries the next eligible account even when the upstream
+  // status isn't a plain 401. Defaults to unset (existing 401-only behavior
+  // for every other provider is unchanged).
+  retryable = undefined,
+}: {
+  provider: string;
+  model: string;
+  status: number;
+  startTime: number;
+  error: unknown;
+  requestBody?: unknown;
+  path?: string;
+  retryable?: boolean;
 }) {
   saveCallLog({
     method: "POST",
@@ -2699,6 +2717,7 @@ export function saveImageErrorResult({
     success: false,
     status,
     error,
+    ...(retryable !== undefined ? { retryable } : {}),
   };
 }
 

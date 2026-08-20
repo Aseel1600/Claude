@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "ניתוב בקשות שחרגו מהתקציב לספק/מודל גיבוי חינמי לשעת חירום.",
   "featureFlagArenaEloSyncEnabledDescription": "הפעלת סנכרון ELO תקופתי מלוח המובילים של Arena AI עבור דירוגי אינטליגנציית מודלים.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "פרסם את מזהי המראה של claude/&lt;provider&gt;/&lt;model&gt; ב-/v1/models כך שרשימות גילוי המודלים של Claude Code יכללו מודלים שאינם של Claude. אזהרה: מכפיל את רשומות הקטלוג עבור כל הלקוחות כאשר זה מופעל באופן גלובלי.",
+  "featureFlagChatVirtualLanesEnabledDescription": "הפעל נתיבי קבלה וירטואליים אדפטיביים לכל דייר (tenant) עבור שליחת ספקים (#9654): פרץ עומס של דייר אחד כבר לא מחזיר 503 לדייר אחר. משתנה הסביבה OMNIROUTE_CHAT_VIRTUAL_LANES גובר על הגדרה זו בלוח הבקרה; השינויים נכנסים לתוקף לאחר הפעלת השרת מחדש.",
   "sidebar": {
     "home": "בית",
     "dashboard": "לוח מחוונים",
@@ -1290,7 +1291,9 @@
       "open": "פתח",
       "close": "סגור"
     },
-    "noResults": "אין תוצאות"
+    "noResults": "אין תוצאות",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -11070,7 +11073,8 @@
       "compressed": "דחיסה",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

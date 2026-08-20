@@ -1,7 +1,7 @@
 ---
 title: "API Reference"
-version: 3.8.40
-lastUpdated: 2026-06-28
+version: 3.8.50
+lastUpdated: 2026-08-18
 ---
 
 # API Reference
@@ -15,6 +15,7 @@ Complete reference for all OmniRoute API endpoints.
 ## Table of Contents
 
 - [Chat Completions](#chat-completions)
+- [Exclusive Managed Session Leases](#exclusive-managed-session-leases)
 - [Embeddings](#embeddings)
 - [Image Generation](#image-generation)
 - [Document OCR](#document-ocr)
@@ -86,6 +87,64 @@ Content-Type: application/json
 > **Cost telemetry headers:** non-streaming success responses also carry the `X-OmniRoute-*` cost-telemetry set — `X-OmniRoute-Response-Cost` (USD, fixed 10 decimals; `0.0000000000` for free/unpriced), `X-OmniRoute-Tokens-In` / `X-OmniRoute-Tokens-Out`, `X-OmniRoute-Model`, `X-OmniRoute-Provider`, `X-OmniRoute-Latency-Ms`, `X-OmniRoute-Cache-Hit`, and `X-OmniRoute-Fallback-Attempts` (only when > 0), plus `X-OmniRoute-Request-Id` and `X-OmniRoute-Version`. These are emitted by chat completions, `/v1/responses`, `/v1/messages`, **and the media endpoints** — `/v1/embeddings`, `/v1/images/generations`, `/v1/audio/speech`, `/v1/audio/transcriptions`, `/v1/rerank`, `/v1/videos/generations`, `/v1/music/generations`, and `/v1/moderations` (always cost `0`). Media cost is computed per modality (per-image, per-second, per-character, per search-unit) when pricing is available, otherwise `0` (fail-open).
 
 > **Cache-hit cost semantics:** on a semantic-cache HIT (`X-OmniRoute-Cache-Hit: true`) no upstream call is made, so `X-OmniRoute-Response-Cost` is `0.0000000000` (the **incremental** cost of serving the hit). The original/would-have-been cost is reported separately in `X-OmniRoute-Cost-Saved`. Billing consumers should sum `X-OmniRoute-Response-Cost` (hits cost nothing); cache analytics can aggregate `X-OmniRoute-Cost-Saved`.
+
+## Exclusive Managed Session Leases
+
+Exclusive managed session leasing is an opt-in, client-neutral routing contract: one active owner
+holds one eligible OmniRoute connection. It does not lease a model, require OAuth, identify a
+particular client, or require a particular provider.
+
+The authenticating API key must have scope `lease:exclusive` and an explicit non-empty
+`allowedConnections` list. The database mutation boundary enforces both fields together on key
+creation and partial updates.
+
+```http
+POST /api/v1/session-leases
+Authorization: Bearer <managed-api-key>
+Content-Type: application/json
+X-OmniRoute-Lease-Owner: vlo_<43-base64url-characters>
+
+{"action":"acquire","model":"glm/glm-4.6"}
+```
+
+Successful lifecycle responses expose timestamps, `state`, and the exact positive `generation`,
+but never the selected connection or credentials. Renew and release supply the generation in the
+JSON body:
+
+```json
+{ "action": "renew", "generation": 1 }
+```
+
+```json
+{ "action": "release", "generation": 1, "reason": "OWNER_EXIT" }
+```
+
+Every managed inference request then supplies both control headers:
+
+```http
+X-OmniRoute-Lease-Owner: vlo_<43-base64url-characters>
+X-OmniRoute-Lease-Generation: 1
+```
+
+The exact owner, generation, active connection, and authenticated API key are fenced immediately
+before each supported upstream attempt. Replaying owner and generation with another key fails even
+when that key permits the same connection. Raw owners are not persisted, logged, retained in the
+request snapshot, or forwarded upstream.
+
+Temporary contention returns HTTP `429` with `Retry-After` and:
+
+```json
+{
+  "state": "WAITING_FOR_CAPACITY",
+  "error": { "type": "lease_error", "code": "LEASE_CAPACITY_UNAVAILABLE" },
+  "reason": "NO_FREE_ELIGIBLE_CONNECTION",
+  "retryAfter": 30
+}
+```
+
+This response only means that the ordinary eligible set was non-empty and every free candidate was
+held by a foreign active lease. Unsupported models/providers, policy mismatch, cooldown, quota,
+health, and other ordinary eligibility failures retain their existing OmniRoute responses.
 
 ### `x-omniroute-compression`
 
@@ -308,11 +367,11 @@ GET /v1/models?prefix=dual         # both forms (server default)
 GET /v1/models?prefix=canonical    # only the full provider-id prefix
 ```
 
-| Mode | Emits | Notes |
-| --- | --- | --- |
-| `dual` | `cc/claude-sonnet-4-6` **and** `claude/claude-sonnet-4-6` | **Default.** Both ids route to the same model; kept so client configs that hardcoded either form keep working. Roughly doubles the catalog. |
-| `alias` | `cc/claude-sonnet-4-6` | One entry per model. Providers without a distinct alias still emit their entry, so nothing is lost. |
-| `canonical` | `claude/claude-sonnet-4-6` | ⚠️ The canonical row is only emitted when the canonical provider id **differs** from the alias, so providers without a distinct alias emit nothing in this mode. Prefer `alias` for a de-duplicated list. |
+| Mode        | Emits                                                     | Notes                                                                                                                                                                                                     |
+| ----------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dual`      | `cc/claude-sonnet-4-6` **and** `claude/claude-sonnet-4-6` | **Default.** Both ids route to the same model; kept so client configs that hardcoded either form keep working. Roughly doubles the catalog.                                                               |
+| `alias`     | `cc/claude-sonnet-4-6`                                    | One entry per model. Providers without a distinct alias still emit their entry, so nothing is lost.                                                                                                       |
+| `canonical` | `claude/claude-sonnet-4-6`                                | ⚠️ The canonical row is only emitted when the canonical provider id **differs** from the alias, so providers without a distinct alias emit nothing in this mode. Prefer `alias` for a de-duplicated list. |
 
 A `dual`-mode mirror can also be recognised without the query parameter: it carries a `parent`
 field pointing at the primary id.
@@ -350,33 +409,33 @@ Use this endpoint when a sidecar runs out-of-process and cannot import
 
 ## Compatibility Endpoints
 
-| Method | Path                                      | Format                           |
-| ------ | ----------------------------------------- | -------------------------------- |
-| POST   | `/v1/chat/completions`                    | OpenAI                           |
-| POST   | `/v1/messages`                            | Anthropic                        |
-| POST   | `/v1/responses`                           | OpenAI Responses                 |
-| POST   | `/v1/embeddings`                          | OpenAI                           |
-| POST   | `/v1/images/generations`                  | OpenAI Images                    |
-| POST   | `/v1/images/edits`                        | OpenAI Images (edit/inpaint)     |
-| POST   | `/v1/videos/generations`                  | OpenAI-style video generation    |
-| POST   | `/v1/music/generations`                   | OpenAI-style music generation    |
-| POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)               |
-| POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)  |
-| POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank       |
-| POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)    |
+| Method | Path                                      | Format                             |
+| ------ | ----------------------------------------- | ---------------------------------- |
+| POST   | `/v1/chat/completions`                    | OpenAI                             |
+| POST   | `/v1/messages`                            | Anthropic                          |
+| POST   | `/v1/responses`                           | OpenAI Responses                   |
+| POST   | `/v1/embeddings`                          | OpenAI                             |
+| POST   | `/v1/images/generations`                  | OpenAI Images                      |
+| POST   | `/v1/images/edits`                        | OpenAI Images (edit/inpaint)       |
+| POST   | `/v1/videos/generations`                  | OpenAI-style video generation      |
+| POST   | `/v1/music/generations`                   | OpenAI-style music generation      |
+| POST   | `/v1/audio/transcriptions`                | OpenAI Audio (STT)                 |
+| POST   | `/v1/audio/speech`                        | OpenAI TTS (returns audio body)    |
+| POST   | `/v1/rerank`                              | Cohere/Voyage-style rerank         |
+| POST   | `/v1/classify`                            | Jina classify (`api.jina.ai`)      |
 | POST   | `/v1/segment`                             | Jina segmenter (`segment.jina.ai`) |
-| POST   | `/v1/moderations`                         | OpenAI Moderations               |
-| GET    | `/v1/models`                              | OpenAI                           |
-| POST   | `/v1/messages/count_tokens`               | Anthropic                        |
-| GET    | `/v1beta/models`                          | Gemini                           |
-| POST   | `/v1beta/models/{...path}`                | Gemini generateContent           |
-| POST   | `/v1/api/chat`                            | Ollama                           |
-| GET    | `/api/v1/vscode/{token}/`                 | OpenAI catalog alias             |
-| GET    | `/api/v1/vscode/{token}/models`           | OpenAI models alias              |
-| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias           |
-| POST   | `/api/v1/vscode/{token}/responses`        | OpenAI Responses tokenized alias |
-| POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias           |
-| GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias      |
+| POST   | `/v1/moderations`                         | OpenAI Moderations                 |
+| GET    | `/v1/models`                              | OpenAI                             |
+| POST   | `/v1/messages/count_tokens`               | Anthropic                          |
+| GET    | `/v1beta/models`                          | Gemini                             |
+| POST   | `/v1beta/models/{...path}`                | Gemini generateContent             |
+| POST   | `/v1/api/chat`                            | Ollama                             |
+| GET    | `/api/v1/vscode/{token}/`                 | OpenAI catalog alias               |
+| GET    | `/api/v1/vscode/{token}/models`           | OpenAI models alias                |
+| POST   | `/api/v1/vscode/{token}/chat/completions` | OpenAI tokenized alias             |
+| POST   | `/api/v1/vscode/{token}/responses`        | OpenAI Responses tokenized alias   |
+| POST   | `/api/v1/vscode/{token}/api/chat`         | Ollama tokenized alias             |
+| GET    | `/api/v1/vscode/{token}/api/tags`         | Ollama tags tokenized alias        |
 
 All POST routes follow the same shape: `Bearer your-api-key` + Zod-validated JSON body (`v1RerankSchema`, `v1ModerationSchema`, `v1AudioSpeechSchema`, etc., see `src/shared/validation/schemas.ts`). 4xx is returned on schema failure.
 
@@ -1455,16 +1514,16 @@ Admin-only endpoints for operational management.
 Manage CLI tools that integrate with OmniRoute (antigravity, chipotle, commandCode,
 devin-cli, etc.). See [Provider Reference](./PROVIDER_REFERENCE.md) for the full list.
 
-| Method | Path                                    | Description                                                                                    |
-| ------ | --------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| GET    | `/api/cli-tools/all-statuses`           | Status of all CLI tools (installed, version, last seen)                                        |
-| GET    | `/api/cli-tools/[id]/status`            | Status of a specific CLI tool (id can be: antigravity, chipotle, commandCode, devin-cli, etc.) |
-| POST   | `/api/cli-tools/apply`                  | Apply a CLI tool configuration to a provider connection                                        |
-| GET    | `/api/cli-tools/backups`                | List CLI tool configuration backups                                                            |
-| POST   | `/api/cli-tools/backups`                | Create a backup of all CLI tool configurations                                                 |
-| POST   | `/api/cli-tools/[id]/restore`           | Restore a CLI tool from a backup                                                               |
-| GET    | `/api/cli-tools/antigravity-mitm`       | Antigravity MITM proxy status (the "antigravity-mitm" CLI tool)                                |
-| POST   | `/api/cli-tools/antigravity-mitm/alias` | Configure antigravity-mitm aliases                                                             |
+| Method | Path                                    | Description                                                                                                                                       |
+| ------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/api/cli-tools/all-statuses`           | Status of all CLI tools (installed, version, last seen)                                                                                           |
+| GET    | `/api/cli-tools/[id]/status`            | Status of a specific CLI tool (id can be: antigravity, chipotle, commandCode, devin-cli, etc.)                                                    |
+| POST   | `/api/cli-tools/apply`                  | Write a tool's generated config (`dryRun` previews; `422` + `containerEphemeralTarget` when containerized; `migration` notes a legacy Codex YAML) |
+| GET    | `/api/cli-tools/backups`                | List CLI tool configuration backups                                                                                                               |
+| POST   | `/api/cli-tools/backups`                | Create a backup of all CLI tool configurations                                                                                                    |
+| POST   | `/api/cli-tools/[id]/restore`           | Restore a CLI tool from a backup                                                                                                                  |
+| GET    | `/api/cli-tools/antigravity-mitm`       | Antigravity MITM proxy status (the "antigravity-mitm" CLI tool)                                                                                   |
+| POST   | `/api/cli-tools/antigravity-mitm/alias` | Configure antigravity-mitm aliases                                                                                                                |
 
 **Auth:** Requires management session.
 

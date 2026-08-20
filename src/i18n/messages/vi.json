@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
   "featureFlagArenaEloSyncEnabledDescription": "Bật đồng bộ ELO định kỳ từ bảng xếp hạng Arena AI để xếp hạng năng lực của mô hình.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Quảng bá các id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; trên /v1/models để tính năng khám phá mô hình qua gateway của Claude Code liệt kê được các mô hình không phải Claude. Cảnh báo: khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Bật làn tiếp nhận ảo thích ứng cho từng đối tượng thuê (tenant) để phân phối nhà cung cấp (#9654): một đợt bùng phát của tenant này không còn trả 503 cho tenant khác. Biến môi trường OMNIROUTE_CHAT_VIRTUAL_LANES được ưu tiên hơn cài đặt bảng điều khiển này; các thay đổi có hiệu lực khi khởi động lại máy chủ.",
   "sidebar": {
     "home": "Trang chủ",
     "dashboard": "Trang tổng quan",
@@ -1281,6 +1282,8 @@
     "resilienceConnectionsSubtitle": "Cooldown, cầu dao, trạng thái khóa",
     "settingsModalityBridge": "Cầu Kết Nối Modality",
     "settingsModalityBridgeSubtitle": "Chuyển đổi hình ảnh/âm thanh → văn bản cho các mô hình chỉ văn bản",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "commandPalette": {
       "title": "Bảng lệnh",
       "searchPlaceholder": "Tìm kiếm trang, cài đặt, công cụ...",
@@ -7760,6 +7763,10 @@
       "terse-cjk": {
         "label": "CJK súc tích (文言)",
         "description": "Văn phong Hán cổ cực kỳ súc tích (chỉ khả dụng với tiếng Trung)."
+      },
+      "i-have-adhd": {
+        "label": "Tôi bị ADHD (ưu tiên hành động)",
+        "description": "Đầu ra ưu tiên hành động: nêu hành động kế tiếp trước, các bước được đánh số, một bước tiếp theo cụ thể, không mở đầu dài dòng."
       }
     },
     "resilienceWaitForCooldown": "Chờ thời gian hồi",
@@ -8192,7 +8199,11 @@
     "cliproxyapiHealth": "Sức Khỏe",
     "cliproxyapiPort": "Cổng",
     "qdrantHost": "Máy chủ",
-    "qdrantCollection": "Bộ Sưu Tập"
+    "qdrantCollection": "Bộ Sưu Tập",
+    "reasoningTokenBuffer": "Bộ đệm token suy luận",
+    "reasoningTokenBufferDesc": "Cho phép định tuyến combo thêm khoảng dư max_tokens chỉ với các mô hình suy luận đã biết, khi toàn bộ bộ đệm vẫn nằm trong giới hạn đầu ra đã biết.",
+    "zeroLatencyOptimizations": "Tối ưu hóa zero-latency",
+    "zeroLatencyOptimizationsDesc": "Bật hedging, bỏ qua TTFT theo dự đoán và nén dự phòng chủ động. Để tắt nếu bạn không muốn các tính năng độ trễ này chạy đua giữa các đích hoặc nén các yêu cầu dự phòng."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8597,6 +8608,27 @@
     },
     "enableTitle": "Bật bộ máy",
     "enableDescription": "Chạy cuối cùng trong ngăn xếp (sau khi RTK/Caveman làm sạch văn bản, OmniGlyph chuyển phần còn lại thành hình ảnh) và cũng có thể chạy độc lập qua chế độ <code>omniglyph</code>. Đây là bản xem trước và mặc định vẫn tắt cho đến khi hoàn tất kiểm thử đầu cuối.",
+    "profileTitle": "Hồ sơ nén",
+    "profileDescription": "Hồ sơ là giới hạn trên, không phải giới hạn dưới: một hồ sơ chặt chẽ hơn không thể bị mở lại bằng ghi đè ở từng bước. Đo trên chính mã nguồn này: với coding-safe hoặc balanced, một phiên chưa tích lũy lịch sử sẽ không nén gì cả, vì cả hai đều nâng ngưỡng số ký tự tối thiểu và giữ nguyên system prompt, lược đồ công cụ và kết quả công cụ.",
+    "profiles": {
+      "aggressive": {
+        "label": "Tích cực (mặc định)",
+        "description": "Chính sách mà các biên nhận đã công bố đo được. Kết xuất system prompt, tài liệu công cụ và lịch sử dày đặc thành ảnh."
+      },
+      "balanced": {
+        "label": "Cân bằng",
+        "description": "Giữ nguyên trạng thái đang hoạt động và bảo vệ 8 lượt gần nhất; chỉ gộp lịch sử cũ đã khép lại."
+      },
+      "codingSafe": {
+        "label": "An toàn cho lập trình",
+        "description": "Giữ nguyên thẩm quyền, lược đồ công cụ và đầu ra công cụ đang hoạt động, bảo vệ 12 lượt gần nhất. Không nén gì cho đến khi phiên tích lũy lịch sử."
+      },
+      "passthrough": {
+        "label": "Không biến đổi",
+        "description": "Chỉ định tuyến. Engine bị bỏ qua và yêu cầu được chuyển tiếp nguyên vẹn."
+      }
+    },
+    "profileAria": "Chọn hồ sơ nén của OmniGlyph",
     "saved": "Đã lưu.",
     "saveFailed": "Không thể lưu.",
     "enableAria": "Bật bộ máy OmniGlyph",
@@ -11070,7 +11102,8 @@
       "compressed": "Nén",
       "tps": "TPS",
       "duration": "Thời lượng",
-      "time": "Thời gian"
+      "time": "Thời gian",
+      "conversation": "Cuộc trò chuyện"
     },
     "loadingLogs": "Đang tải nhật ký...",
     "noLogs": "Chưa có nhật ký nào. Hãy thực hiện một số cuộc gọi API để xem chúng ở đây.",

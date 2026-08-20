@@ -89,6 +89,7 @@ import { checkResourcePressureGuard } from "../utils/resourcePressure.ts";
 import { normalizeHeaders } from "../utils/headers.ts";
 import { resolveChatCoreRequestFormat } from "./chatCore/requestFormat.ts";
 import { resolveChatCoreTargetFormat } from "./chatCore/targetFormat.ts";
+import { resolveOmniGlyphTransport } from "../services/compression/imageTransportPolicy.ts";
 import { stripStore, usesClaudeBridge } from "./chatCore/agentRouterProtocol.ts";
 import { defaultClaudeToolType } from "./chatCore/claudeToolDefaults.ts";
 import { injectSystemPrompt, injectCustomSystemPrompt } from "../services/systemPrompt.ts";
@@ -310,6 +311,7 @@ import {
 } from "./chatCore/upstreamTimeouts.ts";
 import { getModelNormalizeToolCallId, getModelPreserveOpenAIDeveloperRole } from "@/lib/db/models";
 import { getProviderCredentials, extractSessionAffinityKey } from "@/sse/services/auth";
+import { assertExclusiveConnectionLeaseFence } from "@/lib/db/exclusiveConnectionLeases";
 import { deleteSessionAccountAffinity } from "@/lib/db/sessionAccountAffinity";
 import { getCacheControlSettings } from "@/lib/cacheControlSettings";
 import { guardrailRegistry } from "@/lib/guardrails";
@@ -465,8 +467,10 @@ export async function handleChatCore({
   skipUpstreamRetry = false,
   createPiiTransform = null,
   correlationId = null,
+  conversationId = null,
   modelPinned = false,
   skipResourcePressureGuard = false,
+  managedLease = null,
 }) {
   let { provider, model, extendedContext } = modelInfo;
   if (!skipResourcePressureGuard) {
@@ -511,6 +515,46 @@ export async function handleChatCore({
         ? credentials.connectionId.trim()
         : null;
     return credentialConnectionId || connectionId || null;
+  };
+  const assertManagedLeaseFence = (attemptConnectionId: string | null | undefined) => {
+    if (!managedLease) return;
+    if (!attemptConnectionId) {
+      throw Object.assign(new Error("Managed lease connection is unavailable"), {
+        code: "LEASE_CONNECTION_MISMATCH",
+        status: 409,
+      });
+    }
+    const fence = assertExclusiveConnectionLeaseFence({
+      leaseOwnerId: managedLease.context.leaseOwnerId,
+      generation: managedLease.context.generation,
+      apiKeyId: managedLease.apiKeyId,
+      connectionId: attemptConnectionId,
+    });
+    if (fence.kind === "VALID") return;
+    const code =
+      fence.kind === "REQUIRED"
+        ? "LEASE_REQUIRED"
+        : fence.kind === "STALE"
+          ? "LEASE_FENCE_STALE"
+          : fence.kind === "AUTHORIZATION_MISMATCH"
+            ? "LEASE_AUTHORIZATION_MISMATCH"
+            : "LEASE_CONNECTION_MISMATCH";
+    throw Object.assign(new Error("Managed lease request fence rejected the dispatch"), {
+      code,
+      status: 409,
+    });
+  };
+  const isManagedLeaseFenceError = (error: unknown): boolean =>
+    managedLease !== null &&
+    typeof (error as { code?: unknown })?.code === "string" &&
+    String((error as { code: string }).code).startsWith("LEASE_");
+  const managedLeaseFenceErrorResult = (error: unknown) => {
+    const code = (error as { code: string }).code;
+    return {
+      ...createErrorResult(409, "Managed lease request fence rejected the dispatch", null, code),
+      errorType: "lease_error",
+      errorCode: code,
+    };
   };
   let tokensCompressed: number | null = null;
   body = injectSystemPrompt(body);
@@ -834,6 +878,7 @@ export async function handleChatCore({
       providerRequest: initialProviderRequest,
       stage: "registered",
       correlationId,
+      sessionTag: conversationId || null,
     }) || generateRequestId();
 
   // Initialize rate limit settings from persisted DB (once, lazy)
@@ -966,7 +1011,11 @@ export async function handleChatCore({
       noLogEnabled,
       correlationId,
       modelPinned,
-      sessionTag: explicitSessionIdHeader,
+      // Resolved conversationId (open-sse/services/conversationTracker.ts) wins when
+      // present — it's populated for every request now, not just ones where the
+      // client explicitly sent x-omniroute-session-id. The raw header remains a
+      // fallback for any caller that somehow bypassed conversationId resolution.
+      sessionTag: conversationId || explicitSessionIdHeader,
     });
 
   // Primary path: merge client model id + alias target so config on either key applies; resolved
@@ -1563,16 +1612,13 @@ export async function handleChatCore({
           // models, which is intentionally NOT `false` so the gate still preserves images.
           supportsVision: getResolvedModelCapabilities({ provider, model: effectiveModel })
             .supportsVision,
-          // Rotas diretas oficiais ('anthropic' API key e 'claude' OAuth) vs agregadores:
-          // o engine omniglyph exige 'direct' — agregadores redimensionam imagens
-          // (medido 2026-07-06). OAuth 'claude' é rota direta oficial (#7863).
-          providerTransport:
-            provider === "anthropic" ||
-            provider === "claude" ||
-            provider === "openai" ||
-            provider === "xai"
-              ? ("direct" as const)
-              : ("aggregator" as const),
+          // OmniGlyph uses a measured provider/image-fidelity allowlist. Direct HTTP
+          // alone is not proof that a route preserves PNG bytes and dimensions.
+          ...resolveOmniGlyphTransport(provider),
+          // Sem o provider, a contabilidade do OmniGlyph cai para `unknown` e
+          // recusa deduzir a semântica de cache (Anthropic usa buckets disjuntos,
+          // OpenAI reporta cached como subconjunto do input).
+          provider,
           sourceFormat,
           targetFormat,
           compressionStage: "pre-translation" as const,
@@ -2970,6 +3016,7 @@ export async function handleChatCore({
                   updatePendingScope(pendingScope, {
                     stage: "rate_limit_slot_acquired",
                   });
+                  assertManagedLeaseFence(attemptConnectionId);
                   return executeWithUpstreamStartTimeout({
                     executor,
                     provider,
@@ -3040,6 +3087,7 @@ export async function handleChatCore({
               // Codex 429 account-rotation failover (disabled for context-relay so combo.ts can inject handoff)
               if (
                 provider === "codex" &&
+                !managedLease &&
                 comboStrategy !== "context-relay" &&
                 res.response.status === 429 &&
                 attempts < maxAttempts - 1
@@ -3202,6 +3250,7 @@ export async function handleChatCore({
                     body: unknown
                   ): Promise<ReadableStream<Uint8Array> | null> => {
                     try {
+                      assertManagedLeaseFence(attemptConnectionId);
                       const retryRaw = await executeWithUpstreamStartTimeout({
                         executor,
                         provider,
@@ -3516,6 +3565,7 @@ export async function handleChatCore({
     }
   } catch (error) {
     trackPendingRequest(model, provider, connectionId, false);
+    if (isManagedLeaseFenceError(error)) return managedLeaseFenceErrorResult(error);
     if (isSemaphoreCapacityError(error)) {
       appendRequestLog({
         model,
@@ -3727,6 +3777,7 @@ export async function handleChatCore({
       // stay aligned if this block ever runs after a path that mutates body.model (e.g. fallback).
       try {
         const retryModelId = String(translatedBody.model || effectiveModel);
+        assertManagedLeaseFence(getExecutionConnectionId(getExecutionCredentials()));
         const retryResult = normalizeExecutorResult(
           await runWithCapture(providerRequestCapture, () =>
             executor.execute({
@@ -3764,6 +3815,7 @@ export async function handleChatCore({
           upstreamErrorParsed = false; // Let it be parsed downstream
         }
       } catch (retryErr) {
+        if (isManagedLeaseFenceError(retryErr)) return managedLeaseFenceErrorResult(retryErr);
         // Refresh succeeded but the retry leg failed (network blip, AbortError,
         // executor throw). Don't swallow — the operator-visible signal "the user
         // saw 401 even though auth was actually fixed" is much more confusing

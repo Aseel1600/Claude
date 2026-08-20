@@ -87,7 +87,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
-import { getCachedProviderConnectionById } from "../../src/lib/localDb.js";
+import { getCachedProviderConnectionById } from "../../src/lib/localDb.ts";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
 /**
@@ -621,6 +621,7 @@ export async function handleComboChat({
   nesting = null,
   hiddenModelsByProvider = getHiddenModelsByProvider(),
   clientManagedResponsesContext = false,
+  perTargetAdmission = null,
   deferContextOverflowWhenCompressible = false,
   compressionExclusions,
   sourceFormat = null,
@@ -686,6 +687,7 @@ export async function handleComboChat({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    perTargetAdmission,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
     sourceFormat,
@@ -709,6 +711,7 @@ export async function handleComboChat({
     body,
     handleSingleModel: handleSingleModelWithTimeout,
     log,
+    perTargetAdmission,
   });
   if (chaosDispatch) return chaosDispatch;
 
@@ -740,6 +743,7 @@ export async function handleComboChat({
     signal,
     apiKeyAllowedConnections,
     hiddenModelsByProvider,
+    perTargetAdmission,
     deferContextOverflowWhenCompressible,
     compressionExclusions,
     sourceFormat,
@@ -774,6 +778,7 @@ export async function handleComboChat({
       endpointPath,
       requestHeaders,
       relayOptions,
+      perTargetAdmission,
     });
   }
 
@@ -1185,7 +1190,20 @@ export async function handleComboChat({
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
+        }
 
+        // #9654 Wave 2: per-target lane-aware admission probe. With virtual
+        // lanes on, a tenant whose lane queue is full should skip extra
+        // fan-out targets instead of piling more queued work onto the lane.
+        // Strictly non-blocking (maxWaitMs 0) and a no-op when lanes are off —
+        // see createPerTargetAdmissionHook for the full contract.
+        if (
+          perTargetAdmission &&
+          !(await perTargetAdmission({ modelStr, executionKey: target.executionKey, body }))
+        ) {
+          log.info("COMBO", `Skipping ${modelStr} — admission lane full (#9654)`);
+          if (i > 0) fallbackCount++;
+          return null;
         }
 
         // Retry loop for transient errors
@@ -2531,6 +2549,7 @@ async function handleRoundRobinCombo({
   endpointPath = null,
   requestHeaders = null,
   relayOptions,
+  perTargetAdmission = null,
 }: HandleRoundRobinOptions): Promise<Response> {
   const config = settings
     ? resolveComboConfig(combo, settings)
@@ -2866,6 +2885,17 @@ async function handleRoundRobinCombo({
     );
     if (exhaustedSkip) {
       log.info("COMBO-RR", exhaustedSkip);
+      if (offset > 0) fallbackCount++;
+      continue;
+    }
+
+    // #9654 Wave 2: per-target lane-aware admission probe (see executeTarget
+    // for the full contract — strictly non-blocking, lanes-off no-op).
+    if (
+      perTargetAdmission &&
+      !(await perTargetAdmission({ modelStr, executionKey: target.executionKey, body }))
+    ) {
+      log.info("COMBO-RR", `Skipping ${modelStr} — admission lane full (#9654)`);
       if (offset > 0) fallbackCount++;
       continue;
     }

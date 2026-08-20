@@ -1,4 +1,9 @@
 import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
+import {
+  registerExecutor,
+  getRegisteredExecutor,
+  hasRegisteredExecutor,
+} from "./registry.ts";
 import { AntigravityExecutor } from "./antigravity.ts";
 import { GithubExecutor } from "./github.ts";
 import { GheCopilotExecutor } from "./ghe-copilot.ts";
@@ -71,12 +76,19 @@ import { LMArenaExecutor } from "./lmarena.ts";
 import { GrokCliExecutor } from "./grok-cli.ts";
 import { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 import { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+import { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 import { TinyCmsExecutor } from "./tinycms.ts";
 import { HyperAgentExecutor } from "./hyperagent.ts";
 import { XaiExecutor } from "./xai.ts";
 import { PromptQlExecutor } from "./promptql.ts";
 import { ConolWebExecutor } from "./conol-web.ts";
 
+// R0.3 — declarative built-in table. The object literal stays as the single
+// place built-ins are declared (compile-time duplicate-key safety; the
+// check:known-symbols gate parses this literal from source), but lookup goes
+// through the ExecutorRegistry (./registry.ts): every entry is registered at
+// module load below, and getExecutor()/hasSpecializedExecutor() consult the
+// registry — the literal is never read at request time.
 const executors = {
   antigravity: new AntigravityExecutor(),
   agy: new AntigravityExecutor(),
@@ -204,6 +216,8 @@ const executors = {
   "codebuddy-cn": new CodeBuddyCnExecutor(),
   cbcn: new CodeBuddyCnExecutor(), // Alias for codebuddy-cn
   "zenmux-free": new ZenmuxFreeExecutor(),
+  "cloudflare-playground": new CloudflarePlaygroundExecutor(),
+  cfp: new CloudflarePlaygroundExecutor(), // Alias for cloudflare-playground
   "tinycms-web": new TinyCmsExecutor(),
   tcw: new TinyCmsExecutor(), // Alias
   hyperagent: new HyperAgentExecutor(),
@@ -217,6 +231,13 @@ const executors = {
   "conol-web": new ConolWebExecutor(),
   cnl: new ConolWebExecutor(), // Alias
 };
+
+// Bootstrap: register every built-in in the ExecutorRegistry. registerExecutor
+// throws on duplicates, so an alias collision fails at module load, exactly as
+// loudly as a duplicate object key would have failed at lint time.
+for (const [alias, executor] of Object.entries(executors)) {
+  registerExecutor(alias, executor);
+}
 
 const defaultCache = new Map();
 
@@ -243,7 +264,8 @@ const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
 
 export function getExecutor(provider) {
-  if (executors[provider]) return executors[provider];
+  const registered = getRegisteredExecutor(provider);
+  if (registered) return registered;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {
     const err = new Error(
       `Provider "${provider}" is a cloud-agent provider and does not support direct chat completions; use the Cloud Agents task API instead.`
@@ -263,8 +285,10 @@ export function getExecutor(provider) {
 }
 
 export function hasSpecializedExecutor(provider) {
-  return !!executors[provider];
+  return hasRegisteredExecutor(provider);
 }
+
+export { registerExecutor, listExecutorAliases } from "./registry.ts";
 
 export { BaseExecutor } from "./base.ts";
 export { AntigravityExecutor } from "./antigravity.ts";
@@ -323,6 +347,7 @@ export { LMArenaExecutor } from "./lmarena.ts";
 export { GrokCliExecutor } from "./grok-cli.ts";
 export { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 export { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+export { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 export { TinyCmsExecutor } from "./tinycms.ts";
 export { HyperAgentExecutor } from "./hyperagent.ts";
 export { XaiExecutor } from "./xai.ts";

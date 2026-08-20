@@ -29,6 +29,7 @@ import {
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
 import { shouldUseApiKeyConnectionTest } from "./webSessionTestDispatch";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { classifyAmbiguousOrAuthError, type ClassifyFailureArgs } from "./mistralAmbiguousAuth";
 import { buildApiKeyConnectionTestResult } from "./apiKeyTestResult";
 import { OAUTH_TEST_CONFIG } from "./oauthTestConfig";
@@ -726,6 +727,17 @@ export async function testSingleConnection(connectionId: string, validationModel
 
   if (!connection) {
     return { valid: false, error: "Connection not found", diagnosis: null, latencyMs: 0 };
+  }
+
+  if (await isConnectionUnavailableToAuxiliaryActivity(connectionId)) {
+    const error = "Connection test deferred while an exclusive session lease is active";
+    return {
+      valid: false,
+      skipped: true,
+      error,
+      diagnosis: makeDiagnosis("lease_active", "local", error, "exclusive_lease_active"),
+      latencyMs: 0,
+    };
   }
 
   const provider = typeof connection.provider === "string" ? connection.provider : "";

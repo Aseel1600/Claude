@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Směrovat požadavky s vyčerpaným rozpočtem na nouzového bezplatného záložního poskytovatele/model.",
   "featureFlagArenaEloSyncEnabledDescription": "Povolit periodickou synchronizaci ELO z žebříčku Arena AI pro hodnocení inteligence modelů.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Inzerujte claude/&lt;provider&gt;/&lt;model&gt; zrcadlové ID na /v1/models, aby seznam objevování modelů brány Claude Code zahrnoval modely, které nejsou Claude. Upozornění: při globálním povolení zdvojuje katalogové položky pro všechny klienty.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Povolte adaptivní virtuální vstupní pruhy pro každého tenanta při odesílání poskytovatelům (#9654): špička jednoho tenanta už nezpůsobí 503 u jiného. Proměnná prostředí OMNIROUTE_CHAT_VIRTUAL_LANES má přednost před tímto nastavením na řídicím panelu; změny se projeví po restartu serveru.",
   "sidebar": {
     "home": "Domov",
     "dashboard": "Nástěnka",
@@ -1290,7 +1291,9 @@
       "open": "otevřít",
       "close": "zavřít"
     },
-    "noResults": "Žádné výsledky"
+    "noResults": "Žádné výsledky",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooky",
@@ -11070,7 +11073,8 @@
       "compressed": "Komprese",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

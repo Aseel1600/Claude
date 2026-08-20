@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Arahkan permintaan yang kehabisan anggaran ke penyedia/model fallback gratis darurat.",
   "featureFlagArenaEloSyncEnabledDescription": "Aktifkan sinkronisasi ELO papan peringkat Arena AI berkala untuk peringkat kecerdasan model.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Iklankan claude/&lt;provider&gt;/&lt;model&gt; mirror ids di /v1/models sehingga daftar penemuan model gateway Claude Code mencantumkan model non-Claude. Peringatan: menggandakan entri katalog untuk semua klien saat diaktifkan secara global.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Aktifkan jalur penerimaan virtual adaptif per-tenant untuk pengiriman penyedia (#9654): lonjakan satu tenant tidak lagi mengembalikan 503 ke tenant lain. Variabel lingkungan OMNIROUTE_CHAT_VIRTUAL_LANES menang atas pengaturan dasbor ini; perubahan berlaku setelah server dimulai ulang.",
   "sidebar": {
     "home": "Rumah",
     "dashboard": "Dasbor",
@@ -1290,7 +1291,9 @@
       "open": "buka",
       "close": "tutup"
     },
-    "noResults": "Tidak ada hasil"
+    "noResults": "Tidak ada hasil",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhook",
@@ -11070,7 +11073,8 @@
       "compressed": "Kompresi",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

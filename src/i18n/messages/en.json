@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Advertise claude/&lt;provider&gt;/&lt;model&gt; mirror ids on /v1/models so Claude Code gateway model discovery lists non-Claude models. Warning: doubles catalog entries for all clients when enabled globally.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Enable per-tenant adaptive virtual admission lanes for provider dispatch (#9654): one tenant's burst no longer 503s another. The OMNIROUTE_CHAT_VIRTUAL_LANES env var wins over this dashboard override; changes take effect at server restart.",
   "sidebar": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -1164,6 +1165,8 @@
     "consoleLogs": "Console Logs",
     "logsTimeline": "Timeline",
     "logsTimelineSubtitle": "Visual request timeline",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "globalRouting": "Global Routing",
     "mitmProxy": "MITM Proxy",
     "oneProxy": "1Proxy",
@@ -8565,13 +8568,13 @@
   },
   "omniglyph": {
     "preview": "Preview",
-    "description": "Context-as-image compression. Renders the system prompt, tool documentation, and dense history as compact PNG pages that Claude Fable 5 reads instead of text. Image tokens are billed by dimensions rather than characters, so the converted block costs about 10× less. Direct Anthropic route only.",
+    "description": "Context-as-image compression. Renders the system prompt, tool documentation, and dense history as compact PNG pages for the measured Claude Fable 5 path. The published OmniGlyph package also exposes native GPT 5.6 transformers, but OmniRoute keeps those routes fail-closed until provider fidelity and reading receipts exist.",
     "economicsTitle": "The economics",
     "economics": {
       "fewerTokens": "fewer tokens on the converted block",
       "savings": "end-to-end savings (measured)",
       "imageTokens": "image tokens for a 1568×728 page (about 28k characters)",
-      "accuracy": "reading accuracy on Fable 5 (n=30)"
+      "accuracy": "scoped Fable 5 reading receipt"
     },
     "beforeAfterTitle": "Before → after",
     "blockSavings": "−{percent}% tokens on this block",
@@ -8584,18 +8587,18 @@
     "gates": {
       "model": {
         "label": "Model",
-        "pass": "claude-fable-5",
-        "why": "Only Fable 5 reads dense pages at 100% accuracy (measured, n=30). GPT-5.5 and Gemini 2.5 Flash are blocked."
+        "pass": "claude-fable-5 (measured); gpt-5.6 (HOLD)",
+        "why": "Only the measured Fable 5 path is enabled in OmniRoute. GPT 5.6 is structurally supported by the package but remains blocked until its provider receipt; unverified families such as Grok stay text-only."
       },
       "transport": {
         "label": "Transport",
-        "pass": "direct Anthropic",
-        "why": "Aggregators resample images and destroy legibility — only the direct route is authoritative."
+        "pass": "direct provider",
+        "why": "Aggregators may resample images and destroy legibility — only a direct provider route is authoritative."
       },
       "format": {
         "label": "Format",
-        "pass": "native Claude",
-        "why": "The body must use Claude format and must never put a system role inside messages."
+        "pass": "native Claude/OpenAI",
+        "why": "The body must match the provider wire: Claude Messages, OpenAI Chat Completions, or native OpenAI Responses input[]."
       },
       "profitable": {
         "label": "Profitable",
@@ -8604,7 +8607,28 @@
       }
     },
     "enableTitle": "Enable the engine",
-    "enableDescription": "Runs last in the stack (after RTK/Caveman cleans the text, OmniGlyph converts the remainder to images) and also runs standalone through <code>omniglyph</code> mode. This is a preview and remains off by default until end-to-end validation is complete.",
+    "enableDescription": "Runs last in the stack after text engines clean the request, using the native provider wire; OpenAI Chat/Responses requests are compressed after translation so their shape is preserved. It also runs standalone through <code>omniglyph</code> mode. This is a preview and remains off by default until end-to-end validation is complete.",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile",
     "saved": "Saved.",
     "saveFailed": "Could not save.",
     "enableAria": "Enable the OmniGlyph engine",
@@ -11078,7 +11102,8 @@
       "compressed": "Compression",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

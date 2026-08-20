@@ -23,12 +23,11 @@ export async function getCliToken() {
     // Same resolution order as src/lib/machineToken.ts.
     const mod = await import("node-machine-id");
     const machineIdSync = mod.machineIdSync ?? mod.default?.machineIdSync;
-    const mid = machineIdSync();
-    _cached = crypto
-      .createHash("sha256")
-      .update(mid + salt)
-      .digest("hex")
-      .substring(0, 32);
+    if (typeof machineIdSync !== "function") throw new Error("machine-id API unavailable");
+    // machineIdSync(true) returns the original unhashed hardware ID — mirrors
+    // getMachineTokenSync() in src/lib/machineToken.ts (#10148 cliToken hardening).
+    const mid = machineIdSync(true);
+    _cached = crypto.createHmac("sha256", mid).update(salt).digest("hex");
   } catch (e) {
     // Swallowing here changes control flow (every management call goes out
     // unauthenticated and 401s), so leave a breadcrumb rather than failing mute.

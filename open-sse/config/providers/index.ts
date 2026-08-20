@@ -31,6 +31,7 @@ import { difyProvider } from "./registry/dify/index.ts";
 import { ovhcloudProvider } from "./registry/ovhcloud/index.ts";
 import { claudeProvider } from "./registry/claude/index.ts";
 import { claude_webProvider } from "./registry/claude/web/index.ts";
+import { cloudflarePlaygroundProvider } from "./registry/cloudflare-playground/index.ts";
 import { bedrockProvider } from "./registry/bedrock/index.ts";
 import { inner_aiProvider } from "./registry/inner-ai/index.ts";
 import { qoderProvider } from "./registry/qoder/index.ts";
@@ -290,6 +291,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   ovhcloud: ovhcloudProvider,
   claude: claudeProvider,
   "claude-web": claude_webProvider,
+  "cloudflare-playground": cloudflarePlaygroundProvider,
   bedrock: bedrockProvider,
   "inner-ai": inner_aiProvider,
   qoder: qoderProvider,

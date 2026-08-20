@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Bütçesi tükenmiş istekleri acil durum ücretsiz yedek sağlayıcıya/modele yönlendirin.",
   "featureFlagArenaEloSyncEnabledDescription": "Model zekası sıralamaları için periyodik Arena AI liderlik tablosu ELO senkronizasyonunu etkinleştirin.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "/v1/models üzerinde claude/&lt;provider&gt;/&lt;model&gt; ayna kimliklerini tanıtın, böylece Claude Code geçidi model keşfi, Claude olmayan modelleri listeler. Uyarı: Küresel olarak etkinleştirildiğinde tüm istemciler için katalog girişlerini iki katına çıkarır.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Sağlayıcı gönderimi için kiracı başına uyarlanabilir sanal kabul şeritlerini etkinleştirin (#9654): bir kiracının ani yükü artık diğerinde 503 hatasına neden olmaz. OMNIROUTE_CHAT_VIRTUAL_LANES ortam değişkeni bu panel ayarına göre önceliklidir; değişiklikler sunucu yeniden başlatıldığında geçerli olur.",
   "sidebar": {
     "home": "Ana Sayfa",
     "dashboard": "Kontrol Paneli",
@@ -1290,7 +1291,9 @@
       "open": "açık",
       "close": "kapat"
     },
-    "noResults": "Sonuç yok"
+    "noResults": "Sonuç yok",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Web kancaları",
@@ -11070,7 +11073,8 @@
       "compressed": "Sıkıştırma",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

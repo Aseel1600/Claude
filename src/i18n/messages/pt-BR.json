@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Roteie solicitações com orçamento esgotado para o provedor/modelo de fallback gratuito de emergência.",
   "featureFlagArenaEloSyncEnabledDescription": "Ativar a sincronização periódica do ELO do leaderboard da Arena AI para classificações de inteligência do modelo.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Divulgar ids espelho claude/&lt;provider&gt;/&lt;model&gt; em /v1/models para que a descoberta de modelos do gateway Claude Code liste modelos não-Claude. Atenção: duplica as entradas do catálogo para todos os clientes quando ativado globalmente.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Ative faixas de admissão virtuais adaptativas por tenant para o despacho de provedores (#9654): o pico de um tenant não gera mais 503 para outro. A variável de ambiente OMNIROUTE_CHAT_VIRTUAL_LANES tem precedência sobre esta configuração do painel; as alterações entram em vigor ao reiniciar o servidor.",
   "sidebar": {
     "home": "Início",
     "dashboard": "Painel",
@@ -1281,6 +1282,8 @@
     "resilienceConnectionsSubtitle": "Cooldown, disjuntor, estado de bloqueio",
     "settingsModalityBridge": "Ponte de Modalidade",
     "settingsModalityBridgeSubtitle": "Fallback de imagem/áudio → texto para modelos apenas de texto",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "commandPalette": {
       "title": "Paleta de Comandos",
       "searchPlaceholder": "Pesquisar páginas, configurações, ferramentas...",
@@ -8557,13 +8560,13 @@
   },
   "omniglyph": {
     "preview": "Visualização",
-    "description": "Compressão de contexto como imagem. Renderiza o prompt de sistema, a documentação de ferramentas e o histórico denso como páginas PNG compactas que o Claude Fable 5 lê em vez de texto. Os tokens de imagem são cobrados por dimensões em vez de caracteres, então o bloco convertido custa cerca de 10× menos. Somente na rota direta da Anthropic.",
+    "description": "Compressão de contexto como imagem. Renderiza o prompt de sistema, a documentação de ferramentas e o histórico denso como páginas PNG compactas para a rota medida do Claude Fable 5. O pacote OmniGlyph também expõe transformadores nativos para GPT 5.6, mas o OmniRoute mantém essas rotas fail-closed até existirem recibos de fidelidade do provedor e de leitura.",
     "economicsTitle": "A economia",
     "economics": {
       "fewerTokens": "menos tokens no bloco convertido",
       "savings": "economia de ponta a ponta (medida)",
       "imageTokens": "tokens de imagem para uma página de 1568×728 (cerca de 28 mil caracteres)",
-      "accuracy": "precisão de leitura no Fable 5 (n=30)"
+      "accuracy": "recibo de leitura do Fable 5 (escopo medido)"
     },
     "beforeAfterTitle": "Antes → depois",
     "blockSavings": "−{percent}% de tokens neste bloco",
@@ -8576,18 +8579,18 @@
     "gates": {
       "model": {
         "label": "Modelo",
-        "pass": "claude-fable-5",
-        "why": "Somente o Fable 5 lê páginas densas com 100% de precisão (medido, n=30). GPT-5.5 e Gemini 2.5 Flash são bloqueados."
+        "pass": "claude-fable-5 (medido); gpt-5.6 (HOLD)",
+        "why": "Somente a rota medida do Fable 5 está habilitada no OmniRoute. O GPT 5.6 tem suporte estrutural no pacote, mas continua bloqueado até seu recibo do provedor; famílias não verificadas, como Grok, permanecem em texto."
       },
       "transport": {
         "label": "Transporte",
-        "pass": "direto Anthropic",
-        "why": "Agregadores reamostram imagens e destroem a legibilidade — apenas a rota direta é confiável."
+        "pass": "provedor direto",
+        "why": "Agregadores podem reamostrar imagens e destruir a legibilidade — apenas uma rota direta do provedor é confiável."
       },
       "format": {
         "label": "Formato",
-        "pass": "Claude nativo",
-        "why": "O corpo deve usar o formato Claude e nunca colocar um papel system dentro de messages."
+        "pass": "Claude/OpenAI nativo",
+        "why": "O corpo precisa corresponder ao wire do provedor: Claude Messages, OpenAI Chat Completions ou input[] nativo do OpenAI Responses."
       },
       "profitable": {
         "label": "Rentável",
@@ -8596,7 +8599,28 @@
       }
     },
     "enableTitle": "Ativar a engine",
-    "enableDescription": "Executa por último na pilha (depois que RTK/Caveman limpa o texto, o OmniGlyph converte o restante em imagens) e também roda de forma independente pelo modo <code>omniglyph</code>. Este é um preview e permanece desativado por padrão até que a validação de ponta a ponta seja concluída.",
+    "enableDescription": "Executa por último na pilha, depois que os engines de texto limpam a solicitação, usando o wire nativo do provedor; solicitações OpenAI Chat/Responses são comprimidas depois da tradução para preservar seu formato. Também roda de forma independente pelo modo <code>omniglyph</code>. Este é um preview e permanece desativado por padrão até que a validação de ponta a ponta seja concluída.",
+    "profileTitle": "Perfil de compressão",
+    "profileDescription": "O perfil é um teto, não um piso: um perfil mais restrito não pode ser reaberto por um override de passo. Medido nesta base: com coding-safe ou balanced, uma sessão que ainda não acumulou histórico não comprime nada, porque os dois elevam o mínimo de caracteres e mantêm o system prompt, os schemas de tools e os tool results nativos.",
+    "profiles": {
+      "aggressive": {
+        "label": "Agressivo (padrão)",
+        "description": "A política que os recibos publicados mediram. Imageia o system prompt, a documentação de tools e o histórico denso."
+      },
+      "balanced": {
+        "label": "Equilibrado",
+        "description": "Mantém o estado vivo nativo e protege os últimos 8 turnos; só colapsa histórico antigo já fechado."
+      },
+      "codingSafe": {
+        "label": "Seguro para código",
+        "description": "Mantém autoridade, schemas de tools e saída de ferramenta nativos, protegendo os últimos 12 turnos. Não comprime nada até a sessão acumular histórico."
+      },
+      "passthrough": {
+        "label": "Sem transformação",
+        "description": "Só roteia. A engine é pulada e o request segue intacto."
+      }
+    },
+    "profileAria": "Selecionar o perfil de compressão do OmniGlyph",
     "saved": "Salvo.",
     "saveFailed": "Não foi possível salvar.",
     "enableAria": "Ativar a engine OmniGlyph",
@@ -11070,7 +11094,8 @@
       "compressed": "Compressão",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

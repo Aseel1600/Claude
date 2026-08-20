@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Reititä budjettinsa ylittäneet pyynnöt varalla olevalle ilmaiselle varatarjoajalle/-mallille.",
   "featureFlagArenaEloSyncEnabledDescription": "Ota käyttöön jaksottainen Arena AI -tulostaulukon ELO-synkronointi mallien älykkyysluokituksia varten.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Mainosta claude/&lt;provider&gt;/&lt;model&gt; peilid tunnuksia /v1/models, jotta Claude Code -portin mallin löytölistalla näkyvät ei-Claude-mallit. Varoitus: kaksinkertaistaa luettelo-merkinnät kaikille asiakkaille, kun se on otettu käyttöön globaalisti.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Ota käyttöön mukautuvat virtuaaliset sisäänottokaistat vuokraajaa (tenant) kohti palveluntarjoajien välitystä varten (#9654): yhden vuokraajan kuormapiikki ei enää aiheuta 503-virhettä toiselle. Ympäristömuuttuja OMNIROUTE_CHAT_VIRTUAL_LANES ohittaa tämän hallintapaneelin asetuksen; muutokset tulevat voimaan palvelimen uudelleenkäynnistyksessä.",
   "sidebar": {
     "home": "Kotiin",
     "dashboard": "Kojelauta",
@@ -1290,7 +1291,9 @@
       "open": "avaa",
       "close": "sulje"
     },
-    "noResults": "Ei tuloksia"
+    "noResults": "Ei tuloksia",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -11070,7 +11073,8 @@
       "compressed": "Puristus",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Route budget-exhausted requests to the emergency free fallback provider/model.",
   "featureFlagArenaEloSyncEnabledDescription": "Enable periodic Arena AI leaderboard ELO sync for model intelligence rankings.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Iklankan claude/&lt;provider&gt;/&lt;model&gt; mirror ids pada /v1/models supaya senarai penemuan model gerbang Claude Code termasuk model bukan Claude. Amaran: menggandakan entri katalog untuk semua klien apabila diaktifkan secara global.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Aktifkan lorong kemasukan maya adaptif setiap-tenant untuk penghantaran pembekal (#9654): lonjakan satu tenant tidak lagi memberikan 503 kepada tenant lain. Pemboleh ubah persekitaran OMNIROUTE_CHAT_VIRTUAL_LANES mengatasi tetapan papan pemuka ini; perubahan berkuat kuasa apabila pelayan dimulakan semula.",
   "sidebar": {
     "home": "Rumah",
     "dashboard": "Papan pemuka",
@@ -1290,7 +1291,9 @@
       "open": "buka",
       "close": "tutup"
     },
-    "noResults": "Tiada hasil"
+    "noResults": "Tiada hasil",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations"
   },
   "webhooks": {
     "title": "Webhooks",
@@ -11070,7 +11073,8 @@
       "compressed": "Mampatan",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",

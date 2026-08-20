@@ -112,16 +112,31 @@ export function applyNativeCodexTurnPin(
   );
   if (compatible.length === 0) return [];
 
-  const pinned = compatible.find((t) => t.connectionId === pin.connectionId);
-  const siblings = compatible.filter((t) => t.connectionId !== pin.connectionId);
+  let pinnedIndex = compatible.findIndex((t) => t.connectionId === pin.connectionId);
+  // No candidate already carries the pinned connectionId (e.g. the caller
+  // resolved the target before a connection was assigned) — assign the pin
+  // onto the first compatible candidate so dispatch targets it directly.
+  if (pinnedIndex < 0) pinnedIndex = 0;
+
+  // Resolve the pinned slot's connectionId in ORIGINAL order first, so
+  // allowedConnectionIds reflects the same set/order regardless of which
+  // candidate ends up first in the returned (pinned-first) array.
+  const resolved = compatible.map((t, i) =>
+    i === pinnedIndex ? { ...t, connectionId: pin.connectionId } : t
+  );
+  const allowedConnectionIds = resolved
+    .map((t) => t.connectionId)
+    .filter((id): id is string => id !== null);
 
   // Pinned connection first, then same-provider/model siblings as fallback
-  const ordered = pinned ? [pinned, ...siblings] : compatible;
+  const pinned = resolved[pinnedIndex];
+  const siblings = resolved.filter((_, i) => i !== pinnedIndex);
+  const ordered = [pinned, ...siblings];
 
   return ordered.map((target) => ({
     ...target,
     // Allow only connections for the pinned provider+model
-    allowedConnectionIds: compatible.map((t) => t.connectionId),
+    allowedConnectionIds,
   }));
 }
 
