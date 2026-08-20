@@ -34,8 +34,17 @@ right after `filterPaidOnlyCandidates`):
 
 1. **Not in `FREE_MODEL_BUDGETS` at all** → excluded. This covers genuinely paid models and any
    provider/model OmniRoute hasn't classified yet — new candidates start excluded, not included.
-2. **`freeType: "keyless"`** → passes immediately. No credential exists for a keyless candidate,
-   so no request against it can ever be billed — no runtime check is needed or possible.
+2. **`freeType: "keyless"`** → passes immediately, **but only for a candidate that genuinely
+   arrived via the no-auth path** (`connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID`,
+   `open-sse/services/autoCombo/resilienceCandidateFilter.ts`). No credential exists for that
+   candidate, so no request against it can ever be billed — no runtime check is needed or
+   possible. The same catalogued `keyless` provider/model reached through a **real** DB
+   connection (`connectionId` is an actual connection id, or the candidate carries
+   `allowedConnectionIds`) does **not** get this shortcut — `keyless` metadata describes the
+   no-auth path specifically, not the provider in general, and never authorizes a real,
+   credentialed account. Such a candidate falls through to check 3 like any other, where it is
+   excluded unless the catalog entry separately carries `hardStopGuaranteed: true` (real
+   `keyless` entries never do — the shortcut was their only path to safety).
 3. **Any other `freeType`** (`recurring-daily`, `recurring-monthly`, `recurring-credit`,
    `recurring-uncapped`, `one-time-initial`, and any future type this module doesn't
    special-case) → passes only if **all** of the following hold:
@@ -47,10 +56,36 @@ right after `filterPaidOnlyCandidates`):
    - A usage adapter exists for the provider in `USAGE_FETCHER_PROVIDERS`
      (`open-sse/services/usage.ts`) — the same registry that already backs the quota dashboard and
      `getUsageForProvider()`. No adapter → excluded, permanently, until one is added.
-   - The live, cached `FreeAccessState` for that (provider, connection) pair is `status: "SAFE"`,
-     was checked within `settings.autoRefreshProviderQuotaInterval` (default 180s — the existing
-     setting, not a new number), and reports `remainingFreeAllowance` above a small safety margin.
+   - The live, cached `FreeAccessState` for **the specific connection actually being
+     evaluated** is `status: "SAFE"`, was checked within
+     `settings.autoRefreshProviderQuotaInterval` (default 180s — the existing setting, not a new
+     number), and reports `remainingFreeAllowance` above a small safety margin.
 4. **`freeType: "discontinued"`** → always excluded.
+
+## Connection safety (per-connection verification, never per-candidate)
+
+A candidate in the auto-combo pool is not always tied to one connection. A "logical" candidate
+(`connectionId: null`) carries an `allowedConnectionIds` allowlist — one or more actual
+provider connections/accounts any of which could serve the request — and the account actually
+used is decided later, at dispatch time, by `open-sse/services/combo/autoStrategy.ts`
+(intersecting `allowedConnectionIds` against its own connection-selection logic, ~line 315-331).
+
+STRICT_ZERO_COST verifies the free-access state of **each connection in that allowlist
+individually** (`evaluateCandidateConnections()` in `strictZeroCostFilter.ts`) and rewrites
+`allowedConnectionIds` down to exactly the subset that came back `SAFE` — never the full
+original list, and never a single arbitrarily-chosen member. Concretely:
+
+- Account A `SAFE`, account B `UNKNOWN`/exhausted/billable → only A remains selectable.
+- All accounts `UNKNOWN` → the candidate is dropped entirely (empty safe set).
+- A single-connection candidate (`connectionId` set directly, no allowlist) that fails is
+  dropped outright, never returned with an empty `allowedConnectionIds`.
+
+Because `autoStrategy.ts` already enforces `allowedConnectionIds` as a hard allowlist before
+selecting a connection to dispatch to, rewriting it to the verified-SAFE subset is sufficient to
+guarantee the connection actually used at dispatch is always one this filter itself verified —
+never a different, unverified account on the same candidate. See
+`tests/unit/autoCombo/strict-zero-cost-connection-safety.test.ts` for the regression proof
+(keyless-bypass cases A/B/C, multi-account cases 1-5).
 
 `discovered automatically`: a provider/model shipped tomorrow with the right metadata (in the
 catalog, with a usage adapter, `hardStopGuaranteed: true`) is usable the moment OmniRoute knows
@@ -84,12 +119,21 @@ contractual reasons, or left in when this guard is off even with `freeAccessPoli
 ## What passes today
 
 Run `npx tsx scripts/ad-hoc/dry-run-strict-zero-cost.ts` against a live instance's
-`GET /v1/auto-combo/{channel}/candidates` output for a real before/after. As of 2026-08-20, only
-`freeType: "keyless"` candidates pass in practice — no currently-catalogued `recurring-*`
-provider both has a usage adapter registered in `USAGE_FETCHER_PROVIDERS` **and**
-`hardStopGuaranteed: true` declared. This is not a bug: it's the honest state of two
-independently-curated metadata sets that happen not to overlap yet, not a limitation of the
-filter itself.
+`GET /v1/auto-combo/{channel}/candidates` output for a real before/after — the script now reads
+each candidate's real `connectionId`, so it also proves the connection-safety fix live, not just
+in unit tests. As of 2026-08-20, only `freeType: "keyless"` candidates pass in practice (7 of 29
+live candidates on this instance: `opencode/big-pickle`, `opencode/deepseek-v4-flash-free`, and
+5 `felo-web` models — all confirmed arriving with the genuine no-auth `connectionId`, never a
+real connection) — no currently-catalogued `recurring-*` provider both has a usage adapter
+registered in `USAGE_FETCHER_PROVIDERS` **and** `hardStopGuaranteed: true` declared (e.g. `groq`
+has neither the adapter registered here nor is fetched offline in this dry run; `kiro` lacks
+`hardStopGuaranteed`). This is not a bug: it's the honest state of two independently-curated
+metadata sets that happen not to overlap yet, not a limitation of the filter itself.
+
+With `excludeTosAvoid: true` added on top of the same live pool, the count drops from 7 to 0 —
+every one of the 7 surviving candidates is curated `tos: "avoid"` today (`felo-web`, `opencode`).
+This is a real, expected trade-off of turning the ToS guard on, not a bug: the guard is
+`false` by default for exactly this reason (see "ToS guard" above).
 
 ## Enabling
 
