@@ -387,6 +387,38 @@ const COMMAND_CODE_PASSTHROUGH_FIELDS = [
   "extra_body",
 ] as const;
 
+/**
+ * Command Code's /alpha/generate endpoint serves most models under a
+ * vendor-prefixed wire id (e.g. `xiaomi/mimo-v2.5`, `deepseek/deepseek-v4-pro`,
+ * `moonshotai/Kimi-K2.6`) and defaults an unprefixed id to the `anthropic:`
+ * provider, which 403s with "Model/provider not recognized: anthropic:<id>".
+ * The command-code registry ids already carry the vendor prefix, so a bare id
+ * reaching the executor is an operator-set custom model (e.g. the Vision Bridge
+ * picker, #10809). Map the small set of documented bare ids to their
+ * vendor-prefixed wire form; anything with an explicit `/` (or already wired)
+ * passes through untouched. Kept minimal and doc-backed, mirroring the
+ * `CC_VISION_MODEL_PATTERNS` philosophy.
+ */
+const COMMAND_CODE_BARE_MODEL_VENDOR_PREFIX: Readonly<Record<string, string>> = {
+  // Xiaomi MiMo V2.5 — the only CC-served vision model not in the registry.
+  "mimo-v2.5": "xiaomi/mimo-v2.5",
+  "mimo-v2.5-pro": "xiaomi/mimo-v2.5-pro",
+};
+
+/**
+ * Normalize an incoming model id to the wire form Command Code's upstream
+ * accepts. Strips a leading provider prefix (`command-code/` / `cmd/`) that the
+ * pipeline may have resolved, then maps known bare ids to their
+ * vendor-prefixed form (see above).
+ */
+function normalizeCommandCodeWireModel(model: string): string {
+  const trimmed = String(model || "").trim();
+  if (!trimmed) return trimmed;
+  const bare = trimmed.replace(/^(?:command-code|cmd)\//, "");
+  if (bare.includes("/")) return bare;
+  return COMMAND_CODE_BARE_MODEL_VENDOR_PREFIX[bare] ?? bare;
+}
+
 function buildCommandCodeBody(
   model: string,
   body: unknown,
@@ -398,8 +430,10 @@ function buildCommandCodeBody(
   // Payload rules may rewrite `body.model` (e.g. deepseek-v4-pro-max →
   // deepseek/deepseek-v4-pro for the command-code provider). Prefer the
   // rewritten value if present; fall back to the resolved combo model arg.
-  const resolvedModel =
-    typeof input.model === "string" && input.model.trim().length > 0 ? input.model : model;
+  // Normalize to the vendor-prefixed wire id the upstream requires (#10809).
+  const resolvedModel = normalizeCommandCodeWireModel(
+    typeof input.model === "string" && input.model.trim().length > 0 ? input.model : model
+  );
 
   const converted = convertMessages(input.messages, resolvedModel, toolNameMap);
   const explicitSystem = typeof input.system === "string" ? input.system : "";

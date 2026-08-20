@@ -7,9 +7,15 @@
  * which had no registry flag and no heuristic match, returning `null`/`false`.
  * This caused the Vision Bridge to incorrectly reroute to opencode-zen (401).
  *
- * After the fix: the registry declares `supportsVision: true` for all CC
+ * After the fix: the registry declares `supportsVision: true` for CC
  * vision-capable models, so the guardrail sees native vision support and
- * passes through unmodified.
+ * passes through unmodified — EXCEPT the text-only codex variant
+ * (`gpt-5.3-codex` via the Command Code gateway), which issue #10703 confirms
+ * cannot see images and was previously mis-flagged as vision in the registry.
+ * It follows the same `KNOWN_TEXT_ONLY_DESPITE_SYNC` hard-override path as
+ * `mimo-v2.5-pro`. `gpt-5.4-mini` is intentionally left as vision-capable —
+ * it's a real OpenAI multimodal model and the Command Code gateway forwards
+ * images correctly for it.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +31,6 @@ const CC_VISION: [string, string][] = [
   ["Claude Haiku 4.5 (CC)", "command-code/claude-haiku-4-5-20251001"],
   ["GPT-5.5 (CC)", "command-code/gpt-5.5"],
   ["GPT-5.4 (CC)", "command-code/gpt-5.4"],
-  ["GPT-5.3 Codex (CC)", "command-code/gpt-5.3-codex"],
   ["GPT-5.4 Mini (CC)", "command-code/gpt-5.4-mini"],
   ["Kimi K2.6 (CC)", "command-code/moonshotai/Kimi-K2.6"],
   ["Kimi K2.5 (CC)", "command-code/moonshotai/Kimi-K2.5"],
@@ -35,6 +40,7 @@ const CC_VISION: [string, string][] = [
 // ── Models that MUST NOT claim vision (text-only) ──────────────────────────
 
 const CC_TEXT_ONLY: [string, string][] = [
+  ["GPT-5.3 Codex (CC)", "command-code/gpt-5.3-codex"],
   ["DeepSeek V4 Pro (CC)", "command-code/deepseek/deepseek-v4-pro"],
   ["DeepSeek V4 Flash (CC)", "command-code/deepseek/deepseek-v4-flash"],
   ["GLM-5.1 (CC)", "command-code/zai-org/GLM-5.1"],
