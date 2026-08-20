@@ -126,6 +126,7 @@ import { classify429FromError, type FailureKind } from "@/shared/utils/classify4
 import { isSubscriptionQuotaText } from "@omniroute/open-sse/services/quotaTextCooldowns.ts";
 import { resolveUseUpstream429BreakerHints } from "@/shared/utils/providerHints";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
+import { shouldIsolateProbeFailures } from "@/shared/utils/probeOrigin";
 import { getCircuitBreaker, isLocalStreamLifecycleError } from "../../shared/utils/circuitBreaker";
 import { markAccountExhaustedFrom429 } from "../../domain/quotaCache";
 import { resolveForcedConnectionForCredentialPool } from "../services/sessionAffinityPin.ts";
@@ -1664,7 +1665,10 @@ async function handleSingleModelChat(
           credentials?.allRateLimited &&
           isProviderBreakerFailureStatus(breakerFailureStatus) &&
           !isNetworkError &&
-          !isQueueTimeout
+          !isQueueTimeout &&
+          // Probe-origin dispatches must not degrade the provider breaker —
+          // routing state untouched (#9817).
+          !(await shouldIsolateProbeFailures())
         ) {
           breaker._onFailure();
         }
@@ -2206,7 +2210,10 @@ async function handleSingleModelChat(
         const passthroughModels = credentials.providerSpecificData?.passthroughModels;
         if (
           result.status === 429 &&
-          shouldMarkAccountExhaustedFrom429(provider, model, passthroughModels, failureKind)
+          shouldMarkAccountExhaustedFrom429(provider, model, passthroughModels, failureKind) &&
+          // T-PROBE: a probe must not poison the 5min quotaCache for real
+          // traffic (#9817).
+          !(await shouldIsolateProbeFailures())
         ) {
           markAccountExhaustedFrom429(credentials.connectionId, provider);
         }
@@ -2308,7 +2315,12 @@ async function handleSingleModelChat(
         continue;
       }
 
-      if (shouldTripProviderBreakerForResult(result, isCombo, forceLiveComboTest)) {
+      // T-PROBE: a probe failure must not degrade the provider-wide circuit
+      // breaker for real traffic (#9817).
+      if (
+        !(await shouldIsolateProbeFailures()) &&
+        shouldTripProviderBreakerForResult(result, isCombo, forceLiveComboTest)
+      ) {
         breaker._onFailure();
       }
 
