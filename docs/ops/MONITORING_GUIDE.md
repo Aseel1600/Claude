@@ -157,13 +157,13 @@ Response:
 
 ### Kubernetes probe recommendations
 
-OmniRoute is a **single Node process** (one event loop). Stock Docker `HEALTHCHECK` targets `/api/monitoring/health` — that is **too heavy** for kubelet liveness intervals.
+OmniRoute is a **single Node process** (one event loop). Stock Docker `HEALTHCHECK` targets lightweight `/healthz`. `/api/monitoring/health` is **too heavy** for kubelet liveness intervals.
 
 | Probe | Recommended target | Notes |
 | --- | --- | --- |
 | **Startup** | HTTP `GET /healthz` with a long `failureThreshold` (or large `startPeriod`) | Cold start + SQLite migration can exceed a few seconds |
-| **Readiness** | HTTP `GET /healthz` | Remove endpoints while starting/stopping; still flaps if the loop is CPU-blocked |
-| **Liveness** | **TCP** on the main service port (`PORT`, default `20128`), **or** HTTP `/healthz` with soft thresholds | Do **not** kill the pod on short event-loop stalls; busy ≠ dead |
+| **Readiness** | HTTP `GET /healthz` | Lifecycle `ok` / `starting` / `stopping` (200 vs 503). Still flaps if the loop is CPU-blocked |
+| **Liveness** | HTTP `GET /livez`, **or TCP** on the main service port (`PORT`, default `20128`) | `/livez` is process-alive only (always 200 if the handler runs). It still shares the event loop — busy ≠ dead. Prefer **TCP** if HTTP probes time out under catalog/compression load |
 | **Deep health** | `GET /api/monitoring/health` from an external checker | Not for kubelet `livenessProbe` / tight `readinessProbe` |
 
 Example shape (adjust thresholds to your cold-start and compression load):
@@ -186,11 +186,16 @@ readinessProbe:
   timeoutSeconds: 2
   failureThreshold: 6
 livenessProbe:
-  tcpSocket:
+  httpGet:
+    path: /livez
     port: http
   periodSeconds: 10
   timeoutSeconds: 3
   failureThreshold: 6
+  # Under event-loop stall HTTP /livez can still time out. TCP is the
+  # conservative alternative:
+  # tcpSocket:
+  #   port: http
 ```
 
 **Do not** point kubelet **liveness** at `/api/monitoring/health`. That path does real DB/monitoring work and will false-positive under load.
