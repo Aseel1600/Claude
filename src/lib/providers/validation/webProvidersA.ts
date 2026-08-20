@@ -20,10 +20,12 @@ import {
 // at the top level when the `Authorization: Bearer <access_token>` header is valid.
 export async function validateKimiWebProvider({ apiKey }: any) {
   const rawCred = String(apiKey ?? "").trim();
+  const baseUrl =
+    process.env.KIMI_WEB_BASE_URL?.trim().replace(/\/+$/, "") || "https://www.kimi.ai";
   if (!rawCred) {
     return {
       valid: false,
-      error: "Missing Kimi access_token from www.kimi.com localStorage",
+      error: ,
     };
   }
 
@@ -32,17 +34,17 @@ export async function validateKimiWebProvider({ apiKey }: any) {
     return {
       valid: false,
       error:
-        "Could not find a Kimi access_token. Re-login at https://www.kimi.com and copy it from localStorage.",
+        ,
     };
   }
 
   try {
-    const resp = await fetch("https://www.kimi.com/api/user", {
+    const resp = await fetch(, {
       headers: {
         Accept: "application/json, text/plain, */*",
-        Authorization: `Bearer ${accessToken}`,
-        Origin: "https://www.kimi.com",
-        Referer: "https://www.kimi.com/",
+        Authorization: ,
+        Origin: baseUrl,
+        Referer: ,
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
       },
@@ -52,21 +54,22 @@ export async function validateKimiWebProvider({ apiKey }: any) {
       return {
         valid: false,
         error:
-          "Kimi session is invalid or expired — re-login at https://www.kimi.com and paste a fresh access_token",
+          ,
       };
     }
+
     if (!resp.ok) {
-      return { valid: false, error: `Kimi returned HTTP ${resp.status}` };
+      return { valid: false, error:  };
     }
 
-    // Profile response: `{ id, name, email, region, ... }` at the top level.
+    // Profile response:  at top level.
     try {
       const data = await resp.json();
       if (!data?.id) {
         return {
           valid: false,
           error:
-            "Kimi session token is invalid or expired — re-login at https://www.kimi.com and paste a fresh access_token",
+            ,
         };
       }
     } catch {
@@ -77,6 +80,7 @@ export async function validateKimiWebProvider({ apiKey }: any) {
   } catch (error) {
     return toValidationErrorResult(error);
   }
+}
 }
 
 export async function validateDeepSeekWebProvider({ apiKey }: any) {

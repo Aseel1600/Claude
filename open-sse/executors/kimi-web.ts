@@ -38,8 +38,24 @@ import {
 
 export { extractKimiAccessToken };
 
-const BASE_URL = "https://www.kimi.com";
-const CHAT_URL = `${BASE_URL}/apiv2/kimi.gateway.chat.v1.ChatService/Chat`;
+const DEFAULT_BASE_URL = "https://www.kimi.ai";
+
+export function getKimiWebBaseUrl(): string {
+  const envUrl = process.env.KIMI_WEB_BASE_URL?.trim();
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  return DEFAULT_BASE_URL;
+}
+
+export function getKimiWebChatUrl(): string {
+  const envChat = process.env.KIMI_WEB_CHAT_URL?.trim();
+  if (envChat) {
+    return envChat;
+  }
+  return `${getKimiWebBaseUrl()}/apiv2/kimi.gateway.chat.v1.ChatService/Chat`;
+}
+
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
 
@@ -245,16 +261,16 @@ export function foldMessages(messages: KimiWebInputMessage[]): FoldedKimiWebMess
 
 export class KimiWebExecutor extends BaseExecutor {
   constructor() {
-    super("kimi-web", { id: "kimi-web", baseUrl: BASE_URL });
+    super("kimi-web", { id: "kimi-web", baseUrl: getKimiWebBaseUrl() });
   }
 
-  private buildKimiHeaders(accessToken: string): Record<string, string> {
+  private buildKimiHeaders(accessToken: string, baseUrl: string): Record<string, string> {
     const headers: Record<string, string> = {
       "Content-Type": "application/connect+json",
       Accept: "*/*",
       "User-Agent": USER_AGENT,
-      Origin: BASE_URL,
-      Referer: `${BASE_URL}/`,
+      Origin: baseUrl,
+      Referer: `${baseUrl}/`,
       "connect-protocol-version": "1",
     };
     if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
@@ -304,21 +320,24 @@ export class KimiWebExecutor extends BaseExecutor {
     const { body, credentials, signal, stream: wantStream } = input;
     const bodyObj = (body || {}) as Record<string, unknown>;
 
+    const effectiveBaseUrl = getKimiWebBaseUrl();
+    const chatUrl = getKimiWebChatUrl();
+
     const rawCredential = String(credentials?.accessToken || credentials?.apiKey || "").trim();
     const accessToken = extractKimiAccessToken(rawCredential);
     if (!accessToken) {
       return makeErrorResult(
         400,
-        "Missing Kimi access_token — log in at www.kimi.com and capture access_token from localStorage.",
+        `Missing Kimi access_token. Log in to ${effectiveBaseUrl} and capture access_token from localStorage.`,
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
     const modelId = String(input.model || bodyObj.model || "");
     const modelConfig = resolveModelConfig(modelId);
     if (!modelConfig) {
-      return makeErrorResult(400, `Unsupported Kimi Web model: ${modelId}`, body, CHAT_URL);
+      return makeErrorResult(400, `Unsupported Kimi Web model: ${modelId}`, body, chatUrl);
     }
 
     const tools = bodyObj.tools;
@@ -328,7 +347,7 @@ export class KimiWebExecutor extends BaseExecutor {
         400,
         "Kimi Web does not support OpenAI function tools",
         body,
-        CHAT_URL
+        chatUrl
       );
     }
     if (functions != null && (!Array.isArray(functions) || functions.length > 0)) {
@@ -336,7 +355,7 @@ export class KimiWebExecutor extends BaseExecutor {
         400,
         "Kimi Web does not support legacy function tools",
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
@@ -356,7 +375,7 @@ export class KimiWebExecutor extends BaseExecutor {
         400,
         error instanceof Error ? error.message : "Invalid Kimi Web request",
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
@@ -366,7 +385,7 @@ export class KimiWebExecutor extends BaseExecutor {
       reasoningEffort,
       contextLength
     );
-    const reqHeaders = this.buildKimiHeaders(accessToken);
+    const reqHeaders = this.buildKimiHeaders(accessToken, effectiveBaseUrl);
 
     // Connect framing wraps the JSON body in a 5-byte envelope. Without it the
     // upstream returns `invalid_argument` for every request.
@@ -374,7 +393,7 @@ export class KimiWebExecutor extends BaseExecutor {
 
     let upstream: Response;
     try {
-      upstream = await fetch(CHAT_URL, {
+      upstream = await fetch(chatUrl, {
         method: "POST",
         headers: reqHeaders,
         body: new Uint8Array(framedBody),
@@ -385,7 +404,7 @@ export class KimiWebExecutor extends BaseExecutor {
         502,
         `Kimi fetch failed: ${err instanceof Error ? err.message : "unknown"}`,
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
@@ -395,7 +414,7 @@ export class KimiWebExecutor extends BaseExecutor {
         upstream.status,
         `Kimi error: ${sanitizeErrorMessage(errText)}`,
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
@@ -507,7 +526,7 @@ export class KimiWebExecutor extends BaseExecutor {
             Connection: "keep-alive",
           },
         }),
-        url: CHAT_URL,
+        url: chatUrl,
         headers: reqHeaders,
         transformedBody: JSON.parse(reqBody),
       };
@@ -561,7 +580,7 @@ export class KimiWebExecutor extends BaseExecutor {
         502,
         `Kimi Connect protocol error: ${error instanceof Error ? error.message : "unknown"}`,
         body,
-        CHAT_URL
+        chatUrl
       );
     }
 
@@ -578,7 +597,7 @@ export class KimiWebExecutor extends BaseExecutor {
       response: new Response(JSON.stringify(completion), {
         headers: { "Content-Type": "application/json" },
       }),
-      url: CHAT_URL,
+      url: chatUrl,
       headers: reqHeaders,
       transformedBody: JSON.parse(reqBody),
     };

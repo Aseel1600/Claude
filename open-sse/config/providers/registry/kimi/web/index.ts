@@ -15,7 +15,7 @@ export const kimi_webProvider: RegistryEntry = {
   // International consumer chat — the legacy `kimi.moonshot.cn` domain now
   // redirects every non-CN visitor to www.kimi.com, which speaks a different
   // Connect-RPC API. See `open-sse/executors/kimi-web.ts` for the wire format.
-  baseUrl: "https://www.kimi.com",
+  baseUrl: "https://www.kimi.ai",
   authType: "apikey",
   authHeader: "Authorization",
   // Curated-only catalog. Agent Swarm is excluded because it requires Kimi's

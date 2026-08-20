@@ -31,7 +31,7 @@ describe("KimiWebExecutor", () => {
     assert.match(body.error.code, /HTTP_400|400/);
   });
 
-  it("execute targets www.kimi.com (not kimi.moonshot.cn)", async () => {
+  it("execute targets kimi.ai / www.kimi.com (not kimi.moonshot.cn)", async () => {
     const executor = new mod.KimiWebExecutor();
     let capturedUrl = "";
     const originalFetch = globalThis.fetch;
@@ -50,9 +50,45 @@ describe("KimiWebExecutor", () => {
         credentials: { apiKey: "opaque-kimi-access-token" },
         signal: null,
       } as never);
-      assert.ok(capturedUrl.startsWith("https://www.kimi.com/"), `got ${capturedUrl}`);
+      assert.ok(
+        capturedUrl.startsWith("https://www.kimi.ai/") ||
+          capturedUrl.startsWith("https://www.kimi.com/") ||
+          capturedUrl.startsWith("https://kimi.ai/"),
+        `got ${capturedUrl}`
+      );
       assert.ok(!capturedUrl.includes("moonshot.cn"));
     } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("honors KIMI_WEB_BASE_URL environment variable override", async () => {
+    const prevEnv = process.env.KIMI_WEB_BASE_URL;
+    process.env.KIMI_WEB_BASE_URL = "https://custom.kimi.internal";
+    const executor = new mod.KimiWebExecutor();
+    let capturedUrl = "";
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = (async (url: Parameters<typeof fetch>[0]) => {
+        capturedUrl = String(url);
+        return new Response(new ReadableStream({ start: (c) => c.close() }), {
+          status: 200,
+          headers: { "content-type": "application/connect+json" },
+        });
+      }) as typeof fetch;
+      await executor.execute({
+        model: "k2d6",
+        body: { messages: [{ role: "user", content: "hi" }] },
+        stream: false,
+        credentials: { apiKey: "opaque-kimi-access-token" },
+        signal: null,
+      } as never);
+      assert.ok(
+        capturedUrl.startsWith("https://custom.kimi.internal/"),
+        `got ${capturedUrl}`
+      );
+    } finally {
+      process.env.KIMI_WEB_BASE_URL = prevEnv;
       globalThis.fetch = originalFetch;
     }
   });
