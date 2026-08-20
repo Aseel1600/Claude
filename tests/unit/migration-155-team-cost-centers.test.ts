@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 
-const migrationPath = path.resolve("src/lib/db/migrations/154_team_cost_centers.sql");
+const migrationPath = path.resolve("src/lib/db/migrations/155_team_cost_centers.sql");
 
 test("migration 154 enforces one active billing team per API key", () => {
   const db = new Database(":memory:");

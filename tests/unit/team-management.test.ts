@@ -32,7 +32,7 @@ test.after(() => {
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
 });
 
-test("migration 154 creates team cost-center schema and immutable usage attribution", () => {
+test("migration 155 creates team cost-center schema and immutable usage attribution", () => {
   const db = core.getDbInstance();
   const tables = new Set(
     (
