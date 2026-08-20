@@ -9860,7 +9860,11 @@
     "confirmAction": "Confirm: {{action}}?",
     "actionFailed": "Action failed",
     "cancel": "Cancel",
-    "protectedAccount": "Protected account"
+    "protectedAccount": "Protected account",
+    "registrationSuccess": "Registration successful. You can now sign in.",
+    "registrationFailed": "Registration failed",
+    "register": "Register",
+    "email": "Email"
   },
   "landing": {
     "brandName": "OmniRoute",
