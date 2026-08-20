@@ -13,7 +13,7 @@
  *
  * Run manually after a build, or automatically via the `postbuild` npm hook.
  */
-import { cpSync, existsSync, mkdirSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -107,3 +107,22 @@ for (const pkg of closure) {
 console.log(
   `[colocate-standalone] ✅ optional-dep closure: ${closure.length} packages (copied ${copied})`
 );
+
+// 3) Ensure standalone package.json declares "type": "module" so Node 24 runs ESM worker bundles without warning
+const standalonePkgPath = join(STANDALONE, "package.json");
+if (existsSync(standalonePkgPath)) {
+  try {
+    const rawPkg = readFileSync(standalonePkgPath, "utf8");
+    const pkgJson = JSON.parse(rawPkg);
+    if (!pkgJson.type) {
+      pkgJson.type = "module";
+      writeFileSync(standalonePkgPath, JSON.stringify(pkgJson, null, 2) + "\n", "utf8");
+      console.log("[colocate-standalone] ✅ standalone package.json configured with type: module");
+    }
+  } catch (err) {
+    console.warn(
+      "[colocate-standalone] ⚠️  could not update standalone package.json:",
+      err.message
+    );
+  }
+}
