@@ -23,6 +23,12 @@
  */
 
 import { deleteProxyById, listProxies, updateProxy } from "@/lib/localDb";
+import { isProxyLogIncludeIps } from "@/lib/proxyLogger";
+import {
+  getRecentEgressSharingSummary,
+  type EgressSharingSummary,
+  type EgressSharingWarning,
+} from "@/lib/proxyEgress";
 import {
   createProxyDispatcher,
   clearDispatcherCache,
@@ -68,6 +74,26 @@ function getFailureMap(): Map<string, number> {
     globalThis.__proxyHealthConsecutiveFailures = new Map();
   }
   return globalThis.__proxyHealthConsecutiveFailures;
+}
+
+/**
+ * PURE: one-line anonymous egress-sharing summary for the sweep log (#10677).
+ * Counts only by default; raw shared IPs only when PROXY_LOG_INCLUDE_IPS=true
+ * (the redaction decision from #10348 — never leak IPs or account labels).
+ */
+export function formatEgressSharingSummaryLine(
+  summary: EgressSharingSummary,
+  warnings: EgressSharingWarning[],
+  includeDetails: boolean
+): string {
+  const base =
+    `${LOG_PREFIX} egress: ${summary.sharingByRotationGroup.length} rotation group(s) share an ` +
+    `egress IP (max ${summary.maxAccountsSharingOneIp} accounts)`;
+  if (!includeDetails) return base;
+  const detail = warnings
+    .map((w) => `${w.rotationGroup}: ${w.egressIp} (${w.connections.length} accounts)`)
+    .join(", ");
+  return detail ? `${base} — ${detail}` : base;
 }
 
 function isEnabled(): boolean {
@@ -162,6 +188,21 @@ async function testOneProxy(proxy: {
 }
 
 async function sweep(): Promise<void> {
+  // #10677: anonymous egress-sharing signal from persisted proxy_logs (no live
+  // probes). Logged only when sharing exists — the sweep line is a warning
+  // signal, not a heartbeat. Runs before the empty-registry early return so
+  // sharing from direct connections is still reported when no proxies are
+  // configured. Never let a DB hiccup suppress the completion line or fail the
+  // sweep itself.
+  try {
+    const { summary, warnings } = await getRecentEgressSharingSummary();
+    if (summary.sharingByRotationGroup.length > 0) {
+      console.log(formatEgressSharingSummaryLine(summary, warnings, isProxyLogIncludeIps()));
+    }
+  } catch (error) {
+    console.error(`${LOG_PREFIX} Egress summary skipped:`, error);
+  }
+
   const { items: proxies } = await listProxies({ includeSecrets: true });
   if (proxies.length === 0) return;
 
