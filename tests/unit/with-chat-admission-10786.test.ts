@@ -57,7 +57,7 @@ test("withChatAdmission invokes the handler and forwards the admitted request", 
   assert.equal(await seen.text(), body);
 });
 
-test("responses and messages route modules wrap POST with withChatAdmission before withInjectionGuard", async () => {
+test("responses admits inline before json; messages wrap withChatAdmission before withInjectionGuard", async () => {
   const { readFileSync } = await import("node:fs");
   const responses = readFileSync(new URL("../../src/app/api/v1/responses/route.ts", import.meta.url), "utf8");
   const messages = readFileSync(new URL("../../src/app/api/v1/messages/route.ts", import.meta.url), "utf8");
@@ -65,7 +65,13 @@ test("responses and messages route modules wrap POST with withChatAdmission befo
     new URL("../../src/app/api/v1/responses/[...path]/route.ts", import.meta.url),
     "utf8"
   );
-  assert.match(responses, /withChatAdmission\(\s*withInjectionGuard\(postHandler\)\s*\)/);
+  // Keepalive #10806 inlined admitChatRequest into /v1/responses. Wrapping
+  // withChatAdmission on top would double-admit. Body is reserved before json().
+  const admitAt = responses.indexOf("await admitChatRequest(request");
+  const jsonAt = responses.indexOf("parsedBody = await request.json()");
+  assert.ok(admitAt >= 0, "responses route must call admitChatRequest");
+  assert.ok(jsonAt > admitAt, "admitChatRequest must run before request.json()");
+  assert.doesNotMatch(responses, /withChatAdmission/);
   assert.match(messages, /withChatAdmission\(\s*withInjectionGuard\(postHandler\)\s*\)/);
   assert.match(catchAll, /export const POST = withChatAdmission\(postHandler\)/);
   assert.doesNotMatch(catchAll, /export async function POST/);
