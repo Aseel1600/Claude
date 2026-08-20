@@ -36,6 +36,7 @@ import {
 import { buildNoUpstreamResponseDiagnostics, buildRecoveryHint } from "./combo/pinRecovery.ts";
 import { buildTargetTimeoutRunner } from "./combo/targetTimeoutRunner.ts";
 import { recordComboRequest, recordComboShadowRequest, getComboMetrics } from "./comboMetrics.ts";
+import { qualityScoreFor } from "./routing/index.ts";
 import {
   expandComboSystemPromptIfPresent,
   resolveTargetFingerprint,
@@ -87,7 +88,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
-import { getCachedProviderConnectionById } from "../../src/lib/localDb.ts";
+import { getCachedProviderConnectionById } from "../../src/lib/db/readCache.ts";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
 /**
@@ -96,11 +97,13 @@ import { orderTargetsByEvalScores } from "./evalRouting.ts";
  * keeps the previously recorded limit (or 0 for a fresh row, meaning "no
  * budget enforced").
  */
-function resolveTargetTokenLimit(target: { connectionId?: string | null }): number | undefined {
+async function resolveTargetTokenLimit(target: {
+  connectionId?: string | null;
+}): Promise<number | undefined> {
   const connectionId = target?.connectionId;
   if (!connectionId) return undefined;
   try {
-    const connection = getCachedProviderConnectionById(connectionId);
+    const connection = await getCachedProviderConnectionById(connectionId);
     const overrides = (connection as { rateLimitOverrides?: Record<string, number> | null } | null)
       ?.rateLimitOverrides;
     const tpm = overrides?.tpm;
@@ -576,6 +579,9 @@ export async function buildAutoCandidates(
         connectionPoolSize: connectionPoolCounts.get(provider) ?? 1,
         connectionId: target.connectionId ?? undefined,
         authType,
+        // Feedback-driven quality signal (routing quality tracker). Neutral 1.0
+        // before enough samples accumulate — a cold model is never penalized.
+        quality: qualityScoreFor(provider, model),
       };
     })
   );
@@ -3082,7 +3088,7 @@ async function handleRoundRobinCombo({
           try {
             const { reserveQuota } = await import("../../src/lib/quota/quotaScheduler.ts");
             reserveQuota(target.connectionId, modelStr, attemptBody as Record<string, unknown>, {
-              tokenLimit: resolveTargetTokenLimit(target),
+              tokenLimit: await resolveTargetTokenLimit(target),
             });
           } catch {
             // best-effort only

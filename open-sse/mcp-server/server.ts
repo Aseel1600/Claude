@@ -92,6 +92,7 @@ import { getDbInstance } from "../../src/lib/db/core.ts";
 import { normalizeQuotaResponse } from "../../src/shared/contracts/quota.ts";
 import { resolveOmniRouteBaseUrl } from "../../src/shared/utils/resolveOmniRouteBaseUrl.ts";
 import { sanitizeErrorMessage } from "../utils/error.ts";
+import { mcpFetchTimeoutSignal } from "./fetchTimeout.ts";
 import { getMcpModelsCatalog } from "./catalog.ts";
 import { registerRadarCatalogTool } from "./radarCatalog.ts";
 import type { TextToolResult } from "./toolResult.ts";
@@ -213,7 +214,7 @@ export async function omniRouteFetch(path: string, options: RequestInit = {}): P
     ...getInternalServiceAuthHeaders(),
   };
 
-  const signal = options.signal || AbortSignal.timeout(10000);
+  const signal = options.signal || mcpFetchTimeoutSignal("management");
   const response = await fetch(url, { ...options, headers, signal });
 
   if (!response.ok) {
@@ -518,6 +519,10 @@ async function handleRouteRequest(args: {
     const raw = (await omniRouteFetch("/v1/chat/completions", {
       method: "POST",
       body: JSON.stringify(body),
+      // #9717: this hop waits on an upstream provider (and on auto-combo
+      // candidate probing before one is even chosen), so it must not inherit
+      // the management-read budget.
+      signal: mcpFetchTimeoutSignal("upstream"),
     })) as JsonRecord;
     const choices = toArray(raw.choices);
     const firstChoice = toRecord(choices[0]);
@@ -648,7 +653,7 @@ async function handleWebSearch(args: {
     const result = await omniRouteFetch("/v1/search", {
       method: "POST",
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
+      signal: mcpFetchTimeoutSignal("upstream"),
     });
     await logToolCall("omniroute_web_search", args, result, Date.now() - start, true);
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
@@ -681,7 +686,7 @@ async function handleWebFetch(args: {
     const result = await omniRouteFetch("/v1/web/fetch", {
       method: "POST",
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(60000),
+      signal: mcpFetchTimeoutSignal("upstream"),
     });
     await logToolCall("omniroute_web_fetch", args, result, Date.now() - start, true);
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };

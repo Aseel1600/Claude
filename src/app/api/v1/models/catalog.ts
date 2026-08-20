@@ -189,7 +189,11 @@ export async function getUnifiedModelsResponse(
       { corsHeaders, diagnosticHeaders },
       buildCatalogPayload,
       {
-        hideAutoCombos: settingsForAuth?.hideAutoCombos === true,
+        // #10831: a disabled router hides auto/* just as hideAutoCombos does, so
+        // the two collapse into one cache dimension — the resulting catalogs are
+        // identical and do not need separate entries.
+        hideAutoCombos:
+          settingsForAuth?.hideAutoCombos === true || settingsForAuth?.autoRoutingEnabled === false,
         hideNoThinkVariants: settingsForAuth?.hideNoThinkVariants === true,
       }
     );
@@ -301,7 +305,11 @@ async function buildUnifiedModelsResponseCore(
     // #9418: Opt-in filter — skip the entire auto/* synthesis loop when the operator
     // does not want built-in virtual combos advertised in the catalog. User-defined
     // combos are unaffected; routing still works for ids sent explicitly.
-    const hideAuto = settings.hideAutoCombos === true;
+    // #10831: also drop them when auto routing is switched off. Unlike
+    // hideAutoCombos — which only unadvertises ids that still route when sent
+    // explicitly — a disabled router rejects every auto/* id with a 400, so
+    // listing them offers the client a choice that cannot succeed.
+    const hideAuto = settings.hideAutoCombos === true || settings.autoRoutingEnabled === false;
     const shouldHidePaid = (providerKey: string, modelId: string, pricing?: unknown): boolean => {
       if (!hidePaid) return false;
       const provider = aliasToProviderId[providerKey] || providerKey;

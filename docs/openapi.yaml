@@ -2069,6 +2069,39 @@ paths:
           description: Created combo
 
   /api/combos/{id}:
+    get:
+      tags: [Combos]
+      summary: Get combo by ID
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      responses:
+        "200":
+          description: Combo details
+        "404":
+          description: Combo not found
+    put:
+      tags: [Combos]
+      summary: Update combo
+      description: >-
+        Partial update: the body is merged onto the stored combo, so a field left out keeps
+        its current value. An array that IS sent replaces the stored one outright.
+      parameters:
+        - $ref: "#/components/parameters/ResourceId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Updated combo
+        "400":
+          description: Invalid body, or the resulting combo fails validation
+        "404":
+          description: Combo not found
+        "409":
+          description: Name already taken, or the combo is quota-share managed
     patch:
       tags: [Combos]
       summary: Update combo
