@@ -93,19 +93,27 @@ export function buildTargetTimeoutRunner(deps: {
   handleSingleModel: HandleSingleModel;
   comboTargetTimeoutMs: number;
   log: ComboLogger;
+  resolveTargetTimeoutMs?: (
+    target?: SingleModelTarget
+  ) => Promise<number | undefined> | number | undefined;
 }): (
   b: Record<string, unknown>,
   modelStr: string,
   target?: SingleModelTarget
 ) => Promise<Response> {
-  const { handleSingleModel, comboTargetTimeoutMs, log } = deps;
+  const { handleSingleModel, comboTargetTimeoutMs, log, resolveTargetTimeoutMs } = deps;
   ensureDiagnosticListener();
   return async (
     b: Record<string, unknown>,
     modelStr: string,
     target?: SingleModelTarget
   ): Promise<Response> => {
-    if (comboTargetTimeoutMs <= 0) {
+    const resolvedTimeoutMs = await resolveTargetTimeoutMs?.(target);
+    const effectiveTimeoutMs =
+      typeof resolvedTimeoutMs === "number" && Number.isFinite(resolvedTimeoutMs)
+        ? resolvedTimeoutMs
+        : comboTargetTimeoutMs;
+    if (effectiveTimeoutMs <= 0) {
       return handleSingleModel(b, modelStr, target).catch((err) =>
         errorResponse(502, err?.message ?? "Upstream model error")
       );
@@ -120,13 +128,13 @@ export function buildTargetTimeoutRunner(deps: {
         const abortErr = new Error(COMBO_PER_MODEL_TIMEOUT_REASON);
         recordTimeoutContext({
           modelStr,
-          timeoutMs: comboTargetTimeoutMs,
+          timeoutMs: effectiveTimeoutMs,
           abortError: abortErr,
           timestamp: Date.now(),
         });
         log.warn(
           "COMBO",
-          `Model ${modelStr} exceeded ${comboTargetTimeoutMs}ms timeout — falling back`
+          `Model ${modelStr} exceeded ${effectiveTimeoutMs}ms timeout — falling back`
         );
         timeoutController.abort(abortErr);
         // HTTP 504 (not proprietary 524): this is OmniRoute's own per-target timer.
@@ -147,7 +155,7 @@ export function buildTargetTimeoutRunner(deps: {
             }
           )
         );
-      }, comboTargetTimeoutMs);
+      }, effectiveTimeoutMs);
     });
     const targetWithSignal = {
       ...(target ?? {}),
