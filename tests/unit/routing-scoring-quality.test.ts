@@ -43,9 +43,9 @@ test("DEFAULT_WEIGHTS sums to ~1 with the new quality weight", () => {
   assert.ok((DEFAULT_WEIGHTS.quality ?? 0) > 0, "quality weight must be > 0");
 });
 
-test("calculateFactors defaults missing quality to neutral 1.0", () => {
+test("calculateFactors defaults missing quality to neutral 0.5", () => {
   const factors = calculateFactors(candidate(), [candidate()], "general", () => 0.5);
-  assert.equal(factors.quality, 1);
+  assert.equal(factors.quality, 0.5);
 });
 
 test("calculateFactors clamps quality to [0,1]", () => {

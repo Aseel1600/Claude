@@ -1,41 +1,44 @@
 /**
- * Provider/Model Quality Signal — feedback-driven adaptive routing.
+ * Provider/Model Quality Signal — feedback-driven adaptive routing (v2).
  *
- * Consumes RoutingEvents and maintains a per-(provider, model) online quality
- * estimate using robust online statistics (EWMA + bounded window counts). This
- * is deliberately simpler than the existing resilience stack (circuit breaker,
- * connection cooldown, model lockout, health matrix) — those handle
- * *availability* (can we send traffic?), while this signal captures *quality*
- * (was the traffic good?). The two layers work together: a provider that keeps
- * failing will be removed by the breaker; a provider that "succeeds" but
- * consistently produces empty/malformed/short outputs gradually scores lower
- * here and is progressively de-preferenced by the auto-combo scorer.
+ * v2 separates two distinct concepts that v1 conflated:
  *
- * Signals folded into the estimate:
- *  - HTTP failures / 4xx / 5xx / connection-level errors
- *  - rate limits (429) — less harsh than a 500, but still negative
- *  - malformed responses and empty-output / finish_reason anomalies
- *  - stream interruptions and cancelled streams
- *  - latency (EWMA) vs a per-model bootstrap baseline; TTFT when available
+ *  - **Operational quality** — derived from the routing hot path (HTTP status,
+ *    connection failures, 429s, malformed responses, stream interruptions,
+ *    finish_reason anomalies, zero-output successes, latency/TTFT). A request
+ *    returning HTTP 200 is NOT necessarily high quality; operational quality
+ *    only says "the wire behaved."
+ *  - **Semantic quality** — the actual value of the generated output
+ *    (evaluator score, task success, tool-use correctness, factual accuracy).
+ *    This is ONLY ever produced by an external evaluator via
+ *    `setSemanticQuality()`. It is never manufactured from HTTP success. It is
+ *    `null` until an evaluator provides a value.
  *
- * The exported `getQualityScore()` returns a [0,1] score (1 = best) that feeds
- * the auto-combo `quality` scoring factor. Before enough samples accumulate the
- * score is neutral (1.0) so a fresh model is never penalized for lack of data.
+ * Confidence / sample awareness (v2):
+ *  - `confidence = clamp01(samples / CONFIDENCE_FULL_SAMPLES)`.
+ *  - The score returned to the scorer is blended toward the neutral midpoint
+ *    (0.5): `score = NEUTRAL + confidence * (operational - NEUTRAL)`.
+ *  - Consequences: a cold provider (0 samples) scores neutral 0.5 — it is not
+ *    unfairly penalized, but it also cannot dominate a provider with thousands
+ *    of solid observations. A provider with 7 lucky successes is pulled toward
+ *    0.5, so it never dominates purely from optimistic initialization.
  *
- * Statistics are plain arithmetic (EWMA with constant alpha, small counters) —
- * no lock-free/atomics trickery. Writes happen from the request path (sink
- * record) and reads happen from the scorer/explain path; the update math is
- * O(1) per event and safe to run under the event loop's single thread.
+ * This complements the existing resilience stack (circuit breaker, connection
+ * cooldown, model lockout, health matrix): those handle *availability* (hard
+ * exclusion); this signal handles *soft adaptive preference*.
+ *
+ * Statistics are plain arithmetic (EWMA + small counters), O(1) per event, safe
+ * under the Node event loop's single thread — no lock-free/atomic trickery.
  */
 
 /** EWMA smoothing factor (alpha). Lower = slower adaptation. */
-const QUALITY_ALPHA = 0.2;
+const OPERATIONAL_ALPHA = 0.2;
 /** Latency EWMA alpha — slower so transient spikes don't tank quality instantly. */
 const LATENCY_ALPHA = 0.1;
-/** Minimum samples before a non-neutral quality score is returned. */
-const MIN_QUALITY_SAMPLES = 5;
-/** Baseline TTFT (ms) used to normalize a latency-degradation signal. */
-const DEFAULT_TTFT_BASELINE_MS = 1500;
+/** Samples at which confidence reaches 1.0 (full confidence). */
+const CONFIDENCE_FULL_SAMPLES = 50;
+/** Neutral score used for cold/unknown providers (midpoint, neither boosted nor penalized). */
+const NEUTRAL_SCORE = 0.5;
 
 interface QualityState {
   /** EWMA of the success indicator (1 = good, 0 = bad). */
@@ -46,8 +49,14 @@ interface QualityState {
   ttftEwma: number | null;
   /** Total events observed for this (provider, model). */
   samples: number;
-  /** Count of quality-anomaly events (malformed / empty / length / cancelled). */
+  /** Count of operational-anomaly events (malformed / empty / length / interrupted). */
   anomalies: number;
+  /** Rate-limit (429) count — tracked separately for observability. */
+  rateLimited: number;
+  /** Semantic quality [0,1] from an external evaluator, if one has provided it. */
+  semantic: number | null;
+  /** Confidence [0,1] of the semantic score as reported by the evaluator. */
+  semanticConfidence: number | null;
   lastTs: number;
 }
 
@@ -60,13 +69,23 @@ function keyOf(provider: string, model: string): string {
 function getOrCreate(key: string): QualityState {
   let state = states.get(key);
   if (!state) {
-    state = { successEwma: 1, latencyEwma: 0, ttftEwma: null, samples: 0, anomalies: 0, lastTs: 0 };
+    state = {
+      successEwma: 1,
+      latencyEwma: 0,
+      ttftEwma: null,
+      samples: 0,
+      anomalies: 0,
+      rateLimited: 0,
+      semantic: null,
+      semanticConfidence: null,
+      lastTs: 0,
+    };
     states.set(key, state);
   }
   return state;
 }
 
-function isAnomalousEvent(event: {
+function isOperationalAnomaly(event: {
   outcome: string;
   finishReason: string | null;
   outputTokens: number | null | undefined;
@@ -89,7 +108,7 @@ function successIndicator(event: { outcome: string; status: number | null }): nu
   return 0;
 }
 
-/** Record one routing event into the quality estimate. O(1). */
+/** Record one operational routing event into the quality estimate. O(1). */
 export function recordQualityEvent(event: {
   provider: string;
   model: string;
@@ -106,7 +125,7 @@ export function recordQualityEvent(event: {
 
   state.samples += 1;
   if (
-    isAnomalousEvent({
+    isOperationalAnomaly({
       outcome: event.outcome,
       finishReason: event.finishReason ?? null,
       outputTokens: event.outputTokens ?? undefined,
@@ -114,13 +133,14 @@ export function recordQualityEvent(event: {
   ) {
     state.anomalies += 1;
   }
+  if (event.outcome === "rate_limited" || event.status === 429) state.rateLimited += 1;
 
   const indicator = successIndicator({ outcome: event.outcome, status: event.status });
   // First sample seeds the EWMA directly (no lag toward a default).
   state.successEwma =
     state.samples === 1
       ? indicator
-      : state.successEwma + QUALITY_ALPHA * (indicator - state.successEwma);
+      : state.successEwma + OPERATIONAL_ALPHA * (indicator - state.successEwma);
 
   const latency = Number.isFinite(event.latencyMs) && event.latencyMs >= 0 ? event.latencyMs : 0;
   state.latencyEwma =
@@ -137,68 +157,149 @@ export function recordQualityEvent(event: {
   state.lastTs = event.ts ?? Date.now();
 }
 
-export interface QualityView {
+/**
+ * Evaluator seam: record a semantic quality score for a (provider, model).
+ * Semantic quality is ONLY ever produced by an evaluator (deterministic scorer,
+ * local LLM judge, HTTP/Future-AGI adapter, WASM). It is never manufactured from
+ * operational/HTP success. `confidence` should reflect the evaluator's certainty
+ * (e.g. number of eval cases backing the score).
+ */
+export function setSemanticQuality(
+  provider: string,
+  model: string,
+  score: number,
+  confidence: number
+): void {
+  const state = getOrCreate(keyOf(provider || "unknown", model || "unknown"));
+  state.semantic = Math.max(0, Math.min(1, Number.isFinite(score) ? score : 0.5));
+  state.semanticConfidence = Math.max(0, Math.min(1, Number.isFinite(confidence) ? confidence : 0));
+}
+
+export interface ProviderQuality {
   provider: string;
   model: string;
-  score: number;
+  /** Operational score [0,1] (wire behavior) — confidence-adjusted, neutral 0.5 cold. */
+  operational: number;
+  /** Semantic score [0,1] from an evaluator, or null when none has been provided. */
+  semantic: number | null;
+  /** Confidence [0,1] of the operational score (sample-count based). */
+  confidence: number;
+  /** Confidence [0,1] of the semantic score, when an evaluator reported one. */
+  semanticConfidence: number | null;
+  samples: number;
+  anomalies: number;
+  rateLimited: number;
   successEwma: number;
   latencyEwmaMs: number;
   ttftEwmaMs: number | null;
-  samples: number;
-  anomalies: number;
-  confidence: number;
+  /** Milliseconds since the last observed event; null when never observed. */
+  recencyMs: number | null;
   lastTs: number;
 }
 
-/**
- * Current quality score [0,1] for a (provider, model). Neutral (1.0) below the
- * warmup threshold so cold models are never penalized. The score combines the
- * success EWMA with a latency-degradation penalty and an anomaly penalty.
- */
-export function getQualityScore(provider: string, model: string): number {
-  const state = states.get(keyOf(provider, model));
-  if (!state || state.samples === 0) return 1;
-  if (state.samples < MIN_QUALITY_SAMPLES) return 1;
-
+/** Raw operational score before the confidence blend (pure EWMA + penalties). */
+function rawOperationalScore(state: QualityState): number {
   let score = state.successEwma;
 
-  // Latency degradation: if the latency EWMA is high (relative to a sane
-  // baseline), blend in a penalty. We use a soft ceiling so very slow models
-  // aren't zeroed out — just discounted.
+  // Latency degradation: soft penalty capped at 0.2 so slow models are discounted, not zeroed.
   const latencyPenalty = Math.min(0.2, state.latencyEwma / 60_000);
   score -= latencyPenalty;
 
   // Anomaly penalty: capped so a few bad apples don't nuke a provider entirely.
-  const anomalyRate = state.anomalies / state.samples;
+  const anomalyRate = state.anomalies / Math.max(1, state.samples);
   score -= Math.min(0.25, anomalyRate * 0.5);
 
   return Math.max(0, Math.min(1, score));
 }
 
-/** Full snapshot of the tracker for explainability / debugging. */
-export function getQualitySnapshot(limit = 200): QualityView[] {
-  const views: QualityView[] = [];
-  for (const [key, state] of states) {
+function confidenceOf(samples: number): number {
+  return Math.max(0, Math.min(1, samples / CONFIDENCE_FULL_SAMPLES));
+}
+
+/**
+ * Operational quality for a (provider, model), confidence-adjusted and blended
+ * toward the neutral midpoint. See module docs for the cold-start guarantee.
+ */
+export function getProviderQuality(provider: string, model: string): ProviderQuality {
+  const state = states.get(keyOf(provider, model));
+  const now = Date.now();
+  if (!state || state.samples === 0) {
+    return {
+      provider,
+      model,
+      operational: NEUTRAL_SCORE,
+      semantic: null,
+      confidence: 0,
+      semanticConfidence: null,
+      samples: 0,
+      anomalies: 0,
+      rateLimited: 0,
+      successEwma: 1,
+      latencyEwmaMs: 0,
+      ttftEwmaMs: null,
+      recencyMs: null,
+      lastTs: 0,
+    };
+  }
+  const confidence = confidenceOf(state.samples);
+  const raw = rawOperationalScore(state);
+  const operational = NEUTRAL_SCORE + confidence * (raw - NEUTRAL_SCORE);
+  return {
+    provider,
+    model,
+    operational,
+    semantic: state.semantic,
+    confidence,
+    semanticConfidence: state.semanticConfidence,
+    samples: state.samples,
+    anomalies: state.anomalies,
+    rateLimited: state.rateLimited,
+    successEwma: state.successEwma,
+    latencyEwmaMs: state.latencyEwma,
+    ttftEwmaMs: state.ttftEwma,
+    recencyMs: state.samples > 0 ? Math.max(0, now - state.lastTs) : null,
+    lastTs: state.lastTs,
+  };
+}
+
+/**
+ * Backward-compatible scalar used by the auto-combo scorer's `quality` factor.
+ * Returns the confidence-adjusted operational score (neutral 0.5 when cold).
+ */
+export function getQualityScore(provider: string, model: string): number {
+  return getProviderQuality(provider, model).operational;
+}
+
+/** Full snapshot of the tracker for explainability / dashboard. */
+export function getQualitySnapshot(limit = 200): ProviderQuality[] {
+  const views: ProviderQuality[] = [];
+  for (const [key] of states) {
     const slash = key.indexOf("/");
     const provider = slash >= 0 ? key.slice(0, slash) : key;
     const model = slash >= 0 ? key.slice(slash + 1) : key;
-    const confidence =
-      state.samples >= MIN_QUALITY_SAMPLES ? 1 : state.samples / MIN_QUALITY_SAMPLES;
-    views.push({
-      provider,
-      model,
-      score: getQualityScore(provider, model),
-      successEwma: state.successEwma,
-      latencyEwmaMs: state.latencyEwma,
-      ttftEwmaMs: state.ttftEwma,
-      samples: state.samples,
-      anomalies: state.anomalies,
-      confidence,
-      lastTs: state.lastTs,
-    });
+    views.push(getProviderQuality(provider, model));
   }
   views.sort((a, b) => b.lastTs - a.lastTs);
   return views.slice(0, limit);
+}
+
+/**
+ * Classify a provider/model quality state for explainability / dashboard.
+ * This reflects the SOFT adaptive signal — it says nothing about hard exclusion
+ * (circuit open / quota / auth), which is owned by the resilience stack.
+ *
+ *  - "healthy":  high confidence + operational quality well above neutral
+ *  - "degraded": operational quality at or below neutral (soft penalty active)
+ *  - "warming":  low confidence (few samples) — treated neutrally
+ *  - "cold":     never observed — neutral, cannot dominate
+ */
+export type QualityClassification = "healthy" | "degraded" | "warming" | "cold";
+
+export function classifyQuality(q: ProviderQuality): QualityClassification {
+  if (q.samples === 0) return "cold";
+  if (q.confidence < 0.5) return "warming";
+  if (q.operational < 0.5) return "degraded";
+  return "healthy";
 }
 
 /** Test/ops hook: reset all quality state. */
@@ -207,6 +308,6 @@ export function resetQualityTracker(): void {
 }
 
 export const QUALITY_WELL_KNOWN = {
-  MIN_QUALITY_SAMPLES,
-  DEFAULT_TTFT_BASELINE_MS,
+  CONFIDENCE_FULL_SAMPLES,
+  NEUTRAL_SCORE,
 } as const;

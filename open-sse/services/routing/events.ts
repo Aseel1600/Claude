@@ -52,7 +52,16 @@ export interface RoutingEvent {
   /** Combo strategy (e.g. "auto") or "direct" when not routed through a combo. */
   strategy: string;
   latencyMs: number;
+  /**
+   * Time-to-first-forwarded-SSE-chunk in ms (NOT token-level TTFT), or null
+   * for non-streaming requests / when nothing was forwarded.
+   */
   ttftMs: number | null;
+  /**
+   * Mean inter-chunk gap in ms — a chunk-latency proxy for inter-token latency,
+   * only meaningful for streaming requests. Null otherwise.
+   */
+  itlMs: number | null;
   inputTokens: number | null;
   outputTokens: number | null;
   cost: number | null;
@@ -165,6 +174,7 @@ export function createRoutingEvent(input: {
   strategy?: string | null;
   latencyMs: number;
   ttftMs?: number | null;
+  itlMs?: number | null;
   inputTokens?: number | null;
   outputTokens?: number | null;
   cost?: number | null;
@@ -183,6 +193,7 @@ export function createRoutingEvent(input: {
     strategy: input.strategy ?? "direct",
     latencyMs: Math.max(0, input.latencyMs || 0),
     ttftMs: input.ttftMs ?? null,
+    itlMs: input.itlMs ?? null,
     inputTokens: input.inputTokens ?? null,
     outputTokens: input.outputTokens ?? null,
     cost: input.cost ?? null,

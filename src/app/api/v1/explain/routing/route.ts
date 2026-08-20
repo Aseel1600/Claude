@@ -24,6 +24,7 @@ import {
   routingQualitySnapshot,
   routingOtelStats,
   initRoutingObservability,
+  classifyQuality,
 } from "@omniroute/open-sse/services/routing/index.ts";
 
 export async function OPTIONS() {
@@ -50,13 +51,17 @@ export async function GET(request: Request) {
       Math.max(1, Number(new URL(request.url).searchParams.get("limit")) || 50)
     );
     const { sinks, otelEnabled } = initRoutingObservability();
+    const quality = routingQualitySnapshot(limit).map((q) => ({
+      ...q,
+      classification: classifyQuality(q),
+    }));
     return NextResponse.json(
       {
         object: "routing_explain",
         sinks,
         otelEnabled,
         events: recentRoutingEvents(limit),
-        quality: routingQualitySnapshot(limit),
+        quality,
         otel: routingOtelStats(),
       },
       { headers: { "Cache-Control": "no-store" } }

@@ -123,62 +123,109 @@ Default sinks:
 - `OtlpHttpsEventSink` — optional, enabled only when `OMNIROUTE_OTEL_ENDPOINT`
   (or `OTEL_EXPORTER_OTLP_ENDPOINT`) is set.
 
-### Measured overhead
+### Measured overhead (honest comparison)
 
-`npm run bench:routing-events` on this workstation:
+`npm run bench:routing-events` on this workstation (100k iterations; sub-µs ops
+measured as aggregate µs/op because per-op percentiles are below
+`performance.now()` timer resolution):
 
-| Operation                          | Cost        |
-| ---------------------------------- | ----------- |
-| `dispatchRoutingEvent` (2 sinks)   | ~0.09 µs/op |
-| `recordQualityEvent` (EWMA)        | ~0.07 µs/op |
-| `MemoryRoutingEventStore.insert`   | ~0.03 µs/op |
-| `calculateScore` w/ quality factor | ~0.04 µs/op |
+| Scenario                          | µs/op  | ops/s  |
+| --------------------------------- | ------ | ------ |
+| baseline (scoring only)           | ~0.045 | ~22 M  |
+| baseline + RoutingEvent (2 sinks) | ~0.168 | ~5.9 M |
+| baseline + event + OTel enqueue   | ~0.163 | ~6.1 M |
+| concurrent (8 interleaved bursts) | ~0.18  | —      |
 
-Total added hot-path cost is **~0.2 µs per request** — negligible against a
-single upstream LLM round-trip.
+The event-dispatch delta over baseline scoring is ~0.12 µs/request; the OTel sink
+only enqueues (O(1) buffer push), adding nothing measurable. These numbers are
+machine-specific and relative — not a production guarantee. The v1 "~0.2 µs"
+figure was an aggregate estimate; this methodology separates the scoring baseline
+from the event-dispatch cost.
 
 ## 3. Quality Signal (feedback-driven provider state)
 
 Files: `open-sse/services/routing/quality.ts`
 
-Per-(provider, model) EWMA state:
+v2 separates **operational** from **semantic** quality:
+
+- **Operational** — derived from the routing hot path (HTTP 4xx/5xx, connection
+  failures, 429s, malformed responses, stream interruptions, `finish_reason=length`,
+  zero-output successes, latency/TTFT EWMA). A 200 is NOT treated as semantic
+  quality.
+- **Semantic** — the actual value of the generated output. ONLY ever produced by
+  an evaluator via `setSemanticQuality()`. It is `null` until one provides it and
+  never leaks into the operational score.
+
+Per-(provider, model) state (EWMA + bounded counters):
 
 - `successEwma` — EWMA (α=0.2) of outcome success.
 - `latencyEwma` / `ttftEwma` — EWMA of latency (α=0.1).
-- `samples`, `anomalies` — bounded counters.
+- `samples`, `anomalies`, `rateLimited`, `semantic`, `semanticConfidence`.
+- `recencyMs` — how recently the model was last observed.
 
-Signals folded in:
+### Confidence / sample awareness
 
-- HTTP 4xx/5xx and connection-level failures (score → 0)
-- 429 rate-limits (transient, score → 0.5, not a hard failure)
-- malformed responses and stream interruptions (anomaly penalty)
-- `finish_reason = "length"` (truncated output) — anomaly
-- zero-output "successes" (`output_tokens = 0`) — anomaly
-- latency vs a soft 60 s ceiling (capped 0.2 penalty)
+`confidence = clamp01(samples / 50)`, and the score returned to the scorer is
+blended toward the neutral midpoint:
 
-`getQualityScore(provider, model)` returns `[0,1]`; before `MIN_QUALITY_SAMPLES`
-(5) events it returns neutral `1.0` so cold models are never penalized.
+```
+score = 0.5 + confidence * (operational - 0.5)
+```
 
-This feeds the auto-combo scorer as the new `quality` scoring factor:
+Consequences (verified by tests):
 
-- `ScoringFactors.quality`, `ScoringWeights.quality` added in
+- A cold provider (0 samples) scores **0.5** — not unfairly penalized, but
+  unable to dominate a provider with thousands of solid observations.
+- A provider with 7 lucky successes is pulled toward 0.5 (never dominates from
+  optimistic initialization).
+- A provider with 50+ samples converges to its true operational score.
+- Degradation and recovery are gradual (EWMA), and one isolated failure does
+  not destroy a healthy provider.
+
+`ProviderQuality` exposes `{ operational, semantic, confidence, samples, anomalies,
+rateLimited, successEwma, latencyEwmaMs, ttftEwmaMs, recencyMs }`.
+
+This feeds the auto-combo scorer as the `quality` scoring factor:
+
+- `ScoringFactors.quality` / `ScoringWeights.quality` in
   `open-sse/services/autoCombo/scoring.ts`.
 - `DEFAULT_WEIGHTS`: `health` 0.1905 → 0.1605, `quality` 0.03. Sum stays 1.0.
 - `buildAutoCandidates` populates `candidate.quality` from the tracker; candidates
-  without data default to neutral 1.0.
+  without data default to neutral **0.5** (a cold candidate is neither boosted nor
+  penalized).
 
 The closed loop:
 
 ```
 RoutingEvent → QualityTracker → getQualityScore → auto-combo quality factor
-      ↑                                                      │
+      ↑                                                    │
       └────── request outcome (handleChatCore) ←────────────┘
 ```
 
-A model that "succeeds" but keeps returning truncated/empty/malformed output
-gradually scores lower and is de-preferenced — while the circuit breaker still
-handles hard availability failures. Both layers work together; neither replaces
-the other.
+### Hard exclusion vs soft penalty
+
+The quality signal is a **soft adaptive preference** only. Hard exclusion stays
+with the existing resilience stack: circuit breaker OPEN, quota exhausted,
+auth failure, model lockout — none of these are affected by the quality score.
+A provider whose quality score dips temporarily is de-preferenced, never
+hard-disabled.
+
+## 3b. Canonical stream timing (TTFT / ITL)
+
+Files: `open-sse/utils/streamTiming.ts`
+
+`createStreamTiming()` is the single instrumentation seam for the streaming path,
+wired into `createSSEStream` (open-sse/utils/stream.ts):
+
+- `markByte()` — first upstream chunk received.
+- `markForward()` — first chunk forwarded to the client (used for TTFT).
+- `markInterrupted()` — stream timeout/abort/error before a clean finish.
+- `ttft()` = first-forwarded-SSE-chunk latency. **This is NOT token-level TTFT** —
+  a single SSE chunk may carry zero/one/many tokens. Documented precisely.
+- `avgItlMs()` = mean inter-chunk gap (a chunk-latency proxy for ITL).
+
+TTFT/ITL/interrupted flow into the `RoutingEvent` (`ttftMs`, `itlMs`) and are
+exported as GenAI/OmniRoute span attributes by the OTel sink.
 
 ## 4. OpenTelemetry / GenAI observability
 
@@ -228,8 +275,8 @@ fully with the evaluator absent.
 ## 7. Final architectural review
 
 1. **What remains on the synchronous hot path?** Routing/scoring, guardrail
-   pre-checks, cache lookup, and one `emitRoutingEvent` fan-out (~0.2 µs) to
-   in-memory sinks.
+   pre-checks, cache lookup, and one `emitRoutingEvent` fan-out (~0.12 µs over
+   baseline scoring) to in-memory sinks.
 2. **What moved to asynchronous processing?** OTel export (timer + fetch),
    `call_logs`/usage persistence, semantic-cache writes, quality is in-memory
    and O(1) (no async needed).
@@ -281,3 +328,23 @@ fully with the evaluator absent.
   default, quality factor ranking.
 - `tests/unit/routing-otel.test.ts` — enable gating, GenAI span payload, async
   flush, drop-under-overload.
+- `tests/unit/routing-events-concurrency.test.ts` — thousands of events, ring
+  buffer boundedness, throwing-sink isolation, interleaved async bursts,
+  reset-during-inserts.
+- `tests/unit/routing-adaptive-e2e.test.ts` — deterministic end-to-end loop via
+  the real `scoreAutoTargets` scorer: healthy → degrade → recover → blip, plus
+  cold-start and lucky-cold-provider scenarios.
+- `tests/unit/stream-timing.test.ts` — TTFT (first-forwarded-chunk), ITL,
+  first-byte vs first-forward, interruption, malformed/empty chunk safety.
+
+## 10. Pre-existing issues status (Phase 18)
+
+| Issue                                                 | Status                    | Notes                                                                                                                                                                                                                                                |
+| ----------------------------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omniglyph` export mismatch                           | **FIXED (environmental)** | `node_modules` was out of sync with `package-lock.json` (installed 1.3.1 vs locked 1.4.0). Running `npm install omniglyph@1.4.0` restored the locked version; type errors dropped to 0. Manifests unchanged.                                         |
+| Stale `getKnownContextOverflow` tests                 | **KNOWN — not fixed**     | `combo-context-overflow-compression-probe.test.ts` imports a function that no longer exists in `open-sse/services/combo.ts` (only comments reference it). Fixing requires re-implementing or re-writing those tests — unrelated architectural churn. |
+| `combo-runtime-unit-concurrency.test.ts` DB isolation | **KNOWN — not fixed**     | Test-harness SQLite-isolation assertion fails when run directly; fails identically on the base branch.                                                                                                                                               |
+| i18n `llm.txt` drift                                  | **KNOWN — not fixed**     | `docs/i18n/*/llm.txt` differ from root; pre-existing, blocks the docs-sync pre-commit gate.                                                                                                                                                          |
+
+Environmental vs code issues are kept distinct; no unrelated failures are hidden
+behind changed test filters.

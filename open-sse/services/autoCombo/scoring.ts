@@ -160,8 +160,9 @@ export function calculateScore(factors: ScoringFactors, weights: ScoringWeights)
       (weights.sessionAvailability ?? 0) * (factors.sessionAvailability ?? 1) +
       (weights.resetWindowAffinity ?? 0) * factors.resetWindowAffinity +
       (weights.connectionDensity ?? 0) * factors.connectionDensity +
-      // Missing quality factor → neutral 1.0 (a cold candidate is never penalized).
-      (weights.quality ?? 0) * (factors.quality ?? 1)
+      // Missing quality factor → neutral 0.5: a cold candidate is neither boosted
+      // (which would let optimistic initialization dominate) nor penalized.
+      (weights.quality ?? 0) * (factors.quality ?? 0.5)
   );
 }
 
@@ -288,8 +289,9 @@ export function calculateFactors(
     sessionAvailability: clamp01(candidate.sessionAvailability ?? 1),
     resetWindowAffinity: clamp01(candidate.resetWindowAffinity ?? 0.5),
     connectionDensity: clamp01(((candidate.connectionPoolSize ?? 1) - 1) / 10),
-    // Feedback quality signal; neutral 1.0 when the tracker has no data yet.
-    quality: clamp01(candidate.quality ?? 1),
+    // Feedback quality signal; neutral 0.5 when the tracker has no data yet
+    // (cold providers are neither boosted nor unfairly penalized).
+    quality: clamp01(candidate.quality ?? 0.5),
   };
 }
 

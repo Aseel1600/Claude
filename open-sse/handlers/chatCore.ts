@@ -5283,6 +5283,8 @@ export async function handleChatCore({
     error: streamError,
     errorCode: streamErrorCode,
     ttft,
+    itlMs: streamItlMs,
+    interrupted: streamInterrupted,
   }) => {
     const normalizedStreamStatus = streamStatus || 200;
     if (streamCompletionRecorded) return;
@@ -5396,6 +5398,10 @@ export async function handleChatCore({
         strategy: isCombo ? (comboStrategy ?? "combo") : "direct",
         latencyMs: Date.now() - startTime,
         ttftMs: typeof ttft === "number" && Number.isFinite(ttft) && ttft >= 0 ? ttft : null,
+        itlMs:
+          typeof streamItlMs === "number" && Number.isFinite(streamItlMs) && streamItlMs >= 0
+            ? streamItlMs
+            : null,
         inputTokens:
           streamUsage && typeof streamUsage === "object"
             ? (() => {

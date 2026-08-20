@@ -67,6 +67,8 @@ export class OtlpHttpsEventSink {
   private readonly serviceName: string;
   private buffer: RoutingEventLike[] = [];
   private dropped = 0;
+  private consecutiveFailures = 0;
+  private flushedBatches = 0;
   private timer: ReturnType<typeof setInterval> | null = null;
   private flushing = false;
 
@@ -86,8 +88,18 @@ export class OtlpHttpsEventSink {
     this.buffer.push(event);
   }
 
-  getStats(): { buffered: number; dropped: number } {
-    return { buffered: this.buffer.length, dropped: this.dropped };
+  getStats(): {
+    buffered: number;
+    dropped: number;
+    consecutiveFailures: number;
+    flushedBatches: number;
+  } {
+    return {
+      buffered: this.buffer.length,
+      dropped: this.dropped,
+      consecutiveFailures: this.consecutiveFailures,
+      flushedBatches: this.flushedBatches,
+    };
   }
 
   stop(): void {
@@ -111,20 +123,33 @@ export class OtlpHttpsEventSink {
     this.flushing = true;
     const batch = this.buffer.splice(0, this.maxBatchSize);
     try {
-      await fetch(this.endpoint, {
+      const res = await fetch(this.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(buildOtlpTracesPayload(batch, this.serviceName)),
         signal: AbortSignal.timeout(3000),
       });
+      if (!res.ok) throw new Error(`OTLP collector returned ${res.status}`);
+      this.consecutiveFailures = 0;
+      this.flushedBatches += 1;
     } catch {
-      // Telemetry delivery is best-effort; re-buffer the batch for a later attempt.
-      this.buffer.unshift(...batch);
+      // Telemetry delivery is best-effort. Re-buffer for a retry, but stop after
+      // MAX_CONSECUTIVE_FAILURES so a permanently-unavailable collector cannot
+      // grow the buffer without bound. The dropped counter reflects the loss.
+      this.consecutiveFailures += 1;
+      if (this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+        this.dropped += batch.length;
+      } else {
+        this.buffer.unshift(...batch);
+      }
     } finally {
       this.flushing = false;
     }
   }
 }
+
+/** Drop a batch (and count it) after this many consecutive collector failures. */
+const MAX_CONSECUTIVE_FAILURES = 5;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RoutingEventLike = any;
@@ -182,6 +207,7 @@ function toSpan(event: RoutingEventLike): OtelSpan {
     attr("omniroute.routing.outcome", event.outcome),
     attr("omniroute.routing.status", event.status ?? 0),
     attr("omniroute.routing.ttft_ms", event.ttftMs ?? -1),
+    attr("omniroute.routing.itl_ms", event.itlMs ?? -1),
     attr("omniroute.routing.retries", event.retries ?? 0),
     attr("omniroute.routing.fallback_used", event.fallbackUsed ? 1 : 0),
     attr("gen_ai.client.token.usage.input_tokens", event.inputTokens ?? 0),

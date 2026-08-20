@@ -24,10 +24,13 @@ import {
   type RoutingEventSink,
 } from "./events.ts";
 import {
+  getProviderQuality,
   getQualityScore,
   getQualitySnapshot,
   recordQualityEvent,
   resetQualityTracker,
+  setSemanticQuality,
+  type ProviderQuality,
 } from "./quality.ts";
 import { isRoutingOtelEnabled, OtlpHttpsEventSink } from "./otel.ts";
 
@@ -84,9 +87,23 @@ export function qualityScoreFor(provider: string, model: string): number {
   return getQualityScore(provider, model);
 }
 
+/** Full per-provider/model quality view (operational + semantic + confidence). */
+export function providerQualityFor(provider: string, model: string): ProviderQuality {
+  return getProviderQuality(provider, model);
+}
+
+/**
+ * Evaluator seam: record a semantic quality score. NEVER call this from the
+ * request hot path with HTTP-derived signals — semantic quality is reserved for
+ * actual evaluation (task success, tool-use correctness, groundedness).
+ */
+export { setSemanticQuality } from "./quality.ts";
+
 export function routingQualitySnapshot(limit = 200): ReturnType<typeof getQualitySnapshot> {
   return getQualitySnapshot(limit);
 }
+
+export { classifyQuality, type QualityClassification } from "./quality.ts";
 
 export function recentRoutingEvents(limit = 50): RoutingEvent[] {
   return memoryStore.recent(limit);
