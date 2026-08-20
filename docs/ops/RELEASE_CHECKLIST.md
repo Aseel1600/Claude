@@ -252,10 +252,10 @@ Do NOT run `npm run build` followed by a separate `npm run build:cli` for deploy
   gh release create vX.Y.Z --notes-from-tag
   ```
 
-> **Production (`oracle-vps`) is deployed via the blue-green pipeline** — build with the 20g
-> builder from the `vps-build-vb` fork branch, promote with `vb-swap.sh`, roll back with
-> `vb-rollback.sh`, refresh the standby with `vb-standby.sh`, auto-switch via the
-> `omniroute-bluegreen.service` watcher (see `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The
+> **Production (`oracle-vps`) is deployed via the canary pipeline** — build with the 20g
+> builder from the `vps-build-vb` fork branch, tag the candidate `omniroute:canary-<sha>-<date>`,
+> qualify it with the pre-deploy bundle gate + chat canary, then promote; roll back via
+> `omniroute:rollback-canary` (see `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The
 > rsync flow below applies to the **other** VPS targets (homologation `192.168.0.15`, Akamai `69.164.221.35`).
 
 ### Deploy

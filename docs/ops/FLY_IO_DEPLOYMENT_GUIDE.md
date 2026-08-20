@@ -327,7 +327,7 @@ git describe --tags --always
 git show --no-patch --oneline v3.4.7
 ```
 
-> Note: The current project version is `v3.8.50` (OmniRoute production currently runs on Oracle VPS blue-green — `docs/ops/ORACLE_VPS_OPERATIONS_KB.md`). The `v3.4.7` references below are kept as historical examples only. For actual releases, use `:latest` or the current version tag (e.g. `:v3.8.50`).
+> Note: The current project version is `v3.8.50` (OmniRoute production currently runs on Oracle VPS via the canary deployment pipeline — `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The `v3.4.7` references below are kept as historical examples only. For actual releases, use `:latest` or the current version tag (e.g. `:v3.8.50`).
 
 If you want to merge the latest upstream `main` while forcefully keeping your fork's `fly.toml`, follow this workflow:
 

@@ -23,7 +23,7 @@ import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const BIN = path.join(ROOT, "bin");
-const REPLAY_GATE = path.join(ROOT, "scripts", "ops", "bluegreen-replay-gate.sh");
+const REPLAY_GATE = path.join(ROOT, "scripts", "ops", "replay-gate.sh");
 const SCRIPTS = [
   "rollback.sh",
   "snapshot-data.sh",
@@ -90,7 +90,7 @@ async function runReplayGate(
   return { status, stdout, stderr, requests };
 }
 
-describe("blue-green replay gate", () => {
+describe("deployment replay gate", () => {
   it("is executable strict bash and passes syntax check", () => {
     assert.ok(fs.statSync(REPLAY_GATE).mode & 0o111);
     const body = fs.readFileSync(REPLAY_GATE, "utf8");

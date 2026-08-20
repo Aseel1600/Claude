@@ -64,10 +64,11 @@ docker image inspect omniroute:home-wsl \
 
 The WSL/Docker Desktop cap protects the PC; Compose limits protect the running service. Review `docker system df` before any manual cache cleanup. Do not run broad prune commands without checking rollback images first.
 
-> **2026-08-07 onward: oracle-vps production deploys via the blue-green pipeline** — build with
-> the 20g builder from the `vps-build-vb` fork branch, promote with `vb-swap.sh`, roll back with
-> `vb-rollback.sh`, refresh the standby with `vb-standby.sh`, auto-switch via the
-> `omniroute-bluegreen.service` watcher (see `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The wrapper
+> **2026-08-19 onward: oracle-vps production deploys via the canary pipeline** — build with
+> the 20g builder from the `vps-build-vb` fork branch, tag the candidate
+> `omniroute:canary-<sha>-<date>`, qualify it with the pre-deploy bundle gate + chat canary,
+> then promote; roll back via `omniroute:rollback-canary` (see
+> `docs/ops/ORACLE_VPS_OPERATIONS_KB.md` §16). The wrapper
 > flow below is the legacy path, retained for other hosts.
 
 ## Deployment
