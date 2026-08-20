@@ -619,11 +619,11 @@ export function createGetClient(config: {
   }> | null = null;
   let exitHookInstalled = false;
 
-  const installExitHook = (client: { close: () => Promise<void> }): void => {
+  const installExitHook = (client: { stop: () => Promise<void> }): void => {
     if (!exitHookInstalled) {
       exitHookInstalled = true;
       process.on("exit", () => {
-        void client.close();
+        void client.stop();
       });
     }
   };
@@ -637,7 +637,7 @@ export function createGetClient(config: {
           new (config: Record<string, unknown>): {
             start: () => Promise<void>;
             request: (url: string, opts: Record<string, unknown>) => Promise<TlsResponseLike>;
-            close: () => Promise<void>;
+            stop: () => Promise<void>;
           };
         };
         try {
@@ -796,11 +796,12 @@ export function createTlsClientModule(config: TlsClientConfig): TlsClientModule 
       const r = await requestPromise.catch(
         (e) => ({ status: 502, headers: {}, body: String(e) }) as TlsResponseLike
       );
+      const fileText = await readTextFileIfExists(path);
       await cleanupFn(path);
       return {
         status: r.status,
         headers: toHeaders(r.headers),
-        text: r.body,
+        text: r.body || fileText,
         body: null,
       };
     }
