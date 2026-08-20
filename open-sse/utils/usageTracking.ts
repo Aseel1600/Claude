@@ -449,11 +449,12 @@ function resolveUsageFormat(usage: UsageLike | null | undefined, targetFormat: s
 
 function getReportedInputTokens(usage: UsageLike, format: string): number {
   if (format === FORMATS.CLAUDE) {
-    return (
+    const claudeInput =
       tokenNumber(usage.input_tokens) +
       tokenNumber(usage.cache_read_input_tokens) +
-      tokenNumber(usage.cache_creation_input_tokens)
-    );
+      tokenNumber(usage.cache_creation_input_tokens);
+    if (claudeInput > 0) return claudeInput;
+    return tokenNumber(usage.prompt_tokens);
   }
   if (format === FORMATS.GEMINI) {
     return tokenNumber(usage.promptTokenCount);

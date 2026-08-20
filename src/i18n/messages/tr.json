@@ -3718,7 +3718,11 @@
     "errorDescription": "Şu anda kombinasyon verilerini yükleyemedik. Bağlantınızı kontrol edin ve tekrar deneyin.",
     "errorId": "Hata Kimliği: {id}",
     "errorRetry": "Tekrar Dene",
-    "comboLabel": "Kombinasyon"
+    "comboLabel": "Kombinasyon",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "Maliyetler",
@@ -6216,7 +6220,8 @@
       "kiro": "Free tier: 50 credits/month (~25K–100K tokens). ⚠️ Kiro ToS prohibits third-party proxy/harness use.",
       "codex": "Mevcut OAuth akışı ile OpenAI Codex'i bağlayın.",
       "qwen": "Mevcut OAuth akışı ile Qwen Code'u bağlayın.",
-      "github-models": "github.com/settings/tokens adresinde 'models: read' kapsamına sahip bir GitHub PAT oluşturun"
+      "github-models": "github.com/settings/tokens adresinde 'models: read' kapsamına sahip bir GitHub PAT oluşturun",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} sağlayıcıya özgü model kimliklerini kabul eder. /models'den içe aktarın veya yönlendirme için özel kimlikler ekleyin.",
     "bedrockModelsDescription": "Amazon Bedrock modelleri AWS bölgesi kapsamındadır. /models'den içe aktarın veya seçilen bölgede etkin olan Bedrock model kimliklerini ekleyin.",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "Kısa ve öz CJK (文言)",
         "description": "Klasik Çince ultra kısa ve öz stil (yalnızca Çince için kullanılabilir)."
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "Bekleme Süresini Bekleyin",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "Sağlık",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Ana Bilgisayar",
-    "qdrantCollection": "Koleksiyon"
+    "qdrantCollection": "Koleksiyon",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "Kaydedildi.",
     "saveFailed": "Kaydedilemedi.",
     "enableAria": "OmniGlyph motorunu etkinleştir",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "Gömülü Servisler",
@@ -9504,7 +9538,17 @@
     "updatedShort": "Güncellendi",
     "lastRefreshed": "Son yenileme",
     "providerQuota": "Sağlayıcı Kotası",
-    "providerQuotaHomeHint": "Bağlı hesaplar genelinde canlı durum"
+    "providerQuotaHomeHint": "Bağlı hesaplar genelinde canlı durum",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "Yetkilendirme bekleniyor",

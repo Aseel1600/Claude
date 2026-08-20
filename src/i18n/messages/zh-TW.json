@@ -3718,7 +3718,11 @@
     "errorDescription": "目前無法加載組合數據。請檢查您的連接並重試。",
     "errorId": "錯誤 ID: {id}",
     "errorRetry": "再試一次",
-    "comboLabel": "組合"
+    "comboLabel": "組合",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "成本",
@@ -6216,7 +6220,8 @@
       "kiro": "免費方案：每月 50 額度（約 2.5 萬至 10 萬 tokens）。⚠️ Kiro 服務條款禁止第三方代理/轉接使用。",
       "codex": "使用現有的 OAuth 流程連線 OpenAI Codex。",
       "qwen": "使用現有的 OAuth 流程連線 Qwen Code。",
-      "github-models": "在 github.com/settings/tokens 建立具有 'models: read' 範圍的 GitHub PAT"
+      "github-models": "在 github.com/settings/tokens 建立具有 'models: read' 範圍的 GitHub PAT",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} 接受提供者本機模型 ID。從 /models 匯入或新增用於路由的自定義 ID。",
     "bedrockModelsDescription": "Amazon Bedrock 模型的範圍按 AWS 區域劃分。從 /models 匯入或新增在所選區域中啟用的基岩模型 ID。",
@@ -8632,7 +8637,28 @@
     "saved": "已儲存。",
     "saveFailed": "無法儲存。",
     "enableAria": "啟用 OmniGlyph 引擎",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "內嵌服務",

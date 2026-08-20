@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+// #10524 default is comment-heartbeats off. This file asserts heartbeat payloads,
+// so opt in for the suite (restored in process teardown is unnecessary: node:test
+// worker is dedicated).
+process.env.OMNIROUTE_SSE_COMMENTS = "on";
+
 const { createSseHeartbeatTransform } = await import("../../open-sse/utils/sseHeartbeat.ts");
 
 function withFakeIntervals(fn) {

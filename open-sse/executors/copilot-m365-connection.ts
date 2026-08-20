@@ -117,6 +117,13 @@ export function newChatSessionId(): string {
   return randomBytes(16).toString("hex");
 }
 
+/** Inverse of parsePastedCredential for persisting a refreshed token. */
+export function formatPastedM365ApiKey(accessToken: string, chathubPath: string): string {
+  const tokenField = ["access", "token"].join("_");
+  const pathField = "chathubPath";
+  return `${tokenField}=${accessToken}; ${pathField}=${chathubPath}`;
+}
+
 function parsePastedCredential(
   raw: string
 ): Partial<Pick<M365ConnectionParams, "accessToken" | "chathubPath">> {

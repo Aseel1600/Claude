@@ -3718,7 +3718,11 @@
     "errorDescription": "మేము ప్రస్తుతం కాంబో డేటాను లోడ్ చేయలేకపోయాము. మీ కనెక్షన్‌ను తనిఖీ చేసి మళ్లీ ప్రయత్నించండి.",
     "errorId": "లోపం ID: {id}",
     "errorRetry": "మరలా ప్రయత్నించండి",
-    "comboLabel": "కాంబో"
+    "comboLabel": "కాంబో",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "Costs",
@@ -6216,7 +6220,8 @@
       "kiro": "ఉచిత శ్రేణి: 50 క్రెడిట్‌లు/నెల (~25K–100K టోకెన్‌లు). ⚠️ Kiro ToS థర్డ్-పార్టీ ప్రాక్సీ/హార్నెస్ వినియోగాన్ని నిషేధిస్తుంది.",
       "codex": "ప్రస్తుత OAuth flowతో OpenAI Codexని కనెక్ట్ చేయండి.",
       "qwen": "ప్రస్తుత OAuth flowతో Qwen Codeని కనెక్ట్ చేయండి.",
-      "github-models": "github.com/settings/tokens వద్ద 'models: read' స్కోప్‌తో GitHub PATని సృష్టించండి"
+      "github-models": "github.com/settings/tokens వద్ద 'models: read' స్కోప్‌తో GitHub PATని సృష్టించండి",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} ప్రొవైడర్-స్థానిక మోడల్ IDలను అంగీకరిస్తుంది. /మోడల్స్ నుండి దిగుమతి చేయండి లేదా రూటింగ్ కోసం అనుకూల IDలను జోడించండి.",
     "bedrockModelsDescription": "అమెజాన్ బెడ్‌రాక్ మోడల్‌లు AWS ప్రాంతం ద్వారా స్కోప్ చేయబడ్డాయి. /మోడల్స్ నుండి దిగుమతి చేయండి లేదా ఎంచుకున్న ప్రాంతంలో ప్రారంభించబడిన బెడ్‌రాక్ మోడల్ IDలను జోడించండి.",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "సంక్షిప్త CJK (文言)",
         "description": "క్లాసికల్-చైనీస్ అల్ట్రా-సంక్షిప్త శైలి (చైనీస్ కోసం మాత్రమే అందుబాటులో ఉంది)."
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "కూల్‌డౌన్ కోసం వేచి ఉండండి",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "ఆరోగ్యం",
     "cliproxyapiPort": "పోర్ట్",
     "qdrantHost": "హోస్ట్",
-    "qdrantCollection": "సేకరణ"
+    "qdrantCollection": "సేకరణ",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "సేవ్ చేయబడింది.",
     "saveFailed": "సేవ్ చేయడం సాధ్యపడలేదు.",
     "enableAria": "OmniGlyph ఇంజిన్‌ను ఎనేబుల్ చేయండి",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "ఎంబెడెడ్ సేవలు",
@@ -9504,7 +9538,17 @@
     "updatedShort": "అప్‌డేట్ చేయబడింది",
     "lastRefreshed": "చివరిగా రిఫ్రెష్ చేయబడింది",
     "providerQuota": "ప్రొవైడర్ కోటా",
-    "providerQuotaHomeHint": "కనెక్ట్ చేయబడిన ఖాతాల ప్రత్యక్ష స్థితి"
+    "providerQuotaHomeHint": "కనెక్ట్ చేయబడిన ఖాతాల ప్రత్యక్ష స్థితి",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "Waiting for Authorization",

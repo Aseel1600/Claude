@@ -3718,7 +3718,11 @@
     "errorDescription": "현재 콤보 데이터를 불러올 수 없습니다. 연결을 확인하고 다시 시도하세요.",
     "errorId": "오류 ID: {id}",
     "errorRetry": "다시 시도해 주세요",
-    "comboLabel": "콤보"
+    "comboLabel": "콤보",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "비용",
@@ -6216,7 +6220,8 @@
       "kiro": "무료 티어: 월 50 크레딧(~25K–100K 토큰). ⚠️ Kiro ToS는 서드파티 프록시/하네스 사용을 금지합니다.",
       "codex": "기존 OAuth 흐름으로 OpenAI Codex를 연결합니다.",
       "qwen": "기존 OAuth 흐름으로 Qwen Code를 연결합니다.",
-      "github-models": "github.com/settings/tokens 에서 'models: read' 범위(scope)를 가진 GitHub PAT를 생성하세요."
+      "github-models": "github.com/settings/tokens 에서 'models: read' 범위(scope)를 가진 GitHub PAT를 생성하세요.",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider}은 공급자 기본 모델 ID를 허용합니다. /models에서 가져오거나 라우팅을 위한 사용자 정의 ID를 추가하세요.",
     "bedrockModelsDescription": "Amazon Bedrock 모델은 AWS 지역별로 범위가 지정됩니다. /models에서 가져오거나 선택한 지역에서 활성화된 Bedrock 모델 ID를 추가하세요.",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "간결한 CJK (文言)",
         "description": "한문 초간결 스타일 (중국어만 지원)."
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "쿨다운 대기",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "건강",
     "cliproxyapiPort": "포트",
     "qdrantHost": "호스트",
-    "qdrantCollection": "컬렉션"
+    "qdrantCollection": "컬렉션",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "저장되었습니다.",
     "saveFailed": "저장할 수 없습니다.",
     "enableAria": "OmniGlyph 엔진 활성화",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "임베디드 서비스",
@@ -9504,7 +9538,17 @@
     "updatedShort": "업데이트됨",
     "lastRefreshed": "마지막 새로고침",
     "providerQuota": "제공자 할당량",
-    "providerQuotaHomeHint": "연결된 계정의 실시간 상태"
+    "providerQuotaHomeHint": "연결된 계정의 실시간 상태",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "승인을 기다리는 중",

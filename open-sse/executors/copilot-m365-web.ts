@@ -8,6 +8,7 @@ import {
   currentM365AccessToken,
   currentM365ChathubPath,
   decodeJwtClaims,
+  formatPastedM365ApiKey,
   redactWsUrl,
   refreshM365AccessToken,
   resolveConnectionParams,
@@ -320,15 +321,16 @@ export class CopilotM365WebExecutor extends BaseExecutor {
 
     const rotated = result.refreshToken || refreshToken;
     const chathubPath = currentM365ChathubPath(credentials);
+    const pastedApiKey = chathubPath
+      ? formatPastedM365ApiKey(result.accessToken, chathubPath)
+      : undefined;
     const next = {
       ...credentials,
       accessToken: result.accessToken,
       refreshToken: rotated,
       // Keep the pasted-format apiKey self-consistent so every resolution path
       // (fresh column, stale column, dashboard re-read) sees the same token.
-      ...(chathubPath
-        ? { apiKey: `access_token=${result.accessToken}; chathubPath=${chathubPath}` }
-        : {}),
+      ...(pastedApiKey ? { apiKey: pastedApiKey } : {}),
       ...(result.expiresIn
         ? { expiresAt: new Date(Date.now() + result.expiresIn * 1000).toISOString() }
         : {}),

@@ -3718,7 +3718,11 @@
     "errorDescription": "हम अभी कॉम्बो डेटा लोड नहीं कर सके। कृपया अपनी कनेक्शन की जांच करें और फिर से प्रयास करें।",
     "errorId": "त्रुटि आईडी: {id}",
     "errorRetry": "फिर से प्रयास करें",
-    "comboLabel": "कॉम्बो"
+    "comboLabel": "कॉम्बो",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "लागत",
@@ -6216,7 +6220,8 @@
       "kiro": "फ्री टियर: 50 क्रेडिट/महीना (~25K–100K टोकन)। ⚠️ Kiro ToS तृतीय-पक्ष प्रॉक्सी/हार्नेस के उपयोग को प्रतिबंधित करता है।",
       "codex": "OpenAI Codex को मौजूदा OAuth फ़्लो से कनेक्ट करें।",
       "qwen": "Qwen Code को मौजूदा OAuth फ़्लो से कनेक्ट करें।",
-      "github-models": "github.com/settings/tokens पर 'models: read' स्कोप के साथ एक GitHub PAT बनाएं"
+      "github-models": "github.com/settings/tokens पर 'models: read' स्कोप के साथ एक GitHub PAT बनाएं",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} प्रदाता-मूल मॉडल आईडी स्वीकार करता है। /मॉडल से आयात करें या रूटिंग के लिए कस्टम आईडी जोड़ें।",
     "bedrockModelsDescription": "अमेज़ॅन बेडरॉक मॉडल का दायरा AWS क्षेत्र द्वारा तय किया गया है। /मॉडल से आयात करें या चयनित क्षेत्र में सक्षम बेडरॉक मॉडल आईडी जोड़ें।",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "संक्षिप्त CJK (文言)",
         "description": "शास्त्रीय-चीनी अति-संक्षिप्त शैली (केवल चीनी भाषा के लिए उपलब्ध)।"
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "ठंडा होने की प्रतीक्षा करें",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "स्वास्थ्य",
     "cliproxyapiPort": "पोर्ट",
     "qdrantHost": "होस्ट",
-    "qdrantCollection": "संग्रह"
+    "qdrantCollection": "संग्रह",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "सहेजा गया।",
     "saveFailed": "सहेजा नहीं जा सका।",
     "enableAria": "OmniGlyph इंजन सक्षम करें",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "एम्बेडेड सेवाएँ",
@@ -9504,7 +9538,17 @@
     "updatedShort": "अपडेट किया गया",
     "lastRefreshed": "अंतिम बार रीफ़्रेश किया गया",
     "providerQuota": "प्रदाता कोटा",
-    "providerQuotaHomeHint": "कनेक्टेड खातों में लाइव स्थिति"
+    "providerQuotaHomeHint": "कनेक्टेड खातों में लाइव स्थिति",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "प्राधिकरण की प्रतीक्षा की जा रही है",

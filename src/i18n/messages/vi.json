@@ -3718,7 +3718,11 @@
     "errorDescription": "Hiện không thể tải dữ liệu combo. Hãy kiểm tra kết nối rồi thử lại.",
     "errorId": "ID lỗi: {id}",
     "errorRetry": "Thử lại",
-    "comboLabel": "Combo"
+    "comboLabel": "Combo",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "Chi phí",
@@ -6216,7 +6220,8 @@
       "kiro": "Gói miễn phí: 50 tín dụng/tháng (khoảng 25–100 nghìn token). ⚠️ Điều khoản Kiro cấm sử dụng proxy/harness của bên thứ ba.",
       "codex": "Kết nối OpenAI Codex bằng luồng OAuth hiện có.",
       "qwen": "Kết nối Qwen Code bằng luồng OAuth hiện có.",
-      "github-models": "Tạo GitHub PAT với phạm vi 'models: read' tại github.com/settings/tokens"
+      "github-models": "Tạo GitHub PAT với phạm vi 'models: read' tại github.com/settings/tokens",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} chấp nhận ID mô hình gốc của nhà cung cấp. Nhập từ /models hoặc thêm ID tùy chỉnh để định tuyến.",
     "bedrockModelsDescription": "Các mô hình Amazon Bedrock được giới hạn theo vùng AWS. Nhập từ /models hoặc thêm ID mô hình Bedrock được bật trong vùng đã chọn.",

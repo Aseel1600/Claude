@@ -3718,7 +3718,11 @@
     "errorDescription": "Vi kunde inte ladda combo-data just nu. Kontrollera din anslutning och försök igen.",
     "errorId": "Fel-ID: {id}",
     "errorRetry": "Försök igen",
-    "comboLabel": "Kombination"
+    "comboLabel": "Kombination",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "Kostnader",
@@ -6216,7 +6220,8 @@
       "kiro": "Gratisnivå: 50 krediter/månad (~25K–100K tokens). ⚠️ Kiros användarvillkor förbjuder användning av tredjepartsproxy/harness.",
       "codex": "Anslut OpenAI Codex med det befintliga OAuth-flödet.",
       "qwen": "Anslut Qwen Code med det befintliga OAuth-flödet.",
-      "github-models": "Skapa en GitHub PAT med omfånget 'models: read' på github.com/settings/tokens"
+      "github-models": "Skapa en GitHub PAT med omfånget 'models: read' på github.com/settings/tokens",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} accepterar leverantörsbaserade modell-ID:n. Importera från /models eller lägg till anpassade ID:n för routing.",
     "bedrockModelsDescription": "Amazon Bedrock-modeller omfattas av AWS-regionen. Importera från /models eller lägg till Bedrock-modell-ID:n aktiverade i den valda regionen.",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "Kortfattad CJK (文言)",
         "description": "Klassisk kinesisk ultrakortfattad stil (endast tillgänglig för kinesiska)."
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "Vänta på nedkylning",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "Hälsa",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Värd",
-    "qdrantCollection": "Samling"
+    "qdrantCollection": "Samling",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "Sparat.",
     "saveFailed": "Kunde inte spara.",
     "enableAria": "Aktivera OmniGlyph-motorn",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "Inbäddade tjänster",
@@ -9504,7 +9538,17 @@
     "updatedShort": "Uppdaterad",
     "lastRefreshed": "Senast uppdaterad",
     "providerQuota": "Leverantörskvot",
-    "providerQuotaHomeHint": "Livestatus för anslutna konton"
+    "providerQuotaHomeHint": "Livestatus för anslutna konton",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "Väntar på auktorisering",

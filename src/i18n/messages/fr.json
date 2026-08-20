@@ -3718,7 +3718,11 @@
     "errorDescription": "Les données des combos ne peuvent pas être chargées pour le moment. Vérifiez votre connexion et réessayez.",
     "errorId": "ID d'erreur : {id}",
     "errorRetry": "Réessayer",
-    "comboLabel": "Combo"
+    "comboLabel": "Combo",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
   },
   "costs": {
     "title": "Coûts",
@@ -6216,7 +6220,8 @@
       "kiro": "Offre gratuite : 50 crédits/mois (~25K–100K tokens). ⚠️ Les conditions d'utilisation de Kiro interdisent l'utilisation de proxys/harness tiers.",
       "codex": "Connecter OpenAI Codex avec le flux OAuth existant.",
       "qwen": "Connecter Qwen Code avec le flux OAuth existant.",
-      "github-models": "Créez un PAT GitHub avec la portée 'models: read' sur github.com/settings/tokens"
+      "github-models": "Créez un PAT GitHub avec la portée 'models: read' sur github.com/settings/tokens",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed."
     },
     "passthroughModelsDescription": "{provider} accepte les ID de modèle natifs du fournisseur. Importez depuis /models ou ajoutez des ID personnalisés pour le routage.",
     "bedrockModelsDescription": "Les modèles Amazon Bedrock sont définis par région AWS. Importez depuis /models ou ajoutez les ID de modèle Bedrock activés dans la région sélectionnée.",
@@ -7784,6 +7789,10 @@
       "terse-cjk": {
         "label": "CJK concis (文言)",
         "description": "Style ultra-concis en chinois classique (disponible uniquement pour le chinois)."
+      },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
       }
     },
     "resilienceWaitForCooldown": "Attendez le temps de recharge",
@@ -8216,7 +8225,11 @@
     "cliproxyapiHealth": "Santé",
     "cliproxyapiPort": "Port",
     "qdrantHost": "Hôte",
-    "qdrantCollection": "Collection"
+    "qdrantCollection": "Collection",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests."
   },
   "contextRtk": {
     "title": "RTK Engine",
@@ -8624,7 +8637,28 @@
     "saved": "Enregistré.",
     "saveFailed": "Impossible d'enregistrer.",
     "enableAria": "Activer le moteur OmniGlyph",
-    "title": "OmniGlyph"
+    "title": "OmniGlyph",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile"
   },
   "embeddedServices": {
     "title": "Services intégrés",
@@ -9504,7 +9538,17 @@
     "updatedShort": "Mis à jour",
     "lastRefreshed": "Dernière actualisation",
     "providerQuota": "Quota du fournisseur",
-    "providerQuotaHomeHint": "Statut en direct sur les comptes connectés"
+    "providerQuotaHomeHint": "Statut en direct sur les comptes connectés",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits"
   },
   "modals": {
     "waitingAuth": "En attente d'autorisation",

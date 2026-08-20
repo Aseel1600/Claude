@@ -1,0 +1,1 @@
+- **fix(ci):** drain shared release/v3.8.50 base-reds that were failing every PR merge-ref (public-creds M365 pasted apiKey, Stryker covering tests, dead-code 419, i18n key parity, CC models listing 400 before cache, SSE comment heartbeat tests, all-zero usage estimate path, catalog builder yield interval).
