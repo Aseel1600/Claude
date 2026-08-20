@@ -22,18 +22,41 @@
  * resolved elsewhere. A future provider that ships correct metadata is
  * handled automatically; one that doesn't is excluded automatically — see
  * `docs/routing/STRICT_ZERO_COST.md`.
+ *
+ * ## Connection safety (fixed after code review, see `docs/routing/STRICT_ZERO_COST.md`)
+ *
+ * A candidate from `virtualFactory.ts`'s connection-based pool represents ONE
+ * provider/model pair with a set of *eligible* connections
+ * (`allowedConnectionIds`) — the actual connection used at dispatch is chosen
+ * later (session stickiness/LKGP), not by this filter. Two invariants follow:
+ *
+ *   1. The `keyless` shortcut (no live check needed, because no credential
+ *      exists) is valid ONLY for candidates that genuinely came from the
+ *      no-auth path — identified by `connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID`
+ *      (`resilienceCandidateFilter.ts`). A `keyless`-catalogued model reached
+ *      through a real DB connection (the same provider also has a
+ *      credentialed connection) does NOT get the shortcut — it falls through
+ *      to the normal quota-based check like any other freeType, and is
+ *      excluded unless that specific connection independently proves SAFE.
+ *   2. For a multi-account candidate (`connectionId: null`,
+ *      `allowedConnectionIds: [...]`), each connection is checked
+ *      INDIVIDUALLY. The returned candidate's `allowedConnectionIds` is
+ *      REWRITTEN to exactly the subset proven SAFE — never the full original
+ *      list. `autoStrategy.ts` (`open-sse/services/combo/autoStrategy.ts:315-331`)
+ *      already intersects further routing against `allowedConnectionIds`
+ *      before connection selection, so rewriting it here is enough to make
+ *      "verified this connection" and "dispatch used this connection" the
+ *      same set, by construction — no new enforcement point needed.
  */
 import {
   FREE_MODEL_BUDGETS,
   type FreeModelBudget,
 } from "@omniroute/open-sse/config/freeModelCatalog.ts";
+import { SYNTHETIC_NOAUTH_CONNECTION_ID } from "./resilienceCandidateFilter";
 
 /** Types whose allowance needs no runtime verification: no credential exists
  * for the candidate at all, so no request against it can ever be billed. */
 const KEYLESS_FREE_TYPES = new Set<FreeModelBudget["freeType"]>(["keyless"]);
-
-/** Every other documented free type requires a live, fresh, guaranteed-hard-stop
- * quota check before it can pass. `discontinued` never passes either branch. */
 
 export type FreeAccessStatus = "SAFE" | "EXHAUSTED" | "UNKNOWN";
 
@@ -52,28 +75,34 @@ export interface FreeAccessState {
   checkedAt: string;
 }
 
-interface StrictZeroCostCandidate {
+/** A candidate as this module needs to see it — a structural subset of
+ * `VirtualAutoComboCandidate` (`virtualFactory.ts`) so this file has no
+ * dependency on that module's full type. */
+export interface StrictZeroCostCandidate {
   provider: string;
   model: string;
+  connectionId: string | null;
+  allowedConnectionIds?: string[];
 }
 
 export interface StrictZeroCostOptions {
   /** Master switch — mirrors `hidePaidModels`'s own off-by-default shape. */
   enabled: boolean;
   /**
-   * Resolves the live allowance state for a quota-based candidate. Returns
-   * `undefined` when no usage capability exists for the provider at all (no
-   * adapter registered in `USAGE_FETCHER_PROVIDERS`) — that is itself a
-   * meaningful, terminal signal (UNKNOWN), not an error to retry.
+   * Resolves the live allowance state for ONE specific (provider, connection)
+   * pair. Returns `undefined` when no usage capability exists for the
+   * provider at all (no adapter registered in `USAGE_FETCHER_PROVIDERS`), or
+   * when the cache has nothing fresh for this exact connection — both are a
+   * meaningful, terminal UNKNOWN for that connection, not an error to retry.
    *
    * Synchronous by design: the caller (`virtualFactory.ts`) resolves and
-   * caches every candidate's state up front, once per pool build, so this
-   * filter itself never awaits a network call and stays trivially testable.
+   * caches state per candidate up front, once per pool build, so this filter
+   * itself never awaits a network call and stays trivially testable.
    */
-  resolveFreeAccessState: (candidate: StrictZeroCostCandidate) => FreeAccessState | undefined;
+  resolveFreeAccessState: (provider: string, connectionId: string) => FreeAccessState | undefined;
   /** Minimum remaining allowance (in the unit `resolveFreeAccessState` reports
    * — percentage points for the built-in `freeAccessQuota.ts` resolver) a
-   * quota-based candidate must exceed to pass. Must be >= 0; a fully-exhausted
+   * quota-based connection must exceed to pass. Must be >= 0; a fully-exhausted
    * account (`remainingFreeAllowance === 0`) fails at any non-negative
    * threshold via the strict `>` comparison below. */
   minRemainingAllowance: number;
@@ -84,51 +113,32 @@ export interface StrictZeroCostOptions {
   now?: () => number;
   /**
    * The free-model catalog to look candidates up against. Defaults to the
-   * real, live `FREE_MODEL_BUDGETS` — overridable only so tests can prove the
+   * real, live `FREE_MODEL_BUDGETS` — overridable so tests can prove the
    * autodiscovery contract (a provider/model that appears in the catalog is
    * automatically considered; one that's removed automatically disappears)
    * with synthetic fixtures instead of mutating global state. Production
-   * callers should never pass this.
+   * callers should never pass this. Threaded through by
+   * `filterStrictZeroCostCandidates` (previously accepted but silently
+   * ignored — fixed alongside the connection-safety review).
    */
   catalog?: readonly FreeModelBudget[];
 }
 
 export function findBudgetEntry(
-  candidate: StrictZeroCostCandidate,
+  candidate: Pick<StrictZeroCostCandidate, "provider" | "model">,
   catalog: readonly FreeModelBudget[] = FREE_MODEL_BUDGETS
 ): FreeModelBudget | undefined {
   return catalog.find((m) => m.provider === candidate.provider && m.modelId === candidate.model);
 }
 
-/**
- * Decide whether a single candidate satisfies STRICT_ZERO_COST. Pure —
- * takes the resolved `FreeAccessState` (if any) rather than fetching it.
- */
-export function evaluateStrictZeroCost(
-  candidate: StrictZeroCostCandidate,
-  budgetEntry: FreeModelBudget | undefined,
-  state: FreeAccessState | undefined,
+function isConnectionStateSafe(
+  provider: string,
+  connectionId: string,
+  resolveFreeAccessState: StrictZeroCostOptions["resolveFreeAccessState"],
   options: Pick<StrictZeroCostOptions, "minRemainingAllowance" | "maxStateAgeMs" | "now">
 ): boolean {
-  // No matching entry in the catalog at all → paid, or genuinely unknown (a
-  // new provider/model OmniRoute hasn't classified yet). Either way: exclude.
-  // `budgetEntry` is the single source of truth here (matched by the caller
-  // via `findBudgetEntry`, against the real `FREE_MODEL_BUDGETS` in
-  // production) — this function never reaches past it into a second,
-  // non-injectable classifier, so a future/synthetic catalog is trusted
-  // exactly as much as the real one and nothing more.
-  if (!budgetEntry) return false; // metadata incomplete for this exact model → UNKNOWN
-
-  if (KEYLESS_FREE_TYPES.has(budgetEntry.freeType)) {
-    return true; // no credential exists for this candidate — nothing to bill, ever
-  }
-  if (budgetEntry.freeType === "discontinued") return false;
-
-  // Every remaining freeType (recurring-*, one-time-initial, and any future
-  // type this module doesn't special-case) requires ALL of: a documented hard
-  // stop, a live state, that state being SAFE, fresh, and above threshold.
-  if (budgetEntry.hardStopGuaranteed !== true) return false;
-  if (!state) return false; // no usage adapter for this provider, or lookup never ran
+  const state = resolveFreeAccessState(provider, connectionId);
+  if (!state) return false; // no usage adapter for this provider, or lookup never ran/is stale
   if (state.status !== "SAFE") return false;
 
   const now = (options.now ?? Date.now)();
@@ -143,22 +153,115 @@ export function evaluateStrictZeroCost(
 }
 
 /**
- * Pool-level filter, same shape/identity-preserving contract as
- * `filterPaidOnlyCandidates`: returns the input array unchanged when
- * `enabled` is false (the default), so wiring this in changes nothing until
- * an operator opts in.
+ * Decide which of a candidate's connections satisfy STRICT_ZERO_COST. Pure —
+ * `resolveFreeAccessState` is the only injected side-effecting dependency,
+ * and it's a synchronous cache read (see `StrictZeroCostOptions` above).
+ *
+ * Returns the list of connection ids proven SAFE right now:
+ *   - `[SYNTHETIC_NOAUTH_CONNECTION_ID]` for a genuine no-auth candidate whose
+ *     catalog entry is `keyless` — no live check needed or possible.
+ *   - a (possibly empty) subset of the candidate's real connection id(s) for
+ *     every other case, each individually verified.
+ * An empty array means the caller must exclude the candidate entirely.
+ */
+export function evaluateCandidateConnections(
+  candidate: StrictZeroCostCandidate,
+  budgetEntry: FreeModelBudget | undefined,
+  resolveFreeAccessState: StrictZeroCostOptions["resolveFreeAccessState"],
+  options: Pick<StrictZeroCostOptions, "minRemainingAllowance" | "maxStateAgeMs" | "now">
+): string[] {
+  if (!budgetEntry) return []; // not in the catalog at all → paid, or genuinely unknown
+
+  const isGenuineNoAuthCandidate = candidate.connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID;
+  if (KEYLESS_FREE_TYPES.has(budgetEntry.freeType)) {
+    // The keyless shortcut is trustworthy ONLY when this specific candidate
+    // instance actually has no credential behind it. A `keyless`-catalogued
+    // model reached through a real DB connection (connectionId is a real id,
+    // or the candidate carries allowedConnectionIds at all) must NOT take
+    // this shortcut — it falls through to the quota-based check below like
+    // any other freeType, and is excluded there unless hardStopGuaranteed is
+    // also set for it (which the curated catalog does not do for keyless
+    // entries today, so it will correctly exclude).
+    if (isGenuineNoAuthCandidate) return [SYNTHETIC_NOAUTH_CONNECTION_ID];
+  }
+  if (budgetEntry.freeType === "discontinued") return [];
+  if (isGenuineNoAuthCandidate) return []; // no-auth path but a non-keyless catalog entry: contradictory metadata, fail closed
+
+  // Every remaining freeType (recurring-*, one-time-initial, a keyless entry
+  // reached via a real connection, and any future type this module doesn't
+  // special-case) requires a documented hard stop before any live check even
+  // runs — no point burning a quota lookup on a connection we could never
+  // trust regardless of its answer.
+  if (budgetEntry.hardStopGuaranteed !== true) return [];
+
+  const candidateConnectionIds = candidate.connectionId
+    ? [candidate.connectionId]
+    : (candidate.allowedConnectionIds ?? []);
+
+  const safe: string[] = [];
+  for (const connectionId of candidateConnectionIds) {
+    if (connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID) continue; // never reachable here, defensive
+    if (isConnectionStateSafe(candidate.provider, connectionId, resolveFreeAccessState, options)) {
+      safe.push(connectionId);
+    }
+  }
+  return safe;
+}
+
+/**
+ * Pool-level filter, same off-by-default identity contract as
+ * `filterPaidOnlyCandidates`. For a candidate that survives with a NARROWED
+ * connection set (the multi-account case), the returned object has
+ * `allowedConnectionIds` rewritten to exactly the SAFE subset — dispatch can
+ * then never select a connection this filter didn't verify, because
+ * `autoStrategy.ts` already enforces `allowedConnectionIds` as a hard
+ * allowlist downstream (see the module docstring above).
  */
 export function filterStrictZeroCostCandidates<T extends StrictZeroCostCandidate>(
   pool: T[],
   options: StrictZeroCostOptions
 ): T[] {
   if (!options.enabled) return pool;
-  return pool.filter((candidate) => {
-    const budgetEntry = findBudgetEntry(candidate);
-    const needsState = budgetEntry && !KEYLESS_FREE_TYPES.has(budgetEntry.freeType);
-    const state = needsState ? options.resolveFreeAccessState(candidate) : undefined;
-    return evaluateStrictZeroCost(candidate, budgetEntry, state, options);
-  });
+
+  const kept: T[] = [];
+  let changed = false;
+  for (const candidate of pool) {
+    const budgetEntry = findBudgetEntry(candidate, options.catalog);
+    const safeConnectionIds = evaluateCandidateConnections(
+      candidate,
+      budgetEntry,
+      options.resolveFreeAccessState,
+      options
+    );
+    if (safeConnectionIds.length === 0) {
+      changed = true;
+      continue;
+    }
+
+    const isGenuineNoAuthCandidate = candidate.connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID;
+    const isSingleConnectionCandidate = candidate.connectionId !== null;
+    if (isGenuineNoAuthCandidate || isSingleConnectionCandidate) {
+      // Nothing to narrow — either the no-auth sentinel, or a candidate that
+      // already pointed at exactly one connection which proved safe.
+      kept.push(candidate);
+      continue;
+    }
+
+    // Multi-account candidate: only rewrite if the safe subset is actually
+    // narrower than what was there before, to preserve the same
+    // identity-when-nothing-changed contract as `filterPaidOnlyCandidates`.
+    const original = candidate.allowedConnectionIds ?? [];
+    const isSameSet =
+      original.length === safeConnectionIds.length &&
+      safeConnectionIds.every((id) => original.includes(id));
+    if (isSameSet) {
+      kept.push(candidate);
+    } else {
+      changed = true;
+      kept.push({ ...candidate, allowedConnectionIds: safeConnectionIds });
+    }
+  }
+  return changed ? kept : pool;
 }
 
 /**
@@ -169,11 +272,12 @@ export function filterStrictZeroCostCandidates<T extends StrictZeroCostCandidate
  */
 export function filterTosAvoidCandidates<T extends StrictZeroCostCandidate>(
   pool: T[],
-  excludeTosAvoid: boolean
+  excludeTosAvoid: boolean,
+  catalog?: readonly FreeModelBudget[]
 ): T[] {
   if (!excludeTosAvoid) return pool;
   return pool.filter((candidate) => {
-    const budgetEntry = findBudgetEntry(candidate);
+    const budgetEntry = findBudgetEntry(candidate, catalog);
     return budgetEntry?.tos !== "avoid";
   });
 }

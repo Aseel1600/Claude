@@ -568,15 +568,14 @@ export async function prepareVirtualAutoComboInputs(
 
     // STRICT_ZERO_COST: opt-in, off by default (`settings.freeAccessPolicy !== "strict"`
     // leaves `pool` byte-identical, same contract as `hidePaidModels`). See
-    // `strictZeroCostFilter.ts` for why this is stricter than `hidePaidModels` alone.
+    // `strictZeroCostFilter.ts` for why this is stricter than `hidePaidModels` alone —
+    // including the connection-safety invariant it enforces per-connection, not just
+    // per-candidate: `resolveFreeAccessState` here is a raw pass-through of the real
+    // per-(provider,connectionId) resolver; the filter itself decides which connection(s)
+    // on each candidate to check and rewrites `allowedConnectionIds` to the SAFE subset.
     const strictFilteredPool = filterStrictZeroCostCandidates(pool, {
       enabled: settings.freeAccessPolicy === "strict",
-      resolveFreeAccessState: (candidate) =>
-        resolveFreeAccessState(
-          candidate.provider,
-          (candidate as VirtualAutoComboCandidate).connectionId ??
-            (candidate as VirtualAutoComboCandidate).allowedConnectionIds?.[0]
-        ),
+      resolveFreeAccessState,
       // 1 percentage point of headroom, not 0: `freeAccessQuota.ts` reports
       // remaining allowance as a percentage, and a raw ">0" comparison would
       // let a reading of e.g. 0.3% (rounding noise, not real headroom) pass.
