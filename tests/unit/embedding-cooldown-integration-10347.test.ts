@@ -88,6 +88,66 @@ test("createEmbeddingResponse marks connection on upstream 402", async () => {
   }
 });
 
+test("cooled account is skipped on next request — second connection selected", async () => {
+  resetStorage();
+  const conn1 = await seedConnection("mistral", { apiKey: "mistral-key-1" });
+  const conn2 = await seedConnection("mistral", { apiKey: "mistral-key-2" });
+
+  const originalFetch = globalThis.fetch;
+  let fetchCallCount = 0;
+
+  try {
+    const { createEmbeddingResponse } = await import("../../src/lib/embeddings/service.ts");
+
+    // First request: upstream returns 402 → conn1 gets cooled.
+    globalThis.fetch = (async () => {
+      fetchCallCount++;
+      return new Response(JSON.stringify({ error: "subscription expired" }), {
+        status: 402,
+        headers: { "Content-Type": "application/json" },
+      });
+    }) as typeof globalThis.fetch;
+
+    const res1 = await createEmbeddingResponse(
+      { model: "mistral-embed", input: "hello" },
+      { connectionId: conn1 }
+    );
+    assert.equal(res1.status, 402);
+
+    // Wait for fire-and-forget cooldown write.
+    await new Promise((r) => setImmediate(r));
+    await new Promise((r) => setImmediate(r));
+
+    // Verify conn1 is cooled.
+    const conn1After = await providersDb.getProviderConnectionById(conn1);
+    assert.equal(conn1After.testStatus, "credits_exhausted", "conn1 must be cooled");
+
+    // Second request: upstream returns 200.
+    globalThis.fetch = (async () => {
+      fetchCallCount++;
+      return new Response(
+        JSON.stringify({
+          data: [{ embedding: [0.1, 0.2], index: 0 }],
+          model: "mistral-embed",
+          usage: { prompt_tokens: 1, total_tokens: 1 },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }) as typeof globalThis.fetch;
+
+    // Call without specifying connectionId — credential selection should
+    // skip conn1 (credits_exhausted) and pick conn2.
+    const res2 = await createEmbeddingResponse({ model: "mistral-embed", input: "world" }, {});
+    assert.equal(res2.status, 200, "second request must succeed via conn2");
+
+    // Verify conn2 is still healthy.
+    const conn2After = await providersDb.getProviderConnectionById(conn2);
+    assert.equal(conn2After.testStatus, "active", "conn2 must remain active");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("createEmbeddingResponse skips 400 (bad request) — no cooldown", async () => {
   resetStorage();
   const connId = await seedConnection("mistral");
