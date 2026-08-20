@@ -219,6 +219,74 @@ test("createSSEStream passthrough normalizes tool-call finishes and reports the 
   assert.equal(onCompletePayload.clientPayload._streamed, true);
 });
 
+test("createSSEStream passthrough normalizes XML-encoded tool-call args into one JSON delta before the finish chunk", async () => {
+  const xmlArgs =
+    "<tool_calls:6124c78e><tool_call:6124c78e>health_check<tool_sep:6124c78e>" +
+    "<arg_key:6124c78e>status</arg_key:6124c78e><arg_value:6124c78e>ok</arg_value:6124c78e>" +
+    "</tool_call:6124c78e></tool_calls:6124c78e>";
+  const text = await readTransformed(
+    [
+      `data: ${JSON.stringify({
+        id: "chatcmpl_xml",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "tencent/hy3:free",
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [
+                {
+                  index: 0,
+                  id: "call_x",
+                  type: "function",
+                  function: { name: "health_check", arguments: xmlArgs.slice(0, 40) },
+                },
+              ],
+            },
+          },
+        ],
+      })}\n\n`,
+      `data: ${JSON.stringify({
+        id: "chatcmpl_xml",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "tencent/hy3:free",
+        choices: [
+          {
+            index: 0,
+            delta: {
+              tool_calls: [{ index: 0, function: { arguments: xmlArgs.slice(40) } }],
+            },
+          },
+        ],
+      })}\n\n`,
+      `data: ${JSON.stringify({
+        id: "chatcmpl_xml",
+        object: "chat.completion.chunk",
+        created: 1,
+        model: "tencent/hy3:free",
+        choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }],
+      })}\n\n`,
+      "data: [DONE]\n\n",
+    ],
+    {
+      mode: "passthrough",
+      sourceFormat: FORMATS.OPENAI,
+      provider: "tencent",
+      model: "tencent/hy3:free",
+      body: {
+        messages: [{ role: "user", content: "check health" }],
+      },
+    }
+  );
+
+  assert.match(text, /"name":"health_check"/);
+  assert.match(text, /"arguments":"\{\\"status\\":\\"ok\\"\}"/);
+  assert.match(text, /"finish_reason":"tool_calls"/);
+  assert.doesNotMatch(text, /<tool_calls:/);
+});
+
 test("createSSEStream passthrough converts textual tool-call content into structured call log tool_calls", async () => {
   let onCompletePayload = null;
   const toolArgs = JSON.stringify({

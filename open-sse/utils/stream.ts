@@ -981,7 +981,7 @@ export function createSSEStream(options: StreamOptions = {}) {
    *     have streamed, just delivered as one delta)
    * Returns true when any delta was emitted.
    */
-  const emitBufferedXmlArgsDeltas = (): boolean => {
+  const emitBufferedXmlArgsDeltas = (controller: TransformStreamDefaultController): boolean => {
     if (passthroughXmlArgsEngaged.size === 0) return false;
     let emitted = false;
     for (const key of [...passthroughXmlArgsEngaged]) {
@@ -2021,7 +2021,7 @@ export function createSSEStream(options: StreamOptions = {}) {
                   // normalized JSON deltas right before the finish chunk so the
                   // client receives valid JSON `function.arguments`.
                   if (isFinishChunk && passthroughXmlArgsEngaged.size > 0) {
-                    emitBufferedXmlArgsDeltas();
+                    emitBufferedXmlArgsDeltas(controller);
                   }
                 }
 
@@ -2510,7 +2510,7 @@ export function createSSEStream(options: StreamOptions = {}) {
               if (shouldEmitDoneTerminator && !passthroughSawFinishReason) {
                 // #tencent-hy3: flush any buffered XML-encoded tool-call args as
                 // normalized JSON before the synthetic terminal chunk.
-                emitBufferedXmlArgsDeltas();
+                emitBufferedXmlArgsDeltas(controller);
                 const syntheticFinishChunk = buildSyntheticChatChunk(
                   passthroughResponsesId,
                   model,
