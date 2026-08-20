@@ -22,7 +22,7 @@ _پراکسی جهانی API شما - یک نقطه پایانی، 329 ورود�
 
 ![بارگیری‌های NPM](https://img.shields.io/npm/d18m/omniroute?label=npm%20down%20year&color=red)
 ![Docker Pulls](https://img.shields.io/docker/pulls/diegosouzapw/omniroute)
-![بارگیری‌های GitHub (همه دارایی‌ها، همه نسخه‌ها)] (https://img.shields.io/github/downloads/diegosouzapw/omniroute/total?style=flat&label=eletron%20donwloads&color=blue)
+![بارگیری‌های GitHub (همه دارایی‌ها، همه نسخه‌ها)](https://img.shields.io/github/downloads/diegosouzapw/omniroute/total?style=flat&label=eletron%20donwloads&color=blue)
 
 [![stars](https://custom-icon-badges.demolab.com/github/stars/diegosouzapw/OmniRoute?logo=star&style=flat)](https://github.com/diegosouzapw/OmniRoute/stargazers)
 [![open issues](https://custom-icon-badges.demolab.com/github/issues-raw/diegosouzapw/OmniRoute?logo=issue)](https://github.com/diegosouzapw/OmniRoute/issues)
@@ -45,7 +45,7 @@ _پراکسی جهانی API شما - یک نقطه پایانی، 329 ورود�
 
 </div>
 
-🌐 **موجود در:** 🇺🇸 [انگلیسی](README.md) | 🇧🇷 [پرتغال (برزیل)](docs/i18n/pt-BR/README.md) | 🇪🇸 [اسپانیول](docs/i18n/es/README.md) | 🇫🇷 [Français](docs/i18n/fr/README.md) | 🇮🇹 [ایتالیانو](docs/i18n/it/README.md) | 🇷🇺 [Русский](docs/i18n/ru/README.md) | 🇨🇳 [中文 (简体)](docs/i18n/zh-CN/README.md) | 🇩🇪 [دویچ](docs/i18n/de/README.md) | 🇮🇳 [हिन्दी](docs/i18n/in/README.md) | 🇹🇭 [ไทย](docs/i18n/th/README.md) | 🇺🇦 [Українська](docs/i18n/uk-UA/README.md) | 🇸🇦 [العربیة](docs/i18n/ar/README.md) | 🇯🇵 [日本語](docs/i18n/ja/README.md) | 🇻🇳 [Tiếng Việt](docs/i18n/vi/README.md) | 🇧🇬 [Български](docs/i18n/bg/README.md) | 🇩🇰 [دانسک](docs/i18n/da/README.md) | 🇫🇮 [Suomi](docs/i18n/fi/README.md) | 🇮🇱 [עברית](docs/i18n/he/README.md) | 🇭🇺 [مگیار](docs/i18n/hu/README.md) | 🇮🇩 [Bahasa Indonesia](docs/i18n/id/README.md) | 🇰🇷 [한국어](docs/i18n/ko/README.md) | 🇲🇾 [Bahasa Melayu](docs/i18n/ms/README.md) | 🇳🇱 [هلند](docs/i18n/nl/README.md) | 🇳🇴 [نورسک](docs/i18n/no/README.md) | 🇵🇹 [پرتغال (پرتغال)](docs/i18n/pt/README.md) | 🇷🇴 [Română](docs/i18n/ro/README.md) | 🇵🇱 [Polski](docs/i18n/pl/README.md) | 🇸🇰 [Slovenčina](docs/i18n/sk/README.md) | 🇸🇪 [Svenska](docs/i18n/sv/README.md) | 🇵🇭 [فیلیپینی](docs/i18n/phi/README.md) | 🇨🇿 [Čeština] (docs/i18n/cs/README.md)
+🌐 **موجود در:** 🇺🇸 [انگلیسی](README.md) | 🇧🇷 [پرتغال (برزیل)](docs/i18n/pt-BR/README.md) | 🇪🇸 [اسپانیول](docs/i18n/es/README.md) | 🇫🇷 [Français](docs/i18n/fr/README.md) | 🇮🇹 [ایتالیانو](docs/i18n/it/README.md) | 🇷🇺 [Русский](docs/i18n/ru/README.md) | 🇨🇳 [中文 (简体)](docs/i18n/zh-CN/README.md) | 🇩🇪 [دویچ](docs/i18n/de/README.md) | 🇮🇳 [हिन्दी](docs/i18n/in/README.md) | 🇹🇭 [ไทย](docs/i18n/th/README.md) | 🇺🇦 [Українська](docs/i18n/uk-UA/README.md) | 🇸🇦 [العربیة](docs/i18n/ar/README.md) | 🇯🇵 [日本語](docs/i18n/ja/README.md) | 🇻🇳 [Tiếng Việt](docs/i18n/vi/README.md) | 🇧🇬 [Български](docs/i18n/bg/README.md) | 🇩🇰 [دانسک](docs/i18n/da/README.md) | 🇫🇮 [Suomi](docs/i18n/fi/README.md) | 🇮🇱 [עברית](docs/i18n/he/README.md) | 🇭🇺 [مگیار](docs/i18n/hu/README.md) | 🇮🇩 [Bahasa Indonesia](docs/i18n/id/README.md) | 🇰🇷 [한국어](docs/i18n/ko/README.md) | 🇲🇾 [Bahasa Melayu](docs/i18n/ms/README.md) | 🇳🇱 [هلند](docs/i18n/nl/README.md) | 🇳🇴 [نورسک](docs/i18n/no/README.md) | 🇵🇹 [پرتغال (پرتغال)](docs/i18n/pt/README.md) | 🇷🇴 [Română](docs/i18n/ro/README.md) | 🇵🇱 [Polski](docs/i18n/pl/README.md) | 🇸🇰 [Slovenčina](docs/i18n/sk/README.md) | 🇸🇪 [Svenska](docs/i18n/sv/README.md) | 🇵🇭 [فیلیپینی](docs/i18n/phi/README.md) | 🇨🇿 [Čeština](docs/i18n/cs/README.md)
 
 ---
 
@@ -175,12 +175,12 @@ _هر ابزار IDE یا CLI مجهز به هوش مصنوعی را از طری
 
 ## 📧 پشتیبانی
 
-> 💬 **به انجمن ما بپیوندید!** [گروه واتساپ] (https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t) - راهنمایی دریافت کنید، نکات را به اشتراک بگذارید و به روز بمانید.
+> 💬 **به انجمن ما بپیوندید!** [گروه واتساپ](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t) - راهنمایی دریافت کنید، نکات را به اشتراک بگذارید و به روز بمانید.
 
 - **وب سایت**: [omniroute.online](https://omniroute.online)
 - **GitHub**: [github.com/diegosouzapw/OmniRoute](https://github.com/diegosouzapw/OmniRoute)
 - **مشکلات**: [github.com/diegosouzapw/OmniRoute/issues](https://github.com/diegosouzapw/OmniRoute/issues)
-- **WhatsApp**: [گروه انجمن] (https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t)
+- **WhatsApp**: [گروه انجمن](https://chat.whatsapp.com/JI7cDQ1GyaiDHhVBpLxf8b?mode=gi_t)
 - **مشارکت**: به [CONTRIBUTING.md](CONTRIBUTING.md) مراجعه کنید، یک PR باز کنید، یا یک `good first issue` انتخاب کنید
 
 ### 🐛 یک اشکال را گزارش می کنید؟
@@ -766,7 +766,7 @@ omniroute
 
 #### آرچ لینوکس (AUR)
 
-کاربران آرچ لینوکس می توانند [بسته AUR] (https://aur.archlinux.org/packages/omniroute-bin) را نصب کنند که OmniRoute را نصب می کند و یک سرویس کاربر سیستمی ارائه می دهد:
+کاربران آرچ لینوکس می توانند [بسته AUR](https://aur.archlinux.org/packages/omniroute-bin) را نصب کنند که OmniRoute را نصب می کند و یک سرویس کاربر سیستمی ارائه می دهد:
 
 ```bash
 yay -S omniroute-bin
@@ -1005,7 +1005,7 @@ post_install() {
 
 ## 🐳 Docker
 
-OmniRoute به عنوان یک تصویر عمومی Docker در [Docker Hub] (https://hub.docker.com/r/diegosouzapw/omniroute) در دسترس است.
+OmniRoute به عنوان یک تصویر عمومی Docker در [Docker Hub](https://hub.docker.com/r/diegosouzapw/omniroute) در دسترس است.
 
 **اجرای سریع:**
 
@@ -1272,7 +1272,7 @@ Cerebras (cerebras/)   → Llama/Qwen world-fastest — 1M tok/day
 
 مدل های رایگان محبوب: `@cf/meta/llama-3.3-70b-instruct`، `@cf/google/gemma-3-12b-it`، `@cf/openai/whisper-large-v3-turbo` (صدای رایگان!)، `@cf/qwen/qwen2.5-coder-15b-instruct`
 
-> به رمز API + شناسه حساب از [dash.cloudflare.com] (https://dash.cloudflare.com) نیاز دارد. شناسه حساب را در تنظیمات ارائه دهنده ذخیره کنید.
+> به رمز API + شناسه حساب از [dash.cloudflare.com](https://dash.cloudflare.com) نیاز دارد. شناسه حساب را در تنظیمات ارائه دهنده ذخیره کنید.
 
 ### SCALEWAY AI (1 میلیون توکن رایگان — scaleway.com) 🆕
 
@@ -1282,7 +1282,7 @@ Cerebras (cerebras/)   → Llama/Qwen world-fastest — 1M tok/day
 
 رایگان موجود: `qwen3-235b-a22b-instruct-2507` (Qwen3 235B!)، `llama-3.1-70b-instruct`، `mistral-small-3.2-24b-instruct-2506`، `deepseek-v3-0324`
 
-> مطابق با اتحادیه اروپا/GDPR. کلید API را در [console.scaleway.com] (https://console.scaleway.com) دریافت کنید.
+> مطابق با اتحادیه اروپا/GDPR. کلید API را در [console.scaleway.com](https://console.scaleway.com) دریافت کنید.
 
 > **💡 نمونه های دسترسی رایگان (محدودیت ها و شرایط ارائه دهنده اعمال می شود):**
 >
@@ -1737,7 +1737,7 @@ Models:
 
 ### GLM-4.7 (بازنشانی روزانه، 0.6/1 میلیون دلار)
 
-1. ثبت نام: [Zhipu AI] (https://open.bigmodel.cn/)
+1. ثبت نام: [Zhipu AI](https://open.bigmodel.cn/)
 2. کلید API را از برنامه کدگذاری دریافت کنید
 3. داشبورد ← افزودن کلید API:
    - ارائه دهنده: `glm`
@@ -2133,7 +2133,7 @@ Google اکنون به درستی به `https://your-server.com/callback` تغی
 | [راهنمای حذف نصب](docs/guides/UNINSTALL.md) | حذف پاک برای همه روش های نصب |
 | [پیکربندی محیط](docs/reference/ENVIRONMENT.md) | تکمیل متغیرها و مراجع `.env` |
 | [مشارکت](CONTRIBUTING.md) | راه اندازی و دستورالعمل های توسعه |
-| [مشخصات OpenAPI] (docs/reference/openapi.yaml) | مشخصات OpenAPI 3.0 |
+| [مشخصات OpenAPI](docs/reference/openapi.yaml) | مشخصات OpenAPI 3.0 |
 | [سیاست امنیتی](SECURITY.md) | گزارش آسیب پذیری و شیوه های امنیتی |
 | [استقرار VM](docs/ops/VM_DEPLOYMENT_GUIDE.md) | راهنمای کامل: راه اندازی VM + nginx + Cloudflare |
 | [گالری امکانات](docs/guides/FEATURES.md) | تور داشبورد بصری با اسکرین شات |
