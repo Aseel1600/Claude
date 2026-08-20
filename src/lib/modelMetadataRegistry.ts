@@ -29,6 +29,7 @@ import {
   CANONICAL_EFFORT_VALUES,
   extendCodexGpt56EffortValues,
 } from "@/shared/reasoning/effortStandardization";
+import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 
 const MODEL_METADATA_SCHEMA_VERSION = "model-metadata-v1";
 
@@ -42,6 +43,9 @@ export interface CatalogEnrichmentSnapshot {
   modelsDevPricing: PricingByProvider | null;
   capabilityResolution?: ModelCapabilityResolutionSnapshot;
   providerNodeIdsByPrefix?: Readonly<Record<string, string>>;
+  /** #9147: build-local bulk load of synced capabilities + token/context overrides
+   * so per-entry enrichment never hits SQLite again (see catalogResponse.ts). */
+  capabilityResolutionSnapshot?: ModelCapabilityResolutionSnapshot | null;
 }
 
 interface CatalogDiagnosticsOptions {
@@ -201,13 +205,11 @@ export function getCatalogDiagnosticsHeaders(
   };
 }
 
-export function getCanonicalModelMetadata(
-  input: {
-    provider?: string | null;
-    model?: string | null;
-  },
-  snapshot?: ModelCapabilityResolutionSnapshot | null
-): CanonicalModelMetadata | null {
+export function getCanonicalModelMetadata(input: {
+  provider?: string | null;
+  model?: string | null;
+  snapshot?: ModelCapabilityResolutionSnapshot | null;
+}): CanonicalModelMetadata | null {
   const modelId = asNonEmptyString(input.model);
   if (!modelId) return null;
 
@@ -217,14 +219,16 @@ export function getCanonicalModelMetadata(
       model: modelId,
     },
     undefined,
-    snapshot
+    input.snapshot || null
   );
   const provider = resolved.provider;
   const providerAlias = provider ? PROVIDER_ID_TO_ALIAS[provider] || provider : null;
   const registryModel = getRegistryModel(providerAlias || provider, resolved.model || modelId);
   const staticSpec = getModelSpec(resolved.model || modelId);
   const syncedCapability =
-    provider && resolved.model ? getSyncedCapability(provider, resolved.model) : null;
+    provider && resolved.model
+      ? getSyncedCapability(provider, resolved.model, input.snapshot?.synced ?? null)
+      : null;
   const canonicalStaticAlias = resolveStaticModelAlias(resolved.model || modelId);
   const modalities = buildModalities(
     resolved.modalitiesInput,
@@ -433,7 +437,11 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
       return id;
     })();
 
-  const metadata = getCanonicalModelMetadata({ provider, model }, snapshot?.capabilityResolution);
+  const metadata = getCanonicalModelMetadata({
+    provider,
+    model,
+    snapshot: snapshot?.capabilityResolutionSnapshot ?? null,
+  });
   if (!metadata) return entry;
 
   const nextEntry: JsonRecord = { ...entry };
@@ -445,7 +453,11 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     getAuthoritativeContextWindow(metadata.model) ??
     getAuthoritativeContextWindow(model);
   const specialtySurface = isNonChatCatalogSurface(entry.type);
-  const persistedContextWindow = getResolvedModelContextOverride({ provider, model });
+  const capabilitySnapshot = snapshot?.capabilityResolutionSnapshot ?? null;
+  const persistedContextWindow = getResolvedModelContextOverride(
+    { provider, model },
+    capabilitySnapshot
+  );
   const capabilityFields = {
     ...(typeof metadata.capabilities.vision === "boolean"
       ? { vision: metadata.capabilities.vision }
@@ -537,10 +549,15 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   const persistedOutputLimit =
-    getModelCapabilityOverride(provider, model, "max_output_tokens") ??
-    getModelCapabilityOverride(provider, model, "max_token") ??
-    getModelCapabilityOverride(publicProvider, model, "max_output_tokens") ??
-    getModelCapabilityOverride(publicProvider, model, "max_token");
+    getModelCapabilityOverride(provider, model, "max_output_tokens", capabilitySnapshot?.maxTokenOverrides) ??
+    getModelCapabilityOverride(provider, model, "max_token", capabilitySnapshot?.maxTokenOverrides) ??
+    getModelCapabilityOverride(
+      publicProvider,
+      model,
+      "max_output_tokens",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
+    getModelCapabilityOverride(publicProvider, model, "max_token", capabilitySnapshot?.maxTokenOverrides);
   if (persistedOutputLimit !== null) {
     nextEntry.max_output_tokens = persistedOutputLimit;
   } else if (

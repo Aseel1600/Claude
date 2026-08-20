@@ -6,9 +6,9 @@ import {
   getAllCustomModels,
   getSettings,
   getCachedProviderNodes,
-  getModelIsHidden,
   getModelAliases,
   getDatabaseSettings,
+  getHiddenModelsByProvider,
 } from "@/lib/localDb";
 import { createLazyConnectionView } from "@/lib/db/providers/lazyConnectionView";
 import { extractAliasBackedModels } from "./aliasBackedModels";
@@ -74,7 +74,7 @@ import {
   isNoAuthRawProviderPrefix,
   normalizeBlockedProviderSet,
 } from "@/shared/utils/noAuthProviders";
-import { getTokenLimit } from "@omniroute/open-sse/services/contextManager";
+import { getSourcedTokenLimit, getTokenLimit } from "@omniroute/open-sse/services/contextManager";
 import { extractApiKey } from "@/sse/services/auth";
 import type { ComboModelStep } from "@/lib/combos/steps";
 import {
@@ -141,7 +141,7 @@ export {
 } from "./catalogCache";
 export type { CachedCatalog } from "./catalogCache";
 
-const BUILTIN_AUTO_YIELD_INTERVAL = 8;
+const BUILTIN_AUTO_YIELD_INTERVAL = 2;
 
 function yieldCatalogBuildTurn(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
@@ -165,6 +165,8 @@ export async function getUnifiedModelsResponse(
     try {
       settingsForAuth = await getSettings();
     } catch {}
+    // #9147: yield before auth check to allow event loop tick
+    await yieldCatalogBuildTurn();
     const authRejection = await getModelCatalogAuthRejection(request, settingsForAuth, {
       ...corsHeaders,
       ...diagnosticHeaders,
@@ -235,7 +237,34 @@ async function buildUnifiedModelsResponseCore(
   corsHeaders: Record<string, string> = {}
 ) {
   const diagnosticHeaders = getCatalogDiagnosticsHeaders({ request });
+  // #9147: this builder walks connections + model registries at catalog scale with no
+  // event-loop yield, so a large deployment pins the single Node.js thread for the
+  // whole build (reporter: 183 connections / 2000+ models → 10.1s stall that blocks the
+  // dashboard WS heartbeat). Yield every `catYIELD_EVERY` items across the hot loops.
+  const catYIELD_EVERY = 20;
+  let catYieldCount = 0;
+  const maybeYieldCatalogBuild = async (): Promise<void> => {
+    catYieldCount++;
+    if (catYieldCount % catYIELD_EVERY === 0) {
+      await yieldCatalogBuildTurn();
+    }
+  };
   try {
+    // #9147: `getModelIsHidden()` is a SQLite read per call (custom row + compat list)
+    // and the build consults it ~16× per entry. Bulk-load the hidden-model map once
+    // (one query — `getHiddenModelsByProvider`) and resolve from memory for the whole
+    // build. A provider absent from the map has no hidden models at all — `false`,
+    // no on-demand fallback (that would reintroduce the per-call SQLite reads).
+    // Deliberately kept INSIDE this try block (not hoisted above it): the builder's
+    // own catch below is what converts a build-time failure into a sanitized 500
+    // Response instead of a rejected promise — hoisting this bulk read above the
+    // try would let a crash here propagate as an unhandled rejection instead
+    // (catalogCache.ts's in-flight coalescing does not fully consume rejections).
+    const hiddenModelsByProvider = getHiddenModelsByProvider();
+    const isModelHiddenBulk = (providerId: string, modelId: string): boolean => {
+      const hiddenSet = hiddenModelsByProvider.get(providerId);
+      return hiddenSet ? hiddenSet.has(modelId) : false;
+    };
     let settings: Record<string, any> = {};
     try {
       settings = await getSettings();
@@ -246,6 +275,10 @@ async function buildUnifiedModelsResponseCore(
       ...diagnosticHeaders,
     });
     if (authRejection) return authRejection;
+
+    // #9147: yield after auth check before DB initialization prologue
+    await yieldCatalogBuildTurn();
+
     const capabilityResolutionSnapshot = createModelCapabilityResolutionSnapshot();
     const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
     const _qp = new URL(request.url).searchParams.get("prefix");
@@ -338,6 +371,7 @@ async function buildUnifiedModelsResponseCore(
 
     // Get combos
     let combos = [];
+    await yieldCatalogBuildTurn();
     try {
       combos = await getCombos();
     } catch (e) {
@@ -371,7 +405,19 @@ async function buildUnifiedModelsResponseCore(
       if ("alias" in p && typeof p.alias === "string") activeAliases.add(p.alias);
     }
 
+    // #9147 follow-up: this is called ~1-3x per model at catalog scale (providerSupportsModel,
+    // isExcludedByProviderConnections). Connections do not change mid-build, so memoize per
+    // unique (unordered) key-set instead of rescanning connectionsByProvider on every call —
+    // otherwise the O(models) hot loop regains an O(connections) cost per model and blows the
+    // single-stretch event-loop budget this file's own yield mechanism is meant to protect.
+    const connectionsForProviderCache = new Map<string, typeof connections>();
     const getConnectionsForProvider = (...keys: Array<string | null | undefined>) => {
+      const cacheKey = keys
+        .filter((k): k is string => Boolean(k))
+        .sort()
+        .join(" ");
+      const cached = connectionsForProviderCache.get(cacheKey);
+      if (cached) return cached;
       const seen = new Set<string>();
       const collected: typeof connections = [];
       for (const key of keys) {
@@ -382,6 +428,7 @@ async function buildUnifiedModelsResponseCore(
           collected.push(connection);
         }
       }
+      connectionsForProviderCache.set(cacheKey, collected);
       return collected;
     };
 
@@ -525,9 +572,11 @@ async function buildUnifiedModelsResponseCore(
       const syncedInputModalities = parseJsonStringArray(synced?.modalities_input);
       const syncedOutputModalities = parseJsonStringArray(synced?.modalities_output);
 
-      const contextLength = isPositiveFiniteNumber(canonical.limits.contextWindow)
-        ? canonical.limits.contextWindow
-        : getTokenLimit(providerId, modelId) || undefined;
+      const contextLength = getSourcedTokenLimit(
+        providerId,
+        modelId,
+        canonical.limits.contextWindow
+      );
       const maxInputTokens = isPositiveFiniteNumber(canonical.limits.maxInputTokens)
         ? canonical.limits.maxInputTokens
         : contextLength;
@@ -691,7 +740,7 @@ async function buildUnifiedModelsResponseCore(
           timestamp,
           (c) => buildComboCatalogMetadata(c, combos)
         );
-        const quotaFinal = applyCatalogPostFilters(request, quotaModels, {
+        const quotaFinal = await applyCatalogPostFilters(request, quotaModels, {
           connections,
           prefixMode,
           aliasToProviderId,
@@ -786,7 +835,7 @@ async function buildUnifiedModelsResponseCore(
       ) as ComboCatalogTarget[];
       const visibleTargets = comboTargets.filter((target) => {
         const resolved = getComboTargetModelId(target);
-        return resolved ? !getModelIsHidden(resolved.providerId, resolved.modelId) : true;
+        return resolved ? !isModelHiddenBulk(resolved.providerId, resolved.modelId) : true;
       });
       if (visibleTargets.length === 0) continue;
 
@@ -803,11 +852,16 @@ async function buildUnifiedModelsResponseCore(
         parent: null,
         ...comboMetadata,
       });
+
+      // #9147: combos can number hundreds at catalog scale — yield periodically.
+      await maybeYieldCatalogBuild();
     }
 
     let syncedModelsByProvider: Record<string, SyncedAvailableModel[]> = {};
     try {
+      await yieldCatalogBuildTurn();
       syncedModelsByProvider = await getAllActiveSyncedModels();
+      await yieldCatalogBuildTurn();
     } catch (e) {
       // DB unavailable — log and fall through; static models remain as defaults.
       console.log("[catalog] Could not fetch synced available models:", e);
@@ -895,7 +949,7 @@ async function buildUnifiedModelsResponseCore(
         if (!isModelSelectable(canonicalProviderId, model.id)) continue;
         if (!providerSupportsModel(canonicalProviderId, model.id)) continue;
         const aliasId = `${alias}/${model.id}`;
-        if (getModelIsHidden(canonicalProviderId, model.id)) continue;
+        if (isModelHiddenBulk(canonicalProviderId, model.id)) continue;
         if (isExcludedByProviderConnections(canonicalProviderId, model.id)) continue;
         if (shouldHidePaid(canonicalProviderId, model.id, (model as { pricing?: unknown }).pricing))
           continue;
@@ -950,12 +1004,15 @@ async function buildUnifiedModelsResponseCore(
             ...thinkingCapabilities,
           });
         }
+
+        // #9147: static model walk is the densest loop — yield periodically.
+        await maybeYieldCatalogBuild();
       }
     }
 
     for (const modelId of CODEX_NATIVE_UNPREFIXED_MODELS) {
       if (!providerSupportsModel("codex", modelId)) continue;
-      if (getModelIsHidden("codex", modelId)) continue;
+      if (isModelHiddenBulk("codex", modelId)) continue;
 
       const alias = providerIdToAlias.codex || "cx";
       const aliasId = `${alias}/${modelId}`;
@@ -1016,7 +1073,7 @@ async function buildUnifiedModelsResponseCore(
           if (canonicalProviderId === "codex" && isCodexDiscoveryModelExcluded(sm)) {
             continue;
           }
-          if (getModelIsHidden(providerId, sm.id)) continue;
+          if (isModelHiddenBulk(providerId, sm.id)) continue;
           if (isExcludedByProviderConnections(canonicalProviderId, sm.id)) continue;
           // #6457: some upstream discovery catalogs (e.g. HuggingFace's live
           // `/v1/models`) return image/diffusion models with no modality info,
@@ -1129,6 +1186,9 @@ async function buildUnifiedModelsResponseCore(
               });
             }
           }
+
+          // #9147: synced-model union is usually the largest walk — yield periodically.
+          await maybeYieldCatalogBuild();
         }
       }
     } catch (err) {
@@ -1158,7 +1218,7 @@ async function buildUnifiedModelsResponseCore(
           if (hidePaid && !isFree) continue;
           // #9293: respect per-model hidden flags (e.g. operator hid google/chirp-3
           // from the OpenRouter provider, so it should not appear in the live catalog).
-          if (getModelIsHidden("openrouter", openRouterModel.id)) continue;
+          if (isModelHiddenBulk("openrouter", openRouterModel.id)) continue;
           const supportedParameters = Array.isArray(openRouterModel.supported_parameters)
             ? openRouterModel.supported_parameters
             : [];
@@ -1199,6 +1259,9 @@ async function buildUnifiedModelsResponseCore(
             ...(outputModalities.length > 0 ? { output_modalities: outputModalities } : {}),
             ...(Object.keys(capabilities).length > 0 ? { capabilities } : {}),
           });
+
+          // #9147: OpenRouter catalog can be large — yield periodically.
+          await maybeYieldCatalogBuild();
         }
       } catch (err) {
         console.error("[catalog] Error loading OpenRouter catalog:", err);
@@ -1243,7 +1306,7 @@ async function buildUnifiedModelsResponseCore(
 
     // Helper: strip the provider prefix from a specialty model ID to get the
     // provider-relative path (e.g. "openrouter/google/chirp-3" -> "google/chirp-3").
-    // This is the correct key used by getModelIsHidden() — using .split("/").pop()
+    // This is the correct key used by the hidden-model lookup — using .split("/").pop()
     // here would discard all but the last segment and miss stored flags for
     // providers whose model IDs carry a sub-path (e.g. OpenRouter scoped models).
     const getSpecialtyModelRelativeId = (modelId: string, provider: string): string =>
@@ -1254,7 +1317,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(embModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(embModel.id, embModel.provider);
       if (!providerSupportsModel(embModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(embModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(embModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(embModel.provider, rawModelId, "embedding", embModel.id)) {
         continue;
       }
@@ -1282,7 +1345,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(imgModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(imgModel.id, imgModel.provider);
       if (!providerSupportsModel(imgModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(imgModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(imgModel.provider, rawModelId)) continue;
       models.push({
         id: imgModel.id,
         object: "model",
@@ -1302,7 +1365,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(rerankModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(rerankModel.id, rerankModel.provider);
       if (!providerSupportsModel(rerankModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(rerankModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(rerankModel.provider, rawModelId)) continue;
       if (hasEquivalentSpecialtyModel(rerankModel.provider, rawModelId, "rerank", rerankModel.id)) {
         continue;
       }
@@ -1321,7 +1384,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(audioModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(audioModel.id, audioModel.provider);
       if (!providerSupportsModel(audioModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(audioModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(audioModel.provider, rawModelId)) continue;
       models.push({
         id: audioModel.id,
         object: "model",
@@ -1337,7 +1400,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(modModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(modModel.id, modModel.provider);
       if (!providerSupportsModel(modModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(modModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(modModel.provider, rawModelId)) continue;
       models.push({
         id: modModel.id,
         object: "model",
@@ -1352,7 +1415,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(videoModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(videoModel.id, videoModel.provider);
       if (!providerSupportsModel(videoModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(videoModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(videoModel.provider, rawModelId)) continue;
       models.push({
         id: videoModel.id,
         object: "model",
@@ -1373,7 +1436,7 @@ async function buildUnifiedModelsResponseCore(
       if (!isProviderActive(musicModel.provider)) continue;
       const rawModelId = getSpecialtyModelRelativeId(musicModel.id, musicModel.provider);
       if (!providerSupportsModel(musicModel.provider, rawModelId)) continue;
-      if (getModelIsHidden(musicModel.provider, rawModelId)) continue;
+      if (isModelHiddenBulk(musicModel.provider, rawModelId)) continue;
       models.push({
         id: musicModel.id,
         object: "model",
@@ -1419,7 +1482,7 @@ async function buildUnifiedModelsResponseCore(
           if (!isUnifiedChatSourceModelSelectable(canonicalProviderId, { ...model, id: modelId }))
             continue;
           if (model.isHidden === true) continue;
-          if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+          if (isModelHiddenBulk(canonicalProviderId, modelId)) continue;
           if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
           // #6328: apply hidePaidModels to user-defined custom rows too.
           // Custom entries do not carry pricing, so shouldHidePaid() decides
@@ -1555,6 +1618,9 @@ async function buildUnifiedModelsResponseCore(
               ...(providerVisionFields || {}),
             });
           }
+
+          // #9147: custom-model walk — yield periodically.
+          await maybeYieldCatalogBuild();
         }
       }
     } catch (e) {
@@ -1600,7 +1666,7 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (isModelHiddenBulk(canonicalProviderId, modelId)) continue;
         if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to alias-backed rows too. Alias mappings
         // point at providerKey/modelId with no pricing, so shouldHidePaid()
@@ -1674,7 +1740,7 @@ async function buildUnifiedModelsResponseCore(
       for (const model of fallbackModels) {
         const modelId = typeof model.id === "string" ? model.id : null;
         if (!modelId) continue;
-        if (getModelIsHidden(canonicalProviderId, modelId)) continue;
+        if (isModelHiddenBulk(canonicalProviderId, modelId)) continue;
         if (isExcludedByProviderConnections(canonicalProviderId, modelId)) continue;
         // #6328: apply hidePaidModels to managed-fallback rows too. Compatible
         // provider fallbacks lack pricing; shouldHidePaid() decides via the
@@ -1702,6 +1768,9 @@ async function buildUnifiedModelsResponseCore(
           ...(contextLength ? { context_length: contextLength } : {}),
           ...(visionFields || {}),
         });
+
+        // #9147: per-connection fallback walk — yield periodically.
+        await maybeYieldCatalogBuild();
       }
     }
 
@@ -1747,7 +1816,7 @@ async function buildUnifiedModelsResponseCore(
       }
     }
     // ?configuredOnly — hide models that have no eligible DB connection.
-    finalModels = applyCatalogPostFilters(request, finalModels, {
+    finalModels = await applyCatalogPostFilters(request, finalModels, {
       connections,
       prefixMode,
       aliasToProviderId,
