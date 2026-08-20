@@ -130,8 +130,20 @@ async function testConnection(
   try {
     const result = await testSingleConnection(connectionId);
 
-    // A deliberate lease skip must not rewrite the health cache.
-    if (result.skipped === true) return;
+    // Deliberate skips never rewrite credential health or failure state.
+    // Unsupported validation capability is stable enough to honor the
+    // connection's configured interval; an exclusive-lease skip intentionally
+    // remains due on the next global sweep so recovery is not delayed.
+    if (result.skipped === true) {
+      const diagnosis = result.diagnosis as { code?: string } | undefined;
+      if (diagnosis?.code === "unsupported") {
+        getSchedulerState().perConnTiming.set(connectionId, {
+          lastAttemptAt: startTime,
+          nextAttemptAt: startTime + intervalMs,
+        });
+      }
+      return;
+    }
 
     const latencyMs = Date.now() - startTime;
     const state = getSchedulerState();
