@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 
 import { mergeAbortSignals, type ProviderCredentials } from "../base.ts";
+import { stripCursorOAuthTokenPrefix } from "../../services/cursorApiKeyAuth.ts";
 import {
   formatCursorAgentClientVersion,
   getCursorAgentCliVersion,
@@ -26,11 +27,6 @@ export class CursorServerConfigError extends Error {
   ) {
     super(message);
   }
-}
-
-/** Remove an optional Cursor user ID prefix from an access token. */
-export function cleanCursorToken(accessToken: string): string {
-  return accessToken.includes("::") ? accessToken.split("::").at(-1) || "" : accessToken;
 }
 
 function validateCursorAgentUrl(value: string): string {
@@ -101,7 +97,7 @@ export async function resolveCursorAgentUrl(
   credentials: ProviderCredentials,
   signal?: AbortSignal | null
 ): Promise<string> {
-  const accessToken = cleanCursorToken(credentials.accessToken || "");
+  const accessToken = stripCursorOAuthTokenPrefix(credentials.accessToken || "");
   if (!accessToken) throw new Error("Cursor access token is required");
   const cacheKey =
     `${credentials.connectionId || "anonymous"}:` +

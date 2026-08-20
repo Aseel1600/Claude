@@ -162,7 +162,7 @@ OmniRoute is a **single Node process** (one event loop). Stock Docker `HEALTHCHE
 | Probe | Recommended target | Notes |
 | --- | --- | --- |
 | **Startup** | HTTP `GET /healthz` with a long `failureThreshold` (or large `startPeriod`) | Cold start + SQLite migration can exceed a few seconds |
-| **Readiness** | HTTP `GET /healthz` | Remove endpoints while starting/stopping; still flaps if the loop is CPU-blocked |
+| **Readiness** | HTTP `GET /healthz` | Remove endpoints while starting/stopping; still flaps if the loop is CPU-blocked. A **200 in multiple seconds is not healthy** (#10303) — it means the event loop was starved before the 3-byte handler ran |
 | **Liveness** | **TCP** on the main service port (`PORT`, default `20128`), **or** HTTP `/healthz` with soft thresholds | Do **not** kill the pod on short event-loop stalls; busy ≠ dead |
 | **Deep health** | `GET /api/monitoring/health` from an external checker | Not for kubelet `livenessProbe` / tight `readinessProbe` |
 
@@ -196,6 +196,11 @@ livenessProbe:
 **Do not** point kubelet **liveness** at `/api/monitoring/health`. That path does real DB/monitoring work and will false-positive under load.
 
 Related: [#10052](https://github.com/diegosouzapw/OmniRoute/issues/10052) (probes while the event loop is busy), [#9685](https://github.com/diegosouzapw/OmniRoute/issues/9685) / [#10055](https://github.com/diegosouzapw/OmniRoute/pull/10055) (catalog pricing hog), [#10117](https://github.com/diegosouzapw/OmniRoute/issues/10117) (compression token-count hog).
+
+
+### Optional request-path work (memory, skills, token refresh)
+
+Memory extraction, skills injection, and OAuth token refresh share the **main Node event loop** with `/healthz`. They are dashboard-toggle features (`memoryEnabled`, `skillsEnabled`), not a worker pool. See [Environment — event-loop cost](../reference/ENVIRONMENT.md#event-loop-cost-of-memory-skills-and-token-refresh-10349).
 
 ### Provider Health
 

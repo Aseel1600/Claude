@@ -57,6 +57,13 @@ import {
   type StreamingState as ComposerStreamingState,
 } from "../utils/composerToolCalls.ts";
 import { cursorSessionManager, type CursorSession } from "../services/cursorSessionManager.ts";
+import {
+  CursorApiKeyExchangeError,
+  invalidateCursorSessionToken,
+  isCursorApiKey,
+  resolveCursorBearerToken,
+  stripCursorOAuthTokenPrefix,
+} from "../services/cursorApiKeyAuth.ts";
 import crypto from "crypto";
 import * as fs from "node:fs";
 import * as zlib from "node:zlib";
@@ -75,11 +82,7 @@ import {
   visibleComposerContentFromThinking,
   composerReasoningRemainder,
 } from "./cursor/composer.ts";
-import {
-  cleanCursorToken,
-  CursorServerConfigError,
-  resolveCursorAgentUrl,
-} from "./cursor/agentEndpoint.ts";
+import { CursorServerConfigError, resolveCursorAgentUrl } from "./cursor/agentEndpoint.ts";
 import { getActiveSyncedCatalog } from "../../src/lib/db/models/activeSyncedCatalog.ts";
 // Composer helpers re-exported for external importers (tests).
 export {
@@ -707,18 +710,44 @@ export function processFrame(
 }
 
 export class CursorExecutor extends BaseExecutor {
-  constructor() {
-    super("cursor", PROVIDERS.cursor);
+  constructor(provider: "cursor" | "cursor-api" = "cursor") {
+    super(provider, PROVIDERS[provider]);
   }
 
   buildUrl() {
     return PROVIDERS.cursor.baseUrl;
   }
 
+  /**
+   * API-key connections carry a `crsr_…` key that api2.cursor.sh does not
+   * accept as a Bearer; swap it for the exchanged session token before the
+   * h2 stream is opened. OAuth/IDE-session connections pass through untouched.
+   */
+  async resolveExecutionCredentials(credentials) {
+    if (!isCursorApiKey(credentials?.apiKey)) return credentials;
+    try {
+      const accessToken = await resolveCursorBearerToken(credentials);
+      return { ...credentials, accessToken };
+    } catch (err) {
+      const status =
+        err instanceof CursorApiKeyExchangeError ? err.status : HTTP_STATUS.SERVER_ERROR;
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: sanitizeErrorMessage(message),
+            type: status === HTTP_STATUS.UNAUTHORIZED ? "authentication_error" : "connection_error",
+            code: "",
+          },
+        }),
+        { status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   buildHeaders(credentials) {
-    const accessToken = credentials.accessToken || "";
     const ghostMode = credentials.providerSpecificData?.ghostMode !== false;
-    const cleanToken = cleanCursorToken(accessToken);
+    const cleanToken = stripCursorOAuthTokenPrefix(credentials.accessToken ?? "");
     const requestId = crypto.randomUUID();
     const traceParent = `00-${crypto.randomBytes(16).toString("hex")}-${crypto.randomBytes(8).toString("hex")}-01`;
 
@@ -826,7 +855,7 @@ export class CursorExecutor extends BaseExecutor {
    */
   private async loadLiveCatalogIds(): Promise<ReadonlySet<string> | undefined> {
     try {
-      const catalog = await getActiveSyncedCatalog("cursor");
+      const catalog = await getActiveSyncedCatalog(this.provider);
       if (!catalog.models.length) return undefined;
       return new Set(catalog.models.map((model) => model.id));
     } catch {
@@ -1179,12 +1208,22 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders }) {
+    const fallbackUrl = this.buildUrl();
+    const executionCredentials = await this.resolveExecutionCredentials(credentials);
+    if (executionCredentials instanceof Response) {
+      return {
+        response: executionCredentials,
+        url: fallbackUrl,
+        headers: {},
+        transformedBody: body,
+      };
+    }
     let url: string;
     try {
-      url = await resolveCursorAgentUrl(credentials, signal);
+      url = await resolveCursorAgentUrl(executionCredentials, signal);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      const headers = this.buildHeaders(credentials);
+      const headers = this.buildHeaders(executionCredentials);
       return {
         response: new Response(
           JSON.stringify({
@@ -1199,12 +1238,12 @@ export class CursorExecutor extends BaseExecutor {
             headers: { "Content-Type": "application/json" },
           }
         ),
-        url: this.buildUrl(),
+        url: fallbackUrl,
         headers,
         transformedBody: body,
       };
     }
-    const headers = this.buildHeaders(credentials);
+    const headers = this.buildHeaders(executionCredentials);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
 
     const messages: ChatMessage[] = body.messages || [];
@@ -1361,6 +1400,9 @@ export class CursorExecutor extends BaseExecutor {
       if (opened.status !== 200) {
         const errBuf = await opened.consumeError();
         const errText = errBuf.toString("utf8") || "Unknown error";
+        if (opened.status === HTTP_STATUS.UNAUTHORIZED && isCursorApiKey(credentials.apiKey)) {
+          invalidateCursorSessionToken(credentials.apiKey);
+        }
         return {
           response: buildErrorResponse(opened.status, `[${opened.status}]: ${errText}`),
           url,
