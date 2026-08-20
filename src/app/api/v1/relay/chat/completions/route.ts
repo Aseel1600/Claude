@@ -8,6 +8,7 @@
 
 import { CORS_HEADERS, handleCorsOptions } from "@/shared/utils/cors";
 import { handleChat } from "@/sse/handlers/chat";
+import { withChatAdmission } from "@/shared/middleware/withChatAdmission";
 import { createInjectionGuard } from "@/middleware/promptInjectionGuard";
 import { getRelayTokenByHash, checkRateLimit, recordRelayUsage } from "@/lib/db/relayProxies";
 import {
@@ -199,7 +200,7 @@ export async function OPTIONS() {
   return handleCorsOptions();
 }
 
-export async function POST(request: Request) {
+async function postHandler(request: Request) {
   const startTime = Date.now();
   const clientIp = getClientIp(request);
   const userAgent = sanitizeForensicHeader(request.headers.get("user-agent"));
@@ -433,3 +434,5 @@ export async function POST(request: Request) {
     });
   }
 }
+
+export const POST = withChatAdmission(postHandler);

@@ -22,6 +22,7 @@ lastUpdated: 2026-06-28
 - [Docker Compose with Caddy (HTTPS)](#docker-compose-with-caddy-https-auto-tls)
 - [Cloudflare Quick Tunnel](#cloudflare-quick-tunnel)
 - [Image Tags](#image-tags)
+- [Availability: default SQLite is single-replica](#availability-default-sqlite-is-single-replica)
 - [Important Notes](#important-notes)
 
 ---
@@ -341,13 +342,15 @@ For orchestrators (Kubernetes, Nomad, etc.):
 
 | Probe | Prefer | Avoid |
 | --- | --- | --- |
-| Liveness | TCP on the main port (`PORT`, default `20128`), or soft HTTP `/healthz` | `/api/monitoring/health` as liveness |
+| Liveness | HTTP `GET /livez`, or TCP on the main port (`PORT`, default `20128`) | `/api/monitoring/health` as liveness |
 | Readiness | HTTP `GET /healthz` | Tight timeouts that treat event-loop busy as dead |
 | Deep / blackbox | `/api/monitoring/health` | — |
 
-`/healthz` only reports process lifecycle (`ok` / `starting` / `stopping`). It still
-runs on the same Node event loop as request handling, so CPU-bound catalog or
-compression work can delay it — busy ≠ dead. Full probe guidance:
+`/healthz` reports process lifecycle (`ok` / `starting` / `stopping`). `/livez` is
+process-alive only (200 whenever the handler can run; it does not wait for
+readiness). Both still run on the same Node event loop as request handling, so
+CPU-bound catalog or compression work can delay them — busy ≠ dead. Prefer TCP
+liveness if HTTP probes time out. Full probe guidance:
 [Monitoring guide — Kubernetes probe recommendations](../ops/MONITORING_GUIDE.md#kubernetes-probe-recommendations).
 
 ## Docker Compose with Caddy (HTTPS Auto-TLS)
@@ -464,6 +467,28 @@ docker compose up -d
 ```
 
 A release-branch build can never move `latest`; only an eligible stable semantic version may promote the stable pointer. The `next` images retain the release image inspection and blocking CRITICAL-vulnerability gate.
+
+## Availability: default SQLite is single-replica
+
+Stock Docker / Kubernetes OmniRoute is **one Node process + one SQLite writer**. High availability is **not supported** on that topology.
+
+| Constraint | Consequence |
+| --- | --- |
+| Single writer | Do **not** run multiple replicas against the same SQLite file. That corrupts the DB. |
+| Recreate / restart / HEALTHCHECK kill | **Full outage** of in-flight SSE, dashboard sessions, and in-memory state. Every connected client drops. |
+| Same event loop as `/healthz` | A busy catalog or compression tick can delay probes; a short timeout then restarts the **only** replica. |
+
+**Probe matrix** (see also [Kubernetes probe recommendations](../ops/MONITORING_GUIDE.md#kubernetes-probe-recommendations)):
+
+| Probe | Target | Do not use |
+| --- | --- | --- |
+| Liveness | TCP on `PORT` (default `20128`), or soft HTTP `/healthz` | `/api/monitoring/health` |
+| Readiness | HTTP `GET /healthz` | Tight timeouts that treat event-loop busy as dead |
+| Deep / humans | `/api/monitoring/health` | Automated kubelet liveness |
+
+**Upgrades:** expect every session to drop. Drain clients if you can; there is no rolling update on default SQLite. Compose `restart: unless-stopped` plus Docker `HEALTHCHECK` will also replace the only process when the container is Unhealthy — same blast radius.
+
+External Postgres / multi-writer HA is **not** a documented stock path. If you need HA, keep a single replica or run a topology the project has tested and documented separately.
 
 ## Important Notes
 
