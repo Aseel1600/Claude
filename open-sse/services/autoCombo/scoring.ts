@@ -23,6 +23,12 @@ export interface ScoringFactors {
   sessionAvailability?: number;
   resetWindowAffinity: number;
   connectionDensity: number;
+  /**
+   * Feedback-driven quality signal [0,1] from the routing-event quality tracker
+   * (open-sse/services/routing/quality.ts). Optional so cold candidates with no
+   * observed events default to neutral (1.0) and are never penalized.
+   */
+  quality?: number;
 }
 
 export interface ScoringWeights {
@@ -40,11 +46,13 @@ export interface ScoringWeights {
   sessionAvailability?: number;
   resetWindowAffinity: number;
   connectionDensity: number;
+  /** Weight for the feedback-driven quality factor (#feedback-foundation). */
+  quality?: number;
 }
 
 export const DEFAULT_WEIGHTS: ScoringWeights = {
   quota: 0.1429,
-  health: 0.1905,
+  health: 0.1605,
   costInv: 0.1429,
   latencyInv: 0.1143,
   taskFit: 0.0762,
@@ -57,6 +65,10 @@ export const DEFAULT_WEIGHTS: ScoringWeights = {
   sessionAvailability: 0.0476,
   resetWindowAffinity: 0,
   connectionDensity: 0.0476,
+  // Shifted from `health` (0.1905 → 0.1605): availability stays dominant, and
+  // the new quality signal (observed output quality over time) gets a real,
+  // if smaller, vote. Sum remains exactly 1.0.
+  quality: 0.03,
 };
 
 /** Normalize independently configured UI weights into a scoring distribution. */
@@ -107,6 +119,12 @@ export interface ProviderCandidate {
   sessionAvailability?: number;
   /** Score [0..1] for quota reset-window preference; sooner selected reset windows score higher. */
   resetWindowAffinity?: number;
+  /**
+   * Feedback-driven quality score [0..1] for this provider/model from the
+   * routing-event quality tracker (open-sse/services/routing). Omitted/undefined
+   * candidates default to a neutral 1.0 in calculateFactors.
+   */
+  quality?: number;
   connectionPoolSize?: number;
   connectionId?: string;
 }
@@ -141,7 +159,9 @@ export function calculateScore(factors: ScoringFactors, weights: ScoringWeights)
       (weights.cacheAffinity ?? 0) * (factors.cacheAffinity ?? 0) +
       (weights.sessionAvailability ?? 0) * (factors.sessionAvailability ?? 1) +
       (weights.resetWindowAffinity ?? 0) * factors.resetWindowAffinity +
-      (weights.connectionDensity ?? 0) * factors.connectionDensity
+      (weights.connectionDensity ?? 0) * factors.connectionDensity +
+      // Missing quality factor → neutral 1.0 (a cold candidate is never penalized).
+      (weights.quality ?? 0) * (factors.quality ?? 1)
   );
 }
 
@@ -268,6 +288,8 @@ export function calculateFactors(
     sessionAvailability: clamp01(candidate.sessionAvailability ?? 1),
     resetWindowAffinity: clamp01(candidate.resetWindowAffinity ?? 0.5),
     connectionDensity: clamp01(((candidate.connectionPoolSize ?? 1) - 1) / 10),
+    // Feedback quality signal; neutral 1.0 when the tracker has no data yet.
+    quality: clamp01(candidate.quality ?? 1),
   };
 }
 
