@@ -6724,7 +6724,7 @@
       "global": "Globalny",
       "rule": "Reguła",
       "enabled": "Włączone",
-      "disabled": "Niepełnosprawny",
+      "disabled": "Wyłączone",
       "nodeCount": "Węzły: {count}",
       "needsCoreCount": "{count} potrzebuje lokalnego rdzenia",
       "lastSynced": "Ostatnia synchronizacja: {time}",
