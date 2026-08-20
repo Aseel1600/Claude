@@ -8,7 +8,6 @@ import {
   type CountTokensInput,
   type ExecuteInput,
   type ProviderCredentials,
-  type KeyHealth,
 } from "./base.ts";
 import {
   buildGlmBaseHeaders,
@@ -245,7 +244,7 @@ export class GlmExecutor extends DefaultExecutor {
     stream = true,
     _clientHeaders?: Record<string, string> | null,
     _model?: string,
-    _health?: Record<string, KeyHealth>,
+    _health?: unknown,
     _body?: unknown
   ): Record<string, string> {
     const transport: GlmTransport = getGlmTransport(credentials.providerSpecificData);
@@ -367,13 +366,7 @@ export class GlmExecutor extends DefaultExecutor {
   ): Promise<GlmExecuteResult> {
     const credentials = input.credentials;
     const url = buildGlmChatUrl(credentials?.providerSpecificData, transport, this.config.baseUrl);
-    const headers = this.buildHeaders(
-      credentials,
-      input.stream,
-      input.clientHeaders,
-      input.model,
-      transport
-    );
+    const headers = this.buildHeaders(credentials, input.stream, input.clientHeaders, input.model);
     applyConfiguredUserAgent(headers, credentials.providerSpecificData);
     mergeUpstreamExtraHeaders(headers, input.upstreamExtraHeaders);
 
