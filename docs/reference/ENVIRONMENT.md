@@ -1114,6 +1114,10 @@ changing them requires a code edit, not an env var:
 | `CURSOR_IMAGE_FETCH_TIMEOUT_MS`  | `15000`             | `open-sse/utils/cursorImages.ts`           | Per-image fetch timeout (ms) for remote `image_url` vision input.                            |
 | `CURSOR_STATE_DB_PATH`           | _(probed)_          | `open-sse/utils/cursorVersionDetector.ts`  | Override the Cursor IDE state DB lookup used for IDE version detection.                      |
 | `CURSOR_AGENT_CLI_VERSION`       | _(detect / pin)_    | `open-sse/utils/cursorAgentCliVersion.ts`  | Agent CLI build id (`YYYY.MM.DD-<hash>`) for `x-cursor-client-version: cli-…` on Agent Run.   |
+| `CURSOR_AGENT_BIN`               | _(unset)_           | `open-sse/handlers/imageGeneration/providers/cursorAgentImage.ts` | Path to the Cursor Agent binary used for image generation. Unset, the handler uses `providerSpecificData.agentBin` then PATH. |
+| `CURSOR_IMG_TIMEOUT_MS`          | `210000`            | `open-sse/handlers/imageGeneration/providers/cursorAgentImage.ts` | Per-image wall clock (ms) for Cursor Agent image jobs. |
+| `CURSOR_IMG_MAX_CONCURRENT`      | `2`                 | `open-sse/handlers/imageGeneration/providers/cursorAgentImage.ts` | Shared-seat concurrency gate for Cursor image jobs. |
+| `CURSOR_IMG_MODEL`               | request / `auto`    | `open-sse/handlers/imageGeneration/providers/cursorAgentImage.ts` | Override Cursor CLI `--model` for image jobs. |
 | `CURSOR_DATA_DIR`                | _(probed)_          | `open-sse/utils/cursorAgentCliVersion.ts`  | Override Cursor Agent CLI data dir (`…/versions/<id>`); same var the official agent uses.    |
 | `CURSOR_TOKEN`                   | _(unset)_           | `scripts/ad-hoc/cursor-tap.cjs`            | Direct Cursor bearer token used by developer tooling.                                        |
 | `OMNIROUTE_LOG_REQUEST_SHAPE`    | disabled (opt-in via `"1"`) | `src/app/api/v1/chat/completions/route.ts` | Log content-type/length markers for large chat payloads when `"1"` is set. Off by default to reduce log noise. |
