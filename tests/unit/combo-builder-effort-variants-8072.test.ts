@@ -222,6 +222,7 @@ test("Command Code static reasoning models expose all documented effort suffixes
     "claude-haiku-4-5-20251001",
     "gpt-5.5",
     "gpt-5.4",
+    "gpt-5.4-mini",
     "gpt-5.3-codex",
     "deepseek/deepseek-v4-pro",
     "deepseek/deepseek-v4-flash",

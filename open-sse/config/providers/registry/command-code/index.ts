@@ -84,7 +84,8 @@ export const command_codeProvider: RegistryEntry = {
     {
       id: "gpt-5.4-mini",
       name: "GPT-5.4 Mini (CC)",
-      supportsReasoning: false,
+      supportsReasoning: true,
+      supportedThinkingEfforts: COMMAND_CODE_REASONING_EFFORTS,
       supportsVision: true,
       contextLength: 256000,
       maxOutputTokens: 128000,
