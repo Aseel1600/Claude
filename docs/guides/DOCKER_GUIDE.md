@@ -342,13 +342,15 @@ For orchestrators (Kubernetes, Nomad, etc.):
 
 | Probe | Prefer | Avoid |
 | --- | --- | --- |
-| Liveness | TCP on the main port (`PORT`, default `20128`), or soft HTTP `/healthz` | `/api/monitoring/health` as liveness |
+| Liveness | HTTP `GET /livez`, or TCP on the main port (`PORT`, default `20128`) | `/api/monitoring/health` as liveness |
 | Readiness | HTTP `GET /healthz` | Tight timeouts that treat event-loop busy as dead |
 | Deep / blackbox | `/api/monitoring/health` | — |
 
-`/healthz` only reports process lifecycle (`ok` / `starting` / `stopping`). It still
-runs on the same Node event loop as request handling, so CPU-bound catalog or
-compression work can delay it — busy ≠ dead. Full probe guidance:
+`/healthz` reports process lifecycle (`ok` / `starting` / `stopping`). `/livez` is
+process-alive only (200 whenever the handler can run; it does not wait for
+readiness). Both still run on the same Node event loop as request handling, so
+CPU-bound catalog or compression work can delay them — busy ≠ dead. Prefer TCP
+liveness if HTTP probes time out. Full probe guidance:
 [Monitoring guide — Kubernetes probe recommendations](../ops/MONITORING_GUIDE.md#kubernetes-probe-recommendations).
 
 ## Docker Compose with Caddy (HTTPS Auto-TLS)
