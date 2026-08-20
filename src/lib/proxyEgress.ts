@@ -13,10 +13,13 @@
  * entering and leaving by.
  */
 import { request as undiciRequest } from "undici";
-import { createProxyDispatcher, proxyConfigToUrl } from "@omniroute/open-sse/utils/proxyDispatcher.ts";
+import {
+  createProxyDispatcher,
+  proxyConfigToUrl,
+} from "@omniroute/open-sse/utils/proxyDispatcher.ts";
 import { rotationGroupFor } from "@omniroute/open-sse/services/refreshSerializer.ts";
+import { probeEchoTargets } from "./proxyEchoTarget";
 
-const EGRESS_ECHO_URL = "https://api64.ipify.org?format=json";
 const EGRESS_PROBE_TIMEOUT_MS = 6000;
 const EGRESS_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -32,18 +35,26 @@ const egressCache = new Map<string, { ip: string | null; at: number }>();
 
 async function defaultEgressProbe(proxyUrl: string | null): Promise<EgressProbeResult> {
   const start = Date.now();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), EGRESS_PROBE_TIMEOUT_MS);
   try {
     const dispatcher = proxyUrl ? createProxyDispatcher(proxyUrl) : undefined;
-    const res = await undiciRequest(EGRESS_ECHO_URL, {
-      method: "GET",
-      dispatcher,
-      signal: controller.signal,
-      headersTimeout: EGRESS_PROBE_TIMEOUT_MS,
-      bodyTimeout: EGRESS_PROBE_TIMEOUT_MS,
-    });
-    const text = await res.body.text();
+    // #9694: each echo target gets its own controller, so exhausting the budget
+    // on an unreachable IPv6-first target does not abort the IPv4 attempt.
+    const { result: text } = await probeEchoTargets(async (url, timeoutMs) => {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await undiciRequest(url, {
+          method: "GET",
+          dispatcher,
+          signal: controller.signal,
+          headersTimeout: timeoutMs,
+          bodyTimeout: timeoutMs,
+        });
+        return await res.body.text();
+      } finally {
+        clearTimeout(timeout);
+      }
+    }, EGRESS_PROBE_TIMEOUT_MS);
     let ip: string | null = null;
     try {
       ip = (JSON.parse(text) as { ip?: string }).ip ?? null;
@@ -57,8 +68,6 @@ async function defaultEgressProbe(proxyUrl: string | null): Promise<EgressProbeR
       latencyMs: Date.now() - start,
       error: error instanceof Error ? error.message : String(error),
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -87,7 +96,7 @@ export function getCachedEgressIp(proxyUrl: string | null): string | null {
     return null;
   }
   return cached.ip;
- }
+}
 
 const warmingInFlight = new Set<string>();
 
@@ -195,9 +204,7 @@ export async function diagnoseAllEgressIps(deps?: {
   getConnections?: () => Promise<
     Array<{ id: string; provider: string; name?: string; email?: string; authType?: string }>
   >;
-  resolveProxy?: (
-    connectionId: string
-  ) => Promise<{ proxy?: unknown; level?: string } | null>;
+  resolveProxy?: (connectionId: string) => Promise<{ proxy?: unknown; level?: string } | null>;
 }): Promise<EgressDiagnostic> {
   const getConnections =
     deps?.getConnections ??
@@ -266,9 +273,21 @@ export interface ProxyValidationResult {
  */
 export async function validateProxyPool(deps?: {
   listProxies?: () => Promise<
-    Array<{ id: string; type: string; host: string; port: number | string; username?: string | null; password?: string | null; status?: string | null }>
+    Array<{
+      id: string;
+      type: string;
+      host: string;
+      port: number | string;
+      username?: string | null;
+      password?: string | null;
+      status?: string | null;
+    }>
   >;
-  markStatus?: (id: string, status: string, meta: { latencyMs: number; egressIp: string | null }) => Promise<void>;
+  markStatus?: (
+    id: string,
+    status: string,
+    meta: { latencyMs: number; egressIp: string | null }
+  ) => Promise<void>;
 }): Promise<ProxyValidationResult[]> {
   const listProxies =
     deps?.listProxies ??
@@ -351,7 +370,11 @@ export function planProxyDistribution(
       return;
     }
     if (opts.allowSharing) {
-      assignments.push({ connectionId: c.id, account, proxyId: liveProxyIds[i % liveProxyIds.length] });
+      assignments.push({
+        connectionId: c.id,
+        account,
+        proxyId: liveProxyIds[i % liveProxyIds.length],
+      });
     } else if (i < liveProxyIds.length) {
       assignments.push({ connectionId: c.id, account, proxyId: liveProxyIds[i] });
     } else {
