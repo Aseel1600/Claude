@@ -10,13 +10,18 @@
  * quota-based candidate is reported UNKNOWN unless it lacks even a usage
  * adapter, in which case it's reported UNKNOWN for that reason instead. This
  * intentionally shows the current, honest ceiling of what's usable today.
+ *
+ * Uses each candidate's REAL `connectionId` from the live endpoint (rather
+ * than assuming) to also exercise the post-code-review connection-safety
+ * check: a `keyless`-catalogued model whose live `connectionId` is NOT the
+ * no-auth sentinel is correctly reported as excluded here too.
  */
 import { readFileSync } from "node:fs";
 import {
-  evaluateStrictZeroCost,
+  evaluateCandidateConnections,
   findBudgetEntry,
 } from "../../open-sse/services/autoCombo/strictZeroCostFilter.ts";
-import { FREE_MODEL_BUDGETS } from "../../open-sse/config/freeModelCatalog.ts";
+import { SYNTHETIC_NOAUTH_CONNECTION_ID } from "../../open-sse/services/autoCombo/resilienceCandidateFilter.ts";
 import { USAGE_FETCHER_PROVIDERS } from "../../open-sse/services/usage.ts";
 
 const usageProviders = new Set<string>(USAGE_FETCHER_PROVIDERS);
@@ -25,6 +30,7 @@ const OPTIONS = { minRemainingAllowance: 1, maxStateAgeMs: 180_000 };
 interface Candidate {
   provider: string;
   model: string;
+  connectionId: string;
 }
 
 function loadCandidates(path: string): Candidate[] {
@@ -37,9 +43,13 @@ function loadCandidates(path: string): Candidate[] {
   // segment (whichever form it is) so e.g. "groq/meta-llama/llama-4-scout..."
   // becomes "meta-llama/llama-4-scout..." and "oc/big-pickle" becomes
   // "big-pickle", matching the catalog's modelId either way.
-  return list.map((c: { provider: string; model: string }) => {
+  return list.map((c: { provider: string; model: string; connectionId?: string }) => {
     const slash = c.model.indexOf("/");
-    return { provider: c.provider, model: slash === -1 ? c.model : c.model.slice(slash + 1) };
+    return {
+      provider: c.provider,
+      model: slash === -1 ? c.model : c.model.slice(slash + 1),
+      connectionId: c.connectionId ?? SYNTHETIC_NOAUTH_CONNECTION_ID,
+    };
   });
 }
 
@@ -56,9 +66,17 @@ function run(label: string, path: string): void {
       excluded.push({ candidate: c, reason: "non presente nel catalogo free curato" });
       continue;
     }
+    const isNoAuthConnection = c.connectionId === SYNTHETIC_NOAUTH_CONNECTION_ID;
     if (entry.freeType === "keyless") {
-      if (evaluateStrictZeroCost(c, entry, undefined, OPTIONS)) {
+      const safe = evaluateCandidateConnections(c, entry, () => undefined, OPTIONS);
+      if (safe.length > 0) {
         kept.push(c);
+      } else if (!isNoAuthConnection) {
+        excluded.push({
+          candidate: c,
+          reason:
+            "keyless nel catalogo ma raggiunto tramite una connessione DB reale (non il sentinel noauth) — shortcut non applicato, richiederebbe hardStopGuaranteed",
+        });
       } else {
         excluded.push({ candidate: c, reason: "keyless ma valutazione fallita (inatteso)" });
       }
