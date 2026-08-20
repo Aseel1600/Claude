@@ -162,7 +162,7 @@ OmniRoute is a **single Node process** (one event loop). Stock Docker `HEALTHCHE
 | Probe | Recommended target | Notes |
 | --- | --- | --- |
 | **Startup** | HTTP `GET /healthz` with a long `failureThreshold` (or large `startPeriod`) | Cold start + SQLite migration can exceed a few seconds |
-| **Readiness** | HTTP `GET /healthz` | Remove endpoints while starting/stopping; still flaps if the loop is CPU-blocked |
+| **Readiness** | HTTP `GET /healthz` | Remove endpoints while starting/stopping; still flaps if the loop is CPU-blocked. A **200 in multiple seconds is not healthy** (#10303) — it means the event loop was starved before the 3-byte handler ran |
 | **Liveness** | **TCP** on the main service port (`PORT`, default `20128`), **or** HTTP `/healthz` with soft thresholds | Do **not** kill the pod on short event-loop stalls; busy ≠ dead |
 | **Deep health** | `GET /api/monitoring/health` from an external checker | Not for kubelet `livenessProbe` / tight `readinessProbe` |
 
