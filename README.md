@@ -63,7 +63,7 @@
 
 |                           | v3.8.49 | **v3.8.50** | `v3.8.51+`  |
 | ------------------------- | :-----: | :---------: | :---------: |
-| 🌐 Providers              |   290   |   **342**   | more queued |
+| 🌐 Providers              |   290   |   **343**   | more queued |
 | 🧠 Documented models      |  1185   |  **1202**   |      —      |
 | 🖼️ Modality Bridge        |    —    |  🆕 vision  |    video    |
 | 📡 Radar free catalog     |    —    |  🆕 opt-in  |      —      |
