@@ -229,7 +229,7 @@ export async function finalizeCatalogResponse(
   await yieldTurn();
   const capabilityResolutionSnapshot = createModelCapabilityResolutionSnapshot();
   const enriched: Array<Record<string, unknown>> = [];
-  const catYIELD_EVERY = 5;
+  const catYIELD_EVERY = 1;
   let catEnrichCount = 0;
   for (const model of finalModels) {
     let listedModel: Record<string, unknown>;
