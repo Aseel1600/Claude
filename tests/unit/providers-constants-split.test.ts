@@ -21,9 +21,9 @@
 // Raycast Pro #8895), then later additions to 199; retiring GitHub Models brings it to 198.
 // The v3.8.50 free-tier gateway waves (#9631 registry cycle, waves 2-5, #9210 phase 3) grew the
 // gateways family to 228 measured on the tip; Puter retired (#10210) and chatanywhere restored
-// (base-reds round 3, #9985) are both included in that measurement. Adding the TabiToken NewAPI
-// gateway takes it to 229 — its sibling hcnsec was already catalogued (regional family), so
-// teaching that entry three more protocols moves no count.
+// (base-reds round 3, #9985) are both included in that measurement; Cursor API (specialty-media,
+// #10729) brings it to 229; Token Kiosk (gateways, #10722) — merged in the same
+// merge-train batch — independently bumped the gateways family too, landing at 231.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
@@ -52,12 +52,12 @@ test("barrel still exports every catalog + key helpers", () => {
   }
 });
 
-test("APIKEY_PROVIDERS merges the 6 family files into 229 entries (no loss / no dup)", async () => {
+test("APIKEY_PROVIDERS merges the 6 family files into 231 entries (no loss / no dup)", async () => {
   const keys = Object.keys((P as Record<string, object>).APIKEY_PROVIDERS);
-  assert.equal(keys.length, 229);
-  assert.equal(new Set(keys).size, 229, "duplicate keys after spread-merge");
+  assert.equal(keys.length, 231);
+  assert.equal(new Set(keys).size, 231, "duplicate keys after spread-merge");
   // the merged object's entry-count equals the sum of the 6 semantic family files; families are a
-  // strict partition (every provider in exactly one), so the sum must be exactly 229.
+  // strict partition (every provider in exactly one), so the sum must be exactly 231.
   const families: [string, string][] = [
     ["gateways", "APIKEY_PROVIDERS_GATEWAYS"],
     ["frontier-labs", "APIKEY_PROVIDERS_FRONTIER"],
@@ -77,7 +77,7 @@ test("APIKEY_PROVIDERS merges the 6 family files into 229 entries (no loss / no 
       seen.add(k);
     }
   }
-  assert.equal(famTotal, 229, "families must partition all 229 providers");
+  assert.equal(famTotal, 231, "families must partition all 231 providers");
 });
 
 test("AI_PROVIDERS Proxy aggregates all sections; lookups resolve", () => {

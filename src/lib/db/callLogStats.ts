@@ -56,7 +56,10 @@ export interface SearchProviderCountRow {
 
 /**
  * Returns one row per provider with call-level aggregates plus last-status
- * subselects. Excludes rows where provider is NULL or '-'.
+ * subselects. Excludes rows where provider is NULL or '-', and excludes
+ * providers with no live row in `provider_connections` — a deleted provider
+ * connection must not keep surfacing as a ghost topology node forever from
+ * its retained historical call_logs rows. See #10714.
  */
 export function getProviderMetrics(): ProviderMetricRow[] {
   const db = getDbInstance();
@@ -96,6 +99,9 @@ export function getProviderMetrics(): ProviderMetricRow[] {
           ) as lastErrorStatus
         FROM call_logs c
         WHERE c.provider IS NOT NULL AND c.provider != '-'
+          AND EXISTS (
+            SELECT 1 FROM provider_connections pc WHERE pc.provider = c.provider
+          )
         GROUP BY c.provider`
     )
     .all() as ProviderMetricRow[];
@@ -232,4 +238,35 @@ export function getFallbackStats(
     )
     .get(params) as FallbackStatsRow | undefined;
   return row ?? { total: 0, with_requested: 0, fallback_eligible: 0, fallbacks: 0 };
+}
+
+/**
+ * Failure-family breakdown over `call_logs` for the usage analytics endpoint.
+ * Failures are rows with status >= 400 or a non-empty error summary; successes
+ * are excluded in SQL. Pre-migration rows and failures the classifier does not
+ * recognize (null family) land in the explicit `unclassified` bucket.
+ *
+ * @param whereClause - SQL WHERE clause (may be empty string) using the same
+ *                      named params as the usage_history queries.
+ * @param params      - Named params object (string values).
+ */
+export function getErrorTypeBreakdown(
+  whereClause: string,
+  params: Record<string, string>
+): Array<{ errorType: string; count: number }> {
+  const db = getDbInstance();
+  const rows = db
+    .prepare(
+      `
+      SELECT
+        COALESCE(error_type, 'unclassified') AS errorType,
+        COUNT(*) AS count
+      FROM call_logs
+      ${whereClause} ${whereClause ? "AND" : "WHERE"} (status >= 400 OR error_summary IS NOT NULL)
+      GROUP BY 1
+      ORDER BY count DESC, errorType ASC
+      `
+    )
+    .all(params) as Array<{ errorType: string; count: number }>;
+  return rows.map((row) => ({ errorType: String(row.errorType), count: Number(row.count) }));
 }

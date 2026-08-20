@@ -16,9 +16,11 @@ import type { FreeModelBudget } from "./freeModelCatalog.ts";
  * rewrites file timestamps on every deploy, which would report a months-old
  * catalog as "updated today". Bump this whenever the entries below change.
  */
-export const FREE_CATALOG_CURATED_AT = "2026-08-16";
+export const FREE_CATALOG_CURATED_AT = "2026-08-18";
 
 export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
+  { provider: "chatgpt-web", modelId: "gpt-5.6-luna-free", displayName: "GPT-5.6 Luna (Free)", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "chatgpt-web-free", tos: "caution" },
+  { provider: "chatgpt-web", modelId: "gpt-5.6-luna-free-thinking", displayName: "GPT-5.6 Luna (Free, Think)", monthlyTokens: 0, creditTokens: 0, freeType: "recurring-uncapped", poolKey: "chatgpt-web-free", tos: "caution" },
   { provider: "agentrouter", modelId: "claude-opus-4-8", displayName: "Claude Opus 4.8", monthlyTokens: 0, creditTokens: 200000000, freeType: "one-time-initial", poolKey: "agentrouter", tos: "caution" },
   { provider: "agentrouter", modelId: "claude-opus-5", displayName: "Claude Opus 5", monthlyTokens: 0, creditTokens: 200000000, freeType: "one-time-initial", poolKey: "agentrouter", tos: "caution" },
   { provider: "agentrouter", modelId: "gpt-5.6-sol", displayName: "GPT-5.6 Sol", monthlyTokens: 0, creditTokens: 200000000, freeType: "one-time-initial", poolKey: "agentrouter", tos: "caution" },
@@ -361,7 +363,7 @@ export const FREE_MODEL_BUDGETS: FreeModelBudget[] = [
   { provider: "qoder", modelId: "deepseek-v4-pro", displayName: "DeepSeek-V4-Pro", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
   { provider: "qoder", modelId: "deepseek-v4-flash", displayName: "DeepSeek-V4-Flash", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
   { provider: "qoder", modelId: "minimax-m3", displayName: "MiniMax-M3", monthlyTokens: 0, creditTokens: 1000000, freeType: "one-time-initial", poolKey: "qoder", tos: "caution" },
-  { provider: "qwen-web", modelId: "qwen3.8-max-preview", displayName: "Qwen3.8 Max Preview", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
+  { provider: "qwen-web", modelId: "qwen3.8-max", displayName: "Qwen3.8 Max", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
   { provider: "qwen-web", modelId: "qwen3.7-max", displayName: "Qwen3.7 Max", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
   { provider: "qwen-web", modelId: "qwen3.7-plus", displayName: "Qwen3.7 Plus", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
   { provider: "qwen-web", modelId: "qwen3.6-plus", displayName: "Qwen3.6 Plus", monthlyTokens: 0, creditTokens: 0, freeType: "keyless", poolKey: "qwen-web", tos: "avoid" },
