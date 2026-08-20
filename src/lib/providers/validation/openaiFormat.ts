@@ -163,7 +163,11 @@ export async function validateOpenAILikeProvider({
     }
 
     if (chatRes.status === 404 || chatRes.status === 405) {
-      return { valid: false, error: "Provider validation endpoint not supported" };
+      return {
+        valid: false,
+        error: "Provider validation endpoint not supported",
+        unsupported: true,
+      };
     }
 
     if (chatRes.status >= 500) {

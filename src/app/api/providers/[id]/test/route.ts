@@ -153,6 +153,7 @@ export function classifyFailure({
     normalized.includes("fetch failed") ||
     normalized.includes("network") ||
     normalized.includes("timeout") ||
+    normalized.includes("timed out") ||
     normalized.includes("econn") ||
     normalized.includes("enotfound") ||
     normalized.includes("socket")
@@ -768,6 +769,7 @@ async function testApiKeyConnection(connection: any) {
     const error = "Provider test not supported";
     return {
       valid: false,
+      skipped: true,
       error,
       diagnosis: classifyFailure({ error, unsupported: true, provider: connection.provider }),
     };
@@ -859,6 +861,18 @@ export async function testSingleConnection(connectionId: string, validationModel
   }
 
   const latencyMs = Date.now() - startTime;
+
+  // Unsupported validation capability is neutral: the probe established that
+  // this provider cannot be verified through the generic test surface, not
+  // that its credential is invalid. Do not mutate persisted credential health.
+  if (result.skipped === true) {
+    return {
+      ...result,
+      latencyMs,
+      runtime: runtime || null,
+      testedAt: null,
+    };
+  }
 
   // Build update data
   const now = new Date().toISOString();
