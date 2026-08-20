@@ -7215,6 +7215,7 @@
     "configured": "configurado",
     "none": "Nenhum",
     "modelOverrideValuePlaceholder": "Valor numérico",
+    "modelOverrideReasoningEffortsPlaceholder": "Lista em inglês separada por vírgulas, ex. low, medium, high",
     "addKeyValue": "Adicionar valor da chave",
     "noModelOverrides": "Nenhuma substituição configurada para este modelo.",
     "modelOverrideLoadFailed": "Falha ao carregar substituições de modelo",
