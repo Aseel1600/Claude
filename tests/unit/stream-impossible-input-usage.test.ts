@@ -152,6 +152,42 @@ test("valid Claude cache usage remains untouched", () => {
   assert.deepEqual(sanitized, usage);
 });
 
+test("output-only usage chunks (Claude message_delta) are never input-repaired", () => {
+  const body = { messages: [{ role: "user", content: "hello" }] };
+
+  // Claude streams report input on message_start and output on message_delta.
+  // The output-only chunk carries no input field and must be left untouched —
+  // repairing it would clobber the correct input count already recorded from
+  // message_start with a local estimate (upstream #10705 regression, fixed here).
+  const claudeDeltaUsage = { output_tokens: 4 };
+  const claudeDelta = sanitizeProviderUsageForRequest(claudeDeltaUsage, body, FORMATS.CLAUDE);
+  assert.equal(claudeDelta, claudeDeltaUsage, "output-only Claude chunk keeps object identity");
+  assert.deepEqual(claudeDelta, { output_tokens: 4 });
+  assert.equal(claudeDelta.input_tokens, undefined);
+
+  const openaiFinishUsage = { completion_tokens: 4 };
+  const openaiFinish = sanitizeProviderUsageForRequest(openaiFinishUsage, body, FORMATS.OPENAI);
+  assert.equal(openaiFinish, openaiFinishUsage, "output-only OpenAI chunk keeps object identity");
+  assert.equal(openaiFinish.input_tokens, undefined);
+  assert.equal(openaiFinish.prompt_tokens, undefined);
+  assert.deepEqual(openaiFinish, { completion_tokens: 4 });
+
+  const responsesFinishUsage = { output_tokens: 4 };
+  const responsesFinish = sanitizeProviderUsageForRequest(
+    responsesFinishUsage,
+    body,
+    FORMATS.OPENAI_RESPONSES
+  );
+  assert.equal(
+    responsesFinish,
+    responsesFinishUsage,
+    "output-only Responses chunk keeps object identity"
+  );
+  assert.equal(responsesFinish.input_tokens, undefined);
+  assert.equal(responsesFinish.prompt_tokens, undefined);
+  assert.deepEqual(responsesFinish, { output_tokens: 4 });
+});
+
 test("impossible input usage is repaired for OpenAI, Responses, and Gemini shapes", () => {
   const body = { messages: [{ role: "user", content: "hello" }] };
 

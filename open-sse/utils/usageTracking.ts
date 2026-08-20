@@ -464,6 +464,30 @@ function getReportedInputTokens(usage: UsageLike, format: string): number {
   return tokenNumber(usage.prompt_tokens ?? usage.input_tokens);
 }
 
+/**
+ * Return true when the usage payload carries any input-token field for its
+ * resolved format. Output-only chunks (e.g. Claude `message_delta` with just
+ * `output_tokens`) carry none and must never be repaired.
+ */
+function usageHasInputField(usage: UsageLike, format: string): boolean {
+  if (format === FORMATS.CLAUDE) {
+    return (
+      usage.input_tokens !== undefined ||
+      usage.cache_read_input_tokens !== undefined ||
+      usage.cache_creation_input_tokens !== undefined
+    );
+  }
+  if (format === FORMATS.GEMINI) {
+    return (
+      usage.promptTokenCount !== undefined || usage.cachedContentTokenCount !== undefined
+    );
+  }
+  if (format === FORMATS.OPENAI_RESPONSES) {
+    return usage.input_tokens !== undefined || usage.prompt_tokens !== undefined;
+  }
+  return usage.prompt_tokens !== undefined || usage.input_tokens !== undefined;
+}
+
 function clearCachedTokenDetail<T extends UsageTokenDetail | null | undefined>(value: T): T {
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const result = { ...value };
@@ -484,7 +508,24 @@ export function sanitizeProviderUsageForRequest(
 
   const format = resolveUsageFormat(usage, targetFormat);
   const reportedInput = getReportedInputTokens(usage, format);
-  if (reportedInput <= 0 || isInputTokenCountPlausible(reportedInput, body)) {
+  // A usage payload that carries no input field at all is an output-only chunk
+  // (e.g. Claude `message_delta` carries just `output_tokens`; the input was
+  // already reported by the separate `message_start` event). Repairing it would
+  // clobber the correct input count with a local estimate, so leave it untouched.
+  const hasInputField = usageHasInputField(usage, format);
+  if (!hasInputField) {
+    return usage;
+  }
+  // #10705: reportedInput === 0 was always accepted, on the theory this guard only
+  // needed to catch providers over-reporting huge counts. But a real, non-trivial
+  // request body can legitimately have its input tokens under-reported to exactly 0
+  // by a relay provider. Only treat 0 as plausible when the request body itself is
+  // trivial (no serialized body, or a body too small to plausibly need any tokens);
+  // otherwise fall through to the same local-estimate repair used for over-reports.
+  const bodyBytesForZeroCheck = reportedInput === 0 ? getSerializedBodyBytes(body) : null;
+  const zeroIsPlausible =
+    reportedInput === 0 && (bodyBytesForZeroCheck === null || bodyBytesForZeroCheck === 0);
+  if (zeroIsPlausible || (reportedInput > 0 && isInputTokenCountPlausible(reportedInput, body))) {
     return usage;
   }
 

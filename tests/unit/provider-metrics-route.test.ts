@@ -52,6 +52,13 @@ test.after(() => {
   }
 });
 
+function seedProviderConnection(provider: string) {
+  const db = core.getDbInstance();
+  db.prepare(
+    `INSERT INTO provider_connections (id, provider, created_at, updated_at) VALUES (?, ?, ?, ?)`
+  ).run(`conn-${provider}`, provider, new Date().toISOString(), new Date().toISOString());
+}
+
 test("GET /api/provider-metrics includes provider recency and error topology", async () => {
   // `errorProvider` is gated on TOPOLOGY_ERROR_TTL_MS (10s) so a provider that failed and was
   // then left alone stops being reported as failing. Fixed calendar timestamps therefore
@@ -65,6 +72,8 @@ test("GET /api/provider-metrics includes provider recency and error topology", a
   const openaiErrorAt = iso(2_000);
 
   const db = core.getDbInstance();
+  seedProviderConnection("openai");
+  seedProviderConnection("anthropic");
   db.prepare(
     `INSERT INTO call_logs (id, timestamp, provider, status, duration, error_summary)
      VALUES (?, ?, ?, ?, ?, ?)`
@@ -102,6 +111,8 @@ test("GET /api/provider-metrics errorProvider must NOT flag a provider whose mos
   // Bug (pre-fix): errorProvider = "providerA" because lastErrorAt > 0.
   // Fix (post-fix): errorProvider = "" because lastStatus for providerA is 200.
   const db = core.getDbInstance();
+  seedProviderConnection("providerA");
+  seedProviderConnection("providerB");
   db.prepare(
     `INSERT INTO call_logs (id, timestamp, provider, status, duration, error_summary)
      VALUES (?, ?, ?, ?, ?, ?)`
