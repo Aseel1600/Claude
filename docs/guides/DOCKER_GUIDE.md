@@ -412,8 +412,8 @@ Endpoint tunnel panels (Cloudflare, Tailscale, ngrok) can be shown or hidden fro
 
 | Image                    | Tag      | Size   | Description           |
 | ------------------------ | -------- | ------ | --------------------- |
-| `diegosouzapw/omniroute` | `latest` | ~250MB | Latest stable release |
-| `diegosouzapw/omniroute` | `3.8.0`  | ~250MB | Current version       |
+| `diegosouzapw/omniroute` | `latest` | ~250MB | Highest **published** stable SemVer (not git `main`) |
+| `diegosouzapw/omniroute` | `3.8.0`  | ~250MB | Pin this class of tag for GitOps |
 
 Multi-platform manifest: `linux/amd64` + `linux/arm64` native (Apple Silicon, AWS Graviton, Raspberry Pi). Docker selects the matching architecture automatically; pass `--platform linux/amd64` if you need to force AMD64 emulation on ARM hosts.
 
@@ -424,7 +424,7 @@ OmniRoute publishes separate Docker channels for stable releases, active release
 | Channel                         | Source                              | Mutability                  | Recommended use                                                                                 |
 | ------------------------------- | ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
 | `:<version>` / `:<version>-web` | Signed/versioned release            | Immutable                   | Production deployments that pin an exact release                                                |
-| `:latest` / `:latest-web`       | Highest stable release              | Mutable stable pointer      | Production deployments that intentionally follow stable releases                                |
+| `:latest` / `:latest-web`       | Highest **published** stable SemVer | Mutable stable pointer      | Follows stable releases **after** a SemVer publish job — does **not** track `main` or unreleased `release/v*` commits |
 | `:next` / `:next-web`           | Current default `release/v*` branch | Mutable pre-release pointer | Testing fixes that have landed on the active release branch but are not yet in a stable release |
 | `:main` / `:main-web`           | `main` branch                       | Mutable development pointer | Development and integration testing only                                                        |
 
@@ -467,6 +467,15 @@ docker compose up -d
 ```
 
 A release-branch build can never move `latest`; only an eligible stable semantic version may promote the stable pointer. The `next` images retain the release image inspection and blocking CRITICAL-vulnerability gate.
+
+**`latest` is not a currency guarantee for git.** Merged fixes on `main` or on the active `release/v*` branch are **not** in `:latest` until a stable SemVer image is published and the publish job promotes `:latest` (same digest as that SemVer). If `latest` looks frozen while GitHub already shows the fix, pull `:next` to test the release branch or wait for the SemVer tag.
+
+| You want | Use |
+| --- | --- |
+| GitOps / production that must not drift | Pin `:X.Y.Z` (or the image digest) |
+| Follow published stables and accept a recreate on each release | `:latest` |
+| Test unreleased `release/v*` commits | `:next` (not production) |
+| Test `main` | `:main` (not production) |
 
 ## Availability: default SQLite is single-replica
 
