@@ -275,6 +275,21 @@ export function sanitizeReasoningEffortForProvider(
     return stripEffortValue(b, c);
   }
 
+  // `minimal` is a sub-`low` reasoning tier some catalogs advertise (e.g.
+  // Muse Spark via models.dev) and the Codex provider accepts natively — but
+  // Command Code rejects it outright:
+  //   Validation error: Invalid option: expected one of
+  //   "low"|"medium"|"high"|"xhigh"|"max" at "params.reasoning_effort"
+  // Map it to the closest supported value (`low`) for command-code only;
+  // other providers (codex etc.) keep their native `minimal` handling.
+  if (provider === "command-code" && effortStr === "minimal") {
+    log?.info?.(
+      "REASONING_SANITIZE",
+      `${provider}/${modelStr}: mapped reasoning_effort minimal → low`
+    );
+    return writeEffortValue(b, "low", c);
+  }
+
   // Command Code accepts the literal top-tier value `max`, while the shared
   // standardization stage may have already represented the client's `max` as
   // OmniRoute's internal `xhigh`. Convert it back before the upstream request.
