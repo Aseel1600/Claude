@@ -25,6 +25,8 @@ import { buildFamilyCandidateFilter, type ModelFamily } from "./modelFamily";
 import { getHiddenModelsByProvider } from "@/models";
 import { getSyncedAvailableModelsByConnection, getCustomModels } from "@/lib/db/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
+import { filterStrictZeroCostCandidates, filterTosAvoidCandidates } from "./strictZeroCostFilter";
+import { resolveFreeAccessState } from "./freeAccessQuota";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
 import { filterExcludedCandidates } from "./candidateOverrides";
 import { getExcludedConnectionIds } from "@/lib/db/autoCandidateOverrides";
@@ -563,6 +565,30 @@ export async function prepareVirtualAutoComboInputs(
     // exclude paid-only backends from EVERY `auto/*` candidate pool.
     const paidFilteredPool = filterPaidOnlyCandidates(pool, settings.hidePaidModels === true);
     if (paidFilteredPool !== pool) pool = paidFilteredPool;
+
+    // STRICT_ZERO_COST: opt-in, off by default (`settings.freeAccessPolicy !== "strict"`
+    // leaves `pool` byte-identical, same contract as `hidePaidModels`). See
+    // `strictZeroCostFilter.ts` for why this is stricter than `hidePaidModels` alone.
+    const strictFilteredPool = filterStrictZeroCostCandidates(pool, {
+      enabled: settings.freeAccessPolicy === "strict",
+      resolveFreeAccessState: (candidate) =>
+        resolveFreeAccessState(
+          candidate.provider,
+          (candidate as VirtualAutoComboCandidate).connectionId ??
+            (candidate as VirtualAutoComboCandidate).allowedConnectionIds?.[0]
+        ),
+      // 1 percentage point of headroom, not 0: `freeAccessQuota.ts` reports
+      // remaining allowance as a percentage, and a raw ">0" comparison would
+      // let a reading of e.g. 0.3% (rounding noise, not real headroom) pass.
+      minRemainingAllowance: 1,
+      maxStateAgeMs: (settings.autoRefreshProviderQuotaInterval ?? 180) * 1000,
+    });
+    if (strictFilteredPool !== pool) pool = strictFilteredPool;
+
+    // Separate, optional ToS guard — independent of economic safety on purpose.
+    const tosFilteredPool = filterTosAvoidCandidates(pool, settings.excludeTosAvoid === true);
+    if (tosFilteredPool !== pool) pool = tosFilteredPool;
+
     return pool;
   };
 
