@@ -163,6 +163,59 @@ test("relay route: normalizes HTML 502 from Bifrost into JSON error (Issue #1)",
   restoreEnv();
 });
 
+test("relay route: strips stale upstream content-length before serializing JSON error body", async () => {
+  setupBifrostEnv();
+  const relayToken = seedRelayToken(`relay_err_${Date.now()}`);
+
+  // The upstream Response carries an EXPLICIT content-length for its own (HTML)
+  // body. Once the route replaces that body with a freshly-serialized JSON error,
+  // a stale content-length copied verbatim onto the outgoing Response would
+  // mismatch the real byte length of the new body.
+  globalThis.fetch = async () => {
+    const html = "<html><body>404 page not found, upstream sidecar unreachable</body></html>";
+    return new Response(html, {
+      status: 404,
+      headers: {
+        "content-type": "text/html",
+        "content-length": String(Buffer.byteLength(html)),
+        "content-encoding": "gzip",
+        "transfer-encoding": "chunked",
+      },
+    });
+  };
+
+  const { POST } = await import(
+    `../../../../src/app/api/v1/relay/chat/completions/route.ts?case=${Date.now()}-${Math.random()}`
+  );
+
+  const req = new Request("http://localhost/api/v1/relay/chat/completions", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${relayToken.rawToken}`,
+      "content-type": "application/json",
+      "x-request-id": "relay-err-stale-length",
+    },
+    body: JSON.stringify({ model: "gpt-4", messages: [{ role: "user", content: "hi" }] }),
+  });
+
+  const res = await POST(req);
+  assert.equal(res.status, 404);
+  assert.equal(res.headers.get("content-encoding"), null, "stale content-encoding must be stripped");
+  assert.equal(res.headers.get("transfer-encoding"), null, "stale transfer-encoding must be stripped");
+
+  const raw = await res.text();
+  const declaredLength = res.headers.get("content-length");
+  if (declaredLength !== null) {
+    assert.equal(
+      Number(declaredLength),
+      Buffer.byteLength(raw),
+      "content-length, if present, must match the actual serialized JSON error body"
+    );
+  }
+
+  restoreEnv();
+});
+
 test("relay route: upstream 401 recorded as analytics error not success (Issue #3)", async () => {
   setupBifrostEnv();
   const relayToken = seedRelayToken(`relay_err_${Date.now()}`);

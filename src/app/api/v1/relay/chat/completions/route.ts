@@ -33,6 +33,7 @@ import {
 import { getProviderPluginManifestEntryForModel } from "@omniroute/open-sse/config/providerPluginManifestRegistry.ts";
 import { getProviderPluginManifestHeader } from "@omniroute/open-sse/config/providerPluginManifestUrl.ts";
 import { finalizeReadableStream } from "./streamFinalizer";
+import { stripStaleEncodingHeaders } from "@omniroute/open-sse/utils/upstreamResponseHeaders.ts";
 import {
   clearBifrostFailure,
   getActiveBifrostCooldown,
@@ -125,7 +126,7 @@ async function forwardToBifrost(
         sanitizeErrorMessage(parsed.message),
         parsed.responseBody
       );
-      const errorHeaders = new Headers(headers);
+      const errorHeaders = stripStaleEncodingHeaders(headers);
       errorHeaders.set("Content-Type", "application/json");
       if (parsed.retryAfterMs && parsed.retryAfterMs > 0) {
         errorHeaders.set("Retry-After", String(Math.ceil(parsed.retryAfterMs / 1000)));
@@ -174,7 +175,8 @@ async function forwardToBifrost(
       startTime,
       clientIp,
       userAgent,
-      upstream.status >= 200 && upstream.status < 300 ? "success" : "error",
+      // upstream.ok is guaranteed true here (the !upstream.ok branch above returns early).
+      "success",
       upstream.status
     );
 
