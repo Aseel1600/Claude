@@ -197,6 +197,11 @@ livenessProbe:
 
 Related: [#10052](https://github.com/diegosouzapw/OmniRoute/issues/10052) (probes while the event loop is busy), [#9685](https://github.com/diegosouzapw/OmniRoute/issues/9685) / [#10055](https://github.com/diegosouzapw/OmniRoute/pull/10055) (catalog pricing hog), [#10117](https://github.com/diegosouzapw/OmniRoute/issues/10117) (compression token-count hog).
 
+
+### Optional request-path work (memory, skills, token refresh)
+
+Memory extraction, skills injection, and OAuth token refresh share the **main Node event loop** with `/healthz`. They are dashboard-toggle features (`memoryEnabled`, `skillsEnabled`), not a worker pool. See [Environment — event-loop cost](../reference/ENVIRONMENT.md#event-loop-cost-of-memory-skills-and-token-refresh-10349).
+
 ### Provider Health
 
 > **No REST endpoint.** Provider health data is available via the MCP tool `observability_snapshot` or the dashboard `/dashboard/providers` page.

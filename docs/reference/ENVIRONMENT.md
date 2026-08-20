@@ -862,6 +862,19 @@ The logging system writes to both stdout and rotated log files. All configuratio
 
 ### Memory Engine (plan 21)
 
+### Event-loop cost of memory, skills, and token refresh (#10349)
+
+OmniRoute is a **single Node process**. Memory extraction/retrieval, skills injection, and provider token refresh run on that **same event loop** as `GET /healthz` and the dashboard. They are not a worker thread.
+
+| Work | Code | Default | Operator control |
+| --- | --- | --- | --- |
+| Memory extraction / retrieval | `src/lib/memory/` | Dashboard **memoryEnabled** (default on) | Turn off **Settings → Memory**. There is no separate env kill switch beyond disabling the feature in settings. |
+| Skills injection | `src/lib/skills/injection.ts` | Dashboard **skillsEnabled** (default on) | Turn off **Settings → Memory/Skills** (`skillsEnabled`). Sandbox knobs below only bound execution after injection is already on. |
+| Token refresh | `src/sse/services/tokenRefresh.ts` | On for connected OAuth/web providers | Disconnect the provider or let tokens stay valid; there is no `TOKEN_REFRESH=0` env today. |
+
+If `/healthz` is slow on a quiet box, disable memory + skills first, then check catalog/compression load (#10303, #9685). These features yield at `await` points but still compete for the one thread.
+
+
 Embedding layer, vector store and reranking knobs for the persistent memory subsystem (`src/lib/memory/`).
 
 | Variable                        | Default                    | Description                                                                                                |
