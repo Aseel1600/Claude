@@ -13,12 +13,16 @@ import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
 import { listModelIntelligence } from "./db/modelIntelligence";
 import { getProviderConnections } from "./db/providers";
 import { getCustomModels } from "./db/models";
+// Type-only: reuse the health vocabulary instead of forking it.
+import type { ProviderHealthState } from "./monitoring/providerHealthMatrix";
 import type { ProviderAuthType } from "./freeProviderRankingsAuthType";
 
 // Re-exported for backward-compat / same-module ergonomics (#6915) — the
 // actual implementations live in `freeProviderRankingsAuthType.ts` (DB-free,
 // safe to import from "use client" pages; see that file's header comment).
 export type { ProviderAuthType } from "./freeProviderRankingsAuthType";
+// Re-exported for consumers of `reliability`; the definition stays in monitoring.
+export type { ProviderHealthState } from "./monitoring/providerHealthMatrix";
 export {
   filterRankingsByAuthType,
   sortRankingsAuthTypeFirst,
@@ -43,6 +47,8 @@ export interface FreeProviderRanking {
   topModel: ProviderModelScore | null;
   averageScore: number;
   modelCount: number;
+  /** Present only when connection state was loaded (filters active). See `ProviderReliability`. */
+  reliability?: ProviderReliability;
 }
 
 /**
@@ -223,6 +229,28 @@ export interface ConnectionState {
 }
 
 /**
+ * Second, additive dimension exposed on each ranking when connection state is
+ * loaded (configured/available filters active). Derived from data the ranking
+ * builder already holds — zero extra query.
+ *
+ * States use `ProviderHealthState` (`src/lib/monitoring/providerHealthMatrix.ts`)
+ * so both surfaces describe a provider the same way. The raw signals stay
+ * verbatim next to the state: `testStatus` is written on failure paths only and
+ * reset to `active` by an explicit connection test or a re-auth, so it can
+ * outlive the actual recovery.
+ */
+export interface ProviderReliability {
+  /** Same triplet `ProviderHealthMatrixAccount` exposes, one per connection. */
+  connections: Array<{
+    testStatus: string | null;
+    rateLimitedUntil: string | null;
+    state: ProviderHealthState;
+  }>;
+  /** Provider aggregate; absent entirely for providers with no loaded connection. */
+  state: ProviderHealthState;
+}
+
+/**
  * Options controlling the additive "configured" / "available" filters.
  * Both default off (undefined/false) → output identical to current behavior.
  */
@@ -231,6 +259,22 @@ export interface FreeProviderRankingFilterOptions {
   configuredOnly?: boolean;
   /** Keep only providers that have ≥1 non-exhausted, non-rate-limited connection (implies configured). */
   availableOnly?: boolean;
+}
+
+/** Group connection states by provider id (shared by filter and reliability attach). */
+function groupConnectionsByProvider(
+  connections: ConnectionState[]
+): Map<string, ConnectionState[]> {
+  const byProvider = new Map<string, ConnectionState[]>();
+  for (const conn of connections) {
+    const list = byProvider.get(conn.provider);
+    if (list) {
+      list.push(conn);
+    } else {
+      byProvider.set(conn.provider, [conn]);
+    }
+  }
+  return byProvider;
 }
 
 // Terminal connection statuses — mirrors `isTerminalConnectionStatus`
@@ -250,16 +294,34 @@ const TERMINAL_CONNECTION_STATUSES = new Set(["credits_exhausted", "banned", "ex
  * quota lockout (model lockout, `open-sse/services/accountFallback.ts`) is a
  * deferred Phase 3 and is intentionally NOT consulted here.
  */
-export function isProviderUsable(connections: ConnectionState[], now: number = Date.now()): boolean {
-  return connections.some((conn) => {
-    const status = (conn.testStatus || "").trim().toLowerCase();
-    if (TERMINAL_CONNECTION_STATUSES.has(status)) return false;
-    if (conn.rateLimitedUntil) {
-      const until = new Date(conn.rateLimitedUntil).getTime();
-      if (Number.isFinite(until) && until > now) return false;
-    }
-    return true;
-  });
+export function isProviderUsable(
+  connections: ConnectionState[],
+  now: number = Date.now()
+): boolean {
+  return connections.some((conn) => classifyConnection(conn, now) === "healthy");
+}
+
+/**
+ * One connection, classified as `classifyAccount` does (health matrix): terminal
+ * status ⇒ `down`, live cooldown ⇒ `degraded`, else `healthy`. Model lockouts are
+ * not loaded here, so — as in `isProviderUsable` — they are not consulted.
+ * The filter reuses this, so it cannot drift from the reported state.
+ */
+function classifyConnection(conn: ConnectionState, now: number): ProviderHealthState {
+  const status = (conn.testStatus || "").trim().toLowerCase();
+  if (TERMINAL_CONNECTION_STATUSES.has(status)) return "down";
+  if (conn.rateLimitedUntil) {
+    const until = new Date(conn.rateLimitedUntil).getTime();
+    if (Number.isFinite(until) && until > now) return "degraded";
+  }
+  return "healthy";
+}
+
+/** Mirrors `classifyProvider`, minus its circuit-breaker input (not loaded here). */
+function classifyProviderConnections(states: ProviderHealthState[]): ProviderHealthState {
+  if (states.length > 0 && states.every((state) => state === "down")) return "down";
+  if (states.some((state) => state !== "healthy")) return "degraded";
+  return "healthy";
 }
 
 /**
@@ -281,21 +343,41 @@ export function filterFreeProviderRankings(
   const { configuredOnly, availableOnly } = opts;
   if (!configuredOnly && !availableOnly) return rankings;
 
-  const byProvider = new Map<string, ConnectionState[]>();
-  for (const conn of connections) {
-    const list = byProvider.get(conn.provider);
-    if (list) {
-      list.push(conn);
-    } else {
-      byProvider.set(conn.provider, [conn]);
-    }
-  }
+  const byProvider = groupConnectionsByProvider(connections);
 
   return rankings.filter((ranking) => {
     const conns = byProvider.get(ranking.id);
     if (!conns || conns.length === 0) return false; // not configured
     if (availableOnly) return isProviderUsable(conns, now);
     return true; // configuredOnly
+  });
+}
+
+/**
+ * Pure enrichment: attach `reliability` to every ranking with a loaded
+ * connection. Rankings without one are returned unchanged, never mutated.
+ */
+export function attachProviderReliability(
+  rankings: FreeProviderRanking[],
+  connections: ConnectionState[],
+  now: number = Date.now()
+): FreeProviderRanking[] {
+  const byProvider = groupConnectionsByProvider(connections);
+  return rankings.map((ranking) => {
+    const conns = byProvider.get(ranking.id);
+    if (!conns || conns.length === 0) return ranking;
+    const states = conns.map((c) => classifyConnection(c, now));
+    return {
+      ...ranking,
+      reliability: {
+        connections: conns.map((c, i) => ({
+          testStatus: c.testStatus ?? null,
+          rateLimitedUntil: c.rateLimitedUntil ?? null,
+          state: states[i],
+        })),
+        state: classifyProviderConnections(states),
+      },
+    };
   });
 }
 
@@ -388,6 +470,10 @@ export async function computeFreeProviderRankings(
       isActive: true,
     })) as unknown as ConnectionState[];
     filtered = filterFreeProviderRankings(rankings, connections, opts);
+    // Second dimension, same snapshot: annotation only, sort and scores untouched.
+    // `availableOnly` already drops providers with no healthy connection, so under
+    // it `state` is never `down`; `down` needs `configuredOnly` alone.
+    filtered = attachProviderReliability(filtered, connections);
   }
 
   return filtered.slice(0, limit);
