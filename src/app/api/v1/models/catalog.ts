@@ -62,6 +62,7 @@ import {
   getCatalogDiagnosticsHeaders,
   type CatalogEnrichmentSnapshot,
 } from "@/lib/modelMetadataRegistry";
+import { createModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { getModelsDevPricing, getSyncedCapability } from "@/lib/modelsDevSync";
 import { getModelSpec } from "@/shared/constants/modelSpecs";
 import { getModelsCatalogPrefixMode } from "@/shared/utils/featureFlags";
@@ -245,6 +246,7 @@ async function buildUnifiedModelsResponseCore(
       ...diagnosticHeaders,
     });
     if (authRejection) return authRejection;
+    const capabilityResolutionSnapshot = createModelCapabilityResolutionSnapshot();
     const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
     const _qp = new URL(request.url).searchParams.get("prefix");
     const prefixMode =
@@ -462,10 +464,13 @@ async function buildUnifiedModelsResponseCore(
       const targetModel = getComboTargetModelId(target);
       if (!targetModel) return null;
 
-      const canonical = getCanonicalModelMetadata({
-        provider: targetModel.providerId,
-        model: targetModel.modelId,
-      });
+      const canonical = getCanonicalModelMetadata(
+        {
+          provider: targetModel.providerId,
+          model: targetModel.modelId,
+        },
+        capabilityResolutionSnapshot
+      );
       if (!canonical) return null;
 
       const providerId = canonical.provider || targetModel.providerId;
@@ -485,9 +490,18 @@ async function buildUnifiedModelsResponseCore(
         allProviderConnections.length > 0 || hasExplicitConnectionScope
           ? providerConnections.map((connection) => connection.id)
           : undefined;
+      const source = canonical.metadata.source;
       const connectionCatalog = comboSyncedModelsByProvider.get(providerId);
-      const connectionEfforts =
-        connectionCatalog === null
+      // A `reasoning_efforts` model-capability override is operator-declared,
+      // provider-scoped authoritative evidence — it must win over (and never be
+      // silently dropped by) the per-connection synced-catalog fail-closed scan
+      // below, or the override would apply in the direct catalog but vanish from
+      // combo `effort_tiers`.
+      const connectionEfforts = source.reasoningEffortsOverride
+        ? canonical.capabilities.supportedThinkingEfforts
+          ? [...canonical.capabilities.supportedThinkingEfforts]
+          : []
+        : connectionCatalog === null
           ? []
           : getConnectionScopedEffortTiers(
               modelId,
@@ -495,12 +509,12 @@ async function buildUnifiedModelsResponseCore(
               eligibleConnectionIds,
               connectionCatalog || {}
             );
-      const source = canonical.metadata.source;
       if (
         connectionEfforts === undefined &&
         !source.providerRegistry &&
         !source.staticSpec &&
-        !source.syncedCapability
+        !source.syncedCapability &&
+        !source.reasoningEffortsOverride
       ) {
         return null;
       }
@@ -1767,9 +1781,8 @@ async function buildUnifiedModelsResponseCore(
       }
       enrichmentSnapshot = {
         modelsDevPricing,
-        providerNodeIdsByPrefix: Object.fromEntries(
-          Object.entries(providerIdToPrefix).map(([providerId, prefix]) => [prefix, providerId])
-        ),
+        capabilityResolution: capabilityResolutionSnapshot,
+        providerNodeIdsByPrefix: providerNodeIdByPrefix,
       };
       // The production profile identified pricing snapshot construction as the last
       // dominant synchronous stage. Let already-queued health checks run before the
