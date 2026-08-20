@@ -184,6 +184,29 @@ function sanitizeImageProviderError(errorText: string): unknown {
   return sanitizeErrorMessage(errorText);
 }
 
+// #8307 — some ChatGPT accounts can run Codex but lack entitlement for the specific
+// requested image model. Upstream signals this as a 400 with an exact, stable message
+// (not a generic "invalid request"). Classify it so the caller can mark the failure
+// `retryable: true`, which routes it through the same sibling-account fallback that
+// already handles 401s (executeImageWithCredentialFallback, src/sse/services/imageCredentialRetry.ts).
+function isCodexChatGptModelAccessError(status: number, errorText: string, model: string): boolean {
+  if (status !== 400) return false;
+  const parsed = parseJsonOrNull(errorText);
+  let detail: string | null = null;
+  if (typeof parsed === "string") {
+    detail = parsed;
+  } else if (parsed && typeof parsed === "object") {
+    const obj = parsed as Record<string, unknown>;
+    if (typeof obj.detail === "string") detail = obj.detail;
+    else if (typeof obj.message === "string") detail = obj.message;
+    else if (obj.error && typeof obj.error === "object") {
+      const nested = (obj.error as Record<string, unknown>).message;
+      if (typeof nested === "string") detail = nested;
+    }
+  }
+  return detail === `The '${model}' model is not supported when using Codex with a ChatGPT account.`;
+}
+
 const BFL_MODEL_ENDPOINTS = {
   "flux-2-max": "/v1/flux-2-max",
   "flux-2-pro": "/v1/flux-2-pro",
@@ -2532,6 +2555,7 @@ async function handleCodexImageGeneration({
       const safeErrorLog =
         typeof safeError === "string" ? safeError : JSON.stringify(safeError ?? {});
       if (log) log.error("IMAGE", `${provider} error ${response.status}: ${safeErrorLog}`);
+      const retryable = isCodexChatGptModelAccessError(response.status, errorText, model);
       return {
         ok: false as const,
         error: {
@@ -2542,6 +2566,7 @@ async function handleCodexImageGeneration({
           error: safeError,
           requestBody: requestBodyForLog,
           path: logPath,
+          ...(retryable ? { retryable: true } : {}),
         },
       };
     }
