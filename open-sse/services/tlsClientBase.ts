@@ -33,6 +33,7 @@ import { open, unlink, rmdir, readFile, mkdtemp, stat } from "node:fs/promises";
 // ---------------------------------------------------------------------------
 import { resolveProxyForRequest } from "../utils/proxyFetch.ts";
 import { resolveTlsClientProxyUrl } from "./tlsClientProxy.ts";
+import { buildNativeTlsClientOptions } from "./tlsClientDownloadDir.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -652,7 +653,7 @@ export function createGetClient(config: {
           );
         }
         const tlsOptions: Record<string, unknown> = {
-          runtimeMode: "native",
+          ...buildNativeTlsClientOptions(),
         };
         if (config.tlsProfile) {
           tlsOptions.clientIdentifier = config.tlsProfile;
@@ -765,7 +766,7 @@ export function createTlsClientModule(config: TlsClientConfig): TlsClientModule 
     eofSymbol: string,
     signal: AbortSignal | null,
     hardTimeoutMs: number,
-    firstByteMs: number
+    firstByteMs: number = firstByteTimeoutMs
   ): Promise<TlsFetchResult> {
     const dir = await mkdtemp(join(tmpdir(), tempDirPrefix));
     const path = join(dir, `${randomUUID()}.sse`);
