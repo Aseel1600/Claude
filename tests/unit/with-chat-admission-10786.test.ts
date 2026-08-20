@@ -70,3 +70,19 @@ test("responses and messages route modules wrap POST with withChatAdmission befo
   assert.match(catchAll, /export const POST = withChatAdmission\(postHandler\)/);
   assert.doesNotMatch(catchAll, /export async function POST/);
 });
+
+test("remaining handleChat aliases wrap POST with withChatAdmission (#10790)", async () => {
+  const { readFileSync } = await import("node:fs");
+  const files = [
+    "src/app/api/v1/antigravity/route.ts",
+    "src/app/api/v1/api/chat/route.ts",
+    "src/app/api/v1/completions/route.ts",
+    "src/app/api/v1/providers/[provider]/chat/completions/route.ts",
+    "src/app/api/v1/relay/chat/completions/route.ts",
+  ];
+  for (const rel of files) {
+    const src = readFileSync(new URL("../../" + rel, import.meta.url), "utf8");
+    assert.match(src, /withChatAdmission/, rel);
+    assert.match(src, /export const POST = withChatAdmission\(postHandler\)/, rel);
+  }
+});
