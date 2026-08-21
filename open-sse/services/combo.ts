@@ -83,6 +83,7 @@ import {
   normalizeStickinessMessages,
   recordStickyBinding,
   clearStickyBinding,
+  clearStickyBindingsForCombo,
   peekStickyConnectionId,
   resolveDisableSessionStickiness,
 } from "./combo/sessionStickiness.ts";
@@ -3012,6 +3013,9 @@ async function handleRoundRobinCombo({
   if (rrAffinityEnabled && resolvePromptCacheAffinityKey(body)) {
     filteredTargets = await expandPromptCacheAffinityTargets(filteredTargets);
     modelCount = filteredTargets.length;
+  }
+  if (disableSessionStickiness) {
+    clearStickyBindingsForCombo(combo.name);
   }
   const _rrSessionSticky = disableSessionStickiness
     ? ({ targets: filteredTargets, messageHash: null, stuck: false } as const)

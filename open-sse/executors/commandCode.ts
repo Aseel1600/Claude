@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { isVisionModelId } from "@/shared/constants/visionModels";
 import { REGISTRY } from "../config/providerRegistry.ts";
-import { BaseExecutor, mergeUpstreamExtraHeaders, type ExecuteInput } from "./base.ts";
+import {
+  BaseExecutor,
+  mergeUpstreamExtraHeaders,
+  sanitizeReasoningEffortForProvider,
+  type ExecuteInput,
+} from "./base.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -987,7 +992,17 @@ export class CommandCodeExecutor extends BaseExecutor {
     };
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
 
-    const { body: transformedBody, toolNameMap } = buildCommandCodeBody(model, body, stream);
+    // The combo/single-model dispatch boundary does not always run
+    // sanitizeRequestForResolvedTarget before reaching this executor (combo
+    // path), and Command Code rejects unsupported reasoning_effort values
+    // outright (e.g. "minimal" → 400 "expected one of low|medium|high|xhigh|max").
+    // Sanitize here — the executor is the last line of defense for the wire body.
+    const sanitizedBody = sanitizeReasoningEffortForProvider(body, this.provider, model);
+    const { body: transformedBody, toolNameMap } = buildCommandCodeBody(
+      model,
+      sanitizedBody,
+      stream
+    );
     const url = this.buildUrl();
     const upstream = await fetch(url, {
       method: "POST",
