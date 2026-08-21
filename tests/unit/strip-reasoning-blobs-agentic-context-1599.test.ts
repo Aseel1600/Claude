@@ -132,7 +132,7 @@ test("Chat drop removes opaque state while preserving plaintext and summary deta
   ]);
 });
 
-test("DeepSeek rejects plaintext reasoning carrying opaque provider state", () => {
+test("DeepSeek projects plaintext reasoning carrying opaque provider state onto the plaintext transport (#10949)", () => {
   for (const opaqueField of ["signature", "format"] as const) {
     const body: Record<string, unknown> = {
       input: [
@@ -148,13 +148,11 @@ test("DeepSeek rejects plaintext reasoning carrying opaque provider state", () =
 
     const result = applyReasoningInputPolicy(body, "responses", { provider: "deepseek" });
 
-    assert.equal(result.incompatibleReasoning, true, opaqueField);
+    assert.equal(result.incompatibleReasoning, false, opaqueField);
     assert.deepEqual(body.input, [
       {
-        id: "rs_mixed123",
         type: "reasoning",
         content: [{ type: "reasoning_text", text: "untrusted companion" }],
-        [opaqueField]: "provider-state",
       },
       { type: "message", role: "user", content: [{ type: "input_text", text: "continue" }] },
     ]);
@@ -197,6 +195,49 @@ test("drop fallback removes only the incompatible active transport and preserves
   ]);
   assert.equal(plaintextReasoning.id, "rs_plaintext");
   assert.equal(opaqueReasoning.encrypted_content, "provider-state");
+});
+
+test("mixed plaintext + opaque reasoning follows the target transport instead of rejecting (#10949)", () => {
+  const mixedReasoning = {
+    id: "rs_mixed",
+    type: "reasoning",
+    content: [{ type: "reasoning_text", text: "inspect first" }],
+    encrypted_content: "provider-state",
+    summary: [{ type: "summary_text", text: "display only" }],
+  };
+
+  // Plaintext target (deepseek): keep the portable plaintext, strip opaque state.
+  const toPlaintext: Record<string, unknown> = {
+    input: [structuredClone(mixedReasoning)],
+  };
+  const plaintextResult = applyReasoningInputPolicy(toPlaintext, "responses", {
+    provider: "deepseek",
+  });
+  assert.equal(plaintextResult.incompatibleReasoning, false);
+  assert.deepEqual(toPlaintext.input, [
+    {
+      type: "reasoning",
+      content: [{ type: "reasoning_text", text: "inspect first" }],
+      summary: [{ type: "summary_text", text: "display only" }],
+    },
+  ]);
+
+  // Opaque target (openai): keep the provider state, strip the plaintext.
+  const toOpaque: Record<string, unknown> = {
+    input: [structuredClone(mixedReasoning)],
+  };
+  const opaqueResult = applyReasoningInputPolicy(toOpaque, "responses", {
+    provider: "openai",
+  });
+  assert.equal(opaqueResult.incompatibleReasoning, false);
+  assert.deepEqual(toOpaque.input, [
+    {
+      id: "rs_mixed",
+      type: "reasoning",
+      encrypted_content: "provider-state",
+      summary: [{ type: "summary_text", text: "display only" }],
+    },
+  ]);
 });
 
 test("drop fallback preserves reasoning when its transport is compatible", () => {

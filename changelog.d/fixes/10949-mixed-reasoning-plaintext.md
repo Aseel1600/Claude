@@ -1,0 +1,1 @@
+- Preserve explicit plaintext reasoning when a Responses reasoning item also carries opaque provider state (rare OpenCode Go `deepseek-v4-flash` responses). Mixed plaintext + opaque input is now projected onto the target transport instead of rejected: plaintext targets keep the portable text, opaque targets keep the provider state. (#10949)

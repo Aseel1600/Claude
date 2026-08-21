@@ -455,7 +455,13 @@ export function openaiResponsesToOpenAIRequest(
     if (itemType === "reasoning") {
       // Only genuine plaintext reasoning can cross into Chat reasoning_content.
       // Opaque encrypted state and its display summary have no Chat replay form.
-      if (preserveReasoningContent && hasOpaqueReasoningState(item)) {
+      // A mixed item (#10949) replays its explicit plaintext companion; only an
+      // opaque-only item — nothing portable to carry — stays a hard rejection.
+      if (
+        preserveReasoningContent &&
+        hasOpaqueReasoningState(item) &&
+        !extractReplayableResponsesReasoningText(item)
+      ) {
         throw createReasoningTransportIncompatibleError();
       }
       if (preserveReasoningContent) {

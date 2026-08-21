@@ -101,10 +101,12 @@ function hasChatPlaintextReasoning(record: JsonRecord): boolean {
 /**
  * Returns only provider-authentic plaintext continuation state. Display summaries
  * are excluded, and a record carrying opaque state is never cross-converted.
+ * Explicit plaintext wins over a coexisting opaque companion (#10949): the text is
+ * independently portable, so its presence must not be suppressed by `encrypted_content`.
  */
 export function extractReplayableResponsesReasoningText(value: unknown): string {
   const record = asRecord(value);
-  if (!record || record.type !== "reasoning" || hasOpaqueReasoningState(record)) return "";
+  if (!record || record.type !== "reasoning") return "";
   if (!Array.isArray(record.content)) return "";
 
   return record.content
@@ -306,14 +308,17 @@ export function applyReasoningInputPolicy(
     inputFormat === "responses"
       ? inspectResponsesReasoning(body.input)
       : inspectChatReasoning(body.messages);
-  const incompatibleReasoning = !isReasoningCompatible(inspection, transport);
+  // Mixed plaintext + opaque input (#10949) is never a rejection: it is projected
+  // onto the target transport by the per-item sanitizers below.
+  const mixedState = inspection.hasPlaintext && inspection.hasOpaque;
+  const incompatibleReasoning = !mixedState && !isReasoningCompatible(inspection, transport);
 
   if (incompatibleReasoning && options.onIncompatibleReasoning !== "drop") {
     return { incompatibleReasoning: true };
   }
 
   if (inputFormat === "chat") {
-    if (incompatibleReasoning && Array.isArray(body.messages)) {
+    if ((incompatibleReasoning || mixedState) && Array.isArray(body.messages)) {
       body.messages = dropIncompatibleChatReasoning(body.messages, transport);
     }
     return { incompatibleReasoning: false };
@@ -328,12 +333,13 @@ export function applyReasoningInputPolicy(
       },
     ];
   }
-  if (!Array.isArray(body.input)) return { incompatibleReasoning: false };
-  body.input = sanitizeResponsesInput(
-    body.input,
-    transport,
-    incompatibleReasoning,
-    body.store === false
-  );
+  if (Array.isArray(body.input)) {
+    body.input = sanitizeResponsesInput(
+      body.input,
+      transport,
+      incompatibleReasoning || mixedState,
+      body.store === false
+    );
+  }
   return { incompatibleReasoning: false };
 }
