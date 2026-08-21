@@ -192,6 +192,11 @@ const IGNORE_FROM_CODE = new Set([
   // write-build-sha.mjs to stamp dist/BUILD_SHA — injected by the build, never
   // configured by users in .env.
   "OMNIROUTE_BUILD_SHA",
+  // Test-only build seam: overrides the `.build/next/standalone` path so tests can
+  // drive colocate-standalone.mjs against a synthetic tree without a full
+  // `next build` (see the comment at its definition). Same override-seam family as
+  // OMNIROUTE_BUILD_SHA above; never user-facing .env config.
+  "OMNIROUTE_STANDALONE_DIR",
   // Listener-owned self-fetch transport signal. The HTTP/HTTPS launchers set
   // this before application imports; it is not user-configurable product env.
   "OMNIROUTE_INTERNAL_SCHEME",
