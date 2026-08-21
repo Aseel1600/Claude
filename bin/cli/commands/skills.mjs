@@ -116,14 +116,7 @@ export async function runSkillsDisable(id, opts, cmd) {
     const ok = await confirm(`Disable ${id}?`);
     if (!ok) return;
   }
-  const res = await apiFetch("/api/mcp/tools/call", {
-    method: "POST",
-    body: { name: "omniroute_skills_enable", arguments: { skillId: id, enabled: false } },
-  });
-  if (!res.ok) {
-    process.stderr.write(`Error: ${res.status}\n`);
-    process.exit(1);
-  }
+  await mcpCallTool("omniroute_skills_enable", { skillId: id, enabled: false });
   process.stdout.write(`Disabled: ${id}\n`);
 }
 
