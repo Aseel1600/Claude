@@ -10,6 +10,12 @@
  *  - Inlines an SSRF guard rejecting RFC1918 / loopback / link-local / IPv6 ULA
  *    targets — the Edge runtime cannot import Node helpers, the guard lives
  *    here as a string.
+ *  - Resolves x-relay-path through the SAME `resolveRelayTarget()` the Deno and
+ *    Vercel workers use (PR #4643 and its follow-up), instead of concatenating
+ *    it onto the target. Concatenation lets the path re-point the request past
+ *    the validated host. Bound to a LITERAL const name so the hardcoded call
+ *    site still resolves when the SWC-minified standalone build mangles the
+ *    source function's own name in `.toString()` output (#6149).
  *  - Strips Host + relay control headers before forwarding upstream.
  *
  * The string template is fed to Cloudflare's PUT /accounts/{id}/workers/scripts/{name}
@@ -23,6 +29,7 @@
  *  - SSRF guard is inlined so a leaked relay URL cannot scan internal IPs.
  */
 import { randomUUID } from "crypto";
+import { resolveRelayTarget } from "@/app/api/settings/proxy/deno-deploy/route";
 
 /**
  * Build the multipart/form-data request body for Cloudflare's Worker
@@ -75,6 +82,8 @@ export function buildCloudflareWorkerScript(relayAuth: string): string {
   // user-controlled input ever reaches this template, so direct interpolation
   // into the worker source string is safe.
   return `// OmniRoute Cloudflare Worker proxy relay — generated at deploy time.
+const resolveRelayTarget = ${resolveRelayTarget.toString()};
+
 function isPrivateHostname(h) {
   if (!h) return true;
   const host = h.trim().toLowerCase().replace(/^\\[|\\]$/g, "");
@@ -134,9 +143,12 @@ async function handleRelay(request) {
     init.body = request.body;
     init.duplex = "half";
   }
+  const resolved = resolveRelayTarget(target, relayPath);
+  if (!resolved.ok) {
+    return new Response(resolved.reason, { status: resolved.status });
+  }
   try {
-    const targetBase = target.endsWith("/") ? target.slice(0, -1) : target;
-    const upstream = await fetch(targetBase + relayPath, init);
+    const upstream = await fetch(resolved.url, init);
     return new Response(upstream.body, {
       status: upstream.status,
       headers: upstream.headers,
