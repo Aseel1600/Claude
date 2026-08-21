@@ -22,7 +22,7 @@ import { autoSyncCodexProfilesFromLiveCatalog } from "@/lib/cli-helper/codexProf
 import { autoSyncClaudeProfilesFromLiveCatalog } from "@/lib/cli-helper/claudeProfileAutoSync";
 import { providerUsesCuratedModelsOnly } from "@/lib/providers/modelListingCapability";
 import { GET as getProviderModels } from "../models/route";
-import { isDegradedLocalCatalog } from "./degradedLocalCatalog";
+import { isDegradedDiscovery } from "./degradedLocalCatalog";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 
 type JsonRecord = Record<string, unknown>;
@@ -465,9 +465,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const modelSource = toNonEmptyString(modelsData.source)?.toLowerCase() || "unknown";
     const modelWarning = toNonEmptyString(modelsData.warning);
-    if (isDegradedLocalCatalog(modelsData)) {
+    if (isDegradedDiscovery(modelsData)) {
       const responseError =
-        modelWarning || "Remote model discovery failed; local catalog fallback not synced";
+        modelWarning || "Remote model discovery failed; catalog fallback not synced";
       await saveCallLog({
         method: "GET",
         path: `/api/providers/${id}/models`,
