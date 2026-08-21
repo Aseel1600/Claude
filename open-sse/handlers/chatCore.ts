@@ -367,7 +367,10 @@ import {
   resolveReportedServiceTier as resolveReportedServiceTierFor,
   type EffectiveServiceTier,
 } from "./chatCore/serviceTier.ts";
-import { cacheReasoningFromAssistantMessage } from "../services/reasoningCache.ts";
+import {
+  cacheReasoningFromAssistantMessage,
+  requiresReasoningReplay,
+} from "../services/reasoningCache.ts";
 import { sanitizeOpenAITool } from "../services/toolSchemaSanitizer.ts";
 import { isCompactResponsesEndpoint } from "../executors/codex.ts";
 import { persistCodexChildQuotaResponse } from "../services/codexAccount/index.ts";
@@ -4934,10 +4937,12 @@ export async function handleChatCore({
       const msg = firstChoice?.message;
       const historyMessages = (translatedBody as { messages?: unknown[] } | null | undefined)
         ?.messages;
-      cacheReasoningFromAssistantMessage(msg, provider, model, {
-        scope: reasoningCacheScope,
-        historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
-      });
+      if (requiresReasoningReplay({ provider, model })) {
+        cacheReasoningFromAssistantMessage(msg, provider, model, {
+          scope: reasoningCacheScope,
+          historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
+        });
+      }
     } catch {
       // Cache capture is non-critical — never block the response
     }
@@ -5456,10 +5461,12 @@ export async function handleChatCore({
         const msg = choices?.[0]?.message;
         const historyMessages = (translatedBody as { messages?: unknown[] } | null | undefined)
           ?.messages;
-        cacheReasoningFromAssistantMessage(msg, provider, model, {
-          scope: reasoningCacheScope,
-          historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
-        });
+        if (requiresReasoningReplay({ provider, model })) {
+          cacheReasoningFromAssistantMessage(msg, provider, model, {
+            scope: reasoningCacheScope,
+            historyMessages: Array.isArray(historyMessages) ? historyMessages : [],
+          });
+        }
       } catch {
         // Cache capture is non-critical — never block the stream
       }
