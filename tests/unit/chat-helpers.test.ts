@@ -493,7 +493,7 @@ test("handleNoCredentials preserves lastError over allExpired after a failed att
     "quota exceeded",
     402
   );
-  const json = (await response.json()) as any;
+  const json = (await response.json()) as { error?: { message?: string } };
   assert.equal(response.status, 402);
   assert.match(json.error.message, /quota exceeded/i);
 });
