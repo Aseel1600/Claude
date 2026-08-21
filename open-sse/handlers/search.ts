@@ -1339,18 +1339,41 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     }
   }
 
-  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888)
-  if (isUnconfiguredLoopbackSearchProvider(primaryConfig)) {
+  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888,
+  // unless a request/connection override resolves it to a real URL).
+  const primaryEffectiveBaseUrl = resolveSearchBaseUrl(primaryConfig, {
+    ...requestParams,
+    providerSpecificData:
+      credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
+        ? credentials.providerSpecificData
+        : undefined,
+  });
+  if (
+    isUnconfiguredLoopbackSearchProvider({ ...primaryConfig, baseUrl: primaryEffectiveBaseUrl })
+  ) {
     if (log) {
       log.warn(
         "SEARCH",
         "skipping catalog-default searxng-search at http://localhost:8888/search; set a real SearXNG URL"
       );
     }
+    const alternateEffectiveBaseUrl = alternateConfig
+      ? resolveSearchBaseUrl(alternateConfig, {
+          ...requestParams,
+          providerSpecificData:
+            alternateCredentials?.providerSpecificData &&
+            typeof alternateCredentials.providerSpecificData === "object"
+              ? alternateCredentials.providerSpecificData
+              : undefined,
+        })
+      : "";
     if (
       alternateConfig &&
       alternateCredentials &&
-      !isUnconfiguredLoopbackSearchProvider(alternateConfig)
+      !isUnconfiguredLoopbackSearchProvider({
+        ...alternateConfig,
+        baseUrl: alternateEffectiveBaseUrl,
+      })
     ) {
       return tryProvider(
         alternateConfig,
