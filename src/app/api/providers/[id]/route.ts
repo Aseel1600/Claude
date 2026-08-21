@@ -26,6 +26,7 @@ import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { isApiKeyRevealEnabled, maskStoredApiKey } from "@/lib/apiKeyExposure";
 import { cleanupProviderModelsAfterConnectionDelete } from "@/lib/db/models";
 import { canUpdateProviderApiKey } from "@/shared/providers/webSessionCredentials";
+import { extractKimiCredentials } from "@/lib/providers/webCookieAuth";
 import {
   refreshConnectionRateLimits,
   enableRateLimitProtection,

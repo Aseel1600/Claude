@@ -216,20 +216,36 @@ export async function POST(request: Request) {
 
     providerSpecificData = normalizeProviderSpecificData(provider, providerSpecificData) || null;
 
-    const newConnection = await createProviderConnection({
-      provider,
-      authType: "apikey",
-      name,
-      apiKey: persistedApiKey,
-      priority: priority || 1,
-      globalPriority: globalPriority || null,
-      defaultModel: defaultModel || null,
-      providerSpecificData,
-      isActive: true,
-      testStatus: testStatus || "unknown",
-    });
+    let accessToken = undefined;
+  let refreshToken = undefined;
+  
+  if ((provider === "kimi-web" || provider === "kimi_web") && apiKey) {
+    const extracted = extractKimiCredentials(apiKey);
+    if (extracted.accessToken) {
+      persistedApiKey = extracted.accessToken;
+      accessToken = extracted.accessToken;
+    }
+    if (extracted.refreshToken) {
+      refreshToken = extracted.refreshToken;
+    }
+  }
 
-    // Auto-trigger model discovery for the newly created connection.
+  const newConnection = await createProviderConnection({
+    provider,
+    authType: "apikey",
+    name,
+    apiKey: persistedApiKey,
+    accessToken,
+    refreshToken,
+    priority: priority || 1,
+    globalPriority: globalPriority || null,
+    defaultModel: defaultModel || null,
+    providerSpecificData,
+    isActive: true,
+    testStatus: testStatus || "unknown",
+  });
+
+  // Auto-trigger model discovery for the newly created connection.
     // Fire-and-forget: model sync can take seconds and should NOT block the
     // POST response. If it fails, we log and move on — the connection itself
     // is already persisted and the user can manually trigger a sync later.
