@@ -18,7 +18,11 @@ import { randomUUID } from "crypto";
  * }
  */
 
-import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
+import {
+  getSearchProvider,
+  isUnconfiguredLoopbackSearchProvider,
+  type SearchProviderConfig,
+} from "../config/searchRegistry.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
 import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
@@ -1309,7 +1313,37 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     }
   }
 
-  // 4. Try primary provider
+  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888)
+  if (isUnconfiguredLoopbackSearchProvider(primaryConfig)) {
+    if (log) {
+      log.warn(
+        "SEARCH",
+        "skipping catalog-default searxng-search at http://localhost:8888/search; set a real SearXNG URL"
+      );
+    }
+    if (
+      alternateConfig &&
+      alternateCredentials &&
+      !isUnconfiguredLoopbackSearchProvider(alternateConfig)
+    ) {
+      return tryProvider(
+        alternateConfig,
+        requestParams,
+        alternateCredentials,
+        startTime,
+        log,
+        alternateCredentials?.connectionId,
+        apiKeyId
+      );
+    }
+    return {
+      success: false,
+      status: 503,
+      error:
+        "SearXNG is still on the catalog default http://localhost:8888/search. Configure a real SearXNG URL or disable the provider.",
+    };
+  }
+
   const result = await tryProvider(
     primaryConfig,
     requestParams,

@@ -327,6 +327,24 @@ export function resolveSearchProviderId(providerId: string): string {
  * Request routing should use resolveSearchProvider() so aliases work
  * without colliding with the Foundation jina-ai provider id.
  */
+const CATALOG_SEARXNG_DEFAULT_URL = "http://localhost:8888/search";
+
+/**
+ * Catalog default SearXNG URL is a desktop convenience. In Docker/K8s nothing
+ * listens on :8888, and OMNIROUTE_ALLOW_PRIVATE_PROVIDER_URLS (needed for
+ * ClusterIP providers) lets ProxyFetch attempt it, producing ECONNREFUSED and
+ * a 502 that then burns the next fallback's quota. Skip unless the operator
+ * overrode baseUrl.
+ */
+export function isUnconfiguredLoopbackSearchProvider(
+  provider: SearchProviderConfig | null | undefined
+): boolean {
+  if (!provider || provider.id !== "searxng-search") return false;
+  const configured = String(provider.baseUrl || "").replace(/\/+$/, "");
+  const catalog = CATALOG_SEARXNG_DEFAULT_URL.replace(/\/+$/, "");
+  return configured === catalog;
+}
+
 export function getSearchProvider(providerId: string): SearchProviderConfig | null {
   return SEARCH_PROVIDERS[providerId] || null;
 }
