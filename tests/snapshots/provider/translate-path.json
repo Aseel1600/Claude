@@ -2141,29 +2141,6 @@
       "stream": "https://api.freeaiapikey.com/v1/chat/completions"
     }
   },
-  "freeinference": {
-    "format": "openai",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "nonStream": {
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      }
-    },
-    "url": {
-      "nonStream": "https://freeinference.org/v1/chat/completions",
-      "stream": "https://freeinference.org/v1/chat/completions"
-    }
-  },
   "freebuff": {
     "format": "openai",
     "headers": {
@@ -2185,6 +2162,29 @@
     "url": {
       "nonStream": "https://www.codebuff.com/api/v1",
       "stream": "https://www.codebuff.com/api/v1"
+    }
+  },
+  "freeinference": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://freeinference.org/v1/chat/completions",
+      "stream": "https://freeinference.org/v1/chat/completions"
     }
   },
   "freemodel-dev": {

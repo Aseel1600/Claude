@@ -82,6 +82,7 @@ import {
   visibleComposerContentFromThinking,
   composerReasoningRemainder,
 } from "./cursor/composer.ts";
+import { CursorServerConfigError, resolveCursorAgentUrl } from "./cursor/agentEndpoint.ts";
 import { getActiveSyncedCatalog } from "../../src/lib/db/models/activeSyncedCatalog.ts";
 // Composer helpers re-exported for external importers (tests).
 export {
@@ -192,10 +193,6 @@ function buildExecRejection(event: ExecServerEvent): Buffer | null {
       );
   }
 }
-
-const CURSOR_AGENT_HOST = "agentn.global.api5.cursor.sh";
-const CURSOR_AGENT_PATH = "/agent.v1.AgentService/Run";
-const CURSOR_AGENT_URL = `https://${CURSOR_AGENT_HOST}${CURSOR_AGENT_PATH}`;
 
 // Detect cloud environment (Edge runtime, Cloudflare Workers, etc.)
 const isCloudEnv = () => {
@@ -718,7 +715,7 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   buildUrl() {
-    return CURSOR_AGENT_URL;
+    return PROVIDERS.cursor.baseUrl;
   }
 
   /**
@@ -1211,10 +1208,40 @@ export class CursorExecutor extends BaseExecutor {
   }
 
   async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders }) {
-    const url = this.buildUrl();
+    const fallbackUrl = this.buildUrl();
     const executionCredentials = await this.resolveExecutionCredentials(credentials);
     if (executionCredentials instanceof Response) {
-      return { response: executionCredentials, url, headers: {}, transformedBody: body };
+      return {
+        response: executionCredentials,
+        url: fallbackUrl,
+        headers: {},
+        transformedBody: body,
+      };
+    }
+    let url: string;
+    try {
+      url = await resolveCursorAgentUrl(executionCredentials, signal);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const headers = this.buildHeaders(executionCredentials);
+      return {
+        response: new Response(
+          JSON.stringify({
+            error: {
+              message: sanitizeErrorMessage(message),
+              type: "connection_error",
+              code: "",
+            },
+          }),
+          {
+            status: err instanceof CursorServerConfigError ? err.status : HTTP_STATUS.SERVER_ERROR,
+            headers: { "Content-Type": "application/json" },
+          }
+        ),
+        url: fallbackUrl,
+        headers,
+        transformedBody: body,
+      };
     }
     const headers = this.buildHeaders(executionCredentials);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
