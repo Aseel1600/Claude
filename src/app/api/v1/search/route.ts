@@ -9,6 +9,7 @@ import {
   getSearchProvider,
   selectProvider,
   supportsSearchType,
+  isUnconfiguredLoopbackSearchProvider,
   SEARCH_PROVIDERS,
   SEARCH_CREDENTIAL_FALLBACKS,
 } from "@omniroute/open-sse/config/searchRegistry.ts";
@@ -248,6 +249,7 @@ async function postHandler(request: Request, context: unknown) {
     if (!alternateProviderId) {
       for (const provider of Object.values(SEARCH_PROVIDERS)) {
         if (!provider.fallbackOnly || provider.id === providerConfig.id) continue;
+        if (isUnconfiguredLoopbackSearchProvider(provider)) continue;
         if (!supportsSearchType(provider, body.search_type)) continue;
         const fallbackCreds = await resolveSearchExecutionCredentials(provider);
         if (fallbackCreds && !isAllRateLimitedCredentials(fallbackCreds)) {
