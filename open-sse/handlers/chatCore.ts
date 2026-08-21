@@ -2641,12 +2641,16 @@ export async function handleChatCore({
     // no-op. #7694: `modelInfo.resolvedThinkingEffort` — set when the request's model
     // id carried a `<prefix>/<model>-{effort}` synced-model alias suffix
     // (`src/sse/services/model.ts`) — takes priority over the static per-model default.
-    // See open-sse/services/defaultReasoningEffort.ts.
+    // The synced catalog's vendor-declared `defaultThinkingEffort` (OpenRouter
+    // `reasoning.default_effort`, captured by `detectDefaultThinkingEffort`) is the
+    // lowest-priority default: it only fires when neither the suffix alias nor a
+    // static operator default exists. See open-sse/services/defaultReasoningEffort.ts.
     if (targetFormat === FORMATS.OPENAI) {
       translatedBody = applyDefaultReasoningEffort(
         translatedBody,
         finalModelToUpstream,
-        (modelInfo as { resolvedThinkingEffort?: string })?.resolvedThinkingEffort
+        (modelInfo as { resolvedThinkingEffort?: string })?.resolvedThinkingEffort,
+        (modelInfo as { defaultThinkingEffort?: string })?.defaultThinkingEffort
       );
     }
   }
@@ -3066,7 +3070,9 @@ export async function handleChatCore({
                     executor,
                     provider,
                     model: modelToCall,
-                    connectionTimeoutMs: resolveConnectionTimeoutMs(execCreds?.providerSpecificData),
+                    connectionTimeoutMs: resolveConnectionTimeoutMs(
+                      execCreds?.providerSpecificData
+                    ),
                     signal: streamController.signal,
                     log,
                     execute: (signal) =>
@@ -3370,7 +3376,9 @@ export async function handleChatCore({
                         executor,
                         provider,
                         model: modelToCall,
-                        connectionTimeoutMs: resolveConnectionTimeoutMs(execCreds?.providerSpecificData),
+                        connectionTimeoutMs: resolveConnectionTimeoutMs(
+                          execCreds?.providerSpecificData
+                        ),
                         signal: streamController.signal,
                         log,
                         execute: (signal) =>
