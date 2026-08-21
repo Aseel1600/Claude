@@ -1534,6 +1534,38 @@
       "stream": "https://api2.cursor.sh"
     }
   },
+  "cursor-api": {
+    "format": "cursor",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/connect+proto",
+        "User-Agent": "Cursor/3.9",
+        "connect-accept-encoding": "gzip",
+        "connect-protocol-version": "1"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/connect+proto",
+        "User-Agent": "Cursor/3.9",
+        "connect-accept-encoding": "gzip",
+        "connect-protocol-version": "1"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/connect+proto",
+        "User-Agent": "Cursor/3.9",
+        "connect-accept-encoding": "gzip",
+        "connect-protocol-version": "1"
+      }
+    },
+    "url": {
+      "nonStream": "https://api2.cursor.sh",
+      "stream": "https://api2.cursor.sh"
+    }
+  },
   "dahl": {
     "format": "openai",
     "headers": {
@@ -2130,6 +2162,29 @@
     "url": {
       "nonStream": "https://freeinference.org/v1/chat/completions",
       "stream": "https://freeinference.org/v1/chat/completions"
+    }
+  },
+  "freebuff": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://www.codebuff.com/api/v1",
+      "stream": "https://www.codebuff.com/api/v1"
     }
   },
   "freemodel-dev": {
@@ -3738,6 +3793,52 @@
     "url": {
       "nonStream": "https://models.mixlayer.ai/v1/chat/completions",
       "stream": "https://models.mixlayer.ai/v1/chat/completions"
+    }
+  },
+  "mlx-gemma": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "http://localhost:11435/v1",
+      "stream": "http://localhost:11435/v1"
+    }
+  },
+  "mlx-qwen": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "http://localhost:11436/v1",
+      "stream": "http://localhost:11436/v1"
     }
   },
   "mnn-ai": {
@@ -5368,6 +5469,32 @@
       "stream": "https://t3.chat/api/chat"
     }
   },
+  "tabitoken": {
+    "format": "claude",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Anthropic-Version": "2023-06-01",
+        "Content-Type": "application/json",
+        "x-api-key": "<CRED>"
+      },
+      "nonStream": {
+        "Anthropic-Version": "2023-06-01",
+        "Content-Type": "application/json",
+        "x-api-key": "<CRED>"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Anthropic-Version": "2023-06-01",
+        "Content-Type": "application/json",
+        "x-api-key": "<CRED>"
+      }
+    },
+    "url": {
+      "nonStream": "https://tabitoken.com/v1/messages",
+      "stream": "https://tabitoken.com/v1/messages"
+    }
+  },
   "tencent": {
     "format": "openai",
     "headers": {
@@ -5481,6 +5608,29 @@
     "url": {
       "nonStream": "https://api.together.xyz/v1/chat/completions",
       "stream": "https://api.together.xyz/v1/chat/completions"
+    }
+  },
+  "token-kiosk": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://agent-router.gaib.ai/v1/chat/completions",
+      "stream": "https://agent-router.gaib.ai/v1/chat/completions"
     }
   },
   "tokenreply": {

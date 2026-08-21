@@ -112,6 +112,7 @@ import { validateAdobeFireflyProvider } from "./validation/adobeFirefly";
 import {
   validateV0VercelProvider,
   validateAuggieProvider,
+  validateCursorApiProvider,
   validateQoderProvider,
   validateKiroProvider,
   validateGitlabProvider,
@@ -139,7 +140,39 @@ export { validateWebCookieProvider, bytezValidationResultFromStatus };
 // validateKiroApiKeyRuntimeProbe now live in ./validation/webCookie and ./validation/kiro.
 // They are re-exported above to preserve the historical public surface.
 
+export async function validateFreebuffProvider({ apiKey }: { apiKey: string }) {
+  if (!apiKey) {
+    return { valid: false, error: "Freebuff Auth Token required", unsupported: false };
+  }
+  try {
+    const res = await fetch("https://www.codebuff.com/api/v1/freebuff/session", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "User-Agent": "codebuff/0.1.0 (darwin-arm64)",
+        "x-freebuff-model": "deepseek/deepseek-v4-flash",
+      },
+      body: JSON.stringify({}),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok || res.status === 409) {
+      return { valid: true, error: null };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return { valid: false, error: "Invalid or expired Freebuff Auth Token", unsupported: false };
+    }
+    const errText = await res.text().catch(() => "");
+    return { valid: false, error: `Freebuff validation returned ${res.status}: ${errText.slice(0, 100)}`, unsupported: false };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { valid: false, error: `Freebuff validation network error: ${msg}`, unsupported: false };
+  }
+}
+
 export async function validateProviderApiKey({ provider, apiKey, providerSpecificData = {} }: any) {
+  provider = typeof provider === "string" ? resolveProviderId(provider) : provider;
   const requiresApiKey = !providerAllowsOptionalApiKey(provider);
   const isLocal = isLocalProvider(provider);
 
@@ -185,6 +218,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     // for parity with the "jules" cloud-agent entry above — see #6142.
     devin: validateDevinCloudAgentProvider,
     auggie: validateAuggieProvider,
+    "cursor-api": validateCursorApiProvider,
     aihorde: validateAiHordeProvider,
     // #10522: registered under both the canonical id and the short alias — Firefly
     // connections are commonly stored as "firefly" (same prefix as firefly/<model>
@@ -193,6 +227,7 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     firefly: validateAdobeFireflyProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,
+    freebuff: validateFreebuffProvider,
     "command-code": validateCommandCodeProvider,
     huggingface: validateHuggingFaceProvider,
     // #5422: auth-only probe — Bytez 404s on every chat model until the account adds it to
@@ -212,6 +247,8 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
       validateImageProviderApiKey({ provider: "recraft", apiKey, providerSpecificData }),
     topaz: ({ apiKey, providerSpecificData }: any) =>
       validateImageProviderApiKey({ provider: "topaz", apiKey, providerSpecificData }),
+    magnific: ({ apiKey, providerSpecificData }: any) =>
+      validateImageProviderApiKey({ provider: "magnific", apiKey, providerSpecificData }),
     elevenlabs: validateElevenLabsProvider,
     inworld: validateInworldProvider,
     kie: validateKieProvider,

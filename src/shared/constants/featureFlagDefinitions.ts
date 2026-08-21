@@ -236,7 +236,7 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     warningLevel: "info",
   },
 
-  // ──────────────── Policies (4) ────────────────
+  // ──────────────── Policies (5) ────────────────
   {
     key: "TOOL_POLICY_MODE",
     label: "Tool Policy Mode",
@@ -270,6 +270,18 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     type: "boolean",
     requiresRestart: true,
     warningLevel: "info",
+  },
+  {
+    key: "DISABLE_CONTEXT_WINDOW_CHECKS",
+    label: "Disable Context Window Checks",
+    description:
+      "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers remain responsible for enforcing their actual limits. Off by default.",
+    descriptionI18nKey: "featureFlagDisableContextWindowChecksDescription",
+    category: "policies",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "danger",
   },
   {
     key: "CAPABILITY_FILTER_ENABLED",
