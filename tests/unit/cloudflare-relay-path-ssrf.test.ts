@@ -68,13 +68,14 @@ describe("cloudflare relay worker — no string-concat SSRF hole", () => {
     const emitted = resolveRelayTarget.toString();
     const mangled = emitted.replace("resolveRelayTarget", "a");
     const minifiedWorker = worker.replace(emitted, mangled);
+    // Evaluate ONLY the binding, located by its own literal name. Slicing the
+    // worker at some other declaration would tie this test to unrelated parts
+    // of the emitted source still being present.
+    const binding = minifiedWorker.match(/const resolveRelayTarget = [\s\S]*?;\s/);
+    assert.ok(binding, "the emitted worker must contain the const binding");
     const context: Record<string, unknown> = {};
     vm.createContext(context);
-    vm.runInContext(
-      `${minifiedWorker.slice(0, minifiedWorker.indexOf("function isPrivateHostname"))}
-       globalThis.__resolve = resolveRelayTarget;`,
-      context
-    );
+    vm.runInContext(`${binding[0]} globalThis.__resolve = resolveRelayTarget;`, context);
     const resolveFn = (context as { __resolve?: typeof resolveRelayTarget }).__resolve;
     assert.equal(typeof resolveFn, "function", "guard must still be reachable after mangling");
   });
