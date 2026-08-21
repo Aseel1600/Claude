@@ -10,6 +10,8 @@ import {
   caseInsensitiveToolNameLookup,
   restoreOpenAIToolNames,
 } from "../translator/helpers/toolCallHelper.ts";
+import { extractReplayableResponsesReasoningText } from "../services/reasoningInputPolicy.ts";
+import { sanitizeToolId } from "../translator/helpers/schemaCoercion.ts";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -177,7 +179,8 @@ export function translateNonStreamingResponse(
 
     const messageSelection = findBestMessageText(output);
     let textContent = messageSelection.text;
-    let reasoningContent = "";
+    let replayableReasoningContent = "";
+    let reasoningSummary = "";
     const toolCalls: JsonRecord[] = [];
 
     for (const item of output) {
@@ -191,16 +194,22 @@ export function translateNonStreamingResponse(
           if (partObj.type === "summary_text" && typeof partObj.text === "string") {
             // #9500 — reasoning summary parts are discrete segments; join with "\n\n"
             // (matches extractThinkingFromContent convention) so they don't glue back-to-back.
-            reasoningContent += reasoningContent ? `\n\n${partObj.text}` : partObj.text;
+            reasoningSummary += reasoningSummary ? `\n\n${partObj.text}` : partObj.text;
           }
         }
-      } else if (itemObj.type === "reasoning" && Array.isArray(itemObj.summary)) {
-        for (const part of itemObj.summary) {
-          const partObj = toRecord(part);
-          if (partObj.type === "summary_text" && typeof partObj.text === "string") {
-            // #9500 — reasoning summary parts are discrete segments; join with "\n\n"
-            // (matches extractThinkingFromContent convention) so they don't glue back-to-back.
-            reasoningContent += reasoningContent ? `\n\n${partObj.text}` : partObj.text;
+      } else if (itemObj.type === "reasoning") {
+        const replayable = extractReplayableResponsesReasoningText(itemObj);
+        if (replayable) {
+          replayableReasoningContent += replayableReasoningContent
+            ? `\n\n${replayable}`
+            : replayable;
+        }
+        if (Array.isArray(itemObj.summary)) {
+          for (const part of itemObj.summary) {
+            const partObj = toRecord(part);
+            if (partObj.type === "summary_text" && typeof partObj.text === "string") {
+              reasoningSummary += reasoningSummary ? `\n\n${partObj.text}` : partObj.text;
+            }
           }
         }
       } else if (itemObj.type === "function_call") {
@@ -237,8 +246,11 @@ export function translateNonStreamingResponse(
     if (textContent) {
       message.content = textContent;
     }
-    if (reasoningContent) {
-      message.reasoning_content = reasoningContent;
+    if (replayableReasoningContent) {
+      message.reasoning_content = replayableReasoningContent;
+    }
+    if (reasoningSummary) {
+      message.reasoning_summary = [{ type: "summary_text", text: reasoningSummary }];
     }
     if (toolCalls.length > 0) {
       message.tool_calls = toolCalls;
@@ -701,9 +713,10 @@ function convertOpenAINonStreamingToClaude(openaiResponse: JsonRecord): JsonReco
     for (const tool of messageObj.tool_calls) {
       const toolObj = toRecord(tool);
       const fn = toRecord(toolObj.function);
+      const rawId = toString(toolObj.id, `call_${Date.now()}`);
       content.push({
         type: "tool_use",
-        id: toString(toolObj.id, `call_${Date.now()}`),
+        id: sanitizeToolId(rawId),
         name: toString(fn.name),
         input:
           typeof fn.arguments === "string" ? JSON.parse(fn.arguments || "{}") : fn.arguments || {},

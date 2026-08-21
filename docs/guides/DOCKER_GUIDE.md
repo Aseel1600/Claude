@@ -22,6 +22,7 @@ lastUpdated: 2026-06-28
 - [Docker Compose with Caddy (HTTPS)](#docker-compose-with-caddy-https-auto-tls)
 - [Cloudflare Quick Tunnel](#cloudflare-quick-tunnel)
 - [Image Tags](#image-tags)
+- [Availability: default SQLite is single-replica](#availability-default-sqlite-is-single-replica)
 - [Important Notes](#important-notes)
 
 ---
@@ -285,8 +286,12 @@ Next.js `basePath` is compiled into the standalone bundle. OmniRoute records the
 value in a sentinel file at the app root (written during `npm run build`; read by
 `scripts/docker/ensure-docker-base-path.mjs`) and compares it with
 `OMNIROUTE_BASE_PATH` when the container starts. When they differ and the image was
-built for the domain root, the entrypoint rewrites the standalone manifests and embedded
-`basePath` literals before `node dev/run-standalone.mjs` runs.
+built for the domain root, the entrypoint rewrites the standalone manifests, the
+embedded `basePath`/`assetPrefix` literals (Next 16 renders SSR asset URLs from
+`assetPrefix` alone — the patcher mirrors the subpath into it), the baked
+`/_next/static` asset URLs (client-reference manifests, media imports, prerendered
+error pages) and the client `process.env` shim before `node dev/run-standalone.mjs`
+runs.
 
 ### Compose build (recommended)
 
@@ -325,22 +330,27 @@ prefix). Traefik should route `PathPrefix(`/omniroute`)` to the container withou
 `StripPrefix`, so Next.js receives `/omniroute/...` and serves assets from
 `/omniroute/_next/...`.
 
-The Docker healthcheck probes `/api/monitoring/health` prefixed with the active
-`OMNIROUTE_BASE_PATH`. That path is a **deep** check (DB + monitoring summary). It is
-appropriate for Docker’s infrequent `HEALTHCHECK`, but **not** for Kubernetes
-`livenessProbe` intervals.
+The Docker healthcheck probes the lightweight `/healthz` lifecycle endpoint prefixed
+with the active `OMNIROUTE_BASE_PATH`. `/api/monitoring/health` remains available for
+human/dashboard diagnostics; to point the container HEALTHCHECK back at it (for example
+for deep health enforcement), set `OMNIROUTE_HEALTHCHECK_PATH=/api/monitoring/health`.
+That path is a **deep** check (DB + monitoring summary) — appropriate for Docker's
+infrequent `HEALTHCHECK` if you opt back in, but **not** for Kubernetes `livenessProbe`
+intervals.
 
 For orchestrators (Kubernetes, Nomad, etc.):
 
 | Probe | Prefer | Avoid |
 | --- | --- | --- |
-| Liveness | TCP on the main port (`PORT`, default `20128`), or soft HTTP `/healthz` | `/api/monitoring/health` as liveness |
+| Liveness | HTTP `GET /livez`, or TCP on the main port (`PORT`, default `20128`) | `/api/monitoring/health` as liveness |
 | Readiness | HTTP `GET /healthz` | Tight timeouts that treat event-loop busy as dead |
 | Deep / blackbox | `/api/monitoring/health` | — |
 
-`/healthz` only reports process lifecycle (`ok` / `starting` / `stopping`). It still
-runs on the same Node event loop as request handling, so CPU-bound catalog or
-compression work can delay it — busy ≠ dead. Full probe guidance:
+`/healthz` reports process lifecycle (`ok` / `starting` / `stopping`). `/livez` is
+process-alive only (200 whenever the handler can run; it does not wait for
+readiness). Both still run on the same Node event loop as request handling, so
+CPU-bound catalog or compression work can delay them — busy ≠ dead. Prefer TCP
+liveness if HTTP probes time out. Full probe guidance:
 [Monitoring guide — Kubernetes probe recommendations](../ops/MONITORING_GUIDE.md#kubernetes-probe-recommendations).
 
 ## Docker Compose with Caddy (HTTPS Auto-TLS)
@@ -402,8 +412,8 @@ Endpoint tunnel panels (Cloudflare, Tailscale, ngrok) can be shown or hidden fro
 
 | Image                    | Tag      | Size   | Description           |
 | ------------------------ | -------- | ------ | --------------------- |
-| `diegosouzapw/omniroute` | `latest` | ~250MB | Latest stable release |
-| `diegosouzapw/omniroute` | `3.8.0`  | ~250MB | Current version       |
+| `diegosouzapw/omniroute` | `latest` | ~250MB | Highest **published** stable SemVer (not git `main`) |
+| `diegosouzapw/omniroute` | `3.8.0`  | ~250MB | Pin this class of tag for GitOps |
 
 Multi-platform manifest: `linux/amd64` + `linux/arm64` native (Apple Silicon, AWS Graviton, Raspberry Pi). Docker selects the matching architecture automatically; pass `--platform linux/amd64` if you need to force AMD64 emulation on ARM hosts.
 
@@ -414,7 +424,7 @@ OmniRoute publishes separate Docker channels for stable releases, active release
 | Channel                         | Source                              | Mutability                  | Recommended use                                                                                 |
 | ------------------------------- | ----------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------- |
 | `:<version>` / `:<version>-web` | Signed/versioned release            | Immutable                   | Production deployments that pin an exact release                                                |
-| `:latest` / `:latest-web`       | Highest stable release              | Mutable stable pointer      | Production deployments that intentionally follow stable releases                                |
+| `:latest` / `:latest-web`       | Highest **published** stable SemVer | Mutable stable pointer      | Follows stable releases **after** a SemVer publish job — does **not** track `main` or unreleased `release/v*` commits |
 | `:next` / `:next-web`           | Current default `release/v*` branch | Mutable pre-release pointer | Testing fixes that have landed on the active release branch but are not yet in a stable release |
 | `:main` / `:main-web`           | `main` branch                       | Mutable development pointer | Development and integration testing only                                                        |
 
@@ -457,6 +467,37 @@ docker compose up -d
 ```
 
 A release-branch build can never move `latest`; only an eligible stable semantic version may promote the stable pointer. The `next` images retain the release image inspection and blocking CRITICAL-vulnerability gate.
+
+**`latest` is not a currency guarantee for git.** Merged fixes on `main` or on the active `release/v*` branch are **not** in `:latest` until a stable SemVer image is published and the publish job promotes `:latest` (same digest as that SemVer). If `latest` looks frozen while GitHub already shows the fix, pull `:next` to test the release branch or wait for the SemVer tag.
+
+| You want | Use |
+| --- | --- |
+| GitOps / production that must not drift | Pin `:X.Y.Z` (or the image digest) |
+| Follow published stables and accept a recreate on each release | `:latest` |
+| Test unreleased `release/v*` commits | `:next` (not production) |
+| Test `main` | `:main` (not production) |
+
+## Availability: default SQLite is single-replica
+
+Stock Docker / Kubernetes OmniRoute is **one Node process + one SQLite writer**. High availability is **not supported** on that topology.
+
+| Constraint | Consequence |
+| --- | --- |
+| Single writer | Do **not** run multiple replicas against the same SQLite file. That corrupts the DB. |
+| Recreate / restart / HEALTHCHECK kill | **Full outage** of in-flight SSE, dashboard sessions, and in-memory state. Every connected client drops. |
+| Same event loop as `/healthz` | A busy catalog or compression tick can delay probes; a short timeout then restarts the **only** replica. |
+
+**Probe matrix** (see also [Kubernetes probe recommendations](../ops/MONITORING_GUIDE.md#kubernetes-probe-recommendations)):
+
+| Probe | Target | Do not use |
+| --- | --- | --- |
+| Liveness | TCP on `PORT` (default `20128`), or soft HTTP `/healthz` | `/api/monitoring/health` |
+| Readiness | HTTP `GET /healthz` | Tight timeouts that treat event-loop busy as dead |
+| Deep / humans | `/api/monitoring/health` | Automated kubelet liveness |
+
+**Upgrades:** expect every session to drop. Drain clients if you can; there is no rolling update on default SQLite. Compose `restart: unless-stopped` plus Docker `HEALTHCHECK` will also replace the only process when the container is Unhealthy — same blast radius.
+
+External Postgres / multi-writer HA is **not** a documented stock path. If you need HA, keep a single replica or run a topology the project has tested and documented separately.
 
 ## Important Notes
 

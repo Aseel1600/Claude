@@ -198,6 +198,34 @@ const CLI_TOOLS: Record<string, any> = {
       env: ".qwen/.env",
     },
   },
+  aider: {
+    defaultCommand: "aider",
+    envBinKey: "CLI_AIDER_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 12000,
+    paths: {
+      config: ".aider.conf.yml",
+    },
+  },
+  goose: {
+    defaultCommand: "goose",
+    envBinKey: "CLI_GOOSE_BIN",
+    requiresBinary: true,
+    healthcheckTimeoutMs: 12000,
+    paths: {
+      config: ".config/goose/config.yaml",
+    },
+  },
+  gemini: {
+    defaultCommand: "gemini",
+    envBinKey: "CLI_GEMINI_BIN",
+    requiresBinary: true,
+    // gemini-cli cold start (bundle + extension discovery) can exceed 4s.
+    healthcheckTimeoutMs: 15000,
+    paths: {
+      settings: ".gemini/settings.json",
+    },
+  },
   // ── Plan 14 — new "custom" configType tools ───────────────────────────────
   forge: {
     defaultCommand: "forge",
@@ -284,6 +312,33 @@ const CLI_TOOLS: Record<string, any> = {
       config: ".config/crush/crush.json",
     },
   },
+};
+
+/**
+ * Compatibility aliases accepted by CLI/API callers.
+ *
+ * The runtime catalog keeps one canonical id per executable. Older surfaces
+ * exposed a binary name (notably `kilocode`) or launcher aliases instead of
+ * that id, so normalize them at the boundary rather than duplicating entries.
+ */
+export const CLI_TOOL_ALIASES: Readonly<Record<string, string>> = {
+  kilocode: "kilo",
+  "kilo-code": "kilo",
+  kilo_cli: "kilo",
+  cc: "claude",
+  "claude-code": "claude",
+  "openai-codex": "codex",
+  openai: "codex",
+  cn: "continue",
+  qodercli: "qoder",
+};
+
+/** Resolve a user-facing or legacy id to the canonical runtime id. */
+export const normalizeCliToolId = (toolId: string): string => {
+  const normalized = String(toolId || "")
+    .trim()
+    .toLowerCase();
+  return CLI_TOOL_ALIASES[normalized] || normalized;
 };
 
 const isWindows = () => process.platform === "win32";
@@ -568,6 +623,7 @@ const getExtraPaths = () =>
  * Works on all platforms — Windows checks .cmd wrappers, Linux/macOS checks bare names.
  */
 export const getKnownToolPaths = (toolId: string): string[] => {
+  toolId = normalizeCliToolId(toolId);
   const home = os.homedir();
   const paths: string[] = [];
 
@@ -730,7 +786,7 @@ export const getLookupEnv = () => {
 };
 
 const resolveToolCommands = (toolId: string): string[] => {
-  const tool = CLI_TOOLS[toolId];
+  const tool = CLI_TOOLS[normalizeCliToolId(toolId)];
   if (!tool) return [];
   const envCommand = String(process.env[tool.envBinKey] || "").trim();
   if (envCommand) return [envCommand];
@@ -739,6 +795,16 @@ const resolveToolCommands = (toolId: string): string[] => {
   }
   return tool.defaultCommand ? [tool.defaultCommand] : [];
 };
+
+/**
+ * Return command candidates without probing the filesystem.
+ *
+ * Lightweight consumers (config status and CLI inventory) use this to build
+ * a version probe while getCliRuntimeStatus() remains the authoritative
+ * health/runnability check.
+ */
+export const getCliToolCommandCandidates = (toolId: string): string[] =>
+  resolveToolCommands(toolId);
 
 const checkExplicitPath = async (commandPath: string) => {
   // Reject paths that look like injection attempts
@@ -781,14 +847,24 @@ export const locateCommand = async (command: string, env: Record<string, string 
       // and a .cmd wrapper. We must prefer the Windows executable extension.
       const lines = located.stdout
         .split(/\r?\n/)
-        .map((l) => l.trim())
+        .map((l: string) => l.trim())
         .filter(Boolean);
       if (lines.length === 0) {
         return { installed: false, commandPath: null, reason: "not_found" };
       }
       const winExt = /\.(cmd|exe|bat|com)$/i;
-      const preferred = lines.find((l) => winExt.test(l)) || lines[0];
+      const preferred = lines.find((l: string) => winExt.test(l)) || lines[0];
       return { installed: true, commandPath: normalizeMsys2Path(preferred), reason: null };
+    }
+    // #10710: a probe timeout is NOT the same fact as a genuinely absent binary
+    // -- runProcess sets `timedOut` when its own 3s timer SIGKILLs the child
+    // before it answered. Collapsing that into "not_found" makes an installed
+    // CLI starved under concurrent fan-out (see all-statuses route) look
+    // identical to one that was never installed. Surface a distinct reason so
+    // callers can decide (retry, remember-and-continue, etc.) instead of
+    // silently reporting a false negative.
+    if (located.timedOut) {
+      return { installed: false, commandPath: null, reason: "timeout" };
     }
     return { installed: false, commandPath: null, reason: "not_found" };
   }
@@ -799,6 +875,11 @@ export const locateCommand = async (command: string, env: Record<string, string 
   });
   if (located.ok && located.stdout) {
     return { installed: true, commandPath: command, reason: null };
+  }
+  // #10710: see the matching Windows branch above -- a timeout must not be
+  // reported as "not_found".
+  if (located.timedOut) {
+    return { installed: false, commandPath: null, reason: "timeout" };
   }
   return { installed: false, commandPath: null, reason: "not_found" };
 };
@@ -879,7 +960,7 @@ export const checkKnownPath = async (commandPath: string) => {
 
 type KnownPathResult = Awaited<ReturnType<typeof checkKnownPath>>;
 
-const locateCommandCandidate = async (
+export const locateCommandCandidate = async (
   commands: string[],
   env: Record<string, string | undefined>,
   toolId?: string
@@ -909,13 +990,31 @@ const locateCommandCandidate = async (
 
   // Always try PATH — a stray/broken known-path guess must never hide a genuinely
   // PATH-resolvable binary (#7774). User can also set CLI_EXTRA_PATHS if needed.
+  //
+  // #10710: "timeout" is deliberately NOT terminal like other failure reasons
+  // (unsafe_path, symlink_escape, ...). A timeout only proves the probe was
+  // too slow, not that the binary is absent, so remaining command aliases are
+  // still worth trying (the next one may resolve quickly). Remember the first
+  // timeout as a fallback so a genuine "not_found" for every alias doesn't
+  // silently swallow the fact that one probe never actually completed.
+  let bestTimeoutFailure: Awaited<ReturnType<typeof locateCommand>> | null = null;
   for (const command of commands) {
     const located = await locateCommand(command, env);
-    if (located.installed || located.reason !== "not_found") {
+    if (located.installed) {
+      return { command, ...located };
+    }
+    if (located.reason === "timeout") {
+      if (!bestTimeoutFailure) bestTimeoutFailure = located;
+      continue;
+    }
+    if (located.reason !== "not_found") {
       return { command, ...located };
     }
   }
 
+  if (bestTimeoutFailure) {
+    return { command: commands[0], ...bestTimeoutFailure };
+  }
   if (bestKnownPathFailure) {
     return { command: commands[0], ...bestKnownPathFailure };
   }
@@ -1025,6 +1124,7 @@ export const resolveOpencodeConfigPath = (
 export const getOpenCodeConfigPath = () => resolveOpencodeConfigPath();
 
 export const getCliConfigPaths = (toolId: string) => {
+  toolId = normalizeCliToolId(toolId);
   const tool = CLI_TOOLS[toolId];
   if (!tool) return null;
 
@@ -1071,6 +1171,7 @@ export const getCliPrimaryConfigPath = (toolId: string) => {
 };
 
 export const getCliRuntimeStatus = async (toolId: string) => {
+  toolId = normalizeCliToolId(toolId);
   const tool = CLI_TOOLS[toolId];
   const runtimeMode = getRuntimeMode();
   if (!tool) {

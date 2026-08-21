@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Định tuyến các yêu cầu đã hết ngân sách đến nhà cung cấp/mô hình dự phòng khẩn cấp miễn phí.",
   "featureFlagArenaEloSyncEnabledDescription": "Bật đồng bộ ELO định kỳ từ bảng xếp hạng Arena AI để xếp hạng năng lực của mô hình.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Quảng bá các id phản chiếu claude/&lt;provider&gt;/&lt;model&gt; trên /v1/models để tính năng khám phá mô hình qua gateway của Claude Code liệt kê được các mô hình không phải Claude. Cảnh báo: khi bật ở phạm vi toàn cục, số mục trong danh mục tăng gấp đôi với mọi client.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Bật làn tiếp nhận ảo thích ứng cho từng đối tượng thuê (tenant) để phân phối nhà cung cấp (#9654): một đợt bùng phát của tenant này không còn trả 503 cho tenant khác. Biến môi trường OMNIROUTE_CHAT_VIRTUAL_LANES được ưu tiên hơn cài đặt bảng điều khiển này; các thay đổi có hiệu lực khi khởi động lại máy chủ.",
   "sidebar": {
     "home": "Trang chủ",
     "dashboard": "Trang tổng quan",
@@ -1164,6 +1165,8 @@
     "consoleLogs": "Nhật ký bảng điều khiển",
     "logsTimeline": "Timeline",
     "logsTimelineSubtitle": "Dòng thời gian yêu cầu trực quan",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "globalRouting": "Định tuyến toàn cục",
     "mitmProxy": "MITM Proxy",
     "oneProxy": "1Proxy",
@@ -1797,6 +1800,11 @@
     "updateStarted": "Đã bắt đầu cập nhật...",
     "reloadingPageAutomatically": "Đang tự động tải lại trang...",
     "providerTopology": "Cấu trúc liên kết nhà cung cấp",
+    "recentRequests": "Yêu cầu gần đây",
+    "recentRequestsEmpty": "Chưa có yêu cầu nào.",
+    "recentRequestsModel": "Mô hình",
+    "recentRequestsTokens": "Vào / Ra",
+    "recentRequestsWhen": "Khi",
     "downloadDmg": "Tải xuống DMG (macOS)",
     "downloadDmgDescription": "Đã có phiên bản mới của ứng dụng máy tính OmniRoute. Vui lòng tải xuống và cài đặt trình cài đặt DMG cho macOS để cập nhật (hiện tại: v{version}).",
     "downloadExe": "Tải xuống EXE (Windows)",
@@ -3603,6 +3611,10 @@
     "wizardStep3Desc": "Chọn cách phân phối các yêu cầu giữa các mô hình của bạn - hiện có 14 chiến lược",
     "wizardStep4Title": "Xem lại & Lưu",
     "wizardStep4Desc": "Xem lại cấu hình của bạn và kích hoạt combo",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models.",
     "emailVisibilityStateOn": "Bật",
     "emailVisibilityStateOff": "Tắt",
     "reorderHandle": "Kéo để sắp xếp lại",
@@ -5094,6 +5106,7 @@
     "deprecatedProvider": "Nhà cung cấp này đã không còn được hỗ trợ",
     "riskNotice": {
       "title": "Trước khi tiếp tục",
+      "detailsTitle": "Lưu ý khi sử dụng",
       "tooltip": "Nhà cung cấp có lưu ý về mức sử dụng — nhấp để xem chi tiết",
       "oauth": "Nhà cung cấp này sử dụng phiên đăng nhập/OAuth chính thức của sản phẩm, vốn không được cấp phép để dùng làm proxy/bộ định tuyến. Chúng tôi không khuyến khích sử dụng tác nhân tự trị cường độ cao (kiểu OpenCloud, luồng nhiều bước kéo dài, các lô lớn) — dịch vụ ngược dòng có thể phản ứng bằng cách hạn chế hoặc cấm tài khoản. Tự chịu rủi ro khi sử dụng.",
       "webCookie": "Nhà cung cấp này xác thực thông qua cookie phiên web của bạn. Dịch vụ ngược dòng có thể vô hiệu hóa phiên bất kỳ lúc nào, yêu cầu bạn phải đăng nhập lại. Không khuyến khích cho các hoạt động dài hạn không có sự giám sát. Tự chịu rủi ro khi sử dụng.",
@@ -5101,6 +5114,11 @@
       "dontShowAgain": "Không hiển thị lại thông báo này cho nhà cung cấp này",
       "understand": "Tôi đã hiểu, tiếp tục",
       "cancel": "Hủy"
+    },
+    "warningNotice": {
+      "tooltip": "{count} kết nối bị gắn cờ — tối đa {maxFailures} lỗi gần đây{lastFailureSuffix}. Nhấp để xem tình trạng kết nối.",
+      "lastFailureSuffix": " (lỗi gần nhất lúc {time})",
+      "ariaLabel": "Xem chi tiết tình trạng kết nối, {count} cảnh báo"
     },
     "disabled": "Đã tắt",
     "enableProvider": "Bật nhà cung cấp",
@@ -5224,6 +5242,17 @@
     "skippingExistingModels": "Bỏ qua {count} mô hình đã tồn tại",
     "autoSync": "Tự động đồng bộ hóa",
     "autoSyncShort": "Đồng bộ",
+    "autoFetchModels": "Tự động lấy các mô hình upstream",
+    "autoFetchModelsTooltip": "Lấy và lưu trữ các mô hình upstream khi cần thiết",
+    "autoFetchModelsEnabled": "Mô hình upstream tự động lấy dữ liệu đã được kích hoạt",
+    "autoFetchModelsDisabled": "Tự động lấy mô hình upstream đã bị vô hiệu hóa",
+    "autoFetchModelsToggleFailed": "Không thể chuyển đổi chế độ tự động lấy mô hình upstream",
+    "autoFetchModelsPartialFailure": "Một số kết nối đã được cập nhật, nhưng mô hình upstream auto-fetch không được thay đổi ở mọi nơi",
+    "overridesUpstreamModel": "Ghi đè lên upstream",
+    "overridesUpstreamModelHint": "Cài đặt của bạn ghi đè lên mô hình upstream này",
+    "resetToUpstreamDefaults": "Khôi phục mặc định của upstream",
+    "resetToUpstreamDefaultsSuccess": "Đã khôi phục các giá trị mặc định của mô hình upstream",
+    "resetToUpstreamDefaultsFailed": "Không thể khôi phục mặc định mô hình upstream",
     "autoSyncTooltip": "Tự động làm mới danh sách mô hình sau mỗi 24 giờ (có thể cấu hình qua MODEL_SYNC_INTERVAL_HOURS)",
     "autoSyncEnabled": "Đã bật tự động đồng bộ hóa — các mô hình sẽ được làm mới định kỳ",
     "autoSyncDisabled": "Đã tắt tự động đồng bộ hóa",
@@ -6185,7 +6214,7 @@
       "galadriel": "Kết nối Galadriel bằng khóa API.",
       "predibase": "25 USD tín dụng dùng thử miễn phí (có hiệu lực 30 ngày)",
       "chenzk": "Gateway tương thích OpenAI với danh mục mô hình trực tiếp tại chenzk.top.",
-      "freepik": "Tạo hình ảnh bằng API Mystic của Freepik.",
+      "magnific": "Tạo hình ảnh bằng API Mystic của Freepik.",
       "freetheai": "Gateway miễn phí tương thích OpenAI, hỗ trợ chuyển tiếp mô hình.",
       "g4f-gemini": "Proxy ngược g4f.space miễn phí, không cần khóa cho Gemini, giới hạn 5 yêu cầu mỗi phút.",
       "g4f-groq": "Proxy ngược g4f.space miễn phí, không cần khóa cho Groq, giới hạn 5 yêu cầu mỗi phút.",
@@ -6200,6 +6229,7 @@
       "claude": "Kết nối Claude Code bằng luồng OAuth hiện có.",
       "cline": "Kết nối Cline bằng luồng OAuth hiện có.",
       "cursor": "Kết nối Cursor IDE bằng luồng OAuth hiện có.",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed.",
       "github": "Kết nối GitHub Copilot bằng luồng OAuth hiện có.",
       "gitlab-duo": "Ứng dụng OAuth với phạm vi ai_features + read_user. Cấu hình GITLAB_DUO_OAUTH_CLIENT_ID và tùy chọn GITLAB_DUO_OAUTH_CLIENT_SECRET trên instance OmniRoute này.",
       "kilocode": "Kết nối Kilo Code bằng luồng OAuth hiện có.",
@@ -6262,6 +6292,15 @@
     "cheaperInferenceSupporterBadge": "Người bạn mã nguồn mở",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference hỗ trợ OmniRoute với tư cách là người bạn mã nguồn mở",
     "kimiPartnerLinkNote": "Partner link — supports OmniRoute at no extra cost to you",
+    "codexQuotaPools": "Nhóm hạn mức Codex",
+    "codexPoolAvailable": "Khả dụng",
+    "codexPoolPartiallyLimited": "Bị giới hạn một phần",
+    "codexPoolFullyLimited": "Bị giới hạn hoàn toàn",
+    "codexPoolLimited": "{count} mục bị giới hạn",
+    "codexPoolQuotaExhausted": "Đã hết hạn mức",
+    "codexPoolCoolingDown": "Đang trong thời gian chờ",
+    "codexPoolUsed": "đã dùng",
+    "codexPoolUntil": "Đến {value}",
     "anonymousFallbackTitle": "Dự phòng ẩn danh",
     "anonymousFallbackDesc": "Khi tất cả kết nối đã cấu hình đều cạn kiệt (hạn ngạch, tín dụng hoặc hết hạn), hãy tạm thời sử dụng tầng không cần khóa của nhà cung cấp này. Tắt tùy chọn này để bỏ qua nhà cung cấp thay vì gửi yêu cầu ẩn danh — khuyến nghị khi tầng không cần khóa từ chối các yêu cầu đó (401).",
     "anonymousFallbackEnabled": "Đã bật dự phòng ẩn danh cho {provider}",
@@ -6556,6 +6595,12 @@
     "autoDisableDescription": "Đánh dấu vĩnh viễn các kết nối nhà cung cấp là đã vô hiệu hóa nếu chúng trả về các tín hiệu cấm không thể khắc phục cụ thể (ví dụ: HTTP 403 'verify your account'). Điều này sẽ loại bỏ chúng khỏi vòng xoay combo.",
     "autoDisableThreshold": "Ngưỡng cấm",
     "autoDisableThresholdDesc": "Số lượng tín hiệu cấm liên tiếp cần thiết trước khi hủy kích hoạt vĩnh viễn.",
+    "autoDisableBannedScope": "Áp dụng tự động vô hiệu hóa cho",
+    "autoDisableBannedScopeDesc": "Tài khoản đăng nhập (gói trả phí và tài khoản miễn phí) có thể bị khóa phía nhà cung cấp nếu OmniRoute tiếp tục thử lại sau lệnh cấm. Khóa API trả theo lượt không có rủi ro đó — giữ chúng trong nhóm để fill-first chuyển sang khóa tiếp theo.",
+    "autoDisableBannedScopeAll": "Mọi kết nối",
+    "autoDisableBannedScopeAllDesc": "Vô hiệu hóa mọi kết nối trả về tín hiệu cấm vĩnh viễn, kể cả khóa API trả theo lượt.",
+    "autoDisableBannedScopeSubscription": "Chỉ tài khoản đăng nhập / đăng ký",
+    "autoDisableBannedScopeSubscriptionDesc": "Vô hiệu hóa tài khoản OAuth, cookie, phiên và đăng nhập web (trả phí hoặc miễn phí). Khóa API trả theo lượt vẫn hoạt động để định tuyến có thể chuyển tiếp.",
     "customBannedSignals": "Từ khóa cấm",
     "customBannedSignalsDesc": "Các từ khóa bổ sung kích hoạt việc phát hiện tài khoản bị cấm vĩnh viễn. Các từ khóa tích hợp sẵn luôn được áp dụng.",
     "customBannedSignalsPlaceholder": "ví dụ: api key revoked",
@@ -7163,6 +7208,7 @@
     "configured": "đã định cấu hình",
     "none": "Không có",
     "modelOverrideValuePlaceholder": "Giá trị số",
+    "modelOverrideReasoningEffortsPlaceholder": "English comma-separated, e.g. low, medium, high",
     "addKeyValue": "Thêm cặp khóa-giá trị",
     "noModelOverrides": "Không có ghi đè nào được định cấu hình cho mô hình này.",
     "modelOverrideLoadFailed": "Tải ghi đè mô hình thất bại",
@@ -7734,6 +7780,10 @@
         "label": "Ponytail (lazy senior dev)",
         "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
       },
+      "i-have-adhd": {
+        "label": "Tôi bị ADHD (ưu tiên hành động)",
+        "description": "Đầu ra ưu tiên hành động: nêu hành động kế tiếp trước, các bước được đánh số, một bước tiếp theo cụ thể, không mở đầu dài dòng."
+      },
       "terse-cjk": {
         "label": "CJK súc tích (文言)",
         "description": "Văn phong Hán cổ cực kỳ súc tích (chỉ khả dụng với tiếng Trung)."
@@ -8014,6 +8064,10 @@
     "disableSessionStickinessDesc": "Các tổ hợp luân phiên và ngẫu nhiên sẽ chuyển sang một kết nối khác với mỗi yêu cầu, thay vì gắn toàn bộ cuộc trò chuyện với một kết nối dựa trên mã băm của tin nhắn đầu tiên. Hãy để tùy chọn này tắt để duy trì các lần trúng cache prompt cho các cuộc trò chuyện nhiều lượt. Các thiết lập ghi đè theo từng tổ hợp được ưu tiên.",
     "promptCacheAffinity": "Prompt-cache locality routing",
     "promptCacheAffinityDesc": "Prefer the same provider account for matching prompt-cache keys while preserving health and quota failover.",
+    "reasoningTokenBuffer": "Bộ đệm token suy luận",
+    "reasoningTokenBufferDesc": "Cho phép định tuyến combo thêm khoảng dư max_tokens chỉ với các mô hình suy luận đã biết, khi toàn bộ bộ đệm vẫn nằm trong giới hạn đầu ra đã biết.",
+    "zeroLatencyOptimizations": "Tối ưu hóa zero-latency",
+    "zeroLatencyOptimizationsDesc": "Bật hedging, bỏ qua TTFT theo dự đoán và nén dự phòng chủ động. Để tắt nếu bạn không muốn các tính năng độ trễ này chạy đua giữa các đích hoặc nén các yêu cầu dự phòng.",
     "credentialRedaction": "Credential Redaction",
     "credentialRedactionDesc": "Redact API keys, tokens, and secrets from context sent to providers and from responses.",
     "enableCredentialRedaction": "Enable credential redaction",
@@ -8574,6 +8628,27 @@
     },
     "enableTitle": "Bật bộ máy",
     "enableDescription": "Chạy cuối cùng trong ngăn xếp (sau khi RTK/Caveman làm sạch văn bản, OmniGlyph chuyển phần còn lại thành hình ảnh) và cũng có thể chạy độc lập qua chế độ <code>omniglyph</code>. Đây là bản xem trước và mặc định vẫn tắt cho đến khi hoàn tất kiểm thử đầu cuối.",
+    "profileTitle": "Hồ sơ nén",
+    "profileDescription": "Hồ sơ là giới hạn trên, không phải giới hạn dưới: một hồ sơ chặt chẽ hơn không thể bị mở lại bằng ghi đè ở từng bước. Đo trên chính mã nguồn này: với coding-safe hoặc balanced, một phiên chưa tích lũy lịch sử sẽ không nén gì cả, vì cả hai đều nâng ngưỡng số ký tự tối thiểu và giữ nguyên system prompt, lược đồ công cụ và kết quả công cụ.",
+    "profiles": {
+      "aggressive": {
+        "label": "Tích cực (mặc định)",
+        "description": "Chính sách mà các biên nhận đã công bố đo được. Kết xuất system prompt, tài liệu công cụ và lịch sử dày đặc thành ảnh."
+      },
+      "balanced": {
+        "label": "Cân bằng",
+        "description": "Giữ nguyên trạng thái đang hoạt động và bảo vệ 8 lượt gần nhất; chỉ gộp lịch sử cũ đã khép lại."
+      },
+      "codingSafe": {
+        "label": "An toàn cho lập trình",
+        "description": "Giữ nguyên thẩm quyền, lược đồ công cụ và đầu ra công cụ đang hoạt động, bảo vệ 12 lượt gần nhất. Không nén gì cho đến khi phiên tích lũy lịch sử."
+      },
+      "passthrough": {
+        "label": "Không biến đổi",
+        "description": "Chỉ định tuyến. Engine bị bỏ qua và yêu cầu được chuyển tiếp nguyên vẹn."
+      }
+    },
+    "profileAria": "Chọn hồ sơ nén của OmniGlyph",
     "saved": "Đã lưu.",
     "saveFailed": "Không thể lưu.",
     "enableAria": "Bật bộ máy OmniGlyph",
@@ -9043,6 +9118,16 @@
     "grokAutoTopUpMax": "tối đa",
     "grokAutoTopUpMonth": "tháng",
     "grokAdditionalCredits": "Tín dụng bổ sung",
+    "kimiExtraUsageCredits": "Tín dụng sử dụng bổ sung",
+    "kimiExtraUsage": "Sử dụng bổ sung",
+    "kimiExtraUsageEnabled": "Đã bật",
+    "kimiExtraUsageDisabled": "Đã tắt",
+    "kimiExtraUsageFrozen": "Đã đóng băng",
+    "kimiExtraUsageUnavailable": "Không khả dụng",
+    "kimiMonthlyUsed": "Đã dùng trong tháng này",
+    "kimiMonthlyLimit": "Giới hạn hàng tháng",
+    "kimiMonthlyLimitUnlimited": "Không giới hạn",
+    "kimiAdditionalCredits": "Tín dụng bổ sung",
     "loggerTab": "Logger",
     "proxyTab": "Proxy",
     "budgetManagement": "Quản lý ngân sách",
@@ -11047,7 +11132,8 @@
       "compressed": "Nén",
       "tps": "TPS",
       "duration": "Thời lượng",
-      "time": "Thời gian"
+      "time": "Thời gian",
+      "conversation": "Cuộc trò chuyện"
     },
     "loadingLogs": "Đang tải nhật ký...",
     "noLogs": "Chưa có nhật ký nào. Hãy thực hiện một số cuộc gọi API để xem chúng ở đây.",
@@ -12668,6 +12754,10 @@
       "ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE": {
         "description": "Cho phép nhiều kết nối trên mỗi node tương thích."
       },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Tắt kiểm tra cửa sổ ngữ cảnh",
+        "description": "Bỏ qua kiểm tra cục bộ của OmniRoute về cửa sổ ngữ cảnh và giới hạn token đầu vào tối đa cho yêu cầu trực tiếp đến một mô hình đơn lẻ. Nhà cung cấp thượng nguồn vẫn áp dụng các giới hạn thực tế. Tính năng nén prompt và giới hạn token đầu ra vẫn hoạt động."
+      },
       "RESPONSES_PASSTHROUGH_DROP_COMMENTARY": {
         "description": "Loại các mục đầu ra thuộc giai đoạn commentary nội bộ khỏi luồng chuyển tiếp Responses API trước khi gửi tới ứng dụng khách. Tắt cờ này để nhận nguyên dữ liệu commentary từ thượng nguồn."
       },
@@ -13167,6 +13257,23 @@
     "offers": "Offers",
     "intel": "Thông tin chuyên sâu"
   },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+  },
   "radarSetupPage": {
     "title": "Thiết lập nhà cung cấp",
     "setupTitle": "Thiết lập: {provider}",
@@ -13291,6 +13398,7 @@
     }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Từ chối yêu cầu trước khi gửi đi khi mô hình đích thiếu các khả năng bắt buộc (thị giác, công cụ, đầu ra có cấu trúc, cửa sổ ngữ cảnh). Bảo vệ các yêu cầu trực tiếp đến một nhà cung cấp khi chúng bỏ qua bộ lọc tương thích của combo.",
+  "featureFlagDisableContextWindowChecksDescription": "Bỏ qua kiểm tra cục bộ của OmniRoute về cửa sổ ngữ cảnh và giới hạn token đầu vào tối đa cho yêu cầu trực tiếp đến một mô hình đơn lẻ. Nhà cung cấp thượng nguồn vẫn áp dụng các giới hạn thực tế. Tính năng nén prompt và giới hạn token đầu ra vẫn hoạt động.",
   "publicSystem": {
     "notFound": {
       "title": "Không tìm thấy trang",
@@ -13666,22 +13774,26 @@
     "updateFailed": "Cập nhật không thành công (HTTP {status})",
     "networkError": "Lỗi mạng — không thể cập nhật cài đặt hiển thị nhà cung cấp"
   },
-  "radarCombosPage": {
-    "title": "Radar guided combos",
-    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+  "radarOffersPage": {
+    "title": "Supporter offers",
+    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
     "backToRadar": "Back to Radar",
-    "loading": "Loading combo suggestions...",
-    "familyLabel": "Model family",
-    "modelsLabel": "Priority order",
-    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
-    "generateButton": "Generate combo",
-    "generating": "Generating...",
-    "alreadyCreated": "Already created",
-    "created": "Combo created",
-    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
-    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
-    "loadFailed": "Failed to load Radar combo suggestions.",
-    "createFailed": "Failed to create the combo. Review your provider connections and try again."
+    "loading": "Loading offers...",
+    "refresh": "Refresh offers",
+    "refreshing": "Refreshing...",
+    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
+    "empty": "No active offers are available right now.",
+    "keyRequiredTitle": "A supporter key is required",
+    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
+    "contributorButton": "I'm a contributor",
+    "supporterButton": "Support the project",
+    "partnerBadge": "Partner",
+    "officialBadge": "Official",
+    "conditionsLabel": "Conditions:",
+    "validUntil": "Valid until {date}",
+    "noExpiry": "No announced expiry",
+    "openOffer": "View offer",
+    "trialDays": "{days, plural, one {# day} other {# days}}"
   },
   "radarIntelPage": {
     "title": "Thông tin chuyên sâu Radar",
@@ -13715,27 +13827,6 @@
       "stable": "Ổn định",
       "shrinking": "Đang giảm"
     }
-  },
-  "radarOffersPage": {
-    "title": "Supporter offers",
-    "subtitle": "Official discounts, credits, trials, and reviewed partner benefits from Radar.",
-    "backToRadar": "Back to Radar",
-    "loading": "Loading offers...",
-    "refresh": "Refresh offers",
-    "refreshing": "Refreshing...",
-    "loadFailed": "We couldn't refresh offers. The last verified local cache is kept.",
-    "empty": "No active offers are available right now.",
-    "keyRequiredTitle": "A supporter key is required",
-    "keyRequiredDescription": "Offers are a live Radar benefit. Add an existing supporter key on the Radar screen, verify your contributor status, or support the project to obtain one.",
-    "contributorButton": "I'm a contributor",
-    "supporterButton": "Support the project",
-    "partnerBadge": "Partner",
-    "officialBadge": "Official",
-    "conditionsLabel": "Conditions:",
-    "validUntil": "Valid until {date}",
-    "noExpiry": "No announced expiry",
-    "openOffer": "View offer",
-    "trialDays": "{days, plural, one {# day} other {# days}}"
   },
   "capabilityFilter": {
     "visionMismatch": "Nhà cung cấp không hỗ trợ thị giác cho yêu cầu hình ảnh này",

@@ -119,6 +119,9 @@ function loadEnvFile() {
     addEnvPath(join(ROOT, ".env"));
   }
 
+  const keyOrigin = new Map();
+  const shadowed = new Map();
+
   for (const envPath of envPaths) {
     try {
       if (existsSync(envPath)) {
@@ -131,18 +134,30 @@ function loadEnvFile() {
             const key = trimmed.slice(0, eqIdx).trim();
             if (process.env[key] === undefined) {
               process.env[key] = parseEnvValue(trimmed.slice(eqIdx + 1));
+              keyOrigin.set(key, envPath);
+            } else if (!shadowed.has(key)) {
+              // The line is inert: something set this key first. Report it once
+              // per key, whether the winner was an earlier file or the process
+              // environment (#6194: a shell's own HOSTNAME beat the .env and the
+              // server bound to the wrong address in silence).
+              shadowed.set(key, { winner: keyOrigin.get(key) ?? null, loser: envPath });
             }
           }
         }
         loadedEnvPaths.push(envPath);
       }
-    } catch {
-      // Ignore errors reading env files.
+    } catch (err) {
+      console.warn(`  \x1b[33m⚠ Could not read ${envPath}: ${err?.message ?? err}\x1b[0m`);
     }
   }
 
   for (const envPath of loadedEnvPaths) {
     console.log(`  \x1b[2m📋 Loaded env from ${envPath}\x1b[0m`);
+  }
+
+  for (const [key, { winner, loser }] of shadowed) {
+    const setter = winner ? winner : "the environment";
+    console.warn(`  \x1b[33m⚠ ${key} in ${loser} is ignored, ${setter} set it first\x1b[0m`);
   }
 }
 

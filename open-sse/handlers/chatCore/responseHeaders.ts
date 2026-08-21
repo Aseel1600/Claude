@@ -30,6 +30,16 @@ const STREAMING_RESPONSE_HEADER_DENYLIST = new Set([
   "x-accel-buffering",
 ]);
 
+/**
+ * `x-codex-turn-state` is forwarded verbatim and EXEMPT from the forwarding
+ * budget. The real Codex client captures this ~314-byte blob from /responses
+ * (and echoes it back within the same turn), so dropping it breaks the
+ * protocol chain — but naively counting it against the budget used to evict
+ * the x-codex-*-used-percent quota headers (the reason it was denylisted
+ * under #10315-era budgeting). Carving it out keeps both.
+ */
+const CODEX_TURN_STATE_RESPONSE_HEADER = "x-codex-turn-state";
+
 const DEFAULT_FORWARDED_HEADER_BUDGET_BYTES = 768;
 
 /**
@@ -105,6 +115,30 @@ function getForwardingPriority(headerName: string): number {
   }
   if (normalized === "retry-after") return 1;
   if (normalized.includes("ratelimit") || normalized.includes("rate-limit")) return 2;
+  // Codex quota / reset / credits do not contain "ratelimit" in the name,
+  // so they used to fall through to priority 3 and lose to date/csp/cf-ray.
+  if (
+    normalized.startsWith("x-codex-") &&
+    (normalized.includes("used-percent") ||
+      normalized.includes("reset") ||
+      normalized.includes("window") ||
+      normalized.includes("credits") ||
+      normalized.includes("over-secondary") ||
+      normalized.includes("plan-type"))
+  ) {
+    return 2;
+  }
+  if (
+    normalized === "date" ||
+    normalized === "vary" ||
+    normalized === "x-robots-tag" ||
+    normalized === "content-security-policy" ||
+    normalized.startsWith("cf-") ||
+    normalized.endsWith("-organization-id") ||
+    normalized.endsWith("-workspace-id")
+  ) {
+    return 4;
+  }
   return 3;
 }
 
@@ -179,7 +213,9 @@ export function buildStreamingResponseHeaders(
       STREAMING_RESPONSE_HEADER_DENYLIST.has(normalized) ||
       connectionScopedHeaders.has(normalized) ||
       isNextMiddlewareControlHeader(normalized) ||
-      isOmniRouteInternalHeader(normalized)
+      isOmniRouteInternalHeader(normalized) ||
+      // Forwarded separately below, outside the byte budget.
+      normalized === CODEX_TURN_STATE_RESPONSE_HEADER
     ) {
       return;
     }
@@ -242,6 +278,10 @@ export function buildStreamingResponseHeaders(
     "X-Accel-Buffering": "no",
     [OMNIROUTE_RESPONSE_HEADERS.cache]: "MISS",
   };
+  const codexTurnState = providerHeaders.get(CODEX_TURN_STATE_RESPONSE_HEADER)?.trim();
+  if (codexTurnState) {
+    responseHeaders[CODEX_TURN_STATE_RESPONSE_HEADER] = codexTurnState;
+  }
   attachOmniRouteMetaHeaders(responseHeaders, meta);
   return responseHeaders;
 }

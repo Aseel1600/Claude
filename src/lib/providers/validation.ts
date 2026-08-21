@@ -1,5 +1,4 @@
 import { getEmbeddingProvider } from "@omniroute/open-sse/config/embeddingRegistry.ts";
-import { getRerankProvider } from "@omniroute/open-sse/config/rerankRegistry.ts";
 import { getRegistryEntry } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {
   isClaudeCodeCompatibleProvider,
@@ -8,6 +7,7 @@ import {
   isOpenAICompatibleProvider,
   isSelfHostedChatProvider,
   providerAllowsOptionalApiKey,
+  resolveProviderId,
   WEB_COOKIE_PROVIDERS,
 } from "@/shared/constants/providers";
 import { MODAL_DEFAULT_VALIDATION_MODEL_ID } from "@/shared/constants/modal";
@@ -86,6 +86,7 @@ import { validateSearchProvider, SEARCH_VALIDATOR_CONFIGS } from "./validation/s
 import {
   validateClarifaiProvider,
   validateEmbeddingApiProvider,
+  validateJinaFoundationProvider,
   validateRerankApiProvider,
 } from "./validation/embeddingProviders";
 import {
@@ -106,9 +107,12 @@ import {
   bytezValidationResultFromStatus,
   validateBytezProvider,
 } from "./validation/webCookie";
+import { validateAiHordeProvider } from "./validation/aihorde";
+import { validateAdobeFireflyProvider } from "./validation/adobeFirefly";
 import {
   validateV0VercelProvider,
   validateAuggieProvider,
+  validateCursorApiProvider,
   validateQoderProvider,
   validateKiroProvider,
   validateGitlabProvider,
@@ -168,6 +172,7 @@ export async function validateFreebuffProvider({ apiKey }: { apiKey: string }) {
 }
 
 export async function validateProviderApiKey({ provider, apiKey, providerSpecificData = {} }: any) {
+  provider = typeof provider === "string" ? resolveProviderId(provider) : provider;
   const requiresApiKey = !providerAllowsOptionalApiKey(provider);
   const isLocal = isLocalProvider(provider);
 
@@ -213,6 +218,13 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     // for parity with the "jules" cloud-agent entry above — see #6142.
     devin: validateDevinCloudAgentProvider,
     auggie: validateAuggieProvider,
+    "cursor-api": validateCursorApiProvider,
+    aihorde: validateAiHordeProvider,
+    // #10522: registered under both the canonical id and the short alias — Firefly
+    // connections are commonly stored as "firefly" (same prefix as firefly/<model>
+    // routing ids), not the canonical "adobe-firefly" WEB_COOKIE_PROVIDERS key.
+    "adobe-firefly": validateAdobeFireflyProvider,
+    firefly: validateAdobeFireflyProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,
     freebuff: validateFreebuffProvider,
@@ -235,6 +247,8 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
       validateImageProviderApiKey({ provider: "recraft", apiKey, providerSpecificData }),
     topaz: ({ apiKey, providerSpecificData }: any) =>
       validateImageProviderApiKey({ provider: "topaz", apiKey, providerSpecificData }),
+    magnific: ({ apiKey, providerSpecificData }: any) =>
+      validateImageProviderApiKey({ provider: "magnific", apiKey, providerSpecificData }),
     elevenlabs: validateElevenLabsProvider,
     inworld: validateInworldProvider,
     kie: validateKieProvider,
@@ -311,15 +325,8 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
         modelId: embeddingProvider?.models?.[0]?.id || "voyage-4-lite",
       });
     },
-    "jina-ai": ({ apiKey, providerSpecificData }: any) => {
-      const rerankProvider = getRerankProvider("jina-ai");
-      return validateRerankApiProvider({
-        apiKey,
-        providerSpecificData,
-        url: rerankProvider?.baseUrl,
-        modelId: rerankProvider?.models?.[0]?.id || "jina-reranker-v3",
-      });
-    },
+    "jina-ai": ({ apiKey, providerSpecificData }: any) =>
+      validateJinaFoundationProvider({ apiKey, providerSpecificData }),
     gitlab: ({ apiKey, providerSpecificData }: any) =>
       validateGitlabProvider({ apiKey, providerSpecificData, isLocal }),
     vertex: validateVertexProvider,
@@ -365,9 +372,14 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
   // per-provider validator (grok-web, chatgpt-web, claude-web, …) are handled by
   // SPECIALTY_VALIDATORS first and must not be shadowed by this generic probe (issue: the
   // #4023 dispatch was placed too early and intercepted every web-cookie provider).
-  if (WEB_COOKIE_PROVIDERS[provider]) {
+  const canonicalProvider = resolveProviderId(provider);
+  if (WEB_COOKIE_PROVIDERS[canonicalProvider]) {
     try {
-      return await validateWebCookieProvider({ provider, apiKey, providerSpecificData });
+      return await validateWebCookieProvider({
+        provider: canonicalProvider,
+        apiKey,
+        providerSpecificData,
+      });
     } catch (error: any) {
       return toValidationErrorResult(error);
     }

@@ -6,7 +6,8 @@ import { randomUUID } from "crypto";
  * Routes to search providers with automatic failover:
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
  *   firecrawl, google-pse-search, linkup-search, searchapi-search,
- *   youcom-search, searxng-search, ollama-search, zai-search, duckduckgo-free
+ *   youcom-search, searxng-search, ollama-search, zai-search, jina-search,
+ *   duckduckgo-free
  *
  * Request format:
  * {
@@ -20,6 +21,8 @@ import { randomUUID } from "crypto";
 import { getSearchProvider, type SearchProviderConfig } from "../config/searchRegistry.ts";
 import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/perplexitySearch.ts";
 import * as fcSearch from "./search/firecrawlSearch.ts";
+import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
+import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -28,6 +31,7 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { z } from "zod";
 import { sanitizeErrorMessage } from "../utils/error.ts";
 import { resolveSearchProxy, executeProviderFetch } from "./search/searchProxy.ts";
+import { formatSearchProviderFailure } from "./search/providerFailure.ts";
 
 export interface SearchResult {
   title: string;
@@ -304,7 +308,10 @@ function buildSerperRequest(
     url: `${config.baseUrl}${endpoint}`,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(params.token ? { "X-API-Key": params.token } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "X-API-Key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -322,7 +329,10 @@ function buildBraveRequest(
     url: `${config.baseUrl}${endpoint}?${qp}`,
     init: {
       method: "GET",
-      headers: { Accept: "application/json", ...(params.token ? { "X-Subscription-Token": params.token } : {}) },
+      headers: {
+        Accept: "application/json",
+        ...(params.token ? { "X-Subscription-Token": params.token } : {}),
+      },
     },
   };
 }
@@ -348,7 +358,10 @@ function buildExaRequest(
     url: config.baseUrl,
     init: {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(params.token ? { "x-api-key": params.token } : {}) },
+      headers: {
+        "Content-Type": "application/json",
+        ...(params.token ? { "x-api-key": params.token } : {}),
+      },
       body: JSON.stringify(body),
     },
   };
@@ -597,22 +610,34 @@ function buildOllamaRequest(
   };
 }
 
+type SearchRequestBuilder = (
+  config: SearchProviderConfig,
+  params: SearchRequestParams
+) => { url: string; init: RequestInit };
+
+const requestBuilders: Record<string, SearchRequestBuilder> = {
+  "serper-search": buildSerperRequest,
+  "brave-search": buildBraveRequest,
+  "perplexity-search": buildPerplexityRequest,
+  "exa-search": buildExaRequest,
+  "tavily-search": buildTavilyRequest,
+  firecrawl: fcSearch.buildFirecrawlSearchRequest,
+  "google-pse-search": buildGooglePseRequest,
+  "linkup-search": buildLinkupRequest,
+  "searchapi-search": buildSearchApiRequest,
+  "youcom-search": buildYouComRequest,
+  "searxng-search": buildSearxngRequest,
+  "ollama-search": buildOllamaRequest,
+  "jina-search": buildJinaSearchRequest,
+};
+
 function buildRequest(
   config: SearchProviderConfig,
   params: SearchRequestParams
 ): { url: string; init: RequestInit } {
-  if (config.id === "serper-search") return buildSerperRequest(config, params);
-  if (config.id === "brave-search") return buildBraveRequest(config, params);
-  if (config.id === "perplexity-search") return buildPerplexityRequest(config, params);
-  if (config.id === "exa-search") return buildExaRequest(config, params);
-  if (config.id === "tavily-search") return buildTavilyRequest(config, params);
-  if (config.id === "firecrawl") return fcSearch.buildFirecrawlSearchRequest(config, params);
-  if (config.id === "google-pse-search") return buildGooglePseRequest(config, params);
-  if (config.id === "linkup-search") return buildLinkupRequest(config, params);
-  if (config.id === "searchapi-search") return buildSearchApiRequest(config, params);
-  if (config.id === "youcom-search") return buildYouComRequest(config, params);
-  if (config.id === "searxng-search") return buildSearxngRequest(config, params);
-  if (config.id === "ollama-search") return buildOllamaRequest(config, params);
+  const builder = requestBuilders[config.id];
+  if (builder) return builder(config, params);
+
   // Fallback for future providers: POST with bearer auth
   return {
     url: resolveSearchBaseUrl(config, params),
@@ -1153,13 +1178,32 @@ async function tryZaiMCPProvider(
       /* non-critical — logging must not block search response */
     });
 
-    return {
-      success: false,
-      status: isTimeout ? 504 : 502,
-      error: `Search provider ${isTimeout ? "timeout" : "error"}: ${sanitizeErrorMessage(err.message)}`,
-    };
+    return formatSearchProviderFailure(config.id, err, isTimeout);
   }
 }
+
+type SearchResponseNormalizer = (
+  data: unknown,
+  query: string,
+  searchType: string
+) => { results: SearchResult[]; totalResults: number | null };
+
+const responseNormalizers: Record<string, SearchResponseNormalizer> = {
+  "serper-search": normalizeSerperResponse,
+  "brave-search": normalizeBraveResponse,
+  "perplexity-search": normalizePerplexityResponse,
+  "exa-search": normalizeExaResponse,
+  "tavily-search": normalizeTavilyResponse,
+  firecrawl: (data: FirecrawlSearchEnvelope, _query: string, searchType: string) =>
+    fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult),
+  "google-pse-search": normalizeGooglePseResponse,
+  "linkup-search": normalizeLinkupResponse,
+  "searchapi-search": normalizeSearchApiResponse,
+  "youcom-search": normalizeYouComResponse,
+  "searxng-search": normalizeSearxngResponse,
+  "ollama-search": normalizeOllamaResponse,
+  "jina-search": normalizeJinaSearchResponse,
+};
 
 function normalizeResponse(
   providerId: string,
@@ -1167,23 +1211,36 @@ function normalizeResponse(
   query: string,
   searchType: string
 ): { results: SearchResult[]; totalResults: number | null } {
-  if (providerId === "serper-search") return normalizeSerperResponse(data, query, searchType);
-  if (providerId === "brave-search") return normalizeBraveResponse(data, query, searchType);
-  if (providerId === "perplexity-search")
-    return normalizePerplexityResponse(data, query, searchType);
-  if (providerId === "exa-search") return normalizeExaResponse(data, query, searchType);
-  if (providerId === "tavily-search") return normalizeTavilyResponse(data, query, searchType);
-  if (providerId === "firecrawl")
-    return fcSearch.normalizeFirecrawlSearchResponse(data, searchType, makeResult);
-  if (providerId === "google-pse-search")
-    return normalizeGooglePseResponse(data, query, searchType);
-  if (providerId === "linkup-search") return normalizeLinkupResponse(data, query, searchType);
-  if (providerId === "searchapi-search") return normalizeSearchApiResponse(data, query, searchType);
-  if (providerId === "youcom-search") return normalizeYouComResponse(data, query, searchType);
-  if (providerId === "searxng-search") return normalizeSearxngResponse(data, query, searchType);
-  if (providerId === "ollama-search") return normalizeOllamaResponse(data, query, searchType);
+  const normalizer = responseNormalizers[providerId];
+  if (normalizer) return normalizer(data, query, searchType);
+
   return { results: [], totalResults: null };
 }
+
+function normalizeJinaSearchResponse(
+  data: unknown,
+  _query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const items = extractJinaSearchItems(data);
+  const results = items.map((item, idx) =>
+    makeResult(
+      "jina-search",
+      {
+        title: item.title,
+        url: item.url,
+        snippet: item.description || item.snippet || "",
+        full_text: item.content || item.text,
+        text_format: "markdown",
+      },
+      idx,
+      now
+    )
+  );
+  return { results, totalResults: results.length };
+}
+
 export async function handleSearch(options: SearchHandlerOptions): Promise<SearchHandlerResult> {
   const {
     query,
@@ -1219,6 +1276,13 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
       success: false,
       status: 400,
       error: `Unknown search provider: ${providerId}`,
+    };
+  }
+  if (primaryConfig.disabled) {
+    return {
+      success: false,
+      status: 403,
+      error: `Search provider '${providerId}' is currently disabled.`,
     };
   }
 

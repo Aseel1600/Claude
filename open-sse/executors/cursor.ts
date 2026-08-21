@@ -57,6 +57,13 @@ import {
   type StreamingState as ComposerStreamingState,
 } from "../utils/composerToolCalls.ts";
 import { cursorSessionManager, type CursorSession } from "../services/cursorSessionManager.ts";
+import {
+  CursorApiKeyExchangeError,
+  invalidateCursorSessionToken,
+  isCursorApiKey,
+  resolveCursorBearerToken,
+  stripCursorOAuthTokenPrefix,
+} from "../services/cursorApiKeyAuth.ts";
 import crypto from "crypto";
 import * as fs from "node:fs";
 import * as zlib from "node:zlib";
@@ -681,30 +688,69 @@ export function processFrame(
       // after text means the model finished and the server is saving the
       // turn. Phase 8 keeps both signals as defense-in-depth.
       //
-      // Safe vs tool calls: when the model invokes a tool, the exec_mcp event
-      // always arrives at or before this kv checkpoint (verified across many
-      // live composer-2.5 trials — a tool call never follows kv_after_text), so
-      // endReason is already "tool_calls" by the time we get here. Ending on
-      // kv_after_text therefore never truncates a pending tool call.
+      // Safe vs tool calls (composer family only): when the model invokes a
+      // tool, the exec_mcp event always arrives at or before this kv
+      // checkpoint (verified across many live composer-2.5 trials — a tool call
+      // never follows kv_after_text), so endReason is already "tool_calls" by
+      // the time we get here. Ending on kv_after_text therefore never truncates
+      // a pending tool call on composer.
+      //
+      // Non-composer models (cursor/grok-4.5-high, auto, ...) emit the KV
+      // checkpoint as a blob-store side-channel frame (envelope field 4,
+      // kv_get_blob/kv_set_blob) with NO turn-completion semantics, and it can
+      // arrive while the model is still streaming a long preamble BEFORE a
+      // pending exec_mcp. Ending the turn there drops that exec_mcp, leaving a
+      // narration-only finish_reason "stop" with zero tool_calls (#10215). On
+      // this family only the real terminal signals (turn_ended,
+      // tool_call_completed, server_end) decide — kvAfterTextSeen is kept purely
+      // as an observational flag, never as the turn terminator.
       ctx.kvAfterTextSeen = true;
-      ctx.endReason = "kv_after_text";
+      if (isComposerModel(ctx.model)) {
+        ctx.endReason = "kv_after_text";
+      }
     }
   }
 }
 
 export class CursorExecutor extends BaseExecutor {
-  constructor() {
-    super("cursor", PROVIDERS.cursor);
+  constructor(provider: "cursor" | "cursor-api" = "cursor") {
+    super(provider, PROVIDERS[provider]);
   }
 
   buildUrl() {
     return CURSOR_AGENT_URL;
   }
 
+  /**
+   * API-key connections carry a `crsr_…` key that api2.cursor.sh does not
+   * accept as a Bearer; swap it for the exchanged session token before the
+   * h2 stream is opened. OAuth/IDE-session connections pass through untouched.
+   */
+  async resolveExecutionCredentials(credentials) {
+    if (!isCursorApiKey(credentials?.apiKey)) return credentials;
+    try {
+      const accessToken = await resolveCursorBearerToken(credentials);
+      return { ...credentials, accessToken };
+    } catch (err) {
+      const status =
+        err instanceof CursorApiKeyExchangeError ? err.status : HTTP_STATUS.SERVER_ERROR;
+      const message = err instanceof Error ? err.message : String(err);
+      return new Response(
+        JSON.stringify({
+          error: {
+            message: sanitizeErrorMessage(message),
+            type: status === HTTP_STATUS.UNAUTHORIZED ? "authentication_error" : "connection_error",
+            code: "",
+          },
+        }),
+        { status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   buildHeaders(credentials) {
-    const accessToken = credentials.accessToken;
     const ghostMode = credentials.providerSpecificData?.ghostMode !== false;
-    const cleanToken = accessToken.includes("::") ? accessToken.split("::")[1] : accessToken;
+    const cleanToken = stripCursorOAuthTokenPrefix(credentials.accessToken ?? "");
     const requestId = crypto.randomUUID();
     const traceParent = `00-${crypto.randomBytes(16).toString("hex")}-${crypto.randomBytes(8).toString("hex")}-01`;
 
@@ -812,7 +858,7 @@ export class CursorExecutor extends BaseExecutor {
    */
   private async loadLiveCatalogIds(): Promise<ReadonlySet<string> | undefined> {
     try {
-      const catalog = await getActiveSyncedCatalog("cursor");
+      const catalog = await getActiveSyncedCatalog(this.provider);
       if (!catalog.models.length) return undefined;
       return new Set(catalog.models.map((model) => model.id));
     } catch {
@@ -1166,7 +1212,11 @@ export class CursorExecutor extends BaseExecutor {
 
   async execute({ model, body, stream, credentials, signal, log, upstreamExtraHeaders }) {
     const url = this.buildUrl();
-    const headers = this.buildHeaders(credentials);
+    const executionCredentials = await this.resolveExecutionCredentials(credentials);
+    if (executionCredentials instanceof Response) {
+      return { response: executionCredentials, url, headers: {}, transformedBody: body };
+    }
+    const headers = this.buildHeaders(executionCredentials);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
 
     const messages: ChatMessage[] = body.messages || [];
@@ -1239,8 +1289,10 @@ export class CursorExecutor extends BaseExecutor {
     if (isToolFollowUp) {
       session = cursorSessionManager.acquire(conversationId);
       // #9029: content-based session match when client lacks conversation_id.
-      if (!session && !body.conversation_id) session = cursorSessionManager.findByToolCallIds(
-        messages.filter(m => m.role === "tool" && m.tool_call_id).map(m => m.tool_call_id!));
+      if (!session && !body.conversation_id)
+        session = cursorSessionManager.findByToolCallIds(
+          messages.filter((m) => m.role === "tool" && m.tool_call_id).map((m) => m.tool_call_id!)
+        );
     }
 
     if (session) {
@@ -1321,6 +1373,9 @@ export class CursorExecutor extends BaseExecutor {
       if (opened.status !== 200) {
         const errBuf = await opened.consumeError();
         const errText = errBuf.toString("utf8") || "Unknown error";
+        if (opened.status === HTTP_STATUS.UNAUTHORIZED && isCursorApiKey(credentials.apiKey)) {
+          invalidateCursorSessionToken(credentials.apiKey);
+        }
         return {
           response: buildErrorResponse(opened.status, `[${opened.status}]: ${errText}`),
           url,

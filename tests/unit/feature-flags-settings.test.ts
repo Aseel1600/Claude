@@ -28,15 +28,16 @@ const {
   isModelCatalogNamesEnabled,
   isArenaEloSyncEnabled,
   isControlPlaneProxyDirectFallbackEnabled,
+  areContextWindowChecksDisabled,
 } = await import("../../src/shared/utils/featureFlags.ts");
 
-const EXPECTED_FEATURE_FLAG_COUNT = 48;
+const EXPECTED_FEATURE_FLAG_COUNT = 51;
 
 // ──────────────────────────────────────────────────────
 // Test group 1 — Flag definitions registry
 // ──────────────────────────────────────────────────────
 describe("featureFlagDefinitions", () => {
-  it("has exactly 47 flag definitions", () => {
+  it(`has exactly ${EXPECTED_FEATURE_FLAG_COUNT} flag definitions`, () => {
     assert.strictEqual(FEATURE_FLAG_DEFINITIONS.length, EXPECTED_FEATURE_FLAG_COUNT);
   });
 
@@ -207,6 +208,16 @@ describe("featureFlagDefinitions", () => {
       assert.strictEqual(def.warningLevel, "caution");
     }
   });
+
+  it("defines context-window check bypass as a dangerous opt-in policy flag", () => {
+    const def = FEATURE_FLAG_DEFINITIONS.find((d) => d.key === "DISABLE_CONTEXT_WINDOW_CHECKS");
+    assert.ok(def, "DISABLE_CONTEXT_WINDOW_CHECKS should exist");
+    assert.strictEqual(def.category, "policies");
+    assert.strictEqual(def.type, "boolean");
+    assert.strictEqual(def.defaultValue, "false");
+    assert.strictEqual(def.requiresRestart, false);
+    assert.strictEqual(def.warningLevel, "danger");
+  });
 });
 
 // ──────────────────────────────────────────────────────
@@ -344,7 +355,7 @@ describe("resolveFeatureFlag", () => {
   });
 
   describe("resolveAllFeatureFlags", () => {
-    it("returns all 47 flags", () => {
+    it(`returns all ${EXPECTED_FEATURE_FLAG_COUNT} flags`, () => {
       const all = resolveAllFeatureFlags();
       assert.strictEqual(all.length, EXPECTED_FEATURE_FLAG_COUNT);
     });
@@ -427,6 +438,34 @@ describe("resolveFeatureFlag", () => {
         assert.strictEqual(isControlPlaneProxyDirectFallbackEnabled(), true);
       } finally {
         removeFeatureFlagOverride("OMNIROUTE_CONTROL_PLANE_PROXY_DIRECT_FALLBACK");
+      }
+    });
+
+    it("areContextWindowChecksDisabled defaults off and follows DB overrides", () => {
+      assert.strictEqual(areContextWindowChecksDisabled(), false);
+      try {
+        setFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS", "true");
+        assert.strictEqual(areContextWindowChecksDisabled(), true);
+      } finally {
+        removeFeatureFlagOverride("DISABLE_CONTEXT_WINDOW_CHECKS");
+      }
+    });
+
+    it("areContextWindowChecksDisabled keeps checks enabled when the flag store is unreadable", () => {
+      const originalError = console.error;
+      console.error = () => {};
+      try {
+        core.resetDbInstance();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        fs.mkdirSync(tmpDir, { recursive: true });
+        const blockerPath = path.join(tmpDir, "storage.sqlite");
+        fs.mkdirSync(blockerPath, { recursive: true });
+        assert.strictEqual(areContextWindowChecksDisabled(), false);
+      } finally {
+        console.error = originalError;
+        core.resetDbInstance();
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+        fs.mkdirSync(tmpDir, { recursive: true });
       }
     });
   });
