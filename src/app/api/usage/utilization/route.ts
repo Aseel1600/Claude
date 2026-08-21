@@ -71,7 +71,9 @@ export async function GET(request: Request) {
         connectionMeta[cid] = {
           email: conn?.email ?? null,
           name: conn?.name ?? null,
-          displayName: conn?.displayName ?? null,
+          // provider_connections has no display-name column; the UI falls back
+          // to name/email via getAccountDisplayName.
+          displayName: null,
         };
       }
     }
