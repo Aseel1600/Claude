@@ -91,11 +91,23 @@ export const mergeOpenCodeConfig = (
       ? existingConfig
       : {};
 
+  // Same guard as the root above, one level down. Spreading a non-object here
+  // does not throw, it splays the value into index keys: an existing
+  // `"provider": ["a", "b"]` merged to `{"0": "a", "1": "b", omniroute: ... }`
+  // and a string was exploded one character per key. mergeOpenCodeConfigText
+  // refuses the same input outright, so the two disagreed on what to do with a
+  // malformed config.
+  const existingProvider = (safeConfig as Record<string, unknown>).provider;
+  const safeProvider =
+    existingProvider && typeof existingProvider === "object" && !Array.isArray(existingProvider)
+      ? (existingProvider as Record<string, unknown>)
+      : {};
+
   return {
     ...safeConfig,
     $schema: safeConfig.$schema || "https://opencode.ai/config.json",
     provider: {
-      ...((safeConfig as any).provider || {}),
+      ...safeProvider,
       omniroute: buildOpenCodeProviderConfig(input),
     },
   };
