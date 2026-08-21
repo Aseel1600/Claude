@@ -4974,7 +4974,9 @@
         "skipped": "હવે જ કન્ફિગર કરેલ છે",
         "failed": "ફેલ થયું"
       }
-    }
+    },
+    "securityDescSkipWarning": "⚠️ Without a password, you won't be able to add providers during setup. You can add them later from the dashboard after setting a password.",
+    "providerRequiresPassword": "You need to set a password first to add providers. Please go back to the security step and set a password, or add providers later from the dashboard."
   },
   "providers": {
     "title": "Providers",

@@ -2400,8 +2400,8 @@ async function applyEgressIpLockout(
       // Fresh camelCase re-read per sibling (never trust a stale snapshot) —
       // reuse the house getter so terminal/cooldown checks see the same shape
       // the rotation uses (pattern agentrouter test).
-      const sibling = (await getProviderConnectionById(id)) as ProviderConnectionView | null;
-      if (!sibling) continue;
+      const sibling = toProviderConnection(await getProviderConnectionById(id));
+      if (!sibling.id) continue;
       if (isTerminalConnectionStatus(sibling)) continue; // T06
       // cooldownUntilMs (not a raw new Date()) because rate_limited_until can
       // hold a numeric-epoch string (e.g. the Antigravity full-quota path) —

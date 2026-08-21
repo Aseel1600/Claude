@@ -7,14 +7,14 @@ import { randomUUID } from "crypto";
  *   serper-search, brave-search, perplexity-search, exa-search, tavily-search,
  *   firecrawl, google-pse-search, linkup-search, searchapi-search,
  *   youcom-search, searxng-search, ollama-search, zai-search, jina-search,
- *   duckduckgo-free
+ *   duckduckgo-free, x-search (Grok / SuperGrok X Search — explicit or search_type "x")
  *
  * Request format:
  * {
  *   "query": "search query",
  *   "provider": "serper-search" | "brave-search" | ... // optional, auto-selects cheapest
  *   "max_results": 5,
- *   "search_type": "web" | "news"
+ *   "search_type": "web" | "news" | "x"
  * }
  */
 
@@ -27,6 +27,7 @@ import { buildPerplexityRequest, parsePerplexitySearchOptions } from "./search/p
 import * as fcSearch from "./search/firecrawlSearch.ts";
 import { type FirecrawlSearchEnvelope } from "./search/firecrawlSearch.ts";
 import { buildJinaSearchRequest, extractJinaSearchItems } from "./search/jinaSearch.ts";
+import * as xSearch from "./search/xSearch.ts";
 import { freeWebSearch } from "../services/freeWebSearch.ts";
 import { saveCallLog } from "@/lib/usageDb";
 import { safeOutboundFetch } from "@/shared/network/safeOutboundFetch";
@@ -633,6 +634,7 @@ const requestBuilders: Record<string, SearchRequestBuilder> = {
   "searxng-search": buildSearxngRequest,
   "ollama-search": buildOllamaRequest,
   "jina-search": buildJinaSearchRequest,
+  "x-search": xSearch.buildXSearchRequest,
 };
 
 function buildRequest(
@@ -1207,6 +1209,7 @@ const responseNormalizers: Record<string, SearchResponseNormalizer> = {
   "searxng-search": normalizeSearxngResponse,
   "ollama-search": normalizeOllamaResponse,
   "jina-search": normalizeJinaSearchResponse,
+  "x-search": normalizeXSearchResponse,
 };
 
 function normalizeResponse(
@@ -1217,8 +1220,31 @@ function normalizeResponse(
 ): { results: SearchResult[]; totalResults: number | null } {
   const normalizer = responseNormalizers[providerId];
   if (normalizer) return normalizer(data, query, searchType);
-
   return { results: [], totalResults: null };
+}
+
+function normalizeXSearchResponse(
+  data: unknown,
+  query: string,
+  _searchType: string
+): { results: SearchResult[]; totalResults: number | null } {
+  const now = new Date().toISOString();
+  const hits = xSearch.extractXSearchHits(data, query, 20);
+  const results = hits.map((hit, idx) =>
+    makeResult(
+      "x-search",
+      {
+        title: hit.title,
+        url: hit.url,
+        snippet: hit.snippet,
+        author: hit.author,
+        source_type: "x",
+      },
+      idx,
+      now
+    )
+  );
+  return { results, totalResults: results.length };
 }
 
 function normalizeJinaSearchResponse(
@@ -1313,18 +1339,41 @@ export async function handleSearch(options: SearchHandlerOptions): Promise<Searc
     }
   }
 
-  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888)
-  if (isUnconfiguredLoopbackSearchProvider(primaryConfig)) {
+  // 4. Try primary provider (skip catalog-default SearXNG localhost:8888,
+  // unless a request/connection override resolves it to a real URL).
+  const primaryEffectiveBaseUrl = resolveSearchBaseUrl(primaryConfig, {
+    ...requestParams,
+    providerSpecificData:
+      credentials?.providerSpecificData && typeof credentials.providerSpecificData === "object"
+        ? credentials.providerSpecificData
+        : undefined,
+  });
+  if (
+    isUnconfiguredLoopbackSearchProvider({ ...primaryConfig, baseUrl: primaryEffectiveBaseUrl })
+  ) {
     if (log) {
       log.warn(
         "SEARCH",
         "skipping catalog-default searxng-search at http://localhost:8888/search; set a real SearXNG URL"
       );
     }
+    const alternateEffectiveBaseUrl = alternateConfig
+      ? resolveSearchBaseUrl(alternateConfig, {
+          ...requestParams,
+          providerSpecificData:
+            alternateCredentials?.providerSpecificData &&
+            typeof alternateCredentials.providerSpecificData === "object"
+              ? alternateCredentials.providerSpecificData
+              : undefined,
+        })
+      : "";
     if (
       alternateConfig &&
       alternateCredentials &&
-      !isUnconfiguredLoopbackSearchProvider(alternateConfig)
+      !isUnconfiguredLoopbackSearchProvider({
+        ...alternateConfig,
+        baseUrl: alternateEffectiveBaseUrl,
+      })
     ) {
       return tryProvider(
         alternateConfig,

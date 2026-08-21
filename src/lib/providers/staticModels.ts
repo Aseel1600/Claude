@@ -114,6 +114,7 @@ const STATIC_MODEL_PROVIDERS: Record<string, () => Array<{ id: string; name: str
 const SEARCH_TYPE_LABELS: Record<string, string> = {
   web: "Web Search",
   news: "News Search",
+  x: "X Search",
 };
 
 function formatSearchTypeLabel(searchType: string): string {

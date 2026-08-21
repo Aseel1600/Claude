@@ -12,7 +12,7 @@ import {
   supportsSearchType,
   isUnconfiguredLoopbackSearchProvider,
   SEARCH_PROVIDERS,
-  SEARCH_CREDENTIAL_FALLBACKS,
+  getSearchCredentialFallbacks,
 } from "@omniroute/open-sse/config/searchRegistry.ts";
 import { errorResponse } from "@omniroute/open-sse/utils/error.ts";
 import { HTTP_STATUS } from "@omniroute/open-sse/config/constants.ts";
@@ -83,17 +83,17 @@ async function resolveSearchCredentials(providerId: string): Promise<SearchCrede
   const credentials = await getProviderCredentialsWithQuotaPreflight(providerId).catch(() => null);
   if (credentials && !isAllRateLimitedCredentials(credentials)) return credentials;
 
-  const fallbackId = SEARCH_CREDENTIAL_FALLBACKS[providerId];
-  if (!fallbackId) return credentials;
-
-  const fallbackCredentials = await getProviderCredentialsWithQuotaPreflight(fallbackId).catch(
-    () => null
-  );
-  if (fallbackCredentials && !isAllRateLimitedCredentials(fallbackCredentials)) {
-    return fallbackCredentials;
+  for (const fallbackId of getSearchCredentialFallbacks(providerId)) {
+    const fallbackCredentials = await getProviderCredentialsWithQuotaPreflight(fallbackId).catch(
+      () => null
+    );
+    if (fallbackCredentials && !isAllRateLimitedCredentials(fallbackCredentials)) {
+      return fallbackCredentials;
+    }
+    if (fallbackCredentials) return fallbackCredentials;
   }
 
-  return fallbackCredentials || credentials;
+  return credentials;
 }
 
 async function resolveSearchExecutionCredentials(providerConfig: {
@@ -134,6 +134,8 @@ async function postHandler(request: Request, context: unknown) {
     return errorResponse(HTTP_STATUS.BAD_REQUEST, formatValidationMessage(validation.error));
   }
   const body = validation.data;
+  if (body.provider === "x_search") body.provider = "x-search";
+  if (body.provider === "x-search") body.search_type = "x";
 
   // Enforce API key policies — use "search" as model identifier for consistent policy config
   const policy = await enforceApiKeyPolicy(request, "search");
