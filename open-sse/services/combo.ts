@@ -34,6 +34,7 @@ import {
   recordComboFailure,
 } from "./combo/failureTracker.ts";
 import { buildNoUpstreamResponseDiagnostics, buildRecoveryHint } from "./combo/pinRecovery.ts";
+import { formatExhaustedConnectionKey } from "./combo/comboDiagFormat.ts";
 import { buildTargetTimeoutRunner } from "./combo/targetTimeoutRunner.ts";
 import { recordComboRequest, recordComboShadowRequest, getComboMetrics } from "./comboMetrics.ts";
 import { qualityScoreFor } from "./routing/index.ts";
@@ -1081,10 +1082,7 @@ async function handleComboChatInner({
         attempted: recordedAttempts,
         excluded: [
           ...[...exhaustedProviders].map((p) => ({ provider: p, reason: "exhausted" })),
-          ...[...exhaustedConnections].map((c) => ({
-            provider: "unknown",
-            reason: `exhausted_connection:${String(c).slice(0, 8)}`,
-          })),
+          ...[...exhaustedConnections].map((c) => formatExhaustedConnectionKey(String(c))),
         ],
         attemptOrder: comboAttemptOrder,
         terminalReason,
@@ -2727,11 +2725,22 @@ async function handleComboChatInner({
         );
       }
       const retryAfterSeconds = undefined;
+      // #10966: when every observed failure was independently classified as quota/
+      // balance exhaustion (isQuotaExhaustionResponse, tracked via observeFailure's
+      // allObservedFailuresQuota accumulator), stamp a stable `quota_exhausted`
+      // terminalReason instead of forwarding the raw upstream error string. The raw
+      // string falls through buildRecoveryHint's default branch ("retry" / "failed
+      // transiently"), which is actively misleading for a durable wallet/quota
+      // exhaustion — retrying the same combo will never refill it.
+      const terminalReason =
+        observedFailure && allObservedFailuresQuota
+          ? "quota_exhausted"
+          : (lastError ?? "all_models_failed");
       return withQuotaExhaustionClassification(
         errorResponseWithComboDiagnostics(
           status,
           msg,
-          buildComboDiag(lastError ?? "all_models_failed", retryAfterSeconds)
+          buildComboDiag(terminalReason, retryAfterSeconds)
         ),
         observedFailure ? allObservedFailuresQuota : null
       );
