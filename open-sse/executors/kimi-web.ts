@@ -38,7 +38,23 @@ import {
 
 export { extractKimiAccessToken };
 
-const BASE_URL = "https://www.kimi.com";
+export function getKimiWebBaseUrl(): string {
+  const envUrl = process.env.KIMI_WEB_BASE_URL?.trim();
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, "");
+  }
+  return "https://www.kimi.ai";
+}
+
+export function getKimiWebChatUrl(): string {
+  const envChat = process.env.KIMI_WEB_CHAT_URL?.trim();
+  if (envChat) {
+    return envChat;
+  }
+  return `${getKimiWebBaseUrl()}/apiv2/kimi.gateway.chat.v1.ChatService/Chat`;
+}
+
+const BASE_URL = "https://www.kimi.ai";
 const CHAT_URL = `${BASE_URL}/apiv2/kimi.gateway.chat.v1.ChatService/Chat`;
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36";
