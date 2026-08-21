@@ -5,7 +5,7 @@ export const difyProvider: RegistryEntry = {
   alias: "dify",
   format: "openai",
   executor: "default",
-  baseUrl: "https://api.dify.ai/v1/chat/completions",
+  baseUrl: "https://api.dify.ai/v1",
   authType: "apikey",
   authHeader: "bearer",
   models: [{ id: "auto", name: "Auto" }],

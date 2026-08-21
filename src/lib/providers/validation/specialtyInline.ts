@@ -411,3 +411,48 @@ export function buildGitlawbValidators(
     ])
   );
 }
+
+export async function validateDifyProvider({ apiKey, providerSpecificData, isLocal }: any) {
+  try {
+    const configuredBaseUrl =
+      typeof providerSpecificData?.baseUrl === "string" && providerSpecificData.baseUrl.trim()
+        ? providerSpecificData.baseUrl.trim()
+        : "https://api.dify.ai/v1";
+
+    const root = normalizeBaseUrl(configuredBaseUrl)
+      .replace(/\/chat\/completions$/, "")
+      .replace(/\/chat-messages$/, "");
+
+    const targetUrl = root.endsWith("/v1") ? `${root}/chat-messages` : `${root}/v1/chat-messages`;
+
+    const res = await validationWrite(
+      targetUrl,
+      {
+        method: "POST",
+        headers: {
+          ...buildBearerHeaders(apiKey, providerSpecificData),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: {},
+          query: "ping",
+          response_mode: "blocking",
+          user: "omniroute-probe",
+        }),
+      },
+      isLocal
+    );
+
+    if (res.ok || res.status === 400) {
+      return { valid: true, error: null, method: "dify_chat_messages_probe" };
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      return { valid: false, error: "Invalid API key or unauthorized Dify app key" };
+    }
+
+    return { valid: false, error: `Dify validation failed (HTTP ${res.status})` };
+  } catch (error: any) {
+    return toValidationErrorResult(error);
+  }
+}

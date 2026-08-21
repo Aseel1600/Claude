@@ -122,6 +122,7 @@ import {
   validateNvidiaProvider,
   validateZaiProvider,
   validateXiaomiMimoProvider,
+  validateDifyProvider,
   buildGitlawbValidators,
 } from "./validation/specialtyInline";
 // validateCommandCodeProvider + validateClaudeCodeCompatibleProvider have external importers
@@ -227,6 +228,8 @@ export async function validateProviderApiKey({ provider, apiKey, providerSpecifi
     firefly: validateAdobeFireflyProvider,
     qoder: validateQoderProvider,
     kiro: validateKiroProvider,
+    dify: ({ apiKey, providerSpecificData }: any) =>
+      validateDifyProvider({ apiKey, providerSpecificData, isLocal }),
     freebuff: validateFreebuffProvider,
     "command-code": validateCommandCodeProvider,
     huggingface: validateHuggingFaceProvider,
