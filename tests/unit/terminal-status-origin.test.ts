@@ -11,11 +11,14 @@ const { writeTerminalStatus } = await import("../../src/shared/utils/terminalSta
 
 test.after(() => { core.resetDbInstance(); fs.rmSync(DIR, {recursive:true, force:true}); });
 
-function row(id: string){ return (core.getDbInstance() as any).prepare("SELECT is_active, test_status FROM provider_connections WHERE id=?").get(id); }
+type ConnectionRow = { is_active: number; test_status: string };
+function row(id: string): ConnectionRow {
+  return core.getDbInstance().prepare("SELECT is_active, test_status FROM provider_connections WHERE id=?").get(id) as ConnectionRow;
+}
 
 test("probe-origin writeTerminalStatus records error but never deactivates", async () => {
-  const conn = await createProviderConnection({ provider:"openai", authType:"apikey", name:"t11", apiKey:"sk-t11", isActive:true, testStatus:"active" } as any);
-  const id = String((conn as any).id);
+  const conn = await createProviderConnection({ provider:"openai", authType:"apikey", name:"t11", apiKey:"sk-t11", isActive:true, testStatus:"active" });
+  const id = String(conn.id);
   await runAsProbe(async () => {
     await writeTerminalStatus(id, { testStatus:"banned", isActive:false, lastError:"probe 403", errorCode:"403", lastErrorType:"FORBIDDEN" }, "probe");
   });
@@ -25,8 +28,8 @@ test("probe-origin writeTerminalStatus records error but never deactivates", asy
 });
 
 test("production writeTerminalStatus deactivates on terminal", async () => {
-  const conn = await createProviderConnection({ provider:"openai", authType:"apikey", name:"t11b", apiKey:"sk-t11b", isActive:true, testStatus:"active" } as any);
-  const id = String((conn as any).id);
+  const conn = await createProviderConnection({ provider:"openai", authType:"apikey", name:"t11b", apiKey:"sk-t11b", isActive:true, testStatus:"active" });
+  const id = String(conn.id);
   await writeTerminalStatus(id, { testStatus:"banned", isActive:false, lastError:"real 403", errorCode:"403", lastErrorType:"FORBIDDEN" }, "production");
   const r = row(id);
   assert.equal(r.is_active, 0);

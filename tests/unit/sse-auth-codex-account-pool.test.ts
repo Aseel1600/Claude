@@ -242,8 +242,10 @@ test("Codex parent authentication failures block both virtual children without c
   const inventory = await providersDb.getProviderConnections({ provider: "codex" });
 
   assert.equal(unavailable.shouldFallback, true);
-  assert.equal(spark, null);
-  assert.equal(normal, null);
+  // Since #10969 the allExpired sentinel (not null) is the blocked signal for
+  // all-terminal connections — no credentials are served either way.
+  assert.equal(spark?.allExpired, true);
+  assert.equal(normal?.allExpired, true);
   assert.deepEqual(
     inventory.map((item) => item.id),
     [connection.id]

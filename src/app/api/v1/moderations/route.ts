@@ -68,7 +68,11 @@ async function postHandler(request, context) {
 
   const response = await handleModeration({ body: { ...body, model }, credentials });
   if (response?.ok) {
-    await clearRecoveredProviderState(credentials);
+    // The allExpired/allRateLimited sentinels carry no connectionId; only clear
+    // recovery state when the credentials actually reference a connection row.
+    if ("connectionId" in credentials) {
+      await clearRecoveredProviderState(credentials);
+    }
   }
   return response;
 }

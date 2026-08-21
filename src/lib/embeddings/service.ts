@@ -329,7 +329,11 @@ export async function createEmbeddingResponse(
   const responseHeaders = new Headers(result.headers);
 
   if (result.success) {
-    if (credentials) await clearRecoveredProviderState(credentials);
+    // The allExpired/allRateLimited sentinels carry no connectionId; only clear
+    // recovery state when the credentials actually reference a connection row.
+    if (credentials && "connectionId" in credentials) {
+      await clearRecoveredProviderState(credentials);
+    }
     responseHeaders.set("Content-Type", "application/json");
     const usage = (result.data as { usage?: Record<string, number> })?.usage ?? null;
     const costUsd = usage ? await calculateCost(provider, effectiveModel ?? "", usage) : 0;

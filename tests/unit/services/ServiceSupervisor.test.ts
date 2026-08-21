@@ -213,6 +213,9 @@ test("does NOT auto-restart on crash", async () => {
 // the port, the supervisor ADOPTS it (marks running, no child spawned) instead
 // of spawning a duplicate that would die with EADDRINUSE.
 test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", async () => {
+  // Adoption is opt-in since GHSA-wg9p-6m2g-4v27 (commit 50f5cecb8) — a 2xx on
+  // the health path cannot prove the listener is our service.
+  process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
   const healthServer = startHealthServer(29996);
   const cfg = { ...tickConfig("test-adopt", 29996), probeBeforeSpawn: true };
   const sup = new ServiceSupervisor(cfg);
@@ -232,6 +235,7 @@ test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", as
   } finally {
     await sup.stop();
     healthServer.close();
+    delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
   }
 });
 
@@ -244,6 +248,9 @@ test("#6205: probeBeforeSpawn adopts a healthy existing instance (no spawn)", as
 // healthy, running service as untrustworthy/stale. This asserts the resolved
 // pid on adoption matches the real process actually holding the port.
 test("adopted service resolves and records the real pid of the process holding the port", async () => {
+  // Adoption is opt-in since GHSA-wg9p-6m2g-4v27 (commit 50f5cecb8) — a 2xx on
+  // the health path cannot prove the listener is our service.
+  process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
   const healthServer = startHealthServer(29996);
   const cfg = { ...tickConfig("test-adopt", 29996), probeBeforeSpawn: true };
   const sup = new ServiceSupervisor(cfg);
@@ -260,5 +267,6 @@ test("adopted service resolves and records the real pid of the process holding t
   } finally {
     await sup.stop();
     healthServer.close();
+    delete process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE;
   }
 });
