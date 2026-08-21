@@ -3104,11 +3104,9 @@ export async function clearAccountError(
 }
 
 /**
- * Optional CAS token. When provided, the clear is performed via an atomic
- * conditional UPDATE (clearConnectionErrorIfUnchanged) that aborts if the row
- * was written by a concurrent path between the caller's snapshot read and this
- * clear. Closes the TOCTOU window in the quota-recovery path. When omitted,
- * the clear is unconditional (preserves existing post-success-call behavior).
+ * Optional CAS token. When provided, clearConnectionErrorIfUnchanged atomically
+ * aborts if another path modified the row after the caller's snapshot.
+ * This closes the TOCTOU window; omission preserves unconditional clearing.
  */
 export interface RecoveredStateExpectation {
   testStatus: string | null;
@@ -3116,23 +3114,25 @@ export interface RecoveredStateExpectation {
   rateLimitedUntil: string | null;
 }
 export async function clearRecoveredProviderState(
-  credentials: Partial<RecoverableConnectionState> | null,
+  credentials: unknown,
   expectedState?: RecoveredStateExpectation
 ): Promise<{ applied: boolean }> {
-  if (!credentials?.connectionId) return { applied: false };
+  const recoverable = credentials as Partial<RecoverableConnectionState> | null;
+  if (typeof recoverable?.connectionId !== "string" || !recoverable.connectionId)
+    return { applied: false };
   if (expectedState) {
-    const applied = await clearConnectionErrorIfUnchanged(credentials.connectionId, expectedState);
+    const applied = await clearConnectionErrorIfUnchanged(recoverable.connectionId, expectedState);
     if (!applied) {
       log.info(
         "AUTH",
-        `Skipped recovery clear for ${credentials.connectionId.slice(0, 8)} — state changed concurrently (CAS miss)`
+        `Skipped recovery clear for ${recoverable.connectionId.slice(0, 8)} — state changed concurrently (CAS miss)`
       );
       return { applied: false };
     }
-    log.info("AUTH", `Account ${credentials.connectionId.slice(0, 8)} error cleared (CAS)`);
+    log.info("AUTH", `Account ${recoverable.connectionId.slice(0, 8)} error cleared (CAS)`);
     return { applied: true };
   }
-  await clearAccountError(credentials.connectionId, credentials);
+  await clearAccountError(recoverable.connectionId, recoverable);
   return { applied: true };
 }
 type AuthRequestLike = {

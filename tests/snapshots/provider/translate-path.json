@@ -1812,8 +1812,8 @@
       }
     },
     "url": {
-      "nonStream": "https://api.dify.ai/v1/chat/completions",
-      "stream": "https://api.dify.ai/v1/chat/completions"
+      "nonStream": "https://api.dify.ai",
+      "stream": "https://api.dify.ai"
     }
   },
   "digitalocean": {
@@ -2826,8 +2826,8 @@
       }
     },
     "url": {
-      "nonStream": "https://www.hailuo.ai",
-      "stream": "https://www.hailuo.ai"
+      "nonStream": "https://chat.minimax.io",
+      "stream": "https://chat.minimax.io"
     }
   },
   "haiper": {

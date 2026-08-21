@@ -4981,9 +4981,7 @@
         "skipped": "đã được cấu hình",
         "failed": "thất bại"
       }
-    },
-    "securityDescSkipWarning": "⚠️ Không có mật khẩu, bạn sẽ không thể thêm nhà cung cấp trong quá trình thiết lập. Bạn có thể thêm sau từ bảng điều khiển sau khi đặt mật khẩu.",
-    "providerRequiresPassword": "Bạn cần đặt mật khẩu trước khi thêm nhà cung cấp. Hãy quay lại bước bảo mật và đặt mật khẩu, hoặc thêm nhà cung cấp sau từ bảng điều khiển."
+    }
   },
   "providers": {
     "title": "Nhà cung cấp",
@@ -6275,6 +6273,20 @@
     "webNoAuthGuideTitle": "Không yêu cầu thông tin xác thực",
     "webNoAuthGuideBody": "{provider} không cần khóa API hoặc cookie. Lưu kết nối để sử dụng endpoint web miễn phí của nó.",
     "webSessionCredentialValidationFailed": "Xác thực thông tin xác thực phiên thất bại. Hãy đăng nhập lại, sao chép thông tin xác thực mới và thử lại.",
+    "harImportButtonLabel": "Nhập tệp .har",
+    "harImportButtonBusy": "Đang nhập…",
+    "harImportButtonHint": "Xuất từ thẻ Network của DevTools sau khi gửi ít nhất một tin nhắn trò chuyện.",
+    "harImportStatusValid": "Đã nhập — còn hiệu lực khoảng {minutes} phút.",
+    "harImportStatusExpiringSoon": "Đã nhập — chỉ còn hiệu lực khoảng {minutes} phút.",
+    "harImportStatusExpired": "Đã nhập, nhưng token này đã hết hạn {minutes} phút trước — hãy xuất một HAR mới.",
+    "harImportStatusUnknownExpiry": "Đã nhập. Không thể đọc thời gian hết hạn.",
+    "harImportErrorNotJson": "Tệp đó không phải JSON hợp lệ — có đúng là bản xuất .har không?",
+    "harImportErrorNoEntries": "HAR này không có mục mạng nào được ghi lại.",
+    "harImportErrorNoChathubUrl": "Không tìm thấy kết nối trò chuyện Copilot trong HAR này. Hãy gửi ít nhất một tin nhắn trong m365.cloud.microsoft trước khi xuất.",
+    "harImportErrorUnparsableUrl": "Đã tìm thấy kết nối trò chuyện nhưng không thể đọc URL.",
+    "harImportErrorMissingFields": "Đã tìm thấy kết nối trò chuyện nhưng thiếu token.",
+    "harImportErrorReadFailed": "Không thể đọc tệp đó.",
+    "harImportErrorUnknown": "Không thể trích xuất thông tin xác thực từ tệp HAR đó.",
     "checkCookie": "Kiểm tra cookie",
     "checkWebToken": "Kiểm tra token",
     "huggingchatLabel": "HuggingChat (Miễn phí)",
@@ -12209,7 +12221,7 @@
       },
       "omni-webhooks": {
         "name": "Webhook",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Đăng ký, liệt kê, kiểm tra và xóa các endpoint webhook. Cấu hình đăng ký sự kiện (request.completed, request.failed, quota.exceeded, v.v.) và quản lý việc thử gửi lại."
       },
       "omni-mcp": {
         "name": "Máy chủ MCP",

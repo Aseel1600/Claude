@@ -243,11 +243,9 @@ function resolveContextLength(entry: CatalogModelEntry): number | undefined {
  *   1. Existing manual override in the user's opencode.json (`limit.context`).
  *   2. Catalog `context_length` / `max_context_window_tokens`.
  *
- * If neither is available, `limit.context` is simply omitted and OpenCode's
- * own heuristics apply — we never fabricate a default context window. The
- * entry ALWAYS carries a `limit` block, though: `limit.output` is a
- * required field in OpenCode's v1 provider schema, so it is always emitted
- * (falling back to 8K when nothing else is known) — see #10940.
+ * If neither is available, `limit.context` falls back to 128K because both
+ * context and output are required by OpenCode's v1 provider schema. The entry
+ * therefore always carries a complete `limit` block (#10940, #11035).
  */
 function buildModelEntry(
   id: string,
@@ -280,10 +278,8 @@ function buildModelEntry(
   }
 
   // Resolve the context window. Honor an explicit user override, then fall
-  // back to the catalog. We do NOT synthesize a default — if the catalog
-  // is unaware of a model's window, the opencode.json will simply omit
-  // `limit.context` for that model and OpenCode's own heuristics apply.
-  // (OpenCode v1 defaults to 128K when `limit.context` is missing.)
+  // back to the catalog. A missing value is completed below with the 128K
+  // compatibility fallback required by OpenCode's v1 provider schema.
   const userLimit = existing?.limit?.context;
   const catalogLimit = catalog ? resolveContextLength(catalog) : undefined;
   const context = typeof userLimit === "number" && userLimit > 0 ? userLimit : catalogLimit;
@@ -410,8 +406,8 @@ export interface GenerateOpencodeOptions {
   providerId?: string;
   /**
    * If `true` (default), the generator fetches the live `/v1/models` catalog
-   * so every model entry has an explicit `limit.context`. The catalog is the
-   * single source of truth for context windows; we never invent defaults.
+   * so every known model entry uses its authoritative `limit.context`.
+   * Unknown entries use the OpenCode v1 compatibility fallback of 128K.
    *
    * When the catalog request fails, the generator throws — opencode.json must
    * not be emitted with stale or fabricated values. The CLI can catch the
@@ -436,8 +432,8 @@ export interface GenerateOpencodeOptions {
  *  - For each catalog model id the user did NOT have, a new entry is
  *    added with `limit.context` populated when the catalog has it.
  *  - If the catalog has no context for a model AND the user has no
- *    override, the model is emitted WITHOUT a `limit.context` field.
- *    OpenCode's own heuristic (typically 128K) applies.
+ *    override, the model is emitted with the required 128K compatibility
+ *    fallback rather than an incomplete `limit` object.
  *  - Throws if the catalog fetch fails — the user must fix the upstream
  *    before we can generate a reliable opencode.json.
  */

@@ -18,6 +18,9 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-superviso
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.NODE_ENV = "test";
 process.env.DISABLE_SQLITE_AUTO_BACKUP = "true";
+// Adoption is intentionally opt-in after GHSA-wg9p-6m2g-4v27. These tests
+// exercise the explicit adoption path, so enable it for this isolated process.
+process.env.OMNIROUTE_ADOPT_EXISTING_SERVICE = "1";
 
 // Import DB core first to trigger migration (creates version_manager with new columns)
 const core = await import("../../../src/lib/db/core.ts");

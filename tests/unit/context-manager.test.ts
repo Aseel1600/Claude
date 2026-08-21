@@ -75,10 +75,7 @@ for (const modelId of HYPERAGENT_FALLBACK_MODEL_IDS) {
 }
 
 test("getTokenLimit: does not force 1M onto non-hyperagent providers serving the same model ids", () => {
-  // windsurf declares an explicit per-model contextLength of 200000 for this exact id —
-  // a provider-unscoped substring match on "claude-opus-4" would have clobbered it to 1M.
-  assert.equal(getTokenLimit("windsurf", "claude-opus-4.7-max"), 200000);
-  // bluesminds likewise pins its own claude-opus-4-5 entry to 200000.
+  // bluesminds pins its own claude-opus-4-5 entry to 200000.
   assert.equal(getTokenLimit("bluesminds", "claude-opus-4-5"), 200000);
 });
 

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { WEBHOOK_EVENT_VALUES } from "../../src/lib/webhooks/eventDescriptions.ts";
 
 const { buildSlackPayload } = await import("../../src/lib/webhooks/integrations/slack.ts");
 
@@ -30,29 +31,20 @@ test("buildSlackPayload — test.ping produces a ping/test message", () => {
   );
 });
 
-test("buildSlackPayload — provider.error includes provider context", () => {
-  const payload = buildSlackPayload("provider.error", { provider: "openai", model: "gpt-4" });
+test("buildSlackPayload — quota.exceeded includes provider context", () => {
+  const payload = buildSlackPayload("quota.exceeded", { provider: "openai" });
   const combined = JSON.stringify(payload);
   assert.ok(
     combined.includes("Provider") ||
       combined.includes("provider") ||
-      combined.includes("error") ||
-      combined.includes("⚠️"),
-    "should reference provider/error"
+      combined.includes("quota") ||
+      combined.includes("📊"),
+    "should reference provider/quota"
   );
 });
 
 test("buildSlackPayload — all WEBHOOK_EVENTS produce valid payloads with text field", () => {
-  const events = [
-    "request.completed",
-    "request.failed",
-    "provider.error",
-    "provider.recovered",
-    "quota.exceeded",
-    "combo.switched",
-    "test.ping",
-  ] as const;
-  for (const event of events) {
+  for (const event of WEBHOOK_EVENT_VALUES) {
     const payload = buildSlackPayload(event, {});
     assert.ok(
       typeof payload.text === "string" && payload.text.length > 0,
