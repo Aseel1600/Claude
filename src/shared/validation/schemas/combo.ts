@@ -438,3 +438,10 @@ export const reorderCombosSchema = z
 export const testComboSchema = z.object({
   comboName: z.string().trim().min(1, "comboName is required"),
 });
+
+// POST /api/combos/duplicate - Resolve an auto-combo template (e.g. "auto/best-coding")
+// into a static, editable combo snapshot.
+export const duplicateAutoComboSchema = z.object({
+  name: z.string().trim().min(1, 'Missing required field: "name" (e.g. auto/best-coding)'),
+  strategy: comboStrategySchema.optional(),
+});

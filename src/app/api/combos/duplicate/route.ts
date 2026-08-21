@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireManagementAuth } from "@/lib/api/requireManagementAuth";
 import { getCombos, createCombo } from "@/lib/db/combos";
 import { normalizeComboModels } from "@/lib/combos/steps";
+import { duplicateAutoComboSchema } from "@/shared/validation/schemas";
+import { isValidationFailure, validateBody } from "@/shared/validation/helpers";
 import {
   AUTO_FAMILY_IDS,
   resolveBuiltinAutoSpec,
@@ -17,17 +19,29 @@ export async function POST(request: Request) {
   const authError = await requireManagementAuth(request);
   if (authError) return authError;
 
+  let rawBody: unknown;
   try {
-    const body = await request.json();
-    const { name, strategy } = body as { name?: string; strategy?: string };
+    rawBody = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
 
-    if (!name || typeof name !== "string") {
-      return NextResponse.json(
-        { error: 'Missing required field: "name" (e.g. auto/best-coding)' },
-        { status: 400 }
-      );
-    }
+  const validation = validateBody(duplicateAutoComboSchema, rawBody);
+  if (isValidationFailure(validation)) {
+    return NextResponse.json(
+      {
+        error:
+          validation.error.details[0]?.message ||
+          validation.error.message ||
+          'Missing required field: "name" (e.g. auto/best-coding)',
+      },
+      { status: 400 }
+    );
+  }
 
+  const { name, strategy } = validation.data;
+
+  try {
     const { createVirtualAutoCombo } =
       await import("@omniroute/open-sse/services/autoCombo/virtualFactory");
 
