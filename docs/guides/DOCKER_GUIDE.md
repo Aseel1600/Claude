@@ -518,7 +518,52 @@ Stock Docker / Kubernetes OmniRoute is **one Node process + one SQLite writer**.
 
 **Upgrades:** expect every session to drop. Drain clients if you can; there is no rolling update on default SQLite. Compose `restart: unless-stopped` plus Docker `HEALTHCHECK` will also replace the only process when the container is Unhealthy — same blast radius.
 
-External Postgres / multi-writer HA is **not** a documented stock path. If you need HA, keep a single replica or run a topology the project has tested and documented separately.
+External Postgres / multi-writer HA is **not** a documented stock path. If you need HA, keep a single replica or run a topology the project has tested and documented separately. The Postgres/MySQL work lives in [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075). Until that ships, the only supported way to multiply **large** `/v1/responses` capacity is N independent processes (next section), not `replicas > 1` on one volume.
+
+## Scale-out: N independent processes
+
+One Node process is **one V8 heap**. Two overlapping ~3 MiB / ~750k-token coding-agent `POST /v1/responses` (RTK + Caveman) abort that heap at ~12 Gi (`FATAL ERROR: Reached heap limit`) and can OOM a 16 Gi cgroup. See [#7849](https://github.com/diegosouzapw/OmniRoute/issues/7849). Raising `OMNIROUTE_CHAT_MAX_HEAVY_IN_FLIGHT` on that process reintroduces the abort. Small chats, `/healthz`, `/v1/models`, and MCP are **not** in that cap.
+
+To go beyond two concurrent **large** jobs **today**:
+
+| Do | Do not |
+| --- | --- |
+| Run **N containers/pods**, each with its **own** `DATA_DIR` / volume | Set `replicas > 1` against one SQLite file |
+| Keep each instance at 1–2 heavy in-flight and 12–16 Gi cgroup | Give one process 8× RAM and `max=8` |
+| Optional: `QUOTA_STORE_DRIVER=redis` + `QUOTA_STORE_REDIS_URL` for **shared quota counters** | Treat Redis as shared SQLite — it is not |
+| Duplicate provider secrets into each instance (or accept partitioned dashboards) | Expect one dashboard / one call-log across instances |
+| Front with any load balancer; sticky by API key or session is enough | Require a vendor-specific size-aware middleware |
+
+Hardware: `concurrent_large ≈ N × 2` at ~8–12 Gi heap / ~12–16 Gi cgroup **per instance**. Host RAM must cover `N × cgroup`, not “one 16 Gi pod with N=8.”
+
+Compose sketch (two heaps, two volumes — not `deploy.replicas: 2`):
+
+```yaml
+services:
+  omniroute-a:
+    image: diegosouzapw/omniroute:3.8.49
+    environment:
+      DATA_DIR: /app/data
+      OMNIROUTE_MEMORY_MB: "12288"
+      QUOTA_STORE_DRIVER: redis
+      QUOTA_STORE_REDIS_URL: redis://redis:6379
+    volumes: [omniroute-a-data:/app/data]
+    ports: ["20128:20128"]
+  omniroute-b:
+    image: diegosouzapw/omniroute:3.8.49
+    environment:
+      DATA_DIR: /app/data
+      OMNIROUTE_MEMORY_MB: "12288"
+      QUOTA_STORE_DRIVER: redis
+      QUOTA_STORE_REDIS_URL: redis://redis:6379
+    volumes: [omniroute-b-data:/app/data]
+    ports: ["20138:20128"]
+volumes:
+  omniroute-a-data:
+  omniroute-b-data:
+```
+
+In-process density (compression off the HTTP isolate) is [#11023](https://github.com/diegosouzapw/OmniRoute/issues/11023). One logical cluster on shared durable state is [#8075](https://github.com/diegosouzapw/OmniRoute/issues/8075).
 
 ## Important Notes
 
