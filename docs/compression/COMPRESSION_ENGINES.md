@@ -28,12 +28,12 @@ The `omniglyph` engine (package `omniglyph`, 1.4.0+) accepts a named semantic pr
 globally through `omniglyph.profile` in the compression settings or per step through the
 stacked pipeline's step config:
 
-| Profile        | Boundary                                                                    |
-| -------------- | --------------------------------------------------------------------------- |
-| `aggressive`   | Default. The policy the published receipts measured — images system, tool docs and dense history |
-| `balanced`     | Keeps live state native, protects the last 8 turns, collapses older closed history |
-| `coding-safe`  | Keeps authority, tool schemas and live tool output native, protects the last 12 turns |
-| `passthrough`  | Routes without transforming; the engine is skipped                          |
+| Profile       | Boundary                                                                                         |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `aggressive`  | Default. The policy the published receipts measured — images system, tool docs and dense history |
+| `balanced`    | Keeps live state native, protects the last 8 turns, collapses older closed history               |
+| `coding-safe` | Keeps authority, tool schemas and live tool output native, protects the last 12 turns            |
+| `passthrough` | Routes without transforming; the engine is skipped                                               |
 
 The profile is a **ceiling, not a floor**: `mergeCompressionProfileOptions` in the package
 refuses to let a caller override reopen a lossy lane the profile closed, so a per-step

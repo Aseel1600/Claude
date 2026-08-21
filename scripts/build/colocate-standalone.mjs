@@ -6,7 +6,10 @@
  * deployment runs `server.js` from that directory directly (not the assembled
  * `dist/` bundle). The standalone trace cannot see worker_threads entrypoints
  * resolved at runtime, including the required call-log artifact worker and the
- * optional LLMLingua-2 worker. It also omits LLMLingua's optional dependencies.
+ * optional LLMLingua-2 worker (`open-sse/services/compression/engines/llmlingua/onnxWorker.js`,
+ * dynamically spawned via worker_threads — untraceable by webpack). It also omits
+ * LLMLingua's optional SLM deps (`@atjsh/llmlingua-2`, `js-tiktoken`) — they are
+ * optionalDependencies and are only installed at the ROOT `node_modules`.
  *
  * The call-log worker is required, so a bundle failure must fail the build.
  * LLMLingua remains fail-soft when its optional dependencies are absent.
