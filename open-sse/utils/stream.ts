@@ -10,6 +10,7 @@ import {
   filterUsageForFormat,
   normalizeUsage as normalizeTokenUsage,
   sanitizeUsagePayloadForRequest,
+  type UsageLike,
 } from "./usageTracking.ts";
 import {
   parseSSELine,
@@ -723,7 +724,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     !clientExpectsResponsesStream && !clientExpectsClaudeStream && !clientExpectsAntigravityStream;
 
   let buffer = "";
-  let usage: UsageTokenRecord | null = null;
+  let usage: UsageLike | null = null;
   /** Passthrough (OpenAI CC shape): saw tool_calls in stream before finish_reason */
   let passthroughHasToolCalls = false;
   /** Passthrough: whether a chunk with non-null finish_reason was seen (#7800) */
@@ -1032,7 +1033,7 @@ export function createSSEStream(options: StreamOptions = {}) {
     if (
       state?.finishReason &&
       isFinishChunk &&
-      !hasValidUsage(itemSanitized.usage) &&
+      !hasValidUsage(itemSanitized.usage as UsageLike) &&
       totalContentLength > 0
     ) {
       const estimated = estimateUsage(body, totalContentLength, sourceFormat);
@@ -2281,7 +2282,7 @@ export function createSSEStream(options: StreamOptions = {}) {
               pushProviderPayload: (payload: unknown) => providerPayloadCollector.push(payload),
               pushClientPayload: (payload: unknown) => clientPayloadCollector.push(payload),
               sanitizeUsagePayload: (payload: unknown) =>
-                sanitizeUsagePayloadForRequest(payload, body, clientResponseFormat),
+                sanitizeUsagePayloadForRequest(payload as UsageLike, body, clientResponseFormat),
               setPassthroughResponsesId: (value: string) => {
                 passthroughResponsesId = value;
               },

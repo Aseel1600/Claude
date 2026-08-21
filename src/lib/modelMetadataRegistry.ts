@@ -548,15 +548,30 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   const persistedOutputLimit =
-    getModelCapabilityOverride(provider, model, "max_output_tokens", capabilitySnapshot?.maxTokenOverrides) ??
-    getModelCapabilityOverride(provider, model, "max_token", capabilitySnapshot?.maxTokenOverrides) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_output_tokens",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
     getModelCapabilityOverride(
       publicProvider,
       model,
       "max_output_tokens",
       capabilitySnapshot?.maxTokenOverrides
     ) ??
-    getModelCapabilityOverride(publicProvider, model, "max_token", capabilitySnapshot?.maxTokenOverrides);
+    getModelCapabilityOverride(
+      publicProvider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    );
   if (persistedOutputLimit !== null) {
     nextEntry.max_output_tokens = persistedOutputLimit;
   } else if (
