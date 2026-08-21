@@ -65,10 +65,12 @@ test("GithubExecutor.buildUrl routes response-format models to /responses", () =
   }
 });
 
-test("GithubExecutor.buildUrl keeps GitHub Claude Opus 4.6 on /chat/completions", () => {
+test("GithubExecutor.buildUrl routes GitHub Claude Opus 4.6 to the native /v1/messages shim", () => {
   const executor = new GithubExecutor();
   const url = executor.buildUrl("claude-opus-4.6", true);
-  assert.equal(url, "https://api.githubcopilot.com/chat/completions");
+  // Claude ALWAYS uses the Anthropic-native shim (prompt-cache token counts +
+  // lossless tool blocks), never /chat/completions.
+  assert.equal(url, "https://api.githubcopilot.com/v1/messages");
 });
 
 test("GithubExecutor.buildUrl routes unlisted Codex models to /responses (9router#102)", () => {

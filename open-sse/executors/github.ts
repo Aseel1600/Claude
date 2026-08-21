@@ -84,14 +84,17 @@ export class GithubExecutor extends BaseExecutor {
       typeof overrideTargetFormat === "string"
         ? overrideTargetFormat
         : getModelTargetFormat("gh", model);
-    // Claude models: route to Copilot's Anthropic-native /v1/messages shim — the
-    // only Copilot endpoint that surfaces prompt-cache token counts for Claude and
-    // avoids a lossy round-trip of tool_use/tool_result/thinking content blocks
-    // through the OpenAI shape. Driven by the registry's per-model targetFormat
-    // (see registry/github/index.ts), which chatCore.ts also uses to translate the
-    // request to Claude shape before the executor ever sees it.
+    // Claude models: ALWAYS route to Copilot's Anthropic-native /v1/messages
+    // shim — the only Copilot endpoint that surfaces prompt-cache token counts
+    // for Claude and avoids a lossy round-trip of tool_use/tool_result/thinking
+    // content blocks through the OpenAI shape. Matched on the model NAME (not
+    // only the registry's per-model targetFormat) so a Claude model that is
+    // missing its targetFormat tag, or a custom Claude id, still gets the native
+    // shim rather than silently falling through to /chat/completions. Mirrors
+    // the Hermes copilot routing (`if "claude" in model: return CAPI_MESSAGES_URL`).
     // Port of decolua/9router#2608 (author: yidecode).
-    if (targetFormat === "claude" && this.config.messagesUrl) {
+    const isClaudeModel = /claude/i.test(model || "");
+    if ((targetFormat === "claude" || isClaudeModel) && this.config.messagesUrl) {
       return this.config.messagesUrl;
     }
     // 9router#102: Copilot Codex models advertise supported_endpoints: ["/responses"]
