@@ -280,18 +280,43 @@ export const SEARCH_PROVIDERS: Record<string, SearchProviderConfig> = {
     cacheTTLMs: 5 * 60 * 1000,
     fallbackOnly: true,
   },
+
+  // SuperGrok / xAI server-side X Search. Not web search. Explicit provider or
+  // search_type "x" only — never auto-selected for generic web queries.
+  "x-search": {
+    id: "x-search",
+    name: "X Search (Grok)",
+    baseUrl: "https://api.x.ai/v1/responses",
+    method: "POST",
+    authType: "apikey",
+    authHeader: "bearer",
+    costPerQuery: 0,
+    freeMonthlyQuota: 0,
+    searchTypes: ["x"],
+    defaultMaxResults: 5,
+    maxMaxResults: 20,
+    timeoutMs: 60_000,
+    cacheTTLMs: 5 * 60 * 1000,
+  },
 };
 
 /**
  * Credential fallback mapping — search providers that can reuse credentials
  * from a related provider (e.g., perplexity-search uses the same API key as perplexity chat).
  */
-export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
+export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string | string[]> = {
   "perplexity-search": "perplexity",
   "ollama-search": "ollama-cloud",
   "zai-search": "zai",
   "jina-search": "jina-ai",
+  "x-search": ["xai-oauth", "xao", "xai"],
 };
+
+export function getSearchCredentialFallbacks(providerId: string): string[] {
+  const mapped = SEARCH_CREDENTIAL_FALLBACKS[providerId];
+  if (!mapped) return [];
+  return Array.isArray(mapped) ? mapped : [mapped];
+}
 
 /**
  * Request-only aliases for POST /v1/search.
@@ -316,6 +341,8 @@ export const SEARCH_PROVIDER_ALIASES: Record<string, string> = {
   searxng: "searxng-search",
   zai: "zai-search",
   duckduckgo: "duckduckgo-free",
+  "x_search": "x-search",
+  x: "x-search",
 };
 
 export function resolveSearchProviderId(providerId: string): string {
@@ -397,10 +424,11 @@ export function selectProvider(
 
   // Auto-selection excludes fallbackOnly providers so a free cost-0 provider never
   // overrides a configured paid one — they are reached only via explicit id or the
-  // route handler's last-resort step.
+  // route handler's last-resort step. Missing searchType follows the API default
+  // (`web`) so X-only providers are never cheapest-wins for generic queries.
+  const effectiveType = searchType || "web";
   const providers = Object.values(SEARCH_PROVIDERS).filter(
-    (provider) =>
-      !provider.fallbackOnly && (searchType ? supportsSearchType(provider, searchType) : true)
+    (provider) => !provider.fallbackOnly && supportsSearchType(provider, effectiveType)
   );
   if (providers.length === 0) return null;
 

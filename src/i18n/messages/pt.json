@@ -4974,7 +4974,9 @@
         "skipped": "já configurado",
         "failed": "falhou"
       }
-    }
+    },
+    "securityDescSkipWarning": "⚠️ Sem uma senha, não poderá adicionar fornecedores durante a configuração. Pode adicioná-los mais tarde no painel após definir uma senha.",
+    "providerRequiresPassword": "Precisa de definir uma senha primeiro para adicionar fornecedores. Volte ao passo de segurança e defina uma senha, ou adicione fornecedores mais tarde no painel."
   },
   "providers": {
     "title": "Provedores",

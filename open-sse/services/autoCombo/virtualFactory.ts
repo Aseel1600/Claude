@@ -27,6 +27,7 @@ import { getHiddenModelsByProvider } from "@/models";
 import { getSyncedAvailableModelsByConnection, getCustomModels } from "@/lib/db/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import { resolveProviderAlias } from "../model.ts";
 import { filterExcludedCandidates } from "./candidateOverrides";
 import { getExcludedConnectionIds } from "@/lib/db/autoCandidateOverrides";
 import {
@@ -273,9 +274,19 @@ function getNoAuthCandidates(
     // modelCompatOverrides/customModels key_value namespaces) the same way the
     // credentialed-connection loop below does, so a hidden no-auth model never
     // enters the auto-combo/fusion candidate pool either.
-    const hiddenModels =
-      hiddenModelsMap.get(providerId) ??
-      (typeof providerDef.alias === "string" ? hiddenModelsMap.get(providerDef.alias) : undefined);
+    const hiddenLookupIds = [
+      providerId,
+      typeof providerDef.alias === "string" ? providerDef.alias : null,
+      registryAlias,
+      routingPrefix,
+      resolveProviderAlias(providerId),
+      resolveProviderAlias(routingPrefix),
+    ];
+    const hiddenModels = new Set<string>();
+    for (const id of hiddenLookupIds) {
+      if (!id) continue;
+      for (const modelId of hiddenModelsMap.get(id) ?? []) hiddenModels.add(modelId);
+    }
 
     for (const model of registryModels) {
       const modelId = typeof model?.id === "string" && model.id.trim().length > 0 ? model.id : null;
