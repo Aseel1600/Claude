@@ -29,7 +29,6 @@ import {
   CANONICAL_EFFORT_VALUES,
   extendCodexGpt56EffortValues,
 } from "@/shared/reasoning/effortStandardization";
-import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 
 const MODEL_METADATA_SCHEMA_VERSION = "model-metadata-v1";
 
@@ -549,15 +548,30 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   }
 
   const persistedOutputLimit =
-    getModelCapabilityOverride(provider, model, "max_output_tokens", capabilitySnapshot?.maxTokenOverrides) ??
-    getModelCapabilityOverride(provider, model, "max_token", capabilitySnapshot?.maxTokenOverrides) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_output_tokens",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
+    getModelCapabilityOverride(
+      provider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    ) ??
     getModelCapabilityOverride(
       publicProvider,
       model,
       "max_output_tokens",
       capabilitySnapshot?.maxTokenOverrides
     ) ??
-    getModelCapabilityOverride(publicProvider, model, "max_token", capabilitySnapshot?.maxTokenOverrides);
+    getModelCapabilityOverride(
+      publicProvider,
+      model,
+      "max_token",
+      capabilitySnapshot?.maxTokenOverrides
+    );
   if (persistedOutputLimit !== null) {
     nextEntry.max_output_tokens = persistedOutputLimit;
   } else if (

@@ -230,6 +230,32 @@ test("Command Code executor honors body.model rewrite from payload rules", async
   assert.equal(posted.params.reasoning_effort, "max");
 });
 
+test("Command Code executor maps unsupported minimal reasoning_effort to low (upstream 400 regression)", async () => {
+  const calls: FetchCall[] = [];
+  globalThis.fetch = async (url, init = {}) => {
+    calls.push({ url: String(url), init });
+    return commandCodeStream([{ type: "text-delta", text: "ok" }, { type: "finish" }]);
+  };
+
+  // Live upstream rejection: "Validation error: Invalid option: expected one of
+  // \"low\"|\"medium\"|\"high\"|\"xhigh\"|\"max\" at \"params.reasoning_effort\"" —
+  // `minimal` (a Muse Spark catalog tier) must be downgraded to `low` before
+  // the wire body is built, on BOTH the combo and single-model paths.
+  await getExecutor("command-code").execute({
+    model: "poolside/laguna-s-2.1-free",
+    stream: false,
+    credentials: { apiKey: "cc_test_key" },
+    body: {
+      stream: false,
+      messages: [{ role: "user", content: "Hi" }],
+      reasoning_effort: "minimal",
+    },
+  });
+
+  const posted = JSON.parse(String(calls[0].init.body));
+  assert.equal(posted.params.reasoning_effort, "low", "minimal must map to low");
+});
+
 test("Command Code raw NDJSON stream becomes OpenAI chat SSE chunks", async () => {
   const calls: FetchCall[] = [];
   globalThis.fetch = async (url, init = {}) => {

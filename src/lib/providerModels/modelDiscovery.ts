@@ -98,6 +98,11 @@ const EFFORT_SYNONYMS: Record<string, string> = { max: "xhigh" };
 // Live request testing confirms Crof accepts `max` as a distinct top tier.
 const CROF_REASONING_EFFORTS = ["none", "low", "medium", "high", "max"] as const;
 
+// Command Code's provider API accepts the documented low/medium/high/xhigh/max
+// reasoning_effort values for its reasoning-capable model catalog, but its
+// /models response does not declare them. Keep this fallback provider-scoped.
+const COMMAND_CODE_REASONING_EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;
+
 function normalizeSupportedEffort(effort: string): string {
   if ((CANONICAL_EFFORT_VALUES as readonly string[]).includes(effort)) return effort;
   return EFFORT_SYNONYMS[effort.toLowerCase()] || effort;
@@ -232,6 +237,7 @@ export function normalizeDiscoveredModels(
     if (!id) continue;
 
     const isCrofReasoningModel = providerId === "crof" && record.reasoning_effort === true;
+    const isCommandCodeModel = providerId === "command-code";
     const supportedThinkingEfforts = (() => {
       // The flat import field and every recognized upstream tier array remain
       // authoritative over the provider fallback, including an explicit empty list.
@@ -242,7 +248,8 @@ export function normalizeDiscoveredModels(
       }
       const detected = detectSupportedThinkingEfforts(record);
       if (detected || hasDeclaredEffortList(record)) return detected;
-      return isCrofReasoningModel ? [...CROF_REASONING_EFFORTS] : undefined;
+      if (isCrofReasoningModel) return [...CROF_REASONING_EFFORTS];
+      return isCommandCodeModel ? [...COMMAND_CODE_REASONING_EFFORTS] : undefined;
     })();
 
     const name =
@@ -308,7 +315,7 @@ export function normalizeDiscoveredModels(
       ...(typeof record.description === "string" ? { description: record.description } : {}),
       ...(typeof record.supportsThinking === "boolean"
         ? { supportsThinking: record.supportsThinking }
-        : isCrofReasoningModel
+        : isCrofReasoningModel || isCommandCodeModel
           ? { supportsThinking: true }
           : {}),
       ...(record.alwaysThinking === true ? { alwaysThinking: true } : {}),

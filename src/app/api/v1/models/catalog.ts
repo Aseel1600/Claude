@@ -519,13 +519,11 @@ async function buildUnifiedModelsResponseCore(
       const targetModel = getComboTargetModelId(target);
       if (!targetModel) return null;
 
-      const canonical = getCanonicalModelMetadata(
-        {
-          provider: targetModel.providerId,
-          model: targetModel.modelId,
-        },
-        capabilityResolutionSnapshot
-      );
+      const canonical = getCanonicalModelMetadata({
+        provider: targetModel.providerId,
+        model: targetModel.modelId,
+        snapshot: capabilityResolutionSnapshot,
+      });
       if (!canonical) return null;
 
       const providerId = canonical.provider || targetModel.providerId;

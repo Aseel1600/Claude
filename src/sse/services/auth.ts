@@ -9,10 +9,13 @@ import {
 import {
   getProviderConnections,
   updateProviderConnection,
+  getProviderConnectionById,
   resetConnectionBackoff,
   touchConnectionLastUsed,
   clearConnectionErrorIfUnchanged,
 } from "@/lib/db/providers";
+import { getDbInstance } from "@/lib/db/core";
+import { getRecentEgressIpForConnection, EGRESS_IP_LOOKUP_WINDOW_MS } from "@/lib/db/proxyLogs";
 import { validateApiKey } from "@/lib/db/apiKeys";
 import {
   getActiveExclusiveConnectionLease,
@@ -55,7 +58,11 @@ import {
 } from "@omniroute/open-sse/services/accountFallback.ts";
 import { isLocalProvider } from "@omniroute/open-sse/config/providerRegistry.ts";
 import { COOLDOWN_MS, RateLimitReason } from "@omniroute/open-sse/config/constants.ts";
-import { honorsRuleLockScope } from "@omniroute/open-sse/config/providerErrorRules.ts";
+import {
+  honorsRuleLockScope,
+  isEgressBucketedLockScope,
+  egressBucketedLockProviders,
+} from "@omniroute/open-sse/config/providerErrorRules.ts";
 import {
   preflightQuota,
   isQuotaPreflightEnabled,
@@ -983,6 +990,8 @@ const PROVIDER_SEARCH_PAIRS: string[][] = [
   // The model layer canonicalizes `agy/` to `antigravity`, but the Antigravity
   // CLI card stores its connection under `agy`. Same account, either id serves.
   ["antigravity", "agy"],
+  // OpenCode connection card stores under `opencode`, but model alias resolves to `opencode-zen`.
+  ["opencode", "opencode-zen"],
   // One Jina token works on api.jina.ai, r.jina.ai, and s.jina.ai.
   // Requested id stays first so embed/rerank do not silently pick a
   // Reader-only row when both cards are filled. jina-search has no
@@ -2328,6 +2337,93 @@ export function isAgentrouterConnectionQuotaScope(
   );
 }
 
+/**
+ * #10880 — cools down every connection sharing the failing connection's last
+ * known egress IP. Best-effort and side-effect-safe by design:
+ * - The failing connection C is NOT written here: the branch marks it BEFORE
+ *   calling this helper (mirror of the connection-scoped agentrouter branch)
+ *   — the branch returns right after, so the generic path below is never
+ *   reached and opencode (passthroughModels) would otherwise get a per-model
+ *   lockModel instead of a connection cooldown.
+ * - Any DB failure is caught and logged — markAccountUnavailable must never
+ *   fail because of the egress lookup or the sibling writes.
+ * - Siblings are re-read fresh and only written when NOT terminal (T06: a
+ *   banned/credits_exhausted sibling is never downgraded by an IP-level
+ *   signal) and not already in cooldown.
+ * - No mutex per sibling (markMutexes is per-connection): concurrent 429s may
+ *   double-write, idempotent via updateProviderConnection.
+ */
+async function applyEgressIpLockout(
+  connectionId: string,
+  provider: string,
+  cooldownMs: number,
+  reason: string
+): Promise<void> {
+  try {
+    const since = new Date(Date.now() - EGRESS_IP_LOOKUP_WINDOW_MS).toISOString();
+    const recent = getRecentEgressIpForConnection(connectionId, since);
+    if (!recent) {
+      log.info(
+        "AUTH",
+        `Egress lock: no known egress IP for ${provider}:${connectionId.slice(0, 8)} — skipped`
+      );
+      return;
+    }
+    const db = getDbInstance();
+    // Siblings are scoped to the allowlisted provider family: the egress IP
+    // budget is per provider (the opencode free tier is IP-bucketed, not
+    // account-bucketed — see #9611), so a 429 from one provider must never
+    // cool an unrelated provider sharing the same host IP (the default
+    // no-proxy deployment egresses everything through one IP).
+    //
+    // The family is BOUND from the same allowlist the branch gate reads
+    // (egressBucketedLockProviders() / isEgressBucketedLockScope) — never
+    // re-spelled as a SQL literal: a duplicated list would not follow a
+    // widening of the allowlist, leaving the opt-in half applied (the gate
+    // would fire for the new provider while its siblings stayed invisible).
+    const family = egressBucketedLockProviders();
+    const familyPlaceholders = family.map(() => "?").join(",");
+    const siblingIds = db
+      .prepare(
+        `SELECT DISTINCT connection_id FROM proxy_logs
+         WHERE egress_ip = ? AND timestamp >= ? AND connection_id != ?
+         AND provider IN (${familyPlaceholders})`
+      )
+      .all(recent.egressIp, since, connectionId, ...family)
+      .map((row: { connection_id: string }) => row.connection_id);
+    const now = Date.now();
+    let cooledCount = 0;
+    for (const id of siblingIds) {
+      // Fresh camelCase re-read per sibling (never trust a stale snapshot) —
+      // reuse the house getter so terminal/cooldown checks see the same shape
+      // the rotation uses (pattern agentrouter test).
+      const sibling = (await getProviderConnectionById(id)) as ProviderConnectionView | null;
+      if (!sibling) continue;
+      if (isTerminalConnectionStatus(sibling)) continue; // T06
+      // cooldownUntilMs (not a raw new Date()) because rate_limited_until can
+      // hold a numeric-epoch string (e.g. the Antigravity full-quota path) —
+      // see #3954; NaN (no/invalid value) never exceeds `now`.
+      const existingUntil = cooldownUntilMs(sibling.rateLimitedUntil);
+      if (existingUntil > now) continue; // already cooling — never shorten
+      await updateProviderConnection(id, {
+        lastErrorType: reason || RateLimitReason.QUOTA_EXHAUSTED,
+        lastError: `Shared egress IP quota exhausted (${provider})`,
+        lastErrorAt: new Date().toISOString(),
+        errorCode: 429,
+        rateLimitedUntil: getUnavailableUntil(cooldownMs),
+        testStatus: "unavailable",
+      });
+      cooledCount += 1;
+    }
+    log.info(
+      "AUTH",
+      `Egress-bucketed cooldown: ${provider} ip=${recent.egressIp} connection=${connectionId.slice(0, 8)} cooled ${cooledCount} sibling(s) for ${Math.ceil(cooldownMs / 1000)}s`
+    );
+  } catch (err) {
+    log.warn("AUTH", `Egress-bucketed lock skipped after DB error: ${(err as Error).message}`);
+  }
+}
+
 /** Persist exponential-backoff state for an unavailable provider connection. */
 export async function markAccountUnavailable(
   connectionId: string,
@@ -2535,6 +2631,79 @@ export async function markAccountUnavailable(
       log.info(
         "AUTH",
         `Connection-scoped cooldown for ${provider}:${connectionId.slice(0, 8)} — ${status} ${fallbackResult.reason} ${Math.ceil(connectionCooldownMs / 1000)}s (rule scope=connection, overrides per-model lockout)`
+      );
+      return { shouldFallback: true, cooldownMs: connectionCooldownMs };
+    }
+
+    // #10880 — egress-bucketed providers: the upstream quota is per EGRESS IP,
+    // not per account (the opencode free tier is IP-bucketed, not
+    // account-bucketed — see #9611). When such a provider confirms a status
+    // 429 classified quota_exhausted OR rate_limit_exceeded, every
+    // allowlisted-family connection egressing through the same IP shares the
+    // exhausted budget — cool them all down BEFORE they are tried, so the
+    // rotation does not burn one guaranteed-failed upstream call per sibling
+    // (same N-1 shape as #10460/#10525). Must run AFTER the agentrouter branch
+    // (that one owns connection-scoped rules) and BEFORE the per-model block.
+    // NEVER sets a terminal status: a renewing quota window, not
+    // credits_exhausted/banned/expired. Best-effort: if the connection's last
+    // known egress IP cannot be resolved (cold cache), behavior is unchanged.
+    //
+    // The status===429 gate keeps the documented "a 429 classified…" scope:
+    // a 402/403 (status_402/status_403 → quota_exhausted) or a 400/500 with
+    // quota/rate-limit text is an ACCOUNT-scoped signal and must not cool the
+    // IP family.
+    //
+    // Deliberately ignores persistUnavailableState/isCombo, exactly like the
+    // agentrouter branch above and for the same reason: for combo the caller
+    // downgrades persistUnavailableState to false, and the generic path below
+    // would then lock per MODEL instead of cooling the connection — which says
+    // nothing about the exhausted IP, so the combo rotation would keep burning
+    // one guaranteed-failed call per sibling. A per-model lockout is not a
+    // weaker form of this scope, it is the wrong unit.
+    //
+    // RATE_LIMIT_EXCEEDED is deliberately included: markAccountUnavailable
+    // never passes headers/structuredError to checkFallbackError and opencode
+    // is not in FULL_TEXT_RULE_PROVIDERS, so the opencode-specific rules
+    // (body reset hint / x-ratelimit-remaining-requests) never match on this
+    // path — the real opencode 429 ("monthly usage limit reached") is
+    // intercepted by the subscription-quota text fallback
+    // (quotaTextCooldowns.ts, quota_exhausted 1h); allowlisted siblings with
+    // quota-text-free envelopes (e.g. "rate limit reached") land on
+    // status_429 -> rate_limit_exceeded. For an allowlisted provider an
+    // IP-bucketed rate limit is the same signal as an exhausted quota.
+    const egressBucketed = isEgressBucketedLockScope(provider);
+    if (
+      status === 429 &&
+      egressBucketed &&
+      (fallbackResult.reason === RateLimitReason.QUOTA_EXHAUSTED ||
+        fallbackResult.reason === RateLimitReason.RATE_LIMIT_EXCEEDED) &&
+      !fallbackResult.permanent &&
+      !fallbackResult.creditsExhausted &&
+      !disableCooling
+    ) {
+      const connectionCooldownMs =
+        fallbackResult.cooldownMs > 0 ? fallbackResult.cooldownMs : COOLDOWN_MS.rateLimit;
+      // CRITICAL: mark the failing connection C HERE, mirroring the
+      // connection-scoped agentrouter branch just above. The branch returns
+      // right after, so neither the per-model quota block below (opencode is
+      // passthroughModels:true — it would call recordModelLockoutFailure
+      // instead) nor the generic persistence path at the end of the function
+      // is ever reached. Without this write, C stays "active" → retried next
+      // episode (1 wasted call/episode) and backoffLevel/lastError never set.
+      await updateProviderConnection(connectionId, {
+        lastErrorType: fallbackResult.reason || RateLimitReason.QUOTA_EXHAUSTED,
+        lastError: `Shared egress IP quota exhausted (${provider})`,
+        lastErrorAt: new Date().toISOString(),
+        errorCode: status,
+        backoffLevel: fallbackResult.newBackoffLevel ?? backoffLevel,
+        rateLimitedUntil: getUnavailableUntil(connectionCooldownMs),
+        testStatus: "unavailable",
+      });
+      await applyEgressIpLockout(
+        connectionId,
+        provider!,
+        connectionCooldownMs,
+        fallbackResult.reason
       );
       return { shouldFallback: true, cooldownMs: connectionCooldownMs };
     }

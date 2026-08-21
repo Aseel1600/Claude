@@ -381,11 +381,17 @@ test("v1SearchSchema rejects query over 500 chars", async () => {
   assert.ok(!result.success);
 });
 
-test("v1SearchSchema rejects invalid provider", async () => {
+test("v1SearchSchema accepts any non-empty provider string; the catalog rejects unknown ids (#10849)", async () => {
   const { v1SearchSchema } = await import("../../src/shared/validation/schemas.ts");
+  const { resolveSearchProvider } = await import("../../open-sse/config/searchRegistry.ts");
 
+  // provider is a free-form string at the schema layer — resolveSearchProvider() (backing
+  // POST /v1/search) is the runtime source of truth, and returns null for unknown ids so
+  // the route can reply with a named "Unknown search provider: <id>" error instead of an
+  // opaque schema-level 400.
   const result = v1SearchSchema.safeParse({ query: "test", provider: "google" });
-  assert.ok(!result.success);
+  assert.ok(result.success);
+  assert.equal(resolveSearchProvider("google"), null);
 });
 
 test("v1SearchSchema accepts tavily provider", async () => {
