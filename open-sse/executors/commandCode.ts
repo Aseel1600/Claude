@@ -738,6 +738,7 @@ function createStreamResponse(
   const decoder = new TextDecoder();
   let buffer = "";
   let sentRole = false;
+  let sentContent = false;
   let closed = false;
   const state: AggregateState = {
     content: "",
@@ -772,7 +773,10 @@ function createStreamResponse(
         switch (event.type) {
           case "text-delta": {
             const text = stringValue(event.text) || "";
-            if (text) controller.enqueue(sse(chatCompletionChunk(id, model, { content: text })));
+            if (text) {
+              sentContent = true;
+              controller.enqueue(sse(chatCompletionChunk(id, model, { content: text })));
+            }
             state.content += text;
             break;
           }
@@ -810,6 +814,12 @@ function createStreamResponse(
             break;
           case "finish": {
             state.finishReason = mapFinishReason(event.finishReason);
+            // If the model only produced reasoning-delta events (no text-delta), the
+            // client-visible stream would otherwise end with no content. Emit one
+            // content delta carrying the accumulated reasoning text (#10986).
+            if (!sentContent && state.reasoning && state.toolCalls.length === 0) {
+              controller.enqueue(sse(chatCompletionChunk(id, model, { content: state.reasoning })));
+            }
             controller.enqueue(sse(chatCompletionChunk(id, model, {}, state.finishReason)));
             // Emit a standards-compliant usage-only chunk (choices: []) before
             // [DONE] when upstream reported usage. stream.ts's extractUsage
@@ -857,6 +867,9 @@ function createStreamResponse(
           if (!closed) {
             if (!sentRole)
               controller.enqueue(sse(chatCompletionChunk(id, model, { role: "assistant" })));
+            if (!sentContent && state.reasoning && state.toolCalls.length === 0) {
+              controller.enqueue(sse(chatCompletionChunk(id, model, { content: state.reasoning })));
+            }
             controller.enqueue(sse(chatCompletionChunk(id, model, {}, state.finishReason)));
             controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
@@ -947,6 +960,14 @@ async function createJsonResponse(
   }
 
   const message: JsonRecord = { role: "assistant", content: state.content };
+  // Some Command Code models emit the whole answer as reasoning-delta events and
+  // never a text-delta. When that leaves content empty, surface the reasoning text
+  // as content too (#10986) so OpenAI-compatible clients get a usable answer. Keep
+  // reasoning_content populated as well for reasoning-aware clients, and do not
+  // override content when real text OR tool calls are present.
+  if (!state.content && state.reasoning && state.toolCalls.length === 0) {
+    message.content = state.reasoning;
+  }
   if (state.reasoning) message.reasoning_content = state.reasoning;
   if (state.toolCalls.length > 0) message.tool_calls = state.toolCalls;
 
