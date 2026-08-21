@@ -481,15 +481,18 @@ function toCodexResponseFailedEvent(parsed: Record<string, unknown>): Record<str
   };
 }
 
-// Env-gated kill-switch: drop ALL non-standard `codex.*` SSE events (notably
-// `codex.rate_limits`) from the Responses stream. These events are NOT part of
-// the OpenAI Responses API — strict clients (e.g. the OpenAI SDK's
-// `responses.stream()`) choke on the unknown event type / empty data field and
-// tear the stream down, surfacing as "Invalid state: Controller is already
-// closed". Opt-in so the default still forwards them for clients that want them.
-function codexDropNonstandardEvents(): boolean {
+// Drop non-standard `codex.*` SSE events (notably `codex.rate_limits`) from
+// the Responses stream. These events are NOT part of the OpenAI Responses API
+// — strict clients (e.g. the OpenAI SDK's `responses.stream()`) choke on the
+// unknown event type / empty data field and tear the stream down, surfacing as
+// 502 "Unknown error" / "Invalid state: Controller is already closed".
+// Default ON (#11014). Opt out with 0/false/no/off if a client consumes them.
+export function codexDropNonstandardEvents(): boolean {
   const v = process.env.OMNIROUTE_CODEX_DROP_NONSTANDARD_EVENTS;
-  return v === "true" || v === "1" || v === "yes";
+  if (v === undefined || v.trim() === "") return true;
+  const n = v.trim().toLowerCase();
+  if (n === "0" || n === "false" || n === "no" || n === "off") return false;
+  return true;
 }
 
 // SSE block filter for the HTTP Responses path (super.execute). The HTTP
@@ -498,7 +501,7 @@ function codexDropNonstandardEvents(): boolean {
 // encodeResponseSseEvent never runs for it. When the kill-switch is on, strip
 // every `codex.*` event block from the byte stream before it reaches the client.
 // Exported for unit testing (#4715). Strips `codex.*` SSE event blocks from a
-// streaming Response when the OMNIROUTE_CODEX_DROP_NONSTANDARD_EVENTS kill-switch is on.
+// streaming Response when `codexDropNonstandardEvents()` is on (default, #11014).
 export function filterNonstandardCodexSse(response: Response): Response {
   const contentType = response.headers.get("content-type") || "";
   if (!response.body || !contentType.includes("text/event-stream")) {
@@ -701,8 +704,8 @@ export function encodeResponseSseEvent(raw: string): { sse: string; terminal: bo
   // "Invalid state: Controller is already closed". The earlier empty-payload
   // check below never caught codex.rate_limits — over WS the frame carries a
   // non-empty JSON payload (`{"type":"codex.rate_limits", ...}`), so
-  // `!payload.trim()` is false. Match by event type instead. Opt-in via
-  // OMNIROUTE_CODEX_DROP_NONSTANDARD_EVENTS (the HTTP transport is handled
+  // `!payload.trim()` is false. Match by event type instead. Default ON via
+  // OMNIROUTE_CODEX_DROP_NONSTANDARD_EVENTS (#11014); the HTTP transport is handled
   // separately by filterNonstandardCodexSse, since super.execute forwards the
   // upstream stream verbatim and never runs this function).
   if (eventType.startsWith("codex.") && codexDropNonstandardEvents()) {
