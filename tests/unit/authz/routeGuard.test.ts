@@ -58,6 +58,15 @@ test("isAlwaysProtectedPath: /api/settings/database is always protected", () => 
   assert.equal(isAlwaysProtectedPath("/api/settings/database"), true);
 });
 
+test("isAlwaysProtectedPath: /api/db-backups is always protected (GHSA-mghq-58h3-qcqj)", () => {
+  // Full-database read/replace must require auth even when requireLogin=false —
+  // the same Tier-2 trade-off /api/settings/database already makes. The single
+  // prefix entry covers export, exportAll, import and future siblings.
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/export"), true);
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/exportAll"), true);
+  assert.equal(isAlwaysProtectedPath("/api/db-backups/import"), true);
+});
+
 test("isAlwaysProtectedPath: ordinary settings routes are not always protected", () => {
   assert.equal(isAlwaysProtectedPath("/api/settings"), false);
   assert.equal(isAlwaysProtectedPath("/api/settings/proxy"), false);

@@ -119,6 +119,11 @@ export const ALWAYS_PROTECTED_API_PATHS: ReadonlyArray<string> = [
   "/api/shutdown",
   "/api/providers/health-autopilot/actions",
   "/api/settings/database",
+  // Full-database export/import: a credential dump and an irreversible replace.
+  // Must stay authenticated even under requireLogin=false, for the same reason
+  // /api/settings/database already does. isAlwaysProtectedPath matches on a path
+  // boundary, so this covers export, exportAll and import. (GHSA-mghq-58h3-qcqj)
+  "/api/db-backups",
 ];
 
 export function isLoopbackHost(hostHeader: string | null): boolean {
