@@ -4,16 +4,16 @@ import { ensureProviderSchema } from "./provider-store.mjs";
 import { ensureSettingsSchema, hashManagementPassword, updateSettings } from "./settings-store.mjs";
 
 async function loadSqlite() {
+  if (process.versions.bun) {
+    try {
+      return { Database: (await import("bun:sqlite")).Database, driver: "bun:sqlite" };
+    } catch (bunError) {
+      // fall through to better-sqlite3 if bun:sqlite fails
+    }
+  }
   try {
     return { Database: (await import("better-sqlite3")).default, driver: "better-sqlite3" };
   } catch (error) {
-    if (process.versions.bun) {
-      try {
-        return { Database: (await import("bun:sqlite")).Database, driver: "bun:sqlite" };
-      } catch (bunError) {
-        return { error: bunError };
-      }
-    }
     return { error };
   }
 }

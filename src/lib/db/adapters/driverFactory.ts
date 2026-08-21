@@ -212,20 +212,7 @@ export function createSyncDriverFactory(load: DriverLoader, betterSqliteProbe?: 
     filePath: string,
     options?: Record<string, unknown>
   ): SqliteAdapter | null {
-    // 1. better-sqlite3: preferred native driver (works on Node.js and Bun with compiled addon)
-    if (mayLoadBetterSqlite()) {
-      try {
-        const BetterSqlite = load("better-sqlite3") as {
-          new (p: string, o?: object): import("better-sqlite3").Database;
-        };
-        const db = new BetterSqlite(filePath, options);
-        return createBetterSqliteAdapter(db);
-      } catch (err) {
-        logSwallowedDriverError("better-sqlite3", err);
-      }
-    }
-
-    // 2. Bun native sqlite driver: fallback when running under Bun if better-sqlite3 is unavailable
+    // 1. Bun native sqlite driver: preferred built-in driver when running under Bun
     if (process.versions.bun) {
       try {
         const { Database } = load("bun:sqlite") as {
@@ -234,14 +221,26 @@ export function createSyncDriverFactory(load: DriverLoader, betterSqliteProbe?: 
         if (options?.fileMustExist === true && filePath !== ":memory:" && !existsSync(filePath)) {
           throw new Error(`SQLite file does not exist: ${filePath}`);
         }
-        const db = new Database(filePath, {
-          ...(options?.readonly === true
-            ? { readonly: true }
-            : { readwrite: true, create: options?.fileMustExist !== true }),
-        });
+        const bunOptions: Record<string, unknown> = {};
+        if (options?.readonly === true) bunOptions.readonly = true;
+        if (options?.create === false && filePath !== ":memory:") bunOptions.create = false;
+        const db = new Database(filePath, bunOptions);
         return createBunSqliteAdapter(db, filePath);
       } catch (err) {
         logSwallowedDriverError("bun:sqlite", err);
+      }
+    }
+
+    // 2. better-sqlite3: preferred native driver on Node.js
+    if (!process.versions.bun && mayLoadBetterSqlite()) {
+      try {
+        const BetterSqlite = load("better-sqlite3") as {
+          new (p: string, o?: object): import("better-sqlite3").Database;
+        };
+        const db = new BetterSqlite(filePath, options);
+        return createBetterSqliteAdapter(db);
+      } catch (err) {
+        logSwallowedDriverError("better-sqlite3", err);
       }
     }
 
