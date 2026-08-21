@@ -128,6 +128,16 @@ export const updateSettingsSchema = z.object({
   blockedProviders: z.array(z.string().max(100)).optional(),
   noAuthFallbackDisabledProviders: z.array(z.string().max(100)).optional(),
   hidePaidModels: z.boolean().optional(),
+  // STRICT_ZERO_COST (opt-in, default "off"): stricter than hidePaidModels — a
+  // candidate must be keyless (no credential exists, so no request against it
+  // can ever be billed) OR pass a live, fresh, hard-stop-guaranteed quota
+  // check, per candidate, before ranking/dispatch. See
+  // open-sse/services/autoCombo/strictZeroCostFilter.ts.
+  freeAccessPolicy: z.enum(["off", "strict"]).optional(),
+  // Separate from freeAccessPolicy on purpose: excludes candidates whose
+  // curated `tos` verdict is "avoid" (proxy/self-hosted use conflicts with the
+  // provider's own terms) — a contractual concern, not an economic one.
+  excludeTosAvoid: z.boolean().optional(),
   hideHealthCheckLogs: z.boolean().optional(),
   hideEndpointCloudflaredTunnel: z.boolean().optional(),
   hideEndpointTailscaleFunnel: z.boolean().optional(),

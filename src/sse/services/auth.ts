@@ -2453,6 +2453,18 @@ export async function markAccountUnavailable(
   try {
     await currentMutex;
 
+    // STRICT_ZERO_COST: this connection just failed (whatever the reason) —
+    // drop any cached "SAFE" free-allowance reading for it immediately rather
+    // than waiting out the TTL, so the very next candidate-pool build reads a
+    // clean cache miss (UNKNOWN → excluded) instead of a stale SAFE. Cheap,
+    // idempotent, and correct to over-invalidate on non-quota failures too —
+    // worst case is one extra background refresh.
+    if (provider) {
+      const { invalidateFreeAccessState } =
+        await import("@omniroute/open-sse/services/autoCombo/freeAccessQuota.ts");
+      invalidateFreeAccessState(provider, connectionId);
+    }
+
     const resourceBypass = getResource404Bypass(status, errorText, connectionId, log);
     if (resourceBypass) return resourceBypass;
 
