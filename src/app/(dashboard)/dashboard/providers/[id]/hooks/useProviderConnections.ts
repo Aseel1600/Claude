@@ -630,12 +630,15 @@ export function useProviderConnections(
     try {
       const conn = connections.find((c) => c.id === connectionId);
       const isCursor = conn?.provider === "cursor";
-      // Cursor has no refresh_token by design — the generic /refresh route's
-      // getAccessToken() call always 502s for it. The dedicated route nudges
-      // cursor-agent and re-scrapes IDE/agent credential sources instead.
+      const isKimiWeb = conn?.provider === "kimi-web" || conn?.provider === "kimi_web";
+      // Cursor refresh_token design — generic /refresh route's
+      // getAccessToken() call 502s on it. The dedicated route nudges
+      // the cursor-agent to re-scrape IDE/agent credential sources instead.
       const url = isCursor
-        ? `/api/providers/${connectionId}/refresh-cursor`
-        : `/api/providers/${connectionId}/refresh`;
+        ? `/api/providers//refresh-cursor`
+        : isKimiWeb
+          ? `/api/providers//refresh-token`
+          : `/api/providers//refresh`;
       const res = await fetch(url, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.success) {

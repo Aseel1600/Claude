@@ -435,7 +435,7 @@ export default function ConnectionsListPanel({
                     : undefined
                 }
                 onRefreshToken={
-                  conn.authType === "oauth" ? () => handleRefreshToken(conn.id) : undefined
+                  conn.authType === "oauth" || providerId === "kimi-web" || providerId === "kimi_web" ? () => handleRefreshToken(conn.id) : undefined
                 }
                 isRefreshing={refreshingId === conn.id}
                 onApplyCodexAuthLocal={
