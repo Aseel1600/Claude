@@ -88,6 +88,7 @@ export default function AddApiKeyModal({
   const isModal = provider === "modal";
   const isGlm = isGlmProvider(provider);
   const isQoder = provider === "qoder";
+  const isFreebuff = provider === "freebuff";
   const openRouterPreset = useOpenRouterPresetControl(provider, t);
   const isCloudflare = provider === "cloudflare-ai";
   const localProviderMetadata = getLocalProviderMetadata(provider);
@@ -191,9 +192,11 @@ export default function AddApiKeyModal({
         ? webSessionCredential.placeholder
         : isQoder
           ? t("qoderPatPlaceholder")
-          : apiKeyOptional
-            ? t("optional")
-            : undefined;
+          : isFreebuff
+            ? "Enter Freebuff / Codebuff Auth Token (e.g. 038fcdf9-...)"
+            : apiKeyOptional
+              ? t("optional")
+              : undefined;
   const apiCredentialHint = isModal
     ? providerText(
         t,
@@ -202,8 +205,10 @@ export default function AddApiKeyModal({
       )
     : isQoder
       ? t("qoderPatHint")
-      : isWebSessionCredential
-        ? getWebSessionCredentialHint(t, webSessionCredential, providerDisplayName, false)
+      : isFreebuff
+        ? "Freebuff uses an authentic CLI auth token obtained via codebuff CLI login or automated harvester."
+        : isWebSessionCredential
+          ? getWebSessionCredentialHint(t, webSessionCredential, providerDisplayName, false)
         : isLocalSelfHostedProvider
           ? t("localProviderApiKeyOptionalHint", {
               provider: localProviderMetadata?.name || providerName || provider || "",

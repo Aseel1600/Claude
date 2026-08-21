@@ -24,6 +24,10 @@ import {
   removeCredentialHealth,
   initCredentialCache,
 } from "@/lib/credentialHealth/cache";
+import {
+  isCredentialProbeInconclusive,
+  resolveInconclusiveProbeRecheckDelayMs,
+} from "@/lib/credentialHealth/probePolicy";
 import { emit } from "@/lib/events/eventBus";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 import { SEARCH_VALIDATOR_CONFIGS } from "@/lib/providers/validation/searchProviders";
@@ -130,20 +134,44 @@ async function testConnection(
   try {
     const result = await testSingleConnection(connectionId);
 
-    // A deliberate lease skip must not rewrite the health cache.
-    if (result.skipped === true) return;
+    // Deliberate skips never rewrite credential health or failure state.
+    // Unsupported validation capability is stable enough to honor the
+    // connection's configured interval; an exclusive-lease skip intentionally
+    // remains due on the next global sweep so recovery is not delayed.
+    if (result.skipped === true) {
+      const diagnosis = result.diagnosis as { code?: string } | undefined;
+      if (diagnosis?.code === "unsupported") {
+        getSchedulerState().perConnTiming.set(connectionId, {
+          lastAttemptAt: startTime,
+          nextAttemptAt: startTime + intervalMs,
+        });
+      }
+      return;
+    }
 
     const latencyMs = Date.now() - startTime;
     const state = getSchedulerState();
 
     if (result.valid) {
-      // Success — reset failure count, space the next test by the
-      // per-connection interval (absent → global sweep interval), update cache
+      // Success resets failure state. Credential-inconclusive probes remain
+      // active but are checked less often because repeating an expensive probe
+      // does not add authentication evidence; an ordinary success is paced by
+      // the per-connection interval (absent → global sweep interval).
       state.failureCounts.delete(connectionId);
-      state.perConnTiming.set(connectionId, {
-        lastAttemptAt: startTime,
-        nextAttemptAt: startTime + intervalMs,
-      });
+
+      if (isCredentialProbeInconclusive(result)) {
+        const recheckDelayMs = resolveInconclusiveProbeRecheckDelayMs(getSweepInterval());
+        state.perConnTiming.set(connectionId, {
+          lastAttemptAt: startTime,
+          nextAttemptAt: Date.now() + recheckDelayMs,
+        });
+      } else {
+        state.perConnTiming.set(connectionId, {
+          lastAttemptAt: startTime,
+          nextAttemptAt: startTime + intervalMs,
+        });
+      }
+
       setCredentialHealth(
         connectionId,
         provider,

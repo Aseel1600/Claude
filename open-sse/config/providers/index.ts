@@ -3,6 +3,8 @@ import { unorouterProvider } from "./registry/unorouter/index.ts";
 
 import { aimlapiProvider } from "./registry/aimlapi/index.ts";
 import { byteplusProvider } from "./registry/byteplus/index.ts";
+import { mlxGemmaProvider } from "./registry/mlx/index.ts";
+import { mlxQwenProvider } from "./registry/mlx/index.ts";
 import { ollama_cloudProvider } from "./registry/ollama-cloud/index.ts";
 import { syntheticProvider } from "./registry/synthetic/index.ts";
 import { ideogramProvider } from "./registry/ideogram/index.ts";
@@ -16,6 +18,7 @@ import { deepaiProvider } from "./registry/deepai/index.ts";
 import { upstageProvider } from "./registry/upstage/index.ts";
 import { nebiusProvider } from "./registry/nebius/index.ts";
 import { fireworksProvider } from "./registry/fireworks/index.ts";
+import { freebuffProvider } from "./registry/freebuff/index.ts";
 import { llamagateProvider } from "./registry/llamagate/index.ts";
 import { glmProvider } from "./registry/glm/index.ts";
 import { glmtProvider } from "./registry/glm/t/index.ts";
@@ -261,9 +264,12 @@ import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
 import { voidAiProvider } from "./registry/void-ai/index.ts";
 import { helixmindProvider } from "./registry/helixmind/index.ts";
+import { tabitokenProvider } from "./registry/tabitoken/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
+  "mlx-gemma": mlxGemmaProvider,
+  "mlx-qwen": mlxQwenProvider,
   "ollama-cloud": ollama_cloudProvider,
   synthetic: syntheticProvider,
   ideogram: ideogramProvider,
@@ -277,6 +283,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   deepai: deepaiProvider,
   nebius: nebiusProvider,
   fireworks: fireworksProvider,
+  freebuff: freebuffProvider,
   llamagate: llamagateProvider,
   glm: glmProvider,
   glmt: glmtProvider,
@@ -526,4 +533,5 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "free-ai": freeAiProvider,
   "void-ai": voidAiProvider,
   helixmind: helixmindProvider,
+  tabitoken: tabitokenProvider,
 };

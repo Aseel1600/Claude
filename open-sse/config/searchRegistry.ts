@@ -303,6 +303,19 @@ export const SEARCH_CREDENTIAL_FALLBACKS: Record<string, string> = {
 export const SEARCH_PROVIDER_ALIASES: Record<string, string> = {
   "jina-ai": "jina-search",
   jina: "jina-search",
+  brave: "brave-search",
+  serper: "serper-search",
+  perplexity: "perplexity-search",
+  exa: "exa-search",
+  tavily: "tavily-search",
+  "google-pse": "google-pse-search",
+  linkup: "linkup-search",
+  ollama: "ollama-search",
+  searchapi: "searchapi-search",
+  youcom: "youcom-search",
+  searxng: "searxng-search",
+  zai: "zai-search",
+  duckduckgo: "duckduckgo-free",
 };
 
 export function resolveSearchProviderId(providerId: string): string {
