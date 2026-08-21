@@ -379,7 +379,12 @@ export const updateComboSchema = z
   .object({
     name: comboNameSchema.optional(),
     description: z.string().max(2000).optional().nullable(),
-    models: z.array(comboModelEntry).optional(),
+    // Creation may leave `models` empty (`omniroute combo create` drafts one
+    // that way); an update may not, or a working combo loses every target.
+    models: z
+      .array(comboModelEntry)
+      .min(1, "an update cannot remove every model from a combo")
+      .optional(),
     strategy: comboStrategySchema.optional(),
     config: comboRuntimeConfigSchema.optional(),
     isActive: z.boolean().optional(),

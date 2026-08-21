@@ -30,7 +30,6 @@ export const FREE_PROVIDERS = {};
 
 export const FREE_APIKEY_PROVIDER_IDS = new Set([
   "qoder",
-  "mimocode",
   "opencode",
   "dahl",
   // auggie is a fully local, credential-less CLI passthrough (auth handled by
@@ -40,6 +39,10 @@ export const FREE_APIKEY_PROVIDER_IDS = new Set([
   "auggie",
   // zcode is a local app-server backend; auth stays in the ZCode profile.
   "zcode",
+  // AI Horde works anonymously (`0000000000`) and also accepts a free registered
+  // key for higher queue priority. The no-auth page still enables the provider;
+  // this flag admits an optional apikey connection so that stored key is used.
+  "aihorde",
 ]);
 
 export function supportsApiKeyOnFreeProvider(providerId: unknown): boolean {
@@ -143,8 +146,8 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "free-ai",
   "void-ai",
   "helixmind",
-
-]);;
+  "tabitoken",
+]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
   "azure-openai",
@@ -214,6 +217,8 @@ export function isLocalProvider(providerId: unknown): boolean {
 }
 
 export const SELF_HOSTED_CHAT_PROVIDER_IDS = new Set([
+  "mlx-gemma",
+  "mlx-qwen",
   "ollama-local",
   "lm-studio",
   "vllm",
@@ -270,6 +275,8 @@ export function providerAllowsOptionalApiKey(providerId: unknown): boolean {
 const BULK_API_KEY_EXCLUDED = new Set([
   "vertex",
   "vertex-partner",
+  "mlx-gemma",
+  "mlx-qwen",
   "ollama-local",
   "grok-web",
   "perplexity-web",
@@ -525,6 +532,8 @@ export const USAGE_SUPPORTED_PROVIDERS = [
   "bailian-coding-plan",
   // Qwen Cloud / Model Studio personal Token Plan (cookie-authenticated console gateway)
   "qwen-cloud-token-plan",
+  // AgentRouter (New-API) console balance quota (consoleApiKey + newApiUserId)
+  "agentrouter",
 ];
 
 // ── Zod validation at module load (Phase 7.2) ──

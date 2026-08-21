@@ -19,12 +19,20 @@ import { saveCallLog } from "@/lib/usageDb";
 import { shouldHideLogs } from "@/lib/tokenHealthCheck";
 import { logProxyEvent } from "@/lib/proxyLogger";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
-import { isGitLabDirectAccessDisabled } from "@/lib/oauth/gitlab";
+import {
+  buildGitLabDuoProbeBody,
+  buildGitLabDuoProbeHeaders,
+  buildGitLabOAuthEndpoints,
+  resolveGitLabOAuthBaseUrl,
+  shouldFallbackToPublicCodeSuggestions,
+} from "@/lib/oauth/gitlab";
 import { providerAllowsOptionalApiKey } from "@/shared/constants/providers";
+import { shouldUseApiKeyConnectionTest } from "./webSessionTestDispatch";
 import { removeConnectionHealth } from "@omniroute/open-sse/services/apiKeyRotator.ts";
+import { isConnectionUnavailableToAuxiliaryActivity } from "@/lib/exclusiveLeaseIsolation";
 import { classifyAmbiguousOrAuthError, type ClassifyFailureArgs } from "./mistralAmbiguousAuth";
 import { buildApiKeyConnectionTestResult } from "./apiKeyTestResult";
-import { OAUTH_TEST_CONFIG } from "./oauthTestConfig";
+import { classifyOAuthProbeInconclusive, OAUTH_TEST_CONFIG } from "./oauthTestConfig";
 import { isGeoBlockedError } from "@omniroute/open-sse/services/errorClassifier.ts";
 
 // Bound the OAuth probe so a hung upstream can't block the connection-test queue
@@ -145,6 +153,7 @@ export function classifyFailure({
     normalized.includes("fetch failed") ||
     normalized.includes("network") ||
     normalized.includes("timeout") ||
+    normalized.includes("timed out") ||
     normalized.includes("econn") ||
     normalized.includes("enotfound") ||
     normalized.includes("socket")
@@ -304,6 +313,39 @@ function isTokenExpired(connection: any) {
   const expiresAt = new Date(expiresAtValue).getTime();
   const buffer = 5 * 60 * 1000; // 5 minutes
   return expiresAt <= Date.now() + buffer;
+}
+
+/**
+ * #10365 / #10499: the real chat path (open-sse/executors/gitlab.ts) treats a rejected
+ * `direct_access` exchange (401) or an explicitly disabled direct-connections tenant
+ * (403) as recoverable — it falls back to the public Code Suggestions completions
+ * endpoint and keeps serving. "Test Connection" / Retest must apply the SAME contract:
+ * a `direct_access` failure alone is not proof the token is bad, so probe the fallback
+ * endpoint before reporting the connection unhealthy. Only a fallback-probe 401/403
+ * means the token itself is rejected; any other status (including validation errors on
+ * the deliberately minimal probe body) means auth was accepted.
+ */
+async function probeGitLabDuoPublicFallback(
+  connection: any,
+  accessToken: string,
+  timeoutMs: number
+): Promise<boolean> {
+  const endpoints = buildGitLabOAuthEndpoints(
+    resolveGitLabOAuthBaseUrl(connection?.providerSpecificData)
+  );
+  try {
+    const fallbackRes = await fetch(endpoints.publicCompletionsUrl, {
+      method: "POST",
+      headers: buildGitLabDuoProbeHeaders(accessToken),
+      body: JSON.stringify(buildGitLabDuoProbeBody()),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return fallbackRes.status !== 401 && fallbackRes.status !== 403;
+  } catch {
+    // Network/timeout failures on the probe are not an auth verdict either way —
+    // fall through to the caller's existing 401/403 handling instead of masking them.
+    return false;
+  }
 }
 
 /**
@@ -469,6 +511,38 @@ export async function testOAuthConnection(
     if (builtProbe?.body) fetchInit.body = builtProbe.body;
     const res = await fetch(url, fetchInit);
 
+    const inconclusiveBody =
+      Array.isArray(config.inconclusiveStatuses) && config.inconclusiveStatuses.includes(res.status)
+        ? await res
+            .clone()
+            .text()
+            .catch(() => "")
+        : "";
+
+    const inconclusive = classifyOAuthProbeInconclusive(
+      config,
+      connection.provider,
+      res.status,
+      inconclusiveBody
+    );
+
+    if (inconclusive) {
+      return {
+        valid: true,
+        error: null,
+        warning: inconclusive.warning,
+        refreshed,
+        newTokens,
+        statusCode: res.status,
+        diagnosis: makeDiagnosis(
+          inconclusive.diagnosisType,
+          "upstream",
+          inconclusive.warning,
+          inconclusive.diagnosisCode
+        ),
+      };
+    }
+
     // Port of decolua/9router#347: some providers (Codex) intentionally trigger a
     // 400 because the probe body is invalid. A 400 from such a provider means auth
     // succeeded; only 401/403 means the token is bad.
@@ -487,14 +561,17 @@ export async function testOAuthConnection(
 
     if (connection.provider === "gitlab-duo") {
       const gitlabText = await res.text();
-      if (isGitLabDirectAccessDisabled(res.status, gitlabText)) {
-        return {
-          valid: true,
-          error: null,
-          refreshed,
-          newTokens,
-          diagnosis: makeDiagnosis("ok", "upstream", null, null),
-        };
+      if (shouldFallbackToPublicCodeSuggestions(res.status, gitlabText)) {
+        const fallbackOk = await probeGitLabDuoPublicFallback(connection, accessToken, timeoutMs);
+        if (fallbackOk) {
+          return {
+            valid: true,
+            error: null,
+            refreshed,
+            newTokens,
+            diagnosis: makeDiagnosis("ok", "upstream", null, null),
+          };
+        }
       }
     }
 
@@ -528,6 +605,39 @@ export async function testOAuthConnection(
         else if (config.body) retryInit.body = config.body;
         const retryRes = await fetch(url, retryInit);
 
+        const retryInconclusiveBody =
+          Array.isArray(config.inconclusiveStatuses) &&
+          config.inconclusiveStatuses.includes(retryRes.status)
+            ? await retryRes
+                .clone()
+                .text()
+                .catch(() => "")
+            : "";
+
+        const retryInconclusive = classifyOAuthProbeInconclusive(
+          config,
+          connection.provider,
+          retryRes.status,
+          retryInconclusiveBody
+        );
+
+        if (retryInconclusive) {
+          return {
+            valid: true,
+            error: null,
+            warning: retryInconclusive.warning,
+            refreshed: true,
+            newTokens: tokens,
+            statusCode: retryRes.status,
+            diagnosis: makeDiagnosis(
+              retryInconclusive.diagnosisType,
+              "upstream",
+              retryInconclusive.warning,
+              retryInconclusive.diagnosisCode
+            ),
+          };
+        }
+
         const retryAccepted =
           retryRes.ok ||
           (Array.isArray(config.acceptStatuses) && config.acceptStatuses.includes(retryRes.status));
@@ -541,9 +651,33 @@ export async function testOAuthConnection(
           };
         }
 
+        const retryBody = await retryRes.text().catch(() => "");
+
+        // #10365 / #10499: same fallback contract as the first attempt above — a
+        // rejected direct_access exchange with a freshly-refreshed token is still
+        // recoverable via the public Code Suggestions endpoint.
+        if (
+          connection.provider === "gitlab-duo" &&
+          shouldFallbackToPublicCodeSuggestions(retryRes.status, retryBody)
+        ) {
+          const fallbackOk = await probeGitLabDuoPublicFallback(
+            connection,
+            tokens.accessToken,
+            timeoutMs
+          );
+          if (fallbackOk) {
+            return {
+              valid: true,
+              error: null,
+              refreshed: true,
+              newTokens: tokens,
+              diagnosis: makeDiagnosis("ok", "upstream", null, null),
+            };
+          }
+        }
+
         // #1444: a fresh token that still gets a 401 because the account itself was
         // deactivated must be labeled account_deactivated, not a generic auth error.
-        const retryBody = await retryRes.text().catch(() => "");
         const error = isAccountDeactivatedMessage(retryBody)
           ? "Account deactivated by the provider"
           : `API returned ${retryRes.status} after token refresh`;
@@ -635,6 +769,7 @@ async function testApiKeyConnection(connection: any) {
     const error = "Provider test not supported";
     return {
       valid: false,
+      skipped: true,
       error,
       diagnosis: classifyFailure({ error, unsupported: true, provider: connection.provider }),
     };
@@ -659,6 +794,17 @@ export async function testSingleConnection(connectionId: string, validationModel
 
   if (!connection) {
     return { valid: false, error: "Connection not found", diagnosis: null, latencyMs: 0 };
+  }
+
+  if (await isConnectionUnavailableToAuxiliaryActivity(connectionId)) {
+    const error = "Connection test deferred while an exclusive session lease is active";
+    return {
+      valid: false,
+      skipped: true,
+      error,
+      diagnosis: makeDiagnosis("lease_active", "local", error, "exclusive_lease_active"),
+      latencyMs: 0,
+    };
   }
 
   const provider = typeof connection.provider === "string" ? connection.provider : "";
@@ -695,7 +841,7 @@ export async function testSingleConnection(connectionId: string, validationModel
       refreshed: false,
       diagnosis: (runtime as any).diagnosis,
     };
-  } else if (connection.authType === "apikey") {
+  } else if (shouldUseApiKeyConnectionTest(connection.authType, provider)) {
     const enrichedConnection = validationModelId
       ? {
           ...connection,
@@ -715,6 +861,18 @@ export async function testSingleConnection(connectionId: string, validationModel
   }
 
   const latencyMs = Date.now() - startTime;
+
+  // Unsupported validation capability is neutral: the probe established that
+  // this provider cannot be verified through the generic test surface, not
+  // that its credential is invalid. Do not mutate persisted credential health.
+  if (result.skipped === true) {
+    return {
+      ...result,
+      latencyMs,
+      runtime: runtime || null,
+      testedAt: null,
+    };
+  }
 
   // Build update data
   const now = new Date().toISOString();

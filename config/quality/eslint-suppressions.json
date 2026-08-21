@@ -54,11 +54,6 @@
       "count": 3
     }
   },
-  "open-sse/handlers/chatCore/codexFailover.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "open-sse/handlers/chatCore/comboContextCache.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1018,11 +1013,6 @@
       "count": 1
     }
   },
-  "src/lib/api/modelTestRunner.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "src/lib/api/proxyRegistryRouteHandlers.ts": {
     "no-restricted-imports": {
       "count": 1
@@ -1075,11 +1065,6 @@
   },
   "src/lib/db/tokenLimits.ts": {
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "src/lib/embeddings/service.ts": {
-    "no-restricted-imports": {
       "count": 1
     }
   },
@@ -1479,11 +1464,6 @@
   "tests/integration/memory-summarize.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 1
-    }
-  },
-  "tests/integration/mimocode-proxy.integration.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 13
     }
   },
   "tests/integration/obsidian-plugin-e2e.test.ts": {
@@ -1893,7 +1873,7 @@
   },
   "tests/unit/cli-oauth-commands.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 18
+      "count": 20
     }
   },
   "tests/unit/cli-oneproxy-commands.test.ts": {
@@ -2391,11 +2371,6 @@
       "count": 7
     }
   },
-  "tests/unit/executor-gitlab.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 4
-    }
-  },
   "tests/unit/executor-nlpcloud.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
@@ -2547,11 +2522,6 @@
   "tests/unit/memory-summarization.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 2
-    }
-  },
-  "tests/unit/mimocode-executor.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 58
     }
   },
   "tests/unit/minimax-tts-1043.test.ts": {
@@ -2937,11 +2907,6 @@
   "tests/unit/response-sanitizer.test.ts": {
     "@typescript-eslint/no-explicit-any": {
       "count": 83
-    }
-  },
-  "tests/unit/responses-parse-once-4041.test.ts": {
-    "@typescript-eslint/no-explicit-any": {
-      "count": 6
     }
   },
   "tests/unit/responses-translation-fixes.test.ts": {

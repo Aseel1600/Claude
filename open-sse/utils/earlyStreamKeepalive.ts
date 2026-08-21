@@ -31,7 +31,7 @@
  *     to 200, so the HTTP status can no longer change).
  */
 
-import { ResponsesOutputIndexStack } from "./responsesOutputIndexStack.ts";
+import { recordEarlyKeepaliveBytes } from "./earlyKeepaliveByteBuffer.ts";
 
 const ENCODER = new TextEncoder();
 const KEEPALIVE_FRAME = ENCODER.encode(": keepalive\n\n");
@@ -51,91 +51,6 @@ export const OPENAI_STARTUP_FRAME = OPENAI_KEEPALIVE_FRAME;
 // token the comment frame lets the client abort and retry the stream. Anthropic's own
 // API emits `event: ping` for exactly this reason; the /v1/messages route mirrors it.
 export const ANTHROPIC_PING_FRAME = ENCODER.encode('event: ping\ndata: {"type":"ping"}\n\n');
-// Responses API keepalive: a self-contained, self-closed synthetic reasoning
-// item (added -> summary_part.added -> text.delta -> summary_part.done ->
-// output_item.done). Unlike open-sse/utils/stream.ts's own
-// emitSyntheticResponsesReasoningSummary — which only supplements a REAL
-// upstream item that the real provider stream will close on its own — this
-// placeholder item has no real counterpart: the upstream response, once it
-// arrives, starts its own independent response.created lifecycle from
-// scratch and will never close this one. It must therefore send its own
-// response.output_item.done here, not just reasoning_summary_part.done
-// (that only closes the nested summary part, not the output item itself).
-// Without it, a strict client tracking open items by output_index (as the
-// Responses API spec requires) sees this item still open at index 0 and
-// throws a collision the moment the real response's own output_item.added
-// reuses that same index — reproduced live 2026-08-13, OpenClaw issue
-// https://github.com/openclaw/openclaw/issues/123342.
-//
-// The output_index is allocated from ResponsesOutputIndexStack instead of a
-// hardcoded literal so this stays structurally correct: forgetting the
-// close() call throws at module load (assertAllClosed() below), not
-// silently at some future real request.
-const RESPONSES_STARTUP_ITEM_ID = "rs_keepalive";
-// Brand-neutral placeholder — clients persist this as visible reasoning.
-const STARTUP_THINKING_TEXT = "✨";
-const startupIndexStack = new ResponsesOutputIndexStack();
-const RESPONSES_STARTUP_OUTPUT_INDEX = startupIndexStack.open();
-const startupEvents = [
-  {
-    event: "response.output_item.added",
-    data: {
-      type: "response.output_item.added",
-      output_index: RESPONSES_STARTUP_OUTPUT_INDEX,
-      item: { id: RESPONSES_STARTUP_ITEM_ID, type: "reasoning", summary: [] },
-    },
-  },
-  {
-    event: "response.reasoning_summary_part.added",
-    data: {
-      type: "response.reasoning_summary_part.added",
-      item_id: RESPONSES_STARTUP_ITEM_ID,
-      output_index: RESPONSES_STARTUP_OUTPUT_INDEX,
-      summary_index: 0,
-      part: { type: "summary_text", text: "" },
-    },
-  },
-  {
-    event: "response.reasoning_summary_text.delta",
-    data: {
-      type: "response.reasoning_summary_text.delta",
-      item_id: RESPONSES_STARTUP_ITEM_ID,
-      output_index: RESPONSES_STARTUP_OUTPUT_INDEX,
-      summary_index: 0,
-      delta: STARTUP_THINKING_TEXT,
-    },
-  },
-  {
-    event: "response.reasoning_summary_part.done",
-    data: {
-      type: "response.reasoning_summary_part.done",
-      item_id: RESPONSES_STARTUP_ITEM_ID,
-      output_index: RESPONSES_STARTUP_OUTPUT_INDEX,
-      summary_index: 0,
-      part: { type: "summary_text", text: STARTUP_THINKING_TEXT },
-    },
-  },
-];
-// close() runs before the output_item.done event is built (not just before
-// it's appended) so assertAllClosed() below is a real check, not scaffolding
-// that always trivially passes.
-startupIndexStack.close(RESPONSES_STARTUP_OUTPUT_INDEX);
-startupEvents.push({
-  event: "response.output_item.done",
-  data: {
-    type: "response.output_item.done",
-    output_index: RESPONSES_STARTUP_OUTPUT_INDEX,
-    item: {
-      id: RESPONSES_STARTUP_ITEM_ID,
-      type: "reasoning",
-      summary: [{ type: "summary_text", text: STARTUP_THINKING_TEXT }],
-    },
-  },
-});
-startupIndexStack.assertAllClosed();
-export const RESPONSES_STARTUP_THINKING_FRAME = ENCODER.encode(
-  startupEvents.map((e) => `event: ${e.event}\ndata: ${JSON.stringify(e.data)}\n\n`).join("")
-);
 // Anthropic Messages API default — Anthropic's own spec really does use a named
 // `event: error` SSE frame, so this is correct there. It is WRONG for the OpenAI-
 // format routes below: Chat Completions and Responses streaming never use the SSE
@@ -191,11 +106,15 @@ export type EarlyStreamKeepaliveOptions = {
   /**
    * Frame emitted ONCE, immediately, as the very first byte of the slow path —
    * before the recurring `keepaliveFrame` ticks start. Defaults to
-   * `keepaliveFrame` when omitted (today's behavior, unchanged). Pass a
-   * content-bearing frame (e.g. `OPENAI_STARTUP_THINKING_FRAME`) so the client
-   * sees visible progress instead of an empty/no-op keepalive on the first byte.
+   * `keepaliveFrame` when omitted (today's behavior, unchanged).
    */
   startupFrame?: Uint8Array;
+  /**
+   * Optional parser-visible frame emitted at a slower cadence than the transport
+   * heartbeat. A due application frame replaces that interval's keepalive frame,
+   * so both cadences share one timer and never burst after an event-loop stall.
+   */
+  applicationKeepalive?: { frame: Uint8Array; intervalMs: number };
   /** Extra headers to include in the keepalive response (e.g. X-Correlation-Id). */
   extraHeaders?: Record<string, string>;
   /**
@@ -207,6 +126,19 @@ export type EarlyStreamKeepaliveOptions = {
    * instead — see the doc comment on the default ERROR_FRAME above for why.
    */
   errorFrame?: Uint8Array;
+  /**
+   * Request correlation id, threaded from the route's own handleChat(...,
+   * correlationId) call. When set, every byte this wrapper writes to the
+   * client directly (startup frame, periodic keepalive ticks, and any
+   * in-band error frame) — everything except the verbatim-forwarded real
+   * response body, which the handler's own reqLogger already captures — is
+   * recorded via earlyKeepaliveByteBuffer and merged into this same
+   * request's call-log streamChunks.client by
+   * chatCore/attemptLogging.ts, so the persisted artifact reflects what
+   * actually went out on the wire instead of only what the inner handler
+   * produced. Omit to leave today's behavior unchanged (no recording).
+   */
+  correlationId?: string;
 };
 
 /**
@@ -227,6 +159,13 @@ export async function withEarlyStreamKeepalive(
   const signal = options.signal ?? null;
   const keepaliveFrame = options.keepaliveFrame ?? KEEPALIVE_FRAME;
   const startupFrame = options.startupFrame ?? keepaliveFrame;
+  const applicationKeepalive =
+    options.applicationKeepalive && options.applicationKeepalive.intervalMs > 0
+      ? {
+          frame: options.applicationKeepalive.frame,
+          intervalMs: Math.max(intervalMs, options.applicationKeepalive.intervalMs),
+        }
+      : null;
   const extraHeaders = options.extraHeaders ?? {};
   const errorFrame = options.errorFrame ?? ERROR_FRAME;
   // Single source of truth for whether THIS route's error framing uses a named SSE
@@ -234,6 +173,15 @@ export async function withEarlyStreamKeepalive(
   // Responses) — derived from errorFrame itself so the dynamic real-upstream-body case
   // below stays consistent with the static default-message case without a second option.
   const errorFrameUsesNamedEvent = new TextDecoder().decode(errorFrame).startsWith("event:");
+  const correlationId = options.correlationId;
+  const frameDecoder = correlationId ? new TextDecoder() : null;
+  // Records every direct-to-client write EXCEPT the forwarded real response
+  // body — that one is already captured by the handler's own reqLogger, so
+  // recording it again here would duplicate it in the persisted artifact.
+  const recordClientBytes = (chunk: Uint8Array): void => {
+    if (!correlationId || !frameDecoder) return;
+    recordEarlyKeepaliveBytes(correlationId, frameDecoder.decode(chunk));
+  };
 
   // Settle into a tagged result so neither race branch leaves an unhandled
   // rejection when the threshold timer wins.
@@ -268,24 +216,34 @@ export async function withEarlyStreamKeepalive(
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let stopped = false;
+      let nextApplicationKeepaliveAt = applicationKeepalive
+        ? performance.now() + applicationKeepalive.intervalMs
+        : Number.POSITIVE_INFINITY;
       const interval = setInterval(() => {
         if (stopped) return;
         try {
-          controller.enqueue(keepaliveFrame);
+          const now = performance.now();
+          let frame = keepaliveFrame;
+          if (applicationKeepalive && now >= nextApplicationKeepaliveAt) {
+            frame = applicationKeepalive.frame;
+            nextApplicationKeepaliveAt = now + applicationKeepalive.intervalMs;
+          }
+          controller.enqueue(frame);
+          recordClientBytes(frame);
         } catch {
           stopped = true;
           clearInterval(interval);
         }
       }, intervalMs);
-      if (interval && typeof interval === "object" && "unref" in interval) {
+      if (typeof interval === "object" && interval !== null && "unref" in interval) {
         interval.unref?.();
       }
       // First frame immediately on commit so the client sees a byte right away.
-      // Use `startupFrame` (e.g. OPENAI_STARTUP_THINKING_FRAME / ANTHROPIC_PING_FRAME)
-      // — an SSE comment here would be ignored by Anthropic clients' watchdog on a
+      // An SSE comment here would be ignored by Anthropic clients' watchdog on a
       // sub-interval gap, defeating the keepalive for exactly the case it targets.
       try {
         controller.enqueue(startupFrame);
+        recordClientBytes(startupFrame);
       } catch {
         /* consumer already gone */
       }
@@ -326,6 +284,7 @@ export async function withEarlyStreamKeepalive(
         if (result.status === "rejected") {
           // Handler rejected — emit a generic error frame (never the raw error/stack).
           controller.enqueue(errorFrame);
+          recordClientBytes(errorFrame);
         } else {
           const response = result.response;
           const contentType = (response.headers.get("content-type") || "").toLowerCase();
@@ -352,6 +311,7 @@ export async function withEarlyStreamKeepalive(
               // the stream end naturally.
               if (bytesForwarded === 0) {
                 controller.enqueue(errorFrame);
+                recordClientBytes(errorFrame);
               }
             }
           } else {
@@ -366,7 +326,9 @@ export async function withEarlyStreamKeepalive(
             const framed = errorFrameUsesNamedEvent
               ? `event: error\ndata: ${dataLine}\n\n`
               : `data: ${dataLine}\n\n`;
-            controller.enqueue(ENCODER.encode(framed));
+            const framedBytes = ENCODER.encode(framed);
+            controller.enqueue(framedBytes);
+            recordClientBytes(framedBytes);
           }
         }
       } catch {
@@ -374,6 +336,7 @@ export async function withEarlyStreamKeepalive(
         if (!aborted) {
           try {
             controller.enqueue(errorFrame);
+            recordClientBytes(errorFrame);
           } catch {
             /* consumer gone */
           }

@@ -13,7 +13,10 @@ import {
 import { getSyncedCapability } from "@/lib/modelsDevSync";
 import { MODELS_DEV_PROVIDER_MAP } from "@/lib/modelsDevSync/transform";
 import { getModelContextOverride } from "@/lib/db/modelContextOverrides";
-import { getModelCapabilityOverride } from "@/lib/db/modelCapabilityOverrides";
+import {
+  getModelCapabilityOverride,
+  getReasoningEffortsOverride,
+} from "@/lib/db/modelCapabilityOverrides";
 import { getCustomModelVisionOverride } from "@/lib/db/models";
 import type { ModelCapabilityResolutionSnapshot } from "@/lib/modelCapabilityResolutionSnapshot";
 import { resolveAudioCapability, resolveVideoCapability } from "@/lib/modelCapabilityModalities";
@@ -117,6 +120,8 @@ export interface ResolvedModelCapabilities {
   toolCalling: boolean;
   reasoning: boolean;
   supportsThinking: boolean | null;
+  supportedThinkingEfforts: readonly string[] | null;
+  reasoningEffortsOverride: boolean;
   supportsTools: boolean | null;
   supportsVision: boolean | null;
   supportsAudio: boolean | null;
@@ -567,9 +572,12 @@ function getContextOverride(
 /**
  * Resolve a persisted context override by canonical id, then by the exact raw
  * alias supplied by the caller. Neither lookup inherits to related models.
+ *
+ * `snapshot` is the #9147 build-local bulk load; when supplied the on-demand
+ * SQLite read is skipped and the preloaded nested map is used instead.
  */
-export function getResolvedModelContextOverride(input: CapabilityInput): number | null {
-  return getContextOverride(resolveCapabilityInput(input));
+export function getResolvedModelContextOverride(input: CapabilityInput, snapshot?: ModelCapabilityResolutionSnapshot | null): number | null {
+  return getContextOverride(resolveCapabilityInput(input), snapshot);
 }
 
 function getInputTokenCapabilityOverride(resolved: {
@@ -627,6 +635,25 @@ function getMaxInputTokenCapabilityOverride(
     getModelCapabilityOverride(resolved.provider, resolved.model, "max_input_tokens", bulk) ??
     (resolved.rawModel && resolved.rawModel !== resolved.model
       ? getModelCapabilityOverride(resolved.provider, resolved.rawModel, "max_input_tokens", bulk)
+      : null)
+  );
+}
+
+/** Resolve an exact reasoning-effort vocabulary from the build-local snapshot
+ * when present, otherwise from the on-demand persisted override lookup. */
+function getReasoningEffortsCapabilityOverride(
+  resolved: {
+    provider: string | null;
+    model: string | null;
+    rawModel: string | null;
+  },
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): readonly string[] | null {
+  const bulk = snapshot?.reasoningEffortsOverrides ?? null;
+  return (
+    getReasoningEffortsOverride(resolved.provider, resolved.model, bulk) ??
+    (resolved.rawModel && resolved.rawModel !== resolved.model
+      ? getReasoningEffortsOverride(resolved.provider, resolved.rawModel, bulk)
       : null)
   );
 }
@@ -702,13 +729,18 @@ export function getResolvedModelCapabilities(
     (typeof spec?.supportsTools === "boolean" ? spec.supportsTools : null) ??
     (providerDeniesTools ? false : null);
 
-  const supportsThinking = reasoningDenied
-    ? false
-    : (synced?.reasoning ??
-      (typeof registryModel?.supportsReasoning === "boolean"
-        ? registryModel.supportsReasoning
-        : null) ??
-      (typeof spec?.supportsThinking === "boolean" ? spec.supportsThinking : null));
+  const reasoningEffortsOverride = usePersistedOverrides
+    ? getReasoningEffortsCapabilityOverride(resolved, snapshot)
+    : null;
+  const supportsThinking = reasoningEffortsOverride
+    ? true
+    : reasoningDenied
+      ? false
+      : (synced?.reasoning ??
+        (typeof registryModel?.supportsReasoning === "boolean"
+          ? registryModel.supportsReasoning
+          : null) ??
+        (typeof spec?.supportsThinking === "boolean" ? spec.supportsThinking : null));
 
   const authoritativeContextWindow = getAuthoritativeStaticContextWindow(
     resolved.provider,
@@ -782,6 +814,9 @@ export function getResolvedModelCapabilities(
     toolCalling: supportsTools ?? heuristicToolCalling(lookupKey),
     reasoning: supportsThinking ?? heuristicReasoning(lookupKey),
     supportsThinking,
+    supportedThinkingEfforts:
+      reasoningEffortsOverride ?? registryModel?.supportedThinkingEfforts ?? null,
+    reasoningEffortsOverride: reasoningEffortsOverride !== null,
     supportsTools,
     supportsVision,
     supportsAudio,

@@ -46,6 +46,12 @@ export interface RegistryModel {
   id: string;
   name: string;
   aliases?: readonly string[];
+  /**
+   * Upstream model IDs that prove this static model is live when the provider
+   * has an authoritative synchronized catalog. Needed for curated IDs whose
+   * public name differs from the ID sent to the upstream service.
+   */
+  liveCatalogIds?: readonly string[];
   toolCalling?: boolean;
   supportsReasoning?: boolean;
   supportedThinkingEfforts?: readonly string[];
@@ -279,8 +285,8 @@ export const GPT_5_6_CODEX_CAPABILITIES = {
   supportsReasoning: true,
   supportsVision: true,
   supportsXHighEffort: true,
-  contextLength: 1050000,
-  maxInputTokens: 922000,
+  contextLength: 272000,
+  maxInputTokens: 272000,
   maxOutputTokens: 128000,
 } as const;
 
@@ -663,12 +669,6 @@ export const CHAT_OPENAI_COMPAT_MODELS: Record<string, RegistryModel[]> = {
     "mistralai/Mistral-7B-Instruct-v0.3",
     "Qwen/Qwen2.5-72B-Instruct",
   ]),
-  // Restored after the registry modularization (#3993) dropped the mimocode key
-  // referenced by the mimocode provider plugin. Source of truth: pre-#3993
-  // providerRegistry.ts (commit 1ed01dd90^).
-  mimocode: [
-    { id: "mimo-auto", name: "MiMo Auto", contextLength: 1000000, maxOutputTokens: 128000 },
-  ],
 };
 
 export function mapStainlessOs() {
@@ -757,4 +757,21 @@ export function getAnthropicCompatHeaders(): Record<string, string> {
 export function buildAntigravityUrl(base: string, model: string, stream: boolean): string {
   const path = stream ? "/v1internal:streamGenerateContent?alt=sse" : "/v1internal:generateContent";
   return `${base}${path}`;
+}
+
+/**
+ * Gemini protocol `generateContent` route: the model goes in the path, not the body.
+ *
+ * Shared because the format has two consumers: the native `gemini` provider
+ * (RegistryEntry.urlBuilder) and gateways that expose Gemini as an alternate
+ * protocol (AlternateFormat.urlBuilder, see alternateFormats.ts). One copy per
+ * consumer would leave the streaming `?alt=sse` suffix free to diverge.
+ */
+export function buildGeminiGenerateContentUrl(
+  base: string,
+  model: string,
+  stream: boolean
+): string {
+  const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
+  return `${base}/${model}:${action}`;
 }

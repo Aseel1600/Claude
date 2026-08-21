@@ -191,6 +191,9 @@ export class DefaultExecutor extends BaseExecutor {
         // Operator's manual override (#6147) keeps its own semantics and falls
         // through to the provider-specific handling below.
         const normalized = alternate.baseUrl.replace(/\/$/, "");
+        // A model-scoped alternate (the Gemini protocol: `{base}/{model}:generateContent`)
+        // builds its own URL — chatPath/urlSuffix are constants and cannot carry the model.
+        if (alternate.urlBuilder) return alternate.urlBuilder(normalized, model, stream);
         return `${normalized}${alternate.chatPath || ""}${alternate.urlSuffix || ""}`;
       }
     }
@@ -388,7 +391,12 @@ export class DefaultExecutor extends BaseExecutor {
     }
   }
 
-  buildHeaders(credentials, stream = true, clientHeaders?: Record<string, string> | null) {
+  buildHeaders(
+    credentials,
+    stream = true,
+    clientHeaders?: Record<string, string> | null,
+    model?: string | null
+  ) {
     const { headers, effectiveKey } = this.buildHeadersPreamble(credentials, stream);
 
     switch (this.provider) {
@@ -594,7 +602,15 @@ export class DefaultExecutor extends BaseExecutor {
       const clientBeta = clientHeaders["anthropic-beta"] ?? clientHeaders["Anthropic-Beta"] ?? null;
       const betaKey = Object.keys(headers).find((key) => key.toLowerCase() === "anthropic-beta");
       if (betaKey && clientBeta) {
-        headers[betaKey] = mergeClientAnthropicBeta(headers[betaKey], clientBeta);
+        headers[betaKey] = mergeClientAnthropicBeta(
+          headers[betaKey],
+          clientBeta,
+          undefined,
+          // Gate the client-negotiated context-1m beta on the RESOLVED target model:
+          // combo/fallback can route a request negotiated for a [1m] sibling onto a
+          // model that does not qualify (e.g. Haiku), which Anthropic rejects (#10119).
+          model
+        );
       }
     }
 

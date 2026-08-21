@@ -1440,6 +1440,33 @@ function ComboUsageGuide({ onHide, onHideForever, onCreateCombo }) {
         })}
       </div>
 
+      <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+        <p className="text-[11px] font-semibold text-primary">
+          {getI18nOrFallback(t, "usageGuideInvokeTitle", "How to call this combo")}
+        </p>
+        <p className="mt-1 text-[11px] leading-4 text-text-muted">
+          {getI18nOrFallback(
+            t,
+            "usageGuideInvokeDesc",
+            'Send the combo\'s exact name as the model, e.g. model: "my-combo" (or combo/my-combo).'
+          )}
+        </p>
+        <p className="mt-1 text-[11px] leading-4 text-text-muted">
+          {getI18nOrFallback(
+            t,
+            "usageGuideInvokeAutoNote",
+            "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto)."
+          )}
+        </p>
+        <p className="mt-1 text-[11px] leading-4 text-text-muted">
+          {getI18nOrFallback(
+            t,
+            "usageGuideInvokeOpenrouterNote",
+            "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models."
+          )}
+        </p>
+      </div>
+
       <div className="mt-3 flex items-center gap-2">
         <Button size="sm" icon="add" onClick={onCreateCombo}>
           {getI18nOrFallback(t, "createFirstCombo", "Create Your First Combo")}
@@ -2686,7 +2713,7 @@ function ComboFormModal({ isOpen, combo, onClose, onSave, activeProviders, combo
   };
 
   const FREE_STACK_PRESET_MODELS = [
-    { model: "agy/gemini-3.5-flash-low", weight: 0 },
+    { model: "agy/gemini-3.7-flash-low", weight: 0 },
     { model: "kr/claude-sonnet-4.5", weight: 0 },
     { model: "if/kimi-k2-thinking", weight: 0 },
     { model: "if/qwen3-coder-plus", weight: 0 },

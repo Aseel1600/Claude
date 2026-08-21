@@ -114,6 +114,7 @@ export {
   pickApiKeyForInternalUse,
   clearApiKeyCaches,
   resetApiKeyState,
+  ApiKeyPolicyInvariantError,
 } from "./db/apiKeys";
 
 export {
@@ -175,6 +176,8 @@ export {
 } from "./db/databaseSettings";
 
 export type { UserDatabaseSettings } from "./db/databaseSettings";
+
+export * from "./db/exclusiveConnectionLeases";
 
 export {
   // Proxy Registry
@@ -617,6 +620,7 @@ export {
   listPools,
   getPool,
   getPoolsByGroup,
+  ensurePool,
   createPool,
   updatePool,
   deletePool,
@@ -769,7 +773,7 @@ export type {
 } from "./db/usageAnalytics";
 
 // ---------------------------------------------------------------------------
-// usage_logs — auto-routing analytics (#3500 slice 4)
+// call_logs auto-routing analytics (#3500 slice 4)
 // ---------------------------------------------------------------------------
 export {
   getAutoRoutingTotalCount,
@@ -845,3 +849,4 @@ export type {
   RadarLocalMergeState,
 } from "./db/radar";
 export * from "./db/conductorBridge"; // OmniConductor hub mirror — SSE cursor (PRD Conductor RF1)
+export * from "./db/agenticConversations"; // Multi-turn conversation id tracking (X-ConversationId)

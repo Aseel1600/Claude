@@ -152,12 +152,13 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
   "jina-ai": {
     id: "jina-ai",
     alias: "jina",
-    name: "Jina AI",
+    name: "Jina AI (Foundation API)",
     icon: "sort",
     color: "#2563EB",
     textIcon: "JA",
     website: "https://jina.ai",
-    authHint: "Bearer API key for the Jina AI rerank API.",
+    authHint:
+      "Bearer API key for api.jina.ai — embeddings, rerank, classify, segment, and search. Dashboard keys take precedence over JINA_AI_API_KEY. This is not the Reader / r.jina.ai card and does not fetch URLs.",
     hasFree: true,
     freeNote: "10M free tokens on signup (non-commercial), no credit card required",
   },
@@ -262,14 +263,16 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
   "jina-reader": {
     id: "jina-reader",
     alias: "jr",
-    name: "Jina Reader",
+    name: "Jina Reader (r.jina.ai)",
     icon: "menu_book",
     color: "#0EA5E9",
     textIcon: "JR",
     website: "https://jina.ai/reader",
+    authHint:
+      "Bearer API key for r.jina.ai URL-to-markdown (/v1/web/fetch only). Does not serve /v1/embeddings or /v1/rerank. The same Jina token as Foundation API works; OmniRoute reuses a jina-ai dashboard key or JINA_AI_API_KEY when this card is empty.",
     hasFree: true,
     notice: {
-      text: "Free tier: 1M fetches/month.",
+      text: "Reader / r.jina.ai only — not embeddings or rerank. Free tier: 1M fetches/month.",
       apiKeyUrl: "https://jina.ai/api-dashboard",
     },
     serviceKinds: ["webFetch"],
@@ -301,5 +304,20 @@ export const APIKEY_PROVIDERS_SPECIALTY = {
       "Use your DeepAI API key. Get one at deepai.org — requires a Pro subscription ($9.99/mo).",
     apiHint:
       "DeepAI uses per-endpoint REST calls (e.g. /api/text2img) instead of OpenAI chat/completions. OmniRoute adapts OpenAI image generation requests to DeepAI's /api/{slug} endpoints.",
+  },
+  "cursor-api": {
+    id: "cursor-api",
+    alias: "cua",
+    name: "Cursor API",
+    icon: "edit_note",
+    color: "#00D4AA",
+    textIcon: "CA",
+    website: "https://cursor.com/dashboard/api",
+    subscriptionRisk: true,
+    riskNoticeVariant: "oauth",
+    authHint:
+      "Paste a Cursor user API key (crsr_...) from cursor.com/dashboard/api. OmniRoute exchanges it for a session token on demand; no IDE or cursor-agent install is needed. Usage bills to the Cursor plan that owns the key.",
+    apiHint:
+      "Same agent protocol and model catalog as the Cursor IDE provider. The Cursor CLI can also be pointed at /api/cursor-cli on this instance and authenticated with an OmniRoute API key.",
   },
 };
