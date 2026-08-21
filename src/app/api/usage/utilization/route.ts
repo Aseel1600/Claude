@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { getAggregatedSnapshots } from "@/lib/db/quotaSnapshots";
-import type { ProviderUtilizationResponse, UtilizationTimeRange } from "@/shared/types/utilization";
+import { getConnection } from "@/lib/db/connections";
+import type {
+  ProviderUtilizationResponse,
+  UtilizationTimeRange,
+  ConnectionMetaEntry,
+} from "@/shared/types/utilization";
 import { BUCKET_SIZES } from "@/shared/types/utilization";
 
 const VALID_RANGES: UtilizationTimeRange[] = ["1h", "24h", "7d", "30d"];
@@ -55,11 +60,28 @@ export async function GET(request: Request) {
 
     const providers = Array.from(new Set(data.map((d) => d.provider)));
 
+    let connectionMeta: Record<string, ConnectionMetaEntry> | undefined;
+    if (aggregateBy === "connection") {
+      const uniqueConnectionIds = new Set(
+        data.map((d) => d.provider.split(":").slice(1).join(":")).filter(Boolean)
+      );
+      connectionMeta = {};
+      for (const cid of uniqueConnectionIds) {
+        const conn = getConnection(cid);
+        connectionMeta[cid] = {
+          email: conn?.email ?? null,
+          name: conn?.name ?? null,
+          displayName: conn?.displayName ?? null,
+        };
+      }
+    }
+
     const response: ProviderUtilizationResponse = {
       timeRange: range,
       bucketSizeMinutes: bucketMinutes,
       providers,
       data,
+      connectionMeta,
     };
 
     return NextResponse.json(response);
