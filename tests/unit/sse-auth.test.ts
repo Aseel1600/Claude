@@ -816,7 +816,8 @@ test("getProviderCredentials retains terminal accounts for combo live tests", as
   });
   const updated = await providersDb.getProviderConnectionById(connection.id);
 
-  assert.equal(blocked, null);
+  assert.equal(blocked?.allExpired, true);
+  assert.equal(blocked?.expiredStatus, "banned");
   assert.equal(bypassed.connectionId, connection.id);
   assert.equal(updated.testStatus, "banned");
 });

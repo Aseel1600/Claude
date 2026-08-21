@@ -377,8 +377,19 @@ function isTerminalConnectionStatusForModel(
   ) {
     return false;
   }
-  return true;
-}
+  return true;function buildAllExpiredCredentials(connections: ProviderConnectionView[]) {
+  const statusCounts = new Map<string, number>();
+  for (const connection of connections) {
+    const key = normalizeStatus(connection.testStatus) || "expired";
+    statusCounts.set(key, (statusCounts.get(key) || 0) + 1);
+  }
+  const dominantStatus =
+    [...statusCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "expired";
+  return {
+    allExpired: true as const,
+    expiredCount: connections.length,
+    expiredStatus: dominantStatus,
+  };}
 
 // #8200: cookie-auth providers (perplexity-web, grok-web, ...) use a rotating browser
 // session, not a static API key — a 401 means "session needs a refresh", not "dead".
@@ -1384,19 +1395,7 @@ export async function getProviderCredentials(
             allowedConnections
           );
           if (syntheticFallback) return syntheticFallback;
-
-          const statusCounts = new Map<string, number>();
-          for (const c of terminalConnections) {
-            const key = normalizeStatus(c.testStatus) || "expired";
-            statusCounts.set(key, (statusCounts.get(key) || 0) + 1);
-          }
-          const dominantStatus =
-            [...statusCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "expired";
-          return {
-            allExpired: true,
-            expiredCount: terminalConnections.length,
-            expiredStatus: dominantStatus,
-          };
+          return buildAllExpiredCredentials(terminalConnections);
         }
       }
       const syntheticFallback = await maybeSyntheticNoAuthFallback(
@@ -1637,8 +1636,16 @@ export async function getProviderCredentials(
         allowedConnections
       );
       if (syntheticFallback) return syntheticFallback;
-      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");
-      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+
+      // isActive=true + testStatus=expired/banned/credits_exhausted still sits in
+      // the active pool, so the inactive allExpired branch above never fires.
+      // Without this, grok-cli (#7611) 404s as model_not_found while GET /models
+      // still lists the model. Surface the same 401 re-auth sentinel.
+      const terminalConnections = connections.filter(isTerminalConnectionStatus);
+      if (terminalConnections.length === connections.length) {
+        return buildAllExpiredCredentials(terminalConnections);
+      }
+      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
       return null;
     }
 
