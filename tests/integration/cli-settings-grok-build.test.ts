@@ -20,6 +20,12 @@ const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-grok-buil
 process.env.DATA_DIR = TEST_DATA_DIR;
 process.env.API_KEY_SECRET = "test-api-key-secret-grok-build";
 process.env.JWT_SECRET = "test-jwt-secret-grok-build";
+// guardCliConfigWrite refuses a write when the target isn't bind-mounted from
+// the host inside a real container (see cliConfigWriteGuard.ts). This test
+// suite runs inside CI/devbox containers with no such mount for its tmpdir
+// fixtures, so allow the write here — the refusal path itself is covered by
+// tests/unit/cli-tools-apply-container-422.test.ts.
+process.env.OMNIROUTE_ALLOW_CONTAINER_CONFIG_WRITE = "1";
 
 // Import DB reset helpers (must be before route import)
 const core = await import("../../src/lib/db/core.ts");
