@@ -18,6 +18,7 @@ import { deepaiProvider } from "./registry/deepai/index.ts";
 import { upstageProvider } from "./registry/upstage/index.ts";
 import { nebiusProvider } from "./registry/nebius/index.ts";
 import { fireworksProvider } from "./registry/fireworks/index.ts";
+import { freebuffProvider } from "./registry/freebuff/index.ts";
 import { llamagateProvider } from "./registry/llamagate/index.ts";
 import { glmProvider } from "./registry/glm/index.ts";
 import { glmtProvider } from "./registry/glm/t/index.ts";
@@ -282,6 +283,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   deepai: deepaiProvider,
   nebius: nebiusProvider,
   fireworks: fireworksProvider,
+  freebuff: freebuffProvider,
   llamagate: llamagateProvider,
   glm: glmProvider,
   glmt: glmtProvider,

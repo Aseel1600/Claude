@@ -653,9 +653,13 @@ async function validateRateLimitAndThrottle(context: PolicyContext): Promise<Res
   return null;
 }
 
+type PolicyValidationStage =
+  "validateEndpointAccess" | "validateTeamUsage" | "validateQuotaAccess" | "validateModelAccess";
+
 export async function enforceApiKeyPolicy(
   request: Request,
-  modelStr: string | null
+  modelStr: string | null,
+  validationObserver?: (stage: PolicyValidationStage) => void
 ): Promise<ApiKeyPolicyResult> {
   // A real bearer key wins; otherwise an authenticated dashboard playground may
   // test a specific key's policy by id (resolved server-side, secret never sent).
@@ -690,14 +694,18 @@ export async function enforceApiKeyPolicy(
   if (statusRejection) return { apiKey, apiKeyInfo, rejection: statusRejection };
   const scheduleRejection = await validateKeyScheduleAndUsage(context);
   if (scheduleRejection) return { apiKey, apiKeyInfo, rejection: scheduleRejection };
+  validationObserver?.("validateEndpointAccess");
   const endpointRejection = validateEndpointAccess(context);
   if (endpointRejection) return { apiKey, apiKeyInfo, rejection: endpointRejection };
 
+  validationObserver?.("validateTeamUsage");
   const teamUsageRejection = await validateTeamUsage(context);
   if (teamUsageRejection) return { apiKey, apiKeyInfo, rejection: teamUsageRejection };
 
+  validationObserver?.("validateQuotaAccess");
   const quotaRejection = await validateQuotaAccess(context);
   if (quotaRejection) return { apiKey, apiKeyInfo, rejection: quotaRejection };
+  validationObserver?.("validateModelAccess");
   const modelRejection = await validateModelAccess(context);
   if (modelRejection) return { apiKey, apiKeyInfo, rejection: modelRejection };
 

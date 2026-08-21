@@ -44,7 +44,7 @@ import { handleImagen3ImageGeneration } from "./imageGeneration/providers/imagen
 import { handleIdeogramImageGeneration } from "./imageGeneration/providers/ideogram.ts";
 import { handleHaiperImageGeneration } from "./imageGeneration/providers/haiper.ts";
 import { handleLeonardoImageGeneration } from "./imageGeneration/providers/leonardo.ts";
-import { handleFreepikImageGeneration } from "./imageGeneration/providers/freepik.ts";
+import { handleMagnificImageGeneration } from "./imageGeneration/providers/magnific.ts";
 import {
   handleChatGptWebImageGeneration,
   extractMarkdownImageUrls,
@@ -631,8 +631,8 @@ export async function handleImageGeneration({
       log,
     });
   }
-  if (providerConfig.format === "freepik-image") {
-    return handleFreepikImageGeneration({
+  if (providerConfig.format === "magnific-image" || providerConfig.format === "freepik-image") {
+    return handleMagnificImageGeneration({
       model,
       provider,
       providerConfig,

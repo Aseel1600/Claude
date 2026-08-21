@@ -56,6 +56,8 @@ tags:
       background scheduler tick.
   - name: API Keys
     description: API key management
+  - name: Teams
+    description: Team cost-center, membership, budget, and usage management
   - name: Session Leases
     description: Client-neutral exclusive managed session connection leases
   - name: Combos

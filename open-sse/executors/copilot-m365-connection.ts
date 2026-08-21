@@ -8,6 +8,7 @@
  * the URL MUST go through redactWsUrl().
  */
 
+import { resolvePublicCred } from "../utils/publicCreds.ts";
 import { randomUUID, randomBytes } from "node:crypto";
 import type { ProviderCredentials } from "./base.ts";
 
@@ -272,7 +273,7 @@ export function redactWsUrl(wsUrl: string): string {
 // of requiring a fresh DevTools capture after every expiry.
 
 /** Public client id observed in both the browser token and M365-Copilot2API. */
-export const M365_OAUTH_CLIENT_ID = "c0ab8ce9-e9a0-42e7-b064-33d422df41f1";
+export const M365_OAUTH_CLIENT_ID = resolvePublicCred("m365_oauth_client_id");
 
 export const M365_OAUTH_SCOPE =
   "openid profile offline_access https://substrate.office.com/sydney/M365Chat.Read " +

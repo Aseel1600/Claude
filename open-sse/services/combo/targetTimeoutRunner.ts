@@ -106,6 +106,13 @@ export function buildTargetTimeoutRunner(deps: {
     target?: SingleModelTarget
   ): Promise<Response> => {
     if (comboTargetTimeoutMs <= 0) {
+      // G3 (silent-stop fix): a disabled per-model timeout means a hung upstream
+      // stalls the target until the combo loop safety timer (COMBO_LOOP_SAFETY_TIMEOUT_MS)
+      // force-terminates — surface that dependency instead of silently running bare.
+      log.warn(
+        "COMBO",
+        `Per-model combo timeout is DISABLED (comboTargetTimeoutMs=${comboTargetTimeoutMs}) for ${modelStr} — a hung upstream will hang this target until the combo loop safety timeout`
+      );
       return handleSingleModel(b, modelStr, target).catch((err) =>
         errorResponse(502, err?.message ?? "Upstream model error")
       );

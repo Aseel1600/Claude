@@ -8,6 +8,7 @@
  */
 
 import { getDbInstance } from "../db/core";
+import { resolveBillingTeamIdForApiKeyAt } from "../db/teams";
 import { protectPayloadForLog } from "../logPayloads";
 import {
   resolveOrphanedUsageAccountIdentity,
@@ -651,21 +652,7 @@ export async function saveRequestUsage(entry: UsageEntry) {
     const billingTeamId =
       entry.billingTeamId !== undefined
         ? entry.billingTeamId || null
-        : entry.apiKeyId
-          ? ((
-              db
-                .prepare(
-                  `SELECT team_id
-                 FROM api_key_billing_team_history
-                 WHERE api_key_id = ?
-                   AND valid_from <= ?
-                   AND (valid_to IS NULL OR valid_to > ?)
-                 ORDER BY valid_from DESC
-                 LIMIT 1`
-                )
-                .get(entry.apiKeyId, timestamp, timestamp) as { team_id?: string } | undefined
-            )?.team_id ?? null)
-          : null;
+        : resolveBillingTeamIdForApiKeyAt(entry.apiKeyId, timestamp);
 
     const tokensInput = getLoggedInputTokens(entry.tokens);
     const tokensOutput = getLoggedOutputTokens(entry.tokens);
