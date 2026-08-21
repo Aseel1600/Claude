@@ -61,8 +61,12 @@ test("resolveRequestedModel splits effort off cursor-grok ids (empty-turn fix)",
 });
 
 test("resolveRequestedModel splits effort off legacy grok- ids", () => {
-  assert.deepEqual(resolveRequestedModel("grok-4.5-high"), {
-    modelId: "grok-4.5",
+  // "grok-4.5-*" combos are pre-aliased to "cursor-grok-4.5-*" by
+  // CURSOR_MODEL_ALIASES (already shipped on the release tip), so this uses
+  // an unaliased grok version to actually exercise the bare "grok-" fallback
+  // in resolveGrokRequestedModel rather than the alias table's rewrite.
+  assert.deepEqual(resolveRequestedModel("grok-3-high"), {
+    modelId: "grok-3",
     parameters: [{ id: "effort", value: "high" }],
   });
 });
