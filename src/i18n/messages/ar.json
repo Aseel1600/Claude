@@ -1856,7 +1856,12 @@
     "directDownloadHint": "أو قم بتنزيل تنسيق المثبت المعني مباشرة:",
     "releaseNotes": "ملاحظات الإصدار",
     "readMore": "اقرأ المزيد",
-    "noAuthLabel": "لا يوجد مصادقة"
+    "noAuthLabel": "لا يوجد مصادقة",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "التحليلات",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "خطافات الويب",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "خادم MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "تمكين الوصول إلى الشبكة في بيئة اختبار المهارات المعزولة."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "المزود لا يدعم استدعاء الأداة",
     "structuredOutputMismatch": "المزود لا يدعم الإخراج المنظم",
     "contextWindowMismatch": "تجاوز الطلب نافذة سياق المزود"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

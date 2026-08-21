@@ -1856,7 +1856,12 @@
     "directDownloadHint": "หรือดาวน์โหลดรูปแบบติดตั้งที่เกี่ยวข้องโดยตรง:",
     "releaseNotes": "หมายเหตุการปล่อย",
     "readMore": "อ่านเพิ่มเติม",
-    "noAuthLabel": "ไม่มีการตรวจสอบสิทธิ์"
+    "noAuthLabel": "ไม่มีการตรวจสอบสิทธิ์",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "การวิเคราะห์",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "เว็บฮุค",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "เซิร์ฟเวอร์ MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "เปิดใช้งานการเข้าถึงเครือข่ายใน skills sandbox"
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "ผู้ให้บริการไม่รองรับการเรียกเครื่องมือ",
     "structuredOutputMismatch": "ผู้ให้บริการไม่รองรับการส่งออกแบบมีโครงสร้าง",
     "contextWindowMismatch": "คำขอเกินขอบเขตบริบทของผู้ให้บริการ"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

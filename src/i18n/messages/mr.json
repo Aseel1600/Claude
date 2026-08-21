@@ -1856,7 +1856,12 @@
     "directDownloadHint": "किंवा संबंधित इन्स्टॉलर फॉरमॅट थेट डाउनलोड करा:",
     "releaseNotes": "रिलीज नोट्स",
     "readMore": "अधिक वाचा",
-    "noAuthLabel": "कोणतीही प्रमाणीकरण नाही"
+    "noAuthLabel": "कोणतीही प्रमाणीकरण नाही",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analytics",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "वेबहूक्स",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "MCP सर्व्हर",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "स्किल्स सँडबॉक्समध्ये नेटवर्क ॲक्सेस सक्षम करा."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "प्रदायक साधन कॉलिंगला समर्थन करत नाही",
     "structuredOutputMismatch": "प्रदायक संरचित आउटपुटला समर्थन करत नाही",
     "contextWindowMismatch": "विनंती प्रदाता संदर्भ विंडो ओलांडते"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

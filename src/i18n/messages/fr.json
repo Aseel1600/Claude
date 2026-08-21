@@ -1856,7 +1856,12 @@
     "directDownloadHint": "Vous pouvez aussi télécharger directement le format d'installation adapté :",
     "releaseNotes": "Notes de version",
     "readMore": "Lire la suite",
-    "noAuthLabel": "Sans authentification"
+    "noAuthLabel": "Sans authentification",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analyse",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "Webhooks",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "Serveur MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Activer l'accès réseau dans le bac à sable des compétences."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "Le fournisseur ne prend pas en charge l'appel d'outils",
     "structuredOutputMismatch": "Le fournisseur ne prend pas en charge la sortie structurée",
     "contextWindowMismatch": "La demande dépasse la fenêtre de contexte du fournisseur"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

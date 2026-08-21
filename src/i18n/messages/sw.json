@@ -1856,7 +1856,12 @@
     "directDownloadHint": "Au pakua muundo wa msaidizi husika moja kwa moja:",
     "releaseNotes": "Maelezo ya Kutolewa",
     "readMore": "Soma Zaidi",
-    "noAuthLabel": "Hakuna Auth"
+    "noAuthLabel": "Hakuna Auth",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analytics",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "Webhooks",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "Seva ya MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Wezesha ufikiaji wa mtandao katika sandbox ya ujuzi."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "Mtoa huduma haitoi msaada wa kuita zana",
     "structuredOutputMismatch": "Mtoa huduma haitoi matokeo yaliyoandikwa kwa muundo",
     "contextWindowMismatch": "Omba inazidi dirisha la muktadha wa mtoa huduma"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

@@ -1856,7 +1856,12 @@
     "directDownloadHint": "또는 해당 설치 프로그램 형식을 직접 다운로드하십시오:",
     "releaseNotes": "릴리스 노트",
     "readMore": "더 읽기",
-    "noAuthLabel": "인증 없음"
+    "noAuthLabel": "인증 없음",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "분석",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "웹훅",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "MCP 서버",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "스킬 샌드박스에서 네트워크 액세스를 활성화합니다."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "공급자가 도구 호출을 지원하지 않습니다.",
     "structuredOutputMismatch": "제공자가 구조화된 출력을 지원하지 않습니다",
     "contextWindowMismatch": "요청이 공급자 컨텍스트 창을 초과했습니다"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

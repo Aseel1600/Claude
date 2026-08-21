@@ -1856,7 +1856,12 @@
     "directDownloadHint": "Oder laden Sie das jeweilige Installationsformat direkt herunter:",
     "releaseNotes": "Versionshinweise",
     "readMore": "Mehr Lesen",
-    "noAuthLabel": "Keine Authentifizierung"
+    "noAuthLabel": "Keine Authentifizierung",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analytik",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "Webhooks",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "MCP-Server",

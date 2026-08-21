@@ -1856,7 +1856,12 @@
     "directDownloadHint": "Oppure scarica direttamente il formato dell'installer rispettivo:",
     "releaseNotes": "Note di Rilascio",
     "readMore": "Leggi di più",
-    "noAuthLabel": "Nessuna Autenticazione"
+    "noAuthLabel": "Nessuna Autenticazione",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analitica",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "Webhook",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "Server MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "Abilita l'accesso alla rete nella sandbox delle skill."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "Il provider non supporta la chiamata degli strumenti",
     "structuredOutputMismatch": "Il provider non supporta l'output strutturato",
     "contextWindowMismatch": "La richiesta supera la finestra di contesto del fornitore"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

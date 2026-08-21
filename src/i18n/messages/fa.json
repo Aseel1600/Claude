@@ -1856,7 +1856,12 @@
     "directDownloadHint": "یا فرمت نصب‌کننده مربوطه را به‌طور مستقیم دانلود کنید:",
     "releaseNotes": "یادداشت‌های انتشار",
     "readMore": "بیشتر بخوانید",
-    "noAuthLabel": "بدون احراز هویت"
+    "noAuthLabel": "بدون احراز هویت",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "Analytics",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "وب‌هوک‌ها",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "سرور MCP",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "فعال‌سازی دسترسی به شبکه در محیط ایزوله مهارت‌ها."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "ارائه‌دهنده از فراخوانی ابزار پشتیبانی نمی‌کند",
     "structuredOutputMismatch": "ارائه‌دهنده خروجی ساختاریافته را پشتیبانی نمی‌کند",
     "contextWindowMismatch": "درخواست از حد مجاز پنجره زمینه ارائه‌دهنده فراتر می‌رود"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }

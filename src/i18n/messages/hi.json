@@ -1856,7 +1856,12 @@
     "directDownloadHint": "या संबंधित इंस्टॉलर प्रारूप को सीधे डाउनलोड करें:",
     "releaseNotes": "रिलीज़ नोट्स",
     "readMore": "और पढ़ें",
-    "noAuthLabel": "कोई प्रमाणीकरण नहीं"
+    "noAuthLabel": "कोई प्रमाणीकरण नहीं",
+    "recentRequests": "Recent Requests",
+    "recentRequestsEmpty": "No requests yet.",
+    "recentRequestsModel": "Model",
+    "recentRequestsTokens": "In / Out",
+    "recentRequestsWhen": "When"
   },
   "analytics": {
     "title": "विश्लेषिकी",
@@ -12202,7 +12207,7 @@
       },
       "omni-webhooks": {
         "name": "वेबहुक",
-        "description": "__MISSING__:Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
+        "description": "Register, list, test, and remove webhook endpoints. Configure event subscriptions (request.completed, request.failed, quota.exceeded, etc.) and manage delivery retries."
       },
       "omni-mcp": {
         "name": "MCP सर्वर",
@@ -12836,6 +12841,10 @@
       },
       "SKILLS_SANDBOX_NETWORK_ENABLED": {
         "description": "स्किल्स सैंडबॉक्स में नेटवर्क एक्सेस सक्षम करें।"
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Disable Context Window Checks",
+        "description": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
       }
     }
   },
@@ -13845,5 +13854,6 @@
     "toolsMismatch": "प्रदाता टूल कॉलिंग का समर्थन नहीं करता",
     "structuredOutputMismatch": "प्रदाता संरचित आउटपुट का समर्थन नहीं करता",
     "contextWindowMismatch": "अनुरोध प्रदाता संदर्भ विंडो से अधिक है"
-  }
+  },
+  "featureFlagDisableContextWindowChecksDescription": "Skip OmniRoute's local context-window and max-input-token check for direct single-model requests. Upstream providers still enforce their actual limits. Prompt compression and output-token caps remain active."
 }
