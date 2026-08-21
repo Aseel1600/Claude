@@ -172,7 +172,6 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "OpenAI Compatible node not found" }, { status: 404 });
       }
 
-      const existingConnections = await getProviderConnections({ provider });
       // Allow multiple connections for compatible nodes exactly like first-party providers
 
       providerSpecificData = {
@@ -198,7 +197,6 @@ export async function POST(request: Request) {
         );
       }
 
-      const existingConnections = await getProviderConnections({ provider });
       // Allow multiple connections for compatible nodes exactly like first-party providers
 
       providerSpecificData = {
