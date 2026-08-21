@@ -2240,6 +2240,7 @@ async function handleSingleModelChat(
       if (
         !runtimeOptions.emergencyFallbackTried &&
         !comboName &&
+        !forceLiveComboTest &&
         shouldRetrySameAccountTransport({
           status: result.status,
           errorText: errorStr,
