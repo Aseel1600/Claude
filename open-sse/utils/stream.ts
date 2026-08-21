@@ -36,6 +36,7 @@ import {
 import { STREAM_IDLE_TIMEOUT_MS, FETCH_BODY_TIMEOUT_MS, HTTP_STATUS } from "../config/constants.ts";
 import {
   OMIT_STREAMING_CHUNK_MARKER,
+  isResponsesCommentaryMessageItem,
   sanitizeStreamingChunk,
 } from "../handlers/responseSanitizer.ts";
 import { isFeatureFlagEnabled } from "@/shared/utils/featureFlags";
@@ -59,6 +60,7 @@ import {
 } from "../services/sessionManager.ts";
 import {
   backfillResponsesCompletedOutput,
+  filterResponsesCommentaryFromItems,
   normalizeResponsesCompletedUsage as normalizeUsage,
   normalizeResponsesSseIds,
   pushUniqueResponsesOutputItems,
@@ -1565,11 +1567,26 @@ export function createSSEStream(options: StreamOptions = {}) {
                       }
                     }
                   }
+                  let responsesCommentaryStrippedFromCompleted = false;
                   if (
                     parsed.type === "response.completed" &&
                     Array.isArray(parsed.response?.output) &&
                     parsed.response.output.length > 0
                   ) {
+                    // #10156 — an upstream may echo a `phase:"commentary"` item back
+                    // inside a non-empty terminal `output` array even though its live
+                    // SSE frames were already dropped above. Keep both representations
+                    // consistent by applying the same drop here.
+                    if (shouldDropResponsesCommentary) {
+                      const { items, changed } = filterResponsesCommentaryFromItems(
+                        parsed.response.output,
+                        isResponsesCommentaryMessageItem
+                      );
+                      if (changed) {
+                        parsed.response.output = items;
+                        responsesCommentaryStrippedFromCompleted = true;
+                      }
+                    }
                     pushUniqueResponsesOutputItems(
                       passthroughResponsesOutputItems,
                       parsed.response.output
@@ -1613,9 +1630,19 @@ export function createSSEStream(options: StreamOptions = {}) {
                     ]) as typeof parsed;
                   }
                   const stripped = stripResponsesLifecycleEcho(parsed);
+                  // Belt-and-suspenders for #10156: filter the backfill buffer itself
+                  // before it can seed an empty `response.completed.response.output`,
+                  // in case a future code path pushes a commentary item into it
+                  // without going through the response.completed branch above.
+                  const backfillCandidates = shouldDropResponsesCommentary
+                    ? filterResponsesCommentaryFromItems(
+                        passthroughResponsesOutputItems,
+                        isResponsesCommentaryMessageItem
+                      ).items
+                    : passthroughResponsesOutputItems;
                   const backfilled = backfillResponsesCompletedOutput(
                     parsed,
-                    passthroughResponsesOutputItems
+                    backfillCandidates
                   );
                   const usageNormalized = normalizeUsage(parsed);
                   if (
@@ -1623,7 +1650,8 @@ export function createSSEStream(options: StreamOptions = {}) {
                     backfilled ||
                     textualToolCallBackfilled ||
                     responsesIdsNormalized ||
-                    usageNormalized
+                    usageNormalized ||
+                    responsesCommentaryStrippedFromCompleted
                   ) {
                     output = `data: ${JSON.stringify(parsed)}\n\n`;
                     injectedUsage = true;

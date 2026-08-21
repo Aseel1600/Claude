@@ -923,9 +923,9 @@ export function parseImageModel(modelStr) {
     }
   }
 
-  // No provider prefix — try to find the model in every provider
+  // No provider prefix — try to find the model in every provider, excluding cookie-auth (web) bridges
   for (const [providerId, config] of Object.entries(IMAGE_PROVIDERS)) {
-    if (config.routingAliases?.includes(modelStr) || config.models.some((m) => m.id === modelStr)) {
+    if (config.authHeader !== "cookie" && (config.routingAliases?.includes(modelStr) || config.models.some((m) => m.id === modelStr))) {
       return { provider: providerId, model: modelStr };
     }
   }
