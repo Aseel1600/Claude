@@ -248,7 +248,9 @@ test(
       notifier.watchdog();
       notifier.stopping();
       const received = await waitForLines(listener, ["READY=1", "WATCHDOG=1", "STOPPING=1"], 10000);
-      assert.deepEqual(received, ["READY=1", "WATCHDOG=1", "STOPPING=1"]);
+      // Messages travel over a dgram socket, so arrival order is not guaranteed
+      // (STOPPING=1 can land before WATCHDOG=1 under load) — compare order-free.
+      assert.deepEqual([...received].sort(), ["READY=1", "STOPPING=1", "WATCHDOG=1"]);
       notifier.dispose();
     } finally {
       listener.kill();
