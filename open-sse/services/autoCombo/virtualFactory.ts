@@ -26,7 +26,10 @@ import { buildFamilyCandidateFilter, type ModelFamily } from "./modelFamily";
 import { getHiddenModelsByProvider } from "@/models";
 import { getSyncedAvailableModelsByConnection, getCustomModels } from "@/lib/db/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
+import { filterStrictZeroCostCandidates, filterTosAvoidCandidates } from "./strictZeroCostFilter";
+import { resolveFreeAccessState } from "./freeAccessQuota";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
+import { resolveProviderAlias } from "../model.ts";
 import { filterExcludedCandidates } from "./candidateOverrides";
 import { getExcludedConnectionIds } from "@/lib/db/autoCandidateOverrides";
 import {
@@ -273,9 +276,19 @@ function getNoAuthCandidates(
     // modelCompatOverrides/customModels key_value namespaces) the same way the
     // credentialed-connection loop below does, so a hidden no-auth model never
     // enters the auto-combo/fusion candidate pool either.
-    const hiddenModels =
-      hiddenModelsMap.get(providerId) ??
-      (typeof providerDef.alias === "string" ? hiddenModelsMap.get(providerDef.alias) : undefined);
+    const hiddenLookupIds = [
+      providerId,
+      typeof providerDef.alias === "string" ? providerDef.alias : null,
+      registryAlias,
+      routingPrefix,
+      resolveProviderAlias(providerId),
+      resolveProviderAlias(routingPrefix),
+    ];
+    const hiddenModels = new Set<string>();
+    for (const id of hiddenLookupIds) {
+      if (!id) continue;
+      for (const modelId of hiddenModelsMap.get(id) ?? []) hiddenModels.add(modelId);
+    }
 
     for (const model of registryModels) {
       const modelId = typeof model?.id === "string" && model.id.trim().length > 0 ? model.id : null;
@@ -579,6 +592,29 @@ export async function prepareVirtualAutoComboInputs(
     // exclude paid-only backends from EVERY `auto/*` candidate pool.
     const paidFilteredPool = filterPaidOnlyCandidates(pool, settings.hidePaidModels === true);
     if (paidFilteredPool !== pool) pool = paidFilteredPool;
+
+    // STRICT_ZERO_COST: opt-in, off by default (`settings.freeAccessPolicy !== "strict"`
+    // leaves `pool` byte-identical, same contract as `hidePaidModels`). See
+    // `strictZeroCostFilter.ts` for why this is stricter than `hidePaidModels` alone —
+    // including the connection-safety invariant it enforces per-connection, not just
+    // per-candidate: `resolveFreeAccessState` here is a raw pass-through of the real
+    // per-(provider,connectionId) resolver; the filter itself decides which connection(s)
+    // on each candidate to check and rewrites `allowedConnectionIds` to the SAFE subset.
+    const strictFilteredPool = filterStrictZeroCostCandidates(pool, {
+      enabled: settings.freeAccessPolicy === "strict",
+      resolveFreeAccessState,
+      // 1 percentage point of headroom, not 0: `freeAccessQuota.ts` reports
+      // remaining allowance as a percentage, and a raw ">0" comparison would
+      // let a reading of e.g. 0.3% (rounding noise, not real headroom) pass.
+      minRemainingAllowance: 1,
+      maxStateAgeMs: (settings.autoRefreshProviderQuotaInterval ?? 180) * 1000,
+    });
+    if (strictFilteredPool !== pool) pool = strictFilteredPool;
+
+    // Separate, optional ToS guard — independent of economic safety on purpose.
+    const tosFilteredPool = filterTosAvoidCandidates(pool, settings.excludeTosAvoid === true);
+    if (tosFilteredPool !== pool) pool = tosFilteredPool;
+
     return pool;
   };
 

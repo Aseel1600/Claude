@@ -24,6 +24,7 @@ export async function GET(request: Request) {
       return NextResponse.json({
         found: true,
         accessToken: ideResult.accessToken,
+        refreshToken: ideResult.refreshToken,
         machineId: ideResult.machineId,
         source: ideResult.source,
       });

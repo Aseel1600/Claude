@@ -573,7 +573,10 @@ export function createNoopAbortWritable(): {
  *   streaming twin of the non-streaming `isEmptyContentResponse` check. Only
  *   applies to bodies that actually looked like SSE, and terminal states where
  *   emptiness is legitimate (length / tool_calls / content_filter / max_tokens /
- *   tool_use) are excluded by the watcher.
+ *   tool_use) are excluded by the watcher. If the stream already carried a
+ *   substantive SSE `error` / `response.failed` / Claude `event:error`, stand
+ *   down — same spirit as Claude #3685 `lifecycle.hasError` and readiness #8972
+ *   (do not invent empty content on top of an actionable error).
  */
 type SilentCloseOutcome = { kind: "truncated" } | { kind: "error"; reason: string };
 
@@ -586,10 +589,7 @@ function resolveSilentCloseOutcome(input: {
   if (!input.bytesWereForwarded) return null;
 
   if (!input.clientTerminalSeen) {
-    if (
-      input.clientResponseFormat === FORMATS.CLAUDE &&
-      input.contentWatcher.sawContent()
-    ) {
+    if (input.clientResponseFormat === FORMATS.CLAUDE && input.contentWatcher.sawContent()) {
       // #7699 — upstream dropped after content reached the client on a Claude
       // stream. Keep the partial response: emit a clean max_tokens completion
       // instead of an error frame so Anthropic SDK / Claude Code don't report
@@ -608,9 +608,20 @@ function resolveSilentCloseOutcome(input: {
     if (input.clientResponseFormat === FORMATS.OPENAI && input.contentWatcher.sawContent()) {
       return { kind: "error", reason: "Upstream stream ended without a terminal marker" };
     }
+    // Responses-format clients (Codex CLI and other /v1/responses consumers):
+    // a healthy OpenAI Responses stream ALWAYS terminates with an explicit
+    // `response.completed` event — it is the format's only terminal marker and
+    // carries the final status/usage. Content forwarded without it is an
+    // upstream drop, the same class as #10443 for chat completions; surface a
+    // synthetic response.failed instead of a silent close so clients report
+    // the break instead of waiting on a completion event that never comes.
+    if (isResponsesClientFormat(input.clientResponseFormat) && input.contentWatcher.sawContent()) {
+      return { kind: "error", reason: "Upstream stream ended without a terminal marker" };
+    }
   }
 
   const watcher = input.contentWatcher;
+  if (watcher.sawError()) return null;
   if (watcher.sawSseFrame() && !watcher.sawContent() && !watcher.sawLegitEmptyTerminal()) {
     return { kind: "error", reason: "Provider returned empty content" };
   }

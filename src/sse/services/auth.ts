@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from "crypto";
 import { nodeTypeFromId } from "@/lib/db/providerNodeSelect";
 import { extractGoogApiKeyHeader } from "./googApiKeyAuth.ts";
+import { buildAllExpiredCredentials } from "./authExpiredCredentials.ts";
 import {
   getCachedRawProviderConnections,
   getCachedProviderNodes,
@@ -1384,19 +1385,7 @@ export async function getProviderCredentials(
             allowedConnections
           );
           if (syntheticFallback) return syntheticFallback;
-
-          const statusCounts = new Map<string, number>();
-          for (const c of terminalConnections) {
-            const key = normalizeStatus(c.testStatus) || "expired";
-            statusCounts.set(key, (statusCounts.get(key) || 0) + 1);
-          }
-          const dominantStatus =
-            [...statusCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "expired";
-          return {
-            allExpired: true,
-            expiredCount: terminalConnections.length,
-            expiredStatus: dominantStatus,
-          };
+          return buildAllExpiredCredentials(terminalConnections);
         }
       }
       const syntheticFallback = await maybeSyntheticNoAuthFallback(
@@ -1637,8 +1626,13 @@ export async function getProviderCredentials(
         allowedConnections
       );
       if (syntheticFallback) return syntheticFallback;
-      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");
-      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
+
+      // #7611: isActive terminal rows never hit the inactive allExpired branch.
+      const terminalConnections = connections.filter(isTerminalConnectionStatus);
+      if (terminalConnections.length === connections.length) {
+        return buildAllExpiredCredentials(terminalConnections);
+      }
+      invalidateManagedLease(options, "CONNECTION_INELIGIBLE");      log.warn("AUTH", `${provider} | all ${connections.length} accounts unavailable`);
       return null;
     }
 
@@ -2406,8 +2400,8 @@ async function applyEgressIpLockout(
       // Fresh camelCase re-read per sibling (never trust a stale snapshot) —
       // reuse the house getter so terminal/cooldown checks see the same shape
       // the rotation uses (pattern agentrouter test).
-      const sibling = (await getProviderConnectionById(id)) as ProviderConnectionView | null;
-      if (!sibling) continue;
+      const sibling = toProviderConnection(await getProviderConnectionById(id));
+      if (!sibling.id) continue;
       if (isTerminalConnectionStatus(sibling)) continue; // T06
       // cooldownUntilMs (not a raw new Date()) because rate_limited_until can
       // hold a numeric-epoch string (e.g. the Antigravity full-quota path) —
@@ -2458,6 +2452,18 @@ export async function markAccountUnavailable(
 
   try {
     await currentMutex;
+
+    // STRICT_ZERO_COST: this connection just failed (whatever the reason) —
+    // drop any cached "SAFE" free-allowance reading for it immediately rather
+    // than waiting out the TTL, so the very next candidate-pool build reads a
+    // clean cache miss (UNKNOWN → excluded) instead of a stale SAFE. Cheap,
+    // idempotent, and correct to over-invalidate on non-quota failures too —
+    // worst case is one extra background refresh.
+    if (provider) {
+      const { invalidateFreeAccessState } =
+        await import("@omniroute/open-sse/services/autoCombo/freeAccessQuota.ts");
+      invalidateFreeAccessState(provider, connectionId);
+    }
 
     const resourceBypass = getResource404Bypass(status, errorText, connectionId, log);
     if (resourceBypass) return resourceBypass;

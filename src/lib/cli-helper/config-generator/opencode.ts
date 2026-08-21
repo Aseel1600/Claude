@@ -243,9 +243,11 @@ function resolveContextLength(entry: CatalogModelEntry): number | undefined {
  *   1. Existing manual override in the user's opencode.json (`limit.context`).
  *   2. Catalog `context_length` / `max_context_window_tokens`.
  *
- * If neither is available, the entry is returned WITHOUT a `limit` block so
- * the caller can decide whether to skip the model entirely or surface a
- * warning. We never fabricate a default context window.
+ * If neither is available, `limit.context` is simply omitted and OpenCode's
+ * own heuristics apply — we never fabricate a default context window. The
+ * entry ALWAYS carries a `limit` block, though: `limit.output` is a
+ * required field in OpenCode's v1 provider schema, so it is always emitted
+ * (falling back to 8K when nothing else is known) — see #10940.
  */
 function buildModelEntry(
   id: string,
@@ -301,25 +303,23 @@ function buildModelEntry(
   const output =
     typeof userOutput === "number" && userOutput > 0 ? userOutput : (catalogOutput ?? 8_192);
 
-  // Emit `limit` only if we have at least one of context/output. We never
-  // emit a half-baked limit block with only an `output` (would be misleading).
-  if (
-    typeof context === "number" ||
-    typeof userOutput === "number" ||
-    typeof catalogOutput === "number"
-  ) {
-    const limit: { context?: number; input?: number; output?: number } = {};
-    if (typeof context === "number") limit.context = context;
-    limit.output = output;
-    const userInput = existing?.limit?.input;
-    if (typeof userInput === "number" && userInput > 0) {
-      limit.input = userInput;
-    } else if (catalog) {
-      const maxInput = catalog.max_input_tokens;
-      if (typeof maxInput === "number" && maxInput > 0) limit.input = maxInput;
-    }
-    entry.limit = limit;
+  // `limit.output` is REQUIRED by OpenCode's v1 provider schema regardless of
+  // whether the catalog (or the user's existing config) knows the model's
+  // context window — a model with no catalog metadata at all must still get
+  // a `limit` block, or OpenCode rejects the whole config with "Missing key
+  // provider.omniroute.models.{model}.limit.output" (#10940). `output` above
+  // already resolves to a safe fallback (8K) when nothing else is known, so
+  // we always emit it; `context`/`input` are added only when actually known.
+  const limit: { context?: number; input?: number; output?: number } = { output };
+  if (typeof context === "number") limit.context = context;
+  const userInput = existing?.limit?.input;
+  if (typeof userInput === "number" && userInput > 0) {
+    limit.input = userInput;
+  } else if (catalog) {
+    const maxInput = catalog.max_input_tokens;
+    if (typeof maxInput === "number" && maxInput > 0) limit.input = maxInput;
   }
+  entry.limit = limit;
 
   return entry;
 }

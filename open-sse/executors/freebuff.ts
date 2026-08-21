@@ -1,9 +1,6 @@
 import { randomInt } from "node:crypto";
 
-import {
-  BaseExecutor,
-  type ExecuteInput,
-} from "./base.ts";
+import { BaseExecutor, type ExecuteInput } from "./base.ts";
 import { PROVIDERS } from "../config/constants.ts";
 
 const MODEL_TO_AGENT: Record<string, string> = {
@@ -29,23 +26,32 @@ function generateClientSessionId(): string {
 
 export class FreebuffExecutor extends BaseExecutor {
   constructor() {
-    super("freebuff", (PROVIDERS as Record<string, unknown>).freebuff as string || "freebuff");
+    super("freebuff", PROVIDERS.freebuff || { format: "openai" });
   }
 
   override async execute(input: ExecuteInput) {
     const { model, body, stream, credentials, signal } = input;
     const token = credentials?.apiKey || credentials?.accessToken || "";
+    const payload =
+      body && typeof body === "object" && !Array.isArray(body)
+        ? (body as Record<string, unknown>)
+        : {};
 
     if (!token) {
       return {
         response: new Response(
-          JSON.stringify({ error: { message: "Freebuff Auth Token required", type: "authentication_error" } }),
+          JSON.stringify({
+            error: { message: "Freebuff Auth Token required", type: "authentication_error" },
+          }),
           { status: 401, headers: { "Content-Type": "application/json" } }
         ),
       };
     }
 
-    const requestedModel = typeof model === "string" ? model.replace(/^freebuff\//, "") : (model || "deepseek/deepseek-v4-flash");
+    const requestedModel =
+      typeof model === "string"
+        ? model.replace(/^freebuff\//, "")
+        : model || "deepseek/deepseek-v4-flash";
     const agentId = MODEL_TO_AGENT[requestedModel] || "base2-free";
 
     const authHeaders = {
@@ -75,7 +81,12 @@ export class FreebuffExecutor extends BaseExecutor {
         const errText = await sessionRes.text();
         return {
           response: new Response(
-            JSON.stringify({ error: { message: `Freebuff session failed (${sessionRes.status}): ${errText}`, type: "upstream_error" } }),
+            JSON.stringify({
+              error: {
+                message: `Freebuff session failed (${sessionRes.status}): ${errText}`,
+                type: "upstream_error",
+              },
+            }),
             { status: sessionRes.status, headers: { "Content-Type": "application/json" } }
           ),
         };
@@ -84,7 +95,9 @@ export class FreebuffExecutor extends BaseExecutor {
       const msg = e instanceof Error ? e.message : String(e);
       return {
         response: new Response(
-          JSON.stringify({ error: { message: `Freebuff session network error: ${msg}`, type: "upstream_error" } }),
+          JSON.stringify({
+            error: { message: `Freebuff session network error: ${msg}`, type: "upstream_error" },
+          }),
           { status: 502, headers: { "Content-Type": "application/json" } }
         ),
       };
@@ -105,12 +118,18 @@ export class FreebuffExecutor extends BaseExecutor {
     } catch {}
 
     // 3. Prepare Chat Payload & Buffy System Prompt
-    const incomingMessages = Array.isArray(body?.messages) ? [...body.messages] : [];
+    const incomingMessages: Array<Record<string, unknown>> = Array.isArray(payload.messages)
+      ? payload.messages.filter(
+          (message): message is Record<string, unknown> =>
+            !!message && typeof message === "object" && !Array.isArray(message)
+        )
+      : [];
+    const firstMessage = incomingMessages[0];
     const hasBuffyPrompt =
       incomingMessages.length > 0 &&
-      incomingMessages[0].role === "system" &&
-      typeof incomingMessages[0].content === "string" &&
-      incomingMessages[0].content.trim().startsWith("You are Buffy");
+      firstMessage?.role === "system" &&
+      typeof firstMessage.content === "string" &&
+      firstMessage.content.trim().startsWith("You are Buffy");
 
     if (!hasBuffyPrompt) {
       incomingMessages.unshift({
@@ -120,8 +139,14 @@ export class FreebuffExecutor extends BaseExecutor {
     }
 
     const clientSessionId = generateClientSessionId();
+    const existingMetadata =
+      payload.codebuff_metadata &&
+      typeof payload.codebuff_metadata === "object" &&
+      !Array.isArray(payload.codebuff_metadata)
+        ? (payload.codebuff_metadata as Record<string, unknown>)
+        : {};
     const upstreamBody = {
-      ...(body || {}),
+      ...payload,
       model: requestedModel,
       messages: incomingMessages,
       stream: stream !== false,
@@ -130,7 +155,7 @@ export class FreebuffExecutor extends BaseExecutor {
         cost_mode: "free",
         client_id: clientSessionId,
         freebuff_instance_id: instanceId,
-        ...((body as Record<string, unknown>)?.codebuff_metadata as Record<string, unknown> || {}),
+        ...existingMetadata,
       },
     };
 

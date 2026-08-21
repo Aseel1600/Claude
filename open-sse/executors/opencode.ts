@@ -193,8 +193,8 @@ export class OpencodeExecutor extends BaseExecutor {
     return pickRotatableAccount(this.accounts, this);
   }
 
-  private markCooldown(account: OpencodeAccountState): void {
-    markAccountCooldown(account);
+  private markCooldown(account: OpencodeAccountState, kind: "transient" | "terminal" = "transient"): void {
+    markAccountCooldown(account, kind);
   }
 
   private markSuccess(account: OpencodeAccountState): void {
