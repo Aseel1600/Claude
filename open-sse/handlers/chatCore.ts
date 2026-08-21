@@ -434,6 +434,7 @@ import {
 import { generateRequestId } from "@/shared/utils/requestId";
 import { isLocalStreamLifecycleError } from "@/shared/utils/circuitBreaker";
 import { shouldIsolateProbeFailures } from "@/shared/utils/probeOrigin";
+import { writeTerminalStatus } from "@/shared/utils/terminalStatus";
 import { extractFacts } from "@/lib/memory/extraction";
 import { handleToolCallExecution } from "@/lib/skills/interception";
 import { MEMORY_BUILTIN_TOOL_NAMES } from "@/lib/skills/memoryBuiltins";
@@ -4121,29 +4122,28 @@ export async function handleChatCore({
     if (errorConnectionId && errorType) {
       try {
         if (errorType === PROVIDER_ERROR_TYPES.FORBIDDEN) {
-          // T-PROBE: a probe-origin failure (model test-all) must never
-          // remove the connection from the pool — record but stay active.
-          if (await shouldIsolateProbeFailures()) {
-            await updateProviderConnection(errorConnectionId, {
-              lastErrorType: errorType,
-              lastError: message,
-              errorCode: statusCode,
-              lastErrorAt: new Date().toISOString(),
-            });
-            console.warn(
-              `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
+          {
+            const probeIsolated = await shouldIsolateProbeFailures();
+            await writeTerminalStatus(
+              errorConnectionId,
+              {
+                testStatus: "banned",
+                isActive: false,
+                lastError: message,
+                lastErrorType: errorType,
+                errorCode: String(statusCode),
+              },
+              probeIsolated ? "probe" : "production"
             );
-          } else {
-            await updateProviderConnection(errorConnectionId, {
-              isActive: false,
-              testStatus: "banned",
-              lastErrorType: errorType,
-              lastError: message,
-              errorCode: statusCode,
-            });
-            console.warn(
-              `[provider] Node ${errorConnectionId} banned (${statusCode}) — disabling permanently`
-            );
+            if (probeIsolated) {
+              console.warn(
+                `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
+              );
+            } else {
+              console.warn(
+                `[provider] Node ${errorConnectionId} banned (${statusCode}) — disabling permanently`
+              );
+            }
           }
         } else if (errorType === PROVIDER_ERROR_TYPES.ACCOUNT_DEACTIVATED) {
           // T-PROBE: probe-origin failures (test-all) never deactivate —
@@ -4166,44 +4166,47 @@ export async function handleChatCore({
             console.warn(
               `[provider] Node ${errorConnectionId} account deactivated (${statusCode}) — has extra keys, keeping connection active`
             );
-          } else if (await shouldIsolateProbeFailures()) {
-            await updateProviderConnection(errorConnectionId, {
-              lastErrorType: errorType,
-              lastError: message,
-              errorCode: statusCode,
-              lastErrorAt: new Date().toISOString(),
-            });
-            console.warn(
-              `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
-            );
           } else {
-            await updateProviderConnection(errorConnectionId, {
-              isActive: false,
-              testStatus: "deactivated",
-              lastErrorType: errorType,
-              lastError: message,
-              errorCode: statusCode,
-            });
-            console.warn(
-              `[provider] Node ${errorConnectionId} account deactivated (${statusCode}) — disabling permanently`
+            const probeIsolated2 = await shouldIsolateProbeFailures();
+            await writeTerminalStatus(
+              errorConnectionId,
+              {
+                testStatus: "deactivated",
+                isActive: false,
+                lastError: message,
+                lastErrorType: errorType,
+                errorCode: String(statusCode),
+              },
+              probeIsolated2 ? "probe" : "production"
             );
+            if (probeIsolated2) {
+              console.warn(
+                `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
+              );
+            } else {
+              console.warn(
+                `[provider] Node ${errorConnectionId} account deactivated (${statusCode}) — disabling permanently`
+              );
+            }
           }
         } else if (errorType === PROVIDER_ERROR_TYPES.QUOTA_EXHAUSTED) {
-          // T-PROBE: probe-origin failures never write quota state —
-          // `testStatus: "credits_exhausted"` is terminal and removes the
-          // connection from the pool; semaphore locks and per-model quota
-          // lockouts are routing mutations too. Record only (#9817).
-          if (await shouldIsolateProbeFailures()) {
-            await updateProviderConnection(errorConnectionId, {
-              lastErrorType: errorType,
-              lastError: message,
-              errorCode: statusCode,
-              lastErrorAt: new Date().toISOString(),
-            });
-            console.warn(
-              `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
-            );
-          } else {
+          {
+            const probeIsolated3 = await shouldIsolateProbeFailures();
+            if (probeIsolated3) {
+              await writeTerminalStatus(
+                errorConnectionId,
+                {
+                  testStatus: "credits_exhausted",
+                  lastError: message,
+                  lastErrorType: errorType,
+                  errorCode: String(statusCode),
+                },
+                "probe"
+              );
+              console.warn(
+                `[provider] Node ${errorConnectionId} probe ${errorType} (${statusCode}) — connection stays active`
+              );
+            } else {
             // Kimi's 403 says "billing cycle" for both an exhausted subscription and a
             // temporary request window. Read its official usage endpoint before making
             // the connection terminal: a non-zero Weekly quota plus an empty Ratelimit
@@ -4265,14 +4268,19 @@ export async function handleChatCore({
                 `[provider] Node ${errorConnectionId} ${quotaScope}-only quota exhausted (${statusCode}) for ${model} - ${Math.ceil(quotaCooldownMs / 1000)}s (cooldown_scope=${quotaScope}, ttl_source=${retryAfterMs ? "upstream" : "inferred"}, connection stays active)`
               );
             } else {
-              await updateProviderConnection(errorConnectionId, {
-                testStatus: "credits_exhausted",
-                lastErrorType: errorType,
-                lastError: message,
-                errorCode: statusCode,
-              });
+              await writeTerminalStatus(
+                errorConnectionId,
+                {
+                  testStatus: "credits_exhausted",
+                  lastError: message,
+                  lastErrorType: errorType,
+                  errorCode: String(statusCode),
+                },
+                "production"
+              );
               console.warn(`[provider] Node ${errorConnectionId} exhausted quota (${statusCode})`);
             }
+            } // close probeIsolated3 else
           }
         } else if (errorType === PROVIDER_ERROR_TYPES.UNAUTHORIZED) {
           // Normal 401 (token/session auth issue): keep account active for refresh/re-auth.
