@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { KeyHealth } from "../services/apiKeyRotator.ts";
 
 import { DefaultExecutor } from "./default.ts";
 import {
@@ -268,6 +269,8 @@ export class GlmExecutor extends DefaultExecutor {
     stream = true,
     _clientHeaders?: Record<string, string> | null,
     _model?: string,
+    _health?: Record<string, KeyHealth>,
+    _body?: unknown,
     transport: GlmTransport = getGlmTransport(credentials.providerSpecificData)
   ): Record<string, string> {
     if (transport === "openai") {
@@ -401,6 +404,8 @@ export class GlmExecutor extends DefaultExecutor {
       input.stream,
       input.clientHeaders,
       input.model,
+      undefined,
+      undefined,
       transport
     );
     applyConfiguredUserAgent(headers, credentials.providerSpecificData);

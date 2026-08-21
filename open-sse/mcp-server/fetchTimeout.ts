@@ -46,7 +46,7 @@ export function resolveMcpFetchTimeoutMs(
 ): number {
   const upstream = kind === "upstream";
   const override = readPositiveIntEnv(
-    env[upstream ? MCP_UPSTREAM_FETCH_TIMEOUT_ENV : MCP_FETCH_TIMEOUT_ENV]
+    upstream ? env.OMNIROUTE_MCP_UPSTREAM_TIMEOUT_MS : env.OMNIROUTE_MCP_FETCH_TIMEOUT_MS
   );
   return override ?? (upstream ? MCP_UPSTREAM_FETCH_TIMEOUT_MS : MCP_FETCH_TIMEOUT_MS);
 }
