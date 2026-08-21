@@ -46,6 +46,12 @@ export interface RegistryModel {
   id: string;
   name: string;
   aliases?: readonly string[];
+  /**
+   * Upstream model IDs that prove this static model is live when the provider
+   * has an authoritative synchronized catalog. Needed for curated IDs whose
+   * public name differs from the ID sent to the upstream service.
+   */
+  liveCatalogIds?: readonly string[];
   toolCalling?: boolean;
   supportsReasoning?: boolean;
   supportedThinkingEfforts?: readonly string[];
@@ -755,4 +761,21 @@ export function getAnthropicCompatHeaders(): Record<string, string> {
 export function buildAntigravityUrl(base: string, model: string, stream: boolean): string {
   const path = stream ? "/v1internal:streamGenerateContent?alt=sse" : "/v1internal:generateContent";
   return `${base}${path}`;
+}
+
+/**
+ * Gemini protocol `generateContent` route: the model goes in the path, not the body.
+ *
+ * Shared because the format has two consumers: the native `gemini` provider
+ * (RegistryEntry.urlBuilder) and gateways that expose Gemini as an alternate
+ * protocol (AlternateFormat.urlBuilder, see alternateFormats.ts). One copy per
+ * consumer would leave the streaming `?alt=sse` suffix free to diverge.
+ */
+export function buildGeminiGenerateContentUrl(
+  base: string,
+  model: string,
+  stream: boolean
+): string {
+  const action = stream ? "streamGenerateContent?alt=sse" : "generateContent";
+  return `${base}/${model}:${action}`;
 }

@@ -36,6 +36,7 @@ import {
 import { buildNoUpstreamResponseDiagnostics, buildRecoveryHint } from "./combo/pinRecovery.ts";
 import { buildTargetTimeoutRunner } from "./combo/targetTimeoutRunner.ts";
 import { recordComboRequest, recordComboShadowRequest, getComboMetrics } from "./comboMetrics.ts";
+import { qualityScoreFor } from "./routing/index.ts";
 import {
   expandComboSystemPromptIfPresent,
   resolveTargetFingerprint,
@@ -63,6 +64,7 @@ import { getHiddenModelsByProvider } from "@/models";
 import { resolveModelLockoutSettings } from "../../src/lib/resilience/modelLockoutSettings";
 import { fetchCodexQuota } from "./codexQuotaFetcher.ts";
 import { evaluateQuotaCutoff, getQuotaFetcher, type QuotaInfo } from "./quotaPreflight.ts";
+import { resolveProviderId } from "../../src/shared/constants/providers.ts";
 import * as semaphore from "./rateLimitSemaphore.ts";
 import { getCircuitBreaker } from "../../src/shared/utils/circuitBreaker";
 import { parseModel } from "./model.ts";
@@ -87,7 +89,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
-import { getCachedProviderConnectionById } from "../../src/lib/localDb.ts";
+import { getCachedProviderConnectionById } from "../../src/lib/db/readCache.ts";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
 /**
@@ -96,11 +98,13 @@ import { orderTargetsByEvalScores } from "./evalRouting.ts";
  * keeps the previously recorded limit (or 0 for a fresh row, meaning "no
  * budget enforced").
  */
-function resolveTargetTokenLimit(target: { connectionId?: string | null }): number | undefined {
+async function resolveTargetTokenLimit(target: {
+  connectionId?: string | null;
+}): Promise<number | undefined> {
   const connectionId = target?.connectionId;
   if (!connectionId) return undefined;
   try {
-    const connection = getCachedProviderConnectionById(connectionId);
+    const connection = await getCachedProviderConnectionById(connectionId);
     const overrides = (connection as { rateLimitOverrides?: Record<string, number> | null } | null)
       ?.rateLimitOverrides;
     const tpm = overrides?.tpm;
@@ -234,7 +238,14 @@ import {
   resolveComboRuntimeUnits,
   resolveComboTargets,
 } from "./combo/comboStructure.ts";
-import { getKnownContextOverflow } from "./combo/knownContextOverflow.ts";
+import {
+  createInvocationId,
+  finalizeComboTrace,
+  finishComboTrace,
+  getComboTrace,
+  recordComboDecision,
+  startComboTrace,
+} from "./combo/decisionTrace.ts";
 import {
   QUOTA_SOFT_DEPRIORITIZE_FACTOR,
   setCandidateQuotaSoftPenalty,
@@ -276,12 +287,7 @@ export {
 };
 export { resolveShadowTargets, scheduleShadowRouting };
 export { preScreenTargets };
-export {
-  resolveComboRuntimeUnits,
-  resolveComboTargets,
-  filterTargetsByRequestCompatibility,
-  getKnownContextOverflow,
-};
+export { resolveComboRuntimeUnits, resolveComboTargets, filterTargetsByRequestCompatibility };
 export {
   getComboFromData,
   getComboModelsFromData,
@@ -486,7 +492,10 @@ export async function buildAutoCandidates(
       let quotaRemaining = 100;
       let quotaCutoffBlocked = false;
       let quotaCutoffReason: string | undefined;
-      const fetcher = getQuotaFetcher(provider);
+      // #10877: `provider` here may be a legacy/user-facing alias spelling
+      // (target.provider/parseModel output); canonicalize before the fetcher
+      // registry lookup so aliased combo members still hit quota-aware scoring.
+      const fetcher = getQuotaFetcher(resolveProviderId(provider));
       const connection = target.connectionId ? connectionById.get(target.connectionId) : undefined;
       const authType = typeof connection?.authType === "string" ? connection.authType : null;
       const sessionAvailability =
@@ -574,6 +583,9 @@ export async function buildAutoCandidates(
         connectionPoolSize: connectionPoolCounts.get(provider) ?? 1,
         connectionId: target.connectionId ?? undefined,
         authType,
+        // Feedback-driven quality signal (routing quality tracker). Neutral 1.0
+        // before enough samples accumulate — a cold model is never penalized.
+        quality: qualityScoreFor(provider, model),
       };
     })
   );
@@ -607,7 +619,25 @@ export { pinIsDurablyUnhealthy };
 /** @param {string} errorText */
 
 /** @param {object} options */
-export async function handleComboChat({
+/**
+ * #10681 egress: every combo response carries the opaque trace id in an
+ * `X-OmniRoute-Combo-Trace` header so a post-incident lookup of the ordered
+ * per-target decisions is possible; the finalized summary is also emitted as
+ * one metadata-only log line for durability across restarts.
+ */
+export async function handleComboChat(options: HandleComboChatOptions): Promise<Response> {
+  const traceInvocationId = options.invocationId ?? createInvocationId();
+  const response = await handleComboChatInner({ ...options, invocationId: traceInvocationId });
+  response.headers.set("X-OmniRoute-Combo-Trace", traceInvocationId);
+  const trace = getComboTrace(traceInvocationId);
+  options.log.info(
+    "COMBO",
+    `combo trace ${traceInvocationId} terminal=${JSON.stringify(trace?.terminal ?? null)} decisions=${trace?.decisions.length ?? 0}`
+  );
+  return response;
+}
+
+async function handleComboChatInner({
   body,
   combo,
   handleSingleModel,
@@ -627,6 +657,7 @@ export async function handleComboChat({
   sourceFormat = null,
   endpointPath = null,
   requestHeaders = null,
+  invocationId,
 }: HandleComboChatOptions): Promise<Response> {
   const comboCtx = createComboContext({ body, combo, settings, relayOptions, log });
   const {
@@ -642,6 +673,10 @@ export async function handleComboChat({
     reasoningTokenBufferEnabled,
   } = phaseComboSetup(comboCtx);
   body = comboCtx.body;
+
+  // #10681: opaque per-invocation decision trace (safe routing metadata only).
+  const traceInvocationId = invocationId ?? createInvocationId();
+  startComboTrace(traceInvocationId, { strategy, comboName: combo.name });
 
   const handleSingleModelWithTimeout = buildTargetTimeoutRunner({
     handleSingleModel,
@@ -804,12 +839,6 @@ export async function handleComboChat({
     handleSingleModelWithTimeout,
     buildAutoCandidates,
     hiddenModelsByProvider,
-    clientManagedResponsesContext,
-    deferContextOverflowWhenCompressible,
-    compressionExclusions,
-    sourceFormat,
-    endpointPath,
-    requestHeaders,
   });
   if ("earlyResponse" in targetResolution) return targetResolution.earlyResponse;
   const { stickyWeightedLimit, getWeightedStepKeyForTarget, preScreenMap } = targetResolution;
@@ -1019,6 +1048,9 @@ export async function handleComboChat({
       });
       const runningTasks = new Set<Promise<void>>();
       let anySuccess = false;
+      // #10681: steps already recorded as dispatched (so per-target retries do not
+      // duplicate the decision).
+      const dispatchedTargets = new Set<string>();
       const abortControllers = new Map<number, AbortController>();
       const zeroLatencyOptimizationsEnabled = config.zeroLatencyOptimizationsEnabled === true;
       const hasProtectedPriorityTarget =
@@ -1044,6 +1076,12 @@ export async function handleComboChat({
         const cb = getCircuitBreaker(provider);
         if (cb.getStatus().state === "OPEN") {
           log.info("COMBO", `Skipping ${modelStr} — circuit breaker OPEN for ${provider}`);
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "circuit_open",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Provider ${provider} circuit breaker is open`);
         }
@@ -1054,6 +1092,12 @@ export async function handleComboChat({
           isProviderInCooldown(provider, target.connectionId ?? undefined, resilienceSettings)
         ) {
           log.info("COMBO", `Skipping ${modelStr} — provider ${provider} in global cooldown`);
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "provider_cooldown",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Provider ${provider} is in cooldown`);
         }
@@ -1081,6 +1125,12 @@ export async function handleComboChat({
         );
         if (exhaustedSkip) {
           log.info("COMBO", exhaustedSkip);
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "request_exhaustion",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Target ${modelStr} is unavailable`);
         }
@@ -1088,6 +1138,12 @@ export async function handleComboChat({
         // Pre-check: skip models locked by the resilience system (model-level lockout)
         if (provider && rawModel && isModelLocked(provider, target.connectionId || "", rawModel)) {
           log.info("COMBO", `Skipping ${modelStr} — model locked by resilience (cooldown active)`);
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "model_lockout",
+          });
           if (i > 0) fallbackCount++;
           return stopProtectedPriorityTarget(`Model ${modelStr} is locked`);
         }
@@ -1114,6 +1170,12 @@ export async function handleComboChat({
               "COMBO",
               `Skipping ${modelStr} — quota exhaustion cutoff (${quotaCutoff.reason || "quota_exhausted"})`
             );
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "quota_cutoff",
+            });
             if (i > 0) fallbackCount++;
             observeFailure(true, target.executionKey);
             if (protectedPriorityTarget) {
@@ -1162,6 +1224,12 @@ export async function handleComboChat({
               "COMBO",
               `Skipping ${modelStr} — no credentials available or model excluded`
             );
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "availability",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Model ${modelStr} is unavailable`);
           }
@@ -1173,6 +1241,12 @@ export async function handleComboChat({
           const gateResult = checkCredentialGate(connectionId, provider, modelStr);
           if (gateResult.allowed === false) {
             logCredentialSkip(log, modelStr, gateResult.reason || "Credential gate blocked");
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "credential_gate",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Credential gate blocked ${modelStr}`);
           }
@@ -1187,6 +1261,12 @@ export async function handleComboChat({
               "COMBO",
               `Skipping ${modelStr} — connection ${connectionId} is at max concurrency cap (${maxConcurrentCap})`
             );
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "skipped_before_dispatch",
+              reason: "concurrency_cap",
+            });
             if (i > 0) fallbackCount++;
             return stopProtectedPriorityTarget(`Connection capacity reached for ${modelStr}`);
           }
@@ -1202,6 +1282,12 @@ export async function handleComboChat({
           !(await perTargetAdmission({ modelStr, executionKey: target.executionKey, body }))
         ) {
           log.info("COMBO", `Skipping ${modelStr} — admission lane full (#9654)`);
+          recordComboDecision(traceInvocationId, {
+            step: target.executionKey,
+            target: modelStr,
+            decision: "skipped_before_dispatch",
+            reason: "admission_lane",
+          });
           if (i > 0) fallbackCount++;
           return null;
         }
@@ -1257,6 +1343,12 @@ export async function handleComboChat({
                   "COMBO",
                   `Predictive TTFT Circuit Breaker: skipping ${modelStr} (avg ${m.avgLatencyMs}ms > max ${config.predictiveTtftMs}ms)`
                 );
+                recordComboDecision(traceInvocationId, {
+                  step: target.executionKey,
+                  target: modelStr,
+                  decision: "skipped_before_dispatch",
+                  reason: "predictive_ttft",
+                });
                 return stopProtectedPriorityTarget(`Predictive latency check rejected ${modelStr}`);
               }
             }
@@ -1386,6 +1478,15 @@ export async function handleComboChat({
                 : "",
             fingerprint: resolveTargetFingerprint(target) ?? "",
           });
+          // #10681: record dispatch once per target (retries keep the first decision).
+          if (!dispatchedTargets.has(target.executionKey)) {
+            dispatchedTargets.add(target.executionKey);
+            recordComboDecision(traceInvocationId, {
+              step: target.executionKey,
+              target: modelStr,
+              decision: "dispatched",
+            });
+          }
           const result = await handleSingleModelWithTimeout(attemptBody, modelStr, {
             ...targetForAttempt,
             effectiveComboStrategy: strategy,
@@ -2178,7 +2279,10 @@ export async function handleComboChat({
               );
             }
           }
-          log.warn("COMBO", `Model ${modelStr} failed, trying next`, { status: result.status });
+          log.warn("COMBO", `Model ${modelStr} failed, trying next`, {
+            status: result.status,
+            errorBody: redactConnectionLabel(errorText),
+          });
 
           // #5976: per-model-quota providers (Gemini, GitHub, etc.) multiplex models
           // behind one connection. A model-level 500 or 429 (RPM) must NOT cool down
@@ -2297,10 +2401,16 @@ export async function handleComboChat({
         await Promise.race([globalPromise, Promise.all([...runningTasks])]);
       }
 
+      // #10681: finalize the decision trace (success).
+      finalizeComboTrace(traceInvocationId, orderedTargets);
+      finishComboTrace(traceInvocationId, { status: 200 });
       if (anySuccess) {
         return await globalPromise;
       }
 
+      // #10681: finalize the decision trace (global timeout).
+      finalizeComboTrace(traceInvocationId, orderedTargets);
+      finishComboTrace(traceInvocationId, { status: 504 });
       // Global combo timeout: return aggregated error immediately, skipping set retries.
       if (comboExpired) {
         const summary = buildRedactedSummary(comboErrors);
@@ -2343,6 +2453,9 @@ export async function handleComboChat({
       if (setTry < maxSetRetries) continue;
 
       // All set retries exhausted — return the final error
+      // #10681: finalize the decision trace (all targets failed or skipped).
+      finalizeComboTrace(traceInvocationId, orderedTargets);
+      finishComboTrace(traceInvocationId, { status: 503 });
       if (!lastStatus) {
         if (recordedAttempts === 0) {
           notifyWebhookEvent("request.failed", {
@@ -2443,6 +2556,9 @@ export async function handleComboChat({
         }
       }
 
+      // #10681: finalize the decision trace with the aggregated terminal status.
+      finalizeComboTrace(traceInvocationId, orderedTargets);
+      finishComboTrace(traceInvocationId, { status });
       // Retry-after decoration is separate from the wait decision above: only
       // rate-limit-class final statuses may carry a `(reset after ...)` suffix
       // (see unavailableRetryGate.ts — do not stitch a peer target's window onto
@@ -2604,32 +2720,6 @@ async function handleRoundRobinCombo({
   );
   const tagFilteredTargets = await applyRequestTagRouting(orderedTargets, body, log);
   const evalRankedTargets = orderTargetsByEvalScores(tagFilteredTargets, config.evalRouting, log);
-  const knownContextOverflow = getKnownContextOverflow(evalRankedTargets, body, {
-    clientManagedResponsesContext,
-    deferContextOverflowWhenCompressible,
-    compressionExclusions,
-    sourceFormat,
-    endpointPath,
-    requestHeaders,
-  });
-  if (knownContextOverflow) {
-    return errorResponseWithComboDiagnostics(
-      400,
-      `Request requires approximately ${knownContextOverflow.requiredContextTokens} tokens, but the largest known context limit in this combo is ${knownContextOverflow.maxKnownContextTokens} tokens. Reduce or compact the request context.`,
-      {
-        poolSize: evalRankedTargets.length,
-        attempted: 0,
-        excluded: evalRankedTargets.map((target) => ({
-          provider: target.provider,
-          model: target.modelStr,
-          reason: "context_window",
-        })),
-        attemptOrder: [],
-        terminalReason: "context_length_exceeded",
-      },
-      { code: "context_length_exceeded", type: "invalid_request_error" }
-    );
-  }
   // Align with the main/auto paths: combo config OR top-level settings (#8488 / #8494).
   const rrCompatFailOpen =
     (config as { compatFilterFailOpen?: unknown }).compatFilterFailOpen === true ||
@@ -3005,7 +3095,7 @@ async function handleRoundRobinCombo({
           try {
             const { reserveQuota } = await import("../../src/lib/quota/quotaScheduler.ts");
             reserveQuota(target.connectionId, modelStr, attemptBody as Record<string, unknown>, {
-              tokenLimit: resolveTargetTokenLimit(target),
+              tokenLimit: await resolveTargetTokenLimit(target),
             });
           } catch {
             // best-effort only
@@ -3377,7 +3467,10 @@ async function handleRoundRobinCombo({
           kind: classifyComboOutcome(result.status, errorText),
         });
         if (offset > 0) fallbackCount++;
-        log.warn("COMBO-RR", `${modelStr} failed, trying next model`, { status: result.status });
+        log.warn("COMBO-RR", `${modelStr} failed, trying next model`, {
+          status: result.status,
+          errorBody: redactConnectionLabel(errorText),
+        });
 
         if (
           resilienceSettings.providerCooldown.enabled &&

@@ -3,6 +3,8 @@ import { unorouterProvider } from "./registry/unorouter/index.ts";
 
 import { aimlapiProvider } from "./registry/aimlapi/index.ts";
 import { byteplusProvider } from "./registry/byteplus/index.ts";
+import { mlxGemmaProvider } from "./registry/mlx/index.ts";
+import { mlxQwenProvider } from "./registry/mlx/index.ts";
 import { ollama_cloudProvider } from "./registry/ollama-cloud/index.ts";
 import { syntheticProvider } from "./registry/synthetic/index.ts";
 import { ideogramProvider } from "./registry/ideogram/index.ts";
@@ -65,7 +67,7 @@ import { api_airforceProvider } from "./registry/api-airforce/index.ts";
 import { mistralProvider } from "./registry/mistral/index.ts";
 import { togetherProvider } from "./registry/together/index.ts";
 import { cohereProvider } from "./registry/cohere/index.ts";
-import { cursorProvider } from "./registry/cursor/index.ts";
+import { cursorProvider, cursor_apiProvider } from "./registry/cursor/index.ts";
 import { volcengineProvider } from "./registry/volcengine/index.ts";
 import { hackclubProvider } from "./registry/hackclub/index.ts";
 import { freetheaiProvider } from "./registry/freetheai/index.ts";
@@ -213,6 +215,7 @@ import { kiroProvider } from "./registry/kiro/index.ts";
 import { openadapterProvider } from "./registry/openadapter/index.ts";
 import { ditProvider } from "./registry/dit/index.ts";
 import { tokenrouterProvider } from "./registry/tokenrouter/index.ts";
+import { token_kioskProvider } from "./registry/token-kiosk/index.ts";
 import { grok_cliProvider } from "./registry/grok-cli/index.ts";
 import { codebuddy_cnProvider } from "./registry/codebuddy-cn/index.ts";
 import { pioneerProvider } from "./registry/pioneer/index.ts";
@@ -260,9 +263,12 @@ import { freeinferenceProvider } from "./registry/freeinference/index.ts";
 import { freeAiProvider } from "./registry/free-ai/index.ts";
 import { voidAiProvider } from "./registry/void-ai/index.ts";
 import { helixmindProvider } from "./registry/helixmind/index.ts";
+import { tabitokenProvider } from "./registry/tabitoken/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
+  "mlx-gemma": mlxGemmaProvider,
+  "mlx-qwen": mlxQwenProvider,
   "ollama-cloud": ollama_cloudProvider,
   synthetic: syntheticProvider,
   ideogram: ideogramProvider,
@@ -326,6 +332,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   together: togetherProvider,
   cohere: cohereProvider,
   cursor: cursorProvider,
+  "cursor-api": cursor_apiProvider,
   volcengine: volcengineProvider,
   hackclub: hackclubProvider,
   freetheai: freetheaiProvider,
@@ -475,6 +482,7 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   openadapter: openadapterProvider,
   dit: ditProvider,
   tokenrouter: tokenrouterProvider,
+  "token-kiosk": token_kioskProvider,
   "grok-cli": grok_cliProvider,
   "codebuddy-cn": codebuddy_cnProvider,
   pioneer: pioneerProvider,
@@ -523,4 +531,5 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "free-ai": freeAiProvider,
   "void-ai": voidAiProvider,
   helixmind: helixmindProvider,
+  tabitoken: tabitokenProvider,
 };
