@@ -12,9 +12,14 @@ import { NOAUTH_PROVIDERS, OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/co
 import { REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
 import { listModelIntelligence } from "./db/modelIntelligence";
 import { getProviderConnections } from "./db/providers";
+import { getProviderUsageSince, type ProviderUsageRow } from "./db/callLogStats";
 import { getCustomModels } from "./db/models";
 // Type-only: reuse the health vocabulary instead of forking it.
-import type { ProviderHealthState } from "./monitoring/providerHealthMatrix";
+import { RANGE_MS } from "./monitoring/providerHealthMatrix";
+import type {
+  ProviderHealthState,
+  ProviderHealthMatrixRange,
+} from "./monitoring/providerHealthMatrix";
 import type { ProviderAuthType } from "./freeProviderRankingsAuthType";
 
 // Re-exported for backward-compat / same-module ergonomics (#6915) — the
@@ -248,7 +253,30 @@ export interface ProviderReliability {
   }>;
   /** Provider aggregate; absent entirely for providers with no loaded connection. */
   state: ProviderHealthState;
+  /**
+   * What the provider actually served over a window, from `call_logs`. Present
+   * only when the caller asks for it (`withUsage`). Complements `state`, which
+   * describes the connection right now and cannot see a provider that answers
+   * every call with an error.
+   */
+  usage?: ProviderUsage;
 }
+
+export interface ProviderUsage {
+  requests: number;
+  successes: number;
+  /** `null` below `MIN_USAGE_REQUESTS` — too small a sample to state a rate. */
+  successRate: number | null;
+  avgLatencyMs: number | null;
+  lastRequestAt: string | null;
+  windowHours: number;
+}
+
+/**
+ * Below this many requests in the window, no rate is reported: 1 failure out of
+ * 2 calls is not "50% broken", and a provider nobody called is not "0% healthy".
+ */
+const MIN_USAGE_REQUESTS = 5;
 
 /**
  * Options controlling the additive "configured" / "available" filters.
@@ -259,6 +287,14 @@ export interface FreeProviderRankingFilterOptions {
   configuredOnly?: boolean;
   /** Keep only providers that have ≥1 non-exhausted, non-rate-limited connection (implies configured). */
   availableOnly?: boolean;
+  /**
+   * Also report what each provider actually served (`reliability.usage`).
+   * Off by default: it costs one aggregate query over `call_logs`, which a
+   * caller that only needs the ranking should not pay.
+   */
+  withUsage?: boolean;
+  /** Window for `withUsage`. Defaults to `24h`, the health matrix's own default. */
+  usageRange?: ProviderHealthMatrixRange;
 }
 
 /** Group connection states by provider id (shared by filter and reliability attach). */
@@ -382,6 +418,37 @@ export function attachProviderReliability(
 }
 
 /**
+ * Pure enrichment: attach `usage` to the `reliability` of every ranking that has
+ * a row in the windowed aggregate. Rankings without `reliability` (no connection
+ * loaded) are returned unchanged, never mutated.
+ */
+export function attachProviderUsage(
+  rankings: FreeProviderRanking[],
+  usageRows: ProviderUsageRow[],
+  windowHours: number
+): FreeProviderRanking[] {
+  const byProvider = new Map(usageRows.map((row) => [row.provider, row]));
+  return rankings.map((ranking) => {
+    const row = byProvider.get(ranking.id);
+    if (!row || !ranking.reliability) return ranking;
+    return {
+      ...ranking,
+      reliability: {
+        ...ranking.reliability,
+        usage: {
+          requests: row.requests,
+          successes: row.successes,
+          successRate: row.requests >= MIN_USAGE_REQUESTS ? row.successes / row.requests : null,
+          avgLatencyMs: row.avgLatencyMs ?? null,
+          lastRequestAt: row.lastRequestAt ?? null,
+          windowHours,
+        },
+      },
+    };
+  });
+}
+
+/**
  * Compute rankings for free providers based on ELO scores.
  *
  * @param category - Optional filter for task category (e.g., "coding", "default")
@@ -474,6 +541,20 @@ export async function computeFreeProviderRankings(
     // `availableOnly` already drops providers with no healthy connection, so under
     // it `state` is never `down`; `down` needs `configuredOnly` alone.
     filtered = attachProviderReliability(filtered, connections);
+
+    // Third dimension, opt-in: what the provider actually served. `state` above
+    // reads the connection as it stands now and cannot see a provider that
+    // answers every call with an error — only the call log can.
+    if (opts.withUsage) {
+      const range = opts.usageRange ?? "24h";
+      const windowMs = RANGE_MS[range];
+      const since = new Date(Date.now() - windowMs).toISOString();
+      filtered = attachProviderUsage(
+        filtered,
+        getProviderUsageSince(since),
+        windowMs / (60 * 60 * 1000)
+      );
+    }
   }
 
   return filtered.slice(0, limit);

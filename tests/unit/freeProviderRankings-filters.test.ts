@@ -12,6 +12,7 @@ import {
   isProviderUsable,
   filterFreeProviderRankings,
   attachProviderReliability,
+  attachProviderUsage,
   type ConnectionState,
   type FreeProviderRanking,
 } from "../../src/lib/freeProviderRankings.ts";
@@ -265,4 +266,100 @@ test("attachProviderReliability: input rankings are never mutated (pure function
   assert.notEqual(out, rankings, "returns a new array");
   assert.notEqual(out[0], rankings[0], "returns new objects");
   assert.equal(JSON.stringify(rankings), before, "input untouched");
+});
+
+// ──────────────── attachProviderUsage ────────────────
+
+const WINDOW_HOURS = 24;
+
+function usage(provider: string, requests: number, successes: number) {
+  return {
+    provider,
+    requests,
+    successes,
+    avgLatencyMs: 120,
+    lastRequestAt: "2025-07-02T12:00:00.000Z",
+  };
+}
+
+/** A ranking already carrying #10909's reliability, which `usage` extends. */
+function rankingWithReliability(id: string): FreeProviderRanking {
+  return {
+    ...ranking(id),
+    reliability: {
+      connections: [{ testStatus: "active", rateLimitedUntil: null, state: "healthy" }],
+      state: "healthy",
+    },
+  };
+}
+
+test("attachProviderUsage: fills usage from the windowed aggregate", () => {
+  const out = attachProviderUsage(
+    [rankingWithReliability("alpha")],
+    [usage("alpha", 100, 90)],
+    WINDOW_HOURS
+  );
+  assert.deepEqual(out[0].reliability?.usage, {
+    requests: 100,
+    successes: 90,
+    successRate: 0.9,
+    avgLatencyMs: 120,
+    lastRequestAt: "2025-07-02T12:00:00.000Z",
+    windowHours: 24,
+  });
+});
+
+test("attachProviderUsage: zero requests -> successRate null, never 0", () => {
+  const out = attachProviderUsage(
+    [rankingWithReliability("alpha")],
+    [usage("alpha", 0, 0)],
+    WINDOW_HOURS
+  );
+  // A provider nobody called has no success *rate*; reporting 0 would read as
+  // "always fails" on a brand new provider.
+  assert.equal(out[0].reliability?.usage?.successRate, null);
+  assert.equal(out[0].reliability?.usage?.requests, 0);
+});
+
+test("attachProviderUsage: below MIN_REQUESTS -> successRate null, requests still exposed", () => {
+  const out = attachProviderUsage(
+    [rankingWithReliability("alpha")],
+    [usage("alpha", 2, 1)],
+    WINDOW_HOURS
+  );
+  // 1 failure out of 2 is not "50% broken" — it is too small a sample to say.
+  assert.equal(out[0].reliability?.usage?.successRate, null);
+  assert.equal(out[0].reliability?.usage?.requests, 2);
+  assert.equal(out[0].reliability?.usage?.successes, 1);
+});
+
+test("attachProviderUsage: above the sample floor, all failing -> successRate 0 (not null)", () => {
+  const out = attachProviderUsage(
+    [rankingWithReliability("alpha")],
+    [usage("alpha", 50, 0)],
+    WINDOW_HOURS
+  );
+  // This is the very case the field exists for: null here would hide the outage.
+  assert.equal(out[0].reliability?.usage?.successRate, 0);
+});
+
+test("attachProviderUsage: a provider with no usage row gets no usage field", () => {
+  const out = attachProviderUsage([rankingWithReliability("alpha")], [], WINDOW_HOURS);
+  assert.ok(out[0].reliability, "reliability itself is preserved");
+  assert.equal(out[0].reliability?.usage, undefined);
+});
+
+test("attachProviderUsage: a ranking without reliability is left untouched", () => {
+  const bare = ranking("beta");
+  const out = attachProviderUsage([bare], [usage("beta", 100, 90)], WINDOW_HOURS);
+  assert.deepEqual(out[0], bare, "no connection loaded => nothing to extend");
+});
+
+test("attachProviderUsage: inputs are never mutated", () => {
+  const rankings = [rankingWithReliability("alpha")];
+  const before = JSON.stringify(rankings);
+  const out = attachProviderUsage(rankings, [usage("alpha", 100, 90)], WINDOW_HOURS);
+  assert.notEqual(out[0], rankings[0]);
+  assert.notEqual(out[0].reliability, rankings[0].reliability);
+  assert.equal(JSON.stringify(rankings), before);
 });
