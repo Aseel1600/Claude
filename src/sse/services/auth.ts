@@ -1958,6 +1958,15 @@ export async function getProviderCredentials(
         return new Date(a.lastUsedAt).getTime() - new Date(b.lastUsedAt).getTime();
       });
       connection = sorted[0];
+      // Record the use (#10945). This strategy sorts on the very field it was
+      // not writing, so on a pool where every lastUsedAt is null the tie-break
+      // fell through to `priority` and returned the SAME connection on every
+      // call, forever — the opposite of the documented behaviour, and silent.
+      // round-robin is the only other strategy that reads lastUsedAt and it has
+      // always committed here; least-used now does the same.
+      const commit = planLastUsedCommit(connection, connectionsRaw, 1);
+      if (options.lease) commitSelectionSideEffects = commit;
+      else await commit();
     } else if (strategy === "cost-optimized") {
       // Cost Optimized: sort by priority ascending (lower = cheaper/preferred)
       // Future: can be enhanced with actual cost data per provider
