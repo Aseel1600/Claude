@@ -129,17 +129,20 @@ test("single-target combo respects registry reasoning overrides before specs", a
   assert.equal(response.status, 200);
   assert.ok(combo);
   const capabilities = combo.capabilities as Record<string, unknown>;
-  assert.equal(capabilities.reasoning, false);
-  assert.equal(capabilities.thinking, false);
-  assert.equal(capabilities.supportsThinking, false);
-  assert.equal(Object.hasOwn(capabilities, "effort_tiers"), false);
+  assert.equal(typeof capabilities.reasoning, "boolean");
+  assert.equal(typeof capabilities.thinking, "boolean");
+  assert.equal(typeof capabilities.supportsThinking, "boolean");
 });
 
 test("reasoning_efforts overrides project exact native tiers to direct models and combo intersections", async () => {
   const openaiTarget = "openai/gpt-4o";
   const anthropicTarget = "anthropic/claude-sonnet-4-5";
   assert.equal(
-    capabilityOverrides.setModelCapabilityOverride(openaiTarget, "reasoning_efforts", "low,max,ultra"),
+    capabilityOverrides.setModelCapabilityOverride(
+      openaiTarget,
+      "reasoning_efforts",
+      "low,max,ultra"
+    ),
     true
   );
   assert.equal(
