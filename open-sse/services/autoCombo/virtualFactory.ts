@@ -23,6 +23,7 @@ import {
 import type { AutoVariant } from "./autoPrefix";
 import { buildFamilyCandidateFilter, type ModelFamily } from "./modelFamily";
 import { getHiddenModelsByProvider } from "@/models";
+import { getSyncedAvailableModelsByConnection, getCustomModels } from "@/lib/db/models";
 import { filterPaidOnlyCandidates } from "./paidModelFilter";
 import { isModelExcludedByConnection } from "@/domain/connectionModelRules";
 import { filterExcludedCandidates } from "./candidateOverrides";
@@ -41,6 +42,21 @@ export interface AutoComboSpec {
   category?: AutoCategory;
   tier?: AutoTier;
   family?: ModelFamily;
+}
+
+/** Once-per-process empty-pool AUTO warns (steady empty is not a metronome). */
+const emptyPoolWarned = new Set<string>();
+
+export function warnEmptyAutoPoolOnce(label: string, message: string, _now = Date.now()): boolean {
+  if (emptyPoolWarned.has(label)) return false;
+  emptyPoolWarned.add(label);
+  log.warn("AUTO", message);
+  return true;
+}
+
+/** Test-only: reset the once-per-label set (also models emptiness reappearing). */
+export function resetEmptyAutoPoolWarnStateForTests(): void {
+  emptyPoolWarned.clear();
 }
 
 /** Minimal connection shape needed for virtual auto-combo factory */
@@ -481,8 +497,26 @@ export async function prepareVirtualAutoComboInputs(
     const defaultModelIds = providerConnections
       .map((conn) => (typeof conn.defaultModel === "string" ? conn.defaultModel.trim() : ""))
       .filter(Boolean);
-    const modelIds = Array.from(new Set([...registryModelIds, ...defaultModelIds]));
     const hiddenModels = hiddenModelsMap.get(providerId);
+
+    // #auto-pool-visible-only: build the credentialed pool from the models the user
+    // actually has available (synced + custom non-hidden) when any exist, falling
+    // back to the static catalog only when the user has none. This keeps catalog-only
+    // models (e.g. openrouter/auto) out of every auto/* pool when the operator only
+    // synced a subset (e.g. OpenRouter with importFreeModelsOnly).
+    const [syncedByConnection, customModels] = await Promise.all([
+      getSyncedAvailableModelsByConnection(providerId),
+      getCustomModels(providerId),
+    ]);
+    const userVisibleIds = new Set<string>();
+    for (const models of Object.values(syncedByConnection)) {
+      for (const m of models) if (m.id && !hiddenModels?.has(m.id)) userVisibleIds.add(m.id);
+    }
+    for (const m of customModels) if (m.id && !hiddenModels?.has(m.id)) userVisibleIds.add(m.id);
+    const hasUserModels = userVisibleIds.size > 0;
+    const modelIds = hasUserModels
+      ? Array.from(userVisibleIds)
+      : Array.from(new Set([...registryModelIds, ...defaultModelIds]));
 
     for (const modelId of modelIds) {
       if (hiddenModels?.has(modelId)) continue;
@@ -490,6 +524,14 @@ export async function prepareVirtualAutoComboInputs(
       const allowedConnectionIds = providerConnections
         .filter((conn) => {
           if (isModelExcludedByConnection(modelId, conn.providerSpecificData)) return false;
+          if (hasUserModels) {
+            // User-synced models are scoped to the connections that carry them;
+            // custom models are provider-wide like registry models.
+            const connSynced = syncedByConnection[conn.id] ?? [];
+            const isSyncedForConn = connSynced.some((m) => m.id === modelId);
+            const isCustomForProvider = customModels.some((m) => m.id === modelId);
+            return isSyncedForConn || isCustomForProvider || conn.defaultModel?.trim() === modelId;
+          }
           // Registry models are provider-wide. A non-registry default (for a custom
           // or passthrough model) is scoped only to connections that selected it.
           return registryModelIdSet.has(modelId) || conn.defaultModel?.trim() === modelId;
@@ -665,8 +707,8 @@ export async function createVirtualAutoComboFromPrepared(
       // Family combos always degrade to an empty pool when unavailable — a family
       // is a hard identity constraint, not a soft optimization bias, so there is
       // no sensible "fall back to the full pool" behavior for it.
-      log.warn(
-        "AUTO",
+      warnEmptyAutoPoolOnce(
+        label,
         `${label} matched no connected models; returning an empty pool.${spec?.family ? "" : ' Set OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL=true to restore the legacy "use full pool" behavior.'}`
       );
       effectivePool = [];

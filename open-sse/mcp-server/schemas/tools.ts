@@ -1,5 +1,5 @@
 /**
- * MCP Tool Schemas — Contracts for all 23 core and advanced OmniRoute MCP tools.
+ * MCP Tool Schemas — Contracts for the canonical OmniRoute MCP tools.
  *
  * Defines input/output Zod schemas, descriptions, scopes, and audit levels
  * for both essential (Phase 1) and advanced (Phase 2) MCP tools.
@@ -12,12 +12,13 @@
 import { z } from "zod";
 import { toolSearchTool } from "./toolSearch.ts";
 import { pickFastestModelTool } from "./pickFastestModel.ts";
+import { getActiveSearchProviders } from "./providerEnums";
 import { CCR_MCP_TOOLS } from "./ccrTools.ts";
+import { radarCatalogTool } from "./radarCatalog.ts";
 import {
   AUTO_ROUTING_STRATEGY_VALUES,
   ROUTING_STRATEGY_VALUES,
 } from "../../../src/shared/constants/routingStrategies.ts";
-
 // ============ Shared Types ============
 // AuditLevel + McpToolDefinition live in the leaf ./toolDefinition.ts so that
 // toolSearch.ts can import the type without forming a tools.ts ↔ toolSearch.ts cycle.
@@ -26,8 +27,7 @@ export type { AuditLevel, McpToolDefinition } from "./toolDefinition.ts";
 import type { McpToolDefinition } from "./toolDefinition.ts";
 export { pickFastestModelInput, pickFastestModelOutput } from "./pickFastestModel.ts";
 export * from "./ccrTools.ts";
-
-// ============ Phase 1: Essential Tools (8) ============
+// ============ Phase 1: Essential Tools ============
 
 // --- Tool 1: omniroute_get_health ---
 export const getHealthInput = z.object({}).describe("No parameters required");
@@ -68,6 +68,27 @@ export const getHealthOutput = z.object({
       provider: z.string(),
     })
     .optional(),
+  adaptiveAdmission: z
+    .object({
+      virtualLanes: z.boolean(),
+      pressure: z.string(),
+      utilization: z.number(),
+      laneCount: z.number(),
+      laneQueuedCount: z.number(),
+      laneQueuedCost: z.number(),
+      laneTenants: z.array(
+        z.object({
+          tenantKey: z.string(),
+          queuedCount: z.number(),
+          queuedCost: z.number(),
+        })
+      ),
+      admittedCount: z.number(),
+      rejectedCount: z.number(),
+      wouldRejectCount: z.number(),
+      shutdown: z.boolean(),
+    })
+    .optional(),
   degraded: z
     .array(
       z.object({
@@ -81,7 +102,7 @@ export const getHealthOutput = z.object({
 export const getHealthTool: McpToolDefinition<typeof getHealthInput, typeof getHealthOutput> = {
   name: "omniroute_get_health",
   description:
-    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics. If an underlying source (health/resilience/rate-limits) could not be reached, it is listed in `degraded` instead of being silently reported as empty/zero.",
+    "Returns the current health status of OmniRoute including uptime, memory usage, circuit breaker states for all providers, rate limit status, and cache statistics. When adaptive virtual-lane admission is active, a curated `adaptiveAdmission` block reports per-lane queue pressure (top tenants by queued cost). If an underlying source (health/resilience/rate-limits) could not be reached, it is listed in `degraded` instead of being silently reported as empty/zero.",
   inputSchema: getHealthInput,
   outputSchema: getHealthOutput,
   scopes: ["read:health"],
@@ -440,7 +461,7 @@ export const listModelsCatalogTool: McpToolDefinition<
   sourceEndpoints: ["/api/models/catalog", "/v1/models"],
 };
 
-// --- Tool 9: omniroute_web_search ---
+// --- Tool 10: omniroute_web_search ---
 export const webSearchInput = z.object({
   query: z
     .string()
@@ -456,17 +477,7 @@ export const webSearchInput = z.object({
     .describe("Maximum number of search results to return"),
   search_type: z.enum(["web", "news"]).default("web").describe("Type of search to perform"),
   provider: z
-    .enum([
-      "serper-search",
-      "brave-search",
-      "perplexity-search",
-      "exa-search",
-      "tavily-search",
-      "google-pse-search",
-      "linkup-search",
-      "searchapi-search",
-      "searxng-search",
-    ])
+    .enum(getActiveSearchProviders())
     .optional()
     .describe("Specific search provider to use"),
 });
@@ -1519,6 +1530,7 @@ export const MCP_TOOLS = [
   routeRequestTool,
   costReportTool,
   listModelsCatalogTool,
+  radarCatalogTool,
   webSearchTool,
   webFetchTool,
   simulateRouteTool,

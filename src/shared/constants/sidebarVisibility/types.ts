@@ -55,6 +55,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "logs-proxy",
   "logs-console",
   "logs-timeline",
+  "conversations",
   "logs-activity",
   "health",
   "runtime",
@@ -66,6 +67,7 @@ export const HIDEABLE_SIDEBAR_ITEM_IDS = [
   "costs-quota-share",
   "free-provider-rankings",
   "radar",
+  "radar-admin",
   // Monitoring > Audit
   "audit",
   "audit-mcp",

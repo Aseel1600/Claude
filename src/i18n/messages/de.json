@@ -980,6 +980,7 @@
   "featureFlagOmnirouteEmergencyFallbackDescription": "Anfragen mit erschöpftem Budget an den kostenlosen Notfall-Fallback-Anbieter/das Notfall-Fallback-Modell weiterleiten.",
   "featureFlagArenaEloSyncEnabledDescription": "Periodischen ELO-Abgleich der Arena AI-Bestenliste für Modell-Intelligenz-Rankings aktivieren.",
   "featureFlagExposeCcDiscoveryAliasesDescription": "Bewerben Sie claude/&lt;provider&gt;/&lt;model&gt; Spiegel-IDs auf /v1/models, damit die Claude Code-Gateway-Modellentdeckung Nicht-Claude-Modelle auflistet. Warnung: Verdoppelt Katalogeinträge für alle Clients, wenn global aktiviert.",
+  "featureFlagChatVirtualLanesEnabledDescription": "Aktivieren Sie adaptive virtuelle Zulassungsspuren pro Tenant für die Provider-Zustellung (#9654): Ein Burst eines Tenants führt nicht mehr zu 503 bei einem anderen. Die Umgebungsvariable OMNIROUTE_CHAT_VIRTUAL_LANES hat Vorrang vor dieser Dashboard-Einstellung; Änderungen werden erst nach einem Serverneustart wirksam.",
   "sidebar": {
     "home": "Zuhause",
     "dashboard": "Dashboard",
@@ -1164,6 +1165,8 @@
     "consoleLogs": "Console Logs",
     "logsTimeline": "Timeline",
     "logsTimelineSubtitle": "Visuelle Anforderungszeitleiste",
+    "conversations": "Conversations",
+    "conversationsSubtitle": "Multi-turn agentic conversations",
     "globalRouting": "Global Routing",
     "mitmProxy": "MITM Proxy",
     "oneProxy": "1Proxy",
@@ -1736,6 +1739,8 @@
     "quotaShare": "Kontingentanteil",
     "discovery": "Discovery",
     "freeProviderRankings": "Rangliste kostenloser Anbieter",
+    "radar": "Radar",
+    "setup": "Setup",
     "freeTiers": "Kostenlose Tarife",
     "gamification": "Gamification",
     "leaderboard": "Bestenliste",
@@ -3601,6 +3606,10 @@
     "wizardStep3Desc": "Pick how requests are distributed across your models - 13 strategies available",
     "wizardStep4Title": "Review & Save",
     "wizardStep4Desc": "Review your configuration and activate the combo",
+    "usageGuideInvokeTitle": "How to call this combo",
+    "usageGuideInvokeDesc": "Send the combo's exact name as the model, e.g. model: \"my-combo\" (or combo/my-combo).",
+    "usageGuideInvokeAutoNote": "auto and auto/* are a separate zero-config router that does not use your combos (unless a combo is literally named auto).",
+    "usageGuideInvokeOpenrouterNote": "openrouter/auto is a real paid OpenRouter product (Auto Best Available), not an OmniRoute alias — exclude it via Settings → Routing → Hide paid models.",
     "emailVisibilityStateOn": "On",
     "emailVisibilityStateOff": "Off",
     "reorderHandle": "Drag to reorder",
@@ -5092,6 +5101,7 @@
     "deprecatedProvider": "Dieser Anbieter ist veraltet",
     "riskNotice": {
       "title": "Vor dem Fortfahren",
+      "detailsTitle": "Usage caveats",
       "tooltip": "Anbieter mit Nutzungseinschränkungen — für Details klicken",
       "oauth": "Dieser Anbieter verwendet Ihre offizielle Produktsitzung/OAuth, die nicht für die Proxy-/Router-Nutzung autorisiert ist. Wir empfehlen keine intensive Nutzung durch autonome Agenten (im OpenCloud-Stil, lange mehrstufige Abläufe, große Batches) — der Upstream-Anbieter kann darauf reagieren, indem er das Konto einschränkt oder sperrt. Nutzung auf eigene Gefahr.",
       "webCookie": "Dieser Anbieter authentifiziert sich über Ihre Web-Sitzungscookies. Der Upstream-Dienst kann die Sitzung jederzeit ungültig machen, sodass Sie sich erneut anmelden müssen. Nicht empfohlen für lange unbeaufsichtigte Vorgänge. Nutzung auf eigene Gefahr.",
@@ -5099,6 +5109,11 @@
       "dontShowAgain": "Für diesen Anbieter nicht mehr anzeigen",
       "understand": "Ich verstehe, fortfahren",
       "cancel": "Abbrechen"
+    },
+    "warningNotice": {
+      "tooltip": "{count} connection(s) flagged — up to {maxFailures} recent failures{lastFailureSuffix}. Click to view connection health.",
+      "lastFailureSuffix": " (last failure {time})",
+      "ariaLabel": "View connection health details, {count} warning(s)"
     },
     "disabled": "Deaktiviert",
     "enableProvider": "Anbieter aktivieren",
@@ -5222,6 +5237,17 @@
     "skippingExistingModels": "Überspringe {count} vorhandene Modelle",
     "autoSync": "Auto-Sync",
     "autoSyncShort": "Sync",
+    "autoFetchModels": "Automatisches Abrufen von Upstream-Modellen",
+    "autoFetchModelsTooltip": "Abrufen und Zwischenspeichern von Upstream-Modellen bei Bedarf",
+    "autoFetchModelsEnabled": "Upstream-Modell Auto-Fetch aktiviert",
+    "autoFetchModelsDisabled": "Auto-Abholung des Upstream-Modells deaktiviert",
+    "autoFetchModelsToggleFailed": "Fehler beim Umschalten des automatischen Abrufs des Upstream-Modells",
+    "autoFetchModelsPartialFailure": "Einige Verbindungen wurden aktualisiert, aber das automatische Abrufen des upstream-Modells wurde nicht überall geändert.",
+    "overridesUpstreamModel": "Überschreibt upstream",
+    "overridesUpstreamModelHint": "Ihre Einstellungen überschreiben dieses übergeordnete Modell",
+    "resetToUpstreamDefaults": "Ursprüngliche Standardeinstellungen wiederherstellen",
+    "resetToUpstreamDefaultsSuccess": "Ursprüngliche Standardwerte des Upstream-Modells wiederhergestellt",
+    "resetToUpstreamDefaultsFailed": "Wiederherstellung der Standardwerte des upstream-Modells fehlgeschlagen",
     "autoSyncTooltip": "Modellliste automatisch alle 24 Stunden aktualisieren (konfigurierbar über MODEL_SYNC_INTERVAL_HOURS)",
     "autoSyncEnabled": "Auto-Sync aktiviert — Modelle werden regelmäßig aktualisiert",
     "autoSyncDisabled": "Auto-Sync deaktiviert",
@@ -5428,17 +5454,17 @@
     "interceptionLoadError": "Fehler beim Laden der Interzeptionseinstellungen: {error}",
     "interceptionSaveError": "Fehler beim Speichern der Interzeptionseinstellungen: {error}",
     "ccAliasSectionTitle": "Expose in Claude Code (claude/…)",
-    "ccAliasSectionHint": "Bewerben Sie die Modelle dieses Anbieters unter claude/&lt;provider&gt;/&lt;model&gt; Spiegel-IDs, damit das Gateway-Modellentdeckung von Claude Code sie auflisten kann. Standardmäßig deaktiviert — das Aktivieren verdoppelt die Katalogeinträge für alle Kunden.",
-    "ccAliasProviderLevelLabel": "Anbieter standardmäßig",
-    "ccAliasModelOverridesLabel": "Pro-Modell-Überschreibungen",
-    "ccAliasModelOverrideAriaLabel": "Überschreibung für {modelId}",
-    "ccAliasStateInherit": "Erben",
-    "ccAliasStateOn": "Ein",
-    "ccAliasStateOff": "Aus",
-    "ccAliasAddModelPlaceholder": "Modell-ID (z. B. gpt-4o)",
-    "ccAliasAddModelButton": "Überschreibung hinzufügen",
-    "ccAliasLoadError": "Fehler beim Laden der discovery-alias-Einstellungen: {error}",
-    "ccAliasSaveError": "Fehler beim Speichern der discovery-alias-Einstellung: {error}",
+    "ccAliasSectionHint": "Advertise this provider's models under claude/&lt;provider&gt;/&lt;model&gt; mirror ids so Claude Code's gateway model discovery can list them. Off by default — enabling this doubles catalog entries for all clients.",
+    "ccAliasProviderLevelLabel": "Provider default",
+    "ccAliasModelOverridesLabel": "Per-model overrides",
+    "ccAliasModelOverrideAriaLabel": "Override for {modelId}",
+    "ccAliasStateInherit": "Inherit",
+    "ccAliasStateOn": "On",
+    "ccAliasStateOff": "Off",
+    "ccAliasAddModelPlaceholder": "Model id (e.g. gpt-4o)",
+    "ccAliasAddModelButton": "Add override",
+    "ccAliasLoadError": "Failed to load discovery-alias settings: {error}",
+    "ccAliasSaveError": "Failed to save discovery-alias setting: {error}",
     "compatUpstreamHeadersLabel": "Extra upstream headers",
     "compatUpstreamHeadersHint": "High-privilege setting — same trust level as editing provider API credentials; only trusted admins should use it. Merged after OmniRoute adds auth from the provider API key. If a custom header uses the same name as an existing one (e.g. Authorization), your value fully replaces the auto-generated header (including the Bearer token) — the upstream only sees what you typed, not the key from settings. Misconfiguration can cause 401 or broken upstream auth. One row per header (e.g. extra Authentication for some gateways). Hover or focus the value to preview. Saves on blur, outside click, or closing this panel.",
     "compatUpstreamHeaderName": "Header name",
@@ -6183,7 +6209,7 @@
       "galadriel": "Verbinden Sie Galadriel mit einem API-Schlüssel.",
       "predibase": "$25 kostenloses Testguthaben (30 Tage Gültigkeit)",
       "chenzk": "OpenAI-kompatibles Gateway mit einem Live-Modellkatalog unter chenzk.top.",
-      "freepik": "Generieren Sie Bilder mit der Mystic-API von Freepik.",
+      "magnific": "Generieren Sie Bilder mit Magnific Mystic.",
       "freetheai": "Kostenloses OpenAI-kompatibles Gateway mit Passthrough-Modellunterstützung.",
       "g4f-gemini": "Kostenloser schlüsselloser g4f.space-Reverse-Proxy zu Gemini, begrenzt auf 5 Anfragen pro Minute.",
       "g4f-groq": "Kostenloser schlüsselloser g4f.space-Reverse-Proxy zu Groq, begrenzt auf 5 Anfragen pro Minute.",
@@ -6198,6 +6224,7 @@
       "claude": "Claude Code mit dem bestehenden OAuth-Flow verbinden.",
       "cline": "Cline mit dem bestehenden OAuth-Flow verbinden.",
       "cursor": "Cursor IDE mit dem bestehenden OAuth-Flow verbinden.",
+      "cursor-api": "Connect Cursor with a user API key (crsr_...) from cursor.com/dashboard/api; no IDE session needed.",
       "github": "GitHub Copilot mit dem bestehenden OAuth-Flow verbinden.",
       "gitlab-duo": "OAuth-Anwendung mit den Scopes ai_features + read_user. Konfigurieren Sie GITLAB_DUO_OAUTH_CLIENT_ID und optional GITLAB_DUO_OAUTH_CLIENT_SECRET auf dieser OmniRoute-Instanz.",
       "kilocode": "Kilo Code mit dem bestehenden OAuth-Flow verbinden.",
@@ -6260,6 +6287,15 @@
     "cheaperInferenceSupporterBadge": "Open-Source-Freund",
     "cheaperInferenceSupporterTooltip": "Cheaper Inference unterstützt OmniRoute als Open-Source-Freund",
     "kimiPartnerLinkNote": "Partnerlink — unterstützt OmniRoute ohne zusätzliche Kosten für Sie",
+    "codexQuotaPools": "Codex-Kontingentpools",
+    "codexPoolAvailable": "Verfügbar",
+    "codexPoolPartiallyLimited": "Teilweise eingeschränkt",
+    "codexPoolFullyLimited": "Vollständig eingeschränkt",
+    "codexPoolLimited": "{count} eingeschränkt",
+    "codexPoolQuotaExhausted": "Kontingent aufgebraucht",
+    "codexPoolCoolingDown": "In Abklingzeit",
+    "codexPoolUsed": "verwendet",
+    "codexPoolUntil": "Bis {value}",
     "anonymousFallbackTitle": "Anonymer Fallback",
     "anonymousFallbackDesc": "Wenn alle konfigurierten Verbindungen erschöpft sind (Kontingent, Guthaben oder Ablauf), verwenden Sie vorübergehend die schlüssellose Stufe dieses Anbieters. Deaktivieren Sie dies, um diesen Anbieter zu überspringen, anstatt anonyme Anfragen zu senden – empfohlen, wenn die schlüssellose Stufe diese ablehnt (401).",
     "anonymousFallbackEnabled": "Anonymer Fallback für {provider} aktiviert",
@@ -6554,6 +6590,12 @@
     "autoDisableDescription": "Permanently mark provider connections as deactivated if they return specific terminal ban signals (e.g. HTTP 403 'verify your account'). This removes them from the combo rotation.",
     "autoDisableThreshold": "Ban Threshold",
     "autoDisableThresholdDesc": "Consecutive ban signals required before permanent deactivation.",
+    "autoDisableBannedScope": "Apply auto-disable to",
+    "autoDisableBannedScopeDesc": "Login seats (paid subscriptions and free accounts) can be locked by the upstream if OmniRoute keeps retrying after a ban. Paid prepaid API keys do not have that risk — leave them in the pool so fill-first can use the next key.",
+    "autoDisableBannedScopeAll": "All connections",
+    "autoDisableBannedScopeAllDesc": "Deactivate every connection that returns a permanent ban signal, including prepaid API keys.",
+    "autoDisableBannedScopeSubscription": "Login / subscription accounts only",
+    "autoDisableBannedScopeSubscriptionDesc": "Deactivate OAuth, cookie, session, and web-login seats (paid or free). Prepaid API keys stay active so routing can fail over.",
     "customBannedSignals": "Gesperrte Keywords",
     "customBannedSignalsDesc": "Zusätzliche Keywords, die die Erkennung einer dauerhaften Kontosperrung auslösen. Integrierte Keywords gelten immer.",
     "customBannedSignalsPlaceholder": "z. B. api key revoked",
@@ -7161,6 +7203,7 @@
     "configured": "konfiguriert",
     "none": "Keine",
     "modelOverrideValuePlaceholder": "Numerischer Wert",
+    "modelOverrideReasoningEffortsPlaceholder": "English comma-separated, e.g. low, medium, high",
     "addKeyValue": "Schlüssel-Wert hinzufügen",
     "noModelOverrides": "Keine Overrides für dieses Modell konfiguriert.",
     "modelOverrideLoadFailed": "Modell-Overrides konnten nicht geladen werden",
@@ -7732,6 +7775,10 @@
         "label": "Ponytail (lazy senior dev)",
         "description": "Lazy senior-dev discipline: climb the YAGNI ladder, fix root cause, smallest working diff."
       },
+      "i-have-adhd": {
+        "label": "I have ADHD (action-first)",
+        "description": "Action-first output: next action leads, steps numbered, one concrete next step, no preamble."
+      },
       "terse-cjk": {
         "label": "Knappe CJK (文言)",
         "description": "Klassisch-chinesischer, extrem knapper Stil (nur für Chinesisch verfügbar)."
@@ -8012,13 +8059,17 @@
     "disableSessionStickinessDesc": "Round-Robin- und Zufallskombinationen wechseln bei jeder Anfrage zu einer anderen Verbindung, anstatt eine gesamte Konversation über den Hash der ersten Nachricht an eine Verbindung zu binden. Deaktiviert lassen, um Prompt-Cache-Treffer für Multi-Turn-Chats zu erhalten. Überschreibungen pro Kombination haben Vorrang.",
     "promptCacheAffinity": "Prompt-cache locality routing",
     "promptCacheAffinityDesc": "Prefer the same provider account for matching prompt-cache keys while preserving health and quota failover.",
+    "reasoningTokenBuffer": "Reasoning token buffer",
+    "reasoningTokenBufferDesc": "Allow combo routing to add max_tokens headroom only for known reasoning models when the full buffer fits inside a known output cap.",
+    "zeroLatencyOptimizations": "Zero-latency optimizations",
+    "zeroLatencyOptimizationsDesc": "Opt in to hedging, predictive TTFT skips, and proactive fallback compression. Leave off to prevent these latency features from racing targets or compressing fallback requests.",
     "credentialRedaction": "Schwärzung von Anmeldedaten",
     "credentialRedactionDesc": "API-Schlüssel, Token und Geheimnisse aus dem an Anbieter gesendeten Kontext und aus Antworten schwärzen.",
     "enableCredentialRedaction": "Schwärzung von Anmeldedaten aktivieren",
     "enableCredentialRedactionDesc": "Bereinigt API-Schlüssel, Token, private Schlüssel und JWTs aus Nachrichten, Tool-Aufrufen und Antworten.",
     "pricingAutoSyncDisabled": "Automatic Sync Disabled",
     "pricingAutoSyncEnabled": "Automatic Sync Enabled",
-    "modalityBridgeIntro": "Bringen Sie multimodale Inhalte in Textform, bevor sie textbasierten Modellen zugeführt werden. Vision ist live; Audio kommt mit dem AudioBridge; Video steht auf der Roadmap.",
+    "modalityBridgeIntro": "Überführen Sie multimodale Inhalte in Text, bevor sie reine Textmodelle erreichen. Die Bridges für Bild, Audio und Video sind verfügbar und konfigurierbar.",
     "modalityBridgeVisionTab": "Vision",
     "modalityBridgeAudioTab": "Audio",
     "modalityBridgeVideoTab": "Video",
@@ -8040,6 +8091,8 @@
     "modalityBridgeAdvanced": "Erweitert",
     "modalityBridgeTimeoutMs": "Zeitüberschreitung (ms)",
     "modalityBridgeMaxImages": "Maximale Bilder pro Anfrage",
+    "visionMaxCharsLabel": "Maximalbeschreibungszeichen",
+    "visionMaxCharsHint": "Begrenzen Sie die Länge der Beschreibung des Vision-Modells. 0 = unbegrenzt — erhöhen Sie den Wert für detailreiche OCR-Aufgaben.",
     "modalityBridgeCacheEnabled": "Cache-Beschreibungen",
     "modalityBridgeCacheEnabledDesc": "Wiederverwendung von Beschreibungen für identische Bilder (SHA-256-verschlüsselt, im Speicher).",
     "modalityBridgeCacheTtlMinutes": "Cache TTL (Minuten)",
@@ -8056,7 +8109,6 @@
     "modalityBridgeTestNoop": "Bridge wurde nicht aktiviert (das Modell unterstützt möglicherweise Vision nativ oder Bridge ist deaktiviert)",
     "modalityBridgeTestError": "Test fehlgeschlagen: {message}",
     "modalityBridgeAudioComingSoon": "Die Audio-Brücke (Sprache → Text über /v1/audio/transcriptions) wird in der nächsten Version ausgeliefert. Ihre Einstellungsschlüssel sind bereits reserviert.",
-    "modalityBridgeVideoComingSoon": "Video-Bridging (Frame-Sampling + Untertitelung) steht auf der Warteliste – siehe Issue #9760.",
     "modalityBridgeMovedTitle": "Vision Bridge verschoben",
     "modalityBridgeMovedBody": "Die Vision Bridge-Einstellungen sind jetzt auf der speziellen Modality Bridge-Seite verfügbar.",
     "modalityBridgeMovedCta": "Modality Bridge-Einstellungen öffnen",
@@ -8072,6 +8124,17 @@
     "modalityBridgeAudioTestOk": "Audio Bridge OK — {count} Clip(s) von {model} transkribiert",
     "modalityBridgeAudioTestNoop": "Audio Bridge wurde nicht aktiviert (das Ziel unterstützt möglicherweise Audio, kein STT-Anbieter ist verbunden oder die Brücke ist deaktiviert)",
     "modalityBridgeAudioTestError": "Audiotest fehlgeschlagen: {message}",
+    "modalityBridgeVideoTitle": "Video Bridge",
+    "modalityBridgeVideoDesc": "Entnehmen Sie Videoframes, beschreiben Sie sie mit einem Bildmodell und fahren Sie mit dem ausgewählten Textmodell fort.",
+    "modalityBridgeVideoRuntimeReady": "Laufzeit bereit",
+    "modalityBridgeVideoRuntimeUnavailable": "Laufzeit nicht verfügbar",
+    "modalityBridgeVideoRuntimeInstall": "Installieren Sie FFmpeg und ffprobe im PATH des Servers, um die Videoextraktion zu aktivieren.",
+    "modalityBridgeVideoEnabled": "Video Bridge aktivieren",
+    "modalityBridgeVideoEnabledDesc": "Ersetzen Sie Videoteile durch zeitgestempelte Frame-Beschreibungen, wenn das Zielmodell keine Videos verarbeiten kann.",
+    "modalityBridgeVideoModel": "Modell für Frame-Beschreibungen",
+    "modalityBridgeVideoModelInherited": "Modell der Vision Bridge übernehmen",
+    "modalityBridgeVideoFrameCount": "Frames pro Video",
+    "modalityBridgeVideoMaxVideos": "Maximale Videos pro Anfrage",
     "modelRoutingDescriptionPlaceholder": "Route Opus-Modelle zu Frontier-Kombination",
     "cliproxyapiFallbackCodes": "Cliproxyapi Fallback-Codes",
     "cliproxyapiFallbackDescription": "Cliproxyapi Fallback-Beschreibung",
@@ -8560,6 +8623,27 @@
     },
     "enableTitle": "Engine aktivieren",
     "enableDescription": "Wird als Letztes im Stack ausgeführt (nachdem RTK/Caveman den Text bereinigt hat, konvertiert OmniGlyph den Rest in Bilder) und läuft auch eigenständig im <code>omniglyph</code>-Modus. Dies ist eine Vorschau und bleibt standardmäßig deaktiviert, bis die End-to-End-Validierung abgeschlossen ist.",
+    "profileTitle": "Compression profile",
+    "profileDescription": "The profile is a ceiling, not a floor: a stricter profile cannot be reopened by a per-step override. Measured on this codebase: with coding-safe or balanced, a session that has not accumulated history yet compresses nothing, because both raise the minimum-characters threshold and keep the system prompt, tool schemas and tool results native.",
+    "profiles": {
+      "aggressive": {
+        "label": "Aggressive (default)",
+        "description": "The policy the published receipts measured. Images the system prompt, tool documentation and dense history."
+      },
+      "balanced": {
+        "label": "Balanced",
+        "description": "Keeps live state native and protects the last 8 turns; only collapses older closed history."
+      },
+      "codingSafe": {
+        "label": "Coding-safe",
+        "description": "Keeps authority, tool schemas and live tool output native, protecting the last 12 turns. Compresses nothing until the session accumulates history."
+      },
+      "passthrough": {
+        "label": "Passthrough",
+        "description": "Routes without transforming. The engine is skipped and the request is forwarded untouched."
+      }
+    },
+    "profileAria": "Select the OmniGlyph compression profile",
     "saved": "Gespeichert.",
     "saveFailed": "Konnte nicht gespeichert werden.",
     "enableAria": "OmniGlyph-Engine aktivieren",
@@ -9029,6 +9113,16 @@
     "grokAutoTopUpMax": "max",
     "grokAutoTopUpMonth": "Monat",
     "grokAdditionalCredits": "Zusätzliche Credits",
+    "kimiExtraUsageCredits": "Extra Usage Credits",
+    "kimiExtraUsage": "Extra Usage",
+    "kimiExtraUsageEnabled": "Enabled",
+    "kimiExtraUsageDisabled": "Disabled",
+    "kimiExtraUsageFrozen": "Frozen",
+    "kimiExtraUsageUnavailable": "Unavailable",
+    "kimiMonthlyUsed": "Used this month",
+    "kimiMonthlyLimit": "Monthly limit",
+    "kimiMonthlyLimitUnlimited": "Unlimited",
+    "kimiAdditionalCredits": "Additional Credits",
     "loggerTab": "Logger",
     "proxyTab": "Stellvertreter",
     "budgetManagement": "Budgetverwaltung",
@@ -11033,7 +11127,8 @@
       "compressed": "Komprimierung",
       "tps": "TPS",
       "duration": "Duration",
-      "time": "Time"
+      "time": "Time",
+      "conversation": "Conversation"
     },
     "loadingLogs": "Loading logs...",
     "noLogs": "No logs yet. Make some API calls to see them here.",
@@ -12425,6 +12520,11 @@
       "rare": "Seltene Erfolge"
     },
     "badges": {
+      "radar-supporter": {
+        "name": "Radar Supporter",
+        "description": "Verified a live OmniRoute Radar supporter feed",
+        "criteria": "Verify a signed live Radar supporter feed."
+      },
       "first-token": {
         "name": "Erster Token",
         "description": "Deine erste API-Anfrage durchgeführt",
@@ -12648,6 +12748,10 @@
       },
       "ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE": {
         "description": "Mehrere Verbindungen für jeden Kompatibilitätsknoten zulassen."
+      },
+      "DISABLE_CONTEXT_WINDOW_CHECKS": {
+        "label": "Kontextfensterprüfungen deaktivieren",
+        "description": "Lokale Kontextfenster- und Maximaleingabetoken-Prüfung von OmniRoute für direkte Einzelmodell-Anfragen überspringen. Upstream-Anbieter erzwingen weiterhin ihre tatsächlichen Grenzen. Prompt-Komprimierung und Ausgabetoken-Grenzen bleiben aktiv."
       },
       "RESPONSES_PASSTHROUGH_DROP_COMMENTARY": {
         "description": "Interne Ausgabeelemente der Kommentarphase aus den Passthrough-Streams der Responses-API entfernen, bevor sie an Clients weitergeleitet werden. Deaktivieren Sie dieses Flag, um rohe Upstream-Kommentare zu erhalten."
@@ -13069,6 +13173,13 @@
     "partnerLinkNote": "Partnerlink",
     "dismissAriaLabel": "Schließen"
   },
+  "vscodeCopilotBanner": {
+    "title": "OmniRoute läuft jetzt direkt in VS Code Copilot Chat",
+    "description": "Installiere die kostenlose OmniCopilot-Erweiterung, und jedes OmniRoute-Modell erscheint direkt in der Copilot-Chat-Modellauswahl, die du bereits nutzt.",
+    "cta": "Erweiterung holen",
+    "secondaryNote": "Auch auf Open VSX (Cursor, Windsurf, VSCodium…)",
+    "dismissAriaLabel": "Schließen"
+  },
   "featureFlagExposeFunctionalGatewayMirrorsDescription": "Bewerben Sie <gateway-alias>/<model> Spiegel-IDs auf /v1/models für Modelle, deren kanonischer Eigentümer keine aktiven Anmeldeinformationen hat, aber ein Durchgangsgateway mit aktiven Anmeldeinformationen sie weiterleitet. Warnung: Fügt Katalogeinträge für alle Clients hinzu, wenn global aktiviert.",
   "radarPage": {
     "title": "Radar-Katalog",
@@ -13124,7 +13235,39 @@
     "campaignsTitle": "Limited-time campaigns",
     "campaignsEmpty": "No active campaigns right now — check back later.",
     "campaignsUpsellCommunity": "Limited-time campaigns are a supporter extra. Everything on this page's fixed links stays free for everyone.",
-    "campaignsValidUntil": "Valid until {date}"
+    "campaignsValidUntil": "Valid until {date}",
+    "colActions": "Actions",
+    "localBadge": "local",
+    "editModel": "Edit",
+    "saveModel": "Save",
+    "cancelEdit": "Cancel",
+    "resetModel": "Reset local changes",
+    "hideModel": "Hide",
+    "restoreModel": "Restore",
+    "hiddenModelsTitle": "Hidden models",
+    "modelDisplayName": "Local display name",
+    "modelEnabled": "Enabled locally",
+    "localStateSaveFailed": "Failed to save local Radar settings",
+    "guidedCombos": "Guided combos",
+    "offers": "Angebote",
+    "intel": "Intel"
+  },
+  "radarCombosPage": {
+    "title": "Radar guided combos",
+    "subtitle": "Create priority fallbacks from equivalent free models curated by Radar.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading combo suggestions...",
+    "familyLabel": "Model family",
+    "modelsLabel": "Priority order",
+    "strategyReason": "Priority uses the largest recurring free budget first, then falls back across active providers.",
+    "generateButton": "Generate combo",
+    "generating": "Generating...",
+    "alreadyCreated": "Already created",
+    "created": "Combo created",
+    "noSuggestions": "No eligible model family currently has active connections to at least two providers.",
+    "catalogRequired": "Sync the Radar catalog first to load curated model families.",
+    "loadFailed": "Failed to load Radar combo suggestions.",
+    "createFailed": "Failed to create the combo. Review your provider connections and try again."
   },
   "radarSetupPage": {
     "title": "Anbieter-Einrichtung",
@@ -13239,17 +13382,18 @@
     "pollErrorLocalOnly": "Diese Seite ist nur von localhost oder LAN aus zugänglich (LOCAL_ONLY).",
     "pollErrorStopped": "Abfrage gestoppt: Der Server hat die Anfrage abgelehnt (404/403).",
     "pollErrorTransient": "Fehler beim Abrufen der Daten: automatischer erneuter Versuch.",
-    "degraded": "Teildaten: nicht verfügbare Quellen: {sources}",
-    "degraded.source.database": "Datenbank",
-    "degraded.source.circuitBreaker": "Leistungsschalter",
-    "degraded.source.modelLockouts": "Modellsperren",
-    "degraded.source.count": "Verbindungsanzahl"
+    "degraded": {
+      "message": "Teildaten: nicht verfügbare Quellen: {sources}",
+      "source": {
+        "database": "Datenbank",
+        "circuitBreaker": "Leistungsschalter",
+        "modelLockouts": "Modellsperren",
+        "count": "Verbindungsanzahl"
+      }
+    }
   },
   "featureFlagCapabilityFilterEnabledDescription": "Lehnen Sie Anfragen ab, bevor sie versendet werden, wenn das Zielmodell über die erforderlichen Funktionen (Vision, Werkzeuge, strukturierte Ausgabe, Kontextfenster) nicht verfügt. Schützt direkte Einzelanbieteranfragen, die den Kombo-Schicht-Kompatibilitätsfilter umgehen.",
-  "capabilityFilter.visionMismatch": "Der Anbieter unterstützt die Vision für diese Bildanfrage nicht",
-  "capabilityFilter.toolsMismatch": "Der Anbieter unterstützt keinen Toolaufruf",
-  "capabilityFilter.structuredOutputMismatch": "Der Anbieter unterstützt keine strukturierten Ausgaben",
-  "capabilityFilter.contextWindowMismatch": "Anfrage überschreitet das Kontextfenster des Anbieters",
+  "featureFlagDisableContextWindowChecksDescription": "Lokale Kontextfenster- und Maximaleingabetoken-Prüfung von OmniRoute für direkte Einzelmodell-Anfragen überspringen. Upstream-Anbieter erzwingen weiterhin ihre tatsächlichen Grenzen. Prompt-Komprimierung und Ausgabetoken-Grenzen bleiben aktiv.",
   "publicSystem": {
     "notFound": {
       "title": "Seite nicht gefunden",
@@ -13624,5 +13768,65 @@
     "hint": "Wenn aktiviert, erscheinen entdeckte Modelle in den Anbieterauswahlen über OmniRoute.",
     "updateFailed": "Fehler beim Aktualisieren (HTTP {status})",
     "networkError": "Netzwerkfehler — konnte die Bereitstellungseinstellung nicht aktualisieren"
+  },
+  "radarOffersPage": {
+    "title": "Angebote für Unterstützer",
+    "subtitle": "Offizielle Rabatte, Guthaben, Testzeiträume und geprüfte Partnervorteile von Radar.",
+    "backToRadar": "Zurück zu Radar",
+    "loading": "Angebote werden geladen...",
+    "refresh": "Angebote aktualisieren",
+    "refreshing": "Wird aktualisiert...",
+    "loadFailed": "Angebote konnten nicht aktualisiert werden. Der letzte verifizierte lokale Cache bleibt erhalten.",
+    "empty": "Derzeit sind keine aktiven Angebote verfügbar.",
+    "keyRequiredTitle": "Ein Unterstützerschlüssel ist erforderlich",
+    "keyRequiredDescription": "Angebote sind ein Live-Vorteil von Radar. Hinterlege einen vorhandenen Schlüssel, bestätige deinen Beitrag oder unterstütze das Projekt, um einen zu erhalten.",
+    "contributorButton": "Ich bin Mitwirkender",
+    "supporterButton": "Projekt unterstützen",
+    "partnerBadge": "Partner",
+    "officialBadge": "Offiziell",
+    "conditionsLabel": "Bedingungen:",
+    "validUntil": "Gültig bis {date}",
+    "noExpiry": "Kein Ablaufdatum angegeben",
+    "openOffer": "Angebot ansehen",
+    "trialDays": "{days, plural, one {# Tag} other {# Tage}}"
+  },
+  "radarIntelPage": {
+    "title": "Radar Intel",
+    "subtitle": "Radar-owned ELO rankings and factual catalog movement.",
+    "backToRadar": "Back to Radar",
+    "loading": "Loading Intel...",
+    "refresh": "Refresh Intel",
+    "syncing": "Refreshing...",
+    "loadFailed": "We could not refresh Intel. The last verified local cache is kept.",
+    "empty": "No verified Intel snapshot is available yet.",
+    "supporterBadge": "Radar Supporter",
+    "methodology": "Methodology",
+    "eloMethod": "ELO, initial {initial}, K={factor}",
+    "freshness": "Catalog freshness",
+    "ageDays": "{days, plural, one {# day old} other {# days old}}",
+    "trend": "Catalog trend",
+    "modelDelta": "{current} models, +{added} / -{removed}",
+    "ranking": "Model ranking",
+    "noRankings": "No confirmed comparisons are available yet.",
+    "model": "Model",
+    "category": "Category",
+    "rating": "Rating",
+    "matches": "Matches",
+    "freshnessValues": {
+      "fresh": "Fresh",
+      "aging": "Aging",
+      "stale": "Stale"
+    },
+    "trendValues": {
+      "growing": "Growing",
+      "stable": "Stable",
+      "shrinking": "Shrinking"
+    }
+  },
+  "capabilityFilter": {
+    "visionMismatch": "Der Anbieter unterstützt die Vision für diese Bildanfrage nicht",
+    "toolsMismatch": "Der Anbieter unterstützt keinen Toolaufruf",
+    "structuredOutputMismatch": "Der Anbieter unterstützt keine strukturierten Ausgaben",
+    "contextWindowMismatch": "Anfrage überschreitet das Kontextfenster des Anbieters"
   }
 }

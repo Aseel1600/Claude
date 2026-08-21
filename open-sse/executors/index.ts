@@ -1,3 +1,6 @@
+import { SEARCH_PROVIDERS } from "../config/searchRegistry.ts";
+import { registerExecutor, getRegisteredExecutor, hasRegisteredExecutor } from "./registry.ts";
+import type { BaseExecutor } from "./base.ts";
 import { AntigravityExecutor } from "./antigravity.ts";
 import { GithubExecutor } from "./github.ts";
 import { GheCopilotExecutor } from "./ghe-copilot.ts";
@@ -11,6 +14,7 @@ import { BedrockExecutor } from "./bedrock.ts";
 import { GlmExecutor } from "./glm.ts";
 import { PollinationsExecutor } from "./pollinations.ts";
 import { CloudflareAIExecutor } from "./cloudflare-ai.ts";
+import { FreebuffExecutor } from "./freebuff.ts";
 import { OpencodeExecutor } from "./opencode.ts";
 import { VertexExecutor } from "./vertex.ts";
 import { CliproxyapiExecutor } from "./cliproxyapi.ts";
@@ -19,6 +23,7 @@ import { NineRouterExecutor } from "./ninerouter.ts";
 import { PerplexityWebExecutor } from "./perplexity-web.ts";
 import { GrokWebExecutor } from "./grok-web.ts";
 import { GeminiWebExecutor } from "./gemini-web.ts";
+import { TencentAIStudioWebExecutor } from "./tencent-aistudio-web.ts";
 import { GeminiBusinessExecutor } from "./gemini-business.ts";
 import { ChatGptWebExecutor } from "./chatgpt-web.ts";
 import { ChatGptWebCodexExecutor } from "./chatgpt-web-codex.ts";
@@ -32,6 +37,7 @@ import { NlpCloudExecutor } from "./nlpcloud.ts";
 import { DevinDesktopExecutor } from "./devin-desktop.ts";
 import { ZedHostedExecutor } from "./zed-hosted.ts";
 import { DevinCliExecutor } from "./devin-cli.ts";
+import { ZcodeExecutor } from "./zcode.ts";
 import { DevinCliAgenticExecutor } from "./devin-cli-agentic.ts";
 import { AuggieExecutor } from "./auggie.ts";
 import { DeepSeekWebExecutor } from "./deepseek-web.ts";
@@ -65,16 +71,22 @@ import { MoonshotExecutor } from "./moonshot.ts";
 import { TheOldLlmExecutor } from "./theoldllm.ts";
 import { ChipotleExecutor } from "./chipotle.ts";
 import { LMArenaExecutor } from "./lmarena.ts";
-import { MimocodeExecutor } from "./mimocode.ts";
 import { GrokCliExecutor } from "./grok-cli.ts";
 import { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 import { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+import { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 import { TinyCmsExecutor } from "./tinycms.ts";
 import { HyperAgentExecutor } from "./hyperagent.ts";
 import { XaiExecutor } from "./xai.ts";
 import { PromptQlExecutor } from "./promptql.ts";
 import { ConolWebExecutor } from "./conol-web.ts";
 
+// R0.3 — declarative built-in table. The object literal stays as the single
+// place built-ins are declared (compile-time duplicate-key safety; the
+// check:known-symbols gate parses this literal from source), but lookup goes
+// through the ExecutorRegistry (./registry.ts): every entry is registered at
+// module load below, and getExecutor()/hasSpecializedExecutor() consult the
+// registry — the literal is never read at request time.
 const executors = {
   antigravity: new AntigravityExecutor(),
   agy: new AntigravityExecutor(),
@@ -93,6 +105,8 @@ const executors = {
   "glm-cn": new GlmExecutor("glm-cn"),
   glmt: new GlmExecutor("glmt"),
   cu: new CursorExecutor(), // Alias for cursor
+  "cursor-api": new CursorExecutor("cursor-api"),
+  cua: new CursorExecutor("cursor-api"),
   "azure-openai": new AzureOpenAIExecutor(),
   "azure-ai": new AzureAiExecutor(),
   "command-code": new CommandCodeExecutor(),
@@ -104,6 +118,8 @@ const executors = {
   pol: new PollinationsExecutor(), // Alias
   "cloudflare-ai": new CloudflareAIExecutor(),
   cf: new CloudflareAIExecutor(), // Alias
+  freebuff: new FreebuffExecutor(),
+  fb: new FreebuffExecutor(), // Alias
   "opencode-zen": new OpencodeExecutor("opencode-zen"),
   "opencode-go": new OpencodeExecutor("opencode-go"),
   opencode: new OpencodeExecutor("opencode-zen"), // Alias for opencode-zen
@@ -133,6 +149,8 @@ const executors = {
   "devin-desktop": new DevinDesktopExecutor(),
   "zed-hosted": new ZedHostedExecutor(),
   "devin-cli": new DevinCliExecutor(),
+  zcode: new ZcodeExecutor(),
+  zc: new ZcodeExecutor(), // Alias
   "devin-cli-agentic": new DevinCliAgenticExecutor(),
   devin: new DevinCliExecutor(), // Alias
   "deepseek-web": new DeepSeekWebWithAutoRefreshExecutor(),
@@ -159,6 +177,8 @@ const executors = {
   huggingchat: new HuggingChatExecutor(),
   hc: new HuggingChatExecutor(), // Alias
   "yuanbao-web": new YuanbaoWebExecutor(),
+  "tencent-aistudio-web": new TencentAIStudioWebExecutor(),
+  tasw: new TencentAIStudioWebExecutor(),
   ybw: new YuanbaoWebExecutor(), // Alias
   "poe-web": new PoeWebExecutor(),
   // #8969: do NOT alias canonical `poe` (API-key / api.poe.com) to PoeWebExecutor.
@@ -193,13 +213,13 @@ const executors = {
   pepper: new ChipotleExecutor(), // Alias
   lmarena: new LMArenaExecutor(),
   lma: new LMArenaExecutor(), // Alias
-  mimocode: new MimocodeExecutor(),
-  mcode: new MimocodeExecutor(), // Alias
   "grok-cli": new GrokCliExecutor(),
   gc: new GrokCliExecutor(), // Alias
   "codebuddy-cn": new CodeBuddyCnExecutor(),
   cbcn: new CodeBuddyCnExecutor(), // Alias for codebuddy-cn
   "zenmux-free": new ZenmuxFreeExecutor(),
+  "cloudflare-playground": new CloudflarePlaygroundExecutor(),
+  cfp: new CloudflarePlaygroundExecutor(), // Alias for cloudflare-playground
   "tinycms-web": new TinyCmsExecutor(),
   tcw: new TinyCmsExecutor(), // Alias
   hyperagent: new HyperAgentExecutor(),
@@ -214,6 +234,13 @@ const executors = {
   cnl: new ConolWebExecutor(), // Alias
 };
 
+// Bootstrap: register every built-in in the ExecutorRegistry. registerExecutor
+// throws on duplicates, so an alias collision fails at module load, exactly as
+// loudly as a duplicate object key would have failed at lint time.
+for (const [alias, executor] of Object.entries(executors) as [string, BaseExecutor][]) {
+  registerExecutor(alias, executor);
+}
+
 const defaultCache = new Map();
 
 // #6699 — providers that exist ONLY as Cloud Agent task-API entries
@@ -227,11 +254,30 @@ const defaultCache = new Map();
 // follow-up once their own chat-routing behavior is confirmed.
 const CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS = new Set(["jules"]);
 
+// #10274 — providers that exist ONLY as /v1/search endpoint entries
+// (SEARCH_PROVIDERS in open-sse/config/searchRegistry.ts) and have no chat-completions
+// REGISTRY entry anywhere in open-sse/. Without this guard, getExecutor() silently falls
+// through to DefaultExecutor's `PROVIDERS[provider] || PROVIDERS.openai` fallback, sending
+// the user's real search API key (e.g. a Tavily `tvly-...` key) to OpenAI's endpoint and
+// surfacing OpenAI's own "Incorrect API key provided" error for a provider the user believes
+// is the search provider. The set is DERIVED from SEARCH_PROVIDERS so adding a new search
+// provider without updating this guard fails the regression test automatically. Search
+// providers must be executed through /v1/search, never the chat-completions path.
+const CHAT_UNSUPPORTED_SEARCH_PROVIDERS = new Set(Object.keys(SEARCH_PROVIDERS));
+
 export function getExecutor(provider) {
-  if (executors[provider]) return executors[provider];
+  const registered = getRegisteredExecutor(provider);
+  if (registered) return registered;
   if (CHAT_UNSUPPORTED_CLOUD_AGENT_PROVIDERS.has(provider)) {
     const err = new Error(
       `Provider "${provider}" is a cloud-agent provider and does not support direct chat completions; use the Cloud Agents task API instead.`
+    );
+    (err as Error & { status?: number }).status = 400;
+    throw err;
+  }
+  if (CHAT_UNSUPPORTED_SEARCH_PROVIDERS.has(provider)) {
+    const err = new Error(
+      `Provider "${provider}" is a search provider and does not support chat completions; use the /v1/search endpoint instead.`
     );
     (err as Error & { status?: number }).status = 400;
     throw err;
@@ -241,8 +287,10 @@ export function getExecutor(provider) {
 }
 
 export function hasSpecializedExecutor(provider) {
-  return !!executors[provider];
+  return hasRegisteredExecutor(provider);
 }
+
+export { registerExecutor, listExecutorAliases } from "./registry.ts";
 
 export { BaseExecutor } from "./base.ts";
 export { AntigravityExecutor } from "./antigravity.ts";
@@ -298,10 +346,10 @@ export { HailuoWebExecutor } from "./hailuo-web.ts";
 export { TheOldLlmExecutor } from "./theoldllm.ts";
 export { ChipotleExecutor } from "./chipotle.ts";
 export { LMArenaExecutor } from "./lmarena.ts";
-export { MimocodeExecutor } from "./mimocode.ts";
 export { GrokCliExecutor } from "./grok-cli.ts";
 export { CodeBuddyCnExecutor } from "./codebuddy-cn.ts";
 export { ZenmuxFreeExecutor } from "./zenmux-free.ts";
+export { CloudflarePlaygroundExecutor } from "./cloudflare-playground.ts";
 export { TinyCmsExecutor } from "./tinycms.ts";
 export { HyperAgentExecutor } from "./hyperagent.ts";
 export { XaiExecutor } from "./xai.ts";

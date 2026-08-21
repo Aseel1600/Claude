@@ -19,6 +19,21 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
       "Create an API key at https://cheaperinference.com/?utm_source=omniroute (needs the `inference` scope), then paste the ir_live_… token here.",
     passthroughModels: true,
   },
+  freebuff: {
+    id: "freebuff",
+    alias: "freebuff",
+    name: "Freebuff",
+    icon: "terminal",
+    color: "#10B981",
+    textIcon: "FB",
+    website: "https://freebuff.com",
+    hasFree: true,
+    serviceKinds: ["llm"],
+    authHint: "Enter Freebuff / Codebuff Auth Token (obtained via CLI login or automated harvester).",
+    freeNote: "Free Codebuff / Freebuff AI models.",
+    apiHint: "Token is authenticated against Codebuff upstream session pool.",
+    passthroughModels: true,
+  },
   "charm-hyper": {
     id: "charm-hyper",
     alias: "charm-hyper",
@@ -82,6 +97,7 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     website: "https://openrouter.ai",
     hasFree: true,
     freeNote: "Free models at $0/token with :free suffix - 20 RPM / 200 RPD",
+    serviceKinds: ["llm", "imageToText"],
   },
   requesty: {
     id: "requesty",
@@ -932,6 +948,10 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
       "No free tier as of 2026 — Chutes moved to pay-as-you-go (free Early Access ended 2026-03).",
     authHint: "Bearer API key for the Chutes OpenAI-compatible gateway.",
     passthroughModels: true,
+    // dots.ocr (rednote-hilab/dots.ocr) is served via Chutes discovery — no static
+    // model entry needed (passthroughModels). Declare imageToText alongside llm
+    // (declaring serviceKinds means "llm" must be explicit too, see #10275).
+    serviceKinds: ["llm", "imageToText"],
   },
   // Factory AI ("Factory Droids") subscription gateway — the same backend the
   // local `droid` CLI shells into, exposed here as an OpenAI-compatible HTTP
@@ -1049,6 +1069,19 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
       "Use your TokenRouter API key in Authorization: Bearer <key>. Fully OpenAI-compatible. API base URL: https://api.tokenrouter.com/v1.",
     apiHint:
       "TokenRouter exposes an OpenAI-compatible chat completions endpoint at https://api.tokenrouter.com/v1/chat/completions, plus a working /v1/models catalog. OmniRoute uses the OpenAI protocol.",
+  },
+  "token-kiosk": {
+    id: "token-kiosk",
+    alias: "tk",
+    name: "Token Kiosk",
+    icon: "hub",
+    color: "#6366F1",
+    textIcon: "TKI",
+    website: "https://agent-router.gaib.ai",
+    authHint:
+      "Use your Token Kiosk API key in Authorization: Bearer <key>. Fully OpenAI-compatible gateway. API base URL: https://agent-router.gaib.ai/v1.",
+    apiHint:
+      "Token Kiosk is a multi-provider agent LLM routing infrastructure exposing an OpenAI-compatible endpoint at https://agent-router.gaib.ai/v1/chat/completions with auto-fallback and latency routing.",
   },
   sumopod: {
     id: "sumopod",
@@ -1245,5 +1278,20 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
       "Previously circulated 3 RPM/50 RPD and no-card claims were not confirmed during the 2026-08-02 audit; current quota and billing require account verification.",
     apiHint:
       "Create a helix- key and use https://helixmind.online/v1. OpenAI requests use Bearer authentication; the Anthropic-compatible messages endpoint accepts x-api-key.",
+  },
+  // TabiToken (https://tabitoken.com) — NewAPI-based Claude gateway. Its public pricing
+  // endpoint lists a Claude-only catalog (Opus 5 / 4.8, each with a -thinking variant),
+  // every model accepting the Anthropic and OpenAI protocols.
+  tabitoken: {
+    id: "tabitoken",
+    alias: "tabitoken",
+    name: "TabiToken",
+    icon: "hub",
+    color: "#F97316",
+    textIcon: "TT",
+    passthroughModels: true,
+    website: "https://tabitoken.com",
+    apiHint:
+      "Create an sk- key at https://tabitoken.com and use https://tabitoken.com. The Anthropic-compatible /v1/messages endpoint (default) takes x-api-key; /v1/chat/completions takes Bearer.",
   },
 };

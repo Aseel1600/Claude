@@ -6,6 +6,7 @@ import {
   supportsClaudeMaxEffort,
   supportsXHighEffort,
   getProviderModel,
+  getProviderModels,
 } from "../../config/providerModels.ts";
 
 /**
@@ -297,23 +298,17 @@ export function sanitizeReasoningEffortForProvider(
     return writeEffortValue(b, "max", c);
   }
 
-  // Native DeepSeek (api.deepseek.com) — V4 thinking mode uses the native
-  // {low, high, max} vocabulary on Flash and {high, max} on Pro. OmniRoute's
-  // internal top tier xhigh maps to DeepSeek's literal max. Pro's unsupported
-  // low/medium values still clamp to high; Flash's documented low tier passes
-  // through. This is the INVERSE of the OpenRouter-DeepSeek path, whose
-  // normalized API expects xhigh, not max (pi#4055). `none` is already the
-  // OpenAI no-thinking carrier and passes through unchanged.
+  // Native DeepSeek (api.deepseek.com) — V4 Pro and Flash use the native
+  // {low, high, max} vocabulary, while other model ids retain the {high, max}
+  // floor. OmniRoute's internal top tier xhigh maps to DeepSeek's literal max,
+  // while compatibility-only medium maps to high. `none` is already the OpenAI
+  // no-thinking carrier and passes through unchanged.
   if (provider === "deepseek") {
-    // Match the Flash family even when the sanitizer sees a suffixed or prefixed
-    // id — exact-match would silently clamp Flash `low → high` if a future route
-    // forwards the raw catalog id (`deepseek-v4-flash-low`) before resolution
-    // (#9485 review).
-    const isFlash = modelStr.toLowerCase().startsWith("deepseek-v4-flash");
+    const isV4 = modelStr.toLowerCase().startsWith("deepseek-v4-");
     const mapped =
       effortStr === "xhigh"
         ? "max"
-        : effortStr === "medium" || (effortStr === "low" && !isFlash)
+        : effortStr === "medium" || (effortStr === "low" && !isV4)
           ? "high"
           : null;
     if (mapped && mapped !== effortStr) {
@@ -357,6 +352,31 @@ export function sanitizeReasoningEffortForProvider(
   // new models from being unusable for weeks until they're whitelisted (#8057).
   if (effortStr === "max") {
     if (supportsMax) return body; // explicitly known to accept max
+
+    // A model that explicitly advertises its accepted tiers is safe to normalize.
+    // Keep the default pass-through for absent metadata: an unlisted model might
+    // support literal `max`, and #8057 deliberately avoids blocking such models.
+    const providerModelId = modelStr.startsWith(`${provider}/`)
+      ? modelStr.slice(provider.length + 1)
+      : modelStr;
+    // Do not fall back to a globally registered model here. Identical ids can
+    // have different upstream contracts across providers (for example, OpenCode
+    // and SenseNova both expose deepseek-v4-flash with different max support).
+    const explicitEfforts = getProviderModels(provider).find(
+      (entry) => entry.id === providerModelId || entry.aliases?.includes(providerModelId)
+    )?.supportedThinkingEfforts;
+    const maxFallback =
+      Array.isArray(explicitEfforts) && !explicitEfforts.includes("max")
+        ? ["xhigh", "high", "medium", "low"].find((tier) => explicitEfforts.includes(tier))
+        : undefined;
+    if (maxFallback) {
+      log?.info?.(
+        "REASONING_SANITIZE",
+        `${provider}/${modelStr}: downgraded reasoning_effort max → ${maxFallback} (explicit model capability)`
+      );
+      return writeEffortValue(b, maxFallback, c);
+    }
+
     if (!supportsXHigh) {
       // Model is explicitly flagged as rejecting xhigh (and not in supportsMax) —
       // it likely only accepts standard tiers. Degrade to its highest: high.
@@ -366,7 +386,6 @@ export function sanitizeReasoningEffortForProvider(
       );
       return writeEffortValue(b, "high", c);
     }
-    // Default: pass max through unchanged — trust the upstream
     return body;
   }
 
