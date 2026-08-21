@@ -138,8 +138,6 @@ export async function POST(request: Request) {
 
     let providerSpecificData = incomingPsd || null;
     let persistedApiKey = apiKey;
-    const allowMultipleCompatibleConnections =
-      process.env.ALLOW_MULTI_CONNECTIONS_PER_COMPAT_NODE === "true";
 
     if (provider === "qoder") {
       providerSpecificData = normalizeQoderPatProviderData(providerSpecificData || {});
