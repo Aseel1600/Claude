@@ -347,6 +347,7 @@ import {
   computeBillableTokens,
   normalizeExecutorResult,
   executeWithUpstreamStartTimeout,
+  resolveConnectionTimeoutMs,
 } from "./chatCore/upstreamTimeouts.ts";
 import { getModelNormalizeToolCallId, getModelPreserveOpenAIDeveloperRole } from "@/lib/db/models";
 import { getProviderCredentials, extractSessionAffinityKey } from "@/sse/services/auth";
@@ -3065,6 +3066,7 @@ export async function handleChatCore({
                     executor,
                     provider,
                     model: modelToCall,
+                    connectionTimeoutMs: resolveConnectionTimeoutMs(execCreds?.providerSpecificData),
                     signal: streamController.signal,
                     log,
                     execute: (signal) =>
@@ -3368,6 +3370,7 @@ export async function handleChatCore({
                         executor,
                         provider,
                         model: modelToCall,
+                        connectionTimeoutMs: resolveConnectionTimeoutMs(execCreds?.providerSpecificData),
                         signal: streamController.signal,
                         log,
                         execute: (signal) =>

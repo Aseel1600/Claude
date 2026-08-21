@@ -46,6 +46,7 @@ import {
   getDefaultComboConfig,
   resolveComboQueueDepth,
   isComboCooldownWaitEligible,
+  resolveComboTargetTimeoutMsForCombo,
 } from "./comboConfig.ts";
 import {
   maybeGenerateHandoff,
@@ -89,6 +90,7 @@ import { selectQuotaShareTarget } from "./combo/quotaShareStrategy.ts";
 import { makeConnectionConcurrencyResolver, lookupPositiveCap } from "./combo/concurrencyCaps.ts";
 import { acquireQuotaShareConcurrencySlot } from "./combo/quotaShareConcurrency.ts";
 import { canAffordRequest } from "../../src/lib/quota/quotaScheduler.ts";
+import { resolveConnectionTimeoutMs } from "../handlers/chatCore/upstreamTimeouts.ts";
 import { getCachedProviderConnectionById } from "../../src/lib/db/readCache.ts";
 import { orderTargetsByEvalScores } from "./evalRouting.ts";
 
@@ -133,6 +135,7 @@ import { isProviderInCooldown, recordProviderCooldown } from "./providerCooldown
 import {
   resolveResilienceSettings,
   type ResilienceSettings,
+  type ComboCooldownWaitSettings,
 } from "../../src/lib/resilience/settings";
 import { resolveReasoningBufferedMaxTokens, toPositiveInteger } from "./reasoningTokenBuffer.ts";
 import { RESET_WINDOW_NAMES } from "./combo/types.ts";
@@ -141,6 +144,7 @@ import type {
   ComboRetryAfter,
   ComboErrorBody,
   SingleModelTarget,
+  ComboLogger,
   HandleComboChatOptions,
   HandleRoundRobinOptions,
   ResolvedComboTarget,
@@ -622,6 +626,40 @@ export { pinIsDurablyUnhealthy };
 
 /** @param {object} options */
 /**
+ * Resolves the per-target timeout ceiling for a combo target: when the target's
+ * connection carries `providerSpecificData.timeoutMs`, re-runs
+ * resolveComboTargetTimeoutMsForCombo with that timeout as the ceiling so the
+ * combo's per-target timer follows the selected connection.
+ * Returns undefined when the connection or its timeout is absent — the runner
+ * then falls back to the setup-time comboTargetTimeoutMs.
+ */
+export async function resolveTargetTimeoutMsForTarget(
+  config: Record<string, unknown> | null | undefined,
+  strategy: string,
+  comboCooldownWait: Pick<ComboCooldownWaitSettings, "enabled" | "budgetMs">,
+  target?: SingleModelTarget,
+  log?: Pick<ComboLogger, "debug"> | null
+): Promise<number | undefined> {
+  const connectionId = target && "connectionId" in target ? target.connectionId : null;
+  if (!connectionId) return undefined;
+  try {
+    const connection = await getCachedProviderConnectionById(connectionId);
+    if (!connection) return undefined;
+    const timeoutMs = resolveConnectionTimeoutMs(connection.providerSpecificData);
+    if (timeoutMs === undefined) return undefined;
+    return resolveComboTargetTimeoutMsForCombo(config, timeoutMs, strategy, comboCooldownWait);
+  } catch (err) {
+    log?.debug?.(
+      "COMBO",
+      `resolveTargetTimeoutMsForTarget connection lookup failed: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
+    return undefined;
+  }
+}
+
+/**
  * #10681 egress: every combo response carries the opaque trace id in an
  * `X-OmniRoute-Combo-Trace` header so a post-incident lookup of the ordered
  * per-target decisions is possible; the finalized summary is also emitted as
@@ -683,6 +721,14 @@ async function handleComboChatInner({
   const handleSingleModelWithTimeout = buildTargetTimeoutRunner({
     handleSingleModel,
     comboTargetTimeoutMs,
+    resolveTargetTimeoutMs: (target) =>
+      resolveTargetTimeoutMsForTarget(
+        config,
+        strategy,
+        resilienceSettings.comboCooldownWait,
+        target,
+        log
+      ),
     log,
   });
 
