@@ -13,6 +13,7 @@ import {
   formatAndroidInstrumentationFailureHint,
 } from "../utils/ensureAndroidCacheDir.mjs";
 import { resolveServerHost } from "../utils/serverHost.mjs";
+import { runSecurityPreflight } from "../utils/securityPreflight.mjs";
 import {
   resolveMaxOldSpaceMb,
   calibrateHeapFallbackMb,
@@ -224,7 +225,18 @@ export async function runServe(opts = {}) {
   // Validate the TLS pair up front so the operator sees a clear warning in the
   // CLI (the child re-validates authoritatively). Drives the banner scheme;
   // when null we fall through to identical plain-HTTP behavior as before.
-  urlScheme = resolveTlsOptions(env) ? "https" : "http";
+  const tlsEnabled = resolveTlsOptions(env) !== null;
+  urlScheme = tlsEnabled ? "https" : "http";
+
+  // Audit the resolved configuration before anything listens, so an operator
+  // booting on a network-reachable interface sees which of the localhost-tuned
+  // defaults (anonymous /v1, plaintext credential store, non-Secure cookies)
+  // are actually in effect for this boot. Advisory by default — only
+  // OMNIROUTE_SECURITY_PREFLIGHT=strict can stop the boot, and only on a
+  // CRITICAL finding.
+  if (!runSecurityPreflight({ host: env.HOSTNAME, env, tlsEnabled }).ok) {
+    process.exit(1);
+  }
 
   const isDaemon = opts.daemon === true;
   const useTray = opts.tray === true;
