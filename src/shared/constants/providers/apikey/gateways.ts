@@ -1265,6 +1265,29 @@ export const APIKEY_PROVIDERS_GATEWAYS = {
     apiHint:
       "Create a helix- key and use https://helixmind.online/v1. OpenAI requests use Bearer authentication; the Anthropic-compatible messages endpoint accepts x-api-key.",
   },
+  // Logfare (https://logfare.ai) — free OpenAI-compatible inference, live-verified
+  // 2026-08-21 (real /v1/models catalog; 11 chat-capable models incl. kimi-k3,
+  // deepseek-v4-pro, glm-5.2, gpt-5.6-luna). Key issued instantly at /register
+  // (username/password, no email). ⚠️ Logfare logs every request in exchange for
+  // free inference (opt out at /consent) — surfaced in freeNote per the catalog
+  // convention for data-collecting free providers.
+  logfare: {
+    id: "logfare",
+    alias: "logfare",
+    name: "Logfare",
+    icon: "auto_awesome",
+    color: "#22C55E",
+    textIcon: "LF",
+    website: "https://logfare.ai",
+    hasFree: true,
+    freeNote:
+      "Free OpenAI-compatible inference — no rate limits, no card. Logfare logs every request (prompts, completions, metadata) for internal research; opt out at /consent. Read https://logfare.ai/tos and https://logfare.ai/privacy before use.",
+    authHint:
+      "Create a free account at https://logfare.ai/register (username/password, no email verification) to get an instant API key, then paste it here as a Bearer token.",
+    apiHint:
+      "Create a free API key at https://logfare.ai/register, then use https://logfare.ai/v1 as the OpenAI-compatible base URL. Note the request-logging policy: prompts, completions and metadata are logged for research (opt out at https://logfare.ai/consent).",
+    passthroughModels: true,
+  },
   // TabiToken (https://tabitoken.com) — NewAPI-based Claude gateway. Its public pricing
   // endpoint lists a Claude-only catalog (Opus 5 / 4.8, each with a -thinking variant),
   // every model accepting the Anthropic and OpenAI protocols.

@@ -265,6 +265,7 @@ import { freeAiProvider } from "./registry/free-ai/index.ts";
 import { voidAiProvider } from "./registry/void-ai/index.ts";
 import { helixmindProvider } from "./registry/helixmind/index.ts";
 import { tabitokenProvider } from "./registry/tabitoken/index.ts";
+import { logfareProvider } from "./registry/logfare/index.ts";
 
 export const REGISTRY: Record<string, RegistryEntry> = {
   aimlapi: aimlapiProvider,
@@ -534,4 +535,5 @@ export const REGISTRY: Record<string, RegistryEntry> = {
   "void-ai": voidAiProvider,
   helixmind: helixmindProvider,
   tabitoken: tabitokenProvider,
+  logfare: logfareProvider,
 };

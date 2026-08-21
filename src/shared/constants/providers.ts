@@ -142,6 +142,7 @@ export const AGGREGATOR_PROVIDER_IDS = new Set([
   "void-ai",
   "helixmind",
   "tabitoken",
+  "logfare",
 ]);
 
 export const ENTERPRISE_CLOUD_PROVIDER_IDS = new Set([
