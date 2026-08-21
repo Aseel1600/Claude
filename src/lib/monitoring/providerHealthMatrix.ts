@@ -121,7 +121,8 @@ interface CallLogTargetStats {
   lastErrorStatus: number | null;
 }
 
-const RANGE_MS: Record<ProviderHealthMatrixRange, number> = {
+/** Exported so other surfaces reporting over a window use the same scale. */
+export const RANGE_MS: Record<ProviderHealthMatrixRange, number> = {
   "1h": 60 * 60 * 1000,
   "24h": 24 * 60 * 60 * 1000,
   "7d": 7 * 24 * 60 * 60 * 1000,

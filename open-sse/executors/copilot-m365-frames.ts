@@ -18,6 +18,8 @@
  *     accumulated — NOT incremental) → isLastUpdate:true → type:2 final → type:3 completion.
  */
 
+type JsonRecord = Record<string, unknown>;
+
 /** SignalR record separator (0x1e) terminating every JSON frame. */
 export const RECORD_SEPARATOR = String.fromCharCode(0x1e);
 
@@ -210,6 +212,203 @@ export interface ChatInvocationOptions {
    * surface omits the key entirely, so it is left out unless set (#10718).
    */
   disconnectBehavior?: string;
+  /** Client-declared tool plugins (see {@link clientPlugins}); defaults to `[]`. */
+  plugins?: JsonRecord[];
+  /** OpenAI `tool_choice` echoed to the substrate; defaults to `null`. */
+  toolChoice?: unknown;
+  /** Tool-use nudge sent as `customInstructions` when tools are declared. */
+  customInstructions?: string;
+}
+
+/** A client-declared tool in the normalized shape produced by `extractToolSpec`. */
+export interface M365ToolDecl {
+  name: string;
+  description: string;
+  parameters: JsonRecord | null;
+}
+
+/**
+ * Map normalized OpenAI function tools to the M365 `plugins[]` invocation entries
+ * (`{Id, Source:"API", Description, Parameters}`), mirroring the community M365
+ * convention. Entries without a name are skipped by the extractor upstream.
+ */
+export function clientPlugins(tools: M365ToolDecl[]): JsonRecord[] {
+  return tools.map((t) => ({
+    Id: t.name,
+    Source: "API",
+    Description: t.description,
+    Parameters: t.parameters ?? {},
+  }));
+}
+
+/** True when `toolChoice` permits calling `name` (string / typed / "required"/"auto"). */
+function toolChoiceAllows(toolChoice: unknown, name: string): boolean {
+  if (toolChoice == null || toolChoice === "auto" || toolChoice === "required") return true;
+  if (typeof toolChoice === "string") return toolChoice === name;
+  const fn = (toolChoice as JsonRecord)?.function as JsonRecord | undefined;
+  return typeof fn?.name === "string" && fn.name === name;
+}
+
+/** A tool call parsed from the model's fenced-block or router output. */
+export interface M365ParsedToolCall {
+  id: string;
+  type: string;
+  name: string;
+  /** JSON-stringified arguments object, as the OpenAI `tool_calls` shape expects. */
+  arguments: string;
+}
+
+const SHELL_TOOL_NAMES = ["bash", "sh", "shell", "powershell", "cmd"] as const;
+const FENCED_BLOCK = /```([A-Za-z0-9_-]+)[ \t]*\r?\n([\s\S]*?)\r?\n```/g;
+
+/**
+ * Parse the model's fenced-block tool calls out of a completed turn
+ * (```` ```toolname\n{json args}\n``` ```` — the protocol taught by the prompt).
+ * Only names the client actually declared are accepted (undeclared names such as
+ * a hallucinated `unknown_tool` must never reach the caller), and `tool_choice`
+ * restrictions are enforced the same way. A shell-family block emitted for a
+ * DECLARED shell tool is normalized into `{command: "..."}`.
+ */
+export function parseFencedToolCalls(
+  text: string,
+  tools: M365ToolDecl[],
+  toolChoice: unknown
+): M365ParsedToolCall[] {
+  const allowed = new Set(tools.map((t) => t.name));
+  const declaredShell = SHELL_TOOL_NAMES.find((n) => allowed.has(n));
+  const out: M365ParsedToolCall[] = [];
+  for (const m of text.matchAll(FENCED_BLOCK)) {
+    const name = m[1]!;
+    const body = m[2]!.trim();
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      parsed = undefined;
+    }
+    // Shell-family blocks: keep only for a declared shell tool, normalizing a
+    // plain-text body (or {"command": ...}) into the canonical arguments object.
+    if ((SHELL_TOOL_NAMES as readonly string[]).includes(name)) {
+      const target = allowed.has(name) ? name : declaredShell;
+      if (!target) continue;
+      const args =
+        parsed && typeof parsed === "object" && "command" in (parsed as JsonRecord)
+          ? (parsed as JsonRecord)
+          : { command: body };
+      out.push({
+        id: `call_${crypto.randomUUID()}`,
+        type: "function",
+        name: target,
+        arguments: JSON.stringify(args),
+      });
+      continue;
+    }
+    if (!allowed.has(name) || !toolChoiceAllows(toolChoice, name)) continue;
+    if (parsed == null || typeof parsed !== "object") continue;
+    out.push({
+      id: `call_${crypto.randomUUID()}`,
+      type: "function",
+      name,
+      arguments: JSON.stringify(parsed),
+    });
+  }
+  return out;
+}
+
+/** A router-turn decision: `decided:false` means the output was unparseable. */
+export interface M365RouterDecision {
+  decided: boolean;
+  calls: M365ParsedToolCall[];
+}
+
+function allowedName(tools: M365ToolDecl[], name: string): boolean {
+  return tools.some((t) => t.name === name);
+}
+
+function validCall(
+  name: string,
+  args: unknown,
+  tools: M365ToolDecl[],
+  toolChoice: unknown
+): M365ParsedToolCall | null {
+  if (!name || !allowedName(tools, name) || !toolChoiceAllows(toolChoice, name)) return null;
+  if (!args || typeof args !== "object") return null;
+  return {
+    id: `call_${crypto.randomUUID()}`,
+    type: "function",
+    name,
+    arguments: JSON.stringify(args),
+  };
+}
+
+/**
+ * Parse the router turn's decision (`CALL_TOOL: name({...})` lines /
+ * `NO_TOOL_NEEDED`), validating every call against the declared tools and
+ * `tool_choice`. Falls back to the `{"calls":[...]}` JSON envelope. Returns
+ * `decided:false` when the output is neither shape, so the caller can fall
+ * through to a plain answer turn instead of guessing.
+ */
+export function parseToolRouterDecision(
+  text: string,
+  tools: M365ToolDecl[],
+  toolChoice: unknown
+): M365RouterDecision {
+  const trimmed = text.trim();
+  const calls: M365ParsedToolCall[] = [];
+  for (const line of trimmed.split(/\r?\n/)) {
+    const m = /^CALL_TOOL:\s*(.+)$/i.exec(line.trim());
+    if (!m) continue;
+    const rest = m[1]!;
+    const start = rest.indexOf("(");
+    const end = rest.lastIndexOf(")");
+    if (start <= 0 || end <= start) continue;
+    const name = rest.slice(0, start).trim();
+    try {
+      const args = JSON.parse(rest.slice(start + 1, end));
+      const call = validCall(name, args, tools, toolChoice);
+      if (call) calls.push(call);
+    } catch {
+      /* malformed JSON on this line — skip */
+    }
+  }
+  if (calls.length > 0) return { decided: true, calls };
+  if (/^no_tool_needed$/i.test(trimmed) || trimmed.toLowerCase().includes("no_tool_needed")) {
+    return { decided: true, calls: [] };
+  }
+  // Fallback: the {"calls":[{"name","arguments"}]} envelope, optionally fenced.
+  let probe = trimmed;
+  const fence = probe.indexOf("```");
+  if (fence >= 0) {
+    probe = probe
+      .slice(fence + 3)
+      .replace(/```$/, "")
+      .trim();
+    probe = probe.replace(/^(json|JSON)\s*/, "");
+  }
+  const start = probe.indexOf("{");
+  const end = probe.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try {
+      const parsed = JSON.parse(probe.slice(start, end + 1)) as {
+        calls?: Array<{ name?: unknown; arguments?: unknown }>;
+      };
+      if (Array.isArray(parsed.calls)) {
+        for (const c of parsed.calls) {
+          const call = validCall(
+            typeof c?.name === "string" ? c.name : "",
+            c?.arguments,
+            tools,
+            toolChoice
+          );
+          if (call) calls.push(call);
+        }
+        return { decided: true, calls };
+      }
+    } catch {
+      /* not JSON — undecided */
+    }
+  }
+  return { decided: false, calls: [] };
 }
 
 /**
@@ -313,7 +512,8 @@ export function buildChatInvocation(opts: ChatInvocationOptions): Record<string,
         },
         options: {},
         optionsSets: opts.optionsSets ?? [...M365_DEFAULT_OPTION_SETS],
-        plugins: [],
+        plugins: opts.plugins ?? [],
+        ...(opts.customInstructions ? { customInstructions: opts.customInstructions } : {}),
         productThreadType: "Office",
         sessionId: opts.sessionId,
         sliceIds: [],
@@ -321,7 +521,7 @@ export function buildChatInvocation(opts: ChatInvocationOptions): Record<string,
         streamingMode: "ConciseWithPadding",
         threadLevelGptId: {},
         tone: opts.tone ?? "magic",
-        toolChoice: null,
+        toolChoice: opts.toolChoice ?? null,
         traceId: opts.traceId,
         // #8971 keeps "continue" for the enterprise tier; the individual/EDU wire
         // omits the key, so only include it when actually set (#10718).
@@ -339,6 +539,48 @@ export function isUpdateFrame(frame: Record<string, unknown> | null): boolean {
 /** True when the frame is the SignalR completion (`type:3`) for the chat invocation. */
 export function isCompletionFrame(frame: Record<string, unknown> | null): boolean {
   return !!frame && frame.type === 3;
+}
+
+/**
+ * Extract the error message from a `type:3` completion frame that carries one
+ * (`frame.error.message` / `frame.error`). A clean completion returns null —
+ * without this check a server-side invocation error surfaces as a silent empty
+ * `stop`, indistinguishable from a genuine empty reply.
+ */
+export function extractCompletionError(frame: Record<string, unknown> | null): string | null {
+  if (!frame || frame.type !== 3) return null;
+  const error = frame.error;
+  if (!error || typeof error !== "object") return null;
+  const message = (error as JsonRecord).message;
+  return typeof message === "string" && message.length > 0 ? message : JSON.stringify(error);
+}
+
+/**
+ * True for messages that carry tool/search/code PROGRESS rather than answer text
+ * (`messageType:"Progress"`, or the SearchResults/Code/ToolCall content types).
+ * Such text must never be folded into the streamed answer.
+ */
+function isToolProgressMessage(m: Record<string, unknown>): boolean {
+  if (m.messageType === "Progress") return true;
+  const ct = m.contentType;
+  return ct === "SearchResults" || ct === "Code" || ct === "ToolCall" || ct === "EarlyProgress";
+}
+
+/**
+ * True when an update frame is a tool-progress frame — it carries Progress /
+ * SearchResults / Code / ToolCall messages alongside (possibly) a `writeAtCursor`
+ * increment that belongs to that progress, not to the answer (the browser client
+ * suppresses such writeAtCursor deltas; so must we).
+ */
+export function isToolProgressFrame(frame: Record<string, unknown> | null): boolean {
+  if (!isUpdateFrame(frame)) return false;
+  const args = frame.arguments;
+  const first = Array.isArray(args) ? (args[0] as Record<string, unknown> | undefined) : undefined;
+  const messages = first?.messages;
+  if (!Array.isArray(messages)) return false;
+  return messages.some(
+    (m) => !!m && typeof m === "object" && isToolProgressMessage(m as Record<string, unknown>)
+  );
 }
 
 /** True when an update frame is flagged as the last update of the turn. */
@@ -366,7 +608,7 @@ export function extractBotText(frame: Record<string, unknown> | null): string | 
     if (!m) continue;
     const author = m.author;
     const text = m.text;
-    if (m.messageType === "Progress" || m.contentType === "EarlyProgress") continue;
+    if (isToolProgressMessage(m)) continue;
     if ((author === "bot" || author === undefined) && typeof text === "string" && text.length > 0) {
       return text;
     }
@@ -425,6 +667,9 @@ export function accumulateBotContent(
   previous: string,
   frame: Record<string, unknown> | null
 ): { delta: string; next: string } {
+  // A tool-progress frame's writeAtCursor belongs to the progress card (search
+  // queries, code interpreter output…), not to the answer text.
+  if (isToolProgressFrame(frame)) return { delta: "", next: previous };
   const snapshot = extractBotText(frame);
   if (snapshot) {
     return { delta: incrementalDelta(previous, snapshot), next: snapshot };

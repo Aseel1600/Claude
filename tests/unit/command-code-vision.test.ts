@@ -57,6 +57,64 @@ function userContent(calls: FetchCall[]): unknown {
   )[0].content;
 }
 
+// ── wire model normalization (#10809) ────────────────────────────────
+//
+// Command Code's /alpha/generate endpoint serves most models under a
+// vendor-prefixed wire id and defaults an unprefixed id to the `anthropic:`
+// provider (403 "Model/provider not recognized: anthropic:<id>"). A bare id
+// reaches the executor when an operator sets a custom vision model in the
+// Vision Bridge picker (e.g. `command-code/mimo-v2.5`). The executor must
+// normalize to the documented vendor-prefixed wire form.
+
+function wireModel(calls: FetchCall[]): string {
+  return (calls[0].body.params as Record<string, unknown>).model as string;
+}
+
+test("#10809: command-code/mimo-v2.5 wire model is normalized to xiaomi/mimo-v2.5", async () => {
+  const calls = captureFetch(
+    commandCodeStream([{ type: "text-delta", text: "ok" }, { type: "finish" }])
+  );
+  await getExecutor("command-code").execute({
+    model: "command-code/mimo-v2.5",
+    stream: false,
+    credentials: { apiKey: "cc_test_key" },
+    body: {
+      model: "command-code/mimo-v2.5",
+      messages: [{ role: "user", content: "hi" }],
+    },
+  });
+  assert.equal(wireModel(calls), "xiaomi/mimo-v2.5");
+});
+
+test("#10809: cmd/mimo-v2.5 (alias prefix) is also normalized", async () => {
+  const calls = captureFetch(
+    commandCodeStream([{ type: "text-delta", text: "ok" }, { type: "finish" }])
+  );
+  await getExecutor("command-code").execute({
+    model: "cmd/mimo-v2.5",
+    stream: false,
+    credentials: { apiKey: "cc_test_key" },
+    body: { model: "cmd/mimo-v2.5", messages: [{ role: "user", content: "hi" }] },
+  });
+  assert.equal(wireModel(calls), "xiaomi/mimo-v2.5");
+});
+
+test("#10809: already vendor-prefixed wire ids pass through unchanged", async () => {
+  const calls = captureFetch(
+    commandCodeStream([{ type: "text-delta", text: "ok" }, { type: "finish" }])
+  );
+  await getExecutor("command-code").execute({
+    model: "command-code/deepseek/deepseek-v4-pro",
+    stream: false,
+    credentials: { apiKey: "cc_test_key" },
+    body: {
+      model: "command-code/deepseek/deepseek-v4-pro",
+      messages: [{ role: "user", content: "hi" }],
+    },
+  });
+  assert.equal(wireModel(calls), "deepseek/deepseek-v4-pro");
+});
+
 // ── vision models: image parts preserved in CC CLI format ─────────────
 
 test("vision model minimax-m3 preserves image_url part as CC CLI {type:image}", async () => {
@@ -628,10 +686,11 @@ test("text-only model deepseek-v4-flash strips Anthropic source.base64 image blo
 //
 // These two ids stay INSIDE the `/gpt-5/` vision family: both accept image
 // input on the OpenAI API, and there is no verified Command Code backend data
-// marking them text-only. These tests pin that conservative behavior so a
-// future "narrow the regex" change cannot silently strip images from models
-// that can see them (the #4071 regression class). Revisit ONLY with per-model
-// CC registry capability data proving they are text-only.
+// marking them text-only. These tests pin that conservative executor behavior
+// so a future "narrow the regex" change cannot silently strip images from models
+// that can see them (the #4071 regression class). The #10703 Vision Bridge
+// candidate-list fix lives in the shared capability resolution
+// (KNOWN_TEXT_ONLY_DESPITE_SYNC), NOT in the executor's wire transform.
 
 test("gpt-5.4-mini keeps image parts (conservative vision family lock)", async () => {
   const calls = captureFetch(

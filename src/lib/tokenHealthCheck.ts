@@ -29,6 +29,7 @@ import { pickMaskedDisplayValue } from "@/shared/utils/maskEmail";
 import { isAutomatedTestProcess } from "@/shared/utils/testProcess";
 import { refreshGithubCopilotSubTokenIfNeeded } from "@/lib/tokenHealthCheckCopilot";
 import { checkCursorConnectionIfNeeded } from "@/lib/tokenHealthCheckCursor";
+import { checkKimiWebConnectionIfNeeded } from "@/lib/tokenHealthCheckKimi";
 
 const LOG_PREFIX = "[HealthCheck]";
 const TRUE_ENV_VALUES = new Set(["1", "true", "yes", "on"]);
@@ -594,6 +595,22 @@ export async function checkConnection(conn) {
       conn,
       now,
       buildRefreshFailureUpdate,
+      log,
+      logWarn,
+      logError,
+      getConnectionLogLabel,
+      logPrefix: LOG_PREFIX,
+    });
+    return;
+  }
+
+  // Kimi Web proactive token check and jittered auto-refresh
+  const providerLower = String(conn.provider || "").toLowerCase();
+  if (providerLower === "kimi-web" || providerLower === "kimi_web") {
+    const now = new Date().toISOString();
+    await checkKimiWebConnectionIfNeeded({
+      conn,
+      now,
       log,
       logWarn,
       logError,

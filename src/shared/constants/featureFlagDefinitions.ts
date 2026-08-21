@@ -109,10 +109,22 @@ export const FEATURE_FLAG_DEFINITIONS: FeatureFlagDefinition[] = [
     key: "AUTH_LOG_INCLUDE_ACCOUNT_ID",
     label: "Log Account IDs",
     description:
-      "Include the account ID prefix in AUTH log lines (e.g. \"Using <provider> account: abc12345...\"). " +
-      "Disabled by default so the account identifier is redacted in shared/multi-tenant process logs. " +
-      "Independent of Debug Mode — flipping Debug Mode on does not reveal this.",
+      'Include account prefix in AUTH log lines (e.g. "Using <provider> account: abc12345..."). ' +
+      "Disabled by default so account identifiers are redacted from shared/multi-tenant process logs. " +
+      "Independent from Debug Mode; flipping Debug Mode does not reveal this.",
     descriptionI18nKey: "featureFlagAuthLogIncludeAccountIdDescription",
+    category: "security",
+    defaultValue: "false",
+    type: "boolean",
+    requiresRestart: false,
+    warningLevel: "info",
+  },
+  {
+    key: "OMNIROUTE_OIDC_DISABLE_PASSWORD_LOGIN",
+    label: "Disable Password Login With OIDC",
+    description:
+      "When OIDC is enabled, disable password login so users can only authenticate via OIDC Single Sign-On. When disabled (default), both password login and OIDC are available.",
+    descriptionI18nKey: "featureFlagOidcDisablePasswordLoginDescription",
     category: "security",
     defaultValue: "false",
     type: "boolean",

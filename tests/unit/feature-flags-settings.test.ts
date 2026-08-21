@@ -31,7 +31,8 @@ const {
   areContextWindowChecksDisabled,
 } = await import("../../src/shared/utils/featureFlags.ts");
 
-const EXPECTED_FEATURE_FLAG_COUNT = 51;
+// #10889 added OMNIROUTE_OIDC_DISABLE_PASSWORD_LOGIN, bumping the count from 51 to 52.
+const EXPECTED_FEATURE_FLAG_COUNT = 52;
 
 // ──────────────────────────────────────────────────────
 // Test group 1 — Flag definitions registry

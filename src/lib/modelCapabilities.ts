@@ -439,10 +439,19 @@ export function modelIdLikelyVision(modelId: string | null | undefined): boolean
  * models are text-only (mimo.mi.com .../image-understanding; hermes-agent#18884).
  * Anchored to the full id (`$`) and tolerant of a `provider/` prefix so `mimo-v2.5-pro`
  * never matches the multimodal `mimo-v2.5`, and `mimo-v2-pro` never matches `mimo-v2-omni`.
+ *
+ * Command Code `cmd/gpt-5.3-codex*` (#10703): the Command Code registry marks
+ * `gpt-5.3-codex` as `supportsVision: true`, but the gateway actually exposes
+ * it as a text-only code model — selecting it as a Vision Bridge candidate
+ * failed every image describe call (#10703, CONTRIBUTOR-reported). Scoped to
+ * the command-code alias/id so only the Command-Code-gateway Codex variants
+ * are overridden; genuine multimodal `gpt-5.x` chat models (e.g. `gpt-5.5`,
+ * `gpt-5.4-mini`, real OpenAI `openai/gpt-5.3-codex`) keep their vision verdict.
  */
 const KNOWN_TEXT_ONLY_DESPITE_SYNC: readonly RegExp[] = [
   /(?:^|\/)mimo-v2\.5-pro$/i,
   /(?:^|\/)mimo-v2-pro$/i,
+  /^(?:cmd|command-code)\/gpt-5\.3-codex(?:-|$)/i,
 ];
 
 function isKnownTextOnlyDespiteSync(modelId: string | null | undefined): boolean {
@@ -576,7 +585,10 @@ function getContextOverride(
  * `snapshot` is the #9147 build-local bulk load; when supplied the on-demand
  * SQLite read is skipped and the preloaded nested map is used instead.
  */
-export function getResolvedModelContextOverride(input: CapabilityInput, snapshot?: ModelCapabilityResolutionSnapshot | null): number | null {
+export function getResolvedModelContextOverride(
+  input: CapabilityInput,
+  snapshot?: ModelCapabilityResolutionSnapshot | null
+): number | null {
   return getContextOverride(resolveCapabilityInput(input), snapshot);
 }
 

@@ -108,6 +108,7 @@ export const updateSettingsSchema = z.object({
   language: z.string().max(10).optional(),
   requireLogin: z.boolean().optional(),
   oidcEnabled: z.boolean().optional(),
+  oidcDisablePasswordLogin: z.boolean().optional(),
   oidcIssuer: z.string().max(500).optional(),
   oidcClientId: z.string().max(200).optional(),
   oidcClientSecret: z.string().max(500).optional(),
@@ -174,6 +175,8 @@ export const updateSettingsSchema = z.object({
     )
     .optional(),
   customBannedSignals: z.array(z.string().max(200)).optional(),
+  customSystemPromptEnabled: z.boolean().optional(),
+  customSystemPrompt: z.string().max(10000).optional(),
   // #9817: opt-in (default off) — lets a probe-origin (model test-all)
   // failure deactivate a connection like real traffic. Off by default:
   // probe failures are recorded but never mutate routing state.

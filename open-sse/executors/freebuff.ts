@@ -1,3 +1,5 @@
+import { randomInt } from "node:crypto";
+
 import {
   BaseExecutor,
   type ExecuteInput,
@@ -20,7 +22,7 @@ function generateClientSessionId(): string {
   const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
   let out = "";
   for (let i = 0; i < 13; i++) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
+    out += alphabet[randomInt(alphabet.length)];
   }
   return out;
 }
