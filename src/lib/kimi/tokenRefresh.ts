@@ -77,7 +77,13 @@ export async function refreshKimiProviderConnection(
     return { success: false, error: `Connection ${connectionId} not found` };
   }
 
-  const refreshToken = conn.refreshToken || conn.providerSpecificData?.refreshToken;
+  const providerData = conn.providerSpecificData as Record<string, unknown> | undefined;
+  const refreshToken: string =
+    typeof conn.refreshToken === "string" && conn.refreshToken
+      ? conn.refreshToken
+      : typeof providerData?.refreshToken === "string"
+        ? providerData.refreshToken
+        : "";
   if (!refreshToken) {
     return { success: false, error: "Connection does not contain a refresh_token" };
   }
