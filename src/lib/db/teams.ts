@@ -237,9 +237,29 @@ export function archiveTeam(id: string, archivedAt?: string): Team | null {
   if (team.status === "archived") return team;
   const when = normalizeIso(archivedAt);
   const archive = db.transaction(() => {
-    db.prepare(
-      "UPDATE api_key_billing_team_history SET valid_to = ? WHERE team_id = ? AND valid_to IS NULL"
-    ).run(when, id);
+    // Close every still-open binding of this team. `valid_to` must satisfy the
+    // migration-161 CHECK (valid_to IS NULL OR valid_to > valid_from), which a
+    // same-instant archive would violate: a key assigned in the same millisecond
+    // the team is archived has valid_from === when. Archiving is an unconditional
+    // administrative action with no client-supplied timestamp, so rejecting it
+    // would turn an internal clock-granularity collision into a spurious 500 and
+    // leave the team active. Clamp the degenerate interval to valid_from + 1ms
+    // instead, keeping the interval non-empty and the archive effective.
+    const open = db
+      .prepare(
+        "SELECT id, valid_from FROM api_key_billing_team_history WHERE team_id = ? AND valid_to IS NULL"
+      )
+      .all(id) as { id: string; valid_from: string }[];
+    const close = db.prepare(
+      "UPDATE api_key_billing_team_history SET valid_to = ? WHERE id = ? AND valid_to IS NULL"
+    );
+    for (const binding of open) {
+      const validTo =
+        when > binding.valid_from
+          ? when
+          : new Date(new Date(binding.valid_from).getTime() + 1).toISOString();
+      close.run(validTo, binding.id);
+    }
     db.prepare(
       `UPDATE teams
        SET status = 'archived', archived_at = ?, updated_at = ?

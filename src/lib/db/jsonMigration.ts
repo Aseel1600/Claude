@@ -378,7 +378,7 @@ export function runJsonMigration(
       }
     }
 
-    // 8. Domain Cost History
+    // 9. Domain Cost History
     if (data.domainCostHistory && data.domainCostHistory.length > 0) {
       const insertCostHistory = db.prepare(`
         INSERT OR REPLACE INTO domain_cost_history (
@@ -396,7 +396,7 @@ export function runJsonMigration(
         });
       }
     }
-    // 9. Domain Budgets
+    // 10. Domain Budgets
     if (data.domainBudgets && data.domainBudgets.length > 0) {
       const insertBudgets = db.prepare(`
         INSERT OR REPLACE INTO domain_budgets (

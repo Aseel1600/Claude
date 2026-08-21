@@ -51,6 +51,8 @@ tags:
     description: Provider node configuration
   - name: API Keys
     description: API key management
+  - name: Teams
+    description: Team cost-center, membership, budget, and usage management
   - name: Combos
     description: Routing combo management
   - name: Settings
