@@ -67,7 +67,6 @@ function isBuildProcess(): boolean {
   return typeof process !== "undefined" && process.env.NEXT_PHASE === "phase-production-build";
 }
 
-
 function isCredentialHealthCheckDisabled(): boolean {
   if (isBuildProcess() || isAutomatedTestProcess()) return true;
   const val = process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK;
@@ -281,9 +280,10 @@ function scheduleSweep(): void {
 /**
  * Start the credential health check scheduler (idempotent).
  */
-export function initCredentialHealthCheck(): void {
+export function initCredentialHealthCheck(): boolean {
   const state = getSchedulerState();
-  if (state.initialized || isCredentialHealthCheckDisabled()) return;
+  if (isCredentialHealthCheckDisabled()) return false;
+  if (state.initialized) return true;
   state.initialized = true;
   initCredentialCache();
 
@@ -295,6 +295,8 @@ export function initCredentialHealthCheck(): void {
   state.sweepTimer = setTimeout(() => {
     sweep().catch((err) => console.error(LOG_PREFIX, "Initial sweep failed:", err));
   }, INITIAL_DELAY_MS);
+
+  return true;
 }
 
 /**

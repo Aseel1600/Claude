@@ -10,8 +10,7 @@ import { fileURLToPath } from "node:url";
 // (src/instrumentation-node.ts) and NOT in the unused src/server-init.ts — the exact
 // mistake that made the earlier attempt (closed PR #7432) a no-op.
 
-const read = (rel: string) =>
-  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 const instrumentation = read("../../src/instrumentation-node.ts");
 
@@ -28,9 +27,47 @@ test("credential health scheduler is started from the real Next.js instrumentati
   );
   assert.match(
     instrumentation,
-    /\[STARTUP\] Credential health scheduler started/,
+    /\[STARTUP\] Credential health scheduler (started|disabled)/,
     "a [STARTUP] log line proves the boot wiring ran (grep-able in app.log)"
   );
+});
+
+import * as testProcess from "../../src/shared/utils/testProcess";
+import { mock } from "node:test";
+
+test("initCredentialHealthCheck returns correct boolean based on env var", async () => {
+  const oldNodeEnv = process.env.NODE_ENV;
+  const oldVitest = process.env.VITEST;
+  const oldArgv = process.argv;
+  const oldExecArgv = process.execArgv;
+
+  process.env.NODE_ENV = "development";
+  delete process.env.VITEST;
+  process.argv = ["node", "script.js"];
+  process.execArgv = [];
+
+  const { initCredentialHealthCheck, stopCredentialHealthCheck } =
+    await import("../../src/lib/credentialHealth/scheduler");
+
+  // Cleanup any previous state
+  stopCredentialHealthCheck();
+
+  // Test disabled state
+  process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK = "1";
+  assert.equal(initCredentialHealthCheck(), false, "Should return false when disabled");
+
+  // Cleanup and test enabled state
+  stopCredentialHealthCheck();
+  delete process.env.OMNIROUTE_DISABLE_CREDENTIAL_HEALTH_CHECK;
+  assert.equal(initCredentialHealthCheck(), true, "Should return true when enabled");
+
+  // Cleanup
+  stopCredentialHealthCheck();
+
+  process.env.NODE_ENV = oldNodeEnv;
+  if (oldVitest !== undefined) process.env.VITEST = oldVitest;
+  process.argv = oldArgv;
+  process.execArgv = oldExecArgv;
 });
 
 test("the wiring is NOT placed in the dead src/server-init.ts (the #7432 no-op)", () => {

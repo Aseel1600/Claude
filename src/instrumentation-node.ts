@@ -450,8 +450,12 @@ export async function registerNodejs(): Promise<void> {
   // instrumentation startup), NOT in the unused src/server-init.ts.
   try {
     const { initCredentialHealthCheck } = await import("@/lib/credentialHealth/scheduler");
-    initCredentialHealthCheck();
-    console.log("[STARTUP] Credential health scheduler started");
+    const started = initCredentialHealthCheck();
+    if (started) {
+      console.log("[STARTUP] Credential health scheduler started");
+    } else {
+      console.log("[STARTUP] Credential health scheduler disabled");
+    }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn("[STARTUP] Could not start credential health scheduler:", msg);
@@ -562,7 +566,10 @@ export async function registerNodejs(): Promise<void> {
         })
         .catch((err: unknown) => {
           const msg = err instanceof Error ? err.message : String(err);
-          console.warn("[STARTUP] OpenRouter provider stats sync failed to start (non-fatal):", msg);
+          console.warn(
+            "[STARTUP] OpenRouter provider stats sync failed to start (non-fatal):",
+            msg
+          );
         }),
 
       // models.dev capability sync: opt-in via Settings > AI (self-gated by
