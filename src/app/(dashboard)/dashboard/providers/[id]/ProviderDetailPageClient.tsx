@@ -57,6 +57,7 @@ import CustomModelsSection from "./components/CustomModelsSection";
 import ConnectionsListPanel from "./components/ConnectionsListPanel";
 import CoolingConnectionsPanel from "./components/CoolingConnectionsPanel";
 import ConnectionsHeaderToolbar from "./components/ConnectionsHeaderToolbar";
+import VolcengineConnectModal from "./components/VolcengineConnectModal";
 import ProviderAccountRoutingCard from "../../settings/components/ProviderAccountRoutingCard";
 import ZedImportCard from "./components/ZedImportCard";
 import CursorAgentNudge from "./components/CursorAgentNudge";
@@ -79,6 +80,7 @@ export default function ProviderDetailPageClient() {
   const [showOAuthModal, _setShowOAuthModal] = useState(false);
   const [reauthConnection, setReauthConnection] = useState<ConnectionRowConnection | null>(null);
   const [showKimiAuthMethodModal, setShowKimiAuthMethodModal] = useState(false);
+  const [showVolcengineConnectModal, setShowVolcengineConnectModal] = useState(false);
   const [showAddApiKeyModal, setShowAddApiKeyModal] = useState(false);
   const [showSiliconFlowEndpointModal, setShowSiliconFlowEndpointModal] = useState(false);
   const [siliconFlowInitialBaseUrl, setSiliconFlowInitialBaseUrl] = useState<string | undefined>();
@@ -382,7 +384,9 @@ export default function ProviderDetailPageClient() {
     openApiKeyAddFlow();
   }, [providerId, isOAuth, openApiKeyAddFlow]);
 
-  const connectVolcengineAccount = useCallback(async () => {
+  // Legacy manual flow: headful browser login on the machine running OmniRoute.
+  // Kept as the fallback for the phone/SMS auto-login modal.
+  const connectVolcengineAccountManually = useCallback(async () => {
     setConnectingVolcengineAccount(true);
     try {
       const response = await fetch("/api/providers/volcengine-plan/connect", {
@@ -412,6 +416,10 @@ export default function ProviderDetailPageClient() {
       setConnectingVolcengineAccount(false);
     }
   }, [fetchConnections, notify]);
+
+  const connectVolcengineAccount = useCallback(() => {
+    setShowVolcengineConnectModal(true);
+  }, []);
 
   const {
     commandCodeAuthState,
@@ -900,6 +908,16 @@ export default function ProviderDetailPageClient() {
         setShowImportModal={setShowImportModal}
         showTutorialModal={showTutorialModal}
         setShowTutorialModal={setShowTutorialModal}
+        t={t}
+      />
+
+      {/* Volcano Engine console phone/SMS auto-login (falls back to manual browser login) */}
+      <VolcengineConnectModal
+        isOpen={showVolcengineConnectModal}
+        onClose={() => setShowVolcengineConnectModal(false)}
+        onFallbackManual={connectVolcengineAccountManually}
+        onConnected={fetchConnections}
+        notify={notify}
         t={t}
       />
     </div>
